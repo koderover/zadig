@@ -1,0 +1,11 @@
+#golang-deps.Dockerfile.inc
+
+RUN go build -v -o /warpdrive ./cmd/warpdrive/main.go
+
+#ubuntu-base.Dockerfile.inc
+
+WORKDIR /app
+
+COPY --from=build /warpdrive .
+
+ENTRYPOINT ["/app/warpdrive"]

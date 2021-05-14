@@ -1,0 +1,260 @@
+.xterm {
+  padding: 15px 10px;
+  .xterm-viewport{
+    border-radius: 5px;
+  }
+}
+.workflow-or-pipeline-task-detail {
+  .box-card,
+  .task-process {
+    margin-top: 15px;
+    box-shadow: none !important;
+    border: none;
+    width: 100%;
+  }
+
+  .clearfix:before,
+  .clearfix:after {
+    display: table;
+    content: '';
+  }
+  .clearfix:after {
+    clear: both;
+  }
+
+  .task-process {
+    background-color: #fff;
+    padding: 0px 40px;
+    .item-title {
+      color: #8d9199;
+    }
+    .item-desc {
+      .start-build,
+      .edit-pipeline {
+        cursor: pointer;
+        font-size: 13px;
+        color: #1989fa;
+      }
+    }
+    .issue-tag {
+      margin-right: 5px;
+      margin-bottom: 5px;
+      cursor: pointer;
+    }
+    .deploy_env {
+      color: #1989fa;
+    }
+    .error-color {
+      color: #fa6464;
+    }
+    .show-log {
+      font-size: 1.33rem;
+      cursor: pointer;
+      &:hover {
+        color: #1989fa;
+      }
+    }
+    .show-log-title {
+      line-height: 17px;
+    }
+    .operation {
+      line-height: 16px;
+    }
+    .error-wrapper {
+      .el-alert {
+        margin-bottom: 20px;
+      }
+    }
+  }
+  .subtask-header {
+    span {
+      line-height: 20px;
+      color: #999;
+      font-size: 16px;
+    }
+  }
+
+  .el-row {
+    margin-bottom: 15px;
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  .link {
+    a {
+      color: #1989fa;
+      cursor: pointer;
+    }
+  }
+
+  .show-test-result {
+    color: #1989fa;
+    cursor: pointer;
+  }
+
+  .loader {
+    display: inline-block;
+    vertical-align: middle;
+    /* background: black; */
+    width: 25px;
+    height: 25px;
+    .ball-scale-multiple {
+      transform: none;
+      div {
+        background-color: #1989fa;
+        left: 0px;
+        top: 0px;
+        width: 25px;
+        height: 25px;
+      }
+    }
+  }
+
+  .log-container {
+    padding-bottom: 15px;
+    .process-name {
+      margin-left: 10px;
+    }
+    .process-name.failed {
+      color: #ff4949;
+    }
+    .process-time {
+      font-weight: 300;
+      float: right;
+      margin-right: 15px;
+    }
+    .log-header {
+      margin: 0;
+      padding: 1em 0;
+      text-align: right;
+      background-color: #dfe5ec;
+    }
+    .log-content {
+      .el-collapse-item__content {
+        padding-bottom: 0;
+      }
+      .el-collapse-item__arrow {
+        margin-right: 16px;
+      }
+      pre {
+        clear: left;
+        min-height: 42px;
+        padding: 15px 10px;
+        color: #f1f1f1;
+        font-family: Monaco, monospace;
+        font-size: 12px;
+        line-height: 18px;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        background-color: #222;
+        counter-reset: line-numbering;
+        margin-top: 0;
+        margin-bottom: 0;
+        padding-top: 8px;
+        transform: translateZ(0); //trig GPU
+        p {
+          padding: 0 15px 0 16px;
+          margin: 0;
+          min-height: 16px;
+          cursor: pointer;
+          &:hover {
+            background-color: #444;
+          }
+        }
+        .line-number::before {
+        }
+      }
+    }
+  }
+
+  .ansi {
+    .black {
+      color: #4e4e4e;
+    }
+    .black.bold {
+      color: #7c7c7c;
+    }
+    .red {
+      color: #ff5555;
+    }
+    .red.bold {
+      color: #ff9b93;
+    }
+
+    .green {
+      color: #1989fa;
+    }
+
+    .green.bold {
+      color: #b1fd79;
+    }
+    .yellow {
+      color: #f1fa8c;
+    }
+
+    .yellow.bold {
+      color: #f1fa8c;
+    }
+
+    .blue {
+      color: #8be9fd;
+    }
+
+    .blue.bold {
+      color: #b5dcfe;
+    }
+    .magenta {
+      color: #ff73fd;
+    }
+    .magenta.bold {
+      color: #ff9cfe;
+    }
+
+    .cyan {
+      color: #5ff;
+    }
+
+    .white {
+      color: #eee;
+    }
+
+    .white.bold {
+      color: #fff;
+    }
+
+    .grey {
+      color: #969696;
+    }
+
+    .bg-black {
+      background-color: #4e4e4e;
+    }
+
+    .bg-red {
+      background-color: #ff6c60;
+    }
+
+    .bg-green {
+      background-color: #0a0;
+    }
+    .bg-yellow {
+      background-color: #ffffb6;
+    }
+
+    .bg-blue {
+      background-color: #96cbfe;
+    }
+    .bg-magenta {
+      background-color: #ff73fd;
+    }
+
+    .bg-cyan {
+      background-color: #0aa;
+    }
+
+    .bg-white {
+      background-color: #eee;
+    }
+  }
+}

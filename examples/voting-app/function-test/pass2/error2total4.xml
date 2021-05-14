@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites disabled="true" errors="2" failures="0" name="测试" tests="4"  time="3.398"  >
+  <testsuite name="测试5" tests="2"  disabled="true"  errors="1"  failures="0"  hostname=""  id=""  package=""  skipped="0"  time="1.398" timestamp="1582711448" >
+    <properties>
+      <property name="" value=""/>
+    </properties>
+
+    <testcase name="API Test Suites API 工作流获取成功" classname="pipeline Suite" time="9.75117752" assertions="" status="">
+      <error message="" type="error"  ></error>
+    </testcase>
+    <testcase name="API Test Suites API 工作流获取成功创建任务" classname="pipeline Suite" time="9.75117752"></testcase>
+  </testsuite>
+
+  <testsuite name="测试6" tests="2"  disabled="true"  errors="1"  failures="0"  hostname=""  id=""  package=""  skipped="0"  time="1.398" timestamp="1582711448" >
+    <properties>
+      <property name="" value=""/>
+    </properties>
+
+    <testcase name="API Test Suites API 工作流重试成功" classname="pipeline Suite" time="9.75117752" assertions="" status="">
+      <error message="" type="error"></error>
+    </testcase>
+    <testcase name="API Test Suites API 工作流克隆任务" classname="pipeline Suite" time="9.75117752"></testcase>
+  </testsuite>
+</testsuites>

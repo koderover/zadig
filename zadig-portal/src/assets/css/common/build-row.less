@@ -1,0 +1,62 @@
+.gray-popper {
+  background-color: rgb(92, 92, 92) !important;
+  &[x-placement^='top'] .popper__arrow::after {
+    border-top-color: rgb(92, 92, 92) !important;
+  }
+  &[x-placement^='bottom'] .popper__arrow::after {
+    border-bottom-color: rgb(92, 92, 92) !important;
+  }
+  &[x-placement^='left'] .popper__arrow::after {
+    border-left-color: rgb(92, 92, 92) !important;
+  }
+  &[x-placement^='right'] .popper__arrow::after {
+    border-right-color: rgb(92, 92, 92) !important;
+  }
+}
+.workflow-build-rows {
+  .service-deploy-table {
+    width: auto;
+    margin-bottom: 15px;
+    padding: 0px 5px;
+  }
+  .el-input,
+  .el-select {
+    &.full-width {
+      width: 40%;
+    }
+  }
+  .build-row {
+    padding: 5px 0px;
+    .repo-warning {
+      color: #ff1949;
+      margin-left: 4px;
+      cursor: pointer;
+    }
+  }
+  .repo-name-container {
+    .repo-name {
+      max-width: 100%;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      line-height: 32px;
+      &.adjust {
+        line-height: 57px;
+      }
+    }
+    .namespace {
+      line-height: 32px;
+    }
+  }
+  .build-row {
+    &:not(:first-child) {
+      margin-top: 5px;
+    }
+  }
+  .el-switch__label--left {
+    margin-right: 5px;
+  }
+  .el-switch__label--right {
+    margin-left: 5px;
+  }
+}

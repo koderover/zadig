@@ -1,0 +1,10 @@
+#golang-deps.Dockerfile.inc
+
+RUN go build -v -o /jenkins-plugin ./cmd/jenkinsplugin/main.go
+
+#ubuntu-base.Dockerfile.inc
+WORKDIR /app
+
+COPY --from=build /jenkins-plugin .
+
+ENTRYPOINT ["/app/jenkins-plugin"]

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+  <testsuite tests="11" failures="0" successes="11" skips="0" time="501.518">
+      <testcase name="e2e Test Suites Scenario 1 - 现有项目的回归测试 被测试环境中存在一个叫做voting的项目 可以查看环境" classname="E2E Suite" time="0.155922912"></testcase>
+      <testcase name="e2e Test Suites Scenario 4 - PR流程 GitLab 成功提交PR" classname="E2E Suite" time="0.422994305"></testcase>
+      <testcase name="e2e Test Suites Scenario 5 - 服务与构建 测试环境中存在项目voting并且其服务列表(groups)不为空 可以查询系统中的服务列表" classname="E2E Suite" time="0.070303796"></testcase>
+      <testcase name="e2e Test Suites Scenario 5 - 服务与构建 在初始化成功新建的项目中 能够end to end的创建、查询和更新服务" classname="E2E Suite" time="4.3299411039999995"></testcase>
+      <testcase name="e2e Test Suites Scenario 5 - 服务与构建 在初始化成功新建的项目中 能够更新环境" classname="E2E Suite" time="62.13986061"></testcase>
+      <testcase name="e2e Test Suites Scenario 6 - 工作流场景 能够获取最新的工作流任务" classname="E2E Suite" time="0.140571959"></testcase>
+      <testcase name="e2e Test Suites Scenario 6 - 工作流场景 在初始化成功新建的项目中 能够end to end创建、验证工作流、获取交付版本信息" classname="E2E Suite" time="13.371772149"></testcase>
+      <testcase name="e2e Test Suites Scenario 1 - 现有项目的回归测试 被测试环境中存在一个叫做voting的项目 可以查看Voting项目下的工作流信息和触发工作流任务" classname="E2E Suite" time="364.026861554"></testcase>
+      <testcase name="e2e Test Suites Scenario 1 - 现有项目的回归测试 被测试环境中存在一个叫做voting的项目 可以查看Voting项目信息" classname="E2E Suite" time="0.136967508"></testcase>
+      <testcase name="e2e Test Suites Scenario 2 - onboarding的核心流程 经过系统的onboarding流程，自动生成了环境和一些工作流 成功的自动创建了环境和工作流，工作流可以被触发" classname="E2E Suite" time="70.83081332"></testcase>
+      <testcase name="e2e Test Suites Scenario 7 - 集成环境验证场景 测试环境中存在项目voting, 在项目voting中 end to end的创建、更新和删除集成环境" classname="E2E Suite" time="196.670293439"></testcase>
+  </testsuite>

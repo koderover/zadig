@@ -1,0 +1,10 @@
+#golang-deps.Dockerfile.inc
+
+RUN go build -v -o /podexec ./cmd/podexec/...
+
+#ubuntu-base.Dockerfile.inc
+
+WORKDIR /app
+COPY --from=build /podexec /app/podexec
+
+ENTRYPOINT ["/app/podexec"]

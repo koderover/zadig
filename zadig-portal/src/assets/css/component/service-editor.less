@@ -1,0 +1,226 @@
+.pipeline-workflow__column_left {
+    width: 100%;
+    padding-right: 15px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    margin-right: 5px;
+    height: 100%;
+    .CodeMirror {
+      width: 100%;
+      min-width: 100%;
+      max-width: 100%;
+      height: calc(~"100% - 20px");
+      border-color: #464e5c;
+      border-radius: 3px;
+      outline: none !important;
+      line-height: 21px;
+  
+      .CodeMirror-gutters {
+        border: none;
+        background: none;
+      }
+    }
+    .btn-container {
+      margin-top: 10px;
+    }
+    .white-box-with-shadow {
+      &.gui {
+        overflow-y: auto !important;
+        overflow-x: hidden;
+      }
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      .no-content {
+        display: flex;
+        align-content: center;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        img {
+          width: 100px;
+          height: 100px;
+        }
+        p {
+          font-size: 15px;
+          color: #606266;
+        }
+      }
+      .white-box-with-shadow__content {
+        &.gui {
+          padding: 0px 15px 0 15px;
+        }
+        padding: 0px 0px 0 0px;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        flex: 1;
+        .cf-pipeline-yml-build__yaml-type {
+          display: flex;
+          -webkit-box-pack: justify;
+          -ms-flex-pack: justify;
+          justify-content: space-between;
+          -webkit-box-align: center;
+          -ms-flex-align: center;
+          align-items: center;
+          margin-bottom: 15px;
+          .service-name {
+            span {
+              font-size: 13px;
+            }
+          }
+          .method-select {
+            .el-button + .el-button {
+              margin-left: 0;
+            }
+          }
+          .source-dropdown {
+            .el-dropdown {
+              display: inline-block;
+              position: relative;
+              color: #1989fa;
+              font-size: 14px;
+              .el-dropdown-link {
+                font-size: 13px;
+              }
+            }
+          }
+        }
+        .cf-pipeline-yml-build__wrapper {
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          flex: 1;
+          margin-left: 0;
+          margin-right: 0;
+          min-height: 0;
+        }
+        .cf-pipeline-yml-build__editor {
+          display: -webkit-box;
+          display: -ms-flexbox;
+          display: flex;
+          -webkit-box-orient: vertical;
+          -webkit-box-direction: normal;
+          -ms-flex-direction: column;
+          flex-direction: column;
+          height: 100%;
+          .cf-pipeline-yml-build__editor-wrapper {
+            -webkit-box-flex: 1;
+            -ms-flex: 1;
+            flex: 1;
+            border: none !important;
+            position: relative;
+            .from-code-container {
+              margin-top: 50px;
+            }
+            .shared-service-checkbox {
+              padding: 0px 15px;
+            }
+          }
+          .cf-pipeline-yml-build__editor-wrapper {
+            border: none !important;
+            min-height: 0;
+          }
+        }
+      }
+      .yaml-errors__container {
+        margin-bottom: 0;
+        overflow-y: hidden;
+        background-color: #eb5848;
+        position: relative;
+        .yaml-errors__errors-list {
+          max-height: 0;
+          padding: 0 15px;
+          list-style: none;
+          margin: 0;
+          background-color: #eb5848;
+          transition: max-height 200ms ease-out;
+          &.yaml-infos__infos-list {
+            background-color: #909399;
+          }
+        }
+        .yaml-errors__errors-list {
+          max-height: 180px;
+          padding-bottom: 5px;
+          padding-top: 5px;
+          .yaml-errors__errors-list-item {
+            background-color: #eb5848;
+            color: #fff;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            min-height: 35px;
+            border-bottom: 1px solid #ff7666;
+            padding-left: 10px;
+            &.yaml-infos__infos-list-item {
+              background-color: #909399;
+            }
+            .yaml-errors__errors-list-item-counter {
+              margin-right: 20px;
+              font-weight: bold;
+            }
+            .yaml-errors__errors-list-item-text {
+              -webkit-box-flex: 1;
+              -ms-flex: 1;
+              flex: 1;
+              max-width: 100%;
+              width: 300px;
+              padding: 5px 0;
+            }
+            &:last-child {
+              border-bottom: none;
+            }
+          }
+        }
+      }
+      .controls__wrap {
+        position: relative;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 55px;
+        background-color: #fff;
+        z-index: 2;
+        margin: 0 15px;
+        box-shadow: 0 4px 4px 0 rgba(0, 0, 0, 0.05);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+  
+        > * {
+          margin-right: 10px;
+        }
+        .controls__right {
+          display: flex;
+          align-items: center;
+          .save-btn {
+            text-decoration: none;
+            background-color: #1989fa;
+            color: #fff;
+            padding: 10px 17px;
+            border: 1px solid #1989fa;
+            font-size: 13px;
+            font-weight: bold;
+            transition: background-color 300ms, color 300ms, border 300ms;
+            cursor: pointer;
+            margin-right: 15px;
+          }
+          .save-btn[disabled] {
+            background-color: #9ac9f9;
+            border: 1px solid #9ac9f9;
+            cursor: not-allowed;
+          }
+        }
+      }
+    }
+    .white-box-with-shadow {
+      background-color: #fff;
+      -webkit-box-shadow: 0 4px 4px 0 rgba(0, 0, 0, 0.05);
+      box-shadow: 0 4px 4px 0 rgba(0, 0, 0, 0.05);
+    }
+    &.pipeline-workflow__column--w100p {
+      padding-right: 0;
+    }
+  }

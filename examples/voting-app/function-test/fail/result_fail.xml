@@ -1,0 +1,23 @@
+<?xml version="1.0" ?>
+<testsuite errors="1" failures="0" name="cases.promotionAPI.test_activity.TestQueryActivity-20190417141546" tests="1" time="1.237">
+	<testcase classname="cases.promotionAPI.test_activity.TestQueryActivity" name="test001_searchNewAddActivity" time="1.237">
+		<error message="1 != 2" type="AssertionError">
+<![CDATA[Traceback (most recent call last):
+  File "D:\FM\Auto\AutoCode\cases\promotionAPI\test_activity.py", line 43, in test001_searchNewAddActivity
+    self.assertEqual(sql_result[0][12], 2)
+AssertionError: 1 != 2
+]]>		</error>
+	</testcase>
+	<system-out>
+<![CDATA[call {"ver": 1, "activityDesc": "满100减10元优惠券", "activityName": "满100减10元优惠券", "activityStatus": 1, "activityType": 2, "isShared": 0, "cycles": [{"cycleType": 1, "cycleValue": 0}], "auditStatus": 1, "sendGoods": [{"goodsId": "bbb33333", "goodsName": "半熟蛋糕珍珠奶茶中杯", "sendNumber": 1}, {"goodsId": "bbb4444", "goodsName": "七分熟蛋糕珍珠奶茶中杯", "sendNumber": 1}], "sendCoupons": [{"activityCode": "123456", "activityName": "满100减10元", "activityType": 1, "sendNumber": 2}], "benefits": [{"benefitName": "满100减10", "benefitSeq": 1, "discountAmount": 1000, "thresholdAmount": 10000, "benefitRebate": 0.8, "benefitNumber": 10, "exchangeGoods": [{"goodsId": "a00001", "goodsName": "A商品", "nowPrice": 1000, "quantityLimit": 2, "sendNumber": 1}]}, {"benefitName": "满200减20", "benefitSeq": 1, "discountAmount": 2000, "thresholdAmount": 20000, "benefitRebate": 0.8, "benefitNumber": 10, "exchangeGoods": [{"goodsId": "a00001", "goodsName": "A商品", "nowPrice": 1000, "quantityLimit": 2, "sendNumber": 1}]}], "couponType": 1, "discountTimes": 10, "startTime": "2019-3-14 00:00:00", "endTime": "2020-12-31 23:59:59", "partnerCode": 2252, "stores": [{"storeId": "9999"}, {"storeId": "1030"}], "totalTimes": 1000, "validityPeriodEnd": "2020-12-31 23:59:59", "validityPeriodStart": "2018-12-31 23:59:59", "goods": [{"goodsId": "6970928490402", "goodsName": "快乐奶茶", "originalPrice": 30, "quantityLimit": 0, "nowPrice": 10, "isCanUse": 1, "isShared": 1, "number": 0, "rebate": 80, "shareActivityCodes": [], "shareActivityTypes": []}]}
+{'ver': 1, 'activityDesc': '满100减10元优惠券', 'activityName': '满100减10元优惠券', 'activityStatus': 1, 'activityType': 2, 'isShared': 0, 'cycles': [{'cycleType': 1, 'cycleValue': 0}], 'auditStatus': 1, 'sendGoods': [{'goodsId': 'bbb33333', 'goodsName': '半熟蛋糕珍珠奶茶中杯', 'sendNumber': 1}, {'goodsId': 'bbb4444', 'goodsName': '七分熟蛋糕珍珠奶茶中杯', 'sendNumber': 1}], 'sendCoupons': [{'activityCode': '123456', 'activityName': '满100减10元', 'activityType': 1, 'sendNumber': 2}], 'benefits': [{'benefitName': '满100减10', 'benefitSeq': 1, 'discountAmount': 1000, 'thresholdAmount': 10000, 'benefitRebate': 0.8, 'benefitNumber': 10, 'exchangeGoods': [{'goodsId': 'a00001', 'goodsName': 'A商品', 'nowPrice': 1000, 'quantityLimit': 2, 'sendNumber': 1}]}, {'benefitName': '满200减20', 'benefitSeq': 1, 'discountAmount': 2000, 'thresholdAmount': 20000, 'benefitRebate': 0.8, 'benefitNumber': 10, 'exchangeGoods': [{'goodsId': 'a00001', 'goodsName': 'A商品', 'nowPrice': 1000, 'quantityLimit': 2, 'sendNumber': 1}]}], 'couponType': 1, 'discountTimes': 10, 'startTime': '2019-3-14 00:00:00', 'endTime': '2020-12-31 23:59:59', 'partnerCode': 2252, 'stores': [{'storeId': '9999'}, {'storeId': '1030'}], 'totalTimes': 1000, 'validityPeriodEnd': '2020-12-31 23:59:59', 'validityPeriodStart': '2018-12-31 23:59:59', 'goods': [{'goodsId': '6970928490402', 'goodsName': '快乐奶茶', 'originalPrice': 30, 'quantityLimit': 0, 'nowPrice': 10, 'isCanUse': 1, 'isShared': 1, 'number': 0, 'rebate': 80, 'shareActivityCodes': [], 'shareActivityTypes': []}]} {'msg': '成功', 'result': 'DPTJ2019041714140209298', 'statusCode': 100, 'ver': 1}
+call {"partnerCode": 2252, "storeId": "9999", "ver": 1, "activityType": 2, "area": "", "activityTypes": "", "channel": "", "activityCodes": ["DPTJ2019041714140209298"], "memberLevel": "", "appId": "", "userId": "", "application": "", "isShowStore": "", "isShowTime": "", "isShowGoods": "", "isShowBenefit": "", "isShowSendGoods": "", "isShowSendCoupon": "", "isShowCycles": ""}
+
+]]>	</system-out>
+	<system-err>
+<![CDATA[D:\Program Files\Python37\lib\site-packages\urllib3\connectionpool.py:858: InsecureRequestWarning: Unverified HTTPS request is being made. Adding certificate verification is strongly advised. See: https://urllib3.readthedocs.io/en/latest/advanced-usage.html#ssl-warnings
+  InsecureRequestWarning)
+D:\Program Files\Python37\lib\site-packages\urllib3\connectionpool.py:858: InsecureRequestWarning: Unverified HTTPS request is being made. Adding certificate verification is strongly advised. See: https://urllib3.readthedocs.io/en/latest/advanced-usage.html#ssl-warnings
+  InsecureRequestWarning)
+]]>	</system-err>
+</testsuite>
