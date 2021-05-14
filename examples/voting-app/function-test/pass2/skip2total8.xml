@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites disabled="true" errors="" failures="0" name="测试" tests="8"  time="3.398"  >
+  <testsuite name="测试1" tests="4"  disabled="true"  errors=""  failures="0"  hostname=""  id=""  package=""  skipped="1"  time="1.398" timestamp="1582711448" >
+    <properties>
+      <property name="" value=""/>
+    </properties>
+
+    <testcase name="API Test Suites API 工作流获取成功" classname="pipeline Suite" time="9.75117752" assertions="" status="">
+      <skipped/>
+    </testcase>
+    <testcase name="API Test Suites API 工作流创建任务成功" classname="pipeline Suite" time="9.75117752"></testcase>
+    <testcase name="API Test Suites API 工作流执行任务成功" classname="pipeline Suite" time="10.043716176"></testcase>
+    <testcase name="API Test Suites API 工作流取消任务成功" classname="pipeline Suite" time="0.262019138"></testcase>
+  </testsuite>
+
+  <testsuite name="测试2" tests="4"  disabled="true"  errors=""  failures="0"  hostname=""  id=""  package=""  skipped="1"  time="1.398" timestamp="1582711448" >
+    <properties>
+      <property name="" value=""/>
+    </properties>
+
+    <testcase name="API Test Suites API 工作流重试任务成功" classname="pipeline Suite" time="9.75117752" assertions="" status="">
+      <skipped/>
+    </testcase>
+    <testcase name="API Test Suites API 工作流取消重试任务成功" classname="pipeline Suite" time="9.75117752"></testcase>
+    <testcase name="API Test Suites API 工作流克隆任务成功" classname="pipeline Suite" time="10.043716176"></testcase>
+    <testcase name="API Test Suites API 删除工作流成功" classname="pipeline Suite" time="0.262019138"></testcase>
+  </testsuite>
+</testsuites>

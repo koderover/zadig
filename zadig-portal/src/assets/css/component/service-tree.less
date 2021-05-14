@@ -1,0 +1,154 @@
+.dialog-source {
+  .el-dialog__footer {
+    padding: 0px 20px 20px;
+  }
+  .el-dialog__body {
+    padding: 0px 25px 0px;
+  }
+  .preload-error {
+    color: #ff1949;
+    font-size: 12px;
+  }
+  .preload-container {
+    .service-name,
+    .contains {
+      font-size: 13px;
+      color: #909399;
+    }
+    .service-name {
+      color: #303133;
+    }
+  }
+}
+
+.service-tree-container {
+  background-color: #fff;
+  position: relative;
+  overflow: auto;
+  padding: 0px 5px;
+  font-size: 13px;
+  .service-container {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .menu-container {
+    display: flex;
+    flex: 0 0 auto;
+    .el-row {
+      margin-top: 4px;
+      width: 100%;
+    }
+    .icon {
+      font-size: 12px;
+    }
+  }
+  .tree-container {
+    display: flex;
+    flex: 1 0 auto;
+    flex-direction: column;
+    height: calc(~'100% - 400px');
+    .el-tree {
+      overflow: auto;
+      .el-tree__empty-block{
+        display: none;
+      }
+    }
+  }
+  .search-container,
+  .shared-services-container {
+    flex: 0 0 auto;
+    padding: 10px 0px;
+  }
+  .shared-services-container {
+    height: 150px;
+    .el-tree {
+      overflow: auto;
+      max-height: 150px;
+    }
+    border-top: 1px solid #c0c4cc;
+    border-bottom: 1px solid #c0c4cc;
+  }
+  .el-tree--highlight-current .el-tree-node.is-current > .el-tree-node__content {
+    background-color: #1989fa33;
+  }
+  .el-tree-node {
+    margin: 5px 0px;
+    .el-tree-node__content {
+      .el-tree-node__expand-icon {
+        padding: 0;
+      }
+    }
+    .service-mgr-tree-node {
+      display: inline-block;
+      position: relative;
+      width: 100%;
+      line-height: 30px;
+      .service-status {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        display: inline-block;
+        vertical-align: middle;
+        &.new,
+        &.named {
+          background: #1989fa;
+        }
+        &.error {
+          background: #ff1949;
+        }
+      }
+      .service-type {
+        vertical-align: middle;
+      }
+      .tree-service-name {
+        font-size: 13px;
+        vertical-align: middle;
+        display: inline-block;
+        width: calc(~'100% - 115px');
+        text-overflow: ellipsis;
+        overflow-x: hidden;
+        &.kind {
+          margin-left: 20px;
+          width: 200px;
+        }
+        &.shared-list {
+          width: 180px;
+        }
+      }
+      .operation-container {
+        display: inline-block;
+        vertical-align: middle;
+        .el-button + .el-button {
+          margin-left: 3px;
+        }
+      }
+      .basic-info {
+        display: inline-block;
+        float: right;
+        padding-right: 40px;
+        .mod-time,
+        .size {
+          padding-left: 35px;
+          color: #c0c4cc;
+        }
+      }
+    }
+  }
+  .add-new-service {
+    margin-top: 10px;
+    padding-left: 20px;
+    vertical-align: middle;
+    color: #606266;
+    .el-input {
+      width: 150px;
+    }
+    &.drag-container {
+      height: 60px;
+      border: 1px dashed #ccc;
+      background: #ebeef570;
+      border-radius: 3px;
+    }
+  }
+}

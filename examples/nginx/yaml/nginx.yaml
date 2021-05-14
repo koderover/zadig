@@ -1,0 +1,149 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx3
+  labels:
+    app: nginx3
+    tier: backend
+    version: "{{.nginxVersion4}}"
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+  selector:
+    app: nginx3
+    tier: backend
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx3
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx3
+      tier: backend
+      version: "{{.nginxVersion4}}"
+  template:
+    metadata:
+      labels:
+        app: nginx3
+        tier: backend
+        version: "{{.nginxVersion4}}"
+    spec:
+      containers:
+      - name: nginx-test
+        image: ccr.ccs.tencentyun.com/shuhe/nginx:stable
+        ports:
+        - containerPort: 80
+        volumeMounts:
+          - name: static-page
+            mountPath: /usr/share/nginx/html
+      volumes:
+        - name: static-page
+          configMap:
+            name: static-page
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: nginx-expose
+spec:
+  rules:
+  - host: $EnvName$-nginx-expose.app.8slan.com
+    http:
+      paths:
+      - backend:
+          serviceName: nginx
+          servicePort: 80
+        path: /
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: static-page
+  labels:
+    app.kubernetes.io/instance: poetry
+    app.kubernetes.io/name: poetry-portal-config
+data:
+  index.html: |-
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8" />
+            <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+            <title>{{.customer}} - Sliding Perspective</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1" />
+            <style>
+            html,
+            body {
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                background: #2d303a;
+                overflow-y: hidden;
+            }
+
+            .bounce {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 100%;
+                color: white;
+                height: 100%;
+                font: normal bold 6rem 'Product Sans', sans-serif;
+                white-space: nowrap;
+            }
+
+            .letter {
+                animation: bounce 0.75s cubic-bezier(0.05, 0, 0.2, 1) infinite alternate;
+                display: inline-block;
+                transform: translate3d(0, 0, 0);
+                margin-top: 0.5em;
+                text-shadow: rgba(255, 255, 255, 0.4) 0 0 0.05em;
+                font: normal 500 6rem 'Varela Round', sans-serif;
+                color:#fff;
+                color:#1989fa;
+
+            }
+
+            .letter:nth-of-type(1) {
+                animation-delay: -0.083333333s;
+            }
+            .letter:nth-of-type(3) {
+                animation-delay: 0.0833333333s;
+            }
+            .letter:nth-of-type(4) {
+                animation-delay: 0.1666666667s;
+            }
+            .letter:nth-of-type(5) {
+                animation-delay: 0.25s;
+            }
+            .letter:nth-of-type(6) {
+                animation-delay: 0.3333333333s;
+            }
+            .letter:nth-of-type(7) {
+                animation-delay: 0.4166666667s;
+            }
+
+            @keyframes bounce {
+                0% {
+                transform: translate3d(0, 0, 0);
+                text-shadow: rgba(255, 255, 255, 0.4) 0 0 0.05em;
+                }
+                100% {
+                transform: translate3d(0, -1em, 0);
+                text-shadow: rgba(255, 255, 255, 0.4) 0 1em 0.35em;
+                }
+            }
+            </style>
+        </head>
+        <body>
+            <div class="bounce">
+            <span class="letter">K</span><span class="letter"></span><span class="letter">o</span><span class="letter">d</span><span class="letter">e</span><span class="letter">R</span
+            ><span class="letter">o</span><span class="letter">v</span><span class="letter">e</span><span class="letter">r</span>
+            </div>
+        </body>
+        </html>

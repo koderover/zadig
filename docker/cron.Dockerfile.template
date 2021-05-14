@@ -1,0 +1,11 @@
+#golang-deps.Dockerfile.inc
+
+RUN go build -v -o /cron ./cmd/cron/main.go
+
+#ubuntu-base.Dockerfile.inc
+
+WORKDIR /app
+
+COPY --from=build /cron .
+
+ENTRYPOINT ["/app/cron"]
