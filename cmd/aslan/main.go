@@ -26,6 +26,7 @@ import (
 	"github.com/koderover/zadig/lib/microservice/aslan/server"
 )
 
+// test
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
