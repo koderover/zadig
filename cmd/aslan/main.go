@@ -26,7 +26,7 @@ import (
 	"github.com/koderover/zadig/lib/microservice/aslan/server"
 )
 
-// webhook test new
+// webhook test
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
