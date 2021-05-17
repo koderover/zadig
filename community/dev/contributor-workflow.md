@@ -33,7 +33,7 @@ Zadig 为您提供云上测试环境 [https://os.koderover.com](https://os.koder
 
 点击 zadig 选项，将其中的 global.host 中的 `githubid` 改成您的 GitHub ID，否则可能无法访问。
 
-![](./fork-zadig-vars.png)
+![update githubid](./fork-zadig-vars.png)
 
 Fork 完成后，您将获得一个 Zadig 测试环境。
 
@@ -41,7 +41,7 @@ Fork 完成后，您将获得一个 Zadig 测试环境。
 
 您可以使用两种测试方式：云上代码测试和本地代码测试。
 
-### 方式一：云上代码测试：
+### 方式一：云上代码测试
 
 需先提交您的代码，并创建 pull request，调试过程中的 pull request 标题建议加上 WIP。然后使用 [zadig-workflow](https://os.koderover.com/v1/projects/detail/zadig/pipelines/multi/zadig-workflow) 更新您的测试环境。
 
@@ -49,7 +49,7 @@ Fork 完成后，您将获得一个 Zadig 测试环境。
 1. 选择您代码变更涉及到的服务
 2. 选择您提交的 pull request
 
-工作流成功执行后，您可以测试环境进行调试。
+工作流成功执行后，您可以进入测试环境进行调试。
 
 ### 方式二：本地代码测试
 
@@ -65,5 +65,5 @@ yarn run dev
 
 #### 后端本地测试
 
-使用 Zadig CLI 进行本地调试，使用方式参见 [Zadig CLI 使用指南](https://doc.koderover.com/cli/overview/)
+使用 Zadig CLI 进行本地调试，使用方式参见 [Zadig CLI 使用指南](https://docs.koderover.com/cli/overview/)
 
