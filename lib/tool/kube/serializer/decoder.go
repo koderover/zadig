@@ -55,7 +55,12 @@ func (d *decoder) YamlToUnstructured(manifest []byte) (*unstructured.Unstructure
 	obj := &unstructured.Unstructured{}
 	decoded, _, err := d.unstructuredSerializer.Decode(manifest, nil, obj)
 
-	return decoded.(*unstructured.Unstructured), err
+	u, ok := decoded.(*unstructured.Unstructured)
+	if !ok {
+		return nil, fmt.Errorf("object is not an Unstructured")
+	}
+
+	return u, err
 }
 
 func (d *decoder) YamlToRuntimeObject(manifest []byte) (runtime.Object, error) {
