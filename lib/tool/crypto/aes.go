@@ -48,7 +48,7 @@ type Aes struct {
 func init() {
 	keyByte, err := ioutil.ReadFile(aesKeyFile)
 	if err != nil {
-		panic("Failed to read ")
+		panic("Failed to read aes encryption key from secret")
 	}
 	aesKey = string(keyByte)
 	S3key = string(keyByte)
