@@ -561,6 +561,11 @@ func getVolumeMounts(ctx *task.PipelineCtx, pipelineTask *task.Task) []corev1.Vo
 		Name:      "job-config",
 		MountPath: ctx.ConfigMapMountDir,
 	})
+	resp = append(resp, corev1.VolumeMount{
+		Name:             "aes-key",
+		ReadOnly:         true,
+		MountPath:        "/etc/encryption",
+	})
 
 	return resp
 }
@@ -574,6 +579,18 @@ func getVolumes(jobName string) []corev1.Volume {
 				LocalObjectReference: corev1.LocalObjectReference{
 					Name: jobName,
 				},
+			},
+		},
+	})
+	resp = append(resp, corev1.Volume{
+		Name:         "aes-key",
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName:  "zadig-aes-key",
+				Items:   []corev1.KeyToPath{{
+					Key:  "aesKey",
+					Path: "aes",
+				}},
 			},
 		},
 	})
