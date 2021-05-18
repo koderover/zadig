@@ -69,7 +69,7 @@ Zadig 是一款面向开发者设计的云原生持续交付(Continuous Delivery
 
 ## 获取帮助
 
-- 更详细的使用说明，见[文档站](https://github.com/koderover/Zadig-doc)
+- 更详细的使用说明，见 [文档站](https://docs.koderover.com/zadig)
 - 如果发现了bug或者功能需求，[欢迎提交issue](CONTRIBUTING-zh-CN.md#贡献方式-1---提交issue)
 - 邮箱：contact@koderover.com
 - 欢迎加入 [slack channel](https://join.slack.com/t/zadig-workspace/shared_invite/zt-qedvct1t-mQUf2eyTRkoVCc_RWKKgxw)
