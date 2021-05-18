@@ -68,6 +68,12 @@ func GetConfigPayload() *models.ConfigPayload {
 		},
 	}
 
+	githubApps, _ := repo.NewGithubAppColl().Find()
+	if len(githubApps) != 0 {
+		payload.Github.AppKey = githubApps[0].AppKey
+		payload.Github.AppID = githubApps[0].AppID
+	}
+
 	proxies, _ := repo.NewProxyColl().List(&repo.ProxyArgs{})
 	if len(proxies) != 0 {
 		payload.Proxy = *proxies[0]
