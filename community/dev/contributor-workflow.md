@@ -65,5 +65,5 @@ yarn run dev
 
 #### 后端本地测试
 
-使用 Zadig CLI 进行本地调试，使用方式参见 [Zadig CLI 使用指南](https://docs.koderover.com/cli/overview/)
+使用 Zadig CLI 进行本地调试，使用方式参见 [Zadig CLI 使用指南](https://docs.koderover.com/zadig/cli/kodespace-usage-for-contributor)
 
