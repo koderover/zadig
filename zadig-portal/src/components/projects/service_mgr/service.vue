@@ -81,7 +81,12 @@
                class="no-content">
             <img src="@assets/icons/illustration/editor_nodata.svg"
                  alt="">
-            <p v-if="services.length === 0">暂无服务，创建服务请在左侧栏点击创建服务按钮</p>
+            <p v-if="services.length === 0">暂无服务，点击 <el-button size="mini"
+                         icon="el-icon-plus"
+                         @click="createService()"
+                         plain
+                         circle>
+              </el-button> 创建服务</p>
             <p v-else-if="service.service_name==='服务列表' && services.length >0">请在左侧选择需要编辑的服务</p>
             <p v-else-if="!service.service_name && services.length >0">请在左侧选择需要编辑的服务</p>
           </div>
@@ -130,6 +135,9 @@ export default {
     }
   },
   methods: {
+    createService() {
+      this.$refs['serviceTree'].createService('platform');
+    },
     toNext() {
       this.updateEnvDialogVisible = true;
     },

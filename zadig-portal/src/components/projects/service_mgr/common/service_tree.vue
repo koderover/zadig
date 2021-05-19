@@ -189,10 +189,11 @@
             </el-radio-group>
           </div>
         </el-col>
-        <el-col :span="14" class="text-right">
+        <el-col :span="14"
+                class="text-right">
           <div style="line-height:32px">
             <el-tooltip effect="dark"
-                        content="平台编辑"
+                        content="创建服务"
                         placement="top">
               <el-button v-if="deployType==='k8s'"
                          size="mini"
@@ -709,16 +710,16 @@ export default {
     },
     async createService(cmd) {
       const res = await getCodeSourceByAdminAPI(1);
-      if (res && res.length > 0) {
-        if (cmd && this.deployType === 'k8s') {
-          if (cmd === 'platform') {
-            this.showNewServiceInput = true;
-            this.mode = 'edit';
-            this.$nextTick(() => {
-              this.$refs.serviceNamedRef.focus();
-            });
-          }
-          else if (cmd === 'repo') {
+      if (cmd && this.deployType === 'k8s') {
+        if (cmd === 'platform') {
+          this.showNewServiceInput = true;
+          this.mode = 'edit';
+          this.$nextTick(() => {
+            this.$refs.serviceNamedRef.focus();
+          });
+        }
+        else if (cmd === 'repo') {
+          if (res && res.length > 0) {
             this.dialogImportFileVisible = true;
             this.showNewServiceInput = false;
             this.mode = 'edit';
@@ -729,10 +730,10 @@ export default {
                 return element;
               });
             });
+          } else {
+            this.$emit('onAddCodeSource', true);
           }
         }
-      } else {
-        this.$emit('onAddCodeSource', true);
       }
 
     },
