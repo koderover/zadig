@@ -35,9 +35,9 @@ Zadig 的成长离不开大家的支持。我们欢迎各类贡献，小到修�
 
 ## 环境设置
 
-请先fork一份对应的仓库，不要直接在仓库下建分支。然后可以参考 [Zadig 开发流程](community/dev/contributor-workflow.md) 的介绍将 Zadig 环境搭建起来。
+请先 fork 一份对应的仓库，不要直接在仓库下建分支。然后可以参考 [Zadig 开发流程](community/dev/contributor-workflow.md) 的介绍将 Zadig 环境搭建起来。
 
-在决定提交issue或者提交任何更改之前，请查一下项目的 [open issues](https://github.com/koderover/Zadig/issues)，避免重复。我们也准备
+在决定提交 issue 或者提交任何更改之前，请查一下项目的 [open issues](https://github.com/koderover/Zadig/issues)，避免重复。我们也准备
 了几个 issue label 来帮助大家筛选：
 
 1) 如果你想找一些适合上手的 issue，可以看下 [#good-first-issue](https://github.com/koderover/Zadig/labels/good%20first%20issue)
@@ -57,9 +57,9 @@ Zadig 的成长离不开大家的支持。我们欢迎各类贡献，小到修�
 4. [`question`](https://github.com/koderover/Zadig/labels/question)
 5. [`enhancement`](https://github.com/koderover/Zadig/labels/enhancement)
 
-如果贡献者知道自己的issue是明确关于哪个或者哪几个服务的，也建议将服务相对应的label加上去：具体请[搜索我们带`service/`前缀的 label](https://github.com/koderover/Zadig/labels?q=service%2F)；如果不确定的话可以放着，我们的 maintainer 会加上。
+如果贡献者知道自己的 issue 是明确关于哪个或者哪几个服务的，也建议将服务相对应的 label 加上去：具体请[搜索我们带`service/`前缀的 label](https://github.com/koderover/Zadig/labels?q=service%2F)；如果不确定的话可以放着，我们的 maintainer 会加上。
 
-请首先检查下我们的 [open issues](https://github.com/koderover/Zadig/issues)，确保不要提交重复的 issue。确认没有重复后，请选择上面四种类型之一的 label。并且按 issue 模板填好，尽可能详细的解释你的 issue —— 原则是要让没有你 context 的别人也能很容易的看懂。
+请首先检查下我们的 [open issues](https://github.com/koderover/Zadig/issues)，确保不要提交重复的 issue。确认没有重复后，请选择上面类型之一的 label，并且按 issue 模板填好，尽可能详细的解释你的 issue —— 原则是要让没有你 context 的别人也能很容易的看懂。
 
 ### Issue 提交后会被如何处理？
 
@@ -68,7 +68,7 @@ Zadig 的成长离不开大家的支持。我们欢迎各类贡献，小到修�
 1. 他们会再次确认新创建的 issue 是不是添加了上述五种 label 里正确的 label，如果不是的话他们会进行更新。
 2. 他们同时也会决定是不是 accept issue，参见下一条。
 3. 如果适用的话，他们可能会将以下四种新的 tag 加到 issue 上：
-   1) [`duplicate`](https://github.com/koderover/Zadig/labels/duplicate): 重复的issue
+   1) [`duplicate`](https://github.com/koderover/Zadig/labels/duplicate): 重复的 issue
    2) [`wonfix`](https://github.com/koderover/Zadig/labels/wontfix)：决定不采取行动。maintainer 会说明不修复的具体原因，比如
       work as intended, obsolete, infeasible, out of scope
    3) [`good first issue`](https://github.com/koderover/Zadig/labels/good%20first%20issue)：见上文，适合新人上手的 issue。
@@ -92,7 +92,7 @@ Zadig 的成长离不开大家的支持。我们欢迎各类贡献，小到修�
 
 对于**任何**的代码改动，你**都需要有相应的 issue 来跟踪**：不管是现有的 issue 还是[创建一个新的 issue](#贡献方式-1---提交-issue)。
 
-> 请在对应的issue下留言，表明你要WORK ON这个issue，避免重复
+> 请在对应的 issue 下留言，表明你要 WORK ON 这个 issue，避免重复
 
 ### 简单的代码改动
 
