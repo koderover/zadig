@@ -189,10 +189,11 @@
             </el-radio-group>
           </div>
         </el-col>
-        <el-col :span="14" class="text-right">
+        <el-col :span="14"
+                class="text-right">
           <div style="line-height:32px">
             <el-tooltip effect="dark"
-                        content="平台编辑"
+                        content="创建服务"
                         placement="top">
               <el-button v-if="deployType==='k8s'"
                          size="mini"
@@ -299,15 +300,24 @@
       </keep-alive>
       <div v-if="showNewServiceInput && mode==='edit'"
            class="add-new-service">
-        <span class="service-status new"></span>
-        <i class="service-type iconfont iconrongqifuwu"></i>
-        <el-input v-model="newServiceName"
-                  size="mini"
-                  autofocus
-                  ref="serviceNamedRef"
-                  @blur="inputServiceNameDoneWhenBlur"
-                  @keyup.enter.native="inputServiceNameDoneWhenEnter"
-                  placeholder="请输入服务名称"></el-input>
+        <el-form :model="service"
+                 :rules="serviceRules"
+                 ref="newServiceNameForm"
+                 @submit.native.prevent>
+          <el-form-item label=""
+                        prop="newServiceName">
+            <span class="service-status new"></span>
+            <i class="service-type iconfont iconrongqifuwu"></i>
+            <el-input v-model="service.newServiceName"
+                      size="mini"
+                      autofocus
+                      ref="serviceNamedRef"
+                      @blur="inputServiceNameDoneWhenBlur"
+                      @keyup.enter.native="inputServiceNameDoneWhenEnter"
+                      placeholder="请输入服务名称"></el-input>
+          </el-form-item>
+
+        </el-form>
       </div>
       <el-tree v-if="mode==='arrange' && deployType === 'k8s'"
                :data="serviceGroup"
@@ -437,7 +447,9 @@ export default {
   data() {
     return {
       mode: 'edit',
-      newServiceName: '',
+      service: {
+        newServiceName: ''
+      },
       showHover: {},
       searchService: '',
       serviceGroup: [],
@@ -487,7 +499,7 @@ export default {
             type: 'string',
             required: true,
             validator: validateServiceName,
-            trigger: 'blur'
+            trigger: ['blur', 'change']
           }
         ]
 
@@ -709,16 +721,16 @@ export default {
     },
     async createService(cmd) {
       const res = await getCodeSourceByAdminAPI(1);
-      if (res && res.length > 0) {
-        if (cmd && this.deployType === 'k8s') {
-          if (cmd === 'platform') {
-            this.showNewServiceInput = true;
-            this.mode = 'edit';
-            this.$nextTick(() => {
-              this.$refs.serviceNamedRef.focus();
-            });
-          }
-          else if (cmd === 'repo') {
+      if (cmd && this.deployType === 'k8s') {
+        if (cmd === 'platform') {
+          this.showNewServiceInput = true;
+          this.mode = 'edit';
+          this.$nextTick(() => {
+            this.$refs.serviceNamedRef.focus();
+          });
+        }
+        else if (cmd === 'repo') {
+          if (res && res.length > 0) {
             this.dialogImportFileVisible = true;
             this.showNewServiceInput = false;
             this.mode = 'edit';
@@ -729,65 +741,70 @@ export default {
                 return element;
               });
             });
+          } else {
+            this.$emit('onAddCodeSource', true);
           }
         }
-      } else {
-        this.$emit('onAddCodeSource', true);
       }
 
     },
     inputServiceNameDoneWhenBlur() {
-      const val = this.newServiceName;
-      const node = this.$refs.serviceTree.getNode(val);
-      if (val && !node) {
-        const data = {
-          label: val,
-          status: 'named',
-          service_name: val,
-          type: this.deployType ? this.deployType : 'k8s',
-          visibility: 'private'
-        };
-        this.services.push(data);
-        this.setServiceSelected(data.service_name);
-        this.$router.replace({ query: { service_name: data.service_name, rightbar: 'help' } });
-        this.$emit('onSelectServiceChange', data);
-        this.showNewServiceInput = false;
-        this.newServiceName = '';
-      }
-      else {
-        this.showNewServiceInput = false;
-      }
+      this.$refs['newServiceNameForm'].validate((valid) => {
+        if (valid) {
+          const val = this.service.newServiceName;
+          const node = this.$refs.serviceTree.getNode(val);
+          if (!node) {
+            const data = {
+              label: val,
+              status: 'named',
+              service_name: val,
+              type: this.deployType ? this.deployType : 'k8s',
+              visibility: 'private'
+            };
+            this.services.push(data);
+            this.setServiceSelected(data.service_name);
+            this.$router.replace({ query: { service_name: data.service_name, rightbar: 'help' } });
+            this.$emit('onSelectServiceChange', data);
+            this.showNewServiceInput = false;
+            this.service.newServiceName = '';
+          }
+        }
+      });
     },
     inputServiceNameDoneWhenEnter() {
-      const val = this.newServiceName;
-      const node = this.$refs.serviceTree.getNode(val);
-      let data = null;
-      if (val && !node) {
-        data = {
-          label: val,
-          status: 'named',
-          service_name: val,
-          type: this.deployType ? this.deployType : 'k8s',
-          visibility: 'private'
-        };
-      }
-      else {
-        data = {
-          label: 'untitled',
-          status: 'named',
-          service_name: 'untitled',
-          type: this.deployType ? this.deployType : 'k8s',
-          visibility: 'private'
-        };
-      }
-      if (!node) {
-        this.services.push(data);
-      }
-      this.setServiceSelected(data.service_name);
-      this.$router.replace({ query: { service_name: data.service_name, rightbar: 'help' } });
-      this.$emit('onSelectServiceChange', data);
-      this.showNewServiceInput = false;
-      this.newServiceName = '';
+      this.$refs['newServiceNameForm'].validate((valid) => {
+        if (valid) {
+          const val = this.service.newServiceName;
+          const node = this.$refs.serviceTree.getNode(val);
+          let data = null;
+          if (!node) {
+            data = {
+              label: val,
+              status: 'named',
+              service_name: val,
+              type: this.deployType ? this.deployType : 'k8s',
+              visibility: 'private'
+            };
+          }
+          else {
+            data = {
+              label: 'untitled',
+              status: 'named',
+              service_name: 'untitled',
+              type: this.deployType ? this.deployType : 'k8s',
+              visibility: 'private'
+            };
+          }
+          if (!node) {
+            this.services.push(data);
+          }
+          this.setServiceSelected(data.service_name);
+          this.$router.replace({ query: { service_name: data.service_name, rightbar: 'help' } });
+          this.$emit('onSelectServiceChange', data);
+          this.showNewServiceInput = false;
+          this.service.newServiceName = '';
+        }
+      });
     },
     reEditServiceName(node, data) {
       const service = this.$utils.cloneObj(data);
@@ -797,7 +814,7 @@ export default {
       const index = this.filteredServices.findIndex(d => d.service_name === service.service_name);
       this.services.splice(index, 1);
       this.showNewServiceInput = true;
-      this.newServiceName = service.service_name;
+      this.service.newServiceName = service.service_name;
       this.$nextTick(() => {
         this.$refs.serviceNamedRef.focus();
       });
