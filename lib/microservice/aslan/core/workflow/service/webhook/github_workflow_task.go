@@ -177,7 +177,7 @@ func (waf *workflowArgsFactory) Update(product *commonmodels.Product, args *comm
 		target.Builds = append(target.Builds, repo)
 	}
 
-	if workflow.TestStage.Enabled {
+	if workflow.TestStage != nil && workflow.TestStage.Enabled {
 		testArgs := make([]*commonmodels.TestArgs, 0)
 		for _, testName := range workflow.TestStage.TestNames {
 			testArgs = append(testArgs, &commonmodels.TestArgs{
