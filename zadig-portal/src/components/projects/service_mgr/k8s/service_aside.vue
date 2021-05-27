@@ -5,6 +5,11 @@
                direction="rtl">
       <add-code @cancel="addCodeDrawer = false"></add-code>
     </el-drawer>
+    <el-drawer title="镜像仓库集成"
+               :visible.sync="registryCreateVisible">
+      <IntegrationRegistry @cancel="registryCreateVisible = false"
+                           @createSuccess="getRegistryWhenBuild"></IntegrationRegistry>
+    </el-drawer>
     <div class="aside__inner">
       <div class="aside-bar">
         <div class="tabs__wrap tabs__wrap_vertical">
@@ -68,8 +73,14 @@
               </h4>
               <div v-if="allRegistry.length === 0"
                    class="registry-alert">
-                <el-alert title="私有镜像仓库未集成，请联系系统管理员前往系统设置-> Registry 管理  进行集成"
-                          type="warning">
+                <el-alert type="warning">
+                  <div>
+                    私有镜像仓库未集成，
+                    <el-button type="text"
+                               style="color: #E6A23C;"
+                               @click="registryCreateVisible = true">立即集成</el-button>
+                    ！
+                  </div>
                 </el-alert>
               </div>
               <el-table :data="serviceModules"
@@ -263,6 +274,7 @@ import { serviceTemplateWithConfigAPI, getSingleProjectAPI, updateEnvTemplateAPI
 import build from '../common/build.vue';
 import help from './container/help.vue';
 import addCode from '../common/add_code.vue';
+import IntegrationRegistry from '@/components/projects/common/integration_registry.vue';
 let validateKey = (rule, value, callback) => {
   if (typeof value === 'undefined' || value == '') {
     callback(new Error('请输入 Key'));
@@ -309,7 +321,8 @@ export default {
             trigger: 'blur'
           }
         ]
-      }
+      },
+      registryCreateVisible: false
     }
   },
   methods: {
@@ -445,7 +458,11 @@ export default {
         this.updateEnvTemplate(this.projectName, this.projectForm);
       }
     },
-
+    getRegistryWhenBuild() {
+      getRegistryWhenBuildAPI().then((res) => {
+        this.allRegistry = res;
+      });
+    }
   },
   created() {
     this.getProject();
@@ -454,9 +471,7 @@ export default {
       this.projectForm.vars = this.detectedEnvs;
       this.updateEnvTemplate(this.projectName, this.projectForm);
     });
-    getRegistryWhenBuildAPI().then((res) => {
-      this.allRegistry = res;
-    });
+    this.getRegistryWhenBuild()
   },
   beforeDestroy() {
     bus.$off('save-var');
@@ -511,7 +526,8 @@ export default {
   },
   components: {
     build, help,
-    'add-code': addCode
+    'add-code': addCode,
+    IntegrationRegistry
   },
 }
 </script>

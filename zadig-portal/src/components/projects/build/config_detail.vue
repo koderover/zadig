@@ -454,7 +454,7 @@
             </span>
             <div v-if="allRegistry.length === 0"
                  class="registry-alert">
-              <el-alert title="私有镜像仓库未集成，请联系系统管理员前往系统设置-> Registry 管理  进行集成"
+              <el-alert title="私有镜像仓库未集成，请前往系统设置 -> Registry 管理  进行集成。"
                         type="warning">
               </el-alert>
             </div>
