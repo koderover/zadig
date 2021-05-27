@@ -26,6 +26,7 @@ import (
 )
 
 // this is a test 5.
+// this is a test 6.
 func main() {
 	stopCh := make(chan struct{})
 
