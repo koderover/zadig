@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: result
+    version: rc-origin
+  name: result
+spec:
+  type: NodePort
+  ports:
+  - name: "result-service"
+    port: 5001
+    targetPort: 80
+  selector:
+    app: result
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: result
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: result-e2e-10x-$Namespace$.ko.coderover.cn
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: result
+          servicePort: 5001
