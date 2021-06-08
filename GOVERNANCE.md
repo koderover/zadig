@@ -50,3 +50,6 @@ The council will make a decision for the nomination. The candidate has to have d
 ## Contributors
 - [nighca](https://github.com/nighca)
 - [xen0n](https://github.com/xen0n)
+- [hoozecn](https://github.com/hoozecn)
+- [KevinWu0904](https://github.com/KevinWu0904)
+- [cpu6660](https://github.com/cpu6660)
