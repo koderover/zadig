@@ -41,10 +41,10 @@ func CreateInstall(c *gin.Context) {
 	args := new(commonmodels.Install)
 	data, err := c.GetRawData()
 	if err != nil {
-		log.Error("CreateInstall c.GetRawData() err : %v", err)
+		log.Errorf("CreateInstall c.GetRawData() err : %v", err)
 	}
 	if err = json.Unmarshal(data, args); err != nil {
-		log.Error("CreateInstall json.Unmarshal err : %v", err)
+		log.Errorf("CreateInstall json.Unmarshal err : %v", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.Username, "", "新增", "系统设置-应用设置", fmt.Sprintf("应用名称:%s,应用版本:%s", args.Name, args.Version), permission.SuperUserUUID, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
@@ -65,10 +65,10 @@ func UpdateInstall(c *gin.Context) {
 	args := new(commonmodels.Install)
 	data, err := c.GetRawData()
 	if err != nil {
-		log.Error("UpdateInstall c.GetRawData() err : %v", err)
+		log.Errorf("UpdateInstall c.GetRawData() err : %v", err)
 	}
 	if err = json.Unmarshal(data, args); err != nil {
-		log.Error("UpdateInstall json.Unmarshal err : %v", err)
+		log.Errorf("UpdateInstall json.Unmarshal err : %v", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.Username, "", "更新", "系统设置-应用设置", fmt.Sprintf("应用名称:%s,应用版本:%s", args.Name, args.Version), permission.SuperUserUUID, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
@@ -113,10 +113,10 @@ func DeleteInstall(c *gin.Context) {
 	args := new(commonmodels.Install)
 	data, err := c.GetRawData()
 	if err != nil {
-		log.Error("DeleteInstall c.GetRawData() err : %v", err)
+		log.Errorf("DeleteInstall c.GetRawData() err : %v", err)
 	}
 	if err = json.Unmarshal(data, args); err != nil {
-		log.Error("DeleteInstall json.Unmarshal err : %v", err)
+		log.Errorf("DeleteInstall json.Unmarshal err : %v", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.Username, "", "删除", "系统设置-应用设置", fmt.Sprintf("应用名称:%s,应用版本:%s", args.Name, args.Version), permission.SuperUserUUID, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))

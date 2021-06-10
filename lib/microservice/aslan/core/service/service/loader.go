@@ -537,7 +537,7 @@ func loadServiceFromGitlab(client *gitlab.Client, tree []*gitlab.TreeNode, detai
 	repoInfo := fmt.Sprintf("%s/%s", repoOwner, repoName)
 	yamlList, sha, err := extractGitlabYamls(client, tree, repoInfo, branchName)
 	if err != nil {
-		log.Error("Failed to extract yamls from gitlab, the error is: %+v", err)
+		log.Errorf("Failed to extract yamls from gitlab, the error is: %+v", err)
 		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
 	}
 	for _, yamlEntry := range yamlList {

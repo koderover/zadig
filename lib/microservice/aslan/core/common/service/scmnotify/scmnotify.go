@@ -573,7 +573,7 @@ func (s *Service) UpdateEnvAndTaskWebhookComment(workflowArgs *models.WorkflowTa
 
 		}
 	} else {
-		logger.Infof("UpdateEnvAndTaskWebhookComment status not changed of env %s %d, skip to update comment", prTaskInfo.EnvName)
+		logger.Infof("UpdateEnvAndTaskWebhookComment status not changed of env %s, skip to update comment", prTaskInfo.EnvName)
 	}
 
 	return nil

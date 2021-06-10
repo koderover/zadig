@@ -299,7 +299,7 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, log *xlo
 					return nil, e.ErrCreateTemplate.AddDesc("不允许更改加载路径")
 				}
 				if err := updateGerritWebhookByService(serviceTmpl, args); err != nil {
-					log.Info("gerrit update webhook err :%v", err)
+					log.Infof("gerrit update webhook err :%v", err)
 					return nil, err
 				}
 			}
