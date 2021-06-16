@@ -228,7 +228,7 @@ func ensureServiceAccount(namespace, username string, log *xlog.Logger) error {
 		},
 	}
 	if err := updater.CreateServiceAccount(serviceAccount, krkubeclient.Client()); err != nil {
-		log.Errorf("CreateServiceAccount err :", err)
+		log.Errorf("CreateServiceAccount err : %v", err)
 		return nil
 	}
 	return nil

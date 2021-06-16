@@ -66,10 +66,10 @@ func CreateProxy(c *gin.Context) {
 	args := new(commonmodels.Proxy)
 	data, err := c.GetRawData()
 	if err != nil {
-		log.Error("CreateProxy c.GetRawData() err : %v", err)
+		log.Errorf("CreateProxy c.GetRawData() err : %v", err)
 	}
 	if err = json.Unmarshal(data, args); err != nil {
-		log.Error("CreateProxy json.Unmarshal err : %v", err)
+		log.Errorf("CreateProxy json.Unmarshal err : %v", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.Username, "", "新增", "代理", fmt.Sprintf("server:%s:%d", args.Address, args.Port), permission.SuperUserUUID, string(data), ctx.Logger)
 

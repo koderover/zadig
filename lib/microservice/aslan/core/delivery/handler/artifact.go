@@ -88,7 +88,7 @@ func CreateDeliveryArtifacts(c *gin.Context) {
 
 	var deliveryArtifactInfo deliveryservice.DeliveryArtifactInfo
 	if err := c.ShouldBindWith(&deliveryArtifactInfo, binding.JSON); err != nil {
-		ctx.Logger.Info("ShouldBindWith err :%v", err)
+		ctx.Logger.Infof("ShouldBindWith err :%v", err)
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
@@ -114,7 +114,7 @@ func UpdateDeliveryArtifact(c *gin.Context) {
 
 	var deliveryArtifactUpdate deliveryArtifactUpdate
 	if err := c.ShouldBindWith(&deliveryArtifactUpdate, binding.JSON); err != nil {
-		ctx.Logger.Info("ShouldBindWith err :%v", err)
+		ctx.Logger.Infof("ShouldBindWith err :%v", err)
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
@@ -127,7 +127,7 @@ func CreateDeliveryActivities(c *gin.Context) {
 
 	var deliveryActivity commonmodels.DeliveryActivity
 	if err := c.ShouldBindWith(&deliveryActivity, binding.JSON); err != nil {
-		ctx.Logger.Info("ShouldBindWith err :%v", err)
+		ctx.Logger.Infof("ShouldBindWith err :%v", err)
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}

@@ -104,7 +104,7 @@ func (c *Client) Comment(notify *models.Notification) error {
 					"0",
 					notify.Revision,
 				); e != nil {
-					c.logger.Warnf("failed to set review %v %v %s %v", task, notify, e)
+					c.logger.Warnf("failed to set review %v %v %v", task, notify, e)
 				}
 
 				task.FirstCommented = true
@@ -145,7 +145,7 @@ func (c *Client) Comment(notify *models.Notification) error {
 					score,
 					notify.Revision,
 				); e != nil {
-					c.logger.Warnf("failed to set review %v %v %s %v", task, notify, e)
+					c.logger.Warnf("failed to set review %v %v %v", task, notify, e)
 				}
 			}
 		}

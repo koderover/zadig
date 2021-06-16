@@ -327,7 +327,7 @@ func (h *CronjobHandler) stopCronjob(name, ptype string) error {
 	}
 
 	for _, job := range jobList {
-		xl.Infof("stopping cronjob of ID:", job.ID)
+		xl.Infof("stopping cronjob of ID: %s", job.ID)
 		h.Scheduler.StopService(job.ID)
 	}
 
