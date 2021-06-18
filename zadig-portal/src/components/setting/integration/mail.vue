@@ -215,7 +215,7 @@
                        @click="handleMailAdd">添加</el-button>
           </div>
           <el-table :data="mailHosts"
-                    style="width: 100%">
+                    style="width: 100%;">
             <el-table-column label="主机">
               <template slot-scope="scope">
                 {{scope.row.name}}
@@ -238,7 +238,7 @@
             </el-table-column>
             <el-table-column label="操作"
                              width="160">
-              <template slot-scope="scope">
+              <template>
                 <el-button type="primary"
                            size="mini"
                            plain
@@ -253,37 +253,37 @@
      </div>
 </template>
 <script>
-import { getEmailHostAPI, deleteEmailHostAPI, createEmailHostAPI, getEmailServiceAPI, deleteEmailServiceAPI, createEmailServiceAPI } from '@api';
+import { getEmailHostAPI, deleteEmailHostAPI, createEmailHostAPI, getEmailServiceAPI, deleteEmailServiceAPI, createEmailServiceAPI } from '@api'
 export default {
-  data() {
+  data () {
     return {
       mailHosts: [],
       mailService: {},
       mailHostAdd: {
-        "name": "",
-        "port": 465,
-        "username": "",
-        "password": "",
-        "isTLS": false
+        name: '',
+        port: 465,
+        username: '',
+        password: '',
+        isTLS: false
       },
       mailHostEdit: {
-        "name": "",
-        "port": 465,
-        "username": "",
-        "password": "",
-        "isTLS": false
+        name: '',
+        port: 465,
+        username: '',
+        password: '',
+        isTLS: false
       },
       mailServiceAdd: {
-        "name": "",
-        "address": "",
-        "displayName": "",
-        "theme": ""
+        name: '',
+        address: '',
+        displayName: '',
+        theme: ''
       },
       mailServiceEdit: {
-        "name": "string",
-        "address": "string",
-        "displayName": "string",
-        "theme": "string"
+        name: 'string',
+        address: 'string',
+        displayName: 'string',
+        theme: 'string'
       },
       mailRules: {
         name: {
@@ -323,141 +323,135 @@ export default {
         }
       },
       dialogMailAddFormVisible: false,
-      dialogMailEditFormVisible: false,
-    };
+      dialogMailEditFormVisible: false
+    }
   },
   methods: {
-    clearValidate(ref) {
-      this.$refs[ref].clearValidate();
+    clearValidate (ref) {
+      this.$refs[ref].clearValidate()
     },
-    handleMailAdd() {
-      this.dialogMailAddFormVisible = true;
+    handleMailAdd () {
+      this.dialogMailAddFormVisible = true
     },
-    handleMailEdit(row) {
-      this.dialogMailEditFormVisible = true;
-      this.mailHostEdit = this.$utils.cloneObj(this.mailHosts[0]);
-      this.mailServiceEdit = this.$utils.cloneObj(this.mailService);
+    handleMailEdit (row) {
+      this.dialogMailEditFormVisible = true
+      this.mailHostEdit = this.$utils.cloneObj(this.mailHosts[0])
+      this.mailServiceEdit = this.$utils.cloneObj(this.mailService)
     },
-    handleMailCancel() {
-      this.dialogMailAddFormVisible = false;
-      this.dialogMailEditFormVisible = false;
-      this.$refs['mailHostForm'].resetFields();
-      this.$refs['mailServiceForm'].resetFields();
+    handleMailCancel () {
+      this.dialogMailAddFormVisible = false
+      this.dialogMailEditFormVisible = false
+      this.$refs.mailHostForm.resetFields()
+      this.$refs.mailServiceForm.resetFields()
     },
-    handleMailDelete() {
-      const id = this.currentOrganizationId;
-      this.$confirm(`确定要删除这个邮件配置吗？`, '确认', {
+    handleMailDelete () {
+      const id = this.currentOrganizationId
+      this.$confirm('确定要删除这个邮件配置吗？', '确认', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
       }).then(() => {
         Promise.all([deleteEmailHostAPI(id), deleteEmailServiceAPI(id)]).then(
           (res) => {
-            this.mailService = {};
-            this.mailHosts = [];
-            this.getMailHostConfig();
-            this.getMailServiceConfig();
+            this.mailService = {}
+            this.mailHosts = []
+            this.getMailHostConfig()
+            this.getMailServiceConfig()
             this.$message({
               message: '主机配置删除成功',
               type: 'success'
-            });
-          }
-        ).catch(
-          (err) => {
+            })
           }
         )
-
-      });
+      })
     },
-    getMailHostConfig() {
-      const id = this.currentOrganizationId;
+    getMailHostConfig () {
+      const id = this.currentOrganizationId
       getEmailHostAPI(id).then((res) => {
         if (!res.resultCode) {
-          this.$set(this.mailHosts, [0], res);
+          this.$set(this.mailHosts, [0], res)
         } else {
-          this.$set(this, 'mailHosts', []);
+          this.$set(this, 'mailHosts', [])
         }
       })
     },
-    getMailServiceConfig() {
-      const id = this.currentOrganizationId;
+    getMailServiceConfig () {
+      const id = this.currentOrganizationId
       getEmailServiceAPI(id).then((res) => {
-        this.mailService = res;
+        this.mailService = res
       })
     },
-    createMailConfig() {
-      const refs = [this.$refs['mailHostForm'], this.$refs['mailServiceForm']];
-      const payload1 = this.mailHostAdd;
-      const payload2 = this.mailServiceAdd;
-      const id = this.currentOrganizationId;
+    createMailConfig () {
+      const refs = [this.$refs.mailHostForm, this.$refs.mailServiceForm]
+      const payload1 = this.mailHostAdd
+      const payload2 = this.mailServiceAdd
+      const id = this.currentOrganizationId
       Promise.all(refs.map(r => r.validate())).then(() => {
         Promise.all([createEmailHostAPI(id, payload1), createEmailServiceAPI(id, payload2)]).then(
           (res) => {
-            this.getMailHostConfig();
-            this.getMailServiceConfig();
-            this.handleMailCancel();
+            this.getMailHostConfig()
+            this.getMailServiceConfig()
+            this.handleMailCancel()
             this.$message({
               message: '主机配置新增成功',
               type: 'success'
-            });
-          }
-        ).catch(
-          (err) => {
+            })
           }
         )
-      });
+      })
     },
-    updateMailConfig() {
-      const refs = [this.$refs['mailHostForm'], this.$refs['mailServiceForm']];
-      const payload1 = this.mailHostEdit;
-      const payload2 = this.mailServiceEdit;
-      const id = this.currentOrganizationId;
+    updateMailConfig () {
+      const refs = [this.$refs.mailHostForm, this.$refs.mailServiceForm]
+      const payload1 = this.mailHostEdit
+      const payload2 = this.mailServiceEdit
+      const id = this.currentOrganizationId
       Promise.all(refs.map(r => r.validate())).then(() => {
         Promise.all([createEmailHostAPI(id, payload1), createEmailServiceAPI(id, payload2)]).then(
           (res) => {
-            this.getMailHostConfig();
-            this.getMailServiceConfig();
-            this.handleMailCancel();
+            this.getMailHostConfig()
+            this.getMailServiceConfig()
+            this.handleMailCancel()
             this.$message({
               message: '主机配置修改成功',
               type: 'success'
-            });
-          }
-        ).catch(
-          (err) => {
+            })
           }
         )
-      });
+      })
     }
   },
   computed: {
-    currentOrganizationId() {
-      return this.$store.state.login.userinfo.organization.id;
+    currentOrganizationId () {
+      return this.$store.state.login.userinfo.organization.id
     }
   },
-  activated() {
-    this.getMailHostConfig();
-    this.getMailServiceConfig();
+  activated () {
+    this.getMailHostConfig()
+    this.getMailServiceConfig()
   }
 }
 </script>
 
 <style lang="less">
 .intergration-account-container {
-  flex: 1;
   position: relative;
+  flex: 1;
   overflow: auto;
   font-size: 13px;
+
   .module-title h1 {
+    margin-bottom: 1.5rem;
     font-weight: 200;
     font-size: 2rem;
-    margin-bottom: 1.5rem;
   }
+
   .breadcrumb {
     margin-bottom: 25px;
+
     .el-breadcrumb {
       font-size: 16px;
       line-height: 1.35;
+
       .el-breadcrumb__item__inner a:hover,
       .el-breadcrumb__item__inner:hover {
         color: #1989fa;
@@ -465,36 +459,42 @@ export default {
       }
     }
   }
+
   .tab-container {
     margin-top: 15px;
+
     .sync-container {
       padding-top: 15px;
       padding-bottom: 15px;
     }
   }
+
   .text-success {
     color: rgb(82, 196, 26);
   }
+
   .text-failed {
     color: #ff1949;
   }
+
   .edit-form-dialog {
     width: 550px;
+
     .el-dialog__header {
+      padding: 15px;
       text-align: center;
       border-bottom: 1px solid #e4e4e4;
-      padding: 15px;
+
       .el-dialog__close {
         font-size: 10px;
       }
     }
+
     .el-dialog__body {
-      padding-bottom: 0px;
-    }
-    .el-dialog__body {
-      padding: 0px 20px;
+      padding: 0 20px;
       color: #606266;
       font-size: 14px;
+
       .el-form-item {
         margin-bottom: 15px;
       }
@@ -503,6 +503,7 @@ export default {
     .el-select {
       width: 100%;
     }
+
     .el-input {
       display: inline-block;
     }

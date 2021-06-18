@@ -122,7 +122,7 @@
                     row-key="name"
                     :expand-row-keys="expands"
                     @expand-change="expandScale"
-                    style="width: 100%">
+                    style="width: 100%;">
             <el-table-column width="140"
                              prop="name"
                              label="名称">
@@ -153,7 +153,7 @@
                   </template>
                   <template v-else>
                     <span class="service-name">{{ item.name }}</span>
-                    <el-select v-model="item.image"
+                    <el-select v-model.trim="item.image"
                                size="medium"
                                allow-create
                                filterable
@@ -223,8 +223,14 @@
                               data-triangle-offset="5px"
                               ref="pod-row">
                         <el-col :span="12">
-                          <span class="title">实例名称：</span>
-                          <span class="content">{{ activePod[scope.$index].name }}</span>
+                          <div>
+                            <span class="title">实例名称：</span>
+                            <span class="content">{{ activePod[scope.$index].name }}</span>
+                          </div>
+                          <div>
+                            <span class="title">实例 IP：</span>
+                            <span class="content">{{ activePod[scope.$index].ip }}</span>
+                          </div>
                         </el-col>
                         <el-col :span="6">
                           <span class="title">运行时长：</span>
@@ -417,19 +423,19 @@
 </template>
 
 <script>
-import containerLog from '../service_detail/container_log.vue';
-import { restartPodAPI, restartServiceAPI, scaleServiceAPI, scaleEventAPI, podEventAPI, exportYamlAPI, imagesAPI, updateServiceImageAPI } from '@api';
-import moment from 'moment';
-import aceEditor from 'vue2-ace-bind';
-import 'brace/mode/yaml';
-import 'brace/theme/xcode';
-import 'brace/theme/tomorrow_night';
-import 'brace/ext/searchbox';
-import { getServiceInfo } from '@api';
-import bus from '@utils/event_bus';
+import containerLog from '../service_detail/container_log.vue'
+import { restartPodAPI, restartServiceAPI, scaleServiceAPI, scaleEventAPI, podEventAPI, exportYamlAPI, imagesAPI, updateServiceImageAPI, getServiceInfo } from '@api'
+import moment from 'moment'
+import aceEditor from 'vue2-ace-bind'
+import 'brace/mode/yaml'
+import 'brace/theme/xcode'
+import 'brace/theme/tomorrow_night'
+import 'brace/ext/searchbox'
+
+import bus from '@utils/event_bus'
 import { fullScreen } from '@/utilities/full_screen'
 export default {
-  data() {
+  data () {
     return {
       fullScreen,
       currentService: {
@@ -479,20 +485,19 @@ export default {
         unstable: 'red',
         unknown: 'purple',
         terminating: 'gray'
-      },
-    };
+      }
+    }
   },
 
   computed: {
-    allHosts() {
+    allHosts () {
       if (this.currentService.ingress) {
-        return this.currentService.ingress.reduce((carry, ing) => carry.concat(ing.host_info), []);
-      }
-      else {
+        return this.currentService.ingress.reduce((carry, ing) => carry.concat(ing.host_info), [])
+      } else {
         return []
       }
     },
-    allEndpoints() {
+    allEndpoints () {
       if (this.currentService.service_endpoints) {
         return this.currentService.service_endpoints.reduce(
           (carry, point) => {
@@ -500,288 +505,286 @@ export default {
               return carry.concat(point.endpoints
               )
             }
+            return carry
           }, []
-        );
+        )
+      } else {
+        return []
       }
-      else {
-        return [];
-      }
     },
-    projectName() {
-      return (this.$route.params.project_name ? this.$route.params.project_name : this.$route.query.projectName);
+    projectName () {
+      return (this.$route.params.project_name ? this.$route.params.project_name : this.$route.query.projectName)
     },
-    originProjectName() {
-      return (this.$route.query.originProjectName ? this.$route.query.originProjectName : this.projectName);
+    originProjectName () {
+      return (this.$route.query.originProjectName ? this.$route.query.originProjectName : this.projectName)
     },
-    serviceName() {
-      return this.$route.params.service_name;
+    serviceName () {
+      return this.$route.params.service_name
     },
-    envName() {
-      return this.$route.query.envName;
+    envName () {
+      return this.$route.query.envName
     },
-    envSource() {
-      return this.$route.query.envSource || '';
+    envSource () {
+      return this.$route.query.envSource || ''
     },
-    notSupportYaml() {
+    notSupportYaml () {
       return '没有找到数据'
     },
-    namespace() {
-      return this.$route.query.namespace;
+    namespace () {
+      return this.$route.query.namespace
     }
   },
 
   methods: {
-    copyCommandSuccess(event) {
+    copyCommandSuccess (event) {
       this.$message({
         message: '地址已成功复制到剪贴板',
         type: 'success'
-      });
+      })
     },
-    copyCommandError(event) {
+    copyCommandError (event) {
       this.$message({
         message: '地址复制失败',
         type: 'error'
-      });
+      })
     },
-    splitImg(img) {
+    splitImg (img) {
       if (img) {
         if (img.includes('/')) {
-          const length = img.split('/').length;
-          return img.split('/')[length - 1];
-        }
-        else {
-          return img;
+          const length = img.split('/').length
+          return img.split('/')[length - 1]
+        } else {
+          return img
         }
       }
     },
-    fetchServiceData() {
-      const projectName = this.projectName;
-      const serviceName = this.serviceName;
-      const envName = this.envName ? this.envName : '';
-      const envType = '';
+    fetchServiceData () {
+      const projectName = this.projectName
+      const serviceName = this.serviceName
+      const envName = this.envName ? this.envName : ''
+      const envType = ''
       getServiceInfo(projectName, serviceName, envName, envType).then((res) => {
         if (res.scales) {
           if (res.scales.length > 0 && res.scales[0].pods.length > 0) {
-            this.expands = [res.scales[0].name];
-            this.$set(this.activePod, 0, res.scales[0].pods[0]);
+            this.expands = [res.scales[0].name]
+            this.$set(this.activePod, 0, res.scales[0].pods[0])
           }
           res.scales.forEach(scale => {
             scale.pods.forEach(pod => {
-              pod.status = pod.status.toLowerCase();
-              pod.__color = this.statusColorMap[pod.status];
+              pod.status = pod.status.toLowerCase()
+              pod.__color = this.statusColorMap[pod.status]
               pod.canOperate = !(pod.status in {
                 pending: 1,
                 terminating: 1
-              });
+              })
               pod.containers.forEach(con => {
-                con.edit = false;
-                con.image2Apply = con.image;
-                con.imageShort = con.image.split('/').pop();
-                con.status = con.status.toLowerCase();
-                con.__color = this.statusColorMap[con.status];
+                con.edit = false
+                con.image2Apply = con.image
+                con.imageShort = con.image.split('/').pop()
+                con.status = con.status.toLowerCase()
+                con.__color = this.statusColorMap[con.status]
                 con.startedAtReadable = con.started_at
                   ? moment(con.started_at, 'X').format('YYYY-MM-DD HH:mm:ss')
-                  : '';
-              });
-            });
-          });
+                  : ''
+              })
+            })
+          })
+        } else {
+          res.scales = []
         }
-        else {
-          res.scales = [];
-        }
-        this.currentService = res;
-      });
+        this.currentService = res
+      })
     },
-    expandScale(row, rows) {
-      const rowIndex = this.currentService.scales.indexOf(row);
-      const pods = row.pods;
+    expandScale (row, rows) {
+      const rowIndex = this.currentService.scales.indexOf(row)
+      const pods = row.pods
       if (pods.length > 0) {
-        this.$set(this.activePod, rowIndex, pods[0]);
+        this.$set(this.activePod, rowIndex, pods[0])
       }
     },
-    getImages(containerName) {
-      const containerNames = [containerName];
+    getImages (containerName) {
+      const containerNames = [containerName]
       imagesAPI(containerNames).then(res => {
-        this.$set(this.imgBucket, containerName, res);
-      });
+        this.$set(this.imgBucket, containerName, res)
+      })
     },
-    showEditImage(item) {
-      this.$set(item, 'edit', true);
-      this.getImages(item.name);
+    showEditImage (item) {
+      this.$set(item, 'edit', true)
+      this.getImages(item.name)
     },
-    cancelEditImage(item) {
-      this.$set(item, 'edit', false);
+    cancelEditImage (item) {
+      this.$set(item, 'edit', false)
     },
-    saveImage(item, scaleName, typeUppercase) {
-      const envType = '';
-      const type = typeUppercase.toLowerCase();
-      item.edit = false;
+    saveImage (item, scaleName, typeUppercase) {
+      const envType = ''
+      const type = typeUppercase.toLowerCase()
+      item.edit = false
       this.$message({
         message: '正在更新镜像',
         duration: 3500
-      });
-      let payload = {
+      })
+      const payload = {
         product_name: this.projectName,
         service_name: this.serviceName,
         container_name: item.name,
         name: scaleName,
         image: item.image
-      };
+      }
       if (this.envName) {
-        payload.env_name = this.envName;
+        payload.env_name = this.envName
       }
       updateServiceImageAPI(payload, type, envType).then((res) => {
-        this.fetchServiceData();
+        this.fetchServiceData()
         this.$message({
           message: '镜像更新成功',
           type: 'success'
-        });
+        })
       })
     },
-    restartService(scaleName, type) {
-      const projectName = this.projectName;
-      const serviceName = this.serviceName;
-      const envName = this.envName ? this.envName : '';
-      const envType = '';
+    restartService (scaleName, type) {
+      const projectName = this.projectName
+      const serviceName = this.serviceName
+      const envName = this.envName ? this.envName : ''
+      const envType = ''
       restartServiceAPI(projectName, serviceName, envName, scaleName, type, envType).then((res) => {
-        this.fetchServiceData();
+        this.fetchServiceData()
         this.$message({
           message: '重启实例成功',
           type: 'success'
-        });
+        })
       })
     },
-    scaleService(scaleName, type, scaleNumber) {
-      const projectName = this.projectName;
-      const serviceName = this.serviceName;
-      const envName = this.envName ? this.envName : '';
-      const envType = '';
+    scaleService (scaleName, type, scaleNumber) {
+      const projectName = this.projectName
+      const serviceName = this.serviceName
+      const envName = this.envName ? this.envName : ''
+      const envType = ''
       scaleServiceAPI(projectName, serviceName, envName, scaleName, scaleNumber, type, envType).then((res) => {
-        this.fetchServiceData();
+        this.fetchServiceData()
         this.$message({
           message: '伸缩服务成功',
           type: 'success'
-        });
+        })
       })
     },
-    selectPod(target, index) {
-      this.activePod[index] = target;
+    selectPod (target, index) {
+      this.activePod[index] = target
       // https://stackoverflow.com/questions/5041494
-      const sheet = document.styleSheets[0];
-      const len = sheet.cssRules.length;
+      // https://betterprogramming.pub/how-to-fix-the-failed-to-read-the-cssrules-property-from-cssstylesheet-error-431d84e4a139
+      const sheet = Array.from(document.styleSheets).filter((styleSheet) => !styleSheet.href || styleSheet.href.startsWith(window.location.origin))[0]
+      const len = sheet.cssRules.length
       sheet.insertRule(`.service-details-container .pod-info .indicator-${target.name}::before
-          { left: ${this.$refs[target.name][0].offsetLeft + 4}px!important; }`, len);
+          { left: ${this.$refs[target.name][0].offsetLeft + 4}px!important; }`, len)
       sheet.insertRule(`.service-details-container .pod-info
-          { top: ${this.$refs[target.name][0].offsetTop + 30}px!important; }`, len + 1);
-
+          { top: ${this.$refs[target.name][0].offsetTop + 30}px!important; }`, len + 1)
     },
-    restartPod(pod) {
-      const ownerQuery = this.envName ? `&envName=${this.envName}` : '';
-      const projectName = `${this.projectName}${ownerQuery}`;
-      const podName = pod.name;
-      const envType = '';
+    restartPod (pod) {
+      const ownerQuery = this.envName ? `&envName=${this.envName}` : ''
+      const projectName = `${this.projectName}${ownerQuery}`
+      const podName = pod.name
+      const envType = ''
       restartPodAPI(podName, projectName, envType).then((res) => {
-        this.fetchServiceData();
+        this.fetchServiceData()
         this.$message({
           message: '重启成功',
           type: 'success'
-        });
+        })
       })
     },
-    showContainerLog(pod_name, container_name) {
-      this.logModal.visible = true;
-      this.logModal.podName = pod_name;
-      this.logModal.containerName = container_name;
+    showContainerLog (pod_name, container_name) {
+      this.logModal.visible = true
+      this.logModal.podName = pod_name
+      this.logModal.containerName = container_name
     },
-    showContainerExec(pod_name, container_name) {
-      this.execModal.visible = true;
-      this.execModal.podName = pod_name;
-      this.execModal.containerName = container_name;
+    showContainerExec (pod_name, container_name) {
+      this.execModal.visible = true
+      this.execModal.podName = pod_name
+      this.execModal.containerName = container_name
     },
-    showExport() {
-      const projectName = this.projectName;
-      const serviceName = this.serviceName;
-      const envName = this.envName ? this.envName : '';
-      const envType = '';
-      this.exportModal.visible = true;
-      this.exportModal.textObjects = [];
-      this.exportModal.loading = true;
+    showExport () {
+      const projectName = this.projectName
+      const serviceName = this.serviceName
+      const envName = this.envName ? this.envName : ''
+      const envType = ''
+      this.exportModal.visible = true
+      this.exportModal.textObjects = []
+      this.exportModal.loading = true
       exportYamlAPI(projectName, serviceName, envName, envType).then((res) => {
         this.exportModal.textObjects = res.map(txt => ({
           originalText: txt,
           readableText: txt.replace(/\\n/g, '\n').replace(/\\t/g, '\t'),
           expanded: true,
           editor: null
-        }));
-        this.exportModal.loading = false;
+        }))
+        this.exportModal.loading = false
       })
     },
-    editorInit(e, obj) {
-      obj.editor = e;
+    editorInit (e, obj) {
+      obj.editor = e
     },
-    copyYAML(obj, i) {
-      const e = obj.editor;
-      e.setValue(obj.originalText);
-      e.focus();
-      e.selectAll();
+    copyYAML (obj, i) {
+      const e = obj.editor
+      e.setValue(obj.originalText)
+      e.focus()
+      e.selectAll()
       if (document.execCommand('copy')) {
-        this.$message.success('复制成功');
+        this.$message.success('复制成功')
       } else {
-        this.$message.error('复制失败');
+        this.$message.error('复制失败')
       }
-      e.setValue(obj.readableText);
+      e.setValue(obj.readableText)
     },
-    toggleYAML(obj) {
-      obj.expanded = !obj.expanded;
+    toggleYAML (obj) {
+      obj.expanded = !obj.expanded
     },
-    copyAllYAML() {
-      const textArea = document.createElement('textarea');
+    copyAllYAML () {
+      const textArea = document.createElement('textarea')
       textArea.value = this.exportModal.textObjects
         .map(obj => obj.originalText)
-        .join('\n\n---\n\n');
-      document.body.appendChild(textArea);
-      textArea.focus();
-      textArea.select();
+        .join('\n\n---\n\n')
+      document.body.appendChild(textArea)
+      textArea.focus()
+      textArea.select()
 
       if (document.execCommand('copy')) {
-        this.$message.success('复制成功');
+        this.$message.success('复制成功')
       } else {
-        this.$message.error('复制失败');
+        this.$message.error('复制失败')
       }
-      document.body.removeChild(textArea);
+      document.body.removeChild(textArea)
     },
-    showPodEvents(pod) {
-      const projectName = this.projectName;
-      const podName = pod.name;
-      const envName = this.envName ? this.envName : '';
-      const envType = '';
-      this.eventsModal.visible = true;
+    showPodEvents (pod) {
+      const projectName = this.projectName
+      const podName = pod.name
+      const envName = this.envName ? this.envName : ''
+      const envType = ''
+      this.eventsModal.visible = true
       podEventAPI(projectName, podName, envName, envType).then((res) => {
         this.eventsModal.data = res.map(row => {
-          row.firstSeenReadable = moment(row.first_seen, 'X').format('YYYY-MM-DD HH:mm');
-          row.lastSeenReadable = moment(row.last_seen, 'X').format('YYYY-MM-DD HH:mm');
-          return row;
-        });
+          row.firstSeenReadable = moment(row.first_seen, 'X').format('YYYY-MM-DD HH:mm')
+          row.lastSeenReadable = moment(row.last_seen, 'X').format('YYYY-MM-DD HH:mm')
+          return row
+        })
       })
     },
-    showScaleEvents(scaleName, type) {
-      const projectName = this.projectName;
-      const envName = this.envName ? this.envName : '';
-      const envType = '';
-      this.eventsModal.visible = true;
-      this.eventsModal.name = scaleName;
+    showScaleEvents (scaleName, type) {
+      const projectName = this.projectName
+      const envName = this.envName ? this.envName : ''
+      const envType = ''
+      this.eventsModal.visible = true
+      this.eventsModal.name = scaleName
       scaleEventAPI(projectName, scaleName, envName, type, envType).then((res) => {
         this.eventsModal.data = res.map(row => {
-          row.firstSeenReadable = moment(row.first_seen, 'X').format('YYYY-MM-DD HH:mm');
-          row.lastSeenReadable = moment(row.last_seen, 'X').format('YYYY-MM-DD HH:mm');
-          return row;
-        });
+          row.firstSeenReadable = moment(row.first_seen, 'X').format('YYYY-MM-DD HH:mm')
+          row.lastSeenReadable = moment(row.last_seen, 'X').format('YYYY-MM-DD HH:mm')
+          return row
+        })
       })
     }
   },
-  created() {
-    this.fetchServiceData();
-    bus.$emit(`set-topbar-title`,
+  created () {
+    this.fetchServiceData()
+    bus.$emit('set-topbar-title',
       {
         title: '',
         breadcrumb: [
@@ -789,29 +792,27 @@ export default {
           { title: this.projectName, url: `/v1/projects/detail/${this.projectName}` },
           { title: '集成环境', url: `/v1/projects/detail/${this.projectName}/envs/detail` },
           { title: this.envName, url: `/v1/projects/detail/${this.projectName}/envs/detail?envName=${this.envName}` },
-          { title: this.serviceName, url: `` }
+          { title: this.serviceName, url: '' }
         ]
-      });
+      })
   },
-  destroyed() { },
   components: {
     containerLog,
     editor: aceEditor
   }
-};
-
-function myScroll(container, toElem) {
-  container.scrollTop = toElem.offsetTop;
 }
 </script>
 
 <style lang="less" scoped>
+@import "~@assets/css/component/service-detail.less";
+
 .screen {
   float: right;
   margin-right: 30px;
   color: #909399;
-  cursor: pointer;
   font-size: 20px;
+  cursor: pointer;
+
   &:hover {
     color: #409eff;
   }
@@ -821,5 +822,4 @@ function myScroll(container, toElem) {
   top: 18px;
   font-size: 20px;
 }
-@import "~@assets/css/component/service-detail.less";
 </style>

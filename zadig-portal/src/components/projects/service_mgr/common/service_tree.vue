@@ -54,7 +54,7 @@
                         :rules="{required: true, message: '平台不能为空', trigger: 'change'}">
             <el-select v-model="source.codehostId"
                        size="small"
-                       style="width:100%"
+                       style="width: 100%;"
                        placeholder="请选择托管平台"
                        @change="getRepoOwnerById(source.codehostId)"
                        filterable>
@@ -68,9 +68,9 @@
           <el-form-item label="代码库拥有者"
                         prop="repoOwner"
                         :rules="{required: true, message: '代码库拥有者不能为空', trigger: 'change'}">
-            <el-select v-model="source.repoOwner"
+            <el-select v-model.trim="source.repoOwner"
                        size="small"
-                       style="width:100%"
+                       style="width: 100%;"
                        @change="getRepoNameById(source.codehostId,source.repoOwner)"
                        @clear="clearRepoOwner"
                        remote
@@ -93,11 +93,11 @@
                           :rules="{required: true, message: '名称不能为空', trigger: 'change'}">
               <el-select @change="getBranchInfoById(source.codehostId,source.repoOwner,source.repoName)"
                          @clear="clearRepoName"
-                         v-model="source.repoName"
+                         v-model.trim="source.repoName"
                          remote
                          :remote-method="searchRepoName"
                          :loading="searchRepoNameLoading"
-                         style="width:100%"
+                         style="width: 100%;"
                          allow-create
                          clearable
                          size="small"
@@ -113,9 +113,9 @@
             <el-form-item label="分支"
                           prop="branchName"
                           :rules="{required: true, message: '分支不能为空', trigger: 'change'}">
-              <el-select v-model="source.branchName"
+              <el-select v-model.trim="source.branchName"
                          placeholder="请选择"
-                         style="width:100%"
+                         style="width: 100%;"
                          size="small"
                          filterable
                          allow-create
@@ -191,7 +191,7 @@
         </el-col>
         <el-col :span="14"
                 class="text-right">
-          <div style="line-height:32px">
+          <div style="line-height: 32px;">
             <el-tooltip effect="dark"
                         content="创建服务"
                         placement="top">
@@ -399,21 +399,21 @@
 </template>
 
 <script>
-import gitfileTree from '@/components/common/gitfile_tree.vue';
-import { deleteServiceTemplateAPI, autoUpgradeEnvAPI, getSingleProjectAPI, updateEnvTemplateAPI, getCodeSourceAPI, getRepoOwnerByIdAPI, getRepoNameByIdAPI, getBranchInfoByIdAPI, loadRepoServiceAPI, validPreloadService, getCodeSourceByAdminAPI } from '@api';
-import { differenceBy } from 'lodash';
-import { mapGetters } from 'vuex';
-let validateServiceName = (rule, value, callback) => {
+import gitfileTree from '@/components/common/gitfile_tree.vue'
+import { deleteServiceTemplateAPI, autoUpgradeEnvAPI, getSingleProjectAPI, updateEnvTemplateAPI, getCodeSourceAPI, getRepoOwnerByIdAPI, getRepoNameByIdAPI, getBranchInfoByIdAPI, loadRepoServiceAPI, validPreloadService, getCodeSourceByAdminAPI } from '@api'
+import { differenceBy } from 'lodash'
+import { mapGetters } from 'vuex'
+const validateServiceName = (rule, value, callback) => {
   if (value === '') {
-    callback(new Error('请输入服务名称'));
+    callback(new Error('请输入服务名称'))
   } else {
     if (!/^[a-z0-9-]+$/.test(value)) {
-      callback(new Error('名称只支持小写字母和数字，特殊字符只支持中划线'));
+      callback(new Error('名称只支持小写字母和数字，特殊字符只支持中划线'))
     } else {
-      callback();
+      callback()
     }
   }
-};
+}
 export default {
   props: {
     services: {
@@ -436,7 +436,7 @@ export default {
     },
     basePath: {
       type: String,
-      required: true,
+      required: true
     },
     guideMode: {
       type: Boolean,
@@ -444,7 +444,7 @@ export default {
       required: false
     }
   },
-  data() {
+  data () {
     return {
       mode: 'edit',
       service: {
@@ -491,7 +491,7 @@ export default {
           type: 'url',
           message: '请输入正确的 URL，包含协议',
           trigger: ['blur', 'change']
-        }],
+        }]
       },
       serviceRules: {
         newServiceName: [
@@ -508,171 +508,167 @@ export default {
   },
 
   methods: {
-    setHovered(name) {
+    setHovered (name) {
       this.$nextTick(() => {
-        this.$set(this.showHover, name, true);
-      });
+        this.$set(this.showHover, name, true)
+      })
     },
-    unsetHovered(name) {
+    unsetHovered (name) {
       this.$nextTick(() => {
-        this.$set(this.showHover, name, false);
-      });
+        this.$set(this.showHover, name, false)
+      })
     },
-    addSharedService(node, data) {
-      let services = [];
-      let payload = this.$utils.cloneObj(this.projectInfo);
-      const projectName = this.projectName;
+    addSharedService (node, data) {
+      const services = []
+      const payload = this.$utils.cloneObj(this.projectInfo)
+      const projectName = this.projectName
       this.serviceGroup.forEach((order, orderIndex) => {
         if (order.children.length > 0) {
           const serviceStringArray = order.children.map(service => {
-            return service.label;
-          });
-          services.push(serviceStringArray);
+            return service.label
+          })
+          services.push(serviceStringArray)
         };
-      });
-      services.push([data.service_name]);
-      payload.services = services;
+      })
+      services.push([data.service_name])
+      payload.services = services
       updateEnvTemplateAPI(projectName, payload).then((res) => {
-        this.$message.success('添加共享服务成功');
-        this.getServiceGroup();
-        this.$emit('onRefreshService');
-        this.$emit('onRefreshSharedService');
-        this.$emit('update:showNext', true);
-      });
+        this.$message.success('添加共享服务成功')
+        this.getServiceGroup()
+        this.$emit('onRefreshService')
+        this.$emit('onRefreshSharedService')
+        this.$emit('update:showNext', true)
+      })
     },
-    deleteSharedService(node, data) {
-      let deleteText = '';
-      let title = '确认';
-      let services = [];
-      let payload = this.$utils.cloneObj(this.projectInfo);
+    deleteSharedService (node, data) {
+      let deleteText = ''
+      const title = '确认'
+      const services = []
+      const payload = this.$utils.cloneObj(this.projectInfo)
       if (data.type === 'k8s') {
-        deleteText = `确定要移除 ${data.service_name} 这个共享服务吗？`;
+        deleteText = `确定要移除 ${data.service_name} 这个共享服务吗？`
       }
       this.$confirm(`${deleteText}`, `${title}`, {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
       }).then(() => {
-        const projectName = this.projectName;
+        const projectName = this.projectName
         this.serviceGroup.forEach((order, orderIndex) => {
           if (order.children.length > 0) {
             const filterArray = order.children.filter(service => {
-              return service.label !== data.service_name;
-            });
+              return service.label !== data.service_name
+            })
             const serviceStringArray = filterArray.map(service => {
-              return service.label;
-            });
-            services.push(serviceStringArray);
+              return service.label
+            })
+            services.push(serviceStringArray)
           };
-        });
-        payload.services = services;
+        })
+        payload.services = services
         updateEnvTemplateAPI(projectName, payload).then((res) => {
-          this.getServiceGroup();
-          this.$emit('onRefreshSharedService');
-          this.$emit('onRefreshService');
-          this.$emit('update:showNext', true);
-          this.$message.success('共享服务移除成功');
+          this.getServiceGroup()
+          this.$emit('onRefreshSharedService')
+          this.$emit('onRefreshService')
+          this.$emit('update:showNext', true)
+          this.$message.success('共享服务移除成功')
           if (!this.guideMode) {
-            this.updateEnvDialogVisible = true;
+            this.updateEnvDialogVisible = true
           };
-        });
-      });
+        })
+      })
     },
-    async getProducts() {
-      await this.$store.dispatch('getProductListSSE').closeWhenDestroy(this);
+    async getProducts () {
+      await this.$store.dispatch('getProductListSSE').closeWhenDestroy(this)
     },
-    getServiceGroup() {
-      this.serviceGroup = [];
-      const projectName = this.projectName;
+    getServiceGroup () {
+      this.serviceGroup = []
+      const projectName = this.projectName
       getSingleProjectAPI(projectName).then((res) => {
-        res.services.push([]);
+        res.services.push([])
         res.services.forEach((order, orderIndex) => {
           this.serviceGroup.push({
             label: `启动顺序 ${orderIndex}`,
             id: orderIndex,
             children: []
-          });
+          })
           order.forEach((service, serviceIndex) => {
             this.serviceGroup[orderIndex].children.push({
               label: service,
               id: `${orderIndex}-${serviceIndex}`,
               children: []
             })
-          });
-        });
-
-      });
+          })
+        })
+      })
     },
-    openFileTree() {
+    openFileTree () {
       if (this.showSelectFileBtn) {
-        this.workSpaceModalVisible = true;
+        this.workSpaceModalVisible = true
       }
     },
-    getPreloadServices(val) {
-      this.source.path = val.path;
-      this.source.isDir = val.isDir;
-      this.source.services = val.services;
-      this.workSpaceModalVisible = false;
-      const codehostId = this.source.codehostId;
-      const repoOwner = this.source.repoOwner;
-      const repoName = this.source.repoName;
-      const branchName = this.source.branchName;
-      const remoteName = this.source.remoteName;
-      const serviceName = this.source.serviceName;
-      const path = val.path;
-      const isDir = this.source.isDir;
+    getPreloadServices (val) {
+      this.source.path = val.path
+      this.source.isDir = val.isDir
+      this.source.services = val.services
+      this.workSpaceModalVisible = false
+      const codehostId = this.source.codehostId
+      const repoOwner = this.source.repoOwner
+      const repoName = this.source.repoName
+      const branchName = this.source.branchName
+      const remoteName = this.source.remoteName
+      const serviceName = this.source.serviceName
+      const path = val.path
+      const isDir = this.source.isDir
       if (serviceName) {
         validPreloadService(codehostId, repoOwner, repoName, branchName, path, serviceName, isDir, remoteName).then((res) => {
-          this.disabledReload = false;
-        }, (err) => {
-          this.disabledReload = true;
-        });
+          this.disabledReload = false
+        }, () => {
+          this.disabledReload = true
+        })
       }
-
     },
-    loadRepoService() {
-      const codehostId = this.source.codehostId;
-      const repoOwner = this.source.repoOwner;
-      const repoName = this.source.repoName;
-      const branchName = this.source.branchName;
-      const remoteName = this.source.remoteName;
-      const path = this.source.path;
-      const isDir = this.source.isDir;
+    loadRepoService () {
+      const codehostId = this.source.codehostId
+      const repoOwner = this.source.repoOwner
+      const repoName = this.source.repoName
+      const branchName = this.source.branchName
+      const remoteName = this.source.remoteName
+      const path = this.source.path
+      const isDir = this.source.isDir
       const payload = {
         product_name: this.projectName,
         visibility: 'private',
         is_dir: isDir,
         type: 'k8s',
         path: path
-      };
-      this.$refs['sourceForm'].validate((valid) => {
+      }
+      this.$refs.sourceForm.validate((valid) => {
         if (valid) {
-          this.importLoading = true;
+          this.importLoading = true
           loadRepoServiceAPI(codehostId, repoOwner, repoName, branchName, remoteName, payload).then((res) => {
-            this.$emit('onRefreshService');
-            this.$emit('onRefreshSharedService');
-            this.$emit('update:showNext', true);
-            this.getServiceGroup();
-            this.importLoading = false;
-            this.dialogImportFileVisible = false;
+            this.$emit('onRefreshService')
+            this.$emit('onRefreshSharedService')
+            this.$emit('update:showNext', true)
+            this.getServiceGroup()
+            this.importLoading = false
+            this.dialogImportFileVisible = false
             this.$message({
               message: '服务导入成功',
               type: 'success'
-            });
+            })
             if (this.source.services && this.source.services.length > 0) {
-              const firstServiceName = this.source.services[0];
-              this.setServiceSelected(firstServiceName);
-              this.$router.replace({ query: { service_name: firstServiceName, rightbar: 'help' } });
+              const firstServiceName = this.source.services[0]
+              this.setServiceSelected(firstServiceName)
+              this.$router.replace({ query: { service_name: firstServiceName, rightbar: 'help' } })
             }
-
           })
         } else {
-          return false;
+          return false
         }
-      });
-
+      })
     },
-    closeSelectRepo() {
+    closeSelectRepo () {
       this.source = {
         codehostId: null,
         repoOwner: '',
@@ -680,79 +676,75 @@ export default {
         branchName: '',
         remoteName: '',
         gitType: ''
-      };
-      this.showSelectPath = true;
-      this.$refs['sourceForm'].resetFields();
+      }
+      this.showSelectPath = true
+      this.$refs.sourceForm.resetFields()
     },
-    startDrag() {
-      this.showDragContainer = true;
+    startDrag () {
+      this.showDragContainer = true
     },
-    endDrag() {
-      this.showDragContainer = false;
+    endDrag () {
+      this.showDragContainer = false
     },
-    allowDrag(draggingNode) {
-      return !draggingNode.data.label.includes('启动顺序');
+    allowDrag (draggingNode) {
+      return !draggingNode.data.label.includes('启动顺序')
     },
-    allowDrop(draggingNode, dropNode, type) {
+    allowDrop (draggingNode, dropNode, type) {
       if (dropNode.data.label.includes('启动顺序') && type === 'inner') {
-        return true;
+        return true
       } else if (!dropNode.data.label.includes('启动顺序') && type !== 'inner') {
-        return true;
-      }
-      else if (dropNode.data.label.includes('启动顺序') && type === 'prev') {
-        return false;
+        return true
+      } else if (dropNode.data.label.includes('启动顺序') && type === 'prev') {
+        return false
       }
     },
-    handleDrop(draggingNode, dropNode, dropType, ev) {
-      let services = [];
-      let payload = this.$utils.cloneObj(this.projectInfo);
-      const projectName = this.projectName;
+    handleDrop (draggingNode, dropNode, dropType, ev) {
+      const services = []
+      const payload = this.$utils.cloneObj(this.projectInfo)
+      const projectName = this.projectName
       this.serviceGroup.forEach((order, orderIndex) => {
         if (order.children.length > 0) {
           const serviceStringArray = order.children.map(service => {
-            return service.label;
-          });
-          services.push(serviceStringArray);
+            return service.label
+          })
+          services.push(serviceStringArray)
         };
-      });
-      payload.services = services;
-      updateEnvTemplateAPI(projectName, payload).then((res) => {
-      });
+      })
+      payload.services = services
+      updateEnvTemplateAPI(projectName, payload)
     },
-    async createService(cmd) {
-      const res = await getCodeSourceByAdminAPI(1);
+    async createService (cmd) {
+      const res = await getCodeSourceByAdminAPI(1)
       if (cmd && this.deployType === 'k8s') {
         if (cmd === 'platform') {
-          this.showNewServiceInput = true;
-          this.mode = 'edit';
+          this.showNewServiceInput = true
+          this.mode = 'edit'
           this.$nextTick(() => {
-            this.$refs.serviceNamedRef.focus();
-          });
-        }
-        else if (cmd === 'repo') {
+            this.$refs.serviceNamedRef.focus()
+          })
+        } else if (cmd === 'repo') {
           if (res && res.length > 0) {
-            this.dialogImportFileVisible = true;
-            this.showNewServiceInput = false;
-            this.mode = 'edit';
-            this.showSelectPath = true;
-            this.disabledReload = false;
+            this.dialogImportFileVisible = true
+            this.showNewServiceInput = false
+            this.mode = 'edit'
+            this.showSelectPath = true
+            this.disabledReload = false
             getCodeSourceAPI().then((res) => {
               this.allCodeHosts = res.filter(element => {
-                return element;
-              });
-            });
+                return element
+              })
+            })
           } else {
-            this.$emit('onAddCodeSource', true);
+            this.$emit('onAddCodeSource', true)
           }
         }
       }
-
     },
-    inputServiceNameDoneWhenBlur() {
-      this.$refs['newServiceNameForm'].validate((valid) => {
+    inputServiceNameDoneWhenBlur () {
+      this.$refs.newServiceNameForm.validate((valid) => {
         if (valid) {
-          const val = this.service.newServiceName;
-          const node = this.$refs.serviceTree.getNode(val);
+          const val = this.service.newServiceName
+          const node = this.$refs.serviceTree.getNode(val)
           if (!node) {
             const data = {
               label: val,
@@ -760,23 +752,23 @@ export default {
               service_name: val,
               type: this.deployType ? this.deployType : 'k8s',
               visibility: 'private'
-            };
-            this.services.push(data);
-            this.setServiceSelected(data.service_name);
-            this.$router.replace({ query: { service_name: data.service_name, rightbar: 'help' } });
-            this.$emit('onSelectServiceChange', data);
-            this.showNewServiceInput = false;
-            this.service.newServiceName = '';
+            }
+            this.services.push(data)
+            this.setServiceSelected(data.service_name)
+            this.$router.replace({ query: { service_name: data.service_name, rightbar: 'help' } })
+            this.$emit('onSelectServiceChange', data)
+            this.showNewServiceInput = false
+            this.service.newServiceName = ''
           }
         }
-      });
+      })
     },
-    inputServiceNameDoneWhenEnter() {
-      this.$refs['newServiceNameForm'].validate((valid) => {
+    inputServiceNameDoneWhenEnter () {
+      this.$refs.newServiceNameForm.validate((valid) => {
         if (valid) {
-          const val = this.service.newServiceName;
-          const node = this.$refs.serviceTree.getNode(val);
-          let data = null;
+          const val = this.service.newServiceName
+          const node = this.$refs.serviceTree.getNode(val)
+          let data = null
           if (!node) {
             data = {
               label: val,
@@ -784,188 +776,184 @@ export default {
               service_name: val,
               type: this.deployType ? this.deployType : 'k8s',
               visibility: 'private'
-            };
-          }
-          else {
+            }
+          } else {
             data = {
               label: 'untitled',
               status: 'named',
               service_name: 'untitled',
               type: this.deployType ? this.deployType : 'k8s',
               visibility: 'private'
-            };
+            }
           }
           if (!node) {
-            this.services.push(data);
+            this.services.push(data)
           }
-          this.setServiceSelected(data.service_name);
-          this.$router.replace({ query: { service_name: data.service_name, rightbar: 'help' } });
-          this.$emit('onSelectServiceChange', data);
-          this.showNewServiceInput = false;
-          this.service.newServiceName = '';
+          this.setServiceSelected(data.service_name)
+          this.$router.replace({ query: { service_name: data.service_name, rightbar: 'help' } })
+          this.$emit('onSelectServiceChange', data)
+          this.showNewServiceInput = false
+          this.service.newServiceName = ''
         }
-      });
+      })
     },
-    reEditServiceName(node, data) {
-      const service = this.$utils.cloneObj(data);
+    reEditServiceName (node, data) {
+      const service = this.$utils.cloneObj(data)
       this.$nextTick(() => {
-        this.$refs.serviceTree.remove(node);
-      });
-      const index = this.filteredServices.findIndex(d => d.service_name === service.service_name);
-      this.services.splice(index, 1);
-      this.showNewServiceInput = true;
-      this.service.newServiceName = service.service_name;
+        this.$refs.serviceTree.remove(node)
+      })
+      const index = this.filteredServices.findIndex(d => d.service_name === service.service_name)
+      this.services.splice(index, 1)
+      this.showNewServiceInput = true
+      this.service.newServiceName = service.service_name
       this.$nextTick(() => {
-        this.$refs.serviceNamedRef.focus();
-      });
+        this.$refs.serviceNamedRef.focus()
+      })
     },
-    getInitRepoInfo(source) {
-      const codehostId = source.codehostId;
-      const repoOwner = source.repoOwner;
-      const repoName = source.repoName;
+    getInitRepoInfo (source) {
+      const codehostId = source.codehostId
+      const repoOwner = source.repoOwner
+      const repoName = source.repoName
       this.$set(this, 'codeInfo', {
         repoOwners: [],
         repos: [],
         branches: []
-      });
+      })
       getCodeSourceAPI().then((res) => {
         this.allCodeHosts = res.filter(element => {
-          return element;
-        });
-      });
+          return element
+        })
+      })
       getRepoOwnerByIdAPI(codehostId).then((res) => {
-        this.$set(this.codeInfo, 'repoOwners', res);
-        const item = (this.codeInfo.repoOwners.find(item => { return item.path === repoOwner }));
-        const type = item ? item['kind'] : 'group';
+        this.$set(this.codeInfo, 'repoOwners', res)
+        const item = (this.codeInfo.repoOwners.find(item => { return item.path === repoOwner }))
+        const type = item ? item.kind : 'group'
         getRepoNameByIdAPI(codehostId, type, encodeURI(repoOwner)).then((res) => {
-          this.$set(this.codeInfo, 'repos', res);
-        });
-      });
+          this.$set(this.codeInfo, 'repos', res)
+        })
+      })
       getBranchInfoByIdAPI(codehostId, repoOwner, repoName).then((res) => {
-        this.$set(this.codeInfo, 'branches', res);
+        this.$set(this.codeInfo, 'branches', res)
       })
     },
-    searchRepoName(query) {
-      this.searchRepoNameLoading = true;
-      const repoOwner = this.source.repoOwner;
-      const item = (this.codeInfo.repoOwners.find(item => { return item.path === repoOwner }));
-      const type = item ? item['kind'] : 'group';
-      const id = this.source.codehostId;
+    searchRepoName (query) {
+      this.searchRepoNameLoading = true
+      const repoOwner = this.source.repoOwner
+      const item = (this.codeInfo.repoOwners.find(item => { return item.path === repoOwner }))
+      const type = item ? item.kind : 'group'
+      const id = this.source.codehostId
       getRepoNameByIdAPI(id, type, encodeURI(repoOwner), query).then((res) => {
-        this.searchRepoNameLoading = false;
-        this.$set(this.codeInfo, 'repos', res);
-      });
+        this.searchRepoNameLoading = false
+        this.$set(this.codeInfo, 'repos', res)
+      })
     },
-    clearRepoName() {
-      const repoOwner = this.source.repoOwner;
-      const item = (this.codeInfo.repoOwners.find(item => { return item.path === repoOwner }));
-      const type = item ? item['kind'] : 'group';
-      const id = this.source.codehostId;
+    clearRepoName () {
+      const repoOwner = this.source.repoOwner
+      const item = (this.codeInfo.repoOwners.find(item => { return item.path === repoOwner }))
+      const type = item ? item.kind : 'group'
+      const id = this.source.codehostId
       getRepoNameByIdAPI(id, type, encodeURI(repoOwner)).then((res) => {
-        this.$set(this.codeInfo, 'repos', res);
-      });
-      this.source.branchName = '';
-      this.source.path = '';
-      this.source.services = [];
+        this.$set(this.codeInfo, 'repos', res)
+      })
+      this.source.branchName = ''
+      this.source.path = ''
+      this.source.services = []
       this.$set(this.codeInfo, 'branches', [])
     },
-    getRepoNameById(id, repoOwner, key = '') {
-      const item = (this.codeInfo.repoOwners.find(item => { return item.path === repoOwner }));
-      const type = item ? item['kind'] : 'group';
-      this.$refs['sourceForm'].clearValidate();
+    getRepoNameById (id, repoOwner, key = '') {
+      const item = (this.codeInfo.repoOwners.find(item => { return item.path === repoOwner }))
+      const type = item ? item.kind : 'group'
+      this.$refs.sourceForm.clearValidate()
       if (repoOwner) {
         getRepoNameByIdAPI(id, type, encodeURI(repoOwner), key).then((res) => {
-          this.$set(this.codeInfo, 'repos', res);
-        });
+          this.$set(this.codeInfo, 'repos', res)
+        })
       }
-      this.source.repoName = '';
-      this.source.branchName = '';
-      this.source.path = '';
-      this.source.services = [];
-
+      this.source.repoName = ''
+      this.source.branchName = ''
+      this.source.path = ''
+      this.source.services = []
     },
-    searchRepoOwner(query) {
-      this.searchRepoOwnerLoading = true;
-      const id = this.source.codehostId;
-      const type = (this.allCodeHosts.find(item => { return item['id'] === id }))['type'];
+    searchRepoOwner (query) {
+      this.searchRepoOwnerLoading = true
+      const id = this.source.codehostId
+      const type = (this.allCodeHosts.find(item => { return item.id === id })).type
       if (type === 'github' && query !== '') {
-        const items = this.$utils.filterObjectArrayByKey('name', query, this.codeInfo.repoOwners);
-        this.$set(this.codeInfo, 'repoOwners', items);
-        this.searchRepoOwnerLoading = false;
-      }
-      else {
+        const items = this.$utils.filterObjectArrayByKey('name', query, this.codeInfo.repoOwners)
+        this.$set(this.codeInfo, 'repoOwners', items)
+        this.searchRepoOwnerLoading = false
+      } else {
         getRepoOwnerByIdAPI(id, query).then((res) => {
-          this.$set(this.codeInfo, 'repoOwners', res);
-          this.searchRepoOwnerLoading = false;
-        });
+          this.$set(this.codeInfo, 'repoOwners', res)
+          this.searchRepoOwnerLoading = false
+        })
       }
     },
-    clearRepoOwner() {
-      const id = this.source.codehostId;
+    clearRepoOwner () {
+      const id = this.source.codehostId
       getRepoOwnerByIdAPI(id).then((res) => {
-        this.$set(this.codeInfo, 'repoOwners', res);
-      });
-      this.source.repoName = '';
-      this.source.branchName = '';
-      this.source.path = '';
-      this.source.services = [];
-      this.$set(this.codeInfo, 'repos', []);
+        this.$set(this.codeInfo, 'repoOwners', res)
+      })
+      this.source.repoName = ''
+      this.source.branchName = ''
+      this.source.path = ''
+      this.source.services = []
+      this.$set(this.codeInfo, 'repos', [])
       this.$set(this.codeInfo, 'branches', [])
     },
-    getRepoOwnerById(id, key = '') {
-      const codehost = this.allCodeHosts.find(item => { return item.id === id });
-      const type = codehost ? codehost['type'] : 'gitlab';
-      this.source['gitType'] = type;
-      this.$refs['sourceForm'].clearValidate();
-      this.$set(this.codeInfo, 'repoOwners', []);
-      this.$set(this.codeInfo, 'repos', []);
-      this.$set(this.codeInfo, 'branches', []);
+    getRepoOwnerById (id, key = '') {
+      const codehost = this.allCodeHosts.find(item => { return item.id === id })
+      const type = codehost ? codehost.type : 'gitlab'
+      this.source.gitType = type
+      this.$refs.sourceForm.clearValidate()
+      this.$set(this.codeInfo, 'repoOwners', [])
+      this.$set(this.codeInfo, 'repos', [])
+      this.$set(this.codeInfo, 'branches', [])
       getRepoOwnerByIdAPI(id, key).then((res) => {
-        this.$set(this.codeInfo, 'repoOwners', res);
-      });
-      this.source.repoOwner = '';
-      this.source.repoName = '';
-      this.source.branchName = '';
-      this.source.path = '';
-      this.source.services = [];
-
+        this.$set(this.codeInfo, 'repoOwners', res)
+      })
+      this.source.repoOwner = ''
+      this.source.repoName = ''
+      this.source.branchName = ''
+      this.source.path = ''
+      this.source.services = []
     },
-    getBranchInfoById(id, repoOwner, repoName) {
+    getBranchInfoById (id, repoOwner, repoName) {
       if (repoName && repoOwner) {
         getBranchInfoByIdAPI(id, repoOwner, repoName).then((res) => {
-          this.$set(this.codeInfo, 'branches', res);
-        });
-        this.source.branchName = '';
-        this.source.path = '';
-        this.source.services = [];
+          this.$set(this.codeInfo, 'branches', res)
+        })
+        this.source.branchName = ''
+        this.source.path = ''
+        this.source.services = []
       }
     },
-    refreshService(node, data) {
-      this.dialogImportFileVisible = true;
-      this.source.codehostId = data.codehost_id;
-      this.source.repoOwner = data.repo_owner;
-      this.source.repoName = data.repo_name;
-      this.source.branchName = data.branch_name;
-      this.source.path = data.load_path;
-      this.source.gitType = data.source;
-      this.source.isDir = data.is_dir;
-      this.source.serviceName = data.service_name;
-      this.getInitRepoInfo(this.source);
+    refreshService (node, data) {
+      this.dialogImportFileVisible = true
+      this.source.codehostId = data.codehost_id
+      this.source.repoOwner = data.repo_owner
+      this.source.repoName = data.repo_name
+      this.source.branchName = data.branch_name
+      this.source.path = data.load_path
+      this.source.gitType = data.source
+      this.source.isDir = data.is_dir
+      this.source.serviceName = data.service_name
+      this.getInitRepoInfo(this.source)
       validPreloadService(data.codehost_id, data.repo_owner, data.repo_name, data.branch_name, data.load_path, data.service_name, data.is_dir).then((res) => {
-        this.disabledReload = false;
-      }, (err) => {
-        this.disabledReload = true;
-      });
+        this.disabledReload = false
+      }, () => {
+        this.disabledReload = true
+      })
     },
-    deleteService(node, data) {
+    deleteService (node, data) {
       if (data.status === 'named') {
-        const index = this.services.findIndex(d => d.label === data.label);
-        this.services.splice(index, 1);
+        const index = this.services.findIndex(d => d.label === data.label)
+        this.services.splice(index, 1)
       } else {
-        let deleteText = '';
-        let title = '确认';
+        let deleteText = ''
+        const title = '确认'
         if (data.type === 'k8s') {
-          deleteText = `确定要删除 ${data.service_name} 这个服务吗？`;
+          deleteText = `确定要删除 ${data.service_name} 这个服务吗？`
         }
         this.$confirm(`${deleteText}`, `${title}`, {
           confirmButtonText: '确定',
@@ -973,160 +961,155 @@ export default {
           type: 'warning'
         }).then(() => {
           deleteServiceTemplateAPI(data.service_name, data.type, this.projectName, data.visibility).then(() => {
-            this.$message.success('删除成功');
+            this.$message.success('删除成功')
             if (!this.guideMode) {
-              this.updateEnvDialogVisible = true;
+              this.updateEnvDialogVisible = true
             };
-            this.$emit('onRefreshService');
-            this.$emit('onRefreshSharedService');
-            this.getServiceGroup();
-            const parent = node.parent;
-            const children = parent.data.children || parent.data;
-            const index = children.findIndex(d => d.id === data.id);
-            children.splice(index, 1);
-          });
-        });
+            this.$emit('onRefreshService')
+            this.$emit('onRefreshSharedService')
+            this.getServiceGroup()
+            const parent = node.parent
+            const children = parent.data.children || parent.data
+            const index = children.findIndex(d => d.id === data.id)
+            children.splice(index, 1)
+          })
+        })
       }
     },
-    selectService(data, node, current) {
-      if (data.status && data.status === 'new') {
-        return
-      } else if (data.type === 'kind') {
-        const parentService = node.parent.data;
-        const routeService = this.$route.query.service_name;
+    selectService (data, node, current) {
+      if (data.type === 'kind') {
+        const parentService = node.parent.data
+        const routeService = this.$route.query.service_name
         if (parentService.service_name !== routeService) {
-          this.$router.replace({ query: { service_name: parentService.service_name, rightbar: 'var', kind: data.kind } });
-          this.$emit('onSelectServiceChange', parentService);
+          this.$router.replace({ query: { service_name: parentService.service_name, rightbar: 'var', kind: data.kind } })
+          this.$emit('onSelectServiceChange', parentService)
         }
-        this.$emit('onJumpToKind', data);
+        this.$emit('onJumpToKind', data)
       } else {
-        this.$router.replace({ query: { service_name: data.service_name, rightbar: 'var' } });
-        this.$emit('onSelectServiceChange', data);
+        this.$router.replace({ query: { service_name: data.service_name, rightbar: 'var' } })
+        this.$emit('onSelectServiceChange', data)
       }
     },
-    setServiceSelected(key) {
+    setServiceSelected (key) {
       this.$nextTick(() => {
-        this.$refs.serviceTree.setCurrentKey(key);
-      });
+        this.$refs.serviceTree.setCurrentKey(key)
+      })
     },
-    autoUpgradeEnv() {
+    autoUpgradeEnv () {
       const payload = {
-        'env_names': this.selectedEnvs
-      };
-      const projectName = this.projectName;
+        env_names: this.selectedEnvs
+      }
+      const projectName = this.projectName
       autoUpgradeEnvAPI(projectName, payload).then((res) => {
-        this.updateEnvDialogVisible = false;
+        this.updateEnvDialogVisible = false
         this.$message({
           message: '更新环境成功',
           type: 'success'
-        });
+        })
       })
     },
-    listenResize() {
+    listenResize () {
       window.screenHeight = document.body.clientHeight
-      let serviceTree = this.$refs.serviceTree;
-      let serviceSharedTree = this.$refs.serviceSharedTree;
-      let screenHeight = this.guideMode ? window.screenHeight - 560 : window.screenHeight - 400;
+      const serviceTree = this.$refs.serviceTree
+      const serviceSharedTree = this.$refs.serviceSharedTree
+      const screenHeight = this.guideMode ? window.screenHeight - 560 : window.screenHeight - 400
       this.$nextTick(() => {
         if (serviceSharedTree) {
-          serviceSharedTree.$el.style.maxHeight = 150 + 'px';
+          serviceSharedTree.$el.style.maxHeight = 150 + 'px'
         };
         if (serviceTree && serviceSharedTree) {
-          serviceTree.$el.style.maxHeight = screenHeight + 'px';
+          serviceTree.$el.style.maxHeight = screenHeight + 'px'
+        } else {
+          serviceTree.$el.style.maxHeight = screenHeight + 180 + 'px'
         }
-        else {
-          serviceTree.$el.style.maxHeight = screenHeight + 180 + 'px';
-        }
-      });
-    },
+      })
+    }
   },
   computed: {
     ...mapGetters([
-      'signupStatus', 'productList',
+      'signupStatus', 'productList'
     ]),
-    envNameList() {
-      let envNameList = [];
+    envNameList () {
+      const envNameList = []
       this.productList.forEach(element => {
         if (element.product_name === this.projectName && element.source !== 'external') {
           envNameList.push({
-            envName: element.env_name,
-          });
+            envName: element.env_name
+          })
         }
-      });
-      return envNameList;
+      })
+      return envNameList
     },
-    deployType() {
-      return 'k8s';
+    deployType () {
+      return 'k8s'
     },
-    projectName() {
-      return this.$route.params.project_name;
+    projectName () {
+      return this.$route.params.project_name
     },
-    filteredServices() {
-      const services = this.$utils.filterObjectArrayByKey('service_name', this.searchService, this.services);
+    filteredServices () {
+      const services = this.$utils.filterObjectArrayByKey('service_name', this.searchService, this.services)
       return services.map((element, index) => {
-        element.visibility = element.visibility;
-        element.label = element.service_name;
-        element.id = index;
-        element.children = [];
-        return element;
-      });
+        element.label = element.service_name
+        element.id = index
+        element.children = []
+        return element
+      })
     },
-    filteredSharedServices() {
-      const services = this.$utils.filterObjectArrayByKey('service_name', this.searchService, differenceBy(this.sharedServices, this.services, 'service_name'));
+    filteredSharedServices () {
+      const services = this.$utils.filterObjectArrayByKey('service_name', this.searchService, differenceBy(this.sharedServices, this.services, 'service_name'))
       return [
         {
           label: '共享服务列表',
           children: services.map((element, index) => {
-            element.visibility = 'public';
-            element.label = element.service_name;
-            element.id = index;
-            element.children = [];
-            return element;
+            element.visibility = 'public'
+            element.label = element.service_name
+            element.id = index
+            element.children = []
+            return element
           })
         }
       ]
     },
-    showSelectFileBtn() {
-      return (this.source.codehostId && this.source.repoName !== '' && this.source.branchName !== '');
+    showSelectFileBtn () {
+      return (this.source.codehostId && this.source.repoName !== '' && this.source.branchName !== '')
     },
-    queryServiceName() {
-      return this.$route.query.service_name;
-    },
+    queryServiceName () {
+      return this.$route.query.service_name
+    }
 
   },
   watch: {
-    'filteredServices': {
-      handler(val, old_val) {
+    filteredServices: {
+      handler (val, old_val) {
         this.$nextTick(() => {
-          let data = null;
-          const serviceInRoute = val.find(d => d.service_name === this.queryServiceName);
+          let data = null
+          const serviceInRoute = val.find(d => d.service_name === this.queryServiceName)
           if (serviceInRoute) {
-            data = serviceInRoute;
-          }
-          else {
-            data = val[0];
+            data = serviceInRoute
+          } else {
+            data = val[0]
           }
           if (data && !this.showNewServiceInput) {
-            this.setServiceSelected(data.service_name);
-            this.$router.replace({ query: { service_name: data.service_name, rightbar: 'var' } });
-            this.$emit('onSelectServiceChange', data);
+            this.setServiceSelected(data.service_name)
+            this.$router.replace({ query: { service_name: data.service_name, rightbar: (data.status === 'named' ? 'help' : 'var') } })
+            this.$emit('onSelectServiceChange', data)
           }
-        });
+        })
         this.$nextTick(() => {
-          this.listenResize();
-        });
+          this.listenResize()
+        })
       }
     },
-    'filteredSharedServices': {
-      handler(val, old_val) {
+    filteredSharedServices: {
+      handler (val, old_val) {
         this.$nextTick(() => {
-          this.listenResize();
-        });
+          this.listenResize()
+        })
       },
       immediate: true
     },
-    'currentServiceYamlKinds': {
-      handler(val, old_val) {
+    currentServiceYamlKinds: {
+      handler (val, old_val) {
         this.$nextTick(() => {
           const kinds = val.payload.map(element => {
             return {
@@ -1135,36 +1118,37 @@ export default {
               label: `${element.kind}.yaml`.toLowerCase(),
               service_name: `${element.kind}.yaml`.toLowerCase()
             }
-          });
-          let node = this.$refs.serviceTree.getNode(val.service_name);
-          node.childNodes = [];
+          })
+          const node = this.$refs.serviceTree.getNode(val.service_name)
+          node.childNodes = []
           if (node.data.type === 'k8s') {
             kinds.forEach(element => {
-              this.$refs.serviceTree.append(element, node);
-            });
+              this.$refs.serviceTree.append(element, node)
+            })
           }
-        });
-      },
+        })
+      }
     }
   },
-  created() {
-    this.getProducts();
-    this.getServiceGroup();
+  created () {
+    this.getProducts()
+    this.getServiceGroup()
   },
-  mounted() {
-    window.addEventListener('resize', this.listenResize);
+  mounted () {
+    window.addEventListener('resize', this.listenResize)
   },
-  beforeDestroy() {
-    window.removeEventListener("resize", this.listenResize);
+  beforeDestroy () {
+    window.removeEventListener('resize', this.listenResize)
   },
   components: {
     gitfileTree
   }
-};
+}
 </script>
 
 <style lang="less" >
 @import "~@assets/css/component/service-tree.less";
+
 .text-right {
   text-align: right;
 }

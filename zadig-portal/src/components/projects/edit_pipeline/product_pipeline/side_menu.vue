@@ -20,6 +20,13 @@
         </a>
       </li>
       <li>
+        <a @click="addModule('test')"
+           href="javascript:"
+           class="title">测试
+          <i class="operation el-icon-circle-plus-outline"></i>
+        </a>
+      </li>
+      <li>
         <a @click="addModule('distribute')"
            href="javascript:"
            class="title">分发
@@ -45,19 +52,19 @@
 </template>
 
 <script type="text/javascript">
-import mixin from '@utils/workflow_mixin';
+import mixin from '@utils/workflow_mixin'
 export default {
-  data() {
+  data () {
     return {
       tabCheckResult: {}
-    };
+    }
   },
   methods: {
-    addModule(module_name) {
+    addModule (module_name) {
       this.checkCurrentTab().then(() => {
-        this.$emit('add-module', module_name);
-      });
-    },
+        this.$emit('add-module', module_name)
+      })
+    }
   },
   props: {
     currentTab: {
@@ -66,10 +73,8 @@ export default {
     },
     products: Array
   },
-  created() {
-  },
   mixins: [mixin]
-};
+}
 </script>
 
 <style lang="less">
@@ -79,31 +84,36 @@ export default {
   overflow: hidden;
   color: rgba(0, 0, 0, 0.87);
   background-color: #fff;
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.117647),
-    0 1px 4px rgba(0, 0, 0, 0.117647);
   border-top-right-radius: 6px;
   border-bottom-right-radius: 6px;
+  box-shadow:
+    0 1px 6px rgba(0, 0, 0, 0.117647),
+    0 1px 4px rgba(0, 0, 0, 0.117647);
+
   ul {
     margin: 0;
     padding: 15px;
   }
+
   ul > li {
     display: flex;
     flex-direction: column;
-    padding: 10px 0px;
+    padding: 10px 0;
+
     .title {
       display: inline-block;
+      color: #0e1726;
       font-size: 14px;
       line-height: 24px;
-      line-height: 24px;
       text-align: left;
-      color: #0e1726;
+
       .operation,
       .lock-menu {
-        cursor: pointer;
         font-size: 14px;
+        cursor: pointer;
       }
     }
+
     a.title:hover {
       color: #1989fa;
     }

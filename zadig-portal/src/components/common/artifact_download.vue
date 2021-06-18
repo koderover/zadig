@@ -3,7 +3,7 @@
        class="download-artifact-container">
 
     <el-table :data="fileList"
-              style="width: 100%">
+              style="width: 100%;">
       <el-table-column label="文件列表">
         <template slot-scope="scope">
           <span>{{ scope.row }}</span>
@@ -26,7 +26,7 @@
 </template>
 
 <script>
-import { getArtifactWorkspaceAPI } from '@api';
+import { getArtifactWorkspaceAPI } from '@api'
 export default {
   props: {
     workflowName: {
@@ -44,7 +44,7 @@ export default {
       required: true
     }
   },
-  data() {
+  data () {
     return {
       fileTree: [],
       fileList: [],
@@ -57,62 +57,62 @@ export default {
         label: 'name',
         isLeaf: 'leaf'
       }
-    };
+    }
   },
   methods: {
-    getArtifactWorkspace() {
-      this.loading = true;
-      const workflowName = this.workflowName;
-      const taskId = this.taskId;
+    getArtifactWorkspace () {
+      this.loading = true
+      const workflowName = this.workflowName
+      const taskId = this.taskId
       getArtifactWorkspaceAPI(workflowName, taskId).then((res) => {
-        this.loading = false;
-        this.fileList = res;
-      });
-    },
-    append(data) { },
-    remove(node, data) { }
+        this.loading = false
+        this.fileList = res
+      })
+    }
   },
   computed: {},
-  mounted() {
-    this.getArtifactWorkspace();
-  },
-  destroyed() {
+  mounted () {
+    this.getArtifactWorkspace()
   },
   components: {}
-};
+}
 </script>
 
 <style lang="less" >
 .download-artifact-container {
-  background-color: #fff;
   position: relative;
+  padding: 0 10px;
   overflow: auto;
-  padding: 0px 10px;
   font-size: 13px;
-  .el-tree--highlight-current
-    .el-tree-node.is-current
-    > .el-tree-node__content {
+  background-color: #fff;
+
+  .el-tree--highlight-current .el-tree-node.is-current > .el-tree-node__content {
     background-color: #1989fa33;
   }
+
   .el-tree-node {
-    margin: 5px 0px;
+    margin: 5px 0;
+
     .artifact-tree-node {
-      display: inline-block;
       position: relative;
+      display: inline-block;
       width: 100%;
       line-height: 22px;
+
       .folder-icon {
+        display: inline-block;
         font-size: 16px;
-        display: inline-block;
       }
+
       .file-name {
+        display: inline-block;
         font-size: 15px;
-        display: inline-block;
       }
+
       .basic-info {
-        display: inline-block;
         float: right;
         padding-right: 40px;
+
         .mod-time,
         .size {
           padding-left: 35px;
@@ -121,10 +121,11 @@ export default {
       }
     }
   }
+
   .download {
     display: inline-block;
-    margin-bottom: 15px;
     margin-top: 10px;
+    margin-bottom: 15px;
   }
 }
 </style>

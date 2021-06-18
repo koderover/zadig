@@ -23,7 +23,7 @@
               <template v-if="build.showBranch">
                 <el-col :span="7">
                   <el-select v-if="build.branchNames && build.branchNames.length > 0"
-                             v-model="build.branch"
+                             v-model.trim="build.branch"
                              filterable
                              clearable
                              allow-create
@@ -74,7 +74,7 @@
               <el-col v-if="build.showSwitch"
                       :span="9"
                       :offset="1"
-                      style="line-height:32px">
+                      style="line-height: 32px;">
                 <el-switch v-model="build.releaseMethod"
                            @change="changeReleaseMethod(build)"
                            active-text="Branch"
@@ -134,8 +134,7 @@
       </el-table-column>
 
       <el-table-column   width="250px">
-        <template slot="header"
-                  slot-scope="scope">
+        <template slot="header">
           部署
           <deploy-icons></deploy-icons>
         </template>
@@ -189,7 +188,7 @@
                 </template>
               </el-table-column>
             </el-table>
-            <el-button style="padding:5px 0px"
+            <el-button style="padding: 5px 0;"
                        slot="reference"
                        type="text">设置</el-button>
           </el-popover>
@@ -203,7 +202,7 @@
                        label="服务"
                        width="100px"
                        ></el-table-column>
-      <el-table-column 
+      <el-table-column
                        label="Jenkins Job Name"
                        >
           <div slot-scope="scope">
@@ -212,8 +211,7 @@
       </el-table-column>
 
       <el-table-column   width="250px">
-        <template slot="header"
-                  slot-scope="scope">
+        <template slot="header">
           部署
           <deploy-icons></deploy-icons>
         </template>
@@ -255,7 +253,7 @@
                 </template>
               </el-table-column>
             </el-table>
-            <el-button style="padding:5px 0px"
+            <el-button style="padding: 5px 0;"
                        slot="reference"
                        type="text">设置</el-button>
           </el-popover>
@@ -266,41 +264,41 @@
 </template>
 
 <script>
-import deployIcons from './deploy_icons';
+import deployIcons from './deploy_icons'
 
 export default {
-  data() {
+  data () {
     return {
       buildV2: [],
       jenkinsBuild: []
-    };
+    }
   },
   methods: {
-    changeReleaseMethod(repo) {
-      repo.tag = '';
-      repo.branch = '';
-    },
+    changeReleaseMethod (repo) {
+      repo.tag = ''
+      repo.branch = ''
+    }
   },
   props: {
     pickedTargets: {
       type: Array,
-      required: true,
-    },
+      required: true
+    }
   },
   components: {
     deployIcons
   },
   watch: {
-    pickedTargets:{
-      handler(value) {
-      this.buildV2 = value.filter(item => !item.jenkins_build_args)
-      this.jenkinsBuild = value.filter(item => item.jenkins_build_args)
+    pickedTargets: {
+      handler (value) {
+        this.buildV2 = value.filter(item => !item.jenkins_build_args)
+        this.jenkinsBuild = value.filter(item => item.jenkins_build_args)
       },
       immediate: true
 
     }
   }
-};
+}
 </script>
 
 <style lang="less">

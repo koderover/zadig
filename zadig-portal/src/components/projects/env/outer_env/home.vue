@@ -14,11 +14,11 @@
 </template>
 
 <script>
-import { mapGetters } from 'vuex';
-import { uniqBy, orderBy } from 'lodash';
-import bus from '@utils/event_bus';
+import { mapGetters } from 'vuex'
+import { uniqBy, orderBy } from 'lodash'
+import bus from '@utils/event_bus'
 export default {
-  data() {
+  data () {
     return {
       loading: true,
       firstJumpPath: '',
@@ -29,78 +29,81 @@ export default {
     ...mapGetters([
       'productList', 'getOnboardingTemplates'
     ]),
-    filteredProducts() {
-      return uniqBy(orderBy(this.productList, ['product_name', 'is_prod']), 'product_name');
+    filteredProducts () {
+      return uniqBy(orderBy(this.productList, ['product_name', 'is_prod']), 'product_name')
     },
-    isInProject() {
-      return this.$route.path.includes('/projects/detail/');
-    },
+    isInProject () {
+      return this.$route.path.includes('/projects/detail/')
+    }
   },
   methods: {
-    async getProducts() {
-      const availableProjectNames = [];
+    async getProducts () {
+      const availableProjectNames = []
 
-      await this.$store.dispatch('getProductListSSE').closeWhenDestroy(this);
-      for (let product of this.productList) {
-          availableProjectNames.push(product.product_name);
+      await this.$store.dispatch('getProductListSSE').closeWhenDestroy(this)
+      for (const product of this.productList) {
+        availableProjectNames.push(product.product_name)
       }
       const routerList = this.filteredProducts.filter(product => {
-        return !this.getOnboardingTemplates.includes(product.product_name);
+        return !this.getOnboardingTemplates.includes(product.product_name)
       }).map(element => {
         return { name: element.product_name, url: `/v1/envs/detail/${element.product_name}?envName=${element.env_name}` }
-      });
-      bus.$emit(`set-sub-sidebar-title`, {
-        'title': '项目列表',
-        'routerList': routerList
-      });
+      })
+      bus.$emit('set-sub-sidebar-title', {
+        title: '项目列表',
+        routerList: routerList
+      })
       const availableProducts = this.productList.filter(item => {
-        return availableProjectNames.includes(item.product_name);
-      });
+        return availableProjectNames.includes(item.product_name)
+      })
 
-      this.loading = false;
+      this.loading = false
       if (availableProducts.length === 0) {
-        this.emptyEnvs = true;
-        return;
+        this.emptyEnvs = true
+        return
       }
-      this.firstJumpPath = `/v1/envs/detail/${availableProducts[0].product_name}?envName=${availableProducts[0].env_name}`;
+      this.firstJumpPath = `/v1/envs/detail/${availableProducts[0].product_name}?envName=${availableProducts[0].env_name}`
       if (!this.$route.params.project_name) {
-        this.$router.push(this.firstJumpPath);
+        this.$router.push(this.firstJumpPath)
       }
     }
   },
-  beforeRouteUpdate(to, from, next) {
+  beforeRouteUpdate (to, from, next) {
     if (!this.firstJumpPath) {
-      next();
+      next()
     } else if (to.path === '/v1/envs' || !to.params.project_name) {
-      next(this.firstJumpPath);
+      next(this.firstJumpPath)
     } else {
-      next();
+      next()
     }
   },
-  mounted() {
-    this.getProducts();
-    bus.$emit(`set-topbar-title`, { title: '集成环境', breadcrumb: [] });
+  mounted () {
+    this.getProducts()
+    bus.$emit('set-topbar-title', { title: '集成环境', breadcrumb: [] })
   }
-};
+}
 </script>
 
 <style lang="less" >
 .container-home {
-  flex: 1;
   position: relative;
-  overflow: hidden;
-  padding: 15px 20px;
   display: flex;
+  flex: 1;
+  padding: 15px 20px;
+  overflow: hidden;
+
   .no-show {
     margin: auto;
+
     img {
       width: 460px;
       height: 460px;
     }
+
     p {
-      text-align: center;
       color: #8d9199;
       font-size: 15px;
+      text-align: center;
     }
   }
 }

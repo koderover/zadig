@@ -19,7 +19,7 @@ package main
 import (
 	"log"
 
-	"github.com/koderover/zadig/lib/microservice/jenkinsplugin/executor"
+	"github.com/koderover/zadig/pkg/microservice/jenkinsplugin/executor"
 )
 
 func main() {

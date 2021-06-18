@@ -7,8 +7,8 @@ Zadig 是一套分布式开源的持续部署系统，和其它 CI/CD 不同，Z
 Zadig 的成长离不开大家的支持。我们欢迎各类贡献，小到修改错别字、更新文档链接，大到负责从设计到研发的一个完整的功能。如果你愿意为其贡献代码或提供建议，
 请阅读以下内容。
 
-
 ## 目录
+
 - [Zadig 贡献指南](#zadig-贡献指南)
   - [目录](#目录)
   - [先决条件](#先决条件)
@@ -21,6 +21,7 @@ Zadig 的成长离不开大家的支持。我们欢迎各类贡献，小到修�
   - [贡献方式 3 - 提交代码](#贡献方式-3---提交代码)
     - [简单的代码改动](#简单的代码改动)
     - [进阶的代码改动](#进阶的代码改动)
+    - [更新 API 文档](#更新-api-文档)
   - [贡献者资源](#贡献者资源)
     - [PR / Commit 指导](#pr--commit-指导)
     - [贡献者进阶之路](#贡献者进阶之路)
@@ -37,13 +38,13 @@ Zadig 的成长离不开大家的支持。我们欢迎各类贡献，小到修�
 
 请先 fork 一份对应的仓库，不要直接在仓库下建分支。然后可以参考 [Zadig 开发流程](community/dev/contributor-workflow.md) 的介绍将 Zadig 环境搭建起来。
 
-在决定提交 issue 或者提交任何更改之前，请查一下项目的 [open issues](https://github.com/koderover/Zadig/issues)，避免重复。我们也准备
+在决定提交 issue 或者提交任何更改之前，请查一下项目的 [open issues](https://github.com/koderover/zadig/issues)，避免重复。我们也准备
 了几个 issue label 来帮助大家筛选：
 
-1) 如果你想找一些适合上手的 issue，可以看下 [#good-first-issue](https://github.com/koderover/Zadig/labels/good%20first%20issue)
+1) 如果你想找一些适合上手的 issue，可以看下 [#good-first-issue](https://github.com/koderover/zadig/labels/good%20first%20issue)
 有没有你感兴趣的。
-2) 如果你在找更进阶点的贡献，可以看下 [#help-wanted](https://github.com/koderover/Zadig/labels/help%20wanted) label 下的内容。
-3) 如果你想找些 bug 来 fix，可以看下 [#bugs](https://github.com/koderover/Zadig/labels/bug)。
+2) 如果你在找更进阶点的贡献，可以看下 [#help-wanted](https://github.com/koderover/zadig/labels/help%20wanted) label 下的内容。
+3) 如果你想找些 bug 来 fix，可以看下 [#bugs](https://github.com/koderover/zadig/labels/bug)。
 
 ## 贡献方式 1 - 提交 issue
 
@@ -51,15 +52,15 @@ Zadig 的成长离不开大家的支持。我们欢迎各类贡献，小到修�
 
 贡献者提交 issue 的时候，有以下五种类型需要考虑：
 
-1. [`documentation`](https://github.com/koderover/Zadig/labels/documentation)
-2. [`bug`](https://github.com/koderover/Zadig/labels/bug)
-3. [`feature request`](https://github.com/koderover/Zadig/labels/feature%20request)
-4. [`question`](https://github.com/koderover/Zadig/labels/question)
-5. [`enhancement`](https://github.com/koderover/Zadig/labels/enhancement)
+1. [`documentation`](https://github.com/koderover/zadig/labels/documentation)
+2. [`bug`](https://github.com/koderover/zadig/labels/bug)
+3. [`feature request`](https://github.com/koderover/zadig/labels/feature%20request)
+4. [`question`](https://github.com/koderover/zadig/labels/question)
+5. [`enhancement`](https://github.com/koderover/zadig/labels/enhancement)
 
-如果贡献者知道自己的 issue 是明确关于哪个或者哪几个服务的，也建议将服务相对应的 label 加上去：具体请[搜索我们带`service/`前缀的 label](https://github.com/koderover/Zadig/labels?q=service%2F)；如果不确定的话可以放着，我们的 maintainer 会加上。
+如果贡献者知道自己的 issue 是明确关于哪个或者哪几个服务的，也建议将服务相对应的 label 加上去：具体请[搜索我们带`service/`前缀的 label](https://github.com/koderover/zadig/labels?q=service%2F)；如果不确定的话可以放着，我们的 maintainer 会加上。
 
-请首先检查下我们的 [open issues](https://github.com/koderover/Zadig/issues)，确保不要提交重复的 issue。确认没有重复后，请选择上面类型之一的 label，并且按 issue 模板填好，尽可能详细的解释你的 issue —— 原则是要让没有你 context 的别人也能很容易的看懂。
+请首先检查下我们的 [open issues](https://github.com/koderover/zadig/issues)，确保不要提交重复的 issue。确认没有重复后，请选择上面类型之一的 label，并且按 issue 模板填好，尽可能详细的解释你的 issue —— 原则是要让没有你 context 的别人也能很容易的看懂。
 
 ### Issue 提交后会被如何处理？
 
@@ -68,11 +69,11 @@ Zadig 的成长离不开大家的支持。我们欢迎各类贡献，小到修�
 1. 他们会再次确认新创建的 issue 是不是添加了上述五种 label 里正确的 label，如果不是的话他们会进行更新。
 2. 他们同时也会决定是不是 accept issue，参见下一条。
 3. 如果适用的话，他们可能会将以下四种新的 tag 加到 issue 上：
-   1) [`duplicate`](https://github.com/koderover/Zadig/labels/duplicate): 重复的 issue
-   2) [`wonfix`](https://github.com/koderover/Zadig/labels/wontfix)：决定不采取行动。maintainer 会说明不修复的具体原因，比如
+   1) [`duplicate`](https://github.com/koderover/zadig/labels/duplicate): 重复的 issue
+   2) [`wonfix`](https://github.com/koderover/zadig/labels/wontfix)：决定不采取行动。maintainer 会说明不修复的具体原因，比如
       work as intended, obsolete, infeasible, out of scope
-   3) [`good first issue`](https://github.com/koderover/Zadig/labels/good%20first%20issue)：见上文，适合新人上手的 issue。
-   4) [`good intermediate issue`](https://github.com/koderover/Zadig/labels/good%20intermediate%20issue): 见上文，比较
+   3) [`good first issue`](https://github.com/koderover/zadig/labels/good%20first%20issue)：见上文，适合新人上手的 issue。
+   4) [`good intermediate issue`](https://github.com/koderover/zadig/labels/good%20intermediate%20issue): 见上文，比较
       进阶的 issue，欢迎社区的贡献者来挑战。
 4. issue 如果没有被关掉的话，现在就正式可以被认领（在issue上留言）了。
 5. Maintainer 同时也会定期的检查和清理所有 issue，移除过期的 issue。
@@ -99,8 +100,9 @@ Zadig 的成长离不开大家的支持。我们欢迎各类贡献，小到修�
 对于简单的代码改动，我们的指导如下：
 
 1. 你可以在对应的 issue 上简单描述下你的设计方案，收取反馈；当然如果你很自信改动非常简单直观并且你的改动基本不可能有什么问题的话，你也完全可以跳过这个步骤。
-2. 做相应的改动 - 具体的指导见 [Zadig 开发流程](community/dev/contributor-workflow.md)
+2. 在你fork的repository做相应的改动 - 具体的指导见 [Zadig 开发流程](community/dev/contributor-workflow.md)
 3. 遵循我们 [PR / Commit 指导](#pr--commit-指导)，提交 PR，我们的 maintainer 会去 review。
+4. 如果你添加或者修改了任何 `aslan` service 的 API, 你需要相应的[更新我们的API文档](#更新-api-文档).
 
 ### 进阶的代码改动
 
@@ -115,6 +117,29 @@ Zadig 的成长离不开大家的支持。我们欢迎各类贡献，小到修�
 3. 如果这个设计方案被采纳并且 PR 被合并了，你就可以按照你设计文档中提供的方案做相应的修改了。
 4. 我们强烈建议保持 PR 的原子性，如果你的项目可以被拆分成更细粒度的子任务，请尽量做拆分然后每一个子任务发一个单独的 PR。
 5. 对于#4中提到的每一个子任务，参考上文非常轻量的 [简单的代码改动](#简单的代码改动) 指导。
+
+### 更新 API 文档
+
+如果你更改的不是 `aslan` service 的 API，那不需要考虑这个步骤。我们目前只对 `aslan` 维护API文档。
+
+`aslan`的文档[参阅这里](https://os.koderover.com/api/spock/apidocs/index.html)：我们用[Swag](https://github.com/swaggo/swag)自动生成[Swagger](https://swagger.io/)文档；[Swag](https://github.com/swaggo/swag)会根据代码中API的注释（遵循[swag declarative API comments](https://github.com/swaggo/swag#declarative-comments-format)），自动生成文档.
+
+所以如果你添加或者修改了任何 `aslan` 的API, 需要做以下几件事:
+
+1. 遵循 [swag declarative API comments](https://github.com/swaggo/swag#declarative-comments-format) 给你的API加上合适的注释。
+2. 使用以下命令来更新`aslan`的API文档:
+
+```bash
+cd [your root path of Zadig-X]
+
+swag init -d ./lib/microservice/aslan/ -g server/rest/router.go -o ./lib/microservice/aslan/server/rest/doc
+```
+
+更多细节参考 [Swag CLI](https://github.com/swaggo/swag#swag-cli)。
+
+> 注意：如果你生成的doc/docs.go包含"github.com/alecthomas/template"(较早的swag版本)，请将它改成标准库"text/template"
+
+3. 在你的测试环境下检查下生成的API文档是不是和你的期望一致。文档的相对路径是 `/api/aslan/apidocs/index.html`.
 
 ## 贡献者资源
 
@@ -138,6 +163,8 @@ Zadig 的成长离不开大家的支持。我们欢迎各类贡献，小到修�
 
 - 邮箱：contact@koderover.com
 - 欢迎加入[slack channel](https://join.slack.com/t/zadig-workspace/shared_invite/zt-qedvct1t-mQUf2eyTRkoVCc_RWKKgxw)
+
 ### 其它资源
 
 - [项目的 maintainers](GOVERNANCE.md#maintainers)
+- [API 文档](https://os.koderover.com/api/spock/apidocs/index.html)

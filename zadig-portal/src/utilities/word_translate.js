@@ -1,5 +1,5 @@
-export function wordTranslate(word, category, subitem = '') {
-  let wordComparisonTable = {
+export function wordTranslate (word, category, subitem = '') {
+  const wordComparisonTable = {
     container: {
       'NOT-RUNNING': '未正常运行',
       RUNNING: '正常运行',
@@ -40,24 +40,24 @@ export function wordTranslate(word, category, subitem = '') {
         present: '已使用',
         new: '值为空'
       }
-    },
-  };
+    }
+  }
   if (subitem === '') {
-    return wordComparisonTable[category][word];
+    return wordComparisonTable[category][word]
   } else if (subitem !== '') {
-    return wordComparisonTable[category][subitem][word];
+    return wordComparisonTable[category][subitem][word]
   }
 }
 
-export function translateTaskStatus(status) {
-  return wordTranslate(status, 'pipeline', 'task');
+export function translateTaskStatus (status) {
+  return wordTranslate(status, 'pipeline', 'task')
 }
 
-export function colorTranslate(word, category, subitem = '') {
+export function colorTranslate (word, category, subitem = '') {
   if (typeof word === 'undefined' || word === '') {
-    return 'color-notrunning';
+    return 'color-notrunning'
   } else {
-    let colorComparisonTable = {
+    const colorComparisonTable = {
       pipeline: {
         task: {
           created: 'color-created',
@@ -68,56 +68,56 @@ export function colorTranslate(word, category, subitem = '') {
           cancelled: 'color-cancelled'
         }
       }
-    };
+    }
     if (word !== '' && subitem === '') {
-      return colorComparisonTable[category][word];
+      return colorComparisonTable[category][word]
     } else if (word !== '' && subitem !== '') {
-      return colorComparisonTable[category][subitem][word];
+      return colorComparisonTable[category][subitem][word]
     }
   }
 }
 
-export function calcTaskStatusColor(status) {
-  return colorTranslate(status, 'pipeline', 'task');
+export function calcTaskStatusColor (status) {
+  return colorTranslate(status, 'pipeline', 'task')
 }
 
-export function getProductStatus(status, updateble) {
+export function getProductStatus (status, updateble) {
   if (status === 'Running' && updateble) {
-    return '环境可更新';
+    return '环境可更新'
   } else if (status === 'Creating') {
-    return '正在创建';
+    return '正在创建'
   } else if (status === 'Running') {
-    return '正在运行';
+    return '正在运行'
   } else if (status === 'Updating') {
-    return '更新中';
+    return '更新中'
   } else if (status === 'Succeeded') {
-    return '正常';
+    return '正常'
   } else if (status === 'Unstable') {
-    return '运行不稳定';
+    return '运行不稳定'
   } else if (status === 'Deleting') {
-    return '删除中';
+    return '删除中'
   } else if (status === 'Error') {
-    return '内部错误';
+    return '内部错误'
   } else if (status === 'Unknown') {
-    return '未知';
+    return '未知'
   }
 }
 
 export const serviceTypeMap = {
   k8s: '容器'
-};
+}
 
-export function translateServiceType(type) {
-  return serviceTypeMap[type];
+export function translateServiceType (type) {
+  return serviceTypeMap[type]
 }
 
 export const subTaskTypeMap = {
   distribute2kodo: '存储分发',
   release_image: '镜像分发'
-};
+}
 
-export function translateSubTaskType(type) {
-  return subTaskTypeMap[type];
+export function translateSubTaskType (type) {
+  return subTaskTypeMap[type]
 }
 
 export default {
@@ -129,4 +129,4 @@ export default {
 
   translateServiceType,
   translateSubTaskType
-};
+}

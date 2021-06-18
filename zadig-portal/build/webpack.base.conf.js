@@ -48,6 +48,12 @@ module.exports = {
         include: [resolve('src'), resolve('test'), resolve('node_modules/webpack-dev-server/client')]
       },
       {
+        test: /\.(vue|js)$/,
+        exclude: /node_modules/,
+        use: 'eslint-loader',
+        enforce: 'pre'
+      },
+      {
         test: /\.(png|jpe?g|gif|svg)(\?.*)?$/,
         loader: 'url-loader',
         options: {

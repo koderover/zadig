@@ -10,10 +10,10 @@ export default {
   props: {
     source: {
       type: Object,
-      default() {
+      default () {
         return {}
       }
     }
-  },
+  }
 }
 </script>

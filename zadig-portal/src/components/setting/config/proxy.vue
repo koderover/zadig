@@ -81,14 +81,14 @@
   </div>
 </template>
 <script>
-import { checkProxyAPI, getProxyConfigAPI, createProxyConfigAPI, updateProxyConfigAPI } from '@api';
+import { checkProxyAPI, getProxyConfigAPI, createProxyConfigAPI, updateProxyConfigAPI } from '@api'
 export default {
-  data() {
-    var checkPort = (rule, value, callback) => {
+  data () {
+    const checkPort = (rule, value, callback) => {
       if (value <= 0 || value >= 65535) {
         return callback(new Error('端口号应在 1 - 65535 之间'))
       } else {
-        callback();
+        callback()
       }
     }
     return {
@@ -104,118 +104,122 @@ export default {
         enable_application_proxy: false,
         usage: ''
       },
-      testPass: 0,   // 0:not show  1：success   2：failed
+      // 0:not show  1：success   2：failed
+      testPass: 0,
       testDisabled: false,
       existedProxy: false,
       noPost: true,
       rules: {
         address: [{ required: true, message: '请输入代理地址', trigger: ['blur', 'change'] }],
         port: [{ required: true, message: '请输入端口号', trigger: 'blur' },
-        { type: 'number', message: '端口号应为数字', trigger: 'blur' },
-        { validator: checkPort, trigger: 'blur' }],
+          { type: 'number', message: '端口号应为数字', trigger: 'blur' },
+          { validator: checkPort, trigger: 'blur' }],
         username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
         password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
       }
-    };
+    }
   },
   methods: {
-    validateServer() {
-      this.testPass = 0;
-      this.testDisabled = true;
+    validateServer () {
+      this.testPass = 0
+      this.testDisabled = true
       checkProxyAPI(this.proxyInfo).then(res => {
         if (res.message === 'success') {
-          this.testPass = 1;
+          this.testPass = 1
         } else {
-          this.testPass = 2;
+          this.testPass = 2
         }
-        this.testDisabled = false;
-      }).catch(err => {
-        this.testPass = 2;
-        this.testDisabled = false;
+        this.testDisabled = false
+      }).catch(() => {
+        this.testPass = 2
+        this.testDisabled = false
       })
     },
-    ifSetting(proxyForm) {
+    ifSetting (proxyForm) {
       this.$refs[proxyForm].validate((valid) => {
         if (valid) {
-          this.noPost = true;
+          this.noPost = true
           if (this.proxyInfo.type === 'no') {
-            this.proxyInfo.address = '';
-            this.proxyInfo.port = undefined;
-            this.proxyInfo["need_password"] = false;
-            this.proxyInfo.enable_repo_proxy = false;
-            this.proxyInfo.enable_application_proxy = false;
-            this.proxyInfo.usage = '';
+            this.proxyInfo.address = ''
+            this.proxyInfo.port = undefined
+            this.proxyInfo.need_password = false
+            this.proxyInfo.enable_repo_proxy = false
+            this.proxyInfo.enable_application_proxy = false
+            this.proxyInfo.usage = ''
           }
-          if (!this.proxyInfo["need_password"]) {
-            this.proxyInfo.username = '';
-            this.proxyInfo.password = '';
+          if (!this.proxyInfo.need_password) {
+            this.proxyInfo.username = ''
+            this.proxyInfo.password = ''
           }
           if (this.existedProxy) {
             updateProxyConfigAPI(this.proxyInfo.id, this.proxyInfo).then(response => {
-              this.noPost = false;
+              this.noPost = false
               if (response.message === 'success') {
                 this.$message({
-                  message: `配置修改成功！`,
+                  message: '配置修改成功！',
                   type: 'success'
                 })
               } else {
-                this.$message.error(response.message);
+                this.$message.error(response.message)
               }
             }).catch(err => {
-              this.noPost = false;
-              this.proxyInfo.enable_repo_proxy = !value;
-              this.$message.error(`修改配置失败：${err}`);
+              this.noPost = false
+              this.proxyInfo.enable_repo_proxy = !value
+              this.$message.error(`修改配置失败：${err}`)
             })
           } else {
             createProxyConfigAPI(this.proxyInfo).then(res => {
               if (res.message === 'success') {
-                this.existedProxy = true;
+                this.existedProxy = true
                 this.$message({
                   message: '代理配置保存成功！',
                   type: 'success'
                 })
-                this.getProxyConfig();
+                this.getProxyConfig()
               } else {
                 this.$message.error(res.message)
               }
-            }).catch(err => {
+            }).catch(() => {
               this.$message.error('代理配置保存失败！')
-              this.noPost = false;
+              this.noPost = false
             })
           }
         }
       })
     },
-    getProxyConfig() {
+    getProxyConfig () {
       getProxyConfigAPI().then(response => {
-        this.noPost = false;
+        this.noPost = false
         if (response.length > 0) {
-          this.existedProxy = true;
-          this.proxyInfo = Object.assign({}, this.proxyInfo, response[0]);
+          this.existedProxy = true
+          this.proxyInfo = Object.assign({}, this.proxyInfo, response[0])
         }
       }).catch(error => {
-        this.noPost = false;
-        this.$message.error(`获取代理配置失败：${error}`);
+        this.noPost = false
+        this.$message.error(`获取代理配置失败：${error}`)
       })
-    },
+    }
   },
-  activated() {
-    this.getProxyConfig();
+  activated () {
+    this.getProxyConfig()
   }
 }
 </script>
 
 <style lang="less">
 .config-proxy-container {
-  flex: 1;
   position: relative;
+  flex: 1;
   overflow: auto;
   font-size: 13px;
+
   .breadcrumb {
     margin-bottom: 25px;
+
     .el-breadcrumb {
       font-size: 16px;
       line-height: 1.35;
+
       .el-breadcrumb__item__inner a:hover,
       .el-breadcrumb__item__inner:hover {
         color: #1989fa;
@@ -223,42 +227,53 @@ export default {
       }
     }
   }
+
   .sync-container {
     padding-top: 15px;
     padding-bottom: 15px;
+
     &.form-container {
       width: auto;
       margin-top: 15px;
-      border: 1px solid #eeeeee;
+      padding: 20px 20px 0;
+      border: 1px solid #eee;
       border-radius: 5px;
-      padding: 20px 20px 0px;
+
       .margin-top-higher {
         margin-top: 15px;
       }
+
+      .el-form-item {
+        margin-bottom: 7px;
+
+        .el-form-item__error {
+          padding-top: 0;
+        }
+      }
+
       .address-container {
         .el-form-item {
           display: inline-block;
         }
       }
-      .el-form-item {
-        margin-bottom: 7px;
-        .el-form-item__error {
-          padding-top: 0px;
-        }
-      }
+
       & > h1 {
-        line-height: 1;
         font-size: 1rem;
+        line-height: 1;
       }
+
       & > .el-form {
         padding: 20px;
+
         .el-input {
           width: auto;
-          &.second-input .el-input__inner {
-            width: 80px;
-          }
+
           .el-input__inner {
             width: 160px;
+          }
+
+          &.second-input .el-input__inner {
+            width: 80px;
           }
         }
       }

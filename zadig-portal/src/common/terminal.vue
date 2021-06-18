@@ -5,21 +5,20 @@
 </template>
 
 <script>
-import { Terminal } from "xterm";
-import { FitAddon } from 'xterm-addon-fit';
-import "xterm/css/xterm.css";
-import _ from 'lodash';
+import { Terminal } from 'xterm'
+import { FitAddon } from 'xterm-addon-fit'
+import 'xterm/css/xterm.css'
 export default {
-  name: "Terminal",
-  data() {
+  name: 'Terminal',
+  data () {
     return {
       baseLog: [],
-      index: 0,
-    };
+      index: 0
+    }
   },
   methods: {
-    clearCurrentTerm() {
-      this.term.clear();
+    clearCurrentTerm () {
+      this.term.clear()
     }
   },
   props: {
@@ -43,40 +42,39 @@ export default {
   watch: {
     logs: function (new_val, old_val) {
       if (new_val !== old_val) {
-        this.term.clear();
-        this.index = 0;
+        this.term.clear()
+        this.index = 0
       }
       for (let i = this.index; i < new_val.length; i++) {
-        this.term.write(new_val[i] + '\r');
+        this.term.write(new_val[i] + '\r')
       }
-      this.index = new_val.length;
-    },
-    currentStep: function (new_val, old_val) {
+      this.index = new_val.length
     }
   },
-  mounted() {
-    const term = new Terminal({ fontSize: "12", rows: "30", padding: "15", fontFamily: "Monaco,monospace,Microsoft YaHei,Arial", disableStdin: true, scrollback: 9999999, cursorStyle: null });
-    const fitAddon = new FitAddon();
-    term.loadAddon(fitAddon);
+  mounted () {
+    const term = new Terminal({ fontSize: '12', rows: '30', padding: '15', fontFamily: 'Monaco,monospace,Microsoft YaHei,Arial', disableStdin: true, scrollback: 9999999, cursorStyle: null })
+    const fitAddon = new FitAddon()
+    term.loadAddon(fitAddon)
     term.open(document.getElementById(
-      "term-container"
-    ));
-    fitAddon.fit();
-    this.term = term;
+      'term-container'
+    ))
+    fitAddon.fit()
+    this.term = term
 
     if (this.pipelineStatus && (this.pipelineStatus !== 'pending' || this.pipelineStatus !== 'running')) {
       this.logs.forEach(element => {
-        element && this.term.write(element + '\r');
-      });
-      this.index = this.logs.length;
+        element && this.term.write(element + '\r')
+      })
+      this.index = this.logs.length
     }
   }
-};
+}
 </script>
 
 <style lang="less">
 .xterm {
   padding: 15px 10px;
+
   .xterm-viewport {
     border-radius: 5px;
   }

@@ -58,16 +58,16 @@
          :key="index"
          class="config-container">
       <div class="type">
-        <h3>{{ config.name }}</h3>
+        <h3>{{ config.current.name }}</h3>
         <p class="tip">注意：修改服务配置会重启服务</p>
-        <el-button @click="showHistory"
+        <el-button @click="showHistory(config)"
                    type="primary"
                    plain
                    size="mini"
                    icon="ion-android-list">历史配置</el-button>
       </div>
-      <el-table :data="config.data"
-                style="width: 100%">
+      <el-table :data="config.current.data"
+                style="width: 100%;">
         <el-table-column label="Key">
           <template slot-scope="scope">
             <span>{{ scope.row.key }}</span>
@@ -75,9 +75,9 @@
         </el-table-column>
         <el-table-column label="Value">
           <template slot-scope="scope">
-            <span v-if="!editConfigValueVisable[config.name][scope.row.key]">
+            <span v-if="!editConfigValueVisable[config.current.name][scope.row.key]">
               {{ $utils.tailCut(scope.row.value,80)}}</span>
-            <el-input v-if="editConfigValueVisable[config.name][scope.row.key]"
+            <el-input v-else
                       size="small"
                       v-model="scope.row.value"
                       type="textarea"
@@ -87,8 +87,8 @@
         </el-table-column>
         <el-table-column width="100">
           <template slot-scope="scope">
-            <el-button v-if="!editConfigValueVisable[config.name][scope.row.key]"
-                       @click="fullScreenEdit(index,scope.$index,config.name,scope.row.key,scope.row.value,'edit')"
+            <el-button v-if="!editConfigValueVisable[config.current.name][scope.row.key]"
+                       @click="fullScreenEdit(index,scope.$index,config.current.name,scope.row.key,scope.row.value,'edit')"
                        size="mini"
                        icon="el-icon-edit">修改</el-button>
           </template>
@@ -112,11 +112,19 @@
                 @selection-change="selectionChanged"
                 ref="configHistoryTable">
         <el-table-column type="selection"></el-table-column>
-        <el-table-column prop="version"
-                         label="版本"></el-table-column>
-        <el-table-column prop="readableCreateTime"
-                         label="创建时间"></el-table-column>
-        <el-table-column prop="updatedBy"
+        <el-table-column prop="name"
+                         label="版本">
+          <template slot-scope="scope">
+            <span >{{scope.row.version}}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="creationTimestamp"
+                         label="创建时间">
+          <template slot-scope="scope">
+            <span>{{moment(scope.row.creationTimestamp).format('YYYY-MM-DD HH:mm')}}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="modifiedBy"
                          label="最后修改"></el-table-column>
         <el-table-column label="操作"
                          width="">
@@ -150,21 +158,25 @@
 </template>
 
 <script>
-import aceEditor from 'vue2-ace-bind';
-import 'brace/mode/javascript';
-import 'brace/mode/sh';
-import 'brace/theme/chrome';
-import 'brace/theme/xcode';
-import 'brace/theme/terminal';
-import 'brace/ext/searchbox';
-import moment from 'moment';
-import qs from 'qs';
-const jsdiff = require('diff');
-import bus from '@utils/event_bus';
-import { getConfigmapAPI, updateConfigmapAPI, rollbackConfigmapAPI } from '@api';
+import aceEditor from 'vue2-ace-bind'
+import 'brace/mode/javascript'
+import 'brace/mode/sh'
+import 'brace/theme/chrome'
+import 'brace/theme/xcode'
+import 'brace/theme/terminal'
+import 'brace/ext/searchbox'
+import moment from 'moment'
+import qs from 'qs'
+import bus from '@utils/event_bus'
+import { getConfigmapAPI, updateConfigmapAPI, rollbackConfigmapAPI } from '@api'
+import _ from 'lodash'
+const jsdiff = require('diff')
+
 export default {
-  data() {
+  data () {
     return {
+      moment,
+      srcConfigName: null,
       window: window,
       editConfigValueVisable: {},
       configMaps: [],
@@ -197,225 +209,236 @@ export default {
       updateValue: false,
       showUpdateButton: false,
       checkUpdateFlag: false,
-      settingLoading: false,
-    };
+      settingLoading: false
+    }
   },
   computed: {
-    projectName() {
-      return this.$route.params.project_name;
+    projectName () {
+      return this.$route.params.project_name
     },
-    serviceName() {
-      return this.$route.params.service_name;
+    serviceName () {
+      return this.$route.params.service_name
     },
-    envName() {
-      return this.$route.query.envName || '';
+    envName () {
+      return this.$route.query.envName || ''
     },
-    isProd() {
-      return this.$route.query.isProd === 'true';
+    isProd () {
+      return this.$route.query.isProd === 'true'
     },
-    envType() {
-      return this.isProd ? 'prod' : '';
+    envType () {
+      return this.isProd ? 'prod' : ''
     },
-    orderedHistoriesDesc() {
+    orderedHistoriesDesc () {
       if (Array.isArray(this.selectedHistories) && this.selectedHistories.length > 1) {
-        const arr = Array.from(this.selectedHistories);
+        const arr = Array.from(this.selectedHistories)
         if (arr[1]._idx < arr[0]._idx) {
-          arr.reverse();
+          arr.reverse()
         }
-        return arr;
+        return arr
       }
-      return this.selectedHistories;
+      return this.selectedHistories
     },
-    diffTitle() {
-      const candidates = this.orderedHistoriesDesc;
+    diffTitle () {
+      const candidates = this.orderedHistoriesDesc
       if (Array.isArray(candidates) && candidates.length > 1) {
-        return `${candidates[0].version} 相对于 ${candidates[1].version} 的 diff`;
+        return `${candidates[0].version} 相对于 ${candidates[1].version} 的 diff`
       }
-      return '配置 diff（未勾选）';
+      return '配置 diff（未勾选）'
     }
   },
   methods: {
-    cancelSave() {
-      this.dialogEditorVisible = false;
-      this.updateValue = false;
-      this.showUpdateButton = false;
-      this.configDiff = [];
+    cancelSave () {
+      this.dialogEditorVisible = false
+      this.updateValue = false
+      this.showUpdateButton = false
+      this.configDiff = []
     },
-    async getConfigmap() {
-      this.configMaps = [];
+    async getConfigmap () {
       const query = {
         productName: this.projectName,
         serviceName: this.serviceName,
         envType: this.envType
-      };
-      this.envName && (query.envName = this.envName);
-      this.loading = true;
+      }
+      this.envName && (query.envName = this.envName)
+      this.loading = true
       await getConfigmapAPI(qs.stringify(query)).then(res => {
-        this.loading = false;
-        this.histories = res;
-        this.adaptHistories(this.histories).forEach(config => {
-          if (!config.labels['config-backup']) {
-            this.configMaps.push(config);
+        this.loading = false
+        this.configMaps = res.sort(function (a, b) {
+          if (a.current.name < b.current.name) {
+            return -1
           }
-        });
-        this.convertMapToArr(this.histories);
-      });
+          if (a.current.name > b.current.name) {
+            return 1
+          }
+          return 0
+        })
+        this.convertMapToArr(this.configMaps)
+      })
     },
-    async fullScreenEdit(config_index, key_index, config_name, key, value, operation) {
+    async fullScreenEdit (config_index, key_index, config_name, key, value, operation) {
       if (operation === 'edit') {
-        this.dialogEditorVisible = true;
-        this.fullScreenEditObj.configName = config_name;
-        this.fullScreenEditObj.key = key;
-        this.fullScreenEditObj.configIndex = config_index;
-        this.fullScreenEditObj.keyIndex = key_index;
-        this.settingLoading = true;
-        await this.getConfigmap();
-        if (!(value === this.configMaps[config_index].data[key_index].value)) {
-          this.fullScreenEditObj.value = this.configMaps[config_index].data[key_index].value;
+        this.dialogEditorVisible = true
+        this.fullScreenEditObj.configName = config_name
+        this.fullScreenEditObj.key = key
+        this.fullScreenEditObj.configIndex = config_index
+        this.fullScreenEditObj.keyIndex = key_index
+        this.settingLoading = true
+        await this.getConfigmap()
+        if (!(value === this.configMaps[config_index].current.data[key_index].value)) {
+          this.fullScreenEditObj.value = this.configMaps[config_index].current.data[key_index].value
         } else {
-          this.fullScreenEditObj.value = value;
+          this.fullScreenEditObj.value = value
         }
-        this.settingLoading = false;
+        this.settingLoading = false
       }
     },
-    async checkUpdate(config_index, key_index, value) {
-      this.checkUpdateFlag = true;
-      await this.getConfigmap();
-      this.checkUpdateFlag = false;
-      if (!(value === this.configMaps[config_index].data[key_index].value)) {
+    async checkUpdate (config_index, key_index, value) {
+      this.checkUpdateFlag = true
+      await this.getConfigmap()
+      this.checkUpdateFlag = false
+      if (!(value === this.configMaps[config_index].current.data[key_index].value)) {
         this.$message({
           message: '环境中的服务配置有更新，请确认配置变动后再继续保存！',
-          type: 'warning',
+          type: 'warning'
         })
-        this.updateValue = true;
-        this.showUpdateButton = true;
+        this.updateValue = true
+        this.showUpdateButton = true
         this.configDiff = jsdiff.diffLines(
           value.replace(/\\n/g, '\n').replace(/\\t/g, '\t'),
-          this.configMaps[config_index].data[key_index].value.replace(/\\n/g, '\n').replace(/\\t/g, '\t')
-        );
-        return true;
+          this.configMaps[config_index].current.data[key_index].value.replace(/\\n/g, '\n').replace(/\\t/g, '\t')
+        )
+        return true
       } else {
-        this.updateValue = false;
-        this.showUpdateButton = false;
-        this.configDiff = [];
-        return false;
+        this.updateValue = false
+        this.showUpdateButton = false
+        this.configDiff = []
+        return false
       }
     },
-    async handleConfigEdit(operation, config_name, key) {
-      if (operation == 'edit') {
-      } else if (operation == 'cancel') {
-      } else if (operation == 'confirm') {
-        const _config_index = this.fullScreenEditObj.configIndex;
-        const _key_index = this.fullScreenEditObj.keyIndex;
-        const _name = this.fullScreenEditObj.configName;
-        const _key = this.fullScreenEditObj.key;
-        const _value = this.fullScreenEditObj.value;
-        if (await this.checkUpdate(_config_index, _key_index, this.configMaps[_config_index]['data'][_key_index].value)) {
-          return;
+    async handleConfigEdit (operation, config_name, key) {
+      if (operation === 'confirm') {
+        const _config_index = this.fullScreenEditObj.configIndex
+        const _key_index = this.fullScreenEditObj.keyIndex
+        const _value = this.fullScreenEditObj.value
+        if (await this.checkUpdate(_config_index, _key_index, this.configMaps[_config_index].current.data[_key_index].value)) {
+          return
         }
-        this.configMaps[_config_index]['data'][_key_index].value = _value;
-        this.saveCurrentEditConfig(config_name, 'update');
-        this.dialogEditorVisible = false;
+        this.configMaps[_config_index].current.data[_key_index].value = _value
+        this.saveCurrentEditConfig(config_name, 'update')
+        this.dialogEditorVisible = false
       }
     },
-    saveCurrentEditConfig(config_name, operation) {
-      const configName = config_name;
-      const envType = this.envType;
+    saveCurrentEditConfig (config_name, operation) {
+      const configName = config_name
+      const envType = this.envType
       const payload = {
         env_name: this.envName,
         product_name: this.projectName,
         service_name: this.serviceName,
         config_name: configName,
         data: this.findConfigAndConvert(configName)
-      };
+      }
       if (operation === 'update') {
         updateConfigmapAPI(envType, payload).then(res => {
-          this.getConfigmap();
+          this.getConfigmap()
           this.$message({
             message: '配置保存成功',
             type: 'success'
-          });
-        });
+          })
+        })
       }
     },
-    convertMapToArr(configmap) {
-      let buildMap = obj => {
-        let arrPair = [];
-        let map = new Map();
+    convertMapToArr (configmap) {
+      const buildMap = obj => {
+        const arrPair = []
+        const map = new Map()
         Object.keys(obj).forEach(key => {
-          map.set(key, obj[key]);
-        });
-        for (var [_key, _value] of map) {
+          map.set(key, obj[key])
+        })
+        for (const [_key, _value] of map) {
           arrPair.push({
             key: _key,
             value: _value
-          });
+          })
         }
-        return arrPair;
-      };
-      let newPair = configmap.map(config => {
-        this.$set(this.editConfigValueVisable, config.name, {});
-        if (config.data === null) {
-          config.data = {
+        return arrPair
+      }
+      const newPair = configmap.map(config => {
+        const currentConfig = config.current
+        this.$set(this.editConfigValueVisable, currentConfig.name, {})
+        if (currentConfig.data === null) {
+          currentConfig.data = {
             暂无配置: '暂无配置'
-          };
+          }
         }
-        config.data = buildMap(config.data);
-        config.data.forEach(element => {
-          this.$set(this.editConfigValueVisable[config.name], [element.key], false);
-        });
-        return config;
-      });
-      return newPair;
+        currentConfig.data = buildMap(currentConfig.data)
+        currentConfig.data.forEach(element => {
+          this.$set(this.editConfigValueVisable[currentConfig.name], [element.key], false)
+        })
+        return currentConfig
+      })
+      return newPair
     },
-    findConfigAndConvert(config_name) {
-      let arr = {};
+    findConfigAndConvert (config_name) {
+      let arr = {}
       this.configMaps.forEach(config => {
-        if (config.name === config_name) {
-          arr = config.data;
+        if (config.current.name === config_name) {
+          arr = config.current.data
         }
-      });
-      let result = arr.reduce(function (map, obj) {
-        map[obj.key] = obj.value;
-        return map;
-      }, {});
-      return result;
+      })
+      const result = arr.reduce(function (map, obj) {
+        map[obj.key] = obj.value
+        return map
+      }, {})
+      return result
     },
 
-    showHistory() {
-      this.historyVisible = true;
+    showHistory (config) {
+      this.historyVisible = true
+      this.histories = _.cloneDeep(config.historicalRevisions)
+      this.histories.unshift(config.current)
+      this.adaptHistories()
+      this.srcConfigName = config.current.name
     },
 
-    selectionChanged(val) {
+    selectionChanged (val) {
       if (val.length > 2) {
         this.$message({
           message: '只能选择两个版本用于比较',
           type: 'warning'
-        });
-        this.$refs.configHistoryTable.toggleRowSelection(val[val.length - 1]);
-        return false;
+        })
+        this.$refs.configHistoryTable.toggleRowSelection(val[val.length - 1])
+        return false
       }
 
-      this.selectedHistories = val;
+      this.selectedHistories = val
     },
 
-    showDiff() {
-      const candidates = this.selectedHistories;
+    showDiff () {
+      const candidates = this.selectedHistories
       if (candidates.length !== 2) {
         this.$message({
           message: '只能选择两个版本用于比较',
           type: 'warning'
-        });
-        return;
+        })
+        return
       }
 
-      this.diffVisible = true;
+      this.diffVisible = true
       this.configDiff = jsdiff.diffLines(
         JSON.stringify(this.$utils.cloneObj(this.orderedHistoriesDesc[1].data), null, 2).replace(/\\n/g, '\n').replace(/\\t/g, '\t'),
         JSON.stringify(this.$utils.cloneObj(this.orderedHistoriesDesc[0].data), null, 2).replace(/\\n/g, '\n').replace(/\\t/g, '\t')
-      );
+      )
     },
-    rollbackTo(dest) {
+    adaptHistories () {
+      const len = this.histories.length
+      this.histories.forEach((hist, i) => {
+        hist.version = i === 0 ? '当前' : `历史${len - i}`
+        hist._idx = i
+      })
+      return this.histories
+    },
+    rollbackTo (dest) {
       this.$confirm(`确定要回滚到 ${dest.version} 吗`, '确认回滚', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
@@ -426,34 +449,24 @@ export default {
           product_name: this.projectName,
           service_name: this.serviceName,
           src_config_name: dest.name,
-          destin_config_name: this.histories.find(h => !h.labels['config-backup']).name
-        };
-        const envType = this.envType;
-        this.envName && (payload.env_name = this.envName);
+          destin_config_name: this.srcConfigName
+        }
+        const envType = this.envType
+        this.envName && (payload.env_name = this.envName)
         rollbackConfigmapAPI(envType, payload).then(res => {
           this.$message.success({
             message: '配置回滚成功，正在重启服务',
             type: 'success'
-          });
-          this.historyVisible = false;
-          this.diffVisible = false;
-          this.getConfigmap();
-        });
-      });
-    },
-    adaptHistories() {
-      const len = this.histories.length;
-      this.histories.forEach((hist, i) => {
-        hist.updatedBy = hist.labels['update-by'];
-        hist.version = i === 0 ? '当前' : `历史${len - i}`;
-        hist._idx = i;
-        hist.readableCreateTime = moment(hist.create_time, 'X').format('YYYY-MM-DD HH:mm');
-      });
-      return this.histories;
+          })
+          this.historyVisible = false
+          this.diffVisible = false
+          this.getConfigmap()
+        })
+      })
     }
   },
-  created() {
-    this.getConfigmap();
+  created () {
+    this.getConfigmap()
     bus.$emit(`set-topbar-title`,
       {
         title: '',
@@ -465,98 +478,128 @@ export default {
           { title: this.serviceName, url: `/v1/projects/detail/${this.projectName}/envs/detail/${this.serviceName}${window.location.search}` },
           { title: '配置管理', url: `` }
         ]
-      });
-  },
-  mounted() {
+      })
   },
   components: {
     editor: aceEditor
   }
-};
+}
 </script>
 
 <style lang="less">
+.log-diff-container {
+  .diff-content {
+    height: 600px;
+    overflow-y: auto;
+
+    .added {
+      background-color: #b4e2b4;
+    }
+
+    .removed {
+      background-color: #ffb6ba;
+    }
+  }
+}
+
 .config-overview-container {
-  flex: 1;
   position: relative;
-  overflow: auto;
+  flex: 1;
   padding: 10px 20px;
+  overflow: auto;
   font-size: 15px;
+
   .module-title h1 {
+    margin-bottom: 1.5rem;
     font-weight: 200;
     font-size: 2.4rem;
-    margin-bottom: 1.5rem;
   }
+
   .no-config {
-    padding: 20px;
     display: flex;
-    justify-content: center;
     align-items: center;
+    justify-content: center;
+    padding: 20px;
+
     h3 {
       color: #ccc;
     }
   }
+
   .editor-dialog {
     position: fixed;
+
     .show-diff-button {
       position: absolute;
-      z-index: 2;
       top: 70px;
       right: 30px;
+      z-index: 2;
     }
+
     .show-diff {
       position: absolute;
-      z-index: 1;
-      width: 50%;
-      height: 40%;
       top: 60px;
       right: 20px;
+      z-index: 1;
       box-sizing: border-box;
-      border-radius: 3px;
+      width: 50%;
+      height: 40%;
       padding: 10px;
-      background: #ffffff;
-      box-shadow: 0 0 6px 3px #dddddd;
+      background: #fff;
+      border-radius: 3px;
+      box-shadow: 0 0 6px 3px #ddd;
+
       h1 {
-        line-height: 1.5;
-        font-size: 1.2rem;
-        font-weight: 600;
         margin: 0;
+        font-weight: 600;
+        font-size: 1.2rem;
+        line-height: 1.5;
       }
+
       hr {
-        color: #eeeeee;
+        color: #eee;
       }
+
       .diff-now {
         height: 85%;
-        overflow: auto;
         margin: 0 10px;
+        overflow: auto;
+
         .added {
           background-color: #b4e2b4;
         }
+
         .removed {
           background-color: #ffb6ba;
         }
       }
+
       .el-button {
         position: absolute;
-        bottom: 10px;
         right: 10px;
+        bottom: 10px;
       }
     }
+
     .el-dialog__headerbtn {
       top: 6px;
       font-size: 30px;
     }
+
     .el-dialog__header {
       padding: 0;
     }
+
     .el-dialog__body {
-      padding: 10px 0px;
+      padding: 10px 0;
+
       .operation {
-        text-align: right;
         margin-right: 20px;
+        text-align: right;
       }
     }
   }
+
   .config-history-dialog {
     .el-table-column--selection.is-leaf > .cell {
       display: none;
@@ -566,66 +609,68 @@ export default {
 
 .config-container {
   margin-bottom: 35px;
+
   .type {
     margin-bottom: 1rem;
+
     h3 {
       display: inline-block;
       color: #000;
       font-size: 18px;
       border-bottom: 1px solid transparent;
+
       &:hover {
         /* border-bottom-color: #5e6166; */
       }
     }
+
     .tip {
       color: #e6a23c;
     }
   }
+
   .edit,
-  .confirm,
-  .cancel {
-    font-size: 1.2em;
+  .confirm {
     margin-left: 2px;
-    cursor: pointer;
     color: #8d9199;
+    font-size: 1.2em;
+    cursor: pointer;
+
     &:hover {
       color: #1989fa;
     }
   }
+
   .cancel {
+    margin-left: 2px;
+    color: #8d9199;
+    font-size: 1.2em;
+    cursor: pointer;
+
     &:hover {
       color: #ff4949;
     }
   }
+
   .add-env-container {
     margin-top: -1px;
   }
+
   .add-env-btn {
     display: inline-block;
     margin-top: 10px;
     margin-left: 5px;
+
     i {
+      padding-right: 4px;
       color: #5e6166;
       font-size: 16px;
       line-height: 14px;
       cursor: pointer;
-      padding-right: 4px;
+
       &:hover {
         color: #1989fa;
       }
-    }
-  }
-}
-
-.log-diff-container {
-  .diff-content {
-    height: 600px;
-    overflow-y: auto;
-    .added {
-      background-color: #b4e2b4;
-    }
-    .removed {
-      background-color: #ffb6ba;
     }
   }
 }

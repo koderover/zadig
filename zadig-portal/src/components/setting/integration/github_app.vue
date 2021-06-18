@@ -89,7 +89,7 @@
     </el-dialog>
     <!--end of edit github dialog-->
     <div class="tab-container">
-    
+
           <template>
             <el-alert type="info"
                       :closable="false"
@@ -104,14 +104,14 @@
                        @click="handleGithubAppAdd">添加</el-button>
           </div>
           <el-table :data="githubApp"
-                    style="width: 100%">
+                    style="width: 100%;">
             <el-table-column label="App ID">
               <template slot-scope="scope">
                 {{scope.row.app_id}}
               </template>
             </el-table-column>
             <el-table-column label="App Key">
-              <template slot-scope="scope">
+              <template>
                 **********
               </template>
             </el-table-column>
@@ -135,18 +135,18 @@
 <script>
 import {
   getGithubAppAPI, updateGithubAppAPI, deleteGithubAppAPI, createGithubAppAPI
-} from '@api';
+} from '@api'
 export default {
-  data() {
+  data () {
     return {
       githubApp: [],
       githubAppAdd: {
-        "app_id": null,
-        "app_key": "",
+        app_id: null,
+        app_key: ''
       },
       githubAppEdit: {
-        "app_id": null,
-        "app_key": "",
+        app_id: null,
+        app_key: ''
       },
       githubAppRules: {
         app_id: {
@@ -162,126 +162,125 @@ export default {
         }
       },
       dialogGithubAddFormVisible: false,
-      dialogGithubEditFormVisible: false,
-    };
+      dialogGithubEditFormVisible: false
+    }
   },
   methods: {
-    clearValidate(ref) {
-      this.$refs[ref].clearValidate();
+    clearValidate (ref) {
+      this.$refs[ref].clearValidate()
     },
-    getGithubApp() {
-      const id = this.currentOrganizationId;
+    getGithubApp () {
+      const id = this.currentOrganizationId
       getGithubAppAPI(id).then((res) => {
         if (!res.resultCode) {
-          this.$set(this, 'githubApp', res);
+          this.$set(this, 'githubApp', res)
         } else {
-          this.$set(this, 'githubApp', []);
+          this.$set(this, 'githubApp', [])
         }
       })
     },
-    handleGithubAppAdd() {
-      this.dialogGithubAddFormVisible = true;
+    handleGithubAppAdd () {
+      this.dialogGithubAddFormVisible = true
     },
-    handleGithubAppEdit(row) {
-      this.dialogGithubEditFormVisible = true;
-      this.githubAppEdit = this.$utils.cloneObj(row);
+    handleGithubAppEdit (row) {
+      this.dialogGithubEditFormVisible = true
+      this.githubAppEdit = this.$utils.cloneObj(row)
     },
-    handleGithubAppDelete(row) {
-      this.$confirm(`确定要删除这个 GitHub App 配置吗？`, '确认', {
+    handleGithubAppDelete (row) {
+      this.$confirm('确定要删除这个 GitHub App 配置吗？', '确认', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
       }).then(() => {
-        const id = row.id;
+        const id = row.id
         deleteGithubAppAPI(id).then((res) => {
-          this.getGithubApp();
+          this.getGithubApp()
           this.$message({
             message: 'GitHub App 配置删除成功',
             type: 'success'
-          });
-
+          })
         })
-      });
+      })
     },
-    createGithubApp() {
-      const id = this.currentOrganizationId;
-      this.$refs['githubAppAddForm'].validate((valid) => {
+    createGithubApp () {
+      this.$refs.githubAppAddForm.validate((valid) => {
         if (valid) {
-          const id = this.currentOrganizationId;
-          const payload = this.githubAppAdd;
+          const id = this.currentOrganizationId
+          const payload = this.githubAppAdd
           createGithubAppAPI(id, payload).then((res) => {
-            this.getGithubApp();
-            this.handleGithubAppCancel();
+            this.getGithubApp()
+            this.handleGithubAppCancel()
             this.$message({
               message: 'GitHub App 配置添加成功',
               type: 'success'
-            });
-          });
-
+            })
+          })
         } else {
-          return false;
+          return false
         }
-      });
+      })
     },
-    updateGithubApp() {
-      const id = this.currentOrganizationId;
-      this.$refs['githubAppEditForm'].validate((valid) => {
+    updateGithubApp () {
+      this.$refs.githubAppEditForm.validate((valid) => {
         if (valid) {
-          const id = this.currentOrganizationId;
-          const payload = this.githubAppEdit;
+          const id = this.currentOrganizationId
+          const payload = this.githubAppEdit
           updateGithubAppAPI(id, payload).then((res) => {
-            this.getGithubApp();
-            this.handleGithubAppCancel();
+            this.getGithubApp()
+            this.handleGithubAppCancel()
             this.$message({
               message: 'GitHub App 配置修改成功',
               type: 'success'
-            });
-          });
-
+            })
+          })
         } else {
-          return false;
+          return false
         }
-      });
+      })
     },
-    handleGithubAppCancel() {
-      if (this.$refs['githubAppAddForm']) {
-        this.$refs['githubAppAddForm'].resetFields();
-        this.dialogGithubAddFormVisible = false;
+    handleGithubAppCancel () {
+      if (this.$refs.githubAppAddForm) {
+        this.$refs.githubAppAddForm.resetFields()
+        this.dialogGithubAddFormVisible = false
       }
-      if (this.$refs['githubAppEditForm']) {
-        this.$refs['githubAppEditForm'].resetFields();
-        this.dialogGithubEditFormVisible = false;
+      if (this.$refs.githubAppEditForm) {
+        this.$refs.githubAppEditForm.resetFields()
+        this.dialogGithubEditFormVisible = false
       }
-    },
+    }
 
   },
   computed: {
-    currentOrganizationId() {
-      return this.$store.state.login.userinfo.organization.id;
+    currentOrganizationId () {
+      return this.$store.state.login.userinfo.organization.id
     }
   },
-  activated() {
-    this.getGithubApp();
+  activated () {
+    this.getGithubApp()
   }
 }
 </script>
 
 <style lang="less">
 .intergration-github-app-container {
-  flex: 1;
   position: relative;
+  flex: 1;
   overflow: auto;
   font-size: 13px;
+
   .module-title h1 {
+    margin-bottom: 1.5rem;
     font-weight: 200;
     font-size: 2rem;
-    margin-bottom: 1.5rem;
   }
+
   .breadcrumb {
     margin-bottom: 25px;
+
     .el-breadcrumb {
       font-size: 16px;
       line-height: 1.35;
+
       .el-breadcrumb__item__inner a:hover,
       .el-breadcrumb__item__inner:hover {
         color: #1989fa;
@@ -289,35 +288,40 @@ export default {
       }
     }
   }
+
   .tab-container {
     .sync-container {
       padding-top: 15px;
       padding-bottom: 15px;
     }
   }
+
   .text-success {
     color: rgb(82, 196, 26);
   }
+
   .text-failed {
     color: #ff1949;
   }
+
   .edit-form-dialog {
     width: 550px;
+
     .el-dialog__header {
+      padding: 15px;
       text-align: center;
       border-bottom: 1px solid #e4e4e4;
-      padding: 15px;
+
       .el-dialog__close {
         font-size: 10px;
       }
     }
+
     .el-dialog__body {
-      padding-bottom: 0px;
-    }
-    .el-dialog__body {
-      padding: 0px 20px;
+      padding: 0 20px;
       color: #606266;
       font-size: 14px;
+
       .el-form-item {
         margin-bottom: 15px;
       }
@@ -326,6 +330,7 @@ export default {
     .el-select {
       width: 100%;
     }
+
     .el-input {
       display: inline-block;
     }

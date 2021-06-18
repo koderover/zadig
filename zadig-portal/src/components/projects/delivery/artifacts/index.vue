@@ -34,19 +34,19 @@
         </el-option>
       </el-select>
       <template v-else-if="filterKey==='repo_name'">
-        <el-input style="width:150px"
+        <el-input style="width: 150px;"
                   v-model="filterRepoName"
                   clearable
                   @clear="clearRepoName"
                   placeholder="请输入代码库"></el-input>
-        <el-input style="width:150px"
+        <el-input style="width: 150px;"
                   v-model="filterBranch"
                   clearable
                   @clear="clearBranch"
                   placeholder="请输入分支"></el-input>
       </template>
       <el-input v-else
-                style="width:200px"
+                style="width: 200px;"
                 v-model="filterKeyword"
                 clearable
                 @clear="clearKeyword"
@@ -58,7 +58,7 @@
     </div>
     <el-table :data="filteredArtifacts"
               v-show="artifacts.length > 0"
-              style="width: 100%">
+              style="width: 100%;">
       <el-table-column label="服务名称">
         <template slot-scope="scope">
           <el-tooltip :content="scope.row.image"
@@ -157,11 +157,10 @@
 </template>
 
 <script>
-import { getArtifactsAPI } from '@api';
-import bus from '@utils/event_bus';
-import _ from 'lodash';
+import { getArtifactsAPI } from '@api'
+import bus from '@utils/event_bus'
 export default {
-  data() {
+  data () {
     return {
       loading: true,
       perPage: 20,
@@ -180,143 +179,133 @@ export default {
         repo_name: [],
         branch: []
       }
-    };
+    }
   },
   methods: {
-    getArtifacts(perPage, currentPageList, name, type, image, repoName, branch) {
-      this.loading = true;
+    getArtifacts (perPage, currentPageList, name, type, image, repoName, branch) {
+      this.loading = true
       this.availableItems = {
         service_name: [],
         type: ['file', 'image'],
         image_name: [],
         repo_name: [],
         branch: []
-      };
+      }
       getArtifactsAPI(perPage, currentPageList, name, type, image, repoName, branch).then((res) => {
-        this.loading = false;
-        this.totalResult = Number(res.headers['x-total']);
+        this.loading = false
+        this.totalResult = Number(res.headers['x-total'])
         res.data.forEach(element => {
-          element.commits = [];
-          if (element.sortedActivities && element.sortedActivities['build']) {
-            element.sortedActivities['build'].forEach(build => {
+          element.commits = []
+          if (element.sortedActivities && element.sortedActivities.build) {
+            element.sortedActivities.build.forEach(build => {
               if (build.commits) {
-                element.commits = element.commits.concat(build.commits);
+                element.commits = element.commits.concat(build.commits)
                 build.commits.forEach(cm => {
                   if (this.availableItems.branch.indexOf(cm.branch) === -1) {
-                    this.availableItems.branch.push(cm.branch);
+                    this.availableItems.branch.push(cm.branch)
                   }
                   if (this.availableItems.repo_name.indexOf(cm.repo_name) === -1) {
-                    this.availableItems.repo_name.push(cm.repo_name);
+                    this.availableItems.repo_name.push(cm.repo_name)
                   }
-                });
+                })
               }
-            });
+            })
           }
           if (this.availableItems.service_name.indexOf(element.name) === -1) {
-            this.availableItems.service_name.push(element.name);
+            this.availableItems.service_name.push(element.name)
           }
           if (this.availableItems.image_name.indexOf(element.image_tag) === -1 && element.type === 'image') {
-            this.availableItems.image_name.push(element.image_tag);
+            this.availableItems.image_name.push(element.image_tag)
           }
-        });
-        this.artifacts = res.data;
+        })
+        this.artifacts = res.data
       })
-
     },
-    changeKey() {
-      this.filterKeyword = '';
+    changeKey () {
+      this.filterKeyword = ''
     },
-    handleSizeChange(val) {
-      this.perPage = val;
-      this.searchKeyword(this.perPage, this.currentPageList);
+    handleSizeChange (val) {
+      this.perPage = val
+      this.searchKeyword(this.perPage, this.currentPageList)
     },
-    handleCurrentChange(val) {
-      this.currentPageList = val;
-      this.searchKeyword(this.perPage, this.currentPageList);
+    handleCurrentChange (val) {
+      this.currentPageList = val
+      this.searchKeyword(this.perPage, this.currentPageList)
     },
-    searchKeyword(perPage = 20, currentPageList = 1) {
+    searchKeyword (perPage = 20, currentPageList = 1) {
       if (this.filterKey === 'name') {
-        this.getArtifacts(perPage, currentPageList, this.filterKeyword);
+        this.getArtifacts(perPage, currentPageList, this.filterKeyword)
+      } else if (this.filterKey === 'image_tag') {
+        this.getArtifacts(perPage, currentPageList, '', 'image', this.filterKeyword)
+      } else if (this.filterKey === 'type') {
+        this.getArtifacts(perPage, currentPageList, '', this.filterKeyword, '')
+      } else if (this.filterKey === 'repo_name') {
+        this.getArtifacts(perPage, currentPageList, '', '', '', this.filterRepoName, this.filterBranch)
       }
-      else if (this.filterKey === 'image_tag') {
-        this.getArtifacts(perPage, currentPageList, '', 'image', this.filterKeyword);
-      }
-      else if (this.filterKey === 'type') {
-        this.getArtifacts(perPage, currentPageList, '', this.filterKeyword, '');
-      }
-      else if (this.filterKey === 'repo_name') {
-        this.getArtifacts(perPage, currentPageList, '', '', '', this.filterRepoName, this.filterBranch);
-      }
-
     },
-    clearKeyword() {
-      this.getArtifacts(20, 1);
+    clearKeyword () {
+      this.getArtifacts(20, 1)
     },
-    clearRepoName() {
-      this.getArtifacts(20, 1, '', '', '', this.filterRepoName, this.filterBranch);
+    clearRepoName () {
+      this.getArtifacts(20, 1, '', '', '', this.filterRepoName, this.filterBranch)
     },
-    clearBranch() {
-      this.getArtifacts(20, 1, '', '', '', this.filterRepoName, this.filterBranch);
+    clearBranch () {
+      this.getArtifacts(20, 1, '', '', '', this.filterRepoName, this.filterBranch)
     }
   },
   computed: {
-    filteredArtifacts() {
+    filteredArtifacts () {
       if (this.filterValue) {
         if (this.filterKey === 'service_name') {
           return this.artifacts.filter(item => item.name === this.filterValue)
-        }
-        else if (this.filterKey === 'type') {
+        } else if (this.filterKey === 'type') {
           return this.artifacts.filter(item => item.type === this.filterValue)
-        }
-        else if (this.filterKey === 'image_name') {
+        } else if (this.filterKey === 'image_name') {
           return this.artifacts.filter(item => item.image_tag === this.filterValue)
-        }
-        else if (this.filterKey === 'repo_name') {
-          let results = [];
+        } else if (this.filterKey === 'repo_name') {
+          const results = []
           this.artifacts.forEach(item => {
             item.commits.forEach(cm => {
               if (cm.repo_name === this.filterValue) {
-                results.push(item);
+                results.push(item)
               }
             })
           })
-          return results;
-        }
-        else if (this.filterKey === 'branch') {
-          let results = [];
+          return results
+        } else if (this.filterKey === 'branch') {
+          const results = []
           this.artifacts.forEach(item => {
             item.commits.forEach(cm => {
               if (cm.branch === this.filterValue) {
-                results.push(item);
+                results.push(item)
               }
             })
           })
-          return results;
+          return results
+        } else {
+          return []
         }
+      } else {
+        return this.artifacts
       }
-      else {
-        return this.artifacts;
-      }
-
     }
   },
-  created() {
-    bus.$emit(`show-sidebar`, true);
-    bus.$emit(`set-topbar-title`, { title: '交付物追踪', breadcrumb: [] });
-    bus.$emit(`set-sub-sidebar-title`, {
+  created () {
+    bus.$emit('show-sidebar', true)
+    bus.$emit('set-topbar-title', { title: '交付物追踪', breadcrumb: [] })
+    bus.$emit('set-sub-sidebar-title', {
       title: '',
       routerList: []
-    });
+    })
     if (this.$route.query.image) {
-      this.filterKey = 'image_tag';
-      this.filterKeyword = this.$route.query.image.split('/')[2];
+      this.filterKey = 'image_tag'
+      this.filterKeyword = this.$route.query.image.split('/')[2]
       this.getArtifacts(20, 1, '', 'image', this.filterKeyword)
-    }
-    else {
-      this.getArtifacts(this.perPage, this.currentPageList);
+    } else {
+      this.getArtifacts(this.perPage, this.currentPageList)
     }
   }
-};
+}
 </script>
 
 <style lang="less">
@@ -324,54 +313,64 @@ export default {
   .el-popover__title {
     margin-bottom: 5px;
   }
+
   h4 {
     margin: 5px 0;
     font-weight: 300;
   }
+
   .commit {
     color: #586069 !important;
     font-size: 12px;
   }
 }
+
 .artifacts-container {
-  flex: 1;
   position: relative;
-  overflow: auto;
+  flex: 1;
   padding: 15px 30px;
+  overflow: auto;
   font-size: 13px;
+
   .module-title h1 {
+    margin-bottom: 1.5rem;
     font-weight: 200;
     font-size: 2rem;
-    margin-bottom: 1.5rem;
   }
+
   .pagination {
     display: flex;
     align-items: center;
     justify-content: center;
     margin-top: 20px;
   }
+
   .artifact-link {
     color: #1989fa;
   }
+
   .repo {
     li {
       cursor: pointer;
     }
   }
+
   .no-artifacts {
-    height: 70vh;
     display: flex;
-    align-content: center;
     flex-direction: column;
-    justify-content: center;
+    align-content: center;
     align-items: center;
+    justify-content: center;
+    height: 70vh;
+
     img {
       width: 400px;
       height: 400px;
     }
+
     p {
-      font-size: 15px;
       color: #606266;
+      font-size: 15px;
     }
   }
 }

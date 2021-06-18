@@ -25,23 +25,23 @@
             <span class="stages-tag">
               <el-tag v-if="showStage(task.stages,'buildv2')"
                       size=small
-                      class="stage"
+                      class="stage-tag"
                       type="primary">构建</el-tag>
               <el-tag v-if="showStage(task.stages,'deploy')"
                       size=small
-                      class="stage"
+                      class="stage-tag"
                       type="primary">部署</el-tag>
               <el-tag v-if="showStage(task.stages,'artifact')"
                       size=small
-                      class="stage"
+                      class="stage-tag"
                       type="primary">交付物部署</el-tag>
               <el-tag v-if="showStage(task.stages,'testingv2')"
                       size=small
-                      class="stage"
+                      class="stage-tag"
                       type="primary">测试</el-tag>
               <el-tag v-if="showStage(task.stages,'release_image')"
                       size=small
-                      class="stage"
+                      class="stage-tag"
                       type="primary">分发</el-tag>
             </span>
             <section class="basic-info">
@@ -93,36 +93,6 @@
             </div>
           </div>
           <ul class="list-unstyled steps cf-steps-list">
-            <li v-if="buildSubtaskInfo(task.stages).staticCheckRepos.length > 0"
-                class="cf-steps-list-item">
-              <el-popover ref="static_check"
-                          placement="right"
-                          title="静态检查"
-                          width="400"
-                          trigger="click">
-                <el-table :data="buildSubtaskInfo(task.stages).staticCheckRepos">
-                  <el-table-column property="name"
-                                   label="代码库"></el-table-column>
-                  <el-table-column property="security_measure_count"
-                                   label="代码安全扫描"></el-table-column>
-                  <el-table-column property="issue_measure_count"
-                                   label="代码缺陷"></el-table-column>
-                </el-table>
-                <div slot="reference"
-                     class="step step-status passed">
-                  <div class="step-data">
-                    <i class="el-icon-cloudy"></i>
-                    <span class="step-description">
-                      静态检查
-                    </span>
-
-                    <span class="step-type"></span>
-                  </div>
-
-                </div>
-              </el-popover>
-
-            </li>
             <li v-if="buildSubtaskInfo(task.stages).utRepos.length > 0"
                 class="cf-steps-list-item">
               <el-popover ref="ut"
@@ -296,7 +266,7 @@
                     </template>
                   </el-table-column>
                 </el-table>
-                <div style="margin-top: 10px;margin-right: 15px;text-align: right;">
+                <div style="margin-top: 10px; margin-right: 15px; text-align: right;">
                   <el-link v-if="testSubtaskInfo(task).integration_test.report_ready"
                            :href="testSubtaskInfo(task).integration_test.report_url"
                            type="primary">测试报告</el-link>
@@ -334,7 +304,7 @@
                     </template>
                   </el-table-column>
                 </el-table>
-                <div style="margin-top: 10px;margin-right: 15px;text-align: right;">
+                <div style="margin-top: 10px; margin-right: 15px; text-align: right;">
                   <el-link v-if="testSubtaskInfo(task).performance_test.report_ready"
                            :href="testSubtaskInfo(task).performance_test.report_url"
                            type="primary">测试报告</el-link>
@@ -347,44 +317,6 @@
                     <i class="el-icon-cloudy"></i>
                     <span class="step-description">
                       性能测试
-                    </span>
-
-                    <span class="step-type"></span>
-                  </div>
-
-                </div>
-              </el-popover>
-
-            </li>
-            <li class="cf-steps-list-item">
-              <el-popover placement="right"
-                          title="安全扫描"
-                          width="600"
-                          trigger="click">
-                <el-table :data="testSubtaskInfo(task).security_scan.results">
-                  <el-table-column property="image_name"
-                                   label="镜像"></el-table-column>
-                  <el-table-column width="80px"
-                                   property="all"
-                                   label="漏洞数量"></el-table-column>
-                  <el-table-column width="80px"
-                                   property="critical"
-                                   label="严重"></el-table-column>
-                  <el-table-column width="80px"
-                                   property="medium"
-                                   label="中危"></el-table-column>
-                  <el-table-column width="80px"
-                                   property="low"
-                                   label="低危"></el-table-column>
-
-                </el-table>
-                <div slot="reference"
-                     class="step step-status"
-                     :class="testSubtaskInfo(task).security_scan.status">
-                  <div class="step-data">
-                    <i class="el-icon-cloudy"></i>
-                    <span class="step-description">
-                      安全扫描
                     </span>
 
                     <span class="step-type"></span>
@@ -465,23 +397,23 @@
           <span class="stages-tag">
             <el-tag v-if="showStage(task.stages,'buildv2')"
                     size=small
-                    class="stage"
+                    class="stage-tag"
                     type="primary">构建</el-tag>
             <el-tag v-if="showStage(task.stages,'deploy')"
                     size=small
-                    class="stage"
+                    class="stage-tag"
                     type="primary">部署</el-tag>
             <el-tag v-if="showStage(task.stages,'artifact')"
                     size=small
-                    class="stage"
+                    class="stage-tag"
                     type="primary">交付物部署</el-tag>
             <el-tag v-if="showStage(task.stages,'testingv2')"
                     size=small
-                    class="stage"
+                    class="stage-tag"
                     type="primary">测试</el-tag>
             <el-tag v-if="showStage(task.stages,'release_image')"
                     size=small
-                    class="stage"
+                    class="stage-tag"
                     type="primary">分发</el-tag>
           </span>
           <section class="basic-info">
@@ -491,7 +423,7 @@
           </section>
         </div>
         <div class="operation-view">
-          <span style="visibility:hidden;"
+          <span style="visibility: hidden;"
                 class="icon el-icon-data-board view-detail"></span>
           <el-tooltip class="item"
                       effect="dark"
@@ -506,32 +438,32 @@
   </div>
 </template>
 <script>
-import { cancelWorkflowAPI } from '@api';
-import { wordTranslate } from '@utils/word_translate';
+import { cancelWorkflowAPI } from '@api'
+import { wordTranslate } from '@utils/word_translate'
 export default {
-  data() {
+  data () {
     return {
-      taskDetailExpand: {},
+      taskDetailExpand: {}
     }
   },
   watch: {
     expandId: {
-      handler(newVal) {
-        this.taskDetailExpand[newVal] = true;
+      handler (newVal) {
+        this.taskDetailExpand[newVal] = true
       },
       deep: true
     }
   },
   methods: {
-    /* 
+    /*
   任务操作
   * @param  {string}           task_type 任务类型（running，queue）
   * @param  {string}           operation 操作 （cancel，restart，delete）
   * @param  {number}           id 任务 id
   * @param  {string}           pipeline_name 流水线名
-  * @return {}           
+  * @return {}
   */
-    taskOperate(task_type, operation, id, pipeline_name) {
+    taskOperate (task_type, operation, id, pipeline_name) {
       if (task_type === 'running') {
         switch (operation) {
           case 'cancel':
@@ -541,15 +473,15 @@ export default {
                 message: '运行任务取消成功',
                 type: 'success',
                 offset: 50
-              });
-            });
-            break;
+              })
+            })
+            break
           case 'restart':
-            break;
+            break
           case 'delete':
-            break;
+            break
           default:
-            break;
+            break
         }
       } else if (task_type === 'queue') {
         switch (operation) {
@@ -560,160 +492,142 @@ export default {
                 message: '队列任务取消成功',
                 type: 'success',
                 offset: 50
-              });
-            });
-            break;
+              })
+            })
+            break
           case 'restart':
-            break;
+            break
           case 'delete':
-            break;
+            break
           default:
-            break;
+            break
         }
       }
     },
-    wordTranslation(word, category, subitem = '') {
-      return wordTranslate(word, category, subitem);
+    wordTranslation (word, category, subitem = '') {
+      return wordTranslate(word, category, subitem)
     },
-    showStage(stages, stage_name) {
-      let flag = false;
+    showStage (stages, stage_name) {
+      let flag = false
       stages.forEach(stage => {
         if (stage_name === stage.type) {
-          flag = true;
+          flag = true
         }
-      });
-      return flag;
+      })
+      return flag
     },
-    showTaskDetail(task_id) {
-      this.taskDetailExpand[task_id] = true;
+    showTaskDetail (task_id) {
+      this.taskDetailExpand[task_id] = true
     },
-    closeTaskDetail(task_id) {
-      this.taskDetailExpand[task_id] = false;
+    closeTaskDetail (task_id) {
+      this.taskDetailExpand[task_id] = false
     },
-    buildSubtaskInfo(stages) {
-      let meta = {
+    buildSubtaskInfo (stages) {
+      const meta = {
         status: '',
         dockerBuildStatus: '',
         staticCheckRepos: [],
         buildImage: [],
         utRepos: [],
         buildRepos: []
-      };
+      }
       stages.forEach(stage => {
         if (stage.type === 'buildv2') {
-          meta.status = stage.status;
+          meta.status = stage.status
           for (const sub_task in stage.sub_tasks) {
-            const static_check_element = stage.sub_tasks[sub_task]['static_check_status']['repos'];
-            const ut_element = stage.sub_tasks[sub_task]['ut_status']['repos'];
-            const build_repos_element = stage.sub_tasks[sub_task]['job_ctx']['builds'];
-            const build_image_element = stage.sub_tasks[sub_task]['docker_build_status'];
-            meta.dockerBuildStatus = stage.sub_tasks[sub_task]['docker_build_status']['status'];
-            meta.buildImage.push(build_image_element);
+            const static_check_element = stage.sub_tasks[sub_task].static_check_status.repos
+            const ut_element = stage.sub_tasks[sub_task].ut_status.repos
+            const build_repos_element = stage.sub_tasks[sub_task].job_ctx.builds
+            const build_image_element = stage.sub_tasks[sub_task].docker_build_status
+            meta.dockerBuildStatus = stage.sub_tasks[sub_task].docker_build_status.status
+            meta.buildImage.push(build_image_element)
             if (static_check_element) {
-              meta.staticCheckRepos = meta.staticCheckRepos.concat(static_check_element);
-            }
-            else {
+              meta.staticCheckRepos = meta.staticCheckRepos.concat(static_check_element)
+            } else {
               meta.staticCheckRepos = []
             }
             if (ut_element) {
-              meta.utRepos = meta.utRepos.concat(ut_element);
-            }
-            else {
+              meta.utRepos = meta.utRepos.concat(ut_element)
+            } else {
               meta.utRepos = []
             }
-            meta.buildRepos = meta.buildRepos.concat(build_repos_element);
-
+            meta.buildRepos = meta.buildRepos.concat(build_repos_element)
           }
         }
-      });
+      })
       return meta
     },
-    deploySubtaskInfo(stages) {
-      let meta = {
+    deploySubtaskInfo (stages) {
+      const meta = {
         status: '',
         serviceLists: []
-      };
+      }
       stages.forEach(stage => {
         if (stage.type === 'deploy') {
-          meta.status = stage.status;
+          meta.status = stage.status
           for (const sub_task in stage.sub_tasks) {
-            const deploy_element = stage.sub_tasks[sub_task];
-            meta.serviceLists.push(deploy_element);
+            const deploy_element = stage.sub_tasks[sub_task]
+            meta.serviceLists.push(deploy_element)
           }
         }
-      });
+      })
       return meta
     },
-    testSubtaskInfo(task) {
-      const workflowName = task.workflow_args.workflow_name;
-      const templateName = task.workflow_args.product_tmpl_name;
-      const taskId = task.task_id;
-      let meta = {
+    testSubtaskInfo (task) {
+      const workflowName = task.workflow_args.workflow_name
+      const templateName = task.workflow_args.product_tmpl_name
+      const taskId = task.task_id
+      const meta = {
         status: '',
         integration_test: { status: '', builds: [], report_url: '', report_ready: false },
-        performance_test: { status: '', builds: [], report_url: '', report_ready: false },
-        security_scan: { status: '', results: [] }
-      };
+        performance_test: { status: '', builds: [], report_url: '', report_ready: false }
+      }
       task.stages.forEach(stage => {
         if (stage.type === 'testingv2') {
-          meta.status = stage.status;
+          meta.status = stage.status
           for (const key in stage.sub_tasks) {
-            if (stage.sub_tasks.hasOwnProperty(key) && stage.sub_tasks[key].job_ctx.test_type === 'function') {
-              const testJobName = workflowName + '-' + taskId + '-' + stage.sub_tasks[key].test_name;
-              const testModuleName = stage.sub_tasks[key].test_module_name;
-              meta.integration_test.test_name = stage.sub_tasks[key].test_name;
-              meta.integration_test.status = stage.sub_tasks[key].status;
-              meta.integration_test.builds = stage.sub_tasks[key].job_ctx.builds;
-              meta.integration_test.report_ready = stage.sub_tasks[key].report_ready;
-              meta.integration_test.report_url = (`/v1/projects/detail/${templateName}/pipelines/multi/testcase/${workflowName}/${taskId}/test/${testModuleName}/${testJobName}/case?is_workflow=1&service_name=${testModuleName}&test_type=function`);
+            if (Object.prototype.hasOwnProperty.call(stage.sub_tasks, key) && stage.sub_tasks[key].job_ctx.test_type === 'function') {
+              const testJobName = workflowName + '-' + taskId + '-' + stage.sub_tasks[key].test_name
+              const testModuleName = stage.sub_tasks[key].test_module_name
+              meta.integration_test.test_name = stage.sub_tasks[key].test_name
+              meta.integration_test.status = stage.sub_tasks[key].status
+              meta.integration_test.builds = stage.sub_tasks[key].job_ctx.builds
+              meta.integration_test.report_ready = stage.sub_tasks[key].report_ready
+              meta.integration_test.report_url = (`/v1/projects/detail/${templateName}/pipelines/multi/testcase/${workflowName}/${taskId}/test/${testModuleName}/${testJobName}/case?is_workflow=1&service_name=${testModuleName}&test_type=function`)
             }
           }
 
           for (const key in stage.sub_tasks) {
-            if (stage.sub_tasks.hasOwnProperty(key) && stage.sub_tasks[key].job_ctx.test_type === 'performance') {
-              const testJobName = workflowName + '-' + taskId + '-' + stage.sub_tasks[key].test_name;
-              const testModuleName = stage.sub_tasks[key].test_module_name;
-              meta.performance_test.test_name = stage.sub_tasks[key].test_name;
-              meta.performance_test.builds = stage.sub_tasks[key].job_ctx.builds;
-              meta.performance_test.status = stage.sub_tasks[key].status;
-              meta.performance_test.report_ready = stage.sub_tasks[key].report_ready;
-              meta.performance_test.report_url = (`/v1/projects/detail/${templateName}/pipelines/multi/testcase/${workflowName}/${taskId}/test/${testModuleName}/${testJobName}/case?is_workflow=1&service_name=${testModuleName}&test_type=performance`);
+            if (Object.prototype.hasOwnProperty.call(stage.sub_tasks, key) && stage.sub_tasks[key].job_ctx.test_type === 'performance') {
+              const testJobName = workflowName + '-' + taskId + '-' + stage.sub_tasks[key].test_name
+              const testModuleName = stage.sub_tasks[key].test_module_name
+              meta.performance_test.test_name = stage.sub_tasks[key].test_name
+              meta.performance_test.builds = stage.sub_tasks[key].job_ctx.builds
+              meta.performance_test.status = stage.sub_tasks[key].status
+              meta.performance_test.report_ready = stage.sub_tasks[key].report_ready
+              meta.performance_test.report_url = (`/v1/projects/detail/${templateName}/pipelines/multi/testcase/${workflowName}/${taskId}/test/${testModuleName}/${testJobName}/case?is_workflow=1&service_name=${testModuleName}&test_type=performance`)
             }
           }
-
         }
-        if (stage.type === 'security') {
-          meta.security_scan.status = stage.status;
-          for (const key in stage.sub_tasks) {
-            meta.security_scan.results.push({
-              image_name: stage.sub_tasks[key].image_name,
-              all: stage.sub_tasks[key].summary ? stage.sub_tasks[key].summary.Total : '-',
-              critical: stage.sub_tasks[key].summary ? stage.sub_tasks[key].summary.Critical : '-',
-              high: stage.sub_tasks[key].summary ? stage.sub_tasks[key].summary.High : '-',
-              medium: stage.sub_tasks[key].summary ? stage.sub_tasks[key].summary.Medium : '-',
-              low: stage.sub_tasks[key].summary ? stage.sub_tasks[key].summary.Low : '-'
-            });
-          }
-        }
-      });
+      })
       return meta
     },
-    distributeSubtaskInfo(stages) {
-      let meta = {
+    distributeSubtaskInfo (stages) {
+      const meta = {
         status: '',
         releaseImages: []
-      };
+      }
       stages.forEach(stage => {
         if (stage.type === 'release_image') {
-          meta.status = stage.status;
+          meta.status = stage.status
           for (const sub_task in stage.sub_tasks) {
-            const release_element = stage.sub_tasks[sub_task];
-            meta.releaseImages.push(release_element);
+            const release_element = stage.sub_tasks[sub_task]
+            meta.releaseImages.push(release_element)
           }
         }
-      });
+      })
       return meta
-    },
+    }
   },
   props: {
     productTasks: {
@@ -725,81 +639,117 @@ export default {
       required: true
     }
   },
-  created() {
-    this.taskDetailExpand[this.expandId] = true;
-  },
+  created () {
+    this.taskDetailExpand[this.expandId] = true
+  }
 }
 </script>
 <style lang="less">
 .product-status-container {
   position: relative;
-  margin-left: 0px;
-  margin-right: 0px;
+  margin-right: 0;
+  margin-left: 0;
+
   .progress-header {
-    box-shadow: 1px 0px 10px -5px rgba(0, 0, 0, 0.3);
     margin-bottom: 8px;
+    box-shadow: 1px 0 10px -5px rgba(0, 0, 0, 0.3);
+
     .progress-header-view {
-      background: #fff;
-      border-bottom: 1px solid #eaeaea;
       display: flex;
-      padding: 10px 13px 10px 13px;
+      min-height: 60px;
       margin-top: 0;
       margin-bottom: 0;
-      list-style: none;
+      padding: 10px 13px 10px 13px;
       font-size: 14px;
-      min-height: 60px;
+      list-style: none;
+      background: #fff;
+      border-bottom: 1px solid #eaeaea;
+
+      .operation-view {
+        display: flex;
+        align-content: center;
+        align-items: center;
+        justify-content: flex-end;
+
+        span {
+          margin-right: 25px;
+          font-size: 20px;
+        }
+
+        .icon {
+          cursor: pointer;
+
+          &.delete {
+            color: #ff1949;
+          }
+
+          &.view-detail {
+            color: #1989fa;
+          }
+        }
+      }
+
       .status-view {
+        flex-basis: 160px;
         flex-grow: 0;
         flex-shrink: 0;
-        flex-basis: 160px;
+
         .status {
+          position: relative;
+          bottom: -10px;
           width: 114px;
           height: 31px;
-          border-radius: 50px;
+          margin-right: 8px;
+          margin-left: 15px;
+          padding-right: 15px;
+          padding-left: 15px;
           color: #fff;
           font-weight: bold;
           font-size: 13px;
           line-height: 30px;
-          margin-left: 15px;
           text-align: center;
-          position: relative;
-          padding-left: 15px;
-          padding-right: 15px;
-          bottom: -10px;
-          margin-right: 8px;
+          border-radius: 50px;
           transition: width 100ms ease;
+
           &.failed {
             background-color: #ff1949;
           }
+
           &.running {
             background-color: #1989fa;
           }
+
           &.pending {
             background-color: #606266;
           }
         }
       }
+
       .info-view {
+        display: flex;
         flex: 1 1 auto;
         width: calc(100% - 600px);
         padding-right: 18px;
         padding-left: 20px;
-        display: flex;
+
         .spec {
           display: flex;
           align-items: center;
           width: 100%;
+
           span {
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
             max-width: 45%;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+
             label {
-              font-size: 14px;
-              font-weight: bold;
               color: #a3a3a3;
+              font-weight: bold;
+              font-size: 14px;
               line-height: 18px;
             }
+
             .workflow-name {
               color: #1989fa;
               font-size: 16px;
@@ -807,18 +757,22 @@ export default {
             }
           }
         }
+
         .stages-tag {
           display: flex;
           align-items: center;
           width: 100%;
-          .stage {
+
+          .stage-tag {
             margin-right: 10px;
           }
         }
+
         .basic-info {
+          position: relative;
           flex: 0 0 19%;
           align-items: center;
-          position: relative;
+
           .time,
           .author {
             margin: 6px 0;
@@ -827,107 +781,100 @@ export default {
           }
         }
       }
-      .operation-view {
-        display: flex;
-        align-content: center;
-        align-items: center;
-        justify-content: flex-end;
-        span {
-          margin-right: 25px;
-          font-size: 20px;
-        }
-        .icon {
-          cursor: pointer;
-          &.delete {
-            color: #ff1949;
-          }
-          &.view-detail {
-            color: #1989fa;
-          }
-        }
-      }
     }
   }
+
   .stages {
     display: flex;
     flex-wrap: nowrap;
-    overflow-x: auto;
-    margin: 25px 0px 0px;
+    margin: 25px 0 0;
     padding-bottom: 35px;
+    overflow-x: auto;
+
     .stage {
-      width: 25%;
-      background: -webkit-gradient(
-        linear,
-        right top,
-        left top,
-        from(rgba(150, 150, 150, 0.1)),
-        color-stop(56.91%, rgba(0, 0, 0, 0))
-      );
-      background: linear-gradient(
-        270deg,
-        rgba(150, 150, 150, 0.1) 0%,
-        rgba(0, 0, 0, 0) 56.91%
-      );
-      padding: 11px 30px 20px 40px;
       position: relative;
+      width: 25%;
+      padding: 11px 30px 20px 40px;
       overflow: hidden;
+      background:
+        -webkit-gradient(
+          linear,
+          right top,
+          left top,
+          from(rgba(150, 150, 150, 0.1)),
+          color-stop(56.91%, rgba(0, 0, 0, 0))
+        );
+      background:
+        linear-gradient(
+          270deg,
+          rgba(150, 150, 150, 0.1) 0%,
+          rgba(0, 0, 0, 0) 56.91%
+        );
+
       .line.first {
         border-top: none;
-        border-top-right-radius: 0px;
+        border-top-right-radius: 0;
       }
+
       .line.first::before {
-        content: " ";
-        display: inline-block;
-        width: 7px;
-        height: 7px;
-        border-radius: 5px;
-        background-color: #ccc;
         position: absolute;
         top: 0;
         right: -4px;
+        display: inline-block;
+        width: 7px;
+        height: 7px;
+        background-color: #ccc;
+        border-radius: 5px;
+        content: " ";
       }
+
       .line {
         position: absolute;
         top: 40px;
         bottom: 10px;
-        border-right: 1px solid #ccc;
         left: -13px;
         width: 34px;
         border-top: 1px solid #ccc;
+        border-right: 1px solid #ccc;
         border-top-right-radius: 7px;
       }
+
       .stage-header {
-        background-color: #fff;
-        overflow: hidden;
-        margin-bottom: 20px;
-        box-shadow: 0px 4px 12px 0px rgba(0, 0, 0, 0.13);
-        filter: progid:DXImageTransform.Microsoft.dropshadow(OffX=0px, OffY=4px, Color='#21000000');
         display: flex;
         align-items: center;
         justify-content: flex-start;
-        padding-left: 10px;
-        padding-right: 10px;
         min-height: 62px;
+        margin-bottom: 20px;
+        padding-right: 10px;
+        padding-left: 10px;
+        overflow: hidden;
+        background-color: #fff;
+        box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.13);
+        filter: progid:dximagetransform.microsoft.dropshadow(OffX=0px, OffY=4px, Color='#21000000');
+
         .stage-header-title {
           width: 50%;
           padding-right: 12px;
         }
+
         .stage-title {
-          text-align: left;
+          margin: 0;
+          overflow: hidden;
           color: #000;
+          font-weight: bold;
           font-size: 14px;
           line-height: 1.4;
-          text-transform: uppercase;
-          font-weight: bold;
-          margin: 0;
           white-space: nowrap;
-          overflow: hidden;
+          text-align: left;
+          text-transform: uppercase;
           text-overflow: ellipsis;
         }
       }
+
       .stage-header.stage-header-empty-status {
         padding-left: 20px;
       }
+
       .stage-header > * {
         display: flex;
         align-items: center;
@@ -935,30 +882,36 @@ export default {
         padding-top: 15px;
         padding-bottom: 15px;
       }
+
       .steps {
         margin: 0;
         padding: 0;
       }
+
       .step {
-        background-color: #fff;
         display: block;
+        margin-bottom: 20px;
+        padding: 15px 10px 15px 10px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        background-color: #fff;
+        border-left: 5px solid #ccc;
         -webkit-box-shadow: 0 2px 20px 0 rgba(0, 0, 0, 0.03);
         box-shadow: 0 2px 20px 0 rgba(0, 0, 0, 0.03);
-        text-overflow: ellipsis;
-        overflow: hidden;
-        margin-bottom: 20px;
-        border-left: 5px solid #ccc;
-        padding: 15px 10px 15px 10px;
+
         &.failed {
           border-left-color: #ff1949;
         }
+
         &.running {
           border-left-color: #1989fa;
           animation: blink 1.6s infinite;
         }
+
         &.passed {
           border-left-color: #67c23a;
         }
+
         &.pending {
           border-left-color: #606266;
         }
@@ -968,64 +921,72 @@ export default {
         padding-left: 0;
         list-style: none;
       }
+
       .cf-steps-list {
         .step {
           display: flex;
           cursor: pointer;
         }
+
         .step::before {
-          content: " ";
+          position: absolute;
+          left: 14px;
           display: inline-block;
-          background-color: #ccc;
           width: 15px;
           height: 15px;
-          border-radius: 50%;
-          left: 14px;
           margin-top: 4px;
-          position: absolute;
+          background-color: #ccc;
+          border-radius: 50%;
+          content: " ";
         }
+
         .running::before {
           background-color: #1989fa;
         }
+
         .passed::before {
           background-color: #67c23a;
         }
+
         .failed::before {
           background-color: #ff1949;
         }
+
         .step-data {
-          min-width: 0;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          -webkit-box-flex: 1;
-          -ms-flex-positive: 1;
+          position: relative;
           flex-grow: 1;
           min-width: 0;
-          position: relative;
+          overflow: hidden;
+          white-space: nowrap;
+          text-overflow: ellipsis;
+          -webkit-box-flex: 1;
+          -ms-flex-positive: 1;
+
           .icon {
             float: left;
-            margin-right: 10px;
             width: 30px;
             margin-top: 1px;
+            margin-right: 10px;
           }
+
           .step-description {
-            font-size: 13px;
+            padding-right: 15px;
+            overflow: hidden;
             color: #606266;
+            font-size: 13px;
             line-height: 18px;
             white-space: nowrap;
-            overflow: hidden;
             text-overflow: ellipsis;
-            padding-right: 15px;
           }
+
           .step-type {
             min-width: 0;
             overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            font-size: 12px;
             color: #999;
             font-weight: bold;
+            font-size: 12px;
+            white-space: nowrap;
+            text-overflow: ellipsis;
           }
         }
       }

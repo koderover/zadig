@@ -1,104 +1,104 @@
 // Polyfill EventSource if browser does not support it
-import 'eventsource-polyfill';
+import 'eventsource-polyfill'
 
 const formatters = {
   plain: e => e.data,
-  json: e => JSON.parse(e.data),
-};
+  json: e => JSON.parse(e.data)
+}
 
 export default {
-  install(Vue) {
+  install (Vue) {
     Vue.SSE = Vue.prototype.$sse = function $sse (url, cfg) { // eslint-disable-line
       const config = Object.assign(
         {},
         {
           withCredentials: false,
-          format: 'plain',
+          format: 'plain'
         },
-        cfg,
-      );
+        cfg
+      )
 
       const source = new EventSource(url, {
-        withCredentials: config.withCredentials,
-      });
+        withCredentials: config.withCredentials
+      })
 
       return new Promise((resolve, reject) => {
-        source.onerror = reject;
+        source.onerror = reject
 
         source.onopen = () => {
-          source.onerror = null;
+          source.onerror = null
 
-          const subscribers = {};
+          const subscribers = {}
 
           resolve({
-            getSource() {
-              return source;
+            getSource () {
+              return source
             },
-            onError(handler) {
-              source.onerror = handler;
+            onError (handler) {
+              source.onerror = handler
 
-              return this;
+              return this
             },
-            subscribe(event, handler) {
+            subscribe (event, handler) {
               const listener = (e) => {
-                let data;
+                let data
 
                 try {
-                  data = formatters[config.format](e);
+                  data = formatters[config.format](e)
                 } catch (err) {
                   if (typeof source.onerror === 'function') {
-                    source.onerror(err);
+                    source.onerror(err)
                   }
                 }
 
-                handler(data, e);
-              };
+                handler(data, e)
+              }
 
               if (!subscribers[event]) {
-                subscribers[event] = [];
+                subscribers[event] = []
               }
 
-              subscribers[event].push(listener);
-
-              if (event === '') { // Catches messages without any event specified
-                source.onmessage = listener;
-              } else {
-                source.addEventListener(event, listener);
-              }
-
-              return this;
-            },
-            unsubscribe(event) {
+              subscribers[event].push(listener)
+              // Catches messages without any event specified
               if (event === '') {
-                source.onmessage = null;
+                source.onmessage = listener
+              } else {
+                source.addEventListener(event, listener)
+              }
 
-                return this;
+              return this
+            },
+            unsubscribe (event) {
+              if (event === '') {
+                source.onmessage = null
+
+                return this
               }
 
               // Check if there are any subscribers for this event
               if (!subscribers[event]) {
-                return this;
+                return this
               }
 
               subscribers[event].forEach((listener) => {
-                source.removeEventListener(event, listener);
-              });
+                source.removeEventListener(event, listener)
+              })
 
-              subscribers[event] = [];
+              subscribers[event] = []
 
-              return this;
+              return this
             },
-            close() {
-              source.close();
+            close () {
+              source.close()
 
               // Make sure listeners are cleared (nobody likes mem leaks, right?)
               Object.keys(subscribers).forEach((event) => {
-                subscribers[event] = [];
-              });
-            },
-          });
-        };
-      });
-    };
-  },
-};
+                subscribers[event] = []
+              })
+            }
+          })
+        }
+      })
+    }
+  }
+}

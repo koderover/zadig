@@ -173,7 +173,7 @@
                     </el-tab-pane>
                   </el-tabs>
                   <span slot="reference"
-                        class="service-updateable">
+                        class="service-updatable">
                     <el-tooltip effect="dark"
                                 content="配置变更"
                                 placement="top">
@@ -208,8 +208,8 @@
           <el-table-column align="left"
                            label="状态"
                            width="130px">
-            <template slot="header"
-                      slot-scope="scope">状态{{`(${runningContainerService}/${containerServiceList.length})`}}
+            <template
+                      slot="header">状态{{`(${runningContainerService}/${containerServiceList.length})`}}
               <el-tooltip effect="dark"
                           placement="top">
                 <div slot="content">实际正常的服务/预期的正常服务数量</div>
@@ -232,7 +232,7 @@
                             effect="dark"
                             :content="image"
                             placement="top">
-                  <span style="display:block">{{imageNameSplit(image) }}</span>
+                  <span style="display: block;">{{imageNameSplit(image) }}</span>
                 </el-tooltip>
               </template>
             </template>
@@ -302,31 +302,31 @@
 </template>
 
 <script>
-let jsdiff = require('diff');
-import { getProductStatus, serviceTypeMap } from '@utils/word_translate';
-import { mapGetters } from 'vuex';
+import { getProductStatus, serviceTypeMap } from '@utils/word_translate'
+import { mapGetters } from 'vuex'
 import {
   envRevisionsAPI, productEnvInfoAPI, productServicesAPI, serviceTemplateAfterRenderAPI,
   updateServiceAPI, updateK8sEnvAPI, restartServiceOriginAPI, deleteProductEnvAPI, getServicePipelineAPI, initSource, rmSource
-} from '@api';
-import _ from 'lodash';
-import runWorkflow from './run_workflow.vue';
+} from '@api'
+import _ from 'lodash'
+import runWorkflow from './run_workflow.vue'
 import UpdateK8sVarDialog from './components/update_k8s_var_dialog'
+const jsdiff = require('diff')
 
-let validateKey = (rule, value, callback) => {
-  if (typeof value === 'undefined' || value == '') {
-    callback(new Error('请输入Key'));
+const validateKey = (rule, value, callback) => {
+  if (typeof value === 'undefined' || value === '') {
+    callback(new Error('请输入Key'))
   } else {
     if (!/^[a-zA-Z0-9_]+$/.test(value)) {
-      callback(new Error('Key 只支持字母大小写和数字，特殊字符只支持下划线'));
+      callback(new Error('Key 只支持字母大小写和数字，特殊字符只支持下划线'))
     } else {
-      callback();
+      callback()
     }
   }
-};
+}
 
 export default {
-  data() {
+  data () {
     return {
       ctlCancel: null,
       selectVersion: '',
@@ -366,57 +366,56 @@ export default {
       },
       serviceTypeMap: serviceTypeMap,
       statusIndicator: {
-        'Running': 'success',
-        'Succeeded': 'success',
-        'Error': 'danger',
-        'Unstable': 'warning',
-        'Unstart': 'info',
+        Running: 'success',
+        Succeeded: 'success',
+        Error: 'danger',
+        Unstable: 'warning',
+        Unstart: 'info'
       },
       serviceSearch: '',
       page: 1,
       perPage: 20,
       envTotal: 0,
       scrollGetFlag: true,
-      scrollFinish: false,
-    };
+      scrollFinish: false
+    }
   },
   computed: {
-    currentOrganizationId() {
-      return this.$store.state.login.userinfo.organization.id;
+    currentOrganizationId () {
+      return this.$store.state.login.userinfo.organization.id
     },
-    filteredProducts() {
-      return _.uniqBy(_.orderBy(this.productList, ['product_name', 'is_prod']), 'product_name');
+    filteredProducts () {
+      return _.uniqBy(_.orderBy(this.productList, ['product_name', 'is_prod']), 'product_name')
     },
-    runningContainerService() {
-      return this.containerServiceList.filter(s => (s.status === 'Running' || s.status === 'Succeeded')).length;
+    runningContainerService () {
+      return this.containerServiceList.filter(s => (s.status === 'Running' || s.status === 'Succeeded')).length
     },
-    envText() {
-      return this.productInfo.namespace;
+    envText () {
+      return this.productInfo.namespace
     },
-    projectName() {
-      return this.$route.params.project_name;
+    projectName () {
+      return this.$route.params.project_name
     },
-    envNameList() {
-      let envNameList = [];
-      let proEnvList = [];
+    envNameList () {
+      const envNameList = []
+      const proEnvList = []
       this.productList.forEach(element => {
         if (element.product_name === this.projectName) {
           envNameList.push({
             envName: element.env_name,
-            source: element.source,
-          });
+            source: element.source
+          })
         }
-      });
-      let res = envNameList.concat(proEnvList);
-      return res;
+      })
+      const res = envNameList.concat(proEnvList)
+      return res
     },
     envName: {
       get: function () {
         if (this.$route.query.envName) {
-          return this.$route.query.envName;
-        }
-        else {
-          return this.envNameList[0].envName;
+          return this.$route.query.envName
+        } else {
+          return this.envNameList[0].envName
         }
       },
       set: function (newValue) {
@@ -424,9 +423,8 @@ export default {
           this.$router.push({
             path: `/v1/projects/detail/${this.projectName}/envs/create`,
             query: { outer: this.envBasePath.startsWith('/v1/envs/detail') }
-          });
-        }
-        else {
+          })
+        } else {
           this.$router.push({ path: `${this.envBasePath}`, query: { envName: newValue } })
         }
       }
@@ -436,297 +434,315 @@ export default {
     ])
   },
   methods: {
-    openUpdateK8sVar() {
+    openUpdateK8sVar () {
       this.$refs.updateK8sVarDialog.openDialog()
     },
-    searchServicesByKeyword() {
-      this.initPageInfo();
-      this.getProductEnv('search');
+    searchServicesByKeyword () {
+      this.initPageInfo()
+      this.getProductEnv('search')
     },
-    onScroll(event) {
+    onScroll (event) {
       if (!this.scrollGetFlag) {
-        return;
+        return
       }
-      let target = event.target;
-      let scrollTop = target.scrollTop,
-        scrollHeight = target.scrollHeight,
-        clientHeight = target.clientHeight;
+      const target = event.target
+      const scrollTop = target.scrollTop
+      const scrollHeight = target.scrollHeight
+      const clientHeight = target.clientHeight
       if (scrollTop + 1.5 * clientHeight > scrollHeight) {
-        this.getProductEnv();
+        this.getProductEnv()
       }
     },
-    initPageInfo() {
-      this.removeListener();
-      this.page = 1;
-      this.envTotal = 0;
-      this.scrollGetFlag = true;
-      this.scrollFinish = false;
-      this.containerServiceList = [];
+    initPageInfo () {
+      this.removeListener()
+      this.page = 1
+      this.envTotal = 0
+      this.scrollGetFlag = true
+      this.scrollFinish = false
+      this.containerServiceList = []
     },
-    addListener() {
-      this.$refs.envContainer && this.$refs.envContainer.addEventListener('scroll', this.onScroll);
+    addListener () {
+      this.$refs.envContainer && this.$refs.envContainer.addEventListener('scroll', this.onScroll)
     },
-    removeListener() {
-      this.$refs.envContainer && this.$refs.envContainer.removeEventListener('scroll', this.onScroll);
+    removeListener () {
+      this.$refs.envContainer && this.$refs.envContainer.removeEventListener('scroll', this.onScroll)
     },
-    async getProducts() {
-      await this.$store.dispatch('getProductListSSE').closeWhenDestroy(this);
+    async getProducts () {
+      await this.$store.dispatch('getProductListSSE').closeWhenDestroy(this)
     },
-    fetchAllData() {
+    fetchAllData () {
       try {
-        this.initPageInfo();
-        this.getProductEnv();
-        this.getProducts();
-        this.fetchEnvRevision();
+        this.initPageInfo()
+        this.getProductEnv()
+        this.getProducts()
+        this.fetchEnvRevision()
       } catch (err) {
-        console.log("ERROR:" + err);
+        console.log('ERROR:' + err)
       }
     },
-    fetchEnvRevision() {
-      const projectName = this.projectName;
-      const envName = this.envName;
+    fetchEnvRevision () {
+      const projectName = this.projectName
+      const envName = this.envName
       envRevisionsAPI(projectName, envName).then(revisions => {
-        const productStatus = revisions.find(element => { return element.product_name === projectName && element.env_name === this.envName });
+        const productStatus = revisions.find(element => { return element.product_name === projectName && element.env_name === this.envName })
         if (productStatus.services) {
           productStatus.services.forEach(service => {
             this.$set(this.serviceStatus, service.service_name, {
               tpl_updatable: false,
               current_revision: 0,
               next_revision: 0
-            });
+            })
             this.$set(this.serviceStatus, service.service_name, {
-              tpl_updatable: service.updatable && service.deleted === false && service.new === false ? true : false,
+              tpl_updatable: service.updatable && service.deleted === false && service.new === false,
               current_revision: service.current_revision,
               next_revision: service.next_revision,
               config: {
-                config_name: service.configs && service.configs.length > 0 ? service.configs[0]['config_name'] : null,
-                current_revision: service.configs && service.configs.length > 0 ? service.configs[0]['current_revision'] : null,
-                next_revision: service.configs && service.configs.length > 0 ? service.configs[0]['next_revision'] : null,
-                updatable: service.configs && service.configs.length > 0 ? service.configs[0]['updatable'] : null
+                config_name: service.configs && service.configs.length > 0 ? service.configs[0].config_name : null,
+                current_revision: service.configs && service.configs.length > 0 ? service.configs[0].current_revision : null,
+                next_revision: service.configs && service.configs.length > 0 ? service.configs[0].next_revision : null,
+                updatable: service.configs && service.configs.length > 0 ? service.configs[0].updatable : null
               },
               raw: service
-            });
-          });
+            })
+          })
         }
-        this.productStatus = productStatus;
+        this.productStatus = productStatus
       }).catch(err => {
-        if (err === "CANCEL") {
-          return;
+        if (err === 'CANCEL') {
+          return false
         }
-      });
+      })
     },
-    async getProductEnv(flag) {
-      const projectName = this.projectName;
-      const envName = this.envName;
+    async getProductEnv (flag) {
+      const projectName = this.projectName
+      const envName = this.envName
       try {
-        let serviceGroup = [];
+        let serviceGroup = []
         if (this.page === 1 && flag !== 'search') {
-          await this.getProductEnvInfo(projectName, envName);
+          await this.getProductEnvInfo(projectName, envName)
         }
-        this.scrollGetFlag = false;
+        this.scrollGetFlag = false
         if (this.page === 1) {
-          this.addListener();
+          this.addListener()
         }
-        const res = await productServicesAPI(projectName, envName, this.serviceSearch, this.perPage, this.page);
-        this.envTotal = res.headers['x-total'] ? parseInt(res.headers['x-total']) : 0;
-        serviceGroup = res.data;
-        this.page++;
-        this.serviceLoading = false;
+        const res = await productServicesAPI(projectName, envName, this.serviceSearch, this.perPage, this.page)
+        this.envTotal = res.headers['x-total'] ? parseInt(res.headers['x-total']) : 0
+        serviceGroup = res.data
+        this.page++
+        this.serviceLoading = false
         if (serviceGroup && serviceGroup.length) {
-          let { containerServiceList, } = this.handleProductEnvServiceData(serviceGroup);
-          this.scrollGetFlag = true;
-          this.containerServiceList = this.containerServiceList.concat(containerServiceList);
+          const { containerServiceList } = this.handleProductEnvServiceData(serviceGroup)
+          this.scrollGetFlag = true
+          this.containerServiceList = this.containerServiceList.concat(containerServiceList)
           this.containerServiceList = _.orderBy(this.containerServiceList, 'service_name')
           if (this.envTotal === this.containerServiceList.length) {
-            this.removeListener();
-            this.scrollGetFlag = false;
-            this.scrollFinish = true;
+            this.removeListener()
+            this.scrollGetFlag = false
+            this.scrollFinish = true
           }
         } else {
-          this.removeListener();
-          this.scrollGetFlag = false;
-          this.scrollFinish = true;
+          this.removeListener()
+          this.scrollGetFlag = false
+          this.scrollFinish = true
         }
       } catch (err) {
-        this.scrollGetFlag = true;
-        if (err === "CANCEL") {
-          return;
+        this.scrollGetFlag = true
+        if (err === 'CANCEL') {
+          return
         }
         this.$notify.error({
           title: '获取环境信息失败'
-        });
-        this.$router.push(`/v1/projects/detail/${this.projectName}`);
+        })
+        this.$router.push(`/v1/projects/detail/${this.projectName}`)
       }
     },
-    async getProductEnvInfo(projectName, envName) {
-      this.envLoading = true;
-      this.serviceLoading = true;
-      const envInfo = await productEnvInfoAPI(projectName, envName);
+    async getProductEnvInfo (projectName, envName) {
+      this.envLoading = true
+      this.serviceLoading = true
+      const envInfo = await productEnvInfoAPI(projectName, envName)
       if (envInfo) {
-        this.productInfo = envInfo;
-        this.envLoading = false;
+        this.productInfo = envInfo
+        this.envLoading = false
       }
     },
-    handleProductEnvServiceData(serviceGroup) {
-      let containerServiceList = this.$utils.deepSortOn(serviceGroup.filter(element => {
+    handleProductEnvServiceData (serviceGroup) {
+      const containerServiceList = this.$utils.deepSortOn(serviceGroup.filter(element => {
         return element.type === 'k8s'
-      }), 'service_name');
+      }), 'service_name')
       return {
         containerServiceList
-      };
+      }
     },
-    openPopper(service, service_status) {
-      const product_name = this.projectName;
-      const env_name = this.envName;
+    openPopper (service, service_status) {
+      const product_name = this.projectName
+      const env_name = this.envName
       serviceTemplateAfterRenderAPI(product_name, service.service_name, env_name).then((tpls) => {
-        this.combineTemplate = jsdiff.diffLines(tpls.current.yaml, tpls.latest.yaml);
-      });
+        this.combineTemplate = jsdiff.diffLines(tpls.current.yaml, tpls.latest.yaml)
+      })
     },
-    getEnvStatus(status, updateble) {
-      return getProductStatus(status, updateble);
+    getEnvStatus (status, updateble) {
+      return getProductStatus(status, updateble)
     },
-    showUpdate(product_info, product_status) {
-      return product_status.updatable;
+    showUpdate (product_info, product_status) {
+      return product_status.updatable
     },
-    updateK8sEnv(product_info) {
+    updateK8sEnv (product_info) {
       this.$confirm('更新环境, 是否继续?', '更新', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
       })
         .then(() => {
-          const projectName = product_info.product_name;
-          const envName = product_info.env_name;
-          const envType = '';
-          const payload = { vars: product_info.vars };
-          updateK8sEnvAPI(projectName, envName, payload, envType).then(
+          const projectName = product_info.product_name
+          const envName = product_info.env_name
+          const envType = ''
+          const payload = { vars: product_info.vars }
+          const force = true
+          updateK8sEnvAPI(projectName, envName, payload, envType, force).then(
             response => {
-              this.fetchAllData();
+              this.fetchAllData()
               this.$message({
                 message: '更新环境成功，请等待服务升级',
                 type: 'success'
-              });
-            }
-          );
+              })
+            }).catch(() => {
+            // const description = error.data.description
+            // const res = description.match('the following services are modified since last update')
+            // if(res) {
+            //   this.updateEnv(error.data.description, product_info)
+            // }
+          })
         })
-        .catch(() => {
-          this.$message({
-            type: 'info',
-            message: '已取消更新'
-          });
-        });
     },
-    upgradeServiceByPipe(projectName, envName, serviceName, serviceType) {
+    updateEnv (res, product_info) {
+      const message = JSON.parse(res.match(/{.+}/g)[0])
+      this.$confirm(`您的更新操作将覆盖集成环境中${message.name}服务变更，确认继续?`, '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        const projectName = product_info.product_name
+        const envName = product_info.env_name
+        const envType = this.isProd ? 'prod' : ''
+        const payload = { vars: product_info.vars }
+        const force = true
+        updateK8sEnvAPI(projectName, envName, payload, envType, force).then(
+          response => {
+            this.fetchAllData()
+            this.$message({
+              message: '更新环境成功，请等待服务升级',
+              type: 'success'
+            })
+          })
+      })
+    },
+    upgradeServiceByPipe (projectName, envName, serviceName, serviceType) {
       getServicePipelineAPI(projectName, envName, serviceName, serviceType).then((res) => {
-        this.currentServiceWorkflows = res.workflows || [];
+        this.currentServiceWorkflows = res.workflows || []
         this.currentServiceMeta = {
-          'projectName': projectName,
-          'envName': envName,
-          'serviceName': serviceName,
-          'serviceType': serviceType,
-          'targets': res.targets || [],
-          'ns': this.envText
-        };
-        this.showStartProductBuild = true;
-      }).catch(err => {
-        if (err === "CANCEL") {
-          return;
+          projectName: projectName,
+          envName: envName,
+          serviceName: serviceName,
+          serviceType: serviceType,
+          targets: res.targets || [],
+          ns: this.envText
         }
-      });
+        this.showStartProductBuild = true
+      }).catch(err => {
+        if (err === 'CANCEL') {
+          return false
+        }
+      })
     },
-    hideProductTaskDialog() {
-      this.showStartProductBuild = false;
+    hideProductTaskDialog () {
+      this.showStartProductBuild = false
     },
-    deleteProduct(project_name, env_name) {
-      const envType = '';
+    deleteProduct (project_name, env_name) {
+      const envType = ''
       this.$prompt('请输入环境名称以确认', `确定要删除 ${project_name} 项目的 ${env_name} 环境?`, {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         confirmButtonClass: 'el-button el-button--danger',
         inputValidator: input => {
-          if (input == env_name) {
-            return true;
-          } else if (input == '') {
-            return '请输入环境名称';
+          if (input === env_name) {
+            return true
+          } else if (input === '') {
+            return '请输入环境名称'
           } else {
-            return '环境名称不相符';
+            return '环境名称不相符'
           }
         }
       })
         .then(({ value }) => {
           deleteProductEnvAPI(project_name, env_name, envType).then((res) => {
             this.$notify({
-              title: `环境正在删除中，请稍后查看环境状态`,
+              title: '环境正在删除中，请稍后查看环境状态',
               message: '操作成功',
               type: 'success',
               offset: 50
-            });
-            const position = this.envNameList.map((e) => { return e.envName; }).indexOf(env_name);
-            this.envNameList.splice(position, 1);
+            })
+            const position = this.envNameList.map((e) => { return e.envName }).indexOf(env_name)
+            this.envNameList.splice(position, 1)
             if (this.envNameList.length > 0) {
-              this.$router.push(`${this.envBasePath}?envName=${this.envNameList[this.envNameList.length - 1]['envName']}`);
-            }
-            else {
-              this.$router.push(`/v1/projects/detail/${this.projectName}/envs/create`);
+              this.$router.push(`${this.envBasePath}?envName=${this.envNameList[this.envNameList.length - 1].envName}`)
+            } else {
+              this.$router.push(`/v1/projects/detail/${this.projectName}/envs/create`)
             }
           })
-
         })
-        .catch((error) => {
+        .catch(() => {
           this.$message({
             type: 'warning',
             message: '取消删除'
-          });
-        });
+          })
+        })
     },
-    restartService(projectName, serviceName, envName) {
-      const envType = '';
+    restartService (projectName, serviceName, envName) {
+      const envType = ''
       restartServiceOriginAPI(projectName, serviceName, envName, envType).then((res) => {
         this.$message({
           message: '重启服务成功',
           type: 'success'
-        });
-        this.initPageInfo();
-        this.getProductEnv();
-        this.fetchEnvRevision();
+        })
+        this.initPageInfo()
+        this.getProductEnv()
+        this.fetchEnvRevision()
       })
     },
-    imageNameSplit(name) {
+    imageNameSplit (name) {
       if (name.includes(':')) {
-        return name.split('/')[name.split('/').length - 1];
+        return name.split('/')[name.split('/').length - 1]
       } else {
-        return name;
+        return name
       }
     },
-    checkEnvUpdate(status) {
+    checkEnvUpdate (status) {
       if (status === 'Deleting' || status === 'Creating') {
-        return false;
+        return false
+      } else {
+        return true
       }
-      else {
-        return true;
-      }
-
     },
-    setRoute(scope) {
+    setRoute (scope) {
       if (typeof this.envName === 'undefined') {
-        return `${this.envBasePath}/${scope.row.service_name}?&projectName=${this.projectName}&namespace=${this.envText}&originProjectName=${scope.row.product_name}`;
+        return `${this.envBasePath}/${scope.row.service_name}?&projectName=${this.projectName}&namespace=${this.envText}&originProjectName=${scope.row.product_name}`
       } else {
         return (
           `${this.envBasePath}/${scope.row.service_name}?envName=${this.envName}&&projectName=${this.projectName}&namespace=${this.envText}&originProjectName=${scope.row.product_name}`
-        );
+        )
       }
     },
-    setServiceConfigRoute(scope) {
+    setServiceConfigRoute (scope) {
       if (typeof this.envName === 'undefined') {
-        return `${this.envBasePath}/${scope.row.service_name}/config?projectName=${this.projectName}&namespace=${this.envText}&originProjectName=${scope.row.product_name}`;
+        return `${this.envBasePath}/${scope.row.service_name}/config?projectName=${this.projectName}&namespace=${this.envText}&originProjectName=${scope.row.product_name}`
       } else {
         return (
           `${this.envBasePath}/${scope.row.service_name}/config?envName=${this.envName}&projectName=${this.projectName}&namespace=${this.envText}&originProjectName=${scope.row.product_name}`
-        );
+        )
       }
     },
-    updateService(service) {
-      this.$message.info('开始更新服务');
+    updateService (service) {
+      this.$message.info('开始更新服务')
       updateServiceAPI(
         this.projectName,
         service.service_name,
@@ -734,27 +750,27 @@ export default {
         this.envName,
         this.serviceStatus[service.service_name].raw
       ).then(res => {
-        this.$message.success('更新成功请等待服务升级');
-        this.fetchAllData();
-      });
-    },
+        this.$message.success('更新成功请等待服务升级')
+        this.fetchAllData()
+      })
+    }
   },
-  created() {
-    this.fetchAllData();
+  created () {
+    this.fetchAllData()
   },
-  beforeDestroy() {
-    this.removeListener();
+  beforeDestroy () {
+    this.removeListener()
   },
-  destroyed() {
-    this.ctlCancel && this.ctlCancel.cancel('CANCEL_2');
-    rmSource();
+  destroyed () {
+    this.ctlCancel && this.ctlCancel.cancel('CANCEL_2')
+    rmSource()
   },
   watch: {
-    $route(to, from) {
+    $route (to, from) {
       if (this.projectName !== '') {
-        this.ctlCancel && this.ctlCancel.cancel('CANCEL_1');
-        this.ctlCancel = initSource();
-        this.fetchAllData();
+        this.ctlCancel && this.ctlCancel.cancel('CANCEL_1')
+        this.ctlCancel = initSource()
+        this.fetchAllData()
       }
     }
   },
@@ -768,7 +784,7 @@ export default {
       required: true
     }
   }
-};
+}
 </script>
 
 <style lang="less">

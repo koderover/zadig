@@ -82,37 +82,37 @@
   </div>
 </template>
 <script>
-import bus from '@utils/event_bus';
-import step from '../common/step.vue';
+import bus from '@utils/event_bus'
+import step from '../common/step.vue'
 export default {
-  data() {
+  data () {
     return {
       showGuideText: true,
       jumpLoading: false
     }
   },
   methods: {
-    jumpOnboarding() {
-      this.jumpLoading = true;
+    jumpOnboarding () {
+      this.jumpLoading = true
       this.saveOnboardingStatus(this.projectName, 0).then((res) => {
-        this.$router.push(`/v1/projects/detail/${this.projectName}`);
+        this.$router.push(`/v1/projects/detail/${this.projectName}`)
       }).catch(() => {
-        this.jumpLoading = false;
+        this.jumpLoading = false
       })
-    },
-  },
-  computed: {
-    projectName() {
-      return this.$route.params.project_name;
     }
   },
-  created() {
-    bus.$emit(`show-sidebar`, true);
-    bus.$emit(`set-topbar-title`, { title: '', breadcrumb: [{ title: '项目', url: '/v1/projects' }, { title: this.projectName, url: '' }] });
-    bus.$emit(`set-sub-sidebar-title`, {
+  computed: {
+    projectName () {
+      return this.$route.params.project_name
+    }
+  },
+  created () {
+    bus.$emit('show-sidebar', true)
+    bus.$emit('set-topbar-title', { title: '', breadcrumb: [{ title: '项目', url: '/v1/projects' }, { title: this.projectName, url: '' }] })
+    bus.$emit('set-sub-sidebar-title', {
       title: '',
       routerList: []
-    });
+    })
   },
   components: {
     step
@@ -123,165 +123,186 @@ export default {
 
 <style lang="less">
 .projects-info-container {
-  flex: 1;
   position: relative;
+  flex: 1;
   overflow: auto;
   background-color: #f5f7f7;
 
   .page-title-container {
     display: flex;
     padding: 0 20px;
+
     h1 {
-      text-align: center;
       width: 100%;
       color: #4c4c4c;
       font-weight: 300;
+      text-align: center;
     }
   }
+
+  .controls__wrap {
+    position: relative;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 2;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+    margin: 0 15px;
+    padding: 0 10px;
+    background-color: #fff;
+    box-shadow: 0 4px 4px 0 rgba(0, 0, 0, 0.05);
+
+    & > * {
+      margin-right: 10px;
+    }
+
+    .controls__right {
+      display: -webkit-box;
+      display: -ms-flexbox;
+      display: flex;
+      align-items: center;
+      -webkit-box-align: center;
+      -ms-flex-align: center;
+
+      .save-btn,
+      .next-btn {
+        margin-right: 15px;
+        padding: 10px 17px;
+        color: #fff;
+        font-weight: bold;
+        font-size: 13px;
+        text-decoration: none;
+        background-color: #1989fa;
+        border: 1px solid #1989fa;
+        cursor: pointer;
+        transition: background-color 300ms, color 300ms, border 300ms;
+      }
+
+      .save-btn[disabled],
+      .next-btn[disabled] {
+        background-color: #9ac9f9;
+        border: 1px solid #9ac9f9;
+        cursor: not-allowed;
+      }
+    }
+  }
+
   .guide-container {
-    margin-top: 10px;
     min-height: calc(~"100% - 150px");
+    margin-top: 10px;
+
     &.not-closed-title {
       min-height: calc(~"100% - 150px");
     }
+
     .current-step-container {
       .title-container {
         margin-bottom: 10px;
         margin-left: 20px;
+
         .first {
-          font-size: 18px;
-          background: #3289e4;
-          color: #fff;
-          font-weight: 300;
-          padding: 8px;
           display: inline-block;
           width: 110px;
+          padding: 8px;
+          color: #fff;
+          font-weight: 300;
+          font-size: 18px;
           text-align: center;
+          background: #3289e4;
         }
+
         .second {
-          font-size: 13px;
-          color: #4c4c4c;
           display: inline-block;
+          color: #4c4c4c;
+          font-size: 13px;
         }
       }
 
       .cf-block__list {
-        -webkit-box-flex: 1;
         -ms-flex: 1;
         flex: 1;
+        margin-top: 15px;
+        padding: 0 30px;
         overflow-y: auto;
         background-color: inherit;
-        padding: 0 30px;
-        margin-top: 15px;
+        -webkit-box-flex: 1;
+
         .cf-block__item {
           .account-box-item {
             display: -webkit-box;
             display: -ms-flexbox;
             display: flex;
-            -webkit-box-align: center;
-            -ms-flex-align: center;
             align-items: center;
-            -webkit-box-pack: justify;
-            -ms-flex-pack: justify;
             justify-content: space-between;
             margin-bottom: 10px;
             padding: 20px 30px;
             background-color: #fff;
             -webkit-box-shadow: 0 3px 2px 1px rgba(0, 0, 0, 0.05);
             box-shadow: 0 3px 2px 1px rgba(0, 0, 0, 0.05);
-            filter: progid:DXImageTransform.Microsoft.dropshadow(OffX=0, OffY=3px, Color='#0D000000');
+            filter: progid:dximagetransform.microsoft.dropshadow(OffX=0, OffY=3px, Color='#0D000000');
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            -webkit-box-pack: justify;
+            -ms-flex-pack: justify;
+
             .integration-card {
               display: -webkit-box;
               display: -ms-flexbox;
               display: flex;
+              align-items: center;
+              justify-content: flex-start;
               -webkit-box-align: center;
               -ms-flex-align: center;
-              align-items: center;
               -webkit-box-pack: start;
               -ms-flex-pack: start;
-              justify-content: flex-start;
+
               .integration-card__image {
                 width: 64px;
+
                 .el-button.is-circle {
-                  border-radius: 50%;
                   padding: 6px;
+                  border-radius: 50%;
                 }
               }
+
               .cf-sub-title {
-                font-size: 16px;
-                font-weight: bold;
-                text-align: left;
                 color: #2f2f2f;
+                font-weight: bold;
+                font-size: 16px;
+                text-align: left;
               }
+
               .integration-details {
                 color: #4c4c4c;
                 font-size: 13px;
               }
             }
+
             .integration-card > * {
-              -webkit-box-flex: 0;
               -ms-flex: 0 0 auto;
               flex: 0 0 auto;
+              -webkit-box-flex: 0;
             }
           }
         }
       }
     }
   }
+
   .alert {
     display: flex;
     padding: 0 25px;
+
     .el-alert {
       margin-bottom: 35px;
+
       .el-alert__title {
         font-size: 15px;
-      }
-    }
-  }
-  .controls__wrap {
-    position: relative;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 60px;
-    background-color: #fff;
-    padding: 0 10px;
-    z-index: 2;
-    margin: 0 15px;
-    box-shadow: 0 4px 4px 0 rgba(0, 0, 0, 0.05);
-    display: -webkit-box;
-    display: -ms-flexbox;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    > * {
-      margin-right: 10px;
-    }
-    .controls__right {
-      display: -webkit-box;
-      display: -ms-flexbox;
-      display: flex;
-      -webkit-box-align: center;
-      -ms-flex-align: center;
-      align-items: center;
-      .save-btn,
-      .next-btn {
-        text-decoration: none;
-        background-color: #1989fa;
-        color: #fff;
-        padding: 10px 17px;
-        border: 1px solid #1989fa;
-        font-size: 13px;
-        font-weight: bold;
-        transition: background-color 300ms, color 300ms, border 300ms;
-        cursor: pointer;
-        margin-right: 15px;
-      }
-      .save-btn[disabled],
-      .next-btn[disabled] {
-        background-color: #9ac9f9;
-        border: 1px solid #9ac9f9;
-        cursor: not-allowed;
       }
     }
   }
