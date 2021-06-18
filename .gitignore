@@ -1,0 +1,56 @@
+# Compiled Object files, Static and Dynamic libs (Shared Objects)
+*.o
+*.a
+*.so
+
+# Folders
+.idea
+.DS_Store
+bin
+.cache
+gin-bin
+.mock
+
+# Files
+*.tar.gz
+*.dat
+*.local.*
+*.out
+
+node_modules
+bower_components
+
+#website
+zadig-portal/dist
+zadig-portal/node_modules/
+zadig-portal/dist/
+zadig-portal/npm-debug.log
+zadig-portal/test/unit/coverage
+zadig-portal/test/e2e/reports
+zadig-portal/selenium-debug.log
+zadig-portal/yarn-error.log
+
+#Go doc website
+godoc-proxy/website/node_modules/
+godoc-proxy/website/dist
+
+npm-debug.log
+.bowerrc
+/.editorconfig
+.jshintrc
+
+.sass-cache/
+.tmp/
+dist/
+.cover
+.scannerwork/
+coverage.html
+temp_coverage_test.go
+
+# VS Code IDE
+.vscode
+docker/*.tar.gz
+*.patch
+main
+
+test/integration/reporters/*.xml
