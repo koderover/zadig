@@ -4,22 +4,22 @@
   </div>
 </template>
 <script>
-import bus from '@utils/event_bus';
+import bus from '@utils/event_bus'
 export default {
   methods: {},
-  mounted() {
-    bus.$emit(`show-sidebar`, true);
-    this.$router.replace('/v1/system/integration');
+  mounted () {
+    bus.$emit('show-sidebar', true)
+    this.$router.replace('/v1/system/integration')
   }
-};
+}
 </script>
 
 <style lang="less" >
 .container-home {
-  width: 100%;
-  flex: 1;
   position: relative;
-  overflow: auto;
+  flex: 1;
+  width: 100%;
   padding: 15px 20px;
+  overflow: auto;
 }
 </style>

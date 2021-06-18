@@ -48,153 +48,158 @@
 </template>
 
 <script>
-import { setFavoriteAPI, deleteFavoriteAPI } from '@api';
+import { setFavoriteAPI, deleteFavoriteAPI } from '@api'
 export default {
-  data() {
+  data () {
     return {
-    };
+    }
   },
   props: {
     productName: {
       type: String,
-      required: true,
+      required: true
     },
 
     type: {
       type: String,
-      required: true,
+      required: true
     },
 
     isFavorite: {
       type: Boolean,
-      required: true,
+      required: true
     },
 
     name: {
       type: String,
-      required: true,
+      required: true
     },
 
     pipelineLink: {
       type: String,
-      required: true,
+      required: true
     },
 
     latestTaskStatus: {
       type: String,
-      required: true,
+      required: true
     },
 
     recentSuccessID: {
       type: null,
-      required: true,
+      required: true
     },
 
     recentSuccessLink: {
       type: String,
-      required: true,
+      required: true
     },
     recentFailID: {
       type: null,
-      required: true,
+      required: true
     },
     recentFailLink: {
       type: String,
-      required: true,
+      required: true
     },
 
     updateBy: {
       type: String,
-      required: true,
+      required: true
     },
     updateTime: {
       type: String,
-      required: true,
+      required: true
     },
     avgRuntime: {
       type: String,
-      required: true,
+      required: true
     },
     avgSuccessRate: {
       type: String,
-      required: false,
+      required: false
     }
   },
   methods: {
-    setFavorite(productName, workflowName, type) {
+    setFavorite (productName, workflowName, type) {
       const payload = {
         product_name: productName,
         name: workflowName,
         type: type
-      };
+      }
       if (this.isFavorite) {
         deleteFavoriteAPI(productName, workflowName, type).then((res) => {
           if (type === 'workflow') {
-            this.$store.dispatch('refreshWorkflowList');
+            this.$store.dispatch('refreshWorkflowList')
           }
           this.$message({
             type: 'success',
             message: '取消收藏成功'
-          });
+          })
         })
-      }
-      else {
+      } else {
         setFavoriteAPI(payload).then((res) => {
           if (type === 'workflow') {
-            this.$store.dispatch('refreshWorkflowList');
+            this.$store.dispatch('refreshWorkflowList')
           }
           this.$message({
             type: 'success',
             message: '添加收藏成功'
-          });
+          })
         })
       }
-
     }
   },
   computed: {
-  },
-};
+  }
+}
 </script>
 
 <style lang="less">
 .pipeline-row {
-  border-radius: 2px;
-  border: 1px solid #eaeaea;
-  display: flex;
-  margin-bottom: 1rem;
   position: relative;
+  display: flex;
   flex-flow: row nowrap;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  border: 1px solid #eaeaea;
+  border-radius: 2px;
+
   .pipeline-name {
     margin: 8px 0;
     margin-block-start: 0;
   }
+
   .pipeline-name,
   .pipeline-name a {
-    font-size: 16px;
     color: #1989fa;
     font-weight: 500;
+    font-size: 16px;
   }
+
   .service-pipeline-tag {
+    padding: 1px 3px;
     color: #1989fa;
+    font-weight: 300;
     font-size: 11px;
+    white-space: nowrap;
     border: 1px solid #1989fa;
     border-radius: 3px;
-    padding: 1px 3px;
-    font-weight: 300;
-    white-space: nowrap;
   }
+
   .recent-task {
     margin: 0;
     font-size: 12px;
     white-space: nowrap;
+
     .task-type {
       margin-right: 5px;
+
       .failed {
         color: #f56c6c;
       }
+
       .passed {
         color: #67c23a;
       }
@@ -204,97 +209,117 @@ export default {
       color: #7987a8;
     }
   }
+
   .dash-body {
+    position: relative;
     flex-grow: 1;
     padding: 0 1.5em;
-    position: relative;
     border-left: 4px solid #77797d;
+
     &.running,
     &.elected {
       border-left: 4px solid #1989fa;
       animation: blink 1.5s infinite;
     }
+
     &.passed,
     &.success {
       border-left: 4px solid #67c23a;
     }
+
     &.failed,
     &.failure,
     &.timeout {
       border-left: 4px solid #ff1949;
     }
+
     &.cancelled,
     &.terminated {
       border-left: 4px solid #77797d;
     }
+
     .favorite {
       display: inline-block;
-      font-size: 25px;
       color: #dbdbdb;
+      font-size: 25px;
       cursor: pointer;
+
       &.liked {
         color: #f4e118;
       }
+
       &:hover {
         color: #f4e118;
       }
     }
+
     .dash-main {
       display: flex;
       flex-flow: row nowrap;
       align-items: center;
       justify-content: space-between;
       height: 70px;
+
       .dash-header {
-        width: 19%;
-        flex: 0 0 19%;
         position: relative;
+        flex: 0 0 19%;
+        width: 19%;
       }
+
       .dash-basicinfo {
         width: 80px;
+
         .author,
         .time {
           margin: 4px 0;
           color: #666;
           font-size: 15px;
         }
+
         .avg-run-time,
         .avg-success-rate {
-          font-weight: bold;
           display: block;
-          color: #888888;
+          color: #888;
+          font-weight: bold;
           font-size: 13px;
         }
+
         .value {
-          font-size: 14px;
-          font-weight: bold;
-          line-height: 16px;
-          color: #4c4c4c;
           margin-bottom: 0;
+          color: #4c4c4c;
+          font-weight: bold;
+          font-size: 14px;
+          line-height: 16px;
         }
+
         &.rate {
           width: 60px;
         }
       }
+
       .dash-process {
         width: 350px;
+
         .stage-tag {
+          display: inline-block;
           margin-right: 4px;
           line-height: 25px;
-          display: inline-block;
         }
       }
+
       .dash-menu {
+        width: 180px;
         color: #ccc;
         font-size: 23px;
-        width: 180px;
+
         .menu-item {
           margin-right: 15px;
         }
+
         .el-icon-more {
+          color: #ccc;
           font-size: 18px;
           cursor: pointer;
-          color: #ccc;
         }
       }
     }

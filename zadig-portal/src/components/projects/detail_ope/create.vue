@@ -19,7 +19,8 @@
                        class="demo-projectForm">
                 <el-form-item label="项目名称"
                               prop="project_name">
-                  <el-input v-model="projectForm.project_name"></el-input>
+                  <el-input @keyup.native="()=>projectForm.project_name=projectForm.project_name.trim()"
+                            v-model="projectForm.project_name"></el-input>
                 </el-form-item>
 
                 <el-form-item label="项目主键"
@@ -84,7 +85,7 @@
                     <el-form-item label="项目管理员"
                                   prop="user_ids">
                       <el-select v-model="projectForm.user_ids"
-                                 style="width:100%"
+                                 style="width: 100%;"
                                  filterable
                                  multiple
                                  remote
@@ -119,34 +120,34 @@
   </div>
 </template>
 <script>
-import { usersAPI, createProjectAPI, getSingleProjectAPI, updateSingleProjectAPI } from '@api';
-let pinyin = require("pinyin");
-import { mapGetters } from 'vuex';
-let validateProductName = (rule, value, callback) => {
-  if (typeof value === 'undefined' || value == '') {
-    callback(new Error('填写项目主键'));
+import { usersAPI, createProjectAPI, getSingleProjectAPI, updateSingleProjectAPI } from '@api'
+import { mapGetters } from 'vuex'
+const pinyin = require('pinyin')
+const validateProductName = (rule, value, callback) => {
+  if (typeof value === 'undefined' || value === '') {
+    callback(new Error('填写项目主键'))
   } else {
     if (!/^[a-z0-9-]+$/.test(value)) {
-      callback(new Error('项目主键只支持小写字母和数字，特殊字符只支持中划线'));
+      callback(new Error('项目主键只支持小写字母和数字，特殊字符只支持中划线'))
     } else {
-      callback();
+      callback()
     }
   }
-};
-let validateDeployTimeout = (rule, value, callback) => {
-  const reg = /^[0-9]+.?[0-9]*/;
+}
+const validateDeployTimeout = (rule, value, callback) => {
+  const reg = /^[0-9]+.?[0-9]*/
   if (!reg.test(value)) {
-    callback(new Error('时间应为数字'));
+    callback(new Error('时间应为数字'))
   } else {
     if (value > 0) {
-      callback();
+      callback()
     } else {
-      callback(new Error('请输入正确的时间范围'));
+      callback(new Error('请输入正确的时间范围'))
     }
   }
-};
+}
 export default {
-  data() {
+  data () {
     return {
       dialogVisible: true,
       users: [],
@@ -163,13 +164,13 @@ export default {
         visibility: 'public',
         enabled: true,
         product_feature: {
-          basic_facility: "kubernetes",
-          deploy_type: "k8s",
+          basic_facility: 'kubernetes',
+          deploy_type: 'k8s'
         }
       },
       rules: {
         project_name: [
-          { required: true, message: '请输入项目名称', trigger: 'blur' },
+          { required: true, message: '请输入项目名称', trigger: 'blur' }
         ],
         product_name: [
           { required: true, trigger: 'change', validator: validateProductName }
@@ -185,134 +186,131 @@ export default {
         ],
         timeout: [
           { required: true, trigger: 'change', validator: validateDeployTimeout }
-        ],
+        ]
       }
-    };
+    }
   },
   methods: {
-    getUsers() {
-      const orgId = this.currentOrganizationId;
+    getUsers () {
+      const orgId = this.currentOrganizationId
       usersAPI(orgId).then((res) => {
-        this.users = this.$utils.deepSortOn(res.data, 'name');
-      });
+        this.users = this.$utils.deepSortOn(res.data, 'name')
+      })
     },
-    remoteMethod(query) {
+    remoteMethod (query) {
       if (query !== '') {
-        this.loading = true;
-        const orgId = this.currentOrganizationId;
+        this.loading = true
+        const orgId = this.currentOrganizationId
         usersAPI(orgId, '', 0, 0, query).then((res) => {
-          this.loading = false;
-          this.users = this.$utils.deepSortOn(res.data, 'name');
-        });
+          this.loading = false
+          this.users = this.$utils.deepSortOn(res.data, 'name')
+        })
       } else {
-        this.users = [];
+        this.users = []
       }
     },
-    handleClose() {
+    handleClose () {
       if (this.isEdit) {
-        this.$router.push(`/v1/projects/detail/${this.projectName}`);
-      }
-      else {
-        this.$router.push(`/v1/projects`);
+        this.$router.push(`/v1/projects/detail/${this.projectName}`)
+      } else {
+        this.$router.push('/v1/projects')
       }
     },
-    createProject(payload) {
+    createProject (payload) {
       createProjectAPI(payload).then((res) => {
         this.$message({
           type: 'success',
           message: '新建项目成功'
-        });
-        this.$store.dispatch('refreshProjectTemplates');
+        })
+        this.$store.dispatch('refreshProjectTemplates')
         if (payload.product_feature.basic_facility === 'kubernetes') {
-          this.$router.push(`/v1/projects/create/${payload.product_name}/basic/info?rightbar=step`);
+          this.$router.push(`/v1/projects/create/${payload.product_name}/basic/info?rightbar=step`)
         }
-      });
+      })
     },
-    updateSingleProject(projectName, payload) {
+    updateSingleProject (projectName, payload) {
       updateSingleProjectAPI(projectName, payload).then((res) => {
         this.$message({
           type: 'success',
           message: '更新项目成功'
-        });
-        this.$store.dispatch('refreshProjectTemplates');
-        this.$router.push(`/v1/projects`)
-      });
+        })
+        this.$store.dispatch('refreshProjectTemplates')
+        this.$router.push('/v1/projects')
+      })
     },
-    getProject(projectName) {
+    getProject (projectName) {
       getSingleProjectAPI(projectName).then((res) => {
-        this.projectForm = res;
+        this.projectForm = res
         if (res.team_id === 0) {
-          this.projectForm.team_id = null;
+          this.projectForm.team_id = null
         }
         if (!res.timeout) {
           this.$set(this.projectForm, 'timeout', 10)
         }
-      });
+      })
     },
-    submitForm(formName) {
+    submitForm (formName) {
       this.$refs[formName].validate((valid) => {
         if (valid) {
           if (this.isEdit) {
-            this.updateSingleProject(this.projectForm.product_name, this.projectForm);
-          }
-          else {
-            this.projectForm.timeout = 10;
-            this.projectForm.user_ids.push(this.currentUserId);
-            this.createProject(this.projectForm);
+            this.updateSingleProject(this.projectForm.product_name, this.projectForm)
+          } else {
+            this.projectForm.timeout = 10
+            this.projectForm.user_ids.push(this.currentUserId)
+            this.createProject(this.projectForm)
           }
         } else {
-          return false;
+          return false
         }
-      });
+      })
     },
-    resetForm(formName) {
-      this.$refs[formName].resetFields();
+    resetForm (formName) {
+      this.$refs[formName].resetFields()
     }
   },
   watch: {
     'projectForm.project_name': {
-      handler(val, old_val) {
+      handler (val, old_val) {
         if (!this.isEdit) {
           this.projectForm.product_name = pinyin(val, {
-            style: pinyin.STYLE_NORMAL,
+            style: pinyin.STYLE_NORMAL
           }).join('')
         }
       }
-    },
+    }
   },
   computed: {
     ...mapGetters([
       'signupStatus'
     ]),
-    currentOrganizationId() {
-      return this.$store.state.login.userinfo.organization.id;
+    currentOrganizationId () {
+      return this.$store.state.login.userinfo.organization.id
     },
-    currentUserId() {
-      return this.$store.state.login.userinfo.info.id;
+    currentUserId () {
+      return this.$store.state.login.userinfo.info.id
     },
-    isEdit() {
-      return this.$route.path.includes('/projects/edit');
+    isEdit () {
+      return this.$route.path.includes('/projects/edit')
     },
-    showProductName() {
-      return !this.isEdit && this.editProductName;
+    showProductName () {
+      return !this.isEdit && this.editProductName
     },
-    projectName() {
+    projectName () {
       if (this.isEdit) {
-        return this.$route.params.project_name;
-      }
-      else {
-        return false;
+        return this.$route.params.project_name
+      } else {
+        return false
       }
     }
   },
-  mounted() {
-    this.$store.dispatch('getSignupStatus');
+  mounted () {
+    this.$store.dispatch('getSignupStatus')
     if (this.isEdit) {
-      this.getUsers();
-      this.getProject(this.projectName);
+      this.getUsers()
+      this.getProject(this.projectName)
     }
   }
-};
+}
 </script>
 
 <style lang="less" >
@@ -320,66 +318,80 @@ export default {
   .icon {
     cursor: pointer;
   }
+
   .el-dialog__headerbtn {
     font-size: 40px;
   }
+
   .el-dialog__body {
     padding: 5px 20px;
   }
+
   .create-btn {
     color: #1989fa;
     background: #fff;
     border-color: #1989fa;
+
     &:hover {
       color: #fff;
       background: #1989fa;
       border-color: #1989fa;
     }
   }
+
   .project-contexts-modal {
     height: 100%;
+
     .project-contexts-modal__header {
       display: flex;
       align-items: flex-end;
       justify-content: space-between;
       padding: 0 50px;
     }
+
     .project-contexts-modal__footer {
       display: flex;
-      justify-content: center;
       align-items: center;
+      justify-content: center;
       height: 60px;
     }
+
     .project-contexts-modal__content {
       display: flex;
-      flex-direction: column;
       flex: 1;
-      justify-content: center;
+      flex-direction: column;
       align-items: center;
+      justify-content: center;
+
       .project-contexts-modal__content-title {
-        text-align: center;
+        margin: 0;
+        margin-bottom: 20px;
         color: #000;
         font-weight: bold;
         font-size: 27px;
-        margin: 0;
-        margin-bottom: 20px;
+        text-align: center;
       }
+
       .project-settings__inputs-container {
         display: flex;
         flex-direction: column;
         align-items: flex-start;
         justify-content: flex-start;
         width: 800px;
+
         .el-form {
           width: 100%;
+
           .el-form-item {
             margin-bottom: 5px;
           }
         }
+
         .small-title {
-          font-size: 12px;
           color: #ccc;
+          font-size: 12px;
         }
+
         .el-radio--mini {
           &.is-bordered {
             width: 135px;

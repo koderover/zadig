@@ -173,51 +173,51 @@
 </template>
 
 <script>
-import bus from '@utils/event_bus';
-import supportDoc from './common/support_doc.vue';
-import { getCurrentUserInfoAPI, updateCurrentUserInfoAPI, getJwtTokenAPI, getSubscribeAPI, saveSubscribeAPI, downloadPubKeyAPI, organizationInfoAPI } from '@api';
+import bus from '@utils/event_bus'
+import supportDoc from './common/support_doc.vue'
+import { getCurrentUserInfoAPI, updateCurrentUserInfoAPI, getJwtTokenAPI, getSubscribeAPI, saveSubscribeAPI, downloadPubKeyAPI, organizationInfoAPI } from '@api'
 export default {
-  data() {
-    let validateNewPass = (rule, value, callback) => {
+  data () {
+    const validateNewPass = (rule, value, callback) => {
       if (value === '') {
-        callback(new Error('请输入新密码'));
+        callback(new Error('请输入新密码'))
       } else {
         if (this.pwd.confirmPassword !== '') {
-          this.$refs['ruleForm'].validateField('confirmPassword');
+          this.$refs.ruleForm.validateField('confirmPassword')
         }
-        callback();
+        callback()
       }
-    };
-    let validateConfirmPass = (rule, value, callback) => {
+    }
+    const validateConfirmPass = (rule, value, callback) => {
       if (value === '') {
-        callback(new Error('请再次输入新密码'));
+        callback(new Error('请再次输入新密码'))
       } else if (value !== this.pwd.newPassword) {
-        callback(new Error('两次输入密码不一致!'));
+        callback(new Error('两次输入密码不一致!'))
       } else {
-        callback();
+        callback()
       }
-    };
+    }
     return {
       currentEditUserInfo: {
-        "info": {
-          "id": 5,
-          "name": "",
-          "email": "",
-          "password": "",
-          "phone": "",
-          "isAdmin": true,
-          "isSuperUser": false,
-          "isTeamLeader": false,
-          "organization_id": 0,
-          "directory": "system",
-          "teams": []
+        info: {
+          id: 5,
+          name: '',
+          email: '',
+          password: '',
+          phone: '',
+          isAdmin: true,
+          isSuperUser: false,
+          isTeamLeader: false,
+          organization_id: 0,
+          directory: 'system',
+          teams: []
         },
-        "teams": [],
-        "organization": {
-          "id": 1,
-          "name": "",
-          "token": "",
-          "website": "",
+        teams: [],
+        organization: {
+          id: 1,
+          name: '',
+          token: '',
+          website: ''
         }
       },
       pwd: {
@@ -232,152 +232,149 @@ export default {
       sysNoti: {},
       pipelineNoti: {},
       rules: {
-        oldPassword: [{ required: true, message: '请输入旧密码', trigger: 'blur' },],
+        oldPassword: [{ required: true, message: '请输入旧密码', trigger: 'blur' }],
         newPassword: [
           { required: true, validator: validateNewPass, trigger: 'blur' }
         ],
         confirmPassword: [
           { required: true, validator: validateConfirmPass, trigger: 'blur' }
-        ],
+        ]
       }
-    };
+    }
   },
   methods: {
-    getUserInfo() {
-      this.loading = true;
+    getUserInfo () {
+      this.loading = true
       getCurrentUserInfoAPI().then((res) => {
-        this.loading = false;
-        this.currentEditUserInfo = res;
-      });
+        this.loading = false
+        this.currentEditUserInfo = res
+      })
     },
-    getJwtToken() {
+    getJwtToken () {
       getJwtTokenAPI().then((res) => {
-        this.jwtToken = res.token;
-      });
+        this.jwtToken = res.token
+      })
     },
-    getSecret() {
-      const id = 1;
+    getSecret () {
+      const id = 1
       organizationInfoAPI(id).then((res) => {
-        this.secret = res.orgToken;
-      });
+        this.secret = res.orgToken
+      })
     },
-    copySuccess(event) {
+    copySuccess (event) {
       this.$message({
         message: '已成功复制到剪贴板',
         type: 'success'
-      });
+      })
     },
-    copyError(event) {
+    copyError (event) {
       this.$message({
         message: '复制失败',
         type: 'error'
-      });
+      })
     },
-    modifiedPwd() {
-      this.modifiedPwdDialogVisible = true;
+    modifiedPwd () {
+      this.modifiedPwdDialogVisible = true
     },
-    updateUserInfo() {
-      this.$refs['ruleForm'].validate((valid) => {
+    updateUserInfo () {
+      this.$refs.ruleForm.validate((valid) => {
         if (valid) {
-          const id = this.currentEditUserInfo.info.id;
+          const id = this.currentEditUserInfo.info.id
           const payload = {
             oldPassword: this.pwd.oldPassword,
             newPassword: this.pwd.newPassword
-          };
+          }
           updateCurrentUserInfoAPI(id, payload).then((res) => {
             this.$message({
               message: '密码修改成功',
               type: 'success'
-            });
-            this.cancelUpdateUserInfo();
+            })
+            this.cancelUpdateUserInfo()
             this.pwd = {
               oldPassword: '',
               newPassword: '',
               confirmPassword: ''
             }
-          });
+          })
         } else {
-          return false;
+          return false
         }
-      });
-
+      })
     },
-    cancelUpdateUserInfo() {
-      this.$refs['ruleForm'].resetFields();
-      this.modifiedPwdDialogVisible = false;
+    cancelUpdateUserInfo () {
+      this.$refs.ruleForm.resetFields()
+      this.modifiedPwdDialogVisible = false
     },
-    downloadPubKey() {
+    downloadPubKey () {
       this.$message({
         message: '私钥获取中，请稍候...',
         type: 'info'
-      });
+      })
       downloadPubKeyAPI().then((res) => {
         this.$message({
           message: '私钥获取完毕，下载后请根据文档使用',
           type: 'success'
-        });
-        const content = res;
-        let fileName = 'config';
-        let aTag = document.createElement('a');
-        let blob = new Blob([content], { type: 'binary/octet-stream' });
+        })
+        const content = res
+        const fileName = 'config'
+        const aTag = document.createElement('a')
+        const blob = new Blob([content], { type: 'binary/octet-stream' })
         if (aTag.download !== undefined) {
-          aTag.setAttribute('href', window.URL.createObjectURL(blob));
-          aTag.setAttribute('download', fileName);
-          document.body.appendChild(aTag);
-          aTag.click();
-          document.body.removeChild(aTag);
+          aTag.setAttribute('href', window.URL.createObjectURL(blob))
+          aTag.setAttribute('download', fileName)
+          document.body.appendChild(aTag)
+          aTag.click()
+          document.body.removeChild(aTag)
         }
-      });
-
+      })
     },
-    getSubscribe() {
+    getSubscribe () {
       getSubscribeAPI().then((res) => {
-        this.convertData(res);
-      });
+        this.convertData(res)
+      })
     },
-    saveSubscribe() {
-      let payload = this.pipelineNoti;
-      payload.type = 2;
+    saveSubscribe () {
+      const payload = this.pipelineNoti
+      payload.type = 2
       saveSubscribeAPI(payload).then((res) => {
         this.$message({
           message: '通知设置保存成功',
           type: 'success'
-        });
-        this.getSubscribe();
-      });
+        })
+        this.getSubscribe()
+      })
     },
-    convertData(info) {
+    convertData (info) {
       if (info.length !== 0) {
         info.forEach(element => {
           if (element.type === 2) {
-            this.pipelineNoti = element;
+            this.pipelineNoti = element
           } else if (element.type === 1) {
-            this.sysNoti = element;
+            this.sysNoti = element
           }
-        });
+        })
       }
     }
   },
   computed: {
 
   },
-  created() {
-    bus.$emit(`set-topbar-title`, { title: '用户设置', breadcrumb: [] });
-    bus.$emit(`set-sub-sidebar-title`, {
+  created () {
+    bus.$emit('set-topbar-title', { title: '用户设置', breadcrumb: [] })
+    bus.$emit('set-sub-sidebar-title', {
       title: '',
       routerList: []
-    });
-    this.getUserInfo();
-    this.getJwtToken();
-    this.getSubscribe();
-    this.getSecret();
+    })
+    this.getUserInfo()
+    this.getJwtToken()
+    this.getSubscribe()
+    this.getSecret()
   },
   components: {
     supportDoc
   }
-};
+}
 </script>
-
 
 <style lang="less">
 .modifiled-pwd {
@@ -386,52 +383,63 @@ export default {
     margin: 0 auto;
   }
 }
+
 .setting-profile-container {
-  flex: 1;
   position: relative;
-  overflow: auto;
+  flex: 1;
   padding: 15px 30px;
+  overflow: auto;
   font-size: 13px;
+
   .module-title h1 {
+    margin-bottom: 1.5rem;
     font-weight: 200;
     font-size: 2rem;
-    margin-bottom: 1.5rem;
   }
+
   .section {
     margin-bottom: 56px;
+
     .Box {
+      padding: 55px 20px;
       border: 2px solid #f1f1f1;
       border-radius: 3px;
-      padding: 55px 20px;
+
       .username {
         font-weight: 300;
         font-size: 18px;
       }
+
       .avatar {
-        border-radius: 50%;
         width: 50px;
         height: 50px;
         margin-bottom: 10px;
+        border-radius: 50%;
       }
+
       .edit-columns {
         overflow: hidden;
+
         .ember-view {
           float: left;
           width: 300px;
         }
+
         .edit-profile {
+          float: right;
           width: 200px;
           margin-top: 15px;
-          float: right;
         }
       }
+
       .info-details {
         h6 {
-          font-size: 16px;
-          font-weight: 500;
           margin-top: 28px;
           margin-bottom: 10px;
+          font-weight: 500;
+          font-size: 16px;
         }
+
         .profile-table {
           width: 850px;
           margin-top: 15px;
@@ -440,23 +448,29 @@ export default {
           .token {
             width: 100%;
           }
+
           tr td {
             padding: 15px 8px;
           }
-          tr td:nth-of-type(1) {
-            width: 50%;
-          }
+
           tbody > tr > td,
           thead > tr > td {
             border-top: 1px solid #e6e9f0;
+
             .download-desc {
-              cursor: pointer;
               color: #666f80;
+              cursor: pointer;
+
               &:hover {
                 color: #1989fa;
               }
             }
           }
+
+          tr td:nth-of-type(1) {
+            width: 50%;
+          }
+
           tr:first-of-type td {
             border-top: 0;
           }

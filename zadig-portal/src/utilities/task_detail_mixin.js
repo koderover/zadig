@@ -1,20 +1,18 @@
 export default {
   methods: {
-    killLog(type) {
-      clearInterval(this[`${type}IntervalHandle`]);
+    killLog (type) {
+      clearInterval(this[`${type}IntervalHandle`])
       if (typeof msgServer !== 'undefined' && msgServer) {
         for (const key in msgServer) {
-          if (msgServer.hasOwnProperty(key)) {
-            msgServer[key].close();
-            console.info('Clean SSE '+ key);
+          if (Object.prototype.hasOwnProperty.call(msgServer, key)) {
+            msgServer[key].close()
+            console.info('Clean SSE ' + key)
           }
         }
-        delete window.msgServer;
-      } else {
-        return;
+        delete window.msgServer
       }
     },
-    isSubTaskDone(subTask) {
+    isSubTaskDone (subTask) {
       return (
         subTask &&
         subTask.status in
@@ -25,7 +23,7 @@ export default {
             timeout: 1,
             cancelled: 1
           }
-      );
+      )
     }
   }
-};
+}

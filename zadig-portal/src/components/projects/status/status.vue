@@ -10,77 +10,85 @@
              class="running-time">
       <productStatus :productTasks="productTasks"
                      :expandId="productExpandId"></productStatus>
+      <testStatus :testTasks="testTasks"></testStatus>
     </section>
   </div>
 </template>
 
 <script>
-import { taskRunningSSEAPI, taskPendingSSEAPI } from '@api';
-import { mapGetters } from 'vuex';
-import bus from '@utils/event_bus';
-import productStatus from './constainer/product_status';
+import { taskRunningSSEAPI, taskPendingSSEAPI } from '@api'
+import { mapGetters } from 'vuex'
+import bus from '@utils/event_bus'
+import productStatus from './constainer/product_status'
+import testStatus from './constainer/test_status'
 export default {
-  data() {
+  data () {
     return {
       task: {
         running: null,
-        pending: null,
+        pending: null
       },
       productTasks: {
         pending: [],
         running: []
       },
+      testTasks: {
+        pending: [],
+        running: []
+      },
       taskDetailExpand: {},
-      productExpandId: 0,
-    };
+      productExpandId: 0
+    }
   },
   methods: {
-    showTaskList(type) {
+    showTaskList (type) {
       if (type === 'running') {
         taskRunningSSEAPI()
           .then(res => {
-            this.productTasks.running = res.data.filter(task => task.type === 'workflow');
-            this.task.running = res.data.length;
+            this.productTasks.running = res.data.filter(task => task.type === 'workflow')
+            this.testTasks.running = res.data.filter(task => task.type === 'test')
+            this.task.running = res.data.length
             if (this.productTasks.running.length > 0) {
-              this.productExpandId = this.productTasks.running[0]['task_id'];
+              this.productExpandId = this.productTasks.running[0].task_id
             }
           })
-          .closeWhenDestroy(this);
+          .closeWhenDestroy(this)
       } else if (type === 'queue') {
         taskPendingSSEAPI()
           .then(res => {
-            this.productTasks.pending = res.data.filter(task => task.type === 'workflow');
-            this.task.pending = res.data.length;
+            this.productTasks.pending = res.data.filter(task => task.type === 'workflow')
+            this.testTasks.pending = res.data.filter(task => task.type === 'test')
+            this.task.pending = res.data.length
           })
-          .closeWhenDestroy(this);
+          .closeWhenDestroy(this)
       }
-    },
+    }
   },
   computed: {
-    runningCount() {
-      return this.task.running;
+    runningCount () {
+      return this.task.running
     },
-    pendingCount() {
-      return this.task.pending;
+    pendingCount () {
+      return this.task.pending
     },
     ...mapGetters([
-      'signupStatus',
-    ]),
+      'signupStatus'
+    ])
   },
-  mounted() {
-    this.showTaskList('running');
-    this.showTaskList('queue');
-    bus.$emit(`show-sidebar`, true);
-    bus.$emit(`set-topbar-title`, { title: '运行状态', breadcrumb: [] });
-    bus.$emit(`set-sub-sidebar-title`, {
+  mounted () {
+    this.showTaskList('running')
+    this.showTaskList('queue')
+    bus.$emit('show-sidebar', true)
+    bus.$emit('set-topbar-title', { title: '运行状态', breadcrumb: [] })
+    bus.$emit('set-sub-sidebar-title', {
       title: '',
       routerList: []
-    });
+    })
   },
   components: {
-    productStatus,
-  },
-};
+    productStatus, testStatus
+  }
+}
 </script>
 
 <style lang="less">
@@ -89,36 +97,43 @@ export default {
     border-left: 5px solid transparent;
   }
 }
+
 @keyframes blink-dot {
   50% {
     background-color: transparent;
   }
 }
+
 .status-detail-wrapper {
-  flex: 1;
   position: relative;
-  overflow: auto;
+  flex: 1;
   padding: 1.7em 1rem 5em;
+  overflow: auto;
+
   .divider {
-    height: 1px;
     width: 100%;
+    height: 1px;
     background-color: #e6e9f0;
   }
+
   .task-container {
     margin-bottom: 10px;
   }
+
   .no-running {
     display: flex;
-    align-content: center;
     flex-direction: column;
+    align-content: center;
     align-items: center;
+
     img {
       width: 480px;
       height: 480px;
     }
+
     p {
-      font-size: 15px;
       color: #606266;
+      font-size: 15px;
     }
   }
 }

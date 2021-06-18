@@ -1,4 +1,4 @@
-import * as types from '../mutations';
+import * as types from '../mutations'
 
 const state = {
   userinfo: {
@@ -23,32 +23,28 @@ const state = {
       website: ''
     }
   }
-};
+}
 
-const getters = {};
+const getters = {}
 
-const actions = {};
+const actions = {}
 
 const mutations = {
-  [types.INJECT_PROFILE](state, profile) {
-    try {
-      let localStorage = window.localStorage;
-      let storeBaseInfo = data => {
-        localStorage.setItem('ZADIG_LOGIN_INFO', JSON.stringify(data));
-      };
-      let readBaseInfo = name => JSON.parse(localStorage.getItem(name));
-
-      storeBaseInfo(profile);
-      state.userinfo = readBaseInfo('ZADIG_LOGIN_INFO');
-    } catch (err) {
-      console.log(err);
+  [types.INJECT_PROFILE] (state, profile) {
+    const localStorage = window.localStorage
+    const storeBaseInfo = (data) => {
+      localStorage.setItem('ZADIG_LOGIN_INFO', JSON.stringify(data))
     }
+    const readBaseInfo = (name) => JSON.parse(localStorage.getItem(name))
+
+    storeBaseInfo(profile)
+    state.userinfo = readBaseInfo('ZADIG_LOGIN_INFO')
   }
-};
+}
 
 export default {
   state,
   getters,
   actions,
   mutations
-};
+}

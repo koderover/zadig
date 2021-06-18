@@ -18,133 +18,143 @@
 </template>
 
 <script>
-import { mapGetters } from 'vuex';
-import { getCurrentUserInfoAPI } from '@api';
-import sidebar from './home/sidebar.vue';
-import subSidebar from './home/sub_sidebar.vue';
-import topbar from './home/topbar.vue';
+import { mapGetters } from 'vuex'
+import { getCurrentUserInfoAPI } from '@api'
+import sidebar from './home/sidebar.vue'
+import subSidebar from './home/sub_sidebar.vue'
+import topbar from './home/topbar.vue'
 export default {
-  data() {
+  data () {
     return {
-      sideWide: true,
-    };
+      sideWide: true
+    }
   },
   methods: {
-    checkLogin() {
+    checkLogin () {
       return new Promise((resolve, reject) => {
         getCurrentUserInfoAPI().then(
           response => {
-            resolve(true);
+            resolve(true)
           },
           response => {
-            reject(false);
+            reject(false)
           }
-        );
+        )
       })
     }
   },
   computed: {
     ...mapGetters([
-      'signupStatus',
-    ]),
+      'signupStatus'
+    ])
   },
   components: {
     sidebar,
     topbar,
-    subSidebar,
+    subSidebar
   },
-  created() {
+  created () {
     this.$store.dispatch('getSignupStatus').then(() => {
       this.checkLogin().then((result) => {
         if (result) {
           if (this.$utils.roleCheck() != null) {
-            this.$store.dispatch('getProjectTemplates').then(() => {
-            });
+            this.$store.dispatch('getProjectTemplates')
           }
         }
       })
     })
   }
-};
+}
 </script>
 
 <style lang="less">
 a {
   text-decoration: none;
 }
+
 button {
   &:focus {
     outline: none;
   }
 }
+
 body {
-  background-color: #fff;
   height: 100%;
   overflow: hidden;
   overflow-y: auto;
+  background-color: #fff;
+
   .el-card {
     background: #fff;
   }
+
   .onborading-main-container {
-    min-height: 100vh;
     width: 100vw;
     min-width: 768px;
     height: 100vh;
+    min-height: 100vh;
+
     .main-view {
       > * {
-        -webkit-box-flex: 0;
         -ms-flex: 0 0 auto;
         flex: 0 0 auto;
+        -webkit-box-flex: 0;
       }
-      height: 100%;
-      overflow: hidden;
+
       display: flex;
       align-items: stretch;
       justify-content: flex-start;
+      height: 100%;
+      overflow: hidden;
+
       .side-bar-container {
         position: relative;
-        transition: width 350ms;
         background-color: #f5f7fa;
+        transition: width 350ms;
+
         .side-bar-component {
           position: absolute;
           z-index: 2;
-          height: 100%;
           display: flex;
-          align-items: center;
-          justify-content: stretch;
-          -webkit-box-orient: vertical;
-          -webkit-box-direction: normal;
           -ms-flex-direction: column;
           flex-direction: column;
+          align-items: center;
+          justify-content: stretch;
+          height: 100%;
+          -webkit-box-orient: vertical;
+          -webkit-box-direction: normal;
         }
+
         .cf-sub-side-bar {
           position: absolute;
           left: 66px;
           z-index: 1;
-          height: 100%;
           display: flex;
+          flex-direction: column;
           align-items: center;
           justify-content: stretch;
+          height: 100%;
           -webkit-box-orient: vertical;
-          flex-direction: column;
         }
       }
+
       .content-wrap {
-        flex-grow: 1;
-        flex-shrink: 1;
-        overflow: auto;
         position: relative;
-        height: 100%;
         display: flex;
-        align-items: stretch;
-        justify-content: flex-start;
-        -webkit-box-orient: vertical;
-        -webkit-box-direction: normal;
         -ms-flex-direction: column;
         flex-direction: column;
+        flex-grow: 1;
+        flex-shrink: 1;
+        align-items: stretch;
+        justify-content: flex-start;
+        height: 100%;
+        overflow: auto;
+        -webkit-box-orient: vertical;
+        -webkit-box-direction: normal;
       }
     }
   }
+
   .el-message-box__wrapper {
     .el-message-box {
       .el-message-box__header {

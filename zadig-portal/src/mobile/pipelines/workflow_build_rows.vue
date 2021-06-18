@@ -1,6 +1,6 @@
 <template>
   <div class="workflow-build-rows">
-    <el-row v-for="(build,index) of builds"
+    <el-row v-for="(build) of builds"
             class="build-row"
             :key="build._id_">
       <template v-if="!build.use_default">
@@ -13,7 +13,7 @@
         <template v-if="build.showBranch">
           <el-col :span="7">
             <el-select v-if="build.branchNames && build.branchNames.length > 0"
-                       v-model="build.branch"
+                       v-model.trim="build.branch"
                        filterable
                        clearable
                        allow-create
@@ -63,7 +63,7 @@
         </template>
         <el-col :span="7"
                 :offset="1"
-                style="line-height:32px">
+                style="line-height: 32px;">
           <el-switch v-if="build.showSwitch"
                      v-model="build.releaseMethod"
                      @change="changeReleaseMethod(build)"
@@ -118,63 +118,70 @@
 
 <script>
 export default {
-  data() {
+  data () {
     return {
-    };
+    }
   },
   methods: {
-    changeReleaseMethod(repo) {
-      repo.tag = '';
-      repo.branch = '';
-    },
+    changeReleaseMethod (repo) {
+      repo.tag = ''
+      repo.branch = ''
+    }
   },
   props: {
     builds: {
       type: Array,
-      required: true,
-    },
-  },
-};
+      required: true
+    }
+  }
+}
 </script>
 
 <style lang="less">
 .gray-popper {
   background-color: rgb(92, 92, 92) !important;
+
   &[x-placement^="top"] .popper__arrow::after {
     border-top-color: rgb(92, 92, 92) !important;
   }
+
   &[x-placement^="bottom"] .popper__arrow::after {
     border-bottom-color: rgb(92, 92, 92) !important;
   }
+
   &[x-placement^="left"] .popper__arrow::after {
     border-left-color: rgb(92, 92, 92) !important;
   }
+
   &[x-placement^="right"] .popper__arrow::after {
     border-right-color: rgb(92, 92, 92) !important;
   }
 }
+
 .workflow-build-rows {
   .build-row {
-    padding: 5px 0px;
+    padding: 5px 0;
+
+    &:not(:first-child) {
+      margin-top: 5px;
+    }
   }
+
   .repo-name-container {
     .repo-name {
       max-width: 100%;
       overflow: hidden;
+      line-height: 32px;
       white-space: nowrap;
       text-overflow: ellipsis;
-      line-height: 32px;
+
       &.adjust {
         line-height: 57px;
       }
     }
+
     .namespace {
       line-height: 32px;
-    }
-  }
-  .build-row {
-    &:not(:first-child) {
-      margin-top: 5px;
     }
   }
 }

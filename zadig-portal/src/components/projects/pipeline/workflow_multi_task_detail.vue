@@ -44,7 +44,7 @@
                           content="本地系统时间和服务端可能存在不一致，请同步。"
                           placement="top">
                 <i class="el-icon-warning"
-                   style="color:red"></i>
+                   style="color: red;"></i>
               </el-tooltip>
             </el-form-item>
             <el-form-item v-if="showOperation()"
@@ -68,7 +68,7 @@
           </div>
           <div class="build-summary" v-if="buildSummary.length > 0">
             <el-table :data="buildSummary"
-                      style="width: 100%">
+                      style="width: 100%;">
               <el-table-column label="服务"
                                width="160">
                 <template slot-scope="scope">
@@ -179,7 +179,7 @@
               <el-form-item label="版本标签">
                 <span v-for="(label,index) in taskDetail.workflow_args.version_args.labels"
                       :key="index"
-                      style="margin-right:3px">
+                      style="margin-right: 3px;">
                   <el-tag size="small">{{label}}</el-tag>
                 </span>
               </el-form-item>
@@ -238,14 +238,13 @@
                           content="本地系统时间和服务端可能存在不一致，请同步。"
                           placement="top">
                 <i class="el-icon-warning"
-                   style="color:red"></i>
+                   style="color: red;"></i>
               </el-tooltip>
             </template>
           </el-table-column>
 
           <el-table-column>
-            <template slot="header"
-                      slot-scope="scope">
+            <template slot="header">
               部署
               <deploy-icons></deploy-icons>
             </template>
@@ -270,7 +269,7 @@
                                 content="本地系统时间和服务端可能存在不一致，请同步。"
                                 placement="top">
                       <i class="el-icon-warning"
-                         style="color:red"></i>
+                         style="color: red;"></i>
                     </el-tooltip>
                   </span>
                 </template>
@@ -303,8 +302,7 @@
                            width="200px"></el-table-column>
 
           <el-table-column>
-            <template slot="header"
-                      slot-scope="scope">
+            <template slot="header">
               交付物部署
             </template>
             <template slot-scope="scope">
@@ -316,12 +314,78 @@
                           content="本地系统时间和服务端可能存在不一致，请同步。"
                           placement="top">
                 <i class="el-icon-warning"
-                   style="color:red"></i>
+                   style="color: red;"></i>
               </el-tooltip>
             </template>
           </el-table-column>
         </el-table>
       </template>
+      <div v-if="testArray.length > 0"
+           class="section-head">
+        产品测试
+      </div>
+      <template v-if="testArray.length > 0">
+        <span class="section-title">自动化测试</span>
+        <el-table :data="testArray"
+                  row-key="_target"
+                  :expand-row-keys="expandedTests"
+                  @expand-change="updateTestExpanded"
+                  row-class-name="my-table-row"
+                  empty-text="无"
+                  class="test-table">
+          <el-table-column type="expand">
+            <template slot-scope="scope">
+              <task-detail-test :testingv2="scope.row.testingv2SubTask"
+                                :serviceName="scope.row._target"
+                                :pipelineName="workflowName"
+                                ref="testComp"
+                                :taskID="taskID"></task-detail-test>
+            </template>
+          </el-table-column>
+
+          <el-table-column prop="_target"
+                           label="名称"
+                           width="200px"></el-table-column>
+
+          <el-table-column label="运行状态">
+            <template slot-scope="scope">
+              <span
+                    :class="colorTranslation(scope.row.testingv2SubTask.status, 'pipeline', 'task')">
+                {{ myTranslate(scope.row.testingv2SubTask.status) }}
+              </span>
+              {{ makePrettyElapsedTime(scope.row.testingv2SubTask) }}
+              <el-tooltip v-if="calcElapsedTimeNum(scope.row.testingv2SubTask)<0"
+                          content="本地系统时间和服务端可能存在不一致，请同步。"
+                          placement="top">
+                <i class="el-icon-warning"
+                   style="color: red;"></i>
+              </el-tooltip>
+            </template>
+          </el-table-column>
+
+          <el-table-column label="测试报告">
+            <template slot-scope="scope">
+              <span v-if="scope.row.testingv2SubTask.status === 'passed'||scope.row.testingv2SubTask.report_ready === true"
+                    class="show-test-result">
+                <router-link :to="getTestReport(scope.row.testingv2SubTask, scope.row._target)">
+                  查看
+                </router-link>
+              </span>
+            </template>
+          </el-table-column>
+
+          <el-table-column label="文件导出">
+            <template slot-scope="scope">
+              <span v-if="scope.row.testingv2SubTask.job_ctx.is_has_artifact"
+                    @click="artifactModalVisible=true"
+                    class="download-artifact-link">
+                下载
+              </span>
+            </template>
+          </el-table-column>
+        </el-table>
+      </template>
+
       <template v-if="distributeArrayExpanded.length > 0">
         <div class="section-head">
           分发
@@ -331,7 +395,7 @@
                   :span-method="distributeSpanMethod"
                   row-class-name="my-table-row"
                   empty-text="无"
-                  style="width: 100%"
+                  style="width: 100%;"
                   class="release-table">
           <el-table-column prop="_target"
                            label="服务"
@@ -348,7 +412,7 @@
                           content="本地系统时间和服务端可能存在不一致，请同步。"
                           placement="top">
                 <i class="el-icon-warning"
-                   style="color:red"></i>
+                   style="color: red;"></i>
               </el-tooltip>
             </template>
           </el-table-column>
@@ -362,7 +426,7 @@
           <el-table-column label="输出">
             <template slot-scope="scope">
               <template v-if="typeof scope.row.location === 'object'">
-                <span style="display:block"
+                <span style="display: block;"
                       v-for="(item,index) in scope.row.location"
                       :key="index">{{ item.name }}</span>
               </template>
@@ -386,25 +450,25 @@
 <script>
 import {
   workflowTaskDetailAPI, workflowTaskDetailSSEAPI, restartWorkflowAPI, cancelWorkflowAPI
-} from '@api';
-import { wordTranslate, colorTranslate } from '@utils/word_translate.js';
-import deployIcons from '@/components/common/deploy_icons';
-import artifactDownload from '@/components/common/artifact_download.vue';
-import taskDetailBuild from './workflow_multi_task_detail/task_detail_build.vue';
-import taskDetailDeploy from './workflow_multi_task_detail/task_detail_deploy.vue';
-import taskDetailArtifactDeploy from './workflow_multi_task_detail/task_detail_artifact_deploy.vue';
-import bus from '@utils/event_bus';
+} from '@api'
+import { wordTranslate, colorTranslate } from '@utils/word_translate.js'
+import deployIcons from '@/components/common/deploy_icons'
+import artifactDownload from '@/components/common/artifact_download.vue'
+import taskDetailBuild from './workflow_multi_task_detail/task_detail_build.vue'
+import taskDetailDeploy from './workflow_multi_task_detail/task_detail_deploy.vue'
+import taskDetailArtifactDeploy from './workflow_multi_task_detail/task_detail_artifact_deploy.vue'
+import taskDetailTest from './workflow_multi_task_detail/task_detail_test.vue'
+import bus from '@utils/event_bus'
 import Etable from '@/components/common/etable'
 import _ from 'lodash'
 
 export default {
-  data() {
+  data () {
     return {
       workflow: {
       },
-      securitySummary: {},
       taskDetail: {
-        stages: [],
+        stages: []
       },
       rules: {
         version: [
@@ -414,12 +478,12 @@ export default {
       argColumns: [
         {
           prop: 'name',
-          label: 'name',
+          label: 'name'
         },
         {
           prop: 'value',
-          label: 'value',
-        },
+          label: 'value'
+        }
       ],
       jenkinsBuildColumns: [
         {
@@ -438,290 +502,303 @@ export default {
           width: 220,
           render: (scope) => {
             return (<el-popover placement="top-end" width="300" trigger="hover">
-                      <Etable tableColumns={this.argColumns} tableData={scope.row.jenkins_build_args.jenkins_build_params} id="id" />
-                      <span size="small" style="color: #409EFF" slot="reference">查看</span>
-                    </el-popover>)
+              <Etable tableColumns={this.argColumns} tableData={scope.row.jenkins_build_args.jenkins_build_params} id="id" />
+              <span size="small" style="color: #409EFF" slot="reference">查看</span>
+            </el-popover>)
           }
-        },
+        }
       ],
       inputTagVisible: false,
       inputValue: '',
       artifactModalVisible: false,
       expandedBuildDeploys: [],
       expandedArtifactDeploys: [],
-      expandedTests: [],
-    };
+      expandedTests: []
+    }
   },
   computed: {
-    workflowName() {
-      return this.$route.params.workflow_name;
+    workflowName () {
+      return this.$route.params.workflow_name
     },
-    currentOrganizationId() {
-      return this.$store.state.login.userinfo.organization.id;
+    currentOrganizationId () {
+      return this.$store.state.login.userinfo.organization.id
     },
-    taskID() {
-      return this.$route.params.task_id;
+    taskID () {
+      return this.$route.params.task_id
     },
-    status() {
-      return this.$route.query.status;
+    status () {
+      return this.$route.query.status
     },
-    securityCheckDone() {
-      return this.isStageDone('security');
-    },
-    workflowProductTemplate() {
+    workflowProductTemplate () {
       return this.workflow.product_tmpl_name
     },
-    projectName() {
-      return this.$route.params.project_name ? this.$route.params.project_name : this.workflowProductTemplate;
+    projectName () {
+      return this.$route.params.project_name ? this.$route.params.project_name : this.workflowProductTemplate
     },
-    artifactDeployMap() {
-      const map = {};
-      const stage = this.taskDetail.stages.find(stage => stage.type === 'artifact');
+    artifactDeployMap () {
+      const map = {}
+      const stage = this.taskDetail.stages.find(stage => stage.type === 'artifact')
       if (stage) {
-        this.collectSubTask(map, 'deploy');
+        this.collectSubTask(map, 'deploy')
       }
-      return map;
+      return map
     },
-    artifactDeployArray() {
-      const arr = this.$utils.mapToArray(this.artifactDeployMap, '_target');
+    artifactDeployArray () {
+      const arr = this.$utils.mapToArray(this.artifactDeployMap, '_target')
       for (const target of arr) {
-        target.buildOverallStatusZh = this.myTranslate(target.deploySubTask.status);
-        target.buildOverallColor = this.colorTranslation(target.deploySubTask.status, 'pipeline', 'task');
-        target.buildOverallTimeZhSec = this.calcElapsedTimeNum(target.deploySubTask);
-        target.buildOverallTimeZh = this.$utils.timeFormat(target.buildOverallTimeZhSec);
+        target.buildOverallStatusZh = this.myTranslate(target.deploySubTask.status)
+        target.buildOverallColor = this.colorTranslation(target.deploySubTask.status, 'pipeline', 'task')
+        target.buildOverallTimeZhSec = this.calcElapsedTimeNum(target.deploySubTask)
+        target.buildOverallTimeZh = this.$utils.timeFormat(target.buildOverallTimeZhSec)
       }
-      return arr;
+      return arr
     },
-    buildDeployMap() {
-      const map = {};
-      this.collectBuildDeploySubTask(map);
-      this.collectSubTask(map, 'docker_build');
-      return map;
+    buildDeployMap () {
+      const map = {}
+      this.collectBuildDeploySubTask(map)
+      this.collectSubTask(map, 'docker_build')
+      return map
     },
-    buildDeployArray() {
-      const arr = this.$utils.mapToArray(this.buildDeployMap, '_target');
+    buildDeployArray () {
+      const arr = this.$utils.mapToArray(this.buildDeployMap, '_target')
       for (const target of arr) {
         target.buildOverallStatus = this.$utils.calcOverallBuildStatus(
           target.buildv2SubTask, target.docker_buildSubTask
-        );
-        target.buildOverallStatusZh = this.myTranslate(target.buildOverallStatus);
-        target.buildOverallColor = this.colorTranslation(target.buildOverallStatus, 'pipeline', 'task');
-        target.buildOverallTimeZhSec = this.calcElapsedTimeNum(target.buildv2SubTask) + this.calcElapsedTimeNum(target.docker_buildSubTask);
-        target.buildOverallTimeZh = this.$utils.timeFormat(target.buildOverallTimeZhSec);
+        )
+        target.buildOverallStatusZh = this.myTranslate(target.buildOverallStatus)
+        target.buildOverallColor = this.colorTranslation(target.buildOverallStatus, 'pipeline', 'task')
+        target.buildOverallTimeZhSec = this.calcElapsedTimeNum(target.buildv2SubTask) + this.calcElapsedTimeNum(target.docker_buildSubTask)
+        target.buildOverallTimeZh = this.$utils.timeFormat(target.buildOverallTimeZhSec)
       }
-      return arr;
+      return arr
     },
-    buildSummary() {
-      let buildArr = this.$utils.mapToArray(this.buildDeployMap, '_target').filter(item => item.buildv2SubTask.type === 'buildv2');
-      let summary = buildArr.map(element => {
-          return {
-            service_name: element._target,
-            builds: _.get(element, 'buildv2SubTask.job_ctx.builds' , ''),
-          }
-      });
-      return summary;
+    buildSummary () {
+      const buildArr = this.$utils.mapToArray(this.buildDeployMap, '_target').filter(item => item.buildv2SubTask.type === 'buildv2')
+      const summary = buildArr.map(element => {
+        return {
+          service_name: element._target,
+          builds: _.get(element, 'buildv2SubTask.job_ctx.builds', '')
+        }
+      })
+      return summary
     },
-    jenkinsSummary() {
-      let buildArr = this.$utils.mapToArray(this.buildDeployMap, '_target').filter(item => item.buildv2SubTask.type === 'jenkins_build');
-      let summary = buildArr.map(element => {
-          return {
-            service_name: element._target,
-            builds: _.get(element, 'buildv2SubTask.job_ctx' , ''),
-            jenkins_build_args:  _.get(element, 'buildv2SubTask.jenkins_build_args' , ''),
-          }
-      });
-      return summary;
+    jenkinsSummary () {
+      const buildArr = this.$utils.mapToArray(this.buildDeployMap, '_target').filter(item => item.buildv2SubTask.type === 'jenkins_build')
+      const summary = buildArr.map(element => {
+        return {
+          service_name: element._target,
+          builds: _.get(element, 'buildv2SubTask.job_ctx', ''),
+          jenkins_build_args: _.get(element, 'buildv2SubTask.jenkins_build_args', '')
+        }
+      })
+      return summary
     },
-    distributeMap() {
-      const map = {};
-      this.collectSubTask(map, 'distribute2kodo');
-      this.collectSubTask(map, 'release_image');
-      this.collectSubTask(map, 'distribute');
-      return map;
+    testMap () {
+      const map = {}
+      this.collectSubTask(map, 'testingv2')
+      return map
     },
-    distributeArray() {
-      const arr = this.$utils.mapToArray(this.distributeMap, '_target');
+    testArray () {
+      const arr = this.$utils.mapToArray(this.testMap, '_target')
+      for (const test of arr) {
+        test.expanded = false
+      }
+      return arr
+    },
+    distributeMap () {
+      const map = {}
+      this.collectSubTask(map, 'distribute2kodo')
+      this.collectSubTask(map, 'release_image')
+      this.collectSubTask(map, 'distribute')
+      return map
+    },
+    distributeArray () {
+      const arr = this.$utils.mapToArray(this.distributeMap, '_target')
       for (const item of arr) {
         if (item.distribute2kodoSubTask) {
-          item.distribute2kodoSubTask.distribute2kodoPath = item.distribute2kodoSubTask.remote_file_key;
+          item.distribute2kodoSubTask.distribute2kodoPath = item.distribute2kodoSubTask.remote_file_key
         }
         if (item.release_imageSubTask) {
           item.release_imageSubTask._image = item.release_imageSubTask.image_release
             ? item.release_imageSubTask.image_release.split('/')[2]
-            : '*';
+            : '*'
         }
       }
-      return arr;
+      return arr
     },
-    distributeArrayExpanded() {
-      const wanted = ['distribute2kodoSubTask', 'release_imageSubTask', 'distributeSubTask'];
+    distributeArrayExpanded () {
+      const wanted = ['distribute2kodoSubTask', 'release_imageSubTask', 'distributeSubTask']
 
       const outputKeys = {
         distribute2kodoSubTask: 'package_file',
         release_imageSubTask: '_image',
-        distributeSubTask: 'package_file',
-      };
+        distributeSubTask: 'package_file'
+      }
       const locationKeys = {
         distribute2kodoSubTask: 'distribute2kodoPath',
         release_imageSubTask: 'image_repo',
-        distributeSubTask: 'dist_host',
-      };
-
-      const twoD = this.distributeArray.map(map => {
-        let typeCount = 0;
-        const arr = [];
-        for (const key of wanted) {
-          if (key in map) {
-            typeCount++;
-            const item = map[key];
-            item._target = map._target;
-            item.output = item[outputKeys[key]];
-            if (key === 'release_imageSubTask') {
-              item.location = item.releases ? item.releases : item.image_release;
-            } else {
-              item.location = item[locationKeys[key]];
-            }
-            arr.push(item);
-          }
-        }
-        arr[0].typeCount = typeCount;
-        return arr;
-      });
-      return this.$utils.flattenArray(twoD);
-    },
-  },
-  methods: {
-    isStageDone(name) {
-      if (this.taskDetail.stages.length > 0) {
-        let stage = this.taskDetail.stages.find(element => {
-          return element.type === name;
-        });
-        return stage ? stage.status === 'passed' : false;
+        distributeSubTask: 'dist_host'
       }
 
+      const twoD = this.distributeArray.map(map => {
+        let typeCount = 0
+        const arr = []
+        for (const key of wanted) {
+          if (key in map) {
+            typeCount++
+            const item = map[key]
+            item._target = map._target
+            item.output = item[outputKeys[key]]
+            if (key === 'release_imageSubTask') {
+              item.location = item.releases ? item.releases : item.image_release
+            } else {
+              item.location = item[locationKeys[key]]
+            }
+            arr.push(item)
+          }
+        }
+        arr[0].typeCount = typeCount
+        return arr
+      })
+      return this.$utils.flattenArray(twoD)
+    }
+  },
+  methods: {
+    isStageDone (name) {
+      if (this.taskDetail.stages.length > 0) {
+        const stage = this.taskDetail.stages.find(element => {
+          return element.type === name
+        })
+        return stage ? stage.status === 'passed' : false
+      }
     },
-    rerun() {
-      const taskUrl = `/v1/projects/detail/${this.projectName}/pipelines/multi/${this.workflowName}/${this.taskID}`;
+    rerun () {
+      const taskUrl = `/v1/projects/detail/${this.projectName}/pipelines/multi/${this.workflowName}/${this.taskID}`
       restartWorkflowAPI(this.workflowName, this.taskID).then(res => {
-        this.$message.success('任务已重新启动');
-        this.$router.push(taskUrl);
-      });
+        this.$message.success('任务已重新启动')
+        this.$router.push(taskUrl)
+      })
     },
-    cancel() {
+    cancel () {
       cancelWorkflowAPI(this.workflowName, this.taskID).then(res => {
         if (this.$refs && this.$refs.buildComp) {
-          this.$refs.buildComp.killLog('buildv2');
-          this.$refs.buildComp.killLog('docker_build');
+          this.$refs.buildComp.killLog('buildv2')
+          this.$refs.buildComp.killLog('docker_build')
         }
         if (this.$refs && this.$refs.testComp) {
-          this.$refs.testComp.killLog('test');
+          this.$refs.testComp.killLog('test')
         }
-        this.$message.success('任务取消成功');
-      });
+        this.$message.success('任务取消成功')
+      })
     },
-    collectSubTask(map, typeName) {
-      const stage = this.taskDetail.stages.find(stage => stage.type === typeName);
+    collectSubTask (map, typeName) {
+      const stage = this.taskDetail.stages.find(stage => stage.type === typeName)
       if (stage) {
         for (const target in stage.sub_tasks) {
           if (!(target in map)) {
-            map[target] = {};
+            map[target] = {}
           }
-          map[target][`${typeName}SubTask`] = stage.sub_tasks[target];
+          map[target][`${typeName}SubTask`] = stage.sub_tasks[target]
         }
       }
     },
-    collectBuildDeploySubTask(map) {
-      const buildStageArray = this.taskDetail.stages.filter(stage => stage.type === 'buildv2' || stage.type === 'jenkins_build');
-      const deployStage = this.taskDetail.stages.find(stage => stage.type === 'deploy');
+    collectBuildDeploySubTask (map) {
+      const buildStageArray = this.taskDetail.stages.filter(stage => stage.type === 'buildv2' || stage.type === 'jenkins_build')
+      const deployStage = this.taskDetail.stages.find(stage => stage.type === 'deploy')
       if (buildStageArray) {
         buildStageArray.forEach(buildStage => {
-        for (const buildKey in buildStage.sub_tasks) {
-          if (!(buildStage.sub_tasks[buildKey].service_name in map)) {
-            map[buildStage.sub_tasks[buildKey].service_name] = {};
-          }
-          map[buildStage.sub_tasks[buildKey].service_name][`buildv2SubTask`] = buildStage.sub_tasks[buildKey];
-          map[buildStage.sub_tasks[buildKey].service_name][`deploySubTasks`] = [];
-          if (deployStage) {
-            for (const deployKey in deployStage.sub_tasks) {
-              if (buildStage.sub_tasks[buildKey].service_name === deployStage.sub_tasks[deployKey].container_name) {
-                map[buildStage.sub_tasks[buildKey].service_name][`deploySubTasks`].push(deployStage.sub_tasks[deployKey]);
+          for (const buildKey in buildStage.sub_tasks) {
+            if (!(buildStage.sub_tasks[buildKey].service_name in map)) {
+              map[buildStage.sub_tasks[buildKey].service_name] = {}
+            }
+            map[buildStage.sub_tasks[buildKey].service_name].buildv2SubTask = buildStage.sub_tasks[buildKey]
+            map[buildStage.sub_tasks[buildKey].service_name].deploySubTasks = []
+            if (deployStage) {
+              for (const deployKey in deployStage.sub_tasks) {
+                if (buildStage.sub_tasks[buildKey].service_name === deployStage.sub_tasks[deployKey].container_name) {
+                  map[buildStage.sub_tasks[buildKey].service_name].deploySubTasks.push(deployStage.sub_tasks[deployKey])
+                }
               }
             }
           }
-        }
         })
       }
-
     },
 
-    fetchTaskDetail() {
+    fetchTaskDetail () {
       return workflowTaskDetailSSEAPI(this.workflowName, this.taskID).then(res => {
-        this.adaptTaskDetail(res.data);
-        this.taskDetail = res.data;
-        this.workflow = res.data.workflow_args;
-      }).closeWhenDestroy(this);
+        this.adaptTaskDetail(res.data)
+        this.taskDetail = res.data
+        this.workflow = res.data.workflow_args
+      }).closeWhenDestroy(this)
     },
-    fetchOldTaskDetail() {
+    fetchOldTaskDetail () {
       workflowTaskDetailAPI(this.workflowName, this.taskID).then(res => {
-        this.adaptTaskDetail(res);
-        this.taskDetail = res;
-        this.workflow = res.workflow_args;
-      });
+        this.adaptTaskDetail(res)
+        this.taskDetail = res
+        this.workflow = res.workflow_args
+      })
     },
-    adaptTaskDetail(detail) {
-      detail.intervalSec = (detail.status === 'running' ? Math.round((new Date()).getTime() / 1000) : detail.end_time) - detail.start_time;
-      detail.interval = this.$utils.timeFormat(detail.intervalSec);
+    adaptTaskDetail (detail) {
+      detail.intervalSec = (detail.status === 'running' ? Math.round((new Date()).getTime() / 1000) : detail.end_time) - detail.start_time
+      detail.interval = this.$utils.timeFormat(detail.intervalSec)
     },
-    repoID(repo) {
-      return `${repo.source}/${repo.repo_owner}/${repo.repo_name}`;
+    getTestReport (testSubTask, serviceName) {
+      const projectName = this.projectName
+      const test_job_name = this.workflowName + '-' + this.taskID + '-' + testSubTask.test_name
+      const tail = `?is_workflow=1&service_name=${serviceName}&test_type=${testSubTask.job_ctx.test_type}`
+      return (`/v1/projects/detail/${projectName}/pipelines/multi/testcase/${this.workflowName}/${this.taskID}/${testSubTask.test_name}/${test_job_name}${tail}`)
+    },
+    repoID (repo) {
+      return `${repo.source}/${repo.repo_owner}/${repo.repo_name}`
     },
 
-    myTranslate(word) {
-      return wordTranslate(word, 'pipeline', 'task');
+    myTranslate (word) {
+      return wordTranslate(word, 'pipeline', 'task')
     },
-    colorTranslation(word, category, subitem) {
-      return colorTranslate(word, category, subitem);
+    colorTranslation (word, category, subitem) {
+      return colorTranslate(word, category, subitem)
     },
-    calcElapsedTimeNum(subTask) {
+    calcElapsedTimeNum (subTask) {
       if (this.$utils.isEmpty(subTask) || subTask.status === '') {
-        return 0;
+        return 0
       }
-      const endTime = subTask.status === 'running' ? Math.floor(Date.now() / 1000) : subTask.end_time;
-      return endTime - subTask.start_time;
+      const endTime = subTask.status === 'running' ? Math.floor(Date.now() / 1000) : subTask.end_time
+      return endTime - subTask.start_time
     },
-    makePrettyElapsedTime(subTask) {
-      return this.$utils.timeFormat(this.calcElapsedTimeNum(subTask));
+    makePrettyElapsedTime (subTask) {
+      return this.$utils.timeFormat(this.calcElapsedTimeNum(subTask))
     },
 
-    distributeSpanMethod({ row, column, rowIndex, columnIndex }) {
+    distributeSpanMethod ({ row, column, rowIndex, columnIndex }) {
       if (columnIndex === 0) {
         if ('typeCount' in row) {
           return {
             rowspan: row.typeCount,
-            colspan: 1,
-          };
+            colspan: 1
+          }
         }
         return {
           rowspan: 0,
-          colspan: 1,
-        };
+          colspan: 1
+        }
       }
       return {
         rowspan: 1,
-        colspan: 1,
-      };
+        colspan: 1
+      }
     },
 
-    updateBuildDeployExpanded(row, expandedRows) {
-      this.expandedBuildDeploys = expandedRows.map(r => r._target);
+    updateBuildDeployExpanded (row, expandedRows) {
+      this.expandedBuildDeploys = expandedRows.map(r => r._target)
     },
-    updateArtifactDeployExpanded(row, expandedRows) {
-      this.expandedBuildDeploys = expandedRows.map(r => r._target);
+    updateArtifactDeployExpanded (row, expandedRows) {
+      this.expandedBuildDeploys = expandedRows.map(r => r._target)
     },
-    updateTestExpanded(row, expandedRows) {
-      this.expandedTests = expandedRows.map(r => r._target);
+    updateTestExpanded (row, expandedRows) {
+      this.expandedTests = expandedRows.map(r => r._target)
     },
-    showOperation() {
+    showOperation () {
       if (this.taskDetail.status === 'failed' || this.taskDetail.status === 'cancelled' || this.taskDetail.status === 'timeout') {
         return true
       }
@@ -735,8 +812,8 @@ export default {
 
       return false
     },
-    setTitleBar() {
-      bus.$emit(`set-topbar-title`, {
+    setTitleBar () {
+      bus.$emit('set-topbar-title', {
         title: '',
         breadcrumb: [
           { title: '项目', url: '/v1/projects' },
@@ -744,8 +821,8 @@ export default {
           { title: '工作流', url: `/v1/projects/detail/${this.projectName}/pipelines` },
           { title: this.workflowName, url: `/v1/projects/detail/${this.projectName}/pipelines/multi/${this.workflowName}` },
           { title: `#${this.taskID}`, url: '' }]
-      });
-      bus.$emit(`set-sub-sidebar-title`, {
+      })
+      bus.$emit('set-sub-sidebar-title', {
         title: this.projectName,
         url: `/v1/projects/detail/${this.projectName}`,
         routerList: [
@@ -753,35 +830,26 @@ export default {
           { name: '集成环境', url: `/v1/projects/detail/${this.projectName}/envs` },
           { name: '服务', url: `/v1/projects/detail/${this.projectName}/services` },
           { name: '构建', url: `/v1/projects/detail/${this.projectName}/builds` },
-          ]
-      });
+          { name: '测试', url: `/v1/projects/detail/${this.projectName}/test` }]
+      })
     }
   },
   watch: {
-    $route(to, from) {
-      this.setTitleBar();
+    $route (to, from) {
+      this.setTitleBar()
       if (this.$route.query.status === 'passed' || this.$route.query.status === 'failed' || this.$route.query.status === 'timeout' || this.$route.query.status === 'cancelled') {
-        this.fetchOldTaskDetail();
-      }
-      else {
-        this.fetchTaskDetail();
-      }
-    },
-    securityCheckDone(val, oldVal) {
-      if (val && val !== oldVal) {
-        this.securityArray.forEach(element => {
-          this.getSecurityReportSummary(element.securitySubTask.image_id);
-        });
+        this.fetchOldTaskDetail()
+      } else {
+        this.fetchTaskDetail()
       }
     }
   },
-  created() {
-    this.setTitleBar();
+  created () {
+    this.setTitleBar()
     if (this.$route.query.status === 'passed' || this.$route.query.status === 'failed' || this.$route.query.status === 'timeout' || this.$route.query.status === 'cancelled') {
-      this.fetchOldTaskDetail();
-    }
-    else {
-      this.fetchTaskDetail();
+      this.fetchOldTaskDetail()
+    } else {
+      this.fetchTaskDetail()
     }
   },
   components: {
@@ -790,71 +858,68 @@ export default {
     taskDetailBuild,
     taskDetailDeploy,
     taskDetailArtifactDeploy,
+    taskDetailTest,
     Etable
-  },
-};
+  }
+}
 </script>
 
 <style lang="less">
 .issue-popper {
   display: inline-block;
   font-size: 14px;
+
   p {
     margin: 0.5em 0;
   }
+
   .issue-url {
     color: #1989fa;
     cursor: pointer;
   }
 }
+
 .workflow-task-detail {
-  flex: 1;
   position: relative;
-  padding: 0px 20px;
+  flex: 1;
+  padding: 0 20px;
   overflow: auto;
+
   .el-breadcrumb {
     font-size: 16px;
   }
-  .build-summary {
-    .repo-name {
-      font-size: 15px;
-    }
-    .link a {
-      color: #1989fa;
-      cursor: pointer;
-    }
-    .el-row {
-      margin-bottom: 5px;
-    }
-  }
+
   .version-summary {
     .title {
-      font-size: 14px;
       color: #606266;
+      font-size: 14px;
       line-height: 40px;
     }
+
     .content {
-      font-size: 14px;
       color: #333;
+      font-size: 14px;
     }
   }
 
   .section-head {
     width: 222px;
-    font-size: 16px;
     height: 28px;
-    line-height: 28px;
     margin-top: 25px;
     color: #303133;
+    font-size: 16px;
+    line-height: 28px;
     border-bottom: 1px solid #eee;
   }
+
   .section-title {
     display: inline-block;
-    color: #666;
-    font-size: 13px;
     margin-top: 20px;
     margin-left: 15px;
+    color: #666;
+    font-size: 13px;
   }
+
   .version-link,
   .download-artifact-link {
     color: #1989fa;
@@ -867,9 +932,11 @@ export default {
   .release-table {
     margin-top: 10px;
   }
+
   .el-form-item {
     margin-bottom: 0;
   }
+
   .el-form-item__label {
     text-align: left;
   }
@@ -880,24 +947,29 @@ export default {
     span[class^="color-"] {
       margin-right: 8px;
     }
+
     .icon {
-      cursor: pointer;
       font-size: 18px;
+      cursor: pointer;
     }
+
     .error {
       color: #ff1989;
     }
   }
+
   .security-table,
   .release-table {
     margin-left: 48px;
   }
+
   .show-test-result {
     a {
       color: #1989fa;
       cursor: pointer;
     }
   }
+
   .el-table__expanded-cell {
     padding: 0;
   }
@@ -905,17 +977,35 @@ export default {
   .my-table-row {
     background-color: #f5faff;
   }
+
   .issue-name-wrapper {
     display: block;
+
     a {
-      color: #1989fa;
       margin-right: 4px;
+      color: #1989fa;
+    }
+  }
+
+  .build-summary {
+    .repo-name {
+      font-size: 15px;
+    }
+
+    .link a {
+      color: #1989fa;
+      cursor: pointer;
+    }
+
+    .el-row {
+      margin-bottom: 5px;
     }
   }
 }
+
 .description {
-    font-size: 14px;
-    color: #606266;
-    margin-top: 10px;
+  margin-top: 10px;
+  color: #606266;
+  font-size: 14px;
 }
 </style>

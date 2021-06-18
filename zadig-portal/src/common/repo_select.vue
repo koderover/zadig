@@ -11,7 +11,7 @@
         <span class="item-title">{{title?title:'代码信息'}}</span>
       </el-tooltip>
       <el-button v-if="config.repos.length===0"
-                 style="padding:0"
+                 style="padding: 0;"
                  :size="addBtnMini?'mini':'medium'"
                  @click="addFirstBuildRepo()"
                  type="text">新增</el-button>
@@ -42,7 +42,7 @@
                           :prop="'repos.' + repo_index + '.repo_owner'"
                           :rules="{required: true, message: '拥有者不能为空', trigger: 'blur'}">
               <el-select @change="getRepoNameById(repo_index,config.repos[repo_index].codehost_id,config.repos[repo_index]['repo_owner'])"
-                         v-model="config.repos[repo_index]['repo_owner']"
+                         v-model.trim="config.repos[repo_index]['repo_owner']"
                          remote
                          :remote-method="(query)=>{searchNamespace(repo_index,query)}"
                          @clear="searchNamespace(repo_index,'')"
@@ -64,7 +64,7 @@
                           :prop="'repos.' + repo_index + '.repo_name'"
                           :rules="{required: true, message: '名称不能为空', trigger: 'blur'}">
               <el-select @change="getBranchInfoById(repo_index,config.repos[repo_index].codehost_id,config.repos[repo_index].repo_owner,config.repos[repo_index].repo_name)"
-                         v-model="config.repos[repo_index].repo_name"
+                         v-model.trim="config.repos[repo_index].repo_name"
                          remote
                          :remote-method="(query)=>{searchProject(repo_index,query)}"
                          @clear="searchProject(repo_index,'')"
@@ -85,7 +85,7 @@
             <el-form-item :label="repo_index === 0 ? (shortDescription?'分支':'默认分支') : ''"
                           :prop="'repos.' + repo_index + '.branch'"
                           :rules="{required: true, message: '分支不能为空', trigger: 'blur'}">
-              <el-select v-model="config.repos[repo_index].branch"
+              <el-select v-model.trim="config.repos[repo_index].branch"
                          placeholder="请选择"
                          size="small"
                          filterable
@@ -158,7 +158,7 @@
           </el-col>
         </el-row>
         <el-row v-if="showAdvancedSetting[repo_index]"
-                style="background-color: rgb(240, 242, 245);padding:4px">
+                style="padding: 4px; background-color: rgb(240, 242, 245);">
           <el-col :span="5">
             <el-form-item label="Remote name">
               <el-input v-model="repo.remote_name"
@@ -210,16 +210,16 @@
 </template>
 
 <script type="text/javascript">
-import { getCodeSourceAPI, getRepoOwnerByIdAPI, getRepoNameByIdAPI, getBranchInfoByIdAPI } from '@api';
-import { orderBy } from 'lodash';
+import { getCodeSourceAPI, getRepoOwnerByIdAPI, getRepoNameByIdAPI, getBranchInfoByIdAPI } from '@api'
+import { orderBy } from 'lodash'
 export default {
-  data() {
+  data () {
     return {
       allCodeHosts: [],
       codeInfo: {},
       showAdvancedSetting: {},
-      validateName: 'repoSelect',
-    };
+      validateName: 'repoSelect'
+    }
   },
   props: {
     config: {
@@ -275,22 +275,22 @@ export default {
       required: false,
       type: Boolean,
       default: false
-    },
+    }
   },
   methods: {
-    validateForm() {
+    validateForm () {
       return new Promise((resolve, reject) => {
-        this.$refs['buildRepo'].validate((valid) => {
+        this.$refs.buildRepo.validate((valid) => {
           if (valid) {
-            resolve(true);
+            resolve(true)
           } else {
-            reject(false);
+            reject(false)
           }
-        });
+        })
       })
     },
-    addBuildRepo(index) {
-      let repoMeta = {
+    addBuildRepo (index) {
+      const repoMeta = {
         codehost_id: '',
         repo_owner: '',
         repo_name: '',
@@ -298,27 +298,26 @@ export default {
         checkout_path: '',
         remote_name: 'origin',
         submodules: false
-      };
-      this.showTrigger && (repoMeta.enableTrigger = false);
+      }
+      this.showTrigger && (repoMeta.enableTrigger = false)
       this.validateForm().then(res => {
         if (this.allCodeHosts && this.allCodeHosts.length === 1) {
-          const codeHostId = this.allCodeHosts[0].id;
-          repoMeta.codehost_id = codeHostId;
-          this.getRepoOwnerById(index + 1, codeHostId);
+          const codeHostId = this.allCodeHosts[0].id
+          repoMeta.codehost_id = codeHostId
+          this.getRepoOwnerById(index + 1, codeHostId)
         }
-        this.config.repos.push(repoMeta);
+        this.config.repos.push(repoMeta)
         this.$set(this.codeInfo, index + 1, {
           repo_owners: [],
           repos: [],
           branches: []
-        });
+        })
       }).catch(err => {
-        return false;
+        console.log(err)
       })
-
     },
-    addFirstBuildRepo() {
-      let repoMeta = {
+    addFirstBuildRepo () {
+      const repoMeta = {
         codehost_id: '',
         repo_owner: '',
         repo_name: '',
@@ -326,143 +325,137 @@ export default {
         checkout_path: '',
         remote_name: 'origin',
         submodules: false
-      };
-      this.showTrigger && (repoMeta.enableTrigger = false);
+      }
+      this.showTrigger && (repoMeta.enableTrigger = false)
       this.$set(this.codeInfo, 0, {
         repo_owners: [],
         repos: [],
         branches: []
-      });
+      })
       if (this.allCodeHosts && this.allCodeHosts.length === 1) {
-        const codeHostId = this.allCodeHosts[0].id;
-        repoMeta.codehost_id = codeHostId;
-        this.getRepoOwnerById(0, codeHostId);
+        const codeHostId = this.allCodeHosts[0].id
+        repoMeta.codehost_id = codeHostId
+        this.getRepoOwnerById(0, codeHostId)
       }
       this.config.repos.push(repoMeta)
     },
-    deleteBuildRepo(index) {
-      this.config.repos.splice(index, 1);
+    deleteBuildRepo (index) {
+      this.config.repos.splice(index, 1)
     },
-    searchNamespace(index, query) {
-      const id = this.config.repos[index].codehost_id;
-      const codehostType = (this.allCodeHosts.find(item => { return item['id'] === id }))['type'];
+    searchNamespace (index, query) {
+      const id = this.config.repos[index].codehost_id
+      const codehostType = (this.allCodeHosts.find(item => { return item.id === id })).type
       if (codehostType === 'github' && query !== '') {
-        const items = this.$utils.filterObjectArrayByKey('name', query, this.codeInfo[index]['origin_repo_owners']);
-        this.$set(this.codeInfo[index], 'repo_owners', items);
+        const items = this.$utils.filterObjectArrayByKey('name', query, this.codeInfo[index].origin_repo_owners)
+        this.$set(this.codeInfo[index], 'repo_owners', items)
         if (this.allCodeHosts && this.allCodeHosts.length > 1) {
-          this.config.repos[index].repo_owner = '';
-          this.config.repos[index].repo_name = '';
-          this.config.repos[index].branch = '';
+          this.config.repos[index].repo_owner = ''
+          this.config.repos[index].repo_name = ''
+          this.config.repos[index].branch = ''
         }
-      }
-      else {
-        this.getRepoOwnerById(index, id, query);
+      } else {
+        this.getRepoOwnerById(index, id, query)
       }
     },
-    getRepoNameById(index, id, repo_owner, key = '') {
-      const item = (this.codeInfo[index].repo_owners.find(item => { return item.path === repo_owner }));
-      const type = item ? item['kind'] : 'group';
+    getRepoNameById (index, id, repo_owner, key = '') {
+      const item = (this.codeInfo[index].repo_owners.find(item => { return item.path === repo_owner }))
+      const type = item ? item.kind : 'group'
       if (repo_owner) {
         getRepoNameByIdAPI(id, type, encodeURI(repo_owner), key).then((res) => {
-          this.$set(this.codeInfo[index], 'repos', orderBy(res, ['name']));
-          this.$set(this.codeInfo[index], 'origin_repos', orderBy(res, ['name']));
-        });
+          this.$set(this.codeInfo[index], 'repos', orderBy(res, ['name']))
+          this.$set(this.codeInfo[index], 'origin_repos', orderBy(res, ['name']))
+        })
       }
-      this.config.repos[index].repo_name = '';
-      this.config.repos[index].branch = '';
-
+      this.config.repos[index].repo_name = ''
+      this.config.repos[index].branch = ''
     },
-    getBranchInfoById(index, id, repo_owner, repo_name) {
+    getBranchInfoById (index, id, repo_owner, repo_name) {
       if (repo_owner && repo_name) {
         getBranchInfoByIdAPI(id, repo_owner, repo_name).then((res) => {
-          this.$set(this.codeInfo[index], 'branches', res);
-        });
+          this.$set(this.codeInfo[index], 'branches', res)
+        })
       }
-      this.config.repos[index].branch = '';
+      this.config.repos[index].branch = ''
     },
-    getRepoOwnerById(index, id, key = '') {
+    getRepoOwnerById (index, id, key = '') {
       getRepoOwnerByIdAPI(id, key).then((res) => {
-        this.$set(this.codeInfo[index], 'repo_owners', orderBy(res, ['name']));
-        this.$set(this.codeInfo[index], 'origin_repo_owners', orderBy(res, ['name']));
-      });
+        this.$set(this.codeInfo[index], 'repo_owners', orderBy(res, ['name']))
+        this.$set(this.codeInfo[index], 'origin_repo_owners', orderBy(res, ['name']))
+      })
       if (this.allCodeHosts && this.allCodeHosts.length > 1) {
-        this.config.repos[index].repo_owner = '';
-        this.config.repos[index].repo_name = '';
-        this.config.repos[index].branch = '';
+        this.config.repos[index].repo_owner = ''
+        this.config.repos[index].repo_name = ''
+        this.config.repos[index].branch = ''
       }
     },
-    getInitRepoInfo(repos) {
+    getInitRepoInfo (repos) {
       repos.forEach((element, index) => {
-        const codehostId = element.codehost_id;
-        const repoOwner = element.repo_owner;
-        const repoName = element.repo_name;
-        const branch = element.branch;
+        const codehostId = element.codehost_id
+        const repoOwner = element.repo_owner
+        const repoName = element.repo_name
         this.$set(this.codeInfo, index, {
           repo_owners: [],
           repos: [],
           branches: []
-        });
+        })
         if (codehostId) {
           getRepoOwnerByIdAPI(codehostId).then((res) => {
-            this.$set(this.codeInfo[index], 'repo_owners', orderBy(res, ['name']));
-            this.$set(this.codeInfo[index], 'origin_repo_owners', orderBy(res, ['name']));
-            const item = this.codeInfo[index].repo_owners.find(item => { return item.path === repoOwner });
-            const type = item ? item['kind'] : 'group';
+            this.$set(this.codeInfo[index], 'repo_owners', orderBy(res, ['name']))
+            this.$set(this.codeInfo[index], 'origin_repo_owners', orderBy(res, ['name']))
+            const item = this.codeInfo[index].repo_owners.find(item => { return item.path === repoOwner })
+            const type = item ? item.kind : 'group'
             getRepoNameByIdAPI(codehostId, type, encodeURI(repoOwner)).then((res) => {
-              this.$set(this.codeInfo[index], 'repos', orderBy(res, ['name']));
-              this.$set(this.codeInfo[index], 'origin_repos', orderBy(res, ['name']));
-            });
+              this.$set(this.codeInfo[index], 'repos', orderBy(res, ['name']))
+              this.$set(this.codeInfo[index], 'origin_repos', orderBy(res, ['name']))
+            })
           })
           getBranchInfoByIdAPI(codehostId, repoOwner, repoName).then((res) => {
-            this.$set(this.codeInfo[index], 'branches', res);
+            this.$set(this.codeInfo[index], 'branches', res)
           })
         }
-
-      });
+      })
     },
-    searchProject(index, query) {
-      const id = this.config.repos[index].codehost_id;
-      const repo_owner = this.config.repos[index].repo_owner;
-      const codehostType = (this.allCodeHosts.find(item => { return item['id'] === id }))['type'];
+    searchProject (index, query) {
+      const id = this.config.repos[index].codehost_id
+      const repo_owner = this.config.repos[index].repo_owner
+      const codehostType = (this.allCodeHosts.find(item => { return item.id === id })).type
       if (codehostType === 'github') {
-        const items = this.$utils.filterObjectArrayByKey('name', query, this.codeInfo[index]['origin_repos']);
-        this.$set(this.codeInfo[index], 'repos', items);
-        this.config.repos[index].repo_name = '';
-        this.config.repos[index].branch = '';
+        const items = this.$utils.filterObjectArrayByKey('name', query, this.codeInfo[index].origin_repos)
+        this.$set(this.codeInfo[index], 'repos', items)
+        this.config.repos[index].repo_name = ''
+        this.config.repos[index].branch = ''
+      } else {
+        this.getRepoNameById(index, id, repo_owner, query)
       }
-      else {
-        this.getRepoNameById(index, id, repo_owner, query);
-      }
-
     },
-    changeToPrimaryRepo(index, val) {
+    changeToPrimaryRepo (index, val) {
       this.config.repos.forEach((item, item_index) => {
-        item.is_primary = false;
+        item.is_primary = false
         if (index === item_index && val) {
-          item.is_primary = true;
+          item.is_primary = true
         }
-      });
-    },
+      })
+    }
   },
   computed: {
-    currentOrganizationId() {
-      return this.$store.state.login.userinfo.organization.id;
-    },
+    currentOrganizationId () {
+      return this.$store.state.login.userinfo.organization.id
+    }
   },
-  mounted() {
-    const orgId = this.currentOrganizationId;
+  mounted () {
+    const orgId = this.currentOrganizationId
     getCodeSourceAPI(orgId).then((response) => {
-      this.allCodeHosts = response;
+      this.allCodeHosts = response
     });
-    (this.showFirstLine) && this.addFirstBuildRepo();
+    (this.showFirstLine) && this.addFirstBuildRepo()
   },
   watch: {
-    config(new_val, old_val) {
+    config (new_val, old_val) {
       if (new_val.repos.length > 0) {
-        this.getInitRepoInfo(new_val.repos);
+        this.getInitRepoInfo(new_val.repos)
       }
     },
-    'config.repos'(new_val, old_val) {
+    'config.repos' (new_val, old_val) {
       if (this.validObj !== null) {
         if (new_val && new_val.length > 0) {
           this.validObj.addValidate({
@@ -479,7 +472,7 @@ export default {
   },
   components: {
   }
-};
+}
 </script>
 
 <style lang="less" scoped>
@@ -488,11 +481,13 @@ export default {
     font-size: 15px;
   }
 }
+
 .divider {
-  height: 1px;
-  background-color: #dfe0e6;
-  margin: 5px 0 15px 0;
   width: 100%;
+  height: 1px;
+  margin: 5px 0 15px 0;
+  background-color: #dfe0e6;
+
   &.item {
     width: 30%;
   }

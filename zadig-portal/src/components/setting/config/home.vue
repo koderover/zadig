@@ -19,34 +19,34 @@
 <script>
 import Proxy from './proxy.vue'
 import Cache from './cache.vue'
-import bus from '@utils/event_bus';
+import bus from '@utils/event_bus'
 
 export default {
   name: 'config',
   components: {
     Proxy,
-    Cache,
+    Cache
   },
-  data() {
+  data () {
     return {
-      activeTab: 'proxy',
+      activeTab: 'proxy'
     }
   },
   mounted () {
-    bus.$emit(`set-topbar-title`, { title: '系统配置', breadcrumb: [] });
-    bus.$emit(`set-sub-sidebar-title`, {
+    bus.$emit('set-topbar-title', { title: '系统配置', breadcrumb: [] })
+    bus.$emit('set-sub-sidebar-title', {
       title: '',
       routerList: []
-    });
+    })
   }
 }
 </script>
 
 <style lang="less" >
 .config-home {
-  flex: 1;
   position: relative;
-  overflow: auto;
+  flex: 1;
   padding: 15px 30px;
+  overflow: auto;
 }
 </style>

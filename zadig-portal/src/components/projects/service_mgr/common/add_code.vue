@@ -17,7 +17,7 @@
         </span>
         <span class="tips">- 应用权限请勾选：api、read_user、read_repository</span>
         <span class="tips">- 其它配置可以点击
-          <el-link style="font-size:13px"
+          <el-link style="font-size: 13px;"
                    type="primary"
                    :href="`https://docs.koderover.com/zadig/settings/codehost/`"
                    :underline="false"
@@ -32,7 +32,7 @@
              ref="codeForm">
       <el-form-item label="代码源"
                     prop="type">
-        <el-select style="width:100%"
+        <el-select style="width: 100%;"
                    v-model="codeAdd.type">
           <el-option label="GitLab"
                      value="gitlab"></el-option>
@@ -109,29 +109,29 @@
 <script>
 import {
   createCodeSourceAPI
-} from '@api';
-let validateGitURL = (rule, value, callback) => {
+} from '@api'
+const validateGitURL = (rule, value, callback) => {
   if (value === '') {
-    callback(new Error('请输入服务 URL'));
+    callback(new Error('请输入服务 URL'))
   } else {
     if (value.endsWith('/')) {
-      callback(new Error('URL 末尾不能包含 /'));
+      callback(new Error('URL 末尾不能包含 /'))
     } else {
-      callback();
+      callback()
     }
   }
-};
+}
 export default {
-  data() {
+  data () {
     return {
       codeAdd: {
-        "name": "",
-        "namespace": "",
-        "type": "gitlab",
-        "address": "",
-        "accessToken": "",
-        "applicationId": "",
-        "clientSecret": "",
+        name: '',
+        namespace: '',
+        type: 'gitlab',
+        address: '',
+        accessToken: '',
+        applicationId: '',
+        clientSecret: ''
       },
       codeRules: {
         type: {
@@ -146,7 +146,7 @@ export default {
         }, {
           required: true,
           trigger: 'change',
-          validator: validateGitURL,
+          validator: validateGitURL
         }],
         accessToken: {
           required: true,
@@ -178,87 +178,89 @@ export default {
           message: '请填写 Password',
           trigger: ['blur']
         }
-      },
-    };
+      }
+    }
   },
   methods: {
-    clearValidate(ref) {
-      this.$refs[ref].clearValidate();
+    clearValidate (ref) {
+      this.$refs[ref].clearValidate()
     },
-    cancel() {
-      this.$emit('cancel', true);
+    cancel () {
+      this.$emit('cancel', true)
     },
-    createCodeConfig() {
-      this.$refs['codeForm'].validate((valid) => {
+    createCodeConfig () {
+      this.$refs.codeForm.validate((valid) => {
         if (valid) {
-          const id = this.currentOrganizationId;
-          const payload = this.codeAdd;
-          const redirect_url = window.location.href.split('?')[0];
-          const provider = this.codeAdd.type;
+          const id = this.currentOrganizationId
+          const payload = this.codeAdd
+          const redirect_url = window.location.href.split('?')[0]
+          const provider = this.codeAdd.type
           createCodeSourceAPI(id, payload).then((res) => {
-            const code_source_id = res.id;
+            const code_source_id = res.id
             this.$message({
               message: '代码源添加成功',
               type: 'success'
-            });
+            })
             if (payload.type === 'gitlab' || payload.type === 'github') {
-              this.goToCodeHostAuth(code_source_id, redirect_url, provider);
+              this.goToCodeHostAuth(code_source_id, redirect_url, provider)
             }
-            this.handleCodeCancel();
-          });
-
+            this.handleCodeCancel()
+          })
         } else {
-          return false;
+          return false
         }
-      });
+      })
     },
-    goToCodeHostAuth(code_source_id, redirect_url, provider) {
-      window.location.href = `/api/directory/codehostss/${code_source_id}/auth?redirect=${redirect_url}&provider=${provider}`;
+    goToCodeHostAuth (code_source_id, redirect_url, provider) {
+      window.location.href = `/api/directory/codehostss/${code_source_id}/auth?redirect=${redirect_url}&provider=${provider}`
     },
-    copyCommandSuccess(event) {
+    copyCommandSuccess (event) {
       this.$message({
         message: '地址已成功复制到剪贴板',
         type: 'success'
-      });
+      })
     },
-    copyCommandError(event) {
+    copyCommandError (event) {
       this.$message({
         message: '地址复制失败',
         type: 'error'
-      });
-    },
+      })
+    }
   },
   computed: {
-    currentOrganizationId() {
-      return this.$store.state.login.userinfo.organization.id;
+    currentOrganizationId () {
+      return this.$store.state.login.userinfo.organization.id
     }
   },
   watch: {
-    'codeAdd.type'(val) {
-      this.$refs['codeForm'].clearValidate();
+    'codeAdd.type' (val) {
+      this.$refs.codeForm.clearValidate()
     }
-  },
+  }
 }
 </script>
 <style lang="less">
 .add-code-container {
   padding: 10px 15px;
   font-size: 13px;
+
   .tips {
     display: block;
+
     &.code-line {
-      border-radius: 2px;
-      font-family: monospace, monospace;
       display: inline-block;
-      font-size: 14px;
-      color: #ecf0f1;
-      word-break: break-all;
-      word-wrap: break-word;
-      background-color: #334851;
       padding-left: 10px;
+      color: #ecf0f1;
+      font-size: 14px;
+      word-wrap: break-word;
+      word-break: break-all;
+      background-color: #334851;
+      border-radius: 2px;
+
       .copy {
         font-size: 16px;
         cursor: pointer;
+
         &:hover {
           color: #13ce66;
         }

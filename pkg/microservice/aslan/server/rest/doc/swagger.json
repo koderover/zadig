@@ -1,0 +1,125 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "The API doc is targeting for Zadig developers rather than Zadig users.\nThe majority of these APIs are not designed for public use, there is no guarantee on version compatibility.\nPlease reach out to contact@koderover.com before you decide to depend on these APIs directly.",
+        "title": "Zadig aslan service REST APIs",
+        "contact": {
+            "email": "contact@koderover.com"
+        },
+        "license": {
+            "name": "Apache 2.0",
+            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+        },
+        "version": "1.0"
+    },
+    "basePath": "/api/aslan",
+    "paths": {
+        "/workflow/v2/pipelines": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Return all workflows (also called pipelines)",
+                "responses": {
+                    "200": {
+                        "description": "response type follows list of microservice/aslan/core/common/dao/models#Pipeline",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                }
+            }
+        },
+        "/workflow/v2/pipelines/{name}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get the relevant workflow (also called pipeline) information with the specified workflow name",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Name of the workflow",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "response type follows microservice/aslan/core/common/dao/models#Pipeline",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                }
+            }
+        },
+        "/workflow/webhook/gerritHook": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Process webhook for gerrit",
+                "responses": {
+                    "200": {
+                        "description": "map[string]string - {message: success}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/workflow/webhook/githubWebHook": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Process webhook for github",
+                "responses": {
+                    "200": {
+                        "description": "map[string]string - {message: 'success information'}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/workflow/webhook/gitlabhook": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Process webhook for giblab",
+                "responses": {
+                    "200": {
+                        "description": "map[string]string - {message: success}",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

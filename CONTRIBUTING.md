@@ -18,6 +18,7 @@ We welcome all sorts of contributions: from fixing a typo, updating a documentat
   - [Contribution option 3 - code changes](#contribution-option-3---code-changes)
     - [For trivial changes](#for-trivial-changes)
     - [For non-trivial changes](#for-non-trivial-changes)
+    - [Update API doc](#update-api-doc)
   - [Contributor resources](#contributor-resources)
     - [PR and commit guidelines](#pr-and-commit-guidelines)
     - [Growth path for contributors](#growth-path-for-contributors)
@@ -37,16 +38,16 @@ You should first **fork the specific repository** you want to contribute to. Ple
 [here](community/dev/contributor-workflow.md) to set Zadig up for running.
 
 Before submitting any new issues or proposing any new changes, please check the
-[open issues](https://github.com/koderover/Zadig/issues) to make sure the efforts aren't duplicated. There are
+[open issues](https://github.com/koderover/zadig/issues) to make sure the efforts aren't duplicated. There are
 a few labels that could help you navigate through the issues:
 
 - If you are looking for some startup issues to get your hands on, you could follow the
-  [#good-first-issue](https://github.com/koderover/Zadig/labels/good%20first%20issue) issues.
+  [#good-first-issue](https://github.com/koderover/zadig/labels/good%20first%20issue) issues.
 
 - If you are looking for some more serious challenges, you could check out our
-  [#help-wanted](https://github.com/koderover/Zadig/labels/help%20wanted) issues.
+  [#help-wanted](https://github.com/koderover/zadig/labels/help%20wanted) issues.
 
-- Or some random bugfix, check out [#bugs](https://github.com/koderover/Zadig/labels/bug).
+- Or some random bugfix, check out [#bugs](https://github.com/koderover/zadig/labels/bug).
 
 ## Contribution option 1 - reporting an issue
 
@@ -55,14 +56,14 @@ issues, please read on.
 
 There are 5 types of labels for issues that you need to think of:
 
-1. [`documentation`](https://github.com/koderover/Zadig/labels/documentation)
-2. [`bug`](https://github.com/koderover/Zadig/labels/bug)
-3. [`feature request`](https://github.com/koderover/Zadig/labels/feature%20request)
-4. [`question`](https://github.com/koderover/Zadig/labels/question)
-5. [`enhancement`](https://github.com/koderover/Zadig/labels/enhancement)
+1. [`documentation`](https://github.com/koderover/zadig/labels/documentation)
+2. [`bug`](https://github.com/koderover/zadig/labels/bug)
+3. [`feature request`](https://github.com/koderover/zadig/labels/feature%20request)
+4. [`question`](https://github.com/koderover/zadig/labels/question)
+5. [`enhancement`](https://github.com/koderover/zadig/labels/enhancement)
 
 If you understand which services are involved with the new issue, please also attach the relevant label(s) to it. You
-could [search for `service/` prefix](https://github.com/koderover/Zadig/labels?q=service%2F) to find the correct label.
+could [search for `service/` prefix](https://github.com/koderover/zadig/labels?q=service%2F) to find the correct label.
 If you aren't sure about this, feel free to leave it open, our maintainers will get to it.
 
 If you have checked that no duplicated issues existed and decided to create a new issue, choose the label accordingly
@@ -76,12 +77,12 @@ All issues created will be triaged by our maintainers:
 1. The maintainers will double check the issues were created with the proper label, update them otherwise.
 2. They'll make decisions whether the issues will be accepted, see next point.
 3. Certain tags might be applied by our maintainers accordingly, there are mainly 4 of them:
-   1) [`duplicate`](https://github.com/koderover/Zadig/labels/duplicate)
-   2) [`wonfix`](https://github.com/koderover/Zadig/labels/wontfix):
+   1) [`duplicate`](https://github.com/koderover/zadig/labels/duplicate)
+   2) [`wonfix`](https://github.com/koderover/zadig/labels/wontfix):
       rationales will be provided, e.g. work as intended, obsolete, infeasible, out of scope
-   3) [`good first issue`](https://github.com/koderover/Zadig/labels/good%20first%20issue): good candidates
+   3) [`good first issue`](https://github.com/koderover/zadig/labels/good%20first%20issue): good candidates
       suitable for onboarding.
-   4) [`good intermediate issue`](https://github.com/koderover/Zadig/labels/good%20intermediate%20issue): a more
+   4) [`good intermediate issue`](https://github.com/koderover/zadig/labels/good%20intermediate%20issue): a more
       serious challenge that is up for grabs to the community.
 4. The issues are open for grab now.
 5. Periodically, the maintainers will double check that all issues are up-to-date, stale ones will be removed.
@@ -112,6 +113,7 @@ For any code changes, you **need to have an associated issue**: either an existi
    change, feel free to skip this step too.
 2. Work on the changes in your forked repository.
 3. Please follow our [PR and commit guidelines](#pr-and-commit-guidelines), one of our maintainers will review your PR.
+4. If you have changed the backend APIs in `aslan` microservice, you need to [update our API doc accordingly](#update-api-doc).
 
 ### For non-trivial changes
 
@@ -124,6 +126,30 @@ For any code changes, you **need to have an associated issue**: either an existi
 4. We highly encourage atomic PRs, so if your change can be broken down into several smaller sub-tasks, please do it
    and create one PR for each.
 5. For each sub-task,  follow the [trivial-changes guidelines above](#for-trivial-changes).
+
+### Update API doc
+
+If you only modified APIs from services other than `aslan`, you could ignore this since we don't have API docs for them
+yet. For `aslan` service, we use [Swag](https://github.com/swaggo/swag) to automatically generate API docs hosted by
+[Swagger](https://swagger.io/) based on the [swag declarative API comments](https://github.com/swaggo/swag#declarative-comments-format).
+
+So if you have added or modified any API on `aslan` service, please:
+
+1. Document your API Handler following [swag declarative API comments](https://github.com/swaggo/swag#declarative-comments-format).
+
+2. Update the swagger API doc with the following command:
+
+  ```bash
+  cd [your root path of Zadig-X]
+
+  swag init -d ./lib/microservice/aslan/ -g server/rest/router.go -o ./lib/microservice/aslan/server/rest/doc
+  ```
+
+Check out [Swag CLI](https://github.com/swaggo/swag#swag-cli) for more details.
+
+> Note: If your generated doc/docs.go contains "github.com/alecthomas/template" (used by early swag versions), please change it to "text/template".
+
+3. Double check the generated API doc works as expected in your testing environment under path `/api/aslan/apidocs/index.html`.
 
 ## Contributor resources
 
@@ -154,3 +180,4 @@ more information.
 ### More resources
 
 - [Current maintainers](GOVERNANCE.md#maintainers)
+- [API docs](https://os.koderover.com/api/spock/apidocs/index.html)

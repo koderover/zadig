@@ -1,18 +1,18 @@
-import bus from '@utils/event_bus';
+import bus from '@utils/event_bus'
 
 export default {
   methods: {
-    checkServiceInput() {
+    checkServiceInput () {
       return new Promise((resolve, reject) => {
         bus.$once('receive-service-input', pass => {
-          if(pass) {
-            resolve(pass);
+          if (pass) {
+            resolve(pass)
           } else {
-            reject('NotPass');
+            reject('NotPass')
           }
-        });
-        bus.$emit('check-service-input');
-      });
+        })
+        bus.$emit('check-service-input')
+      })
     }
   }
-};
+}

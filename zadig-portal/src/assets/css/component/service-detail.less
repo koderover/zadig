@@ -26,42 +26,39 @@
     color: #606266;
     font-size: 13px;
   }
+
   .addr {
-    font-size: 15px;
     color: #303133;
+    font-size: 15px;
   }
+
   .copy-btn {
-    cursor: pointer;
     color: #1989fa;
+    cursor: pointer;
   }
 }
 
 .service-details-container {
-  flex: 1;
   position: relative;
+  flex: 1;
+  padding: 0 20px;
   overflow: auto;
-  padding: 0px 20px;
   font-size: 14px;
-  .el-breadcrumb {
-    font-size: 16px;
-    line-height: 1.35;
-    .el-breadcrumb__item__inner a:hover,
-    .el-breadcrumb__item__inner:hover {
-      color: #1989fa;
-      cursor: pointer;
-    }
-  }
+
   /deep/.el-table__expanded-cell {
     padding: 0 0 15px 0;
   }
+
   .image-row {
     .service-name {
       color: #434548;
       font-weight: bold;
     }
+
     .edit-btn {
       margin-left: 10px;
     }
+
     & > span {
       line-height: 29px;
     }
@@ -69,8 +66,20 @@
 
   a {
     color: @normal-blue;
+
     &:hover {
       color: @hover-blue;
+    }
+  }
+
+  .el-breadcrumb {
+    font-size: 16px;
+    line-height: 1.35;
+
+    .el-breadcrumb__item__inner a:hover,
+    .el-breadcrumb__item__inner:hover {
+      color: #1989fa;
+      cursor: pointer;
     }
   }
 
@@ -84,22 +93,25 @@
 
   .info-card {
     margin: 10px 0 0 0;
+
     .info-header {
       padding: 12px 0;
-      border-bottom: 1px solid #ebeef5;
-      line-height: 20px;
       color: #7a8599;
       font-size: 16px;
+      line-height: 20px;
+      border-bottom: 1px solid #ebeef5;
     }
+
     .info-body {
-      padding: 0px;
       margin: 5px 0 0 0;
+      padding: 0;
     }
   }
 
   .title {
     color: #7a8599;
   }
+
   .el-input-number--mini {
     width: 100px;
   }
@@ -107,21 +119,25 @@
   .WAN,
   .LAN {
     display: flex;
+
     .addr-title {
-      width: 120px;
       flex-shrink: 0;
+      width: 120px;
     }
+
     .addr-content {
       padding-right: 50px;
+
       div {
-        word-break: break-all;
         margin-bottom: 10px;
+        word-break: break-all;
       }
+
       .show-more {
-        margin-left: 4px;
         display: inline-block;
+        margin-left: 4px;
         color: #66b1ff;
-        font-size:16px;
+        font-size: 16px;
         cursor: pointer;
       }
     }
@@ -140,28 +156,34 @@
   }
 
   .operation {
-    padding: 0;
     margin: 8px 0 0 5px;
+    padding: 0;
     list-style: none;
+
     li {
-      float: left;
       display: inline-block;
+      float: left;
       padding-right: 10px;
-      cursor: pointer;
       font-size: 1.23rem;
+      cursor: pointer;
+
       i {
         color: #1989fa;
+
         &:hover {
           color: rgba(25, 137, 250, 0.85);
         }
       }
     }
   }
+
   .icon-color {
-    cursor: pointer;
     color: #9ea3a9;
+    cursor: pointer;
+
     &.icon-color-confirm {
       color: @normal-blue;
+
       &:hover {
         color: @hover-blue;
       }
@@ -175,120 +197,149 @@
   .pod-container {
     position: relative;
   }
+
   .pod {
+    position: relative;
+    display: inline-block;
     width: 24px;
     height: 30px;
-    display: inline-block;
-    cursor: pointer;
-    border-radius: 1px;
-    position: relative;
     margin-right: 5px;
+    border-radius: 1px;
+    cursor: pointer;
+
     &.green {
       background-color: @stat-green;
+
       &.active {
         background-color: @stat-green-active;
       }
     }
+
     &.yellow {
       background-color: @stat-yellow;
+
       &.active {
         background-color: @stat-yellow-active;
       }
     }
+
     &.red {
       background-color: @stat-red;
+
       &.active {
         background-color: @stat-red-active;
       }
     }
+
     &.purple {
       background-color: @stat-purple;
+
       &.active {
         background-color: @stat-purple-active;
       }
     }
+
     &.gray {
       background-color: @stat-gray;
+
       &.active {
         background-color: @stat-gray-active;
       }
     }
   }
+
   .pod-info {
     width: 100%;
     line-height: 32px;
-    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
     background-color: #fff;
+    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
     transition: all 0.3s ease-out;
+
     .op-buttons {
       display: flex;
+
       .el-button {
         margin: 0 0 0 10px;
+
         &:first-child {
           margin-left: auto;
         }
       }
+
       .iconTerminal {
         font-size: 12px;
       }
     }
+
+    .container-row {
+      border-top: 1px solid #ebeef5;
+    }
+
+    .pod-row {
+      position: relative;
+
+      &::before {
+        position: absolute;
+        top: -8px;
+        left: 4px;
+        width: 0;
+        height: 0;
+        border-right: 8px solid transparent;
+        border-bottom: 8px solid #fff;
+        border-left: 8px solid transparent;
+        transition: all 0.3s ease-out;
+        content: ' ';
+      }
+    }
+
     .pod-row,
     .container-row {
       padding: 15px 20px;
       transition: background-color 0.25s ease;
+
       &:hover {
         &.green {
           background-color: @stat-green-faint;
         }
+
         &.yellow {
           background-color: @stat-yellow-faint;
         }
+
         &.red {
           background-color: @stat-red-faint;
         }
+
         &.purple {
           background-color: @stat-purple-faint;
         }
+
         &.gray {
           background-color: @stat-gray-faint;
         }
       }
     }
-    .pod-row {
-      position: relative;
-      &:hover {
-        &.green::before {
-          border-bottom-color: @stat-green-faint;
-        }
-        &.yellow::before {
-          border-bottom-color: @stat-yellow-faint;
-        }
-        &.red::before {
-          border-bottom-color: @stat-red-faint;
-        }
-        &.purple::before {
-          border-bottom-color: @stat-purple-faint;
-        }
-        &.gray::before {
-          border-bottom-color: @stat-gray-faint;
-        }
-      }
-      &::before {
-        content: ' ';
-        position: absolute;
-        top: -8px;
-        left: 4px;
-        transition: all 0.3s ease-out;
 
-        width: 0;
-        height: 0;
-        border-left: 8px solid transparent;
-        border-right: 8px solid transparent;
-        border-bottom: 8px solid #fff;
+    .pod-row:hover {
+      &.green::before {
+        border-bottom-color: @stat-green-faint;
       }
-    }
-    .container-row {
-      border-top: 1px solid #ebeef5;
+
+      &.yellow::before {
+        border-bottom-color: @stat-yellow-faint;
+      }
+
+      &.red::before {
+        border-bottom-color: @stat-red-faint;
+      }
+
+      &.purple::before {
+        border-bottom-color: @stat-purple-faint;
+      }
+
+      &.gray::before {
+        border-bottom-color: @stat-gray-faint;
+      }
     }
   }
 
@@ -297,8 +348,10 @@
       padding-top: 15px;
     }
   }
+
   .modal-title {
     font-size: 16px;
+
     .unimportant {
       color: #999;
     }
@@ -308,14 +361,17 @@
   .fade-leave-active {
     transition: all 0.3s ease;
   }
+
   .fade-enter,
   .fade-leave-to {
     opacity: 0;
   }
+
   .health-check {
     &.green {
       color: #67c23a;
     }
+
     &.red {
       color: #ff1949;
     }
@@ -330,25 +386,31 @@
   &:not(:first-child) {
     margin-top: 5px;
   }
+
   .tooltip {
+    position: relative;
+    top: -1px;
     display: inline-block;
     width: 10px;
     height: 14px;
     vertical-align: middle;
-    position: relative;
-    top: -1px;
+
     &.green {
       background-color: @stat-green;
     }
+
     &.yellow {
       background-color: @stat-yellow;
     }
+
     &.red {
       background-color: @stat-red;
     }
+
     &.purple {
       background-color: @stat-purple;
     }
+
     &.gray {
       background-color: @stat-gray;
     }
@@ -359,28 +421,32 @@
   .op-row {
     display: flex;
     margin-bottom: 5px;
-    .at-right {
-      margin-left: auto;
-    }
-    .el-icon-caret-bottom {
-      transition: transform 0.3s ease-out;
-      transform: rotate(-90deg);
-    }
+
     .at-right {
       display: none;
+      margin-left: auto;
     }
+
+    .el-icon-caret-bottom {
+      transform: rotate(-90deg);
+      transition: transform 0.3s ease-out;
+    }
+
     &.expanded {
       .el-icon-caret-bottom {
         transform: rotate(0);
       }
+
       .at-right {
         display: inline;
       }
     }
+
     .el-button--small {
       height: 32px;
     }
   }
+
   .nothing {
     height: 50px;
     line-height: 50px;
@@ -390,7 +456,7 @@
 
 .events-dialog {
   .events-no-data {
-    height: 150px;
     position: relative;
+    height: 150px;
   }
 }

@@ -159,132 +159,128 @@
 </template>
 
 <script>
-import mixin from '@utils/task_detail_mixin';
-import { getWorkflowHistoryTestLogAPI } from '@api';
+import mixin from '@utils/task_detail_mixin'
+import { getWorkflowHistoryTestLogAPI } from '@api'
 
 export default {
-  data() {
+  data () {
     return {
       testAnyLog: [],
       wsTestDataBuffer: [],
-      testLogStarted: false,
-    };
+      testLogStarted: false
+    }
   },
   computed: {
-    test_running() {
-      return this.testingv2 && this.testingv2.status === 'running';
+    test_running () {
+      return this.testingv2 && this.testingv2.status === 'running'
     },
-    test_done() {
-      return this.isSubTaskDone(this.testingv2);
+    test_done () {
+      return this.isSubTaskDone(this.testingv2)
     },
-    testName() {
-      return this.testingv2 && this.testingv2.test_name;
-    },
+    testName () {
+      return this.testingv2 && this.testingv2.test_name
+    }
   },
   watch: {
-    test_running(val, oldVal) {
+    test_running (val, oldVal) {
       if (!oldVal && val && this.testLogStarted) {
-        this.openTestLog();
+        this.openTestLog()
       }
       if (oldVal && !val) {
-        this.killTestLog();
+        this.killTestLog()
       }
-    },
-    testLogStarted(val, oldVal) {
-
     }
   },
   methods: {
-    enterLog(e) {
-      let el = document.querySelector(".workflow-task-detail").style;
-      el.overflow = 'hidden';
+    enterLog (e) {
+      const el = document.querySelector('.workflow-task-detail').style
+      el.overflow = 'hidden'
     },
-    leaveLog() {
-      let el = document.querySelector(".workflow-task-detail").style;
-      el.overflow = 'auto';
+    leaveLog () {
+      const el = document.querySelector('.workflow-task-detail').style
+      el.overflow = 'auto'
     },
-    openTestLog() {
+    openTestLog () {
       if (typeof window.msgServer === 'undefined') {
-        window.msgServer = {};
+        window.msgServer = {}
       }
       if (typeof window.msgServer[this.serviceName] === 'undefined') {
         this.testIntervalHandle = setInterval(() => {
           if (this.hasNewTestMsg) {
-            this.testAnyLog = this.testAnyLog.concat(this.wsTestDataBuffer);
-            this.wsTestDataBuffer = [];
-            const len = this.testAnyLog.length;
+            this.testAnyLog = this.testAnyLog.concat(this.wsTestDataBuffer)
+            this.wsTestDataBuffer = []
           }
-          this.hasNewTestMsg = false;
-        }, 500);
-        const url = `/api/aslan/logs/sse/workflow/test/${this.pipelineName}/${this.taskID}/${this.testName}/999999/${this.serviceName}`;
+          this.hasNewTestMsg = false
+        }, 500)
+        const url = `/api/aslan/logs/sse/workflow/test/${this.pipelineName}/${this.taskID}/${this.testName}/999999/${this.serviceName}`
         this.$sse(url, { format: 'plain' }).then(sse => {
           // Store SSE object at a higher scope
-          window.msgServer[this.serviceName] = sse;
+          window.msgServer[this.serviceName] = sse
           sse.onError(e => {
-            console.error('lost connection; giving up!', e);
+            console.error('lost connection; giving up!', e)
             this.$message({
-              message: `test日志获取失败`,
+              message: 'test日志获取失败',
               type: 'error'
-            });
-            sse.close();
-            this.killTestLog();
-          });
+            })
+            sse.close()
+            this.killTestLog()
+          })
           // Listen for messages without a specified event
           sse.subscribe('', data => {
-            this.hasNewTestMsg = true;
-            this.wsTestDataBuffer = this.wsTestDataBuffer.concat(Object.freeze(data + '\n'));
-          });
+            this.hasNewTestMsg = true
+            this.wsTestDataBuffer = this.wsTestDataBuffer.concat(Object.freeze(data + '\n'))
+          })
         }).catch(err => {
-          console.error('Failed to connect to server', err);
-          delete window.msgServer;
-          clearInterval(this.testIntervalHandle);
-        });
+          console.error('Failed to connect to server', err)
+          delete window.msgServer
+          clearInterval(this.testIntervalHandle)
+        })
       }
     },
-    killTestLog() {
-      this.killLog('test');
+    killTestLog () {
+      this.killLog('test')
     },
-    getTestLog() {
-      this.testLogStarted = true;
+    getTestLog () {
+      this.testLogStarted = true
     }
   },
-  mounted() {
+  mounted () {
     if (this.test_running) {
-      this.openTestLog();
+      this.openTestLog()
     }
     if (this.test_done) {
-        getWorkflowHistoryTestLogAPI(this.pipelineName, this.taskID, this.testName, this.serviceName).then(
-          response => {
-            this.testAnyLog = (response.split('\n')).map(element => {
-              return element + '\n'
-            });
-          }
-        );
+      getWorkflowHistoryTestLogAPI(this.pipelineName, this.taskID, this.testName, this.serviceName).then(
+        response => {
+          this.testAnyLog = (response.split('\n')).map(element => {
+            return element + '\n'
+          })
+        }
+      )
     }
   },
-  beforeDestroy() {
-    this.killTestLog();
+  beforeDestroy () {
+    this.killTestLog()
   },
   props: {
     testingv2: {
       type: Object,
-      required: true,
+      required: true
     },
     serviceName: {
       type: String,
-      default: '',
+      default: ''
     },
     pipelineName: {
       type: String,
-      required: true,
+      required: true
     },
     taskID: {
       type: [String, Number],
-      required: true,
-    },
+      required: true
+    }
   },
   mixins: [mixin]
-};
+}
 </script>
 
 <style lang="less">

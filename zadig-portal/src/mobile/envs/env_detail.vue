@@ -79,7 +79,7 @@
                                 effect="dark"
                                 :content="image"
                                 placement="top">
-                      <span style="display:block">{{imageNameSplit(image) }}</span>
+                      <span style="display: block;">{{imageNameSplit(image) }}</span>
                     </el-tooltip>
                   </template>
                 </span>
@@ -100,11 +100,11 @@
   </div>
 </template>
 <script>
-import { Col, Collapse, CollapseItem, Row, NavBar, Tag, Panel, Loading, Button, Notify, Tab, Tabs, Cell, CellGroup, Icon, Divider, ActionSheet, List } from 'vant';
-import { getProductStatus, serviceTypeMap } from '@utils/word_translate';
-import { envRevisionsAPI, productEnvInfoAPI, fetchGroupsDataAPI } from '@api';
-import { mapGetters } from 'vuex';
-import _ from 'lodash';
+import { Col, Collapse, CollapseItem, Row, NavBar, Tag, Panel, Loading, Button, Notify, Tab, Tabs, Cell, CellGroup, Icon, Divider, ActionSheet, List } from 'vant'
+import { getProductStatus, serviceTypeMap } from '@utils/word_translate'
+import { envRevisionsAPI, productEnvInfoAPI, fetchGroupsDataAPI } from '@api'
+import { mapGetters } from 'vuex'
+import _ from 'lodash'
 export default {
   components: {
     [NavBar.name]: NavBar,
@@ -124,9 +124,9 @@ export default {
     [ActionSheet.name]: ActionSheet,
     [Collapse.name]: Collapse,
     [CollapseItem.name]: CollapseItem,
-    [List.name]: List,
+    [List.name]: List
   },
-  data() {
+  data () {
     return {
       productInfo: {},
       serviceList: [],
@@ -136,146 +136,143 @@ export default {
       },
       serviceTypeMap: serviceTypeMap,
       statusIndicator: {
-        'Running': 'success',
-        'Succeeded': 'success',
-        'Error': 'danger',
-        'Unstable': 'warning',
-        'Unstart': 'info',
-      },
+        Running: 'success',
+        Succeeded: 'success',
+        Error: 'danger',
+        Unstable: 'warning',
+        Unstart: 'info'
+      }
     }
   },
   computed: {
-    projectName() {
-      return this.$route.params.project_name;
+    projectName () {
+      return this.$route.params.project_name
     },
-    envText() {
-      return this.productInfo.namespace;
+    envText () {
+      return this.productInfo.namespace
     },
-    isProd() {
-      return this.productInfo.is_prod;
+    isProd () {
+      return this.productInfo.is_prod
     },
     ...mapGetters([
       'productList'
     ]),
-    envNameList() {
-      let envNameList = [];
+    envNameList () {
+      const envNameList = []
       this.productList.forEach(element => {
         if (element.product_name === this.projectName) {
           envNameList.push({
-            envName: element.env_name,
-          });ß
+            envName: element.env_name
+          })
         }
-      });
-      return envNameList;
+      })
+      return envNameList
     },
     envName: {
       get: function () {
-        return this.$route.query.envName;
+        return this.$route.query.envName
       },
       set: function (newValue) {
         this.$router.push({ path: `/mobile/envs/detail/${this.projectName}`, query: { envName: newValue } })
       }
     },
-    filteredProducts() {
-      return _.uniqBy(_.orderBy(this.productList, ['product_name', 'is_prod']), 'product_name');
+    filteredProducts () {
+      return _.uniqBy(_.orderBy(this.productList, ['product_name', 'is_prod']), 'product_name')
     },
-    runningService() {
-      return this.serviceList.filter(s => (s.status === 'Running' || s.status === 'Succeeded')).length;
-    },
+    runningService () {
+      return this.serviceList.filter(s => (s.status === 'Running' || s.status === 'Succeeded')).length
+    }
   },
   methods: {
-    backToEnv() {
-      this.$router.push('/mobile/envs');
+    backToEnv () {
+      this.$router.push('/mobile/envs')
     },
-    imageNameSplit(name) {
+    imageNameSplit (name) {
       if (name.includes(':')) {
-        return name.split('/')[name.split('/').length - 1];
+        return name.split('/')[name.split('/').length - 1]
       } else {
-        return name;
+        return name
       }
     },
-    getProduct(product_name) {
-      const env_name = typeof this.envName !== 'undefined' ? this.envName : this.$store.state.login.userinfo.info.name;
+    getProduct (product_name) {
+      const env_name = typeof this.envName !== 'undefined' ? this.envName : this.$store.state.login.userinfo.info.name
       productEnvInfoAPI(product_name, env_name).then(
         response => {
-          this.productInfo = response;
+          this.productInfo = response
         }
-      );
+      )
     },
-    async getProducts() {
-      await this.$store.dispatch('getProductListSSE').closeWhenDestroy(this);
-      const routerList = this.filteredProducts.map(element => {
-        return { name: element.product_name, url: `/v1/envs/detail/${element.product_name}?envName=${element.env_name}` }
-      });
+    async getProducts () {
+      await this.$store.dispatch('getProductListSSE').closeWhenDestroy(this)
     },
-    fetchGroupsData(name, env_name = '') {
+    fetchGroupsData (name, env_name = '') {
       return new Promise((resolve, reject) => {
         return fetchGroupsDataAPI(name, env_name).then(
           response => {
-            this.serviceList = this.$utils.deepSortOn(response, 'service_name');
-            this.initTemplateStatus();
-            resolve();
+            this.serviceList = this.$utils.deepSortOn(response, 'service_name')
+            this.initTemplateStatus()
+            resolve()
           },
           response => {
-            reject(new Error('get group error'));
+            reject(new Error('get group error'))
           }
-        );
-      });
+        )
+      })
     },
-    initTemplateStatus() {
+    initTemplateStatus () {
       this.serviceList.forEach(service => {
         this.$set(this.serviceStatus, service.service_name, {
           tpl_updatable: false,
           current_revision: 0,
           next_revision: 0
-        });
-      });
+        })
+      })
     },
-    fetchEnvRevision() {
-      const projectName = this.projectName;
-      const envName = this.envName;
+    fetchEnvRevision () {
+      const projectName = this.projectName
+      const envName = this.envName
       envRevisionsAPI(projectName, envName).then(revisions => {
-        const productStatus = revisions.find(element => { return element.product_name === projectName && element.env_name === this.envName });
+        const productStatus = revisions.find(element => { return element.product_name === projectName && element.env_name === this.envName })
         if (productStatus.services) {
           productStatus.services.forEach(service => {
             this.$set(this.serviceStatus, service.service_name, {
-              tpl_updatable: service.updatable && service.deleted === false && service.new === false ? true : false,
+              tpl_updatable: !!(service.updatable && service.deleted === false && service.new === false),
               current_revision: service.current_revision,
               next_revision: service.next_revision,
               config: {
-                config_name: service.configs && service.configs.length > 0 ? service.configs[0]['config_name'] : null,
-                current_revision: service.configs && service.configs.length > 0 ? service.configs[0]['current_revision'] : null,
-                next_revision: service.configs && service.configs.length > 0 ? service.configs[0]['next_revision'] : null,
-                updatable: service.configs && service.configs.length > 0 ? service.configs[0]['updatable'] : null
+                config_name: service.configs && service.configs.length > 0 ? service.configs[0].config_name : null,
+                current_revision: service.configs && service.configs.length > 0 ? service.configs[0].current_revision : null,
+                next_revision: service.configs && service.configs.length > 0 ? service.configs[0].next_revision : null,
+                updatable: service.configs && service.configs.length > 0 ? service.configs[0].updatable : null
               },
               raw: service
-            });
-          });
+            })
+          })
         }
 
-        this.productStatus = productStatus;
-      });
+        this.productStatus = productStatus
+      })
     },
-    fetchAllData() {
-      this.getProduct(this.projectName);
-      this.getProducts();
-      this.fetchEnvRevision();
-      this.fetchGroupsData(this.projectName, this.envName);
+    fetchAllData () {
+      this.getProduct(this.projectName)
+      this.getProducts()
+      this.fetchEnvRevision()
+      this.fetchGroupsData(this.projectName, this.envName)
     },
-    getProdStatus(status, updateble) {
-      return getProductStatus(status, updateble);
-    },
+    getProdStatus (status, updateble) {
+      return getProductStatus(status, updateble)
+    }
   },
   watch: {
-    $route(to, from) {
+    $route (to, from) {
       if (this.projectName !== '') {
-        this.fetchAllData();
+        this.fetchAllData()
       }
     }
   },
-  mounted() {
-    this.fetchAllData();
-  },
+  mounted () {
+    this.fetchAllData()
+  }
 }
 </script>
 <style lang="less">

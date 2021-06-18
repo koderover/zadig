@@ -1,71 +1,83 @@
 <template>
-  <div style="height:100%;
+  <div style="
     display: flex;
-    flex-direction: column;">
-    <router-view style="height:100%">
+    flex-direction: column;
+    height: 100%;">
+    <router-view style="height: 100%;">
     </router-view>
   </div>
 
 </template>
 
 <script>
-import { mapGetters } from 'vuex';
-import { getCurrentUserInfoAPI } from '@api';
+import { mapGetters } from 'vuex'
+import { getCurrentUserInfoAPI } from '@api'
 export default {
   methods: {
-    checkLogin() {
+    checkLogin () {
       return new Promise((resolve, reject) => {
         getCurrentUserInfoAPI().then(
           response => {
-            resolve(true);
+            resolve(true)
           },
           response => {
-            reject(false);
+            reject(false)
           }
-        );
+        )
       })
     }
   },
   computed: {
     ...mapGetters([
-      'signupStatus',
+      'signupStatus'
     ])
   },
-  created() {
+  created () {
     this.$store.dispatch('getSignupStatus').then(() => {
       if (this.signupStatus.inited) {
         this.checkLogin().then((result) => {
           if (result) {
             if (this.$utils.roleCheck() != null) {
-              this.$store.dispatch('getProjectTemplates').then(() => {
-              });
+              this.$store.dispatch('getProjectTemplates')
             }
           }
         })
-      }
-      else {
-        this.$router.push('/setup');
+      } else {
+        this.$router.push('/setup')
       }
     })
   }
-};
+}
 </script>
 
 <style lang="less">
 @import url("~@assets/css/common/color.less");
 @import url("~@assets/css/common/icon.less");
-@import url("~@assets/css/common/font.less");
+
 a {
   text-decoration: none;
 }
+
 body {
-  font-family: "Overpass", "Noto Sans SC", -apple-system, BlinkMacSystemFont,
-    "Helvetica Neue", Helvetica, Segoe UI, Arial, Roboto, "PingFang SC",
-    "Hiragino Sans GB", "Microsoft Yahei", sans-serif;
-  background-color: #fff;
   height: 100%;
   overflow: hidden;
   overflow-y: auto;
+  font-family:
+    "Overpass",
+    "Noto Sans SC",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Helvetica Neue",
+    Helvetica,
+    Segoe UI,
+    Arial,
+    Roboto,
+    "PingFang SC",
+    "Hiragino Sans GB",
+    "Microsoft Yahei",
+    sans-serif;
+  background-color: #fff;
+
   .el-card {
     background: #fff;
   }

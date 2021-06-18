@@ -89,130 +89,146 @@
 </template>
 
 <script type="text/javascript">
-import { mapGetters } from 'vuex';
+import { mapGetters } from 'vuex'
 export default {
-  data() {
+  data () {
     return {
       showSidebar: true
-    };
+    }
   },
   methods: {},
   computed: {
     ...mapGetters([
-      'signupStatus',
+      'signupStatus'
     ]),
     showClusterManage: {
       get: function () {
         if (this.signupStatus && this.signupStatus.features && this.signupStatus.features.length > 0) {
           if (this.signupStatus.features.includes('cluster_manager')) {
-            return true;
-          }
-          else {
-            return false;
+            return true
+          } else {
+            return false
           }
         }
-      },
-      set: function (newValue) {
+        return false
       }
     }
-  },
-};
+  }
+}
 </script>
 
 <style lang="less">
 .sidebar-wrapper {
   position: relative;
-  height: 100%;
   display: flex;
+  height: 100%;
+
   .sidebar {
-    transition: all 0.15s ease-in-out;
     display: flex;
     flex-direction: column;
     width: 230px;
     background-color: #f5f7fa;
     border-right: 1px solid #e6e9f0;
+    transition: all 0.15s ease-in-out;
+
     .logo-wrapper {
       padding-top: 20px;
     }
+
     .header {
       .title {
         font-size: 15px;
       }
-      vertical-align: middle;
+
       text-align: center;
+      vertical-align: middle;
     }
+
     .sidebar-nav-list-divider {
       margin: 10px 0;
+
       .divider {
-        transition: all 0.15s ease-in-out;
-        margin: 0 auto;
-        height: 1px;
         width: 180px;
+        height: 1px;
+        margin: 0 auto;
         background-color: #e6e9f0;
-      }
-      .sidebarCollapseDivider {
         transition: all 0.15s ease-in-out;
+      }
+
+      .sidebarCollapseDivider {
         width: 60px;
+        transition: all 0.15s ease-in-out;
       }
     }
+
     .sidebar-nav-lists {
-      overflow: hidden;
-      flex-grow: 1;
       display: flex;
       flex-direction: column;
+      flex-grow: 1;
+      overflow: hidden;
+      overflow-y: auto;
+
       &::-webkit-scrollbar-track {
-        border-radius: 6px;
         background-color: #f5f5f5;
+        border-radius: 6px;
       }
+
       &::-webkit-scrollbar {
         width: 6px;
         background-color: #f5f5f5;
       }
+
       &::-webkit-scrollbar-thumb {
-        border-radius: 6px;
         background-color: #b7b8b9;
+        border-radius: 6px;
       }
-      overflow-y: auto;
+
       .sidebar-nav-list {
-        list-style: none;
         margin: 0;
-        padding: 5px 0px 0px;
+        padding: 5px 0 0;
+        list-style: none;
+
+        .view-name {
+          vertical-align: middle;
+        }
+
         .activeTab {
           li {
-            border-left: 3px solid #1989fa;
             background-color: #e1edfa;
+            border-left: 3px solid #1989fa;
+
             .view-name {
               color: #000;
             }
           }
         }
+
         .sidebar-item {
-          height: 45px;
-          padding: 0 40px;
-          margin: 0 0 5px;
-          line-height: 45px;
-          color: #8d9199;
-          border-left: 3px solid transparent;
-          border-right: 3px solid transparent;
-          font-size: 14px;
-          white-space: nowrap;
           position: relative;
+          height: 45px;
+          margin: 0 0 5px;
+          padding: 0 40px;
+          color: #8d9199;
+          font-size: 14px;
+          line-height: 45px;
+          white-space: nowrap;
+          border-right: 3px solid transparent;
+          border-left: 3px solid transparent;
+
           &:hover {
             background-color: #e1edfa;
             cursor: pointer;
           }
         }
+
         .sidebarCollapseItem {
-          font-size: 14px;
-          padding: 0 10px;
           margin: 0 0 2px;
+          padding: 0 10px;
+          font-size: 14px;
           line-height: 45px;
           text-align: center;
         }
 
-        .view-name {
-          vertical-align: middle;
-        }
         .next {
           position: absolute;
           right: 25px;
@@ -220,25 +236,29 @@ export default {
         }
       }
     }
+
     .sidebar-collapse {
       border-top: 1px solid #e2e5ea;
+
       .sidebar-collapse-item {
         height: 42px;
-        padding: 0 27px;
         margin: 0 0 5px;
-        line-height: 45px;
+        padding: 0 27px;
         color: #8d9199;
-        border-left: 3px solid transparent;
-        border-right: 3px solid transparent;
         font-size: 14px;
+        line-height: 45px;
         white-space: nowrap;
+        border-right: 3px solid transparent;
+        border-left: 3px solid transparent;
+
         .collapse-label {
-          cursor: pointer;
           font-size: 13px;
+          cursor: pointer;
         }
       }
     }
   }
+
   .sidebarCollapse {
     width: 80px;
   }

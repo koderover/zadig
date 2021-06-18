@@ -1,4 +1,4 @@
-FROM golang:1.15 as build
+FROM golang:1.16.5 as build
 RUN sed -i -E "s/[a-zA-Z0-9]+.debian.org/mirrors.aliyun.com/g" /etc/apt/sources.list \
     && apt-get update \
     && apt-get install libsasl2-dev
@@ -8,31 +8,25 @@ WORKDIR /app
 ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
 ENV GOPROXY=https://goproxy.cn,direct
 
-COPY third_party third_party
 COPY go.mod go.sum ./
 
 RUN go mod download
 
 COPY cmd cmd
-COPY lib lib
+COPY pkg pkg
 
 RUN go build -v -o /jenkins-plugin ./cmd/jenkinsplugin/main.go
 
-FROM n7832lxy.mirror.aliyuncs.com/library/ubuntu:16.04
+FROM alpine:3.13.5
 
-RUN sed -i -E "s/[a-zA-Z0-9]+.ubuntu.com/mirrors.aliyun.com/g" /etc/apt/sources.list \
-    && apt-get clean && apt-get update && apt-get install -y apt-transport-https ca-certificates \
-    && apt-get install -y \
-    tzdata \
-    net-tools \
-    dnsutils \
-	ca-certificates \
-	git \
-	curl \
-	lsof \
-    telnet \
-    && ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
-    && rm -rf /var/lib/apt/lists/*
+MAINTAINER KodeRover Team
+
+# https://wiki.alpinelinux.org/wiki/Setting_the_timezone
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
+    apk add tzdata && \
+    cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+    echo Asia/Shanghai  > /etc/timezone && \
+    apk del tzdata
 
 WORKDIR /app
 

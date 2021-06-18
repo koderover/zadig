@@ -75,8 +75,8 @@
   </div>
 </template>
 <script>
-import { NavBar, Tag, Panel, Loading, Button, Notify, Tab, Tabs, Cell, CellGroup, Icon, Empty } from 'vant';
-import { taskRunningSSEAPI, taskPendingSSEAPI, cancelWorkflowAPI } from '@api';
+import { NavBar, Tag, Panel, Loading, Button, Notify, Tab, Tabs, Cell, CellGroup, Icon, Empty } from 'vant'
+import { taskRunningSSEAPI, taskPendingSSEAPI, cancelWorkflowAPI } from '@api'
 export default {
   components: {
     [NavBar.name]: NavBar,
@@ -90,10 +90,10 @@ export default {
     [Cell.name]: Cell,
     [CellGroup.name]: CellGroup,
     [Icon.name]: Icon,
-    [Empty.name]: Empty,
+    [Empty.name]: Empty
 
   },
-  data() {
+  data () {
     return {
       activeTab: 'running',
       tasksCount: {
@@ -105,45 +105,45 @@ export default {
     }
   },
   methods: {
-    showTaskList(type) {
+    showTaskList (type) {
       if (type === 'running') {
         taskRunningSSEAPI()
           .then(res => {
-            this.runningTasks = res.data;
-            this.tasksCount.running = res.data.length;
+            this.runningTasks = res.data
+            this.tasksCount.running = res.data.length
           })
-          .closeWhenDestroy(this);
+          .closeWhenDestroy(this)
       } else if (type === 'queue') {
         taskPendingSSEAPI()
           .then(res => {
-            this.pendingTasks = res.data;
-            this.tasksCount.pending = res.data.length;
+            this.pendingTasks = res.data
+            this.tasksCount.pending = res.data.length
           })
-          .closeWhenDestroy(this);
+          .closeWhenDestroy(this)
       }
     },
-    /* 
+    /*
     任务操作
     * @param  {string}           operation 操作 （cancel）
     * @param  {number}           id 任务 id
     * @param  {string}           pipeline_name 流水线名
-    * @return {}           
+    * @return {}
     */
-    taskOperation(operation, id, pipeline_name) {
+    taskOperation (operation, id, pipeline_name) {
       switch (operation) {
         case 'cancel':
           cancelWorkflowAPI(pipeline_name, id).then(res => {
-            Notify({ type: 'success', message: '任务取消成功' });
-          });
-          break;
+            Notify({ type: 'success', message: '任务取消成功' })
+          })
+          break
         default:
-          break;
+          break
       }
-    },
+    }
   },
-  mounted() {
-    this.showTaskList('running');
-    this.showTaskList('queue');
-  },
+  mounted () {
+    this.showTaskList('running')
+    this.showTaskList('queue')
+  }
 }
 </script>

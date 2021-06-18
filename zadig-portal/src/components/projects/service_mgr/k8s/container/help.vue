@@ -102,104 +102,117 @@ export default {
   p {
     margin: 0 0 10px;
   }
+
   .pipelines-aside-help__welcome-message {
-    margin: 0;
     width: 100%;
-    color: #2f2f2f;
-    font-size: 14px;
-    font-weight: 500;
+    margin: 0;
     margin-bottom: 10px;
+    color: #2f2f2f;
+    font-weight: 500;
+    font-size: 14px;
     line-height: 18px;
   }
+
   .pipelines-aside-help__step-header {
-    text-transform: uppercase;
-    color: #000;
-    font-size: 14px;
-    font-weight: bold;
+    width: 100%;
     margin: 0;
-    width: 100%;
     margin: 10px 0;
+    color: #000;
+    font-weight: bold;
+    font-size: 14px;
+    text-transform: uppercase;
   }
+
   .pipelines-aside-help__step-list {
-    list-style: none;
-    width: 100%;
     display: flex;
-    justify-content: flex-start;
     flex-direction: column;
-    align-items: unset;
-    padding: 0;
-    margin: 10px 0;
     flex-shrink: 0;
+    align-items: unset;
+    justify-content: flex-start;
+    width: 100%;
+    margin: 10px 0;
+    padding: 0;
+    list-style: none;
+
     .pipelines-aside-help__step-header {
-      text-transform: uppercase;
-      color: #000;
-      font-size: 12px;
-      font-weight: bold;
-      margin: 0;
       width: 100%;
+      margin: 0;
       margin: 10px 0;
+      color: #000;
+      font-weight: bold;
+      font-size: 12px;
+      text-transform: uppercase;
     }
+
     .pipelines-aside-help__step-list-item {
       display: -webkit-box;
       display: -ms-flexbox;
       display: flex;
+      align-items: flex-start;
+      justify-content: flex-start;
       width: 100%;
+      margin-bottom: 8px;
       -webkit-box-align: start;
       -ms-flex-align: start;
-      align-items: flex-start;
       -webkit-box-pack: start;
       -ms-flex-pack: start;
-      justify-content: flex-start;
-      margin-bottom: 8px;
+
       ul {
         padding-left: 10px;
+
         span {
-          font-size: 12px;
-          padding-left: 5px;
           display: inline-block;
+          padding-left: 5px;
           color: #606266;
+          font-size: 12px;
         }
       }
+
       ul > li {
         color: #606266;
       }
+
       .pipelines-aside-help__step-list-item-counter {
-        height: 20px;
-        width: 20px;
-        border-radius: 50%;
-        background-color: #9b51e0;
-        color: #fff;
-        font-size: 13px;
-        font-weight: bold;
         display: -webkit-box;
         display: -ms-flexbox;
         display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        margin-right: 13px;
+        color: #fff;
+        font-weight: bold;
+        font-size: 13px;
+        background-color: #9b51e0;
+        border-radius: 50%;
         -webkit-box-align: center;
         -ms-flex-align: center;
-        align-items: center;
         -webkit-box-pack: center;
         -ms-flex-pack: center;
-        justify-content: center;
-        margin-right: 13px;
       }
+
       .pipelines-aside-help__step-list-item-text {
-        -webkit-box-flex: 1;
         -ms-flex: 1;
         flex: 1;
+        margin: 0;
         color: #000;
         font-size: 13px;
         line-height: 24px;
-        margin: 0;
+        -webkit-box-flex: 1;
       }
+
       .pipelines-aside-help__step-list-item-link,
       .pipelines-aside-help__step-list-item-link:hover,
       .pipelines-aside-help__step-list-item-link:focus,
       .pipelines-aside-help__step-list-item-link:active {
         color: #518ff6;
         text-decoration: none;
+
         .icon {
           margin-right: 5px;
         }
+
         .pipelines-aside-help__step-list-item-link-text {
           font-size: 12px;
         }

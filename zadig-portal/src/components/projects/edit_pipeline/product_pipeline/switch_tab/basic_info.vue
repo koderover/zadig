@@ -13,7 +13,7 @@
                             label="工作流名称">
                 <el-input v-model="pipelineInfo.name"
                           :disabled="editMode"
-                          style="width:80%"
+                          style="width: 80%;"
                           placeholder="请输入工作流名称"></el-input>
               </el-form-item>
             </el-col>
@@ -21,7 +21,7 @@
               <el-form-item prop="product_tmpl_name"
                             label="选择项目">
                 <el-select v-model="pipelineInfo.product_tmpl_name"
-                           style="width:80%"
+                           style="width: 80%;"
                            @change="getProductEnv(pipelineInfo.product_tmpl_name)"
                            placeholder="请选择项目"
                            :disabled="$route.query.projectName || editMode"
@@ -43,7 +43,7 @@
                   </el-tooltip>
                 </template>
                 <el-select v-model="pipelineInfo.env_name"
-                           style="width:80%"
+                           style="width: 80%;"
                            placeholder="请选择环境"
                            clearable
                            filterable>
@@ -53,7 +53,7 @@
                     <el-option v-if="filteredEnvs.length===0"
                                label=""
                                value="">
-                      <router-link style="color:#909399"
+                      <router-link style="color: #909399;"
                                    :to="`/v1/projects/detail/${pipelineInfo.product_tmpl_name}/envs/create`">
                         {{`(环境不存在，点击创建环境)`}}
                       </router-link>
@@ -83,7 +83,7 @@
           </el-row>
           <el-form-item label="描述">
             <el-input type="textarea"
-                      style="width:100%"
+                      style="width: 100%;"
                       v-model="pipelineInfo.description"></el-input>
           </el-form-item>
         </el-form>
@@ -93,11 +93,11 @@
 </template>
 
 <script type="text/javascript">
-import bus from '@utils/event_bus';
-import { templatesAPI, listProductAPI } from '@api';
+import bus from '@utils/event_bus'
+import { templatesAPI, listProductAPI } from '@api'
 
 export default {
-  data() {
+  data () {
     return {
       projects: [],
       productList: [],
@@ -119,21 +119,21 @@ export default {
           }
         ]
       }
-    };
+    }
   },
   methods: {
-    validatePipelineName(rule, value, callback) {
-      const result = this.$utils.validatePipelineName([], value);
+    validatePipelineName (rule, value, callback) {
+      const result = this.$utils.validatePipelineName([], value)
       if (result === true) {
-        callback();
+        callback()
       } else {
-        callback(new Error(result));
+        callback(new Error(result))
       }
     },
-    getProductEnv(projectName) {
+    getProductEnv (projectName) {
       listProductAPI('', projectName).then(res => {
-        this.productList = res;
-      });
+        this.productList = res
+      })
     }
   },
   props: {
@@ -144,74 +144,77 @@ export default {
     editMode: {
       required: true,
       type: Boolean
-    },
+    }
   },
   computed: {
-    currentOrganizationId() {
-      return this.$store.state.login.userinfo.organization.id;
+    currentOrganizationId () {
+      return this.$store.state.login.userinfo.organization.id
     },
-    filteredEnvs() {
+    filteredEnvs () {
       const currentProject = this.pipelineInfo.product_tmpl_name
       if (currentProject !== '') {
         return this.productList.filter(element => {
           return element.product_name === currentProject
-        });
-      }
-      else {
-        return [];
+        })
+      } else {
+        return []
       }
     }
   },
-  created() {
+  created () {
     if (this.$route.query.projectName) {
-      this.pipelineInfo.product_tmpl_name = this.$route.query.projectName;
+      this.pipelineInfo.product_tmpl_name = this.$route.query.projectName
     }
 
     if (!this.$route.query.projectName && !this.editMode) {
       templatesAPI().then(res => {
-        this.projects = res;
-      });
+        this.projects = res
+      })
     }
-    const projectName = this.pipelineInfo.product_tmpl_name;
+    const projectName = this.pipelineInfo.product_tmpl_name
     bus.$on('check-tab:basicInfo', () => {
       this.$refs.pipelineInfo.validate(valid => {
-        bus.$emit('receive-tab-check:basicInfo', valid);
-      });
-    });
+        bus.$emit('receive-tab-check:basicInfo', valid)
+      })
+    })
     listProductAPI('', projectName).then(res => {
-      this.productList = res;
-    });
+      this.productList = res
+    })
   },
-  beforeDestroy() {
-    bus.$off('check-tab:basicInfo');
-  },
-};
+  beforeDestroy () {
+    bus.$off('check-tab:basicInfo')
+  }
+}
 </script>
 
 <style lang="less">
 .product-basic-info {
-  .pointer{
+  .pointer {
     cursor: pointer;
   }
+
   .box-card {
     .el-card__header {
       text-align: center;
     }
+
     .el-form {
       .el-form-item {
         margin-bottom: 5px;
       }
+
       .pipe-schedule-container {
         .el-form-item__content {
-          margin-left: 0px !important;
+          margin-left: 0 !important;
         }
       }
     }
+
     .divider {
-      height: 1px;
-      background-color: #dfe0e6;
-      margin: 13px 0;
       width: 100%;
+      height: 1px;
+      margin: 13px 0;
+      background-color: #dfe0e6;
     }
   }
 }

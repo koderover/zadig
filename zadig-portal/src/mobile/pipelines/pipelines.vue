@@ -56,10 +56,9 @@
   </div>
 </template>
 <script>
-import { NavBar, Tag, Panel, Loading, Button, Notify, Tab, Tabs, Cell, CellGroup, Icon, Empty, Search, Toast, ActionSheet } from 'vant';
-import qs from 'qs';
-import _ from 'lodash';
-import runWorkflow from './run_workflow.vue';
+import { NavBar, Tag, Panel, Loading, Button, Notify, Tab, Tabs, Cell, CellGroup, Icon, Empty, Search, Toast, ActionSheet } from 'vant'
+import qs from 'qs'
+import runWorkflow from './run_workflow.vue'
 export default {
   components: {
     [NavBar.name]: NavBar,
@@ -79,14 +78,14 @@ export default {
     [ActionSheet.name]: ActionSheet,
     runWorkflow
   },
-  data() {
+  data () {
     return {
       keyword: '',
       loading: false,
       workflowToRun: {},
       taskDialogVisible: false,
       actions: [
-        { name: '启动' },
+        { name: '启动' }
       ],
       currentAction: {
         show: false,
@@ -95,10 +94,10 @@ export default {
     }
   },
   computed: {
-    workflows() {
-      return this.$store.getters.workflowList;
+    workflows () {
+      return this.$store.getters.workflowList
     },
-    filteredWorkflows() {
+    filteredWorkflows () {
       this.$router.replace({
         query: Object.assign(
           {},
@@ -106,41 +105,38 @@ export default {
           {
             name: this.keyword
           })
-      });
-      let list = this.$utils.filterObjectArrayByKey('name', this.keyword, this.workflows);
-      return list;
-    },
+      })
+      const list = this.$utils.filterObjectArrayByKey('name', this.keyword, this.workflows)
+      return list
+    }
   },
   methods: {
-    onSearch(val) {
-      Toast(val);
+    onSearch (val) {
+      Toast(val)
     },
-    onSelectAction(action) {
+    onSelectAction (action) {
       if (action.name === '启动') {
-        this.taskDialogVisible = true;
-      }
-      else if (action.name === '删除') {
-
+        this.taskDialogVisible = true
       }
     },
-    fetchWorkflows() {
-      this.loading = true;
+    fetchWorkflows () {
+      this.loading = true
       this.$store.dispatch('refreshWorkflowList').then(() => {
-        this.loading = false;
-      });
+        this.loading = false
+      })
     },
-    showAction(workflow) {
-      this.workflowToRun = workflow;
-      this.$set(this.currentAction, 'show', true);
-      this.$set(this.currentAction, 'workflow_name', workflow.name);
+    showAction (workflow) {
+      this.workflowToRun = workflow
+      this.$set(this.currentAction, 'show', true)
+      this.$set(this.currentAction, 'workflow_name', workflow.name)
     },
-    hideTaskDialog() {
-      this.taskDialogVisible = false;
-    },
+    hideTaskDialog () {
+      this.taskDialogVisible = false
+    }
   },
-  mounted() {
-    this.fetchWorkflows();
-  },
+  mounted () {
+    this.fetchWorkflows()
+  }
 }
 </script>
 <style lang="less">

@@ -15,7 +15,7 @@
       </el-tooltip>
     </span>
     <div class="kv-container">
-      <el-table :data="vars" style="width: 100%">
+      <el-table :data="vars" style="width: 100%;">
         <el-table-column label="Key">
           <template slot-scope="scope">
             <span>{{ scope.row.key }}</span>
@@ -90,47 +90,78 @@ export default {
   name: 'updateK8sVar',
   props: {
     fetchAllData: Function,
-    productInfo: Object,
+    productInfo: Object
   },
-  data() {
+  data () {
     return {
       updateK8sEnvVarDialogVisible: false,
       updataK8sEnvVarLoading: false,
-      vars: [],
+      vars: []
     }
   },
   methods: {
-    openDialog() {
+    openDialog () {
       this.updateK8sEnvVarDialogVisible = true
     },
-    updateK8sEnvVar() {
+    updateK8sEnvVar () {
       const projectName = this.productInfo.product_name
       const envName = this.productInfo.env_name
       const envType = this.productInfo.isProd ? 'prod' : ''
       const payload = { vars: this.vars }
+      const force = true
       this.updataK8sEnvVarLoading = true
-      updateK8sEnvAPI(projectName, envName, payload, envType).then(
+      updateK8sEnvAPI(projectName, envName, payload, envType, force).then(
         (response) => {
           this.updataK8sEnvVarLoading = false
           this.updateK8sEnvVarDialogVisible = false
           this.fetchAllData()
           this.$message({
             message: '更新环境变量成功，请等待服务升级',
-            type: 'success',
+            type: 'success'
           })
         }
-      )
+      ).catch(() => {
+        // const description = error.data.description
+        // const res = description.match('the following services are modified since last update')
+        // if(res) {
+        //   this.updateEnv(error.data.description)
+        // }
+      })
     },
-    deleteRenderKey(index, state) {
+    updateEnv (res) {
+      const message = JSON.parse(res.match(/{.+}/g)[0])
+      this.$confirm(`您的更新操作将覆盖集成环境中${message.name}服务变更，确认继续?`, '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        const projectName = this.productInfo.product_name
+        const envName = this.productInfo.env_name
+        const envType = this.productInfo.isProd ? 'prod' : ''
+        const payload = { vars: this.vars }
+        const force = true
+        updateK8sEnvAPI(projectName, envName, payload, envType, force).then(
+          response => {
+            this.fetchAllData()
+            this.updataK8sEnvVarLoading = false
+            this.updateK8sEnvVarDialogVisible = false
+            this.$message({
+              message: '更新环境成功，请等待服务升级',
+              type: 'success'
+            })
+          })
+      })
+    },
+    deleteRenderKey (index, state) {
       this.vars.splice(index, 1)
-    },
+    }
   },
   watch: {
-    updateK8sEnvVarDialogVisible(value) {
+    updateK8sEnvVarDialogVisible (value) {
       if (value) {
         this.vars = cloneDeep(this.productInfo.vars)
       }
-    },
-  },
+    }
+  }
 }
 </script>

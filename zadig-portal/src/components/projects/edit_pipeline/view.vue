@@ -5,21 +5,11 @@
 
 </template>
 
-<script>
-export default {
-  data() {
-    return {};
-  },
-  methods: {},
-  created() {},
-  components: {}
-};
-</script>
-
 <style lang="less">
 .pipeline-manage-view {
-  background-color: #F0F2F5;
   display: flex;
+  background-color: #f0f2f5;
+
   .tabMenu {
     margin-top: 20px;
   }

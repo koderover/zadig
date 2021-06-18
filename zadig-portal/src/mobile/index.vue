@@ -37,7 +37,7 @@
 
 <script>
 
-import { NavBar, Tabbar, TabbarItem, NoticeBar } from 'vant';
+import { NavBar, Tabbar, TabbarItem, NoticeBar } from 'vant'
 export default {
   components: {
     [TabbarItem.name]: TabbarItem,
@@ -46,24 +46,24 @@ export default {
     [NoticeBar.name]: NoticeBar
   },
 
-  data() {
+  data () {
     return {
       active: ''
-    };
+    }
   },
 
   computed: {
-    title() {
-      return this.$route.meta.title;
+    title () {
+      return this.$route.meta.title
     }
 
   },
   methods: {
-    goBack() {
-      this.$router ? this.$router.back() : window.history.back();
-    },
+    goBack () {
+      this.$router ? this.$router.back() : window.history.back()
+    }
   }
-};
+}
 </script>
 
 <style lang="less">
