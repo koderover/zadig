@@ -6,7 +6,7 @@
     center
   >
     <el-alert
-      style="margin-bottom: 10px"
+      style="margin-bottom: 10px;"
       v-if="checkRes === 'fail'"
       :title="errorMessage"
       type="error"
@@ -55,9 +55,9 @@ import { addJenkins, jenkinsConnection, editJenkins } from '@/api'
 export default {
   name: 'addJenkins',
   props: {
-    getJenkins: Function,
+    getJenkins: Function
   },
-  data() {
+  data () {
     return {
       dialogVisible: false,
       checkRes: null,
@@ -66,7 +66,7 @@ export default {
       addForm: {
         url: null,
         username: null,
-        password: null,
+        password: null
       },
       formRules: {
         url: [
@@ -74,20 +74,20 @@ export default {
           {
             pattern: /(http|ftp|https):\/\/[\w\-_]+(\.[\w\-_]+)+([\w\-\.,@?^=%&:/~\+#]*[\w\-\@?^=%&/~\+#])?/,
             message: '请输入正确的服务地址',
-            trigger: 'blur',
-          },
+            trigger: 'blur'
+          }
         ],
         username: [
-          { required: true, message: '用户名不能为空', trigger: 'blur' },
+          { required: true, message: '用户名不能为空', trigger: 'blur' }
         ],
         password: [
-          { required: true, message: 'API token不能为空', trigger: 'blur' },
-        ],
-      },
+          { required: true, message: 'API token不能为空', trigger: 'blur' }
+        ]
+      }
     }
   },
   methods: {
-    openDialog(data) {
+    openDialog (data) {
       this.dialogVisible = true
       if (data) {
         this.isEdit = true
@@ -96,11 +96,11 @@ export default {
         this.isEdit = false
       }
     },
-    async save() {
+    async save () {
       if (this.isEdit) {
         this.edit()
       } else {
-        let res = await addJenkins(this.addForm).catch((error) =>
+        const res = await addJenkins(this.addForm).catch((error) =>
           console.log(error)
         )
         if (res && res.message === 'success') {
@@ -110,8 +110,8 @@ export default {
         }
       }
     },
-    async edit() {
-      let res = await editJenkins(this.addForm).catch((error) =>
+    async edit () {
+      const res = await editJenkins(this.addForm).catch((error) =>
         console.log(error)
       )
       if (res && res.message === 'success') {
@@ -120,17 +120,17 @@ export default {
         this.getJenkins()
       }
     },
-    async checkPassword() {
+    async checkPassword () {
       this.check = true
-      let res = await jenkinsConnection(this.addForm).catch(error => {
+      const res = await jenkinsConnection(this.addForm).catch(error => {
         this.checkRes = 'fail'
         this.errorMessage = error.response.data.message
-       })
+      })
       if (res && res.message === 'success') {
         this.checkRes = 'pass'
       }
     },
-    validate(fn) {
+    validate (fn) {
       this.$refs.addForm.validate((valid) => {
         if (valid) {
           fn()
@@ -139,16 +139,16 @@ export default {
         }
       })
     },
-    resetForm() {
+    resetForm () {
       this.addForm = {
         url: '',
         username: '',
-        password: '',
+        password: ''
       }
-    },
+    }
   },
   computed: {
-    showCheckIcon() {
+    showCheckIcon () {
       if (this.checkRes === 'pass') {
         return 'el-icon-success'
       } else if (this.checkRes === 'fail') {
@@ -156,60 +156,65 @@ export default {
       } else {
         return ''
       }
-    },
+    }
   },
   watch: {
-    dialogVisible(value) {
+    dialogVisible (value) {
       if (!value) {
         this.$refs.addForm.resetFields()
         this.checkRes = null
         this.resetForm()
       }
-    },
-  },
+    }
+  }
 }
 </script>
 <style lang="less" scoped>
-/deep/ .edit-form-dialog {
-    width: 550px;
-    .el-dialog__header {
-      text-align: center;
-      border-bottom: 1px solid #e4e4e4;
-      padding: 15px;
-      .el-dialog__close {
-        font-size: 10px;
-      }
-    }
-    .el-dialog__body {
-      padding-bottom: 0px;
-    }
-    .el-dialog__body {
-      padding: 30px 20px;
-      color: #606266;
-      font-size: 14px;
-      .el-form-item {
-        margin-bottom: 15px;
-      }
-    }
-
-    .el-select {
-      width: 100%;
-    }
-    .el-input {
-      display: inline-block;
-    }
-  }
-/deep/ .el-icon-success {
-  color: #67c23a;
-  font-size: 20px;
-  margin-left: 10px;
-}
-/deep/ .el-icon-error {
-  color: red;
-  font-size: 20px;
-  margin-left: 10px;
-}
 /deep/ .el-input {
   width: 400px;
+}
+
+/deep/ .edit-form-dialog {
+  width: 550px;
+
+  .el-dialog__header {
+    padding: 15px;
+    text-align: center;
+    border-bottom: 1px solid #e4e4e4;
+
+    .el-dialog__close {
+      font-size: 10px;
+    }
+  }
+
+  .el-dialog__body {
+    padding: 30px 20px;
+    color: #606266;
+    font-size: 14px;
+
+    .el-form-item {
+      margin-bottom: 15px;
+    }
+  }
+
+  .el-select {
+    width: 100%;
+  }
+
+  .el-input {
+    display: inline-block;
+  }
+}
+
+/deep/ .el-icon-success {
+  margin-left: 10px;
+  color: #67c23a;
+  font-size: 20px;
+}
+
+/deep/ .el-icon-error {
+  margin-left: 10px;
+  color: red;
+  font-size: 20px;
 }
 </style>

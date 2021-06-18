@@ -2,7 +2,7 @@
   <div class="task-list-container">
     <el-table :data="taskList"
               stripe
-              style="width: 100%">
+              style="width: 100%;">
       <el-table-column prop="task_id"
                        label="ID"
                        width="80"
@@ -43,20 +43,63 @@
         <template slot-scope="scope">
           <el-icon name="time"></el-icon>
           <span v-if="scope.row.status!=='running'"
-                style="margin-left: 5px;font-size:13px">
+                style="margin-left: 5px; font-size: 13px;">
             {{ $utils.timeFormat(scope.row.end_time - scope.row.start_time) }}
           </span>
           <span v-else
-                style="margin-left: 5px;font-size:13px">
+                style="margin-left: 5px; font-size: 13px;">
             {{ taskDuration(scope.row.task_id,scope.row.start_time) +
               $utils.timeFormat(durationSet[scope.row.task_id]) }}
             <el-tooltip v-if="durationSet[scope.row.task_id]<0"
                         content="本地系统时间和服务端可能存在不一致，请同步。"
                         placement="top">
               <i class="el-icon-warning"
-                 style="color:red"></i>
+                 style="color: red;"></i>
             </el-tooltip>
           </span>
+        </template>
+      </el-table-column>
+      <el-table-column v-if="showTestReport"
+                       label="测试结果">
+        <template slot-scope="scope">
+          <span v-if="scope.row.test_reports">
+            <el-popover v-for="(item,testIndex) in scope.row.testSummary"
+                        :key="testIndex+'function'"
+                        trigger="hover"
+                        placement="top"
+                        style="display: inline-block;">
+              <p><span>测试名称：{{item.name}}</span></p>
+              <p><span>总测试用例：{{item.total}}</span></p>
+              <p><span>成功用例：{{item.success}}</span></p>
+              <p><span>测试用时：{{$utils.timeFormat(parseInt(item.time))}}</span></p>
+              <div slot="reference">
+                <router-link v-if="item.type==='function'"
+                             :to="`${functionTestBaseUrl}/${scope.row.task_id}/test/${workflowName}-${scope.row.task_id}-test?is_workflow=1&service_name=${item.name}&test_type=${item.type}`">
+                  <span class="report-link"><i class="iconfont iconzidong"></i>
+                    {{item.success}}/{{item.total}}</span>
+                  <span v-if="testIndex!==(scope.row.testSummary.length - 1)">{{'&nbsp;'}}</span>
+                </router-link>
+              </div>
+            </el-popover>
+            <span v-for="(item,index) in scope.row.testSummary"
+                  :key="index+'performance'">
+              <router-link v-if="item.type==='performance'"
+                           :to="`${functionTestBaseUrl}/${scope.row.task_id}/test/${workflowName}-${scope.row.task_id}-test?is_workflow=1&service_name=${item.name}&test_type=${item.type}`">
+                <span class="report-link">
+                  <i class="iconfont iconxingneng"></i> 性能</span>
+              </router-link>
+            </span>
+            <span v-for="(item,index) in scope.row.testSummary"
+                  :key="index+'security'">
+              <router-link v-if="item.type==='security'"
+                           :to="`${securityTestBaseUrl}/${scope.row.task_id}?imageId=${item.img_id}`">
+                <span class="report-link"><i class="iconfont iconanquan"></i> 安全</span>
+              </router-link>
+              <span v-if="index!==(scope.row.testSummary.length - 1)">{{'&nbsp;'}}</span>
+            </span>
+
+          </span>
+          <span v-else>N/A</span>
         </template>
       </el-table-column>
 
@@ -105,47 +148,46 @@
 </template>
 
 <script>
-import { wordTranslate } from '@utils/word_translate.js';
-import moment from 'moment';
+import { wordTranslate } from '@utils/word_translate.js'
+import moment from 'moment'
 export default {
-  data() {
+  data () {
     return {
-      durationSet: {},
-    };
+      durationSet: {}
+    }
   },
   methods: {
-    getDeployEnv(sub_tasks) {
-      let env_name = '-';
-      sub_tasks.some(task => {
+    getDeployEnv (sub_tasks) {
+      let env_name = '-'
+      sub_tasks.forEach(task => {
         if (task.type === 'deploy' && task.enabled) {
-          env_name = task.env_name;
-          return true;
+          env_name = task.env_name
         }
-      });
-      return env_name;
+      })
+      return env_name
     },
-    convertTimestamp(value) {
-      return moment.unix(value).format('MM-DD HH:mm');
+    convertTimestamp (value) {
+      return moment.unix(value).format('MM-DD HH:mm')
     },
-    wordTranslation(word, category, subitem) {
-      return wordTranslate(word, category, subitem);
+    wordTranslation (word, category, subitem) {
+      return wordTranslate(word, category, subitem)
     },
-    filterStatusTag(value, row) {
-      return row.status === value;
+    filterStatusTag (value, row) {
+      return row.status === value
     },
-    taskDuration(task_id, started) {
-      let refresh = () => {
-        let duration = Math.floor(Date.now() / 1000) - started;
-        this.$set(this.durationSet, task_id, duration);
-      };
-      setInterval(refresh, 1000);
-      return '';
+    taskDuration (task_id, started) {
+      const refresh = () => {
+        const duration = Math.floor(Date.now() / 1000) - started
+        this.$set(this.durationSet, task_id, duration)
+      }
+      setInterval(refresh, 1000)
+      return ''
     },
-    changeTaskPage(val) {
-      this.$emit('currentChange', val);
+    changeTaskPage (val) {
+      this.$emit('currentChange', val)
     },
-    rerun(task) {
-      this.$emit('cloneTask', task);
+    rerun (task) {
+      this.$emit('cloneTask', task)
     }
   },
 
@@ -168,12 +210,22 @@ export default {
       default: false,
       type: Boolean
     },
+    showTestReport: {
+      required: false,
+      default: false,
+      type: Boolean
+    },
     showServiceNames: {
       required: false,
       default: false,
       type: Boolean
     },
     workflowName: {
+      required: false,
+      default: '',
+      type: String
+    },
+    functionTestBaseUrl: {
       required: false,
       default: '',
       type: String
@@ -195,6 +247,5 @@ export default {
     }
 
   }
-};
+}
 </script>
-

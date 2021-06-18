@@ -26,8 +26,8 @@
            style="flex-basis: 50%;">
         <div class="el-step__head">
           <div class="el-step__line"
-               style="margin-right: 0px;"><i class="el-step__line-inner"
-               style="transition-delay: 0ms; border-width: 0px; height: 0%;"></i></div>
+               style="margin-right: 0;"><i class="el-step__line-inner"
+               style=" height: 0%; border-width: 0; transition-delay: 0ms;"></i></div>
           <div class="el-step__icon is-text">
             <div class="el-step__icon-inner"></div>
           </div>
@@ -40,8 +40,8 @@
            style="flex-basis: 50%;">
         <div class="el-step__head">
           <div class="el-step__line"
-               style="margin-right: 0px;"><i class="el-step__line-inner"
-               style="transition-delay: -150ms; border-width: 0px; height: 0%;"></i></div>
+               style="margin-right: 0;"><i class="el-step__line-inner"
+               style=" height: 0%; border-width: 0; transition-delay: -150ms;"></i></div>
           <div class="el-step__icon is-text">
             <div class="el-step__icon-inner"></div>
           </div>
@@ -67,7 +67,7 @@
 </template>
 <script>
 export default {
-  data() {
+  data () {
     return {
 
     }
@@ -82,57 +82,67 @@ export default {
 </script>
 <style lang="less">
 .step-container {
-  flex-direction: row;
   display: flex;
+  flex-direction: row;
+
   .step-detail {
     width: 80%;
+
     .guide-title {
       display: flex;
+
       h4 {
-        font-weight: 300;
+        width: 110px;
         margin: 0 0 10px 20px;
         padding: 8px;
-        font-size: 18px;
-        background: #3289e4;
         color: #fff;
-        width: 110px;
+        font-weight: 300;
+        font-size: 18px;
         text-align: center;
+        background: #3289e4;
       }
     }
+
     .process-container {
       flex-shrink: 1;
       align-items: flex-end;
       padding-bottom: 27px;
     }
+
     .el-step__icon {
       width: 18px;
       height: 18px;
       font-size: 12px;
     }
+
     .el-step__title {
       font-size: 14px;
       line-height: 30px;
     }
   }
+
   .env-container {
     .el-step__icon {
       width: 10px;
       height: 10px;
-      font-size: 12px;
       color: #3289e4;
+      font-size: 12px;
     }
+
     flex-shrink: 2;
+
     .el-step__line {
-      width: 2px;
       top: 34px;
       bottom: 0;
       left: 4px;
+      width: 2px;
     }
+
     .el-step__title {
+      padding-bottom: 7px;
+      color: #ccc;
       font-size: 13px;
       line-height: 36px;
-      color: #ccc;
-      padding-bottom: 7px;
     }
   }
 }

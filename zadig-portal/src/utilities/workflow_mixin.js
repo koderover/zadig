@@ -1,18 +1,18 @@
-import bus from '@utils/event_bus';
+import bus from '@utils/event_bus'
 
 export default {
   methods: {
-    checkCurrentTab() {
+    checkCurrentTab () {
       return new Promise((resolve, reject) => {
         bus.$once(`receive-tab-check:${this.currentTab}`, pass => {
-          if(pass) {
-            resolve();
+          if (pass) {
+            resolve()
           } else {
-            reject();
+            reject()
           }
-        });
-        bus.$emit(`check-tab:${this.currentTab}`);
-      });
+        })
+        bus.$emit(`check-tab:${this.currentTab}`)
+      })
     }
   }
-};
+}

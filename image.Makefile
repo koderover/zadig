@@ -39,6 +39,8 @@ docker/dist/%.Dockerfile: docker/%.Dockerfile.template docker/ubuntu-base.Docker
 	@cp docker/$*.Dockerfile.template docker/dist/$*.Dockerfile
 	@sed -i -e '/#golang-deps.Dockerfile.inc/ {' -e 'r docker/golang-deps.Dockerfile.inc' -e 'd' -e '}' docker/dist/$*.Dockerfile
 	@sed -i -e '/#ubuntu-base.Dockerfile.inc/ {' -e 'r docker/ubuntu-base.Dockerfile.inc' -e 'd' -e '}' docker/dist/$*.Dockerfile
+	@sed -i -e '/#alpine-base.Dockerfile.inc/ {' -e 'r docker/alpine-base.Dockerfile.inc' -e 'd' -e '}' docker/dist/$*.Dockerfile
+	@sed -i -e '/#alpine-git-base.Dockerfile.inc/ {' -e 'r docker/alpine-git-base.Dockerfile.inc' -e 'd' -e '}' docker/dist/$*.Dockerfile
 	@echo docker/dist/$*.Dockerfile is generated
 
 %.image: IMAGE ?= ${IMAGE_PREFIX}$*:${TAG}

@@ -10,6 +10,7 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const ExtractTextPlugin = require('extract-text-webpack-plugin');
 const OptimizeCSSPlugin = require('optimize-css-assets-webpack-plugin');
 const UglifyJsPlugin = require('uglifyjs-webpack-plugin');
+const StylelintPlugin = require('stylelint-webpack-plugin');
 
 const env = require('../config/prod.env');
 
@@ -111,7 +112,12 @@ const webpackConfig = merge(baseWebpackConfig, {
         to: config.build.assetsSubDirectory,
         ignore: ['.*']
       }
-    ])
+    ]),
+    new StylelintPlugin({
+      files: ['src/**/*.{html,vue,css,less}'],
+      failOnError: true,
+      lintDirtyModulesOnly: true // Lint only changed files, skip lint on start
+    })
   ]
 });
 

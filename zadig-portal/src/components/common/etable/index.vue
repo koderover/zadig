@@ -1,6 +1,6 @@
 <template>
   <div class="con">
-    <el-table :data="tableData" :expand-row-keys="expandRowKeys" v-loading="loading" :default-sort="defaultSort" :row-key="id" style="width: 100%">
+    <el-table :data="tableData" :expand-row-keys="expandRowKeys" v-loading="loading" :default-sort="defaultSort" :row-key="id" style="width: 100%;">
       <el-table-column
         v-for="item in tableColumns"
         :key="item.prop"
@@ -75,9 +75,9 @@ export default {
 }
 </script>
 <style lang="less" scoped>
-/deep/.el-table{
-      font-size: 14px;
-    color: #606266;
+/deep/.el-table {
+  color: #606266;
+  font-size: 14px;
 }
 
 .con {

@@ -1,7 +1,6 @@
 <template>
   <div class="sub-side-bar-wrapper"
-       :class="showSubSidebar?'sub-side-bar-wrapper-opened':'sub-side-bar-wrapper-closed'"
-       style="">
+       :class="showSubSidebar?'sub-side-bar-wrapper-opened':'sub-side-bar-wrapper-closed'">
     <div v-show="showSubSidebar"
          class="sub-side-bar">
       <div class="sub-side-bar-inner">
@@ -27,8 +26,7 @@
                            :key="index"
                            active-class="selected"
                            :to="item.url">
-                <li class="pipelines-sub-side-bar__item"
-                    style="">
+                <li class="pipelines-sub-side-bar__item">
                   <span class="pipeline-name">{{item.name}}</span>
                 </li>
               </router-link>
@@ -40,27 +38,26 @@
   </div>
 </template>
 <script>
-import bus from '@utils/event_bus';
-import { mapGetters } from 'vuex';
+import bus from '@utils/event_bus'
+import { mapGetters } from 'vuex'
 export default {
-  data() {
+  data () {
     return {
       content: {
         title: '',
         routerList: []
-      },
+      }
     }
   },
   methods: {
-    changeTitle(params) {
-      this.content = params;
+    changeTitle (params) {
+      this.content = params
       if (this.content.title !== '' && this.content.routerList.length > 0) {
-        bus.$emit(`show-sidebar`, false);
-        bus.$emit(`sub-sidebar-opened`, true);
-      }
-      else if (this.content.routerList.length === 0) {
-        bus.$emit(`show-sidebar`, true);
-        bus.$emit(`sub-sidebar-opened`, false);
+        bus.$emit('show-sidebar', false)
+        bus.$emit('sub-sidebar-opened', true)
+      } else if (this.content.routerList.length === 0) {
+        bus.$emit('show-sidebar', true)
+        bus.$emit('sub-sidebar-opened', false)
       }
     }
   },
@@ -68,142 +65,150 @@ export default {
     showSubSidebar: {
       get: function () {
         if (this.content.title !== '' && this.content.routerList.length > 0) {
-          bus.$emit(`show-sidebar`, false);
-          bus.$emit(`sub-sidebar-opened`, true);
-          return true;
+          bus.$emit('show-sidebar', false)
+          bus.$emit('sub-sidebar-opened', true)
+          return true
+        } else if (this.content.routerList.length === 0) {
+          bus.$emit('show-sidebar', true)
+          bus.$emit('sub-sidebar-opened', false)
+          return false
         }
-        else if (this.content.routerList.length === 0) {
-          bus.$emit(`show-sidebar`, true);
-          bus.$emit(`sub-sidebar-opened`, false);
-          return false;
-        }
-      },
-      set: function (newValue) {
+        return false
       }
     },
     ...mapGetters([
       'getTemplates'
     ])
   },
-  beforeDestroy() {
-    bus.$emit(`sub-sidebar-opened`, false);
+  beforeDestroy () {
+    bus.$emit('sub-sidebar-opened', false)
   },
-  created() {
+  created () {
     bus.$on('set-sub-sidebar-title', async (params) => {
-      let isProjectList = false;
+      let isProjectList = false
       if (params.routerList && params.routerList.length > 2 && params.routerList[1].name === '集成环境') {
-        isProjectList = true;
+        isProjectList = true
       }
       if (isProjectList) {
-        let findPro = false;
+        let findPro = false
 
-        let findTem = this.getTemplates.filter(tem => {
+        const findTem = this.getTemplates.filter(tem => {
           return tem.product_name === params.title
         })
         if (findTem.length === 0) {
-          await this.$store.dispatch("refreshProjectTemplates");
+          await this.$store.dispatch('refreshProjectTemplates')
         }
-        
-        for (let product of this.getTemplates) {
+
+        for (const product of this.getTemplates) {
           if (product.product_name === params.title) {
-            findPro = true;
+            findPro = true
             if (product.product_feature && product.product_feature.develop_habit === 'yaml') {
-              params.routerList.splice(2);
-              break;
+              params.routerList.splice(2)
+              break
             }
           }
         }
-        this.changeTitle(params);
+        this.changeTitle(params)
         if (!findPro) {
-          throw ('Not find the product from getTemplates1');
+          // eslint-disable-next-line no-throw-literal
+          throw ('Not find the product from getTemplates')
         }
       } else {
-        this.changeTitle(params);
+        this.changeTitle(params)
       }
-    });
-  },
+    })
+  }
 }
 </script>
 
 <style lang="less">
+// @import url("~@assets/css/common/scroll-bar.less");
+
 .sub-side-bar-wrapper {
-  @import url("~@assets/css/common/scroll-bar.less");
-  height: 100%;
   position: relative;
-  background: transparent;
   left: 0;
+  height: 100%;
+  background: transparent;
   transition: width 0.2s;
+
   &.sub-side-bar-wrapper-opened {
-    width: 130px;
     left: 0;
+    width: 130px;
   }
+
   &.sub-side-bar-wrapper-closed {
     position: absolute;
-    appearance: none;
+    left: -100%;
     width: 1px;
     height: 1px;
     overflow: hidden;
+    appearance: none;
     clip: rect(0 0 0 0);
-    left: -100%;
   }
+
   .sub-side-bar {
     position: absolute;
-    height: 100%;
     top: 0;
-    left: 0;
     right: 0;
+    left: 0;
+    z-index: 1010;
+    height: 100%;
     transition: opacity, 400ms linear, -webkit-transform;
     transition: transform, opacity, 400ms linear;
     transition: transform, opacity, 400ms linear, -webkit-transform;
-    z-index: 1010;
+
     .sub-side-bar-inner {
-      height: 100%;
       width: 100%;
+      height: 100%;
       transition: -webkit-transform 0.2s;
       transition: transform 0.2s;
       transition: transform 0.2s, -webkit-transform 0.2s;
+
       .pipelines-sub-side-bar__wrap {
         display: flex;
         flex: 1;
+        flex-direction: column;
         height: 100%;
+        background-color: #f5f7fa;
+        box-shadow: 10px 0 20px rgba(0, 0, 0, 0.12);
         -webkit-box-orient: vertical;
         -webkit-box-direction: normal;
-        flex-direction: column;
-        background-color: #f5f7fa;
-        box-shadow: 10px 0px 20px rgba(0, 0, 0, 0.12);
+
         .pipelines-sub-side-bar__header {
           flex-basis: 60px;
+
           .pipelines-sub-side-bar__section-label {
-            color: #888;
-            text-transform: uppercase;
-            font-size: 10px;
-            font-weight: bold;
-            padding-left: 12px;
             padding-bottom: 12px;
+            padding-left: 12px;
+            color: #888;
+            font-weight: bold;
+            font-size: 10px;
+            text-transform: uppercase;
           }
-          .cf-registry-selector__preview {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 5px 10px;
-            font-size: 14px;
-          }
+
           .cf-registry-selector__preview {
             position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
             height: 50px;
-            font-weight: bold;
             padding: 5px 30px 5px 12px;
-            text-transform: uppercase;
             color: #bebebe;
+            font-weight: bold;
+            font-size: 14px;
+            text-transform: uppercase;
+
             .cf-registry-selector__text {
               display: inline-block;
               overflow: hidden;
+              color: #888;
               white-space: nowrap;
               text-overflow: ellipsis;
-              color: #888;
+
               &.url {
                 a {
                   color: #888;
+
                   &:hover {
                     color: #1989fa;
                   }
@@ -212,67 +217,73 @@ export default {
             }
           }
         }
+
         .pipelines-sub-side-bar__content {
           flex-grow: 1;
           overflow-y: auto;
           scrollbar-color: #c0c0c0;
           scrollbar-width: thin;
+
           .pipelines-sub-side-bar__list {
-            list-style-type: none;
-            padding: 0;
             margin: 0;
+            padding: 0;
+            list-style-type: none;
+
+            .pipelines-sub-side-bar__item {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              height: 35px;
+              padding: 5px 20px;
+              color: #eee;
+              font-size: 12px;
+              transition: background-color 150ms ease, color 150ms ease;
+              -webkit-box-pack: justify;
+              -ms-flex-pack: justify;
+
+              &.selected {
+                background-color: #e1edfa;
+                box-shadow: inset 4px 0 0 #1989fa;
+              }
+
+              .pipeline-name {
+                flex: 1;
+                min-width: 0;
+                overflow: hidden;
+                color: #434548;
+                font-weight: 500;
+                line-height: 16px;
+                white-space: nowrap;
+                text-overflow: ellipsis;
+              }
+
+              &:hover {
+                padding-right: 2px;
+                background-color: #e1edfa;
+                box-shadow: inset 4px 0 0 #1989fa;
+                cursor: pointer;
+              }
+            }
+
             .selected {
               .pipelines-sub-side-bar__item {
                 background-color: #e1edfa;
                 box-shadow: inset 4px 0 0 #1989fa;
               }
             }
-            .pipelines-sub-side-bar__item {
-              display: flex;
-              align-items: center;
-              -webkit-box-pack: justify;
-              -ms-flex-pack: justify;
-              justify-content: space-between;
-              color: #eeeeee;
-              font-size: 12px;
-              padding: 5px 20px;
-              height: 35px;
-              transition: background-color 150ms ease, color 150ms ease;
-              &.selected {
-                background-color: #e1edfa;
-                box-shadow: inset 4px 0 0 #1989fa;
-              }
-              .pipeline-name {
-                min-width: 0;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-                flex: 1;
-                color: #434548;
-                font-weight: 500;
-                line-height: 16px;
-              }
-              &:hover {
-                cursor: pointer;
-                background-color: #e1edfa;
-                box-shadow: inset 4px 0 0 #1989fa;
-                padding-right: 2px;
-              }
-            }
           }
         }
-        .pipelines-sub-side-bar__footer {
-          flex-basis: 60px;
-          background-color: #fff;
-          box-shadow: 0px -6px 4px rgba(0, 0, 0, 0.04);
-        }
+
         .pipelines-sub-side-bar__footer {
           display: flex;
-          justify-content: flex-start;
-          align-items: center;
-          padding-left: 12px;
-          -ms-flex-negative: 0;
+          flex-basis: 60px;
           flex-shrink: 0;
+          align-items: center;
+          justify-content: flex-start;
+          padding-left: 12px;
+          background-color: #fff;
+          box-shadow: 0 -6px 4px rgba(0, 0, 0, 0.04);
+          -ms-flex-negative: 0;
         }
       }
     }

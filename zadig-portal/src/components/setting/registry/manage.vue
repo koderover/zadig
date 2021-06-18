@@ -109,7 +109,7 @@
         <div class="registry-list">
           <template>
             <el-table :data="allRegistry"
-                      style="width: 100%">
+                      style="width: 100%;">
               <el-table-column label="地址/Namespace">
                 <template slot-scope="scope">
                   <span>{{`${scope.row.reg_addr.split('://')[1]}/${scope.row.namespace}`}}</span>
@@ -127,7 +127,7 @@
                 <template slot-scope="scope">
                   <i class="el-icon-time"></i>
                   <span
-                        style="margin-left: 5px">{{ $utils.convertTimestamp(scope.row.update_time) }}</span>
+                        style="margin-left: 5px;">{{ $utils.convertTimestamp(scope.row.update_time) }}</span>
                 </template>
               </el-table-column>
               <el-table-column label="最后修改">
@@ -156,10 +156,10 @@
 
 <script>
 
-import { getRegistryListAPI, createRegistryAPI, updateRegistryAPI, deleteRegistryAPI } from '@api';
-import bus from '@utils/event_bus';
+import { getRegistryListAPI, createRegistryAPI, updateRegistryAPI, deleteRegistryAPI } from '@api'
+import bus from '@utils/event_bus'
 export default {
-  data() {
+  data () {
     return {
       allRegistry: [],
       registry: {
@@ -168,7 +168,7 @@ export default {
         access_key: '',
         secret_key: '',
         reg_provider: 'native',
-        is_default: false,
+        is_default: false
       },
       swapRegistry: {
         namespace: '',
@@ -176,7 +176,7 @@ export default {
         reg_provider: 'native',
         access_key: '',
         secret_key: '',
-        is_default: false,
+        is_default: false
       },
       dialogRegistryCreateFormVisible: false,
       dialogRegistryEditFormVisible: false,
@@ -194,46 +194,46 @@ export default {
         }],
         namespace: [{ required: true, message: '请输入 Namespace', trigger: 'blur' }],
         access_key: [{ required: true, message: '请输入 Access Key', trigger: 'blur' }],
-        secret_key: [{ required: true, message: '请输入 Secret Key', trigger: 'blur' }],
+        secret_key: [{ required: true, message: '请输入 Secret Key', trigger: 'blur' }]
       }
-    };
+    }
   },
   methods: {
-    registryOperation(operate, current_registry) {
+    registryOperation (operate, current_registry) {
       if (operate === 'add') {
-        this.$refs['registry'].validate(valid => {
+        this.$refs.registry.validate(valid => {
           if (valid) {
-            let payload = this.registry;
-            payload.org_id = this.currentOrganizationId;
-            this.dialogRegistryCreateFormVisible = false;
-            this.addRegistry(payload);
+            const payload = this.registry
+            payload.org_id = this.currentOrganizationId
+            this.dialogRegistryCreateFormVisible = false
+            this.addRegistry(payload)
           } else {
-            return false;
+            return false
           }
-        });
+        })
       } else if (operate === 'edit') {
-        this.swapRegistry = this.$utils.cloneObj(current_registry);
-        this.dialogRegistryEditFormVisible = true;
+        this.swapRegistry = this.$utils.cloneObj(current_registry)
+        this.dialogRegistryEditFormVisible = true
       } else if (operate === 'update') {
-        this.$refs['swapRegistry'].validate(valid => {
+        this.$refs.swapRegistry.validate(valid => {
           if (valid) {
-            const id = this.swapRegistry.id;
-            const payload = this.swapRegistry;
-            this.dialogRegistryEditFormVisible = false;
-            this.updateRegistry(id, payload);
+            const id = this.swapRegistry.id
+            const payload = this.swapRegistry
+            this.dialogRegistryEditFormVisible = false
+            this.updateRegistry(id, payload)
           } else {
-            return false;
+            return false
           }
-        });
+        })
       } else if (operate === 'delete') {
-        const id = current_registry.id;
+        const id = current_registry.id
         this.$confirm(`确定要删除 ${current_registry.namespace} ?`, '确认', {
           confirmButtonText: '确定',
           cancelButtonText: '取消',
           type: 'warning'
         }).then(({ value }) => {
           deleteRegistryAPI(id).then((res) => {
-            this.getRegistry();
+            this.getRegistry()
             this.$message({
               message: '删除成功',
               type: 'success'
@@ -242,87 +242,93 @@ export default {
         })
       }
     },
-    addRegistry(payload) {
+    addRegistry (payload) {
       createRegistryAPI(payload).then((res) => {
-        this.$refs['registry'].resetFields();
-        this.getRegistry();
+        this.$refs.registry.resetFields()
+        this.getRegistry()
         this.$message({
           type: 'success',
           message: '新增成功'
-        });
+        })
       })
     },
-    updateRegistry(id, payload) {
+    updateRegistry (id, payload) {
       updateRegistryAPI(id, payload).then((res) => {
-        this.$refs['swapRegistry'].resetFields();
-        this.getRegistry();
+        this.$refs.swapRegistry.resetFields()
+        this.getRegistry()
         this.$message({
           type: 'success',
           message: '更新成功'
-        });
+        })
       })
     },
-    getRegistry() {
-      this.loading = true;
-      const organizationId = this.currentOrganizationId;
+    getRegistry () {
+      this.loading = true
+      const organizationId = this.currentOrganizationId
       getRegistryListAPI(organizationId).then((res) => {
-        this.loading = false;
-        this.allRegistry = res;
+        this.loading = false
+        this.allRegistry = res
       })
     }
   },
   computed: {
-    currentOrganizationId() {
-      return this.$store.state.login.userinfo.organization.id;
+    currentOrganizationId () {
+      return this.$store.state.login.userinfo.organization.id
     }
   },
-  created() {
-    bus.$emit(`set-topbar-title`, { title: 'REGISTRY 管理', breadcrumb: [] });
+  created () {
+    bus.$emit(`set-topbar-title`, { title: '镜像仓库', breadcrumb: [] })
     bus.$emit(`set-sub-sidebar-title`, {
       title: '',
       routerList: []
-    });
-    this.getRegistry();
+    })
+    this.getRegistry()
   }
-};
+}
 </script>
-
 
 <style lang="less">
 .setting-registry-container {
-  flex: 1;
   position: relative;
-  overflow: auto;
+  flex: 1;
   padding: 15px 30px;
+  overflow: auto;
   font-size: 13px;
+
   .module-title h1 {
+    margin-bottom: 1.5rem;
     font-weight: 200;
     font-size: 2rem;
-    margin-bottom: 1.5rem;
   }
+
   .section {
     margin-bottom: 56px;
+
     .sync-container {
-      overflow: hidden;
       padding-top: 15px;
       padding-bottom: 15px;
+      overflow: hidden;
+
       .el-button--success.is-plain {
+        color: #13ce66;
         background: #fff;
         border-color: #13ce66;
-        color: #13ce66;
       }
+
       .el-button--success.is-plain:hover {
+        color: #13ce66;
         background: #fff;
         border-color: #13ce66;
-        color: #13ce66;
       }
     }
+
     .registry-list {
       padding-bottom: 30px;
     }
+
     .dialog-style {
       .el-dialog__body {
-        padding: 0px 20px;
+        padding: 0 20px;
       }
     }
   }

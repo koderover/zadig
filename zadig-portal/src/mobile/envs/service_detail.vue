@@ -148,9 +148,9 @@
   </div>
 </template>
 <script>
-import { Col, Collapse, CollapseItem, Row, NavBar, Tag, Panel, Loading, Button, Notify, Tab, Tabs, Cell, CellGroup, Icon, Divider, ActionSheet, List, Popup, Empty } from 'vant';
-import { podEventAPI, getServiceInfo } from '@api';
-import moment from 'moment';
+import { Col, Collapse, CollapseItem, Row, NavBar, Tag, Panel, Loading, Button, Notify, Tab, Tabs, Cell, CellGroup, Icon, Divider, ActionSheet, List, Popup, Empty } from 'vant'
+import { podEventAPI, getServiceInfo } from '@api'
+import moment from 'moment'
 export default {
   components: {
     [NavBar.name]: NavBar,
@@ -174,7 +174,7 @@ export default {
     [Popup.name]: Popup,
     [Empty.name]: Empty
   },
-  data() {
+  data () {
     return {
       currentService: {
         scales: [],
@@ -182,7 +182,7 @@ export default {
         pods: [],
         service_name: '',
         service_endpoints: [],
-        expands: [],
+        expands: []
       },
       activePod: {},
       statusColorMap: {
@@ -199,127 +199,122 @@ export default {
         visible: false,
         name: '',
         data: []
-      },
+      }
     }
   },
   computed: {
-    projectName() {
-      return this.$route.params.project_name;
+    projectName () {
+      return this.$route.params.project_name
     },
-    originProjectName() {
-      return this.$route.query.originProjectName;
+    originProjectName () {
+      return this.$route.query.originProjectName
     },
-    serviceName() {
-      return this.$route.params.service_name;
+    serviceName () {
+      return this.$route.params.service_name
     },
-    envName() {
-      return this.$route.query.envName;
+    envName () {
+      return this.$route.query.envName
     },
-    isProd() {
-      return this.$route.query.isProd === 'true';
+    isProd () {
+      return this.$route.query.isProd === 'true'
     },
-    allHosts() {
+    allHosts () {
       if (this.currentService.ingress) {
-        return this.currentService.ingress.reduce((carry, ing) => carry.concat(ing.host_info), []);
-      }
-      else {
+        return this.currentService.ingress.reduce((carry, ing) => carry.concat(ing.host_info), [])
+      } else {
         return []
       }
     },
-    allEndpoints() {
+    allEndpoints () {
       if (this.currentService.service_endpoints) {
         return this.currentService.service_endpoints.reduce(
           (carry, point) => {
             if (point.endpoints) {
-              return carry.concat(point.endpoints.map(
-                ep => `${ep.service_name}:${ep.service_port}`
-              )
-              )            }
+              return carry.concat(point.endpoints)
+            }
+            return carry
           }, []
-        );
+        )
+      } else {
+        return []
       }
-      else {
-        return [];
-      }
-    },
+    }
   },
   methods: {
-    fetchServiceData() {
-      const projectName = this.projectName;
-      const serviceName = this.serviceName;
-      const envName = this.envName ? this.envName : '';
-      const envType = this.isProd ? 'prod' : '';
+    fetchServiceData () {
+      const projectName = this.projectName
+      const serviceName = this.serviceName
+      const envName = this.envName ? this.envName : ''
+      const envType = this.isProd ? 'prod' : ''
       getServiceInfo(projectName, serviceName, envName, envType).then((res) => {
         if (res.scales) {
           if (res.scales.length > 0 && res.scales[0].pods.length > 0) {
-            this.$set(this.activePod, 0, res.scales[0].pods[0]);
+            this.$set(this.activePod, 0, res.scales[0].pods[0])
           }
           res.scales.forEach(scale => {
             scale.pods.forEach(pod => {
-              pod.status = pod.status.toLowerCase();
-              pod.__color = this.statusColorMap[pod.status];
+              pod.status = pod.status.toLowerCase()
+              pod.__color = this.statusColorMap[pod.status]
               pod.canOperate = !(pod.status in {
                 pending: 1,
                 terminating: 1
-              });
+              })
               pod.containers.forEach(con => {
-                con.edit = false;
-                con.image2Apply = con.image;
-                con.imageShort = con.image.split('/').pop();
-                con.status = con.status.toLowerCase();
-                con.__color = this.statusColorMap[con.status];
+                con.edit = false
+                con.image2Apply = con.image
+                con.imageShort = con.image.split('/').pop()
+                con.status = con.status.toLowerCase()
+                con.__color = this.statusColorMap[con.status]
                 con.startedAtReadable = con.started_at
                   ? moment(con.started_at, 'X').format('YYYY-MM-DD HH:mm:ss')
-                  : '';
-              });
-            });
-          });
+                  : ''
+              })
+            })
+          })
+        } else {
+          res.scales = []
         }
-        else {
-          res.scales = [];
-        }
-        this.currentService = res;
-      });
+        this.currentService = res
+      })
     },
-    selectPod(target, index) {
-      this.$set(this.activePod, index, target);
+    selectPod (target, index) {
+      this.$set(this.activePod, index, target)
       // https://stackoverflow.com/questions/5041494
-      const sheet = document.styleSheets[0];
-      const len = sheet.cssRules.length;
+      const sheet = document.styleSheets[0]
+      const len = sheet.cssRules.length
       sheet.insertRule(`.mobile-service-detail .pod-info .pod-row::before
-          { left: ${this.$refs[target.name][0].offsetLeft - 13}px!important; }`, len);
+          { left: ${this.$refs[target.name][0].offsetLeft - 13}px!important; }`, len)
       sheet.insertRule(`.mobile-service-detail .pod-info
-          { top: ${this.$refs[target.name][0].offsetTop + 30}px!important; }`, len + 1);
+          { top: ${this.$refs[target.name][0].offsetTop + 30}px!important; }`, len + 1)
     },
-    splitImg(img) {
+    splitImg (img) {
       if (img) {
         if (img.includes('/')) {
-          const length = img.split('/').length;
-          return img.split('/')[length - 1];
-        }
-        else {
-          return img;
+          const length = img.split('/').length
+          return img.split('/')[length - 1]
+        } else {
+          return img
         }
       }
     },
-    showPodEvents(pod) {
-      const projectName = this.projectName;
-      const podName = pod.name;
-      const envName = this.envName ? this.envName : '';
-      const envType = this.isProd ? 'prod' : '';
-      this.eventsModal.visible = true;
+    showPodEvents (pod) {
+      const projectName = this.projectName
+      const podName = pod.name
+      const envName = this.envName ? this.envName : ''
+      const envType = this.isProd ? 'prod' : ''
+      this.eventsModal.visible = true
       podEventAPI(projectName, podName, envName, envType).then((res) => {
         this.eventsModal.data = res.map(row => {
-          row.firstSeenReadable = moment(row.first_seen, 'X').format('YYYY-MM-DD HH:mm');
-          row.lastSeenReadable = moment(row.last_seen, 'X').format('YYYY-MM-DD HH:mm');
-          return row;
-        });
+          row.firstSeenReadable = moment(row.first_seen, 'X').format('YYYY-MM-DD HH:mm')
+          row.lastSeenReadable = moment(row.last_seen, 'X').format('YYYY-MM-DD HH:mm')
+          return row
+        })
       })
     }
   },
-  mounted() {
-    this.fetchServiceData();
-  },
+  mounted () {
+    this.fetchServiceData()
+  }
 }
 </script>
 <style lang="less">
@@ -345,87 +340,108 @@ export default {
 @stat-gray: #aab0bc;
 @stat-gray-active: #d5e1f4;
 @stat-gray-faint: #e7edf6;
+
 .mobile-service-detail {
   padding-top: 46px;
   padding-bottom: 50px;
+
   .host {
     color: #1989fa;
   }
+
   .container-info {
     margin-top: 15px;
   }
+
   .pod {
+    position: relative;
+    display: inline-block;
     width: 24px;
     height: 30px;
-    display: inline-block;
-    cursor: pointer;
-    border-radius: 1px;
-    position: relative;
     margin-right: 5px;
+    border-radius: 1px;
+    cursor: pointer;
+
     &.green {
       background-color: @stat-green;
+
       &.active {
         background-color: @stat-green-active;
       }
     }
+
     &.yellow {
       background-color: @stat-yellow;
+
       &.active {
         background-color: @stat-yellow-active;
       }
     }
+
     &.red {
       background-color: @stat-red;
+
       &.active {
         background-color: @stat-red-active;
       }
     }
+
     &.purple {
       background-color: @stat-purple;
+
       &.active {
         background-color: @stat-purple-active;
       }
     }
+
     &.gray {
       background-color: @stat-gray;
+
       &.active {
         background-color: @stat-gray-active;
       }
     }
   }
+
   .pod-row {
     position: relative;
+
     &:hover {
       &.green::before {
         border-bottom-color: @stat-green-faint;
       }
+
       &.yellow::before {
         border-bottom-color: @stat-yellow-faint;
       }
+
       &.red::before {
         border-bottom-color: @stat-red-faint;
       }
+
       &.purple::before {
         border-bottom-color: @stat-purple-faint;
       }
+
       &.gray::before {
         border-bottom-color: @stat-gray-faint;
       }
     }
+
     &::before {
-      content: " ";
       position: absolute;
       top: -8px;
       left: 4px;
-      transition: all 0.3s ease-out;
-
       width: 0;
       height: 0;
-      border-left: 8px solid transparent;
       border-right: 8px solid transparent;
       border-bottom: 8px solid #fff;
+      border-left: 8px solid transparent;
+      transition: all 0.3s ease-out;
+      content: " ";
     }
   }
+
   .op-buttons {
     margin-top: 10px;
   }

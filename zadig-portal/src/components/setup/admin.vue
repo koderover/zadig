@@ -36,6 +36,7 @@
                     placeholder="确认密码">
           </el-input>
         </el-form-item>
+        <el-checkbox v-model="allowUpload">允许 Zadig 团队通过 Email 推送产品相关资讯。</el-checkbox>
       </el-form>
       <div class="operation">
         <el-button size="medium"
@@ -51,25 +52,25 @@
 </template>
 
 <script>
-import { createOrganizationInfoAPI, installationAnalysisRequestAPI, userLoginAPI, getCurrentUserInfoAPI } from '@api';
+import { createOrganizationInfoAPI, installationAnalysisRequestAPI, userLoginAPI, getCurrentUserInfoAPI } from '@api'
 export default {
-  data() {
-    let validatePass = (rule, value, callback) => {
+  data () {
+    const validatePass = (rule, value, callback) => {
       if (value === '') {
-        callback(new Error('请再次输入密码'));
+        callback(new Error('请再次输入密码'))
       } else if (value !== this.organizationInfos.adminPassword) {
-        callback(new Error('两次输入密码不一致!'));
+        callback(new Error('两次输入密码不一致!'))
       } else {
-        callback();
+        callback()
       }
-    };
+    }
     return {
       organizationInfos: {
-        "adminName": "",
-        "adminEmail": "",
-        "adminPhone": "",
-        "adminPassword": "",
-        "checkPass": ""
+        adminName: '',
+        adminEmail: '',
+        adminPhone: '',
+        adminPassword: '',
+        checkPass: ''
       },
       rules: {
         adminName: [{
@@ -100,20 +101,50 @@ export default {
         ],
         checkPass: [
           { validator: validatePass, trigger: ['blur', 'change'] }
-        ],
-      }
+        ]
+      },
+      allowUpload: true
     }
   },
   methods: {
-    saveChange(formName) {
+    saveChange (formName) {
       this.$refs[formName].validate((valid) => {
         if (valid) {
-          const orgPayload = this.organizationInfos;
+          const orgPayload = this.organizationInfos
           const loginPayload = {
             email: this.organizationInfos.adminEmail,
             password: this.organizationInfos.adminPassword
-          };
-          const publicKey = `-----BEGIN RSA PUBLIC KEY-----
+          }
+          createOrganizationInfoAPI(orgPayload).then((res) => {
+            this.$message({
+              message: '添加成功',
+              type: 'success'
+            })
+          }).then(() => {
+            const orgId = 1
+            userLoginAPI(orgId, loginPayload).then((res) => {
+              this.$store.commit('INJECT_PROFILE', res)
+              this.$router.push('/v1/projects/create')
+            })
+            if (this.allowUpload) {
+              this.uploadInfo()
+            }
+          })
+        } else {
+          return false
+        }
+      })
+    },
+    checkInstalled () {
+      getCurrentUserInfoAPI().then(
+        response => {
+          this.$router.push('/v1/status')
+        }
+      )
+    },
+    uploadInfo () {
+      const orgPayload = this.organizationInfos
+      const publicKey = `-----BEGIN RSA PUBLIC KEY-----
     MIIBpTANBgkqhkiG9w0BAQEFAAOCAZIAMIIBjQKCAYQAz5IqagSbovHGXmUf7wTB
     XrR+DZ0u3p5jsgJW08ISJl83t0rCCGMEtcsRXJU8bE2dIIfndNwvmBiqh13/WnJd
     +jgyIm6i1ZfNmf/R8pEqVXpOAOuyoD3VLT9tfWvz9nPQbjVI+PsUHH7nVR0Jwxem
@@ -123,45 +154,21 @@ export default {
     531Ga/CiCwtKfM0vQezfLZKAo3qpb0Edy2BcDHhLwidmaFwh8ZlXuaHbNaF/FiVR
     h7uu0/9B/gn81o2f+c8GSplWB5bALhQH8tJZnvmWZGI9OnrIlWmQZsuUBooTul9Q
     ZJ/w3sE1Zoxa+Or1/eWijqtIfhukOJBNyGaj+esFg6uEeBgHAgMBAAE=
-    -----END RSA PUBLIC KEY-----`;
-          let encryptor = new JSEncrypt();
-          encryptor.setPublicKey(publicKey);
-          const installPayload = {
-            data: encryptor.encrypt(JSON.stringify({
-              domain: window.location.hostname,
-              username: orgPayload.adminName,
-              email: orgPayload.adminEmail,
-              created_at: Math.floor(Date.now() / 1000),
-            }))
-          };
-          createOrganizationInfoAPI(orgPayload).then((res) => {
-            this.$message({
-              message: '添加成功',
-              type: 'success'
-            });
-          }).then(() => {
-            const orgId = 1;
-            userLoginAPI(orgId, loginPayload).then((res) => {
-              this.$store.commit('INJECT_PROFILE', res);
-              this.$router.push('/v1/projects/create');
-            })
-            installationAnalysisRequestAPI(installPayload)
-              .then((res) => { })
-          })
-        } else {
-          return false;
-        }
-      });
-    },
-    checkInstalled() {
-      getCurrentUserInfoAPI().then(
-        response => {
-          this.$router.push('/v1/status');
-        }
-      );
+    -----END RSA PUBLIC KEY-----`
+      const encryptor = new JSEncrypt()
+      encryptor.setPublicKey(publicKey)
+      const installPayload = {
+        data: encryptor.encrypt(JSON.stringify({
+          domain: window.location.hostname,
+          username: orgPayload.adminName,
+          email: orgPayload.adminEmail,
+          created_at: Math.floor(Date.now() / 1000)
+        }))
+      }
+      installationAnalysisRequestAPI(installPayload)
     }
   },
-  created() {
+  created () {
     // this.checkInstalled();
   }
 }
@@ -169,44 +176,49 @@ export default {
 <style lang="less">
 .setup-admin {
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
   width: 500px;
   margin: 0 auto;
+
   .main-container {
     width: 500px;
     padding: 40px;
     padding-right: 60px;
-    border-radius: 4px;
     background: #fff;
     border: 0;
+    border-radius: 4px;
     border-radius: 27.5px;
     box-shadow: 0 10px 30px 0 #dcdfe6;
+
     .brand-wrapper {
       margin-bottom: 19px;
+
       .name {
-        font-size: 30px;
         display: inline-block;
         font-weight: 500;
-        font-family: "Helvetica Neue";
+        font-size: 30px;
         background: linear-gradient(25deg, #ff6302 0%, #ff2968 100%);
-        display: inline-block;
         -webkit-background-clip: text;
+        background-clip: text;
         -webkit-text-fill-color: transparent;
       }
     }
+
     .description {
-      font-size: 20px;
+      margin-bottom: 23px;
       color: #000;
       font-weight: normal;
-      margin-bottom: 23px;
+      font-size: 20px;
     }
   }
+
   .operation {
-    margin-top: 16px;
-    padding: 10px 55px;
     display: flex;
     justify-content: center;
+    margin-top: 16px;
+    padding: 10px 55px;
+
     .btn {
       width: 100%;
     }

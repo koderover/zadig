@@ -167,11 +167,9 @@
                    name="dockerfile">
         <div class="dockerfile-container">
           <dockerFile v-if="collapseItemWasOpend"
-                      style="height:100%;width:100%"
+                      style="width: 100%; height: 100%;"
                       ref="dockerfile"
                       :value="artifact.docker_file"
-                      @ready="onCmReady"
-                      @focus="onCmFocus"
                       :options="yamlOptions">
           </dockerFile>
         </div>
@@ -179,8 +177,7 @@
       <el-tab-pane v-if="artifact.layers"
                    label="Layer"
                    name="layer">
-        <div class="image-layers"
-             style="">
+        <div class="image-layers">
           <el-row v-for="(layer,index) in artifact.layers"
                   class="image-layers-container"
                   :key="index">
@@ -206,14 +203,14 @@
 </template>
 
 <script>
-import { getArtifactsDetailAPI, addArtifactActivitiesAPI } from '@api';
-import bus from '@utils/event_bus';
-import { codemirror } from 'vue-codemirror';
-import 'codemirror/lib/codemirror.css';
-import 'codemirror/mode/yaml/yaml.js';
-import 'codemirror/theme/xq-light.css';
+import { getArtifactsDetailAPI, addArtifactActivitiesAPI } from '@api'
+import bus from '@utils/event_bus'
+import { codemirror } from 'vue-codemirror'
+import 'codemirror/lib/codemirror.css'
+import 'codemirror/mode/yaml/yaml.js'
+import 'codemirror/theme/xq-light.css'
 export default {
-  data() {
+  data () {
     return {
       loading: false,
       collapseItemWasOpend: false,
@@ -229,160 +226,167 @@ export default {
         autofocus: true,
         line: true,
         readOnly: true,
-        collapseIdentical: true,
+        collapseIdentical: true
       }
-    };
+    }
   },
   methods: {
-    getArtifactsDetail(id) {
-      this.loading = true;
+    getArtifactsDetail (id) {
+      this.loading = true
       getArtifactsDetailAPI(id).then((res) => {
-        res.commits = [];
-        if (res.sortedActivities && res.sortedActivities['build']) {
-          res.sortedActivities['build'].forEach(build => {
+        res.commits = []
+        if (res.sortedActivities && res.sortedActivities.build) {
+          res.sortedActivities.build.forEach(build => {
             if (build.commits) {
-              res.commits = res.commits.concat(build.commits);
+              res.commits = res.commits.concat(build.commits)
             }
-          });
+          })
         }
-        this.artifact = res;
-        this.loading = false;
+        this.artifact = res
+        this.loading = false
       })
     },
-    handleClick(tab, event) {
+    handleClick (tab, event) {
       if (tab.name === 'dockerfile') {
         this.$nextTick(() => {
-          this.collapseItemWasOpend = true;
+          this.collapseItemWasOpend = true
         })
+      } else {
+        this.collapseItemWasOpend = false
       }
-      else {
-        this.collapseItemWasOpend = false;
-      }
     },
-    onCmReady(cm) {
-    },
-    onCmFocus(cm) {
-    },
-    addArtifactActivities() {
-      const id = this.id;
+    addArtifactActivities () {
+      const id = this.id
       const payload = {
         type: 'comment',
         content: this.commentContent,
         created_by: this.$store.state.login.userinfo.info.name
-      };
+      }
       addArtifactActivitiesAPI(id, payload).then((res) => {
-        this.getArtifactsDetail(id);
+        this.getArtifactsDetail(id)
       })
     }
 
   },
   computed: {
-    serviceName() {
-      return this.$route.query.name;
+    serviceName () {
+      return this.$route.query.name
     },
-    id() {
-      return this.$route.params.id;
+    id () {
+      return this.$route.params.id
     },
-    dockerFileYaml() {
-      return this.artifact.docker_file;
+    dockerFileYaml () {
+      return this.artifact.docker_file
     },
-    codemirror() {
-      return this.$refs.dockerfile.codemirror;
+    codemirror () {
+      return this.$refs.dockerfile.codemirror
     },
-    buildUrl() {
-      if (this.artifact.sortedActivities && this.artifact.sortedActivities['build'] && this.artifact.sortedActivities['build'][0]) {
-        return this.artifact.sortedActivities['build'][0].url
-      }
-      else {
+    buildUrl () {
+      if (this.artifact.sortedActivities && this.artifact.sortedActivities.build && this.artifact.sortedActivities.build[0]) {
+        return this.artifact.sortedActivities.build[0].url
+      } else {
         return null
       }
     },
-    buildUrlSplit() {
+    buildUrlSplit () {
       return this.buildUrl.split('/')[this.buildUrl.split('/').length - 2] + '#' + this.buildUrl.split('/')[this.buildUrl.split('/').length - 1]
     }
   },
-  created() {
-    bus.$emit(`show-sidebar`, true);
-    bus.$emit(`set-topbar-title`, { title: '', breadcrumb: [{ title: '交付物追踪', url: `/v1/delivery/artifacts` }, { title: this.serviceName, url: `` }] });
-    bus.$emit(`set-sub-sidebar-title`, {
+  created () {
+    bus.$emit('show-sidebar', true)
+    bus.$emit('set-topbar-title', { title: '', breadcrumb: [{ title: '交付物追踪', url: '/v1/delivery/artifacts' }, { title: this.serviceName, url: '' }] })
+    bus.$emit('set-sub-sidebar-title', {
       title: '',
       routerList: []
-    });
-    this.getArtifactsDetail(this.id);
+    })
+    this.getArtifactsDetail(this.id)
   },
   components: {
-    'dockerFile': codemirror,
+    dockerFile: codemirror
   }
-};
+}
 </script>
 
 <style lang="less">
 .artifacts-container {
-  flex: 1;
   position: relative;
-  overflow: auto;
+  flex: 1;
   padding: 15px 30px;
+  overflow: auto;
   font-size: 13px;
+
   .module-title h1 {
+    margin-bottom: 1.5rem;
     font-weight: 200;
     font-size: 2rem;
-    margin-bottom: 1.5rem;
   }
+
   .add-comment {
-    cursor: pointer;
     font-size: 18px;
+    cursor: pointer;
   }
+
   .artifact-link,
   .link {
     color: #1989fa;
   }
+
   .image-layers {
     .image-layers-container {
+      margin: 15px 0;
+      padding: 4px;
+      font-size: 14px;
+      line-height: 16px;
       border: 1px solid #747474;
       border-radius: 4px;
-      padding: 4px;
-      margin: 15px 0;
-      line-height: 16px;
-      font-size: 14px;
+
       .layer-code {
-        color: #888888;
+        color: #888;
       }
     }
   }
+
   .dockerfile-container {
     width: 100%;
     height: 100%;
   }
+
   .row-container {
     width: 100%;
+
     .function-area {
-      border-right: 1px solid #ccc;
       padding-right: 10px;
+      border-right: 1px solid #ccc;
+
       .item-container {
         margin-bottom: 30px;
+
         .item-detail > div {
-          word-wrap: break-word;
-          font-size: 14px;
           margin: 5px 0;
+          font-size: 14px;
+          word-wrap: break-word;
+
           .key {
             color: #8d9199;
             font-weight: 500;
           }
         }
+
         .events-container {
-          ul {
-          }
           .event {
-            border: 1px solid #ccc;
-            padding: 8px;
-            border-radius: 4px;
             margin-bottom: 15px;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+
             .event-item {
               width: 100%;
               margin-bottom: 20px;
+
               .event-type {
-                font-size: 15px;
                 font-weight: 500;
+                font-size: 15px;
+
                 .link {
                   color: #1989fa;
                 }

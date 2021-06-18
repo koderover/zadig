@@ -89,11 +89,11 @@
         </template>
         <template #default>
           <span v-if="task.status!=='running'"
-                style="font-size:13px">
+                style="font-size: 13px;">
             {{ $utils.timeFormat(task.end_time - task.start_time) }}
           </span>
           <span v-else
-                style="font-size:13px">
+                style="font-size: 13px;">
             {{ taskDuration(task.task_id,task.start_time) +
               $utils.timeFormat(durationSet[task.task_id]) }}
           </span>
@@ -119,11 +119,11 @@
   </div>
 </template>
 <script>
-import { Col, Collapse, CollapseItem, Row, NavBar, Tag, Panel, Loading, Button, Notify, Tab, Tabs, Cell, CellGroup, Icon, Divider, ActionSheet, List, Pagination } from 'vant';
-import { workflowAPI, workflowTaskListAPI } from '@api';
-import { wordTranslate } from '@utils/word_translate.js';
-import runWorkflow from './run_workflow.vue';
-import moment from 'moment';
+import { Col, Collapse, CollapseItem, Row, NavBar, Tag, Panel, Loading, Button, Notify, Tab, Tabs, Cell, CellGroup, Icon, Divider, ActionSheet, List, Pagination } from 'vant'
+import { workflowAPI, workflowTaskListAPI } from '@api'
+import { wordTranslate } from '@utils/word_translate.js'
+import runWorkflow from './run_workflow.vue'
+import moment from 'moment'
 export default {
   components: {
     [NavBar.name]: NavBar,
@@ -145,15 +145,15 @@ export default {
     [CollapseItem.name]: CollapseItem,
     [List.name]: List,
     [Pagination.name]: Pagination,
-    runWorkflow,
+    runWorkflow
 
   },
-  data() {
+  data () {
     return {
       workflow: {},
       workflowTasks: [],
       actions: [
-        { name: '启动' },
+        { name: '启动' }
       ],
       total: 0,
       pageSize: 10,
@@ -164,119 +164,109 @@ export default {
       durationSet: {},
       forcedUserInput: {},
       loading: false,
-      finished: true,
+      finished: true
     }
   },
   methods: {
-    onSelectAction(action) {
+    onSelectAction (action) {
       if (action.name === '启动') {
-        this.runTask();
+        this.runTask()
       }
-      else if (action.name === '删除') {
-
-      }
-      this.showAction = false;
+      this.showAction = false
     },
-    onCancel() {
-      this.showAction = false;
+    onCancel () {
+      this.showAction = false
     },
-    runTask() {
-      this.taskDialogVisible = true;
-      this.forcedUserInput = {};
+    runTask () {
+      this.taskDialogVisible = true
+      this.forcedUserInput = {}
     },
-    hideAndFetchHistory() {
-      this.taskDialogVisible = false;
-      this.fetchHistory(0, this.pageSize);
+    hideAndFetchHistory () {
+      this.taskDialogVisible = false
+      this.fetchHistory(0, this.pageSize)
     },
-    fetchHistory(start, max) {
+    fetchHistory (start, max) {
       workflowTaskListAPI(this.workflowName, start, max).then(res => {
         res.data.forEach(element => {
           if (element.test_reports) {
-            let testArray = [];
+            const testArray = []
             for (const testName in element.test_reports) {
-              const val = element.test_reports[testName];
+              const val = element.test_reports[testName]
               if (typeof val === 'object') {
-                let struct = {
+                const struct = {
                   success: null,
                   total: null,
                   name: null,
                   type: null,
                   time: null,
                   img_id: null
-                };
-                if (val['functionTestSuite']) {
-                  struct.name = testName;
-                  struct.type = 'function';
-                  struct.success = (val['functionTestSuite'].tests - val['functionTestSuite'].failures - val['functionTestSuite'].errors);
-                  struct.total = val['functionTestSuite'].tests;
-                  struct.time = val['functionTestSuite'].time;
                 }
-                if (val['performanceTestSuite']) {
-                  struct.name = testName;
-                  struct.type = 'performance';
+                if (val.functionTestSuite) {
+                  struct.name = testName
+                  struct.type = 'function'
+                  struct.success = (val.functionTestSuite.tests - val.functionTestSuite.failures - val.functionTestSuite.errors)
+                  struct.total = val.functionTestSuite.tests
+                  struct.time = val.functionTestSuite.time
                 }
-                if (val['security']) {
-                  struct.type = 'security';
-                  for (const imgId in val['security']) {
-                    struct.img_id = imgId;
-                  }
-                }
-                testArray.push(struct);
+                testArray.push(struct)
               }
             }
-            element.testSummary = testArray;
+            element.testSummary = testArray
           }
-        });
-        this.workflowTasks = res.data;
-        this.total = res.total;
-      });
+        })
+        this.workflowTasks = res.data
+        this.total = res.total
+      })
     },
-    changeTaskPage(val) {
-      const start = (val - 1) * this.pageSize;
-      this.fetchHistory(start, this.pageSize);
+    changeTaskPage (val) {
+      const start = (val - 1) * this.pageSize
+      this.fetchHistory(start, this.pageSize)
     },
-    convertTimestamp(value) {
-      return moment.unix(value).format('MM-DD HH:mm');
+    convertTimestamp (value) {
+      return moment.unix(value).format('MM-DD HH:mm')
     },
-    myTranslate(word) {
-      return wordTranslate(word, 'pipeline', 'task');
+    myTranslate (word) {
+      return wordTranslate(word, 'pipeline', 'task')
     },
-    taskDuration(task_id, started) {
-      let refresh = () => {
-        let duration = Math.floor(Date.now() / 1000) - started;
-        this.$set(this.durationSet, task_id, duration);
-      };
-      setInterval(refresh, 1000);
-      return '';
-    },
+    taskDuration (task_id, started) {
+      const refresh = () => {
+        const duration = Math.floor(Date.now() / 1000) - started
+        this.$set(this.durationSet, task_id, duration)
+      }
+      setInterval(refresh, 1000)
+      return ''
+    }
   },
   computed: {
-    workflowName() {
-      return this.$route.params.workflow_name;
+    workflowName () {
+      return this.$route.params.workflow_name
     },
-    projectName() {
-      return this.$route.params.project_name;
-    },
+    projectName () {
+      return this.$route.params.project_name
+    }
   },
-  mounted() {
+  mounted () {
     workflowAPI(this.workflowName).then(res => {
-      this.workflow = res;
-    });
-    this.fetchHistory(0, this.pageSize);
-  },
+      this.workflow = res
+    })
+    this.fetchHistory(0, this.pageSize)
+  }
 }
 </script>
 <style lang="less">
 .mobile-pipelines-detail {
   padding-top: 46px;
   padding-bottom: 50px;
+
   .task-id {
     color: #1989fa;
   }
+
   .status,
   .env {
     margin-left: 8px;
   }
+
   .run-workflow {
     .el-dialog__body {
       padding: 8px 10px;
@@ -284,6 +274,7 @@ export default {
       font-size: 14px;
     }
   }
+
   .van-cell__label {
     white-space: nowrap;
   }

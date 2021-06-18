@@ -3,8 +3,7 @@
     <div class="top-bar-content">
       <div class="kr-top-bar-start">
         <span v-if="content.title"
-              class="kr-topbar-title"
-              style="">{{content.title}}</span>
+              class="kr-topbar-title">{{content.title}}</span>
         <el-breadcrumb v-if="content.breadcrumb && content.breadcrumb.length > 0"
                        separator=">">
           <el-breadcrumb-item v-for="(item,index) in content.breadcrumb"
@@ -138,21 +137,21 @@
                     </ul>
                   </li>
                 </ul>
-                  <ul v-if="$utils.roleCheck().superAdmin" 
+                <ul v-if="$utils.roleCheck().superAdmin"
                     class="profile-list profile-list__with-icon user-settings">
-                    <router-link to="/v1/enterprise">
-                      <li class="profile-list__item">
-                        <i class="iconfont icongeren"></i>
-                        <span class="profile-list__text">用户管理</span>
-                      </li>
-                    </router-link>
-                    <router-link to="/v1/system">
-                      <li class="profile-list__item">
-                        <i class="iconfont iconicon_jichengguanli"></i>
-                        <span class="profile-list__text">系统设置</span>
-                      </li>
-                    </router-link>
-                  </ul>
+                  <router-link to="/v1/enterprise">
+                    <li class="profile-list__item">
+                      <i class="iconfont icongeren"></i>
+                      <span class="profile-list__text">用户管理</span>
+                    </li>
+                  </router-link>
+                  <router-link to="/v1/system">
+                    <li class="profile-list__item">
+                      <i class="iconfont iconicon_jichengguanli"></i>
+                      <span class="profile-list__text">系统设置</span>
+                    </li>
+                  </router-link>
+                </ul>
                 <ul class="profile-list profile-list__with-icon">
                   <router-link to="/v1/profile/info">
                     <li class="profile-list__item">
@@ -185,20 +184,20 @@
   </div>
 </template>
 <script>
-import { userLogoutAPI } from '@api';
-import notification from './common/notification.vue';
-import storejs from '@node_modules/store/dist/store.legacy.js';
-import mixin from '@utils/topbar_mixin';
-import bus from '@utils/event_bus';
-import { mapGetters } from 'vuex';
+import { userLogoutAPI } from '@api'
+import notification from './common/notification.vue'
+import storejs from '@node_modules/store/dist/store.legacy.js'
+import mixin from '@utils/topbar_mixin'
+import bus from '@utils/event_bus'
+import { mapGetters } from 'vuex'
 export default {
-  data() {
+  data () {
     return {
       content: {
         title: '',
         breadcrumb: [],
-        productList: [],  
-      },
+        productList: []
+      }
     }
   },
   computed: {
@@ -206,65 +205,64 @@ export default {
       'k8sProductSelected'
     ]),
     selectedProduct: {
-      get() {
-        return this.k8sProductSelected;
+      get () {
+        return this.k8sProductSelected
       },
-      set(value) {
-        this.$store.commit('SET_K8S_PRODUCT_SELECTED', value);
-        return value;
-      },
+      set (value) {
+        this.$store.commit('SET_K8S_PRODUCT_SELECTED', value)
+        return value
+      }
     }
   },
   methods: {
-    logOut() {
+    logOut () {
       userLogoutAPI().then(
         response => {
-          storejs.remove('ZADIG_LOGIN_INFO');
+          storejs.remove('ZADIG_LOGIN_INFO')
           this.$message({
             message: '登出成功',
             type: 'success'
-          });
-          this.$store.dispatch('clearProjectTemplates');
+          })
+          this.$store.dispatch('clearProjectTemplates')
           if (this.showSSOBtn) {
-            window.location.href = this.redirectUrl;
-          }
-          else {
-            this.$router.push('/signin');
+            window.location.href = this.redirectUrl
+          } else {
+            this.$router.push('/signin')
           }
         }
-      );
+      )
     },
-    handleCommand(command) {
+    handleCommand (command) {
       if (command === 'logOut') {
-        this.logOut();
+        this.logOut()
       }
     },
-    changeTitle(params) {
-      this.content = params;
+    changeTitle (params) {
+      this.content = params
       if (this.content.productList) {
         if (!this.selectedProduct) {
-          this.selectedProduct = this.content.productList[0].name;
+          this.selectedProduct = this.content.productList[0].name
         }
       }
     },
-    changeSelectedProduct() {
-      for (let pro of this.content.productList) {
+    changeSelectedProduct () {
+      for (const pro of this.content.productList) {
         if (pro.name === this.selectedProduct) {
-          this.$router.push(pro.url);
-          break;
+          this.$router.push(pro.url)
+          break
         }
       }
     },
-    deletePlutusProduct(productName) {
-      this.$refs.plutusProductSelect.blur();
-      this.$store.commit('SET_DELETE_PRODUCT_SELECTED', productName);
+    deletePlutusProduct (productName) {
+      this.$refs.plutusProductSelect.blur()
+      this.$store.commit('SET_DELETE_PRODUCT_SELECTED', productName)
     }
   },
-  created() {
-    this.$store.commit('INJECT_PROFILE', storejs.get('ZADIG_LOGIN_INFO'));
+  created () {
+    this.$store.commit('INJECT_PROFILE', storejs.get('ZADIG_LOGIN_INFO'))
     bus.$on('set-topbar-title', (params) => {
-      this.changeTitle(params);
-    });
+      this.changeTitle(params)
+    })
   },
   components: {
     notification
@@ -277,234 +275,259 @@ export default {
   display: flex;
   align-items: center;
   color: #44504f;
-  cursor: pointer;
   line-height: 60px;
+  cursor: pointer;
+
   .username {
-    margin-left: 10px;
     display: inline-block;
+    margin-left: 10px;
     font-size: 16px;
   }
+
   .el-icon--right {
     margin-left: 25px;
   }
 }
+
 .help-droplist {
   .dropdown-menu {
-    padding: 8px 0px;
     margin: 0 2px;
+    padding: 8px 0;
     list-style: none;
+
     .divider {
       height: 1px;
       margin: 9px 0;
       overflow: hidden;
       background-color: #e5e5e5;
     }
+
     li {
+      & > a {
+        display: block;
+        clear: both;
+        padding: 3px 20px;
+        padding: 4px 0 4px 5px;
+        color: #333;
+        font-weight: normal;
+        line-height: 1.42857143;
+        white-space: nowrap;
+
+        .icon {
+          position: relative;
+          margin-right: 5px;
+          font-size: 16px;
+        }
+      }
+
       &:hover {
         color: #262626;
         text-decoration: none;
         background-color: #f5f5f5;
+
         & > a {
           color: #1989fa;
         }
       }
     }
-    li > a {
-      display: block;
-      padding: 3px 20px;
-      clear: both;
-      font-weight: normal;
-      line-height: 1.42857143;
-      color: #333;
-      white-space: nowrap;
-      .icon {
-        font-size: 16px;
-        position: relative;
-        margin-right: 5px;
-      }
-    }
-    li > a {
-      padding: 4px 0px 4px 5px;
-    }
   }
 }
+
 .flex {
   display: flex;
+
   .profile-menu__list {
     width: 100%;
     padding: 8px 21px 2px 14px;
+
     .profile-list {
-      list-style-type: none;
       margin: 0;
       padding: 10px 0;
+      list-style-type: none;
       border-bottom: 1px solid #dbdbdb;
+
       .profile-list__item-nested {
         padding: 0;
+
         .title {
           margin-bottom: 5px;
         }
       }
+
       .profile-list__item {
-        font-size: 13px;
         padding: 5px 0;
+        font-size: 13px;
+
+        .profile-list__text {
+          color: #434548;
+        }
+
         &:hover {
           .profile-list__text {
             color: #1989fa;
           }
         }
-        .profile-list__text {
-          color: #434548;
-        }
+
         i {
-          color: #3a8ee6;
           display: inline-block;
-          text-align: center;
           width: 20px;
           margin-right: 10px;
+          color: #3a8ee6;
           font-size: 16px;
+          text-align: center;
         }
+
         .logout {
           cursor: pointer;
         }
       }
+
       &.content {
         padding: 0;
         border-bottom: none;
+
         .profile-list__item {
           font-weight: normal;
         }
       }
+
       &:last-child {
         border-bottom: none;
       }
     }
   }
 }
+
 .kr-top-bar {
-  z-index: 1010;
   top: 0;
-  left: 66px;
   right: 0;
-  padding: 0 20px;
-  background-color: #fff;
+  left: 66px;
+  z-index: 1010;
   height: 60px;
+  padding: 0 20px;
   color: #44504f;
   font-size: 14px;
+  background-color: #fff;
   border-bottom: 1px solid #ebedef;
-  height: 60px;
+
   .top-bar-content {
     display: -webkit-box;
     display: -ms-flexbox;
     display: flex;
-    -webkit-box-align: center;
-    -ms-flex-align: center;
     align-items: center;
-    -webkit-box-pack: justify;
-    -ms-flex-pack: justify;
     justify-content: space-between;
     width: 100%;
     height: 100%;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
+    -webkit-box-pack: justify;
+    -ms-flex-pack: justify;
+
     .kr-top-bar-start {
       display: flex;
-      align-items: center;
-      justify-content: flex-start;
-      min-width: 0;
-      flex-shrink: 1;
-      margin-right: 10px;
       flex: 0 1 auto;
       flex-basis: auto;
       flex-grow: 1;
+      flex-shrink: 1;
+      align-items: center;
+      justify-content: flex-start;
+      min-width: 0;
+      margin-right: 10px;
+
       span {
         &.kr-topbar-title {
+          display: block;
+          flex-grow: 0;
+          overflow: hidden;
+          font-weight: 300;
+          font-size: 21px;
           white-space: nowrap;
           text-overflow: ellipsis;
-          overflow: hidden;
-          flex-grow: 0;
-          display: block;
-          font-size: 21px;
-          font-weight: 300;
         }
       }
+
       .el-breadcrumb {
         font-size: 16px;
       }
     }
+
     .kr-top-bar-end {
       display: -webkit-box;
       display: -ms-flexbox;
       display: flex;
+      flex-grow: 0;
+      flex-shrink: 0;
+      align-items: center;
+      justify-content: space-between;
       -webkit-box-align: center;
       -ms-flex-align: center;
-      align-items: center;
       -webkit-box-pack: justify;
       -ms-flex-pack: justify;
-      justify-content: space-between;
       -webkit-box-flex: 0;
       -ms-flex-positive: 0;
-      flex-grow: 0;
       -ms-flex-negative: 0;
-      flex-shrink: 0;
+
       * {
         max-height: 100%;
       }
+
       .icon {
+        color: #4c4c4c;
         font-size: 20px;
         cursor: pointer;
-        color: #4c4c4c;
+
         &:hover {
           color: #1989fa;
         }
       }
+
       .notify {
-        line-height: 60px;
         font-size: 20px;
-      }
-      .system-summary {
-        line-height: 15px;
-        font-size: 15px;
-        margin-right: 30px;
-        color: #4c4c4c;
-        &:hover {
-          color: #1989fa;
-          i {
-            color: #1989fa;
-          }
-        }
-        i {
-          margin-right: 5px;
-          font-size: 20px;
-          color: rgba(0, 0, 0, 0.19);
-          line-height: 60px;
-          display: inline-block;
-        }
-      }
-      .help {
         line-height: 60px;
-        margin-right: 45px;
+      }
+
+      .system-summary {
+        margin-right: 30px;
+        line-height: 15px;
+      }
+
+      .help {
         display: block;
+        margin-right: 45px;
+        line-height: 60px;
+        cursor: pointer;
+
+        .text {
+          display: inline-block;
+          line-height: 60px;
+        }
+      }
+
+      .system-summary,
+      .help {
         color: #4c4c4c;
         font-size: 15px;
-        cursor: pointer;
+
+        i {
+          display: inline-block;
+          margin-right: 5px;
+          color: rgba(0, 0, 0, 0.19);
+          font-size: 20px;
+          line-height: 60px;
+        }
+
         &:hover {
           color: #1989fa;
+
           i {
             color: #1989fa;
           }
         }
-        i {
-          margin-right: 5px;
-          font-size: 20px;
-          color: rgba(0, 0, 0, 0.19);
-          line-height: 60px;
-          display: inline-block;
-        }
-        .text {
-          line-height: 60px;
-          display: inline-block;
-        }
       }
+
       .user-profile {
         margin-left: 80px;
+
         .menu-avatar {
           width: 40px;
           height: 40px;
@@ -514,22 +537,26 @@ export default {
     }
   }
 }
+
 .el-select-dropdown.el-popper {
   .el-scrollbar {
     .el-select-dropdown__item {
       .k8s-product-option {
         position: relative;
+
         span {
           padding-right: 20px;
         }
+
         i {
-          visibility: hidden;
           position: absolute;
           right: 0;
-          cursor: pointer;
-          line-height: 34px;
           padding-left: 8px;
+          line-height: 34px;
+          visibility: hidden;
+          cursor: pointer;
         }
+
         &:hover {
           i {
             visibility: visible;

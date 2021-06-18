@@ -2,7 +2,7 @@
   <div class="test-trigger">
     <!-- start of edit webhook dialog -->
     <el-dialog width="40%"
-                :title="webhookEditMode?'修改触发器配置':'添加触发器'"
+               :title="webhookEditMode?'修改触发器配置':'添加触发器'"
                :visible.sync="showWebhookDialog"
                :close-on-click-modal="false"
                custom-class="add-trigger-dialog"
@@ -41,15 +41,15 @@
         <el-form-item v-if="webhookSwap.repo.source==='gerrit'"
                       label="触发事件">
           <el-checkbox-group v-model="webhookSwap.events">
-            <el-checkbox style="display:block"
+            <el-checkbox style="display: block;"
                          label="change-merged"></el-checkbox>
-            <el-checkbox style="display:block"
+            <el-checkbox style="display: block;"
                          label="patchset-created">
               <template v-if="webhookSwap.events.includes('patchset-created')">
                 <span>patchset-created</span>
-                <span style="color:#606266">评分标签</span>
+                <span style="color: #606266;">评分标签</span>
                 <el-input size="mini"
-                          style="width:250px"
+                          style="width: 250px;"
                           v-model="webhookSwap.repo.label"
                           placeholder="Code-Review"></el-input>
               </template>
@@ -84,7 +84,7 @@
                     placeholder="输入目录时，多个目录请用回车换行分隔"></el-input>
         </el-form-item>
         <ul v-if="webhookSwap.repo.source!=='gerrit'"
-            style="padding-left:80px">
+            style="padding-left: 80px;">
           <li> "/" 表示代码库中的所有文件</li>
           <li> 用 "!" 符号开头可以排除相应的文件</li>
         </ul>
@@ -108,7 +108,7 @@
         <div v-if="webhook.enabled && webhook.items.length >0"
              class="trigger-list">
           <el-table :data="webhook.items"
-                    style="width: 100%">
+                    style="width: 100%;">
             <el-table-column label="代码库拥有者">
               <template slot-scope="scope">
                 <span>{{ scope.row.main_repo.repo_owner }}</span>
@@ -158,9 +158,9 @@
 </template>
 
 <script type="text/javascript">
-import { getBranchInfoByIdAPI } from '@api';
+import { getBranchInfoByIdAPI } from '@api'
 export default {
-  data() {
+  data () {
     return {
       showTriggerParamsDialog: false,
       webhookBranches: {},
@@ -172,8 +172,8 @@ export default {
       },
       currenteditWebhookIndex: null,
       webhookEditMode: false,
-      webhookAddMode: false,
-    };
+      webhookAddMode: false
+    }
   },
   props: {
     webhook: {
@@ -199,32 +199,32 @@ export default {
     }
   },
   methods: {
-    editWebhook(index) {
-      this.webhookEditMode = true;
-      this.currenteditWebhookIndex = index;
-      let webhookSwap = this.$utils.cloneObj(this.webhook.items[index]);
-      this.getBranchInfoById(webhookSwap.main_repo.codehost_id, webhookSwap.main_repo.repo_owner, webhookSwap.main_repo.repo_name);
+    editWebhook (index) {
+      this.webhookEditMode = true
+      this.currenteditWebhookIndex = index
+      const webhookSwap = this.$utils.cloneObj(this.webhook.items[index])
+      this.getBranchInfoById(webhookSwap.main_repo.codehost_id, webhookSwap.main_repo.repo_owner, webhookSwap.main_repo.repo_name)
       this.webhookSwap = {
         auto_cancel: webhookSwap.auto_cancel,
         repo: webhookSwap.main_repo,
         events: webhookSwap.main_repo.events,
-        match_folders: webhookSwap.main_repo.match_folders.join('\n'),
+        match_folders: webhookSwap.main_repo.match_folders.join('\n')
       }
     },
-    addWebhookBtn() {
-      this.webhookAddMode = true;
-      this.webhook.enabled = true;
+    addWebhookBtn () {
+      this.webhookAddMode = true
+      this.webhook.enabled = true
       this.webhookSwap = {
         auto_cancel: false,
         repo: {},
         events: [],
         match_folders: '/\n!.md'
-      };
+      }
     },
-    addWebhook() {
-      let webhookSwap = this.$utils.cloneObj(this.webhookSwap);
-      webhookSwap.repo.match_folders = webhookSwap.match_folders.split('\n');
-      webhookSwap.repo.events = webhookSwap.events;
+    addWebhook () {
+      const webhookSwap = this.$utils.cloneObj(this.webhookSwap)
+      webhookSwap.repo.match_folders = webhookSwap.match_folders.split('\n')
+      webhookSwap.repo.events = webhookSwap.events
       this.webhook.items.push({
         main_repo: webhookSwap.repo,
         auto_cancel: webhookSwap.auto_cancel,
@@ -232,20 +232,20 @@ export default {
           test_name: this.testName,
           product_name: this.projectName
         }
-      });
+      })
       this.webhookSwap = {
         auto_cancel: false,
         repo: {},
         events: [],
-        match_folders: '/\n!.md',
-      };
-      this.webhookAddMode = false;
+        match_folders: '/\n!.md'
+      }
+      this.webhookAddMode = false
     },
-    saveWebhook() {
-      const index = this.currenteditWebhookIndex;
-      let webhookSwap = this.$utils.cloneObj(this.webhookSwap);
-      webhookSwap.repo.match_folders = webhookSwap.match_folders.split('\n');
-      webhookSwap.repo.events = webhookSwap.events;
+    saveWebhook () {
+      const index = this.currenteditWebhookIndex
+      const webhookSwap = this.$utils.cloneObj(this.webhookSwap)
+      webhookSwap.repo.match_folders = webhookSwap.match_folders.split('\n')
+      webhookSwap.repo.events = webhookSwap.events
       this.$set(this.webhook.items, index, {
         auto_cancel: webhookSwap.auto_cancel,
         main_repo: webhookSwap.repo,
@@ -253,53 +253,49 @@ export default {
           test_name: this.testName,
           product_name: this.projectName
         }
-      });
+      })
       this.webhookSwap = {
         auto_cancel: false,
         repo: {},
         events: [],
-        match_folders: '/\n!.md',
-      };
-      this.webhookEditMode = false;
+        match_folders: '/\n!.md'
+      }
+      this.webhookEditMode = false
     },
-    deleteWebhook(index) {
-      this.webhook.items.splice(index, 1);
+    deleteWebhook (index) {
+      this.webhook.items.splice(index, 1)
       if (this.webhook.items.length === 0) {
-        this.webhook.enabled = false;
+        this.webhook.enabled = false
       }
     },
-    getBranchInfoById(id, repo_owner, repo_name) {
+    getBranchInfoById (id, repo_owner, repo_name) {
       getBranchInfoByIdAPI(id, repo_owner, repo_name).then((res) => {
-        this.$set(this.webhookBranches, repo_name, res);
-      });
+        this.$set(this.webhookBranches, repo_name, res)
+      })
     },
-    repoChange(currentRepo) {
-      this.webhookSwap.events = [];
-      this.getBranchInfoById(currentRepo.codehost_id, currentRepo.repo_owner, currentRepo.repo_name);
+    repoChange (currentRepo) {
+      this.webhookSwap.events = []
+      this.getBranchInfoById(currentRepo.codehost_id, currentRepo.repo_owner, currentRepo.repo_name)
     }
   },
   computed: {
     showWebhookDialog: {
       get: function () {
-        return this.webhookAddMode ? this.webhookAddMode : this.webhookEditMode;
+        return this.webhookAddMode ? this.webhookAddMode : this.webhookEditMode
       },
       set: function (newValue) {
-        this.webhookAddMode ? this.webhookAddMode = newValue : this.webhookEditMode = newValue;
+        this.webhookAddMode ? this.webhookAddMode = newValue : this.webhookEditMode = newValue
       }
     },
     webhookRepos: {
       get: function () {
-        return this.avaliableRepos;
+        return this.avaliableRepos
       }
-    },
+    }
   },
-  created() {
-
-  },
-
   components: {
   }
-};
+}
 </script>
 
 <style lang="less">
@@ -308,23 +304,28 @@ export default {
     .el-card__header {
       text-align: center;
     }
+
     .el-form {
       .el-form-item {
         margin-bottom: 5px;
+
         .env-form-inline {
           width: 100%;
         }
       }
     }
+
     .el-card__body {
-      padding: 0px;
+      padding: 0;
     }
+
     .divider {
-      height: 1px;
-      background-color: #dfe0e6;
-      margin: 13px 0;
       width: 100%;
+      height: 1px;
+      margin: 13px 0;
+      background-color: #dfe0e6;
     }
+
     .help-link {
       color: #1989fa;
     }
@@ -334,17 +335,19 @@ export default {
     }
 
     .script {
-      padding: 5px 0px;
+      padding: 5px 0;
+
       .title {
         display: inline-block;
+        width: 100px;
+        padding-top: 6px;
         color: #606266;
         font-size: 14px;
-        padding-top: 6px;
-        width: 100px;
       }
+
       .item-title {
-        color: #909399;
         margin-left: 5px;
+        color: #909399;
       }
     }
   }

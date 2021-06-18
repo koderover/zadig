@@ -49,7 +49,7 @@ export const permissions = [
       },
       {
         name: '更新镜像/重启实例',
-        uuid: '40010',
+        uuid: '40010'
       },
       {
         name: '删除集成环境',
@@ -57,4 +57,4 @@ export const permissions = [
       }
     ]
   }
-];
+]

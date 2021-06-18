@@ -12,64 +12,61 @@
   </div>
 </template>
 <script>
-import { mapGetters } from 'vuex';
-import bus from '@utils/event_bus';
+import { mapGetters } from 'vuex'
+import bus from '@utils/event_bus'
 export default {
-  data() {
+  data () {
     return {
       loading: true,
       jumpPath: ''
     }
   },
   methods: {
-    async getProducts() {
-      const availableProjectNames = [];
+    async getProducts () {
+      await this.$store.dispatch('getProductListSSE').closeWhenDestroy(this)
 
-      await this.$store.dispatch('getProductListSSE').closeWhenDestroy(this);
+      const availableProducts = this.currentProjectProductList
 
-      const availableProducts = this.currentProjectProductList;
-
-      this.loading = false;
+      this.loading = false
 
       if (availableProducts.length > 0) {
-        let useProduct = availableProducts.filter(product => !product.is_prod)[0] || availableProducts[0];
-        this.jumpPath = `/v1/projects/detail/${this.projectName}/envs/detail?envName=${useProduct.env_name}`;
+        const useProduct = availableProducts.filter(product => !product.is_prod)[0] || availableProducts[0]
+        this.jumpPath = `/v1/projects/detail/${this.projectName}/envs/detail?envName=${useProduct.env_name}`
       } else if (availableProducts.length === 0) {
-        this.jumpPath = `/v1/projects/detail/${this.projectName}/envs/create`;
+        this.jumpPath = `/v1/projects/detail/${this.projectName}/envs/create`
       }
 
       if (this.$route.params.service_name || this.$route.query.envName) {
-        return;
+        return
       }
-      this.jumpPath && this.$router.push(this.jumpPath);
-
+      this.jumpPath && this.$router.push(this.jumpPath)
     }
   },
   computed: {
-    projectName() {
-      return this.$route.params.project_name;
+    projectName () {
+      return this.$route.params.project_name
     },
-    currentProjectProductList() {
+    currentProjectProductList () {
       return this.productList.filter(element => {
-        return element.product_name === this.projectName;
-      });
+        return element.product_name === this.projectName
+      })
     },
     ...mapGetters([
       'productList'
     ])
   },
-  beforeRouteUpdate(to, from, next) {
-    if (!this.jumpPath || to.meta.title === "创建环境") {
-      next();
+  beforeRouteUpdate (to, from, next) {
+    if (!this.jumpPath || to.meta.title === '创建环境') {
+      next()
     } else if (!to.params.service_name && !to.query.envName) {
-      next({ path: this.jumpPath });
+      next({ path: this.jumpPath })
     } else {
-      next();
+      next()
     }
   },
-  mounted() {
-    bus.$emit(`set-topbar-title`, { title: '', breadcrumb: [] });
-    bus.$emit(`set-sub-sidebar-title`, {
+  mounted () {
+    bus.$emit('set-topbar-title', { title: '', breadcrumb: [] })
+    bus.$emit('set-sub-sidebar-title', {
       title: this.projectName,
       url: `/v1/projects/detail/${this.projectName}`,
       routerList: [
@@ -77,33 +74,36 @@ export default {
         { name: '集成环境', url: `/v1/projects/detail/${this.projectName}/envs` },
         { name: '服务', url: `/v1/projects/detail/${this.projectName}/services` },
         { name: '构建', url: `/v1/projects/detail/${this.projectName}/builds` },
-        ]
-    });
+        { name: '测试', url: `/v1/projects/detail/${this.projectName}/test` }]
+    })
     if (this.$route.query.outer) {
-      this.loading = false;
-      return;
+      this.loading = false
+      return
     }
-    this.getProducts();
+    this.getProducts()
   }
-};
+}
 </script>
 
 <style lang="less" >
 .project-home {
-  flex: 1;
   position: relative;
-  overflow: hidden;
   display: flex;
+  flex: 1;
   padding: 15px 20px;
+  overflow: hidden;
+
   .no-show {
     margin: auto;
+
     img {
       width: 460px;
       height: 460px;
     }
+
     p {
-      font-size: 15px;
       color: #606266;
+      font-size: 15px;
     }
   }
 }

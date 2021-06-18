@@ -121,11 +121,11 @@
   </div>
 </template>
 <script>
-import bus from '@utils/event_bus';
-import step from './common/step.vue';
-import { generateEnvAPI, generatePipeAPI } from '@api';
+import bus from '@utils/event_bus'
+import step from './common/step.vue'
+import { generateEnvAPI, generatePipeAPI } from '@api'
 export default {
-  data() {
+  data () {
     return {
       envStatus: [{ env_name: 'dev' }, { env_name: 'qa' }],
       pipeStatus: {},
@@ -134,111 +134,103 @@ export default {
       pipeTimer: 0,
       secondCount: 0,
       timeOut: 0,
-      jumpLoading: false,
+      jumpLoading: false
     }
   },
   methods: {
-    jumpEnv() {
+    jumpEnv () {
       this.$confirm('确认跳出后就不再进入 onboarding 流程。', '确认跳出产品交付向导？', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
-        type: 'warning',
+        type: 'warning'
       }).then(() => {
-        this.jumpLoading = true;
+        this.jumpLoading = true
         this.saveOnboardingStatus(this.projectName, 0).then((res) => {
-          this.$router.push(`/v1/projects/detail/${this.projectName}/envs`);
+          this.$router.push(`/v1/projects/detail/${this.projectName}/envs`)
         }).catch(() => {
-          this.jumpLoading = false;
+          this.jumpLoading = false
         })
       }).catch(() => {
-        this.$message.info('取消跳转');
+        this.$message.info('取消跳转')
       })
     },
-    generateEnv(projectName, envType) {
+    generateEnv (projectName, envType) {
       const getEnv = new Promise((resolve, reject) => {
         generateEnvAPI(projectName, envType).then((res) => {
-          this.$set(this, 'envStatus', res);
-          resolve(res);
+          this.$set(this, 'envStatus', res)
+          resolve(res)
         }).catch((err) => {
           console.log(err)
         })
-      });
+      })
       getEnv.then((env_res) => {
-        const successResult = env_res.filter(env => env.status === 'Running');
-        const failureResult = env_res.filter(env => (env.err_message && env.err_message !== ''));
+        const successResult = env_res.filter(env => env.status === 'Running')
+        const failureResult = env_res.filter(env => (env.err_message && env.err_message !== ''))
         if (successResult.length === 2) {
-          clearInterval(this.envTimer);
-          this.timeOut = false;
-          this.getResult = true;
+          clearInterval(this.envTimer)
+          this.timeOut = false
+          this.getResult = true
         }
         if (failureResult.length >= 1) {
-          clearInterval(this.envTimer);
-          this.timeOut = false;
-          this.getResult = true;
+          clearInterval(this.envTimer)
+          this.timeOut = false
+          this.getResult = true
         }
         if (this.secondCount === 60) {
-          clearInterval(this.envTimer);
-          this.timeOut = true;
-          this.getResult = true;
+          clearInterval(this.envTimer)
+          this.timeOut = true
+          this.getResult = true
         }
         this.pipeTimer = setInterval(() => {
-          this.generatePipe(this.projectName);
-        }, 1000);
-
+          this.generatePipe(this.projectName)
+        }, 1000)
       })
-
     },
-    generatePipe(projectName) {
+    generatePipe (projectName) {
       if (this.pipeStatus.status === 'success') {
-        clearInterval(this.pipeTimer);
+        clearInterval(this.pipeTimer)
       } else {
         generatePipeAPI(projectName).then((res) => {
-          this.$set(this, 'pipeStatus', res);
+          this.$set(this, 'pipeStatus', res)
         })
       }
-    },
+    }
   },
   computed: {
-    projectName() {
-      return this.$route.params.project_name;
+    projectName () {
+      return this.$route.params.project_name
     },
-    envSuccess() {
-      const result = this.envStatus.filter(env => env.status === 'Running');
-      return result;
+    envSuccess () {
+      const result = this.envStatus.filter(env => env.status === 'Running')
+      return result
     },
-    envType() {
-      return this.$route.query.serviceType;
+    envType () {
+      return this.$route.query.serviceType
     },
-    envFailure() {
-      const result = this.envStatus.filter(env => (env.err_message && env.err_message !== ''));
-      return result;
+    envFailure () {
+      const result = this.envStatus.filter(env => (env.err_message && env.err_message !== ''))
+      return result
     }
   },
-  watch: {
-    secondCount: function (new_val, old_val) {
-      if (new_val === 60 && this.envSuccess.length < 2) {
-      }
-    }
-  },
-  created() {
+  created () {
     if (this.envTimer) {
       clearInterval(this.envTimer)
     } else {
       this.envTimer = setInterval(() => {
-        this.secondCount++;
-        this.generateEnv(this.projectName, this.envType);
+        this.secondCount++
+        this.generateEnv(this.projectName, this.envType)
       }, 1000)
     };
-    bus.$emit(`show-sidebar`, true);
-    bus.$emit(`set-topbar-title`, { title: '', breadcrumb: [{ title: '项目', url: '/v1/projects' }, { title: this.projectName, url: '' }] });
-    bus.$emit(`set-sub-sidebar-title`, {
+    bus.$emit('show-sidebar', true)
+    bus.$emit('set-topbar-title', { title: '', breadcrumb: [{ title: '项目', url: '/v1/projects' }, { title: this.projectName, url: '' }] })
+    bus.$emit('set-sub-sidebar-title', {
       title: '',
       routerList: []
-    });
+    })
   },
-  beforeDestroy() {
-    clearInterval(this.envTimer);
-    clearInterval(this.pipeTimer);
+  beforeDestroy () {
+    clearInterval(this.envTimer)
+    clearInterval(this.pipeTimer)
   },
   components: {
     step
@@ -249,42 +241,96 @@ export default {
 
 <style lang="less">
 .projects-runtime-container {
-  flex: 1;
   position: relative;
+  flex: 1;
   overflow: auto;
   background-color: #f5f7f7;
 
   .page-title-container {
     display: flex;
     padding: 0 20px;
+
     h1 {
-      text-align: center;
       width: 100%;
       color: #4c4c4c;
       font-weight: 300;
+      text-align: center;
     }
   }
+
+  .controls__wrap {
+    position: relative;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+    margin: 0 15px;
+    padding: 0 10px;
+    background-color: #fff;
+    box-shadow: 0 4px 4px 0 rgba(0, 0, 0, 0.05);
+
+    & > * {
+      margin-right: 10px;
+    }
+
+    .controls__right {
+      display: -webkit-box;
+      display: -ms-flexbox;
+      display: flex;
+      align-items: center;
+      -webkit-box-align: center;
+      -ms-flex-align: center;
+
+      .save-btn {
+        margin-right: 15px;
+        padding: 10px 17px;
+        color: #fff;
+        font-weight: bold;
+        font-size: 13px;
+        text-decoration: none;
+        background-color: #1989fa;
+        border: 1px solid #1989fa;
+        cursor: pointer;
+        transition: background-color 300ms, color 300ms, border 300ms;
+      }
+
+      .save-btn[disabled] {
+        background-color: #9ac9f9;
+        border: 1px solid #9ac9f9;
+        cursor: not-allowed;
+      }
+    }
+  }
+
   .guide-container {
-    margin-top: 10px;
     min-height: calc(~"100% - 70px");
+    margin-top: 10px;
+
     .current-step-container {
       .title-container {
         margin-left: 20px;
+
         .first {
-          font-size: 18px;
-          background: #3289e4;
-          color: #fff;
-          font-weight: 300;
-          padding: 8px;
           display: inline-block;
           width: 110px;
+          padding: 8px;
+          color: #fff;
+          font-weight: 300;
+          font-size: 18px;
           text-align: center;
+          background: #3289e4;
         }
+
         .second {
-          font-size: 13px;
           color: #4c4c4c;
+          font-size: 13px;
         }
       }
+
       .account-integrations {
         .el-alert--warning {
           .el-button--text {
@@ -292,141 +338,114 @@ export default {
           }
         }
       }
+
       .cf-block__list {
-        -webkit-box-flex: 1;
         -ms-flex: 1;
         flex: 1;
+        margin-top: 15px;
+        padding: 0 30px;
         overflow-y: auto;
         background-color: inherit;
-        padding: 0 30px;
-        margin-top: 15px;
+        -webkit-box-flex: 1;
+
         .title {
           h4 {
-            color: #4c4c4c;
             margin: 10px 0;
+            color: #4c4c4c;
             font-weight: 400;
             text-decoration: underline;
           }
+
           a {
             color: inherit;
             text-decoration-color: inherit;
           }
         }
+
         .cf-block__item {
           min-height: 102px;
+
           .account-box-item {
             display: -webkit-box;
             display: -ms-flexbox;
             display: flex;
-            -webkit-box-align: center;
-            -ms-flex-align: center;
             align-items: center;
-            -webkit-box-pack: justify;
-            -ms-flex-pack: justify;
             justify-content: space-between;
             margin-bottom: 10px;
             padding: 20px 30px;
             background-color: #fff;
             -webkit-box-shadow: 0 3px 2px 1px rgba(0, 0, 0, 0.05);
             box-shadow: 0 3px 2px 1px rgba(0, 0, 0, 0.05);
-            filter: progid:DXImageTransform.Microsoft.dropshadow(OffX=0, OffY=3px, Color='#0D000000');
+            filter: progid:dximagetransform.microsoft.dropshadow(OffX=0, OffY=3px, Color='#0D000000');
+            -webkit-box-align: center;
+            -ms-flex-align: center;
+            -webkit-box-pack: justify;
+            -ms-flex-pack: justify;
+
             .integration-card {
               display: -webkit-box;
               display: -ms-flexbox;
               display: flex;
+              align-items: center;
+              justify-content: flex-start;
               -webkit-box-align: center;
               -ms-flex-align: center;
-              align-items: center;
               -webkit-box-pack: start;
               -ms-flex-pack: start;
-              justify-content: flex-start;
+
               .integration-card__image {
                 width: 64px;
+
                 .el-button.is-circle {
-                  border-radius: 50%;
                   padding: 6px;
+                  border-radius: 50%;
                 }
               }
+
               .cf-sub-title {
-                font-size: 16px;
-                font-weight: bold;
-                text-align: left;
                 color: #2f2f2f;
+                font-weight: bold;
+                font-size: 16px;
+                text-align: left;
               }
+
               .integration-details {
                 margin-bottom: 5px;
                 color: #4c4c4c;
-                line-height: 20px;
                 font-size: 14px;
+                line-height: 20px;
+
                 .env-name {
                   display: inline-block;
                 }
+
                 .desc {
                   display: inline-block;
                   width: 250px;
                 }
               }
             }
+
             .integration-card > * {
-              -webkit-box-flex: 0;
               -ms-flex: 0 0 auto;
               flex: 0 0 auto;
+              -webkit-box-flex: 0;
             }
           }
         }
       }
     }
   }
+
   .alert {
     display: flex;
     padding: 0 25px;
+
     .el-alert {
       margin-bottom: 35px;
+
       .el-alert__title {
         font-size: 15px;
-      }
-    }
-  }
-  .controls__wrap {
-    position: relative;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 60px;
-    background-color: #fff;
-    padding: 0 10px;
-    z-index: 2;
-    margin: 0 15px;
-    box-shadow: 0 4px 4px 0 rgba(0, 0, 0, 0.05);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    > * {
-      margin-right: 10px;
-    }
-    .controls__right {
-      display: -webkit-box;
-      display: -ms-flexbox;
-      display: flex;
-      -webkit-box-align: center;
-      -ms-flex-align: center;
-      align-items: center;
-      .save-btn {
-        text-decoration: none;
-        background-color: #1989fa;
-        color: #fff;
-        padding: 10px 17px;
-        border: 1px solid #1989fa;
-        font-size: 13px;
-        font-weight: bold;
-        transition: background-color 300ms, color 300ms, border 300ms;
-        cursor: pointer;
-        margin-right: 15px;
-      }
-      .save-btn[disabled] {
-        background-color: #9ac9f9;
-        border: 1px solid #9ac9f9;
-        cursor: not-allowed;
       }
     }
   }

@@ -2,7 +2,7 @@
   <div class="trigger">
     <!-- start of edit webhook dialog -->
     <el-dialog width="40%"
-                :title="webhookEditMode?'修改触发器配置':'添加触发器'"
+               :title="webhookEditMode?'修改触发器配置':'添加触发器'"
                :visible.sync="showWebhookDialog"
                :close-on-click-modal="false"
                @close="closeWebhookDialog"
@@ -128,15 +128,15 @@
         <el-form-item v-if="webhookSwap.repo.source==='gerrit'"
                       label="触发事件">
           <el-checkbox-group v-model="webhookSwap.events">
-            <el-checkbox style="display:block"
+            <el-checkbox style="display: block;"
                          label="change-merged"></el-checkbox>
-            <el-checkbox style="display:block"
+            <el-checkbox style="display: block;"
                          label="patchset-created">
               <template v-if="webhookSwap.events.includes('patchset-created')">
                 <span>patchset-created</span>
-                <span style="color:#606266">评分标签</span>
+                <span style="color: #606266;">评分标签</span>
                 <el-input size="mini"
-                          style="width:250px"
+                          style="width: 250px;"
                           v-model="webhookSwap.repo.label"
                           placeholder="Code-Review"></el-input>
               </template>
@@ -179,7 +179,7 @@
                     placeholder="输入目录时，多个目录请用回车换行分隔"></el-input>
         </el-form-item>
         <ul v-if="webhookSwap.repo.source!=='gerrit'"
-            style="padding-left:80px">
+            style="padding-left: 80px;">
           <li> "/" 表示代码库中的所有文件</li>
           <li> 用 "!" 符号开头可以排除相应的文件</li>
         </ul>
@@ -257,7 +257,7 @@
                        type="text">添加配置</el-button>
             <el-table class="add-border"
                       :data="webhook.items"
-                      style="width: 100%">
+                      style="width: 100%;">
               <el-table-column label="代码库拥有者">
                 <template slot-scope="scope">
                   <span>{{ scope.row.main_repo.repo_owner }}</span>
@@ -313,12 +313,12 @@
 </template>
 
 <script type="text/javascript">
-import bus from '@utils/event_bus';
-import workflowArgs from '../container/workflow_args.vue';
-import { mapGetters } from 'vuex';
-import { listProductAPI, getBranchInfoByIdAPI } from '@api';
+import bus from '@utils/event_bus'
+import workflowArgs from '../container/workflow_args.vue'
+import { mapGetters } from 'vuex'
+import { listProductAPI, getBranchInfoByIdAPI } from '@api'
 export default {
-  data() {
+  data () {
     return {
       testInfos: [],
       currentForcedUserInput: {},
@@ -329,7 +329,8 @@ export default {
         events: [],
         targets: [],
         namespace: '',
-        env_update_policy: 'all',  // 'all' 'single' 'base'
+        // 'all' 'single' 'base'
+        env_update_policy: 'all',
         auto_cancel: false,
         check_patch_set_change: false,
         base_namespace: '',
@@ -341,7 +342,7 @@ export default {
       webhookAddMode: false,
       showEnvUpdatePolicy: false,
       firstShowPolicy: false
-    };
+    }
   },
   props: {
     webhook: {
@@ -370,27 +371,27 @@ export default {
     }
   },
   methods: {
-    addTimerBtn() {
-      this.$refs['timer'].addTimerBtn();
-      this.currentForcedUserInput = {};
+    addTimerBtn () {
+      this.$refs.timer.addTimerBtn()
+      this.currentForcedUserInput = {}
     },
-    addTimerSchedule() {
-      let pipelineConfigValue = this.$refs.pipelineConfig.submit();
+    addTimerSchedule () {
+      const pipelineConfigValue = this.$refs.pipelineConfig.submit()
       if (pipelineConfigValue) {
-        this.$refs.timer.addSchedule(pipelineConfigValue, 'workflow_args');
-        this.currentForcedUserInput = {};
+        this.$refs.timer.addSchedule(pipelineConfigValue, 'workflow_args')
+        this.currentForcedUserInput = {}
       }
     },
-    closeWebhookDialog() {
-      this.firstShowPolicy = false;
-      this.showEnvUpdatePolicy = false;
+    closeWebhookDialog () {
+      this.firstShowPolicy = false
+      this.showEnvUpdatePolicy = false
     },
-    editWebhook(index) {
-      this.webhookEditMode = true;
-      this.showEnvUpdatePolicy = true;
-      this.currenteditWebhookIndex = index;
-      let webhookSwap = this.$utils.cloneObj(this.webhook.items[index]);
-      this.getBranchInfoById(webhookSwap.main_repo.codehost_id, webhookSwap.main_repo.repo_owner, webhookSwap.main_repo.repo_name);
+    editWebhook (index) {
+      this.webhookEditMode = true
+      this.showEnvUpdatePolicy = true
+      this.currenteditWebhookIndex = index
+      const webhookSwap = this.$utils.cloneObj(this.webhook.items[index])
+      this.getBranchInfoById(webhookSwap.main_repo.codehost_id, webhookSwap.main_repo.repo_owner, webhookSwap.main_repo.repo_name)
       this.webhookSwap = {
         repo: webhookSwap.main_repo,
         namespace: webhookSwap.workflow_args.namespace.split(','),
@@ -401,14 +402,14 @@ export default {
         auto_cancel: webhookSwap.auto_cancel,
         check_patch_set_change: webhookSwap.check_patch_set_change,
         targets: webhookSwap.workflow_args.targets.map(element => {
-          element.key = element.name+ '/' + element.service_name
+          element.key = element.name + '/' + element.service_name
           return element
         }),
-        match_folders: webhookSwap.main_repo.match_folders.join('\n'),
+        match_folders: webhookSwap.main_repo.match_folders.join('\n')
       }
     },
-    addWebhookBtn() {
-      this.webhookAddMode = true;
+    addWebhookBtn () {
+      this.webhookAddMode = true
       this.webhookSwap = {
         repo: {},
         events: [],
@@ -420,12 +421,12 @@ export default {
         base_namespace: '',
         env_recycle_policy: 'success',
         match_folders: '/\n!.md'
-      };
+      }
     },
-    addWebhook() {
-      let webhookSwap = this.$utils.cloneObj(this.webhookSwap);
-      webhookSwap.repo.match_folders = webhookSwap.match_folders.split('\n');
-      webhookSwap.repo.events = webhookSwap.events;
+    addWebhook () {
+      const webhookSwap = this.$utils.cloneObj(this.webhookSwap)
+      webhookSwap.repo.match_folders = webhookSwap.match_folders.split('\n')
+      webhookSwap.repo.events = webhookSwap.events
       this.webhook.items.push({
         main_repo: webhookSwap.repo,
         auto_cancel: webhookSwap.auto_cancel,
@@ -437,7 +438,7 @@ export default {
           env_recycle_policy: webhookSwap.env_recycle_policy,
           targets: webhookSwap.targets
         }
-      });
+      })
       this.webhookSwap = {
         repo: {},
         events: [],
@@ -448,15 +449,15 @@ export default {
         check_patch_set_change: false,
         base_namespace: '',
         env_recycle_policy: 'success',
-        match_folders: '/\n!.md',
-      };
-      this.webhookAddMode = false;
+        match_folders: '/\n!.md'
+      }
+      this.webhookAddMode = false
     },
-    saveWebhook() {
-      const index = this.currenteditWebhookIndex;
-      let webhookSwap = this.$utils.cloneObj(this.webhookSwap);
-      webhookSwap.repo.match_folders = webhookSwap.match_folders.split('\n');
-      webhookSwap.repo.events = webhookSwap.events;
+    saveWebhook () {
+      const index = this.currenteditWebhookIndex
+      const webhookSwap = this.$utils.cloneObj(this.webhookSwap)
+      webhookSwap.repo.match_folders = webhookSwap.match_folders.split('\n')
+      webhookSwap.repo.events = webhookSwap.events
       this.$set(this.webhook.items, index, {
         main_repo: webhookSwap.repo,
         auto_cancel: webhookSwap.auto_cancel,
@@ -468,7 +469,7 @@ export default {
           env_recycle_policy: webhookSwap.env_recycle_policy,
           targets: webhookSwap.targets
         }
-      });
+      })
       this.webhookSwap = {
         repo: {},
         events: [],
@@ -479,37 +480,37 @@ export default {
         check_patch_set_change: false,
         base_namespace: '',
         env_recycle_policy: 'success',
-        match_folders: '/\n!.md',
-      };
-      this.webhookEditMode = false;
+        match_folders: '/\n!.md'
+      }
+      this.webhookEditMode = false
     },
-    deleteWebhook(index) {
-      this.webhook.items.splice(index, 1);
+    deleteWebhook (index) {
+      this.webhook.items.splice(index, 1)
     },
-    changeNamespace() {
-      this.webhookSwap.base_namespace = '';
+    changeNamespace () {
+      this.webhookSwap.base_namespace = ''
       if (!this.firstShowPolicy && this.webhookSwap.namespace.length === 2) {
-        this.showEnvUpdatePolicy = true;
-        this.firstShowPolicy = true;
+        this.showEnvUpdatePolicy = true
+        this.firstShowPolicy = true
       }
       if (this.webhookSwap.namespace.length >= 2) {
-        this.webhookSwap.env_update_policy = 'single';
+        this.webhookSwap.env_update_policy = 'single'
       }
     },
-    getProducts() {
-      const projectName = this.productTmlName;
+    getProducts () {
+      const projectName = this.productTmlName
       listProductAPI('test', projectName).then(res => {
-        this.products = res;
+        this.products = res
       })
     },
-    getBranchInfoById(id, repo_owner, repo_name) {
+    getBranchInfoById (id, repo_owner, repo_name) {
       getBranchInfoByIdAPI(id, repo_owner, repo_name).then((res) => {
-        this.$set(this.webhookBranches, repo_name, res);
-      });
+        this.$set(this.webhookBranches, repo_name, res)
+      })
     },
-    repoChange(currentRepo) {
-      this.webhookSwap.events = [];
-      this.getBranchInfoById(currentRepo.codehost_id, currentRepo.repo_owner, currentRepo.repo_name);
+    repoChange (currentRepo) {
+      this.webhookSwap.events = []
+      this.getBranchInfoById(currentRepo.codehost_id, currentRepo.repo_owner, currentRepo.repo_name)
     }
   },
   computed: {
@@ -518,63 +519,62 @@ export default {
       get: function () {
         if (this.signupStatus && this.signupStatus.features && this.signupStatus.features.length > 0) {
           if (this.signupStatus.features.includes('pr_create_env')) {
-            return true;
+            return true
+          } else {
+            return false
           }
-          else {
-            return false;
-          }
+        } else {
+          return false
         }
-      },
-      set: function (newValue) {
       }
     },
     showWebhookDialog: {
       get: function () {
-        return this.webhookAddMode ? this.webhookAddMode : this.webhookEditMode;
+        return this.webhookAddMode ? this.webhookAddMode : this.webhookEditMode
       },
       set: function (newValue) {
-        this.webhookAddMode ? this.webhookAddMode = newValue : this.webhookEditMode = newValue;
+        this.webhookAddMode ? this.webhookAddMode = newValue : this.webhookEditMode = newValue
       }
     },
     webhookRepos: {
       get: function () {
-        let repos = [];
+        let repos = []
         this.presets.forEach(element => {
-          repos = repos.concat(element.repos);
-        });
-        return this.$utils.uniqueObjArray(repos, 'repo_name');
+          repos = repos.concat(element.repos)
+        })
+        return this.$utils.uniqueObjArray(repos, 'repo_name')
       }
     },
     webhookTargets: {
       get: function () {
-        let targets = [];
+        const targets = []
         this.presets.forEach(element => {
           targets.push({
             name: element.target.service_module,
             service_name: element.target.service_name,
             key: element.target.service_module + '/' + element.target.service_name
-          });
-        });
-        return targets;
+          })
+        })
+        return targets
       }
     },
-    matchedProducts() {
-      return this.products.filter(p => p.product_name === this.productTmlName);
+    matchedProducts () {
+      return this.products.filter(p => p.product_name === this.productTmlName)
     }
   },
-  created() {
+  created () {
     bus.$on('check-tab:trigger', () => {
-      bus.$emit('receive-tab-check:trigger', true);
-    });
-    this.getProducts();
+      bus.$emit('receive-tab-check:trigger', true)
+    })
+    this.getProducts()
   },
-  beforeDestroy() {
-    bus.$off('check-tab:trigger');
+  beforeDestroy () {
+    bus.$off('check-tab:trigger')
   },
   components: {
     workflowArgs
   }
-};
+}
 </script>
 
 <style lang="less">
@@ -583,81 +583,96 @@ export default {
     .el-form-item {
       margin-bottom: 8px;
     }
+
     .env-open-button {
       padding: 7px 7px 7px 10px;
       color: #409eff;
       border-color: #409eff;
     }
+
     .env-update-list {
       .el-radio-group {
-        padding: 5px 0;
         margin-top: -1rem;
         margin-left: 80px;
+        padding: 5px 0;
+
         .el-radio {
-          line-height: 2;
           display: block;
+          line-height: 2;
         }
       }
     }
   }
 }
+
 .trigger {
   .box-card {
     .add-border {
-      border: 1px solid #ebeef5;
-      box-shadow: 0px 0px 5px #ebeef5;
       padding: 10px;
+      border: 1px solid #ebeef5;
+      box-shadow: 0 0 5px #ebeef5;
     }
+
     .webhook-container {
       margin-top: 20px;
     }
+
     .underline {
       height: 1px;
-      background: #cccccc;
       margin: 10px 0;
+      background: #ccc;
     }
+
     .pipeline-header {
-      line-height: 2;
+      height: 40px;
       font-weight: 500;
       font-size: 15px;
-      height: 40px;
+      line-height: 2;
     }
+
     .timer-dialog-footer {
       margin-top: 25px;
     }
+
     .el-card__header {
       text-align: center;
     }
+
     .el-form {
       .el-form-item {
         margin-bottom: 5px;
+
         .env-form-inline {
           width: 100%;
         }
       }
     }
+
     .divider {
-      height: 1px;
-      background-color: #dfe0e6;
-      margin: 13px 0;
       width: 100%;
+      height: 1px;
+      margin: 13px 0;
+      background-color: #dfe0e6;
     }
+
     .help-link {
       color: #1989fa;
     }
 
     .script {
-      padding: 5px 0px;
+      padding: 5px 0;
+
       .title {
         display: inline-block;
+        width: 100px;
+        padding-top: 6px;
         color: #606266;
         font-size: 14px;
-        padding-top: 6px;
-        width: 100px;
       }
+
       .item-title {
-        color: #909399;
         margin-left: 5px;
+        color: #909399;
       }
     }
   }

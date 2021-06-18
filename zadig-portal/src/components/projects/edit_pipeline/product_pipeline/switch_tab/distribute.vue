@@ -12,8 +12,7 @@
         </el-table-column>
 
         <el-table-column>
-          <template slot="header"
-                    slot-scope="_">
+          <template #header>
             <el-checkbox v-model="preferImageEverywhere"
                          :indeterminate="isImageIndeterminate"
                          size="mini"
@@ -29,8 +28,7 @@
         </el-table-column>
 
         <el-table-column>
-          <template slot="header"
-                    slot-scope="_">
+          <template #header>
             <el-checkbox v-model="preferStorageEverywhere"
                          :indeterminate="isStorageIndeterminate"
                          size="mini"
@@ -57,7 +55,7 @@
       </el-table>
 
       <div class="service-adder">
-        <el-select style="width:360px"
+        <el-select style="width: 360px;"
                    v-model="serviceToAdd"
                    filterable
                    value-key="key"
@@ -78,7 +76,7 @@
         <span class="title">
           镜像仓库：
         </span>
-        <el-select style="width:360px"
+        <el-select style="width: 360px;"
                    value-key="id"
                    v-model="distribute_stage.releaseIds"
                    multiple
@@ -97,7 +95,7 @@
         <span class="title">
           对象存储：
         </span>
-        <el-select style="width:360px"
+        <el-select style="width: 360px;"
                    v-model="distribute_stage.s3_storage_id"
                    filterable
                    size="small">
@@ -113,85 +111,85 @@
 </template>
 
 <script type="text/javascript">
-import bus from '@utils/event_bus';
-import { getStorageListAPI, imageReposAPI } from '@api';
-import _ from 'lodash';
+import bus from '@utils/event_bus'
+import { getStorageListAPI, imageReposAPI } from '@api'
+import _ from 'lodash'
 export default {
-  data() {
+  data () {
     return {
       imageRepos: [],
       storageList: [],
       serviceToAdd: null
-    };
+    }
   },
   computed: {
     serviceDists: {
-      get() {
-        return this.distribute_stage.distributes;
+      get () {
+        return this.distribute_stage.distributes
       },
-      set(val) {
-        this.distribute_stage.distributes = val;
+      set (val) {
+        this.distribute_stage.distributes = val
       }
     },
-    serviceDistMap() {
+    serviceDistMap () {
       return _.keyBy(this.serviceDists, (i) => {
-        return i.target.service_name + '/' + i.target.service_module;
-      });
+        return i.target.service_name + '/' + i.target.service_module
+      })
     },
-    allTargets() {
-      const targets = this.presets.map(p => p.target);
+    allTargets () {
+      const targets = this.presets.map(p => p.target)
       targets.forEach(t => {
-        t.key = t.service_name + '/' + t.service_module;
-      });
-      return targets;
+        t.key = t.service_name + '/' + t.service_module
+      })
+      return targets
     },
-    unconfiguredTargetsDisplayed() {
-      return [{ service_name: '同步部署模块服务' }].concat(this.unconfiguredTargets);
+    unconfiguredTargetsDisplayed () {
+      return [{ service_name: '同步部署模块服务' }].concat(this.unconfiguredTargets)
     },
-    unconfiguredTargets() {
-      const rest = this.allTargets.filter(t => !((t.service_name + '/' + t.service_module) in this.serviceDistMap));
-      return rest;
+    unconfiguredTargets () {
+      const rest = this.allTargets.filter(t => !((t.service_name + '/' + t.service_module) in this.serviceDistMap))
+      return rest
     },
-    imageChecksStatus() {
-      return this.getCheckStatus('image_distribute');
+    imageChecksStatus () {
+      return this.getCheckStatus('image_distribute')
     },
-    storageChecksStatus() {
-      return this.getCheckStatus('qstack_distribute');
+    storageChecksStatus () {
+      return this.getCheckStatus('qstack_distribute')
     },
 
     preferImageEverywhere: {
-      get() {
-        return this.imageChecksStatus.allChecked;
+      get () {
+        return this.imageChecksStatus.allChecked
       },
-      set(val) {
-        this.toggleAKindOfDist('image_distribute', val, 'isImageIndeterminate');
+      set (val) {
+        this.toggleAKindOfDist('image_distribute', val, 'isImageIndeterminate')
       }
     },
     preferStorageEverywhere: {
-      get() {
-        return this.storageChecksStatus.allChecked;
+      get () {
+        return this.storageChecksStatus.allChecked
       },
-      set(val) {
-        this.toggleAKindOfDist('qstack_distribute', val, 'isStorageIndeterminate');
+      set (val) {
+        this.toggleAKindOfDist('qstack_distribute', val, 'isStorageIndeterminate')
       }
     },
-    isImageIndeterminate() {
-      return this.imageChecksStatus.hasSomeChecked && this.imageChecksStatus.hasSomeUnchecked;
+    isImageIndeterminate () {
+      return this.imageChecksStatus.hasSomeChecked && this.imageChecksStatus.hasSomeUnchecked
     },
-    isStorageIndeterminate() {
-      return this.storageChecksStatus.hasSomeChecked && this.storageChecksStatus.hasSomeUnchecked;
+    isStorageIndeterminate () {
+      return this.storageChecksStatus.hasSomeChecked && this.storageChecksStatus.hasSomeUnchecked
     },
-    showImageRepos() {
-      return this.serviceDists.some(d => d.image_distribute);
+    showImageRepos () {
+      return this.serviceDists.some(d => d.image_distribute)
     },
-    showStorageList() {
-      return this.serviceDists.some(d => d.qstack_distribute);
+    showStorageList () {
+      return this.serviceDists.some(d => d.qstack_distribute)
     }
   },
   watch: {
-    product_tmpl_name(newVal, oldVal) {
+    product_tmpl_name (newVal, oldVal) {
       if (oldVal) {
-        this.serviceDists = [];
+        this.serviceDists = []
       }
     }
   },
@@ -215,77 +213,75 @@ export default {
     buildTargets: {
       required: true,
       type: Array
-    },
+    }
   },
   methods: {
-    toggleAKindOfDist(backendFieldName, checked) {
+    toggleAKindOfDist (backendFieldName, checked) {
       if (this.serviceDists && this.serviceDists.length > 0) {
         for (const dist of this.serviceDists) {
-          dist[backendFieldName] = checked;
+          dist[backendFieldName] = checked
         }
       }
     },
-    getCheckStatus(backendFieldName) {
-      let hasSomeUnchecked = false;
-      let hasSomeChecked = false;
-      let allChecked = true;
+    getCheckStatus (backendFieldName) {
+      let hasSomeUnchecked = false
+      let hasSomeChecked = false
+      let allChecked = true
       if (this.serviceDists && this.serviceDists.length > 0) {
         for (const dist of this.serviceDists) {
           if (dist[backendFieldName]) {
-            hasSomeChecked = true;
+            hasSomeChecked = true
           } else {
-            hasSomeUnchecked = true;
-            allChecked = false;
+            hasSomeUnchecked = true
+            allChecked = false
           }
         }
-      }
-      else {
-        allChecked = false;
+      } else {
+        allChecked = false
       }
       return {
         hasSomeUnchecked,
         hasSomeChecked,
         allChecked
-      };
+      }
     },
 
-    addServiceDist() {
+    addServiceDist () {
       if (this.serviceToAdd.service_name === '同步部署模块服务') {
         for (const tar of this.buildTargets) {
           if (!((tar.service_name + '/' + tar.service_module) in this.serviceDistMap)) {
-            this._addSingleServiceDist(tar);
+            this._addSingleServiceDist(tar)
           }
         }
       } else {
-        this._addSingleServiceDist(this.serviceToAdd);
-        this.serviceToAdd = null;
+        this._addSingleServiceDist(this.serviceToAdd)
+        this.serviceToAdd = null
       }
     },
-    _addSingleServiceDist(target) {
+    _addSingleServiceDist (target) {
       if (target) {
         this.serviceDists.push({
           target: target,
           image_distribute: false,
           jump_box_distribute: false,
           qstack_distribute: false
-        });
+        })
       }
     },
 
-    removeServiceDist(index) {
-      this.serviceDists.splice(index, 1);
+    removeServiceDist (index) {
+      this.serviceDists.splice(index, 1)
     },
-    checkDistribute() {
+    checkDistribute () {
       if (this.preferImageEverywhere) {
         if (!this.distribute_stage.releaseIds || this.distribute_stage.releaseIds.length === 0) {
           this.$message({
             message: '尚未选择镜像仓库，请检查',
             type: 'warning'
-          });
-          bus.$emit('receive-tab-check:distribute', false);
-        }
-        else {
-          bus.$emit('receive-tab-check:distribute', true);
+          })
+          bus.$emit('receive-tab-check:distribute', false)
+        } else {
+          bus.$emit('receive-tab-check:distribute', true)
         }
       }
       if (this.preferStorageEverywhere) {
@@ -293,31 +289,29 @@ export default {
           this.$message({
             message: '尚未选择对象存储，请检查',
             type: 'warning'
-          });
-          bus.$emit('receive-tab-check:distribute', false);
+          })
+          bus.$emit('receive-tab-check:distribute', false)
+        } else {
+          bus.$emit('receive-tab-check:distribute', true)
         }
-        else {
-          bus.$emit('receive-tab-check:distribute', true);
-        }
-      }
-      else {
-        bus.$emit('receive-tab-check:distribute', true);
+      } else {
+        bus.$emit('receive-tab-check:distribute', true)
       }
     }
   },
-  created() {
+  created () {
     imageReposAPI().then(res => {
-      this.imageRepos = res;
-    });
+      this.imageRepos = res
+    })
     getStorageListAPI().then(res => {
-      this.storageList = res;
-    });
-    bus.$on('check-tab:distribute', () => { this.checkDistribute() });
+      this.storageList = res
+    })
+    bus.$on('check-tab:distribute', () => { this.checkDistribute() })
   },
-  beforeDestroy() {
-    bus.$off('check-tab:distribute');
-  },
-};
+  beforeDestroy () {
+    bus.$off('check-tab:distribute')
+  }
+}
 </script>
 
 <style lang="less">
@@ -334,9 +328,9 @@ export default {
     .title {
       display: inline-block;
       color: #606266;
-      width: 97px;
       font-size: 14px;
     }
+
     margin-top: 10px;
   }
 }

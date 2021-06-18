@@ -1,6 +1,6 @@
 <template>
-  <div v-on:mouseenter="enterSidebar"
-       v-on:mouseleave="leaveSidebar"
+  <div @mouseenter="enterSidebar"
+       @mouseleave="leaveSidebar"
        class="cf-side-bar full-h"
        :class="{ 'small-sidebar': !showSidebar }">
     <a @click="changeSidebar"
@@ -10,10 +10,7 @@
 
     <div class="cf-side-bar-header">
       <router-link to="/v1/status">
-        <img v-if="showSidebar&&!showBackPath&&logoUrl"
-             class="logo"
-             :src="logoUrl">
-        <img v-if="showSidebar&&!showBackPath&&!logoUrl"
+        <img v-if="showSidebar&&!showBackPath"
              class="logo"
              src="@assets/icons/logo/default-logo.png">
         <img v-if="!showSidebar&&!showBackPath"
@@ -56,8 +53,7 @@
              v-for="(nav,nav_index) in navList[index].items"
              :key="nav_index">
 
-          <div v-if="ifShowItem(nav)"
-               class="nav grow-nothing ">
+          <div class="nav grow-nothing ">
             <div @click="collapseMenu(nav)"
                  v-if="nav.hasSubItem"
                  class="nav-item">
@@ -119,11 +115,11 @@
 </template>
 
 <script>
-import bus from '@utils/event_bus';
-import _ from 'lodash';
-import { mapGetters } from 'vuex';
+import bus from '@utils/event_bus'
+import _ from 'lodash'
+import { mapGetters } from 'vuex'
 export default {
-  data() {
+  data () {
     return {
       showSidebar: true,
       subSideBar: false,
@@ -139,7 +135,7 @@ export default {
               icon: 'iconfont icongeren',
               url: 'enterprise/users/manage'
             }]
-        },
+        }
       ],
       systemMenu: [
         {
@@ -153,12 +149,17 @@ export default {
             name: '应用设置',
             icon: 'iconfont iconyingyongshezhi',
             url: 'system/apps'
+          },
+          {
+            name: '构建镜像管理',
+            icon: 'iconfont iconjingxiang',
+            url: 'system/imgs'
           }]
         },
         {
           category_name: '基础组件',
           items: [{
-            name: 'REGISTRY 管理',
+            name: '镜像仓库',
             icon: 'iconfont icondocker',
             url: 'system/registry'
           },
@@ -210,8 +211,18 @@ export default {
                 name: '交付物追踪',
                 url: 'delivery/artifacts',
                 icon: 'iconfont iconbaoguanli'
-              }],
+              }]
           }]
+        },
+        {
+          category_name: '质量管理',
+          items: [
+            {
+              name: '测试管理',
+              icon: 'iconfont icontest',
+              url: 'tests'
+            }
+          ]
         },
         {
           category_name: '设置',
@@ -220,517 +231,445 @@ export default {
               name: '用户设置',
               icon: 'iconfont iconfenzucopy',
               url: 'profile'
+            },
+            {
+              name: '系统设置',
+              icon: 'iconfont iconicon_jichengguanli',
+              url: 'system'
             }
           ]
         }
-      ],
-      adminSettingItems: [
-        {
-          name: '系统设置',
-          icon: 'iconfont iconicon_jichengguanli',
-          url: 'system'
-        },
-      ],
+      ]
     }
   },
   methods: {
-    ifShowItem(nav) {
-      let status = true
-      if (nav.features) {
-        status = this.signupStatus && this.signupStatus.features && this.signupStatus.features.includes(nav.features)
-      }
-      return status
-    },
     enterSidebar: _.debounce(function () {
       if (this.subSidebarOpened) {
-        this.showSidebar = true;
+        this.showSidebar = true
       }
     }, 300),
     leaveSidebar: _.debounce(function () {
       if (this.subSidebarOpened) {
-        this.showSidebar = false;
+        this.showSidebar = false
       }
     }, 100),
-    changeSidebar() {
-      this.showSidebar = !this.showSidebar;
-      this.$emit('sidebar-width', this.showSidebar || this.subSideBar);
+    changeSidebar () {
+      this.showSidebar = !this.showSidebar
+      this.$emit('sidebar-width', this.showSidebar || this.subSideBar)
     },
-    collapseMenu(nav) {
-      nav.isOpened = !nav.isOpened;
-    },
-    checkShowAdminSetting() {
-      if (this.$utils.roleCheck().superAdmin) {
-        let setting = this.defaultMenu[this.defaultMenu.length - 1];
-        if (setting.category_name === '设置') {
-          setting.items = [].concat(this.adminSettingItems, setting.items);
-        }
-      }
+    collapseMenu (nav) {
+      nav.isOpened = !nav.isOpened
     }
   },
   computed: {
     ...mapGetters([
-      'signupStatus',
+      'signupStatus'
     ]),
-    navList() {
-      const path = this.$route.path;
+    navList () {
+      const path = this.$route.path
       if (path.includes('/v1/enterprise')) {
-        if (this.showAnalytics) {
-          return this.enterpriseMenu;
-        }
-        else {
-          return this.enterpriseMenu.filter(element => {
-            return element.category_name !== '统计分析';
-          });
-        }
-      }
-      else if (path.includes('/v1/system')) {
-        return this.systemMenu;
-      }
-      else {
-        if (this.showInsight && this.showBoard) {
-          this.defaultMenu
-          return this.defaultMenu;
-        }
-        else if (this.showInsight && !this.showBoard) {
-          this.defaultMenu.forEach(element => {
-            if (element.category_name === '质效中心') {
-              element.items = element.items.filter(item => {
-                return item.name !== 'DevOps 洞察';
-              });
-            }
-          });
-          return this.defaultMenu;
-        }
-        else if (!this.showInsight && this.showBoard) {
-          this.defaultMenu.forEach(element => {
-            if (element.category_name === '质效中心') {
-              element.items = element.items.filter(item => {
-                return item.name !== '质效看板';
-              });
-            }
-          });
-          return this.defaultMenu;
-        }
-        else if (!this.showInsight && !this.showBoard) {
-          return this.defaultMenu.filter(element => {
-            return element.category_name !== '质效中心';
-          });
-        }
+        return this.enterpriseMenu
+      } else if (path.includes('/v1/system')) {
+        return this.systemMenu
+      } else {
+        return this.defaultMenu
       }
     },
-    showBackPath() {
-      const path = this.$route.path;
+    showBackPath () {
+      const path = this.$route.path
       if (path.includes('/v1/enterprise')) {
-        this.backTitle = '用户管理';
-        return true;
+        this.backTitle = '用户管理'
+        return true
+      } else if (path.includes('/v1/system')) {
+        this.backTitle = '系统设置'
+        return true
+      } else {
+        return false
       }
-      else if (path.includes('/v1/system')) {
-        this.backTitle = '系统设置';
-        return true;
-      }
-    },
-    logoUrl: {
-      get: function () {
-        if (this.signupStatus && this.signupStatus.logo) {
-          return this.signupStatus.logo
-        }
-        else {
-          return '';
-        }
-      },
-      set: function (newValue) {
-      }
-    },
-    showInsight: {
-      get: function () {
-        if (this.signupStatus && this.signupStatus.features && this.signupStatus.features.length > 0) {
-          if (this.signupStatus.features.includes('insight')) {
-            return true;
-          }
-          else {
-            return false;
-          }
-        }
-      },
-      set: function (newValue) {
-      }
-    },
-    showBoard: {
-      get: function () {
-        if (this.signupStatus && this.signupStatus.features && this.signupStatus.features.length > 0) {
-          if (this.signupStatus.features.includes('board')) {
-            return true;
-          }
-          else {
-            return false;
-          }
-        }
-      },
-      set: function (newValue) {
-      }
-    },
-    showAnalytics: {
-      get: function () {
-        if (this.signupStatus && this.signupStatus.features && this.signupStatus.features.length > 0) {
-          if (this.signupStatus.features.includes('koderover')) {
-            return true;
-          }
-          else {
-            return false;
-          }
-        }
-      },
-      set: function (newValue) {
-      }
-    },
-  },
-  watch: {
-    'showSidebar': function (new_val, old_val) {
-      this.$store.commit('SET_SIDEBAR_STATUS', new_val);
     }
   },
-  created() {
+  watch: {
+    showSidebar: function (new_val, old_val) {
+      this.$store.commit('SET_SIDEBAR_STATUS', new_val)
+    }
+  },
+  created () {
     bus.$on('show-sidebar', (params) => {
-      this.showSidebar = params;
-    });
+      this.showSidebar = params
+    })
     bus.$on('sub-sidebar-opened', (params) => {
-      this.subSidebarOpened = params;
-    });
+      this.subSidebarOpened = params
+    })
     bus.$on('sub-sidebar-opened', (params) => {
-      this.subSideBar = params;
-      this.showSidebar = !params;
-      this.$emit('sidebar-width', true);
-    });
-    this.checkShowAdminSetting();
+      this.subSideBar = params
+      this.showSidebar = !params
+      this.$emit('sidebar-width', true)
+    })
   }
 }
 </script>
 
 <style lang="less">
+// @import url("~@assets/css/common/scroll-bar.less");
+
 .cf-side-bar {
-  @import url("~@assets/css/common/scroll-bar.less");
-  width: 196px;
   position: relative;
-  background-color: #f5f7fa;
-  border-right: 1px solid #e6e9f0;
-  font-size: 12px;
-  transition: width 350ms, margin-width 230ms;
-  margin-right: 0;
   display: -webkit-box;
   display: -ms-flexbox;
   display: flex;
-  -webkit-box-align: left;
-  -ms-flex-align: left;
-  align-items: left;
-  -webkit-box-pack: justify;
-  -ms-flex-pack: justify;
-  justify-content: space-between;
-  -webkit-box-orient: vertical;
-  -webkit-box-direction: normal;
   -ms-flex-direction: column;
   flex-direction: column;
-
-  &.small-sidebar {
-    width: 66px;
-    .category-wrapper {
-      max-width: 66px;
-      padding: 25px 0 30px;
-    }
-    .nav {
-      &.main-menu {
-        margin-top: 25px;
-      }
-    }
-    .sub-menu {
-      .sub-menu-item {
-        padding: 0px;
-        .sub-item-icon {
-          width: 65px;
-        }
-      }
-    }
-  }
-  .main-menu {
-  }
-  .sub-menu {
-    border-right: solid 1px #e6e6e6;
-    list-style: none;
-    position: relative;
-    margin: 0;
-    padding-left: 0;
-    background-color: #fff;
-    .sub-menu-item-group > ul {
-      padding: 0;
-    }
-    .sub-menu-item-group {
-      .active {
-        .sub-menu-item {
-          background-color: #e1edfa;
-        }
-      }
-    }
-    .sub-menu-item {
-      font-size: 14px;
-      color: #303133;
-      list-style: none;
-      cursor: pointer;
-      position: relative;
-      transition: border-color 0.3s, background-color 0.3s, color 0.3s;
-      box-sizing: border-box;
-      white-space: nowrap;
-      height: 38px;
-      line-height: 38px;
-      padding: 0 35px;
-      min-width: 200px;
-      &:hover {
-        background-color: #e1edfa;
-      }
-      .sub-item-icon {
-        width: 35px;
-        display: inline-block;
-        text-align: center;
-        i {
-          color: #1989fa;
-          font-size: 19px;
-        }
-      }
-      .sub-item-label {
-        font-size: 13px;
-        line-height: 2.2;
-        text-align: left;
-        color: #434548;
-        padding-left: 0;
-      }
-    }
-  }
+  align-items: left;
+  justify-content: space-between;
+  width: 196px;
+  margin-right: 0;
+  font-size: 12px;
+  background-color: #f5f7fa;
+  border-right: 1px solid #e6e9f0;
+  transition: width 350ms, margin-width 230ms;
+  -webkit-box-align: left;
+  -ms-flex-align: left;
+  -webkit-box-pack: justify;
+  -ms-flex-pack: justify;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
 
   .sidebar-size-toggler {
-    width: 33px;
-    height: 30px;
-    line-height: 30px;
-    display: block;
     position: absolute;
     right: 0;
     bottom: 10px;
-    background-color: #c0c4cc;
-    color: #fff;
-    text-decoration: none;
-    text-align: center;
-    cursor: pointer;
     z-index: 1;
+    display: block;
+    width: 33px;
+    height: 30px;
+    color: #fff;
+    line-height: 30px;
+    text-align: center;
+    text-decoration: none;
+    background-color: #c0c4cc;
     border-radius: 10px 0 0 10px;
+    cursor: pointer;
+
     i {
       display: inline-block;
       transform: rotateZ(180deg);
     }
-    &:hover {
-    }
   }
-  .cf-side-bar-header__icon {
-    font-size: 16px;
-    font-weight: normal;
-    color: #1989fa;
-    float: left;
-  }
-  .cf-side-bar-header__info {
-    padding: 20px 0;
-    .logo-title {
-      text-transform: uppercase;
-      color: #434548;
-      font-size: 16px;
-      font-weight: bold;
-      line-height: 16px;
-    }
-    .logo-title_subtitle {
-      max-width: 160px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      font-size: 12px;
-      color: #54a2f3;
-      text-align: left;
-      margin-top: 5px;
-      line-height: 16px;
-    }
-  }
-  .cf-side-bar-header {
-    width: 100%;
-    display: flex;
-    margin-bottom: 10px;
-    margin-top: 10px;
-    justify-content: center;
-    &.back-to {
-      justify-content: flex-start;
-      margin-left: 15px;
-      .cf-side-bar-header__info {
-        padding: 0;
-      }
-      .cf-side-bar-header__icon {
-        width: 35px;
-      }
-    }
-    .logo {
-      height: 50px;
-      background-size: cover;
-      &.small {
-        width: 50px;
-        height: 50px;
-        padding: 0px;
-        margin: 0 auto;
-      }
-    }
-  }
-  .nav-item.active,
-  .nav-item:hover {
-    border-left: 4px solid #1989fa;
-    padding-left: 0;
-    background-color: #e1edfa;
-  }
-  .nav {
-    padding-left: 0;
-    margin-bottom: 0;
-    list-style: none;
-  }
-  .nav-item-icon {
-    -webkit-box-flex: 0;
-    -ms-flex-positive: 0;
-    flex-grow: 0;
-    text-align: center;
-    padding: 0px;
-    font-size: 22px;
-    margin: 0;
-    width: 62px;
-    max-width: 62px;
-    color: #1989fa;
-    display: -webkit-box;
-    display: -ms-flexbox;
-    display: flex;
-    -webkit-box-align: center;
-    -ms-flex-align: center;
-    align-items: center;
-    -webkit-box-pack: center;
-    -ms-flex-pack: center;
-    justify-content: center;
-    .iconfont {
-      font-size: 22px;
-    }
-  }
-  .nav-item {
-    display: -webkit-box;
-    display: -ms-flexbox;
-    display: flex;
-    -webkit-box-align: center;
-    -ms-flex-align: center;
-    align-items: center;
-    -webkit-box-pack: start;
-    -ms-flex-pack: start;
-    justify-content: flex-start;
-    width: 100%;
-    outline: none;
-    min-width: 246px;
-    overflow: hidden;
-    padding: 4px 0 4px 0;
-    border-left: 4px solid #f5f7fa;
-    .nav-item-label {
-      font-size: 14px;
-      line-height: 2.2;
-      text-align: left;
-      color: #434548;
-      min-width: 130px;
-      max-width: 186px;
-      padding-left: 0;
-      -webkit-transition: color 200ms ease-in;
-      transition: color 200ms ease-in;
-      padding-right: 37px;
-      white-space: nowrap;
-      display: -webkit-box;
-      display: -ms-flexbox;
-      display: flex;
-      -webkit-box-align: center;
-      -ms-flex-align: center;
-      align-items: center;
-      .arrow {
-        position: static;
-        vertical-align: middle;
-        margin-left: 8px;
-        margin-top: -3px;
-      }
-    }
-  }
-  .nav {
-    width: 100%;
-    overflow: auto;
-    overflow-x: hidden;
-    -ms-flex-preferred-size: 0;
-    flex-basis: 0;
-    &.grow-all {
-      -webkit-box-flex: 1;
-      -ms-flex-positive: 1;
-      flex-grow: 1;
-    }
-    &.grow-nothing {
-      -webkit-box-flex: 0;
-      -ms-flex-positive: 0;
-      flex-grow: 0;
-    }
-  }
-  .category-wrapper {
-    position: relative;
-    -webkit-box-flex: 0 !important;
-    -ms-flex: none !important;
-    flex: none !important;
-    padding: 20px 0 10px;
-    &:last-child {
-      padding-bottom: 30px;
-    }
-    &.divider {
-      &:before {
-        content: "";
-        position: absolute;
-        top: 0;
-        left: 4px;
-        right: 0;
-        margin: auto;
-        width: 30px;
-        height: 1px;
-        background-color: #c0c4cc;
-      }
-    }
-  }
-  .category-wrapper:first-child {
-    margin-top: 0px;
-  }
+
   h4 {
     &.category-name {
-      color: #000000;
-      font-size: 14px;
-      font-weight: bold;
-      text-transform: uppercase;
-      text-align: left;
-      padding-left: 20px;
-      margin-top: 0;
-      margin-bottom: 10px;
       display: inline-block;
       width: 100%;
+      margin-top: 0;
+      margin-bottom: 10px;
+      padding-left: 20px;
+      color: #000;
+      font-weight: bold;
+      font-size: 14px;
+      text-align: left;
+      text-transform: uppercase;
+
       i {
         position: relative;
         top: -1px;
         display: inline-block;
         font-size: 9px;
       }
+
       .new-feature {
+        padding: 1px 3px;
         color: #e02711;
+        font-weight: 300;
         font-size: 11px;
         border: 1px solid #e02711;
         border-radius: 4px;
-        padding: 1px 3px;
-        font-weight: 300;
       }
     }
   }
+
+  .nav {
+    flex-basis: 0;
+    width: 100%;
+    margin-bottom: 0;
+    padding-left: 0;
+    overflow: auto;
+    overflow-x: hidden;
+    list-style: none;
+    -ms-flex-preferred-size: 0;
+
+    &.grow-all {
+      flex-grow: 1;
+      -webkit-box-flex: 1;
+      -ms-flex-positive: 1;
+    }
+
+    &.grow-nothing {
+      flex-grow: 0;
+      -webkit-box-flex: 0;
+      -ms-flex-positive: 0;
+    }
+  }
+
+  .category-wrapper {
+    position: relative;
+    -ms-flex: none !important;
+    flex: none !important;
+    padding: 20px 0 10px;
+    -webkit-box-flex: 0 !important;
+
+    &:last-child {
+      padding-bottom: 30px;
+    }
+
+    &.divider {
+      &::before {
+        position: absolute;
+        top: 0;
+        right: 0;
+        left: 4px;
+        width: 30px;
+        height: 1px;
+        margin: auto;
+        background-color: #c0c4cc;
+        content: "";
+      }
+    }
+  }
+
+  .sub-menu {
+    position: relative;
+    margin: 0;
+    padding-left: 0;
+    list-style: none;
+    background-color: #fff;
+    border-right: solid 1px #e6e6e6;
+
+    .sub-menu-item {
+      position: relative;
+      box-sizing: border-box;
+      min-width: 200px;
+      height: 38px;
+      padding: 0 35px;
+      color: #303133;
+      font-size: 14px;
+      line-height: 38px;
+      white-space: nowrap;
+      list-style: none;
+      cursor: pointer;
+      transition: border-color 0.3s, background-color 0.3s, color 0.3s;
+
+      &:hover {
+        background-color: #e1edfa;
+      }
+
+      .sub-item-icon {
+        display: inline-block;
+        width: 35px;
+        text-align: center;
+
+        i {
+          color: #1989fa;
+          font-size: 19px;
+        }
+      }
+
+      .sub-item-label {
+        padding-left: 0;
+        color: #434548;
+        font-size: 13px;
+        line-height: 2.2;
+        text-align: left;
+      }
+    }
+
+    .sub-menu-item-group > ul {
+      padding: 0;
+    }
+  }
+
+  &.small-sidebar {
+    width: 66px;
+
+    .category-wrapper {
+      max-width: 66px;
+      padding: 25px 0 30px;
+    }
+
+    .nav {
+      &.main-menu {
+        margin-top: 25px;
+      }
+    }
+
+    .sub-menu {
+      .sub-menu-item {
+        padding: 0;
+
+        .sub-item-icon {
+          width: 65px;
+        }
+      }
+    }
+  }
+
+  .sub-menu-item-group {
+    .active {
+      .sub-menu-item {
+        background-color: #e1edfa;
+      }
+    }
+  }
+
+  .cf-side-bar-header__icon {
+    float: left;
+    color: #1989fa;
+    font-weight: normal;
+    font-size: 16px;
+  }
+
+  .cf-side-bar-header__info {
+    padding: 20px 0;
+
+    .logo-title {
+      color: #434548;
+      font-weight: bold;
+      font-size: 16px;
+      line-height: 16px;
+      text-transform: uppercase;
+    }
+
+    .logo-title_subtitle {
+      max-width: 160px;
+      margin-top: 5px;
+      overflow: hidden;
+      color: #54a2f3;
+      font-size: 12px;
+      line-height: 16px;
+      white-space: nowrap;
+      text-align: left;
+      text-overflow: ellipsis;
+    }
+  }
+
+  .cf-side-bar-header {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    margin-top: 10px;
+    margin-bottom: 10px;
+
+    &.back-to {
+      justify-content: flex-start;
+      margin-left: 15px;
+
+      .cf-side-bar-header__info {
+        padding: 0;
+      }
+
+      .cf-side-bar-header__icon {
+        width: 35px;
+      }
+    }
+
+    .logo {
+      height: 50px;
+      background-size: cover;
+
+      &.small {
+        width: 50px;
+        height: 50px;
+        margin: 0 auto;
+        padding: 0;
+      }
+    }
+  }
+
+  .nav-item-icon {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    flex-grow: 0;
+    align-items: center;
+    justify-content: center;
+    width: 62px;
+    max-width: 62px;
+    margin: 0;
+    padding: 0;
+    color: #1989fa;
+    font-size: 22px;
+    text-align: center;
+    -webkit-box-flex: 0;
+    -ms-flex-positive: 0;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
+    -webkit-box-pack: center;
+    -ms-flex-pack: center;
+
+    .iconfont {
+      font-size: 22px;
+    }
+  }
+
+  .nav-item {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    width: 100%;
+    min-width: 246px;
+    padding: 4px 0 4px 0;
+    overflow: hidden;
+    border-left: 4px solid #f5f7fa;
+    outline: none;
+    -webkit-box-align: center;
+    -ms-flex-align: center;
+    -webkit-box-pack: start;
+    -ms-flex-pack: start;
+
+    .nav-item-label {
+      display: -webkit-box;
+      display: -ms-flexbox;
+      display: flex;
+      align-items: center;
+      min-width: 130px;
+      max-width: 186px;
+      padding-right: 37px;
+      padding-left: 0;
+      color: #434548;
+      font-size: 14px;
+      line-height: 2.2;
+      white-space: nowrap;
+      text-align: left;
+      -webkit-transition: color 200ms ease-in;
+      transition: color 200ms ease-in;
+      -webkit-box-align: center;
+      -ms-flex-align: center;
+
+      .arrow {
+        position: static;
+        margin-top: -3px;
+        margin-left: 8px;
+        vertical-align: middle;
+      }
+    }
+  }
+
+  .nav-item.active,
+  .nav-item:hover {
+    padding-left: 0;
+    background-color: #e1edfa;
+    border-left: 4px solid #1989fa;
+  }
+
+  .category-wrapper:first-child {
+    margin-top: 0;
+  }
+
   .nav__new-wrapper {
     position: relative;
   }
+
   .nav-item-bottom {
     margin-top: auto;
   }

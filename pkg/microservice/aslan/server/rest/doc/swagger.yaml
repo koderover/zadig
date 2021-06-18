@@ -1,0 +1,84 @@
+basePath: /api/aslan
+info:
+  contact:
+    email: contact@koderover.com
+  description: |-
+    The API doc is targeting for Zadig developers rather than Zadig users.
+    The majority of these APIs are not designed for public use, there is no guarantee on version compatibility.
+    Please reach out to contact@koderover.com before you decide to depend on these APIs directly.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  title: Zadig aslan service REST APIs
+  version: "1.0"
+paths:
+  /workflow/v2/pipelines:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: response type follows list of microservice/aslan/core/common/dao/models#Pipeline
+          schema:
+            type: object
+      summary: Return all workflows (also called pipelines)
+  /workflow/v2/pipelines/{name}:
+    get:
+      parameters:
+      - description: Name of the workflow
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: response type follows microservice/aslan/core/common/dao/models#Pipeline
+          schema:
+            type: object
+      summary: Get the relevant workflow (also called pipeline) information with the
+        specified workflow name
+  /workflow/webhook/gerritHook:
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'map[string]string - {message: success}'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Process webhook for gerrit
+  /workflow/webhook/githubWebHook:
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'map[string]string - {message: ''success information''}'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Process webhook for github
+  /workflow/webhook/gitlabhook:
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'map[string]string - {message: success}'
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Process webhook for giblab
+swagger: "2.0"

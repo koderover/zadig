@@ -61,17 +61,17 @@
 </template>
 
 <script>
-import mixin from '@utils/task_detail_mixin';
-import { NoticeBar, Col, Row } from 'vant';
+import mixin from '@utils/task_detail_mixin'
+import { NoticeBar, Col, Row } from 'vant'
 export default {
   components: {
     [NoticeBar.name]: NoticeBar,
     [Col.name]: Col,
     [Row.name]: Row
   },
-  data() {
+  data () {
     return {
-    };
+    }
   },
 
   computed: {
@@ -82,19 +82,19 @@ export default {
   props: {
     deploys: {
       type: Array,
-      required: true,
+      required: true
     },
     pipelineName: {
       type: String,
-      required: true,
+      required: true
     },
     taskID: {
       type: [String, Number],
-      required: true,
-    },
+      required: true
+    }
   },
   mixins: [mixin]
-};
+}
 </script>
 
 <style lang="less">
@@ -102,6 +102,7 @@ export default {
 
 .mobile-task-detail-deploy {
   color: #303133;
+
   a {
     color: #1989fa;
   }

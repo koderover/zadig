@@ -29,7 +29,7 @@
               <el-form-item prop="timing.frequency">
                 <el-select v-model="schedule_config.timing.frequency"
                            size="small"
-                           style="width:150px"
+                           style="width: 150px;"
                            placeholder="请选择">
                   <el-option v-for="(item,index) in dateTranslate"
                              :key="index"
@@ -43,7 +43,7 @@
                                 value-format="HH:mm"
                                 format="HH:mm"
                                 size="small"
-                                style="width:150px"
+                                style="width: 150px;"
                                 placeholder="请选择时间"></el-time-picker>
               </el-form-item>
             </div>
@@ -54,12 +54,12 @@
                 <el-input-number v-model="schedule_config.gap.number"
                                  :min="1"
                                  size="small"
-                                 style="width:150px"></el-input-number>
+                                 style="width: 150px;"></el-input-number>
               </el-form-item>
               <el-form-item prop="gap.frequency">
                 <el-select v-model="schedule_config.gap.frequency"
                            size="small"
-                           style="width:150px">
+                           style="width: 150px;">
                   <el-option label="分钟"
                              value="minutes">
                   </el-option>
@@ -74,7 +74,7 @@
               <el-form-item prop="crontab.cron">
                 <el-input v-model="schedule_config.crontab.cron"
                           size="small"
-                          style="width:300px" />
+                          style="width: 300px;" />
               </el-form-item>
             </div>
           </el-form-item>
@@ -121,7 +121,7 @@
          class="timer-container">
       <div class="section-wrapper">
         <el-table :data="schedules['items']"
-                  style="width: 100%">
+                  style="width: 100%;">
           <el-table-column label="触发方式"
                            #default="{ row }">
             {{ schedule_config[row.type].name }}
@@ -157,8 +157,8 @@
 
 <script type="text/javascript">
 export default {
-  data() {
-    var checkCron = (rule, value, callback) => {
+  data () {
+    const checkCron = (rule, value, callback) => {
       if (value.trim().split(/\s+/).length !== 5) {
         callback(new Error('请检查格式，仅支持五位！'))
       } else if (!/^[0-9\s/\-\*\,]+$/.test(value)) {
@@ -177,10 +177,10 @@ export default {
         { label: '每周四', value: 'thursday' },
         { label: '每周五', value: 'friday' },
         { label: '每周六', value: 'saturday' },
-        { label: '每周日', value: 'sunday' },
+        { label: '每周日', value: 'sunday' }
       ],
       triggerRules: {
-        'type': [{ required: true, message: '请选择触发方式', trigger: 'blur' }],
+        type: [{ required: true, message: '请选择触发方式', trigger: 'blur' }],
         'timing.frequency': [{ required: true, message: '请选择周期', trigger: 'blur' }],
         'timing.time': [{ required: true, message: '请填选择时间', trigger: 'blur' }],
         'gap.number': [{ required: true, message: '请填选择时间', trigger: 'blur' }],
@@ -195,14 +195,14 @@ export default {
           name: '定时循环',
           frequency: '',
           number: 1,
-          time: '',
+          time: ''
         },
         gap: {
           type: 'gap',
           name: '间隔循环',
           number: 1,
           frequency: '',
-          time: '',
+          time: ''
         },
         crontab: {
           type: 'crontab',
@@ -210,24 +210,24 @@ export default {
           number: 1,
           frequency: '',
           time: '',
-          cron: '* * * * *',
-        },
+          cron: '* * * * *'
+        }
       },
-      editMiddleDate: {},
-    };
+      editMiddleDate: {}
+    }
   },
   props: {
-    schedules: {    
+    schedules: {
       required: true,
       type: Object
     },
     timerType: {
       type: String,
-      required: true  
+      required: true
     },
     testName: {
       type: String,
-      default: '',
+      default: ''
     },
     projectName: {
       required: true,
@@ -244,81 +244,81 @@ export default {
     },
     whichSave: {
       typeof: String,
-      default: 'inside'  
+      default: 'inside'
     }
   },
   methods: {
-    getWeekday(enday) {
-      for (let date of this.dateTranslate) {
+    getWeekday (enday) {
+      for (const date of this.dateTranslate) {
         if (date.value === enday) {
-          return date.label;
+          return date.label
         }
       }
     },
-    addTimerBtn() {  
-      this.addTimerDialogVisible = true;
-      this.schedules.enabled = true;
-      this.editMiddleDate = {};
-      this.timerEditMode = false;
+    addTimerBtn () {
+      this.addTimerDialogVisible = true
+      this.schedules.enabled = true
+      this.editMiddleDate = {}
+      this.timerEditMode = false
     },
-    editSchedule(index) {
-      this.timerEditMode = true;
-      this.addTimerDialogVisible = true;
-      var editData = this.schedules.items[index];
-      this.editMiddleDate = {};
-      this.editMiddleDate.index = index;
-      this.editMiddleDate.type = editData.type;
-      this.editMiddleDate[editData.type] = this.schedule_config[editData.type];
-      this.schedule_config.type = editData.type;
-      this.schedule_config[editData.type] = Object.assign({}, this.schedule_config[editData.type], editData);
+    editSchedule (index) {
+      this.timerEditMode = true
+      this.addTimerDialogVisible = true
+      const editData = this.schedules.items[index]
+      this.editMiddleDate = {}
+      this.editMiddleDate.index = index
+      this.editMiddleDate.type = editData.type
+      this.editMiddleDate[editData.type] = this.schedule_config[editData.type]
+      this.schedule_config.type = editData.type
+      this.schedule_config[editData.type] = Object.assign({}, this.schedule_config[editData.type], editData)
     },
-    cancelSchedule() {
-      this.addTimerDialogVisible = false;
-      this.editMiddleDate.type && (this.schedule_config[this.editMiddleDate.type] = this.editMiddleDate[this.editMiddleDate.type]);
+    cancelSchedule () {
+      this.addTimerDialogVisible = false
+      this.editMiddleDate.type && (this.schedule_config[this.editMiddleDate.type] = this.editMiddleDate[this.editMiddleDate.type])
     },
-    addSchedule(argsObject = {}, argsType = '') {
-      var type = this.schedule_config.type;
-      if (this.timerType === 'test') {   
+    addSchedule (argsObject = {}, argsType = '') {
+      const type = this.schedule_config.type
+      if (this.timerType === 'test') {
         argsObject = {
-          "product_name": this.projectName,
-          "test_name": this.testName,
+          product_name: this.projectName,
+          test_name: this.testName
         }
-        argsType = 'test_args';
+        argsType = 'test_args'
       }
-      this.$refs['addTimer'].validate((valid) => {
+      this.$refs.addTimer.validate((valid) => {
         if (valid) {
-          if (!this.schedules['items']) {
-            this.$set(this.schedules, 'items', []);
+          if (!this.schedules.items) {
+            this.$set(this.schedules, 'items', [])
           }
           if (!this.editMiddleDate.type) {
-            this.$set(this.schedule_config[type], argsType, argsObject);
+            this.$set(this.schedule_config[type], argsType, argsObject)
           }
           if (this.editMiddleDate.type) {
-            this.schedule_config[type][argsType] = argsObject;
-            this.schedules['items'].splice(this.editMiddleDate.index, 1, this.schedule_config[type]);
-          } else if (type && type === 'timing') {   
-            this.schedules['items'].push(this.schedule_config.timing);
+            this.schedule_config[type][argsType] = argsObject
+            this.schedules.items.splice(this.editMiddleDate.index, 1, this.schedule_config[type])
+          } else if (type && type === 'timing') {
+            this.schedules.items.push(this.schedule_config.timing)
             this.schedule_config.timing = {
               type: 'timing',
               name: '定时循环',
               frequency: '',
               number: 1,
               time: '',
-              enabled: true,
-            };
+              enabled: true
+            }
           } else if (type && type === 'gap') {
-            this.schedules['items'].push(this.schedule_config.gap);
+            this.schedules.items.push(this.schedule_config.gap)
             this.schedule_config.gap = {
               type: 'gap',
               name: '间隔循环',
               number: null,
               frequency: '',
               time: '',
-              max_failures: 3, 
-              enabled: true,
-            };
+              max_failures: 3,
+              enabled: true
+            }
           } else if (type && type === 'crontab') {
-            this.schedules['items'].push(this.schedule_config.crontab);
+            this.schedules.items.push(this.schedule_config.crontab)
             this.schedule_config.crontab = {
               type: 'crontab',
               name: 'Cron 表达式',
@@ -326,30 +326,30 @@ export default {
               frequency: '',
               time: '',
               cron: '* * * * *',
-              enabled: true,
+              enabled: true
             }
           }
-          this.addTimerDialogVisible = false;
+          this.addTimerDialogVisible = false
         } else {
-          console.log('error submit!!');
-          return false;
+          console.log('error submit!!')
+          return false
         }
-      });
+      })
     },
-    deleteSchedule(index) {
-      this.schedules['items'].splice(index, 1);
-    },
+    deleteSchedule (index) {
+      this.schedules.items.splice(index, 1)
+    }
   },
   computed: {
-    getIndex() {
+    getIndex () {
       if (this.timerEditMode) {
-        return this.schedules.items.length * 10 + this.editMiddleDate.index;
+        return this.schedules.items.length * 10 + this.editMiddleDate.index
       } else {
-        return -this.schedules.items.length * 10;
+        return -this.schedules.items.length * 10
       }
     },
-    cronValue() {
-      var cronArr = this.schedule_config.crontab.cron.trim().split(/\s+/);
+    cronValue () {
+      const cronArr = this.schedule_config.crontab.cron.trim().split(/\s+/)
       return [{
         min: cronArr[0],
         hour: cronArr[1],
@@ -359,85 +359,87 @@ export default {
       }]
     }
   },
-  created() {
-
-  },
   components: {
   }
-};
+}
 </script>
 
 <style lang="less">
-.add-timer-trigger {
-  .el-form-item.is-required .el-form-item__label {
-    &::before {
-      content: none;
-    }
-    &::after {
-      content: none;
-    }
-  }
-}
 .test-timer {
   color: #606266;
+
   .add-timer {
     margin-top: -20px;
     margin-left: 10px;
+
     .inline-show {
       display: flex;
+
       & > div {
         margin-right: 10px;
       }
     }
+
     .cron-table-show {
       width: 600px;
       line-height: 1;
+
       th,
       td {
         padding: 3px;
       }
     }
+
     .cron-title-show {
-      line-height: 1;
       margin: 12px 0 5px;
+      line-height: 1;
     }
   }
+
   .timer-container {
-    line-height: 1;
     font-size: 14px;
+    line-height: 1;
   }
+
   .box-card {
     .el-card__header {
       text-align: center;
     }
+
     .el-form {
       .el-form-item {
         margin-bottom: 5px;
       }
     }
+
     .el-card__body {
-      padding: 0px;
+      padding: 0;
     }
+
     .divider {
-      height: 1px;
-      background-color: #dfe0e6;
-      margin: 13px 0;
       width: 100%;
+      height: 1px;
+      margin: 13px 0;
+      background-color: #dfe0e6;
     }
+
     .help-link {
       color: #1989fa;
     }
   }
+
   .el-form--label-top .el-form-item__label {
-    float: none;
     display: inline-block;
-    text-align: left;
+    float: none;
     padding: 0;
+    text-align: left;
   }
+
   .el-form-item.is-required .el-form-item__label {
     &::before {
       content: none;
     }
+
     &::after {
       content: none;
     }

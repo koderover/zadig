@@ -17,28 +17,24 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"log"
-	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/koderover/zadig/lib/microservice/podexec/server"
+	"github.com/koderover/zadig/pkg/microservice/podexec/server"
 )
 
 func main() {
-	stopCh := make(chan struct{})
-
-	signals := make(chan os.Signal, 1)
-	defer close(signals)
-
-	signal.Notify(signals, syscall.SIGTERM, syscall.SIGINT)
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	go func() {
-		<-signals
-		signal.Stop(signals)
-		close(stopCh)
+		select {
+		case <-ctx.Done():
+			stop()
+		}
 	}()
 
-	if err := server.Serve(stopCh); err != nil {
+	if err := server.Serve(ctx); err != nil {
 		log.Fatal(err)
 	}
 }

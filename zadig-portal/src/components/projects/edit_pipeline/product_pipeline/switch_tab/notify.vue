@@ -17,7 +17,7 @@
                 </span>
                 <el-select v-model="notify.webhook_type"
                            @change="clearForm"
-                           style="width:350px"
+                           style="width: 350px;"
                            size="small"
                            placeholder="请选择类型">
                   <el-option label="钉钉"
@@ -44,7 +44,7 @@
                          target="_blank"><i class="el-icon-question"></i></a>
                     </el-tooltip></span>
                 </span>
-                <el-input style="width:350px"
+                <el-input style="width: 350px;"
                           size="small"
                           v-model="notify.feishu_webhook"></el-input>
               </el-form-item>
@@ -61,7 +61,7 @@
                          target="_blank"><i class="el-icon-question"></i></a>
                     </el-tooltip></span>
                 </span>
-                <el-input style="width:350px"
+                <el-input style="width: 350px;"
                           size="small"
                           v-model="notify.weChat_webHook"></el-input>
               </el-form-item>
@@ -78,7 +78,7 @@
                          target="_blank"><i class="el-icon-question"></i></a>
                     </el-tooltip></span>
                 </span>
-                <el-input style="width:350px"
+                <el-input style="width: 350px;"
                           size="small"
                           v-model="notify.dingding_webhook"></el-input>
               </el-form-item>
@@ -87,7 +87,7 @@
                 <span slot="label">
                   <span>@指定成员（输入指定通知接收人的手机号码，使用 ; 分割，为空则全员通知）：</span>
                 </span>
-                <el-input style="width:350px"
+                <el-input style="width: 350px;"
                           type="textarea"
                           :rows="3"
                           placeholder="输入指定通知接收人的手机号码，使用用 ; 分割"
@@ -117,10 +117,10 @@
 </template>
 
 <script type="text/javascript">
-import bus from '@utils/event_bus';
+import bus from '@utils/event_bus'
 
 export default {
-  data() {
+  data () {
     return {
       isIndeterminate: true,
       notifyRules: {
@@ -165,55 +165,51 @@ export default {
           }
         ]
       }
-    };
+    }
   },
   computed: {
     checkAll: {
       get: function () {
-        return this.notify.notify_type.length === 4;
-      },
-      set: function (newValue) {
+        return this.notify.notify_type.length === 4
       }
     },
     'notify.at_mobiles': {
       get: function () {
-        return this.mobileStr.split(';');
+        return this.mobileStr.split(';')
       }
     },
-    'mobileStr': {
+    mobileStr: {
       get: function () {
         if (this.notify.at_mobiles) {
-          return this.notify.at_mobiles.join(';');
-        }
-        else {
-          return '';
+          return this.notify.at_mobiles.join(';')
+        } else {
+          return ''
         }
       },
       set: function (newValue) {
         if (newValue === '') {
-          this.$set(this.notify, 'is_at_all', true);
-          this.$set(this.notify, 'at_mobiles', []);
-        }
-        else {
-          this.$set(this.notify, 'is_at_all', false);
-          this.$set(this.notify, 'at_mobiles', newValue.split(';'));
+          this.$set(this.notify, 'is_at_all', true)
+          this.$set(this.notify, 'at_mobiles', [])
+        } else {
+          this.$set(this.notify, 'is_at_all', false)
+          this.$set(this.notify, 'at_mobiles', newValue.split(';'))
         }
       }
     }
 
   },
   methods: {
-    handleCheckAllChange(val) {
-      this.notify.notify_type = val ? ['timeout', 'passed', 'failed', 'cancelled'] : [];
-      this.isIndeterminate = false;
+    handleCheckAllChange (val) {
+      this.notify.notify_type = val ? ['timeout', 'passed', 'failed', 'cancelled'] : []
+      this.isIndeterminate = false
     },
-    handleCheckedValueChange(value) {
-      let checkedCount = value.length;
-      this.checkAll = (checkedCount === 4);
-      this.isIndeterminate = (checkedCount > 0 && checkedCount < 4);
+    handleCheckedValueChange (value) {
+      const checkedCount = value.length
+      this.checkAll = (checkedCount === 4)
+      this.isIndeterminate = (checkedCount > 0 && checkedCount < 4)
     },
-    clearForm() {
-      this.$refs['notify'].clearValidate();
+    clearForm () {
+      this.$refs.notify.clearValidate()
     }
   },
   props: {
@@ -224,21 +220,21 @@ export default {
     editMode: {
       required: true,
       type: Boolean
-    },
+    }
   },
 
-  created() {
+  created () {
     bus.$on('check-tab:notify', () => {
       this.$refs.notify.validate(valid => {
-        bus.$emit('receive-tab-check:notify', valid);
-      });
-    });
+        bus.$emit('receive-tab-check:notify', valid)
+      })
+    })
   },
-  beforeDestroy() {
-    bus.$off('check-tab:notify');
-  },
+  beforeDestroy () {
+    bus.$off('check-tab:notify')
+  }
 
-};
+}
 </script>
 
 <style lang="less">
@@ -247,39 +243,46 @@ export default {
     .el-card__header {
       text-align: center;
     }
+
     .el-form {
       .el-form-item {
         margin-bottom: 5px;
+
         .env-form-inline {
           width: 100%;
         }
       }
     }
+
     .divider {
-      height: 1px;
-      background-color: #dfe0e6;
-      margin: 13px 0;
       width: 100%;
+      height: 1px;
+      margin: 13px 0;
+      background-color: #dfe0e6;
     }
 
     .notify-container {
       margin: 10px 0;
     }
+
     .help-link {
       color: #303133;
     }
+
     .script {
-      padding: 5px 0px;
+      padding: 5px 0;
+
       .title {
         display: inline-block;
+        width: 100px;
+        padding-top: 6px;
         color: #606266;
         font-size: 14px;
-        padding-top: 6px;
-        width: 100px;
       }
+
       .item-title {
-        color: #909399;
         margin-left: 5px;
+        color: #909399;
       }
     }
   }

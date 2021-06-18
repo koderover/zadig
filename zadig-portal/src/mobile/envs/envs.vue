@@ -18,9 +18,9 @@
   </div>
 </template>
 <script>
-import { NavBar, Empty, Cell, CellGroup } from 'vant';
-import { mapGetters } from 'vuex';
-import { uniqBy, orderBy } from 'lodash';
+import { NavBar, Empty, Cell, CellGroup } from 'vant'
+import { mapGetters } from 'vuex'
+import { uniqBy, orderBy } from 'lodash'
 export default {
   components: {
     [NavBar.name]: NavBar,
@@ -28,7 +28,7 @@ export default {
     [Cell.name]: Cell,
     [CellGroup.name]: CellGroup
   },
-  data() {
+  data () {
     return {
       products: []
     }
@@ -37,29 +37,26 @@ export default {
     ...mapGetters([
       'productList'
     ]),
-    filteredProducts() {
-      return uniqBy(orderBy(this.productList, ['product_name', 'is_prod']), 'product_name');
-    },
+    filteredProducts () {
+      return uniqBy(orderBy(this.productList, ['product_name', 'is_prod']), 'product_name')
+    }
   },
   methods: {
-    async getProducts() {
-      let firstMessage = true;
-      const availableProjectNames = [];
+    async getProducts () {
+      const availableProjectNames = []
 
-      await this.$store.dispatch('getProductListSSE').closeWhenDestroy(this);
-      for (let product of this.productList) {
-          availableProjectNames.push(product.product_name);
+      await this.$store.dispatch('getProductListSSE').closeWhenDestroy(this)
+      for (const product of this.productList) {
+        availableProjectNames.push(product.product_name)
       }
       this.products = this.filteredProducts.map(element => {
         return { name: element.product_name, url: `/mobile/envs/detail/${element.product_name}?envName=${element.env_name}` }
-      });
+      })
     }
   },
-  mounted() {
-    this.getProducts();
-  },
+  mounted () {
+    this.getProducts()
+  }
 
 }
 </script>
-<style lang="less">
-</style>

@@ -89,12 +89,12 @@
 </template>
 
 <script>
-import mixin from '@utils/task_detail_mixin';
+import mixin from '@utils/task_detail_mixin'
 
 export default {
-  data() {
+  data () {
     return {
-    };
+    }
   },
   computed: {
 
@@ -104,19 +104,19 @@ export default {
   props: {
     deploys: {
       type: Array,
-      required: true,
+      required: true
     },
     pipelineName: {
       type: String,
-      required: true,
+      required: true
     },
     taskID: {
       type: [String, Number],
-      required: true,
-    },
+      required: true
+    }
   },
   mixins: [mixin]
-};
+}
 </script>
 
 <style lang="less">
@@ -126,6 +126,7 @@ export default {
   .deploy-item {
     margin-bottom: 15px;
   }
+
   .env-link {
     color: #1989fa;
   }

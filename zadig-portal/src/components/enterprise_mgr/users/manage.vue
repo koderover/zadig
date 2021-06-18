@@ -77,7 +77,7 @@
     </div>
     <div class="users-container">
       <el-table :data="usersTableData"
-                style="width: 100%">
+                style="width: 100%;">
         <el-table-column label="用户名称">
           <template slot-scope="scope">
             {{scope.row.name}}
@@ -139,21 +139,20 @@
 
 <script>
 
-import { addUserAPI, usersAPI, deleteUserAPI } from '@api';
-import bus from '@utils/event_bus';
-import _ from "lodash";
+import { addUserAPI, usersAPI, deleteUserAPI } from '@api'
+import bus from '@utils/event_bus'
 
 export default {
-  data() {
+  data () {
     return {
       users: [],
       usersTableData: [],
       addUser: {
-        "email": "",
-        "password": "",
-        "isSuperUser": true,
-        "name": "",
-        "phone": ""
+        email: '',
+        password: '',
+        isSuperUser: true,
+        name: '',
+        phone: ''
       },
       editUser: {
       },
@@ -204,40 +203,40 @@ export default {
           }
         ]
       }
-    };
+    }
   },
   methods: {
-    submit() {
-      this.$refs["form"].validate((valid) => {
+    submit () {
+      this.$refs.form.validate((valid) => {
         if (valid) {
-          this.upsertRole();
+          this.upsertRole()
         }
-      });
+      })
     },
-    handleUserRoleUpdate() {
+    handleUserRoleUpdate () {
       const payload = {
         userId: this.editUser.id,
         isSuperUser: this.editUser.isSuperUser
-      };
+      }
       editUserRoleAPI(payload).then((res) => {
-        this.dialogEditRoleVisible = false;
+        this.dialogEditRoleVisible = false
         this.$message({
           type: 'success',
           message: '更改角色成功'
-        });
-        this.getUsers(this.searchId, this.userPageSize, this.currentPageList, this.searchUser);
-      });
+        })
+        this.getUsers(this.searchId, this.userPageSize, this.currentPageList, this.searchUser)
+      })
     },
-    getUsers(team_id, page_size = 0, page_index = 0, keyword = '') {
-      const orgId = this.currentOrganizationId;
-      this.loading = true;
+    getUsers (team_id, page_size = 0, page_index = 0, keyword = '') {
+      const orgId = this.currentOrganizationId
+      this.loading = true
       usersAPI(orgId, team_id, page_size, page_index, keyword).then((res) => {
-        this.loading = false;
-        this.totalUser = Number(res.headers['x-total']);
-        this.usersTableData = res.data;
-      });
+        this.loading = false
+        this.totalUser = Number(res.headers['x-total'])
+        this.usersTableData = res.data
+      })
     },
-    deleteUser(row) {
+    deleteUser (row) {
       this.$confirm(`确定删除系统用户 ${row.name}`, '提示', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
@@ -247,114 +246,154 @@ export default {
           this.$message({
             type: 'success',
             message: '删除用户成功'
-          });
-          this.getUsers(this.searchId, this.userPageSize, this.currentPageList, this.searchUser);
-        });
+          })
+          this.getUsers(this.searchId, this.userPageSize, this.currentPageList, this.searchUser)
+        })
       }).catch(() => {
         this.$message({
           type: 'info',
           message: '已取消删除'
-        });
-      });
+        })
+      })
     },
-    addUserOperation() {
-      this.$refs['addUserForm'].validate((valid) => {
+    addUserOperation () {
+      this.$refs.addUserForm.validate((valid) => {
         if (valid) {
-          const payload = this.addUser;
-          const orgId = this.currentOrganizationId;
+          const payload = this.addUser
+          const orgId = this.currentOrganizationId
           addUserAPI(orgId, payload).then((res) => {
-            this.dialogAddUserVisible = false;
+            this.dialogAddUserVisible = false
             this.$message({
               type: 'success',
               message: '新建用户成功'
-            });
-            this.getUsers(this.searchId, this.userPageSize, this.currentPageList, this.searchUser);
-          });
+            })
+            this.$refs.addUserForm.resetFields()
+            this.getUsers(this.searchId, this.userPageSize, this.currentPageList, this.searchUser)
+          })
         } else {
-          return false;
+          return false
         }
-      });
+      })
     },
-    handleSizeChange(val) {
-      this.userPageSize = val;
-      this.getUsers(this.searchId, this.userPageSize, this.currentPageList, this.searchUser);
+    handleSizeChange (val) {
+      this.userPageSize = val
+      this.getUsers(this.searchId, this.userPageSize, this.currentPageList, this.searchUser)
     },
-    handleCurrentChange(val) {
-      this.currentPageList = val;
-      this.getUsers(this.searchId, this.userPageSize, this.currentPageList, this.searchUser);
-    },
+    handleCurrentChange (val) {
+      this.currentPageList = val
+      this.getUsers(this.searchId, this.userPageSize, this.currentPageList, this.searchUser)
+    }
   },
   computed: {
-    currentOrganizationId() {
-      return this.$store.state.login.userinfo.organization.id;
+    currentOrganizationId () {
+      return this.$store.state.login.userinfo.organization.id
     },
-    searchId() {
-      return '';
+    searchId () {
+      return ''
     }
   },
   watch: {
     searchUser: function (val, oldVal) {
-      this.getUsers('', this.userPageSize, this.currentPageList, val);
+      this.getUsers('', this.userPageSize, this.currentPageList, val)
     }
   },
-  created() {
-    bus.$emit(`set-topbar-title`, { title: '用户管理', breadcrumb: [] });
-    bus.$emit(`set-sub-sidebar-title`, {
+  created () {
+    bus.$emit('set-topbar-title', { title: '用户管理', breadcrumb: [] })
+    bus.$emit('set-sub-sidebar-title', {
       title: '',
       routerList: []
-    });
-    this.getUsers('', this.userPageSize, this.currentPageList, this.searchUser);
+    })
+    this.getUsers('', this.userPageSize, this.currentPageList, this.searchUser)
   }
-};
+}
 </script>
-
 
 <style lang="less">
 .users-overview-container {
-  flex: 1;
   position: relative;
-  overflow: auto;
+  flex: 1;
   padding: 15px 30px;
+  overflow: auto;
   font-size: 13px;
+
+  .el-input {
+    display: inline-block;
+  }
+
+  .create-user-dialog {
+    width: 450px;
+
+    .el-dialog__header {
+      padding: 15px;
+      text-align: center;
+      border-bottom: 1px solid #e4e4e4;
+
+      .el-dialog__close {
+        font-size: 10px;
+      }
+    }
+
+    .el-dialog__body {
+      padding-bottom: 0;
+    }
+
+    .el-select {
+      width: 100%;
+    }
+
+    .el-input {
+      display: inline-block;
+    }
+  }
+
   .module-title h1 {
+    margin-bottom: 1.5rem;
     font-weight: 200;
     font-size: 2rem;
-    margin-bottom: 1.5rem;
   }
+
   .create-team {
     margin-top: 10px;
     margin-bottom: 15px;
+
     .text-title {
       margin-right: 15px;
       color: rgba(0, 0, 0, 0.65);
     }
+
     .team-select {
       .el-select {
         width: calc(~"100% - 60px");
       }
     }
+
     .search-member {
       .el-input {
         width: calc(~"100% - 80px");
       }
     }
   }
+
   .permission-form {
     .el-form-item__label {
       line-height: 28px;
     }
+
     .el-form-item {
       &:last-child {
         margin-bottom: 0;
       }
+
       .el-form-item__content {
         line-height: 28px;
       }
     }
+
     .permissions-group {
       &:last-child {
         margin-bottom: 0;
       }
+
       .sub-permissions {
         margin-left: 25px;
 
@@ -365,19 +404,23 @@ export default {
       }
     }
   }
+
   .users-container {
     .name-wrapper {
       font-size: 24px;
       line-height: 23px;
+
       .icon {
-        cursor: pointer;
-        color: #c0c4cc;
         margin-right: 5px;
+        color: #c0c4cc;
+        cursor: pointer;
+
         &:hover {
           color: #1989fa;
         }
       }
     }
+
     .user-table-pagination {
       margin-top: 25px;
     }
@@ -386,39 +429,15 @@ export default {
   .el-table th > .cell {
     color: #97a8be;
   }
-  .el-input {
-    display: inline-block;
-  }
 }
 
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.6s;
 }
+
 .fade-enter,
 .fade-leave-to {
   opacity: 0;
-}
-
-.create-user-dialog {
-  width: 450px;
-  .el-dialog__header {
-    text-align: center;
-    border-bottom: 1px solid #e4e4e4;
-    padding: 15px;
-    .el-dialog__close {
-      font-size: 10px;
-    }
-  }
-  .el-dialog__body {
-    padding-bottom: 0px;
-  }
-
-  .el-select {
-    width: 100%;
-  }
-  .el-input {
-    display: inline-block;
-  }
 }
 </style>

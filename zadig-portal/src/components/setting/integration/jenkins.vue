@@ -31,16 +31,16 @@ export default {
     Etable,
     AddJenkins
   },
-  data() {
+  data () {
     return {
       tableColumns: [
         {
           prop: 'url',
-          label: '服务地址',
+          label: '服务地址'
         },
         {
           prop: 'username',
-          label: '用户名',
+          label: '用户名'
         },
         {
           prop: 'password',
@@ -54,32 +54,32 @@ export default {
           render: (scope) => {
             return (
               <div>
-                <el-button type="primary" size="mini" onClick={()=>{this.handleJenkinsaEdit(scope.row)}} plain>
+                <el-button type="primary" size="mini" onClick={() => { this.handleJenkinsaEdit(scope.row) }} plain>
                   编辑
                 </el-button>
-                <el-button type="danger" size="mini" onClick={()=>{this.handleJenkinsaDelete(scope.row)}} plain>
+                <el-button type="danger" size="mini" onClick={() => { this.handleJenkinsaDelete(scope.row) }} plain>
                   删除
                 </el-button>
               </div>
             )
-          },
-        },
+          }
+        }
       ],
-      tableData: [],
+      tableData: []
     }
   },
   methods: {
     async handleJenkinsaDelete (data) {
-      this.$confirm(`确定要删除这个代码源吗？`, '确认', {
+      this.$confirm('确定要删除这个代码源吗？', '确认', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
       }).then(() => {
-        deleteJenkins(data).then(() =>{
+        deleteJenkins(data).then(() => {
           this.$message.success('删除成功')
           this.getJenkins()
         })
-      });
+      })
     },
     handleJenkinsaAdd () {
       this.$refs.jenkinsref.openDialog()
@@ -87,16 +87,16 @@ export default {
     handleJenkinsaEdit (data) {
       this.$refs.jenkinsref.openDialog(_.cloneDeep(data))
     },
-    async getJenkins (){
-      let res = await queryJenkins().catch(error=> console.log(error))
-      if(res) {
-         this.tableData = res 
+    async getJenkins () {
+      const res = await queryJenkins().catch(error => console.log(error))
+      if (res) {
+        this.tableData = res
       }
     }
   },
-  activated() {
+  activated () {
     this.getJenkins()
-  },
+  }
 }
 </script>
 <style lang="less" scoped>

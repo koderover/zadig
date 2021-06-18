@@ -7,7 +7,10 @@
   "scripts": {
     "dev": "webpack-dev-server --inline --progress --config build/webpack.dev.conf.js",
     "start": "npm run dev",
-    "build": "node build/build.js"
+    "build": "eslint --ext .js,.vue src && stylelint src && node build/build.js",
+    "eslint": "eslint --fix --ext .js,.vue src",
+    "stylelint": "stylelint --fix src",
+    "prepare": "cd .. && husky install zadig-portal/.husky"
   },
   "dependencies": {
     "axios": "0.18.0",
@@ -64,10 +67,19 @@
     "compression-webpack-plugin": "1.1.12",
     "copy-webpack-plugin": "^4.0.1",
     "css-loader": "^0.28.0",
+    "eslint": "^7.27.0",
+    "eslint-config-standard": "^16.0.3",
+    "eslint-loader": "^4.0.2",
+    "eslint-plugin-import": "^2.23.3",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^5.1.0",
+    "eslint-plugin-vue": "^7.9.0",
     "extract-text-webpack-plugin": "^3.0.0",
     "file-loader": "^1.1.4",
     "friendly-errors-webpack-plugin": "^1.6.1",
     "html-webpack-plugin": "^2.30.1",
+    "husky": "^6.0.0",
+    "lint-staged": "^11.0.0",
     "node-notifier": "^5.1.2",
     "optimize-css-assets-webpack-plugin": "^3.2.0",
     "ora": "^1.2.0",
@@ -78,6 +90,11 @@
     "rimraf": "^2.6.0",
     "semver": "^5.3.0",
     "shelljs": "^0.7.6",
+    "stylelint": "^13.13.1",
+    "stylelint-config-rational-order": "^0.1.2",
+    "stylelint-config-standard": "^22.0.0",
+    "stylelint-order": "^4.1.0",
+    "stylelint-webpack-plugin": "0.10.4",
     "uglifyjs-webpack-plugin": "^1.1.1",
     "url-loader": "^0.5.8",
     "vue-loader": "^14.2.1",
@@ -96,5 +113,13 @@
     "> 1%",
     "last 2 versions",
     "not ie <= 8"
-  ]
+  ],
+  "lint-staged": {
+    "src/**/*.{js,vue}": [
+      "eslint --fix"
+    ],
+    "src/**/*.{less,css,vue}": [
+      "stylelint --fix"
+    ]
+  }
 }

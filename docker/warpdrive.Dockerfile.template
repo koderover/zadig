@@ -2,7 +2,7 @@
 
 RUN go build -v -o /warpdrive ./cmd/warpdrive/main.go
 
-#ubuntu-base.Dockerfile.inc
+#alpine-base.Dockerfile.inc
 
 WORKDIR /app
 

@@ -51,8 +51,7 @@
               <multipane-resizer></multipane-resizer>
               <aside class="pipelines__aside pipelines__aside_right"
                      :style="{ flexGrow: 1 }">
-                <serviceAsideK8s v-if="service.product_name===projectName"
-                                 :service="service"
+                <serviceAsideK8s :service="service"
                                  :detectedEnvs="detectedEnvs"
                                  :detectedServices="detectedServices"
                                  :systemEnvs="systemEnvs"
@@ -91,18 +90,18 @@
   </div>
 </template>
 <script>
-import bus from '@utils/event_bus';
-import mixin from '@utils/service_module_mixin';
-import step from './common/step.vue';
-import addCode from '../service_mgr/common/add_code.vue';
-import serviceAsideK8s from './k8s/container/service_aside.vue';
-import serviceEditorK8s from './k8s/container/service_editor.vue';
-import serviceTree from '../service_mgr/common/service_tree.vue';
-import { sortBy } from 'lodash';
-import { getServiceTemplatesAPI, getServicesTemplateWithSharedAPI, saveServiceTemplateAPI, serviceTemplateWithConfigAPI, getSingleProjectAPI } from '@api';
-import { Multipane, MultipaneResizer } from 'vue-multipane';
+import bus from '@utils/event_bus'
+import mixin from '@utils/service_module_mixin'
+import step from './common/step.vue'
+import addCode from '../service_mgr/common/add_code.vue'
+import serviceAsideK8s from './k8s/container/service_aside.vue'
+import serviceEditorK8s from './k8s/container/service_editor.vue'
+import serviceTree from '../service_mgr/common/service_tree.vue'
+import { sortBy } from 'lodash'
+import { getServiceTemplatesAPI, getServicesTemplateWithSharedAPI, saveServiceTemplateAPI, serviceTemplateWithConfigAPI, getSingleProjectAPI } from '@api'
+import { Multipane, MultipaneResizer } from 'vue-multipane'
 export default {
-  data() {
+  data () {
     return {
       service: {},
       services: [],
@@ -113,118 +112,118 @@ export default {
       currentServiceYamlKinds: {},
       projectInfo: {},
       showNext: false,
-      addCodeDrawer: false,
+      addCodeDrawer: false
     }
   },
   methods: {
-    createService() {
-      this.$refs['serviceTree'].createService('platform');
+    createService () {
+      this.$refs.serviceTree.createService('platform')
     },
-    toNext() {
-      this.$router.push(`/v1/projects/create/${this.projectName}/basic/runtime?serviceName=${this.serviceName}&serviceType=${this.serviceType}`);
+    toNext () {
+      this.$router.push(`/v1/projects/create/${this.projectName}/basic/runtime?serviceName=${this.serviceName}&serviceType=${this.serviceType}`)
     },
-    onSelectServiceChange(service) {
-      this.$set(this, 'service', service);
+    onSelectServiceChange (service) {
+      this.$set(this, 'service', service)
     },
-    getServices() {
-      const projectName = this.projectName;
-      this.$set(this, 'service', {});
+    getServices () {
+      const projectName = this.projectName
+      this.$set(this, 'service', {})
       getServiceTemplatesAPI(projectName).then((res) => {
         this.services = sortBy((res.data.map(service => {
-          service.idStr = `${service.service_name}/${service.type}`;
-          service.status = 'added';
-          return service;
-        })), 'service_name');
-      });
-    },
-    getSharedServices() {
-      const projectName = this.projectName;
-      getServicesTemplateWithSharedAPI(projectName).then((res) => {
-        this.sharedServices = sortBy((res.map(service => {
-          service.status = 'added';
-          service.type = 'k8s';
-          return service;
-        })), 'service_name');
-      });
-    },
-    getServiceModules() {
-      const serviceName = this.service.service_name;
-      const projectName = this.projectName
-      serviceTemplateWithConfigAPI(serviceName, projectName).then(res => {
-        this.detectedEnvs = res.custom_variable ? res.custom_variable : [];
-        this.detectedServices = res.service_module ? res.service_module : [];
-        this.systemEnvs = res.system_variable ? res.system_variable : [];
+          service.idStr = `${service.service_name}/${service.type}`
+          service.status = 'added'
+          return service
+        })), 'service_name')
       })
     },
-    onUpdateService(payload) {
+    getSharedServices () {
+      const projectName = this.projectName
+      getServicesTemplateWithSharedAPI(projectName).then((res) => {
+        this.sharedServices = sortBy((res.map(service => {
+          service.status = 'added'
+          service.type = 'k8s'
+          return service
+        })), 'service_name')
+      })
+    },
+    getServiceModules () {
+      const serviceName = this.service.service_name
+      const projectName = this.projectName
+      serviceTemplateWithConfigAPI(serviceName, projectName).then(res => {
+        this.detectedEnvs = res.custom_variable ? res.custom_variable : []
+        this.detectedServices = res.service_module ? res.service_module : []
+        this.systemEnvs = res.system_variable ? res.system_variable : []
+      })
+    },
+    onUpdateService (payload) {
       saveServiceTemplateAPI(payload).then((res) => {
-        this.showNext = true;
+        this.showNext = true
         this.$message({
           type: 'success',
           message: '服务保存成功'
-        });
+        })
         this.$router.replace({
           query: Object.assign(
             {},
             {},
             {
               service_name: payload.service_name,
-              rightbar: 'var',
+              rightbar: 'var'
             })
-        });
-        this.getServices();
-        this.$refs.serviceTree.getServiceGroup();
-        this.getSharedServices();
-        this.detectedEnvs = res.custom_variable ? res.custom_variable : [];
-        this.detectedServices = res.service_module ? res.service_module : [];
-        this.systemEnvs = res.system_variable ? res.system_variable : [];
+        })
+        this.getServices()
+        this.$refs.serviceTree.getServiceGroup()
+        this.getSharedServices()
+        this.detectedEnvs = res.custom_variable ? res.custom_variable : []
+        this.detectedServices = res.service_module ? res.service_module : []
+        this.systemEnvs = res.system_variable ? res.system_variable : []
       })
     },
-    getYamlKind(payload) {
-      this.currentServiceYamlKinds = payload;
+    getYamlKind (payload) {
+      this.currentServiceYamlKinds = payload
     },
-    jumpToKind(payload) {
-      this.$refs.serviceEditor.jumpToWord(`kind: ${payload.kind}`);
+    jumpToKind (payload) {
+      this.$refs.serviceEditor.jumpToWord(`kind: ${payload.kind}`)
     },
-    async checkProjectFeature() {
-      const projectName = this.projectName;
-      this.projectInfo = await getSingleProjectAPI(projectName);
-    },
+    async checkProjectFeature () {
+      const projectName = this.projectName
+      this.projectInfo = await getSingleProjectAPI(projectName)
+    }
   },
   computed: {
-    currentOrganizationId() {
-      return this.$store.state.login.userinfo.organization.id;
+    currentOrganizationId () {
+      return this.$store.state.login.userinfo.organization.id
     },
-    projectName() {
-      return this.$route.params.project_name;
+    projectName () {
+      return this.$route.params.project_name
     },
-    serviceCount() {
-      return this.services.length;
+    serviceCount () {
+      return this.services.length
     },
-    serviceName() {
-      return this.$route.query.service_name;
+    serviceName () {
+      return this.$route.query.service_name
     },
-    serviceType() {
-      return this.service.type;
+    serviceType () {
+      return this.service.type
     }
 
   },
   watch: {
 
   },
-  mounted() {
-    this.getServices();
-    this.getSharedServices();
-    this.checkProjectFeature();
-    bus.$emit(`show-sidebar`, true);
-    bus.$emit(`set-topbar-title`, { title: '', breadcrumb: [{ title: '项目', url: '/v1/projects' }, { title: this.projectName, url: '' }] });
-    bus.$emit(`set-sub-sidebar-title`, {
+  mounted () {
+    this.getServices()
+    this.getSharedServices()
+    this.checkProjectFeature()
+    bus.$emit('show-sidebar', true)
+    bus.$emit('set-topbar-title', { title: '', breadcrumb: [{ title: '项目', url: '/v1/projects' }, { title: this.projectName, url: '' }] })
+    bus.$emit('set-sub-sidebar-title', {
       title: '',
       routerList: []
-    });
+    })
   },
-  beforeDestroy() {
-    bus.$off('refresh-service');
+  beforeDestroy () {
+    bus.$off('refresh-service')
   },
   components: {
     step, serviceAsideK8s, serviceEditorK8s, serviceTree, Multipane, MultipaneResizer, 'add-code': addCode

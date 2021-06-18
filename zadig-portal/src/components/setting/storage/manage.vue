@@ -144,7 +144,7 @@
         <div class="storage-list">
           <template>
             <el-table :data="allStorage"
-                      style="width: 100%">
+                      style="width: 100%;">
               <el-table-column label="接入点地址">
                 <template slot-scope="scope">
                   <span>{{scope.row.endpoint}}</span>
@@ -205,29 +205,29 @@
 
 <script>
 
-import { getStorageListAPI, createStorageAPI, updateStorageAPI, deleteStorageAPI } from '@api';
-import bus from '@utils/event_bus';
+import { getStorageListAPI, createStorageAPI, updateStorageAPI, deleteStorageAPI } from '@api'
+import bus from '@utils/event_bus'
 export default {
-  data() {
+  data () {
     return {
       allStorage: [],
       storage: {
-        "ak": "",
-        "sk": "",
-        "endpoint": "",
-        "bucket": "",
-        "subfolder": "",
-        "insecure": true,
-        "is_default": true
+        ak: '',
+        sk: '',
+        endpoint: '',
+        bucket: '',
+        subfolder: '',
+        insecure: true,
+        is_default: true
       },
       swapStorage: {
-        "ak": "",
-        "sk": "",
-        "endpoint": "",
-        "bucket": "",
-        "subfolder": "",
-        "insecure": true,
-        "is_default": true
+        ak: '',
+        sk: '',
+        endpoint: '',
+        bucket: '',
+        subfolder: '',
+        insecure: true,
+        is_default: true
       },
       dialogStorageCreateFormVisible: false,
       dialogStorageEditFormVisible: false,
@@ -240,45 +240,45 @@ export default {
           message: '请输入接入点地址',
           trigger: 'blur'
         }],
-        bucket: [{ required: true, message: '请输入 Bucket', trigger: 'blur' }],
+        bucket: [{ required: true, message: '请输入 Bucket', trigger: 'blur' }]
       }
-    };
+    }
   },
   methods: {
-    storageOperation(operate, current_storage) {
+    storageOperation (operate, current_storage) {
       if (operate === 'add') {
-        this.$refs['storage'].validate(valid => {
+        this.$refs.storage.validate(valid => {
           if (valid) {
-            let payload = this.storage;
-            this.dialogStorageCreateFormVisible = false;
-            this.addStorage(payload);
+            const payload = this.storage
+            this.dialogStorageCreateFormVisible = false
+            this.addStorage(payload)
           } else {
-            return false;
+            return false
           }
-        });
+        })
       } else if (operate === 'edit') {
-        this.swapStorage = this.$utils.cloneObj(current_storage);
-        this.dialogStorageEditFormVisible = true;
+        this.swapStorage = this.$utils.cloneObj(current_storage)
+        this.dialogStorageEditFormVisible = true
       } else if (operate === 'update') {
-        this.$refs['swapStorage'].validate(valid => {
+        this.$refs.swapStorage.validate(valid => {
           if (valid) {
-            const id = this.swapStorage.id;
-            const payload = this.swapStorage;
-            this.dialogStorageEditFormVisible = false;
-            this.updateStorage(id, payload);
+            const id = this.swapStorage.id
+            const payload = this.swapStorage
+            this.dialogStorageEditFormVisible = false
+            this.updateStorage(id, payload)
           } else {
-            return false;
+            return false
           }
-        });
+        })
       } else if (operate === 'delete') {
-        const id = current_storage.id;
+        const id = current_storage.id
         this.$confirm(`确定要删除 ${current_storage.endpoint} ?`, '确认', {
           confirmButtonText: '确定',
           cancelButtonText: '取消',
           type: 'warning'
         }).then(({ value }) => {
           deleteStorageAPI(id).then((res) => {
-            this.getStorage();
+            this.getStorage()
             this.$message({
               message: '删除成功',
               type: 'success'
@@ -287,94 +287,100 @@ export default {
         })
       }
     },
-    addStorage(payload) {
+    addStorage (payload) {
       createStorageAPI(payload).then((res) => {
-        this.$refs['storage'].resetFields();
-        this.getStorage();
+        this.$refs.storage.resetFields()
+        this.getStorage()
         this.storage = {
-          "ak": "",
-          "sk": "",
-          "endpoint": "",
-          "bucket": "",
-          "subfolder": "",
-          "insecure": true,
-          "is_default": true
+          ak: '',
+          sk: '',
+          endpoint: '',
+          bucket: '',
+          subfolder: '',
+          insecure: true,
+          is_default: true
         }
         this.$message({
           type: 'success',
           message: '新增成功'
-        });
+        })
       })
     },
-    updateStorage(id, payload) {
+    updateStorage (id, payload) {
       updateStorageAPI(id, payload).then((res) => {
-        this.$refs['swapStorage'].resetFields();
-        this.getStorage();
+        this.$refs.swapStorage.resetFields()
+        this.getStorage()
         this.$message({
           type: 'success',
           message: '更新成功'
-        });
+        })
       })
     },
-    getStorage() {
-      this.loading = true;
+    getStorage () {
+      this.loading = true
       getStorageListAPI().then((res) => {
-        this.loading = false;
-        this.allStorage = res;
+        this.loading = false
+        this.allStorage = res
       })
     }
   },
   computed: {
 
   },
-  created() {
-    bus.$emit(`set-topbar-title`, { title: '对象存储', breadcrumb: [] });
-    bus.$emit(`set-sub-sidebar-title`, {
+  created () {
+    bus.$emit('set-topbar-title', { title: '对象存储', breadcrumb: [] })
+    bus.$emit('set-sub-sidebar-title', {
       title: '',
       routerList: []
-    });
-    this.getStorage();
+    })
+    this.getStorage()
   }
-};
+}
 </script>
-
 
 <style lang="less">
 .setting-storage-container {
-  flex: 1;
   position: relative;
-  overflow: auto;
+  flex: 1;
   padding: 15px 30px;
+  overflow: auto;
   font-size: 13px;
+
   .module-title h1 {
+    margin-bottom: 1.5rem;
     font-weight: 200;
     font-size: 2rem;
-    margin-bottom: 1.5rem;
   }
+
   .section {
     margin-bottom: 56px;
+
     .sync-container {
-      overflow: hidden;
       padding-top: 15px;
       padding-bottom: 15px;
+      overflow: hidden;
+
       .el-button--success.is-plain {
+        color: #13ce66;
         background: #fff;
         border-color: #13ce66;
-        color: #13ce66;
       }
+
       .el-button--success.is-plain:hover {
+        color: #13ce66;
         background: #fff;
         border-color: #13ce66;
-        color: #13ce66;
       }
     }
+
     .storage-list {
       padding-bottom: 30px;
     }
   }
+
   .dialog-style {
     .el-dialog__body {
-      padding: 0px 20px;
+      padding: 0 20px;
     }
   }
 }

@@ -23,6 +23,9 @@
           <span v-if="!$utils.isEmpty(workflow.artifact_stage) && workflow.artifact_stage.enabled">
             <el-tag size="mini">交付物部署</el-tag>
           </span>
+          <span v-if="(!$utils.isEmpty(workflow.test_stage) && workflow.test_stage.enabled)">
+            <el-tag size="mini">测试</el-tag>
+          </span>
           <el-tag v-if="!$utils.isEmpty(workflow.distribute_stage) &&  workflow.distribute_stage.enabled"
                   size="mini">分发</el-tag>
         </span>
@@ -58,13 +61,13 @@
 </template>
 
 <script>
-import pipelineRow from './pipeline_row.vue';
-import { workflowAPI, updateWorkflowAPI } from '@api';
+import pipelineRow from './pipeline_row.vue'
+import { workflowAPI, updateWorkflowAPI } from '@api'
 export default {
   name: 'item-component',
-  data() {
+  data () {
     return {
-      pipelineInfo: null,
+      pipelineInfo: null
     }
   },
   props: {
@@ -73,7 +76,7 @@ export default {
     },
     source: {
       type: Object,
-      default() {
+      default () {
         return {}
       }
     }
@@ -84,31 +87,29 @@ export default {
     'deleteWorkflow',
     'renamePipeline'],
   computed: {
-    workflow() {
+    workflow () {
       return this.source
     }
   },
   methods: {
-    makeProductAvgRunTime(duration, total) {
+    makeProductAvgRunTime (duration, total) {
       if (total > 0) {
-        return (duration / total).toFixed(1) + 's';
-      }
-      else {
+        return (duration / total).toFixed(1) + 's'
+      } else {
         return '-'
       }
     },
-    makeProductAvgSuccessRate(success, total) {
+    makeProductAvgSuccessRate (success, total) {
       if (total > 0) {
-        return ((success / total) * 100).toFixed(2) + "%";
-      }
-      else {
+        return ((success / total) * 100).toFixed(2) + '%'
+      } else {
         return '-'
       }
     },
-    makeProductTaskDetailLink(product_tmpl_name, taskInfo) {
-      return `/v1/projects/detail/${product_tmpl_name}/pipelines/multi/${taskInfo.pipeline_name}/${taskInfo.task_id}?status=${taskInfo.status}`;
+    makeProductTaskDetailLink (product_tmpl_name, taskInfo) {
+      return `/v1/projects/detail/${product_tmpl_name}/pipelines/multi/${taskInfo.pipeline_name}/${taskInfo.task_id}?status=${taskInfo.status}`
     },
-    async fnShowTimer(status, index, workflow) {
+    async fnShowTimer (status, index, workflow) {
       if (status && !workflow.showTimer) {
         this.pipelineInfo = await workflowAPI(workflow.name).catch(error => console.log(error))
         if (_.get(this.pipelineInfo, 'schedules.items', '[]').length) {
@@ -117,19 +118,19 @@ export default {
         }
       }
     },
-    async changeSchedule() {
-      let pipelineInfo = this.pipelineInfo
+    async changeSchedule () {
+      const pipelineInfo = this.pipelineInfo
       pipelineInfo.schedule_enabled = !pipelineInfo.schedule_enabled
-      let res = await updateWorkflowAPI(this.pipelineInfo).catch(error => console.log(error))
+      const res = await updateWorkflowAPI(this.pipelineInfo).catch(error => console.log(error))
       if (res) {
         if (pipelineInfo.schedule_enabled) {
-          this.$message.success('定时器开启成功');
+          this.$message.success('定时器开启成功')
         } else {
-          this.$message.success('定时器关闭成功');
+          this.$message.success('定时器关闭成功')
         }
-        this.$store.dispatch('refreshWorkflowList');
+        this.$store.dispatch('refreshWorkflowList')
       }
-    },
+    }
   },
   components: {
     pipelineRow

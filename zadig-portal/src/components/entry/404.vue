@@ -62,16 +62,16 @@
 
 </template>
 <script>
-import storejs from '@node_modules/store/dist/store.legacy.js';
+import storejs from '@node_modules/store/dist/store.legacy.js'
 export default {
   methods: {
-    goBack() {
-      this.$router.back();
+    goBack () {
+      this.$router.back()
     }
   },
-  mounted() {
-    this.$store.commit('INJECT_PROFILE', storejs.get('ZADIG_LOGIN_INFO'));
-  },
+  mounted () {
+    this.$store.commit('INJECT_PROFILE', storejs.get('ZADIG_LOGIN_INFO'))
+  }
 }
 </script>
 
@@ -82,28 +82,33 @@ export default {
       -moz-transform: translate(1200px, -600px);
     }
   }
+
   @-webkit-keyframes rocket-movement {
     100% {
       -webkit-transform: translate(1200px, -600px);
     }
   }
+
   @keyframes rocket-movement {
     100% {
       transform: translate(1200px, -600px);
     }
   }
+
   @-moz-keyframes spin-earth {
     100% {
       -moz-transform: rotate(-360deg);
       transition: transform 20s;
     }
   }
+
   @-webkit-keyframes spin-earth {
     100% {
       -webkit-transform: rotate(-360deg);
       transition: transform 20s;
     }
   }
+
   @keyframes spin-earth {
     100% {
       -webkit-transform: rotate(-360deg);
@@ -117,27 +122,32 @@ export default {
       -moz-transform: translate(-160px, -160px);
     }
   }
+
   @-webkit-keyframes move-astronaut {
     100% {
       -webkit-transform: translate(-160px, -160px);
     }
   }
+
   @keyframes move-astronaut {
     100% {
       -webkit-transform: translate(-160px, -160px);
       transform: translate(-160px, -160px);
     }
   }
+
   @-moz-keyframes rotate-astronaut {
     100% {
       -moz-transform: rotate(-720deg);
     }
   }
+
   @-webkit-keyframes rotate-astronaut {
     100% {
       -webkit-transform: rotate(-720deg);
     }
   }
+
   @keyframes rotate-astronaut {
     100% {
       -webkit-transform: rotate(-720deg);
@@ -149,47 +159,52 @@ export default {
     40% {
       -moz-opacity: 0.3;
     }
+
     90%,
     100% {
-      -moz-opacity: 1;
       -moz-transform: scale(1.2);
+      -moz-opacity: 1;
     }
   }
+
   @-webkit-keyframes glow-star {
     40% {
       -webkit-opacity: 0.3;
     }
+
     90%,
     100% {
-      -webkit-opacity: 1;
       -webkit-transform: scale(1.2);
+      -webkit-opacity: 1;
     }
   }
+
   @keyframes glow-star {
     40% {
       -webkit-opacity: 0.3;
       opacity: 0.3;
     }
+
     90%,
     100% {
-      -webkit-opacity: 1;
-      opacity: 1;
+      border-radius: 999999px;
       -webkit-transform: scale(1.2);
       transform: scale(1.2);
-      border-radius: 999999px;
+      -webkit-opacity: 1;
+      opacity: 1;
     }
   }
 
   .spin-earth-on-hover {
-    transition: ease 200s !important;
     transform: rotate(-3600deg) !important;
+    transition: ease 200s !important;
   }
 
   html,
   body {
-    margin: 0;
     width: 100%;
     height: 100%;
+    margin: 0;
     font-weight: 300;
     -webkit-user-select: none; /* Safari 3.1+ */
     -moz-user-select: none; /* Firefox 2+ */
@@ -198,99 +213,99 @@ export default {
   }
 
   .bg-blue {
-    background-color: #1989fa;
     height: 100%;
     overflow: hidden;
+    background-color: #1989fa;
   }
 
   .custom-navbar {
     padding-top: 15px;
   }
 
-  .brand-logo {
-    margin-left: 25px;
-    margin-top: 5px;
-    display: inline-block;
-    h3 {
-      margin: 0px 0 0 15px;
-      a {
-        color: #fff;
-        font-size: 25px;
-        font-weight: 300;
-        font-family: sans-serif;
-        cursor: pointer;
-      }
-    }
-  }
-
   .navbar-links {
-    display: inline-block;
     float: right;
     margin-right: 15px;
     text-transform: uppercase;
   }
 
   ul {
-    list-style-type: none;
-    margin: 0;
-    padding: 0;
     display: flex;
     align-items: center;
+    margin: 0;
+    padding: 0;
+    list-style-type: none;
   }
 
   li {
     float: left;
-    padding: 0px 15px;
+    padding: 0 15px;
+
+    a {
+      display: block;
+      color: white;
+      font-size: 12px;
+      letter-spacing: 2px;
+      text-align: center;
+      text-decoration: none;
+      -webkit-transition: all 0.3s ease-in;
+      -moz-transition: all 0.3s ease-in;
+      -ms-transition: all 0.3s ease-in;
+      -o-transition: all 0.3s ease-in;
+      transition: all 0.3s ease-in;
+
+      &:hover {
+        color: #ffcb39;
+      }
+    }
   }
 
-  li a {
-    display: block;
-    color: white;
-    text-align: center;
-    text-decoration: none;
-    letter-spacing: 2px;
-    font-size: 12px;
+  .brand-logo {
+    display: inline-block;
+    margin-top: 5px;
+    margin-left: 25px;
 
-    -webkit-transition: all 0.3s ease-in;
-    -moz-transition: all 0.3s ease-in;
-    -ms-transition: all 0.3s ease-in;
-    -o-transition: all 0.3s ease-in;
-    transition: all 0.3s ease-in;
-  }
+    h3 {
+      margin: 0 0 0 15px;
 
-  li a:hover {
-    color: #ffcb39;
+      a {
+        color: #fff;
+        font-weight: 300;
+        font-size: 25px;
+        font-family: sans-serif;
+        cursor: pointer;
+      }
+    }
   }
 
   .btn-request {
     padding: 10px 25px;
+    font-weight: 400;
     border: 1px solid #ffcb39;
     border-radius: 100px;
-    font-weight: 400;
   }
 
   .btn-request:hover {
-    background-color: #ffcb39;
     color: #fff;
+    background-color: #ffcb39;
+    box-shadow: 0 20px 20px rgba(0, 0, 0, 0.1);
     transform: scale(1.05);
-    box-shadow: 0px 20px 20px rgba(0, 0, 0, 0.1);
   }
 
   .btn-go-home {
     position: relative;
     z-index: 200;
-    margin: 15px auto;
-    width: 100px;
-    padding: 10px 15px;
-    border: 1px solid #ffcb39;
-    border-radius: 100px;
-    font-weight: 400;
     display: block;
+    width: 100px;
+    margin: 15px auto;
+    padding: 10px 15px;
     color: white;
+    font-weight: 400;
+    font-size: 11px;
+    letter-spacing: 2px;
     text-align: center;
     text-decoration: none;
-    letter-spacing: 2px;
-    font-size: 11px;
+    border: 1px solid #ffcb39;
+    border-radius: 100px;
     cursor: pointer;
     -webkit-transition: all 0.3s ease-in;
     -moz-transition: all 0.3s ease-in;
@@ -300,14 +315,14 @@ export default {
   }
 
   .btn-go-home:hover {
-    background-color: #ffcb39;
     color: #fff;
+    background-color: #ffcb39;
+    box-shadow: 0 20px 20px rgba(0, 0, 0, 0.1);
     transform: scale(1.05);
-    box-shadow: 0px 20px 20px rgba(0, 0, 0, 0.1);
   }
 
   .central-body {
-    /*    width: 100%;*/
+    /*    width: 100%; */
     padding: 17% 5% 10% 5%;
     text-align: center;
   }
@@ -318,12 +333,12 @@ export default {
   }
 
   .object_rocket {
-    z-index: 95;
     position: absolute;
-    transform: translateX(-50px);
     top: 75%;
-    pointer-events: none;
+    z-index: 95;
+    transform: translateX(-50px);
     animation: rocket-movement 30s linear infinite both running;
+    pointer-events: none;
   }
 
   .object_earth {
@@ -331,20 +346,19 @@ export default {
     top: 20%;
     left: 15%;
     z-index: 90;
-    /*    animation: spin-earth 100s infinite linear both;*/
+
+    /*    animation: spin-earth 100s infinite linear both; */
   }
 
   .object_moon {
     position: absolute;
     top: 12%;
     left: 25%;
+
     /*
     transform: rotate(0deg);
     transition: transform ease-in 99999999999s;
 */
-  }
-
-  .earth-moon {
   }
 
   .object_astronaut {
@@ -352,12 +366,12 @@ export default {
   }
 
   .box_astronaut {
-    z-index: 110 !important;
     position: absolute;
     top: 60%;
     right: 20%;
-    will-change: transform;
+    z-index: 110 !important;
     animation: move-astronaut 40s infinite linear both alternate;
+    will-change: transform;
   }
 
   .image-404 {
@@ -367,18 +381,18 @@ export default {
   }
 
   .stars {
-    background: url('~@assets/icons/404/overlay_stars.svg');
+    background: url("~@assets/icons/404/overlay_stars.svg");
     background-repeat: repeat;
-    background-size: contain;
     background-position: left top;
+    background-size: contain;
   }
 
   .glowing_stars .star {
     position: absolute;
-    border-radius: 100%;
-    background-color: #fff;
     width: 3px;
     height: 3px;
+    background-color: #fff;
+    border-radius: 100%;
     opacity: 0.3;
     will-change: opacity;
   }
@@ -388,21 +402,25 @@ export default {
     left: 25%;
     animation: glow-star 2s infinite ease-in-out alternate 1s;
   }
+
   .glowing_stars .star:nth-child(2) {
     top: 20%;
     left: 40%;
     animation: glow-star 2s infinite ease-in-out alternate 3s;
   }
+
   .glowing_stars .star:nth-child(3) {
     top: 25%;
     left: 25%;
     animation: glow-star 2s infinite ease-in-out alternate 5s;
   }
+
   .glowing_stars .star:nth-child(4) {
     top: 75%;
     left: 80%;
     animation: glow-star 2s infinite ease-in-out alternate 7s;
   }
+
   .glowing_stars .star:nth-child(5) {
     top: 90%;
     left: 50%;

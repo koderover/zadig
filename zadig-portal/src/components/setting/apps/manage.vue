@@ -151,7 +151,7 @@
         <div class="app-list">
           <template>
             <el-table :data="availableApps"
-                      style="width: 100%">
+                      style="width: 100%;">
               <el-table-column label="名称">
                 <template slot-scope="scope">
                   <span>{{scope.row.name}}</span>
@@ -173,14 +173,14 @@
               <el-table-column label="更新时间">
                 <template slot-scope="scope">
                   <i class="el-icon-time"></i>
-                  <span style="margin-left: 10px">{{
+                  <span style="margin-left: 10px;">{{
                   $utils.convertTimestamp(selectedApp(scope.row.name,defaultVersion[scope.row.name],"update_time"))
                   }}</span>
                 </template>
               </el-table-column>
               <el-table-column label="更新人">
                 <template slot-scope="scope">
-                  <span style="margin-left: 10px">{{
+                  <span style="margin-left: 10px;">{{
                   selectedApp(scope.row.name,defaultVersion[scope.row.name],"update_by") }}</span>
                 </template>
               </el-table-column>
@@ -192,10 +192,10 @@
                               trigger="click"
                               placement="top"
                               width="260"
-                              style="display:inline-block">
+                              style="display: inline-block;">
                     <p>应用删除可能会影响正在使用的工作流，确定删除应用 {{scope.row.name}} 的
                       {{defaultVersion[scope.row.name]}} 版本吗？</p>
-                    <div style="text-align: right; margin: 0">
+                    <div style=" margin: 0; text-align: right;">
                       <el-button size="mini"
                                  @click="showPopper[scope.row.name]=false"
                                  type="text">取消</el-button>
@@ -221,16 +221,16 @@
 
 <script>
 
-import aceEditor from 'vue2-ace-bind';
-import 'brace/mode/sh';
-import 'brace/theme/xcode';
-import 'brace/theme/terminal';
-import 'brace/theme/monokai';
-import 'brace/ext/searchbox';
-import { getAllAppsAPI, createAppAPI, updateAppAPI, deleteAppAPI, getProxyConfigAPI, updateProxyConfigAPI } from '@api';
-import bus from '@utils/event_bus';
+import aceEditor from 'vue2-ace-bind'
+import 'brace/mode/sh'
+import 'brace/theme/xcode'
+import 'brace/theme/terminal'
+import 'brace/theme/monokai'
+import 'brace/ext/searchbox'
+import { getAllAppsAPI, createAppAPI, updateAppAPI, deleteAppAPI, getProxyConfigAPI, updateProxyConfigAPI } from '@api'
+import bus from '@utils/event_bus'
 export default {
-  data() {
+  data () {
     return {
       proxyInfo: {
         id: '',
@@ -240,10 +240,10 @@ export default {
         username: '',
         password: '',
         enable_repo_proxy: false,
-        enable_application_proxy: false,
+        enable_application_proxy: false
       },
       createApp: {
-        scripts: '# tar -C $HOME -xzf ${FILEPATH} \n',
+        scripts: '# tar -C $HOME -xzf ' + '$' + `{FILEPATH}` + '\n',
         env: [],
         bin_path: '',
         name: '',
@@ -277,53 +277,53 @@ export default {
       },
       showPopper: {},
       rules: {
-        'name': [{ required: true, message: '请填写应用名称', trigger: 'blur' }],
-        'version': [{ required: true, message: '请填写应用版本', trigger: 'blur' }],
-        'scripts': [{ required: true, message: '请填写安装脚本', trigger: 'blur' }],
-        'bin_path': [{ required: true, message: '请填写应用 Bin Path', trigger: 'blur' }]
+        name: [{ required: true, message: '请填写应用名称', trigger: 'blur' }],
+        version: [{ required: true, message: '请填写应用版本', trigger: 'blur' }],
+        scripts: [{ required: true, message: '请填写安装脚本', trigger: 'blur' }],
+        bin_path: [{ required: true, message: '请填写应用 Bin Path', trigger: 'blur' }]
       }
-    };
+    }
   },
   methods: {
-    appOperation(operate, current_app) {
+    appOperation (operate, current_app) {
       if (operate === 'add') {
-        this.$refs['createApp'].validate((valid) => {
+        this.$refs.createApp.validate((valid) => {
           if (valid) {
-            this.dialogAppCreateFormVisible = false;
-            this.addApp(this.createApp);
+            this.dialogAppCreateFormVisible = false
+            this.addApp(this.createApp)
           } else {
-            return false;
+            return false
           }
-        });
+        })
       } else if (operate === 'edit') {
-        this.dialogAppEditFormVisible = true;
-        this.swapApp = current_app;
+        this.dialogAppEditFormVisible = true
+        this.swapApp = current_app
       } else if (operate === 'update') {
-        this.$refs['updateApp'].validate((valid) => {
+        this.$refs.updateApp.validate((valid) => {
           if (valid) {
-            const app = this.swapApp;
-            this.dialogAppEditFormVisible = false;
-            this.updateApp(app);
+            const app = this.swapApp
+            this.dialogAppEditFormVisible = false
+            this.updateApp(app)
           } else {
-            return false;
+            return false
           }
-        });
+        })
       } else if (operate === 'delete') {
-        this.deleteApp(current_app);
+        this.deleteApp(current_app)
       } else if (operate === 'cancel') {
-        this.getApps();
+        this.getApps()
       }
     },
-    resetForm(formName) {
-      this.$refs[formName].resetFields();
+    resetForm (formName) {
+      this.$refs[formName].resetFields()
     },
-    addApp(data) {
+    addApp (data) {
       createAppAPI(data).then(res => {
         this.$message({
           message: '新增应用成功',
           type: 'success'
-        });
-        this.getApps();
+        })
+        this.getApps()
         this.createApp = {
           scripts: '',
           env: [],
@@ -332,200 +332,206 @@ export default {
           version: '',
           download_path: '',
           enabled: true
-        };
-      }).catch(err => {
+        }
+      }).catch(() => {
         this.$message({
           message: '新增应用失败',
           type: 'error'
-        });
+        })
       }).then(() => {
-        this.resetForm('createApp');
-      });
+        this.resetForm('createApp')
+      })
     },
-    updateApp(data) {
+    updateApp (data) {
       updateAppAPI(data).then(response => {
         this.$message({
           message: '更新应用成功',
           type: 'success'
-        });
-        this.getApps();
+        })
+        this.getApps()
       }).catch(response => {
         this.$message({
           message: '更新应用失败',
           type: 'error'
-        });
+        })
       }).then(() => {
-        this.resetForm('updateApp');
-      });
+        this.resetForm('updateApp')
+      })
     },
-    showDeleteModal(name) {
-      this.$set(this.showPopper, name, false);
+    showDeleteModal (name) {
+      this.$set(this.showPopper, name, false)
     },
-    deleteApp(data) {
+    deleteApp (data) {
       deleteAppAPI(data).then(response => {
-        this.getApps();
+        this.getApps()
         this.$message({
           message: '应用已删除',
           type: 'success'
-        });
+        })
       }).catch(response => {
         this.$message({
           message: '应用删除失败',
           type: 'error'
-        });
-      });
+        })
+      })
     },
-    selectedApp(name, _version, _prop) {
-      let _app = null;
+    selectedApp (name, _version, _prop) {
+      let _app = null
       this.appBucket[name].forEach(app => {
         if (app.version === _version) {
-          _app = app;
+          _app = app
         }
-      });
+      })
       if (_prop) {
-        return _app[_prop];
+        return _app[_prop]
       } else {
-        return _app;
+        return _app
       }
     },
-    getApps() {
-      this.loading = true;
+    getApps () {
+      this.loading = true
       getAllAppsAPI().then(
         response => {
-          this.loading = false;
-          let apps = this.$utils.sortVersion(response, 'version', 'asc');
-          this.availableApps = [];
-          this.appBucket = {};
+          this.loading = false
+          const apps = this.$utils.sortVersion(response, 'version', 'asc')
+          this.availableApps = []
+          this.appBucket = {}
           apps.forEach((app, index) => {
-            this.$set(this.appBucket, app.name, []);
-            this.$set(this.showPopper, app.name, false);
-            this.$set(this.defaultVersion, app.name, app.version);
-          });
+            this.$set(this.appBucket, app.name, [])
+            this.$set(this.showPopper, app.name, false)
+            this.$set(this.defaultVersion, app.name, app.version)
+          })
           apps.forEach((app, index) => {
-            this.appBucket[app.name].push(app);
-          });
-          for (let app_name in this.appBucket) {
-            if (this.appBucket.hasOwnProperty(app_name)) {
-              this.appBucket[app_name] = this.$utils.sortVersion(this.appBucket[app_name], 'version', 'asc');
+            this.appBucket[app.name].push(app)
+          })
+          for (const app_name in this.appBucket) {
+            if (Object.prototype.hasOwnProperty.call(this.appBucket, app_name)) {
+              this.appBucket[app_name] = this.$utils.sortVersion(this.appBucket[app_name], 'version', 'asc')
             }
           }
           for (const key in this.appBucket) {
-            if (this.appBucket.hasOwnProperty(key)) {
+            if (Object.prototype.hasOwnProperty.call(this.appBucket, key)) {
               this.availableApps.push({
                 name: key
-              });
+              })
             }
           }
-        },
-        response => {
         }
-      );
+      )
     },
-    changeProxy(value) {
+    changeProxy (value) {
       if (!this.proxyInfo.id || this.proxyInfo.type === 'no') {
-        this.proxyInfo.enable_application_proxy = false;
+        this.proxyInfo.enable_application_proxy = false
         this.$message.error('未配置代理，请前往「系统配置」-「代理配置」配置代理！')
-        return;
+        return
       }
-      this.proxyInfo.enable_application_proxy = value;
+      this.proxyInfo.enable_application_proxy = value
       updateProxyConfigAPI(this.proxyInfo.id, this.proxyInfo).then(response => {
         if (response.message === 'success') {
-          var mess = value ? '启用代理成功！' : '成功关闭代理！';
+          const mess = value ? '启用代理成功！' : '成功关闭代理！'
           this.$message({
             message: `${mess}`,
             type: 'success'
           })
         } else {
-          this.$message.error(response.message);
+          this.$message.error(response.message)
         }
       }).catch(err => {
-        this.proxyInfo.enable_application_proxy = !value;
-        this.$message.error(`修改配置失败：${err}`);
+        this.proxyInfo.enable_application_proxy = !value
+        this.$message.error(`修改配置失败：${err}`)
       })
     },
-    getProxyConfig() {
+    getProxyConfig () {
       getProxyConfigAPI().then(response => {
         if (response.length > 0) {
-          this.proxyInfo = Object.assign({}, this.proxyInfo, response[0]);
+          this.proxyInfo = Object.assign({}, this.proxyInfo, response[0])
         }
       }).catch(error => {
-        this.$message.error(`获取代理配置失败：${error}`);
+        this.$message.error(`获取代理配置失败：${error}`)
       })
     }
   },
   computed: {
 
   },
-  created() {
-    bus.$emit(`set-topbar-title`, { title: '应用设置', breadcrumb: [] });
-    bus.$emit(`set-sub-sidebar-title`, {
+  created () {
+    bus.$emit('set-topbar-title', { title: '应用设置', breadcrumb: [] })
+    bus.$emit('set-sub-sidebar-title', {
       title: '',
       routerList: []
-    });
-    this.getProxyConfig();
-    this.getApps();
+    })
+    this.getProxyConfig()
+    this.getApps()
   },
   components: {
     editor: aceEditor
   }
-};
+}
 </script>
-
 
 <style lang="less">
 .setting-app-container {
-  flex: 1;
   position: relative;
-  overflow: auto;
+  flex: 1;
   padding: 15px 30px;
+  overflow: auto;
   font-size: 13px;
+
   .create-app-dialog {
     .el-dialog__body {
       padding: 20px 5%;
     }
   }
+
   .module-title h1 {
+    margin-bottom: 1.5rem;
     font-weight: 200;
     font-size: 2rem;
-    margin-bottom: 1.5rem;
   }
+
   .section {
     margin-bottom: 56px;
+
     .sync-container {
-      overflow: hidden;
       padding-top: 15px;
       padding-bottom: 15px;
+      overflow: hidden;
+
       .switch-span {
         display: inline-block;
         height: 20px;
-        line-height: 20px;
-        font-size: 14px;
-        font-weight: 500;
-        vertical-align: middle;
-        margin-left: 10px;
         margin-right: 5px;
+        margin-left: 10px;
+        font-weight: 500;
+        font-size: 14px;
+        line-height: 20px;
+        vertical-align: middle;
         transition: color 0.5s;
       }
+
       .el-button--success.is-plain {
+        color: #13ce66;
         background: #fff;
         border-color: #13ce66;
-        color: #13ce66;
       }
+
       .el-button--success.is-plain:hover {
+        color: #13ce66;
         background: #fff;
         border-color: #13ce66;
-        color: #13ce66;
       }
     }
+
     .app-list {
       padding-bottom: 30px;
+
       .ann-active {
+        display: inline-block;
         width: 10px;
         height: 10px;
-        border-radius: 50%;
         vertical-align: middle;
         background: #13ce66;
-        display: inline-block;
+        border-radius: 50%;
       }
     }
   }

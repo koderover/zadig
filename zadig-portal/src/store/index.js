@@ -1,32 +1,28 @@
-import Vue from 'vue';
-import Vuex from 'vuex';
-import * as actions from './actions';
-import * as getters from './getters';
+import Vue from 'vue'
+import Vuex from 'vuex'
 // Login
-import login from './modules/login';
+import login from './modules/login'
 
 // Workflow
-import workflow_list from './modules/workflow_list';
+import workflow_list from './modules/workflow_list'
 
 // Env
-import product_list from './modules/product_list';
+import product_list from './modules/product_list'
 
 // Install Status
-import signup_status from './modules/sign_up_status';
+import signup_status from './modules/sign_up_status'
 
 // Project
-import project_templates from './modules/project_templates';
+import project_templates from './modules/project_templates'
 
 // Sidebar
-import sidebar_status from './modules/sidebar_status';
+import sidebar_status from './modules/sidebar_status'
 
-Vue.use(Vuex);
+Vue.use(Vuex)
 
-const debug = process.env.NODE_ENV !== 'production';
+const debug = process.env.NODE_ENV !== 'production'
 
 export default new Vuex.Store({
-  actions,
-  getters,
   modules: {
     login,
     product_list,
@@ -35,5 +31,5 @@ export default new Vuex.Store({
     project_templates,
     sidebar_status
   },
-  strict: debug,
-});
+  strict: debug
+})

@@ -9,10 +9,10 @@
             <el-row>
               <el-col :span="8">
                 <el-form-item label="构建来源"  :rules="[{ required: true, message: '构建来源不能为空' }]">
-                  <el-select style="width:100%"
+                  <el-select style="width: 100%;"
                             v-model="source"
                             size="small"
-                            
+
                             value-key="key"
                             filterable>
                     <el-option v-for="(item,index) in orginOptions"
@@ -24,7 +24,7 @@
                 </el-form-item>
               </el-col>
               <el-col :span="10">
-                <el-form-item style="margin-left: 20px" label="构建超时">
+                <el-form-item style="margin-left: 20px;" label="构建超时">
                   <el-input-number size="mini"
                                   :min="1"
                                   v-model="jenkinsBuild.timeout"></el-input-number>
@@ -48,7 +48,7 @@
             <el-row>
               <el-col :span="8">
                 <el-form-item label="构建服务">
-                  <el-select style="width:100%"
+                  <el-select style="width: 100%;"
                             v-model="jenkinsBuild.targets"
                             multiple
                             size="small"
@@ -66,9 +66,9 @@
             <el-row>
              <el-col :span="8">
                 <el-form-item label="jenkins job" prop="jenkins_build.job_name" :rules="[{ required: true, trigger: 'change', message: 'jobs不能为空' }]" >
-                  <el-select style="width:100%"
+                  <el-select style="width: 100%;"
                             v-model="jenkinsBuild.jenkins_build.job_name"
-                            
+
                             size="small"
                             value-key="key"
                             @change="changeJobName"
@@ -160,7 +160,7 @@
                         <el-row>
              <el-col :span="8">
                 <el-form-item label="构建来源">
-                  <el-select style="width:100%"
+                  <el-select style="width: 100%;"
                             v-model="source"
                             size="small"
                             value-key="key"
@@ -174,7 +174,7 @@
                 </el-form-item>
               </el-col>
               <el-col :span="10">
-                <el-form-item style="margin-left: 20px" label="构建超时">
+                <el-form-item style="margin-left: 20px;" label="构建超时">
                   <el-input-number size="mini"
                                   :min="1"
                                   v-model="buildConfig.timeout"></el-input-number>
@@ -200,7 +200,7 @@
                 <el-form-item prop="targets"
                               label="构建服务">
                   <el-select
-                    style="width: 100%"
+                    style="width: 100%;"
                     v-model="buildConfig.targets"
                     value-key="service_module"
                     multiple
@@ -275,7 +275,7 @@
                   label-width="80px">
             <span class="item-title">应用列表</span>
             <el-button v-if="buildConfig.pre_build.installs.length===0"
-                      style="padding:0"
+                      style="padding: 0;"
                       @click="addFirstBuildApp()"
                       size="mini"
                       type="text">新增</el-button>
@@ -283,10 +283,10 @@
             <el-row v-for="(app,build_app_index) in buildConfig.pre_build.installs"
                     :key="build_app_index">
               <el-col :span="12">
-                <el-form-item 
+                <el-form-item
                               :prop="'pre_build.installs.' + build_app_index + '.name'"
                               :rules="{required: true, message: '应用名不能为空', trigger: 'blur'}">
-                  <el-select style="width:100%"
+                  <el-select style="width: 100%;"
                             v-model="buildConfig.pre_build.installs[build_app_index]"
                             placeholder="请选择应用"
                             size="mini"
@@ -336,7 +336,7 @@
                   label-width="120px">
             <span class="item-title">环境变量</span>
             <el-button v-if="buildConfig.pre_build.envs.length===0"
-                      style="padding:0"
+                      style="padding: 0;"
                       size="mini"
                       @click="addFirstBuildEnv()"
                       type="text">新增</el-button>
@@ -344,7 +344,7 @@
             <el-row v-for="(app,build_env_index) in buildConfig.pre_build.envs"
                     :key="build_env_index">
               <el-col :span="5">
-                <el-form-item 
+                <el-form-item
                               :prop="'pre_build.envs.' + build_env_index + '.key'"
                               :rules="{required: true, message: '键不能为空', trigger: 'blur'}">
                   <el-input placeholder="键" v-model="buildConfig.pre_build.envs[build_env_index].key"
@@ -353,7 +353,7 @@
                 </el-form-item>
               </el-col>
               <el-col :span="5">
-                <el-form-item 
+                <el-form-item
                               :prop="'pre_build.envs.' + build_env_index + '.value'"
                               :rules="{required: true, message: '值不能为空', trigger: 'blur'}">
                   <el-input placeholder="值" v-model="buildConfig.pre_build.envs[build_env_index].value"
@@ -363,7 +363,7 @@
               </el-col>
               <el-col :span="5">
                 <el-form-item prop="is_credential">
-                
+
                   <el-checkbox v-model="buildConfig.pre_build.envs[build_env_index].is_credential">
                     敏感信息
                     <el-tooltip effect="dark"
@@ -418,7 +418,7 @@
                 <el-col :span="12">
                   <el-form-item label="缓存自定义目录">
                     <el-button v-if="!this.buildConfig.caches||this.buildConfig.caches.length ===0"
-                              style="padding:0"
+                              style="padding: 0;"
                               @click="addFirstCacheDir()"
                               type="text">新增</el-button>
                   </el-form-item>
@@ -429,7 +429,7 @@
                 <el-col :span="14">
                   <el-form-item :label="index===0?'':''">
                     <el-input v-model="buildConfig.caches[index]"
-                              style="width:100%"
+                              style="width: 100%;"
                               size="mini">
                       <template slot="prepend">$WORKSPACE/</template>
                     </el-input>
@@ -598,23 +598,23 @@
     </div>
 </template>
 <script>
-import { getBuildConfigDetailAPI, getAllAppsAPI, getImgListAPI, getCodeSourceAPI, createBuildConfigAPI, updateBuildConfigAPI, getServiceTargetsAPI,  queryJenkinsJob, queryJenkinsParams} from '@api';
-import qs from 'qs';
-import aceEditor from 'vue2-ace-bind';
-import bus from '@utils/event_bus';
-let validateBuildConfigName = (rule, value, callback) => {
+import { getBuildConfigDetailAPI, getAllAppsAPI, getImgListAPI, getCodeSourceAPI, createBuildConfigAPI, updateBuildConfigAPI, getServiceTargetsAPI, queryJenkinsJob, queryJenkinsParams } from '@api'
+import qs from 'qs'
+import aceEditor from 'vue2-ace-bind'
+import bus from '@utils/event_bus'
+const validateBuildConfigName = (rule, value, callback) => {
   if (value === '') {
-    callback(new Error('请输入构建名称'));
+    callback(new Error('请输入构建名称'))
   } else {
     if (!/^[a-z0-9-]+$/.test(value)) {
-      callback(new Error('名称只支持小写字母和数字，特殊字符只支持中划线'));
+      callback(new Error('名称只支持小写字母和数字，特殊字符只支持中划线'))
     } else {
-      callback();
+      callback()
     }
   }
-};
+}
 export default {
-  data() {
+  data () {
     return {
       source: 'zadig',
       orginOptions: [{
@@ -627,42 +627,42 @@ export default {
       }],
       jenkinsJobList: [],
       jenkinsBuild: {
-        "version": "stable",                       // mandatory, [release|test]
-        "name": "",                // mandatory
-        "desc": "",                   // optional
+        version: 'stable',
+        name: '',
+        desc: '',
         targets: [],
-        "timeout": 60,
-        "jenkins_build":{
-            "job_name": '',
-            "jenkins_build_params":[]
+        timeout: 60,
+        jenkins_build: {
+          job_name: '',
+          jenkins_build_params: []
         },
-        "pre_build": {
-          "res_req": "low", 
-          "image_id": "",  
-        }                    // mandatory
+        pre_build: {
+          res_req: 'low',
+          image_id: ''
+        }
 
       },
       buildConfig: {
-        "timeout": 60, 
-        "version": "stable",                       // mandatory, [release|test]
-        "name": "",                // mandatory
-        "desc": "",                   // optional
-        "repos": [],                                // optional
-        "pre_build": {                              // mandatory
-          "clean_workspace": false,
-          "res_req": "low",        // optional 
-          "build_os": "xenial",                   // mandatory [precise|trusty|xenial|test]
-          "image_id": '',
-          "image_from": '',
-          "installs": [],                        // optional 
-          "envs": [],                            // optional 
-          "enable_proxy": false,                  // optional, default is false
-          "enable_gocov": false,                  // optional, default is false
-          "parameters": []                        // optional 
+        timeout: 60,
+        version: 'stable',
+        name: '',
+        desc: '',
+        repos: [],
+        pre_build: {
+          clean_workspace: false,
+          res_req: 'low',
+          build_os: 'xenial',
+          image_id: '',
+          image_from: '',
+          installs: [],
+          envs: [],
+          enable_proxy: false,
+          enable_gocov: false,
+          parameters: []
         },
-        "scripts": '#!/bin/bash\nset -e',           // optional 
-        "main_file": "",
-        "post_build": {          // optional
+        scripts: '#!/bin/bash\nset -e',
+        main_file: '',
+        post_build: {
         }
       },
       editorOption: {
@@ -742,152 +742,152 @@ export default {
     }
   },
   methods: {
-    clearSelectVersion(index) {
-      this.buildConfig.pre_build.installs[index].version = '';
+    clearSelectVersion (index) {
+      this.buildConfig.pre_build.installs[index].version = ''
     },
-    addFirstCacheDir() {
+    addFirstCacheDir () {
       if (!this.buildConfig.caches || this.buildConfig.caches.length === 0) {
-        this.$set(this.buildConfig, 'caches', []);
-        this.buildConfig.caches.push('');
+        this.$set(this.buildConfig, 'caches', [])
+        this.buildConfig.caches.push('')
       }
     },
-    addCacheDir(index) {
-      this.$refs['cacheDir'].validate((valid) => {
+    addCacheDir (index) {
+      this.$refs.cacheDir.validate((valid) => {
         if (valid) {
-          this.buildConfig.caches.push('');
+          this.buildConfig.caches.push('')
         } else {
-          return false;
+          return false
         }
-      });
+      })
     },
-    deleteCacheDir(index) {
-      this.buildConfig.caches.splice(index, 1);
+    deleteCacheDir (index) {
+      this.buildConfig.caches.splice(index, 1)
     },
-    addBuildApp(index) {
-      this.$refs['buildApp'].validate((valid) => {
+    addBuildApp (index) {
+      this.$refs.buildApp.validate((valid) => {
         if (valid) {
           this.buildConfig.pre_build.installs.push({
             name: '',
             version: '',
             id: ''
-          });
+          })
         } else {
-          return false;
+          return false
         }
-      });
+      })
     },
-    addFirstBuildApp() {
+    addFirstBuildApp () {
       this.buildConfig.pre_build.installs.push({
         name: '',
         version: '',
         id: ''
-      });
+      })
     },
-    deleteBuildApp(index) {
-      this.buildConfig.pre_build.installs.splice(index, 1);
+    deleteBuildApp (index) {
+      this.buildConfig.pre_build.installs.splice(index, 1)
     },
-    addBuildEnv(index) {
-      this.$refs['buildEnv'].validate((valid) => {
+    addBuildEnv (index) {
+      this.$refs.buildEnv.validate((valid) => {
         if (valid) {
           this.buildConfig.pre_build.envs.push({
             key: '',
             value: '',
             is_credential: true
-          });
+          })
         } else {
-          return false;
+          return false
         }
-      });
+      })
     },
-    addFirstBuildEnv() {
+    addFirstBuildEnv () {
       this.buildConfig.pre_build.envs.push({
         key: '',
         value: '',
         is_credential: true
-      });
+      })
     },
-    deleteBuildEnv(index) {
-      this.buildConfig.pre_build.envs.splice(index, 1);
+    deleteBuildEnv (index) {
+      this.buildConfig.pre_build.envs.splice(index, 1)
     },
-    addExtra(command) {
+    addExtra (command) {
       if (command === 'docker') {
-        this.docker_enabled = true;
+        this.docker_enabled = true
         if (!this.buildConfig.post_build) {
-          this.$set(this.buildConfig, 'post_build', {});
+          this.$set(this.buildConfig, 'post_build', {})
         }
         this.$set(this.buildConfig.post_build, 'docker_build', {
-          "work_dir": "",     // mandatory, default is .
-          "docker_file": "",   // mandatory, default is Dockerfile
-          "build_args": ""        // optional
-        });
+          work_dir: '',
+          docker_file: '',
+          build_args: ''
+        })
       }
       if (command === 'stcov') {
-        this.stcov_enabled = true;
+        this.stcov_enabled = true
       }
       if (command === 'binary') {
-        this.binary_enabled = true;
+        this.binary_enabled = true
         if (!this.buildConfig.post_build) {
-          this.$set(this.buildConfig, 'post_build', {});
+          this.$set(this.buildConfig, 'post_build', {})
         }
         this.$set(this.buildConfig.post_build, 'file_archive', {
-          "file_location": "",
-        });
+          file_location: ''
+        })
       }
       if (command === 'script') {
-        this.post_script_enabled = true;
+        this.post_script_enabled = true
         if (!this.buildConfig.post_build) {
-          this.$set(this.buildConfig, 'post_build', {});
+          this.$set(this.buildConfig, 'post_build', {})
         }
-        this.$set(this.buildConfig.post_build, 'scripts', '#!/bin/bash\nset -e');
+        this.$set(this.buildConfig.post_build, 'scripts', '#!/bin/bash\nset -e')
       }
-      this.$nextTick(this.$utils.scrollToBottom);
+      this.$nextTick(this.$utils.scrollToBottom)
     },
-    removeStcov() {
-      this.stcov_enabled = false;
-      delete this.buildConfig.main_file;
+    removeStcov () {
+      this.stcov_enabled = false
+      delete this.buildConfig.main_file
     },
-    removeDocker() {
-      this.docker_enabled = false;
-      delete this.buildConfig.post_build.docker_build;
+    removeDocker () {
+      this.docker_enabled = false
+      delete this.buildConfig.post_build.docker_build
     },
-    removeBinary() {
-      this.binary_enabled = false;
-      delete this.buildConfig.post_build.file_archive;
+    removeBinary () {
+      this.binary_enabled = false
+      delete this.buildConfig.post_build.file_archive
     },
-    removeScript() {
-      this.post_script_enabled = false;
-      delete this.buildConfig.post_build.scripts;
+    removeScript () {
+      this.post_script_enabled = false
+      delete this.buildConfig.post_build.scripts
     },
-    updateBuildConfig() {
-      this.$refs.repoSelect.validateForm().then(res =>{
+    updateBuildConfig () {
+      this.$refs.repoSelect.validateForm().then(res => {
         if (this.isEdit) {
-            this.saveBuildConfig()
+          this.saveBuildConfig()
         } else {
-            this.createBuildConfig()
+          this.createBuildConfig()
         }
       })
     },
-    createBuildConfig() {
-      if(this.source === 'zadig') {
-        let payload = this.$utils.cloneObj(this.buildConfig);
-        payload.repos.map(repo => {
-          this.allCodeHosts.map(codehost => {
+    createBuildConfig () {
+      if (this.source === 'zadig') {
+        const payload = this.$utils.cloneObj(this.buildConfig)
+        payload.repos.forEach(repo => {
+          this.allCodeHosts.forEach(codehost => {
             if (repo.codehost_id === codehost.id) {
-              repo.source = codehost.type;
+              repo.source = codehost.type
             }
-          });
-        });
-      }else{
-        payload = this.$utils.cloneObj(this.jenkinsBuild);
+          })
+        })
+      } else {
+        payload = this.$utils.cloneObj(this.jenkinsBuild)
       }
       if (payload.pre_build.image_id) {
-        const image = this.systems.find((item) => { return item.id === payload.pre_build.image_id });
-        payload.pre_build.image_from = image.image_from;
-        payload.pre_build.build_os = image.value;
+        const image = this.systems.find((item) => { return item.id === payload.pre_build.image_id })
+        payload.pre_build.image_from = image.image_from
+        payload.pre_build.build_os = image.value
       }
       payload.source = this.source
-      payload.product_name = this.projectName;
-      this.$refs['addConfigForm'].validate(valid => {
+      payload.product_name = this.projectName
+      this.$refs.addConfigForm.validate(valid => {
         if (valid) {
           createBuildConfigAPI(payload).then(() => {
             this.$router.replace({
@@ -897,34 +897,34 @@ export default {
                 {
                   rightbar: 'var'
                 })
-            });
-            this.$emit('getServiceModules');
+            })
+            this.$emit('getServiceModules')
             this.$message({
               type: 'success',
               message: '新建构建成功'
-            });
-          });
+            })
+          })
         } else {
-          return false;
+          return false
         }
-      });
+      })
     },
-    saveBuildConfig() {
-      if(this.source === 'zadig'){
-        let payload = this.$utils.cloneObj(this.buildConfig);
-        payload.repos.map(repo => {
-          this.allCodeHosts.map(codehost => {
+    saveBuildConfig () {
+      if (this.source === 'zadig') {
+        const payload = this.$utils.cloneObj(this.buildConfig)
+        payload.repos.forEach(repo => {
+          this.allCodeHosts.forEach(codehost => {
             if (repo.codehost_id === codehost.id) {
-              repo.source = codehost.type;
+              repo.source = codehost.type
             }
-          });
-        });
-      }else{
-        payload = this.$utils.cloneObj(this.jenkinsBuild);
+          })
+        })
+      } else {
+        payload = this.$utils.cloneObj(this.jenkinsBuild)
       }
-      payload.productName = this.projectName;
+      payload.productName = this.projectName
       updateBuildConfigAPI(payload).then((response) => {
-        bus.$emit('refresh-service');
+        bus.$emit('refresh-service')
         this.$router.replace({
           query: Object.assign(
             {},
@@ -932,67 +932,67 @@ export default {
             {
               rightbar: 'var'
             })
-        });
+        })
         this.$message({
           message: '保存构建成功',
           type: 'success'
-        });
-      });
+        })
+      })
     },
     async getJenkinsJob () {
-      let res = await queryJenkinsJob().catch(error=> console.log(error))
-      if (res)  {
+      const res = await queryJenkinsJob().catch(error => console.log(error))
+      if (res) {
         this.jenkinsJobList = res
       }
     },
     async changeJobName (value) {
-      let res = await queryJenkinsParams(value).catch(error=>console.log(error))
-      if(res) {
+      const res = await queryJenkinsParams(value).catch(error => console.log(error))
+      if (res) {
         this.jenkinsBuild.jenkins_build.jenkins_build_params = res
       }
     },
-    loadPage() {
-      const projectName = this.projectName;
-      const orgId = this.currentOrganizationId;
+    loadPage () {
+      const projectName = this.projectName
+      const orgId = this.currentOrganizationId
       if (this.isEdit) {
         getBuildConfigDetailAPI(this.buildConfigName, this.buildConfigVersion, this.projectName).then((response) => {
           response.pre_build.installs.forEach(element => {
-            element.id = element.name + element.version;
-          });
-          this.buildConfig = response;
-          if(this.buildConfig.source){
+            element.id = element.name + element.version
+          })
+          this.buildConfig = response
+          if (this.buildConfig.source) {
             this.source = this.buildConfig.source
           }
           if (this.buildConfig.post_build.docker_build) {
-            this.docker_enabled = true;
+            this.docker_enabled = true
           }
           if (this.buildConfig.post_build.file_archive) {
-            this.binary_enabled = true;
+            this.binary_enabled = true
           }
-        });
+        })
       }
       if (this.buildServiceName) {
-        this.$set(this.buildConfig, 'targets', [this.buildServiceName]);
+        this.$set(this.buildConfig, 'targets', [this.buildServiceName])
       }
       if (this.buildAdd && !this.isEdit && this.buildServiceName) {
-        this.$set(this.buildConfig, 'name', 'build-' + this.buildServiceName);
+        this.$set(this.buildConfig, 'name', 'build-' + this.buildServiceName)
       }
       getAllAppsAPI().then((response) => {
-        let apps = this.$utils.sortVersion(response, 'name', 'asc');
+        const apps = this.$utils.sortVersion(response, 'name', 'asc')
         this.allApps = apps.map((app, index) => {
-          return { 'name': app.name, 'version': app.version, 'id': app.name + app.version }
-        });
-      });
+          return { name: app.name, version: app.version, id: app.name + app.version }
+        })
+      })
       getCodeSourceAPI(orgId).then((response) => {
-        this.allCodeHosts = response;
-      });
+        this.allCodeHosts = response
+      })
       getServiceTargetsAPI(projectName).then((response) => {
-        this.serviceTargets = response;
-      });
+        this.serviceTargets = response
+      })
       getImgListAPI().then((response) => {
-        this.systems = response;
+        this.systems = response
         if (!this.isEdit) {
-          this.buildConfig.pre_build.image_id = this.systems[0].id;
+          this.buildConfig.pre_build.image_id = this.systems[0].id
         }
       })
     }
@@ -1004,41 +1004,39 @@ export default {
     }
   },
   computed: {
-    buildConfigName() {
-      return this.$route.query.build_name;
+    buildConfigName () {
+      return this.$route.query.build_name
     },
-    buildAdd() {
+    buildAdd () {
       return this.$route.query.build_add ? this.$route.query.build_add : false
     },
-    buildConfigVersion() {
-      return 'stable';
+    buildConfigVersion () {
+      return 'stable'
     },
-    buildServiceName() {
-      return this.$route.query.service_name;
+    buildServiceName () {
+      return this.$route.query.service_name
     },
-    currentOrganizationId() {
-      return this.$store.state.login.userinfo.organization.id;
+    currentOrganizationId () {
+      return this.$store.state.login.userinfo.organization.id
     },
-    projectName() {
-      return this.$route.params.project_name;
+    projectName () {
+      return this.$route.params.project_name
     },
-    isEdit() {
-      return ((this.$route.query.build_name) ? true : false);
+    isEdit () {
+      return (!!(this.$route.query.build_name))
     },
     useWorkspaceCache: {
-      get() {
+      get () {
         return !this.buildConfig.pre_build.clean_workspace
       },
-      set(val) {
+      set (val) {
         this.buildConfig.pre_build.clean_workspace = !val
       }
     }
   },
-  created() {
-    this.loadPage();
+  created () {
+    this.loadPage()
     this.getJenkinsJob()
-  },
-  beforeDestroy() {
   },
   components: {
     editor: aceEditor
@@ -1048,85 +1046,100 @@ export default {
 </script>
 <style lang="less" scoped>
 .el-input-group {
-  vertical-align: middle
+  vertical-align: middle;
 }
-  .deploy-script {
-    border: 1px solid #ccc;
-    border-radius: 2px;
-    margin-top: 10px;
-    margin-bottom: 10px;
-  }
-.params-dialog {
-  background: #f5f5f5;
-  padding: 10px;
+
+.deploy-script {
+  margin-top: 10px;
   margin-bottom: 10px;
+  border: 1px solid #ccc;
+  border-radius: 2px;
+}
+
+.params-dialog {
   display: inline-block;
+  margin-bottom: 10px;
+  padding: 10px;
+  background: #f5f5f5;
+
   .delete-param {
-    cursor: pointer;
     float: right;
     margin-top: -18px;
-    font-size: 18px;
     color: #ff4949;
+    font-size: 18px;
+    cursor: pointer;
   }
 }
+
 .create-footer {
   position: fixed;
-  box-sizing: border-box;
   right: 130px;
-  width: 400px;
-  border-radius: 4px;
   bottom: 0;
-  padding: 10px 10px 10px 10px;
   z-index: 5;
+  box-sizing: border-box;
+  width: 400px;
+  padding: 10px 10px 10px 10px;
   text-align: left;
   background-color: transparent;
+  border-radius: 4px;
+
   .btn-primary {
     color: #1989fa;
     background-color: rgba(25, 137, 250, 0.04);
     border-color: rgba(25, 137, 250, 0.4);
+
     &:hover {
       color: #fff;
       background-color: #1989fa;
       border-color: #1989fa;
     }
   }
+
   .grid-content {
-    border-radius: 4px;
     min-height: 36px;
+    border-radius: 4px;
+
     .description {
       line-height: 36px;
+
       p {
         margin: 0;
-        text-align: left;
-        line-height: 36px;
-        font-size: 16px;
         color: #676767;
+        font-size: 16px;
+        line-height: 36px;
+        text-align: left;
       }
     }
+
     &.button-container {
       float: right;
     }
   }
 }
+
 .build-config-container {
-  flex: 1;
   position: relative;
+  flex: 1;
+  padding: 15px 15px 0 15px;
   overflow: auto;
-  padding: 15px 15px 0px 15px;
   font-size: 13px;
+
   .divider {
-    height: 1px;
-    background-color: #dfe0e6;
-    margin: 5px 0 15px 0;
     width: 100%;
+    height: 1px;
+    margin: 5px 0 15px 0;
+    background-color: #dfe0e6;
+
     &.item {
       width: 30%;
     }
   }
+
   .breadcrumb {
     .el-breadcrumb {
       font-size: 16px;
       line-height: 1.35;
+
       .el-breadcrumb__item__inner a:hover,
       .el-breadcrumb__item__inner:hover {
         color: #1989fa;
@@ -1134,36 +1147,42 @@ export default {
       }
     }
   }
+
   .section {
     margin-bottom: 15px;
   }
+
   .el-form {
     .item-title {
       font-size: 15px;
     }
+
     .variable {
+      color: #409eff;
       font-size: 13px;
-      color: #409EFF;
       cursor: pointer;
     }
   }
+
   .form-style1 {
     .el-form-item {
       margin-bottom: 0;
     }
   }
+
   .app-operation {
     .el-button + .el-button {
-      margin-left: 0px;
+      margin-left: 0;
     }
   }
+
   .operation-container {
     margin: 20px 0;
+
     .text {
-      color: #8d9199;
       margin-right: 25px;
+      color: #8d9199;
     }
   }
 }
 </style>
-
