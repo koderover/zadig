@@ -18,9 +18,9 @@ package service
 
 import (
 	"context"
-
 	"github.com/google/go-github/v35/github"
 	"go.uber.org/zap"
+	"strings"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehost"
@@ -97,6 +97,9 @@ func CodehostListProjects(codehostID int, namespace, namespaceType, keyword stri
 
 		for _, repo := range repos {
 			if repo.Owner == nil || *repo.Owner.Login != namespace {
+				continue
+			}
+			if keyword != "" && !strings.Contains(repo.GetFullName(), keyword) {
 				continue
 			}
 			projects = append(projects, getProject(repo))
