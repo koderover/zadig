@@ -24,35 +24,25 @@ import (
 	"github.com/google/go-github/v35/github"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 )
 
 const (
-	// StatusQueued ...
-	StatusQueued = "queued"
-	// StatusInProgress ...
+	StatusQueued     = "queued"
 	StatusInProgress = "in_progress"
-	// StatusCompleted ...
-	StatusCompleted = "completed"
+	StatusCompleted  = "completed"
 )
 
-const (
-	// CIStatusSuccess ...
-	CIStatusSuccess = CIStatus("success")
-	// CIStatusFailure ...
-	CIStatusFailure = CIStatus("failure")
-	// CIStatusNeutral ...
-	CIStatusNeutral = CIStatus("neutral")
-	// CIStatusCancelled ...
-	CIStatusCancelled = CIStatus("cancelled")
-	// CIStatusTimeout ...
-	CIStatusTimeout = CIStatus("timed_out")
-)
-
-// CIStatus ...
 type CIStatus string
 
-// GitCheck ...
+const (
+	CIStatusSuccess   CIStatus = "success"
+	CIStatusFailure   CIStatus = "failure"
+	CIStatusNeutral   CIStatus = "neutral"
+	CIStatusCancelled CIStatus = "cancelled"
+	CIStatusTimeout   CIStatus = "timed_out"
+)
+
 type GitCheck struct {
 	Owner  string
 	Repo   string
@@ -66,11 +56,6 @@ type GitCheck struct {
 	PipeType    config.PipelineType
 	TaskID      int64
 	TestReports []*commonmodels.TestSuite
-}
-
-// CheckService ...
-type CheckService struct {
-	client *Client
 }
 
 // DetailsURL ...
@@ -105,7 +90,7 @@ func UIType(pipelineType config.PipelineType) string {
 }
 
 // https://developer.github.com/v3/checks/runs/#create-a-check-run
-func (s *CheckService) StartGitCheck(check *GitCheck) (int64, error) {
+func (c *Client) StartGitCheck(check *GitCheck) (int64, error) {
 
 	opt := github.CreateCheckRunOptions{
 		Name:       fmt.Sprintf("Aslan - %s", check.PipeName),
@@ -116,7 +101,7 @@ func (s *CheckService) StartGitCheck(check *GitCheck) (int64, error) {
 		Status:     github.String(StatusQueued),
 	}
 
-	run, _, err := s.client.Git.Checks.CreateCheckRun(context.Background(), check.Owner, check.Repo, opt)
+	run, err := c.CreateCheckRun(context.TODO(), check.Owner, check.Repo, opt)
 	if err != nil {
 		return 0, err
 	}
@@ -126,9 +111,8 @@ func (s *CheckService) StartGitCheck(check *GitCheck) (int64, error) {
 	return run.GetID(), nil
 }
 
-// UpdateGitCheck ...
 // https://developer.github.com/v3/checks/runs/#update-a-check-run
-func (s *CheckService) UpdateGitCheck(gitCheckID int64, check *GitCheck) error {
+func (c *Client) UpdateGitCheck(gitCheckID int64, check *GitCheck) error {
 	opt := github.UpdateCheckRunOptions{
 		Name:       fmt.Sprintf("Aslan - %s", check.PipeName),
 		DetailsURL: github.String(check.DetailsURL()),
@@ -143,13 +127,12 @@ func (s *CheckService) UpdateGitCheck(gitCheckID int64, check *GitCheck) error {
 	if check.PipeType == config.WorkflowType {
 		opt.Output.Summary = github.String(fmt.Sprintf("<a href='%s'> The **%s** workflow</a> is currently running.", check.DetailsURL(), check.PipeName))
 	}
-	_, _, err := s.client.Git.Checks.UpdateCheckRun(context.Background(), check.Owner, check.Repo, gitCheckID, opt)
+	_, err := c.UpdateCheckRun(context.TODO(), check.Owner, check.Repo, gitCheckID, opt)
 	return err
 }
 
-// CompleteGitCheck ...
 // https://developer.github.com/v3/checks/runs/#update-a-check-run
-func (s *CheckService) CompleteGitCheck(gitCheckID int64, status CIStatus, check *GitCheck) error {
+func (c *Client) CompleteGitCheck(gitCheckID int64, status CIStatus, check *GitCheck) error {
 	summary := fmt.Sprintf("<a href='%s'> The **%s** pipeline</a> is **%s**.", check.DetailsURL(), check.PipeName, status)
 	if check.PipeType == config.WorkflowType {
 		summary = fmt.Sprintf("<a href='%s'> The **%s** workflow</a> is **%s**.", check.DetailsURL(), check.PipeName, status)
@@ -174,6 +157,6 @@ func (s *CheckService) CompleteGitCheck(gitCheckID int64, status CIStatus, check
 		},
 	}
 
-	_, _, err := s.client.Git.Checks.UpdateCheckRun(context.Background(), check.Owner, check.Repo, gitCheckID, opt)
+	_, err := c.UpdateCheckRun(context.TODO(), check.Owner, check.Repo, gitCheckID, opt)
 	return err
 }

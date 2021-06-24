@@ -28,7 +28,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/internal/poetry"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
-	git "github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/github"
+	wdgithub "github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/github"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/jira"
@@ -180,7 +180,8 @@ func (p *JiraPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 			if pipelineTask.ConfigPayload.Proxy.EnableRepoProxy && pipelineTask.ConfigPayload.Proxy.Type == "http" {
 				httpsAddr = pipelineTask.ConfigPayload.Proxy.GetProxyURL()
 			}
-			githubCli := git.NewGithubAppClient(build.OauthToken, config.APIServer, httpsAddr)
+
+			gh := wdgithub.NewClient(build.OauthToken, httpsAddr)
 			//第一: 获取最近一次的pr
 			var pr *github.PullRequest
 			if build.PR == 0 {
@@ -189,28 +190,27 @@ func (p *JiraPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 					Base:        build.Branch,
 					ListOptions: github.ListOptions{Page: 1, PerPage: 1},
 				}
-				pullrequest, _, err := githubCli.PullRequests.List(context.Background(), build.RepoOwner, build.RepoName, opt)
+				prs, err := gh.ListPullRequests(context.Background(), build.RepoOwner, build.RepoName, opt)
 				if err != nil {
 					p.Log.Errorf("github ListClosedPullRequests [%s/%s:%s] error: %v", build.RepoOwner, build.RepoName, build.Branch, err)
 					p.Task.TaskStatus = config.StatusSkipped
 					p.Task.Error = err.Error()
 					return
 				}
-				if len(pullrequest) > 0 {
-					pr = pullrequest[0]
+				if len(prs) > 0 {
+					pr = prs[0]
 				} else {
 					log.Warnf("[%s/%s:%s]github pull request not found,", build.RepoOwner, build.RepoName, build.Branch)
 				}
 			} else {
-				// 1. parse pr title
-				pullrequest, _, err := githubCli.PullRequests.Get(context.Background(), build.RepoOwner, build.RepoName, build.PR)
+				var err error
+				pr, err = gh.GetPullRequest(context.Background(), build.RepoOwner, build.RepoName, build.PR)
 				if err != nil {
 					p.Log.Errorf("github GetPullRequest [%s/%s:%d] error: %v", build.RepoOwner, build.RepoName, build.PR, err)
 					p.Task.TaskStatus = config.StatusSkipped
 					p.Task.Error = err.Error()
 					return
 				}
-				pr = pullrequest
 			}
 			if pr != nil && pr.Title != nil {
 				p.Log.Infof("pullRequest title : %s", *pr.Title)
@@ -221,22 +221,16 @@ func (p *JiraPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 			}
 
 			// 2. parse all commits
-			repoCommits := make([]*github.RepositoryCommit, 0)
 			if build.PR != 0 {
-				opt := &github.ListOptions{Page: 1, PerPage: 100}
-				for opt.Page > 0 {
-					list, resp, err := githubCli.PullRequests.ListCommits(context.Background(), build.RepoOwner, build.RepoName, build.PR, opt)
-					if err != nil {
-						p.Log.Errorf("github ListRepoCommitsByPullRequest [%s/%s:%d] error: %v", build.RepoOwner, build.RepoName, build.PR, err)
-						p.Task.TaskStatus = config.StatusSkipped
-						p.Task.Error = err.Error()
-						return
-					}
-					repoCommits = append(repoCommits, list...)
-					opt.Page = resp.NextPage
+				commits, err := gh.ListCommits(context.TODO(), build.RepoOwner, build.RepoName, build.PR, nil)
+				if err != nil {
+					p.Log.Errorf("github ListCommits [%s/%s:%d] error: %v", build.RepoOwner, build.RepoName, build.PR, err)
+					p.Task.TaskStatus = config.StatusSkipped
+					p.Task.Error = err.Error()
+					return
 				}
 
-				for _, rc := range repoCommits {
+				for _, rc := range commits {
 					// parse commit message
 					if rc.Commit != nil && rc.Commit.Message != nil {
 						keys := util.GetJiraKeys(*rc.Commit.Message)

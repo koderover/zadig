@@ -41,7 +41,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/net/proxy"
 
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/tool/pool"
 )
 

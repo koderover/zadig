@@ -41,10 +41,14 @@ func ReplaceRepo(origin, addr, namespace string) string {
 	}, "/")
 }
 
-func GetURL(URL string) (string, error) {
-	uri, err := url.Parse(URL)
+func GetAddress(uri string) (string, error) {
+	u, err := url.Parse(uri)
 	if err != nil {
-		return "", fmt.Errorf("url prase failed")
+		return "", fmt.Errorf("url prase failed: %s", err)
 	}
-	return fmt.Sprintf("%s://%s", uri.Scheme, uri.Host), nil
+	if u.Scheme == "" {
+		return "", fmt.Errorf("scheme is missing")
+	}
+
+	return fmt.Sprintf("%s://%s", u.Scheme, u.Host), nil
 }

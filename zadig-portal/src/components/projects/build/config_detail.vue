@@ -436,12 +436,14 @@
           <el-row>
             <el-col class="deploy-script"
                     :span="24">
-              <editor v-model="buildConfig.scripts"
-                      lang="sh"
-                      theme="xcode"
-                      :options="editorOption"
-                      width="100%"
-                      height="200px"></editor>
+                <Resize :resize="'both'">
+                  <editor v-model="buildConfig.scripts"
+                          lang="sh"
+                          theme="xcode"
+                          :options="editorOption"
+                          width="100%"
+                          height="100%"></editor>
+                </Resize>
             </el-col>
           </el-row>
         </el-form>
@@ -595,6 +597,7 @@ import { getBuildConfigDetailAPI, getAllAppsAPI, getImgListAPI, getCodeSourceAPI
 import aceEditor from 'vue2-ace-bind'
 import bus from '@utils/event_bus'
 import ValidateSubmit from '@utils/validate_async'
+import Resize from '@/components/common/resize.vue'
 const validateBuildConfigName = (rule, value, callback) => {
   if (value === '') {
     callback(new Error('请输入构建名称'))
@@ -1050,22 +1053,33 @@ export default {
     })
   },
   components: {
-    editor: aceEditor
+    editor: aceEditor,
+    Resize
   }
 
 }
 </script>
 <style lang="less" scoped>
+@import url("~@assets/css/common/scroll-bar.less");
+
 .el-input-group {
   vertical-align: middle;
+}
+
+.dashed-container {
+  width: calc(~"100% - 120px");
 }
 
 .deploy-script {
   width: calc(~"100% - 120px");
   margin-top: 10px;
   margin-bottom: 10px;
-  border: 1px solid #ccc;
-  border-radius: 2px;
+
+  .ace_editor.ace-xcode {
+    &:hover {
+      .scrollBar();
+    }
+  }
 }
 
 .params-dialog {
@@ -1136,7 +1150,7 @@ export default {
   overflow: auto;
 
   .divider {
-    width: 100%;
+    width: calc(~"100% - 120px");
     height: 1px;
     margin: 5px 0 15px 0;
     background-color: #dfe0e6;

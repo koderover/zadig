@@ -122,8 +122,6 @@ export default {
 </script>
 
 <style lang="less">
-// @import url("~@assets/css/common/scroll-bar.less");
-
 .sub-side-bar-wrapper {
   position: relative;
   left: 0;

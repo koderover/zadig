@@ -20,7 +20,7 @@ import (
 	"fmt"
 
 	internalresource "github.com/koderover/zadig/pkg/internal/kube/resource"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 )
 

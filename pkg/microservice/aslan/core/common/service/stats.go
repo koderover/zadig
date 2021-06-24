@@ -21,8 +21,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 )
 
 func LogProductStats(user, event, prodName, requestID string, startTime int64, log *zap.SugaredLogger) {
@@ -38,7 +38,7 @@ func LogProductStats(user, event, prodName, requestID string, startTime int64, l
 		Context:   ctx,
 	}
 
-	if err := repo.NewStatsColl().Create(stats); err != nil {
+	if err := mongodb.NewStatsColl().Create(stats); err != nil {
 		log.Errorf("[LogProductStats] error: %v", err)
 	}
 }

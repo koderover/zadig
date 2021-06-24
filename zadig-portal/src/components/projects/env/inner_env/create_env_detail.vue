@@ -22,6 +22,14 @@
           </router-link>
           添加服务
         </p>
+        <p>2.如需托管外部环境，请点击
+            <el-button type="primary"
+                       size="mini"
+                       round
+                       @click="changeCreateMethodWhenServiceEmpty"
+                       plain>托管环境</el-button>
+            开始托管
+          </p>
       </div>
     </div>
     <div v-else>
@@ -34,9 +42,60 @@
           <el-input v-model="projectConfig.env_name"
                     size="small"></el-input>
         </el-form-item>
+        <el-form-item label="创建方式"
+                        prop="source">
+            <el-select class="select"
+                       @change="changeCreateMethod"
+                       v-model="projectConfig.source"
+                       size="small"
+                       placeholder="请选择环境类型">
+              <el-option label="系统创建"
+                         value="system">
+              </el-option>
+              <el-option label="托管外部环境"
+                         value="external">
+              </el-option>
+              <el-option v-if="currentProductDeliveryVersions.length > 0" label="版本回溯"
+                         value="versionBack">
+              </el-option>
+            </el-select>
+          </el-form-item>
+          <el-form-item v-if="projectConfig.source==='versionBack'"
+                        label="选择版本"
+                        >
+            <el-select @change="changeSelectValue"
+                      placeholder="请选择版本"
+                      size="small"
+                      v-model="selection"
+                      value-key="version"
+                      >
+              <el-option v-for="(item,index) in currentProductDeliveryVersions"
+                        :key="index"
+                        :disabled="!item.versionInfo.productEnvInfo"
+                        :label="`版本号：${item.versionInfo.version} 创建时间：${$utils.convertTimestamp(item.versionInfo.created_at)} 创建人：${item.versionInfo.createdBy}`"
+                        :value="item.versionInfo">
+              </el-option>
+            </el-select>
+          </el-form-item>
+          <el-form-item v-if="projectConfig.source==='external'"
+                        label="命名空间"
+                        prop="namespace">
+            <el-select class="select"
+                       v-model.trim="projectConfig.namespace"
+                       size="small"
+                       placeholder="请选择命名空间"
+                       allow-create
+                       filterable>
+              <el-option v-for="(ns,index) in hostingNamespace"
+                         :key="index"
+                         :label="ns.name"
+                         :value="ns.name">
+              </el-option>
+            </el-select>
+          </el-form-item>
       </el-form>
 
-      <el-card v-if="projectConfig.vars && projectConfig.vars.length > 0  && !$utils.isEmpty(containerMap)"
+      <el-card v-if="(deployType===''||deployType==='k8s') && projectConfig.vars && projectConfig.vars.length > 0  && !$utils.isEmpty(containerMap) && projectConfig.source==='system'"
                class="box-card-service"
                :body-style="{padding: '0px', margin: '10px 0 0 0'}">
         <div class="module-title">
@@ -55,6 +114,7 @@
                 <el-input size="small"
                           v-model="scope.row.value"
                           type="textarea"
+                          :disabled="rollbackMode"
                           :autosize="{ minRows: 1, maxRows: 4}"
                           placeholder="请输入内容"></el-input>
               </template>
@@ -139,16 +199,17 @@
               </el-table-column>
             </el-table>
           </div>
-          <span class="add-kv-btn">
+          <span v-if="!rollbackMode"
+            class="add-kv-btn">
             <i title="添加"
                @click="addKeyInputVisable=true"
                class="el-icon-circle-plus"> 新增</i>
           </span>
         </div>
       </el-card>
-      <div>
+      <div v-if="projectConfig.source==='system'">
         <div style="color: rgb(153, 153, 153); font-size: 16px; line-height: 20px;">服务列表</div>
-        <template>
+        <template v-if="deployType==='k8s'">
           <el-card v-if="!$utils.isEmpty(containerMap)"
                    class="box-card-service"
                    :body-style="{padding: '0px'}">
@@ -166,7 +227,8 @@
                     下不存在该容器镜像，则会选择模板中的默认镜像进行填充</div>
                   <i class="el-icon-info"></i>
                 </el-tooltip>
-                <el-select size="small"
+                <el-select :disabled="rollbackMode"
+                          size="small"
                            class="img-select"
                            v-model="quickSelection"
                            placeholder="请选择">
@@ -195,6 +257,7 @@
                                     :key="con.name"
                                     :label="con.name">
                         <el-select v-model="con.image"
+                                   :disabled="rollbackMode"
                                    filterable
                                    size="small">
                           <el-option v-for="img of imageMap[con.name]"
@@ -253,9 +316,9 @@
 </template>
 
 <script>
-import { imagesAPI, initProductAPI, createProductAPI } from '@api'
+import { imagesAPI, productHostingNamespaceAPI, initProductAPI, createProductAPI, getVersionListAPI, getSingleProjectAPI } from '@api'
 import bus from '@utils/event_bus'
-import { uniq } from 'lodash'
+import { uniq, cloneDeep } from 'lodash'
 import { serviceTypeMap } from '@utils/word_translate'
 
 const validateKey = (rule, value, callback) => {
@@ -284,27 +347,38 @@ export default {
   data () {
     return {
       selection: '',
+      currentProductDeliveryVersions: [],
       projectConfig: {
         product_name: '',
         cluster_id: '',
         env_name: '',
-        source: 'system',
+        source: 'spock',
         vars: [],
         revision: null,
         isPublic: true,
         roleIds: []
       },
+      projectInfo: {},
+      hostingNamespace: [],
       startDeployLoading: false,
       loading: false,
       addKeyInputVisable: false,
       imageMap: {},
       containerMap: {},
       quickSelection: '',
-      unSelectedImgContainers: [],
       serviceTypeMap: serviceTypeMap,
       rules: {
+        source: [
+          { required: true, trigger: 'change', message: '请选择环境类型' }
+        ],
+        namespace: [
+          { required: true, trigger: 'change', message: '请选择命名空间' }
+        ],
         env_name: [
           { required: true, trigger: 'change', validator: validateEnvName }
+        ],
+        roleIds: [
+          { type: 'array', required: true, message: '请选择项目角色', trigger: 'change' }
         ]
       },
       addKeyData: [
@@ -339,11 +413,17 @@ export default {
     projectName () {
       return this.$route.params.project_name
     },
+    deployType () {
+      return this.projectInfo.product_feature ? this.projectInfo.product_feature.deploy_type : 'k8s'
+    },
     currentOrganizationId () {
       return this.$store.state.login.userinfo.organization.id
     },
+    rollbackMode () {
+      return this.projectConfig.source === 'versionBack'
+    },
     showEmptyServiceModal () {
-      return this.$utils.isEmpty(this.containerMap)
+      return this.$utils.isEmpty(this.containerMap) && (this.projectConfig.source !== 'external')
     }
   },
   methods: {
@@ -351,12 +431,74 @@ export default {
       const projectName = this.projectName
       this.projectInfo = await getSingleProjectAPI(projectName)
     },
+    changeSelectValue (versionInfo) {
+      const template = versionInfo.productEnvInfo
+      const source = this.projectConfig.source
+      const env_name = this.projectConfig.env_name
+      this.projectConfig = cloneDeep(template)
+
+      for (const group of template.services) {
+        group.sort((a, b) => {
+          if (a.service_name !== b.service_name) {
+            return a.service_name.charCodeAt(0) - b.service_name.charCodeAt(0)
+          }
+          if (a.type === 'k8s' || b.type === 'k8s') {
+            return a.type === 'k8s' ? 1 : -1
+          }
+          return 0
+        })
+      }
+      const map = {}
+      for (const group of template.services) {
+        for (const ser of group) {
+          map[ser.service_name] = map[ser.service_name] || {}
+          map[ser.service_name][ser.type] = ser
+          if (ser.type === 'k8s') {
+            this.hasK8s = true
+          }
+          ser.picked = true
+          const containers = ser.containers
+          if (containers) {
+            for (const con of containers) {
+              Object.defineProperty(con, 'defaultImage', {
+                value: con.image,
+                enumerable: false,
+                writable: false
+              })
+            }
+          }
+        }
+      }
+      if (template.source === '' || template.source === 'spock') {
+        this.projectConfig.source = 'system'
+      }
+      if (source === 'versionBack') {
+        this.projectConfig.source = 'versionBack'
+      }
+      this.projectConfig.env_name = env_name
+      this.projectConfig.cluster_id = ''
+      this.containerMap = map
+    },
+    getVersionList () {
+      const orgId = this.currentOrganizationId
+      const projectName = this.nameInURL
+      getVersionListAPI(orgId, '', projectName).then((res) => {
+        this.currentProductDeliveryVersions = res
+      }).catch(err => {
+        if (err === 'CANCEL') {
+          console.log()
+        }
+      })
+    },
     async getTemplateAndImg () {
       this.loading = true
       const template = await initProductAPI(this.projectName, this.isStcov)
       this.loading = false
       this.projectConfig.revision = template.revision
       this.projectConfig.vars = template.vars
+      if (template.source === '' || template.source === 'spock') {
+        this.projectConfig.source = 'system'
+      };
       for (const group of template.services) {
         group.sort((a, b) => {
           if (a.service_name !== b.service_name) {
@@ -399,7 +541,9 @@ export default {
             image.full = `${image.host}/${image.owner}/${image.name}:${image.tag}`
           }
           this.imageMap = this.makeMapOfArray(images, 'name')
-          this.quickSelection = 'latest'
+          if (!this.rollbackMode) {
+            this.quickSelection = 'latest'
+          }
         }
       })
     },
@@ -413,36 +557,6 @@ export default {
         }
       }
       return map
-    },
-    checkImgSelected (container_img_selected) {
-      const containerNames = []
-      for (const service in container_img_selected) {
-        for (const containername in container_img_selected[service]) {
-          if (container_img_selected[service][containername] === '') {
-            containerNames.push(containername)
-          }
-        }
-      }
-      this.unSelectedImgContainers = containerNames
-      return containerNames
-    },
-    mapImgToprojectConfig (product_tpl, container_img_selected) {
-      for (const service_con_img in container_img_selected) {
-        for (const container in container_img_selected[service_con_img]) {
-          product_tpl.services.forEach(service_group => {
-            service_group.forEach(service => {
-              service.containers.forEach((con, index_con) => {
-                if (con.name === container) {
-                  service.containers[index_con] = {
-                    name: con.name,
-                    image: container_img_selected[service.service_name][con.name]
-                  }
-                }
-              })
-            })
-          })
-        }
-      }
     },
     addRenderKey () {
       if (this.addKeyData[0].key !== '') {
@@ -478,7 +592,55 @@ export default {
       }
     },
     startDeploy () {
-      this.deployEnv()
+      if (this.projectConfig.source === 'versionBack') {
+        this.projectConfig.source = 'system'
+      }
+      const selectType = this.projectConfig.source
+      const projectType = this.deployType
+      if (projectType === 'k8s' && selectType === 'system') {
+        this.deployEnv()
+      } else if (selectType === 'external') {
+        this.loadHosting()
+      }
+    },
+    changeCreateMethodWhenServiceEmpty () {
+      this.projectConfig.source = 'external'
+      this.changeCreateMethod('external')
+    },
+    changeCreateMethod (source) {
+      const clusterId = this.projectConfig.cluster_id
+      if (this.selection) {
+        this.getTemplateAndImg()
+      }
+      this.selection = ''
+      if (source === 'external') {
+        productHostingNamespaceAPI(clusterId).then((res) => {
+          this.hostingNamespace = res
+        })
+      }
+    },
+    loadHosting () {
+      this.$refs['create-env-ref'].validate((valid) => {
+        if (valid) {
+          const payload = this.$utils.cloneObj(this.projectConfig)
+          payload.services = []
+          payload.vars = []
+          payload.source = 'external'
+          const envType = 'test'
+          this.startDeployLoading = true
+          createProductAPI(payload, envType).then((res) => {
+            const envName = payload.env_name
+            this.startDeployLoading = false
+            this.$message({
+              message: '创建环境成功',
+              type: 'success'
+            })
+            this.$router.push(`/v1/projects/detail/${this.projectName}/envs/detail?envName=${envName}`)
+          }, () => {
+            this.startDeployLoading = false
+          })
+        }
+      })
     },
     deployEnv () {
       const picked2D = []
@@ -565,8 +727,10 @@ export default {
   },
   created () {
     bus.$emit('set-topbar-title', { title: '', breadcrumb: [{ title: '项目', url: `/v1/projects/detail/${this.projectName}` }, { title: `${this.projectName}`, url: `/v1/projects/detail/${this.projectName}` }, { title: '集成环境', url: '' }, { title: '创建', url: '' }] })
+    this.getVersionList()
     this.projectConfig.product_name = this.projectName
     this.getTemplateAndImg()
+    this.checkProjectFeature()
   }
 }
 </script>

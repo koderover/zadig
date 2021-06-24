@@ -22,8 +22,8 @@ import (
 	"time"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/wechat"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -32,20 +32,20 @@ import (
 const sevendays int64 = 60 * 60 * 24 * 7
 
 type client struct {
-	notifyColl       *repo.NotifyColl
-	pipelineColl     *repo.PipelineColl
-	subscriptionColl *repo.SubscriptionColl
-	taskColl         *repo.TaskColl
+	notifyColl       *mongodb.NotifyColl
+	pipelineColl     *mongodb.PipelineColl
+	subscriptionColl *mongodb.SubscriptionColl
+	taskColl         *mongodb.TaskColl
 	scmNotifyService *scmnotify.Service
 	WeChatService    *wechat.Service
 }
 
 func NewNotifyClient() *client {
 	return &client{
-		notifyColl:       repo.NewNotifyColl(),
-		pipelineColl:     repo.NewPipelineColl(),
-		subscriptionColl: repo.NewSubscriptionColl(),
-		taskColl:         repo.NewTaskColl(),
+		notifyColl:       mongodb.NewNotifyColl(),
+		pipelineColl:     mongodb.NewPipelineColl(),
+		subscriptionColl: mongodb.NewSubscriptionColl(),
+		taskColl:         mongodb.NewTaskColl(),
 		scmNotifyService: scmnotify.NewService(),
 		WeChatService:    wechat.NewWeChatClient(),
 	}
@@ -243,7 +243,7 @@ func (c *client) ProccessNotify(notify *models.Notify) error {
 		logger := log.SugaredLogger()
 		task.Status = ctx.Status
 		if ctx.Type == config.SingleType {
-			pipline, err := c.pipelineColl.Find(&repo.PipelineFindOption{Name: ctx.PipelineName})
+			pipline, err := c.pipelineColl.Find(&mongodb.PipelineFindOption{Name: ctx.PipelineName})
 			if err != nil {
 				return fmt.Errorf("[%s] find pipline error: %v", notify.Receiver, err)
 			}

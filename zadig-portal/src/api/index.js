@@ -244,8 +244,12 @@ export function envRevisionsAPI (projectName, envName) {
   return http.get(`/api/aslan/environment/revision/products?productName=${projectName}&envName=${envName}`)
 }
 
-export function productServicesAPI (projectName, envName, searchName = '', perPage = 20, page = 1) {
-  return http.get(`/api/aslan/environment/environments/${projectName}/groups?envName=${envName}&serviceName=${searchName}&perPage=${perPage}&page=${page}`)
+export function productServicesAPI (projectName, envName, envSource, searchName = '', perPage = 20, page = 1) {
+  if (envSource === 'external') {
+    return http.get(`/api/aslan/environment/environments/${projectName}/groups/${envSource}?envName=${envName}`)
+  } else {
+    return http.get(`/api/aslan/environment/environments/${projectName}/groups?envName=${envName}&serviceName=${searchName}&perPage=${perPage}&page=${page}`)
+  }
 }
 
 export function fetchGroupsDataAPI (name, envName) {
@@ -680,6 +684,19 @@ export function deleteAppAPI (data) {
   return http.put('/api/aslan/system/install/delete', data)
 }
 
+export function getJiraAPI (organization_id) {
+  return http.get(`/api/directory/jira?orgId=${organization_id}`)
+}
+export function updateJiraAPI (organization_id, payload) {
+  return http.post(`/api/directory/jira?orgId=${organization_id}`, payload)
+}
+export function deleteJiraAPI (organization_id) {
+  return http.delete(`/api/directory/jira?orgId=${organization_id}`)
+}
+export function createJiraAPI (organization_id, payload) {
+  return http.post(`/api/directory/jira?orgId=${organization_id}`, payload)
+}
+
 // custom image
 export function addImgAPI (payload) {
   return http.post(`/api/aslan/system/basicImages`, payload)
@@ -945,4 +962,25 @@ export function generatePipeAPI (projectName) {
 
 export function getProjectIngressAPI (projectName) {
   return http.get(`/api/aslan/environment/environments/${projectName}/ingressInfo`)
+}
+
+// delivery
+export function getVersionListAPI (organization_id, workflow_name = '', product_name = '', task_id = '', service_name = '') {
+  return http.get(`/api/aslan/delivery/releases?orgId=${organization_id}&workflowName=${workflow_name}&productName=${product_name}&taskId=${task_id}&serviceName=${service_name}`)
+}
+
+export function getVersionServiceListAPI (organizationId, projectName) {
+  return http.get(`/api/aslan/delivery/servicenames?orgId=${organizationId}&productName=${projectName}`)
+}
+
+export function deleteVersionAPI (versionId) {
+  return http.delete(`/api/aslan/delivery/releases/${versionId}`)
+}
+
+export function getVersionProductListAPI (organization_id) {
+  return http.get(`/api/aslan/delivery/products?orgId=${organization_id}`)
+}
+
+export function productHostingNamespaceAPI (clusterId) {
+  return http.get(`/api/aslan/environment/kube/available_namespaces?clusterId=${clusterId}`)
 }

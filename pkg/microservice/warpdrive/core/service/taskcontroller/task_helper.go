@@ -31,7 +31,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	plugins "github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/github"
-	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/github/app"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/s3"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
@@ -216,7 +215,18 @@ func getCheckStatus(status config.Status) github.CIStatus {
 	case config.StatusSkipped:
 		return github.CIStatusCancelled
 	default:
-		return github.CIStatusFailure
+		return github.CIStatusError
+	}
+}
+
+func getGitHubStatusFromCIStatus(status github.CIStatus) string {
+	switch status {
+	case github.CIStatusSuccess:
+		return github.StateSuccess
+	case github.CIStatusFailure:
+		return github.StateFailure
+	default:
+		return github.StateError
 	}
 }
 
@@ -229,16 +239,14 @@ func setHostName(pipelineTask *task.Task) {
 	pipelineTask.AgentHost = hostName
 }
 
-func initGitClient(pt *task.Task) (*github.Client, error) {
-	appCfg := &app.Config{
-		AppKey: pt.ConfigPayload.Github.AppKey,
-		AppID:  pt.ConfigPayload.Github.AppID,
+func getGitHubAppClient(pt *task.Task) (*github.Client, error) {
+	appID := pt.ConfigPayload.Github.AppID
+	appKey := pt.ConfigPayload.Github.AppKey
+
+	if appID == 0 || appKey == "" {
+		return nil, nil
 	}
 
-	appCli, err := app.NewAppClient(appCfg)
-	if err != nil {
-		return nil, err
-	}
 	var owner string
 	if pt.Type == config.SingleType {
 		owner = pt.TaskArgs.HookPayload.Owner
@@ -246,24 +254,26 @@ func initGitClient(pt *task.Task) (*github.Client, error) {
 		owner = pt.WorkflowArgs.HookPayload.Owner
 	}
 
-	installID, err := appCli.FindInstallationID(owner)
-	if err != nil {
-		return nil, err
-	}
-
-	var httpsAddr string
+	var proxy string
 	if pt.ConfigPayload.Proxy.EnableRepoProxy && pt.ConfigPayload.Proxy.Type == "http" {
-		httpsAddr = pt.ConfigPayload.Proxy.GetProxyURL()
+		proxy = pt.ConfigPayload.Proxy.GetProxyURL()
 	}
 
-	gitCfg := &github.Config{
-		AppKey:         pt.ConfigPayload.Github.AppKey,
-		AppID:          pt.ConfigPayload.Github.AppID,
-		InstallationID: installID,
-		ProxyAddr:      httpsAddr,
+	return github.GetGithubAppClientByOwner(appID, appKey, owner, proxy)
+}
+
+func getGitHubClient(pt *task.Task) *github.Client {
+	token := pt.ConfigPayload.Github.AccessToken
+	if token == "" {
+		return nil
 	}
 
-	return github.NewDynamicClient(gitCfg)
+	var proxy string
+	if pt.ConfigPayload.Proxy.EnableRepoProxy && pt.ConfigPayload.Proxy.Type == "http" {
+		proxy = pt.ConfigPayload.Proxy.GetProxyURL()
+	}
+
+	return github.NewClient(token, proxy)
 }
 
 func updateGitCheck(pt *task.Task) error {
@@ -283,46 +293,53 @@ func updateGitCheck(pt *task.Task) error {
 		hook = pt.WorkflowArgs.HookPayload
 	}
 
-	if hook == nil || !hook.IsPr || hook.CheckRunID == 0 {
+	if hook == nil || !hook.IsPr {
 		return nil
 	}
 
-	gitCli, err := initGitClient(pt)
-	if err != nil {
-		return err
+	gh, _ := getGitHubAppClient(pt)
+	if gh != nil {
+		log.Info("GitHub App found, start to update check-run")
+		if hook.CheckRunID == 0 {
+			log.Warn("No check-run ID found, skip")
+			return nil
+		}
+
+		opt := &github.GitCheck{
+			Owner:  hook.Owner,
+			Repo:   hook.Repo,
+			Branch: hook.Ref,
+			Ref:    hook.Ref,
+			IsPr:   hook.IsPr,
+
+			AslanURL:    pt.ConfigPayload.Aslan.URL,
+			PipeName:    pt.PipelineName,
+			PipeType:    pt.Type,
+			ProductName: pt.ProductName,
+			TaskID:      pt.TaskID,
+		}
+
+		return gh.UpdateGitCheck(hook.CheckRunID, opt)
 	}
 
-	opt := &github.GitCheck{
-		Owner:  hook.Owner,
-		Repo:   hook.Repo,
-		Branch: hook.Ref,
-		Ref:    hook.Ref,
-		IsPr:   hook.IsPr,
+	log.Info("Start to update GitHub status to running")
+	gh = getGitHubClient(pt)
+	if gh == nil {
+		return nil
+	}
 
+	return gh.UpdateCheckStatus(&github.StatusOptions{
+		Owner:       hook.Owner,
+		Repo:        hook.Repo,
+		Ref:         hook.Ref,
+		State:       github.StatePending,
+		Description: fmt.Sprintf("Workflow [%s] is running.", pt.PipelineName),
 		AslanURL:    pt.ConfigPayload.Aslan.URL,
 		PipeName:    pt.PipelineName,
-		PipeType:    pt.Type,
 		ProductName: pt.ProductName,
+		PipeType:    pt.Type,
 		TaskID:      pt.TaskID,
-	}
-
-	return gitCli.Checks.UpdateGitCheck(hook.CheckRunID, opt)
-}
-
-// GitCheck ...
-type GitCheck struct {
-	Owner  string
-	Repo   string
-	Branch string // The name of the branch to perform a check against. (Required.)
-	Ref    string // The SHA of the commit. (Required.)
-	IsPr   bool
-
-	AslanURL    string
-	PipeName    string
-	ProductName string
-	PipeType    config.PipelineType
-	TaskID      int64
-	TestReports []*types.TestSuite
+	})
 }
 
 func completeGitCheck(pt *task.Task) error {
@@ -342,41 +359,66 @@ func completeGitCheck(pt *task.Task) error {
 		hook = pt.WorkflowArgs.HookPayload
 	}
 
-	if hook == nil || !hook.IsPr || hook.CheckRunID == 0 {
+	if hook == nil || !hook.IsPr {
 		return nil
 	}
 
-	gitCli, err := initGitClient(pt)
-	if err != nil {
-		return err
-	}
-
-	testReports := make([]*types.TestSuite, 0)
-	// 从s3下载测试报告
-	if pt.Status == config.StatusPassed {
-		logger := log.SugaredLogger()
-		testReports, err = DownloadTestReports(pt, logger)
-		if err != nil {
-			logger.Warnf("download testReport from s3 failed,err:%v", err)
+	gh, _ := getGitHubAppClient(pt)
+	if gh != nil {
+		log.Infof("GitHub App found, start to complete check-run")
+		if hook.CheckRunID == 0 {
+			log.Warn("No check-run ID found, skip")
+			return nil
 		}
+
+		testReports := make([]*types.TestSuite, 0)
+		var err error
+		// 从s3下载测试报告
+		if pt.Status == config.StatusPassed {
+			logger := log.SugaredLogger()
+			testReports, err = DownloadTestReports(pt, logger)
+			if err != nil {
+				logger.Warnf("download testReport from s3 failed,err:%v", err)
+			}
+		}
+
+		opt := &github.GitCheck{
+			Owner:  hook.Owner,
+			Repo:   hook.Repo,
+			Branch: hook.Ref,
+			Ref:    hook.Ref,
+			IsPr:   hook.IsPr,
+
+			AslanURL:    pt.ConfigPayload.Aslan.URL,
+			PipeName:    pt.PipelineName,
+			PipeType:    pt.Type,
+			ProductName: pt.ProductName,
+			TaskID:      pt.TaskID,
+			TestReports: testReports,
+		}
+
+		return gh.CompleteGitCheck(hook.CheckRunID, getCheckStatus(pt.Status), opt)
 	}
 
-	opt := &github.GitCheck{
-		Owner:  hook.Owner,
-		Repo:   hook.Repo,
-		Branch: hook.Ref,
-		Ref:    hook.Ref,
-		IsPr:   hook.IsPr,
+	ciStatus := getCheckStatus(pt.Status)
+	log.Infof("Start to update GitHub status to %s", ciStatus)
+	gh = getGitHubClient(pt)
+	if gh == nil {
+		return nil
+	}
 
+	return gh.UpdateCheckStatus(&github.StatusOptions{
+		Owner:       hook.Owner,
+		Repo:        hook.Repo,
+		Ref:         hook.Ref,
+		State:       getGitHubStatusFromCIStatus(ciStatus),
+		Description: fmt.Sprintf("Workflow [%s] is %s.", pt.PipelineName, ciStatus),
 		AslanURL:    pt.ConfigPayload.Aslan.URL,
 		PipeName:    pt.PipelineName,
-		PipeType:    pt.Type,
 		ProductName: pt.ProductName,
+		PipeType:    pt.Type,
 		TaskID:      pt.TaskID,
-		TestReports: testReports,
-	}
-
-	return gitCli.Checks.CompleteGitCheck(hook.CheckRunID, getCheckStatus(pt.Status), opt)
+	})
 }
 
 func DownloadTestReports(taskInfo *task.Task, logger *zap.SugaredLogger) ([]*types.TestSuite, error) {

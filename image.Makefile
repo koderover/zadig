@@ -12,7 +12,7 @@ IMAGE_TAG:=$(shell ./docker/image-tag)
 VCS_REF:=$(shell git rev-parse HEAD)
 TAG ?= ${DATE}-${IMAGE_TAG}
 
-BASE_TARGETS = aslan warpdrive cron podexec jenkins-plugin
+BASE_TARGETS = aslan warpdrive cron podexec jenkins-plugin predator-plugin
 
 
 TARGETS =
@@ -25,12 +25,17 @@ endif
 ALL_IMAGES=$(TARGETS:=.image)
 ALL_PUSHES=$(TARGETS:=.push)
 
+REAPER_TARGETS = trusty xenial bionic focal
+ALL_REAPER_IMAGES=$(REAPER_TARGETS:=.reaper-image)
+ALL_REAPER_PUSHES=$(REAPER_TARGETS:=.reaper-push)
 
 DOCKERFILES=$(addsuffix .Dockerfile,$(addprefix docker/dist/,$(TARGETS)))
 DOCKERFILES+=$(addsuffix .Dockerfile,$(addprefix docker/dist/reaper-plugin.,$(REAPER_TARGETS)))
 
 all: $(ALL_IMAGES) $(ALL_REAPER_IMAGES)
 allpush: $(ALL_PUSHES) $(ALL_REAPER_PUSHES)
+reaper: $(ALL_REAPER_IMAGES)
+reaperpush: $(ALL_REAPER_PUSHES)
 dockerfiles: $(DOCKERFILES)
 
 # make
@@ -52,6 +57,17 @@ docker/dist/%.Dockerfile: docker/%.Dockerfile.template docker/ubuntu-base.Docker
 %.push: %.image
 	docker push ${IMAGE}
 
+%.reaper-image: IMAGE ?= ${IMAGE_PREFIX}reaper-plugin:${TAG}
+%.reaper-image: docker/dist/reaper-plugin.%.Dockerfile
+	@echo builting $*
+	docker build -t ${IMAGE}-$* -f docker/dist/reaper-plugin.$*.Dockerfile ./
+
+%.reaper-push: IMAGE ?= ${IMAGE_PREFIX}reaper-plugin:${TAG}
+%.reaper-push: %.reaper-image
+	@echo builting $*
+	docker push ${IMAGE}-$*
+
+$(REAPER_TARGETS):%:%.reaper-image
 
 $(TARGETS):%:%.image
 

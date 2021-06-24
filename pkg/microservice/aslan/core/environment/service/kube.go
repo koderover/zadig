@@ -29,7 +29,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/internal/kube/resource"
 	"github.com/koderover/zadig/pkg/internal/kube/wrapper"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"

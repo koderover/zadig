@@ -37,9 +37,9 @@ import (
 
 	"github.com/koderover/zadig/pkg/internal/poetry"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models/task"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
@@ -302,7 +302,7 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 										}
 										deliveryArtifact.DockerFile = string(content)
 									} else {
-										gitClient := git.NewGithubAppClient(build.OauthToken, setting.GitHubAPIServer, config.ProxyHTTPSAddr())
+										gitClient := git.NewClient(build.OauthToken, config.ProxyHTTPSAddr())
 										fileContent, _, _, _ := gitClient.Repositories.GetContents(context.Background(), build.RepoOwner, build.RepoName, dockerfilePath, nil)
 										if fileContent != nil {
 											dockerfileContent := *fileContent.Content

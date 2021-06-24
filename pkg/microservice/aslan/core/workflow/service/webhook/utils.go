@@ -18,29 +18,25 @@ package webhook
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"path"
 	"strings"
 
 	"github.com/google/go-github/v35/github"
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
-	"golang.org/x/oauth2"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/koderover/zadig/pkg/internal/poetry"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehost"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	githubtool "github.com/koderover/zadig/pkg/tool/github"
 	"github.com/koderover/zadig/pkg/tool/gitlab"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -261,90 +257,50 @@ func joinYamls(files []string) string {
 
 func syncContentFromGithub(args *commonmodels.Service, log *zap.SugaredLogger) error {
 	// 根据pipeline中的filepath获取文件内容
-	address, owner, repo, branch, path, pathType, err := GetOwnerRepoBranchPath(args.SrcPath)
+	address, owner, repo, branch, path, _, err := GetOwnerRepoBranchPath(args.SrcPath)
 	if err != nil {
 		log.Errorf("GetOwnerRepoBranchPath failed, srcPath:%s, err:%v", args.SrcPath, err)
 		return errors.New("invalid url " + args.SrcPath)
 	}
 
-	codehost, err := codehost.GetCodeHostInfo(
+	ch, err := codehost.GetCodeHostInfo(
 		&codehost.Option{CodeHostType: poetry.GitHubProvider, Address: address, Namespace: owner})
 	if err != nil {
 		log.Errorf("GetCodeHostInfo failed, srcPath:%s, err:%v", args.SrcPath, err)
 		return err
 	}
 
-	if pathType == "blob" {
-		ctx := context.Background()
-		tokenSource := oauth2.StaticTokenSource(
-			&oauth2.Token{AccessToken: codehost.AccessToken},
-		)
-		tokenclient := oauth2.NewClient(ctx, tokenSource)
-		githubClient := github.NewClient(tokenclient)
-
-		fileContent, _, _, err := githubClient.Repositories.GetContents(ctx, owner, repo, args.LoadPath, &github.RepositoryContentGetOptions{Ref: branch})
-		if err != nil {
-			log.Errorf("cannot get file content for loadPath: %s", args.SrcPath)
-			return err
-		}
+	gc := githubtool.NewClient(&githubtool.Config{AccessToken: ch.AccessToken, Proxy: config.ProxyHTTPSAddr()})
+	fileContent, directoryContent, err := gc.GetContents(context.TODO(), owner, repo, path, &github.RepositoryContentGetOptions{Ref: branch})
+	if fileContent != nil {
 		svcContent, _ := fileContent.GetContent()
-		splittedYaml := SplitYaml(svcContent)
-		args.KubeYamls = splittedYaml
+		splitYaml := SplitYaml(svcContent)
+		args.KubeYamls = splitYaml
 		args.Yaml = svcContent
-		return nil
-	}
+	} else {
+		var files []string
+		for _, f := range directoryContent {
+			// 排除目录
+			if *f.Type != "file" {
+				continue
+			}
+			fileName := strings.ToLower(*f.Path)
+			if !strings.HasSuffix(fileName, ".yaml") && !strings.HasSuffix(fileName, ".yml") {
+				continue
+			}
 
-	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s?ref=%s", owner, repo, path, branch)
-	request, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		log.Errorf("NewRequest failed, url:%s, err:%v", url, err)
-		return err
-	}
-	request.Header.Set("Authorization", fmt.Sprintf("token %s", codehost.AccessToken))
-	var ret *http.Response
-	client := &http.Client{}
-	ret, err = client.Do(request)
-	if err != nil {
-		log.Errorf("client.Do failed, url:%s, err:%v", url, err)
-		return err
-	}
-
-	defer func() { _ = ret.Body.Close() }()
-	var body []byte
-	body, err = ioutil.ReadAll(ret.Body)
-	if err != nil {
-		log.Errorf("ioutil.ReadAll failed, url:%s, err:%v", url, err)
-		return err
-	}
-	repositoryContent := make([]github.RepositoryContent, 0)
-	fileUnmarshalError := json.Unmarshal(body, &repositoryContent)
-	if fileUnmarshalError != nil {
-		log.Errorf("Unmarshal failed, url:%s, err:%v", url, fileUnmarshalError)
-		return err
-	}
-
-	files := make([]string, 0)
-	for _, fileContent := range repositoryContent {
-		// 排除目录
-		if *fileContent.Type != "file" {
-			continue
-		}
-		fileName := strings.ToLower(*fileContent.Path)
-		if !strings.HasSuffix(fileName, ".yaml") && !strings.HasSuffix(fileName, ".yml") {
-			continue
+			file, err := syncSingleFileFromGithub(owner, repo, branch, *f.Path, ch.AccessToken)
+			if err != nil {
+				log.Errorf("syncSingleFileFromGithub failed, path: %s, err: %v", *f.Path, err)
+				continue
+			}
+			files = append(files, file)
 		}
 
-		url := *fileContent.URL
-		file, err := syncSingleFileFromGithub(url, codehost.AccessToken, log)
-		if err != nil {
-			log.Errorf("syncSingleFileFromGithub failed, url:%s, err:%v", url, err)
-			continue
-		}
-		files = append(files, file)
+		args.KubeYamls = files
+		args.Yaml = joinYamls(files)
 	}
 
-	args.KubeYamls = files
-	args.Yaml = joinYamls(files)
 	return nil
 }
 
@@ -361,43 +317,14 @@ type githubFileContent struct {
 	Encoding string `json:"encoding"`
 }
 
-func syncSingleFileFromGithub(url, token string, log *zap.SugaredLogger) (string, error) {
-	request, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		log.Errorf("NewRequest failed, url:%s,err:%v", url, err)
-		return "", err
+func syncSingleFileFromGithub(owner, repo, branch, path, token string) (string, error) {
+	gc := githubtool.NewClient(&githubtool.Config{AccessToken: token, Proxy: config.ProxyHTTPSAddr()})
+	fileContent, _, err := gc.GetContents(context.TODO(), owner, repo, path, &github.RepositoryContentGetOptions{Ref: branch})
+	if fileContent != nil {
+		return fileContent.GetContent()
 	}
 
-	request.Header.Set("Authorization", fmt.Sprintf("token %s", token))
-	var ret *http.Response
-	client := &http.Client{}
-	ret, err = client.Do(request)
-	if err != nil {
-		log.Errorf("client.Do failed, url:%s, err:%v", url, err)
-		return "", err
-	}
-
-	defer func() { _ = ret.Body.Close() }()
-	var body []byte
-	body, err = ioutil.ReadAll(ret.Body)
-	if err != nil {
-		return "", err
-	}
-
-	fileContent := new(githubFileContent)
-	fileUnmarshalError := json.Unmarshal(body, &fileContent)
-	if fileUnmarshalError != nil {
-		log.Errorf("Unmarshal failed, url:%s, err:%v", url, fileUnmarshalError)
-		return "", err
-	}
-
-	keyBytes, err := base64.StdEncoding.DecodeString(fileContent.Content)
-	if err != nil {
-		fmt.Printf("decode fileContent error: %v", err)
-		return "", err
-	}
-
-	return string(keyBytes), nil
+	return "", err
 }
 
 // 从 kube yaml 中获取所有当前 containers 镜像和名称

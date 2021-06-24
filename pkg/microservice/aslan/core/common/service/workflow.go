@@ -23,14 +23,14 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gerrit"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 func DeleteWorkflows(productName, requestID string, log *zap.SugaredLogger) error {
-	workflows, err := repo.NewWorkflowColl().List(&repo.ListWorkflowOption{ProductName: productName})
+	workflows, err := mongodb.NewWorkflowColl().List(&mongodb.ListWorkflowOption{ProductName: productName})
 	if err != nil {
 		log.Errorf("Workflow.List error: %v", err)
 		return fmt.Errorf("DeleteWorkflows productName %s Workflow.List error: %v", productName, err)
@@ -49,7 +49,7 @@ func DeleteWorkflows(productName, requestID string, log *zap.SugaredLogger) erro
 }
 
 func DeleteWorkflow(workflowName, requestID string, isDeletingProductTmpl bool, log *zap.SugaredLogger) error {
-	taskQueue, err := repo.NewQueueColl().List(&repo.ListQueueOption{})
+	taskQueue, err := mongodb.NewQueueColl().List(&mongodb.ListQueueOption{})
 	if err != nil {
 		log.Errorf("List queued task error: %v", err)
 		return e.ErrDeletePipeline.AddErr(err)
@@ -64,7 +64,7 @@ func DeleteWorkflow(workflowName, requestID string, isDeletingProductTmpl bool, 
 	}
 
 	// 在删除前，先将workflow查出来，用于删除gerrit webhook
-	workflow, err := repo.NewWorkflowColl().Find(workflowName)
+	workflow, err := mongodb.NewWorkflowColl().Find(workflowName)
 	if err != nil {
 		log.Errorf("Workflow.Find error: %v", err)
 		return e.ErrDeleteWorkflow.AddDesc(err.Error())
@@ -89,45 +89,45 @@ func DeleteWorkflow(workflowName, requestID string, isDeletingProductTmpl bool, 
 		return err
 	}
 
-	if err := repo.NewWorkflowColl().Delete(workflowName); err != nil {
+	if err := mongodb.NewWorkflowColl().Delete(workflowName); err != nil {
 		log.Errorf("Workflow.Find error: %v", err)
 		return e.ErrDeleteWorkflow.AddDesc(err.Error())
 	}
 
-	if err := repo.NewTaskColl().DeleteByPipelineNameAndType(workflowName, config.WorkflowType); err != nil {
+	if err := mongodb.NewTaskColl().DeleteByPipelineNameAndType(workflowName, config.WorkflowType); err != nil {
 		log.Errorf("PipelineTaskV2.DeleteByPipelineName error: %v", err)
 	}
 
-	if deliveryVersions, err := repo.NewDeliveryVersionColl().Find(&repo.DeliveryVersionArgs{OrgID: 1, WorkflowName: workflowName}); err == nil {
+	if deliveryVersions, err := mongodb.NewDeliveryVersionColl().Find(&mongodb.DeliveryVersionArgs{OrgID: 1, WorkflowName: workflowName}); err == nil {
 		for _, deliveryVersion := range deliveryVersions {
-			if err := repo.NewDeliveryVersionColl().Delete(deliveryVersion.ID.Hex()); err != nil {
+			if err := mongodb.NewDeliveryVersionColl().Delete(deliveryVersion.ID.Hex()); err != nil {
 				log.Errorf("DeleteWorkflow.DeliveryVersion.Delete error: %v", err)
 			}
 
-			if err = repo.NewDeliveryBuildColl().Delete(deliveryVersion.ID.Hex()); err != nil {
+			if err = mongodb.NewDeliveryBuildColl().Delete(deliveryVersion.ID.Hex()); err != nil {
 				log.Errorf("DeleteWorkflow.DeliveryBuild.Delete error: %v", err)
 			}
 
-			if err = repo.NewDeliveryDeployColl().Delete(deliveryVersion.ID.Hex()); err != nil {
+			if err = mongodb.NewDeliveryDeployColl().Delete(deliveryVersion.ID.Hex()); err != nil {
 				log.Errorf("DeleteWorkflow.DeliveryDeploy.Delete error: %v", err)
 			}
 
-			if err = repo.NewDeliveryTestColl().Delete(deliveryVersion.ID.Hex()); err != nil {
+			if err = mongodb.NewDeliveryTestColl().Delete(deliveryVersion.ID.Hex()); err != nil {
 				log.Errorf("DeleteWorkflow.DeliveryTest.Delete error: %v", err)
 			}
 
-			if err = repo.NewDeliveryDistributeColl().Delete(deliveryVersion.ID.Hex()); err != nil {
+			if err = mongodb.NewDeliveryDistributeColl().Delete(deliveryVersion.ID.Hex()); err != nil {
 				log.Errorf("DeleteWorkflow.DeliveryDistribute.Delete error: %v", err)
 			}
 		}
 	}
 
-	err = repo.NewWorkflowStatColl().Delete(workflowName, string(config.WorkflowType))
+	err = mongodb.NewWorkflowStatColl().Delete(workflowName, string(config.WorkflowType))
 	if err != nil {
 		log.Errorf("WorkflowStat.Delete failed, error: %v", err)
 	}
 
-	if err := repo.NewCounterColl().Delete("WorkflowTask:" + workflowName); err != nil {
+	if err := mongodb.NewCounterColl().Delete("WorkflowTask:" + workflowName); err != nil {
 		log.Errorf("Counter.Delete error: %v", err)
 	}
 	return nil

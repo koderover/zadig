@@ -24,9 +24,9 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models"
-	taskmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models/task"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	taskmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	s3service "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/setting"
@@ -34,30 +34,30 @@ import (
 )
 
 func DeleteDeliveryInfos(productName string, log *zap.SugaredLogger) error {
-	deliveryVersions, err := repo.NewDeliveryVersionColl().ListDeliveryVersions(productName, 1)
+	deliveryVersions, err := mongodb.NewDeliveryVersionColl().ListDeliveryVersions(productName, 1)
 	if err != nil {
 		log.Errorf("delete DeleteDeliveryInfo error: %v", err)
 		return e.ErrDeleteDeliveryVersion
 	}
 	errList := new(multierror.Error)
 	for _, deliveryVersion := range deliveryVersions {
-		err = repo.NewDeliveryVersionColl().Delete(deliveryVersion.ID.Hex())
+		err = mongodb.NewDeliveryVersionColl().Delete(deliveryVersion.ID.Hex())
 		if err != nil {
 			errList = multierror.Append(errList, fmt.Errorf("DeliveryVersion delete %s error: %v", deliveryVersion.ID.String(), err))
 		}
-		err = repo.NewDeliveryBuildColl().Delete(deliveryVersion.ID.Hex())
+		err = mongodb.NewDeliveryBuildColl().Delete(deliveryVersion.ID.Hex())
 		if err != nil {
 			errList = multierror.Append(errList, fmt.Errorf("DeliveryBuild delete %s error: %v", deliveryVersion.ID.String(), err))
 		}
-		err = repo.NewDeliveryDeployColl().Delete(deliveryVersion.ID.Hex())
+		err = mongodb.NewDeliveryDeployColl().Delete(deliveryVersion.ID.Hex())
 		if err != nil {
 			errList = multierror.Append(errList, fmt.Errorf("DeliveryDeploy delete %s error: %v", deliveryVersion.ID.String(), err))
 		}
-		err = repo.NewDeliveryTestColl().Delete(deliveryVersion.ID.Hex())
+		err = mongodb.NewDeliveryTestColl().Delete(deliveryVersion.ID.Hex())
 		if err != nil {
 			errList = multierror.Append(errList, fmt.Errorf("DeliveryTest delete %s error: %v", deliveryVersion.ID.String(), err))
 		}
-		err = repo.NewDeliveryDistributeColl().Delete(deliveryVersion.ID.Hex())
+		err = mongodb.NewDeliveryDistributeColl().Delete(deliveryVersion.ID.Hex())
 		if err != nil {
 			errList = multierror.Append(errList, fmt.Errorf("DeliveryDistribute delete %s error: %v", deliveryVersion.ID.String(), err))
 		}
@@ -70,7 +70,7 @@ func DeleteDeliveryInfos(productName string, log *zap.SugaredLogger) error {
 }
 
 func AddDeliveryVersion(orgID, taskID int, productName, workflowName string, pipelineTask *taskmodels.Task, logger *zap.SugaredLogger) error {
-	deliveryVersionArgs := &repo.DeliveryVersionArgs{
+	deliveryVersionArgs := &mongodb.DeliveryVersionArgs{
 		OrgID:        orgID,
 		ProductName:  productName,
 		WorkflowName: workflowName,
@@ -108,8 +108,8 @@ func AddDeliveryVersion(orgID, taskID int, productName, workflowName string, pip
 	return err
 }
 
-func GetDeliveryVersion(args *repo.DeliveryVersionArgs, log *zap.SugaredLogger) (*commonmodels.DeliveryVersion, error) {
-	resp, err := repo.NewDeliveryVersionColl().Get(args)
+func GetDeliveryVersion(args *mongodb.DeliveryVersionArgs, log *zap.SugaredLogger) (*commonmodels.DeliveryVersion, error) {
+	resp, err := mongodb.NewDeliveryVersionColl().Get(args)
 	if err != nil {
 		log.Errorf("get deliveryVersion error: %v", err)
 		return nil, e.ErrGetDeliveryVersion
@@ -118,7 +118,7 @@ func GetDeliveryVersion(args *repo.DeliveryVersionArgs, log *zap.SugaredLogger) 
 }
 
 func InsertDeliveryVersion(args *commonmodels.DeliveryVersion, log *zap.SugaredLogger) error {
-	err := repo.NewDeliveryVersionColl().Insert(args)
+	err := mongodb.NewDeliveryVersionColl().Insert(args)
 	if err != nil {
 		log.Errorf("insert deliveryVersion error: %v", err)
 		return e.ErrCreateDeliveryVersion
@@ -380,7 +380,7 @@ func getProductEnvInfo(pipelineTask *taskmodels.Task, log *zap.SugaredLogger) (*
 }
 
 func insertDeliveryBuild(args *commonmodels.DeliveryBuild, log *zap.SugaredLogger) error {
-	err := repo.NewDeliveryBuildColl().Insert(args)
+	err := mongodb.NewDeliveryBuildColl().Insert(args)
 	if err != nil {
 		log.Errorf("insert deliveryBuild error: %v", err)
 		return e.ErrCreateDeliveryBuild
@@ -389,7 +389,7 @@ func insertDeliveryBuild(args *commonmodels.DeliveryBuild, log *zap.SugaredLogge
 }
 
 func insertDeliveryDeploy(args *commonmodels.DeliveryDeploy, log *zap.SugaredLogger) error {
-	err := repo.NewDeliveryDeployColl().Insert(args)
+	err := mongodb.NewDeliveryDeployColl().Insert(args)
 	if err != nil {
 		log.Errorf("insert deliveryDeploy error: %v", err)
 		return e.ErrCreateDeliveryDeploy
@@ -398,7 +398,7 @@ func insertDeliveryDeploy(args *commonmodels.DeliveryDeploy, log *zap.SugaredLog
 }
 
 func InsertDeliveryTest(args *commonmodels.DeliveryTest, log *zap.SugaredLogger) error {
-	err := repo.NewDeliveryTestColl().Insert(args)
+	err := mongodb.NewDeliveryTestColl().Insert(args)
 	if err != nil {
 		log.Errorf("insert deliveryTest error: %v", err)
 		return e.ErrCreateDeliveryTest
@@ -407,7 +407,7 @@ func InsertDeliveryTest(args *commonmodels.DeliveryTest, log *zap.SugaredLogger)
 }
 
 func insertDeliveryDistribute(args *commonmodels.DeliveryDistribute, log *zap.SugaredLogger) error {
-	err := repo.NewDeliveryDistributeColl().Insert(args)
+	err := mongodb.NewDeliveryDistributeColl().Insert(args)
 	if err != nil {
 		log.Errorf("insert deliveryDistribute error: %v", err)
 		return e.ErrCreateDeliveryDistribute
@@ -416,7 +416,7 @@ func insertDeliveryDistribute(args *commonmodels.DeliveryDistribute, log *zap.Su
 }
 
 func updateDeliveryVersion(args *commonmodels.DeliveryVersion, log *zap.SugaredLogger) error {
-	err := repo.NewDeliveryVersionColl().Update(args)
+	err := mongodb.NewDeliveryVersionColl().Update(args)
 	if err != nil {
 		log.Errorf("update deliveryVersion error: %v", err)
 		return e.ErrUpdateDeliveryVersion
@@ -442,19 +442,19 @@ func updateServiceImage(serviceName, image, containerName string, product *commo
 
 func getServiceRenderYAML(productInfo *commonmodels.Product, containers []*commonmodels.Container, serviceName, deployType string, log *zap.SugaredLogger) (string, error) {
 	if deployType == setting.K8SDeployType {
-		opt := &repo.RenderSetFindOption{Name: productInfo.Render.Name, Revision: productInfo.Render.Revision}
-		newRender, err := repo.NewRenderSetColl().Find(opt)
+		opt := &mongodb.RenderSetFindOption{Name: productInfo.Render.Name, Revision: productInfo.Render.Revision}
+		newRender, err := mongodb.NewRenderSetColl().Find(opt)
 		if err != nil {
 			log.Errorf("[%s][P:%s]renderset Find error: %v", productInfo.EnvName, productInfo.ProductName, err)
 			return "", fmt.Errorf("get pure yaml %s error: %v", serviceName, err)
 		}
 		// 获取服务模板
-		serviceFindOption := &repo.ServiceFindOption{
+		serviceFindOption := &mongodb.ServiceFindOption{
 			ServiceName: serviceName,
 			Type:        setting.K8SDeployType,
 			Revision:    getServiceRevision(serviceName, productInfo.Services),
 		}
-		svcTmpl, err := repo.NewServiceColl().Find(serviceFindOption)
+		svcTmpl, err := mongodb.NewServiceColl().Find(serviceFindOption)
 		if err != nil {
 			return "", fmt.Errorf("service template %s error: %v", serviceName, err)
 		}

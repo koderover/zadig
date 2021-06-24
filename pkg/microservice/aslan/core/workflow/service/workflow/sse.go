@@ -17,7 +17,7 @@ limitations under the License.
 package workflow
 
 import (
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models/task"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 )
 
 func RunningPipelineTasks() []*task.Task {

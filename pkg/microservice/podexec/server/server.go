@@ -46,7 +46,7 @@ func Serve(ctx context.Context) error {
 	router.Use(service.AuthMiddleware)
 	router.Use(service.PermissionMiddleware)
 
-	srv := &http.Server{
+	server := &http.Server{
 		Addr:         "0.0.0.0:27000",
 		WriteTimeout: time.Second * 15,
 		ReadTimeout:  time.Second * 15,
@@ -54,20 +54,26 @@ func Serve(ctx context.Context) error {
 		Handler:      router,
 	}
 
+	stopChan := make(chan struct{})
 	go func() {
+		defer close(stopChan)
+
 		<-ctx.Done()
 
 		ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 		defer cancel()
-		if err := srv.Shutdown(ctx); err != nil {
+
+		if err := server.Shutdown(ctx); err != nil {
 			log.Errorf("Failed to stop server, error: %s", err)
 		}
 	}()
 
-	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Errorf("Failed to start http server, error: %s", err)
 		return err
 	}
+
+	<-stopChan
 
 	return nil
 }

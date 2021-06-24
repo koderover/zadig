@@ -42,7 +42,10 @@ func Serve(ctx context.Context) error {
 	engine := rest.NewEngine()
 	server := &http.Server{Addr: ":25000", Handler: engine}
 
+	stopChan := make(chan struct{})
 	go func() {
+		defer close(stopChan)
+
 		<-ctx.Done()
 
 		ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
@@ -57,6 +60,8 @@ func Serve(ctx context.Context) error {
 		log.Errorf("Failed to start http server, error: %s", err)
 		return err
 	}
+
+	<-stopChan
 
 	return nil
 }

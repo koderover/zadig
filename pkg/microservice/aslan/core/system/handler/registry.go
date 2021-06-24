@@ -24,8 +24,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/pkg/microservice/aslan/internal/handler"
@@ -141,6 +141,7 @@ func ListImages(c *gin.Context) {
 	registryInfo, err := service.GetRegistryNamespace(regOps, ctx.Logger)
 	if err != nil {
 		ctx.Logger.Errorf("can't find candidate registry err :%v", err)
+		ctx.Resp = make([]*service.RepoImgResp, 0)
 		return
 	}
 

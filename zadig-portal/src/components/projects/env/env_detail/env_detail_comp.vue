@@ -21,6 +21,10 @@
             <i v-if="env.source==='spock'"
                class="el-icon-cloudy"></i>
             {{`${env.envName}`}}
+            <el-tag v-if="env.source==='external'"
+                      effect="light"
+                      size="mini"
+                      type="primary">托管</el-tag>
           </span>
         </el-tab-pane>
         <el-tab-pane label="新建"
@@ -79,7 +83,8 @@
                           effect="dark"
                           placement="top">
                 <template>
-                  <el-button type="text"
+                  <el-button v-if="(envSource===''||envSource==='spock') "
+                             type="text"
                              @click="openUpdateK8sVar()">更新环境变量</el-button>
                 </template>
               </el-tooltip>
@@ -88,14 +93,23 @@
                           effect="dark"
                           placement="top">
                 <template v-if="productInfo.status!=='Creating'">
-                  <el-button type="text"
+                  <el-button v-if=" (envSource===''||envSource==='spock')"
+                             type="text"
                              @click="updateK8sEnv(productInfo)">更新环境</el-button>
                 </template>
               </el-tooltip>
               <template>
-                <el-button type="text"
+                <el-button v-if="(productInfo.status!=='Disconnected'&&productInfo.cluster_id!=='')&&(envSource===''||envSource==='spock')"
+                           type="text"
                            @click="deleteProduct(productInfo.product_name,productInfo.env_name)">
                   删除环境</el-button>
+                <el-button v-else-if="envSource==='external'"
+                           type="text"
+                           @click="deleteHostingEnv(productInfo.product_name,productInfo.env_name)">
+                      取消托管</el-button>
+                <el-button v-if="productInfo.status!=='Creating' && (envSource===''||envSource==='spock')"
+                           type="text"
+                           @click="openRecycleEnvDialog()">环境回收</el-button>
               </template>
             </div>
           </el-col>
@@ -114,6 +128,38 @@
       </div>
     </el-card>
     <!--end of basic info-->
+      <el-card v-if="envSource==='external' && ingressList.length > 0"
+               class="box-card-stack"
+               :body-style="{ padding: '0px', margin: '15px 0 0 0' }">
+        <div slot="header"
+             class="clearfix">
+          <span>环境入口</span>
+          <div v-loading="serviceLoading"
+               element-loading-text="正在获取环境信息"
+               element-loading-spinner="el-icon-loading"
+               class="ingress-container">
+            <el-table :data="ingressList"
+                      style="width: 70%;">
+              <el-table-column prop="name"
+                               label="Ingress 名称">
+              </el-table-column>
+              <el-table-column label="地址">
+                <template slot-scope="scope">
+                  <div v-if="scope.row.host_info && scope.row.host_info.length > 0">
+                    <div v-for="host of scope.row.host_info"
+                         :key="host.host">
+                      <a :href="`http://${host.host}`"
+                         class="host-url"
+                         target="_blank">{{ host.host }}</a>
+                    </div>
+                  </div>
+                  <div v-else>无</div>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+        </div>
+      </el-card>
     <el-card class="box-card-stack"
              :body-style="{ padding: '0px', margin: '15px 0 0 0' }">
       <div slot="header"
@@ -128,7 +174,8 @@
            element-loading-text="正在获取服务信息"
            element-loading-spinner="el-icon-loading"
            class="service-container">
-        <el-input size="mini"
+        <el-input v-if="envSource !== 'external'"
+                  size="mini"
                   class="search-input"
                   clearable
                   v-model="serviceSearch"
@@ -261,7 +308,8 @@
                            label="操作"
                            width="150px">
             <template slot-scope="scope">
-              <span class="operation">
+              <span v-if="envSource !=='external'"
+                    class="operation">
                 <el-tooltip effect="dark"
                             content="通过工作流升级服务"
                             placement="top">
@@ -277,7 +325,8 @@
                      class="el-icon-refresh"></i>
                 </el-tooltip>
               </span>
-              <span class="operation">
+              <span  v-if="(envSource===''||envSource ==='spock')"
+                     class="operation">
                 <el-tooltip effect="dark"
                             content="查看服务配置"
                             placement="top">
@@ -298,6 +347,7 @@
     <UpdateK8sVarDialog :fetchAllData="fetchAllData"
                         :productInfo="productInfo"
                         ref="updateK8sVarDialog" />
+    <RecycleDialog :getProductEnv="getProductEnv" :productInfo="productInfo" :initPageInfo="initPageInfo" :recycleDay="recycleDay" ref="recycleDialog" />
   </div>
 </template>
 
@@ -311,6 +361,7 @@ import {
 import _ from 'lodash'
 import runWorkflow from './run_workflow.vue'
 import UpdateK8sVarDialog from './components/update_k8s_var_dialog'
+import RecycleDialog from './components/recycleDialog'
 const jsdiff = require('diff')
 
 const validateKey = (rule, value, callback) => {
@@ -328,6 +379,7 @@ const validateKey = (rule, value, callback) => {
 export default {
   data () {
     return {
+      recycleDay: null,
       ctlCancel: null,
       selectVersion: '',
       activeDiffTab: 'template',
@@ -339,6 +391,7 @@ export default {
       currentServiceWorkflows: [],
       currentServiceMeta: null,
       containerServiceList: [],
+      ingressList: [],
       serviceStatus: {},
       combineTemplate: [],
       productInfo: {
@@ -393,6 +446,9 @@ export default {
     envText () {
       return this.productInfo.namespace
     },
+    envSource () {
+      return this.productInfo.source || ''
+    },
     projectName () {
       return this.$route.params.project_name
     },
@@ -430,12 +486,15 @@ export default {
       }
     },
     ...mapGetters([
-      'productList', 'signupStatus'
+      'productList'
     ])
   },
   methods: {
     openUpdateK8sVar () {
       this.$refs.updateK8sVarDialog.openDialog()
+    },
+    openRecycleEnvDialog () {
+      this.$refs.recycleDialog.openDialog()
     },
     searchServicesByKeyword () {
       this.initPageInfo()
@@ -521,11 +580,26 @@ export default {
         if (this.page === 1 && flag !== 'search') {
           await this.getProductEnvInfo(projectName, envName)
         }
+        // external 环境
+        if (this.envSource === 'external') {
+          const res = await productServicesAPI(projectName, envName, this.envSource)
+          serviceGroup = res.services
+          this.ingressList = res.ingresses
+          this.serviceLoading = false
+          if (serviceGroup && serviceGroup.length) {
+            const { containerServiceList, pmServiceList } = this.handleProductEnvServiceData(serviceGroup)
+            this.containerServiceList = _.orderBy(containerServiceList, 'service_name')
+            this.pmServiceList = _.orderBy(pmServiceList, 'service_name')
+            this.envTotal = this.containerServiceList.length + this.pmServiceList.length
+            this.scrollFinish = true
+          }
+          return
+        }
         this.scrollGetFlag = false
         if (this.page === 1) {
           this.addListener()
         }
-        const res = await productServicesAPI(projectName, envName, this.serviceSearch, this.perPage, this.page)
+        const res = await productServicesAPI(projectName, envName, this.envSource, this.serviceSearch, this.perPage, this.page)
         this.envTotal = res.headers['x-total'] ? parseInt(res.headers['x-total']) : 0
         serviceGroup = res.data
         this.page++
@@ -563,6 +637,7 @@ export default {
       if (envInfo) {
         this.productInfo = envInfo
         this.envLoading = false
+        this.recycleDay = envInfo.recycle_day ? envInfo.recycle_day : undefined
       }
     },
     handleProductEnvServiceData (serviceGroup) {
@@ -656,6 +731,46 @@ export default {
     },
     hideProductTaskDialog () {
       this.showStartProductBuild = false
+    },
+    deleteHostingEnv (project_name, env_name) {
+      const envType = this.isProd ? 'prod' : ''
+      this.$prompt('请输入环境名称以确认', `确定要取消托管 ${project_name} 项目的 ${env_name} 环境?`, {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        confirmButtonClass: 'el-button el-button--danger',
+        inputValidator: input => {
+          if (input === env_name) {
+            return true
+          } else if (input === '') {
+            return '请输入环境名称'
+          } else {
+            return '项目环境名称不相符'
+          }
+        }
+      })
+        .then(({ value }) => {
+          deleteProductEnvAPI(project_name, env_name, envType).then((res) => {
+            this.$notify({
+              title: `托管环境正在断开连接中，请稍后查看环境状态`,
+              message: '操作成功',
+              type: 'success',
+              offset: 50
+            })
+            const position = this.envNameList.map((e) => { return e.envName }).indexOf(env_name)
+            this.envNameList.splice(position, 1)
+            if (this.envNameList.length > 0) {
+              this.$router.push(`${this.envBasePath}?envName=${this.envNameList[this.envNameList.length - 1].envName}`)
+            } else {
+              this.$router.push(`/v1/projects/detail/${this.projectName}/envs/create`)
+            }
+          })
+        })
+        .catch(() => {
+          this.$message({
+            type: 'warning',
+            message: '取消操作'
+          })
+        })
     },
     deleteProduct (project_name, env_name) {
       const envType = ''
@@ -755,9 +870,6 @@ export default {
       })
     }
   },
-  created () {
-    this.fetchAllData()
-  },
   beforeDestroy () {
     this.removeListener()
   },
@@ -766,17 +878,21 @@ export default {
     rmSource()
   },
   watch: {
-    $route (to, from) {
-      if (this.projectName !== '') {
-        this.ctlCancel && this.ctlCancel.cancel('CANCEL_1')
-        this.ctlCancel = initSource()
-        this.fetchAllData()
-      }
+    $route: {
+      handler: function (to, from) {
+        if (this.projectName !== '') {
+          this.ctlCancel && this.ctlCancel.cancel('CANCEL_1')
+          this.ctlCancel = initSource()
+          this.fetchAllData()
+        }
+      },
+      immediate: true
     }
   },
   components: {
     runWorkflow,
-    UpdateK8sVarDialog
+    UpdateK8sVarDialog,
+    RecycleDialog
   },
   props: {
     envBasePath: {

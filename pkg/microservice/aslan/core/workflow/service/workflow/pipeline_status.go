@@ -25,36 +25,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
-
-func getLastPreviewBystatus(tasks []*commonrepo.TaskPreview, typeString config.PipelineType, pipelineName string, status config.Status) *commonmodels.TaskInfo {
-	resp := &commonmodels.TaskInfo{}
-	for _, task := range tasks {
-		if task.PipelineName == pipelineName && task.Type == typeString && task.Status == status && task.TaskID > resp.TaskID {
-			resp.PipelineName = task.PipelineName
-			resp.TaskID = task.TaskID
-			break
-		}
-	}
-	return resp
-}
-
-func getLastPreview(tasks []*commonrepo.TaskPreview, typeString config.PipelineType, pipelineName string) *commonmodels.TaskInfo {
-	resp := &commonmodels.TaskInfo{}
-	for _, task := range tasks {
-		if task.PipelineName == pipelineName && task.Type == typeString && task.TaskID > resp.TaskID {
-			resp.PipelineName = task.PipelineName
-			resp.Status = task.Status
-			resp.TaskID = task.TaskID
-			break
-		}
-	}
-	return resp
-}
 
 func isFavoratePipeline(favoritePipelines []*commonmodels.Favorite, pipelineName string) bool {
 	resp := false

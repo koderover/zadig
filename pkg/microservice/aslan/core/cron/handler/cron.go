@@ -19,7 +19,7 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	cronservice "github.com/koderover/zadig/pkg/microservice/aslan/core/cron/service"
 	internalhandler "github.com/koderover/zadig/pkg/microservice/aslan/internal/handler"
 )

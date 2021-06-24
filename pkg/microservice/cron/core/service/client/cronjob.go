@@ -56,6 +56,17 @@ func (c *Client) TriggerCleanconfigmaps(log *zap.SugaredLogger) error {
 	return err
 }
 
+// TriggerCleanProducts ...
+func (c *Client) TriggerCleanProducts(log *zap.SugaredLogger) error {
+	url := fmt.Sprintf("%s/environment/cron/cleanproduct", c.APIBase)
+	log.Info("start clean products..")
+	err := c.sendRequest(url)
+	if err != nil {
+		log.Errorf("trigger clean products error :%v", err)
+	}
+	return err
+}
+
 // RunPipelineTask ...
 func (c *Client) RunPipelineTask(args *service.TaskArgs, log *zap.SugaredLogger) error {
 	url := fmt.Sprintf("%s/workflow/v2/tasks", c.APIBase)

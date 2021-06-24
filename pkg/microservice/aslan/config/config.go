@@ -29,14 +29,7 @@ import (
 )
 
 func DefaultIngressClass() string {
-	ingressClass := viper.GetString(setting.ENVDefaultIngressClass)
-	if ingressClass == "system" {
-		return ""
-	} else if ingressClass == "" {
-		return setting.DefaultIngressClass
-	}
-
-	return ingressClass
+	return viper.GetString(setting.ENVDefaultIngressClass)
 }
 
 // 服务默认等待启动时间，默认5分钟

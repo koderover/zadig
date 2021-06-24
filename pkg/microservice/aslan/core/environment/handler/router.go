@@ -101,6 +101,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.PUT("/:productName/autoUpdate", middleware.IsHavePermission([]string{permission.TestEnvManageUUID, permission.ProdEnvManageUUID}, permission.ParamType), middleware.UpdateOperationLogStatus, AutoUpdateProduct)
 		environments.POST("", middleware.StoreProductName, middleware.IsHavePermission([]string{permission.TestEnvCreateUUID, permission.ProdEnvCreateUUID}, permission.ContextKeyType), middleware.UpdateOperationLogStatus, CreateProduct)
 		environments.POST("/:productName", middleware.IsHavePermission([]string{permission.TestEnvManageUUID, permission.ProdEnvManageUUID}, permission.ParamType), middleware.UpdateOperationLogStatus, UpdateProduct)
+		environments.PUT("/:productName/envRecycle", middleware.IsHavePermission([]string{permission.TestEnvManageUUID}, permission.ParamType), middleware.UpdateOperationLogStatus, UpdateProductRecycleDay)
 		environments.GET("/:productName", GetProduct)
 		environments.GET("/:productName/productInfo", GetProductInfo)
 		environments.GET("/:productName/ingressInfo", GetProductIngress)

@@ -33,21 +33,21 @@ import (
 
 	"github.com/koderover/zadig/pkg/internal/poetry"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehost"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collie"
-	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github/app"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	githubtool "github.com/koderover/zadig/pkg/tool/github"
 	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 const (
 	signatureHeader  = "X-Hub-Signature"
 	payloadFormParam = "payload"
-	githubAPIServer  = "https://api.github.com/"
 )
 
 func ProcessGithubHook(req *http.Request, requestID string, log *zap.SugaredLogger) (output string, err error) {
@@ -93,7 +93,7 @@ func ProcessGithubHook(req *http.Request, requestID string, log *zap.SugaredLogg
 
 		tasks, err = prEventToPipelineTasks(et, requestID, log)
 		if err != nil {
-			log.Infof("prEventToPipelineTasks error: %v", err)
+			log.Errorf("prEventToPipelineTasks error: %v", err)
 			err = e.ErrGithubWebHook.AddErr(err)
 			return
 		}
@@ -242,24 +242,21 @@ func prEventToPipelineTasks(event *github.PullRequestEvent, requestID string, lo
 		commitMessage = *event.PullRequest.Title
 	)
 
-	gitCli, err := initGithubClient(owner)
+	address, err := util.GetAddress(event.Repo.GetURL())
 	if err != nil {
-		return tasks, err
+		log.Errorf("GetAddress failed, url: %s, err: %s", event.Repo.GetURL(), err)
+		return nil, err
 	}
-
-	commitFiles := make([]*github.CommitFile, 0)
-
-	opt := &github.ListOptions{Page: 1, PerPage: 100}
-	for opt.Page > 0 {
-		files, resp, err := gitCli.Git.PullRequests.ListFiles(context.Background(), owner, repo, prNum, opt)
-		if err != nil {
-			return tasks, err
-		}
-		commitFiles = append(commitFiles, files...)
-		opt.Page = resp.NextPage
+	ch, err := codehost.GetCodeHostInfo(
+		&codehost.Option{CodeHostType: poetry.GitHubProvider, Address: address, Namespace: owner})
+	if err != nil {
+		log.Errorf("GetCodeHostInfo failed, err: %v", err)
+		return nil, err
 	}
+	gc := githubtool.NewClient(&githubtool.Config{AccessToken: ch.AccessToken, Proxy: config.ProxyHTTPSAddr()})
+	commitFiles, err := gc.ListFiles(context.Background(), owner, repo, prNum, &githubtool.ListOptions{PerPage: 100})
 
-	files := []string{}
+	var files []string
 	for _, cf := range commitFiles {
 		files = append(files, *cf.Filename)
 	}
@@ -297,51 +294,12 @@ func prEventToPipelineTasks(event *github.PullRequestEvent, requestID string, lo
 			Test: commonmodels.TestArgs{
 				Builds: []*types.Repository{eventRepo},
 			},
+			CodeHostID: ch.ID,
 		}
 		tasks = append(tasks, ptargs)
 	}
 
 	return tasks, nil
-}
-
-func initGithubClient(owner string) (*git.Client, error) {
-	githubApps, err := commonrepo.NewGithubAppColl().Find()
-	if len(githubApps) == 0 {
-		return nil, err
-	}
-
-	appKey := githubApps[0].AppKey
-	appID := githubApps[0].AppID
-
-	client, err := getGithubAppCli(appKey, appID)
-	if client == nil {
-		return nil, err
-	}
-	installID, err := client.FindInstallationID(owner)
-	if err != nil {
-		return nil, err
-	}
-
-	gitCfg := &git.Config{
-		AppKey:         appKey,
-		AppID:          appID,
-		InstallationID: installID,
-		ProxyAddr:      config.ProxyHTTPSAddr(),
-	}
-
-	appCli, err := git.NewDynamicClient(gitCfg)
-	if err != nil {
-		return nil, err
-	}
-
-	return appCli, nil
-}
-
-func getGithubAppCli(appKey string, appID int) (*app.Client, error) {
-	return app.NewAppClient(&app.Config{
-		AppKey: appKey,
-		AppID:  appID,
-	})
 }
 
 // listPipelinesByHook 根据 repo,branch,event, folder来查找对应的pipelines
@@ -395,20 +353,15 @@ func buildPipelineSearchMap(log *zap.SugaredLogger) map[string][]PipelineHook {
 		}
 
 		// 查找激活的 webhook
-		if p.Hook != nil && p.Hook.Enabled {
-			for _, hook := range p.Hook.GitHooks {
-				for _, event := range hook.Events {
-					key := fmt.Sprintf("%s:%s:%s", hook.Repo, hook.Branch, event)
-					value := PipelineHook{
-						PipelineName: p.Name,
-						GitHook:      hook,
-					}
-					if _, ok := searchMap[key]; !ok {
-						searchMap[key] = []PipelineHook{value}
-					} else {
-						searchMap[key] = append(searchMap[key], value)
-					}
+		for _, hook := range p.Hook.GitHooks {
+			for _, event := range hook.Events {
+				key := fmt.Sprintf("%s:%s:%s", hook.Repo, hook.Branch, event)
+				value := PipelineHook{
+					PipelineName: p.Name,
+					GitHook:      hook,
 				}
+
+				searchMap[key] = append(searchMap[key], value)
 			}
 		}
 	}
@@ -427,6 +380,18 @@ func pushEventToPipelineTasks(event *github.PushEvent, requestID string, log *za
 		commitID      = *event.HeadCommit.ID
 		commitMessage = *event.HeadCommit.Message
 	)
+
+	address, err := util.GetAddress(event.Repo.GetURL())
+	if err != nil {
+		log.Errorf("GetAddress failed, url: %s, err: %s", event.Repo.GetURL(), err)
+		return nil, err
+	}
+	ch, err := codehost.GetCodeHostInfo(
+		&codehost.Option{CodeHostType: poetry.GitHubProvider, Address: address, Namespace: owner})
+	if err != nil {
+		log.Errorf("GetCodeHostInfo failed, err: %v", err)
+		return nil, err
+	}
 
 	pipelineNames := listPipelinesByHook("push", repo, branch, pushEventCommitsFiles(event), log)
 	if len(pipelineNames) == 0 {
@@ -459,6 +424,7 @@ func pushEventToPipelineTasks(event *github.PushEvent, requestID string, log *za
 			Test: commonmodels.TestArgs{
 				Builds: []*types.Repository{eventRepo},
 			},
+			CodeHostID: ch.ID,
 		}
 		tasks = append(tasks, ptargs)
 	}

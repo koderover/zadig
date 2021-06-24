@@ -17,14 +17,15 @@ limitations under the License.
 package workflow
 
 import (
+	"fmt"
+
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models/task"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo"
-	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github/app"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehost"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
@@ -41,18 +42,19 @@ func createGitCheck(pt *task.Task, log *zap.SugaredLogger) error {
 		hook = pt.WorkflowArgs.HookPayload
 	}
 
-	if hook == nil {
+	if hook == nil || !hook.IsPr {
 		return nil
 	}
 
-	gitCli, err := initGithubClient(hook.Owner)
+	ghApp, err := github.GetGithubAppClientByOwner(hook.Owner)
 	if err != nil {
-		log.Errorf("initGithubClient failed, err:%v", err)
+		log.Errorf("getGithubAppClient failed, err:%v", err)
 		return e.ErrGithubUpdateStatus.AddErr(err)
 	}
+	if ghApp != nil {
+		log.Infof("GitHub App found, start to create check-run")
 
-	if hook.IsPr {
-		opt := &git.GitCheck{
+		opt := &github.GitCheck{
 			Owner:  hook.Owner,
 			Repo:   hook.Repo,
 			Branch: hook.Ref,
@@ -65,9 +67,7 @@ func createGitCheck(pt *task.Task, log *zap.SugaredLogger) error {
 			PipeType:    pt.Type,
 			TaskID:      pt.TaskID,
 		}
-
-		log.Infof("GitCheck opt ---> %+v", opt)
-		checkID, err := gitCli.Checks.StartGitCheck(opt)
+		checkID, err := ghApp.StartGitCheck(opt)
 		if err != nil {
 			return err
 		}
@@ -79,46 +79,28 @@ func createGitCheck(pt *task.Task, log *zap.SugaredLogger) error {
 			log.Infof("workflow github check created, id: %d", checkID)
 			pt.WorkflowArgs.HookPayload.CheckRunID = checkID
 		}
+
+		return nil
 	}
 
-	return nil
-}
-
-func initGithubClient(owner string) (*git.Client, error) {
-	githubApps, err := commonrepo.NewGithubAppColl().Find()
-	if len(githubApps) == 0 {
-		return nil, err
-	}
-	appKey := githubApps[0].AppKey
-	appID := githubApps[0].AppID
-
-	client, err := getGithubAppCli(appKey, appID)
-	if client == nil {
-		return nil, err
-	}
-	installID, err := client.FindInstallationID(owner)
+	log.Infof("Init GitHub status")
+	ch, err := codehost.GetCodeHostInfoByID(pt.TriggerBy.CodehostID)
 	if err != nil {
-		return nil, err
+		log.Errorf("GetCodeHostInfoByID failed, err:%v", err)
+		return e.ErrGithubUpdateStatus.AddErr(err)
 	}
+	gc := github.NewClient(ch.AccessToken, config.ProxyHTTPSAddr())
 
-	gitCfg := &git.Config{
-		AppKey:         appKey,
-		AppID:          appID,
-		InstallationID: installID,
-		ProxyAddr:      config.ProxyHTTPSAddr(),
-	}
-
-	appCli, err := git.NewDynamicClient(gitCfg)
-	if err != nil {
-		return nil, err
-	}
-
-	return appCli, nil
-}
-
-func getGithubAppCli(appKey string, appID int) (*app.Client, error) {
-	return app.NewAppClient(&app.Config{
-		AppKey: appKey,
-		AppID:  appID,
+	return gc.UpdateCheckStatus(&github.StatusOptions{
+		Owner:       hook.Owner,
+		Repo:        hook.Repo,
+		Ref:         hook.Ref,
+		State:       github.StatePending,
+		Description: fmt.Sprintf("Workflow [%s] is queued.", pt.PipelineName),
+		AslanURL:    config.AslanURL(),
+		PipeName:    pt.PipelineName,
+		ProductName: pt.ProductName,
+		PipeType:    pt.Type,
+		TaskID:      pt.TaskID,
 	})
 }

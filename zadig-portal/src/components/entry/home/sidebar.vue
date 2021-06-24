@@ -206,12 +206,16 @@ export default {
             icon: 'iconfont iconjiaofu',
             hasSubItem: true,
             isOpened: false,
-            subItems: [
-              {
-                name: '交付物追踪',
-                url: 'delivery/artifacts',
-                icon: 'iconfont iconbaoguanli'
-              }]
+            subItems: [{
+              name: '版本管理',
+              url: 'delivery/version',
+              icon: 'iconfont iconbanben'
+            },
+            {
+              name: '交付物追踪',
+              url: 'delivery/artifacts',
+              icon: 'iconfont iconbaoguanli'
+            }]
           }]
         },
         {
@@ -310,8 +314,6 @@ export default {
 </script>
 
 <style lang="less">
-// @import url("~@assets/css/common/scroll-bar.less");
-
 .cf-side-bar {
   position: relative;
   display: -webkit-box;

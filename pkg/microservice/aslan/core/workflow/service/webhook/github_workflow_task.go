@@ -27,11 +27,10 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	ch "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehost"
 	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types"
@@ -232,8 +231,6 @@ func TriggerWorkflowByGithubEvent(event interface{}, baseURI, deliveryID, reques
 		return findChangedFilesOfPullRequest(pullRequestEvent, codehostId)
 	}
 
-	var notification *commonmodels.Notification
-
 	for _, workflow := range workflowList {
 		if workflow.HookCtl != nil && workflow.HookCtl.Enabled {
 			log.Debugf("find %d hooks in workflow %s", len(workflow.HookCtl.Items), workflow.Name)
@@ -281,12 +278,6 @@ func TriggerWorkflowByGithubEvent(event interface{}, baseURI, deliveryID, reques
 							}
 						}
 
-						if notification == nil {
-							notification, _ = scmnotify.NewService().SendInitWebhookComment(
-								&item.MainRepo, *ev.PullRequest.Number, baseURI, false, false, log,
-							)
-						}
-
 						hookPayload = &commonmodels.HookPayload{
 							Owner:      *ev.Repo.Owner.Login,
 							Repo:       *ev.Repo.Name,
@@ -295,10 +286,6 @@ func TriggerWorkflowByGithubEvent(event interface{}, baseURI, deliveryID, reques
 							IsPr:       true,
 							DeliveryID: deliveryID,
 						}
-					}
-
-					if notification != nil {
-						item.WorkflowArgs.NotificationID = notification.ID.Hex()
 					}
 
 					args := matcher.UpdateTaskArgs(prod, item.WorkflowArgs, item.MainRepo, requestID)
@@ -333,7 +320,7 @@ func findChangedFilesOfPullRequest(event *github.PullRequestEvent, codehostID in
 		return nil, fmt.Errorf("failed to find codehost %d: %v", codehostID, err)
 	}
 	//pullrequest文件修改
-	githubCli := git.NewGithubAppClient(detail.OauthToken, githubAPIServer, config.ProxyHTTPSAddr())
+	githubCli := git.NewClient(detail.OauthToken, config.ProxyHTTPSAddr())
 	commitComparison, _, err := githubCli.Repositories.CompareCommits(context.Background(), *event.PullRequest.Base.Repo.Owner.Login, *event.PullRequest.Base.Repo.Name, *event.PullRequest.Base.SHA, *event.PullRequest.Head.SHA)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get changes from github, err: %v", err)

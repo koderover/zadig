@@ -22,14 +22,14 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 func DeleteTestModule(name, productName, requestID string, log *zap.SugaredLogger) error {
-	opt := new(repo.ListQueueOption)
-	taskQueue, err := repo.NewQueueColl().List(opt)
+	opt := new(mongodb.ListQueueOption)
+	taskQueue, err := mongodb.NewQueueColl().List(opt)
 	if err != nil {
 		log.Errorf("List queued task error: %v", err)
 		return fmt.Errorf("List queued task error: %v", err)
@@ -52,23 +52,23 @@ func Delete(name, productName string, log *zap.SugaredLogger) error {
 		return e.ErrDeleteTestModule.AddDesc("empty Name")
 	}
 
-	err := repo.NewTestingColl().Delete(name, productName)
+	err := mongodb.NewTestingColl().Delete(name, productName)
 	if err != nil {
 		log.Errorf("[Testing.Delete] %s error: %v", name, err)
 		return e.ErrDeleteTestModule.AddErr(err)
 	}
 
-	if err := repo.NewTaskColl().DeleteByPipelineNameAndType(fmt.Sprintf("%s-%s", name, "job"), config.TestType); err != nil {
+	if err := mongodb.NewTaskColl().DeleteByPipelineNameAndType(fmt.Sprintf("%s-%s", name, "job"), config.TestType); err != nil {
 		log.Errorf("[Testing.Delete] PipelineTaskV2.DeleteByPipelineNameAndType test %s error: %v", name, err)
 	}
 
-	if err := repo.NewTestTaskStatColl().Delete(name); err != nil {
+	if err := mongodb.NewTestTaskStatColl().Delete(name); err != nil {
 		log.Errorf("[TestTaskStat.Delete] %s error: %v", name, err)
 	}
 
 	pipelineName := fmt.Sprintf("%s-%s", name, "job")
 	counterName := fmt.Sprintf(setting.TestTaskFmt, pipelineName)
-	if err := repo.NewCounterColl().Delete(counterName); err != nil {
+	if err := mongodb.NewCounterColl().Delete(counterName); err != nil {
 		log.Errorf("[Counter.Delete] counterName:%s, error: %v", counterName, err)
 	}
 

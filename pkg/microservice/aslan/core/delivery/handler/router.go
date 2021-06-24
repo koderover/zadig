@@ -20,6 +20,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/middleware"
+	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 type Router struct{}
@@ -41,4 +42,28 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		deliveryProduct.GET("", ListDeliveryProduct)
 	}
 
+	deliveryRelease := router.Group("releases")
+	{
+		deliveryRelease.POST("", middleware.IsHavePermission([]string{permission.WorkflowDeliveryUUID}, permission.QueryType), middleware.UpdateOperationLogStatus, AddDeliveryVersion)
+		deliveryRelease.GET("/:id", GetDeliveryVersion)
+		deliveryRelease.GET("", ListDeliveryVersion)
+		deliveryRelease.DELETE("/:id", GetProductNameByDelivery, middleware.IsHavePermission([]string{permission.ReleaseDeleteUUID}, permission.ContextKeyType), middleware.UpdateOperationLogStatus, DeleteDeliveryVersion)
+	}
+
+	deliveryPackage := router.Group("packages")
+	{
+		deliveryPackage.GET("", ListPackagesVersion)
+	}
+
+	deliveryService := router.Group("servicenames")
+	{
+		deliveryService.GET("", ListDeliveryServiceNames)
+	}
+
+	deliverySecurity := router.Group("security")
+	{
+		deliverySecurity.GET("/stats", ListDeliverySecurityStatistics)
+		deliverySecurity.GET("", ListDeliverySecurity)
+		deliverySecurity.POST("", CreateDeliverySecurity)
+	}
 }

@@ -29,9 +29,9 @@ import (
 
 	"github.com/koderover/zadig/pkg/internal/poetry"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo/template"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	"github.com/koderover/zadig/pkg/setting"
@@ -400,11 +400,7 @@ func ListWorkflows(queryType string, userID int, log *zap.SugaredLogger) ([]*com
 		log.Errorf("Workflow.List error: %v", err)
 		return workflows, e.ErrListWorkflow.AddDesc(err.Error())
 	}
-	tasks, err := commonrepo.NewTaskColl().List(&commonrepo.ListTaskOption{})
-	if err != nil {
-		log.Errorf("list pipeline tasks error: %v", err)
-		return workflows, e.ErrListPipeline
-	}
+
 	favorites, err := commonrepo.NewFavoriteColl().List(&commonrepo.FavoriteArgs{UserID: userID, Type: string(config.WorkflowType)})
 	if err != nil {
 		log.Errorf("list favorite error: %v", err)
@@ -423,19 +419,24 @@ func ListWorkflows(queryType string, userID int, log *zap.SugaredLogger) ([]*com
 				continue
 			}
 		}
-		latest := getLastPreview(tasks, config.WorkflowType, workflow.Name)
-		workflow.LastestTask = &commonmodels.TaskInfo{TaskID: latest.TaskID, PipelineName: latest.PipelineName, Status: latest.Status}
+		latestTask, _ := commonrepo.NewTaskColl().FindLatestTask(&commonrepo.FindTaskOption{PipelineName: workflow.Name, Type: config.WorkflowType})
+		if latestTask != nil {
+			workflow.LastestTask = &commonmodels.TaskInfo{TaskID: latestTask.TaskID, PipelineName: latestTask.PipelineName, Status: latestTask.Status}
+		}
 
-		passed := getLastPreviewBystatus(tasks, config.WorkflowType, workflow.Name, config.StatusPassed)
-		workflow.LastSucessTask = &commonmodels.TaskInfo{TaskID: passed.TaskID, PipelineName: passed.PipelineName}
+		latestPassedTask, _ := commonrepo.NewTaskColl().FindLatestTask(&commonrepo.FindTaskOption{PipelineName: workflow.Name, Type: config.WorkflowType, Status: config.StatusPassed})
+		if latestPassedTask != nil {
+			workflow.LastSucessTask = &commonmodels.TaskInfo{TaskID: latestPassedTask.TaskID, PipelineName: latestPassedTask.PipelineName}
+		}
 
-		failed := getLastPreviewBystatus(tasks, config.WorkflowType, workflow.Name, config.StatusFailed)
-		workflow.LastFailureTask = &commonmodels.TaskInfo{TaskID: failed.TaskID, PipelineName: failed.PipelineName}
+		latestFailedTask, _ := commonrepo.NewTaskColl().FindLatestTask(&commonrepo.FindTaskOption{PipelineName: workflow.Name, Type: config.WorkflowType, Status: config.StatusFailed})
+		if latestFailedTask != nil {
+			workflow.LastFailureTask = &commonmodels.TaskInfo{TaskID: latestFailedTask.TaskID, PipelineName: latestFailedTask.PipelineName}
+		}
 
 		workflow.IsFavorite = IsFavoriteWorkflow(workflow, favorites)
 
 		workflow.TotalDuration, workflow.TotalNum, workflow.TotalSuccess = findWorkflowStat(workflow, workflowStats)
-
 	}
 
 	return workflows, nil

@@ -54,7 +54,7 @@ var doc = `{
                 "summary": "Return all workflows (also called pipelines)",
                 "responses": {
                     "200": {
-                        "description": "response type follows list of microservice/aslan/core/common/dao/models#Pipeline",
+                        "description": "response type follows list of microservice/aslan/core/common/repository/models#Pipeline",
                         "schema": {
                             "type": "object"
                         }
@@ -79,7 +79,7 @@ var doc = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "response type follows microservice/aslan/core/common/dao/models#Pipeline",
+                        "description": "response type follows microservice/aslan/core/common/repository/models#Pipeline",
                         "schema": {
                             "type": "object"
                         }

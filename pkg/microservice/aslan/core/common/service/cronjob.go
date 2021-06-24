@@ -22,8 +22,8 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -39,7 +39,7 @@ type CronjobPayload struct {
 }
 
 func RemoveCronjob(workflowName string, log *zap.SugaredLogger) error {
-	err := repo.NewCronjobColl().Delete(&repo.CronjobDeleteOption{ParentName: workflowName, ParentType: config.WorkflowCronjob})
+	err := mongodb.NewCronjobColl().Delete(&mongodb.CronjobDeleteOption{ParentName: workflowName, ParentType: config.WorkflowCronjob})
 	if err != nil {
 		// FIXME: HOW TO DO THIS
 		log.Errorf("Failed to delete %s 's cronjob, the error is: %v", workflowName, err)

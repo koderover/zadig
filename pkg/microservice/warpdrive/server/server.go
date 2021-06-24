@@ -44,11 +44,15 @@ func Serve(ctx context.Context) error {
 	http.HandleFunc("/ping", ping)
 	server := &http.Server{Addr: ":25001", Handler: nil}
 
+	stopChan := make(chan struct{})
 	go func() {
+		defer close(stopChan)
+
 		<-ctx.Done()
 
 		ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 		defer cancel()
+
 		if err := server.Shutdown(ctx); err != nil {
 			log.Errorf("Failed to stop server, error: %s", err)
 		}
@@ -58,6 +62,8 @@ func Serve(ctx context.Context) error {
 		log.Errorf("Failed to start http server, error: %s", err)
 		return err
 	}
+
+	<-stopChan
 
 	return nil
 }

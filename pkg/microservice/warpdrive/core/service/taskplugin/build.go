@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strconv"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -116,18 +117,19 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 	}
 	p.KubeNamespace = pipelineTask.ConfigPayload.Build.KubeNamespace
 	for _, repo := range p.Task.JobCtx.Builds {
+		repoName := strings.Replace(repo.RepoName, "-", "_", -1)
 		if len(repo.Branch) > 0 {
-			branchVar := &task.KeyVal{Key: fmt.Sprintf("%s_BRANCH", repo.RepoName), Value: repo.Branch, IsCredential: false}
+			branchVar := &task.KeyVal{Key: fmt.Sprintf("%s_BRANCH", repoName), Value: repo.Branch, IsCredential: false}
 			p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, branchVar)
 		}
 
 		if len(repo.Tag) > 0 {
-			tagVar := &task.KeyVal{Key: fmt.Sprintf("%s_TAG", repo.RepoName), Value: repo.Tag, IsCredential: false}
+			tagVar := &task.KeyVal{Key: fmt.Sprintf("%s_TAG", repoName), Value: repo.Tag, IsCredential: false}
 			p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, tagVar)
 		}
 
 		if repo.PR > 0 {
-			prVar := &task.KeyVal{Key: fmt.Sprintf("%s_PR", repo.RepoName), Value: strconv.Itoa(repo.PR), IsCredential: false}
+			prVar := &task.KeyVal{Key: fmt.Sprintf("%s_PR", repoName), Value: strconv.Itoa(repo.PR), IsCredential: false}
 			p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, prVar)
 		}
 	}

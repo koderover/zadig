@@ -23,15 +23,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 func FindDefaultRegistry(log *zap.SugaredLogger) (*models.RegistryNamespace, error) {
 	// TODO: 多租户适配
-	resp, err := repo.NewRegistryNamespaceColl().Find(&repo.FindRegOps{
+	resp, err := mongodb.NewRegistryNamespaceColl().Find(&mongodb.FindRegOps{
 		IsDefault: true,
 	})
 
@@ -49,7 +49,7 @@ func FindDefaultRegistry(log *zap.SugaredLogger) (*models.RegistryNamespace, err
 }
 
 func ListRegistryNamespaces(log *zap.SugaredLogger) ([]*models.RegistryNamespace, error) {
-	resp, err := repo.NewRegistryNamespaceColl().FindAll(&repo.FindRegOps{})
+	resp, err := mongodb.NewRegistryNamespaceColl().FindAll(&mongodb.FindRegOps{})
 	if err != nil {
 		log.Errorf("RegistryNamespace.List error: %v", err)
 		return resp, fmt.Errorf("RegistryNamespace.List error: %v", err)
