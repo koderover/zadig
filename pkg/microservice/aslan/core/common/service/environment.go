@@ -27,9 +27,9 @@ import (
 
 	"github.com/koderover/zadig/pkg/internal/kube/resource"
 	"github.com/koderover/zadig/pkg/internal/kube/wrapper"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models"
-	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models/template"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"

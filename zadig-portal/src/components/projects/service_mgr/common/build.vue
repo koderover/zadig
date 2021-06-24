@@ -437,12 +437,14 @@
             <div class="divider item"></div>
             <el-row>
               <el-col  class="deploy-script"  :span="24">
-                <editor v-model="buildConfig.scripts"
+                <Resize :height="'150px'">
+                  <editor v-model="buildConfig.scripts"
                         lang="sh"
                         theme="xcode"
                         :options="editorOption"
                         width="100%"
-                        height="150px"></editor>
+                        height="100%"></editor>
+                </Resize>
               </el-col>
             </el-row>
           </el-form>
@@ -559,6 +561,7 @@
 import { getBuildConfigDetailAPI, getAllAppsAPI, getImgListAPI, getCodeSourceAPI, createBuildConfigAPI, updateBuildConfigAPI, getServiceTargetsAPI, queryJenkinsJob, queryJenkinsParams } from '@api'
 import qs from 'qs'
 import aceEditor from 'vue2-ace-bind'
+import Resize from '@/components/common/resize.vue'
 const validateBuildConfigName = (rule, value, callback) => {
   if (value === '') {
     callback(new Error('请输入构建名称'))
@@ -1042,12 +1045,15 @@ export default {
     }
   },
   components: {
-    editor: aceEditor
+    editor: aceEditor,
+    Resize
   }
 
 }
 </script>
 <style lang="less" scoped>
+@import url("~@assets/css/common/scroll-bar.less");
+
 .el-input-group {
   vertical-align: middle;
 }
@@ -1055,8 +1061,12 @@ export default {
 .deploy-script {
   margin-top: 10px;
   margin-bottom: 10px;
-  border: 1px solid #ccc;
-  border-radius: 2px;
+
+  .ace_editor.ace-xcode {
+    &:hover {
+      .scrollBar();
+    }
+  }
 }
 
 .params-dialog {

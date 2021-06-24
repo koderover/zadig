@@ -185,6 +185,43 @@
           </template>
         </el-table-column>
       </el-table>
+      <div v-if="artifactDeployEnabled"
+          class="create-version">
+        <div class="create-checkbox">
+          <el-checkbox v-model="createVersion">创建版本</el-checkbox>
+        </div>
+        <el-form v-if="createVersion"
+                  :model="versionInfo"
+                  label-width="80px"
+                  ref="versionForm"
+                  :rules="versionRules">
+          <el-form-item label="版本名称"
+                        prop="version">
+            <el-input class="full-width"
+                      v-model="versionInfo.version"
+                      size="medium"
+                      autocomplete="off"></el-input>
+          </el-form-item>
+          <el-form-item label="版本描述"
+                        prop="desc">
+            <el-input class="full-width"
+                      type="textarea"
+                      autosize
+                      placeholder="请输入版本描述"
+                      v-model="versionInfo.desc">
+            </el-input>
+          </el-form-item>
+          <el-form-item label="标签"
+                        prop="labels">
+            <el-input class="full-width"
+                      type="textarea"
+                      autosize
+                      placeholder="请输入版本标签，多个标签用 ; 分割"
+                      v-model="versionInfo.labelStr">
+            </el-input>
+          </el-form-item>
+        </el-form>
+      </div>
     </div>
     <!--  Test -->
     <div v-if="runner.tests.length > 0">

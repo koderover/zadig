@@ -54,8 +54,8 @@ const (
 	UpsertWorkflowScheduler = "UpsertWorkflowScheduler"
 	// UpsertTestScheduler ...
 	UpsertTestScheduler = "UpsertTestScheduler"
-	// UpsertColliePipelineScheduler ...
-	UpsertColliePipelineScheduler = "UpsertColliePipelineScheduler"
+	//CleanProductScheduler ...
+	CleanProductScheduler = "CleanProductScheduler"
 	//InitBuildStatScheduler
 	InitStatScheduler = "InitStatScheduler"
 	//InitOperationStatScheduler
@@ -134,8 +134,8 @@ func (c *CronClient) Init() {
 	c.InitJobScheduler()
 	// 测试管理的定时任务触发
 	c.InitTestScheduler()
-	// 自由编排工作流定时任务触发
-	c.InitColliePipelineScheduler()
+	// 定时清理环境
+	c.InitCleanProductScheduler()
 	// 定时初始化构建数据
 	c.InitBuildStatScheduler()
 	// 定时器初始化话运营统计数据
@@ -152,6 +152,16 @@ func (c *CronClient) InitCleanJobScheduler() {
 	c.Schedulers[CleanJobScheduler].Every(1).Day().At("01:00").Do(c.AslanCli.TriggerCleanjobs, c.log)
 
 	c.Schedulers[CleanJobScheduler].Start()
+}
+
+// InitCleanProductScheduler ...
+func (c *CronClient) InitCleanProductScheduler() {
+
+	c.Schedulers[CleanProductScheduler] = gocron.NewScheduler()
+
+	c.Schedulers[CleanProductScheduler].Every(5).Minutes().Do(c.AslanCli.TriggerCleanProducts, c.log)
+
+	c.Schedulers[CleanProductScheduler].Start()
 }
 
 // InitJobScheduler ...
@@ -172,16 +182,6 @@ func (c *CronClient) InitTestScheduler() {
 	c.Schedulers[UpsertTestScheduler].Every(1).Minutes().Do(c.UpsertTestScheduler, c.log)
 
 	c.Schedulers[UpsertTestScheduler].Start()
-}
-
-// InitJobScheduler ...
-func (c *CronClient) InitColliePipelineScheduler() {
-
-	c.Schedulers[UpsertColliePipelineScheduler] = gocron.NewScheduler()
-
-	c.Schedulers[UpsertColliePipelineScheduler].Every(1).Minutes().Do(c.UpsertColliePipelineScheduler, c.log)
-
-	c.Schedulers[UpsertColliePipelineScheduler].Start()
 }
 
 // InitBuildStatScheduler ...

@@ -19,12 +19,12 @@ package service
 import (
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 )
 
 func List(log *zap.SugaredLogger) []*models.Queue {
-	tasks, err := repo.NewQueueColl().List(&repo.ListQueueOption{})
+	tasks, err := mongodb.NewQueueColl().List(&mongodb.ListQueueOption{})
 	if err != nil {
 		log.Errorf("pqColl.List error: %v", err)
 		return nil
@@ -33,7 +33,7 @@ func List(log *zap.SugaredLogger) []*models.Queue {
 }
 
 func Remove(task *models.Queue, log *zap.SugaredLogger) error {
-	if err := repo.NewQueueColl().Delete(task); err != nil {
+	if err := mongodb.NewQueueColl().Delete(task); err != nil {
 		log.Errorf("pqColl.Delete error: %v", err)
 		return err
 	}

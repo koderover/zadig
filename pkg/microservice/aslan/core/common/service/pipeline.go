@@ -19,20 +19,18 @@ package service
 import (
 	"fmt"
 
+	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models"
-
-	"github.com/hashicorp/go-multierror"
-
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo/template"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 func DeletePipelines(productName, requestID string, log *zap.SugaredLogger) error {
-	pipelines, err := repo.NewPipelineColl().List(&repo.PipelineListOption{ProductName: productName})
+	pipelines, err := mongodb.NewPipelineColl().List(&mongodb.PipelineListOption{ProductName: productName})
 	if err != nil {
 		log.Errorf("Pipeline.List error: %v", err)
 		return fmt.Errorf("DeletePipelines productName %s Pipeline.List error: %v", productName, err)
@@ -52,7 +50,7 @@ func DeletePipelines(productName, requestID string, log *zap.SugaredLogger) erro
 
 func DeletePipeline(pipelineName, requestID string, isDeletingProductTmpl bool, log *zap.SugaredLogger) error {
 	if !isDeletingProductTmpl {
-		pipeline, err := repo.NewPipelineColl().Find(&repo.PipelineFindOption{Name: pipelineName})
+		pipeline, err := mongodb.NewPipelineColl().Find(&mongodb.PipelineFindOption{Name: pipelineName})
 		if err != nil {
 			log.Errorf("Pipeline.Find error: %v", err)
 			return e.ErrDeletePipeline.AddErr(err)
@@ -67,7 +65,7 @@ func DeletePipeline(pipelineName, requestID string, isDeletingProductTmpl bool, 
 		}
 	}
 
-	taskQueue, err := repo.NewQueueColl().List(&repo.ListQueueOption{})
+	taskQueue, err := mongodb.NewQueueColl().List(&mongodb.ListQueueOption{})
 	if err != nil {
 		log.Errorf("List queued task error: %v", err)
 		return e.ErrDeletePipeline.AddErr(err)
@@ -81,21 +79,21 @@ func DeletePipeline(pipelineName, requestID string, isDeletingProductTmpl bool, 
 		}
 	}
 
-	err = repo.NewWorkflowStatColl().Delete(pipelineName, string(config.SingleType))
+	err = mongodb.NewWorkflowStatColl().Delete(pipelineName, string(config.SingleType))
 	if err != nil {
 		log.Errorf("WorkflowStat.Delete failed,  error: %v", err)
 	}
 
-	if err := repo.NewPipelineColl().Delete(pipelineName); err != nil {
+	if err := mongodb.NewPipelineColl().Delete(pipelineName); err != nil {
 		log.Errorf("PipelineV2.Delete error: %v", err)
 		return e.ErrDeletePipeline.AddErr(err)
 	}
 
-	if err := repo.NewTaskColl().DeleteByPipelineNameAndType(pipelineName, config.SingleType); err != nil {
+	if err := mongodb.NewTaskColl().DeleteByPipelineNameAndType(pipelineName, config.SingleType); err != nil {
 		log.Errorf("PipelineTaskV2.DeleteByPipelineName error: %v", err)
 	}
 
-	if err := repo.NewCounterColl().Delete("PipelineTask:" + pipelineName); err != nil {
+	if err := mongodb.NewCounterColl().Delete("PipelineTask:" + pipelineName); err != nil {
 		log.Errorf("Counter.Delete error: %v", err)
 	}
 
@@ -103,7 +101,7 @@ func DeletePipeline(pipelineName, requestID string, isDeletingProductTmpl bool, 
 }
 
 func GetPipelineInfo(userID int, pipelineName string, log *zap.SugaredLogger) (*commonmodels.Pipeline, error) {
-	resp, err := repo.NewPipelineColl().Find(&repo.PipelineFindOption{Name: pipelineName})
+	resp, err := mongodb.NewPipelineColl().Find(&mongodb.PipelineFindOption{Name: pipelineName})
 	if err != nil {
 		log.Error(err)
 		return resp, e.ErrGetPipeline

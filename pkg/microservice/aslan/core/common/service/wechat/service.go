@@ -26,8 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models/task"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -85,16 +85,16 @@ type FeiShuContentV2 struct {
 }
 
 type Service struct {
-	proxyColl    *repo.ProxyColl
-	workflowColl *repo.WorkflowColl
-	pipelineColl *repo.PipelineColl
+	proxyColl    *mongodb.ProxyColl
+	workflowColl *mongodb.WorkflowColl
+	pipelineColl *mongodb.PipelineColl
 }
 
 func NewWeChatClient() *Service {
 	return &Service{
-		proxyColl:    repo.NewProxyColl(),
-		workflowColl: repo.NewWorkflowColl(),
-		pipelineColl: repo.NewPipelineColl(),
+		proxyColl:    mongodb.NewProxyColl(),
+		workflowColl: mongodb.NewWorkflowColl(),
+		pipelineColl: mongodb.NewPipelineColl(),
 	}
 }
 
@@ -112,7 +112,7 @@ func (w *Service) SendMessageRequest(uri string, message interface{}) ([]byte, e
 	c := httpclient.New()
 
 	// 使用代理
-	proxies, _ := w.proxyColl.List(&repo.ProxyArgs{})
+	proxies, _ := w.proxyColl.List(&mongodb.ProxyArgs{})
 	if len(proxies) != 0 && proxies[0].EnableApplicationProxy {
 		c.SetProxy(proxies[0].GetProxyURL())
 		fmt.Printf("send message is using proxy:%s\n", proxies[0].GetProxyURL())
@@ -135,7 +135,7 @@ func (w *Service) SendWechatMessage(task *task.Task) error {
 		isAtAll     bool
 	)
 	if task.Type == config.SingleType {
-		resp, err := w.pipelineColl.Find(&repo.PipelineFindOption{Name: task.PipelineName})
+		resp, err := w.pipelineColl.Find(&mongodb.PipelineFindOption{Name: task.PipelineName})
 		if err != nil {
 			log.Errorf("Pipeline find err :%v", err)
 			return err

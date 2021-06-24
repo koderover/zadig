@@ -32,10 +32,10 @@ import (
 
 	"github.com/koderover/zadig/pkg/internal/poetry"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models/task"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo/template"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
@@ -463,7 +463,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 	}
 
 	// 获取全局configpayload
-	configPayload := commonservice.GetConfigPayload()
+	configPayload := commonservice.GetConfigPayload(args.CodehostID)
 	repos, err := commonrepo.NewRegistryNamespaceColl().FindAll(&commonrepo.FindRegOps{})
 	if err == nil {
 		configPayload.RepoConfigs = make(map[string]*commonmodels.RegistryNamespace)
@@ -1321,7 +1321,7 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 	}
 
 	// 获取全局configpayload
-	configPayload := commonservice.GetConfigPayload()
+	configPayload := commonservice.GetConfigPayload(args.CodehostID)
 	repos, err := commonrepo.NewRegistryNamespaceColl().FindAll(&commonrepo.FindRegOps{})
 	if err == nil {
 		configPayload.RepoConfigs = make(map[string]*commonmodels.RegistryNamespace)

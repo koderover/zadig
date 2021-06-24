@@ -123,7 +123,7 @@ func (c *CronClient) UpsertWorkflowScheduler(log *zap.SugaredLogger) {
 	ScheduleNames := sets.NewString(
 		CleanJobScheduler, UpsertWorkflowScheduler, UpsertTestScheduler,
 		InitStatScheduler, InitOperationStatScheduler,
-		UpsertColliePipelineScheduler, InitHealthCheckScheduler)
+		CleanProductScheduler, InitHealthCheckScheduler)
 
 	// 停掉已被删除的pipeline对应的scheduler
 	for name := range c.Schedulers {

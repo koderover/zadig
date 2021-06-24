@@ -8,6 +8,17 @@
             <div class="container">
               <div class="function-container">
                 <div class="btn-container">
+                  <el-dropdown @command="sortWorkflow">
+                    <button type="button" class="display-btn">
+                      <i class="el-icon-sort sort"></i>
+                    </button>
+                    <el-dropdown-menu slot="dropdown">
+                      <el-dropdown-item command="name-asc">按名称升序</el-dropdown-item>
+                      <el-dropdown-item command="name-desc">按名称降序</el-dropdown-item>
+                      <el-dropdown-item command="time-asc">按创建时间升序</el-dropdown-item>
+                      <el-dropdown-item command="time-desc">按创建时间降序</el-dropdown-item>
+                    </el-dropdown-menu>
+                  </el-dropdown>
                   <button type="button"
                           :class="{'active':showFavorite}"
                           @click="showFavorite=!showFavorite"
@@ -79,6 +90,7 @@ import qs from 'qs'
 import { deleteWorkflowAPI, copyWorkflowAPI } from '@api'
 import bus from '@utils/event_bus'
 import { mapGetters } from 'vuex'
+import { orderBy } from 'lodash'
 
 export default {
   data () {
@@ -90,7 +102,7 @@ export default {
       workflowToRun: {},
       remain: 10,
       keyword: '',
-      selectedType: ''
+      sortBy: 'name-asc'
     }
   },
   provide () {
@@ -112,14 +124,26 @@ export default {
       return this.$store.getters.workflowList
     },
     availableWorkflows () {
-      const availableWorkflows = this.filteredWorkflows
+      const filteredWorkflows = this.filteredWorkflows
+      let sortedWorkflows = []
+      const nameSorter = item => item.name.toLowerCase()
+      const timeSorter = item => item.update_time
+      if (this.sortBy === 'name-asc') {
+        sortedWorkflows = orderBy(filteredWorkflows, nameSorter, 'asc')
+      } else if (this.sortBy === 'name-desc') {
+        sortedWorkflows = orderBy(filteredWorkflows, nameSorter, 'desc')
+      } else if (this.sortBy === 'time-asc') {
+        sortedWorkflows = orderBy(filteredWorkflows, timeSorter, 'asc')
+      } else if (this.sortBy === 'time-desc') {
+        sortedWorkflows = orderBy(filteredWorkflows, timeSorter, 'desc')
+      }
       if (this.showFavorite) {
-        const favoriteWorkflows = this.$utils.cloneObj(availableWorkflows).filter((x) => {
+        const favoriteWorkflows = this.$utils.cloneObj(sortedWorkflows).filter((x) => {
           return x.is_favorite
         })
         return favoriteWorkflows
       } else {
-        const sortedByFavorite = this.$utils.cloneObj(availableWorkflows).sort((x) => {
+        const sortedByFavorite = this.$utils.cloneObj(sortedWorkflows).sort((x) => {
           return x.is_favorite ? -1 : 1
         })
         return sortedByFavorite
@@ -241,6 +265,9 @@ export default {
         this.$store.dispatch('refreshWorkflowList')
         this.$router.push(`/productpipelines/edit/${newName}`)
       })
+    },
+    sortWorkflow (cm) {
+      this.sortBy = cm
     }
   },
   created () {
@@ -370,7 +397,8 @@ export default {
               box-shadow: 0 4px 4px rgba(0, 0, 0, 0.05);
               cursor: pointer;
 
-              .favorite {
+              .favorite,
+              .sort {
                 font-size: 20px;
               }
 

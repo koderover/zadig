@@ -86,12 +86,6 @@ type S3Config struct {
 type GithubConfig struct {
 	// github API access token
 	AccessToken string
-	// github API admin access token
-	AdminAccessToken string
-	// webhook url
-	HookURL string
-	// webhook secret
-	HookSecret string
 	// github ssh key with base64 encoded
 	SSHKey string
 	// github knownhost

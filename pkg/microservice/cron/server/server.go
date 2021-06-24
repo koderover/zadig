@@ -42,7 +42,10 @@ func Serve(ctx context.Context) error {
 	http.HandleFunc("/ping", ping)
 	server := &http.Server{Addr: ":8091", Handler: nil}
 
+	stopChan := make(chan struct{})
 	go func() {
+		defer close(stopChan)
+
 		<-ctx.Done()
 
 		// TODO: stop cron jobs
@@ -58,6 +61,8 @@ func Serve(ctx context.Context) error {
 		log.Errorf("Failed to start http server, error: %s", err)
 		return err
 	}
+
+	<-stopChan
 
 	return nil
 }

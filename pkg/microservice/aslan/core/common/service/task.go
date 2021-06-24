@@ -24,9 +24,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models/task"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -58,14 +58,14 @@ func CancelTask(userName, pipelineName string, taskID int64, typeString config.P
 			(t.Status == config.StatusWaiting || t.Status == config.StatusBlocked || t.Status == config.StatusCreated) {
 			Remove(t, log)
 
-			err := repo.NewTaskColl().UpdateStatus(taskID, pipelineName, userName, config.StatusCancelled)
+			err := mongodb.NewTaskColl().UpdateStatus(taskID, pipelineName, userName, config.StatusCancelled)
 			if err != nil {
 				log.Errorf("PipelineTaskV2.UpdateStatus [%s:%d] error: %v", pipelineName, taskID, err)
 				return err
 			}
 
 			// 获取更新后的任务数据并发送通知
-			t, err := repo.NewTaskColl().Find(taskID, pipelineName, typeString)
+			t, err := mongodb.NewTaskColl().Find(taskID, pipelineName, typeString)
 			if err != nil {
 				log.Errorf("[%s] task: %s:%d not found", userName, pipelineName, taskID)
 				return err
@@ -90,7 +90,7 @@ func CancelTask(userName, pipelineName string, taskID int64, typeString config.P
 		return err
 	}
 
-	t, err := repo.NewTaskColl().Find(taskID, pipelineName, typeString)
+	t, err := mongodb.NewTaskColl().Find(taskID, pipelineName, typeString)
 	if err != nil {
 		log.Errorf("[%s] task: %s:%d not found", userName, pipelineName, taskID)
 		return err
@@ -106,7 +106,7 @@ func CancelTask(userName, pipelineName string, taskID int64, typeString config.P
 
 	log.Infof("[%s] CancelRunningTask %s:%d on %s", userName, pipelineName, taskID, t.AgentHost)
 
-	if err := repo.NewTaskColl().Update(t); err != nil {
+	if err := mongodb.NewTaskColl().Update(t); err != nil {
 		log.Errorf("[%s] update task: %s:%d error: %v", userName, pipelineName, taskID, err)
 		return err
 	}
@@ -132,7 +132,7 @@ func CancelTask(userName, pipelineName string, taskID int64, typeString config.P
 }
 
 func GetServiceTasks(log *zap.SugaredLogger) (map[string][]string, error) {
-	taskPreviewList, err := repo.NewTaskColl().List(&repo.ListTaskOption{Type: config.ServiceType})
+	taskPreviewList, err := mongodb.NewTaskColl().List(&mongodb.ListTaskOption{Type: config.ServiceType})
 	if err != nil {
 		log.Errorf("getJobNamespaceAndSelector PipelineTaskV2.List error: %v", err)
 		return nil, e.ErrListTasks

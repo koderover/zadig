@@ -45,10 +45,10 @@ import (
 	"github.com/koderover/zadig/pkg/internal/kube/wrapper"
 	"github.com/koderover/zadig/pkg/internal/poetry"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models/template"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo"
-	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo/template"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gerrit"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/helmclient"
@@ -782,68 +782,84 @@ func UpdateProductV2(envName, productName, user, requestID string, force bool, k
 // CreateProduct create a new product with its dependent stacks
 func CreateProduct(user, requestID string, args *commonmodels.Product, log *zap.SugaredLogger) (err error) {
 	log.Infof("[%s][P:%s] CreateProduct", args.EnvName, args.ProductName)
-	kubeClient, err := kube.GetKubeClient(args.ClusterID)
-	if err != nil {
-		return e.ErrCreateEnv.AddErr(err)
-	}
 
-	//判断namespace是否存在
-	namespace := args.GetNamespace()
-	args.Namespace = namespace
-	_, found, err := getter.GetNamespace(namespace, kubeClient)
-	if err != nil {
-		log.Errorf("GetNamespace error: %v", err)
-		return e.ErrCreateEnv.AddDesc(err.Error())
-	}
-	if found {
-		return e.ErrCreateEnv.AddDesc(fmt.Sprintf("%s[%s]%s", "namespace", namespace, "已经存在,请换个环境名称尝试!"))
-	}
-
-	//创建角色环境之间的关联关系
-	//todo 创建环境暂时不指定角色
-	// 检查是否重复创建（TO BE FIXED）;检查k8s集群设置: Namespace/Secret .etc
-	if err := preCreateProduct(args.EnvName, args, kubeClient, log); err != nil {
-		log.Errorf("CreateProduct preCreateProduct error: %v", err)
-		return e.ErrCreateEnv.AddDesc(err.Error())
-	}
-
-	eventStart := time.Now().Unix()
-	// 检查renderinfo是否为空，避免空指针
-	if args.Render == nil {
-		args.Render = &commonmodels.RenderInfo{ProductTmpl: args.ProductName}
-	}
-
-	renderSet := &commonmodels.RenderSet{
-		ProductTmpl: args.Render.ProductTmpl,
-		Name:        args.Render.Name,
-		Revision:    args.Render.Revision,
-	}
-	// 如果是版本回滚，则args.Render.Revision > 0
-	if args.Render.Revision == 0 {
-		// 检查renderset是否覆盖产品所有key
-		renderSet, err = commonservice.ValidateRenderSet(args.ProductName, args.Render.Name, "", log)
+	switch args.Source {
+	case setting.SourceFromExternal:
+		args.Status = setting.ProductStatusUnstable
+		args.RecycleDay = config.DefaultRecycleDay()
+		err = commonrepo.NewProductColl().Create(args)
 		if err != nil {
-			log.Errorf("[%s][P:%s] validate product renderset error: %v", args.EnvName, args.ProductName, err)
+			log.Errorf("[%s][%s] create product record error: %v", args.EnvName, args.ProductName, err)
 			return e.ErrCreateEnv.AddDesc(err.Error())
 		}
-		// 保存产品信息,并设置产品状态
-		// 设置产品render revsion
-		args.Render.Revision = renderSet.Revision
-		// 记录服务当前对应render版本
-		setServiceRender(args)
-	}
+	default:
+		kubeClient, err := kube.GetKubeClient(args.ClusterID)
+		if err != nil {
+			return e.ErrCreateEnv.AddErr(err)
+		}
 
-	args.Status = setting.ProductStatusCreating
-	args.RecycleDay = config.DefaultRecycleDay()
-	err = commonrepo.NewProductColl().Create(args)
-	if err != nil {
-		log.Errorf("[%s][%s] create product record error: %v", args.EnvName, args.ProductName, err)
-		return e.ErrCreateEnv.AddDesc(err.Error())
+		//判断namespace是否存在
+		namespace := args.GetNamespace()
+		args.Namespace = namespace
+		_, found, err := getter.GetNamespace(namespace, kubeClient)
+		if err != nil {
+			log.Errorf("GetNamespace error: %v", err)
+			return e.ErrCreateEnv.AddDesc(err.Error())
+		}
+		if found {
+			return e.ErrCreateEnv.AddDesc(fmt.Sprintf("%s[%s]%s", "namespace", namespace, "已经存在,请换个环境名称尝试!"))
+		}
+
+		//创建角色环境之间的关联关系
+		//todo 创建环境暂时不指定角色
+		// 检查是否重复创建（TO BE FIXED）;检查k8s集群设置: Namespace/Secret .etc
+		if err := preCreateProduct(args.EnvName, args, kubeClient, log); err != nil {
+			log.Errorf("CreateProduct preCreateProduct error: %v", err)
+			return e.ErrCreateEnv.AddDesc(err.Error())
+		}
+
+		eventStart := time.Now().Unix()
+		// 检查renderinfo是否为空，避免空指针
+		if args.Render == nil {
+			args.Render = &commonmodels.RenderInfo{ProductTmpl: args.ProductName}
+		}
+
+		renderSet := &commonmodels.RenderSet{
+			ProductTmpl: args.Render.ProductTmpl,
+			Name:        args.Render.Name,
+			Revision:    args.Render.Revision,
+		}
+		// 如果是版本回滚，则args.Render.Revision > 0
+		if args.Render.Revision == 0 {
+			// 检查renderset是否覆盖产品所有key
+			renderSet, err = commonservice.ValidateRenderSet(args.ProductName, args.Render.Name, "", log)
+			if err != nil {
+				log.Errorf("[%s][P:%s] validate product renderset error: %v", args.EnvName, args.ProductName, err)
+				return e.ErrCreateEnv.AddDesc(err.Error())
+			}
+			// 保存产品信息,并设置产品状态
+			// 设置产品render revsion
+			args.Render.Revision = renderSet.Revision
+			// 记录服务当前对应render版本
+			setServiceRender(args)
+		}
+
+		args.Status = setting.ProductStatusCreating
+		args.RecycleDay = config.DefaultRecycleDay()
+		err = commonrepo.NewProductColl().Create(args)
+		if err != nil {
+			log.Errorf("[%s][%s] create product record error: %v", args.EnvName, args.ProductName, err)
+			return e.ErrCreateEnv.AddDesc(err.Error())
+		}
+		// 异步创建产品
+		go createGroups(args.EnvName, user, requestID, args, eventStart, renderSet, kubeClient, log)
 	}
-	// 异步创建产品
-	go createGroups(args.EnvName, user, requestID, args, eventStart, renderSet, kubeClient, log)
 
 	return nil
+}
+
+func UpdateProductRecycleDay(envName, productName string, recycleDay int) error {
+	return commonrepo.NewProductColl().UpdateProductRecycleDay(envName, productName, recycleDay)
 }
 
 func GetProductInfo(username, envName, productName string, log *zap.SugaredLogger) (*commonmodels.Product, error) {

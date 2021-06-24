@@ -18,11 +18,13 @@ package service
 
 import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehost"
+	"github.com/koderover/zadig/pkg/setting"
 )
 
-func GetConfigPayload() *models.ConfigPayload {
+func GetConfigPayload(codeHostID int) *models.ConfigPayload {
 	payload := &models.ConfigPayload{
 		Aslan: models.AslanConfig{
 			URL:              config.AslanURL(),
@@ -68,13 +70,20 @@ func GetConfigPayload() *models.ConfigPayload {
 		},
 	}
 
-	githubApps, _ := repo.NewGithubAppColl().Find()
+	githubApps, _ := mongodb.NewGithubAppColl().Find()
 	if len(githubApps) != 0 {
 		payload.Github.AppKey = githubApps[0].AppKey
 		payload.Github.AppID = githubApps[0].AppID
 	}
 
-	proxies, _ := repo.NewProxyColl().List(&repo.ProxyArgs{})
+	if codeHostID > 0 {
+		ch, _ := codehost.GetCodeHostInfoByID(codeHostID)
+		if ch != nil && ch.Type == setting.SourceFromGithub {
+			payload.Github.AccessToken = ch.AccessToken
+		}
+	}
+
+	proxies, _ := mongodb.NewProxyColl().List(&mongodb.ProxyArgs{})
 	if len(proxies) != 0 {
 		payload.Proxy = *proxies[0]
 	}

@@ -28,9 +28,9 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models/task"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/util"
@@ -38,15 +38,15 @@ import (
 
 type Service struct {
 	Client       *Client
-	Coll         *repo.NotificationColl
-	DiffNoteColl *repo.DiffNoteColl
+	Coll         *mongodb.NotificationColl
+	DiffNoteColl *mongodb.DiffNoteColl
 }
 
 func NewService() *Service {
 	return &Service{
 		Client:       NewClient(),
-		Coll:         repo.NewNotificationColl(),
-		DiffNoteColl: repo.NewDiffNoteColl(),
+		Coll:         mongodb.NewNotificationColl(),
+		DiffNoteColl: mongodb.NewDiffNoteColl(),
 	}
 }
 
@@ -264,7 +264,7 @@ func (s *Service) UpdateDiffNote(task *task.Task, logger *zap.SugaredLogger) (er
 		body = "KodeRover CI 检查失败"
 	}
 
-	opt := &repo.DiffNoteFindOpt{
+	opt := &mongodb.DiffNoteFindOpt{
 		CodehostID:     notification.CodehostID,
 		ProjectID:      notification.ProjectID,
 		MergeRequestID: notification.PrID,

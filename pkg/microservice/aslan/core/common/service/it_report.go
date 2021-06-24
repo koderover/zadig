@@ -29,8 +29,8 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/util"
@@ -42,7 +42,7 @@ func GetLocalTestSuite(pipelineName, serviceName, testType string, taskID int64,
 	// testName param is deperecated here.
 	// TODO: clear frontend & backend code deperecated testName(actually it's test subtask jobName)
 	// testName should be: pipelineName-taskId-taskType-serviceName
-	pipelineTask, err := repo.NewTaskColl().Find(taskID, pipelineName, typeString)
+	pipelineTask, err := mongodb.NewTaskColl().Find(taskID, pipelineName, typeString)
 	if err != nil {
 		return testReport, fmt.Errorf("cannot find pipeline task, pipeline name: %s, task id: %d", pipelineName, taskID)
 	}

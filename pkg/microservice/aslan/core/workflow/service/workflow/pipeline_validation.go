@@ -33,9 +33,9 @@ import (
 
 	"github.com/koderover/zadig/pkg/internal/kube/wrapper"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models/task"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehost"
 	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
@@ -51,8 +51,6 @@ import (
 const (
 	NameSpaceRegexString   = "[^a-z0-9.-]"
 	defaultNameRegexString = "^[a-zA-Z0-9-_]{1,50}$"
-
-	GithubAPIServer = "https://api.github.com/"
 )
 
 var (
@@ -340,7 +338,7 @@ func setBuildInfo(build *types.Repository) {
 			build.AuthorName = commit.AuthorName
 		}
 	} else {
-		gitCli := git.NewGithubAppClient(gitInfo.AccessToken, GithubAPIServer, config.ProxyHTTPSAddr())
+		gitCli := git.NewClient(gitInfo.AccessToken, config.ProxyHTTPSAddr())
 		//// 需要后端自动获取Branch当前Commit，并填写到build中
 		if build.CommitID == "" {
 			// 如果是仅填写Branch编译

@@ -25,7 +25,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehost"
 	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
-	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
 	"github.com/koderover/zadig/pkg/tool/gitlab"
@@ -84,7 +83,7 @@ func CodehostListProjects(codehostID int, namespace, namespaceType, keyword stri
 		return result, err
 	} else {
 		//	github
-		gitClient := git.NewGithubAppClient(codehost.AccessToken, setting.GitHubAPIServer, config.ProxyHTTPSAddr())
+		gitClient := git.NewClient(codehost.AccessToken, config.ProxyHTTPSAddr())
 		opt := &github.RepositoryListOptions{
 			ListOptions: github.ListOptions{Page: page, PerPage: perPage},
 		}

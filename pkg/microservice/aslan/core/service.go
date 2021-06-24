@@ -26,8 +26,8 @@ import (
 
 	commonconfig "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo/template"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"

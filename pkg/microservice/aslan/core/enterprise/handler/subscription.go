@@ -21,7 +21,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	enterpriseservice "github.com/koderover/zadig/pkg/microservice/aslan/core/enterprise/service"
 	internalhandler "github.com/koderover/zadig/pkg/microservice/aslan/internal/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"

@@ -47,6 +47,13 @@
                    style="color: red;"></i>
               </el-tooltip>
             </el-form-item>
+            <el-form-item v-if="versionList.length > 0 && taskDetail.status==='passed'"
+                          label="交付清单">
+              <router-link :to="`/v1/delivery/version/${versionList[0].versionInfo.id}`">
+                <span class="version-link">{{ $utils.tailCut(versionList[0].versionInfo.id,8,'#')+
+            versionList[0].versionInfo.version }}</span>
+              </router-link>
+            </el-form-item>
             <el-form-item v-if="showOperation()"
                           label="操作">
                 <el-button v-if="taskDetail.status==='failed' || taskDetail.status==='cancelled' || taskDetail.status==='timeout'"
@@ -153,6 +160,29 @@
                     </el-row>
                   </div>
                   <span v-else> 暂无代码 </span>
+                </template>
+              </el-table-column>
+              <el-table-column label="Issue 追踪"
+                               width="200">
+                <template slot-scope="scope">
+                  <div v-if="scope.row.issues.length > 0">
+                    <el-popover v-for="(issue,index) in scope.row.issues"
+                                :key="index"
+                                trigger="hover"
+                                placement="top"
+                                popper-class="issue-popper">
+                      <p>标题: {{issue.summary?issue.summary:'*'}}</p>
+                      <p>报告人: {{issue.reporter?issue.reporter:'*'}}</p>
+                      <p>分配给: {{issue.assignee?issue.assignee:'*'}}</p>
+                      <p>优先级: {{issue.priority?issue.priority:'*'}}</p>
+                      <span slot="reference"
+                            class="issue-name-wrapper text-center">
+                        <a :href="issue.url"
+                           target="_blank">{{`${issue.key} ${$utils.tailCut(issue.summary,12)}`}}</a>
+                      </span>
+                    </el-popover>
+                  </div>
+                  <span v-else> 暂无 Issue </span>
                 </template>
               </el-table-column>
             </el-table>
@@ -449,7 +479,7 @@
 
 <script>
 import {
-  workflowTaskDetailAPI, workflowTaskDetailSSEAPI, restartWorkflowAPI, cancelWorkflowAPI
+  workflowTaskDetailAPI, workflowTaskDetailSSEAPI, restartWorkflowAPI, cancelWorkflowAPI, getVersionListAPI
 } from '@api'
 import { wordTranslate, colorTranslate } from '@utils/word_translate.js'
 import deployIcons from '@/components/common/deploy_icons'
@@ -511,6 +541,7 @@ export default {
       inputTagVisible: false,
       inputValue: '',
       artifactModalVisible: false,
+      versionList: [],
       expandedBuildDeploys: [],
       expandedArtifactDeploys: [],
       expandedTests: []
@@ -572,19 +603,67 @@ export default {
       }
       return arr
     },
+    jiraIssues () {
+      const map = {}
+      this.collectSubTask(map, 'jira')
+      const arr = this.$utils.mapToArray(map, 'service_name')
+      const jiraIssues = []
+      arr.forEach(element => {
+        if (element.jiraSubTask.issues) {
+          jiraIssues.push({
+            service_name: element.service_name,
+            issues: element.jiraSubTask.issues
+          })
+        }
+      })
+      return jiraIssues
+    },
     buildSummary () {
+      const map = {}
+      this.collectSubTask(map, 'jira')
+      const taskArr = this.$utils.mapToArray(map, 'service_name')
+      const jiraIssues = []
+      taskArr.forEach(element => {
+        if (element.jiraSubTask.issues) {
+          jiraIssues.push({
+            service_name: element.service_name,
+            issues: element.jiraSubTask.issues
+          })
+        }
+      })
       const buildArr = this.$utils.mapToArray(this.buildDeployMap, '_target').filter(item => item.buildv2SubTask.type === 'buildv2')
       const summary = buildArr.map(element => {
+        let currentIssues = jiraIssues.find(item => { return item.service_name === element._target })
+        if (!currentIssues) {
+          currentIssues = null
+        }
         return {
           service_name: element._target,
-          builds: _.get(element, 'buildv2SubTask.job_ctx.builds', '')
+          builds: _.get(element, 'buildv2SubTask.job_ctx.builds', ''),
+          issues: currentIssues ? currentIssues.issues : []
         }
       })
       return summary
     },
     jenkinsSummary () {
+      const map = {}
+      this.collectSubTask(map, 'jira')
+      const taskArr = this.$utils.mapToArray(map, 'service_name')
+      const jiraIssues = []
+      taskArr.forEach(element => {
+        if (element.jiraSubTask.issues) {
+          jiraIssues.push({
+            service_name: element.service_name,
+            issues: element.jiraSubTask.issues
+          })
+        }
+      })
       const buildArr = this.$utils.mapToArray(this.buildDeployMap, '_target').filter(item => item.buildv2SubTask.type === 'jenkins_build')
       const summary = buildArr.map(element => {
+        let currentIssues = jiraIssues.find(item => { return item.service_name === element._target })
+        if (!currentIssues) {
+          currentIssues = null
+        }
         return {
           service_name: element._target,
           builds: _.get(element, 'buildv2SubTask.job_ctx', ''),
@@ -689,6 +768,14 @@ export default {
           this.$refs.testComp.killLog('test')
         }
         this.$message.success('任务取消成功')
+      })
+    },
+    checkDeliveryList () {
+      const orgId = this.currentOrganizationId
+      const workflowName = this.workflowName
+      const taskId = this.taskID
+      getVersionListAPI(orgId, workflowName, '', taskId).then((res) => {
+        this.versionList = res
       })
     },
     collectSubTask (map, typeName) {
@@ -836,6 +923,7 @@ export default {
   },
   watch: {
     $route (to, from) {
+      this.checkDeliveryList()
       this.setTitleBar()
       if (this.$route.query.status === 'passed' || this.$route.query.status === 'failed' || this.$route.query.status === 'timeout' || this.$route.query.status === 'cancelled') {
         this.fetchOldTaskDetail()
@@ -845,6 +933,7 @@ export default {
     }
   },
   created () {
+    this.checkDeliveryList()
     this.setTitleBar()
     if (this.$route.query.status === 'passed' || this.$route.query.status === 'failed' || this.$route.query.status === 'timeout' || this.$route.query.status === 'cancelled') {
       this.fetchOldTaskDetail()

@@ -68,6 +68,9 @@ import test_function_task_detail from '../components/quality_manage/tests/functi
 import test_case from '../components/quality_manage/tests/test_case.vue'
 
 // delivery center
+import delivery_home from '../components/projects/delivery/home.vue'
+import delivery_version from '../components/projects/delivery/version/index.vue'
+import delivery_version_detail from '../components/projects/delivery/version/detail.vue'
 import delivery_artifacts from '../components/projects/delivery/artifacts/index.vue'
 import delivery_artifacts_detail from '../components/projects/delivery/artifacts/detail.vue'
 
@@ -511,6 +514,34 @@ const routes = [
       title: '交付中心'
     },
     children: [
+      {
+        path: '',
+        component: delivery_home
+      },
+      {
+        path: 'version',
+        component: delivery_home,
+        children: [
+          {
+            path: ':project_name',
+            component: delivery_version,
+            meta: {
+              requiresAuth: true,
+              requiresSuperAdmin: false,
+              title: '版本管理'
+            }
+          },
+          {
+            path: ':project_name/:id',
+            component: delivery_version_detail,
+            meta: {
+              requiresAuth: true,
+              requiresSuperAdmin: false,
+              title: '版本详情'
+            }
+          }
+        ]
+      },
       {
         path: 'artifacts',
         component: delivery_artifacts,

@@ -27,8 +27,8 @@ import (
 
 	"github.com/koderover/zadig/pkg/internal/poetry"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -41,7 +41,7 @@ const (
 
 func DeleteProduct(username, envName, productName, requestID string, log *zap.SugaredLogger) (err error) {
 	eventStart := time.Now().Unix()
-	productInfo, err := repo.NewProductColl().Find(&repo.ProductFindOptions{Name: productName, EnvName: envName})
+	productInfo, err := mongodb.NewProductColl().Find(&mongodb.ProductFindOptions{Name: productName, EnvName: envName})
 	if err != nil {
 		log.Errorf("find product error: %v", err)
 		return e.ErrDeleteEnv.AddDesc("not found")
@@ -53,7 +53,7 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 	}
 
 	// 设置产品状态
-	err = repo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusDeleting)
+	err = mongodb.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusDeleting)
 	if err != nil {
 		log.Errorf("[%s][%s] update product status error: %v", username, productInfo.Namespace, err)
 		return e.ErrDeleteEnv.AddDesc("更新集成环境状态失败: " + err.Error())
@@ -73,7 +73,7 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 					// 发送删除产品失败消息给用户
 					title := fmt.Sprintf("删除项目:[%s] 环境:[%s] 失败!", productName, envName)
 					SendErrorMessage(username, title, requestID, err, log)
-					_ = repo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusUnknown)
+					_ = mongodb.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusUnknown)
 				} else {
 					title := fmt.Sprintf("删除项目:[%s] 环境:[%s] 成功!", productName, envName)
 					content := fmt.Sprintf("namespace:%s", productInfo.Namespace)
@@ -108,7 +108,7 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 			//	return
 			//}
 
-			err = repo.NewProductColl().Delete(envName, productName)
+			err = mongodb.NewProductColl().Delete(envName, productName)
 			if err != nil {
 				log.Errorf("Product.Delete error: %v", err)
 			}

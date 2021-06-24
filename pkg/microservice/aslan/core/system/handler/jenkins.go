@@ -17,13 +17,14 @@ limitations under the License.
 package handler
 
 import (
+	"net/url"
+
 	"github.com/gin-gonic/gin"
 
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/pkg/microservice/aslan/internal/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/util"
 )
 
 func CreateJenkinsIntegration(c *gin.Context) {
@@ -36,7 +37,7 @@ func CreateJenkinsIntegration(c *gin.Context) {
 		return
 	}
 	args.UpdateBy = ctx.Username
-	if _, err := util.GetURL(args.URL); err != nil {
+	if _, err := url.Parse(args.URL); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid url")
 		return
 	}

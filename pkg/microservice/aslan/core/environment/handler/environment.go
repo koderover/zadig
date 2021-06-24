@@ -30,8 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/koderover/zadig/pkg/internal/kube/resource"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models/template"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	internalhandler "github.com/koderover/zadig/pkg/microservice/aslan/internal/handler"
@@ -155,6 +155,33 @@ func UpdateProduct(c *gin.Context) {
 	if ctx.Err != nil {
 		ctx.Logger.Errorf("failed to update product %s %s: %v", envName, productName, ctx.Err)
 	}
+}
+
+func UpdateProductRecycleDay(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	envName := c.Query("envName")
+	productName := c.Param("productName")
+	recycleDayStr := c.Query("recycleDay")
+
+	internalhandler.InsertOperationLog(c, ctx.Username, productName, "更新", "集成环境-环境回收", envName, permission.TestEnvManageUUID, "", ctx.Logger)
+
+	var (
+		recycleDay int
+		err        error
+	)
+	if recycleDayStr == "" || envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("envName or recycleDay不能为空")
+		return
+	}
+	recycleDay, err = strconv.Atoi(recycleDayStr)
+	if err != nil || recycleDay < 0 {
+		ctx.Err = e.ErrInvalidParam.AddDesc("recycleDay必须是正整数")
+		return
+	}
+
+	ctx.Err = service.UpdateProductRecycleDay(envName, productName, recycleDay)
 }
 
 func GetProduct(c *gin.Context) {

@@ -19,13 +19,13 @@ package service
 import (
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 func InsertOperation(args *models.OperationLog, log *zap.SugaredLogger) error {
-	err := repo.NewOperationLogColl().Insert(args)
+	err := mongodb.NewOperationLogColl().Insert(args)
 	if err != nil {
 		log.Errorf("insert operation log error: %v", err)
 		return e.ErrCreateOperationLog
@@ -34,7 +34,7 @@ func InsertOperation(args *models.OperationLog, log *zap.SugaredLogger) error {
 }
 
 func UpdateOperation(id string, status int, log *zap.SugaredLogger) error {
-	err := repo.NewOperationLogColl().Update(id, status)
+	err := mongodb.NewOperationLogColl().Update(id, status)
 	if err != nil {
 		log.Errorf("update operation log error: %v", err)
 		return e.ErrUpdateOperationLog

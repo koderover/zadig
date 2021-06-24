@@ -29,8 +29,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/repo"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/tool/crypto"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
@@ -56,12 +56,12 @@ func GetClientset(clusterID string) (kubernetes.Interface, error) {
 type Service struct {
 	*multicluster.Agent
 
-	coll *repo.K8SClusterColl
+	coll *mongodb.K8SClusterColl
 }
 
 func NewService(hubServerAddr string) (*Service, error) {
 	if hubServerAddr == "" {
-		return &Service{coll: repo.NewK8SClusterColl()}, nil
+		return &Service{coll: mongodb.NewK8SClusterColl()}, nil
 	}
 
 	agent, err := multicluster.NewAgent(hubServerAddr)
@@ -70,7 +70,7 @@ func NewService(hubServerAddr string) (*Service, error) {
 	}
 
 	return &Service{
-		coll:  repo.NewK8SClusterColl(),
+		coll:  mongodb.NewK8SClusterColl(),
 		Agent: agent,
 	}, nil
 }

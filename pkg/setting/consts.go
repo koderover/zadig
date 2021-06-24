@@ -267,8 +267,6 @@ const (
 	PublishType = "publish"
 
 	FunctionTestType = "function"
-
-	GitHubAPIServer = "https://api.github.com/"
 )
 
 const (

@@ -23,7 +23,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/dao/models/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	projectservice "github.com/koderover/zadig/pkg/microservice/aslan/core/project/service"
 	internalhandler "github.com/koderover/zadig/pkg/microservice/aslan/internal/handler"

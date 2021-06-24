@@ -1,0 +1,24 @@
+version: '1.0'
+stages:
+  - clone
+  - ut
+steps:
+  clone:
+    git: github
+    repo: 'https://github.com/koderover/Zadig'
+    revision: main
+    title: git clone
+    type: git-clone
+    working_directory: '${{KR_VOLUME_PATH}}'
+    stage: clone
+  ut:
+    title: unit test
+    stage: ut
+    image: golang:1.16.5
+    commands:
+      - go env -w GOCACHE="/koderover/volume/buildcache"
+      - go env -w GOMODCACHE="/koderover/volume/go/pkg/mod" GO111MODULE="on"
+      - export GOPROXY=https://goproxy.cn,https://goproxy.io,direct
+      - cd Zadig
+      - go test -coverprofile=coverage.xml $(cat ut.file)
+    working_directory: '${{KR_VOLUME_PATH}}'

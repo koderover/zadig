@@ -102,7 +102,7 @@ func IsHavePermission(permissionUUIDs []string, paramType int) gin.HandlerFunc {
 		}
 
 		//判断用户是否有操作的权限uuid
-		if rolePermissionMap, err := poetryClient.GetUserPermissionUUIDMap(permissionUUID, productName, user.ID, log); err == nil {
+		if rolePermissionMap, err := poetryClient.GetUserPermissionUUIDMap(productName, permissionUUID, user.ID, log); err == nil {
 			if rolePermissionMap["isContain"] {
 				c.Next()
 				return
@@ -127,7 +127,7 @@ func IsHavePermission(permissionUUIDs []string, paramType int) gin.HandlerFunc {
 
 		if len(permissionUUIDs) == 3 {
 			permissionUUID = permissionUUIDs[2]
-			if rolePermissionMap, err := poetryClient.GetUserPermissionUUIDMap(permissionUUID, productName, user.ID, log); err == nil {
+			if rolePermissionMap, err := poetryClient.GetUserPermissionUUIDMap(productName, permissionUUID, user.ID, log); err == nil {
 				if rolePermissionMap["isContain"] {
 					c.Next()
 					return

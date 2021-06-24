@@ -16,16 +16,15 @@ limitations under the License.
 
 package setting
 
-// Request ...
 type Request string
 
 const (
 	// HighRequest 16 CPU 32 G
-	HighRequest = Request("high")
+	HighRequest Request = "high"
 	// MediumRequest 8 CPU 16 G
-	MediumRequest = Request("medium")
+	MediumRequest Request = "medium"
 	// LowRequest 4 CPU 8 G
-	LowRequest = Request("low")
+	LowRequest Request = "low"
 	// MinRequest 2 CPU 2 G
-	MinRequest = Request("min")
+	MinRequest Request = "min"
 )
