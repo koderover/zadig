@@ -2,9 +2,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: nginx3
+  name: nginx
   labels:
-    app: nginx3
+    app: nginx
     tier: backend
     version: "{{.nginxVersion4}}"
 spec:
@@ -12,24 +12,24 @@ spec:
   ports:
   - port: 80
   selector:
-    app: nginx3
+    app: nginx
     tier: backend
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nginx3
+  name: nginx
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: nginx3
+      app: nginx
       tier: backend
       version: "{{.nginxVersion4}}"
   template:
     metadata:
       labels:
-        app: nginx3
+        app: nginx
         tier: backend
         version: "{{.nginxVersion4}}"
     spec:
