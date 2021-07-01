@@ -6,7 +6,7 @@ metadata:
   labels:
     app: nginx
     tier: backend
-    version: "{{.nginxVersion4}}"
+    version: "{{.nginxVersion}}"
 spec:
   type: NodePort
   ports:
@@ -25,13 +25,13 @@ spec:
     matchLabels:
       app: nginx
       tier: backend
-      version: "{{.nginxVersion4}}"
+      version: "{{.nginxVersion}}"
   template:
     metadata:
       labels:
         app: nginx
         tier: backend
-        version: "{{.nginxVersion4}}"
+        version: "{{.nginxVersion}}"
     spec:
       containers:
       - name: nginx-test
