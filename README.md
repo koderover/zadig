@@ -39,6 +39,13 @@ Zadig is non-invasive, it does not exclude any of your existing development proc
 
 > Our vision is: Developer + Zadig = Business success
 
+
+**Architecture**
+
+![Business Architecture](./Zadig-Business-Architecture.jpg)
+
+**Highlighted Features**
+
 - **High Concurrency**
 
 Based on cloud-native design, through simple configuration, the system automatically generates workflows to achieve high concurrent execution for continuous delivery relevant tasks such as building, testing and deployment, across multiple services. It significantly improves the efficiency of multi-services deployment in microservice architecture.
