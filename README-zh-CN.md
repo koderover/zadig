@@ -38,11 +38,11 @@ Zadig 是一款面向开发者设计的云原生持续交付(Continuous Delivery
 
 我们的愿景：`工程师 + Zadig = 商业上的成功`
 
-**架构介绍**
+业务架构介绍：
 
 ![业务架构图](./Zadig-Business-Architecture-zh.jpg)
 
-**产品特性**
+产品特性介绍：
 
 - **高并发的工作流**
 

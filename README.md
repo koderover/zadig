@@ -40,11 +40,11 @@ Zadig is non-invasive, it does not exclude any of your existing development proc
 > Our vision is: Developer + Zadig = Business success
 
 
-**Architecture**
+The architecture is as follows:
 
 ![Business Architecture](./Zadig-Business-Architecture.jpg)
 
-**Highlighted Features**
+The Highlighted Features:
 
 - **High Concurrency**
 
