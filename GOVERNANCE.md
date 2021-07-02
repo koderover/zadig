@@ -42,7 +42,7 @@ The council will make a decision for the nomination. The candidate has to have d
 - Successfully driving the project to be much more impactful and modeling deep understanding in the product and the industry
 
 ## Council members
-[A list of current council]
+- [landylee007](https://github.com/landylee007)
 
 ## Maintainers
 [a list of current maintainers]
@@ -52,3 +52,7 @@ The council will make a decision for the nomination. The candidate has to have d
 - [xen0n](https://github.com/xen0n)
 - [hoozecn](https://github.com/hoozecn)
 - [KevinWu0904](https://github.com/KevinWu0904)
+- [cpu6660](https://github.com/cpu6660)
+- [piao100101](https://github.com/piao100101)
+- [nanzm](https://github.com/nanzm)
+- [solomon-cc](https://github.com/solomon-cc)
