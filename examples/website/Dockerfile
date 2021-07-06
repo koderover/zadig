@@ -1,8 +1,8 @@
 FROM nginx:1.16.0
 
-WORKDIR /zadig-portal
+WORKDIR /website-example
 
-ADD index.html /zadig-portal/
+ADD index.html /website-example/
 
 ADD nginx.conf /etc/nginx/conf.d/default.conf
 
