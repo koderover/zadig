@@ -25,10 +25,10 @@ spec:
   template:
     metadata:
       labels:
-        app: nginx
+        app: website-example
     spec:
       containers:
-        - name: nginx-test
+        - name: website-example
           image: ccr.ccs.tencentyun.com/koderover-public/website-example:1.0.0
           ports:
             - containerPort: 80
