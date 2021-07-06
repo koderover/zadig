@@ -32,17 +32,3 @@ spec:
           image: ccr.ccs.tencentyun.com/koderover-public/website-example:1.0.0
           ports:
             - containerPort: 80
----
-apiVersion: extensions/v1beta1
-kind: Ingress
-metadata:
-  name: website-example-expose
-spec:
-  rules:
-    - host: $EnvName$-nginx-expose.app.8slan.com
-      http:
-        paths:
-          - backend:
-              serviceName: nginx
-              servicePort: 80
-            path: /
