@@ -1,0 +1,51 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: website-example
+  labels:
+    app: website-example
+    tier: frontend
+spec:
+  type: NodePort
+  ports:
+    - port: 80
+  selector:
+    app: website-example
+    tier: frontend
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: website-example
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: website-example
+      tier: frontend
+  template:
+    metadata:
+      labels:
+        app: nginx
+        tier: backend
+    spec:
+      containers:
+        - name: nginx-test
+          image: ccr.ccs.tencentyun.com/koderover-public/website-example:1.0.0
+          ports:
+            - containerPort: 80
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: website-example-expose
+spec:
+  rules:
+    - host: $EnvName$-nginx-expose.app.8slan.com
+      http:
+        paths:
+          - backend:
+              serviceName: nginx
+              servicePort: 80
+            path: /
