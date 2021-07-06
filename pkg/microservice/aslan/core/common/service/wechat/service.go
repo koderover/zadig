@@ -28,6 +28,8 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -275,6 +277,20 @@ func (w *Service) createNotifyBody(weChatNotification *wechatNotification) (cont
 		"- 创建人：{{.Task.TaskCreator}} \n" +
 		"- 总运行时长：{{ .TotalTime}} 秒 \n"
 
+	testNames := getHTMLTestReport(weChatNotification.Task)
+	if len(testNames) != 0 {
+		tmplSource += "- 测试报告：\n"
+	}
+
+	for _, testName := range testNames {
+		url := fmt.Sprintf("{{.BaseURI}}/api/aslan/testing/report?pipelineName={{.Task.PipelineName}}&pipelineType={{.Task.Type}}&taskID={{.Task.TaskID}}&testName=%s\n", testName)
+		if weChatNotification.WebHookType == feiShuType {
+			tmplSource += url
+			continue
+		}
+		tmplSource += fmt.Sprintf("[%s](%s)\n", url, url)
+	}
+
 	if weChatNotification.WebHookType == dingDingType {
 		if len(weChatNotification.AtMobiles) > 0 && !weChatNotification.IsAtAll {
 			tmplSource = fmt.Sprintf("%s - 相关人员：@%s \n", tmplSource, strings.Join(weChatNotification.AtMobiles, "@"))
@@ -306,4 +322,31 @@ func (w *Service) createNotifyBody(weChatNotification *wechatNotification) (cont
 	}
 
 	return buffer.String(), nil
+}
+
+func getHTMLTestReport(task *task.Task) []string {
+	if task.Type != config.WorkflowType {
+		return nil
+	}
+
+	testNames := make([]string, 0)
+	for _, stage := range task.Stages {
+		if stage.TaskType != config.TaskTestingV2 {
+			continue
+		}
+
+		for testName, subTask := range stage.SubTasks {
+			testInfo, err := base.ToTestingTask(subTask)
+			if err != nil {
+				log.Errorf("parse testInfo failed, err:%s", err)
+				continue
+			}
+
+			if testInfo.JobCtx.TestType == setting.FunctionTest && testInfo.JobCtx.TestReportPath != "" {
+				testNames = append(testNames, testName)
+			}
+		}
+	}
+
+	return testNames
 }

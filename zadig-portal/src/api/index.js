@@ -245,7 +245,7 @@ export function envRevisionsAPI (projectName, envName) {
 }
 
 export function productServicesAPI (projectName, envName, envSource, searchName = '', perPage = 20, page = 1) {
-  if (envSource === 'external') {
+  if (envSource === 'helm' || envSource === 'external') {
     return http.get(`/api/aslan/environment/environments/${projectName}/groups/${envSource}?envName=${envName}`)
   } else {
     return http.get(`/api/aslan/environment/environments/${projectName}/groups?envName=${envName}&serviceName=${searchName}&perPage=${perPage}&page=${page}`)
@@ -300,6 +300,54 @@ export function updateServicePermissionAPI (data) {
 
 export function deleteServiceTemplateAPI (name, type, projectName, visibility) {
   return http.delete(`/api/aslan/service/services/${name}/${type}?productName=${projectName}&visibility=${visibility}`)
+}
+
+export function createPmServiceAPI (projectName, payload) {
+  return http.post(`/api/aslan/service/pm/${projectName}`, payload)
+}
+
+export function updatePmServiceAPI (projectName, payload) {
+  return http.put(`/api/aslan/service/pm/${projectName}`, payload)
+}
+
+export function getHelmChartProjectChartsAPI (project, projectName = '') {
+  return http.get(`/api/aslan/service/harbor/project/${project}/charts?productName=${projectName}`)
+}
+
+export function getHelmChartProjectAPI (projectName = '') {
+  return http.get(`/api/aslan/service/harbor/project`)
+}
+
+export function addHelmChartAPI (projectName = '', payload) {
+  return http.post(`/api/aslan/service/helm/${projectName}`, payload)
+}
+
+export function updateHelmChartAPI (projectName = '', payload) {
+  return http.put(`/api/aslan/service/helm/${projectName}`, payload)
+}
+
+export function getHelmChartVersionAPI (project, chart) {
+  return http.get(`/api/aslan/service/harbor/project/${project}/chart/${chart}/versions`)
+}
+
+export function helmChartWithConfigAPI (serviceName, projectName) {
+  return http.get(`/api/aslan/service/helm/${projectName}/${serviceName}`)
+}
+
+export function getHelmChartService (projectName) {
+  return http.get(`/api/aslan/service/helm/${projectName}`)
+}
+
+export function getHelmChartServiceFilePath (projectName, serviceName, path) {
+  return http.get(`/api/aslan/service/helm/${projectName}/${serviceName}/filePath?dir=${path}`)
+}
+
+export function getHelmChartServiceFileContent (projectName, serviceName, path, fileName) {
+  return http.get(`/api/aslan/service/helm/${projectName}/${serviceName}/fileContent?filePath=${path}&fileName=${fileName}`)
+}
+
+export function getHelmChartServiceModule (projectName, serviceName) {
+  return http.get(`/api/aslan/service/helm/${projectName}/${serviceName}/serviceModule`)
 }
 
 export function imagesAPI (payload, registry = '') {
@@ -619,6 +667,61 @@ export function deleteGithubAppAPI (id) {
   return http.delete(`/api/aslan/system/githubApp/${id}`)
 }
 
+// Account
+export function registrationChangeAPI (payload) {
+  return http.put(`/api/directory/isOpenRegistry`, { openRegistry: payload })
+}
+
+export function getSSOAPI (organization_id) {
+  return http.get(`/api/directory/sso?orgId=${organization_id}`)
+}
+
+export function updateSSOAPI (organization_id, payload) {
+  return http.post(`/api/directory/sso?orgId=${organization_id}`, payload)
+}
+
+export function deleteSSOAPI (organization_id) {
+  return http.delete(`/api/directory/sso?orgId=${organization_id}`)
+}
+
+export function createSSOAPI (organization_id, payload) {
+  return http.post(`/api/directory/sso?orgId=${organization_id}`, payload)
+}
+
+export function getAccountAPI (organization_id) {
+  return http.get(`/api/directory/ad/default?orgId=${organization_id}`)
+}
+
+export function deleteAccountAPI (organization_id) {
+  return http.delete(`/api/directory/ad/default?orgId=${organization_id}`)
+}
+
+export function updateAccountAPI (organization_id, payload) {
+  return http.put(`/api/directory/ad/default?orgId=${organization_id}`, payload)
+}
+
+export function createAccountAPI (organization_id, payload) {
+  return http.post(`/api/directory/ad?orgId=${organization_id}`, payload)
+}
+
+export function syncAccountAPI (organization_id) {
+  return http.post(`/api/directory/ads/sync?orgId=${organization_id}`)
+}
+
+// Jira
+export function getJiraAPI (organization_id) {
+  return http.get(`/api/directory/jira?orgId=${organization_id}`)
+}
+export function updateJiraAPI (organization_id, payload) {
+  return http.post(`/api/directory/jira?orgId=${organization_id}`, payload)
+}
+export function deleteJiraAPI (organization_id) {
+  return http.delete(`/api/directory/jira?orgId=${organization_id}`)
+}
+export function createJiraAPI (organization_id, payload) {
+  return http.post(`/api/directory/jira?orgId=${organization_id}`, payload)
+}
+
 // Jenkins
 export function addJenkins (payload) {
   return http.post('/api/aslan/system/jenkins/integration', payload)
@@ -684,20 +787,7 @@ export function deleteAppAPI (data) {
   return http.put('/api/aslan/system/install/delete', data)
 }
 
-export function getJiraAPI (organization_id) {
-  return http.get(`/api/directory/jira?orgId=${organization_id}`)
-}
-export function updateJiraAPI (organization_id, payload) {
-  return http.post(`/api/directory/jira?orgId=${organization_id}`, payload)
-}
-export function deleteJiraAPI (organization_id) {
-  return http.delete(`/api/directory/jira?orgId=${organization_id}`)
-}
-export function createJiraAPI (organization_id, payload) {
-  return http.post(`/api/directory/jira?orgId=${organization_id}`, payload)
-}
-
-// custom image
+// Custom image
 export function addImgAPI (payload) {
   return http.post(`/api/aslan/system/basicImages`, payload)
 }
@@ -720,6 +810,14 @@ export function createProxyConfigAPI (payload) {
 }
 export function updateProxyConfigAPI (id, payload) {
   return http.put(`/api/aslan/system/proxyManage/${id}`, payload)
+}
+
+// Quota
+export function getCapacityAPI (target) {
+  return http.get(`/api/aslan/system/capacity/target/${target}`)
+}
+export function setCapacityAPI (payload) {
+  return http.post(`/api/aslan/system/capacity`, payload)
 }
 
 // Cache
@@ -762,6 +860,48 @@ export function updateStorageAPI (id, payload) {
 
 export function deleteStorageAPI (id) {
   return http.delete(`/api/aslan/system/s3storage/${id}`)
+}
+
+// Cluster
+export function getClusterListAPI () {
+  return http.get(`/api/aslan/cluster/clusters`)
+}
+
+export function createClusterAPI (payload) {
+  return http.post(`/api/aslan/cluster/clusters`, payload)
+}
+
+export function updateClusterAPI (id, payload) {
+  return http.put(`/api/aslan/cluster/clusters/${id}`, payload)
+}
+
+export function recoverClusterAPI (id) {
+  return http.put(`/api/aslan/cluster/clusters/${id}/reconnect`)
+}
+
+export function disconnectClusterAPI (id) {
+  return http.put(`/api/aslan/cluster/clusters/${id}/disconnect`)
+}
+
+export function deleteClusterAPI (id) {
+  return http.delete(`/api/aslan/cluster/clusters/${id}`)
+}
+
+// Host
+export function getHostListAPI () {
+  return http.get(`/api/aslan/system/privateKey`)
+}
+
+export function createHostAPI (payload) {
+  return http.post(`/api/aslan/system/privateKey`, payload)
+}
+
+export function updateHostAPI (id, payload) {
+  return http.put(`/api/aslan/system/privateKey/${id}`, payload)
+}
+
+export function deleteHostAPI (id) {
+  return http.delete(`/api/aslan/system/privateKey/${id}`)
 }
 
 // Delivery Center
@@ -832,6 +972,22 @@ export function updateK8sEnvAPI (product_name, env_name, payload, envType = '', 
   return http.post(`/api/aslan/environment/environments/${product_name}?envName=${env_name}&envType=${envType}&force=${force}`, payload)
 }
 
+export function updateHelmEnvAPI (projectName, envName, updateType = '') {
+  return http.put(`/api/aslan/environment/environments/${projectName}/helmEnv?envName=${envName}&updateType=${updateType}`)
+}
+
+export function getHelmEnvVarAPI (projectName, envName) {
+  return http.get(`/api/aslan/environment/environments/${projectName}/helmRenderCharts?envName=${envName}`)
+}
+
+export function updateHelmEnvVarAPI (projectName, envName, payload) {
+  return http.put(`/api/aslan/environment/environments/${projectName}/helmEnvVariable?envName=${envName}`, payload)
+}
+
+export function getHelmEnvChartDiffAPI (projectName, envName) {
+  return http.get(`/api/aslan/environment/environments/${projectName}/helmChartVersions?envName=${envName}`)
+}
+
 export function recycleEnvAPI (product_name, env_name, recycle_day) {
   return http.put(`/api/aslan/environment/environments/${product_name}/envRecycle?envName=${env_name}&recycleDay=${recycle_day}`)
 }
@@ -864,6 +1020,10 @@ export function restartServiceAPI (productName, serviceName, envName = '', scale
   return http.post(`/api/aslan/environment/environments/${productName}/services/${serviceName}/restartNew?envName=${envName}&type=${type}&name=${scaleName}&envType=${envType}`)
 }
 
+export function restartPmServiceAPI (payload) {
+  return http.post(`/api/aslan/workflow/servicetask`, payload)
+}
+
 export function scaleServiceAPI (productName, serviceName, envName = '', scaleName, scaleNumber, type, envType = '') {
   return http.post(
     `/api/aslan/environment/environments/${productName}/services/${serviceName}/scaleNew/${scaleNumber}?envName=${envName}&type=${type}&name=${scaleName}&envType=${envType}`
@@ -892,6 +1052,10 @@ export function autoUpgradeEnvAPI (projectName, payload, force = '') {
   return http.put(`/api/aslan/environment/environments/${projectName}/autoUpdate?force=${force}`, payload)
 }
 
+export function autoUpgradeHelmEnvAPI (projectName, payload) {
+  return http.put(`/api/aslan/environment/environments/${projectName}/updateMultiEnv`, payload)
+}
+
 // Login
 export function userLoginAPI (organization_id, payload) {
   return http.post(`/api/directory/user/login?orgId=${organization_id}`, payload)
@@ -914,11 +1078,11 @@ export function getJwtTokenAPI () {
 }
 
 export function getSubscribeAPI () {
-  return http.get('/api/aslan/enterprise/notification/subscribe')
+  return http.get('/api/aslan/system/notification/subscribe')
 }
 
 export function saveSubscribeAPI (payload) {
-  return http.post('/api/aslan/enterprise/notification/subscribe', payload)
+  return http.post('/api/aslan/system/notification/subscribe', payload)
 }
 
 export function downloadPubKeyAPI () {
@@ -931,15 +1095,15 @@ export function updateServiceImageAPI (payload, type, envType = '') {
 
 // Notification
 export function getNotificationAPI () {
-  return http.get('/api/aslan/enterprise/notification')
+  return http.get('/api/aslan/system/notification')
 }
 
 export function deleteAnnouncementAPI (payload) {
-  return http.post('/api/aslan/enterprise/announcement/delete', payload)
+  return http.post('/api/aslan/system/notification/delete', payload)
 }
 
 export function markNotiReadAPI (payload) {
-  return http.put('/api/aslan/enterprise/notification/read', payload)
+  return http.put('/api/aslan/system/notification/read', payload)
 }
 
 // Onboarding

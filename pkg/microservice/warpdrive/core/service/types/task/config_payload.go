@@ -47,7 +47,8 @@ type ConfigPayload struct {
 	IgnoreCache bool `json:"ignore_cache"`
 
 	// ResetCache means ignore workspace cache
-	ResetCache bool `json:"reset_cache"`
+	ResetCache  bool          `json:"reset_cache"`
+	PrivateKeys []*PrivateKey `json:"private_keys"`
 }
 
 func (cp *ConfigPayload) GetGitKnownHost() string {
@@ -146,4 +147,8 @@ type DockerConfig struct {
 
 type JenkinsBuildConfig struct {
 	JenkinsBuildImage string
+}
+
+type PrivateKey struct {
+	Name string `json:"name"`
 }

@@ -20,7 +20,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	buildservice "github.com/koderover/zadig/pkg/microservice/aslan/core/build/service"
-	internalhandler "github.com/koderover/zadig/pkg/microservice/aslan/internal/handler"
+	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
 func ListDeployTarget(c *gin.Context) {

@@ -30,9 +30,10 @@ import (
 	taskmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	deliveryservice "github.com/koderover/zadig/pkg/microservice/aslan/core/delivery/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
-	internalhandler "github.com/koderover/zadig/pkg/microservice/aslan/internal/handler"
+	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types/permission"
@@ -248,7 +249,7 @@ func ListDeliveryVersion(c *gin.Context) {
 				if subStage.TaskType == config.TaskSecurity {
 					subSecurityTaskMap := subStage.SubTasks
 					for _, subTask := range subSecurityTaskMap {
-						securityInfo, _ := commonservice.ToSecurityTask(subTask)
+						securityInfo, _ := base.ToSecurityTask(subTask)
 
 						deliverySecurityStats := new(DeliverySecurityStats)
 						deliverySecurityStats.ImageName = securityInfo.ImageName

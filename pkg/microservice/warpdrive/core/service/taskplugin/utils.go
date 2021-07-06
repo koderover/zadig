@@ -30,9 +30,21 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
+	"github.com/koderover/zadig/pkg/tool/kodo"
 )
 
 func int32Ptr(i int32) *int32 { return &i }
+
+func uploadFileToS3(access, secret, bucket, remote, local string) error {
+	s3Cli, err := kodo.NewUploadClient(access, secret, bucket)
+	if err != nil {
+		return err
+	}
+	if _, _, err := s3Cli.UploadFile(remote, local); err != nil {
+		return err
+	}
+	return nil
+}
 
 //  选择最合适的dockerhost
 func GetBestDockerHost(hostList []string, pipelineType, namespace string, log *zap.SugaredLogger) (string, error) {

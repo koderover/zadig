@@ -57,6 +57,9 @@ type Context struct {
 	// PostScripts 后置编译脚本
 	PostScripts []string `yaml:"post_scripts"`
 
+	// PMDeployScripts 物理机部署脚本
+	PMDeployScripts []string `yaml:"pm_deploy_scripts"`
+
 	// SSH ssh连接参数
 	SSHs []*task.SSH `yaml:"sshs"`
 
@@ -241,14 +244,16 @@ func (r *Repo) Ref() string {
 
 // Archive ...
 type Archive struct {
-	Dir  string `yaml:"dir"`
-	File string `yaml:"file"`
+	Dir            string `yaml:"dir"`
+	File           string `yaml:"file"`
+	TestReportFile string `yaml:"test_report_file"`
 }
 
 // GinkgoTest ...
 type GinkgoTest struct {
-	ResultPath    string   `yaml:"result_path"`
-	ArtifactPaths []string `yaml:"artifact_paths"`
+	ResultPath     string   `yaml:"result_path"`
+	TestReportPath string   `yaml:"test_report_path"`
+	ArtifactPaths  []string `yaml:"artifact_paths"`
 }
 
 // DockerRegistry 推送镜像到 docker registry 配置

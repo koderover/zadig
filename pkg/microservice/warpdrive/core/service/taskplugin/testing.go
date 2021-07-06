@@ -21,7 +21,6 @@ import (
 	"encoding/csv"
 	"encoding/xml"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 	"time"
@@ -139,23 +138,26 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, linkedNamespaceEnvVar)
 	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, envNameEnvVar)
 
-	testJobName := strings.Replace(strings.ToLower(fmt.Sprintf("%s-%s-%d-%s-%s", config.SingleType,
-		pipelineTask.PipelineName, pipelineTask.TaskID, config.TaskTestingV2, pipelineTask.ServiceName)), "_", "-", -1)
+	var testReportFile string // html 测试报告
+	fileName := fmt.Sprintf("%s-%s-%d-%s-%s", config.SingleType, pipelineTask.PipelineName, pipelineTask.TaskID, config.TaskTestingV2, pipelineTask.ServiceName)
 	// 测试结果保存名称,两种模式需要区分开
-	fileName := testJobName
 	if pipelineTask.Type == config.WorkflowType {
-		fileName = strings.Replace(strings.ToLower(fmt.Sprintf("%s-%s-%d-%s-%s",
-			config.WorkflowType, pipelineTask.PipelineName, pipelineTask.TaskID, config.TaskTestingV2, serviceName)), "_", "-", -1)
+		fileName = fmt.Sprintf("%s-%s-%d-%s-%s", config.WorkflowType, pipelineTask.PipelineName, pipelineTask.TaskID, config.TaskTestingV2, serviceName)
+		testReportFile = fmt.Sprintf("%s-%s-%d-%s-%s-html", config.WorkflowType, pipelineTask.PipelineName, pipelineTask.TaskID, config.TaskTestingV2, p.Task.TestModuleName)
 	} else if pipelineTask.Type == config.TestType {
-		fileName = strings.Replace(strings.ToLower(fmt.Sprintf("%s-%s-%d-%s-%s",
-			config.TestType, pipelineTask.PipelineName, pipelineTask.TaskID, config.TaskTestingV2, serviceName)), "_", "-", -1)
+		fileName = fmt.Sprintf("%s-%s-%d-%s-%s", config.TestType, pipelineTask.PipelineName, pipelineTask.TaskID, config.TaskTestingV2, serviceName)
 	}
+
+	fileName = strings.Replace(strings.ToLower(fileName), "_", "-", -1)
+	testReportFile = strings.Replace(strings.ToLower(testReportFile), "_", "-", -1)
+
 	jobCtx := JobCtxBuilder{
-		JobName:     p.JobName,
-		PipelineCtx: pipelineCtx,
-		ArchiveFile: fileName,
-		JobCtx:      p.Task.JobCtx,
-		Installs:    p.Task.InstallCtx,
+		JobName:        p.JobName,
+		PipelineCtx:    pipelineCtx,
+		ArchiveFile:    fileName,
+		TestReportFile: testReportFile,
+		JobCtx:         p.Task.JobCtx,
+		Installs:       p.Task.InstallCtx,
 	}
 
 	jobCtxBytes, err := yaml.Marshal(jobCtx.BuildReaperContext(pipelineTask, serviceName))
@@ -271,157 +273,163 @@ func (p *TestPlugin) Complete(ctx context.Context, pipelineTask *task.Task, serv
 	}
 	p.Task.LogFile = p.JobName
 
-	testJobName := strings.Replace(strings.ToLower(fmt.Sprintf("%s-%s-%d-%s-%s", config.SingleType,
-		pipelineTask.PipelineName, pipelineTask.TaskID, config.TaskTestingV2, pipelineTask.ServiceName)), "_", "-", -1)
+	fileName := fmt.Sprintf("%s-%s-%d-%s-%s", config.SingleType, pipelineTask.PipelineName, pipelineTask.TaskID, config.TaskTestingV2, pipelineTask.ServiceName)
 
 	// 测试结果保存名称,两种模式需要区分开
-	fileName := testJobName
 	if pipelineTask.Type == config.WorkflowType {
-		fileName = strings.Replace(strings.ToLower(fmt.Sprintf("%s-%s-%d-%s-%s",
-			config.WorkflowType, pipelineTask.PipelineName, pipelineTask.TaskID, config.TaskTestingV2, serviceName)), "_", "-", -1)
+		fileName = fmt.Sprintf("%s-%s-%d-%s-%s", config.WorkflowType, pipelineTask.PipelineName, pipelineTask.TaskID, config.TaskTestingV2, serviceName)
 	} else if pipelineTask.Type == config.TestType {
-		fileName = strings.Replace(strings.ToLower(fmt.Sprintf("%s-%s-%d-%s-%s",
-			config.TestType, pipelineTask.PipelineName, pipelineTask.TaskID, config.TaskTestingV2, serviceName)), "_", "-", -1)
+		fileName = fmt.Sprintf("%s-%s-%d-%s-%s", config.TestType, pipelineTask.PipelineName, pipelineTask.TaskID, config.TaskTestingV2, serviceName)
 	}
+
+	fileName = strings.Replace(strings.ToLower(fileName), "_", "-", -1)
 
 	//如果用户配置了测试结果目录需要收集,则下载测试结果,发送到aslan server
 	//Note here: p.Task.TestName目前只有默认值test
-	if p.Task.JobCtx.TestResultPath != "" {
-		testReport := new(types.TestReport)
-		if pipelineTask.TestReports == nil {
-			pipelineTask.TestReports = make(map[string]interface{})
-		}
-
-		if p.Task.JobCtx.TestType == "" {
-			p.Task.JobCtx.TestType = setting.FunctionTest
-		}
-
-		var store *s3.S3
-		if store, err = s3.NewS3StorageFromEncryptedURI(pipelineTask.StorageURI); err == nil {
-			if store.Subfolder != "" {
-				store.Subfolder = fmt.Sprintf("%s/%s/%d/%s", store.Subfolder, pipelineName, pipelineTaskID, "artifact")
-			} else {
-				store.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineName, pipelineTaskID, "artifact")
-			}
-			if files, err := s3.ListFiles(store, "/", true); err == nil {
-				if len(files) > 0 {
-					p.Task.JobCtx.IsHasArtifact = true
-				}
-			}
-
-			tmpFilename, err := util.GenerateTmpFile()
-			if err != nil {
-				p.Log.Error(fmt.Sprintf("generate temp file error: %v", err))
-			}
-			defer func() {
-				_ = os.Remove(tmpFilename)
-			}()
-
-			store.Subfolder = strings.Replace(store.Subfolder, fmt.Sprintf("%s/%d/%s", pipelineName, pipelineTaskID, "artifact"), fmt.Sprintf("%s/%d/%s", pipelineName, pipelineTaskID, "test"), -1)
-			if err = s3.Download(context.Background(), store, fileName, tmpFilename); err == nil {
-				if p.Task.JobCtx.TestType == setting.FunctionTest {
-
-					b, err := ioutil.ReadFile(tmpFilename)
-					if err != nil {
-						p.Log.Error(fmt.Sprintf("get test result file error: %v", err))
-
-						msg := "none test result found"
-						p.Task.Error = msg
-						p.Task.TaskStatus = config.StatusFailed
-						return
-					}
-
-					err = xml.Unmarshal(b, &testReport.FunctionTestSuite)
-					if err != nil {
-						msg := fmt.Sprintf("unmarshal result file test suite summary error: %v", err)
-						p.Log.Error(msg)
-						p.Task.Error = msg
-						p.Task.TaskStatus = config.StatusFailed
-						return
-					}
-					p.Task.ReportReady = true
-					testReport.FunctionTestSuite.TestCases = []types.TestCase{}
-					//测试报告
-					pipelineTask.TestReports[serviceName] = testReport
-
-					if testReport.FunctionTestSuite.Errors > 0 || testReport.FunctionTestSuite.Failures > 0 {
-						msg := fmt.Sprintf(
-							"%d failure case(s) found",
-							testReport.FunctionTestSuite.Errors+testReport.FunctionTestSuite.Failures,
-						)
-						p.Log.Error(msg)
-						p.Task.Error = msg
-						p.Task.TaskStatus = config.StatusFailed
-						return
-					}
-
-				} else if p.Task.JobCtx.TestType == setting.PerformanceTest {
-					csvFile, err := os.Open(tmpFilename)
-					if err != nil {
-						msg := fmt.Sprintf("get performance test result file error: %v", err)
-						p.Log.Error(msg)
-						p.Task.Error = msg
-						p.Task.TaskStatus = config.StatusFailed
-						return
-					}
-					defer csvFile.Close()
-					csvReader := csv.NewReader(csvFile)
-					row, err := csvReader.Read()
-					if len(row) != 11 {
-						msg := "csv file type match error"
-						p.Log.Error(msg)
-						p.Task.Error = msg
-						p.Task.TaskStatus = config.StatusFailed
-						return
-					}
-
-					if err != nil {
-						msg := fmt.Sprintf("read performance csv first row error: %v", err)
-						p.Log.Error(msg)
-						p.Task.Error = msg
-						p.Task.TaskStatus = config.StatusFailed
-						return
-					}
-
-					rows, err := csvReader.ReadAll()
-					if err != nil {
-						msg := fmt.Sprintf("read csv readAll error: %v", err)
-						p.Log.Error(msg)
-						p.Task.Error = msg
-						p.Task.TaskStatus = config.StatusFailed
-						return
-					}
-					performanceTestSuites := make([]*types.PerformanceTestSuite, 0)
-					for _, row := range rows {
-						performanceTestSuite := new(types.PerformanceTestSuite)
-						performanceTestSuite.Label = row[0]
-						performanceTestSuite.Samples = row[1]
-						performanceTestSuite.Average = row[2]
-						performanceTestSuite.Min = row[3]
-						performanceTestSuite.Max = row[4]
-						performanceTestSuite.Line = row[5]
-						performanceTestSuite.StdDev = row[6]
-						performanceTestSuite.Error = row[7]
-						performanceTestSuite.Throughput = row[8]
-						performanceTestSuite.ReceivedKb = row[9]
-						performanceTestSuite.AvgByte = row[10]
-
-						performanceTestSuites = append(performanceTestSuites, performanceTestSuite)
-					}
-					p.Task.ReportReady = true
-					testReport.PerformanceTestSuites = performanceTestSuites
-					//测试报告
-					pipelineTask.TestReports[serviceName] = testReport
-				}
-			}
-		}
-		// compare failure percent with threshold
-		// Integer operation: FAIL/TOTAL > %V  =>  FAIL*100 > TOTAL*V
-		//if itReport.TestSuiteSummary.Failures*100 > itReport.TestSuiteSummary.Tests*p.Task.JobCtx.TestThreshold {
-		//	p.Task.TaskStatus = task.StatusFailed
-		//	return
-		//}
+	if p.Task.JobCtx.TestResultPath == "" {
+		return
 	}
+
+	testReport := new(types.TestReport)
+	if pipelineTask.TestReports == nil {
+		pipelineTask.TestReports = make(map[string]interface{})
+	}
+
+	if p.Task.JobCtx.TestType == "" {
+		p.Task.JobCtx.TestType = setting.FunctionTest
+	}
+
+	store, err := s3.NewS3StorageFromEncryptedURI(pipelineTask.StorageURI)
+	if err != nil {
+		return
+	}
+
+	if store.Subfolder != "" {
+		store.Subfolder = fmt.Sprintf("%s/%s/%d/%s", store.Subfolder, pipelineName, pipelineTaskID, "artifact")
+	} else {
+		store.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineName, pipelineTaskID, "artifact")
+	}
+	if files, err := s3.ListFiles(store, "/", true); err == nil {
+		if len(files) > 0 {
+			p.Task.JobCtx.IsHasArtifact = true
+		}
+	}
+
+	tmpFilename, err := util.GenerateTmpFile()
+	if err != nil {
+		p.Log.Error(fmt.Sprintf("generate temp file error: %v", err))
+	}
+	defer func() {
+		_ = os.Remove(tmpFilename)
+	}()
+
+	store.Subfolder = strings.Replace(store.Subfolder, fmt.Sprintf("%s/%d/%s", pipelineName, pipelineTaskID, "artifact"), fmt.Sprintf("%s/%d/%s", pipelineName, pipelineTaskID, "test"), -1)
+	err = s3.Download(context.Background(), store, fileName, tmpFilename)
+	if err != nil {
+		return
+	}
+
+	if p.Task.JobCtx.TestType == setting.FunctionTest {
+		b, err := os.ReadFile(tmpFilename)
+		if err != nil {
+			p.Log.Error(fmt.Sprintf("get test result file error: %v", err))
+
+			msg := "no test result is found"
+			p.Task.Error = msg
+			p.Task.TaskStatus = config.StatusFailed
+			return
+		}
+
+		err = xml.Unmarshal(b, &testReport.FunctionTestSuite)
+		if err != nil {
+			msg := fmt.Sprintf("unmarshal result file test suite summary error: %v", err)
+			p.Log.Error(msg)
+			p.Task.Error = msg
+			p.Task.TaskStatus = config.StatusFailed
+			return
+		}
+		p.Task.ReportReady = true
+		testReport.FunctionTestSuite.TestCases = []types.TestCase{}
+		//测试报告
+		pipelineTask.TestReports[serviceName] = testReport
+
+		if testReport.FunctionTestSuite.Errors > 0 || testReport.FunctionTestSuite.Failures > 0 {
+			msg := fmt.Sprintf(
+				"%d failure case(s) found",
+				testReport.FunctionTestSuite.Errors+testReport.FunctionTestSuite.Failures,
+			)
+			p.Log.Error(msg)
+			p.Task.Error = msg
+			p.Task.TaskStatus = config.StatusFailed
+			return
+		}
+
+	} else if p.Task.JobCtx.TestType == setting.PerformanceTest {
+		csvFile, err := os.Open(tmpFilename)
+		if err != nil {
+			msg := fmt.Sprintf("get performance test result file error: %v", err)
+			p.Log.Error(msg)
+			p.Task.Error = msg
+			p.Task.TaskStatus = config.StatusFailed
+			return
+		}
+		defer csvFile.Close()
+		csvReader := csv.NewReader(csvFile)
+		row, err := csvReader.Read()
+		if len(row) != 11 {
+			msg := "csv file type match error"
+			p.Log.Error(msg)
+			p.Task.Error = msg
+			p.Task.TaskStatus = config.StatusFailed
+			return
+		}
+
+		if err != nil {
+			msg := fmt.Sprintf("read performance csv first row error: %v", err)
+			p.Log.Error(msg)
+			p.Task.Error = msg
+			p.Task.TaskStatus = config.StatusFailed
+			return
+		}
+
+		rows, err := csvReader.ReadAll()
+		if err != nil {
+			msg := fmt.Sprintf("read csv readAll error: %v", err)
+			p.Log.Error(msg)
+			p.Task.Error = msg
+			p.Task.TaskStatus = config.StatusFailed
+			return
+		}
+		performanceTestSuites := make([]*types.PerformanceTestSuite, 0)
+		for _, row := range rows {
+			performanceTestSuite := new(types.PerformanceTestSuite)
+			performanceTestSuite.Label = row[0]
+			performanceTestSuite.Samples = row[1]
+			performanceTestSuite.Average = row[2]
+			performanceTestSuite.Min = row[3]
+			performanceTestSuite.Max = row[4]
+			performanceTestSuite.Line = row[5]
+			performanceTestSuite.StdDev = row[6]
+			performanceTestSuite.Error = row[7]
+			performanceTestSuite.Throughput = row[8]
+			performanceTestSuite.ReceivedKb = row[9]
+			performanceTestSuite.AvgByte = row[10]
+
+			performanceTestSuites = append(performanceTestSuites, performanceTestSuite)
+		}
+		p.Task.ReportReady = true
+		testReport.PerformanceTestSuites = performanceTestSuites
+		//测试报告
+		pipelineTask.TestReports[serviceName] = testReport
+	}
+
+	// compare failure percent with threshold
+	// Integer operation: FAIL/TOTAL > %V  =>  FAIL*100 > TOTAL*V
+	//if itReport.TestSuiteSummary.Failures*100 > itReport.TestSuiteSummary.Tests*p.Task.JobCtx.TestThreshold {
+	//	p.Task.TaskStatus = task.StatusFailed
+	//	return
+	//}
+
 }
 
 func (p *TestPlugin) SetTask(t map[string]interface{}) error {

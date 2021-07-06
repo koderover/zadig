@@ -1,0 +1,235 @@
+/*
+Copyright 2021 The KodeRover Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package webhook
+
+import (
+	"strconv"
+
+	multierror "github.com/hashicorp/go-multierror"
+	gitlab "github.com/xanzy/go-gitlab"
+	"go.uber.org/zap"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
+	testingservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/service"
+	"github.com/koderover/zadig/pkg/setting"
+)
+
+type gitEventMatcherForTesting interface {
+	Match(commonmodels.MainHookRepo) (bool, error)
+	UpdateTaskArgs(*commonmodels.TestTaskArgs, string) *commonmodels.TestTaskArgs
+}
+
+type testArgsFactory struct {
+	testing *commonmodels.Testing
+	reqID   string
+}
+
+func (waf *testArgsFactory) Update(args *commonmodels.TestTaskArgs) *commonmodels.TestTaskArgs {
+	test := waf.testing
+	args.TestName = test.Name
+	args.TestTaskCreator = setting.WebhookTaskCreator
+	args.ProductName = test.ProductName
+
+	return args
+}
+
+type gitlabPushEventMatcherForTesting struct {
+	log     *zap.SugaredLogger
+	testing *commonmodels.Testing
+	event   *gitlab.PushEvent
+}
+
+func (gpem *gitlabPushEventMatcherForTesting) Match(hookRepo commonmodels.MainHookRepo) (bool, error) {
+	ev := gpem.event
+	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.Project.PathWithNamespace {
+		if hookRepo.Branch == getBranchFromRef(ev.Ref) && EventConfigured(hookRepo, config.HookEventPush) {
+			var changedFiles []string
+			for _, commit := range ev.Commits {
+				changedFiles = append(changedFiles, commit.Added...)
+				changedFiles = append(changedFiles, commit.Removed...)
+				changedFiles = append(changedFiles, commit.Modified...)
+			}
+
+			return MatchChanges(hookRepo, changedFiles), nil
+		}
+	}
+
+	return false, nil
+}
+
+func (gpem *gitlabPushEventMatcherForTesting) UpdateTaskArgs(args *commonmodels.TestTaskArgs, requestID string) *commonmodels.TestTaskArgs {
+	factory := &testArgsFactory{
+		testing: gpem.testing,
+		reqID:   requestID,
+	}
+
+	factory.Update(args)
+	return args
+}
+
+// TriggerTestByGitlabEvent 测试管理模块的触发器任务
+func TriggerTestByGitlabEvent(event interface{}, baseURI, requestID string, log *zap.SugaredLogger) error {
+	// 1. find configured testing
+	testingList, err := commonrepo.NewTestingColl().List(&commonrepo.ListTestOption{})
+	if err != nil {
+		log.Errorf("failed to list testing %v", err)
+		return err
+	}
+
+	mErr := &multierror.Error{}
+	diffSrv := func(mergeEvent *gitlab.MergeEvent, codehostId int) ([]string, error) {
+		return findChangedFilesOfMergeRequest(mergeEvent, codehostId)
+	}
+
+	var notification *commonmodels.Notification
+
+	for _, testing := range testingList {
+		if testing.HookCtl != nil && testing.HookCtl.Enabled {
+			log.Infof("find %d hooks in testing %s", len(testing.HookCtl.Items), testing.Name)
+			for _, item := range testing.HookCtl.Items {
+				if item.TestArgs == nil {
+					continue
+				}
+
+				// 2. match webhook
+				matcher := createGitlabEventMatcherForTesting(event, diffSrv, testing, log)
+				if matcher == nil {
+					continue
+				}
+
+				if matches, err := matcher.Match(item.MainRepo); err != nil {
+					mErr = multierror.Append(mErr, err)
+				} else if matches {
+					log.Infof("event match hook %v of %s", item.MainRepo, testing.Name)
+					var mergeRequestID, commitID string
+					if ev, isPr := event.(*gitlab.MergeEvent); isPr {
+						// 如果是merge request，且该webhook触发器配置了自动取消，
+						// 则需要确认该merge request在本次commit之前的commit触发的任务是否处理完，没有处理完则取消掉。
+						mergeRequestID = strconv.Itoa(ev.ObjectAttributes.IID)
+						commitID = ev.ObjectAttributes.LastCommit.ID
+						autoCancelOpt := &AutoCancelOpt{
+							MergeRequestID: mergeRequestID,
+							CommitID:       commitID,
+							TaskType:       config.TestType,
+							MainRepo:       item.MainRepo,
+							TestArgs:       item.TestArgs,
+						}
+						err := AutoCancelTask(autoCancelOpt, log)
+						if err != nil {
+							log.Errorf("failed to auto cancel testing task when receive event %v due to %v ", event, err)
+							mErr = multierror.Append(mErr, err)
+						}
+						// 发送本次commit的通知
+						if notification == nil {
+							notification, _ = scmnotify.NewService().SendInitWebhookComment(
+								&item.MainRepo, ev.ObjectAttributes.IID, baseURI, false, true, log,
+							)
+						}
+					}
+
+					if notification != nil {
+						item.TestArgs.NotificationID = notification.ID.Hex()
+					}
+
+					args := matcher.UpdateTaskArgs(item.TestArgs, requestID)
+					args.MergeRequestID = mergeRequestID
+					args.CommitID = commitID
+					args.Source = setting.SourceFromGitlab
+					args.CodehostID = item.MainRepo.CodehostID
+					args.RepoOwner = item.MainRepo.RepoOwner
+					args.RepoName = item.MainRepo.RepoName
+
+					// 3. create task with args
+					if resp, err := testingservice.CreateTestTask(args, log); err != nil {
+						log.Errorf("failed to create testing task when receive event %v due to %v ", event, err)
+						mErr = multierror.Append(mErr, err)
+					} else {
+						log.Infof("succeed to create task %v", resp)
+					}
+				} else {
+					log.Debugf("event not matches %v", item.MainRepo)
+				}
+			}
+		}
+	}
+
+	return mErr.ErrorOrNil()
+}
+
+func createGitlabEventMatcherForTesting(
+	event interface{}, diffSrv gitlabMergeRequestDiffFunc, testing *commonmodels.Testing, log *zap.SugaredLogger,
+) gitEventMatcherForTesting {
+	switch evt := event.(type) {
+	case *gitlab.PushEvent:
+		return &gitlabPushEventMatcherForTesting{
+			testing: testing,
+			log:     log,
+			event:   evt,
+		}
+	case *gitlab.MergeEvent:
+		return &gitlabMergeEventMatcherForTesting{
+			diffFunc: diffSrv,
+			log:      log,
+			event:    evt,
+			testing:  testing,
+		}
+	}
+
+	return nil
+}
+
+type gitlabMergeEventMatcherForTesting struct {
+	diffFunc gitlabMergeRequestDiffFunc
+	log      *zap.SugaredLogger
+	testing  *commonmodels.Testing
+	event    *gitlab.MergeEvent
+}
+
+func (gmem *gitlabMergeEventMatcherForTesting) Match(hookRepo commonmodels.MainHookRepo) (bool, error) {
+	ev := gmem.event
+	// TODO: match codehost
+	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.ObjectAttributes.Target.PathWithNamespace {
+		if EventConfigured(hookRepo, config.HookEventPr) && (hookRepo.Branch == ev.ObjectAttributes.TargetBranch) {
+			if ev.ObjectAttributes.State == "opened" {
+				var changedFiles []string
+				changedFiles, err := gmem.diffFunc(ev, hookRepo.CodehostID)
+				if err != nil {
+					gmem.log.Warnf("failed to get changes of event %v", ev)
+					return false, err
+				}
+				gmem.log.Debugf("succeed to get %d changes in merge event", len(changedFiles))
+
+				return MatchChanges(hookRepo, changedFiles), nil
+			}
+		}
+	}
+	return false, nil
+}
+
+func (gmem *gitlabMergeEventMatcherForTesting) UpdateTaskArgs(args *commonmodels.TestTaskArgs, requestID string) *commonmodels.TestTaskArgs {
+	factory := &testArgsFactory{
+		testing: gmem.testing,
+		reqID:   requestID,
+	}
+
+	args = factory.Update(args)
+
+	return args
+}

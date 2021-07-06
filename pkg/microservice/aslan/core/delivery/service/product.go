@@ -19,6 +19,7 @@ package service
 import (
 	"go.uber.org/zap"
 
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
@@ -31,4 +32,15 @@ func FindDeliveryProduct(orgID int, log *zap.SugaredLogger) ([]string, error) {
 	}
 
 	return productNames, err
+}
+
+func GetProductByDeliveryInfo(username, releaseID string, log *zap.SugaredLogger) (*commonmodels.Product, error) {
+	version := new(commonrepo.DeliveryVersionArgs)
+	version.ID = releaseID
+	deliveryVersion, err := GetDeliveryVersion(version, log)
+	if err != nil {
+		log.Errorf("[User:%s][releaseID:%s] GetDeliveryVersion error: %v", username, releaseID, err)
+		return nil, e.ErrGetEnv
+	}
+	return deliveryVersion.ProductEnvInfo, nil
 }

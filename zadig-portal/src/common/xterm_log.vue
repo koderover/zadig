@@ -19,6 +19,19 @@ export default {
   methods: {
     clearCurrentTerm () {
       this.term.clear()
+    },
+    scroll (item) {
+      const height = item.offsetHeight
+      const top =
+        item.getBoundingClientRect() && item.getBoundingClientRect().top
+      const viewPortHeight =
+        window.innerHeight ||
+        document.documentElement.clientHeight ||
+        document.body.clientHeight
+      if (top + height <= viewPortHeight && top >= 60) {
+        const el = document.querySelector('.workflow-task-detail').style
+        el.overflow = 'hidden'
+      }
     }
   },
   props: {
@@ -50,6 +63,12 @@ export default {
     term.open(document.getElementById(this.id))
     fitAddon.fit()
     this.term = term
+    const list = document.querySelectorAll('.xterm-viewport');
+    [].forEach.call(list, (item) => {
+      item.addEventListener('scroll', () => {
+        this.scroll(item)
+      })
+    })
   }
 }
 </script>

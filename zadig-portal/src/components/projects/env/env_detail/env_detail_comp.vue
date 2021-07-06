@@ -1,134 +1,207 @@
 <template>
-  <div class="product-detail-container"
-       ref="envContainer">
-    <el-dialog title="通过工作流升级服务"
-               :visible.sync="showStartProductBuild"
-               custom-class="run-workflow"
-               width="60%">
-      <run-workflow v-if="showStartProductBuild"
-                    :workflows="currentServiceWorkflows"
-                    :currentServiceMeta="currentServiceMeta"
-                    @success="hideProductTaskDialog"></run-workflow>
-    </el-dialog>
-    <div class="envs-container">
-      <el-tabs v-model="envName"
-               type="card">
-        <el-tab-pane v-for="(env,index) in envNameList"
-                     :key="index"
-                     :label="`${env.envName}`"
-                     :name="env.envName">
-          <span slot="label">
-            <i v-if="env.source==='spock'"
-               class="el-icon-cloudy"></i>
-            {{`${env.envName}`}}
-            <el-tag v-if="env.source==='external'"
+    <div class="product-detail-container"
+         ref="envContainer">
+      <el-dialog title="通过工作流升级服务"
+                 :visible.sync="showStartProductBuild"
+                 custom-class="run-workflow"
+                 width="60%">
+        <run-workflow v-if="showStartProductBuild"
+                      :workflows="currentServiceWorkflows"
+                      :currentServiceMeta="currentServiceMeta"
+                      @success="hideProductTaskDialog"></run-workflow>
+      </el-dialog>
+      <div class="envs-container">
+        <el-tabs v-model="envName"
+                 type="card">
+          <el-tab-pane v-for="(env,index) in envNameList"
+                       :key="index"
+                       :label="`${env.envName}`"
+                       :name="env.envName">
+            <span slot="label">
+              <i v-if="env.source==='helm'"
+                 class="iconfont iconhelmrepo"></i>
+              <i v-else-if="env.source==='spock'"
+                 class="el-icon-cloudy"></i>
+              {{`${env.envName}`}}
+              <el-tag v-if="env.clusterType==='生产'"
+                      effect="light"
+                      size="mini"
+                      type="danger">生产</el-tag>
+              <el-tag v-if="env.source==='external'"
                       effect="light"
                       size="mini"
                       type="primary">托管</el-tag>
-          </span>
-        </el-tab-pane>
-        <el-tab-pane label="新建"
-                     name="CREATE_NEW_ENV">
-          <span slot="label">
-            新建环境 <i class="el-icon-circle-plus-outline"></i>
-          </span>
-        </el-tab-pane>
+            </span>
+          </el-tab-pane>
+          <el-tab-pane label="新建"
+                       name="CREATE_NEW_ENV">
+            <span slot="label">
+              新建环境 <i class="el-icon-circle-plus-outline"></i>
+            </span>
+          </el-tab-pane>
 
-      </el-tabs>
-    </div>
-    <!--start of basicinfo-->
-    <el-card class="box-card"
-             :body-style="{ padding: '0px', margin: '15px 0 0 0' }">
-
-      <div slot="header"
-           class="clearfix">
-        <span>基本信息</span>
+        </el-tabs>
       </div>
-      <div v-loading="envLoading"
-           element-loading-text="正在获取环境基本信息"
-           element-loading-spinner="el-icon-loading"
-           class="text item">
-        <el-row :gutter="10">
-          <el-col :span="3">
-            <div class="grid-content">更新时间:</div>
-          </el-col>
-          <el-col :span="8">
-            <div class="grid-content">{{$utils.convertTimestamp(productInfo.update_time)}}</div>
-          </el-col>
-          <el-col :span="3">
-            <div class="grid-content">命名空间:</div>
-          </el-col>
-          <el-col :span="8">
-            <div class="grid-content">{{ envText }}</div>
-          </el-col>
-        </el-row>
-        <el-row :gutter="10">
-          <el-col :span="3">
-            <div class="grid-content">环境状态:</div>
-          </el-col>
-          <el-col :span="8">
-            <div class="grid-content">
-              {{getEnvStatus(productInfo.status,productStatus.updatable)}}
-            </div>
-          </el-col>
-        </el-row>
-        <el-row :gutter="20">
-          <el-col :span="3">
-            <div class="grid-content">基本操作:</div>
-          </el-col>
-          <el-col :span="16">
-            <div class="grid-content operation">
-              <el-tooltip v-if="checkEnvUpdate(productInfo.status)"
-                          content="更新环境中引用的变量"
-                          effect="dark"
-                          placement="top">
+      <!--start of basicinfo-->
+      <el-card class="box-card"
+               :body-style="{ padding: '0px', margin: '15px 0 0 0' }">
+
+        <div slot="header"
+             class="clearfix">
+          <span>基本信息</span>
+        </div>
+        <div v-loading="envLoading"
+             element-loading-text="正在获取环境基本信息"
+             element-loading-spinner="el-icon-loading"
+             class="text item">
+          <el-row :gutter="10">
+            <template>
+              <el-col :span="3">
+                <div class="grid-content">所属集群:</div>
+              </el-col>
+              <el-col :span="8">
+                <div v-if="productInfo.cluster_id"
+                     class="grid-content">
+                  {{currentCluster.production?currentCluster.name+' (生产集群)':currentCluster.name +' (测试集群)'}}
+                </div>
+                <div v-else
+                     class="grid-content">本地集群</div>
+              </el-col>
+            </template>
+            <el-col :span="3">
+              <div class="grid-content">更新时间:</div>
+            </el-col>
+            <el-col :span="8">
+              <div class="grid-content">{{$utils.convertTimestamp(productInfo.update_time)}}</div>
+            </el-col>
+          </el-row>
+          <el-row :gutter="10">
+            <el-col :span="3">
+              <div class="grid-content">命名空间:</div>
+            </el-col>
+            <el-col :span="8">
+              <div class="grid-content">{{ envText }}</div>
+            </el-col>
+            <el-col :span="3">
+              <div class="grid-content">环境状态:</div>
+            </el-col>
+            <el-col :span="8">
+              <div class="grid-content">
+                {{getProdStatus(productInfo.status,productStatus.updatable)}}
+              </div>
+            </el-col>
+          </el-row>
+          <el-row :gutter="20">
+            <el-col :span="3">
+              <div class="grid-content">基本操作:</div>
+            </el-col>
+            <el-col v-if="!productInfo.is_prod"
+                    :span="16">
+              <div class="grid-content operation">
+                  <el-tooltip v-if="checkEnvUpdate(productInfo.status) && productInfo.status!=='Disconnected'"
+                              content="更新环境中引用的变量"
+                              effect="dark"
+                              placement="top">
+                    <template v-if="!isPmService">
+                      <el-button v-if="(envSource===''||envSource==='spock') "
+                                 type="text"
+                                 @click="openUpdateK8sVar()">更新环境变量</el-button>
+                      <el-button v-else-if="envSource==='helm'"
+                                 type="text"
+                                 @click="openUpdateHelmVar">更新环境变量</el-button>
+                    </template>
+                  </el-tooltip>
+                <el-tooltip v-if="showUpdate(productInfo,productStatus) && productInfo.status!=='Disconnected'"
+                            content="根据最新环境配置更新，包括服务编排和服务配置的改动"
+                            effect="dark"
+                            placement="top">
+                    <template v-if="productInfo.status!=='Creating'">
+                      <el-button v-if=" (envSource===''||envSource==='spock')"
+                                 type="text"
+                                 @click="updateK8sEnv(productInfo)">更新环境</el-button>
+                      <el-button v-else-if="envSource==='helm'"
+                                 type="text"
+                                 @click="openUpdateHelmEnv">更新环境</el-button>
+                    </template>
+                </el-tooltip>
                 <template>
-                  <el-button v-if="(envSource===''||envSource==='spock') "
-                             type="text"
-                             @click="openUpdateK8sVar()">更新环境变量</el-button>
-                </template>
-              </el-tooltip>
-              <el-tooltip v-if="showUpdate(productInfo,productStatus)"
-                          content="根据最新环境配置更新，包括服务编排和服务配置的改动"
-                          effect="dark"
-                          placement="top">
-                <template v-if="productInfo.status!=='Creating'">
-                  <el-button v-if=" (envSource===''||envSource==='spock')"
-                             type="text"
-                             @click="updateK8sEnv(productInfo)">更新环境</el-button>
-                </template>
-              </el-tooltip>
-              <template>
-                <el-button v-if="(productInfo.status!=='Disconnected'&&productInfo.cluster_id!=='')&&(envSource===''||envSource==='spock')"
-                           type="text"
-                           @click="deleteProduct(productInfo.product_name,productInfo.env_name)">
-                  删除环境</el-button>
-                <el-button v-else-if="envSource==='external'"
-                           type="text"
-                           @click="deleteHostingEnv(productInfo.product_name,productInfo.env_name)">
+                    <el-button v-if="(productInfo.status!=='Disconnected'&&productInfo.cluster_id!=='')&&(envSource===''||envSource==='spock'|| envSource==='helm')"
+                               type="text"
+                               @click="deleteProduct(productInfo.product_name,productInfo.env_name)">
+                      删除环境</el-button>
+                    <el-button v-else-if="envSource==='external'"
+                               type="text"
+                               @click="deleteHostingEnv(productInfo.product_name,productInfo.env_name)">
                       取消托管</el-button>
-                <el-button v-if="productInfo.status!=='Creating' && (envSource===''||envSource==='spock')"
-                           type="text"
-                           @click="openRecycleEnvDialog()">环境回收</el-button>
-              </template>
-            </div>
-          </el-col>
-        </el-row>
-        <el-row v-if="productInfo.error!==''"
-                :gutter="20">
-          <el-col :span="3">
-            <div class="grid-content">错误信息:</div>
-          </el-col>
-          <el-col :span="16">
-            <div class="grid-content error-info">
-              {{productInfo.error}}
-            </div>
-          </el-col>
-        </el-row>
-      </div>
-    </el-card>
-    <!--end of basic info-->
-      <el-card v-if="envSource==='external' && ingressList.length > 0"
+                    <el-button v-else-if="(productInfo.status==='NotFound'&&productInfo.cluster_id!=='')&&(envSource===''||envSource==='spock'|| envSource==='helm')"
+                               type="text"
+                               @click="deleteProduct(productInfo.product_name,productInfo.env_name)">
+                      删除环境</el-button>
+                    <el-button v-else-if="productInfo.status==='Unknown'"
+                               type="text"
+                               @click="deleteProduct(productInfo.product_name,productInfo.env_name)">
+                      删除环境</el-button>
+                    <el-button v-if="productInfo.status!=='Creating' && (envSource===''||envSource==='spock') && !isPmService"
+                               type="text"
+                               @click="openRecycleEnvDialog()">环境回收</el-button>
+                </template>
+              </div>
+            </el-col>
+            <el-col v-if="productInfo.is_prod"
+                    :span="16">
+              <div class="grid-content operation">
+                  <el-tooltip v-if="checkEnvUpdate(productInfo.status) && productInfo.status!=='Disconnected' && (envSource===''||envSource==='spock'|| envSource==='helm')"
+                              content="更新环境中引用的变量"
+                              effect="dark"
+                              placement="top">
+                    <el-button v-if="productInfo.status!=='Creating'"
+                               type="text"
+                               @click="envSource==='helm' ? openUpdateHelmVar() : openUpdateK8sVar()">更新环境变量</el-button>
+                  </el-tooltip>
+                <el-tooltip v-if="showUpdate(productInfo,productStatus) && productInfo.status!=='Disconnected' && (envSource===''||envSource==='spock'|| envSource==='helm')"
+                            content="根据最新环境配置更新，包括服务编排和服务配置的改动"
+                            effect="dark"
+                            placement="top">
+                    <el-button v-if="productInfo.status!=='Creating'"
+                               type="text"
+                               @click="envSource==='helm' ? openUpdateHelmEnv() : updateK8sEnv(productInfo)">更新环境</el-button>
+                </el-tooltip>
+                <template>
+                    <el-button v-if="(productInfo.status!=='Disconnected' && productInfo.cluster_id!=='') && (envSource===''||envSource==='spock' || envSource==='helm')"
+                               type="text"
+                               @click="deleteProduct(productInfo.product_name,productInfo.env_name)">
+                      删除环境</el-button>
+                    <el-button v-else-if="envSource==='external'"
+                               type="text"
+                               @click="deleteHostingEnv(productInfo.product_name,productInfo.env_name)">
+                      取消托管</el-button>
+                    <el-button v-else-if="(productInfo.status==='NotFound' && productInfo.cluster_id!=='') && (envSource===''||envSource==='spock'|| envSource==='helm')"
+                               type="text"
+                               @click="deleteProduct(productInfo.product_name,productInfo.env_name)">
+                      删除环境</el-button>
+                    <el-button v-else-if="productInfo.status==='Unknown'"
+                               type="text"
+                               @click="deleteProduct(productInfo.product_name,productInfo.env_name)">
+                      删除环境</el-button>
+                </template>
+              </div>
+            </el-col>
+          </el-row>
+          <el-row v-if="productInfo.error!==''"
+                  :gutter="20">
+            <el-col :span="3">
+              <div class="grid-content">错误信息:</div>
+            </el-col>
+            <el-col :span="16">
+              <div class="grid-content error-info">
+                {{productInfo.error}}
+              </div>
+            </el-col>
+          </el-row>
+        </div>
+      </el-card>
+      <!--end of basic info-->
+      <el-card v-if="envSource==='external'||envSource==='helm' && ingressList.length > 0"
                class="box-card-stack"
                :body-style="{ padding: '0px', margin: '15px 0 0 0' }">
         <div slot="header"
@@ -160,195 +233,291 @@
           </div>
         </div>
       </el-card>
-    <el-card class="box-card-stack"
-             :body-style="{ padding: '0px', margin: '15px 0 0 0' }">
-      <div slot="header"
-           class="clearfix">
-        <span>服务列表</span>
-        <span v-if="!serviceLoading"
-              class="service-count">共计 {{ envTotal }} 个服务</span>
-        <span v-if="serviceLoading"
-              class="service-count"></span>
-      </div>
-      <div v-loading="serviceLoading"
-           element-loading-text="正在获取服务信息"
-           element-loading-spinner="el-icon-loading"
-           class="service-container">
-        <el-input v-if="envSource !== 'external'"
-                  size="mini"
-                  class="search-input"
-                  clearable
-                  v-model="serviceSearch"
-                  placeholder="搜索服务"
-                  @keyup.enter.native="searchServicesByKeyword"
-                  @clear="searchServicesByKeyword">
-          <template slot="append">
-            <el-button class="el-icon-search"
-                       @click="searchServicesByKeyword"></el-button>
-          </template>
-        </el-input>
-        <el-table v-if="containerServiceList.length > 0"
-                  :data="containerServiceList">
-          <el-table-column label="服务名"
-                           width="250px">
-            <template slot-scope="scope">
-              <router-link :to="setRoute(scope)">
-                <span :class="$utils._getStatusColor(scope.row.status)"
-                      class="service-name"> <i v-if="scope.row.type==='k8s'"
-                     class="iconfont service-icon iconrongqifuwu"></i>
-                  {{ scope.row.service_name }}</span>
-              </router-link>
-              <template
-                        v-if="serviceStatus[scope.row.service_name] && serviceStatus[scope.row.service_name]['tpl_updatable']">
-                <el-popover placement="right"
-                            popper-class="diff-popper"
-                            width="600"
-                            trigger="click">
-                  <el-tabs v-model="activeDiffTab"
-                           type="card">
-                    <el-tab-pane name="template">
-                      <span slot="label">
-                        <i class="el-icon-tickets"></i> 模板对比
-                      </span>
-                      <div class="diff-container">
-                        <div class="diff-content">
-                          <pre :class="{ 'added': section.added, 'removed': section.removed }"
-                               v-for="(section,index) in combineTemplate"
-                               :key="index">{{section.value}}</pre>
+      <el-card class="box-card-stack"
+               :body-style="{ padding: '0px', margin: '15px 0 0 0' }">
+        <div slot="header"
+             class="clearfix">
+          <span>服务列表</span>
+          <span v-if="!serviceLoading"
+                class="service-count">共计 {{ envTotal }} 个服务</span>
+          <span v-if="serviceLoading"
+                class="service-count"></span>
+        </div>
+        <div v-loading="serviceLoading"
+             element-loading-text="正在获取服务信息"
+             element-loading-spinner="el-icon-loading"
+             class="service-container">
+          <el-input v-if="envSource !== 'external' && envSource !== 'helm'"
+                    size="mini"
+                    class="search-input"
+                    clearable
+                    v-model="serviceSearch"
+                    placeholder="搜索服务"
+                    @keyup.enter.native="searchServicesByKeyword"
+                    @clear="searchServicesByKeyword">
+            <template slot="append">
+              <el-button class="el-icon-search"
+                         @click="searchServicesByKeyword"></el-button>
+            </template>
+          </el-input>
+          <el-table v-if="containerServiceList.length > 0"
+                    :data="containerServiceList">
+            <el-table-column label="服务名"
+                             width="250px">
+              <template slot-scope="scope">
+                <router-link :to="setRoute(scope)">
+                  <span :class="$utils._getStatusColor(scope.row.status)"
+                        class="service-name"> <i v-if="scope.row.type==='k8s'"
+                       class="iconfont service-icon iconrongqifuwu"></i>
+                    {{ scope.row.service_name }}</span>
+                </router-link>
+                <template
+                          v-if="serviceStatus[scope.row.service_name] && serviceStatus[scope.row.service_name]['tpl_updatable'] && envSource!=='helm'">
+                  <el-popover placement="right"
+                              popper-class="diff-popper"
+                              width="600"
+                              trigger="click">
+                    <el-tabs v-model="activeDiffTab"
+                             type="card">
+                      <el-tab-pane name="template">
+                        <span slot="label">
+                          <i class="el-icon-tickets"></i> 模板对比
+                        </span>
+                        <div class="diff-container">
+                          <div class="diff-content">
+                            <pre :class="{ 'added': section.added, 'removed': section.removed }"
+                                 v-for="(section,index) in combineTemplate"
+                                 :key="index">{{section.value}}</pre>
+                          </div>
                         </div>
-                      </div>
-                    </el-tab-pane>
-                  </el-tabs>
-                  <span slot="reference"
-                        class="service-updatable">
-                    <el-tooltip effect="dark"
-                                content="配置变更"
-                                placement="top">
-                      <i @click="openPopper(scope.row, serviceStatus[scope.row.service_name])"
-                         class="el-icon-question icon operation"></i>
-                    </el-tooltip>
-                  </span>
-                </el-popover>
+                      </el-tab-pane>
+                    </el-tabs>
+                    <span slot="reference"
+                          class="service-updateable">
+                      <el-tooltip effect="dark"
+                                  content="配置变更"
+                                  placement="top">
+                        <i @click="openPopper(scope.row, serviceStatus[scope.row.service_name])"
+                           class="el-icon-question icon operation"></i>
+                      </el-tooltip>
+                    </span>
+                  </el-popover>
+                  <el-tooltip effect="dark"
+                              content="更新服务"
+                              placement="top">
+                      <i @click="updateService(scope.row)"
+                         class="iconfont icongengxin operation"></i>
+                  </el-tooltip>
+                </template>
+              </template>
+            </el-table-column>
+            <el-table-column align="left"
+                             label="所属项目"
+                             width="130px">
+              <template slot-scope="scope">
+                <span>{{ scope.row.product_name }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column v-if="!isPmService"
+                             align="left"
+                             label="READY"
+                             width="130px">
+              <template slot-scope="scope">
+                <span>{{ scope.row.ready?scope.row.ready:'N/A' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column align="left"
+                             label="状态"
+                             width="130px">
+              <template slot="header">状态{{`(${runningContainerService}/${containerServiceList.length})`}}
                 <el-tooltip effect="dark"
-                            content="更新服务"
                             placement="top">
-                  <i @click="updateService(scope.row)"
-                     class="iconfont icongengxin operation"></i>
+                  <div slot="content">实际正常的服务/预期的正常服务数量</div>
+                  <i class="el-icon-question"></i>
                 </el-tooltip>
               </template>
-            </template>
-          </el-table-column>
-          <el-table-column align="left"
-                           label="所属项目"
-                           width="130px">
-            <template slot-scope="scope">
-              <span>{{ scope.row.product_name }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column align="left"
-                           label="READY"
-                           width="130px">
-            <template slot-scope="scope">
-              <span>{{ scope.row.ready?scope.row.ready:'N/A' }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column align="left"
-                           label="状态"
-                           width="130px">
-            <template
-                      slot="header">状态{{`(${runningContainerService}/${containerServiceList.length})`}}
-              <el-tooltip effect="dark"
-                          placement="top">
-                <div slot="content">实际正常的服务/预期的正常服务数量</div>
-                <i class="el-icon-question"></i>
-              </el-tooltip>
-            </template>
-            <template slot-scope="scope">
-              <el-tag size="small"
-                      :type="statusIndicator[scope.row.status]">
-                {{scope.row.status}}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column align="left"
-                           label="镜像信息">
-            <template slot-scope="scope">
-              <template>
-                <el-tooltip v-for="(image,index) in scope.row.images"
-                            :key="index"
-                            effect="dark"
-                            :content="image"
-                            placement="top">
-                  <span style="display: block;">{{imageNameSplit(image) }}</span>
-                </el-tooltip>
+              <template slot-scope="scope">
+                <el-tag size="small"
+                        :type="statusIndicator[scope.row.status]">
+                  {{scope.row.status}}
+                </el-tag>
               </template>
-            </template>
-          </el-table-column>
-          <el-table-column align="left"
-                           width="150px"
-                           label="服务入口">
-            <template slot-scope="scope">
-              <template v-if="scope.row.ingress.host_info && scope.row.ingress.host_info.length>0">
-                <el-tooltip v-for="(ingress,index) in scope.row.ingress.host_info"
-                            :key="index"
-                            effect="dark"
-                            :content="ingress.host"
-                            placement="top">
-                  <span class="ingress-url">
-                    <a :href="`http://${ingress.host}`"
-                       target="_blank">{{ingress.host}}</a>
-                  </span>
-                </el-tooltip>
+            </el-table-column>
+            <el-table-column align="left"
+                             label="镜像信息">
+              <template slot-scope="scope">
+                <template>
+                  <el-tooltip v-for="(image,index) in scope.row.images"
+                              :key="index"
+                              effect="dark"
+                              :content="image"
+                              placement="top">
+                    <span style="display: block;">{{imageNameSplit(image) }}</span>
+                  </el-tooltip>
+                </template>
               </template>
-              <span v-else>N/A</span>
-            </template>
-          </el-table-column>
+            </el-table-column>
+            <el-table-column align="left"
+                             width="150px"
+                             label="服务入口">
+              <template slot-scope="scope">
+                <template
+                          v-if="scope.row.ingress.host_info && scope.row.ingress.host_info.length>0">
+                  <el-tooltip v-for="(ingress,index) in scope.row.ingress.host_info"
+                              :key="index"
+                              effect="dark"
+                              :content="ingress.host"
+                              placement="top">
+                    <span class="ingress-url">
+                      <a :href="`http://${ingress.host}`"
+                         target="_blank">{{ingress.host}}</a>
+                    </span>
+                  </el-tooltip>
+                </template>
+                <span v-else>N/A</span>
+              </template>
+            </el-table-column>
 
-          <el-table-column align="center"
-                           label="操作"
-                           width="150px">
-            <template slot-scope="scope">
-              <span v-if="envSource !=='external'"
-                    class="operation">
+            <el-table-column align="center"
+                             label="操作"
+                             width="150px">
+              <template slot-scope="scope">
+                <span v-if="envSource !=='external' && envSource !=='helm'"
+                      class="operation">
+                  <el-tooltip effect="dark"
+                              content="通过工作流升级服务"
+                              placement="top">
+                      <i @click="upgradeServiceByPipe(projectName,envName,scope.row.service_name,scope.row.type)"
+                         class="iconfont iconshengji"></i>
+                  </el-tooltip>
+                </span>
+                <span class="operation">
+                  <el-tooltip effect="dark"
+                              content="重启服务"
+                              placement="top">
+                      <i @click="restartService(projectName,scope.row.service_name,$route.query.envName)"
+                         class="el-icon-refresh"></i>
+                  </el-tooltip>
+                </span>
+                <span v-if="(envSource===''||envSource ==='spock')"
+                      class="operation">
+                  <el-tooltip effect="dark"
+                              content="查看服务配置"
+                              placement="top">
+                      <router-link :to="setServiceConfigRoute(scope)">
+                        <i class="iconfont iconfuwupeizhi"></i>
+                      </router-link>
+                  </el-tooltip>
+                </span>
+              </template>
+            </el-table-column>
+          </el-table>
+          <el-table v-if="pmServiceList.length > 0"
+                    class="pm-service-container"
+                    :data="pmServiceList">
+            <el-table-column label="服务名"
+                             width="250px">
+              <template slot-scope="scope">
+                <router-link :to="setPmRoute(scope)">
+                  <span class="service-name"> <i v-if="scope.row.type==='pm'"
+                       class="iconfont service-icon iconwuliji"></i>
+                    {{ scope.row.service_name }}</span>
+                </router-link>
+                <template
+                          v-if=" serviceStatus[scope.row.service_name] && serviceStatus[scope.row.service_name]['tpl_updatable']">
+                  <el-tooltip effect="dark"
+                              content="更新主机资源和探活配置"
+                              placement="top">
+                      <i @click="updateService(scope.row)"
+                         class="iconfont icongengxin operation"></i>
+                  </el-tooltip>
+                </template>
+              </template>
+            </el-table-column>
+            <el-table-column align="left"
+                             label="所属项目"
+                             width="130px">
+              <template slot-scope="scope">
+                <span>{{ scope.row.product_name }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column align="left"
+                             label="状态"
+                             width="130px">
+              <template slot="header">状态
                 <el-tooltip effect="dark"
-                            content="通过工作流升级服务"
                             placement="top">
-                  <i @click="upgradeServiceByPipe(projectName,envName,scope.row.service_name,scope.row.type)"
-                     class="iconfont iconshengji"></i>
+                  <div slot="content">实际正常的服务/预期的正常服务数量</div>
+                  <i class="el-icon-question"></i>
                 </el-tooltip>
-              </span>
-              <span class="operation">
-                <el-tooltip effect="dark"
-                            content="重启服务"
-                            placement="top">
-                  <i @click="restartService(projectName,scope.row.service_name,$route.query.envName)"
-                     class="el-icon-refresh"></i>
-                </el-tooltip>
-              </span>
-              <span  v-if="(envSource===''||envSource ==='spock')"
-                     class="operation">
-                <el-tooltip effect="dark"
-                            content="查看服务配置"
-                            placement="top">
-                  <router-link :to="setServiceConfigRoute(scope)">
-                    <i class="iconfont iconfuwupeizhi"></i>
-                  </router-link>
-                </el-tooltip>
-              </span>
-            </template>
-          </el-table-column>
-        </el-table>
-        <p v-if="!scrollGetFlag && !serviceLoading && !scrollFinish"
-           class="scroll-finish-class"><i class="el-icon-loading"></i> 数据加载中 ~</p>
-        <p v-if="scrollFinish && page > 2"
-           class="scroll-finish-class">数据已加载完毕 ~</p>
-      </div>
-    </el-card>
-    <UpdateK8sVarDialog :fetchAllData="fetchAllData"
-                        :productInfo="productInfo"
-                        ref="updateK8sVarDialog" />
-    <RecycleDialog :getProductEnv="getProductEnv" :productInfo="productInfo" :initPageInfo="initPageInfo" :recycleDay="recycleDay" ref="recycleDialog" />
-  </div>
+              </template>
+              <template slot-scope="scope">
+                <span>{{calcPmServiceStatus(scope.row.env_statuses)}}</span>
+              </template>
+            </el-table-column>
+            <el-table-column align="left"
+                             min-width="160px"
+                             label="主机资源">
+              <template slot-scope="scope">
+                <template v-if="scope.row.env_statuses && scope.row.env_statuses.length>0">
+                  <div v-for="(value,name) in scope.row.serviceHostStatus"
+                       :key="name">
+                    <span class="pm-service-status"
+                          :class="value['color']">
+                      {{name}}
+                    </span>
+                  </div>
+                </template>
+                <span v-else>N/A</span>
+              </template>
+            </el-table-column>
+
+            <el-table-column align="center"
+                             label="操作"
+                             width="150px">
+              <template slot-scope="scope">
+                <span class="operation">
+                  <el-tooltip effect="dark"
+                              content="通过工作流升级服务"
+                              placement="top">
+                      <i @click="upgradeServiceByPipe(projectName,envName,scope.row.service_name,scope.row.type)"
+                         class="iconfont iconshengji"></i>
+                  </el-tooltip>
+                </span>
+                <span v-if="scope.row.status!=='Succeeded'"
+                      class="operation">
+                  <el-tooltip effect="dark"
+                              content="查看服务升级日志"
+                              placement="top">
+                      <i @click="openPmServiceLog(envName,scope.row.service_name)"
+                         class="iconfont  iconiconlog"></i>
+                  </el-tooltip>
+                </span>
+                <span class="operation">
+                  <el-tooltip effect="dark"
+                              content="查看服务配置"
+                              placement="top">
+                      <router-link :to="setPmServiceConfigRoute(scope)">
+                        <i class="iconfont iconfuwupeizhi"></i>
+                      </router-link>
+                  </el-tooltip>
+                </span>
+              </template>
+            </el-table-column>
+          </el-table>
+          <p v-if="!scrollGetFlag && !serviceLoading && !scrollFinish"
+             class="scroll-finish-class"><i class="el-icon-loading"></i> 数据加载中 ~</p>
+          <p v-if="scrollFinish && page > 2"
+             class="scroll-finish-class">数据已加载完毕 ~</p>
+        </div>
+      </el-card>
+      <UpdateHelmEnvDialog :fetchAllData="fetchAllData" :productInfo="productInfo" ref="updateHelmEnvDialog"/>
+      <UpdateHelmVarDialog :fetchAllData="fetchAllData" :productInfo="productInfo" ref="updateHelmVarDialog" :projectName="projectName" :envName="envName"/>
+      <UpdateK8sVarDialog :fetchAllData="fetchAllData" :productInfo="productInfo" ref="updateK8sVarDialog"/>
+      <PmServiceLog  ref="pmServiceLog"/>
+      <RecycleDialog :getProductEnv="getProductEnv" :productInfo="productInfo" :initPageInfo="initPageInfo" :recycleDay="recycleDay" ref="recycleDialog" />
+    </div>
+
 </template>
 
 <script>
@@ -356,11 +525,15 @@ import { getProductStatus, serviceTypeMap } from '@utils/word_translate'
 import { mapGetters } from 'vuex'
 import {
   envRevisionsAPI, productEnvInfoAPI, productServicesAPI, serviceTemplateAfterRenderAPI,
-  updateServiceAPI, updateK8sEnvAPI, restartServiceOriginAPI, deleteProductEnvAPI, getServicePipelineAPI, initSource, rmSource
+  updateServiceAPI, updateK8sEnvAPI, restartPmServiceAPI, restartServiceOriginAPI,
+  getClusterListAPI, deleteProductEnvAPI, getSingleProjectAPI, getServicePipelineAPI, initSource, rmSource
 } from '@api'
 import _ from 'lodash'
 import runWorkflow from './run_workflow.vue'
-import UpdateK8sVarDialog from './components/update_k8s_var_dialog'
+import PmServiceLog from './components/pmLogDialog.vue'
+import UpdateHelmEnvDialog from './components/updateHelmEnvDialog'
+import UpdateHelmVarDialog from './components/updateHelmVarDialog'
+import UpdateK8sVarDialog from './components/updateK8sVarDialog'
 import RecycleDialog from './components/recycleDialog'
 const jsdiff = require('diff')
 
@@ -381,20 +554,25 @@ export default {
     return {
       recycleDay: null,
       ctlCancel: null,
+      allCluster: [],
       selectVersion: '',
       activeDiffTab: 'template',
+      selectVersionDialogVisible: false,
       updataK8sEnvVarLoading: false,
       updateK8sEnvVarDialogVisible: false,
       envLoading: false,
       serviceLoading: false,
+      isPmService: false,
       showStartProductBuild: false,
       currentServiceWorkflows: [],
       currentServiceMeta: null,
       containerServiceList: [],
+      pmServiceList: [],
       ingressList: [],
       serviceStatus: {},
       combineTemplate: [],
       productInfo: {
+        is_prod: false
       },
       productStatus: {
         updateble: false
@@ -418,6 +596,7 @@ export default {
         ]
       },
       serviceTypeMap: serviceTypeMap,
+      helmChartDiffVisible: false,
       statusIndicator: {
         Running: 'success',
         Succeeded: 'success',
@@ -437,8 +616,18 @@ export default {
     currentOrganizationId () {
       return this.$store.state.login.userinfo.organization.id
     },
+    isProd () {
+      return this.productInfo.is_prod
+    },
     filteredProducts () {
       return _.uniqBy(_.orderBy(this.productList, ['product_name', 'is_prod']), 'product_name')
+    },
+    currentCluster () {
+      if (this.productInfo.cluster_id) {
+        return this.allCluster.find(cluster => cluster.id === this.productInfo.cluster_id)
+      } else {
+        return null
+      }
     },
     runningContainerService () {
       return this.containerServiceList.filter(s => (s.status === 'Running' || s.status === 'Succeeded')).length
@@ -452,15 +641,37 @@ export default {
     projectName () {
       return this.$route.params.project_name
     },
+    clusterId () {
+      return this.productInfo.cluster_id ? this.productInfo.cluster_id : ''
+    },
+    isPublic () {
+      return this.productInfo.isPublic
+    },
     envNameList () {
       const envNameList = []
       const proEnvList = []
       this.productList.forEach(element => {
         if (element.product_name === this.projectName) {
-          envNameList.push({
-            envName: element.env_name,
-            source: element.source
-          })
+          if (element.cluster_id) {
+            const cluster = {
+              envName: element.env_name,
+              source: element.source,
+              clusterType: this.getClusterType(element.cluster_id).type,
+              clusterName: this.getClusterType(element.cluster_id).name
+            }
+            if (element.is_prod) {
+              proEnvList.push(cluster)
+            } else {
+              envNameList.push(cluster)
+            }
+          } else {
+            envNameList.push({
+              envName: element.env_name,
+              source: element.source,
+              clusterType: '本地',
+              clusterName: ''
+            })
+          }
         }
       })
       const res = envNameList.concat(proEnvList)
@@ -480,18 +691,30 @@ export default {
             path: `/v1/projects/detail/${this.projectName}/envs/create`,
             query: { outer: this.envBasePath.startsWith('/v1/envs/detail') }
           })
+        } else if (newValue === 'ROLLBACK_NEW_ENV') {
+          this.selectVersionDialogVisible = true
+          this.selectVersion = ''
         } else {
           this.$router.push({ path: `${this.envBasePath}`, query: { envName: newValue } })
         }
       }
     },
     ...mapGetters([
-      'productList'
+      'productList', 'signupStatus'
     ])
   },
   methods: {
+    openUpdateHelmEnv () {
+      this.$refs.updateHelmEnvDialog.openDialog()
+    },
+    openUpdateHelmVar () {
+      this.$refs.updateHelmVarDialog.openDialog()
+    },
     openUpdateK8sVar () {
       this.$refs.updateK8sVarDialog.openDialog()
+    },
+    openPmServiceLog (envName, serviceName) {
+      this.$refs.pmServiceLog.openDialog(envName, serviceName)
     },
     openRecycleEnvDialog () {
       this.$refs.recycleDialog.openDialog()
@@ -519,12 +742,29 @@ export default {
       this.scrollGetFlag = true
       this.scrollFinish = false
       this.containerServiceList = []
+      this.pmServiceList = []
     },
     addListener () {
       this.$refs.envContainer && this.$refs.envContainer.addEventListener('scroll', this.onScroll)
     },
     removeListener () {
       this.$refs.envContainer && this.$refs.envContainer.removeEventListener('scroll', this.onScroll)
+    },
+    checkProjectFeature () {
+      const projectName = this.projectName
+      getSingleProjectAPI(projectName).then((res) => {
+        if (res.product_feature) {
+          if (res.product_feature.basic_facility === 'cloud_host') {
+            this.isPmService = true
+          }
+        } else {
+          this.isPmService = false
+        }
+      }).catch(err => {
+        if (err === 'CANCEL') {
+          console.log(err)
+        }
+      })
     },
     async getProducts () {
       await this.$store.dispatch('getProductListSSE').closeWhenDestroy(this)
@@ -534,7 +774,9 @@ export default {
         this.initPageInfo()
         this.getProductEnv()
         this.getProducts()
+        this.getCluster()
         this.fetchEnvRevision()
+        this.checkProjectFeature()
       } catch (err) {
         console.log('ERROR:' + err)
       }
@@ -552,7 +794,7 @@ export default {
               next_revision: 0
             })
             this.$set(this.serviceStatus, service.service_name, {
-              tpl_updatable: service.updatable && service.deleted === false && service.new === false,
+              tpl_updatable: !!(service.updatable && service.deleted === false && service.new === false),
               current_revision: service.current_revision,
               next_revision: service.next_revision,
               config: {
@@ -568,7 +810,7 @@ export default {
         this.productStatus = productStatus
       }).catch(err => {
         if (err === 'CANCEL') {
-          return false
+          console.log(err)
         }
       })
     },
@@ -580,8 +822,7 @@ export default {
         if (this.page === 1 && flag !== 'search') {
           await this.getProductEnvInfo(projectName, envName)
         }
-        // external 环境
-        if (this.envSource === 'external') {
+        if (this.envSource === 'external' || this.envSource === 'helm') {
           const res = await productServicesAPI(projectName, envName, this.envSource)
           serviceGroup = res.services
           this.ingressList = res.ingresses
@@ -605,11 +846,13 @@ export default {
         this.page++
         this.serviceLoading = false
         if (serviceGroup && serviceGroup.length) {
-          const { containerServiceList } = this.handleProductEnvServiceData(serviceGroup)
+          const { containerServiceList, pmServiceList } = this.handleProductEnvServiceData(serviceGroup)
           this.scrollGetFlag = true
           this.containerServiceList = this.containerServiceList.concat(containerServiceList)
+          this.pmServiceList = this.pmServiceList.concat(pmServiceList)
           this.containerServiceList = _.orderBy(this.containerServiceList, 'service_name')
-          if (this.envTotal === this.containerServiceList.length) {
+          this.pmServiceList = _.orderBy(this.pmServiceList, 'service_name')
+          if (this.envTotal === this.containerServiceList.length + this.pmServiceList.length) {
             this.removeListener()
             this.scrollGetFlag = false
             this.scrollFinish = true
@@ -644,10 +887,62 @@ export default {
       const containerServiceList = this.$utils.deepSortOn(serviceGroup.filter(element => {
         return element.type === 'k8s'
       }), 'service_name')
+      const pmServiceList = serviceGroup.filter(element => {
+        return element.type === 'pm'
+      })
+      if (pmServiceList.length > 0) {
+        pmServiceList.forEach(serviceItem => {
+          serviceItem.serviceHostStatus = {}
+          if (serviceItem.env_statuses) {
+            serviceItem.env_statuses.forEach(hostItem => {
+              const host = hostItem.address.split(':')[0]
+              serviceItem.serviceHostStatus[host] = { status: [], color: '' }
+            })
+          }
+        })
+        pmServiceList.forEach(serviceItem => {
+          if (serviceItem.env_statuses) {
+            serviceItem.env_statuses.forEach(hostItem => {
+              const host = hostItem.address.split(':')[0]
+              serviceItem.serviceHostStatus[host].status.push(hostItem.status)
+            })
+          }
+        })
+        pmServiceList.forEach(serviceItem => {
+          if (serviceItem.env_statuses) {
+            serviceItem.env_statuses.forEach(hostItem => {
+              const host = hostItem.address.split(':')[0]
+              serviceItem.serviceHostStatus[host].color = checkStatus(serviceItem.serviceHostStatus[host].status)
+            })
+          }
+        })
+        function checkStatus (arr) {
+          let successCount = 0
+          let errorCount = 0
+          for (let index = 0; index < arr.length; index++) {
+            const element = arr[index]
+            if (element === 'Running') {
+              successCount = successCount + 1
+            }
+            if (element === 'Error') {
+              errorCount = errorCount + 1
+            }
+          }
+          if (successCount === arr.length) {
+            return 'green'
+          } else if (errorCount === arr.length) {
+            return 'red'
+          } else {
+            return 'yellow'
+          }
+        }
+      }
       return {
-        containerServiceList
+        containerServiceList,
+        pmServiceList
       }
     },
+
     openPopper (service, service_status) {
       const product_name = this.projectName
       const env_name = this.envName
@@ -655,8 +950,37 @@ export default {
         this.combineTemplate = jsdiff.diffLines(tpls.current.yaml, tpls.latest.yaml)
       })
     },
-    getEnvStatus (status, updateble) {
+    getClusterType (clusterId) {
+      if (clusterId && this.allCluster.length > 0) {
+        const clusterObj = this.allCluster.find(cluster => cluster.id === clusterId)
+        if (clusterObj && clusterObj.production) {
+          return {
+            type: '生产',
+            name: clusterObj.name
+          }
+        } else if (clusterObj && clusterObj.production === false) {
+          return {
+            type: '测试',
+            name: clusterObj.name
+          }
+        }
+      } else {
+        return {
+          type: '本地',
+          name: ''
+        }
+      }
+    },
+    getCluster () {
+      getClusterListAPI().then((res) => {
+        this.allCluster = res
+      })
+    },
+    getProdStatus (status, updateble) {
       return getProductStatus(status, updateble)
+    },
+    rollbackToVersion () {
+      this.$router.push(`/v1/projects/detail/${this.projectName}/envs/create?rollbackId=${this.selectVersion}`)
     },
     showUpdate (product_info, product_status) {
       return product_status.updatable
@@ -670,7 +994,7 @@ export default {
         .then(() => {
           const projectName = product_info.product_name
           const envName = product_info.env_name
-          const envType = ''
+          const envType = this.isProd ? 'prod' : ''
           const payload = { vars: product_info.vars }
           const force = true
           updateK8sEnvAPI(projectName, envName, payload, envType, force).then(
@@ -680,13 +1004,7 @@ export default {
                 message: '更新环境成功，请等待服务升级',
                 type: 'success'
               })
-            }).catch(() => {
-            // const description = error.data.description
-            // const res = description.match('the following services are modified since last update')
-            // if(res) {
-            //   this.updateEnv(error.data.description, product_info)
-            // }
-          })
+            })
         })
     },
     updateEnv (res, product_info) {
@@ -725,7 +1043,7 @@ export default {
         this.showStartProductBuild = true
       }).catch(err => {
         if (err === 'CANCEL') {
-          return false
+          console.log(err)
         }
       })
     },
@@ -773,7 +1091,7 @@ export default {
         })
     },
     deleteProduct (project_name, env_name) {
-      const envType = ''
+      const envType = this.isProd ? 'prod' : ''
       this.$prompt('请输入环境名称以确认', `确定要删除 ${project_name} 项目的 ${env_name} 环境?`, {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
@@ -791,7 +1109,7 @@ export default {
         .then(({ value }) => {
           deleteProductEnvAPI(project_name, env_name, envType).then((res) => {
             this.$notify({
-              title: '环境正在删除中，请稍后查看环境状态',
+              title: `环境正在删除中，请稍后查看环境状态`,
               message: '操作成功',
               type: 'success',
               offset: 50
@@ -813,8 +1131,25 @@ export default {
         })
     },
     restartService (projectName, serviceName, envName) {
-      const envType = ''
+      const envType = this.isProd ? 'prod' : ''
       restartServiceOriginAPI(projectName, serviceName, envName, envType).then((res) => {
+        this.$message({
+          message: '重启服务成功',
+          type: 'success'
+        })
+        this.initPageInfo()
+        this.getProductEnv()
+        this.fetchEnvRevision()
+      })
+    },
+    restartPmService (service, revisionMeta) {
+      const payload = {
+        product_name: service.product_name,
+        service_name: service.service_name,
+        revision: revisionMeta.current_revision,
+        env_names: [this.envName]
+      }
+      restartPmServiceAPI(payload).then((res) => {
         this.$message({
           message: '重启服务成功',
           type: 'success'
@@ -840,21 +1175,33 @@ export default {
     },
     setRoute (scope) {
       if (typeof this.envName === 'undefined') {
-        return `${this.envBasePath}/${scope.row.service_name}?&projectName=${this.projectName}&namespace=${this.envText}&originProjectName=${scope.row.product_name}`
+        return `${this.envBasePath}/${scope.row.service_name}?projectName=${this.projectName}&namespace=${this.envText}&originProjectName=${scope.row.product_name}&isProd=${this.isProd}&clusterId=${this.clusterId}&envSource=${this.envSource}`
       } else {
         return (
-          `${this.envBasePath}/${scope.row.service_name}?envName=${this.envName}&&projectName=${this.projectName}&namespace=${this.envText}&originProjectName=${scope.row.product_name}`
+          `${this.envBasePath}/${scope.row.service_name}?envName=${this.envName}&projectName=${this.projectName}&namespace=${this.envText}&originProjectName=${scope.row.product_name}&isProd=${this.isProd}&clusterId=${this.clusterId}&envSource=${this.envSource}`
+        )
+      }
+    },
+    setPmRoute (scope) {
+      if (typeof this.envName === 'undefined') {
+        return `${this.envBasePath}/${scope.row.service_name}/pm?projectName=${this.projectName}&namespace=${this.envText}&originProjectName=${scope.row.product_name}&isProd=${this.isProd}&clusterId=${this.clusterId}&envSource=${this.envSource}`
+      } else {
+        return (
+          `${this.envBasePath}/${scope.row.service_name}/pm?envName=${this.envName}&projectName=${this.projectName}&namespace=${this.envText}&originProjectName=${scope.row.product_name}&isProd=${this.isProd}&clusterId=${this.clusterId}&envSource=${this.envSource}`
         )
       }
     },
     setServiceConfigRoute (scope) {
       if (typeof this.envName === 'undefined') {
-        return `${this.envBasePath}/${scope.row.service_name}/config?projectName=${this.projectName}&namespace=${this.envText}&originProjectName=${scope.row.product_name}`
+        return `${this.envBasePath}/${scope.row.service_name}/config?projectName=${this.projectName}&namespace=${this.envText}&originProjectName=${scope.row.product_name}&isProd=${this.isProd}&clusterId=${this.clusterId}&envSource=${this.envSource}`
       } else {
         return (
-          `${this.envBasePath}/${scope.row.service_name}/config?envName=${this.envName}&projectName=${this.projectName}&namespace=${this.envText}&originProjectName=${scope.row.product_name}`
+          `${this.envBasePath}/${scope.row.service_name}/config?envName=${this.envName}&projectName=${this.projectName}&namespace=${this.envText}&originProjectName=${scope.row.product_name}&isProd=${this.isProd}&clusterId=${this.clusterId}&envSource=${this.envSource}`
         )
       }
+    },
+    setPmServiceConfigRoute (scope) {
+      return `/v1/projects/detail/${scope.row.product_name}/services?serviceName=${scope.row.service_name}`
     },
     updateService (service) {
       this.$message.info('开始更新服务')
@@ -868,6 +1215,32 @@ export default {
         this.$message.success('更新成功请等待服务升级')
         this.fetchAllData()
       })
+    },
+    updatePmService (service, revisionMeta) {
+      const payload = {
+        product_name: service.product_name,
+        service_name: service.service_name,
+        revision: revisionMeta.next_revision,
+        env_names: [this.envName],
+        updatable: true
+      }
+      this.$message.info('开始更新服务')
+      restartPmServiceAPI(payload).then(res => {
+        this.$message.success('更新成功请等待服务升级')
+        this.fetchAllData()
+      })
+    },
+    calcPmServiceStatus (envStatus) {
+      if (envStatus) {
+        const runningCount = envStatus.filter(s => (s.status === 'Running' || s.status === 'Succeeded')).length
+        return `${runningCount}/${envStatus.length}`
+      } else {
+        return 'N/A'
+      }
+    },
+    getPmServiceHost (addr) {
+      const hostStrArray = addr.split(':')
+      return hostStrArray[0]
     }
   },
   beforeDestroy () {
@@ -891,6 +1264,9 @@ export default {
   },
   components: {
     runWorkflow,
+    PmServiceLog,
+    UpdateHelmEnvDialog,
+    UpdateHelmVarDialog,
     UpdateK8sVarDialog,
     RecycleDialog
   },

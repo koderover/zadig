@@ -26,6 +26,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/tool/log"
+	_ "github.com/koderover/zadig/pkg/util/testing"
 )
 
 func Test_v2RegistryService_ListRepoImages(t *testing.T) {

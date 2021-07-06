@@ -18,7 +18,6 @@ package webhook
 
 import (
 	"fmt"
-	"math/rand"
 	"strconv"
 	"strings"
 	"sync"
@@ -32,13 +31,13 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehost"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/codehost"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	gitlab2 "github.com/koderover/zadig/pkg/tool/gitlab"
+	gitlabtool "github.com/koderover/zadig/pkg/tool/git/gitlab"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/types/permission"
@@ -134,9 +133,9 @@ func (gpem *gitlabPushEventMatcher) Match(hookRepo commonmodels.MainHookRepo) (b
 				return false, err
 			}
 
-			client, err := gitlab2.NewGitlabClient(detail.Address, detail.OauthToken)
+			client, err := gitlabtool.NewClient(detail.Address, detail.OauthToken)
 			if err != nil {
-				gpem.log.Errorf("NewGitlabClient error: %v", err)
+				gpem.log.Errorf("NewClient error: %v", err)
 				return false, err
 			}
 
@@ -306,13 +305,13 @@ func findChangedFilesOfMergeRequest(event *gitlab.MergeEvent, codehostID int) ([
 		return nil, fmt.Errorf("failed to find codehost %d: %v", codehostID, err)
 	}
 
-	client, err := gitlab2.NewGitlabClient(detail.Address, detail.OauthToken)
+	client, err := gitlabtool.NewClient(detail.Address, detail.OauthToken)
 	if err != nil {
 		log.Error(err)
 		return nil, e.ErrCodehostListProjects.AddDesc(err.Error())
 	}
 
-	return client.ListChangedFiles(detail.Address, detail.OauthToken, event)
+	return client.ListChangedFiles(event)
 }
 
 // InitDiffNote 调用gitlab接口初始化DiffNote，并保存到数据库
@@ -431,7 +430,7 @@ func CreateEnvAndTaskByPR(workflowArgs *commonmodels.WorkflowTaskArgs, prID int,
 		}
 	}
 
-	envName := fmt.Sprintf("%s-%d-%s%s", "pr", prID, GetRandomNumString(3, 1), GetRandomNumString(1, 2))
+	envName := fmt.Sprintf("%s-%d-%s%s", "pr", prID, util.GetRandomNumString(3), util.GetRandomString(3))
 	util.Clear(&baseProduct.ID)
 	baseProduct.Namespace = commonservice.GetProductEnvNamespace(envName, workflowArgs.ProductTmplName)
 	baseProduct.UpdateBy = setting.SystemUser
@@ -555,21 +554,4 @@ func WaitEnvDelete(timeoutSeconds int, envName string, workflowArgs *commonmodel
 		time.Sleep(time.Second)
 	}
 	return nil
-}
-
-func GetRandomNumString(length, returnType int) string {
-	numStr := "0123456789abcdefghijklmnopqrstuvwxyz"
-	str := "abcdefghijklmnopqrstuvwxyz"
-	var bytes []byte
-	if returnType == 1 {
-		bytes = []byte(numStr)
-	} else {
-		bytes = []byte(str)
-	}
-	result := []byte{}
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	for i := 0; i < length; i++ {
-		result = append(result, bytes[r.Intn(len(bytes))])
-	}
-	return string(result)
 }

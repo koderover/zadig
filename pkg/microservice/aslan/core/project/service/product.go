@@ -20,22 +20,24 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/koderover/zadig/pkg/internal/poetry"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collie"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types/permission"
@@ -469,6 +471,18 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 	if err = commonservice.DeletePipelines(productName, requestID, log); err != nil {
 		log.Errorf("DeleteProductTemplate Delete productName %s pipeline err: %v", productName, err)
 		return err
+	}
+
+	//删除自由编排工作流
+	features, err := commonservice.GetFeatures(log)
+	if err != nil {
+		log.Errorf("DeleteProductTemplate productName %s getFeatures err: %v", productName, err)
+	}
+	if strings.Contains(features, string(config.FreestyleType)) {
+		collieClient := collie.New(config.CollieAPIAddress(), config.PoetryAPIRootKey())
+		if err = collieClient.DeleteCIPipelines(productName, log); err != nil {
+			log.Errorf("DeleteProductTemplate Delete productName %s freestyle pipeline err: %v", productName, err)
+		}
 	}
 
 	err = templaterepo.NewProductColl().Delete(productName)

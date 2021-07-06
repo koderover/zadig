@@ -156,7 +156,7 @@ export default {
   props: {
     basePath: {
       request: true,
-      type: String // 两种情况： projects / tests
+      type: String
     }
   },
   computed: {

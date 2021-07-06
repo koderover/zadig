@@ -48,6 +48,15 @@ func FindDefaultRegistry(log *zap.SugaredLogger) (*models.RegistryNamespace, err
 	return resp, nil
 }
 
+func GetDefaultRegistryNamespace(log *zap.SugaredLogger) (*models.RegistryNamespace, error) {
+	resp, err := mongodb.NewRegistryNamespaceColl().Find(&mongodb.FindRegOps{IsDefault: true})
+	if err != nil {
+		log.Errorf("get default registry error: %v", err)
+		return resp, fmt.Errorf("get default registry error: %v", err)
+	}
+	return resp, nil
+}
+
 func ListRegistryNamespaces(log *zap.SugaredLogger) ([]*models.RegistryNamespace, error) {
 	resp, err := mongodb.NewRegistryNamespaceColl().FindAll(&mongodb.FindRegOps{})
 	if err != nil {

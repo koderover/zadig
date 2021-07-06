@@ -19,7 +19,7 @@ package github
 import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/tool/github"
+	"github.com/koderover/zadig/pkg/tool/git/github"
 )
 
 type Client struct {

@@ -358,6 +358,7 @@ func (r *Reaper) AfterExec(upStreamErr error) error {
 		}
 		if r.Ctx.TestType == setting.FunctionTest {
 			log.Info("merging test result")
+			// 解析功能测试的测试结果目录的文件，对数据进行统计，将最终的统计结果写入到一个本地文件中
 			if err = mergeGinkgoTestResults(
 				r.Ctx.Archive.File,
 				resultPath,
@@ -369,6 +370,7 @@ func (r *Reaper) AfterExec(upStreamErr error) error {
 			}
 		} else if r.Ctx.TestType == setting.PerformanceTest {
 			log.Info("performance test result")
+			// 解析性能测试的测试结果目录的文件，对数据进行统计，将最终的统计结果写入到一个本地文件中
 			if err = JmeterTestResults(
 				r.Ctx.Archive.File,
 				resultPath,
@@ -378,17 +380,24 @@ func (r *Reaper) AfterExec(upStreamErr error) error {
 				return err
 			}
 		}
-		//处理artifact
+		// 将测试文件导出地址的文件上传到S3
 		if len(r.Ctx.GinkgoTest.ArtifactPaths) > 0 {
 			if err = artifactsUpload(r.Ctx, r.ActiveWorkspace); err != nil {
 				log.Errorf("artifactsUpload err %v", err)
 				return err
 			}
 		}
+		// 将上面生成的统计结果文件上传到S3
 		if err = r.archiveTestFiles(); err != nil {
 			log.Errorf("archiveFiles err %v", err)
 			return err
 		}
+		// 将HTML测试报告上传到S3
+		if err = r.archiveHTMLTestReportFile(); err != nil {
+			log.Errorf("archiveFiles err %v", err)
+			return err
+		}
+
 	}
 
 	// should archive file first, since compress cache will clean the workspace
@@ -400,6 +409,12 @@ func (r *Reaper) AfterExec(upStreamErr error) error {
 		// 运行构建后置脚本
 		if err = r.RunPostScripts(); err != nil {
 			log.Errorf("RunPostScripts err %v", err)
+			return err
+		}
+
+		// 运行物理机部署脚本
+		if err = r.RunPMDeployScripts(); err != nil {
+			log.Errorf("RunPMDeployScripts err %v", err)
 			return err
 		}
 

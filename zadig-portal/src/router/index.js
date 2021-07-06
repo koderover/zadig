@@ -50,6 +50,7 @@ import project_env_home from '../components/projects/env/inner_env/home.vue'
 import project_env_detail from '../components/projects/env/inner_env/env_detail.vue'
 import project_env_create from '../components/projects/env/inner_env/create_env_detail.vue'
 import project_env_service_detail from '../components/projects/env/inner_env/service_detail.vue'
+import project_env_pm_service_detail from '../components/projects/env/inner_env/pm_service_detail.vue'
 import project_env_service_config from '../components/projects/env/inner_env/service_config.vue'
 
 // test
@@ -81,6 +82,17 @@ import onboarding_projects_service from '../components/projects/guide/service.vu
 import onboarding_projects_runtime from '../components/projects/guide/runtime.vue'
 import onboarding_projects_delivery from '../components/projects/guide/k8s/delivery.vue'
 
+// helm
+import onboarding_projects_info_helm from '../components/projects/guide/helm/info_basic.vue'
+import onboarding_projects_runtime_helm from '../components/projects/guide/helm/runtime.vue'
+import onboarding_projects_delivery_helm from '../components/projects/guide/helm/delivery.vue'
+
+// not k8s
+import onboarding_projects_not_k8s_info from '../components/projects/guide/not_k8s/not_k8s_info.vue'
+import onboarding_projects_not_k8s_config from '../components/projects/guide/not_k8s/not_k8s_config.vue'
+import onboarding_projects_not_k8s_deploy from '../components/projects/guide/not_k8s/not_k8s_deploy.vue'
+import onboarding_projects_not_k8s_delivery from '../components/projects/guide/not_k8s/not_k8s_delivery.vue'
+
 /** ---------------- */
 
 /**   enterprise    */
@@ -98,7 +110,10 @@ import setting_apps_manage from '../components/setting/apps/manage.vue'
 import setting_imgs_manage from '../components/setting/imgs/manage.vue'
 import setting_registry_manage from '../components/setting/registry/manage.vue'
 import setting_storage_manage from '../components/setting/storage/manage.vue'
+import setting_cluster_manage from '../components/setting/cluster/manage.vue'
+import setting_host_manage from '../components/setting/host/manage.vue'
 import setting_config_manage_home from '../components/setting/config/home.vue'
+import setting_config_manage_quota from '../components/setting/config/quota.vue'
 import setting_config_manage_proxy from '../components/setting/config/proxy.vue'
 import setting_config_manage_cache from '../components/setting/config/cache.vue'
 /** ---------------- */
@@ -169,11 +184,19 @@ const routes = [
             }
           },
           {
+            path: 'detail/:project_name/:service_name/pm',
+            component: project_env_pm_service_detail,
+            meta: {
+              requiresAuth: true,
+              title: '服务详情'
+            }
+          },
+          {
             path: 'detail/:project_name/:service_name/config',
             component: project_env_service_config,
             meta: {
               requiresAuth: true,
-              title: '服务详情'
+              title: '配置详情'
             }
           }
         ]
@@ -221,6 +244,70 @@ const routes = [
       {
         path: 'projects/create/:project_name/basic/delivery',
         component: onboarding_projects_delivery,
+        meta: {
+          requiresAuth: true,
+          title: '新建项目'
+        }
+      },
+      {
+        path: 'projects/create/:project_name/helm/info',
+        component: onboarding_projects_info_helm,
+        meta: {
+          requiresAuth: true,
+          title: '新建项目'
+        }
+      },
+      {
+        path: 'projects/create/:project_name/helm/service',
+        component: () => import('@/components/projects/guide/service_helm_guide'),
+        meta: {
+          requiresAuth: true,
+          title: '新建项目'
+        }
+      },
+      {
+        path: 'projects/create/:project_name/helm/runtime',
+        component: onboarding_projects_runtime_helm,
+        meta: {
+          requiresAuth: true,
+          title: '新建项目'
+        }
+      },
+      {
+        path: 'projects/create/:project_name/helm/delivery',
+        component: onboarding_projects_delivery_helm,
+        meta: {
+          requiresAuth: true,
+          title: '新建项目'
+        }
+      },
+      {
+        path: 'projects/create/:project_name/not_k8s/info',
+        component: onboarding_projects_not_k8s_info,
+        meta: {
+          requiresAuth: true,
+          title: '新建项目'
+        }
+      },
+      {
+        path: 'projects/create/:project_name/not_k8s/config',
+        component: onboarding_projects_not_k8s_config,
+        meta: {
+          requiresAuth: true,
+          title: '新建项目'
+        }
+      },
+      {
+        path: 'projects/create/:project_name/not_k8s/deploy',
+        component: onboarding_projects_not_k8s_deploy,
+        meta: {
+          requiresAuth: true,
+          title: '新建项目'
+        }
+      },
+      {
+        path: 'projects/create/:project_name/not_k8s/delivery',
+        component: onboarding_projects_not_k8s_delivery,
         meta: {
           requiresAuth: true,
           title: '新建项目'
@@ -309,6 +396,14 @@ const routes = [
           {
             path: 'detail/:service_name',
             component: project_env_service_detail,
+            meta: {
+              requiresAuth: true,
+              title: '服务详情'
+            }
+          },
+          {
+            path: 'detail/:service_name/pm',
+            component: project_env_pm_service_detail,
             meta: {
               requiresAuth: true,
               title: '服务详情'
@@ -696,6 +791,24 @@ const routes = [
         }
       },
       {
+        path: 'cluster',
+        component: setting_cluster_manage,
+        meta: {
+          requiresAuth: true,
+          requiresSuperAdmin: true,
+          title: '集群管理'
+        }
+      },
+      {
+        path: 'host',
+        component: setting_host_manage,
+        meta: {
+          requiresAuth: true,
+          requiresSuperAdmin: true,
+          title: '主机管理'
+        }
+      },
+      {
         path: 'integration',
         component: setting_integration_manage_home,
         meta: {
@@ -712,6 +825,15 @@ const routes = [
           title: '系统配置'
         },
         children: [
+          {
+            path: 'manage/quota',
+            component: setting_config_manage_quota,
+            meta: {
+              requiresAuth: true,
+              requiresSuperAdmin: true,
+              title: '系统配额'
+            }
+          },
           {
             path: 'manage/proxy',
             component: setting_config_manage_proxy,

@@ -25,19 +25,20 @@ import (
 
 	"github.com/google/go-github/v35/github"
 	"github.com/hashicorp/go-multierror"
+	"github.com/xanzy/go-gitlab"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"github.com/koderover/zadig/pkg/internal/poetry"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehost"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	githubtool "github.com/koderover/zadig/pkg/tool/github"
-	"github.com/koderover/zadig/pkg/tool/gitlab"
+	githubtool "github.com/koderover/zadig/pkg/tool/git/github"
+	gitlabtool "github.com/koderover/zadig/pkg/tool/git/gitlab"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
@@ -120,11 +121,7 @@ func syncLatestCommit(service *commonmodels.Service) error {
 		return err
 	}
 
-	projectID, err := GitlabGetProjectID(client, owner, repo)
-	if err != nil {
-		return err
-	}
-	commit, err := GitlabGetLatestCommit(client, projectID, branch, path)
+	commit, err := GitlabGetLatestCommit(client, owner, repo, branch, path)
 	if err != nil {
 		return err
 	}
@@ -135,7 +132,7 @@ func syncLatestCommit(service *commonmodels.Service) error {
 	return nil
 }
 
-func getGitlabClientByAddress(address string) (*gitlab.Client, error) {
+func getGitlabClientByAddress(address string) (*gitlabtool.Client, error) {
 	opt := &codehost.Option{
 		Address:      address,
 		CodeHostType: codehost.GitLabProvider,
@@ -145,7 +142,7 @@ func getGitlabClientByAddress(address string) (*gitlab.Client, error) {
 		log.Error(err)
 		return nil, e.ErrCodehostListProjects.AddDesc("git client is nil")
 	}
-	client, err := gitlab.NewGitlabClient(codehost.Address, codehost.AccessToken)
+	client, err := gitlabtool.NewClient(codehost.Address, codehost.AccessToken)
 	if err != nil {
 		log.Error(err)
 		return nil, e.ErrCodehostListProjects.AddDesc(err.Error())
@@ -154,19 +151,11 @@ func getGitlabClientByAddress(address string) (*gitlab.Client, error) {
 	return client, nil
 }
 
-func GitlabGetProjectID(client *gitlab.Client, owner, repo string) (projectID int, err error) {
-	project, err := client.GetProject(owner, repo)
+func GitlabGetLatestCommit(client *gitlabtool.Client, owner, repo string, ref, path string) (*gitlab.Commit, error) {
+	commit, err := client.GetLatestCommit(owner, repo, ref, path)
 	if err != nil {
-		return -1, fmt.Errorf("failed to get project with %s/%s, error: %v", owner, repo, err)
-	}
-	return project.ID, nil
-}
-
-func GitlabGetLatestCommit(client *gitlab.Client, projectID int, ref, path string) (*gitlab.RepoCommit, error) {
-	commit, err := client.GetLatestCommit(projectID, ref, path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get lastest commit with project id: %d, ref: %s, path:%s, error: %v",
-			projectID, ref, path, err)
+		return nil, fmt.Errorf("failed to get lastest commit with project %s/%s, ref: %s, path:%s, error: %v",
+			owner, repo, ref, path, err)
 	}
 	return commit, nil
 }
@@ -175,11 +164,11 @@ func GitlabGetLatestCommit(client *gitlab.Client, projectID int, ref, path strin
 // projectID: identity of project, can be retrieved from s.GitlabGetProjectID(owner, repo)
 // ref: branch (e.g. master) or commit (commit id) or tag
 // path: file path of raw files, only retrieve leaf node(blob type == file), no recursive get
-func GitlabGetRawFiles(client *gitlab.Client, projectID int, ref, path, pathType string) (files []string, err error) {
+func GitlabGetRawFiles(client *gitlabtool.Client, owner, repo, ref, path, pathType string) (files []string, err error) {
 	files = make([]string, 0)
 	var errs *multierror.Error
 	if pathType == "tree" {
-		nodes, err := client.ListTree(projectID, ref, path)
+		nodes, err := client.ListTree(owner, repo, ref, path)
 		if err != nil {
 			return files, err
 		}
@@ -194,7 +183,7 @@ func GitlabGetRawFiles(client *gitlab.Client, projectID int, ref, path, pathType
 			}
 			// if node type is "blob", it is a file
 			// Path is filepath of a node
-			content, err := client.GetRawFile(projectID, ref, node.Path)
+			content, err := client.GetRawFile(owner, repo, ref, node.Path)
 			if err != nil {
 				errs = multierror.Append(errs, err)
 			}
@@ -204,7 +193,7 @@ func GitlabGetRawFiles(client *gitlab.Client, projectID int, ref, path, pathType
 		}
 		return files, errs.ErrorOrNil()
 	}
-	content, err := client.GetFileContent(projectID, ref, path)
+	content, err := client.GetFileContent(owner, repo, ref, path)
 	if err != nil {
 		return files, err
 	}
@@ -229,12 +218,7 @@ func syncContentFromGitlab(userName string, args *commonmodels.Service) error {
 		return err
 	}
 
-	projectID, _ := GitlabGetProjectID(client, owner, repo)
-	if owner == "" {
-		return fmt.Errorf("url format failed")
-	}
-
-	files, err := GitlabGetRawFiles(client, projectID, branch, path, pathType)
+	files, err := GitlabGetRawFiles(client, owner, repo, branch, path, pathType)
 	if err != nil {
 		return err
 	}

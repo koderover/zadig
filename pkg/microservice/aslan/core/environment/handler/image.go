@@ -25,8 +25,8 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
-	internalhandler "github.com/koderover/zadig/pkg/microservice/aslan/internal/handler"
 	"github.com/koderover/zadig/pkg/setting"
+	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types/permission"

@@ -22,7 +22,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/service"
-	internalhandler "github.com/koderover/zadig/pkg/microservice/aslan/internal/handler"
+	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 

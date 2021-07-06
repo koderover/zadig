@@ -185,7 +185,7 @@
           </template>
         </el-table-column>
       </el-table>
-      <div v-if="artifactDeployEnabled"
+      <div v-if="artifactDeployEnabled && !isHelm"
           class="create-version">
         <div class="create-checkbox">
           <el-checkbox v-model="createVersion">创建版本</el-checkbox>
@@ -272,7 +272,7 @@ import virtualListItem from './virtual_list_item'
 import workflowBuildRows from '@/components/common/workflow_build_rows.vue'
 import workflowTestRows from '@/components/common/workflow_test_rows.vue'
 import deployIcons from '@/components/common/deploy_icons'
-import { listProductAPI, precreateWorkflowTaskAPI, getAllBranchInfoAPI, runWorkflowAPI, getBuildTargetsAPI, getRegistryWhenBuildAPI, imagesAPI } from '@api'
+import { listProductAPI, precreateWorkflowTaskAPI, getAllBranchInfoAPI, runWorkflowAPI, getBuildTargetsAPI, getRegistryWhenBuildAPI, imagesAPI, getSingleProjectAPI } from '@api'
 import virtualScrollList from 'vue-virtual-scroll-list'
 export default {
   data () {
@@ -300,6 +300,7 @@ export default {
       startTaskLoading: false,
       fastSelect: false,
       createVersion: false,
+      isHelm: false,
       versionInfo: {
         version: '',
         enabled: true,
@@ -446,6 +447,16 @@ export default {
     }
   },
   methods: {
+    async checkProjectFeature (projectName) {
+      const res = await getSingleProjectAPI(projectName)
+      if (res.product_feature) {
+        if (res.product_feature.basic_facility === 'kubernetes') {
+          if (res.product_feature.deploy_type === 'helm') {
+            this.isHelm = true
+          }
+        }
+      }
+    },
     changeVirtualData (event, row, index) {
       const opt = event ? 0 : -1
       const id = this.imageMap[row.name].map(img => img.full).indexOf(row.image) + opt

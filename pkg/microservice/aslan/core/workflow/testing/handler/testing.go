@@ -25,10 +25,11 @@ import (
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/service"
-	internalhandler "github.com/koderover/zadig/pkg/microservice/aslan/internal/handler"
+	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types/permission"
+	"github.com/koderover/zadig/pkg/util/ginzap"
 )
 
 func GetTestProductName(c *gin.Context) {
@@ -68,7 +69,7 @@ func CreateTestModule(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.Create(ctx.Username, args, ctx.Logger)
+	ctx.Err = service.CreateTesting(ctx.Username, args, ctx.Logger)
 }
 
 func UpdateTestModule(c *gin.Context) {
@@ -92,7 +93,7 @@ func UpdateTestModule(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.Update(ctx.Username, args, ctx.Logger)
+	ctx.Err = service.UpdateTesting(ctx.Username, args, ctx.Logger)
 }
 
 func ListTestModules(c *gin.Context) {
@@ -112,7 +113,7 @@ func GetTestModule(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty Name")
 		return
 	}
-	ctx.Resp, ctx.Err = service.Get(name, c.Query("productName"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetTesting(name, c.Query("productName"), ctx.Logger)
 }
 
 func DeleteTestModule(c *gin.Context) {
@@ -128,4 +129,21 @@ func DeleteTestModule(c *gin.Context) {
 	}
 
 	ctx.Err = service.DeleteTestModule(name, c.Query("productName"), ctx.RequestID, ctx.Logger)
+}
+
+func GetHTMLTestReport(c *gin.Context) {
+	content, err := service.GetHTMLTestReport(
+		c.Query("pipelineName"),
+		c.Query("pipelineType"),
+		c.Query("taskID"),
+		c.Query("testName"),
+		ginzap.WithContext(c).Sugar(),
+	)
+	if err != nil {
+		c.JSON(500, gin.H{"err": err})
+		return
+	}
+
+	c.Header("content-type", "text/html")
+	c.String(200, content)
 }

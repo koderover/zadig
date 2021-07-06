@@ -86,6 +86,19 @@ func ListDeployTarget(productName string, log *zap.SugaredLogger) ([]*commonmode
 					}
 				}
 			}
+		case setting.PMDeployType:
+			target := fmt.Sprintf("%s-%s-%s", serviceTmpl.ProductName, serviceTmpl.ServiceName, serviceTmpl.ServiceName)
+			if _, ok := targetMap[target]; !ok {
+				targetMap[target] = true
+				ServiceObject := &commonmodels.ServiceModuleTarget{
+					ProductName:   serviceTmpl.ProductName,
+					ServiceName:   serviceTmpl.ServiceName,
+					ServiceModule: serviceTmpl.ServiceName,
+				}
+				if !buildTargets.Has(target) {
+					serviceObjects = append(serviceObjects, ServiceObject)
+				}
+			}
 		}
 	}
 	return serviceObjects, nil
@@ -121,6 +134,12 @@ func ListContainers(productName string, log *zap.SugaredLogger) ([]*commonmodels
 					ServiceModule: container.Name,
 				})
 			}
+		} else if service.Type == setting.PMDeployType {
+			containerList = append(containerList, &commonmodels.ServiceModuleTarget{
+				ProductName:   service.ProductName,
+				ServiceName:   service.ServiceName,
+				ServiceModule: service.ServiceName,
+			})
 		}
 	}
 	return containerList, nil

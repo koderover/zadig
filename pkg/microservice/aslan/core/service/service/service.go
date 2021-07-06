@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -37,10 +38,11 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehost"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	s3service "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/aslanx"
+	"github.com/koderover/zadig/pkg/shared/codehost"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
@@ -249,6 +251,9 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 }
 
 func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap.SugaredLogger) (*ServiceOption, error) {
+	if isAdd, serviceLimit := addService(); !isAdd {
+		return nil, e.ErrCreateTemplate.AddDesc(fmt.Sprintf("现有服务数量已超过允许的最大值[%d]，请联系管理员查看", serviceLimit))
+	}
 
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName:   args.ServiceName,
@@ -385,6 +390,26 @@ func UpdateServiceTemplate(args *commonservice.ServiceTmplObject) error {
 	}
 
 	envStatuses := make([]*commonmodels.EnvStatus, 0)
+	// 去掉检查状态中不存在的环境和主机
+	for _, envStatus := range args.EnvStatuses {
+		var existEnv, existHost bool
+
+		envName := envStatus.EnvName
+		if _, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+			Name:    args.ProductName,
+			EnvName: envName,
+		}); err == nil {
+			existEnv = true
+		}
+
+		if _, err := commonrepo.NewPrivateKeyColl().Find(envStatus.HostID); err == nil {
+			existHost = true
+		}
+
+		if existEnv && existHost {
+			envStatuses = append(envStatuses, envStatus)
+		}
+	}
 
 	updateArgs := &commonmodels.Service{
 		ProductName: args.ProductName,
@@ -501,6 +526,25 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 			errMsg := fmt.Sprintf("共享服务 %s 已存在于 %s 等环境中，请对这些环境进行更新后再删除",
 				serviceName, strings.Join(envNames, ", "))
 			return e.ErrInvalidParam.AddDesc(errMsg)
+		}
+	}
+
+	// 如果服务是PM类型，删除服务更新build的target信息
+	if serviceType == setting.PMDeployType {
+		if serviceTmpl, err := commonservice.GetServiceTemplate(
+			serviceName, setting.PMDeployType, productName, setting.ProductStatusDeleting, 0, log,
+		); err == nil {
+			if serviceTmpl.BuildName != "" {
+				updateTargets := make([]*commonmodels.ServiceModuleTarget, 0)
+				if preBuild, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: serviceTmpl.BuildName, Version: "stable", ProductName: productName}); err == nil {
+					for _, target := range preBuild.Targets {
+						if target.ServiceName != serviceName {
+							updateTargets = append(updateTargets, target)
+						}
+					}
+					_ = commonrepo.NewBuildColl().UpdateTargets(serviceTmpl.BuildName, productName, updateTargets)
+				}
+			}
 		}
 	}
 
@@ -899,6 +943,31 @@ func getCronJobContainers(data string) ([]*commonmodels.Container, error) {
 	}
 
 	return containers, nil
+}
+
+func addService() (bool, int) {
+	var (
+		totalServiceCount = 0
+		limitServiceCount = 0
+	)
+	totalServices, _ := commonrepo.NewServiceColl().DistinctServices(&commonrepo.ServiceListOption{ExcludeStatus: setting.ProductStatusDeleting})
+	totalServiceCount = len(totalServices)
+	signatures, enabled, _ := aslanx.New(config.AslanURL(), config.PoetryAPIRootKey()).ListSignatures(log.NopSugaredLogger())
+	if !enabled {
+		return true, limitServiceCount
+	}
+	if len(signatures) > 0 {
+		if signatureStr, err := base64.StdEncoding.DecodeString(signatures[0].Token); err == nil {
+			signatureArr := strings.Split(string(signatureStr), ",")
+			if len(signatureArr) > 5 {
+				limitServiceCount, _ = strconv.Atoi(signatureArr[5])
+			}
+		}
+	}
+	if limitServiceCount == -1 || limitServiceCount > totalServiceCount {
+		return true, limitServiceCount
+	}
+	return false, limitServiceCount
 }
 
 func updateGerritWebhookByService(lastService, currentService *commonmodels.Service) error {

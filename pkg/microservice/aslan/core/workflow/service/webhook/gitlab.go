@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"strings"
 	"sync"
@@ -33,6 +32,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collie"
+	gitservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
@@ -47,17 +47,12 @@ type EventPush struct {
 	Body        string `json:"body"`
 }
 
-func ProcessGitlabHook(req *http.Request, requestID string, log *zap.SugaredLogger) error {
+func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) error {
 	token := req.Header.Get("X-Gitlab-Token")
-	secret := getHookSecret(log)
+	secret := gitservice.GetHookSecret()
 
 	if secret != "" && token != secret {
 		return errors.New("token is illegal")
-	}
-
-	payload, err := ioutil.ReadAll(req.Body)
-	if err != nil {
-		return err
 	}
 
 	eventType := gitlab.HookEventType(req)
@@ -146,6 +141,14 @@ func ProcessGitlabHook(req *http.Request, requestID string, log *zap.SugaredLogg
 			}
 		}()
 
+		//测试管理webhook
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err = TriggerTestByGitlabEvent(pushEvent, baseURI, requestID, log); err != nil {
+				errorList = multierror.Append(errorList, err)
+			}
+		}()
 	}
 
 	if mergeEvent != nil {
@@ -167,6 +170,14 @@ func ProcessGitlabHook(req *http.Request, requestID string, log *zap.SugaredLogg
 			}
 		}()
 
+		//测试管理webhook
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err = TriggerTestByGitlabEvent(mergeEvent, baseURI, requestID, log); err != nil {
+				errorList = multierror.Append(errorList, err)
+			}
+		}()
 	}
 
 	wg.Wait()
@@ -249,29 +260,13 @@ func updateServiceTemplateByPushEvent(event *EventPush, log *zap.SugaredLogger) 
 		log.Errorf("GetGitlabAddress failed, error: %v", err)
 		return err
 	}
-	pathWithNamespace := strings.Split(gitlabEvent.Project.PathWithNamespace, "/")
-	owner := strings.Join(pathWithNamespace[:len(pathWithNamespace)-1], "/")
-	repo := pathWithNamespace[len(pathWithNamespace)-1]
 
 	client, err := getGitlabClientByAddress(address)
 	if err != nil {
 		return err
 	}
 
-	projectID, err := GitlabGetProjectID(client, owner, repo)
-	if err != nil {
-		log.Errorf("Get Project ID of %s/%s failed, error: %v",
-			owner, repo, err)
-		return err
-	}
-	if projectID != event.ProjectID {
-		msg := fmt.Sprintf("Push event projectID is: %d, it's not %s/%s, just ignore.",
-			event.ProjectID, owner, repo)
-		log.Info(msg)
-		return nil
-	}
-
-	diffs, err := client.Compare(projectID, event.Before, event.After)
+	diffs, err := client.Compare(event.ProjectID, event.Before, event.After)
 	if err != nil {
 		log.Errorf("Failed to get push event diffs, error: %v", err)
 		return err

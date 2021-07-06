@@ -105,7 +105,6 @@ export default {
           this.testCases = res.functionTestSuite.testcase
           this.testCases.forEach(testCase => {
             const blocks = []
-            // 兼容老数据
             if (testCase.failure && typeof testCase.failure === 'string') {
               blocks.push(`失败原因:\n${testCase.failure}`)
             }

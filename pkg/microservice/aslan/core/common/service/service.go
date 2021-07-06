@@ -25,12 +25,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
 
-	"github.com/koderover/zadig/pkg/internal/poetry"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehost"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
@@ -49,15 +49,16 @@ type ServiceTmplBuildObject struct {
 }
 
 type ServiceTmplObject struct {
-	ProductName string                    `json:"product_name"`
-	ServiceName string                    `json:"service_name"`
-	Visibility  string                    `json:"visibility"`
-	Revision    int64                     `json:"revision"`
-	Type        string                    `json:"type"`
-	Username    string                    `json:"username"`
-	EnvConfigs  []*commonmodels.EnvConfig `json:"env_configs"`
-	EnvStatuses []*commonmodels.EnvStatus `json:"env_statuses,omitempty"`
-	From        string                    `json:"from,omitempty"`
+	ProductName  string                        `json:"product_name"`
+	ServiceName  string                        `json:"service_name"`
+	Visibility   string                        `json:"visibility"`
+	Revision     int64                         `json:"revision"`
+	Type         string                        `json:"type"`
+	Username     string                        `json:"username"`
+	EnvConfigs   []*commonmodels.EnvConfig     `json:"env_configs"`
+	EnvStatuses  []*commonmodels.EnvStatus     `json:"env_statuses,omitempty"`
+	From         string                        `json:"from,omitempty"`
+	HealthChecks []*commonmodels.PmHealthCheck `json:"health_checks"`
 }
 
 type ServiceProductMap struct {
@@ -340,4 +341,40 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 	}
 
 	return resp, nil
+}
+
+func UpdatePmServiceTemplate(username string, args *ServiceTmplBuildObject, log *zap.SugaredLogger) error {
+	//该请求来自环境中的服务更新时，from=createEnv
+	if args.ServiceTmplObject.From == "" {
+		if err := UpdateBuild(username, args.Build, log); err != nil {
+			return err
+		}
+	}
+
+	//先比较healthcheck是否有变动
+	preService, err := GetServiceTemplate(args.ServiceTmplObject.ServiceName, setting.PMDeployType, args.ServiceTmplObject.ProductName, setting.ProductStatusDeleting, args.ServiceTmplObject.Revision, log)
+	if err != nil {
+		return err
+	}
+
+	//更新服务
+	serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, preService.ServiceName, setting.PMDeployType)
+	rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
+	if err != nil {
+		return err
+	}
+	preService.HealthChecks = args.ServiceTmplObject.HealthChecks
+	preService.EnvConfigs = args.ServiceTmplObject.EnvConfigs
+	preService.Revision = rev
+	preService.CreateBy = username
+	preService.BuildName = args.Build.Name
+
+	if err := commonrepo.NewServiceColl().Delete(preService.ServiceName, setting.PMDeployType, "", setting.ProductStatusDeleting, preService.Revision); err != nil {
+		return err
+	}
+
+	if err := commonrepo.NewServiceColl().Create(preService); err != nil {
+		return err
+	}
+	return nil
 }

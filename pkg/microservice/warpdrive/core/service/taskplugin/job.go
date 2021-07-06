@@ -37,12 +37,12 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/koderover/zadig/pkg/internal/kube/wrapper"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/s3"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/containerlog"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
@@ -145,11 +145,12 @@ func saveContainerLog(pipelineTask *task.Task, namespace, fileName string, jobLa
 
 // JobCtxBuilder ...
 type JobCtxBuilder struct {
-	JobName     string
-	ArchiveFile string
-	PipelineCtx *task.PipelineCtx
-	JobCtx      task.JobCtx
-	Installs    []*task.Install
+	JobName        string
+	ArchiveFile    string
+	TestReportFile string
+	PipelineCtx    *task.PipelineCtx
+	JobCtx         task.JobCtx
+	Installs       []*task.Install
 }
 
 func replaceWrapLine(script string) string {
@@ -190,6 +191,7 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 		},
 		Scripts:         make([]string, 0),
 		PostScripts:     make([]string, 0),
+		PMDeployScripts: make([]string, 0),
 		SSHs:            b.JobCtx.SSHs,
 		TestType:        b.JobCtx.TestType,
 		ClassicBuild:    pipelineTask.ConfigPayload.ClassicBuild,
@@ -252,9 +254,14 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 		ctx.PostScripts = append(ctx.PostScripts, strings.Split(replaceWrapLine(b.JobCtx.PostScripts), "\n")...)
 	}
 
+	if b.JobCtx.PMDeployScripts != "" {
+		ctx.PMDeployScripts = append(ctx.PMDeployScripts, strings.Split(replaceWrapLine(b.JobCtx.PMDeployScripts), "\n")...)
+	}
+
 	ctx.Archive = &types.Archive{
-		Dir:  b.PipelineCtx.DistDir,
-		File: b.ArchiveFile,
+		Dir:            b.PipelineCtx.DistDir,
+		File:           b.ArchiveFile,
+		TestReportFile: b.TestReportFile,
 		//StorageUri: b.JobCtx.StorageUri,
 	}
 
@@ -281,8 +288,9 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 
 	if b.JobCtx.TestResultPath != "" {
 		ctx.GinkgoTest = &types.GinkgoTest{
-			ResultPath:    b.JobCtx.TestResultPath,
-			ArtifactPaths: b.JobCtx.ArtifactPaths,
+			ResultPath:     b.JobCtx.TestResultPath,
+			TestReportPath: b.JobCtx.TestReportPath,
+			ArtifactPaths:  b.JobCtx.ArtifactPaths,
 		}
 	}
 

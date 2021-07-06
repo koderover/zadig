@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"github.com/koderover/zadig/pkg/microservice/reaper/internal/s3"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -62,43 +63,80 @@ func (r *Reaper) archiveS3Files() (err error) {
 	return nil
 }
 
-func (r *Reaper) archiveTestFiles() (err error) {
-	if r.Ctx.Archive != nil && r.Ctx.StorageURI != "" {
-		var store *s3.S3
+func (r *Reaper) archiveTestFiles() error {
+	if r.Ctx.Archive == nil || r.Ctx.StorageURI == "" {
+		return nil
+	}
 
-		if store, err = s3.NewS3StorageFromEncryptedURI(r.Ctx.StorageURI); err != nil {
-			log.Errorf("failed to create s3 storage %s", r.Ctx.StorageURI)
-			return
-		}
-		fileType := "test"
-		if strings.Contains(r.Ctx.Archive.File, ".tar.gz") {
-			fileType = "file"
-		}
-		if store.Subfolder != "" {
-			store.Subfolder = fmt.Sprintf("%s/%s/%d/%s", store.Subfolder, r.Ctx.PipelineName, r.Ctx.TaskID, fileType)
-		} else {
-			store.Subfolder = fmt.Sprintf("%s/%d/%s", r.Ctx.PipelineName, r.Ctx.TaskID, fileType)
-		}
+	store, err := s3.NewS3StorageFromEncryptedURI(r.Ctx.StorageURI)
+	if err != nil {
+		log.Errorf("failed to create s3 storage %s, err: %s", r.Ctx.StorageURI, err)
+		return err
+	}
 
-		filePath := path.Join(r.Ctx.Archive.Dir, r.Ctx.Archive.File)
+	fileType := "test"
+	if strings.Contains(r.Ctx.Archive.File, ".tar.gz") {
+		fileType = "file"
+	}
+	if store.Subfolder != "" {
+		store.Subfolder = fmt.Sprintf("%s/%s/%d/%s", store.Subfolder, r.Ctx.PipelineName, r.Ctx.TaskID, fileType)
+	} else {
+		store.Subfolder = fmt.Sprintf("%s/%d/%s", r.Ctx.PipelineName, r.Ctx.TaskID, fileType)
+	}
 
-		if _, err := os.Stat(filePath); os.IsNotExist(err) {
-			// no file found, skipped
-			//log.Warningf("upload filepath not exist")
-			return nil
-		}
+	filePath := path.Join(r.Ctx.Archive.Dir, r.Ctx.Archive.File)
 
-		err = s3.Upload(
-			context.Background(),
-			store,
-			filePath,
-			r.Ctx.Archive.File,
-		)
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		// no file found, skipped
+		//log.Warningf("upload filepath not exist")
+		return nil
+	}
 
-		if err != nil {
-			log.Errorf("failed to upload package %s, %v", filePath, err)
-			return err
-		}
+	err = s3.Upload(context.Background(), store, filePath, r.Ctx.Archive.File)
+	if err != nil {
+		log.Errorf("failed to upload package %s, %v", filePath, err)
+		return err
+	}
+
+	return nil
+}
+
+func (r *Reaper) archiveHTMLTestReportFile() error {
+	// 仅功能测试有HTML测试结果报告
+	if r.Ctx.TestType != setting.FunctionTest {
+		return nil
+	}
+
+	if r.Ctx.Archive == nil || r.Ctx.StorageURI == "" {
+		return nil
+	}
+
+	store, err := s3.NewS3StorageFromEncryptedURI(r.Ctx.StorageURI)
+	if err != nil {
+		log.Errorf("failed to create s3 storage %s, err: %s", r.Ctx.StorageURI, err)
+		return err
+	}
+
+	if store.Subfolder != "" {
+		store.Subfolder = fmt.Sprintf("%s/%s/%d/%s", store.Subfolder, r.Ctx.PipelineName, r.Ctx.TaskID, "test")
+	} else {
+		store.Subfolder = fmt.Sprintf("%s/%d/%s", r.Ctx.PipelineName, r.Ctx.TaskID, "test")
+	}
+
+	filePath := r.Ctx.GinkgoTest.TestReportPath
+	if filePath == "" {
+		return nil
+	}
+
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		return nil
+	}
+
+	fileName := filepath.Base(r.Ctx.Archive.TestReportFile)
+	err = s3.Upload(context.Background(), store, filePath, fileName)
+	if err != nil {
+		log.Errorf("failed to upload package %s, %s", filePath, err)
+		return err
 	}
 
 	return nil

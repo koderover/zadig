@@ -25,7 +25,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	deliveryservice "github.com/koderover/zadig/pkg/microservice/aslan/core/delivery/service"
-	internalhandler "github.com/koderover/zadig/pkg/microservice/aslan/internal/handler"
+	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 

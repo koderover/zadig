@@ -27,9 +27,9 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehost"
+	"github.com/koderover/zadig/pkg/shared/codehost"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
-	gitlabtool "github.com/koderover/zadig/pkg/tool/gitlab"
+	gitlabtool "github.com/koderover/zadig/pkg/tool/git/gitlab"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -61,7 +61,7 @@ func (c *Client) Comment(notify *models.Notification) error {
 	}
 	if strings.ToLower(codeHostDetail.Type) == "gitlab" {
 		var note *gitlab.Note
-		cli, err := gitlabtool.NewGitlabClient(codeHostDetail.Address, codeHostDetail.AccessToken)
+		cli, err := gitlabtool.NewClient(codeHostDetail.Address, codeHostDetail.AccessToken)
 		if err != nil {
 			c.logger.Errorf("create gitlab client failed err: %v", err)
 			return fmt.Errorf("create gitlab client failed err: %v", err)

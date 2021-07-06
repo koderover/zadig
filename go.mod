@@ -10,6 +10,7 @@ require (
 	github.com/bshuster-repo/logrus-logstash-hook v1.0.0 // indirect
 	github.com/bugsnag/bugsnag-go v2.1.0+incompatible // indirect
 	github.com/bugsnag/panicwrap v1.3.1 // indirect
+	github.com/cenkalti/backoff/v3 v3.0.0
 	github.com/coocood/freecache v1.1.0
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/docker/docker v1.4.2-0.20200204220554-5f6d6f3f2203
@@ -24,14 +25,14 @@ require (
 	github.com/go-openapi/spec v0.19.5 // indirect
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/gofrs/uuid v4.0.0+incompatible // indirect
-	github.com/google/go-github/v35 v35.1.0
+	github.com/google/go-github/v35 v35.3.0
 	github.com/google/uuid v1.2.0
 	github.com/gorilla/handlers v1.5.1 // indirect
 	github.com/gorilla/mux v1.7.3
 	github.com/gorilla/websocket v1.4.2
 	github.com/gotestyourself/gotestyourself v2.2.0+incompatible // indirect
 	github.com/gregjones/httpcache v0.0.0-20181110185634-c63ab54fda8f
-	github.com/hashicorp/go-multierror v1.0.0
+	github.com/hashicorp/go-multierror v1.1.1
 	github.com/jasonlvhit/gocron v0.0.0-20171226191223-3c914c8681c3
 	github.com/jinzhu/now v1.1.2
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
@@ -55,7 +56,7 @@ require (
 	github.com/swaggo/gin-swagger v1.3.0
 	github.com/swaggo/swag v1.5.1
 	github.com/ugorji/go v1.2.0 // indirect
-	github.com/xanzy/go-gitlab v0.44.0
+	github.com/xanzy/go-gitlab v0.50.0
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 	github.com/yvasiyarov/go-metrics v0.0.0-20150112132944-c25f46c4b940 // indirect
 	github.com/yvasiyarov/gorelic v0.0.7 // indirect

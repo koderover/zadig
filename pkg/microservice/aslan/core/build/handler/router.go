@@ -19,23 +19,23 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/middleware"
+	gin2 "github.com/koderover/zadig/pkg/middleware/gin"
 	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 type Router struct{}
 
 func (*Router) Inject(router *gin.RouterGroup) {
-	router.Use(middleware.Auth())
+	router.Use(gin2.Auth())
 
 	build := router.Group("build")
 	{
 		build.GET("/:name/:version", FindBuildModule)
 		build.GET("", ListBuildModules)
-		build.POST("", middleware.StoreProductName, middleware.IsHavePermission([]string{permission.BuildManageUUID}, permission.ContextKeyType), middleware.UpdateOperationLogStatus, CreateBuildModule)
-		build.PUT("", middleware.StoreProductName, middleware.IsHavePermission([]string{permission.BuildManageUUID}, permission.ContextKeyType), middleware.UpdateOperationLogStatus, UpdateBuildModule)
-		build.DELETE("", middleware.IsHavePermission([]string{permission.BuildDeleteUUID}, permission.QueryType), middleware.UpdateOperationLogStatus, DeleteBuildModule)
-		build.POST("/targets", middleware.IsHavePermission([]string{permission.BuildManageUUID}, permission.QueryType), middleware.UpdateOperationLogStatus, UpdateBuildTargets)
+		build.POST("", gin2.StoreProductName, gin2.IsHavePermission([]string{permission.BuildManageUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, CreateBuildModule)
+		build.PUT("", gin2.StoreProductName, gin2.IsHavePermission([]string{permission.BuildManageUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, UpdateBuildModule)
+		build.DELETE("", gin2.IsHavePermission([]string{permission.BuildDeleteUUID}, permission.QueryType), gin2.UpdateOperationLogStatus, DeleteBuildModule)
+		build.POST("/targets", gin2.IsHavePermission([]string{permission.BuildManageUUID}, permission.QueryType), gin2.UpdateOperationLogStatus, UpdateBuildTargets)
 	}
 
 	target := router.Group("targets")

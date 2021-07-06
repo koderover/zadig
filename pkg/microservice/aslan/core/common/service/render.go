@@ -180,6 +180,31 @@ func CreateRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error
 	return nil
 }
 
+// CreateHelmRenderSet 添加renderSet
+func CreateHelmRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
+	opt := &commonrepo.RenderSetFindOption{Name: args.Name}
+	rs, err := commonrepo.NewRenderSetColl().Find(opt)
+	if rs != nil && err == nil {
+		// 已经存在渲染配置集
+		// 判断是否有修改
+		if rs.HelmRenderDiff(args) {
+			args.IsDefault = rs.IsDefault
+		} else {
+			return nil
+		}
+	}
+	if err := ensureHelmRenderSetArgs(args); err != nil {
+		log.Error(err)
+		return e.ErrCreateRenderSet.AddDesc(err.Error())
+	}
+	if err := commonrepo.NewRenderSetColl().Create(args); err != nil {
+		errMsg := fmt.Sprintf("[RenderSet.Create] %s error: %v", args.Name, err)
+		log.Error(errMsg)
+		return e.ErrCreateRenderSet.AddDesc(errMsg)
+	}
+	return nil
+}
+
 func UpdateRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
 	err := commonrepo.NewRenderSetColl().Update(args)
 	if err != nil {
@@ -524,6 +549,25 @@ func ensureRenderSetArgs(args *commonmodels.RenderSet) error {
 		return fmt.Errorf("[RenderSet.Create] %s error: %v", args.Name, err)
 	}
 
+	// 设置新的版本号
+	rev, err := commonrepo.NewCounterColl().GetNextSeq("renderset:" + args.Name)
+	if err != nil {
+		return fmt.Errorf("get next render set revision error: %v", err)
+	}
+
+	args.Revision = rev
+	return nil
+}
+
+// ensureHelmRenderSetArgs ...
+func ensureHelmRenderSetArgs(args *commonmodels.RenderSet) error {
+	if args == nil {
+		return errors.New("nil RenderSet")
+	}
+
+	if len(args.Name) == 0 {
+		return errors.New("empty render set name")
+	}
 	// 设置新的版本号
 	rev, err := commonrepo.NewCounterColl().GetNextSeq("renderset:" + args.Name)
 	if err != nil {

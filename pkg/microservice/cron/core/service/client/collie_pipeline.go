@@ -26,6 +26,19 @@ import (
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
+func (c *CollieClient) ListColliePipelines(log *zap.SugaredLogger) ([]*service.PipelineResource, error) {
+	url := "/api/collie/api/pipelines"
+
+	ciPipelines := make([]*service.PipelineResource, 0)
+	_, err := c.Get(url, httpclient.SetResult(&ciPipelines))
+	if err != nil {
+		log.Errorf("ListColliePipelines from collie failed, err: %+v", err)
+		return nil, err
+	}
+
+	return ciPipelines, nil
+}
+
 func (c *CollieClient) RunColliePipelineTask(args *service.CreateBuildRequest, log *zap.SugaredLogger) error {
 	// collie pipeline list接口返回的pipelineName的格式为：项目名/pipelineName, 需要对进行encode
 	encodePipelineName := url.QueryEscape(args.PipelineName)

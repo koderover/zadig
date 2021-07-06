@@ -190,8 +190,8 @@
                             :show-header="false"
                             style="width: 100%;">
                     <el-table-column>
-                      <template>
-                        <el-form :model="addKeyData[0]"
+                      <template slot-scope="{ row }">
+                        <el-form :model="row"
                                  :rules="keyCheckRule"
                                  ref="addKeyForm"
                                  hide-required-asterisk>
@@ -201,7 +201,7 @@
                             <el-input size="small"
                                       type="textarea"
                                       :autosize="{ minRows: 1, maxRows: 4}"
-                                      v-model="addKeyData[0].key"
+                                      v-model="row.key"
                                       placeholder="Key">
                             </el-input>
                           </el-form-item>
@@ -209,8 +209,8 @@
                       </template>
                     </el-table-column>
                     <el-table-column>
-                      <template>
-                        <el-form :model="addKeyData[0]"
+                      <template slot-scope="{ row }">
+                        <el-form :model="row"
                                  :rules="keyCheckRule"
                                  ref="addValueForm"
                                  hide-required-asterisk>
@@ -220,7 +220,7 @@
                             <el-input size="small"
                                       type="textarea"
                                       :autosize="{ minRows: 1, maxRows: 4}"
-                                      v-model="addKeyData[0].value"
+                                      v-model="row.value"
                                       placeholder="Value">
                             </el-input>
                           </el-form-item>

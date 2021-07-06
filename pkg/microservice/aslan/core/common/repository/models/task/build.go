@@ -128,6 +128,7 @@ type JobCtx struct {
 	// TestJobCtx
 	TestThreshold  int    `bson:"test_threshold"                 json:"test_threshold"`
 	TestResultPath string `bson:"test_result_path,omitempty"     json:"test_result_path,omitempty"`
+	TestReportPath string `bson:"test_report_path"               json:"test_report_path"`
 	TestJobName    string `bson:"test_job_name,omitempty"        json:"test_job_name,omitempty"`
 	// DockerBuildCtx
 	DockerBuildCtx *DockerBuildCtx `bson:"docker_build_ctx,omitempty" json:"docker_build_ctx,omitempty"`
@@ -142,8 +143,9 @@ type JobCtx struct {
 	//StorageUri string `bson:"storage_uri,omitempty" json:"storage_uri,omitempty"`
 
 	// ClassicBuild used by qbox build
-	ClassicBuild bool   `bson:"classic_build"                  json:"classic_build"`
-	PostScripts  string `bson:"post_scripts,omitempty"         json:"post_scripts"`
+	ClassicBuild    bool   `bson:"classic_build"                  json:"classic_build"`
+	PostScripts     string `bson:"post_scripts,omitempty"         json:"post_scripts"`
+	PMDeployScripts string `bson:"pm_deploy_scripts,omitempty"    json:"pm_deploy_scripts"`
 }
 
 type BuildStep struct {

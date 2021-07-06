@@ -21,39 +21,40 @@ package models
 // 1. Kubernetes service, and yaml+config is held in aslan: type == "k8s"; source == "spock"; yaml != ""
 // 2. Kubernetes service, and yaml+config is held in gitlab: type == "k8s"; source == "gitlab"; src_path != ""
 type Service struct {
-	ServiceName      string       `bson:"service_name"                   json:"service_name"`
-	Type             string       `bson:"type"                           json:"type"`
-	Team             string       `bson:"team,omitempty"                 json:"team,omitempty"`
-	ProductName      string       `bson:"product_name"                   json:"product_name"`
-	Revision         int64        `bson:"revision"                       json:"revision"`
-	Source           string       `bson:"source,omitempty"               json:"source,omitempty"`
-	GUIConfig        *GUIConfig   `bson:"gui_config,omitempty"           json:"gui_config,omitempty"`
-	Yaml             string       `bson:"yaml,omitempty"                 json:"yaml"`
-	SrcPath          string       `bson:"src_path,omitempty"             json:"src_path,omitempty"`
-	Commit           *Commit      `bson:"commit,omitempty"               json:"commit,omitempty"`
-	KubeYamls        []string     `bson:"-"                              json:"-"`
-	Hash             string       `bson:"hash256,omitempty"              json:"hash256,omitempty"`
-	CreateTime       int64        `bson:"create_time"                    json:"create_time"`
-	CreateBy         string       `bson:"create_by"                      json:"create_by"`
-	Containers       []*Container `bson:"containers,omitempty"           json:"containers,omitempty"`
-	Description      string       `bson:"description,omitempty"          json:"description,omitempty"`
-	Visibility       string       `bson:"visibility,omitempty"           json:"visibility,omitempty"`
-	Status           string       `bson:"status,omitempty"               json:"status,omitempty"`
-	GerritRepoName   string       `bson:"gerrit_repo_name,omitempty"     json:"gerrit_repo_name,omitempty"`
-	GerritBranchName string       `bson:"gerrit_branch_name,omitempty"   json:"gerrit_branch_name,omitempty"`
-	GerritRemoteName string       `bson:"gerrit_remote_name,omitempty"   json:"gerrit_remote_name,omitempty"`
-	GerritPath       string       `bson:"gerrit_path,omitempty"          json:"gerrit_path,omitempty"`
-	GerritCodeHostID int          `bson:"gerrit_codeHost_id,omitempty"   json:"gerrit_codeHost_id,omitempty"`
-	BuildName        string       `bson:"build_name,omitempty"           json:"build_name,omitempty"`
-	HelmChart        *HelmChart   `bson:"helm_chart,omitempty"           json:"helm_chart,omitempty"`
-	EnvConfigs       []*EnvConfig `bson:"env_configs,omitempty"          json:"env_configs,omitempty"`
-	EnvStatuses      []*EnvStatus `bson:"env_statuses,omitempty"         json:"env_statuses,omitempty"`
-	CodehostID       int          `bson:"codehost_id"                    json:"codehost_id"`
-	RepoOwner        string       `bson:"repo_owner"                     json:"repo_owner"`
-	RepoName         string       `bson:"repo_name"                      json:"repo_name"`
-	BranchName       string       `bson:"branch_name"                    json:"branch_name"`
-	LoadPath         string       `bson:"load_path"                      json:"load_path"`
-	LoadFromDir      bool         `bson:"is_dir"                         json:"is_dir"`
+	ServiceName      string           `bson:"service_name"                   json:"service_name"`
+	Type             string           `bson:"type"                           json:"type"`
+	Team             string           `bson:"team,omitempty"                 json:"team,omitempty"`
+	ProductName      string           `bson:"product_name"                   json:"product_name"`
+	Revision         int64            `bson:"revision"                       json:"revision"`
+	Source           string           `bson:"source,omitempty"               json:"source,omitempty"`
+	GUIConfig        *GUIConfig       `bson:"gui_config,omitempty"           json:"gui_config,omitempty"`
+	Yaml             string           `bson:"yaml,omitempty"                 json:"yaml"`
+	SrcPath          string           `bson:"src_path,omitempty"             json:"src_path,omitempty"`
+	Commit           *Commit          `bson:"commit,omitempty"               json:"commit,omitempty"`
+	KubeYamls        []string         `bson:"-"                              json:"-"`
+	Hash             string           `bson:"hash256,omitempty"              json:"hash256,omitempty"`
+	CreateTime       int64            `bson:"create_time"                    json:"create_time"`
+	CreateBy         string           `bson:"create_by"                      json:"create_by"`
+	Containers       []*Container     `bson:"containers,omitempty"           json:"containers,omitempty"`
+	Description      string           `bson:"description,omitempty"          json:"description,omitempty"`
+	Visibility       string           `bson:"visibility,omitempty"           json:"visibility,omitempty"`
+	Status           string           `bson:"status,omitempty"               json:"status,omitempty"`
+	GerritRepoName   string           `bson:"gerrit_repo_name,omitempty"     json:"gerrit_repo_name,omitempty"`
+	GerritBranchName string           `bson:"gerrit_branch_name,omitempty"   json:"gerrit_branch_name,omitempty"`
+	GerritRemoteName string           `bson:"gerrit_remote_name,omitempty"   json:"gerrit_remote_name,omitempty"`
+	GerritPath       string           `bson:"gerrit_path,omitempty"          json:"gerrit_path,omitempty"`
+	GerritCodeHostID int              `bson:"gerrit_codeHost_id,omitempty"   json:"gerrit_codeHost_id,omitempty"`
+	BuildName        string           `bson:"build_name,omitempty"           json:"build_name,omitempty"`
+	HelmChart        *HelmChart       `bson:"helm_chart,omitempty"           json:"helm_chart,omitempty"`
+	EnvConfigs       []*EnvConfig     `bson:"env_configs,omitempty"          json:"env_configs,omitempty"`
+	EnvStatuses      []*EnvStatus     `bson:"env_statuses,omitempty"         json:"env_statuses,omitempty"`
+	CodehostID       int              `bson:"codehost_id"                    json:"codehost_id"`
+	RepoOwner        string           `bson:"repo_owner"                     json:"repo_owner"`
+	RepoName         string           `bson:"repo_name"                      json:"repo_name"`
+	BranchName       string           `bson:"branch_name"                    json:"branch_name"`
+	LoadPath         string           `bson:"load_path"                      json:"load_path"`
+	LoadFromDir      bool             `bson:"is_dir"                         json:"is_dir"`
+	HealthChecks     []*PmHealthCheck `bson:"health_checks,omitempty"        json:"health_checks,omitempty"`
 }
 
 type GUIConfig struct {
@@ -185,6 +186,18 @@ type EnvStatus struct {
 type EnvConfig struct {
 	EnvName string   `bson:"env_name,omitempty" json:"env_name"`
 	HostIDs []string `bson:"host_ids,omitempty" json:"host_ids"`
+}
+
+type PmHealthCheck struct {
+	Protocol            string `bson:"protocol,omitempty"              json:"protocol,omitempty"`
+	Port                int    `bson:"port,omitempty"                  json:"port,omitempty"`
+	Path                string `bson:"path,omitempty"                  json:"path,omitempty"`
+	TimeOut             int64  `bson:"time_out,omitempty"              json:"time_out,omitempty"`
+	Interval            uint64 `bson:"interval,omitempty"              json:"interval,omitempty"`
+	HealthyThreshold    int    `bson:"healthy_threshold,omitempty"     json:"healthy_threshold,omitempty"`
+	UnhealthyThreshold  int    `bson:"unhealthy_threshold,omitempty"   json:"unhealthy_threshold,omitempty"`
+	CurrentHealthyNum   int    `bson:"current_healthy_num,omitempty"   json:"current_healthy_num,omitempty"`
+	CurrentUnhealthyNum int    `bson:"current_unhealthy_num,omitempty" json:"current_unhealthy_num,omitempty"`
 }
 
 func (Service) TableName() string {

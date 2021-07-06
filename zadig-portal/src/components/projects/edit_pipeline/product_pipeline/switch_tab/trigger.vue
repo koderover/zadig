@@ -17,7 +17,7 @@
                      @change="repoChange(webhookSwap.repo)"
                      filterable
                      clearable
-                     value-key="repo_name"
+                     value-key="key"
                      placeholder="请选择">
             <el-option v-for="(repo,index) in webhookRepos"
                        :key="index"
@@ -316,11 +316,13 @@
 import bus from '@utils/event_bus'
 import workflowArgs from '../container/workflow_args.vue'
 import { mapGetters } from 'vuex'
-import { listProductAPI, getBranchInfoByIdAPI } from '@api'
+import { listProductAPI, getBranchInfoByIdAPI, singleTestAPI, getAllBranchInfoAPI } from '@api'
+import { uniqBy, get } from 'lodash'
 export default {
   data () {
     return {
       testInfos: [],
+      gotScheduleRepo: false,
       currentForcedUserInput: {},
       products: [],
       webhookBranches: {},
@@ -329,7 +331,6 @@ export default {
         events: [],
         targets: [],
         namespace: '',
-        // 'all' 'single' 'base'
         env_update_policy: 'all',
         auto_cancel: false,
         check_patch_set_change: false,
@@ -371,6 +372,115 @@ export default {
     }
   },
   methods: {
+    getTestReposForQuery (testInfos) {
+      const testRepos = testInfos.length > 0 ? this.$utils.flattenArray(testInfos.map(t => t.builds)) : []
+      let testReposForQuery = {}
+      const testReposDeduped = this.$utils.deduplicateArray(
+        testRepos,
+        re => `${re.repo_owner}/${re.repo_name}`
+      )
+      testReposForQuery = testReposDeduped.map(re => ({
+        repo_owner: re.repo_owner,
+        repo: re.repo_name,
+        default_branch: re.branch,
+        codehost_id: re.codehost_id
+      }))
+      return new Promise((resolve, reject) => {
+        getAllBranchInfoAPI({ infos: testReposForQuery }).then(res => {
+          // make these repo info more friendly
+          for (const repo of res) {
+            repo.prs.forEach(element => {
+              element.pr = element.id
+            })
+            repo.branchPRsMap = this.$utils.arrayToMapOfArrays(repo.prs, 'targetBranch')
+            repo.branchNames = repo.branches.map(b => b.name)
+          }
+          // and make a map
+          const repoInfoMap = this.$utils.arrayToMap(res, re => `${re.repo_owner}/${re.repo}`)
+          // prepare build/test repo for view
+          // see watcher for allRepos
+          for (const repo of testRepos) {
+            this.$set(repo, '_id_', `${repo.repo_owner}/${repo.repo_name}`)
+            const repoInfo = repoInfoMap[repo._id_]
+            this.$set(repo, 'branchNames', repoInfo && repoInfo.branchNames)
+            this.$set(repo, 'branchPRsMap', repoInfo && repoInfo.branchPRsMap)
+            this.$set(repo, 'tags', repoInfo && repoInfo.tags)
+            this.$set(repo, 'prNumberPropName', 'pr')
+            this.$set(repo, 'releaseMethod', 'branch')
+            // make sure branch/pr/tag is reactive
+            this.$set(repo, 'branch', repo.branch || '')
+            this.$set(repo, repo.prNumberPropName, repo[repo.prNumberPropName] || undefined)
+            this.$set(repo, 'tag', repo.tag || '')
+          }
+          resolve(testInfos)
+        }).catch(err => {
+          console.log('Get test repo error', err)
+          reject(testInfos)
+        })
+      })
+    },
+    getTestReposForSchedules () {
+      const allPromise = []
+      this.schedules.items.forEach((item) => {
+        allPromise.push(this.getTestReposForQuery(item.workflow_args.tests || []))
+      })
+      Promise.all(allPromise).then(() => {
+        const params = (this.workflowToRun.test_stage && this.workflowToRun.test_stage.tests && this.workflowToRun.test_stage.tests.map(t => { return t.test_name })) || []
+        this.getTestInfos(params)
+      })
+    },
+    getTestInfos (test_names = []) {
+      const allPro = []
+      test_names.forEach((test_name) => {
+        allPro.push(new Promise((resolve, reject) => {
+          singleTestAPI(test_name, this.product_name).then((res) => {
+            const test = {}
+            test.namespace = this.workflowToRun.env_name
+            test.test_module_name = test_name
+            test.envs = res.pre_test.envs
+            test.builds = res.repos
+            resolve(test)
+          }).catch((err) => {
+            reject(err)
+          })
+        }))
+      })
+      Promise.all(allPro).then(this.getTestReposForQuery).then((res) => {
+        this.testInfos = res
+        this.schedules.items.forEach((item) => {
+          const savedTests = []
+          const savedTestNames = []
+          item.workflow_args.tests && item.workflow_args.tests.forEach((test) => {
+            const test_names = get(this.workflowToRun, 'test_stage.tests', []).map(t => { return t.test_name })
+            if (test_names.includes(test.test_module_name)) {
+              savedTests.push(test)
+              savedTestNames.push(test.test_module_name)
+            }
+          })
+          this.testInfos.forEach((info) => {
+            if (!savedTestNames.includes(info.test_module_name)) {
+              savedTests.push(info)
+            }
+          })
+          item.workflow_args.tests = this.workflowToRun.test_stage.enabled ? savedTests : []
+        })
+      }).catch((err) => {
+        console.log('ERROR:  ', err)
+      })
+    },
+    deleteTestBuildData () {
+      const repoKeysToDelete = [
+        '_id_', 'branchNames', 'branchPRsMap', 'tags', 'isGithub', 'prNumberPropName', 'id',
+        'releaseMethod', 'showBranch', 'showTag', 'showSwitch', 'showPR', 'pr', 'branch'
+      ]
+      this.testInfos.forEach((test) => {
+        test.builds && test.builds.forEach(build => {
+          for (const key of repoKeysToDelete) {
+            delete build[key]
+          }
+        })
+      })
+    },
     addTimerBtn () {
       this.$refs.timer.addTimerBtn()
       this.currentForcedUserInput = {}
@@ -380,6 +490,7 @@ export default {
       if (pipelineConfigValue) {
         this.$refs.timer.addSchedule(pipelineConfigValue, 'workflow_args')
         this.currentForcedUserInput = {}
+        this.deleteTestBuildData()
       }
     },
     closeWebhookDialog () {
@@ -393,7 +504,7 @@ export default {
       const webhookSwap = this.$utils.cloneObj(this.webhook.items[index])
       this.getBranchInfoById(webhookSwap.main_repo.codehost_id, webhookSwap.main_repo.repo_owner, webhookSwap.main_repo.repo_name)
       this.webhookSwap = {
-        repo: webhookSwap.main_repo,
+        repo: Object.assign({ key: `${webhookSwap.main_repo.repo_owner}/${webhookSwap.main_repo.repo_name}` }, webhookSwap.main_repo),
         namespace: webhookSwap.workflow_args.namespace.split(','),
         env_update_policy: webhookSwap.workflow_args.env_update_policy ? webhookSwap.workflow_args.env_update_policy : (webhookSwap.workflow_args.base_namespace ? 'base' : 'all'),
         base_namespace: webhookSwap.workflow_args.base_namespace,
@@ -542,7 +653,11 @@ export default {
         this.presets.forEach(element => {
           repos = repos.concat(element.repos)
         })
-        return this.$utils.uniqueObjArray(repos, 'repo_name')
+        repos = uniqBy(repos, value => value.repo_owner + '/' + value.repo_name)
+        repos.forEach(repo => {
+          repo.key = `${repo.repo_owner}/${repo.repo_name}`
+        })
+        return repos
       }
     },
     webhookTargets: {
@@ -560,6 +675,23 @@ export default {
     },
     matchedProducts () {
       return this.products.filter(p => p.product_name === this.productTmlName)
+    }
+  },
+  watch: {
+    'workflowToRun.test_stage.tests' (newVal) {
+      if (this.workflowToRun.test_stage.enabled) {
+        const test_names = newVal.map(t => { return t.test_name })
+        this.getTestInfos(test_names)
+      }
+    },
+    'workflowToRun.test_stage.enabled' (newVal) {
+      this.getTestReposForSchedules()
+    },
+    'workflowToRun.schedules.enabled' (newVal) {
+      if (newVal && !this.gotScheduleRepo) {
+        this.getTestReposForSchedules()
+        this.gotScheduleRepo = true
+      }
     }
   },
   created () {

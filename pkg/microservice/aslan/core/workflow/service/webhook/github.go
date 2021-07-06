@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -31,16 +30,17 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/internal/poetry"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehost"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collie"
+	gitservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	githubtool "github.com/koderover/zadig/pkg/tool/github"
+	githubtool "github.com/koderover/zadig/pkg/tool/git/github"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 )
@@ -50,14 +50,14 @@ const (
 	payloadFormParam = "payload"
 )
 
-func ProcessGithubHook(req *http.Request, requestID string, log *zap.SugaredLogger) (output string, err error) {
+func ProcessGithubHook(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) (output string, err error) {
 	hookType := github.WebHookType(req)
 	if hookType == "integration_installation" || hookType == "installation" || hookType == "ping" {
 		output = fmt.Sprintf("event %s received", hookType)
 		return
 	}
 
-	hookSecret := getHookSecret(log)
+	hookSecret := gitservice.GetHookSecret()
 
 	if hookSecret == "" {
 		var headers []string
@@ -68,8 +68,7 @@ func ProcessGithubHook(req *http.Request, requestID string, log *zap.SugaredLogg
 		log.Infof("[Webhook] hook headers: \n  %s", strings.Join(headers, "\n  "))
 	}
 
-	var payload []byte
-	payload, err = ValidatePayload(req, []byte(hookSecret), log)
+	err = validateSecret(payload, []byte(hookSecret), req)
 	if err != nil {
 		return
 	}
@@ -163,71 +162,13 @@ func ProcessGithubHook(req *http.Request, requestID string, log *zap.SugaredLogg
 	return
 }
 
-var hookSecret string
-var hookSecretSet bool
-
-func getHookSecret(logger *zap.SugaredLogger) string {
-	if hookSecretSet {
-		return hookSecret
-	}
-
-	poetryClient := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
-	org, err := poetryClient.GetOrganization(poetry.DefaultOrganization)
-	if err != nil {
-		logger.Errorf("failed to find default organization: %v", err)
-		return "--impossible-token--"
-	}
-
-	hookSecret = org.Token
-	hookSecretSet = true
-
-	return hookSecret
-}
-
-func ValidatePayload(r *http.Request, secretKey []byte, log *zap.SugaredLogger) (payload []byte, err error) {
-	var body []byte // Raw body that GitHub uses to calculate the signature.
-
-	switch ct := r.Header.Get("Content-Type"); ct {
-	case "application/json":
-		var err error
-		if body, err = ioutil.ReadAll(r.Body); err != nil {
-			return nil, err
-		}
-
-		// If the content type is application/json,
-		// the JSON payload is just the original body.
-		payload = body
-
-	case "application/x-www-form-urlencoded":
-		// payloadFormParam is the name of the form parameter that the JSON payload
-		// will be in if a webhook has its content type set to application/x-www-form-urlencoded.
-
-		var err error
-		if body, err = ioutil.ReadAll(r.Body); err != nil {
-			return nil, err
-		}
-
-		// If the content type is application/x-www-form-urlencoded,
-		// the JSON payload will be under the "payload" form param.
-		form, err := url.ParseQuery(string(body))
-		if err != nil {
-			return nil, err
-		}
-		payload = []byte(form.Get(payloadFormParam))
-
-	default:
-		return nil, fmt.Errorf("webhook request has unsupported Content-Type %q", ct)
-	}
-
+func validateSecret(payload, secretKey []byte, r *http.Request) error {
 	sig := r.Header.Get(signatureHeader)
 	if len(secretKey) > 0 {
-		if err := github.ValidateSignature(sig, body, secretKey); err != nil {
-			return nil, err
-		}
-	} else {
-		log.Infof("[Webhook] got payload %s", string(payload))
+		return github.ValidateSignature(sig, payload, secretKey)
 	}
-	return payload, nil
+
+	return nil
 }
 
 func prEventToPipelineTasks(event *github.PullRequestEvent, requestID string, log *zap.SugaredLogger) ([]*commonmodels.TaskArgs, error) {
@@ -450,7 +391,7 @@ func pushEventCommitsFiles(e *github.PushEvent) []string {
 	return files
 }
 
-func ProcessGithubWebHook(req *http.Request, requestID string, log *zap.SugaredLogger) error {
+func ProcessGithubWebHook(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) error {
 	forwardedProto := req.Header.Get("X-Forwarded-Proto")
 	forwardedHost := req.Header.Get("X-Forwarded-Host")
 	baseURI := fmt.Sprintf("%s://%s", forwardedProto, forwardedHost)
@@ -460,7 +401,7 @@ func ProcessGithubWebHook(req *http.Request, requestID string, log *zap.SugaredL
 		return nil
 	}
 
-	payload, err := ValidatePayload(req, []byte(getHookSecret(log)), log)
+	err := validateSecret(payload, []byte(gitservice.GetHookSecret()), req)
 	if err != nil {
 		return err
 	}
@@ -538,6 +479,10 @@ func getProductTargetMap(prod *commonmodels.Product) map[string][]commonmodels.D
 
 					resp[target] = append(resp[target], deployEnv)
 				}
+			case setting.PMDeployType:
+				deployEnv := commonmodels.DeployEnv{Type: setting.PMDeployType, Env: serviceObj.ServiceName}
+				target := fmt.Sprintf("%s%s%s%s%s", prod.ProductName, SplitSymbol, serviceObj.ServiceName, SplitSymbol, serviceObj.ServiceName)
+				resp[target] = append(resp[target], deployEnv)
 			case setting.HelmDeployType:
 				for _, container := range serviceObj.Containers {
 					env := serviceObj.ServiceName + "/" + container.Name

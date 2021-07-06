@@ -149,7 +149,6 @@
         <div class="log-content">
 
           <xterm-log :id="`${pipelineName}-${taskID}-${serviceName}`"
-                     @mouseenter.native="enterLog"
                      @mouseleave.native="leaveLog"
                      :logs="testAnyLog"></xterm-log>
         </div>
@@ -192,10 +191,6 @@ export default {
     }
   },
   methods: {
-    enterLog (e) {
-      const el = document.querySelector('.workflow-task-detail').style
-      el.overflow = 'hidden'
-    },
     leaveLog () {
       const el = document.querySelector('.workflow-task-detail').style
       el.overflow = 'auto'

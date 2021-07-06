@@ -488,7 +488,6 @@ export default {
         })
       }
       if (current_version_info.deployInfo) {
-        // 交付物部署
         current_version_info.deployInfo.forEach(artifactDeploy => {
           this.imagesAndConfigs.push({
             serviceName: artifactDeploy.serviceName,
@@ -502,9 +501,9 @@ export default {
 
       if (current_version_info.buildInfo) {
         current_version_info.buildInfo.forEach(build => {
-          // code list
+          // Code list
           this.codeLists = this.codeLists.concat(build.commits)
-          // jira issue
+          // Jira issues
           if (build.issues.length > 0) {
             this.jiraIssues.push({
               service_name: build.serviceName,
@@ -516,7 +515,7 @@ export default {
 
       if (current_version_info.testInfo) {
         current_version_info.testInfo.forEach(test => {
-          // test list
+          // Test list
           this.testLists = this.testLists.concat(test.testReports)
         })
       }
@@ -545,7 +544,6 @@ export default {
     },
     showConfig (data) {
       this.exportModal.visible = true
-      // 清空，确保在请求返回后再触发editor的mounted
       this.exportModal.textObjects = []
       this.exportModal.textObjects = this.$utils.mapToArray(data, 'key').map(txt => ({
         originalText: txt,

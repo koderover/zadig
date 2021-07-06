@@ -19,14 +19,20 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/middleware"
+	gin2 "github.com/koderover/zadig/pkg/middleware/gin"
 	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 type Router struct{}
 
 func (*Router) Inject(router *gin.RouterGroup) {
-	router.Use(middleware.Auth())
+	// 查看html测试报告不做鉴权
+	testReport := router.Group("report")
+	{
+		testReport.GET("", GetHTMLTestReport)
+	}
+
+	router.Use(gin2.Auth())
 
 	// ---------------------------------------------------------------------------------------
 	// 系统测试接口
@@ -43,11 +49,17 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	tester := router.Group("test")
 	{
-		tester.POST("", GetTestProductName, middleware.IsHavePermission([]string{permission.TestManageUUID}, permission.ContextKeyType), middleware.UpdateOperationLogStatus, CreateTestModule)
-		tester.PUT("", GetTestProductName, middleware.IsHavePermission([]string{permission.TestManageUUID}, permission.ContextKeyType), middleware.UpdateOperationLogStatus, UpdateTestModule)
+		tester.POST("", GetTestProductName, gin2.IsHavePermission([]string{permission.TestManageUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, CreateTestModule)
+		tester.PUT("", GetTestProductName, gin2.IsHavePermission([]string{permission.TestManageUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, UpdateTestModule)
 		tester.GET("", ListTestModules)
 		tester.GET("/:name", GetTestModule)
-		tester.DELETE("/:name", middleware.IsHavePermission([]string{permission.TestDeleteUUID}, permission.QueryType), middleware.UpdateOperationLogStatus, DeleteTestModule)
+		tester.DELETE("/:name", gin2.IsHavePermission([]string{permission.TestDeleteUUID}, permission.QueryType), gin2.UpdateOperationLogStatus, DeleteTestModule)
+	}
+
+	testStat := router.Group("teststat")
+	{
+		// 供aslanx的enterprise模块的数据统计调用
+		testStat.GET("", ListTestStat)
 	}
 
 	testDetail := router.Group("testdetail")
@@ -60,9 +72,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	testTask := router.Group("testtask")
 	{
-		testTask.POST("", middleware.UpdateOperationLogStatus, CreateTestTask)
-		testTask.POST("/productName/:productName/id/:id/pipelines/:name/restart", middleware.UpdateOperationLogStatus, RestartTestTask)
-		testTask.DELETE("/productName/:productName/id/:id/pipelines/:name", middleware.UpdateOperationLogStatus, CancelTestTaskV2)
+		testTask.POST("", gin2.UpdateOperationLogStatus, CreateTestTask)
+		testTask.POST("/productName/:productName/id/:id/pipelines/:name/restart", gin2.UpdateOperationLogStatus, RestartTestTask)
+		testTask.DELETE("/productName/:productName/id/:id/pipelines/:name", gin2.UpdateOperationLogStatus, CancelTestTaskV2)
 	}
 
 	// ---------------------------------------------------------------------------------------

@@ -20,8 +20,8 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehost"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/codehost"
 )
 
 func GetConfigPayload(codeHostID int) *models.ConfigPayload {
@@ -86,6 +86,11 @@ func GetConfigPayload(codeHostID int) *models.ConfigPayload {
 	proxies, _ := mongodb.NewProxyColl().List(&mongodb.ProxyArgs{})
 	if len(proxies) != 0 {
 		payload.Proxy = *proxies[0]
+	}
+
+	privateKeys, _ := mongodb.NewPrivateKeyColl().List(&mongodb.PrivateKeyArgs{})
+	if len(privateKeys) != 0 {
+		payload.PrivateKeys = privateKeys
 	}
 
 	return payload

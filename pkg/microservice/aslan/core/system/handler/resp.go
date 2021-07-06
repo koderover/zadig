@@ -15,3 +15,12 @@ limitations under the License.
 */
 
 package handler
+
+type Registry struct {
+	ID         string `json:"id"`
+	RegAddr    string `json:"reg_addr"`
+	IsDefault  bool   `json:"is_default"`
+	Namespace  string `json:"namespace"`
+	AccessKey  string `json:"access_key"`
+	SecretyKey string `json:"secret_key"`
+}

@@ -33,18 +33,19 @@ type Build struct {
 	// 在任一编译配置模板中只能出现一次
 	// 对于k8s部署是传入容器名称
 	// 对于物理机部署是服务名称
-	Targets      []*ServiceModuleTarget `bson:"targets"                       json:"targets"`
-	Description  string                 `bson:"desc,omitempty"                json:"desc"`
-	UpdateTime   int64                  `bson:"update_time"                   json:"update_time"`
-	UpdateBy     string                 `bson:"update_by"                     json:"update_by"`
-	Repos        []*types.Repository    `bson:"repos,omitempty"               json:"repos"`
-	PreBuild     *PreBuild              `bson:"pre_build"                     json:"pre_build"`
-	JenkinsBuild *JenkinsBuild          `bson:"jenkins_build,omitempty"       json:"jenkins_build,omitempty"`
-	Scripts      string                 `bson:"scripts"                       json:"scripts"`
-	PostBuild    *PostBuild             `bson:"post_build,omitempty"          json:"post_build"`
-	Caches       []string               `bson:"caches"                        json:"caches"`
-	ProductName  string                 `bson:"product_name"                  json:"product_name"`
-	SSHs         []string               `bson:"sshs,omitempty"                json:"sshs,omitempty"`
+	Targets         []*ServiceModuleTarget `bson:"targets"                       json:"targets"`
+	Description     string                 `bson:"desc,omitempty"                json:"desc"`
+	UpdateTime      int64                  `bson:"update_time"                   json:"update_time"`
+	UpdateBy        string                 `bson:"update_by"                     json:"update_by"`
+	Repos           []*types.Repository    `bson:"repos,omitempty"               json:"repos"`
+	PreBuild        *PreBuild              `bson:"pre_build"                     json:"pre_build"`
+	JenkinsBuild    *JenkinsBuild          `bson:"jenkins_build,omitempty"       json:"jenkins_build,omitempty"`
+	Scripts         string                 `bson:"scripts"                       json:"scripts"`
+	PostBuild       *PostBuild             `bson:"post_build,omitempty"          json:"post_build"`
+	Caches          []string               `bson:"caches"                        json:"caches"`
+	ProductName     string                 `bson:"product_name"                  json:"product_name"`
+	SSHs            []string               `bson:"sshs,omitempty"                json:"sshs,omitempty"`
+	PMDeployScripts string                 `bson:"pm_deploy_scripts"             json:"pm_deploy_scripts"`
 }
 
 // PreBuild prepares an environment for a job

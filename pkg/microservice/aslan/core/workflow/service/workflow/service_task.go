@@ -19,13 +19,19 @@ package workflow
 import (
 	"errors"
 	"fmt"
+	"sort"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
+	"github.com/koderover/zadig/pkg/types"
 
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
@@ -115,7 +121,7 @@ func ListServiceWorkflows(productName, envName, serviceName, serviceType string,
 		for _, p := range pipelines {
 			// 单服务工作的部署的服务只会有一个，不需考虑重复插入的问题
 			for _, subTask := range p.SubTasks {
-				pre, err := commonservice.ToPreview(subTask)
+				pre, err := base.ToPreview(subTask)
 				if err != nil {
 					log.Errorf("subTask.ToPreview error: %v", err)
 					continue
@@ -123,7 +129,7 @@ func ListServiceWorkflows(productName, envName, serviceName, serviceType string,
 				if pre.TaskType != config.TaskDeploy {
 					continue
 				}
-				deploy, err := commonservice.ToDeployTask(subTask)
+				deploy, err := base.ToDeployTask(subTask)
 				if err != nil || deploy == nil {
 					log.Errorf("subTask.ToDeployTask error: %v", err)
 					continue
@@ -176,4 +182,121 @@ func ListServiceWorkflows(productName, envName, serviceName, serviceType string,
 type CreateTaskResp struct {
 	PipelineName string `json:"pipeline_name"`
 	TaskID       int64  `json:"task_id"`
+}
+
+func CreateServiceTask(args *commonmodels.ServiceTaskArgs, log *zap.SugaredLogger) ([]*CreateTaskResp, error) {
+	if args.BuildName == "" && args.Revision == 0 {
+		return nil, fmt.Errorf("服务[%s]的构建名称和服务版本必须有一个存在", args.ServiceName)
+	} else if args.BuildName == "" && args.Revision > 0 {
+		serviceTmpl, err := commonservice.GetServiceTemplate(
+			args.ServiceName, setting.PMDeployType, args.ProductName, setting.ProductStatusDeleting, args.Revision, log,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("GetServiceTemplate servicename:%s revision:%d err:%v ", args.ServiceName, args.Revision, err)
+		}
+		args.BuildName = serviceTmpl.BuildName
+		if args.BuildName == "" {
+			return nil, fmt.Errorf("未找到服务[%s]版本对应的构建", args.ServiceName)
+		}
+	}
+	// 获取全局configpayload
+	configPayload := commonservice.GetConfigPayload(0)
+
+	defaultS3, err := s3.FindDefaultS3()
+	if err != nil {
+		err = e.ErrFindDefaultS3Storage.AddDesc("default storage is required by distribute task")
+		return nil, err
+	}
+
+	defaultURL, err := defaultS3.GetEncryptedURL()
+	if err != nil {
+		err = e.ErrS3Storage.AddErr(err)
+		return nil, err
+	}
+
+	stages := make([]*commonmodels.Stage, 0)
+	subTasks, err := BuildModuleToSubTasks("", "stable", args.ServiceName, args.ServiceName, args.ProductName, nil, nil, log)
+	if err != nil {
+		return nil, e.ErrCreateTask.AddErr(err)
+	}
+
+	task := &task.Task{
+		Type:          config.ServiceType,
+		ProductName:   args.ProductName,
+		TaskCreator:   args.ServiceTaskCreator,
+		Status:        config.StatusCreated,
+		SubTasks:      subTasks,
+		TaskArgs:      serviceTaskArgsToTaskArgs(args),
+		ConfigPayload: configPayload,
+		StorageURI:    defaultURL,
+	}
+	sort.Sort(ByTaskKind(task.SubTasks))
+
+	if err := ensurePipelineTask(task, log); err != nil {
+		log.Errorf("CreateServiceTask ensurePipelineTask err : %v", err)
+		return nil, err
+	}
+
+	for _, subTask := range task.SubTasks {
+		AddSubtaskToStage(&stages, subTask, args.ServiceName)
+	}
+	sort.Sort(ByStageKind(stages))
+	task.Stages = stages
+	if len(task.Stages) == 0 {
+		return nil, e.ErrCreateTask.AddDesc(e.PipelineSubTaskNotFoundErrMsg)
+	}
+
+	createTaskResps := make([]*CreateTaskResp, 0)
+	for _, envName := range args.EnvNames {
+		pipelineName := fmt.Sprintf("%s-%s-%s", args.ServiceName, envName, "job")
+
+		nextTaskID, err := commonrepo.NewCounterColl().GetNextSeq(fmt.Sprintf(setting.ServiceTaskFmt, pipelineName))
+		if err != nil {
+			log.Errorf("CreateServiceTask Counter.GetNextSeq error: %v", err)
+			return nil, e.ErrGetCounter.AddDesc(err.Error())
+		}
+
+		product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+			Name:    args.ProductName,
+			EnvName: envName,
+		})
+		if err != nil {
+			return nil, e.ErrCreateTask.AddDesc(
+				fmt.Sprintf("找不到 %s 的 %s 环境 ", args.ProductName, args.Namespace),
+			)
+		}
+
+		args.Namespace = envName
+		args.K8sNamespace = product.Namespace
+
+		task.TaskID = nextTaskID
+		task.ServiceTaskArgs = args
+		task.SubTasks = []map[string]interface{}{}
+		task.PipelineName = pipelineName
+
+		if err := CreateTask(task); err != nil {
+			log.Error(err)
+			return nil, e.ErrCreateTask
+		}
+
+		createTaskResps = append(createTaskResps, &CreateTaskResp{PipelineName: pipelineName, TaskID: nextTaskID})
+	}
+
+	return createTaskResps, nil
+}
+
+func serviceTaskArgsToTaskArgs(serviceTaskArgs *commonmodels.ServiceTaskArgs) *commonmodels.TaskArgs {
+	resp := &commonmodels.TaskArgs{ProductName: serviceTaskArgs.ProductName, TaskCreator: serviceTaskArgs.ServiceTaskCreator}
+	opt := &commonrepo.BuildFindOption{
+		Name:        serviceTaskArgs.BuildName,
+		Version:     "stable",
+		ProductName: serviceTaskArgs.ProductName,
+	}
+	buildObj, err := commonrepo.NewBuildColl().Find(opt)
+	if err != nil {
+		resp.Builds = make([]*types.Repository, 0)
+		return resp
+	}
+	resp.Builds = buildObj.Repos
+	return resp
 }

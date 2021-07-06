@@ -27,14 +27,16 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/koderover/zadig/pkg/internal/poetry"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/types/permission"
@@ -244,6 +246,10 @@ func PreSetWorkflow(productName string, log *zap.SugaredLogger) ([]*PreSetResp, 
 						target := fmt.Sprintf("%s%s%s%s%s", serviceTmpl.ProductName, SplitSymbol, serviceTmpl.ServiceName, SplitSymbol, container.Name)
 						targets[target] = append(targets[target], deployEnv)
 					}
+				case setting.PMDeployType:
+					deployEnv := DeployEnv{Env: service, Type: setting.PMDeployType, ProductName: productName}
+					target := fmt.Sprintf("%s%s%s%s%s", serviceTmpl.ProductName, SplitSymbol, serviceTmpl.ServiceName, SplitSymbol, serviceTmpl.ServiceName)
+					targets[target] = append(targets[target], deployEnv)
 				case setting.HelmDeployType:
 					for _, container := range serviceTmpl.Containers {
 						deployEnv := DeployEnv{Env: service + "/" + container.Name, Type: setting.HelmDeployType, ProductName: serviceTmpl.ProductName}
@@ -317,6 +323,12 @@ func CreateWorkflow(workflow *commonmodels.Workflow, log *zap.SugaredLogger) err
 		return e.ErrUpsertWorkflow.AddDesc("workflow中没有子模块，请设置子模块")
 	}
 
+	err = processWebhook(workflow.HookCtl.Items, nil, webhook.WorkflowPrefix+workflow.Name, log)
+	if err != nil {
+		log.Errorf("Failed to process webhook, err: %s", err)
+		return e.ErrUpsertWorkflow.AddDesc(err.Error())
+	}
+
 	err = HandleCronjob(workflow, log)
 	if err != nil {
 		return e.ErrUpsertWorkflow.AddDesc(err.Error())
@@ -369,7 +381,19 @@ func UpdateWorkflow(workflow *commonmodels.Workflow, log *zap.SugaredLogger) err
 		return e.ErrUpsertWorkflow.AddDesc("workflow中没有子模块，请设置子模块")
 	}
 
-	err := HandleCronjob(workflow, log)
+	currentWorkflow, err := commonrepo.NewWorkflowColl().Find(workflow.Name)
+	if err != nil {
+		log.Errorf("Can not find workflow %s, err: %s", workflow.Name, err)
+		return e.ErrUpsertWorkflow.AddDesc(err.Error())
+	}
+
+	err = processWebhook(workflow.HookCtl.Items, currentWorkflow.HookCtl.Items, webhook.WorkflowPrefix+workflow.Name, log)
+	if err != nil {
+		log.Errorf("Failed to process webhook, err: %s", err)
+		return e.ErrUpsertWorkflow.AddDesc(err.Error())
+	}
+
+	err = HandleCronjob(workflow, log)
 	if err != nil {
 		return e.ErrUpsertWorkflow.AddDesc(err.Error())
 	}
@@ -386,12 +410,104 @@ func UpdateWorkflow(workflow *commonmodels.Workflow, log *zap.SugaredLogger) err
 		}
 	}
 
-	if err := commonrepo.NewWorkflowColl().Replace(workflow); err != nil {
+	if err = commonrepo.NewWorkflowColl().Replace(workflow); err != nil {
 		log.Errorf("Workflow.Update error: %v", err)
 		return e.ErrUpsertWorkflow.AddDesc(err.Error())
 	}
 
 	return nil
+}
+
+func toHookSet(hooks interface{}) HookSet {
+	res := NewHookSet()
+	switch hs := hooks.(type) {
+	case []*commonmodels.WorkflowHook:
+		for _, h := range hs {
+			res.Insert(hookItem{
+				owner:      h.MainRepo.RepoOwner,
+				repo:       h.MainRepo.RepoName,
+				codeHostID: h.MainRepo.CodehostID,
+				source:     h.MainRepo.Source,
+			})
+		}
+	case []commonmodels.GitHook:
+		for _, h := range hs {
+			res.Insert(hookItem{
+				owner:      h.Owner,
+				repo:       h.Repo,
+				codeHostID: h.CodehostID,
+			})
+		}
+	}
+
+	return res
+}
+
+func processWebhook(updatedHooks, currentHooks interface{}, name string, logger *zap.SugaredLogger) error {
+	currentSet := toHookSet(currentHooks)
+	updatedSet := toHookSet(updatedHooks)
+	hooksToRemove := currentSet.Difference(updatedSet)
+	hooksToAdd := updatedSet.Difference(currentSet)
+
+	if hooksToRemove.Len() > 0 {
+		logger.Debugf("Going to remove webhooks %+v", hooksToRemove)
+	}
+	if hooksToAdd.Len() > 0 {
+		logger.Debugf("Going to add webhooks %+v", hooksToAdd)
+	}
+
+	var errs *multierror.Error
+	var wg sync.WaitGroup
+
+	for h := range hooksToRemove {
+		wg.Add(1)
+		go func(wh hookItem) {
+			defer wg.Done()
+			ch, err := codehost.GetCodeHostInfoByID(wh.codeHostID)
+			if err != nil {
+				logger.Errorf("Failed to get codeHost by id %d, err: %s", wh.codeHostID, err)
+				errs = multierror.Append(errs, err)
+				return
+			}
+
+			switch ch.Type {
+			case setting.SourceFromGithub, setting.SourceFromGitlab:
+				err = webhook.NewClient().RemoveWebHook(wh.owner, wh.repo, ch.Address, ch.AccessToken, name, ch.Type)
+				if err != nil {
+					logger.Errorf("Failed to remove webhook %+v, err: %s", wh, err)
+					errs = multierror.Append(errs, err)
+					return
+				}
+			}
+		}(h)
+	}
+
+	for h := range hooksToAdd {
+		wg.Add(1)
+		go func(wh hookItem) {
+			defer wg.Done()
+			ch, err := codehost.GetCodeHostInfoByID(wh.codeHostID)
+			if err != nil {
+				logger.Errorf("Failed to get codeHost by id %d, err: %s", wh.codeHostID, err)
+				errs = multierror.Append(errs, err)
+				return
+			}
+
+			switch ch.Type {
+			case setting.SourceFromGithub, setting.SourceFromGitlab:
+				err = webhook.NewClient().AddWebHook(wh.owner, wh.repo, ch.Address, ch.AccessToken, name, ch.Type)
+				if err != nil {
+					logger.Errorf("Failed to add webhook %+v, err: %s", wh, err)
+					errs = multierror.Append(errs, err)
+					return
+				}
+			}
+		}(h)
+	}
+
+	wg.Wait()
+
+	return errs.ErrorOrNil()
 }
 
 func ListWorkflows(queryType string, userID int, log *zap.SugaredLogger) ([]*commonmodels.Workflow, error) {
@@ -554,6 +670,12 @@ func DeleteWorkflow(workflowName, requestID string, isDeletingProductTmpl bool, 
 		if prod.OnboardingStatus != 0 {
 			return e.ErrDeleteWorkflow.AddDesc("该工作流所属的项目处于onboarding流程中，不能删除工作流")
 		}
+	}
+
+	err = processWebhook(nil, workflow.HookCtl.Items, webhook.WorkflowPrefix+workflow.Name, log)
+	if err != nil {
+		log.Errorf("Failed to process webhook, err: %s", err)
+		return e.ErrUpsertWorkflow.AddDesc(err.Error())
 	}
 
 	go DeleteGerritWebhook(workflow, log)

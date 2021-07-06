@@ -28,8 +28,8 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	svcservice "github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
-	internalhandler "github.com/koderover/zadig/pkg/microservice/aslan/internal/handler"
 	"github.com/koderover/zadig/pkg/setting"
+	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types/permission"
@@ -193,4 +193,97 @@ func GetServiceTemplateObjectProductName(c *gin.Context) {
 	c.Set("productName", args.ProductName)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 	c.Next()
+}
+
+func CreatePMService(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	args := new(svcservice.ServiceTmplBuildObject)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("CreatePMService c.GetRawData() err : %v", err)
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("CreatePMService json.Unmarshal err : %v", err)
+	}
+	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "新增", "工程管理-物理机部署服务", fmt.Sprintf("服务名称:%s,版本号:%d", args.ServiceTmplObject.ServiceName, args.ServiceTmplObject.Revision), permission.ServiceTemplateManageUUID, string(data), ctx.Logger)
+	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+
+	if err := c.BindJSON(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid service json args")
+		return
+	}
+	if args.Build.Name == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("构建名称不能为空!")
+		return
+	}
+
+	for _, heathCheck := range args.ServiceTmplObject.HealthChecks {
+		if heathCheck.TimeOut < 2 || heathCheck.TimeOut > 60 {
+			ctx.Err = e.ErrInvalidParam.AddDesc("超时时间必须在2-60之间")
+			return
+		}
+		if heathCheck.Interval != 0 {
+			if heathCheck.Interval < 2 || heathCheck.Interval > 60 {
+				ctx.Err = e.ErrInvalidParam.AddDesc("间隔时间必须在2-60之间")
+				return
+			}
+		}
+		if heathCheck.HealthyThreshold != 0 {
+			if heathCheck.HealthyThreshold < 2 || heathCheck.HealthyThreshold > 10 {
+				ctx.Err = e.ErrInvalidParam.AddDesc("健康阈值必须在2-10之间")
+				return
+			}
+		}
+		if heathCheck.UnhealthyThreshold != 0 {
+			if heathCheck.UnhealthyThreshold < 2 || heathCheck.UnhealthyThreshold > 10 {
+				ctx.Err = e.ErrInvalidParam.AddDesc("不健康阈值必须在2-10之间")
+				return
+			}
+		}
+	}
+
+	ctx.Err = svcservice.CreatePMService(ctx.Username, args, ctx.Logger)
+}
+
+func UpdatePmServiceTemplate(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(commonservice.ServiceTmplBuildObject)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("UpdatePmServiceTemplate c.GetRawData() err : %v", err)
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("UpdatePmServiceTemplate json.Unmarshal err : %v", err)
+	}
+	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "更新", "工程管理-非容器服务", fmt.Sprintf("服务名称:%s,版本号:%d", args.ServiceTmplObject.ServiceName, args.ServiceTmplObject.Revision), permission.ServiceTemplateManageUUID, "", ctx.Logger)
+	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+
+	for _, heathCheck := range args.ServiceTmplObject.HealthChecks {
+		if heathCheck.TimeOut < 2 || heathCheck.TimeOut > 60 {
+			ctx.Err = e.ErrInvalidParam.AddDesc("超时时间必须在2-60之间")
+			return
+		}
+		if heathCheck.Interval != 0 {
+			if heathCheck.Interval < 2 || heathCheck.Interval > 60 {
+				ctx.Err = e.ErrInvalidParam.AddDesc("间隔时间必须在2-60之间")
+				return
+			}
+		}
+		if heathCheck.HealthyThreshold != 0 {
+			if heathCheck.HealthyThreshold < 2 || heathCheck.HealthyThreshold > 10 {
+				ctx.Err = e.ErrInvalidParam.AddDesc("健康阈值必须在2-10之间")
+				return
+			}
+		}
+		if heathCheck.UnhealthyThreshold != 0 {
+			if heathCheck.UnhealthyThreshold < 2 || heathCheck.UnhealthyThreshold > 10 {
+				ctx.Err = e.ErrInvalidParam.AddDesc("不健康阈值必须在2-10之间")
+				return
+			}
+		}
+	}
+	ctx.Err = commonservice.UpdatePmServiceTemplate(ctx.Username, args, ctx.Logger)
 }

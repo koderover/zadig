@@ -29,10 +29,10 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	ch "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehost"
 	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/codehost"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/types/permission"
 )
@@ -315,7 +315,7 @@ func TriggerWorkflowByGithubEvent(event interface{}, baseURI, deliveryID, reques
 }
 
 func findChangedFilesOfPullRequest(event *github.PullRequestEvent, codehostID int) ([]string, error) {
-	detail, err := ch.GetCodehostDetail(codehostID)
+	detail, err := codehost.GetCodehostDetail(codehostID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find codehost %d: %v", codehostID, err)
 	}

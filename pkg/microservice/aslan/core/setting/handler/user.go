@@ -20,7 +20,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	settingservice "github.com/koderover/zadig/pkg/microservice/aslan/core/setting/service"
-	internalhandler "github.com/koderover/zadig/pkg/microservice/aslan/internal/handler"
+	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
 func GetUserKubeConfig(c *gin.Context) {

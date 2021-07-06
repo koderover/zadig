@@ -25,7 +25,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
@@ -200,7 +200,7 @@ func AddPipelineJiraSubTask(pipeline *commonmodels.Pipeline, log *zap.SugaredLog
 	}
 
 	for _, subTask := range pipeline.SubTasks {
-		pre, err := commonservice.ToPreview(subTask)
+		pre, err := base.ToPreview(subTask)
 		if err != nil {
 			return nil, errors.New(e.InterfaceToTaskErrMsg)
 		}
@@ -211,7 +211,7 @@ func AddPipelineJiraSubTask(pipeline *commonmodels.Pipeline, log *zap.SugaredLog
 
 		switch pre.TaskType {
 		case config.TaskBuild:
-			t, err := commonservice.ToBuildTask(subTask)
+			t, err := base.ToBuildTask(subTask)
 			if err != nil {
 				log.Error(err)
 				return nil, err

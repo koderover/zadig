@@ -19,7 +19,7 @@ package workflow
 import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 )
 
 type ByTaskKind []map[string]interface{}
@@ -27,8 +27,8 @@ type ByTaskKind []map[string]interface{}
 func (a ByTaskKind) Len() int      { return len(a) }
 func (a ByTaskKind) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a ByTaskKind) Less(i, j int) bool {
-	iPreview, _ := commonservice.ToPreview(a[i])
-	jPreview, _ := commonservice.ToPreview(a[j])
+	iPreview, _ := base.ToPreview(a[i])
+	jPreview, _ := base.ToPreview(a[j])
 	return SubtaskOrder[iPreview.TaskType] < SubtaskOrder[jPreview.TaskType]
 }
 

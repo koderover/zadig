@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -84,7 +85,22 @@ func (p *Distribute2S3TaskPlugin) TaskTimeout() int {
 	return p.Task.Timeout
 }
 
+//是否是kodo
+func isKODO(storage *s3.S3) bool {
+	return strings.Contains(storage.Endpoint, "qiniucs.com")
+}
+
 func upload(ctx context.Context, log *zap.SugaredLogger, storage *s3.S3, localfile, destfile string) error {
+	if isKODO(storage) {
+		err := uploadFileToS3(storage.Ak, storage.Sk, storage.Bucket, destfile, localfile)
+		if err != nil {
+			log.Warnf("failed to upload file to s3 %s=>%s %v", localfile, destfile, err)
+		} else {
+			log.Infof("succeed to upload file to s3 %s=>%s", localfile, destfile)
+		}
+
+		return err
+	}
 
 	return s3.Upload(ctx, storage, localfile, destfile)
 }
@@ -157,6 +173,10 @@ func (p *Distribute2S3TaskPlugin) Run(ctx context.Context, pipelineTask *task.Ta
 		p.Task.ServiceName,
 		fmt.Sprintf("%d", pipelineTask.TaskID))
 
+	if isKODO(destStorage) {
+		remoteFileKey = filepath.Join(remoteFileKey, p.Task.PackageFile)
+	}
+
 	if destStorage.Subfolder != "" {
 		destStorage.Subfolder = fmt.Sprintf("%s/%s", destStorage.Subfolder, remoteFileKey)
 	} else {
@@ -165,6 +185,12 @@ func (p *Distribute2S3TaskPlugin) Run(ctx context.Context, pipelineTask *task.Ta
 
 	remoteFileName := p.Task.PackageFile
 	p.Task.RemoteFileKey = filepath.Join(destStorage.Subfolder, p.Task.PackageFile)
+
+	if isKODO(destStorage) {
+		remoteFileName = remoteFileKey
+		p.Task.RemoteFileKey = destStorage.Subfolder
+	}
+
 	err = upload(ctx, p.Log, destStorage, localFile, remoteFileName)
 	if err != nil {
 		p.Log.Errorf("failed to upload file to dest storage %s %v", destStorage.GetURI(), err)
@@ -207,6 +233,11 @@ func (p *Distribute2S3TaskPlugin) Run(ctx context.Context, pipelineTask *task.Ta
 	}()
 
 	remoteMd5File := fmt.Sprintf("%s.md5", p.Task.PackageFile)
+
+	if isKODO(destStorage) {
+		remoteMd5File = fmt.Sprintf("%s.md5", remoteFileKey)
+	}
+
 	err = upload(ctx, p.Log, destStorage, localMd5File, remoteMd5File)
 	if err != nil {
 		p.Log.Errorf("failed to upload md5 file to %s %v", destStorage.GetURI(), err)

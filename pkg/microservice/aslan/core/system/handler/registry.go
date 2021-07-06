@@ -28,7 +28,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
-	internalhandler "github.com/koderover/zadig/pkg/microservice/aslan/internal/handler"
+	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types/permission"
@@ -39,6 +39,26 @@ func ListRegistries(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	ctx.Resp, ctx.Err = service.ListRegistries(ctx.Logger)
+}
+
+func GetDefaultRegistryNamespace(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	reg, err := commonservice.GetDefaultRegistryNamespace(ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Resp = &Registry{
+		ID:         reg.ID.Hex(),
+		RegAddr:    reg.RegAddr,
+		IsDefault:  reg.IsDefault,
+		Namespace:  reg.Namespace,
+		AccessKey:  reg.AccessKey,
+		SecretyKey: reg.SecretyKey,
+	}
 }
 
 func ListRegistryNamespaces(c *gin.Context) {

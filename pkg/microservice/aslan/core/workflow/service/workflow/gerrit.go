@@ -23,8 +23,8 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	ch "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehost"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/codehost"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
@@ -36,10 +36,10 @@ func CreateGerritWebhook(workflow *commonmodels.Workflow, log *zap.SugaredLogger
 				continue
 			}
 
-			opt := &ch.Option{
+			opt := &codehost.Option{
 				CodeHostID: workflowWebhook.MainRepo.CodehostID,
 			}
-			detail, err := ch.GetCodeHostInfo(opt)
+			detail, err := codehost.GetCodeHostInfo(opt)
 			if err != nil {
 				return err
 			}
@@ -88,10 +88,10 @@ func UpdateGerritWebhook(currentWorkflow *commonmodels.Workflow, log *zap.Sugare
 				continue
 			}
 
-			opt := &ch.Option{
+			opt := &codehost.Option{
 				CodeHostID: oldWorkflowWebhook.MainRepo.CodehostID,
 			}
-			detail, err := ch.GetCodeHostInfo(opt)
+			detail, err := codehost.GetCodeHostInfo(opt)
 			if err != nil {
 				return err
 			}
@@ -113,10 +113,10 @@ func UpdateGerritWebhook(currentWorkflow *commonmodels.Workflow, log *zap.Sugare
 				continue
 			}
 
-			opt := &ch.Option{
+			opt := &codehost.Option{
 				CodeHostID: workflowWebhook.MainRepo.CodehostID,
 			}
-			detail, err := ch.GetCodeHostInfo(opt)
+			detail, err := codehost.GetCodeHostInfo(opt)
 			if err != nil {
 				return err
 			}
@@ -155,10 +155,10 @@ func DeleteGerritWebhook(workflow *commonmodels.Workflow, log *zap.SugaredLogger
 				continue
 			}
 
-			opt := &ch.Option{
+			opt := &codehost.Option{
 				CodeHostID: workflowWebhook.MainRepo.CodehostID,
 			}
-			detail, err := ch.GetCodeHostInfo(opt)
+			detail, err := codehost.GetCodeHostInfo(opt)
 			if err != nil {
 				return err
 			}

@@ -40,6 +40,14 @@ export function wordTranslate (word, category, subitem = '') {
         present: '已使用',
         new: '值为空'
       }
+    },
+    setting: {
+      cluster: {
+        pending: '等待接入',
+        normal: '正常',
+        abnormal: '异常',
+        disconnected: '主动断开'
+      }
     }
   }
   if (subitem === '') {

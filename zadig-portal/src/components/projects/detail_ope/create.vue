@@ -57,7 +57,30 @@
 
                 </el-form-item>
                 <el-form-item v-if="!isEdit"
+                              label="项目特点"
                               prop="desc">
+                  <el-row :gutter="5">
+                      <el-col :span="4">
+                        <span>基础设施
+                          <el-tooltip placement="top">
+                            <div slot="content">
+                              Kubernetes：包括自建 K8s 和云厂商提供容器云服务<br />
+                              云主机/物理机：包括物理机和云厂商提供的云服务器
+                            </div>
+                            <i class="icon el-icon-question"></i>
+                          </el-tooltip>
+                        </span>
+                      </el-col>
+                      <el-col :span="10">
+                        <el-radio-group size="mini"
+                                        v-model="projectForm.product_feature.basic_facility">
+                          <el-radio border
+                                    label="kubernetes">Kubernetes</el-radio>
+                          <el-radio border
+                                    label="cloud_host">云主机/物理机</el-radio>
+                        </el-radio-group>
+                      </el-col>
+                  </el-row>
                   <el-row v-if="projectForm.product_feature.basic_facility==='kubernetes'"
                           :gutter="5">
                     <el-col :span="4">
@@ -65,6 +88,7 @@
                         <el-tooltip placement="top">
                           <div slot="content">
                             K8s YAML 部署：使用 K8s 原生的 YAML配置方式部署服务<br />
+                            Helm Chart 部署：使用 Helm 工具部署服务
                           </div>
                           <i class="icon el-icon-question"></i>
                         </el-tooltip>
@@ -75,6 +99,8 @@
                                       v-model="projectForm.product_feature.deploy_type">
                         <el-radio border
                                   label="k8s">K8s YAML 部署</el-radio>
+                        <el-radio border
+                                  label="helm">Helm Chart 部署</el-radio>
                       </el-radio-group>
                     </el-col>
                   </el-row>
@@ -224,7 +250,14 @@ export default {
         })
         this.$store.dispatch('refreshProjectTemplates')
         if (payload.product_feature.basic_facility === 'kubernetes') {
-          this.$router.push(`/v1/projects/create/${payload.product_name}/basic/info?rightbar=step`)
+          if (payload.product_feature.deploy_type === 'k8s') {
+            this.$router.push(`/v1/projects/create/${payload.product_name}/basic/info?rightbar=step`)
+          }
+          if (payload.product_feature.deploy_type === 'helm') {
+            this.$router.push(`/v1/projects/create/${payload.product_name}/helm/info?rightbar=step`)
+          }
+        } else if (payload.product_feature.basic_facility === 'cloud_host') {
+          this.$router.push(`/v1/projects/create/${payload.product_name}/not_k8s/info`)
         }
       })
     },

@@ -24,30 +24,33 @@ import (
 )
 
 type Testing struct {
-	ID              primitive.ObjectID  `bson:"_id,omitempty"            json:"id,omitempty"`
-	Name            string              `bson:"name"                     json:"name"`
-	ProductName     string              `bson:"product_name"             json:"product_name"`
-	Desc            string              `bson:"desc"                     json:"desc"`
-	Timeout         int                 `bson:"timeout"                  json:"timeout"`
-	Team            string              `bson:"team"                     json:"team"`
-	Repos           []*types.Repository `bson:"repos,omitempty"          json:"repos"`
-	PreTest         *PreTest            `bson:"pre_test"                 json:"pre_test"`
-	Scripts         string              `bson:"scripts"                  json:"scripts"`
-	UpdateTime      int64               `bson:"update_time"              json:"update_time"`
-	UpdateBy        string              `bson:"update_by"                json:"update_by"`
-	TestResultPath  string              `bson:"test_result_path"         json:"test_result_path"`
-	Threshold       int                 `bson:"threshold"                json:"threshold"`
-	TestType        string              `bson:"test_type"                json:"test_type"`
-	Caches          []string            `bson:"caches"                   json:"caches"`
-	ArtifactPaths   []string            `bson:"artifact_paths,omitempty" json:"artifact_paths,omitempty"`
-	TestCaseNum     int                 `bson:"-"                        json:"test_case_num,omitempty"`
-	ExecuteNum      int                 `bson:"-"                        json:"execute_num,omitempty"`
-	PassRate        float64             `bson:"-"                        json:"pass_rate,omitempty"`
-	AvgDuration     float64             `bson:"-"                        json:"avg_duration,omitempty"`
-	Workflows       []*Workflow         `bson:"-"                        json:"workflows,omitempty"`
-	Schedules       *ScheduleCtrl       `bson:"schedules,omitempty"      json:"schedules,omitempty"`
-	HookCtl         *TestingHookCtrl    `bson:"hook_ctl"                 json:"hook_ctl"`
-	ScheduleEnabled bool                `bson:"schedule_enabled"         json:"-"`
+	ID          primitive.ObjectID  `bson:"_id,omitempty"            json:"id,omitempty"`
+	Name        string              `bson:"name"                     json:"name"`
+	ProductName string              `bson:"product_name"             json:"product_name"`
+	Desc        string              `bson:"desc"                     json:"desc"`
+	Timeout     int                 `bson:"timeout"                  json:"timeout"`
+	Team        string              `bson:"team"                     json:"team"`
+	Repos       []*types.Repository `bson:"repos,omitempty"          json:"repos"`
+	PreTest     *PreTest            `bson:"pre_test"                 json:"pre_test"`
+	Scripts     string              `bson:"scripts"                  json:"scripts"`
+	UpdateTime  int64               `bson:"update_time"              json:"update_time"`
+	UpdateBy    string              `bson:"update_by"                json:"update_by"`
+	// Junit 测试报告
+	TestResultPath string `bson:"test_result_path"         json:"test_result_path"`
+	// html 测试报告
+	TestReportPath  string           `bson:"test_report_path"         json:"test_report_path"`
+	Threshold       int              `bson:"threshold"                json:"threshold"`
+	TestType        string           `bson:"test_type"                json:"test_type"`
+	Caches          []string         `bson:"caches"                   json:"caches"`
+	ArtifactPaths   []string         `bson:"artifact_paths,omitempty" json:"artifact_paths,omitempty"`
+	TestCaseNum     int              `bson:"-"                        json:"test_case_num,omitempty"`
+	ExecuteNum      int              `bson:"-"                        json:"execute_num,omitempty"`
+	PassRate        float64          `bson:"-"                        json:"pass_rate,omitempty"`
+	AvgDuration     float64          `bson:"-"                        json:"avg_duration,omitempty"`
+	Workflows       []*Workflow      `bson:"-"                        json:"workflows,omitempty"`
+	Schedules       *ScheduleCtrl    `bson:"schedules,omitempty"      json:"schedules,omitempty"`
+	HookCtl         *TestingHookCtrl `bson:"hook_ctl"                 json:"hook_ctl"`
+	ScheduleEnabled bool             `bson:"schedule_enabled"         json:"-"`
 }
 
 type TestingHookCtrl struct {

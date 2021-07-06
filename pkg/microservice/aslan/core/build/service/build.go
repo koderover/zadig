@@ -318,6 +318,9 @@ func UpdateBuildTargets(name, productName string, targets []*commonmodels.Servic
 		return e.ErrUpdateBuildParam.AddErr(err)
 	}
 
+	//处理云主机服务组件逻辑
+	handleServiceTargets(name, productName, targets)
+
 	err := commonrepo.NewBuildColl().UpdateTargets(name, productName, targets)
 	if err != nil {
 		log.Errorf("[Build.UpdateServices] %s error: %v", name, err)

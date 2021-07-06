@@ -22,13 +22,13 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/koderover/zadig/pkg/internal/poetry"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
@@ -154,6 +154,10 @@ func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*common
 	prodRev.NextRevision = prodTmpl.Revision
 	prodRev.ServiceRevisions = make([]*SvcRevision, 0)
 	prodRev.IsPublic = product.IsPublic
+
+	if product.Source == setting.SourceFromExternal {
+		return prodRev, nil
+	}
 
 	// 如果当前产品版本比产品模板小, 则需要更新
 	if prodRev.NextRevision > prodRev.CurrentRevision {
@@ -356,6 +360,8 @@ func compareServicesRev(serviceTmplNames []string, services []*commonmodels.Prod
 				serviceRevs = append(serviceRevs, serviceRev)
 			} else if service.Type == setting.HelmDeployType {
 				serviceRevs = append(serviceRevs, serviceRev)
+			} else if service.Type == setting.PMDeployType {
+				serviceRevs = append(serviceRevs, serviceRev)
 			}
 		}
 	}
@@ -368,11 +374,15 @@ func getMaxServices(services []*commonmodels.Service, serviceName string) ([]*co
 		resp        []*commonmodels.Service
 		k8sService  = &commonmodels.Service{}
 		helmService = &commonmodels.Service{}
+		pmService   = &commonmodels.Service{}
 	)
 
 	for _, service := range services {
 		if service.ServiceName == serviceName && service.Type == setting.K8SDeployType && service.Revision > k8sService.Revision {
 			k8sService = service
+		}
+		if service.ServiceName == serviceName && service.Type == setting.PMDeployType && service.Revision > pmService.Revision {
+			pmService = service
 		}
 		if service.ServiceName == serviceName && service.Type == setting.HelmDeployType && service.Revision > helmService.Revision {
 			helmService = service
@@ -380,6 +390,9 @@ func getMaxServices(services []*commonmodels.Service, serviceName string) ([]*co
 	}
 	if k8sService.ServiceName != "" {
 		resp = append(resp, k8sService)
+	}
+	if pmService.ServiceName != "" {
+		resp = append(resp, pmService)
 	}
 	if helmService.ServiceName != "" {
 		resp = append(resp, helmService)

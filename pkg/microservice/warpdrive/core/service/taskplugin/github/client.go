@@ -17,7 +17,7 @@ limitations under the License.
 package github
 
 import (
-	"github.com/koderover/zadig/pkg/tool/github"
+	"github.com/koderover/zadig/pkg/tool/git/github"
 )
 
 type Client struct {

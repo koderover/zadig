@@ -19,7 +19,6 @@ package notify
 import (
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -57,12 +56,6 @@ func (c *client) CreateNotify(sender string, nf *models.Notify) error {
 		return fmt.Errorf("marshal content error: %v", err)
 	}
 	switch nf.Type {
-	case config.Announcement:
-		var content *models.AnnouncementCtx
-		if err = json.Unmarshal(b, &content); err != nil {
-			return fmt.Errorf("[%s] convert announcement error: %v", sender, err)
-		}
-		nf.Content = content
 	case config.PipelineStatus:
 		var content *models.PipelineStatusCtx
 		if err = json.Unmarshal(b, &content); err != nil {
@@ -74,6 +67,7 @@ func (c *client) CreateNotify(sender string, nf *models.Notify) error {
 		if err = json.Unmarshal(b, &content); err != nil {
 			return fmt.Errorf("[%s] convert message error: %v", sender, err)
 		}
+
 		nf.Content = content
 	default:
 		return fmt.Errorf("notify type not found")
@@ -83,37 +77,6 @@ func (c *client) CreateNotify(sender string, nf *models.Notify) error {
 		return fmt.Errorf("[%s] create Notify error: %v", sender, err)
 	}
 	return nil
-}
-
-func (c *client) PullNotifyAnnouncement(user string) ([]*models.Notify, error) {
-	resp := make([]*models.Notify, 0)
-	systemNotifyList, err := c.notifyColl.List("*")
-	if err != nil {
-		return resp, fmt.Errorf("[*] pull notify error: %v", err)
-	}
-	//取出所有当前生效的系统通告
-	for _, systemNotify := range systemNotifyList {
-		b, err := json.Marshal(systemNotify.Content)
-		if err != nil {
-			return resp, fmt.Errorf("marshal content error: %v", err)
-		}
-		var content *models.AnnouncementCtx
-		if err = json.Unmarshal(b, &content); err != nil {
-			return resp, fmt.Errorf("[%s] convert announcement error: %v", user, err)
-		}
-		if content.StartTime < time.Now().Unix() && time.Now().Unix() < content.EndTime {
-			resp = append(resp, systemNotify)
-		}
-	}
-	return resp, nil
-}
-
-func (c *client) PullAllAnnouncement(user string) ([]*models.Notify, error) {
-	systemNotifyList, err := c.notifyColl.List("*")
-	if err != nil {
-		return nil, fmt.Errorf("[*] pull notify error: %v", err)
-	}
-	return systemNotifyList, nil
 }
 
 func (c *client) PullNotify(user string) ([]*models.Notify, error) {
@@ -168,28 +131,6 @@ func (c *client) Read(user string, notifyIDs []string) error {
 		if err != nil {
 			return fmt.Errorf("[%s] update status error: %v", user, err)
 		}
-	}
-	return nil
-}
-
-func (c *client) Update(user string, notifyID string, ctx *models.Notify) error {
-	b, err := json.Marshal(ctx.Content)
-	if err != nil {
-		return fmt.Errorf("marshal content error: %v", err)
-	}
-	switch ctx.Type {
-	case config.Announcement:
-		var content *models.AnnouncementCtx
-		if err = json.Unmarshal(b, &content); err != nil {
-			return fmt.Errorf("[%s] convert announcement error: %v", user, err)
-		}
-		ctx.Content = content
-	default:
-		return fmt.Errorf("notify type not found")
-	}
-	err = c.notifyColl.Update(notifyID, ctx)
-	if err != nil {
-		return fmt.Errorf("[%s] update Notify error: %v", user, err)
 	}
 	return nil
 }

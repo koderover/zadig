@@ -17,9 +17,33 @@ limitations under the License.
 package util
 
 import (
+	"math/rand"
+	"time"
+
 	"github.com/google/uuid"
 )
 
 func UUID() string {
 	return uuid.New().String()
+}
+
+const str = "abcdefghijklmnopqrstuvwxyz"
+const numStr = "0123456789abcdefghijklmnopqrstuvwxyz"
+
+func GetRandomNumString(length int) string {
+	res := make([]byte, length)
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	for i := range res {
+		res[i] = numStr[r.Intn(len(numStr))]
+	}
+	return string(res)
+}
+
+func GetRandomString(length int) string {
+	res := make([]byte, length)
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	for i := range res {
+		res[i] = numStr[r.Intn(len(str))]
+	}
+	return string(res)
 }
