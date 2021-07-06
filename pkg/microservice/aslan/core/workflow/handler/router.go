@@ -19,7 +19,7 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/middleware"
+	gin2 "github.com/koderover/zadig/pkg/middleware/gin"
 	"github.com/koderover/zadig/pkg/types/permission"
 )
 
@@ -31,13 +31,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	webhook := router.Group("webhook")
 	{
-		webhook.POST("/ci/webhook", ProcessGithub)
-		webhook.POST("/githubWebHook", ProcessGithub)
-		webhook.POST("/gitlabhook", ProcessGitlabHook)
-		webhook.POST("/gerritHook", ProcessGerritHook)
+		webhook.POST("", ProcessWebHook)
 	}
 
-	router.Use(middleware.Auth())
+	router.Use(gin2.Auth())
 
 	build := router.Group("build")
 	{
@@ -56,10 +53,39 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	}
 
 	// ---------------------------------------------------------------------------------------
+	// Pipeline 管理接口
+	// ---------------------------------------------------------------------------------------
+	pipeline := router.Group("v2/pipelines")
+	{
+		pipeline.GET("", ListPipelines)
+		pipeline.GET("/:name", GetPipeline)
+		pipeline.POST("", GetPipelineProductName, gin2.IsHavePermission([]string{permission.WorkflowCreateUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, UpsertPipeline)
+		pipeline.POST("/old/:old/new/:new", GetProductNameByPipeline, gin2.IsHavePermission([]string{permission.WorkflowCreateUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, CopyPipeline)
+		pipeline.PUT("/rename/:old/:new", GetProductNameByPipeline, gin2.IsHavePermission([]string{permission.WorkflowUpdateUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, RenamePipeline)
+		pipeline.DELETE("/:name", GetProductNameByPipeline, gin2.IsHavePermission([]string{permission.WorkflowDeleteUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, DeletePipeline)
+	}
+
+	// ---------------------------------------------------------------------------------------
+	// Pipeline 状态接口
+	// ---------------------------------------------------------------------------------------
+	statusV2 := router.Group("v2/status")
+	{
+		statusV2.GET("/preview", ListPipelinesPreview)
+		statusV2.GET("/task/info", FindTasks)
+	}
+
+	// ---------------------------------------------------------------------------------------
 	// Pipeline 任务管理接口
 	// ---------------------------------------------------------------------------------------
 	taskV2 := router.Group("v2/tasks")
 	{
+		taskV2.POST("", GetProductNameByPipelineTask, gin2.IsHavePermission([]string{permission.WorkflowTaskUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, CreatePipelineTask)
+		taskV2.GET("/max/:max/start/:start/pipelines/:name", ListPipelineTasksResult)
+		taskV2.GET("/id/:id/pipelines/:name", GetPipelineTask)
+		taskV2.POST("/id/:id/pipelines/:name/restart", GetProductNameByPipeline, gin2.IsHavePermission([]string{permission.WorkflowTaskUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, RestartPipelineTask)
+		taskV2.DELETE("/id/:id/pipelines/:name", GetProductNameByPipeline, gin2.IsHavePermission([]string{permission.WorkflowTaskUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, CancelTaskV2)
+		taskV2.GET("/pipelines/:name/products", ListPipelineUpdatableProductNames)
+		taskV2.GET("/file", GetPackageFile)
 		taskV2.GET("/workflow/:pipelineName/taskId/:taskId", GetArtifactFile)
 	}
 
@@ -68,9 +94,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	favorite := router.Group("favorite")
 	{
-		favorite.POST("", middleware.UpdateOperationLogStatus, CreateFavoritePipeline)
-		favorite.DELETE("/:productName/:name/:type", middleware.UpdateOperationLogStatus, DeleteFavoritePipeline)
-
+		favorite.POST("", gin2.UpdateOperationLogStatus, CreateFavoritePipeline)
+		favorite.DELETE("/:productName/:name/:type", gin2.UpdateOperationLogStatus, DeleteFavoritePipeline)
+		favorite.GET("", ListFavoritePipelines)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -79,12 +105,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	workflow := router.Group("workflow")
 	{
 		workflow.POST("/:productName/auto", AutoCreateWorkflow)
-		workflow.POST("", GetWorkflowProductName, middleware.IsHavePermission([]string{permission.WorkflowCreateUUID}, permission.ContextKeyType), middleware.UpdateOperationLogStatus, CreateWorkflow)
-		workflow.PUT("", GetWorkflowProductName, middleware.IsHavePermission([]string{permission.WorkflowUpdateUUID}, permission.ContextKeyType), middleware.UpdateOperationLogStatus, UpdateWorkflow)
+		workflow.POST("", GetWorkflowProductName, gin2.IsHavePermission([]string{permission.WorkflowCreateUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, CreateWorkflow)
+		workflow.PUT("", GetWorkflowProductName, gin2.IsHavePermission([]string{permission.WorkflowUpdateUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, UpdateWorkflow)
 		workflow.GET("", ListWorkflows)
 		workflow.GET("/testName/:testName", ListAllWorkflows)
 		workflow.GET("/find/:name", FindWorkflow)
-		workflow.DELETE("/:name", GetProductNameByWorkflow, middleware.IsHavePermission([]string{permission.WorkflowDeleteUUID}, permission.ContextKeyType), middleware.UpdateOperationLogStatus, DeleteWorkflow)
+		workflow.DELETE("/:name", GetProductNameByWorkflow, gin2.IsHavePermission([]string{permission.WorkflowDeleteUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, DeleteWorkflow)
 		workflow.GET("/preset/:productName", PreSetWorkflow)
 
 		workflow.PUT("/old/:old/new/:new", CopyWorkflow)
@@ -98,12 +124,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		//todo 修改权限的uuid
 		workflowtask.GET("/targets/:productName/:namespace", GetWorkflowArgs)
 		workflowtask.GET("/preset/:namespace/:workflowName", PresetWorkflowArgs)
-		workflowtask.POST("", GetWorkflowTaskProductName, middleware.IsHavePermission([]string{permission.WorkflowTaskUUID}, permission.ContextKeyType), middleware.UpdateOperationLogStatus, CreateWorkflowTask)
-		workflowtask.PUT("", GetWorkflowTaskProductName, middleware.IsHavePermission([]string{permission.WorkflowTaskUUID}, permission.ContextKeyType), middleware.UpdateOperationLogStatus, CreateArtifactWorkflowTask)
+		workflowtask.POST("", GetWorkflowTaskProductName, gin2.IsHavePermission([]string{permission.WorkflowTaskUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, CreateWorkflowTask)
+		workflowtask.PUT("", GetWorkflowTaskProductName, gin2.IsHavePermission([]string{permission.WorkflowTaskUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, CreateArtifactWorkflowTask)
 		workflowtask.GET("/max/:max/start/:start/pipelines/:name", ListWorkflowTasksResult)
 		workflowtask.GET("/id/:id/pipelines/:name", GetWorkflowTask)
-		workflowtask.POST("/id/:id/pipelines/:name/restart", GetWorkflowTaskProductNameByTask, middleware.IsHavePermission([]string{permission.WorkflowTaskUUID}, permission.ContextKeyType), middleware.UpdateOperationLogStatus, RestartWorkflowTask)
-		workflowtask.DELETE("/id/:id/pipelines/:name", GetWorkflowTaskProductNameByTask, middleware.IsHavePermission([]string{permission.WorkflowTaskUUID}, permission.ContextKeyType), middleware.UpdateOperationLogStatus, CancelWorkflowTaskV2)
+		workflowtask.POST("/id/:id/pipelines/:name/restart", GetWorkflowTaskProductNameByTask, gin2.IsHavePermission([]string{permission.WorkflowTaskUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, RestartWorkflowTask)
+		workflowtask.DELETE("/id/:id/pipelines/:name", GetWorkflowTaskProductNameByTask, gin2.IsHavePermission([]string{permission.WorkflowTaskUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, CancelWorkflowTaskV2)
 	}
 
 	serviceTask := router.Group("servicetask")

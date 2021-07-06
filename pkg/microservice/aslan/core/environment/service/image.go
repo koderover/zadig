@@ -81,6 +81,18 @@ func UpdateContainerImage(requestID string, args *UpdateContainerImageArgs, log 
 	oldImageName := ""
 	for _, group := range product.Services {
 		for _, service := range group {
+			//如果为helm，serviceName可能不匹配
+			if product.Source != setting.HelmDeployType {
+				if service.ServiceName == args.ServiceName {
+					for _, container := range service.Containers {
+						if container.Name == args.ContainerName {
+							container.Image = args.Image
+							break
+						}
+					}
+				}
+				continue
+			}
 			for _, container := range service.Containers {
 				if container.Name == args.ContainerName {
 					oldImageName = container.Image
@@ -144,7 +156,7 @@ func updateImageTagInValues(valuesYaml []byte, repo, newTag string) ([]byte, err
 
 	var matchingKey string
 	for k, v := range valuesFlatMap {
-		if repo == v.(string) {
+		if val, ok := v.(string); ok && repo == val {
 			matchingKey = k
 		}
 	}

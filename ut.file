@@ -1,2 +1,6 @@
 ./pkg/microservice/cron/core/service/client
+./pkg/microservice/reaper/core/service/cmd
+./pkg/microservice/reaper/core/service/meta
+./pkg/microservice/reaper/core/service/reaper
+./pkg/microservice/aslan/core/common/service/registry
 ./pkg/util/converter

@@ -30,16 +30,17 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/koderover/zadig/pkg/internal/poetry"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
@@ -134,6 +135,10 @@ func getProductTargetMap(prod *commonmodels.Product) map[string][]commonmodels.D
 					target := fmt.Sprintf("%s%s%s%s%s", prod.ProductName, SplitSymbol, serviceObj.ServiceName, SplitSymbol, container.Name)
 					resp[target] = append(resp[target], deployEnv)
 				}
+			case setting.PMDeployType:
+				deployEnv := commonmodels.DeployEnv{Type: setting.PMDeployType, Env: serviceObj.ServiceName}
+				target := fmt.Sprintf("%s%s%s%s%s", prod.ProductName, SplitSymbol, serviceObj.ServiceName, SplitSymbol, serviceObj.ServiceName)
+				resp[target] = append(resp[target], deployEnv)
 			case setting.HelmDeployType:
 				for _, container := range serviceObj.Containers {
 					env := serviceObj.ServiceName + "/" + container.Name
@@ -170,6 +175,10 @@ func getProductTemplTargetMap(productName string) map[string][]commonmodels.Depl
 						target := fmt.Sprintf("%s%s%s%s%s", productTmpl.ProductName, SplitSymbol, service, SplitSymbol, container.Name)
 						targets[target] = append(targets[target], deployEnv)
 					}
+				case setting.PMDeployType:
+					deployEnv := commonmodels.DeployEnv{Env: service, Type: setting.PMDeployType}
+					target := fmt.Sprintf("%s%s%s%s%s", productTmpl.ProductName, SplitSymbol, service, SplitSymbol, service)
+					targets[target] = append(targets[target], deployEnv)
 				case setting.HelmDeployType:
 					for _, container := range serviceTmpl.Containers {
 						deployEnv := commonmodels.DeployEnv{Env: service + "/" + container.Name, Type: setting.HelmDeployType, ProductName: serviceTmpl.ProductName}
@@ -506,6 +515,9 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		if env != nil {
 			// 生成部署的subtask
 			for _, deployEnv := range target.Deploy {
+				if deployEnv.Type == setting.PMDeployType {
+					continue
+				}
 				deployTask, err := deployEnvToSubTasks(deployEnv, env, productTempl.Timeout)
 				if err != nil {
 					log.Errorf("deploy env to subtask error: %v", err)
@@ -677,9 +689,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		return nil, e.ErrCreateTask.AddDesc(e.PipelineSubTaskNotFoundErrMsg)
 	}
 
-	namespace := config.Namespace()
-
-	endpoint := fmt.Sprintf("%s-%s:9000", namespace, ClusterStorageEP)
+	endpoint := fmt.Sprintf("%s-%s:9000", config.Namespace(), ClusterStorageEP)
 
 	task.StorageEndpoint = endpoint
 
@@ -1219,6 +1229,7 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *task.Task, log *
 		testTask.JobCtx.TestThreshold = testModule.Threshold
 		testTask.JobCtx.Caches = testModule.Caches
 		testTask.JobCtx.TestResultPath = testModule.TestResultPath
+		testTask.JobCtx.TestReportPath = testModule.TestReportPath
 
 		if testTask.Registries == nil {
 			testTask.Registries = registries
@@ -1552,6 +1563,12 @@ func BuildModuleToSubTasks(moduleName, version, target, serviceName, productName
 		opt.Targets = []string{target}
 	}
 
+	if pro != nil {
+		serviceTmpl, _ = commonservice.GetServiceTemplate(
+			target, setting.PMDeployType, productName, setting.ProductStatusDeleting, 0, log,
+		)
+	}
+
 	modules, err := commonrepo.NewBuildColl().List(opt)
 	if err != nil {
 		return nil, e.ErrConvertSubTasks.AddErr(err)
@@ -1578,8 +1595,23 @@ func BuildModuleToSubTasks(moduleName, version, target, serviceName, productName
 			Registries:   registries,
 		}
 
+		// 自定义基础镜像的镜像名称可能会被更新，需要使用ID获取最新的镜像名称
+		if module.PreBuild.ImageID != "" {
+			basicImage, err := commonrepo.NewBasicImageColl().Find(module.PreBuild.ImageID)
+			if err != nil {
+				log.Errorf("BasicImage.Find failed, id:%s, err:%v", module.PreBuild.ImageID, err)
+			} else {
+				build.BuildOS = basicImage.Value
+			}
+		}
+
 		if build.ImageFrom == "" {
 			build.ImageFrom = commonmodels.ImageFromKoderover
+		}
+
+		if serviceTmpl != nil {
+			build.Namespace = pro.Namespace
+			build.ServiceType = setting.PMDeployType
 		}
 
 		if pro != nil {
@@ -1598,6 +1630,30 @@ func BuildModuleToSubTasks(moduleName, version, target, serviceName, productName
 		build.JobCtx.BuildSteps = []*task.BuildStep{}
 		if module.Scripts != "" {
 			build.JobCtx.BuildSteps = append(build.JobCtx.BuildSteps, &task.BuildStep{BuildType: "shell", Scripts: module.Scripts})
+		}
+
+		if module.PMDeployScripts != "" && build.ServiceType == setting.PMDeployType {
+			build.JobCtx.PMDeployScripts = module.PMDeployScripts
+		}
+
+		if len(module.SSHs) > 0 && build.ServiceType == setting.PMDeployType {
+			privateKeys := make([]*task.SSH, 0)
+			for _, sshID := range module.SSHs {
+				//私钥信息可能被更新，而构建中存储的信息是旧的，需要根据id获取最新的私钥信息
+				latestKeyInfo, err := commonrepo.NewPrivateKeyColl().Find(sshID)
+				if err != nil || latestKeyInfo == nil {
+					log.Errorf("PrivateKey.Find failed, id:%s, err:%v", sshID, err)
+					continue
+				}
+				ssh := new(task.SSH)
+				ssh.Name = latestKeyInfo.Name
+				ssh.UserName = latestKeyInfo.UserName
+				ssh.IP = latestKeyInfo.IP
+				ssh.PrivateKey = latestKeyInfo.PrivateKey
+
+				privateKeys = append(privateKeys, ssh)
+			}
+			build.JobCtx.SSHs = privateKeys
 		}
 
 		build.JobCtx.EnvVars = module.PreBuild.Envs
@@ -1667,7 +1723,7 @@ func ensurePipelineTask(pt *task.Task, log *zap.SugaredLogger) error {
 	//设置执行任务时参数
 	for i, subTask := range pt.SubTasks {
 
-		pre, err := commonservice.ToPreview(subTask)
+		pre, err := base.ToPreview(subTask)
 		if err != nil {
 			return errors.New(e.InterfaceToTaskErrMsg)
 		}
@@ -1675,7 +1731,7 @@ func ensurePipelineTask(pt *task.Task, log *zap.SugaredLogger) error {
 		switch pre.TaskType {
 
 		case config.TaskBuild:
-			t, err := commonservice.ToBuildTask(subTask)
+			t, err := base.ToBuildTask(subTask)
 			fmtBuildsTask(t, log)
 			if err != nil {
 				log.Error(err)
@@ -1783,7 +1839,7 @@ func ensurePipelineTask(pt *task.Task, log *zap.SugaredLogger) error {
 				}
 			}
 		case config.TaskJenkinsBuild:
-			t, err := commonservice.ToJenkinsBuildTask(subTask)
+			t, err := base.ToJenkinsBuildTask(subTask)
 			if err != nil {
 				log.Error(err)
 				return err
@@ -1813,7 +1869,7 @@ func ensurePipelineTask(pt *task.Task, log *zap.SugaredLogger) error {
 				}
 			}
 		case config.TaskArtifact:
-			t, err := commonservice.ToArtifactTask(subTask)
+			t, err := base.ToArtifactTask(subTask)
 			if err != nil {
 				log.Error(err)
 				return err
@@ -1833,7 +1889,7 @@ func ensurePipelineTask(pt *task.Task, log *zap.SugaredLogger) error {
 				}
 			}
 		case config.TaskDockerBuild:
-			t, err := commonservice.ToDockerBuildTask(subTask)
+			t, err := base.ToDockerBuildTask(subTask)
 			if err != nil {
 				log.Error(err)
 				return err
@@ -1862,7 +1918,7 @@ func ensurePipelineTask(pt *task.Task, log *zap.SugaredLogger) error {
 			}
 
 		case config.TaskTestingV2:
-			t, err := commonservice.ToTestingTask(subTask)
+			t, err := base.ToTestingTask(subTask)
 			if err != nil {
 				log.Error(err)
 				return err
@@ -1900,7 +1956,7 @@ func ensurePipelineTask(pt *task.Task, log *zap.SugaredLogger) error {
 				}
 			}
 		case config.TaskResetImage:
-			t, err := commonservice.ToDeployTask(subTask)
+			t, err := base.ToDeployTask(subTask)
 			if err != nil {
 				log.Error(err)
 				return err
@@ -1923,7 +1979,7 @@ func ensurePipelineTask(pt *task.Task, log *zap.SugaredLogger) error {
 			}
 
 		case config.TaskDeploy:
-			t, err := commonservice.ToDeployTask(subTask)
+			t, err := base.ToDeployTask(subTask)
 			if err != nil {
 				log.Error(err)
 				return err
@@ -1958,7 +2014,7 @@ func ensurePipelineTask(pt *task.Task, log *zap.SugaredLogger) error {
 			}
 
 		case config.TaskDistributeToS3:
-			task, err := commonservice.ToDistributeToS3Task(subTask)
+			task, err := base.ToDistributeToS3Task(subTask)
 			if err != nil {
 				log.Error(err)
 				return err
@@ -2001,7 +2057,7 @@ func ensurePipelineTask(pt *task.Task, log *zap.SugaredLogger) error {
 			}
 
 		case config.TaskReleaseImage:
-			t, err := commonservice.ToReleaseImageTask(subTask)
+			t, err := base.ToReleaseImageTask(subTask)
 			if err != nil {
 				log.Error(err)
 				return err
@@ -2049,7 +2105,7 @@ func ensurePipelineTask(pt *task.Task, log *zap.SugaredLogger) error {
 			}
 
 		case config.TaskJira:
-			t, err := commonservice.ToJiraTask(subTask)
+			t, err := base.ToJiraTask(subTask)
 			if err != nil {
 				log.Error(err)
 				return err
@@ -2069,7 +2125,7 @@ func ensurePipelineTask(pt *task.Task, log *zap.SugaredLogger) error {
 				}
 			}
 		case config.TaskSecurity:
-			t, err := commonservice.ToSecurityTask(subTask)
+			t, err := base.ToSecurityTask(subTask)
 			if err != nil {
 				log.Error(err)
 				return err
@@ -2093,7 +2149,7 @@ func ensurePipelineTask(pt *task.Task, log *zap.SugaredLogger) error {
 }
 
 func AddSubtaskToStage(stages *[]*commonmodels.Stage, subTask map[string]interface{}, target string) {
-	subTaskPre, err := commonservice.ToPreview(subTask)
+	subTaskPre, err := base.ToPreview(subTask)
 	if err != nil {
 		log.Errorf("subtask to preview error: %v", err)
 		return

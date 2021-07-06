@@ -73,7 +73,7 @@
 import functionTestCase from '@/components/projects/test/common/function_test_case.vue'
 import functionTestSummary from '@/components/projects/test/common/function_test_summary.vue'
 import { getTestReportAPI } from '@api'
-// NOTE: 总数=tests+skips 成功=tests-failures
+// NOTE: 总数 = tests + skips 成功 = tests - failures
 export default {
   data () {
     return {
@@ -105,7 +105,6 @@ export default {
           this.testCases = res.functionTestSuite.testcase
           this.testCases.forEach(testCase => {
             const blocks = []
-            // 兼容老数据
             if (testCase.failure && typeof testCase.failure === 'string') {
               blocks.push(`失败原因:\n${testCase.failure}`)
             }

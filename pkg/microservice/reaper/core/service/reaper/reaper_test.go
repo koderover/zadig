@@ -28,6 +28,7 @@ import (
 	"gopkg.in/mholt/archiver.v3"
 
 	"github.com/koderover/zadig/pkg/microservice/reaper/core/service/meta"
+	_ "github.com/koderover/zadig/pkg/util/testing"
 )
 
 func TestReaper_CompressAndDecompressCache(t *testing.T) {

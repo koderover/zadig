@@ -18,6 +18,9 @@ import project_templates from './modules/project_templates'
 // Sidebar
 import sidebar_status from './modules/sidebar_status'
 
+// Service
+import service_manage from './modules/service_manage'
+
 Vue.use(Vuex)
 
 const debug = process.env.NODE_ENV !== 'production'
@@ -29,7 +32,8 @@ export default new Vuex.Store({
     signup_status,
     workflow_list,
     project_templates,
-    sidebar_status
+    sidebar_status,
+    service_manage
   },
   strict: debug
 })

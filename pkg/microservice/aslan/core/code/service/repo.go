@@ -22,8 +22,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
-
-	"github.com/koderover/zadig/pkg/tool/gitlab"
 )
 
 type RepoInfoList struct {
@@ -31,16 +29,15 @@ type RepoInfoList struct {
 }
 
 type GitRepoInfo struct {
-	Owner         string           `json:"repo_owner"`
-	Repo          string           `json:"repo"`
-	CodehostID    int              `json:"codehost_id"`
-	Source        string           `json:"source"`
-	DefaultBranch string           `json:"default_branch"`
-	ErrorMsg      string           `json:"error_msg"` // repo信息是否拉取成功
-	Branches      []*gitlab.Branch `json:"branches"`
-	Tags          []*gitlab.Tag    `json:"tags"`
-	//Releases      []*GitRelease `json:"releases"`
-	PRs []*gitlab.MergeRequest `json:"prs"`
+	Owner         string         `json:"repo_owner"`
+	Repo          string         `json:"repo"`
+	CodehostID    int            `json:"codehost_id"`
+	Source        string         `json:"source"`
+	DefaultBranch string         `json:"default_branch"`
+	ErrorMsg      string         `json:"error_msg"` // repo信息是否拉取成功
+	Branches      []*Branch      `json:"branches"`
+	Tags          []*Tag         `json:"tags"`
+	PRs           []*PullRequest `json:"prs"`
 }
 
 // ListRepoInfos ...
@@ -57,11 +54,11 @@ func ListRepoInfos(infos []*GitRepoInfo, param string, log *zap.SugaredLogger) (
 				defer func() {
 					wg.Done()
 				}()
-				info.PRs, err = CodehostListPRs(info.CodehostID, info.Repo, strings.Replace(info.Owner, "%2F", "/", -1), "", log)
+				info.PRs, err = CodeHostListPRs(info.CodehostID, info.Repo, strings.Replace(info.Owner, "%2F", "/", -1), "", log)
 				if err != nil {
 					errList = multierror.Append(errList, err)
 					info.ErrorMsg = err.Error()
-					info.PRs = []*gitlab.MergeRequest{}
+					info.PRs = []*PullRequest{}
 					return
 				}
 			}(info)
@@ -72,11 +69,11 @@ func ListRepoInfos(infos []*GitRepoInfo, param string, log *zap.SugaredLogger) (
 			defer func() {
 				wg.Done()
 			}()
-			info.Branches, err = CodehostListBranches(info.CodehostID, info.Repo, strings.Replace(info.Owner, "%2F", "/", -1), log)
+			info.Branches, err = CodeHostListBranches(info.CodehostID, info.Repo, strings.Replace(info.Owner, "%2F", "/", -1), log)
 			if err != nil {
 				errList = multierror.Append(errList, err)
 				info.ErrorMsg = err.Error()
-				info.Branches = []*gitlab.Branch{}
+				info.Branches = []*Branch{}
 				return
 			}
 
@@ -89,11 +86,11 @@ func ListRepoInfos(infos []*GitRepoInfo, param string, log *zap.SugaredLogger) (
 				defer func() {
 					wg.Done()
 				}()
-				info.Tags, err = CodehostListTags(info.CodehostID, info.Repo, strings.Replace(info.Owner, "%2F", "/", -1), log)
+				info.Tags, err = CodeHostListTags(info.CodehostID, info.Repo, strings.Replace(info.Owner, "%2F", "/", -1), log)
 				if err != nil {
 					errList = multierror.Append(errList, err)
 					info.ErrorMsg = err.Error()
-					info.Tags = []*gitlab.Tag{}
+					info.Tags = []*Tag{}
 					return
 				}
 			}(info)

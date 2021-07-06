@@ -19,6 +19,7 @@ package reaper
 import (
 	"bufio"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -276,6 +277,65 @@ func (r *Reaper) RunPostScripts() error {
 	cmd := exec.Command("/bin/bash", filepath.Join(os.TempDir(), postScriptFile))
 	cmd.Dir = r.ActiveWorkspace
 	cmd.Env = r.getUserEnvs()
+
+	cmdOutReader, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+
+	outScanner := bufio.NewScanner(cmdOutReader)
+	go func() {
+		for outScanner.Scan() {
+			fmt.Printf("%s\n", r.maskSecretEnvs(outScanner.Text()))
+		}
+	}()
+
+	cmdErrReader, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+
+	errScanner := bufio.NewScanner(cmdErrReader)
+	go func() {
+		for errScanner.Scan() {
+			fmt.Printf("%s\n", r.maskSecretEnvs(errScanner.Text()))
+		}
+	}()
+
+	return cmd.Run()
+}
+
+func (r *Reaper) RunPMDeployScripts() error {
+	if len(r.Ctx.PMDeployScripts) == 0 {
+		return nil
+	}
+
+	scripts := r.Ctx.PMDeployScripts
+	pmDeployScriptFile := "pm_deploy_script.sh"
+	if err := ioutil.WriteFile(filepath.Join(os.TempDir(), pmDeployScriptFile), []byte(strings.Join(scripts, "\n")), 0700); err != nil {
+		return fmt.Errorf("write script file error: %v", err)
+	}
+
+	cmd := exec.Command("/bin/bash", filepath.Join(os.TempDir(), pmDeployScriptFile))
+	cmd.Dir = r.ActiveWorkspace
+
+	cmd.Env = r.getUserEnvs()
+	// ssh连接参数
+	for _, ssh := range r.Ctx.SSHs {
+		decodeBytes, err := base64.StdEncoding.DecodeString(ssh.PrivateKey)
+		if err != nil {
+			return fmt.Errorf("decode private_key failed, error: %v", err)
+		}
+		if err = ioutil.WriteFile(filepath.Join(os.TempDir(), ssh.Name+"_PK"), decodeBytes, 0600); err != nil {
+			return fmt.Errorf("write private_key file error: %v", err)
+		}
+
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s_PK=%s", ssh.Name, filepath.Join(os.TempDir(), ssh.Name+"_PK")))
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s_IP=%s", ssh.Name, ssh.IP))
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s_USERNAME=%s", ssh.Name, ssh.UserName))
+
+		r.Ctx.SecretEnvs = append(r.Ctx.SecretEnvs, fmt.Sprintf("%s_PK=%s", ssh.Name, filepath.Join(os.TempDir(), ssh.Name+"_PK")))
+	}
 
 	cmdOutReader, err := cmd.StdoutPipe()
 	if err != nil {

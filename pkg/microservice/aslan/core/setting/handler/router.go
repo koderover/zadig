@@ -19,13 +19,13 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/middleware"
+	gin2 "github.com/koderover/zadig/pkg/middleware/gin"
 )
 
 type Router struct{}
 
 func (*Router) Inject(router *gin.RouterGroup) {
-	router.Use(middleware.Auth())
+	router.Use(gin2.Auth())
 
 	user := router.Group("user")
 	{

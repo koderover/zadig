@@ -23,7 +23,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	logservice "github.com/koderover/zadig/pkg/microservice/aslan/core/log/service"
-	internalhandler "github.com/koderover/zadig/pkg/microservice/aslan/internal/handler"
+	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 

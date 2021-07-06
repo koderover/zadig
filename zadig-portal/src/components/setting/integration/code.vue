@@ -63,10 +63,10 @@
                       auto-complete="off"></el-input>
           </el-form-item>
           <el-form-item v-if="codeEdit.type==='github'"
-                        label="Organization"
+                        label="Organization(Or GitHub ID)"
                         prop="namespace">
             <el-input v-model="codeEdit.namespace"
-                      placeholder="Organization"
+                      placeholder="Organization(Or GitHub ID)"
                       auto-complete="off"></el-input>
           </el-form-item>
         </template>
@@ -170,10 +170,10 @@
                       auto-complete="off"></el-input>
           </el-form-item>
           <el-form-item v-if="codeAdd.type==='github'"
-                        label="Organization"
+                        label="Organization(Or GitHub ID)"
                         prop="namespace">
             <el-input v-model="codeAdd.namespace"
-                      placeholder="Organization"
+                      placeholder="Organization(Or GitHub ID)"
                       auto-complete="off"></el-input>
           </el-form-item>
         </template>

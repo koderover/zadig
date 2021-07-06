@@ -2,6 +2,11 @@
   <div class="config-home">
     <div class="tab-container">
       <el-tabs v-model="activeTab" type="card">
+        <el-tab-pane name="quota" label="系统配额">
+          <keep-alive >
+            <Quota v-if="activeTab === 'quota'" />
+          </keep-alive>
+        </el-tab-pane>
         <el-tab-pane name="proxy" label="代理配置">
           <keep-alive >
             <Proxy v-if="activeTab === 'proxy'" />
@@ -17,6 +22,7 @@
   </div>
 </template>
 <script>
+import Quota from './quota.vue'
 import Proxy from './proxy.vue'
 import Cache from './cache.vue'
 import bus from '@utils/event_bus'
@@ -25,11 +31,12 @@ export default {
   name: 'config',
   components: {
     Proxy,
-    Cache
+    Cache,
+    Quota
   },
   data () {
     return {
-      activeTab: 'proxy'
+      activeTab: 'quota'
     }
   },
   mounted () {

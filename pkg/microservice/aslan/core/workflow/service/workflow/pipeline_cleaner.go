@@ -20,7 +20,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
-	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/pkg/setting"
 )
 
@@ -35,7 +35,7 @@ func Clean(task *task.Task) {
 }
 
 func ensureTestTask(subTask map[string]interface{}) (newSub map[string]interface{}, err error) {
-	t, err := commonservice.ToTestingTask(subTask)
+	t, err := base.ToTestingTask(subTask)
 
 	if err != nil {
 		return
@@ -65,7 +65,7 @@ func ensureTestTask(subTask map[string]interface{}) (newSub map[string]interface
 }
 
 func ensureBuildTask(subTask map[string]interface{}) (newSub map[string]interface{}, err error) {
-	t, err := commonservice.ToBuildTask(subTask)
+	t, err := base.ToBuildTask(subTask)
 	if err != nil {
 		return
 	}
@@ -100,7 +100,7 @@ func ensureBuildTask(subTask map[string]interface{}) (newSub map[string]interfac
 }
 
 func ensureJiraTask(subTask map[string]interface{}) (newSub map[string]interface{}, err error) {
-	t, err := commonservice.ToJiraTask(subTask)
+	t, err := base.ToJiraTask(subTask)
 	if err != nil {
 		return
 	}
@@ -120,7 +120,7 @@ func ensureJiraTask(subTask map[string]interface{}) (newSub map[string]interface
 // EnsureSubTasksResp 确保SubTask中敏感信息和其他不必要信息不返回给前端
 func EnsureSubTasksResp(subTasks []map[string]interface{}) {
 	for i, subTask := range subTasks {
-		pre, err := commonservice.ToPreview(subTask)
+		pre, err := base.ToPreview(subTask)
 		if err != nil {
 			continue
 		}
@@ -147,7 +147,7 @@ func EnsureSubTasksResp(subTasks []map[string]interface{}) {
 func ensureSubStageResp(stage *commonmodels.Stage) {
 	subTasks := stage.SubTasks
 	for key, subTask := range subTasks {
-		pre, err := commonservice.ToPreview(subTask)
+		pre, err := base.ToPreview(subTask)
 		if err != nil {
 			continue
 		}

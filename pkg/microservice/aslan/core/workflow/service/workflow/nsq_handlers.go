@@ -35,18 +35,19 @@ import (
 	"github.com/nsqio/go-nsq"
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/internal/poetry"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/registry"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/setting"
-	gitlabtool "github.com/koderover/zadig/pkg/tool/gitlab"
+	"github.com/koderover/zadig/pkg/shared/poetry"
+	"github.com/koderover/zadig/pkg/tool/git/gitlab"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
 )
@@ -225,7 +226,7 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 				if taskStatus == config.StatusPassed {
 					subBuildTaskMap := subStage.SubTasks
 					for _, subTask := range subBuildTaskMap {
-						buildInfo, err := commonservice.ToBuildTask(subTask)
+						buildInfo, err := base.ToBuildTask(subTask)
 						if err != nil {
 							h.log.Errorf("uploadTaskData get buildInfo ToBuildTask failed ! err:%v", err)
 							continue
@@ -285,17 +286,12 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 									pathArray := strings.Split(path, "/")
 									dockerfilePath := path[len(pathArray[0])+1:]
 									if strings.Contains(build.Address, "gitlab") {
-										cli, err := gitlabtool.NewGitlabClient(build.Address, build.OauthToken)
+										cli, err := gitlab.NewClient(build.Address, build.OauthToken)
 										if err != nil {
 											h.log.Errorf("Failed to get gitlab client, err: %v", err)
 											continue
 										}
-										project, err := cli.GetProject(build.RepoOwner, build.RepoName)
-										if err != nil {
-											h.log.Errorf("uploadTaskData get project err:%v", err)
-											continue
-										}
-										content, err := cli.GetRawFile(project.ID, build.Branch, dockerfilePath)
+										content, err := cli.GetRawFile(build.RepoOwner, build.RepoName, build.Branch, dockerfilePath)
 										if err != nil {
 											h.log.Errorf("uploadTaskData gitlab GetRawFile err:%v", err)
 											continue
@@ -352,7 +348,7 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 									if jiraSubStage.TaskType == config.TaskJira {
 										jiraSubBuildTaskMap := jiraSubStage.SubTasks
 										for _, jiraSubTask := range jiraSubBuildTaskMap {
-											jiraInfo, _ := commonservice.ToJiraTask(jiraSubTask)
+											jiraInfo, _ := base.ToJiraTask(jiraSubTask)
 											if jiraInfo != nil {
 												for _, issue := range jiraInfo.Issues {
 													issueURLs = append(issueURLs, issue.URL)
@@ -383,7 +379,7 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 				if taskStatus == config.StatusPassed {
 					subDeployTaskMap := subStage.SubTasks
 					for _, subTask := range subDeployTaskMap {
-						deployInfo, err := commonservice.ToDeployTask(subTask)
+						deployInfo, err := base.ToDeployTask(subTask)
 						if err != nil {
 							h.log.Errorf("uploadTaskData get deployInfo ToDeployTask failed ! err:%v", err)
 							continue
@@ -415,7 +411,7 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 						isNew        = false
 						testTaskStat *commonmodels.TestTaskStat
 					)
-					testInfo, err := commonservice.ToTestingTask(subTask)
+					testInfo, err := base.ToTestingTask(subTask)
 					if err != nil {
 						h.log.Errorf("uploadTaskData get testInfo ToTestingTask failed ! err:%v", err)
 						continue
@@ -508,7 +504,7 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 				if taskStatus == config.StatusPassed {
 					subDistributeTaskMap := subStage.SubTasks
 					for _, subTask := range subDistributeTaskMap {
-						releaseImageInfo, err := commonservice.ToReleaseImageTask(subTask)
+						releaseImageInfo, err := base.ToReleaseImageTask(subTask)
 						if err != nil {
 							h.log.Errorf("uploadTaskData get releaseImage ToReleaseImageTask failed ! err:%v", err)
 							continue
@@ -543,7 +539,7 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 				if taskStatus == config.StatusPassed {
 					subDistributeFileTaskMap := subStage.SubTasks
 					for _, subTask := range subDistributeFileTaskMap {
-						releaseFileInfo, err := commonservice.ToDistributeToS3Task(subTask)
+						releaseFileInfo, err := base.ToDistributeToS3Task(subTask)
 						if err != nil {
 							h.log.Errorf("uploadTaskData get releaseFile ToDistributeToS3Task failed ! err:%v", err)
 							continue
@@ -582,7 +578,7 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 			case config.TaskTestingV2:
 				subTestTaskMap := subStage.SubTasks
 				for _, subTask := range subTestTaskMap {
-					testInfo, err := commonservice.ToTestingTask(subTask)
+					testInfo, err := base.ToTestingTask(subTask)
 					if err != nil {
 						h.log.Errorf("uploadTaskData get testInfo ToTestingTask failed ! err:%v", err)
 						continue
@@ -743,7 +739,7 @@ func (h *TaskAckHandler) getDeployTasks(subTasks []map[string]interface{}) ([]*t
 	deploys := make([]*task.Deploy, 0)
 	for _, subTask := range subTasks {
 
-		pre, err := commonservice.ToPreview(subTask)
+		pre, err := base.ToPreview(subTask)
 		if err != nil {
 			return nil, errors.New("invalid sub task type")
 		}
@@ -751,7 +747,7 @@ func (h *TaskAckHandler) getDeployTasks(subTasks []map[string]interface{}) ([]*t
 		switch pre.TaskType {
 
 		case config.TaskDeploy:
-			deploy, err := commonservice.ToDeployTask(subTask)
+			deploy, err := base.ToDeployTask(subTask)
 			if err != nil {
 				return nil, fmt.Errorf("unmarshal deploy sub task type error: %v", err)
 			}

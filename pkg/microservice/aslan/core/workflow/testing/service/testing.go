@@ -17,9 +17,12 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -29,12 +32,14 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/util"
 )
 
-func Create(username string, testing *commonmodels.Testing, log *zap.SugaredLogger) error {
+func CreateTesting(username string, testing *commonmodels.Testing, log *zap.SugaredLogger) error {
 	if len(testing.Name) == 0 {
 		return e.ErrCreateTestModule.AddDesc("empty Name")
 	}
@@ -87,7 +92,7 @@ func HandleCronjob(testing *commonmodels.Testing, log *zap.SugaredLogger) error 
 	return nil
 }
 
-func Update(username string, testing *commonmodels.Testing, log *zap.SugaredLogger) error {
+func UpdateTesting(username string, testing *commonmodels.Testing, log *zap.SugaredLogger) error {
 	if len(testing.Name) == 0 {
 		return e.ErrUpdateTestModule.AddDesc("empty Name")
 	}
@@ -203,7 +208,7 @@ func ListAllWorkflows(testName string, log *zap.SugaredLogger) ([]*commonmodels.
 	return workflows, nil
 }
 
-func Get(name, productName string, log *zap.SugaredLogger) (*commonmodels.Testing, error) {
+func GetTesting(name, productName string, log *zap.SugaredLogger) (*commonmodels.Testing, error) {
 	resp, err := GetRaw(name, productName, log)
 	if err != nil {
 		return nil, err
@@ -309,6 +314,91 @@ func DeleteTestingModule(name, productName string, log *zap.SugaredLogger) error
 	counterName := fmt.Sprintf(setting.TestTaskFmt, pipelineName)
 	if err := commonrepo.NewCounterColl().Delete(counterName); err != nil {
 		log.Errorf("[Counter.Delete] counterName:%s, error: %v", counterName, err)
+	}
+
+	return nil
+}
+
+func GetHTMLTestReport(pipelineName, pipelineType, taskIDStr, testName string, log *zap.SugaredLogger) (string, error) {
+	if err := validateTestReportParam(pipelineName, pipelineType, taskIDStr, testName, log); err != nil {
+		return "", e.ErrGetTestReport.AddErr(err)
+	}
+
+	taskID, err := strconv.ParseInt(taskIDStr, 10, 64)
+	if err != nil {
+		log.Errorf("invalid taskID: %s, err: %s", taskIDStr, err)
+		return "", e.ErrGetTestReport.AddDesc("invalid taskID")
+	}
+
+	task, err := commonrepo.NewTaskColl().Find(taskID, pipelineName, config.WorkflowType)
+	if err != nil {
+		log.Errorf("find task failed, pipelineName: %s, type: %s, taskID: %s, err: %s", pipelineName, config.WorkflowType, taskIDStr, err)
+		return "", e.ErrGetTestReport.AddErr(err)
+	}
+
+	store, err := s3.NewS3StorageFromEncryptedURI(task.StorageURI)
+	if err != nil {
+		log.Errorf("parse storageURI failed, err: %s", err)
+		return "", e.ErrGetTestReport.AddErr(err)
+	}
+
+	if store.Subfolder != "" {
+		store.Subfolder = fmt.Sprintf("%s/%s/%d/%s", store.Subfolder, pipelineName, taskID, "test")
+	} else {
+		store.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineName, taskID, "test")
+	}
+
+	fileName := fmt.Sprintf("%s-%s-%s-%s-%s-html", pipelineType, pipelineName, taskIDStr, config.TaskTestingV2, testName)
+	fileName = strings.Replace(strings.ToLower(fileName), "_", "-", -1)
+
+	tmpFilename, err := util.GenerateTmpFile()
+	if err != nil {
+		log.Errorf("generate temp file error: %s", err)
+		return "", e.ErrGetTestReport.AddErr(err)
+	}
+	defer func() {
+		_ = os.Remove(tmpFilename)
+	}()
+
+	err = s3.Download(context.Background(), store, fileName, tmpFilename)
+	if err != nil {
+		log.Errorf("download html test report error: %s", err)
+		return "", e.ErrGetTestReport.AddErr(err)
+	}
+
+	content, err := os.ReadFile(tmpFilename)
+	if err != nil {
+		log.Errorf("parse test report file error: %s", err)
+		return "", e.ErrGetTestReport.AddErr(err)
+	}
+
+	return string(content), nil
+}
+
+func validateTestReportParam(pipelineName, pipelineType, taskIDStr, testName string, log *zap.SugaredLogger) error {
+	if pipelineName == "" {
+		log.Warn("pipelineName cannot be empty")
+		return fmt.Errorf("pipelineName cannot be empty")
+	}
+
+	if pipelineType == "" {
+		log.Warn("pipelineType cannot be empty")
+		return fmt.Errorf("pipelineType cannot be empty")
+	}
+
+	if taskIDStr == "" {
+		log.Warn("taskID cannot be empty")
+		return fmt.Errorf("taskID cannot be empty")
+	}
+
+	if testName == "" {
+		log.Warn("testName cannot be empty")
+		return fmt.Errorf("testName cannot be empty")
+	}
+
+	if pipelineType != string(config.WorkflowType) {
+		log.Warn("pipelineType is invalid")
+		return fmt.Errorf("pipelineType is invalid")
 	}
 
 	return nil

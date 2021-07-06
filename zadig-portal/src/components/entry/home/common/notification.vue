@@ -39,7 +39,7 @@
                 <span class="icon"
                       :class="colorTranslation(notification.content.status,'pipeline','task')"
                       :title="notification.content.status"></span>
-                <h3 class="truncate">
+                <h3>
                   <span>
                     <span class="status"
                           style="margin-right: 10px;">{{wordTranslation(notification.content.status,'pipeline','task')}}</span>
@@ -78,7 +78,7 @@
                 </span>
               </div>
               <div v-if="notification.type===3">
-                <h3 class="truncate">
+                <h3>
                   <span class="status"
                         style="margin-right: 10px;">{{notification.content.title}}</span>
                 </h3>
@@ -384,14 +384,6 @@ export default {
           &:hover {
             color: #ff1949;
           }
-        }
-
-        .truncate {
-          display: block;
-          max-width: 100%;
-          overflow: hidden;
-          white-space: nowrap;
-          text-overflow: ellipsis;
         }
       }
     }

@@ -53,6 +53,7 @@ type RESTClientGetter struct {
 	namespace  string
 	kubeConfig []byte
 	restConfig *rest.Config
+	DryRun     bool
 }
 
 // Client defines the values of a helm client
@@ -62,6 +63,7 @@ type HelmClient struct {
 	storage      *repo.File
 	ActionConfig *action.Configuration
 	linting      bool
+	DryRun       bool
 }
 
 // ChartSpec defines the values of a helm chart
@@ -129,6 +131,9 @@ type ChartSpec struct {
 
 	// +optional
 	CleanupOnFail bool `json:"cleanupOnFail,omitempty"`
+
+	// +optional
+	DryRun bool `json:"dry_run,omitempty"`
 }
 
 type ChartOption struct {

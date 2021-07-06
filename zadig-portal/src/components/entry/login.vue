@@ -36,6 +36,13 @@
                            class="btn-md btn-theme btn-block login-btn">
                   登录
                 </el-button>
+                <a :href="redirectUrl">
+                  <el-button v-if="showSSOBtn"
+                             class="btn-md btn-theme btn-block login-btn">
+
+                    SSO 登录
+                  </el-button>
+                </a>
               </section>
               <transition name="fade">
                 <div class="login-loading"
@@ -71,7 +78,9 @@ export default {
     return {
       username: '',
       password: '',
+      redirectUrl: '',
       loading: false,
+      showSSOBtn: false,
       loginForm: {
         username: '',
         password: ''
@@ -146,9 +155,24 @@ export default {
       return this.copywriting.common
     }
   },
-
+  watch: {
+    signupStatus (val, oldval) {
+      if (val.ssoInfo) {
+        this.showSSOBtn = true
+        this.redirectUrl = val.ssoInfo.signIn
+      } else {
+        this.showSSOBtn = false
+      }
+    }
+  },
   mounted () {
     this.checkLogin()
+    if (this.signupStatus) {
+      if (this.signupStatus.ssoInfo) {
+        this.showSSOBtn = true
+        this.redirectUrl = this.signupStatus.ssoInfo.signIn
+      }
+    }
   }
 }
 </script>

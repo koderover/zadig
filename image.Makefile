@@ -12,15 +12,7 @@ IMAGE_TAG:=$(shell ./docker/image-tag)
 VCS_REF:=$(shell git rev-parse HEAD)
 TAG ?= ${DATE}-${IMAGE_TAG}
 
-BASE_TARGETS = aslan warpdrive cron podexec jenkins-plugin predator-plugin
-
-
-TARGETS =
-ifndef ENTERPRISE_TARGETS
-TARGETS = $(BASE_TARGETS)
-else
-TARGETS = $(ENTERPRISE_TARGETS)
-endif
+TARGETS = aslan warpdrive cron podexec jenkins-plugin predator-plugin hub-server hub-agent
 
 ALL_IMAGES=$(TARGETS:=.image)
 ALL_PUSHES=$(TARGETS:=.push)

@@ -145,7 +145,7 @@ func wrapError(res *resty.Response, err error) (*resty.Response, error) {
 	}
 
 	if res.IsError() {
-		return nil, &Error{Code: res.StatusCode(), Status: res.Status(), Detail: res.Body()}
+		return nil, NewErrorFromRestyResponse(res)
 	}
 
 	return res, nil

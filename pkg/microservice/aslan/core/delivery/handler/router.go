@@ -19,14 +19,14 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/middleware"
+	gin2 "github.com/koderover/zadig/pkg/middleware/gin"
 	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 type Router struct{}
 
 func (*Router) Inject(router *gin.RouterGroup) {
-	router.Use(middleware.Auth())
+	router.Use(gin2.Auth())
 
 	deliveryArtifact := router.Group("artifacts")
 	{
@@ -40,14 +40,15 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	deliveryProduct := router.Group("products")
 	{
 		deliveryProduct.GET("", ListDeliveryProduct)
+		deliveryProduct.GET("/:releaseId", GetProductByDeliveryInfo)
 	}
 
 	deliveryRelease := router.Group("releases")
 	{
-		deliveryRelease.POST("", middleware.IsHavePermission([]string{permission.WorkflowDeliveryUUID}, permission.QueryType), middleware.UpdateOperationLogStatus, AddDeliveryVersion)
+		deliveryRelease.POST("", gin2.IsHavePermission([]string{permission.WorkflowDeliveryUUID}, permission.QueryType), gin2.UpdateOperationLogStatus, AddDeliveryVersion)
 		deliveryRelease.GET("/:id", GetDeliveryVersion)
 		deliveryRelease.GET("", ListDeliveryVersion)
-		deliveryRelease.DELETE("/:id", GetProductNameByDelivery, middleware.IsHavePermission([]string{permission.ReleaseDeleteUUID}, permission.ContextKeyType), middleware.UpdateOperationLogStatus, DeleteDeliveryVersion)
+		deliveryRelease.DELETE("/:id", GetProductNameByDelivery, gin2.IsHavePermission([]string{permission.ReleaseDeleteUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, DeleteDeliveryVersion)
 	}
 
 	deliveryPackage := router.Group("packages")

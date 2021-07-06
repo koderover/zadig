@@ -17,9 +17,12 @@ limitations under the License.
 package workflow
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -31,6 +34,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	nsqservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/aslanx"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -368,6 +372,29 @@ func agentCount() int {
 		wdReplicas    int
 	)
 
+	signatures, enabled, _ := aslanx.New(config.AslanURL(), config.PoetryAPIRootKey()).ListSignatures(log.NopSugaredLogger())
+	if enabled {
+		if len(signatures) == 0 {
+			log.Errorf("Not Find Token")
+			return 0
+		}
+
+		signatureStr, err := base64.StdEncoding.DecodeString(signatures[0].Token)
+		if err != nil {
+			log.Errorf("token DecodeString error :%v", err)
+			return 0
+		}
+
+		signatureArr := strings.Split(string(signatureStr), ",")
+		if len(signatureArr) > 4 {
+			parallelLimit, err = strconv.Atoi(signatureArr[4])
+			if err != nil {
+				log.Errorf("parse parallelLimit error :%v", err)
+				return 0
+			}
+		}
+	}
+
 	kubeClient := krkubeclient.Client()
 	deployment, _, err := getter.GetDeployment(config.Namespace(), config.ENVWarpdriveService(), kubeClient)
 	if err != nil {
@@ -502,7 +529,7 @@ func HandlerWebhookTask(currentTask *task.Task) bool {
 
 func updateAgentAndQueue(t *task.Task) error {
 	if err := UpdateTaskAgent(t.TaskID, t.PipelineName, t.CreateTime, config.PodName()); err != nil {
-		log.Infof("task %v/%v may processed by aonther instance: %v", t.TaskID, t.PipelineName, err)
+		log.Infof("task %v/%v may processed by another instance: %v", t.TaskID, t.PipelineName, err)
 		return err
 	}
 

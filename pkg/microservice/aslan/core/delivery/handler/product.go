@@ -22,7 +22,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	deliveryservice "github.com/koderover/zadig/pkg/microservice/aslan/core/delivery/service"
-	internalhandler "github.com/koderover/zadig/pkg/microservice/aslan/internal/handler"
+	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
@@ -37,4 +37,17 @@ func ListDeliveryProduct(c *gin.Context) {
 		return
 	}
 	ctx.Resp, ctx.Err = deliveryservice.FindDeliveryProduct(orgID, ctx.Logger)
+}
+
+func GetProductByDeliveryInfo(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	releaseID := c.Param("releaseId")
+	if releaseID == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("releaseId can't be empty!")
+		return
+	}
+
+	ctx.Resp, ctx.Err = deliveryservice.GetProductByDeliveryInfo(ctx.Username, releaseID, ctx.Logger)
 }

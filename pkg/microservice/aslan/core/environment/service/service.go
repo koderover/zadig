@@ -20,19 +20,20 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	internalresource "github.com/koderover/zadig/pkg/internal/kube/resource"
-	"github.com/koderover/zadig/pkg/internal/kube/wrapper"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
+	internalresource "github.com/koderover/zadig/pkg/shared/kube/resource"
+	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
@@ -179,6 +180,41 @@ func GetService(envName, productName, serviceName string, log *zap.SugaredLogger
 
 	namespace := env.Namespace
 	switch env.Source {
+	case setting.SourceFromExternal, setting.SourceFromHelm:
+		svc, found, err := getter.GetService(namespace, serviceName, kubeClient)
+		if err != nil {
+			return nil, e.ErrGetService.AddErr(err)
+		}
+		if !found {
+			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found", serviceName))
+		}
+		ret.Services = append(ret.Services, wrapper.Service(svc).Resource())
+
+		selector := labels.SelectorFromValidatedSet(svc.Spec.Selector)
+		//deployment
+		if deployments, err := getter.ListDeployments(namespace, selector, kubeClient); err == nil {
+			log.Infof("namespace:%s , serviceName:%s , selector:%s , len(deployments):%d", namespace, serviceName, selector, len(deployments))
+			for _, d := range deployments {
+				scale := getDeploymentWorkloadResource(d, kubeClient, log)
+				ret.Scales = append(ret.Scales, scale)
+			}
+		}
+		//statefulSets
+		if statefulSets, err := getter.ListStatefulSets(namespace, selector, kubeClient); err == nil {
+			log.Infof("namespace:%s , serviceName:%s , selector:%s , len(statefulSets):%d", namespace, serviceName, selector, len(statefulSets))
+			for _, sts := range statefulSets {
+				scale := getStatefulSetWorkloadResource(sts, kubeClient, log)
+				ret.Scales = append(ret.Scales, scale)
+			}
+		}
+
+		//ingress
+		if ingresses, err := getter.ListIngresses(namespace, selector, kubeClient); err == nil {
+			log.Infof("namespace:%s , serviceName:%s , selector:%s , len(ingresses):%d", namespace, serviceName, selector, len(ingresses))
+			for _, ing := range ingresses {
+				ret.Ingress = append(ret.Ingress, wrapper.Ingress(ing).Resource())
+			}
+		}
 	default:
 		var service *commonmodels.ProductService
 		for _, svcArray := range env.Services {
@@ -300,46 +336,76 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 		return err
 	}
 
-	var serviceTmpl *commonmodels.Service
-	var newRender *commonmodels.RenderSet
-	var productService *commonmodels.ProductService
-	for _, group := range productObj.Services {
-		for _, serviceObj := range group {
-			if serviceObj.ServiceName == args.ServiceName {
-				productService = serviceObj
-				serviceTmpl, err = commonservice.GetServiceTemplate(
-					serviceObj.ServiceName, setting.K8SDeployType, "", setting.ProductStatusDeleting, serviceObj.Revision, log,
-				)
-				if err != nil {
-					err = e.ErrDeleteProduct.AddDesc(e.DeleteServiceContainerErrMsg + ": " + err.Error())
-					return
+	switch productObj.Source {
+	case setting.SourceFromHelm, setting.SourceFromExternal:
+		errList := new(multierror.Error)
+		serviceObj, found, err := getter.GetService(productObj.Namespace, args.ServiceName, kubeClient)
+		if err != nil || !found {
+			return err
+		}
+
+		selector := labels.SelectorFromValidatedSet(serviceObj.Spec.Selector)
+		if deployments, err := getter.ListDeployments(productObj.Namespace, selector, kubeClient); err == nil {
+			log.Infof("namespace:%s , selector:%s , len(deployments):%d", productObj.Namespace, selector, len(deployments))
+			for _, deployment := range deployments {
+				if err = updater.RestartDeployment(productObj.Namespace, deployment.Name, kubeClient); err != nil {
+					errList = multierror.Append(errList, err)
 				}
-				opt := &commonrepo.RenderSetFindOption{Name: serviceObj.Render.Name, Revision: serviceObj.Render.Revision}
-				newRender, err = commonrepo.NewRenderSetColl().Find(opt)
-				if err != nil {
-					log.Errorf("[%s][P:%s]renderset Find error: %v", productObj.EnvName, productObj.ProductName, err)
-					err = e.ErrDeleteProduct.AddDesc(e.DeleteServiceContainerErrMsg + ": " + err.Error())
-					return
-				}
-				break
 			}
 		}
-	}
-	if serviceTmpl != nil && newRender != nil && productService != nil {
-		go func() {
-			log.Infof("upsert resource from namespace:%s/serviceName:%s ", productObj.Namespace, args.ServiceName)
-			_, err := upsertService(
-				true,
-				productObj,
-				productService,
-				productService,
-				newRender, kubeClient, log)
 
-			// 如果创建依赖服务组有返回错误, 停止等待
-			if err != nil {
-				log.Errorf(e.DeleteServiceContainerErrMsg+": err:%v", err)
+		//statefulSets
+		if statefulSets, err := getter.ListStatefulSets(productObj.Namespace, selector, kubeClient); err == nil {
+			log.Infof("namespace:%s , selector:%s , len(statefulSets):%d", productObj.Namespace, selector, len(statefulSets))
+			for _, statefulSet := range statefulSets {
+				if err = updater.RestartStatefulSet(productObj.Namespace, statefulSet.Name, kubeClient); err != nil {
+					errList = multierror.Append(errList, err)
+				}
 			}
-		}()
+		}
+
+	default:
+		var serviceTmpl *commonmodels.Service
+		var newRender *commonmodels.RenderSet
+		var productService *commonmodels.ProductService
+		for _, group := range productObj.Services {
+			for _, serviceObj := range group {
+				if serviceObj.ServiceName == args.ServiceName {
+					productService = serviceObj
+					serviceTmpl, err = commonservice.GetServiceTemplate(
+						serviceObj.ServiceName, setting.K8SDeployType, "", setting.ProductStatusDeleting, serviceObj.Revision, log,
+					)
+					if err != nil {
+						err = e.ErrDeleteProduct.AddDesc(e.DeleteServiceContainerErrMsg + ": " + err.Error())
+						return
+					}
+					opt := &commonrepo.RenderSetFindOption{Name: serviceObj.Render.Name, Revision: serviceObj.Render.Revision}
+					newRender, err = commonrepo.NewRenderSetColl().Find(opt)
+					if err != nil {
+						log.Errorf("[%s][P:%s]renderset Find error: %v", productObj.EnvName, productObj.ProductName, err)
+						err = e.ErrDeleteProduct.AddDesc(e.DeleteServiceContainerErrMsg + ": " + err.Error())
+						return
+					}
+					break
+				}
+			}
+		}
+		if serviceTmpl != nil && newRender != nil && productService != nil {
+			go func() {
+				log.Infof("upsert resource from namespace:%s/serviceName:%s ", productObj.Namespace, args.ServiceName)
+				_, err := upsertService(
+					true,
+					productObj,
+					productService,
+					productService,
+					newRender, kubeClient, log)
+
+				// 如果创建依赖服务组有返回错误, 停止等待
+				if err != nil {
+					log.Errorf(e.DeleteServiceContainerErrMsg+": err:%v", err)
+				}
+			}()
+		}
 	}
 
 	return nil
@@ -377,6 +443,11 @@ func validateServiceContainer(envName, productName, serviceName, container strin
 // validateServiceContainer2 validate container with raw namespace like dev-product
 func validateServiceContainer2(namespace, envName, productName, serviceName, container, source string, kubeClient client.Client) (string, error) {
 	var selector labels.Selector
+
+	//helm类型的服务查询所有标签的pod
+	if source != setting.SourceFromHelm {
+		selector = labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceName}.AsSelector()
+	}
 
 	pods, err := getter.ListPods(namespace, selector, kubeClient)
 	if err != nil {

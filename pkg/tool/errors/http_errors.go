@@ -106,6 +106,8 @@ var (
 	ErrUpdateServiceGroupTemplate = NewHTTPError(6056, "更新服务组失败")
 	// ErrValidateServiceUpdate
 	ErrValidateServiceUpdate = NewHTTPError(6057, "更新服务配置失败")
+	// ErrChartDryRun
+	ErrHelmDryRunFailed = NewHTTPError(6058, "helm chart --dry-run 失败，服务保存不成功")
 
 	//-----------------------------------------------------------------------------------------------
 	// Product APIs Range: 6060 - 6079
@@ -450,6 +452,8 @@ var (
 	ErrGetTestModule = NewHTTPError(6532, "获取测试模块失败")
 	// ErrDeleteTestModule ...
 	ErrDeleteTestModule = NewHTTPError(6533, "删除测试模块失败")
+	// ErrGetTestReport ...
+	ErrGetTestReport = NewHTTPError(6534, "获取html测试报告失败")
 
 	// Workflow APIs Range: 6540 - 6550
 	//-----------------------------------------------------------------------------------------------

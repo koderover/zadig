@@ -26,10 +26,23 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
-	internalhandler "github.com/koderover/zadig/pkg/microservice/aslan/internal/handler"
+	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
+
+func ListFavoritePipelines(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	productName := c.Query("productName")
+	workflowType := c.Query("type")
+	if workflowType == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("type can't be empty!")
+		return
+	}
+	ctx.Resp, ctx.Err = workflow.ListFavoritePipelines(&commonrepo.FavoriteArgs{UserID: ctx.User.ID, ProductName: productName, Type: workflowType})
+}
 
 func DeleteFavoritePipeline(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)

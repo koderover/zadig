@@ -29,6 +29,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
@@ -37,7 +38,35 @@ import (
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
-func Setup() {
+const (
+	webhookController = iota
+)
+
+type Controller interface {
+	Run(workers int, stopCh <-chan struct{})
+}
+
+func StartControllers(stopCh <-chan struct{}) {
+	controllerWorkers := map[int]int{
+		webhookController: 1,
+	}
+	controllers := map[int]Controller{
+		webhookController: webhook.NewWebhookController(),
+	}
+
+	var wg sync.WaitGroup
+	for name, c := range controllers {
+		wg.Add(1)
+		go func(name int, c Controller) {
+			defer wg.Done()
+			c.Run(controllerWorkers[name], stopCh)
+		}(name, c)
+	}
+
+	wg.Wait()
+}
+
+func Setup(ctx context.Context) {
 	log.Init(&log.Config{
 		Level:       commonconfig.LogLevel(),
 		Filename:    commonconfig.LogFile(),
@@ -56,10 +85,12 @@ func Setup() {
 	environmentservice.CleanProducts()
 
 	environmentservice.ResetProductsStatus()
+
+	go StartControllers(ctx.Done())
 }
 
-func TearDown() {
-	mongotool.Close(context.TODO())
+func TearDown(ctx context.Context) {
+	mongotool.Close(ctx)
 }
 
 func initService() {
@@ -96,7 +127,6 @@ func initDatabase() {
 		template.NewProductColl(),
 		commonrepo.NewBasicImageColl(),
 		commonrepo.NewBuildColl(),
-		commonrepo.NewBuildStatColl(),
 		commonrepo.NewConfigColl(),
 		commonrepo.NewCounterColl(),
 		commonrepo.NewCronjobColl(),
@@ -108,18 +138,18 @@ func initDatabase() {
 		commonrepo.NewDeliverySecurityColl(),
 		commonrepo.NewDeliveryTestColl(),
 		commonrepo.NewDeliveryVersionColl(),
-		commonrepo.NewDeployStatColl(),
 		commonrepo.NewDiffNoteColl(),
 		commonrepo.NewDindCleanColl(),
 		commonrepo.NewFavoriteColl(),
 		commonrepo.NewGithubAppColl(),
+		commonrepo.NewHelmRepoColl(),
 		commonrepo.NewInstallColl(),
 		commonrepo.NewItReportColl(),
 		commonrepo.NewK8SClusterColl(),
 		commonrepo.NewNotificationColl(),
 		commonrepo.NewNotifyColl(),
-		commonrepo.NewOperationLogColl(),
 		commonrepo.NewPipelineColl(),
+		commonrepo.NewPrivateKeyColl(),
 		commonrepo.NewProductColl(),
 		commonrepo.NewProxyColl(),
 		commonrepo.NewQueueColl(),
@@ -127,11 +157,13 @@ func initDatabase() {
 		commonrepo.NewRenderSetColl(),
 		commonrepo.NewS3StorageColl(),
 		commonrepo.NewServiceColl(),
+		commonrepo.NewStrategyColl(),
 		commonrepo.NewStatsColl(),
 		commonrepo.NewSubscriptionColl(),
 		commonrepo.NewTaskColl(),
 		commonrepo.NewTestTaskStatColl(),
 		commonrepo.NewTestingColl(),
+		commonrepo.NewWebHookColl(),
 		commonrepo.NewWebHookUserColl(),
 		commonrepo.NewWorkflowColl(),
 		commonrepo.NewWorkflowStatColl(),

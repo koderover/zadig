@@ -33,10 +33,10 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehost"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	gerritservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gerrit"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/codehost"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
 	"github.com/koderover/zadig/pkg/util"
@@ -52,31 +52,21 @@ type gerritTypeEvent struct {
 	EventCreatedOn int    `json:"eventCreatedOn"`
 }
 
-func ProcessGerritHook(req *http.Request, requestID string, log *zap.SugaredLogger) error {
-	defer func() {
-		_ = req.Body.Close()
-	}()
-
+func ProcessGerritHook(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) error {
 	baseURI := fmt.Sprintf(
 		"%s://%s",
 		req.Header.Get("X-Forwarded-Proto"),
 		req.Header.Get("X-Forwarded-Host"),
 	)
 
-	payload, err := ioutil.ReadAll(req.Body)
-	if err != nil {
-		log.Errorf("ProcessGerritHook err:%v", err)
-		return err
-	}
-
 	gerritTypeEventObj := new(gerritTypeEvent)
-	if err = json.Unmarshal(payload, gerritTypeEventObj); err != nil {
+	if err := json.Unmarshal(payload, gerritTypeEventObj); err != nil {
 		log.Errorf("processGerritHook json.Unmarshal err : %v", err)
 		return fmt.Errorf("this event is not supported")
 	}
 	//同步yaml数据
 	if gerritTypeEventObj.Type == changeMergedEventType {
-		err = updateServiceTemplateByGerritEvent(req.RequestURI, log)
+		err := updateServiceTemplateByGerritEvent(req.RequestURI, log)
 		if err != nil {
 			log.Errorf("updateServiceTemplateByGerritEvent err : %v", err)
 		}

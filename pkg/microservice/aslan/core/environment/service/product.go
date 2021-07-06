@@ -31,6 +31,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -52,30 +53,32 @@ func CleanProductCronJob(requestID string, log *zap.SugaredLogger) {
 	wl.Insert(config.CleanSkippedList()...)
 	for _, product := range products {
 		if wl.Has(product.EnvName) {
-			log.Infof("clean up skipped. user %s in whitelist.", product.EnvName)
 			continue
 		}
 
 		if product.RecycleDay == 0 {
-			log.Infof("clean up skipped. user %s 不被回收.", product.EnvName)
 			continue
 		}
 
 		if time.Now().Unix()-product.UpdateTime > int64(60*60*24*product.RecycleDay) {
 			title := "系统清理产品信息"
-			content := fmt.Sprintf("产品 [%s] 已经连续%d天没有使用, 系统已自动删除该产品, 如有需要请重新创建产品。", product.ProductName, product.RecycleDay)
+			content := fmt.Sprintf("环境 [%s] 已经连续%d天没有使用, 系统已自动删除该环境, 如有需要请重新创建。", product.EnvName, product.RecycleDay)
 
 			if err := commonservice.DeleteProduct("robot", product.EnvName, product.ProductName, requestID, log); err != nil {
 				log.Errorf("[%s][P:%s] delete product error: %v", product.EnvName, product.ProductName, err)
 
 				// 如果有错误，重试删除
 				if err := commonservice.DeleteProduct("robot", product.EnvName, product.ProductName, requestID, log); err != nil {
-					content = fmt.Sprintf("产品 [%s] 系统自动清理失败，请手动删除产品。", product.ProductName)
+					content = fmt.Sprintf("系统自动清理环境 [%s] 失败，请手动删除环境。", product.ProductName)
 					log.Errorf("[%s][P:%s] retry delete product error: %v", product.EnvName, product.ProductName, err)
 				}
 			}
 
-			commonservice.SendMessage(product.EnvName, title, content, requestID, log)
+			poetryClient := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
+			users, _ := poetryClient.ListProductPermissionUsers("", "", log)
+			for _, user := range users {
+				commonservice.SendMessage(user, title, content, requestID, log)
+			}
 
 			log.Warnf("[%s] product %s deleted", product.EnvName, product.ProductName)
 		}
@@ -94,6 +97,8 @@ func GetInitProduct(productTmplName string, log *zap.SugaredLogger) (*commonmode
 
 	if prodTmpl.ProductFeature == nil || prodTmpl.ProductFeature.DeployType == setting.K8SDeployType {
 		err = commonservice.FillProductTemplateVars([]*templatemodels.Product{prodTmpl}, log)
+	} else if prodTmpl.ProductFeature.DeployType == setting.HelmDeployType {
+		err = commonservice.FillProductTemplateValuesYamls(prodTmpl, log)
 	}
 	if err != nil {
 		errMsg := fmt.Sprintf("[ProductTmpl.FillProductTemplate] %s error: %v", productTmplName, err)
@@ -135,6 +140,15 @@ func GetInitProduct(productTmplName string, log *zap.SugaredLogger) (*commonmode
 					Revision:    serviceTmpl.Revision,
 				}
 				if serviceTmpl.Type == setting.K8SDeployType {
+					serviceResp.Containers = make([]*commonmodels.Container, 0)
+					for _, c := range serviceTmpl.Containers {
+						container := &commonmodels.Container{
+							Name:  c.Name,
+							Image: c.Image,
+						}
+						serviceResp.Containers = append(serviceResp.Containers, container)
+					}
+				} else if serviceTmpl.Type == setting.HelmDeployType {
 					serviceResp.Containers = make([]*commonmodels.Container, 0)
 					for _, c := range serviceTmpl.Containers {
 						container := &commonmodels.Container{
@@ -236,8 +250,18 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 		errObj       error
 	)
 
-	prodResp.Services = prod.GetGroupServiceNames()
-	servicesResp, _, errObj = ListGroups("", envName, prod.ProductName, -1, -1, log)
+	switch prod.Source {
+	case setting.SourceFromExternal, setting.SourceFromHelm:
+		servicesResp, _, errObj = commonservice.ListGroupsBySource(envName, prod.ProductName, log)
+		if len(servicesResp) == 0 && errObj == nil {
+			prodResp.Status = prod.Status
+			prodResp.Error = prod.Error
+			return prodResp
+		}
+	default:
+		prodResp.Services = prod.GetGroupServiceNames()
+		servicesResp, _, errObj = ListGroups("", envName, prod.ProductName, -1, -1, log)
+	}
 
 	if errObj != nil {
 		prodResp.Error = errObj.Error()

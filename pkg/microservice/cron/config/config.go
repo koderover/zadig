@@ -30,6 +30,10 @@ func AslanAPI() string {
 	return viper.GetString(setting.ENVAslanAPI)
 }
 
+func AslanxAPI() string {
+	return viper.GetString(setting.ENVAslanxAPI)
+}
+
 func RootToken() string {
 	return viper.GetString(setting.ENVRootToken)
 }

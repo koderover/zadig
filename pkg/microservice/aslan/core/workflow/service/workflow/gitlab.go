@@ -22,10 +22,10 @@ import (
 	"sort"
 	"time"
 
-	gitlab "github.com/xanzy/go-gitlab"
+	"github.com/xanzy/go-gitlab"
 
-	ch "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehost"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/codehost"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
 )
 
@@ -39,16 +39,16 @@ type RepoCommit struct {
 }
 
 func QueryByBranch(id int, owner string, name string, branch string) (*RepoCommit, error) {
-	opt := &ch.Option{
+	opt := &codehost.Option{
 		CodeHostID: id,
 	}
-	codehost, err := ch.GetCodeHostInfo(opt)
+	ch, err := codehost.GetCodeHostInfo(opt)
 	if err != nil {
 		return nil, err
 	}
 
-	if codehost.Type == setting.SourceFromGitlab {
-		token, address := codehost.AccessToken, codehost.Address
+	if ch.Type == setting.SourceFromGitlab {
+		token, address := ch.AccessToken, ch.Address
 
 		cli, err := gitlab.NewOAuthClient(token, gitlab.WithBaseURL(address))
 		if err != nil {
@@ -67,8 +67,8 @@ func QueryByBranch(id int, owner string, name string, branch string) (*RepoCommi
 			CreatedAt:  br.Commit.CreatedAt,
 			Message:    br.Commit.Message,
 		}, nil
-	} else if codehost.Type == setting.SourceFromGerrit {
-		cli := gerrit.NewClient(codehost.Address, codehost.AccessToken)
+	} else if ch.Type == setting.SourceFromGerrit {
+		cli := gerrit.NewClient(ch.Address, ch.AccessToken)
 		commit, err := cli.GetCommitByBranch(name, branch)
 		if err != nil {
 			return nil, err
@@ -85,20 +85,20 @@ func QueryByBranch(id int, owner string, name string, branch string) (*RepoCommi
 		}, nil
 	}
 
-	return nil, errors.New(codehost.Type + "is not supported yet")
+	return nil, errors.New(ch.Type + "is not supported yet")
 }
 
 func QueryByTag(id int, owner string, name string, tag string) (*RepoCommit, error) {
-	opt := &ch.Option{
+	opt := &codehost.Option{
 		CodeHostID: id,
 	}
-	codehost, err := ch.GetCodeHostInfo(opt)
+	ch, err := codehost.GetCodeHostInfo(opt)
 	if err != nil {
 		return nil, err
 	}
 
-	if codehost.Type == setting.SourceFromGitlab {
-		token, address := codehost.AccessToken, codehost.Address
+	if ch.Type == setting.SourceFromGitlab {
+		token, address := ch.AccessToken, ch.Address
 
 		cli, err := gitlab.NewOAuthClient(token, gitlab.WithBaseURL(address))
 		if err != nil {
@@ -117,8 +117,8 @@ func QueryByTag(id int, owner string, name string, tag string) (*RepoCommit, err
 			CreatedAt:  br.Commit.CreatedAt,
 			Message:    br.Commit.Message,
 		}, nil
-	} else if codehost.Type == setting.SourceFromGerrit {
-		cli := gerrit.NewClient(codehost.Address, codehost.AccessToken)
+	} else if ch.Type == setting.SourceFromGerrit {
+		cli := gerrit.NewClient(ch.Address, ch.AccessToken)
 		commit, err := cli.GetCommitByTag(name, tag)
 		if err != nil {
 			return nil, err
@@ -135,7 +135,7 @@ func QueryByTag(id int, owner string, name string, tag string) (*RepoCommit, err
 		}, nil
 	}
 
-	return nil, errors.New(codehost.Type + "is not supported yet")
+	return nil, errors.New(ch.Type + "is not supported yet")
 }
 
 type PRCommit struct {
@@ -153,22 +153,22 @@ func GetLatestPrCommit(codehostID, pr int, namespace, projectName string) (*PRCo
 	//	return nil, err
 	//}
 
-	opt := &ch.Option{
+	opt := &codehost.Option{
 		CodeHostID: codehostID,
 	}
-	codehost, err := ch.GetCodeHostInfo(opt)
+	ch, err := codehost.GetCodeHostInfo(opt)
 	if err != nil {
 		return nil, err
 	}
 
-	token, address := codehost.AccessToken, codehost.Address
+	token, address := ch.AccessToken, ch.Address
 	cli, err := gitlab.NewOAuthClient(token, gitlab.WithBaseURL(address))
 	if err != nil {
 		return nil, fmt.Errorf("set base url failed, err:%v", err)
 	}
 
-	if codehost.Type == gerrit.CodehostTypeGerrit {
-		cli := gerrit.NewClient(codehost.Address, codehost.AccessToken)
+	if ch.Type == gerrit.CodehostTypeGerrit {
+		cli := gerrit.NewClient(ch.Address, ch.AccessToken)
 		change, err := cli.GetCurrentVersionByChangeID(projectName, pr)
 		if err != nil {
 			return nil, err

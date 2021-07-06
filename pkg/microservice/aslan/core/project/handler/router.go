@@ -19,14 +19,14 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/middleware"
+	gin2 "github.com/koderover/zadig/pkg/middleware/gin"
 	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 type Router struct{}
 
 func (*Router) Inject(router *gin.RouterGroup) {
-	router.Use(middleware.Auth())
+	router.Use(gin2.Auth())
 
 	// 查看自定义变量是否被引用
 	render := router.Group("renders")
@@ -51,11 +51,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		product.GET("/:name", GetProductTemplate)
 		product.GET("/:name/services", GetProductTemplateServices)
 		product.GET("", ListProductTemplate)
-		product.POST("", middleware.StoreProductName, middleware.IsHavePermission([]string{permission.SuperUserUUID}, permission.ContextKeyType), middleware.UpdateOperationLogStatus, CreateProductTemplate)
-		product.PUT("/:name", middleware.IsHavePermission([]string{permission.ServiceTemplateEditUUID}, permission.ParamType), middleware.UpdateOperationLogStatus, UpdateProductTemplate)
-		product.PUT("/:name/:status", middleware.IsHavePermission([]string{permission.ServiceTemplateEditUUID}, permission.ParamType), middleware.UpdateOperationLogStatus, UpdateProductTmplStatus)
-		product.PUT("", middleware.StoreProductName, middleware.IsHavePermission([]string{permission.SuperUserUUID}, permission.ContextKeyType), middleware.UpdateOperationLogStatus, UpdateProject)
-		product.DELETE("/:name", middleware.IsHavePermission([]string{permission.SuperUserUUID}, permission.ParamType), middleware.UpdateOperationLogStatus, DeleteProductTemplate)
+		product.POST("", gin2.StoreProductName, gin2.IsHavePermission([]string{permission.SuperUserUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, CreateProductTemplate)
+		product.PUT("/:name", gin2.IsHavePermission([]string{permission.ServiceTemplateEditUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateProductTemplate)
+		product.PUT("/:name/:status", gin2.IsHavePermission([]string{permission.ServiceTemplateEditUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateProductTmplStatus)
+		product.PUT("", gin2.StoreProductName, gin2.IsHavePermission([]string{permission.SuperUserUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, UpdateProject)
+		product.DELETE("/:name", gin2.IsHavePermission([]string{permission.SuperUserUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, DeleteProductTemplate)
 	}
 
 	openSource := router.Group("opensource")

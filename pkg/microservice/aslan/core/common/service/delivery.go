@@ -27,6 +27,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	taskmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	s3service "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/setting"
@@ -148,7 +149,7 @@ func GetSubTaskContent(deliveryVersion *commonmodels.DeliveryVersion, pipelineTa
 				deliveryBuild := new(commonmodels.DeliveryBuild)
 				deliveryBuild.ReleaseID = deliveryVersion.ID
 				deliveryBuild.ServiceName = serviceName
-				buildInfo, err := ToBuildTask(subTask)
+				buildInfo, err := base.ToBuildTask(subTask)
 				if err != nil {
 					log.Errorf("get buildInfo ToBuildTask failed ! err:%v", err)
 					continue
@@ -174,7 +175,7 @@ func GetSubTaskContent(deliveryVersion *commonmodels.DeliveryVersion, pipelineTa
 						jiraSubBuildTaskMap := jiraSubStage.SubTasks
 						var jira *taskmodels.Jira
 						for _, jiraSubTask := range jiraSubBuildTaskMap {
-							jira, err = ToJiraTask(jiraSubTask)
+							jira, err = base.ToJiraTask(jiraSubTask)
 							if err != nil {
 								log.Errorf("ToJiraTask failed ! err:%v", err)
 								break
@@ -199,7 +200,7 @@ func GetSubTaskContent(deliveryVersion *commonmodels.DeliveryVersion, pipelineTa
 			}
 			subDeployTaskMap := subStage.SubTasks
 			for _, subTask := range subDeployTaskMap {
-				deployInfo, err := ToDeployTask(subTask)
+				deployInfo, err := base.ToDeployTask(subTask)
 				if err != nil {
 					log.Errorf("get deployInfo failed, err:%v", err)
 					continue
@@ -257,7 +258,7 @@ func GetSubTaskContent(deliveryVersion *commonmodels.DeliveryVersion, pipelineTa
 			deliveryTest.ReleaseID = deliveryVersion.ID
 			testReports := make([]commonmodels.TestReportObject, 0)
 			for _, subTask := range subTestTaskMap {
-				testInfo, err := ToTestingTask(subTask)
+				testInfo, err := base.ToTestingTask(subTask)
 				if err != nil {
 					log.Errorf("get testInfo ToTestingTask failed ! err:%v", err)
 					continue
@@ -307,7 +308,7 @@ func GetSubTaskContent(deliveryVersion *commonmodels.DeliveryVersion, pipelineTa
 				deliveryDistribute.ReleaseID = deliveryVersion.ID
 				deliveryDistribute.ServiceName = serviceName
 				deliveryDistribute.DistributeType = config.Image
-				releaseImageInfo, err := ToReleaseImageTask(subTask)
+				releaseImageInfo, err := base.ToReleaseImageTask(subTask)
 				if err != nil {
 					log.Errorf("get releaseImage ToReleaseImageTask failed ! err:%v", err)
 					continue
@@ -335,7 +336,7 @@ func GetSubTaskContent(deliveryVersion *commonmodels.DeliveryVersion, pipelineTa
 				deliveryDistributeFile.ReleaseID = deliveryVersion.ID
 				deliveryDistributeFile.ServiceName = serviceName
 				deliveryDistributeFile.DistributeType = config.File
-				releaseFileInfo, err := ToDistributeToS3Task(subTask)
+				releaseFileInfo, err := base.ToDistributeToS3Task(subTask)
 				if err != nil {
 					log.Errorf("get releasefile ToDistributeToS3Task failed ! err:%v", err)
 					continue

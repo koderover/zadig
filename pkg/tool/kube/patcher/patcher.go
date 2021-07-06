@@ -19,11 +19,8 @@ package patcher
 import (
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/jsonmergepatch"
 	"k8s.io/apimachinery/pkg/util/mergepatch"
@@ -32,44 +29,6 @@ import (
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/util"
 )
-
-var metadataAccessor = meta.NewAccessor()
-
-// GetOriginalConfiguration retrieves the original configuration of the object
-// from the annotation, or nil if no annotation was found.
-func GetOriginalConfiguration(obj runtime.Object) ([]byte, error) {
-	annots, err := metadataAccessor.Annotations(obj)
-	if err != nil {
-		return nil, err
-	}
-
-	if annots == nil {
-		return nil, nil
-	}
-
-	original, ok := annots[corev1.LastAppliedConfigAnnotation]
-	if !ok {
-		return nil, nil
-	}
-
-	return []byte(original), nil
-}
-
-func GetGroupVersionKind(obj runtime.Object) (*schema.GroupVersionKind, error) {
-	apiVersion, err := metadataAccessor.APIVersion(obj)
-	if err != nil {
-		return nil, err
-	}
-
-	kind, err := metadataAccessor.Kind(obj)
-	if err != nil {
-		return nil, err
-	}
-
-	gvk := schema.FromAPIVersionAndKind(apiVersion, kind)
-
-	return &gvk, nil
-}
 
 // GeneratePatchBytes generate the patchBytes inspired by the patcher in kubectl/pkg/cmd/apply/patcher.go
 func GeneratePatchBytes(obj, modifiedObj runtime.Object) ([]byte, types.PatchType, error) {
@@ -84,13 +43,13 @@ func GeneratePatchBytes(obj, modifiedObj runtime.Object) ([]byte, types.PatchTyp
 		return nil, "", fmt.Errorf("get modified configuration is failed, err: %v", err)
 	}
 
-	gvk, err := GetGroupVersionKind(obj)
+	gvk, err := util.GetGroupVersionKind(obj)
 	if err != nil {
 		return nil, "", fmt.Errorf("retrieving gvk is failed, err: %v", err)
 	}
 
 	// Retrieve the original configuration of the object from the annotation.
-	original, err := GetOriginalConfiguration(obj)
+	original, err := util.GetOriginalConfiguration(obj)
 	if err != nil {
 		return nil, "", fmt.Errorf("retrieving original configuration from:\n%v\nis failed, err: %v", obj, err)
 	}

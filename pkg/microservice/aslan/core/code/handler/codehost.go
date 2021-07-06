@@ -22,11 +22,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/pkg/internal/poetry"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/service"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehost"
-	internalhandler "github.com/koderover/zadig/pkg/microservice/aslan/internal/handler"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/codehost"
+	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
@@ -57,7 +57,7 @@ func CodeHostGetNamespaceList(c *gin.Context) {
 		return
 	}
 	chID, _ := strconv.Atoi(codehostID)
-	ctx.Resp, ctx.Err = service.CodehostListNamespaces(chID, keyword, ctx.Logger)
+	ctx.Resp, ctx.Err = service.CodeHostListNamespaces(chID, keyword, ctx.Logger)
 }
 
 func CodeHostGetProjectsList(c *gin.Context) {
@@ -87,7 +87,7 @@ func CodeHostGetProjectsList(c *gin.Context) {
 	}
 
 	chID, _ := strconv.Atoi(codehostID)
-	ctx.Resp, ctx.Err = service.CodehostListProjects(
+	ctx.Resp, ctx.Err = service.CodeHostListProjects(
 		chID,
 		strings.Replace(namespace, "%2F", "/", -1),
 		namespaceType,
@@ -117,7 +117,7 @@ func CodeHostGetBranchList(c *gin.Context) {
 	}
 
 	chID, _ := strconv.Atoi(codehostID)
-	ctx.Resp, ctx.Err = service.CodehostListBranches(
+	ctx.Resp, ctx.Err = service.CodeHostListBranches(
 		chID,
 		projectName,
 		strings.Replace(namespace, "%2F", "/", -1),
@@ -146,7 +146,7 @@ func CodeHostGetTagList(c *gin.Context) {
 	}
 
 	chID, _ := strconv.Atoi(codehostID)
-	ctx.Resp, ctx.Err = service.CodehostListTags(chID, projectName, strings.Replace(namespace, "%2F", "/", -1), ctx.Logger)
+	ctx.Resp, ctx.Err = service.CodeHostListTags(chID, projectName, strings.Replace(namespace, "%2F", "/", -1), ctx.Logger)
 }
 
 func CodeHostGetPRList(c *gin.Context) {
@@ -173,7 +173,7 @@ func CodeHostGetPRList(c *gin.Context) {
 	targetBr := c.Query("targetBranch")
 
 	chID, _ := strconv.Atoi(codehostID)
-	ctx.Resp, ctx.Err = service.CodehostListPRs(chID, projectName, strings.Replace(namespace, "%2F", "/", -1), targetBr, ctx.Logger)
+	ctx.Resp, ctx.Err = service.CodeHostListPRs(chID, projectName, strings.Replace(namespace, "%2F", "/", -1), targetBr, ctx.Logger)
 }
 
 func ListRepoInfos(c *gin.Context) {

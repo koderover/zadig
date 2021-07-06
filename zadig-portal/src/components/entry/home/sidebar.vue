@@ -170,6 +170,19 @@ export default {
           }]
         },
         {
+          category_name: '资源管理',
+          items: [{
+            name: '集群管理',
+            icon: 'iconfont iconjiqun',
+            url: 'system/cluster'
+          },
+          {
+            name: '主机管理',
+            icon: 'iconfont iconzhuji',
+            url: 'system/host'
+          }]
+        },
+        {
           category_name: '系统配置',
           items: [{
             name: '系统配置',

@@ -36,7 +36,7 @@ export default {
     initTerm () {
       let wsLink = false
       const hostname = this.getLogWSUrl()
-      const url = `/api/podexec/${this.productName}/${this.namespace}/${this.podName}/${this.containerName}/podExec`
+      const url = `/api/podexec/${this.productName}/${this.namespace}/${this.podName}/${this.containerName}/podExec?clusterId=${this.clusterId}`
       this.ws = new WebSocket(hostname + url)
 
       this.$nextTick(() => {
@@ -119,6 +119,11 @@ export default {
     namespace: {
       required: true,
       type: String
+    },
+    clusterId: {
+      required: false,
+      type: String,
+      default: ''
     }
   },
   mounted () {

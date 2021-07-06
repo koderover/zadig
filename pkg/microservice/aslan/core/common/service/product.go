@@ -25,13 +25,14 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/koderover/zadig/pkg/internal/poetry"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 )
 
@@ -52,6 +53,11 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 		return e.ErrDeleteEnv.AddErr(err)
 	}
 
+	restConfig, err := kube.GetRESTConfig(productInfo.ClusterID)
+	if err != nil {
+		return e.ErrDeleteEnv.AddErr(err)
+	}
+
 	// 设置产品状态
 	err = mongodb.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusDeleting)
 	if err != nil {
@@ -65,6 +71,68 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 	poetryClient := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
 
 	switch productInfo.Source {
+	case setting.SourceFromHelm:
+		err = mongodb.NewProductColl().Delete(envName, productName)
+		if err != nil {
+			log.Errorf("Product.Delete error: %v", err)
+		}
+
+		_, err = poetryClient.DeleteEnvRolePermission(productName, envName, log)
+		if err != nil {
+			log.Errorf("DeleteEnvRole error: %v", err)
+		}
+
+		go func() {
+			var err error
+			defer func() {
+				if err != nil {
+					// 发送删除产品失败消息给用户
+					title := fmt.Sprintf("删除项目:[%s] 环境:[%s] 失败!", productName, envName)
+					SendErrorMessage(username, title, requestID, err, log)
+					_ = mongodb.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusUnknown)
+				} else {
+					title := fmt.Sprintf("删除项目:[%s] 环境:[%s] 成功!", productName, envName)
+					content := fmt.Sprintf("namespace:%s", productInfo.Namespace)
+					SendMessage(username, title, content, requestID, log)
+				}
+			}()
+
+			//卸载helm release资源
+			if helmClient, err := helmclient.NewClientFromRestConf(restConfig, productInfo.Namespace); err == nil {
+				for _, services := range productInfo.Services {
+					for _, service := range services {
+						if err = helmClient.UninstallRelease(&helmclient.ChartSpec{
+							ReleaseName: fmt.Sprintf("%s-%s", productInfo.Namespace, service.ServiceName),
+							Namespace:   productInfo.Namespace,
+							Wait:        true,
+							Force:       true,
+							Timeout:     timeout * time.Second * 10,
+						}); err != nil {
+							log.Errorf("UninstallRelease err:%v", err)
+						}
+					}
+				}
+			} else {
+				log.Errorf("获取helmClient err:%v", err)
+			}
+
+			//删除namespace
+			s := labels.Set{setting.EnvCreatedBy: setting.EnvCreator}.AsSelector()
+			if err1 := updater.DeleteMatchingNamespace(productInfo.Namespace, s, kubeClient); err1 != nil {
+				err = e.ErrDeleteEnv.AddDesc(e.DeleteNamespaceErrMsg + ": " + err1.Error())
+				return
+			}
+		}()
+	case setting.SourceFromExternal:
+		err = mongodb.NewProductColl().Delete(envName, productName)
+		if err != nil {
+			log.Errorf("Product.Delete error: %v", err)
+		}
+
+		_, err = poetryClient.DeleteEnvRolePermission(productName, envName, log)
+		if err != nil {
+			log.Errorf("DeleteEnvRole error: %v", err)
+		}
 	default:
 		go func() {
 			var err error

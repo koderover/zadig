@@ -202,7 +202,6 @@
       <div class="log-container">
         <div class="log-content">
           <xterm-log :id="buildv2.service_name"
-                     @mouseenter.native="enterLog"
                      @mouseleave.native="leaveLog"
                      :logs="buildv2AnyLog"></xterm-log>
         </div>
@@ -274,10 +273,6 @@ export default {
   methods: {
     getBuildv2Log () {
       this.buildLogStarted = true
-    },
-    enterLog (e) {
-      const el = document.querySelector('.workflow-task-detail').style
-      el.overflow = 'hidden'
     },
     leaveLog () {
       const el = document.querySelector('.workflow-task-detail').style

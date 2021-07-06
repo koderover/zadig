@@ -68,7 +68,7 @@
 
     </div>
 
-    <div class="info-card">
+    <div class="info-card" v-if="envSource ==='' || envSource === 'spock'">
       <div class="info-header">
         <span>基本操作</span>
       </div>
@@ -335,6 +335,7 @@
                    :serviceName="serviceName"
                    :containerName="execModal.containerName"
                    :podName="execModal.podName"
+                   :clusterId="clusterId"
                    :visible="execModal.visible"
                    ref="debug"></xterm-debug>
     </el-dialog>
@@ -518,6 +519,9 @@ export default {
     originProjectName () {
       return (this.$route.query.originProjectName ? this.$route.query.originProjectName : this.projectName)
     },
+    clusterId () {
+      return this.$route.query.clusterId
+    },
     serviceName () {
       return this.$route.params.service_name
     },
@@ -526,6 +530,9 @@ export default {
     },
     envSource () {
       return this.$route.query.envSource || ''
+    },
+    isProd () {
+      return this.$route.query.isProd === 'true'
     },
     notSupportYaml () {
       return '没有找到数据'
@@ -562,7 +569,7 @@ export default {
       const projectName = this.projectName
       const serviceName = this.serviceName
       const envName = this.envName ? this.envName : ''
-      const envType = ''
+      const envType = this.isProd ? 'prod' : ''
       getServiceInfo(projectName, serviceName, envName, envType).then((res) => {
         if (res.scales) {
           if (res.scales.length > 0 && res.scales[0].pods.length > 0) {
@@ -616,7 +623,7 @@ export default {
       this.$set(item, 'edit', false)
     },
     saveImage (item, scaleName, typeUppercase) {
-      const envType = ''
+      const envType = this.isProd ? 'prod' : ''
       const type = typeUppercase.toLowerCase()
       item.edit = false
       this.$message({
@@ -645,7 +652,7 @@ export default {
       const projectName = this.projectName
       const serviceName = this.serviceName
       const envName = this.envName ? this.envName : ''
-      const envType = ''
+      const envType = this.isProd ? 'prod' : ''
       restartServiceAPI(projectName, serviceName, envName, scaleName, type, envType).then((res) => {
         this.fetchServiceData()
         this.$message({
@@ -658,7 +665,7 @@ export default {
       const projectName = this.projectName
       const serviceName = this.serviceName
       const envName = this.envName ? this.envName : ''
-      const envType = ''
+      const envType = this.isProd ? 'prod' : ''
       scaleServiceAPI(projectName, serviceName, envName, scaleName, scaleNumber, type, envType).then((res) => {
         this.fetchServiceData()
         this.$message({
@@ -682,7 +689,7 @@ export default {
       const ownerQuery = this.envName ? `&envName=${this.envName}` : ''
       const projectName = `${this.projectName}${ownerQuery}`
       const podName = pod.name
-      const envType = ''
+      const envType = this.isProd ? 'prod' : ''
       restartPodAPI(podName, projectName, envType).then((res) => {
         this.fetchServiceData()
         this.$message({
@@ -705,7 +712,7 @@ export default {
       const projectName = this.projectName
       const serviceName = this.serviceName
       const envName = this.envName ? this.envName : ''
-      const envType = ''
+      const envType = this.isProd ? 'prod' : ''
       this.exportModal.visible = true
       this.exportModal.textObjects = []
       this.exportModal.loading = true
@@ -757,7 +764,7 @@ export default {
       const projectName = this.projectName
       const podName = pod.name
       const envName = this.envName ? this.envName : ''
-      const envType = ''
+      const envType = this.isProd ? 'prod' : ''
       this.eventsModal.visible = true
       podEventAPI(projectName, podName, envName, envType).then((res) => {
         this.eventsModal.data = res.map(row => {
@@ -770,7 +777,7 @@ export default {
     showScaleEvents (scaleName, type) {
       const projectName = this.projectName
       const envName = this.envName ? this.envName : ''
-      const envType = ''
+      const envType = this.isProd ? 'prod' : ''
       this.eventsModal.visible = true
       this.eventsModal.name = scaleName
       scaleEventAPI(projectName, scaleName, envName, type, envType).then((res) => {

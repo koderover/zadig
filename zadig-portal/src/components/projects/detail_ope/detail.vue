@@ -196,6 +196,12 @@
                     </router-link>
                   </template>
                 </el-table-column>
+                <el-table-column label="集群归属">
+                  <template slot-scope="scope">
+                    <span v-if="scope.row.clusterName">{{`${scope.row.clusterName}`}}</span>
+                    <span v-else>{{`${scope.row.clusterType}`}}</span>
+                  </template>
+                </el-table-column>
                 <el-table-column label="当前状态">
                   <template slot-scope="scope">
                     <span
@@ -280,7 +286,7 @@
   </div>
 </template>
 <script>
-import { getProductInfo, getBuildConfigsAPI, deleteProjectAPI, getProjectInfoAPI, listProductAPI, usersAPI, downloadDevelopCLIAPI } from '@api'
+import { getProductInfo, getBuildConfigsAPI, deleteProjectAPI, getClusterListAPI, getProjectInfoAPI, listProductAPI, usersAPI, downloadDevelopCLIAPI } from '@api'
 import { mapGetters } from 'vuex'
 import { getProductStatus } from '@utils/word_translate'
 import { wordTranslate } from '@utils/word_translate.js'
@@ -292,6 +298,7 @@ export default {
     return {
       currentProject: {},
       envList: [],
+      allCluster: [],
       buildConfigs: [],
       detailLoading: true,
       usersList: []
@@ -314,9 +321,42 @@ export default {
           getProductInfo(projectName, element.env_name).then((res) => {
             element.status = res.status
           })
+          if (element.cluster_id) {
+            element.clusterType = this.getClusterType(element.cluster_id).type
+            element.clusterName = this.getClusterType(element.cluster_id).name
+          } else {
+            element.clusterName = ''
+            element.clusterType = '本地'
+          }
           return element
         })
       })
+    },
+    getCluster () {
+      getClusterListAPI().then((res) => {
+        this.allCluster = res
+      })
+    },
+    getClusterType (clusterId) {
+      if (clusterId && this.allCluster.length > 0) {
+        const clusterObj = this.allCluster.find(cluster => cluster.id === clusterId)
+        if (clusterObj && clusterObj.production) {
+          return {
+            type: '生产',
+            name: clusterObj.name
+          }
+        } else if (clusterObj && clusterObj.production === false) {
+          return {
+            type: '测试',
+            name: clusterObj.name
+          }
+        }
+      } else {
+        return {
+          type: '本地',
+          name: ''
+        }
+      }
     },
     deleteProject () {
       const services = _.flattenDeep(this.currentProject.services)
@@ -445,6 +485,7 @@ export default {
   mounted () {
     this.$store.dispatch('refreshWorkflowList')
     this.getEnvList()
+    this.getCluster()
     this.getBuildConfig()
     bus.$emit('show-sidebar', true)
     bus.$emit('set-topbar-title', { title: '', breadcrumb: [{ title: '项目', url: '/v1/projects' }, { title: this.projectName, url: '' }] })

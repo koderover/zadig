@@ -60,3 +60,15 @@ func LogFile() string {
 func RequestLogFile() string {
 	return LogPath() + RequestLogName()
 }
+
+func AslanURL() string {
+	return viper.GetString(setting.ENVAslanURL)
+}
+
+func PoetryAPIServer() string {
+	return viper.GetString(setting.ENVPoetryAPIServer)
+}
+
+func PoetryAPIRootKey() string {
+	return viper.GetString(setting.ENVPoetryAPIRootKey)
+}

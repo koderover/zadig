@@ -29,7 +29,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/util"
 )
@@ -59,7 +59,7 @@ func GetTestLocalTestSuite(serviceName string, log *zap.SugaredLogger) (*commonm
 				case config.TaskTestingV2:
 					subTestTaskMap := subStage.SubTasks
 					for _, subTask := range subTestTaskMap {
-						testInfo, err := commonservice.ToTestingTask(subTask)
+						testInfo, err := base.ToTestingTask(subTask)
 						if err != nil {
 							continue
 						}

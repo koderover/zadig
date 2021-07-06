@@ -19,9 +19,9 @@ package service
 import (
 	"fmt"
 
-	internalresource "github.com/koderover/zadig/pkg/internal/kube/resource"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	internalresource "github.com/koderover/zadig/pkg/shared/kube/resource"
 )
 
 type ProductRevision struct {

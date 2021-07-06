@@ -27,17 +27,19 @@ import (
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/koderover/zadig/pkg/internal/poetry"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
@@ -77,14 +79,14 @@ func CreatePipelineTask(args *commonmodels.TaskArgs, log *zap.SugaredLogger) (*C
 	// 更新单服务工作的subtask的build_os
 	// 自定义基础镜像的镜像名称可能会被更新，需要使用ID获取最新的镜像名称
 	for i, subTask := range pipeline.SubTasks {
-		pre, err := commonservice.ToPreview(subTask)
+		pre, err := base.ToPreview(subTask)
 		if err != nil {
 			log.Errorf("subTask.ToPreview error: %v", err)
 			continue
 		}
 		switch pre.TaskType {
 		case config.TaskBuild:
-			build, err := commonservice.ToBuildTask(subTask)
+			build, err := base.ToBuildTask(subTask)
 			if err != nil || build == nil {
 				log.Errorf("subTask.ToBuildTask error: %v", err)
 				continue
@@ -127,7 +129,7 @@ func CreatePipelineTask(args *commonmodels.TaskArgs, log *zap.SugaredLogger) (*C
 				continue
 			}
 		case config.TaskTestingV2:
-			testing, err := commonservice.ToTestingTask(subTask)
+			testing, err := base.ToTestingTask(subTask)
 			if err != nil || testing == nil {
 				log.Errorf("subTask.ToTestingTask error: %v", err)
 				continue
@@ -199,7 +201,7 @@ func CreatePipelineTask(args *commonmodels.TaskArgs, log *zap.SugaredLogger) (*C
 	sort.Sort(ByTaskKind(pt.SubTasks))
 
 	for i, t := range pt.SubTasks {
-		preview, err := commonservice.ToPreview(t)
+		preview, err := base.ToPreview(t)
 		if err != nil {
 			continue
 		}
@@ -207,7 +209,7 @@ func CreatePipelineTask(args *commonmodels.TaskArgs, log *zap.SugaredLogger) (*C
 			continue
 		}
 
-		t, err := commonservice.ToDeployTask(t)
+		t, err := base.ToDeployTask(t)
 		if err == nil && t.Enabled {
 			env, err := commonrepo.NewProductColl().FindEnv(&commonrepo.ProductEnvFindOptions{
 				Namespace: pt.TaskArgs.Deploy.Namespace,
@@ -380,7 +382,7 @@ func RestartPipelineTaskV2(userName string, taskID int64, pipelineName string, t
 			case config.TaskBuild:
 				subBuildTaskMap := subStage.SubTasks
 				for serviceModule, subTask := range subBuildTaskMap {
-					if buildInfo, err := commonservice.ToBuildTask(subTask); err == nil {
+					if buildInfo, err := base.ToBuildTask(subTask); err == nil {
 						if newModules, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{Version: "stable", Targets: []string{serviceModule}, ServiceName: buildInfo.Service, ProductName: t.ProductName}); err == nil {
 							newBuildInfo := newModules[0]
 							buildInfo.JobCtx.BuildSteps = []*task.BuildStep{}
@@ -442,7 +444,7 @@ func RestartPipelineTaskV2(userName string, taskID int64, pipelineName string, t
 			case config.TaskTestingV2:
 				subTestTaskMap := subStage.SubTasks
 				for testName, subTask := range subTestTaskMap {
-					if testInfo, err := commonservice.ToTestingTask(subTask); err == nil {
+					if testInfo, err := base.ToTestingTask(subTask); err == nil {
 						if newTestInfo, err := GetTesting(testInfo.TestModuleName, "", log); err == nil {
 							testInfo.JobCtx.BuildSteps = []*task.BuildStep{}
 							if newTestInfo.Scripts != "" {
@@ -498,7 +500,7 @@ func RestartPipelineTaskV2(userName string, taskID int64, pipelineName string, t
 
 				subDeployTaskMap := subStage.SubTasks
 				for serviceName, subTask := range subDeployTaskMap {
-					if deployInfo, err := commonservice.ToDeployTask(subTask); err == nil {
+					if deployInfo, err := base.ToDeployTask(subTask); err == nil {
 						deployInfo.Timeout = timeout
 						deployInfo.IsRestart = true
 						deployInfo.ResetImage = resetImage
@@ -711,6 +713,111 @@ type ProductNameWithType struct {
 	Namespace string `json:"namespace"`
 }
 
+func ListPipelineUpdatableProductNames(userName, pipelineName string, log *zap.SugaredLogger) ([]ProductNameWithType, error) {
+	resp := make([]ProductNameWithType, 0)
+	serviceName, err := findDeployServiceName(pipelineName, log)
+
+	if err != nil {
+		return resp, err
+	}
+
+	products, err := listPipelineUpdatableProducts(userName, serviceName, log)
+	if err != nil {
+		return resp, err
+	}
+
+	for _, prod := range products {
+		prodNameWithType := ProductNameWithType{
+			Name:      prod.EnvName,
+			Namespace: prod.Namespace,
+		}
+
+		prodNameWithType.Type = setting.NormalModeProduct
+
+		found := false
+		for _, r := range resp {
+			if prodNameWithType == r {
+				found = true
+				break
+			}
+		}
+		if found {
+			continue
+		}
+
+		resp = append(resp, prodNameWithType)
+	}
+
+	// adapt for qiniu deployment
+	if config.OldEnvSupported() {
+		resp = append(resp, ListOldEnvsByServiceName(serviceName, log)...)
+	}
+
+	return resp, nil
+}
+
+func findDeployServiceName(pipelineName string, log *zap.SugaredLogger) (resp string, err error) {
+	pipe, err := commonrepo.NewPipelineColl().Find(&commonrepo.PipelineFindOption{Name: pipelineName})
+	if err != nil {
+		log.Errorf("[%s] PipelineV2.Find error: %v", err)
+		return resp, e.ErrGetPipeline.AddDesc(err.Error())
+	}
+
+	deploy, err := getFirstEnabledDeployTask(pipe.SubTasks)
+	if err != nil {
+		log.Errorf("[%s] GetFirstEnabledDeployTask error: %v", err)
+		return resp, e.ErrGetTask.AddDesc(err.Error())
+	}
+
+	if deploy.ServiceName == "" {
+		return resp, e.ErrGetTask.AddDesc("deploy task has no group name or service name")
+	}
+
+	return deploy.ServiceName, nil
+}
+
+func getFirstEnabledDeployTask(subTasks []map[string]interface{}) (*task.Deploy, error) {
+	for _, subTask := range subTasks {
+		pre, err := base.ToPreview(subTask)
+		if err != nil {
+			return nil, err
+		}
+		if pre.TaskType == config.TaskDeploy && pre.Enabled {
+			return base.ToDeployTask(subTask)
+		}
+	}
+	return nil, e.NewErrInvalidTaskType("DeployTask not found")
+}
+
+// ListUpdatableProductNames 列出用户可以deploy的产品环境, 包括自己的产品和被授权的产品
+func listPipelineUpdatableProducts(userName, serviceName string, log *zap.SugaredLogger) ([]*commonmodels.Product, error) {
+	resp := make([]*commonmodels.Product, 0)
+
+	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{})
+	if err != nil {
+		log.Errorf("[%s] Collections.Product.List error: %v", userName, err)
+		return resp, e.ErrListProducts.AddDesc(err.Error())
+	}
+
+	//userTeams, err := s.FindUserTeams(userName, log)
+	//if err != nil {
+	//	log.Errorf("FindUserTeams error: %v", err)
+	//	return resp, err
+	//}
+	//userTeams := make([]string, 0)
+
+	for _, prod := range products {
+		//if prod.EnvName == userName || prod.IsUserAuthed(userName, userTeams, product.ProductWritePermission) {
+		serviceNames := sets.NewString(GetServiceNames(prod)...)
+		if serviceNames.Has(serviceName) {
+			resp = append(resp, prod)
+		}
+		//}
+	}
+
+	return resp, nil
+}
+
 func GetServiceNames(p *commonmodels.Product) []string {
 	resp := make([]string, 0)
 	for _, group := range p.Services {
@@ -748,6 +855,61 @@ func ListOldEnvsByServiceName(serviceName string, log *zap.SugaredLogger) []Prod
 	}
 
 	return resps
+}
+
+func GePackageFileContent(pipelineName string, taskID int64, log *zap.SugaredLogger) ([]byte, string, error) {
+	var packageFile, storageURL string
+	//获取pipeline task
+	resp, err := commonrepo.NewTaskColl().Find(taskID, pipelineName, config.SingleType)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to get popeline")
+	}
+
+	for _, subTask := range resp.SubTasks {
+		pre, err := base.ToPreview(subTask)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to get preview")
+		}
+		switch pre.TaskType {
+
+		case config.TaskBuild:
+			build, err := base.ToBuildTask(subTask)
+			if err != nil {
+				return nil, "", fmt.Errorf("failed to get build")
+			}
+			packageFile = build.JobCtx.PackageFile
+			storageURL = resp.StorageURI
+		}
+	}
+	storage, err := s3.NewS3StorageFromEncryptedURI(storageURL)
+	if err != nil {
+		log.Errorf("failed to get s3 storage %s", storageURL)
+		return nil, packageFile, fmt.Errorf("failed to get s3 storage %s", storageURL)
+	}
+	if storage.Subfolder != "" {
+		storage.Subfolder = fmt.Sprintf("%s/%s/%d/%s", storage.Subfolder, pipelineName, resp.TaskID, "file")
+	} else {
+		storage.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineName, resp.TaskID, "file")
+	}
+
+	tmpfile, err := ioutil.TempFile("", "")
+	if err != nil {
+		return nil, packageFile, fmt.Errorf("failed to open file %v", err)
+	}
+
+	_ = tmpfile.Close()
+
+	defer func() {
+		_ = os.Remove(tmpfile.Name())
+	}()
+
+	err = s3.Download(context.Background(), storage, packageFile, tmpfile.Name())
+
+	if err != nil {
+		return nil, packageFile, fmt.Errorf("failed to download %s %v", packageFile, err)
+	}
+	fileBytes, err := ioutil.ReadFile(tmpfile.Name())
+	return fileBytes, packageFile, err
 }
 
 func GetArtifactFileContent(pipelineName string, taskID int64, log *zap.SugaredLogger) ([]byte, error) {

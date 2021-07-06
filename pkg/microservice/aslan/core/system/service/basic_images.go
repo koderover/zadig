@@ -25,7 +25,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
@@ -139,14 +139,14 @@ func DeleteBasicImage(id string, log *zap.SugaredLogger) error {
 	if err == nil {
 		for _, pipeline := range pipelines {
 			for _, subTask := range pipeline.SubTasks {
-				pre, err := commonservice.ToPreview(subTask)
+				pre, err := base.ToPreview(subTask)
 				if err != nil {
 					continue
 				}
 				switch pre.TaskType {
 				case config.TaskBuild:
 					// 校验是否被服务工作流的构建使用
-					task, err := commonservice.ToBuildTask(subTask)
+					task, err := base.ToBuildTask(subTask)
 					if err != nil || task == nil {
 						continue
 					}
@@ -156,7 +156,7 @@ func DeleteBasicImage(id string, log *zap.SugaredLogger) error {
 					}
 				case config.TaskTestingV2:
 					// 校验是否被服务工作流的测试使用
-					testing, err := commonservice.ToTestingTask(subTask)
+					testing, err := base.ToTestingTask(subTask)
 					if err != nil || testing == nil {
 						continue
 					}

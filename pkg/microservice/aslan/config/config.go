@@ -18,6 +18,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -125,7 +126,7 @@ func S3StoragePath() string {
 }
 
 func EnableGitCheck() bool {
-	return viper.GetString(setting.EnableGitCheck) == "true"
+	return true
 }
 
 func S3StorageAK() string {
@@ -252,4 +253,8 @@ func SonarRootToken() string {
 
 func SonarInternalAddr() string {
 	return viper.GetString(setting.EnvSonarInternalAddr)
+}
+
+func WebHookURL() string {
+	return fmt.Sprintf("%s/api/aslan/webhook", AslanURL())
 }

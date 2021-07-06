@@ -19,15 +19,14 @@ package service
 import (
 	"context"
 
-	"github.com/google/go-github/v35/github"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehost"
 	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
+	"github.com/koderover/zadig/pkg/shared/codehost"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
-	"github.com/koderover/zadig/pkg/tool/gitlab"
+	"github.com/koderover/zadig/pkg/tool/git/gitlab"
 )
 
 const (
@@ -39,65 +38,50 @@ const (
 	perPage        = 100
 )
 
-func CodehostListNamespaces(codehostID int, keyword string, log *zap.SugaredLogger) ([]*gitlab.Namespace, error) {
+func CodeHostListNamespaces(codeHostID int, keyword string, log *zap.SugaredLogger) ([]*Namespace, error) {
 	opt := &codehost.Option{
-		CodeHostID: codehostID,
+		CodeHostID: codeHostID,
 	}
-	codehost, err := codehost.GetCodeHostInfo(opt)
+	ch, err := codehost.GetCodeHostInfo(opt)
 	if err != nil {
 		return nil, e.ErrCodehostListNamespaces.AddDesc("git client is nil")
 	}
 
-	if codehost.Type == codeHostGitlab {
-		client, err := gitlab.NewGitlabClient(codehost.Address, codehost.AccessToken)
+	if ch.Type == codeHostGitlab {
+		client, err := gitlab.NewClient(ch.Address, ch.AccessToken)
 		if err != nil {
 			log.Error(err)
 			return nil, e.ErrCodehostListNamespaces.AddDesc(err.Error())
 		}
 
-		nsList, err := client.ListNamespaces(keyword)
+		nsList, err := client.ListNamespaces(keyword, nil)
 		if err != nil {
 			return nil, err
 		}
-		return nsList, nil
-	} else if codehost.Type == gerrit.CodehostTypeGerrit {
-		return []*gitlab.Namespace{{
+		return ToNamespaces(nsList), nil
+	} else if ch.Type == gerrit.CodehostTypeGerrit {
+		return []*Namespace{{
 			Name: gerrit.DefaultNamespace,
 			Path: gerrit.DefaultNamespace,
 			Kind: OrgKind,
 		}}, nil
 	} else {
 		//	github
-		gitClient := git.NewClient(codehost.AccessToken, config.ProxyHTTPSAddr())
-		namespaces := make([]*gitlab.Namespace, 0)
+		gh := git.NewClient(ch.AccessToken, config.ProxyHTTPSAddr())
+		namespaces := make([]*Namespace, 0)
 
-		// authenticated user
-		user, _, err := gitClient.Users.Get(context.Background(), "")
+		user, err := gh.GetAuthenticatedUser(context.TODO())
 		if err != nil {
 			return nil, err
 		}
-		namespace := &gitlab.Namespace{
-			Name: user.GetLogin(),
-			Path: user.GetLogin(),
-			Kind: UserKind,
-		}
-		namespaces = append(namespaces, namespace)
+		namespaces = append(namespaces, ToNamespaces(user)...)
 
-		// organizations for the authenticated user
-		opt := &github.ListOptions{Page: page, PerPage: perPage}
-		organizations, _, err := gitClient.Organizations.List(context.Background(), "", opt)
+		organizations, err := gh.ListOrganizationsForAuthenticatedUser(context.TODO(), nil)
 		if err != nil {
 			return nil, err
 		}
-		for _, organization := range organizations {
-			namespace := &gitlab.Namespace{
-				Name: organization.GetLogin(),
-				Path: organization.GetLogin(),
-				Kind: OrgKind,
-			}
+		namespaces = append(namespaces, ToNamespaces(organizations)...)
 
-			namespaces = append(namespaces, namespace)
-		}
 		return namespaces, nil
 	}
 }

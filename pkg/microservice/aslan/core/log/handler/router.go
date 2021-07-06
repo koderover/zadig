@@ -19,13 +19,13 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/middleware"
+	gin2 "github.com/koderover/zadig/pkg/middleware/gin"
 )
 
 type Router struct{}
 
 func (*Router) Inject(router *gin.RouterGroup) {
-	router.Use(middleware.Auth())
+	router.Use(gin2.Auth())
 
 	log := router.Group("log")
 	{
@@ -42,5 +42,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		sse.GET("/workflow/build/:pipelineName/:taskId/:lines/:serviceName", GetWorkflowBuildJobContainerLogsSSE)
 		sse.GET("/test/:pipelineName/:taskId/:testName/:lines", GetTestJobContainerLogsSSE)
 		sse.GET("/workflow/test/:pipelineName/:taskId/:testName/:lines/:serviceName", GetWorkflowTestJobContainerLogsSSE)
+		sse.GET("/service/build/:serviceName/:envName/:productName", GetServiceJobContainerLogsSSE)
 	}
 }

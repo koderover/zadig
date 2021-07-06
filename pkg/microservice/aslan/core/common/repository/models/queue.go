@@ -138,6 +138,7 @@ type ConfigPayload struct {
 	// ResetCache means ignore workspace cache
 	ResetCache         bool               `json:"reset_cache"`
 	JenkinsBuildConfig JenkinsBuildConfig `json:"jenkins_build_config"`
+	PrivateKeys        []*PrivateKey      `json:"private_keys"`
 }
 
 type AslanConfig struct {

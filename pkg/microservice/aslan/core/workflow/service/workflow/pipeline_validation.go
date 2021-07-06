@@ -31,16 +31,17 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/koderover/zadig/pkg/internal/kube/wrapper"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehost"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -80,7 +81,7 @@ func ensurePipeline(args *commonmodels.Pipeline, log *zap.SugaredLogger) error {
 // validateSubTaskSetting Validating subtasks
 func validateSubTaskSetting(pipeName string, subtasks []map[string]interface{}) error {
 	for i, subTask := range subtasks {
-		pre, err := commonservice.ToPreview(subTask)
+		pre, err := base.ToPreview(subTask)
 		if err != nil {
 			return errors.New(e.InterfaceToTaskErrMsg)
 		}
@@ -92,7 +93,7 @@ func validateSubTaskSetting(pipeName string, subtasks []map[string]interface{}) 
 		switch pre.TaskType {
 
 		case config.TaskBuild:
-			t, err := commonservice.ToBuildTask(subTask)
+			t, err := base.ToBuildTask(subTask)
 			if err != nil {
 				log.Error(err)
 				return err
@@ -111,7 +112,7 @@ func validateSubTaskSetting(pipeName string, subtasks []map[string]interface{}) 
 			}
 
 		case config.TaskTestingV2:
-			t, err := commonservice.ToTestingTask(subTask)
+			t, err := base.ToTestingTask(subTask)
 			if err != nil {
 				log.Error(err)
 				return err
@@ -166,7 +167,7 @@ func getTaskEnvs(pipelineName string) map[string]string {
 
 	for _, subTask := range pipe.SubTasks {
 
-		pre, err := commonservice.ToPreview(subTask)
+		pre, err := base.ToPreview(subTask)
 		if err != nil {
 			log.Error(err)
 			return resp
@@ -175,7 +176,7 @@ func getTaskEnvs(pipelineName string) map[string]string {
 		switch pre.TaskType {
 
 		case config.TaskBuild:
-			t, err := commonservice.ToBuildTask(subTask)
+			t, err := base.ToBuildTask(subTask)
 			if err != nil {
 				log.Error(err)
 				return resp
@@ -187,7 +188,7 @@ func getTaskEnvs(pipelineName string) map[string]string {
 			}
 
 		case config.TaskTestingV2:
-			t, err := commonservice.ToTestingTask(subTask)
+			t, err := base.ToTestingTask(subTask)
 			if err != nil {
 				log.Error(err)
 				return resp
@@ -635,6 +636,13 @@ func (c *ImageIllegal) Error() string {
 // validateServiceContainer2 validate container with raw namespace like dev-product
 func validateServiceContainer2(namespace, envName, productName, serviceName, container, source string, kubeClient client.Client) (string, error) {
 	var selector labels.Selector
+
+	//helm类型的服务查询所有标签的pod
+	if source != setting.SourceFromHelm {
+		selector = labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceName}.AsSelector()
+		//builder := &SelectorBuilder{ProductName: productName, ServiceName: serviceName}
+		//selector = builder.BuildSelector()
+	}
 
 	pods, err := getter.ListPods(namespace, selector, kubeClient)
 	if err != nil {

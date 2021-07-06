@@ -20,6 +20,7 @@ import (
 	"fmt"
 	stdlog "log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/jasonlvhit/gocron"
@@ -31,6 +32,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/cron/core/service"
 	"github.com/koderover/zadig/pkg/microservice/cron/core/service/client"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/poetry"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -54,6 +56,8 @@ const (
 	UpsertWorkflowScheduler = "UpsertWorkflowScheduler"
 	// UpsertTestScheduler ...
 	UpsertTestScheduler = "UpsertTestScheduler"
+	// UpsertColliePipelineScheduler ...
+	UpsertColliePipelineScheduler = "UpsertColliePipelineScheduler"
 	//CleanProductScheduler ...
 	CleanProductScheduler = "CleanProductScheduler"
 	//InitBuildStatScheduler
@@ -68,6 +72,9 @@ const (
 	SystemCapacityGC = "SystemCapacityGC"
 	//InitHealthCheckScheduler
 	InitHealthCheckScheduler = "InitHealthCheckScheduler"
+
+	// FreestyleType 自由编排工作流
+	freestyleType = "freestyle"
 )
 
 // NewCronClient ...
@@ -134,6 +141,13 @@ func (c *CronClient) Init() {
 	c.InitJobScheduler()
 	// 测试管理的定时任务触发
 	c.InitTestScheduler()
+
+	// 自由编排工作流定时任务触发
+	features, _ := getFeatures()
+	if strings.Contains(features, freestyleType) {
+		c.InitColliePipelineScheduler()
+	}
+
 	// 定时清理环境
 	c.InitCleanProductScheduler()
 	// 定时初始化构建数据
@@ -142,6 +156,18 @@ func (c *CronClient) Init() {
 	c.InitOperationStatScheduler()
 	// 定时更新质效看板的统计数据
 	c.InitPullSonarStatScheduler()
+	// 定时初始化健康检查
+	c.InitHealthCheckScheduler()
+}
+
+func getFeatures() (string, error) {
+	cl := poetry.New(config.AslanAPI(), config.RootToken())
+	fs, err := cl.ListFeatures()
+	if err != nil {
+		return "", err
+	}
+
+	return strings.Join(fs, ","), nil
 }
 
 // InitCleanJobScheduler ...
@@ -184,6 +210,16 @@ func (c *CronClient) InitTestScheduler() {
 	c.Schedulers[UpsertTestScheduler].Start()
 }
 
+// InitJobScheduler ...
+func (c *CronClient) InitColliePipelineScheduler() {
+
+	c.Schedulers[UpsertColliePipelineScheduler] = gocron.NewScheduler()
+
+	c.Schedulers[UpsertColliePipelineScheduler].Every(1).Minutes().Do(c.UpsertColliePipelineScheduler, c.log)
+
+	c.Schedulers[UpsertColliePipelineScheduler].Start()
+}
+
 // InitBuildStatScheduler ...
 func (c *CronClient) InitBuildStatScheduler() {
 
@@ -221,4 +257,13 @@ func (c *CronClient) InitSystemCapacityGCScheduler() {
 	c.Schedulers[SystemCapacityGC].Every(1).Day().At("02:00").Do(c.AslanCli.TriggerCleanCache, c.log)
 
 	c.Schedulers[SystemCapacityGC].Start()
+}
+
+func (c *CronClient) InitHealthCheckScheduler() {
+
+	c.Schedulers[InitHealthCheckScheduler] = gocron.NewScheduler()
+
+	c.Schedulers[InitHealthCheckScheduler].Every(1).Minutes().Do(c.UpsertEnvServiceScheduler, c.log)
+
+	c.Schedulers[InitHealthCheckScheduler].Start()
 }

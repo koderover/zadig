@@ -605,6 +605,7 @@ func mergeInstallOptions(chartSpec *ChartSpec, installOptions *action.Install) {
 	installOptions.Atomic = chartSpec.Atomic
 	installOptions.SkipCRDs = chartSpec.SkipCRDs
 	installOptions.SubNotes = chartSpec.SubNotes
+	installOptions.DryRun = chartSpec.DryRun
 }
 
 // mergeUpgradeOptions merges values of the provided chart to helm upgrade options used by the client
@@ -622,6 +623,7 @@ func mergeUpgradeOptions(chartSpec *ChartSpec, upgradeOptions *action.Upgrade) {
 	upgradeOptions.Atomic = chartSpec.Atomic
 	upgradeOptions.CleanupOnFail = chartSpec.CleanupOnFail
 	upgradeOptions.SubNotes = chartSpec.SubNotes
+	upgradeOptions.DryRun = chartSpec.DryRun
 }
 
 // mergeUninstallReleaseOptions merges values of the provided chart to helm uninstall options used by the client

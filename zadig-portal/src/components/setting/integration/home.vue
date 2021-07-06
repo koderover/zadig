@@ -12,6 +12,11 @@
             <GitHubApp v-if="currentTab === 'githubapp'" />
           </keep-alive>
         </el-tab-pane>
+        <el-tab-pane name="account" label="用户账户集成">
+          <keep-alive>
+            <Account v-if="currentTab === 'account'" />
+          </keep-alive>
+        </el-tab-pane>
         <el-tab-pane name="jira" label="Jira 集成">
           <keep-alive>
             <Jira v-if="currentTab === 'jira'" />
@@ -35,6 +40,7 @@
 import bus from '@utils/event_bus'
 import Code from './code.vue'
 import GitHubApp from './github_app.vue'
+import Account from './account.vue'
 import Jira from './jira.vue'
 import Mail from './mail.vue'
 import Jenkins from './jenkins.vue'
@@ -44,6 +50,7 @@ export default {
   components: {
     Code,
     GitHubApp,
+    Account,
     Jira,
     Jenkins,
     Mail

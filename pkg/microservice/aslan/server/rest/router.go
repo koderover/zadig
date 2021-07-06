@@ -28,16 +28,16 @@ import (
 	commonhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/common/handler"
 	cronhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/cron/handler"
 	deliveryhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/delivery/handler"
-	enterprisehandler "github.com/koderover/zadig/pkg/microservice/aslan/core/enterprise/handler"
 	environmenthandler "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/handler"
 	loghandler "github.com/koderover/zadig/pkg/microservice/aslan/core/log/handler"
+	multiclusterhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/multicluster/handler"
 	projecthandler "github.com/koderover/zadig/pkg/microservice/aslan/core/project/handler"
 	servicehandler "github.com/koderover/zadig/pkg/microservice/aslan/core/service/handler"
 	settinghandler "github.com/koderover/zadig/pkg/microservice/aslan/core/setting/handler"
 	systemhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/system/handler"
 	workflowhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/handler"
 	testinghandler "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/handler"
-	"github.com/koderover/zadig/pkg/microservice/aslan/middleware"
+	gin2 "github.com/koderover/zadig/pkg/middleware/gin"
 
 	// Note: have to load docs for swagger to work. See https://blog.csdn.net/weixin_43249914/article/details/103035711
 	_ "github.com/koderover/zadig/pkg/microservice/aslan/server/rest/doc"
@@ -60,31 +60,39 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 	}
 	store.Options(cookieOption)
 	router.Use(sessions.Sessions("ASLAN", store))
-	Auth := middleware.Auth()
+	Auth := gin2.Auth()
 	// ---------------------------------------------------------------------------------------
 	// 对外公共接口
 	// ---------------------------------------------------------------------------------------
 	public := router.Group("/api")
 	{
+		// new webhook url for all
+		public.POST("/webhook", func(c *gin.Context) {
+			c.Request.URL.Path = "/api/workflow/webhook"
+			s.HandleContext(c)
+		})
 		// 内部路由重定向。接口路由更新后，需要保证旧路由可用，否则github、gitlab的配置需要手动更新。
 		public.POST("/ci/webhook", func(c *gin.Context) {
-			c.Request.URL.Path = "/api/workflow/webhook/ci/webhook"
+			c.Request.URL.Path = "/api/workflow/webhook"
 			s.HandleContext(c)
 		})
 		public.POST("/githubWebHook", func(c *gin.Context) {
-			c.Request.URL.Path = "/api/workflow/webhook/githubWebHook"
+			c.Request.URL.Path = "/api/workflow/webhook"
 			s.HandleContext(c)
 		})
 		public.POST("/gitlabhook", func(c *gin.Context) {
-			c.Request.URL.Path = "/api/workflow/webhook/gitlabhook"
+			c.Request.URL.Path = "/api/workflow/webhook"
 			s.HandleContext(c)
 		})
 		public.POST("/gerritHook", func(c *gin.Context) {
-			c.Request.URL.Path = "/api/workflow/webhook/gerritHook"
+			c.Request.URL.Path = "/api/workflow/webhook"
 			s.HandleContext(c)
 		})
 		public.GET("/health", commonhandler.Health)
 	}
+
+	// no auth required, should not be exposed via poetry-api-proxy or will fail
+	router.GET("/api/hub/connect", multiclusterhandler.ClusterConnectFromAgent)
 
 	router.GET("/api/kodespace/downloadUrl", Auth, commonhandler.GetToolDownloadURL)
 
@@ -102,10 +110,10 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 		"/api/cron":        new(cronhandler.Router),
 		"/api/workflow":    new(workflowhandler.Router),
 		"/api/build":       new(buildhandler.Router),
-		"/api/enterprise":  new(enterprisehandler.Router),
 		"/api/delivery":    new(deliveryhandler.Router),
 		"/api/logs":        new(loghandler.Router),
 		"/api/testing":     new(testinghandler.Router),
+		"/api/cluster":     new(multiclusterhandler.Router),
 	} {
 		r.Inject(router.Group(name))
 	}

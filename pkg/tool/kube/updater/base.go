@@ -93,13 +93,21 @@ func updateOrCreateObject(obj client.Object, cl client.Client) error {
 }
 
 func createOrPatchObject(modified client.Object, cl client.Client) error {
-	c := modified.DeepCopyObject()
-	current := c.(client.Object)
-	found, err := getter.GetResourceInCache(modified.GetNamespace(), modified.GetName(), current, cl)
+	c := modified.DeepCopyObject().(client.Object)
+	found, err := getter.GetResourceInCache(modified.GetNamespace(), modified.GetName(), c, cl)
 	if err != nil {
 		return err
 	} else if !found {
 		return createObject(modified, cl)
+	}
+
+	// fill gvk in case it is missing.
+	// for objects retrieved from APIServer, gvk is not set, so we need to set it
+	// for objects in cache, gvk is set, nothing will be changed here
+	gvk := modified.GetObjectKind().GroupVersionKind()
+	current, err := util.SetGroupVersionKind(c, &gvk)
+	if err != nil {
+		return err
 	}
 
 	patchBytes, patchType, err := patcher.GeneratePatchBytes(current, modified)
@@ -111,7 +119,7 @@ func createOrPatchObject(modified client.Object, cl client.Client) error {
 		return nil
 	}
 
-	return patchObjectWithType(current, patchBytes, patchType, cl)
+	return patchObjectWithType(current.(client.Object), patchBytes, patchType, cl)
 }
 
 func patchObjectWithType(obj client.Object, patchBytes []byte, patchType types.PatchType, cl client.Client) error {

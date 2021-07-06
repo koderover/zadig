@@ -38,6 +38,10 @@ func envHandleFunc(projectType string, log *zap.SugaredLogger) envHandle {
 		return &K8sService{
 			log: log,
 		}
+	case setting.PMDeployType:
+		return &PMService{
+			log: log,
+		}
 	}
 	return nil
 }

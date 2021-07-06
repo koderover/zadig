@@ -74,6 +74,7 @@ const (
 
 	// cron
 	ENVAslanAPI        = "ASLAN_API"
+	ENVAslanxAPI       = "ASLANX_API"
 	ENVRootToken       = "ROOT_TOKEN"
 	ENVAslanAddr       = "ASLAN_ADDRESS"
 	ENVNsqdAddr        = "NSQD_ADDR"
@@ -280,6 +281,16 @@ const (
 	CookieHeader        = "Cookie"
 )
 
+//install script constants
+const (
+	StandardScriptName   = "install.sh"
+	AllInOneScriptName   = "install_with_k8s.sh"
+	UninstallScriptName  = "uninstall.sh"
+	StandardInstallType  = "standard"
+	AllInOneInstallType  = "all-in-one"
+	UninstallInstallType = "uninstall"
+)
+
 // Pod Status
 const (
 	StatusRunning   = "Running"
@@ -371,8 +382,6 @@ const (
 	ProxyHTTPSAddr  = "PROXY_HTTPS_ADDR"
 	ProxyHTTPAddr   = "PROXY_HTTP_ADDR"
 	ProxySocks5Addr = "PROXY_SOCKS_ADDR"
-
-	EnableGitCheck = "ENABLE_GIT_CHECK"
 )
 
 const (

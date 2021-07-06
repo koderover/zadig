@@ -82,6 +82,10 @@ func NewClientFromAPIConfig(cfg *api.Config) (client.Client, error) {
 	return newAPIClient(cls.GetClient(), cls.GetAPIReader()), nil
 }
 
+func NewAPIClient(c client.Client, r client.Reader) client.Client {
+	return newAPIClient(c, r)
+}
+
 // apiClient is similar with the default Client(), but it always gets objects from API server.
 type apiClient struct {
 	client.Client
