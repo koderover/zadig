@@ -205,7 +205,7 @@ func (c *RenderSetColl) Delete(productName string) error {
 	return err
 }
 
-// Delete 根据项目名称删除renderset
+// Delete renderSet According to productName、name and revision
 func (c *RenderSetColl) DeleteRenderSet(productName, name string, revision int64) error {
 	query := bson.M{"product_tmpl": productName, "name": name, "revision": revision}
 	_, err := c.DeleteOne(context.TODO(), query)
