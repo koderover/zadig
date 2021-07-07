@@ -19,17 +19,19 @@
 ## 1. 克隆代码
 
 1. 在 [koderover/zadig](https://github.com/koderover/zadig) 仓库，点击右上角的 Fork 按钮。
-2. 将 fork 后的代码仓库克隆到本地
+2. 在 [koderover/zadig-portal](https://github.com/koderover/zadig-portal) 仓库，点击右上角的 Fork 按钮。
+2. 分别将 fork 后的前后端代码仓库克隆到本地
 
 ```bash
 git clone git@github.com:<your_github_id>/zadig.git
+git clone git@github.com:<your_github_id>/zadig-portal.git
 ```
 
 ## 2. 本地开发环境搭建
 
 ### 前端环境
 
-Zadig 前端使用的 vue 框架，在您贡献代码之前，本地需安装 Node.js 10+、Yarn 以及 NPM 7+。
+Zadig 前端使用的 Vue 框架，在您贡献代码之前，本地需安装 Node.js 14+、Yarn。
 
 注意：我们使用 Yarn 进行依赖版本的锁定，所以请使用 Yarn 安装依赖。
 
