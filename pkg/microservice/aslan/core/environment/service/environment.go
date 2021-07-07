@@ -2647,6 +2647,5 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 	if err = commonrepo.NewProductColl().Update(productResp); err != nil {
 		errList = multierror.Append(errList, err)
 	}
-
 	return errList.ErrorOrNil()
 }
