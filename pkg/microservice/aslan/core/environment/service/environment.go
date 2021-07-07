@@ -1029,7 +1029,10 @@ func UpdateHelmProductVariable(productName, envName, username, requestID string,
 		log.Errorf("GetProduct envName:%s, productName:%s, err:%+v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(err.Error())
 	}
-
+	var oldRenderVersion int64
+	if productResp.Render != nil {
+		oldRenderVersion = productResp.Render.Revision
+	}
 	productResp.ChartInfos = rcs
 	if err = commonservice.CreateHelmRenderSet(
 		&commonmodels.RenderSet{
@@ -1082,18 +1085,27 @@ func UpdateHelmProductVariable(productName, envName, username, requestID string,
 				log.Errorf("[%s][P:%s] Product.UpdateErrors error: %v", envName, productName, err2)
 				return
 			}
-		} else {
-			productResp.Status = setting.ProductStatusSuccess
 
-			if err = commonrepo.NewProductColl().UpdateStatus(envName, productName, productResp.Status); err != nil {
-				log.Errorf("[%s][%s] Product.Update error: %v", envName, productName, err)
-				return
+			// If the update environment failed, Roll back to the previous render version and delete new revision
+			log.Infof("[%s][P:%s] roll back to previous render version: %d", envName, productName, oldRenderVersion)
+			if deleteRenderSetErr := commonrepo.NewRenderSetColl().DeleteRenderSet(productName, productResp.Render.Name, productResp.Render.Revision); deleteRenderSetErr != nil {
+				log.Errorf("[%s][P:%s] Product delete renderSet error: %v", envName, productName, deleteRenderSetErr)
 			}
+			productResp.Render.Revision = oldRenderVersion
+			if updateRendErr := commonrepo.NewProductColl().UpdateRender(envName, productName, productResp.Render); updateRendErr != nil {
+				log.Errorf("[%s][P:%s] Product update render error: %v", envName, productName, updateRendErr)
+			}
+			return
+		}
+		productResp.Status = setting.ProductStatusSuccess
+		if err = commonrepo.NewProductColl().UpdateStatus(envName, productName, productResp.Status); err != nil {
+			log.Errorf("[%s][%s] Product.Update error: %v", envName, productName, err)
+			return
+		}
 
-			if err = commonrepo.NewProductColl().UpdateErrors(envName, productName, ""); err != nil {
-				log.Errorf("[%s][P:%s] Product.UpdateErrors error: %v", envName, productName, err)
-				return
-			}
+		if err = commonrepo.NewProductColl().UpdateErrors(envName, productName, ""); err != nil {
+			log.Errorf("[%s][P:%s] Product.UpdateErrors error: %v", envName, productName, err)
+			return
 		}
 	}()
 
@@ -2166,8 +2178,6 @@ func installOrUpdateHelmChart(user, envName, requestID string, args *commonmodel
 					Wait:        true,
 					Version:     renderChart.ChartVersion,
 					ValuesYaml:  renderChart.ValuesYaml,
-					Force:       false,
-					SkipCRDs:    false,
 					UpgradeCRDs: true,
 					Timeout:     Timeout * time.Second * 10,
 				}
@@ -2397,8 +2407,6 @@ func updateProductGroup(productName, envName, updateType string, productResp *co
 						Wait:        true,
 						Version:     tmpRenderChart.ChartVersion,
 						ValuesYaml:  tmpRenderChart.ValuesYaml,
-						Force:       false,
-						SkipCRDs:    false,
 						UpgradeCRDs: true,
 						Timeout:     Timeout * time.Second * 10,
 					}
@@ -2627,9 +2635,8 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 						Wait:        true,
 						Version:     tmpRenderChart.ChartVersion,
 						ValuesYaml:  tmpRenderChart.ValuesYaml,
-						Force:       false,
-						SkipCRDs:    false,
 						UpgradeCRDs: true,
+						Atomic:      true,
 						Timeout:     Timeout * time.Second * 10,
 					}
 					err = helmClient.InstallOrUpgradeChart(context.Background(), &chartSpec, &helmclient.ChartOption{
