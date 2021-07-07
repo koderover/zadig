@@ -1086,7 +1086,7 @@ func UpdateHelmProductVariable(productName, envName, username, requestID string,
 				return
 			}
 
-			// If the update environment failed, Roll back to the previous render version
+			// If the update environment failed, Roll back to the previous render version and delete new revision
 			log.Infof("[%s][P:%s] roll back to previous render version: %d", envName, productName, oldRenderVersion)
 			if deleteRenderSetErr := commonrepo.NewRenderSetColl().DeleteRenderSet(productName, productResp.Render.Name, productResp.Render.Revision); deleteRenderSetErr != nil {
 				log.Errorf("[%s][P:%s] Product delete renderSet error: %v", envName, productName, deleteRenderSetErr)
