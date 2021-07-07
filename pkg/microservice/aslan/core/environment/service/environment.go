@@ -2638,20 +2638,14 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 			groupServices = append(groupServices, service)
 		}
 		wg.Wait()
-		// if there are no errors, then update env group
-		if errList := errList.ErrorOrNil(); errList == nil {
-			err = commonrepo.NewProductColl().UpdateGroup(envName, productName, groupIndex, groupServices)
-			if err != nil {
-				log.Errorf("Failed to update collection - service group %d. Error: %v", groupIndex, err)
-				return e.ErrUpdateEnv.AddDesc(err.Error())
-			}
+		err = commonrepo.NewProductColl().UpdateGroup(envName, productName, groupIndex, groupServices)
+		if err != nil {
+			log.Errorf("Failed to update collection - service group %d. Error: %v", groupIndex, err)
+			return e.ErrUpdateEnv.AddDesc(err.Error())
 		}
 	}
-	// if there are no errors, then update env
-	if errList := errList.ErrorOrNil(); errList == nil {
-		if err = commonrepo.NewProductColl().Update(productResp); err != nil {
-			errList = multierror.Append(errList, err)
-		}
+	if err = commonrepo.NewProductColl().Update(productResp); err != nil {
+		errList = multierror.Append(errList, err)
 	}
 
 	return errList.ErrorOrNil()
