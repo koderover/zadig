@@ -1094,20 +1094,18 @@ func UpdateHelmProductVariable(productName, envName, username, requestID string,
 			productResp.Render.Revision = oldRenderVersion
 			if updateRendErr := commonrepo.NewProductColl().UpdateRender(envName, productName, productResp.Render); updateRendErr != nil {
 				log.Errorf("[%s][P:%s] Product update render error: %v", envName, productName, updateRendErr)
-				return
 			}
-		} else {
-			productResp.Status = setting.ProductStatusSuccess
+			return
+		}
+		productResp.Status = setting.ProductStatusSuccess
+		if err = commonrepo.NewProductColl().UpdateStatus(envName, productName, productResp.Status); err != nil {
+			log.Errorf("[%s][%s] Product.Update error: %v", envName, productName, err)
+			return
+		}
 
-			if err = commonrepo.NewProductColl().UpdateStatus(envName, productName, productResp.Status); err != nil {
-				log.Errorf("[%s][%s] Product.Update error: %v", envName, productName, err)
-				return
-			}
-
-			if err = commonrepo.NewProductColl().UpdateErrors(envName, productName, ""); err != nil {
-				log.Errorf("[%s][P:%s] Product.UpdateErrors error: %v", envName, productName, err)
-				return
-			}
+		if err = commonrepo.NewProductColl().UpdateErrors(envName, productName, ""); err != nil {
+			log.Errorf("[%s][P:%s] Product.UpdateErrors error: %v", envName, productName, err)
+			return
 		}
 	}()
 
