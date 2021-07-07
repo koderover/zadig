@@ -2166,8 +2166,6 @@ func installOrUpdateHelmChart(user, envName, requestID string, args *commonmodel
 					Wait:        true,
 					Version:     renderChart.ChartVersion,
 					ValuesYaml:  renderChart.ValuesYaml,
-					Force:       false,
-					SkipCRDs:    false,
 					UpgradeCRDs: true,
 					Timeout:     Timeout * time.Second * 10,
 				}
@@ -2397,8 +2395,6 @@ func updateProductGroup(productName, envName, updateType string, productResp *co
 						Wait:        true,
 						Version:     tmpRenderChart.ChartVersion,
 						ValuesYaml:  tmpRenderChart.ValuesYaml,
-						Force:       false,
-						SkipCRDs:    false,
 						UpgradeCRDs: true,
 						Timeout:     Timeout * time.Second * 10,
 					}
@@ -2627,9 +2623,8 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 						Wait:        true,
 						Version:     tmpRenderChart.ChartVersion,
 						ValuesYaml:  tmpRenderChart.ValuesYaml,
-						Force:       false,
-						SkipCRDs:    false,
 						UpgradeCRDs: true,
+						Atomic:      true,
 						Timeout:     Timeout * time.Second * 10,
 					}
 					err = helmClient.InstallOrUpgradeChart(context.Background(), &chartSpec, &helmclient.ChartOption{
@@ -2643,14 +2638,21 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 			groupServices = append(groupServices, service)
 		}
 		wg.Wait()
-		err = commonrepo.NewProductColl().UpdateGroup(envName, productName, groupIndex, groupServices)
-		if err != nil {
-			log.Errorf("Failed to update collection - service group %d. Error: %v", groupIndex, err)
-			return e.ErrUpdateEnv.AddDesc(err.Error())
+		// if there are no errors, then update env group
+		if errList := errList.ErrorOrNil(); errList == nil {
+			err = commonrepo.NewProductColl().UpdateGroup(envName, productName, groupIndex, groupServices)
+			if err != nil {
+				log.Errorf("Failed to update collection - service group %d. Error: %v", groupIndex, err)
+				return e.ErrUpdateEnv.AddDesc(err.Error())
+			}
 		}
 	}
-	if err = commonrepo.NewProductColl().Update(productResp); err != nil {
-		errList = multierror.Append(errList, err)
+	// if there are no errors, then update env
+	if errList := errList.ErrorOrNil(); errList == nil {
+		if err = commonrepo.NewProductColl().Update(productResp); err != nil {
+			errList = multierror.Append(errList, err)
+		}
 	}
+
 	return errList.ErrorOrNil()
 }
