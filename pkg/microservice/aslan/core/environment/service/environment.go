@@ -1029,7 +1029,10 @@ func UpdateHelmProductVariable(productName, envName, username, requestID string,
 		log.Errorf("GetProduct envName:%s, productName:%s, err:%+v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(err.Error())
 	}
-
+	var oldRenderVersion int64
+	if productResp.Render != nil {
+		oldRenderVersion = productResp.Render.Revision
+	}
 	productResp.ChartInfos = rcs
 	if err = commonservice.CreateHelmRenderSet(
 		&commonmodels.RenderSet{
@@ -1080,6 +1083,17 @@ func UpdateHelmProductVariable(productName, envName, username, requestID string,
 			log.Infof("[%s][P:%s] update error to => %s", envName, productName, e.String(err))
 			if err2 := commonrepo.NewProductColl().UpdateErrors(envName, productName, e.String(err)); err2 != nil {
 				log.Errorf("[%s][P:%s] Product.UpdateErrors error: %v", envName, productName, err2)
+				return
+			}
+
+			// If the update environment failed, Roll back to the previous render version
+			log.Infof("[%s][P:%s] roll back to previous render version: %d", envName, productName, oldRenderVersion)
+			if deleteRenderSetErr := commonrepo.NewRenderSetColl().DeleteRenderSet(productName, productResp.Render.Name, productResp.Render.Revision); deleteRenderSetErr != nil {
+				log.Errorf("[%s][P:%s] Product delete renderSet error: %v", envName, productName, deleteRenderSetErr)
+			}
+			productResp.Render.Revision = oldRenderVersion
+			if updateRendErr := commonrepo.NewProductColl().UpdateRender(envName, productName, productResp.Render); updateRendErr != nil {
+				log.Errorf("[%s][P:%s] Product update render error: %v", envName, productName, updateRendErr)
 				return
 			}
 		} else {

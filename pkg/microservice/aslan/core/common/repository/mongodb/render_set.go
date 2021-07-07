@@ -205,6 +205,13 @@ func (c *RenderSetColl) Delete(productName string) error {
 	return err
 }
 
+// Delete 根据项目名称删除renderset
+func (c *RenderSetColl) DeleteRenderSet(productName, name string, revision int64) error {
+	query := bson.M{"product_tmpl": productName, "name": name, "revision": revision}
+	_, err := c.DeleteOne(context.TODO(), query)
+	return err
+}
+
 func (c *RenderSetColl) ListAllRenders() ([]*models.RenderSet, error) {
 	resp := make([]*models.RenderSet, 0)
 	query := bson.M{}

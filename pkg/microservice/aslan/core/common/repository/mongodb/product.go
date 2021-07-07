@@ -185,6 +185,16 @@ func (c *ProductColl) UpdateErrors(owner, productName, errorMsg string) error {
 	return err
 }
 
+func (c *ProductColl) UpdateRender(envName, productName string, render *models.RenderInfo) error {
+	query := bson.M{"env_name": envName, "product_name": productName}
+	change := bson.M{"$set": bson.M{
+		"render": render,
+	}}
+	_, err := c.UpdateOne(context.TODO(), query, change)
+
+	return err
+}
+
 func (c *ProductColl) Delete(owner, productName string) error {
 	query := bson.M{"env_name": owner, "product_name": productName}
 	_, err := c.DeleteOne(context.TODO(), query)
