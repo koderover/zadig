@@ -123,12 +123,30 @@ func HubServerServiceAddress() string {
 	return getServiceAddress(s.Name, s.Port)
 }
 
+func ClairServiceInfo() *setting.ServiceInfo {
+	return GetServiceByCode(setting.Clair)
+}
+
+func ClairServiceAddress() string {
+	s := ClairServiceInfo()
+	return getServiceAddress(s.Name, s.Port)
+}
+
 func CollieServiceInfo() *setting.ServiceInfo {
 	return GetServiceByCode(setting.Collie)
 }
 
 func CollieServiceAddress() string {
 	s := CollieServiceInfo()
+	return getServiceAddress(s.Name, s.Port)
+}
+
+func PoetryServiceInfo() *setting.ServiceInfo {
+	return GetServiceByCode(setting.Poetry)
+}
+
+func PoetryServiceAddress() string {
+	s := PoetryServiceInfo()
 	return getServiceAddress(s.Name, s.Port)
 }
 

@@ -32,13 +32,14 @@ const (
 const (
 	Aslan     = iota + 1 // 1
 	Aslanx               // 2
-	Collie               // 3
-	Cron                 // 4
-	HubServer            // 5
-	PodExec              // 6
-	Poetry               // 7
-	SonarQube            // 8
-	WarpDrive            // 9
+	Clair                // 3
+	Collie               // 4
+	Cron                 // 5
+	HubServer            // 6
+	PodExec              // 7
+	Poetry               // 8
+	SonarQube            // 9
+	WarpDrive            // 10
 )
 
 type ServiceInfo struct {
@@ -54,6 +55,10 @@ var Services = map[int]*ServiceInfo{
 	Aslanx: {
 		Name: "aslanx",
 		Port: 25002,
+	},
+	Clair: {
+		Name: "clair",
+		Port: 34002,
 	},
 	Collie: {
 		Name: "collie-server",

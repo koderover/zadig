@@ -65,14 +65,8 @@ const (
 	ENVKubeServerAddr    = "KUBE_SERVER_ADDR"
 
 	// cron
-	ENVAslanAPI        = "ASLAN_API"
-	ENVAslanxAPI       = "ASLANX_API"
 	ENVRootToken       = "ROOT_TOKEN"
-	ENVAslanAddr       = "ASLAN_ADDRESS"
-	ENVNsqdAddr        = "NSQD_ADDR"
-	ENVPodIP           = "POD_IP"
 	ENVPoetryAPIAddr   = "POETRY_API_ADDRESS"
-	ENVClairClientAddr = "CLAIR_CLIENT_ADDRESS"
 
 	ENVKodespaceVersion = "KODESPACE_VERSION"
 

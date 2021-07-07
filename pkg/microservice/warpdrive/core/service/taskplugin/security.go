@@ -25,6 +25,7 @@ import (
 
 	"go.uber.org/zap"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
@@ -40,7 +41,7 @@ func InitializeSecurityPlugin(taskType config.TaskType) TaskPlugin {
 		httpClient: httpclient.New(
 			httpclient.SetAuthScheme(setting.RootAPIKey),
 			httpclient.SetAuthToken(config.PoetryAPIRootKey()),
-			httpclient.SetHostURL(config.AslanAddr()),
+			httpclient.SetHostURL(configbase.AslanServiceAddress()),
 		),
 	}
 }
@@ -144,7 +145,7 @@ func (p *SecurityPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipel
 }
 
 func (p *SecurityPlugin) getSummary(ctx context.Context, imageID string) (map[string]int, error) {
-	url := "/delivery/security/stats"
+	url := "/api/delivery/security/stats"
 
 	summary := map[string]int{}
 	_, err := p.httpClient.Get(url, httpclient.SetResult(&summary), httpclient.SetQueryParam("imageId", imageID))
@@ -155,7 +156,7 @@ func (p *SecurityPlugin) getSummary(ctx context.Context, imageID string) (map[st
 }
 
 func (p *SecurityPlugin) report(ctx context.Context, imageName string, body []byte) (string, error) {
-	url := "/delivery/security"
+	url := "/api/delivery/security"
 
 	res, err := p.httpClient.Post(url, httpclient.SetBody(body))
 	if err != nil {
@@ -168,7 +169,7 @@ func (p *SecurityPlugin) report(ctx context.Context, imageName string, body []by
 }
 
 func (p *SecurityPlugin) analysis(ctx context.Context, imageName, dockerHost, namespace string) ([]byte, error) {
-	url := fmt.Sprintf("%s/analyzeLocalImage", config.ClairClientAddr())
+	url := fmt.Sprintf("%s/analyzeLocalImage", configbase.ClairServiceAddress())
 	qs := map[string]string{
 		"imageName":  imageName,
 		"dockerHost": dockerHost,

@@ -23,7 +23,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/cron/config"
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/setting"
 )
 
@@ -38,7 +38,7 @@ func (c *Client) InitPullSonarStatScheduler(log *zap.SugaredLogger) error {
 func (c *Client) InitPullSonarTestsMeasure(log *zap.SugaredLogger) error {
 	log.Info("start to pull sonar test measure..")
 
-	url := fmt.Sprintf("%s/quality/sonar/tests/measure/pull", config.AslanxAPI())
+	url := fmt.Sprintf("%s/api/quality/sonar/tests/measure/pull", configbase.AslanxServiceAddress())
 
 	request, err := http.NewRequest("POST", url, nil)
 	if err != nil {
@@ -69,7 +69,7 @@ func (c *Client) InitPullSonarTestsMeasure(log *zap.SugaredLogger) error {
 func (c *Client) InitPullSonarDeliveryMeasure(log *zap.SugaredLogger) error {
 	log.Info("start to pull sonar delivery measure..")
 
-	url := fmt.Sprintf("%s/quality/sonar/delivery/measure/pull", config.AslanxAPI())
+	url := fmt.Sprintf("%s/api/quality/sonar/delivery/measure/pull", configbase.AslanxServiceAddress())
 
 	request, err := http.NewRequest("POST", url, nil)
 	if err != nil {
@@ -100,7 +100,7 @@ func (c *Client) InitPullSonarDeliveryMeasure(log *zap.SugaredLogger) error {
 func (c *Client) InitPullSonarRepos(log *zap.SugaredLogger) error {
 	log.Info("start to pull sonar repos..")
 
-	url := fmt.Sprintf("%s/quality/sonar/repository/pull", config.AslanxAPI())
+	url := fmt.Sprintf("%s/api/quality/sonar/repository/pull", configbase.AslanxServiceAddress())
 
 	request, err := http.NewRequest("POST", url, nil)
 	if err != nil {
