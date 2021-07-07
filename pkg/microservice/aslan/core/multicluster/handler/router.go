@@ -44,9 +44,4 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		Cluster.PUT("/:id/disconnect", gin2.RequireSuperAdminAuth, DisconnectCluster)
 		Cluster.PUT("/:id/reconnect", gin2.RequireSuperAdminAuth, ReconnectCluster)
 	}
-
-	ClusterYaml := router.Group("yamlArgs")
-	{
-		ClusterYaml.GET("", GetYamlArgs)
-	}
 }

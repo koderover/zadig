@@ -17,25 +17,16 @@ limitations under the License.
 package handler
 
 import (
-	"errors"
-	"fmt"
-	"net/url"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/multicluster/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
-
-type yamlArgs struct {
-	HubAgentImage     string `json:"hub_agent_image"`
-	HubServerBaseAddr string `json:"hub_server_base_addr"`
-}
 
 func ListClusters(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
@@ -144,30 +135,5 @@ func GetClusterYaml(hubURI string) func(*gin.Context) {
 
 		c.Data(200, "text/plain", yaml)
 		c.Abort()
-	}
-}
-
-func GetYamlArgs(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	hubAgentImage := config.HubAgentImage()
-	aslanURL := config.AslanURL()
-
-	var hubBase, err = url.Parse(fmt.Sprintf("%s%s", aslanURL, "/api/hub"))
-	if err != nil {
-		ctx.Err = errors.New("parse hubBase failed")
-		return
-	}
-	if strings.ToLower(hubBase.Scheme) == "https" {
-		hubBase.Scheme = "wss"
-	} else {
-		hubBase.Scheme = "ws"
-	}
-	hubServerBaseAddr := hubBase.String()
-
-	ctx.Resp = yamlArgs{
-		HubAgentImage:     hubAgentImage,
-		HubServerBaseAddr: hubServerBaseAddr,
 	}
 }
