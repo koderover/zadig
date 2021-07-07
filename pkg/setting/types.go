@@ -28,3 +28,59 @@ const (
 	// MinRequest 2 CPU 2 G
 	MinRequest Request = "min"
 )
+
+const (
+	Aslan     = iota + 1 // 1
+	Aslanx               // 2
+	Collie               // 3
+	Cron                 // 4
+	HubServer            // 5
+	PodExec              // 6
+	Poetry               // 7
+	SonarQube            // 8
+	WarpDrive            // 9
+)
+
+type ServiceInfo struct {
+	Name string
+	Port int32
+}
+
+var Services = map[int]*ServiceInfo{
+	Aslan: {
+		Name: "aslan",
+		Port: 25000,
+	},
+	Aslanx: {
+		Name: "aslanx",
+		Port: 25002,
+	},
+	Collie: {
+		Name: "collie-server",
+		Port: 28080,
+	},
+	Cron: {
+		Name: "cron",
+		Port: 80,
+	},
+	HubServer: {
+		Name: "hub-server",
+		Port: 26000,
+	},
+	PodExec: {
+		Name: "podexec",
+		Port: 27000,
+	},
+	Poetry: {
+		Name: "poetry",
+		Port: 34001,
+	},
+	SonarQube: {
+		Name: "sonarqube",
+		Port: 80,
+	},
+	WarpDrive: {
+		Name: "warpdrive",
+		Port: 80,
+	},
+}

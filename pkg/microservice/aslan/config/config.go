@@ -24,8 +24,7 @@ import (
 
 	"github.com/spf13/viper"
 
-	// init the config first
-	_ "github.com/koderover/zadig/pkg/config"
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/setting"
 )
 
@@ -84,7 +83,7 @@ func PoetryAPIRootKey() string {
 }
 
 func CollieAPIAddress() string {
-	return viper.GetString(setting.ENVCollieAPIAddress)
+	return configbase.CollieServiceAddress()
 }
 
 func MongoURI() string {
@@ -99,12 +98,8 @@ func NsqLookupAddrs() []string {
 	return strings.Split(viper.GetString(setting.ENVNsqLookupAddrs), ",")
 }
 
-func AslanURL() string {
-	return viper.GetString(setting.ENVAslanURL)
-}
-
 func HubServerAddress() string {
-	return viper.GetString(setting.ENVHubServerAddr)
+	return configbase.HubServerServiceAddress()
 }
 
 func HubAgentImage() string {
@@ -149,18 +144,10 @@ func S3StorageProtocol() string {
 	return viper.GetString(setting.ENVS3StorageProtocol)
 }
 
-func AslanAPIBase() string {
-	return viper.GetString(setting.ENVAslanAPIBase)
-}
-
 func SetProxy(HTTPSAddr, HTTPAddr, Socks5Addr string) {
 	viper.Set(setting.ProxyHTTPSAddr, HTTPSAddr)
 	viper.Set(setting.ProxyHTTPAddr, HTTPAddr)
 	viper.Set(setting.ProxySocks5Addr, Socks5Addr)
-}
-
-func ProxyAPIAddress() string {
-	return viper.GetString(setting.ProxyAPIAddr)
 }
 
 func ProxyHTTPSAddr() string {
@@ -189,14 +176,6 @@ func RegistrySecretKey() string {
 
 func RegistryNamespace() string {
 	return viper.GetString(setting.ENVAslanRegNamespace)
-}
-
-func ENVAslanURL() string {
-	return viper.GetString(setting.ENVAslanURL)
-}
-
-func ENVWarpdriveService() string {
-	return viper.GetString(setting.ENVWarpdriveService)
 }
 
 func GithubSSHKey() string {
@@ -243,18 +222,6 @@ func JenkinsImage() string {
 	return viper.GetString(setting.JenkinsBuildImage)
 }
 
-func SonarAddr() string {
-	return viper.GetString(setting.EnvSonarAddr)
-}
-
-func SonarRootToken() string {
-	return viper.GetString(setting.EnvSonarRootToken)
-}
-
-func SonarInternalAddr() string {
-	return viper.GetString(setting.EnvSonarInternalAddr)
-}
-
 func WebHookURL() string {
-	return fmt.Sprintf("%s/api/aslan/webhook", AslanURL())
+	return fmt.Sprintf("%s/api/aslan/webhook", configbase.SystemAddress())
 }

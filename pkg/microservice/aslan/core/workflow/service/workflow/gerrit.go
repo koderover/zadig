@@ -54,7 +54,7 @@ func CreateGerritWebhook(workflow *commonmodels.Workflow, log *zap.SugaredLogger
 				log.Errorf("CreateGerritWebhook getGerritWebhook err:%v", err)
 				//创建webhook
 				gerritWebhook := &gerrit.Webhook{
-					URL:       fmt.Sprintf("%s/%s%s", config.AslanAPIBase(), "gerritHook?name=", workflow.Name),
+					URL:       fmt.Sprintf("%s?name=%s", config.WebHookURL(), workflow.Name),
 					MaxTries:  setting.MaxTries,
 					SslVerify: false,
 				}
@@ -129,7 +129,7 @@ func UpdateGerritWebhook(currentWorkflow *commonmodels.Workflow, log *zap.Sugare
 			webhookURL := fmt.Sprintf("/%s/%s/%s/%s", "a/config/server/webhooks~projects", gerrit.Escape(workflowWebhook.MainRepo.RepoName), "remotes", currentWorkflow.Name)
 			//创建webhook
 			gerritWebhook := &gerrit.Webhook{
-				URL:       fmt.Sprintf("%s/%s%s", config.AslanAPIBase(), "gerritHook?name=", currentWorkflow.Name),
+				URL:       fmt.Sprintf("%s?name=%s", config.WebHookURL(), currentWorkflow.Name),
 				MaxTries:  setting.MaxTries,
 				SslVerify: false,
 			}

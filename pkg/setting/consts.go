@@ -21,13 +21,11 @@ const LocalConfig = "local.env"
 // envs
 const (
 	// common
+	ENVSystemAddress           = "ADDRESS"
 	ENVMode                    = "MODE"
-	ENVCollieAPIAddress        = "COLLIE_API_ADDRESS"
 	ENVNsqLookupAddrs          = "NSQLOOKUP_ADDRS"
 	ENVMongoDBConnectionString = "MONGODB_CONNECTION_STRING"
 	ENVAslanDBName             = "ASLAN_DB"
-	ENVAslanAPIBase            = "ASLAN_API_BASE"
-	ENVHubServerAddr           = "HUB_SERVER_ADDR"
 	ENVHubAgentImage           = "HUB_AGENT_IMAGE"
 	ENVPoetryAPIServer         = "POETRY_API_SERVER"
 	ENVPoetryAPIRootKey        = "POETRY_API_ROOT_KEY"
@@ -36,8 +34,6 @@ const (
 	ENVPodName              = "BE_POD_NAME"
 	ENVNamespace            = "BE_POD_NAMESPACE"
 	ENVLogLevel             = "LOG_LEVEL"
-	ENVAslanURL             = "ASLAN_URL"
-	ENVWarpdriveService     = "WARPDRIVE_SERVICE"
 	ENVServiceStartTimeout  = "SERVICE_START_TIMEOUT"
 	ENVDefaultEnvRecycleDay = "DEFAULT_ENV_RECYCLE_DAY"
 	ENVDefaultIngressClass  = "DEFAULT_INGRESS_CLASS"
@@ -67,10 +63,6 @@ const (
 	ENVS3StorageProtocol = "S3STORAGE_PROTOCOL"
 	ENVS3StoragePath     = "S3STORAGE_PATH"
 	ENVKubeServerAddr    = "KUBE_SERVER_ADDR"
-
-	EnvSonarAddr         = "SONAR_ADDR"
-	EnvSonarRootToken    = "SONAR_ROOT_TOKEN"
-	EnvSonarInternalAddr = "SONAR_INTERNAL_ADDR"
 
 	// cron
 	ENVAslanAPI        = "ASLAN_API"

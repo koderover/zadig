@@ -21,6 +21,7 @@ import (
 
 	"github.com/spf13/viper"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	// init the config first
 	_ "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/setting"
@@ -39,7 +40,7 @@ func RootToken() string {
 }
 
 func CollieAPI() string {
-	return viper.GetString(setting.ENVCollieAPIAddress)
+	return configbase.CollieServiceAddress()
 }
 
 func CollieToken() string {

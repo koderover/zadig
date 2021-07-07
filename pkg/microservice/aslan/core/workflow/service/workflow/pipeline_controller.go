@@ -27,6 +27,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
@@ -372,7 +373,7 @@ func agentCount() int {
 		wdReplicas    int
 	)
 
-	signatures, enabled, _ := aslanx.New(config.AslanURL(), config.PoetryAPIRootKey()).ListSignatures(log.NopSugaredLogger())
+	signatures, enabled, _ := aslanx.New(configbase.AslanxServiceAddress(), config.PoetryAPIRootKey()).ListSignatures(log.NopSugaredLogger())
 	if enabled {
 		if len(signatures) == 0 {
 			log.Errorf("Not Find Token")
@@ -396,7 +397,7 @@ func agentCount() int {
 	}
 
 	kubeClient := krkubeclient.Client()
-	deployment, _, err := getter.GetDeployment(config.Namespace(), config.ENVWarpdriveService(), kubeClient)
+	deployment, _, err := getter.GetDeployment(config.Namespace(), configbase.WarpDriveServiceName(), kubeClient)
 	if err != nil {
 		log.Errorf("kubeCli.GetDeployment error: %v", err)
 		return 0

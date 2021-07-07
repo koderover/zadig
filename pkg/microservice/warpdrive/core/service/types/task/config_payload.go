@@ -65,7 +65,6 @@ func (cp *ConfigPayload) GetGitKnownHost() string {
 
 type AslanConfig struct {
 	URL              string
-	WarpdriveService string
 }
 
 type ProxyConfig struct {

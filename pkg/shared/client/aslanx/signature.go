@@ -34,7 +34,7 @@ type Signature struct {
 // enabled means signature control is enabled.
 // If the status code is 404, mark enabled as false.
 func (c *Client) ListSignatures(log *zap.SugaredLogger) ([]*Signature, bool, error) {
-	url := "/api/aslanx/enterprise/license"
+	url := "/api/enterprise/license"
 
 	signatures := make([]*Signature, 0)
 	_, err := c.Get(url, httpclient.SetResult(&signatures))
