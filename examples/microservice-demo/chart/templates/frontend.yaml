@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  labels:
+    app.kubernetes.io/instance: frontend
+    app.kubernetes.io/name: demo
+spec:
+  replicas: {{ .Values.Frontend.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: frontend
+      app.kubernetes.io/name: demo
+  strategy: 
+    type: RollingUpdate
+    rollingUpdate: 
+      maxUnavailable: 1
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: frontend
+        app.kubernetes.io/name: demo
+    spec:
+      containers:
+        - name: frontend
+          image: {{ .Values.Frontend.image.repository }}:{{ .Values.Frontend.image.tag }}
+          imagePullPolicy: Always
+          ports:
+            - protocol: TCP
+              containerPort: 80
+          resources:
+            limits:
+              cpu: 1
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 100M
+      imagePullSecrets:
+      - name: registry-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  labels:
+    app.kubernetes.io/instance: frontend
+    app.kubernetes.io/name: demo
+spec:
+  selector:
+    app.kubernetes.io/instance: frontend
+    app.kubernetes.io/name: demo
+  type: NodePort
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: frontend
+  annotations:
+    kubernetes.io/ingress.class: {{ .Values.ingressClass }}
+    "helm.sh/resource-policy": keep
+    nginx.ingress.kubernetes.io/proxy-body-size: 100m
+  labels:
+    app.kubernetes.io/instance: frontend
+    app.kubernetes.io/name: demo
+spec:
+  rules:
+  - host: {{ .Values.domain }}
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: frontend
+          servicePort: 80
+
+
+

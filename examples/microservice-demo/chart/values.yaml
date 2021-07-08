@@ -1,0 +1,24 @@
+# Default values for chart.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+ingressClass: kr-nginx
+Backend:
+  replicaCount: 1
+  image:
+    repository: ccr.ccs.tencentyun.com/koderover-public/backend
+    tag: "latest"
+
+Frontend:
+  replicaCount: 1
+  image: 
+    repository: ccr.ccs.tencentyun.com/koderover-public/frontend
+    tag: "latest"
+
+domain: .app.8slan.com
+port: 20219
+
+registrySecret: ""
+
+
+
