@@ -25,7 +25,11 @@ import (
 
 func GetUserKubeConfig(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = settingservice.GetUserKubeConfig(ctx.User.Name, ctx.User.ID, ctx.User.IsSuperUser, ctx.Logger)
+	resp, err := settingservice.GetUserKubeConfig(ctx.User.Name, ctx.User.ID, ctx.User.IsSuperUser, ctx.Logger)
+	if err!=nil{
+		c.String(400,"text/plain", err)
+		return
+	}
+	c.String(200,"text/plain", resp)
 }
