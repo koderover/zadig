@@ -21,25 +21,16 @@ import (
 
 	"github.com/spf13/viper"
 
-	// init the config first
-	_ "github.com/koderover/zadig/pkg/config"
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/setting"
 )
-
-func AslanAPI() string {
-	return viper.GetString(setting.ENVAslanAPI)
-}
-
-func AslanxAPI() string {
-	return viper.GetString(setting.ENVAslanxAPI)
-}
 
 func RootToken() string {
 	return viper.GetString(setting.ENVRootToken)
 }
 
 func CollieAPI() string {
-	return viper.GetString(setting.ENVCollieAPIAddress)
+	return configbase.CollieServiceAddress()
 }
 
 func CollieToken() string {

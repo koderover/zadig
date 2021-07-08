@@ -28,6 +28,7 @@ import (
 
 	"go.uber.org/zap"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	plugins "github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/github"
@@ -312,7 +313,7 @@ func updateGitCheck(pt *task.Task) error {
 			Ref:    hook.Ref,
 			IsPr:   hook.IsPr,
 
-			AslanURL:    pt.ConfigPayload.Aslan.URL,
+			AslanURL:    configbase.SystemAddress(),
 			PipeName:    pt.PipelineName,
 			PipeType:    pt.Type,
 			ProductName: pt.ProductName,
@@ -334,7 +335,7 @@ func updateGitCheck(pt *task.Task) error {
 		Ref:         hook.Ref,
 		State:       github.StatePending,
 		Description: fmt.Sprintf("Workflow [%s] is running.", pt.PipelineName),
-		AslanURL:    pt.ConfigPayload.Aslan.URL,
+		AslanURL:    configbase.SystemAddress(),
 		PipeName:    pt.PipelineName,
 		ProductName: pt.ProductName,
 		PipeType:    pt.Type,
@@ -389,7 +390,7 @@ func completeGitCheck(pt *task.Task) error {
 			Ref:    hook.Ref,
 			IsPr:   hook.IsPr,
 
-			AslanURL:    pt.ConfigPayload.Aslan.URL,
+			AslanURL:    configbase.SystemAddress(),
 			PipeName:    pt.PipelineName,
 			PipeType:    pt.Type,
 			ProductName: pt.ProductName,
@@ -413,7 +414,7 @@ func completeGitCheck(pt *task.Task) error {
 		Ref:         hook.Ref,
 		State:       getGitHubStatusFromCIStatus(ciStatus),
 		Description: fmt.Sprintf("Workflow [%s] is %s.", pt.PipelineName, ciStatus),
-		AslanURL:    pt.ConfigPayload.Aslan.URL,
+		AslanURL:    configbase.SystemAddress(),
 		PipeName:    pt.PipelineName,
 		ProductName: pt.ProductName,
 		PipeType:    pt.Type,

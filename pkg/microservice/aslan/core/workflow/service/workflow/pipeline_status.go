@@ -25,6 +25,7 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -190,7 +191,7 @@ func FindTasks(commitID string, log *zap.SugaredLogger) ([]*TaskV2Info, error) {
 						keys.Insert(key)
 						resp = append(resp, &TaskV2Info{
 							TaskID:     workflowTask.TaskID,
-							URL:        fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/multi/%s/%d", config.ENVAslanURL(), workflowTask.ProductName, workflowTask.PipelineName, workflowTask.TaskID),
+							URL:        fmt.Sprintf("%s/v1/projects/detail/%s/pipelines/multi/%s/%d", configbase.SystemAddress(), workflowTask.ProductName, workflowTask.PipelineName, workflowTask.TaskID),
 							Status:     string(workflowTask.Status),
 							CreateTime: workflowTask.CreateTime,
 							StartTime:  workflowTask.StartTime,

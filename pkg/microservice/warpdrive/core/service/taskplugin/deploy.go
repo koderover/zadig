@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/s3"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types"
@@ -58,7 +59,7 @@ func InitializeDeployTaskPlugin(taskType config.TaskType) TaskPlugin {
 		httpClient: httpclient.New(
 			httpclient.SetAuthScheme(setting.RootAPIKey),
 			httpclient.SetAuthToken(config.PoetryAPIRootKey()),
-			httpclient.SetHostURL(config.AslanAddr()),
+			httpclient.SetHostURL(configbase.AslanServiceAddress()),
 		),
 	}
 }
@@ -447,7 +448,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 }
 
 func (p *DeployTaskPlugin) getProductInfo(ctx context.Context, args *EnvArgs) (*types.Product, error) {
-	url := fmt.Sprintf("/environment/environments/%s/productInfo", args.ProductName)
+	url := fmt.Sprintf("/api/environment/environments/%s/productInfo", args.ProductName)
 
 	prod := &types.Product{}
 	_, err := p.httpClient.Get(url, httpclient.SetResult(prod), httpclient.SetQueryParam("envName", args.EnvName))
@@ -458,7 +459,7 @@ func (p *DeployTaskPlugin) getProductInfo(ctx context.Context, args *EnvArgs) (*
 }
 
 func (p *DeployTaskPlugin) getService(ctx context.Context, name, serviceType, productName string) (*types.ServiceTmpl, error) {
-	url := fmt.Sprintf("/service/services/%s/%s", name, serviceType)
+	url := fmt.Sprintf("/api/service/services/%s/%s", name, serviceType)
 
 	s := &types.ServiceTmpl{}
 	_, err := p.httpClient.Get(url, httpclient.SetResult(s), httpclient.SetQueryParam("productName", productName))
@@ -503,7 +504,7 @@ func (p *DeployTaskPlugin) downloadService(pipelineTask *task.Task, serviceName,
 }
 
 func (p *DeployTaskPlugin) getRenderSet(ctx context.Context, name string, revision int64) (*types.RenderSet, error) {
-	url := fmt.Sprintf("/project/renders/render/%s/revision/%d", name, revision)
+	url := fmt.Sprintf("/api/project/renders/render/%s/revision/%d", name, revision)
 
 	rs := &types.RenderSet{}
 	_, err := p.httpClient.Get(url, httpclient.SetResult(rs))
@@ -514,7 +515,7 @@ func (p *DeployTaskPlugin) getRenderSet(ctx context.Context, name string, revisi
 }
 
 func (p *DeployTaskPlugin) updateRenderSet(ctx context.Context, args *types.RenderSet) error {
-	url := "project/renders"
+	url := "/api/project/renders"
 
 	_, err := p.httpClient.Put(url, httpclient.SetBody(args))
 

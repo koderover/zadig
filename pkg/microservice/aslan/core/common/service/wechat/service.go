@@ -25,6 +25,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -159,7 +160,7 @@ func (w *Service) SendWechatMessage(task *task.Task) error {
 			}
 			content, err = w.createNotifyBody(&wechatNotification{
 				Task:        task,
-				BaseURI:     config.AslanURL(),
+				BaseURI:     configbase.SystemAddress(),
 				IsSingle:    true,
 				WebHookType: webHookType,
 				TotalTime:   time.Now().Unix() - task.StartTime,
@@ -194,7 +195,7 @@ func (w *Service) SendWechatMessage(task *task.Task) error {
 			}
 			content, err = w.createNotifyBody(&wechatNotification{
 				Task:        task,
-				BaseURI:     config.AslanURL(),
+				BaseURI:     configbase.SystemAddress(),
 				IsSingle:    false,
 				WebHookType: webHookType,
 				TotalTime:   time.Now().Unix() - task.StartTime,

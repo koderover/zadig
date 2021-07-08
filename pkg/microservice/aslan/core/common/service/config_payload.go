@@ -26,10 +26,6 @@ import (
 
 func GetConfigPayload(codeHostID int) *models.ConfigPayload {
 	payload := &models.ConfigPayload{
-		Aslan: models.AslanConfig{
-			URL:              config.AslanURL(),
-			WarpdriveService: config.ENVWarpdriveService(),
-		},
 		S3Storage: models.S3Config{
 			Ak:       config.S3StorageAK(),
 			Sk:       config.S3StorageSK(),

@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
@@ -519,7 +520,7 @@ func prepareTaskEnvs(pt *task.Task, log *zap.SugaredLogger) []*commonmodels.KeyV
 	// 设置系统信息
 	envs = append(envs,
 		&commonmodels.KeyVal{Key: "SERVICE", Value: pt.ServiceName},
-		&commonmodels.KeyVal{Key: "BUILD_URL", Value: GetLink(pt, config.ENVAslanURL(), config.WorkflowType)},
+		&commonmodels.KeyVal{Key: "BUILD_URL", Value: GetLink(pt, configbase.SystemAddress(), config.WorkflowType)},
 		&commonmodels.KeyVal{Key: "DIST_DIR", Value: fmt.Sprintf("%s/%s/dist/%d", pt.ConfigPayload.S3Storage.Path, pt.PipelineName, pt.TaskID)},
 		&commonmodels.KeyVal{Key: "IMAGE", Value: pt.TaskArgs.Deploy.Image},
 		&commonmodels.KeyVal{Key: "PKG_FILE", Value: pt.TaskArgs.Deploy.PackageFile},

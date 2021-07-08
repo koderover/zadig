@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
@@ -952,7 +953,7 @@ func addService() (bool, int) {
 	)
 	totalServices, _ := commonrepo.NewServiceColl().DistinctServices(&commonrepo.ServiceListOption{ExcludeStatus: setting.ProductStatusDeleting})
 	totalServiceCount = len(totalServices)
-	signatures, enabled, _ := aslanx.New(config.AslanURL(), config.PoetryAPIRootKey()).ListSignatures(log.NopSugaredLogger())
+	signatures, enabled, _ := aslanx.New(configbase.AslanxServiceAddress(), config.PoetryAPIRootKey()).ListSignatures(log.NopSugaredLogger())
 	if !enabled {
 		return true, limitServiceCount
 	}
@@ -1000,7 +1001,7 @@ func updateGerritWebhookByService(lastService, currentService *commonmodels.Serv
 		log.Errorf("updateGerritWebhookByService getGerritWebhook err:%v", err)
 		//创建webhook
 		gerritWebhook := &gerrit.Webhook{
-			URL:       fmt.Sprintf("%s/%s%s", config.AslanAPIBase(), "gerritHook?name=", currentService.ServiceName),
+			URL:       fmt.Sprintf("%s?name=%s", config.WebHookURL(), currentService.ServiceName),
 			MaxTries:  setting.MaxTries,
 			SslVerify: false,
 		}
@@ -1026,7 +1027,7 @@ func createGerritWebhookByService(codehostID int, serviceName, repoName, branchN
 		log.Errorf("createGerritWebhookByService getGerritWebhook err:%v", err)
 		//创建webhook
 		gerritWebhook := &gerrit.Webhook{
-			URL:       fmt.Sprintf("%s/%s%s", config.AslanAPIBase(), "gerritHook?name=", serviceName),
+			URL:       fmt.Sprintf("%s?name=%s", config.WebHookURL(), serviceName),
 			MaxTries:  setting.MaxTries,
 			SslVerify: false,
 		}

@@ -32,7 +32,7 @@ func UpdateOperationLogStatus(c *gin.Context) {
 		return
 	}
 
-	err := aslanx.New(config.AslanURL(), config.PoetryAPIRootKey()).UpdateAuditLog(c.GetString("operationLogID"), c.Writer.Status(), log)
+	err := aslanx.New(config.AslanxServiceAddress(), config.PoetryAPIRootKey()).UpdateAuditLog(c.GetString("operationLogID"), c.Writer.Status(), log)
 	if err != nil {
 		log.Errorf("UpdateOperation err:%v", err)
 	}

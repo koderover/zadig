@@ -24,6 +24,13 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 )
 
+// SystemAddress is the fully qualified domain name of the system, or an IP Address.
+// Port and protocol is required if necessary.
+// for example: foo.bar.com, https://for.bar.com, http://1.2.3.4:5678
+func SystemAddress() string {
+	return viper.GetString(setting.ENVSystemAddress)
+}
+
 func Mode() string {
 	mode := viper.GetString(setting.ENVMode)
 	if mode == "" {
@@ -61,14 +68,96 @@ func RequestLogFile() string {
 	return LogPath() + RequestLogName()
 }
 
-func AslanURL() string {
-	return viper.GetString(setting.ENVAslanURL)
-}
-
 func PoetryAPIServer() string {
 	return viper.GetString(setting.ENVPoetryAPIServer)
 }
 
 func PoetryAPIRootKey() string {
 	return viper.GetString(setting.ENVPoetryAPIRootKey)
+}
+
+func GetServiceByCode(code int) *setting.ServiceInfo {
+	return setting.Services[code]
+}
+
+func AslanServiceInfo() *setting.ServiceInfo {
+	return GetServiceByCode(setting.Aslan)
+}
+
+func AslanServiceAddress() string {
+	s := AslanServiceInfo()
+	return getServiceAddress(s.Name, s.Port)
+}
+
+func AslanServiceName() string {
+	return AslanServiceInfo().Name
+}
+
+func AslanServicePort() int32 {
+	return AslanServiceInfo().Port
+}
+
+func AslanxServiceInfo() *setting.ServiceInfo {
+	return GetServiceByCode(setting.Aslanx)
+}
+
+func AslanxServiceAddress() string {
+	s := AslanxServiceInfo()
+	return getServiceAddress(s.Name, s.Port)
+}
+
+func AslanxServiceName() string {
+	return AslanxServiceInfo().Name
+}
+
+func AslanxServicePort() int32 {
+	return AslanxServiceInfo().Port
+}
+
+func HubServerServiceInfo() *setting.ServiceInfo {
+	return GetServiceByCode(setting.HubServer)
+}
+
+func HubServerServiceAddress() string {
+	s := HubServerServiceInfo()
+	return getServiceAddress(s.Name, s.Port)
+}
+
+func ClairServiceInfo() *setting.ServiceInfo {
+	return GetServiceByCode(setting.Clair)
+}
+
+func ClairServiceAddress() string {
+	s := ClairServiceInfo()
+	return getServiceAddress(s.Name, s.Port)
+}
+
+func CollieServiceInfo() *setting.ServiceInfo {
+	return GetServiceByCode(setting.Collie)
+}
+
+func CollieServiceAddress() string {
+	s := CollieServiceInfo()
+	return getServiceAddress(s.Name, s.Port)
+}
+
+func PoetryServiceInfo() *setting.ServiceInfo {
+	return GetServiceByCode(setting.Poetry)
+}
+
+func PoetryServiceAddress() string {
+	s := PoetryServiceInfo()
+	return getServiceAddress(s.Name, s.Port)
+}
+
+func WarpDriveServiceInfo() *setting.ServiceInfo {
+	return GetServiceByCode(setting.WarpDrive)
+}
+
+func WarpDriveServiceName() string {
+	return WarpDriveServiceInfo().Name
+}
+
+func getServiceAddress(name string, port int32) string {
+	return fmt.Sprintf("http://%s:%d", name, port)
 }

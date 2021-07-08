@@ -21,6 +21,7 @@ import (
 
 	"go.uber.org/zap"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
@@ -61,7 +62,7 @@ func createGitCheck(pt *task.Task, log *zap.SugaredLogger) error {
 			Ref:    hook.Ref,
 			IsPr:   hook.IsPr,
 
-			AslanURL:    config.AslanURL(),
+			AslanURL:    configbase.SystemAddress(),
 			PipeName:    pt.PipelineName,
 			ProductName: pt.ProductName,
 			PipeType:    pt.Type,
@@ -97,7 +98,7 @@ func createGitCheck(pt *task.Task, log *zap.SugaredLogger) error {
 		Ref:         hook.Ref,
 		State:       github.StatePending,
 		Description: fmt.Sprintf("Workflow [%s] is queued.", pt.PipelineName),
-		AslanURL:    config.AslanURL(),
+		AslanURL:    configbase.SystemAddress(),
 		PipeName:    pt.PipelineName,
 		ProductName: pt.ProductName,
 		PipeType:    pt.Type,

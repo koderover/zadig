@@ -21,26 +21,26 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/cron/config"
+	configbase "github.com/koderover/zadig/pkg/config"
 )
 
 func (c *Client) InitStatData(log *zap.SugaredLogger) error {
 	//build
-	url := fmt.Sprintf("%s/quality/stat/initBuildStat", config.AslanxAPI())
+	url := fmt.Sprintf("%s/api/quality/stat/initBuildStat", configbase.AslanxServiceAddress())
 	log.Info("start init buildStat..")
 	err := c.sendRequest(url)
 	if err != nil {
 		log.Errorf("trigger init buildStat error :%v", err)
 	}
 	//test
-	url = fmt.Sprintf("%s/quality/stat/initTestStat", config.AslanxAPI())
+	url = fmt.Sprintf("%s/api/quality/stat/initTestStat", configbase.AslanxServiceAddress())
 	log.Info("start init testStat..")
 	err = c.sendRequest(url)
 	if err != nil {
 		log.Errorf("trigger init testStat error :%v", err)
 	}
 	//deploy
-	url = fmt.Sprintf("%s/quality/stat/initDeployStat", config.AslanxAPI())
+	url = fmt.Sprintf("%s/api/quality/stat/initDeployStat", configbase.AslanxServiceAddress())
 	log.Info("start init deployStat..")
 	err = c.sendRequest(url)
 	if err != nil {
@@ -52,7 +52,7 @@ func (c *Client) InitStatData(log *zap.SugaredLogger) error {
 
 func (c *Client) InitOperationStatData(log *zap.SugaredLogger) error {
 	//operation
-	url := fmt.Sprintf("%s/operation/stat/initOperationStat", config.AslanxAPI())
+	url := fmt.Sprintf("%s/api/operation/stat/initOperationStat", configbase.AslanxServiceAddress())
 	log.Info("start init operationStat..")
 	err := c.sendRequest(url)
 	if err != nil {

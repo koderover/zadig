@@ -74,7 +74,6 @@ func TestDockerBuildTaskPlugin(t *testing.T) {
 			Registry: task.RegistryConfig{
 				Addr: "127.0.0.1",
 			},
-			Aslan: task.AslanConfig{},
 		},
 		TaskArgs: &task.TaskArgs{
 			Deploy: task.DeployArgs{

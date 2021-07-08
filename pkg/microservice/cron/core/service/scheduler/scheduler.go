@@ -28,6 +28,7 @@ import (
 	"github.com/rfyiamcool/cronlib"
 	"go.uber.org/zap"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/cron/config"
 	"github.com/koderover/zadig/pkg/microservice/cron/core/service"
 	"github.com/koderover/zadig/pkg/microservice/cron/core/service/client"
@@ -80,11 +81,9 @@ const (
 // NewCronClient ...
 // 服务初始化
 func NewCronClient() *CronClient {
-	aslanAPI := config.AslanAPI()
-	aslanToken := config.RootToken()
 	nsqLookupAddrs := config.NsqLookupAddrs()
 
-	aslanCli := client.NewAslanClient(aslanAPI, aslanToken)
+	aslanCli := client.NewAslanClient(fmt.Sprintf("%s/api", configbase.AslanServiceAddress()), config.RootToken())
 	collieCli := client.NewCollieClient(config.CollieAPI(), config.CollieToken())
 	//初始化nsq
 	config := nsq.NewConfig()
@@ -161,7 +160,7 @@ func (c *CronClient) Init() {
 }
 
 func getFeatures() (string, error) {
-	cl := poetry.New(config.AslanAPI(), config.RootToken())
+	cl := poetry.New(configbase.PoetryServiceAddress(), config.RootToken())
 	fs, err := cl.ListFeatures()
 	if err != nil {
 		return "", err

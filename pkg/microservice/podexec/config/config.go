@@ -19,6 +19,7 @@ package config
 import (
 	"github.com/spf13/viper"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	// init the config first
 	_ "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/setting"
@@ -33,7 +34,7 @@ func PoetryAPIServer() string {
 }
 
 func HubServerAddr() string {
-	return viper.GetString(setting.ENVHubServerAddr)
+	return configbase.HubServerServiceAddress()
 }
 
 func KubeCfg() string {

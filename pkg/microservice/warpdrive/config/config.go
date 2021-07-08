@@ -38,24 +38,12 @@ func NSQLookupAddrs() []string {
 	return strings.Split(viper.GetString(setting.ENVNsqLookupAddrs), ",")
 }
 
-func PodIP() string {
-	return viper.GetString(setting.ENVPodIP)
-}
-
 func PoetryAPIAddr() string {
 	return viper.GetString(setting.ENVPoetryAPIAddr)
 }
 
 func PoetryAPIRootKey() string {
 	return viper.GetString(setting.ENVPoetryAPIRootKey)
-}
-
-func AslanAddr() string {
-	return viper.GetString(setting.ENVAslanAddr)
-}
-
-func ClairClientAddr() string {
-	return viper.GetString(setting.ENVClairClientAddr)
 }
 
 func ReleaseImageTimeout() string {
