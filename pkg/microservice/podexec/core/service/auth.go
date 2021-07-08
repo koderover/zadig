@@ -56,7 +56,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 				token := strings.Split(authorization, " ")
 				if len(token) == 2 {
 					//根据token获取用户
-					userInfo, err := poetry.ListUsersDetail(configbase.PoetryServiceAddress(), authorization, "")
+					userInfo, err := poetry.GetUserDetailByToken(configbase.PoetryServiceAddress(), token[1])
 					if err != nil {
 						w.WriteHeader(http.StatusUnauthorized)
 						_ = json.NewEncoder(w).Encode(&EndpointResponse{ResultCode: http.StatusUnauthorized, ErrorMsg: "auth failed"})
@@ -70,7 +70,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 				return
 			}
 		} else if token, err := r.Cookie("TOKEN"); err == nil {
-			userInfo, err := poetry.ListUsersDetail(configbase.PoetryServiceAddress(), "", token.String())
+			userInfo, err := poetry.GetUserDetailByToken(configbase.PoetryServiceAddress(), token.Value)
 			if err != nil {
 				log.Errorf("PoetryRequest err:%v", err)
 				w.WriteHeader(http.StatusUnauthorized)
