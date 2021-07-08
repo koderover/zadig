@@ -17,7 +17,6 @@ limitations under the License.
 package service
 
 import (
-	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -27,9 +26,6 @@ import (
 
 func GetConfigPayload(codeHostID int) *models.ConfigPayload {
 	payload := &models.ConfigPayload{
-		Aslan: models.AslanConfig{
-			URL:              configbase.SystemAddress(),
-		},
 		S3Storage: models.S3Config{
 			Ak:       config.S3StorageAK(),
 			Sk:       config.S3StorageSK(),

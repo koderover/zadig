@@ -21,7 +21,6 @@ import (
 )
 
 type ConfigPayload struct {
-	Aslan              AslanConfig        `json:"aslan"`
 	Proxy              Proxy              `json:"proxy"`
 	S3Storage          S3Config           `json:"s3_storage"`
 	Github             GithubConfig       `json:"github"`
@@ -61,10 +60,6 @@ func (cp *ConfigPayload) GetGitKnownHost() string {
 		host = fmt.Sprintf("%s\n%s", host, cp.Gitlab.KnownHost)
 	}
 	return host
-}
-
-type AslanConfig struct {
-	URL              string
 }
 
 type ProxyConfig struct {
