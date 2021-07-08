@@ -28,7 +28,7 @@ type Testing struct {
 }
 
 func (c *Client) ListTestings(log *zap.SugaredLogger) ([]*Testing, error) {
-	url := "/aslan/testing/test"
+	url := "/api/testing/test"
 	resp := make([]*Testing, 0)
 
 	_, err := c.Get(url, httpclient.SetResult(&resp))
@@ -51,7 +51,7 @@ type TestTaskStat struct {
 }
 
 func (c *Client) ListTestTaskStats(log *zap.SugaredLogger) ([]*TestTaskStat, error) {
-	url := "/aslan/testing/teststat"
+	url := "/api/testing/teststat"
 	resp := make([]*TestTaskStat, 0)
 
 	_, err := c.Get(url, httpclient.SetResult(&resp))
