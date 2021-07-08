@@ -65,7 +65,7 @@ func IsHavePermission(permissionUUIDs []string, paramType int) gin.HandlerFunc {
 		}
 
 		var productName string
-		poetryClient := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
+		poetryClient := poetry.New(config.PoetryServiceAddress(), config.PoetryAPIRootKey())
 
 		if paramType == permission.ParamType {
 			productName = c.Param("name")

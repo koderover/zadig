@@ -68,10 +68,6 @@ func RequestLogFile() string {
 	return LogPath() + RequestLogName()
 }
 
-func PoetryAPIServer() string {
-	return viper.GetString(setting.ENVPoetryAPIServer)
-}
-
 func PoetryAPIRootKey() string {
 	return viper.GetString(setting.ENVPoetryAPIRootKey)
 }

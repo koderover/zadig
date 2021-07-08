@@ -207,7 +207,7 @@ func NewKubeOutClusterClient(clusterID string) (kubernetes.Interface, *rest.Conf
 	var err error
 
 	if clusterID == "" {
-		kubeConfig := conf.KubeCfg()
+		kubeConfig := ""
 		config, err = clientcmd.BuildConfigFromFlags("", kubeConfig)
 		if err != nil {
 			return nil, nil, fmt.Errorf("new kube config error:%v", err)

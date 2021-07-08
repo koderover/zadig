@@ -56,7 +56,7 @@ type Detail struct {
 }
 
 func GetCodeHostList() ([]*poetry.CodeHost, error) {
-	poetryClient := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
+	poetryClient := poetry.New(config.PoetryServiceAddress(), config.PoetryAPIRootKey())
 	return poetryClient.ListCodeHosts()
 }
 

@@ -27,7 +27,6 @@ const (
 	ENVMongoDBConnectionString = "MONGODB_CONNECTION_STRING"
 	ENVAslanDBName             = "ASLAN_DB"
 	ENVHubAgentImage           = "HUB_AGENT_IMAGE"
-	ENVPoetryAPIServer         = "POETRY_API_SERVER"
 	ENVPoetryAPIRootKey        = "POETRY_API_ROOT_KEY"
 
 	// Aslan
@@ -66,7 +65,6 @@ const (
 
 	// cron
 	ENVRootToken       = "ROOT_TOKEN"
-	ENVPoetryAPIAddr   = "POETRY_API_ADDRESS"
 
 	ENVKodespaceVersion = "KODESPACE_VERSION"
 
@@ -78,7 +76,6 @@ const (
 	VendorServer     = "VENDOR_SERVER"
 	VendorAPIRootKey = "VENDOR_API_ROOT_KEY"
 	CustomerIP       = "CUSTOMER_IP"
-	KubeCfg          = "KUBE_CFG"
 	Namespace        = "NAMESPACE"
 
 	// plutus vendor

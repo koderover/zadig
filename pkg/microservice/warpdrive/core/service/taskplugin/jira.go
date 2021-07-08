@@ -26,6 +26,7 @@ import (
 	"github.com/xanzy/go-gitlab"
 	"go.uber.org/zap"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	wdgithub "github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/github"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
@@ -339,7 +340,7 @@ func (p *JiraPlugin) SetEndTime() {
 func (p *JiraPlugin) getJiraIssue(pipelineTask *task.Task, key string) (*task.JiraIssue, error) {
 	jiraIssue := new(task.JiraIssue)
 
-	poetryClient := poetry.New(config.PoetryAPIAddr(), config.PoetryAPIRootKey())
+	poetryClient := poetry.New(configbase.PoetryServiceAddress(), config.PoetryAPIRootKey())
 	jiraInfo, err := poetryClient.GetJiraInfo()
 	if err != nil {
 		return nil, fmt.Errorf("getJiraInfo [%s] error: %v", key, err)

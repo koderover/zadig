@@ -26,20 +26,12 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 )
 
-func KubeFilePath() string {
-	return viper.GetString(setting.KubeCfg)
-}
-
 func WarpDrivePodName() string {
 	return viper.GetString(setting.WarpDrivePodName)
 }
 
 func NSQLookupAddrs() []string {
 	return strings.Split(viper.GetString(setting.ENVNsqLookupAddrs), ",")
-}
-
-func PoetryAPIAddr() string {
-	return viper.GetString(setting.ENVPoetryAPIAddr)
 }
 
 func PoetryAPIRootKey() string {

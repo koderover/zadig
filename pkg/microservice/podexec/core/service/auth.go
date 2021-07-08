@@ -26,6 +26,7 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/podexec/config"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/poetry"
@@ -55,7 +56,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 				token := strings.Split(authorization, " ")
 				if len(token) == 2 {
 					//根据token获取用户
-					userInfo, err := poetry.ListUsersDetail(config.PoetryAPIServer(), authorization, "")
+					userInfo, err := poetry.ListUsersDetail(configbase.PoetryServiceAddress(), authorization, "")
 					if err != nil {
 						w.WriteHeader(http.StatusUnauthorized)
 						_ = json.NewEncoder(w).Encode(&EndpointResponse{ResultCode: http.StatusUnauthorized, ErrorMsg: "auth failed"})
@@ -69,7 +70,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 				return
 			}
 		} else if session, err := r.Cookie("SESSION"); err == nil {
-			userInfo, err := poetry.ListUsersDetail(config.PoetryAPIServer(), "", session.String())
+			userInfo, err := poetry.ListUsersDetail(configbase.PoetryServiceAddress(), "", session.String())
 			if err != nil {
 				log.Errorf("PoetryRequest err:%v", err)
 				w.WriteHeader(http.StatusUnauthorized)
@@ -131,7 +132,7 @@ func PermissionMiddleware(next http.Handler) http.Handler {
 }
 
 func PoetryRequestPermission(userID int, permissionUUID, productName string, logger *zap.SugaredLogger) bool {
-	poetryClient := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
+	poetryClient := poetry.New(configbase.PoetryServiceAddress(), config.PoetryAPIRootKey())
 	if poetryClient.HasOperatePermission(productName, permissionUUID, userID, false, logger) {
 		return true
 	}

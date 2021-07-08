@@ -75,7 +75,7 @@ func LogLevel() int {
 }
 
 func PoetryAPIServer() string {
-	return viper.GetString(setting.ENVPoetryAPIServer)
+	return configbase.PoetryServiceAddress()
 }
 
 func PoetryAPIRootKey() string {
