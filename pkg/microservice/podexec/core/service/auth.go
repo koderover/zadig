@@ -69,8 +69,8 @@ func AuthMiddleware(next http.Handler) http.Handler {
 				}
 				return
 			}
-		} else if session, err := r.Cookie("SESSION"); err == nil {
-			userInfo, err := poetry.ListUsersDetail(configbase.PoetryServiceAddress(), "", session.String())
+		} else if token, err := r.Cookie("TOKEN"); err == nil {
+			userInfo, err := poetry.ListUsersDetail(configbase.PoetryServiceAddress(), "", token.String())
 			if err != nil {
 				log.Errorf("PoetryRequest err:%v", err)
 				w.WriteHeader(http.StatusUnauthorized)

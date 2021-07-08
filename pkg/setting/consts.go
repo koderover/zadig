@@ -68,20 +68,6 @@ const (
 
 	ENVKodespaceVersion = "KODESPACE_VERSION"
 
-	// plutus customer
-	PlutusMgoAddr    = "PLUTUS_MGO_ADDR"
-	PlutusMgoDB      = "PLUTUS_MGO_DB"
-	PlutusMgoMode    = "PLUTUS_MGO_MODE"
-	PlutusPassword   = "PLUTUS_PASSWORD"
-	VendorServer     = "VENDOR_SERVER"
-	VendorAPIRootKey = "VENDOR_API_ROOT_KEY"
-	CustomerIP       = "CUSTOMER_IP"
-	Namespace        = "NAMESPACE"
-
-	// plutus vendor
-	PlutusBaseURL  = "PLUTUS_BASE_URL"
-	PlutusLogLevel = "PLUTUS_LOG_LEVEL"
-
 	// hubagent
 	HubAgentToken         = "HUB_AGENT_TOKEN"
 	HubServerBaseAddr     = "HUB_SERVER_BASE_ADDR"
