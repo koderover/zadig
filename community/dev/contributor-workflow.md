@@ -53,7 +53,7 @@ Zadig 为您提供云上测试环境 [https://os.koderover.com](https://os.koder
 
 ![Fork project](./fork-zadig-option.png)
 
-在弹出的窗口中，点击 zadig 选项，将其中的 global.host 中的 `githubid` 改成您的 GitHub ID，否则可能无法访问。
+在弹出的窗口中，点击 zadig 选项，将其中的 endpoint.FQDN 中的 `githubid` 改成您的 GitHub ID，否则可能无法访问。
 
 ![Update githubid](./fork-zadig-vars.png)
 
