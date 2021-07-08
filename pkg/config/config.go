@@ -68,10 +68,6 @@ func RequestLogFile() string {
 	return LogPath() + RequestLogName()
 }
 
-func PoetryAPIServer() string {
-	return viper.GetString(setting.ENVPoetryAPIServer)
-}
-
 func PoetryAPIRootKey() string {
 	return viper.GetString(setting.ENVPoetryAPIRootKey)
 }
@@ -86,7 +82,7 @@ func AslanServiceInfo() *setting.ServiceInfo {
 
 func AslanServiceAddress() string {
 	s := AslanServiceInfo()
-	return getServiceAddress(s.Name, s.Port)
+	return GetServiceAddress(s.Name, s.Port)
 }
 
 func AslanServiceName() string {
@@ -103,7 +99,7 @@ func AslanxServiceInfo() *setting.ServiceInfo {
 
 func AslanxServiceAddress() string {
 	s := AslanxServiceInfo()
-	return getServiceAddress(s.Name, s.Port)
+	return GetServiceAddress(s.Name, s.Port)
 }
 
 func AslanxServiceName() string {
@@ -120,7 +116,7 @@ func HubServerServiceInfo() *setting.ServiceInfo {
 
 func HubServerServiceAddress() string {
 	s := HubServerServiceInfo()
-	return getServiceAddress(s.Name, s.Port)
+	return GetServiceAddress(s.Name, s.Port)
 }
 
 func ClairServiceInfo() *setting.ServiceInfo {
@@ -129,7 +125,7 @@ func ClairServiceInfo() *setting.ServiceInfo {
 
 func ClairServiceAddress() string {
 	s := ClairServiceInfo()
-	return getServiceAddress(s.Name, s.Port)
+	return GetServiceAddress(s.Name, s.Port)
 }
 
 func CollieServiceInfo() *setting.ServiceInfo {
@@ -138,7 +134,7 @@ func CollieServiceInfo() *setting.ServiceInfo {
 
 func CollieServiceAddress() string {
 	s := CollieServiceInfo()
-	return getServiceAddress(s.Name, s.Port)
+	return GetServiceAddress(s.Name, s.Port)
 }
 
 func PoetryServiceInfo() *setting.ServiceInfo {
@@ -147,7 +143,7 @@ func PoetryServiceInfo() *setting.ServiceInfo {
 
 func PoetryServiceAddress() string {
 	s := PoetryServiceInfo()
-	return getServiceAddress(s.Name, s.Port)
+	return GetServiceAddress(s.Name, s.Port)
 }
 
 func WarpDriveServiceInfo() *setting.ServiceInfo {
@@ -158,6 +154,6 @@ func WarpDriveServiceName() string {
 	return WarpDriveServiceInfo().Name
 }
 
-func getServiceAddress(name string, port int32) string {
+func GetServiceAddress(name string, port int32) string {
 	return fmt.Sprintf("http://%s:%d", name, port)
 }

@@ -54,7 +54,7 @@ func Auth() gin.HandlerFunc {
 			if strings.Contains(authorization, setting.USERAPIKEY) {
 				token := strings.Split(authorization, " ")
 				if len(token) == 2 {
-					userInfo, err := poetry.ListUsersDetail(config.PoetryAPIServer(), authorization, "")
+					userInfo, err := poetry.GetUserDetailByToken(config.PoetryServiceAddress(), token[1])
 					if err != nil {
 						log.Errorf("get user detail err :%v", err)
 						c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": "get user detail error"})

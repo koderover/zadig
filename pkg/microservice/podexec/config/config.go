@@ -29,14 +29,6 @@ func PoetryAPIRootKey() string {
 	return viper.GetString(setting.ENVPoetryAPIRootKey)
 }
 
-func PoetryAPIServer() string {
-	return viper.GetString(setting.ENVPoetryAPIServer)
-}
-
 func HubServerAddr() string {
 	return configbase.HubServerServiceAddress()
-}
-
-func KubeCfg() string {
-	return viper.GetString(setting.KubeCfg)
 }
