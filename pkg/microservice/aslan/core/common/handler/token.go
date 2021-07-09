@@ -33,6 +33,9 @@ func GetToken(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"token": token})
 			return
 		}
+	} else if token, err := c.Cookie("TOKEN"); err == nil {
+		c.JSON(http.StatusOK, gin.H{"token": token})
+		return
 	}
 
 	c.JSON(http.StatusBadRequest, gin.H{"message": "illegal request"})
