@@ -19,6 +19,7 @@ package registry
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
@@ -52,6 +53,7 @@ type Endpoint struct {
 	Addr      string
 	Ak        string
 	Sk        string
+	Region    string
 	Namespace string
 }
 
@@ -376,6 +378,7 @@ type SwrService struct {
 }
 
 func (s *SwrService) createClient(ep Endpoint) (cli *swr.SwrClient) {
+	endpoint := fmt.Sprintf("https://swr-api.%s.myhuaweicloud.com", ep.Region)
 	auth := basic.NewCredentialsBuilder().
 		WithAk(ep.Ak).
 		WithSk(ep.Sk).
@@ -383,7 +386,7 @@ func (s *SwrService) createClient(ep Endpoint) (cli *swr.SwrClient) {
 
 	client := swr.NewSwrClient(
 		swr.SwrClientBuilder().
-			WithEndpoint("https://swr-api.cn-north-4.myhuaweicloud.com").
+			WithEndpoint(endpoint).
 			WithCredential(auth).
 			Build())
 	return client

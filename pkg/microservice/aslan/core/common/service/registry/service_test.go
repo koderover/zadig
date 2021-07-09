@@ -52,6 +52,7 @@ func Test_v2RegistryService_ListRepoImages(t *testing.T) {
 						"https://n7832lxy.mirror.aliyuncs.com",
 						"",
 						"",
+						"",
 						"library",
 					},
 					[]string{"mysql", "alpine"},
@@ -101,6 +102,7 @@ func Test_v2RegistryService_GetImageInfo(t *testing.T) {
 				GetRepoImageDetailOption{
 					Endpoint{
 						"https://n7832lxy.mirror.aliyuncs.com",
+						"",
 						"",
 						"",
 						"library",

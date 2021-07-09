@@ -219,6 +219,7 @@ func ListReposTags(registryInfo *commonmodels.RegistryNamespace, names []string,
 			Ak:        registryInfo.AccessKey,
 			Sk:        registryInfo.SecretKey,
 			Namespace: registryInfo.Namespace,
+			Region:    registryInfo.Region,
 		},
 		Repos: names,
 	}, logger)
@@ -251,6 +252,7 @@ func GetRepoTags(registryInfo *commonmodels.RegistryNamespace, name string, log 
 			Ak:        registryInfo.AccessKey,
 			Sk:        registryInfo.SecretKey,
 			Namespace: registryInfo.Namespace,
+			Region:    registryInfo.Region,
 		},
 		Repos: []string{name},
 	}, log)
