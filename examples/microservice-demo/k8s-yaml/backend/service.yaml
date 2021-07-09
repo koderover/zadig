@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  labels:
+    app.kubernetes.io/name: demo
+    app.kubernetes.io/instance: backend
+spec:
+  type: NodePort
+  ports:
+    - protocol: TCP
+      port: 20219
+      targetPort: 20219
