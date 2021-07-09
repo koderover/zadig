@@ -66,6 +66,17 @@ func Auth() gin.HandlerFunc {
 					return
 				}
 			}
+		} else if token, err := c.Cookie("TOKEN"); err == nil {
+			userInfo, err := poetry.GetUserDetailByToken(config.PoetryServiceAddress(), token)
+			if err != nil {
+				log.Errorf("get user detail err :%v", err)
+				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": "get user detail error"})
+				return
+			}
+			c.Set(setting.SessionUsername, userInfo.Name)
+			c.Set(setting.SessionUser, userInfo)
+			c.Next()
+			return
 		}
 
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"message": "auth failed"})
