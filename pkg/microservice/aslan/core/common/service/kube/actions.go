@@ -19,6 +19,8 @@ package kube
 import (
 	"fmt"
 
+	"github.com/koderover/zadig/pkg/util/exec"
+
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -44,12 +46,23 @@ func CreateNamespace(namespace string, kubeClient client.Client) error {
 }
 
 func CreateOrUpdateRegistrySecret(namespace string, reg *commonmodels.RegistryNamespace, kubeClient client.Client) error {
-	data := make(map[string][]byte)
+	var (
+		data = make(map[string][]byte)
+		ak   = reg.AccessKey
+		sk   = reg.SecretKey
+	)
+
+	if reg.Region != "" {
+		ak = fmt.Sprintf("%s@%s", reg.Region, reg.AccessKey)
+		cmd := fmt.Sprintf("printf \"%s\" | openssl dgst -binary -sha256 -hmac \"%s\" | od -An -vtx1 | sed 's/[ \\n]//g' | sed 'N;s/\\n//'", reg.AccessKey, reg.SecretKey)
+		sk, _ = exec.GetCmdStdOut(cmd)
+	}
+
 	dockerConfig := fmt.Sprintf(
 		`{"%s":{"username":"%s","password":"%s","email":"%s"}}`,
 		reg.RegAddr,
-		reg.AccessKey,
-		reg.SecretKey,
+		ak,
+		sk,
 		"bot@koderover.com",
 	)
 	data[".dockercfg"] = []byte(dockerConfig)

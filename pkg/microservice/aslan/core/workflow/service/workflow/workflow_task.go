@@ -26,6 +26,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/koderover/zadig/pkg/util/exec"
+
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -477,6 +479,15 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 	if err == nil {
 		configPayload.RepoConfigs = make(map[string]*commonmodels.RegistryNamespace)
 		for _, repo := range repos {
+			// if the registry is SWR, we need to modify ak/sk according to the rule
+			if repo.Region != "" {
+				ak := fmt.Sprintf("%s@%s", repo.Region, repo.AccessKey)
+				cmd := fmt.Sprintf("printf \"%s\" | openssl dgst -binary -sha256 -hmac \"%s\" | od -An -vtx1 | sed 's/[ \\n]//g' | sed 'N;s/\\n//'", repo.AccessKey, repo.SecretKey)
+				sk, _ := exec.GetCmdStdOut(cmd)
+
+				repo.AccessKey = ak
+				repo.SecretKey = sk
+			}
 			configPayload.RepoConfigs[repo.ID.Hex()] = repo
 		}
 	}
