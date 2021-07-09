@@ -111,15 +111,15 @@ type ServiceTaskArgs struct {
 }
 
 type ConfigPayload struct {
-	Aslan     AslanConfig    `json:"aslan"`
-	Proxy     Proxy          `json:"proxy"`
-	S3Storage S3Config       `json:"s3_storage"`
-	Github    GithubConfig   `json:"github"`
-	Gitlab    GitlabConfig   `json:"gitlab"`
-	Build     BuildConfig    `json:"build"`
-	Test      TestConfig     `json:"test"`
-	Registry  RegistryConfig `json:"registry"`
-	Release   ReleaseConfig  `json:"release"`
+	Aslan     AslanConfig     `json:"aslan"`
+	Proxy     Proxy           `json:"proxy"`
+	S3Storage S3Config        `json:"s3_storage"`
+	Github    GithubConfig    `json:"github"`
+	Gitlab    GitlabConfig    `json:"gitlab"`
+	Build     BuildConfig     `json:"build"`
+	Test      TestConfig      `json:"test"`
+	Registry  *RegistryConfig `json:"registry"`
+	Release   ReleaseConfig   `json:"release"`
 	// 推送线上镜像需要的用户名密码, 根据pipeline镜像发布模块动态配置
 	ImageRelease ImageReleaseConfig `json:"image_release"`
 	Docker       DockerConfig       `json:"docker"`

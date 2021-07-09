@@ -19,8 +19,6 @@ package kube
 import (
 	"fmt"
 
-	"github.com/koderover/zadig/pkg/util/exec"
-
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -29,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
@@ -47,27 +44,13 @@ func CreateNamespace(namespace string, kubeClient client.Client) error {
 }
 
 func CreateOrUpdateRegistrySecret(namespace string, reg *commonmodels.RegistryNamespace, kubeClient client.Client) error {
-	var (
-		data = make(map[string][]byte)
-		ak   = reg.AccessKey
-		sk   = reg.SecretKey
-		err  error
-	)
-
-	if reg.RegProvider == config.SWRProvider {
-		ak = fmt.Sprintf("%s@%s", reg.Region, reg.AccessKey)
-		cmd := fmt.Sprintf("printf \"%s\" | openssl dgst -binary -sha256 -hmac \"%s\" | od -An -vtx1 | sed 's/[ \\n]//g' | sed 'N;s/\\n//'", reg.AccessKey, reg.SecretKey)
-		sk, err = exec.GetCmdStdOut(cmd)
-		if err != nil {
-			log.Errorf("CreateOrUpdateRegistrySecret GetCmdStdOut err:%s", err)
-		}
-	}
+	data := make(map[string][]byte)
 
 	dockerConfig := fmt.Sprintf(
 		`{"%s":{"username":"%s","password":"%s","email":"%s"}}`,
 		reg.RegAddr,
-		ak,
-		sk,
+		reg.AccessKey,
+		reg.SecretKey,
 		"bot@koderover.com",
 	)
 	data[".dockercfg"] = []byte(dockerConfig)

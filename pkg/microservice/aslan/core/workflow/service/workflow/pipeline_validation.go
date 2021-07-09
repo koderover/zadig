@@ -47,7 +47,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
-	"github.com/koderover/zadig/pkg/util/exec"
 )
 
 const (
@@ -589,21 +588,10 @@ func SetCandidateRegistry(payload *commonmodels.ConfigPayload, log *zap.SugaredL
 		log.Errorf("can't find default candidate registry: %v", err)
 		return e.ErrFindRegistry.AddDesc(err.Error())
 	}
-	ak := reg.AccessKey
-	sk := reg.SecretKey
-
-	if reg.RegProvider == config.SWRProvider {
-		ak = fmt.Sprintf("%s@%s", reg.Region, reg.AccessKey)
-		cmd := fmt.Sprintf("printf \"%s\" | openssl dgst -binary -sha256 -hmac \"%s\" | od -An -vtx1 | sed 's/[ \\n]//g' | sed 'N;s/\\n//'", reg.AccessKey, reg.SecretKey)
-		sk, err = exec.GetCmdStdOut(cmd)
-		if err != nil {
-			log.Errorf("SetCandidateRegistry GetCmdStdOut err:%s", err)
-		}
-	}
 
 	payload.Registry.Addr = reg.RegAddr
-	payload.Registry.AccessKey = ak
-	payload.Registry.SecretKey = sk
+	payload.Registry.AccessKey = reg.AccessKey
+	payload.Registry.SecretKey = reg.SecretKey
 	payload.Registry.Namespace = reg.Namespace
 	return nil
 }

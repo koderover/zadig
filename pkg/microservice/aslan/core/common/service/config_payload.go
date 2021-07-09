@@ -44,7 +44,7 @@ func GetConfigPayload(codeHostID int) *models.ConfigPayload {
 		Test: models.TestConfig{
 			KubeNamespace: config.Namespace(),
 		},
-		Registry: models.RegistryConfig{
+		Registry: &models.RegistryConfig{
 			AccessKey:   config.RegistryAccessKey(),
 			SecretKey:   config.RegistrySecretKey(),
 			Namespace:   config.RegistryNamespace(),
