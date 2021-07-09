@@ -9,7 +9,7 @@ import (
 
 func GetCmdStdOut(cmdStr string) (string, error) {
 	fmt.Println("cmdStr : ", cmdStr)
-	cmd := exec.Command("/bin/bash", "-c", cmdStr)
+	cmd := exec.Command("/bin/sh", "-c", cmdStr)
 
 	//创建获取命令输出管道
 	stdout, err := cmd.StdoutPipe()
@@ -31,6 +31,7 @@ func GetCmdStdOut(cmdStr string) (string, error) {
 	if err := cmd.Wait(); err != nil {
 		return "", err
 	}
+
 	sk := string(bytes)
 	sk = strings.Replace(sk, "\n", "", -1)
 	return sk, nil
