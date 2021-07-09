@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
@@ -53,12 +54,12 @@ func CreateOrUpdateRegistrySecret(namespace string, reg *commonmodels.RegistryNa
 		err  error
 	)
 
-	if reg.Region != "" {
+	if reg.RegProvider == config.SWRProvider {
 		ak = fmt.Sprintf("%s@%s", reg.Region, reg.AccessKey)
 		cmd := fmt.Sprintf("printf \"%s\" | openssl dgst -binary -sha256 -hmac \"%s\" | od -An -vtx1 | sed 's/[ \\n]//g' | sed 'N;s/\\n//'", reg.AccessKey, reg.SecretKey)
 		sk, err = exec.GetCmdStdOut(cmd)
 		if err != nil {
-			log.Errorf("GetCmdStdOut err:%s", err)
+			log.Errorf("CreateOrUpdateRegistrySecret GetCmdStdOut err:%s", err)
 		}
 	}
 
