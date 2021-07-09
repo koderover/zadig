@@ -21,6 +21,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
@@ -136,4 +137,35 @@ func TestReverseStringSlice_Len(t *testing.T) {
 	if !reflect.DeepEqual(a, []string{"2", "3", "1"}) {
 		t.Error("reverse sort not works")
 	}
+}
+
+func TestSwrListRepoImage(t *testing.T) {
+	s := &SwrService{}
+	listRepoImagesOption := ListRepoImagesOption{
+		Endpoint: Endpoint{
+			Addr:      "https://swr-api.cn-north-4.myhuaweicloud.com",
+			Namespace: "lilian",
+			Ak:        "OGKHZTG3NURAUNDIRLXU",
+			Sk:        "IzCZmLP0a4t17TC6Pya8CMRl2niRNb71qDHvQwvi",
+		},
+		Repos: []string{"nginx-test"},
+	}
+	_, err := s.ListRepoImages(listRepoImagesOption, log.SugaredLogger())
+	assert.Nil(t, err)
+}
+
+func TestSwrImageInfo(t *testing.T) {
+	s := &SwrService{}
+	getRepoImageDetailOption := GetRepoImageDetailOption{
+		Endpoint: Endpoint{
+			Addr:      "https://swr-api.cn-north-4.myhuaweicloud.com",
+			Namespace: "lilian",
+			Ak:        "OGKHZTG3NURAUNDIRLXU",
+			Sk:        "IzCZmLP0a4t17TC6Pya8CMRl2niRNb71qDHvQwvi",
+		},
+		Tag:   "20210708193436-2-master",
+		Image: "swr.cn-north-4.myhuaweicloud.com/lilian/nginx-test:20210708193436-2-master",
+	}
+	_, err := s.GetImageInfo(getRepoImageDetailOption, log.SugaredLogger())
+	assert.Nil(t, err)
 }

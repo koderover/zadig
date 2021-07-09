@@ -38,10 +38,10 @@ func FindDefaultRegistry(log *zap.SugaredLogger) (*models.RegistryNamespace, err
 	if err != nil {
 		log.Warnf("RegistryNamespace.Find error: %v", err)
 		resp = &models.RegistryNamespace{
-			RegAddr:    config.RegistryAddress(),
-			AccessKey:  config.RegistryAccessKey(),
-			SecretyKey: config.RegistrySecretKey(),
-			Namespace:  config.RegistryNamespace(),
+			RegAddr:   config.RegistryAddress(),
+			AccessKey: config.RegistryAccessKey(),
+			SecretKey: config.RegistrySecretKey(),
+			Namespace: config.RegistryNamespace(),
 		}
 	}
 

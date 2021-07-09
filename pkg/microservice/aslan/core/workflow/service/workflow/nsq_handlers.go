@@ -876,11 +876,11 @@ func getImageInfo(repoName, tag string, log *zap.SugaredLogger) (*commonmodels.D
 		return nil, fmt.Errorf("RegistryNamespace.get error: %v", err)
 	}
 
-	return registry.NewV2Service().GetImageInfo(registry.GetRepoImageDetailOption{
+	return registry.NewV2Service(registryInfo.RegAddr).GetImageInfo(registry.GetRepoImageDetailOption{
 		Endpoint: registry.Endpoint{
 			Addr:      registryInfo.RegAddr,
 			Ak:        registryInfo.AccessKey,
-			Sk:        registryInfo.SecretyKey,
+			Sk:        registryInfo.SecretKey,
 			Namespace: registryInfo.Namespace,
 		},
 		Image: repoName,

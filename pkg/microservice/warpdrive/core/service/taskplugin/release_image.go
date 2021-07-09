@@ -112,7 +112,7 @@ func (p *ReleaseImagePlugin) Run(ctx context.Context, pipelineTask *task.Task, p
 	for _, v := range p.Task.Releases {
 		if cfg, ok := pipelineTask.ConfigPayload.RepoConfigs[v.RepoID]; ok {
 			v.Username = cfg.AccessKey
-			v.Password = cfg.SecretyKey
+			v.Password = cfg.SecretKey
 			releases = append(releases, v)
 		}
 	}

@@ -49,7 +49,7 @@ func CreateOrUpdateRegistrySecret(namespace string, reg *commonmodels.RegistryNa
 		`{"%s":{"username":"%s","password":"%s","email":"%s"}}`,
 		reg.RegAddr,
 		reg.AccessKey,
-		reg.SecretyKey,
+		reg.SecretKey,
 		"bot@koderover.com",
 	)
 	data[".dockercfg"] = []byte(dockerConfig)

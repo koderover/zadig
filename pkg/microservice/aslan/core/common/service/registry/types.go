@@ -16,6 +16,10 @@ limitations under the License.
 
 package registry
 
+const (
+	SWRProvider = "swr"
+)
+
 // ReposResp ...
 type ReposResp struct {
 	Repos    []*Repo `json:"repos"`

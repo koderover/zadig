@@ -1788,7 +1788,7 @@ func ensurePipelineTask(pt *task.Task, log *zap.SugaredLogger) error {
 				if pt.ConfigPayload != nil {
 					pt.ConfigPayload.Registry.Addr = reg.RegAddr
 					pt.ConfigPayload.Registry.AccessKey = reg.AccessKey
-					pt.ConfigPayload.Registry.SecretKey = reg.SecretyKey
+					pt.ConfigPayload.Registry.SecretKey = reg.SecretKey
 				}
 
 				// 二进制文件名称
