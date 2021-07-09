@@ -1,12 +1,15 @@
 package exec
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os/exec"
+	"strings"
 )
 
 func GetCmdStdOut(cmdStr string) (string, error) {
-	cmd := exec.Command("/bin/sh", "-c", cmdStr)
+	fmt.Println("cmdStr : ", cmdStr)
+	cmd := exec.Command("/bin/bash", "-c", cmdStr)
 
 	//创建获取命令输出管道
 	stdout, err := cmd.StdoutPipe()
@@ -28,5 +31,7 @@ func GetCmdStdOut(cmdStr string) (string, error) {
 	if err := cmd.Wait(); err != nil {
 		return "", err
 	}
-	return string(bytes), nil
+	sk := string(bytes)
+	sk = strings.Replace(sk, "\n", "", -1)
+	return sk, nil
 }

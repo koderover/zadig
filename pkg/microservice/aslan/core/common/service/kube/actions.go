@@ -60,7 +60,6 @@ func CreateOrUpdateRegistrySecret(namespace string, reg *commonmodels.RegistryNa
 		if err != nil {
 			log.Errorf("GetCmdStdOut err:%s", err)
 		}
-		log.Infof("sk:%s", sk)
 	}
 
 	dockerConfig := fmt.Sprintf(
