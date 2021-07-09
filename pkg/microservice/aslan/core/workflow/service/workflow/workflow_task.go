@@ -480,7 +480,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		configPayload.RepoConfigs = make(map[string]*commonmodels.RegistryNamespace)
 		for _, repo := range repos {
 			// if the registry is SWR, we need to modify ak/sk according to the rule
-			if repo.Region != "" {
+			if repo.RegProvider == "swr" {
 				ak := fmt.Sprintf("%s@%s", repo.Region, repo.AccessKey)
 				cmd := fmt.Sprintf("printf \"%s\" | openssl dgst -binary -sha256 -hmac \"%s\" | od -An -vtx1 | sed 's/[ \\n]//g' | sed 'N;s/\\n//'", repo.AccessKey, repo.SecretKey)
 				sk, err := exec.GetCmdStdOut(cmd)
