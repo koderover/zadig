@@ -56,9 +56,11 @@ func CreateOrUpdateRegistrySecret(namespace string, reg *commonmodels.RegistryNa
 	if reg.Region != "" {
 		ak = fmt.Sprintf("%s@%s", reg.Region, reg.AccessKey)
 		cmd := fmt.Sprintf("printf \"%s\" | openssl dgst -binary -sha256 -hmac \"%s\" | od -An -vtx1 | sed 's/[ \\n]//g' | sed 'N;s/\\n//'", reg.AccessKey, reg.SecretKey)
-		if sk, err = exec.GetCmdStdOut(cmd); err != nil {
+		sk, err = exec.GetCmdStdOut(cmd)
+		if err != nil {
 			log.Errorf("GetCmdStdOut err:%s", err)
 		}
+		log.Infof("sk:%s", sk)
 	}
 
 	dockerConfig := fmt.Sprintf(

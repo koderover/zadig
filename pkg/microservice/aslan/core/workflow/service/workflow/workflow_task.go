@@ -487,7 +487,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 				if err != nil {
 					log.Errorf("GetCmdStdOut err:%s", err)
 				}
-
+				log.Infof("sk:%s", sk)
 				repo.AccessKey = ak
 				repo.SecretKey = sk
 			}
