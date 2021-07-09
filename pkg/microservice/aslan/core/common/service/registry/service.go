@@ -73,12 +73,13 @@ type Service interface {
 	GetImageInfo(option GetRepoImageDetailOption, log *zap.SugaredLogger) (*commonmodels.DeliveryImage, error)
 }
 
-func NewV2Service(RegAddr string) Service {
-	if strings.Contains(RegAddr, "myhuaweicloud.com") {
+func NewV2Service(provide string) Service {
+	switch provide {
+	case SWRProvider:
 		return &SwrService{}
+	default:
+		return &v2RegistryService{}
 	}
-
-	return &v2RegistryService{}
 }
 
 type v2RegistryService struct {

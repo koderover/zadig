@@ -483,7 +483,10 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 			if repo.Region != "" {
 				ak := fmt.Sprintf("%s@%s", repo.Region, repo.AccessKey)
 				cmd := fmt.Sprintf("printf \"%s\" | openssl dgst -binary -sha256 -hmac \"%s\" | od -An -vtx1 | sed 's/[ \\n]//g' | sed 'N;s/\\n//'", repo.AccessKey, repo.SecretKey)
-				sk, _ := exec.GetCmdStdOut(cmd)
+				sk, err := exec.GetCmdStdOut(cmd)
+				if err != nil {
+					log.Errorf("GetCmdStdOut err:%s", err)
+				}
 
 				repo.AccessKey = ak
 				repo.SecretKey = sk

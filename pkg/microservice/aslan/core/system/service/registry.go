@@ -213,7 +213,7 @@ func GetRegistryNamespace(regOps *commonrepo.FindRegOps, log *zap.SugaredLogger)
 }
 
 func ListReposTags(registryInfo *commonmodels.RegistryNamespace, names []string, logger *zap.SugaredLogger) ([]*RepoImgResp, error) {
-	repos, err := registry.NewV2Service(registryInfo.RegAddr).ListRepoImages(registry.ListRepoImagesOption{
+	repos, err := registry.NewV2Service(registryInfo.RegProvider).ListRepoImages(registry.ListRepoImagesOption{
 		Endpoint: registry.Endpoint{
 			Addr:      registryInfo.RegAddr,
 			Ak:        registryInfo.AccessKey,
@@ -246,7 +246,7 @@ func ListReposTags(registryInfo *commonmodels.RegistryNamespace, names []string,
 
 func GetRepoTags(registryInfo *commonmodels.RegistryNamespace, name string, log *zap.SugaredLogger) (*registry.ImagesResp, error) {
 	var resp *registry.ImagesResp
-	repos, err := registry.NewV2Service(registryInfo.RegAddr).ListRepoImages(registry.ListRepoImagesOption{
+	repos, err := registry.NewV2Service(registryInfo.RegProvider).ListRepoImages(registry.ListRepoImagesOption{
 		Endpoint: registry.Endpoint{
 			Addr:      registryInfo.RegAddr,
 			Ak:        registryInfo.AccessKey,
