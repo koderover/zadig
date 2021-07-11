@@ -36,39 +36,6 @@ spec:
             requests:
               cpu: 100m
               memory: 100M
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: frontend
-  labels:
-    app.kubernetes.io/instance: frontend
-    app.kubernetes.io/name: demo
-spec:
-  type: NodePort
-  ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 80
----
-apiVersion: extensions/v1beta1
-kind: Ingress
-metadata:
-  name: frontend
-  annotations:
-    nginx.ingress.kubernetes.io/proxy-body-size: 100m
-  labels:
-    app.kubernetes.io/instance: frontend
-    app.kubernetes.io/name: demo
-spec:
-  rules:
-  - host: {{.demo_domain}}
-    http:
-      paths:
-      - path: /
-        backend:
-          serviceName: frontend
-          servicePort: 80
 
 
 

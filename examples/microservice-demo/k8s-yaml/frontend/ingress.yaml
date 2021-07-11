@@ -1,0 +1,18 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: frontend
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 100m
+  labels:
+    app.kubernetes.io/instance: frontend
+    app.kubernetes.io/name: demo
+spec:
+  rules:
+  - host: {{.demo_domain}}
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: frontend
+          servicePort: 80
