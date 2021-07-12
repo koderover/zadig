@@ -145,10 +145,10 @@ func TestSwrListRepoImage(t *testing.T) {
 	s := &SwrService{}
 	listRepoImagesOption := ListRepoImagesOption{
 		Endpoint: Endpoint{
-			Addr:      "https://swr-api.cn-north-4.myhuaweicloud.com",
+			Region:    "cn-north-4",
 			Namespace: "lilian",
-			Ak:        "OGKHZTG3NURAUNDIRLXU",
-			Sk:        "IzCZmLP0a4t17TC6Pya8CMRl2niRNb71qDHvQwvi",
+			Ak:        "",
+			Sk:        "",
 		},
 		Repos: []string{"nginx-test"},
 	}
@@ -160,13 +160,11 @@ func TestSwrImageInfo(t *testing.T) {
 	s := &SwrService{}
 	getRepoImageDetailOption := GetRepoImageDetailOption{
 		Endpoint: Endpoint{
-			Addr:      "https://swr-api.cn-north-4.myhuaweicloud.com",
+			Region:    "cn-north-4",
 			Namespace: "lilian",
-			Ak:        "OGKHZTG3NURAUNDIRLXU",
-			Sk:        "IzCZmLP0a4t17TC6Pya8CMRl2niRNb71qDHvQwvi",
 		},
-		Tag:   "20210708193436-2-master",
-		Image: "swr.cn-north-4.myhuaweicloud.com/lilian/nginx-test:20210708193436-2-master",
+		Tag:   "20210712210942-34-master",
+		Image: "nginx-test",
 	}
 	_, err := s.GetImageInfo(getRepoImageDetailOption, log.SugaredLogger())
 	assert.Nil(t, err)
