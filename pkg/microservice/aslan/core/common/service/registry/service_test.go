@@ -145,7 +145,6 @@ func TestSwrListRepoImage(t *testing.T) {
 	s := &SwrService{}
 	listRepoImagesOption := ListRepoImagesOption{
 		Endpoint: Endpoint{
-			Region:    "cn-north-4",
 			Namespace: "lilian",
 			Ak:        "",
 			Sk:        "",
@@ -162,6 +161,8 @@ func TestSwrImageInfo(t *testing.T) {
 		Endpoint: Endpoint{
 			Region:    "cn-north-4",
 			Namespace: "lilian",
+			Ak:        "",
+			Sk:        "",
 		},
 		Tag:   "20210712210942-34-master",
 		Image: "nginx-test",

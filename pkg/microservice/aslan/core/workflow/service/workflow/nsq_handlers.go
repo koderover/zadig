@@ -258,8 +258,6 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 							deliveryArtifact.ImageTag = imageTag
 							//获取镜像详细信息
 							imageInfo, _ := getImageInfo(imageName, imageTag, h.log)
-							log.Infof("imageName:%s,imageTag:%s", imageName, imageTag)
-							log.Infof("imageInfo:%+v", imageInfo)
 							if imageInfo != nil {
 								deliveryArtifact.ImageSize = imageInfo.ImageSize
 								deliveryArtifact.ImageDigest = imageInfo.ImageDigest
@@ -884,6 +882,7 @@ func getImageInfo(repoName, tag string, log *zap.SugaredLogger) (*commonmodels.D
 			Ak:        registryInfo.AccessKey,
 			Sk:        registryInfo.SecretKey,
 			Namespace: registryInfo.Namespace,
+			Region:    registryInfo.Region,
 		},
 		Image: repoName,
 		Tag:   tag,
