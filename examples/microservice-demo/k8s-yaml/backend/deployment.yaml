@@ -22,7 +22,7 @@ spec:
           image: ccr.ccs.tencentyun.com/koderover-public/backend:latest
           imagePullPolicy: Always 
           command:
-            - /workspace/demo
+            - /workspace/backend
           ports:
             - protocol: TCP
               containerPort: 20219
