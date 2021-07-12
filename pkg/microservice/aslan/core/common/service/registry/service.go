@@ -467,23 +467,17 @@ func (s *SwrService) ListRepoImages(option ListRepoImagesOption, log *zap.Sugare
 func (s *SwrService) GetImageInfo(option GetRepoImageDetailOption, log *zap.SugaredLogger) (di *commonmodels.DeliveryImage, err error) {
 	swrCli := s.createClient(option.Endpoint)
 
-	repoName := ""
-	repoNameArr := strings.Split(option.Image, "/")
-	if len(repoNameArr) > 0 {
-		repoNameStr := repoNameArr[len(repoNameArr)-1]
-		repoName = strings.Split(repoNameStr, ":")[0]
-	}
-	request := &model.ListRepositoryTagsRequest{Tag: &option.Tag, Namespace: option.Namespace, Repository: repoName}
+	request := &model.ListRepositoryTagsRequest{Tag: &option.Tag, Namespace: option.Namespace, Repository: option.Image}
 	repoTags, err := swrCli.ListRepositoryTags(request)
 	if err != nil {
-		err = errors.Wrapf(err, "failed to get image info of %s:%s", repoName, option.Tag)
+		err = errors.Wrapf(err, "failed to get image info of %s:%s", option.Image, option.Tag)
 		return
 	}
 
 	for _, repoTag := range *repoTags.Body {
 		if repoTag.Tag == option.Tag {
 			return &commonmodels.DeliveryImage{
-				RepoName:     repoName,
+				RepoName:     option.Image,
 				TagName:      option.Tag,
 				CreationTime: repoTag.Created,
 				ImageDigest:  repoTag.Digest,

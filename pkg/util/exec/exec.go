@@ -1,14 +1,12 @@
 package exec
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os/exec"
 	"strings"
 )
 
 func GetCmdStdOut(cmdStr string) (string, error) {
-	fmt.Println("cmdStr : ", cmdStr)
 	cmd := exec.Command("/bin/sh", "-c", cmdStr)
 
 	//创建获取命令输出管道
