@@ -37,6 +37,10 @@ type operationLog struct {
 	CreatedAt      int64  `json:"created_at"`
 }
 
+type updateOperationArgs struct {
+	Status int `json:"status"`
+}
+
 func (c *Client) AddAuditLog(username, productName, method, function, detail, permissionUUID, requestBody string, log *zap.SugaredLogger) (string, error) {
 	url := "/api/enterprise/operation"
 	req := operationLog{
@@ -53,17 +57,12 @@ func (c *Client) AddAuditLog(username, productName, method, function, detail, pe
 
 	var operationLogID string
 	_, err := c.Post(url, httpclient.SetBody(req), httpclient.SetResult(&operationLogID))
-	// ignore not found error
-	if err != nil && !httpclient.IsNotFound(err) {
+	if err != nil {
 		log.Errorf("Failed to add audit log, error: %s", err)
 		return "", err
 	}
 
 	return operationLogID, nil
-}
-
-type updateOperationArgs struct {
-	Status int `json:"status"`
 }
 
 func (c *Client) UpdateAuditLog(id string, status int, log *zap.SugaredLogger) error {
@@ -73,8 +72,7 @@ func (c *Client) UpdateAuditLog(id string, status int, log *zap.SugaredLogger) e
 	}
 
 	_, err := c.Put(url, httpclient.SetBody(req))
-	// ignore not found error
-	if err != nil && !httpclient.IsNotFound(err) {
+	if err != nil {
 		log.Errorf("Failed to update audit log, error: %s", err)
 		return err
 	}
