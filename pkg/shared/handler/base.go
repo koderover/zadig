@@ -82,6 +82,10 @@ func JSONResponse(c *gin.Context, ctx *Context) {
 
 // InsertOperationLog 插入操作日志
 func InsertOperationLog(c *gin.Context, username, productName, method, function, detail, permissionUUID, requestBody string, logger *zap.SugaredLogger) {
+	if !config.Enterprise() {
+		return
+	}
+
 	operationLogID, err := aslanx.New(config.AslanxServiceAddress(), config.PoetryAPIRootKey()).AddAuditLog(username, productName, method, function, detail, permissionUUID, requestBody, logger)
 	if err != nil {
 		logger.Errorf("InsertOperation err:%v", err)

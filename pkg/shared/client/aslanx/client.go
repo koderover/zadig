@@ -17,8 +17,6 @@ limitations under the License.
 package aslanx
 
 import (
-	"net/http"
-
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
@@ -35,7 +33,6 @@ func New(host, token string) *Client {
 		httpclient.SetAuthScheme(setting.RootAPIKey),
 		httpclient.SetAuthToken(token),
 		httpclient.SetHostURL(host),
-		httpclient.SetIgnoreCodes(http.StatusServiceUnavailable),
 	)
 
 	return &Client{

@@ -56,7 +56,8 @@ func (c *Client) AddAuditLog(username, productName, method, function, detail, pe
 	}
 
 	var operationLogID string
-	_, err := c.Post(url, httpclient.SetBody(req), httpclient.SetResult(&operationLogID))
+	res, err := c.Post(url, httpclient.SetBody(req), httpclient.SetResult(&operationLogID))
+	log.Infof("err: %v, code: %d, res: %+v", err, res.StatusCode(), res)
 	if err != nil {
 		log.Errorf("Failed to add audit log, error: %s", err)
 		return "", err

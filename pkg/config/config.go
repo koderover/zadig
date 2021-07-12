@@ -31,6 +31,10 @@ func SystemAddress() string {
 	return viper.GetString(setting.ENVSystemAddress)
 }
 
+func Enterprise() bool {
+	return viper.GetBool(setting.ENVEnterprise)
+}
+
 func Mode() string {
 	mode := viper.GetString(setting.ENVMode)
 	if mode == "" {
