@@ -4,6 +4,10 @@ RUN go build -v -o /aslan ./cmd/aslan/main.go
 
 #alpine-git-base.Dockerfile.inc
 
+RUN apk upgrade --update-cache --available && \
+apk add openssl && \
+rm -rf /var/cache/apk/*
+
 WORKDIR /app
 
 COPY --from=build /aslan .
