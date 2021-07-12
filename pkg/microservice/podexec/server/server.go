@@ -39,10 +39,10 @@ func Serve(ctx context.Context) error {
 	log.Infof("App podexec Started at %s", time.Now())
 
 	router := mux.NewRouter()
-	router.HandleFunc("/api/podexec/health", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]string{"message": "success"})
 	})
-	router.HandleFunc("/api/podexec/{productName}/{namespace}/{podName}/{containerName}/podExec", service.ServeWs)
+	router.HandleFunc("/api/{productName}/{namespace}/{podName}/{containerName}/podExec", service.ServeWs)
 	router.Use(service.AuthMiddleware)
 	router.Use(service.PermissionMiddleware)
 

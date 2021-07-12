@@ -37,7 +37,7 @@ import (
 func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		url := r.URL.Path
-		if strings.Contains("/api/podexec/health/", url) {
+		if strings.Contains("/api/health/", url) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -90,7 +90,7 @@ func PermissionMiddleware(next http.Handler) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		url := r.URL.Path
-		if strings.Contains("/api/podexec/health/", url) {
+		if strings.Contains("/api/health/", url) {
 			next.ServeHTTP(w, r)
 			return
 		}
