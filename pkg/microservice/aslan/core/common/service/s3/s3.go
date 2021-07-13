@@ -27,6 +27,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	awsS3 "github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/hashicorp/go-multierror"
 	"github.com/minio/minio-go"
 
@@ -39,6 +43,12 @@ import (
 
 type S3 struct {
 	*models.S3Storage
+}
+
+func (s S3) ResolveEndpoint(service, region string) (aws.Endpoint, error) {
+	return aws.Endpoint{
+		URL: s.Endpoint,
+	}, nil
 }
 
 func (s *S3) GetSchema() string {
@@ -130,22 +140,24 @@ func (s *S3) Validate() error {
 }
 
 // Validate the existence of bucket
-func Validate(s *S3) (err error) {
-	var minioClient *minio.Client
-	if minioClient, err = getMinioClient(s); err != nil {
-		return
+func Validate(s *S3) error {
+	s3Client, err := getAmazonClient(s)
+	if err != nil {
+		return err
+	}
+	listBucketInput := &awsS3.ListBucketsInput{}
+	bucketListResp, err := s3Client.ListBuckets(context.TODO(), listBucketInput)
+	if err != nil {
+		err = fmt.Errorf("validate S3 error: %s", err.Error())
+		return err
+	}
+	for _, bucket := range bucketListResp.Buckets {
+		if *bucket.Name == s.Bucket {
+			return nil
+		}
 	}
 
-	var exists bool
-
-	if exists, err = minioClient.BucketExists(s.Bucket); err != nil {
-		return
-	} else if !exists {
-		err = fmt.Errorf("no bucket named %s", s.Bucket)
-		return
-	}
-
-	return
+	return fmt.Errorf("validate s3 error: given bucket does not exist")
 }
 
 // Download the file to object storage
@@ -307,6 +319,15 @@ func getMinioClient(s *S3) (minioClient *minio.Client, err error) {
 	}
 
 	return
+}
+
+func getAmazonClient(s *S3) (*awsS3.Client, error) {
+	s3Cred := credentials.NewStaticCredentialsProvider(s.Ak, s.Sk, "")
+	cfg, err := awsconfig.LoadDefaultConfig(context.TODO(), awsconfig.WithCredentialsProvider(s3Cred), awsconfig.WithEndpointResolver(*s))
+	if err != nil {
+		return nil, err
+	}
+	return awsS3.NewFromConfig(cfg), nil
 }
 
 func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {

@@ -5,6 +5,10 @@ go 1.16
 require (
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/andygrunwald/go-gerrit v0.0.0-20171029143327-95b11af228a1
+	github.com/aws/aws-sdk-go-v2 v1.7.0 // indirect
+	github.com/aws/aws-sdk-go-v2/config v1.4.1 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.3.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.11.0 // indirect
 	github.com/bndr/gojenkins v1.1.0
 	github.com/bradleyfalzon/ghinstallation v1.1.1
 	github.com/bshuster-repo/logrus-logstash-hook v1.0.0 // indirect
