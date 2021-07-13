@@ -38,7 +38,7 @@ import (
 	"github.com/docker/docker/registry"
 	"github.com/docker/go-connections/sockets"
 	"github.com/huaweicloud/huaweicloud-sdk-go-v3/core/auth/basic"
-	v2 "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/swr/v2"
+	swr "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/swr/v2"
 	"github.com/huaweicloud/huaweicloud-sdk-go-v3/services/swr/v2/model"
 	digest "github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
@@ -379,15 +379,15 @@ func (s *v2RegistryService) ListRepoImages(option ListRepoImagesOption, log *zap
 type SwrService struct {
 }
 
-func (s *SwrService) createClient(ep Endpoint) (cli *v2.SwrClient) {
+func (s *SwrService) createClient(ep Endpoint) (cli *swr.SwrClient) {
 	endpoint := fmt.Sprintf("https://swr-api.%s.myhuaweicloud.com", ep.Region)
 	auth := basic.NewCredentialsBuilder().
 		WithAk(ep.Ak).
 		WithSk(ep.Sk).
 		Build()
 
-	client := v2.NewSwrClient(
-		v2.SwrClientBuilder().
+	client := swr.NewSwrClient(
+		swr.SwrClientBuilder().
 			WithEndpoint(endpoint).
 			WithCredential(auth).
 			Build())
