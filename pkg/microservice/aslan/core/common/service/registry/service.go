@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/manifest/schema2"
 	"github.com/docker/distribution/reference"
@@ -38,7 +40,7 @@ import (
 	"github.com/docker/docker/registry"
 	"github.com/docker/go-connections/sockets"
 	"github.com/huaweicloud/huaweicloud-sdk-go-v3/core/auth/basic"
-	swr "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/swr/v2"
+	v2 "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/swr/v2"
 	"github.com/huaweicloud/huaweicloud-sdk-go-v3/services/swr/v2/model"
 	digest "github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
@@ -73,9 +75,9 @@ type Service interface {
 	GetImageInfo(option GetRepoImageDetailOption, log *zap.SugaredLogger) (*commonmodels.DeliveryImage, error)
 }
 
-func NewV2Service(provide string) Service {
-	switch provide {
-	case SWRProvider:
+func NewV2Service(provider string) Service {
+	switch provider {
+	case config.SWRProvider:
 		return &SwrService{}
 	default:
 		return &v2RegistryService{}
@@ -378,15 +380,15 @@ func (s *v2RegistryService) ListRepoImages(option ListRepoImagesOption, log *zap
 type SwrService struct {
 }
 
-func (s *SwrService) createClient(ep Endpoint) (cli *swr.SwrClient) {
+func (s *SwrService) createClient(ep Endpoint) (cli *v2.SwrClient) {
 	endpoint := fmt.Sprintf("https://swr-api.%s.myhuaweicloud.com", ep.Region)
 	auth := basic.NewCredentialsBuilder().
 		WithAk(ep.Ak).
 		WithSk(ep.Sk).
 		Build()
 
-	client := swr.NewSwrClient(
-		swr.SwrClientBuilder().
+	client := v2.NewSwrClient(
+		v2.SwrClientBuilder().
 			WithEndpoint(endpoint).
 			WithCredential(auth).
 			Build())
@@ -475,15 +477,13 @@ func (s *SwrService) GetImageInfo(option GetRepoImageDetailOption, log *zap.Suga
 	}
 
 	for _, repoTag := range *repoTags.Body {
-		if repoTag.Tag == option.Tag {
-			return &commonmodels.DeliveryImage{
-				RepoName:     option.Image,
-				TagName:      option.Tag,
-				CreationTime: repoTag.Created,
-				ImageDigest:  repoTag.Digest,
-				ImageSize:    repoTag.Size,
-			}, nil
-		}
+		return &commonmodels.DeliveryImage{
+			RepoName:     option.Image,
+			TagName:      option.Tag,
+			CreationTime: repoTag.Created,
+			ImageDigest:  repoTag.Digest,
+			ImageSize:    repoTag.Size,
+		}, nil
 	}
 
 	return &commonmodels.DeliveryImage{}, nil
