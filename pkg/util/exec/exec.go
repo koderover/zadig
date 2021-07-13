@@ -9,18 +9,18 @@ import (
 func GetCmdStdOut(cmdStr string) (string, error) {
 	cmd := exec.Command("/bin/sh", "-c", cmdStr)
 
-	//创建获取命令输出管道
+	// Create a get command output pipeline
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return "", err
 	}
 
-	//执行命令
+	//exec command
 	if err := cmd.Start(); err != nil {
 		return "", err
 	}
 
-	//读取所有输出
+	//read all output
 	bytes, err := ioutil.ReadAll(stdout)
 	if err != nil {
 		return "", err
