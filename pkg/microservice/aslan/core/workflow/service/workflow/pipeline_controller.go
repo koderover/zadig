@@ -335,7 +335,7 @@ func hasAgentAvaiable() bool {
 	kubeClient := krkubeclient.Client()
 	deployment, _, err := getter.GetDeployment(config.Namespace(), configbase.WarpDriveServiceName(), kubeClient)
 	if err != nil {
-		log.Errorf("Failed to get WarpDrive deployment, error: %v", err)
+		log.Errorf("Failed to get WarpDrive deployment, error: %s", err)
 		return false
 	}
 
