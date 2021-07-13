@@ -27,8 +27,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-
 	"github.com/docker/distribution"
 	"github.com/docker/distribution/manifest/schema2"
 	"github.com/docker/distribution/reference"
@@ -47,6 +45,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/net/proxy"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/tool/pool"
 )
