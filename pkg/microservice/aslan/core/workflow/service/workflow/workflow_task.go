@@ -46,7 +46,6 @@ import (
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/types/permission"
 	"github.com/koderover/zadig/pkg/util"
-	"github.com/koderover/zadig/pkg/util/exec"
 )
 
 const (
@@ -481,11 +480,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 			// if the registry is SWR, we need to modify ak/sk according to the rule
 			if repo.RegProvider == config.SWRProvider {
 				ak := fmt.Sprintf("%s@%s", repo.Region, repo.AccessKey)
-				cmd := fmt.Sprintf("printf \"%s\" | openssl dgst -binary -sha256 -hmac \"%s\" | od -An -vtx1 | sed 's/[ \\n]//g' | sed 'N;s/\\n//'", repo.AccessKey, repo.SecretKey)
-				sk, err := exec.GetCmdStdOut(cmd)
-				if err != nil {
-					log.Errorf("CreateWorkflowTask GetCmdStdOut err:%s", err)
-				}
+				sk := util.ComputeHmacSha256(repo.AccessKey, repo.SecretKey)
 				repo.AccessKey = ak
 				repo.SecretKey = sk
 			}
