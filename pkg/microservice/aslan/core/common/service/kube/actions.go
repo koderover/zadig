@@ -45,11 +45,12 @@ func CreateNamespace(namespace string, kubeClient client.Client) error {
 
 func CreateOrUpdateRegistrySecret(namespace string, reg *commonmodels.RegistryNamespace, kubeClient client.Client) error {
 	data := make(map[string][]byte)
+
 	dockerConfig := fmt.Sprintf(
 		`{"%s":{"username":"%s","password":"%s","email":"%s"}}`,
 		reg.RegAddr,
 		reg.AccessKey,
-		reg.SecretyKey,
+		reg.SecretKey,
 		"bot@koderover.com",
 	)
 	data[".dockercfg"] = []byte(dockerConfig)

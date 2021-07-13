@@ -27,6 +27,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 func FindDefaultRegistry(log *zap.SugaredLogger) (*models.RegistryNamespace, error) {
@@ -38,12 +39,21 @@ func FindDefaultRegistry(log *zap.SugaredLogger) (*models.RegistryNamespace, err
 	if err != nil {
 		log.Warnf("RegistryNamespace.Find error: %v", err)
 		resp = &models.RegistryNamespace{
-			RegAddr:    config.RegistryAddress(),
-			AccessKey:  config.RegistryAccessKey(),
-			SecretyKey: config.RegistrySecretKey(),
-			Namespace:  config.RegistryNamespace(),
+			RegAddr:   config.RegistryAddress(),
+			AccessKey: config.RegistryAccessKey(),
+			SecretKey: config.RegistrySecretKey(),
+			Namespace: config.RegistryNamespace(),
 		}
 	}
+
+	ak := resp.AccessKey
+	sk := resp.SecretKey
+	if resp.RegProvider == config.SWRProvider {
+		ak = fmt.Sprintf("%s@%s", resp.Region, resp.AccessKey)
+		sk = util.ComputeHmacSha256(resp.AccessKey, resp.SecretKey)
+	}
+	resp.AccessKey = ak
+	resp.SecretKey = sk
 
 	return resp, nil
 }

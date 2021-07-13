@@ -216,3 +216,7 @@ const (
 	LatestDay = 10
 	Date      = "2006-01-02"
 )
+
+const (
+	SWRProvider = "swr"
+)

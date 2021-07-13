@@ -21,6 +21,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
@@ -49,6 +50,7 @@ func Test_v2RegistryService_ListRepoImages(t *testing.T) {
 				ListRepoImagesOption{
 					Endpoint{
 						"https://n7832lxy.mirror.aliyuncs.com",
+						"",
 						"",
 						"",
 						"library",
@@ -102,6 +104,7 @@ func Test_v2RegistryService_GetImageInfo(t *testing.T) {
 						"https://n7832lxy.mirror.aliyuncs.com",
 						"",
 						"",
+						"",
 						"library",
 					},
 					"mysql",
@@ -136,4 +139,34 @@ func TestReverseStringSlice_Len(t *testing.T) {
 	if !reflect.DeepEqual(a, []string{"2", "3", "1"}) {
 		t.Error("reverse sort not works")
 	}
+}
+
+func TestSwrListRepoImage(t *testing.T) {
+	s := &SwrService{}
+	listRepoImagesOption := ListRepoImagesOption{
+		Endpoint: Endpoint{
+			Namespace: "lilian",
+			Ak:        "",
+			Sk:        "",
+		},
+		Repos: []string{"nginx-test"},
+	}
+	_, err := s.ListRepoImages(listRepoImagesOption, log.SugaredLogger())
+	assert.Nil(t, err)
+}
+
+func TestSwrImageInfo(t *testing.T) {
+	s := &SwrService{}
+	getRepoImageDetailOption := GetRepoImageDetailOption{
+		Endpoint: Endpoint{
+			Region:    "cn-north-4",
+			Namespace: "lilian",
+			Ak:        "",
+			Sk:        "",
+		},
+		Tag:   "20210712210942-34-master",
+		Image: "nginx-test",
+	}
+	_, err := s.GetImageInfo(getRepoImageDetailOption, log.SugaredLogger())
+	assert.Nil(t, err)
 }

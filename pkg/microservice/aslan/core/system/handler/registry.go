@@ -52,12 +52,12 @@ func GetDefaultRegistryNamespace(c *gin.Context) {
 	}
 
 	ctx.Resp = &Registry{
-		ID:         reg.ID.Hex(),
-		RegAddr:    reg.RegAddr,
-		IsDefault:  reg.IsDefault,
-		Namespace:  reg.Namespace,
-		AccessKey:  reg.AccessKey,
-		SecretyKey: reg.SecretyKey,
+		ID:        reg.ID.Hex(),
+		RegAddr:   reg.RegAddr,
+		IsDefault: reg.IsDefault,
+		Namespace: reg.Namespace,
+		AccessKey: reg.AccessKey,
+		SecretKey: reg.SecretKey,
 	}
 }
 
@@ -92,8 +92,6 @@ func CreateRegistryNamespace(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-
-	//args.ID = bson.NewObjectId()
 
 	ctx.Err = service.CreateRegistryNamespace(ctx.Username, args, ctx.Logger)
 }

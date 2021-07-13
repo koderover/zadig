@@ -23,19 +23,18 @@ import (
 )
 
 type RegistryNamespace struct {
-	ID               primitive.ObjectID `bson:"_id,omitempty"               json:"id,omitempty"`
-	OrgID            int                `bson:"org_id"                      json:"org_id"`
-	RegAddr          string             `bson:"reg_addr"                    json:"reg_addr"`
-	RegType          string             `bson:"reg_type"                    json:"reg_type"`
-	RegProvider      string             `bson:"reg_provider"                json:"reg_provider"`
-	IsDefault        bool               `bson:"is_default"                  json:"is_default"`
-	Namespace        string             `bson:"namespace"                   json:"namespace"`
-	AccessKey        string             `bson:"access_key"                  json:"access_key"`
-	SecretyKey       string             `bson:"secret_key"                  json:"secret_key"`
-	TencentSecretID  string             `bson:"tencent_secret_id"           json:"tencent_secret_id"`
-	TencentSecretKey string             `bson:"tencent_secret_key"          json:"tencent_secret_key"`
-	UpdateTime       int64              `bson:"update_time"                 json:"update_time"`
-	UpdateBy         string             `bson:"update_by"                   json:"update_by"`
+	ID          primitive.ObjectID `bson:"_id,omitempty"               json:"id,omitempty"`
+	OrgID       int                `bson:"org_id"                      json:"org_id"`
+	RegAddr     string             `bson:"reg_addr"                    json:"reg_addr"`
+	RegType     string             `bson:"reg_type"                    json:"reg_type"`
+	RegProvider string             `bson:"reg_provider"                json:"reg_provider"`
+	IsDefault   bool               `bson:"is_default"                  json:"is_default"`
+	Namespace   string             `bson:"namespace"                   json:"namespace"`
+	AccessKey   string             `bson:"access_key"                  json:"access_key"`
+	SecretKey   string             `bson:"secret_key"                  json:"secret_key"`
+	Region      string             `bson:"region,omitempty"            json:"region,omitempty"`
+	UpdateTime  int64              `bson:"update_time"                 json:"update_time"`
+	UpdateBy    string             `bson:"update_by"                   json:"update_by"`
 }
 
 func (ns *RegistryNamespace) Validate() error {

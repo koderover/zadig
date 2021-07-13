@@ -19,6 +19,7 @@ package registry
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
@@ -36,11 +37,15 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/registry"
 	"github.com/docker/go-connections/sockets"
+	"github.com/huaweicloud/huaweicloud-sdk-go-v3/core/auth/basic"
+	swr "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/swr/v2"
+	"github.com/huaweicloud/huaweicloud-sdk-go-v3/services/swr/v2/model"
 	digest "github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/net/proxy"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/tool/pool"
 )
@@ -49,6 +54,7 @@ type Endpoint struct {
 	Addr      string
 	Ak        string
 	Sk        string
+	Region    string
 	Namespace string
 }
 
@@ -68,8 +74,13 @@ type Service interface {
 	GetImageInfo(option GetRepoImageDetailOption, log *zap.SugaredLogger) (*commonmodels.DeliveryImage, error)
 }
 
-func NewV2Service() Service {
-	return &v2RegistryService{}
+func NewV2Service(provider string) Service {
+	switch provider {
+	case config.SWRProvider:
+		return &SwrService{}
+	default:
+		return &v2RegistryService{}
+	}
 }
 
 type v2RegistryService struct {
@@ -363,4 +374,116 @@ func (s *v2RegistryService) ListRepoImages(option ListRepoImagesOption, log *zap
 	}
 
 	return resp, nil
+}
+
+type SwrService struct {
+}
+
+func (s *SwrService) createClient(ep Endpoint) (cli *swr.SwrClient) {
+	endpoint := fmt.Sprintf("https://swr-api.%s.myhuaweicloud.com", ep.Region)
+	auth := basic.NewCredentialsBuilder().
+		WithAk(ep.Ak).
+		WithSk(ep.Sk).
+		Build()
+
+	client := swr.NewSwrClient(
+		swr.SwrClientBuilder().
+			WithEndpoint(endpoint).
+			WithCredential(auth).
+			Build())
+	return client
+}
+
+func (s *SwrService) ListRepoImages(option ListRepoImagesOption, log *zap.SugaredLogger) (resp *ReposResp, err error) {
+	swrCli := s.createClient(option.Endpoint)
+
+	var args []pool.TaskArg
+	for _, name := range option.Repos {
+		args = append(args, name)
+	}
+
+	resultChan := make(chan *Repo)
+	tasks := pool.MapTask(func(arg pool.TaskArg) func() error {
+		return func() error {
+			var err error
+			name := arg.(string)
+			defer func() {
+				if err != nil {
+					log.Errorf("failed to list tags of %s: %+v", name, err)
+				}
+			}()
+
+			request := &model.ListReposDetailsRequest{Name: &name, Namespace: &option.Namespace, ContentType: model.GetListReposDetailsRequestContentTypeEnum().APPLICATION_JSONCHARSETUTF_8}
+			repoDetails, err := swrCli.ListReposDetails(request)
+			if err != nil {
+				return err
+			}
+
+			koderoverTags := make([]string, 0)
+			customTags := make([]string, 0)
+			sortedTags := make([]string, 0)
+			for _, repoResp := range *repoDetails.Body {
+				for _, tag := range repoResp.Tags {
+					tagArray := strings.Split(tag, "-")
+					if len(tagArray) > 1 && len(tagArray[0]) == 14 {
+						if _, err := time.Parse("20060102150405", tagArray[0]); err == nil {
+							koderoverTags = append(koderoverTags, tag)
+							continue
+						}
+					}
+					customTags = append(customTags, tag)
+				}
+			}
+
+			sort.Sort(sort.Reverse(sort.StringSlice(koderoverTags)))
+			sortedTags = append(sortedTags, koderoverTags...)
+			sortedTags = append(sortedTags, customTags...)
+
+			resultChan <- &Repo{
+				Name:      name,
+				Namespace: option.Namespace,
+				Tags:      sortedTags,
+			}
+			return nil
+		}
+	}, args)
+
+	executor := pool.NewPool(tasks, 20)
+	go func() {
+		executor.Run()
+		close(resultChan)
+	}()
+
+	resp = &ReposResp{}
+
+	for result := range resultChan {
+		resp.Repos = append(resp.Repos, result)
+		resp.Total++
+	}
+
+	return resp, nil
+
+}
+
+func (s *SwrService) GetImageInfo(option GetRepoImageDetailOption, log *zap.SugaredLogger) (di *commonmodels.DeliveryImage, err error) {
+	swrCli := s.createClient(option.Endpoint)
+
+	request := &model.ListRepositoryTagsRequest{Tag: &option.Tag, Namespace: option.Namespace, Repository: option.Image}
+	repoTags, err := swrCli.ListRepositoryTags(request)
+	if err != nil {
+		err = errors.Wrapf(err, "failed to get image info of %s:%s", option.Image, option.Tag)
+		return
+	}
+
+	for _, repoTag := range *repoTags.Body {
+		return &commonmodels.DeliveryImage{
+			RepoName:     option.Image,
+			TagName:      option.Tag,
+			CreationTime: repoTag.Created,
+			ImageDigest:  repoTag.Digest,
+			ImageSize:    repoTag.Size,
+		}, nil
+	}
+
+	return &commonmodels.DeliveryImage{}, nil
 }

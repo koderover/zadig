@@ -592,7 +592,8 @@ func SetCandidateRegistry(payload *commonmodels.ConfigPayload, log *zap.SugaredL
 
 	payload.Registry.Addr = reg.RegAddr
 	payload.Registry.AccessKey = reg.AccessKey
-	payload.Registry.SecretKey = reg.SecretyKey
+	payload.Registry.SecretKey = reg.SecretKey
+	payload.Registry.Namespace = reg.Namespace
 	return nil
 }
 

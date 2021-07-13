@@ -493,9 +493,9 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 
 func createOrUpdateRegistrySecrets(namespace string, registries []*task.RegistryNamespace, kubeClient client.Client) error {
 	defaultRegistry := &task.RegistryNamespace{
-		RegAddr:    config.DefaultRegistryAddr(),
-		AccessKey:  config.DefaultRegistryAK(),
-		SecretyKey: config.DefaultRegistrySK(),
+		RegAddr:   config.DefaultRegistryAddr(),
+		AccessKey: config.DefaultRegistryAK(),
+		SecretKey: config.DefaultRegistrySK(),
 	}
 	registries = append(registries, defaultRegistry)
 
@@ -516,7 +516,7 @@ func createOrUpdateRegistrySecrets(namespace string, registries []*task.Registry
 			`{"%s":{"username":"%s","password":"%s","email":"%s"}}`,
 			reg.RegAddr,
 			reg.AccessKey,
-			reg.SecretyKey,
+			reg.SecretKey,
 			defaultSecretEmail,
 		)
 		data[".dockercfg"] = []byte(dockerConfig)
