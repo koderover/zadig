@@ -25,10 +25,14 @@ import (
 )
 
 // SystemAddress is the fully qualified domain name of the system, or an IP Address.
-// Port and protocol is required if necessary.
+// Port and protocol are required if necessary.
 // for example: foo.bar.com, https://for.bar.com, http://1.2.3.4:5678
 func SystemAddress() string {
 	return viper.GetString(setting.ENVSystemAddress)
+}
+
+func Enterprise() bool {
+	return viper.GetBool(setting.ENVEnterprise)
 }
 
 func Mode() string {

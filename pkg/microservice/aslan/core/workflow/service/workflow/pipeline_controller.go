@@ -17,12 +17,9 @@ limitations under the License.
 package workflow
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
-	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -35,7 +32,6 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	nsqservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/client/aslanx"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -336,7 +332,14 @@ func PipelineTaskSender() {
 }
 
 func hasAgentAvaiable() bool {
-	return len(RunningAndQueuedTasks()) < agentCount()
+	kubeClient := krkubeclient.Client()
+	deployment, _, err := getter.GetDeployment(config.Namespace(), configbase.WarpDriveServiceName(), kubeClient)
+	if err != nil {
+		log.Errorf("Failed to get WarpDrive deployment, error: %s", err)
+		return false
+	}
+
+	return len(RunningAndQueuedTasks()) < int(deployment.Status.ReadyReplicas)
 }
 
 func RunningAndQueuedTasks() []*task.Task {
@@ -365,51 +368,6 @@ func ListTasks() []*task.Task {
 	}
 
 	return tasks
-}
-
-func agentCount() int {
-	var (
-		parallelLimit = -1
-		wdReplicas    int
-	)
-
-	signatures, enabled, _ := aslanx.New(configbase.AslanxServiceAddress(), config.PoetryAPIRootKey()).ListSignatures(log.NopSugaredLogger())
-	if enabled {
-		if len(signatures) == 0 {
-			log.Errorf("Not Find Token")
-			return 0
-		}
-
-		signatureStr, err := base64.StdEncoding.DecodeString(signatures[0].Token)
-		if err != nil {
-			log.Errorf("token DecodeString error :%v", err)
-			return 0
-		}
-
-		signatureArr := strings.Split(string(signatureStr), ",")
-		if len(signatureArr) > 4 {
-			parallelLimit, err = strconv.Atoi(signatureArr[4])
-			if err != nil {
-				log.Errorf("parse parallelLimit error :%v", err)
-				return 0
-			}
-		}
-	}
-
-	kubeClient := krkubeclient.Client()
-	deployment, _, err := getter.GetDeployment(config.Namespace(), configbase.WarpDriveServiceName(), kubeClient)
-	if err != nil {
-		log.Errorf("kubeCli.GetDeployment error: %v", err)
-		return 0
-	}
-	wdReplicas = int(deployment.Status.ReadyReplicas)
-
-	if parallelLimit == -1 || parallelLimit >= wdReplicas {
-		return wdReplicas
-	} else if 0 < parallelLimit && parallelLimit < wdReplicas {
-		return parallelLimit
-	}
-	return 0
 }
 
 // NextWaitingTask 查询下一个等待的task

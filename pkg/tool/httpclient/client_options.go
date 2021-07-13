@@ -54,3 +54,9 @@ func SetProxy(proxyURL string) ClientFunc {
 		c.Client.SetProxy(proxyURL)
 	}
 }
+
+func SetIgnoreCodes(codes ...int) ClientFunc {
+	return func(c *Client) {
+		c.IgnoreCodes.Insert(codes...)
+	}
+}

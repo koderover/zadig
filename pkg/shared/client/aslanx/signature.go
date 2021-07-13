@@ -17,9 +17,8 @@ limitations under the License.
 package aslanx
 
 import (
-	"go.uber.org/zap"
-
 	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type Signature struct {
@@ -30,22 +29,16 @@ type Signature struct {
 	UpdatedAt int64  `json:"updated_at"`
 }
 
-// ListSignatures returns all signatures, enabled and err.
-// enabled means signature control is enabled.
-// If the status code is 404, mark enabled as false.
-func (c *Client) ListSignatures(log *zap.SugaredLogger) ([]*Signature, bool, error) {
+// ListSignatures returns all signatures.
+func (c *Client) ListSignatures() ([]*Signature, error) {
 	url := "/api/enterprise/license"
 
 	signatures := make([]*Signature, 0)
 	_, err := c.Get(url, httpclient.SetResult(&signatures))
 	if err != nil {
-		if !httpclient.IsNotFound(err) {
-			log.Errorf("Failed to list signatures, error: %s", err)
-			return nil, true, err
-		}
-
-		return nil, false, err
+		log.Errorf("Failed to list signatures, error: %s", err)
+		return nil, err
 	}
 
-	return signatures, true, nil
+	return signatures, nil
 }

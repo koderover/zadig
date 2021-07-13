@@ -22,6 +22,7 @@ const LocalConfig = "local.env"
 const (
 	// common
 	ENVSystemAddress           = "ADDRESS"
+	ENVEnterprise           = "ENTERPRISE"
 	ENVMode                    = "MODE"
 	ENVNsqLookupAddrs          = "NSQLOOKUP_ADDRS"
 	ENVMongoDBConnectionString = "MONGODB_CONNECTION_STRING"

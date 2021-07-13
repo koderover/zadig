@@ -17,7 +17,6 @@ limitations under the License.
 package service
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -32,7 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
 
-	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
@@ -42,7 +40,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	s3service "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/client/aslanx"
 	"github.com/koderover/zadig/pkg/shared/codehost"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
@@ -252,10 +249,6 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 }
 
 func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap.SugaredLogger) (*ServiceOption, error) {
-	if isAdd, serviceLimit := addService(); !isAdd {
-		return nil, e.ErrCreateTemplate.AddDesc(fmt.Sprintf("现有服务数量已超过允许的最大值[%d]，请联系管理员查看", serviceLimit))
-	}
-
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName:   args.ServiceName,
 		ExcludeStatus: setting.ProductStatusDeleting,
@@ -944,31 +937,6 @@ func getCronJobContainers(data string) ([]*commonmodels.Container, error) {
 	}
 
 	return containers, nil
-}
-
-func addService() (bool, int) {
-	var (
-		totalServiceCount = 0
-		limitServiceCount = 0
-	)
-	totalServices, _ := commonrepo.NewServiceColl().DistinctServices(&commonrepo.ServiceListOption{ExcludeStatus: setting.ProductStatusDeleting})
-	totalServiceCount = len(totalServices)
-	signatures, enabled, _ := aslanx.New(configbase.AslanxServiceAddress(), config.PoetryAPIRootKey()).ListSignatures(log.NopSugaredLogger())
-	if !enabled {
-		return true, limitServiceCount
-	}
-	if len(signatures) > 0 {
-		if signatureStr, err := base64.StdEncoding.DecodeString(signatures[0].Token); err == nil {
-			signatureArr := strings.Split(string(signatureStr), ",")
-			if len(signatureArr) > 5 {
-				limitServiceCount, _ = strconv.Atoi(signatureArr[5])
-			}
-		}
-	}
-	if limitServiceCount == -1 || limitServiceCount > totalServiceCount {
-		return true, limitServiceCount
-	}
-	return false, limitServiceCount
 }
 
 func updateGerritWebhookByService(lastService, currentService *commonmodels.Service) error {

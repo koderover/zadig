@@ -20,17 +20,23 @@ import (
 	"bytes"
 	"io"
 	"os"
+	"time"
 
 	"github.com/go-resty/resty/v2"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-const UserAgent = "Zadig REST Client"
+const (
+	UserAgent = "Zadig REST Client"
+	TimeoutSeconds = 10
+)
 
 type Client struct {
 	*resty.Client
 
-	Host    string // http://example.org
-	BaseURI string // /api/v1
+	Host        string   // Host is the fully qualified domain name of the system, or an IP Address. Port and protocol are required if necessary.
+	BaseURI     string   // BaseURI is the base uri for every request, starting with a slash, for example: /api/v1
+	IgnoreCodes sets.Int // IgnoreCodes ignores some code to be returned as an error.
 }
 
 func Get(url string, rfs ...RequestFunc) (*resty.Response, error) {
@@ -85,10 +91,12 @@ func New(cfs ...ClientFunc) *Client {
 	r := resty.New()
 	r.SetHeader("Content-Type", "application/json").
 		SetHeader("Accept", "application/json").
-		SetHeader("User-Agent", UserAgent)
+		SetHeader("User-Agent", UserAgent).
+		SetTimeout(TimeoutSeconds*time.Second)
 
 	c := &Client{
-		Client: r,
+		Client:      r,
+		IgnoreCodes: sets.NewInt(),
 	}
 
 	for _, cf := range cfs {
@@ -136,16 +144,16 @@ func (c *Client) Request(method, url string, rfs ...RequestFunc) (*resty.Respons
 		rf(r)
 	}
 
-	return wrapError(r.Execute(method, url))
+	return c.wrapError(r.Execute(method, url))
 }
 
-func wrapError(res *resty.Response, err error) (*resty.Response, error) {
+func (c *Client) wrapError(res *resty.Response, err error) (*resty.Response, error) {
 	if err != nil {
-		return nil, err
+		return res, err
 	}
 
-	if res.IsError() {
-		return nil, NewErrorFromRestyResponse(res)
+	if res.IsError() && !c.IgnoreCodes.Has(res.StatusCode()) {
+		return res, NewErrorFromRestyResponse(res)
 	}
 
 	return res, nil

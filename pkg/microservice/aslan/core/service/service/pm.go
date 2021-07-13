@@ -38,9 +38,6 @@ type ServiceTmplBuildObject struct {
 }
 
 func CreatePMService(username string, args *ServiceTmplBuildObject, log *zap.SugaredLogger) error {
-	if isAdd, serviceLimit := addService(); !isAdd {
-		return e.ErrCreateTemplate.AddDesc(fmt.Sprintf("现有服务数量已超过允许的最大值[%d]，请联系管理员查看", serviceLimit))
-	}
 	if len(args.ServiceTmplObject.ServiceName) == 0 {
 		return e.ErrInvalidParam.AddDesc("服务名称为空，请检查")
 	}
