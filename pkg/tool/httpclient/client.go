@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	UserAgent = "Zadig REST Client"
+	UserAgent      = "Zadig REST Client"
 	TimeoutSeconds = 10
 )
 
@@ -92,7 +92,7 @@ func New(cfs ...ClientFunc) *Client {
 	r.SetHeader("Content-Type", "application/json").
 		SetHeader("Accept", "application/json").
 		SetHeader("User-Agent", UserAgent).
-		SetTimeout(TimeoutSeconds*time.Second)
+		SetTimeout(TimeoutSeconds * time.Second)
 
 	c := &Client{
 		Client:      r,
