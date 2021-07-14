@@ -24,7 +24,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/setting"
@@ -85,7 +84,7 @@ func UpsertPipeline(args *commonmodels.Pipeline, log *zap.SugaredLogger) error {
 		updatedHooks = args.Hook.GitHooks
 	}
 
-	err = processWebhook(updatedHooks, currentHooks, webhook.PipelinePrefix+args.Name, log)
+	err = commonservice.ProcessWebhook(updatedHooks, currentHooks, webhook.PipelinePrefix+args.Name, log)
 	if err != nil {
 		log.Errorf("Failed to process webhook, err: %s", err)
 		return e.ErrCreatePipeline.AddDesc(err.Error())
@@ -179,69 +178,6 @@ func RenamePipeline(oldName, newName string, log *zap.SugaredLogger) error {
 		fmt.Sprintf(setting.PipelineTaskFmt, newName)); err != nil && err.Error() != "not found" {
 		log.Errorf("Counter.Rename %s -> %s error: %v", oldName, newName, err)
 		return e.ErrRenamePipeline.AddErr(err)
-	}
-
-	return nil
-}
-
-func DeletePipeline(pipelineName, requestID string, isDeletingProductTmpl bool, log *zap.SugaredLogger) error {
-	var pipeline *commonmodels.Pipeline
-	var err error
-	if !isDeletingProductTmpl {
-		pipeline, err = commonrepo.NewPipelineColl().Find(&commonrepo.PipelineFindOption{Name: pipelineName})
-		if err != nil {
-			log.Errorf("Pipeline.Find error: %v", err)
-			return e.ErrDeletePipeline.AddErr(err)
-		}
-		prod, err := template.NewProductColl().Find(pipeline.ProductName)
-		if err != nil {
-			log.Errorf("ProductTmpl.Find error: %v", err)
-			return e.ErrDeletePipeline.AddErr(err)
-		}
-		if prod.OnboardingStatus != 0 {
-			return e.ErrDeletePipeline.AddDesc("该工作流所属的项目处于onboarding流程中，不能删除工作流")
-		}
-	}
-
-	opt := new(commonrepo.ListQueueOption)
-	taskQueue, err := commonrepo.NewQueueColl().List(opt)
-	if err != nil {
-		log.Errorf("List queued task error: %v", err)
-		return e.ErrDeletePipeline.AddErr(err)
-	}
-	// 当task还在运行时，先取消任务
-	for _, task := range taskQueue {
-		if task.PipelineName == pipelineName && task.Type == config.SingleType {
-			if err = commonservice.CancelTaskV2("system", task.PipelineName, task.TaskID, config.SingleType, requestID, log); err != nil {
-				log.Errorf("task still running, cancel pipeline %s task %d", task.PipelineName, task.TaskID)
-			}
-		}
-	}
-
-	err = commonrepo.NewWorkflowStatColl().Delete(pipelineName, string(config.SingleType))
-	if err != nil {
-		log.Errorf("WorkflowStat.Delete failed,  error: %v", err)
-	}
-
-	if pipeline != nil && pipeline.Hook != nil {
-		err = processWebhook(nil, pipeline.Hook.GitHooks, webhook.PipelinePrefix+pipelineName, log)
-		if err != nil {
-			log.Errorf("Failed to process webhook, err: %s", err)
-			return e.ErrCreatePipeline.AddDesc(err.Error())
-		}
-	}
-
-	if err := commonrepo.NewPipelineColl().Delete(pipelineName); err != nil {
-		log.Errorf("PipelineV2.Delete error: %v", err)
-		return e.ErrDeletePipeline.AddErr(err)
-	}
-
-	if err := commonrepo.NewTaskColl().DeleteByPipelineNameAndType(pipelineName, config.SingleType); err != nil {
-		log.Errorf("PipelineTaskV2.DeleteByPipelineName error: %v", err)
-	}
-
-	if err := commonrepo.NewCounterColl().Delete("PipelineTask:" + pipelineName); err != nil {
-		log.Errorf("Counter.Delete error: %v", err)
 	}
 
 	return nil
