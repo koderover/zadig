@@ -76,6 +76,8 @@ type WorkflowHook struct {
 }
 
 type MainHookRepo struct {
+	Name         string                 `bson:"name,omitempty"            json:"name,omitempty"`
+	Description  string                 `bson:"description,omitempty"     json:"description,omitempty"`
 	Source       string                 `bson:"source,omitempty"          json:"source,omitempty"`
 	RepoOwner    string                 `bson:"repo_owner"                json:"repo_owner"`
 	RepoName     string                 `bson:"repo_name"                 json:"repo_name"`

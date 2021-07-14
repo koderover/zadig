@@ -16,14 +16,18 @@ limitations under the License.
 
 package workflow
 
+type hookUniqueID struct {
+	owner, repo, source, name string
+}
+
 type hookItem struct {
-	owner, repo, source string
+	hookUniqueID
 	codeHostID          int
 }
 
 type Empty struct{}
 
-type HookSet map[hookItem]Empty
+type HookSet map[hookUniqueID]hookItem
 
 // NewHookSet creates a HookSet from a list of values.
 func NewHookSet(items ...hookItem) HookSet {
@@ -35,14 +39,14 @@ func NewHookSet(items ...hookItem) HookSet {
 // Insert adds items to the set.
 func (s HookSet) Insert(items ...hookItem) HookSet {
 	for _, item := range items {
-		s[item] = Empty{}
+		s[item.hookUniqueID] = item
 	}
 	return s
 }
 
 // Has returns true if and only if item is contained in the set.
 func (s HookSet) Has(item hookItem) bool {
-	_, contained := s[item]
+	_, contained := s[item.hookUniqueID]
 	return contained
 }
 
@@ -54,9 +58,9 @@ func (s HookSet) Has(item hookItem) bool {
 // s2.Difference(s1) = {a4, a5}
 func (s HookSet) Difference(s2 HookSet) HookSet {
 	result := NewHookSet()
-	for key := range s {
-		if !s2.Has(key) {
-			result.Insert(key)
+	for _, v := range s {
+		if !s2.Has(v) {
+			result.Insert(v)
 		}
 	}
 	return result

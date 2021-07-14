@@ -48,7 +48,7 @@ type task struct {
 	doneCh                           chan struct{}
 }
 
-func (c *client) AddWebHook(owner, repo, address, token, ref, from string) error {
+func (c *client) AddWebHook(name, owner, repo, address, token, ref, from string) error {
 	if !c.enabled {
 		return nil
 	}
@@ -58,7 +58,7 @@ func (c *client) AddWebHook(owner, repo, address, token, ref, from string) error
 		repo:    repo,
 		address: address,
 		token:   token,
-		ref:     ref,
+		ref:     getFullReference(name, ref),
 		from:    from,
 		add:     true,
 		doneCh:  make(chan struct{}),
@@ -79,7 +79,7 @@ func (c *client) AddWebHook(owner, repo, address, token, ref, from string) error
 	return t.err
 }
 
-func (c *client) RemoveWebHook(owner, repo, address, token, ref, from string) error {
+func (c *client) RemoveWebHook(name, owner, repo, address, token, ref, from string) error {
 	if !c.enabled {
 		return nil
 	}
@@ -89,7 +89,7 @@ func (c *client) RemoveWebHook(owner, repo, address, token, ref, from string) er
 		repo:    repo,
 		address: address,
 		token:   token,
-		ref:     ref,
+		ref:     getFullReference(name, ref),
 		from:    from,
 		add:     false,
 		doneCh:  make(chan struct{}),
@@ -108,4 +108,8 @@ func (c *client) RemoveWebHook(owner, repo, address, token, ref, from string) er
 	}
 
 	return t.err
+}
+
+func getFullReference(hookName, ref string) string {
+	return fmt.Sprintf("%s-%s", ref, hookName)
 }

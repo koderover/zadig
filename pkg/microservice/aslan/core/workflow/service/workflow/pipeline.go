@@ -67,6 +67,11 @@ func UpsertPipeline(args *commonmodels.Pipeline, log *zap.SugaredLogger) error {
 	}
 
 	log.Debugf("Start to create or update pipeline %s", args.Name)
+
+	if err := validatePipelineHookNames(args); err != nil {
+		return e.ErrCreatePipeline.AddDesc(err.Error())
+	}
+
 	if err := ensurePipeline(args, log); err != nil {
 		return e.ErrCreatePipeline.AddDesc(err.Error())
 	}
@@ -180,8 +185,10 @@ func RenamePipeline(oldName, newName string, log *zap.SugaredLogger) error {
 }
 
 func DeletePipeline(pipelineName, requestID string, isDeletingProductTmpl bool, log *zap.SugaredLogger) error {
+	var pipeline *commonmodels.Pipeline
+	var err error
 	if !isDeletingProductTmpl {
-		pipeline, err := commonrepo.NewPipelineColl().Find(&commonrepo.PipelineFindOption{Name: pipelineName})
+		pipeline, err = commonrepo.NewPipelineColl().Find(&commonrepo.PipelineFindOption{Name: pipelineName})
 		if err != nil {
 			log.Errorf("Pipeline.Find error: %v", err)
 			return e.ErrDeletePipeline.AddErr(err)
@@ -214,6 +221,14 @@ func DeletePipeline(pipelineName, requestID string, isDeletingProductTmpl bool, 
 	err = commonrepo.NewWorkflowStatColl().Delete(pipelineName, string(config.SingleType))
 	if err != nil {
 		log.Errorf("WorkflowStat.Delete failed,  error: %v", err)
+	}
+
+	if pipeline != nil && pipeline.Hook != nil {
+		err = processWebhook(nil, pipeline.Hook.GitHooks, webhook.PipelinePrefix+pipelineName, log)
+		if err != nil {
+			log.Errorf("Failed to process webhook, err: %s", err)
+			return e.ErrCreatePipeline.AddDesc(err.Error())
+		}
 	}
 
 	if err := commonrepo.NewPipelineColl().Delete(pipelineName); err != nil {

@@ -323,6 +323,10 @@ func CreateWorkflow(workflow *commonmodels.Workflow, log *zap.SugaredLogger) err
 		return e.ErrUpsertWorkflow.AddDesc("workflow中没有子模块，请设置子模块")
 	}
 
+	if err := validateHookNames(workflow); err != nil {
+		return e.ErrUpsertWorkflow.AddDesc(err.Error())
+	}
+
 	err = processWebhook(workflow.HookCtl.Items, nil, webhook.WorkflowPrefix+workflow.Name, log)
 	if err != nil {
 		log.Errorf("Failed to process webhook, err: %s", err)
@@ -387,6 +391,10 @@ func UpdateWorkflow(workflow *commonmodels.Workflow, log *zap.SugaredLogger) err
 		return e.ErrUpsertWorkflow.AddDesc(err.Error())
 	}
 
+	if err := validateHookNames(workflow); err != nil {
+		return e.ErrUpsertWorkflow.AddDesc(err.Error())
+	}
+
 	err = processWebhook(workflow.HookCtl.Items, currentWorkflow.HookCtl.Items, webhook.WorkflowPrefix+workflow.Name, log)
 	if err != nil {
 		log.Errorf("Failed to process webhook, err: %s", err)
@@ -424,17 +432,23 @@ func toHookSet(hooks interface{}) HookSet {
 	case []*commonmodels.WorkflowHook:
 		for _, h := range hs {
 			res.Insert(hookItem{
-				owner:      h.MainRepo.RepoOwner,
-				repo:       h.MainRepo.RepoName,
+				hookUniqueID: hookUniqueID{
+					name:   h.MainRepo.Name,
+					owner:  h.MainRepo.RepoOwner,
+					repo:   h.MainRepo.RepoName,
+					source: h.MainRepo.Source,
+				},
 				codeHostID: h.MainRepo.CodehostID,
-				source:     h.MainRepo.Source,
 			})
 		}
 	case []commonmodels.GitHook:
 		for _, h := range hs {
 			res.Insert(hookItem{
-				owner:      h.Owner,
-				repo:       h.Repo,
+				hookUniqueID: hookUniqueID{
+					name:  h.Name,
+					owner: h.Owner,
+					repo:  h.Repo,
+				},
 				codeHostID: h.CodehostID,
 			})
 		}
@@ -459,7 +473,7 @@ func processWebhook(updatedHooks, currentHooks interface{}, name string, logger 
 	var errs *multierror.Error
 	var wg sync.WaitGroup
 
-	for h := range hooksToRemove {
+	for _, h := range hooksToRemove {
 		wg.Add(1)
 		go func(wh hookItem) {
 			defer wg.Done()
@@ -472,7 +486,7 @@ func processWebhook(updatedHooks, currentHooks interface{}, name string, logger 
 
 			switch ch.Type {
 			case setting.SourceFromGithub, setting.SourceFromGitlab:
-				err = webhook.NewClient().RemoveWebHook(wh.owner, wh.repo, ch.Address, ch.AccessToken, name, ch.Type)
+				err = webhook.NewClient().RemoveWebHook(wh.name, wh.owner, wh.repo, ch.Address, ch.AccessToken, name, ch.Type)
 				if err != nil {
 					logger.Errorf("Failed to remove webhook %+v, err: %s", wh, err)
 					errs = multierror.Append(errs, err)
@@ -482,7 +496,7 @@ func processWebhook(updatedHooks, currentHooks interface{}, name string, logger 
 		}(h)
 	}
 
-	for h := range hooksToAdd {
+	for _, h := range hooksToAdd {
 		wg.Add(1)
 		go func(wh hookItem) {
 			defer wg.Done()
@@ -495,7 +509,7 @@ func processWebhook(updatedHooks, currentHooks interface{}, name string, logger 
 
 			switch ch.Type {
 			case setting.SourceFromGithub, setting.SourceFromGitlab:
-				err = webhook.NewClient().AddWebHook(wh.owner, wh.repo, ch.Address, ch.AccessToken, name, ch.Type)
+				err = webhook.NewClient().AddWebHook(wh.name, wh.owner, wh.repo, ch.Address, ch.AccessToken, name, ch.Type)
 				if err != nil {
 					logger.Errorf("Failed to add webhook %+v, err: %s", wh, err)
 					errs = multierror.Append(errs, err)
@@ -508,6 +522,21 @@ func processWebhook(updatedHooks, currentHooks interface{}, name string, logger 
 	wg.Wait()
 
 	return errs.ErrorOrNil()
+}
+
+func validateHookNames(p *commonmodels.Workflow) error {
+	if p.HookCtl == nil {
+		return nil
+	}
+	names := sets.NewString()
+	for _, hook := range p.HookCtl.Items {
+		if names.Has(hook.MainRepo.Name) {
+			return fmt.Errorf("duplicated webhook name found: %s", hook.MainRepo.Name)
+		}
+		names.Insert(hook.MainRepo.Name)
+	}
+
+	return nil
 }
 
 func ListWorkflows(queryType string, userID int, log *zap.SugaredLogger) ([]*commonmodels.Workflow, error) {
