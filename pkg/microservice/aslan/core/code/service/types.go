@@ -19,6 +19,7 @@ package service
 import (
 	"github.com/andygrunwald/go-gerrit"
 	"github.com/google/go-github/v35/github"
+	"github.com/koderover/zadig/pkg/tool/codehub"
 	"github.com/xanzy/go-gitlab"
 
 	gerrittool "github.com/koderover/zadig/pkg/tool/gerrit"
@@ -46,9 +47,10 @@ type PullRequest struct {
 }
 
 type Namespace struct {
-	Name string `json:"name"`
-	Path string `json:"path"`
-	Kind string `json:"kind"`
+	Name        string `json:"name"`
+	Path        string `json:"path"`
+	Kind        string `json:"kind"`
+	ProjectUUID string `json:"project_uuid,omitempty"`
 }
 
 type Project struct {
@@ -57,6 +59,7 @@ type Project struct {
 	Description   string `json:"description"`
 	DefaultBranch string `json:"defaultBranch"`
 	Namespace     string `json:"namespace"`
+	UUID          string `json:"uuid"`
 }
 
 type Tag struct {
@@ -89,6 +92,14 @@ func ToBranches(obj interface{}) []*Branch {
 		for _, o := range os {
 			res = append(res, &Branch{
 				Name: o,
+			})
+		}
+	case []*codehub.Branch:
+		for _, o := range os {
+			res = append(res, &Branch{
+				Name:      o.Name,
+				Protected: o.Protected,
+				Merged:    o.Merged,
 			})
 		}
 	}
@@ -168,6 +179,15 @@ func ToNamespaces(obj interface{}) []*Namespace {
 				Kind: o.Kind,
 			})
 		}
+	case []*codehub.Namespace:
+		for _, o := range os {
+			res = append(res, &Namespace{
+				Name:        o.Name,
+				Path:        o.Path,
+				Kind:        o.Kind,
+				ProjectUUID: o.ProjectUUID,
+			})
+		}
 	}
 
 	return res
@@ -204,6 +224,16 @@ func ToProjects(obj interface{}) []*Project {
 				Description:   o.Description,
 				DefaultBranch: "master",
 				Namespace:     gerrittool.DefaultNamespace,
+			})
+		}
+	case []*codehub.Project:
+		for _, project := range os {
+			res = append(res, &Project{
+				Name:          project.Name,
+				Description:   project.Description,
+				DefaultBranch: project.DefaultBranch,
+				Namespace:     project.Namespace,
+				UUID:          project.UUID,
 			})
 		}
 	}

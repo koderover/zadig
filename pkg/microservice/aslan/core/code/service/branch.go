@@ -24,6 +24,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
 	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/tool/codehub"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
 	"github.com/koderover/zadig/pkg/tool/git/gitlab"
@@ -57,6 +58,13 @@ func CodeHostListBranches(codeHostID int, projectName, namespace string, log *za
 			return nil, err
 		}
 		return ToBranches(branches), nil
+	} else if ch.Type == CodeHostCodeHub {
+		codeHubClient := codehub.NewCodeHubClient(ch.AccessKey, ch.SecretKey)
+		branchList, err := codeHubClient.BranchList(projectName)
+		if err != nil {
+			return nil, err
+		}
+		return ToBranches(branchList), nil
 	} else {
 		//	github
 		gh := git.NewClient(ch.AccessToken, config.ProxyHTTPSAddr())

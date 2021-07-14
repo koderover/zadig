@@ -27,6 +27,8 @@ type CodeHost struct {
 	Type        string `json:"type"`
 	AccessToken string `json:"accessToken"`
 	Namespace   string `json:"namespace"`
+	AccessKey   string `json:"applicationId"`
+	SecretKey   string `json:"clientSecret"`
 }
 
 func (c *Client) ListCodeHosts() ([]*CodeHost, error) {
