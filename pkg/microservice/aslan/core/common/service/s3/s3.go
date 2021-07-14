@@ -21,34 +21,25 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
-	"sync"
-	"sync/atomic"
-	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	awsconfig "github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials"
-	awsS3 "github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/hashicorp/go-multierror"
-	"github.com/minio/minio-go"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
+	awsS3 "github.com/aws/aws-sdk-go/service/s3"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/tool/crypto"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/util/fs"
 )
 
 type S3 struct {
 	*models.S3Storage
-}
-
-func (s S3) ResolveEndpoint(service, region string) (aws.Endpoint, error) {
-	return aws.Endpoint{
-		URL: s.Endpoint,
-	}, nil
 }
 
 func (s *S3) GetSchema() string {
@@ -146,7 +137,7 @@ func Validate(s *S3) error {
 		return err
 	}
 	listBucketInput := &awsS3.ListBucketsInput{}
-	bucketListResp, err := s3Client.ListBuckets(context.TODO(), listBucketInput)
+	bucketListResp, err := s3Client.ListBuckets(listBucketInput)
 	if err != nil {
 		err = fmt.Errorf("validate S3 error: %s", err.Error())
 		return err
@@ -161,127 +152,124 @@ func Validate(s *S3) error {
 }
 
 // Download the file to object storage
-func Download(ctx context.Context, storage *S3, src string, dest string) (err error) {
-	log := log.SugaredLogger()
-	var minioClient *minio.Client
-	if minioClient, err = getMinioClient(storage); err != nil {
-		return
+func Download(ctx context.Context, storage *S3, src string, dest string) error {
+	s3Client, err := getAmazonClient(storage)
+	if err != nil {
+		return err
 	}
 
 	retry := 0
 
 	for retry < 3 {
-		err = minioClient.FGetObjectWithContext(
-			ctx, storage.Bucket, storage.GetObjectPath(src), dest, minio.GetObjectOptions{},
-		)
-
-		if err == nil {
-			return
+		opt := &awsS3.GetObjectInput{
+			Bucket: aws.String(storage.Bucket),
+			Key:    aws.String(storage.GetObjectPath(src)),
 		}
-		log.Warnf("failed to download file %s %s=>%s: %v", storage.GetURI(), src, dest, err)
-
-		if strings.Contains(err.Error(), "stream error") {
+		obj, err := s3Client.GetObject(opt)
+		if err != nil {
 			retry++
 			continue
 		}
-
-		// 自定义返回的错误信息
-		err = fmt.Errorf("未找到 package %s/%s，请确认打包脚本是否正确。", storage.GetURI(), src)
-		return
+		err = fs.SaveFile(obj.Body, dest)
+		if err == nil {
+			return nil
+		}
+		retry++
 	}
-
-	return
+	return fmt.Errorf("下载文件%s/%s失败", storage.GetURI(), src)
 }
 
 // RemoveFiles will attempt to remove files specified in prefixList in `target` s3 endpoint-bucket recursively.
 // If dryRun is given, the removal will be no op other than a log.
 // Note that this API makes its best attempt to remove given files, if the removal fails, it will log error but the
 // function just continues.
+// CHANGED: DRY_RUN WILL NOT WORK NOW, THERE IS NO POINT OF DRY RUN.
 func RemoveFiles(target *S3, prefixList []string, dryRun bool) {
-	log := log.SugaredLogger()
-	minioClient, err := getMinioClient(target)
+	s3Client, err := getAmazonClient(target)
 	if err != nil {
 		log.Errorf("Fail to create minioClient for storage: %v; err: %v", target, err)
 		return
 	}
-
-	objectsCh := make(chan string)
-	var wg sync.WaitGroup
-	var cnt int64
+	deleteList := make([]*awsS3.ObjectIdentifier, 0)
 	for _, prefix := range prefixList {
-		wg.Add(1)
-		go func(filePrefix string) {
-			defer wg.Done()
-			objects, err := ListFiles(target, filePrefix, true /* recursive */)
-			if err != nil {
-				// Failing to remove some S3 files is not fatal, log and move on to try next batch
-				log.Errorf("Error detected while listing files to be removed for [%v-%v-%v] with error: %v",
-					target.Endpoint, target.Bucket, filePrefix, err)
-				return
-			}
-			atomic.AddInt64(&cnt, int64(len(objects)))
-			for _, o := range objects {
-				o = filepath.Join(target.GetObjectPath(""), o)
-				if !dryRun {
-					objectsCh <- o
-				} else {
-					log.Infof("%v-%v removing file [dryRun %v]: %v",
-						target.Endpoint, target.Bucket, dryRun, o)
-				}
-			}
-		}(prefix)
+		input := &awsS3.ListObjectsInput{
+			Bucket:    aws.String(target.Bucket),
+			Delimiter: aws.String(""),
+			Prefix:    aws.String(prefix),
+		}
+		objects, err := s3Client.ListObjects(input)
+		if err != nil {
+			log.Errorf("List s3 objects with prefix %s err: %+v", prefix, err)
+			continue
+		}
+		for _, object := range objects.Contents {
+			deleteList = append(deleteList, &awsS3.ObjectIdentifier{
+				Key: object.Key,
+			})
+		}
 	}
-	errCh := minioClient.RemoveObjects(target.Bucket, objectsCh)
-	if waitTimeout(&wg, 15*time.Minute) {
-		log.Errorf("%v-%v removing files timeout waiting for all groups [dryRun %v]", target.Endpoint, target.Bucket, dryRun)
+
+	input := &awsS3.DeleteObjectsInput{
+		Bucket: aws.String(target.Bucket),
+		Delete: &awsS3.Delete{Objects: deleteList},
 	}
-	close(objectsCh)
-	log.Infof("%v-%v removing %d files [dryRun %v]", target.Endpoint, target.Bucket, cnt, dryRun)
-	for err := range errCh {
-		log.Errorf("%v-%v removing file failed with error: %v", target.Endpoint, target.Bucket, err)
+	_, err = s3Client.DeleteObjects(input)
+	if err != nil {
+		log.Errorf("Failed to delete object with prefix: %v from bucket %s", prefixList, target.Bucket)
 	}
 }
 
 // Upload the file to object storage
-func Upload(ctx context.Context, storage *S3, src string, dest string) (err error) {
-	var minioClient *minio.Client
-	if minioClient, err = getMinioClient(storage); err != nil {
-		return
+func Upload(ctx context.Context, storage *S3, src string, dest string) error {
+	s3Client, err := getAmazonClient(storage)
+	if err != nil {
+		return err
 	}
-
-	_, err = minioClient.FPutObjectWithContext(
-		ctx, storage.Bucket, storage.GetObjectPath(dest), src, minio.PutObjectOptions{},
-	)
-
-	return
+	file, err := os.OpenFile(src, os.O_RDONLY, 0600)
+	if err != nil {
+		return err
+	}
+	// TODO: add md5 check for file integrity
+	input := &awsS3.PutObjectInput{
+		Body:   file,
+		Bucket: aws.String(storage.Bucket),
+		Key:    aws.String(dest),
+	}
+	_, err = s3Client.PutObject(input)
+	return err
 }
 
 // ListFiles with specific prefix
-func ListFiles(storage *S3, prefix string, recursive bool) (files []string, err error) {
-	log := log.SugaredLogger()
-	var minioClient *minio.Client
-	if minioClient, err = getMinioClient(storage); err != nil {
-		return
-	}
+func ListFiles(storage *S3, prefix string, recursive bool) ([]string, error) {
+	ret := []string{}
+	logger := log.SugaredLogger()
 
-	done := make(chan struct{})
-	defer close(done)
-
-	for item := range minioClient.ListObjects(storage.Bucket, storage.GetObjectPath(prefix), recursive, done) {
-		if item.Err != nil {
-			err = multierror.Append(err, item.Err)
-			continue
-		}
-		key := item.Key
-		if strings.Index(key, storage.GetObjectPath("")) == 0 {
-			files = append(files, item.Key[len(storage.GetObjectPath("")):len(item.Key)])
-		}
-	}
+	s3Client, err := getAmazonClient(storage)
 	if err != nil {
-		log.Errorf("S3 [%v-%v] prefix [%v] listing objects failed: %v", storage.Endpoint, storage.Bucket, prefix, err)
+		return nil, err
 	}
 
-	return
+	input := &awsS3.ListObjectsInput{
+		Bucket: aws.String(storage.Bucket),
+		Prefix: aws.String(storage.GetObjectPath(prefix)),
+	}
+	if !recursive {
+		input.Delimiter = aws.String("/")
+	}
+	output, err := s3Client.ListObjects(input)
+	if err != nil {
+		logger.Errorf("S3 [%v-%v] prefix [%v] listing objects failed: %v", storage.Endpoint, storage.Bucket, prefix, err)
+		return nil, err
+	}
+
+	for _, item := range output.Contents {
+		itemKey := *item.Key
+		if strings.Index(itemKey, storage.GetObjectPath("")) == 0 {
+			ret = append(ret, itemKey[len(storage.GetObjectPath("")):len(itemKey)])
+		}
+	}
+
+	return ret, nil
 }
 
 func FindDefaultS3() (*S3, error) {
@@ -313,33 +301,18 @@ func FindInternalS3() *S3 {
 	return &S3{S3Storage: storage}
 }
 
-func getMinioClient(s *S3) (minioClient *minio.Client, err error) {
-	if minioClient, err = minio.New(s.Endpoint, s.Ak, s.Sk, !s.Insecure); err != nil {
-		return
+func getAmazonClient(s *S3) (*awsS3.S3, error) {
+	creds := credentials.NewStaticCredentials(s.Ak, s.Sk, "")
+	endpoint := s.Endpoint
+	config := &aws.Config{
+		Endpoint:         &endpoint,
+		S3ForcePathStyle: aws.Bool(true),
+		Credentials:      creds,
+		DisableSSL:       &s.Insecure,
 	}
-
-	return
-}
-
-func getAmazonClient(s *S3) (*awsS3.Client, error) {
-	s3Cred := credentials.NewStaticCredentialsProvider(s.Ak, s.Sk, "")
-	cfg, err := awsconfig.LoadDefaultConfig(context.TODO(), awsconfig.WithCredentialsProvider(s3Cred), awsconfig.WithEndpointResolver(*s))
+	session, err := session.NewSession(config)
 	if err != nil {
 		return nil, err
 	}
-	return awsS3.NewFromConfig(cfg), nil
-}
-
-func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
-	normal := make(chan struct{})
-	go func() {
-		defer close(normal)
-		wg.Wait()
-	}()
-	select {
-	case <-normal:
-		return false
-	case <-time.After(timeout):
-		return true
-	}
+	return awsS3.New(session), nil
 }
