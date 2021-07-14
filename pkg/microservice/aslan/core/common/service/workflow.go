@@ -100,7 +100,7 @@ func DeleteWorkflow(workflowName, requestID string, isDeletingProductTmpl bool, 
 		ParentType: config.WorkflowCronjob,
 	})
 	if err != nil {
-		log.Errorf("Failed to delete %s 's cronjob, the error is: %v", workflow.Name, err)
+		log.Errorf("Failed to delete cronjob for workflow %s, error: %s", workflow.Name, err)
 		//return e.ErrDeleteWorkflow.AddDesc(err.Error())
 	}
 
