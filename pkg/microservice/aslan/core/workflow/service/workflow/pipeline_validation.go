@@ -29,6 +29,7 @@ import (
 	"github.com/google/go-github/v35/github"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	configbase "github.com/koderover/zadig/pkg/config"
@@ -59,6 +60,21 @@ var (
 	NameSpaceRegex   = regexp.MustCompile(NameSpaceRegexString)
 	defaultNameRegex = regexp.MustCompile(defaultNameRegexString)
 )
+
+func validatePipelineHookNames(p *commonmodels.Pipeline) error {
+	if p.Hook == nil {
+		return nil
+	}
+	names := sets.NewString()
+	for _, hook := range p.Hook.GitHooks {
+		if names.Has(hook.Name) {
+			return fmt.Errorf("duplicated webhook name found: %s", hook.Name)
+		}
+		names.Insert(hook.Name)
+	}
+
+	return nil
+}
 
 func ensurePipeline(args *commonmodels.Pipeline, log *zap.SugaredLogger) error {
 	if !defaultNameRegex.MatchString(args.Name) {

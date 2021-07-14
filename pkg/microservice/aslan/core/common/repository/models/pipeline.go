@@ -79,6 +79,8 @@ type Hook struct {
 // MatchFolders: 包含目录或者文件后缀
 // 以!开头的目录或者后缀名为不运行pipeline的过滤条件
 type GitHook struct {
+	Name         string   `bson:"name,omitempty"           json:"name,omitempty"`
+	Description  string   `bson:"description,omitempty"    json:"description,omitempty"`
 	Owner        string   `bson:"repo_owner"               json:"repo_owner"`
 	Repo         string   `bson:"repo"                     json:"repo"`
 	Branch       string   `bson:"branch"                   json:"branch"`
