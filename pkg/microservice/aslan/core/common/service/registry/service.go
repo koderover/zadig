@@ -44,6 +44,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/net/proxy"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -308,11 +309,12 @@ func (s *v2RegistryService) ListRepoImages(option ListRepoImagesOption, log *zap
 		return
 	}
 
+	var wg wait.Group
 	resultChan := make(chan *Repo)
-	defer close(resultChan)
 
 	for _, repo := range option.Repos {
-		go func(name string) {
+		name := repo
+		wg.Start(func() {
 			repoName := fmt.Sprintf("%s/%s", option.Namespace, name)
 			tags, err := cli.listTags(repoName)
 			if err != nil {
@@ -340,8 +342,13 @@ func (s *v2RegistryService) ListRepoImages(option ListRepoImagesOption, log *zap
 				Namespace: option.Namespace,
 				Tags:      sortedTags,
 			}
-		}(repo)
+		})
 	}
+
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
 
 	resp = &ReposResp{}
 	for result := range resultChan {
@@ -373,11 +380,12 @@ func (s *SwrService) createClient(ep Endpoint) (cli *swr.SwrClient) {
 func (s *SwrService) ListRepoImages(option ListRepoImagesOption, log *zap.SugaredLogger) (resp *ReposResp, err error) {
 	swrCli := s.createClient(option.Endpoint)
 
+	var wg wait.Group
 	resultChan := make(chan *Repo)
-	defer close(resultChan)
 
 	for _, repo := range option.Repos {
-		go func(name string) {
+		name := repo
+		wg.Start(func() {
 			request := &model.ListReposDetailsRequest{Name: &name, Namespace: &option.Namespace, ContentType: model.GetListReposDetailsRequestContentTypeEnum().APPLICATION_JSONCHARSETUTF_8}
 			repoDetails, err := swrCli.ListReposDetails(request)
 			if err != nil {
@@ -407,8 +415,13 @@ func (s *SwrService) ListRepoImages(option ListRepoImagesOption, log *zap.Sugare
 				Namespace: option.Namespace,
 				Tags:      sortedTags,
 			}
-		}(repo)
+		})
 	}
+
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
 
 	resp = &ReposResp{}
 	for result := range resultChan {
