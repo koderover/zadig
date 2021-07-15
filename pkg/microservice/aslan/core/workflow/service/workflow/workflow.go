@@ -436,24 +436,6 @@ func validateWorkflowHookNames(w *commonmodels.Workflow) error {
 	return validateHookNames(names)
 }
 
-func validateHookNames(hookNames []string) error {
-	names := sets.NewString()
-	for _, name := range hookNames {
-		if name == "" {
-			return fmt.Errorf("empty name is not allowed")
-		}
-		if !setting.ValidName.MatchString(name) {
-			return fmt.Errorf("invalid name. a valid name must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character")
-		}
-		if names.Has(name) {
-			return fmt.Errorf("duplicated webhook name found: %s", name)
-		}
-		names.Insert(name)
-	}
-
-	return nil
-}
-
 func ListWorkflows(queryType string, userID int, log *zap.SugaredLogger) ([]*commonmodels.Workflow, error) {
 	workflows, err := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{})
 	if err != nil {
