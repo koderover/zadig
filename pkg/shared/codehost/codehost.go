@@ -25,9 +25,10 @@ import (
 )
 
 const (
-	GitLabProvider = "gitlab"
-	GitHubProvider = "github"
-	GerritProvider = "gerrit"
+	GitLabProvider  = "gitlab"
+	GitHubProvider  = "github"
+	GerritProvider  = "gerrit"
+	CodeHubProvider = "codehub"
 )
 
 type CodeHost struct {
@@ -53,6 +54,8 @@ type Detail struct {
 	Owner      string `json:"repoowner"`
 	Source     string `json:"source"`
 	OauthToken string `json:"oauth_token"`
+	Username   string `json:"username"`
+	Password   string `json:"password"`
 }
 
 func GetCodeHostList() ([]*poetry.CodeHost, error) {
@@ -79,6 +82,10 @@ func GetCodeHostInfo(option *Option) (*poetry.CodeHost, error) {
 				if strings.Contains(option.Address, codeHost.Address) && option.Namespace == codeHost.Namespace {
 					return codeHost, nil
 				}
+			case CodeHubProvider:
+				if strings.Contains(option.Address, codeHost.Address) {
+					return codeHost, nil
+				}
 			}
 		}
 	}
@@ -102,6 +109,8 @@ func GetCodehostDetail(codehostID int) (*Detail, error) {
 		codehost.Namespace,
 		codehost.Type,
 		codehost.AccessToken,
+		codehost.Username,
+		codehost.Password,
 	}
 
 	return detail, nil
@@ -123,6 +132,8 @@ func ListCodehostDetial() ([]*Detail, error) {
 			codehost.Namespace,
 			codehost.Type,
 			codehost.AccessToken,
+			codehost.Username,
+			codehost.Password,
 		})
 	}
 

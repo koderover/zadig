@@ -252,6 +252,8 @@ func FmtBuilds(builds []*types.Repository, log *zap.SugaredLogger) {
 		repo.Source = detail.Type
 		repo.OauthToken = detail.AccessToken
 		repo.Address = detail.Address
+		repo.Username = detail.Username
+		repo.Password = detail.Password
 	}
 }
 
