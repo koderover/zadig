@@ -25,6 +25,7 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/docker/distribution"
@@ -310,7 +311,9 @@ func (s *v2RegistryService) ListRepoImages(option ListRepoImagesOption, log *zap
 	}
 
 	var wg wait.Group
+	var mutex sync.RWMutex
 	resultChan := make(chan *Repo)
+	defer close(resultChan)
 
 	for _, repo := range option.Repos {
 		name := repo
@@ -337,24 +340,18 @@ func (s *v2RegistryService) ListRepoImages(option ListRepoImagesOption, log *zap
 			sort.Sort(sort.Reverse(sort.StringSlice(koderoverTags)))
 			sortedTags = append(koderoverTags, customTags...)
 
-			resultChan <- &Repo{
+			mutex.Lock()
+			resp.Repos = append(resp.Repos, &Repo{
 				Name:      name,
 				Namespace: option.Namespace,
 				Tags:      sortedTags,
-			}
+			})
+			resp.Total++
+			mutex.Unlock()
 		})
 	}
 
-	go func() {
-		wg.Wait()
-		close(resultChan)
-	}()
-
-	resp = &ReposResp{}
-	for result := range resultChan {
-		resp.Repos = append(resp.Repos, result)
-		resp.Total++
-	}
+	wg.Wait()
 
 	return resp, nil
 }
@@ -381,7 +378,9 @@ func (s *SwrService) ListRepoImages(option ListRepoImagesOption, log *zap.Sugare
 	swrCli := s.createClient(option.Endpoint)
 
 	var wg wait.Group
+	var mutex sync.RWMutex
 	resultChan := make(chan *Repo)
+	defer close(resultChan)
 
 	for _, repo := range option.Repos {
 		name := repo
@@ -410,24 +409,18 @@ func (s *SwrService) ListRepoImages(option ListRepoImagesOption, log *zap.Sugare
 			sort.Sort(sort.Reverse(sort.StringSlice(koderoverTags)))
 			sortedTags = append(koderoverTags, customTags...)
 
-			resultChan <- &Repo{
+			mutex.Lock()
+			resp.Repos = append(resp.Repos, &Repo{
 				Name:      name,
 				Namespace: option.Namespace,
 				Tags:      sortedTags,
-			}
+			})
+			resp.Total++
+			mutex.Unlock()
 		})
 	}
 
-	go func() {
-		wg.Wait()
-		close(resultChan)
-	}()
-
-	resp = &ReposResp{}
-	for result := range resultChan {
-		resp.Repos = append(resp.Repos, result)
-		resp.Total++
-	}
+	wg.Wait()
 
 	return resp, nil
 
