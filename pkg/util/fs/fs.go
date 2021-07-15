@@ -71,6 +71,7 @@ func SaveFile(src io.ReadCloser, dst string) error {
 	if err != nil {
 		return err
 	}
+	defer file.Close()
 
 	_, err = io.Copy(file, src)
 	return err
