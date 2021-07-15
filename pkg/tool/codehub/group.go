@@ -68,8 +68,8 @@ func (c *CodeHubClient) NamespaceList() ([]*Namespace, error) {
 		}
 		groupNames.Insert(repository.GroupName)
 		groupInfos = append(groupInfos, &Namespace{
-			Name:        repository.GroupName,
-			Path:        repository.CreatorName,
+			Name:        repository.CreatorName,
+			Path:        repository.GroupName,
 			ProjectUUID: repository.ProjectUUID,
 			Kind:        "user",
 		})

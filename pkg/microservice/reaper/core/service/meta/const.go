@@ -25,6 +25,9 @@ const (
 	// ProviderGerrit
 	ProviderGerrit = "gerrit"
 
+	// ProviderCodehub
+	ProviderCodehub = "codehub"
+
 	//	Oauth prefix
 	OauthTokenPrefix = "oauth2"
 
