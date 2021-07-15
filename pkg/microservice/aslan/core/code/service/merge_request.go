@@ -55,6 +55,8 @@ func CodeHostListPRs(codeHostID int, projectName, namespace, targetBr string, lo
 
 	} else if ch.Type == gerrit.CodehostTypeGerrit {
 		return nil, nil
+	} else if ch.Type == CodeHostCodeHub {
+		return nil, nil
 	} else {
 		//	github
 		gh := git.NewClient(ch.AccessToken, config.ProxyHTTPSAddr())
