@@ -424,17 +424,6 @@ func UpdateWorkflow(workflow *commonmodels.Workflow, log *zap.SugaredLogger) err
 }
 
 func validateHookNames(p *commonmodels.Workflow) error {
-	if p.HookCtl == nil {
-		return nil
-	}
-	names := sets.NewString()
-	for _, hook := range p.HookCtl.Items {
-		if names.Has(hook.MainRepo.Name) {
-			return fmt.Errorf("duplicated webhook name found: %s", hook.MainRepo.Name)
-		}
-		names.Insert(hook.MainRepo.Name)
-	}
-
 	return nil
 }
 
