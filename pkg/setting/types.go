@@ -16,6 +16,8 @@ limitations under the License.
 
 package setting
 
+import "regexp"
+
 type Request string
 
 const (
@@ -28,6 +30,8 @@ const (
 	// MinRequest 2 CPU 2 G
 	MinRequest Request = "min"
 )
+
+var ValidName = regexp.MustCompile(`^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$`)
 
 const (
 	Aslan     = iota + 1 // 1

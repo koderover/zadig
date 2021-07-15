@@ -320,7 +320,7 @@ func CreateWorkflow(workflow *commonmodels.Workflow, log *zap.SugaredLogger) err
 		return e.ErrUpsertWorkflow.AddDesc("workflow中没有子模块，请设置子模块")
 	}
 
-	if err := validateHookNames(workflow); err != nil {
+	if err := validateWorkflowHookNames(workflow); err != nil {
 		return e.ErrUpsertWorkflow.AddDesc(err.Error())
 	}
 
@@ -388,7 +388,7 @@ func UpdateWorkflow(workflow *commonmodels.Workflow, log *zap.SugaredLogger) err
 		return e.ErrUpsertWorkflow.AddDesc(err.Error())
 	}
 
-	if err := validateHookNames(workflow); err != nil {
+	if err := validateWorkflowHookNames(workflow); err != nil {
 		return e.ErrUpsertWorkflow.AddDesc(err.Error())
 	}
 
@@ -423,16 +423,32 @@ func UpdateWorkflow(workflow *commonmodels.Workflow, log *zap.SugaredLogger) err
 	return nil
 }
 
-func validateHookNames(p *commonmodels.Workflow) error {
-	if p.HookCtl == nil {
+func validateWorkflowHookNames(w *commonmodels.Workflow) error {
+	if w == nil || w.HookCtl == nil {
 		return nil
 	}
+
+	var names []string
+	for _, hook := range w.HookCtl.Items {
+		names = append(names, hook.MainRepo.Name)
+	}
+
+	return validateHookNames(names)
+}
+
+func validateHookNames(hookNames []string) error {
 	names := sets.NewString()
-	for _, hook := range p.HookCtl.Items {
-		if names.Has(hook.MainRepo.Name) {
-			return fmt.Errorf("duplicated webhook name found: %s", hook.MainRepo.Name)
+	for _, name := range hookNames {
+		if name == "" {
+			return fmt.Errorf("empty name is not allowed")
 		}
-		names.Insert(hook.MainRepo.Name)
+		if !setting.ValidName.MatchString(name) {
+			return fmt.Errorf("invalid name. a valid name must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character")
+		}
+		if names.Has(name) {
+			return fmt.Errorf("duplicated webhook name found: %s", name)
+		}
+		names.Insert(name)
 	}
 
 	return nil
