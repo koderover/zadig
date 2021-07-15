@@ -312,6 +312,7 @@ func (s *v2RegistryService) ListRepoImages(option ListRepoImagesOption, log *zap
 
 	var wg wait.Group
 	var mutex sync.RWMutex
+	resp = &ReposResp{Total: len(option.Repos)}
 	resultChan := make(chan *Repo)
 	defer close(resultChan)
 
@@ -346,7 +347,6 @@ func (s *v2RegistryService) ListRepoImages(option ListRepoImagesOption, log *zap
 				Namespace: option.Namespace,
 				Tags:      sortedTags,
 			})
-			resp.Total++
 			mutex.Unlock()
 		})
 	}
@@ -379,6 +379,7 @@ func (s *SwrService) ListRepoImages(option ListRepoImagesOption, log *zap.Sugare
 
 	var wg wait.Group
 	var mutex sync.RWMutex
+	resp = &ReposResp{Total: len(option.Repos)}
 	resultChan := make(chan *Repo)
 	defer close(resultChan)
 
@@ -415,7 +416,6 @@ func (s *SwrService) ListRepoImages(option ListRepoImagesOption, log *zap.Sugare
 				Namespace: option.Namespace,
 				Tags:      sortedTags,
 			})
-			resp.Total++
 			mutex.Unlock()
 		})
 	}
