@@ -19,9 +19,9 @@ package service
 import (
 	"github.com/andygrunwald/go-gerrit"
 	"github.com/google/go-github/v35/github"
-	"github.com/koderover/zadig/pkg/tool/codehub"
 	"github.com/xanzy/go-gitlab"
 
+	"github.com/koderover/zadig/pkg/tool/codehub"
 	gerrittool "github.com/koderover/zadig/pkg/tool/gerrit"
 )
 
@@ -60,6 +60,7 @@ type Project struct {
 	DefaultBranch string `json:"defaultBranch"`
 	Namespace     string `json:"namespace"`
 	UUID          string `json:"uuid"`
+	RepoID        string `json:"repo_id"`
 }
 
 type Tag struct {
@@ -234,6 +235,7 @@ func ToProjects(obj interface{}) []*Project {
 				DefaultBranch: project.DefaultBranch,
 				Namespace:     project.Namespace,
 				UUID:          project.UUID,
+				RepoID:        project.RepoID,
 			})
 		}
 	}
@@ -265,6 +267,12 @@ func ToTags(obj interface{}) []*Tag {
 			res = append(res, &Tag{
 				Name:    o.Ref,
 				Message: o.Message,
+			})
+		}
+	case []*codehub.Tag:
+		for _, o := range os {
+			res = append(res, &Tag{
+				Name: o.Name,
 			})
 		}
 	}

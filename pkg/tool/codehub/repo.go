@@ -32,6 +32,7 @@ type Project struct {
 	DefaultBranch string `json:"defaultBranch"`
 	Namespace     string `json:"namespace"`
 	UUID          string `json:"uuid"`
+	RepoID        string `json:"repo_id"`
 }
 
 func (c *CodeHubClient) RepoList(projectUUID, search string, pageSize int) ([]*Project, error) {
@@ -58,6 +59,7 @@ func (c *CodeHubClient) RepoList(projectUUID, search string, pageSize int) ([]*P
 			Name:          repository.Name,
 			DefaultBranch: "master",
 			Namespace:     repository.GroupName,
+			RepoID:        repository.RepoID,
 		})
 	}
 
