@@ -31,7 +31,7 @@ type Project struct {
 	Description   string `json:"description"`
 	DefaultBranch string `json:"defaultBranch"`
 	Namespace     string `json:"namespace"`
-	UUID          string `json:"uuid"`
+	RepoUUID      string `json:"repo_uuid"`
 	RepoID        string `json:"repo_id"`
 }
 
@@ -55,7 +55,7 @@ func (c *CodeHubClient) RepoList(projectUUID, search string, pageSize int) ([]*P
 
 	for _, repository := range repoInfo.Result.Repositorys {
 		repoInfos = append(repoInfos, &Project{
-			UUID:          repository.ID,
+			RepoUUID:      repository.ID,
 			Name:          repository.Name,
 			DefaultBranch: "master",
 			Namespace:     repository.GroupName,

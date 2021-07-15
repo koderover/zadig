@@ -59,7 +59,7 @@ type Project struct {
 	Description   string `json:"description"`
 	DefaultBranch string `json:"defaultBranch"`
 	Namespace     string `json:"namespace"`
-	UUID          string `json:"uuid"`
+	RepoUUID      string `json:"repo_uuid"`
 	RepoID        string `json:"repo_id"`
 }
 
@@ -234,7 +234,7 @@ func ToProjects(obj interface{}) []*Project {
 				Description:   project.Description,
 				DefaultBranch: project.DefaultBranch,
 				Namespace:     project.Namespace,
-				UUID:          project.UUID,
+				RepoUUID:      project.RepoUUID,
 				RepoID:        project.RepoID,
 			})
 		}
