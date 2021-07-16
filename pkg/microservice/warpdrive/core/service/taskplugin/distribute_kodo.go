@@ -107,7 +107,8 @@ func upload(ctx context.Context, log *zap.SugaredLogger, storage *s3.S3, localfi
 		return err
 	}
 
-	return client.Upload(storage.Bucket, localfile, destfile)
+	objectKey := storage.GetObjectPath(destfile)
+	return client.Upload(storage.Bucket, localfile, objectKey)
 }
 
 // Run ...

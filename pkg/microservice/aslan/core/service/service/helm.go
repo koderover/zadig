@@ -628,7 +628,8 @@ func uploadService(base, serviceName, filePath string) error {
 	} else {
 		s3Storage.Subfolder = fmt.Sprintf("%s/%s", subFolderName, "service")
 	}
-	if err = client.Upload(s3Storage.Bucket, tarFilePath, fmt.Sprintf("%s.tar.gz", serviceName)); err != nil {
+	objectKey := s3Storage.GetObjectPath(fmt.Sprintf("%s.tar.gz", serviceName))
+	if err = client.Upload(s3Storage.Bucket, tarFilePath, objectKey); err != nil {
 		log.Errorf("s3上传文件失败 err:%v", err)
 		return err
 	}
