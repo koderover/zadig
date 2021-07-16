@@ -6,23 +6,27 @@ import (
 )
 
 type RepoInfo struct {
-	Result struct {
-		Total       int `json:"total"`
-		Repositorys []struct {
-			ID              string `json:"id"`
-			RepoID          string `json:"repoId"`
-			Name            string `json:"name"`
-			SSHURL          string `json:"sshUrl"`
-			HTTPURL         string `json:"httpUrl"`
-			GroupName       string `json:"groupName"`
-			WebURL          string `json:"webUrl"`
-			VisibilityLevel int    `json:"visibilityLevel"`
-			CreateAt        string `json:"createAt"`
-			ProjectID       string `json:"projectId"`
-			ProjectIsDelete string `json:"projectIsDelete"`
-		} `json:"repositorys"`
-	} `json:"result"`
-	Status string `json:"status"`
+	Result RepoInfoResult `json:"result"`
+	Status string         `json:"status"`
+}
+
+type RepoInfoResult struct {
+	Total       int           `json:"total"`
+	Repositorys []Repositorys `json:"repositorys"`
+}
+
+type Repositorys struct {
+	ID              string `json:"id"`
+	RepoID          string `json:"repoId"`
+	Name            string `json:"name"`
+	SSHURL          string `json:"sshUrl"`
+	HTTPURL         string `json:"httpUrl"`
+	GroupName       string `json:"groupName"`
+	WebURL          string `json:"webUrl"`
+	VisibilityLevel int    `json:"visibilityLevel"`
+	CreateAt        string `json:"createAt"`
+	ProjectID       string `json:"projectId"`
+	ProjectIsDelete string `json:"projectIsDelete"`
 }
 
 type Project struct {

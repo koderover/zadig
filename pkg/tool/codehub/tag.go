@@ -6,14 +6,18 @@ import (
 )
 
 type TagList struct {
-	Result struct {
-		Total int `json:"total"`
-		Tags  []struct {
-			Name         string `json:"name"`
-			IsDoubleName bool   `json:"is_double_name"`
-		} `json:"tags"`
-	} `json:"result"`
-	Status string `json:"status"`
+	Result TagListResult `json:"result"`
+	Status string        `json:"status"`
+}
+
+type TagListResult struct {
+	Total int    `json:"total"`
+	Tags  []Tags `json:"tags"`
+}
+
+type Tags struct {
+	Name         string `json:"name"`
+	IsDoubleName bool   `json:"is_double_name"`
 }
 
 type Tag struct {

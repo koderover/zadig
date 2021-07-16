@@ -7,33 +7,37 @@ import (
 )
 
 type RepoListInfo struct {
-	Result struct {
-		Total        int `json:"total"`
-		Repositories []struct {
-			Star             bool        `json:"star"`
-			Status           int         `json:"status"`
-			UserRole         interface{} `json:"userRole"`
-			RepositoryUUID   string      `json:"repository_uuid"`
-			RepositoryID     int         `json:"repository_id"`
-			RepositoryName   string      `json:"repository_name"`
-			SSHURL           string      `json:"ssh_url"`
-			HTTPSURL         string      `json:"https_url"`
-			GroupName        string      `json:"group_name"`
-			WebURL           string      `json:"web_url"`
-			VisibilityLevel  int         `json:"visibility_level"`
-			CreatedAt        string      `json:"created_at"`
-			UpdatedAt        string      `json:"updated_at"`
-			RepositorySize   string      `json:"repository_size"`
-			LfsSize          string      `json:"lfs_size"`
-			CreatorName      string      `json:"creator_name"`
-			DomainName       string      `json:"domain_name"`
-			IsOwner          int         `json:"is_owner"`
-			IamUserUUID      string      `json:"iam_user_uuid"`
-			ProjectUUID      string      `json:"project_uuid"`
-			ProjectIsDeleted string      `json:"project_is_deleted"`
-		} `json:"repositories"`
-	} `json:"result"`
-	Status string `json:"status"`
+	Result RepoListInfoResult `json:"result"`
+	Status string             `json:"status"`
+}
+
+type RepoListInfoResult struct {
+	Total        int            `json:"total"`
+	Repositories []Repositories `json:"repositories"`
+}
+
+type Repositories struct {
+	Star             bool        `json:"star"`
+	Status           int         `json:"status"`
+	UserRole         interface{} `json:"userRole"`
+	RepositoryUUID   string      `json:"repository_uuid"`
+	RepositoryID     int         `json:"repository_id"`
+	RepositoryName   string      `json:"repository_name"`
+	SSHURL           string      `json:"ssh_url"`
+	HTTPSURL         string      `json:"https_url"`
+	GroupName        string      `json:"group_name"`
+	WebURL           string      `json:"web_url"`
+	VisibilityLevel  int         `json:"visibility_level"`
+	CreatedAt        string      `json:"created_at"`
+	UpdatedAt        string      `json:"updated_at"`
+	RepositorySize   string      `json:"repository_size"`
+	LfsSize          string      `json:"lfs_size"`
+	CreatorName      string      `json:"creator_name"`
+	DomainName       string      `json:"domain_name"`
+	IsOwner          int         `json:"is_owner"`
+	IamUserUUID      string      `json:"iam_user_uuid"`
+	ProjectUUID      string      `json:"project_uuid"`
+	ProjectIsDeleted string      `json:"project_is_deleted"`
 }
 
 type Namespace struct {
