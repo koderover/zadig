@@ -61,6 +61,19 @@ var (
 	defaultNameRegex = regexp.MustCompile(defaultNameRegexString)
 )
 
+func validatePipelineHookNames(p *commonmodels.Pipeline) error {
+	if p == nil || p.Hook == nil {
+		return nil
+	}
+
+	var names []string
+	for _, hook := range p.Hook.GitHooks {
+		names = append(names, hook.Name)
+	}
+
+	return validateHookNames(names)
+}
+
 func ensurePipeline(args *commonmodels.Pipeline, log *zap.SugaredLogger) error {
 	if !defaultNameRegex.MatchString(args.Name) {
 		log.Errorf("pipeline name must match %s", defaultNameRegexString)

@@ -5,8 +5,6 @@ go 1.16
 require (
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/andygrunwald/go-gerrit v0.0.0-20171029143327-95b11af228a1
-	github.com/bitly/go-simplejson v0.5.0 // indirect
-	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
 	github.com/bndr/gojenkins v1.1.0
 	github.com/bradleyfalzon/ghinstallation v1.1.1
 	github.com/bshuster-repo/logrus-logstash-hook v1.0.0 // indirect

@@ -14,17 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package workflow
 
 import (
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"testing"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
-type CronjobPayload struct {
-	Name        string             `json:"name"`
-	ProductName string             `json:"product_name"`
-	Action      string             `json:"action"`
-	JobType     string             `json:"job_type"`
-	DeleteList  []string           `json:"delete_list,omitempty"`
-	JobList     []*models.Schedule `json:"job_list,omitempty"`
+func TestWorkflow(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "workflow Suite")
 }

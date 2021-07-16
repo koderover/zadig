@@ -669,7 +669,7 @@ func UnForkProduct(userID int, username, productName, workflowName, envName, req
 	}
 
 	if _, err := workflowservice.FindWorkflow(workflowName, log); err == nil {
-		err = workflowservice.DeleteWorkflow(workflowName, requestID, false, log)
+		err = commonservice.DeleteWorkflow(workflowName, requestID, false, log)
 		if err != nil {
 			log.Errorf("Failed to delete forked workflow: %s, the error is: %+v", workflowName, err)
 			return e.ErrUnForkProduct.AddDesc(err.Error())

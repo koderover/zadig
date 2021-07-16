@@ -25,6 +25,7 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/docker/distribution"
@@ -40,14 +41,14 @@ import (
 	"github.com/huaweicloud/huaweicloud-sdk-go-v3/core/auth/basic"
 	swr "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/swr/v2"
 	"github.com/huaweicloud/huaweicloud-sdk-go-v3/services/swr/v2/model"
-	digest "github.com/opencontainers/go-digest"
+	"github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/net/proxy"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/tool/pool"
 )
 
 type Endpoint struct {
@@ -304,38 +305,28 @@ func (rss ReverseStringSlice) Swap(i, j int) {
 }
 
 func (s *v2RegistryService) ListRepoImages(option ListRepoImagesOption, log *zap.SugaredLogger) (resp *ReposResp, err error) {
-
 	cli, err := s.createClient(option.Endpoint, log)
 	if err != nil {
 		return
 	}
 
-	var args []pool.TaskArg
-	for _, name := range option.Repos {
-		args = append(args, name)
-	}
-
+	var wg wait.Group
+	var mutex sync.RWMutex
+	resp = &ReposResp{Total: len(option.Repos)}
 	resultChan := make(chan *Repo)
-	tasks := pool.MapTask(func(arg pool.TaskArg) func() error {
-		return func() error {
-			var err error
-			name := arg.(string)
-			repoName := strings.Join([]string{option.Namespace, name}, "/")
+	defer close(resultChan)
 
-			defer func() {
-				if err != nil {
-					log.Infof("failed to list tags of %s: %v", repoName, err)
-				}
-			}()
-
+	for _, repo := range option.Repos {
+		name := repo
+		wg.Start(func() {
+			repoName := fmt.Sprintf("%s/%s", option.Namespace, name)
 			tags, err := cli.listTags(repoName)
 			if err != nil {
-				return err
+				log.Errorf("failed to list tags of %s: %s", repoName, err)
+				return
 			}
 
-			koderoverTags := make([]string, 0)
-			customTags := make([]string, 0)
-			sortedTags := make([]string, 0)
+			var koderoverTags, customTags, sortedTags []string
 			for _, tag := range tags {
 				tagArray := strings.Split(tag, "-")
 				if len(tagArray) > 1 && len(tagArray[0]) == 14 {
@@ -348,30 +339,19 @@ func (s *v2RegistryService) ListRepoImages(option ListRepoImagesOption, log *zap
 			}
 
 			sort.Sort(sort.Reverse(sort.StringSlice(koderoverTags)))
-			sortedTags = append(sortedTags, koderoverTags...)
-			sortedTags = append(sortedTags, customTags...)
+			sortedTags = append(koderoverTags, customTags...)
 
-			resultChan <- &Repo{
+			mutex.Lock()
+			resp.Repos = append(resp.Repos, &Repo{
 				Name:      name,
 				Namespace: option.Namespace,
 				Tags:      sortedTags,
-			}
-			return nil
-		}
-	}, args)
-
-	executor := pool.NewPool(tasks, 20)
-	go func() {
-		executor.Run()
-		close(resultChan)
-	}()
-
-	resp = &ReposResp{}
-
-	for result := range resultChan {
-		resp.Repos = append(resp.Repos, result)
-		resp.Total++
+			})
+			mutex.Unlock()
+		})
 	}
+
+	wg.Wait()
 
 	return resp, nil
 }
@@ -397,31 +377,23 @@ func (s *SwrService) createClient(ep Endpoint) (cli *swr.SwrClient) {
 func (s *SwrService) ListRepoImages(option ListRepoImagesOption, log *zap.SugaredLogger) (resp *ReposResp, err error) {
 	swrCli := s.createClient(option.Endpoint)
 
-	var args []pool.TaskArg
-	for _, name := range option.Repos {
-		args = append(args, name)
-	}
-
+	var wg wait.Group
+	var mutex sync.RWMutex
+	resp = &ReposResp{Total: len(option.Repos)}
 	resultChan := make(chan *Repo)
-	tasks := pool.MapTask(func(arg pool.TaskArg) func() error {
-		return func() error {
-			var err error
-			name := arg.(string)
-			defer func() {
-				if err != nil {
-					log.Errorf("failed to list tags of %s: %+v", name, err)
-				}
-			}()
+	defer close(resultChan)
 
+	for _, repo := range option.Repos {
+		name := repo
+		wg.Start(func() {
 			request := &model.ListReposDetailsRequest{Name: &name, Namespace: &option.Namespace, ContentType: model.GetListReposDetailsRequestContentTypeEnum().APPLICATION_JSONCHARSETUTF_8}
 			repoDetails, err := swrCli.ListReposDetails(request)
 			if err != nil {
-				return err
+				log.Errorf("failed to list tags of %s: %s", name, err)
+				return
 			}
 
-			koderoverTags := make([]string, 0)
-			customTags := make([]string, 0)
-			sortedTags := make([]string, 0)
+			var koderoverTags, customTags, sortedTags []string
 			for _, repoResp := range *repoDetails.Body {
 				for _, tag := range repoResp.Tags {
 					tagArray := strings.Split(tag, "-")
@@ -436,30 +408,19 @@ func (s *SwrService) ListRepoImages(option ListRepoImagesOption, log *zap.Sugare
 			}
 
 			sort.Sort(sort.Reverse(sort.StringSlice(koderoverTags)))
-			sortedTags = append(sortedTags, koderoverTags...)
-			sortedTags = append(sortedTags, customTags...)
+			sortedTags = append(koderoverTags, customTags...)
 
-			resultChan <- &Repo{
+			mutex.Lock()
+			resp.Repos = append(resp.Repos, &Repo{
 				Name:      name,
 				Namespace: option.Namespace,
 				Tags:      sortedTags,
-			}
-			return nil
-		}
-	}, args)
-
-	executor := pool.NewPool(tasks, 20)
-	go func() {
-		executor.Run()
-		close(resultChan)
-	}()
-
-	resp = &ReposResp{}
-
-	for result := range resultChan {
-		resp.Repos = append(resp.Repos, result)
-		resp.Total++
+			})
+			mutex.Unlock()
+		})
 	}
+
+	wg.Wait()
 
 	return resp, nil
 
