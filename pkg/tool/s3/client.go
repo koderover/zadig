@@ -38,8 +38,7 @@ func (c *Client) ValidateBucket(bucketName string) error {
 	listBucketInput := &awsS3.ListBucketsInput{}
 	bucketListResp, err := c.ListBuckets(listBucketInput)
 	if err != nil {
-		err = fmt.Errorf("validate S3 error: %s", err.Error())
-		return err
+		return fmt.Errorf("validate S3 error: %s", err.Error())
 	}
 	for _, bucket := range bucketListResp.Buckets {
 		if *bucket.Name == bucketName {
