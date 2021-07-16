@@ -38,6 +38,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehub"
 	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
@@ -294,19 +295,13 @@ func setBuildInfo(build *types.Repository) {
 	opt := &codehost.Option{
 		CodeHostID: build.CodehostID,
 	}
-	gitInfo, err := codehost.GetCodeHostInfo(opt)
+	codeHostInfo, err := codehost.GetCodeHostInfo(opt)
 	if err != nil {
 		log.Errorf("failed to get codehost detail %d %v", build.CodehostID, err)
 		return
 	}
 
-	//gitInfo, err := s.Codehost.Detail.GetCodehostDetail(build.CodehostID)
-	//if err != nil {
-	//	log.Errorf("failed to get codehost detail %d %v", build.CodehostID, err)
-	//	return
-	//}
-
-	if gitInfo.Type == codehost.GitLabProvider || gitInfo.Type == codehost.GerritProvider {
+	if codeHostInfo.Type == codehost.GitLabProvider || codeHostInfo.Type == codehost.GerritProvider {
 		if build.CommitID == "" {
 			var commit *RepoCommit
 			var pr *PRCommit
@@ -341,8 +336,22 @@ func setBuildInfo(build *types.Repository) {
 			build.CommitMessage = commit.Message
 			build.AuthorName = commit.AuthorName
 		}
+	} else if codeHostInfo.Type == codehost.CodeHubProvider {
+		codehubClient := codehub.NewClient(codeHostInfo.AccessKey, codeHostInfo.SecretKey)
+		if build.CommitID == "" {
+			if build.Branch != "" {
+				branchList, _ := codehubClient.BranchList(build.RepoUUID)
+				for _, branchInfo := range branchList {
+					if branchInfo.Name == build.Branch {
+						build.CommitID = branchInfo.Commit.ID
+						build.CommitMessage = branchInfo.Commit.Message
+						build.AuthorName = branchInfo.Commit.AuthorName
+					}
+				}
+			}
+		}
 	} else {
-		gitCli := git.NewClient(gitInfo.AccessToken, config.ProxyHTTPSAddr())
+		gitCli := git.NewClient(codeHostInfo.AccessToken, config.ProxyHTTPSAddr())
 		//// 需要后端自动获取Branch当前Commit，并填写到build中
 		if build.CommitID == "" {
 			// 如果是仅填写Branch编译
