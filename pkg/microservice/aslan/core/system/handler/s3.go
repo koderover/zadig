@@ -68,7 +68,7 @@ func CreateS3Storage(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.CreateS3Storage(ctx.Username, args, ctx.Logger)
+	ctx.Err = service.CreateS3Storage(ctx.Username, args, ctx.Logger)
 }
 
 func GetS3Storage(c *gin.Context) {
