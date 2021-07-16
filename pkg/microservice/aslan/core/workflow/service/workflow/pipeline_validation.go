@@ -289,7 +289,6 @@ func SetTriggerBuilds(builds []*types.Repository, buildArgs []*types.Repository)
 }
 
 func setBuildInfo(build *types.Repository) {
-	fmt.Println(fmt.Sprintf("setBuildInfo:%+v", build))
 	opt := &codehost.Option{
 		CodeHostID: build.CodehostID,
 	}
@@ -298,7 +297,6 @@ func setBuildInfo(build *types.Repository) {
 		log.Errorf("failed to get codehost detail %d %v", build.CodehostID, err)
 		return
 	}
-	fmt.Println(fmt.Sprintf("codeHostInfo:%+v", codeHostInfo))
 	if codeHostInfo.Type == codehost.GitLabProvider || codeHostInfo.Type == codehost.GerritProvider {
 		if build.CommitID == "" {
 			var commit *RepoCommit
@@ -340,6 +338,8 @@ func setBuildInfo(build *types.Repository) {
 			branchList, _ := codeHubClient.BranchList(build.RepoUUID)
 			for _, branchInfo := range branchList {
 				fmt.Println(fmt.Sprintf("branchInfo:%+v", branchInfo))
+				fmt.Println(fmt.Sprintf("branchInfo.Commit:%+v", branchInfo.Commit))
+				fmt.Println(fmt.Sprintf("build.Branch:%v", build.Branch))
 				if branchInfo.Name == build.Branch {
 					build.CommitID = branchInfo.Commit.ID
 					build.CommitMessage = branchInfo.Commit.Message
@@ -458,9 +458,8 @@ func setManunalBuilds(builds []*types.Repository, buildArgs []*types.Repository)
 		// 并发获取commit信息
 		wg.Add(1)
 		go func(build *types.Repository) {
-			defer func() {
-				wg.Done()
-			}()
+			defer wg.Done()
+
 			for _, buildArg := range buildArgs {
 				if buildArg.RepoOwner == build.RepoOwner && buildArg.RepoName == build.RepoName && buildArg.CheckoutPath == build.CheckoutPath {
 					setBuildFromArg(build, buildArg)
