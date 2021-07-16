@@ -14,20 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package util
+package workflow
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
+	"testing"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
-// ComputeHmacSha256 According to ak/sk generate secret key
-func ComputeHmacSha256(ak string, sk string) string {
-	key := []byte(sk)
-	h := hmac.New(sha256.New, key)
-	h.Write([]byte(ak))
-	sha := hex.EncodeToString(h.Sum(nil))
-	hex.EncodeToString(h.Sum(nil))
-	return sha
+func TestWorkflow(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "workflow Suite")
 }

@@ -320,7 +320,7 @@ func CreateWorkflow(workflow *commonmodels.Workflow, log *zap.SugaredLogger) err
 		return e.ErrUpsertWorkflow.AddDesc("workflow中没有子模块，请设置子模块")
 	}
 
-	if err := validateHookNames(workflow); err != nil {
+	if err := validateWorkflowHookNames(workflow); err != nil {
 		return e.ErrUpsertWorkflow.AddDesc(err.Error())
 	}
 
@@ -388,7 +388,7 @@ func UpdateWorkflow(workflow *commonmodels.Workflow, log *zap.SugaredLogger) err
 		return e.ErrUpsertWorkflow.AddDesc(err.Error())
 	}
 
-	if err := validateHookNames(workflow); err != nil {
+	if err := validateWorkflowHookNames(workflow); err != nil {
 		return e.ErrUpsertWorkflow.AddDesc(err.Error())
 	}
 
@@ -423,19 +423,17 @@ func UpdateWorkflow(workflow *commonmodels.Workflow, log *zap.SugaredLogger) err
 	return nil
 }
 
-func validateHookNames(p *commonmodels.Workflow) error {
-	if p.HookCtl == nil {
+func validateWorkflowHookNames(w *commonmodels.Workflow) error {
+	if w == nil || w.HookCtl == nil {
 		return nil
 	}
-	names := sets.NewString()
-	for _, hook := range p.HookCtl.Items {
-		if names.Has(hook.MainRepo.Name) {
-			return fmt.Errorf("duplicated webhook name found: %s", hook.MainRepo.Name)
-		}
-		names.Insert(hook.MainRepo.Name)
+
+	var names []string
+	for _, hook := range w.HookCtl.Items {
+		names = append(names, hook.MainRepo.Name)
 	}
 
-	return nil
+	return validateHookNames(names)
 }
 
 func ListWorkflows(queryType string, userID int, log *zap.SugaredLogger) ([]*commonmodels.Workflow, error) {
