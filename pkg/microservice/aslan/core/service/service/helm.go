@@ -331,9 +331,9 @@ func CreateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) error {
 		}
 
 		// exec lint and dry run
-		if err = helmChartDryRun(chartVersion, valuesYaml, serviceName, path.Join(base, filePath), log); err != nil {
-			return e.ErrHelmDryRunFailed.AddDesc(fmt.Sprintf("具体错误信息: %s", err.Error()))
-		}
+		//if err = helmChartDryRun(chartVersion, valuesYaml, serviceName, path.Join(base, filePath), log); err != nil {
+		//	return e.ErrHelmDryRunFailed.AddDesc(fmt.Sprintf("具体错误信息: %s", err.Error()))
+		//}
 
 		if err := commonrepo.NewServiceColl().Create(serviceObj); err != nil {
 			log.Errorf("helmService.Create serviceName:%s error:%v", serviceName, err)
