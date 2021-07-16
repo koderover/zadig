@@ -25,17 +25,15 @@ import (
 	"github.com/koderover/zadig/pkg/tool/errors"
 )
 
-func UpdateS3Storage(updateBy, id string, storage *commonmodels.S3Storage, logger *zap.SugaredLogger) (*commonmodels.S3Storage, error) {
+func UpdateS3Storage(updateBy, id string, storage *commonmodels.S3Storage, logger *zap.SugaredLogger) error {
 	s3Storage := &s3.S3{S3Storage: storage}
 	if err := s3.Validate(s3Storage); err != nil {
 		logger.Warnf("failed to validate storage %s %v", storage.Endpoint, err)
-		return nil, errors.ErrValidateS3Storage.AddErr(err)
+		return errors.ErrValidateS3Storage.AddErr(err)
 	}
 
 	storage.UpdatedBy = updateBy
-	err := commonrepo.NewS3StorageColl().Update(id, storage)
-
-	return storage, err
+	return commonrepo.NewS3StorageColl().Update(id, storage)
 }
 
 func CreateS3Storage(updateBy string, storage *commonmodels.S3Storage, logger *zap.SugaredLogger) error {
