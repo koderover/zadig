@@ -241,6 +241,9 @@ type Repository struct {
 	CheckoutRef string `bson:"checkout_ref,omitempty"       json:"checkout_ref,omitempty"`
 	Username    string `bson:"username,omitempty"           json:"username,omitempty"`
 	Password    string `bson:"password,omitempty"           json:"password,omitempty"`
+	ProjectUUID string `bson:"project_uuid,omitempty"       json:"project_uuid,omitempty"`
+	RepoUUID    string `bson:"repo_uuid,omitempty"          json:"repo_uuid,omitempty"`
+	RepoID      string `bson:"repo_id,omitempty"            json:"repo_id,omitempty"`
 }
 
 type BuildStep struct {
