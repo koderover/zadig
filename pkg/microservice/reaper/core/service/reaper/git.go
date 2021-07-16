@@ -187,8 +187,9 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo) []*c.Command {
 		})
 	} else if repo.Source == meta.ProviderCodehub {
 		u, _ := url.Parse(repo.Address)
+		user := url.QueryEscape(repo.User)
 		cmds = append(cmds, &c.Command{
-			Cmd:          c.RemoteAdd(repo.RemoteName, fmt.Sprintf("%s://%s:%s@%s/%s/%s.git", u.Scheme, repo.User, repo.Password, u.Host, repo.Owner, repo.Name)),
+			Cmd:          c.RemoteAdd(repo.RemoteName, fmt.Sprintf("%s://%s:%s@%s/%s/%s.git", u.Scheme, user, repo.Password, u.Host, repo.Owner, repo.Name)),
 			DisableTrace: true,
 		})
 	} else {
