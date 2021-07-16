@@ -235,7 +235,6 @@ func fmtBuildsTask(build *task.Build, log *zap.SugaredLogger) {
 
 //replace gitInfo with codehostID
 func FmtBuilds(builds []*types.Repository, log *zap.SugaredLogger) {
-	//detail,err := s.Codehost.Detail.GetCodehostDetail(build.JobCtx.Builds)
 	for _, repo := range builds {
 		cID := repo.CodehostID
 		if cID == 0 {
@@ -280,9 +279,7 @@ func SetTriggerBuilds(builds []*types.Repository, buildArgs []*types.Repository)
 	for _, build := range builds {
 		wg.Add(1)
 		go func(build *types.Repository) {
-			defer func() {
-				wg.Done()
-			}()
+			defer wg.Done()
 
 			setBuildInfo(build)
 		}(build)
@@ -292,6 +289,7 @@ func SetTriggerBuilds(builds []*types.Repository, buildArgs []*types.Repository)
 }
 
 func setBuildInfo(build *types.Repository) {
+	fmt.Println(fmt.Sprintf("setBuildInfo:%+v", build))
 	opt := &codehost.Option{
 		CodeHostID: build.CodehostID,
 	}
@@ -300,7 +298,7 @@ func setBuildInfo(build *types.Repository) {
 		log.Errorf("failed to get codehost detail %d %v", build.CodehostID, err)
 		return
 	}
-
+	fmt.Println(fmt.Sprintf("codeHostInfo:%+v", codeHostInfo))
 	if codeHostInfo.Type == codehost.GitLabProvider || codeHostInfo.Type == codehost.GerritProvider {
 		if build.CommitID == "" {
 			var commit *RepoCommit
@@ -337,16 +335,16 @@ func setBuildInfo(build *types.Repository) {
 			build.AuthorName = commit.AuthorName
 		}
 	} else if codeHostInfo.Type == codehost.CodeHubProvider {
-		codehubClient := codehub.NewClient(codeHostInfo.AccessKey, codeHostInfo.SecretKey)
-		if build.CommitID == "" {
-			if build.Branch != "" {
-				branchList, _ := codehubClient.BranchList(build.RepoUUID)
-				for _, branchInfo := range branchList {
-					if branchInfo.Name == build.Branch {
-						build.CommitID = branchInfo.Commit.ID
-						build.CommitMessage = branchInfo.Commit.Message
-						build.AuthorName = branchInfo.Commit.AuthorName
-					}
+		codeHubClient := codehub.NewClient(codeHostInfo.AccessKey, codeHostInfo.SecretKey)
+		if build.CommitID == "" && build.Branch != "" {
+			branchList, _ := codeHubClient.BranchList(build.RepoUUID)
+			for _, branchInfo := range branchList {
+				fmt.Println(fmt.Sprintf("branchInfo:%+v", branchInfo))
+				if branchInfo.Name == build.Branch {
+					build.CommitID = branchInfo.Commit.ID
+					build.CommitMessage = branchInfo.Commit.Message
+					build.AuthorName = branchInfo.Commit.AuthorName
+					return
 				}
 			}
 		}
