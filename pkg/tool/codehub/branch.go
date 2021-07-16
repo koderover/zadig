@@ -9,7 +9,7 @@ type BranchList struct {
 	Result struct {
 		Total    int `json:"total"`
 		Branches []struct {
-			Commit
+			Commit             Commit `json:"commit"`
 			Name               string `json:"name"`
 			Protected          bool   `json:"protected"`
 			DevelopersCanPush  bool   `json:"developers_can_push"`
