@@ -54,6 +54,7 @@ func ensureTestTask(subTask map[string]interface{}) (newSub map[string]interface
 
 	for _, repo := range t.JobCtx.Builds {
 		repo.OauthToken = setting.MaskValue
+		repo.Password = setting.MaskValue
 	}
 
 	newSub, err = t.ToSubTask()
@@ -89,6 +90,7 @@ func ensureBuildTask(subTask map[string]interface{}) (newSub map[string]interfac
 
 	for _, repo := range t.JobCtx.Builds {
 		repo.OauthToken = setting.MaskValue
+		repo.Password = setting.MaskValue
 	}
 
 	newSub, err = t.ToSubTask()

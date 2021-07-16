@@ -337,9 +337,6 @@ func setBuildInfo(build *types.Repository) {
 		if build.CommitID == "" && build.Branch != "" {
 			branchList, _ := codeHubClient.BranchList(build.RepoUUID)
 			for _, branchInfo := range branchList {
-				fmt.Println(fmt.Sprintf("branchInfo:%+v", branchInfo))
-				fmt.Println(fmt.Sprintf("branchInfo.Commit:%+v", branchInfo.Commit))
-				fmt.Println(fmt.Sprintf("build.Branch:%v", build.Branch))
 				if branchInfo.Name == build.Branch {
 					build.CommitID = branchInfo.Commit.ID
 					build.CommitMessage = branchInfo.Commit.Message

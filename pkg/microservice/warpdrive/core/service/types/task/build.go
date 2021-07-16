@@ -239,6 +239,8 @@ type Repository struct {
 	Address     string `bson:"address"                      json:"address"`
 	AuthorName  string `bson:"author_name,omitempty"        json:"author_name,omitempty"`
 	CheckoutRef string `bson:"checkout_ref,omitempty"       json:"checkout_ref,omitempty"`
+	Username    string `bson:"username,omitempty"           json:"username,omitempty"`
+	Password    string `bson:"password,omitempty"           json:"password,omitempty"`
 }
 
 type BuildStep struct {

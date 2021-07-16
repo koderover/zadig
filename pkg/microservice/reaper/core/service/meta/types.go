@@ -232,8 +232,8 @@ type Repo struct {
 	CheckoutPath string `yaml:"checkout_path"`
 	SubModules   bool   `yaml:"submodules"`
 	OauthToken   string `yaml:"oauthToken"`
-	User         string `yaml:"-"`
-	Password     string `yaml:"-"`
+	User         string `yaml:"username"`
+	Password     string `yaml:"password"`
 	CheckoutRef  string `yaml:"checkout_ref"`
 }
 
@@ -368,6 +368,8 @@ func (g *Git) SSHCloneURL(source, owner, name string) string {
 // HTTPSCloneURL returns HTTPS clone url
 func (g *Git) HTTPSCloneURL(source, token, owner, name string) string {
 	if strings.ToLower(source) == ProviderGitlab {
+		return fmt.Sprintf("https://%s/%s/%s.git", g.GetGitlabHost(), owner, name)
+	} else if strings.ToLower(source) == ProviderCodehub {
 		return fmt.Sprintf("https://%s/%s/%s.git", g.GetGitlabHost(), owner, name)
 	}
 	//return fmt.Sprintf("https://x-access-token:%s@%s/%s/%s.git", g.GetInstallationToken(owner), g.GetGithubHost(), owner, name)
