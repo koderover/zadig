@@ -14,19 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package codehub
+package webhook
 
-import (
-	"github.com/koderover/zadig/pkg/tool/codehub"
-)
-
-type Client struct {
-	*codehub.CodeHubClient
-}
-
-func NewClient(ak, sk, region string) *Client {
-	c := codehub.NewCodeHubClient(ak, sk, region)
-	return &Client{
-		CodeHubClient: c,
-	}
+type WebHook struct {
+	Owner, Repo, Address, Name string
+	CodeHostID                 int
 }

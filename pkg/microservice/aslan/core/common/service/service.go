@@ -28,6 +28,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/codehost"
 	"github.com/koderover/zadig/pkg/shared/poetry"
@@ -377,4 +378,48 @@ func UpdatePmServiceTemplate(username string, args *ServiceTmplBuildObject, log 
 		return err
 	}
 	return nil
+}
+
+func DeleteServiceWebhookByName(serviceName string, logger *zap.SugaredLogger) {
+	svc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{ServiceName: serviceName})
+	if err != nil {
+		logger.Errorf("Failed to get service %s, error: %v", serviceName, err)
+		return
+	}
+
+	ProcessServiceWebhook(svc, false, logger)
+}
+
+func ProcessServiceWebhook(svc *commonmodels.Service, isAdded bool, logger *zap.SugaredLogger) {
+	address := getAddressFromPath(svc.SrcPath, svc.RepoOwner, svc.RepoName, logger.Desugar())
+	if address == "" {
+		return
+	}
+
+	var action string
+	var updatedHooks, currentHooks []*webhook.WebHook
+	hook := &webhook.WebHook{Owner: svc.RepoOwner, Repo: svc.RepoName, Address: address, Name: "trigger", CodeHostID: svc.CodehostID}
+	if isAdded {
+		action = "add"
+		updatedHooks = append(updatedHooks, hook)
+	} else {
+		action = "remove"
+		currentHooks = append(currentHooks, hook)
+	}
+	logger.Debugf("Start to %s webhook for service %s", action, svc.ServiceName)
+	err := ProcessWebhook(updatedHooks, currentHooks, webhook.ServicePrefix+svc.ServiceName, logger)
+	if err != nil {
+		logger.Errorf("Failed to process WebHook, error: %s", err)
+	}
+
+}
+
+func getAddressFromPath(path, owner, repo string, logger *zap.Logger) string {
+	res := strings.Split(path, fmt.Sprintf("/%s/%s/", owner, repo))
+	if len(res) != 2 {
+		logger.With(zap.String("path", path), zap.String("owner", owner), zap.String("repo", repo)).DPanic("Invalid path")
+		return ""
+	}
+
+	return res[0]
 }

@@ -25,7 +25,7 @@ BOILERPLATE=$CURRENT_PATH/boilerplate.go.txt
 
 echo "add copyright header"
 
-for file in $(find "$PROTECT_ROOT" -not -path "$VENDOR_PATH/*" -not -name "zz_generated*" -type f -name \*.go); do
+for file in $(find "$PROTECT_ROOT" -not -path "$VENDOR_PATH/*" -not -name "zz_generated*" -not -name "escape.go" -not -name "signer.go" -type f -name \*.go); do
   if [[ $(grep -n "\/\*" -m 1 "$file" | cut -f1 -d:) == 1 ]] && [[ $(grep -n "Copyright" -m 1 "$file" | cut -f1 -d:) == 2 ]]
   then
     # the file already has a copyright.

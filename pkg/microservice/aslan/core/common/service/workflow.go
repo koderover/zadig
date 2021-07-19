@@ -241,6 +241,17 @@ func toHookSet(hooks interface{}) HookSet {
 				codeHostID: h.CodehostID,
 			})
 		}
+	case []*webhook.WebHook:
+		for _, h := range hs {
+			res.Insert(hookItem{
+				hookUniqueID: hookUniqueID{
+					name:  h.Name,
+					owner: h.Owner,
+					repo:  h.Repo,
+				},
+				codeHostID: h.CodeHostID,
+			})
+		}
 	}
 
 	return res
