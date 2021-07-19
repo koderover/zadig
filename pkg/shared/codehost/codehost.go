@@ -57,6 +57,8 @@ type Detail struct {
 	Region     string `json:"region"`
 	Username   string `json:"username"`
 	Password   string `json:"password"`
+	AccessKey  string `json:"applicationId"`
+	SecretKey  string `json:"clientSecret"`
 }
 
 func GetCodeHostList() ([]*poetry.CodeHost, error) {
@@ -109,6 +111,8 @@ func GetCodehostDetail(codehostID int) (*Detail, error) {
 		codehost.Region,
 		codehost.Username,
 		codehost.Password,
+		codehost.AccessKey,
+		codehost.SecretKey,
 	}
 
 	return detail, nil
@@ -133,6 +137,8 @@ func ListCodehostDetial() ([]*Detail, error) {
 			codehost.Region,
 			codehost.Username,
 			codehost.Password,
+			codehost.AccessKey,
+			codehost.SecretKey,
 		})
 	}
 

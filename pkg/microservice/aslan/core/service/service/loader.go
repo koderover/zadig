@@ -67,6 +67,8 @@ func PreloadServiceFromCodeHost(codehostID int, repoOwner, repoName, branchName,
 		ret, err = preloadGitlabService(detail, repoOwner, repoName, branchName, path, isDir)
 	case setting.SourceFromGerrit:
 		ret, err = preloadGerritService(detail, repoName, branchName, remoteName, path, isDir)
+	case setting.SourceFromCodeHub:
+		//ret, err = preloadGerritService(detail, repoName, branchName, remoteName, path, isDir)
 	default:
 		return nil, e.ErrPreloadServiceTemplate.AddDesc("Not supported code source")
 	}
