@@ -21,6 +21,7 @@ import (
 	"github.com/google/go-github/v35/github"
 	"github.com/xanzy/go-gitlab"
 
+	"github.com/koderover/zadig/pkg/tool/codehub"
 	gerrittool "github.com/koderover/zadig/pkg/tool/gerrit"
 )
 
@@ -46,9 +47,10 @@ type PullRequest struct {
 }
 
 type Namespace struct {
-	Name string `json:"name"`
-	Path string `json:"path"`
-	Kind string `json:"kind"`
+	Name        string `json:"name"`
+	Path        string `json:"path"`
+	Kind        string `json:"kind"`
+	ProjectUUID string `json:"project_uuid,omitempty"`
 }
 
 type Project struct {
@@ -57,6 +59,8 @@ type Project struct {
 	Description   string `json:"description"`
 	DefaultBranch string `json:"defaultBranch"`
 	Namespace     string `json:"namespace"`
+	RepoUUID      string `json:"repo_uuid"`
+	RepoID        string `json:"repo_id"`
 }
 
 type Tag struct {
@@ -89,6 +93,14 @@ func ToBranches(obj interface{}) []*Branch {
 		for _, o := range os {
 			res = append(res, &Branch{
 				Name: o,
+			})
+		}
+	case []*codehub.Branch:
+		for _, o := range os {
+			res = append(res, &Branch{
+				Name:      o.Name,
+				Protected: o.Protected,
+				Merged:    o.Merged,
 			})
 		}
 	}
@@ -168,6 +180,15 @@ func ToNamespaces(obj interface{}) []*Namespace {
 				Kind: o.Kind,
 			})
 		}
+	case []*codehub.Namespace:
+		for _, o := range os {
+			res = append(res, &Namespace{
+				Name:        o.Name,
+				Path:        o.Path,
+				Kind:        o.Kind,
+				ProjectUUID: o.ProjectUUID,
+			})
+		}
 	}
 
 	return res
@@ -206,6 +227,17 @@ func ToProjects(obj interface{}) []*Project {
 				Namespace:     gerrittool.DefaultNamespace,
 			})
 		}
+	case []*codehub.Project:
+		for _, project := range os {
+			res = append(res, &Project{
+				Name:          project.Name,
+				Description:   project.Description,
+				DefaultBranch: project.DefaultBranch,
+				Namespace:     project.Namespace,
+				RepoUUID:      project.RepoUUID,
+				RepoID:        project.RepoID,
+			})
+		}
 	}
 
 	return res
@@ -235,6 +267,12 @@ func ToTags(obj interface{}) []*Tag {
 			res = append(res, &Tag{
 				Name:    o.Ref,
 				Message: o.Message,
+			})
+		}
+	case []*codehub.Tag:
+		for _, o := range os {
+			res = append(res, &Tag{
+				Name: o.Name,
 			})
 		}
 	}

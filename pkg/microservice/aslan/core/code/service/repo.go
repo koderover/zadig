@@ -38,6 +38,9 @@ type GitRepoInfo struct {
 	Branches      []*Branch      `json:"branches"`
 	Tags          []*Tag         `json:"tags"`
 	PRs           []*PullRequest `json:"prs"`
+	ProjectUUID   string         `json:"project_uuid,omitempty"`
+	RepoUUID      string         `json:"repo_uuid,omitempty"`
+	RepoID        string         `json:"repo_id,omitempty"`
 }
 
 // ListRepoInfos ...
@@ -69,7 +72,11 @@ func ListRepoInfos(infos []*GitRepoInfo, param string, log *zap.SugaredLogger) (
 			defer func() {
 				wg.Done()
 			}()
-			info.Branches, err = CodeHostListBranches(info.CodehostID, info.Repo, strings.Replace(info.Owner, "%2F", "/", -1), log)
+			projectName := info.Repo
+			if info.Source == CodeHostCodeHub {
+				projectName = info.RepoUUID
+			}
+			info.Branches, err = CodeHostListBranches(info.CodehostID, projectName, strings.Replace(info.Owner, "%2F", "/", -1), log)
 			if err != nil {
 				errList = multierror.Append(errList, err)
 				info.ErrorMsg = err.Error()
@@ -86,7 +93,11 @@ func ListRepoInfos(infos []*GitRepoInfo, param string, log *zap.SugaredLogger) (
 				defer func() {
 					wg.Done()
 				}()
-				info.Tags, err = CodeHostListTags(info.CodehostID, info.Repo, strings.Replace(info.Owner, "%2F", "/", -1), log)
+				projectName := info.Repo
+				if info.Source == CodeHostCodeHub {
+					projectName = info.RepoID
+				}
+				info.Tags, err = CodeHostListTags(info.CodehostID, projectName, strings.Replace(info.Owner, "%2F", "/", -1), log)
 				if err != nil {
 					errList = multierror.Append(errList, err)
 					info.ErrorMsg = err.Error()

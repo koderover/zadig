@@ -38,6 +38,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehub"
 	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
@@ -247,7 +248,6 @@ func fmtBuildsTask(build *task.Build, log *zap.SugaredLogger) {
 
 //replace gitInfo with codehostID
 func FmtBuilds(builds []*types.Repository, log *zap.SugaredLogger) {
-	//detail,err := s.Codehost.Detail.GetCodehostDetail(build.JobCtx.Builds)
 	for _, repo := range builds {
 		cID := repo.CodehostID
 		if cID == 0 {
@@ -265,6 +265,8 @@ func FmtBuilds(builds []*types.Repository, log *zap.SugaredLogger) {
 		repo.Source = detail.Type
 		repo.OauthToken = detail.AccessToken
 		repo.Address = detail.Address
+		repo.Username = detail.Username
+		repo.Password = detail.Password
 	}
 }
 
@@ -290,9 +292,7 @@ func SetTriggerBuilds(builds []*types.Repository, buildArgs []*types.Repository)
 	for _, build := range builds {
 		wg.Add(1)
 		go func(build *types.Repository) {
-			defer func() {
-				wg.Done()
-			}()
+			defer wg.Done()
 
 			setBuildInfo(build)
 		}(build)
@@ -305,19 +305,12 @@ func setBuildInfo(build *types.Repository) {
 	opt := &codehost.Option{
 		CodeHostID: build.CodehostID,
 	}
-	gitInfo, err := codehost.GetCodeHostInfo(opt)
+	codeHostInfo, err := codehost.GetCodeHostInfo(opt)
 	if err != nil {
 		log.Errorf("failed to get codehost detail %d %v", build.CodehostID, err)
 		return
 	}
-
-	//gitInfo, err := s.Codehost.Detail.GetCodehostDetail(build.CodehostID)
-	//if err != nil {
-	//	log.Errorf("failed to get codehost detail %d %v", build.CodehostID, err)
-	//	return
-	//}
-
-	if gitInfo.Type == codehost.GitLabProvider || gitInfo.Type == codehost.GerritProvider {
+	if codeHostInfo.Type == codehost.GitLabProvider || codeHostInfo.Type == codehost.GerritProvider {
 		if build.CommitID == "" {
 			var commit *RepoCommit
 			var pr *PRCommit
@@ -352,8 +345,21 @@ func setBuildInfo(build *types.Repository) {
 			build.CommitMessage = commit.Message
 			build.AuthorName = commit.AuthorName
 		}
+	} else if codeHostInfo.Type == codehost.CodeHubProvider {
+		codeHubClient := codehub.NewClient(codeHostInfo.AccessKey, codeHostInfo.SecretKey, codeHostInfo.Region)
+		if build.CommitID == "" && build.Branch != "" {
+			branchList, _ := codeHubClient.BranchList(build.RepoUUID)
+			for _, branchInfo := range branchList {
+				if branchInfo.Name == build.Branch {
+					build.CommitID = branchInfo.Commit.ID
+					build.CommitMessage = branchInfo.Commit.Message
+					build.AuthorName = branchInfo.Commit.AuthorName
+					return
+				}
+			}
+		}
 	} else {
-		gitCli := git.NewClient(gitInfo.AccessToken, config.ProxyHTTPSAddr())
+		gitCli := git.NewClient(codeHostInfo.AccessToken, config.ProxyHTTPSAddr())
 		//// 需要后端自动获取Branch当前Commit，并填写到build中
 		if build.CommitID == "" {
 			// 如果是仅填写Branch编译
@@ -462,9 +468,8 @@ func setManunalBuilds(builds []*types.Repository, buildArgs []*types.Repository)
 		// 并发获取commit信息
 		wg.Add(1)
 		go func(build *types.Repository) {
-			defer func() {
-				wg.Done()
-			}()
+			defer wg.Done()
+
 			for _, buildArg := range buildArgs {
 				if buildArg.RepoOwner == build.RepoOwner && buildArg.RepoName == build.RepoName && buildArg.CheckoutPath == build.CheckoutPath {
 					setBuildFromArg(build, buildArg)

@@ -232,8 +232,8 @@ type Repo struct {
 	CheckoutPath string `yaml:"checkout_path"`
 	SubModules   bool   `yaml:"submodules"`
 	OauthToken   string `yaml:"oauthToken"`
-	User         string `yaml:"-"`
-	Password     string `yaml:"-"`
+	User         string `yaml:"username"`
+	Password     string `yaml:"password"`
 	CheckoutRef  string `yaml:"checkout_ref"`
 }
 
