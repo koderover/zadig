@@ -356,6 +356,8 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap
 		}
 	}
 
+	commonservice.ProcessServiceWebhook(args, serviceTmpl, args.ServiceName, log)
+
 	return GetServiceOption(args, log)
 }
 
@@ -548,13 +550,6 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 		log.Error(errMsg)
 		return e.ErrDeleteTemplate.AddDesc(errMsg)
 	}
-	// 删除服务时不删除counter，兼容服务删除后重建的场景
-	//serviceTemplate := fmt.Sprintf(template.ServiceTemplateCounterName, serviceName, serviceType)
-	//err = s.coll.Counter.Delete(serviceTemplate)
-	//if err != nil {
-	//	log.Errorf("Counter.Delete error: %v", err)
-	//	return e.ErrDeleteCounter.AddDesc(err.Error())
-	//}
 
 	if serviceType == setting.HelmDeployType {
 		// 更新helm renderset
@@ -600,6 +595,8 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 			return e.ErrDeleteTemplate.AddDesc(err.Error())
 		}
 	}
+
+	commonservice.DeleteServiceWebhookByName(serviceName, log)
 
 	return nil
 }
