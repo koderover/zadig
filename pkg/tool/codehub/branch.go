@@ -32,10 +32,10 @@ type Commit struct {
 }
 
 type Branch struct {
-	*Commit
-	Name      string `json:"name"`
-	Protected bool   `json:"protected"`
-	Merged    bool   `json:"merged"`
+	Commit    *Commit `json:"commit"`
+	Name      string  `json:"name"`
+	Protected bool    `json:"protected"`
+	Merged    bool    `json:"merged"`
 }
 
 func (c *CodeHubClient) BranchList(repoUUID string) ([]*Branch, error) {
