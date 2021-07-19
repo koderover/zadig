@@ -383,31 +383,38 @@ func UpdatePmServiceTemplate(username string, args *ServiceTmplBuildObject, log 
 func DeleteServiceWebhookByName(serviceName string, logger *zap.SugaredLogger) {
 	svc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{ServiceName: serviceName})
 	if err != nil {
-		logger.Errorf("Failed to get service %s, error: %v", serviceName, err)
+		logger.Errorf("Failed to get service %s, error: %s", serviceName, err)
 		return
 	}
 
-	ProcessServiceWebhook(svc, false, logger)
+	ProcessServiceWebhook(nil, svc, serviceName, logger)
 }
 
-func ProcessServiceWebhook(svc *commonmodels.Service, isAdded bool, logger *zap.SugaredLogger) {
-	address := getAddressFromPath(svc.SrcPath, svc.RepoOwner, svc.RepoName, logger.Desugar())
-	if address == "" {
-		return
-	}
-
+func ProcessServiceWebhook(updated, current *commonmodels.Service, serviceName string, logger *zap.SugaredLogger) {
 	var action string
 	var updatedHooks, currentHooks []*webhook.WebHook
-	hook := &webhook.WebHook{Owner: svc.RepoOwner, Repo: svc.RepoName, Address: address, Name: "trigger", CodeHostID: svc.CodehostID}
-	if isAdded {
+	if updated != nil {
 		action = "add"
-		updatedHooks = append(updatedHooks, hook)
-	} else {
-		action = "remove"
-		currentHooks = append(currentHooks, hook)
+		address := getAddressFromPath(updated.SrcPath, updated.RepoOwner, updated.RepoName, logger.Desugar())
+		if address == "" {
+			return
+		}
+		updatedHooks = append(updatedHooks, &webhook.WebHook{Owner: updated.RepoOwner, Repo: updated.RepoName, Address: address, Name: "trigger", CodeHostID: updated.CodehostID})
 	}
-	logger.Debugf("Start to %s webhook for service %s", action, svc.ServiceName)
-	err := ProcessWebhook(updatedHooks, currentHooks, webhook.ServicePrefix+svc.ServiceName, logger)
+	if current != nil {
+		action = "remove"
+		address := getAddressFromPath(current.SrcPath, current.RepoOwner, current.RepoName, logger.Desugar())
+		if address == "" {
+			return
+		}
+		currentHooks = append(currentHooks, &webhook.WebHook{Owner: current.RepoOwner, Repo: current.RepoName, Address: address, Name: "trigger", CodeHostID: current.CodehostID})
+	}
+	if updated != nil && current != nil {
+		action = "update"
+	}
+
+	logger.Debugf("Start to %s webhook for service %s", action, serviceName)
+	err := ProcessWebhook(updatedHooks, currentHooks, webhook.ServicePrefix+serviceName, logger)
 	if err != nil {
 		logger.Errorf("Failed to process WebHook, error: %s", err)
 	}

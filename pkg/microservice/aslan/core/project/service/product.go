@@ -497,9 +497,11 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 		return err
 	}
 
-	services, _ := commonrepo.NewServiceColl().List(&commonrepo.ServiceFindOption{ProductName: productName, ExcludeStatus: setting.ProductStatusDeleting})
+	services, _ := commonrepo.NewServiceColl().List(
+		&commonrepo.ServiceFindOption{ProductName: productName, Type: setting.K8SDeployType, ExcludeStatus: setting.ProductStatusDeleting},
+	)
 	for _, s := range services {
-		commonservice.ProcessServiceWebhook(s, false, log)
+		commonservice.ProcessServiceWebhook(nil, s, s.ServiceName, log)
 	}
 
 	//删除交付中心

@@ -354,9 +354,9 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap
 				return nil, e.ErrCreateTemplate.AddDesc(err.Error())
 			}
 		}
-
-		commonservice.ProcessServiceWebhook(args, true, log)
 	}
+
+	commonservice.ProcessServiceWebhook(args, serviceTmpl, args.ServiceName, log)
 
 	return GetServiceOption(args, log)
 }
