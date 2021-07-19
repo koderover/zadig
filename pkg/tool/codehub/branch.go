@@ -7,20 +7,22 @@ import (
 
 type BranchList struct {
 	Result struct {
-		Total    int `json:"total"`
-		Branches []struct {
-			Commit             Commit `json:"commit"`
-			Name               string `json:"name"`
-			Protected          bool   `json:"protected"`
-			DevelopersCanPush  bool   `json:"developers_can_push"`
-			DevelopersCanMerge bool   `json:"developers_can_merge"`
-			MasterCanPush      bool   `json:"master_can_push"`
-			MasterCanMerge     bool   `json:"master_can_merge"`
-			NoOneCanPush       bool   `json:"no_one_can_push"`
-			NoOneCanMerge      bool   `json:"no_one_can_merge"`
-		} `json:"branches"`
+		Total    int        `json:"total"`
+		Branches []Branches `json:"branches"`
 	} `json:"result"`
 	Status string `json:"status"`
+}
+
+type Branches struct {
+	Commit             Commit `json:"commit"`
+	Name               string `json:"name"`
+	Protected          bool   `json:"protected"`
+	DevelopersCanPush  bool   `json:"developers_can_push"`
+	DevelopersCanMerge bool   `json:"developers_can_merge"`
+	MasterCanPush      bool   `json:"master_can_push"`
+	MasterCanMerge     bool   `json:"master_can_merge"`
+	NoOneCanPush       bool   `json:"no_one_can_push"`
+	NoOneCanMerge      bool   `json:"no_one_can_merge"`
 }
 
 type Commit struct {

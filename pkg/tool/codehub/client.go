@@ -21,8 +21,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-
-	"github.com/koderover/zadig/pkg/util"
 )
 
 type CodeHubClient struct {
@@ -43,7 +41,7 @@ func NewCodeHubClient(ak, sk, region string) *CodeHubClient {
 func (c *CodeHubClient) sendRequest(method, path, payload string) (io.ReadCloser, error) {
 	r, _ := http.NewRequest(method, fmt.Sprintf("%s.%s.%s%s", "https://codehub-ext", c.Region, "myhuaweicloud.com", path), ioutil.NopCloser(bytes.NewBuffer([]byte(payload))))
 	r.Header.Add("content-type", "application/json")
-	signer := &util.Signer{
+	signer := &Signer{
 		AK: c.AK,
 		SK: c.SK,
 	}
