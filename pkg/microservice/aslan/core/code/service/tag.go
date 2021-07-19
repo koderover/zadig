@@ -61,7 +61,7 @@ func CodeHostListTags(codeHostID int, projectName string, namespace string, log 
 
 		return ToTags(tags), nil
 	} else if ch.Type == CodeHostCodeHub {
-		codeHubClient := codehub.NewCodeHubClient(ch.AccessKey, ch.SecretKey)
+		codeHubClient := codehub.NewCodeHubClient(ch.AccessKey, ch.SecretKey, ch.Region)
 		tags, err := codeHubClient.TagList(projectName)
 		if err != nil {
 			return nil, err

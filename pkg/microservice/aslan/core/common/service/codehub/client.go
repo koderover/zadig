@@ -8,8 +8,8 @@ type Client struct {
 	*codehub.CodeHubClient
 }
 
-func NewClient(ak, sk string) *Client {
-	c := codehub.NewCodeHubClient(ak, sk)
+func NewClient(ak, sk, region string) *Client {
+	c := codehub.NewCodeHubClient(ak, sk, region)
 	return &Client{
 		CodeHubClient: c,
 	}

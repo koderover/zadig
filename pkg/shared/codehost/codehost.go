@@ -54,6 +54,7 @@ type Detail struct {
 	Owner      string `json:"repoowner"`
 	Source     string `json:"source"`
 	OauthToken string `json:"oauth_token"`
+	Region     string `json:"region"`
 	Username   string `json:"username"`
 	Password   string `json:"password"`
 }
@@ -105,6 +106,7 @@ func GetCodehostDetail(codehostID int) (*Detail, error) {
 		codehost.Namespace,
 		codehost.Type,
 		codehost.AccessToken,
+		codehost.Region,
 		codehost.Username,
 		codehost.Password,
 	}
@@ -128,6 +130,7 @@ func ListCodehostDetial() ([]*Detail, error) {
 			codehost.Namespace,
 			codehost.Type,
 			codehost.AccessToken,
+			codehost.Region,
 			codehost.Username,
 			codehost.Password,
 		})

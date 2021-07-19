@@ -346,7 +346,7 @@ func setBuildInfo(build *types.Repository) {
 			build.AuthorName = commit.AuthorName
 		}
 	} else if codeHostInfo.Type == codehost.CodeHubProvider {
-		codeHubClient := codehub.NewClient(codeHostInfo.AccessKey, codeHostInfo.SecretKey)
+		codeHubClient := codehub.NewClient(codeHostInfo.AccessKey, codeHostInfo.SecretKey, codeHostInfo.Region)
 		if build.CommitID == "" && build.Branch != "" {
 			branchList, _ := codeHubClient.BranchList(build.RepoUUID)
 			for _, branchInfo := range branchList {

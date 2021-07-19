@@ -27,6 +27,7 @@ type CodeHost struct {
 	Type        string `json:"type"`
 	AccessToken string `json:"accessToken"`
 	Namespace   string `json:"namespace"`
+	Region      string `json:"region"`
 	AccessKey   string `json:"applicationId"`
 	SecretKey   string `json:"clientSecret"`
 	Username    string `json:"username"`

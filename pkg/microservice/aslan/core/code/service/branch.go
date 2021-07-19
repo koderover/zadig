@@ -59,7 +59,7 @@ func CodeHostListBranches(codeHostID int, projectName, namespace string, log *za
 		}
 		return ToBranches(branches), nil
 	} else if ch.Type == CodeHostCodeHub {
-		codeHubClient := codehub.NewCodeHubClient(ch.AccessKey, ch.SecretKey)
+		codeHubClient := codehub.NewCodeHubClient(ch.AccessKey, ch.SecretKey, ch.Region)
 		branchList, err := codeHubClient.BranchList(projectName)
 		if err != nil {
 			return nil, err

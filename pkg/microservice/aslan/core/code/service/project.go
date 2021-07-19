@@ -72,7 +72,7 @@ func CodeHostListProjects(codeHostID int, namespace, namespaceType, keyword stri
 		}
 		return ToProjects(projects), nil
 	} else if ch.Type == CodeHostCodeHub {
-		codeHubClient := codehub.NewCodeHubClient(ch.AccessKey, ch.SecretKey)
+		codeHubClient := codehub.NewCodeHubClient(ch.AccessKey, ch.SecretKey, ch.Region)
 		projects, err := codeHubClient.RepoList(namespace, keyword, 100)
 		if err != nil {
 			log.Error(err)

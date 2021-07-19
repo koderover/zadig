@@ -68,7 +68,7 @@ func CodeHostListNamespaces(codeHostID int, keyword string, log *zap.SugaredLogg
 			Kind: OrgKind,
 		}}, nil
 	} else if ch.Type == CodeHostCodeHub {
-		codeHubClient := codehub.NewCodeHubClient(ch.AccessKey, ch.SecretKey)
+		codeHubClient := codehub.NewCodeHubClient(ch.AccessKey, ch.SecretKey, ch.Region)
 		codeHubNamespace, err := codeHubClient.NamespaceList()
 		if err != nil {
 			return nil, err

@@ -26,20 +26,22 @@ import (
 )
 
 type CodeHubClient struct {
-	AK string `json:"ak"`
-	SK string `json:"sk"`
+	AK     string `json:"ak"`
+	SK     string `json:"sk"`
+	Region string `json:"region"`
 }
 
-func NewCodeHubClient(ak, sk string) *CodeHubClient {
+func NewCodeHubClient(ak, sk, region string) *CodeHubClient {
 	return &CodeHubClient{
-		AK: ak,
-		SK: sk,
+		AK:     ak,
+		SK:     sk,
+		Region: region,
 	}
 }
 
 // Just apply the signature and request the CodeHub interface
 func (c *CodeHubClient) sendRequest(method, path, payload string) (io.ReadCloser, error) {
-	r, _ := http.NewRequest(method, fmt.Sprintf("%s%s", "https://codehub-ext.cn-north-4.myhuaweicloud.com", path), ioutil.NopCloser(bytes.NewBuffer([]byte(payload))))
+	r, _ := http.NewRequest(method, fmt.Sprintf("%s.%s.%s", "https://codehub-ext", c.Region, "myhuaweicloud.com", path), ioutil.NopCloser(bytes.NewBuffer([]byte(payload))))
 	r.Header.Add("content-type", "application/json")
 	signer := &util.Signer{
 		AK: c.AK,
