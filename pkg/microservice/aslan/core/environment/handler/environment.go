@@ -411,3 +411,13 @@ func ListProductsSSE(c *gin.Context) {
 		}, time.Second)
 	}, ctx.Logger)
 }
+
+func GetStatus(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	envName := c.Query("envName")
+	productName := c.Param("productName")
+
+	ctx.Resp, ctx.Err = service.GetEnvironmentStatus(envName, productName, ctx.Logger)
+}

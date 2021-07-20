@@ -818,6 +818,27 @@ func UpdateProductV2(envName, productName, user, requestID string, force bool, k
 	return nil
 }
 
+type environmentStatus struct {
+	ModifiedServices []*serviceInfo `json:"modifiedServices"`
+}
+
+func GetEnvironmentStatus(envName, productName string, log *zap.SugaredLogger) (*environmentStatus, error) {
+	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName})
+	if err != nil {
+		log.Errorf("Can not find env %s in project %s, error: %s", envName, productName, err)
+		return nil, err
+	}
+
+	kubeClient, err := kube.GetKubeClient(env.ClusterID)
+	if err != nil {
+		return nil, err
+	}
+
+	modifiedServices := getModifiedServiceFromObjectMetaList(kube.GetDirtyResources(env.Namespace, kubeClient))
+
+	return &environmentStatus{ModifiedServices: modifiedServices}, nil
+}
+
 // CreateProduct create a new product with its dependent stacks
 func CreateProduct(user, requestID string, args *commonmodels.Product, log *zap.SugaredLogger) (err error) {
 	log.Infof("[%s][P:%s] CreateProduct", args.EnvName, args.ProductName)

@@ -96,6 +96,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	environments := router.Group("environments")
 	{
+		// TODO: the param field (resource id) should be envName, not productName.
 		environments.GET("", ListProducts)
 		environments.POST("/:productName/auto", gin2.IsHavePermission([]string{permission.TestEnvCreateUUID}, permission.ParamType), AutoCreateProduct)
 		environments.PUT("/:productName/autoUpdate", gin2.IsHavePermission([]string{permission.TestEnvManageUUID, permission.ProdEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, AutoUpdateProduct)
@@ -108,6 +109,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.PUT("/:productName", gin2.IsHavePermission([]string{permission.TestEnvShareUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, EnvShare)
 		environments.PUT("/:productName/updateMultiEnv", gin2.IsHavePermission([]string{permission.TestEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateMultiHelmProduct)
 		environments.GET("/:productName", GetProduct)
+		environments.GET("/:productName/status", GetStatus)
 		environments.GET("/:productName/productInfo", GetProductInfo)
 		environments.GET("/:productName/ingressInfo", GetProductIngress)
 		environments.GET("/:productName/helmRenderCharts", ListRenderCharts)
