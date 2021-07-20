@@ -34,13 +34,14 @@ func PreloadServiceTemplate(c *gin.Context) {
 
 	codehostID, err := strconv.Atoi(codehostIDStr)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("cannot convert codehost id to string")
+		ctx.Err = e.ErrInvalidParam.AddDesc("cannot convert codehost id to int")
 		return
 	}
 
 	repoName := c.Query("repoName")
-	if repoName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("repoName cannot be empty")
+	repoUUID := c.Query("repoUUID")
+	if repoName == "" && repoUUID == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("repoName and repoUUID cannot be empty at the same time")
 		return
 	}
 
