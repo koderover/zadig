@@ -52,6 +52,9 @@ func PreloadServiceTemplate(c *gin.Context) {
 	remoteName := c.Query("remoteName")
 	repoOwner := c.Query("repoOwner")
 
+	if repoName == "" {
+		repoName = repoUUID
+	}
 	ctx.Resp, ctx.Err = svcservice.PreloadServiceFromCodeHost(codehostID, repoOwner, repoName, branchName, remoteName, path, isDir, ctx.Logger)
 }
 
