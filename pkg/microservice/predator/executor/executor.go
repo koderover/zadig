@@ -33,21 +33,21 @@ func Execute() error {
 
 	pred, err := service.NewPredator()
 	if err != nil {
-		log.Errorf("Failed to start predator, the error is:", err)
+		log.Errorf("Failed to start predator, error: %s", err)
 		return err
 	}
 
 	if err := pred.BeforeExec(); err != nil {
-		log.Errorf("Failed to run before exec step, the error is:", err)
+		log.Errorf("Failed to run before exec step, error: %s", err)
 		return err
 	}
 
 	if err := pred.Exec(); err != nil {
-		log.Errorf("Failed to run exec step, the error is:", err)
+		log.Errorf("Failed to run exec step, error: %s", err)
 		return err
 	}
 	if err := pred.AfterExec(); err != nil {
-		log.Errorf("Failed to run after exec step, the error is:", err)
+		log.Errorf("Failed to run after exec step, error: %s", err)
 		return err
 	}
 
