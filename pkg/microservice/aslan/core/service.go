@@ -87,10 +87,10 @@ func Start(ctx context.Context) {
 
 	environmentservice.ResetProductsStatus()
 
+	go StartControllers(ctx.Done())
+
 	// 仅用于升级 release v1.2.1, 将在下一版本移除
 	webhookservice.SyncWebHooks()
-
-	go StartControllers(ctx.Done())
 }
 
 func Stop(ctx context.Context) {
