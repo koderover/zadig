@@ -24,6 +24,8 @@ import (
 
 	"github.com/go-resty/resty/v2"
 	"k8s.io/apimachinery/pkg/util/sets"
+
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 const (
@@ -94,7 +96,8 @@ func New(cfs ...ClientFunc) *Client {
 	r.SetHeader("Content-Type", "application/json").
 		SetHeader("Accept", "application/json").
 		SetHeader("User-Agent", UserAgent).
-		SetTimeout(TimeoutSeconds * time.Second)
+		SetTimeout(TimeoutSeconds * time.Second).
+		SetLogger(log.SugaredLogger())
 
 	c := &Client{
 		Client:      r,
