@@ -4,6 +4,7 @@
 
 <span align="left">
 
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/2276bb4cce9348ceb8ddeeea5803ed57)](https://app.codacy.com/gh/koderover/zadig?utm_source=github.com&utm_medium=referral&utm_content=koderover/zadig&utm_campaign=Badge_Grade_Settings)
 [![Zadig CI](https://os.koderover.com/api/collie/api/badge?pipelineName=zadig-ci/zadig-ci&source=github&repoFullName=koderover/zadig&branch=main&eventType=push)](https://os.koderover.com/v1/projects/detail/zadig-ci/pipelines/freestyle/home/zadig-ci/608824fef341de000137317d?rightbar=step)
 [![LICENSE](https://img.shields.io/github/license/koderover/zadig.svg)](https://github.com/koderover/zadig/blob/main/LICENSE)
 [![Language](https://img.shields.io/badge/Language-Go-blue.svg)](https://golang.org/)
