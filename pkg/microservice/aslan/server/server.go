@@ -34,8 +34,8 @@ func Serve(ctx context.Context) error {
 		}
 	}()
 
-	core.Setup(ctx)
-	defer core.TearDown(ctx)
+	core.Start(ctx)
+	defer core.Stop(ctx)
 
 	log.Infof("App Aslan Started at %s", time.Now())
 

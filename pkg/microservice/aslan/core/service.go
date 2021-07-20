@@ -66,7 +66,7 @@ func StartControllers(stopCh <-chan struct{}) {
 	wg.Wait()
 }
 
-func Setup(ctx context.Context) {
+func Start(ctx context.Context) {
 	log.Init(&log.Config{
 		Level:       commonconfig.LogLevel(),
 		Filename:    commonconfig.LogFile(),
@@ -89,7 +89,7 @@ func Setup(ctx context.Context) {
 	go StartControllers(ctx.Done())
 }
 
-func TearDown(ctx context.Context) {
+func Stop(ctx context.Context) {
 	mongotool.Close(ctx)
 }
 

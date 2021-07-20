@@ -111,7 +111,6 @@ func ListServiceWorkflows(productName, envName, serviceName, serviceType string,
 	if serviceType == setting.K8SDeployType {
 		pipelineOpt := &commonrepo.PipelineListOption{
 			ProductName: productName,
-			IsDeleted:   false,
 		}
 		pipelines, err := commonrepo.NewPipelineColl().List(pipelineOpt)
 		if err != nil {
