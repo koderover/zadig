@@ -22,7 +22,7 @@ const LocalConfig = "local.env"
 const (
 	// common
 	ENVSystemAddress           = "ADDRESS"
-	ENVEnterprise           = "ENTERPRISE"
+	ENVEnterprise              = "ENTERPRISE"
 	ENVMode                    = "MODE"
 	ENVNsqLookupAddrs          = "NSQLOOKUP_ADDRS"
 	ENVMongoDBConnectionString = "MONGODB_CONNECTION_STRING"
@@ -65,7 +65,7 @@ const (
 	ENVKubeServerAddr    = "KUBE_SERVER_ADDR"
 
 	// cron
-	ENVRootToken       = "ROOT_TOKEN"
+	ENVRootToken = "ROOT_TOKEN"
 
 	ENVKodespaceVersion = "KODESPACE_VERSION"
 

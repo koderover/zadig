@@ -23,7 +23,7 @@ import (
 )
 
 func main() {
-	if err := executor.Run(); err != nil {
+	if err := executor.Execute(); err != nil {
 		log.Fatalf("Failed to run predator, the error is: %+v", err)
 	}
 }

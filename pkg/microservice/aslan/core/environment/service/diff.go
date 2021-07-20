@@ -107,8 +107,8 @@ func ConfigDiff(envName, productName, serviceName, configName string, log *zap.S
 	return resp, nil
 }
 
-// ServiceDiff 获得服务模板当前版本和最新版本的对比
-func ServiceDiff(envName, productName, serviceName string, log *zap.SugaredLogger) (*SvcDiffResult, error) {
+// GetServiceDiff 获得服务模板当前版本和最新版本的对比
+func GetServiceDiff(envName, productName, serviceName string, log *zap.SugaredLogger) (*SvcDiffResult, error) {
 	resp := new(SvcDiffResult)
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	productInfo, err := commonrepo.NewProductColl().Find(opt)

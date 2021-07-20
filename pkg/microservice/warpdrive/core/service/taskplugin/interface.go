@@ -25,8 +25,8 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 )
 
-// TaskPluginInitiator function for init plugins
-type TaskPluginInitiator func(taskType config.TaskType) TaskPlugin
+// Initiator function for init plugins
+type Initiator func(taskType config.TaskType) TaskPlugin
 
 // TaskPlugin ...
 /*

@@ -42,9 +42,9 @@ func False() *bool {
 func Equal(a, b *bool) bool {
 	if a == nil || b == nil {
 		return false
-	} else {
-		return *a == *b
 	}
+
+	return *a == *b
 }
 
 // NilOrEqual returns true if both values are set and equal or both are nil.
