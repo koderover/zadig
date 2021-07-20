@@ -39,6 +39,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/codehost"
 	"github.com/koderover/zadig/pkg/shared/poetry"
+	"github.com/koderover/zadig/pkg/tool/codehub"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -68,7 +69,7 @@ func PreloadServiceFromCodeHost(codehostID int, repoOwner, repoName, branchName,
 	case setting.SourceFromGerrit:
 		ret, err = preloadGerritService(detail, repoName, branchName, remoteName, path, isDir)
 	case setting.SourceFromCodeHub:
-		//ret, err = preloadGerritService(detail, repoName, branchName, remoteName, path, isDir)
+		ret, err = preloadCodehubService(detail, repoName, branchName, path, isDir)
 	default:
 		return nil, e.ErrPreloadServiceTemplate.AddDesc("Not supported code source")
 	}
@@ -88,6 +89,8 @@ func LoadServiceFromCodeHost(username string, codehostID int, repoOwner, repoNam
 		return loadService(username, detail, repoOwner, repoName, branchName, args, log)
 	case setting.SourceFromGerrit:
 		return loadGerritService(username, detail, repoOwner, repoName, branchName, remoteName, args, log)
+	//case setting.SourceFromCodeHub:
+
 	default:
 		return e.ErrLoadServiceTemplate.AddDesc("unsupported code source")
 	}
@@ -181,6 +184,8 @@ func ValidateServiceUpdate(codehostID int, serviceName, repoOwner, repoName, bra
 		return validateServiceUpdateGitlab(detail, serviceName, repoOwner, repoName, branchName, path, isDir)
 	case setting.SourceFromGerrit:
 		return validateServiceUpdateGerrit(detail, serviceName, repoName, branchName, remoteName, path, isDir)
+	//case setting.SourceFromCodeHub:
+
 	default:
 		return e.ErrValidateServiceUpdate.AddDesc("Not supported code source")
 	}
@@ -389,6 +394,61 @@ func preloadGerritService(detail *poetry.CodeHost, repoName, branchName, remoteN
 			return ret, e.ErrPreloadServiceTemplate.AddDesc("所选路径下没有yaml，请重新选择")
 		}
 	}
+	return ret, nil
+}
+
+// 根据 repo 信息获取 codehub 可以加载的服务列表
+func preloadCodehubService(detail *poetry.CodeHost, repoUUID, branchName, path string, isDir bool) ([]string, error) {
+	ret := make([]string, 0)
+
+	codeHubClient := codehub.NewCodeHubClient(detail.AccessKey, detail.SecretKey, detail.Region)
+	// 非文件夹情况下直接获取文件信息
+	if !isDir {
+		if !isYaml(path) {
+			return ret, e.ErrPreloadServiceTemplate.AddDesc("File is not of type yaml or yml, select again")
+		}
+		fileInfo, err := codeHubClient.FileContent(repoUUID, branchName, path)
+		if err != nil {
+			log.Errorf("Failed to get file info from codehub with path: %s, the error is %+v", path, err)
+			return ret, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
+		}
+		extension := filepath.Ext(fileInfo.Result.FileName)
+		fileName := fileInfo.Result.FileName[0 : len(fileInfo.Result.FileName)-len(extension)]
+		ret = append(ret, fileName)
+		return ret, nil
+	}
+
+	treeInfo, err := codeHubClient.FileTree(repoUUID, branchName, path)
+	if err != nil {
+		log.Errorf("Failed to get dir content from codehub with path: %s, the error is: %+v", path, err)
+		return ret, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
+	}
+	if isValidCodehubServiceDir(treeInfo) {
+		svcName := path
+		pathList := strings.Split(svcName, "/")
+		folderName := pathList[len(pathList)-1]
+		ret = append(ret, folderName)
+		return ret, nil
+	}
+	isGrandparent := false
+	for _, entry := range treeInfo {
+		if entry.Type == "tree" {
+			subtreeInfo, err := codeHubClient.FileTree(repoUUID, branchName, entry.Path)
+			if err != nil {
+				log.Errorf("Failed to get dir content from codehub with path: %s, the error is: %+v", path, err)
+				return ret, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
+			}
+			if isValidCodehubServiceDir(subtreeInfo) {
+				isGrandparent = true
+				ret = append(ret, entry.Name)
+			}
+		}
+	}
+	if !isGrandparent {
+		log.Errorf("invalid folder selected since no yaml is presented in path: %s", path)
+		return ret, e.ErrPreloadServiceTemplate.AddDesc("所选路径下没有yaml，请重新选择")
+	}
+
 	return ret, nil
 }
 
@@ -708,6 +768,15 @@ func isValidGitlabServiceDir(child []*gitlab.TreeNode) bool {
 func isValidGerritServiceDir(child []os.FileInfo) bool {
 	for _, file := range child {
 		if !file.IsDir() && isYaml(file.Name()) {
+			return true
+		}
+	}
+	return false
+}
+
+func isValidCodehubServiceDir(child []*codehub.TreeNode) bool {
+	for _, entry := range child {
+		if entry.Type == "blob" && isYaml(entry.Name) {
 			return true
 		}
 	}
