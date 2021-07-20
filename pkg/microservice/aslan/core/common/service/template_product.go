@@ -102,7 +102,7 @@ func GetProductTemplate(productName string, log *zap.SugaredLogger) (*template.P
 		return resp, fmt.Errorf("Workflow.List err : %v", err)
 	}
 
-	totalPiplines, err := commonrepo.NewPipelineColl().List(&commonrepo.PipelineListOption{ProductName: productName, IsPreview: true, IsDeleted: false})
+	totalPiplines, err := commonrepo.NewPipelineColl().List(&commonrepo.PipelineListOption{ProductName: productName, IsPreview: true})
 	if err != nil {
 		return resp, fmt.Errorf("Pipeline.List err : %v", err)
 	}

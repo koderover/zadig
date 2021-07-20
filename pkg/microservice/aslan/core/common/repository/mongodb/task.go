@@ -486,3 +486,50 @@ func (c *TaskColl) ListAllTasks(option *ListAllTaskOption) ([]*task.Task, error)
 
 	return resp, nil
 }
+
+func (c *TaskColl) UpdateUnfinishedTask(args *task.Task) error {
+	// avoid panic issue
+	if args == nil {
+		return errors.New("nil PipelineTaskV2")
+	}
+
+	condition := bson.M{"$nin": []string{
+		string(config.StatusPassed),
+		string(config.StatusFailed),
+		string(config.StatusTimeout),
+	}}
+	query := bson.M{"task_id": args.TaskID, "pipeline_name": args.PipelineName, "is_deleted": false, "status": condition}
+	change := bson.M{"$set": bson.M{
+		"task_creator":  args.TaskCreator,
+		"status":        args.Status,
+		"task_revoker":  args.TaskRevoker,
+		"start_time":    args.StartTime,
+		"end_time":      args.EndTime,
+		"sub_tasks":     args.SubTasks,
+		"req_id":        args.ReqID,
+		"agent_host":    args.AgentHost,
+		"task_args":     args.TaskArgs,
+		"workflow_args": args.WorkflowArgs,
+		"stages":        args.Stages,
+		"test_reports":  args.TestReports,
+	}}
+
+	_, err := c.UpdateOne(context.TODO(), query, change)
+
+	return err
+}
+
+func (c *TaskColl) ArchiveHistoryPipelineTask(pipelineName string, taskType config.PipelineType, remain int) error {
+	query := bson.M{"pipeline_name": pipelineName, "type": taskType, "is_deleted": false}
+	count, err := c.CountDocuments(context.TODO(), query)
+	if err != nil {
+		return err
+	}
+	query["task_id"] = bson.M{"$lt": int(count) - remain + 1}
+	change := bson.M{"$set": bson.M{
+		"is_archived": true,
+	}}
+	_, err = c.UpdateMany(context.TODO(), query, change)
+
+	return err
+}

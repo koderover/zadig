@@ -173,8 +173,7 @@ func DeleteBuild(name, version, productName string, log *zap.SugaredLogger) erro
 			}
 		}
 		opt := &commonrepo.PipelineListOption{
-			BuildModuleVer: version,
-			Targets:        targets.List(),
+			Targets: targets.List(),
 		}
 
 		// 获取全部 pipeline
