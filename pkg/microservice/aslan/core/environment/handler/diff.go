@@ -37,5 +37,5 @@ func ServiceDiff(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	envName := c.Query("envName")
 
-	ctx.Resp, ctx.Err = service.ServiceDiff(envName, c.Param("productName"), c.Param("serviceName"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetServiceDiff(envName, c.Param("productName"), c.Param("serviceName"), ctx.Logger)
 }

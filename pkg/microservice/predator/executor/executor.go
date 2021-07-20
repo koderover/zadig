@@ -17,29 +17,37 @@ limitations under the License.
 package executor
 
 import (
-	"fmt"
-
+	commonconfig "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/predator/core/service"
+	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-func Run() error {
+func Execute() error {
+	log.Init(&log.Config{
+		Level:       commonconfig.LogLevel(),
+		NoCaller:    true,
+		NoLogLevel:  true,
+		Development: commonconfig.Mode() != setting.ReleaseMode,
+	})
+
 	pred, err := service.NewPredator()
 	if err != nil {
-		fmt.Println("Failed to start predator, the error is:", err)
+		log.Errorf("Failed to start predator, the error is:", err)
 		return err
 	}
 
 	if err := pred.BeforeExec(); err != nil {
-		fmt.Println("Failed to run before exec step, the error is:", err)
+		log.Errorf("Failed to run before exec step, the error is:", err)
 		return err
 	}
 
 	if err := pred.Exec(); err != nil {
-		fmt.Println("Failed to run exec step, the error is:", err)
+		log.Errorf("Failed to run exec step, the error is:", err)
 		return err
 	}
 	if err := pred.AfterExec(); err != nil {
-		fmt.Println("Failed to run after exec step, the error is:", err)
+		log.Errorf("Failed to run after exec step, the error is:", err)
 		return err
 	}
 

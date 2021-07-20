@@ -195,7 +195,7 @@ func prEventToPipelineTasks(event *github.PullRequestEvent, requestID string, lo
 		return nil, err
 	}
 	gc := githubtool.NewClient(&githubtool.Config{AccessToken: ch.AccessToken, Proxy: config.ProxyHTTPSAddr()})
-	commitFiles, err := gc.ListFiles(context.Background(), owner, repo, prNum, &githubtool.ListOptions{PerPage: 100})
+	commitFiles, _ := gc.ListFiles(context.Background(), owner, repo, prNum, &githubtool.ListOptions{PerPage: 100})
 
 	var files []string
 	for _, cf := range commitFiles {
