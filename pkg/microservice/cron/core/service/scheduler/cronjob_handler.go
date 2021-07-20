@@ -31,6 +31,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/cron/core/service"
 	"github.com/koderover/zadig/pkg/microservice/cron/core/service/client"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
 )
@@ -56,49 +57,45 @@ func NewCronjobHandler(client *client.Client, scheduler *cronlib.CronSchduler) *
 
 func InitExistedCronjob(client *client.Client, scheduler *cronlib.CronSchduler) {
 	log.Infof("Initializing existing cronjob ....")
+
 	initChan := make(chan []*service.Cronjob, 1)
+	defer close(initChan)
+
 	failsafeChan := make(chan []*service.Cronjob, 1)
+	defer close(failsafeChan)
+
 	var (
 		jobList         []*service.Cronjob
 		failsafeJobList []*service.Cronjob
-		resp            []byte
-		err             error
 	)
 	listAPI := fmt.Sprintf("%s/cron/cronjob", client.APIBase)
 	header := http.Header{}
 	header.Set("Authorization", fmt.Sprintf("%s %s", setting.TIMERAPIKEY, client.Token))
 	// failsafe function: get enabled workflow and register them
 	failsafeAPI := fmt.Sprintf("%s/cron/cronjob/failsafe", client.APIBase)
+
+	cl := httpclient.New(
+		httpclient.SetAuthScheme(setting.TIMERAPIKEY),
+		httpclient.SetAuthToken(client.Token),
+		httpclient.SetRetryCount(100),
+		httpclient.SetRetryWaitTime(PullInterval),
+	)
 	go func() {
-		for {
-			resp, err = util.SendRequest(listAPI, "GET", header, nil)
-			if err != nil {
-				time.Sleep(PullInterval)
-				continue
-			}
-			err = json.Unmarshal(resp, &jobList)
-			if err == nil {
-				initChan <- jobList
-				return
-			}
-			time.Sleep(PullInterval)
+		_, err := cl.Get(listAPI, httpclient.SetResult(&jobList))
+		if err != nil {
+			log.Errorf("Failed to get cronjob, err: %s", err)
+			return
 		}
+		initChan <- jobList
 	}()
 
 	go func() {
-		for {
-			resp, err = util.SendRequest(failsafeAPI, "GET", header, nil)
-			if err != nil {
-				time.Sleep(PullInterval)
-				continue
-			}
-			err = json.Unmarshal(resp, &failsafeJobList)
-			if err == nil {
-				failsafeChan <- failsafeJobList
-				return
-			}
-			time.Sleep(PullInterval)
+		_, err := cl.Get(failsafeAPI, httpclient.SetResult(&failsafeJobList))
+		if err != nil {
+			log.Errorf("Failed to get failsafe cronjob, err: %s", err)
+			return
 		}
+		failsafeChan <- failsafeJobList
 	}()
 
 	timeout := time.After(InitializeThreshold)
