@@ -111,99 +111,32 @@ type serviceRevision struct {
 }
 
 func (c *ServiceColl) ListMaxRevisionsForServices(serviceNames []string, serviceType string) ([]*models.Service, error) {
-	var pipeResp []*grouped
-	pipeline := []bson.M{
-		{
+	match := bson.M{
+		"$match": bson.M{
+			"service_name": bson.M{"$in": serviceNames},
+			"type":         serviceType,
+			"status":       bson.M{"$ne": setting.ProductStatusDeleting},
+		},
+	}
+	if serviceType == "" {
+		match = bson.M{
 			"$match": bson.M{
 				"service_name": bson.M{"$in": serviceNames},
-				"type":         serviceType,
 				"status":       bson.M{"$ne": setting.ProductStatusDeleting},
 			},
-		},
-		{
-			"$sort": bson.M{"revision": 1},
-		},
-		{
-			"$group": bson.M{
-				"_id": bson.M{
-					"service_name": "$service_name",
-				},
-				"service_id": bson.M{"$last": "$_id"},
-			},
-		},
+		}
 	}
 
-	cursor, err := c.Aggregate(context.TODO(), pipeline)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := cursor.All(context.TODO(), &pipeResp); err != nil {
-		return nil, err
-	}
-
-	if len(pipeResp) == 0 {
-		return nil, nil
-	}
-
-	var resp []*models.Service
-	var ids []primitive.ObjectID
-	for _, p := range pipeResp {
-		ids = append(ids, p.ServiceID)
-	}
-
-	query := bson.M{"_id": bson.M{"$in": ids}}
-	cursor, err = c.Collection.Find(context.TODO(), query)
-	if err != nil {
-		return nil, err
-	}
-	err = cursor.All(context.TODO(), &resp)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
+	return c.listMaxRevisions(match)
 }
 
-func (c *ServiceColl) ListMaxRevisions() ([]*models.Service, error) {
-	var pipeResp []*models.ServiceTmplPipeResp
-	pipeline := []bson.M{
-		{
-			"$group": bson.M{
-				"_id": bson.M{
-					"service_name": "$service_name",
-					"type":         "$type",
-				},
-				"revision": bson.M{"$max": "$revision"},
-			},
+func (c *ServiceColl) ListMaxRevisionsByProduct(productName string) ([]*models.Service, error) {
+	return c.listMaxRevisions(bson.M{
+		"$match": bson.M{
+			"product_name": productName,
+			"status":       bson.M{"$ne": setting.ProductStatusDeleting},
 		},
-	}
-
-	cursor, err := c.Aggregate(context.TODO(), pipeline)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := cursor.All(context.TODO(), &pipeResp); err != nil {
-		return nil, err
-	}
-
-	var resp []*models.Service
-	for _, pipe := range pipeResp {
-		opt := &ServiceFindOption{
-			ServiceName:   pipe.ID.ServiceName,
-			Type:          pipe.ID.Type,
-			Revision:      pipe.Revision,
-			ExcludeStatus: setting.ProductStatusDeleting,
-		}
-		rs, err := c.Find(opt)
-		if err != nil {
-			continue
-		}
-		resp = append(resp, rs)
-	}
-
-	return resp, nil
+	})
 }
 
 // Find 根据service_name和type查询特定版本的配置模板
@@ -499,4 +432,53 @@ func (c *ServiceColl) ListAllRevisions() ([]*models.Service, error) {
 	}
 
 	return resp, err
+}
+
+func (c *ServiceColl) listMaxRevisions(match bson.M) ([]*models.Service, error) {
+	var pipeResp []*grouped
+	pipeline := []bson.M{
+		match,
+		{
+			"$sort": bson.M{"revision": 1},
+		},
+		{
+			"$group": bson.M{
+				"_id": bson.M{
+					"service_name": "$service_name",
+				},
+				"service_id": bson.M{"$last": "$_id"},
+			},
+		},
+	}
+
+	cursor, err := c.Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := cursor.All(context.TODO(), &pipeResp); err != nil {
+		return nil, err
+	}
+
+	if len(pipeResp) == 0 {
+		return nil, nil
+	}
+
+	var resp []*models.Service
+	var ids []primitive.ObjectID
+	for _, p := range pipeResp {
+		ids = append(ids, p.ServiceID)
+	}
+
+	query := bson.M{"_id": bson.M{"$in": ids}}
+	cursor, err = c.Collection.Find(context.TODO(), query)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
 }

@@ -227,33 +227,33 @@ func PreSetWorkflow(productName string, log *zap.SugaredLogger) ([]*PreSetResp, 
 		log.Errorf("[%s] ProductTmpl.Find error: %v", productName, err)
 		return resp, e.ErrGetTemplate.AddDesc(err.Error())
 	}
-	maxServiceTmpls, err := commonrepo.NewServiceColl().ListMaxRevisions()
+	var svcNames []string
+	for _, ss := range productTmpl.Services {
+		svcNames = append(svcNames, ss...)
+	}
+	services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(svcNames, "")
 	if err != nil {
 		log.Errorf("ServiceTmpl.ListMaxRevisions error: %v", err)
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
-	for _, services := range productTmpl.Services {
-		for _, service := range services {
-			for _, serviceTmpl := range findServicesByName(service, maxServiceTmpls) {
-				switch serviceTmpl.Type {
-				case setting.K8SDeployType:
-					for _, container := range serviceTmpl.Containers {
-						deployEnv := DeployEnv{Env: service + "/" + container.Name, Type: setting.K8SDeployType, ProductName: serviceTmpl.ProductName}
-						target := fmt.Sprintf("%s%s%s%s%s", serviceTmpl.ProductName, SplitSymbol, serviceTmpl.ServiceName, SplitSymbol, container.Name)
-						targets[target] = append(targets[target], deployEnv)
-					}
-				case setting.PMDeployType:
-					deployEnv := DeployEnv{Env: service, Type: setting.PMDeployType, ProductName: productName}
-					target := fmt.Sprintf("%s%s%s%s%s", serviceTmpl.ProductName, SplitSymbol, serviceTmpl.ServiceName, SplitSymbol, serviceTmpl.ServiceName)
-					targets[target] = append(targets[target], deployEnv)
-				case setting.HelmDeployType:
-					for _, container := range serviceTmpl.Containers {
-						deployEnv := DeployEnv{Env: service + "/" + container.Name, Type: setting.HelmDeployType, ProductName: serviceTmpl.ProductName}
-						target := fmt.Sprintf("%s%s%s%s%s", serviceTmpl.ProductName, SplitSymbol, serviceTmpl.ServiceName, SplitSymbol, container.Name)
-						targets[target] = append(targets[target], deployEnv)
-					}
-				}
+	for _, serviceTmpl := range services {
+		switch serviceTmpl.Type {
+		case setting.K8SDeployType:
+			for _, container := range serviceTmpl.Containers {
+				deployEnv := DeployEnv{Env: serviceTmpl.ServiceName + "/" + container.Name, Type: setting.K8SDeployType, ProductName: serviceTmpl.ProductName}
+				target := fmt.Sprintf("%s%s%s%s%s", serviceTmpl.ProductName, SplitSymbol, serviceTmpl.ServiceName, SplitSymbol, container.Name)
+				targets[target] = append(targets[target], deployEnv)
+			}
+		case setting.PMDeployType:
+			deployEnv := DeployEnv{Env: serviceTmpl.ServiceName, Type: setting.PMDeployType, ProductName: productName}
+			target := fmt.Sprintf("%s%s%s%s%s", serviceTmpl.ProductName, SplitSymbol, serviceTmpl.ServiceName, SplitSymbol, serviceTmpl.ServiceName)
+			targets[target] = append(targets[target], deployEnv)
+		case setting.HelmDeployType:
+			for _, container := range serviceTmpl.Containers {
+				deployEnv := DeployEnv{Env: serviceTmpl.ServiceName + "/" + container.Name, Type: setting.HelmDeployType, ProductName: serviceTmpl.ProductName}
+				target := fmt.Sprintf("%s%s%s%s%s", serviceTmpl.ProductName, SplitSymbol, serviceTmpl.ServiceName, SplitSymbol, container.Name)
+				targets[target] = append(targets[target], deployEnv)
 			}
 		}
 	}
@@ -297,16 +297,6 @@ func PreSetWorkflow(productName string, log *zap.SugaredLogger) ([]*PreSetResp, 
 		resp = append(resp, preSet)
 	}
 	return resp, nil
-}
-
-func findServicesByName(serviceName string, services []*commonmodels.Service) []*commonmodels.Service {
-	resp := make([]*commonmodels.Service, 0)
-	for _, service := range services {
-		if service.ServiceName == serviceName {
-			resp = append(resp, service)
-		}
-	}
-	return resp
 }
 
 func CreateWorkflow(workflow *commonmodels.Workflow, log *zap.SugaredLogger) error {

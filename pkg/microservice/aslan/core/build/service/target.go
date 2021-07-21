@@ -30,8 +30,7 @@ import (
 
 func ListDeployTarget(productName string, log *zap.SugaredLogger) ([]*commonmodels.ServiceModuleTarget, error) {
 	serviceObjects := make([]*commonmodels.ServiceModuleTarget, 0)
-	targetMap := map[string]bool{}
-	serviceTmpls, err := commonrepo.NewServiceColl().ListMaxRevisions()
+	services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
 	if err != nil {
 		errMsg := fmt.Sprintf("[ServiceTmpl.List] error: %v", err)
 		log.Error(errMsg)
@@ -39,7 +38,7 @@ func ListDeployTarget(productName string, log *zap.SugaredLogger) ([]*commonmode
 	}
 
 	//获取该项目下的的build的targets
-	buildTargets := sets.String{}
+	buildTargets := sets.NewString()
 	builds, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{ProductName: productName})
 	if err != nil {
 		log.Errorf("[Build.List] %s error: %v", productName, err)
@@ -47,60 +46,33 @@ func ListDeployTarget(productName string, log *zap.SugaredLogger) ([]*commonmode
 	}
 	for _, build := range builds {
 		for _, serviceModuleTarget := range build.Targets {
-			target := fmt.Sprintf("%s-%s-%s", serviceModuleTarget.ProductName, serviceModuleTarget.ServiceName, serviceModuleTarget.ServiceModule)
-			if !buildTargets.Has(target) {
-				buildTargets.Insert(target)
+			buildTargets.Insert(fmt.Sprintf("%s-%s", serviceModuleTarget.ServiceName, serviceModuleTarget.ServiceModule))
+		}
+	}
+
+	for _, svc := range services {
+		switch svc.Type {
+		case setting.K8SDeployType, setting.HelmDeployType:
+			for _, container := range svc.Containers {
+				if !buildTargets.Has(fmt.Sprintf("%s-%s", svc.ServiceName, container.Name)) {
+					serviceObjects = append(serviceObjects, &commonmodels.ServiceModuleTarget{
+						ProductName:   svc.ProductName,
+						ServiceName:   svc.ServiceName,
+						ServiceModule: container.Name,
+					})
+				}
+			}
+		case setting.PMDeployType:
+			if !buildTargets.Has(fmt.Sprintf("%s-%s", svc.ServiceName, svc.ServiceName)) {
+				serviceObjects = append(serviceObjects, &commonmodels.ServiceModuleTarget{
+					ProductName:   svc.ProductName,
+					ServiceName:   svc.ServiceName,
+					ServiceModule: svc.ServiceName,
+				})
 			}
 		}
 	}
 
-	for _, serviceTmpl := range serviceTmpls {
-		if serviceTmpl.ProductName != productName {
-			continue
-		}
-		opt := &commonrepo.ServiceFindOption{
-			ServiceName:   serviceTmpl.ServiceName,
-			Type:          serviceTmpl.Type,
-			Revision:      serviceTmpl.Revision,
-			ProductName:   serviceTmpl.ProductName,
-			ExcludeStatus: setting.ProductStatusDeleting,
-		}
-		_, err := commonrepo.NewServiceColl().Find(opt)
-		if err != nil {
-			log.Errorf("ServiceTmpl Find error: %v", err)
-			continue
-		}
-		switch serviceTmpl.Type {
-		case setting.K8SDeployType, setting.HelmDeployType:
-			for _, container := range serviceTmpl.Containers {
-				target := fmt.Sprintf("%s-%s-%s", serviceTmpl.ProductName, serviceTmpl.ServiceName, container.Name)
-				if _, ok := targetMap[target]; !ok {
-					targetMap[target] = true
-					ServiceObject := &commonmodels.ServiceModuleTarget{
-						ProductName:   serviceTmpl.ProductName,
-						ServiceName:   serviceTmpl.ServiceName,
-						ServiceModule: container.Name,
-					}
-					if !buildTargets.Has(target) {
-						serviceObjects = append(serviceObjects, ServiceObject)
-					}
-				}
-			}
-		case setting.PMDeployType:
-			target := fmt.Sprintf("%s-%s-%s", serviceTmpl.ProductName, serviceTmpl.ServiceName, serviceTmpl.ServiceName)
-			if _, ok := targetMap[target]; !ok {
-				targetMap[target] = true
-				ServiceObject := &commonmodels.ServiceModuleTarget{
-					ProductName:   serviceTmpl.ProductName,
-					ServiceName:   serviceTmpl.ServiceName,
-					ServiceModule: serviceTmpl.ServiceName,
-				}
-				if !buildTargets.Has(target) {
-					serviceObjects = append(serviceObjects, ServiceObject)
-				}
-			}
-		}
-	}
 	return serviceObjects, nil
 }
 
