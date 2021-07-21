@@ -112,19 +112,11 @@ type serviceRevision struct {
 
 func (c *ServiceColl) ListMaxRevisionsForServices(serviceNames []string, serviceType string) ([]*models.Service, error) {
 	match := bson.M{
-		"$match": bson.M{
-			"service_name": bson.M{"$in": serviceNames},
-			"type":         serviceType,
-			"status":       bson.M{"$ne": setting.ProductStatusDeleting},
-		},
+		"service_name": bson.M{"$in": serviceNames},
+		"status":       bson.M{"$ne": setting.ProductStatusDeleting},
 	}
-	if serviceType == "" {
-		match = bson.M{
-			"$match": bson.M{
-				"service_name": bson.M{"$in": serviceNames},
-				"status":       bson.M{"$ne": setting.ProductStatusDeleting},
-			},
-		}
+	if serviceType != "" {
+		match["type"] = serviceType
 	}
 
 	return c.listMaxRevisions(match)
@@ -132,10 +124,8 @@ func (c *ServiceColl) ListMaxRevisionsForServices(serviceNames []string, service
 
 func (c *ServiceColl) ListMaxRevisionsByProduct(productName string) ([]*models.Service, error) {
 	return c.listMaxRevisions(bson.M{
-		"$match": bson.M{
-			"product_name": productName,
-			"status":       bson.M{"$ne": setting.ProductStatusDeleting},
-		},
+		"product_name": productName,
+		"status":       bson.M{"$ne": setting.ProductStatusDeleting},
 	})
 }
 
@@ -437,7 +427,9 @@ func (c *ServiceColl) ListAllRevisions() ([]*models.Service, error) {
 func (c *ServiceColl) listMaxRevisions(match bson.M) ([]*models.Service, error) {
 	var pipeResp []*grouped
 	pipeline := []bson.M{
-		match,
+		{
+			"$match": match,
+		},
 		{
 			"$sort": bson.M{"revision": 1},
 		},
