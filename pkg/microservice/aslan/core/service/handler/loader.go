@@ -71,8 +71,9 @@ func LoadServiceTemplate(c *gin.Context) {
 	}
 
 	repoName := c.Query("repoName")
-	if repoName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("repoName cannot be empty")
+	repoUUID := c.Query("repoUUID")
+	if repoName == "" && repoUUID == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("repoName and repoUUID cannot be empty at the same time")
 		return
 	}
 
@@ -87,7 +88,7 @@ func LoadServiceTemplate(c *gin.Context) {
 	remoteName := c.Query("remoteName")
 	repoOwner := c.Query("repoOwner")
 
-	ctx.Err = svcservice.LoadServiceFromCodeHost(ctx.Username, codehostID, repoOwner, repoName, branchName, remoteName, args, ctx.Logger)
+	ctx.Err = svcservice.LoadServiceFromCodeHost(ctx.Username, codehostID, repoOwner, repoName, repoUUID, branchName, remoteName, args, ctx.Logger)
 }
 
 // ValidateServiceUpdate ...

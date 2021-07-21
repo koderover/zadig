@@ -37,5 +37,5 @@ func (c *CodeHubClient) FileContent(repoUUID, branchName, path string) (*FileCon
 		return fileContent, nil
 	}
 
-	return nil, fmt.Errorf("reponse failed")
+	return nil, fmt.Errorf("get file content failed")
 }

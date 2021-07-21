@@ -1,8 +1,12 @@
 package codehub
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strings"
+
+	"github.com/koderover/zadig/pkg/util"
 )
 
 type RepoInfo struct {
@@ -68,4 +72,47 @@ func (c *CodeHubClient) RepoList(projectUUID, search string, pageSize int) ([]*P
 	}
 
 	return repoInfos, nil
+}
+
+func (c *CodeHubClient) GetYAMLContents(repoUUID, branchName, path string, isDir, split bool) ([]string, error) {
+	var res []string
+	if !isDir {
+		if !(strings.HasSuffix(path, ".yaml") || strings.HasSuffix(path, ".yml")) {
+			return nil, nil
+		}
+
+		fileContent, err := c.FileContent(repoUUID, branchName, path)
+		if err != nil {
+			return nil, err
+		}
+
+		contentByte, err := base64.StdEncoding.DecodeString(fileContent.Result.Content)
+		content := string(contentByte)
+		if split {
+			res = util.SplitManifests(content)
+		} else {
+			res = []string{content}
+		}
+
+		return res, nil
+	}
+
+	treeNodes, err := c.FileTree(repoUUID, branchName, path)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, tn := range treeNodes {
+		if tn.Type != "blob" {
+			continue
+		}
+		r, err := c.GetYAMLContents(repoUUID, branchName, path, isDir, split)
+		if err != nil {
+			return nil, err
+		}
+
+		res = append(res, r...)
+	}
+
+	return res, nil
 }

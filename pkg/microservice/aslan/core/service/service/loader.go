@@ -39,7 +39,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/codehost"
 	"github.com/koderover/zadig/pkg/shared/poetry"
-	"github.com/koderover/zadig/pkg/tool/codehub"
+	codehub "github.com/koderover/zadig/pkg/tool/codehub"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -78,7 +78,7 @@ func PreloadServiceFromCodeHost(codehostID int, repoOwner, repoName, branchName,
 }
 
 // LoadServiceFromCodeHost 根据提供的codehost信息加载服务
-func LoadServiceFromCodeHost(username string, codehostID int, repoOwner, repoName, branchName, remoteName string, args *LoadServiceReq, log *zap.SugaredLogger) error {
+func LoadServiceFromCodeHost(username string, codehostID int, repoOwner, repoName, repoUUID, branchName, remoteName string, args *LoadServiceReq, log *zap.SugaredLogger) error {
 	detail, err := codehost.GetCodehostDetail(codehostID)
 	if err != nil {
 		log.Errorf("Failed to load codehost for preload service list, the error is: %+v", err)
@@ -89,8 +89,8 @@ func LoadServiceFromCodeHost(username string, codehostID int, repoOwner, repoNam
 		return loadService(username, detail, repoOwner, repoName, branchName, args, log)
 	case setting.SourceFromGerrit:
 		return loadGerritService(username, detail, repoOwner, repoName, branchName, remoteName, args, log)
-	//case setting.SourceFromCodeHub:
-
+	case setting.SourceFromCodeHub:
+		return loadCodehubService(username, detail, repoOwner, repoName, repoUUID, branchName, args, log)
 	default:
 		return e.ErrLoadServiceTemplate.AddDesc("unsupported code source")
 	}
@@ -433,12 +433,12 @@ func preloadCodehubService(detail *poetry.CodeHost, repoUUID, branchName, path s
 	isGrandparent := false
 	for _, entry := range treeInfo {
 		if entry.Type == "tree" {
-			subtreeInfo, err := codeHubClient.FileTree(repoUUID, branchName, entry.Path)
+			subTreeInfo, err := codeHubClient.FileTree(repoUUID, branchName, entry.Path)
 			if err != nil {
 				log.Errorf("Failed to get dir content from codehub with path: %s, the error is: %+v", path, err)
 				return ret, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
 			}
-			if isValidCodehubServiceDir(subtreeInfo) {
+			if isValidCodehubServiceDir(subTreeInfo) {
 				isGrandparent = true
 				ret = append(ret, entry.Name)
 			}
@@ -589,6 +589,55 @@ func loadServiceFromGerrit(tree []os.FileInfo, id int, username, branchName, loa
 		}
 	}
 	return err
+}
+
+// load codehub service
+func loadCodehubService(username string, detail *codehost.Detail, repoOwner, repoName, repoUUID, branchName string, args *LoadServiceReq, log *zap.SugaredLogger) error {
+	codeHubClient := codehub.NewCodeHubClient(detail.AccessKey, detail.SecretKey, detail.Region)
+	yamls, err := codeHubClient.GetYAMLContents(repoUUID, branchName, args.LoadPath, args.LoadFromDir, true)
+	if err != nil {
+		log.Errorf("Failed to get yamls under path %s, error: %s", args.LoadPath, err)
+		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
+	}
+
+	commit, err := codeHubClient.CommitList(repoOwner, repoName, branchName)
+	if err != nil {
+		log.Errorf("Failed to get latest commit under path %s, error: %s", args.LoadPath, err)
+		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
+	}
+
+	//pathType := "tree"
+	//if !args.LoadFromDir {
+	//	pathType = "blob"
+	//}
+	//srcPath := fmt.Sprintf("%s/%s/%s/%s/%s/%s", detail.Address, owner, repoUUID, pathType, branchName, args.LoadPath)
+	createSvcArgs := &models.Service{
+		CodehostID:  detail.ID,
+		RepoName:    repoName,
+		RepoOwner:   repoOwner,
+		BranchName:  branchName,
+		LoadPath:    args.LoadPath,
+		LoadFromDir: args.LoadFromDir,
+		KubeYamls:   yamls,
+		//SrcPath:     srcPath,
+		CreateBy:    username,
+		ServiceName: getFileName(args.LoadPath),
+		Type:        args.Type,
+		ProductName: args.ProductName,
+		Source:      detail.Source,
+		Yaml:        util.CombineManifests(yamls),
+		Commit:      &models.Commit{SHA: commit.Result.Commits[0].ID, Message: commit.Result.Commits[0].Message},
+		Visibility:  args.Visibility,
+	}
+	if _, err = CreateServiceTemplate(username, createSvcArgs, log); err != nil {
+		log.Errorf("Failed to create service template, error: %s", err)
+		_, messageMap := e.ErrorMessage(err)
+		if description, ok := messageMap["description"]; ok {
+			return e.ErrLoadServiceTemplate.AddDesc(description.(string))
+		}
+		return e.ErrLoadServiceTemplate.AddDesc("Load Service Error for unknown reason")
+	}
+	return nil
 }
 
 // 根据github repo决定服务是否可以更新这个repo地址
