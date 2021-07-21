@@ -122,7 +122,7 @@ func (c *CodeHubClient) GetYAMLContents(repoUUID, branchName, path string, isDir
 		if tn.Type != "blob" {
 			continue
 		}
-		r, err := c.GetYAMLContents(repoUUID, branchName, tn.Path, isDir, split)
+		r, err := c.GetYAMLContents(repoUUID, branchName, tn.Path, false, split)
 		if err != nil {
 			return nil, err
 		}
