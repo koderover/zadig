@@ -750,7 +750,7 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 			args.Containers = make([]*commonmodels.Container, 0)
 		}
 		// 配置来源为Gitlab，需要从Gitlab同步配置，并设置KubeYamls.
-		if args.Source != setting.SourceFromGithub && args.Source != setting.SourceFromGitlab {
+		if args.Source != setting.SourceFromGithub && args.Source != setting.SourceFromGitlab && args.Source != setting.SourceFromCodeHub {
 			// 拆分 all-in-one yaml文件
 			// 替换分隔符
 			args.Yaml = util.ReplaceWrapLine(args.Yaml)
@@ -823,6 +823,7 @@ func distinctEnvServices(productName string) (map[string][]*commonmodels.Product
 func setCurrentContainerImages(args *commonmodels.Service) error {
 	var srvContainers []*commonmodels.Container
 	for _, data := range args.KubeYamls {
+		log.Infof("data:%+v", data)
 		yamlDataArray := SplitYaml(data)
 		for _, yamlData := range yamlDataArray {
 			resKind := new(KubeResourceKind)
