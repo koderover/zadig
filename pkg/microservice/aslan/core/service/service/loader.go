@@ -599,9 +599,6 @@ func loadCodehubService(username string, detail *codehost.Detail, repoOwner, rep
 		log.Errorf("Failed to get yamls under path %s, error: %s", args.LoadPath, err)
 		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
 	}
-	for _, yaml := range yamls {
-		log.Infof("yaml:%s", yaml)
-	}
 
 	commit, err := codeHubClient.CommitList(repoOwner, repoName, branchName)
 	if err != nil {

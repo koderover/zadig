@@ -391,6 +391,9 @@ func DeleteServiceWebhookByName(serviceName string, logger *zap.SugaredLogger) {
 }
 
 func ProcessServiceWebhook(updated, current *commonmodels.Service, serviceName string, logger *zap.SugaredLogger) {
+	if current.Source == setting.SourceFromCodeHub {
+		return
+	}
 	var action string
 	var updatedHooks, currentHooks []*webhook.WebHook
 	if updated != nil {
