@@ -299,7 +299,7 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 										deliveryArtifact.DockerFile = string(content)
 									} else {
 										gitClient := git.NewClient(build.OauthToken, config.ProxyHTTPSAddr())
-										fileContent, _, _ := gitClient.GetContents(context.Background(), build.RepoOwner, build.RepoName, dockerfilePath, nil)
+										fileContent, _, _, _ := gitClient.Repositories.GetContents(context.Background(), build.RepoOwner, build.RepoName, dockerfilePath, nil)
 										if fileContent != nil {
 											dockerfileContent := *fileContent.Content
 											dockerfileContent = dockerfileContent[:len(dockerfileContent)-2]

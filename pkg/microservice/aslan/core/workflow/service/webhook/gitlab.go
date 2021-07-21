@@ -345,7 +345,7 @@ func SyncServiceTemplateFromGitlab(service *commonmodels.Service, log *zap.Sugar
 		return nil
 	}
 	// 在Ensure过程中会检查source，如果source为gitlab，则同步gitlab内容到service中
-	if err := fillServiceTmpl(service, log); err != nil {
+	if err := fillServiceTmpl(setting.WebhookTaskCreator, service, log); err != nil {
 		log.Errorf("ensureServiceTmpl error: %+v", err)
 		return e.ErrValidateTemplate.AddDesc(err.Error())
 	}

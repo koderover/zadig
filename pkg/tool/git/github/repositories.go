@@ -18,13 +18,10 @@ package github
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
 	"github.com/google/go-github/v35/github"
 
 	"github.com/koderover/zadig/pkg/tool/git"
-	"github.com/koderover/zadig/pkg/util"
 )
 
 func (c *Client) ListRepositoriesForAuthenticatedUser(ctx context.Context, opts *ListOptions) ([]*github.Repository, error) {
@@ -137,37 +134,6 @@ func (c *Client) ListReleases(ctx context.Context, owner, repo string, opts *Lis
 	return res, err
 }
 
-func (c *Client) ListRepositoryCommits(ctx context.Context, owner, repo, branch, path string, opts *ListOptions) ([]*github.RepositoryCommit, error) {
-	releases, err := wrap(paginated(func(o *github.ListOptions) ([]interface{}, *github.Response, error) {
-		hs, r, err := c.Repositories.ListCommits(ctx, owner, repo, &github.CommitsListOptions{Path: path, SHA: branch, ListOptions: *o})
-		var res []interface{}
-		for _, h := range hs {
-			res = append(res, h)
-		}
-		return res, r, err
-	}, opts))
-
-	var res []*github.RepositoryCommit
-	hs, ok := releases.([]interface{})
-	if !ok {
-		return nil, nil
-	}
-	for _, hook := range hs {
-		res = append(res, hook.(*github.RepositoryCommit))
-	}
-
-	return res, err
-}
-
-func (c *Client) GetLatestRepositoryCommit(ctx context.Context, owner, repo, branch, path string) (*github.RepositoryCommit, error) {
-	cs, err := c.ListRepositoryCommits(ctx, owner, repo, branch, path, &ListOptions{PerPage: 1, NoPaginated: true})
-	if err != nil || len(cs) == 0 {
-		return nil, err
-	}
-
-	return cs[0], nil
-}
-
 func (c *Client) DeleteHook(ctx context.Context, owner, repo string, id int64) error {
 	return wrapError(c.Repositories.DeleteHook(ctx, owner, repo, id))
 }
@@ -202,61 +168,4 @@ func (c *Client) CreateStatus(ctx context.Context, owner, repo, ref string, stat
 func (c *Client) GetContents(ctx context.Context, owner, repo, path string, opts *github.RepositoryContentGetOptions) (*github.RepositoryContent, []*github.RepositoryContent, error) {
 	fileContent, directoryContent, resp, err := c.Repositories.GetContents(ctx, owner, repo, path, opts)
 	return fileContent, directoryContent, wrapError(resp, err)
-}
-
-// GetYAMLContents recursively get all yaml contents under the given path. if split is true, manifests in the same file
-// will be split to separated ones.
-func (c *Client) GetYAMLContents(ctx context.Context, owner, repo, branch, path string, split bool) ([]string, error) {
-	fileContent, directoryContent, err := c.GetContents(ctx, owner, repo, path, &github.RepositoryContentGetOptions{Ref: branch})
-	if err != nil {
-		return nil, err
-	}
-
-	var res []string
-	if fileContent != nil {
-		if strings.HasSuffix(fileContent.GetPath(), ".yaml") || strings.HasSuffix(fileContent.GetPath(), ".yml") {
-			content, _ := fileContent.GetContent()
-			if split {
-				res = util.SplitManifests(content)
-			} else {
-				res = []string{content}
-			}
-
-		}
-
-		return res, nil
-	}
-
-	for _, fileOrDir := range directoryContent {
-		switch fileOrDir.GetType() {
-		case "file":
-			if strings.HasSuffix(fileOrDir.GetPath(), ".yaml") || strings.HasSuffix(fileOrDir.GetPath(), ".yml") {
-				r, err := c.GetYAMLContents(ctx, owner, repo, branch, fileOrDir.GetPath(), split)
-				if err != nil {
-					return nil, err
-				}
-				res = append(res, r...)
-			}
-		case "dir":
-			tree, err := c.GetTree(ctx, owner, repo, fileOrDir.GetSHA(), true)
-			if err != nil {
-				return nil, err
-			}
-			if tree == nil {
-				continue
-			}
-
-			for _, ent := range tree.Entries {
-				if ent.GetType() == "blob" && (strings.HasSuffix(ent.GetPath(), ".yaml") || strings.HasSuffix(ent.GetPath(), ".yml")) {
-					r, err := c.GetYAMLContents(ctx, owner, repo, branch, fmt.Sprintf("%s/%s", fileOrDir.GetPath(), ent.GetPath()), split)
-					if err != nil {
-						return nil, err
-					}
-					res = append(res, r...)
-				}
-			}
-		}
-	}
-
-	return res, nil
 }

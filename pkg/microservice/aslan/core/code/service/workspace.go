@@ -28,13 +28,13 @@ import (
 	"github.com/google/go-github/v35/github"
 	"github.com/xanzy/go-gitlab"
 	"go.uber.org/zap"
+	"golang.org/x/oauth2"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	"github.com/koderover/zadig/pkg/shared/codehost"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	githubtool "github.com/koderover/zadig/pkg/tool/git/github"
 )
 
 func CleanWorkspace(username, pipelineName string, log *zap.SugaredLogger) error {
@@ -223,10 +223,14 @@ func GetGithubRepoInfo(codehostID int, repoName, branchName, path string, log *z
 		log.Errorf("GetGithubRepoInfo GetCodehostDetail err:%v", err)
 		return fileInfo, e.ErrListWorkspace.AddDesc(err.Error())
 	}
+	ctx := context.Background()
+	tokenSource := oauth2.StaticTokenSource(
+		&oauth2.Token{AccessToken: detail.OauthToken},
+	)
+	tokenClient := oauth2.NewClient(ctx, tokenSource)
+	githubClient := github.NewClient(tokenClient)
 
-	githubClient := githubtool.NewClient(&githubtool.Config{AccessToken: detail.OauthToken, Proxy: config.ProxyHTTPSAddr()})
-
-	_, dirContent, err := githubClient.GetContents(context.TODO(), detail.Owner, repoName, path, &github.RepositoryContentGetOptions{Ref: branchName})
+	_, dirContent, _, err := githubClient.Repositories.GetContents(ctx, detail.Owner, repoName, path, &github.RepositoryContentGetOptions{Ref: branchName})
 	if err != nil {
 		return nil, e.ErrListWorkspace.AddDesc(err.Error())
 	}
