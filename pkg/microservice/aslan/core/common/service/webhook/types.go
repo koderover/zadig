@@ -14,7 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-/*
-	Module level comments
-*/
-package project
+package webhook
+
+type WebHook struct {
+	Owner, Repo, Address, Name string
+	CodeHostID                 int
+}

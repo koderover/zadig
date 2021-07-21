@@ -27,23 +27,17 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
 type PipelineListOption struct {
-	Teams          []string
-	TeamName       []string
-	IsDeleted      bool
-	IsPreview      bool
-	Targets        []string
-	BuildModuleVer string
-	ProductName    string
+	IsPreview   bool
+	Targets     []string
+	ProductName string
 }
 
 type PipelineFindOption struct {
-	Name      string
-	IsDeleted bool
+	Name string
 }
 
 type PipelineColl struct {
@@ -87,16 +81,10 @@ func (c *PipelineColl) List(opt *PipelineListOption) ([]*models.Pipeline, error)
 	}
 
 	var resp []*models.Pipeline
-	query := bson.M{"is_deleted": opt.IsDeleted}
+	query := bson.M{"is_deleted": false}
 
-	if len(opt.Teams) != 0 {
-		query["team"] = bson.M{"$in": opt.Teams}
-	}
 	if opt.ProductName != "" {
 		query["product_name"] = opt.ProductName
-	}
-	if len(opt.BuildModuleVer) != 0 {
-		query["build_module_ver"] = opt.BuildModuleVer
 	}
 	if len(opt.Targets) != 0 {
 		query["target"] = bson.M{"$in": opt.Targets}
@@ -109,9 +97,7 @@ func (c *PipelineColl) List(opt *PipelineListOption) ([]*models.Pipeline, error)
 			{"name", 1},
 			{"pipeline_name", 1},
 			{"type", 1},
-			{"team", 1},
 			{"target", 1},
-			{"build_module_ver", 1},
 			{"enabled", 1},
 		}
 		opts.SetProjection(projection)
@@ -135,7 +121,7 @@ func (c *PipelineColl) Find(opt *PipelineFindOption) (*models.Pipeline, error) {
 	}
 
 	resp := &models.Pipeline{}
-	query := bson.M{"name": opt.Name, "is_deleted": opt.IsDeleted}
+	query := bson.M{"name": opt.Name, "is_deleted": false}
 	err := c.FindOne(context.TODO(), query).Decode(resp)
 
 	return resp, err
@@ -143,11 +129,7 @@ func (c *PipelineColl) Find(opt *PipelineFindOption) (*models.Pipeline, error) {
 
 func (c *PipelineColl) Delete(name string) error {
 	query := bson.M{"name": name}
-	change := bson.M{"$set": bson.M{
-		"is_deleted":  true,
-		"update_time": time.Now().Unix(),
-	}}
-	_, err := c.UpdateMany(context.TODO(), query, change)
+	_, err := c.DeleteMany(context.TODO(), query)
 
 	return err
 }
@@ -188,52 +170,5 @@ func (c *PipelineColl) Rename(oldName, newName string) error {
 	}}
 
 	_, err := c.UpdateOne(context.Background(), query, change)
-	return err
-}
-
-func (c *TaskColl) UpdateUnfinishedTask(args *task.Task) error {
-	// avoid panic issue
-	if args == nil {
-		return errors.New("nil PipelineTaskV2")
-	}
-
-	condition := bson.M{"$nin": []string{
-		string(config.StatusPassed),
-		string(config.StatusFailed),
-		string(config.StatusTimeout),
-	}}
-	query := bson.M{"task_id": args.TaskID, "pipeline_name": args.PipelineName, "is_deleted": false, "status": condition}
-	change := bson.M{"$set": bson.M{
-		"task_creator":  args.TaskCreator,
-		"status":        args.Status,
-		"task_revoker":  args.TaskRevoker,
-		"start_time":    args.StartTime,
-		"end_time":      args.EndTime,
-		"sub_tasks":     args.SubTasks,
-		"req_id":        args.ReqID,
-		"agent_host":    args.AgentHost,
-		"task_args":     args.TaskArgs,
-		"workflow_args": args.WorkflowArgs,
-		"stages":        args.Stages,
-		"test_reports":  args.TestReports,
-	}}
-
-	_, err := c.UpdateOne(context.TODO(), query, change)
-
-	return err
-}
-
-func (c *TaskColl) ArchiveHistoryPipelineTask(pipelineName string, taskType config.PipelineType, remain int) error {
-	query := bson.M{"pipeline_name": pipelineName, "type": taskType, "is_deleted": false}
-	count, err := c.CountDocuments(context.TODO(), query)
-	if err != nil {
-		return err
-	}
-	query["task_id"] = bson.M{"$lt": int(count) - remain + 1}
-	change := bson.M{"$set": bson.M{
-		"is_archived": true,
-	}}
-	_, err = c.UpdateMany(context.TODO(), query, change)
-
 	return err
 }

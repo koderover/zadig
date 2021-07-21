@@ -66,25 +66,7 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	public := router.Group("/api")
 	{
-		// new webhook url for all
 		public.POST("/webhook", func(c *gin.Context) {
-			c.Request.URL.Path = "/api/workflow/webhook"
-			s.HandleContext(c)
-		})
-		// 内部路由重定向。接口路由更新后，需要保证旧路由可用，否则github、gitlab的配置需要手动更新。
-		public.POST("/ci/webhook", func(c *gin.Context) {
-			c.Request.URL.Path = "/api/workflow/webhook"
-			s.HandleContext(c)
-		})
-		public.POST("/githubWebHook", func(c *gin.Context) {
-			c.Request.URL.Path = "/api/workflow/webhook"
-			s.HandleContext(c)
-		})
-		public.POST("/gitlabhook", func(c *gin.Context) {
-			c.Request.URL.Path = "/api/workflow/webhook"
-			s.HandleContext(c)
-		})
-		public.POST("/gerritHook", func(c *gin.Context) {
 			c.Request.URL.Path = "/api/workflow/webhook"
 			s.HandleContext(c)
 		})

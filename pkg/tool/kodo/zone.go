@@ -37,7 +37,7 @@ type Zone struct {
 	CdnUpHosts []string
 	RsHost     string
 	RsfHost    string
-	ApiHost    string
+	APIHost    string
 	IovipHost  string
 }
 
@@ -55,7 +55,7 @@ var ZoneHuadong = Zone{
 	},
 	RsHost:    "rs.qiniu.com",
 	RsfHost:   "rsf.qiniu.com",
-	ApiHost:   "api.qiniu.com",
+	APIHost:   "api.qiniu.com",
 	IovipHost: "iovip.qbox.me",
 }
 
@@ -124,7 +124,7 @@ func GetZone(ak, bucket string) (zone *Zone, err error) {
 		IovipHost:  ioHost,
 		RsHost:     DefaultRsHost,
 		RsfHost:    DefaultRsfHost,
-		ApiHost:    DefaultAPIHost,
+		APIHost:    DefaultAPIHost,
 	}
 
 	//set specific hosts if possible
@@ -140,14 +140,14 @@ func setSpecificHosts(ioHost string, zone *Zone) {
 	if strings.Contains(ioHost, "-z1") {
 		zone.RsHost = "rs-z1.qiniu.com"
 		zone.RsfHost = "rsf-z1.qiniu.com"
-		zone.ApiHost = "api-z1.qiniu.com"
+		zone.APIHost = "api-z1.qiniu.com"
 	} else if strings.Contains(ioHost, "-z2") {
 		zone.RsHost = "rs-z2.qiniu.com"
 		zone.RsfHost = "rsf-z2.qiniu.com"
-		zone.ApiHost = "api-z2.qiniu.com"
+		zone.APIHost = "api-z2.qiniu.com"
 	} else if strings.Contains(ioHost, "-na0") {
 		zone.RsHost = "rs-na0.qiniu.com"
 		zone.RsfHost = "rsf-na0.qiniu.com"
-		zone.ApiHost = "api-na0.qiniu.com"
+		zone.APIHost = "api-na0.qiniu.com"
 	}
 }

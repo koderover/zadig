@@ -50,7 +50,7 @@ var (
 // TaskPlugins: registered task plugin initiators to initiate specific plugin to execute task
 type ExecHandler struct {
 	Sender      *nsq.Producer
-	TaskPlugins map[config.TaskType]plugins.TaskPluginInitiator
+	TaskPlugins map[config.TaskType]plugins.Initiator
 }
 
 // CancelHandler ...

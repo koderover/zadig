@@ -28,6 +28,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/codehost"
 	"github.com/koderover/zadig/pkg/shared/poetry"
@@ -377,4 +378,55 @@ func UpdatePmServiceTemplate(username string, args *ServiceTmplBuildObject, log 
 		return err
 	}
 	return nil
+}
+
+func DeleteServiceWebhookByName(serviceName string, logger *zap.SugaredLogger) {
+	svc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{ServiceName: serviceName})
+	if err != nil {
+		logger.Errorf("Failed to get service %s, error: %s", serviceName, err)
+		return
+	}
+
+	ProcessServiceWebhook(nil, svc, serviceName, logger)
+}
+
+func ProcessServiceWebhook(updated, current *commonmodels.Service, serviceName string, logger *zap.SugaredLogger) {
+	var action string
+	var updatedHooks, currentHooks []*webhook.WebHook
+	if updated != nil {
+		action = "add"
+		address := getAddressFromPath(updated.SrcPath, updated.RepoOwner, updated.RepoName, logger.Desugar())
+		if address == "" {
+			return
+		}
+		updatedHooks = append(updatedHooks, &webhook.WebHook{Owner: updated.RepoOwner, Repo: updated.RepoName, Address: address, Name: "trigger", CodeHostID: updated.CodehostID})
+	}
+	if current != nil {
+		action = "remove"
+		address := getAddressFromPath(current.SrcPath, current.RepoOwner, current.RepoName, logger.Desugar())
+		if address == "" {
+			return
+		}
+		currentHooks = append(currentHooks, &webhook.WebHook{Owner: current.RepoOwner, Repo: current.RepoName, Address: address, Name: "trigger", CodeHostID: current.CodehostID})
+	}
+	if updated != nil && current != nil {
+		action = "update"
+	}
+
+	logger.Debugf("Start to %s webhook for service %s", action, serviceName)
+	err := ProcessWebhook(updatedHooks, currentHooks, webhook.ServicePrefix+serviceName, logger)
+	if err != nil {
+		logger.Errorf("Failed to process WebHook, error: %s", err)
+	}
+
+}
+
+func getAddressFromPath(path, owner, repo string, logger *zap.Logger) string {
+	res := strings.Split(path, fmt.Sprintf("/%s/%s/", owner, repo))
+	if len(res) != 2 {
+		logger.With(zap.String("path", path), zap.String("owner", owner), zap.String("repo", repo)).DPanic("Invalid path")
+		return ""
+	}
+
+	return res[0]
 }

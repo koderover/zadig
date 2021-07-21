@@ -44,7 +44,7 @@ type Config struct {
 	AppID       int
 	Owner       string
 
-	HttpClient *http.Client
+	HTTPClient *http.Client
 }
 
 type ListOptions struct {
@@ -65,7 +65,7 @@ func NewClient(cfg *Config) *Client {
 	if cfg == nil {
 		return &Client{Client: github.NewClient(nil)}
 	}
-	httpClient := cfg.HttpClient
+	httpClient := cfg.HTTPClient
 	if httpClient == nil {
 		dc := http.DefaultClient
 		if cfg.Proxy != "" {
@@ -137,7 +137,7 @@ func NewAppClient(cfg *Config) (*Client, error) {
 
 	// token, _ := itr.Token(context.TODO())
 	// c := &Client{Client: gc, InstallationToken: token}
-	c := NewClient(&Config{HttpClient: &http.Client{Transport: itr}})
+	c := NewClient(&Config{HTTPClient: &http.Client{Transport: itr}})
 
 	return c, nil
 }
@@ -153,7 +153,7 @@ func getInstallationID(appID int64, appKey, owner string) (int64, error) {
 		return 0, err
 	}
 
-	gc := NewClient(&Config{HttpClient: &http.Client{Transport: trans}})
+	gc := NewClient(&Config{HTTPClient: &http.Client{Transport: trans}})
 	installs, err := gc.ListInstallations(context.TODO(), nil)
 	if err != nil {
 		return 0, err

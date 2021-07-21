@@ -189,12 +189,12 @@ func (p *FormUploader) upHost(ak, bucket string) (upHost string, err error) {
 	if p.cfg.Zone != nil {
 		zone = p.cfg.Zone
 	} else {
-		if v, zoneErr := GetZone(ak, bucket); zoneErr != nil {
+		v, zoneErr := GetZone(ak, bucket)
+		if zoneErr != nil {
 			err = zoneErr
 			return
-		} else {
-			zone = v
 		}
+		zone = v
 	}
 
 	scheme := "http://"
@@ -234,7 +234,7 @@ func newCrc32Reader(boundary string, h hash.Hash32) *crc32Reader {
 }
 
 func (r *crc32Reader) Read(p []byte) (int, error) {
-	if r.flag == false {
+	if !r.flag {
 		crc32 := r.h.Sum32()
 		crc32Line := r.nlDashBoundaryNl + r.header + fmt.Sprintf("%010d", crc32) //padding crc32 results to 10 digits
 		r.r = strings.NewReader(crc32Line)

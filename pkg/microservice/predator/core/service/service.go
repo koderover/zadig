@@ -27,10 +27,11 @@ import (
 	"strings"
 	"time"
 
-	yaml "gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v3"
 
 	"github.com/koderover/zadig/pkg/microservice/predator/config"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 // Predator ...
@@ -58,7 +59,7 @@ func NewPredator() (*Predator, error) {
 
 // BeforeExec ...
 func (p *Predator) BeforeExec() error {
-	info("wait for docker daemon to start")
+	log.Info("wait for docker daemon to start")
 	for i := 0; i < 120; i++ {
 		err := dockerInfo().Run()
 		if err == nil {
@@ -71,7 +72,7 @@ func (p *Predator) BeforeExec() error {
 		setUpCmd := exec.Command("bash", "-c", p.Ctx.OnSetup)
 		setUpCmd.Stderr = os.Stderr
 		setUpCmd.Stdout = os.Stdout
-		trace(setUpCmd)
+		log.Info(strings.Join(setUpCmd.Args, " "))
 		if err := setUpCmd.Run(); err != nil {
 			return err
 		}
@@ -91,7 +92,7 @@ func (p *Predator) Exec() error {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		cmd.Dir = p.Ctx.DockerBuildCtx.WorkDir
-		trace(cmd)
+		log.Info(strings.Join(cmd.Args, " "))
 		if err := cmd.Run(); err != nil {
 			return err
 		}
@@ -111,7 +112,7 @@ func (p *Predator) AfterExec() error {
 		cmd.Stderr = os.Stderr
 		cmd.Stdout = os.Stdout
 		cmd.Dir = p.Ctx.DockerBuildCtx.WorkDir
-		trace(cmd)
+		log.Info(strings.Join(cmd.Args, " "))
 		if err := cmd.Run(); err != nil {
 			return cmd.Run()
 		}
