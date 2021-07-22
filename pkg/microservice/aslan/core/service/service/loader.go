@@ -54,7 +54,7 @@ type LoadServiceReq struct {
 	LoadPath    string `json:"path"`
 }
 
-func PreloadServiceFromCodeHost(codehostID int, repoOwner, repoName, branchName, remoteName, path string, isDir bool, log *zap.SugaredLogger) ([]string, error) {
+func PreloadServiceFromCodeHost(codehostID int, repoOwner, repoName, repoUUID, branchName, remoteName, path string, isDir bool, log *zap.SugaredLogger) ([]string, error) {
 	var ret []string
 	detail, err := codehost.GetCodeHostInfoByID(codehostID)
 	if err != nil {
@@ -69,7 +69,7 @@ func PreloadServiceFromCodeHost(codehostID int, repoOwner, repoName, branchName,
 	case setting.SourceFromGerrit:
 		ret, err = preloadGerritService(detail, repoName, branchName, remoteName, path, isDir)
 	case setting.SourceFromCodeHub:
-		ret, err = preloadCodehubService(detail, repoName, branchName, path, isDir)
+		ret, err = preloadCodehubService(detail, repoName, repoUUID, branchName, path, isDir)
 	default:
 		return nil, e.ErrPreloadServiceTemplate.AddDesc("Not supported code source")
 	}
@@ -171,7 +171,7 @@ func loadService(username string, detail *codehost.Detail, owner, repo, branch s
 }
 
 // ValidateServiceUpdate 根据服务名和提供的加载信息确认是否可以更新服务加载地址
-func ValidateServiceUpdate(codehostID int, serviceName, repoOwner, repoName, branchName, remoteName, path string, isDir bool, log *zap.SugaredLogger) error {
+func ValidateServiceUpdate(codehostID int, serviceName, repoOwner, repoName, repoUUID, branchName, remoteName, path string, isDir bool, log *zap.SugaredLogger) error {
 	detail, err := codehost.GetCodeHostInfoByID(codehostID)
 	if err != nil {
 		log.Errorf("Failed to load codehost for validate service update, the error is: %+v", err)
@@ -184,8 +184,8 @@ func ValidateServiceUpdate(codehostID int, serviceName, repoOwner, repoName, bra
 		return validateServiceUpdateGitlab(detail, serviceName, repoOwner, repoName, branchName, path, isDir)
 	case setting.SourceFromGerrit:
 		return validateServiceUpdateGerrit(detail, serviceName, repoName, branchName, remoteName, path, isDir)
-	//case setting.SourceFromCodeHub:
-
+	case setting.SourceFromCodeHub:
+		return validateServiceUpdateCodehub(detail, repoName, repoUUID, branchName, path, isDir)
 	default:
 		return e.ErrValidateServiceUpdate.AddDesc("Not supported code source")
 	}
@@ -398,7 +398,7 @@ func preloadGerritService(detail *poetry.CodeHost, repoName, branchName, remoteN
 }
 
 // 根据 repo 信息获取 codehub 可以加载的服务列表
-func preloadCodehubService(detail *poetry.CodeHost, repoUUID, branchName, path string, isDir bool) ([]string, error) {
+func preloadCodehubService(detail *poetry.CodeHost, repoName, repoUUID, branchName, path string, isDir bool) ([]string, error) {
 	ret := make([]string, 0)
 
 	codeHubClient := codehub.NewCodeHubClient(detail.AccessKey, detail.SecretKey, detail.Region)
@@ -425,6 +425,9 @@ func preloadCodehubService(detail *poetry.CodeHost, repoUUID, branchName, path s
 	}
 	if isValidCodehubServiceDir(treeInfo) {
 		svcName := path
+		if path == "" {
+			svcName = repoName
+		}
 		pathList := strings.Split(svcName, "/")
 		folderName := pathList[len(pathList)-1]
 		ret = append(ret, folderName)
@@ -771,6 +774,46 @@ func validateServiceUpdateGerrit(detail *poetry.CodeHost, serviceName, repoName,
 		return e.ErrValidateServiceUpdate.AddDesc(err.Error())
 	}
 	if isValidGerritServiceDir(fileInfos) {
+		svcName := loadPath
+		if loadPath == "" {
+			svcName = repoName
+		}
+		pathList := strings.Split(svcName, "/")
+		folderName := pathList[len(pathList)-1]
+		if folderName != serviceName {
+			log.Errorf("The loaded file name [%s] is the same as the service to be updated: [%s]", folderName, serviceName)
+			return e.ErrValidateServiceUpdate.AddDesc("文件夹名称和服务名称不一致")
+		}
+		return nil
+	}
+	return e.ErrValidateServiceUpdate.AddDesc("所选路径中没有yaml，请重新选择")
+}
+
+func validateServiceUpdateCodehub(detail *poetry.CodeHost, serviceName, repoName, branchName, loadPath string, isDir bool) error {
+	codeHubClient := codehub.NewCodeHubClient(detail.AccessKey, detail.SecretKey, detail.Region)
+	// 非文件夹情况下直接获取文件信息
+	if !isDir {
+		if !isYaml(loadPath) {
+			return e.ErrValidateServiceUpdate.AddDesc("File is not of type yaml or yml, select again")
+		}
+		fileInfo, err := codeHubClient.FileContent(repoName, branchName, loadPath)
+		if err != nil {
+			log.Errorf("Failed to get file info from codehub with path: %s, the error is %s", loadPath, err)
+			return e.ErrValidateServiceUpdate.AddDesc(err.Error())
+		}
+		if getFileName(fileInfo.Result.FileName) != serviceName {
+			log.Errorf("The loaded file name [%s] is the same as the service to be updated: [%s]", fileInfo.Result.FileName, serviceName)
+			return e.ErrValidateServiceUpdate.AddDesc("文件名称和服务名称不一致")
+		}
+		return nil
+	}
+
+	treeInfo, err := codeHubClient.FileTree(repoName, branchName, loadPath)
+	if err != nil {
+		log.Errorf("Failed to get dir content from codehub with path: %s, the error is: %+v", loadPath, err)
+		return e.ErrValidateServiceUpdate.AddDesc(err.Error())
+	}
+	if isValidCodehubServiceDir(treeInfo) {
 		svcName := loadPath
 		if loadPath == "" {
 			svcName = repoName
