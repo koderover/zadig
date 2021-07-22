@@ -412,7 +412,7 @@ func preloadCodehubService(detail *poetry.CodeHost, repoName, repoUUID, branchNa
 			log.Errorf("Failed to get file info from codehub with path: %s, the error is %+v", path, err)
 			return ret, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
 		}
-		fileName := getFileName(fileInfo.Result.FileName)
+		fileName := getFileName(fileInfo.FileName)
 		ret = append(ret, fileName)
 		return ret, nil
 	}
@@ -807,8 +807,8 @@ func validateServiceUpdateCodehub(detail *poetry.CodeHost, serviceName, repoName
 			log.Errorf("Failed to get file info from codehub with path: %s, the error is %s", loadPath, err)
 			return e.ErrValidateServiceUpdate.AddDesc(err.Error())
 		}
-		if getFileName(fileInfo.Result.FileName) != serviceName {
-			log.Errorf("The loaded file name [%s] is the same as the service to be updated: [%s]", fileInfo.Result.FileName, serviceName)
+		if getFileName(fileInfo.FileName) != serviceName {
+			log.Errorf("The loaded file name [%s] is the same as the service to be updated: [%s]", fileInfo.FileName, serviceName)
 			return e.ErrValidateServiceUpdate.AddDesc("文件名称和服务名称不一致")
 		}
 		return nil

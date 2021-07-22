@@ -102,7 +102,7 @@ func (c *CodeHubClient) GetYAMLContents(repoUUID, branchName, path string, isDir
 			return nil, err
 		}
 
-		contentByte, err := base64.StdEncoding.DecodeString(fileContent.Result.Content)
+		contentByte, err := base64.StdEncoding.DecodeString(fileContent.Content)
 		content := string(contentByte)
 		if split {
 			res = util.SplitManifests(content)
