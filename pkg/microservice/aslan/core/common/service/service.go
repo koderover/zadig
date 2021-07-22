@@ -73,6 +73,7 @@ type ServiceProductMap struct {
 	CodehostID       int                       `json:"codehost_id"`
 	RepoOwner        string                    `json:"repo_owner"`
 	RepoName         string                    `json:"repo_name"`
+	RepoUUID         string                    `json:"repo_uuid"`
 	BranchName       string                    `json:"branch_name"`
 	LoadPath         string                    `json:"load_path"`
 	LoadFromDir      bool                      `json:"is_dir"`
@@ -196,6 +197,7 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 			CodehostID:       serviceObject.CodehostID,
 			RepoOwner:        serviceObject.RepoOwner,
 			RepoName:         serviceObject.RepoName,
+			RepoUUID:         serviceObject.RepoUUID,
 			BranchName:       serviceObject.BranchName,
 			LoadFromDir:      serviceObject.LoadFromDir,
 			LoadPath:         serviceObject.LoadPath,
@@ -303,6 +305,7 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 		resp.LoadPath = loadPath
 		resp.LoadFromDir = true
 		return resp, nil
+
 	} else if resp.Source == setting.SourceFromGUI {
 		yamls := strings.Split(resp.Yaml, "---")
 		for _, y := range yamls {
