@@ -820,7 +820,6 @@ func distinctEnvServices(productName string) (map[string][]*commonmodels.Product
 func setCurrentContainerImages(args *commonmodels.Service) error {
 	var srvContainers []*commonmodels.Container
 	for _, data := range args.KubeYamls {
-		log.Infof("data:%+v", data)
 		yamlDataArray := SplitYaml(data)
 		for _, yamlData := range yamlDataArray {
 			resKind := new(KubeResourceKind)

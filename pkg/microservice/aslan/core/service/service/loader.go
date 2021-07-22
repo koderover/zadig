@@ -399,7 +399,7 @@ func preloadGerritService(detail *poetry.CodeHost, repoName, branchName, remoteN
 
 // 根据 repo 信息获取 codehub 可以加载的服务列表
 func preloadCodehubService(detail *poetry.CodeHost, repoName, repoUUID, branchName, path string, isDir bool) ([]string, error) {
-	ret := make([]string, 0)
+	var ret []string
 
 	codeHubClient := codehub.NewCodeHubClient(detail.AccessKey, detail.SecretKey, detail.Region)
 	// 非文件夹情况下直接获取文件信息
@@ -412,8 +412,7 @@ func preloadCodehubService(detail *poetry.CodeHost, repoName, repoUUID, branchNa
 			log.Errorf("Failed to get file info from codehub with path: %s, the error is %+v", path, err)
 			return ret, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
 		}
-		extension := filepath.Ext(fileInfo.Result.FileName)
-		fileName := fileInfo.Result.FileName[0 : len(fileInfo.Result.FileName)-len(extension)]
+		fileName := getFileName(fileInfo.Result.FileName)
 		ret = append(ret, fileName)
 		return ret, nil
 	}
