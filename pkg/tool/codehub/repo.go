@@ -119,9 +119,6 @@ func (c *CodeHubClient) GetYAMLContents(repoUUID, branchName, path string, isDir
 	}
 
 	for _, tn := range treeNodes {
-		//if tn.Type != "blob" {
-		//	continue
-		//}
 		r, err := c.GetYAMLContents(repoUUID, branchName, tn.Path, tn.Type == "tree", split)
 		if err != nil {
 			return nil, err

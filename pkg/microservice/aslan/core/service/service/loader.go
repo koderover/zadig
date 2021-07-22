@@ -606,11 +606,6 @@ func loadCodehubService(username string, detail *codehost.Detail, repoOwner, rep
 		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
 	}
 
-	//pathType := "tree"
-	//if !args.LoadFromDir {
-	//	pathType = "blob"
-	//}
-	//srcPath := fmt.Sprintf("%s/%s/%s/%s/%s/%s", detail.Address, owner, repoUUID, pathType, branchName, args.LoadPath)
 	createSvcArgs := &models.Service{
 		CodehostID:  detail.ID,
 		RepoName:    repoName,
@@ -619,7 +614,6 @@ func loadCodehubService(username string, detail *codehost.Detail, repoOwner, rep
 		LoadPath:    args.LoadPath,
 		LoadFromDir: args.LoadFromDir,
 		KubeYamls:   yamls,
-		//SrcPath:     srcPath,
 		CreateBy:    username,
 		ServiceName: getFileName(args.LoadPath),
 		Type:        args.Type,
