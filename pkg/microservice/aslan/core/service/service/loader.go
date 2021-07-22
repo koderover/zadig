@@ -611,8 +611,9 @@ func loadCodehubService(username string, detail *codehost.Detail, repoOwner, rep
 
 	createSvcArgs := &models.Service{
 		CodehostID:  detail.ID,
-		RepoName:    repoName,
 		RepoOwner:   repoOwner,
+		RepoName:    repoName,
+		RepoUUID:    repoUUID,
 		BranchName:  branchName,
 		LoadPath:    args.LoadPath,
 		LoadFromDir: args.LoadFromDir,
