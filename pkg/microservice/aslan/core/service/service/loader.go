@@ -602,7 +602,7 @@ func loadCodehubService(username string, detail *codehost.Detail, repoOwner, rep
 		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
 	}
 
-	commit, err := codeHubClient.CommitList(repoOwner, repoName, branchName)
+	commit, err := codeHubClient.GetLatestRepositoryCommit(repoOwner, repoName, branchName)
 	if err != nil {
 		log.Errorf("Failed to get latest commit under path %s, error: %s", args.LoadPath, err)
 		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
@@ -629,7 +629,7 @@ func loadCodehubService(username string, detail *codehost.Detail, repoOwner, rep
 		ProductName: args.ProductName,
 		Source:      detail.Source,
 		Yaml:        util.CombineManifests(yamls),
-		Commit:      &models.Commit{SHA: commit.Result.Commits[0].ID, Message: commit.Result.Commits[0].Message},
+		Commit:      &models.Commit{SHA: commit.ID, Message: commit.Message},
 		Visibility:  args.Visibility,
 	}
 	if _, err = CreateServiceTemplate(username, createSvcArgs, log); err != nil {
