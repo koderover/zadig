@@ -160,36 +160,37 @@ func getProductTemplTargetMap(productName string) map[string][]commonmodels.Depl
 		log.Errorf("[%s] ProductTmpl.Find error: %v", productName, err)
 		return targets
 	}
-	maxServiceTmpls, err := commonrepo.NewServiceColl().ListMaxRevisions()
+	var svcNames []string
+	for _, ss := range productTmpl.Services {
+		svcNames = append(svcNames, ss...)
+	}
+	services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(svcNames, "")
 	if err != nil {
 		log.Errorf("ServiceTmpl.ListMaxRevisions error: %v", err)
 		return targets
 	}
 
-	for _, services := range productTmpl.Services {
-		for _, service := range services {
-			for _, serviceTmpl := range findServicesByName(service, maxServiceTmpls) {
-				switch serviceTmpl.Type {
-				case setting.K8SDeployType:
-					for _, container := range serviceTmpl.Containers {
-						deployEnv := commonmodels.DeployEnv{Env: service + "/" + container.Name, Type: setting.K8SDeployType, ProductName: serviceTmpl.ProductName}
-						target := fmt.Sprintf("%s%s%s%s%s", productTmpl.ProductName, SplitSymbol, service, SplitSymbol, container.Name)
-						targets[target] = append(targets[target], deployEnv)
-					}
-				case setting.PMDeployType:
-					deployEnv := commonmodels.DeployEnv{Env: service, Type: setting.PMDeployType}
-					target := fmt.Sprintf("%s%s%s%s%s", productTmpl.ProductName, SplitSymbol, service, SplitSymbol, service)
-					targets[target] = append(targets[target], deployEnv)
-				case setting.HelmDeployType:
-					for _, container := range serviceTmpl.Containers {
-						deployEnv := commonmodels.DeployEnv{Env: service + "/" + container.Name, Type: setting.HelmDeployType, ProductName: serviceTmpl.ProductName}
-						target := fmt.Sprintf("%s%s%s%s%s", productTmpl.ProductName, SplitSymbol, service, SplitSymbol, container.Name)
-						targets[target] = append(targets[target], deployEnv)
-					}
-				}
+	for _, serviceTmpl := range services {
+		switch serviceTmpl.Type {
+		case setting.K8SDeployType:
+			for _, container := range serviceTmpl.Containers {
+				deployEnv := commonmodels.DeployEnv{Env: serviceTmpl.ServiceName + "/" + container.Name, Type: setting.K8SDeployType, ProductName: serviceTmpl.ProductName}
+				target := fmt.Sprintf("%s%s%s%s%s", productTmpl.ProductName, SplitSymbol, serviceTmpl.ServiceName, SplitSymbol, container.Name)
+				targets[target] = append(targets[target], deployEnv)
+			}
+		case setting.PMDeployType:
+			deployEnv := commonmodels.DeployEnv{Env: serviceTmpl.ServiceName, Type: setting.PMDeployType}
+			target := fmt.Sprintf("%s%s%s%s%s", productTmpl.ProductName, SplitSymbol, serviceTmpl.ServiceName, SplitSymbol, serviceTmpl.ServiceName)
+			targets[target] = append(targets[target], deployEnv)
+		case setting.HelmDeployType:
+			for _, container := range serviceTmpl.Containers {
+				deployEnv := commonmodels.DeployEnv{Env: serviceTmpl.ServiceName + "/" + container.Name, Type: setting.HelmDeployType, ProductName: serviceTmpl.ProductName}
+				target := fmt.Sprintf("%s%s%s%s%s", productTmpl.ProductName, SplitSymbol, serviceTmpl.ServiceName, SplitSymbol, container.Name)
+				targets[target] = append(targets[target], deployEnv)
 			}
 		}
 	}
+
 	return targets
 }
 
