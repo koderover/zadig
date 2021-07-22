@@ -179,9 +179,10 @@ func prEventToPipelineTasks(event *github.PullRequestEvent, requestID string, lo
 		repo          = *event.Repo.Name
 		prNum         = *event.PullRequest.Number
 		branch        = *event.PullRequest.Base.Ref
-		commitID      = *event.PullRequest.Head.SHA
+		commitID      = *event.PullRequest.CommitsURL
 		commitMessage = *event.PullRequest.Title
 	)
+	log.Info("########",*event.PullRequest)
 
 	address, err := util.GetAddress(event.Repo.GetURL())
 	if err != nil {
