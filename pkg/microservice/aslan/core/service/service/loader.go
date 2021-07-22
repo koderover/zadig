@@ -185,7 +185,7 @@ func ValidateServiceUpdate(codehostID int, serviceName, repoOwner, repoName, rep
 	case setting.SourceFromGerrit:
 		return validateServiceUpdateGerrit(detail, serviceName, repoName, branchName, remoteName, path, isDir)
 	case setting.SourceFromCodeHub:
-		return validateServiceUpdateCodehub(detail, repoName, repoUUID, branchName, path, isDir)
+		return validateServiceUpdateCodehub(detail, serviceName, repoName, repoUUID, branchName, path, isDir)
 	default:
 		return e.ErrValidateServiceUpdate.AddDesc("Not supported code source")
 	}
@@ -796,14 +796,14 @@ func validateServiceUpdateGerrit(detail *poetry.CodeHost, serviceName, repoName,
 	return e.ErrValidateServiceUpdate.AddDesc("所选路径中没有yaml，请重新选择")
 }
 
-func validateServiceUpdateCodehub(detail *poetry.CodeHost, serviceName, repoName, branchName, loadPath string, isDir bool) error {
+func validateServiceUpdateCodehub(detail *poetry.CodeHost, serviceName, repoName, repoUUID, branchName, loadPath string, isDir bool) error {
 	codeHubClient := codehub.NewCodeHubClient(detail.AccessKey, detail.SecretKey, detail.Region)
 	// 非文件夹情况下直接获取文件信息
 	if !isDir {
 		if !isYaml(loadPath) {
 			return e.ErrValidateServiceUpdate.AddDesc("File is not of type yaml or yml, select again")
 		}
-		fileInfo, err := codeHubClient.FileContent(repoName, branchName, loadPath)
+		fileInfo, err := codeHubClient.FileContent(repoUUID, branchName, loadPath)
 		if err != nil {
 			log.Errorf("Failed to get file info from codehub with path: %s, the error is %s", loadPath, err)
 			return e.ErrValidateServiceUpdate.AddDesc(err.Error())
@@ -815,7 +815,7 @@ func validateServiceUpdateCodehub(detail *poetry.CodeHost, serviceName, repoName
 		return nil
 	}
 
-	treeInfo, err := codeHubClient.FileTree(repoName, branchName, loadPath)
+	treeInfo, err := codeHubClient.FileTree(repoUUID, branchName, loadPath)
 	if err != nil {
 		log.Errorf("Failed to get dir content from codehub with path: %s, the error is: %+v", loadPath, err)
 		return e.ErrValidateServiceUpdate.AddDesc(err.Error())
