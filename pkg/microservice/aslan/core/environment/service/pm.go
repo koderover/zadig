@@ -57,6 +57,7 @@ func (p *PMService) queryServiceStatus(namespace, envName, productName string, s
 func (p *PMService) updateService(args *SvcOptArgs) error {
 	svc := &commonmodels.ProductService{
 		ServiceName: args.ServiceName,
+		ProductName: args.ProductName,
 		Type:        args.ServiceType,
 		Revision:    args.ServiceRev.NextRevision,
 		Containers:  args.ServiceRev.Containers,
@@ -68,6 +69,7 @@ func (p *PMService) updateService(args *SvcOptArgs) error {
 		p.log.Error(err)
 		return errors.New(e.UpsertServiceErrMsg)
 	}
+
 	// 更新产品服务
 	for _, group := range exitedProd.Services {
 		for i, service := range group {

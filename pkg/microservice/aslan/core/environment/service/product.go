@@ -136,6 +136,7 @@ func GetInitProduct(productTmplName string, log *zap.SugaredLogger) (*commonmode
 			for _, serviceTmpl := range serviceTmpls {
 				serviceResp := &commonmodels.ProductService{
 					ServiceName: serviceTmpl.ServiceName,
+					ProductName: serviceTmpl.ProductName,
 					Type:        serviceTmpl.Type,
 					Revision:    serviceTmpl.Revision,
 				}

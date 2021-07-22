@@ -293,7 +293,7 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 	// 不保存vas
 	args.Vars = nil
 
-	err = commonservice.ValidateKVs(kvs, args.Services, log)
+	err = commonservice.ValidateKVs(kvs, args.AllServiceInfos(), log)
 	if err != nil {
 		return e.ErrCreateProduct.AddDesc(err.Error())
 	}
@@ -331,7 +331,7 @@ func UpdateProductTemplate(name string, args *template.Product, log *zap.Sugared
 	kvs := args.Vars
 	args.Vars = nil
 
-	if err = commonservice.ValidateKVs(kvs, args.Services, log); err != nil {
+	if err = commonservice.ValidateKVs(kvs, args.AllServiceInfos(), log); err != nil {
 		log.Warnf("ProductTmpl.Update ValidateKVs error: %v", err)
 	}
 
@@ -564,6 +564,7 @@ func ForkProduct(userID int, username, requestID string, args *template.ForkProj
 			for _, serviceTmpl := range serviceTmpls {
 				serviceResp := &commonmodels.ProductService{
 					ServiceName: serviceTmpl.ServiceName,
+					ProductName: serviceTmpl.ProductName,
 					Type:        serviceTmpl.Type,
 					Revision:    serviceTmpl.Revision,
 				}
@@ -885,28 +886,26 @@ func ListTemplatesHierachy(userName string, userID int, superUser bool, log *zap
 
 	for _, productTmpl := range productTmpls {
 		pInfo := &ProductInfo{Value: productTmpl.ProductName, Label: productTmpl.ProductName, ServiceInfo: []*ServiceInfo{}}
-		for _, servicesGroup := range productTmpl.Services {
-			for _, svc := range servicesGroup {
-
-				opt := &commonrepo.ServiceFindOption{
-					ServiceName:   svc,
-					ExcludeStatus: setting.ProductStatusDeleting,
-				}
-
-				svcTmpl, err := commonrepo.NewServiceColl().Find(opt)
-				if err != nil {
-					log.Errorf("[%s] ServiceTmpl.Find %s/%s error: %v", userName, productTmpl.ProductName, svc, err)
-					return nil, e.ErrGetProduct.AddDesc(err.Error())
-				}
-
-				sInfo := &ServiceInfo{Value: svcTmpl.ServiceName, Label: svcTmpl.ServiceName, ContainerInfo: make([]*ContainerInfo, 0)}
-
-				for _, c := range svcTmpl.Containers {
-					sInfo.ContainerInfo = append(sInfo.ContainerInfo, &ContainerInfo{Value: c.Name, Label: c.Name})
-				}
-
-				pInfo.ServiceInfo = append(pInfo.ServiceInfo, sInfo)
+		for _, serviceInfo := range productTmpl.AllServiceInfos() {
+			opt := &commonrepo.ServiceFindOption{
+				ServiceName:   serviceInfo.Name,
+				ProductName:   serviceInfo.Owner,
+				ExcludeStatus: setting.ProductStatusDeleting,
 			}
+
+			svcTmpl, err := commonrepo.NewServiceColl().Find(opt)
+			if err != nil {
+				log.Errorf("[%s] ServiceTmpl.Find %s/%s error: %v", userName, productTmpl.ProductName, serviceInfo.Name, err)
+				return nil, e.ErrGetProduct.AddDesc(err.Error())
+			}
+
+			sInfo := &ServiceInfo{Value: svcTmpl.ServiceName, Label: svcTmpl.ServiceName, ContainerInfo: make([]*ContainerInfo, 0)}
+
+			for _, c := range svcTmpl.Containers {
+				sInfo.ContainerInfo = append(sInfo.ContainerInfo, &ContainerInfo{Value: c.Name, Label: c.Name})
+			}
+
+			pInfo.ServiceInfo = append(pInfo.ServiceInfo, sInfo)
 		}
 		resp = append(resp, pInfo)
 	}

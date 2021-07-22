@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -45,24 +44,7 @@ func ListTmplRenderKeys(productTmplName string, log *zap.SugaredLogger) ([]*temp
 		return resp, nil
 	}
 
-	return ListServicesRenderKeys(prodTmpl.Services, log)
-}
-
-func ListRenderSets(productTmplName string, log *zap.SugaredLogger) ([]*commonmodels.RenderSet, error) {
-	opt := &commonrepo.RenderSetListOption{
-		ProductTmpl: productTmplName,
-	}
-
-	resp, err := commonrepo.NewRenderSetColl().List(opt)
-	if err != nil {
-		errMsg := fmt.Sprintf("[RenderSet.List] error: %v", err)
-		log.Error(errMsg)
-		return nil, e.ErrListTemplate.AddDesc(errMsg)
-	}
-
-	sort.SliceStable(resp, func(i, j int) bool { return resp[i].Name < resp[j].Name })
-
-	return resp, nil
+	return ListServicesRenderKeys(prodTmpl.AllServiceInfos(), log)
 }
 
 func GetRenderSet(renderName string, revision int64, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
@@ -132,30 +114,6 @@ func ValidateRenderSet(productName, renderName, ServiceName string, log *zap.Sug
 	return resp, nil
 }
 
-func RelateRender(productName, renderName string, log *zap.SugaredLogger) error {
-	renderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{Name: renderName})
-	if err != nil {
-		errMsg := fmt.Sprintf("[RenderSet.find] %s/%s error: %v", renderName, productName, err)
-		log.Error(errMsg)
-		return e.ErrGetTemplate.AddDesc(errMsg)
-	}
-	if err = ensureRenderSetArgs(renderSet); err != nil {
-		log.Error(err)
-		return e.ErrCreateRenderSet.AddDesc(err.Error())
-	}
-	renderSet.ProductTmpl = productName
-	if err = IsAllKeyCovered(renderSet, log); err != nil {
-		log.Error(err)
-		return e.ErrCreateRenderSet.AddDesc(err.Error())
-	}
-	if err := commonrepo.NewRenderSetColl().Create(renderSet); err != nil {
-		errMsg := fmt.Sprintf("[RenderSet.Create] %s error: %v", renderSet.Name, err)
-		log.Error(errMsg)
-		return e.ErrCreateRenderSet.AddDesc(errMsg)
-	}
-	return nil
-}
-
 func CreateRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
 	opt := &commonrepo.RenderSetFindOption{Name: args.Name}
 	rs, err := commonrepo.NewRenderSetColl().Find(opt)
@@ -216,24 +174,11 @@ func UpdateRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error
 	return nil
 }
 
-func SetDefaultRenderSet(renderTmplName, productTmplName string, log *zap.SugaredLogger) error {
-	if err := commonrepo.NewRenderSetColl().SetDefault(renderTmplName, productTmplName); err != nil {
-		errMsg := fmt.Sprintf("[RenderSet.SetDefault] %s/%s error: %v", renderTmplName, productTmplName, err)
-		log.Error(errMsg)
-		return e.ErrSetDefaultRenderSet.AddDesc(errMsg)
-	}
-	return nil
-}
-
-func ListServicesRenderKeys(services [][]string, log *zap.SugaredLogger) ([]*templatemodels.RenderKV, error) {
+func ListServicesRenderKeys(services []*templatemodels.ServiceInfo, log *zap.SugaredLogger) ([]*templatemodels.RenderKV, error) {
 	renderSvcMap := make(map[string][]string)
 	resp := make([]*templatemodels.RenderKV, 0)
-	svcSet := sets.NewString()
-	for _, service := range services {
-		svcSet.Insert(service...)
-	}
 
-	serviceTmpls, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(svcSet.UnsortedList(), setting.K8SDeployType)
+	serviceTmpls, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(services, setting.K8SDeployType)
 	if err != nil {
 		errMsg := fmt.Sprintf("[serviceTmpl.ListMaxRevisions] error: %v", err)
 		log.Error(errMsg)
@@ -374,7 +319,7 @@ func DeleteRenderSet(productName string, log *zap.SugaredLogger) error {
 	return nil
 }
 
-func ValidateKVs(kvs []*templatemodels.RenderKV, services [][]string, log *zap.SugaredLogger) error {
+func ValidateKVs(kvs []*templatemodels.RenderKV, services []*templatemodels.ServiceInfo, log *zap.SugaredLogger) error {
 	resp := make(map[string][]string)
 	keys, err := ListServicesRenderKeys(services, log)
 	if err != nil {
@@ -450,11 +395,7 @@ func getRenderSetValue(kv *templatemodels.RenderKV, log *zap.SugaredLogger) (str
 func findRenderAlias(serviceName, value string, rendSvc map[string][]string) {
 	aliases := config.RenderTemplateAlias.FindAllString(value, -1)
 	for _, alias := range aliases {
-		if _, ok := rendSvc[alias]; !ok {
-			rendSvc[alias] = []string{serviceName}
-		} else {
-			rendSvc[alias] = append(rendSvc[alias], serviceName)
-		}
+		rendSvc[alias] = append(rendSvc[alias], serviceName)
 	}
 }
 

@@ -32,6 +32,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
@@ -65,6 +66,17 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		Containers:  args.ServiceRev.Containers,
 		Configs:     make([]*commonmodels.ServiceConfig, 0),
 	}
+
+	project, err := templaterepo.NewProductColl().Find(args.ProductName)
+	if err != nil {
+		k.log.Errorf("Can not find project %s, err: %s", args.ProductName, err)
+		return err
+	}
+	serviceInfo := project.GetServiceInfo(args.ServiceName)
+	if serviceInfo == nil {
+		return fmt.Errorf("service %s not found", args.ServiceName)
+	}
+	svc.ProductName = serviceInfo.Owner
 
 	opt := &commonrepo.ProductFindOptions{Name: args.ProductName, EnvName: args.EnvName}
 	exitedProd, err := commonrepo.NewProductColl().Find(opt)

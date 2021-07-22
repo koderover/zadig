@@ -160,11 +160,7 @@ func getProductTemplTargetMap(productName string) map[string][]commonmodels.Depl
 		log.Errorf("[%s] ProductTmpl.Find error: %v", productName, err)
 		return targets
 	}
-	var svcNames []string
-	for _, ss := range productTmpl.Services {
-		svcNames = append(svcNames, ss...)
-	}
-	services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(svcNames, "")
+	services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), "")
 	if err != nil {
 		log.Errorf("ServiceTmpl.ListMaxRevisions error: %v", err)
 		return targets
@@ -748,7 +744,11 @@ func AddDataToArgs(args *commonmodels.WorkflowTaskArgs, log *zap.SugaredLogger) 
 		target.HasBuild = true
 		// openAPI模式，传入的name是服务名称
 		// 只支持k8s服务
-		opt := &commonrepo.ServiceFindOption{ServiceName: target.Name, Type: setting.K8SDeployType, ExcludeStatus: setting.ProductStatusDeleting}
+		opt := &commonrepo.ServiceFindOption{
+			ServiceName:   target.Name,
+			ProductName:   workflow.ProductTmplName,
+			Type:          setting.K8SDeployType,
+			ExcludeStatus: setting.ProductStatusDeleting}
 		serviceTmpl, err := commonrepo.NewServiceColl().Find(opt)
 		if err != nil {
 			log.Errorf("[ServiceTmpl.Find] error: %v", err)

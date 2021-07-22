@@ -628,6 +628,7 @@ func UpdateProduct(existedProd, updateProd *commonmodels.Product, renderSet *com
 
 				service := &commonmodels.ProductService{
 					ServiceName: svcRev.ServiceName,
+					ProductName: prodService.ProductName,
 					Type:        svcRev.Type,
 					Revision:    svcRev.NextRevision,
 				}
@@ -1815,6 +1816,7 @@ func renderService(prod *commonmodels.Product, render *commonmodels.RenderSet, s
 	// 获取服务模板
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName: service.ServiceName,
+		ProductName: service.ProductName,
 		Type:        service.Type,
 		Revision:    service.Revision,
 		//ExcludeStatus: product.ProductStatusDeleting,
@@ -2306,6 +2308,7 @@ func getUpdatedProductServices(updateProduct *commonmodels.Product, serviceRevis
 				// 新的服务的revision，默认Revision为0
 				newService := &commonmodels.ProductService{
 					ServiceName: service.ServiceName,
+					ProductName: service.ProductName,
 					Type:        service.Type,
 					Revision:    0,
 					Render:      updateProduct.Render,

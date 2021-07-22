@@ -235,6 +235,7 @@ func GetService(envName, productName, serviceName string, log *zap.SugaredLogger
 		// 获取服务模板
 		opt := &commonrepo.ServiceFindOption{
 			ServiceName:   service.ServiceName,
+			ProductName:   service.ProductName,
 			Type:          service.Type,
 			Revision:      service.Revision,
 			ExcludeStatus: setting.ProductStatusDeleting,

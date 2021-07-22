@@ -116,7 +116,7 @@ func GetServiceDiff(envName, productName, serviceName string, log *zap.SugaredLo
 		log.Errorf("[%s][%s]find current configmaps error: %v", envName, productName, err)
 		return resp, e.ErrFindProduct.AddDesc("查找product失败")
 	}
-	serviceInfo := &commonmodels.ProductService{}
+	var serviceInfo *commonmodels.ProductService
 	for _, serviceGroup := range productInfo.Services {
 		for _, service := range serviceGroup {
 			if service.ServiceName == serviceName {
@@ -126,6 +126,7 @@ func GetServiceDiff(envName, productName, serviceName string, log *zap.SugaredLo
 	}
 	svcOpt := &commonrepo.ServiceFindOption{
 		ServiceName:   serviceName,
+		ProductName:   serviceInfo.ProductName,
 		Revision:      serviceInfo.Revision,
 		ExcludeStatus: setting.ProductStatusDeleting,
 	}
