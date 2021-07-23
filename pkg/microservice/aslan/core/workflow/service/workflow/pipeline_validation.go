@@ -384,8 +384,10 @@ func setBuildInfo(build *types.Repository) {
 					}
 				}
 			} else if build.Branch != "" && build.PR > 0 {
+
 				opt := &github.ListOptions{Page: 1, PerPage: 100}
 				prCommits, _, err := gitCli.PullRequests.ListCommits(context.Background(), build.RepoOwner, build.RepoName, build.PR, opt)
+				log.Infof("####### %v",prCommits)
 				sort.SliceStable(prCommits, func(i, j int) bool {
 					return prCommits[i].Commit.Committer.Date.Unix() > prCommits[j].Commit.Committer.Date.Unix()
 				})
