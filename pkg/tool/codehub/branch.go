@@ -41,14 +41,6 @@ type Branches struct {
 	NoOneCanMerge      bool   `json:"no_one_can_merge"`
 }
 
-type Commit struct {
-	ID            string `json:"id"`
-	Message       string `json:"message"`
-	AuthorName    string `json:"author_name"`
-	CommittedDate string `json:"committed_date"`
-	CommitterName string `json:"committer_name"`
-}
-
 type Branch struct {
 	Commit    *Commit `json:"commit"`
 	Name      string  `json:"name"`

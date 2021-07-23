@@ -209,6 +209,8 @@ const (
 	SourceFromGithub = "github"
 	// SourceFromGitlab 配置来源为gerrit
 	SourceFromGerrit = "gerrit"
+	// SourceFromCodeHub 配置来源为codehub
+	SourceFromCodeHub = "codehub"
 	// SourceFromGUI 配置来源为gui
 	SourceFromGUI = "gui"
 	//SourceFromHelm

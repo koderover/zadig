@@ -51,5 +51,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		workspace.GET("/github/:codehostId/:repoName/:branchName", GetGithubRepoInfo)
 		workspace.GET("/gitlab/:codehostId/:repoName/:branchName", GetGitlabRepoInfo)
+		workspace.GET("/codehub/:codehostId/:repoUUID/:branchName", GetCodehubRepoInfo)
 	}
 }
