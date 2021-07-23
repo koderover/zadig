@@ -286,6 +286,7 @@ func compareServicesRev(serviceTmplNames []string, services []*commonmodels.Prod
 
 			currentServiceTmpl, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
 				ServiceName: service.ServiceName,
+				ProductName: service.ProductName,
 				Revision:    service.Revision,
 				Type:        service.Type,
 			})
