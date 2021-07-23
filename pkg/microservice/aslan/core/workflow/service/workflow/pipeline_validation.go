@@ -302,6 +302,7 @@ func SetTriggerBuilds(builds []*types.Repository, buildArgs []*types.Repository)
 }
 
 func setBuildInfo(build *types.Repository) {
+	log.Info("##### call")
 	opt := &codehost.Option{
 		CodeHostID: build.CodehostID,
 	}
