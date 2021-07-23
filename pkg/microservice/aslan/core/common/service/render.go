@@ -34,17 +34,17 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-func ListTmplRenderKeys(productTmplName string, log *zap.SugaredLogger) ([]*templatemodels.RenderKV, error) {
-	resp := make([]*templatemodels.RenderKV, 0)
+func listTmplRenderKeys(productTmplName string, log *zap.SugaredLogger) ([]*templatemodels.RenderKV, map[string]*templatemodels.ServiceInfo, error) {
 	//如果没找到对应产品，则kv为空
 	prodTmpl, err := template.NewProductColl().Find(productTmplName)
 	if err != nil {
 		errMsg := fmt.Sprintf("[ProductTmpl.Find] %s error: %v", productTmplName, err)
 		log.Warn(errMsg)
-		return resp, nil
+		return nil, nil, nil
 	}
 
-	return ListServicesRenderKeys(prodTmpl.AllServiceInfos(), log)
+	kvs, err := ListServicesRenderKeys(prodTmpl.AllServiceInfos(), log)
+	return kvs, prodTmpl.AllServiceInfoMap(), err
 }
 
 func GetRenderSet(renderName string, revision int64, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
@@ -84,7 +84,7 @@ func GetRenderSetInfo(renderName string, revision int64) (*commonmodels.RenderSe
 }
 
 // ValidateRenderSet 检查指定renderSet是否能覆盖产品所有需要渲染的值
-func ValidateRenderSet(productName, renderName, ServiceName string, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
+func ValidateRenderSet(productName, renderName string, serviceInfo *templatemodels.ServiceInfo, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
 	resp := &commonmodels.RenderSet{ProductTmpl: productName}
 	var err error
 	if renderName != "" {
@@ -99,14 +99,14 @@ func ValidateRenderSet(productName, renderName, ServiceName string, log *zap.Sug
 		log.Errorf("renderset[%s] not match product[%s]", renderName, productName)
 		return resp, fmt.Errorf("renderset[%s] not match product[%s]", renderName, productName)
 	}
-	if ServiceName == "" {
+	if serviceInfo != nil {
 		if err := IsAllKeyCovered(resp, log); err != nil {
 			log.Errorf("[%s]cover all key [%s] error: %v", productName, renderName, err)
 			return resp, err
 		}
 	} else {
 		//  单个服务是否全覆盖判断
-		if err := IsAllKeyCoveredService(ServiceName, resp, log); err != nil {
+		if err := IsAllKeyCoveredService(serviceInfo.Owner, serviceInfo.Name, resp, log); err != nil {
 			log.Errorf("[%s]cover all key [%s] error: %v", productName, renderName, err)
 			return resp, err
 		}
@@ -205,7 +205,7 @@ func ListServicesRenderKeys(services []*templatemodels.ServiceInfo, log *zap.Sug
 }
 
 func SetRenderDataStatus(rs *commonmodels.RenderSet, log *zap.SugaredLogger) error {
-	availableKeys, err := listTmplRenderKeysMap(rs.ProductTmpl, log)
+	availableKeys, serviceMap, err := listTmplRenderKeysMap(rs.ProductTmpl, log)
 	if err != nil {
 		return err
 	}
@@ -253,7 +253,7 @@ func SetRenderDataStatus(rs *commonmodels.RenderSet, log *zap.SugaredLogger) err
 		if kv.Value != "" {
 			continue
 		}
-		kv.Value, _ = getRenderSetValue(kv, log)
+		kv.Value, _ = getValueFromSharedRenderSet(kv, rs.ProductTmpl, serviceMap, log)
 	}
 
 	rs.KVs = respKVs
@@ -342,32 +342,26 @@ func RenderValueForString(origin string, rs *commonmodels.RenderSet) string {
 }
 
 // getRenderSetValue 获取render set的value
-// 如果RenderKV的service有多个，暂时按第一个处理
-func getRenderSetValue(kv *templatemodels.RenderKV, log *zap.SugaredLogger) (string, error) {
-	if len(kv.Services) == 0 {
-		return "", nil
+func getValueFromSharedRenderSet(kv *templatemodels.RenderKV, productName string, serviceMap map[string]*templatemodels.ServiceInfo, log *zap.SugaredLogger) (string, error) {
+	targetProduct := ""
+	for _, serviceName := range kv.Services {
+		info := serviceMap[serviceName]
+		if info == nil || info.Owner == productName {
+			continue
+		}
+		targetProduct = info.Owner
 	}
-
-	opt := &commonrepo.ServiceFindOption{
-		ServiceName:   kv.Services[0],
-		ExcludeStatus: setting.ProductStatusDeleting,
-	}
-	serviceTmpl, err := commonrepo.NewServiceColl().Find(opt)
-	if err != nil {
-		log.Errorf("serviceTmpl.Find failed, serviceName:%s, error:%v", kv.Services[0], err)
-		return "", err
-	}
-	if serviceTmpl.Visibility != setting.PUBLICSERVICE {
+	if targetProduct == "" {
 		return "", nil
 	}
 
 	renderSetOpt := &commonrepo.RenderSetFindOption{
-		Name:     serviceTmpl.ProductName,
+		Name:     targetProduct,
 		Revision: 0,
 	}
 	renderSet, err := commonrepo.NewRenderSetColl().Find(renderSetOpt)
 	if err != nil {
-		log.Errorf("RenderSet.Find failed, ProductName:%s, error:%v", serviceTmpl.ProductName, err)
+		log.Errorf("RenderSet.Find failed, ProductName:%s, error:%v", targetProduct, err)
 		return "", err
 	}
 	for _, originKv := range renderSet.KVs {
@@ -386,18 +380,18 @@ func findRenderAlias(serviceName, value string, rendSvc map[string][]string) {
 	}
 }
 
-func listTmplRenderKeysMap(productTmplName string, log *zap.SugaredLogger) (map[string][]string, error) {
+func listTmplRenderKeysMap(productTmplName string, log *zap.SugaredLogger) (map[string][]string, map[string]*templatemodels.ServiceInfo, error) {
 	resp := make(map[string][]string)
-	keys, err := ListTmplRenderKeys(productTmplName, log)
+	keys, serviceMap, err := listTmplRenderKeys(productTmplName, log)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	for _, key := range keys {
 		resp[key.Key] = key.Services
 	}
 
-	return resp, nil
+	return resp, serviceMap, nil
 }
 
 // IsAllKeyCovered 检查是否覆盖所有产品key
@@ -406,7 +400,7 @@ func IsAllKeyCovered(arg *commonmodels.RenderSet, log *zap.SugaredLogger) error 
 	if arg.ProductTmpl == "" {
 		return nil
 	}
-	availableKeys, err := listTmplRenderKeysMap(arg.ProductTmpl, log)
+	availableKeys, _, err := listTmplRenderKeysMap(arg.ProductTmpl, log)
 	if err != nil {
 		return err
 	}
@@ -421,10 +415,10 @@ func IsAllKeyCovered(arg *commonmodels.RenderSet, log *zap.SugaredLogger) error 
 }
 
 // IsAllKeyCoveredService 检查是否覆盖所有服务key
-func IsAllKeyCoveredService(serviceName string, arg *commonmodels.RenderSet, log *zap.SugaredLogger) error {
-	renderSvcMap := make(map[string][]string)
+func IsAllKeyCoveredService(productName, serviceName string, arg *commonmodels.RenderSet, log *zap.SugaredLogger) error {
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName:   serviceName,
+		ProductName:   productName,
 		Type:          setting.K8SDeployType,
 		ExcludeStatus: setting.ProductStatusDeleting,
 	}
@@ -434,10 +428,10 @@ func IsAllKeyCoveredService(serviceName string, arg *commonmodels.RenderSet, log
 		return err
 	}
 
-	findRenderAlias(serviceName, serviceTmpl.Yaml, renderSvcMap)
+	renderAlias := config.RenderTemplateAlias.FindAllString(serviceTmpl.Yaml, -1)
 
 	kvMap := arg.GetKeyValueMap()
-	for k := range renderSvcMap {
+	for _, k := range renderAlias {
 		kv := templatemodels.RenderKV{Alias: k}
 		kv.SetKeys()
 		if _, ok := kvMap[kv.Key]; !ok {

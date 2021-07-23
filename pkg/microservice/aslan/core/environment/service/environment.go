@@ -731,7 +731,7 @@ func UpdateProductV2(envName, productName, user, requestID string, force bool, k
 	}
 
 	// 检查renderset是否覆盖产品所有key
-	renderSet, err := commonservice.ValidateRenderSet(exitedProd.ProductName, exitedProd.Render.Name, "", log)
+	renderSet, err := commonservice.ValidateRenderSet(exitedProd.ProductName, exitedProd.Render.Name, nil, log)
 	if err != nil {
 		log.Errorf("[%s][P:%s] validate product renderset error: %v", envName, exitedProd.ProductName, err)
 		return e.ErrUpdateEnv.AddDesc(err.Error())
@@ -912,7 +912,7 @@ func CreateProduct(user, requestID string, args *commonmodels.Product, log *zap.
 		// 如果是版本回滚，则args.Render.Revision > 0
 		if args.Render.Revision == 0 {
 			// 检查renderset是否覆盖产品所有key
-			renderSet, err = commonservice.ValidateRenderSet(args.ProductName, args.Render.Name, "", log)
+			renderSet, err = commonservice.ValidateRenderSet(args.ProductName, args.Render.Name, nil, log)
 			if err != nil {
 				log.Errorf("[%s][P:%s] validate product renderset error: %v", args.EnvName, args.ProductName, err)
 				return e.ErrCreateEnv.AddDesc(err.Error())
