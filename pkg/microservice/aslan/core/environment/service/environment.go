@@ -512,7 +512,6 @@ func UpdateProduct(existedProd, updateProd *commonmodels.Product, renderSet *com
 	updateProd.Namespace = existedProd.Namespace
 
 	var allServices []*commonmodels.Service
-	var allConfigs []*commonmodels.Config
 	var allRenders []*commonmodels.RenderSet
 	var prodRevs *ProductRevision
 
@@ -523,12 +522,6 @@ func UpdateProduct(existedProd, updateProd *commonmodels.Product, renderSet *com
 		return
 	}
 
-	allConfigs, err = commonrepo.NewConfigColl().ListAllRevisions()
-	if err != nil {
-		log.Errorf("ListAllRevisions error: %v", err)
-		err = e.ErrUpdateEnv.AddDesc(err.Error())
-		return
-	}
 	// 获取所有渲染配置最新模板信息
 	allRenders, err = commonrepo.NewRenderSetColl().ListAllRenders()
 	if err != nil {
@@ -537,7 +530,7 @@ func UpdateProduct(existedProd, updateProd *commonmodels.Product, renderSet *com
 		return
 	}
 
-	prodRevs, err = GetProductRevision(existedProd, allServices, allConfigs, allRenders, renderSet, log)
+	prodRevs, err = GetProductRevision(existedProd, allServices, allRenders, renderSet, log)
 	if err != nil {
 		err = e.ErrUpdateEnv.AddDesc(e.GetEnvRevErrMsg)
 		return
@@ -634,7 +627,6 @@ func UpdateProduct(existedProd, updateProd *commonmodels.Product, renderSet *com
 				}
 
 				service.Containers = svcRev.Containers
-				service.Configs = make([]*commonmodels.ServiceConfig, 0)
 				service.Render = updateProd.Render
 
 				if svcRev.Type == setting.K8SDeployType {
@@ -664,14 +656,6 @@ func UpdateProduct(existedProd, updateProd *commonmodels.Product, renderSet *com
 				groupServices = append(groupServices, service)
 			} else {
 				prodService.Containers = svcRev.Containers
-				var configs []*commonmodels.ServiceConfig
-				for _, configRev := range svcRev.ConfigRevisions {
-					configs = append(configs, &commonmodels.ServiceConfig{
-						ConfigName: configRev.ConfigName,
-						Revision:   configRev.CurrentRevision,
-					})
-				}
-				prodService.Configs = configs
 				prodService.Render = updateProd.Render
 				groupServices = append(groupServices, prodService)
 			}
@@ -689,12 +673,6 @@ func UpdateProduct(existedProd, updateProd *commonmodels.Product, renderSet *com
 			err = e.ErrUpdateEnv.AddDesc(err.Error())
 			return
 		}
-	}
-
-	if err = restartServicesByChange(envName, prodRevs, log); err != nil {
-		log.Errorf("[%s] restartServicesByChange error: %v", envName, err)
-		err = e.ErrUpdateEnv.AddDesc(e.RestartServiceErrMsg)
-		return
 	}
 
 	return nil
@@ -1974,28 +1952,6 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 		log.Errorf("[%s][P:%s] duplicate product", envName, args.ProductName)
 		return e.ErrCreateEnv.AddDesc(e.DuplicateEnvErrMsg)
 	}
-	maxConfigs, err := commonrepo.NewConfigColl().ListMaxRevisions("")
-	if err != nil {
-		log.Errorf("ConfigTmpl.ListMaxRevisions error: %v", err)
-		return err
-	}
-	//确保Config设置
-	for _, groups := range args.Services {
-		for _, service := range groups {
-			if service.Type == setting.K8SDeployType {
-				var serviceConfigs []*commonmodels.ServiceConfig
-				for _, config := range maxConfigs {
-					if config.ServiceName == service.ServiceName {
-						serviceConfigs = append(serviceConfigs, &commonmodels.ServiceConfig{
-							ConfigName: config.ConfigName,
-							Revision:   config.Revision,
-						})
-					}
-				}
-				service.Configs = serviceConfigs
-			}
-		}
-	}
 
 	tmpRenderInfo := &commonmodels.RenderInfo{Name: renderSetName, ProductTmpl: args.ProductName}
 	if args.Render != nil && args.Render.Revision > 0 {
@@ -2238,51 +2194,6 @@ func getServiceRevisionMap(serviceRevisionList []*SvcRevision) map[string]*SvcRe
 		serviceRevisionMap[revision.ServiceName+revision.Type] = revision
 	}
 	return serviceRevisionMap
-}
-
-func restartServicesByChange(envName string, prodRev *ProductRevision, log *zap.SugaredLogger) error {
-	errList := new(multierror.Error)
-	for _, serviceRev := range prodRev.ServiceRevisions {
-		// 如果服务部署类型不是容器化的，则跳过重启
-		if serviceRev.Type != setting.K8SDeployType {
-			continue
-		}
-		// 只有配置模板改动才会重启pod
-		err := restartService(envName, prodRev.ProductName, serviceRev, log)
-		if err != nil {
-			errList = multierror.Append(errList, err)
-		}
-	}
-
-	return errList.ErrorOrNil()
-}
-
-// restartService 重启容器服务
-func restartService(envName, productName string, svcRev *SvcRevision, log *zap.SugaredLogger) error {
-
-	// 只有配置模板改动才会重启pod
-	configUpdateable := false
-	for _, configRev := range svcRev.ConfigRevisions {
-		if configRev.Updatable {
-			configUpdateable = true
-			continue
-		}
-	}
-	if configUpdateable {
-		log.Infof("[%s][P:%s][S:%s] restart service", envName, productName, svcRev.ServiceName)
-
-		restartArgs := &SvcOptArgs{
-			ProductName: productName,
-			ServiceName: svcRev.ServiceName,
-		}
-
-		err := RestartService(envName, restartArgs, log)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func getUpdatedProductServices(updateProduct *commonmodels.Product, serviceRevisionMap map[string]*SvcRevision, currentProduct *commonmodels.Product) [][]*commonmodels.ProductService {

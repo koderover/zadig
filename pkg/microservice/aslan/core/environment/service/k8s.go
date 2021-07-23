@@ -64,7 +64,6 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		Type:        args.ServiceType,
 		Revision:    args.ServiceRev.NextRevision,
 		Containers:  args.ServiceRev.Containers,
-		Configs:     make([]*commonmodels.ServiceConfig, 0),
 	}
 
 	project, err := templaterepo.NewProductColl().Find(args.ProductName)
@@ -108,14 +107,6 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	}
 	svc.Render = &commonmodels.RenderInfo{Name: newRender.Name, Revision: newRender.Revision, ProductTmpl: newRender.ProductTmpl}
 
-	for _, cr := range args.ServiceRev.ConfigRevisions {
-		cfg := &commonmodels.ServiceConfig{
-			ConfigName: cr.ConfigName,
-			Revision:   cr.NextRevision,
-		}
-		svc.Configs = append(svc.Configs, cfg)
-	}
-
 	_, err = upsertService(
 		true,
 		exitedProd,
@@ -127,13 +118,6 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 	if err != nil {
 		k.log.Error(err)
 		return e.ErrUpdateProduct.AddDesc(err.Error())
-	}
-
-	// 只有配置模板改动才会重启pod
-	err = restartService(args.EnvName, args.ProductName, args.ServiceRev, k.log)
-	if err != nil {
-		k.log.Error(err)
-		return err
 	}
 
 	// 更新产品服务

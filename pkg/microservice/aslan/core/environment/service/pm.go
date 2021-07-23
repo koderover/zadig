@@ -61,7 +61,6 @@ func (p *PMService) updateService(args *SvcOptArgs) error {
 		Type:        args.ServiceType,
 		Revision:    args.ServiceRev.NextRevision,
 		Containers:  args.ServiceRev.Containers,
-		Configs:     make([]*commonmodels.ServiceConfig, 0),
 	}
 	opt := &commonrepo.ProductFindOptions{Name: args.ProductName, EnvName: args.EnvName}
 	exitedProd, err := commonrepo.NewProductColl().Find(opt)

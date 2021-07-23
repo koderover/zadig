@@ -185,21 +185,8 @@ func ListServicesRenderKeys(services []*templatemodels.ServiceInfo, log *zap.Sug
 		return resp, fmt.Errorf(errMsg)
 	}
 
-	configTmpls, err := commonrepo.NewConfigColl().ListMaxRevisions("")
-	if err != nil {
-		errMsg := fmt.Sprintf("[configTmpl.ListMaxRevisions] error: %v", err)
-		log.Error(errMsg)
-		return resp, fmt.Errorf(errMsg)
-	}
-
 	for _, serviceTmpl := range serviceTmpls {
 		findRenderAlias(serviceTmpl.ServiceName, serviceTmpl.Yaml, renderSvcMap)
-		cfgTmpls := findConfigTmpl(serviceTmpl.ServiceName, configTmpls)
-		for _, cfgTmpl := range cfgTmpls {
-			for _, cd := range cfgTmpl.ConfigData {
-				findRenderAlias(serviceTmpl.ServiceName, cd.Value, renderSvcMap)
-			}
-		}
 	}
 
 	for key, val := range renderSvcMap {
@@ -399,16 +386,6 @@ func findRenderAlias(serviceName, value string, rendSvc map[string][]string) {
 	}
 }
 
-func findConfigTmpl(serviceName string, configTmpls []*commonmodels.Config) []*commonmodels.Config {
-	var resp []*commonmodels.Config
-	for _, configTmpl := range configTmpls {
-		if configTmpl.ServiceName == serviceName {
-			resp = append(resp, configTmpl)
-		}
-	}
-	return resp
-}
-
 func listTmplRenderKeysMap(productTmplName string, log *zap.SugaredLogger) (map[string][]string, error) {
 	resp := make(map[string][]string)
 	keys, err := ListTmplRenderKeys(productTmplName, log)
@@ -459,13 +436,6 @@ func IsAllKeyCoveredService(serviceName string, arg *commonmodels.RenderSet, log
 
 	findRenderAlias(serviceName, serviceTmpl.Yaml, renderSvcMap)
 
-	cfgTmpl, err := GetConfigTemplateByService(serviceTmpl.ServiceName, log)
-	if err != nil {
-		return err
-	}
-	for _, cd := range cfgTmpl.ConfigData {
-		findRenderAlias(serviceName, cd.Value, renderSvcMap)
-	}
 	kvMap := arg.GetKeyValueMap()
 	for k := range renderSvcMap {
 		kv := templatemodels.RenderKV{Alias: k}
