@@ -53,8 +53,8 @@ type ServiceListOption struct {
 	ProductName string
 	ServiceName string
 	BuildName   string
-	Type          string
-	Source        string
+	Type        string
+	Source      string
 }
 
 type ServiceColl struct {
@@ -202,66 +202,6 @@ func (c *ServiceColl) Find(opt *ServiceFindOption) (*models.Service, error) {
 	return service, nil
 }
 
-func (c *ServiceColl) ListMaxRevisions(opt *ServiceListOption) ([]*models.Service, error) {
-	preMatch := bson.M{"status": bson.M{"$ne": setting.ProductStatusDeleting}}
-	if opt.ProductName != "" {
-		preMatch["product_name"] = opt.ProductName
-	}
-	if opt.ServiceName != "" {
-		preMatch["service_name"] = opt.ServiceName
-	}
-	if opt.BuildName != "" {
-		preMatch["build_name"] = opt.BuildName
-	}
-	if opt.Source != "" {
-		preMatch["source"] = opt.Source
-	}
-	if opt.Type != "" {
-		preMatch["type"] = opt.Type
-	}
-	if opt.BuildName != "" {
-		preMatch["build_name"] = opt.BuildName
-	}
-
-	return c.listMaxRevisions(preMatch, nil)
-}
-
-func (c *ServiceColl) Count(productName string) (int, error) {
-	pipeline := []bson.M{
-		{
-			"$match": bson.M{
-				"product_name": productName,
-				"status":       bson.M{"$ne": setting.ProductStatusDeleting},
-			},
-		},
-		{
-			"$group": bson.M{
-				"_id": bson.M{
-					"service_name": "$service_name",
-					"product_name": "$product_name",
-				},
-			},
-		},
-		{
-			"$count": "count",
-		},
-	}
-
-	cursor, err := c.Aggregate(context.TODO(), pipeline)
-	if err != nil {
-		return 0, err
-	}
-
-	var cs []struct {
-		Count int `bson:"count"`
-	}
-	if err := cursor.All(context.TODO(), &cs); err != nil || len(cs) == 0 {
-		return 0, err
-	}
-
-	return cs[0].Count, nil
-}
-
 func (c *ServiceColl) Delete(serviceName, serviceType, productName, status string, revision int64) error {
 	query := bson.M{}
 	if serviceName != "" {
@@ -367,6 +307,66 @@ func (c *ServiceColl) ListAllRevisions() ([]*models.Service, error) {
 	}
 
 	return resp, err
+}
+
+func (c *ServiceColl) ListMaxRevisions(opt *ServiceListOption) ([]*models.Service, error) {
+	preMatch := bson.M{"status": bson.M{"$ne": setting.ProductStatusDeleting}}
+	if opt.ProductName != "" {
+		preMatch["product_name"] = opt.ProductName
+	}
+	if opt.ServiceName != "" {
+		preMatch["service_name"] = opt.ServiceName
+	}
+	if opt.BuildName != "" {
+		preMatch["build_name"] = opt.BuildName
+	}
+	if opt.Source != "" {
+		preMatch["source"] = opt.Source
+	}
+	if opt.Type != "" {
+		preMatch["type"] = opt.Type
+	}
+	if opt.BuildName != "" {
+		preMatch["build_name"] = opt.BuildName
+	}
+
+	return c.listMaxRevisions(preMatch, nil)
+}
+
+func (c *ServiceColl) Count(productName string) (int, error) {
+	pipeline := []bson.M{
+		{
+			"$match": bson.M{
+				"product_name": productName,
+				"status":       bson.M{"$ne": setting.ProductStatusDeleting},
+			},
+		},
+		{
+			"$group": bson.M{
+				"_id": bson.M{
+					"service_name": "$service_name",
+					"product_name": "$product_name",
+				},
+			},
+		},
+		{
+			"$count": "count",
+		},
+	}
+
+	cursor, err := c.Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		return 0, err
+	}
+
+	var cs []struct {
+		Count int `bson:"count"`
+	}
+	if err := cursor.All(context.TODO(), &cs); err != nil || len(cs) == 0 {
+		return 0, err
+	}
+
+	return cs[0].Count, nil
 }
 
 func (c *ServiceColl) listMaxRevisions(preMatch, postMatch bson.M) ([]*models.Service, error) {
