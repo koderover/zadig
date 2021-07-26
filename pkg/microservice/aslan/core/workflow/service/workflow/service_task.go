@@ -74,6 +74,7 @@ func ListServiceWorkflows(productName, envName, serviceName, serviceType string,
 	// 校验服务是否存在
 	serviceOpt := &commonrepo.ServiceFindOption{
 		ServiceName:   serviceName,
+		ProductName:   productName,
 		Type:          serviceType,
 		ExcludeStatus: setting.ProductStatusDeleting,
 	}

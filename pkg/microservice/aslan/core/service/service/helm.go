@@ -286,6 +286,7 @@ func CreateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) error {
 
 		opt := &commonrepo.ServiceFindOption{
 			ServiceName:   serviceName,
+			ProductName:   args.ProductName,
 			ExcludeStatus: setting.ProductStatusDeleting,
 		}
 		serviceTmpl, notFoundErr := commonrepo.NewServiceColl().Find(opt)

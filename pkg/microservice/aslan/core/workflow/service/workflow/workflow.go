@@ -227,11 +227,7 @@ func PreSetWorkflow(productName string, log *zap.SugaredLogger) ([]*PreSetResp, 
 		log.Errorf("[%s] ProductTmpl.Find error: %v", productName, err)
 		return resp, e.ErrGetTemplate.AddDesc(err.Error())
 	}
-	var svcNames []string
-	for _, ss := range productTmpl.Services {
-		svcNames = append(svcNames, ss...)
-	}
-	services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(svcNames, "")
+	services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), "")
 	if err != nil {
 		log.Errorf("ServiceTmpl.ListMaxRevisions error: %v", err)
 		return resp, e.ErrListTemplate.AddDesc(err.Error())

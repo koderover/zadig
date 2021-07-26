@@ -31,11 +31,12 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
-// ServiceFindOption ...
 type ServiceFindOption struct {
 	ServiceName   string
 	Revision      int64
@@ -79,10 +80,25 @@ func (c *ServiceColl) EnsureIndex(ctx context.Context) error {
 		{
 			Keys: bson.D{
 				bson.E{Key: "service_name", Value: 1},
-				bson.E{Key: "type", Value: 1},
+				bson.E{Key: "product_name", Value: 1},
 				bson.E{Key: "revision", Value: 1},
 			},
 			Options: options.Index().SetUnique(true),
+		},
+		{
+			Keys: bson.D{
+				bson.E{Key: "service_name", Value: 1},
+				bson.E{Key: "product_name", Value: 1},
+			},
+			Options: options.Index().SetUnique(false),
+		},
+		{
+			Keys: bson.D{
+				bson.E{Key: "service_name", Value: 1},
+				bson.E{Key: "type", Value: 1},
+				bson.E{Key: "revision", Value: 1},
+			},
+			Options: options.Index().SetUnique(false),
 		},
 		{
 			Keys: bson.D{
@@ -96,6 +112,9 @@ func (c *ServiceColl) EnsureIndex(ctx context.Context) error {
 		},
 	}
 
+	// 仅用于升级 release v1.4.0, 将在下一版本移除
+	_, _ = c.Indexes().DropOne(ctx, "service_name_1_type_1_revision_1")
+
 	_, err := c.Indexes().CreateMany(ctx, mod)
 
 	return err
@@ -108,25 +127,36 @@ type grouped struct {
 
 type serviceRevision struct {
 	ServiceName string `bson:"service_name"`
+	ProductName string `bson:"product_name"`
 }
 
-func (c *ServiceColl) ListMaxRevisionsForServices(serviceNames []string, serviceType string) ([]*models.Service, error) {
-	match := bson.M{
-		"service_name": bson.M{"$in": serviceNames},
-		"status":       bson.M{"$ne": setting.ProductStatusDeleting},
-	}
-	if serviceType != "" {
-		match["type"] = serviceType
+func (c *ServiceColl) ListMaxRevisionsForServices(services []*templatemodels.ServiceInfo, serviceType string) ([]*models.Service, error) {
+	var srs []serviceRevision
+	for _, s := range services {
+		srs = append(srs, serviceRevision{
+			ServiceName: s.Name,
+			ProductName: s.Owner,
+		})
 	}
 
-	return c.listMaxRevisions(match)
+	pre := bson.M{
+		"status": bson.M{"$ne": setting.ProductStatusDeleting},
+	}
+	if serviceType != "" {
+		pre["type"] = serviceType
+	}
+	post := bson.M{
+		"_id": bson.M{"$in": srs},
+	}
+
+	return c.listMaxRevisions(pre, post)
 }
 
 func (c *ServiceColl) ListMaxRevisionsByProduct(productName string) ([]*models.Service, error) {
 	return c.listMaxRevisions(bson.M{
 		"product_name": productName,
 		"status":       bson.M{"$ne": setting.ProductStatusDeleting},
-	})
+	}, nil)
 }
 
 // Find 根据service_name和type查询特定版本的配置模板
@@ -137,6 +167,10 @@ func (c *ServiceColl) Find(opt *ServiceFindOption) (*models.Service, error) {
 	}
 	if opt.ServiceName == "" {
 		return nil, fmt.Errorf("service_name is empty")
+	}
+	if opt.ProductName == "" {
+		log.DPanic("ProductName is empty")
+		return nil, fmt.Errorf("ProductName is empty")
 	}
 
 	query := bson.M{}
@@ -424,11 +458,11 @@ func (c *ServiceColl) ListAllRevisions() ([]*models.Service, error) {
 	return resp, err
 }
 
-func (c *ServiceColl) listMaxRevisions(match bson.M) ([]*models.Service, error) {
+func (c *ServiceColl) listMaxRevisions(preMatch, postMatch bson.M) ([]*models.Service, error) {
 	var pipeResp []*grouped
 	pipeline := []bson.M{
 		{
-			"$match": match,
+			"$match": preMatch,
 		},
 		{
 			"$sort": bson.M{"revision": 1},
@@ -437,10 +471,17 @@ func (c *ServiceColl) listMaxRevisions(match bson.M) ([]*models.Service, error) 
 			"$group": bson.M{
 				"_id": bson.M{
 					"service_name": "$service_name",
+					"product_name": "$product_name",
 				},
 				"service_id": bson.M{"$last": "$_id"},
 			},
 		},
+	}
+
+	if len(postMatch) > 0 {
+		pipeline = append(pipeline, bson.M{
+			"$match": postMatch,
+		})
 	}
 
 	cursor, err := c.Aggregate(context.TODO(), pipeline)

@@ -199,7 +199,7 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 			Key:   "$EnvName$",
 			Value: ""},
 	}
-	renderKVs, err := commonservice.ListServicesRenderKeys([][]string{{args.ServiceName}}, log)
+	renderKVs, err := commonservice.ListServicesRenderKeys([]*templatemodels.ServiceInfo{{Name: args.ServiceName, Owner: args.ProductName}}, log)
 	if err != nil {
 		log.Errorf("ListServicesRenderKeys %s error: %v", args.ServiceName, err)
 		return nil, e.ErrCreateTemplate.AddDesc(err.Error())
@@ -251,6 +251,7 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap.SugaredLogger) (*ServiceOption, error) {
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName:   args.ServiceName,
+		ProductName:   args.ProductName,
 		ExcludeStatus: setting.ProductStatusDeleting,
 	}
 
@@ -596,7 +597,7 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 		}
 	}
 
-	commonservice.DeleteServiceWebhookByName(serviceName, log)
+	commonservice.DeleteServiceWebhookByName(serviceName, productName, log)
 
 	return nil
 }

@@ -37,7 +37,7 @@ type ServiceTmplBuildObject struct {
 	Build             *commonmodels.Build              `json:"build"`
 }
 
-func CreatePMService(username string, args *ServiceTmplBuildObject, log *zap.SugaredLogger) error {
+func CreatePMService(username, productName string, args *ServiceTmplBuildObject, log *zap.SugaredLogger) error {
 	if len(args.ServiceTmplObject.ServiceName) == 0 {
 		return e.ErrInvalidParam.AddDesc("服务名称为空，请检查")
 	}
@@ -47,6 +47,7 @@ func CreatePMService(username string, args *ServiceTmplBuildObject, log *zap.Sug
 
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName:   args.ServiceTmplObject.ServiceName,
+		ProductName:   productName,
 		ExcludeStatus: setting.ProductStatusDeleting,
 	}
 	serviceTmpl, notFoundErr := commonrepo.NewServiceColl().Find(opt)

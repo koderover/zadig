@@ -33,6 +33,7 @@ type Product struct {
 	Visibility     string          `bson:"visibility"                json:"visibility"`
 	Timeout        int             `bson:"timeout,omitempty"         json:"timeout,omitempty"`
 	Services       [][]string      `bson:"services"                  json:"services"`
+	SharedServices []*ServiceInfo  `bson:"shared_services"           json:"shared_services"`
 	Vars           []*RenderKV     `bson:"vars"                      json:"vars"`
 	EnvVars        []*EnvRenderKV  `bson:"-"                         json:"env_vars,omitempty"`
 	ChartInfos     []*RenderChart  `bson:"-"                         json:"chart_infos,omitempty"`
@@ -64,6 +65,11 @@ type Product struct {
 	TotalEnvTemplateServiceNum int      `bson:"-"                         json:"total_env_template_service_num"`
 	ShowProject                bool     `bson:"-"                         json:"show_project"`
 	IsOpensource               bool     `bson:"is_opensource"             json:"is_opensource"`
+}
+
+type ServiceInfo struct {
+	Name  string `bson:"name"  json:"name"`
+	Owner string `bson:"owner" json:"owner"`
 }
 
 type Team struct {
@@ -114,6 +120,40 @@ type ForkProject struct {
 
 func (Product) TableName() string {
 	return "template_product"
+}
+
+func (p *Product) AllServiceInfos() []*ServiceInfo {
+	var res []*ServiceInfo
+	ss := p.AllServiceInfoMap()
+	for _, s := range ss {
+		res = append(res, s)
+	}
+
+	return res
+}
+
+func (p *Product) GetServiceInfo(name string) *ServiceInfo {
+	return p.AllServiceInfoMap()[name]
+}
+
+// AllServiceInfoMap returns all services which are bound to this product, including the shared ones.
+// note that p.Services contains all services names including the shared ones, so we need to override their owner.
+func (p *Product) AllServiceInfoMap() map[string]*ServiceInfo {
+	res := make(map[string]*ServiceInfo)
+	for _, sg := range p.Services {
+		for _, name := range sg {
+			res[name] = &ServiceInfo{
+				Name:  name,
+				Owner: p.ProductName,
+			}
+		}
+	}
+
+	for _, s := range p.SharedServices {
+		res[s.Name] = s
+	}
+
+	return res
 }
 
 func (r *RenderKV) SetAlias() {
