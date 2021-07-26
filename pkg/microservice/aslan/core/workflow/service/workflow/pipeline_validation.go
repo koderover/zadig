@@ -388,12 +388,13 @@ func setBuildInfo(build *types.Repository) {
 
 				opt := &github.ListOptions{Page: 1, PerPage: 100}
 				prCommits, _, err := gitCli.PullRequests.ListCommits(context.Background(), build.RepoOwner, build.RepoName, build.PR, opt)
-				log.Infof("####### %v",prCommits)
+				log.Infof("####### %#v", prCommits)
 				sort.SliceStable(prCommits, func(i, j int) bool {
 					return prCommits[i].Commit.Committer.Date.Unix() > prCommits[j].Commit.Committer.Date.Unix()
 				})
 				if err == nil && len(prCommits) > 0 {
 					for _, commit := range prCommits {
+						log.Infof("########### %#v", commit)
 						build.CommitID = *commit.Commit.Tree.SHA
 						build.CommitMessage = *commit.Commit.Message
 						build.AuthorName = *commit.Commit.Author.Name
