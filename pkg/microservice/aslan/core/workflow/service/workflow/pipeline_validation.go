@@ -394,7 +394,7 @@ func setBuildInfo(build *types.Repository) {
 				})
 				if err == nil && len(prCommits) > 0 {
 					for _, commit := range prCommits {
-						log.Infof("########### %#v", commit)
+						log.Infof("########### %#v  -------- id : %v", commit, *commit.Commit.Tree.SHA)
 						build.CommitID = *commit.Commit.Tree.SHA
 						build.CommitMessage = *commit.Commit.Message
 						build.AuthorName = *commit.Commit.Author.Name
