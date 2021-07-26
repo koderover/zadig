@@ -127,11 +127,6 @@ type YamlValidatorReq struct {
 	Yaml        string `json:"yaml,omitempty"`
 }
 
-type ServiceObject struct {
-	ServiceName string `json:"service_name"`
-	ProductName string `json:"product_name"`
-}
-
 func ListServicesInExtenalEnv(tmpResp *commonservice.ServiceTmplResp, log *zap.SugaredLogger) {
 	opt := &commonrepo.ProductListOptions{
 		Source:        setting.SourceFromExternal,
@@ -331,7 +326,7 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap
 		return nil, e.ErrValidateTemplate.AddDesc(err.Error())
 	}
 
-	if err := commonrepo.NewServiceColl().Delete(args.ServiceName, args.Type, "", setting.ProductStatusDeleting, args.Revision); err != nil {
+	if err := commonrepo.NewServiceColl().Delete(args.ServiceName, args.Type, args.ProductName, setting.ProductStatusDeleting, args.Revision); err != nil {
 		log.Errorf("ServiceTmpl.delete %s error: %v", args.ServiceName, err)
 	}
 
@@ -545,7 +540,7 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 		}
 	}
 
-	err := commonrepo.NewServiceColl().UpdateStatus(serviceName, serviceType, productName, setting.ProductStatusDeleting)
+	err := commonrepo.NewServiceColl().UpdateStatus(serviceName, productName, setting.ProductStatusDeleting)
 	if err != nil {
 		errMsg := fmt.Sprintf("[service.UpdateStatus] %s-%s error: %v", serviceName, serviceType, err)
 		log.Error(errMsg)
@@ -648,46 +643,14 @@ func ListServicePort(serviceName, serviceType, productName, excludeStatus string
 	return servicePorts, nil
 }
 
-func ListServiceTemplateNames(productName string, log *zap.SugaredLogger) ([]ServiceObject, error) {
-	var err error
-	serviceObjects := make([]ServiceObject, 0)
-
-	//获取该项目下的所有服务
-	serviceTmpls, err := commonrepo.NewServiceColl().DistinctServices(&commonrepo.ServiceListOption{ExcludeStatus: setting.ProductStatusDeleting})
+func ListSharedServiceNames(productName string, log *zap.SugaredLogger) ([]*templatemodels.ServiceInfo, error) {
+	productTmpl, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil {
-		log.Errorf("ServiceTmpl.DistinctServices error: %v", err)
-		return serviceObjects, e.ErrListTemplate.AddDesc(err.Error())
+		log.Errorf("Can not find project %s, error: %s", productName, err)
+		return nil, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
-	for _, serviceTmpl := range serviceTmpls {
-		var serviceObject ServiceObject
-		serviceObject.ProductName = serviceTmpl.ProductName
-		serviceObject.ServiceName = serviceTmpl.ServiceName
-
-		if serviceTmpl.ProductName == productName {
-			serviceObjects = append(serviceObjects, serviceObject)
-			continue
-		}
-
-		opt := &commonrepo.ServiceFindOption{
-			ServiceName:   serviceTmpl.ServiceName,
-			Type:          serviceTmpl.Type,
-			Revision:      serviceTmpl.Revision,
-			ProductName:   serviceTmpl.ProductName,
-			ExcludeStatus: setting.ProductStatusDeleting,
-		}
-
-		resp, err := commonrepo.NewServiceColl().Find(opt)
-		if err != nil {
-			log.Errorf("ServiceTmpl Find error: %v", err)
-			return serviceObjects, e.ErrGetTemplate.AddDesc(err.Error())
-		}
-
-		if resp.Visibility == setting.PUBLICSERVICE {
-			serviceObjects = append(serviceObjects, serviceObject)
-		}
-	}
-	return serviceObjects, nil
+	return productTmpl.SharedServices, nil
 }
 
 func GetGerritServiceYaml(args *commonmodels.Service, log *zap.SugaredLogger) error {

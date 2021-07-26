@@ -231,8 +231,6 @@ func ListProductTemplate(userID int, superUser bool, log *zap.SugaredLogger) ([]
 	for _, tmpl := range tmpls {
 		wg.Add(1)
 		ch <- 1
-		// 临时复制range获取的数据，避免重复操作最后一条数据
-		tmpTmpl := tmpl
 
 		go func(tmpTmpl *template.Product) {
 			defer func() {
@@ -240,30 +238,22 @@ func ListProductTemplate(userID int, superUser bool, log *zap.SugaredLogger) ([]
 				wg.Done()
 			}()
 
-			var (
-				totalEnvs     []*commonmodels.Product
-				totalServices []commonmodels.ServiceTmplRevision
-			)
-
-			totalServices, err = commonrepo.NewServiceColl().DistinctServices(&commonrepo.ServiceListOption{ProductName: tmpTmpl.ProductName, ExcludeStatus: setting.ProductStatusDeleting})
+			tmpTmpl.TotalServiceNum, err = commonrepo.NewServiceColl().Count(tmpTmpl.ProductName)
 			if err != nil {
 				errorList = multierror.Append(errorList, err)
 				return
 			}
 
-			totalEnvs, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: tmpTmpl.ProductName})
+			tmpTmpl.TotalEnvNum, err = commonrepo.NewProductColl().Count(tmpTmpl.ProductName)
 			if err != nil {
 				errorList = multierror.Append(errorList, err)
 				return
 			}
-
-			tmpTmpl.TotalServiceNum = len(totalServices)
-			tmpTmpl.TotalEnvNum = len(totalEnvs)
 
 			mu.Lock()
 			resp = append(resp, tmpTmpl)
 			mu.Unlock()
-		}(tmpTmpl)
+		}(tmpl)
 	}
 	wg.Wait()
 	if errorList.ErrorOrNil() != nil {
@@ -497,8 +487,8 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 		return err
 	}
 
-	services, _ := commonrepo.NewServiceColl().List(
-		&commonrepo.ServiceFindOption{ProductName: productName, Type: setting.K8SDeployType, ExcludeStatus: setting.ProductStatusDeleting},
+	services, _ := commonrepo.NewServiceColl().ListMaxRevisions(
+		&commonrepo.ServiceListOption{ProductName: productName, Type: setting.K8SDeployType},
 	)
 	for _, s := range services {
 		commonservice.ProcessServiceWebhook(nil, s, s.ServiceName, log)
@@ -545,41 +535,41 @@ func ForkProduct(userID int, username, requestID string, args *template.ForkProj
 
 	prodTmpl.ChartInfos = args.ValuesYamls
 	// Load Service
-	svcs := [][]*commonmodels.ProductService{}
+	var svcs [][]*commonmodels.ProductService
+	allServiceInfoMap := prodTmpl.AllServiceInfoMap()
 	for _, names := range prodTmpl.Services {
 		servicesResp := make([]*commonmodels.ProductService, 0)
 
 		for _, serviceName := range names {
 			opt := &commonrepo.ServiceFindOption{
 				ServiceName:   serviceName,
+				ProductName: allServiceInfoMap[serviceName].Owner,
 				ExcludeStatus: setting.ProductStatusDeleting,
 			}
 
-			serviceTmpls, err := commonrepo.NewServiceColl().List(opt)
+			serviceTmpl, err := commonrepo.NewServiceColl().Find(opt)
 			if err != nil {
 				errMsg := fmt.Sprintf("[ServiceTmpl.List] %s error: %v", opt.ServiceName, err)
 				log.Error(errMsg)
 				return e.ErrForkProduct.AddDesc(errMsg)
 			}
-			for _, serviceTmpl := range serviceTmpls {
-				serviceResp := &commonmodels.ProductService{
-					ServiceName: serviceTmpl.ServiceName,
-					ProductName: serviceTmpl.ProductName,
-					Type:        serviceTmpl.Type,
-					Revision:    serviceTmpl.Revision,
-				}
-				if serviceTmpl.Type == setting.HelmDeployType {
-					serviceResp.Containers = make([]*commonmodels.Container, 0)
-					for _, c := range serviceTmpl.Containers {
-						container := &commonmodels.Container{
-							Name:  c.Name,
-							Image: c.Image,
-						}
-						serviceResp.Containers = append(serviceResp.Containers, container)
-					}
-				}
-				servicesResp = append(servicesResp, serviceResp)
+			serviceResp := &commonmodels.ProductService{
+				ServiceName: serviceTmpl.ServiceName,
+				ProductName: serviceTmpl.ProductName,
+				Type:        serviceTmpl.Type,
+				Revision:    serviceTmpl.Revision,
 			}
+			if serviceTmpl.Type == setting.HelmDeployType {
+				serviceResp.Containers = make([]*commonmodels.Container, 0)
+				for _, c := range serviceTmpl.Containers {
+					container := &commonmodels.Container{
+						Name:  c.Name,
+						Image: c.Image,
+					}
+					serviceResp.Containers = append(serviceResp.Containers, container)
+				}
+			}
+			servicesResp = append(servicesResp, serviceResp)
 		}
 		svcs = append(svcs, servicesResp)
 	}
@@ -728,34 +718,21 @@ func ensureProductTmpl(args *template.Product) error {
 	// Revision为0表示是新增项目，新增项目不需要进行共享服务的判断，只在编辑项目时进行判断
 	if args.Revision != 0 {
 		//获取该项目下的所有服务
-		serviceTmpls, err := commonrepo.NewServiceColl().DistinctServices(&commonrepo.ServiceListOption{ExcludeStatus: setting.ProductStatusDeleting})
+		productTmpl, err := templaterepo.NewProductColl().Find(args.ProductName)
 		if err != nil {
-			return e.ErrListTemplate.AddDesc(err.Error())
+			log.Errorf("Can not find project %s, error: %s", args.ProductName, err)
+			return fmt.Errorf("project not found: %s", err)
+		}
+
+		services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), "")
+		if err != nil {
+			log.Errorf("Failed to list services by %+v, err: %s", productTmpl.AllServiceInfos(), err)
+			return err
 		}
 
 		serviceNames := sets.NewString()
-		for _, serviceTmpl := range serviceTmpls {
-			if serviceTmpl.ProductName == args.ProductName {
-				serviceNames.Insert(serviceTmpl.ServiceName)
-				continue
-			}
-
-			opt := &commonrepo.ServiceFindOption{
-				ServiceName:   serviceTmpl.ServiceName,
-				Type:          serviceTmpl.Type,
-				Revision:      serviceTmpl.Revision,
-				ProductName:   serviceTmpl.ProductName,
-				ExcludeStatus: setting.ProductStatusDeleting,
-			}
-
-			resp, err := commonrepo.NewServiceColl().Find(opt)
-			if err != nil {
-				return e.ErrGetTemplate.AddDesc(err.Error())
-			}
-
-			if resp.Visibility == setting.PUBLICSERVICE {
-				serviceNames.Insert(serviceTmpl.ServiceName)
-			}
+		for _, service := range services {
+			serviceNames.Insert(service.ServiceName)
 		}
 
 		for _, serviceGroup := range args.Services {
