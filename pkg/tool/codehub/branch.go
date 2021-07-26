@@ -52,7 +52,7 @@ func (c *CodeHubClient) BranchList(repoUUID string) ([]*Branch, error) {
 	branchInfos := make([]*Branch, 0)
 
 	branchList := new(BranchList)
-	body, err := c.sendRequest("GET", fmt.Sprintf("/v1/repositories/%s/branches", repoUUID), "")
+	body, err := c.sendRequest("GET", fmt.Sprintf("/v1/repositories/%s/branches", repoUUID), []byte{})
 	if err != nil {
 		return branchInfos, err
 	}

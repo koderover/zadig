@@ -58,7 +58,7 @@ func (c *CodeHubClient) AddWebhook(repoOwner, repoName string, codehubHookPayloa
 	if err != nil {
 		return "", err
 	}
-	body, err := c.sendRequest("POST", fmt.Sprintf("/v1/repositories/%s/%s/hooks", repoOwner, repoName), string(payload))
+	body, err := c.sendRequest("POST", fmt.Sprintf("/v1/repositories/%s/%s/hooks", repoOwner, repoName), payload)
 	if err != nil {
 		return "", err
 	}
@@ -68,6 +68,8 @@ func (c *CodeHubClient) AddWebhook(repoOwner, repoName string, codehubHookPayloa
 	if err = json.NewDecoder(body).Decode(addCodehubHookResp); err != nil {
 		return "", err
 	}
+	fmt.Println(fmt.Sprintf("addCodehubHookResp:%+v", addCodehubHookResp))
+	fmt.Println(fmt.Sprintf("addCodehubHookResp.result:%+v", addCodehubHookResp.Result))
 	if addCodehubHookResp.Status == "success" {
 		return strconv.Itoa(addCodehubHookResp.Result.ID), nil
 	}
@@ -79,7 +81,7 @@ func (c *CodeHubClient) ListCodehubWebhooks(repoOwner, repoName, hookID string) 
 	var codehubHooks []CodehubHook
 
 	url := fmt.Sprintf("/v1/repositories/%s/%s/hooks?hook_id=%s", repoOwner, repoName, hookID)
-	body, err := c.sendRequest("GET", url, string(""))
+	body, err := c.sendRequest("GET", url, []byte{})
 	if err != nil {
 		return codehubHooks, err
 	}
@@ -97,7 +99,7 @@ func (c *CodeHubClient) ListCodehubWebhooks(repoOwner, repoName, hookID string) 
 
 func (c *CodeHubClient) DeleteCodehubWebhook(repoOwner, repoName, hookID string) error {
 	url := fmt.Sprintf("/v1/repositories/%s/%s/hooks/%s", repoOwner, repoName, hookID)
-	body, err := c.sendRequest("DELETE", url, string(""))
+	body, err := c.sendRequest("DELETE", url, []byte{})
 	if err != nil {
 		return err
 	}

@@ -41,7 +41,7 @@ type Commit struct {
 
 func (c *CodeHubClient) GetLatestRepositoryCommit(repoOwner, repoName, branchName string) (*Commit, error) {
 	commitListResp := new(CommitListResp)
-	body, err := c.sendRequest("GET", fmt.Sprintf("/v1/repositories/%s/%s/commits?ref_name=%s&page_size=1&page_index=1", repoOwner, repoName, branchName), "")
+	body, err := c.sendRequest("GET", fmt.Sprintf("/v1/repositories/%s/%s/commits?ref_name=%s&page_size=1&page_index=1", repoOwner, repoName, branchName), []byte{})
 	if err != nil {
 		return nil, err
 	}

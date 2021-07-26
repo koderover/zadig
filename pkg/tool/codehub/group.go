@@ -66,7 +66,7 @@ type Namespace struct {
 func (c *CodeHubClient) NamespaceList() ([]*Namespace, error) {
 	groupInfos := make([]*Namespace, 0)
 	repoListInfo := new(RepoListInfo)
-	body, err := c.sendRequest("GET", "/v2/projects/repositories", "")
+	body, err := c.sendRequest("GET", "/v2/projects/repositories", []byte{})
 	if err != nil {
 		return groupInfos, err
 	}

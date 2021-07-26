@@ -63,7 +63,7 @@ func (c *CodeHubClient) RepoList(projectUUID, search string, pageSize int) ([]*P
 	repoInfos := make([]*Project, 0)
 
 	repoInfo := new(RepoInfo)
-	body, err := c.sendRequest("GET", fmt.Sprintf("/v1/projects/%s/repositories?search=%s&page_size=%d", projectUUID, search, pageSize), "")
+	body, err := c.sendRequest("GET", fmt.Sprintf("/v1/projects/%s/repositories?search=%s&page_size=%d", projectUUID, search, pageSize), []byte{})
 	if err != nil {
 		return repoInfos, err
 	}
