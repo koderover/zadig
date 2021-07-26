@@ -25,17 +25,17 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-func (c *Client) CreateWebHook(owner, repo string) error {
+func (c *Client) CreateWebHook(owner, repo string) (string, error) {
 	_, err := c.CreateHook(context.TODO(), owner, repo, &git.Hook{
 		URL:    config.WebHookURL(),
 		Secret: gitservice.GetHookSecret(),
 		Events: []string{git.PushEvent, git.PullRequestEvent, git.BranchOrTagCreateEvent, git.CheckRunEvent},
 	})
 
-	return err
+	return "", err
 }
 
-func (c *Client) DeleteWebHook(owner, repo string) error {
+func (c *Client) DeleteWebHook(owner, repo, hookUUID string) error {
 	whs, err := c.ListHooks(context.TODO(), owner, repo, nil)
 	if err != nil {
 		log.Errorf("Failed to list hooks from %s/%s, err: %s", owner, repo, err)

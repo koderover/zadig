@@ -21,10 +21,11 @@ import (
 )
 
 type WebHook struct {
-	ID      primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
-	Owner   string             `bson:"owner"         json:"owner"`
-	Repo    string             `bson:"repo"          json:"repo"`
-	Address string             `bson:"address"       json:"address"`
+	ID      primitive.ObjectID `bson:"_id,omitempty"       json:"id,omitempty"`
+	Owner   string             `bson:"owner"               json:"owner"`
+	Repo    string             `bson:"repo"                json:"repo"`
+	Address string             `bson:"address"             json:"address"`
+	HookID  string             `bson:"hook_id,omitempty"   json:"hook_id,omitempty"`
 	// References is a record to store all the workflows/services who are using this webhook
 	References []string `bson:"references"    json:"references"`
 }
