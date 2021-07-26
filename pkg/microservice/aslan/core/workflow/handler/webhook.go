@@ -17,6 +17,7 @@ limitations under the License.
 package handler
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -43,7 +44,8 @@ func ProcessWebHook(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-
+	fmt.Println(fmt.Sprintf("payload:%+v", payload))
+	fmt.Println(fmt.Sprintf("c.Request:%+v", c.Request))
 	if github.WebHookType(c.Request) != "" {
 		ctx.Err = processGithub(payload, c.Request, ctx.RequestID, ctx.Logger)
 	} else if gitlab.HookEventType(c.Request) != "" {
