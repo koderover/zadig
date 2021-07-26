@@ -273,37 +273,7 @@ func (c *ProductColl) UpdateIsPublic(envName, productName string, isPublic bool)
 }
 
 func (c *ProductColl) Count(productName string) (int, error) {
-	pipeline := []bson.M{
-		{
-			"$match": bson.M{
-				"product_name": productName,
-				"status":       bson.M{"$ne": setting.ProductStatusDeleting},
-			},
-		},
-		{
-			"$group": bson.M{
-				"_id": bson.M{
-					"env_name":     "$env_name",
-					"product_name": "$product_name",
-				},
-			},
-		},
-		{
-			"$count": "count",
-		},
-	}
+	num, err := c.CountDocuments(context.TODO(), bson.M{"product_name": productName, "status": bson.M{"$ne": setting.ProductStatusDeleting}})
 
-	cursor, err := c.Aggregate(context.TODO(), pipeline)
-	if err != nil {
-		return 0, err
-	}
-
-	var cs []struct {
-		Count int `bson:"count"`
-	}
-	if err := cursor.All(context.TODO(), &cs); err != nil || len(cs) == 0 {
-		return 0, err
-	}
-
-	return cs[0].Count, nil
+	return int(num), err
 }
