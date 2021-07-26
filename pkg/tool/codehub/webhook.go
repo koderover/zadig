@@ -68,8 +68,6 @@ func (c *CodeHubClient) AddWebhook(repoOwner, repoName string, codehubHookPayloa
 	if err = json.NewDecoder(body).Decode(addCodehubHookResp); err != nil {
 		return "", err
 	}
-	fmt.Println(fmt.Sprintf("addCodehubHookResp:%+v", addCodehubHookResp))
-	fmt.Println(fmt.Sprintf("addCodehubHookResp.result:%+v", addCodehubHookResp.Result))
 	if addCodehubHookResp.Status == "success" {
 		return strconv.Itoa(addCodehubHookResp.Result.ID), nil
 	}
