@@ -346,10 +346,10 @@ func getValueFromSharedRenderSet(kv *templatemodels.RenderKV, productName string
 	targetProduct := ""
 	for _, serviceName := range kv.Services {
 		info := serviceMap[serviceName]
-		if info == nil || info.Owner == productName {
-			continue
+		if info != nil && info.Owner != productName {
+			targetProduct = info.Owner
+			break
 		}
-		targetProduct = info.Owner
 	}
 	if targetProduct == "" {
 		return "", nil
