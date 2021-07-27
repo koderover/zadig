@@ -925,6 +925,11 @@ func GetArtifactFileContent(pipelineName string, taskID int64, log *zap.SugaredL
 		_ = os.MkdirAll(sourcePath, 0777)
 	}
 
+	client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create s3 client , error: %v", err)
+	}
+
 	for _, artifactFile := range artifactFiles {
 		artifactFileArr := strings.Split(artifactFile, "/")
 		if len(artifactFileArr) > 1 {
@@ -933,24 +938,22 @@ func GetArtifactFileContent(pipelineName string, taskID int64, log *zap.SugaredL
 			if err != nil {
 				return nil, fmt.Errorf("failed to create file %s %v", artifactFileName, err)
 			}
+			defer func() {
+				file.Close()
+				os.Remove(path.Join(sourcePath, artifactFileName))
+			}()
 
-			client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create s3 client to download file %s, error: %v", artifactFile, err)
-			}
 			objectKey := s3Storage.GetObjectPath(artifactFile)
 			err = client.Download(s3Storage.Bucket, objectKey, file.Name())
 			if err != nil {
 				return nil, fmt.Errorf("failed to download %s %v", artifactFile, err)
 			}
-			_ = file.Close()
-			_ = os.Remove(path.Join(sourcePath, artifactFileName))
 		}
 	}
 	//将该目录压缩
 	goCacheManager := new(GoCacheManager)
 	artifactTarFileName := path.Join(sourcePath, "artifact.tar.gz")
-	err := goCacheManager.Archive(sourcePath, artifactTarFileName)
+	err = goCacheManager.Archive(sourcePath, artifactTarFileName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to Archive %s %v", sourcePath, err)
 	}

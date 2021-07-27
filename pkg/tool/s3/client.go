@@ -8,14 +8,14 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
-	awsS3 "github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3"
 
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util/fs"
 )
 
 type Client struct {
-	*awsS3.S3
+	*s3.S3
 }
 
 func NewClient(endpoint, ak, sk string, insecure bool) (*Client, error) {
@@ -30,12 +30,12 @@ func NewClient(endpoint, ak, sk string, insecure bool) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Client{awsS3.New(session)}, nil
+	return &Client{s3.New(session)}, nil
 }
 
 // Validate the existence of bucket
 func (c *Client) ValidateBucket(bucketName string) error {
-	listBucketInput := &awsS3.ListBucketsInput{}
+	listBucketInput := &s3.ListBucketsInput{}
 	bucketListResp, err := c.ListBuckets(listBucketInput)
 	if err != nil {
 		return fmt.Errorf("validate S3 error: %s", err.Error())
@@ -54,7 +54,7 @@ func (c *Client) Download(bucketName, objectKey, dest string) error {
 	retry := 0
 
 	for retry < 3 {
-		opt := &awsS3.GetObjectInput{
+		opt := &s3.GetObjectInput{
 			Bucket: aws.String(bucketName),
 			Key:    aws.String(objectKey),
 		}
@@ -75,9 +75,9 @@ func (c *Client) Download(bucketName, objectKey, dest string) error {
 // RemoveFiles removes the files with a specific list of prefixes and delete ALL of them
 // for NOW, if an error is encountered, nothing will happen except for a line of error log.
 func (c *Client) RemoveFiles(bucketName string, prefixList []string) {
-	deleteList := make([]*awsS3.ObjectIdentifier, 0)
+	deleteList := make([]*s3.ObjectIdentifier, 0)
 	for _, prefix := range prefixList {
-		input := &awsS3.ListObjectsInput{
+		input := &s3.ListObjectsInput{
 			Bucket:    aws.String(bucketName),
 			Delimiter: aws.String(""),
 			Prefix:    aws.String(prefix),
@@ -88,15 +88,15 @@ func (c *Client) RemoveFiles(bucketName string, prefixList []string) {
 			continue
 		}
 		for _, object := range objects.Contents {
-			deleteList = append(deleteList, &awsS3.ObjectIdentifier{
+			deleteList = append(deleteList, &s3.ObjectIdentifier{
 				Key: object.Key,
 			})
 		}
 	}
 
-	input := &awsS3.DeleteObjectsInput{
+	input := &s3.DeleteObjectsInput{
 		Bucket: aws.String(bucketName),
-		Delete: &awsS3.Delete{Objects: deleteList},
+		Delete: &s3.Delete{Objects: deleteList},
 	}
 	_, err := c.DeleteObjects(input)
 	if err != nil {
@@ -111,7 +111,7 @@ func (c *Client) Upload(bucketName, src string, objectKey string) error {
 		return err
 	}
 	// TODO: add md5 check for file integrity
-	input := &awsS3.PutObjectInput{
+	input := &s3.PutObjectInput{
 		Body:   file,
 		Bucket: aws.String(bucketName),
 		Key:    aws.String(objectKey),
@@ -124,7 +124,7 @@ func (c *Client) Upload(bucketName, src string, objectKey string) error {
 func (c *Client) ListFiles(bucketName, prefix string, recursive bool) ([]string, error) {
 	ret := make([]string, 0)
 
-	input := &awsS3.ListObjectsInput{
+	input := &s3.ListObjectsInput{
 		Bucket: aws.String(bucketName),
 		Prefix: aws.String(prefix),
 	}

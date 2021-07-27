@@ -43,18 +43,15 @@ func FileExists(filePath string) (bool, error) {
 func SaveFile(src io.ReadCloser, dst string) error {
 	// Verify if destination already exists.
 	st, err := os.Stat(dst)
-	if err == nil {
-		// If the destination exists and is a directory.
-		if st.IsDir() {
-			return errors.New("fileName is a directory")
-		}
+
+	// If the destination exists and is a directory.
+	if err == nil && st.IsDir() {
+		return errors.New("fileName is a directory")
 	}
 
 	// Proceed if file does not exist. return for all other errors.
-	if err != nil {
-		if !os.IsNotExist(err) {
-			return err
-		}
+	if err != nil && !os.IsNotExist(err) {
+		return err
 	}
 
 	// Extract top level directory.
