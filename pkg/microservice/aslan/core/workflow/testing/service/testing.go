@@ -17,7 +17,6 @@ limitations under the License.
 package service
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -36,6 +35,7 @@ import (
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -360,7 +360,13 @@ func GetHTMLTestReport(pipelineName, pipelineType, taskIDStr, testName string, l
 		_ = os.Remove(tmpFilename)
 	}()
 
-	err = s3.Download(context.Background(), store, fileName, tmpFilename)
+	client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure)
+	if err != nil {
+		log.Errorf("download html test report error: %s", err)
+		return "", e.ErrGetTestReport.AddErr(err)
+	}
+	objectKey := store.GetObjectPath(fileName)
+	err = client.Download(store.Bucket, objectKey, tmpFilename)
 	if err != nil {
 		log.Errorf("download html test report error: %s", err)
 		return "", e.ErrGetTestReport.AddErr(err)
