@@ -18,7 +18,6 @@ package reaper
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -178,10 +177,12 @@ func (r *Reaper) BeforeExec() error {
 		if r.Ctx.DockerRegistry.UserName != "" {
 			log.Infof("login docker registry %s", r.Ctx.DockerRegistry.Host)
 			cmd := dockerLogin(r.Ctx.DockerRegistry.UserName, r.Ctx.DockerRegistry.Password, r.Ctx.DockerRegistry.Host)
-			out := bytes.NewBufferString("")
-			cmd.Stderr = out
+			var out bytes.Buffer
+			cmd.Stdout = &out
+			cmd.Stderr = &out
 			if err := cmd.Run(); err != nil {
-				return errors.New(out.String())
+				log.Errorf("docker login failed with error: %s\n%s", err, out.String())
+				return fmt.Errorf("docker login failed with error: %s", err)
 			}
 		}
 	}
