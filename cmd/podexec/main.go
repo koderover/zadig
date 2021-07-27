@@ -28,10 +28,8 @@ import (
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	go func() {
-		select {
-		case <-ctx.Done():
-			stop()
-		}
+		<-ctx.Done()
+		stop()
 	}()
 
 	if err := server.Serve(ctx); err != nil {

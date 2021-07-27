@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package workflow
+package service
 
 type hookUniqueID struct {
 	owner, repo, source, name string
@@ -22,7 +22,7 @@ type hookUniqueID struct {
 
 type hookItem struct {
 	hookUniqueID
-	codeHostID          int
+	codeHostID int
 }
 
 type Empty struct{}

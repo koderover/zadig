@@ -25,6 +25,7 @@ import (
 	"github.com/gin-gonic/gin/binding"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -141,7 +142,7 @@ func DeleteWorkflow(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	internalhandler.InsertOperationLog(c, ctx.Username, c.GetString("productName"), "删除", "工作流", c.Param("name"), permission.WorkflowDeleteUUID, "", ctx.Logger)
-	ctx.Err = workflow.DeleteWorkflow(c.Param("name"), ctx.RequestID, false, ctx.Logger)
+	ctx.Err = commonservice.DeleteWorkflow(c.Param("name"), ctx.RequestID, false, ctx.Logger)
 }
 
 func PreSetWorkflow(c *gin.Context) {

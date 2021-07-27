@@ -14,27 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package github
 
 import (
-	"fmt"
-	"os/exec"
-	"strings"
-	"time"
+	"context"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
 )
 
-func trace(cmd *exec.Cmd) {
-	fmt.Printf("%s + %s\n", timeStamp(), strings.Join(cmd.Args, " "))
+func (c *Client) GetYAMLContents(owner, repo, branch, path string, isDir, split bool) ([]string, error) {
+	return c.Client.GetYAMLContents(context.TODO(), owner, repo, branch, path, split)
 }
 
-func info(msg string) {
-	fmt.Printf("%s + %s\n", timeStamp(), msg)
-}
-
-func warning(msg string) {
-	fmt.Printf("%s + [WARN] %s\n", timeStamp(), msg)
-}
-
-func timeStamp() string {
-	return time.Now().Format("2006-01-02 15:04:05")
+func (c *Client) GetLatestRepositoryCommit(owner, repo, branch, path string) (*git.RepositoryCommit, error) {
+	res, err := c.Client.GetLatestRepositoryCommit(context.TODO(), owner, repo, branch, path)
+	return git.ToRepositoryCommit(res), err
 }

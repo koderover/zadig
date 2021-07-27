@@ -14,7 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-/*
-	Module level comments
-*/
-package project
+package workflow
+
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+)
+
+func TestWorkflow(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "workflow Suite")
+}

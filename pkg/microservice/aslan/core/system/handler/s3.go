@@ -68,7 +68,7 @@ func CreateS3Storage(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.CreateS3Storage(ctx.Username, args, ctx.Logger)
+	ctx.Err = service.CreateS3Storage(ctx.Username, args, ctx.Logger)
 }
 
 func GetS3Storage(c *gin.Context) {
@@ -107,7 +107,7 @@ func UpdateS3Storage(c *gin.Context) {
 	}
 
 	id := c.Param("id")
-	ctx.Resp, ctx.Err = service.UpdateS3Storage(ctx.Username, id, args, ctx.Logger)
+	ctx.Err = service.UpdateS3Storage(ctx.Username, id, args, ctx.Logger)
 }
 
 func DeleteS3Storage(c *gin.Context) {

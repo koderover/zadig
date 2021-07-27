@@ -36,7 +36,7 @@ type client struct {
 
 func NewClient() *client {
 	return &client{
-		enabled: false,
+		enabled: true,
 	}
 }
 

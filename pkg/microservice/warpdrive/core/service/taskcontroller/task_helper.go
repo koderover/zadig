@@ -530,7 +530,7 @@ func getSubTaskTypeAndIsRestart(subTask map[string]interface{}) bool {
 }
 
 func initTaskPlugins(execHandler *ExecHandler) {
-	pluginConf := map[config.TaskType]plugins.TaskPluginInitiator{
+	pluginConf := map[config.TaskType]plugins.Initiator{
 		config.TaskJira:           plugins.InitializeJiraTaskPlugin,
 		config.TaskBuild:          plugins.InitializeBuildTaskPlugin,
 		config.TaskJenkinsBuild:   plugins.InitializeJenkinsBuildPlugin,
@@ -548,9 +548,9 @@ func initTaskPlugins(execHandler *ExecHandler) {
 }
 
 // registerTaskPlugin is to register task plugin initiator to handler
-func registerTaskPlugin(execHandler *ExecHandler, name config.TaskType, pluginInitiator plugins.TaskPluginInitiator) {
+func registerTaskPlugin(execHandler *ExecHandler, name config.TaskType, pluginInitiator plugins.Initiator) {
 	if execHandler.TaskPlugins == nil {
-		execHandler.TaskPlugins = make(map[config.TaskType]plugins.TaskPluginInitiator)
+		execHandler.TaskPlugins = make(map[config.TaskType]plugins.Initiator)
 	}
 	execHandler.TaskPlugins[name] = pluginInitiator
 }

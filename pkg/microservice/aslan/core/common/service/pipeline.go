@@ -26,6 +26,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
@@ -49,8 +50,10 @@ func DeletePipelines(productName, requestID string, log *zap.SugaredLogger) erro
 }
 
 func DeletePipeline(pipelineName, requestID string, isDeletingProductTmpl bool, log *zap.SugaredLogger) error {
+	var pipeline *commonmodels.Pipeline
+	var err error
 	if !isDeletingProductTmpl {
-		pipeline, err := mongodb.NewPipelineColl().Find(&mongodb.PipelineFindOption{Name: pipelineName})
+		pipeline, err = mongodb.NewPipelineColl().Find(&mongodb.PipelineFindOption{Name: pipelineName})
 		if err != nil {
 			log.Errorf("Pipeline.Find error: %v", err)
 			return e.ErrDeletePipeline.AddErr(err)
@@ -82,6 +85,14 @@ func DeletePipeline(pipelineName, requestID string, isDeletingProductTmpl bool, 
 	err = mongodb.NewWorkflowStatColl().Delete(pipelineName, string(config.SingleType))
 	if err != nil {
 		log.Errorf("WorkflowStat.Delete failed,  error: %v", err)
+	}
+
+	if pipeline != nil && pipeline.Hook != nil {
+		err = ProcessWebhook(nil, pipeline.Hook.GitHooks, webhook.PipelinePrefix+pipelineName, log)
+		if err != nil {
+			log.Errorf("Failed to process webhook, err: %s", err)
+			return e.ErrCreatePipeline.AddDesc(err.Error())
+		}
 	}
 
 	if err := mongodb.NewPipelineColl().Delete(pipelineName); err != nil {

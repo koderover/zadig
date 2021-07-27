@@ -28,6 +28,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/codehost"
 	"github.com/koderover/zadig/pkg/shared/poetry"
@@ -72,6 +73,7 @@ type ServiceProductMap struct {
 	CodehostID       int                       `json:"codehost_id"`
 	RepoOwner        string                    `json:"repo_owner"`
 	RepoName         string                    `json:"repo_name"`
+	RepoUUID         string                    `json:"repo_uuid"`
 	BranchName       string                    `json:"branch_name"`
 	LoadPath         string                    `json:"load_path"`
 	LoadFromDir      bool                      `json:"is_dir"`
@@ -195,6 +197,7 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 			CodehostID:       serviceObject.CodehostID,
 			RepoOwner:        serviceObject.RepoOwner,
 			RepoName:         serviceObject.RepoName,
+			RepoUUID:         serviceObject.RepoUUID,
 			BranchName:       serviceObject.BranchName,
 			LoadFromDir:      serviceObject.LoadFromDir,
 			LoadPath:         serviceObject.LoadPath,
@@ -302,6 +305,7 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 		resp.LoadPath = loadPath
 		resp.LoadFromDir = true
 		return resp, nil
+
 	} else if resp.Source == setting.SourceFromGUI {
 		yamls := strings.Split(resp.Yaml, "---")
 		for _, y := range yamls {
@@ -377,4 +381,58 @@ func UpdatePmServiceTemplate(username string, args *ServiceTmplBuildObject, log 
 		return err
 	}
 	return nil
+}
+
+func DeleteServiceWebhookByName(serviceName string, logger *zap.SugaredLogger) {
+	svc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{ServiceName: serviceName})
+	if err != nil {
+		logger.Errorf("Failed to get service %s, error: %s", serviceName, err)
+		return
+	}
+
+	ProcessServiceWebhook(nil, svc, serviceName, logger)
+}
+
+func ProcessServiceWebhook(updated, current *commonmodels.Service, serviceName string, logger *zap.SugaredLogger) {
+	if current.Source == setting.SourceFromCodeHub || current.Source == setting.SourceFromGerrit {
+		return
+	}
+	var action string
+	var updatedHooks, currentHooks []*webhook.WebHook
+	if updated != nil {
+		action = "add"
+		address := getAddressFromPath(updated.SrcPath, updated.RepoOwner, updated.RepoName, logger.Desugar())
+		if address == "" {
+			return
+		}
+		updatedHooks = append(updatedHooks, &webhook.WebHook{Owner: updated.RepoOwner, Repo: updated.RepoName, Address: address, Name: "trigger", CodeHostID: updated.CodehostID})
+	}
+	if current != nil {
+		action = "remove"
+		address := getAddressFromPath(current.SrcPath, current.RepoOwner, current.RepoName, logger.Desugar())
+		if address == "" {
+			return
+		}
+		currentHooks = append(currentHooks, &webhook.WebHook{Owner: current.RepoOwner, Repo: current.RepoName, Address: address, Name: "trigger", CodeHostID: current.CodehostID})
+	}
+	if updated != nil && current != nil {
+		action = "update"
+	}
+
+	logger.Debugf("Start to %s webhook for service %s", action, serviceName)
+	err := ProcessWebhook(updatedHooks, currentHooks, webhook.ServicePrefix+serviceName, logger)
+	if err != nil {
+		logger.Errorf("Failed to process WebHook, error: %s", err)
+	}
+
+}
+
+func getAddressFromPath(path, owner, repo string, logger *zap.Logger) string {
+	res := strings.Split(path, fmt.Sprintf("/%s/%s/", owner, repo))
+	if len(res) != 2 {
+		logger.With(zap.String("path", path), zap.String("owner", owner), zap.String("repo", repo)).DPanic("Invalid path")
+		return ""
+	}
+
+	return res[0]
 }

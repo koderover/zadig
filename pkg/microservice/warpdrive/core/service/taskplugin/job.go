@@ -236,6 +236,8 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 			OauthToken:   build.OauthToken,
 			Address:      build.Address,
 			CheckoutRef:  build.CheckoutRef,
+			User:         build.Username,
+			Password:     build.Password,
 		}
 		ctx.Repos = append(ctx.Repos, repo)
 	}

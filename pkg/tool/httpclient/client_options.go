@@ -16,6 +16,10 @@ limitations under the License.
 
 package httpclient
 
+import (
+	"time"
+)
+
 type ClientFunc func(*Client)
 
 func SetBasicAuth(username, password string) ClientFunc {
@@ -55,8 +59,26 @@ func SetProxy(proxyURL string) ClientFunc {
 	}
 }
 
+func UnsetTimeout() ClientFunc {
+	return func(c *Client) {
+		c.Client.SetTimeout(0)
+	}
+}
+
 func SetIgnoreCodes(codes ...int) ClientFunc {
 	return func(c *Client) {
 		c.IgnoreCodes.Insert(codes...)
+	}
+}
+
+func SetRetryCount(count int) ClientFunc {
+	return func(c *Client) {
+		c.Client.SetRetryCount(count)
+	}
+}
+
+func SetRetryWaitTime(waitTime time.Duration) ClientFunc {
+	return func(c *Client) {
+		c.Client.SetRetryWaitTime(waitTime)
 	}
 }

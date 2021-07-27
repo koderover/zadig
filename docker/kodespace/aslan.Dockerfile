@@ -1,7 +1,7 @@
 FROM golang:1.16.5 as build
 RUN sed -i -E "s/[a-zA-Z0-9]+.debian.org/mirrors.aliyun.com/g" /etc/apt/sources.list \
     && apt-get update \
-    && apt-get install libsasl2-dev
+    && apt-get install -y --no-install-recommends libsasl2-dev=2.1.27+dfsg-1+deb10u1
 
 WORKDIR /app
 
@@ -17,9 +17,7 @@ COPY pkg pkg
 
 RUN go build -v -o /aslan ./cmd/aslan/main.go
 
-FROM alpine:3.13.5
-
-MAINTAINER KodeRover Team
+FROM alpine/git:v2.30.2
 
 # https://wiki.alpinelinux.org/wiki/Setting_the_timezone
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \

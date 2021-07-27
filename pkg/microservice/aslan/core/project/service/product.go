@@ -497,6 +497,13 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 		return err
 	}
 
+	services, _ := commonrepo.NewServiceColl().List(
+		&commonrepo.ServiceFindOption{ProductName: productName, Type: setting.K8SDeployType, ExcludeStatus: setting.ProductStatusDeleting},
+	)
+	for _, s := range services {
+		commonservice.ProcessServiceWebhook(nil, s, s.ServiceName, log)
+	}
+
 	//删除交付中心
 	//删除构建/删除测试/删除服务
 	//删除workflow和历史task
@@ -669,7 +676,7 @@ func UnForkProduct(userID int, username, productName, workflowName, envName, req
 	}
 
 	if _, err := workflowservice.FindWorkflow(workflowName, log); err == nil {
-		err = workflowservice.DeleteWorkflow(workflowName, requestID, false, log)
+		err = commonservice.DeleteWorkflow(workflowName, requestID, false, log)
 		if err != nil {
 			log.Errorf("Failed to delete forked workflow: %s, the error is: %+v", workflowName, err)
 			return e.ErrUnForkProduct.AddDesc(err.Error())

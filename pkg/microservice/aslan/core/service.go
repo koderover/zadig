@@ -32,6 +32,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
+	webhookservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/webhook"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -66,7 +67,7 @@ func StartControllers(stopCh <-chan struct{}) {
 	wg.Wait()
 }
 
-func Setup(ctx context.Context) {
+func Start(ctx context.Context) {
 	log.Init(&log.Config{
 		Level:       commonconfig.LogLevel(),
 		Filename:    commonconfig.LogFile(),
@@ -87,9 +88,12 @@ func Setup(ctx context.Context) {
 	environmentservice.ResetProductsStatus()
 
 	go StartControllers(ctx.Done())
+
+	// 仅用于升级 release v1.2.1, 将在下一版本移除
+	webhookservice.SyncWebHooks()
 }
 
-func TearDown(ctx context.Context) {
+func Stop(ctx context.Context) {
 	mongotool.Close(ctx)
 }
 

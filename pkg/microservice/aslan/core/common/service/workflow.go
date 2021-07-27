@@ -18,14 +18,19 @@ package service
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gerrit"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
+	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/codehost"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
@@ -81,12 +86,22 @@ func DeleteWorkflow(workflowName, requestID string, isDeletingProductTmpl bool, 
 		}
 	}
 
+	err = ProcessWebhook(nil, workflow.HookCtl.Items, webhook.WorkflowPrefix+workflow.Name, log)
+	if err != nil {
+		log.Errorf("Failed to process webhook, err: %s", err)
+		return e.ErrUpsertWorkflow.AddDesc(err.Error())
+	}
+
 	go gerrit.DeleteGerritWebhook(workflow, log)
 
 	//删除所属的所有定时任务
-	err = RemoveCronjob(workflowName, log)
+	err = mongodb.NewCronjobColl().Delete(&mongodb.CronjobDeleteOption{
+		ParentName: workflowName,
+		ParentType: config.WorkflowCronjob,
+	})
 	if err != nil {
-		return err
+		log.Errorf("Failed to delete cronjob for workflow %s, error: %s", workflow.Name, err)
+		//return e.ErrDeleteWorkflow.AddDesc(err.Error())
 	}
 
 	if err := mongodb.NewWorkflowColl().Delete(workflowName); err != nil {
@@ -131,4 +146,113 @@ func DeleteWorkflow(workflowName, requestID string, isDeletingProductTmpl bool, 
 		log.Errorf("Counter.Delete error: %v", err)
 	}
 	return nil
+}
+
+func ProcessWebhook(updatedHooks, currentHooks interface{}, name string, logger *zap.SugaredLogger) error {
+	currentSet := toHookSet(currentHooks)
+	updatedSet := toHookSet(updatedHooks)
+	hooksToRemove := currentSet.Difference(updatedSet)
+	hooksToAdd := updatedSet.Difference(currentSet)
+
+	if hooksToRemove.Len() > 0 {
+		logger.Debugf("Going to remove webhooks %+v", hooksToRemove)
+	}
+	if hooksToAdd.Len() > 0 {
+		logger.Debugf("Going to add webhooks %+v", hooksToAdd)
+	}
+
+	var errs *multierror.Error
+	var wg sync.WaitGroup
+
+	for _, h := range hooksToRemove {
+		wg.Add(1)
+		go func(wh hookItem) {
+			defer wg.Done()
+			ch, err := codehost.GetCodeHostInfoByID(wh.codeHostID)
+			if err != nil {
+				logger.Errorf("Failed to get codeHost by id %d, err: %s", wh.codeHostID, err)
+				errs = multierror.Append(errs, err)
+				return
+			}
+
+			switch ch.Type {
+			case setting.SourceFromGithub, setting.SourceFromGitlab:
+				err = webhook.NewClient().RemoveWebHook(wh.name, wh.owner, wh.repo, ch.Address, ch.AccessToken, name, ch.Type)
+				if err != nil {
+					logger.Errorf("Failed to remove webhook %+v, err: %s", wh, err)
+					errs = multierror.Append(errs, err)
+					return
+				}
+			}
+		}(h)
+	}
+
+	for _, h := range hooksToAdd {
+		wg.Add(1)
+		go func(wh hookItem) {
+			defer wg.Done()
+			ch, err := codehost.GetCodeHostInfoByID(wh.codeHostID)
+			if err != nil {
+				logger.Errorf("Failed to get codeHost by id %d, err: %s", wh.codeHostID, err)
+				errs = multierror.Append(errs, err)
+				return
+			}
+
+			switch ch.Type {
+			case setting.SourceFromGithub, setting.SourceFromGitlab:
+				err = webhook.NewClient().AddWebHook(wh.name, wh.owner, wh.repo, ch.Address, ch.AccessToken, name, ch.Type)
+				if err != nil {
+					logger.Errorf("Failed to add webhook %+v, err: %s", wh, err)
+					errs = multierror.Append(errs, err)
+					return
+				}
+			}
+		}(h)
+	}
+
+	wg.Wait()
+
+	return errs.ErrorOrNil()
+}
+
+func toHookSet(hooks interface{}) HookSet {
+	res := NewHookSet()
+	switch hs := hooks.(type) {
+	case []*models.WorkflowHook:
+		for _, h := range hs {
+			res.Insert(hookItem{
+				hookUniqueID: hookUniqueID{
+					name:   h.MainRepo.Name,
+					owner:  h.MainRepo.RepoOwner,
+					repo:   h.MainRepo.RepoName,
+					source: h.MainRepo.Source,
+				},
+				codeHostID: h.MainRepo.CodehostID,
+			})
+		}
+	case []models.GitHook:
+		for _, h := range hs {
+			res.Insert(hookItem{
+				hookUniqueID: hookUniqueID{
+					name:  h.Name,
+					owner: h.Owner,
+					repo:  h.Repo,
+				},
+				codeHostID: h.CodehostID,
+			})
+		}
+	case []*webhook.WebHook:
+		for _, h := range hs {
+			res.Insert(hookItem{
+				hookUniqueID: hookUniqueID{
+					name:  h.Name,
+					owner: h.Owner,
+					repo:  h.Repo,
+				},
+				codeHostID: h.CodeHostID,
+			})
+		}
+	}
+
+	return res
 }

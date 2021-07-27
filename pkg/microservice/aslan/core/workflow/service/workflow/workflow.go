@@ -17,7 +17,6 @@ limitations under the License.
 package workflow
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -32,10 +31,8 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/codehost"
 	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/types"
@@ -230,33 +227,33 @@ func PreSetWorkflow(productName string, log *zap.SugaredLogger) ([]*PreSetResp, 
 		log.Errorf("[%s] ProductTmpl.Find error: %v", productName, err)
 		return resp, e.ErrGetTemplate.AddDesc(err.Error())
 	}
-	maxServiceTmpls, err := commonrepo.NewServiceColl().ListMaxRevisions()
+	var svcNames []string
+	for _, ss := range productTmpl.Services {
+		svcNames = append(svcNames, ss...)
+	}
+	services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(svcNames, "")
 	if err != nil {
 		log.Errorf("ServiceTmpl.ListMaxRevisions error: %v", err)
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
-	for _, services := range productTmpl.Services {
-		for _, service := range services {
-			for _, serviceTmpl := range findServicesByName(service, maxServiceTmpls) {
-				switch serviceTmpl.Type {
-				case setting.K8SDeployType:
-					for _, container := range serviceTmpl.Containers {
-						deployEnv := DeployEnv{Env: service + "/" + container.Name, Type: setting.K8SDeployType, ProductName: serviceTmpl.ProductName}
-						target := fmt.Sprintf("%s%s%s%s%s", serviceTmpl.ProductName, SplitSymbol, serviceTmpl.ServiceName, SplitSymbol, container.Name)
-						targets[target] = append(targets[target], deployEnv)
-					}
-				case setting.PMDeployType:
-					deployEnv := DeployEnv{Env: service, Type: setting.PMDeployType, ProductName: productName}
-					target := fmt.Sprintf("%s%s%s%s%s", serviceTmpl.ProductName, SplitSymbol, serviceTmpl.ServiceName, SplitSymbol, serviceTmpl.ServiceName)
-					targets[target] = append(targets[target], deployEnv)
-				case setting.HelmDeployType:
-					for _, container := range serviceTmpl.Containers {
-						deployEnv := DeployEnv{Env: service + "/" + container.Name, Type: setting.HelmDeployType, ProductName: serviceTmpl.ProductName}
-						target := fmt.Sprintf("%s%s%s%s%s", serviceTmpl.ProductName, SplitSymbol, serviceTmpl.ServiceName, SplitSymbol, container.Name)
-						targets[target] = append(targets[target], deployEnv)
-					}
-				}
+	for _, serviceTmpl := range services {
+		switch serviceTmpl.Type {
+		case setting.K8SDeployType:
+			for _, container := range serviceTmpl.Containers {
+				deployEnv := DeployEnv{Env: serviceTmpl.ServiceName + "/" + container.Name, Type: setting.K8SDeployType, ProductName: serviceTmpl.ProductName}
+				target := fmt.Sprintf("%s%s%s%s%s", serviceTmpl.ProductName, SplitSymbol, serviceTmpl.ServiceName, SplitSymbol, container.Name)
+				targets[target] = append(targets[target], deployEnv)
+			}
+		case setting.PMDeployType:
+			deployEnv := DeployEnv{Env: serviceTmpl.ServiceName, Type: setting.PMDeployType, ProductName: productName}
+			target := fmt.Sprintf("%s%s%s%s%s", serviceTmpl.ProductName, SplitSymbol, serviceTmpl.ServiceName, SplitSymbol, serviceTmpl.ServiceName)
+			targets[target] = append(targets[target], deployEnv)
+		case setting.HelmDeployType:
+			for _, container := range serviceTmpl.Containers {
+				deployEnv := DeployEnv{Env: serviceTmpl.ServiceName + "/" + container.Name, Type: setting.HelmDeployType, ProductName: serviceTmpl.ProductName}
+				target := fmt.Sprintf("%s%s%s%s%s", serviceTmpl.ProductName, SplitSymbol, serviceTmpl.ServiceName, SplitSymbol, container.Name)
+				targets[target] = append(targets[target], deployEnv)
 			}
 		}
 	}
@@ -302,16 +299,6 @@ func PreSetWorkflow(productName string, log *zap.SugaredLogger) ([]*PreSetResp, 
 	return resp, nil
 }
 
-func findServicesByName(serviceName string, services []*commonmodels.Service) []*commonmodels.Service {
-	resp := make([]*commonmodels.Service, 0)
-	for _, service := range services {
-		if service.ServiceName == serviceName {
-			resp = append(resp, service)
-		}
-	}
-	return resp
-}
-
 func CreateWorkflow(workflow *commonmodels.Workflow, log *zap.SugaredLogger) error {
 	_, err := commonrepo.NewWorkflowColl().Find(workflow.Name)
 	if err == nil {
@@ -323,11 +310,11 @@ func CreateWorkflow(workflow *commonmodels.Workflow, log *zap.SugaredLogger) err
 		return e.ErrUpsertWorkflow.AddDesc("workflow中没有子模块，请设置子模块")
 	}
 
-	if err := validateHookNames(workflow); err != nil {
+	if err := validateWorkflowHookNames(workflow); err != nil {
 		return e.ErrUpsertWorkflow.AddDesc(err.Error())
 	}
 
-	err = processWebhook(workflow.HookCtl.Items, nil, webhook.WorkflowPrefix+workflow.Name, log)
+	err = commonservice.ProcessWebhook(workflow.HookCtl.Items, nil, webhook.WorkflowPrefix+workflow.Name, log)
 	if err != nil {
 		log.Errorf("Failed to process webhook, err: %s", err)
 		return e.ErrUpsertWorkflow.AddDesc(err.Error())
@@ -391,11 +378,11 @@ func UpdateWorkflow(workflow *commonmodels.Workflow, log *zap.SugaredLogger) err
 		return e.ErrUpsertWorkflow.AddDesc(err.Error())
 	}
 
-	if err := validateHookNames(workflow); err != nil {
+	if err := validateWorkflowHookNames(workflow); err != nil {
 		return e.ErrUpsertWorkflow.AddDesc(err.Error())
 	}
 
-	err = processWebhook(workflow.HookCtl.Items, currentWorkflow.HookCtl.Items, webhook.WorkflowPrefix+workflow.Name, log)
+	err = commonservice.ProcessWebhook(workflow.HookCtl.Items, currentWorkflow.HookCtl.Items, webhook.WorkflowPrefix+workflow.Name, log)
 	if err != nil {
 		log.Errorf("Failed to process webhook, err: %s", err)
 		return e.ErrUpsertWorkflow.AddDesc(err.Error())
@@ -426,117 +413,17 @@ func UpdateWorkflow(workflow *commonmodels.Workflow, log *zap.SugaredLogger) err
 	return nil
 }
 
-func toHookSet(hooks interface{}) HookSet {
-	res := NewHookSet()
-	switch hs := hooks.(type) {
-	case []*commonmodels.WorkflowHook:
-		for _, h := range hs {
-			res.Insert(hookItem{
-				hookUniqueID: hookUniqueID{
-					name:   h.MainRepo.Name,
-					owner:  h.MainRepo.RepoOwner,
-					repo:   h.MainRepo.RepoName,
-					source: h.MainRepo.Source,
-				},
-				codeHostID: h.MainRepo.CodehostID,
-			})
-		}
-	case []commonmodels.GitHook:
-		for _, h := range hs {
-			res.Insert(hookItem{
-				hookUniqueID: hookUniqueID{
-					name:  h.Name,
-					owner: h.Owner,
-					repo:  h.Repo,
-				},
-				codeHostID: h.CodehostID,
-			})
-		}
-	}
-
-	return res
-}
-
-func processWebhook(updatedHooks, currentHooks interface{}, name string, logger *zap.SugaredLogger) error {
-	currentSet := toHookSet(currentHooks)
-	updatedSet := toHookSet(updatedHooks)
-	hooksToRemove := currentSet.Difference(updatedSet)
-	hooksToAdd := updatedSet.Difference(currentSet)
-
-	if hooksToRemove.Len() > 0 {
-		logger.Debugf("Going to remove webhooks %+v", hooksToRemove)
-	}
-	if hooksToAdd.Len() > 0 {
-		logger.Debugf("Going to add webhooks %+v", hooksToAdd)
-	}
-
-	var errs *multierror.Error
-	var wg sync.WaitGroup
-
-	for _, h := range hooksToRemove {
-		wg.Add(1)
-		go func(wh hookItem) {
-			defer wg.Done()
-			ch, err := codehost.GetCodeHostInfoByID(wh.codeHostID)
-			if err != nil {
-				logger.Errorf("Failed to get codeHost by id %d, err: %s", wh.codeHostID, err)
-				errs = multierror.Append(errs, err)
-				return
-			}
-
-			switch ch.Type {
-			case setting.SourceFromGithub, setting.SourceFromGitlab:
-				err = webhook.NewClient().RemoveWebHook(wh.name, wh.owner, wh.repo, ch.Address, ch.AccessToken, name, ch.Type)
-				if err != nil {
-					logger.Errorf("Failed to remove webhook %+v, err: %s", wh, err)
-					errs = multierror.Append(errs, err)
-					return
-				}
-			}
-		}(h)
-	}
-
-	for _, h := range hooksToAdd {
-		wg.Add(1)
-		go func(wh hookItem) {
-			defer wg.Done()
-			ch, err := codehost.GetCodeHostInfoByID(wh.codeHostID)
-			if err != nil {
-				logger.Errorf("Failed to get codeHost by id %d, err: %s", wh.codeHostID, err)
-				errs = multierror.Append(errs, err)
-				return
-			}
-
-			switch ch.Type {
-			case setting.SourceFromGithub, setting.SourceFromGitlab:
-				err = webhook.NewClient().AddWebHook(wh.name, wh.owner, wh.repo, ch.Address, ch.AccessToken, name, ch.Type)
-				if err != nil {
-					logger.Errorf("Failed to add webhook %+v, err: %s", wh, err)
-					errs = multierror.Append(errs, err)
-					return
-				}
-			}
-		}(h)
-	}
-
-	wg.Wait()
-
-	return errs.ErrorOrNil()
-}
-
-func validateHookNames(p *commonmodels.Workflow) error {
-	if p.HookCtl == nil {
+func validateWorkflowHookNames(w *commonmodels.Workflow) error {
+	if w == nil || w.HookCtl == nil {
 		return nil
 	}
-	names := sets.NewString()
-	for _, hook := range p.HookCtl.Items {
-		if names.Has(hook.MainRepo.Name) {
-			return fmt.Errorf("duplicated webhook name found: %s", hook.MainRepo.Name)
-		}
-		names.Insert(hook.MainRepo.Name)
+
+	var names []string
+	for _, hook := range w.HookCtl.Items {
+		names = append(names, hook.MainRepo.Name)
 	}
 
-	return nil
+	return validateHookNames(names)
 }
 
 func ListWorkflows(queryType string, userID int, log *zap.SugaredLogger) ([]*commonmodels.Workflow, error) {
@@ -665,112 +552,6 @@ func ListAllWorkflows(testName string, userID int, superUser bool, log *zap.Suga
 		workflows = append(workflows, workflow)
 	}
 	return workflows, nil
-}
-
-func DeleteWorkflow(workflowName, requestID string, isDeletingProductTmpl bool, log *zap.SugaredLogger) error {
-	opt := new(commonrepo.ListQueueOption)
-	taskQueue, err := commonrepo.NewQueueColl().List(opt)
-	if err != nil {
-		log.Errorf("List queued task error: %v", err)
-		return e.ErrDeletePipeline.AddErr(err)
-	}
-	// 当task还在运行时，先取消任务
-	for _, task := range taskQueue {
-		if task.PipelineName == workflowName && task.Type == config.WorkflowType {
-			if err = commonservice.CancelTaskV2("system", task.PipelineName, task.TaskID, config.WorkflowType, requestID, log); err != nil {
-				log.Errorf("task still running, cancel pipeline %s task %d", task.PipelineName, task.TaskID)
-			}
-		}
-	}
-
-	// 在删除前，先将workflow查出来，用于删除gerrit webhook
-	workflow, err := commonrepo.NewWorkflowColl().Find(workflowName)
-	if err != nil {
-		log.Errorf("Workflow.Find error: %v", err)
-		return e.ErrDeleteWorkflow.AddDesc(err.Error())
-	}
-
-	if !isDeletingProductTmpl {
-		prod, err := template.NewProductColl().Find(workflow.ProductTmplName)
-		if err != nil {
-			log.Errorf("ProductTmpl.Find error: %v", err)
-			return e.ErrDeleteWorkflow.AddErr(err)
-		}
-		if prod.OnboardingStatus != 0 {
-			return e.ErrDeleteWorkflow.AddDesc("该工作流所属的项目处于onboarding流程中，不能删除工作流")
-		}
-	}
-
-	err = processWebhook(nil, workflow.HookCtl.Items, webhook.WorkflowPrefix+workflow.Name, log)
-	if err != nil {
-		log.Errorf("Failed to process webhook, err: %s", err)
-		return e.ErrUpsertWorkflow.AddDesc(err.Error())
-	}
-
-	go DeleteGerritWebhook(workflow, log)
-
-	//删除所属的所有定时任务
-
-	err = DeleteCronjob(workflow.Name, config.WorkflowCronjob)
-	if err != nil {
-		// FIXME: HOW TO DO THIS
-		log.Errorf("Failed to delete %s 's cronjob, the error is: %v", workflow.Name, err)
-		//return e.ErrDeleteWorkflow.AddDesc(err.Error())
-	}
-	payload := commonservice.CronjobPayload{
-		Name:    workflow.Name,
-		JobType: config.WorkflowCronjob,
-		Action:  setting.TypeDisableCronjob,
-	}
-	pl, _ := json.Marshal(payload)
-	err = nsq.Publish(config.TopicCronjob, pl)
-	if err != nil {
-		log.Errorf("Failed to publish to nsq topic: %s, the error is: %v", config.TopicCronjob, err)
-		return e.ErrUpsertCronjob.AddDesc(err.Error())
-	}
-
-	if err := commonrepo.NewWorkflowColl().Delete(workflowName); err != nil {
-		log.Errorf("Workflow.Find error: %v", err)
-		return e.ErrDeleteWorkflow.AddDesc(err.Error())
-	}
-
-	if err := commonrepo.NewTaskColl().DeleteByPipelineNameAndType(workflowName, config.WorkflowType); err != nil {
-		log.Errorf("PipelineTaskV2.DeleteByPipelineName error: %v", err)
-	}
-
-	if deliveryVersions, err := commonrepo.NewDeliveryVersionColl().Find(&commonrepo.DeliveryVersionArgs{OrgID: 1, WorkflowName: workflowName}); err == nil {
-		for _, deliveryVersion := range deliveryVersions {
-			if err := commonrepo.NewDeliveryVersionColl().Delete(deliveryVersion.ID.Hex()); err != nil {
-				log.Errorf("DeleteWorkflow.DeliveryVersion.Delete error: %v", err)
-			}
-
-			if err = commonrepo.NewDeliveryBuildColl().Delete(deliveryVersion.ID.Hex()); err != nil {
-				log.Errorf("DeleteWorkflow.DeliveryBuild.Delete error: %v", err)
-			}
-
-			if err = commonrepo.NewDeliveryDeployColl().Delete(deliveryVersion.ID.Hex()); err != nil {
-				log.Errorf("DeleteWorkflow.DeliveryDeploy.Delete error: %v", err)
-			}
-
-			if err = commonrepo.NewDeliveryTestColl().Delete(deliveryVersion.ID.Hex()); err != nil {
-				log.Errorf("DeleteWorkflow.DeliveryTest.Delete error: %v", err)
-			}
-
-			if err = commonrepo.NewDeliveryDistributeColl().Delete(deliveryVersion.ID.Hex()); err != nil {
-				log.Errorf("DeleteWorkflow.DeliveryDistribute.Delete error: %v", err)
-			}
-		}
-	}
-
-	err = commonrepo.NewWorkflowStatColl().Delete(workflowName, string(config.WorkflowType))
-	if err != nil {
-		log.Errorf("WorkflowStat.Delete failed, error: %v", err)
-	}
-
-	if err := commonrepo.NewCounterColl().Delete("WorkflowTask:" + workflowName); err != nil {
-		log.Errorf("Counter.Delete error: %v", err)
-	}
-	return nil
 }
 
 func CopyWorkflow(oldWorkflowName, newWorkflowName, username string, log *zap.SugaredLogger) error {

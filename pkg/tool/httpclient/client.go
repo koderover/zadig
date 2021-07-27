@@ -24,10 +24,12 @@ import (
 
 	"github.com/go-resty/resty/v2"
 	"k8s.io/apimachinery/pkg/util/sets"
+
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 const (
-	UserAgent = "Zadig REST Client"
+	UserAgent      = "Zadig REST Client"
 	TimeoutSeconds = 10
 )
 
@@ -69,7 +71,9 @@ func Options(url string, rfs ...RequestFunc) (*resty.Response, error) {
 
 // Download retrieves content from the given url and write it to path.
 func Download(url, path string, rfs ...RequestFunc) error {
-	res, err := Get(url, rfs...)
+	// download may take more time
+	cl := New(UnsetTimeout())
+	res, err := cl.Get(url, rfs...)
 	if err != nil {
 		return err
 	}
@@ -92,7 +96,8 @@ func New(cfs ...ClientFunc) *Client {
 	r.SetHeader("Content-Type", "application/json").
 		SetHeader("Accept", "application/json").
 		SetHeader("User-Agent", UserAgent).
-		SetTimeout(TimeoutSeconds*time.Second)
+		SetTimeout(TimeoutSeconds * time.Second).
+		SetLogger(log.SugaredLogger())
 
 	c := &Client{
 		Client:      r,
