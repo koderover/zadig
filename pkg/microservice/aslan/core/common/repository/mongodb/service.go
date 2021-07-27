@@ -160,7 +160,7 @@ func (c *ServiceColl) Find(opt *ServiceFindOption) (*models.Service, error) {
 		opts.SetSort(bson.D{{"revision", -1}})
 	}
 
-	err := c.FindOne(context.TODO(), query, opts).Decode(&service)
+	err := c.FindOne(context.TODO(), query, opts).Decode(service)
 	if err != nil {
 		return nil, err
 	}

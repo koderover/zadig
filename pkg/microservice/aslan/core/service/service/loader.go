@@ -822,9 +822,8 @@ func loadCodehubService(username string, detail *codehost.Detail, repoOwner, rep
 		Commit:      &models.Commit{SHA: commit.ID, Message: commit.Message},
 		Visibility:  args.Visibility,
 	}
-	log.Infof("service.name : %s", createSvcArgs.ServiceName)
 	if _, err = CreateServiceTemplate(username, createSvcArgs, log); err != nil {
-		log.Errorf("Failed to create service template, error: %s", err)
+		log.Errorf("Failed to create service template, serviceName:%s error: %s", createSvcArgs.ServiceName, err)
 		_, messageMap := e.ErrorMessage(err)
 		if description, ok := messageMap["description"]; ok {
 			return e.ErrLoadServiceTemplate.AddDesc(description.(string))

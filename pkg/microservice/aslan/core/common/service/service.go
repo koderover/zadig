@@ -389,7 +389,7 @@ func DeleteServiceWebhookByName(serviceName string, logger *zap.SugaredLogger) {
 		logger.Errorf("Failed to get service %s, error: %s", serviceName, err)
 		return
 	}
-
+	logger.Infof("svc : %+v", svc)
 	ProcessServiceWebhook(nil, svc, serviceName, logger)
 }
 
