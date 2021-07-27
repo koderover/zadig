@@ -79,7 +79,7 @@ func ListProductTemplate(userID int, superUser bool, log *zap.SugaredLogger) ([]
 
 	poetryCtl := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
 
-	tmpls, err = templaterepo.NewProductColl().List("")
+	tmpls, err = templaterepo.NewProductColl().List()
 	if err != nil {
 		log.Errorf("ProfuctTmpl.List error: %v", err)
 		return resp, e.ErrListProducts.AddDesc(err.Error())
@@ -543,7 +543,7 @@ func ForkProduct(userID int, username, requestID string, args *template.ForkProj
 		for _, serviceName := range names {
 			opt := &commonrepo.ServiceFindOption{
 				ServiceName:   serviceName,
-				ProductName: allServiceInfoMap[serviceName].Owner,
+				ProductName:   allServiceInfoMap[serviceName].Owner,
 				ExcludeStatus: setting.ProductStatusDeleting,
 			}
 
@@ -757,7 +757,7 @@ func ensureProductTmpl(args *template.Product) error {
 // distincProductServices 查询使用到服务模板的产品模板
 func distincProductServices(productName string) (map[string][]string, error) {
 	serviceMap := make(map[string][]string)
-	products, err := templaterepo.NewProductColl().List(productName)
+	products, err := templaterepo.NewProductColl().List()
 	if err != nil {
 		return serviceMap, err
 	}
@@ -840,7 +840,7 @@ func ListTemplatesHierachy(userName string, userID int, superUser bool, log *zap
 	)
 
 	if superUser {
-		productTmpls, err = templaterepo.NewProductColl().List("")
+		productTmpls, err = templaterepo.NewProductColl().List()
 		if err != nil {
 			log.Errorf("[%s] ProductTmpl.List error: %v", userName, err)
 			return nil, e.ErrListProducts.AddDesc(err.Error())

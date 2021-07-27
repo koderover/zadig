@@ -185,7 +185,7 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 
 func distincProductServices(productName string) (map[string][]string, error) {
 	serviceMap := make(map[string][]string)
-	products, err := templaterepo.NewProductColl().List(productName)
+	products, err := templaterepo.NewProductColl().List()
 	if err != nil {
 		return serviceMap, err
 	}
@@ -201,6 +201,7 @@ func distincProductServices(productName string) (map[string][]string, error) {
 			}
 		}
 	}
+
 	return serviceMap, nil
 }
 
