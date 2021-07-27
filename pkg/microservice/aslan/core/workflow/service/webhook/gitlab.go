@@ -311,12 +311,11 @@ func updateServiceTemplateByPushEvent(event *EventPush, log *zap.SugaredLogger) 
 }
 
 func GetGitlabServiceTemplates() ([]*commonmodels.Service, error) {
-	opt := &commonrepo.ServiceFindOption{
+	opt := &commonrepo.ServiceListOption{
 		Type:          setting.K8SDeployType,
 		Source:        setting.SourceFromGitlab,
-		ExcludeStatus: setting.ProductStatusDeleting,
 	}
-	return commonrepo.NewServiceColl().List(opt)
+	return commonrepo.NewServiceColl().ListMaxRevisions(opt)
 }
 
 // SyncServiceTemplateFromGitlab Force to sync Service Template to latest commit and content,

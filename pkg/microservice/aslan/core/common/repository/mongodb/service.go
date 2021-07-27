@@ -50,11 +50,11 @@ type ServiceFindOption struct {
 }
 
 type ServiceListOption struct {
-	ProductName   string
-	ServiceName   string
-	IsSort        bool
-	ExcludeStatus string
-	BuildName     string
+	ProductName string
+	ServiceName string
+	BuildName   string
+	Type        string
+	Source      string
 }
 
 type ServiceColl struct {
@@ -121,19 +121,19 @@ func (c *ServiceColl) EnsureIndex(ctx context.Context) error {
 }
 
 type grouped struct {
-	ID        serviceRevision    `bson:"_id"`
+	ID        serviceID          `bson:"_id"`
 	ServiceID primitive.ObjectID `bson:"service_id"`
 }
 
-type serviceRevision struct {
+type serviceID struct {
 	ServiceName string `bson:"service_name"`
 	ProductName string `bson:"product_name"`
 }
 
 func (c *ServiceColl) ListMaxRevisionsForServices(services []*templatemodels.ServiceInfo, serviceType string) ([]*models.Service, error) {
-	var srs []serviceRevision
+	var srs []serviceID
 	for _, s := range services {
-		srs = append(srs, serviceRevision{
+		srs = append(srs, serviceID{
 			ServiceName: s.Name,
 			ProductName: s.Owner,
 		})
@@ -202,71 +202,6 @@ func (c *ServiceColl) Find(opt *ServiceFindOption) (*models.Service, error) {
 	return service, nil
 }
 
-// DistinctServices returns distinct service templates with service_name + type
-// Could be filtered with team, "all" means all teams
-func (c *ServiceColl) DistinctServices(opt *ServiceListOption) ([]models.ServiceTmplRevision, error) {
-	var resp []models.ServiceTmplRevision
-	var results []models.ServiceTmplPipeResp
-
-	var pipeline []bson.M
-	if opt.ExcludeStatus != "" {
-		pipeline = append(pipeline, bson.M{"$match": bson.M{"status": bson.M{"$ne": opt.ExcludeStatus}}})
-	}
-	if opt.ProductName != "" {
-		pipeline = append(pipeline, bson.M{"$match": bson.M{"product_name": opt.ProductName}})
-	}
-	if opt.ServiceName != "" {
-		pipeline = append(pipeline, bson.M{"$match": bson.M{"service_name": opt.ServiceName}})
-	}
-	if opt.BuildName != "" {
-		pipeline = append(pipeline, bson.M{"$match": bson.M{"build_name": opt.BuildName}})
-	}
-	if opt.IsSort {
-		pipeline = append(pipeline, bson.M{"$sort": bson.M{"create_time": -1}})
-	} else {
-		pipeline = append(pipeline, bson.M{"$sort": bson.M{"service_name": 1}})
-	}
-	pipeline = append(pipeline,
-		bson.M{"$group": bson.M{"_id": bson.M{"service_name": "$service_name", "type": "$type", "product_name": "$product_name"},
-			"revision":           bson.M{"$max": "$revision"},
-			"source":             bson.M{"$first": "$source"},
-			"codehost_id":        bson.M{"$first": "$codehost_id"},
-			"is_dir":             bson.M{"$first": "$is_dir"},
-			"load_path":          bson.M{"$first": "$load_path"},
-			"repo_name":          bson.M{"$first": "$repo_name"},
-			"repo_owner":         bson.M{"$first": "$repo_owner"},
-			"gerrit_remote_name": bson.M{"$first": "$gerrit_remote_name"},
-			"branch_name":        bson.M{"$first": "$branch_name"}}})
-
-	cursor, err := c.Aggregate(context.TODO(), pipeline)
-	if err != nil {
-		return nil, err
-	}
-	err = cursor.All(context.TODO(), &results)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, result := range results {
-		resp = append(resp, models.ServiceTmplRevision{
-			ServiceName:      result.ID.ServiceName,
-			Source:           result.Source,
-			Type:             result.ID.Type,
-			Revision:         result.Revision,
-			ProductName:      result.ID.ProductName,
-			LoadPath:         result.LoadPath,
-			LoadFromDir:      result.LoadFromDir,
-			CodehostID:       result.CodehostID,
-			RepoName:         result.RepoName,
-			RepoOwner:        result.RepoOwner,
-			BranchName:       result.BranchName,
-			GerritRemoteName: result.ID.GerritRemoteName,
-		})
-	}
-
-	return resp, nil
-}
-
 func (c *ServiceColl) Delete(serviceName, serviceType, productName, status string, revision int64) error {
 	query := bson.M{}
 	if serviceName != "" {
@@ -292,87 +227,6 @@ func (c *ServiceColl) Delete(serviceName, serviceType, productName, status strin
 	_, err := c.DeleteMany(context.TODO(), query)
 
 	return err
-}
-
-func (c *ServiceColl) List(opt *ServiceFindOption) ([]*models.Service, error) {
-	query := bson.M{}
-	if opt.ProductName != "" {
-		query["product_name"] = opt.ProductName
-	}
-	if opt.ServiceName != "" {
-		query["service_name"] = opt.ServiceName
-	}
-	if opt.Type != "" {
-		query["type"] = opt.Type
-	}
-	if opt.Revision > 0 {
-		query["revision"] = opt.Revision
-	}
-	if opt.Source != "" {
-		query["source"] = opt.Source
-	}
-	if opt.CodehostID > 0 {
-		query["codehost_id"] = opt.CodehostID
-	}
-	if opt.RepoName != "" {
-		query["repo_name"] = opt.RepoName
-	}
-	if opt.BranchName != "" {
-		query["branch_name"] = opt.BranchName
-	}
-	if opt.ExcludeStatus != "" {
-		query["status"] = bson.M{"$ne": opt.ExcludeStatus}
-	}
-
-	var resp []*models.Service
-	var results []models.ServiceTmplPipeResp
-	var pipeline []bson.M
-	pipeline = append(pipeline, bson.M{"$match": query})
-	pipeline = append(pipeline, bson.M{"$sort": bson.M{"revision": -1}})
-	pipeline = append(pipeline,
-		bson.M{"$group": bson.M{"_id": bson.M{"service_name": "$service_name", "type": "$type", "product_name": "$product_name"},
-			"revision":    bson.M{"$first": "$revision"},
-			"containers":  bson.M{"$first": "$containers"},
-			"source":      bson.M{"$first": "$source"},
-			"visibility":  bson.M{"$first": "$visibility"},
-			"src_path":    bson.M{"$first": "$src_path"},
-			"codehost_id": bson.M{"$first": "$codehost_id"},
-			"repo_owner":  bson.M{"$first": "$repo_owner"},
-			"repo_name":   bson.M{"$first": "$repo_name"},
-			"branch_name": bson.M{"$first": "$branch_name"},
-			"load_path":   bson.M{"$first": "$load_path"},
-			"is_dir":      bson.M{"$first": "$is_dir"},
-		}})
-
-	cursor, err := c.Aggregate(context.TODO(), pipeline)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := cursor.All(context.TODO(), &results); err != nil {
-		return nil, err
-	}
-
-	for _, result := range results {
-		resp = append(resp, &models.Service{
-			ServiceName: result.ID.ServiceName,
-			Type:        result.ID.Type,
-			ProductName: result.ID.ProductName,
-			Source:      result.Source,
-			Revision:    result.Revision,
-			Containers:  result.Containers,
-			Visibility:  result.Visibility,
-			SrcPath:     result.SrcPath,
-			CodehostID:  result.CodehostID,
-			RepoOwner:   result.RepoOwner,
-			RepoName:    result.RepoName,
-			BranchName:  result.BranchName,
-			LoadPath:    result.LoadPath,
-			LoadFromDir: result.LoadFromDir,
-		})
-	}
-
-	return resp, nil
 }
 
 func (c *ServiceColl) Create(args *models.Service) error {
@@ -401,7 +255,7 @@ func (c *ServiceColl) Update(args *models.Service) error {
 	args.ProductName = strings.TrimSpace(args.ProductName)
 	args.ServiceName = strings.TrimSpace(args.ServiceName)
 
-	query := bson.M{"product_name": args.ProductName, "service_name": args.ServiceName, "type": args.Type, "revision": args.Revision}
+	query := bson.M{"product_name": args.ProductName, "service_name": args.ServiceName, "revision": args.Revision}
 
 	changeMap := bson.M{
 		"create_by":   args.CreateBy,
@@ -418,23 +272,20 @@ func (c *ServiceColl) Update(args *models.Service) error {
 	return err
 }
 
-func (c *ServiceColl) UpdateStatus(serviceName, serviceType, productName, status string) error {
-	query := bson.M{}
-	if serviceName != "" {
-		query["service_name"] = serviceName
+func (c *ServiceColl) UpdateStatus(serviceName, productName, status string) error {
+	if serviceName == "" {
+		return fmt.Errorf("serviceName is empty")
 	}
-	if serviceType != "" {
-		query["type"] = serviceType
-	}
-	if productName != "" {
-		query["product_name"] = productName
+	if productName == "" {
+		return fmt.Errorf("productName is empty")
 	}
 
+	query := bson.M{"service_name": serviceName, "product_name": productName}
 	change := bson.M{"$set": bson.M{
 		"status": status,
 	}}
 
-	_, err := c.UpdateMany(context.TODO(), query, change)
+	_, err := c.UpdateOne(context.TODO(), query, change)
 	return err
 }
 
@@ -456,6 +307,63 @@ func (c *ServiceColl) ListAllRevisions() ([]*models.Service, error) {
 	}
 
 	return resp, err
+}
+
+func (c *ServiceColl) ListMaxRevisions(opt *ServiceListOption) ([]*models.Service, error) {
+	preMatch := bson.M{"status": bson.M{"$ne": setting.ProductStatusDeleting}}
+	if opt.ProductName != "" {
+		preMatch["product_name"] = opt.ProductName
+	}
+	if opt.ServiceName != "" {
+		preMatch["service_name"] = opt.ServiceName
+	}
+	if opt.BuildName != "" {
+		preMatch["build_name"] = opt.BuildName
+	}
+	if opt.Source != "" {
+		preMatch["source"] = opt.Source
+	}
+	if opt.Type != "" {
+		preMatch["type"] = opt.Type
+	}
+
+	return c.listMaxRevisions(preMatch, nil)
+}
+
+func (c *ServiceColl) Count(productName string) (int, error) {
+	pipeline := []bson.M{
+		{
+			"$match": bson.M{
+				"product_name": productName,
+				"status":       bson.M{"$ne": setting.ProductStatusDeleting},
+			},
+		},
+		{
+			"$group": bson.M{
+				"_id": bson.M{
+					"service_name": "$service_name",
+					"product_name": "$product_name",
+				},
+			},
+		},
+		{
+			"$count": "count",
+		},
+	}
+
+	cursor, err := c.Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		return 0, err
+	}
+
+	var cs []struct {
+		Count int `bson:"count"`
+	}
+	if err := cursor.All(context.TODO(), &cs); err != nil || len(cs) == 0 {
+		return 0, err
+	}
+
+	return cs[0].Count, nil
 }
 
 func (c *ServiceColl) listMaxRevisions(preMatch, postMatch bson.M) ([]*models.Service, error) {

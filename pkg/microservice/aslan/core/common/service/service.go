@@ -22,7 +22,6 @@ import (
 	"strings"
 
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -80,36 +79,21 @@ type ServiceProductMap struct {
 }
 
 // ListServiceTemplate 列出服务模板
-// 如果team == ""，则列出所有
 func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTmplResp, error) {
 	var err error
 	resp := new(ServiceTmplResp)
 	resp.Data = make([]*ServiceProductMap, 0)
-	serviceNames := sets.NewString()
 
-	serviceTmpls, err := commonrepo.NewServiceColl().DistinctServices(&commonrepo.ServiceListOption{ProductName: productName, IsSort: true, ExcludeStatus: setting.ProductStatusDeleting})
+	productTmpl, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil {
-		log.Errorf("ServiceTmpl.ListServices error: %v", err)
+		log.Errorf("Can not find project %s, error: %s", productName, err)
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
-	for _, service := range serviceTmpls {
-		serviceNames.Insert(service.ServiceName)
-	}
 
-	//把公共项目下的服务也添加到服务列表里面
-	productTmpl, _ := templaterepo.NewProductColl().Find(productName)
-	for _, services := range productTmpl.Services {
-		for _, service := range services {
-			if serviceNames.Has(service) {
-				continue
-			}
-			services, err := commonrepo.NewServiceColl().DistinctServices(&commonrepo.ServiceListOption{ServiceName: service, ExcludeStatus: setting.ProductStatusDeleting})
-			if err != nil {
-				log.Errorf("ServiceTmpl.ListServices error: %v", err)
-				return resp, e.ErrListTemplate.AddDesc(err.Error())
-			}
-			serviceTmpls = append(serviceTmpls, services...)
-		}
+	services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), "")
+	if err != nil {
+		log.Errorf("Failed to list services by %+v, err: %s", productTmpl.AllServiceInfos(), err)
+		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
 	productSvcs, err := distincProductServices("")
@@ -118,20 +102,7 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 		return resp, e.ErrListTemplate
 	}
 
-	for _, service := range serviceTmpls {
-		//获取服务的containers
-		opt := &commonrepo.ServiceFindOption{
-			ServiceName: service.ServiceName,
-			Type:        service.Type,
-			Revision:    service.Revision,
-			ProductName: service.ProductName,
-		}
-		serviceObject, err := commonrepo.NewServiceColl().Find(opt)
-		if err != nil {
-			log.Errorf("ServiceTmpl Find error: %v", err)
-			continue
-		}
-
+	for _, serviceObject := range services {
 		// FIXME: 兼容老数据，想办法干掉这个
 		if serviceObject.Source == setting.SourceFromGitlab && serviceObject.CodehostID == 0 {
 			gitlabAddress, err := GetGitlabAddress(serviceObject.SrcPath)
@@ -186,10 +157,10 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 		}
 
 		spmap := &ServiceProductMap{
-			Service:          service.ServiceName,
-			Type:             service.Type,
-			Source:           service.Source,
-			ProductName:      service.ProductName,
+			Service:          serviceObject.ServiceName,
+			Type:             serviceObject.Type,
+			Source:           serviceObject.Source,
+			ProductName:      serviceObject.ProductName,
 			Containers:       serviceObject.Containers,
 			Product:          []string{},
 			Visibility:       serviceObject.Visibility,
@@ -199,11 +170,11 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 			BranchName:       serviceObject.BranchName,
 			LoadFromDir:      serviceObject.LoadFromDir,
 			LoadPath:         serviceObject.LoadPath,
-			GerritRemoteName: service.GerritRemoteName,
+			GerritRemoteName: serviceObject.GerritRemoteName,
 		}
 
-		if _, ok := productSvcs[service.ServiceName]; ok {
-			spmap.Product = productSvcs[service.ServiceName]
+		if _, ok := productSvcs[serviceObject.ServiceName]; ok {
+			spmap.Product = productSvcs[serviceObject.ServiceName]
 		}
 
 		resp.Data = append(resp.Data, spmap)
@@ -370,7 +341,7 @@ func UpdatePmServiceTemplate(username string, args *ServiceTmplBuildObject, log 
 	preService.CreateBy = username
 	preService.BuildName = args.Build.Name
 
-	if err := commonrepo.NewServiceColl().Delete(preService.ServiceName, setting.PMDeployType, "", setting.ProductStatusDeleting, preService.Revision); err != nil {
+	if err := commonrepo.NewServiceColl().Delete(preService.ServiceName, setting.PMDeployType, args.ServiceTmplObject.ProductName, setting.ProductStatusDeleting, preService.Revision); err != nil {
 		return err
 	}
 

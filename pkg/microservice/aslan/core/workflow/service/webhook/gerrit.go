@@ -194,12 +194,11 @@ func GetGerritWorkspaceBasePath(repoName string) (string, error) {
 
 // GetGerritServiceTemplates Get all service templates maintained in gerrit
 func GetGerritServiceTemplates() ([]*commonmodels.Service, error) {
-	opt := &commonrepo.ServiceFindOption{
+	opt := &commonrepo.ServiceListOption{
 		Type:          setting.K8SDeployType,
 		Source:        setting.SourceFromGerrit,
-		ExcludeStatus: setting.ProductStatusDeleting,
 	}
-	return commonrepo.NewServiceColl().List(opt)
+	return commonrepo.NewServiceColl().ListMaxRevisions(opt)
 }
 
 // SyncServiceTemplateFromGerrit Force to sync Service Template to latest commit and content,

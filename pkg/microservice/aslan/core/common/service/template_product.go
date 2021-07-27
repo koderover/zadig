@@ -77,7 +77,7 @@ func GetProductTemplate(productName string, log *zap.SugaredLogger) (*template.P
 		return nil, fmt.Errorf("FillProductTemplateVars err : %v", err)
 	}
 
-	totalServices, err := commonrepo.NewServiceColl().DistinctServices(&commonrepo.ServiceListOption{ProductName: productName, IsSort: true, ExcludeStatus: setting.ProductStatusDeleting})
+	totalServices, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
 	if err != nil {
 		return resp, fmt.Errorf("DistinctServices err : %v", err)
 	}

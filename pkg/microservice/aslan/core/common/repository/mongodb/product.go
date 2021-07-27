@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/koderover/zadig/pkg/setting"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -269,4 +270,10 @@ func (c *ProductColl) UpdateIsPublic(envName, productName string, isPublic bool)
 	_, err := c.UpdateOne(context.TODO(), query, change)
 
 	return err
+}
+
+func (c *ProductColl) Count(productName string) (int, error) {
+	num, err := c.CountDocuments(context.TODO(), bson.M{"product_name": productName, "status": bson.M{"$ne": setting.ProductStatusDeleting}})
+
+	return int(num), err
 }
