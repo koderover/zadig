@@ -384,12 +384,11 @@ func UpdatePmServiceTemplate(username string, args *ServiceTmplBuildObject, log 
 }
 
 func DeleteServiceWebhookByName(serviceName string, logger *zap.SugaredLogger) {
-	svc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{ServiceName: serviceName})
+	svc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{ServiceName: serviceName, Type: setting.K8SDeployType})
 	if err != nil {
 		logger.Errorf("Failed to get service %s, error: %s", serviceName, err)
 		return
 	}
-	logger.Infof("svc : %+v", svc)
 	ProcessServiceWebhook(nil, svc, serviceName, logger)
 }
 
