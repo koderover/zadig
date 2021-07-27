@@ -22,6 +22,8 @@ import (
 	"path"
 	"strings"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehub"
+
 	"github.com/xanzy/go-gitlab"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
@@ -70,17 +72,38 @@ func syncContent(args *commonmodels.Service, logger *zap.SugaredLogger) error {
 		return fmt.Errorf("url parse failure, err: %s", err)
 	}
 
-	getter, err := newGetter(args.Source, address, owner)
-	if err != nil {
-		logger.Errorf("Failed to create new getter, error: %s", err)
-		return err
+	var yamls []string
+	switch args.Source {
+	case setting.SourceFromGitlab, setting.SourceFromGithub:
+		getter, err := newGetter(args.Source, address, owner)
+		if err != nil {
+			logger.Errorf("Failed to create new getter, error: %s", err)
+			return err
+		}
+
+		yamls, err = getter.GetYAMLContents(owner, repo, branch, path, pathType != "blob", true)
+		if err != nil {
+			logger.Errorf("Failed to get yamls, error: %s", err)
+			return err
+		}
+	case setting.SourceFromCodeHub:
+		client, err := getCodehubClientByAddress(address)
+		if err != nil {
+			logger.Errorf("Failed to get codehub client, error: %s", err)
+			return err
+		}
+		repoUUID, err := client.GetRepoUUID(repo)
+		if err != nil {
+			logger.Errorf("Failed to get repoUUID, error: %s", err)
+			return err
+		}
+		yamls, err = client.GetYAMLContents(repoUUID, branch, path, pathType == "tree", true)
+		if err != nil {
+			logger.Errorf("Failed to get yamls, error: %s", err)
+			return err
+		}
 	}
 
-	yamls, err := getter.GetYAMLContents(owner, repo, branch, path, pathType != "blob", true)
-	if err != nil {
-		logger.Errorf("Failed to get yamls, error: %s", err)
-		return err
-	}
 	args.KubeYamls = yamls
 	args.Yaml = util.CombineManifests(yamls)
 
@@ -119,6 +142,12 @@ func fillServiceTmpl(args *commonmodels.Service, log *zap.SugaredLogger) error {
 			err := syncContent(args, log)
 			if err != nil {
 				log.Errorf("Sync content from github failed, error: %v", err)
+				return err
+			}
+		} else if args.Source == setting.SourceFromCodeHub {
+			err := syncContent(args, log)
+			if err != nil {
+				log.Errorf("Sync content from codehub failed, error: %v", err)
 				return err
 			}
 		} else {
@@ -175,6 +204,47 @@ func syncLatestCommit(service *commonmodels.Service) error {
 	return nil
 }
 
+func syncCodehubLatestCommit(service *commonmodels.Service) error {
+	if service.SrcPath == "" {
+		return fmt.Errorf("url不能是空的")
+	}
+
+	address, owner, repo, branch, _, _, err := GetOwnerRepoBranchPath(service.SrcPath)
+	if err != nil {
+		return fmt.Errorf("url 必须包含 owner/repo/tree/branch/path，具体请参考 Placeholder 提示")
+	}
+
+	client, err := getCodehubClientByAddress(address)
+	if err != nil {
+		return err
+	}
+
+	id, message, err := CodehubGetLatestCommit(client, owner, repo, branch)
+	if err != nil {
+		return err
+	}
+	service.Commit = &commonmodels.Commit{
+		SHA:     id,
+		Message: message,
+	}
+	return nil
+}
+
+func getCodehubClientByAddress(address string) (*codehub.Client, error) {
+	opt := &codehost.Option{
+		Address:      address,
+		CodeHostType: codehost.CodeHubProvider,
+	}
+	codehost, err := codehost.GetCodeHostInfo(opt)
+	if err != nil {
+		log.Error(err)
+		return nil, e.ErrCodehostListProjects.AddDesc("git client is nil")
+	}
+	client := codehub.NewClient(codehost.AccessKey, codehost.SecretKey, codehost.Region)
+
+	return client, nil
+}
+
 func getGitlabClientByAddress(address string) (*gitlabtool.Client, error) {
 	opt := &codehost.Option{
 		Address:      address,
@@ -201,6 +271,15 @@ func GitlabGetLatestCommit(client *gitlabtool.Client, owner, repo string, ref, p
 			owner, repo, ref, path, err)
 	}
 	return commit, nil
+}
+
+func CodehubGetLatestCommit(client *codehub.Client, owner, repo string, branch string) (string, string, error) {
+	commit, err := client.GetLatestRepositoryCommit(owner, repo, branch)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get lastest commit with project %s/%s, ref: %s, error: %s",
+			owner, repo, CodehubGetLatestCommit, err)
+	}
+	return commit.ID, commit.Message, nil
 }
 
 // 从 kube yaml 中获取所有当前 containers 镜像和名称
