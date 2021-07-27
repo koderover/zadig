@@ -397,7 +397,7 @@ func setBuildInfo(build *types.Repository) {
 					for _, commit := range prCommits {
 						log.Infof("########### %#v  -------- id : %v", commit, *commit.Commit.Tree.SHA)
 						value := reflect.ValueOf(commit)
-						for i := 0; i < value.NumField(); i++ {
+						for i := 0; i < value.Elem().NumField(); i++ {
 							fmt.Printf("Field %d: %v\n", i, value.Field(i))
 						}
 						build.CommitID = *commit.Commit.Tree.SHA
