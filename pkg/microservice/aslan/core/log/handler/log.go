@@ -97,6 +97,5 @@ func GetContainerLogsHttp(c *gin.Context) {
 		tails = int64(10)
 	}
 
-	// job名称使用全小写，避免出现subdomain错误
 	ctx.Resp, ctx.Err = logservice.GetPodLogByHttp(podName, containerName, tails, ctx.Logger)
 }
