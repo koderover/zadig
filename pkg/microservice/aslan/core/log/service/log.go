@@ -17,7 +17,6 @@ limitations under the License.
 package service
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -27,6 +26,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	s3service "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
+	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -71,30 +71,42 @@ func getContainerLogFromS3(pipelineName, filenamePrefix string, taskID int64, lo
 	defer func() {
 		_ = os.Remove(tempFile)
 	}()
-	if storage, err := s3service.FindDefaultS3(); err == nil {
-		if storage.Subfolder != "" {
-			storage.Subfolder = fmt.Sprintf("%s/%s/%d/%s", storage.Subfolder, pipelineName, taskID, "log")
-		} else {
-			storage.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineName, taskID, "log")
-		}
-		if files, err := s3service.ListFiles(storage, fileName, false); err == nil && len(files) > 0 {
-			if err = s3service.Download(context.Background(), storage, files[0], tempFile); err == nil {
-				var log []byte
-				log, err = ioutil.ReadFile(tempFile)
-				if err == nil {
-					return string(log), nil
-				}
-			} else {
-				log.Errorf("GetContainerLogFromS3 Download err:%v", err)
-			}
-		} else if err != nil {
-			log.Errorf("GetContainerLogFromS3 ListFiles err:%v", err)
-		}
-	} else {
+
+	storage, err := s3service.FindDefaultS3()
+	if err != nil {
 		log.Errorf("GetContainerLogFromS3 FindDefaultS3 err:%v", err)
+		return "", err
 	}
 
-	log.Errorf("failed to find file with path %s", tempFile)
-	err := fmt.Errorf("log file not found")
-	return "", err
+	if storage.Subfolder != "" {
+		storage.Subfolder = fmt.Sprintf("%s/%s/%d/%s", storage.Subfolder, pipelineName, taskID, "log")
+	} else {
+		storage.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineName, taskID, "log")
+	}
+	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure)
+	if err != nil {
+		log.Errorf("Failed to create s3 client, the error is: %+v", err)
+		return "", err
+	}
+	objectPrefix := storage.GetObjectPath(fileName)
+	fileList, err := client.ListFiles(storage.Endpoint, objectPrefix, false)
+	if err != nil {
+		log.Errorf("GetContainerLogFromS3 ListFiles err:%v", err)
+		return "", err
+	}
+	if len(fileList) == 0 {
+		return "", nil
+	}
+	objectKey := storage.GetObjectPath(fileList[0])
+	err = client.Download(storage.Bucket, objectKey, tempFile)
+	if err != nil {
+		log.Errorf("GetContainerLogFromS3 Download err:%v", err)
+		return "", err
+	}
+	containerLog, err := ioutil.ReadFile(tempFile)
+	if err != nil {
+		log.Errorf("GetContainerLogFromS3 Read file err:%v", err)
+		return "", err
+	}
+	return string(containerLog), nil
 }

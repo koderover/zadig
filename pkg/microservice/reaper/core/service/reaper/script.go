@@ -18,7 +18,6 @@ package reaper
 
 import (
 	"bufio"
-	"context"
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
@@ -32,6 +31,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/reaper/internal/s3"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/log"
+	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -82,28 +82,33 @@ func (r *Reaper) runIntallationScripts() error {
 			fileName := filepath[len(filepath)-1]
 			tmpPath = path.Join(os.TempDir(), fileName)
 
-			err = s3.ReaperDownload(
-				context.Background(),
-				store,
-				fileName,
-				tmpPath,
-			)
+			s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure)
+			if err == nil {
+				objectKey := store.GetObjectPath(fileName)
+				err = s3client.Download(
+					store.Bucket,
+					objectKey,
+					tmpPath,
+				)
 
-			// 缓存不存在
-			if err != nil {
+				// 缓存不存在
+				if err != nil {
+					err := httpclient.Download(install.Download, tmpPath)
+					if err != nil {
+						return err
+					}
+					s3client.Upload(
+						store.Bucket,
+						tmpPath,
+						objectKey,
+					)
+					log.Infof("Package loaded from url: %s", install.Download)
+				}
+			} else {
 				err := httpclient.Download(install.Download, tmpPath)
 				if err != nil {
 					return err
 				}
-				s3.Upload(
-					context.Background(),
-					store,
-					tmpPath,
-					fileName,
-				)
-				log.Infof("Package loaded from url: %s", install.Download)
-			} else {
-				log.Info("Package loaded from cache")
 			}
 		}
 

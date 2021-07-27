@@ -5,6 +5,7 @@ go 1.16
 require (
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/andygrunwald/go-gerrit v0.0.0-20171029143327-95b11af228a1
+	github.com/aws/aws-sdk-go v1.34.28
 	github.com/bndr/gojenkins v1.1.0
 	github.com/bradleyfalzon/ghinstallation v1.1.1
 	github.com/bshuster-repo/logrus-logstash-hook v1.0.0 // indirect
@@ -21,7 +22,6 @@ require (
 	github.com/gin-contrib/sessions v0.0.3
 	github.com/gin-contrib/sse v0.1.0
 	github.com/gin-gonic/gin v1.7.2
-	github.com/go-ini/ini v1.42.0 // indirect
 	github.com/go-openapi/spec v0.19.5 // indirect
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/gofrs/uuid v4.0.0+incompatible // indirect
@@ -37,7 +37,6 @@ require (
 	github.com/jasonlvhit/gocron v0.0.0-20171226191223-3c914c8681c3
 	github.com/jinzhu/now v1.1.2
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
-	github.com/minio/minio-go v3.0.3-0.20171223001112-e163d8055f79+incompatible
 	github.com/nsqio/go-nsq v1.0.7
 	github.com/nwaples/rardecode v1.0.0 // indirect
 	github.com/onsi/ginkgo v1.14.1

@@ -630,7 +630,7 @@ func SyncServiceTemplateFromGithub(service *commonmodels.Service, latestCommitID
 		return nil
 	}
 	// 在Ensure过程中会检查source，如果source为github，则同步github内容到service中
-	if err := fillServiceTmpl(service, log); err != nil {
+	if err := fillServiceTmpl(setting.WebhookTaskCreator, service, log); err != nil {
 		log.Errorf("ensure github serviceTmpl failed, error: %+v", err)
 		return e.ErrValidateTemplate.AddDesc(err.Error())
 	}

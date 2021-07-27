@@ -278,7 +278,7 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 			// 替换分隔符
 			args.Yaml = util.ReplaceWrapLine(args.Yaml)
 			// 分隔符为\n---\n
-			args.KubeYamls = util.SplitManifests(args.Yaml)
+			args.KubeYamls = SplitYaml(args.Yaml)
 		}
 
 		// 遍历args.KubeYamls，获取 Deployment 或者 StatefulSet 里面所有containers 镜像和名称

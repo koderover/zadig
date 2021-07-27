@@ -17,7 +17,6 @@ limitations under the License.
 package reaper
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path"
@@ -27,6 +26,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/reaper/internal/s3"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
+	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 )
 
 // 上传用户文件到s3
@@ -44,12 +44,18 @@ func (r *Reaper) archiveS3Files() (err error) {
 			store.Subfolder = fmt.Sprintf("%s/%d/%s", r.Ctx.PipelineName, r.Ctx.TaskID, "file")
 		}
 
+		s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure)
+		if err != nil {
+			log.Errorf("failed to create s3 client, error is: %+v", err)
+			return err
+		}
+		objectKey := store.GetObjectPath(r.Ctx.FileArchiveCtx.FileName)
+
 		src := filepath.Join(r.ActiveWorkspace, r.Ctx.FileArchiveCtx.FileLocation, r.Ctx.FileArchiveCtx.FileName)
-		err = s3.Upload(
-			context.Background(),
-			store,
+		err = s3client.Upload(
+			store.Bucket,
 			src,
-			r.Ctx.FileArchiveCtx.FileName,
+			objectKey,
 		)
 
 		if err != nil {
@@ -92,7 +98,14 @@ func (r *Reaper) archiveTestFiles() error {
 		return nil
 	}
 
-	err = s3.Upload(context.Background(), store, filePath, r.Ctx.Archive.File)
+	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure)
+	if err != nil {
+		log.Errorf("failed to create s3 client, error is: %+v", err)
+		return err
+	}
+	objectKey := store.GetObjectPath(r.Ctx.Archive.File)
+
+	err = s3client.Upload(store.Bucket, filePath, objectKey)
 	if err != nil {
 		log.Errorf("failed to upload package %s, %v", filePath, err)
 		return err
@@ -133,7 +146,13 @@ func (r *Reaper) archiveHTMLTestReportFile() error {
 	}
 
 	fileName := filepath.Base(r.Ctx.Archive.TestReportFile)
-	err = s3.Upload(context.Background(), store, filePath, fileName)
+	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure)
+	if err != nil {
+		log.Errorf("failed to create s3 client, error is: %+v", err)
+		return err
+	}
+	objectKey := store.GetObjectPath(fileName)
+	err = s3client.Upload(store.Bucket, filePath, objectKey)
 	if err != nil {
 		log.Errorf("failed to upload package %s, %s", filePath, err)
 		return err

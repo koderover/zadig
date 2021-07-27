@@ -17,7 +17,6 @@ limitations under the License.
 package reaper
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -28,6 +27,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/reaper/core/service/meta"
 	"github.com/koderover/zadig/pkg/microservice/reaper/internal/s3"
 	"github.com/koderover/zadig/pkg/tool/log"
+	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 )
 
 func artifactsUpload(ctx *meta.Context, activeWorkspace string) error {
@@ -74,12 +74,13 @@ func artifactsUpload(ctx *meta.Context, activeWorkspace string) error {
 			}
 
 			if store != nil {
-				err = s3.Upload(
-					context.Background(),
-					store,
-					filePath,
-					fmt.Sprintf("%s/%s", artifactPath, artifactFile.Name()),
-				)
+				s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure)
+				if err != nil {
+					log.Errorf("failed to create s3 client, error is: %+v", err)
+					return err
+				}
+				objectKey := store.GetObjectPath(fmt.Sprintf("%s/%s", artifactPath, artifactFile.Name()))
+				err = s3client.Upload(store.Bucket, filePath, objectKey)
 
 				if err != nil {
 					log.Errorf("artifactsUpload failed to upload package %s, err:%v", filePath, err)
