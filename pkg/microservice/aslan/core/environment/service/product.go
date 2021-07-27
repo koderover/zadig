@@ -125,7 +125,7 @@ func GetInitProduct(productTmplName string, log *zap.SugaredLogger) (*commonmode
 		for _, serviceName := range names {
 			opt := &commonrepo.ServiceFindOption{
 				ServiceName:   serviceName,
-				ProductName: allServiceInfoMap[serviceName].Owner,
+				ProductName:   allServiceInfoMap[serviceName].Owner,
 				ExcludeStatus: setting.ProductStatusDeleting,
 			}
 
@@ -142,16 +142,7 @@ func GetInitProduct(productTmplName string, log *zap.SugaredLogger) (*commonmode
 				Type:        serviceTmpl.Type,
 				Revision:    serviceTmpl.Revision,
 			}
-			if serviceTmpl.Type == setting.K8SDeployType {
-				serviceResp.Containers = make([]*commonmodels.Container, 0)
-				for _, c := range serviceTmpl.Containers {
-					container := &commonmodels.Container{
-						Name:  c.Name,
-						Image: c.Image,
-					}
-					serviceResp.Containers = append(serviceResp.Containers, container)
-				}
-			} else if serviceTmpl.Type == setting.HelmDeployType {
+			if serviceTmpl.Type == setting.K8SDeployType || serviceTmpl.Type == setting.HelmDeployType {
 				serviceResp.Containers = make([]*commonmodels.Container, 0)
 				for _, c := range serviceTmpl.Containers {
 					container := &commonmodels.Container{

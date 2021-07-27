@@ -326,9 +326,6 @@ func (c *ServiceColl) ListMaxRevisions(opt *ServiceListOption) ([]*models.Servic
 	if opt.Type != "" {
 		preMatch["type"] = opt.Type
 	}
-	if opt.BuildName != "" {
-		preMatch["build_name"] = opt.BuildName
-	}
 
 	return c.listMaxRevisions(preMatch, nil)
 }
