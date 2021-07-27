@@ -18,18 +18,15 @@ package gitlab
 
 import (
 	"encoding/base64"
-	"strings"
 
 	"github.com/xanzy/go-gitlab"
-
-	"github.com/koderover/zadig/pkg/util"
 )
 
-func (c *Client) ListTree(owner, repo string, branch string, path string, recursive bool) ([]*gitlab.TreeNode, error) {
+func (c *Client) ListTree(owner, repo string, ref string, path string) ([]*gitlab.TreeNode, error) {
+	// Recursive default value is false,
 	opts := &gitlab.ListTreeOptions{
-		Ref:       &branch,
-		Path:      &path,
-		Recursive: &recursive,
+		Ref:  &ref,
+		Path: &path,
 	}
 
 	tn, err := wrap(c.Repositories.ListTree(generateProjectName(owner, repo), opts))
@@ -92,48 +89,4 @@ func (c *Client) Compare(projectID int, from, to string) ([]*gitlab.Diff, error)
 	}
 
 	return nil, err
-}
-
-// GetYAMLContents recursively get all yaml contents under the given path. if split is true, manifests in the same file
-// will be split to separated ones.
-func (c *Client) GetYAMLContents(owner, repo, branch, path string, isDir, split bool) ([]string, error) {
-	var res []string
-	if !isDir {
-		if !(strings.HasSuffix(path, ".yaml") || strings.HasSuffix(path, ".yml")) {
-			return nil, nil
-		}
-
-		ct, err := c.GetFileContent(owner, repo, branch, path)
-		if err != nil {
-			return nil, err
-		}
-
-		content := string(ct)
-		if split {
-			res = util.SplitManifests(content)
-		} else {
-			res = []string{content}
-		}
-
-		return res, nil
-	}
-
-	treeNodes, err := c.ListTree(owner, repo, branch, path, true)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, tn := range treeNodes {
-		if tn.Type != "blob" {
-			continue
-		}
-		r, err := c.GetYAMLContents(owner, repo, branch, tn.Path, false, split)
-		if err != nil {
-			return nil, err
-		}
-
-		res = append(res, r...)
-	}
-
-	return res, nil
 }
