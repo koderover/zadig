@@ -356,7 +356,7 @@ func SyncServiceTemplateFromCodehub(service *commonmodels.Service, log *zap.Suga
 		return nil
 	}
 	// 在Ensure过程中会检查source，如果source为 codehub，则同步 codehub 内容到service中
-	if err := fillServiceTmpl(service, log); err != nil {
+	if err := fillServiceTmpl(setting.WebhookTaskCreator, service, log); err != nil {
 		log.Errorf("ensureServiceTmpl error: %+v", err)
 		return e.ErrValidateTemplate.AddDesc(err.Error())
 	}
