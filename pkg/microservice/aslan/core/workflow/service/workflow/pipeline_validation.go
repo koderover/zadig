@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"regexp"
 	"sort"
 	"strings"
@@ -395,6 +396,10 @@ func setBuildInfo(build *types.Repository) {
 				if err == nil && len(prCommits) > 0 {
 					for _, commit := range prCommits {
 						log.Infof("########### %#v  -------- id : %v", commit, *commit.Commit.Tree.SHA)
+						value := reflect.ValueOf(commit)
+						for i := 0; i < value.NumField(); i++ {
+							fmt.Printf("Field %d: %v\n", i, value.Field(i))
+						}
 						build.CommitID = *commit.Commit.Tree.SHA
 						build.CommitMessage = *commit.Commit.Message
 						build.AuthorName = *commit.Commit.Author.Name
