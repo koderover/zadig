@@ -92,10 +92,12 @@ func GetContainerLogsHttp(c *gin.Context) {
 
 	podName := c.Query("podName")
 	containerName := c.Query("containerName")
+	envName := c.Query("envName")
+	productName := c.Query("productName")
 	tails, err := strconv.ParseInt(c.Query("tails"), 10, 64)
 	if err != nil {
 		tails = int64(10)
 	}
 
-	ctx.Resp, ctx.Err = logservice.GetPodLogByHttp(podName, containerName, tails, ctx.Logger)
+	ctx.Resp, ctx.Err = logservice.GetPodLogByHttp(podName, containerName, envName, productName, tails, ctx.Logger)
 }

@@ -17,11 +17,17 @@ limitations under the License.
 package service
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	//"golang.org/x/net/context/ctxhttp"
+	"io"
 	"io/ioutil"
+	corev1 "k8s.io/api/core/v1"
 	"os"
-	"os/exec"
+	//"os/exec"
 	"strings"
 
 	"go.uber.org/zap"
@@ -100,9 +106,43 @@ func getContainerLogFromS3(pipelineName, filenamePrefix string, taskID int64, lo
 	return "", err
 }
 
-func GetPodLogByHttp(podName, containerName string, tail int64, log *zap.SugaredLogger) (string, error) {
+func GetPodLogByHttp(podName, containerName, envName, productName string, tail int64, log *zap.SugaredLogger) (string, error) {
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName})
+	if err != nil {
+		log.Errorf("kubeCli.GetContainerLogStream error: %v", err)
+		return "", err
+	}
+	clientSet, err := kube.GetClientset(productInfo.ClusterID)
+	if err != nil {
+		log.Errorf("failed to find ns and kubeClient: %v", err)
+		return "", err
+	}
 
-	cmdStr := ""
+	logOptions := &corev1.PodLogOptions{
+		Container: containerName,
+		Follow:    true,
+		TailLines: &tail,
+	}
+	ctx := context.TODO()
+	req := clientSet.CoreV1().Pods(productInfo.Namespace).GetLogs(podName, logOptions)
+	podLogs, err := req.Stream(ctx)
+	if err != nil {
+		log.Errorf("req.Stream error: %v", err)
+		return "", err
+	}
+	defer podLogs.Close()
+
+	buf := new(bytes.Buffer)
+	_, err = io.Copy(buf, podLogs)
+	if err != nil {
+		log.Errorf("io.Copy error: %v", err)
+		return "", err
+	}
+	str := buf.String()
+
+	return str, nil
+
+	/*cmdStr := ""
 	if len(containerName) > 0 {
 		cmdStr = fmt.Sprintf("kubectl logs  %v -c %v --tail %d", podName, containerName, tail)
 	} else {
@@ -117,5 +157,5 @@ func GetPodLogByHttp(podName, containerName string, tail int64, log *zap.Sugared
 		return "", err
 	} else {
 		return string(output), nil
-	}
+	}*/
 }
