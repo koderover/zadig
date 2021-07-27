@@ -311,20 +311,22 @@ func (c *ServiceColl) ListAllRevisions() ([]*models.Service, error) {
 
 func (c *ServiceColl) ListMaxRevisions(opt *ServiceListOption) ([]*models.Service, error) {
 	preMatch := bson.M{"status": bson.M{"$ne": setting.ProductStatusDeleting}}
-	if opt.ProductName != "" {
-		preMatch["product_name"] = opt.ProductName
-	}
-	if opt.ServiceName != "" {
-		preMatch["service_name"] = opt.ServiceName
-	}
-	if opt.BuildName != "" {
-		preMatch["build_name"] = opt.BuildName
-	}
-	if opt.Source != "" {
-		preMatch["source"] = opt.Source
-	}
-	if opt.Type != "" {
-		preMatch["type"] = opt.Type
+	if opt != nil {
+		if opt.ProductName != "" {
+			preMatch["product_name"] = opt.ProductName
+		}
+		if opt.ServiceName != "" {
+			preMatch["service_name"] = opt.ServiceName
+		}
+		if opt.BuildName != "" {
+			preMatch["build_name"] = opt.BuildName
+		}
+		if opt.Source != "" {
+			preMatch["source"] = opt.Source
+		}
+		if opt.Type != "" {
+			preMatch["type"] = opt.Type
+		}
 	}
 
 	return c.listMaxRevisions(preMatch, nil)

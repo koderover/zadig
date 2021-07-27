@@ -22,13 +22,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/koderover/zadig/pkg/setting"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/setting"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
@@ -276,4 +276,22 @@ func (c *ProductColl) Count(productName string) (int, error) {
 	num, err := c.CountDocuments(context.TODO(), bson.M{"product_name": productName, "status": bson.M{"$ne": setting.ProductStatusDeleting}})
 
 	return int(num), err
+}
+
+// UpdateAll updates all envs in a bulk write.
+// Currently only field `services` is supported.
+// Note: A bulk operation can have at most 1000 operations, but the client will do it for us.
+// see https://stackoverflow.com/questions/24237887/what-is-mongodb-batch-operation-max-size
+func (c *ProductColl) UpdateAll(envs []*models.Product) error {
+	var ms []mongo.WriteModel
+	for _, env := range envs {
+		ms = append(ms,
+			mongo.NewUpdateOneModel().
+				SetFilter(bson.D{{"_id", env.ID}}).
+				SetUpdate(bson.D{{"$set", bson.D{{"services", env.Services}}}}),
+		)
+	}
+	_, err := c.BulkWrite(context.TODO(), ms)
+
+	return err
 }
