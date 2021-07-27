@@ -45,6 +45,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/gerrit"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/log"
+	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -574,7 +575,10 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 			} else {
 				s3Storage.Subfolder = fmt.Sprintf("%s/%s", subFolderName, "service")
 			}
-			s3service.RemoveFiles(s3Storage, []string{fmt.Sprintf("%s.tar.gz", serviceName)}, false)
+			client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure)
+			if err == nil {
+				client.RemoveFiles(s3Storage.Bucket, []string{fmt.Sprintf("%s.tar.gz", serviceName)})
+			}
 		}
 	}
 
@@ -747,7 +751,7 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 			args.Containers = make([]*commonmodels.Container, 0)
 		}
 		// 配置来源为Gitlab，需要从Gitlab同步配置，并设置KubeYamls.
-		if args.Source != setting.SourceFromGithub && args.Source != setting.SourceFromGitlab {
+		if args.Source == setting.SourceFromGerrit {
 			// 拆分 all-in-one yaml文件
 			// 替换分隔符
 			args.Yaml = util.ReplaceWrapLine(args.Yaml)

@@ -33,6 +33,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/tool/codehub"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	githubtool "github.com/koderover/zadig/pkg/tool/git/github"
 )
@@ -282,6 +283,33 @@ func GetGitlabRepoInfo(codehostID int, repoName, branchName, path string, log *z
 			})
 		}
 		nextPage = resp.Header.Get("x-next-page")
+	}
+	return fileInfos, nil
+}
+
+// 获取codehub的目录内容接口
+func GetCodehubRepoInfo(codehostID int, repoUUID, branchName, path string, log *zap.SugaredLogger) ([]*CodehostFileInfo, error) {
+	fileInfos := make([]*CodehostFileInfo, 0)
+
+	detail, err := codehost.GetCodehostDetail(codehostID)
+	if err != nil {
+		log.Errorf("GetCodehubRepoInfo GetCodehostDetail err:%s", err)
+		return fileInfos, e.ErrListWorkspace.AddDesc(err.Error())
+	}
+
+	codeHubClient := codehub.NewCodeHubClient(detail.AccessKey, detail.SecretKey, detail.Region)
+	treeNodes, err := codeHubClient.FileTree(repoUUID, branchName, path)
+	if err != nil {
+		log.Errorf("Failed to list tree from codehub err:%s", err)
+		return nil, err
+	}
+	for _, treeInfo := range treeNodes {
+		fileInfos = append(fileInfos, &CodehostFileInfo{
+			Name:     treeInfo.Name,
+			Size:     0,
+			IsDir:    treeInfo.Type == "tree",
+			FullPath: treeInfo.Path,
+		})
 	}
 	return fileInfos, nil
 }

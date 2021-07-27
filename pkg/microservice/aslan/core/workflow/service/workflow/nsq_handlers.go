@@ -49,6 +49,7 @@ import (
 	"github.com/koderover/zadig/pkg/shared/poetry"
 	"github.com/koderover/zadig/pkg/tool/git/gitlab"
 	"github.com/koderover/zadig/pkg/tool/log"
+	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -428,11 +429,8 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 						}
 
 						var filename string
-						if s3Service, err := s3.FindDefaultS3(); err == nil {
+						if storage, err := s3.FindDefaultS3(); err == nil {
 							filename, err = util.GenerateTmpFile()
-							defer func() {
-								_ = os.Remove(filename)
-							}()
 							if err != nil {
 								h.log.Errorf("uploadTaskData GenerateTmpFile err:%v", err)
 							}
@@ -441,9 +439,13 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 								config.WorkflowType, pt.PipelineName, pt.TaskID, config.TaskTestingV2, testInfo.TestModuleName)), "_", "-", -1)
 							fileSrc := fmt.Sprintf("%s/%d/%s/%s", pt.PipelineName, pt.TaskID, "test", testJobName)
 
-							if err = s3.Download(context.Background(), s3Service, fileSrc, filename); err != nil {
+							client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure)
+							objectKey := storage.GetObjectPath(fileSrc)
+							err = client.Download(storage.Bucket, objectKey, filename)
+							if err != nil {
 								h.log.Errorf("uploadTaskData s3 Download err:%v", err)
 							}
+							_ = os.Remove(filename)
 						} else {
 							h.log.Errorf("uploadTaskData FindDefaultS3 err:%v", err)
 						}
@@ -596,11 +598,8 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 						}
 
 						var filename string
-						if s3Service, err := s3.FindDefaultS3(); err == nil {
+						if storage, err := s3.FindDefaultS3(); err == nil {
 							filename, err = util.GenerateTmpFile()
-							defer func() {
-								_ = os.Remove(filename)
-							}()
 							if err != nil {
 								h.log.Errorf("uploadTaskData GenerateTmpFile err:%v", err)
 							}
@@ -610,9 +609,13 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 								config.TestType, pipelineName, pt.TaskID, config.TaskTestingV2, testInfo.TestModuleName)), "_", "-", -1)
 							fileSrc := fmt.Sprintf("%s/%d/%s/%s", pipelineName, pt.TaskID, "test", testJobName)
 
-							if err = s3.Download(context.Background(), s3Service, fileSrc, filename); err != nil {
+							client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure)
+							objectKey := storage.GetObjectPath(fileSrc)
+							err = client.Download(storage.Bucket, objectKey, filename)
+							if err != nil {
 								h.log.Errorf("uploadTaskData s3 Download err:%v", err)
 							}
+							_ = os.Remove(filename)
 						} else {
 							h.log.Errorf("uploadTaskData FindDefaultS3 err:%v", err)
 						}
