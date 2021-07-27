@@ -37,13 +37,6 @@ const (
 	EnvRecyclePolicyTaskStatus = "success"
 	EnvRecyclePolicyNever      = "never"
 
-	TopicProcess      = "task.process"
-	TopicCancel       = "task.cancel"
-	TopicAck          = "task.ack"
-	TopicItReport     = "task.it.report"
-	TopicNotification = "task.notification"
-	TopicCronjob      = "cronjob"
-
 	// 定时器的所属job类型
 	WorkflowCronjob = "workflow"
 	TestingCronjob  = "test"
