@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"strings"
 
 	"go.uber.org/zap"
@@ -97,4 +98,24 @@ func getContainerLogFromS3(pipelineName, filenamePrefix string, taskID int64, lo
 	log.Errorf("failed to find file with path %s", tempFile)
 	err := fmt.Errorf("log file not found")
 	return "", err
+}
+
+func GetPodLogByHttp(podName, containerName string, tail int64, log *zap.SugaredLogger) (string, error) {
+
+	cmdStr := ""
+	if len(containerName) > 0 {
+		cmdStr = fmt.Sprintf("kubectl logs  %v -c %v --tail %d", podName, containerName, tail)
+	} else {
+		cmdStr = fmt.Sprintf("kubectl logs %v --tail %d", podName, tail)
+
+	}
+	cmd := exec.Command("sh", "-c", cmdStr)
+	output, err := cmd.Output()
+	if err != nil {
+		//fmt.Printf("exec.Command error:%v,cmd:%v \n",err,cmdStr)
+		log.Errorf("exec.Command error:%v", cmdStr)
+		return "", err
+	} else {
+		return string(output), nil
+	}
 }
