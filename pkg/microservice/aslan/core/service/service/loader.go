@@ -801,6 +801,7 @@ func loadCodehubService(username string, detail *codehost.Detail, repoOwner, rep
 	if !args.LoadFromDir {
 		pathType = "blob"
 	}
+
 	srcPath := fmt.Sprintf("%s/%s/%s/%s/%s/%s", detail.Address, repoOwner, repoName, pathType, branchName, args.LoadPath)
 	createSvcArgs := &models.Service{
 		CodehostID:  detail.ID,
@@ -821,6 +822,7 @@ func loadCodehubService(username string, detail *codehost.Detail, repoOwner, rep
 		Commit:      &models.Commit{SHA: commit.ID, Message: commit.Message},
 		Visibility:  args.Visibility,
 	}
+	log.Infof("service.name : %s", createSvcArgs.ServiceName)
 	if _, err = CreateServiceTemplate(username, createSvcArgs, log); err != nil {
 		log.Errorf("Failed to create service template, error: %s", err)
 		_, messageMap := e.ErrorMessage(err)
@@ -1065,8 +1067,9 @@ func isValidCodehubServiceDir(child []*codehub.TreeNode) bool {
 }
 
 func getFileName(fullName string) string {
-	extension := filepath.Ext(fullName)
-	return fullName[0:(len(fullName) - len(extension))]
+	name := filepath.Base(fullName)
+	ext := filepath.Ext(name)
+	return name[0:(len(name) - len(ext))]
 }
 
 func extractGithubYamls(ctx context.Context, client *github.Client, tree []*github.RepositoryContent, owner, repoName, branchName string) ([]string, error) {
