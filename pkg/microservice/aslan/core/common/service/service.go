@@ -396,7 +396,7 @@ func ProcessServiceWebhook(updated, current *commonmodels.Service, serviceName s
 	var action string
 	var updatedHooks, currentHooks []*webhook.WebHook
 	if updated != nil {
-		if updated.Source == setting.SourceFromZadig || updated.Source == "" {
+		if updated.Source == setting.SourceFromZadig || updated.Source == setting.SourceFromGerrit || updated.Source == "" {
 			return
 		}
 		action = "add"
@@ -407,7 +407,7 @@ func ProcessServiceWebhook(updated, current *commonmodels.Service, serviceName s
 		updatedHooks = append(updatedHooks, &webhook.WebHook{Owner: updated.RepoOwner, Repo: updated.RepoName, Address: address, Name: "trigger", CodeHostID: updated.CodehostID})
 	}
 	if current != nil {
-		if current.Source == setting.SourceFromZadig || current.Source == "" {
+		if current.Source == setting.SourceFromZadig || current.Source == setting.SourceFromGerrit || current.Source == "" {
 			return
 		}
 		action = "remove"
