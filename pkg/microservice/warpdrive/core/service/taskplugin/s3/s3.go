@@ -91,7 +91,7 @@ func NewS3StorageFromURL(uri string) (*S3, error) {
 			Insecure:  store.Scheme == "http",
 		},
 	}
-	if strings.Contains(store.Host, config2.ZadigMinioServiceName()) {
+	if strings.Contains(store.Host, config2.MinioServiceName()) {
 		ret.Provider = setting.ProviderSourceSystemDefault
 	}
 

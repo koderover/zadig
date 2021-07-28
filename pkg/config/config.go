@@ -162,10 +162,10 @@ func GetServiceAddress(name string, port int32) string {
 	return fmt.Sprintf("http://%s:%d", name, port)
 }
 
-func ZadigMinioServiceInfo() *setting.ServiceInfo {
+func MinioServiceInfo() *setting.ServiceInfo {
 	return GetServiceByCode(setting.ZadigMinio)
 }
 
-func ZadigMinioServiceName() string {
-	return ZadigMinioServiceInfo().Name
+func MinioServiceName() string {
+	return MinioServiceInfo().Name
 }
