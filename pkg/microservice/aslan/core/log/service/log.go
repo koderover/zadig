@@ -127,7 +127,8 @@ func GetPodLogByHttp(podName, containerName, envName, productName string, tail i
 	req := clientSet.CoreV1().Pods(productInfo.Namespace).GetLogs(podName, logOptions)
 	podLogs, err := req.Stream(ctx)
 	if err != nil {
-		log.Errorf("req.Stream error: %v", err)
+		log.Errorf("req.Stream error: %v,productInfo.Namespace:%v,podName:%v,containerName:%v", err,
+			productInfo.Namespace, podName, containerName)
 		return "", err
 	}
 	defer podLogs.Close()
