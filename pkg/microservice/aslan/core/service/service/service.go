@@ -575,7 +575,11 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 			} else {
 				s3Storage.Subfolder = fmt.Sprintf("%s/%s", subFolderName, "service")
 			}
-			client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, s3Storage.Provider)
+			forcedPathStyle := false
+			if s3Storage.Provider == setting.ProviderSourceSystemDefault {
+				forcedPathStyle = true
+			}
+			client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
 			if err == nil {
 				client.RemoveFiles(s3Storage.Bucket, []string{fmt.Sprintf("%s.tar.gz", serviceName)})
 			}

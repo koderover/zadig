@@ -34,6 +34,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/s3"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
@@ -480,7 +481,11 @@ func downloadReport(taskInfo *task.Task, fileName, testName string, logger *zap.
 		logger.Errorf("failed to create s3 storage %s", taskInfo.StorageURI)
 		return nil, err
 	}
-	client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, store.Provider)
+	forcedPathStyle := false
+	if store.Provider == setting.ProviderSourceSystemDefault {
+		forcedPathStyle = true
+	}
+	client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
 	if err != nil {
 		logger.Errorf("failed to create s3 client, error: %+v", err)
 		return nil, err

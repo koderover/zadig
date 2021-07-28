@@ -35,16 +35,17 @@ var ValidName = regexp.MustCompile(`^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?
 var ValidNameHint = "a valid name must consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character"
 
 const (
-	Aslan     = iota + 1 // 1
-	Aslanx               // 2
-	Clair                // 3
-	Collie               // 4
-	Cron                 // 5
-	HubServer            // 6
-	PodExec              // 7
-	Poetry               // 8
-	SonarQube            // 9
-	WarpDrive            // 10
+	Aslan      = iota + 1 // 1
+	Aslanx                // 2
+	Clair                 // 3
+	Collie                // 4
+	Cron                  // 5
+	HubServer             // 6
+	PodExec               // 7
+	Poetry                // 8
+	SonarQube             // 9
+	WarpDrive             // 10
+	ZadigMinio            // 11
 )
 
 type ServiceInfo struct {
@@ -92,5 +93,9 @@ var Services = map[int]*ServiceInfo{
 	WarpDrive: {
 		Name: "warpdrive",
 		Port: 80,
+	},
+	ZadigMinio: {
+		Name: "zadig-minio",
+		Port: 9000,
 	},
 }

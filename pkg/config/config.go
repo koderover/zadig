@@ -161,3 +161,11 @@ func WarpDriveServiceName() string {
 func GetServiceAddress(name string, port int32) string {
 	return fmt.Sprintf("http://%s:%d", name, port)
 }
+
+func ZadigMinioServiceInfo() *setting.ServiceInfo {
+	return GetServiceByCode(setting.ZadigMinio)
+}
+
+func ZadigMinioServiceName() string {
+	return ZadigMinioServiceInfo().Name
+}

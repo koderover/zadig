@@ -26,6 +26,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	s3service "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
+	"github.com/koderover/zadig/pkg/setting"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
 )
@@ -83,7 +84,11 @@ func getContainerLogFromS3(pipelineName, filenamePrefix string, taskID int64, lo
 	} else {
 		storage.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineName, taskID, "log")
 	}
-	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, storage.Provider)
+	forcedPathStyle := false
+	if storage.Provider == setting.ProviderSourceSystemDefault {
+		forcedPathStyle = true
+	}
+	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
 	if err != nil {
 		log.Errorf("Failed to create s3 client, the error is: %+v", err)
 		return "", err

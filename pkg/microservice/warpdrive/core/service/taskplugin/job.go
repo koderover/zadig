@@ -113,7 +113,11 @@ func saveContainerLog(pipelineTask *task.Task, namespace, fileName string, jobLa
 			} else {
 				store.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineTask.PipelineName, pipelineTask.TaskID, "log")
 			}
-			s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, store.Provider)
+			forcedPathStyle := false
+			if store.Provider == setting.ProviderSourceSystemDefault {
+				forcedPathStyle = true
+			}
+			s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
 			if err != nil {
 				return fmt.Errorf("saveContainerLog s3 create client error: %v", err)
 			}

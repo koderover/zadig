@@ -454,6 +454,7 @@ const (
 	ProviderSourceTencent
 	ProviderSourceQiniu
 	ProviderSourceHuawei
+	ProviderSourceSystemDefault
 )
 
 const MaxTries = 1

@@ -10,27 +10,26 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 
-	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util/fs"
+)
+
+const (
+	DefaultRegion = "ap-shanghai"
 )
 
 type Client struct {
 	*s3.S3
 }
 
-func NewClient(endpoint, ak, sk string, insecure bool, source int8) (*Client, error) {
+func NewClient(endpoint, ak, sk string, insecure, forcedPathStyle bool) (*Client, error) {
 	creds := credentials.NewStaticCredentials(ak, sk, "")
 	config := &aws.Config{
-		Region:           aws.String(setting.S3DefaultRegion),
+		Region:           aws.String(DefaultRegion),
 		Endpoint:         aws.String(endpoint),
-		S3ForcePathStyle: aws.Bool(true),
+		S3ForcePathStyle: aws.Bool(forcedPathStyle),
 		Credentials:      creds,
 		DisableSSL:       aws.Bool(insecure),
-	}
-	// aliyun OSS now force the user to use virtual path style
-	if source == setting.ProviderSourceAli {
-		config.S3ForcePathStyle = aws.Bool(false)
 	}
 	session, err := session.NewSession(config)
 	if err != nil {

@@ -26,6 +26,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/reaper/core/service/meta"
 	"github.com/koderover/zadig/pkg/microservice/reaper/internal/s3"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 )
@@ -74,7 +75,11 @@ func artifactsUpload(ctx *meta.Context, activeWorkspace string) error {
 			}
 
 			if store != nil {
-				s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, store.Provider)
+				forcedPathStyle := false
+				if store.Provider == setting.ProviderSourceSystemDefault {
+					forcedPathStyle = true
+				}
+				s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
 				if err != nil {
 					log.Errorf("failed to create s3 client, error is: %+v", err)
 					return err

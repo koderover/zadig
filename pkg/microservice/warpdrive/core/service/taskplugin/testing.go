@@ -310,7 +310,11 @@ func (p *TestPlugin) Complete(ctx context.Context, pipelineTask *task.Task, serv
 	} else {
 		store.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineName, pipelineTaskID, "artifact")
 	}
-	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, store.Provider)
+	forcedPathStyle := false
+	if store.Provider == setting.ProviderSourceSystemDefault {
+		forcedPathStyle = true
+	}
+	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
 	if err == nil {
 		prefix := store.GetObjectPath("/")
 		if files, err := s3client.ListFiles(store.Bucket, prefix, true); err == nil {
