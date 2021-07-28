@@ -33,5 +33,5 @@ func GetToolDownloadURL(c *gin.Context) {
 	// mac、linux、windows
 	os := c.Query("os")
 
-	ctx.Resp = fmt.Sprintf("http://resource.koderover.com/kodespace-%s-%s", os, version)
+	ctx.Resp = fmt.Sprintf("https://resource.koderover.com/kodespace-%s-%s", os, version)
 }
