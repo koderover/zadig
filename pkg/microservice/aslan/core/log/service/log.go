@@ -134,7 +134,6 @@ func GetPodLogByHttp(podName, containerName, envName, productName string, tail i
 
 	logOptions := &corev1.PodLogOptions{
 		Container: containerName,
-		Follow:    true,
 		TailLines: &tail,
 	}
 	ctx := context.TODO()
