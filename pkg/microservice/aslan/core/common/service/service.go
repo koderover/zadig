@@ -396,6 +396,9 @@ func ProcessServiceWebhook(updated, current *commonmodels.Service, serviceName s
 	var action string
 	var updatedHooks, currentHooks []*webhook.WebHook
 	if updated != nil {
+		if updated.Source == setting.SourceFromZadig || updated.Source == "" {
+			return
+		}
 		action = "add"
 		address := getAddressFromPath(updated.SrcPath, updated.RepoOwner, updated.RepoName, logger.Desugar())
 		if address == "" {
@@ -404,6 +407,9 @@ func ProcessServiceWebhook(updated, current *commonmodels.Service, serviceName s
 		updatedHooks = append(updatedHooks, &webhook.WebHook{Owner: updated.RepoOwner, Repo: updated.RepoName, Address: address, Name: "trigger", CodeHostID: updated.CodehostID})
 	}
 	if current != nil {
+		if current.Source == setting.SourceFromZadig || current.Source == "" {
+			return
+		}
 		action = "remove"
 		address := getAddressFromPath(current.SrcPath, current.RepoOwner, current.RepoName, logger.Desugar())
 		if address == "" {
