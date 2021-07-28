@@ -112,9 +112,12 @@ func getContainerLogFromS3(pipelineName, filenamePrefix string, taskID int64, lo
 		return "", err
 	}
 
-	log.Errorf("failed to find file with path %s", tempFile)
-	err := fmt.Errorf("log file not found")
-	return "", err
+	containerLog, err := ioutil.ReadFile(tempFile)
+	if err != nil {
+		log.Errorf("GetContainerLogFromS3 Read file err:%v", err)
+		return "", err
+	}
+	return string(containerLog), nil
 }
 
 func GetPodLogByHttp(podName, containerName, envName, productName string, tail int64, log *zap.SugaredLogger) (string, error) {
