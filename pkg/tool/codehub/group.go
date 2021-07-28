@@ -103,11 +103,14 @@ func (c *CodeHubClient) NamespaceList() ([]*Namespace, error) {
 }
 
 func (c *CodeHubClient) GetRepoUUID(repoName string) (string, error) {
-	repos, _ := c.NamespaceList()
+	repos, err := c.NamespaceList()
+	if err != nil {
+		return "", err
+	}
 	for _, repo := range repos {
 		if repo.RepoName == repoName {
 			return repo.RepoUUID, nil
 		}
 	}
-	return "", fmt.Errorf("not found repoName!")
+	return "", fmt.Errorf("not found repoUUID by repoName:%s", repoName)
 }

@@ -176,35 +176,21 @@ func ProcessWebhook(updatedHooks, currentHooks interface{}, name string, logger 
 			}
 
 			switch ch.Type {
-			case setting.SourceFromGithub, setting.SourceFromGitlab:
+			case setting.SourceFromGithub, setting.SourceFromGitlab, setting.SourceFromCodeHub:
 				err = webhook.NewClient().RemoveWebHook(&webhook.TaskOption{
 					Name:    wh.name,
 					Owner:   wh.owner,
 					Repo:    wh.repo,
 					Address: ch.Address,
 					Token:   ch.AccessToken,
-					Ref:     name,
-					From:    ch.Type,
-				})
-				if err != nil {
-					logger.Errorf("Failed to remove gitlab/github webhook %+v, err: %s", wh, err)
-					errs = multierror.Append(errs, err)
-					return
-				}
-			case setting.SourceFromCodeHub:
-				err = webhook.NewClient().RemoveWebHook(&webhook.TaskOption{
-					Name:    wh.name,
-					Owner:   wh.owner,
-					Repo:    wh.repo,
-					Address: ch.Address,
-					Ref:     name,
 					AK:      ch.AccessKey,
 					SK:      ch.SecretKey,
 					Region:  ch.Region,
+					Ref:     name,
 					From:    ch.Type,
 				})
 				if err != nil {
-					logger.Errorf("Failed to remove codehub webhook %+v, err: %s", wh, err)
+					logger.Errorf("Failed to remove %s webhook %+v, err: %s", ch.Type, wh, err)
 					errs = multierror.Append(errs, err)
 					return
 				}
@@ -232,27 +218,13 @@ func ProcessWebhook(updatedHooks, currentHooks interface{}, name string, logger 
 					Address: ch.Address,
 					Token:   ch.AccessToken,
 					Ref:     name,
-					From:    ch.Type,
-				})
-				if err != nil {
-					logger.Errorf("Failed to add gitlab/github webhook %+v, err: %s", wh, err)
-					errs = multierror.Append(errs, err)
-					return
-				}
-			case setting.SourceFromCodeHub:
-				err = webhook.NewClient().AddWebHook(&webhook.TaskOption{
-					Name:    wh.name,
-					Owner:   wh.owner,
-					Repo:    wh.repo,
-					Address: ch.Address,
-					Ref:     name,
 					AK:      ch.AccessKey,
 					SK:      ch.SecretKey,
 					Region:  ch.Region,
 					From:    ch.Type,
 				})
 				if err != nil {
-					logger.Errorf("Failed to add codehub webhook %+v, err: %s", wh, err)
+					logger.Errorf("Failed to add %s webhook %+v, err: %s", ch.Type, wh, err)
 					errs = multierror.Append(errs, err)
 					return
 				}

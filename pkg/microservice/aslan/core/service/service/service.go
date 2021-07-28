@@ -271,18 +271,9 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap
 				}
 			}
 			// 配置来源为Gitlab，对比配置的ChangeLog是否变化
-			if args.Source == setting.SourceFromGitlab {
+			if args.Source == setting.SourceFromGitlab || args.Source == setting.SourceFromGithub || args.Source == setting.SourceFromCodeHub {
 				if args.Commit != nil && serviceTmpl.Commit != nil && args.Commit.SHA == serviceTmpl.Commit.SHA {
-					log.Info("gitlab change log remains the same, quit creation.")
-					return GetServiceOption(serviceTmpl, log)
-				}
-				if args.LoadPath != serviceTmpl.LoadPath && serviceTmpl.LoadPath != "" {
-					log.Errorf("Changing load path is not allowed")
-					return nil, e.ErrCreateTemplate.AddDesc("不允许更改加载路径")
-				}
-			} else if args.Source == setting.SourceFromGithub {
-				if args.Commit != nil && serviceTmpl.Commit != nil && args.Commit.SHA == serviceTmpl.Commit.SHA {
-					log.Info("github change log remains the same, quit creation.")
+					log.Infof("%s change log remains the same, quit creation", args.Source)
 					return GetServiceOption(serviceTmpl, log)
 				}
 				if args.LoadPath != serviceTmpl.LoadPath && serviceTmpl.LoadPath != "" {
@@ -301,15 +292,6 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap
 				if err := updateGerritWebhookByService(serviceTmpl, args); err != nil {
 					log.Infof("gerrit update webhook err :%v", err)
 					return nil, err
-				}
-			} else if args.Source == setting.SourceFromCodeHub {
-				if args.Commit != nil && serviceTmpl.Commit != nil && args.Commit.SHA == serviceTmpl.Commit.SHA {
-					log.Info("codehub change log remains the same, quit creation.")
-					return GetServiceOption(serviceTmpl, log)
-				}
-				if args.LoadPath != serviceTmpl.LoadPath && serviceTmpl.LoadPath != "" {
-					log.Errorf("Changing load path is not allowed")
-					return nil, e.ErrCreateTemplate.AddDesc("不允许更改加载路径")
 				}
 			}
 		} else if args.Source == setting.SourceFromGerrit {

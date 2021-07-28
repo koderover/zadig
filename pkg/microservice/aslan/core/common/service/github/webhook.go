@@ -32,7 +32,7 @@ func (c *Client) CreateWebHook(owner, repo string) (string, error) {
 		Events: []string{git.PushEvent, git.PullRequestEvent, git.BranchOrTagCreateEvent, git.CheckRunEvent},
 	})
 
-	return strconv.Itoa(int(*hook.ID)), err
+	return strconv.Itoa(int(hook.GetID())), err
 }
 
 func (c *Client) DeleteWebHook(owner, repo, hookID string) error {
