@@ -163,7 +163,7 @@ func GetServiceAddress(name string, port int32) string {
 }
 
 func MinioServiceInfo() *setting.ServiceInfo {
-	return GetServiceByCode(setting.ZadigMinio)
+	return GetServiceByCode(setting.Minio)
 }
 
 func MinioServiceName() string {
