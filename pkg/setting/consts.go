@@ -442,6 +442,11 @@ const (
 	TopicCronjob      = "cronjob"
 )
 
+// S3 related constants
+const (
+	S3DefaultRegion = "ap-shanghai"
+)
+
 const MaxTries = 1
 
 const DogFood = "/var/run/koderover-dog-food"

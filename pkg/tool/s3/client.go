@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util/fs"
 )
@@ -21,6 +22,7 @@ type Client struct {
 func NewClient(endpoint, ak, sk string, insecure bool) (*Client, error) {
 	creds := credentials.NewStaticCredentials(ak, sk, "")
 	config := &aws.Config{
+		Region:           aws.String(setting.S3DefaultRegion),
 		Endpoint:         aws.String(endpoint),
 		S3ForcePathStyle: aws.Bool(true),
 		Credentials:      creds,
