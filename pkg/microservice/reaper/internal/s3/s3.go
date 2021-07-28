@@ -23,6 +23,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	config2 "github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/crypto"
 )
 
@@ -59,14 +61,19 @@ func NewS3StorageFromURL(uri string) (*S3, error) {
 		subfolder = strings.Join(paths[1:], "/")
 	}
 
-	return &S3{
+	ret := &S3{
 		Ak:        store.User.Username(),
 		Sk:        sk,
 		Endpoint:  store.Host,
 		Bucket:    bucket,
 		Subfolder: subfolder,
 		Insecure:  store.Scheme == "http",
-	}, nil
+	}
+	if strings.Contains(store.Host, config2.ZadigMinioServiceName()) {
+		ret.Provider = setting.ProviderSourceSystemDefault
+	}
+
+	return ret, nil
 }
 
 func NewS3StorageFromEncryptedURI(encryptedURI string) (*S3, error) {

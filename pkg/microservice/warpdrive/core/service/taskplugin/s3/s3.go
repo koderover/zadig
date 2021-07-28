@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	config2 "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/crypto"
 )
@@ -90,8 +91,8 @@ func NewS3StorageFromURL(uri string) (*S3, error) {
 			Insecure:  store.Scheme == "http",
 		},
 	}
-	if strings.Contains(store.Host, "aliyun") {
-		ret.Provider = setting.ProviderSourceAli
+	if strings.Contains(store.Host, config2.ZadigMinioServiceName()) {
+		ret.Provider = setting.ProviderSourceSystemDefault
 	}
 
 	return ret, nil
