@@ -489,7 +489,11 @@ func (p *DeployTaskPlugin) downloadService(pipelineTask *task.Task, serviceName,
 
 	filePath := fmt.Sprintf("%s.tar.gz", serviceName)
 	tarFilePath := path.Join(base, filePath)
-	s3client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure)
+	forcedPathStyle := false
+	if s3Storage.Provider == setting.ProviderSourceSystemDefault {
+		forcedPathStyle = true
+	}
+	s3client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
 	if err != nil {
 		p.Log.Errorf("failed to create s3 client, err: %+v", err)
 		return err

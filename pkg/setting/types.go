@@ -45,6 +45,7 @@ const (
 	Poetry               // 8
 	SonarQube            // 9
 	WarpDrive            // 10
+	Minio                // 11
 )
 
 type ServiceInfo struct {
@@ -92,5 +93,9 @@ var Services = map[int]*ServiceInfo{
 	WarpDrive: {
 		Name: "warpdrive",
 		Port: 80,
+	},
+	Minio: {
+		Name: "zadig-minio",
+		Port: 9000,
 	},
 }
