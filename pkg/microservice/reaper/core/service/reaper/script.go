@@ -75,6 +75,7 @@ func (r *Reaper) runIntallationScripts() error {
 				Endpoint: r.Ctx.StorageEndpoint,
 				Bucket:   r.Ctx.StorageBucket,
 				Insecure: true,
+				Provider: r.Ctx.StorageProvider,
 			}
 			store.Subfolder = fmt.Sprintf("%s/%s-v%s", config.ConstructCachePath, install.Name, install.Version)
 

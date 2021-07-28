@@ -304,6 +304,7 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 	ctx.StorageAK = pipelineTask.ConfigPayload.S3Storage.Ak
 	ctx.StorageSK = pipelineTask.ConfigPayload.S3Storage.Sk
 	ctx.StorageBucket = pipelineTask.ConfigPayload.S3Storage.Bucket
+	ctx.StorageProvider = pipelineTask.ConfigPayload.S3Storage.Provider
 
 	return ctx
 }

@@ -110,6 +110,7 @@ type Context struct {
 	StorageAK       string `yaml:"storage_ak"`
 	StorageSK       string `yaml:"storage_sk"`
 	StorageBucket   string `yaml:"storage_bucket"`
+	StorageProvider int8   `yaml:"storage_provider"`
 }
 
 // DockerBuildCtx ...
