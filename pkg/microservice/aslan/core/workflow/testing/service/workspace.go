@@ -39,7 +39,7 @@ func GetTestArtifactInfo(pipelineName, dir string, taskID int64, log *zap.Sugare
 	} else {
 		storage.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineName, taskID, "artifact")
 	}
-	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure)
+	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, storage.Provider)
 	if err != nil {
 		log.Errorf("GetTestArtifactInfo create s3 client err:%v", err)
 		return nil, fis, nil

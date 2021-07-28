@@ -447,6 +447,15 @@ const (
 	S3DefaultRegion = "ap-shanghai"
 )
 
+// ALL provider mapping
+const (
+	ProviderSourceETC = iota
+	ProviderSourceAli
+	ProviderSourceTencent
+	ProviderSourceQiniu
+	ProviderSourceHuawei
+)
+
 const MaxTries = 1
 
 const DogFood = "/var/run/koderover-dog-food"

@@ -19,7 +19,7 @@ type Client struct {
 	*s3.S3
 }
 
-func NewClient(endpoint, ak, sk string, insecure bool) (*Client, error) {
+func NewClient(endpoint, ak, sk string, insecure bool, source int8) (*Client, error) {
 	creds := credentials.NewStaticCredentials(ak, sk, "")
 	config := &aws.Config{
 		Region:           aws.String(setting.S3DefaultRegion),
@@ -27,6 +27,10 @@ func NewClient(endpoint, ak, sk string, insecure bool) (*Client, error) {
 		S3ForcePathStyle: aws.Bool(true),
 		Credentials:      creds,
 		DisableSSL:       aws.Bool(insecure),
+	}
+	// aliyun OSS now force the user to use virtual path style
+	if source == setting.ProviderSourceAli {
+		config.S3ForcePathStyle = aws.Bool(false)
 	}
 	session, err := session.NewSession(config)
 	if err != nil {

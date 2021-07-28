@@ -77,7 +77,7 @@ func GetTestLocalTestSuite(serviceName string, log *zap.SugaredLogger) (*commonm
 								if err != nil {
 									log.Errorf("GetTestLocalTestSuite GenerateTmpFile err:%v", err)
 								}
-								client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure)
+								client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, storage.Provider)
 								if err != nil {
 									log.Errorf("GetTestLocalTestSuite Create S3 client err:%+v", err)
 									continue

@@ -82,7 +82,7 @@ func (r *Reaper) runIntallationScripts() error {
 			fileName := filepath[len(filepath)-1]
 			tmpPath = path.Join(os.TempDir(), fileName)
 
-			s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure)
+			s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, store.Provider)
 			if err == nil {
 				objectKey := store.GetObjectPath(fileName)
 				err = s3client.Download(

@@ -83,13 +83,13 @@ func getContainerLogFromS3(pipelineName, filenamePrefix string, taskID int64, lo
 	} else {
 		storage.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineName, taskID, "log")
 	}
-	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure)
+	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, storage.Provider)
 	if err != nil {
 		log.Errorf("Failed to create s3 client, the error is: %+v", err)
 		return "", err
 	}
 	objectPrefix := storage.GetObjectPath(fileName)
-	fileList, err := client.ListFiles(storage.Endpoint, objectPrefix, false)
+	fileList, err := client.ListFiles(storage.Bucket, objectPrefix, false)
 	if err != nil {
 		log.Errorf("GetContainerLogFromS3 ListFiles err:%v", err)
 		return "", err

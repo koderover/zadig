@@ -211,7 +211,7 @@ func (c *WorkspaceAchiever) Achieve(target string) error {
 	//}
 
 	if store, err := s3.NewS3StorageFromEncryptedURI(c.StorageURI); err == nil {
-		s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure)
+		s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, store.Provider)
 		if err != nil {
 			log.Errorf("Archive s3 create s3 client error: %+v", err)
 			return err

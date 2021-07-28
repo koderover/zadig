@@ -904,7 +904,7 @@ func GePackageFileContent(pipelineName string, taskID int64, log *zap.SugaredLog
 		_ = os.Remove(tmpfile.Name())
 	}()
 
-	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure)
+	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, storage.Provider)
 	if err != nil {
 		return nil, packageFile, fmt.Errorf("failed to get s3 client to download %s, error is: %v", packageFile, err)
 	}
@@ -925,7 +925,7 @@ func GetArtifactFileContent(pipelineName string, taskID int64, log *zap.SugaredL
 		_ = os.MkdirAll(sourcePath, 0777)
 	}
 
-	client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure)
+	client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, s3Storage.Provider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create s3 client , error: %v", err)
 	}
@@ -980,7 +980,7 @@ func GetTestArtifactInfo(pipelineName, dir string, taskID int64, log *zap.Sugare
 	} else {
 		storage.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineName, taskID, "artifact")
 	}
-	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure)
+	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, storage.Provider)
 	if err != nil {
 		log.Errorf("GetTestArtifactInfo Create S3 client err:%+v", err)
 		return nil, fis, nil

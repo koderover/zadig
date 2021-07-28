@@ -102,7 +102,7 @@ func upload(ctx context.Context, log *zap.SugaredLogger, storage *s3.S3, localfi
 
 		return err
 	}
-	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure)
+	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, storage.Provider)
 	if err != nil {
 		return err
 	}
@@ -155,7 +155,7 @@ func (p *Distribute2S3TaskPlugin) Run(ctx context.Context, pipelineTask *task.Ta
 		defer func() {
 			_ = os.Remove(tmpFile.Name())
 		}()
-		s3client, err := s3tool.NewClient(srcStorage.Endpoint, srcStorage.Ak, srcStorage.Sk, srcStorage.Insecure)
+		s3client, err := s3tool.NewClient(srcStorage.Endpoint, srcStorage.Ak, srcStorage.Sk, srcStorage.Insecure, srcStorage.Provider)
 		if err != nil {
 			p.Log.Errorf("failed to create s3 client source storage %s: %v", srcStorage.GetURI(), err)
 			return

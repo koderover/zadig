@@ -74,7 +74,7 @@ func artifactsUpload(ctx *meta.Context, activeWorkspace string) error {
 			}
 
 			if store != nil {
-				s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure)
+				s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, store.Provider)
 				if err != nil {
 					log.Errorf("failed to create s3 client, error is: %+v", err)
 					return err

@@ -75,7 +75,7 @@ func GetLocalTestSuite(pipelineName, serviceName, testType string, taskID int64,
 			log.Errorf("GetLocalTestSuite GenerateTmpFile err:%v", err)
 		}
 		objectKey := s3Storage.GetObjectPath(fmt.Sprintf("%s/%d/%s/%s", pipelineName, taskID, "test", testJobName))
-		client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure)
+		client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, s3Storage.Provider)
 		if err != nil {
 			log.Errorf("Failed to create s3 client for download, error: %+v", err)
 			return testReport, fmt.Errorf("failed to create s3 client for download, error: %+v", err)

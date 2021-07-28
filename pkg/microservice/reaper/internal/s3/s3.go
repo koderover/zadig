@@ -34,6 +34,7 @@ type S3 struct {
 	Subfolder string `json:"subfolder"`
 	Insecure  bool   `json:"insecure"`
 	IsDefault bool   `json:"is_default"`
+	Provider  int8   `json:"provider"`
 }
 
 func (s *S3) GetSchema() string {

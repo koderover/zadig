@@ -117,7 +117,7 @@ func (gcm *TarCacheManager) Archive(source, dest string) error {
 	//}
 
 	if store, err := gcm.getS3Storage(); err == nil {
-		s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure)
+		s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, store.Provider)
 		if err != nil {
 			log.Errorf("Archive s3 create s3 client error: %+v", err)
 			return err
@@ -134,7 +134,7 @@ func (gcm *TarCacheManager) Archive(source, dest string) error {
 
 func (gcm *TarCacheManager) Unarchive(source, dest string) error {
 	if store, err := gcm.getS3Storage(); err == nil {
-		s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure)
+		s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, store.Provider)
 		if err != nil {
 			return err
 		}

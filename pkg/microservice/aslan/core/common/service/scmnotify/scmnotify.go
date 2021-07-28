@@ -328,7 +328,7 @@ func downloadReport(taskInfo *task.Task, fileName, testName string, logger *zap.
 	}()
 
 	objectKey := store.GetObjectPath(fileName)
-	client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure)
+	client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, store.Provider)
 	if err != nil {
 		return nil, err
 	}

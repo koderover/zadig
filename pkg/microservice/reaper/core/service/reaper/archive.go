@@ -44,7 +44,7 @@ func (r *Reaper) archiveS3Files() (err error) {
 			store.Subfolder = fmt.Sprintf("%s/%d/%s", r.Ctx.PipelineName, r.Ctx.TaskID, "file")
 		}
 
-		s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure)
+		s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, store.Provider)
 		if err != nil {
 			log.Errorf("failed to create s3 client, error is: %+v", err)
 			return err
@@ -98,7 +98,7 @@ func (r *Reaper) archiveTestFiles() error {
 		return nil
 	}
 
-	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure)
+	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, store.Provider)
 	if err != nil {
 		log.Errorf("failed to create s3 client, error is: %+v", err)
 		return err
@@ -146,7 +146,7 @@ func (r *Reaper) archiveHTMLTestReportFile() error {
 	}
 
 	fileName := filepath.Base(r.Ctx.Archive.TestReportFile)
-	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure)
+	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, store.Provider)
 	if err != nil {
 		log.Errorf("failed to create s3 client, error is: %+v", err)
 		return err
