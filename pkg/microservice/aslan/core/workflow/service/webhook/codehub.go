@@ -29,7 +29,8 @@ func ProcessCodehubHook(payload []byte, req *http.Request, requestID string, log
 	eventType := codehub.HookEventType(req)
 	event, err := codehub.ParseHook(eventType, payload)
 	if err != nil {
-		return err
+		log.Warnf("unexpected event type: %s", eventType)
+		return nil
 	}
 
 	forwardedProto := req.Header.Get("X-Forwarded-Proto")
@@ -82,27 +83,20 @@ func updateServiceTemplateByCodehubPushEvent(event *codehub.PushEvent, log *zap.
 		}
 		// 判断PushEvent的Diffs中是否包含该服务模板的src_path
 		affected := false
-	Loop:
+		fileNames := []string{}
 		for _, commit := range event.Commits {
-			for _, fileName := range commit.Modified {
-				if strings.Contains(fileName, path) {
-					affected = true
-					break Loop
-				}
-			}
-			for _, fileName := range commit.Added {
-				if strings.Contains(fileName, path) {
-					affected = true
-					break Loop
-				}
-			}
-			for _, fileName := range commit.Removed {
-				if strings.Contains(fileName, path) {
-					affected = true
-					break Loop
-				}
+			fileNames = append(fileNames, commit.Added...)
+			fileNames = append(fileNames, commit.Modified...)
+			fileNames = append(fileNames, commit.Removed...)
+		}
+
+		for _, fileName := range fileNames {
+			if strings.Contains(fileName, path) {
+				affected = true
+				break
 			}
 		}
+
 		if affected {
 			log.Infof("Started to sync service template %s from codehub %s", service.ServiceName, service.SrcPath)
 			//TODO: 异步处理
