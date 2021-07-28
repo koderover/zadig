@@ -18,22 +18,27 @@ package github
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	gitservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
 	"github.com/koderover/zadig/pkg/tool/git"
 )
 
-func (c *Client) CreateWebHook(owner, repo string) (int64, error) {
+func (c *Client) CreateWebHook(owner, repo string) (string, error) {
 	hook, err := c.CreateHook(context.TODO(), owner, repo, &git.Hook{
 		URL:    config.WebHookURL(),
 		Secret: gitservice.GetHookSecret(),
 		Events: []string{git.PushEvent, git.PullRequestEvent, git.BranchOrTagCreateEvent, git.CheckRunEvent},
 	})
 
-	return *hook.ID, err
+	return strconv.Itoa(int(*hook.ID)), err
 }
 
-func (c *Client) DeleteWebHook(owner, repo string, hookID int64) error {
-	return c.DeleteHook(context.TODO(), owner, repo, hookID)
+func (c *Client) DeleteWebHook(owner, repo, hookID string) error {
+	hookIDInt, err := strconv.Atoi(hookID)
+	if err != nil {
+		return err
+	}
+	return c.DeleteHook(context.TODO(), owner, repo, int64(hookIDInt))
 }

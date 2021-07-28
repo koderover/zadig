@@ -17,21 +17,27 @@ limitations under the License.
 package gitlab
 
 import (
+	"strconv"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	gitservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
 	"github.com/koderover/zadig/pkg/tool/git"
 )
 
-func (c *Client) CreateWebHook(owner, repo string) (int64, error) {
+func (c *Client) CreateWebHook(owner, repo string) (string, error) {
 	projectHook, err := c.AddProjectHook(owner, repo, &git.Hook{
 		URL:    config.WebHookURL(),
 		Secret: gitservice.GetHookSecret(),
 		Events: []string{git.PushEvent, git.PullRequestEvent, git.BranchOrTagCreateEvent},
 	})
 
-	return int64(projectHook.ID), err
+	return strconv.Itoa(projectHook.ID), err
 }
 
-func (c *Client) DeleteWebHook(owner, repo string, hookID int64) error {
-	return c.DeleteProjectHook(owner, repo, int(hookID))
+func (c *Client) DeleteWebHook(owner, repo, hookID string) error {
+	hookIDInt, err := strconv.Atoi(hookID)
+	if err != nil {
+		return err
+	}
+	return c.DeleteProjectHook(owner, repo, hookIDInt)
 }

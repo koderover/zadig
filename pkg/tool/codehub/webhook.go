@@ -3,6 +3,7 @@ package codehub
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 )
 
 const (
@@ -52,26 +53,26 @@ type DeleteCodehubWebhookResp struct {
 	Status string `json:"status"`
 }
 
-func (c *CodeHubClient) AddWebhook(repoOwner, repoName string, codehubHookPayload *AddCodehubHookPayload) (int64, error) {
+func (c *CodeHubClient) AddWebhook(repoOwner, repoName string, codehubHookPayload *AddCodehubHookPayload) (string, error) {
 	payload, err := json.Marshal(codehubHookPayload)
 	if err != nil {
-		return 0, err
+		return "", err
 	}
 	body, err := c.sendRequest("POST", fmt.Sprintf("/v1/repositories/%s/%s/hooks", repoOwner, repoName), payload)
 	if err != nil {
-		return 0, err
+		return "", err
 	}
 	defer body.Close()
 
 	addCodehubHookResp := new(AddCodehubHookResp)
 	if err = json.NewDecoder(body).Decode(addCodehubHookResp); err != nil {
-		return 0, err
+		return "", err
 	}
 	if addCodehubHookResp.Status == "success" {
-		return int64(addCodehubHookResp.Result.ID), nil
+		return strconv.Itoa(addCodehubHookResp.Result.ID), nil
 	}
 
-	return 0, fmt.Errorf("add codehub webhook failed")
+	return "", fmt.Errorf("add codehub webhook failed")
 }
 
 func (c *CodeHubClient) ListCodehubWebhooks(repoOwner, repoName, hookID string) ([]CodehubHook, error) {
@@ -94,8 +95,8 @@ func (c *CodeHubClient) ListCodehubWebhooks(repoOwner, repoName, hookID string) 
 	return codehubHooks, fmt.Errorf("get codehub webhooks failed")
 }
 
-func (c *CodeHubClient) DeleteCodehubWebhook(repoOwner, repoName string, hookID int64) error {
-	url := fmt.Sprintf("/v1/repositories/%s/%s/hooks/%d", repoOwner, repoName, hookID)
+func (c *CodeHubClient) DeleteCodehubWebhook(repoOwner, repoName, hookID string) error {
+	url := fmt.Sprintf("/v1/repositories/%s/%s/hooks/%s", repoOwner, repoName, hookID)
 	body, err := c.sendRequest("DELETE", url, []byte{})
 	if err != nil {
 		return err
