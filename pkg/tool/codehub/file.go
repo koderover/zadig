@@ -45,7 +45,7 @@ type FileContent struct {
 
 func (c *CodeHubClient) FileContent(repoUUID, branchName, path string) (*FileContent, error) {
 	fileContentResp := new(FileContentResp)
-	body, err := c.sendRequest("GET", fmt.Sprintf("/v1/repositories/%s/branch/%s/file?path=%s", repoUUID, branchName, path), "")
+	body, err := c.sendRequest("GET", fmt.Sprintf("/v1/repositories/%s/branch/%s/file?path=%s", repoUUID, branchName, path), []byte{})
 	if err != nil {
 		return nil, err
 	}

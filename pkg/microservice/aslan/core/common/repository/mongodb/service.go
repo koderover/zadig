@@ -160,7 +160,7 @@ func (c *ServiceColl) Find(opt *ServiceFindOption) (*models.Service, error) {
 		opts.SetSort(bson.D{{"revision", -1}})
 	}
 
-	err := c.FindOne(context.TODO(), query, opts).Decode(&service)
+	err := c.FindOne(context.TODO(), query, opts).Decode(service)
 	if err != nil {
 		return nil, err
 	}
@@ -308,6 +308,7 @@ func (c *ServiceColl) List(opt *ServiceFindOption) ([]*models.Service, error) {
 			"branch_name": bson.M{"$first": "$branch_name"},
 			"load_path":   bson.M{"$first": "$load_path"},
 			"is_dir":      bson.M{"$first": "$is_dir"},
+			"repo_uuid":   bson.M{"$first": "$repo_uuid"},
 		}})
 
 	cursor, err := c.Aggregate(context.TODO(), pipeline)
@@ -335,6 +336,7 @@ func (c *ServiceColl) List(opt *ServiceFindOption) ([]*models.Service, error) {
 			BranchName:  result.BranchName,
 			LoadPath:    result.LoadPath,
 			LoadFromDir: result.LoadFromDir,
+			RepoUUID:    result.RepoUUID,
 		})
 	}
 

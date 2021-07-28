@@ -26,6 +26,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehub"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gitlab"
 	"github.com/koderover/zadig/pkg/setting"
@@ -33,8 +34,8 @@ import (
 )
 
 type hookCreateDeleter interface {
-	CreateWebHook(owner, repo string) error
-	DeleteWebHook(owner, repo string) error
+	CreateWebHook(owner, repo string) (string, error)
+	DeleteWebHook(owner, repo string, hookID string) error
 }
 
 type controller struct {
@@ -128,12 +129,20 @@ func removeWebhook(t *task, logger *zap.Logger) {
 			t.doneCh <- struct{}{}
 			return
 		}
+	case setting.SourceFromCodeHub:
+		cl = codehub.NewClient(t.ak, t.sk, t.region)
 	default:
 		t.err = fmt.Errorf("invaild source: %s", t.from)
 		t.doneCh <- struct{}{}
 		return
 	}
 
+	webhook, err := coll.Find(t.owner, t.repo, t.address)
+	if err != nil {
+		t.err = err
+		t.doneCh <- struct{}{}
+		return
+	}
 	logger.Info("Removing webhook")
 	updated, err := coll.RemoveReference(t.owner, t.repo, t.address, t.ref)
 	if err != nil {
@@ -144,7 +153,7 @@ func removeWebhook(t *task, logger *zap.Logger) {
 
 	if len(updated.References) == 0 {
 		logger.Info("Deleting webhook")
-		err = cl.DeleteWebHook(t.owner, t.repo)
+		err = cl.DeleteWebHook(t.owner, t.repo, webhook.HookID)
 		if err != nil {
 			logger.Error("Failed to delete webhook", zap.Error(err))
 			t.err = err
@@ -166,6 +175,7 @@ func addWebhook(t *task, logger *zap.Logger) {
 	coll := mongodb.NewWebHookColl()
 	var cl hookCreateDeleter
 	var err error
+	var hookID string
 
 	switch t.from {
 	case setting.SourceFromGithub:
@@ -177,6 +187,9 @@ func addWebhook(t *task, logger *zap.Logger) {
 			t.doneCh <- struct{}{}
 			return
 		}
+
+	case setting.SourceFromCodeHub:
+		cl = codehub.NewClient(t.ak, t.sk, t.region)
 	default:
 		t.err = fmt.Errorf("invaild source: %s", t.from)
 		t.doneCh <- struct{}{}
@@ -192,12 +205,19 @@ func addWebhook(t *task, logger *zap.Logger) {
 	}
 
 	logger.Info("Creating webhook")
-	err = cl.CreateWebHook(t.owner, t.repo)
+	hookID, err = cl.CreateWebHook(t.owner, t.repo)
 	if err != nil {
 		t.err = err
 		logger.Error("Failed to create webhook", zap.Error(err))
 		if err = coll.Delete(t.owner, t.repo, t.address); err != nil {
 			logger.Error("Failed to delete webhook record in db", zap.Error(err))
+		}
+	}
+
+	if hookID != "" {
+		if err = coll.Update(t.owner, t.repo, t.address, hookID); err != nil {
+			t.err = err
+			logger.Error("Failed to update webhook", zap.Error(err))
 		}
 	}
 

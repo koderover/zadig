@@ -47,7 +47,7 @@ func (c *CodeHubClient) TagList(repoID string) ([]*Tag, error) {
 	tagInfos := make([]*Tag, 0)
 
 	tagList := new(TagList)
-	body, err := c.sendRequest("GET", fmt.Sprintf("/v2/repositories/%s/tags", repoID), "")
+	body, err := c.sendRequest("GET", fmt.Sprintf("/v2/repositories/%s/tags", repoID), []byte{})
 	if err != nil {
 		return tagInfos, err
 	}

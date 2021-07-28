@@ -50,7 +50,7 @@ func (c *CodeHubClient) FileTree(repoUUID, branchName, path string) ([]*TreeNode
 	treeNodes := make([]*TreeNode, 0)
 
 	fileTrees := new(FileTree)
-	body, err := c.sendRequest("GET", fmt.Sprintf("/v1/repositories/%s/branch/%s/sub-files?path=%s", repoUUID, branchName, path), "")
+	body, err := c.sendRequest("GET", fmt.Sprintf("/v1/repositories/%s/branch/%s/sub-files?path=%s", repoUUID, branchName, path), []byte{})
 	if err != nil {
 		return treeNodes, err
 	}

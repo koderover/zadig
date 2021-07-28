@@ -118,3 +118,22 @@ func (c *WebHookColl) Delete(owner, repo, address string) error {
 
 	return nil
 }
+
+// Find find webhook
+func (c *WebHookColl) Find(owner, repo, address string) (*models.WebHook, error) {
+	query := bson.M{"owner": owner, "repo": repo, "address": address}
+	webhook := new(models.WebHook)
+	err := c.FindOne(context.TODO(), query).Decode(webhook)
+	return webhook, err
+}
+
+// Update update hookID
+func (c *WebHookColl) Update(owner, repo, address, hookID string) error {
+	query := bson.M{"owner": owner, "repo": repo, "address": address}
+	change := bson.M{"$set": bson.M{
+		"hook_id": hookID,
+	}}
+
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}

@@ -271,18 +271,9 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap
 				}
 			}
 			// 配置来源为Gitlab，对比配置的ChangeLog是否变化
-			if args.Source == setting.SourceFromGitlab {
+			if args.Source == setting.SourceFromGitlab || args.Source == setting.SourceFromGithub || args.Source == setting.SourceFromCodeHub {
 				if args.Commit != nil && serviceTmpl.Commit != nil && args.Commit.SHA == serviceTmpl.Commit.SHA {
-					log.Info("gitlab change log remains the same, quit creation.")
-					return GetServiceOption(serviceTmpl, log)
-				}
-				if args.LoadPath != serviceTmpl.LoadPath && serviceTmpl.LoadPath != "" {
-					log.Errorf("Changing load path is not allowed")
-					return nil, e.ErrCreateTemplate.AddDesc("不允许更改加载路径")
-				}
-			} else if args.Source == setting.SourceFromGithub {
-				if args.Commit != nil && serviceTmpl.Commit != nil && args.Commit.SHA == serviceTmpl.Commit.SHA {
-					log.Info("github change log remains the same, quit creation.")
+					log.Infof("%s change log remains the same, quit creation", args.Source)
 					return GetServiceOption(serviceTmpl, log)
 				}
 				if args.LoadPath != serviceTmpl.LoadPath && serviceTmpl.LoadPath != "" {
@@ -744,7 +735,7 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 		return errors.New("service name is empty")
 	}
 	if !config.ServiceNameRegex.MatchString(args.ServiceName) {
-		return fmt.Errorf("导入的文件目录和文件名称仅支持字母，数字， 中划线和 下划线")
+		return fmt.Errorf("导入的文件目录和文件名称仅支持字母，数字，中划线和下划线")
 	}
 	if args.Type == setting.K8SDeployType {
 		if args.Containers == nil {

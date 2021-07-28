@@ -105,6 +105,7 @@ type ServiceTmplPipeResp struct {
 	CodehostID       int                 `bson:"codehost_id"                    json:"codehost_id"`
 	RepoOwner        string              `bson:"repo_owner"                     json:"repo_owner"`
 	RepoName         string              `bson:"repo_name"                      json:"repo_name"`
+	RepoUUID         string              `bson:"repo_uuid"                      json:"repo_uuid"`
 	BranchName       string              `bson:"branch_name"                    json:"branch_name"`
 	LoadPath         string              `bson:"load_path"                      json:"load_path"`
 	LoadFromDir      bool                `bson:"is_dir"                         json:"is_dir"`
