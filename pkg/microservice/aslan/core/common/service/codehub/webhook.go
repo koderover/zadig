@@ -13,7 +13,7 @@ func (c *Client) CreateWebHook(owner, repo string) (string, error) {
 		HookURL:    config.WebHookURL(),
 		Token:      gitservice.GetHookSecret(),
 		Service:    fmt.Sprintf("%s-%s", owner, repo),
-		HookEvents: []string{codehub.PushEvent, codehub.BranchOrTagCreateEvent, codehub.PullRequestEvent},
+		HookEvents: []string{codehub.PushEvents, codehub.BranchOrTagCreateEvent, codehub.PullRequestEvent},
 	})
 }
 

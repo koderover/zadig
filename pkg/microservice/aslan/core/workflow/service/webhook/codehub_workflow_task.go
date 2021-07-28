@@ -12,6 +12,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/codehub"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/types/permission"
 )
@@ -19,7 +20,7 @@ import (
 type codehubMergeEventMatcher struct {
 	log      *zap.SugaredLogger
 	workflow *commonmodels.Workflow
-	event    *MergeEvent
+	event    *codehub.MergeEvent
 }
 
 func (cmem *codehubMergeEventMatcher) Match(hookRepo commonmodels.MainHookRepo) (bool, error) {
@@ -56,7 +57,7 @@ func (cmem *codehubMergeEventMatcher) UpdateTaskArgs(
 type codehubPushEventMatcher struct {
 	log      *zap.SugaredLogger
 	workflow *commonmodels.Workflow
-	event    *PushEvent
+	event    *codehub.PushEvent
 }
 
 func (cpem *codehubPushEventMatcher) Match(hookRepo commonmodels.MainHookRepo) (bool, error) {
@@ -92,13 +93,13 @@ func createCodehubEventMatcher(
 	event interface{}, workflow *commonmodels.Workflow, log *zap.SugaredLogger,
 ) gitEventMatcher {
 	switch evt := event.(type) {
-	case *PushEvent:
+	case *codehub.PushEvent:
 		return &codehubPushEventMatcher{
 			workflow: workflow,
 			log:      log,
 			event:    evt,
 		}
-	case *MergeEvent:
+	case *codehub.MergeEvent:
 		return &codehubMergeEventMatcher{
 			log:      log,
 			event:    evt,
@@ -156,7 +157,7 @@ func TriggerWorkflowByCodehubEvent(event interface{}, baseURI, requestID string,
 			}
 
 			var mergeRequestID, commitID string
-			if ev, isPr := event.(*MergeEvent); isPr {
+			if ev, isPr := event.(*codehub.MergeEvent); isPr {
 				// 如果是merge request，且该webhook触发器配置了自动取消，
 				// 则需要确认该merge request在本次commit之前的commit触发的任务是否处理完，没有处理完则取消掉。
 				mergeRequestID = strconv.Itoa(ev.ObjectAttributes.IID)

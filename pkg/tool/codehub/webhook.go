@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	PushEvent              = "push_events"
+	PushEvents             = "push_events"
 	PullRequestEvent       = "merge_requests_events"
 	BranchOrTagCreateEvent = "tag_push_events"
 )
