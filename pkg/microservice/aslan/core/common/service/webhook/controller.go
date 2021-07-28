@@ -34,8 +34,8 @@ import (
 )
 
 type hookCreateDeleter interface {
-	CreateWebHook(owner, repo string) (string, error)
-	DeleteWebHook(owner, repo, hookID string) error
+	CreateWebHook(owner, repo string) (int64, error)
+	DeleteWebHook(owner, repo string, hookID int64) error
 }
 
 type controller struct {
@@ -175,7 +175,7 @@ func addWebhook(t *task, logger *zap.Logger) {
 	coll := mongodb.NewWebHookColl()
 	var cl hookCreateDeleter
 	var err error
-	var hookID string
+	var hookID int64
 
 	switch t.from {
 	case setting.SourceFromGithub:
@@ -214,7 +214,7 @@ func addWebhook(t *task, logger *zap.Logger) {
 		}
 	}
 
-	if hookID != "" {
+	if hookID != 0 {
 		if err = coll.Update(t.owner, t.repo, t.address, hookID); err != nil {
 			t.err = err
 			logger.Error("Failed to update webhook", zap.Error(err))

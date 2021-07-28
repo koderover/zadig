@@ -128,7 +128,7 @@ func (c *WebHookColl) Find(owner, repo, address string) (*models.WebHook, error)
 }
 
 // Update update hookID
-func (c *WebHookColl) Update(owner, repo, address, hookID string) error {
+func (c *WebHookColl) Update(owner, repo, address string, hookID int64) error {
 	query := bson.M{"owner": owner, "repo": repo, "address": address}
 	change := bson.M{"$set": bson.M{
 		"hook_id": hookID,
