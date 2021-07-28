@@ -35,7 +35,7 @@ import (
 
 type hookCreateDeleter interface {
 	CreateWebHook(owner, repo string) (string, error)
-	DeleteWebHook(owner, repo, hookUUID string) error
+	DeleteWebHook(owner, repo, hookID string) error
 }
 
 type controller struct {

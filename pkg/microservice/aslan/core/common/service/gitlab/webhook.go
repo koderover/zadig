@@ -33,7 +33,7 @@ func (c *Client) CreateWebHook(owner, repo string) (string, error) {
 	return "", err
 }
 
-func (c *Client) DeleteWebHook(owner, repo, hookUUID string) error {
+func (c *Client) DeleteWebHook(owner, repo, hookID string) error {
 	whs, err := c.ListProjectHooks(owner, repo, nil)
 	if err != nil {
 		log.Errorf("Failed to list hooks from %s/%s, err: %s", owner, repo, err)
