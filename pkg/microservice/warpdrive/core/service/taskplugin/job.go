@@ -49,6 +49,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/podexec"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
+	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -112,12 +113,15 @@ func saveContainerLog(pipelineTask *task.Task, namespace, fileName string, jobLa
 			} else {
 				store.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineTask.PipelineName, pipelineTask.TaskID, "log")
 			}
-
-			if err = s3.Upload(
-				context.Background(),
-				store,
+			s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure)
+			if err != nil {
+				return fmt.Errorf("saveContainerLog s3 create client error: %v", err)
+			}
+			objectKey := store.GetObjectPath(fileName + ".log")
+			if err = s3client.Upload(
+				store.Bucket,
 				tempFileName,
-				fileName+".log",
+				objectKey,
 			); err != nil {
 				return fmt.Errorf("saveContainerLog s3 Upload error: %v", err)
 			}

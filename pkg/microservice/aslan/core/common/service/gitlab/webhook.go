@@ -17,35 +17,27 @@ limitations under the License.
 package gitlab
 
 import (
+	"strconv"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	gitservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
 	"github.com/koderover/zadig/pkg/tool/git"
-	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-func (c *Client) CreateWebHook(owner, repo string) error {
-	_, err := c.AddProjectHook(owner, repo, &git.Hook{
+func (c *Client) CreateWebHook(owner, repo string) (string, error) {
+	projectHook, err := c.AddProjectHook(owner, repo, &git.Hook{
 		URL:    config.WebHookURL(),
 		Secret: gitservice.GetHookSecret(),
 		Events: []string{git.PushEvent, git.PullRequestEvent, git.BranchOrTagCreateEvent},
 	})
 
-	return err
+	return strconv.Itoa(projectHook.ID), err
 }
 
-func (c *Client) DeleteWebHook(owner, repo string) error {
-	whs, err := c.ListProjectHooks(owner, repo, nil)
+func (c *Client) DeleteWebHook(owner, repo, hookID string) error {
+	hookIDInt, err := strconv.Atoi(hookID)
 	if err != nil {
-		log.Errorf("Failed to list hooks from %s/%s, err: %s", owner, repo, err)
 		return err
 	}
-
-	for _, wh := range whs {
-		// we assume that there is only one webhook matching this url
-		if wh.URL == config.WebHookURL() {
-			return c.DeleteProjectHook(owner, repo, wh.ID)
-		}
-	}
-
-	return nil
+	return c.DeleteProjectHook(owner, repo, hookIDInt)
 }

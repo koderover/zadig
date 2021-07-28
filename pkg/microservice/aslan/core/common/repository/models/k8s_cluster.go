@@ -43,6 +43,7 @@ type K8SCluster struct {
 	CreatedBy    string                  `json:"createdBy" bson:"createdBy"`
 	Disconnected bool                    `json:"-" bson:"disconnected"`
 	Token        string                  `json:"token" bson:"-"`
+	Provider     int8                    `json:"provider"       bson:"provider"`
 }
 
 type K8SClusterInfo struct {

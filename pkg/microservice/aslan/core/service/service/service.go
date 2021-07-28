@@ -45,6 +45,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/gerrit"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/log"
+	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -270,18 +271,9 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap
 				}
 			}
 			// 配置来源为Gitlab，对比配置的ChangeLog是否变化
-			if args.Source == setting.SourceFromGitlab {
+			if args.Source == setting.SourceFromGitlab || args.Source == setting.SourceFromGithub || args.Source == setting.SourceFromCodeHub {
 				if args.Commit != nil && serviceTmpl.Commit != nil && args.Commit.SHA == serviceTmpl.Commit.SHA {
-					log.Info("gitlab change log remains the same, quit creation.")
-					return GetServiceOption(serviceTmpl, log)
-				}
-				if args.LoadPath != serviceTmpl.LoadPath && serviceTmpl.LoadPath != "" {
-					log.Errorf("Changing load path is not allowed")
-					return nil, e.ErrCreateTemplate.AddDesc("不允许更改加载路径")
-				}
-			} else if args.Source == setting.SourceFromGithub {
-				if args.Commit != nil && serviceTmpl.Commit != nil && args.Commit.SHA == serviceTmpl.Commit.SHA {
-					log.Info("github change log remains the same, quit creation.")
+					log.Infof("%s change log remains the same, quit creation", args.Source)
 					return GetServiceOption(serviceTmpl, log)
 				}
 				if args.LoadPath != serviceTmpl.LoadPath && serviceTmpl.LoadPath != "" {
@@ -574,7 +566,10 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 			} else {
 				s3Storage.Subfolder = fmt.Sprintf("%s/%s", subFolderName, "service")
 			}
-			s3service.RemoveFiles(s3Storage, []string{fmt.Sprintf("%s.tar.gz", serviceName)}, false)
+			client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure)
+			if err == nil {
+				client.RemoveFiles(s3Storage.Bucket, []string{fmt.Sprintf("%s.tar.gz", serviceName)})
+			}
 		}
 	}
 
@@ -740,14 +735,14 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 		return errors.New("service name is empty")
 	}
 	if !config.ServiceNameRegex.MatchString(args.ServiceName) {
-		return fmt.Errorf("导入的文件目录和文件名称仅支持字母，数字， 中划线和 下划线")
+		return fmt.Errorf("导入的文件目录和文件名称仅支持字母，数字，中划线和下划线")
 	}
 	if args.Type == setting.K8SDeployType {
 		if args.Containers == nil {
 			args.Containers = make([]*commonmodels.Container, 0)
 		}
 		// 配置来源为Gitlab，需要从Gitlab同步配置，并设置KubeYamls.
-		if args.Source != setting.SourceFromGithub && args.Source != setting.SourceFromGitlab {
+		if args.Source == setting.SourceFromGerrit {
 			// 拆分 all-in-one yaml文件
 			// 替换分隔符
 			args.Yaml = util.ReplaceWrapLine(args.Yaml)

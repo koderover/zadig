@@ -243,7 +243,7 @@ type Repo struct {
 // e.g. github returns refs/pull/1/head
 // e.g. gitlab returns merge-requests/1/head
 func (r *Repo) PRRef() string {
-	if strings.ToLower(r.Source) == ProviderGitlab {
+	if strings.ToLower(r.Source) == ProviderGitlab || strings.ToLower(r.Source) == ProviderCodehub {
 		return fmt.Sprintf("merge-requests/%d/head", r.PR)
 	} else if strings.ToLower(r.Source) == ProviderGerrit {
 		return r.CheckoutRef

@@ -17,7 +17,6 @@ limitations under the License.
 package scmnotify
 
 import (
-	"context"
 	"encoding/xml"
 	"fmt"
 	"io/ioutil"
@@ -33,6 +32,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -327,26 +327,34 @@ func downloadReport(taskInfo *task.Task, fileName, testName string, logger *zap.
 		_ = os.Remove(tmpFilename)
 	}()
 
-	if err = s3.Download(context.Background(), store, fileName, tmpFilename); err == nil {
-		testRepo := new(models.TestSuite)
-		b, err := ioutil.ReadFile(tmpFilename)
-		if err != nil {
-			logger.Error(fmt.Sprintf("get test result file error: %v", err))
-			return nil, err
-		}
-
-		err = xml.Unmarshal(b, testRepo)
-		if err != nil {
-			logger.Errorf("unmarshal result file test suite summary error: %v", err)
-			return nil, err
-		}
-
-		testRepo.Name = testName
-
-		return testRepo, nil
+	objectKey := store.GetObjectPath(fileName)
+	client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure)
+	if err != nil {
+		return nil, err
 	}
 
-	return nil, err
+	err = client.Download(store.Bucket, objectKey, tmpFilename)
+	if err != nil {
+		logger.Errorf("Failed to download object: %s, error is: %+v", objectKey, err)
+		return nil, err
+	}
+
+	testRepo := new(models.TestSuite)
+	b, err := ioutil.ReadFile(tmpFilename)
+	if err != nil {
+		logger.Error(fmt.Sprintf("get test result file error: %v", err))
+		return nil, err
+	}
+
+	err = xml.Unmarshal(b, testRepo)
+	if err != nil {
+		logger.Errorf("unmarshal result file test suite summary error: %v", err)
+		return nil, err
+	}
+
+	testRepo.Name = testName
+
+	return testRepo, nil
 }
 
 func DownloadTestReports(taskInfo *task.Task, logger *zap.SugaredLogger) ([]*models.TestSuite, error) {

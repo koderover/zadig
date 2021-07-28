@@ -51,6 +51,6 @@ temp_coverage_test.go
 .vscode
 docker/*.tar.gz
 *.patch
-main
+/main
 
 test/integration/reporters/*.xml

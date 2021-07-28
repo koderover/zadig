@@ -41,26 +41,42 @@ func NewClient() *client {
 }
 
 type task struct {
-	owner, repo, address, token, ref string
-	from                             string
-	add                              bool
-	err                              error
-	doneCh                           chan struct{}
+	owner, repo, address, token, ref, ak, sk, region string
+	from                                             string
+	add                                              bool
+	err                                              error
+	doneCh                                           chan struct{}
 }
 
-func (c *client) AddWebHook(name, owner, repo, address, token, ref, from string) error {
+type TaskOption struct {
+	Name    string
+	Owner   string
+	Repo    string
+	Address string
+	Token   string
+	Ref     string
+	From    string
+	AK      string
+	SK      string
+	Region  string
+}
+
+func (c *client) AddWebHook(taskOption *TaskOption) error {
 	if !c.enabled {
 		return nil
 	}
 
 	t := &task{
-		owner:   owner,
-		repo:    repo,
-		address: address,
-		token:   token,
-		ref:     getFullReference(name, ref),
-		from:    from,
+		owner:   taskOption.Owner,
+		repo:    taskOption.Repo,
+		address: taskOption.Address,
+		token:   taskOption.Token,
+		ref:     getFullReference(taskOption.Name, taskOption.Ref),
+		from:    taskOption.From,
 		add:     true,
+		ak:      taskOption.AK,
+		sk:      taskOption.SK,
+		region:  taskOption.Region,
 		doneCh:  make(chan struct{}),
 	}
 
@@ -79,19 +95,22 @@ func (c *client) AddWebHook(name, owner, repo, address, token, ref, from string)
 	return t.err
 }
 
-func (c *client) RemoveWebHook(name, owner, repo, address, token, ref, from string) error {
+func (c *client) RemoveWebHook(taskOption *TaskOption) error {
 	if !c.enabled {
 		return nil
 	}
 
 	t := &task{
-		owner:   owner,
-		repo:    repo,
-		address: address,
-		token:   token,
-		ref:     getFullReference(name, ref),
-		from:    from,
+		owner:   taskOption.Owner,
+		repo:    taskOption.Repo,
+		address: taskOption.Address,
+		token:   taskOption.Token,
+		ref:     getFullReference(taskOption.Name, taskOption.Ref),
+		from:    taskOption.From,
 		add:     false,
+		ak:      taskOption.AK,
+		sk:      taskOption.SK,
+		region:  taskOption.Region,
 		doneCh:  make(chan struct{}),
 	}
 

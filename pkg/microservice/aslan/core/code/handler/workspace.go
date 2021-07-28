@@ -130,7 +130,7 @@ func GetGitlabRepoInfo(c *gin.Context) {
 
 	codehostID, err := strconv.Atoi(codehostIDStr)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("cannot convert codehost id to string")
+		ctx.Err = e.ErrInvalidParam.AddDesc("cannot convert codehost id to int")
 		return
 	}
 
@@ -171,7 +171,7 @@ func GetGitRepoInfo(c *gin.Context) {
 
 	codehostID, err := strconv.Atoi(codehostIDStr)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("cannot convert codehost id to string")
+		ctx.Err = e.ErrInvalidParam.AddDesc("cannot convert codehost id to int")
 		return
 	}
 
@@ -214,4 +214,37 @@ func GetPublicGitRepoInfo(c *gin.Context) {
 	}
 	dir := c.Query("dir")
 	ctx.Resp, ctx.Err = service.GetPublicGitRepoInfo(url, dir, ctx.Logger)
+}
+
+func GetCodehubRepoInfo(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	codehostIDStr := c.Param("codehostId")
+	if codehostIDStr == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty codehost ID")
+		return
+	}
+
+	codehostID, err := strconv.Atoi(codehostIDStr)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("cannot convert codehost id to int")
+		return
+	}
+
+	repoUUID := c.Param("repoUUID")
+	if repoUUID == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty repo uuid")
+		return
+	}
+
+	branchName := c.Param("branchName")
+	if branchName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("empty branch name")
+		return
+	}
+
+	path := c.Query("path")
+
+	ctx.Resp, ctx.Err = service.GetCodehubRepoInfo(codehostID, repoUUID, branchName, path, ctx.Logger)
 }

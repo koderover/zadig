@@ -39,8 +39,8 @@ func NewCodeHubClient(ak, sk, region string) *CodeHubClient {
 }
 
 // Just apply the signature and request the CodeHub interface
-func (c *CodeHubClient) sendRequest(method, path, payload string) (io.ReadCloser, error) {
-	r, _ := http.NewRequest(method, fmt.Sprintf("%s.%s.%s%s", "https://codehub-ext", c.Region, "myhuaweicloud.com", path), ioutil.NopCloser(bytes.NewBuffer([]byte(payload))))
+func (c *CodeHubClient) sendRequest(method, path string, payload []byte) (io.ReadCloser, error) {
+	r, _ := http.NewRequest(method, fmt.Sprintf("%s.%s.%s%s", "https://codehub-ext", c.Region, "myhuaweicloud.com", path), ioutil.NopCloser(bytes.NewBuffer(payload)))
 	r.Header.Add("content-type", "application/json")
 	signer := &Signer{
 		AK: c.AK,
