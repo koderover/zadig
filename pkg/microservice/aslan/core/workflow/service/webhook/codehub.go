@@ -37,19 +37,10 @@ func ProcessCodehubHook(payload []byte, req *http.Request, requestID string, log
 	baseURI := fmt.Sprintf("%s://%s", forwardedProto, forwardedHost)
 
 	var pushEvent *codehub.PushEvent
-	var mergeEvent *codehub.MergeEvent
 	var errorList = &multierror.Error{}
-
 	switch event := event.(type) {
 	case *codehub.PushEvent:
 		pushEvent = event
-	case *codehub.MergeEvent:
-		mergeEvent = event
-	}
-
-	//触发工作流webhook和测试管理webhook
-	if pushEvent != nil {
-		//add webhook user
 		if len(pushEvent.Commits) > 0 {
 			webhookUser := &commonmodels.WebHookUser{
 				Domain:    req.Header.Get("X-Forwarded-Host"),
@@ -61,21 +52,14 @@ func ProcessCodehubHook(payload []byte, req *http.Request, requestID string, log
 			commonrepo.NewWebHookUserColl().Upsert(webhookUser)
 		}
 
-		//产品工作流webhook
-		if err = TriggerWorkflowByCodehubEvent(pushEvent, baseURI, requestID, log); err != nil {
-			errorList = multierror.Append(errorList, err)
-		}
-
 		if err = updateServiceTemplateByCodehubPushEvent(pushEvent, log); err != nil {
 			errorList = multierror.Append(errorList, err)
 		}
 	}
 
-	if mergeEvent != nil {
-		//产品工作流webhook
-		if err = TriggerWorkflowByCodehubEvent(mergeEvent, baseURI, requestID, log); err != nil {
-			errorList = multierror.Append(errorList, err)
-		}
+	//产品工作流webhook
+	if err = TriggerWorkflowByCodehubEvent(event, baseURI, requestID, log); err != nil {
+		errorList = multierror.Append(errorList, err)
 	}
 
 	return errorList.ErrorOrNil()
@@ -98,16 +82,25 @@ func updateServiceTemplateByCodehubPushEvent(event *codehub.PushEvent, log *zap.
 		}
 		// 判断PushEvent的Diffs中是否包含该服务模板的src_path
 		affected := false
+	Loop:
 		for _, commit := range event.Commits {
-			fileNames := commit.Modified
-			for _, fileName := range fileNames {
-				if strings.Contains(fileName, path) || strings.Contains(fileName, path) {
+			for _, fileName := range commit.Modified {
+				if strings.Contains(fileName, path) {
 					affected = true
-					break
+					break Loop
 				}
 			}
-			if affected {
-				break
+			for _, fileName := range commit.Added {
+				if strings.Contains(fileName, path) {
+					affected = true
+					break Loop
+				}
+			}
+			for _, fileName := range commit.Removed {
+				if strings.Contains(fileName, path) {
+					affected = true
+					break Loop
+				}
 			}
 		}
 		if affected {

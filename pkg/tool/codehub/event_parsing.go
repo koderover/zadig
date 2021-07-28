@@ -186,14 +186,14 @@ type PushEvent struct {
 }
 
 type PushEventCommit struct {
-	ID        string        `json:"id"`
-	Message   string        `json:"message"`
-	Timestamp time.Time     `json:"timestamp"`
-	URL       string        `json:"url"`
-	Author    Author        `json:"author"`
-	Added     []interface{} `json:"added"`
-	Modified  []string      `json:"modified"`
-	Removed   []interface{} `json:"removed"`
+	ID        string    `json:"id"`
+	Message   string    `json:"message"`
+	Timestamp time.Time `json:"timestamp"`
+	URL       string    `json:"url"`
+	Author    Author    `json:"author"`
+	Added     []string  `json:"added"`
+	Modified  []string  `json:"modified"`
+	Removed   []string  `json:"removed"`
 }
 
 type Author struct {
