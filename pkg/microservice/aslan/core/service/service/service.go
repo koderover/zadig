@@ -566,7 +566,11 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 			} else {
 				s3Storage.Subfolder = fmt.Sprintf("%s/%s", subFolderName, "service")
 			}
-			client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure)
+			forcedPathStyle := false
+			if s3Storage.Provider == setting.ProviderSourceSystemDefault {
+				forcedPathStyle = true
+			}
+			client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
 			if err == nil {
 				client.RemoveFiles(s3Storage.Bucket, []string{fmt.Sprintf("%s.tar.gz", serviceName)})
 			}
@@ -742,7 +746,7 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 			args.Containers = make([]*commonmodels.Container, 0)
 		}
 		// 配置来源为Gitlab，需要从Gitlab同步配置，并设置KubeYamls.
-		if args.Source == setting.SourceFromGerrit {
+		if args.Source == setting.SourceFromGerrit || args.Source == setting.SourceFromZadig {
 			// 拆分 all-in-one yaml文件
 			// 替换分隔符
 			args.Yaml = util.ReplaceWrapLine(args.Yaml)

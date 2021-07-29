@@ -29,6 +29,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/reaper/config"
 	"github.com/koderover/zadig/pkg/microservice/reaper/internal/s3"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
@@ -75,14 +76,18 @@ func (r *Reaper) runIntallationScripts() error {
 				Endpoint: r.Ctx.StorageEndpoint,
 				Bucket:   r.Ctx.StorageBucket,
 				Insecure: true,
+				Provider: r.Ctx.StorageProvider,
 			}
 			store.Subfolder = fmt.Sprintf("%s/%s-v%s", config.ConstructCachePath, install.Name, install.Version)
 
 			filepath := strings.Split(install.Download, "/")
 			fileName := filepath[len(filepath)-1]
 			tmpPath = path.Join(os.TempDir(), fileName)
-
-			s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure)
+			forcedPathStyle := false
+			if store.Provider == setting.ProviderSourceSystemDefault {
+				forcedPathStyle = true
+			}
+			s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
 			if err == nil {
 				objectKey := store.GetObjectPath(fileName)
 				err = s3client.Download(

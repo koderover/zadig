@@ -30,6 +30,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
+	"github.com/koderover/zadig/pkg/setting"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
 )
@@ -77,7 +78,11 @@ func GetTestLocalTestSuite(serviceName string, log *zap.SugaredLogger) (*commonm
 								if err != nil {
 									log.Errorf("GetTestLocalTestSuite GenerateTmpFile err:%v", err)
 								}
-								client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure)
+								forcedPathStyle := false
+								if storage.Provider == setting.ProviderSourceSystemDefault {
+									forcedPathStyle = true
+								}
+								client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
 								if err != nil {
 									log.Errorf("GetTestLocalTestSuite Create S3 client err:%+v", err)
 									continue

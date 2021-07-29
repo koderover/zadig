@@ -903,8 +903,11 @@ func GePackageFileContent(pipelineName string, taskID int64, log *zap.SugaredLog
 	defer func() {
 		_ = os.Remove(tmpfile.Name())
 	}()
-
-	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure)
+	forcedPathStyle := false
+	if storage.Provider == setting.ProviderSourceSystemDefault {
+		forcedPathStyle = true
+	}
+	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
 	if err != nil {
 		return nil, packageFile, fmt.Errorf("failed to get s3 client to download %s, error is: %v", packageFile, err)
 	}
@@ -924,8 +927,11 @@ func GetArtifactFileContent(pipelineName string, taskID int64, log *zap.SugaredL
 	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
 		_ = os.MkdirAll(sourcePath, 0777)
 	}
-
-	client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure)
+	forcedPathStyle := false
+	if s3Storage.Provider == setting.ProviderSourceSystemDefault {
+		forcedPathStyle = true
+	}
+	client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create s3 client , error: %v", err)
 	}
@@ -980,7 +986,11 @@ func GetTestArtifactInfo(pipelineName, dir string, taskID int64, log *zap.Sugare
 	} else {
 		storage.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineName, taskID, "artifact")
 	}
-	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure)
+	forcedPathStyle := false
+	if storage.Provider == setting.ProviderSourceSystemDefault {
+		forcedPathStyle = true
+	}
+	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
 	if err != nil {
 		log.Errorf("GetTestArtifactInfo Create S3 client err:%+v", err)
 		return nil, fis, nil

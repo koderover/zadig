@@ -359,8 +359,11 @@ func GetHTMLTestReport(pipelineName, pipelineType, taskIDStr, testName string, l
 	defer func() {
 		_ = os.Remove(tmpFilename)
 	}()
-
-	client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure)
+	forcedPathStyle := false
+	if store.Provider == setting.ProviderSourceSystemDefault {
+		forcedPathStyle = true
+	}
+	client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
 	if err != nil {
 		log.Errorf("download html test report error: %s", err)
 		return "", e.ErrGetTestReport.AddErr(err)

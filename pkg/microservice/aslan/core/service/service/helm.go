@@ -617,7 +617,11 @@ func uploadService(base, serviceName, filePath string) error {
 		log.Errorf("获取默认的s3配置失败 err:%v", err)
 		return err
 	}
-	client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure)
+	forcedPathStyle := false
+	if s3Storage.Provider == setting.ProviderSourceSystemDefault {
+		forcedPathStyle = true
+	}
+	client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
 	if err != nil {
 		log.Errorf("Failed to get s3 client, error is: %+v", err)
 		return err

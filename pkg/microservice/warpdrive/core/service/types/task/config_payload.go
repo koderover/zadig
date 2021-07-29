@@ -76,6 +76,7 @@ type S3Config struct {
 	Bucket   string
 	Path     string
 	Protocol string
+	Provider int8
 }
 
 type GithubConfig struct {
