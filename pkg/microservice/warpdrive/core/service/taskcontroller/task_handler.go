@@ -184,10 +184,6 @@ func (h *CancelHandler) HandleMessage(message *nsq.Message) error {
 	if pipelineTask != nil && pipelineTask.PipelineName == msg.PipelineName && pipelineTask.TaskID == msg.TaskID {
 		xl.Infof("cancelling message: %+v", msg)
 		pipelineTask.TaskRevoker = msg.Revoker
-		pipelineTask.Status = config.StatusCancelled
-		if err := completeGitCheck(pipelineTask); err != nil {
-			xl.Errorf("completeGitCheck error: %v", err)
-		}
 
 		//取消pipelineTask
 		cancel()

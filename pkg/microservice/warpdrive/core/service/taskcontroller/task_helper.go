@@ -215,8 +215,6 @@ func getCheckStatus(status config.Status) github.CIStatus {
 		return github.CIStatusSuccess
 	case config.StatusSkipped:
 		return github.CIStatusCancelled
-	case config.StatusCancelled:
-		return github.CIStatusCancelled
 	default:
 		return github.CIStatusError
 	}
