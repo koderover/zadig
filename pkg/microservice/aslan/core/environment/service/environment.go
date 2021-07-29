@@ -450,7 +450,7 @@ func AutoUpdateProduct(envNames []string, productName string, userID int, superU
 		}
 	}
 
-	productsRevison, err := ListProductsRevision("", "", userID, superUser, log)
+	productsRevison, err := ListProductsRevision(productName, "", userID, superUser, log)
 	if err != nil {
 		log.Errorf("AutoUpdateProduct ListProductsRevision err:%v", err)
 		return envStatuses, err
