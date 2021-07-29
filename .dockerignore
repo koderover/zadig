@@ -3,4 +3,4 @@
 !/pkg
 !/go.mod
 !/go.sum
-!/reaper-nginx.conf
+!/resource-server-nginx.conf
