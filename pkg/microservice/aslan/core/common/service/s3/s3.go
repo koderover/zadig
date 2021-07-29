@@ -23,9 +23,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	config2 "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/crypto"
 )
 
@@ -68,7 +70,7 @@ func NewS3StorageFromURL(uri string) (*S3, error) {
 		subfolder = strings.Join(paths[1:], "/")
 	}
 
-	return &S3{
+	ret := &S3{
 		&models.S3Storage{
 			Ak:        store.User.Username(),
 			Sk:        sk,
@@ -77,7 +79,12 @@ func NewS3StorageFromURL(uri string) (*S3, error) {
 			Subfolder: subfolder,
 			Insecure:  store.Scheme == "http",
 		},
-	}, nil
+	}
+	if strings.Contains(store.Host, config2.MinioServiceName()) {
+		ret.Provider = setting.ProviderSourceSystemDefault
+	}
+
+	return ret, nil
 }
 
 func NewS3StorageFromEncryptedURI(encryptedURI string) (*S3, error) {
@@ -131,6 +138,7 @@ func FindDefaultS3() (*S3, error) {
 				Endpoint: config.S3StorageEndpoint(),
 				Bucket:   config.S3StorageBucket(),
 				Insecure: config.S3StorageProtocol() == "http",
+				Provider: setting.ProviderSourceSystemDefault,
 			},
 		}, nil
 	}

@@ -22,6 +22,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	config2 "github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/crypto"
 )
 
@@ -41,6 +43,7 @@ type Storage struct {
 	EncryptedSk string `bson:"encryptedSk" json:"-"`
 	UpdatedBy   string `bson:"updated_by"  json:"updated_by"`
 	UpdateTime  int64  `bson:"update_time" json:"update_time"`
+	Provider    int8   `bson:"provider"    json:"provider"`
 }
 
 func (s *S3) GetSchema() string {
@@ -78,7 +81,7 @@ func NewS3StorageFromURL(uri string) (*S3, error) {
 		subfolder = strings.Join(paths[1:], "/")
 	}
 
-	return &S3{
+	ret := &S3{
 		&Storage{
 			Ak:        store.User.Username(),
 			Sk:        sk,
@@ -87,7 +90,12 @@ func NewS3StorageFromURL(uri string) (*S3, error) {
 			Subfolder: subfolder,
 			Insecure:  store.Scheme == "http",
 		},
-	}, nil
+	}
+	if strings.Contains(store.Host, config2.MinioServiceName()) {
+		ret.Provider = setting.ProviderSourceSystemDefault
+	}
+
+	return ret, nil
 }
 
 func NewS3StorageFromEncryptedURI(encryptedURI string) (*S3, error) {
