@@ -26,8 +26,8 @@ DOCKERFILES+=$(addsuffix .Dockerfile,$(addprefix docker/dist/reaper-plugin.,$(RE
 
 all: $(ALL_IMAGES) $(ALL_REAPER_IMAGES)
 allpush: $(ALL_PUSHES) $(ALL_REAPER_PUSHES)
-# reaper: $(ALL_REAPER_IMAGES)
-# reaperpush: $(ALL_REAPER_PUSHES)
+reaper: $(ALL_REAPER_IMAGES)
+reaperpush: $(ALL_REAPER_PUSHES)
 dockerfiles: $(DOCKERFILES)
 
 # make
@@ -49,18 +49,18 @@ docker/dist/%.Dockerfile: docker/%.Dockerfile.template docker/ubuntu-base.Docker
 %.push: %.image
 	docker push ${IMAGE}
 
-# %.reaper-image: IMAGE ?= ${IMAGE_PREFIX}reaper-plugin:${TAG}
-# %.reaper-image: docker/dist/reaper-plugin.%.Dockerfile
-# 	@echo builting $*
-# 	docker build -t ${IMAGE}-$* -f docker/dist/reaper-plugin.$*.Dockerfile ./
-#
-# %.reaper-push: IMAGE ?= ${IMAGE_PREFIX}reaper-plugin:${TAG}
-# %.reaper-push: %.reaper-image
-# 	@echo builting $*
-# 	docker push ${IMAGE}-$*
-#
-# $(REAPER_TARGETS):%:%.reaper-image
-#
+%.reaper-image: IMAGE ?= ${IMAGE_PREFIX}reaper-plugin:${TAG}
+%.reaper-image: docker/dist/reaper-plugin.%.Dockerfile
+	@echo builting $*
+	docker build -t ${IMAGE}-$* -f docker/dist/reaper-plugin.$*.Dockerfile ./
+
+%.reaper-push: IMAGE ?= ${IMAGE_PREFIX}reaper-plugin:${TAG}
+%.reaper-push: %.reaper-image
+	@echo builting $*
+	docker push ${IMAGE}-$*
+
+$(REAPER_TARGETS):%:%.reaper-image
+
 $(TARGETS):%:%.image
 
 .PHONY: clean
