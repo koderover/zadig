@@ -218,11 +218,9 @@ func GetServiceInvolvedProjects(services []*commonmodels.Service, skipProject st
 		}
 	}
 
-	var res map[string][]string
+	res := make(map[string][]string)
 	for k, v := range serviceMap {
-		if skipProject != "" {
-			v.Delete(skipProject)
-		}
+		v.Delete(skipProject)
 		res[k] = v.List()
 	}
 	return res, nil

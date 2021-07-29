@@ -1545,7 +1545,7 @@ func BuildModuleToSubTasks(moduleName, version, target, serviceName, productName
 	)
 
 	serviceTmpl, _ = commonservice.GetServiceTemplate(
-		serviceName, "", "", setting.ProductStatusDeleting, 0, log,
+		serviceName, "", productName, setting.ProductStatusDeleting, 0, log,
 	)
 	if serviceTmpl != nil && serviceTmpl.Visibility == setting.PublicService {
 		productName = serviceTmpl.ProductName

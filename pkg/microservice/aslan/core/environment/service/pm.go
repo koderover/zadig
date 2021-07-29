@@ -100,7 +100,7 @@ func (p *PMService) listGroupServices(allServices []*commonmodels.ProductService
 				EnvName:     envName,
 			}
 			serviceTmpl, err := commonservice.GetServiceTemplate(
-				service.ServiceName, setting.PMDeployType, "", "", service.Revision, p.log,
+				service.ServiceName, setting.PMDeployType, service.ProductName, "", service.Revision, p.log,
 			)
 			if err != nil {
 				gp.Status = setting.PodFailed

@@ -153,7 +153,7 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 				EnvName:     envName,
 			}
 			serviceTmpl, err := commonservice.GetServiceTemplate(
-				service.ServiceName, setting.K8SDeployType, "", "", service.Revision, k.log,
+				service.ServiceName, setting.K8SDeployType, service.ProductName, "", service.Revision, k.log,
 			)
 			if err != nil {
 				gp.Status = setting.PodFailed

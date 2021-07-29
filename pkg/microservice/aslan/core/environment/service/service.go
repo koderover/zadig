@@ -374,7 +374,7 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 				if serviceObj.ServiceName == args.ServiceName {
 					productService = serviceObj
 					serviceTmpl, err = commonservice.GetServiceTemplate(
-						serviceObj.ServiceName, setting.K8SDeployType, "", setting.ProductStatusDeleting, serviceObj.Revision, log,
+						serviceObj.ServiceName, setting.K8SDeployType, serviceObj.ProductName, setting.ProductStatusDeleting, serviceObj.Revision, log,
 					)
 					if err != nil {
 						err = e.ErrDeleteProduct.AddDesc(e.DeleteServiceContainerErrMsg + ": " + err.Error())

@@ -384,7 +384,7 @@ func UpdateServiceTemplate(args *commonservice.ServiceTmplObject) error {
 			for _, p := range projects {
 				names = append(names, p.ProductName)
 			}
-			log.Errorf("service %s is used by projects %s", args.ServiceName, strings.Join(names, ","))
+			log.Warnf("service %s is used by projects %s", args.ServiceName, strings.Join(names, ","))
 			errMsg := fmt.Sprintf("共享服务 [%s] 已被 [%s] 等项目服务编排中使用，请解除引用后再修改", args.ServiceName, strings.Join(names, ","))
 			return e.ErrInvalidParam.AddDesc(errMsg)
 		}
@@ -500,7 +500,7 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 			for _, p := range projects {
 				names = append(names, p.ProductName)
 			}
-			log.Errorf("service %s is used by projects %s", serviceName, strings.Join(names, ","))
+			log.Warnf("service %s is used by projects %s", serviceName, strings.Join(names, ","))
 			errMsg := fmt.Sprintf("共享服务 [%s] 已被 [%s] 等项目服务编排中使用，请解除引用后再删除", serviceName, strings.Join(names, ","))
 			return e.ErrInvalidParam.AddDesc(errMsg)
 		}
@@ -649,14 +649,38 @@ func ListServicePort(serviceName, serviceType, productName, excludeStatus string
 	return servicePorts, nil
 }
 
-func ListSharedServiceNames(productName string, log *zap.SugaredLogger) ([]*templatemodels.ServiceInfo, error) {
-	productTmpl, err := templaterepo.NewProductColl().Find(productName)
+type svcInfo struct {
+	ServiceName string `json:"service_name"`
+	ProductName string `json:"product_name"`
+}
+
+// ListAvailablePublicServices returns all public services which are not shared in the given project.
+func ListAvailablePublicServices(productName string, log *zap.SugaredLogger) ([]*svcInfo, error) {
+	project, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil {
 		log.Errorf("Can not find project %s, error: %s", productName, err)
 		return nil, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
-	return productTmpl.SharedServices, nil
+	services, err := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{
+		Visibility: setting.PublicService, ExcludeProject: productName,
+		ExcludeServices: project.SharedServices,
+	})
+	if err != nil {
+		log.Errorf("Can not list services, error: %s", err)
+		return nil, e.ErrListTemplate.AddDesc(err.Error())
+	}
+
+	var res []*svcInfo
+
+	for _, s := range services {
+		res = append(res, &svcInfo{
+			ServiceName: s.ServiceName,
+			ProductName: s.ProductName,
+		})
+	}
+
+	return res, nil
 }
 
 func GetGerritServiceYaml(args *commonmodels.Service, log *zap.SugaredLogger) error {
