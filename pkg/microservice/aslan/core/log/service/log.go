@@ -153,7 +153,7 @@ func GetPodLogByHttp(podName, containerName, envName, productName string, tail i
 		return "", err
 	}
 	str := buf.String()
-	log.Infof("GetPodLogByHttp log:%v",str)
+
 	return str, nil
 
 	/*cmdStr := ""
