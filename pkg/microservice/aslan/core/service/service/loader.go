@@ -882,6 +882,7 @@ func loadServiceFromCodehub(client *codehub.CodeHubClient, tree []*codehub.TreeN
 		RepoOwner:   repoOwner,
 		RepoName:    repoName,
 		BranchName:  branchName,
+		RepoUUID:    repoUUID,
 		LoadPath:    path,
 		LoadFromDir: args.LoadFromDir,
 		KubeYamls:   splittedYaml,
