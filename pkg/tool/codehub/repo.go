@@ -92,40 +92,23 @@ func (c *CodeHubClient) RepoList(projectUUID, search string, pageSize int) ([]*P
 
 func (c *CodeHubClient) GetYAMLContents(repoUUID, branchName, path string, isDir, split bool) ([]string, error) {
 	var res []string
-	if !isDir {
-		if !(strings.HasSuffix(path, ".yaml") || strings.HasSuffix(path, ".yml")) {
-			return nil, nil
-		}
-
-		fileContent, err := c.FileContent(repoUUID, branchName, path)
-		if err != nil {
-			return nil, err
-		}
-
-		contentByte, err := base64.StdEncoding.DecodeString(fileContent.Content)
-		content := string(contentByte)
-		if split {
-			res = util.SplitManifests(content)
-		} else {
-			res = []string{content}
-		}
-
-		return res, nil
+	if !(strings.HasSuffix(path, ".yaml") || strings.HasSuffix(path, ".yml")) {
+		return nil, nil
 	}
 
-	treeNodes, err := c.FileTree(repoUUID, branchName, path)
+	fileContent, err := c.FileContent(repoUUID, branchName, path)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, tn := range treeNodes {
-		r, err := c.GetYAMLContents(repoUUID, branchName, tn.Path, tn.Type == "tree", split)
-		if err != nil {
-			return nil, err
-		}
-
-		res = append(res, r...)
+	contentByte, err := base64.StdEncoding.DecodeString(fileContent.Content)
+	content := string(contentByte)
+	if split {
+		res = util.SplitManifests(content)
+	} else {
+		res = []string{content}
 	}
 
 	return res, nil
+
 }
