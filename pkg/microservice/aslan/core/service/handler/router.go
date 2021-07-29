@@ -60,7 +60,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 	name := router.Group("name")
 	{
-		name.GET("", ListSharedServiceNames)
+		name.GET("", ListAvailablePublicServices)
 	}
 
 	loader := router.Group("loader")

@@ -22,9 +22,11 @@ import (
 	"strings"
 
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
@@ -96,10 +98,10 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
-	productSvcs, err := distincProductServices("")
+	serviceToProject, err := GetServiceInvolvedProjects(services, "")
 	if err != nil {
-		log.Errorf("distinctProductServices error: %v", err)
-		return resp, e.ErrListTemplate
+		log.Errorf("Failed to get service involved projects, err: %s", err)
+		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
 	for _, serviceObject := range services {
@@ -162,7 +164,7 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 			Source:           serviceObject.Source,
 			ProductName:      serviceObject.ProductName,
 			Containers:       serviceObject.Containers,
-			Product:          []string{},
+			Product:          []string{productName},
 			Visibility:       serviceObject.Visibility,
 			CodehostID:       serviceObject.CodehostID,
 			RepoOwner:        serviceObject.RepoOwner,
@@ -173,8 +175,8 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 			GerritRemoteName: serviceObject.GerritRemoteName,
 		}
 
-		if _, ok := productSvcs[serviceObject.ServiceName]; ok {
-			spmap.Product = productSvcs[serviceObject.ServiceName]
+		if _, ok := serviceToProject[serviceObject.ServiceName]; ok {
+			spmap.Product = serviceToProject[serviceObject.ServiceName]
 		}
 
 		resp.Data = append(resp.Data, spmap)
@@ -183,26 +185,45 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 	return resp, nil
 }
 
-func distincProductServices(productName string) (map[string][]string, error) {
-	serviceMap := make(map[string][]string)
-	products, err := templaterepo.NewProductColl().List()
-	if err != nil {
-		return serviceMap, err
-	}
+// GetServiceInvolvedProjects returns a map, key is a service name, value is a list of all projects which are using this service.
+// The given services must come from same project to make sure all service names are unique.
+func GetServiceInvolvedProjects(services []*commonmodels.Service, skipProject string) (map[string][]string, error) {
+	serviceMap := make(map[string]sets.String)
+	serviceToOwner := make(map[string]string)
+	var publicServiceInfos []*templatemodels.ServiceInfo
+	for _, s := range services {
+		serviceMap[s.ServiceName] = sets.NewString(s.ProductName)
+		serviceToOwner[s.ServiceName] = s.ProductName
 
-	for _, product := range products {
-		for _, group := range product.Services {
-			for _, service := range group {
-				if _, ok := serviceMap[service]; !ok {
-					serviceMap[service] = []string{product.ProductName}
-				} else {
-					serviceMap[service] = append(serviceMap[service], product.ProductName)
-				}
-			}
+		if s.Visibility == setting.PublicService {
+			publicServiceInfos = append(publicServiceInfos, &templatemodels.ServiceInfo{
+				Name:  s.ServiceName,
+				Owner: s.ProductName,
+			})
 		}
 	}
 
-	return serviceMap, nil
+	projects, err := templaterepo.NewProductColl().ListWithOption(&templaterepo.ProductListOpt{ContainSharedServices: publicServiceInfos})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, project := range projects {
+		for _, service := range project.SharedServices {
+			// skip service which is not in the list or the owner is different
+			if serviceToOwner[service.Name] != service.Owner {
+				continue
+			}
+			serviceMap[service.Name] = serviceMap[service.Name].Insert(project.ProductName)
+		}
+	}
+
+	res := make(map[string][]string)
+	for k, v := range serviceMap {
+		v.Delete(skipProject)
+		res[k] = v.List()
+	}
+	return res, nil
 }
 
 func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus string, revision int64, log *zap.SugaredLogger) (*commonmodels.Service, error) {

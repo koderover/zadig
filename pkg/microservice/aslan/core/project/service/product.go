@@ -407,23 +407,20 @@ func UpdateProject(name string, args *template.Product, log *zap.SugaredLogger) 
 
 // DeleteProductTemplate 删除产品模板
 func DeleteProductTemplate(userName, productName, requestID string, log *zap.SugaredLogger) (err error) {
-	// TODO: do a thorough system check, now only shared svc is checked
-	svc, err := commonservice.ListServiceTemplate(productName, log)
+	publicServices, err := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{ProductName: productName, Visibility: setting.PublicService})
 	if err != nil {
-		log.Errorf("pre delete check failed, err: %+v", err)
+		log.Errorf("pre delete check failed, err: %s", err)
 		return e.ErrDeleteProduct.AddDesc(err.Error())
 	}
-	for _, services := range svc.Data {
-		if services.Visibility == "public" && services.ProductName == productName {
-			//如果有一个属于该项目的共享服务，需要确认是否被其他服务引用
-			used, err := CheckServiceUsed(productName, services.Service)
-			if err != nil {
-				log.Errorf("Check if service used error for service: %s, the error is: %+v", services.Service, err)
-				return e.ErrDeleteProduct.AddDesc("验证共享服务是否被引用失败")
-			}
-			if used {
-				return e.ErrDeleteProduct.AddDesc(fmt.Sprintf("共享服务[%s]在其他项目中被引用，请解除引用后删除", services.Service))
-			}
+
+	serviceToProject, err := commonservice.GetServiceInvolvedProjects(publicServices, productName)
+	if err != nil {
+		log.Errorf("pre delete check failed, err: %s", err)
+		return e.ErrDeleteProduct.AddDesc(err.Error())
+	}
+	for k, v := range serviceToProject {
+		if len(v) > 0 {
+			return e.ErrDeleteProduct.AddDesc(fmt.Sprintf("共享服务[%s]在项目%v中被引用，请解除引用后删除", k, v))
 		}
 	}
 
@@ -752,47 +749,6 @@ func ensureProductTmpl(args *template.Product) error {
 
 	args.Revision = rev
 	return nil
-}
-
-// distincProductServices 查询使用到服务模板的产品模板
-func distincProductServices(productName string) (map[string][]string, error) {
-	serviceMap := make(map[string][]string)
-	products, err := templaterepo.NewProductColl().List()
-	if err != nil {
-		return serviceMap, err
-	}
-
-	for _, product := range products {
-		for _, group := range product.Services {
-			for _, service := range group {
-				if _, ok := serviceMap[service]; !ok {
-					serviceMap[service] = []string{product.ProductName}
-				} else {
-					serviceMap[service] = append(serviceMap[service], product.ProductName)
-				}
-			}
-		}
-	}
-
-	return serviceMap, nil
-}
-
-func CheckServiceUsed(productName, serviceName string) (bool, error) {
-	servicesMap, err := distincProductServices("")
-	if err != nil {
-		errMsg := fmt.Sprintf("failed to get serviceMap, error: %v", err)
-		log.Error(errMsg)
-		return false, err
-	}
-
-	if _, ok := servicesMap[serviceName]; ok {
-		for _, svcProductName := range servicesMap[serviceName] {
-			if productName != svcProductName {
-				return true, nil
-			}
-		}
-	}
-	return false, nil
 }
 
 func DeleteProductsAsync(userName, productName, requestID string, log *zap.SugaredLogger) error {

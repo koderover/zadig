@@ -192,7 +192,7 @@ func findModuleByTargetAndVersion(allModules []*commonmodels.Build, serviceModul
 		ExcludeStatus: setting.ProductStatusDeleting,
 	}
 	serviceObj, _ := commonrepo.NewServiceColl().Find(opt)
-	if serviceObj != nil && serviceObj.Visibility == setting.PUBLICSERVICE {
+	if serviceObj != nil && serviceObj.Visibility == setting.PublicService {
 		containerArr[0] = serviceObj.ProductName
 	}
 	for _, mo := range allModules {
@@ -1545,9 +1545,9 @@ func BuildModuleToSubTasks(moduleName, version, target, serviceName, productName
 	)
 
 	serviceTmpl, _ = commonservice.GetServiceTemplate(
-		serviceName, "", "", setting.ProductStatusDeleting, 0, log,
+		serviceName, "", productName, setting.ProductStatusDeleting, 0, log,
 	)
-	if serviceTmpl != nil && serviceTmpl.Visibility == setting.PUBLICSERVICE {
+	if serviceTmpl != nil && serviceTmpl.Visibility == setting.PublicService {
 		productName = serviceTmpl.ProductName
 	}
 	serviceTmpl = nil

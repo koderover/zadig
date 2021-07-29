@@ -156,11 +156,11 @@ func ListServicePort(c *gin.Context) {
 	ctx.Resp, ctx.Err = svcservice.ListServicePort(c.Param("name"), c.Param("type"), c.Query("productName"), setting.ProductStatusDeleting, revision, ctx.Logger)
 }
 
-func ListSharedServiceNames(c *gin.Context) {
+func ListAvailablePublicServices(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = svcservice.ListSharedServiceNames(c.Query("productName"), ctx.Logger)
+	ctx.Resp, ctx.Err = svcservice.ListAvailablePublicServices(c.Query("productName"), ctx.Logger)
 }
 
 func GetServiceTemplateProductName(c *gin.Context) {

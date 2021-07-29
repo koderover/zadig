@@ -223,7 +223,7 @@ const (
 	TypeEnableCronjob  = "enable"
 	TypeDisableCronjob = "disable"
 
-	PUBLICSERVICE = "public"
+	PublicService = "public"
 
 	// onboarding流程第二步
 	OnboardingStatusSecond = 2

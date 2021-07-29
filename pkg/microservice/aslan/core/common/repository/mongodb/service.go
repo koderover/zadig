@@ -33,7 +33,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
@@ -50,11 +49,14 @@ type ServiceFindOption struct {
 }
 
 type ServiceListOption struct {
-	ProductName string
-	ServiceName string
-	BuildName   string
-	Type        string
-	Source      string
+	ProductName     string
+	ServiceName     string
+	BuildName       string
+	Type            string
+	Source          string
+	Visibility      string
+	ExcludeProject  string
+	ExcludeServices []*templatemodels.ServiceInfo
 }
 
 type ServiceColl struct {
@@ -169,7 +171,6 @@ func (c *ServiceColl) Find(opt *ServiceFindOption) (*models.Service, error) {
 		return nil, fmt.Errorf("service_name is empty")
 	}
 	if opt.ProductName == "" {
-		log.DPanic("ProductName is empty")
 		return nil, fmt.Errorf("ProductName is empty")
 	}
 
@@ -311,6 +312,7 @@ func (c *ServiceColl) ListAllRevisions() ([]*models.Service, error) {
 
 func (c *ServiceColl) ListMaxRevisions(opt *ServiceListOption) ([]*models.Service, error) {
 	preMatch := bson.M{"status": bson.M{"$ne": setting.ProductStatusDeleting}}
+	postMatch := bson.M{}
 	if opt != nil {
 		if opt.ProductName != "" {
 			preMatch["product_name"] = opt.ProductName
@@ -327,9 +329,26 @@ func (c *ServiceColl) ListMaxRevisions(opt *ServiceListOption) ([]*models.Servic
 		if opt.Type != "" {
 			preMatch["type"] = opt.Type
 		}
+		if opt.ExcludeProject != "" {
+			preMatch["product_name"] = bson.M{"$ne": opt.ExcludeProject}
+		}
+
+		if opt.Visibility != "" {
+			postMatch["visibility"] = opt.Visibility
+		}
+		if len(opt.ExcludeServices) > 0 {
+			var srs []serviceID
+			for _, s := range opt.ExcludeServices {
+				srs = append(srs, serviceID{
+					ServiceName: s.Name,
+					ProductName: s.Owner,
+				})
+			}
+			postMatch["_id"] = bson.M{"$nin": srs}
+		}
 	}
 
-	return c.listMaxRevisions(preMatch, nil)
+	return c.listMaxRevisions(preMatch, postMatch)
 }
 
 func (c *ServiceColl) Count(productName string) (int, error) {
@@ -384,6 +403,7 @@ func (c *ServiceColl) listMaxRevisions(preMatch, postMatch bson.M) ([]*models.Se
 					"product_name": "$product_name",
 				},
 				"service_id": bson.M{"$last": "$_id"},
+				"visibility": bson.M{"$last": "$visibility"},
 			},
 		},
 	}
