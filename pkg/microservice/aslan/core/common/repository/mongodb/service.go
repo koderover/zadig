@@ -33,7 +33,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
@@ -55,6 +54,7 @@ type ServiceListOption struct {
 	BuildName   string
 	Type        string
 	Source      string
+	Visibility  string
 }
 
 type ServiceColl struct {
@@ -169,7 +169,6 @@ func (c *ServiceColl) Find(opt *ServiceFindOption) (*models.Service, error) {
 		return nil, fmt.Errorf("service_name is empty")
 	}
 	if opt.ProductName == "" {
-		log.DPanic("ProductName is empty")
 		return nil, fmt.Errorf("ProductName is empty")
 	}
 
@@ -326,6 +325,9 @@ func (c *ServiceColl) ListMaxRevisions(opt *ServiceListOption) ([]*models.Servic
 		}
 		if opt.Type != "" {
 			preMatch["type"] = opt.Type
+		}
+		if opt.Visibility != "" {
+			preMatch["visibility"] = opt.Visibility
 		}
 	}
 

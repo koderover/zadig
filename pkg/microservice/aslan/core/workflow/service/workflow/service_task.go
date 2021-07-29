@@ -84,7 +84,7 @@ func ListServiceWorkflows(productName, envName, serviceName, serviceType string,
 		return resp, e.ErrGetService.AddErr(err)
 	}
 
-	if service.Visibility != setting.PUBLICSERVICE && service.ProductName != productName {
+	if service.Visibility != setting.PublicService && service.ProductName != productName {
 		log.Errorf("Find service failed, productName:%s, serviceName:%s, serviceType:%s", productName, serviceName, serviceType)
 		return resp, e.ErrGetService
 	}

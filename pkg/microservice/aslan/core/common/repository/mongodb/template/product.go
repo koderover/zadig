@@ -87,7 +87,9 @@ func (c *ProductColl) List() ([]*template.Product, error) {
 }
 
 type ProductListOpt struct {
-	IsOpensource string
+	IsOpensource          string
+	ContainSharedServices []*template.ServiceInfo
+	ExcludeProjects       []string
 }
 
 // ListWithOption ...
@@ -97,6 +99,12 @@ func (c *ProductColl) ListWithOption(opt *ProductListOpt) ([]*template.Product, 
 	query := bson.M{}
 	if opt.IsOpensource != "" {
 		query["is_opensource"] = stringToBool(opt.IsOpensource)
+	}
+	if len(opt.ContainSharedServices) > 0 {
+		query["shared_services"] = bson.M{"$in": opt.ContainSharedServices}
+	}
+	if len(opt.ExcludeProjects) > 0 {
+		query["product_name"] = bson.M{"$nin": opt.ExcludeProjects}
 	}
 
 	cursor, err := c.Collection.Find(context.TODO(), query)

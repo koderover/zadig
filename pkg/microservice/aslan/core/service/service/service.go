@@ -162,7 +162,10 @@ func GetServiceTemplateOption(serviceName, productName string, revision int64, l
 	}
 
 	serviceOption, err := GetServiceOption(service, log)
-	serviceOption.Service = service
+	if serviceOption != nil {
+		serviceOption.Service = service
+	}
+
 	return serviceOption, err
 }
 
@@ -181,16 +184,16 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 	}
 	serviceOption.ServiceModules = serviceModules
 	serviceOption.SystemVariable = []*Variable{
-		&Variable{
+		{
 			Key:   "$Product$",
 			Value: args.ProductName},
-		&Variable{
+		{
 			Key:   "$Service$",
 			Value: args.ServiceName},
-		&Variable{
+		{
 			Key:   "$Namespace$",
 			Value: ""},
-		&Variable{
+		{
 			Key:   "$EnvName$",
 			Value: ""},
 	}
@@ -358,26 +361,32 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap
 }
 
 func UpdateServiceTemplate(args *commonservice.ServiceTmplObject) error {
-	if args.Visibility == "private" {
-		servicesMap, err := distincProductServices("")
+	currentService, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+		ProductName: args.ProductName,
+		ServiceName: args.ServiceName,
+		Revision:    args.Revision,
+	})
+	if err != nil {
+		log.Errorf("Can not find service with option %+v", args)
+		return err
+	}
+
+	if currentService.Visibility != args.Visibility && args.Visibility == "private" {
+		projects, err := templaterepo.NewProductColl().ListWithOption(
+			&templaterepo.ProductListOpt{ContainSharedServices: []*templatemodels.ServiceInfo{{Name: args.ServiceName, Owner: args.ProductName}}},
+		)
 		if err != nil {
-			errMsg := fmt.Sprintf("get distincProductServices error: %v", err)
-			log.Error(errMsg)
-			return e.ErrDeleteTemplate.AddDesc(errMsg)
+			log.Errorf("Failed to list projects using service %s, err: %s", args.ServiceName, err)
+			return err
 		}
-
-		if _, ok := servicesMap[args.ServiceName]; ok {
-			for _, productName := range servicesMap[args.ServiceName] {
-				if args.ProductName != productName {
-					log.Error(fmt.Sprintf("service %s is already taken by %s",
-						args.ServiceName, strings.Join(servicesMap[args.ServiceName], ",")))
-
-					errMsg := fmt.Sprintf("共享服务 [%s] 已被 [%s] 等项目服务编排中使用，请解除引用后再修改",
-						args.ServiceName, strings.Join(servicesMap[args.ServiceName], ","))
-					return e.ErrInvalidParam.AddDesc(errMsg)
-				}
+		if len(projects) > 0 {
+			var names []string
+			for _, p := range projects {
+				names = append(names, p.ProductName)
 			}
-
+			log.Errorf("service %s is used by projects %s", args.ServiceName, strings.Join(names, ","))
+			errMsg := fmt.Sprintf("共享服务 [%s] 已被 [%s] 等项目服务编排中使用，请解除引用后再修改", args.ServiceName, strings.Join(names, ","))
+			return e.ErrInvalidParam.AddDesc(errMsg)
 		}
 	}
 
@@ -479,24 +488,21 @@ func YamlValidator(args *YamlValidatorReq) []string {
 func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate, visibility string, log *zap.SugaredLogger) error {
 	openEnvTemplate, _ := strconv.ParseBool(isEnvTemplate)
 	if openEnvTemplate && visibility == "public" {
-		servicesMap, err := distincProductServices("")
+		projects, err := templaterepo.NewProductColl().ListWithOption(
+			&templaterepo.ProductListOpt{ContainSharedServices: []*templatemodels.ServiceInfo{{Name: serviceName, Owner: productName}}},
+		)
 		if err != nil {
-			errMsg := fmt.Sprintf("get distincProductServices error: %v", err)
-			log.Error(errMsg)
-			return e.ErrDeleteTemplate.AddDesc(errMsg)
+			log.Errorf("Failed to list projects which are using service %s, err: %s", serviceName, err)
+			return err
 		}
-
-		if _, ok := servicesMap[serviceName]; ok {
-			for _, svcProductName := range servicesMap[serviceName] {
-				if productName != svcProductName {
-					log.Error(fmt.Sprintf("service %s is already taken by %s",
-						serviceName, strings.Join(servicesMap[serviceName], ",")))
-
-					errMsg := fmt.Sprintf("共享服务 [%s] 已被 [%s] 等项目服务编排中使用，请解除引用后再删除",
-						serviceName, strings.Join(servicesMap[serviceName], ","))
-					return e.ErrInvalidParam.AddDesc(errMsg)
-				}
+		if len(projects) > 0 {
+			var names []string
+			for _, p := range projects {
+				names = append(names, p.ProductName)
 			}
+			log.Errorf("service %s is used by projects %s", serviceName, strings.Join(names, ","))
+			errMsg := fmt.Sprintf("共享服务 [%s] 已被 [%s] 等项目服务编排中使用，请解除引用后再删除", serviceName, strings.Join(names, ","))
+			return e.ErrInvalidParam.AddDesc(errMsg)
 		}
 
 		serviceEnvMap, err := distinctEnvServices(productName)
@@ -736,28 +742,6 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 	args.Revision = rev
 
 	return nil
-}
-
-func distincProductServices(productName string) (map[string][]string, error) {
-	serviceMap := make(map[string][]string)
-	products, err := templaterepo.NewProductColl().List()
-	if err != nil {
-		return serviceMap, err
-	}
-
-	for _, product := range products {
-		for _, group := range product.Services {
-			for _, service := range group {
-				if _, ok := serviceMap[service]; !ok {
-					serviceMap[service] = []string{product.ProductName}
-				} else {
-					serviceMap[service] = append(serviceMap[service], product.ProductName)
-				}
-			}
-		}
-	}
-
-	return serviceMap, nil
 }
 
 // distincEnvServices 查询使用到服务模板的环境
