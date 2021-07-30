@@ -49,6 +49,13 @@ func DataMigrate() error {
 		serviceMap[s.ServiceName] = s
 	}
 
+	// if items in serviceMap is less than allServices, means there are more than one services which have same name,
+	// we should stop here since the logic below may cause unexpected effects.
+	if len(serviceMap) < len(allServices) {
+		fmt.Println("Migration skipped")
+		return nil
+	}
+
 	// update field `SharedServices` for all projects
 	for _, project := range allProjects {
 		var sharedServices []*templatemodels.ServiceInfo
