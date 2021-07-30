@@ -25,7 +25,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -721,22 +720,26 @@ func ensureProductTmpl(args *template.Product) error {
 			return fmt.Errorf("project not found: %s", err)
 		}
 
-		services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), "")
-		if err != nil {
-			log.Errorf("Failed to list services by %+v, err: %s", productTmpl.AllServiceInfos(), err)
-			return err
+		var newSharedServices []*template.ServiceInfo
+		currentSharedServiceMap := productTmpl.SharedServiceInfoMap()
+		for _, s := range args.SharedServices {
+			if _, ok := currentSharedServiceMap[s.Name]; !ok {
+				newSharedServices = append(newSharedServices, s)
+			}
 		}
 
-		serviceNames := sets.NewString()
-		for _, service := range services {
-			serviceNames.Insert(service.ServiceName)
-		}
+		if len(newSharedServices) > 0 {
+			services, err := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{
+				InServices: newSharedServices,
+				Visibility: setting.PublicService,
+			})
+			if err != nil {
+				log.Errorf("Failed to list services, err: %s", err)
+				return err
+			}
 
-		for _, serviceGroup := range args.Services {
-			for _, service := range serviceGroup {
-				if !serviceNames.Has(service) {
-					return fmt.Errorf("服务 %s 不存在或者已经不是共享服务", service)
-				}
+			if len(newSharedServices) != len(services) {
+				return fmt.Errorf("新增的共享服务服务不存在或者已经不是共享服务")
 			}
 		}
 	}

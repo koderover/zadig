@@ -99,8 +99,8 @@ func ListHelmServices(productName string, log *zap.SugaredLogger) (*HelmService,
 	}
 
 	opt := &commonrepo.ServiceListOption{
-		ProductName:   productName,
-		Type:          setting.HelmDeployType,
+		ProductName: productName,
+		Type:        setting.HelmDeployType,
 	}
 
 	services, err := commonrepo.NewServiceColl().ListMaxRevisions(opt)
@@ -295,7 +295,7 @@ func CreateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) error {
 			}
 		}
 
-		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, serviceName, args.Type)
+		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, serviceName, args.ProductName)
 		rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
 		if err != nil {
 			return fmt.Errorf("helmService.create get next helm service revision error: %v", err)
@@ -478,7 +478,7 @@ func UpdateHelmService(args *HelmServiceArgs, log *zap.SugaredLogger) error {
 		}
 
 		preServiceTmpl.CreateBy = args.CreateBy
-		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, helmServiceInfo.ServiceName, setting.HelmDeployType)
+		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, helmServiceInfo.ServiceName, preServiceTmpl.ProductName)
 		rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
 		if err != nil {
 			return fmt.Errorf("get next helm service revision error: %v", err)

@@ -280,7 +280,7 @@ func handleServiceTargets(name, productName string, targets []*commonmodels.Serv
 	}
 
 	for _, args := range services {
-		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceName, args.Type)
+		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceName, args.ProductName)
 		rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
 		if err != nil {
 			continue
@@ -298,7 +298,7 @@ func handleServiceTargets(name, productName string, targets []*commonmodels.Serv
 	}
 
 	for _, args := range addServices {
-		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceName, args.Type)
+		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceName, args.ProductName)
 		rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
 		if err != nil {
 			continue

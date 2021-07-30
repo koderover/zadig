@@ -450,7 +450,7 @@ func AutoUpdateProduct(envNames []string, productName string, userID int, superU
 		}
 	}
 
-	productsRevison, err := ListProductsRevision("", "", userID, superUser, log)
+	productsRevison, err := ListProductsRevision(productName, "", userID, superUser, log)
 	if err != nil {
 		log.Errorf("AutoUpdateProduct ListProductsRevision err:%v", err)
 		return envStatuses, err
@@ -1100,7 +1100,7 @@ func UpdateMultiHelmProduct(envNames []string, updateType, productName string, u
 	}()
 
 	envStatuses := make([]*EnvStatus, 0)
-	productsRevison, err := ListProductsRevision("", "", userID, superUser, log)
+	productsRevison, err := ListProductsRevision(productName, "", userID, superUser, log)
 	if err != nil {
 		log.Errorf("UpdateMultiHelmProduct ListProductsRevision err:%v", err)
 		return envStatuses

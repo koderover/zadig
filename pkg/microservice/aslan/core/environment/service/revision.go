@@ -264,10 +264,10 @@ func compareServicesRev(serviceTmplNames []string, services []*commonmodels.Prod
 			}
 			serviceRevs = append(serviceRevs, serviceRev)
 		} else {
-			maxServiceTmpl, err := getMaxServiceByType(allServiceTmpls, service.ServiceName, service.Type)
+			maxServiceTmpl, err := getMaxServiceRevision(allServiceTmpls, service.ServiceName, service.ProductName)
 			if err != nil {
-				log.Errorf("Failed to get max service revision. Service: %s; Type: %s; Error: %v",
-					service.ServiceName, service.Type, err)
+				log.Errorf("Failed to get max service revision. Service: %s; Prodcut: %s; Error: %v",
+					service.ServiceName, service.ProductName, err)
 				return serviceRevs, err
 			}
 
@@ -278,8 +278,8 @@ func compareServicesRev(serviceTmplNames []string, services []*commonmodels.Prod
 				Type:        service.Type,
 			})
 			if err != nil {
-				log.Errorf("Failed to get service by revision. Service: %s; Type: %s; Revision: %d; Error: %v",
-					service.ServiceName, service.Type, service.Revision, err)
+				log.Errorf("Failed to get service by revision. Service: %s; Product: %s; Type: %s; Revision: %d; Error: %v",
+					service.ServiceName, service.ProductName, service.Type, service.Revision, err)
 				return serviceRevs, err
 			}
 
@@ -377,10 +377,10 @@ func getMaxServices(services []*commonmodels.Service, serviceName string) ([]*co
 	return resp, nil
 }
 
-func getMaxServiceByType(services []*commonmodels.Service, serviceName, serviceType string) (*commonmodels.Service, error) {
+func getMaxServiceRevision(services []*commonmodels.Service, serviceName, productName string) (*commonmodels.Service, error) {
 	resp := &commonmodels.Service{}
 	for _, service := range services {
-		if service.ServiceName == serviceName && service.Type == serviceType && service.Revision > resp.Revision {
+		if service.ServiceName == serviceName && service.ProductName == productName && service.Revision > resp.Revision {
 			resp = service
 		}
 	}
