@@ -25,6 +25,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -709,6 +710,16 @@ func ensureProductTmpl(args *template.Product) error {
 
 	if !config.ServiceNameRegex.MatchString(args.ProductName) {
 		return fmt.Errorf("product name must match %s", config.ServiceNameRegexString)
+	}
+
+	serviceNames := sets.NewString()
+	for _, sg := range args.Services {
+		for _, s := range sg {
+			if serviceNames.Has(s) {
+				return fmt.Errorf("duplicated service found: %s", s)
+			}
+			serviceNames.Insert(s)
+		}
 	}
 
 	// Revision为0表示是新增项目，新增项目不需要进行共享服务的判断，只在编辑项目时进行判断
