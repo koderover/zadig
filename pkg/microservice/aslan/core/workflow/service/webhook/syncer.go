@@ -46,10 +46,10 @@ func SyncWebHooks() {
 				log.Errorf("Failed to update workflow, err: %s", err)
 				continue
 			}
-		}
 
-		if err := commonservice.ProcessWebhook(workflow.HookCtl.Items, nil, webhook.WorkflowPrefix+workflow.Name, logger); err != nil {
-			log.Errorf("Failed to process webhook, err: %s", err)
+			if err := commonservice.ProcessWebhook(workflow.HookCtl.Items, nil, webhook.WorkflowPrefix+workflow.Name, logger); err != nil {
+				log.Errorf("Failed to process webhook, err: %s", err)
+			}
 		}
 	}
 
@@ -65,10 +65,10 @@ func SyncWebHooks() {
 				log.Errorf("Failed to update pipeline, err: %s", err)
 				continue
 			}
-		}
 
-		if err := commonservice.ProcessWebhook(pipeline.Hook.GitHooks, nil, webhook.PipelinePrefix+pipeline.Name, logger); err != nil {
-			log.Errorf("Failed to process webhook, err: %s", err)
+			if err := commonservice.ProcessWebhook(pipeline.Hook.GitHooks, nil, webhook.PipelinePrefix+pipeline.Name, logger); err != nil {
+				log.Errorf("Failed to process webhook, err: %s", err)
+			}
 		}
 	}
 }
