@@ -18,23 +18,19 @@ package service
 
 import (
 	"bytes"
-	"context"
 	"fmt"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
-	//"golang.org/x/net/context/ctxhttp"
-	"io"
 	"io/ioutil"
-	corev1 "k8s.io/api/core/v1"
 	"os"
-	//"os/exec"
 	"strings"
 
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	s3service "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/kube/containerlog"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
 )
@@ -125,55 +121,25 @@ func getContainerLogFromS3(pipelineName, filenamePrefix string, taskID int64, lo
 	return string(containerLog), nil
 }
 
-func GetPodLogByHttp(podName, containerName, envName, productName string, tail int64, log *zap.SugaredLogger) (string, error) {
+func GetCurrentContainerLogs(podName, containerName, envName, productName string, tail int64, log *zap.SugaredLogger) (string, error) {
+
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName})
 	if err != nil {
-		log.Errorf("kubeCli.GetContainerLogStream error: %v", err)
+		log.Errorf("commonrepo.NewProductColl().Find error: %v", err)
 		return "", err
 	}
 	clientSet, err := kube.GetClientset(productInfo.ClusterID)
 	if err != nil {
-		log.Errorf("failed to find ns and kubeClient: %v", err)
+		log.Errorf("kube.GetClientset error: %v", err)
 		return "", err
 	}
-
-	logOptions := &corev1.PodLogOptions{
-		Container: containerName,
-		TailLines: &tail,
-	}
-	ctx := context.TODO()
-	req := clientSet.CoreV1().Pods(productInfo.Namespace).GetLogs(podName, logOptions)
-	podLogs, err := req.Stream(ctx)
-	if err != nil {
-		log.Errorf("req.Stream error: %v,productInfo.Namespace:%v,podName:%v,containerName:%v", err,
-			productInfo.Namespace, podName, containerName)
-		return "", err
-	}
-	defer podLogs.Close()
 
 	buf := new(bytes.Buffer)
-	_, err = io.Copy(buf, podLogs)
+	err = containerlog.GetContainerLogs(envName,podName,containerName,false,tail,buf,clientSet)
 	if err != nil {
-		log.Errorf("io.Copy error: %v", err)
+		log.Errorf("containerlog.GetContainerLogs error: %v", err)
 		return "", err
 	}
 	str := buf.String()
 	return str, nil
-
-	/*cmdStr := ""
-	if len(containerName) > 0 {
-		cmdStr = fmt.Sprintf("kubectl logs  %v -c %v --tail %d", podName, containerName, tail)
-	} else {
-		cmdStr = fmt.Sprintf("kubectl logs %v --tail %d", podName, tail)
-
-	}
-	cmd := exec.Command("sh", "-c", cmdStr)
-	output, err := cmd.Output()
-	if err != nil {
-		//fmt.Printf("exec.Command error:%v,cmd:%v \n",err,cmdStr)
-		log.Errorf("exec.Command error:%v", cmdStr)
-		return "", err
-	} else {
-		return string(output), nil
-	}*/
 }
