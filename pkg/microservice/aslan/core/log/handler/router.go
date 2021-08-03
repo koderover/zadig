@@ -33,6 +33,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		log.GET("/workflow/:pipelineName/tasks/:taskId/service/:serviceName", GetWorkflowBuildJobContainerLogs)
 		log.GET("/pipelines/:pipelineName/tasks/:taskId/tests/:testName", GetTestJobContainerLogs)
 		log.GET("/workflow/:pipelineName/tasks/:taskId/tests/:testName/service/:serviceName", GetWorkflowTestJobContainerLogs)
+		log.GET("/pods/:podName/containers/:containerName", GetContainerLogs)
 	}
 
 	sse := router.Group("sse")

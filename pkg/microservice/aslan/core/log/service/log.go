@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -25,8 +26,11 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	s3service "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/kube/containerlog"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
 )
@@ -108,10 +112,34 @@ func getContainerLogFromS3(pipelineName, filenamePrefix string, taskID int64, lo
 		log.Errorf("GetContainerLogFromS3 Download err:%v", err)
 		return "", err
 	}
+
 	containerLog, err := ioutil.ReadFile(tempFile)
 	if err != nil {
 		log.Errorf("GetContainerLogFromS3 Read file err:%v", err)
 		return "", err
 	}
 	return string(containerLog), nil
+}
+
+func GetCurrentContainerLogs(podName, containerName, envName, productName string, tail int64, log *zap.SugaredLogger) (string, error) {
+
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName})
+	if err != nil {
+		log.Errorf("commonrepo.NewProductColl().Find error: %v", err)
+		return "", err
+	}
+	clientSet, err := kube.GetClientset(productInfo.ClusterID)
+	if err != nil {
+		log.Errorf("kube.GetClientset error: %v", err)
+		return "", err
+	}
+
+	buf := new(bytes.Buffer)
+	err = containerlog.GetContainerLogs(envName,podName,containerName,false,tail,buf,clientSet)
+	if err != nil {
+		log.Errorf("containerlog.GetContainerLogs error: %v", err)
+		return "", err
+	}
+	str := buf.String()
+	return str, nil
 }
