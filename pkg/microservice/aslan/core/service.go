@@ -87,11 +87,6 @@ func Start(ctx context.Context) {
 	environmentservice.ResetProductsStatus()
 
 	go StartControllers(ctx.Done())
-
-	//// 仅用于升级 release v1.4.0, 将在下一版本移除
-	//if err := commonservice.DataMigrate(); err != nil {
-	//	log.Panicf("Failed to migrate data, err: %s", err)
-	//}
 }
 
 func Stop(ctx context.Context) {

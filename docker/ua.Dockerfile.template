@@ -1,0 +1,10 @@
+#golang-deps.Dockerfile.inc
+
+RUN go build -o /ua ./cmd/upgradeassistant/main.go
+
+#alpine-base.Dockerfile.inc
+
+WORKDIR /app
+COPY --from=build /ua /app/ua
+
+ENTRYPOINT ["/app/ua"]
