@@ -95,3 +95,9 @@ func GetYaml(id, hubURI string, useDeployment bool, logger *zap.SugaredLogger) (
 
 	return s.GetYaml(id, config.HubAgentImage(), configbase.SystemAddress(), hubURI, useDeployment, logger)
 }
+
+
+
+
+
+
