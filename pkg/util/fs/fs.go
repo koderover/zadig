@@ -49,7 +49,7 @@ func SaveFile(src io.ReadCloser, dst string) error {
 		return err
 	}
 	// If the destination exists and is a directory.
-	if st.IsDir() {
+	if err == nil && st.IsDir() {
 		return errors.New("fileName is a directory")
 	}
 
