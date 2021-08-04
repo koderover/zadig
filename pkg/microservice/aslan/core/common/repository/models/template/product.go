@@ -33,7 +33,7 @@ type Product struct {
 	Visibility     string          `bson:"visibility"                json:"visibility"`
 	Timeout        int             `bson:"timeout,omitempty"         json:"timeout,omitempty"`
 	Services       [][]string      `bson:"services"                  json:"services"`
-	SharedServices []*ServiceInfo  `bson:"shared_services"           json:"shared_services"`
+	SharedServices []*ServiceInfo  `bson:"shared_services,omitempty" json:"shared_services,omitempty"`
 	Vars           []*RenderKV     `bson:"vars"                      json:"vars"`
 	EnvVars        []*EnvRenderKV  `bson:"-"                         json:"env_vars,omitempty"`
 	ChartInfos     []*RenderChart  `bson:"-"                         json:"chart_infos,omitempty"`

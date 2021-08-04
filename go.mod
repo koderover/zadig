@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
+	github.com/RyanCarrier/dijkstra v1.1.0
 	github.com/andygrunwald/go-gerrit v0.0.0-20171029143327-95b11af228a1
 	github.com/bndr/gojenkins v1.1.0
 	github.com/bradleyfalzon/ghinstallation v1.1.1
@@ -48,7 +49,7 @@ require (
 	github.com/rfyiamcool/cronlib v1.0.0
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.7.0
-	github.com/spf13/cobra v1.1.3 // indirect
+	github.com/spf13/cobra v1.1.3
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.0
 	github.com/stevvooe/resumable v0.0.0-20180830230917-22b14a53ba50 // indirect
