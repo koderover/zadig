@@ -44,7 +44,7 @@ func NewCodeHubClient(ak, sk, region string) *CodeHubClient {
 func (c *CodeHubClient) sendRequest(method, path string, payload []byte) (io.ReadCloser, error) {
 	r, err := http.NewRequest(method, fmt.Sprintf("%s.%s.%s%s", "https://codehub-ext", c.Region, "myhuaweicloud.com", path), ioutil.NopCloser(bytes.NewBuffer(payload)))
 	if r == nil || err != nil {
-		log.Errorf("http.NewRequest error", err)
+		log.Errorf("http.NewRequest error:%s", err)
 		return nil, err
 	}
 	r.Header.Add("content-type", "application/json")
@@ -54,12 +54,12 @@ func (c *CodeHubClient) sendRequest(method, path string, payload []byte) (io.Rea
 	}
 	err = signer.Sign(r)
 	if err != nil {
-		log.Errorf("signer.Sign error", err)
+		log.Errorf("signer.Sign error:%s", err)
 		return nil, err
 	}
 	resp, err := http.DefaultClient.Do(r)
 	if err != nil || resp == nil {
-		log.Errorf("http.DefaultClient.Do error", err)
+		log.Errorf("http.DefaultClient.Do error:%s", err)
 		return nil, err
 	}
 	return resp.Body, nil
