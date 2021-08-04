@@ -712,6 +712,16 @@ func ensureProductTmpl(args *template.Product) error {
 		return fmt.Errorf("product name must match %s", config.ServiceNameRegexString)
 	}
 
+	serviceNames := sets.NewString()
+	for _, sg := range args.Services {
+		for _, s := range sg {
+			if serviceNames.Has(s) {
+				return fmt.Errorf("duplicated service found: %s", s)
+			}
+			serviceNames.Insert(s)
+		}
+	}
+
 	// Revision为0表示是新增项目，新增项目不需要进行共享服务的判断，只在编辑项目时进行判断
 	if args.Revision != 0 {
 		//获取该项目下的所有服务
@@ -721,22 +731,26 @@ func ensureProductTmpl(args *template.Product) error {
 			return fmt.Errorf("project not found: %s", err)
 		}
 
-		services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), "")
-		if err != nil {
-			log.Errorf("Failed to list services by %+v, err: %s", productTmpl.AllServiceInfos(), err)
-			return err
+		var newSharedServices []*template.ServiceInfo
+		currentSharedServiceMap := productTmpl.SharedServiceInfoMap()
+		for _, s := range args.SharedServices {
+			if _, ok := currentSharedServiceMap[s.Name]; !ok {
+				newSharedServices = append(newSharedServices, s)
+			}
 		}
 
-		serviceNames := sets.NewString()
-		for _, service := range services {
-			serviceNames.Insert(service.ServiceName)
-		}
+		if len(newSharedServices) > 0 {
+			services, err := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{
+				InServices: newSharedServices,
+				Visibility: setting.PublicService,
+			})
+			if err != nil {
+				log.Errorf("Failed to list services, err: %s", err)
+				return err
+			}
 
-		for _, serviceGroup := range args.Services {
-			for _, service := range serviceGroup {
-				if !serviceNames.Has(service) {
-					return fmt.Errorf("服务 %s 不存在或者已经不是共享服务", service)
-				}
+			if len(newSharedServices) != len(services) {
+				return fmt.Errorf("新增的共享服务服务不存在或者已经不是共享服务")
 			}
 		}
 	}

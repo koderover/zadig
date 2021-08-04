@@ -49,14 +49,15 @@ type ServiceFindOption struct {
 }
 
 type ServiceListOption struct {
-	ProductName     string
-	ServiceName     string
-	BuildName       string
-	Type            string
-	Source          string
-	Visibility      string
-	ExcludeProject  string
-	ExcludeServices []*templatemodels.ServiceInfo
+	ProductName    string
+	ServiceName    string
+	BuildName      string
+	Type           string
+	Source         string
+	Visibility     string
+	ExcludeProject string
+	InServices     []*templatemodels.ServiceInfo
+	NotInServices  []*templatemodels.ServiceInfo
 }
 
 type ServiceColl struct {
@@ -286,7 +287,7 @@ func (c *ServiceColl) UpdateStatus(serviceName, productName, status string) erro
 		"status": status,
 	}}
 
-	_, err := c.UpdateOne(context.TODO(), query, change)
+	_, err := c.UpdateMany(context.TODO(), query, change)
 	return err
 }
 
@@ -333,18 +334,29 @@ func (c *ServiceColl) ListMaxRevisions(opt *ServiceListOption) ([]*models.Servic
 			preMatch["product_name"] = bson.M{"$ne": opt.ExcludeProject}
 		}
 
+		// post options
 		if opt.Visibility != "" {
 			postMatch["visibility"] = opt.Visibility
 		}
-		if len(opt.ExcludeServices) > 0 {
+		if len(opt.NotInServices) > 0 {
 			var srs []serviceID
-			for _, s := range opt.ExcludeServices {
+			for _, s := range opt.NotInServices {
 				srs = append(srs, serviceID{
 					ServiceName: s.Name,
 					ProductName: s.Owner,
 				})
 			}
 			postMatch["_id"] = bson.M{"$nin": srs}
+		}
+		if len(opt.InServices) > 0 {
+			var srs []serviceID
+			for _, s := range opt.InServices {
+				srs = append(srs, serviceID{
+					ServiceName: s.Name,
+					ProductName: s.Owner,
+				})
+			}
+			postMatch["_id"] = bson.M{"$in": srs}
 		}
 	}
 

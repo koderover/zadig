@@ -664,7 +664,7 @@ func ListAvailablePublicServices(productName string, log *zap.SugaredLogger) ([]
 
 	services, err := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{
 		Visibility: setting.PublicService, ExcludeProject: productName,
-		ExcludeServices: project.SharedServices,
+		NotInServices: project.SharedServices,
 	})
 	if err != nil {
 		log.Errorf("Can not list services, error: %s", err)
@@ -757,7 +757,7 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 	}
 
 	// 设置新的版本号
-	serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceName, args.Type)
+	serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceName, args.ProductName)
 	rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
 	if err != nil {
 		return fmt.Errorf("get next service template revision error: %v", err)

@@ -99,7 +99,7 @@ func ValidateRenderSet(productName, renderName string, serviceInfo *templatemode
 		log.Errorf("renderset[%s] not match product[%s]", renderName, productName)
 		return resp, fmt.Errorf("renderset[%s] not match product[%s]", renderName, productName)
 	}
-	if serviceInfo != nil {
+	if serviceInfo == nil {
 		if err := IsAllKeyCovered(resp, log); err != nil {
 			log.Errorf("[%s]cover all key [%s] error: %v", productName, renderName, err)
 			return resp, err

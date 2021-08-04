@@ -57,7 +57,7 @@ func CreatePMService(username, productName string, args *ServiceTmplBuildObject,
 		}
 	}
 
-	serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceTmplObject.ServiceName, args.ServiceTmplObject.Type)
+	serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceTmplObject.ServiceName, args.ServiceTmplObject.ProductName)
 	rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
 	if err != nil {
 		return fmt.Errorf("get next pm service revision error: %v", err)

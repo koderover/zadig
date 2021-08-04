@@ -17,6 +17,8 @@ limitations under the License.
 package service
 
 import (
+	"fmt"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -45,6 +47,13 @@ func DataMigrate() error {
 	serviceMap := make(map[string]*models.Service)
 	for _, s := range allServices {
 		serviceMap[s.ServiceName] = s
+	}
+
+	// if items in serviceMap is less than allServices, means there are more than one services which have same name,
+	// we should stop here since the logic below may cause unexpected effects.
+	if len(serviceMap) < len(allServices) {
+		fmt.Println("Migration skipped")
+		return nil
 	}
 
 	// update field `SharedServices` for all projects
@@ -89,4 +98,20 @@ func DataMigrate() error {
 	}
 
 	return mongodb.NewProductColl().UpdateAll(updatedEnvs)
+}
+
+const oldServiceTemplateCounterName = "service:%s&type:%s"
+
+func UpdateServiceCounter(allServices []*models.Service) error {
+	coll := mongodb.NewCounterColl()
+	for _, s := range allServices {
+		oldName := fmt.Sprintf(oldServiceTemplateCounterName, s.ServiceName, s.Type)
+		newName := fmt.Sprintf(setting.ServiceTemplateCounterName, s.ServiceName, s.ProductName)
+		err := coll.Rename(oldName, newName)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

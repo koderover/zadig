@@ -195,8 +195,8 @@ func GetGerritWorkspaceBasePath(repoName string) (string, error) {
 // GetGerritServiceTemplates Get all service templates maintained in gerrit
 func GetGerritServiceTemplates() ([]*commonmodels.Service, error) {
 	opt := &commonrepo.ServiceListOption{
-		Type:          setting.K8SDeployType,
-		Source:        setting.SourceFromGerrit,
+		Type:   setting.K8SDeployType,
+		Source: setting.SourceFromGerrit,
 	}
 	return commonrepo.NewServiceColl().ListMaxRevisions(opt)
 }
@@ -308,7 +308,7 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 	}
 
 	// 设置新的版本号
-	serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceName, args.Type)
+	serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceName, args.ProductName)
 	rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
 	if err != nil {
 		return fmt.Errorf("get next service template revision error: %v", err)

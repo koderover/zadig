@@ -352,7 +352,7 @@ func UpdatePmServiceTemplate(username string, args *ServiceTmplBuildObject, log 
 	}
 
 	//更新服务
-	serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, preService.ServiceName, setting.PMDeployType)
+	serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, preService.ServiceName, preService.ProductName)
 	rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
 	if err != nil {
 		return err

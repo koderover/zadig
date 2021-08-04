@@ -28,7 +28,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
-	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
@@ -89,10 +88,10 @@ func Start(ctx context.Context) {
 
 	go StartControllers(ctx.Done())
 
-	// 仅用于升级 release v1.4.0, 将在下一版本移除
-	if err := commonservice.DataMigrate(); err != nil {
-		log.Panicf("Failed to migrate data, err: %s", err)
-	}
+	//// 仅用于升级 release v1.4.0, 将在下一版本移除
+	//if err := commonservice.DataMigrate(); err != nil {
+	//	log.Panicf("Failed to migrate data, err: %s", err)
+	//}
 }
 
 func Stop(ctx context.Context) {
