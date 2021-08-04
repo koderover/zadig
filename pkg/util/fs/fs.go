@@ -44,10 +44,6 @@ func SaveFile(src io.ReadCloser, dst string) error {
 	// Verify if destination already exists.
 	st, err := os.Stat(dst)
 
-	// Proceed if file does not exist. return for all other errors.
-	if err != nil && !os.IsNotExist(err) {
-		return err
-	}
 	// If the destination exists and is a directory.
 	if err == nil && st.IsDir() {
 		return errors.New("fileName is a directory")
