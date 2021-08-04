@@ -62,7 +62,13 @@ func SaveFile(src io.ReadCloser, dst string) error {
 		}
 	}
 
-	// If exists, truncate the file. If not create it.
+	// remove the file in case truncate fails
+	err = os.Remove(dst)
+	if err != nil {
+		return err
+	}
+
+	// Create a new file.
 	file, err := os.OpenFile(dst, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
 	if err != nil {
 		return err
