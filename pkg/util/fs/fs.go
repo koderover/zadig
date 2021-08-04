@@ -60,7 +60,7 @@ func SaveFile(src io.ReadCloser, dst string) error {
 
 	// remove the file in case truncate fails
 	err = os.Remove(dst)
-	if err != nil {
+	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
 
