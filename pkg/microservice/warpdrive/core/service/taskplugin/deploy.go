@@ -47,6 +47,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -488,7 +489,17 @@ func (p *DeployTaskPlugin) downloadService(pipelineTask *task.Task, serviceName,
 
 	filePath := fmt.Sprintf("%s.tar.gz", serviceName)
 	tarFilePath := path.Join(base, filePath)
-	if err := s3.Download(context.Background(), s3Storage, filePath, tarFilePath); err != nil {
+	forcedPathStyle := false
+	if s3Storage.Provider == setting.ProviderSourceSystemDefault {
+		forcedPathStyle = true
+	}
+	s3client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
+	if err != nil {
+		p.Log.Errorf("failed to create s3 client, err: %+v", err)
+		return err
+	}
+	objectKey := s3Storage.GetObjectPath(filePath)
+	if err := s3client.Download(s3Storage.Bucket, objectKey, tarFilePath); err != nil {
 		p.Log.Errorf("s3下载文件失败 err:%v", err)
 		return err
 	}

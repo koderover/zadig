@@ -30,6 +30,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/poetry"
 	"github.com/koderover/zadig/pkg/tool/log"
+	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -125,7 +126,13 @@ func CleanCache() error {
 	}
 
 	s3Server := s3.FindInternalS3()
-	objects, err := s3.ListFiles(s3Server, "", false /* recursive */)
+	client, err := s3tool.NewClient(s3Server.Endpoint, s3Server.Ak, s3Server.Sk, s3Server.Insecure, false)
+	if err != nil {
+		log.Errorf("Failed to create s3 client, error: %+v", err)
+		return err
+	}
+	prefix := s3Server.GetObjectPath("")
+	objects, err := client.ListFiles(s3Server.Bucket, prefix, false)
 	if err != nil {
 		log.Errorf("ListFiles failed, err:%v", err)
 		return err
@@ -143,8 +150,9 @@ func CleanCache() error {
 		paths = append(paths, object)
 	}
 
-	s3.RemoveFiles(s3Server, paths, false)
-
+	if err == nil {
+		client.RemoveFiles(s3Server.Bucket, paths)
+	}
 	return nil
 }
 
@@ -321,7 +329,14 @@ func cleanStaleTasks(tasks []*task.Task, s3Server *s3.S3, dryRun bool) []string 
 		ids[i] = task.ID.Hex()
 		paths[i] = fmt.Sprintf("%s/%d/", task.PipelineName, task.TaskID)
 	}
-	go s3.RemoveFiles(s3Server, paths, dryRun)
+	forcedPathStyle := false
+	if s3Server.Provider == setting.ProviderSourceSystemDefault {
+		forcedPathStyle = true
+	}
+	s3client, err := s3tool.NewClient(s3Server.Endpoint, s3Server.Ak, s3Server.Sk, s3Server.Insecure, forcedPathStyle)
+	if err == nil {
+		go s3client.RemoveFiles(s3Server.Bucket, paths)
+	}
 	return ids
 }
 

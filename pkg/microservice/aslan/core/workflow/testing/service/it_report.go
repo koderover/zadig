@@ -17,7 +17,6 @@ limitations under the License.
 package service
 
 import (
-	"context"
 	"encoding/xml"
 	"fmt"
 	"io/ioutil"
@@ -31,6 +30,8 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
+	"github.com/koderover/zadig/pkg/setting"
+	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -67,9 +68,9 @@ func GetTestLocalTestSuite(serviceName string, log *zap.SugaredLogger) (*commonm
 							testJobName := strings.Replace(strings.ToLower(fmt.Sprintf("%s-%s-%d-%s-%s",
 								config.TestType, pipelineName, pipelineTask.TaskID, config.TaskTestingV2, serviceName)), "_", "-", -1)
 
-							var s3Storage *s3.S3
+							var storage *s3.S3
 							var filename string
-							if s3Storage, err = s3.FindDefaultS3(); err == nil {
+							if storage, err = s3.FindDefaultS3(); err == nil {
 								filename, err = util.GenerateTmpFile()
 								defer func() {
 									_ = os.Remove(filename)
@@ -77,8 +78,17 @@ func GetTestLocalTestSuite(serviceName string, log *zap.SugaredLogger) (*commonm
 								if err != nil {
 									log.Errorf("GetTestLocalTestSuite GenerateTmpFile err:%v", err)
 								}
-
-								if err = s3.Download(context.Background(), s3Storage, fmt.Sprintf("%s/%d/%s/%s", pipelineName, pipelineTask.TaskID, "test", testJobName), filename); err != nil {
+								forcedPathStyle := false
+								if storage.Provider == setting.ProviderSourceSystemDefault {
+									forcedPathStyle = true
+								}
+								client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
+								if err != nil {
+									log.Errorf("GetTestLocalTestSuite Create S3 client err:%+v", err)
+									continue
+								}
+								objectKey := storage.GetObjectPath(fmt.Sprintf("%s/%d/%s/%s", pipelineName, pipelineTask.TaskID, "test", testJobName))
+								if err = client.Download(storage.Bucket, objectKey, filename); err != nil {
 									continue
 								}
 							} else {

@@ -3,3 +3,4 @@
 !/pkg
 !/go.mod
 !/go.sum
+!/resource-server-nginx.conf

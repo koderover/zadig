@@ -17,24 +17,18 @@ limitations under the License.
 package s3
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/url"
 	"path/filepath"
 	"strings"
-	"sync"
-	"sync/atomic"
-	"time"
 
-	"github.com/hashicorp/go-multierror"
-	"github.com/minio/minio-go"
-
+	config2 "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/crypto"
-	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type S3 struct {
@@ -76,7 +70,7 @@ func NewS3StorageFromURL(uri string) (*S3, error) {
 		subfolder = strings.Join(paths[1:], "/")
 	}
 
-	return &S3{
+	ret := &S3{
 		&models.S3Storage{
 			Ak:        store.User.Username(),
 			Sk:        sk,
@@ -85,7 +79,12 @@ func NewS3StorageFromURL(uri string) (*S3, error) {
 			Subfolder: subfolder,
 			Insecure:  store.Scheme == "http",
 		},
-	}, nil
+	}
+	if strings.Contains(store.Host, config2.MinioServiceName()) {
+		ret.Provider = setting.ProviderSourceSystemDefault
+	}
+
+	return ret, nil
 }
 
 func NewS3StorageFromEncryptedURI(encryptedURI string) (*S3, error) {
@@ -129,149 +128,6 @@ func (s *S3) Validate() error {
 	return nil
 }
 
-// Validate the existence of bucket
-func Validate(s *S3) (err error) {
-	var minioClient *minio.Client
-	if minioClient, err = getMinioClient(s); err != nil {
-		return
-	}
-
-	var exists bool
-
-	if exists, err = minioClient.BucketExists(s.Bucket); err != nil {
-		return
-	} else if !exists {
-		err = fmt.Errorf("no bucket named %s", s.Bucket)
-		return
-	}
-
-	return
-}
-
-// Download the file to object storage
-func Download(ctx context.Context, storage *S3, src string, dest string) (err error) {
-	log := log.SugaredLogger()
-	var minioClient *minio.Client
-	if minioClient, err = getMinioClient(storage); err != nil {
-		return
-	}
-
-	retry := 0
-
-	for retry < 3 {
-		err = minioClient.FGetObjectWithContext(
-			ctx, storage.Bucket, storage.GetObjectPath(src), dest, minio.GetObjectOptions{},
-		)
-
-		if err == nil {
-			return
-		}
-		log.Warnf("failed to download file %s %s=>%s: %v", storage.GetURI(), src, dest, err)
-
-		if strings.Contains(err.Error(), "stream error") {
-			retry++
-			continue
-		}
-
-		// 自定义返回的错误信息
-		err = fmt.Errorf("未找到 package %s/%s，请确认打包脚本是否正确。", storage.GetURI(), src)
-		return
-	}
-
-	return
-}
-
-// RemoveFiles will attempt to remove files specified in prefixList in `target` s3 endpoint-bucket recursively.
-// If dryRun is given, the removal will be no op other than a log.
-// Note that this API makes its best attempt to remove given files, if the removal fails, it will log error but the
-// function just continues.
-func RemoveFiles(target *S3, prefixList []string, dryRun bool) {
-	log := log.SugaredLogger()
-	minioClient, err := getMinioClient(target)
-	if err != nil {
-		log.Errorf("Fail to create minioClient for storage: %v; err: %v", target, err)
-		return
-	}
-
-	objectsCh := make(chan string)
-	var wg sync.WaitGroup
-	var cnt int64
-	for _, prefix := range prefixList {
-		wg.Add(1)
-		go func(filePrefix string) {
-			defer wg.Done()
-			objects, err := ListFiles(target, filePrefix, true /* recursive */)
-			if err != nil {
-				// Failing to remove some S3 files is not fatal, log and move on to try next batch
-				log.Errorf("Error detected while listing files to be removed for [%v-%v-%v] with error: %v",
-					target.Endpoint, target.Bucket, filePrefix, err)
-				return
-			}
-			atomic.AddInt64(&cnt, int64(len(objects)))
-			for _, o := range objects {
-				o = filepath.Join(target.GetObjectPath(""), o)
-				if !dryRun {
-					objectsCh <- o
-				} else {
-					log.Infof("%v-%v removing file [dryRun %v]: %v",
-						target.Endpoint, target.Bucket, dryRun, o)
-				}
-			}
-		}(prefix)
-	}
-	errCh := minioClient.RemoveObjects(target.Bucket, objectsCh)
-	if waitTimeout(&wg, 15*time.Minute) {
-		log.Errorf("%v-%v removing files timeout waiting for all groups [dryRun %v]", target.Endpoint, target.Bucket, dryRun)
-	}
-	close(objectsCh)
-	log.Infof("%v-%v removing %d files [dryRun %v]", target.Endpoint, target.Bucket, cnt, dryRun)
-	for err := range errCh {
-		log.Errorf("%v-%v removing file failed with error: %v", target.Endpoint, target.Bucket, err)
-	}
-}
-
-// Upload the file to object storage
-func Upload(ctx context.Context, storage *S3, src string, dest string) (err error) {
-	var minioClient *minio.Client
-	if minioClient, err = getMinioClient(storage); err != nil {
-		return
-	}
-
-	_, err = minioClient.FPutObjectWithContext(
-		ctx, storage.Bucket, storage.GetObjectPath(dest), src, minio.PutObjectOptions{},
-	)
-
-	return
-}
-
-// ListFiles with specific prefix
-func ListFiles(storage *S3, prefix string, recursive bool) (files []string, err error) {
-	log := log.SugaredLogger()
-	var minioClient *minio.Client
-	if minioClient, err = getMinioClient(storage); err != nil {
-		return
-	}
-
-	done := make(chan struct{})
-	defer close(done)
-
-	for item := range minioClient.ListObjects(storage.Bucket, storage.GetObjectPath(prefix), recursive, done) {
-		if item.Err != nil {
-			err = multierror.Append(err, item.Err)
-			continue
-		}
-		key := item.Key
-		if strings.Index(key, storage.GetObjectPath("")) == 0 {
-			files = append(files, item.Key[len(storage.GetObjectPath("")):len(item.Key)])
-		}
-	}
-	if err != nil {
-		log.Errorf("S3 [%v-%v] prefix [%v] listing objects failed: %v", storage.Endpoint, storage.Bucket, prefix, err)
-	}
-
-	return
-}
-
 func FindDefaultS3() (*S3, error) {
 	storage, err := commonrepo.NewS3StorageColl().FindDefault()
 	if err != nil {
@@ -282,6 +138,7 @@ func FindDefaultS3() (*S3, error) {
 				Endpoint: config.S3StorageEndpoint(),
 				Bucket:   config.S3StorageBucket(),
 				Insecure: config.S3StorageProtocol() == "http",
+				Provider: setting.ProviderSourceSystemDefault,
 			},
 		}, nil
 	}
@@ -299,26 +156,4 @@ func FindInternalS3() *S3 {
 		Insecure: config.S3StorageProtocol() == "http",
 	}
 	return &S3{S3Storage: storage}
-}
-
-func getMinioClient(s *S3) (minioClient *minio.Client, err error) {
-	if minioClient, err = minio.New(s.Endpoint, s.Ak, s.Sk, !s.Insecure); err != nil {
-		return
-	}
-
-	return
-}
-
-func waitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
-	normal := make(chan struct{})
-	go func() {
-		defer close(normal)
-		wg.Wait()
-	}()
-	select {
-	case <-normal:
-		return false
-	case <-time.After(timeout):
-		return true
-	}
 }

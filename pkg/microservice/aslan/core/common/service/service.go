@@ -74,6 +74,7 @@ type ServiceProductMap struct {
 	CodehostID       int                       `json:"codehost_id"`
 	RepoOwner        string                    `json:"repo_owner"`
 	RepoName         string                    `json:"repo_name"`
+	RepoUUID         string                    `json:"repo_uuid"`
 	BranchName       string                    `json:"branch_name"`
 	LoadPath         string                    `json:"load_path"`
 	LoadFromDir      bool                      `json:"is_dir"`
@@ -169,6 +170,7 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 			CodehostID:       serviceObject.CodehostID,
 			RepoOwner:        serviceObject.RepoOwner,
 			RepoName:         serviceObject.RepoName,
+			RepoUUID:         serviceObject.RepoUUID,
 			BranchName:       serviceObject.BranchName,
 			LoadFromDir:      serviceObject.LoadFromDir,
 			LoadPath:         serviceObject.LoadPath,
@@ -296,6 +298,7 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 		resp.LoadPath = loadPath
 		resp.LoadFromDir = true
 		return resp, nil
+
 	} else if resp.Source == setting.SourceFromGUI {
 		yamls := strings.Split(resp.Yaml, "---")
 		for _, y := range yamls {
@@ -379,7 +382,6 @@ func DeleteServiceWebhookByName(serviceName, productName string, logger *zap.Sug
 		logger.Errorf("Failed to get service %s, error: %s", serviceName, err)
 		return
 	}
-
 	ProcessServiceWebhook(nil, svc, serviceName, logger)
 }
 
@@ -387,6 +389,9 @@ func ProcessServiceWebhook(updated, current *commonmodels.Service, serviceName s
 	var action string
 	var updatedHooks, currentHooks []*webhook.WebHook
 	if updated != nil {
+		if updated.Source == setting.SourceFromZadig || updated.Source == setting.SourceFromGerrit || updated.Source == "" {
+			return
+		}
 		action = "add"
 		address := getAddressFromPath(updated.SrcPath, updated.RepoOwner, updated.RepoName, logger.Desugar())
 		if address == "" {
@@ -395,6 +400,9 @@ func ProcessServiceWebhook(updated, current *commonmodels.Service, serviceName s
 		updatedHooks = append(updatedHooks, &webhook.WebHook{Owner: updated.RepoOwner, Repo: updated.RepoName, Address: address, Name: "trigger", CodeHostID: updated.CodehostID})
 	}
 	if current != nil {
+		if current.Source == setting.SourceFromZadig || current.Source == setting.SourceFromGerrit || current.Source == "" {
+			return
+		}
 		action = "remove"
 		address := getAddressFromPath(current.SrcPath, current.RepoOwner, current.RepoName, logger.Desugar())
 		if address == "" {

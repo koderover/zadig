@@ -18,7 +18,6 @@ package reaper
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -29,7 +28,9 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/reaper/core/service/meta"
 	"github.com/koderover/zadig/pkg/microservice/reaper/internal/s3"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
+	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -117,11 +118,17 @@ func (gcm *TarCacheManager) Archive(source, dest string) error {
 	//}
 
 	if store, err := gcm.getS3Storage(); err == nil {
-		if err = s3.Upload(
-			context.Background(),
-			store,
-			temp.Name(), meta.FileName,
-		); err != nil {
+		forcedPathStyle := false
+		if store.Provider == setting.ProviderSourceSystemDefault {
+			forcedPathStyle = true
+		}
+		s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
+		if err != nil {
+			log.Errorf("Archive s3 create s3 client error: %+v", err)
+			return err
+		}
+		objectKey := store.GetObjectPath(meta.FileName)
+		if err = s3client.Upload(store.Bucket, temp.Name(), objectKey); err != nil {
 			log.Errorf("Archive s3 upload err:%v", err)
 			return err
 		}
@@ -132,17 +139,22 @@ func (gcm *TarCacheManager) Archive(source, dest string) error {
 
 func (gcm *TarCacheManager) Unarchive(source, dest string) error {
 	if store, err := gcm.getS3Storage(); err == nil {
-		files, _ := s3.ListFiles(store, meta.FileName, false)
+		forcedPathStyle := false
+		if store.Provider == setting.ProviderSourceSystemDefault {
+			forcedPathStyle = true
+		}
+		s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
+		if err != nil {
+			return err
+		}
+		files, _ := s3client.ListFiles(store.Bucket, store.GetObjectPath(meta.FileName), false)
 		if len(files) > 0 {
 			if sourceFilename, err := util.GenerateTmpFile(); err == nil {
 				defer func() {
 					_ = os.Remove(sourceFilename)
 				}()
-				err := s3.Download(
-					context.Background(),
-					store,
-					files[0], sourceFilename,
-				)
+				objectKey := store.GetObjectPath(files[0])
+				err = s3client.Download(store.Bucket, objectKey, sourceFilename)
 				if err != nil {
 					return err
 				}

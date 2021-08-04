@@ -176,10 +176,21 @@ func ProcessWebhook(updatedHooks, currentHooks interface{}, name string, logger 
 			}
 
 			switch ch.Type {
-			case setting.SourceFromGithub, setting.SourceFromGitlab:
-				err = webhook.NewClient().RemoveWebHook(wh.name, wh.owner, wh.repo, ch.Address, ch.AccessToken, name, ch.Type)
+			case setting.SourceFromGithub, setting.SourceFromGitlab, setting.SourceFromCodeHub:
+				err = webhook.NewClient().RemoveWebHook(&webhook.TaskOption{
+					Name:    wh.name,
+					Owner:   wh.owner,
+					Repo:    wh.repo,
+					Address: ch.Address,
+					Token:   ch.AccessToken,
+					AK:      ch.AccessKey,
+					SK:      ch.SecretKey,
+					Region:  ch.Region,
+					Ref:     name,
+					From:    ch.Type,
+				})
 				if err != nil {
-					logger.Errorf("Failed to remove webhook %+v, err: %s", wh, err)
+					logger.Errorf("Failed to remove %s webhook %+v, err: %s", ch.Type, wh, err)
 					errs = multierror.Append(errs, err)
 					return
 				}
@@ -199,10 +210,21 @@ func ProcessWebhook(updatedHooks, currentHooks interface{}, name string, logger 
 			}
 
 			switch ch.Type {
-			case setting.SourceFromGithub, setting.SourceFromGitlab:
-				err = webhook.NewClient().AddWebHook(wh.name, wh.owner, wh.repo, ch.Address, ch.AccessToken, name, ch.Type)
+			case setting.SourceFromGithub, setting.SourceFromGitlab, setting.SourceFromCodeHub:
+				err = webhook.NewClient().AddWebHook(&webhook.TaskOption{
+					Name:    wh.name,
+					Owner:   wh.owner,
+					Repo:    wh.repo,
+					Address: ch.Address,
+					Token:   ch.AccessToken,
+					Ref:     name,
+					AK:      ch.AccessKey,
+					SK:      ch.SecretKey,
+					Region:  ch.Region,
+					From:    ch.Type,
+				})
 				if err != nil {
-					logger.Errorf("Failed to add webhook %+v, err: %s", wh, err)
+					logger.Errorf("Failed to add %s webhook %+v, err: %s", ch.Type, wh, err)
 					errs = multierror.Append(errs, err)
 					return
 				}

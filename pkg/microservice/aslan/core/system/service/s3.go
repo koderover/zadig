@@ -22,12 +22,23 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/errors"
+	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 )
 
 func UpdateS3Storage(updateBy, id string, storage *commonmodels.S3Storage, logger *zap.SugaredLogger) error {
 	s3Storage := &s3.S3{S3Storage: storage}
-	if err := s3.Validate(s3Storage); err != nil {
+	forcedPathStyle := false
+	if s3Storage.Provider == setting.ProviderSourceSystemDefault {
+		forcedPathStyle = true
+	}
+	client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
+	if err != nil {
+		logger.Warnf("Failed to create s3 client, error is: %+v", err)
+		return errors.ErrValidateS3Storage.AddErr(err)
+	}
+	if err := client.ValidateBucket(storage.Bucket); err != nil {
 		logger.Warnf("failed to validate storage %s %v", storage.Endpoint, err)
 		return errors.ErrValidateS3Storage.AddErr(err)
 	}
@@ -38,7 +49,16 @@ func UpdateS3Storage(updateBy, id string, storage *commonmodels.S3Storage, logge
 
 func CreateS3Storage(updateBy string, storage *commonmodels.S3Storage, logger *zap.SugaredLogger) error {
 	s3Storage := &s3.S3{S3Storage: storage}
-	if err := s3.Validate(s3Storage); err != nil {
+	forcedPathStyle := false
+	if s3Storage.Provider == setting.ProviderSourceSystemDefault {
+		forcedPathStyle = true
+	}
+	client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
+	if err != nil {
+		logger.Warnf("Failed to create s3 client, error is: %+v", err)
+		return errors.ErrValidateS3Storage.AddErr(err)
+	}
+	if err := client.ValidateBucket(s3Storage.Bucket); err != nil {
 		logger.Warnf("failed to validate storage %s %v", storage.Endpoint, err)
 		return errors.ErrValidateS3Storage.AddErr(err)
 	}

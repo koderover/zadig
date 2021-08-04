@@ -17,7 +17,6 @@ limitations under the License.
 package service
 
 import (
-	"context"
 	"encoding/csv"
 	"encoding/xml"
 	"errors"
@@ -33,6 +32,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/setting"
+	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -74,12 +74,23 @@ func GetLocalTestSuite(pipelineName, serviceName, testType string, taskID int64,
 		if err != nil {
 			log.Errorf("GetLocalTestSuite GenerateTmpFile err:%v", err)
 		}
-
-		if err = s3.Download(context.Background(), s3Storage, fmt.Sprintf("%s/%d/%s/%s", pipelineName, taskID, "test", testJobName), filename); err != nil {
+		objectKey := s3Storage.GetObjectPath(fmt.Sprintf("%s/%d/%s/%s", pipelineName, taskID, "test", testJobName))
+		forcedPathStyle := false
+		if s3Storage.Provider == setting.ProviderSourceSystemDefault {
+			forcedPathStyle = true
+		}
+		client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
+		if err != nil {
+			log.Errorf("Failed to create s3 client for download, error: %+v", err)
+			return testReport, fmt.Errorf("failed to create s3 client for download, error: %+v", err)
+		}
+		if err = client.Download(s3Storage.Bucket, objectKey, filename); err != nil {
 			log.Errorf("GetLocalTestSuite s3 Download err:%v", err)
+			return testReport, fmt.Errorf("getLocalTestSuite s3 Download err: %v", err)
 		}
 	} else {
 		log.Errorf("GetLocalTestSuite FindDefaultS3 err:%v", err)
+		return testReport, fmt.Errorf("GetLocalTestSuite FindDefaultS3 err: %v", err)
 	}
 	if testType == setting.FunctionTest {
 		b, err := ioutil.ReadFile(filename)

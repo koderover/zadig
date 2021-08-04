@@ -44,6 +44,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/log"
+	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 )
@@ -616,13 +617,23 @@ func uploadService(base, serviceName, filePath string) error {
 		log.Errorf("获取默认的s3配置失败 err:%v", err)
 		return err
 	}
+	forcedPathStyle := false
+	if s3Storage.Provider == setting.ProviderSourceSystemDefault {
+		forcedPathStyle = true
+	}
+	client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
+	if err != nil {
+		log.Errorf("Failed to get s3 client, error is: %+v", err)
+		return err
+	}
 	subFolderName := serviceName + "-" + setting.HelmDeployType
 	if s3Storage.Subfolder != "" {
 		s3Storage.Subfolder = fmt.Sprintf("%s/%s/%s", s3Storage.Subfolder, subFolderName, "service")
 	} else {
 		s3Storage.Subfolder = fmt.Sprintf("%s/%s", subFolderName, "service")
 	}
-	if err = s3service.Upload(context.Background(), s3Storage, tarFilePath, fmt.Sprintf("%s.tar.gz", serviceName)); err != nil {
+	objectKey := s3Storage.GetObjectPath(fmt.Sprintf("%s.tar.gz", serviceName))
+	if err = client.Upload(s3Storage.Bucket, tarFilePath, objectKey); err != nil {
 		log.Errorf("s3上传文件失败 err:%v", err)
 		return err
 	}

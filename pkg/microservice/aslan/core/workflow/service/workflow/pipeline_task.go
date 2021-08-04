@@ -17,7 +17,6 @@ limitations under the License.
 package workflow
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -44,6 +43,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/types"
 )
 
@@ -903,9 +903,16 @@ func GePackageFileContent(pipelineName string, taskID int64, log *zap.SugaredLog
 	defer func() {
 		_ = os.Remove(tmpfile.Name())
 	}()
-
-	err = s3.Download(context.Background(), storage, packageFile, tmpfile.Name())
-
+	forcedPathStyle := false
+	if storage.Provider == setting.ProviderSourceSystemDefault {
+		forcedPathStyle = true
+	}
+	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
+	if err != nil {
+		return nil, packageFile, fmt.Errorf("failed to get s3 client to download %s, error is: %v", packageFile, err)
+	}
+	objectKey := storage.GetObjectPath(packageFile)
+	err = client.Download(storage.Bucket, objectKey, tmpfile.Name())
 	if err != nil {
 		return nil, packageFile, fmt.Errorf("failed to download %s %v", packageFile, err)
 	}
@@ -920,6 +927,14 @@ func GetArtifactFileContent(pipelineName string, taskID int64, log *zap.SugaredL
 	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
 		_ = os.MkdirAll(sourcePath, 0777)
 	}
+	forcedPathStyle := false
+	if s3Storage.Provider == setting.ProviderSourceSystemDefault {
+		forcedPathStyle = true
+	}
+	client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create s3 client , error: %v", err)
+	}
 
 	for _, artifactFile := range artifactFiles {
 		artifactFileArr := strings.Split(artifactFile, "/")
@@ -929,13 +944,13 @@ func GetArtifactFileContent(pipelineName string, taskID int64, log *zap.SugaredL
 			if err != nil {
 				return nil, fmt.Errorf("failed to create file %s %v", artifactFileName, err)
 			}
-
 			defer func() {
-				_ = file.Close()
-				_ = os.Remove(path.Join(sourcePath, artifactFileName))
+				file.Close()
+				os.Remove(path.Join(sourcePath, artifactFileName))
 			}()
 
-			err = s3.Download(context.Background(), s3Storage, artifactFile, file.Name())
+			objectKey := s3Storage.GetObjectPath(artifactFile)
+			err = client.Download(s3Storage.Bucket, objectKey, file.Name())
 			if err != nil {
 				return nil, fmt.Errorf("failed to download %s %v", artifactFile, err)
 			}
@@ -944,7 +959,7 @@ func GetArtifactFileContent(pipelineName string, taskID int64, log *zap.SugaredL
 	//将该目录压缩
 	goCacheManager := new(GoCacheManager)
 	artifactTarFileName := path.Join(sourcePath, "artifact.tar.gz")
-	err := goCacheManager.Archive(sourcePath, artifactTarFileName)
+	err = goCacheManager.Archive(sourcePath, artifactTarFileName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to Archive %s %v", sourcePath, err)
 	}
@@ -960,20 +975,31 @@ func GetArtifactFileContent(pipelineName string, taskID int64, log *zap.SugaredL
 func GetTestArtifactInfo(pipelineName, dir string, taskID int64, log *zap.SugaredLogger) (*s3.S3, []string, error) {
 	fis := make([]string, 0)
 
-	if storage, err := s3.FindDefaultS3(); err == nil {
-		if storage.Subfolder != "" {
-			storage.Subfolder = fmt.Sprintf("%s/%s/%d/%s", storage.Subfolder, pipelineName, taskID, "artifact")
-		} else {
-			storage.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineName, taskID, "artifact")
-		}
-		if files, err := s3.ListFiles(storage, dir, true); err == nil && len(files) > 0 {
-			return storage, files, nil
-		} else if err != nil {
-			log.Errorf("GetTestArtifactInfo ListFiles err:%v", err)
-		}
-	} else {
+	storage, err := s3.FindDefaultS3()
+	if err != nil {
 		log.Errorf("GetTestArtifactInfo FindDefaultS3 err:%v", err)
+		return nil, fis, nil
 	}
 
-	return nil, fis, nil
+	if storage.Subfolder != "" {
+		storage.Subfolder = fmt.Sprintf("%s/%s/%d/%s", storage.Subfolder, pipelineName, taskID, "artifact")
+	} else {
+		storage.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineName, taskID, "artifact")
+	}
+	forcedPathStyle := false
+	if storage.Provider == setting.ProviderSourceSystemDefault {
+		forcedPathStyle = true
+	}
+	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
+	if err != nil {
+		log.Errorf("GetTestArtifactInfo Create S3 client err:%+v", err)
+		return nil, fis, nil
+	}
+	prefix := storage.GetObjectPath(dir)
+	files, err := client.ListFiles(storage.Bucket, prefix, true)
+	if err != nil || len(files) <= 0 {
+		log.Errorf("GetTestArtifactInfo ListFiles err:%v", err)
+		return nil, fis, nil
+	}
+	return storage, files, nil
 }

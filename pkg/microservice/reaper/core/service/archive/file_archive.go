@@ -17,7 +17,6 @@ limitations under the License.
 package archive
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -29,7 +28,9 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/reaper/core/service/meta"
 	"github.com/koderover/zadig/pkg/microservice/reaper/internal/s3"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
+	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 )
 
 type WorkspaceAchiever struct {
@@ -211,11 +212,17 @@ func (c *WorkspaceAchiever) Achieve(target string) error {
 	//}
 
 	if store, err := s3.NewS3StorageFromEncryptedURI(c.StorageURI); err == nil {
-		if err = s3.Upload(
-			context.Background(),
-			store,
-			temp.Name(), fmt.Sprintf("%s/%s/%s/%s", c.PipelineName, c.ServiceName, "cache", meta.FileName),
-		); err != nil {
+		forcedPathStyle := false
+		if store.Provider == setting.ProviderSourceSystemDefault {
+			forcedPathStyle = true
+		}
+		s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
+		if err != nil {
+			log.Errorf("Archive s3 create s3 client error: %+v", err)
+			return err
+		}
+		objectKey := store.GetObjectPath(fmt.Sprintf("%s/%s/%s/%s", c.PipelineName, c.ServiceName, "cache", meta.FileName))
+		if err = s3client.Upload(store.Bucket, temp.Name(), objectKey); err != nil {
 			log.Errorf("Archive s3 upload err:%v", err)
 			return err
 		}

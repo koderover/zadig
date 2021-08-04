@@ -209,6 +209,8 @@ const (
 	SourceFromGithub = "github"
 	// SourceFromGitlab 配置来源为gerrit
 	SourceFromGerrit = "gerrit"
+	// SourceFromCodeHub 配置来源为codehub
+	SourceFromCodeHub = "codehub"
 	// SourceFromGUI 配置来源为gui
 	SourceFromGUI = "gui"
 	//SourceFromHelm
@@ -438,6 +440,21 @@ const (
 	TopicItReport     = "task.it.report"
 	TopicNotification = "task.notification"
 	TopicCronjob      = "cronjob"
+)
+
+// S3 related constants
+const (
+	S3DefaultRegion = "ap-shanghai"
+)
+
+// ALL provider mapping
+const (
+	ProviderSourceETC = iota
+	ProviderSourceAli
+	ProviderSourceTencent
+	ProviderSourceQiniu
+	ProviderSourceHuawei
+	ProviderSourceSystemDefault
 )
 
 const MaxTries = 1

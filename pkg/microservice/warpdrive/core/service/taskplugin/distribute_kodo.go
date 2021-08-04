@@ -32,6 +32,8 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/s3"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
+	"github.com/koderover/zadig/pkg/setting"
+	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 )
 
 // InitializeDistribute2S3TaskPlugin ...
@@ -101,8 +103,17 @@ func upload(ctx context.Context, log *zap.SugaredLogger, storage *s3.S3, localfi
 
 		return err
 	}
+	forcedPathStyle := false
+	if storage.Provider == setting.ProviderSourceSystemDefault {
+		forcedPathStyle = true
+	}
+	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
+	if err != nil {
+		return err
+	}
 
-	return s3.Upload(ctx, storage, localfile, destfile)
+	objectKey := storage.GetObjectPath(destfile)
+	return client.Upload(storage.Bucket, localfile, objectKey)
 }
 
 // Run ...
@@ -149,7 +160,17 @@ func (p *Distribute2S3TaskPlugin) Run(ctx context.Context, pipelineTask *task.Ta
 		defer func() {
 			_ = os.Remove(tmpFile.Name())
 		}()
-		err = s3.Download(ctx, srcStorage, p.Task.PackageFile, tmpFile.Name())
+		forcedPathStyle := false
+		if srcStorage.Provider == setting.ProviderSourceSystemDefault {
+			forcedPathStyle = true
+		}
+		s3client, err := s3tool.NewClient(srcStorage.Endpoint, srcStorage.Ak, srcStorage.Sk, srcStorage.Insecure, forcedPathStyle)
+		if err != nil {
+			p.Log.Errorf("failed to create s3 client source storage %s: %v", srcStorage.GetURI(), err)
+			return
+		}
+		objectKey := srcStorage.GetObjectPath(p.Task.PackageFile)
+		err = s3client.Download(srcStorage.Bucket, objectKey, tmpFile.Name())
 		if err != nil {
 			p.Log.Errorf("failed to download file from source storage %s: %v", srcStorage.GetURI(), err)
 			return

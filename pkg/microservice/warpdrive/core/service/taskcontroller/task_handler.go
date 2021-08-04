@@ -184,6 +184,7 @@ func (h *CancelHandler) HandleMessage(message *nsq.Message) error {
 	if pipelineTask != nil && pipelineTask.PipelineName == msg.PipelineName && pipelineTask.TaskID == msg.TaskID {
 		xl.Infof("cancelling message: %+v", msg)
 		pipelineTask.TaskRevoker = msg.Revoker
+
 		//取消pipelineTask
 		cancel()
 		//xl.Debug("no matched pipeline task found on this warpdrive")

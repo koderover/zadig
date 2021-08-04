@@ -17,7 +17,6 @@ limitations under the License.
 package taskcontroller
 
 import (
-	"context"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -35,7 +34,9 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/s3"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
+	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -215,6 +216,8 @@ func getCheckStatus(status config.Status) github.CIStatus {
 		return github.CIStatusSuccess
 	case config.StatusSkipped:
 		return github.CIStatusCancelled
+	case config.StatusCancelled:
+		return  github.CIStatusCancelled
 	default:
 		return github.CIStatusError
 	}
@@ -480,6 +483,15 @@ func downloadReport(taskInfo *task.Task, fileName, testName string, logger *zap.
 		logger.Errorf("failed to create s3 storage %s", taskInfo.StorageURI)
 		return nil, err
 	}
+	forcedPathStyle := false
+	if store.Provider == setting.ProviderSourceSystemDefault {
+		forcedPathStyle = true
+	}
+	client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
+	if err != nil {
+		logger.Errorf("failed to create s3 client, error: %+v", err)
+		return nil, err
+	}
 	if store.Subfolder != "" {
 		store.Subfolder = fmt.Sprintf("%s/%s/%d/%s", store.Subfolder, taskInfo.PipelineName, taskInfo.TaskID, "test")
 	} else {
@@ -490,8 +502,8 @@ func downloadReport(taskInfo *task.Task, fileName, testName string, logger *zap.
 	defer func() {
 		_ = os.Remove(tmpFilename)
 	}()
-
-	if err = s3.Download(context.Background(), store, fileName, tmpFilename); err == nil {
+	objectKey := store.GetObjectPath(fileName)
+	if err = client.Download(store.Bucket, objectKey, tmpFilename); err == nil {
 		testRepo := new(types.TestSuite)
 		b, err := ioutil.ReadFile(tmpFilename)
 		if err != nil {

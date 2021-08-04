@@ -23,26 +23,37 @@ import (
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
+	"github.com/koderover/zadig/pkg/setting"
+	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 )
 
 func GetTestArtifactInfo(pipelineName, dir string, taskID int64, log *zap.SugaredLogger) (*commonmodels.S3Storage, []string, error) {
 	fis := make([]string, 0)
 
-	if storage, err := s3.FindDefaultS3(); err == nil {
-		if storage.Subfolder != "" {
-			storage.Subfolder = fmt.Sprintf("%s/%s/%d/%s", storage.Subfolder, pipelineName, taskID, "artifact")
-		} else {
-			storage.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineName, taskID, "artifact")
-		}
-
-		if files, err := s3.ListFiles(storage, dir, true); err == nil && len(files) > 0 {
-			return storage.S3Storage, files, nil
-		} else if err != nil {
-			log.Errorf("GetTestArtifactInfo ListFiles err:%v", err)
-		}
-	} else {
+	storage, err := s3.FindDefaultS3()
+	if err != nil {
 		log.Errorf("GetTestArtifactInfo FindDefaultS3 err:%v", err)
+		return nil, fis, nil
 	}
-
-	return nil, fis, nil
+	if storage.Subfolder != "" {
+		storage.Subfolder = fmt.Sprintf("%s/%s/%d/%s", storage.Subfolder, pipelineName, taskID, "artifact")
+	} else {
+		storage.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineName, taskID, "artifact")
+	}
+	forcedPathStyle := false
+	if storage.Provider == setting.ProviderSourceSystemDefault {
+		forcedPathStyle = true
+	}
+	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
+	if err != nil {
+		log.Errorf("GetTestArtifactInfo create s3 client err:%v", err)
+		return nil, fis, nil
+	}
+	prefix := storage.GetObjectPath(dir)
+	files, err := client.ListFiles(storage.Bucket, prefix, true)
+	if err != nil || len(files) <= 0 {
+		log.Errorf("GetTestArtifactInfo ListFiles err:%v", err)
+		return nil, fis, nil
+	}
+	return storage.S3Storage, files, nil
 }

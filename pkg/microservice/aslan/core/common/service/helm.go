@@ -17,7 +17,6 @@ limitations under the License.
 package service
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path"
@@ -30,6 +29,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
+	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -57,7 +57,17 @@ func DownloadService(base, serviceName string) error {
 	}
 	filePath := fmt.Sprintf("%s.tar.gz", serviceName)
 	tarFilePath := path.Join(base, filePath)
-	if err = s3service.Download(context.Background(), s3Storage, filePath, tarFilePath); err != nil {
+	objectKey := s3Storage.GetObjectPath(filePath)
+	forcedPathStyle := false
+	if s3Storage.Provider == setting.ProviderSourceSystemDefault {
+		forcedPathStyle = true
+	}
+	client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
+	if err != nil {
+		log.Errorf("Failed to create s3 client for download, error: %+v", err)
+		return err
+	}
+	if err = client.Download(s3Storage.Bucket, objectKey, tarFilePath); err != nil {
 		log.Errorf("s3下载文件失败 err:%v", err)
 		return err
 	}

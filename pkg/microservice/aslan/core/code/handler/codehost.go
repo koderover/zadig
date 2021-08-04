@@ -39,6 +39,9 @@ func GetCodeHostList(c *gin.Context) {
 	ctx.Err = err
 	for _, codeHost := range codeHosts {
 		codeHost.AccessToken = setting.MaskValue
+		codeHost.AccessKey = setting.MaskValue
+		codeHost.SecretKey = setting.MaskValue
+		codeHost.Password = setting.MaskValue
 
 		codeHostSlice = append(codeHostSlice, codeHost)
 	}

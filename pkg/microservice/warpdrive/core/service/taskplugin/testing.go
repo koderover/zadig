@@ -36,6 +36,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -309,9 +310,17 @@ func (p *TestPlugin) Complete(ctx context.Context, pipelineTask *task.Task, serv
 	} else {
 		store.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineName, pipelineTaskID, "artifact")
 	}
-	if files, err := s3.ListFiles(store, "/", true); err == nil {
-		if len(files) > 0 {
-			p.Task.JobCtx.IsHasArtifact = true
+	forcedPathStyle := false
+	if store.Provider == setting.ProviderSourceSystemDefault {
+		forcedPathStyle = true
+	}
+	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
+	if err == nil {
+		prefix := store.GetObjectPath("/")
+		if files, err := s3client.ListFiles(store.Bucket, prefix, true); err == nil {
+			if len(files) > 0 {
+				p.Task.JobCtx.IsHasArtifact = true
+			}
 		}
 	}
 
@@ -324,7 +333,8 @@ func (p *TestPlugin) Complete(ctx context.Context, pipelineTask *task.Task, serv
 	}()
 
 	store.Subfolder = strings.Replace(store.Subfolder, fmt.Sprintf("%s/%d/%s", pipelineName, pipelineTaskID, "artifact"), fmt.Sprintf("%s/%d/%s", pipelineName, pipelineTaskID, "test"), -1)
-	err = s3.Download(context.Background(), store, fileName, tmpFilename)
+	objectKey := store.GetObjectPath(fileName)
+	err = s3client.Download(store.Bucket, objectKey, tmpFilename)
 	if err != nil {
 		return
 	}

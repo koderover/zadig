@@ -41,14 +41,6 @@ type Branches struct {
 	NoOneCanMerge      bool   `json:"no_one_can_merge"`
 }
 
-type Commit struct {
-	ID            string `json:"id"`
-	Message       string `json:"message"`
-	AuthorName    string `json:"author_name"`
-	CommittedDate string `json:"committed_date"`
-	CommitterName string `json:"committer_name"`
-}
-
 type Branch struct {
 	Commit    *Commit `json:"commit"`
 	Name      string  `json:"name"`
@@ -60,7 +52,7 @@ func (c *CodeHubClient) BranchList(repoUUID string) ([]*Branch, error) {
 	branchInfos := make([]*Branch, 0)
 
 	branchList := new(BranchList)
-	body, err := c.sendRequest("GET", fmt.Sprintf("/v1/repositories/%s/branches", repoUUID), "")
+	body, err := c.sendRequest("GET", fmt.Sprintf("/v1/repositories/%s/branches", repoUUID), []byte{})
 	if err != nil {
 		return branchInfos, err
 	}

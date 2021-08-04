@@ -17,8 +17,12 @@ limitations under the License.
 package codehub
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strings"
+
+	"github.com/koderover/zadig/pkg/util"
 )
 
 type RepoInfo struct {
@@ -59,7 +63,7 @@ func (c *CodeHubClient) RepoList(projectUUID, search string, pageSize int) ([]*P
 	repoInfos := make([]*Project, 0)
 
 	repoInfo := new(RepoInfo)
-	body, err := c.sendRequest("GET", fmt.Sprintf("/v1/projects/%s/repositories?search=%s&page_size=%d", projectUUID, search, pageSize), "")
+	body, err := c.sendRequest("GET", fmt.Sprintf("/v1/projects/%s/repositories?search=%s&page_size=%d", projectUUID, search, pageSize), []byte{})
 	if err != nil {
 		return repoInfos, err
 	}
@@ -84,4 +88,44 @@ func (c *CodeHubClient) RepoList(projectUUID, search string, pageSize int) ([]*P
 	}
 
 	return repoInfos, nil
+}
+
+func (c *CodeHubClient) GetYAMLContents(repoUUID, branchName, path string, isDir, split bool) ([]string, error) {
+	var res []string
+	if !isDir {
+		if !(strings.HasSuffix(path, ".yaml") || strings.HasSuffix(path, ".yml")) {
+			return nil, nil
+		}
+
+		fileContent, err := c.FileContent(repoUUID, branchName, path)
+		if err != nil {
+			return nil, err
+		}
+
+		contentByte, err := base64.StdEncoding.DecodeString(fileContent.Content)
+		content := string(contentByte)
+		if split {
+			res = util.SplitManifests(content)
+		} else {
+			res = []string{content}
+		}
+
+		return res, nil
+	}
+
+	treeNodes, err := c.FileTree(repoUUID, branchName, path)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, tn := range treeNodes {
+		r, err := c.GetYAMLContents(repoUUID, branchName, tn.Path, tn.Type == "tree", split)
+		if err != nil {
+			return nil, err
+		}
+
+		res = append(res, r...)
+	}
+
+	return res, nil
 }

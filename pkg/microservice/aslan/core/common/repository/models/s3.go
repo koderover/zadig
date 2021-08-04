@@ -32,7 +32,7 @@ type S3Storage struct {
 	EncryptedSk string             `bson:"encryptedSk"    json:"-"`
 	UpdatedBy   string             `bson:"updated_by"     json:"updated_by"`
 	UpdateTime  int64              `bson:"update_time"    json:"update_time"`
-	Provider    int32              `bson:"provider"       json:"provider"`
+	Provider    int8               `bson:"provider"       json:"provider"`
 }
 
 func (s S3Storage) TableName() string {

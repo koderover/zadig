@@ -17,8 +17,11 @@ limitations under the License.
 package fs
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"os"
+	"path/filepath"
 )
 
 func FileExists(filePath string) (bool, error) {
@@ -35,4 +38,39 @@ func FileExists(filePath string) (bool, error) {
 	}
 
 	return true, nil
+}
+
+func SaveFile(src io.ReadCloser, dst string) error {
+	// Verify if destination already exists.
+	st, err := os.Stat(dst)
+
+	// If the destination exists and is a directory.
+	if err == nil && st.IsDir() {
+		return errors.New("fileName is a directory")
+	}
+
+	// Extract top level directory.
+	objectDir, _ := filepath.Split(dst)
+	if objectDir != "" {
+		// Create any missing top level directories.
+		if err := os.MkdirAll(objectDir, 0700); err != nil {
+			return err
+		}
+	}
+
+	// remove the file in case truncate fails
+	err = os.Remove(dst)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	// Create a new file.
+	file, err := os.OpenFile(dst, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	_, err = io.Copy(file, src)
+	return err
 }

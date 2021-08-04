@@ -31,6 +31,7 @@ type PrivateKey struct {
 	CreateTime int64              `bson:"create_time"            json:"create_time"`
 	UpdateTime int64              `bson:"update_time"            json:"update_time"`
 	UpdateBy   string             `bson:"update_by"              json:"update_by"`
+	Provider   int8               `bson:"provider"               json:"provider"`
 }
 
 func (PrivateKey) TableName() string {

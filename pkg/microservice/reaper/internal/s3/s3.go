@@ -17,18 +17,15 @@ limitations under the License.
 package s3
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/url"
 	"path/filepath"
 	"strings"
 
-	"github.com/hashicorp/go-multierror"
-	"github.com/minio/minio-go"
-
+	config2 "github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/crypto"
-	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type S3 struct {
@@ -39,6 +36,7 @@ type S3 struct {
 	Subfolder string `json:"subfolder"`
 	Insecure  bool   `json:"insecure"`
 	IsDefault bool   `json:"is_default"`
+	Provider  int8   `json:"provider"`
 }
 
 func (s *S3) GetSchema() string {
@@ -63,14 +61,19 @@ func NewS3StorageFromURL(uri string) (*S3, error) {
 		subfolder = strings.Join(paths[1:], "/")
 	}
 
-	return &S3{
+	ret := &S3{
 		Ak:        store.User.Username(),
 		Sk:        sk,
 		Endpoint:  store.Host,
 		Bucket:    bucket,
 		Subfolder: subfolder,
 		Insecure:  store.Scheme == "http",
-	}, nil
+	}
+	if strings.Contains(store.Host, config2.MinioServiceName()) {
+		ret.Provider = setting.ProviderSourceSystemDefault
+	}
+
+	return ret, nil
 }
 
 func NewS3StorageFromEncryptedURI(encryptedURI string) (*S3, error) {
@@ -112,116 +115,4 @@ func (s *S3) Validate() error {
 	}
 
 	return nil
-}
-
-// Validate the existence of bucket
-
-func ReaperDownload(ctx context.Context, storage *S3, src string, dest string) (err error) {
-	var minioClient *minio.Client
-	if minioClient, err = getMinioClient(storage); err != nil {
-		return
-	}
-
-	retry := 0
-
-	for retry < 3 {
-		err = minioClient.FGetObjectWithContext(
-			ctx, storage.Bucket, storage.GetObjectPath(src), dest, minio.GetObjectOptions{},
-		)
-		if err == nil {
-			return
-		}
-
-		if strings.Contains(err.Error(), "stream error") {
-			retry++
-			continue
-		}
-		// 自定义返回的错误信息
-		err = fmt.Errorf("未找到 package %s/%s，请确认打包脚本是否正确。", storage.GetURI(), src)
-		return
-	}
-
-	return
-}
-
-// Download the file to object storage
-func Download(ctx context.Context, storage *S3, src string, dest string) (err error) {
-	log := log.SugaredLogger()
-	var minioClient *minio.Client
-	if minioClient, err = getMinioClient(storage); err != nil {
-		return
-	}
-
-	retry := 0
-
-	for retry < 3 {
-		err = minioClient.FGetObjectWithContext(
-			ctx, storage.Bucket, storage.GetObjectPath(src), dest, minio.GetObjectOptions{},
-		)
-
-		if err == nil {
-			return
-		}
-		log.Warnf("failed to download file %s %s=>%s: %v", storage.GetURI(), src, dest, err)
-
-		if strings.Contains(err.Error(), "stream error") {
-			retry++
-			continue
-		}
-		// 自定义返回的错误信息
-		err = fmt.Errorf("未找到 package %s/%s，请确认打包脚本是否正确。", storage.GetURI(), src)
-		return
-	}
-
-	return
-}
-
-// Upload the file to object storage
-func Upload(ctx context.Context, storage *S3, src string, dest string) (err error) {
-	var minioClient *minio.Client
-	if minioClient, err = getMinioClient(storage); err != nil {
-		return
-	}
-
-	_, err = minioClient.FPutObjectWithContext(
-		ctx, storage.Bucket, storage.GetObjectPath(dest), src, minio.PutObjectOptions{},
-	)
-
-	return
-}
-
-// ListFiles with specific prefix
-func ListFiles(storage *S3, prefix string, recursive bool) (files []string, err error) {
-	log := log.SugaredLogger()
-	var minioClient *minio.Client
-	if minioClient, err = getMinioClient(storage); err != nil {
-		return
-	}
-
-	done := make(chan struct{})
-	defer close(done)
-
-	for item := range minioClient.ListObjects(storage.Bucket, storage.GetObjectPath(prefix), recursive, done) {
-		if item.Err != nil {
-			err = multierror.Append(err, item.Err)
-			continue
-		}
-		key := item.Key
-		if strings.Index(key, storage.GetObjectPath("")) == 0 {
-			files = append(files, item.Key[len(storage.GetObjectPath("")):len(item.Key)])
-		}
-	}
-	if err != nil {
-		log.Errorf("S3 [%v-%v] prefix [%v] listing objects failed: %v", storage.Endpoint, storage.Bucket, prefix, err)
-	}
-
-	return
-}
-
-func getMinioClient(s *S3) (minioClient *minio.Client, err error) {
-	if minioClient, err = minio.New(s.Endpoint, s.Ak, s.Sk, !s.Insecure); err != nil {
-		return
-	}
-
-	return
 }
