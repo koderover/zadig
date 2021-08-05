@@ -609,7 +609,7 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 	}
 	// Iterate test jobctx builds, and replace it if params specified from task.
 	// 外部触发的pipeline
-	_ = setManunalBuilds(testTask.JobCtx.Builds, testArg.Builds)
+	_ = setManunalBuilds(testTask.JobCtx.Builds, testArg.Builds, log)
 	return testTask, nil
 }
 

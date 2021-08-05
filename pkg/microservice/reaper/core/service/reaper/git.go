@@ -170,7 +170,7 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo) []*c.Command {
 		cmds = append(cmds, &c.Command{Cmd: c.RemoteRemove(repo.RemoteName), DisableTrace: true, IgnoreError: true})
 	}
 
-	if repo.Source == meta.ProviderGitlab {
+	if repo.Source == meta.ProviderGitlab || repo.Source == meta.ProviderIlyshin {
 		u, _ := url.Parse(repo.Address)
 		cmds = append(cmds, &c.Command{
 			Cmd:          c.RemoteAdd(repo.RemoteName, r.Ctx.Git.OAuthCloneURL(repo.Source, repo.OauthToken, u.Host, repo.Owner, repo.Name, u.Scheme)),

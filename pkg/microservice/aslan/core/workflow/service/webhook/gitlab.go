@@ -255,7 +255,7 @@ func updateServiceTemplateByPushEvent(event *EventPush, log *zap.SugaredLogger) 
 		return err
 	}
 
-	address, err := GetGitlabAddress(gitlabEvent.Project.WebURL)
+	address, err := GetAddress(gitlabEvent.Project.WebURL)
 	if err != nil {
 		log.Errorf("GetGitlabAddress failed, error: %v", err)
 		return err

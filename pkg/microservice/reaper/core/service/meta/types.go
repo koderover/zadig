@@ -379,7 +379,7 @@ func (g *Git) HTTPSCloneURL(source, token, owner, name string) string {
 // e.g.
 //https://oauth2:ACCESS_TOKEN@somegitlab.com/owner/name.git
 func (g *Git) OAuthCloneURL(source, token, address, owner, name, scheme string) string {
-	if strings.ToLower(source) == ProviderGitlab {
+	if strings.ToLower(source) == ProviderGitlab || strings.ToLower(source) == ProviderIlyshin {
 		// address 需要传过来
 		return fmt.Sprintf("%s://%s:%s@%s/%s/%s.git", scheme, OauthTokenPrefix, token, address, owner, name)
 	}

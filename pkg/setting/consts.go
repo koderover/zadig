@@ -211,6 +211,8 @@ const (
 	SourceFromGerrit = "gerrit"
 	// SourceFromCodeHub 配置来源为codehub
 	SourceFromCodeHub = "codehub"
+	// SourceFromIlyshin 配置来源为ilyshin
+	SourceFromIlyshin = "ilyshin"
 	// SourceFromGUI 配置来源为gui
 	SourceFromGUI = "gui"
 	//SourceFromHelm

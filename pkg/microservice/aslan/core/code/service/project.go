@@ -28,6 +28,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
 	"github.com/koderover/zadig/pkg/tool/git/gitlab"
+	"github.com/koderover/zadig/pkg/tool/ilyshin"
 )
 
 func CodeHostListProjects(codeHostID int, namespace, namespaceType, keyword string, log *zap.SugaredLogger) ([]*Project, error) {
@@ -55,7 +56,7 @@ func CodeHostListProjects(codeHostID int, namespace, namespaceType, keyword stri
 			return ToProjects(projects), nil
 		}
 
-		//	user
+		// user
 		projects, err := client.ListUserProjects(namespace, keyword, nil)
 		if err != nil {
 			log.Error(err)
@@ -63,6 +64,14 @@ func CodeHostListProjects(codeHostID int, namespace, namespaceType, keyword stri
 		}
 		return ToProjects(projects), nil
 
+	} else if ch.Type == CodeHostIlyshin {
+		cli := ilyshin.NewClient(ch.Address, ch.AccessToken)
+		projects, err := cli.ListGroupProjects(namespace, keyword, log)
+		if err != nil {
+			log.Error(err)
+			return nil, e.ErrCodehostListProjects.AddDesc(err.Error())
+		}
+		return ToProjects(projects), nil
 	} else if ch.Type == gerrit.CodehostTypeGerrit {
 		cli := gerrit.NewClient(ch.Address, ch.AccessToken)
 		projects, err := cli.ListProjectsByKey(keyword)
