@@ -100,6 +100,8 @@ func (r *Reaper) runGitCmds() error {
 			}
 		} else if repo.Source == meta.ProviderCodehub {
 			tokens = append(tokens, repo.Password)
+		} else if repo.Source == meta.ProviderIlyshin {
+			cmds = append(cmds, &c.Command{Cmd: c.SetConfig("http.sslVerify", "false"), DisableTrace: true})
 		}
 		tokens = append(tokens, repo.OauthToken)
 		cmds = append(cmds, r.buildGitCommands(repo)...)
