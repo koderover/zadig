@@ -17,6 +17,7 @@ limitations under the License.
 package httpclient
 
 import (
+	"crypto/tls"
 	"time"
 )
 
@@ -80,5 +81,11 @@ func SetRetryCount(count int) ClientFunc {
 func SetRetryWaitTime(waitTime time.Duration) ClientFunc {
 	return func(c *Client) {
 		c.Client.SetRetryWaitTime(waitTime)
+	}
+}
+
+func SetTLSClientConfig(config *tls.Config) ClientFunc {
+	return func(c *Client) {
+		c.Client.SetTLSClientConfig(config)
 	}
 }

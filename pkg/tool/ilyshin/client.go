@@ -1,6 +1,8 @@
 package ilyshin
 
 import (
+	"crypto/tls"
+
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
@@ -15,8 +17,8 @@ func NewClient(address, accessToken string) *Client {
 		httpclient.SetAuthScheme("Bearer"),
 		httpclient.SetAuthToken(accessToken),
 		httpclient.SetHostURL(address),
+		httpclient.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true}),
 	)
-
 	return &Client{
 		Client:      c,
 		Address:     address,
