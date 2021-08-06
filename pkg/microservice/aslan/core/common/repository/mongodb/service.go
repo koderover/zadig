@@ -134,11 +134,12 @@ type serviceID struct {
 }
 
 func (c *ServiceColl) ListMaxRevisionsForServices(services []*templatemodels.ServiceInfo, serviceType string) ([]*models.Service, error) {
-	var srs []serviceID
+	var srs []bson.D
 	for _, s := range services {
-		srs = append(srs, serviceID{
-			ServiceName: s.Name,
-			ProductName: s.Owner,
+		// be care for the order
+		srs = append(srs, bson.D{
+			{"product_name", s.Owner},
+			{"service_name", s.Name},
 		})
 	}
 
@@ -314,6 +315,7 @@ func (c *ServiceColl) ListAllRevisions() ([]*models.Service, error) {
 func (c *ServiceColl) ListMaxRevisions(opt *ServiceListOption) ([]*models.Service, error) {
 	preMatch := bson.M{"status": bson.M{"$ne": setting.ProductStatusDeleting}}
 	postMatch := bson.M{}
+
 	if opt != nil {
 		if opt.ProductName != "" {
 			preMatch["product_name"] = opt.ProductName
@@ -339,21 +341,23 @@ func (c *ServiceColl) ListMaxRevisions(opt *ServiceListOption) ([]*models.Servic
 			postMatch["visibility"] = opt.Visibility
 		}
 		if len(opt.NotInServices) > 0 {
-			var srs []serviceID
+			var srs []bson.D
 			for _, s := range opt.NotInServices {
-				srs = append(srs, serviceID{
-					ServiceName: s.Name,
-					ProductName: s.Owner,
+				// be care for the order
+				srs = append(srs, bson.D{
+					{"product_name", s.Owner},
+					{"service_name", s.Name},
 				})
 			}
 			postMatch["_id"] = bson.M{"$nin": srs}
 		}
 		if len(opt.InServices) > 0 {
-			var srs []serviceID
+			var srs []bson.D
 			for _, s := range opt.InServices {
-				srs = append(srs, serviceID{
-					ServiceName: s.Name,
-					ProductName: s.Owner,
+				// be care for the order
+				srs = append(srs, bson.D{
+					{"product_name", s.Owner},
+					{"service_name", s.Name},
 				})
 			}
 			postMatch["_id"] = bson.M{"$in": srs}
@@ -374,8 +378,8 @@ func (c *ServiceColl) Count(productName string) (int, error) {
 		{
 			"$group": bson.M{
 				"_id": bson.M{
-					"service_name": "$service_name",
 					"product_name": "$product_name",
+					"service_name": "$service_name",
 				},
 			},
 		},
@@ -410,9 +414,9 @@ func (c *ServiceColl) listMaxRevisions(preMatch, postMatch bson.M) ([]*models.Se
 		},
 		{
 			"$group": bson.M{
-				"_id": bson.M{
-					"service_name": "$service_name",
-					"product_name": "$product_name",
+				"_id": bson.D{
+					{"product_name", "$product_name"},
+					{"service_name", "$service_name"},
 				},
 				"service_id": bson.M{"$last": "$_id"},
 				"visibility": bson.M{"$last": "$visibility"},
