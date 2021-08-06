@@ -20,7 +20,7 @@ type Branch struct {
 }
 
 func (c *Client) ListBranches(owner, repo string, log *zap.SugaredLogger) ([]*Branch, error) {
-	url := fmt.Sprintf("/projects/%s/repository/branches", generateProjectName(owner, repo))
+	url := fmt.Sprintf("/api/v4/projects/%s/repository/branches", generateProjectName(owner, repo))
 	qs := map[string]string{
 		"per_page": "100",
 	}

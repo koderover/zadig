@@ -9,7 +9,7 @@ import (
 )
 
 func (c *Client) ListGroupProjects(namespace, keyword string, log *zap.SugaredLogger) ([]*Project, error) {
-	url := fmt.Sprintf("/groups/%s/projects", namespace)
+	url := fmt.Sprintf("/api/v4/groups/%s/projects", namespace)
 	qs := map[string]string{
 		"order_by": "name",
 		"sort":     "asc",

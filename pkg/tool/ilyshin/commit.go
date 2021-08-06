@@ -24,7 +24,7 @@ type Commit struct {
 }
 
 func (c *Client) GetLatestCommit(owner, repo, branch, path string, log *zap.SugaredLogger) (*Commit, error) {
-	url := fmt.Sprintf("/projects/%s/repository/commits", generateProjectName(owner, repo))
+	url := fmt.Sprintf("/api/v4/projects/%s/repository/commits", generateProjectName(owner, repo))
 	qs := map[string]string{
 		"per_page": "1",
 		"ref_name": branch,

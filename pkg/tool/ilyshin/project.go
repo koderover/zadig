@@ -31,7 +31,7 @@ type ProjectNamespace struct {
 }
 
 func (c *Client) ListNamespaces(keyword string, log *zap.SugaredLogger) ([]*Project, error) {
-	url := fmt.Sprintf("/projects")
+	url := fmt.Sprintf("/api/v4/projects")
 	qs := map[string]string{
 		"order_by":     "name",
 		"sort":         "asc",

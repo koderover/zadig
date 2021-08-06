@@ -49,7 +49,7 @@ type BasicUser struct {
 }
 
 func (c *Client) ListOpenedProjectMergeRequests(owner, repo, targetBranch string, log *zap.SugaredLogger) ([]*MergeRequest, error) {
-	url := fmt.Sprintf("/projects/%s/isource/merge_requests", generateProjectName(owner, repo))
+	url := fmt.Sprintf("/api/v4/projects/%s/isource/merge_requests", generateProjectName(owner, repo))
 	qs := map[string]string{
 		"state":    "opened",
 		"per_page": "100",
@@ -71,7 +71,7 @@ func (c *Client) ListOpenedProjectMergeRequests(owner, repo, targetBranch string
 func (c *Client) ListChangedFiles(event *MergeEvent) ([]string, error) {
 	files := make([]string, 0)
 
-	url := fmt.Sprintf("/projects/%d/merge_requests/%d/changes", event.ObjectAttributes.TargetProjectID, event.ObjectAttributes.IID)
+	url := fmt.Sprintf("/api/v4/projects/%d/merge_requests/%d/changes", event.ObjectAttributes.TargetProjectID, event.ObjectAttributes.IID)
 	var err error
 	var mergeRequest *MergeRequest
 	if _, err = c.Get(url, httpclient.SetResult(&mergeRequest)); err != nil {
@@ -88,7 +88,7 @@ func (c *Client) ListChangedFiles(event *MergeEvent) ([]string, error) {
 }
 
 func (c *Client) GetLatestPRCommitList(projectID string, pr int, log *zap.SugaredLogger) (*Commit, error) {
-	url := fmt.Sprintf("/projects/%s/merge_requests/%d/commits", projectID, pr)
+	url := fmt.Sprintf("/api/v4/projects/%s/merge_requests/%d/commits", projectID, pr)
 
 	var commit *Commit
 	if _, err := c.Get(url, httpclient.SetResult(&commit)); err != nil {

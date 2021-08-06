@@ -42,7 +42,7 @@ type Hook struct {
 }
 
 func (c *Client) ListProjectHooks(owner, repo string, log *zap.SugaredLogger) ([]*ProjectHook, error) {
-	url := fmt.Sprintf("/projects/%s/hooks", generateProjectName(owner, repo))
+	url := fmt.Sprintf("/api/v4/projects/%s/hooks", generateProjectName(owner, repo))
 	qs := map[string]string{
 		"per_page": "100",
 	}
@@ -58,7 +58,7 @@ func (c *Client) ListProjectHooks(owner, repo string, log *zap.SugaredLogger) ([
 }
 
 func (c *Client) AddProjectHook(owner, repo, hookURL, token string) (*ProjectHook, error) {
-	url := fmt.Sprintf("/projects/%s/hooks", generateProjectName(owner, repo))
+	url := fmt.Sprintf("/api/v4/projects/%s/hooks", generateProjectName(owner, repo))
 	hook := &Hook{
 		URL:                 hookURL,
 		Token:               token,
@@ -75,7 +75,7 @@ func (c *Client) AddProjectHook(owner, repo, hookURL, token string) (*ProjectHoo
 }
 
 func (c *Client) DeleteProjectHook(owner, repo string, id int) error {
-	url := fmt.Sprintf("/projects/%s/hooks/%d", generateProjectName(owner, repo), id)
+	url := fmt.Sprintf("/api/v4/projects/%s/hooks/%d", generateProjectName(owner, repo), id)
 	if _, err := c.Delete(url); err != nil {
 		log.Errorf("Failed to delete project webhook, error: %s", err)
 		return err

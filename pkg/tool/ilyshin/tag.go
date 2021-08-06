@@ -21,7 +21,7 @@ type ReleaseNote struct {
 }
 
 func (c *Client) ListTags(owner, repo string, log *zap.SugaredLogger) ([]*Tag, error) {
-	url := fmt.Sprintf("/projects/%s/repository/tags", generateProjectName(owner, repo))
+	url := fmt.Sprintf("/api/v4/projects/%s/repository/tags", generateProjectName(owner, repo))
 	qs := map[string]string{
 		"per_page": "100",
 	}

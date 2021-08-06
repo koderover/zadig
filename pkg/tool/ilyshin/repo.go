@@ -40,7 +40,7 @@ type Diff struct {
 }
 
 func (c *Client) ListTree(owner, repo string, ref string, path string) ([]*TreeNode, error) {
-	url := fmt.Sprintf("/projects/%s/repository/tree", generateProjectName(owner, repo))
+	url := fmt.Sprintf("/api/v4/projects/%s/repository/tree", generateProjectName(owner, repo))
 	qs := map[string]string{
 		"ref":      ref,
 		"path":     path,
@@ -63,7 +63,7 @@ func (c *Client) GetRawFile(owner, repo string, sha string, fileName string) ([]
 		return nil, err
 	}
 	var resp []byte
-	url := fmt.Sprintf("/projects/%s/repository/blobs/%s/raw", generateProjectName(owner, repo), File.BlobID)
+	url := fmt.Sprintf("/api/v4/projects/%s/repository/blobs/%s/raw", generateProjectName(owner, repo), File.BlobID)
 	if _, err = c.Get(url, httpclient.SetResult(&resp)); err != nil {
 		log.Errorf("Failed to get project blob raw, error: %s", err)
 		return resp, err
@@ -73,7 +73,7 @@ func (c *Client) GetRawFile(owner, repo string, sha string, fileName string) ([]
 }
 
 func (c *Client) GetFile(owner, repo string, ref, path string) (*File, error) {
-	url := fmt.Sprintf("/projects/%s/repository/files/%s", generateProjectName(owner, repo), path)
+	url := fmt.Sprintf("/api/v4/projects/%s/repository/files/%s", generateProjectName(owner, repo), path)
 	qs := map[string]string{
 		"ref": ref,
 	}
@@ -89,7 +89,7 @@ func (c *Client) GetFile(owner, repo string, ref, path string) (*File, error) {
 }
 
 func (c *Client) Compare(projectID int, from, to string) ([]*Diff, error) {
-	url := fmt.Sprintf("/projects/%d/repository/compare", projectID)
+	url := fmt.Sprintf("/api/v4/projects/%d/repository/compare", projectID)
 	qs := map[string]string{
 		"from": from,
 		"to":   to,
