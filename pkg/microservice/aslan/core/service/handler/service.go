@@ -130,8 +130,13 @@ func YamlValidator(c *gin.Context) {
 	}
 	resp := make([]*ValidatorResp, 0)
 	errMsgList := svcservice.YamlValidator(args)
-	for _, errMsg := range errMsgList {
+	/*for _, errMsg := range errMsgList {
 		resp = append(resp, &ValidatorResp{Message: errMsg})
+	}*/
+	if len(errMsgList) > 0 {
+		resp = append(resp, &ValidatorResp{
+			Message: "Invalid yaml format. The content must be a series of valid Kubernetes resources",
+		})
 	}
 	ctx.Resp = resp
 }
