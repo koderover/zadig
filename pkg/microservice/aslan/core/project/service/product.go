@@ -833,19 +833,12 @@ func ListTemplatesHierachy(userName string, userID int, superUser bool, log *zap
 
 	for _, productTmpl := range productTmpls {
 		pInfo := &ProductInfo{Value: productTmpl.ProductName, Label: productTmpl.ProductName, ServiceInfo: []*ServiceInfo{}}
-		for _, serviceInfo := range productTmpl.AllServiceInfos() {
-			opt := &commonrepo.ServiceFindOption{
-				ServiceName:   serviceInfo.Name,
-				ProductName:   serviceInfo.Owner,
-				ExcludeStatus: setting.ProductStatusDeleting,
-			}
-
-			svcTmpl, err := commonrepo.NewServiceColl().Find(opt)
-			if err != nil {
-				log.Errorf("[%s] ServiceTmpl.Find %s/%s error: %v", userName, productTmpl.ProductName, serviceInfo.Name, err)
-				return nil, e.ErrGetProduct.AddDesc(err.Error())
-			}
-
+		services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), "")
+		if err != nil {
+			log.Errorf("Failed to list service for project %s, error: %s", productTmpl.ProductName, err)
+			return nil, e.ErrGetProduct.AddDesc(err.Error())
+		}
+		for _, svcTmpl := range services {
 			sInfo := &ServiceInfo{Value: svcTmpl.ServiceName, Label: svcTmpl.ServiceName, ContainerInfo: make([]*ContainerInfo, 0)}
 
 			for _, c := range svcTmpl.Containers {
