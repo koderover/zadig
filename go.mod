@@ -28,7 +28,7 @@ require (
 	github.com/google/go-github/v35 v35.3.0
 	github.com/google/uuid v1.2.0
 	github.com/gorilla/handlers v1.5.1 // indirect
-	github.com/gorilla/mux v1.7.3
+	github.com/gorilla/mux v1.7.4
 	github.com/gorilla/websocket v1.4.2
 	github.com/gotestyourself/gotestyourself v2.2.0+incompatible // indirect
 	github.com/gregjones/httpcache v0.0.0-20181110185634-c63ab54fda8f
@@ -39,7 +39,7 @@ require (
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
 	github.com/nsqio/go-nsq v1.0.7
 	github.com/nwaples/rardecode v1.0.0 // indirect
-	github.com/onsi/ginkgo v1.14.1
+	github.com/onsi/ginkgo v1.15.0
 	github.com/onsi/gomega v1.10.2
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/selinux v1.6.0 // indirect
@@ -50,7 +50,9 @@ require (
 	github.com/spf13/cobra v1.1.3 // indirect
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.0
-	github.com/steinfletcher/apitest v1.5.11 // indirect
+	github.com/steinfletcher/apitest v1.5.11
+	github.com/steinfletcher/apitest-jsonpath v1.7.1
+	github.com/steinfletcher/apitest/examples v0.0.0-20210719101149-d8656ec30ede
 	github.com/stevvooe/resumable v0.0.0-20180830230917-22b14a53ba50 // indirect
 	github.com/stretchr/testify v1.7.0
 	github.com/swaggo/files v0.0.0-20190704085106-630677cd5c14
