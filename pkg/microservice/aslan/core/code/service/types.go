@@ -215,8 +215,8 @@ func ToNamespaces(obj interface{}) []*Namespace {
 	case []*ilyshin.Project:
 		for _, o := range os {
 			res = append(res, &Namespace{
-				Name: o.Name,
-				Path: o.Path,
+				Name: o.Namespace.Name,
+				Path: o.Namespace.Path,
 				Kind: GroupKind,
 			})
 		}
