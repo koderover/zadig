@@ -17,6 +17,8 @@ limitations under the License.
 package service
 
 import (
+	"strings"
+
 	"github.com/andygrunwald/go-gerrit"
 	"github.com/google/go-github/v35/github"
 	"github.com/koderover/zadig/pkg/tool/ilyshin"
@@ -271,10 +273,11 @@ func ToProjects(obj interface{}) []*Project {
 		}
 	case []*ilyshin.Project:
 		for _, o := range os {
+			namespaces := strings.Split(o.PathWithNamespace, "/")
 			res = append(res, &Project{
 				ID:            o.ID,
 				Name:          o.Path,
-				Namespace:     o.Namespace.FullPath,
+				Namespace:     namespaces[0],
 				Description:   o.Description,
 				DefaultBranch: o.DefaultBranch,
 			})
