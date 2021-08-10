@@ -2,6 +2,7 @@ package ilyshin
 
 import (
 	"fmt"
+	"net/url"
 
 	"go.uber.org/zap"
 
@@ -36,5 +37,5 @@ func (c *Client) ListBranches(owner, repo string, log *zap.SugaredLogger) ([]*Br
 }
 
 func generateProjectName(owner, repo string) string {
-	return fmt.Sprintf("%s/%s", owner, repo)
+	return url.PathEscape(fmt.Sprintf("%s/%s", owner, repo))
 }
