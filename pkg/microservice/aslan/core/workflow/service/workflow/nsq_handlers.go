@@ -654,8 +654,9 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 							testTaskStat.UpdateTime = time.Now().Unix()
 							err = h.TestTaskStatColl.Update(testTaskStat)
 						}
+						h.log.Infof("testTaskStat:%+v", testTaskStat)
 						if err != nil {
-							msg := fmt.Sprintf("uploadTaskData insert/update testTaskStat error: %s", err)
+							msg := fmt.Sprintf("uploadTaskData create/update testTaskStat error: %s", err)
 							h.log.Error(msg)
 						}
 					}
