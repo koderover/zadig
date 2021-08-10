@@ -37,6 +37,10 @@ require (
 	github.com/jasonlvhit/gocron v0.0.0-20171226191223-3c914c8681c3
 	github.com/jinzhu/now v1.1.2
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
+	github.com/klauspost/compress v1.10.5 // indirect
+	github.com/mattn/go-colorable v0.1.7 // indirect
+	github.com/mattn/go-sqlite3 v2.0.3+incompatible // indirect
+	github.com/mitchellh/mapstructure v1.3.3 // indirect
 	github.com/nsqio/go-nsq v1.0.7
 	github.com/nwaples/rardecode v1.0.0 // indirect
 	github.com/onsi/ginkgo v1.15.0
@@ -51,8 +55,6 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.0
 	github.com/steinfletcher/apitest v1.5.11
-	github.com/steinfletcher/apitest-jsonpath v1.7.1
-	github.com/steinfletcher/apitest/examples v0.0.0-20210719101149-d8656ec30ede
 	github.com/stevvooe/resumable v0.0.0-20180830230917-22b14a53ba50 // indirect
 	github.com/stretchr/testify v1.7.0
 	github.com/swaggo/files v0.0.0-20190704085106-630677cd5c14
@@ -68,6 +70,7 @@ require (
 	go.uber.org/zap v1.17.0
 	golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
+	golang.org/x/time v0.0.0-20201208040808-7e3f01d25324 // indirect
 	gopkg.in/mholt/archiver.v3 v3.1.1
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
