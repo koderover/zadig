@@ -17,7 +17,6 @@ limitations under the License.
 package service
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -38,11 +37,9 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gerrit"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	s3service "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/types"
@@ -331,11 +328,6 @@ func CreateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) error {
 			},
 		}
 
-		// exec lint and dry run
-		if err = helmChartDryRun(chartVersion, valuesYaml, serviceName, path.Join(base, filePath), log); err != nil {
-			return e.ErrHelmDryRunFailed.AddDesc(fmt.Sprintf("具体错误信息: %s", err.Error()))
-		}
-
 		if err := commonrepo.NewServiceColl().Create(serviceObj); err != nil {
 			log.Errorf("helmService.Create serviceName:%s error:%v", serviceName, err)
 			return e.ErrCreateTemplate.AddDesc(err.Error())
@@ -366,34 +358,6 @@ func CreateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) error {
 	}()
 
 	return nil
-}
-
-func helmChartDryRun(chartVersion, valuesYaml, serviceName, chartPath string, log *zap.SugaredLogger) error {
-	restConfig, err := kube.GetRESTConfig("")
-	if err != nil {
-		log.Errorf("GetRESTConfig err: %s", err)
-		return err
-	}
-	helmClient, err := helmclient.NewClientFromRestConf(restConfig, config.Namespace())
-	if err != nil {
-		log.Errorf("NewClientFromRestConf err: %s", err)
-		return err
-	}
-	// Add a random to exclude resource conflicts caused by the same name
-	name := fmt.Sprintf("%s-%s-%s", config.Namespace(), serviceName, util.GetRandomString(6))
-	chartSpec := &helmclient.ChartSpec{
-		ReleaseName: name,
-		ChartName:   name,
-		Namespace:   config.Namespace(),
-		Version:     chartVersion,
-		ValuesYaml:  valuesYaml,
-		DryRun:      true,
-	}
-
-	err = helmClient.InstallOrUpgradeChart(context.Background(), chartSpec,
-		&helmclient.ChartOption{ChartPath: chartPath}, log)
-
-	return err
 }
 
 func UpdateHelmService(args *HelmServiceArgs, log *zap.SugaredLogger) error {
