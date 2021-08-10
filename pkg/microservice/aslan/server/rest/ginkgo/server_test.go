@@ -1,9 +1,13 @@
 package server_test
 
 import (
+	"encoding/json"
+	"fmt"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/server/rest"
 	"github.com/koderover/zadig/pkg/tool/kube/client"
+	"io/ioutil"
 	"net/http"
 
 	"context"
@@ -53,13 +57,14 @@ var _ = Describe("Ginkgo/Server", func() {
 			apitest.New().
 				Handler(rest.NewEngine()).
 				Post("/api/project/products").Header("authorization", "X-ROOT-API-KEY 9F11B4E503C7F2B5").
-				Bodyf(`{"project_name":"api-test-product","product_name":"api-test-product","user_ids":[1],"team_id":null,"timeout":10,"desc":"xxxxxxx","visibility":"public","enabled":true,"product_feature":{"basic_facility":"kubernetes","deploy_type":"k8s"}}`).
+				Bodyf(`{"project_name":"api-test-product","product_name":"api-test-product","user_ids":[1],"team_id":null,"timeout":10,"desc":"","visibility":"public","enabled":true,"product_feature":{"basic_facility":"kubernetes","deploy_type":"k8s"}}`).
 				Expect(t).
 				Status(http.StatusOK).
 				Body(`{"message":"success"}`).
 				End()
 
 			// 创建服务
+			By("create service")
 			apitest.New().
 				Handler(rest.NewEngine()).
 				Post("/api/service/services").Header("authorization", "X-ROOT-API-KEY 9F11B4E503C7F2B5").
@@ -69,6 +74,7 @@ var _ = Describe("Ginkgo/Server", func() {
 				End()
 
 			// build
+			By("create service build")
 			apitest.New().
 				Handler(rest.NewEngine()).
 				Post("/api/build/build").Header("authorization", "X-ROOT-API-KEY 9F11B4E503C7F2B5").
@@ -77,11 +83,24 @@ var _ = Describe("Ginkgo/Server", func() {
 				Status(http.StatusOK).
 				End()
 
+			ret := &commonmodels.Product{}
+			apitest.New().
+				Handler(rest.NewEngine()).
+				Observe(func(res *http.Response, req *http.Request, apiTest *apitest.APITest) {
+					bs, _ := ioutil.ReadAll(res.Body)
+					json.Unmarshal(bs, ret)
+					fmt.Println(ret)
+				}).
+				Get("/api/environment/init_info/api-test-product").Header("authorization", "X-ROOT-API-KEY 9F11B4E503C7F2B5").
+				Expect(t).
+				End()
+
 			// env
+			By("create service env")
 			apitest.New().
 				Handler(rest.NewEngine()).
 				Post("/api/environment/environments").Header("authorization", "X-ROOT-API-KEY 9F11B4E503C7F2B5").
-				Body(`{"product_name":"api-test-product","cluster_id":"","env_name":"test","source":"spock","vars":[{"key":"customer","value":"","alias":"{{.customer}}","state":"new","services":["nginx"]},{"key":"nginxVersion","value":"","alias":"{{.nginxVersion}}","state":"new","services":["nginx"]}],"revision":1,"isPublic":true,"roleIds":[],"services":[[{"service_name":"nginx","type":"k8s","revision":7,"containers":[{"name":"nginx-test","image":"ccr.ccs.tencentyun.com/trial/nginx-test:20210803104451-1-release-1.3.0"}],"picked":true}]]}`).
+				Bodyf(`{"product_name":"api-test-product","cluster_id":"","env_name":"test","source":"spock","vars":[{"key":"customer","value":"","alias":"{{.customer}}","state":"new","services":["nginx"]},{"key":"nginxVersion","value":"","alias":"{{.nginxVersion}}","state":"new","services":["nginx"]}],"revision":1,"isPublic":true,"roleIds":[],"services":[[{"service_name":"nginx","type":"k8s","revision":%d,"containers":[{"name":"nginx-test","image":"ccr.ccs.tencentyun.com/trial/nginx-test:20210803104451-1-release-1.3.0"}],"picked":true}]]}`, ret.Services[0][0].Revision).
 				Expect(t).
 				Body(`{"message":"success"}`).
 				Status(http.StatusOK).
