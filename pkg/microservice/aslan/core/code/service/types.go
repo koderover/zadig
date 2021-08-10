@@ -279,7 +279,7 @@ func ToProjects(obj interface{}) []*Project {
 				Name:          o.Path,
 				Namespace:     namespaces[0],
 				Description:   o.Description,
-				DefaultBranch: o.DefaultBranch,
+				DefaultBranch: "master",
 			})
 		}
 	}
