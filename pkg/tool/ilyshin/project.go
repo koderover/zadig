@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
@@ -49,5 +50,14 @@ func (c *Client) ListNamespaces(keyword string, log *zap.SugaredLogger) ([]*Proj
 		return gps, err
 	}
 
+	var resp []*Project
+	projectNames := sets.NewString()
+	for _, gp := range gps {
+		if projectNames.Has(gp.Namespace.Name) {
+			continue
+		}
+		projectNames.Insert(gp.Namespace.Name)
+		resp = append(resp, gp)
+	}
 	return gps, nil
 }
