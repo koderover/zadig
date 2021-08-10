@@ -649,10 +649,14 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 							testTaskStat.TotalFailure++
 						}
 						if isNew { //新增
-							_ = h.TestTaskStatColl.Create(testTaskStat)
+							err = h.TestTaskStatColl.Create(testTaskStat)
 						} else { //更新
 							testTaskStat.UpdateTime = time.Now().Unix()
-							_ = h.TestTaskStatColl.Update(testTaskStat)
+							err = h.TestTaskStatColl.Update(testTaskStat)
+						}
+						if err != nil {
+							msg := fmt.Sprintf("uploadTaskData insert/update testTaskStat error: %s", err)
+							h.log.Error(msg)
 						}
 					}
 				}
