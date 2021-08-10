@@ -35,5 +35,5 @@ func GetInitProduct(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	productTemplateName := c.Param("name")
-	ctx.Resp, ctx.Err = service.GetInitProduct(productTemplateName, ctx.Logger)
+	ctx.Resp, ctx.Err = service.(productTemplateName, ctx.Logger)
 }
