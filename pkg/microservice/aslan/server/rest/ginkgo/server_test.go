@@ -21,12 +21,18 @@ var _ = Describe("Ginkgo/Server", func() {
 		t GinkgoTInterface
 	)
 
-	BeforeEach(func() {
+	//BeforeEach(func() {
+	//	t = GinkgoT()
+	//	ctx := context.Background()
+	//	core.Start(ctx)
+	//})
+
+	BeforeSuite(func() {
 		t = GinkgoT()
 		ctx := context.Background()
 		core.Start(ctx)
+		go client.Start(context.Background())
 	})
-
 	Context("Successful get all projects", func() {
 		It("cookies should be set correctly", func() {
 			apitest.New().
@@ -41,7 +47,6 @@ var _ = Describe("Ginkgo/Server", func() {
 	Context("Successful CreateProject", func() {
 		It("project should be create correctly if not have", func() {
 			// 如果已经创建过了，跳过
-			go client.Start(context.Background())
 			apitest.New().
 				Observe(func(res *http.Response, req *http.Request, apiTest *apitest.APITest) {
 					if res.StatusCode == 200 {
@@ -83,6 +88,7 @@ var _ = Describe("Ginkgo/Server", func() {
 				Status(http.StatusOK).
 				End()
 
+			// 获取环境对应的service版本信息
 			ret := &commonmodels.Product{}
 			apitest.New().
 				Handler(rest.NewEngine()).
