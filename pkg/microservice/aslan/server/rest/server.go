@@ -32,11 +32,14 @@ type engine struct {
 	mode string
 }
 
-func NewEngine() *engine {
+func NewEngine(mod ...string) *engine {
 	s := &engine{mode: config.Mode()}
 
-	gin.SetMode(s.mode)
-
+	if len(mod) > 0 {
+		gin.SetMode(mod[0])
+	} else {
+		gin.SetMode(s.mode)
+	}
 	s.injectMiddlewares()
 	s.injectRouters()
 
