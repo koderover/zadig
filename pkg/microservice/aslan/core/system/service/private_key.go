@@ -44,12 +44,12 @@ func GetPrivateKey(id string, log *zap.SugaredLogger) (*commonmodels.PrivateKey,
 }
 
 func CreatePrivateKey(args *commonmodels.PrivateKey, log *zap.SugaredLogger) error {
-	if privateKeys, _ := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{Name: args.Name}); len(privateKeys) > 0 {
-		return e.ErrCreatePrivateKey.AddDesc("Name already exists")
-	}
-
 	if !config.CVMNameRegex.MatchString(args.Name) {
 		return e.ErrCreatePrivateKey.AddDesc("主机名称仅支持字母，数字和下划线且首个字符不以数字开头")
+	}
+
+	if privateKeys, _ := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{Name: args.Name}); len(privateKeys) > 0 {
+		return e.ErrCreatePrivateKey.AddDesc("Name already exists")
 	}
 
 	err := commonrepo.NewPrivateKeyColl().Create(args)
