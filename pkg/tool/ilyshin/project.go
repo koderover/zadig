@@ -36,7 +36,7 @@ func (c *Client) ListNamespaces(keyword string, log *zap.SugaredLogger) ([]*Proj
 	qs := map[string]string{
 		"order_by":     "name",
 		"sort":         "asc",
-		"project_type": "project", // group or project
+		"project_type": "group", // group or project
 		"per_page":     "100",
 		"simple":       "true",
 	}
@@ -53,8 +53,6 @@ func (c *Client) ListNamespaces(keyword string, log *zap.SugaredLogger) ([]*Proj
 	var resp []*Project
 	projectNames := sets.NewString()
 	for _, gp := range gps {
-		log.Infof("gp:%+v", gp)
-		log.Infof("gp.Namespace:%+v", gp.Namespace)
 		if projectNames.Has(gp.Namespace.Name) {
 			continue
 		}
@@ -62,5 +60,5 @@ func (c *Client) ListNamespaces(keyword string, log *zap.SugaredLogger) ([]*Proj
 		projectNames.Insert(gp.Namespace.Name)
 		resp = append(resp, gp)
 	}
-	return gps, nil
+	return resp, nil
 }
