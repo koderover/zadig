@@ -92,7 +92,7 @@ func (c *TestTaskStatColl) FindTestTaskStat(option *TestTaskStatOption) (*models
 	query := bson.M{"name": option.Name}
 	var testTaskStat *models.TestTaskStat
 
-	err := c.FindOne(context.TODO(), query).Decode(testTaskStat)
+	err := c.FindOne(context.TODO(), query).Decode(&testTaskStat)
 	return testTaskStat, err
 }
 
