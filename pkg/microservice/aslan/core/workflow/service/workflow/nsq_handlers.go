@@ -599,6 +599,8 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 							testTaskStat.CreateTime = time.Now().Unix()
 							testTaskStat.UpdateTime = time.Now().Unix()
 						}
+						h.log.Infof("testTaskStat:%+v", testTaskStat)
+						h.log.Infof("testInfo:%+v", testInfo)
 
 						var filename string
 						if storage, err := s3.FindDefaultS3(); err == nil {
