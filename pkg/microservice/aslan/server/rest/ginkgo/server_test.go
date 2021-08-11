@@ -3,36 +3,17 @@ package server_test
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/server/rest"
-	"github.com/koderover/zadig/pkg/tool/kube/client"
 	"io/ioutil"
 	"net/http"
 
-	"context"
 	. "github.com/onsi/ginkgo"
 	"github.com/steinfletcher/apitest"
 )
 
 var _ = Describe("Ginkgo/Server", func() {
 
-	var (
-		t GinkgoTInterface
-	)
-
-	//BeforeEach(func() {
-	//	t = GinkgoT()
-	//	ctx := context.Background()
-	//	core.Start(ctx)
-	//})
-
-	BeforeSuite(func() {
-		t = GinkgoT()
-		ctx := context.Background()
-		core.Start(ctx)
-		go client.Start(context.Background())
-	})
 	Context("Successful get all projects", func() {
 		It("cookies should be set correctly", func() {
 			apitest.New().
