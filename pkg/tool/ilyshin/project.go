@@ -53,8 +53,7 @@ func (c *Client) ListNamespaces(keyword string, log *zap.SugaredLogger) ([]*Proj
 	var resp []*Project
 	projectNames := sets.NewString()
 	for _, gp := range gps {
-		log.Infof("gp.namespace:%+v \n", gp.Namespace)
-		if projectNames.Has(gp.Namespace.Name) {
+		if projectNames.Has(gp.Namespace.Name) || gp.Namespace.Kind == "user" {
 			continue
 		}
 
