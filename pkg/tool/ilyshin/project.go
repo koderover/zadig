@@ -53,9 +53,11 @@ func (c *Client) ListNamespaces(keyword string, log *zap.SugaredLogger) ([]*Proj
 	var resp []*Project
 	projectNames := sets.NewString()
 	for _, gp := range gps {
+		log.Infof("gp:%+v", gp)
 		if projectNames.Has(gp.Namespace.Name) {
 			continue
 		}
+
 		projectNames.Insert(gp.Namespace.Name)
 		resp = append(resp, gp)
 	}
