@@ -448,7 +448,7 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 							if err != nil {
 								h.log.Errorf("uploadTaskData s3 Download err:%v", err)
 							}
-							_ = os.Remove(filename)
+
 						} else {
 							h.log.Errorf("uploadTaskData FindDefaultS3 err:%v", err)
 						}
@@ -458,6 +458,8 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 							msg := fmt.Sprintf("uploadTaskData get local test result file error: %v", err)
 							h.log.Error(msg)
 						}
+						// Do not use defer because possible resource leak, 'defer' is called in a 'for' loop
+						_ = os.Remove(filename)
 
 						testReport := new(commonmodels.TestSuite)
 						if err := xml.Unmarshal(b, &testReport); err != nil {
@@ -599,8 +601,6 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 							testTaskStat.CreateTime = time.Now().Unix()
 							testTaskStat.UpdateTime = time.Now().Unix()
 						}
-						h.log.Infof("testTaskStat:%+v", testTaskStat)
-						h.log.Infof("testInfo:%+v", testInfo)
 
 						var filename string
 						if storage, err := s3.FindDefaultS3(); err == nil {
@@ -608,7 +608,6 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 							if err != nil {
 								h.log.Errorf("uploadTaskData GenerateTmpFile err:%v", err)
 							}
-
 							pipelineName := fmt.Sprintf("%s-%s", testInfo.TestModuleName, "job")
 							testJobName := strings.Replace(strings.ToLower(fmt.Sprintf("%s-%s-%d-%s-%s",
 								config.TestType, pipelineName, pt.TaskID, config.TaskTestingV2, testInfo.TestModuleName)), "_", "-", -1)
@@ -623,17 +622,16 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 							if err != nil {
 								h.log.Errorf("uploadTaskData s3 Download err:%v", err)
 							}
-							_ = os.Remove(filename)
 						} else {
 							h.log.Errorf("uploadTaskData FindDefaultS3 err:%v", err)
 						}
-
 						b, err := ioutil.ReadFile(filename)
 						if err != nil {
 							msg := fmt.Sprintf("uploadTaskData get local test result file error: %v", err)
 							h.log.Error(msg)
 						}
-
+						// Do not use defer because possible resource leak, 'defer' is called in a 'for' loop
+						_ = os.Remove(filename)
 						testReport := new(commonmodels.TestSuite)
 						if err := xml.Unmarshal(b, &testReport); err != nil {
 							msg := fmt.Sprintf("uploadTaskData testSuite unmarshal it report xml error: %v", err)
@@ -656,9 +654,8 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 							testTaskStat.UpdateTime = time.Now().Unix()
 							err = h.TestTaskStatColl.Update(testTaskStat)
 						}
-						h.log.Infof("testTaskStat:%+v", testTaskStat)
 						if err != nil {
-							msg := fmt.Sprintf("uploadTaskData create/update testTaskStat error: %s", err)
+							msg := fmt.Sprintf("uploadTaskData create/update isNew:%v testTaskStat error: %s", isNew, err)
 							h.log.Error(msg)
 						}
 					}
