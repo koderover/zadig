@@ -37,7 +37,7 @@ type ServiceTmplBuildObject struct {
 	Build             *commonmodels.Build              `json:"build"`
 }
 
-func CreatePMService(username, productName string, args *ServiceTmplBuildObject, log *zap.SugaredLogger) error {
+func CreatePMService(username string, args *ServiceTmplBuildObject, log *zap.SugaredLogger) error {
 	if len(args.ServiceTmplObject.ServiceName) == 0 {
 		return e.ErrInvalidParam.AddDesc("服务名称为空，请检查")
 	}
@@ -47,11 +47,14 @@ func CreatePMService(username, productName string, args *ServiceTmplBuildObject,
 
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName:   args.ServiceTmplObject.ServiceName,
-		ProductName:   productName,
+		ProductName:   args.ServiceTmplObject.ProductName,
 		ExcludeStatus: setting.ProductStatusDeleting,
 	}
-	serviceTmpl, notFoundErr := commonrepo.NewServiceColl().Find(opt)
-	if notFoundErr == nil {
+	serviceNotFound := false
+	if serviceTmpl, err := commonrepo.NewServiceColl().Find(opt); err != nil {
+		log.Debugf("Failed to find service with option %+v", opt)
+		serviceNotFound = true
+	} else {
 		if serviceTmpl.ProductName != args.ServiceTmplObject.ProductName {
 			return e.ErrInvalidParam.AddDesc(fmt.Sprintf("项目 [%s] %s", serviceTmpl.ProductName, "有相同的服务名称存在,请检查!"))
 		}
@@ -95,21 +98,26 @@ func CreatePMService(username, productName string, args *ServiceTmplBuildObject,
 		return e.ErrCreateTemplate.AddDesc(err.Error())
 	}
 
-	if notFoundErr != nil {
-		if productTempl, err := commonservice.GetProductTemplate(args.ServiceTmplObject.ProductName, log); err == nil {
-			//获取项目里面的所有服务
-			if len(productTempl.Services) > 0 && !sets.NewString(productTempl.Services[0]...).Has(args.ServiceTmplObject.ServiceName) {
-				productTempl.Services[0] = append(productTempl.Services[0], args.ServiceTmplObject.ServiceName)
-			} else {
-				productTempl.Services = [][]string{{args.ServiceTmplObject.ServiceName}}
-			}
-			//更新项目模板
-			err = templaterepo.NewProductColl().Update(args.ServiceTmplObject.ProductName, productTempl)
-			if err != nil {
-				log.Errorf("CreatePMService Update %s error: %v", args.ServiceTmplObject.ServiceName, err)
-				return e.ErrCreateTemplate.AddDesc(err.Error())
-			}
+	if serviceNotFound {
+		productTempl, err := templaterepo.NewProductColl().Find(args.ServiceTmplObject.ProductName)
+		if err != nil {
+			log.Errorf("Failed to find project %s, err: %s", args.ServiceTmplObject.ProductName, err)
+			return e.ErrCreateTemplate.AddDesc(err.Error())
 		}
+
+		//获取项目里面的所有服务
+		if len(productTempl.Services) > 0 && !sets.NewString(productTempl.Services[0]...).Has(args.ServiceTmplObject.ServiceName) {
+			productTempl.Services[0] = append(productTempl.Services[0], args.ServiceTmplObject.ServiceName)
+		} else {
+			productTempl.Services = [][]string{{args.ServiceTmplObject.ServiceName}}
+		}
+		//更新项目模板
+		err = templaterepo.NewProductColl().Update(args.ServiceTmplObject.ProductName, productTempl)
+		if err != nil {
+			log.Errorf("CreatePMService Update %s error: %v", args.ServiceTmplObject.ServiceName, err)
+			return e.ErrCreateTemplate.AddDesc(err.Error())
+		}
+
 	}
 	return nil
 }

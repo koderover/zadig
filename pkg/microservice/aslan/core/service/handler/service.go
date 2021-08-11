@@ -243,7 +243,7 @@ func CreatePMService(c *gin.Context) {
 		}
 	}
 
-	ctx.Err = svcservice.CreatePMService(ctx.Username, c.Param("productName"), args, ctx.Logger)
+	ctx.Err = svcservice.CreatePMService(ctx.Username, args, ctx.Logger)
 }
 
 func UpdatePmServiceTemplate(c *gin.Context) {
