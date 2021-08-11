@@ -2,7 +2,6 @@ package server_test
 
 import (
 	"encoding/json"
-	"fmt"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/server/rest"
 	"io/ioutil"
@@ -30,7 +29,7 @@ var _ = Describe("Ginkgo/Server", func() {
 			// 如果已经创建过了，跳过
 			apitest.New().
 				Observe(func(res *http.Response, req *http.Request, apiTest *apitest.APITest) {
-					if res.StatusCode == 200 {
+					if res.StatusCode == http.StatusOK {
 						t.SkipNow()
 					}
 				}).
@@ -59,6 +58,21 @@ var _ = Describe("Ginkgo/Server", func() {
 				Status(http.StatusOK).
 				End()
 
+			// 获取环境对应的service版本信息
+			ret := &commonmodels.Product{}
+			apitest.New().
+				Handler(rest.NewEngine()).
+				Observe(func(res *http.Response, req *http.Request, apiTest *apitest.APITest) {
+					bs, _ := ioutil.ReadAll(res.Body)
+					json.Unmarshal(bs, ret)
+					if len(ret.Services) == 0 {
+						t.Skipf("skip , env not ready, ret %v", ret)
+					}
+				}).
+				Get("/api/environment/init_info/api-test-product").Header("authorization", "X-ROOT-API-KEY 9F11B4E503C7F2B5").
+				Expect(t).
+				End()
+
 			// build
 			By("create service build")
 			apitest.New().
@@ -67,19 +81,6 @@ var _ = Describe("Ginkgo/Server", func() {
 				Body(`{"timeout":60,"version":"stable","name":"test","desc":"","repos":[{"codehost_id":2,"repo_owner":"opensource","repo_name":"nginx","branch":"master","checkout_path":"","remote_name":"origin","submodules":false,"project_uuid":"","repo_uuid":"","repo_id":"","source":"gitlab"}],"pre_build":{"clean_workspace":false,"res_req":"low","build_os":"xenial","image_id":"610371c9dd57e20ea54bf1c0","image_from":"koderover","installs":[],"envs":[],"enable_proxy":false,"enable_gocov":false,"parameters":[]},"scripts":"#!/bin/bash\nset -e\n\ncd $WORKSPACE/zadig/examples/nginx\ndocker build -t $IMAGE -f Dockerfile .\ndocker push $IMAGE","main_file":"","post_build":{},"targets":[{"product_name":"api-test-product","service_name":"nginx","service_module":"nginx-test","key":"nginx/nginx-test"}],"product_name":"api-test-product","source":"zadig"}`).
 				Expect(t).
 				Status(http.StatusOK).
-				End()
-
-			// 获取环境对应的service版本信息
-			ret := &commonmodels.Product{}
-			apitest.New().
-				Handler(rest.NewEngine()).
-				Observe(func(res *http.Response, req *http.Request, apiTest *apitest.APITest) {
-					bs, _ := ioutil.ReadAll(res.Body)
-					json.Unmarshal(bs, ret)
-					fmt.Println(ret)
-				}).
-				Get("/api/environment/init_info/api-test-product").Header("authorization", "X-ROOT-API-KEY 9F11B4E503C7F2B5").
-				Expect(t).
 				End()
 
 			// env
@@ -94,12 +95,22 @@ var _ = Describe("Ginkgo/Server", func() {
 				End()
 
 			// 查看是否存在
+			By("check project exist")
 			apitest.New().
 				Handler(rest.NewEngine()).
 				Get("/api/project/products/api-test-product").Header("authorization", "X-ROOT-API-KEY 9F11B4E503C7F2B5").
 				Expect(t).
 				Status(http.StatusOK).
 				End()
+
+			//By("delete project")
+			//apitest.New().
+			//	Handler(rest.NewEngine()).
+			//	Delete("/api/project/products/api-test-product").Header("authorization", "X-ROOT-API-KEY 9F11B4E503C7F2B5").
+			//	Expect(t).
+			//	Status(http.StatusOK).
+			//	Body(`{"message":"success"}`).
+			//	End()
 		})
 	})
 })
