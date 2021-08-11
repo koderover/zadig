@@ -17,8 +17,6 @@ limitations under the License.
 package service
 
 import (
-	"fmt"
-
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -51,7 +49,7 @@ func CreatePrivateKey(args *commonmodels.PrivateKey, log *zap.SugaredLogger) err
 	}
 
 	if !config.CVMNameRegex.MatchString(args.Name) {
-		return fmt.Errorf("主机名称仅支持字母，数字和下划线且首个字符不以数字开头")
+		return e.ErrCreatePrivateKey.AddDesc("主机名称仅支持字母，数字和下划线且首个字符不以数字开头")
 	}
 
 	err := commonrepo.NewPrivateKeyColl().Create(args)
