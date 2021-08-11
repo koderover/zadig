@@ -52,7 +52,7 @@ func CreatePMService(username string, args *ServiceTmplBuildObject, log *zap.Sug
 	}
 	serviceNotFound := false
 	if serviceTmpl, err := commonrepo.NewServiceColl().Find(opt); err != nil {
-		log.Debugf("Failed to find service with option %+v", opt)
+		log.Debugf("Failed to find service with option %+v, err: %s", opt, err)
 		serviceNotFound = true
 	} else {
 		if serviceTmpl.ProductName != args.ServiceTmplObject.ProductName {
