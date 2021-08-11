@@ -89,10 +89,14 @@ func (c *TestTaskStatColl) ListTestTask() ([]*models.TestTaskStat, error) {
 }
 
 func (c *TestTaskStatColl) FindTestTaskStat(option *TestTaskStatOption) (*models.TestTaskStat, error) {
+	var err error
 	query := bson.M{"name": option.Name}
 	testTaskStat := new(models.TestTaskStat)
 
-	err := c.FindOne(context.TODO(), query).Decode(testTaskStat)
+	if err = c.FindOne(context.TODO(), query).Decode(testTaskStat); err != nil {
+		return nil, err
+	}
+
 	return testTaskStat, err
 }
 
