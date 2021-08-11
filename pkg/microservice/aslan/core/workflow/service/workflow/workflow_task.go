@@ -303,7 +303,14 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 			if len(containerArr) != 3 {
 				continue
 			}
-			target := &commonmodels.TargetArgs{Name: containerArr[2], ServiceName: containerArr[1], Deploy: targetMap[container], Build: &commonmodels.BuildArgs{}, HasBuild: true}
+			target := &commonmodels.TargetArgs{
+				Name:        containerArr[2],
+				ServiceName: containerArr[1],
+				ProductName: containerArr[0],
+				Deploy:      targetMap[container],
+				Build:       &commonmodels.BuildArgs{},
+				HasBuild:    true,
+			}
 			moBuild := findModuleByTargetAndVersion(allModules, container, setting.Version)
 			if moBuild == nil {
 				moBuild = &commonmodels.Build{}
@@ -493,7 +500,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		// should always be stable
 		target.Version = "stable"
 		if target.JenkinsBuildArgs == nil {
-			subTasks, err = BuildModuleToSubTasks("", target.Version, target.Name, target.ServiceName, args.ProductTmplName, target.Envs, env, log)
+			subTasks, err = BuildModuleToSubTasks("", target.Version, target.Name, target.ServiceName, target.ProductName, target.Envs, env, log)
 		} else {
 			subTasks, err = JenkinsBuildModuleToSubTasks(&JenkinsBuildOption{
 				Version:          target.Version,
@@ -1543,14 +1550,6 @@ func BuildModuleToSubTasks(moduleName, version, target, serviceName, productName
 		subTasks    = make([]map[string]interface{}, 0)
 		serviceTmpl *commonmodels.Service
 	)
-
-	serviceTmpl, _ = commonservice.GetServiceTemplate(
-		serviceName, "", productName, setting.ProductStatusDeleting, 0, log,
-	)
-	if serviceTmpl != nil && serviceTmpl.Visibility == setting.PublicService {
-		productName = serviceTmpl.ProductName
-	}
-	serviceTmpl = nil
 
 	opt := &commonrepo.BuildListOption{
 		Name:        moduleName,
