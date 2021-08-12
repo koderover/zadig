@@ -31,7 +31,7 @@ const (
 	ServiceNameRegexString = "^[a-zA-Z0-9-_]+$"
 	ConfigNameRegexString  = "^[a-zA-Z0-9-]+$"
 	ImageRegexString       = "^[a-zA-Z0-9.:\\/-]+$"
-	CVMNameRegexString     = "^[a-zA-Z0-9_]+$"
+	CVMNameRegexString     = "^[a-zA-Z]\\w+$"
 
 	EnvRecyclePolicyAlways     = "always"
 	EnvRecyclePolicyTaskStatus = "success"
