@@ -170,7 +170,7 @@ func (c *ServiceColl) Find(opt *ServiceFindOption) (*models.Service, error) {
 		return nil, errors.New("nil ConfigFindOption")
 	}
 	if opt.ServiceName == "" {
-		return nil, fmt.Errorf("service_name is empty")
+		return nil, fmt.Errorf("ServiceName is empty")
 	}
 	if opt.ProductName == "" {
 		return nil, fmt.Errorf("ProductName is empty")
@@ -178,13 +178,11 @@ func (c *ServiceColl) Find(opt *ServiceFindOption) (*models.Service, error) {
 
 	query := bson.M{}
 	query["service_name"] = opt.ServiceName
+	query["product_name"] = opt.ProductName
 	service := new(models.Service)
 
 	if opt.Type != "" {
 		query["type"] = opt.Type
-	}
-	if opt.ProductName != "" {
-		query["product_name"] = opt.ProductName
 	}
 	if opt.ExcludeStatus != "" {
 		query["status"] = bson.M{"$ne": opt.ExcludeStatus}
