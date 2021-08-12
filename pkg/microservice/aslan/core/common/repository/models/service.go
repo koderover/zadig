@@ -16,6 +16,8 @@ limitations under the License.
 
 package models
 
+// TODO: move Revision out of Service.
+
 // Service : service template struct
 // Service template config has 3 types mainly.
 // 1. Kubernetes service, and yaml+config is held in aslan: type == "k8s"; source == "spock"; yaml != ""

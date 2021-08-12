@@ -17,8 +17,6 @@ limitations under the License.
 package service
 
 import (
-	"sort"
-
 	"go.uber.org/zap"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -53,60 +51,6 @@ type ConfigTmplData struct {
 	Value string `json:"value"`
 }
 
-// ConfigDiff 获得服务模板当前版本和最新版本的对比
-func ConfigDiff(envName, productName, serviceName, configName string, log *zap.SugaredLogger) (*ConfigDiffResult, error) {
-	resp := &ConfigDiffResult{}
-	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
-	productInfo, err := commonrepo.NewProductColl().Find(opt)
-	if err != nil {
-		log.Errorf("[%s][%s]find current configmaps error: %v", envName, productName, err)
-		return resp, e.ErrFindProduct.AddDesc("查找product失败")
-	}
-	configInfo := &commonmodels.ServiceConfig{}
-	for _, serviceGroup := range productInfo.Services {
-		for _, service := range serviceGroup {
-			if service.ServiceName == serviceName {
-				for _, config := range service.Configs {
-					if config.ConfigName == configName {
-						configInfo = config
-					}
-				}
-			}
-		}
-	}
-	configOpt := &commonrepo.ConfigFindOption{
-		ConfigName:  configName,
-		ServiceName: serviceName,
-		Revision:    configInfo.Revision,
-	}
-	oldConfig, err := commonrepo.NewConfigColl().Find(configOpt)
-	if err != nil {
-		log.Errorf("[%s][%s][%s]find config template [%d] error: %v", envName, productName, serviceName, configInfo.Revision, err)
-		return resp, e.ErrGetConfigMap.AddDesc("查找config template失败")
-	}
-	configOpt.Revision = 0
-	newConfig, err := commonrepo.NewConfigColl().Find(configOpt)
-	if err != nil {
-		log.Errorf("[%s][%s][%s]find max revision config template error: %v", envName, productName, serviceName, err)
-		return resp, e.ErrGetConfigMap.AddDesc("查找config template失败")
-	}
-	oldRender := &commonmodels.RenderSet{}
-	newRender := &commonmodels.RenderSet{}
-	if productInfo.Render != nil {
-		oldRender, err = commonservice.GetRenderSet(productInfo.Render.Name, productInfo.Render.Revision, log)
-		if err != nil {
-			return resp, err
-		}
-		newRender, err = commonservice.GetRenderSet(productInfo.Render.Name, 0, log)
-		if err != nil {
-			return resp, err
-		}
-	}
-	resp.Current = getConfigTmplData(oldConfig, oldRender)
-	resp.Latest = getConfigTmplData(newConfig, newRender)
-	return resp, nil
-}
-
 // GetServiceDiff 获得服务模板当前版本和最新版本的对比
 func GetServiceDiff(envName, productName, serviceName string, log *zap.SugaredLogger) (*SvcDiffResult, error) {
 	resp := new(SvcDiffResult)
@@ -116,7 +60,7 @@ func GetServiceDiff(envName, productName, serviceName string, log *zap.SugaredLo
 		log.Errorf("[%s][%s]find current configmaps error: %v", envName, productName, err)
 		return resp, e.ErrFindProduct.AddDesc("查找product失败")
 	}
-	serviceInfo := &commonmodels.ProductService{}
+	var serviceInfo *commonmodels.ProductService
 	for _, serviceGroup := range productInfo.Services {
 		for _, service := range serviceGroup {
 			if service.ServiceName == serviceName {
@@ -126,6 +70,7 @@ func GetServiceDiff(envName, productName, serviceName string, log *zap.SugaredLo
 	}
 	svcOpt := &commonrepo.ServiceFindOption{
 		ServiceName:   serviceName,
+		ProductName:   serviceInfo.ProductName,
 		Revision:      serviceInfo.Revision,
 		ExcludeStatus: setting.ProductStatusDeleting,
 	}
@@ -159,22 +104,4 @@ func GetServiceDiff(envName, productName, serviceName string, log *zap.SugaredLo
 	resp.Latest.Revision = newService.Revision
 	resp.Latest.UpdateBy = newService.CreateBy
 	return resp, nil
-}
-
-func getConfigTmplData(config *commonmodels.Config, render *commonmodels.RenderSet) TmplConfig {
-	resp := TmplConfig{}
-	var keys []string
-	configData := make(map[string]string)
-	for _, data := range config.ConfigData {
-		keys = append(keys, data.Key)
-		if _, ok := configData[data.Key]; !ok {
-			configData[data.Key] = data.Value
-		}
-	}
-	sort.Strings(keys)
-	for _, key := range keys {
-		renderedValue := commonservice.RenderValueForString(configData[key], render)
-		resp.Data = append(resp.Data, ConfigTmplData{Key: key, Value: renderedValue})
-	}
-	return resp
 }

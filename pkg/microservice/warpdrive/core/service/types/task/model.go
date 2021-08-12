@@ -245,6 +245,7 @@ type ServiceTaskArgs struct {
 
 type ProductService struct {
 	ServiceName string           `bson:"service_name"               json:"service_name"`
+	ProductName string           `bson:"product_name"               json:"product_name"`
 	Type        string           `bson:"type"                       json:"type"`
 	Revision    int64            `bson:"revision"                   json:"revision"`
 	Containers  []*Container     `bson:"containers"                 json:"containers,omitempty"`

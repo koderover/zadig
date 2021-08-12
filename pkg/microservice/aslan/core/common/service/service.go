@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
@@ -81,58 +82,30 @@ type ServiceProductMap struct {
 }
 
 // ListServiceTemplate 列出服务模板
-// 如果team == ""，则列出所有
 func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTmplResp, error) {
 	var err error
 	resp := new(ServiceTmplResp)
 	resp.Data = make([]*ServiceProductMap, 0)
-	serviceNames := sets.NewString()
 
-	serviceTmpls, err := commonrepo.NewServiceColl().DistinctServices(&commonrepo.ServiceListOption{ProductName: productName, IsSort: true, ExcludeStatus: setting.ProductStatusDeleting})
+	productTmpl, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil {
-		log.Errorf("ServiceTmpl.ListServices error: %v", err)
+		log.Errorf("Can not find project %s, error: %s", productName, err)
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
-	for _, service := range serviceTmpls {
-		serviceNames.Insert(service.ServiceName)
-	}
 
-	//把公共项目下的服务也添加到服务列表里面
-	productTmpl, _ := templaterepo.NewProductColl().Find(productName)
-	for _, services := range productTmpl.Services {
-		for _, service := range services {
-			if serviceNames.Has(service) {
-				continue
-			}
-			services, err := commonrepo.NewServiceColl().DistinctServices(&commonrepo.ServiceListOption{ServiceName: service, ExcludeStatus: setting.ProductStatusDeleting})
-			if err != nil {
-				log.Errorf("ServiceTmpl.ListServices error: %v", err)
-				return resp, e.ErrListTemplate.AddDesc(err.Error())
-			}
-			serviceTmpls = append(serviceTmpls, services...)
-		}
-	}
-
-	productSvcs, err := distincProductServices("")
+	services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), "")
 	if err != nil {
-		log.Errorf("distinctProductServices error: %v", err)
-		return resp, e.ErrListTemplate
+		log.Errorf("Failed to list services by %+v, err: %s", productTmpl.AllServiceInfos(), err)
+		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
-	for _, service := range serviceTmpls {
-		//获取服务的containers
-		opt := &commonrepo.ServiceFindOption{
-			ServiceName: service.ServiceName,
-			Type:        service.Type,
-			Revision:    service.Revision,
-			ProductName: service.ProductName,
-		}
-		serviceObject, err := commonrepo.NewServiceColl().Find(opt)
-		if err != nil {
-			log.Errorf("ServiceTmpl Find error: %v", err)
-			continue
-		}
+	serviceToProject, err := GetServiceInvolvedProjects(services, "")
+	if err != nil {
+		log.Errorf("Failed to get service involved projects, err: %s", err)
+		return resp, e.ErrListTemplate.AddDesc(err.Error())
+	}
 
+	for _, serviceObject := range services {
 		// FIXME: 兼容老数据，想办法干掉这个
 		if serviceObject.Source == setting.SourceFromGitlab && serviceObject.CodehostID == 0 {
 			gitlabAddress, err := GetGitlabAddress(serviceObject.SrcPath)
@@ -187,12 +160,12 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 		}
 
 		spmap := &ServiceProductMap{
-			Service:          service.ServiceName,
-			Type:             service.Type,
-			Source:           service.Source,
-			ProductName:      service.ProductName,
+			Service:          serviceObject.ServiceName,
+			Type:             serviceObject.Type,
+			Source:           serviceObject.Source,
+			ProductName:      serviceObject.ProductName,
 			Containers:       serviceObject.Containers,
-			Product:          []string{},
+			Product:          []string{productName},
 			Visibility:       serviceObject.Visibility,
 			CodehostID:       serviceObject.CodehostID,
 			RepoOwner:        serviceObject.RepoOwner,
@@ -201,11 +174,11 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 			BranchName:       serviceObject.BranchName,
 			LoadFromDir:      serviceObject.LoadFromDir,
 			LoadPath:         serviceObject.LoadPath,
-			GerritRemoteName: service.GerritRemoteName,
+			GerritRemoteName: serviceObject.GerritRemoteName,
 		}
 
-		if _, ok := productSvcs[service.ServiceName]; ok {
-			spmap.Product = productSvcs[service.ServiceName]
+		if _, ok := serviceToProject[serviceObject.ServiceName]; ok {
+			spmap.Product = serviceToProject[serviceObject.ServiceName]
 		}
 
 		resp.Data = append(resp.Data, spmap)
@@ -214,25 +187,45 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 	return resp, nil
 }
 
-func distincProductServices(productName string) (map[string][]string, error) {
-	serviceMap := make(map[string][]string)
-	products, err := templaterepo.NewProductColl().List(productName)
-	if err != nil {
-		return serviceMap, err
-	}
+// GetServiceInvolvedProjects returns a map, key is a service name, value is a list of all projects which are using this service.
+// The given services must come from same project to make sure all service names are unique.
+func GetServiceInvolvedProjects(services []*commonmodels.Service, skipProject string) (map[string][]string, error) {
+	serviceMap := make(map[string]sets.String)
+	serviceToOwner := make(map[string]string)
+	var publicServiceInfos []*templatemodels.ServiceInfo
+	for _, s := range services {
+		serviceMap[s.ServiceName] = sets.NewString(s.ProductName)
+		serviceToOwner[s.ServiceName] = s.ProductName
 
-	for _, product := range products {
-		for _, group := range product.Services {
-			for _, service := range group {
-				if _, ok := serviceMap[service]; !ok {
-					serviceMap[service] = []string{product.ProductName}
-				} else {
-					serviceMap[service] = append(serviceMap[service], product.ProductName)
-				}
-			}
+		if s.Visibility == setting.PublicService {
+			publicServiceInfos = append(publicServiceInfos, &templatemodels.ServiceInfo{
+				Name:  s.ServiceName,
+				Owner: s.ProductName,
+			})
 		}
 	}
-	return serviceMap, nil
+
+	projects, err := templaterepo.NewProductColl().ListWithOption(&templaterepo.ProductListOpt{ContainSharedServices: publicServiceInfos})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, project := range projects {
+		for _, service := range project.SharedServices {
+			// skip service which is not in the list or the owner is different
+			if serviceToOwner[service.Name] != service.Owner {
+				continue
+			}
+			serviceMap[service.Name] = serviceMap[service.Name].Insert(project.ProductName)
+		}
+	}
+
+	res := make(map[string][]string)
+	for k, v := range serviceMap {
+		v.Delete(skipProject)
+		res[k] = v.List()
+	}
+	return res, nil
 }
 
 func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus string, revision int64, log *zap.SugaredLogger) (*commonmodels.Service, error) {
@@ -362,7 +355,7 @@ func UpdatePmServiceTemplate(username string, args *ServiceTmplBuildObject, log 
 	}
 
 	//更新服务
-	serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, preService.ServiceName, setting.PMDeployType)
+	serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, preService.ServiceName, preService.ProductName)
 	rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
 	if err != nil {
 		return err
@@ -373,7 +366,7 @@ func UpdatePmServiceTemplate(username string, args *ServiceTmplBuildObject, log 
 	preService.CreateBy = username
 	preService.BuildName = args.Build.Name
 
-	if err := commonrepo.NewServiceColl().Delete(preService.ServiceName, setting.PMDeployType, "", setting.ProductStatusDeleting, preService.Revision); err != nil {
+	if err := commonrepo.NewServiceColl().Delete(preService.ServiceName, setting.PMDeployType, args.ServiceTmplObject.ProductName, setting.ProductStatusDeleting, preService.Revision); err != nil {
 		return err
 	}
 
@@ -383,8 +376,8 @@ func UpdatePmServiceTemplate(username string, args *ServiceTmplBuildObject, log 
 	return nil
 }
 
-func DeleteServiceWebhookByName(serviceName string, logger *zap.SugaredLogger) {
-	svc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{ServiceName: serviceName, Type: setting.K8SDeployType})
+func DeleteServiceWebhookByName(serviceName, productName string, logger *zap.SugaredLogger) {
+	svc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{ServiceName: serviceName, ProductName: productName})
 	if err != nil {
 		logger.Errorf("Failed to get service %s, error: %s", serviceName, err)
 		return

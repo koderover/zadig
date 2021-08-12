@@ -47,23 +47,27 @@ func CreatePMService(username string, args *ServiceTmplBuildObject, log *zap.Sug
 
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName:   args.ServiceTmplObject.ServiceName,
+		ProductName:   args.ServiceTmplObject.ProductName,
 		ExcludeStatus: setting.ProductStatusDeleting,
 	}
-	serviceTmpl, notFoundErr := commonrepo.NewServiceColl().Find(opt)
-	if notFoundErr == nil {
+	serviceNotFound := false
+	if serviceTmpl, err := commonrepo.NewServiceColl().Find(opt); err != nil {
+		log.Debugf("Failed to find service with option %+v, err: %s", opt, err)
+		serviceNotFound = true
+	} else {
 		if serviceTmpl.ProductName != args.ServiceTmplObject.ProductName {
 			return e.ErrInvalidParam.AddDesc(fmt.Sprintf("项目 [%s] %s", serviceTmpl.ProductName, "有相同的服务名称存在,请检查!"))
 		}
 	}
 
-	serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceTmplObject.ServiceName, args.ServiceTmplObject.Type)
+	serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceTmplObject.ServiceName, args.ServiceTmplObject.ProductName)
 	rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
 	if err != nil {
 		return fmt.Errorf("get next pm service revision error: %v", err)
 	}
 	args.ServiceTmplObject.Revision = rev
 
-	if err := commonrepo.NewServiceColl().Delete(args.ServiceTmplObject.ServiceName, args.ServiceTmplObject.Type, "", setting.ProductStatusDeleting, args.ServiceTmplObject.Revision); err != nil {
+	if err := commonrepo.NewServiceColl().Delete(args.ServiceTmplObject.ServiceName, args.ServiceTmplObject.Type, args.ServiceTmplObject.ProductName, setting.ProductStatusDeleting, args.ServiceTmplObject.Revision); err != nil {
 		log.Errorf("pmService.delete %s error: %v", args.ServiceTmplObject.ServiceName, err)
 	}
 
@@ -88,27 +92,32 @@ func CreatePMService(username string, args *ServiceTmplBuildObject, log *zap.Sug
 	//创建构建
 	if err := commonservice.CreateBuild(username, args.Build, log); err != nil {
 		log.Errorf("pmService.Create build %s error: %v", args.Build.Name, err)
-		if err2 := commonrepo.NewServiceColl().Delete(args.ServiceTmplObject.ServiceName, args.ServiceTmplObject.Type, "", setting.ProductStatusDeleting, args.ServiceTmplObject.Revision); err2 != nil {
+		if err2 := commonrepo.NewServiceColl().Delete(args.ServiceTmplObject.ServiceName, args.ServiceTmplObject.Type, args.ServiceTmplObject.ProductName, "", rev); err2 != nil {
 			log.Errorf("pmService.delete %s error: %v", args.ServiceTmplObject.ServiceName, err2)
 		}
 		return e.ErrCreateTemplate.AddDesc(err.Error())
 	}
 
-	if notFoundErr != nil {
-		if productTempl, err := commonservice.GetProductTemplate(args.ServiceTmplObject.ProductName, log); err == nil {
-			//获取项目里面的所有服务
-			if len(productTempl.Services) > 0 && !sets.NewString(productTempl.Services[0]...).Has(args.ServiceTmplObject.ServiceName) {
-				productTempl.Services[0] = append(productTempl.Services[0], args.ServiceTmplObject.ServiceName)
-			} else {
-				productTempl.Services = [][]string{{args.ServiceTmplObject.ServiceName}}
-			}
-			//更新项目模板
-			err = templaterepo.NewProductColl().Update(args.ServiceTmplObject.ProductName, productTempl)
-			if err != nil {
-				log.Errorf("CreatePMService Update %s error: %v", args.ServiceTmplObject.ServiceName, err)
-				return e.ErrCreateTemplate.AddDesc(err.Error())
-			}
+	if serviceNotFound {
+		productTempl, err := templaterepo.NewProductColl().Find(args.ServiceTmplObject.ProductName)
+		if err != nil {
+			log.Errorf("Failed to find project %s, err: %s", args.ServiceTmplObject.ProductName, err)
+			return e.ErrCreateTemplate.AddDesc(err.Error())
 		}
+
+		//获取项目里面的所有服务
+		if len(productTempl.Services) > 0 && !sets.NewString(productTempl.Services[0]...).Has(args.ServiceTmplObject.ServiceName) {
+			productTempl.Services[0] = append(productTempl.Services[0], args.ServiceTmplObject.ServiceName)
+		} else {
+			productTempl.Services = [][]string{{args.ServiceTmplObject.ServiceName}}
+		}
+		//更新项目模板
+		err = templaterepo.NewProductColl().Update(args.ServiceTmplObject.ProductName, productTempl)
+		if err != nil {
+			log.Errorf("CreatePMService Update %s error: %v", args.ServiceTmplObject.ServiceName, err)
+			return e.ErrCreateTemplate.AddDesc(err.Error())
+		}
+
 	}
 	return nil
 }

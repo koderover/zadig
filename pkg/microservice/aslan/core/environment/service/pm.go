@@ -57,10 +57,10 @@ func (p *PMService) queryServiceStatus(namespace, envName, productName string, s
 func (p *PMService) updateService(args *SvcOptArgs) error {
 	svc := &commonmodels.ProductService{
 		ServiceName: args.ServiceName,
+		ProductName: args.ProductName,
 		Type:        args.ServiceType,
 		Revision:    args.ServiceRev.NextRevision,
 		Containers:  args.ServiceRev.Containers,
-		Configs:     make([]*commonmodels.ServiceConfig, 0),
 	}
 	opt := &commonrepo.ProductFindOptions{Name: args.ProductName, EnvName: args.EnvName}
 	exitedProd, err := commonrepo.NewProductColl().Find(opt)
@@ -68,6 +68,7 @@ func (p *PMService) updateService(args *SvcOptArgs) error {
 		p.log.Error(err)
 		return errors.New(e.UpsertServiceErrMsg)
 	}
+
 	// 更新产品服务
 	for _, group := range exitedProd.Services {
 		for i, service := range group {
@@ -99,7 +100,7 @@ func (p *PMService) listGroupServices(allServices []*commonmodels.ProductService
 				EnvName:     envName,
 			}
 			serviceTmpl, err := commonservice.GetServiceTemplate(
-				service.ServiceName, setting.PMDeployType, "", "", service.Revision, p.log,
+				service.ServiceName, setting.PMDeployType, service.ProductName, "", service.Revision, p.log,
 			)
 			if err != nil {
 				gp.Status = setting.PodFailed

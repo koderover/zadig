@@ -500,7 +500,7 @@ func updateAgentAndQueue(t *task.Task) error {
 
 	// 发送当前任务到nsq
 	log.Infof("sending task to warpdrive %s:%d", t.PipelineName, t.TaskID)
-	if err = nsqservice.Publish(config.TopicProcess, b); err != nil {
+	if err = nsqservice.Publish(setting.TopicProcess, b); err != nil {
 		log.Errorf("Publish %s:%d to nsq error: %v", t.PipelineName, t.TaskID, err)
 		return err
 	}
