@@ -1,4 +1,4 @@
-FROM n7832lxy.mirror.aliyuncs.com/library/ubuntu:16.04
+FROM arm64v8/ubuntu:xenial
 
 # 修改镜像源和时区
 RUN sed -i -E "s/[a-zA-Z0-9]+.ubuntu.com/mirrors.aliyun.com/g" /etc/apt/sources.list \

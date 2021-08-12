@@ -1,8 +1,8 @@
-#golang-deps.Dockerfile.inc
+#golang.Dockerfile
 
 RUN go build -o /reaper ./cmd/reaper/main.go
 
-FROM n7832lxy.mirror.aliyuncs.com/library/nginx:1.16.0
+#nginx.Dockerfile
 
 WORKDIR /app
 

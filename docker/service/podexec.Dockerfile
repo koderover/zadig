@@ -1,8 +1,8 @@
-#golang-deps.Dockerfile.inc
+#golang.Dockerfile
 
 RUN go build -v -o /podexec ./cmd/podexec/...
 
-#alpine-base.Dockerfile.inc
+#alpine-git.Dockerfile
 
 WORKDIR /app
 COPY --from=build /podexec /app/podexec

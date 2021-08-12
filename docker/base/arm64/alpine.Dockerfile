@@ -1,4 +1,4 @@
-FROM alpine/git:v2.30.2
+FROM arm64v8/alpine
 
 # https://wiki.alpinelinux.org/wiki/Setting_the_timezone
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \

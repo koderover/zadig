@@ -1,8 +1,8 @@
-#golang-deps.Dockerfile.inc
+#golang.Dockerfile
 
 RUN go build -v -o /aslan ./cmd/aslan/main.go
 
-#alpine-git-base.Dockerfile.inc
+#alpine-git.Dockerfile
 
 WORKDIR /app
 

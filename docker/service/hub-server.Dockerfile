@@ -1,8 +1,8 @@
-#golang-deps.Dockerfile.inc
+#golang.Dockerfile
 
 RUN go build -v -o /hubserver ./cmd/hubserver/main.go
 
-#alpine-base.Dockerfile.inc
+#alpine.Dockerfile
 
 WORKDIR /app
 
