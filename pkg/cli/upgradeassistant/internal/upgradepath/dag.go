@@ -24,12 +24,14 @@ import (
 
 const (
 	V130 = iota
+	V131
 	V140
 )
 
 var versionMap = map[string]int{
 	"":      V130,
 	"1.3.0": V130,
+	"1.3.1": V131,
 	"1.4.0": V140,
 }
 

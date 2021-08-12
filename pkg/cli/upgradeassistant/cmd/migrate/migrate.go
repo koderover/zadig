@@ -30,16 +30,16 @@ import (
 const oldServiceTemplateCounterName = "service:%s&type:%s"
 
 func init() {
-	upgradepath.AddHandler(upgradepath.V130, upgradepath.V140, V130ToV140)
-	upgradepath.AddHandler(upgradepath.V140, upgradepath.V130, V140ToV130)
+	upgradepath.AddHandler(upgradepath.V130, upgradepath.V131, V130ToV131)
+	upgradepath.AddHandler(upgradepath.V131, upgradepath.V130, V131ToV130)
 }
 
-// V130ToV140 migrates data from v1.3.0 to v1.4.0 with the following tasks:
+// V130ToV131 migrates data from v1.3.0 to v1.3.1 with the following tasks:
 // 1. Add field `SharedServices` for all projects
 // 2. Add field `ProductName` in field `Services` for all envs
 // 3. Change the ServiceTemplateCounterName format
-func V130ToV140() error {
-	fmt.Println("Migrating data from 1.3.0 to 1.4.0")
+func V130ToV131() error {
+	fmt.Println("Migrating data from 1.3.0 to 1.3.1")
 
 	allServices, err := mongodb.NewServiceColl().ListMaxRevisions(nil)
 	if err != nil {
@@ -126,12 +126,12 @@ func V130ToV140() error {
 	return nil
 }
 
-// V140ToV130 rollbacks the changes from v1.4.0 to v1.3.0 with the following tasks:
+// V131ToV130 rollbacks the changes from v1.3.1 to v1.3.0 with the following tasks:
 // 1. Remove field `SharedServices` for all projects
 // 2. Remove field `ProductName` in field `Services` for all envs
 // 3. Revert the ServiceTemplateCounterName format
-func V140ToV130() error {
-	fmt.Println("Rollback data from 1.4.0 to 1.3.0")
+func V131ToV130() error {
+	fmt.Println("Rollback data from 1.3.1 to 1.3.0")
 
 	allServices, err := mongodb.NewServiceColl().ListMaxRevisions(nil)
 	if err != nil {
