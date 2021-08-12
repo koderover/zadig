@@ -24,14 +24,14 @@ var (
 	// RenderTemplateAlias ...
 	RenderTemplateAlias = regexp.MustCompile(`{{\s?\.\w+\s?}}`)
 	ServiceNameAlias    = regexp.MustCompile(`\$Service\$`)
-
-	NameSpaceRegex = regexp.MustCompile(NameSpaceRegexString)
+	NameSpaceRegex      = regexp.MustCompile(NameSpaceRegexString)
 )
 
 const (
 	ServiceNameRegexString = "^[a-zA-Z0-9-_]+$"
 	ConfigNameRegexString  = "^[a-zA-Z0-9-]+$"
 	ImageRegexString       = "^[a-zA-Z0-9.:\\/-]+$"
+	CVMNameRegexString     = "^[a-zA-Z_]\\w+$"
 
 	EnvRecyclePolicyAlways     = "always"
 	EnvRecyclePolicyTaskStatus = "success"
@@ -46,6 +46,7 @@ var (
 	ServiceNameRegex = regexp.MustCompile(ServiceNameRegexString)
 	ConfigNameRegex  = regexp.MustCompile(ConfigNameRegexString)
 	ImageRegex       = regexp.MustCompile(ImageRegexString)
+	CVMNameRegex     = regexp.MustCompile(CVMNameRegexString)
 )
 
 // ScheduleType 触发模式
