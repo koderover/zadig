@@ -454,6 +454,7 @@ func getServiceRenderYAML(productInfo *commonmodels.Product, containers []*commo
 		if serviceInfo == nil {
 			return "", fmt.Errorf("service %s not found", serviceName)
 		}
+		log.Infof("serviceInfo:%+v", serviceInfo)
 		// 获取服务模板
 		serviceFindOption := &mongodb.ServiceFindOption{
 			ServiceName: serviceName,
