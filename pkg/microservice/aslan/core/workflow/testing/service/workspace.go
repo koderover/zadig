@@ -40,9 +40,9 @@ func GetTestArtifactInfo(pipelineName, dir string, taskID int64, log *zap.Sugare
 	} else {
 		storage.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineName, taskID, "artifact")
 	}
-	forcedPathStyle := false
-	if storage.Provider == setting.ProviderSourceSystemDefault {
-		forcedPathStyle = true
+	forcedPathStyle := true
+	if storage.Provider == setting.ProviderSourceAli {
+		forcedPathStyle = false
 	}
 	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
 	if err != nil {

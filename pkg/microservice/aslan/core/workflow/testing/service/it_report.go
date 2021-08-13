@@ -78,9 +78,9 @@ func GetTestLocalTestSuite(serviceName string, log *zap.SugaredLogger) (*commonm
 								if err != nil {
 									log.Errorf("GetTestLocalTestSuite GenerateTmpFile err:%v", err)
 								}
-								forcedPathStyle := false
-								if storage.Provider == setting.ProviderSourceSystemDefault {
-									forcedPathStyle = true
+								forcedPathStyle := true
+								if storage.Provider == setting.ProviderSourceAli {
+									forcedPathStyle = false
 								}
 								client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
 								if err != nil {

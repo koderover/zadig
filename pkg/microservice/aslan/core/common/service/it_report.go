@@ -75,9 +75,9 @@ func GetLocalTestSuite(pipelineName, serviceName, testType string, taskID int64,
 			log.Errorf("GetLocalTestSuite GenerateTmpFile err:%v", err)
 		}
 		objectKey := s3Storage.GetObjectPath(fmt.Sprintf("%s/%d/%s/%s", pipelineName, taskID, "test", testJobName))
-		forcedPathStyle := false
-		if s3Storage.Provider == setting.ProviderSourceSystemDefault {
-			forcedPathStyle = true
+		forcedPathStyle := true
+		if s3Storage.Provider == setting.ProviderSourceAli {
+			forcedPathStyle = false
 		}
 		client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
 		if err != nil {

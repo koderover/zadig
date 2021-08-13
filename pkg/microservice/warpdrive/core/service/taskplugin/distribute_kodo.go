@@ -103,9 +103,9 @@ func upload(ctx context.Context, log *zap.SugaredLogger, storage *s3.S3, localfi
 
 		return err
 	}
-	forcedPathStyle := false
-	if storage.Provider == setting.ProviderSourceSystemDefault {
-		forcedPathStyle = true
+	forcedPathStyle := true
+	if storage.Provider == setting.ProviderSourceAli {
+		forcedPathStyle = false
 	}
 	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
 	if err != nil {
@@ -160,9 +160,9 @@ func (p *Distribute2S3TaskPlugin) Run(ctx context.Context, pipelineTask *task.Ta
 		defer func() {
 			_ = os.Remove(tmpFile.Name())
 		}()
-		forcedPathStyle := false
-		if srcStorage.Provider == setting.ProviderSourceSystemDefault {
-			forcedPathStyle = true
+		forcedPathStyle := true
+		if srcStorage.Provider == setting.ProviderSourceAli {
+			forcedPathStyle = false
 		}
 		s3client, err := s3tool.NewClient(srcStorage.Endpoint, srcStorage.Ak, srcStorage.Sk, srcStorage.Insecure, forcedPathStyle)
 		if err != nil {
