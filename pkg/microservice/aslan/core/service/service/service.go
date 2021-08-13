@@ -395,7 +395,10 @@ func UpdateServiceTemplate(args *commonservice.ServiceTmplObject) error {
 			existEnv = true
 		}
 
-		if _, err := commonrepo.NewPrivateKeyColl().Find(envStatus.HostID); err == nil {
+		op := commonrepo.FindPrivateOption{
+			Address: envStatus.Address,
+		}
+		if _, err := commonrepo.NewPrivateKeyColl().Find(op); err == nil {
 			existHost = true
 		}
 

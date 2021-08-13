@@ -166,6 +166,10 @@ func (c *CronClient) RunScheduledService(svc *service.Service, healthCheck *serv
 			}
 			key := fmt.Sprintf("%s-%s-%d-%s-%s", healthCheck.Protocol, tmpEnvStatus.Address, healthCheck.Port, healthCheck.Path, tmpEnvStatus.EnvName)
 			envStatusKeys.Insert(key)
+			if tmpEnvStatus.Address == "" {
+				tmpEnvStatus.Address = envStatus.Address
+			}
+
 			tmpEnvStatus.Status = envStatus.Status
 		}
 		currentEnvStatusKey := fmt.Sprintf("%s-%s-%d-%s-%s", healthCheck.Protocol, envStatus.Address, healthCheck.Port, healthCheck.Path, envStatus.EnvName)
