@@ -1,3 +1,1 @@
 FROM ubuntu:bionic
-
-
