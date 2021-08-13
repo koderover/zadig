@@ -88,9 +88,9 @@ func getContainerLogFromS3(pipelineName, filenamePrefix string, taskID int64, lo
 	} else {
 		storage.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineName, taskID, "log")
 	}
-	forcedPathStyle := false
-	if storage.Provider == setting.ProviderSourceSystemDefault {
-		forcedPathStyle = true
+	forcedPathStyle := true
+	if storage.Provider == setting.ProviderSourceAli {
+		forcedPathStyle = false
 	}
 	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
 	if err != nil {
@@ -135,7 +135,7 @@ func GetCurrentContainerLogs(podName, containerName, envName, productName string
 	}
 
 	buf := new(bytes.Buffer)
-	err = containerlog.GetContainerLogs(envName,podName,containerName,false,tail,buf,clientSet)
+	err = containerlog.GetContainerLogs(envName, podName, containerName, false, tail, buf, clientSet)
 	if err != nil {
 		log.Errorf("containerlog.GetContainerLogs error: %v", err)
 		return "", err

@@ -118,9 +118,9 @@ func (gcm *TarCacheManager) Archive(source, dest string) error {
 	//}
 
 	if store, err := gcm.getS3Storage(); err == nil {
-		forcedPathStyle := false
-		if store.Provider == setting.ProviderSourceSystemDefault {
-			forcedPathStyle = true
+		forcedPathStyle := true
+		if store.Provider == setting.ProviderSourceAli {
+			forcedPathStyle = false
 		}
 		s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
 		if err != nil {
@@ -139,9 +139,9 @@ func (gcm *TarCacheManager) Archive(source, dest string) error {
 
 func (gcm *TarCacheManager) Unarchive(source, dest string) error {
 	if store, err := gcm.getS3Storage(); err == nil {
-		forcedPathStyle := false
-		if store.Provider == setting.ProviderSourceSystemDefault {
-			forcedPathStyle = true
+		forcedPathStyle := true
+		if store.Provider == setting.ProviderSourceAli {
+			forcedPathStyle = false
 		}
 		s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
 		if err != nil {

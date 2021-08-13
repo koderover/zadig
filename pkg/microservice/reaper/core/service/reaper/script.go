@@ -83,9 +83,9 @@ func (r *Reaper) runIntallationScripts() error {
 			filepath := strings.Split(install.Download, "/")
 			fileName := filepath[len(filepath)-1]
 			tmpPath = path.Join(os.TempDir(), fileName)
-			forcedPathStyle := false
-			if store.Provider == setting.ProviderSourceSystemDefault {
-				forcedPathStyle = true
+			forcedPathStyle := true
+			if store.Provider == setting.ProviderSourceAli {
+				forcedPathStyle = false
 			}
 			s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
 			if err == nil {

@@ -217,7 +217,7 @@ func getCheckStatus(status config.Status) github.CIStatus {
 	case config.StatusSkipped:
 		return github.CIStatusCancelled
 	case config.StatusCancelled:
-		return  github.CIStatusCancelled
+		return github.CIStatusCancelled
 	default:
 		return github.CIStatusError
 	}
@@ -483,9 +483,9 @@ func downloadReport(taskInfo *task.Task, fileName, testName string, logger *zap.
 		logger.Errorf("failed to create s3 storage %s", taskInfo.StorageURI)
 		return nil, err
 	}
-	forcedPathStyle := false
-	if store.Provider == setting.ProviderSourceSystemDefault {
-		forcedPathStyle = true
+	forcedPathStyle := true
+	if store.Provider == setting.ProviderSourceAli {
+		forcedPathStyle = false
 	}
 	client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
 	if err != nil {
