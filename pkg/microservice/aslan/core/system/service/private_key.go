@@ -35,7 +35,9 @@ func ListPrivateKeys(log *zap.SugaredLogger) ([]*commonmodels.PrivateKey, error)
 }
 
 func GetPrivateKey(id string, log *zap.SugaredLogger) (*commonmodels.PrivateKey, error) {
-	resp, err := commonrepo.NewPrivateKeyColl().Find(id)
+	resp, err := commonrepo.NewPrivateKeyColl().Find(commonrepo.FindPrivateKeyOption{
+		ID: id,
+	})
 	if err != nil {
 		log.Errorf("PrivateKey.Find %s error: %v", id, err)
 		return resp, e.ErrGetPrivateKey
