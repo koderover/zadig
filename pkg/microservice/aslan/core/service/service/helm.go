@@ -96,13 +96,12 @@ func ListHelmServices(productName string, log *zap.SugaredLogger) (*HelmService,
 		FileInfos: []*types.FileInfo{},
 	}
 
-	opt := &commonrepo.ServiceFindOption{
-		ProductName:   productName,
-		Type:          setting.HelmDeployType,
-		ExcludeStatus: setting.ProductStatusDeleting,
+	opt := &commonrepo.ServiceListOption{
+		ProductName: productName,
+		Type:        setting.HelmDeployType,
 	}
 
-	services, err := commonrepo.NewServiceColl().List(opt)
+	services, err := commonrepo.NewServiceColl().ListMaxRevisions(opt)
 	if err != nil {
 		log.Errorf("[helmService.list] err:%v", err)
 		return nil, e.ErrListTemplate.AddErr(err)
@@ -284,6 +283,7 @@ func CreateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) error {
 
 		opt := &commonrepo.ServiceFindOption{
 			ServiceName:   serviceName,
+			ProductName:   args.ProductName,
 			ExcludeStatus: setting.ProductStatusDeleting,
 		}
 		serviceTmpl, notFoundErr := commonrepo.NewServiceColl().Find(opt)
@@ -293,13 +293,13 @@ func CreateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) error {
 			}
 		}
 
-		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, serviceName, args.Type)
+		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, serviceName, args.ProductName)
 		rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
 		if err != nil {
 			return fmt.Errorf("helmService.create get next helm service revision error: %v", err)
 		}
 		args.Revision = rev
-		if err := commonrepo.NewServiceColl().Delete(serviceName, args.Type, "", setting.ProductStatusDeleting, args.Revision); err != nil {
+		if err := commonrepo.NewServiceColl().Delete(serviceName, args.Type, args.ProductName, setting.ProductStatusDeleting, args.Revision); err != nil {
 			log.Errorf("helmService.create delete %s error: %v", serviceName, err)
 		}
 		containerList := recursionGetImage(valuesMap)
@@ -443,14 +443,14 @@ func UpdateHelmService(args *HelmServiceArgs, log *zap.SugaredLogger) error {
 		}
 
 		preServiceTmpl.CreateBy = args.CreateBy
-		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, helmServiceInfo.ServiceName, setting.HelmDeployType)
+		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, helmServiceInfo.ServiceName, preServiceTmpl.ProductName)
 		rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
 		if err != nil {
 			return fmt.Errorf("get next helm service revision error: %v", err)
 		}
 
 		preServiceTmpl.Revision = rev
-		if err := commonrepo.NewServiceColl().Delete(helmServiceInfo.ServiceName, setting.HelmDeployType, "", setting.ProductStatusDeleting, preServiceTmpl.Revision); err != nil {
+		if err := commonrepo.NewServiceColl().Delete(helmServiceInfo.ServiceName, setting.HelmDeployType, args.ProductName, setting.ProductStatusDeleting, preServiceTmpl.Revision); err != nil {
 			log.Errorf("helmService.update delete %s error: %v", helmServiceInfo.ServiceName, err)
 		}
 

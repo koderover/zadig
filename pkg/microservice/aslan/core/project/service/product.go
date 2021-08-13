@@ -79,7 +79,7 @@ func ListProductTemplate(userID int, superUser bool, log *zap.SugaredLogger) ([]
 
 	poetryCtl := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
 
-	tmpls, err = templaterepo.NewProductColl().List("")
+	tmpls, err = templaterepo.NewProductColl().List()
 	if err != nil {
 		log.Errorf("ProfuctTmpl.List error: %v", err)
 		return resp, e.ErrListProducts.AddDesc(err.Error())
@@ -231,8 +231,6 @@ func ListProductTemplate(userID int, superUser bool, log *zap.SugaredLogger) ([]
 	for _, tmpl := range tmpls {
 		wg.Add(1)
 		ch <- 1
-		// 临时复制range获取的数据，避免重复操作最后一条数据
-		tmpTmpl := tmpl
 
 		go func(tmpTmpl *template.Product) {
 			defer func() {
@@ -240,30 +238,22 @@ func ListProductTemplate(userID int, superUser bool, log *zap.SugaredLogger) ([]
 				wg.Done()
 			}()
 
-			var (
-				totalEnvs     []*commonmodels.Product
-				totalServices []commonmodels.ServiceTmplRevision
-			)
-
-			totalServices, err = commonrepo.NewServiceColl().DistinctServices(&commonrepo.ServiceListOption{ProductName: tmpTmpl.ProductName, ExcludeStatus: setting.ProductStatusDeleting})
+			tmpTmpl.TotalServiceNum, err = commonrepo.NewServiceColl().Count(tmpTmpl.ProductName)
 			if err != nil {
 				errorList = multierror.Append(errorList, err)
 				return
 			}
 
-			totalEnvs, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: tmpTmpl.ProductName})
+			tmpTmpl.TotalEnvNum, err = commonrepo.NewProductColl().Count(tmpTmpl.ProductName)
 			if err != nil {
 				errorList = multierror.Append(errorList, err)
 				return
 			}
-
-			tmpTmpl.TotalServiceNum = len(totalServices)
-			tmpTmpl.TotalEnvNum = len(totalEnvs)
 
 			mu.Lock()
 			resp = append(resp, tmpTmpl)
 			mu.Unlock()
-		}(tmpTmpl)
+		}(tmpl)
 	}
 	wg.Wait()
 	if errorList.ErrorOrNil() != nil {
@@ -293,7 +283,7 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 	// 不保存vas
 	args.Vars = nil
 
-	err = commonservice.ValidateKVs(kvs, args.Services, log)
+	err = commonservice.ValidateKVs(kvs, args.AllServiceInfos(), log)
 	if err != nil {
 		return e.ErrCreateProduct.AddDesc(err.Error())
 	}
@@ -331,7 +321,7 @@ func UpdateProductTemplate(name string, args *template.Product, log *zap.Sugared
 	kvs := args.Vars
 	args.Vars = nil
 
-	if err = commonservice.ValidateKVs(kvs, args.Services, log); err != nil {
+	if err = commonservice.ValidateKVs(kvs, args.AllServiceInfos(), log); err != nil {
 		log.Warnf("ProductTmpl.Update ValidateKVs error: %v", err)
 	}
 
@@ -417,23 +407,20 @@ func UpdateProject(name string, args *template.Product, log *zap.SugaredLogger) 
 
 // DeleteProductTemplate 删除产品模板
 func DeleteProductTemplate(userName, productName, requestID string, log *zap.SugaredLogger) (err error) {
-	// TODO: do a thorough system check, now only shared svc is checked
-	svc, err := commonservice.ListServiceTemplate(productName, log)
+	publicServices, err := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{ProductName: productName, Visibility: setting.PublicService})
 	if err != nil {
-		log.Errorf("pre delete check failed, err: %+v", err)
+		log.Errorf("pre delete check failed, err: %s", err)
 		return e.ErrDeleteProduct.AddDesc(err.Error())
 	}
-	for _, services := range svc.Data {
-		if services.Visibility == "public" && services.ProductName == productName {
-			//如果有一个属于该项目的共享服务，需要确认是否被其他服务引用
-			used, err := CheckServiceUsed(productName, services.Service)
-			if err != nil {
-				log.Errorf("Check if service used error for service: %s, the error is: %+v", services.Service, err)
-				return e.ErrDeleteProduct.AddDesc("验证共享服务是否被引用失败")
-			}
-			if used {
-				return e.ErrDeleteProduct.AddDesc(fmt.Sprintf("共享服务[%s]在其他项目中被引用，请解除引用后删除", services.Service))
-			}
+
+	serviceToProject, err := commonservice.GetServiceInvolvedProjects(publicServices, productName)
+	if err != nil {
+		log.Errorf("pre delete check failed, err: %s", err)
+		return e.ErrDeleteProduct.AddDesc(err.Error())
+	}
+	for k, v := range serviceToProject {
+		if len(v) > 0 {
+			return e.ErrDeleteProduct.AddDesc(fmt.Sprintf("共享服务[%s]在项目%v中被引用，请解除引用后删除", k, v))
 		}
 	}
 
@@ -497,8 +484,8 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 		return err
 	}
 
-	services, _ := commonrepo.NewServiceColl().List(
-		&commonrepo.ServiceFindOption{ProductName: productName, Type: setting.K8SDeployType, ExcludeStatus: setting.ProductStatusDeleting},
+	services, _ := commonrepo.NewServiceColl().ListMaxRevisions(
+		&commonrepo.ServiceListOption{ProductName: productName, Type: setting.K8SDeployType},
 	)
 	for _, s := range services {
 		commonservice.ProcessServiceWebhook(nil, s, s.ServiceName, log)
@@ -545,40 +532,41 @@ func ForkProduct(userID int, username, requestID string, args *template.ForkProj
 
 	prodTmpl.ChartInfos = args.ValuesYamls
 	// Load Service
-	svcs := [][]*commonmodels.ProductService{}
+	var svcs [][]*commonmodels.ProductService
+	allServiceInfoMap := prodTmpl.AllServiceInfoMap()
 	for _, names := range prodTmpl.Services {
 		servicesResp := make([]*commonmodels.ProductService, 0)
 
 		for _, serviceName := range names {
 			opt := &commonrepo.ServiceFindOption{
 				ServiceName:   serviceName,
+				ProductName:   allServiceInfoMap[serviceName].Owner,
 				ExcludeStatus: setting.ProductStatusDeleting,
 			}
 
-			serviceTmpls, err := commonrepo.NewServiceColl().List(opt)
+			serviceTmpl, err := commonrepo.NewServiceColl().Find(opt)
 			if err != nil {
 				errMsg := fmt.Sprintf("[ServiceTmpl.List] %s error: %v", opt.ServiceName, err)
 				log.Error(errMsg)
 				return e.ErrForkProduct.AddDesc(errMsg)
 			}
-			for _, serviceTmpl := range serviceTmpls {
-				serviceResp := &commonmodels.ProductService{
-					ServiceName: serviceTmpl.ServiceName,
-					Type:        serviceTmpl.Type,
-					Revision:    serviceTmpl.Revision,
-				}
-				if serviceTmpl.Type == setting.HelmDeployType {
-					serviceResp.Containers = make([]*commonmodels.Container, 0)
-					for _, c := range serviceTmpl.Containers {
-						container := &commonmodels.Container{
-							Name:  c.Name,
-							Image: c.Image,
-						}
-						serviceResp.Containers = append(serviceResp.Containers, container)
-					}
-				}
-				servicesResp = append(servicesResp, serviceResp)
+			serviceResp := &commonmodels.ProductService{
+				ServiceName: serviceTmpl.ServiceName,
+				ProductName: serviceTmpl.ProductName,
+				Type:        serviceTmpl.Type,
+				Revision:    serviceTmpl.Revision,
 			}
+			if serviceTmpl.Type == setting.HelmDeployType {
+				serviceResp.Containers = make([]*commonmodels.Container, 0)
+				for _, c := range serviceTmpl.Containers {
+					container := &commonmodels.Container{
+						Name:  c.Name,
+						Image: c.Image,
+					}
+					serviceResp.Containers = append(serviceResp.Containers, container)
+				}
+			}
+			servicesResp = append(servicesResp, serviceResp)
 		}
 		svcs = append(svcs, servicesResp)
 	}
@@ -724,44 +712,45 @@ func ensureProductTmpl(args *template.Product) error {
 		return fmt.Errorf("product name must match %s", config.ServiceNameRegexString)
 	}
 
+	serviceNames := sets.NewString()
+	for _, sg := range args.Services {
+		for _, s := range sg {
+			if serviceNames.Has(s) {
+				return fmt.Errorf("duplicated service found: %s", s)
+			}
+			serviceNames.Insert(s)
+		}
+	}
+
 	// Revision为0表示是新增项目，新增项目不需要进行共享服务的判断，只在编辑项目时进行判断
 	if args.Revision != 0 {
 		//获取该项目下的所有服务
-		serviceTmpls, err := commonrepo.NewServiceColl().DistinctServices(&commonrepo.ServiceListOption{ExcludeStatus: setting.ProductStatusDeleting})
+		productTmpl, err := templaterepo.NewProductColl().Find(args.ProductName)
 		if err != nil {
-			return e.ErrListTemplate.AddDesc(err.Error())
+			log.Errorf("Can not find project %s, error: %s", args.ProductName, err)
+			return fmt.Errorf("project not found: %s", err)
 		}
 
-		serviceNames := sets.NewString()
-		for _, serviceTmpl := range serviceTmpls {
-			if serviceTmpl.ProductName == args.ProductName {
-				serviceNames.Insert(serviceTmpl.ServiceName)
-				continue
+		var newSharedServices []*template.ServiceInfo
+		currentSharedServiceMap := productTmpl.SharedServiceInfoMap()
+		for _, s := range args.SharedServices {
+			if _, ok := currentSharedServiceMap[s.Name]; !ok {
+				newSharedServices = append(newSharedServices, s)
 			}
+		}
 
-			opt := &commonrepo.ServiceFindOption{
-				ServiceName:   serviceTmpl.ServiceName,
-				Type:          serviceTmpl.Type,
-				Revision:      serviceTmpl.Revision,
-				ProductName:   serviceTmpl.ProductName,
-				ExcludeStatus: setting.ProductStatusDeleting,
-			}
-
-			resp, err := commonrepo.NewServiceColl().Find(opt)
+		if len(newSharedServices) > 0 {
+			services, err := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{
+				InServices: newSharedServices,
+				Visibility: setting.PublicService,
+			})
 			if err != nil {
-				return e.ErrGetTemplate.AddDesc(err.Error())
+				log.Errorf("Failed to list services, err: %s", err)
+				return err
 			}
 
-			if resp.Visibility == setting.PUBLICSERVICE {
-				serviceNames.Insert(serviceTmpl.ServiceName)
-			}
-		}
-
-		for _, serviceGroup := range args.Services {
-			for _, service := range serviceGroup {
-				if !serviceNames.Has(service) {
-					return fmt.Errorf("服务 %s 不存在或者已经不是共享服务", service)
-				}
+			if len(newSharedServices) != len(services) {
+				return fmt.Errorf("新增的共享服务服务不存在或者已经不是共享服务")
 			}
 		}
 	}
@@ -774,47 +763,6 @@ func ensureProductTmpl(args *template.Product) error {
 
 	args.Revision = rev
 	return nil
-}
-
-// distincProductServices 查询使用到服务模板的产品模板
-func distincProductServices(productName string) (map[string][]string, error) {
-	serviceMap := make(map[string][]string)
-	products, err := templaterepo.NewProductColl().List(productName)
-	if err != nil {
-		return serviceMap, err
-	}
-
-	for _, product := range products {
-		for _, group := range product.Services {
-			for _, service := range group {
-				if _, ok := serviceMap[service]; !ok {
-					serviceMap[service] = []string{product.ProductName}
-				} else {
-					serviceMap[service] = append(serviceMap[service], product.ProductName)
-				}
-			}
-		}
-	}
-
-	return serviceMap, nil
-}
-
-func CheckServiceUsed(productName, serviceName string) (bool, error) {
-	servicesMap, err := distincProductServices("")
-	if err != nil {
-		errMsg := fmt.Sprintf("failed to get serviceMap, error: %v", err)
-		log.Error(errMsg)
-		return false, err
-	}
-
-	if _, ok := servicesMap[serviceName]; ok {
-		for _, svcProductName := range servicesMap[serviceName] {
-			if productName != svcProductName {
-				return true, nil
-			}
-		}
-	}
-	return false, nil
 }
 
 func DeleteProductsAsync(userName, productName, requestID string, log *zap.SugaredLogger) error {
@@ -862,7 +810,7 @@ func ListTemplatesHierachy(userName string, userID int, superUser bool, log *zap
 	)
 
 	if superUser {
-		productTmpls, err = templaterepo.NewProductColl().List("")
+		productTmpls, err = templaterepo.NewProductColl().List()
 		if err != nil {
 			log.Errorf("[%s] ProductTmpl.List error: %v", userName, err)
 			return nil, e.ErrListProducts.AddDesc(err.Error())
@@ -885,28 +833,19 @@ func ListTemplatesHierachy(userName string, userID int, superUser bool, log *zap
 
 	for _, productTmpl := range productTmpls {
 		pInfo := &ProductInfo{Value: productTmpl.ProductName, Label: productTmpl.ProductName, ServiceInfo: []*ServiceInfo{}}
-		for _, servicesGroup := range productTmpl.Services {
-			for _, svc := range servicesGroup {
+		services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), "")
+		if err != nil {
+			log.Errorf("Failed to list service for project %s, error: %s", productTmpl.ProductName, err)
+			return nil, e.ErrGetProduct.AddDesc(err.Error())
+		}
+		for _, svcTmpl := range services {
+			sInfo := &ServiceInfo{Value: svcTmpl.ServiceName, Label: svcTmpl.ServiceName, ContainerInfo: make([]*ContainerInfo, 0)}
 
-				opt := &commonrepo.ServiceFindOption{
-					ServiceName:   svc,
-					ExcludeStatus: setting.ProductStatusDeleting,
-				}
-
-				svcTmpl, err := commonrepo.NewServiceColl().Find(opt)
-				if err != nil {
-					log.Errorf("[%s] ServiceTmpl.Find %s/%s error: %v", userName, productTmpl.ProductName, svc, err)
-					return nil, e.ErrGetProduct.AddDesc(err.Error())
-				}
-
-				sInfo := &ServiceInfo{Value: svcTmpl.ServiceName, Label: svcTmpl.ServiceName, ContainerInfo: make([]*ContainerInfo, 0)}
-
-				for _, c := range svcTmpl.Containers {
-					sInfo.ContainerInfo = append(sInfo.ContainerInfo, &ContainerInfo{Value: c.Name, Label: c.Name})
-				}
-
-				pInfo.ServiceInfo = append(pInfo.ServiceInfo, sInfo)
+			for _, c := range svcTmpl.Containers {
+				sInfo.ContainerInfo = append(sInfo.ContainerInfo, &ContainerInfo{Value: c.Name, Label: c.Name})
 			}
+
+			pInfo.ServiceInfo = append(pInfo.ServiceInfo, sInfo)
 		}
 		resp = append(resp, pInfo)
 	}

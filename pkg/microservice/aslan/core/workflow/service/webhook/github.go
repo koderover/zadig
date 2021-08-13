@@ -553,12 +553,11 @@ func updateServiceTemplateByGithubPush(pushEvent *github.PushEvent, log *zap.Sug
 }
 
 func GetGithubServiceTemplates() ([]*commonmodels.Service, error) {
-	opt := &commonrepo.ServiceFindOption{
+	opt := &commonrepo.ServiceListOption{
 		Type:          setting.K8SDeployType,
 		Source:        setting.SourceFromGithub,
-		ExcludeStatus: setting.ProductStatusDeleting,
 	}
-	return commonrepo.NewServiceColl().List(opt)
+	return commonrepo.NewServiceColl().ListMaxRevisions(opt)
 }
 
 // GetOwnerRepoBranchPath 获取gitlab路径中的owner、repo、branch和path

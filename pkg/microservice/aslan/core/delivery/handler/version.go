@@ -23,13 +23,10 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gin-gonic/gin/binding"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	taskmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	deliveryservice "github.com/koderover/zadig/pkg/microservice/aslan/core/delivery/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
@@ -55,47 +52,6 @@ func GetProductNameByDelivery(c *gin.Context) {
 	}
 	c.Set("productName", deliveryVersion.ProductName)
 	c.Next()
-}
-
-func AddDeliveryVersion(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	internalhandler.InsertOperationLog(c, ctx.Username, c.Query("productName"), "新增", "版本交付", fmt.Sprintf("工作流名称:%s,任务Id:%s", c.Query("workflowName"), c.Query("taskId")), permission.WorkflowDeliveryUUID, "", ctx.Logger)
-	//params validate
-	orgIDStr := c.Query("orgId")
-	orgID, err := strconv.Atoi(orgIDStr)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("orgId can't be empty!")
-		return
-	}
-
-	productName := c.Query("productName")
-	if productName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can't be empty!")
-		return
-	}
-
-	workflowName := c.Query("workflowName")
-	if workflowName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("workflowName can't be empty!")
-		return
-	}
-
-	taskIDStr := c.Query("taskId")
-	taskID, err := strconv.Atoi(taskIDStr)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("taskId can't be empty!")
-		return
-	}
-
-	pipelineTask := new(taskmodels.Task)
-	if err := c.ShouldBindWith(&pipelineTask, binding.JSON); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-		return
-	}
-
-	ctx.Err = commonservice.AddDeliveryVersion(orgID, taskID, productName, workflowName, pipelineTask, ctx.Logger)
 }
 
 func GetDeliveryVersion(c *gin.Context) {

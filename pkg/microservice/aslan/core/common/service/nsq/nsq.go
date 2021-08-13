@@ -23,7 +23,7 @@ import (
 
 	"github.com/nsqio/go-nsq"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/tool/nsqcli"
 )
@@ -49,7 +49,7 @@ func Init(agentID string, addresses []string) {
 		log.Fatalf("Failed to init producer for nsq service")
 	}
 	sender.SetLogger(stdlog.New(os.Stdout, "nsq producer:", 0), nsq.LogLevelError)
-	err = nsqClient.EnsureNsqdTopics([]string{config.TopicCronjob, config.TopicCancel, config.TopicProcess})
+	err = nsqClient.EnsureNsqdTopics([]string{setting.TopicCronjob, setting.TopicCancel, setting.TopicProcess})
 	if err != nil {
 		log.Fatalf("cannot ensure cronjob topic in nsq")
 	}

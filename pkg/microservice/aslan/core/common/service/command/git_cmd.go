@@ -29,7 +29,6 @@ import (
 	"strings"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/codehost"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -99,11 +98,13 @@ func RunGitCmds(codehostDetail *codehost.Detail, repoOwner, repoName, branchName
 	cmds = append(cmds, buildGitCommands(repo)...)
 
 	if repo.Source == setting.SourceFromGithub {
-		proxies, _ := commonrepo.NewProxyColl().List(&commonrepo.ProxyArgs{})
-		if len(proxies) > 0 {
-			url := proxies[0].GetProxyURL()
-			envs = append(envs, fmt.Sprintf("http_proxy=%s", url))
-			envs = append(envs, fmt.Sprintf("https_proxy=%s", url))
+		httpsProxy := config.ProxyHTTPSAddr()
+		httpProxy := config.ProxyHTTPAddr()
+		if httpsProxy != "" {
+			envs = append(envs, fmt.Sprintf("https_proxy=%s", httpsProxy))
+		}
+		if httpProxy != "" {
+			envs = append(envs, fmt.Sprintf("http_proxy=%s", httpProxy))
 		}
 	}
 

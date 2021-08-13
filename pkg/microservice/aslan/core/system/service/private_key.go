@@ -19,6 +19,7 @@ package service
 import (
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -43,9 +44,14 @@ func GetPrivateKey(id string, log *zap.SugaredLogger) (*commonmodels.PrivateKey,
 }
 
 func CreatePrivateKey(args *commonmodels.PrivateKey, log *zap.SugaredLogger) error {
+	if !config.CVMNameRegex.MatchString(args.Name) {
+		return e.ErrCreatePrivateKey.AddDesc("主机名称仅支持字母，数字和下划线且首个字符不以数字开头")
+	}
+
 	if privateKeys, _ := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{Name: args.Name}); len(privateKeys) > 0 {
 		return e.ErrCreatePrivateKey.AddDesc("Name already exists")
 	}
+
 	err := commonrepo.NewPrivateKeyColl().Create(args)
 	if err != nil {
 		log.Errorf("PrivateKey.Create error: %v", err)
