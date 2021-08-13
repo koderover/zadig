@@ -1,9 +1,7 @@
 # New Makefile for multi-architecture
 .PHONY: all
 
-args = $(foreach a,$($(subst -,_,$1)_args),$(if $(value $a),$a="$($a)"))
 IMAGE_REPOSITORY = ccr.ccs.tencentyun.com/koderover-rc
-DATE:=$(shell date +'%Y%m%d%H%M%S')
 VERSION ?= $(shell date +'%Y%m%d%H%M%S')
 
 TARGETS = aslan cron hub-agent hub-server jenkins-plugin podexec predator-plugin resource-server warpdrive
