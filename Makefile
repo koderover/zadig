@@ -17,8 +17,8 @@ all.push: $(ALL_PUSH:=.amd64) $(ALL_PUSH:=.arm64) $(ALL_REAPER_PUSH:=.amd64) $(A
 
 all.amd64: $(ALL_IMAGES:=.amd64) $(ALL_REAPER:=.amd64)
 all.arm64: $(ALL_IMAGES:=.amd64) $(ALL_REAPER:=.arm64)
-allpush.amd64: $(ALL_PUSH:=.amd64) $(ALL_REAPER_PUSH.amd64)
-allpush.arm64: $(ALL_PUSH:=.arm64) $(ALL_REAPER_PUSH.arm64)
+allpush.amd64: $(ALL_PUSH:=.amd64) $(ALL_REAPER_PUSH:=.amd64)
+allpush.arm64: $(ALL_PUSH:=.arm64) $(ALL_REAPER_PUSH:=.arm64)
 
 %.reaper.push.arm64: MAKE_IMAGE ?= ${IMAGE_REPOSITORY}/reaper-plugin:${VERSION}-arm64-$*
 %.reaper.push.arm64: %.reaper.image.arm64
