@@ -20,11 +20,11 @@ all.arm64: $(ALL_IMAGES:=.amd64) $(ALL_REAPER:=.arm64)
 allpush.amd64: $(ALL_PUSH:=.amd64) $(ALL_REAPER_PUSH:=.amd64)
 allpush.arm64: $(ALL_PUSH:=.arm64) $(ALL_REAPER_PUSH:=.arm64)
 
-%.reaper.push.arm64: MAKE_IMAGE ?= ${IMAGE_REPOSITORY}/reaper-plugin:${VERSION}-arm64-$*
+%.reaper.push.arm64: MAKE_IMAGE = ${IMAGE_REPOSITORY}/reaper-plugin:${VERSION}-arm64-$*
 %.reaper.push.arm64: %.reaper.image.arm64
 	@docker push ${MAKE_IMAGE}
 
-%.reaper.image.arm64: MAKE_IMAGE ?= ${IMAGE_REPOSITORY}/reaper-plugin:${VERSION}-arm64-$*
+%.reaper.image.arm64: MAKE_IMAGE = ${IMAGE_REPOSITORY}/reaper-plugin:${VERSION}-arm64-$*
 %.reaper.image.arm64:
 	@mkdir -p docker/dist/arm64
 	@cp docker/service/reaper-plugin-$*.Dockerfile docker/dist/arm64/reaper-plugin-$*.Dockerfile
@@ -37,11 +37,11 @@ allpush.arm64: $(ALL_PUSH:=.arm64) $(ALL_REAPER_PUSH:=.arm64)
 	@sed -i -e '/#alpine-git.Dockerfile/ {' -e 'r docker/base/arm64/alpine-git.Dockerfile' -e 'd' -e '}' docker/dist/arm64/reaper-plugin-$*.Dockerfile
 	@docker build -f docker/dist/arm64/reaper-plugin-$*.Dockerfile --tag ${MAKE_IMAGE} .
 
-%.reaper.push.amd64: MAKE_IMAGE ?= ${IMAGE_REPOSITORY}/reaper-plugin:${VERSION}-amd64-$*
+%.reaper.push.amd64: MAKE_IMAGE = ${IMAGE_REPOSITORY}/reaper-plugin:${VERSION}-amd64-$*
 %.reaper.push.amd64: %.reaper.image.amd64
 	@docker push ${MAKE_IMAGE}
 
-%.reaper.image.amd64: MAKE_IMAGE ?= ${IMAGE_REPOSITORY}/reaper-plugin:${VERSION}-amd64-$*
+%.reaper.image.amd64: MAKE_IMAGE = ${IMAGE_REPOSITORY}/reaper-plugin:${VERSION}-amd64-$*
 %.reaper.image.amd64:
 	@mkdir -p docker/dist/amd64
 	@cp docker/service/reaper-plugin-$*.Dockerfile docker/dist/amd64/reaper-plugin-$*.Dockerfile
