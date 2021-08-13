@@ -203,6 +203,27 @@ func GetGitRepoInfo(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GetGitRepoInfo(codehostID, c.Query("repoOwner"), repoName, branchName, remoteName, dir, ctx.Logger)
 }
 
+type repoInfo struct {
+	CodeHostID int    `json:"codehost_id" form:"codehost_id"`
+	Owner      string `json:"owner"       form:"owner"`
+	Repo       string `json:"repo"        form:"repo"`
+	Path       string `json:"path"        form:"path"`
+	Branch     string `json:"branch"      form:"branch"`
+}
+
+func GetRepoTree(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	info := &repoInfo{}
+	if err := c.BindQuery(info); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetRepoTree(info.CodeHostID, info.Owner, info.Repo, info.Path, info.Branch, ctx.Logger)
+}
+
 func GetPublicGitRepoInfo(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

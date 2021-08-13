@@ -14,16 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package upgradepath
+package gitlab
 
 import (
-	"testing"
-
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
 )
 
-func TestRoutes(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "upgrade path Suite")
+func (c *Client) GetTree(owner, repo, path, branch string) ([]*git.TreeNode, error) {
+	var treeNodes []*git.TreeNode
+
+	tns, err := c.ListTree(owner, repo, path, branch, false, nil)
+	if err != nil {
+		return nil, err
+	}
+	for _, t := range tns {
+		treeNodes = append(treeNodes, git.ToTreeNode(t))
+	}
+	return treeNodes, nil
 }

@@ -258,7 +258,7 @@ func GitlabGetRawFiles(client *gitlabtool.Client, owner, repo, ref, path, pathTy
 	files = make([]string, 0)
 	var errs *multierror.Error
 	if pathType == "tree" {
-		nodes, err := client.ListTree(owner, repo, ref, path)
+		nodes, err := client.ListTree(owner, repo, path, ref, false, nil)
 		if err != nil {
 			return files, err
 		}

@@ -48,6 +48,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workspace.GET("/file", GetWorkspaceFile)
 		workspace.GET("/git/:codehostId/:repoName/:branchName/:remoteName", GetGitRepoInfo)
 		workspace.GET("/publicRepo", GetPublicGitRepoInfo)
+		workspace.GET("/tree", GetRepoTree)
 
 		workspace.GET("/github/:codehostId/:repoName/:branchName", GetGithubRepoInfo)
 		workspace.GET("/gitlab/:codehostId/:repoName/:branchName", GetGitlabRepoInfo)

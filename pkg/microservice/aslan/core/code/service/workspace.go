@@ -18,6 +18,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -28,15 +29,59 @@ import (
 	"github.com/google/go-github/v35/github"
 	"github.com/xanzy/go-gitlab"
 	"go.uber.org/zap"
-	"golang.org/x/oauth2"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
+	githubservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
+	gitlabservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gitlab"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/poetry"
 	"github.com/koderover/zadig/pkg/tool/codehub"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	githubtool "github.com/koderover/zadig/pkg/tool/git/github"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
+
+func GetRepoTree(codeHostID int, owner, repo, path, branch string, log *zap.SugaredLogger) ([]*git.TreeNode, error) {
+
+	ch, err := codehost.GetCodeHostInfoByID(codeHostID)
+	if err != nil {
+		log.Errorf("Failed to get codeHost by id %d, err: %s", codeHostID, err)
+		return nil, e.ErrListWorkspace.AddDesc(err.Error())
+	}
+	getter, err := getTreeGetter(ch)
+	if err != nil {
+		log.Errorf("Failed to get tree getter, err: %s", err)
+		return nil, e.ErrListWorkspace.AddDesc(err.Error())
+	}
+
+	fileInfos, err := getter.GetTree(owner, repo, path, branch)
+	if err != nil {
+		return nil, e.ErrListWorkspace.AddDesc(err.Error())
+	}
+
+	return fileInfos, nil
+}
+
+type treeGetter interface {
+	GetTree(owner, repo, path, branch string) ([]*git.TreeNode, error)
+}
+
+func getTreeGetter(ch *poetry.CodeHost) (treeGetter, error) {
+	switch ch.Type {
+	case setting.SourceFromGithub:
+		return githubservice.NewClient(ch.AccessToken, config.ProxyHTTPSAddr()), nil
+	case setting.SourceFromGitlab:
+		return gitlabservice.NewClient(ch.Address, ch.AccessToken)
+	default:
+		// should not have happened here
+		log.DPanicf("invalid source: %s", ch.Type)
+		return nil, fmt.Errorf("invalid source: %s", ch.Type)
+	}
+}
 
 func CleanWorkspace(username, pipelineName string, log *zap.SugaredLogger) error {
 	wsPath, err := getWorkspaceBasePath(pipelineName)
@@ -224,14 +269,9 @@ func GetGithubRepoInfo(codehostID int, repoName, branchName, path string, log *z
 		log.Errorf("GetGithubRepoInfo GetCodehostDetail err:%v", err)
 		return fileInfo, e.ErrListWorkspace.AddDesc(err.Error())
 	}
-	ctx := context.Background()
-	tokenSource := oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: detail.OauthToken},
-	)
-	tokenClient := oauth2.NewClient(ctx, tokenSource)
-	githubClient := github.NewClient(tokenClient)
 
-	_, dirContent, _, err := githubClient.Repositories.GetContents(ctx, detail.Owner, repoName, path, &github.RepositoryContentGetOptions{Ref: branchName})
+	githubClient := githubtool.NewClient(&githubtool.Config{AccessToken: detail.OauthToken, Proxy: config.ProxyHTTPSAddr()})
+	_, dirContent, err := githubClient.GetContents(context.TODO(), detail.Owner, repoName, path, &github.RepositoryContentGetOptions{Ref: branchName})
 	if err != nil {
 		return nil, e.ErrListWorkspace.AddDesc(err.Error())
 	}

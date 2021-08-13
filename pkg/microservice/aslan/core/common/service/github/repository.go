@@ -14,16 +14,25 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package upgradepath
+package github
 
 import (
-	"testing"
+	"context"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"github.com/google/go-github/v35/github"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
 )
 
-func TestRoutes(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "upgrade path Suite")
+func (c *Client) GetTree(owner, repo, path, branch string) ([]*git.TreeNode, error) {
+	var treeNodes []*git.TreeNode
+
+	_, dirContent, err := c.GetContents(context.TODO(), owner, repo, path, &github.RepositoryContentGetOptions{Ref: branch})
+	if err != nil {
+		return nil, err
+	}
+	for _, dir := range dirContent {
+		treeNodes = append(treeNodes, git.ToTreeNode(dir))
+	}
+	return treeNodes, nil
 }

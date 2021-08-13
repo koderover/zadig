@@ -22,19 +22,33 @@ import (
 	"github.com/xanzy/go-gitlab"
 )
 
-func (c *Client) ListTree(owner, repo string, ref string, path string) ([]*gitlab.TreeNode, error) {
-	// Recursive default value is false,
-	opts := &gitlab.ListTreeOptions{
-		Ref:  &ref,
-		Path: &path,
+func (c *Client) ListTree(owner, repo, path, branch string, recursive bool, opts *ListOptions) ([]*gitlab.TreeNode, error) {
+	nodes, err := wrap(paginated(func(o *gitlab.ListOptions) ([]interface{}, *gitlab.Response, error) {
+		popts := &gitlab.ListTreeOptions{
+			ListOptions: *o,
+			Ref:         &branch,
+			Path:        &path,
+			Recursive:   &recursive,
+		}
+
+		ns, r, err := c.Repositories.ListTree(generateProjectName(owner, repo), popts)
+		var res []interface{}
+		for _, n := range ns {
+			res = append(res, n)
+		}
+		return res, r, err
+	}, opts))
+
+	var res []*gitlab.TreeNode
+	ns, ok := nodes.([]interface{})
+	if !ok {
+		return nil, nil
+	}
+	for _, s := range ns {
+		res = append(res, s.(*gitlab.TreeNode))
 	}
 
-	tn, err := wrap(c.Repositories.ListTree(generateProjectName(owner, repo), opts))
-	if t, ok := tn.([]*gitlab.TreeNode); ok {
-		return t, err
-	}
-
-	return nil, err
+	return res, err
 }
 
 func (c *Client) GetRawFile(owner, repo string, sha string, fileName string) ([]byte, error) {
