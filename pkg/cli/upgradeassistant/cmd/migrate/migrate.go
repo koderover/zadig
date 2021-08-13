@@ -17,7 +17,12 @@ limitations under the License.
 package migrate
 
 import (
+	"context"
 	"fmt"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -40,6 +45,12 @@ func init() {
 // 3. Change the ServiceTemplateCounterName format
 func V130ToV131() error {
 	fmt.Println("Migrating data from 1.3.0 to 1.3.1")
+
+	err := alterServiceIndex(false)
+	if err != nil {
+		fmt.Printf("Failed to update mongodb index, err: %s\n", err)
+		return err
+	}
 
 	allServices, err := mongodb.NewServiceColl().ListMaxRevisions(nil)
 	if err != nil {
@@ -133,6 +144,12 @@ func V130ToV131() error {
 func V131ToV130() error {
 	fmt.Println("Rollback data from 1.3.1 to 1.3.0")
 
+	err := alterServiceIndex(true)
+	if err != nil {
+		fmt.Printf("Failed to update mongodb index, err: %s\n", err)
+		return err
+	}
+
 	allServices, err := mongodb.NewServiceColl().ListMaxRevisions(nil)
 	if err != nil {
 		return err
@@ -208,4 +225,19 @@ func updateServiceCounter(allServices []*models.Service, oldTemplate, newTemplat
 	}
 
 	return nil
+}
+
+func alterServiceIndex(unique bool) error {
+	mod := mongo.IndexModel{
+		Keys: bson.D{
+			bson.E{Key: "service_name", Value: 1},
+			bson.E{Key: "type", Value: 1},
+			bson.E{Key: "revision", Value: 1},
+		},
+		Options: options.Index().SetUnique(unique),
+	}
+	_, _ = mongodb.NewServiceColl().Indexes().DropOne(context.TODO(), "service_name_1_type_1_revision_1")
+	_, err := mongodb.NewServiceColl().Indexes().CreateOne(context.TODO(), mod)
+
+	return err
 }
