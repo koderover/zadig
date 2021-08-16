@@ -241,7 +241,9 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 		serviceOption.CustomVariable = productRenderEnvs
 	}
 
-	if args.Source == setting.SourceFromGitlab || args.Source == setting.SourceFromGithub || args.Source == setting.SourceFromGerrit {
+	if args.Source == setting.SourceFromGitlab || args.Source == setting.SourceFromGithub ||
+		args.Source == setting.SourceFromGerrit || args.Source == setting.SourceFromCodeHub ||
+		args.Source == setting.SourceFromIlyshin {
 		serviceOption.Yaml = args.Yaml
 	}
 	return serviceOption, nil
@@ -270,7 +272,7 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap
 				}
 			}
 			// 配置来源为Gitlab，对比配置的ChangeLog是否变化
-			if args.Source == setting.SourceFromGitlab || args.Source == setting.SourceFromGithub || args.Source == setting.SourceFromCodeHub {
+			if args.Source == setting.SourceFromGitlab || args.Source == setting.SourceFromGithub || args.Source == setting.SourceFromCodeHub || args.Source == setting.SourceFromIlyshin {
 				if args.Commit != nil && serviceTmpl.Commit != nil && args.Commit.SHA == serviceTmpl.Commit.SHA {
 					log.Infof("%s change log remains the same, quit creation", args.Source)
 					return GetServiceOption(serviceTmpl, log)
