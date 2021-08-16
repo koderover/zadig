@@ -30,9 +30,9 @@ func ListProductsRevision(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.ListProductsRevision(c.Query("productName"), c.Query("envName"), ctx.User.ID, ctx.User.IsSuperUser, ctx.Logger)
 }
 
-func ListTemplateProductsRevisionCron(c *gin.Context) {
+func ListPmTemplateProductsRevision(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListTemplateProductsRevisionCron(c.Query("basicFacility"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListPmTemplateProductsRevision(c.Query("basicFacility"), ctx.Logger)
 }

@@ -132,7 +132,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		revision.GET("/products", ListProductsRevision)
 		// 提供给cron service 调用
-		revision.GET("/products/cron", ListTemplateProductsRevisionCron)
+		revision.GET("/products/cron", ListPmTemplateProductsRevision)
 	}
 
 	// ---------------------------------------------------------------------------------------

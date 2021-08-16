@@ -128,7 +128,7 @@ func ListProductsRevision(productName, envName string, userID int, superUser boo
 	return prodRevs, nil
 }
 
-func ListTemplateProductsRevisionCron(basicFacility string, log *zap.SugaredLogger) ([]*ProductRevision, error) {
+func ListPmTemplateProductsRevision(basicFacility string, log *zap.SugaredLogger) ([]*ProductRevision, error) {
 	var (
 		err      error
 		prodRevs = make([]*ProductRevision, 0)
@@ -137,14 +137,14 @@ func ListTemplateProductsRevisionCron(basicFacility string, log *zap.SugaredLogg
 
 	temProducts, err := templaterepo.NewProductColl().ListWithOption(&templaterepo.ProductListOpt{BasicFacility: basicFacility})
 	if err != nil {
-		log.Errorf("Collection.TemplateProduct.List error: %v", err)
+		log.Errorf("Collection.TemplateProduct.List error: %s", err)
 		return prodRevs, e.ErrListProducts.AddDesc(err.Error())
 	}
 
 	for _, v := range temProducts {
 		productsT, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{ExcludeStatus: setting.ProductStatusDeleting, Name: v.ProductName})
 		if err != nil {
-			log.Errorf("Collection.Product.List error: %v", err)
+			log.Errorf("Collection.Product.List error: %s", err)
 			return prodRevs, e.ErrListProducts.AddDesc(err.Error())
 		}
 		products = append(products, productsT...)
@@ -160,7 +160,7 @@ func ListTemplateProductsRevisionCron(basicFacility string, log *zap.SugaredLogg
 	// 获取所有渲染配置最新模板信息
 	allRenders, err := commonrepo.NewRenderSetColl().ListAllRenders()
 	if err != nil {
-		log.Errorf("ListAllRevisions error: %v", err)
+		log.Errorf("ListAllRevisions error: %s", err)
 		return prodRevs, e.ErrListProducts.AddDesc(err.Error())
 	}
 
