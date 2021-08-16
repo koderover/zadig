@@ -37,7 +37,7 @@ func (c *Client) ListEnvs(log *zap.SugaredLogger) ([]*service.ProductRevision, e
 		resp = make([]*service.ProductRevision, 0)
 	)
 
-	url := fmt.Sprintf("%s/environment/revision/products/cron?deployType=%s", c.APIBase, "cloud_host")
+	url := fmt.Sprintf("%s/environment/revision/products/cron?basicFacility=%s", c.APIBase, "cloud_host")
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		log.Errorf("ListEnvs new http request error: %v", err)

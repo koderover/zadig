@@ -130,14 +130,14 @@ func ListProductsRevision(productName, envName string, userID int, superUser boo
 	return prodRevs, nil
 }
 
-func ListProductsRevisionCron(productName, envName, deployType string, userID int, superUser bool, log *zap.SugaredLogger) ([]*ProductRevision, error) {
+func ListTemplateProductsRevisionCron(envName, basicFacility string, log *zap.SugaredLogger) ([]*ProductRevision, error) {
 	var (
 		err      error
 		prodRevs = make([]*ProductRevision, 0)
 		products = make([]*commonmodels.Product, 0)
 	)
 
-	temProducts, err := templaterepo.NewProductColl().ListWithOption(&templaterepo.ProductListOpt{DeployType: deployType})
+	temProducts, err := templaterepo.NewProductColl().ListWithOption(&templaterepo.ProductListOpt{BasicFacility: basicFacility})
 	if err != nil {
 		log.Errorf("Collection.TemplateProduct.List error: %v", err)
 		return prodRevs, e.ErrListProducts.AddDesc(err.Error())
@@ -146,19 +146,14 @@ func ListProductsRevisionCron(productName, envName, deployType string, userID in
 	temProductsMap := make(map[string]*template.Product)
 	for _, v := range temProducts {
 		temProductsMap[v.ProductName] = v
+		productsT, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{ExcludeStatus: setting.ProductStatusDeleting, Name: v.ProductName, EnvName: envName})
+		if err != nil {
+			log.Errorf("Collection.Product.List error: %v", err)
+			return prodRevs, e.ErrListProducts.AddDesc(err.Error())
+		}
+		products = append(products, productsT...)
 	}
 
-	products, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{ExcludeStatus: setting.ProductStatusDeleting, Name: productName, EnvName: envName})
-	if err != nil {
-		log.Errorf("Collection.Product.List error: %v", err)
-		return prodRevs, e.ErrListProducts.AddDesc(err.Error())
-	}
-	productsT := []*commonmodels.Product{}
-	for _, v := range products {
-		if _, ok := temProductsMap[v.ProductName]; ok {
-			productsT = append(productsT, v)
-		}
-	}
 	// 获取所有服务模板最新模板信息
 	allServiceTmpls, err := commonrepo.NewServiceColl().ListAllRevisions()
 	if err != nil {
@@ -173,7 +168,7 @@ func ListProductsRevisionCron(productName, envName, deployType string, userID in
 		return prodRevs, e.ErrListProducts.AddDesc(err.Error())
 	}
 
-	for _, prod := range productsT {
+	for _, prod := range products {
 		newRender := &commonmodels.RenderSet{}
 		if prod.Render != nil {
 			newRender, err = commonservice.GetRenderSet(prod.Render.Name, 0, log)
