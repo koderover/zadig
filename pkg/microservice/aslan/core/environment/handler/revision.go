@@ -29,3 +29,10 @@ func ListProductsRevision(c *gin.Context) {
 
 	ctx.Resp, ctx.Err = service.ListProductsRevision(c.Query("productName"), c.Query("envName"), ctx.User.ID, ctx.User.IsSuperUser, ctx.Logger)
 }
+
+func ListProductsRevisionCron(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.ListProductsRevisionCron(c.Query("productName"), c.Query("envName"), c.Query("deployType"), ctx.User.ID, ctx.User.IsSuperUser, ctx.Logger)
+}
