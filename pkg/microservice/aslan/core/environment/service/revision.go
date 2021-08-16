@@ -153,7 +153,7 @@ func ListPmTemplateProductsRevision(basicFacility string, log *zap.SugaredLogger
 	// 获取所有服务模板最新模板信息
 	allServiceTmpls, err := commonrepo.NewServiceColl().ListAllRevisions()
 	if err != nil {
-		log.Errorf("ListAllRevisions error: %v", err)
+		log.Errorf("ListAllRevisions error: %s", err)
 		return prodRevs, e.ErrListProducts.AddDesc(err.Error())
 	}
 
