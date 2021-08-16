@@ -34,5 +34,5 @@ func ListTemplateProductsRevisionCron(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListTemplateProductsRevisionCron(c.Query("envName"), c.Query("basicFacility"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListTemplateProductsRevisionCron(c.Query("basicFacility"), ctx.Logger)
 }

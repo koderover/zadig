@@ -128,7 +128,7 @@ func ListProductsRevision(productName, envName string, userID int, superUser boo
 	return prodRevs, nil
 }
 
-func ListTemplateProductsRevisionCron(envName, basicFacility string, log *zap.SugaredLogger) ([]*ProductRevision, error) {
+func ListTemplateProductsRevisionCron(basicFacility string, log *zap.SugaredLogger) ([]*ProductRevision, error) {
 	var (
 		err      error
 		prodRevs = make([]*ProductRevision, 0)
@@ -142,7 +142,7 @@ func ListTemplateProductsRevisionCron(envName, basicFacility string, log *zap.Su
 	}
 
 	for _, v := range temProducts {
-		productsT, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{ExcludeStatus: setting.ProductStatusDeleting, Name: v.ProductName, EnvName: envName})
+		productsT, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{ExcludeStatus: setting.ProductStatusDeleting, Name: v.ProductName})
 		if err != nil {
 			log.Errorf("Collection.Product.List error: %v", err)
 			return prodRevs, e.ErrListProducts.AddDesc(err.Error())
