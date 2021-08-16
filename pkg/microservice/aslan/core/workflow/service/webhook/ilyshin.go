@@ -128,12 +128,11 @@ func updateServiceTemplateByIlyshinPushEvent(event *ilyshin.PushEvent, log *zap.
 }
 
 func GetIlyshinServiceTemplates() ([]*commonmodels.Service, error) {
-	opt := &commonrepo.ServiceFindOption{
-		Type:          setting.K8SDeployType,
-		Source:        setting.SourceFromIlyshin,
-		ExcludeStatus: setting.ProductStatusDeleting,
+	opt := &commonrepo.ServiceListOption{
+		Type:   setting.K8SDeployType,
+		Source: setting.SourceFromIlyshin,
 	}
-	return commonrepo.NewServiceColl().List(opt)
+	return commonrepo.NewServiceColl().ListMaxRevisions(opt)
 }
 
 // SyncServiceTemplateFromIlyshin Force to sync Service Template to latest commit and content,
