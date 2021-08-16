@@ -18,8 +18,6 @@ package service
 
 import (
 	"fmt"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
-
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -143,9 +141,7 @@ func ListTemplateProductsRevisionCron(envName, basicFacility string, log *zap.Su
 		return prodRevs, e.ErrListProducts.AddDesc(err.Error())
 	}
 
-	temProductsMap := make(map[string]*template.Product)
 	for _, v := range temProducts {
-		temProductsMap[v.ProductName] = v
 		productsT, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{ExcludeStatus: setting.ProductStatusDeleting, Name: v.ProductName, EnvName: envName})
 		if err != nil {
 			log.Errorf("Collection.Product.List error: %v", err)
