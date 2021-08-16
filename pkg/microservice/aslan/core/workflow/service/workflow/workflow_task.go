@@ -1639,7 +1639,7 @@ func BuildModuleToSubTasks(moduleName, version, target, serviceName, productName
 			privateKeys := make([]*task.SSH, 0)
 			for _, sshID := range module.SSHs {
 				//私钥信息可能被更新，而构建中存储的信息是旧的，需要根据id获取最新的私钥信息
-				latestKeyInfo, err := commonrepo.NewPrivateKeyColl().Find(sshID)
+				latestKeyInfo, err := commonrepo.NewPrivateKeyColl().Find(commonrepo.FindPrivateKeyOption{ID: sshID})
 				if err != nil || latestKeyInfo == nil {
 					log.Errorf("PrivateKey.Find failed, id:%s, err:%v", sshID, err)
 					continue
