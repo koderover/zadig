@@ -903,9 +903,9 @@ func GePackageFileContent(pipelineName string, taskID int64, log *zap.SugaredLog
 	defer func() {
 		_ = os.Remove(tmpfile.Name())
 	}()
-	forcedPathStyle := false
-	if storage.Provider == setting.ProviderSourceSystemDefault {
-		forcedPathStyle = true
+	forcedPathStyle := true
+	if storage.Provider == setting.ProviderSourceAli {
+		forcedPathStyle = false
 	}
 	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
 	if err != nil {
@@ -927,9 +927,9 @@ func GetArtifactFileContent(pipelineName string, taskID int64, log *zap.SugaredL
 	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
 		_ = os.MkdirAll(sourcePath, 0777)
 	}
-	forcedPathStyle := false
-	if s3Storage.Provider == setting.ProviderSourceSystemDefault {
-		forcedPathStyle = true
+	forcedPathStyle := true
+	if s3Storage.Provider == setting.ProviderSourceAli {
+		forcedPathStyle = false
 	}
 	client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
 	if err != nil {
@@ -986,9 +986,9 @@ func GetTestArtifactInfo(pipelineName, dir string, taskID int64, log *zap.Sugare
 	} else {
 		storage.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineName, taskID, "artifact")
 	}
-	forcedPathStyle := false
-	if storage.Provider == setting.ProviderSourceSystemDefault {
-		forcedPathStyle = true
+	forcedPathStyle := true
+	if storage.Provider == setting.ProviderSourceAli {
+		forcedPathStyle = false
 	}
 	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
 	if err != nil {

@@ -329,9 +329,9 @@ func cleanStaleTasks(tasks []*task.Task, s3Server *s3.S3, dryRun bool) []string 
 		ids[i] = task.ID.Hex()
 		paths[i] = fmt.Sprintf("%s/%d/", task.PipelineName, task.TaskID)
 	}
-	forcedPathStyle := false
-	if s3Server.Provider == setting.ProviderSourceSystemDefault {
-		forcedPathStyle = true
+	forcedPathStyle := true
+	if s3Server.Provider == setting.ProviderSourceAli {
+		forcedPathStyle = false
 	}
 	s3client, err := s3tool.NewClient(s3Server.Endpoint, s3Server.Ak, s3Server.Sk, s3Server.Insecure, forcedPathStyle)
 	if err == nil {

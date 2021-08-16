@@ -117,48 +117,41 @@ func GetInitProduct(productTmplName string, log *zap.SugaredLogger) (*commonmode
 	ret.Vars = prodTmpl.Vars
 	ret.ChartInfos = prodTmpl.ChartInfos
 
+	allServiceInfoMap := prodTmpl.AllServiceInfoMap()
 	for _, names := range prodTmpl.Services {
 		servicesResp := make([]*commonmodels.ProductService, 0)
 
 		for _, serviceName := range names {
 			opt := &commonrepo.ServiceFindOption{
 				ServiceName:   serviceName,
+				ProductName:   allServiceInfoMap[serviceName].Owner,
 				ExcludeStatus: setting.ProductStatusDeleting,
 			}
 
-			serviceTmpls, err := commonrepo.NewServiceColl().List(opt)
+			serviceTmpl, err := commonrepo.NewServiceColl().Find(opt)
 			if err != nil {
-				errMsg := fmt.Sprintf("[ServiceTmpl.List] %s error: %v", opt.ServiceName, err)
+				errMsg := fmt.Sprintf("Can not find service with option %+v, error: %v", opt, err)
 				log.Error(errMsg)
 				return nil, e.ErrGetProduct.AddDesc(errMsg)
 			}
-			for _, serviceTmpl := range serviceTmpls {
-				serviceResp := &commonmodels.ProductService{
-					ServiceName: serviceTmpl.ServiceName,
-					Type:        serviceTmpl.Type,
-					Revision:    serviceTmpl.Revision,
-				}
-				if serviceTmpl.Type == setting.K8SDeployType {
-					serviceResp.Containers = make([]*commonmodels.Container, 0)
-					for _, c := range serviceTmpl.Containers {
-						container := &commonmodels.Container{
-							Name:  c.Name,
-							Image: c.Image,
-						}
-						serviceResp.Containers = append(serviceResp.Containers, container)
-					}
-				} else if serviceTmpl.Type == setting.HelmDeployType {
-					serviceResp.Containers = make([]*commonmodels.Container, 0)
-					for _, c := range serviceTmpl.Containers {
-						container := &commonmodels.Container{
-							Name:  c.Name,
-							Image: c.Image,
-						}
-						serviceResp.Containers = append(serviceResp.Containers, container)
-					}
-				}
-				servicesResp = append(servicesResp, serviceResp)
+
+			serviceResp := &commonmodels.ProductService{
+				ServiceName: serviceTmpl.ServiceName,
+				ProductName: serviceTmpl.ProductName,
+				Type:        serviceTmpl.Type,
+				Revision:    serviceTmpl.Revision,
 			}
+			if serviceTmpl.Type == setting.K8SDeployType || serviceTmpl.Type == setting.HelmDeployType {
+				serviceResp.Containers = make([]*commonmodels.Container, 0)
+				for _, c := range serviceTmpl.Containers {
+					container := &commonmodels.Container{
+						Name:  c.Name,
+						Image: c.Image,
+					}
+					serviceResp.Containers = append(serviceResp.Containers, container)
+				}
+			}
+			servicesResp = append(servicesResp, serviceResp)
 		}
 		ret.Services = append(ret.Services, servicesResp)
 	}

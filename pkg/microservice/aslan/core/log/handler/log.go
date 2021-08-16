@@ -85,3 +85,20 @@ func GetWorkflowTestJobContainerLogs(c *gin.Context) {
 	// job名称使用全小写，避免出现subdomain错误
 	ctx.Resp, ctx.Err = logservice.GetWorkflowTestJobContainerLogs(c.Param("pipelineName"), c.Param("serviceName"), c.Query("workflowType"), taskID, ctx.Logger)
 }
+
+func GetContainerLogs(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	podName := c.Param("podName")
+	containerName := c.Param("containerName")
+	envName := c.Query("envName")
+	productName := c.Query("productName")
+
+	tails, err := strconv.ParseInt(c.Query("tails"), 10, 64)
+	if err != nil {
+		tails = int64(10)
+	}
+
+	ctx.Resp, ctx.Err = logservice.GetCurrentContainerLogs(podName, containerName, envName, productName, tails, ctx.Logger)
+}

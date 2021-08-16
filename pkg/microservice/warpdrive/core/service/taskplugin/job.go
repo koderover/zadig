@@ -113,9 +113,9 @@ func saveContainerLog(pipelineTask *task.Task, namespace, fileName string, jobLa
 			} else {
 				store.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineTask.PipelineName, pipelineTask.TaskID, "log")
 			}
-			forcedPathStyle := false
-			if store.Provider == setting.ProviderSourceSystemDefault {
-				forcedPathStyle = true
+			forcedPathStyle := true
+			if store.Provider == setting.ProviderSourceAli {
+				forcedPathStyle = false
 			}
 			s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
 			if err != nil {

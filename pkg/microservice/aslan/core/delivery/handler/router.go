@@ -45,7 +45,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 	deliveryRelease := router.Group("releases")
 	{
-		deliveryRelease.POST("", gin2.IsHavePermission([]string{permission.WorkflowDeliveryUUID}, permission.QueryType), gin2.UpdateOperationLogStatus, AddDeliveryVersion)
 		deliveryRelease.GET("/:id", GetDeliveryVersion)
 		deliveryRelease.GET("", ListDeliveryVersion)
 		deliveryRelease.DELETE("/:id", GetProductNameByDelivery, gin2.IsHavePermission([]string{permission.ReleaseDeleteUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, DeleteDeliveryVersion)

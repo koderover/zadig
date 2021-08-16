@@ -17,7 +17,6 @@ limitations under the License.
 package service
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -38,11 +37,9 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gerrit"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	s3service "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/types"
@@ -99,13 +96,12 @@ func ListHelmServices(productName string, log *zap.SugaredLogger) (*HelmService,
 		FileInfos: []*types.FileInfo{},
 	}
 
-	opt := &commonrepo.ServiceFindOption{
-		ProductName:   productName,
-		Type:          setting.HelmDeployType,
-		ExcludeStatus: setting.ProductStatusDeleting,
+	opt := &commonrepo.ServiceListOption{
+		ProductName: productName,
+		Type:        setting.HelmDeployType,
 	}
 
-	services, err := commonrepo.NewServiceColl().List(opt)
+	services, err := commonrepo.NewServiceColl().ListMaxRevisions(opt)
 	if err != nil {
 		log.Errorf("[helmService.list] err:%v", err)
 		return nil, e.ErrListTemplate.AddErr(err)
@@ -287,6 +283,7 @@ func CreateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) error {
 
 		opt := &commonrepo.ServiceFindOption{
 			ServiceName:   serviceName,
+			ProductName:   args.ProductName,
 			ExcludeStatus: setting.ProductStatusDeleting,
 		}
 		serviceTmpl, notFoundErr := commonrepo.NewServiceColl().Find(opt)
@@ -296,13 +293,13 @@ func CreateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) error {
 			}
 		}
 
-		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, serviceName, args.Type)
+		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, serviceName, args.ProductName)
 		rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
 		if err != nil {
 			return fmt.Errorf("helmService.create get next helm service revision error: %v", err)
 		}
 		args.Revision = rev
-		if err := commonrepo.NewServiceColl().Delete(serviceName, args.Type, "", setting.ProductStatusDeleting, args.Revision); err != nil {
+		if err := commonrepo.NewServiceColl().Delete(serviceName, args.Type, args.ProductName, setting.ProductStatusDeleting, args.Revision); err != nil {
 			log.Errorf("helmService.create delete %s error: %v", serviceName, err)
 		}
 		containerList := recursionGetImage(valuesMap)
@@ -329,11 +326,6 @@ func CreateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) error {
 				Version:    chartVersion,
 				ValuesYaml: valuesYaml,
 			},
-		}
-
-		// exec lint and dry run
-		if err = helmChartDryRun(chartVersion, valuesYaml, serviceName, path.Join(base, filePath), log); err != nil {
-			return e.ErrHelmDryRunFailed.AddDesc(fmt.Sprintf("具体错误信息: %s", err.Error()))
 		}
 
 		if err := commonrepo.NewServiceColl().Create(serviceObj); err != nil {
@@ -366,34 +358,6 @@ func CreateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) error {
 	}()
 
 	return nil
-}
-
-func helmChartDryRun(chartVersion, valuesYaml, serviceName, chartPath string, log *zap.SugaredLogger) error {
-	restConfig, err := kube.GetRESTConfig("")
-	if err != nil {
-		log.Errorf("GetRESTConfig err: %s", err)
-		return err
-	}
-	helmClient, err := helmclient.NewClientFromRestConf(restConfig, config.Namespace())
-	if err != nil {
-		log.Errorf("NewClientFromRestConf err: %s", err)
-		return err
-	}
-	// Add a random to exclude resource conflicts caused by the same name
-	name := fmt.Sprintf("%s-%s-%s", config.Namespace(), serviceName, util.GetRandomString(6))
-	chartSpec := &helmclient.ChartSpec{
-		ReleaseName: name,
-		ChartName:   name,
-		Namespace:   config.Namespace(),
-		Version:     chartVersion,
-		ValuesYaml:  valuesYaml,
-		DryRun:      true,
-	}
-
-	err = helmClient.InstallOrUpgradeChart(context.Background(), chartSpec,
-		&helmclient.ChartOption{ChartPath: chartPath}, log)
-
-	return err
 }
 
 func UpdateHelmService(args *HelmServiceArgs, log *zap.SugaredLogger) error {
@@ -479,14 +443,14 @@ func UpdateHelmService(args *HelmServiceArgs, log *zap.SugaredLogger) error {
 		}
 
 		preServiceTmpl.CreateBy = args.CreateBy
-		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, helmServiceInfo.ServiceName, setting.HelmDeployType)
+		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, helmServiceInfo.ServiceName, preServiceTmpl.ProductName)
 		rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
 		if err != nil {
 			return fmt.Errorf("get next helm service revision error: %v", err)
 		}
 
 		preServiceTmpl.Revision = rev
-		if err := commonrepo.NewServiceColl().Delete(helmServiceInfo.ServiceName, setting.HelmDeployType, "", setting.ProductStatusDeleting, preServiceTmpl.Revision); err != nil {
+		if err := commonrepo.NewServiceColl().Delete(helmServiceInfo.ServiceName, setting.HelmDeployType, args.ProductName, setting.ProductStatusDeleting, preServiceTmpl.Revision); err != nil {
 			log.Errorf("helmService.update delete %s error: %v", helmServiceInfo.ServiceName, err)
 		}
 
@@ -617,9 +581,9 @@ func uploadService(base, serviceName, filePath string) error {
 		log.Errorf("获取默认的s3配置失败 err:%v", err)
 		return err
 	}
-	forcedPathStyle := false
-	if s3Storage.Provider == setting.ProviderSourceSystemDefault {
-		forcedPathStyle = true
+	forcedPathStyle := true
+	if s3Storage.Provider == setting.ProviderSourceAli {
+		forcedPathStyle = false
 	}
 	client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
 	if err != nil {

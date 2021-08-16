@@ -74,9 +74,9 @@ func GetWorkflowArgs(productName, namespace string, log *zap.SugaredLogger) (*Cr
 	}
 
 	targetMap := getProductTargetMap(product)
-	productTemplMap := getProductTemplTargetMap(product.ProductName)
+	projectTargets := getProjectTargets(product.ProductName)
 	targets := make([]*commonmodels.TargetArgs, 0)
-	for container := range productTemplMap {
+	for _, container := range projectTargets {
 		if _, ok := targetMap[container]; !ok {
 			continue
 		}
@@ -133,18 +133,18 @@ func getProductTargetMap(prod *commonmodels.Product) map[string][]commonmodels.D
 				for _, container := range serviceObj.Containers {
 					env := serviceObj.ServiceName + "/" + container.Name
 					deployEnv := commonmodels.DeployEnv{Type: setting.K8SDeployType, Env: env}
-					target := fmt.Sprintf("%s%s%s%s%s", prod.ProductName, SplitSymbol, serviceObj.ServiceName, SplitSymbol, container.Name)
+					target := strings.Join([]string{serviceObj.ProductName, serviceObj.ServiceName, container.Name}, SplitSymbol)
 					resp[target] = append(resp[target], deployEnv)
 				}
 			case setting.PMDeployType:
 				deployEnv := commonmodels.DeployEnv{Type: setting.PMDeployType, Env: serviceObj.ServiceName}
-				target := fmt.Sprintf("%s%s%s%s%s", prod.ProductName, SplitSymbol, serviceObj.ServiceName, SplitSymbol, serviceObj.ServiceName)
+				target := strings.Join([]string{serviceObj.ProductName, serviceObj.ServiceName, serviceObj.ServiceName}, SplitSymbol)
 				resp[target] = append(resp[target], deployEnv)
 			case setting.HelmDeployType:
 				for _, container := range serviceObj.Containers {
 					env := serviceObj.ServiceName + "/" + container.Name
 					deployEnv := commonmodels.DeployEnv{Type: setting.HelmDeployType, Env: env}
-					target := fmt.Sprintf("%s%s%s%s%s", prod.ProductName, SplitSymbol, serviceObj.ServiceName, SplitSymbol, container.Name)
+					target := strings.Join([]string{serviceObj.ProductName, serviceObj.ServiceName, container.Name}, SplitSymbol)
 					resp[target] = append(resp[target], deployEnv)
 				}
 			}
@@ -153,18 +153,14 @@ func getProductTargetMap(prod *commonmodels.Product) map[string][]commonmodels.D
 	return resp
 }
 
-func getProductTemplTargetMap(productName string) map[string][]commonmodels.DeployEnv {
-	targets := make(map[string][]commonmodels.DeployEnv)
+func getProjectTargets(productName string) []string {
+	var targets []string
 	productTmpl, err := template.NewProductColl().Find(productName)
 	if err != nil {
 		log.Errorf("[%s] ProductTmpl.Find error: %v", productName, err)
 		return targets
 	}
-	var svcNames []string
-	for _, ss := range productTmpl.Services {
-		svcNames = append(svcNames, ss...)
-	}
-	services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(svcNames, "")
+	services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), "")
 	if err != nil {
 		log.Errorf("ServiceTmpl.ListMaxRevisions error: %v", err)
 		return targets
@@ -172,22 +168,12 @@ func getProductTemplTargetMap(productName string) map[string][]commonmodels.Depl
 
 	for _, serviceTmpl := range services {
 		switch serviceTmpl.Type {
-		case setting.K8SDeployType:
+		case setting.K8SDeployType, setting.HelmDeployType:
 			for _, container := range serviceTmpl.Containers {
-				deployEnv := commonmodels.DeployEnv{Env: serviceTmpl.ServiceName + "/" + container.Name, Type: setting.K8SDeployType, ProductName: serviceTmpl.ProductName}
-				target := fmt.Sprintf("%s%s%s%s%s", productTmpl.ProductName, SplitSymbol, serviceTmpl.ServiceName, SplitSymbol, container.Name)
-				targets[target] = append(targets[target], deployEnv)
+				targets = append(targets, strings.Join([]string{serviceTmpl.ProductName, serviceTmpl.ServiceName, container.Name}, SplitSymbol))
 			}
 		case setting.PMDeployType:
-			deployEnv := commonmodels.DeployEnv{Env: serviceTmpl.ServiceName, Type: setting.PMDeployType}
-			target := fmt.Sprintf("%s%s%s%s%s", productTmpl.ProductName, SplitSymbol, serviceTmpl.ServiceName, SplitSymbol, serviceTmpl.ServiceName)
-			targets[target] = append(targets[target], deployEnv)
-		case setting.HelmDeployType:
-			for _, container := range serviceTmpl.Containers {
-				deployEnv := commonmodels.DeployEnv{Env: serviceTmpl.ServiceName + "/" + container.Name, Type: setting.HelmDeployType, ProductName: serviceTmpl.ProductName}
-				target := fmt.Sprintf("%s%s%s%s%s", productTmpl.ProductName, SplitSymbol, serviceTmpl.ServiceName, SplitSymbol, container.Name)
-				targets[target] = append(targets[target], deployEnv)
-			}
+			targets = append(targets, strings.Join([]string{serviceTmpl.ProductName, serviceTmpl.ServiceName, serviceTmpl.ServiceName}, SplitSymbol))
 		}
 	}
 
@@ -202,10 +188,11 @@ func findModuleByTargetAndVersion(allModules []*commonmodels.Build, serviceModul
 
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName:   containerArr[1],
+		ProductName:   containerArr[0],
 		ExcludeStatus: setting.ProductStatusDeleting,
 	}
 	serviceObj, _ := commonrepo.NewServiceColl().Find(opt)
-	if serviceObj != nil && serviceObj.Visibility == setting.PUBLICSERVICE {
+	if serviceObj != nil && serviceObj.Visibility == setting.PublicService {
 		containerArr[0] = serviceObj.ProductName
 	}
 	for _, mo := range allModules {
@@ -304,10 +291,10 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 	}
 
 	targetMap := getProductTargetMap(product)
-	productTemplMap := getProductTemplTargetMap(product.ProductName)
+	projectTargets := getProjectTargets(product.ProductName)
 	targets := make([]*commonmodels.TargetArgs, 0)
 	if (workflow.BuildStage != nil && workflow.BuildStage.Enabled) || (workflow.ArtifactStage != nil && workflow.ArtifactStage.Enabled) {
-		for container := range productTemplMap {
+		for _, container := range projectTargets {
 			if _, ok := targetMap[container]; !ok {
 				continue
 			}
@@ -316,7 +303,14 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 			if len(containerArr) != 3 {
 				continue
 			}
-			target := &commonmodels.TargetArgs{Name: containerArr[2], ServiceName: containerArr[1], Deploy: targetMap[container], Build: &commonmodels.BuildArgs{}, HasBuild: true}
+			target := &commonmodels.TargetArgs{
+				Name:        containerArr[2],
+				ServiceName: containerArr[1],
+				ProductName: containerArr[0],
+				Deploy:      targetMap[container],
+				Build:       &commonmodels.BuildArgs{},
+				HasBuild:    true,
+			}
 			moBuild := findModuleByTargetAndVersion(allModules, container, setting.Version)
 			if moBuild == nil {
 				moBuild = &commonmodels.Build{}
@@ -506,7 +500,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		// should always be stable
 		target.Version = "stable"
 		if target.JenkinsBuildArgs == nil {
-			subTasks, err = BuildModuleToSubTasks("", target.Version, target.Name, target.ServiceName, args.ProductTmplName, target.Envs, env, log)
+			subTasks, err = BuildModuleToSubTasks("", target.Version, target.Name, target.ServiceName, target.ProductName, target.Envs, env, log)
 		} else {
 			subTasks, err = JenkinsBuildModuleToSubTasks(&JenkinsBuildOption{
 				Version:          target.Version,
@@ -748,7 +742,11 @@ func AddDataToArgs(args *commonmodels.WorkflowTaskArgs, log *zap.SugaredLogger) 
 		target.HasBuild = true
 		// openAPI模式，传入的name是服务名称
 		// 只支持k8s服务
-		opt := &commonrepo.ServiceFindOption{ServiceName: target.Name, Type: setting.K8SDeployType, ExcludeStatus: setting.ProductStatusDeleting}
+		opt := &commonrepo.ServiceFindOption{
+			ServiceName:   target.Name,
+			ProductName:   workflow.ProductTmplName,
+			Type:          setting.K8SDeployType,
+			ExcludeStatus: setting.ProductStatusDeleting}
 		serviceTmpl, err := commonrepo.NewServiceColl().Find(opt)
 		if err != nil {
 			log.Errorf("[ServiceTmpl.Find] error: %v", err)
@@ -1553,14 +1551,6 @@ func BuildModuleToSubTasks(moduleName, version, target, serviceName, productName
 		serviceTmpl *commonmodels.Service
 	)
 
-	serviceTmpl, _ = commonservice.GetServiceTemplate(
-		serviceName, "", "", setting.ProductStatusDeleting, 0, log,
-	)
-	if serviceTmpl != nil && serviceTmpl.Visibility == setting.PUBLICSERVICE {
-		productName = serviceTmpl.ProductName
-	}
-	serviceTmpl = nil
-
 	opt := &commonrepo.BuildListOption{
 		Name:        moduleName,
 		Version:     version,
@@ -1649,7 +1639,7 @@ func BuildModuleToSubTasks(moduleName, version, target, serviceName, productName
 			privateKeys := make([]*task.SSH, 0)
 			for _, sshID := range module.SSHs {
 				//私钥信息可能被更新，而构建中存储的信息是旧的，需要根据id获取最新的私钥信息
-				latestKeyInfo, err := commonrepo.NewPrivateKeyColl().Find(sshID)
+				latestKeyInfo, err := commonrepo.NewPrivateKeyColl().Find(commonrepo.FindPrivateKeyOption{ID: sshID})
 				if err != nil || latestKeyInfo == nil {
 					log.Errorf("PrivateKey.Find failed, id:%s, err:%v", sshID, err)
 					continue

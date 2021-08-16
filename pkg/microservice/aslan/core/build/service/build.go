@@ -192,10 +192,10 @@ func DeleteBuild(name, version, productName string, log *zap.SugaredLogger) erro
 			return e.ErrDeleteBuildModule.AddDesc(msg)
 		}
 	}
-	serviceTempRevisions, _ := commonrepo.NewServiceColl().DistinctServices(&commonrepo.ServiceListOption{BuildName: name, ProductName: productName, ExcludeStatus: setting.ProductStatusDeleting})
+	services, _ := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{BuildName: name, ProductName: productName})
 	serviceNames := make([]string, 0)
-	for _, serviceTempRevision := range serviceTempRevisions {
-		serviceNames = append(serviceNames, serviceTempRevision.ServiceName)
+	for _, service := range services {
+		serviceNames = append(serviceNames, service.ServiceName)
 	}
 	if len(serviceNames) > 0 {
 		return e.ErrDeleteBuildModule.AddDesc(fmt.Sprintf("该构建被服务 [%s] 引用，请解除引用之后再做删除!", strings.Join(serviceNames, ",")))
@@ -280,7 +280,7 @@ func handleServiceTargets(name, productName string, targets []*commonmodels.Serv
 	}
 
 	for _, args := range services {
-		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceName, args.Type)
+		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceName, args.ProductName)
 		rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
 		if err != nil {
 			continue
@@ -288,7 +288,7 @@ func handleServiceTargets(name, productName string, targets []*commonmodels.Serv
 		args.Revision = rev
 		args.BuildName = ""
 
-		if err := commonrepo.NewServiceColl().Delete(args.ServiceName, args.Type, "", setting.ProductStatusDeleting, args.Revision); err != nil {
+		if err := commonrepo.NewServiceColl().Delete(args.ServiceName, args.Type, args.ProductName, setting.ProductStatusDeleting, args.Revision); err != nil {
 			continue
 		}
 
@@ -298,7 +298,7 @@ func handleServiceTargets(name, productName string, targets []*commonmodels.Serv
 	}
 
 	for _, args := range addServices {
-		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceName, args.Type)
+		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceName, args.ProductName)
 		rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
 		if err != nil {
 			continue

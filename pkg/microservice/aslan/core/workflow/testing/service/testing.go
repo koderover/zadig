@@ -83,9 +83,9 @@ func HandleCronjob(testing *commonmodels.Testing, log *zap.SugaredLogger) error 
 			payload.Action = setting.TypeDisableCronjob
 		}
 		pl, _ := json.Marshal(payload)
-		err := nsq.Publish(config.TopicCronjob, pl)
+		err := nsq.Publish(setting.TopicCronjob, pl)
 		if err != nil {
-			log.Errorf("Failed to publish to nsq topic: %s, the error is: %v", config.TopicCronjob, err)
+			log.Errorf("Failed to publish to nsq topic: %s, the error is: %v", setting.TopicCronjob, err)
 			return e.ErrUpsertCronjob.AddDesc(err.Error())
 		}
 	}
@@ -359,9 +359,9 @@ func GetHTMLTestReport(pipelineName, pipelineType, taskIDStr, testName string, l
 	defer func() {
 		_ = os.Remove(tmpFilename)
 	}()
-	forcedPathStyle := false
-	if store.Provider == setting.ProviderSourceSystemDefault {
-		forcedPathStyle = true
+	forcedPathStyle := true
+	if store.Provider == setting.ProviderSourceAli {
+		forcedPathStyle = false
 	}
 	client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
 	if err != nil {

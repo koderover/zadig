@@ -449,11 +449,17 @@ func getServiceRenderYAML(productInfo *commonmodels.Product, containers []*commo
 			log.Errorf("[%s][P:%s]renderset Find error: %v", productInfo.EnvName, productInfo.ProductName, err)
 			return "", fmt.Errorf("get pure yaml %s error: %v", serviceName, err)
 		}
+
+		serviceInfo := productInfo.GetServiceMap()[serviceName]
+		if serviceInfo == nil {
+			return "", fmt.Errorf("service %s not found", serviceName)
+		}
 		// 获取服务模板
 		serviceFindOption := &mongodb.ServiceFindOption{
 			ServiceName: serviceName,
+			ProductName: serviceInfo.ProductName,
 			Type:        setting.K8SDeployType,
-			Revision:    getServiceRevision(serviceName, productInfo.Services),
+			Revision:    serviceInfo.Revision,
 		}
 		svcTmpl, err := mongodb.NewServiceColl().Find(serviceFindOption)
 		if err != nil {
@@ -469,15 +475,4 @@ func getServiceRenderYAML(productInfo *commonmodels.Product, containers []*commo
 		return parsedYaml, nil
 	}
 	return "", nil
-}
-
-func getServiceRevision(serviceName string, productServices [][]*commonmodels.ProductService) int64 {
-	for _, services := range productServices {
-		for _, serviceInfo := range services {
-			if serviceInfo.ServiceName == serviceName {
-				return serviceInfo.Revision
-			}
-		}
-	}
-	return 0
 }

@@ -89,7 +89,6 @@ func DeleteWorkflow(workflowName, requestID string, isDeletingProductTmpl bool, 
 	err = ProcessWebhook(nil, workflow.HookCtl.Items, webhook.WorkflowPrefix+workflow.Name, log)
 	if err != nil {
 		log.Errorf("Failed to process webhook, err: %s", err)
-		return e.ErrUpsertWorkflow.AddDesc(err.Error())
 	}
 
 	go gerrit.DeleteGerritWebhook(workflow, log)

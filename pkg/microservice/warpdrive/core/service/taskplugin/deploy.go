@@ -489,9 +489,9 @@ func (p *DeployTaskPlugin) downloadService(pipelineTask *task.Task, serviceName,
 
 	filePath := fmt.Sprintf("%s.tar.gz", serviceName)
 	tarFilePath := path.Join(base, filePath)
-	forcedPathStyle := false
-	if s3Storage.Provider == setting.ProviderSourceSystemDefault {
-		forcedPathStyle = true
+	forcedPathStyle := true
+	if s3Storage.Provider == setting.ProviderSourceAli {
+		forcedPathStyle = false
 	}
 	s3client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
 	if err != nil {

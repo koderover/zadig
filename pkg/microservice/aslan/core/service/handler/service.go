@@ -130,8 +130,11 @@ func YamlValidator(c *gin.Context) {
 	}
 	resp := make([]*ValidatorResp, 0)
 	errMsgList := svcservice.YamlValidator(args)
-	for _, errMsg := range errMsgList {
-		resp = append(resp, &ValidatorResp{Message: errMsg})
+	if len(errMsgList) > 0 {
+		ctx.Logger.Errorf("svcservice.YamlValidator err : %v", errMsgList)
+		resp = append(resp, &ValidatorResp{
+			Message: "Invalid yaml format. The content must be a series of valid Kubernetes resources",
+		})
 	}
 	ctx.Resp = resp
 }
@@ -156,11 +159,11 @@ func ListServicePort(c *gin.Context) {
 	ctx.Resp, ctx.Err = svcservice.ListServicePort(c.Param("name"), c.Param("type"), c.Query("productName"), setting.ProductStatusDeleting, revision, ctx.Logger)
 }
 
-func ListServiceTemplateNames(c *gin.Context) {
+func ListAvailablePublicServices(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = svcservice.ListServiceTemplateNames(c.Query("productName"), ctx.Logger)
+	ctx.Resp, ctx.Err = svcservice.ListAvailablePublicServices(c.Query("productName"), ctx.Logger)
 }
 
 func GetServiceTemplateProductName(c *gin.Context) {

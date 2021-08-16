@@ -406,102 +406,106 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 					}
 				}
 			case config.TaskTestingV2:
-				subTestTaskMap := subStage.SubTasks
-				for _, subTask := range subTestTaskMap {
-					var (
-						isNew        = false
-						testTaskStat *commonmodels.TestTaskStat
-					)
-					testInfo, err := base.ToTestingTask(subTask)
-					if err != nil {
-						h.log.Errorf("uploadTaskData get testInfo ToTestingTask failed ! err:%v", err)
-						continue
-					}
-
-					if testInfo.JobCtx.TestType == setting.FunctionTestType {
-						testTaskStat, _ = h.TestTaskStatColl.FindTestTaskStat(&commonrepo.TestTaskStatOption{Name: testInfo.TestModuleName})
-						if testTaskStat == nil {
-							isNew = true
-							testTaskStat = new(commonmodels.TestTaskStat)
-							testTaskStat.Name = testInfo.TestModuleName
-							testTaskStat.CreateTime = time.Now().Unix()
-							testTaskStat.UpdateTime = time.Now().Unix()
-						}
-
-						var filename string
-						if storage, err := s3.FindDefaultS3(); err == nil {
-							filename, err = util.GenerateTmpFile()
-							if err != nil {
-								h.log.Errorf("uploadTaskData GenerateTmpFile err:%v", err)
-							}
-
-							testJobName := strings.Replace(strings.ToLower(fmt.Sprintf("%s-%s-%d-%s-%s",
-								config.WorkflowType, pt.PipelineName, pt.TaskID, config.TaskTestingV2, testInfo.TestModuleName)), "_", "-", -1)
-							fileSrc := fmt.Sprintf("%s/%d/%s/%s", pt.PipelineName, pt.TaskID, "test", testJobName)
-							forcedPathStyle := false
-							if storage.Provider == setting.ProviderSourceSystemDefault {
-								forcedPathStyle = true
-							}
-							client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
-							objectKey := storage.GetObjectPath(fileSrc)
-							err = client.Download(storage.Bucket, objectKey, filename)
-							if err != nil {
-								h.log.Errorf("uploadTaskData s3 Download err:%v", err)
-							}
-							_ = os.Remove(filename)
-						} else {
-							h.log.Errorf("uploadTaskData FindDefaultS3 err:%v", err)
-						}
-
-						b, err := ioutil.ReadFile(filename)
+				// Exclude cases where the test is not executed
+				if taskStatus != "" {
+					subTestTaskMap := subStage.SubTasks
+					for _, subTask := range subTestTaskMap {
+						var (
+							isNew        = false
+							testTaskStat *commonmodels.TestTaskStat
+						)
+						testInfo, err := base.ToTestingTask(subTask)
 						if err != nil {
-							msg := fmt.Sprintf("uploadTaskData get local test result file error: %v", err)
-							h.log.Error(msg)
+							h.log.Errorf("uploadTaskData get testInfo ToTestingTask failed ! err:%v", err)
+							continue
 						}
 
-						testReport := new(commonmodels.TestSuite)
-						if err := xml.Unmarshal(b, &testReport); err != nil {
-							msg := fmt.Sprintf("uploadTaskData testSuite unmarshal it report xml error: %v", err)
-							h.log.Error(msg)
-						}
-						totalCaseNum := testReport.Tests
-						if totalCaseNum != 0 {
-							testTaskStat.TestCaseNum = totalCaseNum
-						}
-						testTaskStat.TotalDuration += testInfo.EndTime - testInfo.StartTime
-					}
-
-					if taskStatus == config.StatusPassed {
 						if testInfo.JobCtx.TestType == setting.FunctionTestType {
-							testTaskStat.TotalSuccess++
-						}
-						for _, deliveryArtifact := range deliveryArtifacts {
-							deliveryActivity := new(commonmodels.DeliveryActivity)
-							deliveryActivity.ArtifactID = deliveryArtifact.ID
-							deliveryActivity.Type = setting.TestType
-							deliveryActivity.CreatedBy = pt.TaskCreator
-							deliveryActivity.URL = fmt.Sprintf("/v1/projects/detail/%s/pipelines/multi/%s/%d", pt.ProductName, pt.PipelineName, pt.TaskID)
-							deliveryActivity.CreatedTime = time.Now().Unix() + 4
-							deliveryActivity.StartTime = testInfo.StartTime
-							deliveryActivity.EndTime = testInfo.EndTime
+							testTaskStat, _ = h.TestTaskStatColl.FindTestTaskStat(&commonrepo.TestTaskStatOption{Name: testInfo.TestModuleName})
+							if testTaskStat == nil {
+								isNew = true
+								testTaskStat = new(commonmodels.TestTaskStat)
+								testTaskStat.Name = testInfo.TestModuleName
+								testTaskStat.CreateTime = time.Now().Unix()
+								testTaskStat.UpdateTime = time.Now().Unix()
+							}
 
-							err = h.deliveryActivityColl.Insert(deliveryActivity)
+							var filename string
+							if storage, err := s3.FindDefaultS3(); err == nil {
+								filename, err = util.GenerateTmpFile()
+								if err != nil {
+									h.log.Errorf("uploadTaskData GenerateTmpFile err:%v", err)
+								}
+
+								testJobName := strings.Replace(strings.ToLower(fmt.Sprintf("%s-%s-%d-%s-%s",
+									config.WorkflowType, pt.PipelineName, pt.TaskID, config.TaskTestingV2, testInfo.TestModuleName)), "_", "-", -1)
+								fileSrc := fmt.Sprintf("%s/%d/%s/%s", pt.PipelineName, pt.TaskID, "test", testJobName)
+								forcedPathStyle := true
+								if storage.Provider == setting.ProviderSourceAli {
+									forcedPathStyle = false
+								}
+								client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
+								objectKey := storage.GetObjectPath(fileSrc)
+								err = client.Download(storage.Bucket, objectKey, filename)
+								if err != nil {
+									h.log.Errorf("uploadTaskData s3 Download err:%v", err)
+								}
+							} else {
+								h.log.Errorf("uploadTaskData FindDefaultS3 err:%v", err)
+							}
+
+							b, err := ioutil.ReadFile(filename)
 							if err != nil {
-								h.log.Errorf("uploadTaskData test deliveryActivityColl insert err:%v", err)
-								continue
+								msg := fmt.Sprintf("uploadTaskData get local test result file error: %v", err)
+								h.log.Error(msg)
+							}
+							// Do not use defer because possible resource leak, 'defer' is called in a 'for' loop
+							_ = os.Remove(filename)
+
+							testReport := new(commonmodels.TestSuite)
+							if err := xml.Unmarshal(b, &testReport); err != nil {
+								msg := fmt.Sprintf("uploadTaskData testSuite unmarshal it report xml error: %v", err)
+								h.log.Error(msg)
+							}
+							totalCaseNum := testReport.Tests
+							if totalCaseNum != 0 {
+								testTaskStat.TestCaseNum = totalCaseNum
+							}
+							testTaskStat.TotalDuration += testInfo.EndTime - testInfo.StartTime
+						}
+
+						if taskStatus == config.StatusPassed {
+							if testInfo.JobCtx.TestType == setting.FunctionTestType {
+								testTaskStat.TotalSuccess++
+							}
+							for _, deliveryArtifact := range deliveryArtifacts {
+								deliveryActivity := new(commonmodels.DeliveryActivity)
+								deliveryActivity.ArtifactID = deliveryArtifact.ID
+								deliveryActivity.Type = setting.TestType
+								deliveryActivity.CreatedBy = pt.TaskCreator
+								deliveryActivity.URL = fmt.Sprintf("/v1/projects/detail/%s/pipelines/multi/%s/%d", pt.ProductName, pt.PipelineName, pt.TaskID)
+								deliveryActivity.CreatedTime = time.Now().Unix() + 4
+								deliveryActivity.StartTime = testInfo.StartTime
+								deliveryActivity.EndTime = testInfo.EndTime
+
+								err = h.deliveryActivityColl.Insert(deliveryActivity)
+								if err != nil {
+									h.log.Errorf("uploadTaskData test deliveryActivityColl insert err:%v", err)
+									continue
+								}
+							}
+						} else {
+							if testInfo.JobCtx.TestType == setting.FunctionTestType {
+								testTaskStat.TotalFailure++
 							}
 						}
-					} else {
 						if testInfo.JobCtx.TestType == setting.FunctionTestType {
-							testTaskStat.TotalFailure++
-						}
-					}
-					if testInfo.JobCtx.TestType == setting.FunctionTestType {
-						if isNew { //新增
-							_ = h.TestTaskStatColl.Create(testTaskStat)
-						} else { //更新
-							testTaskStat.UpdateTime = time.Now().Unix()
-							_ = h.TestTaskStatColl.Update(testTaskStat)
+							if isNew { //新增
+								_ = h.TestTaskStatColl.Create(testTaskStat)
+							} else { //更新
+								testTaskStat.UpdateTime = time.Now().Unix()
+								_ = h.TestTaskStatColl.Update(testTaskStat)
+							}
 						}
 					}
 				}
@@ -606,14 +610,13 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 							if err != nil {
 								h.log.Errorf("uploadTaskData GenerateTmpFile err:%v", err)
 							}
-
 							pipelineName := fmt.Sprintf("%s-%s", testInfo.TestModuleName, "job")
 							testJobName := strings.Replace(strings.ToLower(fmt.Sprintf("%s-%s-%d-%s-%s",
 								config.TestType, pipelineName, pt.TaskID, config.TaskTestingV2, testInfo.TestModuleName)), "_", "-", -1)
 							fileSrc := fmt.Sprintf("%s/%d/%s/%s", pipelineName, pt.TaskID, "test", testJobName)
-							forcedPathStyle := false
-							if storage.Provider == setting.ProviderSourceSystemDefault {
-								forcedPathStyle = true
+							forcedPathStyle := true
+							if storage.Provider == setting.ProviderSourceAli {
+								forcedPathStyle = false
 							}
 							client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
 							objectKey := storage.GetObjectPath(fileSrc)
@@ -621,17 +624,16 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 							if err != nil {
 								h.log.Errorf("uploadTaskData s3 Download err:%v", err)
 							}
-							_ = os.Remove(filename)
 						} else {
 							h.log.Errorf("uploadTaskData FindDefaultS3 err:%v", err)
 						}
-
 						b, err := ioutil.ReadFile(filename)
 						if err != nil {
 							msg := fmt.Sprintf("uploadTaskData get local test result file error: %v", err)
 							h.log.Error(msg)
 						}
-
+						// Do not use defer because possible resource leak, 'defer' is called in a 'for' loop
+						_ = os.Remove(filename)
 						testReport := new(commonmodels.TestSuite)
 						if err := xml.Unmarshal(b, &testReport); err != nil {
 							msg := fmt.Sprintf("uploadTaskData testSuite unmarshal it report xml error: %v", err)
@@ -649,10 +651,14 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 							testTaskStat.TotalFailure++
 						}
 						if isNew { //新增
-							_ = h.TestTaskStatColl.Create(testTaskStat)
+							err = h.TestTaskStatColl.Create(testTaskStat)
 						} else { //更新
 							testTaskStat.UpdateTime = time.Now().Unix()
-							_ = h.TestTaskStatColl.Update(testTaskStat)
+							err = h.TestTaskStatColl.Update(testTaskStat)
+						}
+						if err != nil {
+							msg := fmt.Sprintf("uploadTaskData create/update isNew:%v testTaskStat error: %s", isNew, err)
+							h.log.Error(msg)
 						}
 					}
 				}

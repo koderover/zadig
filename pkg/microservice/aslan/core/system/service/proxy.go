@@ -99,6 +99,10 @@ func DeleteProxy(id string, log *zap.SugaredLogger) error {
 		log.Errorf("Proxy.Delete %s error: %v", id, err)
 		return e.ErrDeleteProxy.AddErr(err)
 	}
+
+	// 更新globalConfig的proxy配置
+	SetProxyConfig()
+
 	return nil
 }
 

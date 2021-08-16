@@ -63,15 +63,26 @@ func (c *PrivateKeyColl) EnsureIndex(ctx context.Context) error {
 	return err
 }
 
-func (c *PrivateKeyColl) Find(id string) (*models.PrivateKey, error) {
+type FindPrivateKeyOption struct {
+	ID      string
+	Address string
+}
+
+func (c *PrivateKeyColl) Find(option FindPrivateKeyOption) (*models.PrivateKey, error) {
 	privateKey := new(models.PrivateKey)
-	oid, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return nil, err
+	query := bson.M{}
+	if option.ID != "" {
+		oid, err := primitive.ObjectIDFromHex(option.ID)
+		if err != nil {
+			return nil, err
+		}
+		query["_id"] = oid
+	}
+	if option.Address != "" {
+		query["ip"] = option.Address
 	}
 
-	query := bson.M{"_id": oid}
-	err = c.FindOne(context.TODO(), query).Decode(privateKey)
+	err := c.FindOne(context.TODO(), query).Decode(privateKey)
 	return privateKey, err
 }
 

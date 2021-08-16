@@ -79,7 +79,7 @@ func ListDeployTarget(productName string, log *zap.SugaredLogger) ([]*commonmode
 func ListContainers(productName string, log *zap.SugaredLogger) ([]*commonmodels.ServiceModuleTarget, error) {
 	var containerList []*commonmodels.ServiceModuleTarget
 	// 获取该项目下的服务
-	serviceTmpls, err := commonrepo.NewServiceColl().DistinctServices(&commonrepo.ServiceListOption{ProductName: productName, ExcludeStatus: setting.ProductStatusDeleting})
+	serviceTmpls, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
 	if err != nil {
 		log.Errorf("ServiceTmpl.ListServices error: %v", err)
 		return containerList, e.ErrListTemplate.AddDesc(err.Error())

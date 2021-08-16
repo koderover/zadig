@@ -115,12 +115,11 @@ func updateServiceTemplateByCodehubPushEvent(event *codehub.PushEvent, log *zap.
 }
 
 func GetCodehubServiceTemplates() ([]*commonmodels.Service, error) {
-	opt := &commonrepo.ServiceFindOption{
-		Type:          setting.K8SDeployType,
-		Source:        setting.SourceFromCodeHub,
-		ExcludeStatus: setting.ProductStatusDeleting,
+	opt := &commonrepo.ServiceListOption{
+		Type:   setting.K8SDeployType,
+		Source: setting.SourceFromCodeHub,
 	}
-	return commonrepo.NewServiceColl().List(opt)
+	return commonrepo.NewServiceColl().ListMaxRevisions(opt)
 }
 
 // SyncServiceTemplateFromCodehub Force to sync Service Template to latest commit and content,
