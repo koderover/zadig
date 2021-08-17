@@ -128,11 +128,12 @@ func ListProductsRevision(productName, envName string, userID int, superUser boo
 	return prodRevs, nil
 }
 
-func ListPmTemplateProductsRevision(basicFacility string, log *zap.SugaredLogger) ([]*ProductRevision, error) {
+func ListProductsRevisionByCron(basicFacility string, log *zap.SugaredLogger) ([]*ProductRevision, error) {
 	var (
-		err      error
-		prodRevs = make([]*ProductRevision, 0)
-		products = make([]*commonmodels.Product, 0)
+		err               error
+		prodRevs          = make([]*ProductRevision, 0)
+		products          = make([]*commonmodels.Product, 0)
+		temProductsStrArr = make([]string, 0)
 	)
 
 	temProducts, err := templaterepo.NewProductColl().ListWithOption(&templaterepo.ProductListOpt{BasicFacility: basicFacility})
@@ -142,12 +143,13 @@ func ListPmTemplateProductsRevision(basicFacility string, log *zap.SugaredLogger
 	}
 
 	for _, v := range temProducts {
-		productsT, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{ExcludeStatus: setting.ProductStatusDeleting, Name: v.ProductName})
-		if err != nil {
-			log.Errorf("Collection.Product.List error: %s", err)
-			return prodRevs, e.ErrListProducts.AddDesc(err.Error())
-		}
-		products = append(products, productsT...)
+		temProductsStrArr = append(temProductsStrArr, v.ProductName)
+	}
+
+	products, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{ExcludeStatus: setting.ProductStatusDeleting, InName: temProductsStrArr})
+	if err != nil {
+		log.Errorf("Collection.Product.List error: %s", err)
+		return prodRevs, e.ErrListProducts.AddDesc(err.Error())
 	}
 
 	// 获取所有服务模板最新模板信息
