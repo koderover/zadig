@@ -31,4 +31,5 @@ type Client interface {
 	UninstallRelease(spec *ChartSpec) error
 	TemplateChart(spec *ChartSpec, chartOption *ChartOption, log *zap.SugaredLogger) ([]byte, error)
 	LintChart(spec *ChartSpec, chartOption *ChartOption, log *zap.SugaredLogger) error
+	ListRelease(log *zap.SugaredLogger) ([]string, error)
 }

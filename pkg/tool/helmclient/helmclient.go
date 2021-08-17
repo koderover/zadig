@@ -590,6 +590,23 @@ func (c *HelmClient) chartIsInstalled(release string) (bool, error) {
 	return true, nil
 }
 
+// ListRelease list helm release
+func (c *HelmClient) ListRelease(log *zap.SugaredLogger) ([]string, error) {
+	var releaseNames []string
+
+	client := action.NewList(c.ActionConfig)
+	releases, err := client.Run()
+	if err != nil {
+		log.Errorf("list helm release err:%s", err)
+		return releaseNames, err
+	}
+
+	for _, release := range releases {
+		releaseNames = append(releaseNames, release.Name)
+	}
+	return releaseNames, nil
+}
+
 // mergeInstallOptions merges values of the provided chart to helm install options used by the client
 func mergeInstallOptions(chartSpec *ChartSpec, installOptions *action.Install) {
 	installOptions.DisableHooks = chartSpec.DisableHooks

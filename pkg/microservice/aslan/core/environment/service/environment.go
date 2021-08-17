@@ -77,22 +77,23 @@ type EnvStatus struct {
 }
 
 type ProductResp struct {
-	ID          string                   `json:"id"`
-	ProductName string                   `json:"product_name"`
-	Namespace   string                   `json:"namespace"`
-	Status      string                   `json:"status"`
-	Error       string                   `json:"error"`
-	EnvName     string                   `json:"env_name"`
-	UpdateBy    string                   `json:"update_by"`
-	UpdateTime  int64                    `json:"update_time"`
-	Services    [][]string               `json:"services"`
-	Render      *commonmodels.RenderInfo `json:"render"`
-	Vars        []*template.RenderKV     `json:"vars"`
-	IsPublic    bool                     `json:"isPublic"`
-	ClusterID   string                   `json:"cluster_id,omitempty"`
-	RecycleDay  int                      `json:"recycle_day"`
-	IsProd      bool                     `json:"is_prod"`
-	Source      string                   `json:"source"`
+	ID           string                   `json:"id"`
+	ProductName  string                   `json:"product_name"`
+	Namespace    string                   `json:"namespace"`
+	Status       string                   `json:"status"`
+	Error        string                   `json:"error"`
+	EnvName      string                   `json:"env_name"`
+	UpdateBy     string                   `json:"update_by"`
+	UpdateTime   int64                    `json:"update_time"`
+	Services     [][]string               `json:"services"`
+	Render       *commonmodels.RenderInfo `json:"render"`
+	Vars         []*template.RenderKV     `json:"vars"`
+	IsPublic     bool                     `json:"isPublic"`
+	ClusterID    string                   `json:"cluster_id,omitempty"`
+	RecycleDay   int                      `json:"recycle_day"`
+	IsProd       bool                     `json:"is_prod"`
+	Source       string                   `json:"source"`
+	ReleaseNames []string                 `json:"release_names"`
 }
 
 type ProductParams struct {
@@ -286,6 +287,22 @@ func ListProducts(productNameParam, envType string, userName string, userID int,
 		} else {
 			product.IsProd = false
 			testResp = append(testResp, product)
+		}
+
+		// add helm release
+		if prod.Source == setting.HelmDeployType {
+			restConfig, err := kube.GetRESTConfig(prod.ClusterID)
+			if err != nil {
+				log.Errorf("GetRESTConfig error: %v", err)
+				return resp, e.ErrListProducts.AddDesc(err.Error())
+			}
+			helmClient, err := helmclient.NewClientFromRestConf(restConfig, prod.Namespace)
+			if err != nil {
+				return resp, e.ErrListProducts.AddDesc(err.Error())
+			}
+			if releases, err := helmClient.ListRelease(log); err == nil {
+				product.ReleaseNames = releases
+			}
 		}
 	}
 	switch envType {
