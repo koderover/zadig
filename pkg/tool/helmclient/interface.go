@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"go.uber.org/zap"
+	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/repo"
 )
 
@@ -31,5 +32,5 @@ type Client interface {
 	UninstallRelease(spec *ChartSpec) error
 	TemplateChart(spec *ChartSpec, chartOption *ChartOption, log *zap.SugaredLogger) ([]byte, error)
 	LintChart(spec *ChartSpec, chartOption *ChartOption, log *zap.SugaredLogger) error
-	ListRelease(log *zap.SugaredLogger) ([]string, error)
+	ListReleases(log *zap.SugaredLogger) ([]*release.Release, error)
 }

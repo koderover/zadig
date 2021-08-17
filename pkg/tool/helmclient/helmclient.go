@@ -32,6 +32,7 @@ import (
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/downloader"
 	"helm.sh/helm/v3/pkg/getter"
+	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/repo"
 	"helm.sh/helm/v3/pkg/storage/driver"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -591,20 +592,14 @@ func (c *HelmClient) chartIsInstalled(release string) (bool, error) {
 }
 
 // ListRelease list helm release
-func (c *HelmClient) ListRelease(log *zap.SugaredLogger) ([]string, error) {
-	var releaseNames []string
-
+func (c *HelmClient) ListReleases(log *zap.SugaredLogger) ([]*release.Release, error) {
 	client := action.NewList(c.ActionConfig)
 	releases, err := client.Run()
 	if err != nil {
 		log.Errorf("list helm release err:%s", err)
-		return releaseNames, err
+		return nil, err
 	}
-
-	for _, release := range releases {
-		releaseNames = append(releaseNames, release.Name)
-	}
-	return releaseNames, nil
+	return releases, nil
 }
 
 // mergeInstallOptions merges values of the provided chart to helm install options used by the client

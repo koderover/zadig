@@ -300,8 +300,12 @@ func ListProducts(productNameParam, envType string, userName string, userID int,
 			if err != nil {
 				return resp, e.ErrListProducts.AddDesc(err.Error())
 			}
-			if releases, err := helmClient.ListRelease(log); err == nil {
-				product.ReleaseNames = releases
+			if releases, err := helmClient.ListReleases(log); err == nil {
+				var releaseNames []string
+				for _, release := range releases {
+					releaseNames = append(releaseNames, release.Name)
+				}
+				product.ReleaseNames = releaseNames
 			}
 		}
 	}
