@@ -77,23 +77,28 @@ type EnvStatus struct {
 }
 
 type ProductResp struct {
-	ID           string                   `json:"id"`
-	ProductName  string                   `json:"product_name"`
-	Namespace    string                   `json:"namespace"`
-	Status       string                   `json:"status"`
-	Error        string                   `json:"error"`
-	EnvName      string                   `json:"env_name"`
-	UpdateBy     string                   `json:"update_by"`
-	UpdateTime   int64                    `json:"update_time"`
-	Services     [][]string               `json:"services"`
-	Render       *commonmodels.RenderInfo `json:"render"`
-	Vars         []*template.RenderKV     `json:"vars"`
-	IsPublic     bool                     `json:"isPublic"`
-	ClusterID    string                   `json:"cluster_id,omitempty"`
-	RecycleDay   int                      `json:"recycle_day"`
-	IsProd       bool                     `json:"is_prod"`
-	Source       string                   `json:"source"`
-	ReleaseNames []string                 `json:"release_names"`
+	ID              string                   `json:"id"`
+	ProductName     string                   `json:"product_name"`
+	Namespace       string                   `json:"namespace"`
+	Status          string                   `json:"status"`
+	Error           string                   `json:"error"`
+	EnvName         string                   `json:"env_name"`
+	UpdateBy        string                   `json:"update_by"`
+	UpdateTime      int64                    `json:"update_time"`
+	Services        [][]string               `json:"services"`
+	Render          *commonmodels.RenderInfo `json:"render"`
+	Vars            []*template.RenderKV     `json:"vars"`
+	IsPublic        bool                     `json:"isPublic"`
+	ClusterID       string                   `json:"cluster_id,omitempty"`
+	RecycleDay      int                      `json:"recycle_day"`
+	IsProd          bool                     `json:"is_prod"`
+	Source          string                   `json:"source"`
+	ReleaseServices []*ReleaseService        `json:"release_services,omitempty"`
+}
+
+type ReleaseService struct {
+	ReleaseName string
+	Services    []string
 }
 
 type ProductParams struct {
@@ -301,11 +306,14 @@ func ListProducts(productNameParam, envType string, userName string, userID int,
 				return resp, e.ErrListProducts.AddDesc(err.Error())
 			}
 			if releases, err := helmClient.ListReleases(log); err == nil {
-				var releaseNames []string
+				var releaseServices []*ReleaseService
 				for _, release := range releases {
-					releaseNames = append(releaseNames, release.Name)
+					releaseServices = append(releaseServices, &ReleaseService{
+						ReleaseName: release.Name,
+						Services:    []string{release.Manifest},
+					})
 				}
-				product.ReleaseNames = releaseNames
+				product.ReleaseServices = releaseServices
 			}
 		}
 	}
