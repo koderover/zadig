@@ -61,6 +61,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/types/permission"
+	"github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/converter"
 )
 
@@ -308,9 +309,10 @@ func ListProducts(productNameParam, envType string, userName string, userID int,
 			if releases, err := helmClient.ListReleases(log); err == nil {
 				var releaseServices []*ReleaseService
 				for _, release := range releases {
+					// find service according to manifest
 					releaseServices = append(releaseServices, &ReleaseService{
 						ReleaseName: release.Name,
-						Services:    []string{release.Manifest},
+						Services:    findServices(util.SplitManifests(release.Manifest), log),
 					})
 				}
 				product.ReleaseServices = releaseServices
@@ -330,6 +332,27 @@ func ListProducts(productNameParam, envType string, userName string, userID int,
 	sort.SliceStable(resp, func(i, j int) bool { return resp[i].ProductName < resp[j].ProductName })
 
 	return resp, nil
+}
+
+func findServices(yamls []string, log *zap.SugaredLogger) []string {
+	var services []string
+	for _, yamlContent := range yamls {
+		yamlDataArray := util.SplitManifests(yamlContent)
+		for _, yamlData := range yamlDataArray {
+			resKind := new(KubeResourceKind)
+			if err := yaml.Unmarshal([]byte(yamlData), &resKind); err != nil {
+				log.Errorf("yaml Unmarshal failed, err:%s", err)
+				return []string{}
+			}
+			if resKind == nil {
+				return []string{}
+			}
+			if resKind.Kind == setting.Service {
+				services = append(services, resKind.Metadata.Name)
+			}
+		}
+	}
+	return services
 }
 
 func FillProductVars(products []*commonmodels.Product, log *zap.SugaredLogger) error {
