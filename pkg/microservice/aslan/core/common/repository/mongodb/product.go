@@ -47,7 +47,7 @@ type ProductListOptions struct {
 	ExcludeStatus string
 	ExcludeSource string
 	Source        string
-	InName        []string
+	InProjects    []string
 }
 
 type ProductColl struct {
@@ -148,8 +148,8 @@ func (c *ProductColl) List(opt *ProductListOptions) ([]*models.Product, error) {
 	if opt.ExcludeStatus != "" {
 		query["status"] = bson.M{"$ne": opt.ExcludeStatus}
 	}
-	if len(opt.InName) > 0 {
-		query["product_name"] = bson.M{"$in": opt.InName}
+	if len(opt.InProjects) > 0 {
+		query["product_name"] = bson.M{"$in": opt.InProjects}
 	}
 
 	ctx := context.Background()

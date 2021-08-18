@@ -18,6 +18,7 @@ package service
 
 import (
 	"fmt"
+
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -128,12 +129,12 @@ func ListProductsRevision(productName, envName string, userID int, superUser boo
 	return prodRevs, nil
 }
 
-func ListProductsRevisionByCron(basicFacility string, log *zap.SugaredLogger) ([]*ProductRevision, error) {
+func ListProductsRevisionByFacility(basicFacility string, log *zap.SugaredLogger) ([]*ProductRevision, error) {
 	var (
-		err               error
-		prodRevs          = make([]*ProductRevision, 0)
-		products          = make([]*commonmodels.Product, 0)
-		temProductsStrArr = make([]string, 0)
+		err          error
+		prodRevs     = make([]*ProductRevision, 0)
+		products     = make([]*commonmodels.Product, 0)
+		projectNames = make([]string, 0)
 	)
 
 	temProducts, err := templaterepo.NewProductColl().ListWithOption(&templaterepo.ProductListOpt{BasicFacility: basicFacility})
@@ -143,10 +144,10 @@ func ListProductsRevisionByCron(basicFacility string, log *zap.SugaredLogger) ([
 	}
 
 	for _, v := range temProducts {
-		temProductsStrArr = append(temProductsStrArr, v.ProductName)
+		projectNames = append(projectNames, v.ProductName)
 	}
 
-	products, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{ExcludeStatus: setting.ProductStatusDeleting, InName: temProductsStrArr})
+	products, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{ExcludeStatus: setting.ProductStatusDeleting, InProjects: projectNames})
 	if err != nil {
 		log.Errorf("Collection.Product.List error: %s", err)
 		return prodRevs, e.ErrListProducts.AddDesc(err.Error())
