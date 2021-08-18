@@ -383,13 +383,31 @@ func ListGroupsBySource(c *gin.Context) {
 
 	envName := c.Query("envName")
 	productName := c.Param("productName")
+	perPageStr := c.Query("perPage")
 
-	services, ingresses, err := commonservice.ListGroupsBySource(envName, productName, ctx.Logger)
+	perPage := 0
+	if perPageStr == "" {
+		perPage = setting.PerPage
+	} else {
+		perPage, _ = strconv.Atoi(perPageStr)
+	}
+
+	pageStr := c.Query("page")
+	page := 0
+	if pageStr == "" {
+		page = 1
+	} else {
+		page, _ = strconv.Atoi(pageStr)
+	}
+
+	count := 0
+	count, services, ingresses, err := commonservice.ListGroupsBySource(envName, productName, perPage, page, ctx.Logger)
 	ctx.Resp = &NamespaceResource{
 		Services:  services,
 		Ingresses: ingresses,
 	}
 	ctx.Err = err
+	c.Writer.Header().Set("X-Total", strconv.Itoa(count))
 }
 
 func ListProductsSSE(c *gin.Context) {
