@@ -58,7 +58,7 @@ func V130ToV131() error {
 		return err
 	}
 
-	if skipUpgrade(allServices, setting.ServiceTemplateCounterName) {
+	if skipMigration(allServices, setting.ServiceTemplateCounterName) {
 		log.Info("Migration skipped")
 		return nil
 	}
@@ -158,7 +158,7 @@ func V131ToV130() error {
 		return err
 	}
 
-	if skipUpgrade(allServices, oldServiceTemplateCounterName) {
+	if skipMigration(allServices, oldServiceTemplateCounterName) {
 		log.Info("Migration skipped")
 		return nil
 	}
@@ -215,7 +215,6 @@ func RevertServiceCounter(allServices []*models.Service) error {
 
 func updateServiceCounter(allServices []*models.Service, oldTemplate, newTemplate string) error {
 	coll := mongodb.NewCounterColl()
-	
 	for _, s := range allServices {
 		oldName := fmt.Sprintf(oldTemplate, s.ServiceName, s.Type)
 		newName := fmt.Sprintf(newTemplate, s.ServiceName, s.ProductName)
@@ -228,7 +227,7 @@ func updateServiceCounter(allServices []*models.Service, oldTemplate, newTemplat
 	return nil
 }
 
-func skipUpgrade(allServices []*models.Service, newTemplate string) bool {
+func skipMigration(allServices []*models.Service, newTemplate string) bool {
 	if len(allServices) == 0 {
 		return true
 	}
