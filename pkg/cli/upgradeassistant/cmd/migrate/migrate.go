@@ -47,6 +47,12 @@ func V130ToV131() error {
 		log.Errorf("Failed to get services, err: %s", err)
 		return err
 	}
+
+	if skipMigration(allServices, setting.ServiceTemplateCounterName) {
+		log.Info("Migration skipped")
+		return nil
+	}
+
 	allProjects, err := templaterepo.NewProductColl().List()
 	if err != nil {
 		log.Errorf("Failed to get projects, err: %s", err)
@@ -56,11 +62,6 @@ func V130ToV131() error {
 	if err != nil {
 		log.Errorf("Failed to get envs, err: %s", err)
 		return err
-	}
-
-	if skipMigration(allServices, setting.ServiceTemplateCounterName) {
-		log.Info("Migration skipped")
-		return nil
 	}
 
 	var updatedProjects []*templatemodels.Product
@@ -147,6 +148,12 @@ func V131ToV130() error {
 		log.Errorf("Failed to get services, err: %s", err)
 		return err
 	}
+
+	if skipMigration(allServices, oldServiceTemplateCounterName) {
+		log.Info("Migration skipped")
+		return nil
+	}
+
 	allProjects, err := templaterepo.NewProductColl().List()
 	if err != nil {
 		log.Errorf("Failed to get projects, err: %s", err)
@@ -156,11 +163,6 @@ func V131ToV130() error {
 	if err != nil {
 		log.Errorf("Failed to get envs, err: %s", err)
 		return err
-	}
-
-	if skipMigration(allServices, oldServiceTemplateCounterName) {
-		log.Info("Migration skipped")
-		return nil
 	}
 
 	var updatedProjects []*templatemodels.Product
