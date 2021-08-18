@@ -1,8 +1,8 @@
-#golang-deps.Dockerfile.inc
+#golang.Dockerfile
 
 RUN go build -v -o /predator-plugin ./cmd/predator/main.go
 
-#ubuntu-base.Dockerfile.inc
+#ubuntu-xenial.Dockerfile
 
 # 安装 docker client
 RUN curl -fsSL "http://resources.koderover.com/docker-cli-v19.03.2.tar.gz" -o docker.tgz &&\
