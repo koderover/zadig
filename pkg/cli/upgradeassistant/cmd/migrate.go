@@ -35,7 +35,7 @@ func init() {
 	rootCmd.AddCommand(migrateCmd)
 
 	migrateCmd.PersistentFlags().StringP("from-version", "f", "MOST_RECENT_PREVIOUS_VERSION", "current version to migrate from, e.g. 1.3.0")
-	migrateCmd.PersistentFlags().StringP("to-version", "t", "MOST_RECENT_VERSION", "target version to migrate to, e.g. 1.4.0")
+	migrateCmd.PersistentFlags().StringP("to-version", "t", "MOST_RECENT_VERSION", "target version to migrate to, e.g. 1.3.1")
 	_ = viper.BindPFlag("fromVersion", migrateCmd.PersistentFlags().Lookup("from-version"))
 	_ = viper.BindPFlag("toVersion", migrateCmd.PersistentFlags().Lookup("to-version"))
 }
