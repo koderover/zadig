@@ -19,6 +19,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -48,7 +49,7 @@ var migrateCmd = &cobra.Command{
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := run(); err != nil {
-			fmt.Println(err)
+			log.Fatal(err)
 		}
 	},
 	PostRun: func(cmd *cobra.Command, args []string) {

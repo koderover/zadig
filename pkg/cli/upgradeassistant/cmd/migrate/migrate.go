@@ -198,6 +198,15 @@ func RevertServiceCounter(allServices []*models.Service) error {
 
 func updateServiceCounter(allServices []*models.Service, oldTemplate, newTemplate string) error {
 	coll := mongodb.NewCounterColl()
+
+	if len(allServices) > 0 {
+		newName := fmt.Sprintf(newTemplate, allServices[0].ServiceName, allServices[0].ProductName)
+		// skip if any new names exist.
+		if counter, _ := coll.Find(newName); counter != nil {
+			return nil
+		}
+	}
+	
 	for _, s := range allServices {
 		oldName := fmt.Sprintf(oldTemplate, s.ServiceName, s.Type)
 		newName := fmt.Sprintf(newTemplate, s.ServiceName, s.ProductName)
