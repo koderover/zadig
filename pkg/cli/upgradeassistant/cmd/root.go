@@ -21,6 +21,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 var rootCmd = &cobra.Command{
@@ -46,4 +47,9 @@ func init() {
 
 func initConfig() {
 	viper.AutomaticEnv()
+
+	log.Init(&log.Config{
+		Level:       "debug",
+		NoCaller:    true,
+	})
 }
