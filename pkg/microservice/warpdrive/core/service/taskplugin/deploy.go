@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -49,6 +50,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
+	"github.com/koderover/zadig/pkg/util/fs"
 )
 
 // InitializeDeployTaskPlugin to initiate deploy task plugin and return ref
@@ -471,46 +473,39 @@ func (p *DeployTaskPlugin) getService(ctx context.Context, name, serviceType, pr
 }
 
 func (p *DeployTaskPlugin) downloadService(pipelineTask *task.Task, serviceName, repoName string) error {
-	var (
-		s3Storage *s3.S3
-		err       error
-		base      string
-	)
-	base = path.Join(pipelineTask.ConfigPayload.S3Storage.Path, repoName)
-	if s3Storage, err = s3.NewS3StorageFromEncryptedURI(pipelineTask.StorageURI); err != nil {
+	logger := p.Log
+
+	base := configbase.LocalServicePath(pipelineTask.ProductName, serviceName)
+	s3Storage, err := s3.NewS3StorageFromEncryptedURI(pipelineTask.StorageURI)
+	if err != nil {
 		return err
 	}
-	subFolderName := serviceName + "-" + setting.HelmDeployType
-	if s3Storage.Subfolder != "" {
-		s3Storage.Subfolder = fmt.Sprintf("%s/%s/%s", s3Storage.Subfolder, subFolderName, "service")
-	} else {
-		s3Storage.Subfolder = fmt.Sprintf("%s/%s", subFolderName, "service")
-	}
 
-	filePath := fmt.Sprintf("%s.tar.gz", serviceName)
-	tarFilePath := path.Join(base, filePath)
+	tarball := fmt.Sprintf("%s.tar.gz", serviceName)
+	tarFilePath := filepath.Join(base, tarball)
+	objectKey := s3Storage.GetObjectPath(tarball)
+	s3Storage.Subfolder = filepath.Join(s3Storage.Subfolder, configbase.ObjectStorageServicePath(pipelineTask.ProductName, serviceName))
 	forcedPathStyle := true
 	if s3Storage.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
 	}
-	s3client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
+	client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
 	if err != nil {
 		p.Log.Errorf("failed to create s3 client, err: %+v", err)
 		return err
 	}
-	objectKey := s3Storage.GetObjectPath(filePath)
-	if err := s3client.Download(s3Storage.Bucket, objectKey, tarFilePath); err != nil {
-		p.Log.Errorf("s3下载文件失败 err:%v", err)
+	if err = client.Download(s3Storage.Bucket, objectKey, tarFilePath); err != nil {
+		logger.Errorf("Failed to download file from s3, err: %s", err)
 		return err
 	}
-	if err := util.UnTar("/", tarFilePath); err != nil {
-		p.Log.Errorf("unTar err:%v", err)
+	if err = fs.Untar(tarFilePath, base); err != nil {
+		logger.Errorf("Untar err: %s", err)
 		return err
 	}
-	if err := os.Remove(tarFilePath); err != nil {
-		p.Log.Errorf("remove file err:%v", err)
-		return err
+	if err = os.Remove(tarFilePath); err != nil {
+		logger.Errorf("Failed to remove file %s, err: %s", tarFilePath, err)
 	}
+
 	return nil
 }
 

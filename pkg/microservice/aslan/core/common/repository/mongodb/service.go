@@ -176,7 +176,7 @@ func (c *ServiceColl) Find(opt *ServiceFindOption) (*models.Service, error) {
 		return nil, fmt.Errorf("ProductName is empty")
 	}
 
-	query := bson.M{}
+	query := bson.M{"status": bson.M{"$ne": setting.ProductStatusDeleting}}
 	query["service_name"] = opt.ServiceName
 	query["product_name"] = opt.ProductName
 	service := new(models.Service)

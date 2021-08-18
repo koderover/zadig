@@ -22,7 +22,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 func GenerateTmpFile() (string, error) {
@@ -50,52 +49,6 @@ func WriteFile(filename string, data []byte, perm os.FileMode) error {
 		return err
 	}
 	return nil
-}
-
-func Tar(src, dst string) (err error) {
-	fw, err := os.Create(dst)
-	if err != nil {
-		return
-	}
-	defer fw.Close()
-
-	gw := gzip.NewWriter(fw)
-	defer gw.Close()
-
-	tw := tar.NewWriter(gw)
-	defer tw.Close()
-
-	return filepath.Walk(src, func(fileName string, fi os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		hdr, err := tar.FileInfoHeader(fi, "")
-		if err != nil {
-			return err
-		}
-		hdr.Name = strings.TrimPrefix(fileName, string(filepath.Separator))
-
-		if err := tw.WriteHeader(hdr); err != nil {
-			return err
-		}
-
-		if !fi.Mode().IsRegular() {
-			return nil
-		}
-
-		fr, err := os.Open(fileName)
-		if err != nil {
-			return err
-		}
-		defer fr.Close()
-
-		_, err = io.Copy(tw, fr)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
 }
 
 func UnTar(dst, src string) (err error) {

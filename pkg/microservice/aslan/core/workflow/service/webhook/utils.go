@@ -233,7 +233,7 @@ func getGitlabClientByAddress(address string) (*gitlabtool.Client, error) {
 }
 
 func GitlabGetLatestCommit(client *gitlabtool.Client, owner, repo string, ref, path string) (*gitlab.Commit, error) {
-	commit, err := client.GetLatestCommit(owner, repo, ref, path)
+	commit, err := client.GetLatestRepositoryCommit(owner, repo, path, ref)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get lastest commit with project %s/%s, ref: %s, path:%s, error: %v",
 			owner, repo, ref, path, err)

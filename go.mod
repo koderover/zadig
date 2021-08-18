@@ -3,6 +3,7 @@ module github.com/koderover/zadig
 go 1.16
 
 require (
+	github.com/27149chen/afero v1.6.2
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/RyanCarrier/dijkstra v1.1.0
 	github.com/andygrunwald/go-gerrit v0.0.0-20171029143327-95b11af228a1

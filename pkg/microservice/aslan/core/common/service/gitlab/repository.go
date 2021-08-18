@@ -17,6 +17,8 @@ limitations under the License.
 package gitlab
 
 import (
+	"github.com/27149chen/afero"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
 )
 
@@ -31,4 +33,8 @@ func (c *Client) GetTree(owner, repo, path, branch string) ([]*git.TreeNode, err
 		treeNodes = append(treeNodes, git.ToTreeNode(t))
 	}
 	return treeNodes, nil
+}
+
+func (c *Client) GetTreeContents(owner, repo, path, branch string) (afero.Fs, error) {
+	return c.Client.GetTreeContents(owner, repo, path, branch)
 }

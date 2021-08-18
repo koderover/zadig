@@ -19,6 +19,7 @@ package github
 import (
 	"context"
 
+	"github.com/27149chen/afero"
 	"github.com/google/go-github/v35/github"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
@@ -35,4 +36,8 @@ func (c *Client) GetTree(owner, repo, path, branch string) ([]*git.TreeNode, err
 		treeNodes = append(treeNodes, git.ToTreeNode(dir))
 	}
 	return treeNodes, nil
+}
+
+func (c *Client) GetTreeContents(owner, repo, path, branch string) (afero.Fs, error) {
+	return c.Client.GetTreeContents(context.TODO(), owner, repo, path, branch)
 }

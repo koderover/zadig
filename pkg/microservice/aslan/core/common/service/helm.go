@@ -19,10 +19,11 @@ package service
 import (
 	"fmt"
 	"os"
-	"path"
+	"path/filepath"
 
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	s3service "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
@@ -30,7 +31,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
-	"github.com/koderover/zadig/pkg/util"
+	"github.com/koderover/zadig/pkg/util/fs"
 )
 
 func ListHelmRepos(log *zap.SugaredLogger) ([]*commonmodels.HelmRepo, error) {
@@ -43,40 +44,54 @@ func ListHelmRepos(log *zap.SugaredLogger) ([]*commonmodels.HelmRepo, error) {
 	return helmRepos, nil
 }
 
-func DownloadService(base, serviceName string) error {
+func PreLoadServiceManifests(base, productName, serviceName string) error {
+	ok, err := fs.DirExists(base)
+	if err != nil {
+		log.Errorf("Failed to check if dir %s is exiting, err: %s", base, err)
+		return err
+	}
+	if !ok {
+		if err = DownloadServiceManifests(base, productName, serviceName); err != nil {
+			log.Errorf("Failed to download service from s3, err: %s", err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func DownloadServiceManifests(base, projectName, serviceName string) error {
 	s3Storage, err := s3service.FindDefaultS3()
 	if err != nil {
-		log.Errorf("获取默认的s3配置失败 err:%v", err)
+		log.Errorf("Failed to find default s3, err: %s", err)
 		return e.ErrListTemplate.AddDesc(err.Error())
 	}
-	subFolderName := serviceName + "-" + setting.HelmDeployType
-	if s3Storage.Subfolder != "" {
-		s3Storage.Subfolder = fmt.Sprintf("%s/%s/%s", s3Storage.Subfolder, subFolderName, "service")
-	} else {
-		s3Storage.Subfolder = fmt.Sprintf("%s/%s", subFolderName, "service")
-	}
-	filePath := fmt.Sprintf("%s.tar.gz", serviceName)
-	tarFilePath := path.Join(base, filePath)
-	objectKey := s3Storage.GetObjectPath(filePath)
+
+	tarball := fmt.Sprintf("%s.tar.gz", serviceName)
+	tarFilePath := filepath.Join(base, tarball)
+	objectKey := s3Storage.GetObjectPath(tarball)
+	s3Storage.Subfolder = filepath.Join(s3Storage.Subfolder, config.ObjectStorageServicePath(projectName, serviceName))
+
 	forcedPathStyle := true
 	if s3Storage.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
 	}
 	client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
 	if err != nil {
-		log.Errorf("Failed to create s3 client for download, error: %+v", err)
+		log.Errorf("Failed to create s3 client for download, err: %s", err)
 		return err
 	}
 	if err = client.Download(s3Storage.Bucket, objectKey, tarFilePath); err != nil {
-		log.Errorf("s3下载文件失败 err:%v", err)
+		log.Errorf("Failed to download file from s3, err: %s", err)
 		return err
 	}
-	if err = util.UnTar("/", tarFilePath); err != nil {
-		log.Errorf("unTar err:%v", err)
+	if err = fs.Untar(tarFilePath, base); err != nil {
+		log.Errorf("Untar err: %s", err)
 		return err
 	}
 	if err = os.Remove(tarFilePath); err != nil {
-		log.Errorf("remove file err:%v", err)
+		log.Errorf("Failed to remove file %s, err: %s", tarFilePath, err)
 	}
+
 	return nil
 }
