@@ -357,22 +357,33 @@ func ListGroups(c *gin.Context) {
 	envName := c.Query("envName")
 	serviceName := c.Query("serviceName")
 	perPageStr := c.Query("perPage")
-	perPage := 0
+	pageStr := c.Query("page")
+	var (
+		count   int
+		perPage int
+		err     error
+		page    int
+	)
 	if perPageStr == "" {
 		perPage = setting.PerPage
 	} else {
-		perPage, _ = strconv.Atoi(perPageStr)
+		perPage, err = strconv.Atoi(perPageStr)
+		if err != nil {
+			ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("pageStr args err :%s", err))
+			return
+		}
 	}
 
-	pageStr := c.Query("page")
-	page := 0
 	if pageStr == "" {
 		page = 1
 	} else {
-		page, _ = strconv.Atoi(pageStr)
+		page, err = strconv.Atoi(pageStr)
+		if err != nil {
+			ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("page args err :%s", err))
+			return
+		}
 	}
 
-	count := 0
 	ctx.Resp, count, ctx.Err = service.ListGroups(serviceName, envName, productName, perPage, page, ctx.Logger)
 	c.Writer.Header().Set("X-Total", strconv.Itoa(count))
 }
@@ -384,23 +395,33 @@ func ListGroupsBySource(c *gin.Context) {
 	envName := c.Query("envName")
 	productName := c.Param("productName")
 	perPageStr := c.Query("perPage")
-
-	perPage := 0
+	pageStr := c.Query("page")
+	var (
+		count   int
+		perPage int
+		err     error
+		page    int
+	)
 	if perPageStr == "" {
 		perPage = setting.PerPage
 	} else {
-		perPage, _ = strconv.Atoi(perPageStr)
+		perPage, err = strconv.Atoi(perPageStr)
+		if err != nil {
+			ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("pageStr args err :%s", err))
+			return
+		}
 	}
 
-	pageStr := c.Query("page")
-	page := 0
 	if pageStr == "" {
 		page = 1
 	} else {
-		page, _ = strconv.Atoi(pageStr)
+		page, err = strconv.Atoi(pageStr)
+		if err != nil {
+			ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("page args err :%s", err))
+			return
+		}
 	}
 
-	count := 0
 	count, services, ingresses, err := commonservice.ListGroupsBySource(envName, productName, perPage, page, ctx.Logger)
 	ctx.Resp = &NamespaceResource{
 		Services:  services,

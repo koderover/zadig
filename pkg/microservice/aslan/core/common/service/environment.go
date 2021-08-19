@@ -108,29 +108,25 @@ func ListGroupsBySource(envName, productName string, perPage, page int, log *zap
 		return 0, resp, ingressList, e.ErrListGroups.AddDesc(err.Error())
 	}
 
-	currentServices := make([]*corev1.Service, 0)
 	count := len(listServices)
 
 	// 分页
-	if page != 0 && perPage != 0 {
-
+	if page > 0 && perPage > 0 {
 		//将获取到的所有服务按照名称进行排序
 		sort.SliceStable(listServices, func(i, j int) bool { return listServices[i].Name < listServices[j].Name })
 		currentPage := page - 1
 
 		if page*perPage < count {
-			currentServices = listServices[currentPage*perPage : currentPage*perPage+perPage]
+			listServices = listServices[currentPage*perPage : currentPage*perPage+perPage]
 		} else {
 			if currentPage*perPage > count {
 				return count, resp, ingressList, nil
 			}
-			currentServices = listServices[currentPage*perPage:]
+			listServices = listServices[currentPage*perPage:]
 		}
-	} else {
-		currentServices = listServices
 	}
 
-	for _, service := range currentServices {
+	for _, service := range listServices {
 		wg.Add(1)
 
 		go func(service *corev1.Service) {
