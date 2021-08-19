@@ -125,6 +125,7 @@ func initDatabase() {
 	var wg sync.WaitGroup
 	for _, r := range []indexer{
 		template.NewProductColl(),
+		commonrepo.NewAnnouncementColl(),
 		commonrepo.NewBasicImageColl(),
 		commonrepo.NewBuildColl(),
 		commonrepo.NewCounterColl(),
@@ -147,6 +148,7 @@ func initDatabase() {
 		commonrepo.NewK8SClusterColl(),
 		commonrepo.NewNotificationColl(),
 		commonrepo.NewNotifyColl(),
+		commonrepo.NewOperationLogColl(),
 		commonrepo.NewPipelineColl(),
 		commonrepo.NewPrivateKeyColl(),
 		commonrepo.NewProductColl(),
