@@ -17,7 +17,6 @@ limitations under the License.
 package handler
 
 import (
-	"fmt"
 	"net/url"
 	"strconv"
 
@@ -78,85 +77,6 @@ func GetWorkspaceFile(c *gin.Context) {
 		return
 	}
 	c.File(fileRealPath)
-}
-
-func GetGithubRepoInfo(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	codehostIDStr := c.Param("codehostId")
-	if codehostIDStr == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty codehost ID")
-		return
-	}
-
-	codehostID, err := strconv.Atoi(codehostIDStr)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("cannot convert codehost id to string")
-		return
-	}
-
-	repoName := c.Param("repoName")
-	if repoName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty repo name")
-		return
-	}
-	repoName, err = url.QueryUnescape(repoName)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("repoName decode error")
-		return
-	}
-
-	branchName := c.Param("branchName")
-	if branchName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty branch name")
-		return
-	}
-
-	path := c.Query("path")
-
-	ctx.Resp, ctx.Err = service.GetGithubRepoInfo(codehostID, repoName, branchName, path, ctx.Logger)
-}
-
-func GetGitlabRepoInfo(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	codehostIDStr := c.Param("codehostId")
-	if codehostIDStr == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty codehost ID")
-		return
-	}
-
-	codehostID, err := strconv.Atoi(codehostIDStr)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("cannot convert codehost id to int")
-		return
-	}
-
-	repoName := c.Param("repoName")
-	if repoName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty repo name")
-		return
-	}
-	repoName, err = url.QueryUnescape(repoName)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("repoName decode error")
-		return
-	}
-
-	branchName := c.Param("branchName")
-	if branchName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty branch name")
-		return
-	}
-
-	path := c.Query("path")
-	owner := c.Query("repoOwner")
-
-	repoInfo := fmt.Sprintf("%s/%s", owner, repoName)
-
-	ctx.Resp, ctx.Err = service.GetGitlabRepoInfo(codehostID, repoInfo, branchName, path, ctx.Logger)
 }
 
 func GetGitRepoInfo(c *gin.Context) {

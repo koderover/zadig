@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -260,7 +259,6 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			yamlValuesByte    []byte
 			renderInfo        *types.RenderSet
 			helmClient        helmclient.Client
-			serviceTemplate   *types.ServiceTmpl
 		)
 
 		deployments, _ := getter.ListDeployments(p.Task.Namespace, nil, p.kubeClient)
@@ -400,17 +398,8 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 					Timeout:     time.Second * DeployTimeout,
 				}
 
-				serviceTemplate, err = p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType, p.Task.ProductName)
-				if err != nil {
-					err = errors.WithMessagef(
-						err,
-						"failed to get service %s/%s",
-						p.Task.Namespace, p.Task.ServiceName)
-					return
-				}
-
-				base := path.Join(pipelineTask.ConfigPayload.S3Storage.Path, serviceTemplate.RepoName, serviceTemplate.LoadPath)
-				if err = p.downloadService(pipelineTask, p.Task.ServiceName, serviceTemplate.RepoName); err != nil {
+				base := configbase.LocalServicePath(pipelineTask.ProductName, pipelineTask.ServiceName)
+				if err = p.downloadService(pipelineTask.ProductName, pipelineTask.ServiceName, pipelineTask.StorageURI); err != nil {
 					err = errors.WithMessagef(
 						err,
 						"failed to download service %s/%s",
@@ -472,18 +461,18 @@ func (p *DeployTaskPlugin) getService(ctx context.Context, name, serviceType, pr
 	return s, nil
 }
 
-func (p *DeployTaskPlugin) downloadService(pipelineTask *task.Task, serviceName, repoName string) error {
+func (p *DeployTaskPlugin) downloadService(productName, serviceName, storageURI string) error {
 	logger := p.Log
 
-	base := configbase.LocalServicePath(pipelineTask.ProductName, serviceName)
-	s3Storage, err := s3.NewS3StorageFromEncryptedURI(pipelineTask.StorageURI)
+	base := configbase.LocalServicePath(productName, serviceName)
+	s3Storage, err := s3.NewS3StorageFromEncryptedURI(storageURI)
 	if err != nil {
 		return err
 	}
 
 	tarball := fmt.Sprintf("%s.tar.gz", serviceName)
 	tarFilePath := filepath.Join(base, tarball)
-	s3Storage.Subfolder = filepath.Join(s3Storage.Subfolder, configbase.ObjectStorageServicePath(pipelineTask.ProductName, serviceName))
+	s3Storage.Subfolder = filepath.Join(s3Storage.Subfolder, configbase.ObjectStorageServicePath(productName, serviceName))
 	forcedPathStyle := true
 	if s3Storage.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false

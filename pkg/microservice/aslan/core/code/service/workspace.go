@@ -17,17 +17,13 @@ limitations under the License.
 package service
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"net/url"
 	"os"
 	"path"
-	"strconv"
 	"strings"
 
-	"github.com/google/go-github/v35/github"
-	"github.com/xanzy/go-gitlab"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -41,7 +37,6 @@ import (
 	"github.com/koderover/zadig/pkg/shared/poetry"
 	"github.com/koderover/zadig/pkg/tool/codehub"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	githubtool "github.com/koderover/zadig/pkg/tool/git/github"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -259,76 +254,6 @@ type CodehostFileInfo struct {
 	Size     int    `json:"size"`
 	IsDir    bool   `json:"is_dir"`
 	FullPath string `json:"full_path"`
-}
-
-func GetGithubRepoInfo(codehostID int, repoName, branchName, path string, log *zap.SugaredLogger) ([]*CodehostFileInfo, error) {
-	fileInfo := make([]*CodehostFileInfo, 0)
-
-	detail, err := codehost.GetCodehostDetail(codehostID)
-	if err != nil {
-		log.Errorf("GetGithubRepoInfo GetCodehostDetail err:%v", err)
-		return fileInfo, e.ErrListWorkspace.AddDesc(err.Error())
-	}
-
-	githubClient := githubtool.NewClient(&githubtool.Config{AccessToken: detail.OauthToken, Proxy: config.ProxyHTTPSAddr()})
-	_, dirContent, err := githubClient.GetContents(context.TODO(), detail.Owner, repoName, path, &github.RepositoryContentGetOptions{Ref: branchName})
-	if err != nil {
-		return nil, e.ErrListWorkspace.AddDesc(err.Error())
-	}
-	for _, file := range dirContent {
-		fileInfo = append(fileInfo, &CodehostFileInfo{
-			Name:     file.GetName(),
-			Size:     file.GetSize(),
-			IsDir:    file.GetType() == "dir",
-			FullPath: file.GetPath(),
-		})
-	}
-	return fileInfo, nil
-}
-
-// 获取gitlab的目录内容接口
-func GetGitlabRepoInfo(codehostID int, repoName, branchName, path string, log *zap.SugaredLogger) ([]*CodehostFileInfo, error) {
-	fileInfos := make([]*CodehostFileInfo, 0)
-
-	detail, err := codehost.GetCodehostDetail(codehostID)
-	if err != nil {
-		log.Errorf("GetGitlabRepoInfo GetCodehostDetail err:%v", err)
-		return fileInfos, e.ErrListWorkspace.AddDesc(err.Error())
-	}
-	gitlabClient, err := gitlab.NewOAuthClient(detail.OauthToken, gitlab.WithBaseURL(detail.Address))
-	if err != nil {
-		log.Errorf("GetGitlabRepoInfo Prepare gitlab client err:%v", err)
-		return fileInfos, e.ErrListWorkspace.AddDesc(err.Error())
-	}
-	nextPage := "1"
-	for nextPage != "" {
-		pagenum, err := strconv.Atoi(nextPage)
-		if err != nil {
-			log.Errorf("Failed to get the amount of entries from gitlab, err: %v", err)
-			return nil, err
-		}
-		opt := &gitlab.ListTreeOptions{
-			ListOptions: gitlab.ListOptions{Page: pagenum},
-			Path:        gitlab.String(path),
-			Ref:         gitlab.String(branchName),
-			Recursive:   gitlab.Bool(false),
-		}
-		treeNodes, resp, err := gitlabClient.Repositories.ListTree(repoName, opt)
-		if err != nil {
-			log.Errorf("Failed to list tree from gitlab")
-			return nil, err
-		}
-		for _, entry := range treeNodes {
-			fileInfos = append(fileInfos, &CodehostFileInfo{
-				Name:     entry.Name,
-				Size:     0,
-				IsDir:    entry.Type == "tree",
-				FullPath: entry.Path,
-			})
-		}
-		nextPage = resp.Header.Get("x-next-page")
-	}
-	return fileInfos, nil
 }
 
 // 获取codehub的目录内容接口
