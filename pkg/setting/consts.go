@@ -457,6 +457,11 @@ const (
 	ProviderSourceSystemDefault
 )
 
+// Aliyun specific stuff
+const (
+	AliyunHost = "aliyuncs"
+)
+
 const MaxTries = 1
 
 const DogFood = "/var/run/koderover-dog-food"
