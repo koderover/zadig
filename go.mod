@@ -8,6 +8,7 @@ require (
 	github.com/RyanCarrier/dijkstra v1.1.0
 	github.com/andygrunwald/go-gerrit v0.0.0-20171029143327-95b11af228a1
 	github.com/aws/aws-sdk-go v1.34.28
+	github.com/blang/semver/v4 v4.0.0
 	github.com/bndr/gojenkins v1.1.0
 	github.com/bradleyfalzon/ghinstallation v1.1.1
 	github.com/bshuster-repo/logrus-logstash-hook v1.0.0 // indirect
