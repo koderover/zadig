@@ -98,6 +98,18 @@ func (c *Client) Download(bucketName, objectKey, dest string) error {
 	return err
 }
 
+// CopyObject copies an object to a new place in the same bucket.
+func (c *Client) CopyObject(bucketName, oldKey, newKey string) error {
+	opt := &s3.CopyObjectInput{
+		Bucket:     aws.String(bucketName),
+		CopySource: aws.String(bucketName + "/" + oldKey),
+		Key:        aws.String(newKey),
+	}
+	_, err := c.S3.CopyObject(opt)
+
+	return err
+}
+
 // RemoveFiles removes the files with a specific list of prefixes and delete ALL of them
 // for NOW, if an error is encountered, nothing will happen except for a line of error log.
 func (c *Client) RemoveFiles(bucketName string, prefixList []string) {

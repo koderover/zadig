@@ -29,6 +29,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/crypto"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type S3 struct {
@@ -131,6 +132,7 @@ func (s *S3) Validate() error {
 func FindDefaultS3() (*S3, error) {
 	storage, err := commonrepo.NewS3StorageColl().FindDefault()
 	if err != nil {
+		log.Warnf("Failed to find default s3 in db, err: %s", err)
 		return &S3{
 			S3Storage: &models.S3Storage{
 				Ak:       config.S3StorageAK(),

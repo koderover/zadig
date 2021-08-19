@@ -334,7 +334,7 @@ func (c *ServiceColl) ListMaxRevisions(opt *ServiceListOption) ([]*models.Servic
 			preMatch["product_name"] = bson.M{"$ne": opt.ExcludeProject}
 		}
 
-		// post options
+		// post options (anything that changes over revision should be added in post options)
 		if opt.Visibility != "" {
 			postMatch["visibility"] = opt.Visibility
 		}

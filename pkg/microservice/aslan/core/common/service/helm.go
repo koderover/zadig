@@ -77,7 +77,7 @@ func DownloadServiceManifests(base, projectName, serviceName string) error {
 	}
 	client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
 	if err != nil {
-		log.Errorf("Failed to create s3 client for download, err: %s", err)
+		log.Errorf("Failed to create s3 client, err: %s", err)
 		return err
 	}
 	if err = client.Download(s3Storage.Bucket, s3Storage.GetObjectPath(tarball), tarFilePath); err != nil {
