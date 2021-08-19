@@ -459,7 +459,7 @@ const (
 
 // Aliyun specific stuff
 const (
-	AliyunHost = "aliyuncs"
+	AliyunHost = ".aliyuncs.com"
 )
 
 const MaxTries = 1
