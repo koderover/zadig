@@ -73,24 +73,29 @@ func (c *Client) ValidateBucket(bucketName string) error {
 // Download the file to object storage
 func (c *Client) Download(bucketName, objectKey, dest string) error {
 	retry := 0
+	var err error
 
 	for retry < 3 {
 		opt := &s3.GetObjectInput{
 			Bucket: aws.String(bucketName),
 			Key:    aws.String(objectKey),
 		}
-		obj, err := c.GetObject(opt)
-		if err != nil {
+		obj, err1 := c.GetObject(opt)
+		if err1 != nil {
+			log.Warnf("Failed to get object %s from s3, try again, err: %s", objectKey, err1)
+			err = err1
+
 			retry++
 			continue
 		}
 		err = fs.SaveFile(obj.Body, dest)
-		if err == nil {
-			return nil
+		if err != nil {
+			log.Errorf("Failed to save file to %s, err: %s", dest, err)
 		}
-		retry++
+		return err
 	}
-	return fmt.Errorf("download file with key: %s failed", objectKey)
+
+	return err
 }
 
 // RemoveFiles removes the files with a specific list of prefixes and delete ALL of them

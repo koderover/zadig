@@ -17,11 +17,7 @@ limitations under the License.
 package util
 
 import (
-	"archive/tar"
-	"compress/gzip"
-	"io"
 	"os"
-	"path/filepath"
 )
 
 func GenerateTmpFile() (string, error) {
@@ -49,61 +45,4 @@ func WriteFile(filename string, data []byte, perm os.FileMode) error {
 		return err
 	}
 	return nil
-}
-
-func UnTar(dst, src string) (err error) {
-	fr, err := os.Open(src)
-	if err != nil {
-		return
-	}
-	defer fr.Close()
-
-	gr, err := gzip.NewReader(fr)
-	if err != nil {
-		return
-	}
-	defer gr.Close()
-
-	// 通过 gr 创建 tar.Reader
-	tr := tar.NewReader(gr)
-	for {
-		hdr, err := tr.Next()
-
-		switch {
-		case err == io.EOF:
-			return nil
-		case err != nil:
-			return err
-		case hdr == nil:
-			continue
-		}
-
-		dstFileDir := filepath.Join(dst, hdr.Name)
-
-		switch hdr.Typeflag {
-		case tar.TypeDir: // 如果是目录时候，创建目录
-			if b := ExistDir(dstFileDir); !b {
-				if err := os.MkdirAll(dstFileDir, 0775); err != nil {
-					return err
-				}
-			}
-		case tar.TypeReg: // 如果是文件就写入到磁盘
-			file, err := os.OpenFile(dstFileDir, os.O_CREATE|os.O_RDWR, os.FileMode(hdr.Mode))
-			if err != nil {
-				return err
-			}
-			_, err = io.Copy(file, tr)
-			if err != nil {
-				return err
-			}
-			file.Close()
-		}
-	}
-
-	return nil
-}
-
-func ExistDir(dirname string) bool {
-	fi, err := os.Stat(dirname)
-	return (err == nil || os.IsExist(err)) && fi.IsDir()
 }

@@ -483,7 +483,6 @@ func (p *DeployTaskPlugin) downloadService(pipelineTask *task.Task, serviceName,
 
 	tarball := fmt.Sprintf("%s.tar.gz", serviceName)
 	tarFilePath := filepath.Join(base, tarball)
-	objectKey := s3Storage.GetObjectPath(tarball)
 	s3Storage.Subfolder = filepath.Join(s3Storage.Subfolder, configbase.ObjectStorageServicePath(pipelineTask.ProductName, serviceName))
 	forcedPathStyle := true
 	if s3Storage.Provider == setting.ProviderSourceAli {
@@ -494,7 +493,7 @@ func (p *DeployTaskPlugin) downloadService(pipelineTask *task.Task, serviceName,
 		p.Log.Errorf("failed to create s3 client, err: %+v", err)
 		return err
 	}
-	if err = client.Download(s3Storage.Bucket, objectKey, tarFilePath); err != nil {
+	if err = client.Download(s3Storage.Bucket, s3Storage.GetObjectPath(tarball), tarFilePath); err != nil {
 		logger.Errorf("Failed to download file from s3, err: %s", err)
 		return err
 	}
