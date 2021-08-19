@@ -63,12 +63,11 @@ func (c *Client) GetAllProjectByEnv(envName, projectName string) ([]string, erro
 					serviceNameList = append(serviceNameList, service.ServiceName)
 				}
 			}
+			if err != nil {
+				fmt.Printf("GetEnvsList %s", err)
+				return nil, err
+			}
 		}
-	}
-
-	if err != nil {
-		fmt.Errorf("GetEnvsList %s", err)
-		return nil, err
 	}
 
 	return serviceNameList, nil
