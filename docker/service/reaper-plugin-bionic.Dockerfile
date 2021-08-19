@@ -1,15 +1,14 @@
-#golang-deps.Dockerfile.inc
+#golang.Dockerfile
 
 RUN go build -v -o /reaper ./cmd/reaper/main.go
 
-FROM n7832lxy.mirror.aliyuncs.com/library/ubuntu:xenial
+#ubuntu-bionic.Dockerfile
 
 RUN sed -i -E "s/[a-zA-Z0-9]+.ubuntu.com/mirrors.aliyun.com/g" /etc/apt/sources.list
 RUN apt-get clean && apt-get update && apt-get install -y apt-transport-https ca-certificates
-RUN sed -i s:http:https:g /etc/apt/sources.list
 RUN DEBIAN_FRONTEND=noninteractive apt install -y tzdata
-RUN apt-get clean && apt-get update && apt-get install -y \
-	curl \
+RUN apt-get install -y \
+  curl \
   git \
   netcat-openbsd \
   wget \

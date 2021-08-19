@@ -1,8 +1,9 @@
-#golang-deps.Dockerfile.inc
+#golang.Dockerfile
 
 RUN go build -v -o /jenkins-plugin ./cmd/jenkinsplugin/main.go
 
-#alpine-base.Dockerfile.inc
+#alpine.Dockerfile
+
 WORKDIR /app
 
 COPY --from=build /jenkins-plugin .

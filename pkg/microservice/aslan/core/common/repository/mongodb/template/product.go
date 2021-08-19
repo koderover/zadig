@@ -185,6 +185,10 @@ func (c *ProductColl) Update(productName string, args *template.Product) error {
 // Note: A bulk operation can have at most 1000 operations, but the client will do it for us.
 // see https://stackoverflow.com/questions/24237887/what-is-mongodb-batch-operation-max-size
 func (c *ProductColl) UpdateAll(projects []*template.Product) error {
+	if len(projects) == 0 {
+		return nil
+	}
+
 	var ms []mongo.WriteModel
 	for _, p := range projects {
 		ms = append(ms,

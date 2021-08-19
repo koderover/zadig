@@ -25,6 +25,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 const oldServiceTemplateCounterName = "service:%s&type:%s"
@@ -39,18 +40,27 @@ func init() {
 // 2. Add field `ProductName` in field `Services` for all envs
 // 3. Change the ServiceTemplateCounterName format
 func V130ToV131() error {
-	fmt.Println("Migrating data from 1.3.0 to 1.3.1")
+	log.Info("Migrating data from 1.3.0 to 1.3.1")
 
 	allServices, err := mongodb.NewServiceColl().ListMaxRevisions(nil)
 	if err != nil {
+		log.Errorf("Failed to get services, err: %s", err)
 		return err
 	}
+
+	if skipMigration(allServices, setting.ServiceTemplateCounterName) {
+		log.Info("Migration skipped")
+		return nil
+	}
+
 	allProjects, err := templaterepo.NewProductColl().List()
 	if err != nil {
+		log.Errorf("Failed to get projects, err: %s", err)
 		return err
 	}
 	allEnvs, err := mongodb.NewProductColl().List(&mongodb.ProductListOptions{ExcludeStatus: setting.ProductStatusDeleting})
 	if err != nil {
+		log.Errorf("Failed to get envs, err: %s", err)
 		return err
 	}
 
@@ -66,7 +76,7 @@ func V130ToV131() error {
 	// if items in serviceMap is less than allServices (which means that there are more than one services with same name),
 	// we should stop here since the logic below may cause unexpected effects.
 	if len(serviceMap) < len(allServices) {
-		fmt.Println("Migration skipped")
+		log.Info("Migration skipped")
 		return nil
 	}
 
@@ -107,21 +117,21 @@ func V130ToV131() error {
 	}
 
 	if err = templaterepo.NewProductColl().UpdateAll(updatedProjects); err != nil {
-		fmt.Printf("Failed to upgrade projects, err: %s", err)
+		log.Errorf("Failed to upgrade projects, err: %s", err)
 		return err
 	}
 
 	if err = mongodb.NewProductColl().UpdateAll(updatedEnvs); err != nil {
-		fmt.Printf("Failed to upgrade envs, err: %s", err)
+		log.Errorf("Failed to upgrade envs, err: %s", err)
 		return err
 	}
 
 	if err = UpdateServiceCounter(allServices); err != nil {
-		fmt.Printf("Failed to upgrade counters, err: %s", err)
+		log.Errorf("Failed to upgrade counters, err: %s", err)
 		return err
 	}
 
-	fmt.Println("Migration finished")
+	log.Info("Migration finished")
 
 	return nil
 }
@@ -131,18 +141,27 @@ func V130ToV131() error {
 // 2. Remove field `ProductName` in field `Services` for all envs
 // 3. Revert the ServiceTemplateCounterName format
 func V131ToV130() error {
-	fmt.Println("Rollback data from 1.3.1 to 1.3.0")
+	log.Info("Rollback data from 1.3.1 to 1.3.0")
 
 	allServices, err := mongodb.NewServiceColl().ListMaxRevisions(nil)
 	if err != nil {
+		log.Errorf("Failed to get services, err: %s", err)
 		return err
 	}
+
+	if skipMigration(allServices, oldServiceTemplateCounterName) {
+		log.Info("Migration skipped")
+		return nil
+	}
+
 	allProjects, err := templaterepo.NewProductColl().List()
 	if err != nil {
+		log.Errorf("Failed to get projects, err: %s", err)
 		return err
 	}
 	allEnvs, err := mongodb.NewProductColl().List(&mongodb.ProductListOptions{ExcludeStatus: setting.ProductStatusDeleting})
 	if err != nil {
+		log.Errorf("Failed to get envs, err: %s", err)
 		return err
 	}
 
@@ -169,21 +188,21 @@ func V131ToV130() error {
 	}
 
 	if err = templaterepo.NewProductColl().UpdateAll(updatedProjects); err != nil {
-		fmt.Printf("Failed to rollback projects, err: %s", err)
+		log.Errorf("Failed to rollback projects, err: %s", err)
 		return err
 	}
 
 	if err = mongodb.NewProductColl().UpdateAll(updatedEnvs); err != nil {
-		fmt.Printf("Failed to rollback envs, err: %s", err)
+		log.Errorf("Failed to rollback envs, err: %s", err)
 		return err
 	}
 
 	if err = RevertServiceCounter(allServices); err != nil {
-		fmt.Printf("Failed to rollback counters, err: %s", err)
+		log.Errorf("Failed to rollback counters, err: %s", err)
 		return err
 	}
 
-	fmt.Println("Rollback finished")
+	log.Info("Rollback finished")
 
 	return nil
 }
@@ -208,4 +227,18 @@ func updateServiceCounter(allServices []*models.Service, oldTemplate, newTemplat
 	}
 
 	return nil
+}
+
+func skipMigration(allServices []*models.Service, newTemplate string) bool {
+	if len(allServices) == 0 {
+		return true
+	}
+
+	newName := fmt.Sprintf(newTemplate, allServices[0].ServiceName, allServices[0].ProductName)
+	// skip if any new names exist (means upgrade is already done).
+	if counter, _ := mongodb.NewCounterColl().Find(newName); counter != nil {
+		return true
+	}
+
+	return false
 }
