@@ -114,15 +114,14 @@ func ListGroupsBySource(envName, productName string, perPage, page int, log *zap
 	if page > 0 && perPage > 0 {
 		//将获取到的所有服务按照名称进行排序
 		sort.SliceStable(listServices, func(i, j int) bool { return listServices[i].Name < listServices[j].Name })
-		currentPage := page - 1
 
-		if page*perPage < count {
-			listServices = listServices[currentPage*perPage : currentPage*perPage+perPage]
+		start := (page - 1) * perPage
+		if start >= count {
+			listServices = nil
+		} else if start+perPage >= count {
+			listServices = listServices[start:]
 		} else {
-			if currentPage*perPage > count {
-				return count, resp, ingressList, nil
-			}
-			listServices = listServices[currentPage*perPage:]
+			listServices = listServices[start : start+perPage]
 		}
 	}
 
