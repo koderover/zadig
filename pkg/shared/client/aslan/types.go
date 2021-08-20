@@ -103,3 +103,8 @@ type ServiceStatusListResp struct {
 	Pod         string `json:"pod"`
 	Container   string `json:"container"`
 }
+
+type ServiceStatus struct {
+	ServiceName string `json:"service_name"`
+	Status      string `json:"status"`
+}

@@ -81,7 +81,6 @@ require (
 	rsc.io/letsencrypt v0.0.3 // indirect
 	sigs.k8s.io/controller-runtime v0.8.2
 	sigs.k8s.io/yaml v1.2.0
-	gitee.com/openeuler/go-gitee v0.0.0-20210726101703-9a190b25908f // indirect
 )
 
 replace (
