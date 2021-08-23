@@ -134,7 +134,7 @@ const (
 	EventTypeTagPush      EventType = "Tag Push Hook"
 )
 
-const eventTypeHeader = "X-Codehub-Event"
+const eventTypeHeader = "X-CodeHub-Event"
 
 // HookEventType returns the event type for the given request.
 func HookEventType(r *http.Request) EventType {

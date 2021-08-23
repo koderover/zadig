@@ -45,12 +45,15 @@ func ProcessWebHook(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
+	ctx.Logger.Infof("HookEventType: %s", ilyshin.HookEventType(c.Request))
+	ctx.Logger.Infof("c.Request: %+v", c.Request.Header)
 	if github.WebHookType(c.Request) != "" {
 		ctx.Err = processGithub(payload, c.Request, ctx.RequestID, ctx.Logger)
 	} else if gitlab.HookEventType(c.Request) != "" {
 		ctx.Err = webhook.ProcessGitlabHook(payload, c.Request, ctx.RequestID, ctx.Logger)
-	} else if codehub.HookEventType(c.Request) != "" || ilyshin.HookEventType(c.Request) != "" {
+	} else if codehub.HookEventType(c.Request) != "" {
 		ctx.Err = webhook.ProcessCodehubHook(payload, c.Request, ctx.RequestID, ctx.Logger)
+	} else if ilyshin.HookEventType(c.Request) != "" {
 		ctx.Err = webhook.ProcessIlyshinHook(payload, c.Request, ctx.RequestID, ctx.Logger)
 	} else {
 		ctx.Err = webhook.ProcessGerritHook(payload, c.Request, ctx.RequestID, ctx.Logger)
