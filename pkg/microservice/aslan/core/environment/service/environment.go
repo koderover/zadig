@@ -2154,6 +2154,7 @@ func installOrUpdateHelmChart(user, envName, requestID string, args *commonmodel
 
 					base := config.LocalServicePath(currentService.ProductName, currentService.ServiceName)
 					if err = commonservice.PreLoadServiceManifests(base, currentService.ProductName, currentService.ServiceName); err != nil {
+						log.Errorf("Failed to load service menifests for service %s in project %s, err: %s", currentService.ServiceName, currentService.ProductName, err)
 						return
 					}
 

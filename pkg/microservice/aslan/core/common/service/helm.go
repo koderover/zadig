@@ -50,11 +50,13 @@ func PreLoadServiceManifests(base, productName, serviceName string) error {
 		log.Errorf("Failed to check if dir %s is exiting, err: %s", base, err)
 		return err
 	}
-	if !ok {
-		if err = DownloadServiceManifests(base, productName, serviceName); err != nil {
-			log.Errorf("Failed to download service from s3, err: %s", err)
-			return err
-		}
+	if ok {
+		return nil
+	}
+
+	if err = DownloadServiceManifests(base, productName, serviceName); err != nil {
+		log.Errorf("Failed to download service from s3, err: %s", err)
+		return err
 	}
 
 	return nil
