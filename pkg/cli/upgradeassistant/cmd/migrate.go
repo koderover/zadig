@@ -32,10 +32,12 @@ import (
 	"github.com/koderover/zadig/version"
 )
 
+const oldestVersion = "1.3.0"
+
 func init() {
 	rootCmd.AddCommand(migrateCmd)
 
-	migrateCmd.PersistentFlags().StringP("from-version", "f", "1.3.0", "current version to migrate from")
+	migrateCmd.PersistentFlags().StringP("from-version", "f", oldestVersion, "current version to migrate from")
 	migrateCmd.PersistentFlags().StringP("to-version", "t", version.Version, "target version to migrate to")
 	_ = viper.BindPFlag("fromVersion", migrateCmd.PersistentFlags().Lookup("from-version"))
 	_ = viper.BindPFlag("toVersion", migrateCmd.PersistentFlags().Lookup("to-version"))
