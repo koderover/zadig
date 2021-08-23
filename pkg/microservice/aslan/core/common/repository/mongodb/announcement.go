@@ -88,3 +88,16 @@ func (c *AnnouncementColl) ListValidAnnouncements(receiver string) ([]*models.An
 
 	return res, nil
 }
+
+type AnnouncementDeleteArgs struct {
+	ID string
+}
+
+func (c *AnnouncementColl) DeleteAnnouncement(args *AnnouncementDeleteArgs) error {
+	query := bson.M{}
+	if args.ID != "" {
+		query["_id"] = args.ID
+	}
+	_, err := c.DeleteOne(context.TODO(), query)
+	return err
+}

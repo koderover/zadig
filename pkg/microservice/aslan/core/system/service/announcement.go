@@ -48,3 +48,11 @@ func PullNotifyAnnouncement(user string, log *zap.SugaredLogger) ([]*models.Anno
 
 	return resp, nil
 }
+
+func DeleteAnnouncement(user, id string, log *zap.SugaredLogger) error {
+	err := mongodb.NewAnnouncementColl().DeleteAnnouncement(&mongodb.AnnouncementDeleteArgs{ID: id})
+	if err != nil {
+		log.Errorf("Delete Announcement failed, user: %s, error: %s", user, err)
+	}
+	return err
+}

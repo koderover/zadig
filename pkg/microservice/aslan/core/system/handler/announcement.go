@@ -48,3 +48,12 @@ func PullNotifyAnnouncement(c *gin.Context) {
 
 	ctx.Resp, ctx.Err = service.PullNotifyAnnouncement(ctx.Username, ctx.Logger)
 }
+
+func DeleteAnnouncement(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ID := c.Param("id")
+
+	ctx.Err = service.DeleteAnnouncement(ctx.Username, ID, ctx.Logger)
+}
