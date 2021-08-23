@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -49,7 +48,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
-	"github.com/koderover/zadig/pkg/util/fs"
 )
 
 // InitializeDeployTaskPlugin to initiate deploy task plugin and return ref
@@ -398,8 +396,8 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 					Timeout:     time.Second * DeployTimeout,
 				}
 
-				base := configbase.LocalServicePath(pipelineTask.ProductName, pipelineTask.ServiceName)
-				if err = p.downloadService(pipelineTask.ProductName, pipelineTask.ServiceName, pipelineTask.StorageURI); err != nil {
+				path, err := p.downloadService(pipelineTask.ProductName, pipelineTask.ServiceName, pipelineTask.StorageURI)
+				if err != nil {
 					err = errors.WithMessagef(
 						err,
 						"failed to download service %s/%s",
@@ -408,7 +406,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				}
 
 				if err = helmClient.InstallOrUpgradeChart(context.Background(), &chartSpec, &helmclient.ChartOption{
-					ChartPath: base}, p.Log); err != nil {
+					ChartPath: path}, p.Log); err != nil {
 					err = errors.WithMessagef(
 						err,
 						"failed to Install helm chart %s/%s",
@@ -461,13 +459,13 @@ func (p *DeployTaskPlugin) getService(ctx context.Context, name, serviceType, pr
 	return s, nil
 }
 
-func (p *DeployTaskPlugin) downloadService(productName, serviceName, storageURI string) error {
+func (p *DeployTaskPlugin) downloadService(productName, serviceName, storageURI string) (string, error) {
 	logger := p.Log
 
 	base := configbase.LocalServicePath(productName, serviceName)
 	s3Storage, err := s3.NewS3StorageFromEncryptedURI(storageURI)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	tarball := fmt.Sprintf("%s.tar.gz", serviceName)
@@ -480,21 +478,14 @@ func (p *DeployTaskPlugin) downloadService(productName, serviceName, storageURI 
 	client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
 	if err != nil {
 		p.Log.Errorf("failed to create s3 client, err: %+v", err)
-		return err
+		return "", err
 	}
 	if err = client.Download(s3Storage.Bucket, s3Storage.GetObjectPath(tarball), tarFilePath); err != nil {
 		logger.Errorf("Failed to download file from s3, err: %s", err)
-		return err
-	}
-	if err = fs.Untar(tarFilePath, base); err != nil {
-		logger.Errorf("Untar err: %s", err)
-		return err
-	}
-	if err = os.Remove(tarFilePath); err != nil {
-		logger.Errorf("Failed to remove file %s, err: %s", tarFilePath, err)
+		return "", err
 	}
 
-	return nil
+	return tarFilePath, nil
 }
 
 func (p *DeployTaskPlugin) getRenderSet(ctx context.Context, name string, revision int64) (*types.RenderSet, error) {
