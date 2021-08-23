@@ -21,6 +21,7 @@ import (
 	"strconv"
 
 	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 func (c *Client) GetContainerLog(envName, projectName, container, pod string, tails int) (string, error) {
@@ -36,9 +37,9 @@ func (c *Client) GetContainerLog(envName, projectName, container, pod string, ta
 
 	response, err := c.Get(url, httpclient.SetQueryParams(req))
 	if err != nil {
-		fmt.Printf("GetEnvsList %s \n", err)
+		log.Infof("GetEnvsList %s", err)
 		return "", err
 	}
 
-	return string(response.Body()), nil
+	return response.String(), nil
 }

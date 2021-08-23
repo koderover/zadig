@@ -22,58 +22,59 @@ import (
 	"sync"
 
 	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 func (c *Client) ListEnvironments(projectName string) ([]ListEnvsResp, error) {
 
-	url := fmt.Sprintf("/api/aslan/environment/environments?productName=%s", projectName)
+	url := "/api/aslan/environment/environments"
 	resp := make([]ListEnvsResp, 0)
-	_, err := c.Get(url, httpclient.SetResult(&resp))
+	_, err := c.Get(url, httpclient.SetQueryParam("productName", projectName), httpclient.SetResult(&resp))
 	if err != nil {
-		fmt.Printf("GetEnvsList %s \n", err)
+		log.Infof("GetEnvsList %s ", err)
 		return nil, err
 	}
 
 	return resp, nil
 }
 
-func (c *Client) GetAllServicesByEnv(envName, projectName string) ([]ServiceStatus, error) {
+func (c *Client) ListServiceNamesByEnvironment(envName, projectName string) ([]*ServiceStatus, error) {
 	listEnv, err := c.ListEnvironments(projectName)
 	if err != nil {
-		fmt.Printf("GetEnvsList error in GetAllProjectByEnv %s \n", err)
+		log.Infof("GetEnvsList error in GetAllProjectByEnv %s", err)
 		return nil, err
 	}
-	serviceNameList := make([]ServiceStatus, 0)
+	serviceNameList := make([]*ServiceStatus, 0)
 	for i := 0; i < len(listEnv); i++ {
 		if listEnv[i].EnvName == envName {
 			if listEnv[i].Source == "helm" {
 
 				resp, err := c.GetHelmServices(envName, projectName)
 				if err != nil {
-					fmt.Printf("c.GetHelmServices error:%s \n", err)
+					log.Infof("c.GetHelmServices error:%s", err)
 				}
 				for _, service := range resp.Services {
 					serviceStatus := ServiceStatus{}
 					serviceStatus.ServiceName = service.ServiceName
 					serviceStatus.Status = service.Status
-					serviceNameList = append(serviceNameList, serviceStatus)
+					serviceNameList = append(serviceNameList, &serviceStatus)
 				}
 
 			} else if listEnv[i].Source != "helm" {
 
 				serviceDetailList, err := c.GetServices(envName, projectName)
 				if err != nil {
-					fmt.Printf("c.GetServices error:%s \n", err)
+					log.Infof("c.GetServices error:%s ", err)
 				}
 				for _, service := range serviceDetailList {
 					serviceStatus := ServiceStatus{}
 					serviceStatus.ServiceName = service.ServiceName
 					serviceStatus.Status = service.Status
-					serviceNameList = append(serviceNameList, serviceStatus)
+					serviceNameList = append(serviceNameList, &serviceStatus)
 				}
 			}
 			if err != nil {
-				fmt.Printf("GetEnvsList %s \n", err)
+				log.Infof("GetEnvsList %s", err)
 				return nil, err
 			}
 		}
@@ -82,18 +83,17 @@ func (c *Client) GetAllServicesByEnv(envName, projectName string) ([]ServiceStat
 	return serviceNameList, nil
 }
 
-func (c *Client) GetServicesDetail(envName, projectName string) ([]ServiceStatusListResp, error) {
+func (c *Client) GetServicesDetail(envName, projectName string) ([]*ServiceStatusListResp, error) {
 
-	serviceList, err := c.GetAllServicesByEnv(envName, projectName)
+	serviceList, err := c.ListServiceNamesByEnvironment(envName, projectName)
 	if err != nil {
-		fmt.Printf("getAllProjectByEnv %s \n", err)
+		log.Infof("getAllProjectByEnv %s", err)
 		return nil, err
 	}
 
-	wg := sync.WaitGroup{}
-	serviceStatusList := make([]ServiceStatusListResp, 0)
+	var wg sync.WaitGroup
+	serviceStatusList := make([]*ServiceStatusListResp, 0)
 	for _, service := range serviceList {
-		sName := service.ServiceName
 		status := service.Status
 		wg.Add(1)
 
@@ -102,23 +102,23 @@ func (c *Client) GetServicesDetail(envName, projectName string) ([]ServiceStatus
 				wg.Done()
 			}()
 
-			resp, err := c.GetServicePodDetails(projectName, sName, envName, "")
+			resp, err := c.GetServicePodDetails(projectName, name, envName, "")
 			if err != nil {
-				fmt.Printf("get service detail error:%s,%s \n", err, sName)
+				log.Infof("get service detail error:%s,%s", err, name)
 			}
 
 			servicesStatus := ServiceStatusListResp{}
-			servicesStatus.ServiceName = sName
+			servicesStatus.ServiceName = name
 			servicesStatus.Status = status
 			podName := ""
 			containerName := ""
 			if len(resp.Scales) == 0 {
-				fmt.Println("no project scales")
+				log.Infof("no project scales")
 				return
 
 			} else {
 				if len(resp.Scales[0].Pods) == 0 {
-					fmt.Println("no project pods")
+					log.Infof("no project pods")
 					return
 				}
 				podNameList := make([]string, 0)
@@ -128,7 +128,7 @@ func (c *Client) GetServicesDetail(envName, projectName string) ([]ServiceStatus
 				}
 				podName = strings.Join(podNameList, ",")
 				if len(podName) == 0 {
-					fmt.Println("podName  error")
+					log.Infof("podName  error")
 				}
 
 				for _, con := range resp.Scales[0].Pods[0].Containers {
@@ -136,7 +136,7 @@ func (c *Client) GetServicesDetail(envName, projectName string) ([]ServiceStatus
 				}
 				containerName = strings.Join(containerNameList, ",")
 				if len(containerName) == 0 {
-					fmt.Println("containerName  error")
+					log.Infof("containerName  error")
 				}
 
 				servicesStatus.Pod = podName
@@ -144,7 +144,7 @@ func (c *Client) GetServicesDetail(envName, projectName string) ([]ServiceStatus
 				serviceStatusList = append(serviceStatusList, servicesStatus)
 			}
 
-		}(sName)
+		}(service.ServiceName)
 
 	}
 
@@ -153,25 +153,25 @@ func (c *Client) GetServicesDetail(envName, projectName string) ([]ServiceStatus
 	return serviceStatusList, nil
 }
 
-func (c *Client) GetHelmServices(envName, projectName string) (ServicesListResp, error) {
+func (c *Client) GetHelmServices(envName, projectName string) (*ServicesListResp, error) {
 
 	var resp ServicesListResp
 	url := fmt.Sprintf("/api/aslan/environment/environments/%s/groups/helm", projectName)
 	_, err := c.Get(url, httpclient.SetQueryParam("envName", envName), httpclient.SetResult(&resp))
 
-	return resp, err
+	return &resp, err
 }
 
-func (c *Client) GetServices(envName, projectName string) ([]ServiceDetail, error) {
+func (c *Client) GetServices(envName, projectName string) ([]*ServiceDetail, error) {
 
-	ServiceDetailList := make([]ServiceDetail, 0)
+	ServiceDetailList := make([]*ServiceDetail, 0)
 	url := fmt.Sprintf("/api/aslan/environment/environments/%s/groups", projectName)
 	_, err := c.Get(url, httpclient.SetQueryParam("envName", envName), httpclient.SetResult(&ServiceDetailList))
 
 	return ServiceDetailList, err
 }
 
-func (c *Client) GetServicePodDetails(projectName, sName, envName, envType string) (EnvProjectDetail, error) {
+func (c *Client) GetServicePodDetails(projectName, sName, envName, envType string) (*EnvProjectDetail, error) {
 
 	var resp EnvProjectDetail
 	url := fmt.Sprintf("/api/aslan/environment/environments/%s/services/%s",
@@ -182,5 +182,5 @@ func (c *Client) GetServicePodDetails(projectName, sName, envName, envType strin
 		"envType": envType,
 	}
 	_, err := c.Get(url, httpclient.SetQueryParams(req), httpclient.SetResult(&resp))
-	return resp, err
+	return &resp, err
 }
