@@ -52,7 +52,7 @@ func (s *engine) injectMiddlewares() {
 	if s.mode == gin.TestMode {
 		return
 	}
-
+	g.Use(ginmiddleware.Response())
 	g.Use(ginmiddleware.RequestID())
 	g.Use(ginmiddleware.RequestLog(log.NewFileLogger(config.RequestLogFile())))
 	g.Use(gin.Recovery())

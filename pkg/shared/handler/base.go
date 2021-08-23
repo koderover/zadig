@@ -26,7 +26,6 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/aslanx"
 	"github.com/koderover/zadig/pkg/shared/poetry"
-	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/types/permission"
 	"github.com/koderover/zadig/pkg/util/ginzap"
 )
@@ -66,7 +65,7 @@ func currentUsername(c *gin.Context) (username string) {
 
 func JSONResponse(c *gin.Context, ctx *Context) {
 	if ctx.Err != nil {
-		c.JSON(e.ErrorMessage(ctx.Err))
+		c.Set("ERR", ctx.Err)
 		c.Abort()
 		return
 	}
@@ -74,9 +73,8 @@ func JSONResponse(c *gin.Context, ctx *Context) {
 	realResp := responseHelper(ctx.Resp)
 
 	if ctx.Resp == nil {
-		c.JSON(200, gin.H{"message": "success"})
 	} else {
-		c.JSON(200, realResp)
+		c.Set("RESPONSE", realResp)
 	}
 }
 
