@@ -141,7 +141,7 @@ func (c *Client) GetServicesDetail(envName, projectName string) ([]*ServiceStatu
 
 				servicesStatus.Pod = podName
 				servicesStatus.Container = containerName
-				serviceStatusList = append(serviceStatusList, servicesStatus)
+				serviceStatusList = append(serviceStatusList, &servicesStatus)
 			}
 
 		}(service.ServiceName)
