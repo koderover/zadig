@@ -136,7 +136,7 @@ func GetRepoTree(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	info := &repoInfo{}
-	if err := c.BindQuery(info); err != nil {
+	if err := c.ShouldBindQuery(info); err != nil {
 		ctx.Err = err
 		return
 	}
