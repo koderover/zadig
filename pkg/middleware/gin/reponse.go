@@ -32,6 +32,10 @@ func Response() gin.HandlerFunc {
 }
 
 func handleResponse(c *gin.Context) {
+	if c.Writer.Written() {
+		return
+	}
+
 	if v, ok := c.Get(setting.ResponseError); ok {
 		c.JSON(e.ErrorMessage(v.(error)))
 		return
@@ -40,7 +44,7 @@ func handleResponse(c *gin.Context) {
 	if v, ok := c.Get(setting.ResponseData); ok {
 		c.JSON(200, v)
 	} else {
-		c.JSON(500, gin.H{"message": "internal err"})
+		c.JSON(200, gin.H{"message": "success"})
 	}
 
 }
