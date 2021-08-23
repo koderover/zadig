@@ -45,8 +45,6 @@ func ProcessWebHook(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	ctx.Logger.Infof("HookEventType: %s", ilyshin.HookEventType(c.Request))
-	ctx.Logger.Infof("header: %+v", c.Request.Header)
 	if github.WebHookType(c.Request) != "" {
 		ctx.Err = processGithub(payload, c.Request, ctx.RequestID, ctx.Logger)
 	} else if gitlab.HookEventType(c.Request) != "" {
