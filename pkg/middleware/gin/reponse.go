@@ -18,6 +18,7 @@ package gin
 
 import (
 	"github.com/gin-gonic/gin"
+
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
@@ -31,12 +32,12 @@ func Response() gin.HandlerFunc {
 }
 
 func handleResponse(c *gin.Context) {
-	if v, ok := c.Get(setting.ERR); ok {
+	if v, ok := c.Get(setting.ResponseError); ok {
 		c.JSON(e.ErrorMessage(v.(error)))
 		return
 	}
 
-	if v, ok := c.Get(setting.RESPONSE); ok {
+	if v, ok := c.Get(setting.ResponseData); ok {
 		c.JSON(200, v)
 	} else {
 		c.JSON(500, gin.H{"message": "internal err"})
