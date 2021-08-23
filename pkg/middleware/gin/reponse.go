@@ -32,6 +32,7 @@ func Response() gin.HandlerFunc {
 }
 
 func handleResponse(c *gin.Context) {
+	// skip set response when previous middlewares  already do
 	if c.Writer.Written() {
 		return
 	}
