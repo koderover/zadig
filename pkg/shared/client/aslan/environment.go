@@ -31,7 +31,7 @@ func (c *Client) ListEnvironments(projectName string) ([]*ListEnvsResp, error) {
 	resp := make([]*ListEnvsResp, 0)
 	_, err := c.Get(url, httpclient.SetQueryParam("productName", projectName), httpclient.SetResult(&resp))
 	if err != nil {
-		log.Infof("GetEnvsList %s ", err)
+		log.Errorf("GetEnvsList %s ", err)
 		return nil, err
 	}
 
@@ -44,7 +44,7 @@ func (c *Client) ListEnvironment(envName, projectName string) (*ListEnvsResp, er
 	var resp ListEnvsResp
 	_, err := c.Get(url, httpclient.SetQueryParam("envName", envName), httpclient.SetResult(&resp))
 	if err != nil {
-		log.Infof("GetEnvsList %s ", err)
+		log.Errorf("GetEnvsList %s ", err)
 		return nil, err
 	}
 
@@ -54,7 +54,7 @@ func (c *Client) ListEnvironment(envName, projectName string) (*ListEnvsResp, er
 func (c *Client) ListServiceNamesByEnvironment(envName, projectName string) ([]*ServiceStatus, error) {
 	listEnv, err := c.ListEnvironment(envName, projectName)
 	if err != nil {
-		log.Infof("GetEnvsList error in GetAllProjectByEnv %s", err)
+		log.Errorf("GetEnvsList error in GetAllProjectByEnv %s", err)
 		return nil, err
 	}
 	serviceNameList := make([]*ServiceStatus, 0)
@@ -63,7 +63,8 @@ func (c *Client) ListServiceNamesByEnvironment(envName, projectName string) ([]*
 
 		resp, err := c.GetHelmServices(envName, projectName)
 		if err != nil {
-			log.Infof("c.GetHelmServices error:%s", err)
+			log.Errorf("c.GetHelmServices error:%s", err)
+			return nil, err
 		}
 		for _, service := range resp.Services {
 			serviceStatus := ServiceStatus{}
@@ -76,7 +77,8 @@ func (c *Client) ListServiceNamesByEnvironment(envName, projectName string) ([]*
 
 		serviceDetailList, err := c.GetServices(envName, projectName)
 		if err != nil {
-			log.Infof("c.GetServices error:%s ", err)
+			log.Errorf("c.GetServices error:%s ", err)
+			return nil, err
 		}
 		for _, service := range serviceDetailList {
 			serviceStatus := ServiceStatus{}
@@ -84,10 +86,6 @@ func (c *Client) ListServiceNamesByEnvironment(envName, projectName string) ([]*
 			serviceStatus.Status = service.Status
 			serviceNameList = append(serviceNameList, &serviceStatus)
 		}
-	}
-	if err != nil {
-		log.Infof("GetEnvsList %s", err)
-		return nil, err
 	}
 
 	return serviceNameList, nil
@@ -97,7 +95,7 @@ func (c *Client) GetServicesDetail(envName, projectName string) ([]*ServiceStatu
 
 	serviceList, err := c.ListServiceNamesByEnvironment(envName, projectName)
 	if err != nil {
-		log.Infof("getAllProjectByEnv %s", err)
+		log.Errorf("getAllProjectByEnv %s", err)
 		return nil, err
 	}
 
@@ -114,7 +112,8 @@ func (c *Client) GetServicesDetail(envName, projectName string) ([]*ServiceStatu
 
 			resp, err := c.GetServicePodDetails(projectName, name, envName, "")
 			if err != nil {
-				log.Infof("get service detail error:%s,%s", err, name)
+				log.Errorf("get service detail error:%s,%s", err, name)
+				return
 			}
 
 			servicesStatus := ServiceStatusListResp{}
