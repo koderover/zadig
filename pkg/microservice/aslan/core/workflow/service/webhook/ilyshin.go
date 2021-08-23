@@ -24,7 +24,7 @@ import (
 )
 
 func ProcessIlyshinHook(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) error {
-	token := req.Header.Get("X-Codehub-Token")
+	token := req.Header.Get("X-CodeHub-Token")
 	secret := gitservice.GetHookSecret()
 
 	if secret != "" && token != secret {
