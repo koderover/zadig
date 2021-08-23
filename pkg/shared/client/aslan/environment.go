@@ -25,10 +25,10 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-func (c *Client) ListEnvironments(projectName string) ([]ListEnvsResp, error) {
+func (c *Client) ListEnvironments(projectName string) ([]*ListEnvsResp, error) {
 
 	url := "/api/aslan/environment/environments"
-	resp := make([]ListEnvsResp, 0)
+	resp := make([]*ListEnvsResp, 0)
 	_, err := c.Get(url, httpclient.SetQueryParam("productName", projectName), httpclient.SetResult(&resp))
 	if err != nil {
 		log.Infof("GetEnvsList %s ", err)
@@ -38,46 +38,56 @@ func (c *Client) ListEnvironments(projectName string) ([]ListEnvsResp, error) {
 	return resp, nil
 }
 
+func (c *Client) ListEnvironment(envName, projectName string) (*ListEnvsResp, error) {
+
+	url := fmt.Sprintf("/api/aslan/environment/environments/%s", projectName)
+	var resp ListEnvsResp
+	_, err := c.Get(url, httpclient.SetQueryParam("envName", envName), httpclient.SetResult(&resp))
+	if err != nil {
+		log.Infof("GetEnvsList %s ", err)
+		return nil, err
+	}
+
+	return &resp, nil
+}
+
 func (c *Client) ListServiceNamesByEnvironment(envName, projectName string) ([]*ServiceStatus, error) {
-	listEnv, err := c.ListEnvironments(projectName)
+	listEnv, err := c.ListEnvironment(envName, projectName)
 	if err != nil {
 		log.Infof("GetEnvsList error in GetAllProjectByEnv %s", err)
 		return nil, err
 	}
 	serviceNameList := make([]*ServiceStatus, 0)
-	for i := 0; i < len(listEnv); i++ {
-		if listEnv[i].EnvName == envName {
-			if listEnv[i].Source == "helm" {
 
-				resp, err := c.GetHelmServices(envName, projectName)
-				if err != nil {
-					log.Infof("c.GetHelmServices error:%s", err)
-				}
-				for _, service := range resp.Services {
-					serviceStatus := ServiceStatus{}
-					serviceStatus.ServiceName = service.ServiceName
-					serviceStatus.Status = service.Status
-					serviceNameList = append(serviceNameList, &serviceStatus)
-				}
+	if listEnv.Source == "helm" {
 
-			} else if listEnv[i].Source != "helm" {
-
-				serviceDetailList, err := c.GetServices(envName, projectName)
-				if err != nil {
-					log.Infof("c.GetServices error:%s ", err)
-				}
-				for _, service := range serviceDetailList {
-					serviceStatus := ServiceStatus{}
-					serviceStatus.ServiceName = service.ServiceName
-					serviceStatus.Status = service.Status
-					serviceNameList = append(serviceNameList, &serviceStatus)
-				}
-			}
-			if err != nil {
-				log.Infof("GetEnvsList %s", err)
-				return nil, err
-			}
+		resp, err := c.GetHelmServices(envName, projectName)
+		if err != nil {
+			log.Infof("c.GetHelmServices error:%s", err)
 		}
+		for _, service := range resp.Services {
+			serviceStatus := ServiceStatus{}
+			serviceStatus.ServiceName = service.ServiceName
+			serviceStatus.Status = service.Status
+			serviceNameList = append(serviceNameList, &serviceStatus)
+		}
+
+	} else if listEnv.Source != "helm" {
+
+		serviceDetailList, err := c.GetServices(envName, projectName)
+		if err != nil {
+			log.Infof("c.GetServices error:%s ", err)
+		}
+		for _, service := range serviceDetailList {
+			serviceStatus := ServiceStatus{}
+			serviceStatus.ServiceName = service.ServiceName
+			serviceStatus.Status = service.Status
+			serviceNameList = append(serviceNameList, &serviceStatus)
+		}
+	}
+	if err != nil {
+		log.Infof("GetEnvsList %s", err)
+		return nil, err
 	}
 
 	return serviceNameList, nil
