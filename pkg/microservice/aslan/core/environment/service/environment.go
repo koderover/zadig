@@ -20,8 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -50,7 +48,6 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gerrit"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
@@ -2155,16 +2152,14 @@ func installOrUpdateHelmChart(user, envName, requestID string, args *commonmodel
 				go func(currentChartSpec *helmclient.ChartSpec, currentService *commonmodels.Service) {
 					defer wg.Done()
 
-					base, err := gerrit.GetGerritWorkspaceBasePath(currentService.RepoName)
-					_, serviceFileErr := os.Stat(path.Join(base, currentService.LoadPath))
-					if err != nil || os.IsNotExist(serviceFileErr) {
-						if err = commonservice.DownloadService(base, currentService.ServiceName); err != nil {
-							return
-						}
+					base := config.LocalServicePath(currentService.ProductName, currentService.ServiceName)
+					if err = commonservice.PreLoadServiceManifests(base, currentService.ProductName, currentService.ServiceName); err != nil {
+						log.Errorf("Failed to load service menifests for service %s in project %s, err: %s", currentService.ServiceName, currentService.ProductName, err)
+						return
 					}
 
 					if err = helmClient.InstallOrUpgradeChart(context.Background(), currentChartSpec, &helmclient.ChartOption{
-						ChartPath: filepath.Join(base, currentService.LoadPath),
+						ChartPath: filepath.Join(base, currentService.ServiceName),
 					}, log); err != nil {
 						errList = multierror.Append(errList, err)
 						return
@@ -2324,15 +2319,12 @@ func updateProductGroup(productName, envName, updateType string, productResp *co
 						UpgradeCRDs: true,
 						Timeout:     Timeout * time.Second * 10,
 					}
-					base, err := gerrit.GetGerritWorkspaceBasePath(currentService.RepoName)
-					_, serviceFileErr := os.Stat(path.Join(base, currentService.LoadPath))
-					if err != nil || os.IsNotExist(serviceFileErr) {
-						if err = commonservice.DownloadService(base, currentService.ServiceName); err != nil {
-							return
-						}
+					base := config.LocalServicePath(currentService.ProductName, currentService.ServiceName)
+					if err = commonservice.PreLoadServiceManifests(base, currentService.ProductName, currentService.ServiceName); err != nil {
+						return
 					}
 					err = helmClient.InstallOrUpgradeChart(context.Background(), &chartSpec,
-						&helmclient.ChartOption{ChartPath: filepath.Join(base, currentService.LoadPath)}, log)
+						&helmclient.ChartOption{ChartPath: filepath.Join(base, currentService.ServiceName)}, log)
 
 					if err != nil {
 						log.Errorf("install helm chart %s error :%+v", chartSpec.ReleaseName, err)
@@ -2535,12 +2527,9 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 				go func(tmpRenderChart *template.RenderChart, currentService *commonmodels.Service) {
 					defer wg.Done()
 
-					base, err := gerrit.GetGerritWorkspaceBasePath(currentService.RepoName)
-					_, serviceFileErr := os.Stat(path.Join(base, currentService.LoadPath))
-					if err != nil || os.IsNotExist(serviceFileErr) {
-						if err = commonservice.DownloadService(base, currentService.ServiceName); err != nil {
-							return
-						}
+					base := config.LocalServicePath(currentService.ProductName, currentService.ServiceName)
+					if err = commonservice.PreLoadServiceManifests(base, currentService.ProductName, currentService.ServiceName); err != nil {
+						return
 					}
 					chartSpec := helmclient.ChartSpec{
 						ReleaseName: fmt.Sprintf("%s-%s", productResp.Namespace, tmpRenderChart.ServiceName),
@@ -2554,7 +2543,7 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 						Timeout:     Timeout * time.Second * 10,
 					}
 					err = helmClient.InstallOrUpgradeChart(context.Background(), &chartSpec, &helmclient.ChartOption{
-						ChartPath: filepath.Join(base, currentService.LoadPath)}, log)
+						ChartPath: filepath.Join(base, currentService.ServiceName)}, log)
 					if err != nil {
 						errList = multierror.Append(errList, err)
 						log.Errorf("install helm chart error :%+v", err)

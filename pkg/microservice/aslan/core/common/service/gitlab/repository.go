@@ -14,35 +14,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package util
+package gitlab
 
 import (
-	"os"
+	"github.com/27149chen/afero"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
 )
 
-func GenerateTmpFile() (string, error) {
-	var tmpFile *os.File
+func (c *Client) GetTree(owner, repo, path, branch string) ([]*git.TreeNode, error) {
+	var treeNodes []*git.TreeNode
 
-	tmpFile, err := os.CreateTemp("", "")
+	tns, err := c.ListTree(owner, repo, path, branch, false, nil)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-
-	_ = tmpFile.Close()
-
-	return tmpFile.Name(), nil
+	for _, t := range tns {
+		treeNodes = append(treeNodes, git.ToTreeNode(t))
+	}
+	return treeNodes, nil
 }
 
-func WriteFile(filename string, data []byte, perm os.FileMode) error {
-	f, err := os.OpenFile(filename, os.O_CREATE|os.O_RDWR|os.O_APPEND, perm)
-	if err != nil {
-		return err
-	}
-	if _, err := f.Write(data); err != nil {
-		return err
-	}
-	if err := f.Close(); err != nil {
-		return err
-	}
-	return nil
+func (c *Client) GetTreeContents(owner, repo, path, branch string) (afero.Fs, error) {
+	return c.Client.GetTreeContents(owner, repo, path, branch)
 }

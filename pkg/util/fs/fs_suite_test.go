@@ -14,35 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package util
+package fs_test
 
 import (
-	"os"
+	"testing"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
-func GenerateTmpFile() (string, error) {
-	var tmpFile *os.File
-
-	tmpFile, err := os.CreateTemp("", "")
-	if err != nil {
-		return "", err
-	}
-
-	_ = tmpFile.Close()
-
-	return tmpFile.Name(), nil
-}
-
-func WriteFile(filename string, data []byte, perm os.FileMode) error {
-	f, err := os.OpenFile(filename, os.O_CREATE|os.O_RDWR|os.O_APPEND, perm)
-	if err != nil {
-		return err
-	}
-	if _, err := f.Write(data); err != nil {
-		return err
-	}
-	if err := f.Close(); err != nil {
-		return err
-	}
-	return nil
+func TestRoutes(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "fs util Suite")
 }

@@ -20,8 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -258,7 +257,6 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			yamlValuesByte    []byte
 			renderInfo        *types.RenderSet
 			helmClient        helmclient.Client
-			serviceTemplate   *types.ServiceTmpl
 		)
 
 		deployments, _ := getter.ListDeployments(p.Task.Namespace, nil, p.kubeClient)
@@ -398,17 +396,8 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 					Timeout:     time.Second * DeployTimeout,
 				}
 
-				serviceTemplate, err = p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType, p.Task.ProductName)
+				path, err := p.downloadService(pipelineTask.ProductName, pipelineTask.ServiceName, pipelineTask.StorageURI)
 				if err != nil {
-					err = errors.WithMessagef(
-						err,
-						"failed to get service %s/%s",
-						p.Task.Namespace, p.Task.ServiceName)
-					return
-				}
-
-				base := path.Join(pipelineTask.ConfigPayload.S3Storage.Path, serviceTemplate.RepoName, serviceTemplate.LoadPath)
-				if err = p.downloadService(pipelineTask, p.Task.ServiceName, serviceTemplate.RepoName); err != nil {
 					err = errors.WithMessagef(
 						err,
 						"failed to download service %s/%s",
@@ -417,7 +406,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				}
 
 				if err = helmClient.InstallOrUpgradeChart(context.Background(), &chartSpec, &helmclient.ChartOption{
-					ChartPath: base}, p.Log); err != nil {
+					ChartPath: path}, p.Log); err != nil {
 					err = errors.WithMessagef(
 						err,
 						"failed to Install helm chart %s/%s",
@@ -470,48 +459,33 @@ func (p *DeployTaskPlugin) getService(ctx context.Context, name, serviceType, pr
 	return s, nil
 }
 
-func (p *DeployTaskPlugin) downloadService(pipelineTask *task.Task, serviceName, repoName string) error {
-	var (
-		s3Storage *s3.S3
-		err       error
-		base      string
-	)
-	base = path.Join(pipelineTask.ConfigPayload.S3Storage.Path, repoName)
-	if s3Storage, err = s3.NewS3StorageFromEncryptedURI(pipelineTask.StorageURI); err != nil {
-		return err
-	}
-	subFolderName := serviceName + "-" + setting.HelmDeployType
-	if s3Storage.Subfolder != "" {
-		s3Storage.Subfolder = fmt.Sprintf("%s/%s/%s", s3Storage.Subfolder, subFolderName, "service")
-	} else {
-		s3Storage.Subfolder = fmt.Sprintf("%s/%s", subFolderName, "service")
+func (p *DeployTaskPlugin) downloadService(productName, serviceName, storageURI string) (string, error) {
+	logger := p.Log
+
+	base := configbase.LocalServicePath(productName, serviceName)
+	s3Storage, err := s3.NewS3StorageFromEncryptedURI(storageURI)
+	if err != nil {
+		return "", err
 	}
 
-	filePath := fmt.Sprintf("%s.tar.gz", serviceName)
-	tarFilePath := path.Join(base, filePath)
+	tarball := fmt.Sprintf("%s.tar.gz", serviceName)
+	tarFilePath := filepath.Join(base, tarball)
+	s3Storage.Subfolder = filepath.Join(s3Storage.Subfolder, configbase.ObjectStorageServicePath(productName, serviceName))
 	forcedPathStyle := true
 	if s3Storage.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
 	}
-	s3client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
+	client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
 	if err != nil {
 		p.Log.Errorf("failed to create s3 client, err: %+v", err)
-		return err
+		return "", err
 	}
-	objectKey := s3Storage.GetObjectPath(filePath)
-	if err := s3client.Download(s3Storage.Bucket, objectKey, tarFilePath); err != nil {
-		p.Log.Errorf("s3下载文件失败 err:%v", err)
-		return err
+	if err = client.Download(s3Storage.Bucket, s3Storage.GetObjectPath(tarball), tarFilePath); err != nil {
+		logger.Errorf("Failed to download file from s3, err: %s", err)
+		return "", err
 	}
-	if err := util.UnTar("/", tarFilePath); err != nil {
-		p.Log.Errorf("unTar err:%v", err)
-		return err
-	}
-	if err := os.Remove(tarFilePath); err != nil {
-		p.Log.Errorf("remove file err:%v", err)
-		return err
-	}
-	return nil
+
+	return tarFilePath, nil
 }
 
 func (p *DeployTaskPlugin) getRenderSet(ctx context.Context, name string, revision int64) (*types.RenderSet, error) {

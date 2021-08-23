@@ -22,19 +22,6 @@ import (
 	"github.com/RyanCarrier/dijkstra"
 )
 
-const (
-	V130 = iota
-	V131
-	V140
-)
-
-var versionMap = map[string]int{
-	"":      V130,
-	"1.3.0": V130,
-	"1.3.1": V131,
-	"1.4.0": V140,
-}
-
 type handler func() error
 
 type upgradePath struct {
@@ -45,10 +32,10 @@ var dag = dijkstra.NewGraph()
 var handlerMap = make(map[upgradePath]handler)
 
 func AddHandler(from, to int, fn handler) {
-	if _, err := dag.GetVertex(from); err != nil {
+	if v, err := dag.GetVertex(from); err != nil || v.ID != from {
 		dag.AddVertex(from)
 	}
-	if _, err := dag.GetVertex(to); err != nil {
+	if v, err := dag.GetVertex(to); err != nil || v.ID != to {
 		dag.AddVertex(to)
 	}
 	if err := dag.AddArc(from, to, 1); err != nil {
@@ -59,14 +46,14 @@ func AddHandler(from, to int, fn handler) {
 }
 
 func UpgradeWithBestPath(from, to string) error {
-	return upgradeWithBestPath(versionMap[from], versionMap[to])
+	return upgradeWithBestPath(versionMap.From(from), versionMap.To(to))
 }
 
 func upgradeWithBestPath(from, to int) error {
 	best, err := dag.Shortest(from, to)
 	if err != nil {
 		// no upgrade path is found
-		return nil
+		return err
 	}
 
 	path := best.Path

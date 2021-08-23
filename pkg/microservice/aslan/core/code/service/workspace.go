@@ -17,26 +17,66 @@ limitations under the License.
 package service
 
 import (
-	"context"
+	"fmt"
 	"io/ioutil"
 	"net/url"
 	"os"
 	"path"
-	"strconv"
 	"strings"
 
-	"github.com/google/go-github/v35/github"
-	"github.com/xanzy/go-gitlab"
 	"go.uber.org/zap"
-	"golang.org/x/oauth2"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
+	githubservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
+	gitlabservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gitlab"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/poetry"
 	"github.com/koderover/zadig/pkg/tool/codehub"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
+
+func GetRepoTree(codeHostID int, owner, repo, path, branch string, log *zap.SugaredLogger) ([]*git.TreeNode, error) {
+
+	ch, err := codehost.GetCodeHostInfoByID(codeHostID)
+	if err != nil {
+		log.Errorf("Failed to get codeHost by id %d, err: %s", codeHostID, err)
+		return nil, e.ErrListWorkspace.AddDesc(err.Error())
+	}
+	getter, err := getTreeGetter(ch)
+	if err != nil {
+		log.Errorf("Failed to get tree getter, err: %s", err)
+		return nil, e.ErrListWorkspace.AddDesc(err.Error())
+	}
+
+	fileInfos, err := getter.GetTree(owner, repo, path, branch)
+	if err != nil {
+		return nil, e.ErrListWorkspace.AddDesc(err.Error())
+	}
+
+	return fileInfos, nil
+}
+
+type treeGetter interface {
+	GetTree(owner, repo, path, branch string) ([]*git.TreeNode, error)
+}
+
+func getTreeGetter(ch *poetry.CodeHost) (treeGetter, error) {
+	switch ch.Type {
+	case setting.SourceFromGithub:
+		return githubservice.NewClient(ch.AccessToken, config.ProxyHTTPSAddr()), nil
+	case setting.SourceFromGitlab:
+		return gitlabservice.NewClient(ch.Address, ch.AccessToken)
+	default:
+		// should not have happened here
+		log.DPanicf("invalid source: %s", ch.Type)
+		return nil, fmt.Errorf("invalid source: %s", ch.Type)
+	}
+}
 
 func CleanWorkspace(username, pipelineName string, log *zap.SugaredLogger) error {
 	wsPath, err := getWorkspaceBasePath(pipelineName)
@@ -214,81 +254,6 @@ type CodehostFileInfo struct {
 	Size     int    `json:"size"`
 	IsDir    bool   `json:"is_dir"`
 	FullPath string `json:"full_path"`
-}
-
-func GetGithubRepoInfo(codehostID int, repoName, branchName, path string, log *zap.SugaredLogger) ([]*CodehostFileInfo, error) {
-	fileInfo := make([]*CodehostFileInfo, 0)
-
-	detail, err := codehost.GetCodehostDetail(codehostID)
-	if err != nil {
-		log.Errorf("GetGithubRepoInfo GetCodehostDetail err:%v", err)
-		return fileInfo, e.ErrListWorkspace.AddDesc(err.Error())
-	}
-	ctx := context.Background()
-	tokenSource := oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: detail.OauthToken},
-	)
-	tokenClient := oauth2.NewClient(ctx, tokenSource)
-	githubClient := github.NewClient(tokenClient)
-
-	_, dirContent, _, err := githubClient.Repositories.GetContents(ctx, detail.Owner, repoName, path, &github.RepositoryContentGetOptions{Ref: branchName})
-	if err != nil {
-		return nil, e.ErrListWorkspace.AddDesc(err.Error())
-	}
-	for _, file := range dirContent {
-		fileInfo = append(fileInfo, &CodehostFileInfo{
-			Name:     file.GetName(),
-			Size:     file.GetSize(),
-			IsDir:    file.GetType() == "dir",
-			FullPath: file.GetPath(),
-		})
-	}
-	return fileInfo, nil
-}
-
-// 获取gitlab的目录内容接口
-func GetGitlabRepoInfo(codehostID int, repoName, branchName, path string, log *zap.SugaredLogger) ([]*CodehostFileInfo, error) {
-	fileInfos := make([]*CodehostFileInfo, 0)
-
-	detail, err := codehost.GetCodehostDetail(codehostID)
-	if err != nil {
-		log.Errorf("GetGitlabRepoInfo GetCodehostDetail err:%v", err)
-		return fileInfos, e.ErrListWorkspace.AddDesc(err.Error())
-	}
-	gitlabClient, err := gitlab.NewOAuthClient(detail.OauthToken, gitlab.WithBaseURL(detail.Address))
-	if err != nil {
-		log.Errorf("GetGitlabRepoInfo Prepare gitlab client err:%v", err)
-		return fileInfos, e.ErrListWorkspace.AddDesc(err.Error())
-	}
-	nextPage := "1"
-	for nextPage != "" {
-		pagenum, err := strconv.Atoi(nextPage)
-		if err != nil {
-			log.Errorf("Failed to get the amount of entries from gitlab, err: %v", err)
-			return nil, err
-		}
-		opt := &gitlab.ListTreeOptions{
-			ListOptions: gitlab.ListOptions{Page: pagenum},
-			Path:        gitlab.String(path),
-			Ref:         gitlab.String(branchName),
-			Recursive:   gitlab.Bool(false),
-		}
-		treeNodes, resp, err := gitlabClient.Repositories.ListTree(repoName, opt)
-		if err != nil {
-			log.Errorf("Failed to list tree from gitlab")
-			return nil, err
-		}
-		for _, entry := range treeNodes {
-			fileInfos = append(fileInfos, &CodehostFileInfo{
-				Name:     entry.Name,
-				Size:     0,
-				IsDir:    entry.Type == "tree",
-				FullPath: entry.Path,
-			})
-		}
-		nextPage = resp.Header.Get("x-next-page")
-	}
-	return fileInfos, nil
 }
 
 // 获取codehub的目录内容接口
