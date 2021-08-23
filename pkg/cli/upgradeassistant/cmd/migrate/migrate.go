@@ -32,7 +32,7 @@ const oldServiceTemplateCounterName = "service:%s&type:%s"
 
 func init() {
 	upgradepath.AddHandler(upgradepath.V130, upgradepath.V131, V130ToV131)
-	upgradepath.AddHandler(upgradepath.V131, upgradepath.V130, V131ToV130)
+	// upgradepath.AddHandler(upgradepath.V131, upgradepath.V130, V131ToV130)
 }
 
 // V130ToV131 migrates data from v1.3.0 to v1.3.1 with the following tasks:
@@ -131,8 +131,6 @@ func V130ToV131() error {
 		return err
 	}
 
-	log.Info("Migration finished")
-
 	return nil
 }
 
@@ -201,8 +199,6 @@ func V131ToV130() error {
 		log.Errorf("Failed to rollback counters, err: %s", err)
 		return err
 	}
-
-	log.Info("Rollback finished")
 
 	return nil
 }
