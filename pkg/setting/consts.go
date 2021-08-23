@@ -460,3 +460,8 @@ const (
 const MaxTries = 1
 
 const DogFood = "/var/run/koderover-dog-food"
+
+const (
+	ERR      = "error"
+	RESPONSE = "response"
+)

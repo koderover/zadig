@@ -65,16 +65,14 @@ func currentUsername(c *gin.Context) (username string) {
 
 func JSONResponse(c *gin.Context, ctx *Context) {
 	if ctx.Err != nil {
-		c.Set("ERR", ctx.Err)
+		c.Set(setting.ERR, ctx.Err)
 		c.Abort()
 		return
 	}
 
-	realResp := responseHelper(ctx.Resp)
-
-	if ctx.Resp == nil {
-	} else {
-		c.Set("RESPONSE", realResp)
+	if ctx.Resp != nil {
+		realResp := responseHelper(ctx.Resp)
+		c.Set(setting.RESPONSE, realResp)
 	}
 }
 
