@@ -2,6 +2,7 @@ package mongodb
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -95,8 +96,13 @@ type AnnouncementDeleteArgs struct {
 
 func (c *AnnouncementColl) DeleteAnnouncement(args *AnnouncementDeleteArgs) error {
 	query := bson.M{}
+
 	if args.ID != "" {
-		query["_id"] = args.ID
+		ID, err := primitive.ObjectIDFromHex(args.ID)
+		if err != nil {
+			return errors.New("invalid id to delete")
+		}
+		query["_id"] = ID
 	}
 	_, err := c.DeleteOne(context.TODO(), query)
 	return err
