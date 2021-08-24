@@ -254,17 +254,23 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap
 		ExcludeStatus: setting.ProductStatusDeleting,
 	}
 
+	project, err := templaterepo.NewProductColl().Find(args.ProductName)
+	if err != nil {
+		log.Errorf("Failed to find project %s, err: %s", args.ProductName, err)
+		return nil, e.ErrInvalidParam.AddErr(err)
+	}
+	if _, ok := project.SharedServiceInfoMap()[args.ServiceName]; ok {
+		return nil, e.ErrInvalidParam.AddDesc(fmt.Sprintf("A service with same name %s is already existing", args.ServiceName))
+	}
+
 	// 在更新数据库前检查是否有完全重复的Item，如果有，则退出。
 	serviceTmpl, notFoundErr := commonrepo.NewServiceColl().Find(opt)
 	if notFoundErr == nil {
-		if serviceTmpl.ProductName != args.ProductName {
-			return nil, e.ErrInvalidParam.AddDesc(fmt.Sprintf("项目 [%s] %s", serviceTmpl.ProductName, "有相同的服务名称存在,请检查!"))
-		}
 		if args.Type == setting.K8SDeployType && args.Source == serviceTmpl.Source {
 			// 配置来源为zadig，对比配置内容是否变化，需要对比Yaml内容
 			// 如果Source没有设置，默认认为是zadig平台管理配置方式
 			if args.Source == setting.SourceFromZadig || args.Source == "" {
-				if args.Yaml != "" && strings.Compare(serviceTmpl.Yaml, args.Yaml) == 0 {
+				if args.Yaml != "" && serviceTmpl.Yaml == args.Yaml {
 					log.Info("Yaml config remains the same, quit creation.")
 					return GetServiceOption(serviceTmpl, log)
 				}
@@ -280,7 +286,7 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap
 					return nil, e.ErrCreateTemplate.AddDesc("不允许更改加载路径")
 				}
 			} else if args.Source == setting.SourceFromGerrit {
-				if args.Yaml != "" && strings.Compare(serviceTmpl.Yaml, args.Yaml) == 0 {
+				if args.Yaml != "" && serviceTmpl.Yaml == args.Yaml {
 					log.Info("gerrit Yaml config remains the same, quit creation.")
 					return GetServiceOption(serviceTmpl, log)
 				}

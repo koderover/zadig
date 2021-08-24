@@ -77,7 +77,7 @@ func (c *Client) GetRawFile(owner, repo string, sha string, fileName string) ([]
 	return nil, err
 }
 
-func (c *Client) GetFileContent(owner, repo string, ref, path string) ([]byte, error) {
+func (c *Client) GetFileContent(owner, repo, ref, path string) ([]byte, error) {
 	opts := &gitlab.GetFileOptions{
 		Ref: gitlab.String(ref),
 	}
@@ -134,7 +134,7 @@ func (c *Client) GetYAMLContents(owner, repo, path, branch string, isDir, split 
 		return res, nil
 	}
 
-	treeNodes, err := c.ListTree(owner, repo, branch, path, true, nil)
+	treeNodes, err := c.ListTree(owner, repo, path, branch, true, nil)
 	if err != nil {
 		return nil, err
 	}

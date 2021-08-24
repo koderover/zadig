@@ -38,3 +38,8 @@ func (c *Client) GetTree(owner, repo, path, branch string) ([]*git.TreeNode, err
 func (c *Client) GetTreeContents(owner, repo, path, branch string) (afero.Fs, error) {
 	return c.Client.GetTreeContents(owner, repo, path, branch)
 }
+
+func (c *Client) GetLatestRepositoryCommit(owner, repo, path, branch string) (*git.RepositoryCommit, error) {
+	res, err := c.Client.GetLatestRepositoryCommit(owner, repo, path, branch)
+	return git.ToRepositoryCommit(res), err
+}

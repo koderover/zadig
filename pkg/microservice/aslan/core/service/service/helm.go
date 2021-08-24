@@ -167,10 +167,16 @@ func CreateOrUpdateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) err
 	helmRenderCharts := make([]*templatemodels.RenderChart, 0, len(args.FilePaths))
 	var errs *multierror.Error
 
+	project, err := templaterepo.NewProductColl().Find(args.ProductName)
+	if err != nil {
+		log.Errorf("Failed to find project %s, err: %s", args.ProductName, err)
+		return e.ErrCreateTemplate.AddErr(err)
+	}
+
 	getter, err := getTreeGetter(args.CodehostID)
 	if err != nil {
 		log.Errorf("Failed to get tree getter, err: %s", err)
-		return e.ErrListWorkspace.AddDesc(err.Error())
+		return e.ErrCreateTemplate.AddDesc(err.Error())
 	}
 
 	var wg wait.Group
@@ -183,18 +189,18 @@ func CreateOrUpdateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) err
 				}
 			}()
 
-			chartTree, err := getter.GetTreeContents(args.RepoOwner, args.RepoName, filePath, args.BranchName)
-			if err != nil {
-				log.Errorf("Failed to get tree contents with option %+v, err: %s", args, err)
-				err = e.ErrCreateTemplate.AddErr(err)
+			chartTree, err1 := getter.GetTreeContents(args.RepoOwner, args.RepoName, filePath, args.BranchName)
+			if err1 != nil {
+				log.Errorf("Failed to get tree contents with option %+v, err: %s", args, err1)
+				err = e.ErrCreateTemplate.AddErr(err1)
 				return
 			}
 
 			baseDir := filepath.Base(filePath)
-			files, err := afero.ReadDir(chartTree, baseDir)
-			if err != nil {
-				log.Errorf("Failed to read dir %s, err: %s", baseDir, err)
-				err = e.ErrCreateTemplate.AddErr(err)
+			files, err1 := afero.ReadDir(chartTree, baseDir)
+			if err1 != nil {
+				log.Errorf("Failed to read dir %s, err: %s", baseDir, err1)
+				err = e.ErrCreateTemplate.AddErr(err1)
 				return
 			}
 			var containChartYaml, containValuesYaml, containTemplates bool
@@ -202,13 +208,15 @@ func CreateOrUpdateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) err
 			var valuesMap map[string]interface{}
 			for _, file := range files {
 				if file.Name() == setting.ChartYaml {
-					yamlFile, err := afero.ReadFile(chartTree, filepath.Join(baseDir, setting.ChartYaml))
-					if err != nil {
+					yamlFile, err1 := afero.ReadFile(chartTree, filepath.Join(baseDir, setting.ChartYaml))
+					if err1 != nil {
+						log.Errorf("Failed to read %s, err: %s", setting.ChartYaml, err1)
 						err = e.ErrCreateTemplate.AddDesc(fmt.Sprintf("读取%s失败", setting.ChartYaml))
 						return
 					}
 					chart := new(Chart)
-					if err = yaml.Unmarshal(yamlFile, chart); err != nil {
+					if err1 = yaml.Unmarshal(yamlFile, chart); err1 != nil {
+						log.Errorf("Failed to unmarshal yaml %s, err: %s", setting.ChartYaml, err1)
 						err = e.ErrCreateTemplate.AddDesc(fmt.Sprintf("解析%s失败", setting.ChartYaml))
 						return
 					}
@@ -216,13 +224,15 @@ func CreateOrUpdateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) err
 					chartVersion = chart.Version
 					containChartYaml = true
 				} else if file.Name() == setting.ValuesYaml {
-					yamlFileContent, err := afero.ReadFile(chartTree, filepath.Join(baseDir, setting.ValuesYaml))
-					if err != nil {
+					yamlFileContent, err1 := afero.ReadFile(chartTree, filepath.Join(baseDir, setting.ValuesYaml))
+					if err1 != nil {
+						log.Errorf("Failed to read %s, err: %s", setting.ValuesYaml, err1)
 						err = e.ErrCreateTemplate.AddDesc(fmt.Sprintf("读取%s失败", setting.ValuesYaml))
 						return
 					}
 
-					if err = yaml.Unmarshal(yamlFileContent, &valuesMap); err != nil {
+					if err1 = yaml.Unmarshal(yamlFileContent, &valuesMap); err1 != nil {
+						log.Errorf("Failed to unmarshal yaml %s, err: %s", setting.ValuesYaml, err1)
 						err = e.ErrCreateTemplate.AddDesc(fmt.Sprintf("解析%s失败", setting.ValuesYaml))
 						return
 					}
@@ -235,6 +245,11 @@ func CreateOrUpdateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) err
 			}
 			if !containChartYaml || !containValuesYaml || !containTemplates {
 				err = e.ErrCreateTemplate.AddDesc(fmt.Sprintf("%s不是合法的chart目录,目录中必须包含%s/%s/%s目录等请检查!", filePath, setting.ValuesYaml, setting.ChartYaml, setting.TemplatesDir))
+				return
+			}
+
+			if _, ok := project.SharedServiceInfoMap()[serviceName]; ok {
+				err = e.ErrCreateTemplate.AddDesc(fmt.Sprintf("A service with same name %s is already existing", serviceName))
 				return
 			}
 
