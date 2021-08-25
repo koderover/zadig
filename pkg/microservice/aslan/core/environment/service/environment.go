@@ -642,7 +642,8 @@ func UpdateProduct(existedProd, updateProd *commonmodels.Product, renderSet *com
 							lock.Lock()
 							switch e := err.(type) {
 							case *multierror.Error:
-								errList = multierror.Append(errList, e.Errors...)
+								//errList = multierror.Append(errList, e.Errors...)
+								errList = multierror.Append(errList, e)
 							default:
 								errList = multierror.Append(errList, e)
 							}
