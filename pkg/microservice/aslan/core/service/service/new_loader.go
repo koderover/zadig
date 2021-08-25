@@ -234,6 +234,7 @@ func getLoader(ch *poetry.CodeHost) (yamlLoader, error) {
 }
 
 func isYaml(filename string) bool {
+	filename = strings.ToLower(filename)
 	return strings.HasSuffix(filename, ".yaml") || strings.HasSuffix(filename, ".yml")
 }
 

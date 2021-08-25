@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -31,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
@@ -572,19 +574,19 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 		// 把该服务相关的s3的数据从仓库删除
 		s3Storage, _ := s3service.FindDefaultS3()
 		if s3Storage != nil {
-			subFolderName := serviceName + "-" + setting.HelmDeployType
-			if s3Storage.Subfolder != "" {
-				s3Storage.Subfolder = fmt.Sprintf("%s/%s/%s", s3Storage.Subfolder, subFolderName, "service")
-			} else {
-				s3Storage.Subfolder = fmt.Sprintf("%s/%s", subFolderName, "service")
-			}
+			tarball := fmt.Sprintf("%s.tar.gz", serviceName)
+			file := filepath.Join(s3Storage.Subfolder, configbase.ObjectStorageServicePath(productName, serviceName), tarball)
 			forcedPathStyle := true
 			if s3Storage.Provider == setting.ProviderSourceAli {
 				forcedPathStyle = false
 			}
 			client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
-			if err == nil {
-				client.RemoveFiles(s3Storage.Bucket, []string{fmt.Sprintf("%s.tar.gz", serviceName)})
+			if err != nil {
+				log.Warnf("Failed to create s3 client, err: %s", err)
+			} else {
+				if err = client.DeleteObjects(s3Storage.Bucket, []string{file}); err != nil {
+					log.Warnf("Failed to delete file %s, err: %s", file, err)
+				}
 			}
 		}
 	}

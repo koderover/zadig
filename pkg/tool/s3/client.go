@@ -110,6 +110,29 @@ func (c *Client) CopyObject(bucketName, oldKey, newKey string) error {
 	return err
 }
 
+// DeleteObjects deletes all the objects listed in keys.
+func (c *Client) DeleteObjects(bucketName string, keys []string) error {
+	if len(keys) == 0 {
+		return nil
+	}
+
+	var ids []*s3.ObjectIdentifier
+	for _, k := range keys {
+		ids = append(ids, &s3.ObjectIdentifier{
+			Key: aws.String(k),
+		})
+	}
+
+	input := &s3.DeleteObjectsInput{
+		Bucket: aws.String(bucketName),
+		Delete: &s3.Delete{Objects: ids},
+	}
+
+	_, err := c.S3.DeleteObjects(input)
+
+	return err
+}
+
 // RemoveFiles removes the files with a specific list of prefixes and delete ALL of them
 // for NOW, if an error is encountered, nothing will happen except for a line of error log.
 func (c *Client) RemoveFiles(bucketName string, prefixList []string) {
@@ -122,7 +145,7 @@ func (c *Client) RemoveFiles(bucketName string, prefixList []string) {
 		}
 		objects, err := c.ListObjects(input)
 		if err != nil {
-			log.Errorf("List s3 objects with prefix %s err: %+v", prefix, err)
+			log.Errorf("Failed to list s3 objects with prefix %s err: %s", prefix, err)
 			continue
 		}
 		for _, object := range objects.Contents {
@@ -132,13 +155,19 @@ func (c *Client) RemoveFiles(bucketName string, prefixList []string) {
 		}
 	}
 
+	if len(deleteList) == 0 {
+		log.Warnf("Nothing to remove")
+		return
+	}
+
 	input := &s3.DeleteObjectsInput{
 		Bucket: aws.String(bucketName),
 		Delete: &s3.Delete{Objects: deleteList},
 	}
-	_, err := c.DeleteObjects(input)
+
+	_, err := c.S3.DeleteObjects(input)
 	if err != nil {
-		log.Errorf("Failed to delete object with prefix: %v from bucket %s", prefixList, bucketName)
+		log.Errorf("Failed to delete object with prefix: %v in bucket %s, err: %s", prefixList, bucketName, err)
 	}
 }
 
