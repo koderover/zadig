@@ -10,7 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	models2 "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/models"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
@@ -30,7 +30,7 @@ type OperationLogColl struct {
 }
 
 func NewOperationLogColl() *OperationLogColl {
-	name := models.OperationLog{}.TableName()
+	name := models2.OperationLog{}.TableName()
 	return &OperationLogColl{
 		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),
 		coll:       name,
@@ -45,7 +45,7 @@ func (c *OperationLogColl) EnsureIndex(_ context.Context) error {
 	return nil
 }
 
-func (c *OperationLogColl) Insert(args *models.OperationLog) error {
+func (c *OperationLogColl) Insert(args *models2.OperationLog) error {
 	if args == nil {
 		return errors.New("nil operation_log args")
 	}
@@ -80,8 +80,8 @@ func (c *OperationLogColl) Update(id string, status int) error {
 	return err
 }
 
-func (c *OperationLogColl) Find(args *OperationLogArgs) ([]*models.OperationLog, int, error) {
-	var res []*models.OperationLog
+func (c *OperationLogColl) Find(args *OperationLogArgs) ([]*models2.OperationLog, int, error) {
+	var res []*models2.OperationLog
 	query := bson.M{}
 	if args.ProductName != "" {
 		query["product_name"] = bson.M{"$regex": args.ProductName}

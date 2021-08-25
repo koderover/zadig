@@ -11,7 +11,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	models2 "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/models"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
@@ -22,7 +22,7 @@ type AnnouncementColl struct {
 }
 
 func NewAnnouncementColl() *AnnouncementColl {
-	name := models.Announcement{}.TableName()
+	name := models2.Announcement{}.TableName()
 	return &AnnouncementColl{Collection: mongotool.Database(config.MongoDatabase()).Collection(name), coll: name}
 }
 
@@ -34,7 +34,7 @@ func (c *AnnouncementColl) EnsureIndex(_ context.Context) error {
 	return nil
 }
 
-func (c *AnnouncementColl) Create(args *models.Announcement) error {
+func (c *AnnouncementColl) Create(args *models2.Announcement) error {
 	args.CreateTime = time.Now().Unix()
 
 	_, err := c.InsertOne(context.TODO(), args)
@@ -42,7 +42,7 @@ func (c *AnnouncementColl) Create(args *models.Announcement) error {
 	return err
 }
 
-func (c *AnnouncementColl) Update(id string, args *models.Announcement) error {
+func (c *AnnouncementColl) Update(id string, args *models2.Announcement) error {
 	oid, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
 		return err
@@ -52,8 +52,8 @@ func (c *AnnouncementColl) Update(id string, args *models.Announcement) error {
 	return err
 }
 
-func (c *AnnouncementColl) List(receiver string) ([]*models.Announcement, error) {
-	var res []*models.Announcement
+func (c *AnnouncementColl) List(receiver string) ([]*models2.Announcement, error) {
+	var res []*models2.Announcement
 
 	query := bson.M{"receiver": receiver}
 	opts := options.Find().SetSort(bson.D{{"create_time", -1}}).SetLimit(100)
@@ -69,8 +69,8 @@ func (c *AnnouncementColl) List(receiver string) ([]*models.Announcement, error)
 	return res, nil
 }
 
-func (c *AnnouncementColl) ListValidAnnouncements(receiver string) ([]*models.Announcement, error) {
-	var res []*models.Announcement
+func (c *AnnouncementColl) ListValidAnnouncements(receiver string) ([]*models2.Announcement, error) {
+	var res []*models2.Announcement
 
 	query := bson.M{"receiver": receiver}
 	now := time.Now().Unix()

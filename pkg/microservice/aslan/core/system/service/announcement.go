@@ -3,13 +3,13 @@ package service
 import (
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	systemmodel "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/models"
+	systemrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/mongodb"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-func CreateAnnouncement(creater string, ctx *models.Announcement, log *zap.SugaredLogger) error {
-	err := mongodb.NewAnnouncementColl().Create(ctx)
+func CreateAnnouncement(creater string, ctx *systemmodel.Announcement, log *zap.SugaredLogger) error {
+	err := systemrepo.NewAnnouncementColl().Create(ctx)
 	if err != nil {
 		log.Errorf("create announcement failed, creater: %s, error: %s", creater, err)
 		return e.ErrCreateNotify
@@ -18,8 +18,8 @@ func CreateAnnouncement(creater string, ctx *models.Announcement, log *zap.Sugar
 	return nil
 }
 
-func UpdateAnnouncement(user string, notifyID string, ctx *models.Announcement, log *zap.SugaredLogger) error {
-	err := mongodb.NewAnnouncementColl().Update(notifyID, ctx)
+func UpdateAnnouncement(user string, notifyID string, ctx *systemmodel.Announcement, log *zap.SugaredLogger) error {
+	err := systemrepo.NewAnnouncementColl().Update(notifyID, ctx)
 	if err != nil {
 		log.Errorf("create announcement failed, user: %s, error: %s", user, err)
 		return e.ErrUpdateNotify
@@ -29,8 +29,8 @@ func UpdateAnnouncement(user string, notifyID string, ctx *models.Announcement, 
 
 }
 
-func PullAllAnnouncement(user string, log *zap.SugaredLogger) ([]*models.Announcement, error) {
-	resp, err := mongodb.NewAnnouncementColl().List("*")
+func PullAllAnnouncement(user string, log *zap.SugaredLogger) ([]*systemmodel.Announcement, error) {
+	resp, err := systemrepo.NewAnnouncementColl().List("*")
 	if err != nil {
 		log.Errorf("list announcement failed, user: %s, error: %s", user, err)
 		return nil, e.ErrPullAllAnnouncement
@@ -39,8 +39,8 @@ func PullAllAnnouncement(user string, log *zap.SugaredLogger) ([]*models.Announc
 	return resp, nil
 }
 
-func PullNotifyAnnouncement(user string, log *zap.SugaredLogger) ([]*models.Announcement, error) {
-	resp, err := mongodb.NewAnnouncementColl().ListValidAnnouncements("*")
+func PullNotifyAnnouncement(user string, log *zap.SugaredLogger) ([]*systemmodel.Announcement, error) {
+	resp, err := systemrepo.NewAnnouncementColl().ListValidAnnouncements("*")
 	if err != nil {
 		log.Errorf("list announcement failed, user: %s, error: %s", user, err)
 		return nil, e.ErrPullNotifyAnnouncement
@@ -50,7 +50,7 @@ func PullNotifyAnnouncement(user string, log *zap.SugaredLogger) ([]*models.Anno
 }
 
 func DeleteAnnouncement(user, id string, log *zap.SugaredLogger) error {
-	err := mongodb.NewAnnouncementColl().DeleteAnnouncement(&mongodb.AnnouncementDeleteArgs{ID: id})
+	err := systemrepo.NewAnnouncementColl().DeleteAnnouncement(&systemrepo.AnnouncementDeleteArgs{ID: id})
 	if err != nil {
 		log.Errorf("Delete Announcement failed, user: %s, error: %s", user, err)
 	}

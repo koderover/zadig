@@ -31,6 +31,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
+	systemrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/mongodb"
 	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
@@ -125,7 +126,6 @@ func initDatabase() {
 	var wg sync.WaitGroup
 	for _, r := range []indexer{
 		template.NewProductColl(),
-		commonrepo.NewAnnouncementColl(),
 		commonrepo.NewBasicImageColl(),
 		commonrepo.NewBuildColl(),
 		commonrepo.NewCounterColl(),
@@ -148,7 +148,6 @@ func initDatabase() {
 		commonrepo.NewK8SClusterColl(),
 		commonrepo.NewNotificationColl(),
 		commonrepo.NewNotifyColl(),
-		commonrepo.NewOperationLogColl(),
 		commonrepo.NewPipelineColl(),
 		commonrepo.NewPrivateKeyColl(),
 		commonrepo.NewProductColl(),
@@ -168,6 +167,9 @@ func initDatabase() {
 		commonrepo.NewWebHookUserColl(),
 		commonrepo.NewWorkflowColl(),
 		commonrepo.NewWorkflowStatColl(),
+
+		systemrepo.NewAnnouncementColl(),
+		systemrepo.NewOperationLogColl(),
 	} {
 		wg.Add(1)
 		go func(r indexer) {

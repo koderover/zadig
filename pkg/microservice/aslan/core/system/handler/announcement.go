@@ -3,7 +3,7 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	systemmodel "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -12,7 +12,7 @@ import (
 func CreateAnnouncement(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	args := new(models.Announcement)
+	args := new(systemmodel.Announcement)
 
 	err := c.BindJSON(args)
 	if err != nil {
@@ -25,7 +25,7 @@ func CreateAnnouncement(c *gin.Context) {
 func UpdateAnnouncement(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	args := new(models.Announcement)
+	args := new(systemmodel.Announcement)
 
 	err := c.BindJSON(args)
 	if err != nil {

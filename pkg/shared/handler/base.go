@@ -18,14 +18,13 @@ package handler
 
 import (
 	"reflect"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
+	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/aslan"
 	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/types/permission"
@@ -83,16 +82,7 @@ func JSONResponse(c *gin.Context, ctx *Context) {
 
 // InsertOperationLog 插入操作日志
 func InsertOperationLog(c *gin.Context, username, productName, method, function, detail, permissionUUID, requestBody string, logger *zap.SugaredLogger) {
-	operationLogID, err := service.InsertOperation(&models.OperationLog{
-		Username:       username,
-		ProductName:    productName,
-		Method:         method,
-		PermissionUUID: permissionUUID,
-		Function:       function,
-		Name:           detail,
-		RequestBody:    requestBody,
-		CreatedAt:      time.Now().Unix(),
-	}, logger)
+	operationLogID, err := aslan.New(config.AslanServiceAddress(), config.PoetryAPIRootKey()).AddAuditLog(username, productName, method, function, detail, permissionUUID, requestBody, logger)
 	if err != nil {
 		logger.Errorf("InsertOperation err:%v", err)
 	}
