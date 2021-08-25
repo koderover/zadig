@@ -59,7 +59,7 @@ func (e *HTTPError) Code() int {
 
 // Error ...
 func (e *HTTPError) Error() string {
-	return e.err
+	return fmt.Sprintf("%s: %s", e.err, e.desc)
 }
 
 // Desc ...
