@@ -19,7 +19,8 @@ package gin
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
+	"github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/pkg/shared/client/aslan"
 	"github.com/koderover/zadig/pkg/util/ginzap"
 )
 
@@ -30,7 +31,7 @@ func UpdateOperationLogStatus(c *gin.Context) {
 	if c.GetString("operationLogID") == "" {
 		return
 	}
-	err := service.UpdateOperation(c.GetString("operationLogID"), c.Writer.Status(), log)
+	err := aslan.New(config.AslanxServiceAddress(), config.PoetryAPIRootKey()).UpdateAuditLog(c.GetString("operationLogID"), c.Writer.Status(), log)
 	if err != nil {
 		log.Errorf("UpdateOperation err:%v", err)
 	}
