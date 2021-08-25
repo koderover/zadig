@@ -116,19 +116,29 @@ func ListDeliveryVersion(c *gin.Context) {
 	}
 
 	perPageStr := c.Query("per_page")
-	perPage := 0
+	pageStr := c.Query("page")
+	var (
+		perPage int
+		page    int
+	)
 	if perPageStr == "" {
 		perPage = 20
 	} else {
-		perPage, _ = strconv.Atoi(perPageStr)
+		perPage, err = strconv.Atoi(perPageStr)
+		if err != nil {
+			ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("perPage args err :%s", err))
+			return
+		}
 	}
 
-	pageStr := c.Query("page")
-	page := 0
 	if pageStr == "" {
 		page = 1
 	} else {
-		page, _ = strconv.Atoi(pageStr)
+		page, err = strconv.Atoi(pageStr)
+		if err != nil {
+			ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("page args err :%s", err))
+			return
+		}
 	}
 
 	serviceName := c.Query("serviceName")

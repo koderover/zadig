@@ -23,7 +23,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	config2 "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/crypto"
 )
@@ -36,7 +35,7 @@ type S3 struct {
 	Subfolder string `json:"subfolder"`
 	Insecure  bool   `json:"insecure"`
 	IsDefault bool   `json:"is_default"`
-	Provider  int8   `json:"provider"`
+	Provider  int    `json:"provider"`
 }
 
 func (s *S3) GetSchema() string {
@@ -69,8 +68,8 @@ func NewS3StorageFromURL(uri string) (*S3, error) {
 		Subfolder: subfolder,
 		Insecure:  store.Scheme == "http",
 	}
-	if strings.Contains(store.Host, config2.MinioServiceName()) {
-		ret.Provider = setting.ProviderSourceSystemDefault
+	if strings.Contains(store.Host, setting.AliyunHost) {
+		ret.Provider = setting.ProviderSourceAli
 	}
 
 	return ret, nil

@@ -24,6 +24,7 @@ import (
 	"errors"
 	"io"
 	"io/fs"
+	"strings"
 	"sync"
 
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
@@ -44,7 +45,7 @@ func getAESKey() string {
 		if err != nil {
 			panic("Failed to read aes key from secret")
 		}
-		aesKey = string(keyByte)
+		aesKey = strings.TrimSpace(string(keyByte))
 	})
 
 	return aesKey

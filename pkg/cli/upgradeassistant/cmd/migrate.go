@@ -27,14 +27,18 @@ import (
 	_ "github.com/koderover/zadig/pkg/cli/upgradeassistant/cmd/migrate"
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
+	"github.com/koderover/zadig/version"
 )
+
+const oldestVersion = "1.3.0"
 
 func init() {
 	rootCmd.AddCommand(migrateCmd)
 
-	migrateCmd.PersistentFlags().StringP("from-version", "f", "MOST_RECENT_PREVIOUS_VERSION", "current version to migrate from, e.g. 1.3.0")
-	migrateCmd.PersistentFlags().StringP("to-version", "t", "MOST_RECENT_VERSION", "target version to migrate to, e.g. 1.4.0")
+	migrateCmd.PersistentFlags().StringP("from-version", "f", oldestVersion, "current version to migrate from")
+	migrateCmd.PersistentFlags().StringP("to-version", "t", version.Version, "target version to migrate to")
 	_ = viper.BindPFlag("fromVersion", migrateCmd.PersistentFlags().Lookup("from-version"))
 	_ = viper.BindPFlag("toVersion", migrateCmd.PersistentFlags().Lookup("to-version"))
 }
@@ -48,7 +52,7 @@ var migrateCmd = &cobra.Command{
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := run(); err != nil {
-			fmt.Println(err)
+			log.Fatal(err)
 		}
 	},
 	PostRun: func(cmd *cobra.Command, args []string) {
@@ -59,7 +63,12 @@ var migrateCmd = &cobra.Command{
 }
 
 func run() error {
-	return upgradepath.UpgradeWithBestPath(viper.GetString("fromVersion"), viper.GetString("toVersion"))
+	err := upgradepath.UpgradeWithBestPath(viper.GetString("fromVersion"), viper.GetString("toVersion"))
+	if err == nil {
+		log.Info("Migration finished")
+	}
+
+	return err
 }
 
 func preRun() error {

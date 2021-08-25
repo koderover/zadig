@@ -288,7 +288,7 @@ func getGitlabClientByAddress(address string) (*gitlabtool.Client, error) {
 }
 
 func GitlabGetLatestCommit(client *gitlabtool.Client, owner, repo string, ref, path string) (*gitlab.Commit, error) {
-	commit, err := client.GetLatestCommit(owner, repo, ref, path)
+	commit, err := client.GetLatestRepositoryCommit(owner, repo, path, ref)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get lastest commit with project %s/%s, ref: %s, path:%s, error: %v",
 			owner, repo, ref, path, err)
@@ -313,7 +313,7 @@ func GitlabGetRawFiles(client *gitlabtool.Client, owner, repo, ref, path, pathTy
 	files = make([]string, 0)
 	var errs *multierror.Error
 	if pathType == "tree" {
-		nodes, err := client.ListTree(owner, repo, ref, path)
+		nodes, err := client.ListTree(owner, repo, path, ref, false, nil)
 		if err != nil {
 			return files, err
 		}

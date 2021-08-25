@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"sort"
 	"sync"
 
 	"go.uber.org/zap"
@@ -81,7 +82,7 @@ type IngressInfo struct {
 	HostInfo []resource.HostInfo `json:"host_info"`
 }
 
-func ListGroupsBySource(envName, productName string, log *zap.SugaredLogger) ([]*ServiceResp, []resource.Ingress, error) {
+func ListGroupsBySource(envName, productName string, perPage, page int, log *zap.SugaredLogger) (int, []*ServiceResp, []resource.Ingress, error) {
 	var (
 		wg             sync.WaitGroup
 		resp           = make([]*ServiceResp, 0)
@@ -92,20 +93,38 @@ func ListGroupsBySource(envName, productName string, log *zap.SugaredLogger) ([]
 	productInfo, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
 		log.Errorf("[%s][%s] error: %v", envName, productName, err)
-		return resp, ingressList, e.ErrListGroups.AddDesc(err.Error())
+		return 0, resp, ingressList, e.ErrListGroups.AddDesc(err.Error())
 	}
 
 	kubeClient, err := kube.GetKubeClient(productInfo.ClusterID)
 	if err != nil {
 		log.Errorf("[%s][%s] error: %v", envName, productName, err)
-		return resp, ingressList, e.ErrListGroups.AddDesc(err.Error())
+		return 0, resp, ingressList, e.ErrListGroups.AddDesc(err.Error())
 	}
 
 	listServices, err := getter.ListServices(productInfo.Namespace, nil, kubeClient)
 	if err != nil {
 		log.Errorf("[%s][%s] create product record error: %v", envName, productName, err)
-		return resp, ingressList, e.ErrListGroups.AddDesc(err.Error())
+		return 0, resp, ingressList, e.ErrListGroups.AddDesc(err.Error())
 	}
+
+	count := len(listServices)
+
+	// 分页
+	if page > 0 && perPage > 0 {
+		//将获取到的所有服务按照名称进行排序
+		sort.SliceStable(listServices, func(i, j int) bool { return listServices[i].Name < listServices[j].Name })
+
+		start := (page - 1) * perPage
+		if start >= count {
+			listServices = nil
+		} else if start+perPage >= count {
+			listServices = listServices[start:]
+		} else {
+			listServices = listServices[start : start+perPage]
+		}
+	}
+
 	for _, service := range listServices {
 		wg.Add(1)
 
@@ -154,7 +173,7 @@ func ListGroupsBySource(envName, productName string, log *zap.SugaredLogger) ([]
 		}
 	}
 
-	return resp, ingressList, nil
+	return count, resp, ingressList, nil
 }
 
 func queryExternalPodsStatus(namespace string, selector labels.Selector, kubeClient client.Client, log *zap.SugaredLogger) (string, string, []string) {

@@ -1,3 +1,19 @@
+/*
+Copyright 2021 The KodeRover Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package s3
 
 import (
@@ -57,24 +73,41 @@ func (c *Client) ValidateBucket(bucketName string) error {
 // Download the file to object storage
 func (c *Client) Download(bucketName, objectKey, dest string) error {
 	retry := 0
+	var err error
 
 	for retry < 3 {
 		opt := &s3.GetObjectInput{
 			Bucket: aws.String(bucketName),
 			Key:    aws.String(objectKey),
 		}
-		obj, err := c.GetObject(opt)
-		if err != nil {
+		obj, err1 := c.GetObject(opt)
+		if err1 != nil {
+			log.Warnf("Failed to get object %s from s3, try again, err: %s", objectKey, err1)
+			err = err1
+
 			retry++
 			continue
 		}
 		err = fs.SaveFile(obj.Body, dest)
-		if err == nil {
-			return nil
+		if err != nil {
+			log.Errorf("Failed to save file to %s, err: %s", dest, err)
 		}
-		retry++
+		return err
 	}
-	return fmt.Errorf("download file with key: %s failed", objectKey)
+
+	return err
+}
+
+// CopyObject copies an object to a new place in the same bucket.
+func (c *Client) CopyObject(bucketName, oldKey, newKey string) error {
+	opt := &s3.CopyObjectInput{
+		Bucket:     aws.String(bucketName),
+		CopySource: aws.String(bucketName + "/" + oldKey),
+		Key:        aws.String(newKey),
+	}
+	_, err := c.S3.CopyObject(opt)
+
+	return err
 }
 
 // RemoveFiles removes the files with a specific list of prefixes and delete ALL of them

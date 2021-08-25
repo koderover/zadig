@@ -20,7 +20,7 @@ import (
 	"github.com/xanzy/go-gitlab"
 )
 
-func (c *Client) GetLatestCommit(owner, repo, branch, path string) (*gitlab.Commit, error) {
+func (c *Client) GetLatestRepositoryCommit(owner, repo string, path, branch string) (*gitlab.Commit, error) {
 	// List commits with specified ref and path
 	opts := &gitlab.ListCommitsOptions{
 		Path:    &path,

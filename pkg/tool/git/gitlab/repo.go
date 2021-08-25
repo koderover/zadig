@@ -18,23 +18,42 @@ package gitlab
 
 import (
 	"encoding/base64"
+	"strings"
 
+	"github.com/27149chen/afero"
 	"github.com/xanzy/go-gitlab"
+
+	"github.com/koderover/zadig/pkg/util"
+	fsutil "github.com/koderover/zadig/pkg/util/fs"
 )
 
-func (c *Client) ListTree(owner, repo string, ref string, path string) ([]*gitlab.TreeNode, error) {
-	// Recursive default value is false,
-	opts := &gitlab.ListTreeOptions{
-		Ref:  &ref,
-		Path: &path,
+func (c *Client) ListTree(owner, repo, path, branch string, recursive bool, opts *ListOptions) ([]*gitlab.TreeNode, error) {
+	nodes, err := wrap(paginated(func(o *gitlab.ListOptions) ([]interface{}, *gitlab.Response, error) {
+		popts := &gitlab.ListTreeOptions{
+			ListOptions: *o,
+			Ref:         &branch,
+			Path:        &path,
+			Recursive:   &recursive,
+		}
+
+		ns, r, err := c.Repositories.ListTree(generateProjectName(owner, repo), popts)
+		var res []interface{}
+		for _, n := range ns {
+			res = append(res, n)
+		}
+		return res, r, err
+	}, opts))
+
+	var res []*gitlab.TreeNode
+	ns, ok := nodes.([]interface{})
+	if !ok {
+		return nil, nil
+	}
+	for _, s := range ns {
+		res = append(res, s.(*gitlab.TreeNode))
 	}
 
-	tn, err := wrap(c.Repositories.ListTree(generateProjectName(owner, repo), opts))
-	if t, ok := tn.([]*gitlab.TreeNode); ok {
-		return t, err
-	}
-
-	return nil, err
+	return res, err
 }
 
 func (c *Client) GetRawFile(owner, repo string, sha string, fileName string) ([]byte, error) {
@@ -89,4 +108,87 @@ func (c *Client) Compare(projectID int, from, to string) ([]*gitlab.Diff, error)
 	}
 
 	return nil, err
+}
+
+// GetYAMLContents recursively gets all yaml contents under the given path. if split is true, manifests in the same file
+// will be split to separated ones.
+func (c *Client) GetYAMLContents(owner, repo, path, branch string, isDir, split bool) ([]string, error) {
+	var res []string
+	if !isDir {
+		if !(strings.HasSuffix(path, ".yaml") || strings.HasSuffix(path, ".yml")) {
+			return nil, nil
+		}
+
+		ct, err := c.GetFileContent(owner, repo, branch, path)
+		if err != nil {
+			return nil, err
+		}
+
+		content := string(ct)
+		if split {
+			res = util.SplitManifests(content)
+		} else {
+			res = []string{content}
+		}
+
+		return res, nil
+	}
+
+	treeNodes, err := c.ListTree(owner, repo, branch, path, true, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, tn := range treeNodes {
+		if tn.Type != "blob" {
+			continue
+		}
+		r, err := c.GetYAMLContents(owner, repo, tn.Path, branch, false, split)
+		if err != nil {
+			return nil, err
+		}
+
+		res = append(res, r...)
+	}
+
+	return res, nil
+}
+
+// GetTreeContents recursively gets all file contents under the given path, and writes to an in-memory file system.
+func (c *Client) GetTreeContents(owner, repo, path, branch string) (afero.Fs, error) {
+	fs := afero.NewMemMapFs()
+	err := c.getTreeContents(owner, repo, branch, path, path, true, fs)
+	if err != nil {
+		return nil, err
+	}
+
+	return fs, nil
+}
+
+func (c *Client) getTreeContents(owner, repo, branch, base, path string, isDir bool, fs afero.Fs) error {
+	if !isDir {
+		ct, err := c.GetFileContent(owner, repo, branch, path)
+		if err != nil {
+			return err
+		}
+
+		return afero.WriteFile(fs, fsutil.ShortenFileBase(base, path), ct, 0644)
+	}
+
+	treeNodes, err := c.ListTree(owner, repo, path, branch, true, nil)
+	if err != nil {
+		return err
+	}
+
+	for _, tn := range treeNodes {
+		if tn.Type != "blob" {
+			continue
+		}
+		err = c.getTreeContents(owner, repo, branch, base, tn.Path, false, fs)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
