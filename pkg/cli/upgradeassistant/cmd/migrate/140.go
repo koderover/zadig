@@ -6,7 +6,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	s3service "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
@@ -16,8 +15,8 @@ import (
 )
 
 func init() {
-	upgradepath.AddHandler(upgradepath.V131, upgradepath.V140, V131ToV140)
-	upgradepath.AddHandler(upgradepath.V140, upgradepath.V131, V140ToV131)
+	//upgradepath.AddHandler(upgradepath.V131, upgradepath.V140, V131ToV140)
+	//upgradepath.AddHandler(upgradepath.V140, upgradepath.V131, V140ToV131)
 }
 
 func V131ToV140() error {

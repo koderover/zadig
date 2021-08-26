@@ -2153,7 +2153,7 @@ func installOrUpdateHelmChart(user, envName, requestID string, args *commonmodel
 					defer wg.Done()
 
 					base := config.LocalServicePath(currentService.ProductName, currentService.ServiceName)
-					if err = commonservice.PreLoadServiceManifests(base, currentService.ProductName, currentService.ServiceName); err != nil {
+					if err = commonservice.PreLoadServiceManifests(base, currentService); err != nil {
 						log.Errorf("Failed to load service menifests for service %s in project %s, err: %s", currentService.ServiceName, currentService.ProductName, err)
 						return
 					}
@@ -2320,7 +2320,7 @@ func updateProductGroup(productName, envName, updateType string, productResp *co
 						Timeout:     Timeout * time.Second * 10,
 					}
 					base := config.LocalServicePath(currentService.ProductName, currentService.ServiceName)
-					if err = commonservice.PreLoadServiceManifests(base, currentService.ProductName, currentService.ServiceName); err != nil {
+					if err = commonservice.PreLoadServiceManifests(base, currentService); err != nil {
 						return
 					}
 					err = helmClient.InstallOrUpgradeChart(context.Background(), &chartSpec,
@@ -2528,7 +2528,7 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 					defer wg.Done()
 
 					base := config.LocalServicePath(currentService.ProductName, currentService.ServiceName)
-					if err = commonservice.PreLoadServiceManifests(base, currentService.ProductName, currentService.ServiceName); err != nil {
+					if err = commonservice.PreLoadServiceManifests(base, currentService); err != nil {
 						return
 					}
 					chartSpec := helmclient.ChartSpec{
