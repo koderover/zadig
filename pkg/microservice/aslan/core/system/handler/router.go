@@ -169,4 +169,20 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		notification.GET("/subscribe", ListSubscriptions)
 	}
 
+	announcement := router.Group("announcement")
+	{
+		announcement.POST("", gin2.RequireSuperAdminAuth, CreateAnnouncement)
+		announcement.PUT("/update", gin2.RequireSuperAdminAuth, UpdateAnnouncement)
+		announcement.GET("/all", gin2.RequireSuperAdminAuth, PullAllAnnouncement)
+		announcement.GET("", PullNotifyAnnouncement)
+		announcement.DELETE("/:id", gin2.RequireSuperAdminAuth, DeleteAnnouncement)
+	}
+
+	operation := router.Group("operation")
+	{
+		operation.GET("", gin2.RequireSuperAdminAuth, GetOperationLogs)
+		operation.POST("", gin2.RequireSuperAdminAuth, AddSystemOperationLog)
+		operation.PUT("/:id", gin2.RequireSuperAdminAuth, UpdateOperationLog)
+	}
+
 }
