@@ -78,8 +78,6 @@ func (r *Reaper) runGitCmds() error {
 	// https://stackoverflow.com/questions/24952683/git-push-error-rpc-failed-result-56-http-code-200-fatal-the-remote-end-hun/36843260
 	//cmds = append(cmds, &c.Command{Cmd: c.SetConfig("http.postBuffer", "524288000"), DisableTrace: true})
 	cmds = append(cmds, &c.Command{Cmd: c.SetConfig("http.postBuffer", "2097152000"), DisableTrace: true})
-	// ignore certificate
-	cmds = append(cmds, &c.Command{Cmd: c.SetConfig("http.sslVerify", "false"), DisableTrace: true})
 	var tokens []string
 
 	for _, repo := range r.Ctx.Repos {
