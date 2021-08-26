@@ -268,6 +268,7 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 			}
 		}
 
+		//TODO is it reasonable to ignore error when all pods are running？
 		if allRunning {
 			prodResp.Status = setting.PodRunning
 			prodResp.Error = ""
