@@ -1955,7 +1955,7 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 		tmpRenderInfo.Revision = args.Render.Revision
 	}
 	args.Render = tmpRenderInfo
-	if productTmpl.ProductFeature.DeployType != setting.BasicFacilityCVM {
+	if productTmpl.ProductFeature.BasicFacility != setting.BasicFacilityCVM {
 		return ensureKubeEnv(commonservice.GetProductEnvNamespace(envName, args.ProductName), kubeClient, log)
 	}
 	return nil
