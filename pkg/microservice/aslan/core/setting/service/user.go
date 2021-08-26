@@ -28,6 +28,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/koderover/zadig/pkg/types/permission"
+
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -239,7 +241,7 @@ func ensureUserRole(namespace, username, productName string, userID int, superUs
 	poetryClient := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
 	roleName := fmt.Sprintf("%s-role", username)
 	verbs := []string{"get", "list", "watch"}
-	if poetryClient.HasOperatePermission(productName, "40003", userID, superUser, log) {
+	if poetryClient.HasOperatePermission(productName, permission.TestEnvManageUUID, userID, superUser, log) {
 		verbs = []string{"*"}
 	}
 	role := &rbacv1beta1.Role{
@@ -250,30 +252,8 @@ func ensureUserRole(namespace, username, productName string, userID int, superUs
 		Rules: []rbacv1beta1.PolicyRule{
 			rbacv1beta1.PolicyRule{
 				APIGroups: []string{"*"},
-				Resources: []string{
-					"daemonsets",
-					"configmaps",
-					"deployments",
-					"endpoints",
-					"events",
-					"horizontalpodautoscalers",
-					"ingresses",
-					"jobs",
-					"cronjobs",
-					"persistentvolumeclaims",
-					"pods",
-					"pods/log",
-					"pods/exec",
-					"pods/portforward",
-					"podtemplates",
-					"replicasets",
-					"replicationcontrollers",
-					"secrets",
-					"serviceaccounts",
-					"services",
-					"statefulsets",
-				},
-				Verbs: verbs,
+				Resources: []string{"*"},
+				Verbs:     verbs,
 			},
 			rbacv1beta1.PolicyRule{
 				APIGroups: []string{"*"},
