@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"helm.sh/helm/v3/pkg/strvals"
@@ -637,12 +638,11 @@ func UpdateProduct(existedProd, updateProd *commonmodels.Product, renderSet *com
 							service,
 							existedServices[service.ServiceName],
 							renderSet, kubeClient, log)
-
 						if err != nil {
 							lock.Lock()
 							switch e := err.(type) {
 							case *multierror.Error:
-								errList = multierror.Append(errList, e.Errors...)
+								errList = multierror.Append(errList, errors.New(e.Error()))
 							default:
 								errList = multierror.Append(errList, e)
 							}
@@ -1468,7 +1468,7 @@ func upsertService(isUpdate bool, env *commonmodels.Product,
 			}
 
 			if len(es) == 1 {
-				return fmt.Sprintf(format+" %s 失败：%v", service.ServiceName, es[0])
+				return fmt.Sprintf(format+" %s 失败:%v", service.ServiceName, es[0])
 			}
 
 			points := make([]string, len(es))
@@ -1476,7 +1476,7 @@ func upsertService(isUpdate bool, env *commonmodels.Product,
 				points[i] = fmt.Sprintf("* %v", err)
 			}
 
-			return fmt.Sprintf(format+" %s 失败：\n%s", service.ServiceName, strings.Join(points, "\n"))
+			return fmt.Sprintf(format+" %s 失败:\n%s", service.ServiceName, strings.Join(points, "\n"))
 		},
 	}
 
