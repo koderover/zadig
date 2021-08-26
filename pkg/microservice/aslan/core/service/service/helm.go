@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/27149chen/afero"
@@ -170,31 +171,36 @@ func CreateOrUpdateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) err
 	getter, err := getTreeGetter(args.CodehostID)
 	if err != nil {
 		log.Errorf("Failed to get tree getter, err: %s", err)
-		return e.ErrListWorkspace.AddDesc(err.Error())
+		return e.ErrCreateTemplate.AddDesc(err.Error())
 	}
 
 	var wg wait.Group
-	for _, filePath := range args.FilePaths {
+	var mux sync.RWMutex
+	for _, p := range args.FilePaths {
+		filePath := p
 		wg.Start(func() {
 			var err error
 			defer func() {
 				if err != nil {
+					mux.Lock()
 					errs = multierror.Append(errs, err)
+					mux.Unlock()
 				}
 			}()
 
-			chartTree, err := getter.GetTreeContents(args.RepoOwner, args.RepoName, filePath, args.BranchName)
-			if err != nil {
-				log.Errorf("Failed to get tree contents with option %+v, err: %s", args, err)
-				err = e.ErrCreateTemplate.AddErr(err)
+			log.Infof("Loading chart under path %s", filePath)
+			chartTree, err1 := getter.GetTreeContents(args.RepoOwner, args.RepoName, filePath, args.BranchName)
+			if err1 != nil {
+				log.Errorf("Failed to get tree contents with option %+v, err: %s", args, err1)
+				err = e.ErrCreateTemplate.AddErr(err1)
 				return
 			}
 
 			baseDir := filepath.Base(filePath)
-			files, err := afero.ReadDir(chartTree, baseDir)
-			if err != nil {
-				log.Errorf("Failed to read dir %s, err: %s", baseDir, err)
-				err = e.ErrCreateTemplate.AddErr(err)
+			files, err1 := afero.ReadDir(chartTree, baseDir)
+			if err1 != nil {
+				log.Errorf("Failed to read dir %s, err: %s", baseDir, err1)
+				err = e.ErrCreateTemplate.AddErr(err1)
 				return
 			}
 			var containChartYaml, containValuesYaml, containTemplates bool
@@ -202,13 +208,15 @@ func CreateOrUpdateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) err
 			var valuesMap map[string]interface{}
 			for _, file := range files {
 				if file.Name() == setting.ChartYaml {
-					yamlFile, err := afero.ReadFile(chartTree, filepath.Join(baseDir, setting.ChartYaml))
-					if err != nil {
+					yamlFile, err1 := afero.ReadFile(chartTree, filepath.Join(baseDir, setting.ChartYaml))
+					if err1 != nil {
+						log.Errorf("Failed to read %s, err: %s", setting.ChartYaml, err1)
 						err = e.ErrCreateTemplate.AddDesc(fmt.Sprintf("读取%s失败", setting.ChartYaml))
 						return
 					}
 					chart := new(Chart)
-					if err = yaml.Unmarshal(yamlFile, chart); err != nil {
+					if err1 = yaml.Unmarshal(yamlFile, chart); err1 != nil {
+						log.Errorf("Failed to unmarshal yaml %s, err: %s", setting.ChartYaml, err1)
 						err = e.ErrCreateTemplate.AddDesc(fmt.Sprintf("解析%s失败", setting.ChartYaml))
 						return
 					}
@@ -216,13 +224,15 @@ func CreateOrUpdateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) err
 					chartVersion = chart.Version
 					containChartYaml = true
 				} else if file.Name() == setting.ValuesYaml {
-					yamlFileContent, err := afero.ReadFile(chartTree, filepath.Join(baseDir, setting.ValuesYaml))
-					if err != nil {
+					yamlFileContent, err1 := afero.ReadFile(chartTree, filepath.Join(baseDir, setting.ValuesYaml))
+					if err1 != nil {
+						log.Errorf("Failed to read %s, err: %s", setting.ValuesYaml, err1)
 						err = e.ErrCreateTemplate.AddDesc(fmt.Sprintf("读取%s失败", setting.ValuesYaml))
 						return
 					}
 
-					if err = yaml.Unmarshal(yamlFileContent, &valuesMap); err != nil {
+					if err1 = yaml.Unmarshal(yamlFileContent, &valuesMap); err1 != nil {
+						log.Errorf("Failed to unmarshal yaml %s, err: %s", setting.ValuesYaml, err1)
 						err = e.ErrCreateTemplate.AddDesc(fmt.Sprintf("解析%s失败", setting.ValuesYaml))
 						return
 					}
@@ -238,12 +248,14 @@ func CreateOrUpdateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) err
 				return
 			}
 
+			log.Infof("Found valid chart, start to loading it as service %s", serviceName)
+
 			// rename the root path of the chart to the service name
 			f, _ := fs.ReadDir(afero.NewIOFS(chartTree), "")
 			if len(f) == 1 {
-				if err = chartTree.Rename(f[0].Name(), serviceName); err != nil {
-					log.Errorf("Failed to rename dir name from %s to %s, err: %s", f[0].Name(), serviceName, err)
-					err = e.ErrCreateTemplate.AddErr(err)
+				if err1 = chartTree.Rename(f[0].Name(), serviceName); err1 != nil {
+					log.Errorf("Failed to rename dir name from %s to %s, err: %s", f[0].Name(), serviceName, err1)
+					err = e.ErrCreateTemplate.AddErr(err1)
 					return
 				}
 			}
@@ -255,14 +267,15 @@ func CreateOrUpdateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) err
 			})
 
 			serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, serviceName, args.ProductName)
-			rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
-			if err != nil {
-				err = fmt.Errorf("helmService.create get next helm service revision error: %s", err)
+			rev, err1 := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
+			if err1 != nil {
+				log.Errorf("Failed to get next revision for service %s, err: %s", serviceName, err1)
+				err = e.ErrCreateTemplate.AddErr(err1)
 				return
 			}
 			args.Revision = rev
-			if err := commonrepo.NewServiceColl().Delete(serviceName, setting.HelmDeployType, args.ProductName, setting.ProductStatusDeleting, args.Revision); err != nil {
-				log.Errorf("helmService.create delete %s error: %s", serviceName, err)
+			if err1 := commonrepo.NewServiceColl().Delete(serviceName, setting.HelmDeployType, args.ProductName, setting.ProductStatusDeleting, args.Revision); err1 != nil {
+				log.Warnf("Failed to delete stale service %s with revision %d, err: %s", serviceName, args.Revision, err1)
 			}
 			containerList := recursionGetImage(valuesMap)
 			if len(containerList) == 0 {
@@ -290,36 +303,51 @@ func CreateOrUpdateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) err
 				},
 			}
 
-			if err := commonrepo.NewServiceColl().Create(serviceObj); err != nil {
-				log.Errorf("helmService.Create serviceName:%s error:%v", serviceName, err)
-				err = e.ErrCreateTemplate.AddDesc(err.Error())
+			log.Infof("Starting to create service %s with revision %d", serviceName, rev)
+
+			if err1 := commonrepo.NewServiceColl().Create(serviceObj); err1 != nil {
+				log.Errorf("Failed to create service %s error: %s", serviceName, err1)
+				err = e.ErrCreateTemplate.AddDesc(err1.Error())
 				return
 			}
+
+			log.Info("Service created, Starting to save and upload files")
 
 			// save files to disk and upload them to s3
-			if err = saveAndUploadFiles(args.ProductName, serviceName, afero.NewIOFS(chartTree)); err != nil {
-				log.Errorf("Failed to save or upload files for service %s in project %s, error: %s", args.ProductName, serviceName, err)
-				err = e.ErrCreateTemplate.AddDesc(err.Error())
+			if err1 = saveAndUploadFiles(args.ProductName, serviceName, afero.NewIOFS(chartTree)); err1 != nil {
+				log.Errorf("Failed to save or upload files for service %s in project %s, error: %s", args.ProductName, serviceName, err1)
+				err = e.ErrCreateTemplate.AddDesc(err1.Error())
 				return
 			}
 
-			if project, err := templaterepo.NewProductColl().Find(args.ProductName); err == nil {
-				updated := true
-				if len(project.Services) == 0 {
-					project.Services = [][]string{{serviceName}}
-				} else if !sets.NewString(project.Services[0]...).Has(serviceName) {
-					project.Services[0] = append(project.Services[0], serviceName)
-				} else {
-					updated = false
-				}
+			// we need to update the project sequentially
+			mux.Lock()
+			defer mux.Unlock()
 
-				if updated {
-					err = templaterepo.NewProductColl().Update(args.ProductName, project)
-					if err != nil {
-						log.Errorf("helmService.Create Update productTmpl error: %v", err)
-						err = e.ErrCreateTemplate.AddDesc(err.Error())
-						return
-					}
+			p, err1 := templaterepo.NewProductColl().Find(args.ProductName)
+			if err1 != nil {
+				log.Errorf("Failed to save or upload files for service %s in project %s, error: %s", args.ProductName, serviceName, err1)
+				err = e.ErrCreateTemplate.AddDesc(err1.Error())
+				return
+			}
+
+			updated := true
+			if len(p.Services) == 0 {
+				p.Services = [][]string{{serviceName}}
+			} else if !sets.NewString(p.Services[0]...).Has(serviceName) {
+				p.Services[0] = append(p.Services[0], serviceName)
+			} else {
+				updated = false
+			}
+
+			if updated {
+				log.Infof("Updating project services to %v", p.Services)
+
+				err1 = templaterepo.NewProductColl().Update(args.ProductName, p)
+				if err1 != nil {
+					log.Errorf("Failed to update project, err: %v", err1)
+					err = e.ErrCreateTemplate.AddDesc(err1.Error())
+					return
 				}
 			}
 		})

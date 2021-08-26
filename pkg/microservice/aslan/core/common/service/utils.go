@@ -84,7 +84,7 @@ func SendFailedTaskMessage(username, productName, name, requestID string, workfl
 }
 
 func SendErrorMessage(sender, title, requestID string, err error, log *zap.SugaredLogger) {
-	content := fmt.Sprintf("错误信息: %s", e.String(err))
+	content := fmt.Sprintf("错误信息: %s", err)
 	SendMessage(sender, title, content, requestID, log)
 }
 

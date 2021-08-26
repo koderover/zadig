@@ -772,8 +772,8 @@ func UpdateProductV2(envName, productName, user, requestID string, force bool, k
 				return
 			}
 
-			log.Infof("[%s][P:%s] update error to => %s", envName, productName, e.String(err))
-			if err2 := commonrepo.NewProductColl().UpdateErrors(envName, productName, e.String(err)); err2 != nil {
+			log.Infof("[%s][P:%s] update error to => %s", envName, productName, err)
+			if err2 := commonrepo.NewProductColl().UpdateErrors(envName, productName, err.Error()); err2 != nil {
 				log.Errorf("[%s][P:%s] Product.UpdateErrors error: %v", envName, productName, err2)
 				return
 			}
@@ -976,8 +976,8 @@ func UpdateHelmProduct(productName, envName, updateType, username, requestID str
 				return
 			}
 
-			log.Infof("[%s][P:%s] update error to => %s", envName, productName, e.String(err))
-			if err2 := commonrepo.NewProductColl().UpdateErrors(envName, productName, e.String(err)); err2 != nil {
+			log.Infof("[%s][P:%s] update error to => %s", envName, productName, err)
+			if err2 := commonrepo.NewProductColl().UpdateErrors(envName, productName, err.Error()); err2 != nil {
 				log.Errorf("[%s][P:%s] Product.UpdateErrors error: %v", envName, productName, err2)
 				return
 			}
@@ -1056,8 +1056,8 @@ func UpdateHelmProductVariable(productName, envName, username, requestID string,
 				return
 			}
 
-			log.Infof("[%s][P:%s] update error to => %s", envName, productName, e.String(err))
-			if err2 := commonrepo.NewProductColl().UpdateErrors(envName, productName, e.String(err)); err2 != nil {
+			log.Infof("[%s][P:%s] update error to => %s", envName, productName, err)
+			if err2 := commonrepo.NewProductColl().UpdateErrors(envName, productName, err.Error()); err2 != nil {
 				log.Errorf("[%s][P:%s] Product.UpdateErrors error: %v", envName, productName, err2)
 				return
 			}
