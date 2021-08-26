@@ -28,15 +28,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/koderover/zadig/pkg/types/permission"
-
-	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/sets"
-
 	"github.com/hashicorp/go-multierror"
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1beta1 "k8s.io/api/rbac/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -48,6 +45,7 @@ import (
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 type kubeCfgTmplArgs struct {
