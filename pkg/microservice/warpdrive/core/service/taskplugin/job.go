@@ -517,7 +517,11 @@ func createOrUpdateRegistrySecrets(namespace string, registries []*task.Registry
 
 		arr := strings.Split(reg.Namespace, "/")
 		namespaceInRegistry := arr[len(arr)-1]
-		secretName := namespaceInRegistry + "-" + reg.RegType + "-registry-secret"
+
+		secretName := namespaceInRegistry + registrySecretSuffix
+		if reg.RegType != "" {
+			secretName = namespaceInRegistry + "-" + reg.RegType + registrySecretSuffix
+		}
 		if reg.RegAddr == config.DefaultRegistryAddr() {
 			secretName = "qn-registry-secret"
 		}
@@ -541,7 +545,7 @@ func createOrUpdateRegistrySecrets(namespace string, registries []*task.Registry
 			Type: corev1.SecretTypeDockercfg,
 		}
 		if err := updater.UpdateOrCreateSecret(secret, kubeClient); err != nil {
-			return err
+			log.Errorf("createOrUpdateRegistrySecrets UpdateOrCreateSecret err:%s", err)
 		}
 	}
 
