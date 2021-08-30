@@ -148,7 +148,7 @@ func getTreeGetter(codeHostID int) (treeGetter, error) {
 	ch, err := codehost.GetCodeHostInfoByID(codeHostID)
 	if err != nil {
 		log.Errorf("Failed to get codeHost by id %d, err: %s", codeHostID, err)
-		return nil, e.ErrListWorkspace.AddDesc(err.Error())
+		return nil, err
 	}
 
 	switch ch.Type {
@@ -194,7 +194,7 @@ func preLoadServiceManifestsFromSource(svc *commonmodels.Service) error {
 
 	// save files to disk and upload them to s3
 	if err = SaveAndUploadService(svc.ProductName, svc.ServiceName, tree); err != nil {
-		log.Errorf("Failed to save or upload files for service %s in project %s, error: %s", svc.ProductName, svc.ServiceName, err)
+		log.Errorf("Failed to save or upload files for service %s in project %s, error: %s", svc.ServiceName, svc.ProductName, err)
 		return err
 	}
 
@@ -204,13 +204,23 @@ func preLoadServiceManifestsFromSource(svc *commonmodels.Service) error {
 func saveInMemoryFilesToDisk(projectName, serviceName string, fileTree fs.FS) error {
 	root := config.LocalServicePath(projectName, serviceName)
 
-	// remove existing files
-	err := os.RemoveAll(root)
-	if err != nil {
+	tmpRoot := root + ".bak"
+	if err := os.Rename(root, tmpRoot); err != nil {
 		return err
 	}
 
-	return fsutil.SaveToDisk(fileTree, root)
+	if err := fsutil.SaveToDisk(fileTree, root); err != nil {
+		if err = os.RemoveAll(root); err != nil {
+			log.Warnf("Failed to delete path %s, err: %s", root, err)
+		}
+		return os.Rename(tmpRoot, root)
+	}
+
+	if err := os.RemoveAll(tmpRoot); err != nil {
+		log.Warnf("Failed to delete path %s, err: %s", tmpRoot, err)
+	}
+
+	return nil
 }
 
 func UploadFilesToS3(projectName, serviceName string, fileTree fs.FS) error {
