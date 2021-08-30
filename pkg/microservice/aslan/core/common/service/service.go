@@ -354,6 +354,8 @@ func UpdatePmServiceTemplate(username string, args *ServiceTmplBuildObject, log 
 		return err
 	}
 
+	preBuildName := preService.BuildName
+
 	//更新服务
 	serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, preService.ServiceName, preService.ProductName)
 	rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
@@ -368,6 +370,49 @@ func UpdatePmServiceTemplate(username string, args *ServiceTmplBuildObject, log 
 
 	if err := commonrepo.NewServiceColl().Delete(preService.ServiceName, setting.PMDeployType, args.ServiceTmplObject.ProductName, setting.ProductStatusDeleting, preService.Revision); err != nil {
 		return err
+	}
+
+	if preBuildName != args.Build.Name {
+		preBuild, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: preBuildName})
+		if err != nil {
+			return e.ErrUpdateService.AddDesc("get pre build failed")
+		}
+
+		var targets []*commonmodels.ServiceModuleTarget
+		for _, serviceModule := range preBuild.Targets {
+			if serviceModule.ServiceName != args.ServiceTmplObject.ServiceName {
+				targets = append(targets, serviceModule)
+			}
+		}
+		preBuild.Targets = targets
+
+		if err = UpdateBuild(username, preBuild, log); err != nil {
+			return e.ErrUpdateService.AddDesc("update pre build failed")
+		}
+
+		currentBuild, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: args.Build.Name})
+		if err != nil {
+			return e.ErrUpdateService.AddDesc("get current build failed")
+		}
+		var include bool
+		for _, serviceModule := range currentBuild.Targets {
+			if serviceModule.ServiceName == args.ServiceTmplObject.ServiceName {
+				include = true
+				break
+			}
+		}
+
+		if !include {
+			currentBuild.Targets = append(currentBuild.Targets, &commonmodels.ServiceModuleTarget{
+				ProductName:   args.ServiceTmplObject.ProductName,
+				ServiceName:   args.ServiceTmplObject.ServiceName,
+				ServiceModule: args.ServiceTmplObject.ServiceName,
+			})
+			if err = UpdateBuild(username, currentBuild, log); err != nil {
+				return e.ErrUpdateService.AddDesc("update current build failed")
+			}
+		}
+
 	}
 
 	if err := commonrepo.NewServiceColl().Create(preService); err != nil {
