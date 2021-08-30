@@ -90,12 +90,15 @@ func CreatePMService(username string, args *ServiceTmplBuildObject, log *zap.Sug
 	}
 
 	//创建构建
-	if err := commonservice.CreateBuild(username, args.Build, log); err != nil {
-		log.Errorf("pmService.Create build %s error: %v", args.Build.Name, err)
-		if err2 := commonrepo.NewServiceColl().Delete(args.ServiceTmplObject.ServiceName, args.ServiceTmplObject.Type, args.ServiceTmplObject.ProductName, "", rev); err2 != nil {
-			log.Errorf("pmService.delete %s error: %v", args.ServiceTmplObject.ServiceName, err2)
+	// Confirm whether the build exists
+	if _, err = commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: args.Build.Name}); err != nil {
+		if err := commonservice.CreateBuild(username, args.Build, log); err != nil {
+			log.Errorf("pmService.Create build %s error: %v", args.Build.Name, err)
+			if err2 := commonrepo.NewServiceColl().Delete(args.ServiceTmplObject.ServiceName, args.ServiceTmplObject.Type, args.ServiceTmplObject.ProductName, "", rev); err2 != nil {
+				log.Errorf("pmService.delete %s error: %v", args.ServiceTmplObject.ServiceName, err2)
+			}
+			return e.ErrCreateTemplate.AddDesc(err.Error())
 		}
-		return e.ErrCreateTemplate.AddDesc(err.Error())
 	}
 
 	if serviceNotFound {
