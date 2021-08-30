@@ -170,12 +170,14 @@ func SaveAndUploadService(projectName, serviceName string, fileTree fs.FS) error
 	wg.Start(func() {
 		err1 := saveInMemoryFilesToDisk(projectName, serviceName, fileTree)
 		if err1 != nil {
+			log.Errorf("Failed to save files to disk, err: %s", err1)
 			err = err1
 		}
 	})
 	wg.Start(func() {
 		err2 := UploadFilesToS3(projectName, serviceName, fileTree)
 		if err2 != nil {
+			log.Errorf("Failed to upload files to s3, err: %s", err2)
 			err = err2
 		}
 	})
