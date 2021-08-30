@@ -102,33 +102,51 @@ func ListGroupsBySource(envName, productName string, perPage, page int, log *zap
 		return 0, resp, ingressList, e.ErrListGroups.AddDesc(err.Error())
 	}
 
-	listServices, err := getter.ListServices(productInfo.Namespace, nil, kubeClient)
+	type WorkLoad struct {
+		Name         string
+		Spec         corev1.ServiceSpec
+		WorkLoadType string
+	}
+
+	var workLoads []WorkLoad
+	listDeployments, err := getter.ListDeployments(productInfo.Namespace, nil, kubeClient)
 	if err != nil {
 		log.Errorf("[%s][%s] create product record error: %v", envName, productName, err)
 		return 0, resp, ingressList, e.ErrListGroups.AddDesc(err.Error())
 	}
+	for _, v := range listDeployments {
+		workLoads = append(workLoads, WorkLoad{Name: v.Name, Spec: corev1.ServiceSpec{Selector: v.Spec.Selector.MatchLabels}, WorkLoadType: "deployment"})
+	}
 
-	count := len(listServices)
+	statefulSets, err := getter.ListStatefulSets(productInfo.Namespace, nil, kubeClient)
+	if err != nil {
+		log.Errorf("[%s][%s] create product record error: %v", envName, productName, err)
+		return 0, resp, ingressList, e.ErrListGroups.AddDesc(err.Error())
+	}
+	for _, v := range statefulSets {
+		workLoads = append(workLoads, WorkLoad{Name: v.Name, Spec: corev1.ServiceSpec{Selector: v.Spec.Selector.MatchLabels}, WorkLoadType: "statefulSet"})
+	}
+	count := len(workLoads)
 
 	// 分页
 	if page > 0 && perPage > 0 {
 		//将获取到的所有服务按照名称进行排序
-		sort.SliceStable(listServices, func(i, j int) bool { return listServices[i].Name < listServices[j].Name })
+		sort.SliceStable(workLoads, func(i, j int) bool { return workLoads[i].Name < workLoads[j].Name })
 
 		start := (page - 1) * perPage
 		if start >= count {
-			listServices = nil
+			workLoads = nil
 		} else if start+perPage >= count {
-			listServices = listServices[start:]
+			workLoads = workLoads[start:]
 		} else {
-			listServices = listServices[start : start+perPage]
+			workLoads = workLoads[start : start+perPage]
 		}
 	}
 
-	for _, service := range listServices {
+	for _, service := range workLoads {
 		wg.Add(1)
 
-		go func(service *corev1.Service) {
+		go func(service WorkLoad) {
 			defer func() {
 				wg.Done()
 			}()

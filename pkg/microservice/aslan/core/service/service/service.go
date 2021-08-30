@@ -359,7 +359,7 @@ func UpdateServiceTemplate(args *commonservice.ServiceTmplObject) error {
 		Revision:    args.Revision,
 	})
 	if err != nil {
-		log.Errorf("Can not find service with option %+v", args)
+		//log.Errorf("Can not find service with option %+v", args)
 		return err
 	}
 
