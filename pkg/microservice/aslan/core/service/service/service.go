@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -31,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
@@ -256,17 +258,23 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap
 		ExcludeStatus: setting.ProductStatusDeleting,
 	}
 
+	project, err := templaterepo.NewProductColl().Find(args.ProductName)
+	if err != nil {
+		log.Errorf("Failed to find project %s, err: %s", args.ProductName, err)
+		return nil, e.ErrInvalidParam.AddErr(err)
+	}
+	if _, ok := project.SharedServiceInfoMap()[args.ServiceName]; ok {
+		return nil, e.ErrInvalidParam.AddDesc(fmt.Sprintf("A service with same name %s is already existing", args.ServiceName))
+	}
+
 	// 在更新数据库前检查是否有完全重复的Item，如果有，则退出。
 	serviceTmpl, notFoundErr := commonrepo.NewServiceColl().Find(opt)
 	if notFoundErr == nil {
-		if serviceTmpl.ProductName != args.ProductName {
-			return nil, e.ErrInvalidParam.AddDesc(fmt.Sprintf("项目 [%s] %s", serviceTmpl.ProductName, "有相同的服务名称存在,请检查!"))
-		}
 		if args.Type == setting.K8SDeployType && args.Source == serviceTmpl.Source {
 			// 配置来源为zadig，对比配置内容是否变化，需要对比Yaml内容
 			// 如果Source没有设置，默认认为是zadig平台管理配置方式
 			if args.Source == setting.SourceFromZadig || args.Source == "" {
-				if args.Yaml != "" && strings.Compare(serviceTmpl.Yaml, args.Yaml) == 0 {
+				if args.Yaml != "" && serviceTmpl.Yaml == args.Yaml {
 					log.Info("Yaml config remains the same, quit creation.")
 					return GetServiceOption(serviceTmpl, log)
 				}
@@ -282,7 +290,7 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap
 					return nil, e.ErrCreateTemplate.AddDesc("不允许更改加载路径")
 				}
 			} else if args.Source == setting.SourceFromGerrit {
-				if args.Yaml != "" && strings.Compare(serviceTmpl.Yaml, args.Yaml) == 0 {
+				if args.Yaml != "" && serviceTmpl.Yaml == args.Yaml {
 					log.Info("gerrit Yaml config remains the same, quit creation.")
 					return GetServiceOption(serviceTmpl, log)
 				}
@@ -568,19 +576,19 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 		// 把该服务相关的s3的数据从仓库删除
 		s3Storage, _ := s3service.FindDefaultS3()
 		if s3Storage != nil {
-			subFolderName := serviceName + "-" + setting.HelmDeployType
-			if s3Storage.Subfolder != "" {
-				s3Storage.Subfolder = fmt.Sprintf("%s/%s/%s", s3Storage.Subfolder, subFolderName, "service")
-			} else {
-				s3Storage.Subfolder = fmt.Sprintf("%s/%s", subFolderName, "service")
-			}
+			tarball := fmt.Sprintf("%s.tar.gz", serviceName)
+			file := filepath.Join(s3Storage.Subfolder, configbase.ObjectStorageServicePath(productName, serviceName), tarball)
 			forcedPathStyle := true
 			if s3Storage.Provider == setting.ProviderSourceAli {
 				forcedPathStyle = false
 			}
 			client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
-			if err == nil {
-				client.RemoveFiles(s3Storage.Bucket, []string{fmt.Sprintf("%s.tar.gz", serviceName)})
+			if err != nil {
+				log.Warnf("Failed to create s3 client, err: %s", err)
+			} else {
+				if err = client.DeleteObjects(s3Storage.Bucket, []string{file}); err != nil {
+					log.Warnf("Failed to delete file %s, err: %s", file, err)
+				}
 			}
 		}
 	}

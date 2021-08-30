@@ -28,6 +28,22 @@ type TreeNode struct {
 	FullPath string `json:"full_path"`
 }
 
+type RepositoryCommit struct {
+	SHA     string `json:"sha"`
+	Message string `json:"message"`
+}
+
+func ToRepositoryCommit(obj interface{}) *RepositoryCommit {
+	switch o := obj.(type) {
+	case *github.RepositoryCommit:
+		return &RepositoryCommit{SHA: o.GetSHA(), Message: o.GetCommit().GetMessage()}
+	case *gitlab.Commit:
+		return &RepositoryCommit{SHA: o.ID, Message: o.Message}
+	default:
+		return nil
+	}
+}
+
 func ToTreeNode(obj interface{}) *TreeNode {
 	switch o := obj.(type) {
 	case *github.RepositoryContent:

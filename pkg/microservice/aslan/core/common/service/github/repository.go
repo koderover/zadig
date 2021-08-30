@@ -41,3 +41,12 @@ func (c *Client) GetTree(owner, repo, path, branch string) ([]*git.TreeNode, err
 func (c *Client) GetTreeContents(owner, repo, path, branch string) (afero.Fs, error) {
 	return c.Client.GetTreeContents(context.TODO(), owner, repo, path, branch)
 }
+
+func (c *Client) GetYAMLContents(owner, repo, path, branch string, isDir, split bool) ([]string, error) {
+	return c.Client.GetYAMLContents(context.TODO(), owner, repo, path, branch, split)
+}
+
+func (c *Client) GetLatestRepositoryCommit(owner, repo, path, branch string) (*git.RepositoryCommit, error) {
+	res, err := c.Client.GetLatestRepositoryCommit(context.TODO(), owner, repo, path, branch)
+	return git.ToRepositoryCommit(res), err
+}

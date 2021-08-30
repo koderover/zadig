@@ -28,13 +28,12 @@ import (
 	"strings"
 	"sync"
 
-	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/sets"
-
 	"github.com/hashicorp/go-multierror"
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1beta1 "k8s.io/api/rbac/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -46,6 +45,7 @@ import (
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 type kubeCfgTmplArgs struct {
@@ -205,7 +205,8 @@ func filterProductWithoutExternalCluster(products []*commonmodels.Product) []*co
 			continue
 		}
 		// 过滤外部环境托管
-		if product.Source != "" && product.Source != setting.SourceFromZadig {
+		sources := sets.NewString(setting.SourceFromZadig, setting.HelmDeployType)
+		if !sources.Has(product.Source) {
 			continue
 		}
 		// 过滤状态为Terminating的namespace
@@ -238,7 +239,7 @@ func ensureUserRole(namespace, username, productName string, userID int, superUs
 	poetryClient := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
 	roleName := fmt.Sprintf("%s-role", username)
 	verbs := []string{"get", "list", "watch"}
-	if poetryClient.HasOperatePermission(productName, "40003", userID, superUser, log) {
+	if poetryClient.HasOperatePermission(productName, permission.TestEnvManageUUID, userID, superUser, log) {
 		verbs = []string{"*"}
 	}
 	role := &rbacv1beta1.Role{
@@ -249,30 +250,8 @@ func ensureUserRole(namespace, username, productName string, userID int, superUs
 		Rules: []rbacv1beta1.PolicyRule{
 			rbacv1beta1.PolicyRule{
 				APIGroups: []string{"*"},
-				Resources: []string{
-					"daemonsets",
-					"configmaps",
-					"deployments",
-					"endpoints",
-					"events",
-					"horizontalpodautoscalers",
-					"ingresses",
-					"jobs",
-					"cronjobs",
-					"persistentvolumeclaims",
-					"pods",
-					"pods/log",
-					"pods/exec",
-					"pods/portforward",
-					"podtemplates",
-					"replicasets",
-					"replicationcontrollers",
-					"secrets",
-					"serviceaccounts",
-					"services",
-					"statefulsets",
-				},
-				Verbs: verbs,
+				Resources: []string{"*"},
+				Verbs:     verbs,
 			},
 			rbacv1beta1.PolicyRule{
 				APIGroups: []string{"*"},
