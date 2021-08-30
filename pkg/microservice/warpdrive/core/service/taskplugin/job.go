@@ -29,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	s32 "github.com/aws/aws-sdk-go/service/s3"
 	"go.uber.org/zap"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -517,7 +518,10 @@ func createOrUpdateRegistrySecrets(namespace string, registries []*task.Registry
 
 		arr := strings.Split(reg.Namespace, "/")
 		namespaceInRegistry := arr[len(arr)-1]
-		secretName := namespaceInRegistry + "-" + reg.RegType + "-registry-secret"
+		secretName := namespaceInRegistry + registrySecretSuffix
+		if reg.RegType != "" {
+			secretName = namespaceInRegistry + "-" + reg.RegType + registrySecretSuffix
+		}
 		if reg.RegAddr == config.DefaultRegistryAddr() {
 			secretName = "qn-registry-secret"
 		}
@@ -541,7 +545,8 @@ func createOrUpdateRegistrySecrets(namespace string, registries []*task.Registry
 			Type: corev1.SecretTypeDockercfg,
 		}
 		if err := updater.UpdateOrCreateSecret(secret, kubeClient); err != nil {
-			return err
+			//return err
+			fmt.Printf("ERROR: update secret [%s] error: [%+v]", secret.Name, err)
 		}
 	}
 
