@@ -22,6 +22,7 @@ import (
 	"path"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -82,6 +83,10 @@ func (c *Client) Download(bucketName, objectKey, dest string) error {
 		}
 		obj, err1 := c.GetObject(opt)
 		if err1 != nil {
+			if e, ok := err1.(awserr.Error); ok && e.Code() == s3.ErrCodeNoSuchKey {
+				return err
+			}
+
 			log.Warnf("Failed to get object %s from s3, try again, err: %s", objectKey, err1)
 			err = err1
 

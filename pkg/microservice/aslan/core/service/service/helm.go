@@ -18,7 +18,6 @@ package service
 
 import (
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -39,16 +38,9 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
-	githubservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
-	gitlabservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gitlab"
-	s3service "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/codehost"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/tool/log"
-	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/types"
-	fsutil "github.com/koderover/zadig/pkg/util/fs"
 )
 
 type HelmService struct {
@@ -149,7 +141,16 @@ func GetFilePath(serviceName, productName, dir string, _ *zap.SugaredLogger) ([]
 
 func GetFileContent(serviceName, productName, filePath, fileName string, log *zap.SugaredLogger) (string, error) {
 	base := config.LocalServicePath(productName, serviceName)
-	err := commonservice.PreLoadServiceManifests(base, productName, serviceName)
+
+	svc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+		ProductName: productName,
+		ServiceName: serviceName,
+	})
+	if err != nil {
+		return "", e.ErrFileContent.AddDesc(err.Error())
+	}
+
+	err = commonservice.PreLoadServiceManifests(base, svc)
 	if err != nil {
 		return "", e.ErrFileContent.AddDesc(err.Error())
 	}
@@ -168,18 +169,16 @@ func CreateOrUpdateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) err
 	helmRenderCharts := make([]*templatemodels.RenderChart, 0, len(args.FilePaths))
 	var errs *multierror.Error
 
-	getter, err := getTreeGetter(args.CodehostID)
-	if err != nil {
-		log.Errorf("Failed to get tree getter, err: %s", err)
-		return e.ErrCreateTemplate.AddDesc(err.Error())
-	}
-
 	var wg wait.Group
 	var mux sync.RWMutex
 	for _, p := range args.FilePaths {
-		filePath := p
+		filePath := strings.TrimLeft(p, "/")
 		wg.Start(func() {
 			var err error
+			var containChartYaml, containValuesYaml, containTemplates bool
+			var serviceName, valuesYaml, chartVersion string
+			var valuesMap map[string]interface{}
+
 			defer func() {
 				if err != nil {
 					mux.Lock()
@@ -189,76 +188,59 @@ func CreateOrUpdateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) err
 			}()
 
 			log.Infof("Loading chart under path %s", filePath)
-			chartTree, err1 := getter.GetTreeContents(args.RepoOwner, args.RepoName, filePath, args.BranchName)
-			if err1 != nil {
-				log.Errorf("Failed to get tree contents with option %+v, err: %s", args, err1)
-				err = e.ErrCreateTemplate.AddErr(err1)
-				return
-			}
-
-			baseDir := filepath.Base(filePath)
-			files, err1 := afero.ReadDir(chartTree, baseDir)
-			if err1 != nil {
-				log.Errorf("Failed to read dir %s, err: %s", baseDir, err1)
-				err = e.ErrCreateTemplate.AddErr(err1)
-				return
-			}
-			var containChartYaml, containValuesYaml, containTemplates bool
-			var serviceName, valuesYaml, chartVersion string
-			var valuesMap map[string]interface{}
-			for _, file := range files {
-				if file.Name() == setting.ChartYaml {
-					yamlFile, err1 := afero.ReadFile(chartTree, filepath.Join(baseDir, setting.ChartYaml))
-					if err1 != nil {
-						log.Errorf("Failed to read %s, err: %s", setting.ChartYaml, err1)
-						err = e.ErrCreateTemplate.AddDesc(fmt.Sprintf("读取%s失败", setting.ChartYaml))
-						return
-					}
-					chart := new(Chart)
-					if err1 = yaml.Unmarshal(yamlFile, chart); err1 != nil {
-						log.Errorf("Failed to unmarshal yaml %s, err: %s", setting.ChartYaml, err1)
-						err = e.ErrCreateTemplate.AddDesc(fmt.Sprintf("解析%s失败", setting.ChartYaml))
-						return
-					}
-					serviceName = chart.Name
-					chartVersion = chart.Version
-					containChartYaml = true
-				} else if file.Name() == setting.ValuesYaml {
-					yamlFileContent, err1 := afero.ReadFile(chartTree, filepath.Join(baseDir, setting.ValuesYaml))
-					if err1 != nil {
-						log.Errorf("Failed to read %s, err: %s", setting.ValuesYaml, err1)
-						err = e.ErrCreateTemplate.AddDesc(fmt.Sprintf("读取%s失败", setting.ValuesYaml))
-						return
+			fsTree, err := commonservice.DownloadServiceManifestsFromSource(
+				&commonservice.DownloadFromSourceParams{CodehostID: args.CodehostID, Owner: args.RepoOwner, Repo: args.RepoName, Path: filePath, Branch: args.BranchName},
+				func(chartTree afero.Fs) (string, error) {
+					baseDir := filepath.Base(filePath)
+					files, err := afero.ReadDir(chartTree, baseDir)
+					if err != nil {
+						log.Errorf("Failed to read dir %s, err: %s", baseDir, err)
+						return "", err
 					}
 
-					if err1 = yaml.Unmarshal(yamlFileContent, &valuesMap); err1 != nil {
-						log.Errorf("Failed to unmarshal yaml %s, err: %s", setting.ValuesYaml, err1)
-						err = e.ErrCreateTemplate.AddDesc(fmt.Sprintf("解析%s失败", setting.ValuesYaml))
-						return
+					for _, file := range files {
+						if file.Name() == setting.ChartYaml {
+							yamlFile, err := afero.ReadFile(chartTree, filepath.Join(baseDir, setting.ChartYaml))
+							if err != nil {
+								log.Errorf("Failed to read %s, err: %s", setting.ChartYaml, err)
+								return "", err
+							}
+							chart := new(Chart)
+							if err = yaml.Unmarshal(yamlFile, chart); err != nil {
+								log.Errorf("Failed to unmarshal yaml %s, err: %s", setting.ChartYaml, err)
+								return "", err
+							}
+							serviceName = chart.Name
+							chartVersion = chart.Version
+							containChartYaml = true
+						} else if file.Name() == setting.ValuesYaml {
+							yamlFileContent, err := afero.ReadFile(chartTree, filepath.Join(baseDir, setting.ValuesYaml))
+							if err != nil {
+								log.Errorf("Failed to read %s, err: %s", setting.ValuesYaml, err)
+								return "", err
+							}
+
+							if err = yaml.Unmarshal(yamlFileContent, &valuesMap); err != nil {
+								log.Errorf("Failed to unmarshal yaml %s, err: %s", setting.ValuesYaml, err)
+								return "", err
+							}
+
+							valuesYaml = string(yamlFileContent)
+							containValuesYaml = true
+						} else if file.Name() == setting.TemplatesDir {
+							containTemplates = true
+						}
 					}
 
-					valuesYaml = string(yamlFileContent)
-					containValuesYaml = true
-				} else if file.Name() == setting.TemplatesDir {
-					containTemplates = true
-				}
-			}
+					return serviceName, nil
+				})
+
 			if !containChartYaml || !containValuesYaml || !containTemplates {
 				err = e.ErrCreateTemplate.AddDesc(fmt.Sprintf("%s不是合法的chart目录,目录中必须包含%s/%s/%s目录等请检查!", filePath, setting.ValuesYaml, setting.ChartYaml, setting.TemplatesDir))
 				return
 			}
 
 			log.Infof("Found valid chart, start to loading it as service %s", serviceName)
-
-			// rename the root path of the chart to the service name
-			f, _ := fs.ReadDir(afero.NewIOFS(chartTree), "")
-			if len(f) == 1 {
-				if err1 = chartTree.Rename(f[0].Name(), serviceName); err1 != nil {
-					log.Errorf("Failed to rename dir name from %s to %s, err: %s", f[0].Name(), serviceName, err1)
-					err = e.ErrCreateTemplate.AddErr(err1)
-					return
-				}
-			}
 
 			helmRenderCharts = append(helmRenderCharts, &templatemodels.RenderChart{
 				ServiceName:  serviceName,
@@ -314,7 +296,7 @@ func CreateOrUpdateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) err
 			log.Info("Service created, Starting to save and upload files")
 
 			// save files to disk and upload them to s3
-			if err1 = saveAndUploadFiles(args.ProductName, serviceName, afero.NewIOFS(chartTree)); err1 != nil {
+			if err1 = commonservice.SaveAndUploadService(args.ProductName, serviceName, fsTree); err1 != nil {
 				log.Errorf("Failed to save or upload files for service %s in project %s, error: %s", args.ProductName, serviceName, err1)
 				err = e.ErrCreateTemplate.AddDesc(err1.Error())
 				return
@@ -362,32 +344,18 @@ func CreateOrUpdateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) err
 	return errs.ErrorOrNil()
 }
 
-type treeGetter interface {
-	GetTreeContents(owner, repo, path, branch string) (afero.Fs, error)
-}
-
-func getTreeGetter(codeHostID int) (treeGetter, error) {
-	ch, err := codehost.GetCodeHostInfoByID(codeHostID)
-	if err != nil {
-		log.Errorf("Failed to get codeHost by id %d, err: %s", codeHostID, err)
-		return nil, e.ErrListWorkspace.AddDesc(err.Error())
-	}
-
-	switch ch.Type {
-	case setting.SourceFromGithub:
-		return githubservice.NewClient(ch.AccessToken, config.ProxyHTTPSAddr()), nil
-	case setting.SourceFromGitlab:
-		return gitlabservice.NewClient(ch.Address, ch.AccessToken)
-	default:
-		// should not have happened here
-		log.DPanicf("invalid source: %s", ch.Type)
-		return nil, fmt.Errorf("invalid source: %s", ch.Type)
-	}
-}
-
 func loadServiceFileInfos(productName, serviceName, dir string) ([]*types.FileInfo, error) {
 	base := config.LocalServicePath(productName, serviceName)
-	err := commonservice.PreLoadServiceManifests(base, productName, serviceName)
+
+	svc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+		ProductName: productName,
+		ServiceName: serviceName,
+	})
+	if err != nil {
+		return nil, e.ErrFilePath.AddDesc(err.Error())
+	}
+
+	err = commonservice.PreLoadServiceManifests(base, svc)
 	if err != nil {
 		return nil, e.ErrFilePath.AddDesc(err.Error())
 	}
@@ -432,7 +400,7 @@ func UpdateHelmService(args *HelmServiceArgs, log *zap.SugaredLogger) error {
 		}
 
 		base := config.LocalServicePath(args.ProductName, helmServiceInfo.ServiceName)
-		if err = commonservice.PreLoadServiceManifests(base, args.ProductName, helmServiceInfo.ServiceName); err != nil {
+		if err = commonservice.PreLoadServiceManifests(base, preServiceTmpl); err != nil {
 			return e.ErrUpdateTemplate.AddDesc(err.Error())
 		}
 
@@ -512,7 +480,7 @@ func UpdateHelmService(args *HelmServiceArgs, log *zap.SugaredLogger) error {
 	}
 
 	for _, serviceName := range serviceNames {
-		if err := uploadFilesToS3(args.ProductName, serviceName, os.DirFS(config.LocalServicePath(args.ProductName, serviceName))); err != nil {
+		if err := commonservice.UploadFilesToS3(args.ProductName, serviceName, os.DirFS(config.LocalServicePath(args.ProductName, serviceName))); err != nil {
 			return e.ErrUpdateTemplate.AddDesc(err.Error())
 		}
 	}
@@ -617,73 +585,4 @@ func recursionGetImageByColon(jsonValues map[string]interface{}) ([]string, []*m
 		}
 	}
 	return banList.List(), ret
-}
-
-func saveAndUploadFiles(projectName, serviceName string, fileTree fs.FS) error {
-	var wg wait.Group
-	var err error
-
-	wg.Start(func() {
-		err1 := saveInMemoryFilesToDisk(projectName, serviceName, fileTree)
-		if err1 != nil {
-			err = err1
-		}
-	})
-	wg.Start(func() {
-		err2 := uploadFilesToS3(projectName, serviceName, fileTree)
-		if err2 != nil {
-			err = err2
-		}
-	})
-
-	wg.Wait()
-
-	return err
-}
-
-func saveInMemoryFilesToDisk(projectName, serviceName string, fileTree fs.FS) error {
-	root := config.LocalServicePath(projectName, serviceName)
-
-	// remove existing files
-	err := os.RemoveAll(root)
-	if err != nil {
-		return err
-	}
-
-	return fsutil.SaveToDisk(fileTree, root)
-}
-
-func uploadFilesToS3(projectName, serviceName string, fileTree fs.FS) error {
-	fileName := fmt.Sprintf("%s.tar.gz", serviceName)
-	tmpDir := os.TempDir()
-	tarball := filepath.Join(tmpDir, fileName)
-	if err := fsutil.Tar(fileTree, tarball); err != nil {
-		log.Errorf("Failed to archive tarball %s, err: %s", tarball, err)
-		return err
-	}
-	s3Storage, err := s3service.FindDefaultS3()
-	if err != nil {
-		log.Errorf("Failed to find default s3, err:%v", err)
-		return err
-	}
-	forcedPathStyle := true
-	if s3Storage.Provider == setting.ProviderSourceAli {
-		forcedPathStyle = false
-	}
-	client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
-	if err != nil {
-		log.Errorf("Failed to get s3 client, err: %s", err)
-		return err
-	}
-	s3Storage.Subfolder = filepath.Join(s3Storage.Subfolder, config.ObjectStorageServicePath(projectName, serviceName))
-	objectKey := s3Storage.GetObjectPath(fileName)
-	if err = client.Upload(s3Storage.Bucket, tarball, objectKey); err != nil {
-		log.Errorf("Failed to upload file %s to s3, err: %s", tarball, err)
-		return err
-	}
-	if err = os.Remove(tarball); err != nil {
-		log.Errorf("Failed to remove file %s, err: %s", tarball, err)
-	}
-
-	return nil
 }
