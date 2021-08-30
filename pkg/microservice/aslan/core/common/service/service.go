@@ -394,20 +394,30 @@ func UpdatePmServiceTemplate(username string, args *ServiceTmplBuildObject, log 
 		if err != nil {
 			return e.ErrUpdateService.AddDesc("get current build failed")
 		}
-		currentBuild.Targets = append(currentBuild.Targets, &commonmodels.ServiceModuleTarget{
-			ProductName:   args.ServiceTmplObject.ProductName,
-			ServiceName:   args.ServiceTmplObject.ServiceName,
-			ServiceModule: args.ServiceTmplObject.ServiceName,
-		})
-		if err = UpdateBuild(username, currentBuild, log); err != nil {
-			return e.ErrUpdateService.AddDesc("update current build failed")
+		var include bool
+		for _, serviceModule := range currentBuild.Targets {
+			if serviceModule.ServiceName == args.ServiceTmplObject.ServiceName {
+				include = true
+				break
+			}
 		}
+
+		if !include {
+			currentBuild.Targets = append(currentBuild.Targets, &commonmodels.ServiceModuleTarget{
+				ProductName:   args.ServiceTmplObject.ProductName,
+				ServiceName:   args.ServiceTmplObject.ServiceName,
+				ServiceModule: args.ServiceTmplObject.ServiceName,
+			})
+			if err = UpdateBuild(username, currentBuild, log); err != nil {
+				return e.ErrUpdateService.AddDesc("update current build failed")
+			}
+		}
+
 	}
 
 	if err := commonrepo.NewServiceColl().Create(preService); err != nil {
 		return err
 	}
-
 	return nil
 }
 
