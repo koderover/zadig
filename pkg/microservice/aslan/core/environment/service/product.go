@@ -94,7 +94,6 @@ func GetInitProduct(productTmplName string, log *zap.SugaredLogger) (*commonmode
 		log.Error(errMsg)
 		return nil, e.ErrGetProduct.AddDesc(errMsg)
 	}
-
 	if prodTmpl.ProductFeature == nil || prodTmpl.ProductFeature.DeployType == setting.K8SDeployType {
 		err = commonservice.FillProductTemplateVars([]*templatemodels.Product{prodTmpl}, log)
 	} else if prodTmpl.ProductFeature.DeployType == setting.HelmDeployType {

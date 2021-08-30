@@ -32,7 +32,7 @@ func (c *Client) ListUserProjects(owner, keyword string, opts *ListOptions) ([]*
 			ListOptions: *o,
 		}
 
-		if keyword == "" {
+		if keyword != "" {
 			popts.Search = &keyword
 		}
 		ps, r, err := c.Projects.ListUserProjects(encodeOwner, popts)

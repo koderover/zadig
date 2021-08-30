@@ -28,6 +28,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
 	"github.com/koderover/zadig/pkg/tool/git/gitlab"
+	"github.com/koderover/zadig/pkg/tool/ilyshin"
 )
 
 func CodeHostListBranches(codeHostID int, projectName, namespace string, log *zap.SugaredLogger) ([]*Branch, error) {
@@ -47,6 +48,13 @@ func CodeHostListBranches(codeHostID int, projectName, namespace string, log *za
 		}
 
 		brList, err := client.ListBranches(namespace, projectName, nil)
+		if err != nil {
+			return nil, err
+		}
+		return ToBranches(brList), nil
+	} else if ch.Type == CodeHostIlyshin {
+		client := ilyshin.NewClient(ch.Address, ch.AccessToken)
+		brList, err := client.ListBranches(namespace, projectName, log)
 		if err != nil {
 			return nil, err
 		}

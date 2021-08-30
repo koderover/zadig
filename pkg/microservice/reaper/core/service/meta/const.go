@@ -22,6 +22,8 @@ const (
 	// ProviderGitlab ...
 	ProviderGitlab = "gitlab"
 
+	//ProviderIlyshin
+	ProviderIlyshin = "ilyshin"
 	// ProviderGerrit
 	ProviderGerrit = "gerrit"
 

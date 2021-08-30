@@ -28,6 +28,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
 	"github.com/koderover/zadig/pkg/tool/git/gitlab"
+	"github.com/koderover/zadig/pkg/tool/ilyshin"
 )
 
 const (
@@ -38,6 +39,7 @@ const (
 	page            = 1
 	perPage         = 100
 	CodeHostCodeHub = "codehub"
+	CodeHostIlyshin = "ilyshin"
 )
 
 func CodeHostListNamespaces(codeHostID int, keyword string, log *zap.SugaredLogger) ([]*Namespace, error) {
@@ -57,6 +59,13 @@ func CodeHostListNamespaces(codeHostID int, keyword string, log *zap.SugaredLogg
 		}
 
 		nsList, err := client.ListNamespaces(keyword, nil)
+		if err != nil {
+			return nil, err
+		}
+		return ToNamespaces(nsList), nil
+	} else if ch.Type == CodeHostIlyshin {
+		client := ilyshin.NewClient(ch.Address, ch.AccessToken)
+		nsList, err := client.ListNamespaces(keyword, log)
 		if err != nil {
 			return nil, err
 		}
