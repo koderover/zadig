@@ -89,7 +89,6 @@ func CreatePMService(username string, args *ServiceTmplBuildObject, log *zap.Sug
 		return e.ErrCreateTemplate.AddDesc(err.Error())
 	}
 
-	//创建构建
 	// Confirm whether the build exists
 	build, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: args.Build.Name})
 	if err != nil {
