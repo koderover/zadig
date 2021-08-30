@@ -518,6 +518,9 @@ func createOrUpdateRegistrySecrets(namespace string, registries []*task.Registry
 		arr := strings.Split(reg.Namespace, "/")
 		namespaceInRegistry := arr[len(arr)-1]
 		secretName := namespaceInRegistry + "-" + reg.RegType + "-registry-secret"
+		if reg.RegAddr == config.DefaultRegistryAddr() {
+			secretName = "qn-registry-secret"
+		}
 
 		data := make(map[string][]byte)
 		dockerConfig := fmt.Sprintf(
