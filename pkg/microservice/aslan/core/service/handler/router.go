@@ -56,6 +56,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		k8s.PUT("/yaml/validator", YamlValidator)
 		k8s.DELETE("/:name/:type", gin2.IsHavePermission([]string{permission.ServiceTemplateDeleteUUID}, permission.QueryType), gin2.UpdateOperationLogStatus, DeleteServiceTemplate)
 		k8s.GET("/:name/:type/ports", ListServicePort)
+		k8s.GET("/k8s", ListK8sServices)
 	}
 
 	name := router.Group("name")

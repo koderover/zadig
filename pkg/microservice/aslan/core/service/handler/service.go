@@ -49,6 +49,20 @@ func ListServiceTemplate(c *gin.Context) {
 	ctx.Resp = tmpResp
 }
 
+func ListK8sServices(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	var tmpResp *commonservice.ServiceTmplResp
+	tmpResp, ctx.Err = commonservice.ListServiceTemplate(c.Query("productName"), ctx.Logger)
+
+	// 如果是数据统计页面的请求，则需要将托管环境的服务也返回
+	if c.Query("requestFrom") == "stat" {
+		svcservice.ListServicesInExtenalEnv(tmpResp, ctx.Logger)
+	}
+	ctx.Resp = tmpResp
+}
+
 func GetServiceTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
