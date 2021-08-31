@@ -388,6 +388,18 @@ func ListGroups(c *gin.Context) {
 	c.Writer.Header().Set("X-Total", strconv.Itoa(count))
 }
 
+func ListK8sWorkLoads(c *gin.Context) {
+	namespace := c.Param("namespace")
+	clusterID := c.Param("clusterID")
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	services, err := commonservice.ListServicesCanLoad(namespace, clusterID, ctx.Logger)
+	ctx.Resp = &NamespaceResource{
+		Services: services,
+	}
+	ctx.Err = err
+}
+
 func ListGroupsBySource(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
