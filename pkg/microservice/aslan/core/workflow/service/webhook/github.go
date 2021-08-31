@@ -580,7 +580,7 @@ func GetOwnerRepoBranchPath(URL string) (string, string, string, string, string,
 		return "", "", "", "", "", "", fmt.Errorf("url is illegal")
 	}
 
-	address, err := GetGitlabAddress(URL)
+	address, err := GetAddress(URL)
 	if err != nil {
 		return "", "", "", "", "", "", err
 	}
@@ -592,7 +592,7 @@ func GetOwnerRepoBranchPath(URL string) (string, string, string, string, string,
 	return address, urlPathArray[3], urlPathArray[4], "", "", pathType, nil
 }
 
-func GetGitlabAddress(URL string) (string, error) {
+func GetAddress(URL string) (string, error) {
 	if !strings.Contains(URL, "https") && !strings.Contains(URL, "http") {
 		return "", fmt.Errorf("url is illegal")
 	}

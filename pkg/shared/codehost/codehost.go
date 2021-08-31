@@ -29,6 +29,7 @@ const (
 	GitHubProvider  = "github"
 	GerritProvider  = "gerrit"
 	CodeHubProvider = "codehub"
+	IlyshinProvider = "ilyshin"
 )
 
 type CodeHost struct {

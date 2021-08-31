@@ -10,13 +10,11 @@ const (
 	Latest = iota + 1
 	V130
 	V131
-	V140
 )
 
 var versionMap versions = map[string]int{
 	"1.3.0": V130,
 	"1.3.1": V131,
-	"1.4.0": V140,
 }
 
 type versions map[string]int

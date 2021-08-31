@@ -40,6 +40,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/codehub"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
+	"github.com/koderover/zadig/pkg/tool/ilyshin"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
 )
@@ -54,20 +55,20 @@ type LoadServiceReq struct {
 
 func PreloadServiceFromCodeHost(codehostID int, repoOwner, repoName, repoUUID, branchName, remoteName, path string, isDir bool, log *zap.SugaredLogger) ([]string, error) {
 	var ret []string
-	detail, err := codehost.GetCodeHostInfoByID(codehostID)
+	ch, err := codehost.GetCodeHostInfoByID(codehostID)
 	if err != nil {
 		log.Errorf("Failed to load codehost for preload service list, the error is: %+v", err)
 		return nil, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
 	}
-	switch detail.Type {
-	case setting.SourceFromGithub:
-		ret, err = preloadGithubService(detail, repoOwner, repoName, branchName, path, isDir)
-	case setting.SourceFromGitlab:
-		ret, err = preloadGitlabService(detail, repoOwner, repoName, branchName, path, isDir)
+	switch ch.Type {
+	case setting.SourceFromGithub, setting.SourceFromGitlab:
+		ret, err = preloadService(ch, repoOwner, repoName, branchName, path, isDir, log)
 	case setting.SourceFromGerrit:
-		ret, err = preloadGerritService(detail, repoName, branchName, remoteName, path, isDir)
+		ret, err = preloadGerritService(ch, repoName, branchName, remoteName, path, isDir)
 	case setting.SourceFromCodeHub:
-		ret, err = preloadCodehubService(detail, repoName, repoUUID, branchName, path, isDir)
+		ret, err = preloadCodehubService(ch, repoName, repoUUID, branchName, path, isDir)
+	case setting.SourceFromIlyshin:
+		ret, err = preloadIlyshinService(ch, repoOwner, repoName, branchName, path, isDir)
 	default:
 		return nil, e.ErrPreloadServiceTemplate.AddDesc("Not supported code source")
 	}
@@ -77,26 +78,26 @@ func PreloadServiceFromCodeHost(codehostID int, repoOwner, repoName, repoUUID, b
 
 // LoadServiceFromCodeHost 根据提供的codehost信息加载服务
 func LoadServiceFromCodeHost(username string, codehostID int, repoOwner, repoName, repoUUID, branchName, remoteName string, args *LoadServiceReq, log *zap.SugaredLogger) error {
-	detail, err := codehost.GetCodehostDetail(codehostID)
+	ch, err := codehost.GetCodeHostInfoByID(codehostID)
 	if err != nil {
 		log.Errorf("Failed to load codehost for preload service list, the error is: %+v", err)
 		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
 	}
-	switch detail.Source {
-	case setting.SourceFromGithub:
-		return loadGithubService(username, detail, repoOwner, repoName, branchName, args, log)
-	case setting.SourceFromGitlab:
-		return loadGitlabService(username, detail, repoOwner, repoName, branchName, args, log)
+	switch ch.Type {
+	case setting.SourceFromGithub, setting.SourceFromGitlab:
+		return loadService(username, ch, repoOwner, repoName, branchName, args, log)
 	case setting.SourceFromGerrit:
-		return loadGerritService(username, detail, repoOwner, repoName, branchName, remoteName, args, log)
+		return loadGerritService(username, ch, repoOwner, repoName, branchName, remoteName, args, log)
 	case setting.SourceFromCodeHub:
-		return loadCodehubService(username, detail, repoOwner, repoName, repoUUID, branchName, args, log)
+		return loadCodehubService(username, ch, repoOwner, repoName, repoUUID, branchName, args, log)
+	case setting.SourceFromIlyshin:
+		return loadIlyshinService(username, ch, repoOwner, repoName, branchName, args, log)
 	default:
 		return e.ErrLoadServiceTemplate.AddDesc("unsupported code source")
 	}
 }
 
-// 根据服务名和提供的加载信息确认是否可以更新服务加载地址
+// ValidateServiceUpdate 根据服务名和提供的加载信息确认是否可以更新服务加载地址
 func ValidateServiceUpdate(codehostID int, serviceName, repoOwner, repoName, repoUUID, branchName, remoteName, path string, isDir bool, log *zap.SugaredLogger) error {
 	detail, err := codehost.GetCodeHostInfoByID(codehostID)
 	if err != nil {
@@ -112,146 +113,11 @@ func ValidateServiceUpdate(codehostID int, serviceName, repoOwner, repoName, rep
 		return validateServiceUpdateGerrit(detail, serviceName, repoName, branchName, remoteName, path, isDir)
 	case setting.SourceFromCodeHub:
 		return validateServiceUpdateCodehub(detail, serviceName, repoName, repoUUID, branchName, path, isDir)
+	case setting.SourceFromIlyshin:
+		return validateServiceUpdateIlyshin(detail, serviceName, repoOwner, repoName, branchName, path, isDir)
 	default:
 		return e.ErrValidateServiceUpdate.AddDesc("Not supported code source")
 	}
-}
-
-// 根据repo信息获取github可以加载的服务列表
-func preloadGithubService(detail *poetry.CodeHost, repoOwner, repoName, branchName, path string, isDir bool) ([]string, error) {
-	ret := make([]string, 0)
-
-	ctx := context.Background()
-	tokenSource := oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: detail.AccessToken},
-	)
-	tokenClient := oauth2.NewClient(ctx, tokenSource)
-	githubClient := github.NewClient(tokenClient)
-
-	if !isDir {
-		fileContent, _, _, err := githubClient.Repositories.GetContents(ctx, repoOwner, repoName, path, &github.RepositoryContentGetOptions{Ref: branchName})
-		if err != nil {
-			log.Errorf("Failed to get dir content from github with path: %s, the error is: %+v", path, err)
-			return ret, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
-		}
-		if !isYaml(fileContent.GetName()) {
-			log.Errorf("trying to preload a non-yaml file, ending ...")
-			return ret, e.ErrPreloadServiceTemplate.AddDesc("Non-yaml service loading is not supported")
-		}
-		serviceName := getFileName(fileContent.GetName())
-		ret = append(ret, serviceName)
-	} else {
-		_, dirContent, _, err := githubClient.Repositories.GetContents(ctx, repoOwner, repoName, path, &github.RepositoryContentGetOptions{Ref: branchName})
-		if err != nil {
-			log.Errorf("Failed to get dir content from github with path: %s, the error is: %+v", path, err)
-			return ret, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
-		}
-		if isValidGithubServiceDir(dirContent) {
-			svcName := path
-			if path == "" {
-				svcName = repoName
-			}
-			pathList := strings.Split(svcName, "/")
-			folderName := pathList[len(pathList)-1]
-			ret = append(ret, folderName)
-			return ret, nil
-		}
-		isGrandparent := false
-		for _, entry := range dirContent {
-			if entry.GetType() == "dir" {
-				_, subtree, _, err := githubClient.Repositories.GetContents(ctx, repoOwner, repoName, entry.GetPath(), &github.RepositoryContentGetOptions{Ref: branchName})
-				if err != nil {
-					log.Errorf("Failed to get dir content from github with path: %s, the error is: %+v", entry.GetPath(), err)
-					return ret, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
-				}
-				if isValidGithubServiceDir(subtree) {
-					isGrandparent = true
-					ret = append(ret, entry.GetName())
-				}
-			}
-		}
-		if !isGrandparent {
-			log.Errorf("invalid folder selected since no yaml is presented for path: %s", path)
-			return ret, e.ErrPreloadServiceTemplate.AddDesc("所选路径下没有yaml，请重新选择")
-		}
-	}
-
-	return ret, nil
-}
-
-// 根据repo信息获取gitlab可以加载的服务列表
-func preloadGitlabService(detail *poetry.CodeHost, repoOwner, repoName, branchName, path string, isDir bool) ([]string, error) {
-	ret := make([]string, 0)
-
-	repoInfo := fmt.Sprintf("%s/%s", repoOwner, repoName)
-
-	gitlabClient, err := gitlab.NewOAuthClient(detail.AccessToken, gitlab.WithBaseURL(detail.Address))
-	if err != nil {
-		log.Errorf("failed to prepare gitlab client, the error is:%+v", err)
-		return nil, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
-	}
-
-	// 非文件夹情况下直接获取文件信息
-	if !isDir {
-		if !isYaml(path) {
-			return ret, e.ErrPreloadServiceTemplate.AddDesc("File is not of type yaml or yml, select again")
-		}
-		fileInfo, _, err := gitlabClient.RepositoryFiles.GetFile(repoInfo, path, &gitlab.GetFileOptions{Ref: gitlab.String(branchName)})
-		if err != nil {
-			log.Errorf("Failed to get file info from gitlab with path: %s, the error is %+v", path, err)
-			return ret, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
-		}
-		extension := filepath.Ext(fileInfo.FileName)
-		fileName := fileInfo.FileName[0 : len(fileInfo.FileName)-len(extension)]
-		ret = append(ret, fileName)
-		return ret, nil
-	}
-
-	opt := &gitlab.ListTreeOptions{
-		Path:      gitlab.String(path),
-		Ref:       gitlab.String(branchName),
-		Recursive: gitlab.Bool(false),
-	}
-	treeInfo, _, err := gitlabClient.Repositories.ListTree(repoInfo, opt)
-	if err != nil {
-		log.Errorf("Failed to get dir content from gitlab with path: %s, the error is: %+v", path, err)
-		return ret, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
-	}
-	if isValidGitlabServiceDir(treeInfo) {
-		svcName := path
-		if path == "" {
-			svcName = repoInfo
-		}
-		pathList := strings.Split(svcName, "/")
-		folderName := pathList[len(pathList)-1]
-		ret = append(ret, folderName)
-		return ret, nil
-	}
-	isGrandparent := false
-	for _, entry := range treeInfo {
-		if entry.Type == "tree" {
-			subtreeOpt := &gitlab.ListTreeOptions{
-				Path:      gitlab.String(entry.Path),
-				Ref:       gitlab.String(branchName),
-				Recursive: gitlab.Bool(false),
-			}
-			subtreeInfo, _, err := gitlabClient.Repositories.ListTree(repoInfo, subtreeOpt)
-			if err != nil {
-				log.Errorf("Failed to get dir content from gitlab with path: %s, the error is: %+v", path, err)
-				return ret, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
-			}
-			if isValidGitlabServiceDir(subtreeInfo) {
-				isGrandparent = true
-				ret = append(ret, entry.Name)
-			}
-		}
-	}
-	if !isGrandparent {
-		log.Errorf("invalid folder selected since no yaml is presented in path: %s", path)
-		return ret, e.ErrPreloadServiceTemplate.AddDesc("所选路径下没有yaml，请重新选择")
-	}
-
-	return ret, nil
 }
 
 // 根据repo信息获取gerrit可以加载的服务列表
@@ -380,280 +246,75 @@ func preloadCodehubService(detail *poetry.CodeHost, repoName, repoUUID, branchNa
 	return ret, nil
 }
 
-// 根据repo信息从github加载服务
-func loadGithubService(username string, detail *codehost.Detail, repoOwner, repoName, branchName string, args *LoadServiceReq, log *zap.SugaredLogger) error {
-	ctx := context.Background()
-	tokenSource := oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: detail.OauthToken},
-	)
-	tokenClient := oauth2.NewClient(ctx, tokenSource)
-	githubClient := github.NewClient(tokenClient)
+// 根据 repo 信息获取 ilyshin 可以加载的服务列表
+func preloadIlyshinService(detail *poetry.CodeHost, repoOwner, repoName, branchName, path string, isDir bool) ([]string, error) {
+	ret := make([]string, 0)
 
-	log.Infof("Request username is: %s", username)
-
-	// 如果是单个文件导入，直接读取文件内容进行保存
-	if !args.LoadFromDir {
-		fileContent, _, _, err := githubClient.Repositories.GetContents(ctx, repoOwner, repoName, args.LoadPath, &github.RepositoryContentGetOptions{Ref: branchName})
+	ilyshinClient := ilyshin.NewClient(detail.Address, detail.AccessToken)
+	// 非文件夹情况下直接获取文件信息
+	if !isDir {
+		if !isYaml(path) {
+			return ret, e.ErrPreloadServiceTemplate.AddDesc("File is not of type yaml or yml, select again")
+		}
+		fileInfo, err := ilyshinClient.GetFile(repoOwner, repoName, branchName, path)
 		if err != nil {
-			log.Errorf("failed to get file info for path: %s from github, the error is: %+v", args.LoadPath, err)
-			return e.ErrLoadServiceTemplate.AddDesc(err.Error())
+			log.Errorf("Failed to get file info from ilyshin with path: %s, the error is %+v", path, err)
+			return ret, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
 		}
-		//commitInfo, _, err := githubClient.Repositories.GetCommit(ctx, repoOwner, repoName, fileContent.GetSHA())
-		//if err != nil {
-		//	log.Errorf("Failed to get commit info for path: %s, the error is: %+v", args.LoadPath, err)
-		//	return e.ErrLoadServiceTemplate.AddDesc(err.Error())
-		//}
-		srcPath := fmt.Sprintf("https://github.com/%s/%s/blob/%s/%s", repoOwner, repoName, branchName, args.LoadPath)
-		svcContent, _ := fileContent.GetContent()
-		splittedYaml := SplitYaml(svcContent)
-		createSvcArgs := &models.Service{
-			CodehostID:  detail.ID,
-			RepoName:    repoName,
-			RepoOwner:   repoOwner,
-			BranchName:  branchName,
-			LoadPath:    args.LoadPath,
-			LoadFromDir: args.LoadFromDir,
-			KubeYamls:   splittedYaml,
-			SrcPath:     srcPath,
-			CreateBy:    username,
-			ServiceName: getFileName(fileContent.GetName()),
-			Type:        args.Type,
-			ProductName: args.ProductName,
-			Source:      setting.SourceFromGithub,
-			Yaml:        svcContent,
-			Commit:      &models.Commit{SHA: fileContent.GetSHA()},
-			Visibility:  args.Visibility,
-		}
-		_, err = CreateServiceTemplate(username, createSvcArgs, log)
-		if err != nil {
-			_, messageMap := e.ErrorMessage(err)
-			if description, ok := messageMap["description"]; ok {
-				return e.ErrLoadServiceTemplate.AddDesc(description.(string))
-			}
-			return e.ErrLoadServiceTemplate.AddDesc("Load Service Error for unknown reason")
-		}
-		return err
+		extension := filepath.Ext(fileInfo.FileName)
+		fileName := fileInfo.FileName[0 : len(fileInfo.FileName)-len(extension)]
+		ret = append(ret, fileName)
+		return ret, nil
 	}
-	_, dirInfo, _, err := githubClient.Repositories.GetContents(ctx, repoOwner, repoName, args.LoadPath, &github.RepositoryContentGetOptions{Ref: branchName})
+
+	treeInfo, err := ilyshinClient.ListTree(repoOwner, repoName, branchName, path)
 	if err != nil {
-		log.Errorf("failed to get file info for path: %s from github, the error is: %+v", args.LoadPath, err)
-		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
+		log.Errorf("Failed to get dir content from ilyshin with path: %s, the error is: %+v", path, err)
+		return ret, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
 	}
-	// 如果从文件夹载入，判断该目录是否含有yaml
-	if isValidGithubServiceDir(dirInfo) {
-		return loadServiceFromGithub(ctx, detail.ID, githubClient, dirInfo, username, repoOwner, repoName, branchName, args.LoadPath, args, log)
+	if isValidIlyshinServiceDir(treeInfo) {
+		svcName := path
+		if path == "" {
+			svcName = repoName
+		}
+		pathList := strings.Split(svcName, "/")
+		folderName := pathList[len(pathList)-1]
+		ret = append(ret, folderName)
+		return ret, nil
 	}
-	// 如果载入目录无yaml, 循环查询子目录是否含有yaml，并载入
-	for _, entry := range dirInfo {
-		if entry.GetType() == "dir" {
-			_, subtree, _, err := githubClient.Repositories.GetContents(ctx, repoOwner, repoName, entry.GetPath(), &github.RepositoryContentGetOptions{Ref: branchName})
+	isGrandparent := false
+	for _, entry := range treeInfo {
+		if entry.Type == "tree" {
+			subtreeInfo, err := ilyshinClient.ListTree(repoOwner, repoName, branchName, path)
 			if err != nil {
-				log.Errorf("Failed to get dir content from github with path: %s, the error is: %+v", entry.GetPath(), err)
-				return e.ErrLoadServiceTemplate.AddDesc(err.Error())
+				log.Errorf("Failed to get dir content from ilyshin with path: %s, the error is: %+v", path, err)
+				return ret, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
 			}
-			if isValidGithubServiceDir(subtree) {
-				if err := loadServiceFromGithub(ctx, detail.ID, githubClient, subtree, username, repoOwner, repoName, branchName, entry.GetPath(), args, log); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	return nil
-}
-
-func loadServiceFromGithub(ctx context.Context, codehostID int, client *github.Client, tree []*github.RepositoryContent, username, owner, repoName, branchName, path string, args *LoadServiceReq, log *zap.SugaredLogger) error {
-	pathList := strings.Split(path, "/")
-	splittedYaml := []string{}
-	serviceName := pathList[len(pathList)-1]
-	yamlList, err := extractGithubYamls(ctx, client, tree, owner, repoName, branchName)
-	if err != nil {
-		log.Errorf("Failed to extract yamls from github, the error is: %+v", err)
-		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
-	}
-	for _, yamlEntry := range yamlList {
-		splittedYaml = append(splittedYaml, SplitYaml(yamlEntry)...)
-	}
-	yml := joinYamls(yamlList)
-	commitInfo, _, err := client.Repositories.ListCommits(ctx, owner, repoName, &github.CommitsListOptions{Path: path})
-	if err != nil {
-		log.Errorf("Failed to get commit info for path: %s, the error is: %+v", path, err)
-		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
-	}
-	srcPath := fmt.Sprintf("https://github.com/%s/%s/tree/%s/%s", owner, repoName, branchName, path)
-	createSvcArgs := &models.Service{
-		CodehostID:  codehostID,
-		RepoName:    repoName,
-		RepoOwner:   owner,
-		BranchName:  branchName,
-		LoadPath:    path,
-		LoadFromDir: args.LoadFromDir,
-		KubeYamls:   splittedYaml,
-		SrcPath:     srcPath,
-		CreateBy:    username,
-		ServiceName: serviceName,
-		Type:        args.Type,
-		ProductName: args.ProductName,
-		Source:      setting.SourceFromGithub,
-		Yaml:        yml,
-		Commit:      &models.Commit{SHA: commitInfo[0].GetSHA(), Message: commitInfo[0].GetCommit().GetMessage()},
-		Visibility:  args.Visibility,
-	}
-	_, err = CreateServiceTemplate(username, createSvcArgs, log)
-	if err != nil {
-		_, messageMap := e.ErrorMessage(err)
-		if description, ok := messageMap["description"]; ok {
-			err = e.ErrLoadServiceTemplate.AddDesc(description.(string))
-		} else {
-			err = e.ErrLoadServiceTemplate.AddDesc("Load Service Error for unknown reason")
-		}
-	}
-	return err
-}
-
-// 根据repo信息从gitlab加载服务
-func loadGitlabService(username string, detail *codehost.Detail, repoOwner, repoName, branchName string, args *LoadServiceReq, log *zap.SugaredLogger) error {
-	gitlabClient, err := gitlab.NewOAuthClient(detail.OauthToken, gitlab.WithBaseURL(detail.Address))
-	if err != nil {
-		log.Errorf("failed to prepare gitlab client, the error is:%+v", err)
-		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
-	}
-
-	repoInfo := fmt.Sprintf("%s/%s", repoOwner, repoName)
-
-	if !args.LoadFromDir {
-		fileContent, _, err := gitlabClient.RepositoryFiles.GetFile(repoInfo, args.LoadPath, &gitlab.GetFileOptions{Ref: gitlab.String(branchName)})
-		if err != nil {
-			log.Errorf("Failed to get file info for path: %s from gitlab, the error is: %+v", args.LoadPath, err)
-			return e.ErrLoadServiceTemplate.AddDesc(err.Error())
-		}
-		decodedContent, err := base64.StdEncoding.DecodeString(fileContent.Content)
-		if err != nil {
-			log.Errorf("Failed to decode file, the error is: %+v", err)
-			return e.ErrLoadServiceTemplate.AddDesc(err.Error())
-		}
-		srcPath := fmt.Sprintf("%s/%s/blob/%s/%s", detail.Address, repoInfo, branchName, args.LoadPath)
-		splittedYaml := SplitYaml(string(decodedContent))
-		createSvcArgs := &models.Service{
-			CodehostID:  detail.ID,
-			RepoOwner:   repoOwner,
-			RepoName:    repoName,
-			BranchName:  branchName,
-			LoadPath:    args.LoadPath,
-			LoadFromDir: args.LoadFromDir,
-			KubeYamls:   splittedYaml,
-			SrcPath:     srcPath,
-			CreateBy:    username,
-			ServiceName: getFileName(fileContent.FileName),
-			Type:        args.Type,
-			ProductName: args.ProductName,
-			Source:      setting.SourceFromGitlab,
-			Yaml:        string(decodedContent),
-			Commit:      &models.Commit{SHA: fileContent.CommitID},
-			Visibility:  args.Visibility,
-		}
-
-		_, err = CreateServiceTemplate(username, createSvcArgs, log)
-		if err != nil {
-			_, messageMap := e.ErrorMessage(err)
-			if description, ok := messageMap["description"]; ok {
-				return e.ErrLoadServiceTemplate.AddDesc(description.(string))
-			}
-			return e.ErrLoadServiceTemplate.AddDesc("Load Service Error for unknown reason")
-		}
-		return nil
-	}
-	opt := &gitlab.ListTreeOptions{
-		Path:      gitlab.String(args.LoadPath),
-		Ref:       gitlab.String(branchName),
-		Recursive: gitlab.Bool(false),
-	}
-	treeInfo, _, err := gitlabClient.Repositories.ListTree(repoInfo, opt)
-	if err != nil {
-		log.Errorf("Failed to get dir content from gitlab with path: %s, the error is: %+v", args.LoadPath, err)
-		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
-	}
-	if isValidGitlabServiceDir(treeInfo) {
-		return loadServiceFromGitlab(gitlabClient, treeInfo, detail, username, repoOwner, repoName, branchName, args.LoadPath, args, log)
-	}
-	for _, treeNode := range treeInfo {
-		if treeNode.Type == "tree" {
-			subOpt := &gitlab.ListTreeOptions{
-				Path:      gitlab.String(treeNode.Path),
-				Ref:       gitlab.String(branchName),
-				Recursive: gitlab.Bool(false),
-			}
-			subtree, _, err := gitlabClient.Repositories.ListTree(repoInfo, subOpt)
-			if err != nil {
-				log.Errorf("Failed to get dir content from gitlab with path: %s, the error is %+v", treeNode.Path, err)
-				return e.ErrLoadServiceTemplate.AddDesc(err.Error())
-			}
-			if isValidGitlabServiceDir(subtree) {
-				if err := loadServiceFromGitlab(gitlabClient, subtree, detail, username, repoOwner, repoName, branchName, treeNode.Path, args, log); err != nil {
-					return err
-				}
+			if isValidIlyshinServiceDir(subtreeInfo) {
+				isGrandparent = true
+				ret = append(ret, entry.Name)
 			}
 		}
 	}
-	return nil
-}
-
-func loadServiceFromGitlab(client *gitlab.Client, tree []*gitlab.TreeNode, detail *codehost.Detail, username, repoOwner, repoName, branchName, path string, args *LoadServiceReq, log *zap.SugaredLogger) error {
-	pathList := strings.Split(path, "/")
-	splittedYaml := []string{}
-	serviceName := pathList[len(pathList)-1]
-	repoInfo := fmt.Sprintf("%s/%s", repoOwner, repoName)
-	yamlList, sha, err := extractGitlabYamls(client, tree, repoInfo, branchName)
-	if err != nil {
-		log.Errorf("Failed to extract yamls from gitlab, the error is: %+v", err)
-		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
-	}
-	for _, yamlEntry := range yamlList {
-		splittedYaml = append(splittedYaml, SplitYaml(yamlEntry)...)
-	}
-	yml := joinYamls(yamlList)
-	srcPath := fmt.Sprintf("%s/%s/tree/%s/%s", detail.Address, repoInfo, branchName, path)
-	createSvcArgs := &models.Service{
-		CodehostID:  detail.ID,
-		RepoOwner:   repoOwner,
-		RepoName:    repoName,
-		BranchName:  branchName,
-		LoadPath:    path,
-		LoadFromDir: args.LoadFromDir,
-		KubeYamls:   splittedYaml,
-		SrcPath:     srcPath,
-		CreateBy:    username,
-		ServiceName: serviceName,
-		Type:        args.Type,
-		ProductName: args.ProductName,
-		Source:      setting.SourceFromGitlab,
-		Yaml:        yml,
-		Commit:      &models.Commit{SHA: sha},
-		Visibility:  args.Visibility,
+	if !isGrandparent {
+		log.Errorf("invalid folder selected since no yaml is presented in path: %s", path)
+		return ret, e.ErrPreloadServiceTemplate.AddDesc("所选路径下没有yaml，请重新选择")
 	}
 
-	_, err = CreateServiceTemplate(username, createSvcArgs, log)
-	if err != nil {
-		_, messageMap := e.ErrorMessage(err)
-		if description, ok := messageMap["description"]; ok {
-			err = e.ErrLoadServiceTemplate.AddDesc(description.(string))
-		} else {
-			err = e.ErrLoadServiceTemplate.AddDesc("Load Service Error for unknown reason")
-		}
-	}
-	return err
+	return ret, nil
 }
 
 // 根据repo信息从gerrit加载服务
-func loadGerritService(username string, detail *codehost.Detail, repoOwner, repoName, branchName, remoteName string, args *LoadServiceReq, log *zap.SugaredLogger) error {
+func loadGerritService(username string, ch *poetry.CodeHost, repoOwner, repoName, branchName, remoteName string, args *LoadServiceReq, log *zap.SugaredLogger) error {
 	base := path.Join(config.S3StoragePath(), repoName)
 	if _, err := os.Stat(base); os.IsNotExist(err) {
-		err = command.RunGitCmds(detail, repoOwner, repoName, branchName, remoteName)
+		err = command.RunGitCmds(&codehost.Detail{Source: ch.Type, Address: ch.Address, OauthToken: ch.AccessToken}, repoOwner, repoName, branchName, remoteName)
 		if err != nil {
 			return e.ErrLoadServiceTemplate.AddDesc(err.Error())
 		}
 	}
 
-	gerritCli := gerrit.NewClient(detail.Address, detail.OauthToken)
+	gerritCli := gerrit.NewClient(ch.Address, ch.AccessToken)
 	commit, err := gerritCli.GetCommitByBranch(repoName, branchName)
 	if err != nil {
 		log.Errorf("Failed to get latest commit info from repo: %s, the error is: %+v", repoName, err)
@@ -677,14 +338,14 @@ func loadGerritService(username string, detail *codehost.Detail, repoOwner, repo
 		splittedYaml := SplitYaml(string(contentBytes))
 		// FIXME：gerrit原先有字段保存codehost信息，保存两份，兼容性
 		createSvcArgs := &models.Service{
-			CodehostID:       detail.ID,
+			CodehostID:       ch.ID,
 			RepoName:         repoName,
 			RepoOwner:        repoOwner,
 			BranchName:       branchName,
 			LoadPath:         args.LoadPath,
 			LoadFromDir:      args.LoadFromDir,
 			GerritBranchName: branchName,
-			GerritCodeHostID: detail.ID,
+			GerritCodeHostID: ch.ID,
 			GerritPath:       filePath,
 			GerritRemoteName: remoteName,
 			GerritRepoName:   repoName,
@@ -714,7 +375,7 @@ func loadGerritService(username string, detail *codehost.Detail, repoOwner, repo
 		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
 	}
 	if isValidGerritServiceDir(fileInfos) {
-		return loadServiceFromGerrit(fileInfos, detail.ID, username, branchName, args.LoadPath, filePath, repoOwner, remoteName, repoName, args, commitInfo, log)
+		return loadServiceFromGerrit(fileInfos, ch.ID, username, branchName, args.LoadPath, filePath, repoOwner, remoteName, repoName, args, commitInfo, log)
 	}
 	for _, entry := range fileInfos {
 		subtreeLoadPath := fmt.Sprintf("%s/%s", args.LoadPath, entry.Name())
@@ -725,7 +386,7 @@ func loadGerritService(username string, detail *codehost.Detail, repoOwner, repo
 			return e.ErrLoadServiceTemplate.AddDesc(err.Error())
 		}
 		if isValidGerritServiceDir(subtreeInfo) {
-			if err := loadServiceFromGerrit(subtreeInfo, detail.ID, username, branchName, subtreeLoadPath, subtreePath, repoOwner, remoteName, repoName, args, commitInfo, log); err != nil {
+			if err := loadServiceFromGerrit(subtreeInfo, ch.ID, username, branchName, subtreeLoadPath, subtreePath, repoOwner, remoteName, repoName, args, commitInfo, log); err != nil {
 				return err
 			}
 		}
@@ -735,7 +396,7 @@ func loadGerritService(username string, detail *codehost.Detail, repoOwner, repo
 
 func loadServiceFromGerrit(tree []os.FileInfo, id int, username, branchName, loadPath, path, repoOwner, remoteName, repoName string, args *LoadServiceReq, commit *models.Commit, log *zap.SugaredLogger) error {
 	pathList := strings.Split(path, "/")
-	splittedYaml := []string{}
+	var splittedYaml []string
 	fileName := pathList[len(pathList)-1]
 	serviceName := getFileName(fileName)
 	yamlList, err := extractGerritYamls(path, tree)
@@ -783,8 +444,8 @@ func loadServiceFromGerrit(tree []os.FileInfo, id int, username, branchName, loa
 }
 
 // load codehub service
-func loadCodehubService(username string, detail *codehost.Detail, repoOwner, repoName, repoUUID, branchName string, args *LoadServiceReq, log *zap.SugaredLogger) error {
-	codeHubClient := codehub.NewCodeHubClient(detail.AccessKey, detail.SecretKey, detail.Region)
+func loadCodehubService(username string, ch *poetry.CodeHost, repoOwner, repoName, repoUUID, branchName string, args *LoadServiceReq, log *zap.SugaredLogger) error {
+	codeHubClient := codehub.NewCodeHubClient(ch.AccessKey, ch.SecretKey, ch.Region)
 
 	if !args.LoadFromDir {
 		yamls, err := codeHubClient.GetYAMLContents(repoUUID, branchName, args.LoadPath, args.LoadFromDir, true)
@@ -799,9 +460,9 @@ func loadCodehubService(username string, detail *codehost.Detail, repoOwner, rep
 			return e.ErrLoadServiceTemplate.AddDesc(err.Error())
 		}
 
-		srcPath := fmt.Sprintf("%s/%s/%s/blob/%s/%s", detail.Address, repoOwner, repoName, branchName, args.LoadPath)
+		srcPath := fmt.Sprintf("%s/%s/%s/blob/%s/%s", ch.Address, repoOwner, repoName, branchName, args.LoadPath)
 		createSvcArgs := &models.Service{
-			CodehostID:  detail.ID,
+			CodehostID:  ch.ID,
 			RepoOwner:   repoOwner,
 			RepoName:    repoName,
 			RepoUUID:    repoUUID,
@@ -814,7 +475,7 @@ func loadCodehubService(username string, detail *codehost.Detail, repoOwner, rep
 			ServiceName: getFileName(args.LoadPath),
 			Type:        args.Type,
 			ProductName: args.ProductName,
-			Source:      detail.Source,
+			Source:      ch.Type,
 			Yaml:        util.CombineManifests(yamls),
 			Commit:      &models.Commit{SHA: commit.ID, Message: commit.Message},
 			Visibility:  args.Visibility,
@@ -834,7 +495,7 @@ func loadCodehubService(username string, detail *codehost.Detail, repoOwner, rep
 		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
 	}
 	if isValidCodehubServiceDir(treeNodes) {
-		return loadServiceFromCodehub(codeHubClient, treeNodes, detail, username, repoOwner, repoName, repoUUID, branchName, args.LoadPath, args, log)
+		return loadServiceFromCodehub(codeHubClient, treeNodes, ch, username, repoOwner, repoName, repoUUID, branchName, args.LoadPath, args, log)
 	}
 
 	for _, treeNode := range treeNodes {
@@ -845,7 +506,7 @@ func loadCodehubService(username string, detail *codehost.Detail, repoOwner, rep
 				return e.ErrLoadServiceTemplate.AddDesc(err.Error())
 			}
 			if isValidCodehubServiceDir(subtree) {
-				if err := loadServiceFromCodehub(codeHubClient, subtree, detail, username, repoOwner, repoName, repoUUID, branchName, treeNode.Path, args, log); err != nil {
+				if err := loadServiceFromCodehub(codeHubClient, subtree, ch, username, repoOwner, repoName, repoUUID, branchName, treeNode.Path, args, log); err != nil {
 					return err
 				}
 			}
@@ -854,9 +515,9 @@ func loadCodehubService(username string, detail *codehost.Detail, repoOwner, rep
 	return nil
 }
 
-func loadServiceFromCodehub(client *codehub.CodeHubClient, tree []*codehub.TreeNode, detail *codehost.Detail, username, repoOwner, repoName, repoUUID, branchName, path string, args *LoadServiceReq, log *zap.SugaredLogger) error {
+func loadServiceFromCodehub(client *codehub.CodeHubClient, tree []*codehub.TreeNode, ch *poetry.CodeHost, username, repoOwner, repoName, repoUUID, branchName, path string, args *LoadServiceReq, log *zap.SugaredLogger) error {
 	pathList := strings.Split(path, "/")
-	splittedYaml := []string{}
+	var splittedYaml []string
 	serviceName := pathList[len(pathList)-1]
 	repoInfo := fmt.Sprintf("%s/%s", repoOwner, repoName)
 	yamlList, err := extractCodehubYamls(client, tree, repoUUID, branchName)
@@ -876,9 +537,9 @@ func loadServiceFromCodehub(client *codehub.CodeHubClient, tree []*codehub.TreeN
 		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
 	}
 
-	srcPath := fmt.Sprintf("%s/%s/tree/%s/%s", detail.Address, repoInfo, branchName, path)
+	srcPath := fmt.Sprintf("%s/%s/tree/%s/%s", ch.Address, repoInfo, branchName, path)
 	createSvcArgs := &models.Service{
-		CodehostID:  detail.ID,
+		CodehostID:  ch.ID,
 		RepoOwner:   repoOwner,
 		RepoName:    repoName,
 		BranchName:  branchName,
@@ -898,6 +559,124 @@ func loadServiceFromCodehub(client *codehub.CodeHubClient, tree []*codehub.TreeN
 	}
 
 	if _, err = CreateServiceTemplate(username, createSvcArgs, log); err != nil {
+		_, messageMap := e.ErrorMessage(err)
+		if description, ok := messageMap["description"]; ok {
+			err = e.ErrLoadServiceTemplate.AddDesc(description.(string))
+		} else {
+			err = e.ErrLoadServiceTemplate.AddDesc("Load Service Error for unknown reason")
+		}
+	}
+	return err
+}
+
+// 根据 repo 信息从 Ilyshin 加载服务
+func loadIlyshinService(username string, ch *poetry.CodeHost, repoOwner, repoName, branchName string, args *LoadServiceReq, log *zap.SugaredLogger) error {
+	ilyshinClient := ilyshin.NewClient(ch.Address, ch.AccessToken)
+	repoInfo := fmt.Sprintf("%s/%s", repoOwner, repoName)
+	if !args.LoadFromDir {
+		file, err := ilyshinClient.GetFile(repoOwner, repoName, branchName, args.LoadPath)
+		if err != nil {
+			log.Errorf("Failed to get file info for path: %s from ilyshin, the error is: %+v", args.LoadPath, err)
+			return e.ErrLoadServiceTemplate.AddDesc(err.Error())
+		}
+		decodedContent, err := base64.StdEncoding.DecodeString(file.Content)
+		if err != nil {
+			log.Errorf("Failed to decode file, the error is: %+v", err)
+			return e.ErrLoadServiceTemplate.AddDesc(err.Error())
+		}
+		srcPath := fmt.Sprintf("%s/%s/blob/%s/%s", ch.Address, repoInfo, branchName, args.LoadPath)
+		splittedYaml := SplitYaml(string(decodedContent))
+		createSvcArgs := &models.Service{
+			CodehostID:  ch.ID,
+			RepoOwner:   repoOwner,
+			RepoName:    repoName,
+			BranchName:  branchName,
+			LoadPath:    args.LoadPath,
+			LoadFromDir: args.LoadFromDir,
+			KubeYamls:   splittedYaml,
+			SrcPath:     srcPath,
+			CreateBy:    username,
+			ServiceName: getFileName(file.FileName),
+			Type:        args.Type,
+			ProductName: args.ProductName,
+			Source:      setting.SourceFromIlyshin,
+			Yaml:        string(decodedContent),
+			Commit:      &models.Commit{SHA: file.CommitID},
+			Visibility:  args.Visibility,
+		}
+
+		_, err = CreateServiceTemplate(username, createSvcArgs, log)
+		if err != nil {
+			_, messageMap := e.ErrorMessage(err)
+			if description, ok := messageMap["description"]; ok {
+				return e.ErrLoadServiceTemplate.AddDesc(description.(string))
+			}
+			return e.ErrLoadServiceTemplate.AddDesc("Load Service Error for unknown reason")
+		}
+		return nil
+	}
+
+	treeInfo, err := ilyshinClient.ListTree(repoOwner, repoName, branchName, args.LoadPath)
+	if err != nil {
+		log.Errorf("Failed to get dir content from ilyshin with path: %s, the error is: %+v", args.LoadPath, err)
+		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
+	}
+	if isValidIlyshinServiceDir(treeInfo) {
+		return loadServiceFromIlyshin(ilyshinClient, treeInfo, ch, username, repoOwner, repoName, branchName, args.LoadPath, args, log)
+	}
+	for _, treeNode := range treeInfo {
+		if treeNode.Type == "tree" {
+			subtree, err := ilyshinClient.ListTree(repoOwner, repoName, branchName, args.LoadPath)
+			if err != nil {
+				log.Errorf("Failed to get dir content from ilyshin with path: %s, the error is %+v", treeNode.Path, err)
+				return e.ErrLoadServiceTemplate.AddDesc(err.Error())
+			}
+			if isValidIlyshinServiceDir(subtree) {
+				if err := loadServiceFromIlyshin(ilyshinClient, subtree, ch, username, repoOwner, repoName, branchName, treeNode.Path, args, log); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func loadServiceFromIlyshin(client *ilyshin.Client, tree []*ilyshin.TreeNode, ch *poetry.CodeHost, username, repoOwner, repoName, branchName, path string, args *LoadServiceReq, log *zap.SugaredLogger) error {
+	pathList := strings.Split(path, "/")
+	splittedYaml := []string{}
+	serviceName := pathList[len(pathList)-1]
+	repoInfo := fmt.Sprintf("%s/%s", repoOwner, repoName)
+	yamlList, sha, err := extractIlyshinYamls(client, tree, repoOwner, repoName, branchName)
+	if err != nil {
+		log.Errorf("Failed to extract yamls from ilyshin, the error is: %+v", err)
+		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
+	}
+	for _, yamlEntry := range yamlList {
+		splittedYaml = append(splittedYaml, SplitYaml(yamlEntry)...)
+	}
+	yml := joinYamls(yamlList)
+	srcPath := fmt.Sprintf("%s/%s/tree/%s/%s", ch.Address, repoInfo, branchName, path)
+	createSvcArgs := &models.Service{
+		CodehostID:  ch.ID,
+		RepoOwner:   repoOwner,
+		RepoName:    repoName,
+		BranchName:  branchName,
+		LoadPath:    path,
+		LoadFromDir: args.LoadFromDir,
+		KubeYamls:   splittedYaml,
+		SrcPath:     srcPath,
+		CreateBy:    username,
+		ServiceName: serviceName,
+		Type:        args.Type,
+		ProductName: args.ProductName,
+		Source:      setting.SourceFromIlyshin,
+		Yaml:        yml,
+		Commit:      &models.Commit{SHA: sha},
+		Visibility:  args.Visibility,
+	}
+
+	_, err = CreateServiceTemplate(username, createSvcArgs, log)
+	if err != nil {
 		_, messageMap := e.ErrorMessage(err)
 		if description, ok := messageMap["description"]; ok {
 			err = e.ErrLoadServiceTemplate.AddDesc(description.(string))
@@ -1100,8 +879,45 @@ func validateServiceUpdateCodehub(detail *poetry.CodeHost, serviceName, repoName
 	return e.ErrValidateServiceUpdate.AddDesc("所选路径中没有yaml，请重新选择")
 }
 
-func isYaml(filename string) bool {
-	return strings.HasSuffix(filename, ".yaml") || strings.HasSuffix(filename, ".yml")
+// 根据 ilyshin repo 决定服务是否可以更新这个 repo 地址
+func validateServiceUpdateIlyshin(detail *poetry.CodeHost, serviceName, repoOwner, repoName, branchName, path string, isDir bool) error {
+	ilyshinClient := ilyshin.NewClient(detail.Address, detail.AccessToken)
+	// 非文件夹情况下直接获取文件信息
+	if !isDir {
+		if !isYaml(path) {
+			return e.ErrValidateServiceUpdate.AddDesc("File is not of type yaml or yml, select again")
+		}
+		fileInfo, err := ilyshinClient.GetFile(repoOwner, repoName, branchName, path)
+		if err != nil {
+			log.Errorf("Failed to get file info from ilyshin with path: %s, the error is %+v", path, err)
+			return e.ErrValidateServiceUpdate.AddDesc(err.Error())
+		}
+		if getFileName(fileInfo.FileName) != serviceName {
+			log.Errorf("The loaded file name [%s] is the same as the service to be updated: [%s]", fileInfo.FileName, serviceName)
+			return e.ErrValidateServiceUpdate.AddDesc("文件名称和服务名称不一致")
+		}
+		return nil
+	}
+
+	treeInfo, err := ilyshinClient.ListTree(repoOwner, repoName, branchName, path)
+	if err != nil {
+		log.Errorf("Failed to get dir content from gitlab with path: %s, the error is: %+v", path, err)
+		return e.ErrValidateServiceUpdate.AddDesc(err.Error())
+	}
+	if isValidIlyshinServiceDir(treeInfo) {
+		svcName := path
+		if path == "" {
+			svcName = repoName
+		}
+		pathList := strings.Split(svcName, "/")
+		folderName := pathList[len(pathList)-1]
+		if folderName != serviceName {
+			log.Errorf("The loaded file name [%s] is the same as the service to be updated: [%s]", folderName, serviceName)
+			return e.ErrValidateServiceUpdate.AddDesc("文件夹名称和服务名称不一致")
+		}
+		return nil
+	}
+	return e.ErrValidateServiceUpdate.AddDesc("所选路径中没有yaml，请重新选择")
 }
 
 func isValidGithubServiceDir(child []*github.RepositoryContent) bool {
@@ -1114,6 +930,15 @@ func isValidGithubServiceDir(child []*github.RepositoryContent) bool {
 }
 
 func isValidGitlabServiceDir(child []*gitlab.TreeNode) bool {
+	for _, entry := range child {
+		if entry.Type == "blob" && isYaml(entry.Name) {
+			return true
+		}
+	}
+	return false
+}
+
+func isValidIlyshinServiceDir(child []*ilyshin.TreeNode) bool {
 	for _, entry := range child {
 		if entry.Type == "blob" && isYaml(entry.Name) {
 			return true
@@ -1140,56 +965,8 @@ func isValidCodehubServiceDir(child []*codehub.TreeNode) bool {
 	return false
 }
 
-func getFileName(fullName string) string {
-	name := filepath.Base(fullName)
-	ext := filepath.Ext(name)
-	return name[0:(len(name) - len(ext))]
-}
-
-func extractGithubYamls(ctx context.Context, client *github.Client, tree []*github.RepositoryContent, owner, repoName, branchName string) ([]string, error) {
-	ret := []string{}
-	for _, entry := range tree {
-		if isYaml(entry.GetPath()) {
-			fileInfo, _, _, err := client.Repositories.GetContents(ctx, owner, repoName, entry.GetPath(), &github.RepositoryContentGetOptions{Ref: branchName})
-			if err != nil {
-				log.Errorf("Failed to download github file: %s, the error is: %+v", entry.GetPath(), err)
-				return nil, err
-			}
-			yamlInfo, err := fileInfo.GetContent()
-			if err != nil {
-				log.Errorf("Cannot get content from the downloaded github file: %s, the error is: %+v", entry.GetPath(), err)
-				return nil, err
-			}
-			ret = append(ret, yamlInfo)
-		}
-	}
-	return ret, nil
-}
-
-func extractGitlabYamls(client *gitlab.Client, tree []*gitlab.TreeNode, repoName, branchName string) ([]string, string, error) {
-	ret := []string{}
-	var sha string
-	for _, entry := range tree {
-		if isYaml(entry.Name) {
-			fileInfo, _, err := client.RepositoryFiles.GetFile(repoName, entry.Path, &gitlab.GetFileOptions{Ref: gitlab.String(branchName)})
-			if err != nil {
-				log.Errorf("Failed to download gitlab file: %s, the error is: %+v", entry.Path, err)
-				return nil, "", err
-			}
-			decodedFile, err := base64.StdEncoding.DecodeString(fileInfo.Content)
-			if err != nil {
-				log.Errorf("Failed to decode content from the given file of path: %s, the error is: %+v", entry.Path, err)
-				return nil, "", err
-			}
-			ret = append(ret, string(decodedFile))
-			sha = fileInfo.CommitID
-		}
-	}
-	return ret, sha, nil
-}
-
 func extractCodehubYamls(client *codehub.CodeHubClient, tree []*codehub.TreeNode, repoUUID, branchName string) ([]string, error) {
-	ret := []string{}
+	var ret []string
 	for _, entry := range tree {
 		if isYaml(entry.Name) {
 			fileInfo, err := client.FileContent(repoUUID, branchName, entry.Path)
@@ -1209,7 +986,7 @@ func extractCodehubYamls(client *codehub.CodeHubClient, tree []*codehub.TreeNode
 }
 
 func extractGerritYamls(basePath string, tree []os.FileInfo) ([]string, error) {
-	ret := []string{}
+	var ret []string
 	for _, entry := range tree {
 		if !entry.IsDir() && isYaml(entry.Name()) {
 			tmpFilepath := fmt.Sprintf("%s/%s", basePath, entry.Name())
@@ -1221,4 +998,26 @@ func extractGerritYamls(basePath string, tree []os.FileInfo) ([]string, error) {
 		}
 	}
 	return ret, nil
+}
+
+func extractIlyshinYamls(client *ilyshin.Client, tree []*ilyshin.TreeNode, repoOwner, repoName, branchName string) ([]string, string, error) {
+	ret := []string{}
+	var sha string
+	for _, entry := range tree {
+		if isYaml(entry.Name) {
+			fileInfo, err := client.GetFile(repoOwner, repoName, branchName, entry.Path)
+			if err != nil {
+				log.Errorf("Failed to download ilyshin file: %s, the error is: %+v", entry.Path, err)
+				return nil, "", err
+			}
+			decodedFile, err := base64.StdEncoding.DecodeString(fileInfo.Content)
+			if err != nil {
+				log.Errorf("Failed to decode content from the given file of path: %s, the error is: %s", entry.Path, err)
+				return nil, "", err
+			}
+			ret = append(ret, string(decodedFile))
+			sha = fileInfo.CommitID
+		}
+	}
+	return ret, sha, nil
 }
