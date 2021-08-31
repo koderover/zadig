@@ -2526,6 +2526,9 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 				if err != nil {
 					continue
 				}
+
+				//获取指定版本的chart信息
+
 				wg.Add(1)
 				go func(tmpRenderChart *template.RenderChart, currentService *commonmodels.Service) {
 					defer wg.Done()

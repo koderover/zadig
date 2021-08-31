@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -288,7 +289,6 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				}
 			}
 		}
-
 		productInfo, err = p.getProductInfo(ctx, &EnvArgs{EnvName: p.Task.EnvName, ProductName: p.Task.ProductName})
 		if err != nil {
 			err = errors.WithMessagef(
@@ -297,6 +297,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				p.Task.Namespace, p.Task.ServiceName)
 			return
 		}
+
 		renderInfo, err = p.getRenderSet(ctx, productInfo.Render.Name, productInfo.Render.Revision)
 		if err != nil {
 			err = errors.WithMessagef(
@@ -396,10 +397,30 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 					Timeout:     time.Second * DeployTimeout,
 				}
 
-				path, err := p.downloadService(pipelineTask.ProductName, pipelineTask.ServiceName, pipelineTask.StorageURI)
-				if err != nil {
+				//获取此环境中 service的运行版本
+				serviceInfoRevision, errGetService := p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType,
+					p.Task.ProductName, p.Task.ServiceRevision)
+				if errGetService != nil {
 					err = errors.WithMessagef(
-						err,
+						errGetService,
+						"failed to get service revision %s/%s/%d",
+						p.Task.Namespace, p.Task.ServiceName, p.Task.ServiceRevision)
+					return
+				}
+
+				p.Log.Infof("###############[namespace:%v][EnvName:%v][servicename:%v][serviceRevision:%v]" +
+					"[pipelineTask.ProductName:%v][pipelineTask.ServiceName:%v][pipelineTask.PipelineName:%v] get" +
+					" service revision info %v",
+					p.Task.Namespace, p.Task.EnvName,
+					p.Task.ServiceName, p.Task.ServiceRevision,
+					pipelineTask.ProductName, pipelineTask.ServiceName,pipelineTask.PipelineName,
+					serviceInfoRevision.HelmChart.Name)
+
+				path, errDownload := p.downloadService(pipelineTask.ProductName, pipelineTask.ServiceName,
+					nil, p.Task.ServiceRevision)
+				if errDownload != nil {
+					err = errors.WithMessagef(
+						errDownload,
 						"failed to download service %s/%s",
 						p.Task.Namespace, p.Task.ServiceName)
 					return
@@ -448,25 +469,31 @@ func (p *DeployTaskPlugin) getProductInfo(ctx context.Context, args *EnvArgs) (*
 	return prod, nil
 }
 
-func (p *DeployTaskPlugin) getService(ctx context.Context, name, serviceType, productName string) (*types.ServiceTmpl, error) {
+func (p *DeployTaskPlugin) getService(ctx context.Context, name, serviceType,
+	productName string, revision int64) (*types.ServiceTmpl, error) {
 	url := fmt.Sprintf("/api/service/services/%s/%s", name, serviceType)
 
 	s := &types.ServiceTmpl{}
-	_, err := p.httpClient.Get(url, httpclient.SetResult(s), httpclient.SetQueryParam("productName", productName))
+	_, err := p.httpClient.Get(url, httpclient.SetResult(s), httpclient.SetQueryParams(map[string]string{
+		"productName": productName,
+		"revision": fmt.Sprintf("%v", revision),
+	}))
 	if err != nil {
 		return nil, err
 	}
 	return s, nil
 }
 
-func (p *DeployTaskPlugin) downloadService(productName, serviceName, storageURI string) (string, error) {
+//从s3上下载指定版本的chart打包文件
+func (p *DeployTaskPlugin) downloadService(productName, serviceName string, s3Storage *s3.S3, revision int64) (string,
+	error) {
 	logger := p.Log
 
 	base := configbase.LocalServicePath(productName, serviceName)
-	s3Storage, err := s3.NewS3StorageFromEncryptedURI(storageURI)
-	if err != nil {
-		return "", err
-	}
+	//s3Storage, err := s3.NewS3StorageFromEncryptedURI(storageURI)
+	//if err != nil {
+	//	return "", err
+	//}
 
 	tarball := fmt.Sprintf("%s.tar.gz", serviceName)
 	tarFilePath := filepath.Join(base, tarball)
@@ -480,6 +507,7 @@ func (p *DeployTaskPlugin) downloadService(productName, serviceName, storageURI 
 		p.Log.Errorf("failed to create s3 client, err: %+v", err)
 		return "", err
 	}
+	log.Infof("############## the tar ball is %v / %v", tarball, s3Storage.GetObjectPath(tarball))
 	if err = client.Download(s3Storage.Bucket, s3Storage.GetObjectPath(tarball), tarFilePath); err != nil {
 		logger.Errorf("Failed to download file from s3, err: %s", err)
 		return "", err

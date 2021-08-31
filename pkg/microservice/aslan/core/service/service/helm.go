@@ -18,6 +18,8 @@ package service
 
 import (
 	"fmt"
+	fsutil "github.com/koderover/zadig/pkg/util/fs"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -282,6 +284,7 @@ func CreateOrUpdateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) err
 					Name:       serviceName,
 					Version:    chartVersion,
 					ValuesYaml: valuesYaml,
+
 				},
 			}
 
@@ -299,6 +302,14 @@ func CreateOrUpdateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) err
 			if err1 = commonservice.SaveAndUploadService(args.ProductName, serviceName, fsTree); err1 != nil {
 				log.Errorf("Failed to save or upload files for service %s in project %s, error: %s", args.ProductName, serviceName, err1)
 				err = e.ErrCreateTemplate.AddDesc(err1.Error())
+				return
+			}
+
+			// save chart files with revision to disk and upload to s3
+			serviceNameWithRevision := fmt.Sprintf("%s-%d", serviceName, rev)
+			if err =  commonservice.SaveAndUploadService(args.ProductName, serviceNameWithRevision, fsTree); err != nil {
+				log.Errorf("Failed to save or upload files for service %s in project %s, error: %s", args.ProductName, serviceNameWithRevision, err)
+				err = e.ErrCreateTemplate.AddDesc(err.Error())
 				return
 			}
 
@@ -468,6 +479,13 @@ func UpdateHelmService(args *HelmServiceArgs, log *zap.SugaredLogger) error {
 			return fmt.Errorf("get next helm service revision error: %v", err)
 		}
 
+		//store chart with revision info to local and upload to s3
+		serviceNameWithRevision := fmt.Sprintf("%s-%d", helmServiceInfo.ServiceName, rev)
+		if err := commonservice.SaveAndUploadService(args.ProductName, serviceNameWithRevision,
+			os.DirFS(config.LocalServicePath(args.ProductName, helmServiceInfo.ServiceName))); err != nil {
+			return e.ErrUpdateTemplate.AddDesc(err.Error())
+		}
+
 		preServiceTmpl.Revision = rev
 		if err := commonrepo.NewServiceColl().Delete(helmServiceInfo.ServiceName, setting.HelmDeployType, args.ProductName, setting.ProductStatusDeleting, preServiceTmpl.Revision); err != nil {
 			log.Errorf("helmService.update delete %s error: %v", helmServiceInfo.ServiceName, err)
@@ -477,6 +495,7 @@ func UpdateHelmService(args *HelmServiceArgs, log *zap.SugaredLogger) error {
 			log.Errorf("helmService.update serviceName:%s error:%v", helmServiceInfo.ServiceName, err)
 			return e.ErrUpdateTemplate.AddDesc(err.Error())
 		}
+
 	}
 
 	for _, serviceName := range serviceNames {
@@ -586,3 +605,63 @@ func recursionGetImageByColon(jsonValues map[string]interface{}) ([]string, []*m
 	}
 	return banList.List(), ret
 }
+
+func saveInMemoryFilesToDisk(projectName, serviceName string, fileTree fs.FS) error {
+	root := config.LocalServicePath(projectName, serviceName)
+
+	// remove existing files
+	err := os.RemoveAll(root)
+	if err != nil {
+		return err
+	}
+
+	return fsutil.SaveToDisk(fileTree, root)
+}
+
+//func uploadFilesToS3(projectName, serviceName string, fileTree fs.FS) error {
+//	fileName := fmt.Sprintf("%s.tar.gz", serviceName)
+//	return uploadFilesToS3Impl(projectName, serviceName, fileName, fileTree, nil)
+//}
+//
+//func uploadFilesToS3ByPrevision(projectName, serviceName string, revision int64, fileTree fs.FS, s3Storage *s3service.S3) error {
+//	filename := fmt.Sprintf("%s-%d.tar.gz", serviceName, revision)
+//	return uploadFilesToS3Impl(projectName, serviceName, filename, fileTree, s3Storage)
+//}
+//
+//func uploadFilesToS3Impl(projectName, serviceName, fileName string, fileTree fs.FS, s3StorageIns *s3service.S3) error {
+//	tmpDir := os.TempDir()
+//	tarball := filepath.Join(tmpDir, fileName)
+//	var err error
+//	if err = fsutil.Tar(fileTree, tarball); err != nil {
+//		log.Errorf("Failed to archive tarball %s, err: %s", tarball, err)
+//		return err
+//	}
+//	s3Storage := s3StorageIns
+//	if s3Storage == nil {
+//		s3Storage, err = s3service.FindDefaultS3()
+//		if err != nil {
+//			log.Errorf("Failed to find default s3, err:%v", err)
+//			return err
+//		}
+//	}
+//	forcedPathStyle := true
+//	if s3Storage.Provider == setting.ProviderSourceAli {
+//		forcedPathStyle = false
+//	}
+//	client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
+//	if err != nil {
+//		log.Errorf("Failed to get s3 client, err: %s", err)
+//		return err
+//	}
+//	s3Storage.Subfolder = filepath.Join(s3Storage.Subfolder, config.ObjectStorageServicePath(projectName, serviceName))
+//	objectKey := s3Storage.GetObjectPath(fileName)
+//	if err = client.Upload(s3Storage.Bucket, tarball, objectKey); err != nil {
+//		log.Errorf("Failed to upload file %s to s3, err: %s", tarball, err)
+//		return err
+//	}
+//	if err = os.Remove(tarball); err != nil {
+//		log.Errorf("Failed to remove file %s, err: %s", tarball, err)
+//	}
+//
+//	return nil
+//}
