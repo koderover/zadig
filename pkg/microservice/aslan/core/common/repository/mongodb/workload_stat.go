@@ -48,13 +48,13 @@ func (c *WorkLoadsStatColl) Create(args *models.WorkLoadStat) error {
 	return err
 }
 
-func (c *WorkLoadsStatColl) Find(cluster string, namespace string) (*models.WorkLoadStat, error) {
+func (c *WorkLoadsStatColl) Find(clusterID string, namespace string) (*models.WorkLoadStat, error) {
 	query := bson.M{}
 
 	query["namespace"] = namespace
 
-	if cluster != "" {
-		query["cluster_id"] = cluster
+	if clusterID != "" {
+		query["cluster_id"] = clusterID
 	}
 
 	resp := new(models.WorkLoadStat)
