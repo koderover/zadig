@@ -103,7 +103,7 @@ type WorkLoad struct {
 	WorkLoadType string
 }
 
-func ListK8sWorkLoads(envName, clusterID, namespace string, perPage, page int, log *zap.SugaredLogger, filterFunc ...FilterFunc) (int, []*ServiceResp, []resource.Ingress, error) {
+func ListK8sWorkLoads(envName, clusterID, namespace string, perPage, page int, log *zap.SugaredLogger, filter ...FilterFunc) (int, []*ServiceResp, []resource.Ingress, error) {
 	var (
 		wg             sync.WaitGroup
 		resp           = make([]*ServiceResp, 0)
@@ -188,7 +188,9 @@ func ListK8sWorkLoads(envName, clusterID, namespace string, perPage, page int, l
 	}
 	// 等所有的状态都结束
 	wg.Wait()
-
+	if len(filter) > 0 {
+		resp = filter[0](resp)
+	}
 	return count, resp, ingressList, nil
 }
 
