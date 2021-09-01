@@ -16,23 +16,23 @@ limitations under the License.
 
 package aslan
 
-type ListEnvsResp struct {
-	Id          string     `json:"id"`
-	ProductName string     `json:"product_name"`
-	Namespace   string     `json:"namespace"`
-	Status      string     `json:"status"`
-	Error       string     `json:"error"`
-	EnvName     string     `json:"env_name"`
-	UpdateBy    string     `json:"update_by"`
-	UpdateTime  int        `json:"update_time"`
-	Services    []string   `json:"services"`
-	Render      RenderInfo `json:"render"`
-	Vars        []string   `json:"vars"`
-	IsPubulic   bool       `json:"isPubulic"`
-	ClusterId   string     `json:"cluster_id"`
-	RecycleDay  int        `json:"recycle_day"`
-	IsProd      bool       `json:"is_prod"`
-	Source      string     `json:"source"`
+type Environment struct {
+	ID          string      `json:"id"`
+	ProductName string      `json:"product_name"`
+	Namespace   string      `json:"namespace"`
+	Status      string      `json:"status"`
+	Error       string      `json:"error"`
+	EnvName     string      `json:"env_name"`
+	UpdateBy    string      `json:"update_by"`
+	UpdateTime  int         `json:"update_time"`
+	Services    [][]string  `json:"services"`
+	Render      *RenderInfo `json:"render"`
+	Vars        []string    `json:"vars"`
+	IsPublic    bool        `json:"IsPublic"`
+	ClusterID   string      `json:"cluster_id,omitempty"`
+	RecycleDay  int         `json:"recycle_day"`
+	IsProd      bool        `json:"is_prod"`
+	Source      string      `json:"source"`
 }
 
 type RenderInfo struct {
@@ -42,52 +42,54 @@ type RenderInfo struct {
 	Description string `json:"description"`
 }
 
-type EnvProjectDetail struct {
-	ServiceName string          `json:"service_name"`
-	Scales      []ProjectScales `json:"scales"`
-	EnvName     string          `json:"env_name"`
+type ServiceDetail struct {
+	ServiceName string     `json:"service_name"`
+	Scales      []*Workload `json:"scales"`
+	EnvName     string     `json:"env_name"`
 	ProductName string          `json:"product_name"`
 	GroupName   string          `json:"group_name"`
 }
 
-type ProjectImages struct {
-	Name   string `json:"name"`
-	Images string `json:"images"`
-}
-
-type ProjectContainers struct {
-	Name         string `json:"name"`
-	Images       string `json:"images"`
-	RestartCount int    `json:"restart_count"`
-	Status       string `json:"status"`
-	Message      string `json:"message"`
-	Reason       string `json:"reason"`
-	StartedAt    int    `json:"started_at"`
-}
-
-type ProjectPods struct {
-	Kind       string              `json:"kind"`
-	Name       string              `json:"name"`
-	Status     string              `json:"status"`
-	Age        string              `json:"age"`
-	CreateTime int                 `json:"createtime"`
-	Ip         string              `json:"ip"`
-	Containers []ProjectContainers `json:"containers"`
-	Replicas   int                 `json:"replicas"`
-}
-
-type ProjectScales struct {
+type Workload struct {
 	Name   string          `json:"name"`
-	Type   string          `json:"type"`
-	Images []ProjectImages `json:"images"`
-	Pods   []ProjectPods   `json:"pods"`
+	Type   string           `json:"type"`
+	Images []*ContainerImage `json:"images"`
+	Pods   []*Pod    `json:"pods"`
+	Replicas int32            `json:"replicas"`
 }
 
-type ServicesListResp struct {
-	Services []ServiceDetail `json:"services"`
+type ContainerImage struct {
+	Name  string `json:"name"`
+	Image string `json:"image"`
 }
 
-type ServiceDetail struct {
+type Pod struct {
+	Kind              string            `json:"kind"`
+	Name              string            `json:"name"`
+	Status            string            `json:"status"`
+	Age               string            `json:"age"`
+	CreateTime        int64             `json:"createtime"`
+	IP                string            `json:"ip"`
+	Labels            map[string]string `json:"labels"`
+	ContainerStatuses []*Container       `json:"containers"`
+}
+
+type Container struct {
+	Name         string `json:"name"`
+	Image        string `json:"image"`
+	RestartCount int32  `json:"restart_count"`
+	Status       string `json:"status"`
+	Message string `json:"message"`
+	Reason string `json:"reason"`
+	StartedAt int64 `json:"started_at,omitempty"`
+	FinishedAt int64 `json:"finished_at,omitempty"`
+}
+
+type ServicesResp struct {
+	Services []*Service `json:"services"`
+}
+
+type Service struct {
 	ServiceName string   `json:"service_name"`
 	Type        string   `json:"type"`
 	Status      string   `json:"status"`
@@ -95,13 +97,6 @@ type ServiceDetail struct {
 	ProductName string   `json:"product_name"`
 	EnvName     string   `json:"env_name"`
 	Ready       string   `json:"ready"`
-}
-
-type ServiceStatusListResp struct {
-	ServiceName string `json:"service_name"`
-	Status      string `json:"status"`
-	Pod         string `json:"pod"`
-	Container   string `json:"container"`
 }
 
 type ServiceStatus struct {

@@ -21,13 +21,10 @@ import (
 	"strconv"
 
 	"github.com/koderover/zadig/pkg/tool/httpclient"
-	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 func (c *Client) GetContainerLog(envName, projectName, container, pod string, tails int) (string, error) {
-	// 获取当前配置
-	url := fmt.Sprintf("/api/aslan/logs/log/pods/%s/containers/%s?",
-		pod, container)
+	url := fmt.Sprintf("/logs/log/pods/%s/containers/%s", pod, container)
 
 	req := map[string]string{
 		"productName": projectName,
@@ -37,7 +34,6 @@ func (c *Client) GetContainerLog(envName, projectName, container, pod string, ta
 
 	response, err := c.Get(url, httpclient.SetQueryParams(req))
 	if err != nil {
-		log.Infof("GetEnvsList %s", err)
 		return "", err
 	}
 
