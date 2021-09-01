@@ -472,3 +472,5 @@ const (
 	ResponseError = "error"
 	ResponseData  = "response"
 )
+
+const ChartTemplatesPath = "charts"
