@@ -419,14 +419,14 @@ func ListK8sWorkLoads(c *gin.Context) {
 		}
 	}
 
-	count, services, _, err := commonservice.ListK8sWorkLoads("", clusterID, namespace, perPage, page, ctx.Logger, func(services []*commonservice.ServiceResp) []*commonservice.ServiceResp {
+	count, services, _, err := commonservice.ListK8sWorkLoads("", clusterID, namespace, perPage, page, ctx.Logger, func(services []commonservice.WorkLoad) []commonservice.WorkLoad {
 		workload, _ := mongodb.NewWorkLoadsStatColl().Find(clusterID, namespace)
 		workloadM := map[string]commonmodels.WorkLoad{}
 		for _, v := range workload.Workloads {
 			workloadM[v.Name] = v
 		}
 		for k, v := range services {
-			if _, ok := workloadM[v.ServiceName]; ok {
+			if _, ok := workloadM[v.Name]; ok {
 				services[k].OccupyBy = v.OccupyBy
 			}
 		}

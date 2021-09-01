@@ -98,12 +98,13 @@ func ListGroupsBySource(envName, productName string, perPage, page int, log *zap
 	return ListK8sWorkLoads(envName, productInfo.ClusterID, productInfo.Namespace, perPage, page, log)
 }
 
-type FilterFunc func(services []*ServiceResp) []*ServiceResp
+type FilterFunc func(services []WorkLoad) []WorkLoad
 
 type WorkLoad struct {
 	Name         string
 	Spec         corev1.ServiceSpec
 	WorkLoadType string
+	OccupyBy     string
 }
 
 func ListK8sWorkLoads(envName, clusterID, namespace string, perPage, page int, log *zap.SugaredLogger, filter ...FilterFunc) (int, []*ServiceResp, []resource.Ingress, error) {
@@ -138,6 +139,10 @@ func ListK8sWorkLoads(envName, clusterID, namespace string, perPage, page int, l
 	for _, v := range statefulSets {
 		workLoads = append(workLoads, WorkLoad{Name: v.Name, Spec: corev1.ServiceSpec{Selector: v.Spec.Selector.MatchLabels}, WorkLoadType: "statefulSet"})
 	}
+	// 对于workload过滤
+	if len(filter) > 0 {
+		workLoads = filter[0](workLoads)
+	}
 	count := len(workLoads)
 
 	// 分页
@@ -169,6 +174,7 @@ func ListK8sWorkLoads(envName, clusterID, namespace string, perPage, page int, l
 				ProductName:  "",
 				Type:         setting.K8SDeployType,
 				WorkLoadType: service.WorkLoadType,
+				OccupyBy:     service.OccupyBy,
 			}
 
 			selector := labels.SelectorFromValidatedSet(service.Spec.Selector)
@@ -191,9 +197,6 @@ func ListK8sWorkLoads(envName, clusterID, namespace string, perPage, page int, l
 	}
 	// 等所有的状态都结束
 	wg.Wait()
-	if len(filter) > 0 {
-		resp = filter[0](resp)
-	}
 	return count, resp, ingressList, nil
 }
 
