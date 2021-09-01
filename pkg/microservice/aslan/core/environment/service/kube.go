@@ -106,7 +106,7 @@ func ListPodEvents(envName, productName, podName string, log *zap.SugaredLogger)
 	return res, nil
 }
 
-// ListAvailableNamespaces lists available namespaces which are not used by any environments.
+// ListAvailableNamespaces lists available namespaces created by non-koderover
 func ListAvailableNamespaces(clusterID string, log *zap.SugaredLogger) ([]*resource.Namespace, error) {
 	resp := make([]*resource.Namespace, 0)
 	kubeClient, err := kube.GetKubeClient(clusterID)
