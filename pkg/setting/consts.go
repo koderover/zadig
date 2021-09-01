@@ -246,13 +246,11 @@ const (
 
 const (
 	SessionUsername     = "Username"
-	AuthPrefix          = "X-ROOT-API-KEY "
 	SessionUser         = "User"
-	USERAPIKEY          = "X-API-KEY"
+	UserAPIKey          = "X-API-KEY"
 	RootAPIKey          = "X-ROOT-API-KEY"
 	TIMERAPIKEY         = "X-TIMER-API-KEY"
 	AuthorizationHeader = "Authorization"
-	CookieHeader        = "Cookie"
 )
 
 //install script constants

@@ -23,14 +23,14 @@ import (
 )
 
 type Testing struct {
-	Name     string `bson:"name"                     json:"name"`
-	TestType string `bson:"test_type"                json:"test_type"`
+	Name     string `json:"name"`
+	TestType string `json:"test_type"`
 }
 
 func (c *Client) ListTestings(log *zap.SugaredLogger) ([]*Testing, error) {
-	url := "/api/testing/test"
-	resp := make([]*Testing, 0)
+	url := "/testing/test"
 
+	resp := make([]*Testing, 0)
 	_, err := c.Get(url, httpclient.SetResult(&resp))
 	if err != nil {
 		log.Errorf("ListTestings error: %s", err)
@@ -41,19 +41,19 @@ func (c *Client) ListTestings(log *zap.SugaredLogger) ([]*Testing, error) {
 }
 
 type TestTaskStat struct {
-	Name          string `bson:"name"                    json:"name"`
-	TotalSuccess  int    `bson:"total_success"           json:"totalSuccess"`
-	TotalFailure  int    `bson:"total_failure"           json:"totalFailure"`
-	TotalDuration int64  `bson:"total_duration"          json:"totalDuration"`
-	TestCaseNum   int    `bson:"test_case_num"           json:"testCaseNum"`
-	CreateTime    int64  `bson:"create_time"             json:"createTime"`
-	UpdateTime    int64  `bson:"update_time"             json:"updateTime"`
+	Name          string `json:"name"`
+	TotalSuccess  int    `json:"totalSuccess"`
+	TotalFailure  int    `json:"totalFailure"`
+	TotalDuration int64  `json:"totalDuration"`
+	TestCaseNum   int    `json:"testCaseNum"`
+	CreateTime    int64  `json:"createTime"`
+	UpdateTime    int64  `json:"updateTime"`
 }
 
 func (c *Client) ListTestTaskStats(log *zap.SugaredLogger) ([]*TestTaskStat, error) {
-	url := "/api/testing/teststat"
-	resp := make([]*TestTaskStat, 0)
+	url := "/testing/teststat"
 
+	resp := make([]*TestTaskStat, 0)
 	_, err := c.Get(url, httpclient.SetResult(&resp))
 	if err != nil {
 		log.Errorf("list test task stat error: %s", err)
