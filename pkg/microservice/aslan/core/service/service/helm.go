@@ -40,6 +40,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/types"
@@ -190,8 +191,8 @@ func CreateOrUpdateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) err
 			}()
 
 			log.Infof("Loading chart under path %s", filePath)
-			fsTree, err := commonservice.DownloadServiceManifestsFromSource(
-				&commonservice.DownloadFromSourceParams{CodehostID: args.CodehostID, Owner: args.RepoOwner, Repo: args.RepoName, Path: filePath, Branch: args.BranchName},
+			fsTree, err := fsservice.DownloadFilesFromSource(
+				&fsservice.DownloadFromSourceArgs{CodehostID: args.CodehostID, Owner: args.RepoOwner, Repo: args.RepoName, Path: filePath, Branch: args.BranchName},
 				func(chartTree afero.Fs) (string, error) {
 					baseDir := filepath.Base(filePath)
 					files, err := afero.ReadDir(chartTree, baseDir)
@@ -499,7 +500,8 @@ func UpdateHelmService(args *HelmServiceArgs, log *zap.SugaredLogger) error {
 	}
 
 	for _, serviceName := range serviceNames {
-		if err := commonservice.UploadFilesToS3(args.ProductName, serviceName, os.DirFS(config.LocalServicePath(args.ProductName, serviceName))); err != nil {
+		s3Base := config.ObjectStorageServicePath(args.ProductName, serviceName)
+		if err := fsservice.ArchiveAndUploadFilesToS3(os.DirFS(config.LocalServicePath(args.ProductName, serviceName)), serviceName, s3Base, log); err != nil {
 			return e.ErrUpdateTemplate.AddDesc(err.Error())
 		}
 	}

@@ -28,7 +28,7 @@ import (
 func GetToken(c *gin.Context) {
 	authorization := c.Request.Header.Get(setting.AuthorizationHeader)
 	if authorization != "" {
-		if strings.HasPrefix(authorization, setting.USERAPIKEY+" ") {
+		if strings.HasPrefix(authorization, setting.UserAPIKey+" ") {
 			token := strings.Split(authorization, " ")[1]
 			c.JSON(http.StatusOK, gin.H{"token": token})
 			return
