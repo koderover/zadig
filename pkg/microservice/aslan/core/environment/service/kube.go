@@ -20,13 +20,6 @@ import (
 	"fmt"
 	"time"
 
-	"go.uber.org/zap"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/util/sets"
-
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
@@ -36,6 +29,11 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/kube/util"
+	"go.uber.org/zap"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 type serviceInfo struct {
@@ -124,26 +122,11 @@ func ListAvailableNamespaces(clusterID string, log *zap.SugaredLogger) ([]*resou
 		return resp, err
 	}
 
-	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{ExcludeStatus: setting.ProductStatusDeleting})
-	if err != nil {
-		log.Errorf("Collection.Product.List error: %v", err)
-		return resp, err
-	}
-
-	productNamespaces := sets.NewString()
-	for _, product := range products {
-		productNamespaces.Insert(product.Namespace)
-	}
-
 	for _, namespace := range namespaces {
 		if value, IsExist := namespace.Labels[setting.EnvCreatedBy]; IsExist {
 			if value == setting.EnvCreator {
 				continue
 			}
-		}
-
-		if productNamespaces.Has(namespace.Name) {
-			continue
 		}
 
 		resp = append(resp, wrapper.Namespace(namespace).Resource())
