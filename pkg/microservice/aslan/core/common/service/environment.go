@@ -189,24 +189,11 @@ func ListK8sWorkLoads(envName, clusterID, namespace string, perPage, page int, l
 	// 等所有的状态都结束
 	wg.Wait()
 
-	allIngresses, err := getter.ListIngresses(namespace, nil, kubeClient)
-	if err != nil {
-		log.Errorf("[%s][%s] create product record error: %v", envName, namespace, err)
-	}
-
-	for _, ingress := range allIngresses {
-		_, ok := matchedIngress.Load(ingress.Name)
-		if !ok {
-			ingressList = append(ingressList, *wrapper.Ingress(ingress).Resource())
-		}
-	}
-	if len(filterFunc) > 0 {
-		resp = filterFunc[0](resp)
-	}
 	return count, resp, ingressList, nil
 }
 
-func SaveK8sWorkLoads(ctx context.Context, workLoads []string, clusterID, namespace string, env string) error {
+func CreateK8sWorkLoads(ctx context.Context, workLoads []string, clusterID, namespace string, env string) error {
+	// TODO mouuii 调用保存yaml的接口
 	workLoad, err := commonrepo.NewWorkLoadsStatColl().Find(clusterID, namespace)
 	if err != nil {
 		return err

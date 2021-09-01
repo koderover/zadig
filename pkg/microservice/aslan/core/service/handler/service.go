@@ -159,16 +159,16 @@ func ListServicePort(c *gin.Context) {
 	ctx.Resp, ctx.Err = svcservice.ListServicePort(c.Param("name"), c.Param("type"), c.Query("productName"), setting.ProductStatusDeleting, revision, ctx.Logger)
 }
 
-func SaveK8sWorkloads(c *gin.Context) {
+func CreateK8sWorkloads(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	args := new(commonmodels.SaveK8sWorkloadsArgs)
 	err := c.BindJSON(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid githubApp args")
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid CreateK8sWorkloads args")
 		return
 	}
-	commonservice.SaveK8sWorkLoads(c, args.WorkLoads, args.ClusterID, args.Namespace, args.EnvName)
+	commonservice.CreateK8sWorkLoads(c, args.WorkLoads, args.ClusterID, args.Namespace, args.EnvName)
 }
 
 func ListAvailablePublicServices(c *gin.Context) {
