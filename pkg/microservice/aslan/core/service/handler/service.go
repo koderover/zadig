@@ -49,20 +49,6 @@ func ListServiceTemplate(c *gin.Context) {
 	ctx.Resp = tmpResp
 }
 
-func ListK8sServices(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	var tmpResp *commonservice.ServiceTmplResp
-	tmpResp, ctx.Err = commonservice.ListServiceTemplate(c.Query("productName"), ctx.Logger)
-
-	// 如果是数据统计页面的请求，则需要将托管环境的服务也返回
-	if c.Query("requestFrom") == "stat" {
-		svcservice.ListServicesInExtenalEnv(tmpResp, ctx.Logger)
-	}
-	ctx.Resp = tmpResp
-}
-
 func GetServiceTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -171,6 +157,18 @@ func ListServicePort(c *gin.Context) {
 		return
 	}
 	ctx.Resp, ctx.Err = svcservice.ListServicePort(c.Param("name"), c.Param("type"), c.Query("productName"), setting.ProductStatusDeleting, revision, ctx.Logger)
+}
+
+func SaveK8sWorkloads(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	args := new(commonmodels.SaveK8sWorkloadsArgs)
+	err := c.BindJSON(args)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid githubApp args")
+		return
+	}
+	commonservice.SaveK8sWorkLoads(c, args.WorkLoads, args.ClusterID, args.Namespace, args.EnvName)
 }
 
 func ListAvailablePublicServices(c *gin.Context) {

@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+
 	"github.com/gin-gonic/gin"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -389,15 +391,53 @@ func ListGroups(c *gin.Context) {
 }
 
 func ListK8sWorkLoads(c *gin.Context) {
-	namespace := c.Param("namespace")
-	clusterID := c.Param("clusterID")
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	services, err := commonservice.ListServicesCanLoad(namespace, clusterID, ctx.Logger)
+	namespace := c.Query("namespace")
+	clusterID := c.Query("clusterID")
+
+	perPageStr := c.Query("perPage")
+	pageStr := c.Query("page")
+	var (
+		count   int
+		perPage int
+		err     error
+		page    int
+	)
+	if perPageStr == "" || pageStr == "" {
+		perPage = setting.PerPage
+		page = 1
+	} else {
+		page, err = strconv.Atoi(pageStr)
+		if err != nil {
+			ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("page args err :%s", err))
+			return
+		}
+		perPage, err = strconv.Atoi(perPageStr)
+		if err != nil {
+			ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("pageStr args err :%s", err))
+			return
+		}
+	}
+
+	count, services, _, err := commonservice.ListK8sWorkLoads("", clusterID, namespace, perPage, page, ctx.Logger, func(services []*commonservice.ServiceResp) []*commonservice.ServiceResp {
+		workload, _ := mongodb.NewWorkLoadsStatColl().Find(clusterID, namespace)
+		workloadM := map[string]commonmodels.WorkLoad{}
+		for _, v := range workload.Workloads {
+			workloadM[v.Name] = v
+		}
+		for k, v := range services {
+			if _, ok := workloadM[v.ServiceName]; ok {
+				services[k].OccupyBy = v.OccupyBy
+			}
+		}
+		return services
+	})
 	ctx.Resp = &NamespaceResource{
 		Services: services,
 	}
 	ctx.Err = err
+	c.Writer.Header().Set("X-Total", strconv.Itoa(count))
 }
 
 func ListGroupsBySource(c *gin.Context) {

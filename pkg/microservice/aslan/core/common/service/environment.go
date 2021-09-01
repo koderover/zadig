@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"sort"
 	"sync"
 
@@ -77,33 +78,50 @@ type ServiceResp struct {
 	Ready        string              `json:"ready"`
 	EnvStatuses  []*models.EnvStatus `json:"env_statuses,omitempty"`
 	WorkLoadType string              `json:"workLoadType"`
+	OccupyBy     string              `json:"occupy_by"`
 }
 
 type IngressInfo struct {
 	HostInfo []resource.HostInfo `json:"host_info"`
 }
 
-func ListServicesCanLoad(namespace string, clusterID string, log *zap.SugaredLogger) ([]*ServiceResp, error) {
+func ListGroupsBySource(envName, productName string, perPage, page int, log *zap.SugaredLogger) (int, []*ServiceResp, []resource.Ingress, error) {
+	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
+	productInfo, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		log.Errorf("[%s][%s] error: %v", envName, productName, err)
+		return 0, nil, nil, e.ErrListGroups.AddDesc(err.Error())
+	}
+	return ListK8sWorkLoads(envName, productInfo.ClusterID, productInfo.Namespace, perPage, page, log)
+}
+
+type FilterFunc func(services []*ServiceResp) []*ServiceResp
+
+type WorkLoad struct {
+	Name         string
+	Spec         corev1.ServiceSpec
+	WorkLoadType string
+}
+
+func ListK8sWorkLoads(envName, clusterID, namespace string, perPage, page int, log *zap.SugaredLogger, filterFunc ...FilterFunc) (int, []*ServiceResp, []resource.Ingress, error) {
 	var (
-		wg   sync.WaitGroup
-		resp = make([]*ServiceResp, 0)
+		wg             sync.WaitGroup
+		resp           = make([]*ServiceResp, 0)
+		ingressList    = make([]resource.Ingress, 0)
+		matchedIngress = &sync.Map{}
 	)
+
 	kubeClient, err := kube.GetKubeClient(clusterID)
 	if err != nil {
-		log.Errorf("[%s][%s] error: %v", namespace, clusterID, err)
-		return resp, e.ErrListGroups.AddDesc(err.Error())
-	}
-	type WorkLoad struct {
-		Name         string
-		Spec         corev1.ServiceSpec
-		WorkLoadType string
+		log.Errorf("[%s][%s] error: %v", envName, namespace, err)
+		return 0, resp, ingressList, e.ErrListGroups.AddDesc(err.Error())
 	}
 
 	var workLoads []WorkLoad
 	listDeployments, err := getter.ListDeployments(namespace, nil, kubeClient)
 	if err != nil {
-		log.Errorf("[%s] create product record error: %v", namespace, err)
-		return resp, e.ErrListGroups.AddDesc(err.Error())
+		log.Errorf("[%s][%s] create product record error: %v", envName, namespace, err)
+		return 0, resp, ingressList, e.ErrListGroups.AddDesc(err.Error())
 	}
 	for _, v := range listDeployments {
 		workLoads = append(workLoads, WorkLoad{Name: v.Name, Spec: corev1.ServiceSpec{Selector: v.Spec.Selector.MatchLabels}, WorkLoadType: "deployment"})
@@ -111,78 +129,7 @@ func ListServicesCanLoad(namespace string, clusterID string, log *zap.SugaredLog
 
 	statefulSets, err := getter.ListStatefulSets(namespace, nil, kubeClient)
 	if err != nil {
-		log.Errorf("[%s] create product record error: %v", namespace, err)
-		return resp, e.ErrListGroups.AddDesc(err.Error())
-	}
-	for _, v := range statefulSets {
-		workLoads = append(workLoads, WorkLoad{Name: v.Name, Spec: corev1.ServiceSpec{Selector: v.Spec.Selector.MatchLabels}, WorkLoadType: "statefulSet"})
-	}
-
-	for _, service := range workLoads {
-		wg.Add(1)
-
-		go func(service WorkLoad) {
-			defer func() {
-				wg.Done()
-			}()
-
-			productRespInfo := &ServiceResp{
-				ServiceName:  service.Name,
-				Type:         setting.K8SDeployType,
-				WorkLoadType: service.WorkLoadType,
-			}
-
-			selector := labels.SelectorFromValidatedSet(service.Spec.Selector)
-			productRespInfo.Status, productRespInfo.Ready, productRespInfo.Images = queryExternalPodsStatus(namespace, selector, kubeClient, log)
-
-			resp = append(resp, productRespInfo)
-		}(service)
-
-	}
-	// 等所有的状态都结束
-	wg.Wait()
-	return resp, nil
-}
-
-func ListGroupsBySource(envName, productName string, perPage, page int, log *zap.SugaredLogger) (int, []*ServiceResp, []resource.Ingress, error) {
-	var (
-		wg             sync.WaitGroup
-		resp           = make([]*ServiceResp, 0)
-		ingressList    = make([]resource.Ingress, 0)
-		matchedIngress = &sync.Map{}
-	)
-	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
-	productInfo, err := commonrepo.NewProductColl().Find(opt)
-	if err != nil {
-		log.Errorf("[%s][%s] error: %v", envName, productName, err)
-		return 0, resp, ingressList, e.ErrListGroups.AddDesc(err.Error())
-	}
-
-	kubeClient, err := kube.GetKubeClient(productInfo.ClusterID)
-	if err != nil {
-		log.Errorf("[%s][%s] error: %v", envName, productName, err)
-		return 0, resp, ingressList, e.ErrListGroups.AddDesc(err.Error())
-	}
-
-	type WorkLoad struct {
-		Name         string
-		Spec         corev1.ServiceSpec
-		WorkLoadType string
-	}
-
-	var workLoads []WorkLoad
-	listDeployments, err := getter.ListDeployments(productInfo.Namespace, nil, kubeClient)
-	if err != nil {
-		log.Errorf("[%s][%s] create product record error: %v", envName, productName, err)
-		return 0, resp, ingressList, e.ErrListGroups.AddDesc(err.Error())
-	}
-	for _, v := range listDeployments {
-		workLoads = append(workLoads, WorkLoad{Name: v.Name, Spec: corev1.ServiceSpec{Selector: v.Spec.Selector.MatchLabels}, WorkLoadType: "deployment"})
-	}
-
-	statefulSets, err := getter.ListStatefulSets(productInfo.Namespace, nil, kubeClient)
-	if err != nil {
-		log.Errorf("[%s][%s] create product record error: %v", envName, productName, err)
+		log.Errorf("[%s][%s] create product record error: %v", envName, namespace, err)
 		return 0, resp, ingressList, e.ErrListGroups.AddDesc(err.Error())
 	}
 	for _, v := range statefulSets {
@@ -216,15 +163,15 @@ func ListGroupsBySource(envName, productName string, perPage, page int, log *zap
 			productRespInfo := &ServiceResp{
 				ServiceName:  service.Name,
 				EnvName:      envName,
-				ProductName:  productName,
+				ProductName:  "",
 				Type:         setting.K8SDeployType,
 				WorkLoadType: service.WorkLoadType,
 			}
 
 			selector := labels.SelectorFromValidatedSet(service.Spec.Selector)
-			productRespInfo.Status, productRespInfo.Ready, productRespInfo.Images = queryExternalPodsStatus(productInfo.Namespace, selector, kubeClient, log)
+			productRespInfo.Status, productRespInfo.Ready, productRespInfo.Images = queryExternalPodsStatus(namespace, selector, kubeClient, log)
 
-			if ingresses, err := getter.ListIngresses(productInfo.Namespace, selector, kubeClient); err == nil {
+			if ingresses, err := getter.ListIngresses(namespace, selector, kubeClient); err == nil {
 				ingressInfo := new(IngressInfo)
 				hostInfos := make([]resource.HostInfo, 0)
 				for _, ingress := range ingresses {
@@ -242,9 +189,9 @@ func ListGroupsBySource(envName, productName string, perPage, page int, log *zap
 	// 等所有的状态都结束
 	wg.Wait()
 
-	allIngresses, err := getter.ListIngresses(productInfo.Namespace, nil, kubeClient)
+	allIngresses, err := getter.ListIngresses(namespace, nil, kubeClient)
 	if err != nil {
-		log.Errorf("[%s][%s] create product record error: %v", envName, productName, err)
+		log.Errorf("[%s][%s] create product record error: %v", envName, namespace, err)
 	}
 
 	for _, ingress := range allIngresses {
@@ -253,8 +200,25 @@ func ListGroupsBySource(envName, productName string, perPage, page int, log *zap
 			ingressList = append(ingressList, *wrapper.Ingress(ingress).Resource())
 		}
 	}
-
+	if len(filterFunc) > 0 {
+		resp = filterFunc[0](resp)
+	}
 	return count, resp, ingressList, nil
+}
+
+func SaveK8sWorkLoads(ctx context.Context, workLoads []string, clusterID, namespace string, env string) error {
+	workLoad, err := commonrepo.NewWorkLoadsStatColl().Find(clusterID, namespace)
+	if err != nil {
+		return err
+	}
+	for _, v := range workLoads {
+		w := models.WorkLoad{
+			OccupyBy: env,
+			Name:     v,
+		}
+		workLoad.Workloads = append(workLoad.Workloads, w)
+	}
+	return commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workLoad)
 }
 
 func queryExternalPodsStatus(namespace string, selector labels.Selector, kubeClient client.Client, log *zap.SugaredLogger) (string, string, []string) {
