@@ -59,6 +59,22 @@ func PreLoadServiceManifests(base string, svc *commonmodels.Service) error {
 	return preLoadServiceManifestsFromSource(svc)
 }
 
+func PreloadServiceManifestsByRevision(base string, svc *commonmodels.Service) error {
+	ok, err := fsutil.DirExists(base)
+	if err != nil {
+		log.Errorf("Failed to check if dir %s is exiting, err: %s", base, err)
+		return err
+	}
+	if ok {
+		return nil
+	}
+
+	//download chart info by revision
+	serviceNameWithRevision := config.ServiceNameWithRevision(svc.ServiceName, svc.Revision)
+	s3Base := config.ObjectStorageServicePath(svc.ProductName, svc.ServiceName)
+	return fsservice.DownloadAndExtractFilesFromS3(serviceNameWithRevision, base, s3Base, log.SugaredLogger())
+}
+
 func DownloadServiceManifests(base, projectName, serviceName string) error {
 	s3Base := config.ObjectStorageServicePath(projectName, serviceName)
 	return fsservice.DownloadAndExtractFilesFromS3(serviceName, base, s3Base, log.SugaredLogger())
@@ -67,8 +83,15 @@ func DownloadServiceManifests(base, projectName, serviceName string) error {
 func SaveAndUploadService(projectName, serviceName string, fileTree fs.FS) error {
 	localBase := config.LocalServicePath(projectName, serviceName)
 	s3Base := config.ObjectStorageServicePath(projectName, serviceName)
-
 	return fsservice.SaveAndUploadFiles(fileTree, serviceName, localBase, s3Base, log.SugaredLogger())
+}
+
+// SaveAndUploadServiceWithRevision save file to local and upload to s3
+func SaveAndUploadServiceWithRevision(projectName, serviceName string, fileTree fs.FS, revision int64) error {
+	serviceNameWithRevision := config.ServiceNameWithRevision(serviceName, revision)
+	localBase := config.LocalServicePath(projectName, serviceNameWithRevision)
+	s3Base := config.ObjectStorageServicePath(projectName, serviceName)
+	return fsservice.SaveAndUploadFiles(fileTree, serviceNameWithRevision, localBase, s3Base, log.SugaredLogger())
 }
 
 func preLoadServiceManifestsFromSource(svc *commonmodels.Service) error {

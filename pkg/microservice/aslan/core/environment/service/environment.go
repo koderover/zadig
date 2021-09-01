@@ -2513,7 +2513,7 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 	for groupIndex, services := range productResp.Services {
 		var wg sync.WaitGroup
 		groupServices := make([]*commonmodels.ProductService, 0)
-		for _, service := range services {
+		for serviceIndex, service := range services {
 			if renderChart, isExist := renderChartMap[service.ServiceName]; isExist {
 				opt := &commonrepo.ServiceFindOption{
 					ServiceName:   service.ServiceName,
@@ -2526,17 +2526,36 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 				if err != nil {
 					continue
 				}
-
-				//获取指定版本的chart信息
-
 				wg.Add(1)
-				go func(tmpRenderChart *template.RenderChart, currentService *commonmodels.Service) {
+				go func(tmpRenderChart *template.RenderChart, currentService *commonmodels.Service, serviceIndex int) {
 					defer wg.Done()
 
-					base := config.LocalServicePath(currentService.ProductName, currentService.ServiceName)
-					if err = commonservice.PreLoadServiceManifests(base, currentService); err != nil {
-						return
+					serviceNameWithRevision := config.ServiceNameWithRevision(currentService.ServiceName, currentService.Revision)
+					base := config.LocalServicePath(currentService.ProductName, serviceNameWithRevision)
+					if err := commonservice.PreloadServiceManifestsByRevision(base, currentService); err != nil {
+						// use the latest version when it fails to download the specific version
+						base = config.LocalServicePath(currentService.ProductName, currentService.ServiceName)
+						if err = commonservice.PreLoadServiceManifests(base, currentService); err != nil {
+							log.Errorf("failed to load chart info for service %v", currentService.ServiceName)
+							return
+						}
+						log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
+							currentService.Revision, currentService.ServiceName)
+
+						findOpt := &commonrepo.ServiceFindOption{
+							ServiceName:   serviceObj.ServiceName,
+							Type:          serviceObj.Type,
+							ProductName:   productName,
+							ExcludeStatus: setting.ProductStatusDeleting,
+						}
+						latestService, err := commonrepo.NewServiceColl().Find(findOpt)
+						if err != nil {
+							log.Errorf("failed to get service:%v with latest version", serviceObj.ServiceName)
+							return
+						}
+						services[serviceIndex].Revision = latestService.Revision
 					}
+
 					chartSpec := helmclient.ChartSpec{
 						ReleaseName: fmt.Sprintf("%s-%s", productResp.Namespace, tmpRenderChart.ServiceName),
 						ChartName:   fmt.Sprintf("%s/%s", productResp.Namespace, tmpRenderChart.ServiceName),
@@ -2554,7 +2573,7 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 						errList = multierror.Append(errList, err)
 						log.Errorf("install helm chart error :%+v", err)
 					}
-				}(renderChart, serviceObj)
+				}(renderChart, serviceObj, serviceIndex)
 			}
 			groupServices = append(groupServices, service)
 		}

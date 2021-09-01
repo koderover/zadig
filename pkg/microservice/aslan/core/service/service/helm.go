@@ -285,7 +285,6 @@ func CreateOrUpdateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) err
 					Name:       serviceName,
 					Version:    chartVersion,
 					ValuesYaml: valuesYaml,
-
 				},
 			}
 
@@ -301,15 +300,16 @@ func CreateOrUpdateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) err
 
 			// save files to disk and upload them to s3
 			if err1 = commonservice.SaveAndUploadService(args.ProductName, serviceName, fsTree); err1 != nil {
-				log.Errorf("Failed to save or upload files for service %s in project %s, error: %s", args.ProductName, serviceName, err1)
+				log.Errorf("Failed to save or upload files for service %s in project %s, error: %s", serviceName,
+					args.ProductName, err1)
 				err = e.ErrCreateTemplate.AddDesc(err1.Error())
 				return
 			}
 
 			// save chart files with revision to disk and upload to s3
-			serviceNameWithRevision := fmt.Sprintf("%s-%d", serviceName, rev)
-			if err =  commonservice.SaveAndUploadService(args.ProductName, serviceNameWithRevision, fsTree); err != nil {
-				log.Errorf("Failed to save or upload files for service %s in project %s, error: %s", args.ProductName, serviceNameWithRevision, err)
+			if err = commonservice.SaveAndUploadServiceWithRevision(args.ProductName, serviceName, fsTree, rev); err != nil {
+				log.Errorf("Failed to save or upload files for service %s with revision %v in project %s, error: %s",
+					serviceName, rev, args.ProductName, err)
 				err = e.ErrCreateTemplate.AddDesc(err.Error())
 				return
 			}
@@ -481,9 +481,8 @@ func UpdateHelmService(args *HelmServiceArgs, log *zap.SugaredLogger) error {
 		}
 
 		//store chart with revision info to local and upload to s3
-		serviceNameWithRevision := fmt.Sprintf("%s-%d", helmServiceInfo.ServiceName, rev)
-		if err := commonservice.SaveAndUploadService(args.ProductName, serviceNameWithRevision,
-			os.DirFS(config.LocalServicePath(args.ProductName, helmServiceInfo.ServiceName))); err != nil {
+		if err := commonservice.SaveAndUploadServiceWithRevision(args.ProductName, helmServiceInfo.ServiceName,
+			os.DirFS(config.LocalServicePath(args.ProductName, helmServiceInfo.ServiceName)), rev); err != nil {
 			return e.ErrUpdateTemplate.AddDesc(err.Error())
 		}
 
