@@ -27,7 +27,7 @@ type Environment struct {
 	UpdateTime  int         `json:"update_time"`
 	Services    [][]string  `json:"services"`
 	Render      *RenderInfo `json:"render"`
-	Vars        []string    `json:"vars"`
+	Vars        []*RenderKV `json:"vars,omitempty"`
 	IsPublic    bool        `json:"IsPublic"`
 	ClusterID   string      `json:"cluster_id,omitempty"`
 	RecycleDay  int         `json:"recycle_day"`
@@ -42,20 +42,28 @@ type RenderInfo struct {
 	Description string `json:"description"`
 }
 
+type RenderKV struct {
+	Key      string   `json:"key"`
+	Value    string   `json:"value"`
+	Alias    string   `json:"alias"`
+	State    string   `json:"state"`
+	Services []string `json:"services"`
+}
+
 type ServiceDetail struct {
-	ServiceName string     `json:"service_name"`
+	ServiceName string      `json:"service_name"`
 	Scales      []*Workload `json:"scales"`
-	EnvName     string     `json:"env_name"`
-	ProductName string          `json:"product_name"`
-	GroupName   string          `json:"group_name"`
+	EnvName     string      `json:"env_name"`
+	ProductName string      `json:"product_name"`
+	GroupName   string      `json:"group_name"`
 }
 
 type Workload struct {
-	Name   string          `json:"name"`
-	Type   string           `json:"type"`
-	Images []*ContainerImage `json:"images"`
-	Pods   []*Pod    `json:"pods"`
-	Replicas int32            `json:"replicas"`
+	Name     string            `json:"name"`
+	Type     string            `json:"type"`
+	Images   []*ContainerImage `json:"images"`
+	Pods     []*Pod            `json:"pods"`
+	Replicas int32             `json:"replicas"`
 }
 
 type ContainerImage struct {
@@ -71,7 +79,7 @@ type Pod struct {
 	CreateTime        int64             `json:"createtime"`
 	IP                string            `json:"ip"`
 	Labels            map[string]string `json:"labels"`
-	ContainerStatuses []*Container       `json:"containers"`
+	ContainerStatuses []*Container      `json:"containers"`
 }
 
 type Container struct {
@@ -79,10 +87,10 @@ type Container struct {
 	Image        string `json:"image"`
 	RestartCount int32  `json:"restart_count"`
 	Status       string `json:"status"`
-	Message string `json:"message"`
-	Reason string `json:"reason"`
-	StartedAt int64 `json:"started_at,omitempty"`
-	FinishedAt int64 `json:"finished_at,omitempty"`
+	Message      string `json:"message"`
+	Reason       string `json:"reason"`
+	StartedAt    int64  `json:"started_at,omitempty"`
+	FinishedAt   int64  `json:"finished_at,omitempty"`
 }
 
 type ServicesResp struct {
