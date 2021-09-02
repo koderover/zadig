@@ -300,7 +300,7 @@ func CodehubGetLatestCommit(client *codehub.Client, owner, repo string, branch s
 	commit, err := client.GetLatestRepositoryCommit(owner, repo, branch)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to get lastest commit with project %s/%s, ref: %s, error: %s",
-			owner, repo, CodehubGetLatestCommit, err)
+			owner, repo, branch, err)
 	}
 	return commit.ID, commit.Message, nil
 }

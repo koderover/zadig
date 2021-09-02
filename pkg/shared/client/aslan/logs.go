@@ -14,30 +14,28 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package poetry
+package aslan
 
 import (
 	"fmt"
+	"strconv"
 
-	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
-type userView struct {
-	User *UserInfo `json:"info"`
-}
+func (c *Client) GetContainerLog(envName, projectName, container, pod string, tails int) (string, error) {
+	url := fmt.Sprintf("/logs/log/pods/%s/containers/%s", pod, container)
 
-func GetUserDetailByToken(poetryHost, token string) (*UserInfo, error) {
-	url := "/directory/user/detail"
-
-	cl := httpclient.New(httpclient.SetHostURL(poetryHost))
-
-	//根据token获取用户
-	userViewInfo := &userView{}
-	_, err := cl.Get(url, httpclient.SetHeader(setting.AuthorizationHeader, fmt.Sprintf("%s %s", setting.UserAPIKey, token)), httpclient.SetResult(userViewInfo))
-	if err != nil {
-		return nil, err
+	req := map[string]string{
+		"productName": projectName,
+		"envName":     envName,
+		"tails":       strconv.Itoa(tails),
 	}
 
-	return userViewInfo.User, nil
+	response, err := c.Get(url, httpclient.SetQueryParams(req))
+	if err != nil {
+		return "", err
+	}
+
+	return response.String(), nil
 }
