@@ -34,7 +34,7 @@ func GetUserDetailByToken(poetryHost, token string) (*UserInfo, error) {
 
 	//根据token获取用户
 	userViewInfo := &userView{}
-	_, err := cl.Get(url, httpclient.SetHeader(setting.AuthorizationHeader, fmt.Sprintf("%s %s", setting.USERAPIKEY, token)), httpclient.SetResult(userViewInfo))
+	_, err := cl.Get(url, httpclient.SetHeader(setting.AuthorizationHeader, fmt.Sprintf("%s %s", setting.UserAPIKey, token)), httpclient.SetResult(userViewInfo))
 	if err != nil {
 		return nil, err
 	}

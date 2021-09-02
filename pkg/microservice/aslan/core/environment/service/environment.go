@@ -20,8 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -30,6 +28,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"helm.sh/helm/v3/pkg/strvals"
@@ -50,7 +49,6 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gerrit"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
@@ -640,12 +638,11 @@ func UpdateProduct(existedProd, updateProd *commonmodels.Product, renderSet *com
 							service,
 							existedServices[service.ServiceName],
 							renderSet, kubeClient, log)
-
 						if err != nil {
 							lock.Lock()
 							switch e := err.(type) {
 							case *multierror.Error:
-								errList = multierror.Append(errList, e.Errors...)
+								errList = multierror.Append(errList, errors.New(e.Error()))
 							default:
 								errList = multierror.Append(errList, e)
 							}
@@ -775,8 +772,8 @@ func UpdateProductV2(envName, productName, user, requestID string, force bool, k
 				return
 			}
 
-			log.Infof("[%s][P:%s] update error to => %s", envName, productName, e.String(err))
-			if err2 := commonrepo.NewProductColl().UpdateErrors(envName, productName, e.String(err)); err2 != nil {
+			log.Infof("[%s][P:%s] update error to => %s", envName, productName, err)
+			if err2 := commonrepo.NewProductColl().UpdateErrors(envName, productName, err.Error()); err2 != nil {
 				log.Errorf("[%s][P:%s] Product.UpdateErrors error: %v", envName, productName, err2)
 				return
 			}
@@ -979,8 +976,8 @@ func UpdateHelmProduct(productName, envName, updateType, username, requestID str
 				return
 			}
 
-			log.Infof("[%s][P:%s] update error to => %s", envName, productName, e.String(err))
-			if err2 := commonrepo.NewProductColl().UpdateErrors(envName, productName, e.String(err)); err2 != nil {
+			log.Infof("[%s][P:%s] update error to => %s", envName, productName, err)
+			if err2 := commonrepo.NewProductColl().UpdateErrors(envName, productName, err.Error()); err2 != nil {
 				log.Errorf("[%s][P:%s] Product.UpdateErrors error: %v", envName, productName, err2)
 				return
 			}
@@ -1059,8 +1056,8 @@ func UpdateHelmProductVariable(productName, envName, username, requestID string,
 				return
 			}
 
-			log.Infof("[%s][P:%s] update error to => %s", envName, productName, e.String(err))
-			if err2 := commonrepo.NewProductColl().UpdateErrors(envName, productName, e.String(err)); err2 != nil {
+			log.Infof("[%s][P:%s] update error to => %s", envName, productName, err)
+			if err2 := commonrepo.NewProductColl().UpdateErrors(envName, productName, err.Error()); err2 != nil {
 				log.Errorf("[%s][P:%s] Product.UpdateErrors error: %v", envName, productName, err2)
 				return
 			}
@@ -1471,7 +1468,7 @@ func upsertService(isUpdate bool, env *commonmodels.Product,
 			}
 
 			if len(es) == 1 {
-				return fmt.Sprintf(format+" %s 失败：%v", service.ServiceName, es[0])
+				return fmt.Sprintf(format+" %s 失败:%v", service.ServiceName, es[0])
 			}
 
 			points := make([]string, len(es))
@@ -1479,7 +1476,7 @@ func upsertService(isUpdate bool, env *commonmodels.Product,
 				points[i] = fmt.Sprintf("* %v", err)
 			}
 
-			return fmt.Sprintf(format+" %s 失败：\n%s", service.ServiceName, strings.Join(points, "\n"))
+			return fmt.Sprintf(format+" %s 失败:\n%s", service.ServiceName, strings.Join(points, "\n"))
 		},
 	}
 
@@ -1958,7 +1955,10 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 		tmpRenderInfo.Revision = args.Render.Revision
 	}
 	args.Render = tmpRenderInfo
-	return ensureKubeEnv(commonservice.GetProductEnvNamespace(envName, args.ProductName), kubeClient, log)
+	if productTmpl.ProductFeature != nil && productTmpl.ProductFeature.BasicFacility != setting.BasicFacilityCVM {
+		return ensureKubeEnv(commonservice.GetProductEnvNamespace(envName, args.ProductName), kubeClient, log)
+	}
+	return nil
 }
 
 func getPredefinedLabels(product, service string) map[string]string {
@@ -2048,13 +2048,13 @@ func applySystemResourceRequirements(podSpec *corev1.PodSpec) {
 
 func applySystemImagePullSecrets(podSpec *corev1.PodSpec) {
 	for _, secret := range podSpec.ImagePullSecrets {
-		if secret.Name == setting.DefaultCandidateImagePullSecret {
+		if secret.Name == setting.DefaultImagePullSecret {
 			return
 		}
 	}
 	podSpec.ImagePullSecrets = append(podSpec.ImagePullSecrets,
 		corev1.LocalObjectReference{
-			Name: setting.DefaultCandidateImagePullSecret,
+			Name: setting.DefaultImagePullSecret,
 		})
 }
 
@@ -2155,16 +2155,14 @@ func installOrUpdateHelmChart(user, envName, requestID string, args *commonmodel
 				go func(currentChartSpec *helmclient.ChartSpec, currentService *commonmodels.Service) {
 					defer wg.Done()
 
-					base, err := gerrit.GetGerritWorkspaceBasePath(currentService.RepoName)
-					_, serviceFileErr := os.Stat(path.Join(base, currentService.LoadPath))
-					if err != nil || os.IsNotExist(serviceFileErr) {
-						if err = commonservice.DownloadService(base, currentService.ServiceName); err != nil {
-							return
-						}
+					base := config.LocalServicePath(currentService.ProductName, currentService.ServiceName)
+					if err = commonservice.PreLoadServiceManifests(base, currentService); err != nil {
+						log.Errorf("Failed to load service menifests for service %s in project %s, err: %s", currentService.ServiceName, currentService.ProductName, err)
+						return
 					}
 
 					if err = helmClient.InstallOrUpgradeChart(context.Background(), currentChartSpec, &helmclient.ChartOption{
-						ChartPath: filepath.Join(base, currentService.LoadPath),
+						ChartPath: filepath.Join(base, currentService.ServiceName),
 					}, log); err != nil {
 						errList = multierror.Append(errList, err)
 						return
@@ -2324,15 +2322,12 @@ func updateProductGroup(productName, envName, updateType string, productResp *co
 						UpgradeCRDs: true,
 						Timeout:     Timeout * time.Second * 10,
 					}
-					base, err := gerrit.GetGerritWorkspaceBasePath(currentService.RepoName)
-					_, serviceFileErr := os.Stat(path.Join(base, currentService.LoadPath))
-					if err != nil || os.IsNotExist(serviceFileErr) {
-						if err = commonservice.DownloadService(base, currentService.ServiceName); err != nil {
-							return
-						}
+					base := config.LocalServicePath(currentService.ProductName, currentService.ServiceName)
+					if err = commonservice.PreLoadServiceManifests(base, currentService); err != nil {
+						return
 					}
 					err = helmClient.InstallOrUpgradeChart(context.Background(), &chartSpec,
-						&helmclient.ChartOption{ChartPath: filepath.Join(base, currentService.LoadPath)}, log)
+						&helmclient.ChartOption{ChartPath: filepath.Join(base, currentService.ServiceName)}, log)
 
 					if err != nil {
 						log.Errorf("install helm chart %s error :%+v", chartSpec.ReleaseName, err)
@@ -2535,12 +2530,9 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 				go func(tmpRenderChart *template.RenderChart, currentService *commonmodels.Service) {
 					defer wg.Done()
 
-					base, err := gerrit.GetGerritWorkspaceBasePath(currentService.RepoName)
-					_, serviceFileErr := os.Stat(path.Join(base, currentService.LoadPath))
-					if err != nil || os.IsNotExist(serviceFileErr) {
-						if err = commonservice.DownloadService(base, currentService.ServiceName); err != nil {
-							return
-						}
+					base := config.LocalServicePath(currentService.ProductName, currentService.ServiceName)
+					if err = commonservice.PreLoadServiceManifests(base, currentService); err != nil {
+						return
 					}
 					chartSpec := helmclient.ChartSpec{
 						ReleaseName: fmt.Sprintf("%s-%s", productResp.Namespace, tmpRenderChart.ServiceName),
@@ -2554,7 +2546,7 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 						Timeout:     Timeout * time.Second * 10,
 					}
 					err = helmClient.InstallOrUpgradeChart(context.Background(), &chartSpec, &helmclient.ChartOption{
-						ChartPath: filepath.Join(base, currentService.LoadPath)}, log)
+						ChartPath: filepath.Join(base, currentService.ServiceName)}, log)
 					if err != nil {
 						errList = multierror.Append(errList, err)
 						log.Errorf("install helm chart error :%+v", err)

@@ -3,10 +3,12 @@ module github.com/koderover/zadig
 go 1.16
 
 require (
+	github.com/27149chen/afero v1.6.2
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/RyanCarrier/dijkstra v1.1.0
 	github.com/andygrunwald/go-gerrit v0.0.0-20171029143327-95b11af228a1
 	github.com/aws/aws-sdk-go v1.34.28
+	github.com/blang/semver/v4 v4.0.0
 	github.com/bndr/gojenkins v1.1.0
 	github.com/bradleyfalzon/ghinstallation v1.1.1
 	github.com/bshuster-repo/logrus-logstash-hook v1.0.0 // indirect
@@ -66,6 +68,7 @@ require (
 	go.uber.org/zap v1.17.0
 	golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
+	golang.org/x/tools v0.1.5 // indirect
 	gopkg.in/mholt/archiver.v3 v3.1.1
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b

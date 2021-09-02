@@ -225,3 +225,11 @@ func JenkinsImage() string {
 func WebHookURL() string {
 	return fmt.Sprintf("%s/api/aslan/webhook", configbase.SystemAddress())
 }
+
+func ObjectStorageServicePath(project, service string) string {
+	return configbase.ObjectStorageServicePath(project, service)
+}
+
+func LocalServicePath(project, service string) string {
+	return configbase.LocalServicePath(project, service)
+}

@@ -410,7 +410,7 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 	// 引用集成到系统中的私有镜像仓库的访问权限
 	ImagePullSecrets := []corev1.LocalObjectReference{
 		{
-			Name: "qn-registry-secret",
+			Name: setting.DefaultImagePullSecret,
 		},
 	}
 	for _, reg := range registries {
@@ -517,9 +517,12 @@ func createOrUpdateRegistrySecrets(namespace string, registries []*task.Registry
 
 		arr := strings.Split(reg.Namespace, "/")
 		namespaceInRegistry := arr[len(arr)-1]
-		secretName := namespaceInRegistry + "-" + reg.RegType + "-registry-secret"
+		secretName := namespaceInRegistry + registrySecretSuffix
+		if reg.RegType != "" {
+			secretName = namespaceInRegistry + "-" + reg.RegType + registrySecretSuffix
+		}
 		if reg.RegAddr == config.DefaultRegistryAddr() {
-			secretName = "qn-registry-secret"
+			secretName = setting.DefaultImagePullSecret
 		}
 
 		data := make(map[string][]byte)

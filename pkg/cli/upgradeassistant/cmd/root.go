@@ -21,6 +21,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 var rootCmd = &cobra.Command{
@@ -37,8 +38,8 @@ func Execute() error {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().StringP("connection-string", "c", "CONNECTION_STRING", "mongodb connection string")
-	rootCmd.PersistentFlags().StringP("database", "d", "DB_NAME", "name of the database")
+	rootCmd.PersistentFlags().StringP("connection-string", "c", "", "mongodb connection string")
+	rootCmd.PersistentFlags().StringP("database", "d", "", "name of the database")
 
 	_ = viper.BindPFlag(setting.ENVMongoDBConnectionString, rootCmd.PersistentFlags().Lookup("connection-string"))
 	_ = viper.BindPFlag(setting.ENVAslanDBName, rootCmd.PersistentFlags().Lookup("database"))
@@ -46,4 +47,9 @@ func init() {
 
 func initConfig() {
 	viper.AutomaticEnv()
+
+	log.Init(&log.Config{
+		Level:    "debug",
+		NoCaller: true,
+	})
 }

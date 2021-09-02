@@ -129,6 +129,63 @@ func ListProductsRevision(productName, envName string, userID int, superUser boo
 	return prodRevs, nil
 }
 
+func ListProductsRevisionByFacility(basicFacility string, log *zap.SugaredLogger) ([]*ProductRevision, error) {
+	var (
+		err          error
+		prodRevs     = make([]*ProductRevision, 0)
+		products     = make([]*commonmodels.Product, 0)
+		projectNames = make([]string, 0)
+	)
+
+	temProducts, err := templaterepo.NewProductColl().ListWithOption(&templaterepo.ProductListOpt{BasicFacility: basicFacility})
+	if err != nil {
+		log.Errorf("Collection.TemplateProduct.List error: %s", err)
+		return prodRevs, e.ErrListProducts.AddDesc(err.Error())
+	}
+
+	for _, v := range temProducts {
+		projectNames = append(projectNames, v.ProductName)
+	}
+
+	products, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{ExcludeStatus: setting.ProductStatusDeleting, InProjects: projectNames})
+	if err != nil {
+		log.Errorf("Collection.Product.List error: %s", err)
+		return prodRevs, e.ErrListProducts.AddDesc(err.Error())
+	}
+
+	// 获取所有服务模板最新模板信息
+	allServiceTmpls, err := commonrepo.NewServiceColl().ListAllRevisions()
+	if err != nil {
+		log.Errorf("ListAllRevisions error: %s", err)
+		return prodRevs, e.ErrListProducts.AddDesc(err.Error())
+	}
+
+	// 获取所有渲染配置最新模板信息
+	allRenders, err := commonrepo.NewRenderSetColl().ListAllRenders()
+	if err != nil {
+		log.Errorf("ListAllRevisions error: %s", err)
+		return prodRevs, e.ErrListProducts.AddDesc(err.Error())
+	}
+
+	for _, prod := range products {
+		newRender := &commonmodels.RenderSet{}
+		if prod.Render != nil {
+			newRender, err = commonservice.GetRenderSet(prod.Render.Name, 0, log)
+			if err != nil {
+				return prodRevs, err
+			}
+		}
+
+		prodRev, err := GetProductRevision(prod, allServiceTmpls, allRenders, newRender, log)
+		if err != nil {
+			log.Error(err)
+			return prodRevs, err
+		}
+		prodRevs = append(prodRevs, prodRev)
+	}
+	return prodRevs, nil
+}
+
 func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*commonmodels.Service, allRender []*commonmodels.RenderSet, newRender *commonmodels.RenderSet, log *zap.SugaredLogger) (*ProductRevision, error) {
 
 	prodRev := new(ProductRevision)

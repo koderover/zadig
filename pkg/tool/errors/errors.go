@@ -25,6 +25,7 @@ import (
 type IHTTPError interface {
 	Code() int
 	Error() string
+	Message() string
 	Desc() string
 	Extra() map[string]interface{}
 }
@@ -59,6 +60,10 @@ func (e *HTTPError) Code() int {
 
 // Error ...
 func (e *HTTPError) Error() string {
+	return fmt.Sprintf("%s: %s", e.err, e.desc)
+}
+
+func (e *HTTPError) Message() string {
 	return e.err
 }
 
@@ -129,7 +134,7 @@ func ErrorMessage(err error) (code int, message map[string]interface{}) {
 		}
 		return code, map[string]interface{}{
 			"type":        "error",
-			"message":     v.Error(),
+			"message":     v.Message(),
 			"code":        v.Code(),
 			"description": v.Desc(),
 			"extra":       v.Extra(),
@@ -141,17 +146,4 @@ func ErrorMessage(err error) (code int, message map[string]interface{}) {
 		"code":        ErrInternalError.Code(),
 		"description": err.Error(),
 	}
-}
-
-// String ...
-func String(err error) string {
-	v, ok := err.(*HTTPError)
-	if ok {
-		if v.desc != "" {
-			return fmt.Sprintf("%s: %s", v.Error(), v.Desc())
-		}
-		return v.err
-	}
-
-	return err.Error()
 }

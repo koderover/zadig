@@ -24,9 +24,8 @@ import (
 
 	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/client/aslanx"
+	"github.com/koderover/zadig/pkg/shared/client/aslan"
 	"github.com/koderover/zadig/pkg/shared/poetry"
-	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/types/permission"
 	"github.com/koderover/zadig/pkg/util/ginzap"
 )
@@ -66,27 +65,20 @@ func currentUsername(c *gin.Context) (username string) {
 
 func JSONResponse(c *gin.Context, ctx *Context) {
 	if ctx.Err != nil {
-		c.JSON(e.ErrorMessage(ctx.Err))
+		c.Set(setting.ResponseError, ctx.Err)
 		c.Abort()
 		return
 	}
 
-	realResp := responseHelper(ctx.Resp)
-
-	if ctx.Resp == nil {
-		c.JSON(200, gin.H{"message": "success"})
-	} else {
-		c.JSON(200, realResp)
+	if ctx.Resp != nil {
+		realResp := responseHelper(ctx.Resp)
+		c.Set(setting.ResponseData, realResp)
 	}
 }
 
 // InsertOperationLog 插入操作日志
 func InsertOperationLog(c *gin.Context, username, productName, method, function, detail, permissionUUID, requestBody string, logger *zap.SugaredLogger) {
-	if !config.Enterprise() {
-		return
-	}
-
-	operationLogID, err := aslanx.New(config.AslanxServiceAddress(), config.PoetryAPIRootKey()).AddAuditLog(username, productName, method, function, detail, permissionUUID, requestBody, logger)
+	operationLogID, err := aslan.New(config.AslanServiceAddress(), config.PoetryAPIRootKey()).AddAuditLog(username, productName, method, function, detail, permissionUUID, requestBody, logger)
 	if err != nil {
 		logger.Errorf("InsertOperation err:%v", err)
 	}

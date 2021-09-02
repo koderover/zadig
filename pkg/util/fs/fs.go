@@ -40,6 +40,22 @@ func FileExists(filePath string) (bool, error) {
 	return true, nil
 }
 
+func DirExists(filePath string) (bool, error) {
+	st, err := os.Stat(filePath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return false, err
+		}
+		return false, nil
+	}
+
+	if !st.IsDir() {
+		return false, fmt.Errorf("%s is not a directory", filePath)
+	}
+
+	return true, nil
+}
+
 func SaveFile(src io.ReadCloser, dst string) error {
 	// Verify if destination already exists.
 	st, err := os.Stat(dst)

@@ -1284,9 +1284,9 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *task.Task, log *
 		// Iterate test jobctx builds, and replace it if params specified from task.
 		// 外部触发的pipeline
 		if testCreator == setting.WebhookTaskCreator || testCreator == setting.CronTaskCreator {
-			_ = SetTriggerBuilds(testTask.JobCtx.Builds, testArg.Builds)
+			_ = SetTriggerBuilds(testTask.JobCtx.Builds, testArg.Builds, log)
 		} else {
-			_ = setManunalBuilds(testTask.JobCtx.Builds, testArg.Builds)
+			_ = setManunalBuilds(testTask.JobCtx.Builds, testArg.Builds, log)
 		}
 
 		resp = append(resp, testTask)
@@ -1764,9 +1764,9 @@ func ensurePipelineTask(pt *task.Task, log *zap.SugaredLogger) error {
 
 				// 外部触发的pipeline
 				if pt.TaskCreator == setting.WebhookTaskCreator || pt.TaskCreator == setting.CronTaskCreator {
-					SetTriggerBuilds(t.JobCtx.Builds, pt.TaskArgs.Builds)
+					SetTriggerBuilds(t.JobCtx.Builds, pt.TaskArgs.Builds, log)
 				} else {
-					setManunalBuilds(t.JobCtx.Builds, pt.TaskArgs.Builds)
+					setManunalBuilds(t.JobCtx.Builds, pt.TaskArgs.Builds, log)
 				}
 
 				// 生成默认镜像tag后缀
@@ -1932,9 +1932,9 @@ func ensurePipelineTask(pt *task.Task, log *zap.SugaredLogger) error {
 				// Iterate test jobctx builds, and replace it if params specified from task.
 				// 外部触发的pipeline
 				if pt.TaskCreator == setting.WebhookTaskCreator || pt.TaskCreator == setting.CronTaskCreator {
-					SetTriggerBuilds(t.JobCtx.Builds, pt.TaskArgs.Test.Builds)
+					SetTriggerBuilds(t.JobCtx.Builds, pt.TaskArgs.Test.Builds, log)
 				} else {
-					setManunalBuilds(t.JobCtx.Builds, pt.TaskArgs.Test.Builds)
+					setManunalBuilds(t.JobCtx.Builds, pt.TaskArgs.Test.Builds, log)
 				}
 
 				err = SetCandidateRegistry(pt.ConfigPayload, log)
@@ -2114,9 +2114,9 @@ func ensurePipelineTask(pt *task.Task, log *zap.SugaredLogger) error {
 			if t.Enabled {
 				// 外部触发的pipeline
 				if pt.TaskCreator == setting.WebhookTaskCreator || pt.TaskCreator == setting.CronTaskCreator {
-					SetTriggerBuilds(t.Builds, pt.TaskArgs.Builds)
+					SetTriggerBuilds(t.Builds, pt.TaskArgs.Builds, log)
 				} else {
-					setManunalBuilds(t.Builds, pt.TaskArgs.Builds)
+					setManunalBuilds(t.Builds, pt.TaskArgs.Builds, log)
 				}
 
 				pt.SubTasks[i], err = t.ToSubTask()

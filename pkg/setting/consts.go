@@ -176,7 +176,7 @@ const (
 
 	APIVersionAppsV1 = "apps/v1"
 
-	DefaultCandidateImagePullSecret = "default-candidate-registry-secret"
+	DefaultImagePullSecret = "default-registry-secret"
 )
 
 const (
@@ -211,6 +211,8 @@ const (
 	SourceFromGerrit = "gerrit"
 	// SourceFromCodeHub 配置来源为codehub
 	SourceFromCodeHub = "codehub"
+	// SourceFromIlyshin 配置来源为ilyshin
+	SourceFromIlyshin = "ilyshin"
 	// SourceFromGUI 配置来源为gui
 	SourceFromGUI = "gui"
 	//SourceFromHelm
@@ -244,13 +246,11 @@ const (
 
 const (
 	SessionUsername     = "Username"
-	AuthPrefix          = "X-ROOT-API-KEY "
 	SessionUser         = "User"
-	USERAPIKEY          = "X-API-KEY"
+	UserAPIKey          = "X-API-KEY"
 	RootAPIKey          = "X-ROOT-API-KEY"
 	TIMERAPIKEY         = "X-TIMER-API-KEY"
 	AuthorizationHeader = "Authorization"
-	CookieHeader        = "Cookie"
 )
 
 //install script constants
@@ -457,6 +457,18 @@ const (
 	ProviderSourceSystemDefault
 )
 
+// Aliyun specific stuff
+const (
+	AliyunHost = ".aliyuncs.com"
+)
+
 const MaxTries = 1
 
 const DogFood = "/var/run/koderover-dog-food"
+
+const (
+	ResponseError = "error"
+	ResponseData  = "response"
+)
+
+const ChartTemplatesPath = "charts"

@@ -26,6 +26,11 @@ import (
 func ListProductsRevision(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
+	// trigger by cron service
+	trigger := c.Query("basicFacility")
+	if trigger != "" {
+		ctx.Resp, ctx.Err = service.ListProductsRevisionByFacility(c.Query("basicFacility"), ctx.Logger)
+		return
+	}
 	ctx.Resp, ctx.Err = service.ListProductsRevision(c.Query("productName"), c.Query("envName"), ctx.User.ID, ctx.User.IsSuperUser, ctx.Logger)
 }
