@@ -187,13 +187,14 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 		var selector labels.Selector
 		k8sServices, _ := getter.ListServices(namespace, nil, kubeClient)
 		switch workLoadType {
-		case "statefulSet":
+		case setting.StatefulSet:
 			statefulSet, exist, err := getter.GetStatefulSet(namespace, serviceName, kubeClient)
 			if !exist || err != nil {
 				return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found", serviceName))
 			}
 			scale := getStatefulSetWorkloadResource(statefulSet, kubeClient, log)
 			ret.Scales = append(ret.Scales, scale)
+		L:
 			for _, k8sService := range k8sServices {
 				currentSelector := labels.SelectorFromValidatedSet(k8sService.Spec.Selector)
 				statefulSets, _ := getter.ListStatefulSets(namespace, currentSelector, kubeClient)
@@ -201,12 +202,12 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 					if currentStatefulSet.Name == statefulSet.Name {
 						ret.Services = append(ret.Services, wrapper.Service(k8sService).Resource())
 						selector = currentSelector
-						break
+						break L
 					}
 				}
 			}
 
-		case "deployment":
+		case setting.Deployment:
 			deploy, exist, err := getter.GetDeployment(namespace, serviceName, kubeClient)
 			if !exist || err != nil {
 				return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found", serviceName))
@@ -214,6 +215,7 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 			scale := getDeploymentWorkloadResource(deploy, kubeClient, log)
 			ret.Scales = append(ret.Scales, scale)
 			//k8s service
+		Loop:
 			for _, k8sService := range k8sServices {
 				currentSelector := labels.SelectorFromValidatedSet(k8sService.Spec.Selector)
 				deployments, _ := getter.ListDeployments(namespace, currentSelector, kubeClient)
@@ -221,7 +223,7 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 					if deployment.Name == deploy.Name {
 						ret.Services = append(ret.Services, wrapper.Service(k8sService).Resource())
 						selector = currentSelector
-						break
+						break Loop
 					}
 				}
 			}
@@ -229,8 +231,11 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 		default:
 			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found", serviceName))
 		}
+		if selector == nil {
+			return
+		}
 		//k8s ingress
-		if ingresses, err := getter.ListIngresses(namespace, selector, kubeClient); err == nil && selector != nil {
+		if ingresses, err := getter.ListIngresses(namespace, selector, kubeClient); err == nil {
 			log.Infof("namespace:%s , serviceName:%s , selector:%s , len(ingresses):%d", namespace, serviceName, selector, len(ingresses))
 			for _, ing := range ingresses {
 				ret.Ingress = append(ret.Ingress, wrapper.Ingress(ing).Resource())
