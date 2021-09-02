@@ -255,18 +255,15 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 	return serviceOption, nil
 }
 
-func CreateK8sWorkLoads(ctx context.Context, username string, productName string, workLoads []models.Workload, clusterID, namespace string, env string) error {
-	// TODO mouuii 调用保存yaml的接口
+func CreateK8sWorkLoads(ctx context.Context, username string, productName string, workLoads []models.Workload, clusterID, namespace string, env string, log *zap.SugaredLogger) error {
 	kubeClient, err := kube.GetKubeClient(clusterID)
 	if err != nil {
 		log.Errorf("[%s] error: %v", namespace, err)
 		return err
 	}
+	var workloadsTmp []models.Workload
 	for _, v := range workLoads {
-		var (
-			bs []byte
-		)
-
+		var bs []byte
 		switch v.Type {
 		case setting.Deployment:
 			bs, _, _ = getter.GetDeploymentYaml(namespace, v.Name, kubeClient)
@@ -277,13 +274,19 @@ func CreateK8sWorkLoads(ctx context.Context, username string, productName string
 		if len(bs) == 0 {
 			continue
 		}
+		workloadsTmp = append(workloadsTmp, models.Workload{
+			EnvName: env,
+			Name:    v.Name,
+		})
 		_, err = CreateServiceTemplate(username, &models.Service{
-			ServiceName: v.Name,
-			Yaml:        string(bs),
-			ProductName: productName,
-			CreateBy:    username,
-			Type:        setting.K8SDeployType,
-		}, nil)
+			ServiceName:  v.Name,
+			Yaml:         string(bs),
+			ProductName:  productName,
+			CreateBy:     username,
+			Type:         setting.K8SDeployType,
+			WorkloadType: v.Type,
+			Source:       setting.SourceFromExternal,
+		}, log)
 
 		if err != nil {
 			_, messageMap := e.ErrorMessage(err)
@@ -299,17 +302,28 @@ func CreateK8sWorkLoads(ctx context.Context, username string, productName string
 		workLoad = &commonmodels.WorkloadStat{
 			ClusterID: clusterID,
 			Namespace: namespace,
+			Workloads: workloadsTmp,
 		}
 		commonrepo.NewWorkLoadsStatColl().Create(workLoad)
+		return nil
 	}
-	for _, v := range workLoads {
-		w := models.Workload{
-			EnvName: env,
-			Name:    v.Name,
-		}
-		workLoad.Workloads = append(workLoad.Workloads, w)
-	}
+
+	workLoad.Workloads = filterWorkloads(workLoad.Workloads, workloadsTmp)
 	return commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workLoad)
+}
+
+func filterWorkloads(exist []models.Workload, add []models.Workload) []models.Workload {
+	m := map[string]models.Workload{}
+	for _, v := range exist {
+		m[v.Name] = v
+	}
+	result := make([]models.Workload, 0)
+	for _, v := range add {
+		if vv, ok := m[v.Name]; !ok {
+			result = append(result, vv)
+		}
+	}
+	return result
 }
 
 func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap.SugaredLogger) (*ServiceOption, error) {
@@ -417,8 +431,9 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap
 			}
 		}
 	}
-
-	commonservice.ProcessServiceWebhook(args, serviceTmpl, args.ServiceName, log)
+	if args.Source != setting.SourceFromExternal {
+		commonservice.ProcessServiceWebhook(args, serviceTmpl, args.ServiceName, log)
+	}
 
 	return GetServiceOption(args, log)
 }
