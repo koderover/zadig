@@ -266,12 +266,13 @@ func CreateK8sWorkLoads(ctx context.Context, username string, productName string
 		var bs []byte
 		switch v.Type {
 		case setting.Deployment:
-			bs, _, _ = getter.GetDeploymentYaml(namespace, v.Name, kubeClient)
+			bs, _, err = getter.GetDeploymentYaml(namespace, v.Name, kubeClient)
 		case setting.StatefulSet:
-			bs, _, _ = getter.GetDeploymentYaml(namespace, v.Name, kubeClient)
+			bs, _, err = getter.GetDeploymentYaml(namespace, v.Name, kubeClient)
 		}
 
-		if len(bs) == 0 {
+		if len(bs) == 0 || err != nil {
+			log.Errorf("not found yaml %v", err)
 			continue
 		}
 		workloadsTmp = append(workloadsTmp, models.Workload{
