@@ -63,7 +63,7 @@ func ListChartTemplates(logger *zap.SugaredLogger) ([]*Chart, error) {
 		return nil, err
 	}
 
-	var res []*Chart
+	res := make([]*Chart, 0, len(cs))
 	for _, c := range cs {
 		res = append(res, &Chart{
 			Name: c.Name,
