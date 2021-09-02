@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -34,18 +35,21 @@ import (
 
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	s3service "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/codehost"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
@@ -249,6 +253,52 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 		serviceOption.Yaml = args.Yaml
 	}
 	return serviceOption, nil
+}
+
+func CreateK8sWorkLoads(ctx context.Context, username string, workLoads []string, clusterID, namespace string, env string) error {
+	// TODO mouuii 调用保存yaml的接口
+	kubeClient, err := kube.GetKubeClient(clusterID)
+	if err != nil {
+		log.Errorf("[%s] error: %v", namespace, err)
+		return err
+	}
+	for _, v := range workLoads {
+		var bs []byte
+		bs, found, err := getter.GetDeploymentYaml(namespace, v, kubeClient)
+		if !found || err != nil {
+			bs, found, err = getter.GetDeploymentYaml(namespace, v, kubeClient)
+			if err != nil || !found {
+				continue
+			}
+		}
+		if len(bs) > 0 {
+			createSvcArgs := &models.Service{
+				ServiceName: v,
+				Yaml:        string(bs),
+			}
+			_, err = CreateServiceTemplate("username", createSvcArgs, nil)
+			if err != nil {
+				_, messageMap := e.ErrorMessage(err)
+				if description, ok := messageMap["description"]; ok {
+					return e.ErrLoadServiceTemplate.AddDesc(description.(string))
+				}
+				return e.ErrLoadServiceTemplate.AddDesc("Load Service Error for unknown reason")
+			}
+		}
+	}
+
+	workLoad, err := commonrepo.NewWorkLoadsStatColl().Find(clusterID, namespace)
+	if err != nil {
+		return err
+	}
+	for _, v := range workLoads {
+		w := models.WorkLoad{
+			OccupyBy: env,
+			Name:     v,
+		}
+		workLoad.Workloads = append(workLoad.Workloads, w)
+	}
+	return commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workLoad)
 }
 
 func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap.SugaredLogger) (*ServiceOption, error) {

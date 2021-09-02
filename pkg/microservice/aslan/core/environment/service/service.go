@@ -165,6 +165,9 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 		ServiceName: serviceName,
 		EnvName:     envName,
 		ProductName: productName,
+		Services:    make([]*internalresource.Service, 0),
+		Ingress:     make([]*internalresource.Ingress, 0),
+		Scales:      make([]*internalresource.Workload, 0),
 	}
 
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
@@ -227,7 +230,7 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found", serviceName))
 		}
 		//k8s ingress
-		if ingresses, err := getter.ListIngresses(namespace, selector, kubeClient); err == nil {
+		if ingresses, err := getter.ListIngresses(namespace, selector, kubeClient); err == nil && selector != nil {
 			log.Infof("namespace:%s , serviceName:%s , selector:%s , len(ingresses):%d", namespace, serviceName, selector, len(ingresses))
 			for _, ing := range ingresses {
 				ret.Ingress = append(ret.Ingress, wrapper.Ingress(ing).Resource())
@@ -324,18 +327,6 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 				ret.Services = append(ret.Services, wrapper.Service(svc).Resource())
 			}
 		}
-	}
-
-	if len(ret.Ingress) == 0 {
-		ret.Ingress = make([]*internalresource.Ingress, 0)
-	}
-
-	if len(ret.Scales) == 0 {
-		ret.Scales = make([]*internalresource.Workload, 0)
-	}
-
-	if len(ret.Services) == 0 {
-		ret.Services = make([]*internalresource.Service, 0)
 	}
 
 	return

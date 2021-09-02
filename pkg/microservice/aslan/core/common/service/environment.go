@@ -17,7 +17,6 @@ limitations under the License.
 package service
 
 import (
-	"context"
 	"sort"
 	"sync"
 
@@ -31,13 +30,11 @@ import (
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
-	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 // FillProductTemplateValuesYamls 返回renderSet中的renderChart信息
@@ -216,52 +213,6 @@ func ListK8sWorkLoads(envName, clusterID, namespace string, perPage, page int, l
 	// 等所有的状态都结束
 	wg.Wait()
 	return count, resp, ingressList, nil
-}
-
-func CreateK8sWorkLoads(ctx context.Context, workLoads []string, clusterID, namespace string, env string) error {
-	// TODO mouuii 调用保存yaml的接口
-	kubeClient, err := kube.GetKubeClient(clusterID)
-	if err != nil {
-		log.Errorf("[%s] error: %v", namespace, err)
-		return err
-	}
-	for _, v := range workLoads {
-		var bs []byte
-		bs, found, err := getter.GetDeploymentYaml(namespace, v, kubeClient)
-		if !found || err != nil {
-			bs, found, err = getter.GetDeploymentYaml(namespace, v, kubeClient)
-			if err != nil || !found {
-				continue
-			}
-		}
-		if len(bs) > 0 {
-			createSvcArgs := &models.Service{
-				ServiceName: v,
-				Yaml:        string(bs),
-			}
-			_, err = service.CreateServiceTemplate("username", createSvcArgs, nil)
-			if err != nil {
-				_, messageMap := e.ErrorMessage(err)
-				if description, ok := messageMap["description"]; ok {
-					return e.ErrLoadServiceTemplate.AddDesc(description.(string))
-				}
-				return e.ErrLoadServiceTemplate.AddDesc("Load Service Error for unknown reason")
-			}
-		}
-	}
-
-	workLoad, err := commonrepo.NewWorkLoadsStatColl().Find(clusterID, namespace)
-	if err != nil {
-		return err
-	}
-	for _, v := range workLoads {
-		w := models.WorkLoad{
-			OccupyBy: env,
-			Name:     v,
-		}
-		workLoad.Workloads = append(workLoad.Workloads, w)
-	}
-	return commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workLoad)
 }
 
 func queryExternalPodsStatus(namespace string, selector labels.Selector, kubeClient client.Client, log *zap.SugaredLogger) (string, string, []string) {
