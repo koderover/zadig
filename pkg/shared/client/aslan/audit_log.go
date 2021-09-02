@@ -42,7 +42,7 @@ type updateOperationArgs struct {
 }
 
 func (c *Client) AddAuditLog(username, productName, method, function, detail, permissionUUID, requestBody string, log *zap.SugaredLogger) (string, error) {
-	url := "/api/system/operation"
+	url := "/system/operation"
 	req := operationLog{
 		Username:       username,
 		ProductName:    productName,
@@ -66,7 +66,7 @@ func (c *Client) AddAuditLog(username, productName, method, function, detail, pe
 }
 
 func (c *Client) UpdateAuditLog(id string, status int, log *zap.SugaredLogger) error {
-	url := fmt.Sprintf("/api/system/operation/%s", id)
+	url := fmt.Sprintf("/system/operation/%s", id)
 	req := updateOperationArgs{
 		Status: status,
 	}
