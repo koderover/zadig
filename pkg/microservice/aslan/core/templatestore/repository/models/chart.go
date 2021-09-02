@@ -24,7 +24,7 @@ type Chart struct {
 	Path       string `bson:"path"         json:"path"`
 	Branch     string `bson:"branch"         json:"branch"`
 	CodeHostID int    `bson:"codehost_id"  json:"codeHostID"`
-	Revision   int    `bson:"revision"     json:"revision"`
+	Revision   int64  `bson:"revision"     json:"revision"`
 	Sha1       string `bson:"sha1"         json:"sha1"`
 }
 

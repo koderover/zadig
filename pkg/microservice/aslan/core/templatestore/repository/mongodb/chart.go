@@ -26,9 +26,12 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/repository/models"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
+
+const chartTemplateCounterName = "template&chart:%s"
 
 type ChartColl struct {
 	*mongo.Collection
@@ -102,8 +105,13 @@ func (c *ChartColl) Create(obj *models.Chart) error {
 		return fmt.Errorf("nil object")
 	}
 
-	obj.Revision = 1
-	_, err := c.InsertOne(context.TODO(), obj)
+	rev, err := getNextRevision(obj.Name)
+	if err != nil {
+		return err
+	}
+	obj.Revision = rev
+
+	_, err = c.InsertOne(context.TODO(), obj)
 
 	return err
 }
@@ -113,20 +121,15 @@ func (c *ChartColl) Update(obj *models.Chart) error {
 		return fmt.Errorf("nil object")
 	}
 
-	query := bson.M{"name": obj.Name}
-	change := bson.M{
-		"$set": bson.M{
-			"source":      obj.Source,
-			"owner":       obj.Owner,
-			"repo":        obj.Repo,
-			"path":        obj.Path,
-			"branch":      obj.Branch,
-			"codehost_id": obj.CodeHostID,
-			"sha1":        obj.Sha1,
-		},
-		"$inc": bson.M{"revision": int64(1)},
+	rev, err := getNextRevision(obj.Name)
+	if err != nil {
+		return err
 	}
-	_, err := c.UpdateOne(context.TODO(), query, change)
+	obj.Revision = rev
+
+	query := bson.M{"name": obj.Name}
+	change := bson.M{"$set": obj}
+	_, err = c.UpdateOne(context.TODO(), query, change)
 
 	return err
 }
@@ -136,4 +139,9 @@ func (c *ChartColl) Delete(name string) error {
 	_, err := c.DeleteOne(context.TODO(), query)
 
 	return err
+}
+
+func getNextRevision(name string) (int64, error) {
+	template := fmt.Sprintf(chartTemplateCounterName, name)
+	return commonrepo.NewCounterColl().GetNextSeq(template)
 }
