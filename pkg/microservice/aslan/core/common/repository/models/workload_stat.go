@@ -30,19 +30,19 @@ type WorkloadStat struct {
 
 type Workload struct {
 	EnvName string             `bson:"env_name"         json:"env_name"`
-	Name    string             `bson:"name"              json:"name"`
-	Spec    corev1.ServiceSpec `bson:"-"              json:"-"`
-	Type    string             `bson:"type"              json:"type"`
+	Name    string             `bson:"name"             json:"name"`
+	Spec    corev1.ServiceSpec `bson:"-"                json:"-"`
+	Type    string             `bson:"type"             json:"type"`
 }
 
 func (WorkloadStat) TableName() string {
 	return "workload_stat"
 }
 
-type SaveK8sWorkloadsArgs struct {
-	WorkLoads   []Workload `bson:"workLoads"         json:"workLoads"`
+type K8sWorkloadsArgs struct {
+	WorkLoads   []Workload `bson:"workLoads"        json:"workLoads"`
 	EnvName     string     `bson:"env_name"         json:"env_name"`
-	ClusterID   string     `bson:"cluster_id"         json:"cluster_id"`
-	Namespace   string     `bson:"namespace"         json:"namespace"`
-	ProductName string     `bson:"product_name"         json:"product_name"`
+	ClusterID   string     `bson:"cluster_id"       json:"cluster_id"`
+	Namespace   string     `bson:"namespace"        json:"namespace"`
+	ProductName string     `bson:"product_name"     json:"product_name"`
 }

@@ -298,32 +298,34 @@ func CreateK8sWorkLoads(ctx context.Context, username string, productName string
 		}
 	}
 
-	workLoad, err := commonrepo.NewWorkLoadsStatColl().Find(clusterID, namespace)
+	workLoadStat, err := commonrepo.NewWorkLoadsStatColl().Find(clusterID, namespace)
 	if err != nil {
-		workLoad = &commonmodels.WorkloadStat{
+		workLoadStat = &commonmodels.WorkloadStat{
 			ClusterID: clusterID,
 			Namespace: namespace,
 			Workloads: workloadsTmp,
 		}
-		return commonrepo.NewWorkLoadsStatColl().Create(workLoad)
+		return commonrepo.NewWorkLoadsStatColl().Create(workLoadStat)
 	}
 
-	workLoad.Workloads = filterWorkloads(workLoad.Workloads, workloadsTmp)
-	return commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workLoad)
+	workLoadStat.Workloads = filterWorkloads(workLoadStat.Workloads, workloadsTmp)
+	return commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workLoadStat)
 }
 
-func filterWorkloads(exist []models.Workload, add []models.Workload) []models.Workload {
-	m := map[string]models.Workload{}
-	for _, v := range exist {
-		m[v.Name] = v
+func filterWorkloads(existWorkloads []models.Workload, newWorkloads []models.Workload) []models.Workload {
+	var result []models.Workload
+	workloadMap := map[string]models.Workload{}
+	for _, workload := range existWorkloads {
+		workloadMap[workload.Name] = workload
+		result = append(result, workload)
 	}
-	result := make([]models.Workload, 0)
-	for _, v := range add {
-		if vv, ok := m[v.Name]; !ok {
-			result = append(result, vv)
+
+	for _, newWorkload := range newWorkloads {
+		if _, ok := workloadMap[newWorkload.Name]; !ok {
+			result = append(result, newWorkload)
 		}
 	}
-	result = append(result, exist...)
+
 	return result
 }
 

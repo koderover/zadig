@@ -20,17 +20,16 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
-
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/poetry"
@@ -140,15 +139,17 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 		// 删除workload数据
 		tempProduct, err := template.NewProductColl().Find(productName)
 		if err != nil {
-			log.Errorf("prduct not found")
+			log.Errorf("project not found error:%s", err)
 		}
 		if tempProduct.ProductFeature.CreateEnvType == setting.SourceFromExternal {
-			workload, _ := mongodb.NewWorkLoadsStatColl().Find(productInfo.ClusterID, productInfo.Namespace)
-			if workload != nil {
-				workload.Workloads = deleteWorkloadsByEnv(workload.Workloads, productInfo.EnvName)
-				err := mongodb.NewWorkLoadsStatColl().UpdateWorkloads(workload)
-				if err != nil {
-					log.Errorf("update workloads fail %s", err)
+			workloadStat, err := mongodb.NewWorkLoadsStatColl().Find(productInfo.ClusterID, productInfo.Namespace)
+			if err != nil {
+				log.Errorf("workflowStat not found error:%s", err)
+			}
+			if workloadStat != nil {
+				workloadStat.Workloads = deleteWorkloadsByEnv(workloadStat.Workloads, productInfo.EnvName)
+				if err := mongodb.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat); err != nil {
+					log.Errorf("update workloads fail error:%s", err)
 				}
 			}
 		}
