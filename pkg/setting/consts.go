@@ -176,7 +176,7 @@ const (
 
 	APIVersionAppsV1 = "apps/v1"
 
-	DefaultCandidateImagePullSecret = "default-candidate-registry-secret"
+	DefaultCandidateImagePullSecret = "default-registry-secret"
 )
 
 const (
