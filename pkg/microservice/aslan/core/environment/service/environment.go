@@ -2530,8 +2530,7 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 				go func(tmpRenderChart *template.RenderChart, currentService *commonmodels.Service, serviceIndex int) {
 					defer wg.Done()
 
-					serviceNameWithRevision := config.ServiceNameWithRevision(currentService.ServiceName, currentService.Revision)
-					base := config.LocalServicePath(currentService.ProductName, serviceNameWithRevision)
+					base := config.LocalServicePathWithRevision(currentService.ProductName, currentService.ServiceName, currentService.Revision)
 					if err := commonservice.PreloadServiceManifestsByRevision(base, currentService); err != nil {
 						// use the latest version when it fails to download the specific version
 						base = config.LocalServicePath(currentService.ProductName, currentService.ServiceName)

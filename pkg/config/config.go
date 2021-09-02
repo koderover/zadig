@@ -191,6 +191,10 @@ func LocalServicePath(project, service string) string {
 	return filepath.Join(DataPath(), project, service)
 }
 
+func LocalServicePathWithRevision(project, service, revision string) string {
+	return filepath.Join(DataPath(), project, service, revision)
+}
+
 func LocalTemplatePath(name, kind string) string {
 	return filepath.Join(DataPath(), "templates", kind, name)
 }

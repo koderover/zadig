@@ -20,11 +20,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/koderover/zadig/pkg/tool/log"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
+
+	fsutil "github.com/koderover/zadig/pkg/util/fs"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -397,41 +399,52 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 					Timeout:     time.Second * DeployTimeout,
 				}
 
-				//获取此环境中 service的运行版本
-				serviceInfoRevision, errGetService := p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType,
-					p.Task.ProductName, p.Task.ServiceRevision)
-				if errGetService != nil {
-					err = errors.WithMessagef(
-						errGetService,
-						"failed to get service revision %s/%s/%d",
-						p.Task.Namespace, p.Task.ServiceName, p.Task.ServiceRevision)
-					return
-				}
+				//p.Log.Infof("###############[namespace:%v][EnvName:%v][servicename:%v][serviceRevision:%v]"+
+				//	"[pipelineTask.ProductName:%v][pipelineTask.ServiceName:%v][pipelineTask.PipelineName:%v] get",
+				//	p.Task.Namespace, p.Task.EnvName,
+				//	p.Task.ServiceName, p.Task.ServiceRevision,
+				//	pipelineTask.ProductName, pipelineTask.ServiceName, pipelineTask.PipelineName)
 
-				p.Log.Infof("###############[namespace:%v][EnvName:%v][servicename:%v][serviceRevision:%v]" +
-					"[pipelineTask.ProductName:%v][pipelineTask.ServiceName:%v][pipelineTask.PipelineName:%v] get" +
-					" service revision info %v",
-					p.Task.Namespace, p.Task.EnvName,
-					p.Task.ServiceName, p.Task.ServiceRevision,
-					pipelineTask.ProductName, pipelineTask.ServiceName,pipelineTask.PipelineName,
-					serviceInfoRevision.HelmChart.Name)
+				targetRevision := int64(0)
 
-				path, errDownload := p.downloadService(pipelineTask.ProductName, pipelineTask.ServiceName,
-					nil, p.Task.ServiceRevision)
+				path, errDownload := p.downloadService(pipelineTask.ProductName, p.Task.ServiceName,
+					pipelineTask.StorageURI, p.Task.ServiceRevision)
 				if errDownload != nil {
-					err = errors.WithMessagef(
-						errDownload,
-						"failed to download service %s/%s",
-						p.Task.Namespace, p.Task.ServiceName)
-					return
+					path, errDownload = p.downloadService(pipelineTask.ProductName, p.Task.ServiceName,
+						pipelineTask.StorageURI, 0)
+					if errDownload != nil {
+						err = errors.WithMessagef(
+							errDownload,
+							"failed to download service %s/%s",
+							p.Task.Namespace, p.Task.ServiceName)
+						_ = os.Remove(path)
+						return
+					}
+
+					//获取当前service的最新revision
+					latestService, errGetService := p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType,
+						pipelineTask.ProductName, 0)
+					if errGetService != nil {
+						err = errors.WithMessagef(
+							errDownload,
+							"failed to get latest service %s/%s",
+							p.Task.Namespace, p.Task.ServiceName)
+						_ = os.Remove(path)
+					}
+
+					//当前实际的revision
+					targetRevision = latestService.Revision
 				}
+
+				p.Log.Infof("################ the path of chart is %v targetRevision %v", path, targetRevision)
 
 				if err = helmClient.InstallOrUpgradeChart(context.Background(), &chartSpec, &helmclient.ChartOption{
 					ChartPath: path}, p.Log); err != nil {
 					err = errors.WithMessagef(
 						err,
-						"failed to Install helm chart %s/%s",
+						"failed to install helm chart %s/%s",
 						p.Task.Namespace, p.Task.ServiceName)
+					_ = os.Remove(path)
 					return
 				}
 
@@ -448,6 +461,17 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 					ChartInfos: renderInfo.ChartInfos,
 				})
 
+				// update product.service.revision when use the latest revision
+				if targetRevision > 0 && targetRevision != p.Task.ServiceRevision {
+					p.Log.Infof("############# update product.service.revision, current %v target %v",
+						p.Task.ServiceRevision, targetRevision)
+					err = p.updateServiceRevision(ctx, p.Task.ServiceName, pipelineTask.ProductName, p.Task.EnvName, p.Task.ServiceRevision)
+					if err != nil {
+						p.Log.Infof("############# update service revison fail [env %v][productName %v][serviceName %v] err %v", p.Task.EnvName, p.Task.ProductName, p.Task.ServiceName, err)
+					}
+				}
+
+				//TODO 检查task的revision 和 product中是否吻合
 			}
 			return
 		}
@@ -476,7 +500,7 @@ func (p *DeployTaskPlugin) getService(ctx context.Context, name, serviceType,
 	s := &types.ServiceTmpl{}
 	_, err := p.httpClient.Get(url, httpclient.SetResult(s), httpclient.SetQueryParams(map[string]string{
 		"productName": productName,
-		"revision": fmt.Sprintf("%v", revision),
+		"revision":    fmt.Sprintf("%v", revision),
 	}))
 	if err != nil {
 		return nil, err
@@ -484,33 +508,57 @@ func (p *DeployTaskPlugin) getService(ctx context.Context, name, serviceType,
 	return s, nil
 }
 
-//从s3上下载指定版本的chart打包文件
-func (p *DeployTaskPlugin) downloadService(productName, serviceName string, s3Storage *s3.S3, revision int64) (string,
-	error) {
+func (p *DeployTaskPlugin) updateServiceRevision(ctx context.Context, name, productName, envName string,
+	revision int64) error {
+	url := fmt.Sprintf("/api/environment/environments/%s/services/%s/updateRevision", productName, name)
+
+	_, err := p.httpClient.Put(url, httpclient.SetQueryParams(map[string]string{
+		"productName": productName,
+		"envName":     envName,
+		"revision":    fmt.Sprintf("%v", revision),
+	}))
+	return err
+}
+
+// download chart info of specific version, use the latest version if fails
+func (p *DeployTaskPlugin) downloadService(productName, serviceName, storageURI string, revision int64) (string, error) {
 	logger := p.Log
 
-	base := configbase.LocalServicePath(productName, serviceName)
-	//s3Storage, err := s3.NewS3StorageFromEncryptedURI(storageURI)
-	//if err != nil {
-	//	return "", err
-	//}
+	s3Storage, err := s3.NewS3StorageFromEncryptedURI(storageURI)
+	if err != nil {
+		return "", err
+	}
 
-	tarball := fmt.Sprintf("%s.tar.gz", serviceName)
-	tarFilePath := filepath.Join(base, tarball)
+	fileName := serviceName
+	if revision > 0 {
+		fileName = fmt.Sprintf("%s-%d", serviceName, revision)
+	}
+	tarball := fmt.Sprintf("%s.tar.gz", fileName)
+	localBase := configbase.LocalServicePath(productName, serviceName)
+	tarFilePath := filepath.Join(localBase, tarball)
+
+	if exists, _ := fsutil.FileExists(tarFilePath); exists {
+		return tarFilePath, nil
+	}
+
 	s3Storage.Subfolder = filepath.Join(s3Storage.Subfolder, configbase.ObjectStorageServicePath(productName, serviceName))
 	forcedPathStyle := true
 	if s3Storage.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
 	}
-	client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
-	if err != nil {
-		p.Log.Errorf("failed to create s3 client, err: %+v", err)
-		return "", err
+	client, err1 := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
+	if err1 != nil {
+		p.Log.Errorf("failed to create s3 client, err: %+v", err1)
+		return "", err1
 	}
-	log.Infof("############## the tar ball is %v / %v", tarball, s3Storage.GetObjectPath(tarball))
 	if err = client.Download(s3Storage.Bucket, s3Storage.GetObjectPath(tarball), tarFilePath); err != nil {
 		logger.Errorf("Failed to download file from s3, err: %s", err)
+		_ = os.Remove(tarFilePath)
 		return "", err
+	}
+
+	if exist, _ := fsutil.FileExists(tarFilePath); !exist {
+		return "", fmt.Errorf("file %s on s3 not found", s3Storage.GetObjectPath(tarball))
 	}
 
 	return tarFilePath, nil

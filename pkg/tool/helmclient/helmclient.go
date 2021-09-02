@@ -109,7 +109,7 @@ func newClient(options *Options, clientGetter genericclioptions.RESTClientGetter
 		settings.Namespace(),
 		os.Getenv("HELM_DRIVER"),
 		func(format string, v ...interface{}) {
-			log.Infof(format, v)
+			log.Infof(format, v...)
 		},
 	)
 	if err != nil {
