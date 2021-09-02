@@ -268,9 +268,9 @@ func CreateK8sWorkLoads(ctx context.Context, username string, productName string
 		)
 
 		switch v.Type {
-		case "deployment":
+		case setting.Deployment:
 			bs, _, _ = getter.GetDeploymentYaml(namespace, v.Name, kubeClient)
-		case "statefulSet":
+		case setting.StatefulSet:
 			bs, _, _ = getter.GetDeploymentYaml(namespace, v.Name, kubeClient)
 		}
 
