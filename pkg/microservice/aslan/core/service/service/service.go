@@ -304,8 +304,7 @@ func CreateK8sWorkLoads(ctx context.Context, username string, productName string
 			Namespace: namespace,
 			Workloads: workloadsTmp,
 		}
-		commonrepo.NewWorkLoadsStatColl().Create(workLoad)
-		return nil
+		return commonrepo.NewWorkLoadsStatColl().Create(workLoad)
 	}
 
 	workLoad.Workloads = filterWorkloads(workLoad.Workloads, workloadsTmp)
