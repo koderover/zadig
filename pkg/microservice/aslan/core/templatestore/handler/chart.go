@@ -37,6 +37,14 @@ func GetChartTemplate(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GetChartTemplate(c.Param("name"), ctx.Logger)
 }
 
+func ListFiles(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	// TODO: support to return multiple files in a bulk
+	ctx.Resp, ctx.Err = service.GetFileContent(c.Param("name"), c.Query("filePath"), c.Query("fileName"), ctx.Logger)
+}
+
 func ListChartTemplates(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

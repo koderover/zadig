@@ -73,9 +73,33 @@ func ListChartTemplates(logger *zap.SugaredLogger) ([]*Chart, error) {
 	return res, nil
 }
 
+func GetFileContent(name, filePath, fileName string, logger *zap.SugaredLogger) ([]byte, error) {
+	chart, err := mongodb.NewChartColl().Get(name)
+	if err != nil {
+		logger.Errorf("Failed to get chart template %s, err: %s", name, err)
+		return nil, err
+	}
+
+	localBase := configbase.LocalChartTemplatePath(name)
+	s3Base := configbase.ObjectStorageChartTemplatePath(name)
+	if err = fs.PreloadFiles(name, localBase, s3Base, logger); err != nil {
+		return nil, err
+	}
+
+	base := filepath.Base(chart.Path)
+	file := filepath.Join(localBase, base, filePath, fileName)
+	fileContent, err := os.ReadFile(file)
+	if err != nil {
+		logger.Errorf("Failed to read file %s, err: %s", file, err)
+		return nil, err
+	}
+
+	return fileContent, nil
+}
+
 func AddChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *zap.SugaredLogger) error {
 	if mongodb.NewChartColl().Exist(name) {
-		return fmt.Errorf("A chart template with name %s is already existing", name)
+		return fmt.Errorf("a chart template with name %s is already existing", name)
 	}
 
 	sha1, err := processChartFromSource(name, args, logger)

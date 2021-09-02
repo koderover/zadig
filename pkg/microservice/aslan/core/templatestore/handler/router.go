@@ -33,8 +33,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	install := router.Group("charts")
 	{
-		install.GET("/:name", GetChartTemplate)
 		install.GET("", ListChartTemplates)
+		install.GET("/:name", GetChartTemplate)
+		install.GET("/:name/files", ListFiles)
 		install.POST("", AddChartTemplate)
 		install.PUT("/:name", UpdateChartTemplate)
 		install.DELETE("/:name", RemoveChartTemplate)
