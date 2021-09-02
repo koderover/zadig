@@ -89,6 +89,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		kube.POST("/pods", ListServicePods)
 		kube.DELETE("/pods/:podName", gin2.IsHavePermission([]string{permission.TestEnvManageUUID, permission.ProdEnvManageUUID, permission.TestUpdateEnvUUID}, permission.QueryType), gin2.UpdateOperationLogStatus, DeletePod)
 		kube.GET("/pods/:podName/events", ListPodEvents)
+		kube.GET("/workloads", ListK8sWorkLoads)
 	}
 
 	// ---------------------------------------------------------------------------------------

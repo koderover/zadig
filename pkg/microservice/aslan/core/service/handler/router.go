@@ -18,7 +18,6 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
-
 	gin2 "github.com/koderover/zadig/pkg/middleware/gin"
 	"github.com/koderover/zadig/pkg/types/permission"
 )
@@ -56,6 +55,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		k8s.PUT("/yaml/validator", YamlValidator)
 		k8s.DELETE("/:name/:type", gin2.IsHavePermission([]string{permission.ServiceTemplateDeleteUUID}, permission.QueryType), gin2.UpdateOperationLogStatus, DeleteServiceTemplate)
 		k8s.GET("/:name/:type/ports", ListServicePort)
+		k8s.POST("/workloads", CreateK8sWorkloads)
 	}
 
 	name := router.Group("name")

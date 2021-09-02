@@ -160,7 +160,7 @@ func RestartScale(args *RestartScaleArgs, _ *zap.SugaredLogger) error {
 	return nil
 }
 
-func GetService(envName, productName, serviceName string, log *zap.SugaredLogger) (ret *SvcResp, err error) {
+func GetService(envName, productName, serviceName string, workLoadType string, log *zap.SugaredLogger) (ret *SvcResp, err error) {
 	ret = &SvcResp{
 		ServiceName: serviceName,
 		EnvName:     envName,
@@ -181,34 +181,52 @@ func GetService(envName, productName, serviceName string, log *zap.SugaredLogger
 	namespace := env.Namespace
 	switch env.Source {
 	case setting.SourceFromExternal, setting.SourceFromHelm:
-		svc, found, err := getter.GetService(namespace, serviceName, kubeClient)
-		if err != nil {
-			return nil, e.ErrGetService.AddErr(err)
-		}
-		if !found {
+		var selector labels.Selector
+		k8sServices, _ := getter.ListServices(namespace, nil, kubeClient)
+		switch workLoadType {
+		case "statefulSet":
+			statefulSet, exist, err := getter.GetStatefulSet(namespace, serviceName, kubeClient)
+			if !exist || err != nil {
+				return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found", serviceName))
+			}
+			scale := getStatefulSetWorkloadResource(statefulSet, kubeClient, log)
+			ret.Scales = append(ret.Scales, scale)
+			for _, k8sService := range k8sServices {
+				currentSelector := labels.SelectorFromValidatedSet(k8sService.Spec.Selector)
+				statefulSets, _ := getter.ListStatefulSets(namespace, currentSelector, kubeClient)
+				for _, currentStatefulSet := range statefulSets {
+					if currentStatefulSet.Name == statefulSet.Name {
+						ret.Services = append(ret.Services, wrapper.Service(k8sService).Resource())
+						selector = currentSelector
+						break
+					}
+				}
+			}
+
+		case "deployment":
+			deploy, exist, err := getter.GetDeployment(namespace, serviceName, kubeClient)
+			if !exist || err != nil {
+				return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found", serviceName))
+			}
+			scale := getDeploymentWorkloadResource(deploy, kubeClient, log)
+			ret.Scales = append(ret.Scales, scale)
+			//k8s service
+			for _, k8sService := range k8sServices {
+				currentSelector := labels.SelectorFromValidatedSet(k8sService.Spec.Selector)
+				deployments, _ := getter.ListDeployments(namespace, currentSelector, kubeClient)
+				for _, deployment := range deployments {
+					if deployment.Name == deploy.Name {
+						ret.Services = append(ret.Services, wrapper.Service(k8sService).Resource())
+						selector = currentSelector
+						break
+					}
+				}
+			}
+
+		default:
 			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found", serviceName))
 		}
-		ret.Services = append(ret.Services, wrapper.Service(svc).Resource())
-
-		selector := labels.SelectorFromValidatedSet(svc.Spec.Selector)
-		//deployment
-		if deployments, err := getter.ListDeployments(namespace, selector, kubeClient); err == nil {
-			log.Infof("namespace:%s , serviceName:%s , selector:%s , len(deployments):%d", namespace, serviceName, selector, len(deployments))
-			for _, d := range deployments {
-				scale := getDeploymentWorkloadResource(d, kubeClient, log)
-				ret.Scales = append(ret.Scales, scale)
-			}
-		}
-		//statefulSets
-		if statefulSets, err := getter.ListStatefulSets(namespace, selector, kubeClient); err == nil {
-			log.Infof("namespace:%s , serviceName:%s , selector:%s , len(statefulSets):%d", namespace, serviceName, selector, len(statefulSets))
-			for _, sts := range statefulSets {
-				scale := getStatefulSetWorkloadResource(sts, kubeClient, log)
-				ret.Scales = append(ret.Scales, scale)
-			}
-		}
-
-		//ingress
+		//k8s ingress
 		if ingresses, err := getter.ListIngresses(namespace, selector, kubeClient); err == nil {
 			log.Infof("namespace:%s , serviceName:%s , selector:%s , len(ingresses):%d", namespace, serviceName, selector, len(ingresses))
 			for _, ing := range ingresses {

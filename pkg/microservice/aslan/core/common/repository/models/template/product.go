@@ -109,6 +109,8 @@ type ProductFeature struct {
 	TechArch string `bson:"tech_arch"                      json:"tech_arch"`
 	// 开发习惯，interface_mode 或者 yaml
 	DevelopHabit string `bson:"develop_habit"              json:"develop_habit"`
+	// 创建环境方式,integrate 或者 trust
+	CreateEnvType string `bson:"create_env_type" 		   json:"create_env_type"`
 }
 
 type ForkProject struct {
