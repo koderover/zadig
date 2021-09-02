@@ -418,16 +418,20 @@ func UpdateServiceRevision(envName, productName, serviceName string, targetRevis
 	if err != nil {
 		return e.ErrUpdateEnv.AddDesc(err.Error())
 	}
+
 	groupIndex := -1
-	var target []*commonmodels.ProductService
+	var targetGroup []*commonmodels.ProductService
 	for gIndex, serviceGroup := range productInfo.Services {
 		for _, service := range serviceGroup {
 			if service.ServiceName == serviceName {
 				groupIndex = gIndex
-				target = serviceGroup
+				targetGroup = serviceGroup
 				service.Revision = targetRevision
 				break
 			}
+		}
+		if groupIndex >= 0 {
+			break
 		}
 	}
 
@@ -435,7 +439,7 @@ func UpdateServiceRevision(envName, productName, serviceName string, targetRevis
 		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("servce: %v not found", serviceName))
 	}
 
-	err = commonrepo.NewProductColl().UpdateGroup(envName, productName, groupIndex, target)
+	err = commonrepo.NewProductColl().UpdateGroup(envName, productName, groupIndex, targetGroup)
 	if err != nil {
 		return e.ErrUpdateEnv.AddDesc(err.Error())
 	}

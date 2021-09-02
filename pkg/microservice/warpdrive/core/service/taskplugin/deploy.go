@@ -311,6 +311,20 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		for _, chartInfo := range renderInfo.ChartInfos {
 			chartInfoMap[chartInfo.ServiceName] = chartInfo
 		}
+
+		curRevisionInProduct := int64(0)
+		for _, serviceGroup := range productInfo.Services {
+			for _, service := range serviceGroup {
+				if service.ServiceName == p.Task.ServiceName {
+					curRevisionInProduct = service.Revision
+					break
+				}
+			}
+			if curRevisionInProduct > 0 {
+				break
+			}
+		}
+
 		if renderChart, isExist = chartInfoMap[p.Task.ServiceName]; isExist {
 			yamlValuesByte, err = yaml.YAMLToJSON([]byte(renderChart.ValuesYaml))
 			if err != nil {
@@ -399,16 +413,14 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 					Timeout:     time.Second * DeployTimeout,
 				}
 
-				//p.Log.Infof("###############[namespace:%v][EnvName:%v][servicename:%v][serviceRevision:%v]"+
-				//	"[pipelineTask.ProductName:%v][pipelineTask.ServiceName:%v][pipelineTask.PipelineName:%v] get",
-				//	p.Task.Namespace, p.Task.EnvName,
-				//	p.Task.ServiceName, p.Task.ServiceRevision,
-				//	pipelineTask.ProductName, pipelineTask.ServiceName, pipelineTask.PipelineName)
-
-				targetRevision := int64(0)
+				//task执行时候 product.service.revision 可能已经更新，需要使用当前环境中的service.revision
+				targetRevision := p.Task.ServiceRevision
+				if curRevisionInProduct > 0 && curRevisionInProduct != p.Task.ServiceRevision {
+					targetRevision = curRevisionInProduct
+				}
 
 				path, errDownload := p.downloadService(pipelineTask.ProductName, p.Task.ServiceName,
-					pipelineTask.StorageURI, p.Task.ServiceRevision)
+					pipelineTask.StorageURI, targetRevision)
 				if errDownload != nil {
 					path, errDownload = p.downloadService(pipelineTask.ProductName, p.Task.ServiceName,
 						pipelineTask.StorageURI, 0)
@@ -436,8 +448,6 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 					targetRevision = latestService.Revision
 				}
 
-				p.Log.Infof("################ the path of chart is %v targetRevision %v", path, targetRevision)
-
 				if err = helmClient.InstallOrUpgradeChart(context.Background(), &chartSpec, &helmclient.ChartOption{
 					ChartPath: path}, p.Log); err != nil {
 					err = errors.WithMessagef(
@@ -463,15 +473,11 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 
 				// update product.service.revision when use the latest revision
 				if targetRevision > 0 && targetRevision != p.Task.ServiceRevision {
-					p.Log.Infof("############# update product.service.revision, current %v target %v",
-						p.Task.ServiceRevision, targetRevision)
-					err = p.updateServiceRevision(ctx, p.Task.ServiceName, pipelineTask.ProductName, p.Task.EnvName, p.Task.ServiceRevision)
+					err = p.updateServiceRevision(ctx, p.Task.ServiceName, pipelineTask.ProductName, p.Task.EnvName, targetRevision)
 					if err != nil {
-						p.Log.Infof("############# update service revison fail [env %v][productName %v][serviceName %v] err %v", p.Task.EnvName, p.Task.ProductName, p.Task.ServiceName, err)
+						p.Log.Errorf("update service version fail [env:%v][productName:%v][serviceName:%v], err %v", p.Task.EnvName, p.Task.ProductName, p.Task.ServiceName, err)
 					}
 				}
-
-				//TODO 检查task的revision 和 product中是否吻合
 			}
 			return
 		}

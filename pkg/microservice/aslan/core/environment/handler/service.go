@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
@@ -88,7 +87,6 @@ func UpdateServiceRevision(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid revision number")
 		return
 	}
-	log.Infof("############# [envName %v][productName %v][serviceName %v]", c.Query("envName"), c.Param("productName"), c.Param("serviceName"))
 	ctx.Err = service.UpdateServiceRevision(c.Query("envName"), c.Param("productName"), c.Param("serviceName"), revision, ctx.Logger)
 }
 
