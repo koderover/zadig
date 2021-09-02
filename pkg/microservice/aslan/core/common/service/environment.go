@@ -99,7 +99,8 @@ func ListGroupsBySource(envName, productName string, perPage, page int, log *zap
 		log.Errorf("[%s][%s] error: %v", envName, productName, err)
 		return 0, nil, nil, e.ErrListGroups.AddDesc(err.Error())
 	}
-	if projectInfo.ProductFeature != nil && projectInfo.ProductFeature.CreateEnvType != "" {
+
+	if projectInfo.ProductFeature != nil && projectInfo.ProductFeature.CreateEnvType == setting.SourceFromExternal {
 		return ListK8sWorkLoads(envName, productInfo.ClusterID, productInfo.Namespace, perPage, page, log, func(workloads []*models.Workload) []*models.Workload {
 			productServices, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
 			if err != nil {
