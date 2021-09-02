@@ -36,11 +36,11 @@ type WorkLoadsStatColl struct {
 }
 
 func NewWorkLoadsStatColl() *WorkLoadsStatColl {
-	name := models.WorkLoadStat{}.TableName()
+	name := models.WorkloadStat{}.TableName()
 	return &WorkLoadsStatColl{Collection: mongotool.Database(config.MongoDatabase()).Collection(name), coll: name}
 }
 
-func (c *WorkLoadsStatColl) Create(args *models.WorkLoadStat) error {
+func (c *WorkLoadsStatColl) Create(args *models.WorkloadStat) error {
 	if args == nil {
 		return errors.New("nil WorkLoadsCounter args")
 	}
@@ -48,7 +48,7 @@ func (c *WorkLoadsStatColl) Create(args *models.WorkLoadStat) error {
 	return err
 }
 
-func (c *WorkLoadsStatColl) Find(clusterID string, namespace string) (*models.WorkLoadStat, error) {
+func (c *WorkLoadsStatColl) Find(clusterID string, namespace string) (*models.WorkloadStat, error) {
 	query := bson.M{}
 
 	query["namespace"] = namespace
@@ -57,13 +57,13 @@ func (c *WorkLoadsStatColl) Find(clusterID string, namespace string) (*models.Wo
 		query["cluster_id"] = clusterID
 	}
 
-	resp := new(models.WorkLoadStat)
+	resp := new(models.WorkloadStat)
 
 	err := c.FindOne(context.TODO(), query).Decode(resp)
 	return resp, err
 }
 
-func (c *WorkLoadsStatColl) UpdateWorkloads(args *models.WorkLoadStat) error {
+func (c *WorkLoadsStatColl) UpdateWorkloads(args *models.WorkloadStat) error {
 	query := bson.M{"namespace": args.Namespace, "cluster_id": args.ClusterID}
 	change := bson.M{"$set": bson.M{
 		"workloads": args.Workloads,

@@ -29,6 +29,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -419,18 +420,18 @@ func ListK8sWorkLoads(c *gin.Context) {
 		}
 	}
 
-	count, services, _, err := commonservice.ListK8sWorkLoads("", clusterID, namespace, perPage, page, ctx.Logger, func(services []commonservice.WorkLoad) []commonservice.WorkLoad {
+	count, services, _, err := commonservice.ListK8sWorkLoads("", clusterID, namespace, perPage, page, ctx.Logger, func(workloads []models.Workload) []models.Workload {
 		workload, _ := mongodb.NewWorkLoadsStatColl().Find(clusterID, namespace)
-		workloadM := map[string]commonmodels.WorkLoad{}
+		workloadM := map[string]commonmodels.Workload{}
 		for _, v := range workload.Workloads {
 			workloadM[v.Name] = v
 		}
-		for k, v := range services {
+		for k, v := range workloads {
 			if _, ok := workloadM[v.Name]; ok {
-				services[k].OccupyBy = v.OccupyBy
+				workloads[k].EnvName = v.EnvName
 			}
 		}
-		return services
+		return workloads
 	})
 	ctx.Resp = &NamespaceResource{
 		Services: services,

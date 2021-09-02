@@ -255,7 +255,7 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 	return serviceOption, nil
 }
 
-func CreateK8sWorkLoads(ctx context.Context, username string, workLoads []string, clusterID, namespace string, env string) error {
+func CreateK8sWorkLoads(ctx context.Context, username string, productName string, workLoads []models.Workload, clusterID, namespace string, env string) error {
 	// TODO mouuii 调用保存yaml的接口
 	kubeClient, err := kube.GetKubeClient(clusterID)
 	if err != nil {
@@ -263,38 +263,49 @@ func CreateK8sWorkLoads(ctx context.Context, username string, workLoads []string
 		return err
 	}
 	for _, v := range workLoads {
-		var bs []byte
-		bs, found, err := getter.GetDeploymentYaml(namespace, v, kubeClient)
-		if !found || err != nil {
-			bs, found, err = getter.GetDeploymentYaml(namespace, v, kubeClient)
-			if err != nil || !found {
-				continue
-			}
+		var (
+			bs []byte
+		)
+
+		switch v.Type {
+		case "deployment":
+			bs, _, _ = getter.GetDeploymentYaml(namespace, v.Name, kubeClient)
+		case "statefulSet":
+			bs, _, _ = getter.GetDeploymentYaml(namespace, v.Name, kubeClient)
 		}
-		if len(bs) > 0 {
-			createSvcArgs := &models.Service{
-				ServiceName: v,
-				Yaml:        string(bs),
+
+		if len(bs) == 0 {
+			continue
+		}
+		_, err = CreateServiceTemplate(username, &models.Service{
+			ServiceName: v.Name,
+			Yaml:        string(bs),
+			ProductName: productName,
+			CreateBy:    username,
+			Type:        setting.K8SDeployType,
+		}, nil)
+
+		if err != nil {
+			_, messageMap := e.ErrorMessage(err)
+			if description, ok := messageMap["description"]; ok {
+				return e.ErrLoadServiceTemplate.AddDesc(description.(string))
 			}
-			_, err = CreateServiceTemplate("username", createSvcArgs, nil)
-			if err != nil {
-				_, messageMap := e.ErrorMessage(err)
-				if description, ok := messageMap["description"]; ok {
-					return e.ErrLoadServiceTemplate.AddDesc(description.(string))
-				}
-				return e.ErrLoadServiceTemplate.AddDesc("Load Service Error for unknown reason")
-			}
+			return e.ErrLoadServiceTemplate.AddDesc("Load Service Error for unknown reason")
 		}
 	}
 
 	workLoad, err := commonrepo.NewWorkLoadsStatColl().Find(clusterID, namespace)
 	if err != nil {
-		return err
+		workLoad = &commonmodels.WorkloadStat{
+			ClusterID: clusterID,
+			Namespace: namespace,
+		}
+		commonrepo.NewWorkLoadsStatColl().Create(workLoad)
 	}
 	for _, v := range workLoads {
-		w := models.WorkLoad{
-			OccupyBy: env,
-			Name:     v,
+		w := models.Workload{
+			EnvName: env,
+			Name:    v.Name,
 		}
 		workLoad.Workloads = append(workLoad.Workloads, w)
 	}

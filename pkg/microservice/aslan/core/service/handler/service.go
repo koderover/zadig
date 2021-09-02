@@ -168,7 +168,7 @@ func CreateK8sWorkloads(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid CreateK8sWorkloads args")
 		return
 	}
-	svcservice.CreateK8sWorkLoads(c, ctx.Username, args.WorkLoads, args.ClusterID, args.Namespace, args.EnvName)
+	svcservice.CreateK8sWorkLoads(c, ctx.Username, args.ProductName, args.WorkLoads, args.ClusterID, args.Namespace, args.EnvName)
 }
 
 func ListAvailablePublicServices(c *gin.Context) {

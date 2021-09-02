@@ -18,27 +18,31 @@ package models
 
 import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	corev1 "k8s.io/api/core/v1"
 )
 
-type WorkLoadStat struct {
+type WorkloadStat struct {
 	ID        primitive.ObjectID `bson:"_id,omitempty"         json:"id,omitempty"`
 	ClusterID string             `bson:"cluster_id"            json:"cluster_id"`
 	Namespace string             `bson:"namespace"             json:"namespace"`
-	Workloads []WorkLoad         `bson:"workloads"             json:"workloads"`
+	Workloads []Workload         `bson:"workloads"             json:"workloads"`
 }
 
-type WorkLoad struct {
-	OccupyBy string `bson:"occupy_by"         json:"occupy_by"`
-	Name     string `bson:"name"              json:"name"`
+type Workload struct {
+	EnvName string             `bson:"env_name"         json:"env_name"`
+	Name    string             `bson:"name"              json:"name"`
+	Spec    corev1.ServiceSpec `bson:"-"              json:"-"`
+	Type    string             `bson:"type"              json:"type"`
 }
 
-func (WorkLoadStat) TableName() string {
+func (WorkloadStat) TableName() string {
 	return "workload_stat"
 }
 
 type SaveK8sWorkloadsArgs struct {
-	WorkLoads []string `bson:"workLoads"         json:"workLoads"`
-	EnvName   string   `bson:"env_name"         json:"env_name"`
-	ClusterID string   `bson:"cluster_id"         json:"cluster_id"`
-	Namespace string   `bson:"namespace"         json:"namespace"`
+	WorkLoads   []Workload `bson:"workLoads"         json:"workLoads"`
+	EnvName     string     `bson:"env_name"         json:"env_name"`
+	ClusterID   string     `bson:"cluster_id"         json:"cluster_id"`
+	Namespace   string     `bson:"namespace"         json:"namespace"`
+	ProductName string     `bson:"product_name"         json:"product_name"`
 }
