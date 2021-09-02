@@ -181,7 +181,7 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 	namespace := env.Namespace
 	switch env.Source {
 	case setting.SourceFromExternal, setting.SourceFromHelm:
-
+		var selector labels.Selector
 		k8sServices, _ := getter.ListServices(namespace, nil, kubeClient)
 		switch workLoadType {
 		case "statefulSet":
@@ -191,53 +191,48 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 			}
 			scale := getStatefulSetWorkloadResource(statefulSet, kubeClient, log)
 			ret.Scales = append(ret.Scales, scale)
-			for _, v := range k8sServices {
-				selector := labels.SelectorFromValidatedSet(v.Spec.Selector)
-				statefulSets, _ := getter.ListStatefulSets(namespace, selector, kubeClient)
-				for _, vv := range statefulSets {
-					if vv.Name == statefulSet.Name {
-						ret.Services = append(ret.Services, wrapper.Service(v).Resource())
+			for _, k8sService := range k8sServices {
+				currentSelector := labels.SelectorFromValidatedSet(k8sService.Spec.Selector)
+				statefulSets, _ := getter.ListStatefulSets(namespace, currentSelector, kubeClient)
+				for _, currentStatefulSet := range statefulSets {
+					if currentStatefulSet.Name == statefulSet.Name {
+						ret.Services = append(ret.Services, wrapper.Service(k8sService).Resource())
+						selector = currentSelector
+						break
 					}
-				}
-			}
-			//k8s ingress
-			selector := labels.SelectorFromValidatedSet(statefulSet.Spec.Selector.MatchLabels)
-			if ingresses, err := getter.ListIngresses(namespace, selector, kubeClient); err == nil {
-				log.Infof("namespace:%s , serviceName:%s , selector:%s , len(ingresses):%d", namespace, serviceName, selector, len(ingresses))
-				for _, ing := range ingresses {
-					ret.Ingress = append(ret.Ingress, wrapper.Ingress(ing).Resource())
 				}
 			}
 
 		case "deployment":
-			d, exist, err := getter.GetDeployment(namespace, serviceName, kubeClient)
+			deploy, exist, err := getter.GetDeployment(namespace, serviceName, kubeClient)
 			if !exist || err != nil {
 				return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found", serviceName))
 			}
-			scale := getDeploymentWorkloadResource(d, kubeClient, log)
+			scale := getDeploymentWorkloadResource(deploy, kubeClient, log)
 			ret.Scales = append(ret.Scales, scale)
 			//k8s service
-			for _, v := range k8sServices {
-				selector := labels.SelectorFromValidatedSet(v.Spec.Selector)
-				statefulSets, _ := getter.ListStatefulSets(namespace, selector, kubeClient)
-				for _, vv := range statefulSets {
-					if vv.Name == d.Name {
-						ret.Services = append(ret.Services, wrapper.Service(v).Resource())
+			for _, k8sService := range k8sServices {
+				currentSelector := labels.SelectorFromValidatedSet(k8sService.Spec.Selector)
+				deployments, _ := getter.ListDeployments(namespace, currentSelector, kubeClient)
+				for _, deployment := range deployments {
+					if deployment.Name == deploy.Name {
+						ret.Services = append(ret.Services, wrapper.Service(k8sService).Resource())
+						selector = currentSelector
+						break
 					}
 				}
 			}
-			//k8s ingress
-			selector := labels.SelectorFromValidatedSet(d.Spec.Selector.MatchLabels)
-			if ingresses, err := getter.ListIngresses(namespace, selector, kubeClient); err == nil {
-				log.Infof("namespace:%s , serviceName:%s , selector:%s , len(ingresses):%d", namespace, serviceName, selector, len(ingresses))
-				for _, ing := range ingresses {
-					ret.Ingress = append(ret.Ingress, wrapper.Ingress(ing).Resource())
-				}
-			}
+
 		default:
 			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found", serviceName))
 		}
-
+		//k8s ingress
+		if ingresses, err := getter.ListIngresses(namespace, selector, kubeClient); err == nil {
+			log.Infof("namespace:%s , serviceName:%s , selector:%s , len(ingresses):%d", namespace, serviceName, selector, len(ingresses))
+			for _, ing := range ingresses {
+				ret.Ingress = append(ret.Ingress, wrapper.Ingress(ing).Resource())
+			}
+		}
 	default:
 		var service *commonmodels.ProductService
 		for _, svcArray := range env.Services {

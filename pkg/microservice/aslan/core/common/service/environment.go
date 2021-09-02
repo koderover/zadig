@@ -21,8 +21,6 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
-
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -33,6 +31,7 @@ import (
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
@@ -95,7 +94,26 @@ func ListGroupsBySource(envName, productName string, perPage, page int, log *zap
 		log.Errorf("[%s][%s] error: %v", envName, productName, err)
 		return 0, nil, nil, e.ErrListGroups.AddDesc(err.Error())
 	}
-	return ListK8sWorkLoads(envName, productInfo.ClusterID, productInfo.Namespace, perPage, page, log)
+
+	return ListK8sWorkLoads(envName, productInfo.ClusterID, productInfo.Namespace, perPage, page, log, func(workloads []WorkLoad) []WorkLoad {
+		productServices, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
+		if err != nil {
+			log.Errorf("ListK8sWorkLoads ListMaxRevisionsByProduct err:%s", err)
+			return workloads
+		}
+		currentProductServices := sets.NewString()
+		for _, productService := range productServices {
+			currentProductServices.Insert(productService.ServiceName)
+		}
+
+		var resp []WorkLoad
+		for _, workload := range workloads {
+			if currentProductServices.Has(workload.Name) {
+				resp = append(resp, workload)
+			}
+		}
+		return resp
+	})
 }
 
 type FilterFunc func(services []WorkLoad) []WorkLoad
