@@ -322,6 +322,7 @@ func filterWorkloads(exist []models.Workload, add []models.Workload) []models.Wo
 			result = append(result, vv)
 		}
 	}
+	result = append(result, exist...)
 	return result
 }
 
