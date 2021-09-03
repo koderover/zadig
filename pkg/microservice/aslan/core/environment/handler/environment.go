@@ -394,8 +394,8 @@ func ListK8sWorkLoads(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	namespace := c.Query("namespace")
-	clusterID := c.Query("clusterID")
-
+	clusterID := c.Query("clusterId")
+	workloadName := c.Query("workloadName")
 	perPageStr := c.Query("perPage")
 	pageStr := c.Query("page")
 	var (
@@ -405,7 +405,7 @@ func ListK8sWorkLoads(c *gin.Context) {
 		page    int
 	)
 	if perPageStr == "" || pageStr == "" {
-		perPage = setting.PerPage
+		perPage = 10
 		page = 1
 	} else {
 		page, err = strconv.Atoi(pageStr)
@@ -431,7 +431,17 @@ func ListK8sWorkLoads(c *gin.Context) {
 				workloads[index].EnvName = existWorkload.EnvName
 			}
 		}
-		return workloads
+
+		var resp []*models.Workload
+		for _, workload := range workloads {
+			if workloadName != "" && strings.Contains(workload.Name, workloadName) {
+				resp = append(resp, workload)
+			} else if workloadName == "" {
+				resp = append(resp, workload)
+			}
+		}
+
+		return resp
 	})
 	ctx.Resp = &NamespaceResource{
 		Services: services,
@@ -448,6 +458,7 @@ func ListGroupsBySource(c *gin.Context) {
 	productName := c.Param("productName")
 	perPageStr := c.Query("perPage")
 	pageStr := c.Query("page")
+	workloadName := c.Query("workloadName")
 	var (
 		count   int
 		perPage int
@@ -455,7 +466,7 @@ func ListGroupsBySource(c *gin.Context) {
 		page    int
 	)
 	if perPageStr == "" {
-		perPage = setting.PerPage
+		perPage = 10
 	} else {
 		perPage, err = strconv.Atoi(perPageStr)
 		if err != nil {
@@ -474,7 +485,7 @@ func ListGroupsBySource(c *gin.Context) {
 		}
 	}
 
-	count, services, ingresses, err := commonservice.ListGroupsBySource(envName, productName, perPage, page, ctx.Logger)
+	count, services, ingresses, err := commonservice.ListGroupsBySource(envName, productName, workloadName, perPage, page, ctx.Logger)
 	ctx.Resp = &NamespaceResource{
 		Services:  services,
 		Ingresses: ingresses,
