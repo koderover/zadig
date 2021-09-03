@@ -18,18 +18,18 @@ package aslan
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
-func (c *Client) GetContainerLog(envName, projectName, container, pod string, tails int) (string, error) {
-	url := fmt.Sprintf("/logs/log/pods/%s/containers/%s", pod, container)
+func (c *Client) GetContainerLog(envName, projectName, container, pod string, tailLines int64) (string, error) {
+	url := fmt.Sprintf("/logs/pods/%s", pod)
 
 	req := map[string]string{
 		"productName": projectName,
 		"envName":     envName,
-		"tails":       strconv.Itoa(tails),
+		"container":   container,
+		"tailLines":   fmt.Sprintf("%d", tailLines),
 	}
 
 	response, err := c.Get(url, httpclient.SetQueryParams(req))

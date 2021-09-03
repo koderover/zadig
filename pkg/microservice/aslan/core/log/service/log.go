@@ -121,7 +121,7 @@ func getContainerLogFromS3(pipelineName, filenamePrefix string, taskID int64, lo
 	return string(containerLog), nil
 }
 
-func GetCurrentContainerLogs(podName, containerName, envName, productName string, tail int64, log *zap.SugaredLogger) (string, error) {
+func GetCurrentContainerLogs(podName, containerName, envName, productName string, tailLines int64, log *zap.SugaredLogger) (string, error) {
 	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName})
 	if err != nil {
 		log.Errorf("Failed to find env %s in project %s, err: %s", envName, productName, err)
@@ -134,7 +134,7 @@ func GetCurrentContainerLogs(podName, containerName, envName, productName string
 	}
 
 	buf := new(bytes.Buffer)
-	err = containerlog.GetContainerLogs(env.Namespace, podName, containerName, false, tail, buf, clientset)
+	err = containerlog.GetContainerLogs(env.Namespace, podName, containerName, false, tailLines, buf, clientset)
 	if err != nil {
 		log.Errorf("Failed to get container logs, err: %s", err)
 		return "", err
