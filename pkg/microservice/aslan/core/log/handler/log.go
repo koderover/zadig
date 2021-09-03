@@ -90,15 +90,15 @@ func GetContainerLogs(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	podName := c.Param("podName")
-	containerName := c.Param("containerName")
+	podName := c.Param("name")
+	containerName := c.Query("container")
 	envName := c.Query("envName")
 	productName := c.Query("productName")
 
-	tails, err := strconv.ParseInt(c.Query("tails"), 10, 64)
+	tailLines, err := strconv.ParseInt(c.Query("tailLines"), 10, 64)
 	if err != nil {
-		tails = int64(10)
+		tailLines = int64(-1)
 	}
 
-	ctx.Resp, ctx.Err = logservice.GetCurrentContainerLogs(podName, containerName, envName, productName, tails, ctx.Logger)
+	ctx.Resp, ctx.Err = logservice.GetCurrentContainerLogs(podName, containerName, envName, productName, tailLines, ctx.Logger)
 }
