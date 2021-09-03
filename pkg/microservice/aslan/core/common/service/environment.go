@@ -99,8 +99,9 @@ func ListGroupsBySource(envName, productName string, perPage, page int, log *zap
 		log.Errorf("[%s][%s] error: %v", envName, productName, err)
 		return 0, nil, nil, e.ErrListGroups.AddDesc(err.Error())
 	}
+
 	if projectInfo.ProductFeature != nil && projectInfo.ProductFeature.CreateEnvType == setting.SourceFromExternal {
-		return ListK8sWorkLoads(envName, productInfo.ClusterID, productInfo.Namespace, perPage, page, log, func(workloads []WorkLoad) []WorkLoad {
+		return ListK8sWorkLoads(envName, productInfo.ClusterID, productInfo.Namespace, perPage, page, log, func(workloads []*models.Workload) []*models.Workload {
 			productServices, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
 			if err != nil {
 				log.Errorf("ListK8sWorkLoads ListMaxRevisionsByProduct err:%s", err)
@@ -111,7 +112,7 @@ func ListGroupsBySource(envName, productName string, perPage, page int, log *zap
 				currentProductServices.Insert(productService.ServiceName)
 			}
 
-			var resp []WorkLoad
+			var resp []*models.Workload
 			for _, workload := range workloads {
 				if currentProductServices.Has(workload.Name) {
 					resp = append(resp, workload)
@@ -124,14 +125,7 @@ func ListGroupsBySource(envName, productName string, perPage, page int, log *zap
 
 }
 
-type FilterFunc func(services []WorkLoad) []WorkLoad
-
-type WorkLoad struct {
-	Name         string
-	Spec         corev1.ServiceSpec
-	WorkLoadType string
-	OccupyBy     string
-}
+type FilterFunc func(services []*models.Workload) []*models.Workload
 
 func ListK8sWorkLoads(envName, clusterID, namespace string, perPage, page int, log *zap.SugaredLogger, filter ...FilterFunc) (int, []*ServiceResp, []resource.Ingress, error) {
 	var (
@@ -147,14 +141,14 @@ func ListK8sWorkLoads(envName, clusterID, namespace string, perPage, page int, l
 		return 0, resp, ingressList, e.ErrListGroups.AddDesc(err.Error())
 	}
 
-	var workLoads []WorkLoad
+	var workLoads []*models.Workload
 	listDeployments, err := getter.ListDeployments(namespace, nil, kubeClient)
 	if err != nil {
 		log.Errorf("[%s][%s] create product record error: %v", envName, namespace, err)
 		return 0, resp, ingressList, e.ErrListGroups.AddDesc(err.Error())
 	}
 	for _, v := range listDeployments {
-		workLoads = append(workLoads, WorkLoad{Name: v.Name, Spec: corev1.ServiceSpec{Selector: v.Spec.Selector.MatchLabels}, WorkLoadType: "deployment"})
+		workLoads = append(workLoads, &models.Workload{Name: v.Name, Spec: corev1.ServiceSpec{Selector: v.Spec.Selector.MatchLabels}, Type: setting.Deployment})
 	}
 
 	statefulSets, err := getter.ListStatefulSets(namespace, nil, kubeClient)
@@ -163,7 +157,7 @@ func ListK8sWorkLoads(envName, clusterID, namespace string, perPage, page int, l
 		return 0, resp, ingressList, e.ErrListGroups.AddDesc(err.Error())
 	}
 	for _, v := range statefulSets {
-		workLoads = append(workLoads, WorkLoad{Name: v.Name, Spec: corev1.ServiceSpec{Selector: v.Spec.Selector.MatchLabels}, WorkLoadType: "statefulSet"})
+		workLoads = append(workLoads, &models.Workload{Name: v.Name, Spec: corev1.ServiceSpec{Selector: v.Spec.Selector.MatchLabels}, Type: setting.StatefulSet})
 	}
 	// 对于workload过滤
 	if len(filter) > 0 {
@@ -186,24 +180,23 @@ func ListK8sWorkLoads(envName, clusterID, namespace string, perPage, page int, l
 		}
 	}
 
-	for _, service := range workLoads {
+	for _, workload := range workLoads {
 		wg.Add(1)
 
-		go func(service WorkLoad) {
+		go func(workload *models.Workload) {
 			defer func() {
 				wg.Done()
 			}()
 
 			productRespInfo := &ServiceResp{
-				ServiceName:  service.Name,
+				ServiceName:  workload.Name,
 				EnvName:      envName,
-				ProductName:  "",
 				Type:         setting.K8SDeployType,
-				WorkLoadType: service.WorkLoadType,
-				OccupyBy:     service.OccupyBy,
+				WorkLoadType: workload.Type,
+				OccupyBy:     workload.EnvName,
 			}
 
-			selector := labels.SelectorFromValidatedSet(service.Spec.Selector)
+			selector := labels.SelectorFromValidatedSet(workload.Spec.Selector)
 			productRespInfo.Status, productRespInfo.Ready, productRespInfo.Images = queryExternalPodsStatus(namespace, selector, kubeClient, log)
 
 			if ingresses, err := getter.ListIngresses(namespace, selector, kubeClient); err == nil {
@@ -218,7 +211,7 @@ func ListK8sWorkLoads(envName, clusterID, namespace string, perPage, page int, l
 			}
 
 			resp = append(resp, productRespInfo)
-		}(service)
+		}(workload)
 
 	}
 	// 等所有的状态都结束

@@ -26,8 +26,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/poetry"
@@ -133,6 +135,25 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 		if err != nil {
 			log.Errorf("DeleteEnvRole error: %v", err)
 		}
+
+		// 删除workload数据
+		tempProduct, err := template.NewProductColl().Find(productName)
+		if err != nil {
+			log.Errorf("project not found error:%s", err)
+		}
+		if tempProduct.ProductFeature.CreateEnvType == setting.SourceFromExternal {
+			workloadStat, err := mongodb.NewWorkLoadsStatColl().Find(productInfo.ClusterID, productInfo.Namespace)
+			if err != nil {
+				log.Errorf("workflowStat not found error:%s", err)
+			}
+			if workloadStat != nil {
+				workloadStat.Workloads = deleteWorkloadsByEnv(workloadStat.Workloads, productInfo.EnvName)
+				if err := mongodb.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat); err != nil {
+					log.Errorf("update workloads fail error:%s", err)
+				}
+			}
+		}
+
 	default:
 		go func() {
 			var err error
@@ -187,8 +208,17 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 			}
 		}()
 	}
-
 	return nil
+}
+
+func deleteWorkloadsByEnv(exist []models.Workload, env string) []models.Workload {
+	result := make([]models.Workload, 0)
+	for _, v := range exist {
+		if v.EnvName != env {
+			result = append(result, v)
+		}
+	}
+	return result
 }
 
 func DeleteClusterResourceAsync(selector labels.Selector, kubeClient client.Client, log *zap.SugaredLogger) error {

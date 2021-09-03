@@ -255,50 +255,78 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 	return serviceOption, nil
 }
 
-func CreateK8sWorkLoads(ctx context.Context, username string, workLoads []string, clusterID, namespace string, env string) error {
-	// TODO mouuii 调用保存yaml的接口
+func CreateK8sWorkLoads(ctx context.Context, username string, productName string, workLoads []models.Workload, clusterID, namespace string, env string, log *zap.SugaredLogger) error {
 	kubeClient, err := kube.GetKubeClient(clusterID)
 	if err != nil {
 		log.Errorf("[%s] error: %v", namespace, err)
 		return err
 	}
+	var workloadsTmp []models.Workload
 	for _, v := range workLoads {
 		var bs []byte
-		bs, found, err := getter.GetDeploymentYaml(namespace, v, kubeClient)
-		if !found || err != nil {
-			bs, found, err = getter.GetDeploymentYaml(namespace, v, kubeClient)
-			if err != nil || !found {
-				continue
-			}
+		switch v.Type {
+		case setting.Deployment:
+			bs, _, err = getter.GetDeploymentYaml(namespace, v.Name, kubeClient)
+		case setting.StatefulSet:
+			bs, _, err = getter.GetDeploymentYaml(namespace, v.Name, kubeClient)
 		}
-		if len(bs) > 0 {
-			createSvcArgs := &models.Service{
-				ServiceName: v,
-				Yaml:        string(bs),
+
+		if len(bs) == 0 || err != nil {
+			log.Errorf("not found yaml %v", err)
+			continue
+		}
+		workloadsTmp = append(workloadsTmp, models.Workload{
+			EnvName: env,
+			Name:    v.Name,
+		})
+		_, err = CreateServiceTemplate(username, &models.Service{
+			ServiceName:  v.Name,
+			Yaml:         string(bs),
+			ProductName:  productName,
+			CreateBy:     username,
+			Type:         setting.K8SDeployType,
+			WorkloadType: v.Type,
+			Source:       setting.SourceFromExternal,
+		}, log)
+
+		if err != nil {
+			_, messageMap := e.ErrorMessage(err)
+			if description, ok := messageMap["description"]; ok {
+				return e.ErrLoadServiceTemplate.AddDesc(description.(string))
 			}
-			_, err = CreateServiceTemplate("username", createSvcArgs, nil)
-			if err != nil {
-				_, messageMap := e.ErrorMessage(err)
-				if description, ok := messageMap["description"]; ok {
-					return e.ErrLoadServiceTemplate.AddDesc(description.(string))
-				}
-				return e.ErrLoadServiceTemplate.AddDesc("Load Service Error for unknown reason")
-			}
+			return e.ErrLoadServiceTemplate.AddDesc("Load Service Error for unknown reason")
 		}
 	}
 
-	workLoad, err := commonrepo.NewWorkLoadsStatColl().Find(clusterID, namespace)
+	workLoadStat, err := commonrepo.NewWorkLoadsStatColl().Find(clusterID, namespace)
 	if err != nil {
-		return err
-	}
-	for _, v := range workLoads {
-		w := models.WorkLoad{
-			OccupyBy: env,
-			Name:     v,
+		workLoadStat = &commonmodels.WorkloadStat{
+			ClusterID: clusterID,
+			Namespace: namespace,
+			Workloads: workloadsTmp,
 		}
-		workLoad.Workloads = append(workLoad.Workloads, w)
+		return commonrepo.NewWorkLoadsStatColl().Create(workLoadStat)
 	}
-	return commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workLoad)
+
+	workLoadStat.Workloads = filterWorkloads(workLoadStat.Workloads, workloadsTmp)
+	return commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workLoadStat)
+}
+
+func filterWorkloads(existWorkloads []models.Workload, newWorkloads []models.Workload) []models.Workload {
+	var result []models.Workload
+	workloadMap := map[string]models.Workload{}
+	for _, workload := range existWorkloads {
+		workloadMap[workload.Name] = workload
+		result = append(result, workload)
+	}
+
+	for _, newWorkload := range newWorkloads {
+		if _, ok := workloadMap[newWorkload.Name]; !ok {
+			result = append(result, newWorkload)
+		}
+	}
+
+	return result
 }
 
 func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap.SugaredLogger) (*ServiceOption, error) {
@@ -406,8 +434,9 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap
 			}
 		}
 	}
-
-	commonservice.ProcessServiceWebhook(args, serviceTmpl, args.ServiceName, log)
+	if args.Source != setting.SourceFromExternal {
+		commonservice.ProcessServiceWebhook(args, serviceTmpl, args.ServiceName, log)
+	}
 
 	return GetServiceOption(args, log)
 }

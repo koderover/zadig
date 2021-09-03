@@ -58,6 +58,7 @@ type Service struct {
 	LoadPath         string           `bson:"load_path"                      json:"load_path"`
 	LoadFromDir      bool             `bson:"is_dir"                         json:"is_dir"`
 	HealthChecks     []*PmHealthCheck `bson:"health_checks,omitempty"        json:"health_checks,omitempty"`
+	WorkloadType     string           `bson:"workload_type,omitempty"        json:"workload_type,omitempty"`
 }
 
 type GUIConfig struct {

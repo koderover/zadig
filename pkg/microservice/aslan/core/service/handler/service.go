@@ -162,13 +162,13 @@ func ListServicePort(c *gin.Context) {
 func CreateK8sWorkloads(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	args := new(commonmodels.SaveK8sWorkloadsArgs)
+	args := new(commonmodels.K8sWorkloadsArgs)
 	err := c.BindJSON(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid CreateK8sWorkloads args")
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid K8sWorkloadsArgs args")
 		return
 	}
-	svcservice.CreateK8sWorkLoads(c, ctx.Username, args.WorkLoads, args.ClusterID, args.Namespace, args.EnvName)
+	svcservice.CreateK8sWorkLoads(c, ctx.Username, args.ProductName, args.WorkLoads, args.ClusterID, args.Namespace, args.EnvName, ctx.Logger)
 }
 
 func ListAvailablePublicServices(c *gin.Context) {
