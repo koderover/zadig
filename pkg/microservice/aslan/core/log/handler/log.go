@@ -17,6 +17,7 @@ limitations under the License.
 package handler
 
 import (
+	"context"
 	"strconv"
 	"strings"
 
@@ -100,5 +101,17 @@ func GetContainerLogs(c *gin.Context) {
 		tailLines = int64(-1)
 	}
 
-	ctx.Resp, ctx.Err = logservice.GetCurrentContainerLogs(podName, containerName, envName, productName, tailLines, ctx.Logger)
+	follow, err := strconv.ParseBool(c.Query("follow"))
+	if err != nil {
+		follow = false
+	}
+
+	if !follow {
+		ctx.Resp, ctx.Err = logservice.GetCurrentContainerLogs(podName, containerName, envName, productName, tailLines, ctx.Logger)
+		return
+	}
+
+	internalhandler.Stream(c, func(ctx1 context.Context, streamChan chan interface{}) {
+		logservice.ContainerLogStream(ctx1, streamChan, envName, productName, podName, containerName, follow, tailLines, ctx.Logger)
+	}, ctx.Logger)
 }
