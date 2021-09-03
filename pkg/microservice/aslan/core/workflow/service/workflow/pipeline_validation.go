@@ -657,8 +657,8 @@ func (c *ImageIllegal) Error() string {
 func validateServiceContainer2(namespace, envName, productName, serviceName, container, source string, kubeClient client.Client) (string, error) {
 	var selector labels.Selector
 
-	//helm类型的服务查询所有标签的pod
-	if source != setting.SourceFromHelm {
+	//helm和托管类型的服务查询所有标签的pod
+	if source != setting.SourceFromHelm && source != setting.SourceFromExternal {
 		selector = labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceName}.AsSelector()
 		//builder := &SelectorBuilder{ProductName: productName, ServiceName: serviceName}
 		//selector = builder.BuildSelector()
