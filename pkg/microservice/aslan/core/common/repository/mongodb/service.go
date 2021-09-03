@@ -273,9 +273,9 @@ func (c *ServiceColl) Update(args *models.Service) error {
 	return err
 }
 
-func (c *ServiceColl) UpdateStatus(serviceName, productName, status string, externalEnv string) error {
+func (c *ServiceColl) UpdateStatus(serviceName, productName, status, externalEnv string) error {
 	if serviceName == "" && externalEnv == "" {
-		return fmt.Errorf("serviceName externalEnv can't both be empty")
+		return fmt.Errorf("serviceName and externalEnv can't  be both empty")
 	}
 	if productName == "" {
 		return fmt.Errorf("productName is empty")
