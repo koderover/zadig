@@ -21,7 +21,6 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/mongodb"
-	aslanclient "github.com/koderover/zadig/pkg/shared/client/aslan"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
@@ -50,14 +49,18 @@ func FindOperation(args *OperationLogArgs, log *zap.SugaredLogger) ([]*models.Op
 	return resp, count, err
 }
 
-func InsertOperation(args *models.OperationLog, log *zap.SugaredLogger) (*aslanclient.AddAuditLogResp, error) {
+type AddAuditLogResp struct {
+	OperationLogID string `json:"id"`
+}
+
+func InsertOperation(args *models.OperationLog, log *zap.SugaredLogger) (*AddAuditLogResp, error) {
 	err := mongodb.NewOperationLogColl().Insert(args)
 	if err != nil {
 		log.Errorf("insert operation log error: %v", err)
 		return nil, e.ErrCreateOperationLog
 	}
 
-	return &aslanclient.AddAuditLogResp{
+	return &AddAuditLogResp{
 		OperationLogID: args.ID.Hex(),
 	}, nil
 }
