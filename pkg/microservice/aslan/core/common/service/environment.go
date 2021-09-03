@@ -195,10 +195,10 @@ func ListK8sWorkLoads(envName, clusterID, namespace string, perPage, page int, l
 
 			productRespInfo := &ServiceResp{
 				ServiceName:  workload.Name,
-				EnvName:      envName,
+				EnvName:      workload.EnvName,
 				Type:         setting.K8SDeployType,
 				WorkLoadType: workload.Type,
-				OccupyBy:     workload.EnvName,
+				ProductName:  workload.ProductName,
 			}
 
 			selector := labels.SelectorFromValidatedSet(workload.Spec.Selector)

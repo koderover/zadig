@@ -273,15 +273,18 @@ func (c *ServiceColl) Update(args *models.Service) error {
 	return err
 }
 
-func (c *ServiceColl) UpdateStatus(serviceName, productName, status string) error {
-	if serviceName == "" {
-		return fmt.Errorf("serviceName is empty")
+func (c *ServiceColl) UpdateStatus(serviceName, productName, status, externalEnv string) error {
+	if serviceName == "" && externalEnv == "" {
+		return fmt.Errorf("serviceName and externalEnv can't  be both empty")
 	}
 	if productName == "" {
 		return fmt.Errorf("productName is empty")
 	}
 
 	query := bson.M{"service_name": serviceName, "product_name": productName}
+	if externalEnv != "" {
+		query["external_env"] = externalEnv
+	}
 	change := bson.M{"$set": bson.M{
 		"status": status,
 	}}
