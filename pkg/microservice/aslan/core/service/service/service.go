@@ -305,15 +305,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 		}(workload)
 	}
 	wg.Wait()
-	workLoadStat, err := commonrepo.NewWorkLoadsStatColl().Find(clusterID, namespace)
-	if err != nil {
-		workLoadStat = &commonmodels.WorkloadStat{
-			ClusterID: clusterID,
-			Namespace: namespace,
-			Workloads: workloadsTmp,
-		}
-		return commonrepo.NewWorkLoadsStatColl().Create(workLoadStat)
-	}
+
 	// 没有环境，创建环境
 	if _, err = commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    productName,
@@ -328,6 +320,16 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 		}, log); err != nil {
 			return e.ErrCreateProduct.AddDesc("create product Error for unknown reason")
 		}
+	}
+
+	workLoadStat, err := commonrepo.NewWorkLoadsStatColl().Find(clusterID, namespace)
+	if err != nil {
+		workLoadStat = &commonmodels.WorkloadStat{
+			ClusterID: clusterID,
+			Namespace: namespace,
+			Workloads: workloadsTmp,
+		}
+		return commonrepo.NewWorkLoadsStatColl().Create(workLoadStat)
 	}
 
 	workLoadStat.Workloads = replaceWorkloads(workLoadStat.Workloads, workloadsTmp, envName)
