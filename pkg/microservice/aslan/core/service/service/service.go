@@ -291,6 +291,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 			Type:         setting.K8SDeployType,
 			WorkloadType: v.Type,
 			Source:       setting.SourceFromExternal,
+			ExternalEnv:  envName,
 		}, log)
 
 		if err != nil {
@@ -455,9 +456,7 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap
 			}
 		}
 	}
-	if args.Source != setting.SourceFromExternal {
-		commonservice.ProcessServiceWebhook(args, serviceTmpl, args.ServiceName, log)
-	}
+	commonservice.ProcessServiceWebhook(args, serviceTmpl, args.ServiceName, log)
 
 	return GetServiceOption(args, log)
 }
@@ -652,7 +651,7 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 		}
 	}
 
-	err := commonrepo.NewServiceColl().UpdateStatus(serviceName, productName, setting.ProductStatusDeleting)
+	err := commonrepo.NewServiceColl().UpdateStatus(serviceName, productName, setting.ProductStatusDeleting, "")
 	if err != nil {
 		errMsg := fmt.Sprintf("[service.UpdateStatus] %s-%s error: %v", serviceName, serviceType, err)
 		log.Error(errMsg)

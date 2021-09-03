@@ -29,6 +29,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
@@ -153,7 +154,11 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 				}
 			}
 		}
-
+		// 删除所有external的服务
+		err = commonrepo.NewServiceColl().UpdateStatus("", productName, setting.ProductStatusDeleting, envName)
+		if err != nil {
+			log.Errorf("UpdateStatus  external services error:%s", err)
+		}
 	default:
 		go func() {
 			var err error
