@@ -832,8 +832,8 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 		if args.Containers == nil {
 			args.Containers = make([]*commonmodels.Container, 0)
 		}
-		// 配置来源为Gitlab，需要从Gitlab同步配置，并设置KubeYamls.
-		if args.Source == setting.SourceFromGerrit || args.Source == setting.SourceFromZadig {
+		// Only the gerrit/spock/external type needs to be processed by yaml
+		if args.Source == setting.SourceFromGerrit || args.Source == setting.SourceFromZadig || args.Source == setting.SourceFromExternal {
 			// 拆分 all-in-one yaml文件
 			// 替换分隔符
 			args.Yaml = util.ReplaceWrapLine(args.Yaml)
