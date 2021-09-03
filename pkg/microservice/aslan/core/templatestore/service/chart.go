@@ -53,7 +53,15 @@ func GetChartTemplate(name string, logger *zap.SugaredLogger) (*Chart, error) {
 		return nil, err
 	}
 
-	return &Chart{Name: name, Files: fis}, nil
+	return &Chart{
+		Name:       name,
+		CodehostID: chart.CodeHostID,
+		Owner:      chart.Owner,
+		Repo:       chart.Repo,
+		Path:       chart.Path,
+		Branch:     chart.Branch,
+		Files:      fis,
+	}, nil
 }
 
 func ListChartTemplates(logger *zap.SugaredLogger) ([]*Chart, error) {
@@ -66,7 +74,12 @@ func ListChartTemplates(logger *zap.SugaredLogger) ([]*Chart, error) {
 	res := make([]*Chart, 0, len(cs))
 	for _, c := range cs {
 		res = append(res, &Chart{
-			Name: c.Name,
+			Name:       c.Name,
+			CodehostID: c.CodeHostID,
+			Owner:      c.Owner,
+			Repo:       c.Repo,
+			Path:       c.Path,
+			Branch:     c.Branch,
 		})
 	}
 

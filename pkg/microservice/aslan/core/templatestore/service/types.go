@@ -19,6 +19,12 @@ package service
 import "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 
 type Chart struct {
-	Name  string         `json:"name"`
+	Name       string `json:"name"`
+	CodehostID int    `json:"codehostID"`
+	Owner      string `json:"owner"`
+	Repo       string `json:"repo"`
+	Branch     string `json:"branch"`
+	Path       string `json:"path"`
+
 	Files []*fs.FileInfo `json:"files,omitempty"`
 }
