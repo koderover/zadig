@@ -18,6 +18,7 @@ package service
 
 import (
 	"sort"
+	"strings"
 	"sync"
 
 	"go.uber.org/zap"
@@ -85,7 +86,7 @@ type IngressInfo struct {
 	HostInfo []resource.HostInfo `json:"host_info"`
 }
 
-func ListGroupsBySource(envName, productName string, perPage, page int, log *zap.SugaredLogger) (int, []*ServiceResp, []resource.Ingress, error) {
+func ListGroupsBySource(envName, productName, workloadName string, perPage, page int, log *zap.SugaredLogger) (int, []*ServiceResp, []resource.Ingress, error) {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	productInfo, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
@@ -109,7 +110,11 @@ func ListGroupsBySource(envName, productName string, perPage, page int, log *zap
 			}
 			currentProductServices := sets.NewString()
 			for _, productService := range productServices {
-				currentProductServices.Insert(productService.ServiceName)
+				if workloadName != "" && strings.Contains(productService.ServiceName, workloadName) {
+					currentProductServices.Insert(productService.ServiceName)
+				} else if workloadName == "" {
+					currentProductServices.Insert(productService.ServiceName)
+				}
 			}
 
 			var resp []*models.Workload
