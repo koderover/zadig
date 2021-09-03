@@ -109,7 +109,7 @@ type ProductFeature struct {
 	TechArch string `bson:"tech_arch"                      json:"tech_arch"`
 	// 开发习惯，interface_mode 或者 yaml
 	DevelopHabit string `bson:"develop_habit"              json:"develop_habit"`
-	// 创建环境方式,integration 或者 hosting
+	// 创建环境方式,system/external(系统创建/外部环境)
 	CreateEnvType string `bson:"create_env_type"           json:"create_env_type"`
 }
 
