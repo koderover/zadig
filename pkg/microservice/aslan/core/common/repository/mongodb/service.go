@@ -156,11 +156,15 @@ func (c *ServiceColl) ListMaxRevisionsForServices(services []*templatemodels.Ser
 	return c.listMaxRevisions(pre, post)
 }
 
-func (c *ServiceColl) ListMaxRevisionsByProduct(productName string) ([]*models.Service, error) {
-	return c.listMaxRevisions(bson.M{
+func (c *ServiceColl) ListMaxRevisionsByProduct(productName string, envName ...string) ([]*models.Service, error) {
+	m := bson.M{
 		"product_name": productName,
 		"status":       bson.M{"$ne": setting.ProductStatusDeleting},
-	}, nil)
+	}
+	if len(envName) > 0 {
+		m["external_env"] = envName[0]
+	}
+	return c.listMaxRevisions(m, nil)
 }
 
 // Find 根据service_name和type查询特定版本的配置模板

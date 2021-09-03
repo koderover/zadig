@@ -28,6 +28,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -264,45 +265,46 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 	}
 	// todo Add data filter
 	var workloadsTmp []models.Workload
-	for _, v := range workLoads {
-		var bs []byte
-		switch v.Type {
-		case setting.Deployment:
-			bs, _, err = getter.GetDeploymentYaml(namespace, v.Name, kubeClient)
-		case setting.StatefulSet:
-			bs, _, err = getter.GetDeploymentYaml(namespace, v.Name, kubeClient)
-		}
+	var wg sync.WaitGroup
+	for _, workload := range workLoads {
+		wg.Add(1)
 
-		if len(bs) == 0 || err != nil {
-			log.Errorf("not found yaml %v", err)
-			continue
-		}
-		workloadsTmp = append(workloadsTmp, models.Workload{
-			EnvName:     envName,
-			Name:        v.Name,
-			Type:        v.Type,
-			ProductName: productName,
-		})
-		_, err = CreateServiceTemplate(username, &models.Service{
-			ServiceName:  v.Name,
-			Yaml:         string(bs),
-			ProductName:  productName,
-			CreateBy:     username,
-			Type:         setting.K8SDeployType,
-			WorkloadType: v.Type,
-			Source:       setting.SourceFromExternal,
-			ExternalEnv:  envName,
-		}, log)
-
-		if err != nil {
-			_, messageMap := e.ErrorMessage(err)
-			if description, ok := messageMap["description"]; ok {
-				return e.ErrLoadServiceTemplate.AddDesc(description.(string))
+		go func(tempWorkload models.Workload) {
+			defer wg.Done()
+			var bs []byte
+			switch tempWorkload.Type {
+			case setting.Deployment:
+				bs, _, err = getter.GetDeploymentYaml(namespace, tempWorkload.Name, kubeClient)
+			case setting.StatefulSet:
+				bs, _, err = getter.GetDeploymentYaml(namespace, tempWorkload.Name, kubeClient)
 			}
-			return e.ErrLoadServiceTemplate.AddDesc("Load Service Error for unknown reason")
-		}
-	}
 
+			if len(bs) == 0 || err != nil {
+				log.Errorf("not found yaml %v", err)
+				return
+			}
+			workloadsTmp = append(workloadsTmp, models.Workload{
+				EnvName:     envName,
+				Name:        tempWorkload.Name,
+				Type:        tempWorkload.Type,
+				ProductName: productName,
+			})
+			if _, err = CreateServiceTemplate(username, &models.Service{
+				ServiceName:  tempWorkload.Name,
+				Yaml:         string(bs),
+				ProductName:  productName,
+				CreateBy:     username,
+				Type:         setting.K8SDeployType,
+				WorkloadType: tempWorkload.Type,
+				Source:       setting.SourceFromExternal,
+				ExternalEnv:  envName,
+			}, log); err != nil {
+				log.Errorf("create service template failed err:%v", err)
+				return
+			}
+		}(workload)
+	}
+	wg.Wait()
 	workLoadStat, err := commonrepo.NewWorkLoadsStatColl().Find(clusterID, namespace)
 	if err != nil {
 		workLoadStat = &commonmodels.WorkloadStat{
