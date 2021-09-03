@@ -103,7 +103,7 @@ func ListGroupsBySource(envName, productName, workloadName string, perPage, page
 
 	if projectInfo.ProductFeature != nil && projectInfo.ProductFeature.CreateEnvType == setting.SourceFromExternal {
 		return ListK8sWorkLoads(envName, productInfo.ClusterID, productInfo.Namespace, perPage, page, log, func(workloads []*models.Workload) []*models.Workload {
-			productServices, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
+			productServices, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName, envName)
 			if err != nil {
 				log.Errorf("ListK8sWorkLoads ListMaxRevisionsByProduct err:%s", err)
 				return workloads
