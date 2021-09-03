@@ -57,8 +57,9 @@ func InsertOperation(args *models.OperationLog, log *zap.SugaredLogger) (*aslanc
 		return nil, e.ErrCreateOperationLog
 	}
 
-	resp := &aslanclient.AddAuditLogResp{OperationLogID: args.ID.Hex()}
-	return resp, nil
+	return &aslanclient.AddAuditLogResp{
+		OperationLogID: args.ID.Hex(),
+	}, nil
 }
 
 func UpdateOperation(id string, status int, log *zap.SugaredLogger) error {
