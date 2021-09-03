@@ -29,6 +29,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
+
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
@@ -255,12 +257,28 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 	return serviceOption, nil
 }
 
-func CreateK8sWorkLoads(ctx context.Context, username string, productName string, workLoads []models.Workload, clusterID, namespace string, env string, log *zap.SugaredLogger) error {
+func CreateK8sWorkLoads(ctx context.Context, requestID, username string, productName string, workLoads []models.Workload, clusterID, namespace string, env string, log *zap.SugaredLogger) error {
 	kubeClient, err := kube.GetKubeClient(clusterID)
 	if err != nil {
 		log.Errorf("[%s] error: %v", namespace, err)
 		return err
 	}
+	// 过滤已经被引用的workloads
+	services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct("")
+	if err != nil {
+		return err
+	}
+	serviceM := sets.NewString()
+	for _, v := range services {
+		serviceM.Insert(v.ServiceName)
+	}
+	temp := workLoads[:0]
+	for _, x := range workLoads {
+		if serviceM.Has(x.Name) {
+			temp = append(temp, x)
+		}
+	}
+	workLoads = temp
 	var workloadsTmp []models.Workload
 	for _, v := range workLoads {
 		var bs []byte
@@ -276,8 +294,10 @@ func CreateK8sWorkLoads(ctx context.Context, username string, productName string
 			continue
 		}
 		workloadsTmp = append(workloadsTmp, models.Workload{
-			EnvName: env,
-			Name:    v.Name,
+			EnvName:     env,
+			Name:        v.Name,
+			Type:        v.Type,
+			ProductName: productName,
 		})
 		_, err = CreateServiceTemplate(username, &models.Service{
 			ServiceName:  v.Name,
@@ -307,17 +327,35 @@ func CreateK8sWorkLoads(ctx context.Context, username string, productName string
 		}
 		return commonrepo.NewWorkLoadsStatColl().Create(workLoadStat)
 	}
+	// 没有环境，创建环境
+	_, err = commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: env,
+	})
+	if err != nil {
+		if err := service.CreateProduct(username, requestID, &commonmodels.Product{
+			ProductName: productName,
+			Source:      setting.SourceFromExternal,
+			ClusterID:   clusterID,
+			EnvName:     env,
+			Namespace:   namespace,
+		}, log); err != nil {
+			return e.ErrCreateProduct.AddDesc("create product Error for unknown reason")
+		}
+	}
 
-	workLoadStat.Workloads = filterWorkloads(workLoadStat.Workloads, workloadsTmp)
+	workLoadStat.Workloads = replaceWorkloads(workLoadStat.Workloads, workloadsTmp, env)
 	return commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workLoadStat)
 }
 
-func filterWorkloads(existWorkloads []models.Workload, newWorkloads []models.Workload) []models.Workload {
+func replaceWorkloads(existWorkloads []models.Workload, newWorkloads []models.Workload, env string) []models.Workload {
 	var result []models.Workload
 	workloadMap := map[string]models.Workload{}
 	for _, workload := range existWorkloads {
-		workloadMap[workload.Name] = workload
-		result = append(result, workload)
+		if workload.EnvName != env {
+			workloadMap[workload.Name] = workload
+			result = append(result, workload)
+		}
 	}
 
 	for _, newWorkload := range newWorkloads {
