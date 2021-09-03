@@ -285,7 +285,10 @@ func (c *ServiceColl) UpdateStatus(serviceName, productName, status, externalEnv
 		return fmt.Errorf("productName is empty")
 	}
 
-	query := bson.M{"service_name": serviceName, "product_name": productName}
+	query := bson.M{"product_name": productName}
+	if serviceName != "" {
+		query["service_name"] = serviceName
+	}
 	if externalEnv != "" {
 		query["external_env"] = externalEnv
 	}
