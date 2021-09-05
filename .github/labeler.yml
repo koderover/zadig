@@ -3,19 +3,19 @@ service/aslan:
 - pkg/microservice/aslan/**/*.go
 
 service/cron:
-- pkg/microservice/cron/*
+- pkg/microservice/cron/**/*.go
 
 service/podexec:
-- pkg/microservice/podexec/*
+- pkg/microservice/podexec/**/*.go
 
 service/predator:
-- pkg/microservice/predator/*
+- pkg/microservice/predator/**/*.go
 
 service/reaper:
-- pkg/microservice/reaper/*
+- pkg/microservice/reaper/**/*.go
 
 service/warpdrive:
-- pkg/microservice/warpdrive/*
+- pkg/microservice/warpdrive/**/*.go
 
 service/hubserver:
-- pkg/microservice/hubserver/*
+- pkg/microservice/hubserver/**/*.go
