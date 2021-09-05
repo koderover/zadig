@@ -1,21 +1,21 @@
 # Add 'service' label to any change to microservice files within the source dir
-aslan:
+service/aslan:
 - pkg/microservice/aslan/**/*.go
 
-cron:
-- pkg/microservice/cron/*
+service/cron:
+- pkg/microservice/cron/**/*.go
 
-podexec:
-- pkg/microservice/podexec/*
+service/podexec:
+- pkg/microservice/podexec/**/*.go
 
-predator:
-- pkg/microservice/predator/*
+service/predator:
+- pkg/microservice/predator/**/*.go
 
-reaper:
-- pkg/microservice/reaper/*
+service/reaper:
+- pkg/microservice/reaper/**/*.go
 
-warpdrive:
-- pkg/microservice/warpdrive/*
+service/warpdrive:
+- pkg/microservice/warpdrive/**/*.go
 
-hubserver:
-- pkg/microservice/hubserver/*
+service/hubserver:
+- pkg/microservice/hubserver/**/*.go
