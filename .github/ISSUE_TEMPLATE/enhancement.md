@@ -7,8 +7,6 @@ assignees: lilianzhu
 
 ---
 
-/kind enhancement
-
 **Is your enhancement proposal related to a problem? Please describe.**
 [A clear and concise description of what the problem is.]
 

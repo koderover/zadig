@@ -7,7 +7,6 @@ assignees: jamsman94
 
 ---
 
-/kind question
 ## General Question
 
 <!--
