@@ -142,7 +142,7 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 		if err != nil {
 			log.Errorf("project not found error:%s", err)
 		}
-		if tempProduct.ProductFeature.CreateEnvType == setting.SourceFromExternal {
+		if tempProduct.ProductFeature != nil && tempProduct.ProductFeature.CreateEnvType == setting.SourceFromExternal {
 			workloadStat, err := mongodb.NewWorkLoadsStatColl().Find(productInfo.ClusterID, productInfo.Namespace)
 			if err != nil {
 				log.Errorf("workflowStat not found error:%s", err)

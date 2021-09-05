@@ -264,8 +264,12 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 		return err
 	}
 	// todo Add data filter
-	var workloadsTmp []models.Workload
-	var wg sync.WaitGroup
+	var (
+		workloadsTmp []models.Workload
+		wg           sync.WaitGroup
+		mu           sync.Mutex
+	)
+
 	for _, workload := range workLoads {
 		wg.Add(1)
 
@@ -289,6 +293,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 				Type:        tempWorkload.Type,
 				ProductName: productName,
 			})
+			mu.Lock()
 			if _, err = CreateServiceTemplate(username, &models.Service{
 				ServiceName:  tempWorkload.Name,
 				Yaml:         string(bs),
@@ -302,6 +307,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 				log.Errorf("create service template failed err:%v", err)
 				return
 			}
+			mu.Unlock()
 		}(workload)
 	}
 	wg.Wait()
