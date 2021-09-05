@@ -1,0 +1,21 @@
+# Add 'service/x' label to any change to microservice files within the source dir
+service/aslan:
+- pkg/microservice/aslan/*
+
+service/cron:
+- pkg/microservice/cron/*
+
+service/podexec:
+- pkg/microservice/podexec/*
+
+service/predator:
+- pkg/microservice/predator/*
+
+service/reaper:
+- pkg/microservice/reaper/*
+
+service/warpdrive:
+- pkg/microservice/warpdrive/*
+
+service/hubserver:
+- pkg/microservice/hubserver/*
