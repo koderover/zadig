@@ -1,6 +1,6 @@
 # Add 'service' label to any change to microservice files within the source dir
 aslan:
-- pkg/microservice/aslan/*
+- pkg/microservice/aslan/**/*.go
 
 cron:
 - pkg/microservice/cron/*
