@@ -119,7 +119,7 @@ func (schedule *Schedule) Validate() error {
 			return fmt.Errorf("%s 间隔任务频率错误", e.InvalidFormatErrMsg)
 		}
 		if schedule.Number <= 0 {
-			return fmt.Errorf("%s 间隔循环时间间隔不能小于等于0", e.InvalidFormatErrMsg)
+			return fmt.Errorf("%s 间隔循环时间间隔不能小于等于 0", e.InvalidFormatErrMsg)
 		}
 		//if schedule.Frequency == FrequencyMinutes && schedule.Number < 1 {
 		//	log.Info("minimum schedule minutes must >= 30")
