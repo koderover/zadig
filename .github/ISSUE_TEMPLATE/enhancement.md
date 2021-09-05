@@ -1,6 +1,10 @@
 ---
 name: Enhancement
 about: Suggest enhancements to existing features
+title: "[enhencement]"
+labels: enhancement
+assignees: lilianzhu
+
 ---
 
 /kind enhancement

@@ -1,6 +1,9 @@
 ---
-name: "Bug report"
+name: Bug report
 about: Tell us about a problem you are experiencing
+title: "[bug]"
+labels: bug
+assignees: jamsman94
 
 ---
 
