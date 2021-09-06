@@ -38,6 +38,16 @@ type DownloadFromSourceArgs struct {
 	Branch     string `json:"branch"`
 }
 
+func DownloadFileFromSource(args *DownloadFromSourceArgs) ([]byte, error) {
+	getter, err := getTreeGetter(args.CodehostID)
+	if err != nil {
+		log.Errorf("Failed to get tree getter, err: %s", err)
+		return nil, err
+	}
+
+	return getter.GetFileContent(args.Owner, args.Repo, args.Path, args.Branch)
+}
+
 func DownloadFilesFromSource(args *DownloadFromSourceArgs, rootNameGetter func(afero.Fs) (string, error)) (fs.FS, error) {
 	getter, err := getTreeGetter(args.CodehostID)
 	if err != nil {
@@ -72,6 +82,7 @@ func DownloadFilesFromSource(args *DownloadFromSourceArgs, rootNameGetter func(a
 
 type treeGetter interface {
 	GetTreeContents(owner, repo, path, branch string) (afero.Fs, error)
+	GetFileContent(owner, repo, path, branch string) ([]byte, error)
 }
 
 func getTreeGetter(codeHostID int) (treeGetter, error) {

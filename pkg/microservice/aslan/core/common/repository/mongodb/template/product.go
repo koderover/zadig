@@ -184,8 +184,20 @@ func (c *ProductColl) Update(productName string, args *template.Product) error {
 	return err
 }
 
+// AddService adds a service to services[0] if it is not there.
+func (c *ProductColl) AddService(productName, serviceName string) error {
+
+	query := bson.M{"product_name": productName}
+	change := bson.M{"$addToSet": bson.M{
+		"services.0": serviceName,
+	}}
+
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
 // UpdateAll updates all projects in a bulk write.
-// Currently only field `shared_services` is supported.
+// Currently, only field `shared_services` is supported.
 // Note: A bulk operation can have at most 1000 operations, but the client will do it for us.
 // see https://stackoverflow.com/questions/24237887/what-is-mongodb-batch-operation-max-size
 func (c *ProductColl) UpdateAll(projects []*template.Product) error {
