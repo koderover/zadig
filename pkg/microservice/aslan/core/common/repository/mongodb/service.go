@@ -149,7 +149,7 @@ func (c *ServiceColl) ListMaxRevisionsForServices(services []*templatemodels.Ser
 	if serviceType != "" {
 		pre["type"] = serviceType
 	}
-	if len(envName) > 0 {
+	if len(envName) > 0 && len(envName[0]) > 0 {
 		pre["external_env"] = envName[0]
 	}
 	post := bson.M{
