@@ -102,7 +102,7 @@ func ListGroupsBySource(envName, productName, workloadName string, perPage, page
 	}
 
 	if projectInfo.ProductFeature != nil && projectInfo.ProductFeature.CreateEnvType == setting.SourceFromExternal {
-		return ListK8sWorkLoads(envName, productInfo.ClusterID, productInfo.Namespace, perPage, page, log, func(workloads []*models.Workload) []*models.Workload {
+		return ListK8sWorkLoads(envName, productInfo.ClusterID, productInfo.Namespace, productName, perPage, page, log, func(workloads []*models.Workload) []*models.Workload {
 			productServices, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName, envName)
 			if err != nil {
 				log.Errorf("ListK8sWorkLoads ListMaxRevisionsByProduct err:%s", err)
@@ -126,13 +126,13 @@ func ListGroupsBySource(envName, productName, workloadName string, perPage, page
 			return resp
 		})
 	}
-	return ListK8sWorkLoads(envName, productInfo.ClusterID, productInfo.Namespace, perPage, page, log)
+	return ListK8sWorkLoads(envName, productInfo.ClusterID, productInfo.Namespace, productName, perPage, page, log)
 
 }
 
 type FilterFunc func(services []*models.Workload) []*models.Workload
 
-func ListK8sWorkLoads(envName, clusterID, namespace string, perPage, page int, log *zap.SugaredLogger, filter ...FilterFunc) (int, []*ServiceResp, []resource.Ingress, error) {
+func ListK8sWorkLoads(envName, clusterID, namespace, productName string, perPage, page int, log *zap.SugaredLogger, filter ...FilterFunc) (int, []*ServiceResp, []resource.Ingress, error) {
 	var (
 		wg             sync.WaitGroup
 		resp           = make([]*ServiceResp, 0)
@@ -193,12 +193,17 @@ func ListK8sWorkLoads(envName, clusterID, namespace string, perPage, page int, l
 				wg.Done()
 			}()
 
+			tmpProductName := workload.ProductName
+			if tmpProductName == "" && productName != "" {
+				tmpProductName = productName
+			}
+
 			productRespInfo := &ServiceResp{
 				ServiceName:  workload.Name,
 				EnvName:      workload.EnvName,
 				Type:         setting.K8SDeployType,
 				WorkLoadType: workload.Type,
-				ProductName:  workload.ProductName,
+				ProductName:  tmpProductName,
 			}
 
 			selector := labels.SelectorFromValidatedSet(workload.Spec.Selector)
