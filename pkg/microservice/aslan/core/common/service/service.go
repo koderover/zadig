@@ -93,11 +93,13 @@ func ListServiceTemplate(productName, envName string, log *zap.SugaredLogger) (*
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
+	log.Infof("envName : %s", envName)
 	services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), "", envName)
 	if err != nil {
 		log.Errorf("Failed to list services by %+v, err: %s", productTmpl.AllServiceInfos(), err)
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
+	log.Infof("len(lservices) : %d", len(services))
 
 	serviceToProject, err := GetServiceInvolvedProjects(services, "")
 	if err != nil {
@@ -106,6 +108,7 @@ func ListServiceTemplate(productName, envName string, log *zap.SugaredLogger) (*
 	}
 
 	for _, serviceObject := range services {
+		log.Infof("serviceObject : %+v", serviceObject)
 		// FIXME: 兼容老数据，想办法干掉这个
 		if serviceObject.Source == setting.SourceFromGitlab && serviceObject.CodehostID == 0 {
 			gitlabAddress, err := GetGitlabAddress(serviceObject.SrcPath)
