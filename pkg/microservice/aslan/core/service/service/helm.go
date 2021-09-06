@@ -92,6 +92,7 @@ type Chart struct {
 }
 
 type helmServiceCreationArgs struct {
+	ServiceName string
 	FilePath    string
 	ProductName string
 	CreateBy    string
@@ -257,6 +258,7 @@ func CreateOrUpdateHelmServiceFromTemplate(projectName string, args *HelmService
 	svc, err := createOrUpdateHelmService(
 		fsTree,
 		&helmServiceCreationArgs{
+			ServiceName: args.Name,
 			FilePath:    to,
 			ProductName: projectName,
 			CreateBy:    args.CreatedBy,
@@ -332,6 +334,7 @@ func CreateOrUpdateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) err
 			svc, err := createOrUpdateHelmService(
 				fsTree,
 				&helmServiceCreationArgs{
+					ServiceName: serviceName,
 					FilePath:    filePath,
 					ProductName: args.ProductName,
 					CreateBy:    args.CreateBy,
@@ -397,7 +400,7 @@ func readValuesYAML(chartTree fs.FS, base string, logger *zap.SugaredLogger) ([]
 }
 
 func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logger *zap.SugaredLogger) (*models.Service, error) {
-	serviceName, chartVersion, err := readChartYAML(fsTree, filepath.Base(args.FilePath), logger)
+	chartName, chartVersion, err := readChartYAML(fsTree, filepath.Base(args.FilePath), logger)
 	if err != nil {
 		logger.Errorf("Failed to read chart.yaml, err %s", err)
 		return nil, err
@@ -410,21 +413,21 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 	}
 	valuesYaml := string(values)
 
-	serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, serviceName, args.ProductName)
+	serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceName, args.ProductName)
 	rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
 	if err != nil {
-		logger.Errorf("Failed to get next revision for service %s, err: %s", serviceName, err)
+		logger.Errorf("Failed to get next revision for service %s, err: %s", args.ServiceName, err)
 		return nil, err
 	}
-	if err = commonrepo.NewServiceColl().Delete(serviceName, setting.HelmDeployType, args.ProductName, setting.ProductStatusDeleting, rev); err != nil {
-		logger.Warnf("Failed to delete stale service %s with revision %d, err: %s", serviceName, rev, err)
+	if err = commonrepo.NewServiceColl().Delete(args.ServiceName, setting.HelmDeployType, args.ProductName, setting.ProductStatusDeleting, rev); err != nil {
+		logger.Warnf("Failed to delete stale service %s with revision %d, err: %s", args.ServiceName, rev, err)
 	}
 	containerList := recursionGetImage(valuesMap)
 	if len(containerList) == 0 {
 		_, containerList = recursionGetImageByColon(valuesMap)
 	}
 	serviceObj := &models.Service{
-		ServiceName: serviceName,
+		ServiceName: args.ServiceName,
 		Type:        setting.HelmDeployType,
 		Revision:    rev,
 		ProductName: args.ProductName,
@@ -438,21 +441,21 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 		BranchName:  args.Branch,
 		LoadPath:    args.FilePath,
 		HelmChart: &models.HelmChart{
-			Name:       serviceName,
+			Name:       chartName,
 			Version:    chartVersion,
 			ValuesYaml: valuesYaml,
 		},
 	}
 
-	log.Infof("Starting to create service %s with revision %d", serviceName, rev)
+	log.Infof("Starting to create service %s with revision %d", args.ServiceName, rev)
 
 	if err = commonrepo.NewServiceColl().Create(serviceObj); err != nil {
-		log.Errorf("Failed to create service %s error: %s", serviceName, err)
+		log.Errorf("Failed to create service %s error: %s", args.ServiceName, err)
 		return nil, err
 	}
 
-	if err = templaterepo.NewProductColl().AddService(args.ProductName, serviceName); err != nil {
-		log.Errorf("Failed to add service %s to project %s, err: %s", args.ProductName, serviceName, err)
+	if err = templaterepo.NewProductColl().AddService(args.ProductName, args.ServiceName); err != nil {
+		log.Errorf("Failed to add service %s to project %s, err: %s", args.ProductName, args.ServiceName, err)
 		return nil, err
 	}
 

@@ -77,6 +77,9 @@ func preLoadServiceManifestsFromSource(svc *commonmodels.Service) error {
 		func(afero.Fs) (string, error) {
 			return svc.ServiceName, nil
 		})
+	if err != nil {
+		return err
+	}
 
 	// save files to disk and upload them to s3
 	if err = SaveAndUploadService(svc.ProductName, svc.ServiceName, tree); err != nil {
