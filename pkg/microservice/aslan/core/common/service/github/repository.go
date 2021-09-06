@@ -50,3 +50,18 @@ func (c *Client) GetLatestRepositoryCommit(owner, repo, path, branch string) (*g
 	res, err := c.Client.GetLatestRepositoryCommit(context.TODO(), owner, repo, path, branch)
 	return git.ToRepositoryCommit(res), err
 }
+
+func (c *Client) GetFileContent(owner, repo, path, branch string) ([]byte, error) {
+	fileContent, _, err := c.GetContents(context.TODO(), owner, repo, path, &github.RepositoryContentGetOptions{Ref: branch})
+	if err != nil {
+		return nil, err
+	}
+
+	if fileContent == nil {
+		return nil, nil
+	}
+
+	res, err := fileContent.GetContent()
+
+	return []byte(res), err
+}

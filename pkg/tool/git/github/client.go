@@ -79,11 +79,16 @@ func NewClient(cfg *Config) *Client {
 			}
 		}
 
-		ctx := context.WithValue(context.Background(), oauth2.HTTPClient, dc)
-		ts := oauth2.StaticTokenSource(
-			&oauth2.Token{AccessToken: cfg.AccessToken},
-		)
-		httpClient = oauth2.NewClient(ctx, ts)
+		if cfg.AccessToken != "" {
+			ctx := context.WithValue(context.Background(), oauth2.HTTPClient, dc)
+			ts := oauth2.StaticTokenSource(
+				&oauth2.Token{AccessToken: cfg.AccessToken},
+			)
+			httpClient = oauth2.NewClient(ctx, ts)
+		} else {
+			httpClient = dc
+		}
+
 	}
 
 	gc := github.NewClient(httpClient)
