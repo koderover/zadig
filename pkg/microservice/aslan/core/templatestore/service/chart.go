@@ -49,7 +49,7 @@ func GetChartTemplate(name string, logger *zap.SugaredLogger) (*Chart, error) {
 	localPath := filepath.Join(localBase, base)
 	fis, err := fs.GetFileInfos(os.DirFS(localPath))
 	if err != nil {
-		logger.Errorf("Failed to local chart template %s from path %s.", name, localPath)
+		logger.Errorf("Failed to get local chart template %s from path %s, err: %s", name, localPath, err)
 		return nil, err
 	}
 
@@ -67,7 +67,7 @@ func GetChartTemplate(name string, logger *zap.SugaredLogger) (*Chart, error) {
 func ListChartTemplates(logger *zap.SugaredLogger) ([]*Chart, error) {
 	cs, err := mongodb.NewChartColl().List()
 	if err != nil {
-		logger.Errorf("Failed to list chart templates.")
+		logger.Errorf("Failed to list chart templates, err: %s", err)
 		return nil, err
 	}
 
@@ -135,7 +135,7 @@ func AddChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *zap.
 func UpdateChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *zap.SugaredLogger) error {
 	chart, err := mongodb.NewChartColl().Get(name)
 	if err != nil {
-		logger.Errorf("Failed to get chart template %s.", name)
+		logger.Errorf("Failed to get chart template %s, err: %s", name, err)
 		return err
 	}
 
@@ -164,7 +164,7 @@ func UpdateChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *z
 func RemoveChartTemplate(name string, logger *zap.SugaredLogger) error {
 	err := mongodb.NewChartColl().Delete(name)
 	if err != nil {
-		logger.Errorf("Failed to delete chart template %s.", name)
+		logger.Errorf("Failed to delete chart template %s, err: %s", name, err)
 		return err
 	}
 
