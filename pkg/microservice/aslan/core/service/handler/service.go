@@ -41,12 +41,6 @@ func ListServiceTemplate(c *gin.Context) {
 
 	var tmpResp *commonservice.ServiceTmplResp
 	tmpResp, ctx.Err = commonservice.ListServiceTemplate(c.Query("productName"), c.Query("envName"), ctx.Logger)
-
-	// 如果是数据统计页面的请求，则需要将托管环境的服务也返回
-	if c.Query("requestFrom") == "stat" {
-		svcservice.ListServicesInExtenalEnv(tmpResp, ctx.Logger)
-	}
-
 	ctx.Resp = tmpResp
 }
 

@@ -93,7 +93,7 @@ func ListServiceTemplate(productName, envName string, log *zap.SugaredLogger) (*
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
-	services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), "")
+	services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), "", envName)
 	if err != nil {
 		log.Errorf("Failed to list services by %+v, err: %s", productTmpl.AllServiceInfos(), err)
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
@@ -182,24 +182,6 @@ func ListServiceTemplate(productName, envName string, log *zap.SugaredLogger) (*
 		}
 
 		resp.Data = append(resp.Data, spmap)
-	}
-
-	if envName != "" {
-		productServices, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName, envName)
-		if err != nil {
-			log.Errorf("ListK8sWorkLoads ListMaxRevisionsByProduct err:%s", err)
-		}
-		currentProductServices := sets.NewString()
-		for _, v := range productServices {
-			currentProductServices.Insert(v.ServiceName)
-		}
-		tmp := []*ServiceProductMap{}
-		for _, v := range resp.Data {
-			if _, ok := currentProductServices[v.Service]; ok {
-				tmp = append(tmp, v)
-			}
-		}
-		resp.Data = tmp
 	}
 
 	return resp, nil
