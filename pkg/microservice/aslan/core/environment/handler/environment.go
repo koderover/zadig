@@ -429,6 +429,7 @@ func ListK8sWorkLoads(c *gin.Context) {
 		for index, currentWorkload := range workloads {
 			if existWorkload, ok := workloadM[currentWorkload.Name]; ok {
 				workloads[index].EnvName = existWorkload.EnvName
+				workloads[index].ProductName = existWorkload.ProductName
 			}
 		}
 
