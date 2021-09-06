@@ -23,6 +23,7 @@ import (
 	"github.com/27149chen/afero"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
 	githubservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
 	gitlabservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gitlab"
 	"github.com/koderover/zadig/pkg/setting"
@@ -36,10 +37,21 @@ type DownloadFromSourceArgs struct {
 	Repo       string `json:"repo"`
 	Path       string `json:"path"`
 	Branch     string `json:"branch"`
+	RepoLink   string `json:"repoLink"`
+}
+
+func DownloadFileFromSource(args *DownloadFromSourceArgs) ([]byte, error) {
+	getter, err := treeGetter(args.RepoLink, args.CodehostID)
+	if err != nil {
+		log.Errorf("Failed to get tree getter, err: %s", err)
+		return nil, err
+	}
+
+	return getter.GetFileContent(args.Owner, args.Repo, args.Path, args.Branch)
 }
 
 func DownloadFilesFromSource(args *DownloadFromSourceArgs, rootNameGetter func(afero.Fs) (string, error)) (fs.FS, error) {
-	getter, err := getTreeGetter(args.CodehostID)
+	getter, err := treeGetter(args.RepoLink, args.CodehostID)
 	if err != nil {
 		log.Errorf("Failed to get tree getter, err: %s", err)
 		return nil, err
@@ -70,11 +82,25 @@ func DownloadFilesFromSource(args *DownloadFromSourceArgs, rootNameGetter func(a
 	return afero.NewIOFS(chartTree), nil
 }
 
-type treeGetter interface {
-	GetTreeContents(owner, repo, path, branch string) (afero.Fs, error)
+func treeGetter(repoLink string, codeHostID int) (TreeGetter, error) {
+	if repoLink != "" {
+		return GetPublicTreeGetter(repoLink)
+	}
+
+	return GetTreeGetter(codeHostID)
 }
 
-func getTreeGetter(codeHostID int) (treeGetter, error) {
+type TreeGetter interface {
+	GetTreeContents(owner, repo, path, branch string) (afero.Fs, error)
+	GetFileContent(owner, repo, path, branch string) ([]byte, error)
+	GetTree(owner, repo, path, branch string) ([]*git.TreeNode, error)
+}
+
+func GetPublicTreeGetter(repoLink string) (TreeGetter, error) {
+	return githubservice.NewClient("", config.ProxyHTTPSAddr()), nil
+}
+
+func GetTreeGetter(codeHostID int) (TreeGetter, error) {
 	ch, err := codehost.GetCodeHostInfoByID(codeHostID)
 	if err != nil {
 		log.Errorf("Failed to get codeHost by id %d, err: %s", codeHostID, err)

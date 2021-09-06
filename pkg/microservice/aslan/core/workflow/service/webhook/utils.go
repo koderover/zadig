@@ -338,7 +338,7 @@ func GitlabGetRawFiles(client *gitlabtool.Client, owner, repo, ref, path, pathTy
 		}
 		return files, errs.ErrorOrNil()
 	}
-	content, err := client.GetFileContent(owner, repo, ref, path)
+	content, err := client.GetFileContent(owner, repo, path, ref)
 	if err != nil {
 		return files, err
 	}
