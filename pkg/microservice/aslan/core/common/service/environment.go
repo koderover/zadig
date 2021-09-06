@@ -135,6 +135,7 @@ type FilterFunc func(services []*models.Workload) []*models.Workload
 func ListK8sWorkLoads(envName, clusterID, namespace, productName string, perPage, page int, log *zap.SugaredLogger, filter ...FilterFunc) (int, []*ServiceResp, []resource.Ingress, error) {
 	var (
 		wg             sync.WaitGroup
+		mutex          sync.Mutex
 		resp           = make([]*ServiceResp, 0)
 		ingressList    = make([]resource.Ingress, 0)
 		matchedIngress = &sync.Map{}
@@ -219,7 +220,8 @@ func ListK8sWorkLoads(envName, clusterID, namespace, productName string, perPage
 				ingressInfo.HostInfo = hostInfos
 				productRespInfo.Ingress = ingressInfo
 			}
-
+			mutex.Lock()
+			defer mutex.Unlock()
 			resp = append(resp, productRespInfo)
 		}(workload)
 
