@@ -82,7 +82,7 @@ type ServiceProductMap struct {
 }
 
 // ListServiceTemplate 列出服务模板
-func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTmplResp, error) {
+func ListServiceTemplate(productName, envName string, log *zap.SugaredLogger) (*ServiceTmplResp, error) {
 	var err error
 	resp := new(ServiceTmplResp)
 	resp.Data = make([]*ServiceProductMap, 0)
@@ -182,6 +182,24 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 		}
 
 		resp.Data = append(resp.Data, spmap)
+	}
+
+	if envName != "" {
+		productServices, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName, envName)
+		if err != nil {
+			log.Errorf("ListK8sWorkLoads ListMaxRevisionsByProduct err:%s", err)
+		}
+		currentProductServices := sets.NewString()
+		for _, v := range productServices {
+			currentProductServices.Insert(v.ServiceName)
+		}
+		tmp := []*ServiceProductMap{}
+		for _, v := range resp.Data {
+			if _, ok := currentProductServices[v.Service]; ok {
+				tmp = append(tmp, v)
+			}
+		}
+		resp.Data = tmp
 	}
 
 	return resp, nil
