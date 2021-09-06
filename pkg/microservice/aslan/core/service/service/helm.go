@@ -182,7 +182,18 @@ func GetFileContent(serviceName, productName, filePath, fileName string, log *za
 	return string(fileContent), nil
 }
 
-func CreateOrUpdateHelmServiceFromTemplate(projectName string, args *HelmServiceCreationArgs, logger *zap.SugaredLogger) error {
+func CreateOrUpdateHelmService(projectName string, args *HelmServiceCreationArgs, logger *zap.SugaredLogger) error {
+	switch args.Source {
+	case LoadFromRepo:
+		return CreateOrUpdateHelmServiceFromGitRepo(projectName, args, logger)
+	case LoadFromChartTemplate:
+		return CreateOrUpdateHelmServiceFromChartTemplate(projectName, args, logger)
+	default:
+		return fmt.Errorf("invalid source")
+	}
+}
+
+func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmServiceCreationArgs, logger *zap.SugaredLogger) error {
 	templateArgs, ok := args.CreateFrom.(*CreateFromChartTemplate)
 	if !ok {
 		return fmt.Errorf("invalid argument")
@@ -286,13 +297,17 @@ func CreateOrUpdateHelmServiceFromTemplate(projectName string, args *HelmService
 	return nil
 }
 
-func CreateOrUpdateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) error {
-	helmRenderCharts := make([]*templatemodels.RenderChart, 0, len(args.FilePaths))
+func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceCreationArgs, log *zap.SugaredLogger) error {
+	repoArgs, ok := args.CreateFrom.(*CreateFromRepo)
+	if !ok {
+		return fmt.Errorf("invalid argument")
+	}
+	helmRenderCharts := make([]*templatemodels.RenderChart, 0, len(repoArgs.Paths))
 	var errs *multierror.Error
 
 	var wg wait.Group
 	var mux sync.RWMutex
-	for _, p := range args.FilePaths {
+	for _, p := range repoArgs.Paths {
 		filePath := strings.TrimLeft(p, "/")
 		wg.Start(func() {
 			var finalErr error
@@ -309,7 +324,7 @@ func CreateOrUpdateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) err
 
 			var serviceName string
 			fsTree, err := fsservice.DownloadFilesFromSource(
-				&fsservice.DownloadFromSourceArgs{CodehostID: args.CodehostID, Owner: args.RepoOwner, Repo: args.RepoName, Path: filePath, Branch: args.BranchName},
+				&fsservice.DownloadFromSourceArgs{CodehostID: repoArgs.CodehostID, Owner: repoArgs.Owner, Repo: repoArgs.Repo, Path: filePath, Branch: repoArgs.Branch},
 				func(chartTree afero.Fs) (string, error) {
 					chartName, _, err := readChartYAML(afero.NewIOFS(chartTree), filepath.Base(filePath), log)
 					serviceName = chartName
@@ -325,8 +340,8 @@ func CreateOrUpdateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) err
 			log.Info("Found valid chart, Starting to save and upload files")
 
 			// save files to disk and upload them to s3
-			if err = commonservice.SaveAndUploadService(args.ProductName, serviceName, fsTree); err != nil {
-				log.Errorf("Failed to save or upload files for service %s in project %s, error: %s", serviceName, args.ProductName, err)
+			if err = commonservice.SaveAndUploadService(projectName, serviceName, fsTree); err != nil {
+				log.Errorf("Failed to save or upload files for service %s in project %s, error: %s", serviceName, projectName, err)
 				finalErr = e.ErrCreateTemplate.AddErr(err)
 				return
 			}
@@ -336,17 +351,17 @@ func CreateOrUpdateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) err
 				&helmServiceCreationArgs{
 					ServiceName: serviceName,
 					FilePath:    filePath,
-					ProductName: args.ProductName,
-					CreateBy:    args.CreateBy,
-					CodehostID:  args.CodehostID,
-					Owner:       args.RepoOwner,
-					Repo:        args.RepoName,
-					Branch:      args.BranchName,
+					ProductName: projectName,
+					CreateBy:    args.CreatedBy,
+					CodehostID:  repoArgs.CodehostID,
+					Owner:       repoArgs.Owner,
+					Repo:        repoArgs.Repo,
+					Branch:      repoArgs.Branch,
 				},
 				log,
 			)
 			if err != nil {
-				log.Errorf("Failed to create service %s in project %s, error: %s", serviceName, args.ProductName, err)
+				log.Errorf("Failed to create service %s in project %s, error: %s", serviceName, projectName, err)
 				finalErr = e.ErrCreateTemplate.AddErr(err)
 				return
 			}
@@ -363,7 +378,7 @@ func CreateOrUpdateHelmService(args *HelmServiceReq, log *zap.SugaredLogger) err
 
 	wg.Wait()
 
-	compareHelmVariable(helmRenderCharts, args.ProductName, args.CreateBy, log)
+	compareHelmVariable(helmRenderCharts, projectName, args.CreatedBy, log)
 
 	return errs.ErrorOrNil()
 }

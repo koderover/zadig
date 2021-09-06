@@ -25,12 +25,12 @@ const (
 	LoadFromChartTemplate LoadSource = "chartTemplate"
 )
 
-type Source struct {
+type HelmLoadSource struct {
 	Source LoadSource `json:"source"`
 }
 
 type HelmServiceCreationArgs struct {
-	Source
+	HelmLoadSource
 
 	Name       string      `json:"name"`
 	CreatedBy  string      `json:"createdBy"`
@@ -56,7 +56,7 @@ type CreateFromChartTemplate struct {
 }
 
 func (a *HelmServiceCreationArgs) UnmarshalJSON(data []byte) error {
-	s := &Source{}
+	s := &HelmLoadSource{}
 	if err := json.Unmarshal(data, s); err != nil {
 		return err
 	}
