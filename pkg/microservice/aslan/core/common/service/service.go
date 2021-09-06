@@ -86,7 +86,6 @@ func ListServiceTemplate(productName, envName string, log *zap.SugaredLogger) (*
 	var err error
 	resp := new(ServiceTmplResp)
 	resp.Data = make([]*ServiceProductMap, 0)
-
 	productTmpl, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil {
 		log.Errorf("Can not find project %s, error: %s", productName, err)

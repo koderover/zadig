@@ -39,9 +39,7 @@ func ListServiceTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	var tmpResp *commonservice.ServiceTmplResp
-	tmpResp, ctx.Err = commonservice.ListServiceTemplate(c.Query("productName"), c.Query("envName"), ctx.Logger)
-	ctx.Resp = tmpResp
+	ctx.Resp, ctx.Err = commonservice.ListServiceTemplate(c.Query("productName"), c.Query("envName"), ctx.Logger)
 }
 
 func GetServiceTemplate(c *gin.Context) {
