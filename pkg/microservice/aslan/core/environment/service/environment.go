@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"go.mongodb.org/mongo-driver/mongo"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -998,6 +999,26 @@ func UpdateHelmProduct(productName, envName, updateType, username, requestID str
 	return nil
 }
 
+func ApplyHelmProductRenderset(productName, envName, username, requestID string, renderset *commonmodels.RenderSet, log *zap.SugaredLogger) error {
+	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
+	productResp, err := commonrepo.NewProductColl().Find(opt)
+	if err == mongo.ErrNoDocuments {
+		return nil
+	}
+	if err != nil {
+		log.Errorf("GetProduct envName:%s, productName:%s, err:%+v", envName, productName, err)
+		return e.ErrUpdateEnv.AddDesc(err.Error())
+	}
+	var oldRenderVersion int64
+	if productResp.Render != nil {
+		oldRenderVersion = productResp.Render.Revision
+	}
+	if productResp.Render == nil {
+		productResp.Render = &commonmodels.RenderInfo{ProductTmpl: productResp.ProductName}
+	}
+	return updateHelmProductVariable(productResp, renderset, oldRenderVersion, username, requestID, log)
+}
+
 func UpdateHelmProductVariable(productName, envName, username, requestID string, rcs []*template.RenderChart, log *zap.SugaredLogger) error {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	productResp, err := commonrepo.NewProductColl().Find(opt)
@@ -1033,6 +1054,17 @@ func UpdateHelmProductVariable(productName, envName, username, requestID string,
 		log.Errorf("[%s][P:%s] find product renderset error: %v", productResp.EnvName, productResp.ProductName, err)
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
+
+	return updateHelmProductVariable(productResp, renderSet, oldRenderVersion, username, requestID, log)
+}
+
+func updateHelmProductVariable(productResp *commonmodels.Product, renderset *commonmodels.RenderSet, oldRenderVersion int64, userName, requestID string, log *zap.SugaredLogger) error {
+	envName, productName := productResp.EnvName, productResp.ProductName
+	renderSet, err := FindHelmRenderSet(productResp.ProductName, productResp.Namespace, log)
+	if err != nil {
+		log.Errorf("[%s][P:%s] find product renderset error: %v", productResp.EnvName, productResp.ProductName, err)
+		return e.ErrCreateEnv.AddDesc(err.Error())
+	}
 	productResp.Render.Revision = renderSet.Revision
 
 	// 设置产品状态为更新中
@@ -1047,7 +1079,7 @@ func UpdateHelmProductVariable(productName, envName, username, requestID string,
 			log.Errorf("[%s][P:%s] failed to update product %#v", envName, productName, err)
 			// 发送更新产品失败消息给用户
 			title := fmt.Sprintf("更新 [%s] 的 [%s] 环境失败", productName, envName)
-			commonservice.SendErrorMessage(username, title, requestID, err, log)
+			commonservice.SendErrorMessage(userName, title, requestID, err, log)
 
 			// 设置产品状态
 			log.Infof("[%s][P:%s] update status to => %s", envName, productName, setting.ProductStatusFailed)
@@ -1084,7 +1116,6 @@ func UpdateHelmProductVariable(productName, envName, username, requestID string,
 			return
 		}
 	}()
-
 	return nil
 }
 

@@ -90,12 +90,34 @@ type EnvRenderKV struct {
 	Vars    []*RenderKV `json:"vars"`
 }
 
+type GitConfigSet struct {
+	CodehostID int    `bson:"codehost_id,omitempty"                    json:"codehost_id,omitempty"`
+	RepoOwner  string `bson:"repo_owner,omitempty"                     json:"repo_owner,omitempty"`
+	RepoName   string `bson:"repo_name,omitempty"                      json:"repo_name,omitempty"`
+	RepoUUID   string `bson:"repo_uuid,omitempty"            		   json:"repo_uuid,omitempty"`
+	BranchName string `bson:"branch_name,omitempty"                    json:"branch_name,omitempty"`
+	LoadPath   string `bson:"load_path,omitempty"                      json:"load_path,omitempty"`
+}
+
+type GitConfigSetList struct {
+	GitConfigList []*GitConfigSet `bson:"git_configs,omitempty"  json:"git_configs,omitempty"`
+}
+
 // RenderChart ...
 type RenderChart struct {
 	ServiceName  string `bson:"service_name,omitempty"    json:"service_name,omitempty"`
 	ChartVersion string `bson:"chart_version,omitempty"   json:"chart_version,omitempty"`
 	// ChartProject string `bson:"chart_project,omitempty"   json:"chart_project,omitempty"`
 	ValuesYaml string `bson:"values_yaml,omitempty"     json:"values_yaml,omitempty"`
+
+	YamlSource        string `bson:"yaml_source,omitempty"     json:"yaml_source,omitempty"`
+	*GitConfigSetList `bson:",inline"`
+	OverrideValues    []*KVPair `bson:"override_values,omitempty"   json:"override_values,omitempty"`
+}
+
+type KVPair struct {
+	Key   string `bson:"key"    json:"key"`
+	Value string `bson:"value"    json:"value"`
 }
 
 type ProductFeature struct {
