@@ -294,6 +294,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 				ProductName: productName,
 			})
 			mu.Lock()
+			defer mu.Unlock()
 			if _, err = CreateServiceTemplate(username, &models.Service{
 				ServiceName:  tempWorkload.Name,
 				Yaml:         string(bs),
@@ -307,7 +308,6 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 				log.Errorf("create service template failed err:%v", err)
 				return
 			}
-			mu.Unlock()
 		}(workload)
 	}
 	wg.Wait()

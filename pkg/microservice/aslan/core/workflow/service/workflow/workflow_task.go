@@ -172,7 +172,7 @@ func getProjectTargets(productName string) []string {
 		log.Errorf("[%s] ProductTmpl.Find error: %v", productName, err)
 		return targets
 	}
-	services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), "")
+	services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos())
 	if err != nil {
 		log.Errorf("ServiceTmpl.ListMaxRevisions error: %v", err)
 		return targets
