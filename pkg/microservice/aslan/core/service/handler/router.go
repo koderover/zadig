@@ -42,7 +42,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		helm.GET("/:productName/:serviceName/serviceModule", GetHelmServiceModule)
 		helm.GET("/:productName/:serviceName/filePath", GetFilePath)
 		helm.GET("/:productName/:serviceName/fileContent", GetFileContent)
-		helm.POST("/:productName", gin2.IsHavePermission([]string{permission.ServiceTemplateManageUUID}, permission.ParamType), CreateHelmService)
+		helm.POST("/services", gin2.IsHavePermission([]string{permission.ServiceTemplateManageUUID}, permission.ParamType), CreateOrUpdateHelmService)
 		helm.PUT("/:productName", gin2.IsHavePermission([]string{permission.ServiceTemplateManageUUID}, permission.ParamType), UpdateHelmService)
 	}
 
