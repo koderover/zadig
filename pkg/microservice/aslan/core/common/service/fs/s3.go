@@ -104,3 +104,25 @@ func DownloadAndExtractFilesFromS3(name, localBase, s3Base string, logger *zap.S
 
 	return nil
 }
+
+func DeleteArchivedFileFromS3(name, s3Base string, logger *zap.SugaredLogger) error {
+	s3, err := s3service.FindDefaultS3()
+	if err != nil {
+		logger.Errorf("Failed to find default s3, err: %s", err)
+		return err
+	}
+
+	tarball := fmt.Sprintf("%s.tar.gz", name)
+	s3Path := filepath.Join(s3.Subfolder, s3Base, tarball)
+	forcedPathStyle := true
+	if s3.Provider == setting.ProviderSourceAli {
+		forcedPathStyle = false
+	}
+	client, err := s3tool.NewClient(s3.Endpoint, s3.Ak, s3.Sk, s3.Insecure, forcedPathStyle)
+	if err != nil {
+		logger.Errorf("Failed to create s3 client, err: %s", err)
+		return err
+	}
+
+	return client.DeleteObjects(s3.Bucket, []string{s3Path})
+}
