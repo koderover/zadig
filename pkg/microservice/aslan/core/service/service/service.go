@@ -303,7 +303,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 				Type:         setting.K8SDeployType,
 				WorkloadType: tempWorkload.Type,
 				Source:       setting.SourceFromExternal,
-				ExternalEnv:  envName,
+				EnvName:      envName,
 			}, log); err != nil {
 				log.Errorf("create service template failed err:%v", err)
 				return

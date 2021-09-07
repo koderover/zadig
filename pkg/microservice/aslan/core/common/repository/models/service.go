@@ -59,7 +59,7 @@ type Service struct {
 	LoadFromDir      bool             `bson:"is_dir,omitempty"               json:"is_dir,omitempty"`
 	HealthChecks     []*PmHealthCheck `bson:"health_checks,omitempty"        json:"health_checks,omitempty"`
 	WorkloadType     string           `bson:"workload_type,omitempty"        json:"workload_type,omitempty"`
-	ExternalEnv      string           `bson:"external_env,omitempty"        json:"external_env,omitempty"`
+	EnvName          string           `bson:"env_name,omitempty"             json:"env_name,omitempty"`
 }
 
 type GUIConfig struct {
