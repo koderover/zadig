@@ -50,13 +50,13 @@ type Service struct {
 	HelmChart        *HelmChart       `bson:"helm_chart,omitempty"           json:"helm_chart,omitempty"`
 	EnvConfigs       []*EnvConfig     `bson:"env_configs,omitempty"          json:"env_configs,omitempty"`
 	EnvStatuses      []*EnvStatus     `bson:"env_statuses,omitempty"         json:"env_statuses,omitempty"`
-	CodehostID       int              `bson:"codehost_id"                    json:"codehost_id"`
-	RepoOwner        string           `bson:"repo_owner"                     json:"repo_owner"`
-	RepoName         string           `bson:"repo_name"                      json:"repo_name"`
+	CodehostID       int              `bson:"codehost_id,omitempty"          json:"codehost_id,omitempty"`
+	RepoOwner        string           `bson:"repo_owner,omitempty"           son:"repo_owner,omitempty"`
+	RepoName         string           `bson:"repo_name,omitempty"            json:"repo_name,omitempty"`
 	RepoUUID         string           `bson:"repo_uuid,omitempty"            json:"repo_uuid,omitempty"`
-	BranchName       string           `bson:"branch_name"                    json:"branch_name"`
-	LoadPath         string           `bson:"load_path"                      json:"load_path"`
-	LoadFromDir      bool             `bson:"is_dir"                         json:"is_dir"`
+	BranchName       string           `bson:"branch_name,omitempty"          json:"branch_name,omitempty"`
+	LoadPath         string           `bson:"load_path,omitempty"            json:"load_path,omitempty"`
+	LoadFromDir      bool             `bson:"is_dir,omitempty"               json:"is_dir,omitempty"`
 	HealthChecks     []*PmHealthCheck `bson:"health_checks,omitempty"        json:"health_checks,omitempty"`
 	WorkloadType     string           `bson:"workload_type,omitempty"        json:"workload_type,omitempty"`
 	ExternalEnv      string           `bson:"external_env,omitempty"        json:"external_env,omitempty"`

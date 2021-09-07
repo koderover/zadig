@@ -833,7 +833,7 @@ func ListTemplatesHierachy(userName string, userID int, superUser bool, log *zap
 
 	for _, productTmpl := range productTmpls {
 		pInfo := &ProductInfo{Value: productTmpl.ProductName, Label: productTmpl.ProductName, ServiceInfo: []*ServiceInfo{}}
-		services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), "")
+		services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos())
 		if err != nil {
 			log.Errorf("Failed to list service for project %s, error: %s", productTmpl.ProductName, err)
 			return nil, e.ErrGetProduct.AddDesc(err.Error())
