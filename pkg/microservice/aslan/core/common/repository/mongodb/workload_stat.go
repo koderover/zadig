@@ -48,6 +48,23 @@ func (c *WorkLoadsStatColl) Create(args *models.WorkloadStat) error {
 	return err
 }
 
+func (c *WorkLoadsStatColl) EnsureIndex(ctx context.Context) error {
+	mod := mongo.IndexModel{
+		Keys: bson.D{
+			bson.E{Key: "namespace", Value: 1},
+			bson.E{Key: "cluster_id", Value: 1},
+		},
+		Options: options.Index().SetUnique(true),
+	}
+
+	_, err := c.Indexes().CreateOne(ctx, mod)
+	return err
+}
+
+func (c *WorkLoadsStatColl) GetCollectionName() string {
+	return c.coll
+}
+
 func (c *WorkLoadsStatColl) Find(clusterID string, namespace string) (*models.WorkloadStat, error) {
 	query := bson.M{}
 	query["namespace"] = namespace

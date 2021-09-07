@@ -157,7 +157,7 @@ func (c *ServiceColl) ListMaxRevisionsForServices(services []*templatemodels.Ser
 			pre["type"] = opt[0].ServiceType
 		}
 		if opt[0].EnvName != "" {
-			pre["external_env"] = opt[0].EnvName
+			pre["env_name"] = opt[0].EnvName
 		}
 
 	}
@@ -174,7 +174,7 @@ func (c *ServiceColl) ListMaxRevisionsByProduct(productName string, envName ...s
 		"status":       bson.M{"$ne": setting.ProductStatusDeleting},
 	}
 	if len(envName) > 0 {
-		m["external_env"] = envName[0]
+		m["env_name"] = envName[0]
 	}
 	return c.listMaxRevisions(m, nil)
 }
@@ -289,9 +289,9 @@ func (c *ServiceColl) Update(args *models.Service) error {
 	return err
 }
 
-func (c *ServiceColl) UpdateStatus(serviceName, productName, status, externalEnv string) error {
-	if serviceName == "" && externalEnv == "" {
-		return fmt.Errorf("serviceName and externalEnv can't  be both empty")
+func (c *ServiceColl) UpdateStatus(serviceName, productName, status, envName string) error {
+	if serviceName == "" && envName == "" {
+		return fmt.Errorf("serviceName and envName can't  be both empty")
 	}
 	if productName == "" {
 		return fmt.Errorf("productName is empty")
@@ -301,8 +301,8 @@ func (c *ServiceColl) UpdateStatus(serviceName, productName, status, externalEnv
 	if serviceName != "" {
 		query["service_name"] = serviceName
 	}
-	if externalEnv != "" {
-		query["external_env"] = externalEnv
+	if envName != "" {
+		query["env_name"] = envName
 	}
 	change := bson.M{"$set": bson.M{
 		"status": status,
