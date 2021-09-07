@@ -287,7 +287,6 @@ func UpdateK8sWorkLoads(ctx context.Context, requestID, username string, product
 			}
 			if len(bs) == 0 || err != nil {
 				log.Errorf("UpdateK8sWorkLoads not found yaml %v", err)
-				return e.ErrGetService
 			}
 			if _, err = CreateServiceTemplate(username, &models.Service{
 				ServiceName:  v.Name,
@@ -300,7 +299,6 @@ func UpdateK8sWorkLoads(ctx context.Context, requestID, username string, product
 				ExternalEnv:  envName,
 			}, log); err != nil {
 				log.Errorf("create service template failed err:%v", err)
-				return e.ErrGetService
 			}
 			addTmp = append(addTmp, v)
 		}
