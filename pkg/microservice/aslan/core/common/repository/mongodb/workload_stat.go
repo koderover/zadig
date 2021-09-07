@@ -48,19 +48,50 @@ func (c *WorkLoadsStatColl) Create(args *models.WorkloadStat) error {
 	return err
 }
 
+func (c *WorkLoadsStatColl) EnsureIndex(ctx context.Context) error {
+	mod := mongo.IndexModel{
+		Keys: bson.D{
+			bson.E{Key: "namespace", Value: 1},
+			bson.E{Key: "cluster_id", Value: 1},
+		},
+		Options: options.Index().SetUnique(true),
+	}
+
+	_, err := c.Indexes().CreateOne(ctx, mod)
+	return err
+}
+
+func (c *WorkLoadsStatColl) GetCollectionName() string {
+	return c.coll
+}
+
 func (c *WorkLoadsStatColl) Find(clusterID string, namespace string) (*models.WorkloadStat, error) {
 	query := bson.M{}
-
 	query["namespace"] = namespace
-
-	if clusterID != "" {
-		query["cluster_id"] = clusterID
-	}
+	query["cluster_id"] = clusterID
 
 	resp := new(models.WorkloadStat)
 
 	err := c.FindOne(context.TODO(), query).Decode(resp)
 	return resp, err
+}
+
+func (c *WorkLoadsStatColl) FindByProductName(productName string) ([]*models.WorkloadStat, error) {
+	workloads := make([]*models.WorkloadStat, 0)
+	query := bson.M{
+		"workloads.product_name": productName,
+	}
+	ctx := context.Background()
+	cursor, err := c.Collection.Find(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cursor.All(ctx, &workloads)
+	if err != nil {
+		return nil, err
+	}
+	return workloads, nil
 }
 
 func (c *WorkLoadsStatColl) UpdateWorkloads(args *models.WorkloadStat) error {

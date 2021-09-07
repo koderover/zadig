@@ -167,6 +167,7 @@ func initDatabase() {
 		commonrepo.NewWebHookUserColl(),
 		commonrepo.NewWorkflowColl(),
 		commonrepo.NewWorkflowStatColl(),
+		commonrepo.NewWorkLoadsStatColl(),
 
 		systemrepo.NewAnnouncementColl(),
 		systemrepo.NewOperationLogColl(),

@@ -40,11 +40,3 @@ type Workload struct {
 func (WorkloadStat) TableName() string {
 	return "workload_stat"
 }
-
-type K8sWorkloadsArgs struct {
-	WorkLoads   []Workload `bson:"workLoads"        json:"workLoads"`
-	EnvName     string     `bson:"env_name"         json:"env_name"`
-	ClusterID   string     `bson:"cluster_id"       json:"cluster_id"`
-	Namespace   string     `bson:"namespace"        json:"namespace"`
-	ProductName string     `bson:"product_name"     json:"product_name"`
-}

@@ -79,7 +79,6 @@ type ServiceResp struct {
 	Ready        string              `json:"ready"`
 	EnvStatuses  []*models.EnvStatus `json:"env_statuses,omitempty"`
 	WorkLoadType string              `json:"workLoadType"`
-	OccupyBy     string              `json:"occupy_by"`
 }
 
 type IngressInfo struct {
