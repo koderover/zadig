@@ -280,7 +280,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 			case setting.Deployment:
 				bs, _, err = getter.GetDeploymentYaml(namespace, tempWorkload.Name, kubeClient)
 			case setting.StatefulSet:
-				bs, _, err = getter.GetDeploymentYaml(namespace, tempWorkload.Name, kubeClient)
+				bs, _, err = getter.GetStatefulSetYaml(namespace, tempWorkload.Name, kubeClient)
 			}
 
 			if len(bs) == 0 || err != nil {
