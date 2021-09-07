@@ -51,7 +51,7 @@ func Auth() gin.HandlerFunc {
 					return
 				}
 			}
-			if strings.Contains(authorization, setting.USERAPIKEY) {
+			if strings.Contains(authorization, setting.UserAPIKey) {
 				token := strings.Split(authorization, " ")
 				if len(token) == 2 {
 					userInfo, err := poetry.GetUserDetailByToken(config.PoetryServiceAddress(), token[1])

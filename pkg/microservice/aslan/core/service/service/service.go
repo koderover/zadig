@@ -24,7 +24,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -43,8 +42,8 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
-	s3service "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/codehost"
@@ -53,7 +52,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/log"
-	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -683,22 +681,8 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 			_ = commonrepo.NewRenderSetColl().Update(rs)
 		}
 		// 把该服务相关的s3的数据从仓库删除
-		s3Storage, _ := s3service.FindDefaultS3()
-		if s3Storage != nil {
-			tarball := fmt.Sprintf("%s.tar.gz", serviceName)
-			file := filepath.Join(s3Storage.Subfolder, configbase.ObjectStorageServicePath(productName, serviceName), tarball)
-			forcedPathStyle := true
-			if s3Storage.Provider == setting.ProviderSourceAli {
-				forcedPathStyle = false
-			}
-			client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
-			if err != nil {
-				log.Warnf("Failed to create s3 client, err: %s", err)
-			} else {
-				if err = client.DeleteObjects(s3Storage.Bucket, []string{file}); err != nil {
-					log.Warnf("Failed to delete file %s, err: %s", file, err)
-				}
-			}
+		if err = fs.DeleteArchivedFileFromS3(serviceName, configbase.ObjectStorageServicePath(productName, serviceName), log); err != nil {
+			log.Warnf("Failed to delete file %s, err: %s", serviceName, err)
 		}
 	}
 

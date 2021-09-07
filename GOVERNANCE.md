@@ -59,5 +59,5 @@ The council will make a decision for the nomination. The candidate has to have d
 - [lesterhnu](https://github.com/lesterhnu)
 - [liuflylove666](https://github.com/liuflylove666)
 - [jiangpeipei327](https://github.com/jiangpeipei327)
-
-
+- [lyzhang1999](https://github.com/lyzhang1999)
+- [avtion](https://github.com/avtion)
