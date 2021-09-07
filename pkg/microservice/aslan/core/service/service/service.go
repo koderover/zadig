@@ -264,10 +264,41 @@ func UpdateK8sWorkLoads(ctx context.Context, requestID, username string, product
 		log.Errorf("[%s] error: %v", namespace, err)
 		return err
 	}
+	workLoadStat, err := commonrepo.NewWorkLoadsStatColl().Find(clusterID, namespace)
+	if err != nil {
+		return e.ErrGetService
+	}
 
 	addTmp := []models.Workload{}
 	delTmp := []models.Workload{}
+
+	// 找到之前该项目该环境下数据
+	uploadM := map[string]models.Workload{}
+	originM := map[string]models.Workload{}
+	diff := []models.Workload{}
+	for _, v := range workLoadStat.Workloads {
+		if v.ProductName == productName && v.EnvName == envName {
+			originM[v.Name] = v
+		}
+	}
 	for _, v := range workLoads {
+		uploadM[v.Name] = v
+	}
+	// 判断是删除还是增加
+	for _, v := range workLoads {
+		if _, ok := originM[v.Name]; !ok {
+			v.Operation = "add"
+			diff = append(diff, v)
+		}
+	}
+	for _, v := range originM {
+		if _, ok := uploadM[v.Name]; !ok {
+			v.Operation = "delete"
+			diff = append(diff, v)
+		}
+	}
+
+	for _, v := range diff {
 		switch v.Operation {
 		// 删除workload的引用
 		case "delete":
@@ -296,17 +327,12 @@ func UpdateK8sWorkLoads(ctx context.Context, requestID, username string, product
 				Type:         setting.K8SDeployType,
 				WorkloadType: v.Type,
 				Source:       setting.SourceFromExternal,
-				ExternalEnv:  envName,
+				EnvName:      envName,
 			}, log); err != nil {
 				log.Errorf("create service template failed err:%v", err)
 			}
 			addTmp = append(addTmp, v)
 		}
-	}
-
-	workLoadStat, err := commonrepo.NewWorkLoadsStatColl().Find(clusterID, namespace)
-	if err != nil {
-		return e.ErrGetService
 	}
 	// 删除 && 增加
 	workLoadStat.Workloads = updateWorkloads(workLoadStat.Workloads, addTmp, delTmp, envName)

@@ -175,7 +175,7 @@ func CreateK8sWorkloads(c *gin.Context) {
 func UpdateK8sWorkloads(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	args := new(commonmodels.K8sWorkloadsArgs)
+	args := new(K8sWorkloadsArgs)
 	err := c.BindJSON(args)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid K8sWorkloadsArgs args")
