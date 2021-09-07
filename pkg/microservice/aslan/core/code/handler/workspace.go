@@ -129,6 +129,7 @@ type repoInfo struct {
 	Repo       string `json:"repo"        form:"repo"`
 	Path       string `json:"path"        form:"path"`
 	Branch     string `json:"branch"      form:"branch"`
+	RepoLink   string `json:"repoLink"    form:"repoLink"`
 }
 
 func GetRepoTree(c *gin.Context) {
@@ -141,7 +142,7 @@ func GetRepoTree(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetRepoTree(info.CodeHostID, info.Owner, info.Repo, info.Path, info.Branch, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetRepoTree(info.CodeHostID, info.Owner, info.Repo, info.Path, info.Branch, info.RepoLink, ctx.Logger)
 }
 
 func GetPublicGitRepoInfo(c *gin.Context) {

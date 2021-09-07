@@ -16,12 +16,18 @@ limitations under the License.
 
 package service
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
+)
 
 type LoadSource string
 
 const (
 	LoadFromRepo          LoadSource = "repo"
+	LoadFromPublicRepo    LoadSource = "publicRepo"
 	LoadFromChartTemplate LoadSource = "chartTemplate"
 )
 
@@ -45,6 +51,11 @@ type CreateFromRepo struct {
 	Paths      []string `json:"paths"`
 }
 
+type CreateFromPublicRepo struct {
+	RepoLink string   `json:"repoLink"`
+	Paths    []string `json:"paths"`
+}
+
 type CreateFromChartTemplate struct {
 	CodehostID   int      `json:"codehostID"`
 	Owner        string   `json:"owner"`
@@ -53,6 +64,22 @@ type CreateFromChartTemplate struct {
 	TemplateName string   `json:"templateName"`
 	ValuesPaths  []string `json:"valuesPaths"`
 	ValuesYAML   string   `json:"valuesYAML"`
+}
+
+func PublicRepoToPrivateRepoArgs(args *CreateFromPublicRepo) (*CreateFromRepo, error) {
+	if args.RepoLink == "" {
+		return nil, fmt.Errorf("empty link")
+	}
+	owner, repo, err := git.ParseOwnerAndRepo(args.RepoLink)
+	if err != nil {
+		return nil, err
+	}
+
+	return &CreateFromRepo{
+		Owner: owner,
+		Repo:  repo,
+		Paths: args.Paths,
+	}, nil
 }
 
 func (a *HelmServiceCreationArgs) UnmarshalJSON(data []byte) error {
@@ -64,6 +91,8 @@ func (a *HelmServiceCreationArgs) UnmarshalJSON(data []byte) error {
 	switch s.Source {
 	case LoadFromRepo:
 		a.CreateFrom = &CreateFromRepo{}
+	case LoadFromPublicRepo:
+		a.CreateFrom = &CreateFromPublicRepo{}
 	case LoadFromChartTemplate:
 		a.CreateFrom = &CreateFromChartTemplate{}
 	}

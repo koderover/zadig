@@ -17,7 +17,6 @@ limitations under the License.
 package service
 
 import (
-	"fmt"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -29,28 +28,34 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
-	githubservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
-	gitlabservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gitlab"
-	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/codehost"
-	"github.com/koderover/zadig/pkg/shared/poetry"
 	"github.com/koderover/zadig/pkg/tool/codehub"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-func GetRepoTree(codeHostID int, owner, repo, path, branch string, log *zap.SugaredLogger) ([]*git.TreeNode, error) {
+func GetRepoTree(codeHostID int, owner, repo, path, branch, repoLink string, log *zap.SugaredLogger) ([]*git.TreeNode, error) {
+	var getter fs.TreeGetter
+	var err error
 
-	ch, err := codehost.GetCodeHostInfoByID(codeHostID)
-	if err != nil {
-		log.Errorf("Failed to get codeHost by id %d, err: %s", codeHostID, err)
-		return nil, e.ErrListWorkspace.AddDesc(err.Error())
-	}
-	getter, err := getTreeGetter(ch)
-	if err != nil {
-		log.Errorf("Failed to get tree getter, err: %s", err)
-		return nil, e.ErrListWorkspace.AddDesc(err.Error())
+	if repoLink != "" {
+		owner, repo, err = git.ParseOwnerAndRepo(repoLink)
+		if err != nil {
+			log.Errorf("Failed to parse link %s, err: %s", repoLink, err)
+			return nil, e.ErrListWorkspace.AddErr(err)
+		}
+		getter, err = fs.GetPublicTreeGetter(repoLink)
+		if err != nil {
+			log.Errorf("Failed to get tree getter, err: %s", err)
+			return nil, e.ErrListWorkspace.AddErr(err)
+		}
+	} else {
+		getter, err = fs.GetTreeGetter(codeHostID)
+		if err != nil {
+			log.Errorf("Failed to get tree getter, err: %s", err)
+			return nil, e.ErrListWorkspace.AddDesc(err.Error())
+		}
 	}
 
 	fileInfos, err := getter.GetTree(owner, repo, path, branch)
@@ -59,23 +64,6 @@ func GetRepoTree(codeHostID int, owner, repo, path, branch string, log *zap.Suga
 	}
 
 	return fileInfos, nil
-}
-
-type treeGetter interface {
-	GetTree(owner, repo, path, branch string) ([]*git.TreeNode, error)
-}
-
-func getTreeGetter(ch *poetry.CodeHost) (treeGetter, error) {
-	switch ch.Type {
-	case setting.SourceFromGithub:
-		return githubservice.NewClient(ch.AccessToken, config.ProxyHTTPSAddr()), nil
-	case setting.SourceFromGitlab:
-		return gitlabservice.NewClient(ch.Address, ch.AccessToken)
-	default:
-		// should not have happened here
-		log.DPanicf("invalid source: %s", ch.Type)
-		return nil, fmt.Errorf("invalid source: %s", ch.Type)
-	}
 }
 
 func CleanWorkspace(username, pipelineName string, log *zap.SugaredLogger) error {
