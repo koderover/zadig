@@ -268,7 +268,7 @@ func UpdateK8sWorkLoads(ctx context.Context, requestID, username string, product
 	addTmp := []models.Workload{}
 	delTmp := []models.Workload{}
 	for _, v := range workLoads {
-		switch v.Operator {
+		switch v.Operation {
 		// 删除workload的引用
 		case "delete":
 			err = commonrepo.NewServiceColl().UpdateStatus(v.Name, productName, setting.ProductStatusDeleting, envName)

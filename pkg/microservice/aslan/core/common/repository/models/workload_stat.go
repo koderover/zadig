@@ -34,7 +34,7 @@ type Workload struct {
 	Spec        corev1.ServiceSpec `bson:"-"                json:"-"`
 	Type        string             `bson:"type"             json:"type"`
 	ProductName string             `bson:"product_name"     json:"product_name"`
-	Operator    string             `bson:"operator,omitempty"     json:"operator,omitempty"`
+	Operation   string             `bson:"operation,omitempty"     json:"operation,omitempty"`
 }
 
 func (WorkloadStat) TableName() string {
