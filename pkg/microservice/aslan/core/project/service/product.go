@@ -500,8 +500,6 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 		_ = commonservice.DeleteDeliveryInfos(productName, log)
 		_ = DeleteProductsAsync(userName, productName, requestID, log)
 	}()
-	// 删除workload
-	workLoadStat, err := commonrepo.NewWorkLoadsStatColl().Find(clusterID, namespace)
 
 	return nil
 }
