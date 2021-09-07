@@ -257,6 +257,82 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 	return serviceOption, nil
 }
 
+// UpdateK8sWorkLoads update external workloads
+func UpdateK8sWorkLoads(ctx context.Context, requestID, username string, productName string, workLoads []models.Workload, clusterID, namespace string, envName string, log *zap.SugaredLogger) error {
+	kubeClient, err := kube.GetKubeClient(clusterID)
+	if err != nil {
+		log.Errorf("[%s] error: %v", namespace, err)
+		return err
+	}
+
+	addTmp := []models.Workload{}
+	delTmp := []models.Workload{}
+	for _, v := range workLoads {
+		switch v.Operator {
+		// 删除workload的引用
+		case "delete":
+			err = commonrepo.NewServiceColl().UpdateStatus(v.Name, productName, setting.ProductStatusDeleting, envName)
+			if err != nil {
+				log.Errorf("UpdateStatus  external services error:%s", err)
+			}
+			delTmp = append(delTmp, v)
+		// 添加workload的引用
+		case "add":
+			var bs []byte
+			switch v.Type {
+			case setting.Deployment:
+				bs, _, err = getter.GetDeploymentYaml(namespace, v.Name, kubeClient)
+			case setting.StatefulSet:
+				bs, _, err = getter.GetDeploymentYaml(namespace, v.Name, kubeClient)
+			}
+			if len(bs) == 0 || err != nil {
+				log.Errorf("UpdateK8sWorkLoads not found yaml %v", err)
+				return e.ErrGetService
+			}
+			if _, err = CreateServiceTemplate(username, &models.Service{
+				ServiceName:  v.Name,
+				Yaml:         string(bs),
+				ProductName:  productName,
+				CreateBy:     username,
+				Type:         setting.K8SDeployType,
+				WorkloadType: v.Type,
+				Source:       setting.SourceFromExternal,
+				ExternalEnv:  envName,
+			}, log); err != nil {
+				log.Errorf("create service template failed err:%v", err)
+				return e.ErrGetService
+			}
+			addTmp = append(addTmp, v)
+		}
+	}
+
+	workLoadStat, err := commonrepo.NewWorkLoadsStatColl().Find(clusterID, namespace)
+	if err != nil {
+		return e.ErrGetService
+	}
+	// 删除 && 增加
+	workLoadStat.Workloads = updateWorkloads(workLoadStat.Workloads, addTmp, delTmp, envName)
+	return commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workLoadStat)
+}
+
+func updateWorkloads(existWorkloads []models.Workload, addWorkloads, deleteWorkloads []models.Workload, envName string) (result []models.Workload) {
+	existWorkloadsMap := map[string]models.Workload{}
+	for _, v := range existWorkloads {
+		existWorkloadsMap[v.Name] = v
+	}
+	for _, v := range addWorkloads {
+		existWorkloadsMap[v.Name] = v
+	}
+	for _, v := range deleteWorkloads {
+		delete(existWorkloadsMap, v.Name)
+	}
+	for _, v := range existWorkloadsMap {
+		result = append(result, v)
+	}
+	return result
+}
+
+//CreateK8sWorkLoads create external workloads
 func CreateK8sWorkLoads(ctx context.Context, requestID, username string, productName string, workLoads []models.Workload, clusterID, namespace string, envName string, log *zap.SugaredLogger) error {
 	kubeClient, err := kube.GetKubeClient(clusterID)
 	if err != nil {
@@ -338,11 +414,11 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 		return commonrepo.NewWorkLoadsStatColl().Create(workLoadStat)
 	}
 
-	workLoadStat.Workloads = replaceWorkloads(workLoadStat.Workloads, workloadsTmp, envName)
+	workLoadStat.Workloads = firstAddWorkloads(workLoadStat.Workloads, workloadsTmp, envName)
 	return commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workLoadStat)
 }
 
-func replaceWorkloads(existWorkloads []models.Workload, newWorkloads []models.Workload, envName string) []models.Workload {
+func firstAddWorkloads(existWorkloads []models.Workload, newWorkloads []models.Workload, envName string) []models.Workload {
 	var result []models.Workload
 	workloadMap := map[string]models.Workload{}
 	for _, workload := range existWorkloads {
