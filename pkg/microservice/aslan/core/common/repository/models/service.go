@@ -51,7 +51,7 @@ type Service struct {
 	EnvConfigs       []*EnvConfig     `bson:"env_configs,omitempty"          json:"env_configs,omitempty"`
 	EnvStatuses      []*EnvStatus     `bson:"env_statuses,omitempty"         json:"env_statuses,omitempty"`
 	CodehostID       int              `bson:"codehost_id,omitempty"          json:"codehost_id,omitempty"`
-	RepoOwner        string           `bson:"repo_owner,omitempty"           son:"repo_owner,omitempty"`
+	RepoOwner        string           `bson:"repo_owner,omitempty"           json:"repo_owner,omitempty"`
 	RepoName         string           `bson:"repo_name,omitempty"            json:"repo_name,omitempty"`
 	RepoUUID         string           `bson:"repo_uuid,omitempty"            json:"repo_uuid,omitempty"`
 	BranchName       string           `bson:"branch_name,omitempty"          json:"branch_name,omitempty"`
