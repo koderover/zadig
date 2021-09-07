@@ -227,6 +227,17 @@ func ListK8sWorkLoads(envName, clusterID, namespace, productName string, perPage
 	}
 	// 等所有的状态都结束
 	wg.Wait()
+	allIngresses, err := getter.ListIngresses(namespace, nil, kubeClient)
+	if err != nil {
+		log.Errorf("[%s][%s] create product record error: %v", envName, productName, err)
+	}
+
+	for _, ingress := range allIngresses {
+		_, ok := matchedIngress.Load(ingress.Name)
+		if !ok {
+			ingressList = append(ingressList, *wrapper.Ingress(ingress).Resource())
+		}
+	}
 	return count, resp, ingressList, nil
 }
 
