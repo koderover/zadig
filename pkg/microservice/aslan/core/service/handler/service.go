@@ -152,10 +152,18 @@ func ListServicePort(c *gin.Context) {
 	ctx.Resp, ctx.Err = svcservice.ListServicePort(c.Param("name"), c.Param("type"), c.Query("productName"), setting.ProductStatusDeleting, revision, ctx.Logger)
 }
 
+type K8sWorkloadsArgs struct {
+	WorkLoads   []commonmodels.Workload `bson:"workLoads"        json:"workLoads"`
+	EnvName     string                  `bson:"env_name"         json:"env_name"`
+	ClusterID   string                  `bson:"cluster_id"       json:"cluster_id"`
+	Namespace   string                  `bson:"namespace"        json:"namespace"`
+	ProductName string                  `bson:"product_name"     json:"product_name"`
+}
+
 func CreateK8sWorkloads(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	args := new(commonmodels.K8sWorkloadsArgs)
+	args := new(K8sWorkloadsArgs)
 	err := c.BindJSON(args)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid K8sWorkloadsArgs args")
