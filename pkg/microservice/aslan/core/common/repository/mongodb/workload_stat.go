@@ -52,6 +52,7 @@ func (c *WorkLoadsStatColl) EnsureIndex(ctx context.Context) error {
 	mod := mongo.IndexModel{
 		Keys: bson.D{
 			bson.E{Key: "namespace", Value: 1},
+			bson.E{Key: "cluster_id", Value: 1},
 		},
 		Options: options.Index().SetUnique(true),
 	}
