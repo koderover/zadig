@@ -1,9 +1,12 @@
 ---
 name: Ask a Question
 about: I want to ask a question.
+title: "[Question]"
+labels: question
+assignees: jamsman94
+
 ---
 
-/kind question
 ## General Question
 
 <!--
