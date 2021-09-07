@@ -151,6 +151,7 @@ func (c *ServiceColl) ListMaxRevisionsForServices(services []*templatemodels.Ser
 	pre := bson.M{
 		"status": bson.M{"$ne": setting.ProductStatusDeleting},
 	}
+
 	if len(opt) > 0 {
 		if opt[0].ServiceType != "" {
 			pre["type"] = opt[0].ServiceType
@@ -158,6 +159,7 @@ func (c *ServiceColl) ListMaxRevisionsForServices(services []*templatemodels.Ser
 		if opt[0].EnvName != "" {
 			pre["external_env"] = opt[0].EnvName
 		}
+
 	}
 	post := bson.M{
 		"_id": bson.M{"$in": srs},
