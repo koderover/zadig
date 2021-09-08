@@ -142,20 +142,12 @@ func GetRepoTree(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetRepoTree(info.CodeHostID, info.Owner, info.Repo, info.Path, info.Branch, info.RepoLink, ctx.Logger)
-}
-
-func GetPublicGitRepoInfo(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	url := c.Query("url")
-	if url == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty url")
+	if info.RepoLink != "" {
+		ctx.Resp, ctx.Err = service.GetPublicRepoTree(info.RepoLink, info.Path, ctx.Logger)
 		return
 	}
-	dir := c.Query("dir")
-	ctx.Resp, ctx.Err = service.GetPublicGitRepoInfo(url, dir, ctx.Logger)
+
+	ctx.Resp, ctx.Err = service.GetRepoTree(info.CodeHostID, info.Owner, info.Repo, info.Path, info.Branch, ctx.Logger)
 }
 
 func GetCodehubRepoInfo(c *gin.Context) {
