@@ -336,8 +336,6 @@ func (c *HelmClient) upgrade(ctx context.Context, spec *ChartSpec, chartOption *
 			return err
 		}
 	}
-	client.Wait = true
-	client.WaitForJobs = true
 
 	_, err = client.Run(spec.ReleaseName, helmChart, values)
 	if err != nil {
