@@ -29,7 +29,7 @@ func GetConfigPayload(codeHostID int) *models.ConfigPayload {
 		S3Storage: models.S3Config{
 			Ak:       config.S3StorageAK(),
 			Sk:       config.S3StorageSK(),
-			Endpoint: config.S3StorageBucket(),
+			Endpoint: config.S3StorageEndpoint(),
 			Bucket:   config.S3StorageBucket(),
 			Path:     config.S3StoragePath(),
 			Protocol: config.S3StorageProtocol(),

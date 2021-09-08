@@ -84,7 +84,7 @@ func (c *Client) Download(bucketName, objectKey, dest string) error {
 		obj, err1 := c.GetObject(opt)
 		if err1 != nil {
 			if e, ok := err1.(awserr.Error); ok && e.Code() == s3.ErrCodeNoSuchKey {
-				return err
+				return err1
 			}
 
 			log.Warnf("Failed to get object %s from s3, try again, err: %s", objectKey, err1)

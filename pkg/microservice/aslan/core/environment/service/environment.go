@@ -2048,13 +2048,13 @@ func applySystemResourceRequirements(podSpec *corev1.PodSpec) {
 
 func applySystemImagePullSecrets(podSpec *corev1.PodSpec) {
 	for _, secret := range podSpec.ImagePullSecrets {
-		if secret.Name == setting.DefaultCandidateImagePullSecret {
+		if secret.Name == setting.DefaultImagePullSecret {
 			return
 		}
 	}
 	podSpec.ImagePullSecrets = append(podSpec.ImagePullSecrets,
 		corev1.LocalObjectReference{
-			Name: setting.DefaultCandidateImagePullSecret,
+			Name: setting.DefaultImagePullSecret,
 		})
 }
 

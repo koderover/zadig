@@ -1,9 +1,11 @@
 ---
 name: Enhancement
 about: Suggest enhancements to existing features
----
+title: "[enhencement]"
+labels: enhancement
+assignees: lilianzhu
 
-/kind enhancement
+---
 
 **Is your enhancement proposal related to a problem? Please describe.**
 [A clear and concise description of what the problem is.]

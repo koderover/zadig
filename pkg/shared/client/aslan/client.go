@@ -26,18 +26,34 @@ type Client struct {
 
 	host  string
 	token string
+	external bool
 }
 
 func New(host, token string) *Client {
 	c := httpclient.New(
 		httpclient.SetAuthScheme(setting.RootAPIKey),
 		httpclient.SetAuthToken(token),
-		httpclient.SetHostURL(host),
+		httpclient.SetHostURL(host+"/api"),
 	)
 
 	return &Client{
 		Client: c,
 		host:   host,
 		token:  token,
+	}
+}
+
+func NewExternal(host, token string) *Client {
+	c := httpclient.New(
+		httpclient.SetAuthScheme(setting.UserAPIKey),
+		httpclient.SetAuthToken(token),
+		httpclient.SetHostURL(host+"/api/aslan"),
+	)
+
+	return &Client{
+		Client: c,
+		host:   host,
+		token:  token,
+		external: true,
 	}
 }
