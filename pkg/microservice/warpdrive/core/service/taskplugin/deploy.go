@@ -457,7 +457,6 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 					ReleaseName: fmt.Sprintf("%s-%s", p.Task.Namespace, p.Task.ServiceName),
 					ChartName:   fmt.Sprintf("%s/%s", p.Task.Namespace, p.Task.ServiceName),
 					Namespace:   p.Task.Namespace,
-					Wait:        true,
 					ReuseValues: true,
 					Version:     renderChart.ChartVersion,
 					ValuesYaml:  replaceValuesYaml,
@@ -466,7 +465,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 					Timeout:     time.Second * DeployTimeout,
 				}
 
-				path, err := p.downloadService(pipelineTask.ProductName, pipelineTask.ServiceName, pipelineTask.StorageURI)
+				path, err := p.downloadService(pipelineTask.ProductName, p.Task.ServiceName, pipelineTask.StorageURI)
 				if err != nil {
 					err = errors.WithMessagef(
 						err,

@@ -92,6 +92,11 @@ func InsertOperationLog(c *gin.Context, username, productName, method, function,
 //    pointer a passed in, a pointer will be returned, not a double pointer
 // 2. All private fields of the struct will be deleted during the process.
 func responseHelper(response interface{}) interface{} {
+	switch response.(type) {
+	case string, []byte:
+		return response
+	}
+
 	val := reflect.ValueOf(response)
 	switch val.Kind() {
 	case reflect.Ptr:
