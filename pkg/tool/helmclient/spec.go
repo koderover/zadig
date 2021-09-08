@@ -38,8 +38,10 @@ func (spec *ChartSpec) GetValuesMap() (map[string]interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		// coalesce values.yaml and override values
-		values = chartutil.CoalesceTables(values, ovals)
+		coalescedValues := chartutil.CoalesceTables(make(map[string]interface{}, len(ovals)), ovals)
+		values = chartutil.CoalesceTables(coalescedValues, values)
 	}
 
 	return values, nil

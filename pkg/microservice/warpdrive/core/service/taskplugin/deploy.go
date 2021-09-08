@@ -391,7 +391,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 					ReuseValues:    true,
 					Version:        renderChart.ChartVersion,
 					ValuesYaml:     replaceValuesYaml,
-					ValuesOverride: renderChart.OverrideValuesString(),
+					ValuesOverride: renderChart.OverrideValues,
 					SkipCRDs:       false,
 					UpgradeCRDs:    true,
 					Timeout:        time.Second * DeployTimeout,

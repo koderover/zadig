@@ -362,6 +362,15 @@ func AutoCreateProduct(productName, envType, requestID string, log *zap.SugaredL
 			tempProductObj.Namespace = commonservice.GetProductEnvNamespace(envName, productName)
 			tempProductObj.UpdateBy = setting.SystemUser
 			tempProductObj.EnvName = envName
+			// charts should copy value
+			tempProductObj.ChartInfos = make([]*template.RenderChart, 0, len(productObject.ChartInfos))
+			for _, charInfo := range productObject.ChartInfos {
+				tempProductObj.ChartInfos = append(tempProductObj.ChartInfos, &template.RenderChart{
+					ServiceName:  charInfo.ServiceName,
+					ChartVersion: charInfo.ChartVersion,
+					ValuesYaml:   charInfo.ValuesYaml,
+				})
+			}
 			err = CreateProduct(setting.SystemUser, requestID, &tempProductObj, log)
 			if err != nil {
 				_, messageMap := e.ErrorMessage(err)
@@ -839,21 +848,51 @@ func CreateProduct(user, requestID string, args *commonmodels.Product, log *zap.
 			return e.ErrCreateEnv.AddErr(err)
 		}
 
-		if err := preCreateProduct(args.EnvName, args, kubeClient, log); err != nil {
+		// renderset may exist before product created, by setting values.yaml content
+		var renderSet *commonmodels.RenderSet
+		if args.Render == nil || args.Render.Revision == 0 {
+			renderSet, err = FindHelmRenderSet(args.ProductName, commonservice.GetProductEnvNamespace(args.EnvName, args.ProductName), log)
+			if err != nil && err != mongo.ErrNoDocuments {
+				log.Errorf("[%s][P:%s] find product renderset error: %v", args.EnvName, args.ProductName, err)
+				return e.ErrCreateEnv.AddDesc(err.Error())
+			}
+			// if env renderset is predefined, set render info
+			if renderSet != nil {
+				args.Render = &commonmodels.RenderInfo{
+					ProductTmpl: args.ProductName,
+					Name:        renderSet.Name,
+					Revision:    renderSet.Revision,
+				}
+				// merge renderchart from renderset and product
+				chartInfoMap := make(map[string]*template.RenderChart)
+				for _, renderChart := range renderSet.ChartInfos {
+					chartInfoMap[renderChart.ServiceName] = renderChart
+				}
+
+				// use values.yaml content from predefined env renderset
+				for _, singleRenderChart := range args.ChartInfos {
+					if renderInEnvRenderset, ok := chartInfoMap[singleRenderChart.ServiceName]; ok {
+						singleRenderChart.ValuesYaml = renderInEnvRenderset.ValuesYaml
+						singleRenderChart.OverrideValues = renderInEnvRenderset.OverrideValues
+					}
+				}
+			}
+		}
+
+		if err = preCreateProduct(args.EnvName, args, kubeClient, log); err != nil {
 			log.Errorf("CreateProduct preCreateProduct error: %v", err)
 			return e.ErrCreateEnv.AddDesc(err.Error())
 		}
-		eventStart := time.Now().Unix()
-		if args.Render == nil {
-			args.Render = &commonmodels.RenderInfo{ProductTmpl: args.ProductName}
+
+		if renderSet == nil {
+			renderSet, err = FindHelmRenderSet(args.ProductName, args.Render.Name, log)
+			if err != nil {
+				log.Errorf("[%s][P:%s] find product renderset error: %v", args.EnvName, args.ProductName, err)
+				return e.ErrCreateEnv.AddDesc(err.Error())
+			}
 		}
 
-		renderSet, err := FindHelmRenderSet(args.ProductName, args.Render.Name, log)
-		if err != nil {
-			log.Errorf("[%s][P:%s] find product renderset error: %v", args.EnvName, args.ProductName, err)
-			return e.ErrCreateEnv.AddDesc(err.Error())
-		}
-		// 设置产品render revsion
+		// 设置产品render revision
 		args.Render.Revision = renderSet.Revision
 		// 记录服务当前对应render版本
 		setServiceRender(args)
@@ -869,6 +908,7 @@ func CreateProduct(user, requestID string, args *commonmodels.Product, log *zap.
 			return e.ErrCreateEnv.AddDesc(err.Error())
 		}
 
+		eventStart := time.Now().Unix()
 		go installOrUpdateHelmChart(user, args.EnvName, requestID, args, eventStart, helmClient, log)
 	default:
 		kubeClient, err := kube.GetKubeClient(args.ClusterID)
@@ -1032,6 +1072,7 @@ func UpdateHelmProductVariable(productName, envName, username, requestID string,
 	if productResp.Render != nil {
 		oldRenderVersion = productResp.Render.Revision
 	}
+	//TODO rcs should only contain updated render charts instead of all render charts
 	productResp.ChartInfos = rcs
 	if err = commonservice.CreateHelmRenderSet(
 		&commonmodels.RenderSet{
@@ -1983,6 +2024,7 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 	if args.Render != nil && args.Render.Revision > 0 {
 		tmpRenderInfo.Revision = args.Render.Revision
 	}
+
 	args.Render = tmpRenderInfo
 	if productTmpl.ProductFeature != nil && productTmpl.ProductFeature.BasicFacility != setting.BasicFacilityCVM {
 		return ensureKubeEnv(commonservice.GetProductEnvNamespace(envName, args.ProductName), kubeClient, log)
@@ -2165,7 +2207,7 @@ func installOrUpdateHelmChart(user, envName, requestID string, args *commonmodel
 					Wait:           true,
 					Version:        renderChart.ChartVersion,
 					ValuesYaml:     renderChart.ValuesYaml,
-					ValuesOverride: renderChart.OverrideValuesString(),
+					ValuesOverride: renderChart.OverrideValues,
 					UpgradeCRDs:    true,
 					Timeout:        Timeout * time.Second * 10,
 				}
@@ -2349,7 +2391,7 @@ func updateProductGroup(productName, envName, updateType string, productResp *co
 						Wait:           true,
 						Version:        tmpRenderChart.ChartVersion,
 						ValuesYaml:     tmpRenderChart.ValuesYaml,
-						ValuesOverride: tmpRenderChart.OverrideValuesString(),
+						ValuesOverride: tmpRenderChart.OverrideValues,
 						UpgradeCRDs:    true,
 						Timeout:        Timeout * time.Second * 10,
 					}
@@ -2572,7 +2614,7 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 						Wait:           true,
 						Version:        tmpRenderChart.ChartVersion,
 						ValuesYaml:     tmpRenderChart.ValuesYaml,
-						ValuesOverride: tmpRenderChart.OverrideValuesString(),
+						ValuesOverride: tmpRenderChart.OverrideValues,
 						UpgradeCRDs:    true,
 						Atomic:         true,
 						Timeout:        Timeout * time.Second * 10,

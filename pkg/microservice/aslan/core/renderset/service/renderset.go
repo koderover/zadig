@@ -18,6 +18,7 @@ package service
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -28,17 +29,88 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	yaml2 "github.com/koderover/zadig/pkg/util/yaml"
 )
 
-type RendersetValuesArgs struct {
-	RenderCharts []*template.RenderChart `json:"render_charts"`
+type RepoConfig struct {
+	CodehostID  int      `json:"codehostID,omitempty"`
+	Owner       string   `json:"owner,omitempty"`
+	Repo        string   `json:"repo,omitempty"`
+	Branch      string   `json:"branch,omitempty"`
+	ValuesPaths []string `json:"valuesPaths,omitempty"`
 }
 
-func ListChartRenders(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*template.RenderChart, error) {
+type KVPair struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+type RendersetCreateArgs struct {
+	EnvName        string      `json:"envName,omitempty,omitempty"`
+	ServiceName    string      `json:"serviceName,omitempty"`
+	YamlSource     string      `json:"yamlSource,omitempty"`
+	GitRepoConfig  *RepoConfig `json:"gitRepoConfig,omitempty"`
+	OverrideValues []*KVPair   `json:"overrideValues,omitempty"`
+	ValuesYAML     string      `json:"valuesYAML,omitempty"`
+}
+
+func (args *RendersetCreateArgs) toOverrideValueString() string {
+	if len(args.OverrideValues) == 0 {
+		return ""
+	}
+	kvPairSlice := make([]string, 0, len(args.OverrideValues))
+	for _, pair := range args.OverrideValues {
+		kvPairSlice = append(kvPairSlice, fmt.Sprintf("%s=%s", pair.Key, pair.Value))
+	}
+	return strings.Join(kvPairSlice, ",")
+}
+
+func (args *RendersetCreateArgs) toGitRepoConfig() *template.GitRepoConfig {
+	if args.GitRepoConfig == nil {
+		return nil
+	}
+	return &template.GitRepoConfig{
+		CodehostID:  args.GitRepoConfig.CodehostID,
+		Owner:       args.GitRepoConfig.Owner,
+		Repo:        args.GitRepoConfig.Repo,
+		Branch:      args.GitRepoConfig.Branch,
+		ValuesPaths: args.GitRepoConfig.ValuesPaths,
+	}
+}
+
+func (args *RendersetCreateArgs) fromRenderChart(chart *template.RenderChart) *RendersetCreateArgs {
+	args.ServiceName = chart.ServiceName
+	args.YamlSource = chart.YamlSource
+	if args.YamlSource == setting.ValuesYamlSourceFreeEdit {
+		args.ValuesYAML = chart.ValuesYaml
+	}
+	if chart.GitRepoConfig != nil {
+		args.GitRepoConfig = &RepoConfig{
+			CodehostID:  chart.GitRepoConfig.CodehostID,
+			Owner:       chart.GitRepoConfig.Owner,
+			Repo:        chart.GitRepoConfig.Repo,
+			Branch:      chart.GitRepoConfig.Branch,
+			ValuesPaths: chart.GitRepoConfig.ValuesPaths,
+		}
+	}
+	if chart.OverrideValues != "" {
+		kvPairs := strings.Split(chart.OverrideValues, ",")
+		for _, kv := range kvPairs {
+			kvSlice := strings.Split(kv, "=")
+			if len(kvSlice) == 2 {
+				args.OverrideValues = append(args.OverrideValues, &KVPair{
+					Key:   kvSlice[0],
+					Value: kvSlice[1],
+				})
+			}
+		}
+	}
+	return args
+}
+
+func ListChartRenders(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*RendersetCreateArgs, error) {
 
 	renderSetName := commonservice.GetProductEnvNamespace(envName, productName)
 
@@ -50,53 +122,50 @@ func ListChartRenders(productName, envName, serviceName string, log *zap.Sugared
 		return nil, err
 	}
 
-	if serviceName == "" {
-		return rendersetObj.ChartInfos, nil
-	}
+	ret := make([]*RendersetCreateArgs, 0)
 
 	for _, singleChart := range rendersetObj.ChartInfos {
-		if singleChart.ServiceName == serviceName {
-			return []*template.RenderChart{singleChart}, nil
+		if serviceName == "" {
+			ret = append(ret, new(RendersetCreateArgs).fromRenderChart(singleChart))
+		} else {
+			if singleChart.ServiceName == serviceName {
+				ret = append(ret, new(RendersetCreateArgs).fromRenderChart(singleChart))
+				break
+			}
 		}
 	}
-	return nil, nil
+	return ret, nil
 }
 
-func generateValuesValue(service *commonmodels.Service, args *template.RenderChart, log *zap.SugaredLogger) (string, error) {
-	if args.YamlSource == "free_edit" {
-		return args.ValuesYaml, nil
-	} else if args.YamlSource == "default" {
-		if service.HelmChart != nil {
-			return service.HelmChart.ValuesYaml, nil
+func generateValuesYaml(service *commonmodels.Service, args *RendersetCreateArgs, log *zap.SugaredLogger) (string, error) {
+	if args.YamlSource == setting.ValuesYamlSourceFreeEdit {
+		return args.ValuesYAML, nil
+	} else if args.YamlSource == setting.ValuesYamlSourceDefault {
+		return service.HelmChart.ValuesYaml, nil
+	} else if args.YamlSource == setting.ValuesYamlSourceGitRepo {
+		if args.GitRepoConfig == nil {
+			return "", nil
 		}
-	} else if args.YamlSource == "git_repo" {
 		// TODO need optimize, use parallel execution
 		var allValues []byte
-		var err error
-		for _, repoArgs := range args.GitConfigList {
-			var valuesByRepo []byte
-			for _, filePath := range repoArgs.Paths {
-				fileContent, err := fsservice.DownloadFileFromSource(
-					&fsservice.DownloadFromSourceArgs{CodehostID: repoArgs.CodehostID, Owner: repoArgs.Owner, Repo: repoArgs.Repo, Path: filePath, Branch: repoArgs.Branch})
-				if err != nil {
-					return "", errors.Errorf("fail to download file from git, path: %s, repo: %v", filePath, *repoArgs)
-				}
-				valuesByRepo, err = yaml2.MergeBoth(valuesByRepo, fileContent)
-				if err != nil {
-					return "", errors.Errorf("fail to merge file, path: %s, repo: %v", filePath, *repoArgs)
-				}
-			}
-			allValues, err = yaml2.MergeBoth(allValues, valuesByRepo)
+		for _, filePath := range args.GitRepoConfig.ValuesPaths {
+			fileContent, err := fsservice.DownloadFileFromSource(
+				&fsservice.DownloadFromSourceArgs{CodehostID: args.GitRepoConfig.CodehostID, Owner: args.GitRepoConfig.Owner, Repo: args.GitRepoConfig.Repo, Path: filePath, Branch: args.GitRepoConfig.Branch})
 			if err != nil {
-				return "", errors.Errorf("fail to merge file: %v", *repoArgs)
+				return "", errors.Errorf("fail to download file from git, path: %s, repo: %v", filePath, *args.GitRepoConfig)
+			}
+			allValues, err = yaml2.Merge([][]byte{allValues, fileContent})
+			if err != nil {
+				return "", errors.Errorf("fail to merge file, path: %s, repo: %v", filePath, *args.GitRepoConfig)
 			}
 		}
+
 		return string(allValues), nil
 	}
 	return "", nil
 }
 
-func CreateOrUpdateChartValues(productName, envName string, args *template.RenderChart, userName, requestID string, log *zap.SugaredLogger) error {
+func CreateOrUpdateChartValues(productName, envName string, args *RendersetCreateArgs, userName, requestID string, log *zap.SugaredLogger) error {
 
 	serviceName := args.ServiceName
 
@@ -115,8 +184,11 @@ func CreateOrUpdateChartValues(productName, envName string, args *template.Rende
 	if serviceObj.Type != setting.HelmDeployType {
 		return e.ErrCreateRenderSet.AddDesc("invalid service type")
 	}
+	if serviceObj.HelmChart == nil {
+		return e.ErrCreateRenderSet.AddDesc("missing helm chart info")
+	}
 
-	yamlContent, err := generateValuesValue(serviceObj, args, log)
+	yamlContent, err := generateValuesYaml(serviceObj, args, log)
 	if err != nil {
 		return e.ErrCreateRenderSet.AddDesc(err.Error())
 	}
@@ -136,7 +208,6 @@ func CreateOrUpdateChartValues(productName, envName string, args *template.Rende
 	if curRenderset == nil {
 		curRenderset = &commonmodels.RenderSet{
 			Name:        renderSetName,
-			Revision:    0,
 			EnvName:     envName,
 			ProductTmpl: productName,
 			UpdateBy:    userName,
@@ -152,13 +223,11 @@ func CreateOrUpdateChartValues(productName, envName string, args *template.Rende
 		}
 		singleChart.ValuesYaml = yamlContent
 		singleChart.YamlSource = args.YamlSource
-		singleChart.OverrideValues = args.OverrideValues
-		if args.YamlSource == "git_repo" {
-			singleChart.GitConfigSetList = &template.GitConfigSetList{
-				GitConfigList: args.GitConfigSetList.GitConfigList,
-			}
+		singleChart.OverrideValues = args.toOverrideValueString()
+		if args.YamlSource == setting.ValuesYamlSourceGitRepo {
+			singleChart.GitRepoConfig = args.toGitRepoConfig()
 		} else {
-			singleChart.GitConfigSetList = nil
+			singleChart.GitRepoConfig = nil
 		}
 		targetChartInfo = singleChart
 		break
@@ -169,10 +238,12 @@ func CreateOrUpdateChartValues(productName, envName string, args *template.Rende
 			ChartVersion:   serviceObj.HelmChart.Version,
 			ValuesYaml:     yamlContent,
 			YamlSource:     args.YamlSource,
-			OverrideValues: args.OverrideValues,
+			OverrideValues: args.toOverrideValueString(),
 		}
-		if args.YamlSource == "git_repo" {
-			targetChartInfo.GitConfigList = args.GitConfigList
+		if args.YamlSource == setting.ValuesYamlSourceGitRepo {
+			targetChartInfo.GitRepoConfig = args.toGitRepoConfig()
+		} else {
+			targetChartInfo.GitRepoConfig = nil
 		}
 		curRenderset.ChartInfos = append(curRenderset.ChartInfos, targetChartInfo)
 	}
@@ -185,12 +256,6 @@ func CreateOrUpdateChartValues(productName, envName string, args *template.Rende
 
 	if err != nil {
 		return e.ErrCreateRenderSet.AddDesc(err.Error())
-	}
-
-	//when environment existed, need to update related services
-	err = service.ApplyHelmProductRenderset(productName, envName, userName, requestID, curRenderset, targetChartInfo, log)
-	if err != mongo.ErrNoDocuments {
-		return err
 	}
 	return err
 }

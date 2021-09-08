@@ -17,7 +17,6 @@ limitations under the License.
 package template
 
 import (
-	"fmt"
 	"strings"
 )
 
@@ -93,21 +92,12 @@ type EnvRenderKV struct {
 	Vars    []*RenderKV `json:"vars"`
 }
 
-type GitDownloadConfig struct {
-	CodehostID int      `bson:"codehost_id,omitempty"                    json:"codehost_id,omitempty"`
-	Owner      string   `bson:"owner,omitempty"                     json:"owner,omitempty"`
-	Repo       string   `bson:"repo,omitempty"                      json:"repo,omitempty"`
-	Branch     string   `bson:"branch,omitempty"                    json:"branch,omitempty"`
-	Paths      []string `bson:"paths,omitempty"                      json:"paths,omitempty"`
-}
-
-type GitConfigSetList struct {
-	GitConfigList []*GitDownloadConfig `bson:"git_configs,omitempty"  json:"git_configs,omitempty"`
-}
-
-type KVPair struct {
-	Key   string `bson:"key"    json:"key"`
-	Value string `bson:"value"    json:"value"`
+type GitRepoConfig struct {
+	CodehostID  int      `bson:"codehost_id,omitempty"`
+	Owner       string   `bson:"owner,omitempty"`
+	Repo        string   `bson:"repo,omitempty"`
+	Branch      string   `bson:"branch,omitempty"`
+	ValuesPaths []string `bson:"values_paths,omitempty"`
 }
 
 // RenderChart ...
@@ -115,10 +105,10 @@ type RenderChart struct {
 	ServiceName  string `bson:"service_name,omitempty"    json:"service_name,omitempty"`
 	ChartVersion string `bson:"chart_version,omitempty"   json:"chart_version,omitempty"`
 	// ChartProject string `bson:"chart_project,omitempty"   json:"chart_project,omitempty"`
-	YamlSource        string `bson:"yaml_source,omitempty"     json:"yaml_source,omitempty"`
-	ValuesYaml        string `bson:"values_yaml,omitempty"     json:"values_yaml,omitempty"`
-	*GitConfigSetList `bson:",inline,omitempty"`
-	OverrideValues    []*KVPair `bson:"override_values,omitempty"   json:"override_values,omitempty"`
+	YamlSource     string `bson:"yaml_source,omitempty"     json:"yaml_source,omitempty"`
+	ValuesYaml     string `bson:"values_yaml,omitempty"     json:"values_yaml,omitempty"`
+	*GitRepoConfig `bson:",inline,omitempty"`
+	OverrideValues string `bson:"override_values,omitempty"   json:"override_values,omitempty"`
 }
 
 type ProductFeature struct {
@@ -213,15 +203,4 @@ func (r *RenderKV) RemoveDupServices() {
 		}
 	}
 	r.Services = result
-}
-
-func (r *RenderChart) OverrideValuesString() string {
-	if len(r.OverrideValues) == 0 {
-		return ""
-	}
-	kvPairSlice := make([]string, 0, len(r.OverrideValues))
-	for _, pair := range r.OverrideValues {
-		kvPairSlice = append(kvPairSlice, fmt.Sprintf("%s=%s", pair.Key, pair.Value))
-	}
-	return strings.Join(kvPairSlice, ",")
 }

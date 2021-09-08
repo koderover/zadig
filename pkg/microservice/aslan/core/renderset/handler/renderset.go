@@ -22,7 +22,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/renderset/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -51,18 +50,17 @@ func CreateOrUpdateRenderset(c *gin.Context) {
 		log.Errorf("CreateOrUpdateRenderset c.GetRawData() err : %v", err)
 	}
 
-	//args := new(service.RendersetValuesArgs)
-	args := new(template.RenderChart)
+	args := new(service.RendersetCreateArgs)
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateOrUpdateRenderset json.Unmarshal err : %v", err)
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 	}
 	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "新增", "环境变量", c.Query("envName"), fmt.Sprintf("%s,%s", permission.TestEnvManageUUID, permission.ProdEnvManageUUID), string(data), ctx.Logger)
 
-	if c.Query("envName") == "" {
+	if args.EnvName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("envName can not be null!")
 		return
 	}
 
-	ctx.Err = service.CreateOrUpdateChartValues(c.Param("productName"), c.Query("envName"), args, ctx.Username, ctx.RequestID, ctx.Logger)
+	ctx.Err = service.CreateOrUpdateChartValues(c.Param("productName"), args.EnvName, args, ctx.Username, ctx.RequestID, ctx.Logger)
 }

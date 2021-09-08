@@ -47,16 +47,6 @@ func Merge(yamls [][]byte) ([]byte, error) {
 	return yaml.Marshal(m)
 }
 
-func MergeBoth(yamlA []byte, yamlB []byte) ([]byte, error) {
-	if yamlA == nil {
-		return yamlB, nil
-	}
-	if yamlB == nil {
-		return yamlA, nil
-	}
-	return Merge([][]byte{yamlA, yamlB})
-}
-
 func mergeMaps(a, b map[string]interface{}) map[string]interface{} {
 	out := make(map[string]interface{}, len(a))
 	for k, v := range a {
