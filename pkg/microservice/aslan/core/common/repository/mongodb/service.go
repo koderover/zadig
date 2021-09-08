@@ -171,7 +171,9 @@ func (c *ServiceColl) ListMaxRevisionsForServices(services []*templatemodels.Ser
 
 func (c *ServiceColl) FindExternalServicesBy(productName, envName string) ([]*models.Service, error) {
 	services := make([]*models.Service, 0)
-	query := bson.M{}
+	query := bson.M{
+		"status": bson.M{"$ne": setting.ProductStatusDeleting},
+	}
 	if productName != "" {
 		query["product_name"] = productName
 	}
