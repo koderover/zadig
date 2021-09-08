@@ -58,7 +58,7 @@ func CreateOrUpdateRegistrySecret(namespace string, reg *commonmodels.RegistryNa
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
-			Name:      setting.DefaultCandidateImagePullSecret,
+			Name:      setting.DefaultImagePullSecret,
 		},
 		Data: data,
 		Type: corev1.SecretTypeDockercfg,
