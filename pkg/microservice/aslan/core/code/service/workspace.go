@@ -17,39 +17,46 @@ limitations under the License.
 package service
 
 import (
-	"fmt"
 	"io/ioutil"
-	"net/url"
 	"os"
 	"path"
-	"strings"
 
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
-	githubservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
-	gitlabservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gitlab"
-	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/codehost"
-	"github.com/koderover/zadig/pkg/shared/poetry"
 	"github.com/koderover/zadig/pkg/tool/codehub"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-func GetRepoTree(codeHostID int, owner, repo, path, branch string, log *zap.SugaredLogger) ([]*git.TreeNode, error) {
-
-	ch, err := codehost.GetCodeHostInfoByID(codeHostID)
+func GetPublicRepoTree(repoLink, path string, logger *zap.SugaredLogger) ([]*git.TreeNode, error) {
+	owner, repo, err := git.ParseOwnerAndRepo(repoLink)
 	if err != nil {
-		log.Errorf("Failed to get codeHost by id %d, err: %s", codeHostID, err)
+		logger.Errorf("Failed to parse link %s, err: %s", repoLink, err)
+		return nil, e.ErrListWorkspace.AddErr(err)
+	}
+	getter, err := fs.GetPublicTreeGetter(repoLink)
+	if err != nil {
+		logger.Errorf("Failed to get tree getter, err: %s", err)
+		return nil, e.ErrListWorkspace.AddErr(err)
+	}
+
+	fileInfos, err := getter.GetTree(owner, repo, path, "")
+	if err != nil {
 		return nil, e.ErrListWorkspace.AddDesc(err.Error())
 	}
-	getter, err := getTreeGetter(ch)
+
+	return fileInfos, nil
+}
+
+func GetRepoTree(codeHostID int, owner, repo, path, branch string, logger *zap.SugaredLogger) ([]*git.TreeNode, error) {
+	getter, err := fs.GetTreeGetter(codeHostID)
 	if err != nil {
-		log.Errorf("Failed to get tree getter, err: %s", err)
+		logger.Errorf("Failed to get tree getter, err: %s", err)
 		return nil, e.ErrListWorkspace.AddDesc(err.Error())
 	}
 
@@ -59,23 +66,6 @@ func GetRepoTree(codeHostID int, owner, repo, path, branch string, log *zap.Suga
 	}
 
 	return fileInfos, nil
-}
-
-type treeGetter interface {
-	GetTree(owner, repo, path, branch string) ([]*git.TreeNode, error)
-}
-
-func getTreeGetter(ch *poetry.CodeHost) (treeGetter, error) {
-	switch ch.Type {
-	case setting.SourceFromGithub:
-		return githubservice.NewClient(ch.AccessToken, config.ProxyHTTPSAddr()), nil
-	case setting.SourceFromGitlab:
-		return gitlabservice.NewClient(ch.Address, ch.AccessToken)
-	default:
-		// should not have happened here
-		log.DPanicf("invalid source: %s", ch.Type)
-		return nil, fmt.Errorf("invalid source: %s", ch.Type)
-	}
 }
 
 func CleanWorkspace(username, pipelineName string, log *zap.SugaredLogger) error {
@@ -185,67 +175,6 @@ func GetGitRepoInfo(codehostID int, repoOwner, repoName, branchName, remoteName,
 
 		fis = append(fis, fi)
 	}
-	return fis, nil
-}
-
-func GetPublicGitRepoInfo(urlPath, dir string, log *zap.SugaredLogger) ([]*FileInfo, error) {
-	fis := make([]*FileInfo, 0)
-
-	if dir == "" {
-		dir = "/"
-	}
-	if !strings.Contains(urlPath, "https") && !strings.Contains(urlPath, "http") {
-		return fis, e.ErrListRepoDir.AddDesc("url is illegal")
-	}
-	uri, err := url.Parse(urlPath)
-	if err != nil {
-		return fis, e.ErrListRepoDir.AddDesc("url parse failed")
-	}
-	host := uri.Host
-	if host != "github.com" {
-		return fis, e.ErrListRepoDir.AddDesc("only support github")
-	}
-	uriPath := uri.Path
-	repoNameArr := strings.Split(uriPath, "/")
-	repoName := ""
-	if len(repoNameArr) == 3 {
-		repoName = repoNameArr[2]
-	}
-	if repoName == "" {
-		return fis, e.ErrListRepoDir.AddDesc("repoName not found")
-	}
-
-	base := path.Join(config.S3StoragePath(), repoName)
-	if err := os.RemoveAll(base); err != nil {
-		log.Errorf("dir remove err:%v", err)
-	}
-	err = command.RunGitCmds(&codehost.Detail{Address: urlPath, Source: "github"}, "", repoName, "master", "origin")
-	if err != nil {
-		log.Errorf("GetPublicGitRepoInfo runGitCmds err:%v", err)
-		return fis, e.ErrListRepoDir.AddDesc(err.Error())
-	}
-
-	files, err := ioutil.ReadDir(path.Join(base, dir))
-	if err != nil {
-		return fis, e.ErrListRepoDir.AddDesc(err.Error())
-	}
-
-	for _, file := range files {
-		if file.Name() == ".git" && file.IsDir() {
-			continue
-		}
-		fi := &FileInfo{
-			Parent:  dir,
-			Name:    file.Name(),
-			Size:    file.Size(),
-			Mode:    file.Mode(),
-			ModTime: file.ModTime().Unix(),
-			IsDir:   file.IsDir(),
-		}
-
-		fis = append(fis, fi)
-	}
-
 	return fis, nil
 }
 

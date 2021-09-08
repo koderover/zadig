@@ -18,6 +18,8 @@ package yaml
 
 import "sigs.k8s.io/yaml"
 
+// MergeAndUnmarshal merges a couple of yaml files into one yaml file, and return a map[string]interface{},
+// a field in latter file will override the same field in former file.
 func MergeAndUnmarshal(yamls [][]byte) (map[string]interface{}, error) {
 	base := map[string]interface{}{}
 
@@ -34,6 +36,8 @@ func MergeAndUnmarshal(yamls [][]byte) (map[string]interface{}, error) {
 	return base, nil
 }
 
+// Merge merges a couple of yaml files into one yaml file,
+// a field in latter file will override the same field in former file.
 func Merge(yamls [][]byte) ([]byte, error) {
 	m, err := MergeAndUnmarshal(yamls)
 	if err != nil {

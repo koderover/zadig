@@ -397,7 +397,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 					Timeout:        time.Second * DeployTimeout,
 				}
 
-				path, err := p.downloadService(pipelineTask.ProductName, pipelineTask.ServiceName, pipelineTask.StorageURI)
+				path, err := p.downloadService(pipelineTask.ProductName, p.Task.ServiceName, pipelineTask.StorageURI)
 				if err != nil {
 					err = errors.WithMessagef(
 						err,

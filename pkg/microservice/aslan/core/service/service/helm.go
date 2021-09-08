@@ -100,6 +100,7 @@ type helmServiceCreationArgs struct {
 	Owner       string
 	Repo        string
 	Branch      string
+	RepoLink    string
 }
 
 func ListHelmServices(productName string, log *zap.SugaredLogger) (*HelmService, error) {
@@ -184,7 +185,7 @@ func GetFileContent(serviceName, productName, filePath, fileName string, log *za
 
 func CreateOrUpdateHelmService(projectName string, args *HelmServiceCreationArgs, logger *zap.SugaredLogger) error {
 	switch args.Source {
-	case LoadFromRepo:
+	case LoadFromRepo, LoadFromPublicRepo:
 		return CreateOrUpdateHelmServiceFromGitRepo(projectName, args, logger)
 	case LoadFromChartTemplate:
 		return CreateOrUpdateHelmServiceFromChartTemplate(projectName, args, logger)
@@ -298,9 +299,22 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 }
 
 func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceCreationArgs, log *zap.SugaredLogger) error {
+	var err error
+	var repoLink string
 	repoArgs, ok := args.CreateFrom.(*CreateFromRepo)
 	if !ok {
-		return fmt.Errorf("invalid argument")
+		publicArgs, ok := args.CreateFrom.(*CreateFromPublicRepo)
+		if !ok {
+			return fmt.Errorf("invalid argument")
+		}
+
+		repoArgs, err = PublicRepoToPrivateRepoArgs(publicArgs)
+		if err != nil {
+			log.Errorf("Failed to parse repo args %+v, err: %s", publicArgs, err)
+			return err
+		}
+
+		repoLink = publicArgs.RepoLink
 	}
 	helmRenderCharts := make([]*templatemodels.RenderChart, 0, len(repoArgs.Paths))
 	var errs *multierror.Error
@@ -324,7 +338,7 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 
 			var serviceName string
 			fsTree, err := fsservice.DownloadFilesFromSource(
-				&fsservice.DownloadFromSourceArgs{CodehostID: repoArgs.CodehostID, Owner: repoArgs.Owner, Repo: repoArgs.Repo, Path: filePath, Branch: repoArgs.Branch},
+				&fsservice.DownloadFromSourceArgs{CodehostID: repoArgs.CodehostID, Owner: repoArgs.Owner, Repo: repoArgs.Repo, Path: filePath, Branch: repoArgs.Branch, RepoLink: repoLink},
 				func(chartTree afero.Fs) (string, error) {
 					chartName, _, err := readChartYAML(afero.NewIOFS(chartTree), filepath.Base(filePath), log)
 					serviceName = chartName
@@ -357,6 +371,7 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 					Owner:       repoArgs.Owner,
 					Repo:        repoArgs.Repo,
 					Branch:      repoArgs.Branch,
+					RepoLink:    repoLink,
 				},
 				log,
 			)
@@ -455,6 +470,7 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 		RepoName:    args.Repo,
 		BranchName:  args.Branch,
 		LoadPath:    args.FilePath,
+		SrcPath:     args.RepoLink,
 		HelmChart: &models.HelmChart{
 			Name:       chartName,
 			Version:    chartVersion,
