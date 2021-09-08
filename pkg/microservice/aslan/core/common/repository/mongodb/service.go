@@ -173,6 +173,28 @@ func (c *ServiceColl) ListMaxRevisionsForServices(services []*templatemodels.Ser
 	return c.listMaxRevisions(pre, post)
 }
 
+func (c *ServiceColl) FindExternalServicesBy(productName, envName string) ([]*models.Service, error) {
+	services := make([]*models.Service, 0)
+	query := bson.M{}
+	if productName != "" {
+		query["product_name"] = productName
+	}
+	if envName != "" {
+		query["env_name"] = envName
+	}
+	ctx := context.Background()
+	cursor, err := c.Collection.Find(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cursor.All(ctx, &services)
+	if err != nil {
+		return nil, err
+	}
+	return services, nil
+}
+
 func (c *ServiceColl) ListMaxRevisionsByProduct(productName string, envName ...string) ([]*models.Service, error) {
 	m := bson.M{
 		"product_name": productName,

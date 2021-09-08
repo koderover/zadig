@@ -91,11 +91,13 @@ func ListServiceTemplate(productName, envName string, log *zap.SugaredLogger) (*
 		log.Errorf("Can not find project %s, error: %s", productName, err)
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
-	opt := commonrepo.ListMaxRevisionsForServicesOpt{EnvName: envName}
+
+	var services []*commonmodels.Service
 	if productTmpl.ProductFeature.CreateEnvType == setting.SourceFromExternal {
-		opt.IsExternal = true
+		services, err = commonrepo.NewServiceColl().FindExternalServicesBy(productName, envName)
+	} else {
+		services, err = commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), commonrepo.ListMaxRevisionsForServicesOpt{EnvName: envName})
 	}
-	services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), opt)
 	if err != nil {
 		log.Errorf("Failed to list services by %+v, err: %s", productTmpl.AllServiceInfos(), err)
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
