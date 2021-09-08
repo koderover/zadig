@@ -136,7 +136,6 @@ type serviceID struct {
 type ListMaxRevisionsForServicesOpt struct {
 	ServiceType string
 	EnvName     string
-	IsExternal  bool
 }
 
 func (c *ServiceColl) ListMaxRevisionsForServices(services []*templatemodels.ServiceInfo, opt ...ListMaxRevisionsForServicesOpt) ([]*models.Service, error) {
@@ -165,9 +164,6 @@ func (c *ServiceColl) ListMaxRevisionsForServices(services []*templatemodels.Ser
 
 	post := bson.M{
 		"_id": bson.M{"$in": srs},
-	}
-	if len(opt) > 0 && opt[0].IsExternal {
-		post = bson.M{}
 	}
 
 	return c.listMaxRevisions(pre, post)
