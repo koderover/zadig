@@ -52,7 +52,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 				return
 			}
 
-			if strings.Contains(authorization, setting.USERAPIKEY) {
+			if strings.Contains(authorization, setting.UserAPIKey) {
 				token := strings.Split(authorization, " ")
 				if len(token) == 2 {
 					//根据token获取用户
