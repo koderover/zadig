@@ -169,7 +169,7 @@ func (c *ServiceColl) ListMaxRevisionsForServices(services []*templatemodels.Ser
 	return c.listMaxRevisions(pre, post)
 }
 
-func (c *ServiceColl) FindExternalServicesBy(productName, envName string) ([]*models.Service, error) {
+func (c *ServiceColl) ListExternalServicesBy(productName, envName string) ([]*models.Service, error) {
 	services := make([]*models.Service, 0)
 	query := bson.M{
 		"status": bson.M{"$ne": setting.ProductStatusDeleting},

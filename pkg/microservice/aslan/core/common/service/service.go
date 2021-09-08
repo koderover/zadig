@@ -94,7 +94,7 @@ func ListServiceTemplate(productName, envName string, log *zap.SugaredLogger) (*
 
 	var services []*commonmodels.Service
 	if productTmpl.ProductFeature.CreateEnvType == setting.SourceFromExternal {
-		services, err = commonrepo.NewServiceColl().FindExternalServicesBy(productName, envName)
+		services, err = commonrepo.NewServiceColl().ListExternalServicesBy(productName, envName)
 	} else {
 		services, err = commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), commonrepo.ListMaxRevisionsForServicesOpt{EnvName: envName})
 	}
