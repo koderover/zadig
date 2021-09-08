@@ -22,6 +22,8 @@ import (
 	"strings"
 )
 
+// ParseOwnerAndRepo extracts the owner and repo info from the given link,
+// the link must have to following format: http(s)://example.com/owner/repo
 func ParseOwnerAndRepo(repoLink string) (string, string, error) {
 	if !strings.HasPrefix(repoLink, "https://github.com") {
 		return "", "", fmt.Errorf("invalid link, only github.com is supported")
