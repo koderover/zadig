@@ -92,7 +92,12 @@ func ListServiceTemplate(productName, envName string, log *zap.SugaredLogger) (*
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
-	services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), commonrepo.ListMaxRevisionsForServicesOpt{EnvName: envName})
+	var services []*commonmodels.Service
+	if productTmpl.ProductFeature.CreateEnvType == setting.SourceFromExternal {
+		services, err = commonrepo.NewServiceColl().ListExternalServicesBy(productName, envName)
+	} else {
+		services, err = commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), commonrepo.ListMaxRevisionsForServicesOpt{EnvName: envName})
+	}
 	if err != nil {
 		log.Errorf("Failed to list services by %+v, err: %s", productTmpl.AllServiceInfos(), err)
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
