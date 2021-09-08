@@ -387,7 +387,6 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 					ReleaseName: fmt.Sprintf("%s-%s", p.Task.Namespace, p.Task.ServiceName),
 					ChartName:   fmt.Sprintf("%s/%s", p.Task.Namespace, p.Task.ServiceName),
 					Namespace:   p.Task.Namespace,
-					Wait:        false,
 					ReuseValues: true,
 					Version:     renderChart.ChartVersion,
 					ValuesYaml:  replaceValuesYaml,
