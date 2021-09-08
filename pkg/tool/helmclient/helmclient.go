@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spf13/pflag"
 	"go.uber.org/zap"
@@ -336,6 +337,8 @@ func (c *HelmClient) upgrade(ctx context.Context, spec *ChartSpec, chartOption *
 			return err
 		}
 	}
+	client.Wait = true
+	client.Timeout = 5 * time.Minute
 
 	_, err = client.Run(spec.ReleaseName, helmChart, values)
 	if err != nil {
