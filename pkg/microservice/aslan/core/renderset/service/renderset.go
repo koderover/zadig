@@ -18,40 +18,29 @@ package service
 
 import (
 	"fmt"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
+
+	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.uber.org/zap"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/pkg/errors"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.uber.org/zap"
+	yaml2 "github.com/koderover/zadig/pkg/util/yaml"
 )
 
-//type CodehostInfo struct {
-//	CodehostID int    `bson:"codehost_id"                    json:"codehost_id"`
-//	RepoName   string `bson:"repo_name"                      json:"repo_name"`
-//	RepoOwner  string `bson:"repo_owner"                     json:"repo_owner"`
-//	BranchName string `bson:"branch_name"                    json:"branch_name"`
-//	LoadPath   string `bson:"load_path"                      json:"load_path"`
-//}
-
 type RendersetValuesArgs struct {
-	RequestID      string                   `json:"request_id"`
-	EnvName        string                   `json:"env_name"`
-	YamlSource     string                   `json:"yaml_source"`
-	YamlContent    string                   `json:"yaml_content"`
-	GitConfigInfos []*template.GitConfigSet `json:"git_config_infos"`
-	OverrideValues []*template.KVPair       `json:"override_values"`
-	UpdateBy       string                   `json:"update_by,omitempty"`
+	RenderCharts []*template.RenderChart `json:"render_charts"`
 }
 
-func ListChartValues(productName, serviceName string, args *RendersetValuesArgs, log *zap.SugaredLogger) (*template.RenderChart, error) {
+func ListChartRenders(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*template.RenderChart, error) {
 
-	renderSetName := commonservice.GetProductEnvNamespace(args.EnvName, productName)
+	renderSetName := commonservice.GetProductEnvNamespace(envName, productName)
 
 	opt := &commonrepo.RenderSetFindOption{
 		Name: renderSetName,
@@ -61,16 +50,55 @@ func ListChartValues(productName, serviceName string, args *RendersetValuesArgs,
 		return nil, err
 	}
 
-	for _, singleChart := range rendersetObj.ChartInfos {
-		if singleChart.ServiceName == serviceName {
-			return singleChart, nil
-		}
+	if serviceName == "" {
+		return rendersetObj.ChartInfos, nil
 	}
 
+	for _, singleChart := range rendersetObj.ChartInfos {
+		if singleChart.ServiceName == serviceName {
+			return []*template.RenderChart{singleChart}, nil
+		}
+	}
 	return nil, nil
 }
 
-func CreateOrUpdateChartValues(productName, serviceName string, args *RendersetValuesArgs, log *zap.SugaredLogger) error {
+func generateValuesValue(service *commonmodels.Service, args *template.RenderChart, log *zap.SugaredLogger) (string, error) {
+	if args.YamlSource == "free_edit" {
+		return args.ValuesYaml, nil
+	} else if args.YamlSource == "default" {
+		if service.HelmChart != nil {
+			return service.HelmChart.ValuesYaml, nil
+		}
+	} else if args.YamlSource == "git_repo" {
+		// TODO need optimize, use parallel execution
+		var allValues []byte
+		var err error
+		for _, repoArgs := range args.GitConfigList {
+			var valuesByRepo []byte
+			for _, filePath := range repoArgs.Paths {
+				fileContent, err := fsservice.DownloadFileFromSource(
+					&fsservice.DownloadFromSourceArgs{CodehostID: repoArgs.CodehostID, Owner: repoArgs.Owner, Repo: repoArgs.Repo, Path: filePath, Branch: repoArgs.Branch})
+				if err != nil {
+					return "", errors.Errorf("fail to download file from git, path: %s, repo: %v", filePath, *repoArgs)
+				}
+				valuesByRepo, err = yaml2.MergeBoth(valuesByRepo, fileContent)
+				if err != nil {
+					return "", errors.Errorf("fail to merge file, path: %s, repo: %v", filePath, *repoArgs)
+				}
+			}
+			allValues, err = yaml2.MergeBoth(allValues, valuesByRepo)
+			if err != nil {
+				return "", errors.Errorf("fail to merge file: %v", *repoArgs)
+			}
+		}
+		return string(allValues), nil
+	}
+	return "", nil
+}
+
+func CreateOrUpdateChartValues(productName, envName string, args *template.RenderChart, userName, requestID string, log *zap.SugaredLogger) error {
+
+	serviceName := args.ServiceName
 
 	serviceOpt := &commonrepo.ServiceFindOption{
 		ProductName: productName,
@@ -88,27 +116,16 @@ func CreateOrUpdateChartValues(productName, serviceName string, args *RendersetV
 		return e.ErrCreateRenderSet.AddDesc("invalid service type")
 	}
 
-	yamlContent := ""
-	if args.YamlSource == "free_edit" {
-		if args.YamlContent == "" {
-			return e.ErrCreateRenderSet.AddDesc("yaml content can't be empty")
-		}
-		yamlContent = args.YamlContent
-	} else if args.YamlSource == "default" {
-		yamlContent = serviceObj.HelmChart.ValuesYaml
-	} else {
-		return e.ErrCreateRenderSet.AddDesc("git import yaml not supported yet")
+	yamlContent, err := generateValuesValue(serviceObj, args, log)
+	if err != nil {
+		return e.ErrCreateRenderSet.AddDesc(err.Error())
 	}
 
-	renderSetName := commonservice.GetProductEnvNamespace(args.EnvName, productName)
-
-	rendersetObj := &commonmodels.RenderSet{
-		Name:        renderSetName,
-		Revision:    0,
-		EnvName:     args.EnvName,
-		ProductTmpl: productName,
-		UpdateBy:    args.UpdateBy,
+	if yamlContent == "" {
+		return e.ErrCreateRenderSet.AddDesc("empty yaml content")
 	}
+
+	renderSetName := commonservice.GetProductEnvNamespace(envName, productName)
 
 	opt := &commonrepo.RenderSetFindOption{Name: renderSetName}
 	curRenderset, err := commonrepo.NewRenderSetColl().Find(opt)
@@ -120,32 +137,34 @@ func CreateOrUpdateChartValues(productName, serviceName string, args *RendersetV
 		curRenderset = &commonmodels.RenderSet{
 			Name:        renderSetName,
 			Revision:    0,
-			EnvName:     args.EnvName,
+			EnvName:     envName,
 			ProductTmpl: productName,
-			UpdateBy:    args.UpdateBy,
+			UpdateBy:    userName,
 			IsDefault:   false,
 		}
 	}
 
 	//update or insert service values.yaml
-	findService := false
+	var targetChartInfo *template.RenderChart
 	for _, singleChart := range curRenderset.ChartInfos {
 		if singleChart.ServiceName != serviceName {
 			continue
 		}
-		findService = true
 		singleChart.ValuesYaml = yamlContent
 		singleChart.YamlSource = args.YamlSource
 		singleChart.OverrideValues = args.OverrideValues
 		if args.YamlSource == "git_repo" {
-			singleChart.GitConfigList = args.GitConfigInfos
+			singleChart.GitConfigSetList = &template.GitConfigSetList{
+				GitConfigList: args.GitConfigSetList.GitConfigList,
+			}
 		} else {
-			singleChart.GitConfigList = nil
+			singleChart.GitConfigSetList = nil
 		}
+		targetChartInfo = singleChart
 		break
 	}
-	if !findService {
-		charInfo := &template.RenderChart{
+	if targetChartInfo == nil {
+		targetChartInfo = &template.RenderChart{
 			ServiceName:    serviceName,
 			ChartVersion:   serviceObj.HelmChart.Version,
 			ValuesYaml:     yamlContent,
@@ -153,17 +172,12 @@ func CreateOrUpdateChartValues(productName, serviceName string, args *RendersetV
 			OverrideValues: args.OverrideValues,
 		}
 		if args.YamlSource == "git_repo" {
-			charInfo.GitConfigList = args.GitConfigInfos
+			targetChartInfo.GitConfigList = args.GitConfigList
 		}
-		curRenderset.ChartInfos = append(curRenderset.ChartInfos, charInfo)
+		curRenderset.ChartInfos = append(curRenderset.ChartInfos, targetChartInfo)
 	}
 
-	//increase renderset revision
-	if err := ensureHelmRenderSetArgs(rendersetObj); err != nil {
-		log.Error(err)
-		return e.ErrCreateRenderSet.AddDesc(err.Error())
-	}
-
+	//create new renderset with increased revision
 	err = commonservice.CreateHelmRenderSet(
 		curRenderset,
 		log,
@@ -174,7 +188,7 @@ func CreateOrUpdateChartValues(productName, serviceName string, args *RendersetV
 	}
 
 	//when environment existed, need to update related services
-	err = service.ApplyHelmProductRenderset(productName, args.EnvName, args.UpdateBy, args.RequestID, curRenderset, log)
+	err = service.ApplyHelmProductRenderset(productName, envName, userName, requestID, curRenderset, targetChartInfo, log)
 	if err != mongo.ErrNoDocuments {
 		return err
 	}

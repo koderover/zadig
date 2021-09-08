@@ -17,6 +17,8 @@ limitations under the License.
 package helmclient
 
 import (
+	"helm.sh/helm/v3/pkg/chartutil"
+	"helm.sh/helm/v3/pkg/strvals"
 	"sigs.k8s.io/yaml"
 )
 
@@ -27,6 +29,17 @@ func (spec *ChartSpec) GetValuesMap() (map[string]interface{}, error) {
 	err := yaml.Unmarshal([]byte(spec.ValuesYaml), &values)
 	if err != nil {
 		return nil, err
+	}
+
+	// coalesce override values and values.yaml, helm `--set` option
+	if spec.ValuesOverride != "" {
+		// turn key=value1,key2=values2 to map
+		ovals, err := strvals.Parse(spec.ValuesOverride)
+		if err != nil {
+			return nil, err
+		}
+		// coalesce values.yaml and override values
+		values = chartutil.CoalesceTables(values, ovals)
 	}
 
 	return values, nil

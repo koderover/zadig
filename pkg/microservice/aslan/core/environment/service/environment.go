@@ -999,7 +999,7 @@ func UpdateHelmProduct(productName, envName, updateType, username, requestID str
 	return nil
 }
 
-func ApplyHelmProductRenderset(productName, envName, username, requestID string, renderset *commonmodels.RenderSet, log *zap.SugaredLogger) error {
+func ApplyHelmProductRenderset(productName, envName, username, requestID string, renderset *commonmodels.RenderSet, targetChart *template.RenderChart, log *zap.SugaredLogger) error {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	productResp, err := commonrepo.NewProductColl().Find(opt)
 	if err == mongo.ErrNoDocuments {
@@ -1016,7 +1016,9 @@ func ApplyHelmProductRenderset(productName, envName, username, requestID string,
 	if productResp.Render == nil {
 		productResp.Render = &commonmodels.RenderInfo{ProductTmpl: productResp.ProductName}
 	}
-	return updateHelmProductVariable(productResp, renderset, oldRenderVersion, username, requestID, log)
+	productResp.Revision = renderset.Revision
+	productResp.ChartInfos = []*template.RenderChart{targetChart}
+	return updateHelmProductVariable(productResp, oldRenderVersion, username, requestID, log)
 }
 
 func UpdateHelmProductVariable(productName, envName, username, requestID string, rcs []*template.RenderChart, log *zap.SugaredLogger) error {
@@ -1054,18 +1056,14 @@ func UpdateHelmProductVariable(productName, envName, username, requestID string,
 		log.Errorf("[%s][P:%s] find product renderset error: %v", productResp.EnvName, productResp.ProductName, err)
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
+	productResp.Render.Revision = renderSet.Revision
 
-	return updateHelmProductVariable(productResp, renderSet, oldRenderVersion, username, requestID, log)
+	return updateHelmProductVariable(productResp, oldRenderVersion, username, requestID, log)
 }
 
-func updateHelmProductVariable(productResp *commonmodels.Product, renderset *commonmodels.RenderSet, oldRenderVersion int64, userName, requestID string, log *zap.SugaredLogger) error {
+func updateHelmProductVariable(productResp *commonmodels.Product, oldRenderVersion int64, userName, requestID string, log *zap.SugaredLogger) error {
+
 	envName, productName := productResp.EnvName, productResp.ProductName
-	renderSet, err := FindHelmRenderSet(productResp.ProductName, productResp.Namespace, log)
-	if err != nil {
-		log.Errorf("[%s][P:%s] find product renderset error: %v", productResp.EnvName, productResp.ProductName, err)
-		return e.ErrCreateEnv.AddDesc(err.Error())
-	}
-	productResp.Render.Revision = renderSet.Revision
 
 	// 设置产品状态为更新中
 	if err := commonrepo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusUpdating); err != nil {
@@ -2161,14 +2159,15 @@ func installOrUpdateHelmChart(user, envName, requestID string, args *commonmodel
 		for _, service := range serviceGroups {
 			if renderChart, isExist := chartInfoMap[service.ServiceName]; isExist {
 				chartSpec := &helmclient.ChartSpec{
-					ReleaseName: fmt.Sprintf("%s-%s", args.Namespace, service.ServiceName),
-					ChartName:   fmt.Sprintf("%s/%s", args.Namespace, service.ServiceName),
-					Namespace:   args.Namespace,
-					Wait:        true,
-					Version:     renderChart.ChartVersion,
-					ValuesYaml:  renderChart.ValuesYaml,
-					UpgradeCRDs: true,
-					Timeout:     Timeout * time.Second * 10,
+					ReleaseName:    fmt.Sprintf("%s-%s", args.Namespace, service.ServiceName),
+					ChartName:      fmt.Sprintf("%s/%s", args.Namespace, service.ServiceName),
+					Namespace:      args.Namespace,
+					Wait:           true,
+					Version:        renderChart.ChartVersion,
+					ValuesYaml:     renderChart.ValuesYaml,
+					ValuesOverride: renderChart.OverrideValuesString(),
+					UpgradeCRDs:    true,
+					Timeout:        Timeout * time.Second * 10,
 				}
 				// 获取服务详情
 				opt := &commonrepo.ServiceFindOption{
@@ -2344,14 +2343,15 @@ func updateProductGroup(productName, envName, updateType string, productResp *co
 				go func(tmpRenderChart *template.RenderChart, currentService *commonmodels.Service) {
 					defer wg.Done()
 					chartSpec := helmclient.ChartSpec{
-						ReleaseName: fmt.Sprintf("%s-%s", productResp.Namespace, tmpRenderChart.ServiceName),
-						ChartName:   fmt.Sprintf("%s/%s", productResp.Namespace, tmpRenderChart.ServiceName),
-						Namespace:   productResp.Namespace,
-						Wait:        true,
-						Version:     tmpRenderChart.ChartVersion,
-						ValuesYaml:  tmpRenderChart.ValuesYaml,
-						UpgradeCRDs: true,
-						Timeout:     Timeout * time.Second * 10,
+						ReleaseName:    fmt.Sprintf("%s-%s", productResp.Namespace, tmpRenderChart.ServiceName),
+						ChartName:      fmt.Sprintf("%s/%s", productResp.Namespace, tmpRenderChart.ServiceName),
+						Namespace:      productResp.Namespace,
+						Wait:           true,
+						Version:        tmpRenderChart.ChartVersion,
+						ValuesYaml:     tmpRenderChart.ValuesYaml,
+						ValuesOverride: tmpRenderChart.OverrideValuesString(),
+						UpgradeCRDs:    true,
+						Timeout:        Timeout * time.Second * 10,
 					}
 					base := config.LocalServicePath(currentService.ProductName, currentService.ServiceName)
 					if err = commonservice.PreLoadServiceManifests(base, currentService); err != nil {
@@ -2566,15 +2566,16 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 						return
 					}
 					chartSpec := helmclient.ChartSpec{
-						ReleaseName: fmt.Sprintf("%s-%s", productResp.Namespace, tmpRenderChart.ServiceName),
-						ChartName:   fmt.Sprintf("%s/%s", productResp.Namespace, tmpRenderChart.ServiceName),
-						Namespace:   productResp.Namespace,
-						Wait:        true,
-						Version:     tmpRenderChart.ChartVersion,
-						ValuesYaml:  tmpRenderChart.ValuesYaml,
-						UpgradeCRDs: true,
-						Atomic:      true,
-						Timeout:     Timeout * time.Second * 10,
+						ReleaseName:    fmt.Sprintf("%s-%s", productResp.Namespace, tmpRenderChart.ServiceName),
+						ChartName:      fmt.Sprintf("%s/%s", productResp.Namespace, tmpRenderChart.ServiceName),
+						Namespace:      productResp.Namespace,
+						Wait:           true,
+						Version:        tmpRenderChart.ChartVersion,
+						ValuesYaml:     tmpRenderChart.ValuesYaml,
+						ValuesOverride: tmpRenderChart.OverrideValuesString(),
+						UpgradeCRDs:    true,
+						Atomic:         true,
+						Timeout:        Timeout * time.Second * 10,
 					}
 					err = helmClient.InstallOrUpgradeChart(context.Background(), &chartSpec, &helmclient.ChartOption{
 						ChartPath: filepath.Join(base, currentService.ServiceName)}, log)

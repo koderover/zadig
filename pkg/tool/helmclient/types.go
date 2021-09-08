@@ -78,6 +78,10 @@ type ChartSpec struct {
 	// +optional
 	ValuesYaml string `json:"valuesYaml,omitempty"`
 
+	// values used to override, key1=value1,key2=value2
+	// +optional
+	ValuesOverride string `json:"valuesOverride,omitempty"`
+
 	// +optional
 	Version string `json:"version,omitempty"`
 

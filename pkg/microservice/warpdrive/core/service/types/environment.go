@@ -17,8 +17,10 @@ limitations under the License.
 package types
 
 import (
+	"fmt"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
+	"strings"
 )
 
 type Product struct {
@@ -60,10 +62,16 @@ type RenderKV struct {
 	Services []string `bson:"services"          json:"services"`
 }
 
+type KVPair struct {
+	Key   string `bson:"key"    json:"key"`
+	Value string `bson:"value"    json:"value"`
+}
+
 type RenderChart struct {
-	ServiceName  string `bson:"service_name,omitempty"    json:"service_name,omitempty"`
-	ChartVersion string `bson:"chart_version,omitempty"   json:"chart_version,omitempty"`
-	ValuesYaml   string `bson:"values_yaml,omitempty"     json:"values_yaml,omitempty"`
+	ServiceName    string    `bson:"service_name,omitempty"    json:"service_name,omitempty"`
+	ChartVersion   string    `bson:"chart_version,omitempty"   json:"chart_version,omitempty"`
+	ValuesYaml     string    `bson:"values_yaml,omitempty"     json:"values_yaml,omitempty"`
+	OverrideValues []*KVPair `bson:"override_values,omitempty"   json:"override_values,omitempty"`
 }
 
 type ProductAuth struct {
@@ -97,4 +105,15 @@ type Service struct {
 type Config struct {
 	ConfigName string `bson:"config_name"           json:"config_name"`
 	Revision   int64  `bson:"revision"              json:"revision"`
+}
+
+func (r *RenderChart) OverrideValuesString() string {
+	if len(r.OverrideValues) == 0 {
+		return ""
+	}
+	kvPairSlice := make([]string, 0, len(r.OverrideValues))
+	for _, pair := range r.OverrideValues {
+		kvPairSlice = append(kvPairSlice, fmt.Sprintf("%s=%s", pair.Key, pair.Value))
+	}
+	return strings.Join(kvPairSlice, ",")
 }

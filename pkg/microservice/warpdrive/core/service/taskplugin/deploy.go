@@ -384,16 +384,17 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 					return
 				}
 				chartSpec := helmclient.ChartSpec{
-					ReleaseName: fmt.Sprintf("%s-%s", p.Task.Namespace, p.Task.ServiceName),
-					ChartName:   fmt.Sprintf("%s/%s", p.Task.Namespace, p.Task.ServiceName),
-					Namespace:   p.Task.Namespace,
-					Wait:        true,
-					ReuseValues: true,
-					Version:     renderChart.ChartVersion,
-					ValuesYaml:  replaceValuesYaml,
-					SkipCRDs:    false,
-					UpgradeCRDs: true,
-					Timeout:     time.Second * DeployTimeout,
+					ReleaseName:    fmt.Sprintf("%s-%s", p.Task.Namespace, p.Task.ServiceName),
+					ChartName:      fmt.Sprintf("%s/%s", p.Task.Namespace, p.Task.ServiceName),
+					Namespace:      p.Task.Namespace,
+					Wait:           true,
+					ReuseValues:    true,
+					Version:        renderChart.ChartVersion,
+					ValuesYaml:     replaceValuesYaml,
+					ValuesOverride: renderChart.OverrideValuesString(),
+					SkipCRDs:       false,
+					UpgradeCRDs:    true,
+					Timeout:        time.Second * DeployTimeout,
 				}
 
 				path, err := p.downloadService(pipelineTask.ProductName, pipelineTask.ServiceName, pipelineTask.StorageURI)

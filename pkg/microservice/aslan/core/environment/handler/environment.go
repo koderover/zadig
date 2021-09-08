@@ -50,10 +50,6 @@ type ChartInfoArgs struct {
 	ChartInfos []*template.RenderChart `json:"chart_infos"`
 }
 
-type ChartValuesArgs struct {
-	ChartValues map[string]*template.RenderChart `json:"chart_values"`
-}
-
 type NamespaceResource struct {
 	Services  []*commonservice.ServiceResp `json:"services"`
 	Ingresses []resource.Ingress           `json:"ingresses"`

@@ -29,7 +29,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 	rendersets := router.Group("rendersets")
 	{
-		rendersets.GET(":productName/:serviceName", GetServiceRenderset)
-		rendersets.POST(":productName/:serviceName/helm", gin2.IsHavePermission([]string{permission.TestEnvManageUUID, permission.ProdEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, CreateOrUpdateRenderset)
+		rendersets.GET(":productName/renderchart", GetServiceRenderset)
+		rendersets.POST(":productName/renderchart", gin2.IsHavePermission([]string{permission.TestEnvManageUUID, permission.ProdEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, CreateOrUpdateRenderset)
 	}
 }

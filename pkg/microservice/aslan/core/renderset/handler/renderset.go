@@ -22,6 +22,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/renderset/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -33,35 +34,12 @@ func GetServiceRenderset(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("ListServiceRenderset c.GetRawData() err : %v", err)
-	}
-
-	args := new(service.RendersetValuesArgs)
-	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("ListServiceRenderset json.Unmarshal err : %v", err)
-	}
-
-	args.EnvName = c.Query("envName")
-
-	if args.EnvName == "" {
+	if c.Query("envName") == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("envName can not be null!")
 		return
 	}
 
-	//retList, err := service.ListChartValues(c.Param("productName"), c.Param("serviceName"),  args, ctx.Logger)
-	ctx.Resp, ctx.Err = service.ListChartValues(c.Param("productName"), c.Param("serviceName"),  args, ctx.Logger)
-
-	//if err != nil {
-	//	ctx.Resp, ctx.Err = nil, err
-	//	return
-	//}
-	//if len(retList) == 1 {
-	//	ctx.Resp, ctx.Err = retList[0], nil
-	//} else {
-	//	ctx.Resp, ctx.Err = nil, nil
-	//}
+	ctx.Resp, ctx.Err = service.ListChartRenders(c.Param("productName"), c.Query("envName"), c.Query("serviceName"), ctx.Logger)
 }
 
 func CreateOrUpdateRenderset(c *gin.Context) {
@@ -73,20 +51,18 @@ func CreateOrUpdateRenderset(c *gin.Context) {
 		log.Errorf("CreateOrUpdateRenderset c.GetRawData() err : %v", err)
 	}
 
-	args := new(service.RendersetValuesArgs)
+	//args := new(service.RendersetValuesArgs)
+	args := new(template.RenderChart)
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateOrUpdateRenderset json.Unmarshal err : %v", err)
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "新增", "环境变量", args.EnvName, fmt.Sprintf("%s,%s", permission.TestEnvManageUUID, permission.ProdEnvManageUUID), string(data), ctx.Logger)
-	args.EnvName = c.Query("envName")
+	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "新增", "环境变量", c.Query("envName"), fmt.Sprintf("%s,%s", permission.TestEnvManageUUID, permission.ProdEnvManageUUID), string(data), ctx.Logger)
 
-	if args.EnvName == "" {
+	if c.Query("envName") == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("envName can not be null!")
 		return
 	}
-	args.UpdateBy = ctx.Username
-	args.RequestID = ctx.RequestID
 
-	ctx.Err = service.CreateOrUpdateChartValues(c.Param("productName"), c.Param("serviceName"),  args, ctx.Logger)
+	ctx.Err = service.CreateOrUpdateChartValues(c.Param("productName"), c.Query("envName"), args, ctx.Username, ctx.RequestID, ctx.Logger)
 }
