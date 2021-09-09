@@ -18,6 +18,7 @@ package service
 
 import (
 	"fmt"
+	"gopkg.in/yaml.v3"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -195,6 +196,13 @@ func CreateOrUpdateChartValues(productName, envName string, args *RendersetCreat
 
 	if yamlContent == "" {
 		return e.ErrCreateRenderSet.AddDesc("empty yaml content")
+	}
+	// validate yaml content
+	tMap := map[string]interface{}{}
+	if err = yaml.Unmarshal([]byte(yamlContent), &tMap); err != nil {
+		if err != nil {
+			return e.ErrCreateRenderSet.AddDesc("yaml content illegal")
+		}
 	}
 
 	renderSetName := commonservice.GetProductEnvNamespace(envName, productName)
