@@ -148,17 +148,18 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 				log.Errorf("workflowStat not found error:%s", err)
 			}
 			if workloadStat != nil {
-				workloadStat.Workloads = deleteWorkloadsByEnv(workloadStat.Workloads, productInfo.EnvName)
+				workloadStat.Workloads = filterWorkloadsByEnv(workloadStat.Workloads, productInfo.EnvName)
 				if err := mongodb.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat); err != nil {
 					log.Errorf("update workloads fail error:%s", err)
 				}
 			}
+			// 删除所有external的服务
+			err = commonrepo.NewServiceColl().UpdateExternalServicesStatus("", productName, setting.ProductStatusDeleting, envName)
+			if err != nil {
+				log.Errorf("UpdateStatus  external services error:%s", err)
+			}
 		}
-		// 删除所有external的服务
-		err = commonrepo.NewServiceColl().UpdateExternalServicesStatus("", productName, setting.ProductStatusDeleting, envName)
-		if err != nil {
-			log.Errorf("UpdateStatus  external services error:%s", err)
-		}
+
 	default:
 		go func() {
 			var err error
@@ -216,7 +217,7 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 	return nil
 }
 
-func deleteWorkloadsByEnv(exist []models.Workload, env string) []models.Workload {
+func filterWorkloadsByEnv(exist []models.Workload, env string) []models.Workload {
 	result := make([]models.Workload, 0)
 	for _, v := range exist {
 		if v.EnvName != env {
