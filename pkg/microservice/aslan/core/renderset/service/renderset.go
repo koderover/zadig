@@ -18,12 +18,13 @@ package service
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"strings"
+	"sync"
 
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
+	"gopkg.in/yaml.v3"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
@@ -147,20 +148,47 @@ func generateValuesYaml(service *commonmodels.Service, args *RendersetCreateArgs
 		if args.GitRepoConfig == nil {
 			return "", nil
 		}
-		// TODO need optimize, use parallel execution
-		var allValues []byte
-		for _, filePath := range args.GitRepoConfig.ValuesPaths {
-			fileContent, err := fsservice.DownloadFileFromSource(
-				&fsservice.DownloadFromSourceArgs{CodehostID: args.GitRepoConfig.CodehostID, Owner: args.GitRepoConfig.Owner, Repo: args.GitRepoConfig.Repo, Path: filePath, Branch: args.GitRepoConfig.Branch})
-			if err != nil {
-				return "", errors.Errorf("fail to download file from git, path: %s, repo: %v", filePath, *args.GitRepoConfig)
-			}
-			allValues, err = yaml2.Merge([][]byte{allValues, fileContent})
-			if err != nil {
-				return "", errors.Errorf("fail to merge file, path: %s, repo: %v", filePath, *args.GitRepoConfig)
-			}
+
+		var (
+			allValues      []byte
+			fileContentMap sync.Map
+			wg             sync.WaitGroup
+			err            error
+		)
+
+		for index, filePath := range args.GitRepoConfig.ValuesPaths {
+			wg.Add(1)
+			go func(index int, path string) {
+				defer wg.Done()
+				fileContent, err1 := fsservice.DownloadFileFromSource(
+					&fsservice.DownloadFromSourceArgs{
+						CodehostID: args.GitRepoConfig.CodehostID,
+						Owner:      args.GitRepoConfig.Owner,
+						Repo:       args.GitRepoConfig.Repo,
+						Path:       path,
+						Branch:     args.GitRepoConfig.Branch,
+					})
+				if err1 != nil {
+					err = errors.Errorf("fail to download file from git, err: %s, path: %s, repo: %v", err1.Error(), path, *args.GitRepoConfig)
+					return
+				}
+				fileContentMap.Store(index, fileContent)
+			}(index, filePath)
+		}
+		wg.Wait()
+
+		if err != nil {
+			return "", err
 		}
 
+		for i := 0; i < len(args.GitRepoConfig.ValuesPaths); i++ {
+			if content, ok := fileContentMap.Load(i); ok {
+				allValues, err = yaml2.Merge([][]byte{allValues, content.([]byte)})
+				if err != nil {
+					return "", errors.Errorf("fail to merge file, path: %s, repo: %v", args.GitRepoConfig.ValuesPaths[i], *args.GitRepoConfig)
+				}
+			}
+		}
 		return string(allValues), nil
 	}
 	return "", nil
