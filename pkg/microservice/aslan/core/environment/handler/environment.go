@@ -419,7 +419,7 @@ func ListK8sWorkLoads(c *gin.Context) {
 		}
 	}
 
-	count, services, _, err := commonservice.ListK8sWorkLoads("", clusterID, namespace, "", perPage, page, ctx.Logger, func(workloads []*commonservice.Workload) []*commonservice.Workload {
+	count, services, err := commonservice.ListWorkloads("", clusterID, namespace, "", perPage, page, ctx.Logger, func(workloads []*commonservice.Workload) []*commonservice.Workload {
 		workloadStat, _ := mongodb.NewWorkLoadsStatColl().Find(clusterID, namespace)
 		workloadM := map[string]commonmodels.Workload{}
 		for _, workload := range workloadStat.Workloads {
@@ -450,45 +450,27 @@ func ListK8sWorkLoads(c *gin.Context) {
 	c.Writer.Header().Set("X-Total", strconv.Itoa(count))
 }
 
-func ListGroupsBySource(c *gin.Context) {
+// TODO: envName must be a param, while productName can be a query
+type workloadQueryArgs struct {
+	Env     string `json:"env"     form:"env"`
+	PerPage int    `json:"perPage" form:"perPage,default=10"`
+	Page    int    `json:"page"    form:"page,default=1"`
+	Filter  string `json:"filter"  form:"filter"`
+}
+
+func ListWorkloadsInEnv(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	envName := c.Query("envName")
-	productName := c.Param("productName")
-	perPageStr := c.Query("perPage")
-	pageStr := c.Query("page")
-	workloadName := c.Query("workloadName")
-	var (
-		count   int
-		perPage int
-		err     error
-		page    int
-	)
-	if perPageStr == "" {
-		perPage = 10
-	} else {
-		perPage, err = strconv.Atoi(perPageStr)
-		if err != nil {
-			ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("pageStr args err :%s", err))
-			return
-		}
+	args := &workloadQueryArgs{}
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = err
+		return
 	}
 
-	if pageStr == "" {
-		page = 1
-	} else {
-		page, err = strconv.Atoi(pageStr)
-		if err != nil {
-			ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("page args err :%s", err))
-			return
-		}
-	}
-
-	count, services, ingresses, err := commonservice.ListGroupsBySource(envName, productName, workloadName, perPage, page, ctx.Logger)
+	count, services, err := commonservice.ListWorkloadsInEnv(args.Env, c.Param("productName"), args.Filter, args.PerPage, args.Page, ctx.Logger)
 	ctx.Resp = &NamespaceResource{
-		Services:  services,
-		Ingresses: ingresses,
+		Services: services,
 	}
 	ctx.Err = err
 	c.Writer.Header().Set("X-Total", strconv.Itoa(count))
