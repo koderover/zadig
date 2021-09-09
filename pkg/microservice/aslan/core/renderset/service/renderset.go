@@ -49,7 +49,7 @@ type KVPair struct {
 }
 
 type RendersetCreateArgs struct {
-	EnvName        string      `json:"envName,omitempty,omitempty"`
+	EnvName        string      `json:"envName,omitempty"`
 	ServiceName    string      `json:"serviceName,omitempty"`
 	YamlSource     string      `json:"yamlSource,omitempty"`
 	GitRepoConfig  *RepoConfig `json:"gitRepoConfig,omitempty"`
