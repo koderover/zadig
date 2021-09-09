@@ -133,12 +133,7 @@ type serviceID struct {
 	ProductName string `bson:"product_name"`
 }
 
-type ListMaxRevisionsForServicesOpt struct {
-	ServiceType string
-	EnvName     string
-}
-
-func (c *ServiceColl) ListMaxRevisionsForServices(services []*templatemodels.ServiceInfo, opt ...ListMaxRevisionsForServicesOpt) ([]*models.Service, error) {
+func (c *ServiceColl) ListMaxRevisionsForServices(services []*templatemodels.ServiceInfo, serviceType string) ([]*models.Service, error) {
 	var srs []bson.D
 	for _, s := range services {
 		// be care for the order
@@ -151,17 +146,9 @@ func (c *ServiceColl) ListMaxRevisionsForServices(services []*templatemodels.Ser
 	pre := bson.M{
 		"status": bson.M{"$ne": setting.ProductStatusDeleting},
 	}
-
-	if len(opt) > 0 {
-		if opt[0].ServiceType != "" {
-			pre["type"] = opt[0].ServiceType
-		}
-		if opt[0].EnvName != "" {
-			pre["env_name"] = opt[0].EnvName
-		}
-
+	if serviceType != "" {
+		pre["type"] = serviceType
 	}
-
 	post := bson.M{
 		"_id": bson.M{"$in": srs},
 	}

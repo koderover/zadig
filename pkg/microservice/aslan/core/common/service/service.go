@@ -96,7 +96,7 @@ func ListServiceTemplate(productName, envName string, log *zap.SugaredLogger) (*
 	if productTmpl.ProductFeature.CreateEnvType == setting.SourceFromExternal {
 		services, err = commonrepo.NewServiceColl().ListExternalServicesBy(productName, envName)
 	} else {
-		services, err = commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), commonrepo.ListMaxRevisionsForServicesOpt{EnvName: envName})
+		services, err = commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), "")
 	}
 	if err != nil {
 		log.Errorf("Failed to list services by %+v, err: %s", productTmpl.AllServiceInfos(), err)
