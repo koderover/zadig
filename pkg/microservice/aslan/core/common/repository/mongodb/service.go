@@ -182,14 +182,12 @@ func (c *ServiceColl) ListExternalServicesBy(productName, envName string) ([]*mo
 	return services, nil
 }
 
-func (c *ServiceColl) ListMaxRevisionsByProduct(productName string, envName ...string) ([]*models.Service, error) {
+func (c *ServiceColl) ListMaxRevisionsByProduct(productName string) ([]*models.Service, error) {
 	m := bson.M{
 		"product_name": productName,
 		"status":       bson.M{"$ne": setting.ProductStatusDeleting},
 	}
-	if len(envName) > 0 {
-		m["env_name"] = envName[0]
-	}
+
 	return c.listMaxRevisions(m, nil)
 }
 
@@ -303,7 +301,8 @@ func (c *ServiceColl) Update(args *models.Service) error {
 	return err
 }
 
-func (c *ServiceColl) UpdateStatus(serviceName, productName, status, envName string) error {
+// UpdateExternalServicesStatus only used by external services
+func (c *ServiceColl) UpdateExternalServicesStatus(serviceName, productName, status, envName string) error {
 	if serviceName == "" && envName == "" {
 		return fmt.Errorf("serviceName and envName can't  be both empty")
 	}
@@ -318,6 +317,23 @@ func (c *ServiceColl) UpdateStatus(serviceName, productName, status, envName str
 	if envName != "" {
 		query["env_name"] = envName
 	}
+	change := bson.M{"$set": bson.M{
+		"status": status,
+	}}
+
+	_, err := c.UpdateMany(context.TODO(), query, change)
+	return err
+}
+
+func (c *ServiceColl) UpdateStatus(serviceName, productName, status string) error {
+	if serviceName == "" {
+		return fmt.Errorf("serviceName is empty")
+	}
+	if productName == "" {
+		return fmt.Errorf("productName is empty")
+	}
+
+	query := bson.M{"service_name": serviceName, "product_name": productName}
 	change := bson.M{"$set": bson.M{
 		"status": status,
 	}}
