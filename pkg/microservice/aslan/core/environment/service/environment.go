@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"go.mongodb.org/mongo-driver/mongo"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -30,6 +29,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"helm.sh/helm/v3/pkg/strvals"
@@ -863,7 +863,7 @@ func CreateProduct(user, requestID string, args *commonmodels.Product, log *zap.
 					Name:        renderSet.Name,
 					Revision:    renderSet.Revision,
 				}
-				// merge renderchart from renderset and product
+				// user renderchart from renderset
 				chartInfoMap := make(map[string]*template.RenderChart)
 				for _, renderChart := range renderSet.ChartInfos {
 					chartInfoMap[renderChart.ServiceName] = renderChart

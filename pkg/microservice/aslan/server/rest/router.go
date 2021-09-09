@@ -99,7 +99,7 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 		"/api/testing":     new(testinghandler.Router),
 		"/api/cluster":     new(multiclusterhandler.Router),
 		"/api/template":    new(templatehandler.Router),
-		"/api/renderset":    new(rendersethandler.Router),
+		"/api/renderset":   new(rendersethandler.Router),
 	} {
 		r.Inject(router.Group(name))
 	}

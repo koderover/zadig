@@ -16,9 +16,7 @@ limitations under the License.
 
 package template
 
-import (
-	"strings"
-)
+import "strings"
 
 // Vars不做保存，只做input参数
 // product_name 当前项目主键

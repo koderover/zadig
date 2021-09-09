@@ -116,7 +116,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.GET("/:productName/groups", ListGroups)
 		environments.GET("/:productName/groups/:source", ListGroupsBySource)
 
-
 		environments.GET("/:productName/services/:serviceName", GetService)
 		environments.PUT("/:productName/services/:serviceName/:serviceType", gin2.IsHavePermission([]string{permission.TestEnvManageUUID, permission.ProdEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateService)
 		environments.POST("/:productName/services/:serviceName/restart", gin2.IsHavePermission([]string{permission.TestEnvManageUUID, permission.ProdEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, RestartService)

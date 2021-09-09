@@ -32,7 +32,7 @@ import (
 
 type RenderSetListOption struct {
 	// if Revision == 0 then search max revision of RenderSet
-	//Revision    int64
+	Revision    int64
 	ProductTmpl string
 }
 
@@ -146,12 +146,6 @@ func (c *RenderSetColl) Find(opt *RenderSetFindOption) (*models.RenderSet, error
 	} else {
 		opts.SetSort(bson.D{{"revision", -1}})
 	}
-
-	//if len(opt.ServiceName) > 0 {
-	//	query["chart_infos"] = bson.M{
-	//		"$elemMatch": bson.M{"service_name": opt.ServiceName},
-	//	}
-	//}
 
 	rs := &models.RenderSet{}
 	err := c.FindOne(context.TODO(), query, opts).Decode(&rs)
