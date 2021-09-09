@@ -146,7 +146,7 @@ func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, 
 			// it is a fuzzy matching
 			var res []*Workload
 			for _, workload := range workloads {
-				if strings.Contains(workload.Name, f.Name) {
+				if f.Match(workload) {
 					res = append(res, workload)
 				}
 			}
@@ -159,6 +159,10 @@ type FilterFunc func(services []*Workload) []*Workload
 
 type workloadFilter struct {
 	Name string `json:"name"`
+}
+
+func (f *workloadFilter) Match(workload *Workload) bool {
+	return strings.Contains(workload.Name, f.Name)
 }
 
 type Workload struct {
