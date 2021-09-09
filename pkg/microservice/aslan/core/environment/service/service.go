@@ -184,62 +184,38 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 	namespace := env.Namespace
 	switch env.Source {
 	case setting.SourceFromExternal, setting.SourceFromHelm:
-		var selector labels.Selector
 		k8sServices, _ := getter.ListServices(namespace, nil, kubeClient)
 		switch workLoadType {
 		case setting.StatefulSet:
-			statefulSet, exist, err := getter.GetStatefulSet(namespace, serviceName, kubeClient)
-			if !exist || err != nil {
+			statefulSet, found, err := getter.GetStatefulSet(namespace, serviceName, kubeClient)
+			if !found || err != nil {
 				return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found", serviceName))
 			}
 			scale := getStatefulSetWorkloadResource(statefulSet, kubeClient, log)
 			ret.Scales = append(ret.Scales, scale)
-		L:
-			for _, k8sService := range k8sServices {
-				currentSelector := labels.SelectorFromValidatedSet(k8sService.Spec.Selector)
-				statefulSets, _ := getter.ListStatefulSets(namespace, currentSelector, kubeClient)
-				for _, currentStatefulSet := range statefulSets {
-					if currentStatefulSet.Name == statefulSet.Name {
-						ret.Services = append(ret.Services, wrapper.Service(k8sService).Resource())
-						selector = currentSelector
-						break L
-					}
+			podLabels := labels.Set(statefulSet.Spec.Template.GetLabels())
+			for _, svc := range k8sServices {
+				if labels.SelectorFromValidatedSet(svc.Spec.Selector).Matches(podLabels) {
+					ret.Services = append(ret.Services, wrapper.Service(svc).Resource())
+					break
 				}
 			}
-
 		case setting.Deployment:
-			deploy, exist, err := getter.GetDeployment(namespace, serviceName, kubeClient)
-			if !exist || err != nil {
+			deploy, found, err := getter.GetDeployment(namespace, serviceName, kubeClient)
+			if !found || err != nil {
 				return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found", serviceName))
 			}
 			scale := getDeploymentWorkloadResource(deploy, kubeClient, log)
 			ret.Scales = append(ret.Scales, scale)
-			//k8s service
-		Loop:
-			for _, k8sService := range k8sServices {
-				currentSelector := labels.SelectorFromValidatedSet(k8sService.Spec.Selector)
-				deployments, _ := getter.ListDeployments(namespace, currentSelector, kubeClient)
-				for _, deployment := range deployments {
-					if deployment.Name == deploy.Name {
-						ret.Services = append(ret.Services, wrapper.Service(k8sService).Resource())
-						selector = currentSelector
-						break Loop
-					}
+			podLabels := labels.Set(deploy.Spec.Template.GetLabels())
+			for _, svc := range k8sServices {
+				if labels.SelectorFromValidatedSet(svc.Spec.Selector).Matches(podLabels) {
+					ret.Services = append(ret.Services, wrapper.Service(svc).Resource())
+					break
 				}
 			}
-
 		default:
 			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found", serviceName))
-		}
-		if selector == nil {
-			return
-		}
-		//k8s ingress
-		if ingresses, err := getter.ListIngresses(namespace, selector, kubeClient); err == nil {
-			log.Infof("namespace:%s , serviceName:%s , selector:%s , len(ingresses):%d", namespace, serviceName, selector, len(ingresses))
-			for _, ing := range ingresses {
-				ret.Ingress = append(ret.Ingress, wrapper.Ingress(ing).Resource())
-			}
 		}
 	default:
 		var service *commonmodels.ProductService
