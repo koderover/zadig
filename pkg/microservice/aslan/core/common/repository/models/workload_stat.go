@@ -28,9 +28,8 @@ type WorkloadStat struct {
 }
 
 type Workload struct {
-	EnvName string `bson:"env_name"         json:"env_name"`
-	Name    string `bson:"name"             json:"name"`
-	//Spec        corev1.ServiceSpec `bson:"-"                json:"-"`
+	EnvName     string `bson:"env_name"         json:"env_name"`
+	Name        string `bson:"name"             json:"name"`
 	Type        string `bson:"type"             json:"type"`
 	ProductName string `bson:"product_name"     json:"product_name"`
 }
