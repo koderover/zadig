@@ -101,7 +101,7 @@ func ListGroupsBySource(envName, productName, workloadName string, perPage, page
 	}
 
 	if projectInfo.ProductFeature != nil && projectInfo.ProductFeature.CreateEnvType == setting.SourceFromExternal {
-		return ListK8sWorkLoads(envName, productInfo.ClusterID, productInfo.Namespace, productName, perPage, page, log, func(workloads []*models.Workload) []*models.Workload {
+		return ListK8sWorkLoads(envName, productInfo.ClusterID, productInfo.Namespace, productName, perPage, page, log, func(workloads []*Workload) []*Workload {
 			productServices, err := commonrepo.NewServiceColl().ListExternalServicesBy(productName, envName)
 			if err != nil {
 				log.Errorf("ListK8sWorkLoads ListExternalServicesBy err:%s", err)
@@ -116,7 +116,7 @@ func ListGroupsBySource(envName, productName, workloadName string, perPage, page
 				}
 			}
 
-			var resp []*models.Workload
+			var resp []*Workload
 			for _, workload := range workloads {
 				if currentProductServices.Has(workload.Name) {
 					resp = append(resp, workload)
@@ -129,7 +129,15 @@ func ListGroupsBySource(envName, productName, workloadName string, perPage, page
 
 }
 
-type FilterFunc func(services []*models.Workload) []*models.Workload
+type FilterFunc func(services []*Workload) []*Workload
+
+type Workload struct {
+	EnvName     string `bson:"env_name"         json:"env_name"`
+	Name        string `bson:"name"             json:"name"`
+	Type        string `bson:"type"             json:"type"`
+	ProductName string `bson:"product_name"     json:"product_name"`
+	Spec        corev1.ServiceSpec
+}
 
 func ListK8sWorkLoads(envName, clusterID, namespace, productName string, perPage, page int, log *zap.SugaredLogger, filter ...FilterFunc) (int, []*ServiceResp, []resource.Ingress, error) {
 	var (
@@ -146,23 +154,22 @@ func ListK8sWorkLoads(envName, clusterID, namespace, productName string, perPage
 		return 0, resp, ingressList, e.ErrListGroups.AddDesc(err.Error())
 	}
 
-	var workLoads []*models.Workload
+	var workLoads []*Workload
 	listDeployments, err := getter.ListDeployments(namespace, nil, kubeClient)
 	if err != nil {
 		log.Errorf("[%s][%s] create product record error: %v", envName, namespace, err)
 		return 0, resp, ingressList, e.ErrListGroups.AddDesc(err.Error())
 	}
 	for _, v := range listDeployments {
-		workLoads = append(workLoads, &models.Workload{Name: v.Name, Spec: corev1.ServiceSpec{Selector: v.Spec.Selector.MatchLabels}, Type: setting.Deployment})
+		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: corev1.ServiceSpec{Selector: v.Spec.Selector.MatchLabels}, Type: setting.Deployment})
 	}
-
 	statefulSets, err := getter.ListStatefulSets(namespace, nil, kubeClient)
 	if err != nil {
 		log.Errorf("[%s][%s] create product record error: %v", envName, namespace, err)
 		return 0, resp, ingressList, e.ErrListGroups.AddDesc(err.Error())
 	}
 	for _, v := range statefulSets {
-		workLoads = append(workLoads, &models.Workload{Name: v.Name, Spec: corev1.ServiceSpec{Selector: v.Spec.Selector.MatchLabels}, Type: setting.StatefulSet})
+		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: corev1.ServiceSpec{Selector: v.Spec.Selector.MatchLabels}, Type: setting.StatefulSet})
 	}
 	// 对于workload过滤
 	if len(filter) > 0 {
@@ -188,7 +195,7 @@ func ListK8sWorkLoads(envName, clusterID, namespace, productName string, perPage
 	for _, workload := range workLoads {
 		wg.Add(1)
 
-		go func(workload *models.Workload) {
+		go func(workload *Workload) {
 			defer func() {
 				wg.Done()
 			}()

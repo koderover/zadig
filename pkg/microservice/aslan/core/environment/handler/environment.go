@@ -29,7 +29,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -420,7 +419,7 @@ func ListK8sWorkLoads(c *gin.Context) {
 		}
 	}
 
-	count, services, _, err := commonservice.ListK8sWorkLoads("", clusterID, namespace, "", perPage, page, ctx.Logger, func(workloads []*models.Workload) []*models.Workload {
+	count, services, _, err := commonservice.ListK8sWorkLoads("", clusterID, namespace, "", perPage, page, ctx.Logger, func(workloads []*commonservice.Workload) []*commonservice.Workload {
 		workloadStat, _ := mongodb.NewWorkLoadsStatColl().Find(clusterID, namespace)
 		workloadM := map[string]commonmodels.Workload{}
 		for _, workload := range workloadStat.Workloads {
@@ -433,7 +432,7 @@ func ListK8sWorkLoads(c *gin.Context) {
 			}
 		}
 
-		var resp []*models.Workload
+		var resp []*commonservice.Workload
 		for _, workload := range workloads {
 			if workloadName != "" && strings.Contains(workload.Name, workloadName) {
 				resp = append(resp, workload)

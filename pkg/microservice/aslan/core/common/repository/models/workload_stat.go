@@ -18,7 +18,6 @@ package models
 
 import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	corev1 "k8s.io/api/core/v1"
 )
 
 type WorkloadStat struct {
@@ -29,11 +28,10 @@ type WorkloadStat struct {
 }
 
 type Workload struct {
-	EnvName     string             `bson:"env_name"         json:"env_name"`
-	Name        string             `bson:"name"             json:"name"`
-	Spec        corev1.ServiceSpec `bson:"-"                json:"-"`
-	Type        string             `bson:"type"             json:"type"`
-	ProductName string             `bson:"product_name"     json:"product_name"`
+	EnvName     string `bson:"env_name"         json:"env_name"`
+	Name        string `bson:"name"             json:"name"`
+	Type        string `bson:"type"             json:"type"`
+	ProductName string `bson:"product_name"     json:"product_name"`
 }
 
 func (WorkloadStat) TableName() string {
