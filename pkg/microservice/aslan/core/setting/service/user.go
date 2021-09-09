@@ -205,6 +205,7 @@ func filterProductWithoutExternalCluster(products []*commonmodels.Product) []*co
 			continue
 		}
 		// 过滤外部环境托管
+		fmt.Println("This is a line of test")
 		sources := sets.NewString(setting.SourceFromZadig, setting.HelmDeployType)
 		if !sources.Has(product.Source) {
 			continue
