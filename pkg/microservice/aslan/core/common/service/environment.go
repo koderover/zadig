@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"sync"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -106,7 +105,7 @@ func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, 
 		return 0, nil, e.ErrListGroups.AddDesc(err.Error())
 	}
 
-	return ListWorkloads(envName, productInfo.ClusterID, productInfo.Namespace, productName, perPage, page, log,
+	filterArray := []FilterFunc{
 		func(workloads []*Workload) []*Workload {
 			if projectInfo.ProductFeature == nil || projectInfo.ProductFeature.CreateEnvType != setting.SourceFromExternal {
 				return workloads
@@ -130,7 +129,9 @@ func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, 
 			}
 			return res
 		},
-		func(workloads []*Workload) []*Workload {
+	}
+	if filter != "" {
+		filterArray = append(filterArray, func(workloads []*Workload) []*Workload {
 			data, err := jsonutil.ToJSON(filter)
 			if err != nil {
 				log.Warnf("Invalid filter, err: %s", err)
@@ -152,6 +153,9 @@ func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, 
 			}
 			return res
 		})
+	}
+
+	return ListWorkloads(envName, productInfo.ClusterID, productInfo.Namespace, productName, perPage, page, log, filterArray...)
 
 }
 
@@ -166,21 +170,17 @@ func (f *workloadFilter) Match(workload *Workload) bool {
 }
 
 type Workload struct {
-	EnvName     string `json:"env_name"`
-	Name        string `json:"name"`
-	Type        string `json:"type"`
-	ProductName string `json:"product_name"`
+	EnvName     string             `json:"env_name"`
+	Name        string             `json:"name"`
+	Type        string             `json:"type"`
+	ProductName string             `json:"product_name"`
 	Spec        corev1.ServiceSpec `json:"-"`
+	Images      []string           `json:"-"`
+	Ready       bool
 }
 
 func ListWorkloads(envName, clusterID, namespace, productName string, perPage, page int, log *zap.SugaredLogger, filter ...FilterFunc) (int, []*ServiceResp, error) {
-	var (
-		wg             sync.WaitGroup
-		mutex          sync.Mutex
-		resp           = make([]*ServiceResp, 0)
-		matchedIngress = &sync.Map{}
-	)
-
+	var resp = make([]*ServiceResp, 0)
 	kubeClient, err := kube.GetKubeClient(clusterID)
 	if err != nil {
 		log.Errorf("[%s][%s] error: %v", envName, namespace, err)
@@ -194,7 +194,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
 	}
 	for _, v := range listDeployments {
-		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: corev1.ServiceSpec{Selector: v.Spec.Selector.MatchLabels}, Type: setting.Deployment})
+		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: corev1.ServiceSpec{Selector: v.Spec.Selector.MatchLabels}, Type: setting.Deployment, Images: wrapper.Deployment(v).Images(), Ready: wrapper.Deployment(v).Ready()})
 	}
 	statefulSets, err := getter.ListStatefulSets(namespace, nil, kubeClient)
 	if err != nil {
@@ -202,7 +202,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
 	}
 	for _, v := range statefulSets {
-		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: corev1.ServiceSpec{Selector: v.Spec.Selector.MatchLabels}, Type: setting.StatefulSet})
+		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: corev1.ServiceSpec{Selector: v.Spec.Selector.MatchLabels}, Type: setting.StatefulSet, Images: wrapper.StatefulSet(v).Images(), Ready: wrapper.StatefulSet(v).Ready()})
 	}
 	// 对于workload过滤
 	for _, f := range filter {
@@ -227,47 +227,26 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	}
 
 	for _, workload := range workLoads {
-		wg.Add(1)
-
-		go func(workload *Workload) {
-			defer func() {
-				wg.Done()
-			}()
-
-			tmpProductName := workload.ProductName
-			if tmpProductName == "" && productName != "" {
-				tmpProductName = productName
-			}
-
-			productRespInfo := &ServiceResp{
-				ServiceName:  workload.Name,
-				EnvName:      workload.EnvName,
-				Type:         setting.K8SDeployType,
-				WorkLoadType: workload.Type,
-				ProductName:  tmpProductName,
-			}
-
-			selector := labels.SelectorFromValidatedSet(workload.Spec.Selector)
-			productRespInfo.Status, productRespInfo.Ready, productRespInfo.Images = queryExternalPodsStatus(namespace, selector, kubeClient, log)
-
-			if ingresses, err := getter.ListIngresses(namespace, selector, kubeClient); err == nil {
-				ingressInfo := new(IngressInfo)
-				hostInfos := make([]resource.HostInfo, 0)
-				for _, ingress := range ingresses {
-					hostInfos = append(hostInfos, wrapper.Ingress(ingress).HostInfo()...)
-					matchedIngress.Store(ingress.Name, struct{}{})
-				}
-				ingressInfo.HostInfo = hostInfos
-				productRespInfo.Ingress = ingressInfo
-			}
-			mutex.Lock()
-			defer mutex.Unlock()
-			resp = append(resp, productRespInfo)
-		}(workload)
-
+		tmpProductName := workload.ProductName
+		if tmpProductName == "" && productName != "" {
+			tmpProductName = productName
+		}
+		productRespInfo := &ServiceResp{
+			ServiceName:  workload.Name,
+			EnvName:      workload.EnvName,
+			Type:         setting.K8SDeployType,
+			WorkLoadType: workload.Type,
+			ProductName:  tmpProductName,
+			Images:       workload.Images,
+			Ready:        setting.PodReady,
+			Status:       setting.PodSucceeded,
+		}
+		if !workload.Ready {
+			productRespInfo.Status = setting.PodUnstable
+			productRespInfo.Ready = setting.PodNotReady
+		}
+		resp = append(resp, productRespInfo)
 	}
-	// 等所有的状态都结束
-	wg.Wait()
 	return count, resp, nil
 }
 
