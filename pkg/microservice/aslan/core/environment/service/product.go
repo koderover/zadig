@@ -244,7 +244,7 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 
 	switch prod.Source {
 	case setting.SourceFromExternal, setting.SourceFromHelm:
-		_, servicesResp, _, errObj = commonservice.ListGroupsBySource(envName, prod.ProductName, "", 0, 0, log)
+		_, servicesResp, errObj = commonservice.ListWorkloadsInEnv(envName, prod.ProductName, "", 0, 0, log)
 		if len(servicesResp) == 0 && errObj == nil {
 			prodResp.Status = prod.Status
 			prodResp.Error = prod.Error
