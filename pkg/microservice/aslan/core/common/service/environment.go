@@ -88,7 +88,7 @@ type IngressInfo struct {
 	HostInfo []resource.HostInfo `json:"host_info"`
 }
 
-// ListWorkloadsInEnv returns all workloads in the given env if no filter is specified.
+// ListWorkloadsInEnv returns all workloads in the given env which meat the filter.
 // A filter is in this format: a=b,c=d, and it is a fuzzy matching. Which means it will return all records with a field called
 // a and the value contain character b.
 func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, log *zap.SugaredLogger) (int, []*ServiceResp, error) {
