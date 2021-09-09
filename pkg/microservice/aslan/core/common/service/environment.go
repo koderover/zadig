@@ -17,6 +17,8 @@ limitations under the License.
 package service
 
 import (
+	"encoding/json"
+	"fmt"
 	"sort"
 	"strings"
 	"sync"
@@ -37,6 +39,7 @@ import (
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	jsonutil "github.com/koderover/zadig/pkg/util/json"
 )
 
 // FillProductTemplateValuesYamls 返回renderSet中的renderChart信息
@@ -85,80 +88,110 @@ type IngressInfo struct {
 	HostInfo []resource.HostInfo `json:"host_info"`
 }
 
-func ListGroupsBySource(envName, productName, workloadName string, perPage, page int, log *zap.SugaredLogger) (int, []*ServiceResp, []resource.Ingress, error) {
+// ListWorkloadsInEnv returns all workloads in the given env which meat the filter.
+// A filter is in this format: a=b,c=d, and it is a fuzzy matching. Which means it will return all records with a field called
+// a and the value contain character b.
+func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, log *zap.SugaredLogger) (int, []*ServiceResp, error) {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	productInfo, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
 		log.Errorf("[%s][%s] error: %v", envName, productName, err)
-		return 0, nil, nil, e.ErrListGroups.AddDesc(err.Error())
+		return 0, nil, e.ErrListGroups.AddDesc(err.Error())
 	}
 
 	// find project info
 	projectInfo, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil {
 		log.Errorf("[%s][%s] error: %v", envName, productName, err)
-		return 0, nil, nil, e.ErrListGroups.AddDesc(err.Error())
+		return 0, nil, e.ErrListGroups.AddDesc(err.Error())
 	}
 
-	if projectInfo.ProductFeature != nil && projectInfo.ProductFeature.CreateEnvType == setting.SourceFromExternal {
-		return ListK8sWorkLoads(envName, productInfo.ClusterID, productInfo.Namespace, productName, perPage, page, log, func(workloads []*Workload) []*Workload {
-			productServices, err := commonrepo.NewServiceColl().ListExternalServicesBy(productName, envName)
-			if err != nil {
-				log.Errorf("ListK8sWorkLoads ListExternalServicesBy err:%s", err)
+	return ListWorkloads(envName, productInfo.ClusterID, productInfo.Namespace, productName, perPage, page, log,
+		func(workloads []*Workload) []*Workload {
+			if projectInfo.ProductFeature == nil || projectInfo.ProductFeature.CreateEnvType != setting.SourceFromExternal {
 				return workloads
 			}
-			currentProductServices := sets.NewString()
+
+			productServices, err := commonrepo.NewServiceColl().ListExternalServicesBy(productName, envName)
+			if err != nil {
+				log.Errorf("ListWorkloads ListExternalServicesBy err:%s", err)
+				return workloads
+			}
+			productServiceNames := sets.NewString()
 			for _, productService := range productServices {
-				if workloadName != "" && strings.Contains(productService.ServiceName, workloadName) {
-					currentProductServices.Insert(productService.ServiceName)
-				} else if workloadName == "" {
-					currentProductServices.Insert(productService.ServiceName)
-				}
+				productServiceNames.Insert(fmt.Sprintf("%s/%s", productService.WorkloadType, productService.ServiceName))
 			}
 
-			var resp []*Workload
+			var res []*Workload
 			for _, workload := range workloads {
-				if currentProductServices.Has(workload.Name) {
-					resp = append(resp, workload)
+				if productServiceNames.Has(fmt.Sprintf("%s/%s", workload.Type, workload.Name)) {
+					res = append(res, workload)
 				}
 			}
-			return resp
+			return res
+		},
+		func(workloads []*Workload) []*Workload {
+			data, err := jsonutil.ToJSON(filter)
+			if err != nil {
+				log.Warnf("Invalid filter, err: %s", err)
+				return workloads
+			}
+
+			f := &workloadFilter{}
+			if err = json.Unmarshal(data, f); err != nil {
+				log.Warnf("Invalid filter, err: %s", err)
+				return workloads
+			}
+
+			// it is a fuzzy matching
+			var res []*Workload
+			for _, workload := range workloads {
+				if f.Match(workload) {
+					res = append(res, workload)
+				}
+			}
+			return res
 		})
-	}
-	return ListK8sWorkLoads(envName, productInfo.ClusterID, productInfo.Namespace, productName, perPage, page, log)
 
 }
 
 type FilterFunc func(services []*Workload) []*Workload
 
-type Workload struct {
-	EnvName     string `bson:"env_name"         json:"env_name"`
-	Name        string `bson:"name"             json:"name"`
-	Type        string `bson:"type"             json:"type"`
-	ProductName string `bson:"product_name"     json:"product_name"`
-	Spec        corev1.ServiceSpec
+type workloadFilter struct {
+	Name string `json:"name"`
 }
 
-func ListK8sWorkLoads(envName, clusterID, namespace, productName string, perPage, page int, log *zap.SugaredLogger, filter ...FilterFunc) (int, []*ServiceResp, []resource.Ingress, error) {
+func (f *workloadFilter) Match(workload *Workload) bool {
+	return strings.Contains(workload.Name, f.Name)
+}
+
+type Workload struct {
+	EnvName     string `json:"env_name"`
+	Name        string `json:"name"`
+	Type        string `json:"type"`
+	ProductName string `json:"product_name"`
+	Spec        corev1.ServiceSpec `json:"-"`
+}
+
+func ListWorkloads(envName, clusterID, namespace, productName string, perPage, page int, log *zap.SugaredLogger, filter ...FilterFunc) (int, []*ServiceResp, error) {
 	var (
 		wg             sync.WaitGroup
 		mutex          sync.Mutex
 		resp           = make([]*ServiceResp, 0)
-		ingressList    = make([]resource.Ingress, 0)
 		matchedIngress = &sync.Map{}
 	)
 
 	kubeClient, err := kube.GetKubeClient(clusterID)
 	if err != nil {
 		log.Errorf("[%s][%s] error: %v", envName, namespace, err)
-		return 0, resp, ingressList, e.ErrListGroups.AddDesc(err.Error())
+		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
 	}
 
 	var workLoads []*Workload
 	listDeployments, err := getter.ListDeployments(namespace, nil, kubeClient)
 	if err != nil {
 		log.Errorf("[%s][%s] create product record error: %v", envName, namespace, err)
-		return 0, resp, ingressList, e.ErrListGroups.AddDesc(err.Error())
+		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
 	}
 	for _, v := range listDeployments {
 		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: corev1.ServiceSpec{Selector: v.Spec.Selector.MatchLabels}, Type: setting.Deployment})
@@ -166,15 +199,16 @@ func ListK8sWorkLoads(envName, clusterID, namespace, productName string, perPage
 	statefulSets, err := getter.ListStatefulSets(namespace, nil, kubeClient)
 	if err != nil {
 		log.Errorf("[%s][%s] create product record error: %v", envName, namespace, err)
-		return 0, resp, ingressList, e.ErrListGroups.AddDesc(err.Error())
+		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
 	}
 	for _, v := range statefulSets {
 		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: corev1.ServiceSpec{Selector: v.Spec.Selector.MatchLabels}, Type: setting.StatefulSet})
 	}
 	// 对于workload过滤
-	if len(filter) > 0 {
-		workLoads = filter[0](workLoads)
+	for _, f := range filter {
+		workLoads = f(workLoads)
 	}
+
 	count := len(workLoads)
 
 	// 分页
@@ -234,7 +268,7 @@ func ListK8sWorkLoads(envName, clusterID, namespace, productName string, perPage
 	}
 	// 等所有的状态都结束
 	wg.Wait()
-	return count, resp, ingressList, nil
+	return count, resp, nil
 }
 
 func queryExternalPodsStatus(namespace string, selector labels.Selector, kubeClient client.Client, log *zap.SugaredLogger) (string, string, []string) {

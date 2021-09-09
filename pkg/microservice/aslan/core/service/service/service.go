@@ -144,9 +144,9 @@ func ListServicesInExtenalEnv(tmpResp *commonservice.ServiceTmplResp, log *zap.S
 		log.Errorf("Product.List failed, source:%s, err:%v", setting.SourceFromExternal, err)
 	} else {
 		for _, prod := range products {
-			_, services, _, err := commonservice.ListGroupsBySource(prod.EnvName, prod.ProductName, "", 0, 0, log)
+			_, services, err := commonservice.ListWorkloadsInEnv(prod.EnvName, prod.ProductName, "", 0, 0, log)
 			if err != nil {
-				log.Errorf("ListGroupsBySource failed, envName:%s, productName:%s, source:%s, err:%v", prod.EnvName, prod.ProductName, setting.SourceFromExternal, err)
+				log.Errorf("ListWorkloadsInEnv failed, envName:%s, productName:%s, source:%s, err:%v", prod.EnvName, prod.ProductName, setting.SourceFromExternal, err)
 				continue
 			}
 			for _, service := range services {
@@ -666,7 +666,7 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 		}
 	}
 
-	err := commonrepo.NewServiceColl().UpdateStatus(serviceName, productName, setting.ProductStatusDeleting, "")
+	err := commonrepo.NewServiceColl().UpdateStatus(serviceName, productName, setting.ProductStatusDeleting)
 	if err != nil {
 		errMsg := fmt.Sprintf("[service.UpdateStatus] %s-%s error: %v", serviceName, serviceType, err)
 		log.Error(errMsg)

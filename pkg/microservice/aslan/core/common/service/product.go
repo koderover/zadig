@@ -155,7 +155,7 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 			}
 		}
 		// 删除所有external的服务
-		err = commonrepo.NewServiceColl().UpdateStatus("", productName, setting.ProductStatusDeleting, envName)
+		err = commonrepo.NewServiceColl().UpdateExternalServicesStatus("", productName, setting.ProductStatusDeleting, envName)
 		if err != nil {
 			log.Errorf("UpdateStatus  external services error:%s", err)
 		}
