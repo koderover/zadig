@@ -24,9 +24,7 @@ import (
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
@@ -91,6 +89,9 @@ type IngressInfo struct {
 // A filter is in this format: a=b,c=d, and it is a fuzzy matching. Which means it will return all records with a field called
 // a and the value contain character b.
 func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, log *zap.SugaredLogger) (int, []*ServiceResp, error) {
+	log.Infof("Start to list workloads for env %s for project %s", envName, productName)
+	defer log.Info("Finish to list workloads")
+
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	productInfo, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
@@ -180,6 +181,8 @@ type Workload struct {
 }
 
 func ListWorkloads(envName, clusterID, namespace, productName string, perPage, page int, log *zap.SugaredLogger, filter ...FilterFunc) (int, []*ServiceResp, error) {
+	log.Infof("Start to list workloads in namespace %s", namespace)
+
 	var resp = make([]*ServiceResp, 0)
 	kubeClient, err := kube.GetKubeClient(clusterID)
 	if err != nil {
@@ -204,6 +207,9 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	for _, v := range statefulSets {
 		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: corev1.ServiceSpec{Selector: v.Spec.Selector.MatchLabels}, Type: setting.StatefulSet, Images: wrapper.StatefulSet(v).Images(), Ready: wrapper.StatefulSet(v).Ready()})
 	}
+
+	log.Debugf("Found %d workloads in total", len(workLoads))
+
 	// 对于workload过滤
 	for _, f := range filter {
 		workLoads = f(workLoads)
@@ -211,11 +217,13 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 
 	count := len(workLoads)
 
+	log.Debugf("%d matching workloads left after filtering", count)
+
+	//将获取到的所有服务按照名称进行排序
+	sort.SliceStable(workLoads, func(i, j int) bool { return workLoads[i].Name < workLoads[j].Name })
+
 	// 分页
 	if page > 0 && perPage > 0 {
-		//将获取到的所有服务按照名称进行排序
-		sort.SliceStable(workLoads, func(i, j int) bool { return workLoads[i].Name < workLoads[j].Name })
-
 		start := (page - 1) * perPage
 		if start >= count {
 			workLoads = nil
@@ -247,9 +255,8 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		}
 		resp = append(resp, productRespInfo)
 	}
-	return count, resp, nil
-}
 
-func queryExternalPodsStatus(namespace string, selector labels.Selector, kubeClient client.Client, log *zap.SugaredLogger) (string, string, []string) {
-	return kube.GetSelectedPodsInfo(namespace, selector, kubeClient, log)
+	log.Infof("Finish to list workloads in namespace %s", namespace)
+
+	return count, resp, nil
 }
