@@ -116,6 +116,9 @@ func GetInitProduct(productTmplName string, log *zap.SugaredLogger) (*commonmode
 	ret.Render = &commonmodels.RenderInfo{Name: "", Description: ""}
 	ret.Vars = prodTmpl.Vars
 	ret.ChartInfos = prodTmpl.ChartInfos
+	if prodTmpl.ProductFeature.BasicFacility == setting.BasicFacilityCVM {
+		ret.Source = setting.PMDeployType
+	}
 
 	allServiceInfoMap := prodTmpl.AllServiceInfoMap()
 	for _, names := range prodTmpl.Services {
