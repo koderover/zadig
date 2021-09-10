@@ -82,7 +82,7 @@ type ServiceProductMap struct {
 }
 
 // ListServiceTemplate 列出服务模板
-func ListServiceTemplate(productName, envName string, log *zap.SugaredLogger) (*ServiceTmplResp, error) {
+func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTmplResp, error) {
 	var err error
 	resp := new(ServiceTmplResp)
 	resp.Data = make([]*ServiceProductMap, 0)
@@ -92,12 +92,8 @@ func ListServiceTemplate(productName, envName string, log *zap.SugaredLogger) (*
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
-	var services []*commonmodels.Service
-	if productTmpl.ProductFeature.CreateEnvType == setting.SourceFromExternal {
-		services, err = commonrepo.NewServiceColl().ListExternalServicesBy(productName, envName)
-	} else {
-		services, err = commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), "")
-	}
+	services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), "")
+
 	if err != nil {
 		log.Errorf("Failed to list services by %+v, err: %s", productTmpl.AllServiceInfos(), err)
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
@@ -185,6 +181,100 @@ func ListServiceTemplate(productName, envName string, log *zap.SugaredLogger) (*
 			spmap.Product = serviceToProject[serviceObject.ServiceName]
 		}
 
+		resp.Data = append(resp.Data, spmap)
+	}
+
+	return resp, nil
+}
+
+// ListWorkloadTemplate 列出实例模板
+func ListWorkloadTemplate(productName, envName string, log *zap.SugaredLogger) (*ServiceTmplResp, error) {
+	var err error
+	resp := new(ServiceTmplResp)
+	resp.Data = make([]*ServiceProductMap, 0)
+	productTmpl, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		log.Errorf("Can not find project %s, error: %s", productName, err)
+		return resp, e.ErrListTemplate.AddDesc(err.Error())
+	}
+
+	services, err := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, envName)
+	if err != nil {
+		log.Errorf("Failed to list external services by %+v, err: %s", productTmpl.AllServiceInfos(), err)
+		return resp, e.ErrListTemplate.AddDesc(err.Error())
+	}
+
+	for _, serviceObject := range services {
+		// FIXME: 兼容老数据，想办法干掉这个
+		if serviceObject.Source == setting.SourceFromGitlab && serviceObject.CodehostID == 0 {
+			gitlabAddress, err := GetGitlabAddress(serviceObject.SrcPath)
+			if err != nil {
+				log.Errorf("无法从原有数据中恢复加载信息, GetGitlabAddr failed err: %+v", err)
+				return nil, e.ErrListTemplate.AddDesc(err.Error())
+			}
+
+			details, err := codehost.ListCodehostDetial()
+			if err != nil {
+				log.Errorf("无法从原有数据中恢复加载信息, listCodehostDetail failed err: %+v", err)
+				return nil, e.ErrListTemplate.AddDesc(err.Error())
+			}
+			for _, detail := range details {
+				if strings.Contains(detail.Address, gitlabAddress) {
+					serviceObject.CodehostID = detail.ID
+				}
+			}
+			_, owner, r, branch, loadPath, _, err := GetOwnerRepoBranchPath(serviceObject.SrcPath)
+			if err != nil {
+				log.Errorf("Failed to load info from url: %s, the error is: %+v", serviceObject.SrcPath, err)
+				return nil, e.ErrListTemplate.AddDesc(fmt.Sprintf("Failed to load info from url: %s, the error is: %+v", serviceObject.SrcPath, err))
+			}
+			// 万一codehost被删了，找不到
+			if serviceObject.CodehostID == 0 {
+				log.Errorf("Failed to find the old code host info")
+				return nil, e.ErrListTemplate.AddDesc("无法找到原有的codehost信息，请确认codehost仍然存在")
+			}
+			serviceObject.RepoOwner = owner
+			serviceObject.RepoName = r
+			serviceObject.BranchName = branch
+			serviceObject.LoadPath = loadPath
+			serviceObject.LoadFromDir = true
+		} else if serviceObject.Source == setting.SourceFromGithub && serviceObject.RepoName == "" {
+			address, owner, r, branch, loadPath, _, err := GetOwnerRepoBranchPath(serviceObject.SrcPath)
+			if err != nil {
+				return nil, err
+			}
+
+			detail, err := codehost.GetCodeHostInfo(
+				&codehost.Option{CodeHostType: poetry.GitHubProvider, Address: address, Namespace: owner})
+			if err != nil {
+				log.Errorf("get github codeHostInfo failed, err:%v", err)
+				return nil, err
+			}
+			serviceObject.CodehostID = detail.ID
+			serviceObject.RepoOwner = owner
+			serviceObject.RepoName = r
+			serviceObject.BranchName = branch
+			serviceObject.LoadPath = loadPath
+			serviceObject.LoadFromDir = true
+		}
+
+		spmap := &ServiceProductMap{
+			Service:          serviceObject.ServiceName,
+			Type:             serviceObject.Type,
+			Source:           serviceObject.Source,
+			ProductName:      serviceObject.ProductName,
+			Containers:       serviceObject.Containers,
+			Product:          []string{productName},
+			Visibility:       serviceObject.Visibility,
+			CodehostID:       serviceObject.CodehostID,
+			RepoOwner:        serviceObject.RepoOwner,
+			RepoName:         serviceObject.RepoName,
+			RepoUUID:         serviceObject.RepoUUID,
+			BranchName:       serviceObject.BranchName,
+			LoadFromDir:      serviceObject.LoadFromDir,
+			LoadPath:         serviceObject.LoadPath,
+			GerritRemoteName: serviceObject.GerritRemoteName,
+		}
 		resp.Data = append(resp.Data, spmap)
 	}
 
