@@ -39,6 +39,7 @@ require (
 	github.com/jasonlvhit/gocron v0.0.0-20171226191223-3c914c8681c3
 	github.com/jinzhu/now v1.1.2
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
+	github.com/mittwald/go-helm-client v0.8.0
 	github.com/nsqio/go-nsq v1.0.7
 	github.com/nwaples/rardecode v1.0.0 // indirect
 	github.com/onsi/ginkgo v1.16.4
@@ -79,7 +80,6 @@ require (
 	k8s.io/client-go v0.22.1
 	k8s.io/kubectl v0.21.0
 	k8s.io/utils v0.0.0-20210802155522-efc7438f0176
-	rsc.io/letsencrypt v0.0.3 // indirect
 	sigs.k8s.io/controller-runtime v0.10.0
 	sigs.k8s.io/yaml v1.2.0
 )

@@ -26,6 +26,15 @@ import (
 	"strings"
 )
 
+func RelativeToCurrentPath(path string) (string, error) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Rel(dir, path)
+}
+
 // ShortenFileBase removes baseDir from fullPath (but keep the last element of baseDir).
 // e.g. ShortenFileBase("a/b", "a/b/c.go") => "b/c.go"
 func ShortenFileBase(baseDir, fullPath string) string {
