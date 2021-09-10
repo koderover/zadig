@@ -112,7 +112,7 @@ func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, 
 				return workloads
 			}
 
-			productServices, err := commonrepo.NewServiceColl().ListExternalServicesBy(productName, envName)
+			productServices, err := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, envName)
 			if err != nil {
 				log.Errorf("ListWorkloads ListExternalServicesBy err:%s", err)
 				return workloads
