@@ -292,14 +292,16 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 				log.Errorf("not found yaml %v", err)
 				return
 			}
+
+			mu.Lock()
+			defer mu.Unlock()
 			workloadsTmp = append(workloadsTmp, models.Workload{
 				EnvName:     envName,
 				Name:        tempWorkload.Name,
 				Type:        tempWorkload.Type,
 				ProductName: productName,
 			})
-			mu.Lock()
-			defer mu.Unlock()
+
 			if _, err = CreateServiceTemplate(username, &models.Service{
 				ServiceName:  tempWorkload.Name,
 				Yaml:         string(bs),
