@@ -393,8 +393,8 @@ type ListWorkloadsArgs struct {
 	Namespace    string `json:"namespace" form:"namespace"`
 	ClusterID    string `json:"clusterId" form:"clusterId"`
 	WorkloadName string `json:"workloadName" form:"workloadName"`
-	PerPageStr   string `json:"perPage" form:"perPage"`
-	PageStr      string `json:"page" form:"page"`
+	PerPage      int    `json:"perPage" form:"perPage,default:20"`
+	Page         int    `json:"page" form:"page,default:1"`
 }
 
 func ListWorkloads(c *gin.Context) {
@@ -405,29 +405,8 @@ func ListWorkloads(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	var (
-		count   int
-		perPage int
-		err     error
-		page    int
-	)
-	if args.PerPageStr == "" || args.PageStr == "" {
-		perPage = 10
-		page = 1
-	} else {
-		page, err = strconv.Atoi(args.PageStr)
-		if err != nil {
-			ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("page args err :%s", err))
-			return
-		}
-		perPage, err = strconv.Atoi(args.PerPageStr)
-		if err != nil {
-			ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("pageStr args err :%s", err))
-			return
-		}
-	}
 
-	count, services, err := commonservice.ListWorkloads("", args.ClusterID, args.Namespace, "", perPage, page, ctx.Logger, func(workloads []*commonservice.Workload) []*commonservice.Workload {
+	count, services, err := commonservice.ListWorkloads("", args.ClusterID, args.Namespace, "", args.PerPage, args.Page, ctx.Logger, func(workloads []*commonservice.Workload) []*commonservice.Workload {
 		workloadStat, _ := mongodb.NewWorkLoadsStatColl().Find(args.ClusterID, args.Namespace)
 		workloadM := map[string]commonmodels.Workload{}
 		for _, workload := range workloadStat.Workloads {
