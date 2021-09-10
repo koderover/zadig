@@ -119,12 +119,16 @@ func ListChartRenders(productName, envName, serviceName string, log *zap.Sugared
 	opt := &commonrepo.RenderSetFindOption{
 		Name: renderSetName,
 	}
-	rendersetObj, err := commonrepo.NewRenderSetColl().Find(opt)
-	if err != nil || rendersetObj == nil {
+	rendersetObj, existed, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
+	if err != nil {
 		return nil, err
 	}
 
 	ret := make([]*RendersetCreateArgs, 0)
+
+	if !existed {
+		return ret, err
+	}
 
 	for _, singleChart := range rendersetObj.ChartInfos {
 		if serviceName == "" {

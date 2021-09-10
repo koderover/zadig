@@ -39,8 +39,8 @@ type RenderSetListOption struct {
 // RenderSetFindOption ...
 type RenderSetFindOption struct {
 	// if Revision == 0 then search max revision of RenderSet
-	Revision    int64
-	Name        string
+	Revision       int64
+	Name           string
 }
 
 type RenderSetPipeResp struct {
