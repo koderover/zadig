@@ -29,7 +29,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
-	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"helm.sh/helm/v3/pkg/strvals"
@@ -329,94 +328,26 @@ var mutexAutoCreate sync.RWMutex
 
 // 自动创建环境
 func AutoCreateProduct(productName, envType, requestID string, log *zap.SugaredLogger) []*EnvStatus {
-	envStatuses := make([]*EnvStatus, 0)
-	productObject, err := GetInitProduct(productName, log)
-	if err != nil {
-		log.Errorf("AutoCreateProduct err:%v", err)
-		return envStatuses
-	}
-	if envType == setting.HelmDeployType {
-		productObject.Source = setting.HelmDeployType
-	}
+
 	mutexAutoCreate.Lock()
 	defer func() {
 		mutexAutoCreate.Unlock()
 	}()
 
-	productObject.IsPublic = true
-	productMap := make(map[string]string)
-	productResps := make([]*ProductResp, 0)
+	envStatus := make([]*EnvStatus, 0)
 	envNames := []string{"dev", "qa"}
 	for _, envName := range envNames {
-		productMap[envName] = envName
-		productResp, err := GetProduct(setting.SystemUser, envName, productName, log)
-		if err == nil && productResp != nil {
-			productResps = append(productResps, productResp)
-			delete(productMap, envName)
+		devStatus := &EnvStatus{
+			EnvName:   envName,
 		}
+		status, err := autoCreateProduct(envType, envName, productName, requestID, setting.SystemUser, log)
+		devStatus.Status = status
+		if err != nil {
+			devStatus.ErrMessage = err.Error()
+		}
+		envStatus = append(envStatus, devStatus)
 	}
-	switch len(productResps) {
-	case 0:
-		for _, envName := range envNames {
-			tempProductObj := *productObject
-			tempProductObj.Namespace = commonservice.GetProductEnvNamespace(envName, productName)
-			tempProductObj.UpdateBy = setting.SystemUser
-			tempProductObj.EnvName = envName
-			// charts should copy value
-			tempProductObj.ChartInfos = make([]*template.RenderChart, 0, len(productObject.ChartInfos))
-			for _, charInfo := range productObject.ChartInfos {
-				tempProductObj.ChartInfos = append(tempProductObj.ChartInfos, &template.RenderChart{
-					ServiceName:  charInfo.ServiceName,
-					ChartVersion: charInfo.ChartVersion,
-					ValuesYaml:   charInfo.ValuesYaml,
-				})
-			}
-			err = CreateProduct(setting.SystemUser, requestID, &tempProductObj, log)
-			if err != nil {
-				_, messageMap := e.ErrorMessage(err)
-				if errMessage, isExist := messageMap["description"]; isExist {
-					if message, ok := errMessage.(string); ok {
-						envStatuses = append(envStatuses, &EnvStatus{EnvName: envName, Status: setting.ProductStatusFailed, ErrMessage: message})
-						continue
-					}
-				}
-			}
-			envStatuses = append(envStatuses, &EnvStatus{EnvName: envName, Status: setting.ProductStatusCreating})
-		}
-	case 1:
-		for _, productResp := range productResps {
-			if productResp.Error != "" {
-				envStatuses = append(envStatuses, &EnvStatus{EnvName: productResp.EnvName, Status: setting.ProductStatusFailed, ErrMessage: productResp.Error})
-				continue
-			}
-			envStatuses = append(envStatuses, &EnvStatus{EnvName: productResp.EnvName, Status: productResp.Status})
-		}
-		for envName := range productMap {
-			productObject.Namespace = commonservice.GetProductEnvNamespace(envName, productName)
-			productObject.UpdateBy = setting.SystemUser
-			productObject.EnvName = envName
-			err = CreateProduct(setting.SystemUser, requestID, productObject, log)
-			if err != nil {
-				_, messageMap := e.ErrorMessage(err)
-				if errMessage, isExist := messageMap["description"]; isExist {
-					if message, ok := errMessage.(string); ok {
-						envStatuses = append(envStatuses, &EnvStatus{EnvName: envName, Status: setting.ProductStatusFailed, ErrMessage: message})
-						continue
-					}
-				}
-			}
-			envStatuses = append(envStatuses, &EnvStatus{EnvName: envName, Status: setting.ProductStatusCreating})
-		}
-	case 2:
-		for _, productResp := range productResps {
-			if productResp.Error != "" {
-				envStatuses = append(envStatuses, &EnvStatus{EnvName: productResp.EnvName, Status: setting.ProductStatusFailed, ErrMessage: productResp.Error})
-				continue
-			}
-			envStatuses = append(envStatuses, &EnvStatus{EnvName: productResp.EnvName, Status: productResp.Status})
-		}
-	}
-	return envStatuses
+	return envStatus
 }
 
 var mutexAutoUpdate sync.RWMutex
@@ -807,173 +738,8 @@ func UpdateProductV2(envName, productName, user, requestID string, force bool, k
 // CreateProduct create a new product with its dependent stacks
 func CreateProduct(user, requestID string, args *commonmodels.Product, log *zap.SugaredLogger) (err error) {
 	log.Infof("[%s][P:%s] CreateProduct", args.EnvName, args.ProductName)
-
-	switch args.Source {
-	case setting.SourceFromExternal:
-		args.Status = setting.ProductStatusUnstable
-		args.RecycleDay = config.DefaultRecycleDay()
-		err = commonrepo.NewProductColl().Create(args)
-		if err != nil {
-			log.Errorf("[%s][%s] create product record error: %v", args.EnvName, args.ProductName, err)
-			return e.ErrCreateEnv.AddDesc(err.Error())
-		}
-	case setting.SourceFromHelm:
-		kubeClient, err := kube.GetKubeClient(args.ClusterID)
-		if err != nil {
-			log.Errorf("[%s][%s] GetKubeClient error: %v", args.EnvName, args.ProductName, err)
-			return e.ErrCreateEnv.AddErr(err)
-		}
-
-		//判断namespace是否存在
-		namespace := args.GetNamespace()
-		args.Namespace = namespace
-		_, found, err := getter.GetNamespace(namespace, kubeClient)
-		if err != nil {
-			log.Errorf("GetNamespace error: %v", err)
-			return e.ErrCreateEnv.AddDesc(err.Error())
-		}
-		if found {
-			log.Warnf("%s[%s]%s", "namespace", namespace, "已经存在,请换个环境名称尝试!")
-			return e.ErrCreateEnv.AddDesc(fmt.Sprintf("%s[%s]%s", "namespace", namespace, "已经存在,请换个环境名称尝试!"))
-		}
-
-		restConfig, err := kube.GetRESTConfig(args.ClusterID)
-		if err != nil {
-			log.Errorf("GetRESTConfig error: %v", err)
-			return e.ErrCreateEnv.AddDesc(err.Error())
-		}
-		helmClient, err := helmclient.NewClientFromRestConf(restConfig, namespace)
-		if err != nil {
-			log.Errorf("[%s][%s] NewClientFromRestConf error: %v", args.EnvName, args.ProductName, err)
-			return e.ErrCreateEnv.AddErr(err)
-		}
-
-		// renderset may exist before product created, by setting values.yaml content
-		var renderSet *commonmodels.RenderSet
-		if args.Render == nil || args.Render.Revision == 0 {
-			renderSet, err = FindHelmRenderSet(args.ProductName, commonservice.GetProductEnvNamespace(args.EnvName, args.ProductName), log)
-			if err != nil && err != mongo.ErrNoDocuments {
-				log.Errorf("[%s][P:%s] find product renderset error: %v", args.EnvName, args.ProductName, err)
-				return e.ErrCreateEnv.AddDesc(err.Error())
-			}
-			// if env renderset is predefined, set render info
-			if renderSet != nil {
-				args.Render = &commonmodels.RenderInfo{
-					ProductTmpl: args.ProductName,
-					Name:        renderSet.Name,
-					Revision:    renderSet.Revision,
-				}
-				// user renderchart from renderset
-				chartInfoMap := make(map[string]*template.RenderChart)
-				for _, renderChart := range renderSet.ChartInfos {
-					chartInfoMap[renderChart.ServiceName] = renderChart
-				}
-
-				// use values.yaml content from predefined env renderset
-				for _, singleRenderChart := range args.ChartInfos {
-					if renderInEnvRenderset, ok := chartInfoMap[singleRenderChart.ServiceName]; ok {
-						singleRenderChart.ValuesYaml = renderInEnvRenderset.ValuesYaml
-						singleRenderChart.OverrideValues = renderInEnvRenderset.OverrideValues
-					}
-				}
-			}
-		}
-
-		if err = preCreateProduct(args.EnvName, args, kubeClient, log); err != nil {
-			log.Errorf("CreateProduct preCreateProduct error: %v", err)
-			return e.ErrCreateEnv.AddDesc(err.Error())
-		}
-
-		if renderSet == nil {
-			renderSet, err = FindHelmRenderSet(args.ProductName, args.Render.Name, log)
-			if err != nil {
-				log.Errorf("[%s][P:%s] find product renderset error: %v", args.EnvName, args.ProductName, err)
-				return e.ErrCreateEnv.AddDesc(err.Error())
-			}
-		}
-
-		// 设置产品render revision
-		args.Render.Revision = renderSet.Revision
-		// 记录服务当前对应render版本
-		setServiceRender(args)
-
-		args.Status = setting.ProductStatusCreating
-		args.RecycleDay = config.DefaultRecycleDay()
-		if args.IsForkedProduct {
-			args.RecycleDay = 7
-		}
-		err = commonrepo.NewProductColl().Create(args)
-		if err != nil {
-			log.Errorf("[%s][%s] create product record error: %v", args.EnvName, args.ProductName, err)
-			return e.ErrCreateEnv.AddDesc(err.Error())
-		}
-
-		eventStart := time.Now().Unix()
-		go installOrUpdateHelmChart(user, args.EnvName, requestID, args, eventStart, helmClient, log)
-	default:
-		kubeClient, err := kube.GetKubeClient(args.ClusterID)
-		if err != nil {
-			return e.ErrCreateEnv.AddErr(err)
-		}
-
-		//判断namespace是否存在
-		namespace := args.GetNamespace()
-		args.Namespace = namespace
-		_, found, err := getter.GetNamespace(namespace, kubeClient)
-		if err != nil {
-			log.Errorf("GetNamespace error: %v", err)
-			return e.ErrCreateEnv.AddDesc(err.Error())
-		}
-		if found {
-			return e.ErrCreateEnv.AddDesc(fmt.Sprintf("%s[%s]%s", "namespace", namespace, "已经存在,请换个环境名称尝试!"))
-		}
-
-		//创建角色环境之间的关联关系
-		//todo 创建环境暂时不指定角色
-		// 检查是否重复创建（TO BE FIXED）;检查k8s集群设置: Namespace/Secret .etc
-		if err := preCreateProduct(args.EnvName, args, kubeClient, log); err != nil {
-			log.Errorf("CreateProduct preCreateProduct error: %v", err)
-			return e.ErrCreateEnv.AddDesc(err.Error())
-		}
-
-		eventStart := time.Now().Unix()
-		// 检查renderinfo是否为空，避免空指针
-		if args.Render == nil {
-			args.Render = &commonmodels.RenderInfo{ProductTmpl: args.ProductName}
-		}
-
-		renderSet := &commonmodels.RenderSet{
-			ProductTmpl: args.Render.ProductTmpl,
-			Name:        args.Render.Name,
-			Revision:    args.Render.Revision,
-		}
-		// 如果是版本回滚，则args.Render.Revision > 0
-		if args.Render.Revision == 0 {
-			// 检查renderset是否覆盖产品所有key
-			renderSet, err = commonservice.ValidateRenderSet(args.ProductName, args.Render.Name, nil, log)
-			if err != nil {
-				log.Errorf("[%s][P:%s] validate product renderset error: %v", args.EnvName, args.ProductName, err)
-				return e.ErrCreateEnv.AddDesc(err.Error())
-			}
-			// 保存产品信息,并设置产品状态
-			// 设置产品render revsion
-			args.Render.Revision = renderSet.Revision
-			// 记录服务当前对应render版本
-			setServiceRender(args)
-		}
-
-		args.Status = setting.ProductStatusCreating
-		args.RecycleDay = config.DefaultRecycleDay()
-		err = commonrepo.NewProductColl().Create(args)
-		if err != nil {
-			log.Errorf("[%s][%s] create product record error: %v", args.EnvName, args.ProductName, err)
-			return e.ErrCreateEnv.AddDesc(err.Error())
-		}
-		// 异步创建产品
-		go createGroups(args.EnvName, user, requestID, args, eventStart, renderSet, kubeClient, log)
-	}
-
-	return nil
+	creator := getCreatorBySource(args.Source)
+	return creator.Create(user, requestID, args, log)
 }
 
 func UpdateProductRecycleDay(envName, productName string, recycleDay int) error {
@@ -1037,28 +803,6 @@ func UpdateHelmProduct(productName, envName, updateType, username, requestID str
 		}
 	}()
 	return nil
-}
-
-func ApplyHelmProductRenderset(productName, envName, username, requestID string, renderset *commonmodels.RenderSet, targetChart *template.RenderChart, log *zap.SugaredLogger) error {
-	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
-	productResp, err := commonrepo.NewProductColl().Find(opt)
-	if err == mongo.ErrNoDocuments {
-		return nil
-	}
-	if err != nil {
-		log.Errorf("GetProduct envName:%s, productName:%s, err:%+v", envName, productName, err)
-		return e.ErrUpdateEnv.AddDesc(err.Error())
-	}
-	var oldRenderVersion int64
-	if productResp.Render != nil {
-		oldRenderVersion = productResp.Render.Revision
-	}
-	if productResp.Render == nil {
-		productResp.Render = &commonmodels.RenderInfo{ProductTmpl: productResp.ProductName}
-	}
-	productResp.Revision = renderset.Revision
-	productResp.ChartInfos = []*template.RenderChart{targetChart}
-	return updateHelmProductVariable(productResp, oldRenderVersion, username, requestID, log)
 }
 
 func UpdateHelmProductVariable(productName, envName, username, requestID string, rcs []*template.RenderChart, log *zap.SugaredLogger) error {

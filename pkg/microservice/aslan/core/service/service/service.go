@@ -575,6 +575,7 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 		if err = fs.DeleteArchivedFileFromS3(serviceName, configbase.ObjectStorageServicePath(productName, serviceName), log); err != nil {
 			log.Warnf("Failed to delete file %s, err: %s", serviceName, err)
 		}
+		//onBoarding流程时，需要删除预定的renderset中的已经存在的renderchart信息
 	}
 
 	//删除环境模板

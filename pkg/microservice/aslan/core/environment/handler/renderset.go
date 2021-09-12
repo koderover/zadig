@@ -19,10 +19,11 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/renderset/service"
+	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -33,34 +34,44 @@ func GetServiceRenderset(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if c.Query("productName") == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
 	if c.Query("envName") == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("envName can not be null!")
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListChartRenders(c.Param("productName"), c.Query("envName"), c.Query("serviceName"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetRenderCharts(c.Query("productName"), c.Query("envName"), c.Query("serviceName"), ctx.Logger)
 }
 
-func CreateOrUpdateRenderset(c *gin.Context) {
+func CreateOrUpdateRenderChart(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("CreateOrUpdateRenderset c.GetRawData() err : %v", err)
+	if c.Query("productName") == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
 	}
 
-	args := new(service.RendersetCreateArgs)
-	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("CreateOrUpdateRenderset json.Unmarshal err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-	}
-	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "新增", "环境变量", c.Query("envName"), fmt.Sprintf("%s,%s", permission.TestEnvManageUUID, permission.ProdEnvManageUUID), string(data), ctx.Logger)
-
-	if args.EnvName == "" {
+	if c.Query("envName") == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("envName can not be null!")
 		return
 	}
 
-	ctx.Err = service.CreateOrUpdateChartValues(c.Param("productName"), args.EnvName, args, ctx.Username, ctx.RequestID, ctx.Logger)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("CreateOrUpdateRenderChart c.GetRawData() err : %v", err)
+	}
+
+	args := new(commonservice.RenderChartArg)
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("CreateOrUpdateRenderChart json.Unmarshal err : %v", err)
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+	}
+	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "新增", "环境变量", c.Query("envName"), fmt.Sprintf("%s,%s", permission.TestEnvManageUUID, permission.ProdEnvManageUUID), string(data), ctx.Logger)
+
+	ctx.Err = service.CreateOrUpdateChartValues(c.Query("productName"), c.Query("envName"), args, ctx.Username, ctx.RequestID, ctx.Logger)
 }

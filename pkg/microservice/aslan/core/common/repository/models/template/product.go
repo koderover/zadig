@@ -100,12 +100,11 @@ type GitRepoConfig struct {
 
 // RenderChart ...
 type RenderChart struct {
-	ServiceName  string `bson:"service_name,omitempty"    json:"service_name,omitempty"`
-	ChartVersion string `bson:"chart_version,omitempty"   json:"chart_version,omitempty"`
-	// ChartProject string `bson:"chart_project,omitempty"   json:"chart_project,omitempty"`
+	ServiceName    string `bson:"service_name,omitempty"    json:"service_name,omitempty"`
+	ChartVersion   string `bson:"chart_version,omitempty"   json:"chart_version,omitempty"`
 	YamlSource     string `bson:"yaml_source,omitempty"     json:"yaml_source,omitempty"`
 	ValuesYaml     string `bson:"values_yaml,omitempty"     json:"values_yaml,omitempty"`
-	*GitRepoConfig `bson:",inline,omitempty"`
+	*GitRepoConfig `bson:",inline,omitempty"     json:"gitRepoConfig,omitempty"`
 	OverrideValues string `bson:"override_values,omitempty"   json:"override_values,omitempty"`
 }
 

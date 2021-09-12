@@ -36,83 +36,7 @@ import (
 	yaml2 "github.com/koderover/zadig/pkg/util/yaml"
 )
 
-type RepoConfig struct {
-	CodehostID  int      `json:"codehostID,omitempty"`
-	Owner       string   `json:"owner,omitempty"`
-	Repo        string   `json:"repo,omitempty"`
-	Branch      string   `json:"branch,omitempty"`
-	ValuesPaths []string `json:"valuesPaths,omitempty"`
-}
-
-type KVPair struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
-}
-
-type RendersetCreateArgs struct {
-	EnvName        string      `json:"envName,omitempty"`
-	ServiceName    string      `json:"serviceName,omitempty"`
-	YamlSource     string      `json:"yamlSource,omitempty"`
-	GitRepoConfig  *RepoConfig `json:"gitRepoConfig,omitempty"`
-	OverrideValues []*KVPair   `json:"overrideValues,omitempty"`
-	ValuesYAML     string      `json:"valuesYAML,omitempty"`
-}
-
-func (args *RendersetCreateArgs) toOverrideValueString() string {
-	if len(args.OverrideValues) == 0 {
-		return ""
-	}
-	kvPairSlice := make([]string, 0, len(args.OverrideValues))
-	for _, pair := range args.OverrideValues {
-		kvPairSlice = append(kvPairSlice, fmt.Sprintf("%s=%s", pair.Key, pair.Value))
-	}
-	return strings.Join(kvPairSlice, ",")
-}
-
-func (args *RendersetCreateArgs) toGitRepoConfig() *template.GitRepoConfig {
-	if args.GitRepoConfig == nil {
-		return nil
-	}
-	return &template.GitRepoConfig{
-		CodehostID:  args.GitRepoConfig.CodehostID,
-		Owner:       args.GitRepoConfig.Owner,
-		Repo:        args.GitRepoConfig.Repo,
-		Branch:      args.GitRepoConfig.Branch,
-		ValuesPaths: args.GitRepoConfig.ValuesPaths,
-	}
-}
-
-func (args *RendersetCreateArgs) fromRenderChart(chart *template.RenderChart) *RendersetCreateArgs {
-	args.ServiceName = chart.ServiceName
-	args.YamlSource = chart.YamlSource
-	if args.YamlSource == setting.ValuesYamlSourceFreeEdit {
-		args.ValuesYAML = chart.ValuesYaml
-	}
-	if chart.GitRepoConfig != nil {
-		args.GitRepoConfig = &RepoConfig{
-			CodehostID:  chart.GitRepoConfig.CodehostID,
-			Owner:       chart.GitRepoConfig.Owner,
-			Repo:        chart.GitRepoConfig.Repo,
-			Branch:      chart.GitRepoConfig.Branch,
-			ValuesPaths: chart.GitRepoConfig.ValuesPaths,
-		}
-	}
-	if chart.OverrideValues != "" {
-		kvPairs := strings.Split(chart.OverrideValues, ",")
-		for _, kv := range kvPairs {
-			kvSlice := strings.Split(kv, "=")
-			if len(kvSlice) == 2 {
-				args.OverrideValues = append(args.OverrideValues, &KVPair{
-					Key:   kvSlice[0],
-					Value: kvSlice[1],
-				})
-			}
-		}
-	}
-	return args
-}
-
-func ListChartRenders(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*RendersetCreateArgs, error) {
+func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*commonservice.RenderChartArg, error) {
 
 	renderSetName := commonservice.GetProductEnvNamespace(envName, productName)
 
@@ -124,28 +48,52 @@ func ListChartRenders(productName, envName, serviceName string, log *zap.Sugared
 		return nil, err
 	}
 
-	ret := make([]*RendersetCreateArgs, 0)
+	ret := make([]*commonservice.RenderChartArg, 0)
 
 	if !existed {
-		return ret, err
+		return ret, nil
 	}
 
-	for _, singleChart := range rendersetObj.ChartInfos {
-		if serviceName == "" {
-			ret = append(ret, new(RendersetCreateArgs).fromRenderChart(singleChart))
-		} else {
-			if singleChart.ServiceName == serviceName {
-				ret = append(ret, new(RendersetCreateArgs).fromRenderChart(singleChart))
-				break
+	serverList := strings.Split(serviceName, ",")
+	serviceMap := map[string]int{}
+	for _, singleService := range serverList {
+		serviceMap[singleService] = 1
+	}
+
+	matchedRenderChartModels := make([]*template.RenderChart, 0)
+	if len(serviceMap) == 0 {
+		matchedRenderChartModels = rendersetObj.ChartInfos
+	} else {
+		for _, singleChart := range rendersetObj.ChartInfos {
+			if _, ok := serviceMap[singleChart.ServiceName]; !ok {
+				continue
 			}
+			matchedRenderChartModels = append(matchedRenderChartModels, singleChart)
 		}
+	}
+
+	for _, singleChart := range matchedRenderChartModels {
+		rcaObj := new(commonservice.RenderChartArg)
+		rcaObj.LoadFromRenderChartModel(singleChart)
+		ret = append(ret, rcaObj)
 	}
 	return ret, nil
 }
 
-func generateValuesYaml(service *commonmodels.Service, args *RendersetCreateArgs, log *zap.SugaredLogger) (string, error) {
+// validate yaml content
+func validateYamlContent(yamlContent string) error {
+	tMap := map[string]interface{}{}
+	if err := yaml.Unmarshal([]byte(yamlContent), &tMap); err != nil {
+		if err != nil {
+			return errors.New("yaml content illegal")
+		}
+	}
+	return nil
+}
+
+func generateValuesYaml(service *commonmodels.Service, args *commonservice.RenderChartArg, log *zap.SugaredLogger) (string, error) {
 	if args.YamlSource == setting.ValuesYamlSourceFreeEdit {
-		return args.ValuesYAML, nil
+		return args.ValuesYAML, validateYamlContent(args.ValuesYAML)
 	} else if args.YamlSource == setting.ValuesYamlSourceDefault {
 		return service.HelmChart.ValuesYaml, nil
 	} else if args.YamlSource == setting.ValuesYamlSourceGitRepo {
@@ -185,27 +133,28 @@ func generateValuesYaml(service *commonmodels.Service, args *RendersetCreateArgs
 			return "", err
 		}
 
+		allValueYamls := make([][]byte, len(args.GitRepoConfig.ValuesPaths), len(args.GitRepoConfig.ValuesPaths))
 		for i := 0; i < len(args.GitRepoConfig.ValuesPaths); i++ {
-			if content, ok := fileContentMap.Load(i); ok {
-				allValues, err = yaml2.Merge([][]byte{allValues, content.([]byte)})
-				if err != nil {
-					return "", errors.Errorf("fail to merge file, path: %s, repo: %v", args.GitRepoConfig.ValuesPaths[i], *args.GitRepoConfig)
-				}
-			}
+			contentObj, _ := fileContentMap.Load(i)
+			allValueYamls[i] = contentObj.([]byte)
+		}
+		allValues, err = yaml2.Merge(allValueYamls)
+		if err != nil {
+			return "", errors.Errorf("failed to merge yaml files, repo: %v", *args.GitRepoConfig)
 		}
 		return string(allValues), nil
 	}
 	return "", nil
 }
 
-func CreateOrUpdateChartValues(productName, envName string, args *RendersetCreateArgs, userName, requestID string, log *zap.SugaredLogger) error {
+func CreateOrUpdateChartValues(productName, envName string, args *commonservice.RenderChartArg, userName, requestID string, log *zap.SugaredLogger) error {
 
 	serviceName := args.ServiceName
 
 	serviceOpt := &commonrepo.ServiceFindOption{
 		ProductName: productName,
 		ServiceName: serviceName,
-		Revision:    0,
+		Type: setting.HelmDeployType,
 	}
 	serviceObj, err := commonrepo.NewServiceColl().Find(serviceOpt)
 	if err != nil {
@@ -214,9 +163,7 @@ func CreateOrUpdateChartValues(productName, envName string, args *RendersetCreat
 	if serviceObj == nil {
 		return e.ErrCreateRenderSet.AddDesc("service not found")
 	}
-	if serviceObj.Type != setting.HelmDeployType {
-		return e.ErrCreateRenderSet.AddDesc("invalid service type")
-	}
+
 	if serviceObj.HelmChart == nil {
 		return e.ErrCreateRenderSet.AddDesc("missing helm chart info")
 	}
@@ -228,13 +175,6 @@ func CreateOrUpdateChartValues(productName, envName string, args *RendersetCreat
 
 	if yamlContent == "" {
 		return e.ErrCreateRenderSet.AddDesc("empty yaml content")
-	}
-	// validate yaml content
-	tMap := map[string]interface{}{}
-	if err = yaml.Unmarshal([]byte(yamlContent), &tMap); err != nil {
-		if err != nil {
-			return e.ErrCreateRenderSet.AddDesc("yaml content illegal")
-		}
 	}
 
 	renderSetName := commonservice.GetProductEnvNamespace(envName, productName)
@@ -261,30 +201,13 @@ func CreateOrUpdateChartValues(productName, envName string, args *RendersetCreat
 		if singleChart.ServiceName != serviceName {
 			continue
 		}
-		singleChart.ValuesYaml = yamlContent
-		singleChart.YamlSource = args.YamlSource
-		singleChart.OverrideValues = args.toOverrideValueString()
-		if args.YamlSource == setting.ValuesYamlSourceGitRepo {
-			singleChart.GitRepoConfig = args.toGitRepoConfig()
-		} else {
-			singleChart.GitRepoConfig = nil
-		}
+		args.FillRenderChartModel(singleChart, singleChart.ChartVersion)
 		targetChartInfo = singleChart
 		break
 	}
 	if targetChartInfo == nil {
-		targetChartInfo = &template.RenderChart{
-			ServiceName:    serviceName,
-			ChartVersion:   serviceObj.HelmChart.Version,
-			ValuesYaml:     yamlContent,
-			YamlSource:     args.YamlSource,
-			OverrideValues: args.toOverrideValueString(),
-		}
-		if args.YamlSource == setting.ValuesYamlSourceGitRepo {
-			targetChartInfo.GitRepoConfig = args.toGitRepoConfig()
-		} else {
-			targetChartInfo.GitRepoConfig = nil
-		}
+		targetChartInfo = new(template.RenderChart)
+		args.FillRenderChartModel(targetChartInfo, serviceObj.HelmChart.Version)
 		curRenderset.ChartInfos = append(curRenderset.ChartInfos, targetChartInfo)
 	}
 

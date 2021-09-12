@@ -34,6 +34,105 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
+type RepoConfig struct {
+	CodehostID  int      `json:"codehostID,omitempty"`
+	Owner       string   `json:"owner,omitempty"`
+	Repo        string   `json:"repo,omitempty"`
+	Branch      string   `json:"branch,omitempty"`
+	ValuesPaths []string `json:"valuesPaths,omitempty"`
+}
+
+type KVPair struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+type RenderChartArg struct {
+	//EnvName        string      `json:"envName,omitempty"`
+	ServiceName    string      `json:"serviceName,omitempty"`
+	ChartVersion   string      `json:"chartVersion,omitempty"`
+	YamlSource     string      `json:"yamlSource,omitempty"`
+	GitRepoConfig  *RepoConfig `json:"gitRepoConfig,omitempty"`
+	OverrideValues []*KVPair   `json:"overrideValues,omitempty"`
+	ValuesYAML     string      `json:"valuesYAML,omitempty"`
+}
+
+func (args *RenderChartArg) toOverrideValueString() string {
+	if len(args.OverrideValues) == 0 {
+		return ""
+	}
+	kvPairSlice := make([]string, 0, len(args.OverrideValues))
+	for _, pair := range args.OverrideValues {
+		kvPairSlice = append(kvPairSlice, fmt.Sprintf("%s=%s", pair.Key, pair.Value))
+	}
+	return strings.Join(kvPairSlice, ",")
+}
+
+func (args *RenderChartArg) loadOverrideValueString(valueStr string) {
+	if valueStr == "" {
+		args.OverrideValues = nil
+		return
+	}
+	kvPairs := strings.Split(valueStr, ",")
+	for _, kv := range kvPairs {
+		kvSlice := strings.Split(kv, "=")
+		if len(kvSlice) == 2 {
+			args.OverrideValues = append(args.OverrideValues, &KVPair{
+				Key:   kvSlice[0],
+				Value: kvSlice[1],
+			})
+		}
+	}
+}
+
+func (args *RenderChartArg) toGitRepoConfig() *templatemodels.GitRepoConfig {
+	if args.GitRepoConfig == nil {
+		return nil
+	}
+	return &templatemodels.GitRepoConfig{
+		CodehostID:  args.GitRepoConfig.CodehostID,
+		Owner:       args.GitRepoConfig.Owner,
+		Repo:        args.GitRepoConfig.Repo,
+		Branch:      args.GitRepoConfig.Branch,
+		ValuesPaths: args.GitRepoConfig.ValuesPaths,
+	}
+}
+
+func (args *RenderChartArg) loadGitRepoConfig(repoConfig *templatemodels.GitRepoConfig) {
+	if repoConfig == nil {
+		args.GitRepoConfig = nil
+	}
+	args.GitRepoConfig = &RepoConfig{
+		CodehostID:  repoConfig.CodehostID,
+		Owner:       repoConfig.Owner,
+		Repo:        repoConfig.Repo,
+		Branch:      repoConfig.Branch,
+		ValuesPaths: repoConfig.ValuesPaths,
+	}
+}
+
+// FillRenderChartModel fill render chart model
+func (args *RenderChartArg) FillRenderChartModel(chart *templatemodels.RenderChart, version string) {
+	chart.ServiceName = args.ServiceName
+	chart.ChartVersion = version
+	chart.YamlSource = args.YamlSource
+	chart.ValuesYaml = args.ValuesYAML
+	chart.OverrideValues = args.toOverrideValueString()
+	chart.GitRepoConfig = args.toGitRepoConfig()
+}
+
+// LoadFromRenderChartModel load from render chart model
+func (args *RenderChartArg) LoadFromRenderChartModel(chart *templatemodels.RenderChart) {
+	args.ServiceName = chart.ServiceName
+	args.YamlSource = chart.YamlSource
+	args.ChartVersion = chart.ChartVersion
+	if args.YamlSource == setting.ValuesYamlSourceFreeEdit {
+		args.ValuesYAML = chart.ValuesYaml
+	}
+	args.loadOverrideValueString(chart.OverrideValues)
+	args.loadGitRepoConfig(chart.GitRepoConfig)
+}
+
 func listTmplRenderKeys(productTmplName string, log *zap.SugaredLogger) ([]*templatemodels.RenderKV, map[string]*templatemodels.ServiceInfo, error) {
 	//如果没找到对应产品，则kv为空
 	prodTmpl, err := template.NewProductColl().Find(productTmplName)
