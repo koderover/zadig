@@ -247,7 +247,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 			ProductName:  tmpProductName,
 			Images:       workload.Images,
 			Ready:        setting.PodReady,
-			Status:       setting.PodSucceeded,
+			Status:       setting.PodRunning,
 		}
 		if !workload.Ready {
 			productRespInfo.Status = setting.PodUnstable
