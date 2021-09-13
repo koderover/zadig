@@ -158,7 +158,7 @@ func (c *ServiceColl) ListMaxRevisionsForServices(services []*templatemodels.Ser
 
 // TODO refactor mouuii
 // ListExternalServicesBy list service only for external services  ,other service type not use  before refactor
-func (c *ServiceColl) ListExternalServicesBy(productName, envName string) ([]*models.Service, error) {
+func (c *ServiceColl) ListExternalWorkloadsBy(productName, envName string) ([]*models.Service, error) {
 	services := make([]*models.Service, 0)
 	query := bson.M{
 		"status": bson.M{"$ne": setting.ProductStatusDeleting},

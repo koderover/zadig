@@ -389,38 +389,25 @@ func ListGroups(c *gin.Context) {
 	c.Writer.Header().Set("X-Total", strconv.Itoa(count))
 }
 
-func ListK8sWorkLoads(c *gin.Context) {
+type ListWorkloadsArgs struct {
+	Namespace    string `json:"namespace"    form:"namespace"`
+	ClusterID    string `json:"clusterId"    form:"clusterId"`
+	WorkloadName string `json:"workloadName" form:"workloadName"`
+	PerPage      int    `json:"perPage"      form:"perPage,default:20"`
+	Page         int    `json:"page"         form:"page,default:1"`
+}
+
+func ListWorkloads(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	namespace := c.Query("namespace")
-	clusterID := c.Query("clusterId")
-	workloadName := c.Query("workloadName")
-	perPageStr := c.Query("perPage")
-	pageStr := c.Query("page")
-	var (
-		count   int
-		perPage int
-		err     error
-		page    int
-	)
-	if perPageStr == "" || pageStr == "" {
-		perPage = 10
-		page = 1
-	} else {
-		page, err = strconv.Atoi(pageStr)
-		if err != nil {
-			ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("page args err :%s", err))
-			return
-		}
-		perPage, err = strconv.Atoi(perPageStr)
-		if err != nil {
-			ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("pageStr args err :%s", err))
-			return
-		}
+	args := new(ListWorkloadsArgs)
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
 	}
 
-	count, services, err := commonservice.ListWorkloads("", clusterID, namespace, "", perPage, page, ctx.Logger, func(workloads []*commonservice.Workload) []*commonservice.Workload {
-		workloadStat, _ := mongodb.NewWorkLoadsStatColl().Find(clusterID, namespace)
+	count, services, err := commonservice.ListWorkloads("", args.ClusterID, args.Namespace, "", args.PerPage, args.Page, ctx.Logger, func(workloads []*commonservice.Workload) []*commonservice.Workload {
+		workloadStat, _ := mongodb.NewWorkLoadsStatColl().Find(args.ClusterID, args.Namespace)
 		workloadM := map[string]commonmodels.Workload{}
 		for _, workload := range workloadStat.Workloads {
 			workloadM[workload.Name] = workload
@@ -434,9 +421,9 @@ func ListK8sWorkLoads(c *gin.Context) {
 
 		var resp []*commonservice.Workload
 		for _, workload := range workloads {
-			if workloadName != "" && strings.Contains(workload.Name, workloadName) {
+			if args.WorkloadName != "" && strings.Contains(workload.Name, args.WorkloadName) {
 				resp = append(resp, workload)
-			} else if workloadName == "" {
+			} else if args.WorkloadName == "" {
 				resp = append(resp, workload)
 			}
 		}
