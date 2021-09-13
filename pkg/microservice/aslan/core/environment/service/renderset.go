@@ -22,7 +22,6 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 
@@ -180,8 +179,8 @@ func CreateOrUpdateChartValues(productName, envName string, args *commonservice.
 	renderSetName := commonservice.GetProductEnvNamespace(envName, productName)
 
 	opt := &commonrepo.RenderSetFindOption{Name: renderSetName}
-	curRenderset, err := commonrepo.NewRenderSetColl().Find(opt)
-	if err != nil && err != mongo.ErrNoDocuments {
+	curRenderset,_, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
+	if err != nil {
 		return e.ErrCreateRenderSet.AddDesc(err.Error())
 	}
 
