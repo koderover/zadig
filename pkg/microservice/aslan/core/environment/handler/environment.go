@@ -389,7 +389,7 @@ func ListGroups(c *gin.Context) {
 	c.Writer.Header().Set("X-Total", strconv.Itoa(count))
 }
 
-func ListK8sWorkLoads(c *gin.Context) {
+func ListWorkloads(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	namespace := c.Query("namespace")

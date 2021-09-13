@@ -347,6 +347,115 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 	return commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workLoadStat)
 }
 
+type ServiceWorkloads struct {
+	EnvName     string `bson:"env_name"         json:"env_name"`
+	Name        string `bson:"name"             json:"name"`
+	Type        string `bson:"type"             json:"type"`
+	ProductName string `bson:"product_name"     json:"product_name"`
+	Operation   string `bson:"operation"        json:"operation"`
+}
+
+func UpdateWorkloads(ctx context.Context, requestID, username string, productName string, workLoads []models.Workload, clusterID, namespace string, envName string, log *zap.SugaredLogger) error {
+	kubeClient, err := kube.GetKubeClient(clusterID)
+	if err != nil {
+		log.Errorf("[%s] error: %v", namespace, err)
+		return err
+	}
+	workloadStat, err := commonrepo.NewWorkLoadsStatColl().Find(clusterID, namespace)
+	if err != nil {
+		return e.ErrGetService
+	}
+	uploadM := map[string]models.Workload{}
+	originM := map[string]models.Workload{}
+	diff := map[string]*ServiceWorkloads{}
+	for _, v := range workloadStat.Workloads {
+		if v.ProductName == productName && v.EnvName == envName {
+			originM[v.Name] = v
+		}
+	}
+	for _, v := range workLoads {
+		uploadM[v.Name] = v
+	}
+	// 判断是删除还是增加
+	for _, v := range workLoads {
+		if _, ok := originM[v.Name]; !ok {
+			diff[v.Name] = &ServiceWorkloads{
+				EnvName:     v.EnvName,
+				Name:        v.Name,
+				Type:        v.Type,
+				ProductName: v.ProductName,
+				Operation:   "add",
+			}
+		}
+	}
+	for _, v := range originM {
+		if _, ok := uploadM[v.Name]; !ok {
+			diff[v.Name] = &ServiceWorkloads{
+				EnvName:     v.EnvName,
+				Name:        v.Name,
+				Type:        v.Type,
+				ProductName: v.ProductName,
+				Operation:   "delete",
+			}
+		}
+	}
+	for _, v := range diff {
+		switch v.Operation {
+		// 删除workload的引用
+		case "delete":
+			err = commonrepo.NewServiceColl().UpdateExternalServicesStatus(v.Name, productName, setting.ProductStatusDeleting, envName)
+			if err != nil {
+				log.Errorf("UpdateStatus  external services error:%s", err)
+			}
+		// 添加workload的引用
+		case "add":
+			var bs []byte
+			switch v.Type {
+			case setting.Deployment:
+				bs, _, err = getter.GetDeploymentYaml(namespace, v.Name, kubeClient)
+			case setting.StatefulSet:
+				bs, _, err = getter.GetDeploymentYaml(namespace, v.Name, kubeClient)
+			}
+			if len(bs) == 0 || err != nil {
+				log.Errorf("UpdateK8sWorkLoads not found yaml %v", err)
+			}
+			if _, err = CreateServiceTemplate(username, &models.Service{
+				ServiceName:  v.Name,
+				Yaml:         string(bs),
+				ProductName:  productName,
+				CreateBy:     username,
+				Type:         setting.K8SDeployType,
+				WorkloadType: v.Type,
+				Source:       setting.SourceFromExternal,
+				EnvName:      envName,
+			}, log); err != nil {
+				log.Errorf("create service template failed err:%v", err)
+			}
+		}
+	}
+	// 删除 && 增加
+	workloadStat.Workloads = updateWorkloads(workloadStat.Workloads, diff, envName)
+	return commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat)
+}
+func updateWorkloads(existWorkloads []models.Workload, diff map[string]*ServiceWorkloads, envName string) (result []models.Workload) {
+	existWorkloadsMap := map[string]models.Workload{}
+	for _, v := range existWorkloads {
+		existWorkloadsMap[v.Name] = v
+	}
+	for _, v := range diff {
+		switch v.Operation {
+		case "add":
+			existWorkloadsMap[v.Name] = v
+		case "delete":
+			delete(existWorkloadsMap, v.Name)
+		}
+	}
+	for _, v := range existWorkloadsMap {
+		result = append(result, v)
+	}
+	return result
+}
+
 func replaceWorkloads(existWorkloads []models.Workload, newWorkloads []models.Workload, envName string) []models.Workload {
 	var result []models.Workload
 	workloadMap := map[string]models.Workload{}
