@@ -83,6 +83,9 @@ func (creatorWrapper *AutoCreator) Create(envName string) (string, error) {
 	productObject.Namespace = commonservice.GetProductEnvNamespace(envName, productName)
 	productObject.UpdateBy = creatorWrapper.Param.UserName
 	productObject.EnvName = envName
+	if creatorWrapper.Param.EnvType == setting.HelmDeployType {
+		productObject.Source = setting.HelmDeployType
+	}
 
 	err = CreateProduct(creatorWrapper.Param.UserName, creatorWrapper.Param.RequestId, productObject, log)
 	if err != nil {
