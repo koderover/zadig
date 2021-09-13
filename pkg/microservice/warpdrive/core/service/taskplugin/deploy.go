@@ -311,7 +311,6 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				}
 			}
 		}
-
 		if !replaced {
 			err = errors.Errorf(
 				"container %s is not found in resources with label %s", p.Task.ContainerName, selector)
