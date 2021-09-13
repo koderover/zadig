@@ -211,7 +211,6 @@ func ListWorkloadTemplate(productName, envName string, log *zap.SugaredLogger) (
 			Source:      serviceObject.Source,
 			ProductName: serviceObject.ProductName,
 			Containers:  serviceObject.Containers,
-			Product:     []string{productName},
 		}
 		resp.Data = append(resp.Data, spmap)
 	}
