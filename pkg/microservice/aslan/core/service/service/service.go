@@ -445,7 +445,13 @@ func updateWorkloads(existWorkloads []models.Workload, diff map[string]*ServiceW
 	for _, v := range diff {
 		switch v.Operation {
 		case "add":
-			existWorkloadsMap[v.Name] = v
+			vv := models.Workload{
+				EnvName:     envName,
+				Name:        v.Name,
+				Type:        v.Type,
+				ProductName: v.ProductName,
+			}
+			existWorkloadsMap[v.Name] = vv
 		case "delete":
 			delete(existWorkloadsMap, v.Name)
 		}
