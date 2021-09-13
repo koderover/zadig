@@ -82,7 +82,7 @@ type ServiceProductMap struct {
 }
 
 // ListServiceTemplate 列出服务模板
-func ListServiceTemplate(productName, envName string, log *zap.SugaredLogger) (*ServiceTmplResp, error) {
+func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTmplResp, error) {
 	var err error
 	resp := new(ServiceTmplResp)
 	resp.Data = make([]*ServiceProductMap, 0)
@@ -92,12 +92,8 @@ func ListServiceTemplate(productName, envName string, log *zap.SugaredLogger) (*
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
-	var services []*commonmodels.Service
-	if productTmpl.ProductFeature.CreateEnvType == setting.SourceFromExternal {
-		services, err = commonrepo.NewServiceColl().ListExternalServicesBy(productName, envName)
-	} else {
-		services, err = commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), "")
-	}
+	services, err := commonrepo.NewServiceColl().ListMaxRevisionsForServices(productTmpl.AllServiceInfos(), "")
+
 	if err != nil {
 		log.Errorf("Failed to list services by %+v, err: %s", productTmpl.AllServiceInfos(), err)
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
@@ -185,6 +181,37 @@ func ListServiceTemplate(productName, envName string, log *zap.SugaredLogger) (*
 			spmap.Product = serviceToProject[serviceObject.ServiceName]
 		}
 
+		resp.Data = append(resp.Data, spmap)
+	}
+
+	return resp, nil
+}
+
+// ListWorkloadTemplate 列出实例模板
+func ListWorkloadTemplate(productName, envName string, log *zap.SugaredLogger) (*ServiceTmplResp, error) {
+	var err error
+	resp := new(ServiceTmplResp)
+	resp.Data = make([]*ServiceProductMap, 0)
+	productTmpl, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		log.Errorf("Can not find project %s, error: %s", productName, err)
+		return resp, e.ErrListTemplate.AddDesc(err.Error())
+	}
+
+	services, err := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, envName)
+	if err != nil {
+		log.Errorf("Failed to list external services by %+v, err: %s", productTmpl.AllServiceInfos(), err)
+		return resp, e.ErrListTemplate.AddDesc(err.Error())
+	}
+
+	for _, serviceObject := range services {
+		spmap := &ServiceProductMap{
+			Service:     serviceObject.ServiceName,
+			Type:        serviceObject.Type,
+			Source:      serviceObject.Source,
+			ProductName: serviceObject.ProductName,
+			Containers:  serviceObject.Containers,
+		}
 		resp.Data = append(resp.Data, spmap)
 	}
 
