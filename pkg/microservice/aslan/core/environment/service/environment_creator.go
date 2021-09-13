@@ -19,6 +19,10 @@ package service
 import (
 	"errors"
 	"fmt"
+	"time"
+
+	"go.uber.org/zap"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
@@ -29,8 +33,6 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
-	"go.uber.org/zap"
-	"time"
 )
 
 type CreateProductParam struct {
@@ -45,7 +47,7 @@ type AutoCreator struct {
 	Param *CreateProductParam
 }
 
-type ICreator interface {
+type IProductCreator interface {
 	Create(string, string, *models.Product, *zap.SugaredLogger) error
 }
 
@@ -60,11 +62,11 @@ func autoCreateProduct(envType, envName, productName, requestId, userName string
 	return autoCreator.Create(envName)
 }
 
-func (creatorWrapper *AutoCreator) Create(envName string) (string, error) {
-	productName, log := creatorWrapper.Param.ProductName, creatorWrapper.Param.log
+func (autoCreator *AutoCreator) Create(envName string) (string, error) {
+	productName, log := autoCreator.Param.ProductName, autoCreator.Param.log
 
 	// find product in db
-	productResp, err := GetProduct(creatorWrapper.Param.UserName, envName, productName, log)
+	productResp, err := GetProduct(autoCreator.Param.UserName, envName, productName, log)
 	if err == nil && productResp != nil { // product exists in db
 		if productResp.Error != "" {
 			return setting.ProductStatusFailed, errors.New(productResp.Error)
@@ -81,13 +83,13 @@ func (creatorWrapper *AutoCreator) Create(envName string) (string, error) {
 	productObject.IsPublic = true
 
 	productObject.Namespace = commonservice.GetProductEnvNamespace(envName, productName)
-	productObject.UpdateBy = creatorWrapper.Param.UserName
+	productObject.UpdateBy = autoCreator.Param.UserName
 	productObject.EnvName = envName
-	if creatorWrapper.Param.EnvType == setting.HelmDeployType {
+	if autoCreator.Param.EnvType == setting.HelmDeployType {
 		productObject.Source = setting.SourceFromHelm
 	}
 
-	err = CreateProduct(creatorWrapper.Param.UserName, creatorWrapper.Param.RequestId, productObject, log)
+	err = CreateProduct(autoCreator.Param.UserName, autoCreator.Param.RequestId, productObject, log)
 	if err != nil {
 		_, messageMap := e.ErrorMessage(err)
 		if errMessage, isExist := messageMap["description"]; isExist {
@@ -99,7 +101,7 @@ func (creatorWrapper *AutoCreator) Create(envName string) (string, error) {
 	return setting.ProductStatusCreating, nil
 }
 
-func getCreatorBySource(source string) ICreator {
+func getCreatorBySource(source string) IProductCreator {
 	if source == setting.SourceFromExternal {
 		return newExternalProductCreator()
 	} else if source == setting.HelmDeployType {
