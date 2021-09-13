@@ -283,7 +283,6 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 						break
 					}
 				}
-
 			case setting.Deployment:
 				var deployment *appsv1.Deployment
 				deployment, _, err = getter.GetDeployment(p.Task.Namespace, p.Task.ServiceName, p.kubeClient)
@@ -297,7 +296,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 							err = errors.WithMessagef(
 								err,
 								"failed to update container image in %s/deployments/%s/%s",
-								p.Task.Namespace, deployment.Name, p.Task.ContainerName)
+								p.Task.Namespace, deployment.Name, container.Name)
 							return
 						}
 						p.Task.ReplaceResources = append(p.Task.ReplaceResources, task.Resource{
