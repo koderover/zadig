@@ -270,13 +270,13 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 							err = errors.WithMessagef(
 								err,
 								"failed to update container image in %s/statefulsets/%s/%s",
-								p.Task.Namespace, statefulSet.Name, p.Task.ContainerName)
+								p.Task.Namespace, statefulSet.Name, container.Name)
 							return
 						}
 						p.Task.ReplaceResources = append(p.Task.ReplaceResources, task.Resource{
 							Kind:      setting.StatefulSet,
-							Container: p.Task.ContainerName,
-							Origin:    p.Task.Image,
+							Container: container.Name,
+							Origin:    container.Image,
 							Name:      statefulSet.Name,
 						})
 						replaced = true
@@ -302,8 +302,8 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 						}
 						p.Task.ReplaceResources = append(p.Task.ReplaceResources, task.Resource{
 							Kind:      setting.Deployment,
-							Container: p.Task.ContainerName,
-							Origin:    p.Task.Image,
+							Container: container.Name,
+							Origin:    container.Image,
 							Name:      deployment.Name,
 						})
 						replaced = true
