@@ -390,11 +390,11 @@ func ListGroups(c *gin.Context) {
 }
 
 type ListWorkloadsArgs struct {
-	Namespace    string `json:"namespace" form:"namespace"`
-	ClusterID    string `json:"clusterId" form:"clusterId"`
+	Namespace    string `json:"namespace"    form:"namespace"`
+	ClusterID    string `json:"clusterId"    form:"clusterId"`
 	WorkloadName string `json:"workloadName" form:"workloadName"`
-	PerPage      int    `json:"perPage" form:"perPage,default:20"`
-	Page         int    `json:"page" form:"page,default:1"`
+	PerPage      int    `json:"perPage"      form:"perPage,default:20"`
+	Page         int    `json:"page"         form:"page,default:1"`
 }
 
 func ListWorkloads(c *gin.Context) {
