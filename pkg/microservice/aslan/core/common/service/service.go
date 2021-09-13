@@ -206,21 +206,12 @@ func ListWorkloadTemplate(productName, envName string, log *zap.SugaredLogger) (
 
 	for _, serviceObject := range services {
 		spmap := &ServiceProductMap{
-			Service:          serviceObject.ServiceName,
-			Type:             serviceObject.Type,
-			Source:           serviceObject.Source,
-			ProductName:      serviceObject.ProductName,
-			Containers:       serviceObject.Containers,
-			Product:          []string{productName},
-			Visibility:       serviceObject.Visibility,
-			CodehostID:       serviceObject.CodehostID,
-			RepoOwner:        serviceObject.RepoOwner,
-			RepoName:         serviceObject.RepoName,
-			RepoUUID:         serviceObject.RepoUUID,
-			BranchName:       serviceObject.BranchName,
-			LoadFromDir:      serviceObject.LoadFromDir,
-			LoadPath:         serviceObject.LoadPath,
-			GerritRemoteName: serviceObject.GerritRemoteName,
+			Service:     serviceObject.ServiceName,
+			Type:        serviceObject.Type,
+			Source:      serviceObject.Source,
+			ProductName: serviceObject.ProductName,
+			Containers:  serviceObject.Containers,
+			Product:     []string{productName},
 		}
 		resp.Data = append(resp.Data, spmap)
 	}

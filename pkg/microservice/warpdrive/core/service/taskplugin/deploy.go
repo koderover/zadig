@@ -263,22 +263,26 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				if err != nil {
 					return
 				}
-				err = updater.UpdateStatefulSetImage(statefulSet.Namespace, statefulSet.Name, p.Task.ContainerName, p.Task.Image, p.kubeClient)
-				if err != nil {
-					err = errors.WithMessagef(
-						err,
-						"failed to update container image in %s/statefulsets/%s/%s",
-						p.Task.Namespace, statefulSet.Name, p.Task.ContainerName)
-					return
+				for _, container := range statefulSet.Spec.Template.Spec.Containers {
+					if container.Name == p.Task.ContainerName {
+						err = updater.UpdateStatefulSetImage(statefulSet.Namespace, statefulSet.Name, p.Task.ContainerName, p.Task.Image, p.kubeClient)
+						if err != nil {
+							err = errors.WithMessagef(
+								err,
+								"failed to update container image in %s/statefulsets/%s/%s",
+								p.Task.Namespace, statefulSet.Name, p.Task.ContainerName)
+							return
+						}
+						p.Task.ReplaceResources = append(p.Task.ReplaceResources, task.Resource{
+							Kind:      setting.StatefulSet,
+							Container: p.Task.ContainerName,
+							Origin:    p.Task.Image,
+							Name:      statefulSet.Name,
+						})
+						replaced = true
+						break
+					}
 				}
-				p.Task.ReplaceResources = append(p.Task.ReplaceResources, task.Resource{
-					Kind:      setting.StatefulSet,
-					Container: p.Task.ContainerName,
-					Origin:    p.Task.Image,
-					Name:      statefulSet.Name,
-				})
-				replaced = true
-				break
 
 			case setting.Deployment:
 				var deployment *appsv1.Deployment
@@ -286,24 +290,26 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				if err != nil {
 					return
 				}
-
-				err = updater.UpdateDeploymentImage(deployment.Namespace, deployment.Name, p.Task.ContainerName, p.Task.Image, p.kubeClient)
-				if err != nil {
-					err = errors.WithMessagef(
-						err,
-						"failed to update container image in %s/deployments/%s/%s",
-						p.Task.Namespace, deployment.Name, p.Task.ContainerName)
-					return
+				for _, container := range deployment.Spec.Template.Spec.Containers {
+					if container.Name == p.Task.ContainerName {
+						err = updater.UpdateDeploymentImage(deployment.Namespace, deployment.Name, p.Task.ContainerName, p.Task.Image, p.kubeClient)
+						if err != nil {
+							err = errors.WithMessagef(
+								err,
+								"failed to update container image in %s/deployments/%s/%s",
+								p.Task.Namespace, deployment.Name, p.Task.ContainerName)
+							return
+						}
+						p.Task.ReplaceResources = append(p.Task.ReplaceResources, task.Resource{
+							Kind:      setting.Deployment,
+							Container: p.Task.ContainerName,
+							Origin:    p.Task.Image,
+							Name:      deployment.Name,
+						})
+						replaced = true
+						break
+					}
 				}
-				p.Task.ReplaceResources = append(p.Task.ReplaceResources, task.Resource{
-					Kind:      setting.Deployment,
-					Container: p.Task.ContainerName,
-					Origin:    p.Task.Image,
-					Name:      deployment.Name,
-				})
-				replaced = true
-				break
-
 			}
 		}
 
