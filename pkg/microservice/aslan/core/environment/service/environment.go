@@ -2155,6 +2155,7 @@ func installOrUpdateHelmChart(user, envName, requestID string, args *commonmodel
 				base := config.LocalServicePath(service.ProductName, service.ServiceName)
 				if err = commonservice.PreLoadServiceManifests(base, serviceObj); err != nil {
 					log.Errorf("Failed to load service menifests for service %s in project %s, err: %s", service.ServiceName, service.ProductName, err)
+					errList = multierror.Append(errList, err)
 					return
 				}
 
@@ -2162,6 +2163,7 @@ func installOrUpdateHelmChart(user, envName, requestID string, args *commonmodel
 				chartPath, err := fs.RelativeToCurrentPath(chartFullPath)
 				if err != nil {
 					log.Errorf("Failed to get relative path %s, err: %s", chartFullPath, err)
+					errList = multierror.Append(errList, err)
 					return
 				}
 
