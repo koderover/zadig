@@ -171,6 +171,7 @@ type UpdateWorkloadsArgs struct {
 	WorkLoads   []commonmodels.Workload `bson:"workLoads"        json:"workLoads"`
 	ClusterID   string                  `bson:"cluster_id"       json:"cluster_id"`
 	Namespace   string                  `bson:"namespace"        json:"namespace"`
+	EnvName     string                  `bson:"env_name"        json:"env_name"`
 	ProductName string                  `bson:"product_name"     json:"product_name"`
 }
 
