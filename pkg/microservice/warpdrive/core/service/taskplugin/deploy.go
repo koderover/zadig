@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
@@ -40,7 +41,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
-	"github.com/koderover/zadig/pkg/tool/helmclient"
+	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
@@ -48,6 +49,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
+	"github.com/koderover/zadig/pkg/util/fs"
 )
 
 // InitializeDeployTaskPlugin to initiate deploy task plugin and return ref
@@ -444,24 +446,13 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				}
 			}
 			if replaceValuesYaml != "" {
-				helmClient, err = helmclient.NewClientFromRestConf(p.restConfig, p.Task.Namespace)
+				helmClient, err = helmtool.NewClientFromRestConf(p.restConfig, p.Task.Namespace)
 				if err != nil {
 					err = errors.WithMessagef(
 						err,
 						"failed to create helm client %s/%s",
 						p.Task.Namespace, p.Task.ServiceName)
 					return
-				}
-				chartSpec := helmclient.ChartSpec{
-					ReleaseName: fmt.Sprintf("%s-%s", p.Task.Namespace, p.Task.ServiceName),
-					ChartName:   fmt.Sprintf("%s/%s", p.Task.Namespace, p.Task.ServiceName),
-					Namespace:   p.Task.Namespace,
-					ReuseValues: true,
-					Version:     renderChart.ChartVersion,
-					ValuesYaml:  replaceValuesYaml,
-					SkipCRDs:    false,
-					UpgradeCRDs: true,
-					Timeout:     time.Second * DeployTimeout,
 				}
 
 				path, err := p.downloadService(pipelineTask.ProductName, p.Task.ServiceName, pipelineTask.StorageURI)
@@ -472,9 +463,29 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 						p.Task.Namespace, p.Task.ServiceName)
 					return
 				}
+				chartPath, err := fs.RelativeToCurrentPath(path)
+				if err != nil {
+					err = errors.WithMessagef(
+						err,
+						"failed to get relative path %s",
+						path,
+					)
+					return
+				}
 
-				if err = helmClient.InstallOrUpgradeChart(context.Background(), &chartSpec, &helmclient.ChartOption{
-					ChartPath: path}, p.Log); err != nil {
+				chartSpec := helmclient.ChartSpec{
+					ReleaseName: fmt.Sprintf("%s-%s", p.Task.Namespace, p.Task.ServiceName),
+					ChartName:   chartPath,
+					Namespace:   p.Task.Namespace,
+					ReuseValues: true,
+					Version:     renderChart.ChartVersion,
+					ValuesYaml:  replaceValuesYaml,
+					SkipCRDs:    false,
+					UpgradeCRDs: true,
+					Timeout:     time.Second * DeployTimeout,
+				}
+
+				if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), &chartSpec); err != nil {
 					err = errors.WithMessagef(
 						err,
 						"failed to Install helm chart %s/%s",

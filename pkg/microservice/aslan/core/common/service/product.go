@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	helmclient "github.com/mittwald/go-helm-client"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -35,7 +36,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/tool/helmclient"
+	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 )
 
@@ -101,10 +102,10 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 			}()
 
 			//卸载helm release资源
-			if helmClient, err := helmclient.NewClientFromRestConf(restConfig, productInfo.Namespace); err == nil {
+			if hc, err := helmtool.NewClientFromRestConf(restConfig, productInfo.Namespace); err == nil {
 				for _, services := range productInfo.Services {
 					for _, service := range services {
-						if err = helmClient.UninstallRelease(&helmclient.ChartSpec{
+						if err = hc.UninstallRelease(&helmclient.ChartSpec{
 							ReleaseName: fmt.Sprintf("%s-%s", productInfo.Namespace, service.ServiceName),
 							Namespace:   productInfo.Namespace,
 							Wait:        true,
