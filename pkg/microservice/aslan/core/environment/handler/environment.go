@@ -95,6 +95,37 @@ func AutoUpdateProduct(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.AutoUpdateProduct(args.EnvNames, c.Param("productName"), ctx.User.ID, ctx.User.IsSuperUser, ctx.RequestID, force, ctx.Logger)
 }
 
+func CreateHelmProduct(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(service.CreateHelmProductArg)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("CreateProduct c.GetRawData() err : %v", err)
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("CreateProduct json.Unmarshal err : %v", err)
+	}
+	args.ProductName = c.Param("productName")
+
+	if args.ProductName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	if args.EnvName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("envName can not be null!")
+		return
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "新增", "集成环境", args.EnvName, fmt.Sprintf("%s,%s", permission.TestEnvCreateUUID, permission.ProdEnvCreateUUID), string(data), ctx.Logger)
+
+	ctx.Err = service.CreateHelmProduct(
+		ctx.Username, ctx.RequestID, args, ctx.Logger,
+	)
+}
+
 func CreateProduct(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -112,7 +143,6 @@ func CreateProduct(c *gin.Context) {
 
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-		return
 	}
 
 	if args.EnvName == "" {
@@ -198,6 +228,38 @@ func UpdateHelmProduct(c *gin.Context) {
 	}
 }
 
+func UpdateHelmProductRenderCharts(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	productName := c.Param("productName")
+	if productName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can't be empty!")
+		return
+	}
+
+	envName := c.Query("envName")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("envName can't be empty!")
+		return
+	}
+
+	arg := new(service.EnvRenderChartArg)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("UpdateHelmProductVariable c.GetRawData() err : %v", err)
+	}
+	if err = json.Unmarshal(data, arg); err != nil {
+		log.Errorf("UpdateHelmProductVariable json.Unmarshal err : %v", err)
+	}
+	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "更新", "更新环境变量", "", permission.TestEnvManageUUID, string(data), ctx.Logger)
+
+	ctx.Err = service.UpdateHelmProductRenderCharts(productName, envName, ctx.Username, ctx.RequestID, arg.ChartValues, ctx.Logger)
+	if ctx.Err != nil {
+		ctx.Logger.Errorf("failed to update product Variable %s %s: %v", envName, productName, ctx.Err)
+	}
+}
+
 func UpdateHelmProductVariable(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -222,10 +284,36 @@ func UpdateHelmProductVariable(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.UpdateHelmProductVariable(productName, envName, ctx.Username, ctx.RequestID, args.ChartInfos, ctx.Logger)
+	ctx.Err = service.UpdateHelmProductVariable(productName, envName, ctx.Username, ctx.RequestID, args.ChartInfos, args.ChartInfos, ctx.Logger)
 	if ctx.Err != nil {
 		ctx.Logger.Errorf("failed to update product Variable %s %s: %v", envName, productName, ctx.Err)
 	}
+}
+
+func UpdateMultiHelmEnv(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(service.UpdateMultiHelmProductArg)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("CreateProduct c.GetRawData() err : %v", err)
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("CreateProduct json.Unmarshal err : %v", err)
+	}
+	args.ProductName = c.Param("productName")
+
+	if args.ProductName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "更新", "集成环境", strings.Join(args.EnvNames, ","), fmt.Sprintf("%s,%s", permission.TestEnvCreateUUID, permission.ProdEnvCreateUUID), string(data), ctx.Logger)
+
+	ctx.Resp, ctx.Err = service.UpdateMultipleHelmEnv(
+		ctx.Username, ctx.RequestID, ctx.User.ID, ctx.User.IsSuperUser, args, ctx.Logger,
+	)
 }
 
 func UpdateMultiHelmProduct(c *gin.Context) {

@@ -48,7 +48,7 @@ type KVPair struct {
 }
 
 type RenderChartArg struct {
-	//EnvName        string      `json:"envName,omitempty"`
+	EnvName        string      `json:"envName,omitempty"`
 	ServiceName    string      `json:"serviceName,omitempty"`
 	ChartVersion   string      `json:"chartVersion,omitempty"`
 	YamlSource     string      `json:"yamlSource,omitempty"`
