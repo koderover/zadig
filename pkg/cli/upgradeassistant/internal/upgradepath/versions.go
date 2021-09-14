@@ -38,7 +38,7 @@ type versions map[string]int
 func (v versions) From(version string) int {
 	res, ok := v[version]
 	if !ok {
-		return V130
+		return Latest
 	}
 
 	return res
