@@ -382,7 +382,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, productNam
 	for _, v := range workLoads {
 		if _, ok := originM[v.Name]; !ok {
 			diff[v.Name] = &ServiceWorkloads{
-				EnvName:     v.EnvName,
+				EnvName:     envName,
 				Name:        v.Name,
 				Type:        v.Type,
 				ProductName: v.ProductName,
@@ -393,7 +393,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, productNam
 	for _, v := range originM {
 		if _, ok := uploadM[v.Name]; !ok {
 			diff[v.Name] = &ServiceWorkloads{
-				EnvName:     v.EnvName,
+				EnvName:     envName,
 				Name:        v.Name,
 				Type:        v.Type,
 				ProductName: v.ProductName,
@@ -402,6 +402,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, productNam
 		}
 	}
 	for _, v := range diff {
+		log.Infof("%+v", v)
 		switch v.Operation {
 		// 删除workload的引用
 		case "delete":
@@ -439,6 +440,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, productNam
 	workloadStat.Workloads = updateWorkloads(workloadStat.Workloads, diff, envName)
 	return commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat)
 }
+
 func updateWorkloads(existWorkloads []models.Workload, diff map[string]*ServiceWorkloads, envName string) (result []models.Workload) {
 	existWorkloadsMap := map[string]models.Workload{}
 	for _, v := range existWorkloads {
