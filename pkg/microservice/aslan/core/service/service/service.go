@@ -437,11 +437,11 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, productNam
 		}
 	}
 	// 删除 && 增加
-	workloadStat.Workloads = updateWorkloads(workloadStat.Workloads, diff, envName)
+	workloadStat.Workloads = updateWorkloads(workloadStat.Workloads, diff, envName, productName)
 	return commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat)
 }
 
-func updateWorkloads(existWorkloads []models.Workload, diff map[string]*ServiceWorkloads, envName string) (result []models.Workload) {
+func updateWorkloads(existWorkloads []models.Workload, diff map[string]*ServiceWorkloads, envName string, productName string) (result []models.Workload) {
 	existWorkloadsMap := map[string]models.Workload{}
 	for _, v := range existWorkloads {
 		existWorkloadsMap[v.Name] = v
@@ -453,7 +453,7 @@ func updateWorkloads(existWorkloads []models.Workload, diff map[string]*ServiceW
 				EnvName:     envName,
 				Name:        v.Name,
 				Type:        v.Type,
-				ProductName: v.ProductName,
+				ProductName: productName,
 			}
 			existWorkloadsMap[v.Name] = vv
 		case "delete":
