@@ -175,7 +175,7 @@ type UpdateWorkloadsArgs struct {
 }
 
 func UpdateWorkloads(c *gin.Context) {
-	env := c.Query("env")
+	env := c.Query("env_name")
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	args := new(UpdateWorkloadsArgs)
