@@ -18,7 +18,10 @@ package helmclient
 
 import (
 	hc "github.com/mittwald/go-helm-client"
+	"helm.sh/helm/v3/pkg/chartutil"
+	"helm.sh/helm/v3/pkg/strvals"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -32,4 +35,33 @@ func NewClientFromRestConf(restConfig *rest.Config, ns string) (hc.Client, error
 		},
 		RestConfig: restConfig,
 	})
+}
+
+// MergeOverrideValues merge values.yaml and override values
+func MergeOverrideValues(valuesYaml, overrideValues string) (string, error) {
+
+	if overrideValues == "" {
+		return valuesYaml, nil
+	}
+
+	// turn key=value1,key2=values2 to map
+	ovals, err := strvals.Parse(overrideValues)
+	if err != nil {
+		return "", err
+	}
+
+	values := make(map[string]interface{})
+	err = yaml.Unmarshal([]byte(valuesYaml), &values)
+	if err != nil {
+		return "", err
+	}
+
+	coalescedValues := chartutil.CoalesceTables(make(map[string]interface{}, len(ovals)), ovals)
+	values = chartutil.CoalesceTables(coalescedValues, values)
+
+	bs, err := yaml.Marshal(values)
+	if err != nil {
+		return "", err
+	}
+	return string(bs), nil
 }

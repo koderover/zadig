@@ -1982,13 +1982,24 @@ func installOrUpdateHelmChart(user, envName, requestID string, args *commonmodel
 					return
 				}
 
+				mergedValuesYaml, err := helmtool.MergeOverrideValues(renderChart.ValuesYaml, renderChart.OverrideValues)
+				if err != nil {
+					err = errors.WithMessagef(
+						err,
+						"failed to merge override values %s",
+						renderChart.OverrideValues,
+					)
+					errList = multierror.Append(errList, err)
+					return
+				}
+
 				chartSpec := &helmclient.ChartSpec{
 					ReleaseName: fmt.Sprintf("%s-%s", args.Namespace, service.ServiceName),
 					ChartName:   chartPath,
 					Namespace:   args.Namespace,
 					Wait:        true,
 					Version:     renderChart.ChartVersion,
-					ValuesYaml:  renderChart.ValuesYaml,
+					ValuesYaml:  mergedValuesYaml,
 					UpgradeCRDs: true,
 					Timeout:     Timeout * time.Second * 10,
 				}
@@ -2162,13 +2173,24 @@ func updateProductGroup(productName, envName, updateType string, productResp *co
 					return
 				}
 
+				mergedValuesYaml, err := helmtool.MergeOverrideValues(renderChart.ValuesYaml, renderChart.OverrideValues)
+				if err != nil {
+					err = errors.WithMessagef(
+						err,
+						"failed to merge override values %s",
+						renderChart.OverrideValues,
+					)
+					errList = multierror.Append(errList, err)
+					return
+				}
+
 				chartSpec := helmclient.ChartSpec{
 					ReleaseName: fmt.Sprintf("%s-%s", productResp.Namespace, service.ServiceName),
 					ChartName:   chartPath,
 					Namespace:   productResp.Namespace,
 					Wait:        true,
 					Version:     renderChart.ChartVersion,
-					ValuesYaml:  renderChart.ValuesYaml,
+					ValuesYaml:  mergedValuesYaml,
 					UpgradeCRDs: true,
 					Timeout:     Timeout * time.Second * 10,
 				}
@@ -2386,13 +2408,24 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 						return
 					}
 
+					mergedValuesYaml, err := helmtool.MergeOverrideValues(tmpRenderChart.ValuesYaml, tmpRenderChart.OverrideValues)
+					if err != nil {
+						err = errors.WithMessagef(
+							err,
+							"failed to merge override values %s",
+							tmpRenderChart.OverrideValues,
+						)
+						errList = multierror.Append(errList, err)
+						return
+					}
+
 					chartSpec := helmclient.ChartSpec{
 						ReleaseName: fmt.Sprintf("%s-%s", productResp.Namespace, tmpRenderChart.ServiceName),
 						ChartName:   chartPath,
 						Namespace:   productResp.Namespace,
 						Wait:        true,
 						Version:     tmpRenderChart.ChartVersion,
-						ValuesYaml:  tmpRenderChart.ValuesYaml,
+						ValuesYaml:  mergedValuesYaml,
 						UpgradeCRDs: true,
 						Atomic:      true,
 						Timeout:     Timeout * time.Second * 10,

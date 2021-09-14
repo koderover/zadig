@@ -60,11 +60,6 @@ type RenderKV struct {
 	Services []string `bson:"services"          json:"services"`
 }
 
-type KVPair struct {
-	Key   string `bson:"key"    json:"key"`
-	Value string `bson:"value"    json:"value"`
-}
-
 type RenderChart struct {
 	ServiceName    string `bson:"service_name,omitempty"    json:"service_name,omitempty"`
 	ChartVersion   string `bson:"chart_version,omitempty"   json:"chart_version,omitempty"`

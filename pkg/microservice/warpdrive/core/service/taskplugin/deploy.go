@@ -404,6 +404,16 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 					return
 				}
 
+				mergedValuesYaml, err := helmtool.MergeOverrideValues(replaceValuesYaml, renderChart.OverrideValues)
+				if err != nil {
+					err = errors.WithMessagef(
+						err,
+						"failed to merge override values %s",
+						renderChart.OverrideValues,
+					)
+					return
+				}
+
 				chartSpec := helmclient.ChartSpec{
 					ReleaseName: fmt.Sprintf("%s-%s", p.Task.Namespace, p.Task.ServiceName),
 					ChartName:   chartPath,
@@ -411,7 +421,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 					Wait:        true,
 					ReuseValues: true,
 					Version:     renderChart.ChartVersion,
-					ValuesYaml:  replaceValuesYaml,
+					ValuesYaml:  mergedValuesYaml,
 					SkipCRDs:    false,
 					UpgradeCRDs: true,
 					Timeout:     time.Second * DeployTimeout,
