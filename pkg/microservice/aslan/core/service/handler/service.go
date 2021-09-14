@@ -176,7 +176,6 @@ type UpdateWorkloadsArgs struct {
 }
 
 func UpdateWorkloads(c *gin.Context) {
-	env := c.Query("env_name")
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	args := new(UpdateWorkloadsArgs)
@@ -185,7 +184,7 @@ func UpdateWorkloads(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid UpdateWorkloadsArgs")
 		return
 	}
-	ctx.Err = service.UpdateWorkloads(c, ctx.RequestID, ctx.Username, args.ProductName, args.WorkLoads, args.ClusterID, args.Namespace, env, ctx.Logger)
+	ctx.Err = service.UpdateWorkloads(c, ctx.RequestID, ctx.Username, args.ProductName, args.WorkLoads, args.ClusterID, args.Namespace, args.EnvName, ctx.Logger)
 }
 
 func CreateK8sWorkloads(c *gin.Context) {
