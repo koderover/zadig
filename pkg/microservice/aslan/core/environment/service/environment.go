@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
@@ -54,12 +55,13 @@ import (
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/tool/helmclient"
+	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/types/permission"
 	"github.com/koderover/zadig/pkg/util/converter"
+	"github.com/koderover/zadig/pkg/util/fs"
 )
 
 const (
@@ -1942,19 +1944,16 @@ func installOrUpdateHelmChart(user, envName, requestID string, args *commonmodel
 		chartInfoMap[renderChart.ServiceName] = renderChart
 	}
 	for _, serviceGroups := range args.Services {
-		for _, service := range serviceGroups {
-			if renderChart, isExist := chartInfoMap[service.ServiceName]; isExist {
-				chartSpec := &helmclient.ChartSpec{
-					ReleaseName:    fmt.Sprintf("%s-%s", args.Namespace, service.ServiceName),
-					ChartName:      fmt.Sprintf("%s/%s", args.Namespace, service.ServiceName),
-					Namespace:      args.Namespace,
-					Wait:           true,
-					Version:        renderChart.ChartVersion,
-					ValuesYaml:     renderChart.ValuesYaml,
-					ValuesOverride: renderChart.OverrideValues,
-					UpgradeCRDs:    true,
-					Timeout:        Timeout * time.Second * 10,
-				}
+		for _, svc := range serviceGroups {
+			renderChart, ok := chartInfoMap[svc.ServiceName]
+			if !ok {
+				continue
+			}
+
+			wg.Add(1)
+			go func(service *commonmodels.ProductService) {
+				defer wg.Done()
+
 				// 获取服务详情
 				opt := &commonrepo.ServiceFindOption{
 					ServiceName:   service.ServiceName,
@@ -1965,26 +1964,40 @@ func installOrUpdateHelmChart(user, envName, requestID string, args *commonmodel
 				}
 				serviceObj, err := commonrepo.NewServiceColl().Find(opt)
 				if err != nil {
-					continue
+					return
 				}
-				wg.Add(1)
-				go func(currentChartSpec *helmclient.ChartSpec, currentService *commonmodels.Service) {
-					defer wg.Done()
 
-					base := config.LocalServicePath(currentService.ProductName, currentService.ServiceName)
-					if err = commonservice.PreLoadServiceManifests(base, currentService); err != nil {
-						log.Errorf("Failed to load service menifests for service %s in project %s, err: %s", currentService.ServiceName, currentService.ProductName, err)
-						return
-					}
+				base := config.LocalServicePath(service.ProductName, service.ServiceName)
+				if err = commonservice.PreLoadServiceManifests(base, serviceObj); err != nil {
+					log.Errorf("Failed to load service menifests for service %s in project %s, err: %s", service.ServiceName, service.ProductName, err)
+					errList = multierror.Append(errList, err)
+					return
+				}
 
-					if err = helmClient.InstallOrUpgradeChart(context.Background(), currentChartSpec, &helmclient.ChartOption{
-						ChartPath: filepath.Join(base, currentService.ServiceName),
-					}, log); err != nil {
-						errList = multierror.Append(errList, err)
-						return
-					}
-				}(chartSpec, serviceObj)
-			}
+				chartFullPath := filepath.Join(base, service.ServiceName)
+				chartPath, err := fs.RelativeToCurrentPath(chartFullPath)
+				if err != nil {
+					log.Errorf("Failed to get relative path %s, err: %s", chartFullPath, err)
+					errList = multierror.Append(errList, err)
+					return
+				}
+
+				chartSpec := &helmclient.ChartSpec{
+					ReleaseName: fmt.Sprintf("%s-%s", args.Namespace, service.ServiceName),
+					ChartName:   chartPath,
+					Namespace:   args.Namespace,
+					Wait:        true,
+					Version:     renderChart.ChartVersion,
+					ValuesYaml:  renderChart.ValuesYaml,
+					UpgradeCRDs: true,
+					Timeout:     Timeout * time.Second * 10,
+				}
+
+				if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), chartSpec); err != nil {
+					errList = multierror.Append(errList, err)
+					return
+				}
+			}(svc)
 		}
 	}
 	wg.Wait()
@@ -2062,7 +2075,7 @@ func updateProductGroup(productName, envName, updateType string, productResp *co
 		return e.ErrUpdateEnv.AddErr(err)
 	}
 
-	helmClient, err := helmclient.NewClientFromRestConf(restConfig, productResp.Namespace)
+	helmClient, err := helmtool.NewClientFromRestConf(restConfig, productResp.Namespace)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
@@ -2110,62 +2123,73 @@ func updateProductGroup(productName, envName, updateType string, productResp *co
 	errList := new(multierror.Error)
 	for groupIndex, services := range productResp.Services {
 		var wg sync.WaitGroup
-		groupServices := make([]*commonmodels.ProductService, 0)
-		for _, service := range services {
-			opt := &commonrepo.ServiceFindOption{
-				ServiceName:   service.ServiceName,
-				Type:          setting.HelmDeployType,
-				ProductName:   productName,
-				Revision:      service.Revision,
-				ExcludeStatus: setting.ProductStatusDeleting,
-			}
-			respService, err := commonrepo.NewServiceColl().Find(opt)
-			if err != nil {
-				log.Warnf("系统未找到当前类型[%s]的服务[%s]!", setting.HelmDeployType, service.ServiceName)
+		for _, svc := range services {
+			renderChart, ok := renderChartMap[svc.ServiceName]
+			if !ok {
 				continue
 			}
-			if renderChart, isExist := renderChartMap[service.ServiceName]; isExist {
-				wg.Add(1)
-				go func(tmpRenderChart *template.RenderChart, currentService *commonmodels.Service) {
-					defer wg.Done()
-					chartSpec := helmclient.ChartSpec{
-						ReleaseName:    fmt.Sprintf("%s-%s", productResp.Namespace, tmpRenderChart.ServiceName),
-						ChartName:      fmt.Sprintf("%s/%s", productResp.Namespace, tmpRenderChart.ServiceName),
-						Namespace:      productResp.Namespace,
-						Wait:           true,
-						Version:        tmpRenderChart.ChartVersion,
-						ValuesYaml:     tmpRenderChart.ValuesYaml,
-						ValuesOverride: tmpRenderChart.OverrideValues,
-						UpgradeCRDs:    true,
-						Timeout:        Timeout * time.Second * 10,
-					}
-					base := config.LocalServicePath(currentService.ProductName, currentService.ServiceName)
-					if err = commonservice.PreLoadServiceManifests(base, currentService); err != nil {
-						return
-					}
-					err = helmClient.InstallOrUpgradeChart(context.Background(), &chartSpec,
-						&helmclient.ChartOption{ChartPath: filepath.Join(base, currentService.ServiceName)}, log)
 
-					if err != nil {
-						log.Errorf("install helm chart %s error :%+v", chartSpec.ReleaseName, err)
-						errList = multierror.Append(errList, err)
-					}
-				}(renderChart, respService)
-				service.Revision = respService.Revision
-				groupServices = append(groupServices, service)
-			}
+			wg.Add(1)
+			go func(service *commonmodels.ProductService) {
+				defer wg.Done()
+
+				opt := &commonrepo.ServiceFindOption{
+					ServiceName:   service.ServiceName,
+					Type:          service.Type,
+					Revision:      service.Revision,
+					ProductName:   service.ProductName,
+					ExcludeStatus: setting.ProductStatusDeleting,
+				}
+				serviceObj, err := commonrepo.NewServiceColl().Find(opt)
+				if err != nil {
+					log.Errorf("Failed to find service with opt %+v, err: %s", opt, err)
+					errList = multierror.Append(errList, err)
+					return
+				}
+
+				base := config.LocalServicePath(service.ProductName, service.ServiceName)
+				if err = commonservice.PreLoadServiceManifests(base, serviceObj); err != nil {
+					log.Errorf("Failed to load service menifests for service %s in project %s, err: %s", service.ServiceName, service.ProductName, err)
+					errList = multierror.Append(errList, err)
+					return
+				}
+
+				chartFullPath := filepath.Join(base, service.ServiceName)
+				chartPath, err := fs.RelativeToCurrentPath(chartFullPath)
+				if err != nil {
+					log.Errorf("Failed to get relative path %s, err: %s", chartFullPath, err)
+					errList = multierror.Append(errList, err)
+					return
+				}
+
+				chartSpec := helmclient.ChartSpec{
+					ReleaseName: fmt.Sprintf("%s-%s", productResp.Namespace, service.ServiceName),
+					ChartName:   chartPath,
+					Namespace:   productResp.Namespace,
+					Wait:        true,
+					Version:     renderChart.ChartVersion,
+					ValuesYaml:  renderChart.ValuesYaml,
+					UpgradeCRDs: true,
+					Timeout:     Timeout * time.Second * 10,
+				}
+
+				if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), &chartSpec); err != nil {
+					log.Errorf("install helm chart %s error :%+v", chartSpec.ReleaseName, err)
+					errList = multierror.Append(errList, err)
+				}
+			}(svc)
 		}
+
 		wg.Wait()
-		err = commonrepo.NewProductColl().UpdateGroup(envName, productName, groupIndex, groupServices)
-		if err != nil {
-			log.Errorf("[product.update] err: v%", err)
+		if err = commonrepo.NewProductColl().UpdateGroup(envName, productName, groupIndex, services); err != nil {
+			log.Errorf("Failed to update service group %d, err: %s", groupIndex, err)
 			errList = multierror.Append(errList, err)
 		}
 	}
 
 	productResp.Render.Revision = renderSet.Revision
 	if err = commonrepo.NewProductColl().Update(productResp); err != nil {
-		log.Errorf("[product.update]  err: %v", err)
+		log.Errorf("Failed to update env, err: %s", err)
 		errList = multierror.Append(errList, err)
 	}
 
@@ -2317,7 +2341,7 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 		return e.ErrUpdateEnv.AddErr(err)
 	}
 
-	helmClient, err := helmclient.NewClientFromRestConf(restConfig, productResp.Namespace)
+	helmClient, err := helmtool.NewClientFromRestConf(restConfig, productResp.Namespace)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
@@ -2349,23 +2373,31 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 
 					base := config.LocalServicePath(currentService.ProductName, currentService.ServiceName)
 					if err = commonservice.PreLoadServiceManifests(base, currentService); err != nil {
+						log.Errorf("Failed to load service menifests for service %s in project %s, err: %s", service.ServiceName, service.ProductName, err)
+						errList = multierror.Append(errList, err)
 						return
 					}
-					chartSpec := helmclient.ChartSpec{
-						ReleaseName:    fmt.Sprintf("%s-%s", productResp.Namespace, tmpRenderChart.ServiceName),
-						ChartName:      fmt.Sprintf("%s/%s", productResp.Namespace, tmpRenderChart.ServiceName),
-						Namespace:      productResp.Namespace,
-						Wait:           true,
-						Version:        tmpRenderChart.ChartVersion,
-						ValuesYaml:     tmpRenderChart.ValuesYaml,
-						ValuesOverride: tmpRenderChart.OverrideValues,
-						UpgradeCRDs:    true,
-						Atomic:         true,
-						Timeout:        Timeout * time.Second * 10,
-					}
-					err = helmClient.InstallOrUpgradeChart(context.Background(), &chartSpec, &helmclient.ChartOption{
-						ChartPath: filepath.Join(base, currentService.ServiceName)}, log)
+
+					chartFullPath := filepath.Join(base, service.ServiceName)
+					chartPath, err := fs.RelativeToCurrentPath(chartFullPath)
 					if err != nil {
+						log.Errorf("Failed to get relative path %s, err: %s", chartFullPath, err)
+						errList = multierror.Append(errList, err)
+						return
+					}
+
+					chartSpec := helmclient.ChartSpec{
+						ReleaseName: fmt.Sprintf("%s-%s", productResp.Namespace, tmpRenderChart.ServiceName),
+						ChartName:   chartPath,
+						Namespace:   productResp.Namespace,
+						Wait:        true,
+						Version:     tmpRenderChart.ChartVersion,
+						ValuesYaml:  tmpRenderChart.ValuesYaml,
+						UpgradeCRDs: true,
+						Atomic:      true,
+						Timeout:     Timeout * time.Second * 10,
+					}
+					if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), &chartSpec); err != nil {
 						errList = multierror.Append(errList, err)
 						log.Errorf("install helm chart error :%+v", err)
 					}
