@@ -402,7 +402,6 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, productNam
 		}
 	}
 	for _, v := range diff {
-		log.Infof("%+v", v)
 		switch v.Operation {
 		// 删除workload的引用
 		case "delete":
