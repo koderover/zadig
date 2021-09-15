@@ -48,11 +48,11 @@ func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredL
 		return nil, err
 	}
 
-	ret := make([]*commonservice.RenderChartArg, 0)
-
 	if !existed {
-		return ret, nil
+		return nil, nil
 	}
+
+	ret := make([]*commonservice.RenderChartArg, 0)
 
 	serverList := strings.Split(serviceName, ",")
 	stringSet := sets.NewString(serverList...)

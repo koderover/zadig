@@ -64,7 +64,10 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 	// 云主机场景不创建ops工作流
 	if productTmpl.ProductFeature != nil && productTmpl.ProductFeature.BasicFacility == "cloud_host" {
 		workflowNames = []string{productName + "-workflow-dev", productName + "-workflow-qa"}
+	} else if productTmpl.ProductFeature != nil && productTmpl.ProductFeature.CreateEnvType == setting.SourceFromExternal {
+		workflowNames = []string{productName + "-workflow-dev"}
 	}
+
 	workflowSlice := sets.NewString()
 	for _, workflowName := range workflowNames {
 		_, err := FindWorkflow(workflowName, log)

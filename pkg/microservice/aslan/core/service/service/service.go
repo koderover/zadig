@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -26,6 +27,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -33,6 +35,7 @@ import (
 
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -40,11 +43,14 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/codehost"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
 )
@@ -138,9 +144,9 @@ func ListServicesInExtenalEnv(tmpResp *commonservice.ServiceTmplResp, log *zap.S
 		log.Errorf("Product.List failed, source:%s, err:%v", setting.SourceFromExternal, err)
 	} else {
 		for _, prod := range products {
-			_, services, _, err := commonservice.ListGroupsBySource(prod.EnvName, prod.ProductName, 0, 0, log)
+			_, services, err := commonservice.ListWorkloadsInEnv(prod.EnvName, prod.ProductName, "", 0, 0, log)
 			if err != nil {
-				log.Errorf("ListGroupsBySource failed, envName:%s, productName:%s, source:%s, err:%v", prod.EnvName, prod.ProductName, setting.SourceFromExternal, err)
+				log.Errorf("ListWorkloadsInEnv failed, envName:%s, productName:%s, source:%s, err:%v", prod.EnvName, prod.ProductName, setting.SourceFromExternal, err)
 				continue
 			}
 			for _, service := range services {
@@ -249,6 +255,119 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 	return serviceOption, nil
 }
 
+func CreateK8sWorkLoads(ctx context.Context, requestID, username string, productName string, workLoads []models.Workload, clusterID, namespace string, envName string, log *zap.SugaredLogger) error {
+	kubeClient, err := kube.GetKubeClient(clusterID)
+	if err != nil {
+		log.Errorf("[%s] error: %v", namespace, err)
+		return err
+	}
+	// 检查环境是否存在，envName和productName唯一
+	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
+	if _, err := commonrepo.NewProductColl().Find(opt); err == nil {
+		log.Errorf("[%s][P:%s] duplicate envName in the same product", envName, productName)
+		return e.ErrCreateEnv.AddDesc(e.DuplicateEnvErrMsg)
+	}
+
+	// todo Add data filter
+	var (
+		workloadsTmp []models.Workload
+		wg           sync.WaitGroup
+		mu           sync.Mutex
+	)
+
+	for _, workload := range workLoads {
+		wg.Add(1)
+
+		go func(tempWorkload models.Workload) {
+			defer wg.Done()
+			var bs []byte
+			switch tempWorkload.Type {
+			case setting.Deployment:
+				bs, _, err = getter.GetDeploymentYaml(namespace, tempWorkload.Name, kubeClient)
+			case setting.StatefulSet:
+				bs, _, err = getter.GetStatefulSetYaml(namespace, tempWorkload.Name, kubeClient)
+			}
+
+			if len(bs) == 0 || err != nil {
+				log.Errorf("not found yaml %v", err)
+				return
+			}
+
+			mu.Lock()
+			defer mu.Unlock()
+			workloadsTmp = append(workloadsTmp, models.Workload{
+				EnvName:     envName,
+				Name:        tempWorkload.Name,
+				Type:        tempWorkload.Type,
+				ProductName: productName,
+			})
+
+			if _, err = CreateServiceTemplate(username, &models.Service{
+				ServiceName:  tempWorkload.Name,
+				Yaml:         string(bs),
+				ProductName:  productName,
+				CreateBy:     username,
+				Type:         setting.K8SDeployType,
+				WorkloadType: tempWorkload.Type,
+				Source:       setting.SourceFromExternal,
+				EnvName:      envName,
+			}, log); err != nil {
+				log.Errorf("create service template failed err:%v", err)
+				return
+			}
+		}(workload)
+	}
+	wg.Wait()
+
+	// 没有环境，创建环境
+	if _, err = commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: envName,
+	}); err != nil {
+		if err := service.CreateProduct(username, requestID, &commonmodels.Product{
+			ProductName: productName,
+			Source:      setting.SourceFromExternal,
+			ClusterID:   clusterID,
+			EnvName:     envName,
+			Namespace:   namespace,
+		}, log); err != nil {
+			return e.ErrCreateProduct.AddDesc("create product Error for unknown reason")
+		}
+	}
+
+	workLoadStat, err := commonrepo.NewWorkLoadsStatColl().Find(clusterID, namespace)
+	if err != nil {
+		workLoadStat = &commonmodels.WorkloadStat{
+			ClusterID: clusterID,
+			Namespace: namespace,
+			Workloads: workloadsTmp,
+		}
+		return commonrepo.NewWorkLoadsStatColl().Create(workLoadStat)
+	}
+
+	workLoadStat.Workloads = replaceWorkloads(workLoadStat.Workloads, workloadsTmp, envName)
+	return commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workLoadStat)
+}
+
+func replaceWorkloads(existWorkloads []models.Workload, newWorkloads []models.Workload, envName string) []models.Workload {
+	var result []models.Workload
+	workloadMap := map[string]models.Workload{}
+	for _, workload := range existWorkloads {
+		if workload.EnvName != envName {
+			workloadMap[workload.Name] = workload
+			result = append(result, workload)
+		}
+	}
+
+	for _, newWorkload := range newWorkloads {
+		if _, ok := workloadMap[newWorkload.Name]; !ok {
+			result = append(result, newWorkload)
+		}
+	}
+
+	return result
+}
+
 func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap.SugaredLogger) (*ServiceOption, error) {
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName:   args.ServiceName,
@@ -354,7 +473,6 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap
 			}
 		}
 	}
-
 	commonservice.ProcessServiceWebhook(args, serviceTmpl, args.ServiceName, log)
 
 	return GetServiceOption(args, log)
@@ -763,8 +881,8 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 		if args.Containers == nil {
 			args.Containers = make([]*commonmodels.Container, 0)
 		}
-		// 配置来源为Gitlab，需要从Gitlab同步配置，并设置KubeYamls.
-		if args.Source == setting.SourceFromGerrit || args.Source == setting.SourceFromZadig {
+		// Only the gerrit/spock/external type needs to be processed by yaml
+		if args.Source == setting.SourceFromGerrit || args.Source == setting.SourceFromZadig || args.Source == setting.SourceFromExternal {
 			// 拆分 all-in-one yaml文件
 			// 替换分隔符
 			args.Yaml = util.ReplaceWrapLine(args.Yaml)

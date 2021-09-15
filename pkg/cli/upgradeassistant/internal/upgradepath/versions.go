@@ -36,16 +36,24 @@ var versionMap versions = map[string]int{
 type versions map[string]int
 
 func (v versions) From(version string) int {
-	res, ok := v[version]
+	f, err := semver.Make(version)
+	if err != nil {
+		return Latest
+	}
+	res, ok := v[f.FinalizeVersion()]
 	if !ok {
-		return V130
+		return Latest
 	}
 
 	return res
 }
 
 func (v versions) To(version string) int {
-	res, ok := v[version]
+	t, err := semver.Make(version)
+	if err != nil {
+		return Latest
+	}
+	res, ok := v[t.FinalizeVersion()]
 	if !ok {
 		return Latest
 	}
@@ -66,7 +74,7 @@ func (v versions) MaxVersionString() string {
 		}
 	}
 
-	return max.String()
+	return max.FinalizeVersion()
 }
 
 func init() {

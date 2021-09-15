@@ -50,6 +50,9 @@ func UpgradeWithBestPath(from, to string) error {
 }
 
 func upgradeWithBestPath(from, to int) error {
+	if from == to {
+		return nil
+	}
 	best, err := dag.Shortest(from, to)
 	if err != nil {
 		// no upgrade path is found

@@ -206,7 +206,8 @@ func filterProductWithoutExternalCluster(products []*commonmodels.Product) []*co
 		}
 		// 过滤外部环境托管
 		sources := sets.NewString(setting.SourceFromZadig, setting.HelmDeployType)
-		if !sources.Has(product.Source) {
+		// Compatible with the environment source created in the onboarding process is empty
+		if product.Source != "" && !sources.Has(product.Source) {
 			continue
 		}
 		// 过滤状态为Terminating的namespace

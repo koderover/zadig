@@ -89,6 +89,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		kube.POST("/pods", ListServicePods)
 		kube.DELETE("/pods/:podName", gin2.IsHavePermission([]string{permission.TestEnvManageUUID, permission.ProdEnvManageUUID, permission.TestUpdateEnvUUID}, permission.QueryType), gin2.UpdateOperationLogStatus, DeletePod)
 		kube.GET("/pods/:podName/events", ListPodEvents)
+		kube.GET("/workloads", ListWorkloads)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -121,7 +122,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.DELETE("/:productName", gin2.IsHavePermission([]string{permission.TestEnvDeleteUUID, permission.ProdEnvDeleteUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, DeleteProduct)
 
 		environments.GET("/:productName/groups", ListGroups)
-		environments.GET("/:productName/groups/:source", ListGroupsBySource)
+		environments.GET("/:productName/workloads", ListWorkloadsInEnv)
 
 		environments.GET("/:productName/services/:serviceName", GetService)
 		environments.PUT("/:productName/services/:serviceName/:serviceType", gin2.IsHavePermission([]string{permission.TestEnvManageUUID, permission.ProdEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateService)

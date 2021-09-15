@@ -31,6 +31,7 @@ import (
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/setting"
@@ -496,44 +497,75 @@ func ListGroups(c *gin.Context) {
 	c.Writer.Header().Set("X-Total", strconv.Itoa(count))
 }
 
-func ListGroupsBySource(c *gin.Context) {
+type ListWorkloadsArgs struct {
+	Namespace    string `json:"namespace"    form:"namespace"`
+	ClusterID    string `json:"clusterId"    form:"clusterId"`
+	WorkloadName string `json:"workloadName" form:"workloadName"`
+	PerPage      int    `json:"perPage"      form:"perPage,default:20"`
+	Page         int    `json:"page"         form:"page,default:1"`
+}
+
+func ListWorkloads(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	args := new(ListWorkloadsArgs)
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	count, services, err := commonservice.ListWorkloads("", args.ClusterID, args.Namespace, "", args.PerPage, args.Page, ctx.Logger, func(workloads []*commonservice.Workload) []*commonservice.Workload {
+		workloadStat, _ := mongodb.NewWorkLoadsStatColl().Find(args.ClusterID, args.Namespace)
+		workloadM := map[string]commonmodels.Workload{}
+		for _, workload := range workloadStat.Workloads {
+			workloadM[workload.Name] = workload
+		}
+		for index, currentWorkload := range workloads {
+			if existWorkload, ok := workloadM[currentWorkload.Name]; ok {
+				workloads[index].EnvName = existWorkload.EnvName
+				workloads[index].ProductName = existWorkload.ProductName
+			}
+		}
+
+		var resp []*commonservice.Workload
+		for _, workload := range workloads {
+			if args.WorkloadName != "" && strings.Contains(workload.Name, args.WorkloadName) {
+				resp = append(resp, workload)
+			} else if args.WorkloadName == "" {
+				resp = append(resp, workload)
+			}
+		}
+
+		return resp
+	})
+	ctx.Resp = &NamespaceResource{
+		Services: services,
+	}
+	ctx.Err = err
+	c.Writer.Header().Set("X-Total", strconv.Itoa(count))
+}
+
+// TODO: envName must be a param, while productName can be a query
+type workloadQueryArgs struct {
+	Env     string `json:"env"     form:"env"`
+	PerPage int    `json:"perPage" form:"perPage,default=10"`
+	Page    int    `json:"page"    form:"page,default=1"`
+	Filter  string `json:"filter"  form:"filter"`
+}
+
+func ListWorkloadsInEnv(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	envName := c.Query("envName")
-	productName := c.Param("productName")
-	perPageStr := c.Query("perPage")
-	pageStr := c.Query("page")
-	var (
-		count   int
-		perPage int
-		err     error
-		page    int
-	)
-	if perPageStr == "" {
-		perPage = setting.PerPage
-	} else {
-		perPage, err = strconv.Atoi(perPageStr)
-		if err != nil {
-			ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("pageStr args err :%s", err))
-			return
-		}
+	args := &workloadQueryArgs{}
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = err
+		return
 	}
 
-	if pageStr == "" {
-		page = 1
-	} else {
-		page, err = strconv.Atoi(pageStr)
-		if err != nil {
-			ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("page args err :%s", err))
-			return
-		}
-	}
-
-	count, services, ingresses, err := commonservice.ListGroupsBySource(envName, productName, perPage, page, ctx.Logger)
+	count, services, err := commonservice.ListWorkloadsInEnv(args.Env, c.Param("productName"), args.Filter, args.PerPage, args.Page, ctx.Logger)
 	ctx.Resp = &NamespaceResource{
-		Services:  services,
-		Ingresses: ingresses,
+		Services: services,
 	}
 	ctx.Err = err
 	c.Writer.Header().Set("X-Total", strconv.Itoa(count))

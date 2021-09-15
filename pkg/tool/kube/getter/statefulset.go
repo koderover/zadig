@@ -55,3 +55,12 @@ func ListStatefulSetsYaml(ns string, selector labels.Selector, cl client.Client)
 	}
 	return ListResourceYamlInCache(ns, selector, nil, gvk, cl)
 }
+
+func GetStatefulSetYaml(ns string, name string, cl client.Client) ([]byte, bool, error) {
+	gvk := schema.GroupVersionKind{
+		Group:   "apps",
+		Kind:    "StatefulSet",
+		Version: "v1",
+	}
+	return GetResourceYamlInCache(ns, name, gvk, cl)
+}
