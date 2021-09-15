@@ -504,7 +504,30 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, log *za
 	if err := setCurrentContainerImages(args); err != nil {
 		return nil, err
 	}
-	if err := commonrepo.NewServiceColl().Delete(args.ServiceName, args.Type, args.ProductName, setting.ProductStatusDeleting, args.Revision); err != nil {
+	opt := &commonrepo.ServiceFindOption{
+		ServiceName:   args.ServiceName,
+		ProductName:   args.ProductName,
+		ExcludeStatus: setting.ProductStatusDeleting,
+	}
+	_, notFoundErr := commonrepo.NewServiceColl().Find(opt)
+	if notFoundErr != nil {
+		if productTempl, err := commonservice.GetProductTemplate(args.ProductName, log); err == nil {
+			//获取项目里面的所有服务
+			if len(productTempl.Services) > 0 && !sets.NewString(productTempl.Services[0]...).Has(args.ServiceName) {
+				productTempl.Services[0] = append(productTempl.Services[0], args.ServiceName)
+			} else {
+				productTempl.Services = [][]string{{args.ServiceName}}
+			}
+			//更新项目模板
+			err = templaterepo.NewProductColl().Update(args.ProductName, productTempl)
+			if err != nil {
+				log.Errorf("CreateServiceTemplate Update %s error: %v", args.ServiceName, err)
+				return nil, e.ErrCreateTemplate.AddDesc(err.Error())
+			}
+		}
+	}
+
+	if err := commonrepo.NewServiceColl().Delete(args.ServiceName, args.Type, args.ProductName, setting.ProductStatusDeleting, 0); err != nil {
 		log.Errorf("ServiceTmpl.delete %s error: %v", args.ServiceName, err)
 	}
 
