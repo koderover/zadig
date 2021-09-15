@@ -106,6 +106,9 @@ func (args *RenderChartArg) toCustomValuesYaml() *templatemodels.OverrideYaml {
 }
 
 func (args *RenderChartArg) fromCustomValueYaml(customValuesYaml *templatemodels.OverrideYaml) {
+	if customValuesYaml == nil {
+		return
+	}
 	args.YamlSource = customValuesYaml.YamlSource
 	switch customValuesYaml.YamlSource {
 	case setting.ValuesYamlSourceDefault:

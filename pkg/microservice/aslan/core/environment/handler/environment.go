@@ -223,7 +223,7 @@ func UpdateHelmProduct(c *gin.Context) {
 	updateType := c.Query("updateType")
 	productName := c.Param("productName")
 
-	ctx.Err = service.UpdateHelmProduct(productName, envName, updateType, ctx.Username, ctx.RequestID, ctx.Logger)
+	ctx.Err = service.UpdateHelmProduct(productName, envName, updateType, ctx.Username, ctx.RequestID, nil, ctx.Logger)
 	if ctx.Err != nil {
 		ctx.Logger.Errorf("failed to update product %s %s: %v", envName, productName, ctx.Err)
 	}
