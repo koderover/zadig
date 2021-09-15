@@ -1,10 +1,10 @@
 package service
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestUpdateWorkloads(t *testing.T) {
@@ -34,6 +34,6 @@ func TestUpdateWorkloads(t *testing.T) {
 		Operation:   "add",
 	}
 
-	result := updateWorkloads(exist, diff, "env1")
-	fmt.Println(result)
+	result := updateWorkloads(exist, diff, "env1", "product1")
+	assert.Equal(t, 2, len(result))
 }

@@ -21,11 +21,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
@@ -80,7 +79,7 @@ func GetProductTemplate(productName string, log *zap.SugaredLogger) (*template.P
 	}
 
 	var totalServices []*models.Service
-	if resp.ProductFeature.CreateEnvType == setting.SourceFromExternal {
+	if resp.ProductFeature != nil && resp.ProductFeature.CreateEnvType == setting.SourceFromExternal {
 		totalServices, err = commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, "")
 		if err != nil {
 			return resp, fmt.Errorf("ListExternalWorkloadsBy err : %v", err)
