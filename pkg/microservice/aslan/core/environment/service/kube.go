@@ -25,7 +25,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
@@ -107,7 +106,7 @@ func ListPodEvents(envName, productName, podName string, log *zap.SugaredLogger)
 	return res, nil
 }
 
-// ListAvailableNamespaces lists available namespaces which are not used by any environments.
+// ListAvailableNamespaces lists available namespaces created by non-koderover
 func ListAvailableNamespaces(clusterID string, log *zap.SugaredLogger) ([]*resource.Namespace, error) {
 	resp := make([]*resource.Namespace, 0)
 	kubeClient, err := kube.GetKubeClient(clusterID)
@@ -124,26 +123,11 @@ func ListAvailableNamespaces(clusterID string, log *zap.SugaredLogger) ([]*resou
 		return resp, err
 	}
 
-	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{ExcludeStatus: setting.ProductStatusDeleting})
-	if err != nil {
-		log.Errorf("Collection.Product.List error: %v", err)
-		return resp, err
-	}
-
-	productNamespaces := sets.NewString()
-	for _, product := range products {
-		productNamespaces.Insert(product.Namespace)
-	}
-
 	for _, namespace := range namespaces {
 		if value, IsExist := namespace.Labels[setting.EnvCreatedBy]; IsExist {
 			if value == setting.EnvCreator {
 				continue
 			}
-		}
-
-		if productNamespaces.Has(namespace.Name) {
-			continue
 		}
 
 		resp = append(resp, wrapper.Namespace(namespace).Resource())

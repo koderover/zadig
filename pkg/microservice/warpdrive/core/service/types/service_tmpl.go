@@ -55,6 +55,8 @@ type ServiceTmpl struct {
 	BranchName       string           `bson:"branch_name,omitempty"          json:"branch_name,omitempty"`
 	LoadPath         string           `bson:"load_path,omitempty"            json:"load_path,omitempty"`
 	LoadFromDir      bool             `bson:"is_dir,omitempty"               json:"is_dir"`
+	WorkloadType     string           `bson:"workload_type,omitempty"        json:"workload_type,omitempty"`
+	EnvName          string           `bson:"env_name,omitempty"             json:"env_name,omitempty"`
 }
 
 type GUIConfig struct {

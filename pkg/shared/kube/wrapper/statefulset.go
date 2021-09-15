@@ -66,3 +66,10 @@ func (w *statefulSet) WorkloadResource(pods []*corev1.Pod) *resource.Workload {
 
 	return wl
 }
+
+func (w *statefulSet) Images() (images []string) {
+	for _, v := range w.Spec.Template.Spec.Containers {
+		images = append(images, v.Name)
+	}
+	return
+}

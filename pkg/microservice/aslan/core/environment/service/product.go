@@ -116,6 +116,9 @@ func GetInitProduct(productTmplName string, log *zap.SugaredLogger) (*commonmode
 	ret.Render = &commonmodels.RenderInfo{Name: "", Description: ""}
 	ret.Vars = prodTmpl.Vars
 	ret.ChartInfos = prodTmpl.ChartInfos
+	if prodTmpl.ProductFeature.BasicFacility == setting.BasicFacilityCVM {
+		ret.Source = setting.PMDeployType
+	}
 
 	allServiceInfoMap := prodTmpl.AllServiceInfoMap()
 	for _, names := range prodTmpl.Services {
@@ -244,7 +247,7 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 
 	switch prod.Source {
 	case setting.SourceFromExternal, setting.SourceFromHelm:
-		_, servicesResp, _, errObj = commonservice.ListGroupsBySource(envName, prod.ProductName, 0, 0, log)
+		_, servicesResp, errObj = commonservice.ListWorkloadsInEnv(envName, prod.ProductName, "", 0, 0, log)
 		if len(servicesResp) == 0 && errObj == nil {
 			prodResp.Status = prod.Status
 			prodResp.Error = prod.Error

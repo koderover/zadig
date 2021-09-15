@@ -156,11 +156,39 @@ func (c *ServiceColl) ListMaxRevisionsForServices(services []*templatemodels.Ser
 	return c.listMaxRevisions(pre, post)
 }
 
+// TODO refactor mouuii
+// ListExternalServicesBy list service only for external services  ,other service type not use  before refactor
+func (c *ServiceColl) ListExternalWorkloadsBy(productName, envName string) ([]*models.Service, error) {
+	services := make([]*models.Service, 0)
+	query := bson.M{
+		"status": bson.M{"$ne": setting.ProductStatusDeleting},
+	}
+	if productName != "" {
+		query["product_name"] = productName
+	}
+	if envName != "" {
+		query["env_name"] = envName
+	}
+	ctx := context.Background()
+	cursor, err := c.Collection.Find(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cursor.All(ctx, &services)
+	if err != nil {
+		return nil, err
+	}
+	return services, nil
+}
+
 func (c *ServiceColl) ListMaxRevisionsByProduct(productName string) ([]*models.Service, error) {
-	return c.listMaxRevisions(bson.M{
+	m := bson.M{
 		"product_name": productName,
 		"status":       bson.M{"$ne": setting.ProductStatusDeleting},
-	}, nil)
+	}
+
+	return c.listMaxRevisions(m, nil)
 }
 
 // Find 根据service_name和type查询特定版本的配置模板
@@ -270,6 +298,30 @@ func (c *ServiceColl) Update(args *models.Service) error {
 	}
 	change := bson.M{"$set": changeMap}
 	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
+// UpdateExternalServicesStatus only used by external services
+func (c *ServiceColl) UpdateExternalServicesStatus(serviceName, productName, status, envName string) error {
+	if serviceName == "" && envName == "" {
+		return fmt.Errorf("serviceName and envName can't  be both empty")
+	}
+	if productName == "" {
+		return fmt.Errorf("productName is empty")
+	}
+
+	query := bson.M{"product_name": productName}
+	if serviceName != "" {
+		query["service_name"] = serviceName
+	}
+	if envName != "" {
+		query["env_name"] = envName
+	}
+	change := bson.M{"$set": bson.M{
+		"status": status,
+	}}
+
+	_, err := c.UpdateMany(context.TODO(), query, change)
 	return err
 }
 
