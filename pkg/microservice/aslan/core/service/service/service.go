@@ -528,6 +528,8 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, log *za
 				return e.ErrCreateTemplate.AddDesc(err.Error())
 			}
 		}
+	} else {
+		return e.ErrCreateTemplate.AddDesc("do not support import same service name")
 	}
 
 	if err := commonrepo.NewServiceColl().Delete(args.ServiceName, args.Type, args.ProductName, setting.ProductStatusDeleting, 0); err != nil {
