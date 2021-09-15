@@ -394,6 +394,26 @@ func GetHelmChartVersions(c *gin.Context) {
 	}
 }
 
+func GetEstimatedRenderCharts(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	productName := c.Query("productName")
+	if productName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can't be empty!")
+	}
+
+	envName := c.Query("envName")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("envName can't be empty!")
+	}
+
+	ctx.Resp, ctx.Err = service.GetEstimatedRenderCharts(productName, envName, c.Query("serviceName"), ctx.Logger)
+	if ctx.Err != nil {
+		ctx.Logger.Errorf("failed to get estimatedRenderCharts %s %s: %v", envName, productName, ctx.Err)
+	}
+}
+
 func DeleteProduct(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

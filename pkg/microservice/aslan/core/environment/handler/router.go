@@ -130,6 +130,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.POST("/:productName/services/:serviceName/scale/:number", gin2.IsHavePermission([]string{permission.TestEnvManageUUID, permission.ProdEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, ScaleService)
 		environments.POST("/:productName/services/:serviceName/scaleNew/:number", gin2.IsHavePermission([]string{permission.TestEnvManageUUID, permission.ProdEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, ScaleNewService)
 		environments.GET("/:productName/services/:serviceName/containers/:container/namespaces/:namespace", GetServiceContainer)
+
+		environments.GET("/estimatedrenderchart", GetEstimatedRenderCharts)
 	}
 
 	// ---------------------------------------------------------------------------------------

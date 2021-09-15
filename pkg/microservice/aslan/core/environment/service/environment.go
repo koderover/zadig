@@ -1086,8 +1086,7 @@ func updateHelmProductVariable(productResp *commonmodels.Product, oldRenderVersi
 
 var mutexUpdateMultiHelm sync.RWMutex
 
-
-func UpdateMultipleHelmEnv(userName, requestID string, userID int, superUser bool, args *UpdateMultiHelmProductArg,  log *zap.SugaredLogger) ([]*EnvStatus, error) {
+func UpdateMultipleHelmEnv(userName, requestID string, userID int, superUser bool, args *UpdateMultiHelmProductArg, log *zap.SugaredLogger) ([]*EnvStatus, error) {
 	mutexUpdateMultiHelm.Lock()
 	defer func() {
 		mutexUpdateMultiHelm.Unlock()
@@ -1131,7 +1130,7 @@ func UpdateMultipleHelmEnv(userName, requestID string, userID int, superUser boo
 	// extract values.yaml and update renderset
 	for envName, _ := range productMap {
 		renderSet, _, err := commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
-			Name:     commonservice.GetProductEnvNamespace(envName, productName),
+			Name: commonservice.GetProductEnvNamespace(envName, productName),
 		})
 		if err != nil || renderSet == nil {
 			if err != nil {
@@ -1363,6 +1362,87 @@ func GetHelmChartVersions(productName, envName string, log *zap.SugaredLogger) (
 	}
 
 	return helmVersions, nil
+}
+
+func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, log *zap.SugaredLogger) ([]*commonservice.RenderChartArg, error) {
+
+	serviceNameList := strings.Split(serviceNameListStr, "")
+	templateServiceMap := make(map[string]*commonmodels.Service)
+
+	// no service appointed, find all service templates
+	if len(serviceNameList) == 0 {
+		serviceList, err := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{
+			ProductName: productName,
+			Type:        setting.HelmDeployType,
+		})
+		if err != nil {
+			log.Errorf("list service fail, productName %s err %s", productName, err.Error())
+			return nil, e.ErrGetRenderSet.AddDesc("failed to list service info")
+		}
+		for _, singleService := range serviceList {
+			templateServiceMap[singleService.ServiceName] = singleService
+			serviceNameList = append(serviceNameList, singleService.ServiceName)
+		}
+	}
+
+	// find renderchart info in env
+	renderChartInEnv, err := GetRenderCharts(productName, envName, serviceNameListStr, log)
+	if err != nil {
+		log.Errorf("find render charts in env fail, env %s err %s", envName, err.Error())
+		return nil, e.ErrGetRenderSet.AddDesc("failed to get render charts in env")
+	}
+
+	rcMap := make(map[string]*commonservice.RenderChartArg)
+	for _, rc := range renderChartInEnv {
+		rcMap[rc.ServiceName] = rc
+	}
+
+	serviceOption := &commonrepo.ServiceListOption{
+		ProductName: productName,
+		Type:        setting.HelmDeployType,
+	}
+
+	for _, serviceName := range serviceNameList {
+		if _, ok := rcMap[serviceName]; ok {
+			continue
+		}
+		if serviceInfo, ok := templateServiceMap[serviceName]; ok {
+			rcMap[serviceInfo.ServiceName] = &commonservice.RenderChartArg{
+				EnvName:      envName,
+				ServiceName:  serviceInfo.ServiceName,
+				ChartVersion: serviceInfo.HelmChart.Version,
+			}
+			continue
+		}
+		serviceOption.InServices = append(serviceOption.InServices, &template.ServiceInfo{
+			Name:  serviceName,
+			Owner: productName,
+		})
+	}
+
+	if len(serviceOption.InServices) > 0 {
+		serviceList, err := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{
+			ProductName: productName,
+			Type:        setting.HelmDeployType,
+		})
+		if err != nil {
+			log.Errorf("list service fail, productName %s err %s", productName, err.Error())
+			return nil, e.ErrGetRenderSet.AddDesc("failed to get service template info")
+		}
+		for _, singleService := range serviceList {
+			rcMap[singleService.ServiceName] = &commonservice.RenderChartArg{
+				EnvName:      envName,
+				ServiceName:  singleService.ServiceName,
+				ChartVersion: singleService.HelmChart.Version,
+			}
+		}
+	}
+
+	ret := make([]*commonservice.RenderChartArg, 0, len(rcMap))
+	for _, rc := range rcMap {
+		ret = append(ret, rc)
+	}
+	return ret, nil
 }
 
 func createGroups(envName, user, requestID string, args *commonmodels.Product, eventStart int64, renderSet *commonmodels.RenderSet, kubeClient client.Client, log *zap.SugaredLogger) {
@@ -2272,7 +2352,7 @@ func installOrUpdateHelmChart(user, envName, requestID string, args *commonmodel
 					return
 				}
 
-				mergedValuesYaml, err := helmtool.MergeOverrideValues(renderChart.ValuesYaml, renderChart.GetOverrideYaml(),  renderChart.OverrideValues)
+				mergedValuesYaml, err := helmtool.MergeOverrideValues(renderChart.ValuesYaml, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
 				if err != nil {
 					err = errors.WithMessagef(
 						err,
