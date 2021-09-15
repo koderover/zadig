@@ -963,7 +963,7 @@ func UpdateHelmProductRenderCharts(productName, envName, userName, requestID str
 	rcs := make([]*template.RenderChart, 0)
 
 	for _, requestRenderChart := range renderCharts {
-		yamlContent, err := generateValuesYaml(serviceMap[requestRenderChart.ServiceName], requestRenderChart, log)
+		yamlContent, err := generateValuesYaml(requestRenderChart, log)
 		if err != nil {
 			return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to get yaml content for service: %s, err %v", requestRenderChart.ServiceName, err.Error()))
 		}
@@ -1145,7 +1145,7 @@ func UpdateMultipleHelmEnv(userName, requestID string, userID int, superUser boo
 			}
 
 			// extract yaml content
-			yamlContent, err := generateValuesYaml(serviceMap[singleChartValue.ServiceName], singleChartValue, log)
+			yamlContent, err := generateValuesYaml(singleChartValue, log)
 			if err != nil {
 				return envStatuses, e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to get yaml content for service: %s, err %v", singleChartValue.ServiceName, err.Error()))
 			}
@@ -2577,8 +2577,8 @@ func diffRenderSet(productName, envName, updateType string, productResp *commonm
 				} else {
 					latestChartInfo.ValuesYaml = string(newValuesYaml)
 				}
-				latestChartInfo.YamlSource = currentChartInfo.YamlSource
-				latestChartInfo.GitRepoConfig = currentChartInfo.GitRepoConfig
+				//latestChartInfo.YamlSource = currentChartInfo.YamlSource
+				//latestChartInfo.GitRepoConfig = currentChartInfo.GitRepoConfig
 				latestChartInfo.OverrideValues = currentChartInfo.OverrideValues
 			}
 			newChartInfos = append(newChartInfos, latestChartInfo)
