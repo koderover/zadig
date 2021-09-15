@@ -879,22 +879,16 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 
 	if serviceType == setting.HelmDeployType {
 		// 更新helm renderset
-		renderOpt := &commonrepo.RenderSetFindOption{Name: productName}
-		if rs, err := commonrepo.NewRenderSetColl().Find(renderOpt); err == nil {
-			chartInfos := make([]*templatemodels.RenderChart, 0)
-			for _, chartInfo := range rs.ChartInfos {
-				if chartInfo.ServiceName == serviceName {
-					continue
-				}
-				chartInfos = append(chartInfos, chartInfo)
-			}
-			rs.ChartInfos = chartInfos
-			_ = commonrepo.NewRenderSetColl().Update(rs)
+		err = removeServiceFromRenderset(productName, productName, serviceName)
+		if err != nil {
+			log.Warnf("failed to update renderset: %s when deleting service: %s, err: %s", productName, serviceName, err.Error())
 		}
+
 		// 把该服务相关的s3的数据从仓库删除
 		if err = fs.DeleteArchivedFileFromS3(serviceName, configbase.ObjectStorageServicePath(productName, serviceName), log); err != nil {
 			log.Warnf("Failed to delete file %s, err: %s", serviceName, err)
 		}
+		//onBoarding流程时，需要删除预定的renderset中的已经存在的renderchart信息
 	}
 
 	//删除环境模板
@@ -913,10 +907,42 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 			log.Errorf("DeleteServiceTemplate Update %s error: %v", serviceName, err)
 			return e.ErrDeleteTemplate.AddDesc(err.Error())
 		}
+
+		// still onBoarding, need to delete service from renderset
+		if serviceType == setting.HelmDeployType && productTempl.OnboardingStatus != 0 {
+			envNames := []string{"dev", "qa"}
+			for _, envName := range envNames {
+				rendersetName := commonservice.GetProductEnvNamespace(envName, productName)
+				err := removeServiceFromRenderset(productName, rendersetName, serviceName)
+				if err != nil {
+					log.Warnf("failed to update renderset: %s when deleting service: %s, err: %s", rendersetName, serviceName, err.Error())
+				}
+			}
+		}
 	}
 
 	commonservice.DeleteServiceWebhookByName(serviceName, productName, log)
 
+	return nil
+}
+
+// remove specific services from rendersets.chartinfos
+func removeServiceFromRenderset(productName, renderName, serviceName string) error {
+	renderOpt := &commonrepo.RenderSetFindOption{Name: renderName}
+	if rs, err := commonrepo.NewRenderSetColl().Find(renderOpt); err == nil {
+		chartInfos := make([]*templatemodels.RenderChart, 0)
+		for _, chartInfo := range rs.ChartInfos {
+			if chartInfo.ServiceName == serviceName {
+				continue
+			}
+			chartInfos = append(chartInfos, chartInfo)
+		}
+		rs.ChartInfos = chartInfos
+		err = commonrepo.NewRenderSetColl().Update(rs)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

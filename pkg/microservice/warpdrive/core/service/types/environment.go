@@ -60,10 +60,16 @@ type RenderKV struct {
 	Services []string `bson:"services"          json:"services"`
 }
 
+type OverrideYaml struct {
+	YamlContent string `bson:"yaml_content,omitempty"    json:"yaml_content,omitempty"`
+}
+
 type RenderChart struct {
-	ServiceName  string `bson:"service_name,omitempty"    json:"service_name,omitempty"`
-	ChartVersion string `bson:"chart_version,omitempty"   json:"chart_version,omitempty"`
-	ValuesYaml   string `bson:"values_yaml,omitempty"     json:"values_yaml,omitempty"`
+	ServiceName    string `bson:"service_name,omitempty"    json:"service_name,omitempty"`
+	ChartVersion   string `bson:"chart_version,omitempty"   json:"chart_version,omitempty"`
+	ValuesYaml     string `bson:"values_yaml,omitempty"     json:"values_yaml,omitempty"`
+	OverrideYaml   *OverrideYaml `bson:"override_yaml,omitempty"   json:"override_yaml,omitempty"`
+	OverrideValues string `bson:"override_values,omitempty"   json:"override_values,omitempty"`
 }
 
 type ProductAuth struct {
@@ -97,4 +103,11 @@ type Service struct {
 type Config struct {
 	ConfigName string `bson:"config_name"           json:"config_name"`
 	Revision   int64  `bson:"revision"              json:"revision"`
+}
+
+func (rc *RenderChart) GetOverrideYaml() string {
+	if rc.OverrideYaml == nil {
+		return ""
+	}
+	return rc.OverrideYaml.YamlContent
 }
