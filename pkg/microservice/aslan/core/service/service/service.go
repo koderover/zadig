@@ -302,7 +302,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 				ProductName: productName,
 			})
 
-			if _, err = CreateServiceTemplate(username, &models.Service{
+			if err = CreateWorkloadTemplate(username, &models.Service{
 				ServiceName:  tempWorkload.Name,
 				Yaml:         string(bs),
 				ProductName:  productName,
@@ -311,6 +311,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 				WorkloadType: tempWorkload.Type,
 				Source:       setting.SourceFromExternal,
 				EnvName:      envName,
+				Revision:     1,
 			}, log); err != nil {
 				log.Errorf("create service template failed err:%v", err)
 				return
@@ -429,7 +430,6 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, args Updat
 			if len(bs) == 0 || err != nil {
 				log.Errorf("UpdateK8sWorkLoads not found yaml %v", err)
 			}
-			log.Infof("Xxxx")
 			if err = CreateWorkloadTemplate(username, &models.Service{
 				ServiceName:  v.Name,
 				Yaml:         string(bs),
