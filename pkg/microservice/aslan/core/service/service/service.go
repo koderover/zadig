@@ -365,7 +365,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, productNam
 	}
 	workloadStat, err := commonrepo.NewWorkLoadsStatColl().Find(clusterID, namespace)
 	if err != nil {
-		return e.ErrGetService
+		return err
 	}
 	uploadM := map[string]models.Workload{}
 	originM := map[string]models.Workload{}
@@ -407,7 +407,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, productNam
 		case "delete":
 			err = commonrepo.NewServiceColl().UpdateExternalServicesStatus(v.Name, productName, setting.ProductStatusDeleting, envName)
 			if err != nil {
-				log.Errorf("UpdateStatus  external services error:%s", err)
+				log.Errorf("UpdateStatus external services error:%s", err)
 			}
 		// 添加workload的引用
 		case "add":
@@ -416,7 +416,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, productNam
 			case setting.Deployment:
 				bs, _, err = getter.GetDeploymentYaml(namespace, v.Name, kubeClient)
 			case setting.StatefulSet:
-				bs, _, err = getter.GetDeploymentYaml(namespace, v.Name, kubeClient)
+				bs, _, err = getter.GetStatefulSetYaml(namespace, v.Name, kubeClient)
 			}
 			if len(bs) == 0 || err != nil {
 				log.Errorf("UpdateK8sWorkLoads not found yaml %v", err)
