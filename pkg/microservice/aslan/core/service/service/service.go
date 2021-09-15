@@ -429,7 +429,8 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, args Updat
 			if len(bs) == 0 || err != nil {
 				log.Errorf("UpdateK8sWorkLoads not found yaml %v", err)
 			}
-			if _, err = CreateWorkloadTemplate(username, &models.Service{
+			log.Infof("Xxxx")
+			if err = CreateWorkloadTemplate(username, &models.Service{
 				ServiceName:  v.Name,
 				Yaml:         string(bs),
 				ProductName:  args.ProductName,
@@ -494,16 +495,17 @@ func replaceWorkloads(existWorkloads []models.Workload, newWorkloads []models.Wo
 }
 
 //CreateWorkloadTemplate only use for workload
-func CreateWorkloadTemplate(userName string, args *commonmodels.Service, log *zap.SugaredLogger) (*ServiceOption, error) {
+func CreateWorkloadTemplate(userName string, args *commonmodels.Service, log *zap.SugaredLogger) error {
 	_, err := templaterepo.NewProductColl().Find(args.ProductName)
 	if err != nil {
 		log.Errorf("Failed to find project %s, err: %s", args.ProductName, err)
-		return nil, e.ErrInvalidParam.AddErr(err)
+		return e.ErrInvalidParam.AddErr(err)
 	}
 	// 遍历args.KubeYamls，获取 Deployment 或者 StatefulSet 里面所有containers 镜像和名称
+	args.KubeYamls = []string{args.Yaml}
 	if err := setCurrentContainerImages(args); err != nil {
 		log.Errorf("Failed tosetCurrentContainerImages %s, err: %s", args.ProductName, err)
-		return nil, err
+		return err
 	}
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName:   args.ServiceName,
@@ -523,7 +525,7 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, log *za
 			err = templaterepo.NewProductColl().Update(args.ProductName, productTempl)
 			if err != nil {
 				log.Errorf("CreateServiceTemplate Update %s error: %v", args.ServiceName, err)
-				return nil, e.ErrCreateTemplate.AddDesc(err.Error())
+				return e.ErrCreateTemplate.AddDesc(err.Error())
 			}
 		}
 	}
@@ -534,9 +536,9 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, log *za
 
 	if err := commonrepo.NewServiceColl().Create(args); err != nil {
 		log.Errorf("ServiceTmpl.Create %s error: %v", args.ServiceName, err)
-		return nil, e.ErrCreateTemplate.AddDesc(err.Error())
+		return e.ErrCreateTemplate.AddDesc(err.Error())
 	}
-	return nil, nil
+	return nil
 }
 
 func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap.SugaredLogger) (*ServiceOption, error) {
