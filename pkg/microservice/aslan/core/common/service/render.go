@@ -68,7 +68,7 @@ func (args *RenderChartArg) toOverrideValueString() string {
 	return strings.Join(kvPairSlice, ",")
 }
 
-func (args *RenderChartArg) loadOverrideValueString(valueStr string) {
+func (args *RenderChartArg) fromOverrideValueString(valueStr string) {
 	if valueStr == "" {
 		args.OverrideValues = nil
 		return
@@ -85,52 +85,59 @@ func (args *RenderChartArg) loadOverrideValueString(valueStr string) {
 	}
 }
 
-func (args *RenderChartArg) toGitRepoConfig() *templatemodels.GitRepoConfig {
-	if args.GitRepoConfig == nil {
-		return nil
+func (args *RenderChartArg) toCustomValuesYaml() *templatemodels.OverrideYaml {
+	ret := &templatemodels.OverrideYaml{
+		YamlSource: args.YamlSource,
 	}
-	return &templatemodels.GitRepoConfig{
-		CodehostID:  args.GitRepoConfig.CodehostID,
-		Owner:       args.GitRepoConfig.Owner,
-		Repo:        args.GitRepoConfig.Repo,
-		Branch:      args.GitRepoConfig.Branch,
-		ValuesPaths: args.GitRepoConfig.ValuesPaths,
+	switch ret.YamlSource {
+	case setting.ValuesYamlSourceFreeEdit, setting.ValuesYamlSourceDefault:
+		ret.YamlContent = args.ValuesYAML
+	case setting.ValuesYamlSourceGitRepo:
+		ret.YamlContent = args.ValuesYAML
+		ret.ValuesPaths = args.GitRepoConfig.ValuesPaths
+		ret.GitRepoConfig = &templatemodels.GitRepoConfig{
+			CodehostID: args.GitRepoConfig.CodehostID,
+			Owner:      args.GitRepoConfig.Owner,
+			Repo:       args.GitRepoConfig.Repo,
+			Branch:     args.GitRepoConfig.Branch,
+		}
 	}
+	return ret
 }
 
-func (args *RenderChartArg) loadGitRepoConfig(repoConfig *templatemodels.GitRepoConfig) {
-	if repoConfig == nil {
-		args.GitRepoConfig = nil
-	}
-	args.GitRepoConfig = &RepoConfig{
-		CodehostID:  repoConfig.CodehostID,
-		Owner:       repoConfig.Owner,
-		Repo:        repoConfig.Repo,
-		Branch:      repoConfig.Branch,
-		ValuesPaths: repoConfig.ValuesPaths,
-	}
+func (args *RenderChartArg) fromCustomValueYaml(customValuesYaml *templatemodels.OverrideYaml) {
+	args.YamlSource = customValuesYaml.YamlSource
+	switch customValuesYaml.YamlSource {
+	case setting.ValuesYamlSourceDefault:
+		args.ValuesYAML = ""
+	case setting.ValuesYamlSourceFreeEdit:
+		args.ValuesYAML = customValuesYaml.YamlContent
+	case setting.ValuesYamlSourceGitRepo:
+		args.ValuesYAML = ""
+		args.GitRepoConfig = &RepoConfig{
+			CodehostID:  customValuesYaml.GitRepoConfig.CodehostID,
+			Owner:       customValuesYaml.GitRepoConfig.Owner,
+			Repo:        customValuesYaml.GitRepoConfig.Repo,
+			Branch:      customValuesYaml.GitRepoConfig.Branch,
+			ValuesPaths: customValuesYaml.ValuesPaths,
+		}
+	}	
 }
 
 // FillRenderChartModel fill render chart model
 func (args *RenderChartArg) FillRenderChartModel(chart *templatemodels.RenderChart, version string) {
 	chart.ServiceName = args.ServiceName
 	chart.ChartVersion = version
-	chart.YamlSource = args.YamlSource
-	chart.ValuesYaml = args.ValuesYAML
 	chart.OverrideValues = args.toOverrideValueString()
-	chart.GitRepoConfig = args.toGitRepoConfig()
+	chart.OverrideYaml = args.toCustomValuesYaml()
 }
 
 // LoadFromRenderChartModel load from render chart model
 func (args *RenderChartArg) LoadFromRenderChartModel(chart *templatemodels.RenderChart) {
 	args.ServiceName = chart.ServiceName
-	args.YamlSource = chart.YamlSource
 	args.ChartVersion = chart.ChartVersion
-	if args.YamlSource == setting.ValuesYamlSourceFreeEdit {
-		args.ValuesYAML = chart.ValuesYaml
-	}
-	args.loadOverrideValueString(chart.OverrideValues)
-	args.loadGitRepoConfig(chart.GitRepoConfig)
+	args.fromOverrideValueString(chart.OverrideValues)
+	args.fromCustomValueYaml(chart.OverrideYaml)
 }
 
 func listTmplRenderKeys(productTmplName string, log *zap.SugaredLogger) ([]*templatemodels.RenderKV, map[string]*templatemodels.ServiceInfo, error) {

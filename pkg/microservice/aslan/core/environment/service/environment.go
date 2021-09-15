@@ -1982,11 +1982,12 @@ func installOrUpdateHelmChart(user, envName, requestID string, args *commonmodel
 					return
 				}
 
-				mergedValuesYaml, err := helmtool.MergeOverrideValues(renderChart.ValuesYaml, renderChart.OverrideValues)
+				mergedValuesYaml, err := helmtool.MergeOverrideValues(renderChart.ValuesYaml, renderChart.GetOverrideYaml(),  renderChart.OverrideValues)
 				if err != nil {
 					err = errors.WithMessagef(
 						err,
-						"failed to merge override values %s",
+						"failed to merge override yaml %s and values %s",
+						renderChart.GetOverrideYaml(),
 						renderChart.OverrideValues,
 					)
 					errList = multierror.Append(errList, err)
@@ -2173,11 +2174,12 @@ func updateProductGroup(productName, envName, updateType string, productResp *co
 					return
 				}
 
-				mergedValuesYaml, err := helmtool.MergeOverrideValues(renderChart.ValuesYaml, renderChart.OverrideValues)
+				mergedValuesYaml, err := helmtool.MergeOverrideValues(renderChart.ValuesYaml, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
 				if err != nil {
 					err = errors.WithMessagef(
 						err,
-						"failed to merge override values %s",
+						"failed to merge override yaml %s and values %s",
+						renderChart.GetOverrideYaml(),
 						renderChart.OverrideValues,
 					)
 					errList = multierror.Append(errList, err)
@@ -2408,11 +2410,12 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 						return
 					}
 
-					mergedValuesYaml, err := helmtool.MergeOverrideValues(tmpRenderChart.ValuesYaml, tmpRenderChart.OverrideValues)
+					mergedValuesYaml, err := helmtool.MergeOverrideValues(tmpRenderChart.ValuesYaml, tmpRenderChart.GetOverrideYaml(), tmpRenderChart.OverrideValues)
 					if err != nil {
 						err = errors.WithMessagef(
 							err,
-							"failed to merge override values %s",
+							"failed to merge override yaml %s and values %s",
+							tmpRenderChart.GetOverrideYaml(),
 							tmpRenderChart.OverrideValues,
 						)
 						errList = multierror.Append(errList, err)

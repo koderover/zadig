@@ -18,12 +18,12 @@ package helmclient
 
 import (
 	hc "github.com/mittwald/go-helm-client"
-	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/strvals"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/tool/log"
+	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 // NewClientFromRestConf returns a new Helm client constructed with the provided REST config options
@@ -38,26 +38,22 @@ func NewClientFromRestConf(restConfig *rest.Config, ns string) (hc.Client, error
 }
 
 // MergeOverrideValues merge values.yaml and override values
-func MergeOverrideValues(valuesYaml, overrideValues string) (string, error) {
+// overrideYaml used for -f option
+// overrideValues used for --set option
+func MergeOverrideValues(valuesYaml, overrideYaml, overrideValues string) (string, error) {
 
-	if overrideValues == "" {
+	if overrideYaml == "" && overrideValues == "" {
 		return valuesYaml, nil
 	}
 
-	// turn key=value1,key2=values2 to map
-	ovals, err := strvals.Parse(overrideValues)
+	// merge files for -f option
+	values, err := yamlutil.MergeAndUnmarshal([][]byte{[]byte(valuesYaml), []byte(overrideYaml)})
 	if err != nil {
 		return "", err
 	}
 
-	values := make(map[string]interface{})
-	err = yaml.Unmarshal([]byte(valuesYaml), &values)
-	if err != nil {
-		return "", err
-	}
-
-	coalescedValues := chartutil.CoalesceTables(make(map[string]interface{}, len(ovals)), ovals)
-	values = chartutil.CoalesceTables(coalescedValues, values)
+	// override values for --set option
+	err = strvals.ParseInto(overrideValues, values)
 
 	bs, err := yaml.Marshal(values)
 	if err != nil {

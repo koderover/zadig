@@ -30,7 +30,7 @@ import (
 	"github.com/koderover/zadig/pkg/types/permission"
 )
 
-func GetServiceRenderset(c *gin.Context) {
+func GetServiceRenderCharts(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
