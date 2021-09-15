@@ -219,7 +219,7 @@ func GetPublicGitRepoInfo(urlPath, dir string, log *zap.SugaredLogger) ([]*FileI
 	if err := os.RemoveAll(base); err != nil {
 		log.Errorf("dir remove err:%v", err)
 	}
-	err = command.RunGitCmds(&codehost.Detail{Address: urlPath, Source: "github"}, "", repoName, "master", "origin")
+	err = command.RunGitCmds(&codehost.Detail{Address: urlPath, Source: "github"}, "", repoName, "main", "origin")
 	if err != nil {
 		log.Errorf("GetPublicGitRepoInfo runGitCmds err:%v", err)
 		return fis, e.ErrListRepoDir.AddDesc(err.Error())
