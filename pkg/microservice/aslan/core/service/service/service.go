@@ -29,6 +29,8 @@ import (
 	"strings"
 	"sync"
 
+	"golang.org/x/sync/errgroup"
+
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
@@ -271,15 +273,12 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 	// todo Add data filter
 	var (
 		workloadsTmp []models.Workload
-		wg           sync.WaitGroup
 		mu           sync.Mutex
 	)
-
+	g := new(errgroup.Group)
 	for _, workload := range workLoads {
-		wg.Add(1)
-
-		go func(tempWorkload models.Workload) {
-			defer wg.Done()
+		tempWorkload := workload
+		g.Go(func() error {
 			var bs []byte
 			switch tempWorkload.Type {
 			case setting.Deployment:
@@ -290,7 +289,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 
 			if len(bs) == 0 || err != nil {
 				log.Errorf("not found yaml %v", err)
-				return
+				return e.ErrGetService
 			}
 
 			mu.Lock()
@@ -302,7 +301,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 				ProductName: productName,
 			})
 
-			if err = CreateWorkloadTemplate(username, &models.Service{
+			return CreateWorkloadTemplate(username, &models.Service{
 				ServiceName:  tempWorkload.Name,
 				Yaml:         string(bs),
 				ProductName:  productName,
@@ -312,13 +311,12 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 				Source:       setting.SourceFromExternal,
 				EnvName:      envName,
 				Revision:     1,
-			}, log); err != nil {
-				log.Errorf("create service template failed err:%v", err)
-				return
-			}
-		}(workload)
+			}, log)
+		})
 	}
-	wg.Wait()
+	if err := g.Wait(); err != nil {
+		return err
+	}
 
 	// 没有环境，创建环境
 	if _, err = commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
