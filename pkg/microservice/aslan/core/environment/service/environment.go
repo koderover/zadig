@@ -1373,19 +1373,19 @@ func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, l
 	templateServiceMap := make(map[string]*commonmodels.Service)
 
 	// no service appointed, find all service templates
-	if len(serviceNameList) == 0 {
-		serviceList, err := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{
-			ProductName: productName,
-			Type:        setting.HelmDeployType,
-		})
+	if serviceNameListStr == "" {
+		serviceNameList = make([]string, 0)
+		serviceList, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
 		if err != nil {
 			log.Errorf("list service fail, productName %s err %s", productName, err.Error())
 			return nil, e.ErrGetRenderSet.AddDesc("failed to list service info")
 		}
+
 		for _, singleService := range serviceList {
 			templateServiceMap[singleService.ServiceName] = singleService
 			serviceNameList = append(serviceNameList, singleService.ServiceName)
 		}
+		serviceNameListStr = strings.Join(serviceNameList, ",")
 	}
 
 	// find renderchart info in env
@@ -1400,13 +1400,8 @@ func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, l
 		rcMap[rc.ServiceName] = rc
 	}
 
-	serviceOption := &commonrepo.ServiceListOption{
-		ProductName: productName,
-		Type:        setting.HelmDeployType,
-	}
-
-	log.Infof("###### the serviceNameList is %v the templateServiceMap is %v rcMap %v ",serviceNameList, templateServiceMap, rcMap)
-
+	//TODO need optimize
+	needDefaultService := make(map[string]int)
 	for _, serviceName := range serviceNameList {
 		if _, ok := rcMap[serviceName]; ok {
 			continue
@@ -1419,25 +1414,23 @@ func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, l
 			}
 			continue
 		}
-		serviceOption.InServices = append(serviceOption.InServices, &template.ServiceInfo{
-			Name:  serviceName,
-			Owner: productName,
-		})
+		needDefaultService[serviceName] = 1
 	}
 
-	log.Infof("###### the service list is %v", serviceOption.InServices)
-
-	if len(serviceOption.InServices) > 0 {
-		serviceList, err := commonrepo.NewServiceColl().ListMaxRevisions(serviceOption)
+	if len(needDefaultService) > 0 {
+		//serviceList, err := commonrepo.NewServiceColl().ListMaxRevisions(serviceOption)
+		serviceList, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
 		if err != nil {
 			log.Errorf("list service fail, productName %s err %s", productName, err.Error())
 			return nil, e.ErrGetRenderSet.AddDesc("failed to get service template info")
 		}
 		for _, singleService := range serviceList {
-			rcMap[singleService.ServiceName] = &commonservice.RenderChartArg{
-				EnvName:      envName,
-				ServiceName:  singleService.ServiceName,
-				ChartVersion: singleService.HelmChart.Version,
+			if _, ok := needDefaultService[singleService.ServiceName]; ok {
+				rcMap[singleService.ServiceName] = &commonservice.RenderChartArg{
+					EnvName:      envName,
+					ServiceName:  singleService.ServiceName,
+					ChartVersion: singleService.HelmChart.Version,
+				}
 			}
 		}
 	}
