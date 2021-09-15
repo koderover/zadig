@@ -101,11 +101,12 @@ func (autoCreator *AutoCreator) Create(envName string) (string, error) {
 }
 
 func getCreatorBySource(source string) IProductCreator {
-	if source == setting.SourceFromExternal {
+	switch source {
+	case setting.SourceFromExternal:
 		return newExternalProductCreator()
-	} else if source == setting.HelmDeployType {
+	case setting.HelmDeployType:
 		return newHelmProductCreator()
-	} else {
+	default:
 		return newDefaultProductCreator()
 	}
 }
@@ -174,8 +175,8 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 			// use values.yaml content from predefined env renderset
 			for _, singleRenderChart := range args.ChartInfos {
 				if renderInEnvRenderset, ok := chartInfoMap[singleRenderChart.ServiceName]; ok {
-					singleRenderChart.ValuesYaml = renderInEnvRenderset.ValuesYaml
 					singleRenderChart.OverrideValues = renderInEnvRenderset.OverrideValues
+					singleRenderChart.OverrideYaml = renderInEnvRenderset.OverrideYaml
 				}
 			}
 		}

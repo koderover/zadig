@@ -137,7 +137,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	rendersets := router.Group("rendersets")
 	{
-		rendersets.GET("/renderchart", GetServiceRenderset)
+		rendersets.GET("/renderchart", GetServiceRenderCharts)
 		rendersets.PUT("/renderchart", CreateOrUpdateRenderChart)			// create or update renderchart when onBoarding
 	}
 

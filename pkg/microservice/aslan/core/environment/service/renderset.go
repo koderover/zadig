@@ -24,6 +24,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
@@ -32,7 +33,7 @@ import (
 	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	yaml2 "github.com/koderover/zadig/pkg/util/yaml"
+	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*commonservice.RenderChartArg, error) {
@@ -54,17 +55,14 @@ func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredL
 	}
 
 	serverList := strings.Split(serviceName, ",")
-	serviceMap := map[string]int{}
-	for _, singleService := range serverList {
-		serviceMap[singleService] = 1
-	}
+	stringSet := sets.NewString(serverList...)
 
 	matchedRenderChartModels := make([]*template.RenderChart, 0)
-	if len(serviceMap) == 0 {
+	if stringSet.Len() == 0 {
 		matchedRenderChartModels = rendersetObj.ChartInfos
 	} else {
 		for _, singleChart := range rendersetObj.ChartInfos {
-			if _, ok := serviceMap[singleChart.ServiceName]; !ok {
+			if !stringSet.Has(singleChart.ServiceName) {
 				continue
 			}
 			matchedRenderChartModels = append(matchedRenderChartModels, singleChart)
@@ -90,11 +88,11 @@ func validateYamlContent(yamlContent string) error {
 	return nil
 }
 
-func generateValuesYaml(service *commonmodels.Service, args *commonservice.RenderChartArg, log *zap.SugaredLogger) (string, error) {
+func generateValuesYaml(args *commonservice.RenderChartArg, log *zap.SugaredLogger) (string, error) {
 	if args.YamlSource == setting.ValuesYamlSourceFreeEdit {
 		return args.ValuesYAML, validateYamlContent(args.ValuesYAML)
 	} else if args.YamlSource == setting.ValuesYamlSourceDefault {
-		return service.HelmChart.ValuesYaml, nil
+		return "", nil
 	} else if args.YamlSource == setting.ValuesYamlSourceGitRepo {
 		if args.GitRepoConfig == nil {
 			return "", nil
@@ -137,7 +135,7 @@ func generateValuesYaml(service *commonmodels.Service, args *commonservice.Rende
 			contentObj, _ := fileContentMap.Load(i)
 			allValueYamls[i] = contentObj.([]byte)
 		}
-		allValues, err = yaml2.Merge(allValueYamls)
+		allValues, err = yamlutil.Merge(allValueYamls)
 		if err != nil {
 			return "", errors.Errorf("failed to merge yaml files, repo: %v", *args.GitRepoConfig)
 		}
@@ -167,24 +165,21 @@ func CreateOrUpdateChartValues(productName, envName string, args *commonservice.
 		return e.ErrCreateRenderSet.AddDesc("missing helm chart info")
 	}
 
-	yamlContent, err := generateValuesYaml(serviceObj, args, log)
+	yamlContent, err := generateValuesYaml(args, log)
 	if err != nil {
 		return e.ErrCreateRenderSet.AddDesc(err.Error())
 	}
-
-	if yamlContent == "" {
-		return e.ErrCreateRenderSet.AddDesc("empty yaml content")
-	}
+	args.ValuesYAML = yamlContent
 
 	renderSetName := commonservice.GetProductEnvNamespace(envName, productName)
 
 	opt := &commonrepo.RenderSetFindOption{Name: renderSetName}
-	curRenderset,_, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
+	curRenderset, found, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
 	if err != nil {
 		return e.ErrCreateRenderSet.AddDesc(err.Error())
 	}
 
-	if curRenderset == nil {
+	if !found {
 		curRenderset = &commonmodels.RenderSet{
 			Name:        renderSetName,
 			EnvName:     envName,
@@ -206,6 +201,7 @@ func CreateOrUpdateChartValues(productName, envName string, args *commonservice.
 	}
 	if targetChartInfo == nil {
 		targetChartInfo = new(template.RenderChart)
+		targetChartInfo.ValuesYaml = serviceObj.HelmChart.ValuesYaml
 		args.FillRenderChartModel(targetChartInfo, serviceObj.HelmChart.Version)
 		curRenderset.ChartInfos = append(curRenderset.ChartInfos, targetChartInfo)
 	}

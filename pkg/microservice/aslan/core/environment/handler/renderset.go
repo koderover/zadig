@@ -19,18 +19,18 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 
 	"github.com/gin-gonic/gin"
 
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types/permission"
 )
 
-func GetServiceRenderset(c *gin.Context) {
+func GetServiceRenderCharts(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
