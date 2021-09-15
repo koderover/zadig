@@ -35,8 +35,9 @@ func GetService(c *gin.Context) {
 	envName := c.Query("envName")
 	productName := c.Param("productName")
 	serviceName := c.Param("serviceName")
+	workLoadType := c.Query("workLoadType")
 
-	ctx.Resp, ctx.Err = service.GetService(envName, productName, serviceName, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetService(envName, productName, serviceName, workLoadType, ctx.Logger)
 }
 
 func RestartService(c *gin.Context) {

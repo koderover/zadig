@@ -126,6 +126,18 @@ func GetWorkflowArgs(productName, namespace string, log *zap.SugaredLogger) (*Cr
 
 func getProductTargetMap(prod *commonmodels.Product) map[string][]commonmodels.DeployEnv {
 	resp := make(map[string][]commonmodels.DeployEnv)
+	if prod.Source == setting.SourceFromExternal {
+		services, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(prod.ProductName, prod.EnvName)
+		for _, service := range services {
+			for _, container := range service.Containers {
+				env := service.ServiceName + "/" + container.Name
+				deployEnv := commonmodels.DeployEnv{Type: setting.K8SDeployType, Env: env}
+				target := strings.Join([]string{service.ProductName, service.ServiceName, container.Name}, SplitSymbol)
+				resp[target] = append(resp[target], deployEnv)
+			}
+		}
+		return resp
+	}
 	for _, services := range prod.Services {
 		for _, serviceObj := range services {
 			switch serviceObj.Type {

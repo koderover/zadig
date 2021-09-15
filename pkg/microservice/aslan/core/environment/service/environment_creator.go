@@ -107,6 +107,8 @@ func getCreatorBySource(source string) IProductCreator {
 		return newExternalProductCreator()
 	case setting.HelmDeployType:
 		return newHelmProductCreator()
+	case setting.PMDeployType:
+		return newPMProductCreator()
 	default:
 		return newDefaultProductCreator()
 	}
@@ -232,6 +234,36 @@ func (creator *ExternalProductCreator) Create(user, requestID string, args *mode
 		log.Errorf("[%s][%s] create product record error: %v", args.EnvName, args.ProductName, err)
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
+	return nil
+}
+
+type PMProductCreator struct {
+}
+
+func newPMProductCreator() *PMProductCreator {
+	return &PMProductCreator{}
+}
+
+func (creator *PMProductCreator) Create(user, requestID string, args *models.Product, log *zap.SugaredLogger) error {
+	//创建角色环境之间的关联关系
+	//todo 创建环境暂时不指定角色
+	// 检查是否重复创建（TO BE FIXED）;检查k8s集群设置: Namespace/Secret .etc
+	if err := preCreateProduct(args.EnvName, args, nil, log); err != nil {
+		log.Errorf("CreateProduct preCreateProduct error: %v", err)
+		return e.ErrCreateEnv.AddDesc(err.Error())
+	}
+
+	eventStart := time.Now().Unix()
+
+	args.Status = setting.ProductStatusCreating
+	args.RecycleDay = config.DefaultRecycleDay()
+	err := commonrepo.NewProductColl().Create(args)
+	if err != nil {
+		log.Errorf("[%s][%s] create product record error: %v", args.EnvName, args.ProductName, err)
+		return e.ErrCreateEnv.AddDesc(err.Error())
+	}
+	// 异步创建产品
+	go createGroups(args.EnvName, user, requestID, args, eventStart, nil, nil, log)
 	return nil
 }
 

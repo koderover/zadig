@@ -39,14 +39,13 @@ func ListServiceTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	var tmpResp *commonservice.ServiceTmplResp
-	tmpResp, ctx.Err = commonservice.ListServiceTemplate(c.Query("productName"), ctx.Logger)
+	ctx.Resp, ctx.Err = commonservice.ListServiceTemplate(c.Query("productName"), ctx.Logger)
+}
 
-	// 如果是数据统计页面的请求，则需要将托管环境的服务也返回
-	if c.Query("requestFrom") == "stat" {
-		svcservice.ListServicesInExtenalEnv(tmpResp, ctx.Logger)
-	}
-	ctx.Resp = tmpResp
+func ListWorkloadTemplate(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	ctx.Resp, ctx.Err = commonservice.ListWorkloadTemplate(c.Query("productName"), c.Query("env"), ctx.Logger)
 }
 
 func GetServiceTemplate(c *gin.Context) {
@@ -157,6 +156,26 @@ func ListServicePort(c *gin.Context) {
 		return
 	}
 	ctx.Resp, ctx.Err = svcservice.ListServicePort(c.Param("name"), c.Param("type"), c.Query("productName"), setting.ProductStatusDeleting, revision, ctx.Logger)
+}
+
+type K8sWorkloadsArgs struct {
+	WorkLoads   []commonmodels.Workload `bson:"workLoads"        json:"workLoads"`
+	EnvName     string                  `bson:"env_name"         json:"env_name"`
+	ClusterID   string                  `bson:"cluster_id"       json:"cluster_id"`
+	Namespace   string                  `bson:"namespace"        json:"namespace"`
+	ProductName string                  `bson:"product_name"     json:"product_name"`
+}
+
+func CreateK8sWorkloads(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	args := new(K8sWorkloadsArgs)
+	err := c.BindJSON(args)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid K8sWorkloadsArgs args")
+		return
+	}
+	ctx.Err = svcservice.CreateK8sWorkLoads(c, ctx.RequestID, ctx.Username, args.ProductName, args.WorkLoads, args.ClusterID, args.Namespace, args.EnvName, ctx.Logger)
 }
 
 func ListAvailablePublicServices(c *gin.Context) {
