@@ -429,7 +429,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, args Updat
 			if len(bs) == 0 || err != nil {
 				log.Errorf("UpdateK8sWorkLoads not found yaml %v", err)
 			}
-			if _, err = CreateServiceTemplate(username, &models.Service{
+			if _, err = CreateWorkloadTemplate(username, &models.Service{
 				ServiceName:  v.Name,
 				Yaml:         string(bs),
 				ProductName:  args.ProductName,
@@ -438,6 +438,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, args Updat
 				WorkloadType: v.Type,
 				Source:       setting.SourceFromExternal,
 				EnvName:      args.EnvName,
+				Revision:     1,
 			}, log); err != nil {
 				log.Errorf("create service template failed err:%v", err)
 			}
@@ -490,6 +491,28 @@ func replaceWorkloads(existWorkloads []models.Workload, newWorkloads []models.Wo
 	}
 
 	return result
+}
+
+//CreateWorkloadTemplate only use for workload
+func CreateWorkloadTemplate(userName string, args *commonmodels.Service, log *zap.SugaredLogger) (*ServiceOption, error) {
+	_, err := templaterepo.NewProductColl().Find(args.ProductName)
+	if err != nil {
+		log.Errorf("Failed to find project %s, err: %s", args.ProductName, err)
+		return nil, e.ErrInvalidParam.AddErr(err)
+	}
+	// 遍历args.KubeYamls，获取 Deployment 或者 StatefulSet 里面所有containers 镜像和名称
+	if err := setCurrentContainerImages(args); err != nil {
+		return nil, err
+	}
+	if err := commonrepo.NewServiceColl().Delete(args.ServiceName, args.Type, args.ProductName, setting.ProductStatusDeleting, args.Revision); err != nil {
+		log.Errorf("ServiceTmpl.delete %s error: %v", args.ServiceName, err)
+	}
+
+	if err := commonrepo.NewServiceColl().Create(args); err != nil {
+		log.Errorf("ServiceTmpl.Create %s error: %v", args.ServiceName, err)
+		return nil, e.ErrCreateTemplate.AddDesc(err.Error())
+	}
+	return nil, nil
 }
 
 func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap.SugaredLogger) (*ServiceOption, error) {
