@@ -502,6 +502,7 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, log *za
 	}
 	// 遍历args.KubeYamls，获取 Deployment 或者 StatefulSet 里面所有containers 镜像和名称
 	if err := setCurrentContainerImages(args); err != nil {
+		log.Errorf("Failed tosetCurrentContainerImages %s, err: %s", args.ProductName, err)
 		return nil, err
 	}
 	opt := &commonrepo.ServiceFindOption{
