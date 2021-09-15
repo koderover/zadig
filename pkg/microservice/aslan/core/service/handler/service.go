@@ -167,24 +167,16 @@ type K8sWorkloadsArgs struct {
 	ProductName string                  `bson:"product_name"     json:"product_name"`
 }
 
-type UpdateWorkloadsArgs struct {
-	WorkLoads   []commonmodels.Workload `bson:"workLoads"        json:"workLoads"`
-	ClusterID   string                  `bson:"cluster_id"       json:"cluster_id"`
-	Namespace   string                  `bson:"namespace"        json:"namespace"`
-	EnvName     string                  `bson:"env_name"        json:"env_name"`
-	ProductName string                  `bson:"product_name"     json:"product_name"`
-}
-
 func UpdateWorkloads(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	args := new(UpdateWorkloadsArgs)
+	args := new(service.UpdateWorkloadsArgs)
 	err := c.BindJSON(args)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid UpdateWorkloadsArgs")
 		return
 	}
-	ctx.Err = service.UpdateWorkloads(c, ctx.RequestID, ctx.Username, args.ProductName, args.WorkLoads, args.ClusterID, args.Namespace, args.EnvName, ctx.Logger)
+	ctx.Err = service.UpdateWorkloads(c, ctx.RequestID, ctx.Username, *args, ctx.Logger)
 }
 
 func CreateK8sWorkloads(c *gin.Context) {

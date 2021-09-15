@@ -357,13 +357,21 @@ type ServiceWorkloads struct {
 	Operation   string `bson:"operation"        json:"operation"`
 }
 
-func UpdateWorkloads(ctx context.Context, requestID, username string, productName string, workLoads []models.Workload, clusterID, namespace string, envName string, log *zap.SugaredLogger) error {
-	kubeClient, err := kube.GetKubeClient(clusterID)
+type UpdateWorkloadsArgs struct {
+	WorkLoads   []commonmodels.Workload `bson:"workLoads"        json:"workLoads"`
+	ClusterID   string                  `bson:"cluster_id"       json:"cluster_id"`
+	Namespace   string                  `bson:"namespace"        json:"namespace"`
+	EnvName     string                  `bson:"env_name"        json:"env_name"`
+	ProductName string                  `bson:"product_name"     json:"product_name"`
+}
+
+func UpdateWorkloads(ctx context.Context, requestID, username string, args UpdateWorkloadsArgs, log *zap.SugaredLogger) error {
+	kubeClient, err := kube.GetKubeClient(args.ClusterID)
 	if err != nil {
-		log.Errorf("[%s] error: %v", namespace, err)
+		log.Errorf("[%s] error: %v", args.Namespace, err)
 		return err
 	}
-	workloadStat, err := commonrepo.NewWorkLoadsStatColl().Find(clusterID, namespace)
+	workloadStat, err := commonrepo.NewWorkLoadsStatColl().Find(args.ClusterID, args.Namespace)
 	if err != nil {
 		return err
 	}
@@ -371,18 +379,18 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, productNam
 	originM := map[string]models.Workload{}
 	diff := map[string]*ServiceWorkloads{}
 	for _, v := range workloadStat.Workloads {
-		if v.ProductName == productName && v.EnvName == envName {
+		if v.ProductName == args.ProductName && v.EnvName == args.EnvName {
 			originM[v.Name] = v
 		}
 	}
-	for _, v := range workLoads {
+	for _, v := range args.WorkLoads {
 		uploadM[v.Name] = v
 	}
 	// 判断是删除还是增加
-	for _, v := range workLoads {
+	for _, v := range args.WorkLoads {
 		if _, ok := originM[v.Name]; !ok {
 			diff[v.Name] = &ServiceWorkloads{
-				EnvName:     envName,
+				EnvName:     args.EnvName,
 				Name:        v.Name,
 				Type:        v.Type,
 				ProductName: v.ProductName,
@@ -393,7 +401,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, productNam
 	for _, v := range originM {
 		if _, ok := uploadM[v.Name]; !ok {
 			diff[v.Name] = &ServiceWorkloads{
-				EnvName:     envName,
+				EnvName:     args.EnvName,
 				Name:        v.Name,
 				Type:        v.Type,
 				ProductName: v.ProductName,
@@ -405,7 +413,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, productNam
 		switch v.Operation {
 		// 删除workload的引用
 		case "delete":
-			err = commonrepo.NewServiceColl().UpdateExternalServicesStatus(v.Name, productName, setting.ProductStatusDeleting, envName)
+			err = commonrepo.NewServiceColl().UpdateExternalServicesStatus(v.Name, args.ProductName, setting.ProductStatusDeleting, args.EnvName)
 			if err != nil {
 				log.Errorf("UpdateStatus external services error:%s", err)
 			}
@@ -414,9 +422,9 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, productNam
 			var bs []byte
 			switch v.Type {
 			case setting.Deployment:
-				bs, _, err = getter.GetDeploymentYaml(namespace, v.Name, kubeClient)
+				bs, _, err = getter.GetDeploymentYaml(args.Namespace, v.Name, kubeClient)
 			case setting.StatefulSet:
-				bs, _, err = getter.GetStatefulSetYaml(namespace, v.Name, kubeClient)
+				bs, _, err = getter.GetStatefulSetYaml(args.Namespace, v.Name, kubeClient)
 			}
 			if len(bs) == 0 || err != nil {
 				log.Errorf("UpdateK8sWorkLoads not found yaml %v", err)
@@ -424,19 +432,19 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, productNam
 			if _, err = CreateServiceTemplate(username, &models.Service{
 				ServiceName:  v.Name,
 				Yaml:         string(bs),
-				ProductName:  productName,
+				ProductName:  args.ProductName,
 				CreateBy:     username,
 				Type:         setting.K8SDeployType,
 				WorkloadType: v.Type,
 				Source:       setting.SourceFromExternal,
-				EnvName:      envName,
+				EnvName:      args.EnvName,
 			}, log); err != nil {
 				log.Errorf("create service template failed err:%v", err)
 			}
 		}
 	}
 	// 删除 && 增加
-	workloadStat.Workloads = updateWorkloads(workloadStat.Workloads, diff, envName, productName)
+	workloadStat.Workloads = updateWorkloads(workloadStat.Workloads, diff, args.EnvName, args.ProductName)
 	return commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat)
 }
 
