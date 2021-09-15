@@ -18,9 +18,12 @@ package helmclient
 
 import (
 	hc "github.com/mittwald/go-helm-client"
+	"helm.sh/helm/v3/pkg/strvals"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/tool/log"
+	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 // NewClientFromRestConf returns a new Helm client constructed with the provided REST config options
@@ -32,4 +35,29 @@ func NewClientFromRestConf(restConfig *rest.Config, ns string) (hc.Client, error
 		},
 		RestConfig: restConfig,
 	})
+}
+
+// MergeOverrideValues merge values.yaml and override values
+// overrideYaml used for -f option
+// overrideValues used for --set option
+func MergeOverrideValues(valuesYaml, overrideYaml, overrideValues string) (string, error) {
+
+	if overrideYaml == "" && overrideValues == "" {
+		return valuesYaml, nil
+	}
+
+	// merge files for -f option
+	values, err := yamlutil.MergeAndUnmarshal([][]byte{[]byte(valuesYaml), []byte(overrideYaml)})
+	if err != nil {
+		return "", err
+	}
+
+	// override values for --set option
+	err = strvals.ParseInto(overrideValues, values)
+
+	bs, err := yaml.Marshal(values)
+	if err != nil {
+		return "", err
+	}
+	return string(bs), nil
 }

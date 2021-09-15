@@ -90,12 +90,27 @@ type EnvRenderKV struct {
 	Vars    []*RenderKV `json:"vars"`
 }
 
+type GitRepoConfig struct {
+	CodehostID int    `bson:"codehost_id,omitempty"`
+	Owner      string `bson:"owner,omitempty"`
+	Repo       string `bson:"repo,omitempty"`
+	Branch     string `bson:"branch,omitempty"`
+}
+
+type OverrideYaml struct {
+	YamlSource    string         `bson:"yaml_source,omitempty"     json:"yaml_source,omitempty"`
+	YamlContent   string         `bson:"yaml_content,omitempty"    json:"yaml_content,omitempty"`
+	GitRepoConfig *GitRepoConfig `bson:"gitRepoConfig,omitempty"   json:"gitRepoConfig,omitempty"`
+	ValuesPaths   []string       `bson:"values_paths,omitempty"    json:"values_paths,omitempty"`
+}
+
 // RenderChart ...
 type RenderChart struct {
-	ServiceName  string `bson:"service_name,omitempty"    json:"service_name,omitempty"`
-	ChartVersion string `bson:"chart_version,omitempty"   json:"chart_version,omitempty"`
-	// ChartProject string `bson:"chart_project,omitempty"   json:"chart_project,omitempty"`
-	ValuesYaml string `bson:"values_yaml,omitempty"     json:"values_yaml,omitempty"`
+	ServiceName    string        `bson:"service_name,omitempty"    json:"service_name,omitempty"`
+	ChartVersion   string        `bson:"chart_version,omitempty"   json:"chart_version,omitempty"`
+	ValuesYaml     string        `bson:"values_yaml,omitempty"     json:"values_yaml,omitempty"`
+	OverrideYaml   *OverrideYaml `bson:"override_yaml,omitempty"   json:"override_yaml,omitempty"`
+	OverrideValues string        `bson:"override_values,omitempty"   json:"override_values,omitempty"`
 }
 
 type ProductFeature struct {
@@ -192,4 +207,11 @@ func (r *RenderKV) RemoveDupServices() {
 		}
 	}
 	r.Services = result
+}
+
+func (rc *RenderChart) GetOverrideYaml() string {
+	if rc.OverrideYaml == nil {
+		return ""
+	}
+	return rc.OverrideYaml.YamlContent
 }

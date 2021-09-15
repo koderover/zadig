@@ -127,6 +127,15 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	}
 
 	// ---------------------------------------------------------------------------------------
+	// renderset相关接口
+	// ---------------------------------------------------------------------------------------
+	rendersets := router.Group("rendersets")
+	{
+		rendersets.GET("/renderchart", GetServiceRenderCharts)
+		rendersets.PUT("/renderchart", CreateOrUpdateRenderChart)			// create or update renderchart when onBoarding
+	}
+
+	// ---------------------------------------------------------------------------------------
 	// 环境版本接口
 	// ---------------------------------------------------------------------------------------
 	revision := router.Group("revision")
