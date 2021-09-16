@@ -479,7 +479,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, args Updat
 	return commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat)
 }
 
-func updateWorkloads(existWorkloads []models.Workload, diff map[string]*ServiceWorkloads, envName string, productName string) (result []models.Workload) {
+func updateWorkloads(existWorkloads []models.Workload, diff map[string]*ServiceWorkloadsUpdateAction, envName string, productName string) (result []models.Workload) {
 	existWorkloadsMap := map[string]models.Workload{}
 	for _, v := range existWorkloads {
 		existWorkloadsMap[v.Name] = v
