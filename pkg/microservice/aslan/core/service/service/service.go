@@ -427,6 +427,8 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, args Updat
 			}
 			if len(bs) == 0 || err != nil {
 				log.Errorf("UpdateK8sWorkLoads not found yaml %v", err)
+				delete(diff, v.Name)
+				continue
 			}
 			if err = CreateWorkloadTemplate(username, &models.Service{
 				ServiceName:  v.Name,
@@ -440,6 +442,8 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, args Updat
 				Revision:     1,
 			}, log); err != nil {
 				log.Errorf("create service template failed err:%v", err)
+				delete(diff, v.Name)
+				continue
 			}
 		}
 	}
