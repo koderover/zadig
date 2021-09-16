@@ -102,6 +102,9 @@ func (c *WorkLoadsStatColl) UpdateWorkloads(args *models.WorkloadStat) error {
 		"workloads": args.Workloads,
 	}}
 	_, err := c.UpdateOne(context.TODO(), query, change, options.Update().SetUpsert(true))
-	log.Errorf("UpdateOne %s", err)
+	if err != nil {
+		log.Errorf("UpdateOne %s   - %+v", err, args.Workloads)
+	}
+
 	return err
 }

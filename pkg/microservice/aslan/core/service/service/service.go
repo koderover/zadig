@@ -403,7 +403,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, args Updat
 	deleteString := originSet.Difference(uploadSet)
 	addString := uploadSet.Difference(originSet)
 	for _, v := range workloadStat.Workloads {
-		if v.ProductName != args.ProductName || v.EnvName != args.EnvName {
+		if v.ProductName != args.ProductName {
 			continue
 		}
 		if deleteString.Has(v.Name) {
@@ -415,6 +415,9 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, args Updat
 				Operation:   "delete",
 			}
 		}
+	}
+
+	for _, v := range args.WorkLoads {
 		if addString.Has(v.Name) {
 			diff[v.Name] = &ServiceWorkloads{
 				EnvName:     args.EnvName,
@@ -425,6 +428,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, args Updat
 			}
 		}
 	}
+
 	for _, v := range diff {
 		switch v.Operation {
 		// 删除workload的引用
@@ -463,6 +467,10 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, args Updat
 				continue
 			}
 		}
+	}
+	log.Info("***********")
+	for _, v := range diff {
+		log.Infof("********%v", v.Name)
 	}
 	// 删除 && 增加
 	workloadStat.Workloads = updateWorkloads(workloadStat.Workloads, diff, args.EnvName, args.ProductName)
