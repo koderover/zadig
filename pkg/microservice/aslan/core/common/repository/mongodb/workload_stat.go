@@ -20,12 +20,11 @@ import (
 	"context"
 	"errors"
 
-	"github.com/koderover/zadig/pkg/tool/log"
-
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -103,7 +102,7 @@ func (c *WorkLoadsStatColl) UpdateWorkloads(args *models.WorkloadStat) error {
 	}}
 	_, err := c.UpdateOne(context.TODO(), query, change, options.Update().SetUpsert(true))
 	if err != nil {
-		log.Errorf("UpdateOne %s - %+v", err, args.Workloads)
+		log.Errorf("UpdateOne err:%s - workloads:%+v", err, args.Workloads)
 	}
 
 	return err
