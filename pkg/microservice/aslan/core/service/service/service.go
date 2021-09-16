@@ -372,6 +372,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, args Updat
 	}
 	workloadStat, err := commonrepo.NewWorkLoadsStatColl().Find(args.ClusterID, args.Namespace)
 	if err != nil {
+		log.Errorf("NewWorkLoadsStatColl().Find %s", err)
 		return err
 	}
 	uploadM := map[string]models.Workload{}

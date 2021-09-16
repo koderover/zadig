@@ -20,6 +20,8 @@ import (
 	"context"
 	"errors"
 
+	"github.com/koderover/zadig/pkg/tool/log"
+
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -100,5 +102,6 @@ func (c *WorkLoadsStatColl) UpdateWorkloads(args *models.WorkloadStat) error {
 		"workloads": args.Workloads,
 	}}
 	_, err := c.UpdateOne(context.TODO(), query, change, options.Update().SetUpsert(true))
+	log.Errorf("UpdateOne %s", err)
 	return err
 }
