@@ -468,10 +468,6 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, args Updat
 			}
 		}
 	}
-	log.Info("***********")
-	for _, v := range diff {
-		log.Infof("********%v", v.Name)
-	}
 	// 删除 && 增加
 	workloadStat.Workloads = updateWorkloads(workloadStat.Workloads, diff, args.EnvName, args.ProductName)
 	return commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat)
