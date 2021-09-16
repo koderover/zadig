@@ -375,20 +375,25 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, args Updat
 		log.Errorf("[%s][%s]NewWorkLoadsStatColl().Find %s", args.ClusterID, args.Namespace, err)
 		return err
 	}
-	uploadM := map[string]models.Workload{}
-	originM := map[string]models.Workload{}
 	diff := map[string]*ServiceWorkloads{}
+	originSet := sets.NewString()
+	uploadSet := sets.NewString()
 	for _, v := range workloadStat.Workloads {
 		if v.ProductName == args.ProductName && v.EnvName == args.EnvName {
-			originM[v.Name] = v
+			originSet.Insert(v.Name)
 		}
 	}
 	for _, v := range args.WorkLoads {
-		uploadM[v.Name] = v
+		uploadSet.Insert(v.Name)
 	}
 	// 判断是删除还是增加
-	for _, v := range args.WorkLoads {
-		if _, ok := originM[v.Name]; !ok {
+	deleteString := originSet.Difference(uploadSet)
+	addString := uploadSet.Difference(originSet)
+	for _, v := range workloadStat.Workloads {
+		if v.ProductName != args.ProductName || v.EnvName != args.EnvName {
+			continue
+		}
+		if deleteString.Has(v.Name) {
 			diff[v.Name] = &ServiceWorkloads{
 				EnvName:     args.EnvName,
 				Name:        v.Name,
@@ -397,15 +402,13 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, args Updat
 				Operation:   "add",
 			}
 		}
-	}
-	for _, v := range originM {
-		if _, ok := uploadM[v.Name]; !ok {
+		if addString.Has(v.Name) {
 			diff[v.Name] = &ServiceWorkloads{
 				EnvName:     args.EnvName,
 				Name:        v.Name,
 				Type:        v.Type,
 				ProductName: v.ProductName,
-				Operation:   "delete",
+				Operation:   "add",
 			}
 		}
 	}
