@@ -360,12 +360,12 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 	return commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workLoadStat)
 }
 
-type ServiceWorkloads struct {
-	EnvName     string `bson:"env_name"         json:"env_name"`
-	Name        string `bson:"name"             json:"name"`
-	Type        string `bson:"type"             json:"type"`
-	ProductName string `bson:"product_name"     json:"product_name"`
-	Operation   string `bson:"operation"        json:"operation"`
+type ServiceWorkloadsUpdateAction struct {
+	EnvName     string `json:"env_name"`
+	Name        string `json:"name"`
+	Type        string `json:"type"`
+	ProductName string `json:"product_name"`
+	Operation   string `son:"operation"`
 }
 
 type UpdateWorkloadsArgs struct {
@@ -387,7 +387,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, args Updat
 		log.Errorf("[%s][%s]NewWorkLoadsStatColl().Find %s", args.ClusterID, args.Namespace, err)
 		return err
 	}
-	diff := map[string]*ServiceWorkloads{}
+	diff := map[string]*ServiceWorkloadsUpdateAction{}
 	originSet := sets.NewString()
 	uploadSet := sets.NewString()
 	for _, v := range workloadStat.Workloads {
@@ -406,7 +406,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, args Updat
 			continue
 		}
 		if deleteString.Has(v.Name) {
-			diff[v.Name] = &ServiceWorkloads{
+			diff[v.Name] = &ServiceWorkloadsUpdateAction{
 				EnvName:     args.EnvName,
 				Name:        v.Name,
 				Type:        v.Type,
@@ -425,7 +425,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, args Updat
 
 	for _, v := range args.WorkLoads {
 		if addString.Has(v.Name) {
-			diff[v.Name] = &ServiceWorkloads{
+			diff[v.Name] = &ServiceWorkloadsUpdateAction{
 				EnvName:     args.EnvName,
 				Name:        v.Name,
 				Type:        v.Type,
