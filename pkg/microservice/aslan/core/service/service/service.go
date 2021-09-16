@@ -412,7 +412,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, args Updat
 				Name:        v.Name,
 				Type:        v.Type,
 				ProductName: v.ProductName,
-				Operation:   "add",
+				Operation:   "delete",
 			}
 		}
 		if addString.Has(v.Name) {
