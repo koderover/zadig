@@ -301,7 +301,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 
 			if len(bs) == 0 || err != nil {
 				log.Errorf("not found yaml %v", err)
-				return e.ErrGetService
+				return e.ErrGetService.AddDesc(fmt.Sprintf("get deploy/sts failed err:%s", err))
 			}
 
 			mu.Lock()
@@ -379,7 +379,7 @@ type UpdateWorkloadsArgs struct {
 func UpdateWorkloads(ctx context.Context, requestID, username string, args UpdateWorkloadsArgs, log *zap.SugaredLogger) error {
 	kubeClient, err := kube.GetKubeClient(args.ClusterID)
 	if err != nil {
-		log.Errorf("[%s] error: %v", args.Namespace, err)
+		log.Errorf("[%s] error: %s", args.Namespace, err)
 		return err
 	}
 	workloadStat, err := commonrepo.NewWorkLoadsStatColl().Find(args.ClusterID, args.Namespace)
@@ -415,6 +415,12 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, args Updat
 			}
 		}
 	}
+	// pre judge  workLoads same name
+	serviceString := sets.NewString()
+	services, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(args.ProductName, "")
+	for _, v := range services {
+		serviceString.Insert(v.ServiceName)
+	}
 
 	for _, v := range args.WorkLoads {
 		if addString.Has(v.Name) {
@@ -425,6 +431,9 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, args Updat
 				ProductName: v.ProductName,
 				Operation:   "add",
 			}
+		}
+		if serviceString.Has(v.Name) {
+			return e.ErrCreateTemplate.AddDesc(fmt.Sprintf("do not support import same service name: %s", v.Name))
 		}
 	}
 
@@ -446,7 +455,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, args Updat
 				bs, _, err = getter.GetStatefulSetYaml(args.Namespace, v.Name, kubeClient)
 			}
 			if len(bs) == 0 || err != nil {
-				log.Errorf("UpdateK8sWorkLoads not found yaml %v", err)
+				log.Errorf("UpdateK8sWorkLoads not found yaml %s", err)
 				delete(diff, v.Name)
 				continue
 			}
@@ -546,7 +555,7 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, log *za
 			//更新项目模板
 			err = templaterepo.NewProductColl().Update(args.ProductName, productTempl)
 			if err != nil {
-				log.Errorf("CreateServiceTemplate Update %s error: %v", args.ServiceName, err)
+				log.Errorf("CreateServiceTemplate Update %s error: %s", args.ServiceName, err)
 				return e.ErrCreateTemplate.AddDesc(err.Error())
 			}
 		}
@@ -665,7 +674,7 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap
 			//更新项目模板
 			err = templaterepo.NewProductColl().Update(args.ProductName, productTempl)
 			if err != nil {
-				log.Errorf("CreateServiceTemplate Update %s error: %v", args.ServiceName, err)
+				log.Errorf("CreateServiceTemplate Update %s error: %s", args.ServiceName, err)
 				return nil, e.ErrCreateTemplate.AddDesc(err.Error())
 			}
 		}

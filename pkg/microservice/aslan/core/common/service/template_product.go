@@ -82,12 +82,12 @@ func GetProductTemplate(productName string, log *zap.SugaredLogger) (*template.P
 	if resp.ProductFeature != nil && resp.ProductFeature.CreateEnvType == setting.SourceFromExternal {
 		totalServices, err = commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, "")
 		if err != nil {
-			return resp, fmt.Errorf("ListExternalWorkloadsBy err : %v", err)
+			return resp, fmt.Errorf("ListExternalWorkloadsBy err : %s", err)
 		}
 	} else {
 		totalServices, err = commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
 		if err != nil {
-			return resp, fmt.Errorf("ListMaxRevisionsByProduct err : %v", err)
+			return resp, fmt.Errorf("ListMaxRevisionsByProduct err : %s", err)
 		}
 	}
 
