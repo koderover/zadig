@@ -171,7 +171,7 @@ func UpdateWorkloads(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	args := new(service.UpdateWorkloadsArgs)
-	err := c.BindJSON(args)
+	err := c.ShouldBindJSON(args)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid UpdateWorkloadsArgs")
 		return

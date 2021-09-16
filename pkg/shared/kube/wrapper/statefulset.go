@@ -74,7 +74,7 @@ func (w *statefulSet) Images() (images []string) {
 	return
 }
 
-func (w *statefulSet) DetailImages() (images []string) {
+func (w *statefulSet) ImageInfos() (images []string) {
 	for _, v := range w.Spec.Template.Spec.Containers {
 		images = append(images, v.Image)
 	}

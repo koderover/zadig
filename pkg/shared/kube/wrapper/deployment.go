@@ -74,7 +74,7 @@ func (w *deployment) Images() (images []string) {
 	return
 }
 
-func (w *deployment) DetailImages() (images []string) {
+func (w *deployment) ImageInfos() (images []string) {
 	for _, v := range w.Spec.Template.Spec.Containers {
 		images = append(images, v.Image)
 	}

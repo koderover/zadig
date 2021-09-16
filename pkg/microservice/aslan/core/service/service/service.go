@@ -369,11 +369,11 @@ type ServiceWorkloads struct {
 }
 
 type UpdateWorkloadsArgs struct {
-	WorkLoads   []commonmodels.Workload `bson:"workLoads"        json:"workLoads"`
-	ClusterID   string                  `bson:"cluster_id"       json:"cluster_id"`
-	Namespace   string                  `bson:"namespace"        json:"namespace"`
-	EnvName     string                  `bson:"env_name"        json:"env_name"`
-	ProductName string                  `bson:"product_name"     json:"product_name"`
+	WorkLoads   []commonmodels.Workload `json:"workLoads"`
+	ClusterID   string                  `json:"cluster_id"`
+	Namespace   string                  `json:"namespace"`
+	EnvName     string                  `json:"env_name"`
+	ProductName string                  `json:"product_name"`
 }
 
 func UpdateWorkloads(ctx context.Context, requestID, username string, args UpdateWorkloadsArgs, log *zap.SugaredLogger) error {

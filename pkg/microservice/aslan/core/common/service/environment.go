@@ -197,7 +197,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
 	}
 	for _, v := range listDeployments {
-		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: corev1.ServiceSpec{Selector: v.Spec.Selector.MatchLabels}, Type: setting.Deployment, Images: wrapper.Deployment(v).DetailImages(), Ready: wrapper.Deployment(v).Ready()})
+		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: corev1.ServiceSpec{Selector: v.Spec.Selector.MatchLabels}, Type: setting.Deployment, Images: wrapper.Deployment(v).ImageInfos(), Ready: wrapper.Deployment(v).Ready()})
 	}
 	statefulSets, err := getter.ListStatefulSets(namespace, nil, kubeClient)
 	if err != nil {
@@ -205,7 +205,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
 	}
 	for _, v := range statefulSets {
-		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: corev1.ServiceSpec{Selector: v.Spec.Selector.MatchLabels}, Type: setting.StatefulSet, Images: wrapper.StatefulSet(v).DetailImages(), Ready: wrapper.StatefulSet(v).Ready()})
+		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: corev1.ServiceSpec{Selector: v.Spec.Selector.MatchLabels}, Type: setting.StatefulSet, Images: wrapper.StatefulSet(v).ImageInfos(), Ready: wrapper.StatefulSet(v).Ready()})
 	}
 
 	log.Debugf("Found %d workloads in total", len(workLoads))
