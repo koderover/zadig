@@ -275,6 +275,19 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 		workloadsTmp []models.Workload
 		mu           sync.Mutex
 	)
+
+	// pre judge  workLoads same name
+	serviceString := sets.NewString()
+	services, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, "")
+	for _, v := range services {
+		serviceString.Insert(v.ServiceName)
+	}
+	for _, workload := range workLoads {
+		if serviceString.Has(workload.Name) {
+			return e.ErrCreateTemplate.AddDesc(fmt.Sprintf("do not support import same service name: %s", workload.Name))
+		}
+	}
+
 	g := new(errgroup.Group)
 	for _, workload := range workLoads {
 		tempWorkload := workload
