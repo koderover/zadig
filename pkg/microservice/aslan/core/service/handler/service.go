@@ -176,7 +176,9 @@ func UpdateWorkloads(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid UpdateWorkloadsArgs")
 		return
 	}
-	ctx.Err = service.UpdateWorkloads(c, ctx.RequestID, ctx.Username, *args, ctx.Logger)
+	product := c.Param("product")
+	env := c.Param("env")
+	ctx.Err = service.UpdateWorkloads(c, ctx.RequestID, ctx.Username, product, env, *args, ctx.Logger)
 }
 
 func CreateK8sWorkloads(c *gin.Context) {

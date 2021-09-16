@@ -369,14 +369,12 @@ type ServiceWorkloadsUpdateAction struct {
 }
 
 type UpdateWorkloadsArgs struct {
-	WorkLoads   []commonmodels.Workload `json:"workLoads"`
-	ClusterID   string                  `json:"cluster_id"`
-	Namespace   string                  `json:"namespace"`
-	EnvName     string                  `json:"env_name"`
-	ProductName string                  `json:"product_name"`
+	WorkLoads []commonmodels.Workload `json:"workLoads"`
+	ClusterID string                  `json:"cluster_id"`
+	Namespace string                  `json:"namespace"`
 }
 
-func UpdateWorkloads(ctx context.Context, requestID, username string, args UpdateWorkloadsArgs, log *zap.SugaredLogger) error {
+func UpdateWorkloads(ctx context.Context, requestID, username, productName, envName string, args UpdateWorkloadsArgs, log *zap.SugaredLogger) error {
 	kubeClient, err := kube.GetKubeClient(args.ClusterID)
 	if err != nil {
 		log.Errorf("[%s] error: %s", args.Namespace, err)
@@ -391,7 +389,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, args Updat
 	originSet := sets.NewString()
 	uploadSet := sets.NewString()
 	for _, v := range workloadStat.Workloads {
-		if v.ProductName == args.ProductName && v.EnvName == args.EnvName {
+		if v.ProductName == productName && v.EnvName == envName {
 			originSet.Insert(v.Name)
 		}
 	}
@@ -402,12 +400,12 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, args Updat
 	deleteString := originSet.Difference(uploadSet)
 	addString := uploadSet.Difference(originSet)
 	for _, v := range workloadStat.Workloads {
-		if v.ProductName != args.ProductName {
+		if v.ProductName != productName {
 			continue
 		}
 		if deleteString.Has(v.Name) {
 			diff[v.Name] = &ServiceWorkloadsUpdateAction{
-				EnvName:     args.EnvName,
+				EnvName:     envName,
 				Name:        v.Name,
 				Type:        v.Type,
 				ProductName: v.ProductName,
@@ -416,7 +414,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, args Updat
 		}
 	}
 	// pre judge  workLoads same name
-	services, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(args.ProductName, "")
+	services, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, "")
 	for _, v := range services {
 		if addString.Has(v.ServiceName) {
 			return e.ErrCreateTemplate.AddDesc(fmt.Sprintf("do not support import same service name: %s", v.ServiceName))
@@ -426,7 +424,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, args Updat
 	for _, v := range args.WorkLoads {
 		if addString.Has(v.Name) {
 			diff[v.Name] = &ServiceWorkloadsUpdateAction{
-				EnvName:     args.EnvName,
+				EnvName:     envName,
 				Name:        v.Name,
 				Type:        v.Type,
 				ProductName: v.ProductName,
@@ -439,7 +437,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, args Updat
 		switch v.Operation {
 		// 删除workload的引用
 		case "delete":
-			err = commonrepo.NewServiceColl().UpdateExternalServicesStatus(v.Name, args.ProductName, setting.ProductStatusDeleting, args.EnvName)
+			err = commonrepo.NewServiceColl().UpdateExternalServicesStatus(v.Name, productName, setting.ProductStatusDeleting, args.EnvName)
 			if err != nil {
 				log.Errorf("UpdateStatus external services error:%s", err)
 			}
@@ -460,12 +458,12 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, args Updat
 			if err = CreateWorkloadTemplate(username, &models.Service{
 				ServiceName:  v.Name,
 				Yaml:         string(bs),
-				ProductName:  args.ProductName,
+				ProductName:  productName,
 				CreateBy:     username,
 				Type:         setting.K8SDeployType,
 				WorkloadType: v.Type,
 				Source:       setting.SourceFromExternal,
-				EnvName:      args.EnvName,
+				EnvName:      envName,
 				Revision:     1,
 			}, log); err != nil {
 				log.Errorf("create service template failed err:%v", err)
@@ -475,7 +473,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, args Updat
 		}
 	}
 	// 删除 && 增加
-	workloadStat.Workloads = updateWorkloads(workloadStat.Workloads, diff, args.EnvName, args.ProductName)
+	workloadStat.Workloads = updateWorkloads(workloadStat.Workloads, diff, envName, productName)
 	return commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat)
 }
 
