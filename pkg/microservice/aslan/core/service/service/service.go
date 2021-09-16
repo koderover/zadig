@@ -416,10 +416,11 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, args Updat
 		}
 	}
 	// pre judge  workLoads same name
-	serviceString := sets.NewString()
 	services, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(args.ProductName, "")
 	for _, v := range services {
-		serviceString.Insert(v.ServiceName)
+		if addString.Has(v.ServiceName) {
+			return e.ErrCreateTemplate.AddDesc(fmt.Sprintf("do not support import same service name: %s", v.ServiceName))
+		}
 	}
 
 	for _, v := range args.WorkLoads {
@@ -431,9 +432,6 @@ func UpdateWorkloads(ctx context.Context, requestID, username string, args Updat
 				ProductName: v.ProductName,
 				Operation:   "add",
 			}
-		}
-		if serviceString.Has(v.Name) {
-			return e.ErrCreateTemplate.AddDesc(fmt.Sprintf("do not support import same service name: %s", v.Name))
 		}
 	}
 
