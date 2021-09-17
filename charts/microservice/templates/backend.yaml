@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  labels: 
+    app.kubernetes.io/name: demo
+    app.kubernetes.io/instance: backend
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: demo
+      app.kubernetes.io/instance: backend
+  replicas: {{ .Values.Backend.replicaCount }}
+  template:
+    metadata: 
+      labels:
+        app.kubernetes.io/name: demo
+        app.kubernetes.io/instance: backend
+    spec:
+      containers:
+        - name: backend
+          image: {{ .Values.Backend.image.repository }}:{{ .Values.Backend.image.tag }}
+          imagePullPolicy: Always 
+          command:
+            - /workspace/backend
+          ports:
+            - protocol: TCP
+              containerPort: 20219
+      imagePullSecrets:
+        - name: registry-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  labels:
+    app.kubernetes.io/name: demo
+    app.kubernetes.io/instance: backend
+spec:
+  selector:
+    app.kubernetes.io/name: demo
+    app.kubernetes.io/instance: backend
+  type: NodePort
+  ports:
+    - protocol: TCP
+      port: {{ .Values.port }}
+      targetPort: 20219
