@@ -1,28 +1,28 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: backend
+  name: {{ .Values.instance.ID}}
   labels: 
     app.kubernetes.io/name: demo
-    app.kubernetes.io/instance: backend
+    app.kubernetes.io/instance: {{ .Values.instance.ID}}
 spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: demo
-      app.kubernetes.io/instance: backend
+      app.kubernetes.io/instance: {{ .Values.instance.ID}}
   replicas: {{ .Values.Backend.replicaCount }}
   template:
     metadata: 
       labels:
         app.kubernetes.io/name: demo
-        app.kubernetes.io/instance: backend
+        app.kubernetes.io/instance: {{ .Values.instance.ID}}
     spec:
       containers:
-        - name: backend
+        - name: {{ .Values.instance.ID}}
           image: {{ .Values.Backend.image.repository }}:{{ .Values.Backend.image.tag }}
           imagePullPolicy: Always 
           command:
-            - /workspace/backend
+            - /workspace/{{ .Values.instance.ID}}
           ports:
             - protocol: TCP
               containerPort: 20219
@@ -32,14 +32,14 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: backend
+  name: {{ .Values.instance.ID}}
   labels:
     app.kubernetes.io/name: demo
-    app.kubernetes.io/instance: backend
+    app.kubernetes.io/instance: {{ .Values.instance.ID}}
 spec:
   selector:
     app.kubernetes.io/name: demo
-    app.kubernetes.io/instance: backend
+    app.kubernetes.io/instance: {{ .Values.instance.ID}}
   type: NodePort
   ports:
     - protocol: TCP

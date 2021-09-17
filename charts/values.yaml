@@ -18,4 +18,4 @@ Frontend:
 domain: .app.8slan.com
 port: 20219
 
-registrySecret: ""
+registrySecret: "eyJodHRwczovL2Njci5jY3aaaMudGVuY2VudHl1bi5jb20iTI0NzIyNjUiLCJabcDItMTkiLCJlbWFpbCI6ImJvdEBrb2Rlcm92ZXIuY29tIn19"
