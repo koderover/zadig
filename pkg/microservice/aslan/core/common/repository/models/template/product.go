@@ -100,7 +100,7 @@ type GitRepoConfig struct {
 type OverrideYaml struct {
 	YamlSource    string         `bson:"yaml_source,omitempty"     json:"yaml_source,omitempty"`
 	YamlContent   string         `bson:"yaml_content,omitempty"    json:"yaml_content,omitempty"`
-	GitRepoConfig *GitRepoConfig `bson:"gitRepoConfig,omitempty"   json:"gitRepoConfig,omitempty"`
+	GitRepoConfig *GitRepoConfig `bson:"git_repo_config,omitempty"   json:"gitRepoConfig,omitempty"`
 	ValuesPaths   []string       `bson:"values_paths,omitempty"    json:"values_paths,omitempty"`
 }
 

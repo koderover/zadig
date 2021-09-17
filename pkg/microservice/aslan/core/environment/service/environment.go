@@ -761,21 +761,23 @@ func CreateHelmProduct(userName, requestID string, args *CreateHelmProductArg, l
 		return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to query productL %s ", args.ProductName))
 	}
 
+	err = commonservice.FillProductTemplateValuesYamls(templateProduct, log)
+	if err != nil {
+		return e.ErrCreateEnv.AddDesc(err.Error())
+	}
+
 	productObj := &commonmodels.Product{
 		ProductName:     args.ProductName,
 		Revision:        1,
 		Enabled:         false,
 		EnvName:         args.EnvName,
 		UpdateBy:        userName,
-		Services:        nil,
-		Render:          nil,
-		ChartInfos:      nil,
 		IsPublic:        true,
 		ClusterID:       args.ClusterID,
 		Namespace:       commonservice.GetProductEnvNamespace(args.EnvName, args.ProductName),
-		RecycleDay:      0,
 		Source:          setting.SourceFromHelm,
 		IsOpenSource:    templateProduct.IsOpensource,
+		ChartInfos:      templateProduct.ChartInfos,
 		IsForkedProduct: false,
 	}
 
@@ -829,31 +831,33 @@ func CreateHelmProduct(userName, requestID string, args *CreateHelmProductArg, l
 	for _, singleService := range serviceList {
 		serviceMap[singleService.ServiceName] = singleService
 	}
-	rcs := make([]*template.RenderChart, 0)
-	// handle chart values
-	for _, singleChartValue := range args.ChartValues {
-		serviceObj, _ := serviceMap[singleChartValue.ServiceName]
-		yamlContent, err := generateValuesYaml(singleChartValue, log)
-		if err != nil {
-			return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to get yaml content for service: %s, err %v", singleChartValue.ServiceName, err.Error()))
+
+	customChartValueMap := make(map[string]*commonservice.RenderChartArg)
+	for _, singleCV := range args.ChartValues {
+		customChartValueMap[singleCV.ServiceName] = singleCV
+	}
+
+	// TODO use client assigned chartInfos or all service infos?
+	for _, latestChart := range productObj.ChartInfos {
+		if singleCV, ok := customChartValueMap[latestChart.ServiceName]; ok {
+			yamlContent, err := generateValuesYaml(singleCV, log)
+			if err != nil {
+				return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to get yaml content for service: %s, err %v", singleCV.ServiceName, err.Error()))
+			}
+			singleCV.ValuesYAML = yamlContent
+			singleCV.FillRenderChartModel(latestChart, latestChart.ChartVersion)
 		}
-		if yamlContent == "" {
-			return e.ErrCreateEnv.AddDesc(fmt.Sprintf("empty yaml content for service %v", singleChartValue.ServiceName))
-		}
-		chartValue := &template.RenderChart{}
-		singleChartValue.FillRenderChartModel(chartValue, serviceObj.HelmChart.Version)
-		rcs = append(rcs, chartValue)
 	}
 
 	// insert renderset info into db
-	if len(rcs) > 0 {
+	if len(productObj.ChartInfos) > 0 {
 		err = commonservice.CreateHelmRenderSet(&commonmodels.RenderSet{
 			Name:        commonservice.GetProductEnvNamespace(args.EnvName, args.ProductName),
 			EnvName:     args.EnvName,
 			ProductTmpl: args.ProductName,
 			UpdateBy:    userName,
 			IsDefault:   false,
-			ChartInfos:  rcs,
+			ChartInfos:  productObj.ChartInfos,
 		}, log)
 		if err != nil {
 			log.Errorf("rennderset create fail when creating helm product, productName: %s", args.ProductName)
@@ -875,7 +879,7 @@ func UpdateProductRecycleDay(envName, productName string, recycleDay int) error 
 	return commonrepo.NewProductColl().UpdateProductRecycleDay(envName, productName, recycleDay)
 }
 
-func UpdateHelmProduct(productName, envName, updateType, username, requestID string, overrideCharts map[string]*template.RenderChart, log *zap.SugaredLogger) error {
+func UpdateHelmProduct(productName, envName, updateType, username, requestID string, overrideCharts []*commonservice.RenderChartArg, log *zap.SugaredLogger) error {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	productResp, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
@@ -934,6 +938,18 @@ func UpdateHelmProduct(productName, envName, updateType, username, requestID str
 	return nil
 }
 
+func diffCustomValues(source *template.RenderChart, args *commonservice.RenderChartArg) bool {
+	tmpRenderCharts := &template.RenderChart{}
+	args.FillRenderChartModel(tmpRenderCharts, "")
+	if source.OverrideValues != tmpRenderCharts.OverrideValues {
+		return true
+	}
+	if source.GetOverrideYaml() != tmpRenderCharts.GetOverrideYaml() {
+		return true
+	}
+	return false
+}
+
 func UpdateHelmProductRenderCharts(productName, envName, userName, requestID string, renderCharts []*commonservice.RenderChartArg, log *zap.SugaredLogger) error {
 
 	renderSetName := commonservice.GetProductEnvNamespace(envName, productName)
@@ -967,21 +983,19 @@ func UpdateHelmProductRenderCharts(productName, envName, userName, requestID str
 		if err != nil {
 			return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to get yaml content for service: %s, err %v", requestRenderChart.ServiceName, err.Error()))
 		}
-
-		if yamlContent == "" {
-			return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("empty yaml content for service %v", requestRenderChart.ServiceName))
-		}
+		requestRenderChart.ValuesYAML = yamlContent
 
 		// update renderset info
 		for _, singleRenderChart := range productRenderset.ChartInfos {
-			if singleRenderChart.ServiceName == requestRenderChart.ServiceName {
-				oldValuesYaml, oldOverrideValues := singleRenderChart.ValuesYaml, singleRenderChart.OverrideValues
-				requestRenderChart.FillRenderChartModel(singleRenderChart, singleRenderChart.ChartVersion)
-				// only if values.yaml or override values changed, renderchart needs to be updated
-				if oldValuesYaml != singleRenderChart.ValuesYaml || oldOverrideValues != singleRenderChart.OverrideValues {
-					rcs = append(rcs, singleRenderChart)
-				}
+			if singleRenderChart.ServiceName != requestRenderChart.ServiceName {
+				continue
 			}
+			if !diffCustomValues(singleRenderChart, requestRenderChart) {
+				continue
+			}
+			requestRenderChart.FillRenderChartModel(singleRenderChart, singleRenderChart.ChartVersion)
+			rcs = append(rcs, singleRenderChart)
+			break
 		}
 	}
 
@@ -1000,6 +1014,7 @@ func UpdateHelmProductVariable(productName, envName, username, requestID string,
 		oldRenderVersion = productResp.Render.Revision
 	}
 	productResp.ChartInfos = updatedRcs
+
 	if err = commonservice.CreateHelmRenderSet(
 		&commonmodels.RenderSet{
 			Name:        productResp.Namespace,
@@ -1104,11 +1119,9 @@ func UpdateMultipleHelmEnv(userName, requestID string, userID int, superUser boo
 	envNameSet := sets.NewString(envNames...)
 	productMap := make(map[string]*ProductRevision)
 	for _, productRevision := range productsRevision {
-		log.Infof("########## productName %s", productName)
 		if productRevision.ProductName != productName || !envNameSet.Has(productRevision.EnvName) {
 			continue
 		}
-		log.Infof("######### updatable info is %v", productRevision.Updatable)
 		if !productRevision.Updatable {
 			continue
 		}
@@ -1117,8 +1130,6 @@ func UpdateMultipleHelmEnv(userName, requestID string, userID int, superUser boo
 			break
 		}
 	}
-
-	log.Infof("############# length of productMap %d", len(productMap))
 
 	serviceList, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(args.ProductName)
 	if err != nil {
@@ -1143,35 +1154,7 @@ func UpdateMultipleHelmEnv(userName, requestID string, userID int, superUser boo
 			return envStatuses, e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for env: %s", envName))
 		}
 
-		overrideChartInfos := make(map[string]*template.RenderChart)
-		for _, singleChartValue := range args.ChartValues {
-			if envName != singleChartValue.EnvName {
-				continue
-			}
-
-			// extract yaml content
-			yamlContent, err := generateValuesYaml(singleChartValue, log)
-			if err != nil {
-				return envStatuses, e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to get yaml content for service: %s, err %v", singleChartValue.ServiceName, err.Error()))
-			}
-			singleChartValue.ValuesYAML = yamlContent
-
-			// update chart info in renderset
-			for _, singleChart := range renderSet.ChartInfos {
-				if singleChart.ServiceName != singleChartValue.ServiceName {
-					continue
-				}
-				singleChartValue.FillRenderChartModel(singleChart, singleChart.ChartVersion)
-				overrideChartInfos[singleChart.ServiceName] = singleChart
-				break
-			}
-		}
-		//err = commonservice.CreateHelmRenderSet(renderSet, log)
-		//if err != nil {
-		//	return envStatuses, e.ErrUpdateEnv.AddDesc(err.Error())
-		//}
-
-		err = UpdateHelmProduct(productName, envName, UpdateTypeEnv, setting.SystemUser, requestID, overrideChartInfos, log)
+		err = UpdateHelmProduct(productName, envName, UpdateTypeEnv, setting.SystemUser, requestID, args.ChartValues, log)
 		if err != nil {
 			log.Errorf("UpdateMultiHelmProduct UpdateProductV2 err:%v", err)
 			return envStatuses, e.ErrUpdateEnv.AddDesc(err.Error())
@@ -1329,6 +1312,13 @@ func GetHelmChartVersions(productName, envName string, log *zap.SugaredLogger) (
 		return nil, e.ErrGetEnv
 	}
 
+	prodTmpl, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		log.Errorf("[EnvName:%s][Product:%s] get product template error: %v", envName, productName, err)
+		return nil, e.ErrGetEnv
+	}
+
+	//当前环境的renderset
 	renderSetName := commonservice.GetProductEnvNamespace(envName, productName)
 	renderSetOpt := &commonrepo.RenderSetFindOption{Name: renderSetName, Revision: prod.Render.Revision}
 	renderSet, err := commonrepo.NewRenderSetColl().Find(renderSetOpt)
@@ -1336,32 +1326,61 @@ func GetHelmChartVersions(productName, envName string, log *zap.SugaredLogger) (
 		log.Errorf("find helm renderset[%s] error: %v", renderSetName, err)
 		return helmVersions, err
 	}
-
 	for _, chartInfo := range renderSet.ChartInfos {
 		chartInfoMap[chartInfo.ServiceName] = chartInfo
 	}
 
-	for serviceName, chartInfo := range chartInfoMap {
-		opt := &commonrepo.ServiceFindOption{
-			ServiceName: serviceName,
-			Type:        setting.HelmDeployType,
-			ProductName: productName,
+	//当前环境内的服务信息
+	prodServiceMap := make(map[string]*commonmodels.ProductService)
+	for _, serviceGroup := range prod.Services {
+		for _, service := range serviceGroup {
+			prodServiceMap[service.ServiceName] = service
 		}
+	}
 
-		respService, err := commonrepo.NewServiceColl().Find(opt)
-		if err != nil {
-			log.Warnf("系统未找到当前类型[%s]的服务[%s]!", setting.HelmDeployType, serviceName)
-			continue
+	// all services
+	serviceListOpt := &commonrepo.ServiceListOption{
+		ProductName: productName,
+		Type:        setting.HelmDeployType,
+	}
+	for _, serviceGroup := range prodTmpl.Services {
+		for _, serviceName := range serviceGroup {
+			serviceListOpt.InServices = append(serviceListOpt.InServices, &template.ServiceInfo{
+				Name:  serviceName,
+				Owner: productName,
+			})
 		}
+	}
+	//当前项目内最新的服务信息
+	latestServices, err := commonrepo.NewServiceColl().ListMaxRevisions(serviceListOpt)
+	if err != nil {
+		log.Errorf("find service revision list error: %v", err)
+		return helmVersions, err
+	}
 
-		helmVersion := &commonmodels.HelmVersions{
-			ServiceName:       serviceName,
-			CurrentVersion:    chartInfo.ChartVersion,
-			CurrentValuesYaml: chartInfo.ValuesYaml,
-			LatestVersion:     respService.HelmChart.Version,
-			LatestValuesYaml:  respService.HelmChart.ValuesYaml,
+	for _, latestSvc := range latestServices {
+		if prodService, ok := prodServiceMap[latestSvc.ServiceName]; ok {
+			if latestSvc.Revision == prodService.Revision {
+				continue
+			}
+			helmVersion := &commonmodels.HelmVersions{
+				ServiceName:      latestSvc.ServiceName,
+				LatestVersion:    latestSvc.HelmChart.Version,
+				LatestValuesYaml: latestSvc.HelmChart.ValuesYaml,
+			}
+			if chartInfo, ok := chartInfoMap[latestSvc.ServiceName]; ok {
+				helmVersion.CurrentVersion = chartInfo.ChartVersion
+				helmVersion.CurrentValuesYaml = chartInfo.ValuesYaml
+			}
+			helmVersions = append(helmVersions, helmVersion)
+		} else { // new service
+			helmVersion := &commonmodels.HelmVersions{
+				ServiceName:      latestSvc.ServiceName,
+				LatestVersion:    latestSvc.HelmChart.Version,
+				LatestValuesYaml: latestSvc.HelmChart.ValuesYaml,
+			}
+			helmVersions = append(helmVersions, helmVersion)
 		}
-		helmVersions = append(helmVersions, helmVersion)
 	}
 
 	return helmVersions, nil
@@ -1369,23 +1388,20 @@ func GetHelmChartVersions(productName, envName string, log *zap.SugaredLogger) (
 
 func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, log *zap.SugaredLogger) ([]*commonservice.RenderChartArg, error) {
 
-	serviceNameList := strings.Split(serviceNameListStr, ",")
-	templateServiceMap := make(map[string]*commonmodels.Service)
-
+	var serviceNameList []string
 	// no service appointed, find all service templates
 	if serviceNameListStr == "" {
-		serviceNameList = make([]string, 0)
-		serviceList, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
+		prodTmpl, err := templaterepo.NewProductColl().Find(productName)
 		if err != nil {
-			log.Errorf("list service fail, productName %s err %s", productName, err.Error())
-			return nil, e.ErrGetRenderSet.AddDesc("failed to list service info")
+			log.Errorf("query product: %s fail, err %s", productName, err.Error())
+			return nil, e.ErrGetRenderSet.AddDesc(fmt.Sprintf("query product info fail"))
 		}
-
-		for _, singleService := range serviceList {
-			templateServiceMap[singleService.ServiceName] = singleService
-			serviceNameList = append(serviceNameList, singleService.ServiceName)
+		for _, singleService := range prodTmpl.AllServiceInfos() {
+			serviceNameList = append(serviceNameList, singleService.Name)
 		}
 		serviceNameListStr = strings.Join(serviceNameList, ",")
+	} else {
+		serviceNameList = strings.Split(serviceNameListStr, ",")
 	}
 
 	// find renderchart info in env
@@ -1400,37 +1416,32 @@ func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, l
 		rcMap[rc.ServiceName] = rc
 	}
 
-	//TODO need optimize
-	needDefaultService := make(map[string]int)
+	serviceOption := &commonrepo.ServiceListOption{
+		ProductName: productName,
+		Type:        setting.HelmDeployType,
+	}
+
 	for _, serviceName := range serviceNameList {
 		if _, ok := rcMap[serviceName]; ok {
 			continue
 		}
-		if serviceInfo, ok := templateServiceMap[serviceName]; ok {
-			rcMap[serviceInfo.ServiceName] = &commonservice.RenderChartArg{
-				EnvName:      envName,
-				ServiceName:  serviceInfo.ServiceName,
-				ChartVersion: serviceInfo.HelmChart.Version,
-			}
-			continue
-		}
-		needDefaultService[serviceName] = 1
+		serviceOption.InServices = append(serviceOption.InServices, &template.ServiceInfo{
+			Name:  serviceName,
+			Owner: productName,
+		})
 	}
 
-	if len(needDefaultService) > 0 {
-		//serviceList, err := commonrepo.NewServiceColl().ListMaxRevisions(serviceOption)
-		serviceList, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
+	if len(serviceOption.InServices) > 0 {
+		serviceList, err := commonrepo.NewServiceColl().ListMaxRevisions(serviceOption)
 		if err != nil {
 			log.Errorf("list service fail, productName %s err %s", productName, err.Error())
 			return nil, e.ErrGetRenderSet.AddDesc("failed to get service template info")
 		}
 		for _, singleService := range serviceList {
-			if _, ok := needDefaultService[singleService.ServiceName]; ok {
-				rcMap[singleService.ServiceName] = &commonservice.RenderChartArg{
-					EnvName:      envName,
-					ServiceName:  singleService.ServiceName,
-					ChartVersion: singleService.HelmChart.Version,
-				}
+			rcMap[singleService.ServiceName] = &commonservice.RenderChartArg{
+				EnvName:      envName,
+				ServiceName:  singleService.ServiceName,
+				ChartVersion: singleService.HelmChart.Version,
 			}
 		}
 	}
@@ -2443,7 +2454,7 @@ func getUpdatedProductServices(updateProduct *commonmodels.Product, serviceRevis
 	return updatedAllServices
 }
 
-func updateProductGroup(productName, envName, updateType string, productResp *commonmodels.Product, currentProductServices [][]*commonmodels.ProductService, overrideCharts map[string]*template.RenderChart, log *zap.SugaredLogger) error {
+func updateProductGroup(productName, envName, updateType string, productResp *commonmodels.Product, currentProductServices [][]*commonmodels.ProductService, overrideCharts []*commonservice.RenderChartArg, log *zap.SugaredLogger) error {
 	var (
 		renderChartMap         = make(map[string]*template.RenderChart)
 		productServiceMap      = make(map[string]*commonmodels.ProductService)
@@ -2588,7 +2599,7 @@ func updateProductGroup(productName, envName, updateType string, productResp *co
 }
 
 // diffRenderSet 对比环境中的renderSet的值和服务的最新的renderSet的值
-func diffRenderSet(productName, envName, updateType string, productResp *commonmodels.Product, overrideCharts map[string]*template.RenderChart, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
+func diffRenderSet(productName, envName, updateType string, productResp *commonmodels.Product, overrideCharts []*commonservice.RenderChartArg, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
 	productTemp, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil {
 		log.Errorf("[ProductTmpl.find] err: %v", err)
@@ -2604,6 +2615,14 @@ func diffRenderSet(productName, envName, updateType string, productResp *commonm
 	latestRenderSetMap := make(map[string]*template.RenderChart)
 	for _, renderInfo := range latestRenderSet.ChartInfos {
 		latestRenderSetMap[renderInfo.ServiceName] = renderInfo
+	}
+
+	renderChartArgMap := make(map[string]*commonservice.RenderChartArg)
+	for _, singleArg := range overrideCharts {
+		if singleArg.EnvName != envName {
+			continue
+		}
+		renderChartArgMap[singleArg.ServiceName] = singleArg
 	}
 
 	newChartInfos := make([]*template.RenderChart, 0)
@@ -2648,6 +2667,7 @@ func diffRenderSet(productName, envName, updateType string, productResp *commonm
 		for serviceName, latestChartInfo := range tmpLatestChartInfoMap {
 			if currentChartInfo, ok := tmpCurrentChartInfoMap[serviceName]; ok {
 				//拿当前环境values.yaml的key的value去替换服务里面的values.yaml的相同的key的value
+				//TODO values.yaml should be the same in both currentChartInfo and latestChartInfo, since values.yaml can't be edited directly
 				newValuesYaml, err := overrideValues([]byte(currentChartInfo.ValuesYaml), []byte(latestChartInfo.ValuesYaml))
 				if err != nil {
 					log.Errorf("Failed to override values, err: %s", err)
@@ -2655,14 +2675,13 @@ func diffRenderSet(productName, envName, updateType string, productResp *commonm
 					latestChartInfo.ValuesYaml = string(newValuesYaml)
 				}
 
-				// 保存替换的值
-				if overrideCharts != nil {
-					if overrideValue, ok := overrideCharts[serviceName]; ok {
-						log.Infof("##### the overridesvalues %s overrideyaml %v", overrideValue.OverrideValues, overrideValue.OverrideYaml)
-						latestChartInfo.OverrideValues = overrideValue.OverrideValues
-						latestChartInfo.OverrideYaml = overrideValue.OverrideYaml
-					}
-				}
+				// user override value in cur environment
+				latestChartInfo.OverrideValues = currentChartInfo.OverrideValues
+				latestChartInfo.OverrideYaml = currentChartInfo.OverrideYaml
+			}
+			// user override value form request
+			if renderArg, ok := renderChartArgMap[serviceName]; ok {
+				renderArg.FillRenderChartModel(latestChartInfo, latestChartInfo.ChartVersion)
 			}
 			newChartInfos = append(newChartInfos, latestChartInfo)
 		}
