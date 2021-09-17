@@ -176,8 +176,12 @@ func UpdateWorkloads(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid UpdateWorkloadsArgs")
 		return
 	}
-	product := c.Param("product")
-	env := c.Param("env")
+	product := c.Query("product")
+	env := c.Query("env")
+	if product != "" || env != "" {
+		ctx.Err = e.ErrInvalidParam
+		return
+	}
 	ctx.Err = service.UpdateWorkloads(c, ctx.RequestID, ctx.Username, product, env, *args, ctx.Logger)
 }
 

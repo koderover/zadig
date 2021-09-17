@@ -61,7 +61,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		workload.POST("", CreateK8sWorkloads)
 		workload.GET("", ListWorkloadTemplate)
-		workload.PUT("/:product/:env", UpdateWorkloads)
+		workload.PUT("", UpdateWorkloads)
 	}
 
 	name := router.Group("name")
