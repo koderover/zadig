@@ -100,6 +100,11 @@ func CreateHelmProduct(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if c.Param("productName") == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
 	args := new(service.CreateHelmProductArg)
 	data, err := c.GetRawData()
 	if err != nil {
@@ -109,11 +114,6 @@ func CreateHelmProduct(c *gin.Context) {
 		log.Errorf("CreateProduct json.Unmarshal err : %v", err)
 	}
 	args.ProductName = c.Param("productName")
-
-	if args.ProductName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
-		return
-	}
 
 	if args.EnvName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("envName can not be null!")
@@ -144,6 +144,7 @@ func CreateProduct(c *gin.Context) {
 
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
 	}
 
 	if args.EnvName == "" {
@@ -295,6 +296,11 @@ func UpdateMultiHelmEnv(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if c.Param("productName") == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
 	args := new(service.UpdateMultiHelmProductArg)
 	data, err := c.GetRawData()
 	if err != nil {
@@ -304,11 +310,6 @@ func UpdateMultiHelmEnv(c *gin.Context) {
 		log.Errorf("CreateProduct json.Unmarshal err : %v", err)
 	}
 	args.ProductName = c.Param("productName")
-
-	if args.ProductName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
-		return
-	}
 
 	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "更新", "集成环境", strings.Join(args.EnvNames, ","), fmt.Sprintf("%s,%s", permission.TestEnvCreateUUID, permission.ProdEnvCreateUUID), string(data), ctx.Logger)
 

@@ -93,7 +93,7 @@ func generateValuesYaml(args *commonservice.RenderChartArg, log *zap.SugaredLogg
 		return args.ValuesYAML, validateYamlContent(args.ValuesYAML)
 	} else if args.YamlSource == setting.ValuesYamlSourceGitRepo {
 		if args.GitRepoConfig == nil {
-			return "", nil
+			return "", errors.New("invalid repo config")
 		}
 		var (
 			allValues      []byte
@@ -152,7 +152,7 @@ func CreateOrUpdateChartValues(productName, envName string, args *commonservice.
 	}
 	serviceObj, err := commonrepo.NewServiceColl().Find(serviceOpt)
 	if err != nil {
-		return e.ErrCreateRenderSet.AddDesc(fmt.Sprintf("fail to get service %s", err.Error()))
+		return e.ErrCreateRenderSet.AddDesc(fmt.Sprintf("failed to get service %s", err.Error()))
 	}
 	if serviceObj == nil {
 		return e.ErrCreateRenderSet.AddDesc("service not found")

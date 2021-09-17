@@ -117,7 +117,7 @@ type UpdateMultiHelmProductArg struct {
 	ProductName   string                          `json:"productName"`
 	EnvNames      []string                        `json:"envNames"`
 	ChartValues   []*commonservice.RenderChartArg `json:"chartValues"`
-	ReplacePolicy string                          `json:"replacePolicy"`
+	ReplacePolicy string                          `json:"replacePolicy"`			// TODO logic not implemented
 }
 
 func UpdateProductPublic(productName string, args *ProductParams, log *zap.SugaredLogger) error {
@@ -758,7 +758,10 @@ func UpdateProductV2(envName, productName, user, requestID string, force bool, k
 func CreateHelmProduct(userName, requestID string, args *CreateHelmProductArg, log *zap.SugaredLogger) error {
 	templateProduct, err := templaterepo.NewProductColl().Find(args.ProductName)
 	if err != nil || templateProduct == nil {
-		return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to query productL %s ", args.ProductName))
+		if err != nil {
+			log.Errorf("failed to query product %s, err %s ", args.ProductName, err.Error())
+		}
+		return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to query product %s ", args.ProductName))
 	}
 
 	err = commonservice.FillProductTemplateValuesYamls(templateProduct, log)
@@ -837,7 +840,6 @@ func CreateHelmProduct(userName, requestID string, args *CreateHelmProductArg, l
 		customChartValueMap[singleCV.ServiceName] = singleCV
 	}
 
-	// TODO use client assigned chartInfos or all service infos?
 	for _, latestChart := range productObj.ChartInfos {
 		if singleCV, ok := customChartValueMap[latestChart.ServiceName]; ok {
 			yamlContent, err := generateValuesYaml(singleCV, log)
@@ -941,10 +943,7 @@ func UpdateHelmProduct(productName, envName, updateType, username, requestID str
 func diffCustomValues(source *template.RenderChart, args *commonservice.RenderChartArg) bool {
 	tmpRenderCharts := &template.RenderChart{}
 	args.FillRenderChartModel(tmpRenderCharts, "")
-	if source.OverrideValues != tmpRenderCharts.OverrideValues {
-		return true
-	}
-	if source.GetOverrideYaml() != tmpRenderCharts.GetOverrideYaml() {
+	if source.OverrideValues != tmpRenderCharts.OverrideValues || source.GetOverrideYaml() != tmpRenderCharts.GetOverrideYaml() {
 		return true
 	}
 	return false
@@ -958,25 +957,13 @@ func UpdateHelmProductRenderCharts(productName, envName, userName, requestID str
 	productRenderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
 	if err != nil || productRenderset == nil {
 		if err != nil {
-			log.Infof("query renderset fail when updating helm product render charts, err %s", err.Error())
+			log.Infof("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
 		}
 		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for envirionment: %s", envName))
 	}
 
-	// extract values.yaml from request and save into db
-	serviceList, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
-	if err != nil {
-		log.Infof("query services from product: %s fail, error %s", productName, err.Error())
-		return e.ErrUpdateEnv.AddDesc("failed to query services")
-	}
-
-	serviceMap := make(map[string]*commonmodels.Service)
-	for _, service := range serviceList {
-		serviceMap[service.ServiceName] = service
-	}
-
 	// render charts need to be updated
-	rcs := make([]*template.RenderChart, 0)
+	updatedRcs := make([]*template.RenderChart, 0)
 
 	for _, requestRenderChart := range renderCharts {
 		yamlContent, err := generateValuesYaml(requestRenderChart, log)
@@ -986,20 +973,20 @@ func UpdateHelmProductRenderCharts(productName, envName, userName, requestID str
 		requestRenderChart.ValuesYAML = yamlContent
 
 		// update renderset info
-		for _, singleRenderChart := range productRenderset.ChartInfos {
-			if singleRenderChart.ServiceName != requestRenderChart.ServiceName {
+		for _, curRenderChart := range productRenderset.ChartInfos {
+			if curRenderChart.ServiceName != requestRenderChart.ServiceName {
 				continue
 			}
-			if !diffCustomValues(singleRenderChart, requestRenderChart) {
+			if !diffCustomValues(curRenderChart, requestRenderChart) {
 				continue
 			}
-			requestRenderChart.FillRenderChartModel(singleRenderChart, singleRenderChart.ChartVersion)
-			rcs = append(rcs, singleRenderChart)
+			requestRenderChart.FillRenderChartModel(curRenderChart, curRenderChart.ChartVersion)
+			updatedRcs = append(updatedRcs, curRenderChart)
 			break
 		}
 	}
 
-	return UpdateHelmProductVariable(productName, envName, userName, requestID, rcs, productRenderset.ChartInfos, log)
+	return UpdateHelmProductVariable(productName, envName, userName, requestID, updatedRcs, productRenderset.ChartInfos, log)
 }
 
 func UpdateHelmProductVariable(productName, envName, username, requestID string, updatedRcs, allRcs []*template.RenderChart, log *zap.SugaredLogger) error {
@@ -2753,8 +2740,6 @@ func overrideValues(currentValuesYaml, latestValuesYaml []byte) ([]byte, error) 
 }
 
 func updateProductVariable(productName, envName string, productResp *commonmodels.Product, log *zap.SugaredLogger) error {
-	renderChartMap := make(map[string]*template.RenderChart)
-
 	restConfig, err := kube.GetRESTConfig(productResp.ClusterID)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
@@ -2765,6 +2750,7 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 		return e.ErrUpdateEnv.AddErr(err)
 	}
 
+	renderChartMap := make(map[string]*template.RenderChart)
 	for _, renderChart := range productResp.ChartInfos {
 		renderChartMap[renderChart.ServiceName] = renderChart
 	}
@@ -2780,10 +2766,11 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 					Type:          service.Type,
 					Revision:      service.Revision,
 					ProductName:   productName,
-					ExcludeStatus: setting.ProductStatusDeleting,
+					//ExcludeStatus: setting.ProductStatusDeleting,
 				}
 				serviceObj, err := commonrepo.NewServiceColl().Find(opt)
 				if err != nil {
+					log.Errorf("finded to find service %s, err %s", service.ServiceName, err.Error())
 					continue
 				}
 				wg.Add(1)
@@ -2792,12 +2779,12 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 
 					base := config.LocalServicePath(currentService.ProductName, currentService.ServiceName)
 					if err = commonservice.PreLoadServiceManifests(base, currentService); err != nil {
-						log.Errorf("Failed to load service menifests for service %s in project %s, err: %s", service.ServiceName, service.ProductName, err)
+						log.Errorf("Failed to load service menifests for service %s in project %s, err: %s", currentService.ServiceName, currentService.ProductName, err)
 						errList = multierror.Append(errList, err)
 						return
 					}
 
-					chartFullPath := filepath.Join(base, service.ServiceName)
+					chartFullPath := filepath.Join(base, currentService.ServiceName)
 					chartPath, err := fs.RelativeToCurrentPath(chartFullPath)
 					if err != nil {
 						log.Errorf("Failed to get relative path %s, err: %s", chartFullPath, err)
