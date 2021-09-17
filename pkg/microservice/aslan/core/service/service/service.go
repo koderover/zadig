@@ -437,7 +437,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 		switch v.Operation {
 		// 删除workload的引用
 		case "delete":
-			err = commonrepo.NewServiceColl().UpdateExternalServicesStatus(v.Name, productName, setting.ProductStatusDeleting, args.EnvName)
+			err = commonrepo.NewServiceColl().UpdateExternalServicesStatus(v.Name, productName, setting.ProductStatusDeleting, envName)
 			if err != nil {
 				log.Errorf("UpdateStatus external services error:%s", err)
 			}
