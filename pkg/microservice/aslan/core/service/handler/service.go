@@ -299,7 +299,7 @@ func UpdatePmServiceTemplate(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdatePmServiceTemplate json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "更新", "工程管理-非容器服务", fmt.Sprintf("服务名称:%s,版本号:%d", args.ServiceTmplObject.ServiceName, args.ServiceTmplObject.Revision), permission.ServiceTemplateManageUUID, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "更新", "工程管理-主机服务", fmt.Sprintf("服务名称:%s,版本号:%d", args.ServiceTmplObject.ServiceName, args.ServiceTmplObject.Revision), permission.ServiceTemplateManageUUID, "", ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	for _, heathCheck := range args.ServiceTmplObject.HealthChecks {
