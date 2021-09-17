@@ -365,7 +365,7 @@ type ServiceWorkloadsUpdateAction struct {
 	Name        string `json:"name"`
 	Type        string `json:"type"`
 	ProductName string `json:"product_name"`
-	Operation   string `son:"operation"`
+	Operation   string `json:"operation"`
 }
 
 type UpdateWorkloadsArgs struct {
