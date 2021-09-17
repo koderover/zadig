@@ -30,6 +30,7 @@ import (
 	"sync"
 
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
 
@@ -271,15 +272,25 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 	// todo Add data filter
 	var (
 		workloadsTmp []models.Workload
-		wg           sync.WaitGroup
 		mu           sync.Mutex
 	)
 
+	// pre judge  workLoads same name
+	serviceString := sets.NewString()
+	services, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, "")
+	for _, v := range services {
+		serviceString.Insert(v.ServiceName)
+	}
 	for _, workload := range workLoads {
-		wg.Add(1)
+		if serviceString.Has(workload.Name) {
+			return e.ErrCreateTemplate.AddDesc(fmt.Sprintf("do not support import same service name: %s", workload.Name))
+		}
+	}
 
-		go func(tempWorkload models.Workload) {
-			defer wg.Done()
+	g := new(errgroup.Group)
+	for _, workload := range workLoads {
+		tempWorkload := workload
+		g.Go(func() error {
 			var bs []byte
 			switch tempWorkload.Type {
 			case setting.Deployment:
@@ -290,7 +301,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 
 			if len(bs) == 0 || err != nil {
 				log.Errorf("not found yaml %v", err)
-				return
+				return e.ErrGetService.AddDesc(fmt.Sprintf("get deploy/sts failed err:%s", err))
 			}
 
 			mu.Lock()
@@ -302,7 +313,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 				ProductName: productName,
 			})
 
-			if _, err = CreateServiceTemplate(username, &models.Service{
+			return CreateWorkloadTemplate(username, &models.Service{
 				ServiceName:  tempWorkload.Name,
 				Yaml:         string(bs),
 				ProductName:  productName,
@@ -311,13 +322,13 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 				WorkloadType: tempWorkload.Type,
 				Source:       setting.SourceFromExternal,
 				EnvName:      envName,
-			}, log); err != nil {
-				log.Errorf("create service template failed err:%v", err)
-				return
-			}
-		}(workload)
+				Revision:     1,
+			}, log)
+		})
 	}
-	wg.Wait()
+	if err := g.Wait(); err != nil {
+		return err
+	}
 
 	// 没有环境，创建环境
 	if _, err = commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
@@ -349,6 +360,148 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 	return commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workLoadStat)
 }
 
+type ServiceWorkloadsUpdateAction struct {
+	EnvName     string `json:"env_name"`
+	Name        string `json:"name"`
+	Type        string `json:"type"`
+	ProductName string `json:"product_name"`
+	Operation   string `json:"operation"`
+}
+
+type UpdateWorkloadsArgs struct {
+	WorkLoads []commonmodels.Workload `json:"workLoads"`
+	ClusterID string                  `json:"cluster_id"`
+	Namespace string                  `json:"namespace"`
+}
+
+func UpdateWorkloads(ctx context.Context, requestID, username, productName, envName string, args UpdateWorkloadsArgs, log *zap.SugaredLogger) error {
+	kubeClient, err := kube.GetKubeClient(args.ClusterID)
+	if err != nil {
+		log.Errorf("[%s] error: %s", args.Namespace, err)
+		return err
+	}
+	workloadStat, err := commonrepo.NewWorkLoadsStatColl().Find(args.ClusterID, args.Namespace)
+	if err != nil {
+		log.Errorf("[%s][%s]NewWorkLoadsStatColl().Find %s", args.ClusterID, args.Namespace, err)
+		return err
+	}
+	diff := map[string]*ServiceWorkloadsUpdateAction{}
+	originSet := sets.NewString()
+	uploadSet := sets.NewString()
+	for _, v := range workloadStat.Workloads {
+		if v.ProductName == productName && v.EnvName == envName {
+			originSet.Insert(v.Name)
+		}
+	}
+	for _, v := range args.WorkLoads {
+		uploadSet.Insert(v.Name)
+	}
+	// 判断是删除还是增加
+	deleteString := originSet.Difference(uploadSet)
+	addString := uploadSet.Difference(originSet)
+	for _, v := range workloadStat.Workloads {
+		if v.ProductName != productName {
+			continue
+		}
+		if deleteString.Has(v.Name) {
+			diff[v.Name] = &ServiceWorkloadsUpdateAction{
+				EnvName:     envName,
+				Name:        v.Name,
+				Type:        v.Type,
+				ProductName: v.ProductName,
+				Operation:   "delete",
+			}
+		}
+	}
+	// pre judge  workLoads same name
+	services, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, "")
+	for _, v := range services {
+		if addString.Has(v.ServiceName) {
+			return e.ErrCreateTemplate.AddDesc(fmt.Sprintf("do not support import same service name: %s", v.ServiceName))
+		}
+	}
+
+	for _, v := range args.WorkLoads {
+		if addString.Has(v.Name) {
+			diff[v.Name] = &ServiceWorkloadsUpdateAction{
+				EnvName:     envName,
+				Name:        v.Name,
+				Type:        v.Type,
+				ProductName: v.ProductName,
+				Operation:   "add",
+			}
+		}
+	}
+
+	for _, v := range diff {
+		switch v.Operation {
+		// 删除workload的引用
+		case "delete":
+			err = commonrepo.NewServiceColl().UpdateExternalServicesStatus(v.Name, productName, setting.ProductStatusDeleting, envName)
+			if err != nil {
+				log.Errorf("UpdateStatus external services error:%s", err)
+			}
+		// 添加workload的引用
+		case "add":
+			var bs []byte
+			switch v.Type {
+			case setting.Deployment:
+				bs, _, err = getter.GetDeploymentYaml(args.Namespace, v.Name, kubeClient)
+			case setting.StatefulSet:
+				bs, _, err = getter.GetStatefulSetYaml(args.Namespace, v.Name, kubeClient)
+			}
+			if len(bs) == 0 || err != nil {
+				log.Errorf("UpdateK8sWorkLoads not found yaml %s", err)
+				delete(diff, v.Name)
+				continue
+			}
+			if err = CreateWorkloadTemplate(username, &models.Service{
+				ServiceName:  v.Name,
+				Yaml:         string(bs),
+				ProductName:  productName,
+				CreateBy:     username,
+				Type:         setting.K8SDeployType,
+				WorkloadType: v.Type,
+				Source:       setting.SourceFromExternal,
+				EnvName:      envName,
+				Revision:     1,
+			}, log); err != nil {
+				log.Errorf("create service template failed err:%v", err)
+				delete(diff, v.Name)
+				continue
+			}
+		}
+	}
+	// 删除 && 增加
+	workloadStat.Workloads = updateWorkloads(workloadStat.Workloads, diff, envName, productName)
+	return commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat)
+}
+
+func updateWorkloads(existWorkloads []models.Workload, diff map[string]*ServiceWorkloadsUpdateAction, envName string, productName string) (result []models.Workload) {
+	existWorkloadsMap := map[string]models.Workload{}
+	for _, v := range existWorkloads {
+		existWorkloadsMap[v.Name] = v
+	}
+	for _, v := range diff {
+		switch v.Operation {
+		case "add":
+			vv := models.Workload{
+				EnvName:     envName,
+				Name:        v.Name,
+				Type:        v.Type,
+				ProductName: productName,
+			}
+			existWorkloadsMap[v.Name] = vv
+		case "delete":
+			delete(existWorkloadsMap, v.Name)
+		}
+	}
+	for _, v := range existWorkloadsMap {
+		result = append(result, v)
+	}
+	return result
+}
+
 func replaceWorkloads(existWorkloads []models.Workload, newWorkloads []models.Workload, envName string) []models.Workload {
 	var result []models.Workload
 	workloadMap := map[string]models.Workload{}
@@ -366,6 +519,55 @@ func replaceWorkloads(existWorkloads []models.Workload, newWorkloads []models.Wo
 	}
 
 	return result
+}
+
+//CreateWorkloadTemplate only use for workload
+func CreateWorkloadTemplate(userName string, args *commonmodels.Service, log *zap.SugaredLogger) error {
+	_, err := templaterepo.NewProductColl().Find(args.ProductName)
+	if err != nil {
+		log.Errorf("Failed to find project %s, err: %s", args.ProductName, err)
+		return e.ErrInvalidParam.AddErr(err)
+	}
+	// 遍历args.KubeYamls，获取 Deployment 或者 StatefulSet 里面所有containers 镜像和名称
+	args.KubeYamls = []string{args.Yaml}
+	if err := setCurrentContainerImages(args); err != nil {
+		log.Errorf("Failed tosetCurrentContainerImages %s, err: %s", args.ProductName, err)
+		return err
+	}
+	opt := &commonrepo.ServiceFindOption{
+		ServiceName:   args.ServiceName,
+		ProductName:   args.ProductName,
+		ExcludeStatus: setting.ProductStatusDeleting,
+	}
+	_, notFoundErr := commonrepo.NewServiceColl().Find(opt)
+	if notFoundErr != nil {
+		if productTempl, err := commonservice.GetProductTemplate(args.ProductName, log); err == nil {
+			//获取项目里面的所有服务
+			if len(productTempl.Services) > 0 && !sets.NewString(productTempl.Services[0]...).Has(args.ServiceName) {
+				productTempl.Services[0] = append(productTempl.Services[0], args.ServiceName)
+			} else {
+				productTempl.Services = [][]string{{args.ServiceName}}
+			}
+			//更新项目模板
+			err = templaterepo.NewProductColl().Update(args.ProductName, productTempl)
+			if err != nil {
+				log.Errorf("CreateServiceTemplate Update %s error: %s", args.ServiceName, err)
+				return e.ErrCreateTemplate.AddDesc(err.Error())
+			}
+		}
+	} else {
+		return e.ErrCreateTemplate.AddDesc("do not support import same service name")
+	}
+
+	if err := commonrepo.NewServiceColl().Delete(args.ServiceName, args.Type, args.ProductName, setting.ProductStatusDeleting, 0); err != nil {
+		log.Errorf("ServiceTmpl.delete %s error: %v", args.ServiceName, err)
+	}
+
+	if err := commonrepo.NewServiceColl().Create(args); err != nil {
+		log.Errorf("ServiceTmpl.Create %s error: %v", args.ServiceName, err)
+		return e.ErrCreateTemplate.AddDesc(err.Error())
+	}
+	return nil
 }
 
 func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap.SugaredLogger) (*ServiceOption, error) {
@@ -468,7 +670,7 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap
 			//更新项目模板
 			err = templaterepo.NewProductColl().Update(args.ProductName, productTempl)
 			if err != nil {
-				log.Errorf("CreateServiceTemplate Update %s error: %v", args.ServiceName, err)
+				log.Errorf("CreateServiceTemplate Update %s error: %s", args.ServiceName, err)
 				return nil, e.ErrCreateTemplate.AddDesc(err.Error())
 			}
 		}

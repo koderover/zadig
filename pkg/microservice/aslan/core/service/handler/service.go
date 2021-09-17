@@ -27,6 +27,7 @@ import (
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	svcservice "github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -164,6 +165,24 @@ type K8sWorkloadsArgs struct {
 	ClusterID   string                  `bson:"cluster_id"       json:"cluster_id"`
 	Namespace   string                  `bson:"namespace"        json:"namespace"`
 	ProductName string                  `bson:"product_name"     json:"product_name"`
+}
+
+func UpdateWorkloads(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	args := new(service.UpdateWorkloadsArgs)
+	err := c.ShouldBindJSON(args)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid UpdateWorkloadsArgs")
+		return
+	}
+	product := c.Query("productName")
+	env := c.Query("env")
+	if product == "" || env == "" {
+		ctx.Err = e.ErrInvalidParam
+		return
+	}
+	ctx.Err = service.UpdateWorkloads(c, ctx.RequestID, ctx.Username, product, env, *args, ctx.Logger)
 }
 
 func CreateK8sWorkloads(c *gin.Context) {

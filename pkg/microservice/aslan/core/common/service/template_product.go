@@ -24,6 +24,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
@@ -77,9 +78,17 @@ func GetProductTemplate(productName string, log *zap.SugaredLogger) (*template.P
 		return nil, fmt.Errorf("FillProductTemplateVars err : %v", err)
 	}
 
-	totalServices, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
-	if err != nil {
-		return resp, fmt.Errorf("DistinctServices err : %v", err)
+	var totalServices []*models.Service
+	if resp.ProductFeature != nil && resp.ProductFeature.CreateEnvType == setting.SourceFromExternal {
+		totalServices, err = commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, "")
+		if err != nil {
+			return resp, fmt.Errorf("ListExternalWorkloadsBy err : %s", err)
+		}
+	} else {
+		totalServices, err = commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
+		if err != nil {
+			return resp, fmt.Errorf("ListMaxRevisionsByProduct err : %s", err)
+		}
 	}
 
 	totalBuilds, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{ProductName: productName, IsSort: true})
