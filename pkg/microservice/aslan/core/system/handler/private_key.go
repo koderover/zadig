@@ -59,7 +59,7 @@ func CreatePrivateKey(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreatePrivateKey json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, "", "新增", "资源管理-主机管理", fmt.Sprintf("label:%s", args.Label), permission.SuperUserUUID, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, "", "新增", "资源管理-主机管理", fmt.Sprintf("hostName:%s ip:%s", args.Name, args.IP), permission.SuperUserUUID, string(data), ctx.Logger)
 
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
@@ -84,7 +84,7 @@ func UpdatePrivateKey(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdatePrivateKey json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, "", "更新", "资源管理-主机管理", fmt.Sprintf("hostName:%s id%s", args.Name, args.ID), permission.SuperUserUUID, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, "", "更新", "资源管理-主机管理", fmt.Sprintf("hostName:%s ip:%s", args.Name, args.IP), permission.SuperUserUUID, string(data), ctx.Logger)
 
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
@@ -106,6 +106,6 @@ func DeletePrivateKey(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, "", "删除", "资源管理-主机管理", fmt.Sprintf("hostName:%s id:%s", privateKey.Name, c.Param("id")), permission.SuperUserUUID, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, "", "删除", "资源管理-主机管理", fmt.Sprintf("hostName:%s ip:%s", privateKey.Name, privateKey.IP), permission.SuperUserUUID, "", ctx.Logger)
 	ctx.Err = service.DeletePrivateKey(c.Param("id"), ctx.Logger)
 }
