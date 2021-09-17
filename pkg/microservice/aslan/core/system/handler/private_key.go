@@ -101,11 +101,5 @@ func DeletePrivateKey(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	privateKey, err := service.GetPrivateKey(c.Param("id"), ctx.Logger)
-	if err != nil {
-		ctx.Err = err
-		return
-	}
-	internalhandler.InsertOperationLog(c, ctx.Username, "", "删除", "资源管理-主机管理", fmt.Sprintf("hostName:%s ip:%s", privateKey.Name, privateKey.IP), permission.SuperUserUUID, "", ctx.Logger)
-	ctx.Err = service.DeletePrivateKey(c.Param("id"), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, "", "删除", "私钥", fmt.Sprintf("id:%s", c.Param("id")), permission.SuperUserUUID, "", ctx.Logger)
 }
