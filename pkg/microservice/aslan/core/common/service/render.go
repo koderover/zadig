@@ -48,7 +48,7 @@ type KVPair struct {
 }
 
 type RenderChartArg struct {
-	//EnvName        string      `json:"envName,omitempty"`
+	EnvName        string      `json:"envName,omitempty"`
 	ServiceName    string      `json:"serviceName,omitempty"`
 	ChartVersion   string      `json:"chartVersion,omitempty"`
 	YamlSource     string      `json:"yamlSource,omitempty"`
@@ -86,42 +86,49 @@ func (args *RenderChartArg) fromOverrideValueString(valueStr string) {
 }
 
 func (args *RenderChartArg) toCustomValuesYaml() *templatemodels.OverrideYaml {
-	ret := &templatemodels.OverrideYaml{
-		YamlSource: args.YamlSource,
-	}
-	switch ret.YamlSource {
-	case setting.ValuesYamlSourceFreeEdit, setting.ValuesYamlSourceDefault:
-		ret.YamlContent = args.ValuesYAML
+	switch args.YamlSource {
+	case setting.ValuesYamlSourceFreeEdit:
+		return &templatemodels.OverrideYaml{
+			YamlSource:  args.YamlSource,
+			YamlContent: args.ValuesYAML,
+		}
 	case setting.ValuesYamlSourceGitRepo:
-		ret.YamlContent = args.ValuesYAML
-		ret.ValuesPaths = args.GitRepoConfig.ValuesPaths
-		ret.GitRepoConfig = &templatemodels.GitRepoConfig{
-			CodehostID: args.GitRepoConfig.CodehostID,
-			Owner:      args.GitRepoConfig.Owner,
-			Repo:       args.GitRepoConfig.Repo,
-			Branch:     args.GitRepoConfig.Branch,
+		return &templatemodels.OverrideYaml{
+			YamlSource:  args.YamlSource,
+			YamlContent: args.ValuesYAML,
+			ValuesPaths: args.GitRepoConfig.ValuesPaths,
+			GitRepoConfig: &templatemodels.GitRepoConfig{
+				CodehostID: args.GitRepoConfig.CodehostID,
+				Owner:      args.GitRepoConfig.Owner,
+				Repo:       args.GitRepoConfig.Repo,
+				Branch:     args.GitRepoConfig.Branch,
+			},
 		}
 	}
-	return ret
+	return nil
 }
 
 func (args *RenderChartArg) fromCustomValueYaml(customValuesYaml *templatemodels.OverrideYaml) {
+	if customValuesYaml == nil {
+		return
+	}
 	args.YamlSource = customValuesYaml.YamlSource
 	switch customValuesYaml.YamlSource {
-	case setting.ValuesYamlSourceDefault:
-		args.ValuesYAML = ""
 	case setting.ValuesYamlSourceFreeEdit:
 		args.ValuesYAML = customValuesYaml.YamlContent
 	case setting.ValuesYamlSourceGitRepo:
 		args.ValuesYAML = ""
-		args.GitRepoConfig = &RepoConfig{
-			CodehostID:  customValuesYaml.GitRepoConfig.CodehostID,
-			Owner:       customValuesYaml.GitRepoConfig.Owner,
-			Repo:        customValuesYaml.GitRepoConfig.Repo,
-			Branch:      customValuesYaml.GitRepoConfig.Branch,
-			ValuesPaths: customValuesYaml.ValuesPaths,
+		if customValuesYaml.GitRepoConfig != nil {
+			args.GitRepoConfig = &RepoConfig{
+				CodehostID:  customValuesYaml.GitRepoConfig.CodehostID,
+				Owner:       customValuesYaml.GitRepoConfig.Owner,
+				Repo:        customValuesYaml.GitRepoConfig.Repo,
+				Branch:      customValuesYaml.GitRepoConfig.Branch,
+				ValuesPaths: customValuesYaml.ValuesPaths,
+			}
 		}
-	}	
+
+	}
 }
 
 // FillRenderChartModel fill render chart model

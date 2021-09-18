@@ -101,13 +101,17 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.POST("/:productName/auto", gin2.IsHavePermission([]string{permission.TestEnvCreateUUID}, permission.ParamType), AutoCreateProduct)
 		environments.PUT("/:productName/autoUpdate", gin2.IsHavePermission([]string{permission.TestEnvManageUUID, permission.ProdEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, AutoUpdateProduct)
 		environments.POST("", gin2.StoreProductName, gin2.IsHavePermission([]string{permission.TestEnvCreateUUID, permission.ProdEnvCreateUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, CreateProduct)
+
+		environments.POST("/:productName/helm", gin2.StoreProductName, gin2.IsHavePermission([]string{permission.TestEnvCreateUUID, permission.ProdEnvCreateUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, CreateHelmProduct)
+		environments.PUT("/:productName/multiHelmEnv", gin2.StoreProductName, gin2.IsHavePermission([]string{permission.TestEnvCreateUUID, permission.ProdEnvCreateUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, UpdateMultiHelmEnv)
+
 		environments.POST("/:productName", gin2.IsHavePermission([]string{permission.TestEnvManageUUID, permission.ProdEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateProduct)
 		environments.PUT("/:productName/envRecycle", gin2.IsHavePermission([]string{permission.TestEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateProductRecycleDay)
-		environments.PUT("/:productName/helmEnv", gin2.IsHavePermission([]string{permission.TestEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateHelmProduct)
-		environments.PUT("/:productName/helmEnvVariable", gin2.IsHavePermission([]string{permission.TestEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateHelmProductVariable)
+		environments.PUT("/:productName/renderchart", gin2.IsHavePermission([]string{permission.TestEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateHelmProductRenderCharts)
+
 		environments.GET("/:productName/helmChartVersions", GetHelmChartVersions)
 		environments.PUT("/:productName", gin2.IsHavePermission([]string{permission.TestEnvShareUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, EnvShare)
-		environments.PUT("/:productName/updateMultiEnv", gin2.IsHavePermission([]string{permission.TestEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateMultiHelmProduct)
+
 		environments.GET("/:productName", GetProduct)
 		environments.GET("/:productName/productInfo", GetProductInfo)
 		environments.GET("/:productName/ingressInfo", GetProductIngress)
@@ -124,6 +128,13 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.POST("/:productName/services/:serviceName/scale/:number", gin2.IsHavePermission([]string{permission.TestEnvManageUUID, permission.ProdEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, ScaleService)
 		environments.POST("/:productName/services/:serviceName/scaleNew/:number", gin2.IsHavePermission([]string{permission.TestEnvManageUUID, permission.ProdEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, ScaleNewService)
 		environments.GET("/:productName/services/:serviceName/containers/:container/namespaces/:namespace", GetServiceContainer)
+
+		environments.GET("/estimated-renderchart", GetEstimatedRenderCharts)
+
+		// need to be deprecated
+		environments.PUT("/:productName/helmEnv", gin2.IsHavePermission([]string{permission.TestEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateHelmProduct)
+		environments.PUT("/:productName/helmEnvVariable", gin2.IsHavePermission([]string{permission.TestEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateHelmProductVariable)
+		environments.PUT("/:productName/updateMultiEnv", gin2.IsHavePermission([]string{permission.TestEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateMultiHelmProduct)
 	}
 
 	// ---------------------------------------------------------------------------------------

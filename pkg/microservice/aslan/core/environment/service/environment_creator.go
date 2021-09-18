@@ -81,7 +81,6 @@ func (autoCreator *AutoCreator) Create(envName string) (string, error) {
 	}
 
 	productObject.IsPublic = true
-
 	productObject.Namespace = commonservice.GetProductEnvNamespace(envName, productName)
 	productObject.UpdateBy = autoCreator.Param.UserName
 	productObject.EnvName = envName
@@ -215,6 +214,7 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 	}
 
 	eventStart := time.Now().Unix()
+
 	go installOrUpdateHelmChart(user, args.EnvName, requestID, args, eventStart, helmClient, log)
 	return nil
 }

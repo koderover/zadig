@@ -460,7 +460,6 @@ const (
 // helm related
 const (
 	ValuesYamlSourceFreeEdit = "freeEdit"
-	ValuesYamlSourceDefault = "default"
 	ValuesYamlSourceGitRepo = "gitRepo"
 )
 

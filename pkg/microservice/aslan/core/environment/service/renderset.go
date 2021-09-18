@@ -54,13 +54,12 @@ func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredL
 
 	ret := make([]*commonservice.RenderChartArg, 0)
 
-	serverList := strings.Split(serviceName, ",")
-	stringSet := sets.NewString(serverList...)
-
 	matchedRenderChartModels := make([]*template.RenderChart, 0)
-	if stringSet.Len() == 0 {
+	if len(serviceName) == 0 {
 		matchedRenderChartModels = rendersetObj.ChartInfos
 	} else {
+		serverList := strings.Split(serviceName, ",")
+		stringSet := sets.NewString(serverList...)
 		for _, singleChart := range rendersetObj.ChartInfos {
 			if !stringSet.Has(singleChart.ServiceName) {
 				continue
@@ -72,6 +71,7 @@ func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredL
 	for _, singleChart := range matchedRenderChartModels {
 		rcaObj := new(commonservice.RenderChartArg)
 		rcaObj.LoadFromRenderChartModel(singleChart)
+		rcaObj.EnvName = envName
 		ret = append(ret, rcaObj)
 	}
 	return ret, nil
@@ -91,13 +91,10 @@ func validateYamlContent(yamlContent string) error {
 func generateValuesYaml(args *commonservice.RenderChartArg, log *zap.SugaredLogger) (string, error) {
 	if args.YamlSource == setting.ValuesYamlSourceFreeEdit {
 		return args.ValuesYAML, validateYamlContent(args.ValuesYAML)
-	} else if args.YamlSource == setting.ValuesYamlSourceDefault {
-		return "", nil
 	} else if args.YamlSource == setting.ValuesYamlSourceGitRepo {
 		if args.GitRepoConfig == nil {
-			return "", nil
+			return "", errors.New("invalid repo config")
 		}
-
 		var (
 			allValues      []byte
 			fileContentMap sync.Map
@@ -155,7 +152,7 @@ func CreateOrUpdateChartValues(productName, envName string, args *commonservice.
 	}
 	serviceObj, err := commonrepo.NewServiceColl().Find(serviceOpt)
 	if err != nil {
-		return e.ErrCreateRenderSet.AddDesc(err.Error())
+		return e.ErrCreateRenderSet.AddDesc(fmt.Sprintf("failed to get service %s", err.Error()))
 	}
 	if serviceObj == nil {
 		return e.ErrCreateRenderSet.AddDesc("service not found")
@@ -176,7 +173,7 @@ func CreateOrUpdateChartValues(productName, envName string, args *commonservice.
 	opt := &commonrepo.RenderSetFindOption{Name: renderSetName}
 	curRenderset, found, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
 	if err != nil {
-		return e.ErrCreateRenderSet.AddDesc(err.Error())
+		return e.ErrCreateRenderSet.AddDesc(fmt.Sprintf("failed to get renderset %s", err.Error()))
 	}
 
 	if !found {
