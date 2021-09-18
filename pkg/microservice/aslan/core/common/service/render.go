@@ -89,15 +89,15 @@ func (args *RenderChartArg) toCustomValuesYaml() *templatemodels.OverrideYaml {
 	switch args.YamlSource {
 	case setting.ValuesYamlSourceFreeEdit:
 		return &templatemodels.OverrideYaml{
-			YamlSource: args.YamlSource,
+			YamlSource:  args.YamlSource,
 			YamlContent: args.ValuesYAML,
 		}
 	case setting.ValuesYamlSourceGitRepo:
 		return &templatemodels.OverrideYaml{
-			YamlSource:    args.YamlSource,
-			YamlContent:   args.ValuesYAML,
+			YamlSource:  args.YamlSource,
+			YamlContent: args.ValuesYAML,
 			ValuesPaths: args.GitRepoConfig.ValuesPaths,
-			GitRepoConfig:   &templatemodels.GitRepoConfig{
+			GitRepoConfig: &templatemodels.GitRepoConfig{
 				CodehostID: args.GitRepoConfig.CodehostID,
 				Owner:      args.GitRepoConfig.Owner,
 				Repo:       args.GitRepoConfig.Repo,
@@ -128,7 +128,7 @@ func (args *RenderChartArg) fromCustomValueYaml(customValuesYaml *templatemodels
 			}
 		}
 
-	}	
+	}
 }
 
 // FillRenderChartModel fill render chart model

@@ -940,7 +940,8 @@ func UpdateHelmProduct(productName, envName, updateType, username, requestID str
 	return nil
 }
 
-func diffCustomValues(source *template.RenderChart, args *commonservice.RenderChartArg) bool {
+// check if override values or yaml content changes
+func checkOverrideValuesChange(source *template.RenderChart, args *commonservice.RenderChartArg) bool {
 	tmpRenderCharts := &template.RenderChart{}
 	args.FillRenderChartModel(tmpRenderCharts, "")
 	if source.OverrideValues != tmpRenderCharts.OverrideValues || source.GetOverrideYaml() != tmpRenderCharts.GetOverrideYaml() {
@@ -977,7 +978,7 @@ func UpdateHelmProductRenderCharts(productName, envName, userName, requestID str
 			if curRenderChart.ServiceName != requestRenderChart.ServiceName {
 				continue
 			}
-			if !diffCustomValues(curRenderChart, requestRenderChart) {
+			if !checkOverrideValuesChange(curRenderChart, requestRenderChart) {
 				continue
 			}
 			requestRenderChart.FillRenderChartModel(curRenderChart, curRenderChart.ChartVersion)

@@ -129,7 +129,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.POST("/:productName/services/:serviceName/scaleNew/:number", gin2.IsHavePermission([]string{permission.TestEnvManageUUID, permission.ProdEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, ScaleNewService)
 		environments.GET("/:productName/services/:serviceName/containers/:container/namespaces/:namespace", GetServiceContainer)
 
-		environments.GET("/estimatedrenderchart", GetEstimatedRenderCharts)
+		environments.GET("/estimated-renderchart", GetEstimatedRenderCharts)
 
 		// need to be deprecated
 		environments.PUT("/:productName/helmEnv", gin2.IsHavePermission([]string{permission.TestEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateHelmProduct)
