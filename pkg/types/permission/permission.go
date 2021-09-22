@@ -40,7 +40,7 @@ const (
 	ProdEnvManageUUID = "40008" //环境管理(环境更新、单服务更新、服务伸缩、服务重启、configMap更新、configMap回滚、重启实例、yaml导出)
 	ProdEnvDeleteUUID = "40009" //删除环境
 
-	//原工程管理相关
+	//原项目管理相关
 	//构建管理
 	BuildDeleteUUID = "50007" //删除构建配置
 	BuildManageUUID = "50008" //构建配置管理(创建构建、修改构建、修改服务组件)
