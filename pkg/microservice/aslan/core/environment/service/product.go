@@ -163,7 +163,6 @@ func GetInitProduct(productTmplName string, log *zap.SugaredLogger) (*commonmode
 }
 
 func GetProduct(username, envName, productName string, log *zap.SugaredLogger) (*ProductResp, error) {
-	log.Infof("[User:%s][EnvName:%s][Product:%s] GetProduct", username, envName, productName)
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
