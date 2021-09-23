@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -427,23 +428,30 @@ func validateWorkflowHookNames(w *commonmodels.Workflow) error {
 }
 
 func ListWorkflows(queryType string, userID int, log *zap.SugaredLogger) ([]*commonmodels.Workflow, error) {
+	startTime := time.Now()
+	startTime1 := time.Now()
 	workflows, err := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{})
 	if err != nil {
 		log.Errorf("Workflow.List error: %v", err)
 		return workflows, e.ErrListWorkflow.AddDesc(err.Error())
 	}
+	log.Infof("workflow list execute time :%v", time.Since(startTime1).Seconds())
 
+	startTime2 := time.Now()
 	favorites, err := commonrepo.NewFavoriteColl().List(&commonrepo.FavoriteArgs{UserID: userID, Type: string(config.WorkflowType)})
 	if err != nil {
 		log.Errorf("list favorite error: %v", err)
 		return workflows, e.ErrListFavorite
 	}
+	log.Infof("workflow favorite list execute time :%v", time.Since(startTime2).Seconds())
 
+	startTime3 := time.Now()
 	workflowStats, err := commonrepo.NewWorkflowStatColl().FindWorkflowStat(&commonrepo.WorkflowStatArgs{Type: string(config.WorkflowType)})
 	if err != nil {
 		log.Errorf("list workflow stat error: %v", err)
 		return workflows, fmt.Errorf("列出工作流统计失败")
 	}
+	log.Infof("workflow stat execute time :%v", time.Since(startTime3).Seconds())
 
 	for _, workflow := range workflows {
 		if queryType == "artifact" {
@@ -471,6 +479,7 @@ func ListWorkflows(queryType string, userID int, log *zap.SugaredLogger) ([]*com
 		workflow.TotalDuration, workflow.TotalNum, workflow.TotalSuccess = findWorkflowStat(workflow, workflowStats)
 	}
 
+	log.Infof("workflow total execute time :%v", time.Since(startTime).Seconds())
 	return workflows, nil
 }
 
