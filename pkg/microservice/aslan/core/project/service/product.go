@@ -17,15 +17,16 @@ limitations under the License.
 package service
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -42,6 +43,18 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types/permission"
 )
+
+type CustomParseDataArgs struct {
+	Rules []*ImageParseData `json:"rules"`
+}
+
+type ImageParseData struct {
+	Repo     string `json:"repo,omitempty"`
+	Image    string `json:"image,omitempty"`
+	Tag      string `json:"tag,omitempty"`
+	InUse    bool   `json:"inUse,omitempty"`
+	PresetId int    `json:"presetId,omitempty"`
+}
 
 func GetProductTemplateServices(productName string, log *zap.SugaredLogger) (*template.Product, error) {
 	resp, err := templaterepo.NewProductColl().Find(productName)
@@ -866,4 +879,168 @@ func ListTemplatesHierachy(userName string, userID int, superUser bool, log *zap
 		resp = append(resp, pInfo)
 	}
 	return resp, nil
+}
+
+func GetCustomMatchRules(productName string, log *zap.SugaredLogger) ([]*ImageParseData, error) {
+	productInfo, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		log.Errorf("query product:%s fail, err:%s", productName, err.Error())
+		return nil, fmt.Errorf("failed to find product %s", productName)
+	}
+	ret := make([]*ImageParseData, 0, len(productInfo.ImageMatchRules))
+	for _, singleData := range productInfo.ImageMatchRules {
+		ret = append(ret, &ImageParseData{
+			Repo:     singleData.Repo,
+			Image:    singleData.Image,
+			Tag:      singleData.Tag,
+			InUse:    singleData.InUse,
+			PresetId: singleData.PresetId,
+		})
+	}
+	// use preset data if rules are never edited
+	if len(ret) == 0 {
+		ret = append(ret, &ImageParseData{
+			Repo:     "",
+			Image:    "image.repository",
+			Tag:      "image.tag",
+			InUse:    true,
+			PresetId: 1,
+		}, &ImageParseData{
+			Image:    "image",
+			InUse:    true,
+			PresetId: 2,
+		})
+	}
+	return ret, nil
+}
+
+func UpdateCustomMatchRules(productName string, userName string, matchRules []*ImageParseData) error {
+	productInfo, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		log.Errorf("query product:%s fail, err:%s", productName, err.Error())
+		return fmt.Errorf("failed to find product %s", productName)
+	}
+
+	if len(matchRules) == 0 {
+		return errors.New("match rules can't be empty")
+	}
+	haveInUse := false
+	for _, rule := range matchRules {
+		if rule.InUse {
+			haveInUse = true
+			break
+		}
+	}
+	if !haveInUse {
+		return errors.New("no rule is selected to be used")
+	}
+
+	imageRulesToSave := make([]*template.ImageMatchRules, 0)
+	for _, singleData := range matchRules {
+		if singleData.Repo == "" && singleData.Image == "" && singleData.Tag == "" {
+			continue
+		}
+		imageRulesToSave = append(imageRulesToSave, &template.ImageMatchRules{
+			Repo:     singleData.Repo,
+			Image:    singleData.Image,
+			Tag:      singleData.Tag,
+			InUse:    singleData.InUse,
+			PresetId: singleData.PresetId,
+		})
+	}
+
+	productInfo.ImageMatchRules = imageRulesToSave
+	productInfo.UpdateBy = userName
+
+	services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
+	if err != nil {
+		return err
+	}
+	err = reParseServices(userName, services, imageRulesToSave)
+	if err != nil {
+		return err
+	}
+
+	err = templaterepo.NewProductColl().Update(productName, productInfo)
+	if err != nil {
+		log.Errorf("failed to update product:%s, err:%s", productName, err.Error())
+		return fmt.Errorf("failed to store match rules")
+	}
+
+	return nil
+}
+
+// reparse values.yaml for each service
+func reParseServices(userName string, serviceList []*commonmodels.Service, matchRules []*template.ImageMatchRules) error {
+	patterns := make([]map[string]string, 0)
+	for _, rule := range matchRules {
+		if !rule.InUse {
+			continue
+		}
+		patterns = append(patterns, map[string]string{
+			"repo":  rule.Repo,
+			"image": rule.Image,
+			"tag":   rule.Tag,
+		})
+	}
+
+	updatedServiceTmpls := make([]*commonmodels.Service, 0)
+
+	var err error
+	for _, serviceTmpl := range serviceList {
+		if serviceTmpl.Type != setting.HelmDeployType || serviceTmpl.HelmChart == nil {
+			continue
+		}
+		valuesYaml := serviceTmpl.HelmChart.ValuesYaml
+
+		valuesMap := make(map[string]interface{})
+		err = yaml.Unmarshal([]byte(valuesYaml), &valuesMap)
+		if err != nil {
+			err = errors.Wrapf(err, "failed to unmarshal values.yamf for service %s", serviceTmpl.ServiceName)
+			break
+		}
+
+		serviceTmpl.Containers, err = commonservice.ParseContainers(valuesMap, patterns)
+		if err != nil {
+			break
+		}
+
+		if len(serviceTmpl.Containers) == 0 {
+			log.Warnf("service:%s containers is empty after parse, pattern %v, valuesYaml %s", serviceTmpl.ServiceName, patterns, valuesYaml)
+		}
+
+		serviceTmpl.CreateBy = userName
+		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, serviceTmpl.ServiceName, serviceTmpl.ProductName)
+		rev, errRevision := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
+		if errRevision != nil {
+			err = fmt.Errorf("get next helm service revision error: %v", errRevision)
+			break
+		}
+		serviceTmpl.Revision = rev
+		if err = commonrepo.NewServiceColl().Delete(serviceTmpl.ServiceName, setting.HelmDeployType, serviceTmpl.ProductName, setting.ProductStatusDeleting, serviceTmpl.Revision); err != nil {
+			log.Errorf("helmService.update delete %s error: %v", serviceTmpl.ServiceName, err)
+			break
+		}
+
+		if err = commonrepo.NewServiceColl().Create(serviceTmpl); err != nil {
+			log.Errorf("helmService.update serviceName:%s error:%v", serviceTmpl.ServiceName, err)
+			err = e.ErrUpdateTemplate.AddDesc(err.Error())
+			break
+		}
+
+		updatedServiceTmpls = append(updatedServiceTmpls, serviceTmpl)
+	}
+
+	// roll back all template services if error occurs
+	if err != nil {
+		for _, serviceTmpl := range updatedServiceTmpls {
+			if err = commonrepo.NewServiceColl().Delete(serviceTmpl.ServiceName, setting.HelmDeployType, serviceTmpl.ProductName, setting.ProductStatusDeleting, serviceTmpl.Revision); err != nil {
+				log.Errorf("helmService.update delete %s error: %v", serviceTmpl.ServiceName, err)
+				continue
+			}
+		}
+		return err
+	}
+
+	return nil
 }

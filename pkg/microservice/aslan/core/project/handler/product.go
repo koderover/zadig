@@ -181,3 +181,43 @@ func UnForkProduct(c *gin.Context) {
 
 	ctx.Err = projectservice.UnForkProduct(ctx.User.ID, ctx.Username, c.Param("productName"), c.Query("workflowName"), c.Query("envName"), ctx.RequestID, ctx.Logger)
 }
+
+func GetCustomMatchRules(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if c.Param("name") == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	ctx.Resp, ctx.Err = projectservice.GetCustomMatchRules(c.Param("name"), ctx.Logger)
+}
+
+func CreateOrUpdateMatchRules(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if c.Param("name") == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("name"), "更新", "工程管理-项目", c.Param("name"), permission.SuperUserUUID, "", ctx.Logger)
+
+	//args := make([]*projectservice.ImageParseData, 0)
+	args := new(projectservice.CustomParseDataArgs)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("CreateOrUpdateMatchRules c.GetRawData() err : %v", err)
+		ctx.Err = e.ErrInvalidParam
+		return
+	}
+	if err = json.Unmarshal(data, &args); err != nil {
+		log.Errorf("CreateOrUpdateMatchRules json.Unmarshal err : %v", err)
+		ctx.Err = e.ErrInvalidParam
+		return
+	}
+
+	ctx.Err = projectservice.UpdateCustomMatchRules(c.Param("name"), ctx.Username, args.Rules)
+}

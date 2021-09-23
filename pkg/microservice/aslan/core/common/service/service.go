@@ -22,10 +22,14 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/koderover/zadig/pkg/util/converter"
+	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
+
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -563,4 +567,29 @@ func ExtractImageName(imageUrl string) string {
 		}
 	}
 	return ""
+}
+
+func ParseContainers(nested map[string]interface{}, patterns []map[string]string) ([]*models.Container, error) {
+	flatMap, err := converter.Flatten(nested)
+	if err != nil {
+		return nil, err
+	}
+	matchedPath, err := yamlutil.SearchByPattern(flatMap, patterns)
+	if err != nil {
+		return nil, err
+	}
+	ret := make([]*models.Container, 0)
+	for _, searchResult := range matchedPath {
+		imageUrl := GeneImageUri(searchResult, flatMap)
+		ret = append(ret, &models.Container{
+			Name:  ExtractImageName(imageUrl),
+			Image: imageUrl,
+			ImagePathSpec: &models.ImagePathSpec{
+				RepoPath:  searchResult["repo"],
+				ImagePath: searchResult["image"],
+				TagPath:   searchResult["tag"],
+			},
+		})
+	}
+	return ret, nil
 }

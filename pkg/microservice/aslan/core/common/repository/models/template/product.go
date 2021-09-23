@@ -21,26 +21,27 @@ import "strings"
 // Vars不做保存，只做input参数
 // product_name 当前项目主键
 type Product struct {
-	ProjectName    string          `bson:"project_name"              json:"project_name"`
-	ProductName    string          `bson:"product_name"              json:"product_name"`
-	Revision       int64           `bson:"revision"                  json:"revision"`
-	CreateTime     int64           `bson:"create_time"               json:"create_time"`
-	Teams          []*Team         `bson:"teams"                     json:"teams"`
-	Team           string          `bson:"team"                      json:"team"`
-	UpdateTime     int64           `bson:"update_time"               json:"update_time"`
-	UpdateBy       string          `bson:"update_by"                 json:"update_by"`
-	Enabled        bool            `bson:"enabled"                   json:"enabled"`
-	Visibility     string          `bson:"visibility"                json:"visibility"`
-	Timeout        int             `bson:"timeout,omitempty"         json:"timeout,omitempty"`
-	Services       [][]string      `bson:"services"                  json:"services"`
-	SharedServices []*ServiceInfo  `bson:"shared_services,omitempty" json:"shared_services,omitempty"`
-	Vars           []*RenderKV     `bson:"vars"                      json:"vars"`
-	EnvVars        []*EnvRenderKV  `bson:"-"                         json:"env_vars,omitempty"`
-	ChartInfos     []*RenderChart  `bson:"-"                         json:"chart_infos,omitempty"`
-	UserIDs        []int           `bson:"user_ids"                  json:"user_ids"`
-	TeamID         int             `bson:"team_id"                   json:"team_id"`
-	Description    string          `bson:"description,omitempty"     json:"desc,omitempty"`
-	ProductFeature *ProductFeature `bson:"product_feature,omitempty" json:"product_feature,omitempty"`
+	ProjectName     string             `bson:"project_name"              json:"project_name"`
+	ProductName     string             `bson:"product_name"              json:"product_name"`
+	Revision        int64              `bson:"revision"                  json:"revision"`
+	CreateTime      int64              `bson:"create_time"               json:"create_time"`
+	Teams           []*Team            `bson:"teams"                     json:"teams"`
+	Team            string             `bson:"team"                      json:"team"`
+	UpdateTime      int64              `bson:"update_time"               json:"update_time"`
+	UpdateBy        string             `bson:"update_by"                 json:"update_by"`
+	Enabled         bool               `bson:"enabled"                   json:"enabled"`
+	Visibility      string             `bson:"visibility"                json:"visibility"`
+	Timeout         int                `bson:"timeout,omitempty"         json:"timeout,omitempty"`
+	Services        [][]string         `bson:"services"                  json:"services"`
+	SharedServices  []*ServiceInfo     `bson:"shared_services,omitempty" json:"shared_services,omitempty"`
+	Vars            []*RenderKV        `bson:"vars"                      json:"vars"`
+	EnvVars         []*EnvRenderKV     `bson:"-"                         json:"env_vars,omitempty"`
+	ChartInfos      []*RenderChart     `bson:"-"                         json:"chart_infos,omitempty"`
+	UserIDs         []int              `bson:"user_ids"                  json:"user_ids"`
+	TeamID          int                `bson:"team_id"                   json:"team_id"`
+	Description     string             `bson:"description,omitempty"     json:"desc,omitempty"`
+	ProductFeature  *ProductFeature    `bson:"product_feature,omitempty" json:"product_feature,omitempty"`
+	ImageMatchRules []*ImageMatchRules `bson:"image_match_rules,omitempty" json:"image_match_rules,omitempty"`
 	// onboarding状态，0表示onboarding完成，1、2、3、4代表当前onboarding所在的步骤
 	OnboardingStatus int `bson:"onboarding_status"         json:"onboarding_status"`
 	// CI场景的onboarding流程创建的ci工作流id，用于前端跳转
@@ -133,6 +134,14 @@ type ForkProject struct {
 	WorkflowName string         `json:"workflow_name"`
 	ValuesYamls  []*RenderChart `json:"values_yamls"`
 	ProductName  string         `json:"product_name"`
+}
+
+type ImageMatchRules struct {
+	Repo     string `bson:"repo,omitempty"`
+	Image    string `bson:"image,omitempty"`
+	Tag      string `bson:"tag,omitempty"`
+	InUse    bool   `bson:"in_use,omitempty"`
+	PresetId int    `bson:"preset_id,omitempty"`
 }
 
 func (Product) TableName() string {

@@ -586,7 +586,11 @@ func (p *DeployTaskPlugin) replaceImage(imagePathSpec *types.ImagePathSpec, valu
 	if err != nil {
 		return "", err
 	}
-	foundResult, err := yamlutil.SearchByPattern(flatMap, []map[string]string{{"repo": imagePathSpec.RepoPath, "image": imagePathSpec.ImagePath, "tag": imagePathSpec.TagPath}})
+	foundResult, err := yamlutil.SearchByPattern(flatMap, []map[string]string{{
+		"repo":  imagePathSpec.RepoPath,
+		"image": imagePathSpec.ImagePath,
+		"tag":   imagePathSpec.TagPath,
+	}})
 	if err != nil {
 		return "", err
 	}

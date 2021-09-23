@@ -87,6 +87,38 @@ imagePullSecrets:
   - name: default-secret
 `
 
+var testYaml5 = `
+# Default values for go-sample-site.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+env: dev
+
+ingressClassName: koderover-admin-nginx
+
+image:
+  repository: ccr.ccs.tencentyun.com/trial/go-sample-site
+  pullPolicy: IfNotPresent
+  tag: "0.1.0"
+
+testSpec:
+  imageNew:
+    repo: ccr.ccs.tencentyun.com/trial/go-sample-site-new
+    pullPolicy: IfNotPresent
+    tag: "0.2.1"
+
+imagePullSecrets:
+  - name: default-registry-secret
+
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 8080
+
+`
+
 var err error
 var matedPaths []map[string]string
 
@@ -99,7 +131,7 @@ var _ = Describe("Testing search", func() {
 			flatMap, _ := converter.YamlToFlatMap([]byte(testYaml1))
 			matedPaths, err = SearchByPattern(flatMap, pattern)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(matedPaths).To(Equal([]map[string]interface{}{{"image": "image.repository", "tag": "image.tag"}}))
+			Expect(matedPaths).To(Equal([]map[string]string{{"image": "image.repository", "tag": "image.tag"}}))
 		})
 
 		It("multiple match", func() {
@@ -110,8 +142,8 @@ var _ = Describe("Testing search", func() {
 			matedPaths, err = SearchByPattern(flatMap, pattern)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(matedPaths)).To(Equal(2))
-			assert.Contains(GinkgoT(), matedPaths, map[string]interface{}{"image": "svc1.image.repository", "tag": "svc1.image.tag"})
-			assert.Contains(GinkgoT(), matedPaths, map[string]interface{}{"image": "svc2.image.repository", "tag": "svc2.image.tag"})
+			assert.Contains(GinkgoT(), matedPaths, map[string]string{"image": "svc1.image.repository", "tag": "svc1.image.tag"})
+			assert.Contains(GinkgoT(), matedPaths, map[string]string{"image": "svc2.image.repository", "tag": "svc2.image.tag"})
 		})
 
 		It("multiple match pattern 3", func() {
@@ -122,9 +154,9 @@ var _ = Describe("Testing search", func() {
 			matedPaths, err = SearchByPattern(flatMap, pattern)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(matedPaths)).To(Equal(3))
-			assert.Contains(GinkgoT(), matedPaths, map[string]interface{}{"image": "svc1.image.repository"})
-			assert.Contains(GinkgoT(), matedPaths, map[string]interface{}{"image": "svc2.image.repository"})
-			assert.Contains(GinkgoT(), matedPaths, map[string]interface{}{"image": "svc3.image.repository"})
+			assert.Contains(GinkgoT(), matedPaths, map[string]string{"image": "svc1.image.repository"})
+			assert.Contains(GinkgoT(), matedPaths, map[string]string{"image": "svc2.image.repository"})
+			assert.Contains(GinkgoT(), matedPaths, map[string]string{"image": "svc3.image.repository"})
 		})
 
 		It("multiple match pattern complex", func() {
@@ -138,11 +170,22 @@ var _ = Describe("Testing search", func() {
 			matedPaths, err = SearchByPattern(flatMap, pattern)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(matedPaths)).To(Equal(5))
-			assert.Contains(GinkgoT(), matedPaths, map[string]interface{}{"image": "svc1.image.repository", "tag": "svc1.image.tag"})
-			assert.Contains(GinkgoT(), matedPaths, map[string]interface{}{"image": "svc2.image.repository"})
-			assert.Contains(GinkgoT(), matedPaths, map[string]interface{}{"image": "svc3.image.repository"})
-			assert.Contains(GinkgoT(), matedPaths, map[string]interface{}{"image": "svc4.image.repositoryNew", "tag": "svc4.image.tagNew"})
-			assert.Contains(GinkgoT(), matedPaths, map[string]interface{}{"image": "svc5.second.image.repositorySpec", "tag": "svc5.second.tagNew"})
+			assert.Contains(GinkgoT(), matedPaths, map[string]string{"image": "svc1.image.repository", "tag": "svc1.image.tag"})
+			assert.Contains(GinkgoT(), matedPaths, map[string]string{"image": "svc2.image.repository"})
+			assert.Contains(GinkgoT(), matedPaths, map[string]string{"image": "svc3.image.repository"})
+			assert.Contains(GinkgoT(), matedPaths, map[string]string{"image": "svc4.image.repositoryNew", "tag": "svc4.image.tagNew"})
+			assert.Contains(GinkgoT(), matedPaths, map[string]string{"image": "svc5.second.image.repositorySpec", "tag": "svc5.second.tagNew"})
+		})
+
+		It("multiple match pattern complex2", func() {
+			pattern := []map[string]string{
+				{"image": "imageNew.repo", "tag": "imageNew.tag"},
+			}
+			flatMap, _ := converter.YamlToFlatMap([]byte(testYaml5))
+			matedPaths, err = SearchByPattern(flatMap, pattern)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(matedPaths)).To(Equal(1))
+			assert.Contains(GinkgoT(), matedPaths, map[string]string{"image": "testSpec.imageNew.repo", "tag": "testSpec.imageNew.tag"})
 		})
 	})
 })

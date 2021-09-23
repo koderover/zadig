@@ -1226,9 +1226,10 @@ func fillContainerParseInfo(prod *commonmodels.Product) error {
 		rendersetMap[singleData.ServiceName] = singleData.ValuesYaml
 	}
 
+	// for old data, preset rules should be capable
 	patterns := []map[string]string{
-		{"image": "repository", "tag": "tag"},
-		{"image": "repository"},
+		{"image": "image.repository", "tag": "image.tag"},
+		{"image": "image"},
 	}
 
 	fillHappen := false
