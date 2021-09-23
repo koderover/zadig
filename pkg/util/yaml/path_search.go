@@ -18,7 +18,6 @@ package yaml
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 )
 
@@ -128,21 +127,7 @@ func (isr *pathSearcher) handleKV(k string, v interface{}) {
 	}
 }
 
-func generateDFSMap(prefix string, source map[string]interface{}, outputMap map[string]string) {
-	for k, v := range source {
-		if subMap, ok := v.(map[string]interface{}); ok {
-			generateDFSMap(getKey(prefix, k), subMap, outputMap)
-		} else {
-			switch o := v.(type) {
-			case int:
-				outputMap[getKey(prefix, k)] = strconv.Itoa(o)
-			case string:
-				outputMap[getKey(prefix, k)] = o
-			}
-		}
-	}
-}
-
+// ignore empty patterns
 func preFilterSearchPaths(configs []map[string]string) []map[string]string {
 	ret := make([]map[string]string, 0)
 	for _, singleConfig := range configs {
@@ -158,6 +143,7 @@ func preFilterSearchPaths(configs []map[string]string) []map[string]string {
 	return ret
 }
 
+// build pathSearcher object for every pattern
 func searchPaths(patterns []map[string]string, sourceMap map[string]interface{}) []*pathSearcher {
 	patterns = preFilterSearchPaths(patterns)
 	if len(patterns) == 0 {
@@ -179,6 +165,7 @@ func searchPaths(patterns []map[string]string, sourceMap map[string]interface{})
 	return rtSlice
 }
 
+// merge results and filter duplicates paths
 func mergeResults(isrList []*pathSearcher) []map[string]string {
 	ret := make([]map[string]string, 0)
 	usedPath := make(map[string]int)

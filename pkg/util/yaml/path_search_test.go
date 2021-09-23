@@ -17,11 +17,11 @@ limitations under the License.
 package yaml
 
 import (
-	"github.com/koderover/zadig/pkg/util/converter"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
 	"github.com/stretchr/testify/assert"
+
+	"github.com/koderover/zadig/pkg/util/converter"
 )
 
 var testYaml1 = `
@@ -99,7 +99,7 @@ var _ = Describe("Testing search", func() {
 			flatMap, _ := converter.YamlToFlatMap([]byte(testYaml1))
 			matedPaths, err = SearchByPattern(flatMap, pattern)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(matedPaths).To(Equal([]map[string]interface{}{{"image": "image.repository", "tag": "image.tag"}}))
+			Expect(matedPaths).To(Equal([]map[string]string{{"image": "image.repository", "tag": "image.tag"}}))
 		})
 
 		It("multiple match", func() {
@@ -110,8 +110,8 @@ var _ = Describe("Testing search", func() {
 			matedPaths, err = SearchByPattern(flatMap, pattern)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(matedPaths)).To(Equal(2))
-			assert.Contains(GinkgoT(), matedPaths, map[string]interface{}{"image": "svc1.image.repository", "tag": "svc1.image.tag"})
-			assert.Contains(GinkgoT(), matedPaths, map[string]interface{}{"image": "svc2.image.repository", "tag": "svc2.image.tag"})
+			assert.Contains(GinkgoT(), matedPaths, map[string]string{"image": "svc1.image.repository", "tag": "svc1.image.tag"})
+			assert.Contains(GinkgoT(), matedPaths, map[string]string{"image": "svc2.image.repository", "tag": "svc2.image.tag"})
 		})
 
 		It("multiple match pattern 3", func() {
@@ -122,9 +122,9 @@ var _ = Describe("Testing search", func() {
 			matedPaths, err = SearchByPattern(flatMap, pattern)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(matedPaths)).To(Equal(3))
-			assert.Contains(GinkgoT(), matedPaths, map[string]interface{}{"image": "svc1.image.repository"})
-			assert.Contains(GinkgoT(), matedPaths, map[string]interface{}{"image": "svc2.image.repository"})
-			assert.Contains(GinkgoT(), matedPaths, map[string]interface{}{"image": "svc3.image.repository"})
+			assert.Contains(GinkgoT(), matedPaths, map[string]string{"image": "svc1.image.repository"})
+			assert.Contains(GinkgoT(), matedPaths, map[string]string{"image": "svc2.image.repository"})
+			assert.Contains(GinkgoT(), matedPaths, map[string]string{"image": "svc3.image.repository"})
 		})
 
 		It("multiple match pattern complex", func() {
@@ -138,11 +138,11 @@ var _ = Describe("Testing search", func() {
 			matedPaths, err = SearchByPattern(flatMap, pattern)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(matedPaths)).To(Equal(5))
-			assert.Contains(GinkgoT(), matedPaths, map[string]interface{}{"image": "svc1.image.repository", "tag": "svc1.image.tag"})
-			assert.Contains(GinkgoT(), matedPaths, map[string]interface{}{"image": "svc2.image.repository"})
-			assert.Contains(GinkgoT(), matedPaths, map[string]interface{}{"image": "svc3.image.repository"})
-			assert.Contains(GinkgoT(), matedPaths, map[string]interface{}{"image": "svc4.image.repositoryNew", "tag": "svc4.image.tagNew"})
-			assert.Contains(GinkgoT(), matedPaths, map[string]interface{}{"image": "svc5.second.image.repositorySpec", "tag": "svc5.second.tagNew"})
+			assert.Contains(GinkgoT(), matedPaths, map[string]string{"image": "svc1.image.repository", "tag": "svc1.image.tag"})
+			assert.Contains(GinkgoT(), matedPaths, map[string]string{"image": "svc2.image.repository"})
+			assert.Contains(GinkgoT(), matedPaths, map[string]string{"image": "svc3.image.repository"})
+			assert.Contains(GinkgoT(), matedPaths, map[string]string{"image": "svc4.image.repositoryNew", "tag": "svc4.image.tagNew"})
+			assert.Contains(GinkgoT(), matedPaths, map[string]string{"image": "svc5.second.image.repositorySpec", "tag": "svc5.second.tagNew"})
 		})
 	})
 })

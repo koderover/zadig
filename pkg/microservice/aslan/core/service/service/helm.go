@@ -688,7 +688,7 @@ func compareHelmVariable(chartInfos []*templatemodels.RenderChart, productName, 
 func parseContainers(nested map[string]interface{}) ([]*models.Container, error) {
 	patterns := []map[string]string{
 		{"image": "repository", "tag": "tag"},
-		{"image": "repository"},
+		{"image": "image"},
 	}
 	flatMap, err := converter.Flatten(nested)
 	if err != nil {

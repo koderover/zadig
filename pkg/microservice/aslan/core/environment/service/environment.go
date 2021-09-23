@@ -1228,7 +1228,7 @@ func fillContainerParseInfo(prod *commonmodels.Product) error {
 
 	patterns := []map[string]string{
 		{"image": "repository", "tag": "tag"},
-		{"image": "repository"},
+		{"image": "image"},
 	}
 
 	fillHappen := false
