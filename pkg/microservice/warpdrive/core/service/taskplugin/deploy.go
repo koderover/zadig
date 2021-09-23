@@ -47,9 +47,12 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
+	"github.com/koderover/zadig/pkg/util/converter"
 	"github.com/koderover/zadig/pkg/util/fs"
+	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 // InitializeDeployTaskPlugin to initiate deploy task plugin and return ref
@@ -84,12 +87,12 @@ func (p *DeployTaskPlugin) SetAckFunc(func()) {
 
 const (
 	// DeployTimeout ...
-	DeployTimeout    = 60 * 10 // 10 minutes
-	ImageRegexString = "^[a-zA-Z0-9.:\\/-]+$"
+	DeployTimeout            = 60 * 10 // 10 minutes
+	imageUrlParseRegexString = `(?P<repo>.+/)?(?P<image>[^:]+){1}(:)?(?P<tag>.+)?`
 )
 
 var (
-	ImageRegex = regexp.MustCompile(ImageRegexString)
+	imageParseRegex = regexp.MustCompile(imageUrlParseRegexString)
 )
 
 // Init ...
@@ -376,9 +379,29 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				productInfo.Render.Name, productInfo.Render.Revision)
 			return
 		}
+
+		var targetContainer *types.Container
+		for _, serviceGroup := range productInfo.Services {
+			for _, service := range serviceGroup {
+				if service.ServiceName == p.Task.ServiceName {
+					for _, container := range service.Containers {
+						if container.Name == p.Task.ContainerName {
+							targetContainer = container
+						}
+					}
+				}
+			}
+		}
+
+		if targetContainer == nil {
+			err = fmt.Errorf("failed to find container %s from service %s", p.Task.ContainerName, p.Task.ServiceName)
+			return
+		}
+
 		for _, chartInfo := range renderInfo.ChartInfos {
 			chartInfoMap[chartInfo.ServiceName] = chartInfo
 		}
+
 		if renderChart, isExist = chartInfoMap[p.Task.ServiceName]; isExist {
 			yamlValuesByte, err = yaml.YAMLToJSON([]byte(renderChart.ValuesYaml))
 			if err != nil {
@@ -398,53 +421,11 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				return
 			}
 
-			//找到需要替换的镜像
-			p.ReplaceImage = ""
-			p.recursionReplaceImage(currentValuesYamlMap, p.Task.Image)
-			if p.ReplaceImage != "" {
-				//先替换镜像名称
-				var oldImageName, newImageName, newImageTag string
-				oldImageArr := strings.Split(p.ReplaceImage, ":")
-				newImageArr := strings.Split(p.Task.Image, ":")
-
-				if len(oldImageArr) < 2 || len(newImageArr) < 2 {
-					err = errors.WithMessagef(
-						err,
-						"image is invalid %s/%s",
-						p.ReplaceImage, p.Task.Image)
-					return
-				}
-
-				oldImageName = oldImageArr[0]
-				newImageName = newImageArr[0]
-				newImageTag = newImageArr[1]
-				//根据value找到对应的key
-				currentChartInfoMap := util.GetJSONData(currentValuesYamlMap)
-				sameKeyMap := make(map[string]interface{})
-				for mapKey, mapValue := range currentChartInfoMap {
-					if mapValue == oldImageName {
-						sameKeyMap[mapKey] = newImageName
-						imageTag := strings.Replace(mapKey, ".repository", ".tag", 1)
-						sameKeyMap[imageTag] = newImageTag
-					}
-				}
-
-				replaceMap := util.ReplaceMapValue(currentValuesYamlMap, sameKeyMap)
-				replaceValuesYaml, err = util.JSONToYaml(replaceMap)
-				if err != nil {
-					err = errors.WithMessagef(
-						err,
-						"failed to jsonToYaml %s/%s",
-						p.Task.Namespace, p.Task.ServiceName)
-					return
-				}
-			} else {
-				p.recursionReplaceImageByColon(currentValuesYamlMap, p.Task.Image)
-				if p.ReplaceImage != "" {
-					replaceValuesYaml = renderChart.ValuesYaml
-					replaceValuesYaml = strings.Replace(replaceValuesYaml, p.ReplaceImage, p.Task.Image, -1)
-				}
+			replaceValuesYaml, err = p.replaceImage(targetContainer.ImagePathSpec, currentValuesYamlMap, p.Task.Image)
+			if err != nil {
+				log.Error("failed to replace image: %s", p.Task.Image)
 			}
+
 			if replaceValuesYaml != "" {
 				helmClient, err = helmtool.NewClientFromRestConf(p.restConfig, p.Task.Namespace)
 				if err != nil {
@@ -596,62 +577,86 @@ func (p *DeployTaskPlugin) updateRenderSet(ctx context.Context, args *types.Rend
 	return err
 }
 
-// 递归循环找到要替换的镜像的标签
-func (p *DeployTaskPlugin) recursionReplaceImage(jsonValues map[string]interface{}, image string) {
-	for jsonKey, jsonValue := range jsonValues {
-		levelMap := p.isMap(jsonValue)
-		if levelMap != nil {
-			p.recursionReplaceImage(levelMap, image)
-		} else if repository, isStr := jsonValue.(string); isStr {
-			if !strings.Contains(jsonKey, "repository") {
+// replace image defines in yaml by new version
+func (p *DeployTaskPlugin) replaceImage(imagePathSpec *types.ImagePathSpec, valuesMap map[string]interface{}, imageUri string) (string, error) {
+	if imagePathSpec == nil {
+		return "", errors.New("image path parse info is nil")
+	}
+	flatMap, err := converter.Flatten(valuesMap)
+	if err != nil {
+		return "", err
+	}
+	foundResult, err := yamlutil.SearchByPattern(flatMap, []map[string]string{{"repo": imagePathSpec.RepoPath, "image": imagePathSpec.ImagePath, "tag": imagePathSpec.TagPath}})
+	if err != nil {
+		return "", err
+	}
+	if len(foundResult) != 1 {
+		return "", errors.New("can't parse image ptah")
+	}
+	replaceValuesMap, err := assignImageData(imageUri, foundResult[0])
+	if err != nil {
+		return "", err
+	}
+	replaceMap := util.ReplaceMapValue(valuesMap, replaceValuesMap)
+	replacedValuesYaml, err := util.JSONToYaml(replaceMap)
+	if err != nil {
+		return "", err
+	}
+	return replacedValuesYaml, nil
+}
+
+// assign image url data into match data
+// matchData: image=>absolute-path repo=>absolute-path tag=>absolute-path
+func assignImageData(imageUrl string, matchData map[string]string) (map[string]interface{}, error) {
+	ret := make(map[string]interface{})
+	// total image url assigned into one single value
+	if len(matchData) == 1 {
+		for _, v := range matchData {
+			ret[v] = imageUrl
+		}
+		return ret, nil
+	}
+
+	resolvedImageUrl := resolveImageUrl(imageUrl)
+
+	// image url assigned into repo+image+tag
+	if len(matchData) == 3 {
+		ret[matchData["repo"]] = strings.TrimSuffix(resolvedImageUrl["repo"], "/")
+		ret[matchData["image"]] = resolvedImageUrl["image"]
+		ret[matchData["tag"]] = resolvedImageUrl["tag"]
+		return ret, nil
+	}
+
+	// image url assigned into repo/image + tag
+	if tagPath, ok := matchData["tag"]; ok {
+		ret[tagPath] = resolvedImageUrl["tag"]
+		for k, imagePath := range matchData {
+			if k == "tag" {
 				continue
 			}
-			if imageTag, isExist := jsonValues["tag"]; isExist {
-				if imageTag == "" {
-					continue
-				}
-				currentImageName := strings.Split(image, ":")[0]
-				currentImageNameArr := strings.Split(currentImageName, "/")
-				serviceName := currentImageNameArr[len(currentImageNameArr)-1]
-				if strings.Contains(repository, serviceName) {
-					p.Log.Infof("find replace imageName:%s imageTag:%v", repository, imageTag)
-					p.ReplaceImage = fmt.Sprintf("%s:%v", repository, imageTag)
-					return
-				}
-			}
+			ret[imagePath] = fmt.Sprintf("%s%s", resolvedImageUrl["repo"], resolvedImageUrl["image"])
+			break
 		}
+		return ret, nil
+	} else {
+		// image url assigned into repo + image(tag)
+		ret[matchData["repo"]] = strings.TrimSuffix(resolvedImageUrl["repo"], "/")
+		ret[matchData["image"]] = fmt.Sprintf("%s:%s", resolvedImageUrl["image"], resolvedImageUrl["tag"])
+		return ret, nil
 	}
 }
 
-// 递归循环找到根据包含冒号要替换的镜像的标签
-func (p *DeployTaskPlugin) recursionReplaceImageByColon(jsonValues map[string]interface{}, image string) {
-	for _, jsonValue := range jsonValues {
-		levelMap := p.isMap(jsonValue)
-		if levelMap != nil {
-			p.recursionReplaceImageByColon(levelMap, image)
-		} else if repository, isStr := jsonValue.(string); isStr {
-			if strings.Contains(repository, ":") && ImageRegex.MatchString(repository) {
-				currentImageName := strings.Split(image, ":")[0]
-				currentImageNameArr := strings.Split(currentImageName, "/")
-				serviceName := currentImageNameArr[len(currentImageNameArr)-1]
-				if strings.Contains(repository, serviceName) {
-					p.Log.Infof("find replace image:%s", repository)
-					p.ReplaceImage = repository
-					return
-				}
-			}
+// parse image url to map: repo=>xxx/xx/xx image=>xx tag=>xxx
+func resolveImageUrl(imageUrl string) map[string]string {
+	subMatchAll := imageParseRegex.FindStringSubmatch(imageUrl)
+	result := make(map[string]string)
+	exNames := imageParseRegex.SubexpNames()
+	for i, matchedStr := range subMatchAll {
+		if i != 0 && matchedStr != "" && matchedStr != ":" {
+			result[exNames[i]] = matchedStr
 		}
 	}
-}
-
-func (p *DeployTaskPlugin) isMap(yamlMap interface{}) map[string]interface{} {
-	switch value := yamlMap.(type) {
-	case map[string]interface{}:
-		return value
-	default:
-		return nil
-	}
-	return nil
+	return result
 }
 
 // Wait ...

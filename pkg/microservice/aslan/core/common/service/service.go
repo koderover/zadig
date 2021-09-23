@@ -19,6 +19,7 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"go.uber.org/zap"
@@ -80,6 +81,10 @@ type ServiceProductMap struct {
 	LoadFromDir      bool                      `json:"is_dir"`
 	GerritRemoteName string                    `json:"gerrit_remote_name,omitempty"`
 }
+
+var (
+	imageParseRegex = regexp.MustCompile(`(?P<repo>.+/)?(?P<image>[^:]+){1}(:)?(?P<tag>.+)?`)
+)
 
 // ListServiceTemplate 列出服务模板
 func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTmplResp, error) {
@@ -506,4 +511,56 @@ func getAddressFromPath(path, owner, repo string, logger *zap.Logger) string {
 	}
 
 	return res[0]
+}
+
+// get values form source flat map
+// convert map[k]absolutePath  to  map[k]value
+func getValuesByPath(paths map[string]string, flatMap map[string]interface{}) map[string]interface{} {
+	ret := make(map[string]interface{})
+	for k, path := range paths {
+		if value, ok := flatMap[path]; ok {
+			ret[k] = value
+		} else {
+			ret[k] = nil
+		}
+	}
+	return ret
+}
+
+// GeneImageUri generate valid image uri
+func GeneImageUri(pathData map[string]string, flatMap map[string]interface{}) string {
+	valuesMap := getValuesByPath(pathData, flatMap)
+	ret := ""
+	if repo, ok := valuesMap["repo"]; ok {
+		ret = fmt.Sprintf("%v", repo)
+		ret = strings.TrimSuffix(ret, "/")
+	}
+	if image, ok := valuesMap["image"]; ok {
+		imageStr := fmt.Sprintf("%v", image)
+		if ret == "" {
+			ret = imageStr
+		} else {
+			ret = fmt.Sprintf("%s/%s", ret, imageStr)
+		}
+	}
+	if tag, ok := valuesMap["tag"]; ok {
+		tagStr := fmt.Sprintf("%v", tag)
+		if tagStr != "" {
+			ret = fmt.Sprintf("%s:%s", ret, tagStr)
+		}
+	}
+	return ret
+}
+
+func ExtractImageName(imageUrl string) string {
+	subMatchAll := imageParseRegex.FindStringSubmatch(imageUrl)
+	exNames := imageParseRegex.SubexpNames()
+	for i, matchedStr := range subMatchAll {
+		if i != 0 && matchedStr != "" && matchedStr != ":" {
+			if exNames[i] == "image" {
+				return matchedStr
+			}
+		}
+	}
+	return ""
 }

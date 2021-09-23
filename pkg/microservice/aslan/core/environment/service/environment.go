@@ -45,6 +45,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -62,6 +63,7 @@ import (
 	"github.com/koderover/zadig/pkg/types/permission"
 	"github.com/koderover/zadig/pkg/util/converter"
 	"github.com/koderover/zadig/pkg/util/fs"
+	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 const (
@@ -117,7 +119,7 @@ type UpdateMultiHelmProductArg struct {
 	ProductName   string                          `json:"productName"`
 	EnvNames      []string                        `json:"envNames"`
 	ChartValues   []*commonservice.RenderChartArg `json:"chartValues"`
-	ReplacePolicy string                          `json:"replacePolicy"`			// TODO logic not implemented
+	ReplacePolicy string                          `json:"replacePolicy"` // TODO logic not implemented
 }
 
 func UpdateProductPublic(productName string, args *ProductParams, log *zap.SugaredLogger) error {
@@ -812,8 +814,9 @@ func CreateHelmProduct(userName, requestID string, args *CreateHelmProductArg, l
 				serviceResp.Containers = make([]*commonmodels.Container, 0)
 				for _, c := range serviceTmpl.Containers {
 					container := &commonmodels.Container{
-						Name:  c.Name,
-						Image: c.Image,
+						Name:          c.Name,
+						Image:         c.Image,
+						ImagePathSpec: c.ImagePathSpec,
 					}
 					serviceResp.Containers = append(serviceResp.Containers, container)
 				}
@@ -1217,6 +1220,79 @@ func UpdateMultiHelmProduct(envNames []string, updateType, productName string, u
 	return envStatuses
 }
 
+func fillContainerParseInfo(prod *commonmodels.Product) error {
+	rendersetMap := make(map[string]string)
+	for _, singleData := range prod.ChartInfos {
+		rendersetMap[singleData.ServiceName] = singleData.ValuesYaml
+	}
+
+	patterns := []map[string]string{
+		{"image": "repository", "tag": "tag"},
+		{"image": "repository"},
+	}
+
+	fillHappen := false
+
+	// fill the parse info
+	for _, serviceGroup := range prod.Services {
+		for _, singleService := range serviceGroup {
+			findEmptySpec := false
+			for _, container := range singleService.Containers {
+				if container.ImagePathSpec == nil {
+					findEmptySpec = true
+					break
+				}
+			}
+			if !findEmptySpec {
+				continue
+			}
+			flatMap, err := converter.YamlToFlatMap([]byte(rendersetMap[singleService.ServiceName]))
+			if err != nil {
+				return err
+			}
+			for _, container := range singleService.Containers {
+				if container.ImagePathSpec != nil {
+					continue
+				}
+				err = findImageByContainerName(flatMap, patterns, container)
+				if err != nil {
+					return err
+				}
+				fillHappen = true
+			}
+		}
+	}
+
+	if fillHappen {
+		err := commonrepo.NewProductColl().Update(prod)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// find match rule
+func findImageByContainerName(flatMap map[string]interface{}, patterns []map[string]string, container *models.Container) error {
+	matchedPath, err := yamlutil.SearchByPattern(flatMap, patterns)
+	if err != nil {
+		return err
+	}
+	for _, searchResult := range matchedPath {
+		imageUrl := commonservice.GeneImageUri(searchResult, flatMap)
+		if container.Name != commonservice.ExtractImageName(imageUrl) {
+			continue
+		}
+		container.ImagePathSpec = &models.ImagePathSpec{
+			RepoPath:  searchResult["repo"],
+			ImagePath: searchResult["image"],
+			TagPath:   searchResult["tag"],
+		}
+		break
+	}
+	return nil
+}
+
 func GetProductInfo(username, envName, productName string, log *zap.SugaredLogger) (*commonmodels.Product, error) {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	prod, err := commonrepo.NewProductColl().Find(opt)
@@ -1233,6 +1309,11 @@ func GetProductInfo(username, envName, productName string, log *zap.SugaredLogge
 		return prod, nil
 	}
 	prod.ChartInfos = renderSet.ChartInfos
+
+	err = fillContainerParseInfo(prod)
+	if err != nil {
+		log.Errorf("fill helm service parse data fail, productName %s err %s", productName, err.Error())
+	}
 
 	return prod, nil
 }
@@ -2763,10 +2844,10 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 		for _, service := range services {
 			if renderChart, isExist := renderChartMap[service.ServiceName]; isExist {
 				opt := &commonrepo.ServiceFindOption{
-					ServiceName:   service.ServiceName,
-					Type:          service.Type,
-					Revision:      service.Revision,
-					ProductName:   productName,
+					ServiceName: service.ServiceName,
+					Type:        service.Type,
+					Revision:    service.Revision,
+					ProductName: productName,
 					//ExcludeStatus: setting.ProductStatusDeleting,
 				}
 				serviceObj, err := commonrepo.NewServiceColl().Find(opt)
