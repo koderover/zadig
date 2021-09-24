@@ -408,6 +408,6 @@ func ListProductsSSE(c *gin.Context) {
 			if time.Since(startTime).Minutes() == float64(60) {
 				ctx.Logger.Warnf("[%s] Query ListProductsSSE API over 60 minutes", ctx.Username)
 			}
-		}, time.Second)
+		}, time.Second*10)
 	}, ctx.Logger)
 }
