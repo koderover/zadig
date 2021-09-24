@@ -24,11 +24,11 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 
+	"github.com/instrumenta/kubeval/kubeval"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -749,64 +749,15 @@ func UpdateServiceTemplate(args *commonservice.ServiceTmplObject) error {
 	return commonrepo.NewServiceColl().Update(updateArgs)
 }
 
-func YamlValidator(args *YamlValidatorReq) []string {
+func YamlValidator(args *YamlValidatorReq) ([]kubeval.ValidationResult, error) {
 	//validateWithCacheMap := make(map[string]*gojsonschema.Schema)
-	errorDetails := make([]string, 0)
-	if args.Yaml == "" {
-		return errorDetails
-	}
 	yamlContent := util.ReplaceWrapLine(args.Yaml)
-	KubeYamls := SplitYaml(yamlContent)
-	totalErrorLineNum := 0
-	for index, data := range KubeYamls {
-		yamlDataArray := SplitYaml(data)
-		for _, yamlData := range yamlDataArray {
-			//验证格式
-			if strings.Count(yamlData, "apiVersion") > 1 {
-				tmpYamlDataArray := strings.Split(yamlData, "\napiVersion")
-				tmpYamlData := 0
-				for index := range tmpYamlDataArray {
-					tmpYamlData += strings.Count(tmpYamlDataArray[index], "\n") + 1
-					if index != len(tmpYamlDataArray)-1 {
-						if strings.Contains(tmpYamlDataArray[index], "---") {
-							errorDetails = append(errorDetails, fmt.Sprintf("系统检测到%s %d %s %d %s", "在", totalErrorLineNum+tmpYamlData, "行和", totalErrorLineNum+tmpYamlData+1, "行之间---前后可能存在空格,请检查!"))
-						} else if strings.Contains(tmpYamlDataArray[index], "-- -") || strings.Contains(tmpYamlDataArray[index], "- --") || strings.Contains(tmpYamlDataArray[index], "- - -") {
-							errorDetails = append(errorDetails, fmt.Sprintf("%s %d %s %d %s", "在", totalErrorLineNum+tmpYamlData, "行和", totalErrorLineNum+tmpYamlData+1, "行之间---中间不能存在空格,请检查!"))
-						} else {
-							errorDetails = append(errorDetails, fmt.Sprintf("%s %d %s %d %s", "在", totalErrorLineNum+tmpYamlData, "行和", totalErrorLineNum+tmpYamlData+1, "行之间必须使用---进行拼接,请添加!"))
-						}
-					}
-				}
-				return errorDetails
-			}
-			resKind := new(KubeResourceKind)
-			//在Unmarshal之前填充渲染变量{{.}}
-			yamlData = config.RenderTemplateAlias.ReplaceAllLiteralString(yamlData, "ssssssss")
-			// replace $Service$ with service name
-			yamlData = config.ServiceNameAlias.ReplaceAllLiteralString(yamlData, args.ServiceName)
-
-			if err := yaml.Unmarshal([]byte(yamlData), &resKind); err != nil {
-				if index == 0 {
-					errorDetails = append(errorDetails, err.Error())
-					return errorDetails
-				}
-				if strings.Contains(err.Error(), "yaml: line") {
-					re := regexp.MustCompile("[0-9]+")
-					errorLineNums := re.FindAllString(err.Error(), -1)
-					errorLineNum, _ := strconv.Atoi(errorLineNums[0])
-					totalErrorLineNum = totalErrorLineNum + errorLineNum
-					errMessage := re.ReplaceAllString(err.Error(), strconv.Itoa(totalErrorLineNum))
-
-					errorDetails = append(errorDetails, errMessage)
-					return errorDetails
-				}
-			}
-
-			totalErrorLineNum += strings.Count(yamlData, "\n") + 2
-		}
-	}
-
-	return errorDetails
+	//验证格式
+	//在Unmarshal之前填充渲染变量{{.}}
+	yamlContent = config.RenderTemplateAlias.ReplaceAllLiteralString(yamlContent, "ssssssss")
+	// replace $Service$ with service name
+	yamlContent = config.ServiceNameAlias.ReplaceAllLiteralString(yamlContent, args.ServiceName)
+	return kubeval.Validate([]byte(yamlContent), &kubeval.Config{SchemaLocation: "http://resource.koderover.com/k8s-json-scheme"})
 }
 
 func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate, visibility string, log *zap.SugaredLogger) error {
