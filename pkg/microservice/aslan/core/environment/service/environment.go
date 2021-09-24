@@ -2138,13 +2138,20 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 	}
 
 	args.Render = tmpRenderInfo
-	if productTmpl.ProductFeature == nil {
-		return ensureKubeEnv(commonservice.GetProductEnvNamespace(envName, args.ProductName), kubeClient, log)
-	}
-	if productTmpl.ProductFeature != nil && productTmpl.ProductFeature.BasicFacility != setting.BasicFacilityCVM {
+	if preCreateNSAndSecret(productTmpl.ProductFeature) {
 		return ensureKubeEnv(commonservice.GetProductEnvNamespace(envName, args.ProductName), kubeClient, log)
 	}
 	return nil
+}
+
+func preCreateNSAndSecret(productFeature *template.ProductFeature) bool {
+	if productFeature == nil {
+		return true
+	}
+	if productFeature != nil && productFeature.BasicFacility != setting.BasicFacilityCVM {
+		return true
+	}
+	return false
 }
 
 func getPredefinedLabels(product, service string) map[string]string {
