@@ -117,7 +117,7 @@ type UpdateMultiHelmProductArg struct {
 	ProductName   string                          `json:"productName"`
 	EnvNames      []string                        `json:"envNames"`
 	ChartValues   []*commonservice.RenderChartArg `json:"chartValues"`
-	ReplacePolicy string                          `json:"replacePolicy"`			// TODO logic not implemented
+	ReplacePolicy string                          `json:"replacePolicy"` // TODO logic not implemented
 }
 
 func UpdateProductPublic(productName string, args *ProductParams, log *zap.SugaredLogger) error {
@@ -2138,6 +2138,9 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 	}
 
 	args.Render = tmpRenderInfo
+	if productTmpl.ProductFeature == nil {
+		return ensureKubeEnv(commonservice.GetProductEnvNamespace(envName, args.ProductName), kubeClient, log)
+	}
 	if productTmpl.ProductFeature != nil && productTmpl.ProductFeature.BasicFacility != setting.BasicFacilityCVM {
 		return ensureKubeEnv(commonservice.GetProductEnvNamespace(envName, args.ProductName), kubeClient, log)
 	}
@@ -2763,10 +2766,10 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 		for _, service := range services {
 			if renderChart, isExist := renderChartMap[service.ServiceName]; isExist {
 				opt := &commonrepo.ServiceFindOption{
-					ServiceName:   service.ServiceName,
-					Type:          service.Type,
-					Revision:      service.Revision,
-					ProductName:   productName,
+					ServiceName: service.ServiceName,
+					Type:        service.Type,
+					Revision:    service.Revision,
+					ProductName: productName,
 					//ExcludeStatus: setting.ProductStatusDeleting,
 				}
 				serviceObj, err := commonrepo.NewServiceColl().Find(opt)
