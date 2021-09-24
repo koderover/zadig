@@ -757,7 +757,7 @@ func YamlValidator(args *YamlValidatorReq) ([]kubeval.ValidationResult, error) {
 	yamlContent = config.RenderTemplateAlias.ReplaceAllLiteralString(yamlContent, "ssssssss")
 	// replace $Service$ with service name
 	yamlContent = config.ServiceNameAlias.ReplaceAllLiteralString(yamlContent, args.ServiceName)
-	return kubeval.Validate([]byte(yamlContent), &kubeval.Config{SchemaLocation: "http://resource.koderover.com/k8s-json-scheme"})
+	return kubeval.Validate([]byte(yamlContent), &kubeval.Config{SchemaLocation: "http://resource.koderover.com/k8s-json-scheme", DefaultNamespace: "default", KubernetesVersion: "master"})
 }
 
 func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate, visibility string, log *zap.SugaredLogger) error {
