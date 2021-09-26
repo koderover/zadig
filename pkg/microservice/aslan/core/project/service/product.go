@@ -887,28 +887,20 @@ func GetCustomMatchRules(productName string, log *zap.SugaredLogger) ([]*ImagePa
 		log.Errorf("query product:%s fail, err:%s", productName, err.Error())
 		return nil, fmt.Errorf("failed to find product %s", productName)
 	}
-	ret := make([]*ImageParseData, 0, len(productInfo.ImageMatchRules))
-	for _, singleData := range productInfo.ImageMatchRules {
+
+	rules := productInfo.ImageMatchRules
+	if len(rules) == 0 {
+		rules = commonservice.GetPresetRules()
+	}
+
+	ret := make([]*ImageParseData, 0, len(rules))
+	for _, singleData := range rules {
 		ret = append(ret, &ImageParseData{
 			Repo:     singleData.Repo,
 			Image:    singleData.Image,
 			Tag:      singleData.Tag,
 			InUse:    singleData.InUse,
 			PresetId: singleData.PresetId,
-		})
-	}
-	// use preset data if rules are never edited
-	if len(ret) == 0 {
-		ret = append(ret, &ImageParseData{
-			Repo:     "",
-			Image:    "image.repository",
-			Tag:      "image.tag",
-			InUse:    true,
-			PresetId: 1,
-		}, &ImageParseData{
-			Image:    "image",
-			InUse:    true,
-			PresetId: 2,
 		})
 	}
 	return ret, nil

@@ -205,7 +205,6 @@ func CreateOrUpdateMatchRules(c *gin.Context) {
 
 	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("name"), "更新", "工程管理-项目", c.Param("name"), permission.SuperUserUUID, "", ctx.Logger)
 
-	//args := make([]*projectservice.ImageParseData, 0)
 	args := new(projectservice.CustomParseDataArgs)
 	data, err := c.GetRawData()
 	if err != nil {

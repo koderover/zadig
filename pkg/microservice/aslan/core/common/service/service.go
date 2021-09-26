@@ -91,7 +91,7 @@ type ServiceProductMap struct {
 var (
 	imageParseRegex = regexp.MustCompile(`(?P<repo>.+/)?(?P<image>[^:]+){1}(:)?(?P<tag>.+)?`)
 	presetPatterns  = []map[string]string{
-		{setting.PathSearchComponentImage: "repository", setting.PathSearchComponentTag: "tag"},
+		{setting.PathSearchComponentImage: "image.repository", setting.PathSearchComponentTag: "image.tag"},
 		{setting.PathSearchComponentImage: "image"},
 	}
 )
@@ -561,7 +561,7 @@ func GeneImageURI(pathData map[string]string, flatMap map[string]interface{}) (s
 		}
 	}
 	if ret == "" {
-		return "", errors.New("")
+		return "", errors.New("image name not found")
 	}
 	// if tag is set, append to current uri, if not set ignore
 	if tag, ok := valuesMap[setting.PathSearchComponentTag]; ok {
@@ -668,4 +668,18 @@ func ParseImagesForProductService(nested map[string]interface{}, serviceName, pr
 // ParseImagesByPresetRules parse images from flat yaml map with preset rules
 func ParseImagesByPresetRules(flatMap map[string]interface{}) ([]map[string]string, error) {
 	return yamlutil.SearchByPattern(flatMap, presetPatterns)
+}
+
+func GetPresetRules() []*template.ImageMatchRules {
+	ret := make([]*template.ImageMatchRules, 0, len(presetPatterns))
+	for id, pattern := range presetPatterns {
+		ret = append(ret, &template.ImageMatchRules{
+			Repo:     pattern[setting.PathSearchComponentRepo],
+			Image:    pattern[setting.PathSearchComponentImage],
+			Tag:      pattern[setting.PathSearchComponentTag],
+			InUse:    true,
+			PresetId: id + 1,
+		})
+	}
+	return ret
 }
