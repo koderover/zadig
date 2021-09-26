@@ -686,25 +686,26 @@ func compareHelmVariable(chartInfos []*templatemodels.RenderChart, productName, 
 }
 
 func parseContainers(nested map[string]interface{}) ([]*models.Container, error) {
-	patterns := []map[string]string{
-		{"image": "repository", "tag": "tag"},
-		{"image": "image"},
-	}
 	flatMap, err := converter.Flatten(nested)
 	if err != nil {
 		return nil, err
 	}
-	matchedPath, err := yamlutil.SearchByPattern(flatMap, patterns)
+
+	matchedPath, err := commonservice.SearchImagesByPresetRules(flatMap)
 	if err != nil {
 		return nil, err
 	}
+
 	ret := make([]*models.Container, 0)
 	for _, searchResult := range matchedPath {
-		imageUrl := commonservice.GeneImageUri(searchResult, flatMap)
+		imageUrl, err := commonservice.GeneImageURI(searchResult, flatMap)
+		if err != nil {
+			return nil, err
+		}
 		ret = append(ret, &models.Container{
 			Name:  commonservice.ExtractImageName(imageUrl),
 			Image: imageUrl,
-			ImagePathSpec: &models.ImagePathSpec{
+			ImagePath: &models.ImagePathSpec{
 				RepoPath:  searchResult["repo"],
 				ImagePath: searchResult["image"],
 				TagPath:   searchResult["tag"],

@@ -60,10 +60,10 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types/permission"
 	"github.com/koderover/zadig/pkg/util/converter"
 	"github.com/koderover/zadig/pkg/util/fs"
-	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 const (
@@ -814,9 +814,9 @@ func CreateHelmProduct(userName, requestID string, args *CreateHelmProductArg, l
 				serviceResp.Containers = make([]*commonmodels.Container, 0)
 				for _, c := range serviceTmpl.Containers {
 					container := &commonmodels.Container{
-						Name:          c.Name,
-						Image:         c.Image,
-						ImagePathSpec: c.ImagePathSpec,
+						Name:      c.Name,
+						Image:     c.Image,
+						ImagePath: c.ImagePath,
 					}
 					serviceResp.Containers = append(serviceResp.Containers, container)
 				}
@@ -1226,11 +1226,6 @@ func fillContainerParseInfo(prod *commonmodels.Product) error {
 		rendersetMap[singleData.ServiceName] = singleData.ValuesYaml
 	}
 
-	patterns := []map[string]string{
-		{"image": "repository", "tag": "tag"},
-		{"image": "image"},
-	}
-
 	fillHappen := false
 
 	// fill the parse info
@@ -1238,7 +1233,7 @@ func fillContainerParseInfo(prod *commonmodels.Product) error {
 		for _, singleService := range serviceGroup {
 			findEmptySpec := false
 			for _, container := range singleService.Containers {
-				if container.ImagePathSpec == nil {
+				if container.ImagePath == nil {
 					findEmptySpec = true
 					break
 				}
@@ -1250,11 +1245,16 @@ func fillContainerParseInfo(prod *commonmodels.Product) error {
 			if err != nil {
 				return err
 			}
+			matchedPath, err := commonservice.SearchImagesByPresetRules(flatMap)
+			if err != nil {
+				log.Errorf("failed to parse images from service:%s in product:%s", singleService.ServiceName, singleService.ProductName)
+				continue
+			}
 			for _, container := range singleService.Containers {
-				if container.ImagePathSpec != nil {
+				if container.ImagePath != nil {
 					continue
 				}
-				err = findImageByContainerName(flatMap, patterns, container)
+				err = findImageByContainerName(flatMap, matchedPath, container)
 				if err != nil {
 					return err
 				}
@@ -1273,17 +1273,17 @@ func fillContainerParseInfo(prod *commonmodels.Product) error {
 }
 
 // find match rule
-func findImageByContainerName(flatMap map[string]interface{}, patterns []map[string]string, container *models.Container) error {
-	matchedPath, err := yamlutil.SearchByPattern(flatMap, patterns)
-	if err != nil {
-		return err
-	}
+func findImageByContainerName(flatMap map[string]interface{}, matchedPath []map[string]string, container *models.Container) error {
 	for _, searchResult := range matchedPath {
-		imageUrl := commonservice.GeneImageUri(searchResult, flatMap)
-		if container.Name != commonservice.ExtractImageName(imageUrl) {
+		imageURI, err := commonservice.GeneImageURI(searchResult, flatMap)
+		if err != nil {
+			log.Error("GeneImageURI fail, err %s", err.Error())
 			continue
 		}
-		container.ImagePathSpec = &models.ImagePathSpec{
+		if container.Name != commonservice.ExtractImageName(imageURI) {
+			continue
+		}
+		container.ImagePath = &models.ImagePathSpec{
 			RepoPath:  searchResult["repo"],
 			ImagePath: searchResult["image"],
 			TagPath:   searchResult["tag"],

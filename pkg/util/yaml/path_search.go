@@ -17,6 +17,7 @@ limitations under the License.
 package yaml
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -41,12 +42,12 @@ type pathSearchRuntime struct {
 	foundSet map[string]*singlePathSearchInfo // path => singlePathSearchInfo
 }
 
-func (isr *pathSearchRuntime) checkAllFinish() bool {
-	for _, singlePath := range isr.pattern {
+func (searchRuntime *pathSearchRuntime) checkAllFinish() bool {
+	for _, singlePath := range searchRuntime.pattern {
 		if singlePath == "" {
 			continue
 		}
-		if _, ok := isr.foundSet[singlePath]; !ok {
+		if _, ok := searchRuntime.foundSet[singlePath]; !ok {
 			return false
 		}
 	}
@@ -127,28 +128,28 @@ func (isr *pathSearcher) handleKV(k string, v interface{}) {
 	}
 }
 
-// ignore empty patterns
-func preFilterSearchPaths(configs []map[string]string) []map[string]string {
-	ret := make([]map[string]string, 0)
+// check if contains empty patterns
+func preFilterSearchPaths(configs []map[string]string) error {
 	for _, singleConfig := range configs {
-		cfg := make(map[string]string)
 		for k, v := range singleConfig {
 			if k == "" || v == "" {
-				continue
+				return errors.New("empty pattern name or pattern path is not supported")
 			}
-			cfg[k] = v
 		}
-		ret = append(ret, cfg)
 	}
-	return ret
+	return nil
 }
 
 // build pathSearcher object for every pattern
-func searchPaths(patterns []map[string]string, sourceMap map[string]interface{}) []*pathSearcher {
-	patterns = preFilterSearchPaths(patterns)
+func searchPaths(patterns []map[string]string, sourceMap map[string]interface{}) ([]*pathSearcher, error) {
 	if len(patterns) == 0 {
-		return nil
+		return nil, nil
 	}
+	err := preFilterSearchPaths(patterns)
+	if err != nil {
+		return nil, err
+	}
+
 	rtSlice := make([]*pathSearcher, 0)
 	for _, cfg := range patterns {
 		rt := &pathSearcher{
@@ -162,7 +163,7 @@ func searchPaths(patterns []map[string]string, sourceMap map[string]interface{})
 			rt.handleKV(k, v)
 		}
 	}
-	return rtSlice
+	return rtSlice, nil
 }
 
 // merge results and filter duplicates paths
@@ -193,8 +194,29 @@ func mergeResults(isrList []*pathSearcher) []map[string]string {
 }
 
 // SearchByPattern find all matched absolute paths from yaml by the pattern appointed
+// input pattern: []map{name => relative-path}
+// output: app paths found which match the relative-path rule, []{map[name]=>absolute-path}
+// eg: sourceYaml:
+// ---------- yaml begin
+//env: dev
+//svc1:
+//  image:
+//    repository: go-sample-site
+//    tag: "0.2.1"
+//svc2:
+//  image:
+//    repository: go-sample-site-2
+//    tag: "0.2.2"
+//imagePullSecrets:
+//  - name: default-secret
+// ----------- yaml end
+// pattern: []{"image": "repository", "tag": "tag"}
+// output: []{{"image": "svc1.image.repository", "tag": "svc1.image.tag"}, {"image": "svc2.image.repository", "tag": "svc2.image.tag"}}
 func SearchByPattern(flatMap map[string]interface{}, pattern []map[string]string) ([]map[string]string, error) {
-	foundResult := searchPaths(pattern, flatMap)
+	foundResult, err := searchPaths(pattern, flatMap)
+	if err != nil {
+		return nil, err
+	}
 	ret := mergeResults(foundResult)
 	return ret, nil
 }

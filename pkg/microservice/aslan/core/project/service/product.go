@@ -575,9 +575,9 @@ func ForkProduct(userID int, username, requestID string, args *template.ForkProj
 				serviceResp.Containers = make([]*commonmodels.Container, 0)
 				for _, c := range serviceTmpl.Containers {
 					container := &commonmodels.Container{
-						Name:          c.Name,
-						Image:         c.Image,
-						ImagePathSpec: c.ImagePathSpec,
+						Name:      c.Name,
+						Image:     c.Image,
+						ImagePath: c.ImagePath,
 					}
 					serviceResp.Containers = append(serviceResp.Containers, container)
 				}

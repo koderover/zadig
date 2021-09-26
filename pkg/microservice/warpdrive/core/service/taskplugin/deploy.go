@@ -50,9 +50,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
-	"github.com/koderover/zadig/pkg/util/converter"
 	"github.com/koderover/zadig/pkg/util/fs"
-	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 // InitializeDeployTaskPlugin to initiate deploy task plugin and return ref
@@ -577,23 +575,27 @@ func (p *DeployTaskPlugin) updateRenderSet(ctx context.Context, args *types.Rend
 	return err
 }
 
+func getValidMatchData(spec *types.ImagePathSpec) map[string]string {
+	ret := make(map[string]string)
+	if spec.RepoPath != "" {
+		ret["repo"] = spec.RepoPath
+	}
+	if spec.ImagePath != "" {
+		ret["image"] = spec.ImagePath
+	}
+	if spec.TagPath != "" {
+		ret["tag"] = spec.TagPath
+	}
+	return ret
+}
+
 // replace image defines in yaml by new version
 func (p *DeployTaskPlugin) replaceImage(imagePathSpec *types.ImagePathSpec, valuesMap map[string]interface{}, imageUri string) (string, error) {
 	if imagePathSpec == nil {
 		return "", errors.New("image path parse info is nil")
 	}
-	flatMap, err := converter.Flatten(valuesMap)
-	if err != nil {
-		return "", err
-	}
-	foundResult, err := yamlutil.SearchByPattern(flatMap, []map[string]string{{"repo": imagePathSpec.RepoPath, "image": imagePathSpec.ImagePath, "tag": imagePathSpec.TagPath}})
-	if err != nil {
-		return "", err
-	}
-	if len(foundResult) != 1 {
-		return "", errors.New("can't parse image ptah")
-	}
-	replaceValuesMap, err := assignImageData(imageUri, foundResult[0])
+	getValidMatchData := getValidMatchData(imagePathSpec)
+	replaceValuesMap, err := assignImageData(imageUri, getValidMatchData)
 	if err != nil {
 		return "", err
 	}

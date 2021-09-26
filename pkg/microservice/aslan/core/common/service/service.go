@@ -18,6 +18,7 @@ package service
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -35,6 +36,7 @@ import (
 	"github.com/koderover/zadig/pkg/shared/codehost"
 	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 type yamlPreview struct {
@@ -509,7 +511,6 @@ func getAddressFromPath(path, owner, repo string, logger *zap.Logger) string {
 		logger.With(zap.String("path", path), zap.String("owner", owner), zap.String("repo", repo)).DPanic("Invalid path")
 		return ""
 	}
-
 	return res[0]
 }
 
@@ -527,14 +528,22 @@ func getValuesByPath(paths map[string]string, flatMap map[string]interface{}) ma
 	return ret
 }
 
-// GeneImageUri generate valid image uri
-func GeneImageUri(pathData map[string]string, flatMap map[string]interface{}) string {
+// GeneImageURI generate valid image uri, legal formats:
+// {repo}
+// {repo}/{image}
+// {repo}/{image}:{tag}
+// {repo}:{tag}
+// {image}:{tag}
+// {image}
+func GeneImageURI(pathData map[string]string, flatMap map[string]interface{}) (string, error) {
 	valuesMap := getValuesByPath(pathData, flatMap)
 	ret := ""
+	// if repo value is set, use as repo
 	if repo, ok := valuesMap["repo"]; ok {
 		ret = fmt.Sprintf("%v", repo)
 		ret = strings.TrimSuffix(ret, "/")
 	}
+	// if image value is set, append to repo, if repo is not set, image values represents repo+image
 	if image, ok := valuesMap["image"]; ok {
 		imageStr := fmt.Sprintf("%v", image)
 		if ret == "" {
@@ -543,17 +552,22 @@ func GeneImageUri(pathData map[string]string, flatMap map[string]interface{}) st
 			ret = fmt.Sprintf("%s/%s", ret, imageStr)
 		}
 	}
+	if ret == "" {
+		return "", errors.New("")
+	}
+	// if tag is set, append to current uri, if not set ignore
 	if tag, ok := valuesMap["tag"]; ok {
 		tagStr := fmt.Sprintf("%v", tag)
 		if tagStr != "" {
 			ret = fmt.Sprintf("%s:%s", ret, tagStr)
 		}
 	}
-	return ret
+	return ret, nil
 }
 
-func ExtractImageName(imageUrl string) string {
-	subMatchAll := imageParseRegex.FindStringSubmatch(imageUrl)
+// ExtractImageName extract image name from total image uri
+func ExtractImageName(imageURI string) string {
+	subMatchAll := imageParseRegex.FindStringSubmatch(imageURI)
 	exNames := imageParseRegex.SubexpNames()
 	for i, matchedStr := range subMatchAll {
 		if i != 0 && matchedStr != "" && matchedStr != ":" {
@@ -563,4 +577,13 @@ func ExtractImageName(imageUrl string) string {
 		}
 	}
 	return ""
+}
+
+// SearchImagesByPresetRules parse images from flat yaml map with preset rules
+func SearchImagesByPresetRules(flatMap map[string]interface{}) ([]map[string]string, error) {
+	patterns := []map[string]string{
+		{"image": "repository", "tag": "tag"},
+		{"image": "image"},
+	}
+	return yamlutil.SearchByPattern(flatMap, patterns)
 }
