@@ -79,7 +79,6 @@ type EnvStatus struct {
 type ProductResp struct {
 	ID          string                   `json:"id"`
 	ProductName string                   `json:"product_name"`
-	ClusterName string                   `json:"cluster_name"`
 	Namespace   string                   `json:"namespace"`
 	Status      string                   `json:"status"`
 	Error       string                   `json:"error"`
@@ -291,7 +290,6 @@ func ListProducts(productNameParam, envType string, userName string, userID int,
 			cluster, _ := commonrepo.NewK8SClusterColl().Get(prod.ClusterID)
 			if cluster != nil && cluster.Production {
 				product.IsProd = true
-				product.ClusterName = cluster.Name
 				operatorPerm := poetryCtl.HasOperatePermission(prod.ProductName, permission.ProdEnvManageUUID, userID, superUser, log)
 				viewPerm := poetryCtl.HasOperatePermission(prod.ProductName, permission.ProdEnvListUUID, userID, superUser, log)
 				if envType == "" && (operatorPerm || viewPerm) {
@@ -301,7 +299,6 @@ func ListProducts(productNameParam, envType string, userName string, userID int,
 				}
 			} else if cluster != nil && !cluster.Production {
 				product.IsProd = false
-				product.ClusterName = cluster.Name
 				testResp = append(testResp, product)
 			}
 		} else {
