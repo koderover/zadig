@@ -101,9 +101,9 @@ type ImagePathSpec struct {
 
 // Container ...
 type Container struct {
-	Name          string         `bson:"name"           json:"name"`
-	Image         string         `bson:"image"          json:"image"`
-	ImagePathSpec *ImagePathSpec `bson:"image_path_spec,omitempty"          json:"imagePathSpec,omitempty"`
+	Name      string         `bson:"name"           json:"name"`
+	Image     string         `bson:"image"          json:"image"`
+	ImagePath *ImagePathSpec `bson:"image_path_spec,omitempty"          json:"imagePathSpec,omitempty"`
 }
 
 // ServiceTmplPipeResp ...router
