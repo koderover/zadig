@@ -57,26 +57,26 @@ var _ = Describe("Testing dag", func() {
 	Context("upgradeWithBestPath finds a short path", func() {
 
 		BeforeEach(func() {
-			//AddHandler(0, 1, func() error {
-			//	called0To1 = true
-			//	return nil
-			//})
+			AddHandler(0, 1, func() error {
+				called0To1 = true
+				return nil
+			})
 			AddHandler(1, 2, func() error {
 				called1To2 = true
 				return nil
 			})
-			//AddHandler(0, 2, func() error {
-			//	called0To2 = true
-			//	return nil
-			//})
+			AddHandler(0, 2, func() error {
+				called0To2 = true
+				return nil
+			})
 		})
 
 		It("should upgrade cross version", func() {
 			err := upgradeWithBestPath(0, 2)
 			Expect(err).ShouldNot(HaveOccurred())
-			Expect(called0To1).To(BeTrue())
-			Expect(called1To2).To(BeTrue())
-			Expect(called0To2).To(BeFalse())
+			Expect(called0To1).To(BeFalse())
+			Expect(called1To2).To(BeFalse())
+			Expect(called0To2).To(BeTrue())
 		})
 	})
 
