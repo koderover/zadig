@@ -321,6 +321,178 @@ func ListProducts(productNameParam, envType string, userName string, userID int,
 	return resp, nil
 }
 
+type ListProductsRespV2 struct {
+	ClusterName string `json:"clusterName"`
+	Production  bool   `json:"production"`
+	Name        string `json:"name"`
+	ProjectName string `json:"projectName"`
+	Source      string `json:"source"`
+}
+
+// Args: projectName, which is formerly known as productName, is the primary key of the project in our system
+func ListProductsV2(projectName, envFilter string, userName string, userID int, superUser bool, log *zap.SugaredLogger) ([]*ListProductsRespV2, error) {
+	var (
+		err               error
+		testResp          []*ListProductsRespV2
+		prodResp          []*ListProductsRespV2
+		products          = make([]*commonmodels.Product, 0)
+		productNameMap    map[string][]int64
+		productNamespaces = sets.NewString()
+	)
+	ret := make([]*ListProductsRespV2, 0)
+
+	poetryCtl := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
+
+	// 获取所有产品
+	if superUser {
+		products, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: projectName})
+		if err != nil {
+			log.Errorf("[%s] Collections.Product.List error: %v", userName, err)
+			return ret, e.ErrListEnvs.AddDesc(err.Error())
+		}
+	} else {
+		//项目下所有公开环境
+		publicProducts, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{IsPublic: true})
+		if err != nil {
+			log.Errorf("Collection.Product.List List product error: %v", err)
+			return ret, e.ErrListProducts.AddDesc(err.Error())
+		}
+		for _, publicProduct := range publicProducts {
+			if projectName == "" {
+				products = append(products, publicProduct)
+				productNamespaces.Insert(publicProduct.Namespace)
+			} else if publicProduct.ProductName == projectName {
+				products = append(products, publicProduct)
+				productNamespaces.Insert(publicProduct.Namespace)
+			}
+		}
+
+		productNameMap, err = poetryCtl.GetUserProject(userID, log)
+		if err != nil {
+			log.Errorf("Collection.Product.List GetUserProject error: %v", err)
+			return ret, e.ErrListProducts.AddDesc(err.Error())
+		}
+		for productName, roleIDs := range productNameMap {
+			//用户关联角色所关联的环境
+			for _, roleID := range roleIDs {
+				if roleID == setting.RoleOwnerID {
+					tmpProducts, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName})
+					if err != nil {
+						log.Errorf("Collection.Product.List Find product error: %v", err)
+						return ret, e.ErrListProducts.AddDesc(err.Error())
+					}
+					for _, product := range tmpProducts {
+						if projectName == "" {
+							if !productNamespaces.Has(product.Namespace) {
+								products = append(products, product)
+							}
+						} else if product.ProductName == projectName {
+							if !productNamespaces.Has(product.Namespace) {
+								products = append(products, product)
+							}
+						}
+					}
+				} else {
+					productMap := make(map[string]int)
+					// 先列出环境-用户授权
+					userEnvPermissionList, err := poetryCtl.GetUserEnvPermission(userID, log)
+					if err != nil {
+						log.Errorf("failed to get user env permission, err: %v", err)
+						return ret, err
+					}
+					for _, userEnvPermission := range userEnvPermissionList {
+						product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: userEnvPermission.EnvName})
+						if err != nil {
+							log.Errorf("Collection.Product.List Find product error: %v", err)
+							continue
+						}
+						if projectName == "" {
+							if !productNamespaces.Has(product.Namespace) && userEnvPermission.PermissionUUID == permission.TestEnvListUUID {
+								products = append(products, product)
+								productNamespaces = productNamespaces.Insert(product.Namespace)
+								productMap[product.EnvName] = 1
+							}
+						} else if product.ProductName == projectName {
+							if !productNamespaces.Has(product.Namespace) && userEnvPermission.PermissionUUID == permission.TestEnvManageUUID {
+								products = append(products, product)
+								productNamespaces = productNamespaces.Insert(product.Namespace)
+								productMap[product.EnvName] = 1
+							}
+						}
+					}
+					// 再获取环境-角色授权
+					roleEnvPermissions, err := poetryCtl.ListEnvRolePermission(productName, "", roleID, log)
+					if err != nil {
+						log.Errorf("Collection.Product.List ListRoleEnvs error: %v", err)
+						return ret, e.ErrListProducts.AddDesc(err.Error())
+					}
+					for _, roleEnvPermission := range roleEnvPermissions {
+						product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: roleEnvPermission.EnvName})
+						if err != nil {
+							log.Errorf("Collection.Product.List Find product error: %v", err)
+							continue
+						}
+						if projectName == "" {
+							if !productNamespaces.Has(product.Namespace) && roleEnvPermission.PermissionUUID == permission.TestEnvListUUID {
+								products = append(products, product)
+								productNamespaces.Insert(product.Namespace)
+							}
+						} else if product.ProductName == projectName {
+							if !productNamespaces.Has(product.Namespace) && roleEnvPermission.PermissionUUID == permission.TestEnvManageUUID {
+								products = append(products, product)
+								productNamespaces.Insert(product.Namespace)
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	for _, product := range products {
+		item := &ListProductsRespV2{
+			Name:        product.EnvName,
+			ProjectName: product.ProductName,
+			Source:      product.Source,
+		}
+		if product.ClusterID != "" {
+			cluster, _ := commonrepo.NewK8SClusterColl().Get(product.ClusterID)
+			if cluster != nil && cluster.Production {
+				item.Production = true
+				item.ClusterName = cluster.Name
+				operatorPerm := poetryCtl.HasOperatePermission(product.ProductName, permission.ProdEnvManageUUID, userID, superUser, log)
+				viewPerm := poetryCtl.HasOperatePermission(product.ProductName, permission.ProdEnvListUUID, userID, superUser, log)
+				if envFilter == "" && (operatorPerm || viewPerm) {
+					prodResp = append(prodResp, item)
+				} else if envFilter == setting.ProdENV {
+					prodResp = append(prodResp, item)
+				}
+			} else if cluster != nil && !cluster.Production {
+				item.Production = false
+				item.ClusterName = cluster.Name
+				testResp = append(testResp, item)
+			}
+		} else {
+			item.Production = false
+			testResp = append(testResp, item)
+		}
+	}
+
+	switch envFilter {
+	case setting.ProdENV:
+		ret = append(ret, prodResp...)
+	case setting.TestENV:
+		ret = append(ret, testResp...)
+	default:
+		ret = append(ret, prodResp...)
+		ret = append(ret, testResp...)
+	}
+
+	sort.SliceStable(ret, func(i, j int) bool { return ret[i].ProjectName < ret[j].ProjectName })
+
+	return ret, nil
+}
+
 func FillProductVars(products []*commonmodels.Product, log *zap.SugaredLogger) error {
 	for _, product := range products {
 		if product.Source == setting.SourceFromExternal || product.Source == setting.SourceFromHelm {

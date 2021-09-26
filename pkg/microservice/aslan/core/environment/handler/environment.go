@@ -18,16 +18,13 @@ package handler
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
-	"k8s.io/apimachinery/pkg/util/wait"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
@@ -57,10 +54,25 @@ type NamespaceResource struct {
 }
 
 // ListProducts list all product information
+// Args: projectName, which is formerly known as productName, is the primary key of the project in our system
 func ListProducts(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if c.Query("projectName") != "" {
+		isProduction := c.Query("production")
+		var envFilter string
+		switch isProduction {
+		case "true":
+			envFilter = setting.ProdENV
+		case "false":
+			envFilter = setting.TestENV
+		default:
+			envFilter = isProduction
+		}
+		ctx.Resp, ctx.Err = service.ListProductsV2(c.Query("projectName"), envFilter, ctx.User.Name, ctx.User.ID, ctx.User.IsSuperUser, ctx.Logger)
+		return
+	}
 	ctx.Resp, ctx.Err = service.ListProducts(c.Query("productName"), c.Query("envType"), ctx.User.Name, ctx.User.ID, ctx.User.IsSuperUser, ctx.Logger)
 }
 
@@ -570,24 +582,4 @@ func ListWorkloadsInEnv(c *gin.Context) {
 	}
 	ctx.Err = err
 	c.Writer.Header().Set("X-Total", strconv.Itoa(count))
-}
-
-func ListProductsSSE(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-
-	internalhandler.Stream(c, func(ctx1 context.Context, msgChan chan interface{}) {
-		startTime := time.Now()
-		wait.NonSlidingUntilWithContext(ctx1, func(_ context.Context) {
-			res, err := service.ListProducts(c.Query("productName"), c.DefaultQuery("envType", setting.TestENV), ctx.User.Name, ctx.User.ID, ctx.User.IsSuperUser, ctx.Logger)
-			if err != nil {
-				ctx.Logger.Errorf("[%s] ListProductsSSE error: %v", ctx.Username, err)
-			}
-
-			msgChan <- res
-
-			if time.Since(startTime).Minutes() == float64(60) {
-				ctx.Logger.Warnf("[%s] Query ListProductsSSE API over 60 minutes", ctx.Username)
-			}
-		}, time.Second)
-	}, ctx.Logger)
 }

@@ -86,6 +86,34 @@ func (c *ProductColl) List() ([]*template.Product, error) {
 	return resp, nil
 }
 
+func (c *ProductColl) ListNames() ([]string, error) {
+	var res []struct {
+		ProductName string `bson:"product_name"`
+	}
+
+	opts := options.Find()
+	projection := bson.D{
+		{"product_name", 1},
+	}
+	opts.SetProjection(projection)
+
+	cursor, err := c.Collection.Find(context.TODO(), bson.M{}, opts)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &res)
+	if err != nil {
+		return nil, err
+	}
+
+	var names []string
+	for _, r := range res {
+		names = append(names, r.ProductName)
+	}
+
+	return names, nil
+}
+
 type ProductListOpt struct {
 	IsOpensource          string
 	ContainSharedServices []*template.ServiceInfo

@@ -222,6 +222,7 @@ const (
 
 	ProdENV = "prod"
 	TestENV = "test"
+	AllENV  = "all"
 
 	// action type
 	TypeEnableCronjob  = "enable"

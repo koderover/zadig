@@ -60,7 +60,6 @@ func V140ToV150() error {
 			log.Error("failed to fill image parse info for product %s, err %s", product.ProductName, err.Error())
 			continue
 		}
-		//log.Infof("fill data for product %s successfully", product.ProductName)
 	}
 	return nil
 }
@@ -113,6 +112,7 @@ func fillImageParseInfo(prod *commonmodels.Product) error {
 				continue
 			}
 			fillHappen = true
+			log.Infof("fill parse data to  %s.%s.%s successfully", prod.ProductName, singleService.ServiceName, container.Name)
 		}
 	}
 

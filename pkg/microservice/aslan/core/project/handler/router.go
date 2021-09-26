@@ -70,4 +70,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		template.GET("/info", ListTemplatesHierachy)
 	}
+
+	project := router.Group("projects")
+	{
+		project.GET("", ListProjects)
+	}
 }
