@@ -50,6 +50,16 @@ type ProductListOptions struct {
 	InProjects    []string
 }
 
+type projectEnvs struct {
+	ID          projectID `bson:"_id"`
+	ProjectName string    `bson:"project_name"`
+	Envs        []string  `bson:"envs"`
+}
+
+type projectID struct {
+	ProductName string `bson:"product_name"`
+}
+
 type ProductColl struct {
 	*mongo.Collection
 
@@ -168,6 +178,32 @@ func (c *ProductColl) List(opt *ProductListOptions) ([]*models.Product, error) {
 	}
 
 	return ret, nil
+}
+
+func (c *ProductColl) ListProjects() ([]*projectEnvs, error) {
+	var res []*projectEnvs
+	pipeline := []bson.M{
+		{
+			"$group": bson.M{
+				"_id": bson.M{
+					"product_name": "$product_name",
+				},
+				"project_name": bson.M{"$last": "$product_name"},
+				"envs":         bson.M{"$push": "$env_name"},
+			},
+		},
+	}
+
+	cursor, err := c.Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = cursor.All(context.TODO(), &res); err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }
 
 func (c *ProductColl) UpdateStatus(owner, productName, status string) error {
