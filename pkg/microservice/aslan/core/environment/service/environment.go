@@ -329,6 +329,7 @@ type ListProductsRespV2 struct {
 	Source      string `json:"source"`
 }
 
+// Args: projectName, which is formerly known as productName, is the primary key of the project in our system
 func ListProductsV2(projectName, envFilter string, userName string, userID int, superUser bool, log *zap.SugaredLogger) ([]*ListProductsRespV2, error) {
 	var (
 		err               error

@@ -143,7 +143,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	rendersets := router.Group("rendersets")
 	{
 		rendersets.GET("/renderchart", GetServiceRenderCharts)
-		rendersets.PUT("/renderchart", CreateOrUpdateRenderChart)			// create or update renderchart when onBoarding
+		rendersets.PUT("/renderchart", CreateOrUpdateRenderChart) // create or update renderchart when onBoarding
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -152,13 +152,5 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	revision := router.Group("revision")
 	{
 		revision.GET("/products", ListProductsRevision)
-	}
-
-	// ---------------------------------------------------------------------------------------
-	// Server Sent Events 接口
-	// ---------------------------------------------------------------------------------------
-	sse := router.Group("sse")
-	{
-		sse.GET("/products", ListProductsSSE)
 	}
 }
