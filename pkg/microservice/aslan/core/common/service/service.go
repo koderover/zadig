@@ -522,7 +522,7 @@ func getAddressFromPath(path, owner, repo string, logger *zap.Logger) string {
 	return res[0]
 }
 
-// get values form source flat map
+// get values from source flat map
 // convert map[k]absolutePath  to  map[k]value
 func getValuesByPath(paths map[string]string, flatMap map[string]interface{}) map[string]interface{} {
 	ret := make(map[string]interface{})
@@ -615,7 +615,7 @@ func parseImagesByPattern(nested map[string]interface{}, patterns []map[string]s
 	return ret, nil
 }
 
-func ParseImagesByRules(nested map[string]interface{}, matchRules []*template.ImageMatchRules) ([]*models.Container, error) {
+func ParseImagesByRules(nested map[string]interface{}, matchRules []*template.ImageSearchingRule) ([]*models.Container, error) {
 	patterns := make([]map[string]string, 0)
 	for _, rule := range matchRules {
 		if !rule.InUse {
@@ -637,7 +637,7 @@ func getServiceParsePatterns(productName string) ([]map[string]string, error) {
 		return nil, err
 	}
 	ret := make([]map[string]string, 0)
-	for _, rule := range productInfo.ImageMatchRules {
+	for _, rule := range productInfo.ImageSearchingRules {
 		if !rule.InUse {
 			continue
 		}
@@ -670,10 +670,10 @@ func ParseImagesByPresetRules(flatMap map[string]interface{}) ([]map[string]stri
 	return yamlutil.SearchByPattern(flatMap, presetPatterns)
 }
 
-func GetPresetRules() []*template.ImageMatchRules {
-	ret := make([]*template.ImageMatchRules, 0, len(presetPatterns))
+func GetPresetRules() []*template.ImageSearchingRule {
+	ret := make([]*template.ImageSearchingRule, 0, len(presetPatterns))
 	for id, pattern := range presetPatterns {
-		ret = append(ret, &template.ImageMatchRules{
+		ret = append(ret, &template.ImageSearchingRule{
 			Repo:     pattern[setting.PathSearchComponentRepo],
 			Image:    pattern[setting.PathSearchComponentImage],
 			Tag:      pattern[setting.PathSearchComponentTag],

@@ -32,6 +32,7 @@ import (
 
 func init() {
 	upgradepath.AddHandler(upgradepath.V140, upgradepath.V150, V140ToV150)
+	upgradepath.AddHandler(upgradepath.V150, upgradepath.V140, V150ToV140)
 }
 
 // V140ToV150 fill image path data for old data in product.services.containers
@@ -61,6 +62,11 @@ func V140ToV150() error {
 			continue
 		}
 	}
+	return nil
+}
+
+func V150ToV140() error {
+	log.Info("Rollback data from 1.5.0 to 1.4.0")
 	return nil
 }
 

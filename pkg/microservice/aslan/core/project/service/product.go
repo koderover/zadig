@@ -888,7 +888,7 @@ func GetCustomMatchRules(productName string, log *zap.SugaredLogger) ([]*ImagePa
 		return nil, fmt.Errorf("failed to find product %s", productName)
 	}
 
-	rules := productInfo.ImageMatchRules
+	rules := productInfo.ImageSearchingRules
 	if len(rules) == 0 {
 		rules = commonservice.GetPresetRules()
 	}
@@ -927,12 +927,12 @@ func UpdateCustomMatchRules(productName string, userName string, matchRules []*I
 		return errors.New("no rule is selected to be used")
 	}
 
-	imageRulesToSave := make([]*template.ImageMatchRules, 0)
+	imageRulesToSave := make([]*template.ImageSearchingRule, 0)
 	for _, singleData := range matchRules {
 		if singleData.Repo == "" && singleData.Image == "" && singleData.Tag == "" {
 			continue
 		}
-		imageRulesToSave = append(imageRulesToSave, &template.ImageMatchRules{
+		imageRulesToSave = append(imageRulesToSave, &template.ImageSearchingRule{
 			Repo:     singleData.Repo,
 			Image:    singleData.Image,
 			Tag:      singleData.Tag,
@@ -941,7 +941,7 @@ func UpdateCustomMatchRules(productName string, userName string, matchRules []*I
 		})
 	}
 
-	productInfo.ImageMatchRules = imageRulesToSave
+	productInfo.ImageSearchingRules = imageRulesToSave
 	productInfo.UpdateBy = userName
 
 	services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
@@ -963,7 +963,7 @@ func UpdateCustomMatchRules(productName string, userName string, matchRules []*I
 }
 
 // reparse values.yaml for each service
-func reParseServices(userName string, serviceList []*commonmodels.Service, matchRules []*template.ImageMatchRules) error {
+func reParseServices(userName string, serviceList []*commonmodels.Service, matchRules []*template.ImageSearchingRule) error {
 	updatedServiceTmpls := make([]*commonmodels.Service, 0)
 
 	var err error
@@ -1014,7 +1014,7 @@ func reParseServices(userName string, serviceList []*commonmodels.Service, match
 	// roll back all template services if error occurs
 	if err != nil {
 		for _, serviceTmpl := range updatedServiceTmpls {
-			if err = commonrepo.NewServiceColl().Delete(serviceTmpl.ServiceName, setting.HelmDeployType, serviceTmpl.ProductName, setting.ProductStatusDeleting, serviceTmpl.Revision); err != nil {
+			if err = commonrepo.NewServiceColl().Delete(serviceTmpl.ServiceName, setting.HelmDeployType, serviceTmpl.ProductName, "", serviceTmpl.Revision); err != nil {
 				log.Errorf("helmService.update delete %s error: %v", serviceTmpl.ServiceName, err)
 				continue
 			}

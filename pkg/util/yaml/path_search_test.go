@@ -140,9 +140,11 @@ var _ = Describe("Testing search", func() {
 			flatMap, _ := converter.YamlToFlatMap([]byte(testYaml2))
 			matedPaths, err = SearchByPattern(flatMap, pattern)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(len(matedPaths)).To(Equal(2))
-			Expect(matedPaths).Should(ContainElement(map[string]string{"image": "svc1.image.repository", "tag": "svc1.image.tag"}))
-			Expect(matedPaths).Should(ContainElement(map[string]string{"image": "svc2.image.repository", "tag": "svc2.image.tag"}))
+
+			Expect(matedPaths).Should(ConsistOf([]map[string]string{
+				{"image": "svc1.image.repository", "tag": "svc1.image.tag"},
+				{"image": "svc2.image.repository", "tag": "svc2.image.tag"},
+			}))
 		})
 
 		It("multiple match pattern 3", func() {
@@ -152,10 +154,11 @@ var _ = Describe("Testing search", func() {
 			flatMap, _ := converter.YamlToFlatMap([]byte(testYaml3))
 			matedPaths, err = SearchByPattern(flatMap, pattern)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(len(matedPaths)).To(Equal(3))
-			Expect(matedPaths).Should(ContainElement(map[string]string{"image": "svc1.image.repository"}))
-			Expect(matedPaths).Should(ContainElement(map[string]string{"image": "svc2.image.repository"}))
-			Expect(matedPaths).Should(ContainElement(map[string]string{"image": "svc3.image.repository"}))
+			Expect(matedPaths).Should(ConsistOf([]map[string]string{
+				{"image": "svc1.image.repository"},
+				{"image": "svc2.image.repository"},
+				{"image": "svc3.image.repository"},
+			}))
 		})
 
 		It("multiple match pattern complex", func() {
@@ -168,13 +171,14 @@ var _ = Describe("Testing search", func() {
 			flatMap, _ := converter.YamlToFlatMap([]byte(testYaml4))
 			matedPaths, err = SearchByPattern(flatMap, pattern)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(len(matedPaths)).To(Equal(5))
+			Expect(matedPaths).Should(ConsistOf([]map[string]string{
+				{"image": "svc1.image.repository", "tag": "svc1.image.tag"},
+				{"image": "svc2.image.repository"},
+				{"image": "svc3.image.repository"},
+				{"image": "svc4.image.repositoryNew", "tag": "svc4.image.tagNew"},
+				{"image": "svc5.second.image.repositorySpec", "tag": "svc5.second.tagNew"},
+			}))
 
-			Expect(matedPaths).Should(ContainElement(map[string]string{"image": "svc1.image.repository", "tag": "svc1.image.tag"}))
-			Expect(matedPaths).Should(ContainElement(map[string]string{"image": "svc2.image.repository"}))
-			Expect(matedPaths).Should(ContainElement(map[string]string{"image": "svc3.image.repository"}))
-			Expect(matedPaths).Should(ContainElement(map[string]string{"image": "svc4.image.repositoryNew", "tag": "svc4.image.tagNew"}))
-			Expect(matedPaths).Should(ContainElement(map[string]string{"image": "svc5.second.image.repositorySpec", "tag": "svc5.second.tagNew"}))
 		})
 
 		It("multiple match pattern complex2", func() {
@@ -185,7 +189,7 @@ var _ = Describe("Testing search", func() {
 			matedPaths, err = SearchByPattern(flatMap, pattern)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(matedPaths)).To(Equal(1))
-			Expect(matedPaths).Should(ContainElement(map[string]string{"image": "testSpec.imageNew.repo", "tag": "testSpec.imageNew.tag"}))
+			Expect(matedPaths).To(Equal([]map[string]string{{"image": "testSpec.imageNew.repo", "tag": "testSpec.imageNew.tag"}}))
 		})
 	})
 })

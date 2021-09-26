@@ -1407,11 +1407,6 @@ func GetProductInfo(username, envName, productName string, log *zap.SugaredLogge
 	}
 	prod.ChartInfos = renderSet.ChartInfos
 
-	//err = FillImageParseInfo(prod)
-	//if err != nil {
-	//	log.Errorf("fill helm service parse data fail, productName %s err %s", productName, err.Error())
-	//}
-
 	return prod, nil
 }
 
