@@ -45,7 +45,6 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -60,7 +59,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
-	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types/permission"
 	"github.com/koderover/zadig/pkg/util/converter"
 	"github.com/koderover/zadig/pkg/util/fs"
@@ -1220,79 +1218,6 @@ func UpdateMultiHelmProduct(envNames []string, updateType, productName string, u
 	return envStatuses
 }
 
-func fillContainerParseInfo(prod *commonmodels.Product) error {
-	rendersetMap := make(map[string]string)
-	for _, singleData := range prod.ChartInfos {
-		rendersetMap[singleData.ServiceName] = singleData.ValuesYaml
-	}
-
-	fillHappen := false
-
-	// fill the parse info
-	for _, serviceGroup := range prod.Services {
-		for _, singleService := range serviceGroup {
-			findEmptySpec := false
-			for _, container := range singleService.Containers {
-				if container.ImagePath == nil {
-					findEmptySpec = true
-					break
-				}
-			}
-			if !findEmptySpec {
-				continue
-			}
-			flatMap, err := converter.YamlToFlatMap([]byte(rendersetMap[singleService.ServiceName]))
-			if err != nil {
-				return err
-			}
-			matchedPath, err := commonservice.SearchImagesByPresetRules(flatMap)
-			if err != nil {
-				log.Errorf("failed to parse images from service:%s in product:%s", singleService.ServiceName, singleService.ProductName)
-				continue
-			}
-			for _, container := range singleService.Containers {
-				if container.ImagePath != nil {
-					continue
-				}
-				err = findImageByContainerName(flatMap, matchedPath, container)
-				if err != nil {
-					return err
-				}
-				fillHappen = true
-			}
-		}
-	}
-
-	if fillHappen {
-		err := commonrepo.NewProductColl().Update(prod)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// find match rule
-func findImageByContainerName(flatMap map[string]interface{}, matchedPath []map[string]string, container *models.Container) error {
-	for _, searchResult := range matchedPath {
-		imageURI, err := commonservice.GeneImageURI(searchResult, flatMap)
-		if err != nil {
-			log.Error("GeneImageURI fail, err %s", err.Error())
-			continue
-		}
-		if container.Name != commonservice.ExtractImageName(imageURI) {
-			continue
-		}
-		container.ImagePath = &models.ImagePathSpec{
-			RepoPath:  searchResult["repo"],
-			ImagePath: searchResult["image"],
-			TagPath:   searchResult["tag"],
-		}
-		break
-	}
-	return nil
-}
-
 func GetProductInfo(username, envName, productName string, log *zap.SugaredLogger) (*commonmodels.Product, error) {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	prod, err := commonrepo.NewProductColl().Find(opt)
@@ -1310,10 +1235,10 @@ func GetProductInfo(username, envName, productName string, log *zap.SugaredLogge
 	}
 	prod.ChartInfos = renderSet.ChartInfos
 
-	err = fillContainerParseInfo(prod)
-	if err != nil {
-		log.Errorf("fill helm service parse data fail, productName %s err %s", productName, err.Error())
-	}
+	//err = FillImageParseInfo(prod)
+	//if err != nil {
+	//	log.Errorf("fill helm service parse data fail, productName %s err %s", productName, err.Error())
+	//}
 
 	return prod, nil
 }

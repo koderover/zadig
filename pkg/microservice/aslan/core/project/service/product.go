@@ -972,18 +972,6 @@ func UpdateCustomMatchRules(productName string, userName string, matchRules []*I
 
 // reparse values.yaml for each service
 func reParseServices(userName string, serviceList []*commonmodels.Service, matchRules []*template.ImageMatchRules) error {
-	patterns := make([]map[string]string, 0)
-	for _, rule := range matchRules {
-		if !rule.InUse {
-			continue
-		}
-		patterns = append(patterns, map[string]string{
-			"repo":  rule.Repo,
-			"image": rule.Image,
-			"tag":   rule.Tag,
-		})
-	}
-
 	updatedServiceTmpls := make([]*commonmodels.Service, 0)
 
 	var err error
@@ -1000,13 +988,13 @@ func reParseServices(userName string, serviceList []*commonmodels.Service, match
 			break
 		}
 
-		serviceTmpl.Containers, err = commonservice.ParseContainers(valuesMap, patterns)
+		serviceTmpl.Containers, err = commonservice.ParseImagesByRules(valuesMap, matchRules)
 		if err != nil {
 			break
 		}
 
 		if len(serviceTmpl.Containers) == 0 {
-			log.Warnf("service:%s containers is empty after parse, pattern %v, valuesYaml %s", serviceTmpl.ServiceName, patterns, valuesYaml)
+			log.Warnf("service:%s containers is empty after parse, valuesYaml %s", serviceTmpl.ServiceName, valuesYaml)
 		}
 
 		serviceTmpl.CreateBy = userName

@@ -460,7 +460,12 @@ const (
 // helm related
 const (
 	ValuesYamlSourceFreeEdit = "freeEdit"
-	ValuesYamlSourceGitRepo = "gitRepo"
+	ValuesYamlSourceGitRepo  = "gitRepo"
+
+	// components used to search image paths from yaml
+	PathSearchComponentRepo  = "repo"
+	PathSearchComponentImage = "image"
+	PathSearchComponentTag   = "tag"
 )
 
 // Aliyun specific stuff

@@ -193,36 +193,6 @@ func CreateOrUpdateHelmService(projectName string, args *HelmServiceCreationArgs
 	}
 }
 
-// get patterns used to parse images from yaml
-func getServiceParsePatterns(productName string) ([]map[string]string, error) {
-	productInfo, err := templaterepo.NewProductColl().Find(productName)
-	if err != nil {
-		return nil, err
-	}
-	ret := make([]map[string]string, 0)
-	for _, rule := range productInfo.ImageMatchRules {
-		if !rule.InUse {
-			continue
-		}
-		ret = append(ret, map[string]string{
-			"repo":  rule.Repo,
-			"image": rule.Image,
-			"tag":   rule.Tag,
-		})
-	}
-
-	// rules are never edited, use preset rules
-	if len(ret) == 0 {
-		ret = append(ret, map[string]string{
-			"image": "image.repository", "tag": "image.tag",
-		}, map[string]string{
-			"image": "image",
-		})
-	}
-
-	return ret, nil
-}
-
 func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmServiceCreationArgs, logger *zap.SugaredLogger) error {
 	templateArgs, ok := args.CreateFrom.(*CreateFromChartTemplate)
 	if !ok {
@@ -296,12 +266,6 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 		return err
 	}
 
-	patterns, err := getServiceParsePatterns(projectName)
-	if err != nil {
-		logger.Errorf("failed to get image parse patterns for service %s in project %s, err: %s", args.Name, projectName, err)
-		return errors.New("failed to get image parse patterns")
-	}
-
 	svc, err := createOrUpdateHelmService(
 		fsTree,
 		&helmServiceCreationArgs{
@@ -314,7 +278,6 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 			Repo:        templateArgs.Repo,
 			Branch:      templateArgs.Branch,
 		},
-		patterns,
 		logger,
 	)
 	if err != nil {
@@ -396,13 +359,6 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 				return
 			}
 
-			patterns, err := getServiceParsePatterns(projectName)
-			if err != nil {
-				log.Errorf("failed to get image parse patterns for service %s in project %s, err: %s", args.Name, projectName, err)
-				finalErr = errors.New("failed to get image parse patterns")
-				return
-			}
-
 			svc, err := createOrUpdateHelmService(
 				fsTree,
 				&helmServiceCreationArgs{
@@ -416,7 +372,6 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 					Branch:      repoArgs.Branch,
 					RepoLink:    repoLink,
 				},
-				patterns,
 				log,
 			)
 			if err != nil {
@@ -473,7 +428,7 @@ func readValuesYAML(chartTree fs.FS, base string, logger *zap.SugaredLogger) ([]
 	return content, valuesMap, nil
 }
 
-func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, matchPatterns []map[string]string, logger *zap.SugaredLogger) (*models.Service, error) {
+func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logger *zap.SugaredLogger) (*models.Service, error) {
 	chartName, chartVersion, err := readChartYAML(fsTree, filepath.Base(args.FilePath), logger)
 	if err != nil {
 		logger.Errorf("Failed to read chart.yaml, err %s", err)
@@ -497,7 +452,7 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, matc
 		logger.Warnf("Failed to delete stale service %s with revision %d, err: %s", args.ServiceName, rev, err)
 	}
 
-	containerList, err := commonservice.ParseContainers(valuesMap, matchPatterns)
+	containerList, err := commonservice.ParseImagesForProductService(valuesMap, args.ServiceName, args.ProductName)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse service from yaml")
 	}
@@ -613,13 +568,7 @@ func UpdateHelmService(args *HelmServiceArgs, log *zap.SugaredLogger) error {
 				return e.ErrCreateTemplate.AddDesc("values.yaml解析失败")
 			}
 
-			patterns, err := getServiceParsePatterns(preServiceTmpl.ProductName)
-			if err != nil {
-				log.Errorf("failed to get image parse patterns for service %s in project %s, err: %s", preServiceTmpl.ServiceName, preServiceTmpl.ProductName, err)
-				return errors.New("failed to get image parse patterns")
-			}
-
-			containerList, err := commonservice.ParseContainers(valuesMap, patterns)
+			containerList, err := commonservice.ParseImagesForProductService(valuesMap, preServiceTmpl.ServiceName, preServiceTmpl.ProductName)
 			if err != nil {
 				return e.ErrUpdateTemplate.AddErr(errors.Wrapf(err, "failed to parse images from yaml"))
 			}

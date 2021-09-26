@@ -419,7 +419,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				return
 			}
 
-			replaceValuesYaml, err = p.replaceImage(targetContainer.ImagePathSpec, currentValuesYamlMap, p.Task.Image)
+			replaceValuesYaml, err = p.replaceImage(targetContainer.ImagePath, currentValuesYamlMap, p.Task.Image)
 			if err != nil {
 				log.Error("failed to replace image: %s", p.Task.Image)
 			}
@@ -577,14 +577,14 @@ func (p *DeployTaskPlugin) updateRenderSet(ctx context.Context, args *types.Rend
 
 func getValidMatchData(spec *types.ImagePathSpec) map[string]string {
 	ret := make(map[string]string)
-	if spec.RepoPath != "" {
-		ret["repo"] = spec.RepoPath
+	if spec.Repo != "" {
+		ret[setting.PathSearchComponentRepo] = spec.Repo
 	}
-	if spec.ImagePath != "" {
-		ret["image"] = spec.ImagePath
+	if spec.Image != "" {
+		ret[setting.PathSearchComponentImage] = spec.Image
 	}
-	if spec.TagPath != "" {
-		ret["tag"] = spec.TagPath
+	if spec.Tag != "" {
+		ret[setting.PathSearchComponentTag] = spec.Tag
 	}
 	return ret
 }
@@ -609,6 +609,7 @@ func (p *DeployTaskPlugin) replaceImage(imagePathSpec *types.ImagePathSpec, valu
 
 // assign image url data into match data
 // matchData: image=>absolute-path repo=>absolute-path tag=>absolute-path
+// return: absolute-image-path=>image-value  absolute-repo-path=>repo-value absolute-tag-path=>tag-value
 func assignImageData(imageUrl string, matchData map[string]string) (map[string]interface{}, error) {
 	ret := make(map[string]interface{})
 	// total image url assigned into one single value
@@ -621,31 +622,35 @@ func assignImageData(imageUrl string, matchData map[string]string) (map[string]i
 
 	resolvedImageUrl := resolveImageUrl(imageUrl)
 
-	// image url assigned into repo+image+tag
+	// image url assigned into repo/image+tag
 	if len(matchData) == 3 {
-		ret[matchData["repo"]] = strings.TrimSuffix(resolvedImageUrl["repo"], "/")
-		ret[matchData["image"]] = resolvedImageUrl["image"]
-		ret[matchData["tag"]] = resolvedImageUrl["tag"]
+		ret[matchData[setting.PathSearchComponentRepo]] = strings.TrimSuffix(resolvedImageUrl[setting.PathSearchComponentRepo], "/")
+		ret[matchData[setting.PathSearchComponentImage]] = resolvedImageUrl[setting.PathSearchComponentImage]
+		ret[matchData[setting.PathSearchComponentTag]] = resolvedImageUrl[setting.PathSearchComponentTag]
 		return ret, nil
 	}
 
-	// image url assigned into repo/image + tag
-	if tagPath, ok := matchData["tag"]; ok {
-		ret[tagPath] = resolvedImageUrl["tag"]
-		for k, imagePath := range matchData {
-			if k == "tag" {
-				continue
+	if len(matchData) == 2 {
+		// image url assigned into repo/image + tag
+		if tagPath, ok := matchData[setting.PathSearchComponentTag]; ok {
+			ret[tagPath] = resolvedImageUrl[setting.PathSearchComponentTag]
+			for k, imagePath := range matchData {
+				if k == setting.PathSearchComponentTag {
+					continue
+				}
+				ret[imagePath] = fmt.Sprintf("%s%s", resolvedImageUrl[setting.PathSearchComponentRepo], resolvedImageUrl[setting.PathSearchComponentImage])
+				break
 			}
-			ret[imagePath] = fmt.Sprintf("%s%s", resolvedImageUrl["repo"], resolvedImageUrl["image"])
-			break
+			return ret, nil
+		} else {
+			// image url assigned into repo + image(tag)
+			ret[matchData[setting.PathSearchComponentRepo]] = strings.TrimSuffix(resolvedImageUrl[setting.PathSearchComponentRepo], "/")
+			ret[matchData[setting.PathSearchComponentImage]] = fmt.Sprintf("%s:%s", resolvedImageUrl[setting.PathSearchComponentImage], resolvedImageUrl[setting.PathSearchComponentTag])
+			return ret, nil
 		}
-		return ret, nil
-	} else {
-		// image url assigned into repo + image(tag)
-		ret[matchData["repo"]] = strings.TrimSuffix(resolvedImageUrl["repo"], "/")
-		ret[matchData["image"]] = fmt.Sprintf("%s:%s", resolvedImageUrl["image"], resolvedImageUrl["tag"])
-		return ret, nil
 	}
+
+	return nil, fmt.Errorf("match data illegal, expect length: 1-3, actual length: %d", len(matchData))
 }
 
 // parse image url to map: repo=>xxx/xx/xx image=>xx tag=>xxx
