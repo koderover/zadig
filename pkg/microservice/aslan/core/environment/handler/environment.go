@@ -61,6 +61,20 @@ func ListProducts(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	if c.Query("projectName") != "" {
+		isProduction := c.Query("production")
+		var envFilter string
+		switch isProduction {
+		case "true":
+			envFilter = setting.ProdENV
+		case "false":
+			envFilter = setting.TestENV
+		default:
+			envFilter = setting.AllENV
+		}
+		ctx.Resp, ctx.Err = service.ListProductsV2(c.Query("projectName"), envFilter, ctx.User.Name, ctx.User.ID, ctx.User.IsSuperUser, ctx.Logger)
+		return
+	}
 	ctx.Resp, ctx.Err = service.ListProducts(c.Query("productName"), c.Query("envType"), ctx.User.Name, ctx.User.ID, ctx.User.IsSuperUser, ctx.Logger)
 }
 

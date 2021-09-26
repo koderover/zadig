@@ -79,6 +79,7 @@ type EnvStatus struct {
 type ProductResp struct {
 	ID          string                   `json:"id"`
 	ProductName string                   `json:"product_name"`
+	ClusterName string                   `json:"cluster_name"`
 	Namespace   string                   `json:"namespace"`
 	Status      string                   `json:"status"`
 	Error       string                   `json:"error"`
@@ -290,6 +291,7 @@ func ListProducts(productNameParam, envType string, userName string, userID int,
 			cluster, _ := commonrepo.NewK8SClusterColl().Get(prod.ClusterID)
 			if cluster != nil && cluster.Production {
 				product.IsProd = true
+				product.ClusterName = cluster.Name
 				operatorPerm := poetryCtl.HasOperatePermission(prod.ProductName, permission.ProdEnvManageUUID, userID, superUser, log)
 				viewPerm := poetryCtl.HasOperatePermission(prod.ProductName, permission.ProdEnvListUUID, userID, superUser, log)
 				if envType == "" && (operatorPerm || viewPerm) {
@@ -299,6 +301,7 @@ func ListProducts(productNameParam, envType string, userName string, userID int,
 				}
 			} else if cluster != nil && !cluster.Production {
 				product.IsProd = false
+				product.ClusterName = cluster.Name
 				testResp = append(testResp, product)
 			}
 		} else {
@@ -319,6 +322,36 @@ func ListProducts(productNameParam, envType string, userName string, userID int,
 	sort.SliceStable(resp, func(i, j int) bool { return resp[i].ProductName < resp[j].ProductName })
 
 	return resp, nil
+}
+
+type ListProductsRespV2 struct {
+	ClusterName string `json:"clusterName"`
+	Production  bool   `json:"production"`
+	Name        string `json:"name"`
+	ProjectName string `json:"projectName"`
+	Source      string `json:"source"`
+}
+
+func ListProductsV2(projectName, envFilter string, userName string, userID int, superUser bool, log *zap.SugaredLogger) ([]*ListProductsRespV2, error) {
+	ret := make([]*ListProductsRespV2, 0)
+	filter := envFilter
+	if filter == setting.AllENV {
+		filter = ""
+	}
+	envList, err := ListProducts(projectName, envFilter, userName, userID, superUser, log)
+	if err != nil {
+		return ret, err
+	}
+	for _, env := range envList {
+		ret = append(ret, &ListProductsRespV2{
+			ClusterName: env.ClusterName,
+			Production:  env.IsProd,
+			Name:        env.EnvName,
+			ProjectName: env.ProductName,
+			Source:      env.Source,
+		})
+	}
+	return ret, nil
 }
 
 func FillProductVars(products []*commonmodels.Product, log *zap.SugaredLogger) error {
