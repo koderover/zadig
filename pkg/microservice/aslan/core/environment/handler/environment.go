@@ -70,7 +70,7 @@ func ListProducts(c *gin.Context) {
 		case "false":
 			envFilter = setting.TestENV
 		default:
-			envFilter = setting.AllENV
+			envFilter = isProduction
 		}
 		ctx.Resp, ctx.Err = service.ListProductsV2(c.Query("projectName"), envFilter, ctx.User.Name, ctx.User.ID, ctx.User.IsSuperUser, ctx.Logger)
 		return
