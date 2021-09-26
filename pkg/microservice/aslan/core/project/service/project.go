@@ -70,7 +70,7 @@ func listBriefProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogger) 
 
 	nameWithEnvs, err := mongodb.NewProductColl().ListProjects()
 	if err != nil {
-		logger.Errorf("Failed to list project names, err: %s", err)
+		logger.Errorf("Failed to list projects, err: %s", err)
 		return nil, err
 	}
 
@@ -121,7 +121,7 @@ func listMinimalProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogger
 
 	nameWithEnvs, err := mongodb.NewProductColl().ListProjects()
 	if err != nil {
-		logger.Errorf("Failed to list project names, err: %s", err)
+		logger.Errorf("Failed to list projects, err: %s", err)
 		return nil, err
 	}
 
