@@ -222,6 +222,7 @@ const (
 
 	ProdENV = "prod"
 	TestENV = "test"
+	AllENV  = "all"
 
 	// action type
 	TypeEnableCronjob  = "enable"
@@ -460,7 +461,7 @@ const (
 // helm related
 const (
 	ValuesYamlSourceFreeEdit = "freeEdit"
-	ValuesYamlSourceGitRepo = "gitRepo"
+	ValuesYamlSourceGitRepo  = "gitRepo"
 )
 
 // Aliyun specific stuff
