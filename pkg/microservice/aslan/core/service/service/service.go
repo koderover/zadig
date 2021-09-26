@@ -762,23 +762,6 @@ func YamlValidator(args *YamlValidatorReq) []string {
 		yamlDataArray := SplitYaml(data)
 		for _, yamlData := range yamlDataArray {
 			//验证格式
-			if strings.Count(yamlData, "apiVersion") > 1 {
-				tmpYamlDataArray := strings.Split(yamlData, "\napiVersion")
-				tmpYamlData := 0
-				for index := range tmpYamlDataArray {
-					tmpYamlData += strings.Count(tmpYamlDataArray[index], "\n") + 1
-					if index != len(tmpYamlDataArray)-1 {
-						if strings.Contains(tmpYamlDataArray[index], "---") {
-							errorDetails = append(errorDetails, fmt.Sprintf("系统检测到%s %d %s %d %s", "在", totalErrorLineNum+tmpYamlData, "行和", totalErrorLineNum+tmpYamlData+1, "行之间---前后可能存在空格,请检查!"))
-						} else if strings.Contains(tmpYamlDataArray[index], "-- -") || strings.Contains(tmpYamlDataArray[index], "- --") || strings.Contains(tmpYamlDataArray[index], "- - -") {
-							errorDetails = append(errorDetails, fmt.Sprintf("%s %d %s %d %s", "在", totalErrorLineNum+tmpYamlData, "行和", totalErrorLineNum+tmpYamlData+1, "行之间---中间不能存在空格,请检查!"))
-						} else {
-							errorDetails = append(errorDetails, fmt.Sprintf("%s %d %s %d %s", "在", totalErrorLineNum+tmpYamlData, "行和", totalErrorLineNum+tmpYamlData+1, "行之间必须使用---进行拼接,请添加!"))
-						}
-					}
-				}
-				return errorDetails
-			}
 			resKind := new(KubeResourceKind)
 			//在Unmarshal之前填充渲染变量{{.}}
 			yamlData = config.RenderTemplateAlias.ReplaceAllLiteralString(yamlData, "ssssssss")
