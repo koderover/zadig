@@ -116,7 +116,7 @@ func GetInitProduct(productTmplName string, log *zap.SugaredLogger) (*commonmode
 	ret.Render = &commonmodels.RenderInfo{Name: "", Description: ""}
 	ret.Vars = prodTmpl.Vars
 	ret.ChartInfos = prodTmpl.ChartInfos
-	if prodTmpl.ProductFeature.BasicFacility == setting.BasicFacilityCVM {
+	if prodTmpl.ProductFeature != nil && prodTmpl.ProductFeature.BasicFacility == setting.BasicFacilityCVM {
 		ret.Source = setting.PMDeployType
 	}
 
@@ -164,7 +164,6 @@ func GetInitProduct(productTmplName string, log *zap.SugaredLogger) (*commonmode
 }
 
 func GetProduct(username, envName, productName string, log *zap.SugaredLogger) (*ProductResp, error) {
-	log.Infof("[User:%s][EnvName:%s][Product:%s] GetProduct", username, envName, productName)
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {

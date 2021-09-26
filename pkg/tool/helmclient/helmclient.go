@@ -17,6 +17,10 @@ limitations under the License.
 package helmclient
 
 import (
+	"encoding/json"
+	"fmt"
+	"strings"
+
 	hc "github.com/mittwald/go-helm-client"
 	"helm.sh/helm/v3/pkg/strvals"
 	"k8s.io/client-go/rest"
@@ -37,6 +41,11 @@ func NewClientFromRestConf(restConfig *rest.Config, ns string) (hc.Client, error
 	})
 }
 
+type KV struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
 // MergeOverrideValues merge values.yaml and override values
 // overrideYaml used for -f option
 // overrideValues used for --set option
@@ -52,8 +61,22 @@ func MergeOverrideValues(valuesYaml, overrideYaml, overrideValues string) (strin
 		return "", err
 	}
 
-	// override values for --set option
-	err = strvals.ParseInto(overrideValues, values)
+	if overrideValues != "" {
+		kvList := make([]*KV, 0)
+		err = json.Unmarshal([]byte(overrideValues), &kvList)
+		if err != nil {
+			return "", err
+		}
+		kvStr := make([]string, 0)
+		for _, kv := range kvList {
+			kvStr = append(kvStr, fmt.Sprintf("%s=%s", kv.Key, kv.Value))
+		}
+		// override values for --set option
+		err = strvals.ParseInto(strings.Join(kvStr, ","), values)
+		if err != nil {
+			return "", err
+		}
+	}
 
 	bs, err := yaml.Marshal(values)
 	if err != nil {

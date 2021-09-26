@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -61,11 +62,12 @@ func (args *RenderChartArg) toOverrideValueString() string {
 	if len(args.OverrideValues) == 0 {
 		return ""
 	}
-	kvPairSlice := make([]string, 0, len(args.OverrideValues))
-	for _, pair := range args.OverrideValues {
-		kvPairSlice = append(kvPairSlice, fmt.Sprintf("%s=%s", pair.Key, pair.Value))
+	bs, err := json.Marshal(args.OverrideValues)
+	if err != nil {
+		log.Errorf("override values json marshal error")
+		return ""
 	}
-	return strings.Join(kvPairSlice, ",")
+	return string(bs)
 }
 
 func (args *RenderChartArg) fromOverrideValueString(valueStr string) {
@@ -73,15 +75,11 @@ func (args *RenderChartArg) fromOverrideValueString(valueStr string) {
 		args.OverrideValues = nil
 		return
 	}
-	kvPairs := strings.Split(valueStr, ",")
-	for _, kv := range kvPairs {
-		kvSlice := strings.Split(kv, "=")
-		if len(kvSlice) == 2 {
-			args.OverrideValues = append(args.OverrideValues, &KVPair{
-				Key:   kvSlice[0],
-				Value: kvSlice[1],
-			})
-		}
+
+	args.OverrideValues = make([]*KVPair, 0)
+	err := json.Unmarshal([]byte(valueStr), &args.OverrideValues)
+	if err != nil {
+		log.Errorf("decode override value fail, ")
 	}
 }
 

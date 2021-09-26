@@ -22,6 +22,7 @@ import (
 	"os"
 	"path"
 	"sort"
+	"strconv"
 	"strings"
 
 	"go.uber.org/zap"
@@ -539,6 +540,8 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 				testArg.Builds = make([]*types.Repository, 0)
 			} else {
 				testArg.Builds = testing.Repos
+				pr, _ := strconv.Atoi(args.MergeRequestID)
+				testArg.Builds[0].PR = pr
 			}
 
 			if testing.PreTest != nil {

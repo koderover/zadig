@@ -57,7 +57,7 @@ func CreateBuildModule(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateBuildModule json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "新增", "工程管理-构建", args.Name, permission.BuildManageUUID, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "新增", "项目管理-构建", args.Name, permission.BuildManageUUID, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	err = c.BindJSON(args)
@@ -81,7 +81,7 @@ func UpdateBuildModule(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdateBuildModule json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "更新", "工程管理-构建", args.Name, permission.BuildManageUUID, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "更新", "项目管理-构建", args.Name, permission.BuildManageUUID, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	err = c.BindJSON(args)
@@ -99,7 +99,7 @@ func DeleteBuildModule(c *gin.Context) {
 	name := c.Query("name")
 	version := c.Query("version")
 	productName := c.Query("productName")
-	internalhandler.InsertOperationLog(c, ctx.Username, productName, "删除", "工程管理-构建", name, permission.BuildDeleteUUID, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, productName, "删除", "项目管理-构建", name, permission.BuildDeleteUUID, "", ctx.Logger)
 
 	if name == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty Name")
@@ -133,7 +133,7 @@ func UpdateBuildTargets(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, c.Query("productName"), "更新", "工程管理-服务组件", args.Name, permission.BuildManageUUID, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, c.Query("productName"), "更新", "项目管理-服务组件", args.Name, permission.BuildManageUUID, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
