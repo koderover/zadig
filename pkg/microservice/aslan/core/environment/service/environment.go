@@ -1492,12 +1492,7 @@ func GetHelmChartVersions(productName, envName string, log *zap.SugaredLogger) (
 	}
 
 	//当前环境内的服务信息
-	prodServiceMap := make(map[string]*commonmodels.ProductService)
-	for _, serviceGroup := range prod.Services {
-		for _, service := range serviceGroup {
-			prodServiceMap[service.ServiceName] = service
-		}
-	}
+	prodServiceMap := prod.GetServiceMap()
 
 	// all services
 	serviceListOpt := &commonrepo.ServiceListOption{
@@ -1521,6 +1516,7 @@ func GetHelmChartVersions(productName, envName string, log *zap.SugaredLogger) (
 
 	for _, latestSvc := range latestServices {
 		if prodService, ok := prodServiceMap[latestSvc.ServiceName]; ok {
+			delete(prodServiceMap, latestSvc.ServiceName)
 			if latestSvc.Revision == prodService.Revision {
 				continue
 			}
@@ -1539,6 +1535,20 @@ func GetHelmChartVersions(productName, envName string, log *zap.SugaredLogger) (
 				ServiceName:      latestSvc.ServiceName,
 				LatestVersion:    latestSvc.HelmChart.Version,
 				LatestValuesYaml: latestSvc.HelmChart.ValuesYaml,
+			}
+			helmVersions = append(helmVersions, helmVersion)
+		}
+	}
+
+	// deleted service
+	if len(prodServiceMap) > 0 {
+		for _, prodService := range prodServiceMap {
+			helmVersion := &commonmodels.HelmVersions{
+				ServiceName: prodService.ServiceName,
+			}
+			if chartInfo, ok := chartInfoMap[prodService.ServiceName]; ok {
+				helmVersion.CurrentVersion = chartInfo.ChartVersion
+				helmVersion.CurrentValuesYaml = chartInfo.ValuesYaml
 			}
 			helmVersions = append(helmVersions, helmVersion)
 		}
