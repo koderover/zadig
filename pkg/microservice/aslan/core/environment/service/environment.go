@@ -984,8 +984,9 @@ func CreateHelmProduct(userName, requestID string, args *CreateHelmProductArg, l
 				serviceResp.Containers = make([]*commonmodels.Container, 0)
 				for _, c := range serviceTmpl.Containers {
 					container := &commonmodels.Container{
-						Name:  c.Name,
-						Image: c.Image,
+						Name:      c.Name,
+						Image:     c.Image,
+						ImagePath: c.ImagePath,
 					}
 					serviceResp.Containers = append(serviceResp.Containers, container)
 				}
