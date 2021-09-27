@@ -193,19 +193,20 @@ func (c *ProductColl) Update(productName string, args *template.Product) error {
 
 	query := bson.M{"product_name": productName}
 	change := bson.M{"$set": bson.M{
-		"project_name":    strings.TrimSpace(args.ProjectName),
-		"revision":        args.Revision,
-		"services":        args.Services,
-		"update_time":     time.Now().Unix(),
-		"update_by":       args.UpdateBy,
-		"teams":           args.Teams,
-		"enabled":         args.Enabled,
-		"description":     args.Description,
-		"visibility":      args.Visibility,
-		"user_ids":        args.UserIDs,
-		"team_id":         args.TeamID,
-		"timeout":         args.Timeout,
-		"shared_services": args.SharedServices,
+		"project_name":          strings.TrimSpace(args.ProjectName),
+		"revision":              args.Revision,
+		"services":              args.Services,
+		"update_time":           time.Now().Unix(),
+		"update_by":             args.UpdateBy,
+		"teams":                 args.Teams,
+		"enabled":               args.Enabled,
+		"description":           args.Description,
+		"visibility":            args.Visibility,
+		"user_ids":              args.UserIDs,
+		"team_id":               args.TeamID,
+		"timeout":               args.Timeout,
+		"shared_services":       args.SharedServices,
+		"image_searching_rules": args.ImageSearchingRules,
 	}}
 
 	_, err := c.UpdateOne(context.TODO(), query, change)

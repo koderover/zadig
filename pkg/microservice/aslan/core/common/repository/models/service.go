@@ -92,10 +92,18 @@ type Commit struct {
 	Message string `bson:"message"          json:"message"`
 }
 
+// ImagePathSpec paths in yaml used to parse image
+type ImagePathSpec struct {
+	Repo  string `bson:"repo,omitempty"           json:"repo,omitempty"`
+	Image string `bson:"image,omitempty"           json:"image,omitempty"`
+	Tag   string `bson:"tag,omitempty"           json:"tag,omitempty"`
+}
+
 // Container ...
 type Container struct {
-	Name  string `bson:"name"           json:"name"`
-	Image string `bson:"image"          json:"image"`
+	Name      string         `bson:"name"           json:"name"`
+	Image     string         `bson:"image"          json:"image"`
+	ImagePath *ImagePathSpec `bson:"image_path,omitempty"          json:"imagePath,omitempty"`
 }
 
 // ServiceTmplPipeResp ...router

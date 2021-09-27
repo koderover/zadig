@@ -18,14 +18,18 @@ package service
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
@@ -34,6 +38,9 @@ import (
 	"github.com/koderover/zadig/pkg/shared/codehost"
 	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/util/converter"
+	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 type yamlPreview struct {
@@ -80,6 +87,14 @@ type ServiceProductMap struct {
 	LoadFromDir      bool                      `json:"is_dir"`
 	GerritRemoteName string                    `json:"gerrit_remote_name,omitempty"`
 }
+
+var (
+	imageParseRegex = regexp.MustCompile(`(?P<repo>.+/)?(?P<image>[^:]+){1}(:)?(?P<tag>.+)?`)
+	presetPatterns  = []map[string]string{
+		{setting.PathSearchComponentImage: "image.repository", setting.PathSearchComponentTag: "image.tag"},
+		{setting.PathSearchComponentImage: "image"},
+	}
+)
 
 // ListServiceTemplate 列出服务模板
 func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTmplResp, error) {
@@ -504,6 +519,167 @@ func getAddressFromPath(path, owner, repo string, logger *zap.Logger) string {
 		logger.With(zap.String("path", path), zap.String("owner", owner), zap.String("repo", repo)).DPanic("Invalid path")
 		return ""
 	}
-
 	return res[0]
+}
+
+// get values from source flat map
+// convert map[k]absolutePath  to  map[k]value
+func getValuesByPath(paths map[string]string, flatMap map[string]interface{}) map[string]interface{} {
+	ret := make(map[string]interface{})
+	for k, path := range paths {
+		if value, ok := flatMap[path]; ok {
+			ret[k] = value
+		} else {
+			ret[k] = nil
+		}
+	}
+	return ret
+}
+
+// GeneImageURI generate valid image uri, legal formats:
+// {repo}
+// {repo}/{image}
+// {repo}/{image}:{tag}
+// {repo}:{tag}
+// {image}:{tag}
+// {image}
+func GeneImageURI(pathData map[string]string, flatMap map[string]interface{}) (string, error) {
+	valuesMap := getValuesByPath(pathData, flatMap)
+	ret := ""
+	// if repo value is set, use as repo
+	if repo, ok := valuesMap[setting.PathSearchComponentRepo]; ok {
+		ret = fmt.Sprintf("%v", repo)
+		ret = strings.TrimSuffix(ret, "/")
+	}
+	// if image value is set, append to repo, if repo is not set, image values represents repo+image
+	if image, ok := valuesMap[setting.PathSearchComponentImage]; ok {
+		imageStr := fmt.Sprintf("%v", image)
+		if ret == "" {
+			ret = imageStr
+		} else {
+			ret = fmt.Sprintf("%s/%s", ret, imageStr)
+		}
+	}
+	if ret == "" {
+		return "", errors.New("image name not found")
+	}
+	// if tag is set, append to current uri, if not set ignore
+	if tag, ok := valuesMap[setting.PathSearchComponentTag]; ok {
+		tagStr := fmt.Sprintf("%v", tag)
+		if tagStr != "" {
+			ret = fmt.Sprintf("%s:%s", ret, tagStr)
+		}
+	}
+	return ret, nil
+}
+
+// ExtractImageName extract image name from total image uri
+func ExtractImageName(imageURI string) string {
+	subMatchAll := imageParseRegex.FindStringSubmatch(imageURI)
+	exNames := imageParseRegex.SubexpNames()
+	for i, matchedStr := range subMatchAll {
+		if i != 0 && matchedStr != "" && matchedStr != ":" {
+			if exNames[i] == "image" {
+				return matchedStr
+			}
+		}
+	}
+	return ""
+}
+
+func parseImagesByPattern(nested map[string]interface{}, patterns []map[string]string) ([]*models.Container, error) {
+	flatMap, err := converter.Flatten(nested)
+	if err != nil {
+		return nil, err
+	}
+	matchedPath, err := yamlutil.SearchByPattern(flatMap, patterns)
+	if err != nil {
+		return nil, err
+	}
+	ret := make([]*models.Container, 0)
+	for _, searchResult := range matchedPath {
+		imageUrl, err := GeneImageURI(searchResult, flatMap)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, &models.Container{
+			Name:  ExtractImageName(imageUrl),
+			Image: imageUrl,
+			ImagePath: &models.ImagePathSpec{
+				Repo:  searchResult[setting.PathSearchComponentRepo],
+				Image: searchResult[setting.PathSearchComponentImage],
+				Tag:   searchResult[setting.PathSearchComponentTag],
+			},
+		})
+	}
+	return ret, nil
+}
+
+func ParseImagesByRules(nested map[string]interface{}, matchRules []*template.ImageSearchingRule) ([]*models.Container, error) {
+	patterns := make([]map[string]string, 0)
+	for _, rule := range matchRules {
+		if !rule.InUse {
+			continue
+		}
+		patterns = append(patterns, map[string]string{
+			setting.PathSearchComponentRepo:  rule.Repo,
+			setting.PathSearchComponentImage: rule.Image,
+			setting.PathSearchComponentTag:   rule.Tag,
+		})
+	}
+	return parseImagesByPattern(nested, patterns)
+}
+
+// get patterns used to parse images from yaml
+func getServiceParsePatterns(productName string) ([]map[string]string, error) {
+	productInfo, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		return nil, err
+	}
+	ret := make([]map[string]string, 0)
+	for _, rule := range productInfo.ImageSearchingRules {
+		if !rule.InUse {
+			continue
+		}
+		ret = append(ret, map[string]string{
+			setting.PathSearchComponentRepo:  rule.Repo,
+			setting.PathSearchComponentImage: rule.Image,
+			setting.PathSearchComponentTag:   rule.Tag,
+		})
+	}
+
+	// rules are never edited, use preset rules
+	if len(ret) == 0 {
+		ret = presetPatterns
+	}
+	return ret, nil
+}
+
+// ParseImagesForProductService for product service
+func ParseImagesForProductService(nested map[string]interface{}, serviceName, productName string) ([]*models.Container, error) {
+	patterns, err := getServiceParsePatterns(productName)
+	if err != nil {
+		log.Errorf("failed to get image parse patterns for service %s in project %s, err: %s", serviceName, productName, err)
+		return nil, errors.New("failed to get image parse patterns")
+	}
+	return parseImagesByPattern(nested, patterns)
+}
+
+// ParseImagesByPresetRules parse images from flat yaml map with preset rules
+func ParseImagesByPresetRules(flatMap map[string]interface{}) ([]map[string]string, error) {
+	return yamlutil.SearchByPattern(flatMap, presetPatterns)
+}
+
+func GetPresetRules() []*template.ImageSearchingRule {
+	ret := make([]*template.ImageSearchingRule, 0, len(presetPatterns))
+	for id, pattern := range presetPatterns {
+		ret = append(ret, &template.ImageSearchingRule{
+			Repo:     pattern[setting.PathSearchComponentRepo],
+			Image:    pattern[setting.PathSearchComponentImage],
+			Tag:      pattern[setting.PathSearchComponentTag],
+			InUse:    true,
+			PresetId: id + 1,
+		})
+	}
+	return ret
 }

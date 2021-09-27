@@ -24,7 +24,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -757,28 +756,10 @@ func YamlValidator(args *YamlValidatorReq) []string {
 	}
 	yamlContent := util.ReplaceWrapLine(args.Yaml)
 	KubeYamls := SplitYaml(yamlContent)
-	totalErrorLineNum := 0
-	for index, data := range KubeYamls {
+	for _, data := range KubeYamls {
 		yamlDataArray := SplitYaml(data)
 		for _, yamlData := range yamlDataArray {
 			//验证格式
-			if strings.Count(yamlData, "apiVersion") > 1 {
-				tmpYamlDataArray := strings.Split(yamlData, "\napiVersion")
-				tmpYamlData := 0
-				for index := range tmpYamlDataArray {
-					tmpYamlData += strings.Count(tmpYamlDataArray[index], "\n") + 1
-					if index != len(tmpYamlDataArray)-1 {
-						if strings.Contains(tmpYamlDataArray[index], "---") {
-							errorDetails = append(errorDetails, fmt.Sprintf("系统检测到%s %d %s %d %s", "在", totalErrorLineNum+tmpYamlData, "行和", totalErrorLineNum+tmpYamlData+1, "行之间---前后可能存在空格,请检查!"))
-						} else if strings.Contains(tmpYamlDataArray[index], "-- -") || strings.Contains(tmpYamlDataArray[index], "- --") || strings.Contains(tmpYamlDataArray[index], "- - -") {
-							errorDetails = append(errorDetails, fmt.Sprintf("%s %d %s %d %s", "在", totalErrorLineNum+tmpYamlData, "行和", totalErrorLineNum+tmpYamlData+1, "行之间---中间不能存在空格,请检查!"))
-						} else {
-							errorDetails = append(errorDetails, fmt.Sprintf("%s %d %s %d %s", "在", totalErrorLineNum+tmpYamlData, "行和", totalErrorLineNum+tmpYamlData+1, "行之间必须使用---进行拼接,请添加!"))
-						}
-					}
-				}
-				return errorDetails
-			}
 			resKind := new(KubeResourceKind)
 			//在Unmarshal之前填充渲染变量{{.}}
 			yamlData = config.RenderTemplateAlias.ReplaceAllLiteralString(yamlData, "ssssssss")
@@ -786,26 +767,11 @@ func YamlValidator(args *YamlValidatorReq) []string {
 			yamlData = config.ServiceNameAlias.ReplaceAllLiteralString(yamlData, args.ServiceName)
 
 			if err := yaml.Unmarshal([]byte(yamlData), &resKind); err != nil {
-				if index == 0 {
-					errorDetails = append(errorDetails, err.Error())
-					return errorDetails
-				}
-				if strings.Contains(err.Error(), "yaml: line") {
-					re := regexp.MustCompile("[0-9]+")
-					errorLineNums := re.FindAllString(err.Error(), -1)
-					errorLineNum, _ := strconv.Atoi(errorLineNums[0])
-					totalErrorLineNum = totalErrorLineNum + errorLineNum
-					errMessage := re.ReplaceAllString(err.Error(), strconv.Itoa(totalErrorLineNum))
-
-					errorDetails = append(errorDetails, errMessage)
-					return errorDetails
-				}
+				log.Errorf("yaml unmarsh err: %s", err)
+				errorDetails = append(errorDetails, "Invalid yaml format. The content must be a series of valid Kubernetes resources")
 			}
-
-			totalErrorLineNum += strings.Count(yamlData, "\n") + 2
 		}
 	}
-
 	return errorDetails
 }
 

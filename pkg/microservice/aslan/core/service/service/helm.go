@@ -21,7 +21,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -29,8 +28,8 @@ import (
 	"github.com/27149chen/afero"
 	"github.com/hashicorp/go-multierror"
 	"github.com/otiai10/copy"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/yaml"
 
@@ -342,7 +341,6 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 				func(chartTree afero.Fs) (string, error) {
 					chartName, _, err := readChartYAML(afero.NewIOFS(chartTree), filepath.Base(filePath), log)
 					serviceName = chartName
-
 					return chartName, err
 				})
 			if err != nil {
@@ -430,13 +428,13 @@ func readValuesYAML(chartTree fs.FS, base string, logger *zap.SugaredLogger) ([]
 }
 
 func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logger *zap.SugaredLogger) (*models.Service, error) {
-	chartName, chartVersion, err := readChartYAML(fsTree, filepath.Base(args.FilePath), logger)
+	chartName, chartVersion, err := readChartYAML(fsTree, filepath.Base(args.ServiceName), logger)
 	if err != nil {
 		logger.Errorf("Failed to read chart.yaml, err %s", err)
 		return nil, err
 	}
 
-	values, valuesMap, err := readValuesYAML(fsTree, filepath.Base(args.FilePath), logger)
+	values, valuesMap, err := readValuesYAML(fsTree, filepath.Base(args.ServiceName), logger)
 	if err != nil {
 		logger.Errorf("Failed to read values.yaml, err %s", err)
 		return nil, err
@@ -452,10 +450,12 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 	if err = commonrepo.NewServiceColl().Delete(args.ServiceName, setting.HelmDeployType, args.ProductName, setting.ProductStatusDeleting, rev); err != nil {
 		logger.Warnf("Failed to delete stale service %s with revision %d, err: %s", args.ServiceName, rev, err)
 	}
-	containerList := recursionGetImage(valuesMap)
-	if len(containerList) == 0 {
-		_, containerList = recursionGetImageByColon(valuesMap)
+
+	containerList, err := commonservice.ParseImagesForProductService(valuesMap, args.ServiceName, args.ProductName)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to parse service from yaml")
 	}
+
 	serviceObj := &models.Service{
 		ServiceName: args.ServiceName,
 		Type:        setting.HelmDeployType,
@@ -533,6 +533,7 @@ func loadServiceFileInfos(productName, serviceName, dir string) ([]*types.FileIn
 	return fis, nil
 }
 
+// UpdateHelmService TODO need to be deprecated
 func UpdateHelmService(args *HelmServiceArgs, log *zap.SugaredLogger) error {
 	var serviceNames []string
 	for _, helmServiceInfo := range args.HelmServiceInfos {
@@ -566,10 +567,11 @@ func UpdateHelmService(args *HelmServiceArgs, log *zap.SugaredLogger) error {
 				return e.ErrCreateTemplate.AddDesc("values.yaml解析失败")
 			}
 
-			containerList := recursionGetImage(valuesMap)
-			if len(containerList) == 0 {
-				_, containerList = recursionGetImageByColon(valuesMap)
+			containerList, err := commonservice.ParseImagesForProductService(valuesMap, preServiceTmpl.ServiceName, preServiceTmpl.ProductName)
+			if err != nil {
+				return e.ErrUpdateTemplate.AddErr(errors.Wrapf(err, "failed to parse images from yaml"))
 			}
+
 			preServiceTmpl.Containers = containerList
 			preServiceTmpl.HelmChart.ValuesYaml = helmServiceInfo.FileContent
 
@@ -680,59 +682,4 @@ func compareHelmVariable(chartInfos []*templatemodels.RenderChart, productName, 
 	); err != nil {
 		log.Errorf("helmService.Create CreateHelmRenderSet error: %v", err)
 	}
-}
-
-// 递归通过repository和tag获取服务组件
-func recursionGetImage(jsonValues map[string]interface{}) []*models.Container {
-	ret := make([]*models.Container, 0)
-	for jsonKey, jsonValue := range jsonValues {
-		if levelMap, ok := jsonValue.(map[string]interface{}); ok {
-			ret = append(ret, recursionGetImage(levelMap)...)
-		} else if repository, isStr := jsonValue.(string); isStr {
-			if strings.Contains(jsonKey, "repository") {
-				serviceContainer := new(models.Container)
-				if imageTag, isExist := jsonValues["tag"]; isExist {
-					if imageTag != "" {
-						serviceContainer.Image = fmt.Sprintf("%s:%v", repository, imageTag)
-						imageStr := strings.Split(repository, "/")
-						if len(imageStr) > 1 {
-							serviceContainer.Name = imageStr[len(imageStr)-1]
-						}
-						ret = append(ret, serviceContainer)
-					}
-				}
-			}
-		}
-	}
-	return ret
-}
-
-func recursionGetImageByColon(jsonValues map[string]interface{}) ([]string, []*models.Container) {
-	imageRegEx := regexp.MustCompile(config.ImageRegexString)
-	ret := make([]*models.Container, 0)
-	banList := sets.NewString()
-
-	for _, jsonValue := range jsonValues {
-		if levelMap, ok := jsonValue.(map[string]interface{}); ok {
-			imageList, recursiveRet := recursionGetImageByColon(levelMap)
-			ret = append(ret, recursiveRet...)
-			banList.Insert(imageList...)
-		} else if imageName, isStr := jsonValue.(string); isStr {
-			if strings.Contains(imageName, ":") && imageRegEx.MatchString(imageName) &&
-				!strings.Contains(imageName, "http") && !strings.Contains(imageName, "https") {
-				serviceContainer := new(models.Container)
-				serviceContainer.Image = imageName
-				imageArr := strings.Split(imageName, "/")
-				if len(imageArr) >= 1 {
-					imageTagArr := strings.Split(imageArr[len(imageArr)-1], ":")
-					serviceContainer.Name = imageTagArr[0]
-				}
-				if !banList.Has(imageName) {
-					banList.Insert(imageName)
-					ret = append(ret, serviceContainer)
-				}
-			}
-		}
-	}
-	return banList.List(), ret
 }
