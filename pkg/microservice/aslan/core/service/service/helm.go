@@ -341,7 +341,6 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 				func(chartTree afero.Fs) (string, error) {
 					chartName, _, err := readChartYAML(afero.NewIOFS(chartTree), filepath.Base(filePath), log)
 					serviceName = chartName
-
 					return chartName, err
 				})
 			if err != nil {
@@ -429,13 +428,13 @@ func readValuesYAML(chartTree fs.FS, base string, logger *zap.SugaredLogger) ([]
 }
 
 func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logger *zap.SugaredLogger) (*models.Service, error) {
-	chartName, chartVersion, err := readChartYAML(fsTree, filepath.Base(args.FilePath), logger)
+	chartName, chartVersion, err := readChartYAML(fsTree, filepath.Base(args.ServiceName), logger)
 	if err != nil {
 		logger.Errorf("Failed to read chart.yaml, err %s", err)
 		return nil, err
 	}
 
-	values, valuesMap, err := readValuesYAML(fsTree, filepath.Base(args.FilePath), logger)
+	values, valuesMap, err := readValuesYAML(fsTree, filepath.Base(args.ServiceName), logger)
 	if err != nil {
 		logger.Errorf("Failed to read values.yaml, err %s", err)
 		return nil, err
