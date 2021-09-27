@@ -27,6 +27,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/koderover/zadig/pkg/util"
+
 	"github.com/hashicorp/go-multierror"
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
@@ -2544,7 +2546,7 @@ func installOrUpdateHelmChart(user, envName, requestID string, args *commonmodel
 				}
 
 				chartSpec := &helmclient.ChartSpec{
-					ReleaseName: fmt.Sprintf("%s-%s", args.Namespace, service.ServiceName),
+					ReleaseName: util.GeneHelmReleaseName(args.Namespace, service.ServiceName),
 					ChartName:   chartPath,
 					Namespace:   args.Namespace,
 					Wait:        true,
@@ -2659,7 +2661,7 @@ func updateProductGroup(productName, envName, updateType string, productResp *co
 			go func(namespace, serviceName string) {
 				log.Infof("ready to uninstall release:%s", fmt.Sprintf("%s-%s", namespace, serviceName))
 				if err = helmClient.UninstallRelease(&helmclient.ChartSpec{
-					ReleaseName: fmt.Sprintf("%s-%s", namespace, serviceName),
+					ReleaseName: util.GeneHelmReleaseName(namespace, serviceName),
 					Namespace:   namespace,
 					Wait:        true,
 					Force:       true,
@@ -2736,7 +2738,7 @@ func updateProductGroup(productName, envName, updateType string, productResp *co
 				}
 
 				chartSpec := helmclient.ChartSpec{
-					ReleaseName: fmt.Sprintf("%s-%s", productResp.Namespace, service.ServiceName),
+					ReleaseName: util.GeneHelmReleaseName(productResp.Namespace, service.ServiceName),
 					ChartName:   chartPath,
 					Namespace:   productResp.Namespace,
 					Wait:        true,
@@ -2989,7 +2991,7 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 					}
 
 					chartSpec := helmclient.ChartSpec{
-						ReleaseName: fmt.Sprintf("%s-%s", productResp.Namespace, tmpRenderChart.ServiceName),
+						ReleaseName: util.GeneHelmReleaseName(productResp.Namespace, tmpRenderChart.ServiceName),
 						ChartName:   chartPath,
 						Namespace:   productResp.Namespace,
 						Wait:        true,

@@ -22,6 +22,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/koderover/zadig/pkg/util"
+
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -89,9 +91,8 @@ type IngressInfo struct {
 // fill service display name if necessary
 func fillServiceDisplayName(svcList []*ServiceResp, productInfo *models.Product) {
 	if productInfo.Source == setting.SourceFromHelm {
-		prefix := fmt.Sprintf("%s%s", productInfo.Namespace, "-")
 		for _, svc := range svcList {
-			svc.ServiceDisplayName = strings.TrimPrefix(svc.ServiceName, prefix)
+			svc.ServiceDisplayName = util.ExtraServiceName(svc.ServiceName, productInfo.Namespace)
 		}
 	}
 }
