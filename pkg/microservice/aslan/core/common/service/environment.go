@@ -69,20 +69,35 @@ func FillProductTemplateValuesYamls(tmpl *templatemodels.Product, log *zap.Sugar
 
 // 产品列表页服务Response
 type ServiceResp struct {
-	ServiceName  string              `json:"service_name"`
-	Type         string              `json:"type"`
-	Status       string              `json:"status"`
-	Images       []string            `json:"images,omitempty"`
-	ProductName  string              `json:"product_name"`
-	EnvName      string              `json:"env_name"`
-	Ingress      *IngressInfo        `json:"ingress"`
-	Ready        string              `json:"ready"`
-	EnvStatuses  []*models.EnvStatus `json:"env_statuses,omitempty"`
-	WorkLoadType string              `json:"workLoadType"`
+	ServiceName        string              `json:"service_name"`
+	ServiceDisplayName string              `json:"service_display_name"`
+	Type               string              `json:"type"`
+	Status             string              `json:"status"`
+	Images             []string            `json:"images,omitempty"`
+	ProductName        string              `json:"product_name"`
+	EnvName            string              `json:"env_name"`
+	Ingress            *IngressInfo        `json:"ingress"`
+	Ready              string              `json:"ready"`
+	EnvStatuses        []*models.EnvStatus `json:"env_statuses,omitempty"`
+	WorkLoadType       string              `json:"workLoadType"`
 }
 
 type IngressInfo struct {
 	HostInfo []resource.HostInfo `json:"host_info"`
+}
+
+// fill service display name if necessary
+func fillServiceDisplayName(svcList []*ServiceResp, projectInfo *models.Product) {
+	if projectInfo.Source == setting.SourceFromHelm {
+		prefix := fmt.Sprintf("%s%s", projectInfo.Namespace, "-")
+		for _, svc := range svcList {
+			svc.ServiceDisplayName = strings.TrimPrefix(svc.ServiceName, prefix)
+		}
+	} else {
+		for _, svc := range svcList {
+			svc.ServiceDisplayName = svc.ServiceName
+		}
+	}
 }
 
 // ListWorkloadsInEnv returns all workloads in the given env which meat the filter.
@@ -156,8 +171,12 @@ func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, 
 		})
 	}
 
-	return ListWorkloads(envName, productInfo.ClusterID, productInfo.Namespace, productName, perPage, page, log, filterArray...)
-
+	count, resp, err := ListWorkloads(envName, productInfo.ClusterID, productInfo.Namespace, productName, perPage, page, log, filterArray...)
+	if err != nil {
+		return count, resp, err
+	}
+	fillServiceDisplayName(resp, productInfo)
+	return count, resp, nil
 }
 
 type FilterFunc func(services []*Workload) []*Workload
