@@ -1541,17 +1541,15 @@ func GetHelmChartVersions(productName, envName string, log *zap.SugaredLogger) (
 	}
 
 	// deleted service
-	if len(prodServiceMap) > 0 {
-		for _, prodService := range prodServiceMap {
-			helmVersion := &commonmodels.HelmVersions{
-				ServiceName: prodService.ServiceName,
-			}
-			if chartInfo, ok := chartInfoMap[prodService.ServiceName]; ok {
-				helmVersion.CurrentVersion = chartInfo.ChartVersion
-				helmVersion.CurrentValuesYaml = chartInfo.ValuesYaml
-			}
-			helmVersions = append(helmVersions, helmVersion)
+	for _, prodService := range prodServiceMap {
+		helmVersion := &commonmodels.HelmVersions{
+			ServiceName: prodService.ServiceName,
 		}
+		if chartInfo, ok := chartInfoMap[prodService.ServiceName]; ok {
+			helmVersion.CurrentVersion = chartInfo.ChartVersion
+			helmVersion.CurrentValuesYaml = chartInfo.ValuesYaml
+		}
+		helmVersions = append(helmVersions, helmVersion)
 	}
 
 	return helmVersions, nil
