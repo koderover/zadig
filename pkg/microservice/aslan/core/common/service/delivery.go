@@ -27,6 +27,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	taskmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	s3service "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
@@ -367,7 +368,16 @@ func getProductEnvInfo(pipelineTask *taskmodels.Task, log *zap.SugaredLogger) (*
 	product.ProductName = pipelineTask.WorkflowArgs.ProductTmplName
 	product.EnvName = pipelineTask.WorkflowArgs.Namespace
 
-	if renderSet, err := GetRenderSet(product.GetNamespace(), pipelineTask.Render.Revision, log); err == nil {
+	if productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    product.ProductName,
+		EnvName: product.EnvName,
+	}); err != nil {
+		product.Namespace = product.GetNamespace()
+	} else {
+		product.Namespace = productInfo.Namespace
+	}
+
+	if renderSet, err := GetRenderSet(product.Namespace, pipelineTask.Render.Revision, log); err == nil {
 		product.Vars = renderSet.KVs
 	} else {
 		log.Errorf("GetProductEnvInfo GetRenderSet namespace:%s pipelineTask.Render.Revision:%d err:%v", product.GetNamespace(), pipelineTask.Render.Revision, err)
