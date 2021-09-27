@@ -433,7 +433,6 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 		logger.Errorf("Failed to read chart.yaml, err %s", err)
 		return nil, err
 	}
-	logger.Infof("find chart info by service name!!!!!!!!")
 
 	values, valuesMap, err := readValuesYAML(fsTree, filepath.Base(args.ServiceName), logger)
 	if err != nil {
