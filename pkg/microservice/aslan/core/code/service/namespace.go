@@ -42,7 +42,7 @@ const (
 	CodeHostIlyshin = "ilyshin"
 )
 
-func CodeHostListNamespaces(codeHostID int, keyword string, log *zap.SugaredLogger) ([]*Namespace, error) {
+func CodeHostListNamespaces(codeHostID int, keyword string, page, perPage int, log *zap.SugaredLogger) ([]*Namespace, error) {
 	opt := &codehost.Option{
 		CodeHostID: codeHostID,
 	}
@@ -58,7 +58,11 @@ func CodeHostListNamespaces(codeHostID int, keyword string, log *zap.SugaredLogg
 			return nil, e.ErrCodehostListNamespaces.AddDesc(err.Error())
 		}
 
-		nsList, err := client.ListNamespaces(keyword, nil)
+		nsList, err := client.ListNamespaces(keyword, &gitlab.ListOptions{
+			Page:        page,
+			PerPage:     perPage,
+			NoPaginated: true,
+		})
 		if err != nil {
 			return nil, err
 		}

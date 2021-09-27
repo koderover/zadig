@@ -48,19 +48,32 @@ func GetCodeHostList(c *gin.Context) {
 	ctx.Resp = codeHostSlice
 }
 
+type CodeHostGetNamespaceListArgs struct {
+	Keywork string `json:"key"          form:"key"`
+	PerPage int    `json:"perPage"      form:"perPage,default:100"`
+	Page    int    `json:"page"         form:"page,default:1"`
+}
+
 func CodeHostGetNamespaceList(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	codehostID := c.Param("codehostId")
 	keyword := c.Query("key")
+	page := c.Query("page")
+	perPage := c.Query("perPage")
 
 	if codehostID == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty codehostId")
 		return
 	}
+	args := &CodeHostGetNamespaceListArgs{}
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = err
+		return
+	}
 	chID, _ := strconv.Atoi(codehostID)
-	ctx.Resp, ctx.Err = service.CodeHostListNamespaces(chID, keyword, ctx.Logger)
+	ctx.Resp, ctx.Err = service.CodeHostListNamespaces(chID, args.Keywork, args.Page, args.PerPage, ctx.Logger)
 }
 
 func CodeHostGetProjectsList(c *gin.Context) {
