@@ -1782,7 +1782,7 @@ func ensurePipelineTask(pt *task.Task, log *zap.SugaredLogger) error {
 				}
 
 				// 生成默认镜像tag后缀
-				pt.TaskArgs.Deploy.Tag = releaseCandidateTag(t, pt.TaskID)
+				pt.TaskArgs.Deploy.Tag = releaseCandidateTag(t, pt.TaskID, pt.ProductName)
 
 				// 设置镜像名称
 				// 编译任务使用 t.JobCtx.Image

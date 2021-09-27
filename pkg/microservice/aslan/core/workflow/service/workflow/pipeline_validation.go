@@ -36,6 +36,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehub"
@@ -485,9 +486,13 @@ func setManunalBuilds(builds []*types.Repository, buildArgs []*types.Repository,
 
 // releaseCandidateTag 根据 TaskID 生成编译镜像Tag或者二进制包后缀
 // TODO: max length of a tag is 128
-func releaseCandidateTag(b *task.Build, taskID int64) string {
+func releaseCandidateTag(b *task.Build, taskID int64, productName string) string {
+	project, err := templaterepo.NewProductColl().Find(productName)
+	if err == nil {
+		customImageRule := project.CustomImageRule
+		customTarRule := project.CustomTarRule
+	}
 	timeStamp := time.Now().Format("20060102150405")
-
 	if len(b.JobCtx.Builds) > 0 {
 		first := b.JobCtx.Builds[0]
 		for index, build := range b.JobCtx.Builds {

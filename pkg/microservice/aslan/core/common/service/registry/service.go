@@ -41,6 +41,7 @@ import (
 	"github.com/huaweicloud/huaweicloud-sdk-go-v3/core/auth/basic"
 	swr "github.com/huaweicloud/huaweicloud-sdk-go-v3/services/swr/v2"
 	"github.com/huaweicloud/huaweicloud-sdk-go-v3/services/swr/v2/model"
+	"github.com/huaweicloud/huaweicloud-sdk-go-v3/services/swr/v2/region"
 	"github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -360,6 +361,7 @@ type SwrService struct {
 }
 
 func (s *SwrService) createClient(ep Endpoint) (cli *swr.SwrClient) {
+	region.ValueOf(ep.Region)
 	endpoint := fmt.Sprintf("https://swr-api.%s.myhuaweicloud.com", ep.Region)
 	auth := basic.NewCredentialsBuilder().
 		WithAk(ep.Ak).
