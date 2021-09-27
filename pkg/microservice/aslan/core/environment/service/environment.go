@@ -1305,6 +1305,14 @@ func UpdateMultipleHelmEnv(userName, requestID string, userID int, superUser boo
 		serviceMap[singleService.ServiceName] = singleService
 	}
 
+	for _, requestRenderChart := range args.ChartValues {
+		yamlContent, err := generateValuesYaml(requestRenderChart, log)
+		if err != nil {
+			return envStatuses, e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to get yaml content for service: %s, err %v", requestRenderChart.ServiceName, err.Error()))
+		}
+		requestRenderChart.ValuesYAML = yamlContent
+	}
+
 	// extract values.yaml and update renderset
 	for envName, _ := range productMap {
 		renderSet, _, err := commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
