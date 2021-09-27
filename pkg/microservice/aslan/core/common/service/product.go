@@ -326,6 +326,13 @@ func DeleteResourcesAsync(namespace string, selector labels.Selector, kubeClient
 }
 
 func GetProductEnvNamespace(envName, productName string) string {
-	product := &commonmodels.Product{EnvName: envName, ProductName: productName}
-	return product.GetNamespace()
+	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: envName,
+	})
+	if err != nil {
+		product = &commonmodels.Product{EnvName: envName, ProductName: productName}
+		return product.GetNamespace()
+	}
+	return product.Namespace
 }
