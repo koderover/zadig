@@ -59,10 +59,6 @@ func CodeHostGetNamespaceList(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	codehostID := c.Param("codehostId")
-	keyword := c.Query("key")
-	page := c.Query("page")
-	perPage := c.Query("perPage")
-
 	if codehostID == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty codehostId")
 		return
@@ -111,6 +107,11 @@ func CodeHostGetProjectsList(c *gin.Context) {
 		ctx.Logger)
 }
 
+type CodeHostGetBranchListArgs struct {
+	PerPage int `json:"perPage"      form:"perPage,default:20"`
+	Page    int `json:"page"         form:"page,default:1"`
+}
+
 func CodeHostGetBranchList(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -118,6 +119,12 @@ func CodeHostGetBranchList(c *gin.Context) {
 	codehostID := c.Param("codehostId")
 	namespace := c.Param("namespace")
 	projectName := c.Param("projectName") // pro Name, id/name -> gitlab = id
+
+	args := new(CodeHostGetBranchListArgs)
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
 
 	if codehostID == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty codehostId")
@@ -137,6 +144,8 @@ func CodeHostGetBranchList(c *gin.Context) {
 		chID,
 		projectName,
 		strings.Replace(namespace, "%2F", "/", -1),
+		args.Page,
+		args.PerPage,
 		ctx.Logger)
 }
 
