@@ -22,8 +22,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/koderover/zadig/pkg/util"
-
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -38,6 +36,7 @@ import (
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/util"
 	jsonutil "github.com/koderover/zadig/pkg/util/json"
 )
 
