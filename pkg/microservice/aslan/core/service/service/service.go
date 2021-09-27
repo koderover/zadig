@@ -770,7 +770,7 @@ func YamlValidator(args *YamlValidatorReq) []string {
 
 			if err := yaml.Unmarshal([]byte(yamlData), &resKind); err != nil {
 				if index == 0 {
-					errorDetails = append(errorDetails, err.Error())
+					errorDetails = append(errorDetails, "Invalid yaml format. The content must be a series of valid Kubernetes resources")
 					return errorDetails
 				}
 				if strings.Contains(err.Error(), "yaml: line") {
