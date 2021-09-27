@@ -24,7 +24,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -757,8 +756,7 @@ func YamlValidator(args *YamlValidatorReq) []string {
 	}
 	yamlContent := util.ReplaceWrapLine(args.Yaml)
 	KubeYamls := SplitYaml(yamlContent)
-	totalErrorLineNum := 0
-	for index, data := range KubeYamls {
+	for _, data := range KubeYamls {
 		yamlDataArray := SplitYaml(data)
 		for _, yamlData := range yamlDataArray {
 			//验证格式
@@ -769,26 +767,10 @@ func YamlValidator(args *YamlValidatorReq) []string {
 			yamlData = config.ServiceNameAlias.ReplaceAllLiteralString(yamlData, args.ServiceName)
 
 			if err := yaml.Unmarshal([]byte(yamlData), &resKind); err != nil {
-				if index == 0 {
-					errorDetails = append(errorDetails, "Invalid yaml format. The content must be a series of valid Kubernetes resources")
-					return errorDetails
-				}
-				if strings.Contains(err.Error(), "yaml: line") {
-					re := regexp.MustCompile("[0-9]+")
-					errorLineNums := re.FindAllString(err.Error(), -1)
-					errorLineNum, _ := strconv.Atoi(errorLineNums[0])
-					totalErrorLineNum = totalErrorLineNum + errorLineNum
-					errMessage := re.ReplaceAllString(err.Error(), strconv.Itoa(totalErrorLineNum))
-
-					errorDetails = append(errorDetails, errMessage)
-					return errorDetails
-				}
+				errorDetails = append(errorDetails, "Invalid yaml format. The content must be a series of valid Kubernetes resources")
 			}
-
-			totalErrorLineNum += strings.Count(yamlData, "\n") + 2
 		}
 	}
-
 	return errorDetails
 }
 
