@@ -87,15 +87,11 @@ type IngressInfo struct {
 }
 
 // fill service display name if necessary
-func fillServiceDisplayName(svcList []*ServiceResp, projectInfo *models.Product) {
-	if projectInfo.Source == setting.SourceFromHelm {
-		prefix := fmt.Sprintf("%s%s", projectInfo.Namespace, "-")
+func fillServiceDisplayName(svcList []*ServiceResp, productInfo *models.Product) {
+	if productInfo.Source == setting.SourceFromHelm {
+		prefix := fmt.Sprintf("%s%s", productInfo.Namespace, "-")
 		for _, svc := range svcList {
 			svc.ServiceDisplayName = strings.TrimPrefix(svc.ServiceName, prefix)
-		}
-	} else {
-		for _, svc := range svcList {
-			svc.ServiceDisplayName = svc.ServiceName
 		}
 	}
 }
