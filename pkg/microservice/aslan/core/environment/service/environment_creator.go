@@ -81,7 +81,7 @@ func (autoCreator *AutoCreator) Create(envName string) (string, error) {
 	}
 
 	productObject.IsPublic = true
-	productObject.Namespace = commonservice.GetProductEnvNamespace(envName, productName)
+	productObject.Namespace = commonservice.GetProductEnvNamespace(envName, productName, "")
 	productObject.UpdateBy = autoCreator.Param.UserName
 	productObject.EnvName = envName
 	if autoCreator.Param.EnvType == setting.HelmDeployType {
@@ -156,7 +156,7 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 	var renderSet *models.RenderSet
 	if args.Render == nil || args.Render.Revision == 0 {
 		renderSet, _, err = commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
-			Name: commonservice.GetProductEnvNamespace(args.EnvName, args.ProductName),
+			Name: args.Namespace,
 		})
 
 		if err != nil {

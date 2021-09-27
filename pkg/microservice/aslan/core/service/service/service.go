@@ -878,7 +878,7 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 		if serviceType == setting.HelmDeployType && productTempl.OnboardingStatus != 0 {
 			envNames := []string{"dev", "qa"}
 			for _, envName := range envNames {
-				rendersetName := commonservice.GetProductEnvNamespace(envName, productName)
+				rendersetName := commonservice.GetProductEnvNamespace(envName, productName, "")
 				err := removeServiceFromRenderset(productName, rendersetName, serviceName)
 				if err != nil {
 					log.Warnf("failed to update renderset: %s when deleting service: %s, err: %s", rendersetName, serviceName, err.Error())

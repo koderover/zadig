@@ -38,7 +38,7 @@ import (
 
 func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*commonservice.RenderChartArg, error) {
 
-	renderSetName := commonservice.GetProductEnvNamespace(envName, productName)
+	renderSetName := commonservice.GetProductEnvNamespace(envName, productName, "")
 
 	opt := &commonrepo.RenderSetFindOption{
 		Name: renderSetName,
@@ -148,7 +148,7 @@ func CreateOrUpdateChartValues(productName, envName string, args *commonservice.
 	serviceOpt := &commonrepo.ServiceFindOption{
 		ProductName: productName,
 		ServiceName: serviceName,
-		Type: setting.HelmDeployType,
+		Type:        setting.HelmDeployType,
 	}
 	serviceObj, err := commonrepo.NewServiceColl().Find(serviceOpt)
 	if err != nil {
@@ -168,7 +168,7 @@ func CreateOrUpdateChartValues(productName, envName string, args *commonservice.
 	}
 	args.ValuesYAML = yamlContent
 
-	renderSetName := commonservice.GetProductEnvNamespace(envName, productName)
+	renderSetName := commonservice.GetProductEnvNamespace(envName, productName, "")
 
 	opt := &commonrepo.RenderSetFindOption{Name: renderSetName}
 	curRenderset, found, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)

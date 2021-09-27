@@ -109,6 +109,7 @@ type EnvRenderChartArg struct {
 type CreateHelmProductArg struct {
 	ProductName string                          `json:"productName"`
 	EnvName     string                          `json:"envName"`
+	Namespace   string                          `json:"namespace"`
 	ClusterID   string                          `json:"clusterID"`
 	ChartValues []*commonservice.RenderChartArg `json:"chartValues"`
 }
@@ -949,7 +950,7 @@ func CreateHelmProduct(userName, requestID string, args *CreateHelmProductArg, l
 		UpdateBy:        userName,
 		IsPublic:        true,
 		ClusterID:       args.ClusterID,
-		Namespace:       commonservice.GetProductEnvNamespace(args.EnvName, args.ProductName),
+		Namespace:       commonservice.GetProductEnvNamespace(args.EnvName, args.ProductName, args.Namespace),
 		Source:          setting.SourceFromHelm,
 		IsOpenSource:    templateProduct.IsOpensource,
 		ChartInfos:      templateProduct.ChartInfos,
@@ -1027,7 +1028,7 @@ func CreateHelmProduct(userName, requestID string, args *CreateHelmProductArg, l
 	// insert renderset info into db
 	if len(productObj.ChartInfos) > 0 {
 		err = commonservice.CreateHelmRenderSet(&commonmodels.RenderSet{
-			Name:        commonservice.GetProductEnvNamespace(args.EnvName, args.ProductName),
+			Name:        commonservice.GetProductEnvNamespace(args.EnvName, args.ProductName, args.Namespace),
 			EnvName:     args.EnvName,
 			ProductTmpl: args.ProductName,
 			UpdateBy:    userName,
@@ -1125,7 +1126,7 @@ func checkOverrideValuesChange(source *template.RenderChart, args *commonservice
 
 func UpdateHelmProductRenderCharts(productName, envName, userName, requestID string, renderCharts []*commonservice.RenderChartArg, log *zap.SugaredLogger) error {
 
-	renderSetName := commonservice.GetProductEnvNamespace(envName, productName)
+	renderSetName := commonservice.GetProductEnvNamespace(envName, productName, "")
 
 	opt := &commonrepo.RenderSetFindOption{Name: renderSetName}
 	productRenderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
@@ -1306,7 +1307,7 @@ func UpdateMultipleHelmEnv(userName, requestID string, userID int, superUser boo
 	// extract values.yaml and update renderset
 	for envName, _ := range productMap {
 		renderSet, _, err := commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
-			Name: commonservice.GetProductEnvNamespace(envName, productName),
+			Name: commonservice.GetProductEnvNamespace(envName, productName, ""),
 		})
 		if err != nil || renderSet == nil {
 			if err != nil {
@@ -1398,7 +1399,7 @@ func GetProductInfo(username, envName, productName string, log *zap.SugaredLogge
 		return nil, e.ErrGetEnv
 	}
 
-	renderSetName := commonservice.GetProductEnvNamespace(envName, productName)
+	renderSetName := prod.Namespace
 	renderSetOpt := &commonrepo.RenderSetFindOption{Name: renderSetName, Revision: prod.Render.Revision}
 	renderSet, err := commonrepo.NewRenderSetColl().Find(renderSetOpt)
 	if err != nil {
@@ -1449,7 +1450,7 @@ func ListRenderCharts(productName, envName string, log *zap.SugaredLogger) ([]*t
 			return nil, e.ErrListRenderSets.AddDesc(err.Error())
 		}
 
-		renderSetName := commonservice.GetProductEnvNamespace(envName, productName)
+		renderSetName := productResp.Namespace
 		renderSetOpt = &commonrepo.RenderSetFindOption{Name: renderSetName, Revision: productResp.Render.Revision}
 	}
 
@@ -1480,7 +1481,7 @@ func GetHelmChartVersions(productName, envName string, log *zap.SugaredLogger) (
 	}
 
 	//当前环境的renderset
-	renderSetName := commonservice.GetProductEnvNamespace(envName, productName)
+	renderSetName := prod.Namespace
 	renderSetOpt := &commonrepo.RenderSetFindOption{Name: renderSetName, Revision: prod.Render.Revision}
 	renderSet, err := commonrepo.NewRenderSetColl().Find(renderSetOpt)
 	if err != nil {
@@ -2242,7 +2243,7 @@ func waitResourceRunning(
 func preCreateProduct(envName string, args *commonmodels.Product, kubeClient client.Client, log *zap.SugaredLogger) error {
 	var (
 		productTemplateName = args.ProductName
-		renderSetName       = commonservice.GetProductEnvNamespace(envName, args.ProductName)
+		renderSetName       = commonservice.GetProductEnvNamespace(envName, args.ProductName, args.Namespace)
 		err                 error
 	)
 	// 如果 args.Render.Revision > 0 则该次操作是版本回溯
@@ -2320,7 +2321,7 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 
 	args.Render = tmpRenderInfo
 	if preCreateNSAndSecret(productTmpl.ProductFeature) {
-		return ensureKubeEnv(commonservice.GetProductEnvNamespace(envName, args.ProductName), kubeClient, log)
+		return ensureKubeEnv(args.Namespace, kubeClient, log)
 	}
 	return nil
 }
@@ -2805,7 +2806,7 @@ func diffRenderSet(productName, envName, updateType string, productResp *commonm
 	}
 
 	newChartInfos := make([]*template.RenderChart, 0)
-	renderSetName := commonservice.GetProductEnvNamespace(envName, productName)
+	renderSetName := productResp.Namespace
 	switch updateType {
 	case UpdateTypeSystem:
 		for _, serviceNameGroup := range productTemp.Services {

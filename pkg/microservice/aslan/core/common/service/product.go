@@ -325,7 +325,10 @@ func DeleteResourcesAsync(namespace string, selector labels.Selector, kubeClient
 	return errors.ErrorOrNil()
 }
 
-func GetProductEnvNamespace(envName, productName string) string {
+func GetProductEnvNamespace(envName, productName, namespace string) string {
+	if namespace != "" {
+		return namespace
+	}
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    productName,
 		EnvName: envName,
