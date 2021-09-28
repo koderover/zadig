@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -35,6 +36,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
@@ -484,14 +486,9 @@ func setManunalBuilds(builds []*types.Repository, buildArgs []*types.Repository,
 	return nil
 }
 
-// releaseCandidateTag 根据 TaskID 生成编译镜像Tag或者二进制包后缀
+// releaseCandidate 根据 TaskID 生成编译镜像Tag或者二进制包后缀
 // TODO: max length of a tag is 128
-func releaseCandidateTag(b *task.Build, taskID int64, productName string) string {
-	project, err := templaterepo.NewProductColl().Find(productName)
-	if err == nil {
-		customImageRule := project.CustomImageRule
-		customTarRule := project.CustomTarRule
-	}
+func releaseCandidate(b *task.Build, taskID int64, productName, envName, deliveryType string) string {
 	timeStamp := time.Now().Format("20060102150405")
 	if len(b.JobCtx.Builds) > 0 {
 		first := b.JobCtx.Builds[0]
@@ -503,36 +500,128 @@ func releaseCandidateTag(b *task.Build, taskID int64, productName string) string
 
 		// 替换 Tag 和 Branch 中的非法字符为 "-", 避免 docker build 失败
 		var (
-			reg    = regexp.MustCompile(`[^\w.-]`)
-			tag    = string(reg.ReplaceAll([]byte(first.Tag), []byte("-")))
-			branch = string(reg.ReplaceAll([]byte(first.Branch), []byte("-")))
+			reg             = regexp.MustCompile(`[^\w.-]`)
+			customImageRule *template.CustomImageRule
+			customTarRule   *template.CustomTarRule
 		)
 
-		if tag != "" {
-			return fmt.Sprintf("%s-%s", timeStamp, tag)
+		project, err := templaterepo.NewProductColl().Find(productName)
+		if err == nil {
+			customImageRule = project.CustomImageRule
+			customTarRule = project.CustomTarRule
 		}
-		if branch != "" && first.PR != 0 {
-			return fmt.Sprintf("%s-%d-%s-pr-%d", timeStamp, taskID, branch, first.PR)
+		candidate := &candidate{
+			Branch:      string(reg.ReplaceAll([]byte(first.Branch), []byte("-"))),
+			CommitID:    first.CommitID,
+			PR:          first.PR,
+			Tag:         string(reg.ReplaceAll([]byte(first.Tag), []byte("-"))),
+			EnvName:     envName,
+			Timestamp:   timeStamp,
+			TaskID:      taskID,
+			ProductName: productName,
+			ServiceName: b.ServiceName,
 		}
-		if branch == "" && first.PR != 0 {
-			return fmt.Sprintf("%s-%d-pr-%d", timeStamp, taskID, first.PR)
-		}
-		if branch != "" && first.PR == 0 {
-			return fmt.Sprintf("%s-%d-%s", timeStamp, taskID, branch)
+		switch deliveryType {
+		case "image":
+			return generateImageCandidate(customImageRule, candidate)
+		case "tar":
+			return generateTarCandidate(customTarRule, candidate)
 		}
 	}
 	return timeStamp
 }
 
+type candidate struct {
+	Branch      string
+	Tag         string
+	CommitID    string
+	PR          int
+	TaskID      int64
+	Timestamp   string
+	ProductName string
+	ServiceName string
+	EnvName     string
+}
+
+func generateImageCandidate(customImageRule *template.CustomImageRule, candidate *candidate) string {
+	if customImageRule == nil {
+		return replaceVariable(nil, candidate)
+	}
+
+	return replaceVariable(&template.CustomRule{
+		PRRule:          customImageRule.PRRule,
+		BranchRule:      customImageRule.BranchRule,
+		PRAndBranchRule: customImageRule.PRAndBranchRule,
+		TagRule:         customImageRule.TagRule,
+	}, candidate)
+}
+
+func generateTarCandidate(customTarRule *template.CustomTarRule, candidate *candidate) string {
+	if customTarRule == nil {
+		return replaceVariable(nil, candidate)
+	}
+	return replaceVariable(&template.CustomRule{
+		PRRule:          customTarRule.PRRule,
+		BranchRule:      customTarRule.BranchRule,
+		PRAndBranchRule: customTarRule.PRAndBranchRule,
+		TagRule:         customTarRule.TagRule,
+	}, candidate)
+}
+
+func replaceVariable(customRule *template.CustomRule, candidate *candidate) string {
+	var currentRule string
+	if candidate.Tag != "" {
+		if customRule == nil {
+			return fmt.Sprintf("%s-%s", candidate.Timestamp, candidate.Tag)
+		}
+		currentRule = customRule.TagRule
+		currentRule = strings.Replace(currentRule, "${REPO_TAG}", candidate.Tag, -1)
+	}
+
+	if candidate.Branch != "" && candidate.PR != 0 {
+		if customRule == nil {
+			return fmt.Sprintf("%s-%d-%s-pr-%d", candidate.Timestamp, candidate.TaskID, candidate.Branch, candidate.PR)
+		}
+		currentRule = customRule.PRAndBranchRule
+		currentRule = strings.Replace(currentRule, "${REPO_PR}", strconv.Itoa(candidate.PR), -1)
+		currentRule = strings.Replace(currentRule, "${REPO_BRANCH}", candidate.Branch, -1)
+	}
+
+	if candidate.Branch == "" && candidate.PR != 0 {
+		if customRule == nil {
+			return fmt.Sprintf("%s-%d-pr-%d", candidate.Timestamp, candidate.TaskID, candidate.PR)
+		}
+		currentRule = customRule.PRRule
+		currentRule = strings.Replace(currentRule, "${REPO_PR}", strconv.Itoa(candidate.PR), -1)
+	}
+
+	if candidate.Branch != "" && candidate.PR == 0 {
+		if customRule == nil {
+			return fmt.Sprintf("%s-%d-%s", candidate.Timestamp, candidate.TaskID, candidate.Branch)
+		}
+		currentRule = customRule.BranchRule
+		currentRule = strings.Replace(currentRule, "${REPO_BRANCH}", candidate.Branch, -1)
+	}
+
+	currentRule = strings.Replace(currentRule, "${SERVICE}", candidate.ServiceName, -1)
+	currentRule = strings.Replace(currentRule, "${TIMESTAMP}", candidate.Timestamp, -1)
+	currentRule = strings.Replace(currentRule, "${TASK_ID}", strconv.FormatInt(candidate.TaskID, 10), -1)
+	currentRule = strings.Replace(currentRule, "${REPO_COMMIT_ID}", candidate.CommitID, -1)
+	currentRule = strings.Replace(currentRule, "${PROJECT}", candidate.ProductName, -1)
+	currentRule = strings.Replace(currentRule, "${ENV_NAME}", candidate.EnvName, -1)
+
+	return currentRule
+}
+
 // GetImage suffix 可以是 branch name 或者 pr number
-func GetImage(registry *commonmodels.RegistryNamespace, serviceName, suffix string) string {
-	image := fmt.Sprintf("%s/%s/%s:%s", util.GetURLHostName(registry.RegAddr), registry.Namespace, serviceName, suffix)
+func GetImage(registry *commonmodels.RegistryNamespace, suffix string) string {
+	image := fmt.Sprintf("%s/%s/%s", util.GetURLHostName(registry.RegAddr), registry.Namespace, suffix)
 	return image
 }
 
 // GetPackageFile suffix 可以是 branch name 或者 pr number
-func GetPackageFile(serviceName, suffix string) string {
-	packageFile := fmt.Sprintf("%s-%s.tar.gz", serviceName, suffix)
+func GetPackageFile(suffix string) string {
+	packageFile := fmt.Sprintf("%s.tar.gz", suffix)
 	return packageFile
 }
 

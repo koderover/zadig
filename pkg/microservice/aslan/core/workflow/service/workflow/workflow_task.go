@@ -619,6 +619,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 			TaskArgs:      workFlowArgsToTaskArgs(target.Name, args),
 			ConfigPayload: configPayload,
 			ProductName:   args.ProductTmplName,
+			EnvName:       args.Namespace,
 		}
 		sort.Sort(ByTaskKind(task.SubTasks))
 
@@ -1782,7 +1783,7 @@ func ensurePipelineTask(pt *task.Task, log *zap.SugaredLogger) error {
 				}
 
 				// 生成默认镜像tag后缀
-				pt.TaskArgs.Deploy.Tag = releaseCandidateTag(t, pt.TaskID, pt.ProductName)
+				//pt.TaskArgs.Deploy.Tag = releaseCandidate(t, pt.TaskID, pt.ProductName, pt.EnvName, "image")
 
 				// 设置镜像名称
 				// 编译任务使用 t.JobCtx.Image
@@ -1793,7 +1794,7 @@ func ensurePipelineTask(pt *task.Task, log *zap.SugaredLogger) error {
 					return e.ErrFindRegistry.AddDesc(err.Error())
 				}
 
-				t.JobCtx.Image = GetImage(reg, t.ServiceName, pt.TaskArgs.Deploy.Tag)
+				t.JobCtx.Image = GetImage(reg, releaseCandidate(t, pt.TaskID, pt.ProductName, pt.EnvName, "image"))
 				pt.TaskArgs.Deploy.Image = t.JobCtx.Image
 
 				if pt.ConfigPayload != nil {
@@ -1806,7 +1807,7 @@ func ensurePipelineTask(pt *task.Task, log *zap.SugaredLogger) error {
 				// 二进制文件名称
 				// 编译任务使用 t.JobCtx.PackageFile
 				// 注意: 其他任务从 pt.TaskArgs.Deploy.PackageFile 获取, 必须要有编译任务
-				t.JobCtx.PackageFile = GetPackageFile(t.ServiceName, pt.TaskArgs.Deploy.Tag)
+				t.JobCtx.PackageFile = GetPackageFile(releaseCandidate(t, pt.TaskID, pt.ProductName, pt.EnvName, "tar"))
 				pt.TaskArgs.Deploy.PackageFile = t.JobCtx.PackageFile
 
 				// 注入编译模块中用户定义环境变量
@@ -1821,7 +1822,7 @@ func ensurePipelineTask(pt *task.Task, log *zap.SugaredLogger) error {
 
 				if t.JobCtx.FileArchiveCtx != nil {
 					//t.JobCtx.FileArchiveCtx.FileName = t.ServiceName
-					t.JobCtx.FileArchiveCtx.FileName = GetPackageFile(t.ServiceName, pt.TaskArgs.Deploy.Tag)
+					t.JobCtx.FileArchiveCtx.FileName = t.JobCtx.PackageFile
 				}
 
 				// TODO: generic
