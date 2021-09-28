@@ -41,5 +41,5 @@ func WithContext(ctx *gin.Context) *zap.Logger {
 	if ok {
 		return ctxLogger
 	}
-	return log.Logger().WithOptions()
+	return log.Logger()
 }
