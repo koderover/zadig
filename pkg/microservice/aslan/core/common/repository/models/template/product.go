@@ -147,10 +147,10 @@ type ImageSearchingRule struct {
 }
 
 type CustomRule struct {
-	PRRule          string `bson:"pr_rule"             json:"create_env_type`
-	BranchRule      string `bson:"branch_rule"         json:"branch_rule"`
-	PRAndBranchRule string `bson:"pr_and_branch_rule"  json:"pr_and_branch_rule"`
-	TagRule         string `bson:"tag_rule"            json:"tag_rule"`
+	PRRule          string `bson:"pr_rule,omitempty"             json:"create_env_type,omitempty`
+	BranchRule      string `bson:"branch_rule,omitempty"         json:"branch_rule,omitempty"`
+	PRAndBranchRule string `bson:"pr_and_branch_rule,omitempty"  json:"pr_and_branch_rule,omitempty"`
+	TagRule         string `bson:"tag_rule,omitempty"            json:"tag_rule,omitempty"`
 }
 
 type CustomImageRule struct {
