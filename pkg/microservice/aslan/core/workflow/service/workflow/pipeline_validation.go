@@ -528,7 +528,7 @@ func releaseCandidate(b *task.Build, taskID int64, productName, envName, deliver
 			return generateTarCandidate(customTarRule, candidate)
 		}
 	}
-	return timeStamp
+	return fmt.Sprintf("%s:%s", b.ServiceName, timeStamp)
 }
 
 type candidate struct {
