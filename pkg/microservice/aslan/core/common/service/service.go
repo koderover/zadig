@@ -621,11 +621,7 @@ func ParseImagesByRules(nested map[string]interface{}, matchRules []*template.Im
 		if !rule.InUse {
 			continue
 		}
-		patterns = append(patterns, map[string]string{
-			setting.PathSearchComponentRepo:  rule.Repo,
-			setting.PathSearchComponentImage: rule.Image,
-			setting.PathSearchComponentTag:   rule.Tag,
-		})
+		patterns = append(patterns, rule.GetPattern())
 	}
 	return parseImagesByPattern(nested, patterns)
 }
@@ -641,11 +637,7 @@ func getServiceParsePatterns(productName string) ([]map[string]string, error) {
 		if !rule.InUse {
 			continue
 		}
-		ret = append(ret, map[string]string{
-			setting.PathSearchComponentRepo:  rule.Repo,
-			setting.PathSearchComponentImage: rule.Image,
-			setting.PathSearchComponentTag:   rule.Tag,
-		})
+		ret = append(ret, rule.GetPattern())
 	}
 
 	// rules are never edited, use preset rules
