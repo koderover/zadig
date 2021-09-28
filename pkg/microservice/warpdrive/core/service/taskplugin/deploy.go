@@ -392,7 +392,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			}
 		}
 
-		log.Infof("target container name %s target service name %s imageName %s", p.Task.ContainerName, p.Task.ServiceName, p.Task.Image)
+		log.Infof("target container name %s target service name %s imageName %s productName %s envName %s", p.Task.ContainerName, p.Task.ServiceName, p.Task.Image, productInfo.ProductName, productInfo.EnvName)
 
 		if targetContainer == nil {
 			err = fmt.Errorf("failed to find container %s from service %s", p.Task.ContainerName, p.Task.ServiceName)
@@ -401,6 +401,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 
 		for _, chartInfo := range renderInfo.ChartInfos {
 			chartInfoMap[chartInfo.ServiceName] = chartInfo
+			log.Infof("find single chartInfo service Name %s chartInfo %v", chartInfo.ServiceName, *chartInfo)
 		}
 
 		if renderChart, isExist = chartInfoMap[p.Task.ServiceName]; isExist {
@@ -469,6 +470,12 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 					)
 					return
 				}
+
+				log.Infof("productInfo.Render.Name is %s", productInfo.Render.Name)
+				log.Infof("override yaml is %s", renderChart.GetOverrideYaml())
+				log.Infof("override values is %s", renderChart.OverrideValues)
+
+				mergedValuesYaml = replaceValuesYaml
 
 				chartSpec := helmclient.ChartSpec{
 					ReleaseName: util.GeneHelmReleaseName(p.Task.Namespace, p.Task.ServiceName),
@@ -605,9 +612,9 @@ func (p *DeployTaskPlugin) replaceImage(imagePathSpec *types.ImagePathSpec, valu
 		return "", errors.New("image path parse info is nil")
 	}
 	getValidMatchData := getValidMatchData(imagePathSpec)
-	log.Info("image path spec is %v", getValidMatchData)
+	log.Infof("image path spec is %v", getValidMatchData)
 	replaceValuesMap, err := assignImageData(imageUri, getValidMatchData)
-	log.Info("data after assign is %s err is %v", replaceValuesMap, err)
+	log.Infof("data after assign is %s err is %v", replaceValuesMap, err)
 	if err != nil {
 		return "", err
 	}
