@@ -383,7 +383,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			for _, service := range serviceGroup {
 				if service.ServiceName == p.Task.ServiceName {
 					for _, container := range service.Containers {
-						log.Info("checking container serviceName %s containerName %s", service.ServiceName, container.Name)
+						log.Infof("checking container serviceName %s containerName %s", service.ServiceName, container.Name)
 						if container.Name == p.Task.ContainerName {
 							targetContainer = container
 						}
@@ -392,7 +392,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			}
 		}
 
-		log.Info("target container name %s target service name %s imageName %s", p.Task.ContainerName, p.Task.ServiceName, p.Task.Image)
+		log.Infof("target container name %s target service name %s imageName %s", p.Task.ContainerName, p.Task.ServiceName, p.Task.Image)
 
 		if targetContainer == nil {
 			err = fmt.Errorf("failed to find container %s from service %s", p.Task.ContainerName, p.Task.ServiceName)
@@ -422,7 +422,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				return
 			}
 
-			log.Info("current values map:%s", string(yamlValuesByte))
+			log.Infof("current values map:%s", string(yamlValuesByte))
 
 			replaceValuesYaml, err = p.replaceImage(targetContainer.ImagePath, currentValuesYamlMap, p.Task.Image)
 			if err != nil {
@@ -430,7 +430,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				return
 			}
 
-			log.Info("replaced yaml is %s", replaceValuesYaml)
+			log.Infof("replaced yaml is %s", replaceValuesYaml)
 
 			if replaceValuesYaml != "" {
 				helmClient, err = helmtool.NewClientFromRestConf(p.restConfig, p.Task.Namespace)
@@ -442,28 +442,28 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 					return
 				}
 
-				path, err := p.downloadService(pipelineTask.ProductName, p.Task.ServiceName, pipelineTask.StorageURI)
-				if err != nil {
+				path, errDownload := p.downloadService(pipelineTask.ProductName, p.Task.ServiceName, pipelineTask.StorageURI)
+				if errDownload != nil {
 					err = errors.WithMessagef(
-						err,
+						errDownload,
 						"failed to download service %s/%s",
 						p.Task.Namespace, p.Task.ServiceName)
 					return
 				}
-				chartPath, err := fs.RelativeToCurrentPath(path)
-				if err != nil {
+				chartPath, errPath := fs.RelativeToCurrentPath(path)
+				if errPath != nil {
 					err = errors.WithMessagef(
-						err,
+						errPath,
 						"failed to get relative path %s",
 						path,
 					)
 					return
 				}
 
-				mergedValuesYaml, err := helmtool.MergeOverrideValues(replaceValuesYaml, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
-				if err != nil {
+				mergedValuesYaml, errMerge := helmtool.MergeOverrideValues(replaceValuesYaml, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
+				if errMerge != nil {
 					err = errors.WithMessagef(
-						err,
+						errMerge,
 						"failed to merge override values %s",
 						renderChart.OverrideValues,
 					)
@@ -481,6 +481,8 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 					UpgradeCRDs: true,
 					Timeout:     time.Second * DeployTimeout,
 				}
+
+				log.Infof("final merged data is %s", mergedValuesYaml)
 
 				if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), &chartSpec); err != nil {
 					err = errors.WithMessagef(
