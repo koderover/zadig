@@ -17,7 +17,6 @@ limitations under the License.
 package upgradepath
 
 import (
-	"fmt"
 	"sort"
 
 	"github.com/blang/semver/v4"
@@ -89,7 +88,6 @@ func init() {
 	}
 
 	sort.Strings(versionList)
-	fmt.Println(versionList)
 
 	for i := 0; i < len(versionList)-2; i++ {
 		lowVersion := versionList[i]
