@@ -229,7 +229,7 @@ func (rc *RenderChart) GetOverrideYaml() string {
 	return rc.OverrideYaml.YamlContent
 }
 
-func (rule *ImageSearchingRule) GetPattern() map[string]string {
+func (rule *ImageSearchingRule) GetSearchingPattern() map[string]string {
 	ret := make(map[string]string)
 	if rule.Repo != "" {
 		ret[setting.PathSearchComponentRepo] = rule.Repo

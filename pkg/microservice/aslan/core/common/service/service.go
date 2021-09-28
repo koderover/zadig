@@ -621,7 +621,7 @@ func ParseImagesByRules(nested map[string]interface{}, matchRules []*template.Im
 		if !rule.InUse {
 			continue
 		}
-		patterns = append(patterns, rule.GetPattern())
+		patterns = append(patterns, rule.GetSearchingPattern())
 	}
 	return parseImagesByPattern(nested, patterns)
 }
@@ -637,7 +637,7 @@ func getServiceParsePatterns(productName string) ([]map[string]string, error) {
 		if !rule.InUse {
 			continue
 		}
-		ret = append(ret, rule.GetPattern())
+		ret = append(ret, rule.GetSearchingPattern())
 	}
 
 	// rules are never edited, use preset rules
