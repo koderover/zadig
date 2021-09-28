@@ -383,6 +383,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			for _, service := range serviceGroup {
 				if service.ServiceName == p.Task.ServiceName {
 					for _, container := range service.Containers {
+						log.Info("checking container serviceName %s containerName %s", service.ServiceName, container.Name)
 						if container.Name == p.Task.ContainerName {
 							targetContainer = container
 						}
@@ -390,6 +391,8 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				}
 			}
 		}
+
+		log.Info("target container name %s target service name %s imageName %s", p.Task.ContainerName, p.Task.ServiceName, p.Task.Image)
 
 		if targetContainer == nil {
 			err = fmt.Errorf("failed to find container %s from service %s", p.Task.ContainerName, p.Task.ServiceName)
@@ -419,10 +422,15 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				return
 			}
 
+			log.Info("current values map:%s", string(yamlValuesByte))
+
 			replaceValuesYaml, err = p.replaceImage(targetContainer.ImagePath, currentValuesYamlMap, p.Task.Image)
 			if err != nil {
-				log.Error("failed to replace image: %s", p.Task.Image)
+				log.Error("failed to replace image: %s, err %s", p.Task.Image, err.Error())
+				return
 			}
+
+			log.Info("replaced yaml is %s", replaceValuesYaml)
 
 			if replaceValuesYaml != "" {
 				helmClient, err = helmtool.NewClientFromRestConf(p.restConfig, p.Task.Namespace)
@@ -595,7 +603,9 @@ func (p *DeployTaskPlugin) replaceImage(imagePathSpec *types.ImagePathSpec, valu
 		return "", errors.New("image path parse info is nil")
 	}
 	getValidMatchData := getValidMatchData(imagePathSpec)
+	log.Info("image path spec is %v", getValidMatchData)
 	replaceValuesMap, err := assignImageData(imageUri, getValidMatchData)
+	log.Info("data after assign is %s err is %v", replaceValuesMap, err)
 	if err != nil {
 		return "", err
 	}
@@ -621,6 +631,7 @@ func assignImageData(imageUrl string, matchData map[string]string) (map[string]i
 	}
 
 	resolvedImageUrl := resolveImageUrl(imageUrl)
+	log.Info("the resolved image is %v", resolvedImageUrl)
 
 	// image url assigned into repo/image+tag
 	if len(matchData) == 3 {
