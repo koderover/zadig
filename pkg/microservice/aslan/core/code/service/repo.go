@@ -67,25 +67,6 @@ func ListRepoInfos(infos []*GitRepoInfo, param string, log *zap.SugaredLogger) (
 			}(info)
 		}
 
-		wg.Add(1)
-		go func(info *GitRepoInfo) {
-			defer func() {
-				wg.Done()
-			}()
-			projectName := info.Repo
-			if info.Source == CodeHostCodeHub {
-				projectName = info.RepoUUID
-			}
-			info.Branches, err = CodeHostListBranches(info.CodehostID, projectName, strings.Replace(info.Owner, "%2F", "/", -1), 1, 1000000, log)
-			if err != nil {
-				errList = multierror.Append(errList, err)
-				info.ErrorMsg = err.Error()
-				info.Branches = []*Branch{}
-				return
-			}
-
-		}(info)
-
 		//bt 代表branch and tag
 		if param == "" || param == "bt" {
 			wg.Add(1)
