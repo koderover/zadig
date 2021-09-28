@@ -572,7 +572,7 @@ func replaceVariable(customRule *template.CustomRule, candidate *candidate) stri
 	var currentRule string
 	if candidate.Tag != "" {
 		if customRule == nil {
-			return fmt.Sprintf("%s-%s", candidate.Timestamp, candidate.Tag)
+			return fmt.Sprintf("%s:%s-%s", candidate.ServiceName, candidate.Timestamp, candidate.Tag)
 		}
 		currentRule = customRule.TagRule
 		currentRule = strings.Replace(currentRule, "${REPO_TAG}", candidate.Tag, -1)
@@ -580,7 +580,7 @@ func replaceVariable(customRule *template.CustomRule, candidate *candidate) stri
 
 	if candidate.Branch != "" && candidate.PR != 0 {
 		if customRule == nil {
-			return fmt.Sprintf("%s-%d-%s-pr-%d", candidate.Timestamp, candidate.TaskID, candidate.Branch, candidate.PR)
+			return fmt.Sprintf("%s:%s-%d-%s-pr-%d", candidate.ServiceName, candidate.Timestamp, candidate.TaskID, candidate.Branch, candidate.PR)
 		}
 		currentRule = customRule.PRAndBranchRule
 		currentRule = strings.Replace(currentRule, "${REPO_PR}", strconv.Itoa(candidate.PR), -1)
@@ -589,7 +589,7 @@ func replaceVariable(customRule *template.CustomRule, candidate *candidate) stri
 
 	if candidate.Branch == "" && candidate.PR != 0 {
 		if customRule == nil {
-			return fmt.Sprintf("%s-%d-pr-%d", candidate.Timestamp, candidate.TaskID, candidate.PR)
+			return fmt.Sprintf("%s:%s-%d-pr-%d", candidate.ServiceName, candidate.Timestamp, candidate.TaskID, candidate.PR)
 		}
 		currentRule = customRule.PRRule
 		currentRule = strings.Replace(currentRule, "${REPO_PR}", strconv.Itoa(candidate.PR), -1)
@@ -597,7 +597,7 @@ func replaceVariable(customRule *template.CustomRule, candidate *candidate) stri
 
 	if candidate.Branch != "" && candidate.PR == 0 {
 		if customRule == nil {
-			return fmt.Sprintf("%s-%d-%s", candidate.Timestamp, candidate.TaskID, candidate.Branch)
+			return fmt.Sprintf("%s:%s-%d-%s", candidate.ServiceName, candidate.Timestamp, candidate.TaskID, candidate.Branch)
 		}
 		currentRule = customRule.BranchRule
 		currentRule = strings.Replace(currentRule, "${REPO_BRANCH}", candidate.Branch, -1)
