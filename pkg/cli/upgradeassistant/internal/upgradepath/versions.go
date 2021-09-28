@@ -17,9 +17,9 @@ limitations under the License.
 package upgradepath
 
 import (
-	"github.com/blang/semver/v4"
+	"sort"
 
-	"github.com/koderover/zadig/version"
+	"github.com/blang/semver/v4"
 )
 
 const (
@@ -82,18 +82,25 @@ func (v versions) MaxVersionString() string {
 }
 
 func init() {
-	maxVersion, _ := semver.Make(versionMap.MaxVersionString())
-	currentVersion, _ := semver.Make(version.Version)
-	if currentVersion.GT(maxVersion) {
-		AddHandler(versionMap.Max(), Latest, UpgradeToLatest)
-		AddHandler(Latest, versionMap.Max(), RollbackFromLatest)
+	versionList := make([]string, 0, len(versionMap))
+	for v := range versionMap {
+		versionList = append(versionList, v)
+	}
+
+	sort.Strings(versionList)
+
+	for i := 0; i < len(versionList)-2; i++ {
+		lowVersion := versionList[i]
+		highVersion := versionList[i+1]
+		AddHandler(versionMap[lowVersion], versionMap[highVersion], defaultUpgradeHandler)
+		AddHandler(versionMap[highVersion], versionMap[lowVersion], defaultRollBackHandler)
 	}
 }
 
-func UpgradeToLatest() error {
+func defaultUpgradeHandler() error {
 	return nil
 }
 
-func RollbackFromLatest() error {
+func defaultRollBackHandler() error {
 	return nil
 }
