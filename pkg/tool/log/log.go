@@ -18,6 +18,7 @@ package log
 
 import (
 	"os"
+	"strings"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -80,13 +81,23 @@ func getConsoleEncoder(cfg *Config) zapcore.Encoder {
 	return getEncoder(cfg, false)
 }
 
+func SelfDefineCallerEncoder(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
+	idx := strings.LastIndex(caller.String(), "/pkg")
+	callerStr := caller.String()
+	if idx == -1 {
+		enc.AppendString(callerStr)
+	} else {
+		enc.AppendString(callerStr[idx+1:])
+	}
+}
+
 func getEncoder(cfg *Config, jsonFormat bool) zapcore.Encoder {
 	encoderConfig := zap.NewProductionEncoderConfig()
 	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	encoderConfig.TimeKey = "time"
 	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
 	encoderConfig.EncodeDuration = zapcore.StringDurationEncoder
-	encoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
+	encoderConfig.EncodeCaller = SelfDefineCallerEncoder
 
 	if cfg.NoLogLevel {
 		encoderConfig.LevelKey = zapcore.OmitKey
