@@ -463,7 +463,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				}
 
 				chartSpec := helmclient.ChartSpec{
-					ReleaseName: fmt.Sprintf("%s-%s", p.Task.Namespace, p.Task.ServiceName),
+					ReleaseName: util.GeneHelmReleaseName(p.Task.Namespace, p.Task.ServiceName),
 					ChartName:   chartPath,
 					Namespace:   p.Task.Namespace,
 					ReuseValues: true,
