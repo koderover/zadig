@@ -151,9 +151,9 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 	}
 
 	// renderset may exist before product created, by setting values.yaml content
-	var renderSet *models.RenderSet
+	var renderset *models.RenderSet
 	if args.Render == nil || args.Render.Revision == 0 {
-		renderSet, _, err = commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
+		renderset, _, err = commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
 			Name: commonservice.GetProductEnvNamespace(args.EnvName, args.ProductName),
 		})
 
@@ -162,15 +162,15 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 			return e.ErrCreateEnv.AddDesc(err.Error())
 		}
 		// if env renderset is predefined, set render info
-		if renderSet != nil {
+		if renderset != nil {
 			args.Render = &models.RenderInfo{
 				ProductTmpl: args.ProductName,
-				Name:        renderSet.Name,
-				Revision:    renderSet.Revision,
+				Name:        renderset.Name,
+				Revision:    renderset.Revision,
 			}
 			// user renderchart from renderset
 			chartInfoMap := make(map[string]*template.RenderChart)
-			for _, renderChart := range renderSet.ChartInfos {
+			for _, renderChart := range renderset.ChartInfos {
 				chartInfoMap[renderChart.ServiceName] = renderChart
 			}
 
@@ -189,8 +189,8 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 
-	if renderSet == nil {
-		renderSet, err = FindHelmRenderSet(args.ProductName, args.Render.Name, log)
+	if renderset == nil {
+		renderset, err = FindHelmRenderSet(args.ProductName, args.Render.Name, log)
 		if err != nil {
 			log.Errorf("[%s][P:%s] find product renderset error: %v", args.EnvName, args.ProductName, err)
 			return e.ErrCreateEnv.AddDesc(err.Error())
@@ -198,7 +198,7 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 	}
 
 	// 设置产品render revision
-	args.Render.Revision = renderSet.Revision
+	args.Render.Revision = renderset.Revision
 	// 记录服务当前对应render版本
 	setServiceRender(args)
 
@@ -215,7 +215,7 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 
 	eventStart := time.Now().Unix()
 
-	go installOrUpdateHelmChart(user, args.EnvName, requestID, args, eventStart, helmClient, log)
+	go installOrUpdateHelmChart(user, args.EnvName, requestID, args, renderset, eventStart, helmClient, log)
 	return nil
 }
 

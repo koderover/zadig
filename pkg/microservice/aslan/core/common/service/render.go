@@ -48,14 +48,23 @@ type KVPair struct {
 	Value string `json:"value"`
 }
 
+type YamlData struct {
+	YamlSource    string      `json:"yamlSource,omitempty"`
+	GitRepoConfig *RepoConfig `json:"gitRepoConfig,omitempty"`
+	ValuesYAML    string      `json:"valuesYAML,omitempty"`
+}
+
 type RenderChartArg struct {
-	EnvName        string      `json:"envName,omitempty"`
-	ServiceName    string      `json:"serviceName,omitempty"`
-	ChartVersion   string      `json:"chartVersion,omitempty"`
-	YamlSource     string      `json:"yamlSource,omitempty"`
-	GitRepoConfig  *RepoConfig `json:"gitRepoConfig,omitempty"`
-	OverrideValues []*KVPair   `json:"overrideValues,omitempty"`
-	ValuesYAML     string      `json:"valuesYAML,omitempty"`
+	EnvName        string    `json:"envName,omitempty"`
+	ServiceName    string    `json:"serviceName,omitempty"`
+	ChartVersion   string    `json:"chartVersion,omitempty"`
+	OverrideValues []*KVPair `json:"overrideValues,omitempty"`
+	*YamlData
+}
+
+type RendersetArg struct {
+	DefaultValues *YamlData `json:"defaultValues"`
+	*RenderChartArg
 }
 
 func (args *RenderChartArg) toOverrideValueString() string {
@@ -110,14 +119,20 @@ func (args *RenderChartArg) fromCustomValueYaml(customValuesYaml *templatemodels
 	if customValuesYaml == nil {
 		return
 	}
-	args.YamlSource = customValuesYaml.YamlSource
+
 	switch customValuesYaml.YamlSource {
 	case setting.ValuesYamlSourceFreeEdit:
-		args.ValuesYAML = customValuesYaml.YamlContent
+		args.YamlData = &YamlData{
+			YamlSource: customValuesYaml.YamlSource,
+			ValuesYAML: customValuesYaml.YamlContent,
+		}
 	case setting.ValuesYamlSourceGitRepo:
-		args.ValuesYAML = ""
+		args.YamlData = &YamlData{
+			YamlSource: customValuesYaml.YamlSource,
+			ValuesYAML: "",
+		}
 		if customValuesYaml.GitRepoConfig != nil {
-			args.GitRepoConfig = &RepoConfig{
+			args.YamlData.GitRepoConfig = &RepoConfig{
 				CodehostID:  customValuesYaml.GitRepoConfig.CodehostID,
 				Owner:       customValuesYaml.GitRepoConfig.Owner,
 				Repo:        customValuesYaml.GitRepoConfig.Repo,
@@ -134,7 +149,11 @@ func (args *RenderChartArg) FillRenderChartModel(chart *templatemodels.RenderCha
 	chart.ServiceName = args.ServiceName
 	chart.ChartVersion = version
 	chart.OverrideValues = args.toOverrideValueString()
-	chart.OverrideYaml = args.toCustomValuesYaml()
+	if args.YamlData != nil {
+		chart.OverrideYaml = args.toCustomValuesYaml()
+	} else {
+		chart.OverrideYaml = nil
+	}
 }
 
 // LoadFromRenderChartModel load from render chart model
@@ -256,7 +275,7 @@ func CreateHelmRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) e
 	if rs != nil && err == nil {
 		// 已经存在渲染配置集
 		// 判断是否有修改
-		if rs.HelmRenderDiff(args) {
+		if rs.DefaultValues != args.DefaultValues || rs.HelmRenderDiff(args) {
 			args.IsDefault = rs.IsDefault
 		} else {
 			return nil

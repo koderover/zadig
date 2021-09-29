@@ -452,7 +452,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 					return
 				}
 
-				mergedValuesYaml, err := helmtool.MergeOverrideValues(replaceValuesYaml, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
+				mergedValuesYaml, err := helmtool.MergeOverrideValues(replaceValuesYaml, renderInfo.DefaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
 				if err != nil {
 					err = errors.WithMessagef(
 						err,

@@ -228,17 +228,35 @@ func UpdateProductRecycleDay(c *gin.Context) {
 	ctx.Err = service.UpdateProductRecycleDay(envName, productName, recycleDay)
 }
 
-func UpdateHelmProduct(c *gin.Context) {
+func UpdateHelmProductRenderset(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	envName := c.Query("envName")
-	updateType := c.Query("updateType")
 	productName := c.Param("productName")
+	if productName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can't be empty!")
+		return
+	}
 
-	ctx.Err = service.UpdateHelmProduct(productName, envName, updateType, ctx.Username, ctx.RequestID, nil, ctx.Logger)
+	envName := c.Query("envName")
+	if envName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("envName can't be empty!")
+		return
+	}
+
+	arg := new(service.EnvRendersetArg)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("UpdateHelmProductVariable c.GetRawData() err : %v", err)
+	}
+	if err = json.Unmarshal(data, arg); err != nil {
+		log.Errorf("UpdateHelmProductVariable json.Unmarshal err : %v", err)
+	}
+	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "更新", "更新环境变量", "", permission.TestEnvManageUUID, string(data), ctx.Logger)
+
+	ctx.Err = service.UpdateHelmProductRenderset(productName, envName, ctx.Username, ctx.RequestID, arg, ctx.Logger)
 	if ctx.Err != nil {
-		ctx.Logger.Errorf("failed to update product %s %s: %v", envName, productName, ctx.Err)
+		ctx.Logger.Errorf("failed to update product Variable %s %s: %v", envName, productName, ctx.Err)
 	}
 }
 
@@ -268,37 +286,7 @@ func UpdateHelmProductRenderCharts(c *gin.Context) {
 	}
 	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "更新", "更新环境变量", "", permission.TestEnvManageUUID, string(data), ctx.Logger)
 
-	ctx.Err = service.UpdateHelmProductRenderCharts(productName, envName, ctx.Username, ctx.RequestID, arg.ChartValues, ctx.Logger)
-	if ctx.Err != nil {
-		ctx.Logger.Errorf("failed to update product Variable %s %s: %v", envName, productName, ctx.Err)
-	}
-}
-
-func UpdateHelmProductVariable(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	envName := c.Query("envName")
-	productName := c.Param("productName")
-
-	args := new(ChartInfoArgs)
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("UpdateHelmProductVariable c.GetRawData() err : %v", err)
-	}
-	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("UpdateHelmProductVariable json.Unmarshal err : %v", err)
-	}
-	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "更新", "helm集成环境变量", "", permission.TestEnvManageUUID, string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
-
-	if err := c.BindJSON(args); err != nil {
-		ctx.Logger.Error(err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-		return
-	}
-
-	ctx.Err = service.UpdateHelmProductVariable(productName, envName, ctx.Username, ctx.RequestID, args.ChartInfos, args.ChartInfos, ctx.Logger)
+	ctx.Err = service.UpdateHelmProductRenderCharts(productName, envName, ctx.Username, ctx.RequestID, arg, ctx.Logger)
 	if ctx.Err != nil {
 		ctx.Logger.Errorf("failed to update product Variable %s %s: %v", envName, productName, ctx.Err)
 	}
@@ -328,30 +316,6 @@ func UpdateMultiHelmEnv(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.UpdateMultipleHelmEnv(
 		ctx.Username, ctx.RequestID, ctx.User.ID, ctx.User.IsSuperUser, args, ctx.Logger,
 	)
-}
-
-func UpdateMultiHelmProduct(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	args := new(UpdateEnvs)
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("UpdateMultiHelmProduct c.GetRawData() err : %v", err)
-	}
-	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("UpdateMultiHelmProduct json.Unmarshal err : %v", err)
-	}
-	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "更新helm环境", "集成环境", strings.Join(args.EnvNames, ","), permission.TestEnvManageUUID, string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
-
-	if err := c.BindJSON(args); err != nil {
-		ctx.Logger.Error(err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-		return
-	}
-
-	ctx.Resp = service.UpdateMultiHelmProduct(args.EnvNames, args.UpdateType, c.Param("productName"), ctx.User.ID, ctx.User.IsSuperUser, ctx.RequestID, ctx.Logger)
 }
 
 func GetProduct(c *gin.Context) {

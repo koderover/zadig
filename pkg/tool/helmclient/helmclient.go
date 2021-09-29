@@ -49,14 +49,25 @@ type KV struct {
 // MergeOverrideValues merge values.yaml and override values
 // overrideYaml used for -f option
 // overrideValues used for --set option
-func MergeOverrideValues(valuesYaml, overrideYaml, overrideValues string) (string, error) {
+func MergeOverrideValues(valuesYaml, defaultValues, overrideYaml, overrideValues string) (string, error) {
 
-	if overrideYaml == "" && overrideValues == "" {
+	if defaultValues == "" && overrideYaml == "" && overrideValues == "" {
 		return valuesYaml, nil
 	}
 
+	// merge default.yaml and values.yaml
+	// values.yaml has high precedence
+	if defaultValues != "" {
+		bs, err := yamlutil.Merge([][]byte{[]byte(defaultValues), []byte(valuesYaml)})
+		if err != nil {
+			return "", err
+		}
+		valuesYaml = string(bs)
+	}
+
 	// merge files for -f option
-	values, err := yamlutil.MergeAndUnmarshal([][]byte{[]byte(valuesYaml), []byte(overrideYaml)})
+	// overrideYaml has higher precedence
+	valuesMap, err := yamlutil.MergeAndUnmarshal([][]byte{[]byte(valuesYaml), []byte(overrideYaml)})
 	if err != nil {
 		return "", err
 	}
@@ -72,13 +83,13 @@ func MergeOverrideValues(valuesYaml, overrideYaml, overrideValues string) (strin
 			kvStr = append(kvStr, fmt.Sprintf("%s=%s", kv.Key, kv.Value))
 		}
 		// override values for --set option
-		err = strvals.ParseInto(strings.Join(kvStr, ","), values)
+		err = strvals.ParseInto(strings.Join(kvStr, ","), valuesMap)
 		if err != nil {
 			return "", err
 		}
 	}
 
-	bs, err := yaml.Marshal(values)
+	bs, err := yaml.Marshal(valuesMap)
 	if err != nil {
 		return "", err
 	}

@@ -47,6 +47,23 @@ func GetServiceRenderCharts(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GetRenderCharts(c.Query("productName"), c.Query("envName"), c.Query("serviceName"), ctx.Logger)
 }
 
+func GetProductDefaultValues(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if c.Query("productName") == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	if c.Query("envName") == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("envName can not be null!")
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetDefaultValues(c.Query("productName"), c.Query("envName"), ctx.Logger)
+}
+
 func CreateOrUpdateRenderChart(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -74,4 +91,33 @@ func CreateOrUpdateRenderChart(c *gin.Context) {
 	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "新增", "环境变量", c.Query("envName"), fmt.Sprintf("%s,%s", permission.TestEnvManageUUID, permission.ProdEnvManageUUID), string(data), ctx.Logger)
 
 	ctx.Err = service.CreateOrUpdateChartValues(c.Query("productName"), c.Query("envName"), args, ctx.Username, ctx.RequestID, ctx.Logger)
+}
+
+func CreateOrUpdateRenderset(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if c.Query("productName") == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	if c.Query("envName") == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("envName can not be null!")
+		return
+	}
+
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("CreateOrUpdateRenderChart c.GetRawData() err : %v", err)
+	}
+
+	args := new(commonservice.RendersetArg)
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("CreateOrUpdateRenderChart json.Unmarshal err : %v", err)
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+	}
+	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "新增", "环境变量", c.Query("envName"), fmt.Sprintf("%s,%s", permission.TestEnvManageUUID, permission.ProdEnvManageUUID), string(data), ctx.Logger)
+
+	ctx.Err = service.CreateOrUpdateRenderset(c.Query("productName"), c.Query("envName"), args, ctx.Username, ctx.RequestID, ctx.Logger)
 }
