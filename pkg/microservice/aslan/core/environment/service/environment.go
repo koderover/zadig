@@ -1119,7 +1119,7 @@ func UpdateHelmProduct(productName, envName, updateType, username, requestID str
 func checkOverrideValuesChange(source *template.RenderChart, args *commonservice.RenderChartArg) bool {
 	tmpRenderCharts := &template.RenderChart{}
 	args.FillRenderChartModel(tmpRenderCharts, "")
-	if source.OverrideValues != tmpRenderCharts.OverrideValues || source.GetOverrideYaml() != tmpRenderCharts.GetOverrideYaml() {
+	if source.OverrideValues != tmpRenderCharts.OverrideValues || source.DiffOverrideYaml(tmpRenderCharts) {
 		return true
 	}
 	return false
