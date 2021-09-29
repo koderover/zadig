@@ -19,11 +19,10 @@ package gitlab
 import (
 	"strings"
 
-	"github.com/koderover/zadig/pkg/tool/httpclient"
-
 	"github.com/xanzy/go-gitlab"
 
 	"github.com/koderover/zadig/pkg/tool/git"
+	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/util/boolptr"
 )
 
@@ -78,7 +77,7 @@ func (c *Client) AddProjectHook(owner, repo string, hook *git.Hook) (*gitlab.Pro
 func (c *Client) DeleteProjectHook(owner, repo string, id int) error {
 	err := wrapError(c.Projects.DeleteProjectHook(generateProjectName(owner, repo), id))
 	if httpclient.IsNotFound(err) {
-		err = nil
+		return nil
 	}
 	return err
 }
