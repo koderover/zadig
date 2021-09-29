@@ -42,7 +42,7 @@ type DefaultValuesResp struct {
 
 func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*commonservice.RenderChartArg, error) {
 
-	renderSetName := commonservice.GetProductEnvNamespace(envName, productName)
+	renderSetName := commonservice.GetProductEnvNamespace(envName, productName, "")
 
 	opt := &commonrepo.RenderSetFindOption{
 		Name: renderSetName,
@@ -82,7 +82,7 @@ func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredL
 }
 
 func GetDefaultValues(productName, envName string, log *zap.SugaredLogger) (*DefaultValuesResp, error) {
-	renderSetName := commonservice.GetProductEnvNamespace(envName, productName)
+	renderSetName := commonservice.GetProductEnvNamespace(envName, productName, "")
 
 	ret := &DefaultValuesResp{}
 
@@ -201,7 +201,7 @@ func CreateOrUpdateRenderset(productName, envName string, args *commonservice.Re
 		}
 	}
 
-	renderSetName := commonservice.GetProductEnvNamespace(envName, productName)
+	renderSetName := commonservice.GetProductEnvNamespace(envName, productName, "")
 
 	opt := &commonrepo.RenderSetFindOption{Name: renderSetName}
 	curRenderset, found, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
@@ -281,7 +281,7 @@ func CreateOrUpdateChartValues(productName, envName string, args *commonservice.
 		return e.ErrCreateRenderSet.AddDesc(err.Error())
 	}
 
-	renderSetName := commonservice.GetProductEnvNamespace(envName, productName)
+	renderSetName := commonservice.GetProductEnvNamespace(envName, productName, "")
 
 	opt := &commonrepo.RenderSetFindOption{Name: renderSetName}
 	curRenderset, found, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)

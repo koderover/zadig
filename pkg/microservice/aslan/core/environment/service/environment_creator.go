@@ -81,7 +81,7 @@ func (autoCreator *AutoCreator) Create(envName string) (string, error) {
 	}
 
 	productObject.IsPublic = true
-	productObject.Namespace = commonservice.GetProductEnvNamespace(envName, productName)
+	productObject.Namespace = commonservice.GetProductEnvNamespace(envName, productName, "")
 	productObject.UpdateBy = autoCreator.Param.UserName
 	productObject.EnvName = envName
 	if autoCreator.Param.EnvType == setting.HelmDeployType {
@@ -128,15 +128,17 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 
 	//判断namespace是否存在
 	namespace := args.GetNamespace()
-	args.Namespace = namespace
-	_, found, err := getter.GetNamespace(namespace, kubeClient)
+	if args.Namespace == "" {
+		args.Namespace = namespace
+	}
+	_, found, err := getter.GetNamespace(args.Namespace, kubeClient)
 	if err != nil {
 		log.Errorf("GetNamespace error: %v", err)
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 	if found {
-		log.Warnf("%s[%s]%s", "namespace", namespace, "已经存在,请换个环境名称尝试!")
-		return e.ErrCreateEnv.AddDesc(fmt.Sprintf("%s[%s]%s", "namespace", namespace, "已经存在,请换个环境名称尝试!"))
+		log.Warnf("%s[%s]%s", "namespace", args.Namespace, "已经存在,请换个环境名称尝试!")
+		return e.ErrCreateEnv.AddDesc(fmt.Sprintf("%s[%s]%s", "namespace", args.Namespace, "已经存在,请换个环境名称尝试!"))
 	}
 
 	restConfig, err := kube.GetRESTConfig(args.ClusterID)
@@ -144,7 +146,7 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 		log.Errorf("GetRESTConfig error: %v", err)
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
-	helmClient, err := helmclient.NewClientFromRestConf(restConfig, namespace)
+	helmClient, err := helmclient.NewClientFromRestConf(restConfig, args.Namespace)
 	if err != nil {
 		log.Errorf("[%s][%s] NewClientFromRestConf error: %v", args.EnvName, args.ProductName, err)
 		return e.ErrCreateEnv.AddErr(err)
@@ -154,7 +156,7 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 	var renderset *models.RenderSet
 	if args.Render == nil || args.Render.Revision == 0 {
 		renderset, _, err = commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
-			Name: commonservice.GetProductEnvNamespace(args.EnvName, args.ProductName),
+			Name: args.Namespace,
 		})
 
 		if err != nil {
@@ -282,14 +284,16 @@ func (creator *DefaultProductCreator) Create(user, requestID string, args *model
 
 	//判断namespace是否存在
 	namespace := args.GetNamespace()
-	args.Namespace = namespace
-	_, found, err := getter.GetNamespace(namespace, kubeClient)
+	if args.Namespace == "" {
+		args.Namespace = namespace
+	}
+	_, found, err := getter.GetNamespace(args.Namespace, kubeClient)
 	if err != nil {
 		log.Errorf("GetNamespace error: %v", err)
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 	if found {
-		return e.ErrCreateEnv.AddDesc(fmt.Sprintf("%s[%s]%s", "namespace", namespace, "已经存在,请换个环境名称尝试!"))
+		return e.ErrCreateEnv.AddDesc(fmt.Sprintf("%s[%s]%s", "namespace", args.Namespace, "已经存在,请换个环境名称尝试!"))
 	}
 
 	//创建角色环境之间的关联关系

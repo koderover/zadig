@@ -428,13 +428,13 @@ func readValuesYAML(chartTree fs.FS, base string, logger *zap.SugaredLogger) ([]
 }
 
 func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logger *zap.SugaredLogger) (*models.Service, error) {
-	chartName, chartVersion, err := readChartYAML(fsTree, filepath.Base(args.ServiceName), logger)
+	chartName, chartVersion, err := readChartYAML(fsTree, args.ServiceName, logger)
 	if err != nil {
 		logger.Errorf("Failed to read chart.yaml, err %s", err)
 		return nil, err
 	}
 
-	values, valuesMap, err := readValuesYAML(fsTree, filepath.Base(args.ServiceName), logger)
+	values, valuesMap, err := readValuesYAML(fsTree, args.ServiceName, logger)
 	if err != nil {
 		logger.Errorf("Failed to read values.yaml, err %s", err)
 		return nil, err
