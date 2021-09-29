@@ -326,6 +326,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			replacedMergedValuesYaml string
 			servicePath              string
 			chartPath                string
+			replaceValuesMap         map[string]interface{}
 			renderInfo               *types.RenderSet
 			helmClient               helmclient.Client
 		)
@@ -415,8 +416,8 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 
 		// prepare image replace info
 		getValidMatchData := getValidMatchData(targetContainer.ImagePath)
-		replaceValuesMap, errAssign := assignImageData(p.Task.Image, getValidMatchData)
-		if errAssign != nil {
+		replaceValuesMap, err = assignImageData(p.Task.Image, getValidMatchData)
+		if err != nil {
 			err = errors.WithMessagef(
 				err,
 				"failed to pase image uri %s/%s",
