@@ -609,6 +609,7 @@ func replaceVariable(customRule *template.CustomRule, candidate *candidate) stri
 	currentRule = strings.Replace(currentRule, "${REPO_COMMIT_ID}", candidate.CommitID, -1)
 	currentRule = strings.Replace(currentRule, "${PROJECT}", candidate.ProductName, -1)
 	currentRule = strings.Replace(currentRule, "${ENV_NAME}", candidate.EnvName, -1)
+	currentRule = strings.Replace(currentRule, "${COMMIT_ID}", candidate.CommitID, -1)
 
 	return currentRule
 }
