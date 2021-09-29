@@ -16,7 +16,11 @@ limitations under the License.
 
 package template
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/koderover/zadig/pkg/setting"
+)
 
 // Vars不做保存，只做input参数
 // product_name 当前项目主键
@@ -223,4 +227,18 @@ func (rc *RenderChart) GetOverrideYaml() string {
 		return ""
 	}
 	return rc.OverrideYaml.YamlContent
+}
+
+func (rule *ImageSearchingRule) GetSearchingPattern() map[string]string {
+	ret := make(map[string]string)
+	if rule.Repo != "" {
+		ret[setting.PathSearchComponentRepo] = rule.Repo
+	}
+	if rule.Image != "" {
+		ret[setting.PathSearchComponentImage] = rule.Image
+	}
+	if rule.Tag != "" {
+		ret[setting.PathSearchComponentTag] = rule.Tag
+	}
+	return ret
 }
