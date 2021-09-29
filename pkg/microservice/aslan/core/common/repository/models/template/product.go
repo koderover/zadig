@@ -218,6 +218,22 @@ func (r *RenderKV) RemoveDupServices() {
 	r.Services = result
 }
 
+func (rc *RenderChart) DiffOverrideYaml(other *RenderChart) bool {
+	if rc.OverrideYaml == nil {
+		if other.OverrideYaml != nil {
+			return true
+		}
+		return false
+	}
+	if other.OverrideYaml == nil {
+		return true
+	}
+	if rc.OverrideYaml.YamlSource != other.OverrideYaml.YamlSource || rc.OverrideYaml.YamlContent != other.OverrideYaml.YamlContent {
+		return true
+	}
+	return false
+}
+
 func (rc *RenderChart) GetOverrideYaml() string {
 	if rc.OverrideYaml == nil {
 		return ""

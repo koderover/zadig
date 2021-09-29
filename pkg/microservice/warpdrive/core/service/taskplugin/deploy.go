@@ -18,7 +18,6 @@ package taskplugin
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"regexp"
@@ -47,7 +46,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
-	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/fs"
@@ -321,14 +319,15 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		}
 	} else if p.Task.ServiceType == setting.HelmDeployType {
 		var (
-			productInfo       *types.Product
-			chartInfoMap      = make(map[string]*types.RenderChart)
-			renderChart       *types.RenderChart
-			isExist           = false
-			replaceValuesYaml string
-			yamlValuesByte    []byte
-			renderInfo        *types.RenderSet
-			helmClient        helmclient.Client
+			productInfo              *types.Product
+			renderChart              *types.RenderChart
+			replacedValuesYaml       string
+			mergedValuesYaml         string
+			replacedMergedValuesYaml string
+			servicePath              string
+			chartPath                string
+			renderInfo               *types.RenderSet
+			helmClient               helmclient.Client
 		)
 
 		deployments, _ := getter.ListDeployments(p.Task.Namespace, nil, p.kubeClient)
@@ -361,6 +360,9 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			}
 		}
 
+		p.Log.Infof("start helm deploy, productName %s serviceName %s containerName %s namespace %s", p.Task.ProductName,
+			p.Task.ServiceName, p.Task.ContainerName, p.Task.Namespace)
+
 		productInfo, err = p.getProductInfo(ctx, &EnvArgs{EnvName: p.Task.EnvName, ProductName: p.Task.ProductName})
 		if err != nil {
 			err = errors.WithMessagef(
@@ -392,116 +394,146 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		}
 
 		if targetContainer == nil {
-			err = fmt.Errorf("failed to find container %s from service %s", p.Task.ContainerName, p.Task.ServiceName)
+			err = errors.Errorf("failed to find target container %s from service %s", p.Task.ContainerName, p.Task.ServiceName)
 			return
 		}
 
 		for _, chartInfo := range renderInfo.ChartInfos {
-			chartInfoMap[chartInfo.ServiceName] = chartInfo
+			if chartInfo.ServiceName == p.Task.ServiceName {
+				renderChart = chartInfo
+				break
+			}
 		}
 
-		if renderChart, isExist = chartInfoMap[p.Task.ServiceName]; isExist {
-			yamlValuesByte, err = yaml.YAMLToJSON([]byte(renderChart.ValuesYaml))
-			if err != nil {
-				err = errors.WithMessagef(
-					err,
-					"failed to YAMLToJSON %s/%s",
-					p.Task.Namespace, p.Task.ServiceName)
-				return
-			}
-
-			var currentValuesYamlMap map[string]interface{}
-			if err = json.Unmarshal(yamlValuesByte, &currentValuesYamlMap); err != nil {
-				err = errors.WithMessagef(
-					err,
-					"failed to Unmarshal values.yaml %s/%s",
-					p.Task.Namespace, p.Task.ServiceName)
-				return
-			}
-
-			replaceValuesYaml, err = p.replaceImage(targetContainer.ImagePath, currentValuesYamlMap, p.Task.Image)
-			if err != nil {
-				log.Error("failed to replace image: %s", p.Task.Image)
-			}
-
-			if replaceValuesYaml != "" {
-				helmClient, err = helmtool.NewClientFromRestConf(p.restConfig, p.Task.Namespace)
-				if err != nil {
-					err = errors.WithMessagef(
-						err,
-						"failed to create helm client %s/%s",
-						p.Task.Namespace, p.Task.ServiceName)
-					return
-				}
-
-				path, err := p.downloadService(pipelineTask.ProductName, p.Task.ServiceName, pipelineTask.StorageURI)
-				if err != nil {
-					err = errors.WithMessagef(
-						err,
-						"failed to download service %s/%s",
-						p.Task.Namespace, p.Task.ServiceName)
-					return
-				}
-				chartPath, err := fs.RelativeToCurrentPath(path)
-				if err != nil {
-					err = errors.WithMessagef(
-						err,
-						"failed to get relative path %s",
-						path,
-					)
-					return
-				}
-
-				mergedValuesYaml, err := helmtool.MergeOverrideValues(replaceValuesYaml, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
-				if err != nil {
-					err = errors.WithMessagef(
-						err,
-						"failed to merge override values %s",
-						renderChart.OverrideValues,
-					)
-					return
-				}
-
-				chartSpec := helmclient.ChartSpec{
-					ReleaseName: util.GeneHelmReleaseName(p.Task.Namespace, p.Task.ServiceName),
-					ChartName:   chartPath,
-					Namespace:   p.Task.Namespace,
-					ReuseValues: true,
-					Version:     renderChart.ChartVersion,
-					ValuesYaml:  mergedValuesYaml,
-					SkipCRDs:    false,
-					UpgradeCRDs: true,
-					Timeout:     time.Second * DeployTimeout,
-				}
-
-				if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), &chartSpec); err != nil {
-					err = errors.WithMessagef(
-						err,
-						"failed to Install helm chart %s/%s",
-						p.Task.Namespace, p.Task.ServiceName)
-					return
-				}
-
-				//替换环境变量中的chartInfos
-				for _, chartInfo := range renderInfo.ChartInfos {
-					if chartInfo.ServiceName == p.Task.ServiceName {
-						chartInfo.ValuesYaml = replaceValuesYaml
-						break
-					}
-				}
-				_ = p.updateRenderSet(ctx, &types.RenderSet{
-					Name:       renderInfo.Name,
-					Revision:   renderInfo.Revision,
-					ChartInfos: renderInfo.ChartInfos,
-				})
-
-			}
+		if renderChart == nil {
+			err = errors.Errorf("failed to update container image in %s/%s，not find",
+				p.Task.Namespace, p.Task.ServiceName)
 			return
 		}
-		err = errors.WithMessagef(
-			err,
-			"failed to update container image in %s/%s，not find",
-			p.Task.Namespace, p.Task.ServiceName)
+
+		serviceValuesYaml := renderChart.ValuesYaml
+
+		// prepare image replace info
+		getValidMatchData := getValidMatchData(targetContainer.ImagePath)
+		replaceValuesMap, errAssign := assignImageData(p.Task.Image, getValidMatchData)
+		if errAssign != nil {
+			err = errors.WithMessagef(
+				err,
+				"failed to pase image uri %s/%s",
+				p.Task.Namespace, p.Task.ServiceName)
+			return
+		}
+
+		// replace image into service's values.yaml
+		replacedValuesYaml, err = replaceImage(serviceValuesYaml, replaceValuesMap)
+		if err != nil {
+			err = errors.WithMessagef(
+				err,
+				"failed to replace image uri %s/%s",
+				p.Task.Namespace, p.Task.ServiceName)
+			return
+		}
+		if replacedValuesYaml == "" {
+			err = errors.Errorf("failed to set new image uri into service's values.yaml %s/%s",
+				p.Task.Namespace, p.Task.ServiceName)
+			return
+		}
+
+		// merge override values and kvs into service's yaml
+		mergedValuesYaml, err = helmtool.MergeOverrideValues(serviceValuesYaml, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
+		if err != nil {
+			err = errors.WithMessagef(
+				err,
+				"failed to merge override values %s",
+				renderChart.OverrideValues,
+			)
+			return
+		}
+
+		// replace image into final merged values.yaml
+		replacedMergedValuesYaml, err = replaceImage(mergedValuesYaml, replaceValuesMap)
+		if err != nil {
+			err = errors.WithMessagef(
+				err,
+				"failed to replace image uri into helm values %s/%s",
+				p.Task.Namespace, p.Task.ServiceName)
+			return
+		}
+		if replacedMergedValuesYaml == "" {
+			err = errors.Errorf("failed to set image uri into mreged values.yaml in %s/%s",
+				p.Task.Namespace, p.Task.ServiceName)
+			return
+		}
+
+		p.Log.Infof("final replaced merged values: \n%s", replacedMergedValuesYaml)
+
+		helmClient, err = helmtool.NewClientFromRestConf(p.restConfig, p.Task.Namespace)
+		if err != nil {
+			err = errors.WithMessagef(
+				err,
+				"failed to create helm client %s/%s",
+				p.Task.Namespace, p.Task.ServiceName)
+			return
+		}
+
+		servicePath, err = p.downloadService(pipelineTask.ProductName, p.Task.ServiceName, pipelineTask.StorageURI)
+		if err != nil {
+			err = errors.WithMessagef(
+				err,
+				"failed to download service %s/%s",
+				p.Task.Namespace, p.Task.ServiceName)
+			return
+		}
+		chartPath, err = fs.RelativeToCurrentPath(servicePath)
+		if err != nil {
+			err = errors.WithMessagef(
+				err,
+				"failed to get relative path %s",
+				servicePath,
+			)
+			return
+		}
+
+		chartSpec := helmclient.ChartSpec{
+			ReleaseName: util.GeneHelmReleaseName(p.Task.Namespace, p.Task.ServiceName),
+			ChartName:   chartPath,
+			Namespace:   p.Task.Namespace,
+			ReuseValues: true,
+			Version:     renderChart.ChartVersion,
+			ValuesYaml:  replacedMergedValuesYaml,
+			SkipCRDs:    false,
+			UpgradeCRDs: true,
+			Timeout:     time.Second * DeployTimeout,
+		}
+
+		if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), &chartSpec); err != nil {
+			err = errors.WithMessagef(
+				err,
+				"failed to Install helm chart %s/%s",
+				p.Task.Namespace, p.Task.ServiceName)
+			return
+		}
+
+		//替换环境变量中的chartInfos
+		for _, chartInfo := range renderInfo.ChartInfos {
+			if chartInfo.ServiceName == p.Task.ServiceName {
+				chartInfo.ValuesYaml = replacedValuesYaml
+				break
+			}
+		}
+
+		// TODO too dangerous to override entire renderset!
+		err = p.updateRenderSet(ctx, &types.RenderSet{
+			Name:       renderInfo.Name,
+			Revision:   renderInfo.Revision,
+			ChartInfos: renderInfo.ChartInfos,
+		})
+		if err != nil {
+			err = errors.WithMessagef(
+				err,
+				"failed to update renderset info %s/%s, renderset %s",
+				p.Task.Namespace, p.Task.ServiceName, renderInfo.Name)
+		}
 	}
 }
 
@@ -590,16 +622,13 @@ func getValidMatchData(spec *types.ImagePathSpec) map[string]string {
 }
 
 // replace image defines in yaml by new version
-func (p *DeployTaskPlugin) replaceImage(imagePathSpec *types.ImagePathSpec, valuesMap map[string]interface{}, imageUri string) (string, error) {
-	if imagePathSpec == nil {
-		return "", errors.New("image path parse info is nil")
-	}
-	getValidMatchData := getValidMatchData(imagePathSpec)
-	replaceValuesMap, err := assignImageData(imageUri, getValidMatchData)
+func replaceImage(sourceYaml string, imageValuesMap map[string]interface{}) (string, error) {
+	valuesMap := make(map[string]interface{})
+	err := yaml.Unmarshal([]byte(sourceYaml), &valuesMap)
 	if err != nil {
 		return "", err
 	}
-	replaceMap := util.ReplaceMapValue(valuesMap, replaceValuesMap)
+	replaceMap := util.ReplaceMapValue(valuesMap, imageValuesMap)
 	replacedValuesYaml, err := util.JSONToYaml(replaceMap)
 	if err != nil {
 		return "", err
@@ -650,7 +679,7 @@ func assignImageData(imageUrl string, matchData map[string]string) (map[string]i
 		}
 	}
 
-	return nil, fmt.Errorf("match data illegal, expect length: 1-3, actual length: %d", len(matchData))
+	return nil, errors.Errorf("match data illegal, expect length: 1-3, actual length: %d", len(matchData))
 }
 
 // parse image url to map: repo=>xxx/xx/xx image=>xx tag=>xxx
