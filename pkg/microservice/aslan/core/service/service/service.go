@@ -340,6 +340,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 			ClusterID:   clusterID,
 			EnvName:     envName,
 			Namespace:   namespace,
+			UpdateBy:    "system",
 		}, log); err != nil {
 			return e.ErrCreateProduct.AddDesc("create product Error for unknown reason")
 		}
