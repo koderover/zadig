@@ -63,6 +63,7 @@ func (c *controller) processNextWorkItem() bool {
 	if shutdown {
 		return false
 	}
+	defer q.Done(t)
 
 	if t.(string) != UpdateKey {
 		return true

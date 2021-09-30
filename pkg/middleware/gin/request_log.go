@@ -40,12 +40,19 @@ func RequestLog(logger *zap.Logger) gin.HandlerFunc {
 		}
 
 		var body []byte
+		var headers map[string]string
 		// request body is a ReadCloser, it can be read only once.
-		if c.Request != nil && c.Request.Body != nil {
-			var buf bytes.Buffer
-			tee := io.TeeReader(c.Request.Body, &buf)
-			body, _ = ioutil.ReadAll(tee)
-			c.Request.Body = ioutil.NopCloser(&buf)
+		if c.Request != nil {
+			if c.Request.Body != nil {
+				var buf bytes.Buffer
+				tee := io.TeeReader(c.Request.Body, &buf)
+				body, _ = ioutil.ReadAll(tee)
+				c.Request.Body = ioutil.NopCloser(&buf)
+			}
+
+			for k := range c.Request.Header {
+				headers[k] = c.GetHeader(k)
+			}
 		}
 
 		// Process request
@@ -59,6 +66,7 @@ func RequestLog(logger *zap.Logger) gin.HandlerFunc {
 			zap.String("method", c.Request.Method),
 			zap.String("path", path),
 			zap.ByteString("body", body),
+			zap.Any("headers", headers),
 			zap.Int("size", c.Writer.Size()),
 			zap.String("clientIP", c.ClientIP()),
 			zap.String("user-agent", c.Request.UserAgent()),
