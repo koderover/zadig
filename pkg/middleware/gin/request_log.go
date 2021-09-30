@@ -20,15 +20,19 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/setting"
 )
 
 const timeISO8601 = "2006-01-02T15:04:05.000Z0700"
+
+var sensitiveHeaders = sets.NewString("authorization", "cookie", "token", "session")
 
 func RequestLog(logger *zap.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -51,6 +55,9 @@ func RequestLog(logger *zap.Logger) gin.HandlerFunc {
 			}
 
 			for k := range c.Request.Header {
+				if sensitiveHeaders.Has(strings.ToLower(k)) {
+					continue
+				}
 				headers[k] = c.GetHeader(k)
 			}
 		}
