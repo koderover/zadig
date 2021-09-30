@@ -399,6 +399,11 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			return
 		}
 
+		if targetContainer.ImagePath == nil {
+			err = errors.Errorf("failded to get image path of  %s from service %s", p.Task.ContainerName, p.Task.ServiceName)
+			return
+		}
+
 		for _, chartInfo := range renderInfo.ChartInfos {
 			if chartInfo.ServiceName == p.Task.ServiceName {
 				renderChart = chartInfo
