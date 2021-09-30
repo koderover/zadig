@@ -18,6 +18,7 @@ package bundle
 
 import (
 	"encoding/json"
+	"strings"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -87,6 +88,60 @@ var testBinding2 = `
         "namespace": ""
     }
 }
+`
+
+var expectOPARoles = `
+{
+    "roles": [
+        {
+            "name": "author",
+            "namespace": "",
+            "rules": [
+                {
+                    "method": "DELETE",
+                    "endpoint": "/authors"
+                },
+                {
+                    "method": "GET",
+                    "endpoint": "/authors"
+                },
+                {
+                    "method": "PATCH",
+                    "endpoint": "/authors"
+                },
+                {
+                    "method": "POST",
+                    "endpoint": "/authors"
+                },
+                {
+                    "method": "PUT",
+                    "endpoint": "/authors"
+                }
+            ]
+        },
+        {
+            "name": "superuser",
+            "namespace": "project1",
+            "rules": [
+                {
+                    "method": "GET",
+                    "endpoint": "/authors"
+                },
+                {
+                    "method": "POST",
+                    "endpoint": "/authors"
+                },
+                {
+                    "method": "GET",
+                    "endpoint": "/articles"
+                },
+                {
+                    "method": "POST",
+                    "endpoint": "/articles"
+                }
+            ]
+        }
+    ]
 `
 
 var expectOPAData = `
@@ -175,7 +230,7 @@ var _ = Describe("Testing generateOPARoles", func() {
 	Context("generateOPARoles", func() {
 
 		var testRoles []*models.Role
-		var testBindings []*models.RoleBinding
+		//var testBindings []*models.RoleBinding
 
 		BeforeEach(func() {
 			r1 := &models.Role{}
@@ -186,19 +241,23 @@ var _ = Describe("Testing generateOPARoles", func() {
 			err = json.Unmarshal([]byte(testRole2), r2)
 			Expect(err).ShouldNot(HaveOccurred())
 
-			b1 := &models.RoleBinding{}
-			err = json.Unmarshal([]byte(testBinding1), b1)
-			Expect(err).ShouldNot(HaveOccurred())
-
-			b2 := &models.RoleBinding{}
-			err = json.Unmarshal([]byte(testBinding2), b2)
-			Expect(err).ShouldNot(HaveOccurred())
+			//b1 := &models.RoleBinding{}
+			//err = json.Unmarshal([]byte(testBinding1), b1)
+			//Expect(err).ShouldNot(HaveOccurred())
+			//
+			//b2 := &models.RoleBinding{}
+			//err = json.Unmarshal([]byte(testBinding2), b2)
+			//Expect(err).ShouldNot(HaveOccurred())
 
 			testRoles = []*models.Role{r1, r2}
-			testBindings = []*models.RoleBinding{b1, b2}
+			//testBindings = []*models.RoleBinding{b1, b2}
 		})
 
 		It("should work as expected", func() {
+			data := generateOPARoles(testRoles)
+			actual, err := json.MarshalIndent(data, "", "    ")
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(string(actual)).To(Equal(strings.TrimSpace(expectOPARoles)))
 		})
 
 	})

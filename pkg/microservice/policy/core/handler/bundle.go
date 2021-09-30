@@ -22,9 +22,20 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/pkg/microservice/policy/core/service/bundle"
 )
 
 func DownloadBundle(c *gin.Context) {
+	revision := bundle.GetRevision()
+	matching := c.GetHeader("If-None-Match")
+	if revision != "" && revision == matching {
+		c.Status(304)
+		return
+	}
+
 	c.Header("Content-Type", "application/gzip")
+	if revision != "" {
+		c.Header("Etag", revision)
+	}
 	c.File(filepath.Join(config.DataPath(), c.Param("name")))
 }

@@ -32,8 +32,8 @@ func Response() gin.HandlerFunc {
 }
 
 func handleResponse(c *gin.Context) {
-	// skip set response when previous middlewares  already do
-	if c.Writer.Written() {
+	// skip if response or status is already set
+	if c.Writer.Written() || c.Writer.Status() > 0 {
 		return
 	}
 

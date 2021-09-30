@@ -20,8 +20,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"path/filepath"
+	"sort"
 
 	"github.com/27149chen/afero"
+	"github.com/google/uuid"
 
 	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
@@ -50,17 +52,12 @@ var AllMethods = []string{MethodGet, MethodPost, MethodPut, MethodPatch, MethodD
 
 var cacheFS afero.Fs
 
-type opaDataSpec struct {
-	data interface{}
-	path string
-}
-
 type opaRoles struct {
-	Roles []*role `json:"roles"`
+	Roles roles `json:"roles"`
 }
 
 type opaRoleBindings struct {
-	RoleBindings []*roleBinding `json:"role_bindings"`
+	RoleBindings roleBindings `json:"role_bindings"`
 }
 
 type opaManifest struct {
@@ -69,9 +66,9 @@ type opaManifest struct {
 }
 
 type role struct {
-	Name      string  `json:"name"`
-	Namespace string  `json:"namespace"`
-	Rules     []*rule `json:"rules"`
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+	Rules     rules  `json:"rules"`
 }
 
 type rule struct {
@@ -80,13 +77,18 @@ type rule struct {
 }
 
 type roleBinding struct {
-	User     string     `json:"user"`
-	RoleRefs []*roleRef `json:"role_refs"`
+	User     string   `json:"user"`
+	RoleRefs roleRefs `json:"role_refs"`
 }
 
 type roleRef struct {
 	Name      string `json:"name"`
 	Namespace string `json:"namespace"`
+}
+
+type opaDataSpec struct {
+	data interface{}
+	path string
 }
 
 type opaData []*opaDataSpec
@@ -130,6 +132,47 @@ func (o *opaData) save() error {
 	return nil
 }
 
+type rules []*rule
+
+func (o rules) Len() int      { return len(o) }
+func (o rules) Swap(i, j int) { o[i], o[j] = o[j], o[i] }
+func (o rules) Less(i, j int) bool {
+	if o[i].Endpoint == o[j].Endpoint {
+		return o[i].Method < o[j].Method
+	}
+	return o[i].Endpoint < o[j].Endpoint
+}
+
+type roles []*role
+
+func (o roles) Len() int      { return len(o) }
+func (o roles) Swap(i, j int) { o[i], o[j] = o[j], o[i] }
+func (o roles) Less(i, j int) bool {
+	if o[i].Namespace == o[j].Namespace {
+		return o[i].Name < o[j].Name
+	}
+	return o[i].Namespace < o[j].Namespace
+}
+
+type roleRefs []*roleRef
+
+func (o roleRefs) Len() int      { return len(o) }
+func (o roleRefs) Swap(i, j int) { o[i], o[j] = o[j], o[i] }
+func (o roleRefs) Less(i, j int) bool {
+	if o[i].Namespace == o[j].Namespace {
+		return o[i].Name < o[j].Name
+	}
+	return o[i].Namespace < o[j].Namespace
+}
+
+type roleBindings []*roleBinding
+
+func (o roleBindings) Len() int      { return len(o) }
+func (o roleBindings) Swap(i, j int) { o[i], o[j] = o[j], o[i] }
+func (o roleBindings) Less(i, j int) bool {
+	return o[i].User < o[j].User
+}
+
 // TODO: sort the response to get stable data.
 func generateOPARoles(roles []*models.Role) *opaRoles {
 	data := &opaRoles{}
@@ -147,8 +190,11 @@ func generateOPARoles(roles []*models.Role) *opaRoles {
 			}
 		}
 
+		sort.Sort(opaRole.Rules)
 		data.Roles = append(data.Roles, opaRole)
 	}
+
+	sort.Sort(data.Roles)
 
 	return data
 }
@@ -168,15 +214,18 @@ func generateOPARoleBindings(bindings []*models.RoleBinding) *opaRoleBindings {
 	}
 
 	for k, v := range userRoleMap {
+		sort.Sort(roleRefs(v))
 		data.RoleBindings = append(data.RoleBindings, &roleBinding{User: k, RoleRefs: v})
 	}
+
+	sort.Sort(data.RoleBindings)
 
 	return data
 }
 
 func generateOPAManifest() *opaManifest {
 	return &opaManifest{
-		Revision: "",
+		Revision: uuid.New().String(),
 		Roots:    []string{""},
 	}
 }
@@ -206,4 +255,20 @@ func GenerateOPABundle() error {
 	}
 
 	return data.save()
+}
+
+func GetRevision() string {
+	data, err := afero.ReadFile(cacheFS, manifestPath)
+	if err != nil {
+		log.Errorf("Failed to read manifest, err: %s", err)
+		return ""
+	}
+
+	mf := &opaManifest{}
+	if err = json.Unmarshal(data, mf); err != nil {
+		log.Errorf("Failed to Unmarshal manifest, err: %s", err)
+		return ""
+	}
+
+	return mf.Revision
 }
