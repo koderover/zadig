@@ -198,3 +198,11 @@ func LocalTemplatePath(name, kind string) string {
 func LocalChartTemplatePath(name string) string {
 	return LocalTemplatePath(name, setting.ChartTemplatesPath)
 }
+
+func MongoURI() string {
+	return viper.GetString(setting.ENVMongoDBConnectionString)
+}
+
+func MongoDatabase() string {
+	return viper.GetString(setting.ENVAslanDBName)
+}
