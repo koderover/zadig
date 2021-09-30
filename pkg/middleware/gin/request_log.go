@@ -40,7 +40,7 @@ func RequestLog(logger *zap.Logger) gin.HandlerFunc {
 		}
 
 		var body []byte
-		var headers map[string]string
+		headers := make(map[string]string)
 		// request body is a ReadCloser, it can be read only once.
 		if c.Request != nil {
 			if c.Request.Body != nil {
