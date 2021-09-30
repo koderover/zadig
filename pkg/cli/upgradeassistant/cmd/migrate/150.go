@@ -49,7 +49,7 @@ func V140ToV150() error {
 	}
 
 	for _, product := range products {
-		renderSetName := commonservice.GetProductEnvNamespace(product.EnvName, product.ProductName)
+		renderSetName := product.Namespace
 		renderSetOpt := &commonrepo.RenderSetFindOption{Name: renderSetName, Revision: product.Render.Revision}
 		renderSet, err := commonrepo.NewRenderSetColl().Find(renderSetOpt)
 		if err != nil {

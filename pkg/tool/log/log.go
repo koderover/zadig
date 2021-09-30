@@ -18,6 +18,7 @@ package log
 
 import (
 	"os"
+	"strings"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -80,13 +81,25 @@ func getConsoleEncoder(cfg *Config) zapcore.Encoder {
 	return getEncoder(cfg, false)
 }
 
+func lastNthIndexString(s string, sub string, index int) string {
+	r := strings.Split(s, sub)
+	if len(r) < index {
+		return s
+	}
+	return strings.Join(r[len(r)-index:], "/")
+}
+
+func customCallerEncoder(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
+	enc.AppendString(lastNthIndexString(caller.String(), "/", 3))
+}
+
 func getEncoder(cfg *Config, jsonFormat bool) zapcore.Encoder {
 	encoderConfig := zap.NewProductionEncoderConfig()
 	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	encoderConfig.TimeKey = "time"
 	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
 	encoderConfig.EncodeDuration = zapcore.StringDurationEncoder
-	encoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
+	encoderConfig.EncodeCaller = customCallerEncoder
 
 	if cfg.NoLogLevel {
 		encoderConfig.LevelKey = zapcore.OmitKey

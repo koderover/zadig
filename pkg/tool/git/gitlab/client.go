@@ -95,7 +95,7 @@ func wrap(obj interface{}, res *gitlab.Response, err error) (interface{}, error)
 }
 
 func wrapError(res *gitlab.Response, err error) error {
-	if err != nil {
+	if res == nil && err != nil {
 		return err
 	}
 
@@ -103,6 +103,5 @@ func wrapError(res *gitlab.Response, err error) error {
 		body, _ := io.ReadAll(res.Body)
 		return httpclient.NewGenericServerResponse(res.StatusCode, res.Request.Method, string(body))
 	}
-
 	return nil
 }
