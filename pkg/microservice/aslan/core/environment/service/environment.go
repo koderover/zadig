@@ -2720,6 +2720,14 @@ func updateProductGroup(username, productName, envName, updateType string, produ
 		return e.ErrUpdateEnv.AddDesc("对比环境中的value.yaml和系统默认的value.yaml失败")
 	}
 
+	svcNameSet := sets.NewString()
+	for _, singleChart := range overrideCharts {
+		if singleChart.EnvName != envName {
+			continue
+		}
+		svcNameSet.Insert(singleChart.ServiceName)
+	}
+
 	for _, renderChart := range renderSet.ChartInfos {
 		renderChartMap[renderChart.ServiceName] = renderChart
 	}
@@ -2730,6 +2738,11 @@ func updateProductGroup(username, productName, envName, updateType string, produ
 		for _, svc := range services {
 			renderChart, ok := renderChartMap[svc.ServiceName]
 			if !ok {
+				continue
+			}
+
+			// service is not in update list
+			if !svcNameSet.Has(svc.ServiceName) {
 				continue
 			}
 
