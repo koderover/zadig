@@ -530,9 +530,10 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 
 		// TODO too dangerous to override entire renderset!
 		err = p.updateRenderSet(ctx, &types.RenderSet{
-			Name:       renderInfo.Name,
-			Revision:   renderInfo.Revision,
-			ChartInfos: renderInfo.ChartInfos,
+			Name:          renderInfo.Name,
+			Revision:      renderInfo.Revision,
+			DefaultValues: renderInfo.DefaultValues,
+			ChartInfos:    renderInfo.ChartInfos,
 		})
 		if err != nil {
 			err = errors.WithMessagef(
