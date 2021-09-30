@@ -46,32 +46,19 @@ type KV struct {
 	Value string `json:"value"`
 }
 
-// MergeOverrideValues merge values.yaml and override values
-// overrideYaml used for -f option
-// overrideValues used for --set option
-func MergeOverrideValues(valuesYaml, defaultValues, overrideYaml, overrideValues string) (string, error) {
+// MergeOverrideValues merge override yaml and override kvs
+// override yaml used for -f option
+// override kvs used for --set option
+func MergeOverrideValues(defaultValues, valuesYaml, overrideYaml, overrideValues string) (string, error) {
 
-	if defaultValues == "" && overrideYaml == "" && overrideValues == "" {
-		return valuesYaml, nil
-	}
-
-	// merge default.yaml and values.yaml
-	// values.yaml has high precedence
-	if defaultValues != "" {
-		bs, err := yamlutil.Merge([][]byte{[]byte(defaultValues), []byte(valuesYaml)})
-		if err != nil {
-			return "", err
-		}
-		valuesYaml = string(bs)
-	}
-
-	// merge files for -f option
-	// overrideYaml has higher precedence
-	valuesMap, err := yamlutil.MergeAndUnmarshal([][]byte{[]byte(valuesYaml), []byte(overrideYaml)})
+	// merge files for helm -f option
+	// precedence from low to high: defaultValues valuesYaml overrideYaml
+	valuesMap, err := yamlutil.MergeAndUnmarshal([][]byte{[]byte(defaultValues), []byte(valuesYaml), []byte(overrideYaml)})
 	if err != nil {
 		return "", err
 	}
 
+	// merge kv values for helm --set option
 	if overrideValues != "" {
 		kvList := make([]*KV, 0)
 		err = json.Unmarshal([]byte(overrideValues), &kvList)

@@ -1032,7 +1032,7 @@ func CreateHelmProduct(userName, requestID string, args *CreateHelmProductArg, l
 	}
 
 	// default values
-	var defaultValuesYaml string
+	defaultValuesYaml := ""
 	if args.DefaultValues != nil {
 		err = generateValuesYaml(args.DefaultValues, log)
 		if err != nil {
@@ -1095,7 +1095,7 @@ func UpdateHelmProduct(productName, envName, updateType, username, requestID str
 	}
 	//对比当前环境中的环境变量和默认的环境变量
 	go func() {
-		err := updateProductGroup(productName, envName, updateType, productResp, currentProductService, overrideCharts, log)
+		err := updateProductGroup(username, productName, envName, updateType, productResp, currentProductService, overrideCharts, log)
 		if err != nil {
 			log.Errorf("[%s][P:%s] failed to update product %#v", envName, productName, err)
 			// 发送更新产品失败消息给用户
@@ -2574,7 +2574,7 @@ func installOrUpdateHelmChart(user, envName, requestID string, args *commonmodel
 					return
 				}
 
-				mergedValuesYaml, err := helmtool.MergeOverrideValues(renderChart.ValuesYaml, renderset.DefaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
+				mergedValuesYaml, err := helmtool.MergeOverrideValues(renderset.DefaultValues, renderChart.ValuesYaml, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
 				if err != nil {
 					err = errors.WithMessagef(
 						err,
@@ -2668,7 +2668,7 @@ func getUpdatedProductServices(updateProduct *commonmodels.Product, serviceRevis
 	return updatedAllServices
 }
 
-func updateProductGroup(productName, envName, updateType string, productResp *commonmodels.Product, currentProductServices [][]*commonmodels.ProductService, overrideCharts []*commonservice.RenderChartArg, log *zap.SugaredLogger) error {
+func updateProductGroup(username, productName, envName, updateType string, productResp *commonmodels.Product, currentProductServices [][]*commonmodels.ProductService, overrideCharts []*commonservice.RenderChartArg, log *zap.SugaredLogger) error {
 	var (
 		renderChartMap         = make(map[string]*template.RenderChart)
 		productServiceMap      = make(map[string]*commonmodels.ProductService)
@@ -2715,7 +2715,7 @@ func updateProductGroup(productName, envName, updateType string, productResp *co
 	}
 
 	//比较当前环境中的变量和系统默认的最新变量
-	renderSet, err := diffRenderSet(productName, envName, updateType, productResp, overrideCharts, log)
+	renderSet, err := diffRenderSet(username, productName, envName, updateType, productResp, overrideCharts, log)
 	if err != nil {
 		return e.ErrUpdateEnv.AddDesc("对比环境中的value.yaml和系统默认的value.yaml失败")
 	}
@@ -2766,7 +2766,7 @@ func updateProductGroup(productName, envName, updateType string, productResp *co
 					return
 				}
 
-				mergedValuesYaml, err := helmtool.MergeOverrideValues(renderChart.ValuesYaml, renderSet.DefaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
+				mergedValuesYaml, err := helmtool.MergeOverrideValues(renderSet.DefaultValues, renderChart.ValuesYaml, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
 				if err != nil {
 					err = errors.WithMessagef(
 						err,
@@ -2813,7 +2813,7 @@ func updateProductGroup(productName, envName, updateType string, productResp *co
 }
 
 // diffRenderSet 对比环境中的renderSet的值和服务的最新的renderSet的值
-func diffRenderSet(productName, envName, updateType string, productResp *commonmodels.Product, overrideCharts []*commonservice.RenderChartArg, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
+func diffRenderSet(username, productName, envName, updateType string, productResp *commonmodels.Product, overrideCharts []*commonservice.RenderChartArg, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
 	productTemp, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil {
 		log.Errorf("[ProductTmpl.find] err: %v", err)
@@ -2840,7 +2840,7 @@ func diffRenderSet(productName, envName, updateType string, productResp *commonm
 	}
 
 	newChartInfos := make([]*template.RenderChart, 0)
-	renderSetName := productResp.Namespace
+	defaultValues := ""
 	switch updateType {
 	case UpdateTypeSystem:
 		for _, serviceNameGroup := range productTemp.Services {
@@ -2851,12 +2851,13 @@ func diffRenderSet(productName, envName, updateType string, productResp *commonm
 			}
 		}
 	case UpdateTypeEnv:
-		renderSetOpt := &commonrepo.RenderSetFindOption{Name: renderSetName, Revision: productResp.Render.Revision}
+		renderSetOpt := &commonrepo.RenderSetFindOption{Name: productResp.Render.Name, Revision: productResp.Render.Revision}
 		currentEnvRenderSet, err := commonrepo.NewRenderSetColl().Find(renderSetOpt)
 		if err != nil {
 			log.Errorf("[RenderSet.find] err: %v", err)
 			return nil, err
 		}
+		defaultValues = currentEnvRenderSet.DefaultValues
 
 		// 环境里面的变量
 		currentEnvRenderSetMap := make(map[string]*template.RenderChart)
@@ -2903,10 +2904,12 @@ func diffRenderSet(productName, envName, updateType string, productResp *commonm
 
 	if err = commonservice.CreateHelmRenderSet(
 		&commonmodels.RenderSet{
-			Name:        renderSetName,
-			EnvName:     envName,
-			ProductTmpl: productName,
-			ChartInfos:  newChartInfos,
+			Name:          productResp.Render.Name,
+			EnvName:       envName,
+			ProductTmpl:   productName,
+			ChartInfos:    newChartInfos,
+			DefaultValues: defaultValues,
+			UpdateBy:      username,
 		},
 		log,
 	); err != nil {
@@ -2914,7 +2917,7 @@ func diffRenderSet(productName, envName, updateType string, productResp *commonm
 		return nil, err
 	}
 
-	renderSet, err := FindHelmRenderSet(productName, renderSetName, log)
+	renderSet, err := FindHelmRenderSet(productName, productResp.Render.Name, log)
 	if err != nil {
 		log.Errorf("[RenderSet.find] err: %v", err)
 		return nil, err
@@ -3019,7 +3022,7 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 						return
 					}
 
-					mergedValuesYaml, err := helmtool.MergeOverrideValues(tmpRenderChart.ValuesYaml, renderset.DefaultValues, tmpRenderChart.GetOverrideYaml(), tmpRenderChart.OverrideValues)
+					mergedValuesYaml, err := helmtool.MergeOverrideValues(renderset.DefaultValues, tmpRenderChart.ValuesYaml, tmpRenderChart.GetOverrideYaml(), tmpRenderChart.OverrideValues)
 					if err != nil {
 						err = errors.WithMessagef(
 							err,

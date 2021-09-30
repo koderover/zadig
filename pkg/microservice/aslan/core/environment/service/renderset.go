@@ -241,6 +241,8 @@ func CreateOrUpdateRenderset(productName, envName string, args *commonservice.Re
 	//update environment's defaults.yaml
 	if args.DefaultValues != nil {
 		curRenderset.DefaultValues = args.DefaultValues.ValuesYAML
+	} else {
+		curRenderset.DefaultValues = ""
 	}
 
 	//create new renderset with increased revision
