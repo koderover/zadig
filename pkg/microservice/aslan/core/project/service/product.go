@@ -18,6 +18,7 @@ package service
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -401,19 +402,105 @@ func UpdateProductTmplStatus(productName, onboardingStatus string, log *zap.Suga
 
 // UpdateProject 更新项目
 func UpdateProject(name string, args *template.Product, log *zap.SugaredLogger) (err error) {
+	err = validateRule(args.CustomImageRule, args.CustomTarRule)
+	if err != nil {
+		return e.ErrInvalidParam.AddDesc(err.Error())
+	}
 	poetryCtl := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
-
 	//创建团建和项目之间的关系
 	_, err = poetryCtl.AddProductTeam(args.ProductName, args.TeamID, args.UserIDs, log)
 	if err != nil {
 		log.Errorf("Project.Create AddProductTeam error: %v", err)
-		return e.ErrCreateProduct.AddDesc(err.Error())
+		return e.ErrUpdateProduct.AddDesc(err.Error())
 	}
 
 	err = templaterepo.NewProductColl().Update(name, args)
 	if err != nil {
 		log.Errorf("Project.Update error: %v", err)
-		return e.ErrUpdateProduct
+		return e.ErrUpdateProduct.AddDesc(err.Error())
+	}
+	return nil
+}
+
+func validateRule(customImageRule *template.CustomImageRule, customTarRule *template.CustomTarRule) error {
+	imagePRRule := customImageRule.PRRule
+	if err := validateCommonRule(imagePRRule, "image pr", "image"); err != nil {
+		return err
+	}
+
+	imageBranchRule := customImageRule.BranchRule
+	if err := validateCommonRule(imageBranchRule, "image branch", "image"); err != nil {
+		return err
+	}
+
+	imageTagRule := customImageRule.TagRule
+	if err := validateCommonRule(imageTagRule, "image tag", "image"); err != nil {
+		return err
+	}
+
+	imagePrBranchRule := customImageRule.PRAndBranchRule
+	if err := validateCommonRule(imagePrBranchRule, "image pr branch", "image"); err != nil {
+		return err
+	}
+
+	tarPRRule := customTarRule.PRRule
+	if err := validateCommonRule(tarPRRule, "tar pr", "tar"); err != nil {
+		return err
+	}
+
+	tarBranchRule := customTarRule.BranchRule
+	if err := validateCommonRule(tarBranchRule, "tar branch", "tar"); err != nil {
+		return err
+	}
+
+	tarTagRule := customTarRule.TagRule
+	if err := validateCommonRule(tarTagRule, "tar tag", "tar"); err != nil {
+		return err
+	}
+
+	tarPRBranchRule := customTarRule.PRAndBranchRule
+	if err := validateCommonRule(tarPRBranchRule, "tar pr branch", "tar"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func validateCommonRule(currentRule, ruleType, deliveryType string) error {
+	var (
+		imageRegexString = "^[a-z0-9-._][a-zA-Z0-9_.-:]+$"
+		tarRegexString   = "^[a-zA-Z0-9][a-zA-Z0-9_.-]+$"
+		errMessage       = "the rule contains invalid characters, please inquire for help"
+	)
+
+	if currentRule == "" {
+		return fmt.Errorf("%s rule can not be empty", ruleType)
+	}
+
+	if deliveryType == "image" && !strings.Contains(currentRule, ":") {
+		return fmt.Errorf(fmt.Sprintf("%s rule is invalid, must contain a colon", ruleType))
+	}
+
+	currentRule = strings.Replace(currentRule, "${SERVICE}", "ssss", -1)
+	currentRule = strings.Replace(currentRule, "${TIMESTAMP}", "ssss", -1)
+	currentRule = strings.Replace(currentRule, "${TASK_ID}", "ssss", -1)
+	currentRule = strings.Replace(currentRule, "${REPO_COMMIT_ID}", "ssss", -1)
+	currentRule = strings.Replace(currentRule, "${PROJECT}", "ssss", -1)
+	currentRule = strings.Replace(currentRule, "${ENV_NAME}", "ssss", -1)
+	currentRule = strings.Replace(currentRule, "${REPO_COMMIT_ID}", "ssss", -1)
+	currentRule = strings.Replace(currentRule, "${REPO_BRANCH}", "ssss", -1)
+	currentRule = strings.Replace(currentRule, "${REPO_PR}", "ssss", -1)
+	currentRule = strings.Replace(currentRule, "${REPO_TAG}", "ssss", -1)
+
+	switch deliveryType {
+	case "image":
+		if !regexp.MustCompile(imageRegexString).MatchString(currentRule) {
+			return fmt.Errorf(errMessage)
+		}
+	case "tar":
+		if !regexp.MustCompile(tarRegexString).MatchString(currentRule) {
+			return fmt.Errorf(errMessage)
+		}
 	}
 	return nil
 }
