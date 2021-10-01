@@ -103,7 +103,7 @@ func (o *opaData) save() error {
 		case []byte:
 			content = c
 		default:
-			content, err = json.MarshalIndent(c, "", "  ")
+			content, err = json.MarshalIndent(c, "", "    ")
 			if err != nil {
 				log.Errorf("Failed to marshal file %s, err: %s", file.path, err)
 				return err

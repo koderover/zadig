@@ -125,89 +125,39 @@ var expectOPARoles = `
             "rules": [
                 {
                     "method": "GET",
-                    "endpoint": "/authors"
+                    "endpoint": "/articles"
                 },
                 {
                     "method": "POST",
-                    "endpoint": "/authors"
+                    "endpoint": "/articles"
                 },
                 {
                     "method": "GET",
-                    "endpoint": "/articles"
+                    "endpoint": "/authors"
                 },
                 {
                     "method": "POST",
-                    "endpoint": "/articles"
+                    "endpoint": "/authors"
                 }
             ]
         }
     ]
+}
 `
 
-var expectOPAData = `
+var expectOPARoleBindings = `
 {
-    "roles": [
-        {
-            "name": "author",
-            "namespace": "",
-            "rules": [
-                {
-                    "method": "GET",
-                    "endpoint": "/authors"
-                },
-                {
-                    "method": "POST",
-                    "endpoint": "/authors"
-                },
-                {
-                    "method": "PUT",
-                    "endpoint": "/authors"
-                },
-                {
-                    "method": "PATCH",
-                    "endpoint": "/authors"
-                },
-                {
-                    "method": "DELETE",
-                    "endpoint": "/authors"
-                }
-            ]
-        },
-        {
-            "name": "superuser",
-            "namespace": "project1",
-            "rules": [
-                {
-                    "method": "GET",
-                    "endpoint": "/authors"
-                },
-                {
-                    "method": "POST",
-                    "endpoint": "/authors"
-                },
-                {
-                    "method": "GET",
-                    "endpoint": "/articles"
-                },
-                {
-                    "method": "POST",
-                    "endpoint": "/articles"
-                }
-            ]
-        }
-    ],
-
     "role_bindings": [
         {
             "user": "alice",
             "role_refs": [
                 {
-                    "name": "superuser",
-                    "namespace": "project1"
-                },
-                {
                     "name": "author",
                     "namespace": ""
+                },
+                {
+                    "name": "superuser",
+                    "namespace": "project1"
                 }
             ]
         },
@@ -222,15 +172,13 @@ var expectOPAData = `
         }
     ]
 }
-
 `
 
-var _ = Describe("Testing generateOPARoles", func() {
+var _ = Describe("Testing generate OPA roles and bindings", func() {
 
 	Context("generateOPARoles", func() {
 
 		var testRoles []*models.Role
-		//var testBindings []*models.RoleBinding
 
 		BeforeEach(func() {
 			r1 := &models.Role{}
@@ -241,16 +189,7 @@ var _ = Describe("Testing generateOPARoles", func() {
 			err = json.Unmarshal([]byte(testRole2), r2)
 			Expect(err).ShouldNot(HaveOccurred())
 
-			//b1 := &models.RoleBinding{}
-			//err = json.Unmarshal([]byte(testBinding1), b1)
-			//Expect(err).ShouldNot(HaveOccurred())
-			//
-			//b2 := &models.RoleBinding{}
-			//err = json.Unmarshal([]byte(testBinding2), b2)
-			//Expect(err).ShouldNot(HaveOccurred())
-
 			testRoles = []*models.Role{r1, r2}
-			//testBindings = []*models.RoleBinding{b1, b2}
 		})
 
 		It("should work as expected", func() {
@@ -258,6 +197,31 @@ var _ = Describe("Testing generateOPARoles", func() {
 			actual, err := json.MarshalIndent(data, "", "    ")
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(string(actual)).To(Equal(strings.TrimSpace(expectOPARoles)))
+		})
+
+	})
+
+	Context("generateOPARoleBindings", func() {
+
+		var testBindings []*models.RoleBinding
+
+		BeforeEach(func() {
+			b1 := &models.RoleBinding{}
+			err := json.Unmarshal([]byte(testBinding1), b1)
+			Expect(err).ShouldNot(HaveOccurred())
+
+			b2 := &models.RoleBinding{}
+			err = json.Unmarshal([]byte(testBinding2), b2)
+			Expect(err).ShouldNot(HaveOccurred())
+
+			testBindings = []*models.RoleBinding{b1, b2}
+		})
+
+		It("should work as expected", func() {
+			data := generateOPARoleBindings(testBindings)
+			actual, err := json.MarshalIndent(data, "", "    ")
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(string(actual)).To(Equal(strings.TrimSpace(expectOPARoleBindings)))
 		})
 
 	})
