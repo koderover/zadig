@@ -467,7 +467,23 @@ type AutoCancelOpt struct {
 
 func getProductTargetMap(prod *commonmodels.Product) map[string][]commonmodels.DeployEnv {
 	resp := make(map[string][]commonmodels.DeployEnv)
-	for _, services := range prod.Services {
+	services := prod.Services
+	// 如果是托管环境，需要去template_service 表中获取环境下的service
+	if prod.Source == setting.SourceFromExternal {
+		//totalServices, _ = commonrepo.NewServiceColl().ListExternalWorkloadsBy(prod.ProductName, prod.EnvName)
+		externalServices, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(prod.ProductName, prod.EnvName)
+		s := []*commonmodels.ProductService{}
+		for _, v := range externalServices {
+			s = append(s, &commonmodels.ProductService{
+				ServiceName: v.ServiceName,
+				Type:        setting.K8SDeployType,
+				Containers:  v.Containers,
+			})
+		}
+		services = append(services, s)
+	}
+
+	for _, services := range services {
 		for _, serviceObj := range services {
 			switch serviceObj.Type {
 			case setting.K8SDeployType:
@@ -554,8 +570,8 @@ func updateServiceTemplateByGithubPush(pushEvent *github.PushEvent, log *zap.Sug
 
 func GetGithubServiceTemplates() ([]*commonmodels.Service, error) {
 	opt := &commonrepo.ServiceListOption{
-		Type:          setting.K8SDeployType,
-		Source:        setting.SourceFromGithub,
+		Type:   setting.K8SDeployType,
+		Source: setting.SourceFromGithub,
 	}
 	return commonrepo.NewServiceColl().ListMaxRevisions(opt)
 }
