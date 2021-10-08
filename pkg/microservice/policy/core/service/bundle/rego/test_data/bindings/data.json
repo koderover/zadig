@@ -1,0 +1,21 @@
+{
+  "role_bindings": [
+    {
+      "user": "alice",
+      "role_refs": [
+        {
+          "name": "reader1",
+          "namespace": "project1"
+        },
+        {
+          "name": "reader",
+          "namespace": "project2"
+        },
+        {
+          "name": "reader2",
+          "namespace": ""
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "user": "alice",
+  "parsed_path": [
+    "articles"
+  ],
+  "parsed_query": {
+    "projectName": [
+      "project2"
+    ]
+  },
+  "attributes": {
+    "request": {
+      "http": {
+        "headers": {
+          "authorization": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6ImFmMGNlZTQxOGY0NjJkNWMzMjYyNGRiY2FlN2NjM2E2MjFmMDlkMjMifQ.eyJpc3MiOiJodHRwOi8vZGV4LnRlc3QuOHNsYW4uY29tL2RleCIsInN1YiI6IkNpVXhNak0wTlRZM09EQXRaR0k0T0MwMFlqY3pMVGt3WVRrdE0yTmtNVFkyTVdZMU5EWTJFZ1ZzYjJOaGJBIiwiYXVkIjoiZXhhbXBsZS1hcHAiLCJleHAiOjE2MzM3ODQ2NTgsImlhdCI6MTYzMzY5ODI1OCwiYXRfaGFzaCI6IkhzV0trWFhucDAzZFh1aGxOc00ycUEiLCJjX2hhc2giOiJISjllRUhhMnNBTHY5elBVaERERDd3IiwiZW1haWwiOiJsb3V0ZXN0QGV4YW1wbGUuY29tIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsIm5hbWUiOiJhbGljZSJ9.cAphZs4fv_ZxTNZpIziPi4btm50eYpSvXJGrmNP7TQilGKqkaIF6oroCHsdxuBm3pwIOI8dE4nws7Eogxdtx1AH6EQ3vWv8OoIW1TpCDQit4cX5MsLnEyzuS3r30QQXxi1x2veabsfQungudPivFr4_1xQcjho9G1Y3AGxEDU9zA0-r3U7g9M3lrcF4domaF1xzR1FT2TP0V2QVPCxOocPUl65P-Oxu7oRxpnv44d5ORvAuTuU5IrulZMs5NyaY145qzpBZSTU_x3xQAl4BE35XYh_w1wBqqSEpNbAum9VlpX9kaNrHc8B-jHw2cBRuEIyJU6CPC4g1wcYlxoCrCDg"
+        },
+        "host": "loutest.com",
+        "method": "GET",
+        "path": "/articles1?projectName=project1",
+        "protocol": "HTTP/1.1",
+        "scheme": "http"
+      }
+    }
+  }
+}

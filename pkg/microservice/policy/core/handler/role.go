@@ -21,6 +21,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/policy/core/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 func CreateRole(c *gin.Context) {
@@ -33,7 +34,13 @@ func CreateRole(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.CreateRole(c.Query("projectName"), args, ctx.Logger)
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName is empty")
+		return
+	}
+
+	ctx.Err = service.CreateRole(projectName, args, ctx.Logger)
 }
 
 func CreateGlobalRole(c *gin.Context) {

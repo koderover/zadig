@@ -22,5 +22,5 @@ import (
 	_ "github.com/koderover/zadig/pkg/util/testing"
 )
 
-//go:embed authz.rego
+//go:embed rego/authz.rego
 var authz []byte

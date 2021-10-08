@@ -21,11 +21,18 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/policy/core/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 func CreateRoleBinding(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName is empty")
+		return
+	}
 
 	args := &service.RoleBinding{}
 	if err := c.ShouldBindJSON(args); err != nil {
@@ -33,5 +40,5 @@ func CreateRoleBinding(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.CreateRoleBinding(c.Query("projectName"), args, ctx.Logger)
+	ctx.Err = service.CreateRoleBinding(projectName, args, ctx.Logger)
 }

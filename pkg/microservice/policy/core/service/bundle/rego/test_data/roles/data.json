@@ -1,0 +1,96 @@
+{
+  "roles": [
+    {
+      "name": "author",
+      "namespace": "project2",
+      "rules": [
+        {
+          "method": "GET",
+          "endpoint": "/authors"
+        },
+        {
+          "method": "POST",
+          "endpoint": "/authors"
+        },
+        {
+          "method": "PUT",
+          "endpoint": "/authors"
+        },
+        {
+          "method": "PATCH",
+          "endpoint": "/authors"
+        },
+        {
+          "method": "DELETE",
+          "endpoint": "/authors"
+        }
+      ]
+    },
+    {
+      "name": "reader",
+      "namespace": "project2",
+      "rules": [
+        {
+          "method": "GET",
+          "endpoint": "/authors"
+        },
+        {
+          "method": "GET",
+          "endpoint": "/articles"
+        },
+        {
+          "method": "POST",
+          "endpoint": "/authors"
+        },
+        {
+          "method": "POST",
+          "endpoint": "/articles"
+        }
+      ]
+    },
+    {
+      "name": "reader1",
+      "namespace": "project1",
+      "rules": [
+        {
+          "method": "GET",
+          "endpoint": "/authors"
+        },
+        {
+          "method": "GET",
+          "endpoint": "/articles1"
+        },
+        {
+          "method": "POST",
+          "endpoint": "/authors"
+        },
+        {
+          "method": "POST",
+          "endpoint": "/articles"
+        }
+      ]
+    },
+    {
+      "name": "reader2",
+      "namespace": "project1",
+      "rules": [
+        {
+          "method": "GET",
+          "endpoint": "/authors"
+        },
+        {
+          "method": "GET",
+          "endpoint": "/articles"
+        },
+        {
+          "method": "POST",
+          "endpoint": "/authors"
+        },
+        {
+          "method": "POST",
+          "endpoint": "/articles"
+        }
+      ]
+    }
+  ]
+}

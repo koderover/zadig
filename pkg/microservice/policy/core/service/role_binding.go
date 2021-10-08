@@ -26,13 +26,9 @@ import (
 )
 
 type RoleBinding struct {
-	Name    string   `json:"name"`
-	User    string   `json:"user"`
-	RoleRef *RoleRef `json:"roleRef"`
-}
-
-type RoleRef struct {
 	Name   string `json:"name"`
+	User   string `json:"user"`
+	Role   string `json:"role"`
 	Global bool   `json:"global"`
 }
 
@@ -41,22 +37,18 @@ func CreateRoleBinding(ns string, rb *RoleBinding, logger *zap.SugaredLogger) er
 		logger.Errorf("Namespace is empty")
 		return fmt.Errorf("empty namespace")
 	}
-	if rb.RoleRef == nil {
-		logger.Errorf("RoleRef is empty")
-		return fmt.Errorf("empty roleRef")
-	}
 
 	nsRole := ns
-	if rb.RoleRef.Global {
+	if rb.Global {
 		nsRole = ""
 	}
-	role, found, err := mongodb.NewRoleColl().Get(nsRole, rb.RoleRef.Name)
+	role, found, err := mongodb.NewRoleColl().Get(nsRole, rb.Role)
 	if err != nil {
-		logger.Errorf("Failed to get role %s in namespace %s, err: %s", rb.RoleRef.Name, nsRole, err)
+		logger.Errorf("Failed to get role %s in namespace %s, err: %s", rb.Role, nsRole, err)
 		return err
 	} else if !found {
-		logger.Errorf("Role %s is not found in namespace %s", rb.RoleRef.Name, nsRole)
-		return fmt.Errorf("role %s not found", rb.RoleRef.Name)
+		logger.Errorf("Role %s is not found in namespace %s", rb.Role, nsRole)
+		return fmt.Errorf("role %s not found", rb.Role)
 	}
 
 	obj := &models.RoleBinding{
