@@ -2895,7 +2895,6 @@ func diffRenderSet(username, productName, envName, updateType string, productRes
 		for serviceName, latestChartInfo := range tmpLatestChartInfoMap {
 			if currentChartInfo, ok := tmpCurrentChartInfoMap[serviceName]; ok {
 				//拿当前环境values.yaml的key的value去替换服务里面的values.yaml的相同的key的value
-				//TODO values.yaml should be the same in both currentChartInfo and latestChartInfo, since values.yaml can't be edited directly
 				newValuesYaml, err := overrideValues([]byte(currentChartInfo.ValuesYaml), []byte(latestChartInfo.ValuesYaml))
 				if err != nil {
 					log.Errorf("Failed to override values, err: %s", err)

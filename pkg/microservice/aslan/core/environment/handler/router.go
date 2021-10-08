@@ -109,8 +109,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.PUT("/:productName/envRecycle", gin2.IsHavePermission([]string{permission.TestEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateProductRecycleDay)
 
 		environments.PUT("/:productName/renderset", gin2.IsHavePermission([]string{permission.TestEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateHelmProductRenderset)
-		//TODO need to be deprecated
-		environments.PUT("/:productName/renderchart", gin2.IsHavePermission([]string{permission.TestEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateHelmProductRenderCharts)
 
 		environments.GET("/:productName/helmChartVersions", GetHelmChartVersions)
 		environments.PUT("/:productName", gin2.IsHavePermission([]string{permission.TestEnvShareUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, EnvShare)
@@ -134,10 +132,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		environments.GET("/estimated-renderchart", GetEstimatedRenderCharts)
 
-		// need to be deprecated
-		//environments.PUT("/:productName/helmEnv", gin2.IsHavePermission([]string{permission.TestEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateHelmProduct)
-		//environments.PUT("/:productName/helmEnvVariable", gin2.IsHavePermission([]string{permission.TestEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateHelmProductVariable)
-		//environments.PUT("/:productName/updateMultiEnv", gin2.IsHavePermission([]string{permission.TestEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateMultiHelmProduct)
+		//TODO need to be deprecated
+		environments.PUT("/:productName/renderchart", gin2.IsHavePermission([]string{permission.TestEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateHelmProductRenderCharts)
 	}
 
 	// ---------------------------------------------------------------------------------------
