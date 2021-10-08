@@ -115,81 +115,294 @@ fullnameOverride: ""
 service:
   type: ClusterIP
   port: 8080
+`
 
+var testYaml6 = `
+env: dev
+
+ingressClassName: koderover-admin-nginx
+
+global:
+  hub: ccr.ccs.tencentyun.com/trial
+  tag: latest
+
+testSpec:
+  imageNew:
+    image: go-sample-site-new
+    pullPolicy: IfNotPresent
+
+svc1:
+  image: svc1-image
+
+svc2:
+  image: svc2-image
+
+svc3:
+  image: svc3-image
+
+imagePullSecrets:
+  - name: default-registry-secret
+
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 8080
+`
+
+var testYaml7 = `
+env: dev
+
+ingressClassName: koderover-admin-nginx
+
+repoData1:
+  global:
+    hub: ccr.ccs.tencentyun.com/trial
+    tag: latest
+
+testSpec:
+  imageNew:
+    image: go-sample-site-new
+    pullPolicy: IfNotPresent
+
+svc1:
+  image: svc1-image
+
+svc2:
+  image: svc2-image
+
+imagePullSecrets:
+  - name: default-registry-secret
+
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 8080
+`
+
+var testYaml8 = `
+env: dev
+
+ingressClassName: koderover-admin-nginx
+
+repoData1:
+  global:
+    hub: ccr.ccs.tencentyun.com/trial
+
+testSpec:
+  image:
+    image: go-sample-site-new
+    pullPolicy: IfNotPresent
+    tag: 0.1.0
+
+svc1:
+  image:
+    image: svc1-image
+    tag: 0.2.0
+
+svc2:
+  image:
+    image: svc2-image
+    tag: 0.3.0
+
+imagePullSecrets:
+  - name: default-registry-secret
+
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 8080
+`
+
+var testYaml9 = `
+env: dev
+
+ingressClassName: koderover-admin-nginx
+
+repoData1:
+  global:
+    hub: ccr.ccs.tencentyun.com/trial
+
+svc1:
+  image:
+    service:
+      image: service-image
+    tagInfo:
+      tag: 0.1.0
+    repo:
+     ccr.ccs.tencentyun.com/trial 
+
+svc2:
+  image:
+    service:
+      image: service-image-2
+    tagInfo:
+      tag: 0.2.0
+    repo:
+     ccr.ccs.tencentyun.com/trial  
+
+imagePullSecrets:
+  - name: default-registry-secret
+
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 8080
 `
 
 var err error
 var matedPaths []map[string]string
+var lcpErr error
+var lcpMatedPaths []map[string]string
 
 var _ = Describe("Testing search", func() {
 	Context("search matched paths from yaml", func() {
-		It("single match", func() {
+		//It("single match", func() {
+		//	pattern := []map[string]string{
+		//		{"image": "repository", "tag": "tag"},
+		//	}
+		//	flatMap, _ := converter.YamlToFlatMap([]byte(testYaml1))
+		//	matedPaths, err = SearchByPattern(flatMap, pattern)
+		//	Expect(err).NotTo(HaveOccurred())
+		//	lcpMatedPaths, lcpErr = SearchByPatternLCP(flatMap, pattern)
+		//	Expect(lcpErr).NotTo(HaveOccurred())
+		//	Expect(lcpMatedPaths).To(ConsistOf(matedPaths))
+		//	Expect(matedPaths).To(Equal([]map[string]string{{"image": "image.repository", "tag": "image.tag"}}))
+		//})
+		//
+		//It("multiple match", func() {
+		//	pattern := []map[string]string{
+		//		{"image": "repository", "tag": "tag"},
+		//	}
+		//	flatMap, _ := converter.YamlToFlatMap([]byte(testYaml2))
+		//	matedPaths, err = SearchByPattern(flatMap, pattern)
+		//	Expect(err).NotTo(HaveOccurred())
+		//
+		//	lcpMatedPaths, lcpErr = SearchByPatternLCP(flatMap, pattern)
+		//	Expect(lcpErr).NotTo(HaveOccurred())
+		//	Expect(lcpMatedPaths).To(ConsistOf(matedPaths))
+		//
+		//	Expect(matedPaths).Should(ConsistOf([]map[string]string{
+		//		{"image": "svc1.image.repository", "tag": "svc1.image.tag"},
+		//		{"image": "svc2.image.repository", "tag": "svc2.image.tag"},
+		//	}))
+		//})
+		//
+		//It("multiple match pattern 3", func() {
+		//	pattern := []map[string]string{
+		//		{"image": "repository"},
+		//	}
+		//	flatMap, _ := converter.YamlToFlatMap([]byte(testYaml3))
+		//	matedPaths, err = SearchByPattern(flatMap, pattern)
+		//	Expect(err).NotTo(HaveOccurred())
+		//
+		//	lcpMatedPaths, lcpErr = SearchByPatternLCP(flatMap, pattern)
+		//	Expect(lcpErr).NotTo(HaveOccurred())
+		//	Expect(lcpMatedPaths).To(ConsistOf(matedPaths))
+		//
+		//	Expect(matedPaths).Should(ConsistOf([]map[string]string{
+		//		{"image": "svc1.image.repository"},
+		//		{"image": "svc2.image.repository"},
+		//		{"image": "svc3.image.repository"},
+		//	}))
+		//})
+		//
+		//It("multiple match pattern complex", func() {
+		//	pattern := []map[string]string{
+		//		{"image": "repository", "tag": "tag"},
+		//		{"image": "repository"},
+		//		{"image": "repositoryNew", "tag": "tagNew"},
+		//		{"image": "image.repositorySpec", "tag": "tagNew"},
+		//	}
+		//	flatMap, _ := converter.YamlToFlatMap([]byte(testYaml4))
+		//	matedPaths, err = SearchByPattern(flatMap, pattern)
+		//	Expect(err).NotTo(HaveOccurred())
+		//	lcpMatedPaths, lcpErr = SearchByPatternLCP(flatMap, pattern)
+		//	Expect(lcpErr).NotTo(HaveOccurred())
+		//	Expect(matedPaths).Should(ConsistOf([]map[string]string{
+		//		{"image": "svc1.image.repository", "tag": "svc1.image.tag"},
+		//		{"image": "svc2.image.repository"},
+		//		{"image": "svc3.image.repository"},
+		//		{"image": "svc4.image.repositoryNew", "tag": "svc4.image.tagNew"},
+		//		{"image": "svc5.second.image.repositorySpec", "tag": "svc5.second.tagNew"},
+		//	}))
+		//
+		//	Expect(lcpMatedPaths).Should(ConsistOf([]map[string]string{
+		//		{"image": "svc1.image.repository", "tag": "svc1.image.tag"},
+		//		{"image": "svc1.image.repository"},
+		//		{"image": "svc2.image.repository"},
+		//		{"image": "svc3.image.repository"},
+		//		{"image": "svc4.image.repositoryNew", "tag": "svc4.image.tagNew"},
+		//		{"image": "svc5.second.image.repositorySpec", "tag": "svc5.second.tagNew"},
+		//	}))
+		//
+		//})
+		//
+		//It("multiple match pattern complex2", func() {
+		//	pattern := []map[string]string{
+		//		{"image": "image", "tag": "global.tag", "repo": "global.hub"},
+		//	}
+		//	flatMap, err := converter.YamlToFlatMap([]byte(testYaml6))
+		//	matedPaths, err = SearchByPattern(flatMap, pattern)
+		//	Expect(err).NotTo(HaveOccurred())
+		//
+		//	lcpMatedPaths, lcpErr = SearchByPatternLCP(flatMap, pattern)
+		//	Expect(lcpErr).NotTo(HaveOccurred())
+		//
+		//	Expect(lcpMatedPaths).Should(ConsistOf([]map[string]string{
+		//		{"image": "testSpec.imageNew.image", "repo": "global.hub", "tag": "global.tag"},
+		//		{"image": "svc1.image", "repo": "global.hub", "tag": "global.tag"},
+		//		{"image": "svc2.image", "repo": "global.hub", "tag": "global.tag"},
+		//		{"image": "svc3.image", "repo": "global.hub", "tag": "global.tag"},
+		//	}))
+		//})
+		//
+		//It("multiple match pattern complex 3", func() {
+		//	pattern := []map[string]string{
+		//		{"image": "image", "tag": "global.tag", "repo": "global.hub"},
+		//	}
+		//	flatMap, err := converter.YamlToFlatMap([]byte(testYaml7))
+		//	matedPaths, err = SearchByPattern(flatMap, pattern)
+		//	Expect(err).NotTo(HaveOccurred())
+		//
+		//	lcpMatedPaths, lcpErr = SearchByPatternLCP(flatMap, pattern)
+		//	Expect(lcpErr).NotTo(HaveOccurred())
+		//
+		//	Expect(lcpMatedPaths).Should(ConsistOf([]map[string]string{
+		//		{"image": "testSpec.imageNew.image", "repo": "repoData1.global.hub", "tag": "repoData1.global.tag"},
+		//		{"image": "svc1.image", "repo": "repoData1.global.hub", "tag": "repoData1.global.tag"},
+		//		{"image": "svc2.image", "repo": "repoData1.global.hub", "tag": "repoData1.global.tag"},
+		//	}))
+		//})
+
+		It("multiple match pattern complex 4", func() {
 			pattern := []map[string]string{
-				{"image": "repository", "tag": "tag"},
+				{"image": "image", "tag": "tag", "repo": "repo"},
 			}
-			flatMap, _ := converter.YamlToFlatMap([]byte(testYaml1))
+			flatMap, _ := converter.YamlToFlatMap([]byte(testYaml9))
 			matedPaths, err = SearchByPattern(flatMap, pattern)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(matedPaths).To(Equal([]map[string]string{{"image": "image.repository", "tag": "image.tag"}}))
-		})
 
-		It("multiple match", func() {
-			pattern := []map[string]string{
-				{"image": "repository", "tag": "tag"},
-			}
-			flatMap, _ := converter.YamlToFlatMap([]byte(testYaml2))
-			matedPaths, err = SearchByPattern(flatMap, pattern)
-			Expect(err).NotTo(HaveOccurred())
+			lcpMatedPaths, lcpErr = SearchByPatternLCP(flatMap, pattern)
+			Expect(lcpErr).NotTo(HaveOccurred())
 
-			Expect(matedPaths).Should(ConsistOf([]map[string]string{
-				{"image": "svc1.image.repository", "tag": "svc1.image.tag"},
-				{"image": "svc2.image.repository", "tag": "svc2.image.tag"},
+			Expect(lcpMatedPaths).Should(ConsistOf([]map[string]string{
+				{"image": "testSpec.image.image", "repo": "repoData1.global.hub", "tag": "testSpec.image.tag"},
+				{"image": "svc1.image.image", "repo": "repoData1.global.hub", "tag": "svc1.image.tag"},
+				{"image": "svc2.image.image", "repo": "repoData1.global.hub", "tag": "svc2.image.tag"},
 			}))
+
+			//Expect(lcpMatedPaths).Should(ContainElement(
+			//	ConsistOf(map[string]string{"image": "testSpec.image.image", "repo": "repoData1.global.hub", "tag": "repoData1.image.tag"}),
+			//))
 		})
 
-		It("multiple match pattern 3", func() {
-			pattern := []map[string]string{
-				{"image": "repository"},
-			}
-			flatMap, _ := converter.YamlToFlatMap([]byte(testYaml3))
-			matedPaths, err = SearchByPattern(flatMap, pattern)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(matedPaths).Should(ConsistOf([]map[string]string{
-				{"image": "svc1.image.repository"},
-				{"image": "svc2.image.repository"},
-				{"image": "svc3.image.repository"},
-			}))
-		})
-
-		It("multiple match pattern complex", func() {
-			pattern := []map[string]string{
-				{"image": "repository", "tag": "tag"},
-				{"image": "repository"},
-				{"image": "repositoryNew", "tag": "tagNew"},
-				{"image": "image.repositorySpec", "tag": "tagNew"},
-			}
-			flatMap, _ := converter.YamlToFlatMap([]byte(testYaml4))
-			matedPaths, err = SearchByPattern(flatMap, pattern)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(matedPaths).Should(ConsistOf([]map[string]string{
-				{"image": "svc1.image.repository", "tag": "svc1.image.tag"},
-				{"image": "svc2.image.repository"},
-				{"image": "svc3.image.repository"},
-				{"image": "svc4.image.repositoryNew", "tag": "svc4.image.tagNew"},
-				{"image": "svc5.second.image.repositorySpec", "tag": "svc5.second.tagNew"},
-			}))
-
-		})
-
-		It("multiple match pattern complex2", func() {
-			pattern := []map[string]string{
-				{"image": "imageNew.repo", "tag": "imageNew.tag"},
-			}
-			flatMap, _ := converter.YamlToFlatMap([]byte(testYaml5))
-			matedPaths, err = SearchByPattern(flatMap, pattern)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(len(matedPaths)).To(Equal(1))
-			Expect(matedPaths).To(Equal([]map[string]string{{"image": "testSpec.imageNew.repo", "tag": "testSpec.imageNew.tag"}}))
-		})
 	})
 })

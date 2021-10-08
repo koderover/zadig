@@ -59,7 +59,7 @@ type pathSearcher struct {
 	resultSet map[string]*pathSearchRuntime //prefix => search result
 }
 
-func (isr *pathSearcher) handleKV(k string, v interface{}) {
+func (isr *pathSearcher) handleKV(k string) {
 	expectPaths, preMatch := isr.pattern, false
 	for _, ep := range expectPaths {
 		if strings.HasSuffix(k, ep) {
@@ -95,7 +95,6 @@ func (isr *pathSearcher) handleKV(k string, v interface{}) {
 					pathName:     pathName,
 					relativePath: ep,
 					absolutePath: k,
-					value:        v,
 				}
 				match = true
 			}
@@ -119,7 +118,6 @@ func (isr *pathSearcher) handleKV(k string, v interface{}) {
 					pathName:     pathName,
 					relativePath: ep,
 					absolutePath: k,
-					value:        v,
 				},
 			},
 		}
@@ -158,9 +156,9 @@ func searchPaths(patterns []map[string]string, sourceMap map[string]interface{})
 		}
 		rtSlice = append(rtSlice, rt)
 	}
-	for k, v := range sourceMap {
+	for k := range sourceMap {
 		for _, rt := range rtSlice {
-			rt.handleKV(k, v)
+			rt.handleKV(k)
 		}
 	}
 	return rtSlice, nil
