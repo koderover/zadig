@@ -1,0 +1,14 @@
+{
+  "global": [
+    {
+      "method": "GET",
+      "endpoint": "/version"
+    }
+  ],
+  "namespaced": [
+    {
+      "method": "GET",
+      "endpoint": "/version1"
+    }
+  ]
+}

@@ -5,6 +5,12 @@ import input.attributes.request.http as http_request
 # By default, deny requests.
 default allow = false
 
+# Allow all valid users to visit exempted urls.
+allow {
+    url_is_exempted
+    claims.name != ""
+}
+
 # Allow admins to do anything.
 allow {
     user_is_admin
@@ -38,6 +44,17 @@ user_is_project_admin {
 
     role.name == "admin"
     role.namespace == projcet_name
+}
+
+url_is_exempted {
+    data.exemptions.global[_].method == http_request.method
+    glob.match(trim(data.exemptions.global[_].endpoint, "/"), ["/"], concat("/", input.parsed_path))
+}
+
+url_is_exempted {
+    data.exemptions.namespaced[_].method == http_request.method
+    glob.match(trim(data.exemptions.namespaced[_].endpoint, "/"), ["/"], concat("/", input.parsed_path))
+    user_projects[_] == projcet_name
 }
 
 projcet_name := pn {
