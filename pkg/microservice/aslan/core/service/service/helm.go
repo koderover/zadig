@@ -138,6 +138,7 @@ func ListHelmServices(productName string, log *zap.SugaredLogger) (*HelmService,
 }
 
 func GetHelmServiceModule(serviceName, productName string, revision int64, log *zap.SugaredLogger) (*HelmServiceModule, error) {
+
 	serviceTemplate, err := commonservice.GetServiceTemplate(serviceName, setting.HelmDeployType, productName, setting.ProductStatusDeleting, revision, log)
 	if err != nil {
 		return nil, err
@@ -493,15 +494,18 @@ func geneCreateFromData(args *helmServiceCreationArgs) interface{} {
 				ValuesPaths: args.ValuePaths,
 			}
 		} else {
-			yamlData = &template.CustomYaml{
-				YamlSource:  setting.ValuesYamlSourceFreeEdit,
-				YamlContent: args.ValuesYaml,
+			if len(args.ValuesYaml) > 0 {
+				yamlData = &template.CustomYaml{
+					YamlSource:  setting.ValuesYamlSourceFreeEdit,
+					YamlContent: args.ValuesYaml,
+				}
 			}
 		}
 
 		return &models.CreateFromChartTemplate{
 			ValuesYaml:   yamlData,
 			TemplateName: args.HelmTemplateName,
+			ServiceName:  args.ServiceName,
 		}
 	}
 	return nil

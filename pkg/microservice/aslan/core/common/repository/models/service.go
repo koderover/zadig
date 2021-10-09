@@ -80,6 +80,7 @@ type CreateFromPublicRepo struct {
 type CreateFromChartTemplate struct {
 	ValuesYaml   *templatemodels.CustomYaml `bson:"yaml_data,omitempty"   json:"yaml_data,omitempty"`
 	TemplateName string                     `bson:"template_name" json:"template_name"`
+	ServiceName  string                     `bson:"service_name" json:"service_name"`
 }
 
 type GUIConfig struct {
