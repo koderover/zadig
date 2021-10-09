@@ -37,6 +37,7 @@ const (
 	policyPath       = "authz.rego"
 	rolesPath        = "roles/data.json"
 	rolebindingsPath = "bindings/data.json"
+	exemptionPath    = "exemptions/data.json"
 )
 
 const (
@@ -223,6 +224,37 @@ func generateOPARoleBindings(bindings []*models.RoleBinding) *opaRoleBindings {
 	return data
 }
 
+func generateOPAExemptionURLs() *exemptionURLs {
+	data := &exemptionURLs{}
+
+	for _, r := range globalURLs {
+		if len(r.Methods) == 1 && r.Methods[0] == models.MethodAll {
+			r.Methods = AllMethods
+		}
+		for _, method := range r.Methods {
+			for _, endpoint := range r.Endpoints {
+				data.Global = append(data.Global, &rule{Method: method, Endpoint: endpoint})
+			}
+		}
+	}
+	sort.Sort(data.Global)
+
+	for _, r := range namespacedURLs {
+		if len(r.Methods) == 1 && r.Methods[0] == models.MethodAll {
+			r.Methods = AllMethods
+		}
+		for _, method := range r.Methods {
+			for _, endpoint := range r.Endpoints {
+				data.Namespaced = append(data.Namespaced, &rule{Method: method, Endpoint: endpoint})
+			}
+		}
+	}
+
+	sort.Sort(data.Namespaced)
+
+	return data
+}
+
 func generateOPAManifest() *opaManifest {
 	return &opaManifest{
 		Revision: uuid.New().String(),
@@ -252,6 +284,7 @@ func GenerateOPABundle() error {
 		{data: generateOPAPolicy(), path: policyPath},
 		{data: generateOPARoles(roles), path: rolesPath},
 		{data: generateOPARoleBindings(bindings), path: rolebindingsPath},
+		{data: generateOPAExemptionURLs(), path: exemptionPath},
 	}
 
 	return data.save()
