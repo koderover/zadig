@@ -101,6 +101,6 @@ var Services = map[int]*ServiceInfo{
 	},
 	OPA: {
 		Name: "opa",
-		Port: 80,
+		Port: 8181,
 	},
 }
