@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/koderover/zadig/pkg/config"
-	"github.com/koderover/zadig/pkg/microservice/adaptor/server/rest"
+	"github.com/koderover/zadig/pkg/microservice/picket/server/rest"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 )

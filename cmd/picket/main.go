@@ -22,7 +22,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/koderover/zadig/pkg/microservice/adaptor/server"
+	"github.com/koderover/zadig/pkg/microservice/picket/server"
 )
 
 func main() {

@@ -4,7 +4,7 @@
 IMAGE_REPOSITORY = ccr.ccs.tencentyun.com/koderover-rc
 VERSION ?= $(shell date +'%Y%m%d%H%M%S')
 
-TARGETS = aslan cron hub-agent hub-server jenkins-plugin podexec predator-plugin resource-server ua warpdrive adaptor
+TARGETS = aslan cron hub-agent hub-server jenkins-plugin podexec predator-plugin resource-server ua warpdrive picket
 REAPER_OS= focal xenial bionic
 
 ALL_IMAGES=$(TARGETS:=.image)
