@@ -73,8 +73,8 @@ type CreateFromRepo struct {
 }
 
 type CreateFromPublicRepo struct {
-	RepoLink string `bson:"repo_link"`
-	LoadPath string `bson:"load_path,omitempty"            json:"load_path,omitempty"`
+	RepoLink string `bson:"repo_link" json:"repo_link"`
+	LoadPath string `bson:"load_path,omitempty"        json:"load_path,omitempty"`
 }
 
 type CreateFromChartTemplate struct {
