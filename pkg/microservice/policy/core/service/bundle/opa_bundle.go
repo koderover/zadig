@@ -41,15 +41,24 @@ const (
 )
 
 const (
-	MethodView   = "VIEW"
-	MethodGet    = http.MethodGet
-	MethodPost   = http.MethodPost
-	MethodPut    = http.MethodPut
-	MethodPatch  = http.MethodPatch
-	MethodDelete = http.MethodDelete
+	MethodView             = "VIEW"
+	MethodGet              = http.MethodGet
+	MethodPost             = http.MethodPost
+	MethodPut              = http.MethodPut
+	MethodPatch            = http.MethodPatch
+	MethodDelete           = http.MethodDelete
+	ActionCreate           = "create"
+	ActionDelete           = "delete"
+	ActionDeleteCollection = "deletecollection"
+	ActionGet              = "get"
+	ActionList             = "list"
+	ActionPatch            = "patch"
+	ActionUpdate           = "update"
+	ActionWatch            = "watch"
 )
 
 var AllMethods = []string{MethodGet, MethodPost, MethodPut, MethodPatch, MethodDelete}
+var AllActions = []string{ActionCreate, ActionDelete, ActionDeleteCollection, ActionGet, ActionList, ActionPatch, ActionUpdate, ActionWatch}
 
 var cacheFS afero.Fs
 
@@ -174,19 +183,66 @@ func (o roleBindings) Less(i, j int) bool {
 	return o[i].User < o[j].User
 }
 
-// TODO: sort the response to get stable data.
-func generateOPARoles(roles []*models.Role) *opaRoles {
+func generateOPAResourceRoles(roles []*models.Role) *opaRoles {
 	data := &opaRoles{}
 
 	for _, ro := range roles {
 		opaRole := &role{Name: ro.Name, Namespace: ro.Namespace}
 		for _, r := range ro.Rules {
-			if len(r.Methods) == 1 && r.Methods[0] == models.MethodAll {
-				r.Methods = AllMethods
+			if len(r.Verbs) == 1 && r.Verbs[0] == models.MethodAll {
+				r.Verbs = AllActions
 			}
-			for _, method := range r.Methods {
-				for _, endpoint := range r.Endpoints {
-					opaRole.Rules = append(opaRole.Rules, &rule{Method: method, Endpoint: endpoint})
+			for _, res := range r.Resources {
+				if mapping, ok := mappings[res]; !ok {
+					continue
+				} else {
+					for _, v := range r.Verbs {
+						opaRole.Rules = append(opaRole.Rules, mapping[v]...)
+					}
+				}
+
+			}
+		}
+
+		sort.Sort(opaRole.Rules)
+		data.Roles = append(data.Roles, opaRole)
+	}
+
+	sort.Sort(data.Roles)
+
+	return data
+}
+
+func generateOPARoles(roles []*models.Role) *opaRoles {
+	data := &opaRoles{}
+
+	for _, ro := range roles {
+		opaRole := &role{Name: ro.Name, Namespace: ro.Namespace}
+		if ro.Kind == models.KindResource {
+			for _, r := range ro.Rules {
+				if len(r.Verbs) == 1 && r.Verbs[0] == models.MethodAll {
+					r.Verbs = AllActions
+				}
+				for _, res := range r.Resources {
+					if mapping, ok := mappings[res]; !ok {
+						continue
+					} else {
+						for _, v := range r.Verbs {
+							opaRole.Rules = append(opaRole.Rules, mapping[v]...)
+						}
+					}
+
+				}
+			}
+		} else {
+			for _, r := range ro.Rules {
+				if len(r.Verbs) == 1 && r.Verbs[0] == models.MethodAll {
+					r.Verbs = AllMethods
+				}
+				for _, v := range r.Verbs {
+					for _, endpoint := range r.Resources {
+						opaRole.Rules = append(opaRole.Rules, &rule{Method: v, Endpoint: endpoint})
+					}
 				}
 			}
 		}
@@ -200,7 +256,6 @@ func generateOPARoles(roles []*models.Role) *opaRoles {
 	return data
 }
 
-// TODO: sort the response to get stable data.
 func generateOPARoleBindings(bindings []*models.RoleBinding) *opaRoleBindings {
 	data := &opaRoleBindings{}
 

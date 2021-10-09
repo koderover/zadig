@@ -16,7 +16,10 @@ limitations under the License.
 
 package models
 
-const MethodAll = "*"
+const (
+	MethodAll    = "*"
+	KindResource = "resource"
+)
 
 // Role is a namespaced or cluster scoped, logical grouping of PolicyRules that can be referenced as a unit by a RoleBinding.
 // for a cluster scoped Role, namespace is empty.
@@ -24,16 +27,18 @@ type Role struct {
 	Name      string        `bson:"name"      json:"name"`
 	Namespace string        `bson:"namespace" json:"namespace"`
 	Rules     []*PolicyRule `bson:"rules"     json:"rules"`
+	Kind      string        `bson:"kind"     json:"kind"`
 }
 
 // PolicyRule holds information that describes a policy rule, but does not contain information
 // about whom the rule applies to.
+// If Kind is "resource", verbs are resource actions, while resources are resource names
 type PolicyRule struct {
-	// Methods is a list of http methods that apply to ALL the Endpoints contained in this rule. '*' represents all methods.
-	Methods []string `bson:"methods" json:"methods"`
+	// Verbs is a list of http methods or resource actions that apply to ALL the Resources contained in this rule. '*' represents all methods.
+	Verbs []string `bson:"verbs" json:"verbs"`
 
-	// Endpoints is a list of resources this rule applies to. '*' represents all resources.
-	Endpoints []string `bson:"endpoints" json:"endpoints"`
+	// Resources is a list of resources this rule applies to. '*' represents all resources.
+	Resources []string `bson:"resources" json:"resources"`
 }
 
 func (Role) TableName() string {

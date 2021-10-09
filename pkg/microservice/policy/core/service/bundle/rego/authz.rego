@@ -89,6 +89,7 @@ user_is_granted[grant] {
     grant := data.roles.roles[i].rules[_]
 }
 
+# get all projects which are visible by current user
 user_projects[project] {
     project := roles[_].namespace
     project != ""
