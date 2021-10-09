@@ -14,7 +14,7 @@
         "headers": {
           ":authority": "1.117.135.124",
           ":method": "GET",
-          ":path": "/api/authors?projectName=project1",
+          ":path": "/api/articles?projectName=project1",
           ":scheme": "http",
           "accept": "*/*",
           "accept-encoding": "gzip, deflate",
@@ -27,7 +27,7 @@
         "host": "1.117.135.124",
         "id": "12546924088872138958",
         "method": "GET",
-        "path": "/api/authors?projectName=project1",
+        "path": "/api/articles?projectName=project1",
         "protocol": "HTTP/1.1",
         "scheme": "http"
       },
@@ -45,7 +45,7 @@
   "parsed_body": null,
   "parsed_path": [
     "api",
-    "authors"
+    "articles"
   ],
   "parsed_query": {
     "projectName": [

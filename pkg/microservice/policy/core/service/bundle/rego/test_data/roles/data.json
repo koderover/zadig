@@ -6,23 +6,23 @@
       "rules": [
         {
           "method": "GET",
-          "endpoint": "/authors"
+          "endpoint": "/api/authors"
         },
         {
           "method": "POST",
-          "endpoint": "/authors"
+          "endpoint": "/api/authors"
         },
         {
           "method": "PUT",
-          "endpoint": "/authors"
+          "endpoint": "/api/authors"
         },
         {
           "method": "PATCH",
-          "endpoint": "/authors"
+          "endpoint": "/api/authors"
         },
         {
           "method": "DELETE",
-          "endpoint": "/authors"
+          "endpoint": "/api/authors"
         }
       ]
     },
@@ -32,19 +32,19 @@
       "rules": [
         {
           "method": "GET",
-          "endpoint": "/authors"
+          "endpoint": "/api/authors"
         },
         {
           "method": "GET",
-          "endpoint": "/articles"
+          "endpoint": "/api/articles"
         },
         {
           "method": "POST",
-          "endpoint": "/authors"
+          "endpoint": "/api/authors"
         },
         {
           "method": "POST",
-          "endpoint": "/articles"
+          "endpoint": "/api/articles"
         }
       ]
     },
@@ -54,19 +54,19 @@
       "rules": [
         {
           "method": "GET",
-          "endpoint": "/authors"
+          "endpoint": "/api/authors"
         },
         {
           "method": "GET",
-          "endpoint": "/articles1"
+          "endpoint": "/api/articles"
         },
         {
           "method": "POST",
-          "endpoint": "/authors"
+          "endpoint": "/api/authors"
         },
         {
           "method": "POST",
-          "endpoint": "/articles"
+          "endpoint": "/api/articles"
         }
       ]
     },
@@ -76,19 +76,19 @@
       "rules": [
         {
           "method": "GET",
-          "endpoint": "/authors"
+          "endpoint": "/api/authors"
         },
         {
           "method": "GET",
-          "endpoint": "/articles"
+          "endpoint": "/api/articles"
         },
         {
           "method": "POST",
-          "endpoint": "/authors"
+          "endpoint": "/api/authors"
         },
         {
           "method": "POST",
-          "endpoint": "/articles"
+          "endpoint": "/api/articles"
         }
       ]
     }
