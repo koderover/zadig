@@ -21,11 +21,32 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/picket/core/evaluation/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 )
+
+type evaluateArgs struct {
+	Data []service.GrantReq `json:"data"`
+}
+
+type evaluateResp struct {
+	Data interface{} `json:"data"`
+}
 
 func Evaluate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid EvaluateArgs , projectName is empty")
+		return
+	}
+	args := new(evaluateArgs)
 
-	ctx.Resp, ctx.Err = service.Evaluate(ctx.Logger)
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err).AddDesc("invalid EvaluateArgs")
+		return
+	}
+	data, err := service.Evaluate(c.Request.Header, projectName, args.Data, ctx.Logger)
+	ctx.Resp = evaluateResp{Data: data}
+	ctx.Err = err
 }
