@@ -5,6 +5,11 @@ import input.attributes.request.http as http_request
 # By default, deny requests.
 default allow = false
 
+# Allow everyone to visit public urls.
+allow {
+    url_is_public
+}
+
 # Allow all valid users to visit exempted urls.
 allow {
     url_is_exempted
@@ -44,6 +49,11 @@ user_is_project_admin {
 
     role.name == "admin"
     role.namespace == projcet_name
+}
+
+url_is_public {
+    data.exemptions.public[_].method == http_request.method
+    glob.match(trim(data.exemptions.public[_].endpoint, "/"), ["/"], concat("/", input.parsed_path))
 }
 
 url_is_exempted {

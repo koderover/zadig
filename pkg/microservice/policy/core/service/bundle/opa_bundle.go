@@ -307,6 +307,19 @@ func generateOPAExemptionURLs() *exemptionURLs {
 
 	sort.Sort(data.Namespaced)
 
+	for _, r := range publicURLs {
+		if len(r.Methods) == 1 && r.Methods[0] == models.MethodAll {
+			r.Methods = AllMethods
+		}
+		for _, method := range r.Methods {
+			for _, endpoint := range r.Endpoints {
+				data.Public = append(data.Public, &rule{Method: method, Endpoint: endpoint})
+			}
+		}
+	}
+
+	sort.Sort(data.Public)
+
 	return data
 }
 
