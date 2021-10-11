@@ -522,7 +522,6 @@ func releaseCandidate(b *task.Build, taskID int64, productName, envName, deliver
 			ProductName: productName,
 			ServiceName: b.ServiceName,
 		}
-		log.Infof("candidate.tag:%s", candidate.Tag)
 		switch deliveryType {
 		case "image":
 			return generateImageCandidate(customImageRule, candidate)
@@ -572,12 +571,15 @@ func generateTarCandidate(customTarRule *template.CustomTarRule, candidate *cand
 
 func replaceVariable(customRule *template.CustomRule, candidate *candidate) string {
 	var currentRule string
+	log.Infof("candidate.tag:%s", candidate.Tag)
 	if candidate.Tag != "" {
 		if customRule == nil {
 			return fmt.Sprintf("%s:%s-%s", candidate.ServiceName, candidate.Timestamp, candidate.Tag)
 		}
 		currentRule = customRule.TagRule
+		log.Infof("currentRule:%s", currentRule)
 		currentRule = strings.Replace(currentRule, "${REPO_TAG}", candidate.Tag, -1)
+		log.Infof("currentRule2:%s", currentRule)
 	}
 
 	if candidate.Branch != "" && candidate.PR != 0 {
@@ -613,6 +615,7 @@ func replaceVariable(customRule *template.CustomRule, candidate *candidate) stri
 	currentRule = strings.Replace(currentRule, "${ENV_NAME}", candidate.EnvName, -1)
 	currentRule = strings.Replace(currentRule, "${COMMIT_ID}", candidate.CommitID, -1)
 
+	log.Infof("currentRule3:%s", currentRule)
 	return currentRule
 }
 
