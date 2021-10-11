@@ -525,9 +525,9 @@ func releaseCandidate(b *task.Build, taskID int64, productName, envName, deliver
 		}
 		switch deliveryType {
 		case config.ImageResourceType:
-			return generateImageCandidate(customImageRule, candidate)
+			return replaceVariable(customImageRule, candidate)
 		case config.TarResourceType:
-			return generateTarCandidate(customTarRule, candidate)
+			return replaceVariable(customTarRule, candidate)
 		}
 	}
 	return fmt.Sprintf("%s:%s", b.ServiceName, timeStamp)
@@ -543,21 +543,6 @@ type candidate struct {
 	ProductName string
 	ServiceName string
 	EnvName     string
-}
-
-func generateImageCandidate(customImageRule *template.CustomRule, candidate *candidate) string {
-	if customImageRule == nil {
-		return replaceVariable(nil, candidate)
-	}
-
-	return replaceVariable(customImageRule, candidate)
-}
-
-func generateTarCandidate(customTarRule *template.CustomRule, candidate *candidate) string {
-	if customTarRule == nil {
-		return replaceVariable(nil, candidate)
-	}
-	return replaceVariable(customTarRule, candidate)
 }
 
 // There are four situations in total
