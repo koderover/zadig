@@ -57,7 +57,13 @@ func ShortenFileBase(baseDir, fullPath string) string {
 
 // Tar archives the src file system and saves to disk with path dst.
 // src file system is a tree of files from disk, memory or any other places which implement fs.FS.
-func Tar(src fs.FS, dst string) (err error) {
+func Tar(src fs.FS, dst string) error {
+	dir := filepath.Dir(dst)
+	err := os.MkdirAll(dir, 0755)
+	if err != nil {
+		return err
+	}
+
 	fw, err := os.Create(dst)
 	if err != nil {
 		return err
@@ -79,6 +85,10 @@ func Tar(src fs.FS, dst string) (err error) {
 	return fs.WalkDir(src, ".", func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
+		}
+
+		if path == "." {
+			return nil
 		}
 
 		fileInfo, err := entry.Info()
