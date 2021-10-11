@@ -422,7 +422,7 @@ func UpdateProject(name string, args *template.Product, log *zap.SugaredLogger) 
 	return nil
 }
 
-func validateRule(customImageRule *template.CustomRule, customTarRule *template.CustomRule) error {
+func validateRule(customImageRule *template.CustomImageRule, customTarRule *template.CustomTarRule) error {
 	imagePRRule := customImageRule.PRRule
 	if err := validateCommonRule(imagePRRule, config.ImageResourceType+" pr", config.ImageResourceType); err != nil {
 		return err
