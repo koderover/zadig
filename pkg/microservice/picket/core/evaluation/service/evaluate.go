@@ -47,14 +47,6 @@ type HTTP struct {
 	Headers map[string]string `json:"headers"`
 }
 
-func copyHeader(dst, src http.Header) {
-	for k, vv := range src {
-		for _, v := range vv {
-			dst.Add(k, v)
-		}
-	}
-}
-
 type OpaRes struct {
 	Result bool `json:"result"`
 }

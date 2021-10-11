@@ -17,14 +17,11 @@ limitations under the License.
 package handler
 
 import (
-	"fmt"
-
-	e "github.com/koderover/zadig/pkg/tool/errors"
-
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/microservice/picket/core/evaluation/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 type EvaluateArgs struct {
@@ -42,7 +39,6 @@ func Evaluate(c *gin.Context) {
 	args := new(EvaluateArgs)
 
 	if err := c.ShouldBindJSON(args); err != nil {
-		fmt.Println(err)
 		ctx.Err = e.ErrInvalidParam.AddErr(err).AddDesc("invalid EvaluateArgs")
 		return
 	}
