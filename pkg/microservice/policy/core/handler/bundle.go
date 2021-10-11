@@ -17,6 +17,7 @@ limitations under the License.
 package handler
 
 import (
+	"net/http"
 	"path/filepath"
 
 	"github.com/gin-gonic/gin"
@@ -29,7 +30,7 @@ func DownloadBundle(c *gin.Context) {
 	revision := bundle.GetRevision()
 	matching := c.GetHeader("If-None-Match")
 	if revision != "" && revision == matching {
-		c.Status(304)
+		c.Status(http.StatusNotModified)
 		return
 	}
 
