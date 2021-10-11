@@ -52,7 +52,7 @@ type opaRes struct {
 	Result bool `json:"result"`
 }
 
-func Evaluate(logger *zap.SugaredLogger, header http.Header, projectName string, grantsReq []GrantReq) (interface{}, error) {
+func Evaluate(logger *zap.SugaredLogger, header http.Header, projectName string, grantsReq []GrantReq) ([]GrantRes, error) {
 	// 拼接参数，请求opa
 	authorization := header.Get("authorization")
 	opaHeaders := map[string]string{}
