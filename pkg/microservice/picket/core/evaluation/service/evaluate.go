@@ -17,8 +17,9 @@ limitations under the License.
 package service
 
 import (
-	"fmt"
+	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/koderover/zadig/pkg/microservice/picket/client/opa"
 	"go.uber.org/zap"
@@ -42,8 +43,8 @@ type Request struct {
 }
 
 type HTTP struct {
-	Method  string      `json:"method"`
-	Headers http.Header `json:"headers"`
+	Method  string            `json:"method"`
+	Headers map[string]string `json:"headers"`
 }
 
 func copyHeader(dst, src http.Header) {
@@ -54,22 +55,47 @@ func copyHeader(dst, src http.Header) {
 	}
 }
 
-func Evaluate(logger *zap.SugaredLogger, header http.Header, projectName string) (interface{}, error) {
+type OpaRes struct {
+	Result bool `json:"result"`
+}
+
+func Evaluate(logger *zap.SugaredLogger, header http.Header, projectName string, argsGrants []Grant) (interface{}, error) {
 	// 拼接参数，请求opa
-	opaHeaders := http.Header{}
-	copyHeader(opaHeaders, header)
-	input := Input{
-		ParsedQuery: ParseQuery{
-			ProjectName: []string{projectName},
-		},
-		ParsedPath: nil,
-		Attributes: Attributes{
-			Request: Request{Http: HTTP{
-				Method:  "",
-				Headers: opaHeaders,
-			}},
-		},
+	authorization := header.Get("authorization")
+	opaHeaders := map[string]string{}
+	opaHeaders["authorization"] = authorization
+	// 对于每一个action+endpoint 都去请求opa
+	for k, v := range argsGrants {
+		parsedPath := strings.Split(v.EndPoint, "/")
+		input := Input{
+			ParsedQuery: ParseQuery{
+				ProjectName: []string{projectName},
+			},
+			ParsedPath: parsedPath,
+			Attributes: Attributes{
+				Request: Request{Http: HTTP{
+					Method:  v.Method,
+					Headers: opaHeaders,
+				}},
+			},
+		}
+		res, err := opa.NewDefault().Evaluate("rbac.allow", input)
+		if err != nil {
+			logger.Errorf("opa evaluate err %s", err)
+			continue
+		}
+		var opaR OpaRes
+		if err := json.Unmarshal(res, &opaR); err != nil {
+			logger.Errorf("opa res Unmarshal err %s", err)
+			continue
+		}
+		argsGrants[k].Allow = opaR.Result
 	}
-	fmt.Printf("%+v", input)
-	return opa.NewDefault().Evaluate("rbac.projcet_name", input)
+	return argsGrants, nil
+}
+
+type Grant struct {
+	EndPoint string `json:"endpoint"`
+	Method   string `json:"method"`
+	Allow    bool   `json:"allow"`
 }

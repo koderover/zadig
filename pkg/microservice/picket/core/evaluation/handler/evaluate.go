@@ -17,7 +17,9 @@ limitations under the License.
 package handler
 
 import (
-	"errors"
+	"fmt"
+
+	e "github.com/koderover/zadig/pkg/tool/errors"
 
 	"github.com/gin-gonic/gin"
 
@@ -25,13 +27,24 @@ import (
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
+type EvaluateArgs struct {
+	Grants []service.Grant `json:"grants"`
+}
+
 func Evaluate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	projectName := c.Query("projectName")
 	if projectName == "" {
-		ctx.Err = errors.New("参数错误")
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid EvaluateArgs , projectName is empty")
 		return
 	}
-	ctx.Resp, ctx.Err = service.Evaluate(ctx.Logger, c.Request.Header, projectName)
+	args := new(EvaluateArgs)
+
+	if err := c.ShouldBindJSON(args); err != nil {
+		fmt.Println(err)
+		ctx.Err = e.ErrInvalidParam.AddErr(err).AddDesc("invalid EvaluateArgs")
+		return
+	}
+	ctx.Resp, ctx.Err = service.Evaluate(ctx.Logger, c.Request.Header, projectName, args.Grants)
 }
