@@ -46,7 +46,7 @@ type Task struct {
 	AgentHost    string                   `bson:"agent_host,omitempty"      json:"agent_host,omitempty"`
 	DockerHost   string                   `bson:"-"                         json:"docker_host,omitempty"`
 	TeamName     string                   `bson:"team,omitempty"            json:"team,omitempty"`
-	EnvName      string                   `bson:"-"                         json:"team,omitempty"`
+	EnvName      string                   `bson:"-"                         json:"-,omitempty"`
 	IsDeleted    bool                     `bson:"is_deleted"                json:"is_deleted"`
 	IsArchived   bool                     `bson:"is_archived"               json:"is_archived"`
 	AgentID      string                   `bson:"agent_id"        json:"agent_id"`
