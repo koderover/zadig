@@ -468,8 +468,8 @@ func validateRule(customImageRule *template.CustomImageRule, customTarRule *temp
 
 func validateCommonRule(currentRule, ruleType, deliveryType string) error {
 	var (
-		imageRegexString = "^[a-z0-9-._][a-zA-Z0-9_.-:]+$"
-		tarRegexString   = "^[a-zA-Z0-9][a-zA-Z0-9_.-]+$"
+		imageRegexString = "^[a-z0-9][a-zA-Z0-9-_:.]+$"
+		tarRegexString   = "^[a-z0-9][a-zA-Z0-9-_.]+$"
 		errMessage       = "the rule contains invalid characters, please inquire for help"
 	)
 
