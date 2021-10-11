@@ -38,7 +38,7 @@ func Serve(ctx context.Context) error {
 	log.Info("Start adaptor service")
 
 	engine := rest.NewEngine()
-	server := &http.Server{Addr: ":8077", Handler: engine}
+	server := &http.Server{Addr: ":80", Handler: engine}
 
 	stopChan := make(chan struct{})
 	go func() {
