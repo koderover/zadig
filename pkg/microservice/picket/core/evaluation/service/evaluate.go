@@ -59,13 +59,15 @@ type OpaRes struct {
 	Result bool `json:"result"`
 }
 
-func Evaluate(logger *zap.SugaredLogger, header http.Header, projectName string, argsGrants []Grant) (interface{}, error) {
+func Evaluate(logger *zap.SugaredLogger, header http.Header, projectName string, grantsReq []GrantReq) (interface{}, error) {
 	// 拼接参数，请求opa
 	authorization := header.Get("authorization")
 	opaHeaders := map[string]string{}
 	opaHeaders["authorization"] = authorization
+
+	var grantsRes []GrantRes
 	// 对于每一个action+endpoint 都去请求opa
-	for k, v := range argsGrants {
+	for _, v := range grantsReq {
 		parsedPath := strings.Split(v.EndPoint, "/")
 		input := Input{
 			ParsedQuery: ParseQuery{
@@ -89,13 +91,17 @@ func Evaluate(logger *zap.SugaredLogger, header http.Header, projectName string,
 			logger.Errorf("opa res Unmarshal err %s", err)
 			continue
 		}
-		argsGrants[k].Allow = opaR.Result
+		grantsRes = append(grantsRes, GrantRes{v, opaR.Result})
 	}
-	return argsGrants, nil
+	return grantsRes, nil
 }
 
-type Grant struct {
+type GrantReq struct {
 	EndPoint string `json:"endpoint"`
 	Method   string `json:"method"`
-	Allow    bool   `json:"allow"`
+}
+
+type GrantRes struct {
+	GrantReq
+	Allow bool `json:"allow"`
 }

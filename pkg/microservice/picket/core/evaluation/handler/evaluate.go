@@ -28,7 +28,7 @@ import (
 )
 
 type EvaluateArgs struct {
-	Grants []service.Grant `json:"grants"`
+	Data []service.GrantReq `json:"data"`
 }
 
 func Evaluate(c *gin.Context) {
@@ -46,5 +46,11 @@ func Evaluate(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err).AddDesc("invalid EvaluateArgs")
 		return
 	}
-	ctx.Resp, ctx.Err = service.Evaluate(ctx.Logger, c.Request.Header, projectName, args.Grants)
+	data, err := service.Evaluate(ctx.Logger, c.Request.Header, projectName, args.Data)
+	ctx.Resp = Res{data}
+	ctx.Err = err
+}
+
+type Res struct {
+	Data interface{} `json:"data"`
 }
