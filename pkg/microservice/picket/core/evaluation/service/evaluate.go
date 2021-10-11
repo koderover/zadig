@@ -21,24 +21,25 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/koderover/zadig/pkg/microservice/picket/client/opa"
 	"go.uber.org/zap"
+
+	"github.com/koderover/zadig/pkg/microservice/picket/client/opa"
 )
 
-type Input struct {
-	ParsedQuery ParseQuery `json:"parsed_query"`
+type input struct {
+	ParsedQuery parseQuery `json:"parsed_query"`
 	ParsedPath  []string   `json:"parsed_path"`
-	Attributes  Attributes `json:"attributes"`
+	Attributes  attributes `json:"attributes"`
 }
-type ParseQuery struct {
+type parseQuery struct {
 	ProjectName []string `json:"projectName"`
 }
 
-type Attributes struct {
-	Request Request `json:"request"`
+type attributes struct {
+	Request request `json:"request"`
 }
 
-type Request struct {
+type request struct {
 	Http HTTP `json:"http"`
 }
 
@@ -47,7 +48,7 @@ type HTTP struct {
 	Headers map[string]string `json:"headers"`
 }
 
-type OpaRes struct {
+type opaRes struct {
 	Result bool `json:"result"`
 }
 
@@ -58,27 +59,28 @@ func Evaluate(logger *zap.SugaredLogger, header http.Header, projectName string,
 	opaHeaders["authorization"] = authorization
 
 	var grantsRes []GrantRes
+	opaClient := opa.NewDefault()
 	// 对于每一个action+endpoint 都去请求opa
 	for _, v := range grantsReq {
-		parsedPath := strings.Split(v.EndPoint, "/")
-		input := Input{
-			ParsedQuery: ParseQuery{
+		parsedPath := strings.Split(strings.Trim(v.EndPoint, "/"), "/")
+		input := input{
+			ParsedQuery: parseQuery{
 				ProjectName: []string{projectName},
 			},
 			ParsedPath: parsedPath,
-			Attributes: Attributes{
-				Request: Request{Http: HTTP{
+			Attributes: attributes{
+				Request: request{Http: HTTP{
 					Method:  v.Method,
 					Headers: opaHeaders,
 				}},
 			},
 		}
-		res, err := opa.NewDefault().Evaluate("rbac.allow", input)
+		res, err := opaClient.Evaluate("rbac.allow", input)
 		if err != nil {
-			logger.Errorf("opa evaluate err %s", err)
+			logger.Errorf("opa evaluate endpoint: %v method: %v err: %s", v.EndPoint, v.Method, err)
 			continue
 		}
-		var opaR OpaRes
+		var opaR opaRes
 		if err := json.Unmarshal(res, &opaR); err != nil {
 			logger.Errorf("opa res Unmarshal err %s", err)
 			continue

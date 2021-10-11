@@ -24,8 +24,12 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-type EvaluateArgs struct {
+type evaluateArgs struct {
 	Data []service.GrantReq `json:"data"`
+}
+
+type evaluateResp struct {
+	Data interface{} `json:"data"`
 }
 
 func Evaluate(c *gin.Context) {
@@ -36,17 +40,13 @@ func Evaluate(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid EvaluateArgs , projectName is empty")
 		return
 	}
-	args := new(EvaluateArgs)
+	args := new(evaluateArgs)
 
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err).AddDesc("invalid EvaluateArgs")
 		return
 	}
 	data, err := service.Evaluate(ctx.Logger, c.Request.Header, projectName, args.Data)
-	ctx.Resp = Res{data}
+	ctx.Resp = evaluateResp{data}
 	ctx.Err = err
-}
-
-type Res struct {
-	Data interface{} `json:"data"`
 }
