@@ -478,7 +478,7 @@ func validateCommonRule(currentRule, ruleType, deliveryType string) error {
 	}
 
 	if deliveryType == config.ImageResourceType && !strings.Contains(currentRule, ":") {
-		return fmt.Errorf(fmt.Sprintf("%s rule is invalid, must contain a colon", ruleType))
+		return fmt.Errorf("%s rule is invalid, must contain a colon", ruleType)
 	}
 
 	currentRule = strings.Replace(currentRule, "${SERVICE}", "ssss", -1)
@@ -495,11 +495,11 @@ func validateCommonRule(currentRule, ruleType, deliveryType string) error {
 	switch deliveryType {
 	case config.ImageResourceType:
 		if !regexp.MustCompile(imageRegexString).MatchString(currentRule) {
-			return fmt.Errorf(fmt.Sprintf("%s %s", ruleType, errMessage))
+			return fmt.Errorf("%s %s", ruleType, errMessage)
 		}
 	case config.TarResourceType:
 		if !regexp.MustCompile(tarRegexString).MatchString(currentRule) {
-			return fmt.Errorf(fmt.Sprintf("%s %s", ruleType, errMessage))
+			return fmt.Errorf("%s %s", ruleType, errMessage)
 		}
 	}
 	return nil
