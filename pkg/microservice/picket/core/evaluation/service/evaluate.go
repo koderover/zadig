@@ -52,7 +52,7 @@ type opaRes struct {
 	Result bool `json:"result"`
 }
 
-func Evaluate(logger *zap.SugaredLogger, header http.Header, projectName string, grantsReq []GrantReq) ([]GrantRes, error) {
+func Evaluate(header http.Header, projectName string, grantsReq []GrantReq, logger *zap.SugaredLogger) ([]GrantRes, error) {
 	// 拼接参数，请求opa
 	authorization := header.Get("authorization")
 	opaHeaders := map[string]string{}
@@ -67,11 +67,13 @@ func Evaluate(logger *zap.SugaredLogger, header http.Header, projectName string,
 		res, err := opaClient.Evaluate("rbac.allow", input)
 		if err != nil {
 			logger.Errorf("opa evaluate endpoint: %v method: %v err: %s", v.EndPoint, v.Method, err)
+			grantsRes = append(grantsRes, GrantRes{v, false})
 			continue
 		}
 		var opaR opaRes
 		if err := json.Unmarshal(res, &opaR); err != nil {
 			logger.Errorf("opa res Unmarshal err %s", err)
+			grantsRes = append(grantsRes, GrantRes{v, false})
 			continue
 		}
 		grantsRes = append(grantsRes, GrantRes{v, opaR.Result})

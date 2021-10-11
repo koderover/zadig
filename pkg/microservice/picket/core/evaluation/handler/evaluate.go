@@ -46,7 +46,7 @@ func Evaluate(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err).AddDesc("invalid EvaluateArgs")
 		return
 	}
-	data, err := service.Evaluate(ctx.Logger, c.Request.Header, projectName, args.Data)
+	data, err := service.Evaluate(c.Request.Header, projectName, args.Data, ctx.Logger)
 	ctx.Resp = evaluateResp{data}
 	ctx.Err = err
 }
