@@ -63,18 +63,7 @@ func Evaluate(logger *zap.SugaredLogger, header http.Header, projectName string,
 	// 对于每一个action+endpoint 都去请求opa
 	for _, v := range grantsReq {
 		parsedPath := strings.Split(strings.Trim(v.EndPoint, "/"), "/")
-		input := input{
-			ParsedQuery: parseQuery{
-				ProjectName: []string{projectName},
-			},
-			ParsedPath: parsedPath,
-			Attributes: attributes{
-				Request: request{Http: HTTP{
-					Method:  v.Method,
-					Headers: opaHeaders,
-				}},
-			},
-		}
+		input := generateOPAInput(projectName, parsedPath, v.Method, opaHeaders)
 		res, err := opaClient.Evaluate("rbac.allow", input)
 		if err != nil {
 			logger.Errorf("opa evaluate endpoint: %v method: %v err: %s", v.EndPoint, v.Method, err)
@@ -98,4 +87,19 @@ type GrantReq struct {
 type GrantRes struct {
 	GrantReq
 	Allow bool `json:"allow"`
+}
+
+func generateOPAInput(projectName string, parsedPath []string, method string, head map[string]string) input {
+	return input{
+		ParsedQuery: parseQuery{
+			ProjectName: []string{projectName},
+		},
+		ParsedPath: parsedPath,
+		Attributes: attributes{
+			Request: request{Http: HTTP{
+				Method:  method,
+				Headers: head,
+			}},
+		},
+	}
 }
