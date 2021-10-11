@@ -17,6 +17,8 @@ limitations under the License.
 package handler
 
 import (
+	"errors"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/microservice/picket/core/evaluation/service"
@@ -26,6 +28,10 @@ import (
 func Evaluate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	ctx.Resp, ctx.Err = service.Evaluate(ctx.Logger)
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = errors.New("参数错误")
+		return
+	}
+	ctx.Resp, ctx.Err = service.Evaluate(ctx.Logger, c.Request.Header, projectName)
 }
