@@ -522,9 +522,9 @@ func releaseCandidate(b *task.Build, taskID int64, productName, envName, deliver
 			ServiceName: b.ServiceName,
 		}
 		switch deliveryType {
-		case "image":
+		case config.ImageResourceType:
 			return generateImageCandidate(customImageRule, candidate)
-		case "tar":
+		case config.TarResourceType:
 			return generateTarCandidate(customTarRule, candidate)
 		}
 	}

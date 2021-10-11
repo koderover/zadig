@@ -424,42 +424,42 @@ func UpdateProject(name string, args *template.Product, log *zap.SugaredLogger) 
 
 func validateRule(customImageRule *template.CustomImageRule, customTarRule *template.CustomTarRule) error {
 	imagePRRule := customImageRule.PRRule
-	if err := validateCommonRule(imagePRRule, "image pr", "image"); err != nil {
+	if err := validateCommonRule(imagePRRule, config.ImageResourceType+" pr", config.ImageResourceType); err != nil {
 		return err
 	}
 
 	imageBranchRule := customImageRule.BranchRule
-	if err := validateCommonRule(imageBranchRule, "image branch", "image"); err != nil {
+	if err := validateCommonRule(imageBranchRule, config.ImageResourceType+" branch", config.ImageResourceType); err != nil {
 		return err
 	}
 
 	imageTagRule := customImageRule.TagRule
-	if err := validateCommonRule(imageTagRule, "image tag", "image"); err != nil {
+	if err := validateCommonRule(imageTagRule, config.ImageResourceType+" tag", config.ImageResourceType); err != nil {
 		return err
 	}
 
 	imagePrBranchRule := customImageRule.PRAndBranchRule
-	if err := validateCommonRule(imagePrBranchRule, "image pr branch", "image"); err != nil {
+	if err := validateCommonRule(imagePrBranchRule, config.ImageResourceType+" pr branch", config.ImageResourceType); err != nil {
 		return err
 	}
 
 	tarPRRule := customTarRule.PRRule
-	if err := validateCommonRule(tarPRRule, "tar pr", "tar"); err != nil {
+	if err := validateCommonRule(tarPRRule, config.TarResourceType+" pr", config.TarResourceType); err != nil {
 		return err
 	}
 
 	tarBranchRule := customTarRule.BranchRule
-	if err := validateCommonRule(tarBranchRule, "tar branch", "tar"); err != nil {
+	if err := validateCommonRule(tarBranchRule, config.TarResourceType+" branch", config.TarResourceType); err != nil {
 		return err
 	}
 
 	tarTagRule := customTarRule.TagRule
-	if err := validateCommonRule(tarTagRule, "tar tag", "tar"); err != nil {
+	if err := validateCommonRule(tarTagRule, config.TarResourceType+" tag", config.TarResourceType); err != nil {
 		return err
 	}
 
 	tarPRBranchRule := customTarRule.PRAndBranchRule
-	if err := validateCommonRule(tarPRBranchRule, "tar pr branch", "tar"); err != nil {
+	if err := validateCommonRule(tarPRBranchRule, config.TarResourceType+" pr branch", config.TarResourceType); err != nil {
 		return err
 	}
 
@@ -477,7 +477,7 @@ func validateCommonRule(currentRule, ruleType, deliveryType string) error {
 		return fmt.Errorf("%s rule can not be empty", ruleType)
 	}
 
-	if deliveryType == "image" && !strings.Contains(currentRule, ":") {
+	if deliveryType == config.ImageResourceType && !strings.Contains(currentRule, ":") {
 		return fmt.Errorf(fmt.Sprintf("%s rule is invalid, must contain a colon", ruleType))
 	}
 
@@ -493,11 +493,11 @@ func validateCommonRule(currentRule, ruleType, deliveryType string) error {
 	currentRule = strings.Replace(currentRule, "${REPO_TAG}", "ssss", -1)
 
 	switch deliveryType {
-	case "image":
+	case config.ImageResourceType:
 		if !regexp.MustCompile(imageRegexString).MatchString(currentRule) {
 			return fmt.Errorf(fmt.Sprintf("%s %s", ruleType, errMessage))
 		}
-	case "tar":
+	case config.TarResourceType:
 		if !regexp.MustCompile(tarRegexString).MatchString(currentRule) {
 			return fmt.Errorf(fmt.Sprintf("%s %s", ruleType, errMessage))
 		}

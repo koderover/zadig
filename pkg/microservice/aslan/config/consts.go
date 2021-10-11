@@ -214,3 +214,8 @@ const (
 const (
 	SWRProvider = "swr"
 )
+
+const (
+	ImageResourceType = "image"
+	TarResourceType   = "tar"
+)
