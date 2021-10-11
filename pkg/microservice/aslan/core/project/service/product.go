@@ -470,7 +470,7 @@ func validateCommonRule(currentRule, ruleType, deliveryType string) error {
 	var (
 		imageRegexString = "^[a-z0-9][a-zA-Z0-9-_:.]+$"
 		tarRegexString   = "^[a-z0-9][a-zA-Z0-9-_.]+$"
-		errMessage       = "the rule contains invalid characters, please inquire for help"
+		errMessage       = "rule contains invalid characters, please check"
 	)
 
 	if currentRule == "" {
@@ -492,15 +492,14 @@ func validateCommonRule(currentRule, ruleType, deliveryType string) error {
 	currentRule = strings.Replace(currentRule, "${REPO_PR}", "ssss", -1)
 	currentRule = strings.Replace(currentRule, "${REPO_TAG}", "ssss", -1)
 
-	log.Infof("currentRule:%s", currentRule)
 	switch deliveryType {
 	case "image":
 		if !regexp.MustCompile(imageRegexString).MatchString(currentRule) {
-			return fmt.Errorf(errMessage)
+			return fmt.Errorf(fmt.Sprintf("%s %s", ruleType, errMessage))
 		}
 	case "tar":
 		if !regexp.MustCompile(tarRegexString).MatchString(currentRule) {
-			return fmt.Errorf(errMessage)
+			return fmt.Errorf(fmt.Sprintf("%s %s", ruleType, errMessage))
 		}
 	}
 	return nil
