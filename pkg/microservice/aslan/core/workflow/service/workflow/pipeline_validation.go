@@ -505,11 +505,13 @@ func releaseCandidate(b *task.Build, taskID int64, productName, envName, deliver
 			customTarRule   *template.CustomTarRule
 		)
 
-		project, err := templaterepo.NewProductColl().Find(productName)
-		if err == nil {
+		if project, err := templaterepo.NewProductColl().Find(productName); err != nil {
+			log.Errorf("find project err:%s", err)
+		} else {
 			customImageRule = project.CustomImageRule
 			customTarRule = project.CustomTarRule
 		}
+
 		candidate := &candidate{
 			Branch:      string(reg.ReplaceAll([]byte(first.Branch), []byte("-"))),
 			CommitID:    first.CommitID,
@@ -568,6 +570,11 @@ func generateTarCandidate(customTarRule *template.CustomTarRule, candidate *cand
 	}, candidate)
 }
 
+// There are four situations in total
+// 1.Execute workflow selection tag build
+// 2.Execute workflow selection branch and pr build
+// 3.Execute workflow selection branch pr build
+// 4.Execute workflow selection branch build
 func replaceVariable(customRule *template.CustomRule, candidate *candidate) string {
 	var currentRule string
 	if candidate.Tag != "" {
