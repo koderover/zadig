@@ -47,6 +47,6 @@ func Evaluate(c *gin.Context) {
 		return
 	}
 	data, err := service.Evaluate(c.Request.Header, projectName, args.Data, ctx.Logger)
-	ctx.Resp = evaluateResp{data}
+	ctx.Resp = evaluateResp{Data: data}
 	ctx.Err = err
 }
