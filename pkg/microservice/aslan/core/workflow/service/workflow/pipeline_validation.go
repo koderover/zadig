@@ -510,6 +510,7 @@ func releaseCandidate(b *task.Build, taskID int64, productName, envName, deliver
 			customImageRule = project.CustomImageRule
 			customTarRule = project.CustomTarRule
 		}
+		log.Infof("first.tag:%s", first.Tag)
 		candidate := &candidate{
 			Branch:      string(reg.ReplaceAll([]byte(first.Branch), []byte("-"))),
 			CommitID:    first.CommitID,
@@ -521,6 +522,7 @@ func releaseCandidate(b *task.Build, taskID int64, productName, envName, deliver
 			ProductName: productName,
 			ServiceName: b.ServiceName,
 		}
+		log.Infof("candidate.tag:%s", candidate.Tag)
 		switch deliveryType {
 		case "image":
 			return generateImageCandidate(customImageRule, candidate)
