@@ -501,8 +501,8 @@ func releaseCandidate(b *task.Build, taskID int64, productName, envName, deliver
 		// 替换 Tag 和 Branch 中的非法字符为 "-", 避免 docker build 失败
 		var (
 			reg             = regexp.MustCompile(`[^\w.-]`)
-			customImageRule *template.CustomImageRule
-			customTarRule   *template.CustomTarRule
+			customImageRule *template.CustomRule
+			customTarRule   *template.CustomRule
 		)
 
 		if project, err := templaterepo.NewProductColl().Find(productName); err != nil {
@@ -545,29 +545,19 @@ type candidate struct {
 	EnvName     string
 }
 
-func generateImageCandidate(customImageRule *template.CustomImageRule, candidate *candidate) string {
+func generateImageCandidate(customImageRule *template.CustomRule, candidate *candidate) string {
 	if customImageRule == nil {
 		return replaceVariable(nil, candidate)
 	}
 
-	return replaceVariable(&template.CustomRule{
-		PRRule:          customImageRule.PRRule,
-		BranchRule:      customImageRule.BranchRule,
-		PRAndBranchRule: customImageRule.PRAndBranchRule,
-		TagRule:         customImageRule.TagRule,
-	}, candidate)
+	return replaceVariable(customImageRule, candidate)
 }
 
-func generateTarCandidate(customTarRule *template.CustomTarRule, candidate *candidate) string {
+func generateTarCandidate(customTarRule *template.CustomRule, candidate *candidate) string {
 	if customTarRule == nil {
 		return replaceVariable(nil, candidate)
 	}
-	return replaceVariable(&template.CustomRule{
-		PRRule:          customTarRule.PRRule,
-		BranchRule:      customTarRule.BranchRule,
-		PRAndBranchRule: customTarRule.PRAndBranchRule,
-		TagRule:         customTarRule.TagRule,
-	}, candidate)
+	return replaceVariable(customTarRule, candidate)
 }
 
 // There are four situations in total
