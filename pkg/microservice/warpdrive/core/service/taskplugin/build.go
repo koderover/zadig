@@ -130,8 +130,8 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, privateKeysVar)
 
 	// env host ips
-	for envName, HostNames := range p.Task.EnvHostInfo {
-		envHostKeysVar := &task.KeyVal{Key: envName + "_HOST_IPs", Value: strings.Join(HostNames, ","), IsCredential: false}
+	for envName, HostIPs := range p.Task.EnvHostInfo {
+		envHostKeysVar := &task.KeyVal{Key: envName + "_HOST_IPs", Value: strings.Join(HostIPs, ","), IsCredential: false}
 		p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, envHostKeysVar)
 	}
 
