@@ -94,12 +94,10 @@ func ListBuild(name, targets, productName string, log *zap.SugaredLogger) ([]*Bu
 		}
 
 		for _, pipe := range pipes {
-			if pipe.BuildModuleVer == "stable" {
-				//	current build module used by this pipeline
-				for _, serviceModuleTarget := range b.Targets {
-					if serviceModuleTarget.ServiceModule == pipe.Target {
-						b.Pipelines = append(b.Pipelines, pipe.Name)
-					}
+			// current build module used by this pipeline
+			for _, serviceModuleTarget := range b.Targets {
+				if serviceModuleTarget.ServiceModule == pipe.Target {
+					b.Pipelines = append(b.Pipelines, pipe.Name)
 				}
 			}
 		}
