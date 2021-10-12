@@ -592,14 +592,12 @@ func replaceVariable(customRule *template.CustomRule, candidate *candidate) stri
 
 // GetImage suffix 可以是 branch name 或者 pr number
 func GetImage(registry *commonmodels.RegistryNamespace, suffix string) string {
-	image := fmt.Sprintf("%s/%s/%s", util.GetURLHostName(registry.RegAddr), registry.Namespace, suffix)
-	return image
+	return fmt.Sprintf("%s/%s/%s", util.GetURLHostName(registry.RegAddr), registry.Namespace, suffix)
 }
 
 // GetPackageFile suffix 可以是 branch name 或者 pr number
 func GetPackageFile(suffix string) string {
-	packageFile := fmt.Sprintf("%s.tar.gz", suffix)
-	return packageFile
+	return fmt.Sprintf("%s.tar.gz", suffix)
 }
 
 // prepareTaskEnvs 注入运行pipeline task所需要环境变量
