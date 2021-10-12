@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -39,6 +40,8 @@ type ProjectListOptions struct {
 
 type ProjectDetailedRepresentation struct {
 	*ProjectBriefRepresentation
+	Product string
+	Desc    string
 }
 
 type ProjectBriefRepresentation struct {
@@ -82,7 +85,7 @@ func listDetailedProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogge
 			continue
 		}
 		res = append(res, &ProjectDetailedRepresentation{
-			&ProjectBriefRepresentation{
+			ProjectBriefRepresentation: &ProjectBriefRepresentation{
 				ProjectMinimalRepresentation: &ProjectMinimalRepresentation{Name: nameWithEnv.ProjectName},
 				Envs:                         nameWithEnv.Envs,
 			},
@@ -90,13 +93,19 @@ func listDetailedProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogge
 		nameWithEnvsSet.Insert(nameWithEnv.ProjectName)
 	}
 
+	projects, err := template.NewProductColl().FindProjects(opts.Projects)
+	if err != nil {
+		return nil, err
+	}
 	if !opts.IgnoreNoEnvs {
-		for _, name := range opts.Projects {
-			if !nameWithEnvsSet.Has(name) {
+		for _, project := range projects {
+			if !nameWithEnvsSet.Has(project.ProjectName) {
 				res = append(res, &ProjectDetailedRepresentation{
-					&ProjectBriefRepresentation{
-						ProjectMinimalRepresentation: &ProjectMinimalRepresentation{Name: name},
+					ProjectBriefRepresentation: &ProjectBriefRepresentation{
+						ProjectMinimalRepresentation: &ProjectMinimalRepresentation{Name: project.ProjectName},
 					},
+					Product: project.ProductName,
+					Desc:    project.Description,
 				})
 			}
 		}

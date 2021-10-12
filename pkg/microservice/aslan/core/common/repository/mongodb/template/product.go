@@ -71,6 +71,22 @@ func (c *ProductColl) FindProjectName(project string) (*template.Product, error)
 	return resp, err
 }
 
+func (c *ProductColl) FindProjects(projects []string) ([]*template.Product, error) {
+	resp := make([]*template.Product, 0)
+	ctx := context.TODO()
+	query := bson.M{"project_name": bson.M{"$in": projects}}
+	cursor, err := c.Collection.Find(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cursor.All(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 func (c *ProductColl) List() ([]*template.Product, error) {
 	var resp []*template.Product
 
