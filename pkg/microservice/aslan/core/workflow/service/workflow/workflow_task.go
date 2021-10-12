@@ -1623,21 +1623,16 @@ func BuildModuleToSubTasks(moduleName, version, target, serviceName, productName
 		if serviceTmpl != nil {
 			build.Namespace = pro.Namespace
 			build.ServiceType = setting.PMDeployType
-			var (
-				hostIPs []string
-				envHost = make(map[string][]string)
-			)
+			envHost := make(map[string][]string)
 			for _, envConfig := range serviceTmpl.EnvConfigs {
 				privateKeys, err := commonrepo.NewPrivateKeyColl().ListHostIPByIDs(envConfig.HostIDs)
 				if err != nil {
 					log.Errorf("ListNameByIDs err:%s", err)
 					continue
 				}
-				hostIPs = []string{}
 				for _, privateKey := range privateKeys {
-					hostIPs = append(hostIPs, privateKey.IP)
+					envHost[envConfig.EnvName] = append(envHost[envConfig.EnvName], privateKey.IP)
 				}
-				envHost[envConfig.EnvName] = append(envHost[envConfig.EnvName], hostIPs...)
 			}
 			build.EnvHostInfo = envHost
 		}
