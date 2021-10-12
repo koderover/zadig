@@ -17,6 +17,8 @@ limitations under the License.
 package gin
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/setting"
@@ -33,7 +35,7 @@ func Response() gin.HandlerFunc {
 
 func handleResponse(c *gin.Context) {
 	// skip if response or status is already set
-	if c.Writer.Written() || c.Writer.Status() > 0 {
+	if c.Writer.Written() || c.Writer.Status() != http.StatusOK {
 		return
 	}
 
