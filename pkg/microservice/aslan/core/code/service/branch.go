@@ -31,7 +31,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/ilyshin"
 )
 
-func CodeHostListBranches(codeHostID int, projectName, namespace string, page, perPage int, log *zap.SugaredLogger) ([]*Branch, error) {
+func CodeHostListBranches(codeHostID int, projectName, namespace string, page, perPage int, key string, log *zap.SugaredLogger) ([]*Branch, error) {
 	opt := &codehost.Option{
 		CodeHostID: codeHostID,
 	}
@@ -51,7 +51,7 @@ func CodeHostListBranches(codeHostID int, projectName, namespace string, page, p
 			Page:        page,
 			PerPage:     perPage,
 			NoPaginated: true,
-		})
+		}, key)
 		if err != nil {
 			return nil, err
 		}

@@ -108,8 +108,9 @@ func CodeHostGetProjectsList(c *gin.Context) {
 }
 
 type CodeHostGetBranchListArgs struct {
-	PerPage int `json:"perPage"      form:"perPage,default:20"`
-	Page    int `json:"page"         form:"page,default:1"`
+	PerPage int    `json:"perPage"      form:"perPage,default:20"`
+	Page    int    `json:"page"         form:"page,default:1"`
+	Key     string `json:"key"         form:"key"`
 }
 
 func CodeHostGetBranchList(c *gin.Context) {
@@ -146,6 +147,7 @@ func CodeHostGetBranchList(c *gin.Context) {
 		strings.Replace(namespace, "%2F", "/", -1),
 		args.Page,
 		args.PerPage,
+		args.Key,
 		ctx.Logger)
 }
 
