@@ -34,14 +34,14 @@ func FindBuildModule(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = buildservice.FindBuild(c.Param("name"), c.Param("version"), c.Query("productName"), ctx.Logger)
+	ctx.Resp, ctx.Err = buildservice.FindBuild(c.Param("name"), c.Query("productName"), ctx.Logger)
 }
 
 func ListBuildModules(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = buildservice.ListBuild(c.Query("name"), c.Query("version"), c.Query("targets"), c.Query("productName"), ctx.Logger)
+	ctx.Resp, ctx.Err = buildservice.ListBuild(c.Query("name"), c.Query("targets"), c.Query("productName"), ctx.Logger)
 }
 
 func CreateBuildModule(c *gin.Context) {
@@ -96,7 +96,6 @@ func DeleteBuildModule(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	name := c.Query("name")
-	version := c.Query("version")
 	productName := c.Query("productName")
 	internalhandler.InsertOperationLog(c, ctx.Username, productName, "删除", "项目管理-构建", name, "", ctx.Logger)
 
@@ -105,12 +104,7 @@ func DeleteBuildModule(c *gin.Context) {
 		return
 	}
 
-	if version == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty Version")
-		return
-	}
-
-	ctx.Err = buildservice.DeleteBuild(name, version, productName, ctx.Logger)
+	ctx.Err = buildservice.DeleteBuild(name, productName, ctx.Logger)
 }
 
 func UpdateBuildTargets(c *gin.Context) {

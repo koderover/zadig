@@ -30,7 +30,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 	build := router.Group("build")
 	{
-		build.GET("/:name/:version", FindBuildModule)
+		build.GET("/:name", FindBuildModule)
 		build.GET("", ListBuildModules)
 		build.POST("", gin2.StoreProductName, gin2.IsHavePermission([]string{permission.BuildManageUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, CreateBuildModule)
 		build.PUT("", gin2.StoreProductName, gin2.IsHavePermission([]string{permission.BuildManageUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, UpdateBuildModule)
