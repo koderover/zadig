@@ -1627,6 +1627,7 @@ func BuildModuleToSubTasks(moduleName, version, target, serviceName, productName
 			for _, envConfig := range serviceTmpl.EnvConfigs {
 				hostNames, err := commonrepo.NewPrivateKeyColl().ListNameByIDs(envConfig.HostIDs)
 				if err != nil {
+					log.Errorf("ListNameByIDs err:%s", err)
 					continue
 				}
 				envHost[envConfig.EnvName] = append(envHost[envConfig.EnvName], hostNames...)
