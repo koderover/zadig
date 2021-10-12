@@ -24,8 +24,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/koderover/zadig/pkg/util/converter"
-
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -50,7 +48,9 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
+	"github.com/koderover/zadig/pkg/util/converter"
 	"github.com/koderover/zadig/pkg/util/fs"
+	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 // InitializeDeployTaskPlugin to initiate deploy task plugin and return ref
@@ -626,15 +626,7 @@ func getValidMatchData(spec *types.ImagePathSpec) map[string]string {
 
 // replace image defines in yaml by new version
 func replaceImage(sourceYaml string, imageValuesMap map[string]interface{}) (string, error) {
-	flatSourceMap, err := converter.YamlToFlatMap([]byte(sourceYaml))
-	if err != nil {
-		return "", err
-	}
-	for tk, tv := range imageValuesMap {
-		flatSourceMap[tk] = tv
-	}
-
-	nestedMap, err := converter.Expand(flatSourceMap)
+	nestedMap, err := converter.Expand(imageValuesMap)
 	if err != nil {
 		return "", err
 	}
@@ -643,7 +635,12 @@ func replaceImage(sourceYaml string, imageValuesMap map[string]interface{}) (str
 	if err != nil {
 		return "", err
 	}
-	return string(bs), nil
+
+	mergedBs, err := yamlutil.Merge([][]byte{[]byte(sourceYaml), bs})
+	if err != nil {
+		return "", err
+	}
+	return string(mergedBs), nil
 }
 
 // assign image url data into match data
