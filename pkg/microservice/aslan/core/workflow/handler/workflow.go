@@ -30,7 +30,6 @@ import (
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 func GetWorkflowProductName(c *gin.Context) {
@@ -79,7 +78,7 @@ func CreateWorkflow(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateWorkflow json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductTmplName, "新增", "工作流", args.Name, permission.WorkflowCreateUUID, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductTmplName, "新增", "工作流", args.Name, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
@@ -104,7 +103,7 @@ func UpdateWorkflow(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdateWorkflow json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductTmplName, "更新", "工作流", args.Name, permission.WorkflowUpdateUUID, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductTmplName, "更新", "工作流", args.Name, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
@@ -141,7 +140,7 @@ func DeleteWorkflow(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	internalhandler.InsertOperationLog(c, ctx.Username, c.GetString("productName"), "删除", "工作流", c.Param("name"), permission.WorkflowDeleteUUID, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, c.GetString("productName"), "删除", "工作流", c.Param("name"), "", ctx.Logger)
 	ctx.Err = commonservice.DeleteWorkflow(c.Param("name"), ctx.RequestID, false, ctx.Logger)
 }
 

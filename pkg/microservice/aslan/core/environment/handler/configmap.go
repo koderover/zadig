@@ -28,7 +28,6 @@ import (
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 func ListConfigMaps(c *gin.Context) {
@@ -56,7 +55,7 @@ func UpdateConfigMap(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdateConfigMap json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "更新", "集成环境-服务-configMap", fmt.Sprintf("环境名称:%s,服务名称:%s", args.EnvName, args.ServiceName), fmt.Sprintf("%s,%s", permission.TestEnvManageUUID, permission.ProdEnvManageUUID), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "更新", "集成环境-服务-configMap", fmt.Sprintf("环境名称:%s,服务名称:%s", args.EnvName, args.ServiceName), string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
@@ -90,7 +89,7 @@ func RollBackConfigMap(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("RollBackConfigMap json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "回滚", "集成环境-服务-configMap", fmt.Sprintf("环境名称:%s,服务名称:%s", args.EnvName, args.ServiceName), fmt.Sprintf("%s,%s", permission.TestEnvManageUUID, permission.ProdEnvManageUUID), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "回滚", "集成环境-服务-configMap", fmt.Sprintf("环境名称:%s,服务名称:%s", args.EnvName, args.ServiceName), string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
