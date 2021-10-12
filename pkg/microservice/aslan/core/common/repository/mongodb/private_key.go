@@ -158,9 +158,9 @@ func (c *PrivateKeyColl) Delete(id string) error {
 	return err
 }
 
-func (c *PrivateKeyColl) ListNameByIDs(ids []string) ([]string, error) {
+func (c *PrivateKeyColl) ListNameByIDs(ids []string) ([]*models.PrivateKey, error) {
 	query := bson.M{}
-	resp := make([]string, 0)
+	resp := make([]*models.PrivateKey, 0)
 	ctx := context.Background()
 
 	var oids []primitive.ObjectID
