@@ -24,6 +24,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/pkg/util/converter"
+
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -624,17 +626,24 @@ func getValidMatchData(spec *types.ImagePathSpec) map[string]string {
 
 // replace image defines in yaml by new version
 func replaceImage(sourceYaml string, imageValuesMap map[string]interface{}) (string, error) {
-	valuesMap := make(map[string]interface{})
-	err := yaml.Unmarshal([]byte(sourceYaml), &valuesMap)
+	flatSourceMap, err := converter.YamlToFlatMap([]byte(sourceYaml))
 	if err != nil {
 		return "", err
 	}
-	replaceMap := util.ReplaceMapValue(valuesMap, imageValuesMap)
-	replacedValuesYaml, err := util.JSONToYaml(replaceMap)
+	for tk, tv := range imageValuesMap {
+		flatSourceMap[tk] = tv
+	}
+
+	nestedMap, err := converter.Expand(flatSourceMap)
 	if err != nil {
 		return "", err
 	}
-	return replacedValuesYaml, nil
+
+	bs, err := yaml.Marshal(nestedMap)
+	if err != nil {
+		return "", err
+	}
+	return string(bs), nil
 }
 
 // assign image url data into match data
