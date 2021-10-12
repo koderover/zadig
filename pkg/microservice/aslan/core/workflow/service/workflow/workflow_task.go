@@ -1623,6 +1623,18 @@ func BuildModuleToSubTasks(moduleName, version, target, serviceName, productName
 		if serviceTmpl != nil {
 			build.Namespace = pro.Namespace
 			build.ServiceType = setting.PMDeployType
+			envHost := make(map[string][]string)
+			for _, envConfig := range serviceTmpl.EnvConfigs {
+				hostNames, err := commonrepo.NewPrivateKeyColl().ListNameByIDs(envConfig.HostIDs)
+				if err != nil {
+					continue
+				}
+				envHost[envConfig.EnvName] = append(envHost[envConfig.EnvName], hostNames...)
+			}
+			build.EnvHostInfo = envHost
+			for key := range envHost {
+				log.Infof("key:%s,value:%+v", key, envHost[key])
+			}
 		}
 
 		if pro != nil {
