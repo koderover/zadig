@@ -17,6 +17,8 @@ limitations under the License.
 package handler
 
 import (
+	"strings"
+
 	"github.com/gin-gonic/gin"
 
 	projectservice "github.com/koderover/zadig/pkg/microservice/aslan/core/project/service"
@@ -26,7 +28,8 @@ import (
 
 type projectListArgs struct {
 	IgnoreNoEnvs bool   `json:"ignoreNoEnvs"    form:"ignoreNoEnvs"`
-	Verbosity    string `json:"verbosity"    form:"verbosity"`
+	Verbosity    string `json:"verbosity"     form:"verbosity"`
+	Projects     string `json:"projects" form:"projects"`
 }
 
 func ListProjects(c *gin.Context) {
@@ -38,9 +41,9 @@ func ListProjects(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-
+	projects := strings.Split(args.Projects, ",")
 	ctx.Resp, ctx.Err = projectservice.ListProjects(
-		&projectservice.ProjectListOptions{IgnoreNoEnvs: args.IgnoreNoEnvs, Verbosity: projectservice.QueryVerbosity(args.Verbosity)},
+		&projectservice.ProjectListOptions{IgnoreNoEnvs: args.IgnoreNoEnvs, Verbosity: projectservice.QueryVerbosity(args.Verbosity), Projects: projects},
 		ctx.Logger,
 	)
 }
