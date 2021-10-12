@@ -1628,7 +1628,7 @@ func BuildModuleToSubTasks(moduleName, version, target, serviceName, productName
 				envHost   = make(map[string][]string)
 			)
 			for _, envConfig := range serviceTmpl.EnvConfigs {
-				privateKeys, err := commonrepo.NewPrivateKeyColl().ListNameByIDs(envConfig.HostIDs)
+				privateKeys, err := commonrepo.NewPrivateKeyColl().ListHostNameByIDs(envConfig.HostIDs)
 				if err != nil {
 					log.Errorf("ListNameByIDs err:%s", err)
 					continue
@@ -1640,9 +1640,6 @@ func BuildModuleToSubTasks(moduleName, version, target, serviceName, productName
 				envHost[envConfig.EnvName] = append(envHost[envConfig.EnvName], hostNames...)
 			}
 			build.EnvHostInfo = envHost
-			for key := range envHost {
-				log.Infof("key:%s,value:%+v", key, envHost[key])
-			}
 		}
 
 		if pro != nil {
