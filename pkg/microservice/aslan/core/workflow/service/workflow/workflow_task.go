@@ -619,11 +619,10 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 			TaskArgs:      workFlowArgsToTaskArgs(target.Name, args),
 			ConfigPayload: configPayload,
 			ProductName:   args.ProductTmplName,
-			EnvName:       args.Namespace,
 		}
 		sort.Sort(ByTaskKind(task.SubTasks))
 
-		if err := ensurePipelineTask(task, log); err != nil {
+		if err := ensurePipelineTask(task, args.Namespace, log); err != nil {
 			log.Errorf("workflow_task ensurePipelineTask taskID:[%d] pipelineName:[%s] err:%v", task.ID, task.PipelineName, err)
 			if err, ok := err.(*ContainerNotFound); ok {
 				err := e.NewWithExtras(
@@ -1459,7 +1458,7 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 		}
 		sort.Sort(ByTaskKind(task.SubTasks))
 
-		if err := ensurePipelineTask(task, log); err != nil {
+		if err := ensurePipelineTask(task, args.Namespace, log); err != nil {
 			log.Errorf("workflow_task ensurePipelineTask task:[%v] err:%v", task, err)
 			if err, ok := err.(*ContainerNotFound); ok {
 				err := e.NewWithExtras(
@@ -1720,7 +1719,7 @@ func BuildModuleToSubTasks(moduleName, version, target, serviceName, productName
 	return subTasks, nil
 }
 
-func ensurePipelineTask(pt *task.Task, log *zap.SugaredLogger) error {
+func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) error {
 	var (
 		buildEnvs []*commonmodels.KeyVal
 	)
@@ -1794,7 +1793,7 @@ func ensurePipelineTask(pt *task.Task, log *zap.SugaredLogger) error {
 					return e.ErrFindRegistry.AddDesc(err.Error())
 				}
 
-				t.JobCtx.Image = GetImage(reg, releaseCandidate(t, pt.TaskID, pt.ProductName, pt.EnvName, "image"))
+				t.JobCtx.Image = GetImage(reg, releaseCandidate(t, pt.TaskID, pt.ProductName, envName, "image"))
 				pt.TaskArgs.Deploy.Image = t.JobCtx.Image
 
 				if pt.ConfigPayload != nil {
@@ -1807,7 +1806,7 @@ func ensurePipelineTask(pt *task.Task, log *zap.SugaredLogger) error {
 				// 二进制文件名称
 				// 编译任务使用 t.JobCtx.PackageFile
 				// 注意: 其他任务从 pt.TaskArgs.Deploy.PackageFile 获取, 必须要有编译任务
-				t.JobCtx.PackageFile = GetPackageFile(releaseCandidate(t, pt.TaskID, pt.ProductName, pt.EnvName, "tar"))
+				t.JobCtx.PackageFile = GetPackageFile(releaseCandidate(t, pt.TaskID, pt.ProductName, envName, "tar"))
 				pt.TaskArgs.Deploy.PackageFile = t.JobCtx.PackageFile
 
 				// 注入编译模块中用户定义环境变量
