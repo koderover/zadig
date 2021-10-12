@@ -26,15 +26,14 @@ import (
 )
 
 type operationLog struct {
-	Username       string `json:"username"`
-	ProductName    string `json:"product_name"`
-	Method         string `json:"method"`
-	PermissionUUID string `json:"permission_uuid"`
-	Function       string `json:"function"`
-	Name           string `json:"name"`
-	RequestBody    string `json:"request_body"`
-	Status         int    `json:"status"`
-	CreatedAt      int64  `json:"created_at"`
+	Username    string `json:"username"`
+	ProductName string `json:"product_name"`
+	Method      string `json:"method"`
+	Function    string `json:"function"`
+	Name        string `json:"name"`
+	RequestBody string `json:"request_body"`
+	Status      int    `json:"status"`
+	CreatedAt   int64  `json:"created_at"`
 }
 
 type updateOperationArgs struct {
@@ -45,18 +44,17 @@ type AddAuditLogResp struct {
 	OperationLogID string `json:"id"`
 }
 
-func (c *Client) AddAuditLog(username, productName, method, function, detail, permissionUUID, requestBody string, log *zap.SugaredLogger) (string, error) {
+func (c *Client) AddAuditLog(username, productName, method, function, detail, requestBody string, log *zap.SugaredLogger) (string, error) {
 	url := "/system/operation"
 	req := operationLog{
-		Username:       username,
-		ProductName:    productName,
-		Method:         method,
-		PermissionUUID: permissionUUID,
-		Function:       function,
-		Name:           detail,
-		RequestBody:    requestBody,
-		Status:         0,
-		CreatedAt:      time.Now().Unix(),
+		Username:    username,
+		ProductName: productName,
+		Method:      method,
+		Function:    function,
+		Name:        detail,
+		RequestBody: requestBody,
+		Status:      0,
+		CreatedAt:   time.Now().Unix(),
 	}
 
 	var operationLogID AddAuditLogResp
