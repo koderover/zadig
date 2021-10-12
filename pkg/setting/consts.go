@@ -166,6 +166,9 @@ const (
 	ClusterNotFound     = "NotFound"
 	ClusterDisconnected = "Disconnected"
 
+	// annotations
+	HelmReleaseNameAnnotation = "meta.helm.sh/release-name"
+
 	EnvCreatedBy              = "createdBy"
 	EnvCreator                = "koderover"
 	PodReady                  = "ready"
