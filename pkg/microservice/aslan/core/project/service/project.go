@@ -17,8 +17,6 @@ limitations under the License.
 package service
 
 import (
-	"fmt"
-
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -55,7 +53,7 @@ type ProjectMinimalRepresentation struct {
 func ListProjects(opts *ProjectListOptions, logger *zap.SugaredLogger) (interface{}, error) {
 	switch opts.Verbosity {
 	case VerbosityDetailed:
-		return nil, fmt.Errorf("not Implemented")
+		return listDetailedProjectInfos(opts, logger)
 	case VerbosityBrief:
 		return listBriefProjectInfos(opts, logger)
 	case VerbosityMinimal:
@@ -63,6 +61,48 @@ func ListProjects(opts *ProjectListOptions, logger *zap.SugaredLogger) (interfac
 	default:
 		return listMinimalProjectInfos(opts, logger)
 	}
+}
+
+func listDetailedProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogger) (res []*ProjectDetailedRepresentation, err error) {
+	nameWithEnvs, err := mongodb.NewProductColl().ListProjects()
+	if err != nil {
+		logger.Errorf("Failed to list projects, err: %s", err)
+		return nil, err
+	}
+
+	nameSet := sets.NewString()
+	for _, name := range opts.Projects {
+		nameSet.Insert(name)
+	}
+
+	nameWithEnvsSet := sets.NewString()
+	for _, nameWithEnv := range nameWithEnvs {
+		// nameWithEnvs may contain projects which are already deleted.
+		if !nameSet.Has(nameWithEnv.ProjectName) {
+			continue
+		}
+		res = append(res, &ProjectDetailedRepresentation{
+			&ProjectBriefRepresentation{
+				ProjectMinimalRepresentation: &ProjectMinimalRepresentation{Name: nameWithEnv.ProjectName},
+				Envs:                         nameWithEnv.Envs,
+			},
+		})
+		nameWithEnvsSet.Insert(nameWithEnv.ProjectName)
+	}
+
+	if !opts.IgnoreNoEnvs {
+		for _, name := range opts.Projects {
+			if !nameWithEnvsSet.Has(name) {
+				res = append(res, &ProjectDetailedRepresentation{
+					&ProjectBriefRepresentation{
+						ProjectMinimalRepresentation: &ProjectMinimalRepresentation{Name: name},
+					},
+				})
+			}
+		}
+	}
+
+	return res, nil
 }
 
 func listBriefProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogger) (res []*ProjectBriefRepresentation, err error) {
