@@ -559,10 +559,7 @@ type variable struct {
 func replaceRuleVariable(rule string, replaceValue *variable) string {
 	var replaceRuleVariable = templ.Must(templ.New("replaceRuleVariable").Parse(rule))
 	payload := bytes.NewBufferString("")
-	variable := &variable{
-		replaceValue.SERVICE, replaceValue.TIMESTAMP, replaceValue.TASK_ID, replaceValue.REPO_COMMIT_ID, replaceValue.PROJECT, replaceValue.ENV_NAME,
-	}
-	err := replaceRuleVariable.Execute(payload, variable)
+	err := replaceRuleVariable.Execute(payload, replaceValue)
 	if err != nil {
 		return rule
 	}
