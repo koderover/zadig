@@ -71,7 +71,7 @@ func (c *ProductColl) FindProjectName(project string) (*template.Product, error)
 	return resp, err
 }
 
-func (c *ProductColl) FindProjects(projects []string) ([]*template.Product, error) {
+func (c *ProductColl) ListProjectsByNames(projects []string) ([]*template.Product, error) {
 	resp := make([]*template.Product, 0)
 	ctx := context.TODO()
 	query := bson.M{"project_name": bson.M{"$in": projects}}

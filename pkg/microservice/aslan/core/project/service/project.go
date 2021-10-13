@@ -17,11 +17,11 @@ limitations under the License.
 package service
 
 import (
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 )
 
 type QueryVerbosity string
@@ -93,7 +93,7 @@ func listDetailedProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogge
 		nameWithEnvsSet.Insert(nameWithEnv.ProjectName)
 	}
 
-	projects, err := template.NewProductColl().FindProjects(opts.Projects)
+	projects, err := template.NewProductColl().ListProjectsByNames(opts.Projects)
 	if err != nil {
 		return nil, err
 	}
