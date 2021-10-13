@@ -40,8 +40,8 @@ type ProjectListOptions struct {
 
 type ProjectDetailedRepresentation struct {
 	*ProjectBriefRepresentation
-	Product string
-	Desc    string
+	Alias string
+	Desc  string
 }
 
 type ProjectBriefRepresentation struct {
@@ -104,8 +104,8 @@ func listDetailedProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogge
 					ProjectBriefRepresentation: &ProjectBriefRepresentation{
 						ProjectMinimalRepresentation: &ProjectMinimalRepresentation{Name: project.ProjectName},
 					},
-					Product: project.ProductName,
-					Desc:    project.Description,
+					Alias: project.ProductName,
+					Desc:  project.Description,
 				})
 			}
 		}
