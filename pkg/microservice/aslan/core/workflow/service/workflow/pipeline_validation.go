@@ -17,6 +17,7 @@ limitations under the License.
 package workflow
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -25,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	templ "text/template"
 	"time"
 
 	"github.com/google/go-github/v35/github"
@@ -545,6 +547,29 @@ type candidate struct {
 	EnvName     string
 }
 
+type variable struct {
+	SERVICE        string
+	TIMESTAMP      string
+	TASK_ID        string
+	REPO_COMMIT_ID string
+	PROJECT        string
+	ENV_NAME       string
+}
+
+func replaceRuleVariable(rule string, replaceValue *variable) string {
+	var replaceRuleVariable = templ.Must(templ.New("replaceRuleVariable").Parse(rule))
+	payload := bytes.NewBufferString("")
+	variable := &variable{
+		replaceValue.SERVICE, replaceValue.TIMESTAMP, replaceValue.TASK_ID, replaceValue.REPO_COMMIT_ID, replaceValue.PROJECT, replaceValue.ENV_NAME,
+	}
+	err := replaceRuleVariable.Execute(payload, variable)
+	if err != nil {
+		return rule
+	}
+
+	return payload.String()
+}
+
 // There are four situations in total
 // 1.Execute workflow selection tag build
 // 2.Execute workflow selection branch and pr build
@@ -579,13 +604,9 @@ func replaceVariable(customRule *template.CustomRule, candidate *candidate) stri
 		currentRule = strings.Replace(currentRule, "${REPO_BRANCH}", candidate.Branch, -1)
 	}
 
-	currentRule = strings.Replace(currentRule, "${SERVICE}", candidate.ServiceName, -1)
-	currentRule = strings.Replace(currentRule, "${TIMESTAMP}", candidate.Timestamp, -1)
-	currentRule = strings.Replace(currentRule, "${TASK_ID}", strconv.FormatInt(candidate.TaskID, 10), -1)
-	currentRule = strings.Replace(currentRule, "${REPO_COMMIT_ID}", candidate.CommitID, -1)
-	currentRule = strings.Replace(currentRule, "${PROJECT}", candidate.ProductName, -1)
-	currentRule = strings.Replace(currentRule, "${ENV_NAME}", candidate.EnvName, -1)
-	currentRule = strings.Replace(currentRule, "${COMMIT_ID}", candidate.CommitID, -1)
+	currentRule = replaceRuleVariable(currentRule, &variable{
+		candidate.ServiceName, candidate.Timestamp, strconv.FormatInt(candidate.TaskID, 10), candidate.CommitID, candidate.ProductName, candidate.EnvName,
+	})
 
 	return currentRule
 }

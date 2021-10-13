@@ -17,11 +17,14 @@ limitations under the License.
 package service
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
+	templ "text/template"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
@@ -423,47 +426,64 @@ func UpdateProject(name string, args *template.Product, log *zap.SugaredLogger) 
 }
 
 func validateRule(customImageRule *template.CustomRule, customTarRule *template.CustomRule) error {
-	imagePRRule := customImageRule.PRRule
-	if err := validateCommonRule(imagePRRule, config.ImageResourceType+" pr", config.ImageResourceType); err != nil {
+	var (
+		customImageRuleMap map[string]string
+		customTarRuleMap   map[string]string
+	)
+	body, err := json.Marshal(&customImageRule)
+	if err != nil {
+		return err
+	}
+	if err = json.Unmarshal(body, &customImageRuleMap); err != nil {
 		return err
 	}
 
-	imageBranchRule := customImageRule.BranchRule
-	if err := validateCommonRule(imageBranchRule, config.ImageResourceType+" branch", config.ImageResourceType); err != nil {
-		return err
+	for field, ruleValue := range customImageRuleMap {
+		if err := validateCommonRule(ruleValue, field, config.ImageResourceType); err != nil {
+			return err
+		}
 	}
 
-	imageTagRule := customImageRule.TagRule
-	if err := validateCommonRule(imageTagRule, config.ImageResourceType+" tag", config.ImageResourceType); err != nil {
+	body, err = json.Marshal(&customTarRule)
+	if err != nil {
 		return err
 	}
-
-	imagePrBranchRule := customImageRule.PRAndBranchRule
-	if err := validateCommonRule(imagePrBranchRule, config.ImageResourceType+" pr branch", config.ImageResourceType); err != nil {
+	if err = json.Unmarshal(body, &customTarRuleMap); err != nil {
 		return err
 	}
-
-	tarPRRule := customTarRule.PRRule
-	if err := validateCommonRule(tarPRRule, config.TarResourceType+" pr", config.TarResourceType); err != nil {
-		return err
-	}
-
-	tarBranchRule := customTarRule.BranchRule
-	if err := validateCommonRule(tarBranchRule, config.TarResourceType+" branch", config.TarResourceType); err != nil {
-		return err
-	}
-
-	tarTagRule := customTarRule.TagRule
-	if err := validateCommonRule(tarTagRule, config.TarResourceType+" tag", config.TarResourceType); err != nil {
-		return err
-	}
-
-	tarPRBranchRule := customTarRule.PRAndBranchRule
-	if err := validateCommonRule(tarPRBranchRule, config.TarResourceType+" pr branch", config.TarResourceType); err != nil {
-		return err
+	for field, ruleValue := range customTarRuleMap {
+		if err := validateCommonRule(ruleValue, field, config.TarResourceType); err != nil {
+			return err
+		}
 	}
 
 	return nil
+}
+
+type variable struct {
+	SERVICE        string
+	TIMESTAMP      string
+	TASK_ID        string
+	REPO_COMMIT_ID string
+	PROJECT        string
+	ENV_NAME       string
+	REPO_BRANCH    string
+	REPO_PR        string
+	REPO_TAG       string
+}
+
+func replaceRuleVariable(rule string) string {
+	var replaceRuleVariable = templ.Must(templ.New("replaceRuleVariable").Parse(rule))
+	payload := bytes.NewBufferString("")
+	variable := &variable{
+		"ss", "ss", "ss", "ss", "ss", "ss", "ss", "ss", "ss",
+	}
+	err := replaceRuleVariable.Execute(payload, variable)
+	if err != nil {
+		return rule
+	}
+
+	return payload.String()
 }
 
 func validateCommonRule(currentRule, ruleType, deliveryType string) error {
@@ -481,17 +501,7 @@ func validateCommonRule(currentRule, ruleType, deliveryType string) error {
 		return fmt.Errorf("%s rule is invalid, must contain a colon", ruleType)
 	}
 
-	currentRule = strings.Replace(currentRule, "${SERVICE}", "ssss", -1)
-	currentRule = strings.Replace(currentRule, "${TIMESTAMP}", "ssss", -1)
-	currentRule = strings.Replace(currentRule, "${TASK_ID}", "ssss", -1)
-	currentRule = strings.Replace(currentRule, "${REPO_COMMIT_ID}", "ssss", -1)
-	currentRule = strings.Replace(currentRule, "${PROJECT}", "ssss", -1)
-	currentRule = strings.Replace(currentRule, "${ENV_NAME}", "ssss", -1)
-	currentRule = strings.Replace(currentRule, "${REPO_COMMIT_ID}", "ssss", -1)
-	currentRule = strings.Replace(currentRule, "${REPO_BRANCH}", "ssss", -1)
-	currentRule = strings.Replace(currentRule, "${REPO_PR}", "ssss", -1)
-	currentRule = strings.Replace(currentRule, "${REPO_TAG}", "ssss", -1)
-
+	currentRule = replaceRuleVariable(currentRule)
 	switch deliveryType {
 	case config.ImageResourceType:
 		if !regexp.MustCompile(imageRegexString).MatchString(currentRule) {
