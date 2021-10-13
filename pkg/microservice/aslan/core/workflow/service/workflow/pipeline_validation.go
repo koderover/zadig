@@ -582,34 +582,31 @@ func replaceVariable(customRule *template.CustomRule, candidate *candidate) stri
 			return fmt.Sprintf("%s:%s-%s", candidate.ServiceName, candidate.Timestamp, candidate.Tag)
 		}
 		currentRule = customRule.TagRule
-		currentRule = strings.Replace(currentRule, "${REPO_TAG}", candidate.Tag, -1)
+		currentRule = strings.Replace(currentRule, "{{.REPO_TAG}}", candidate.Tag, -1)
 	} else if candidate.Branch != "" && candidate.PR != 0 {
 		if customRule == nil {
 			return fmt.Sprintf("%s:%s-%d-%s-pr-%d", candidate.ServiceName, candidate.Timestamp, candidate.TaskID, candidate.Branch, candidate.PR)
 		}
 		currentRule = customRule.PRAndBranchRule
-		currentRule = strings.Replace(currentRule, "${REPO_PR}", strconv.Itoa(candidate.PR), -1)
-		currentRule = strings.Replace(currentRule, "${REPO_BRANCH}", candidate.Branch, -1)
+		currentRule = strings.Replace(currentRule, "{{.REPO_PR}}", strconv.Itoa(candidate.PR), -1)
+		currentRule = strings.Replace(currentRule, "{{.REPO_BRANCH}}", candidate.Branch, -1)
 	} else if candidate.Branch == "" && candidate.PR != 0 {
 		if customRule == nil {
 			return fmt.Sprintf("%s:%s-%d-pr-%d", candidate.ServiceName, candidate.Timestamp, candidate.TaskID, candidate.PR)
 		}
 		currentRule = customRule.PRRule
-		currentRule = strings.Replace(currentRule, "${REPO_PR}", strconv.Itoa(candidate.PR), -1)
+		currentRule = strings.Replace(currentRule, "{{.REPO_PR}}", strconv.Itoa(candidate.PR), -1)
 	} else if candidate.Branch != "" && candidate.PR == 0 {
 		if customRule == nil {
 			return fmt.Sprintf("%s:%s-%d-%s", candidate.ServiceName, candidate.Timestamp, candidate.TaskID, candidate.Branch)
 		}
 		currentRule = customRule.BranchRule
-		currentRule = strings.Replace(currentRule, "${REPO_BRANCH}", candidate.Branch, -1)
+		currentRule = strings.Replace(currentRule, "{{.REPO_BRANCH}}", candidate.Branch, -1)
 	}
 
-	log.Infof("before currentRule:%s", currentRule)
-	log.Infof("candidate:%+v", candidate)
 	currentRule = replaceRuleVariable(currentRule, &variable{
 		candidate.ServiceName, candidate.Timestamp, strconv.FormatInt(candidate.TaskID, 10), candidate.CommitID, candidate.ProductName, candidate.EnvName,
 	})
-	log.Infof("after currentRule:%s", currentRule)
 	return currentRule
 }
 
