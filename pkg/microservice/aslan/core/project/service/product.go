@@ -473,13 +473,19 @@ type variable struct {
 }
 
 func replaceRuleVariable(rule string) string {
-	var replaceRuleVariable = templ.Must(templ.New("replaceRuleVariable").Parse(rule))
+	template, err := templ.New("replaceRuleVariable").Parse(rule)
+	if err != nil {
+		log.Errorf("replaceRuleVariable Parse err:%s", err)
+		return rule
+	}
+	var replaceRuleVariable = templ.Must(template, err)
 	payload := bytes.NewBufferString("")
 	variable := &variable{
 		"ss", "ss", "ss", "ss", "ss", "ss", "ss", "ss", "ss",
 	}
-	err := replaceRuleVariable.Execute(payload, variable)
+	err = replaceRuleVariable.Execute(payload, variable)
 	if err != nil {
+		log.Errorf("replaceRuleVariable Execute err:%s", err)
 		return rule
 	}
 
