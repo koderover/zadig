@@ -17,9 +17,10 @@ limitations under the License.
 package taskplugin
 
 import (
-	"testing"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 
-	"k8s.io/apimachinery/pkg/util/yaml"
+	"github.com/koderover/zadig/pkg/util/converter"
 )
 
 var testYaml = `
@@ -53,24 +54,40 @@ service:
 
 `
 
-func TestReplaceImage(t *testing.T) {
-	vMap := make(map[string]interface{})
-	err := yaml.Unmarshal([]byte(testYaml), &vMap)
-	if err != nil {
-		t.Fatal(err)
-	}
+var _ = Describe("Testing replace image", func() {
+	Context("replace image", func() {
 
-	replaceMap := map[string]interface{}{
-		"image[0].repository": "newImageName",
-		"image[0].tag":        "latest",
+		It("replace normal", func() {
+			replaceMap := map[string]interface{}{
+				"imageNormal.repository": "newNormalImageName",
+				"imageNormal.tag":        "2.1.0",
+			}
 
-		"imageNormal.repository": "newNormalImageName",
-		"imageNormal.tag":        "2.1.0",
-	}
+			replacedYaml, err := replaceImage(testYaml, replaceMap)
+			Expect(err).NotTo(HaveOccurred())
 
-	replacedYaml, err := replaceImage(testYaml, replaceMap)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Log(replacedYaml)
-}
+			flatMap, err := converter.YamlToFlatMap([]byte(replacedYaml))
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(flatMap["imageNormal.repository"]).To(Equal("newNormalImageName"))
+			Expect(flatMap["imageNormal.tag"]).To(Equal("2.1.0"))
+		})
+
+		It("replace array situation", func() {
+			replaceMap := map[string]interface{}{
+				"image[0].repository": "newImageName",
+				"image[0].tag":        "latest",
+			}
+
+			replacedYaml, err := replaceImage(testYaml, replaceMap)
+			Expect(err).NotTo(HaveOccurred())
+
+			flatMap, err := converter.YamlToFlatMap([]byte(replacedYaml))
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(flatMap["image[0].repository"]).To(Equal("newImageName"))
+			Expect(flatMap["image[0].tag"]).To(Equal("latest"))
+		})
+
+	})
+})
