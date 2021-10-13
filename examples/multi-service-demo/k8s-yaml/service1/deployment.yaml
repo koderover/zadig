@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service1
+  labels: 
+    app.kubernetes.io/name: demo
+    app.kubernetes.io/instance: service1
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: demo
+      app.kubernetes.io/instance: service1
+  replicas: 1
+  template:
+    metadata: 
+      labels:
+        app.kubernetes.io/name: demo
+        app.kubernetes.io/instance: service1
+    spec:
+      containers:
+        - name: service1
+          image: ccr.ccs.tencentyun.com/koderover-public/service1:latest
+          imagePullPolicy: Always 
+          command:
+            - /workspace/service1
+          ports:
+            - protocol: TCP
+              containerPort: 20220
+     
