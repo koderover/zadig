@@ -2,22 +2,78 @@
   "role_bindings": [
     {
       "user": "alice",
-      "role_refs": [
+      "bindings": [
         {
-          "name": "reader1",
-          "namespace": "project1"
+          "namespace": "project1",
+          "role_refs": [
+            {
+              "name": "reader1",
+              "namespace": "project1"
+            },
+            {
+              "name": "reader2",
+              "namespace": ""
+            }
+          ]
         },
         {
-          "name": "reader",
-          "namespace": "project2"
+          "namespace": "project2",
+          "role_refs": [
+            {
+              "name": "reader",
+              "namespace": "project2"
+            },
+            {
+              "name": "reader3",
+              "namespace": "project2"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "user": "*",
+      "bindings": [
+        {
+          "namespace": "project3",
+          "role_refs": [
+            {
+              "name": "view",
+              "namespace": ""
+            }
+          ]
         },
         {
-          "name": "reader3",
-          "namespace": "project2"
+          "namespace": "project1",
+          "role_refs": [
+            {
+              "name": "view",
+              "namespace": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "user": "bob",
+      "bindings": [
+        {
+          "namespace": "project4",
+          "role_refs": [
+            {
+              "name": "view",
+              "namespace": ""
+            }
+          ]
         },
         {
-          "name": "reader2",
-          "namespace": ""
+          "namespace": "project5",
+          "role_refs": [
+            {
+              "name": "view",
+              "namespace": ""
+            }
+          ]
         }
       ]
     }
