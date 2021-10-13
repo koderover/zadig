@@ -604,10 +604,12 @@ func replaceVariable(customRule *template.CustomRule, candidate *candidate) stri
 		currentRule = strings.Replace(currentRule, "${REPO_BRANCH}", candidate.Branch, -1)
 	}
 
+	log.Infof("before currentRule:%s", currentRule)
+	log.Infof("candidate:%+v", candidate)
 	currentRule = replaceRuleVariable(currentRule, &variable{
 		candidate.ServiceName, candidate.Timestamp, strconv.FormatInt(candidate.TaskID, 10), candidate.CommitID, candidate.ProductName, candidate.EnvName,
 	})
-
+	log.Infof("after currentRule:%s", currentRule)
 	return currentRule
 }
 

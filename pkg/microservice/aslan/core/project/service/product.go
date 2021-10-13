@@ -490,26 +490,26 @@ func validateCommonRule(currentRule, ruleType, deliveryType string) error {
 	var (
 		imageRegexString = "^[a-z0-9][a-zA-Z0-9-_:.]+$"
 		tarRegexString   = "^[a-z0-9][a-zA-Z0-9-_.]+$"
-		errMessage       = "rule contains invalid characters, please check"
+		errMessage       = "contains invalid characters, please check"
 	)
 
 	if currentRule == "" {
-		return fmt.Errorf("%s rule can not be empty", ruleType)
+		return fmt.Errorf("%s can not be empty", ruleType)
 	}
 
 	if deliveryType == config.ImageResourceType && !strings.Contains(currentRule, ":") {
-		return fmt.Errorf("%s rule is invalid, must contain a colon", ruleType)
+		return fmt.Errorf("%s is invalid, must contain a colon", ruleType)
 	}
 
 	currentRule = replaceRuleVariable(currentRule)
 	switch deliveryType {
 	case config.ImageResourceType:
 		if !regexp.MustCompile(imageRegexString).MatchString(currentRule) {
-			return fmt.Errorf("%s %s", ruleType, errMessage)
+			return fmt.Errorf("image %s %s", ruleType, errMessage)
 		}
 	case config.TarResourceType:
 		if !regexp.MustCompile(tarRegexString).MatchString(currentRule) {
-			return fmt.Errorf("%s %s", ruleType, errMessage)
+			return fmt.Errorf("tar %s %s", ruleType, errMessage)
 		}
 	}
 	return nil
