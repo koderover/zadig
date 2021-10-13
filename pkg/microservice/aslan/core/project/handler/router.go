@@ -42,6 +42,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		product.GET("/:name", GetProductTemplate)
 		product.GET("/:name/services", GetProductTemplateServices)
+		// replace by picket
 		product.GET("", ListProductTemplate)
 		product.GET("/:name/searching-rules", GetCustomMatchRules)
 		product.PUT("/:name/searching-rules", gin2.StoreProductName, gin2.IsHavePermission([]string{permission.SuperUserUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, CreateOrUpdateMatchRules)
@@ -65,6 +66,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 	project := router.Group("projects")
 	{
+		// request by picket
 		project.GET("", ListProjects)
 	}
 }
