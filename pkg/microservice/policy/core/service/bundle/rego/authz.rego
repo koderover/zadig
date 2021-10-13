@@ -2,6 +2,12 @@ package rbac
 
 import input.attributes.request.http as http_request
 
+# Policy rule definitions in rbac style which is consumed by OPA server.
+# you can use it to:
+# 1. decide if a request is allowed by querying: rbac.allow
+# 2. get all accessible proejcts for an authenticated user by querying: rbac.user_projects
+
+
 # By default, deny requests.
 default allow = false
 
@@ -85,7 +91,7 @@ user_projects[project] {
     project := data.bindings.role_bindings[i].bindings[_].namespace
 }
 
-# only global roles and roles under the given project are allowed.
+# only roles under the given project are allowed
 allewed_roles[role_ref] {
     some i
     data.bindings.role_bindings[i].user == claims.name
@@ -93,6 +99,7 @@ allewed_roles[role_ref] {
     role_ref := data.bindings.role_bindings[i].bindings[j].role_refs[_]
 }
 
+# if the proejct is visible by all users (the user name is "*"), the bound roles are also allowed
 allewed_roles[role_ref] {
     some i
     data.bindings.role_bindings[i].user == "*"
