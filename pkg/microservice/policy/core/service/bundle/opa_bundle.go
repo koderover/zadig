@@ -88,7 +88,12 @@ type rule struct {
 
 type roleBinding struct {
 	User     string   `json:"user"`
-	RoleRefs roleRefs `json:"role_refs"`
+	Bindings bindings `json:"bindings"`
+}
+
+type binding struct {
+	Namespace string   `json:"namespace"`
+	RoleRefs  roleRefs `json:"role_refs"`
 }
 
 type roleRef struct {
@@ -161,6 +166,14 @@ func (o roles) Less(i, j int) bool {
 	if o[i].Namespace == o[j].Namespace {
 		return o[i].Name < o[j].Name
 	}
+	return o[i].Namespace < o[j].Namespace
+}
+
+type bindings []*binding
+
+func (o bindings) Len() int      { return len(o) }
+func (o bindings) Swap(i, j int) { o[i], o[j] = o[j], o[i] }
+func (o bindings) Less(i, j int) bool {
 	return o[i].Namespace < o[j].Namespace
 }
 
@@ -256,22 +269,30 @@ func generateOPARoles(roles []*models.Role) *opaRoles {
 	return data
 }
 
-func generateOPARoleBindings(bindings []*models.RoleBinding) *opaRoleBindings {
+func generateOPARoleBindings(rbs []*models.RoleBinding) *opaRoleBindings {
 	data := &opaRoleBindings{}
 
-	userRoleMap := make(map[string][]*roleRef)
+	userRoleMap := make(map[string]map[string][]*roleRef)
 
-	for _, rb := range bindings {
+	for _, rb := range rbs {
 		for _, s := range rb.Subjects {
 			if s.Kind == models.UserKind {
-				userRoleMap[s.Name] = append(userRoleMap[s.Name], &roleRef{Name: rb.RoleRef.Name, Namespace: rb.RoleRef.Namespace})
+				if _, ok := userRoleMap[s.Name]; !ok {
+					userRoleMap[s.Name] = make(map[string][]*roleRef)
+				}
+				userRoleMap[s.Name][rb.Namespace] = append(userRoleMap[s.Name][rb.Namespace], &roleRef{Name: rb.RoleRef.Name, Namespace: rb.RoleRef.Namespace})
 			}
 		}
 	}
 
-	for k, v := range userRoleMap {
-		sort.Sort(roleRefs(v))
-		data.RoleBindings = append(data.RoleBindings, &roleBinding{User: k, RoleRefs: v})
+	for u, nb := range userRoleMap {
+		var bindingsData []*binding
+		for n, b := range nb {
+			sort.Sort(roleRefs(b))
+			bindingsData = append(bindingsData, &binding{Namespace: n, RoleRefs: b})
+		}
+		sort.Sort(bindings(bindingsData))
+		data.RoleBindings = append(data.RoleBindings, &roleBinding{User: u, Bindings: bindingsData})
 	}
 
 	sort.Sort(data.RoleBindings)

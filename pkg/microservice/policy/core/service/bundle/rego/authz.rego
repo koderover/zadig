@@ -71,22 +71,33 @@ projcet_name := pn {
     pn := input.parsed_query.projectName[0]
 }
 
-roles[role] {
+# get all projects which are visible by current user
+user_projects[project] {
     some i
     data.bindings.role_bindings[i].user == claims.name
-    role_refs := data.bindings.role_bindings[i].role_refs
-    role := role_refs[_]
+    project := data.bindings.role_bindings[i].bindings[_].namespace
+}
+
+# get all projects which are visible by all users (the user name is "*")
+user_projects[project] {
+    some i
+    data.bindings.role_bindings[i].user == "*"
+    project := data.bindings.role_bindings[i].bindings[_].namespace
 }
 
 # only global roles and roles under the given project are allowed.
 allewed_roles[role_ref] {
-    role_ref := roles[_]
-    role_ref.namespace == ""
+    some i
+    data.bindings.role_bindings[i].user == claims.name
+    data.bindings.role_bindings[i].bindings[j].namespace == projcet_name
+    role_ref := data.bindings.role_bindings[i].bindings[j].role_refs[_]
 }
 
 allewed_roles[role_ref] {
-    role_ref := roles[_]
-    role_ref.namespace == projcet_name
+    some i
+    data.bindings.role_bindings[i].user == "*"
+    project := data.bindings.role_bindings[i].bindings[_].namespace == projcet_name
+    role_ref := data.bindings.role_bindings[i].bindings[j].role_refs[_]
 }
 
 user_is_granted[grant] {
@@ -97,12 +108,6 @@ user_is_granted[grant] {
     data.roles.roles[i].name == role_ref.name
     data.roles.roles[i].namespace == role_ref.namespace
     grant := data.roles.roles[i].rules[_]
-}
-
-# get all projects which are visible by current user
-user_projects[project] {
-    project := roles[_].namespace
-    project != ""
 }
 
 claims := payload {
