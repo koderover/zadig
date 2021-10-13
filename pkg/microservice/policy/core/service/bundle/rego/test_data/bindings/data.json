@@ -53,6 +53,29 @@
           ]
         }
       ]
+    },
+    {
+      "user": "bob",
+      "bindings": [
+        {
+          "namespace": "project4",
+          "role_refs": [
+            {
+              "name": "view",
+              "namespace": ""
+            }
+          ]
+        },
+        {
+          "namespace": "project5",
+          "role_refs": [
+            {
+              "name": "view",
+              "namespace": ""
+            }
+          ]
+        }
+      ]
     }
   ]
 }

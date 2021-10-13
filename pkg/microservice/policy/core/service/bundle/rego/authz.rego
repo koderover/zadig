@@ -6,6 +6,8 @@ import input.attributes.request.http as http_request
 # you can use it to:
 # 1. decide if a request is allowed by querying: rbac.allow
 # 2. get all accessible proejcts for an authenticated user by querying: rbac.user_projects
+# 3. check if a user is system admin by querying: rbac.user_is_admin
+# 4. check if a user is project admin by querying: rbac.user_is_project_admin
 
 
 # By default, deny requests.
@@ -89,6 +91,12 @@ user_projects[project] {
     some i
     data.bindings.role_bindings[i].user == "*"
     project := data.bindings.role_bindings[i].bindings[_].namespace
+}
+
+# if user is system admin, return all projects
+user_projects[project] {
+    user_is_admin
+    project := data.bindings.role_bindings[_].bindings[_].namespace
 }
 
 # only roles under the given project are allowed
