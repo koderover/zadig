@@ -324,7 +324,7 @@ func setBuildInfo(build *types.Repository, log *zap.SugaredLogger) {
 				commit, err = QueryByTag(build.CodehostID, build.RepoOwner, build.RepoName, build.Tag, log)
 			} else if build.Branch != "" && build.PR == 0 {
 				commit, err = QueryByBranch(build.CodehostID, build.RepoOwner, build.RepoName, build.Branch, log)
-			} else if build.Branch != "" && build.PR > 0 {
+			} else if build.PR > 0 {
 				pr, err = GetLatestPrCommit(build.CodehostID, build.PR, build.RepoOwner, build.RepoName, log)
 				if err == nil && pr != nil {
 					commit = &RepoCommit{
@@ -388,7 +388,7 @@ func setBuildInfo(build *types.Repository, log *zap.SugaredLogger) {
 						}
 					}
 				}
-			} else if build.Branch != "" && build.PR > 0 {
+			} else if build.PR > 0 {
 				opt := &github.ListOptions{Page: 1, PerPage: 100}
 				prCommits, _, err := gitCli.PullRequests.ListCommits(context.Background(), build.RepoOwner, build.RepoName, build.PR, opt)
 				sort.SliceStable(prCommits, func(i, j int) bool {

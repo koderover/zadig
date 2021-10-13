@@ -496,6 +496,7 @@ func validateCommonRule(currentRule, ruleType, deliveryType string) error {
 	var (
 		imageRegexString = "^[a-z0-9][a-zA-Z0-9-_:.]+$"
 		tarRegexString   = "^[a-z0-9][a-zA-Z0-9-_.]+$"
+		tagRegexString   = "^[a-z0-9A-Z_][a-zA-Z0-9-_.]+$"
 		errMessage       = "contains invalid characters, please check"
 	)
 
@@ -511,6 +512,11 @@ func validateCommonRule(currentRule, ruleType, deliveryType string) error {
 	switch deliveryType {
 	case config.ImageResourceType:
 		if !regexp.MustCompile(imageRegexString).MatchString(currentRule) {
+			return fmt.Errorf("image %s %s", ruleType, errMessage)
+		}
+		// validate tag
+		tag := strings.Split(currentRule, ":")[1]
+		if !regexp.MustCompile(tagRegexString).MatchString(tag) {
 			return fmt.Errorf("image %s %s", ruleType, errMessage)
 		}
 	case config.TarResourceType:
