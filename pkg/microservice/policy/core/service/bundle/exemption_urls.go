@@ -1,5 +1,9 @@
 package bundle
 
+// TODO: Policy Service should not care about the policy details of a certain service, instead, a service which wants
+// to be managed by the Policy Service should register its rules to the Policy Service so that the Policy Service knows
+// how to make a decision without being aware of the detailed rules.
+
 type exemptionURLs struct {
 	Global     rules `json:"global"`     // global urls are only controlled by AuthN, and it is visible for all users
 	Namespaced rules `json:"namespaced"` // global urls are only controlled by AuthN, and it is visible for users under certain projects

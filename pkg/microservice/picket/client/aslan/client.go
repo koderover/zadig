@@ -14,24 +14,28 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package rest
+package aslan
 
 import (
-	"github.com/gin-gonic/gin"
-
-	evaluationhandler "github.com/koderover/zadig/pkg/microservice/picket/core/evaluation/handler"
-	filterhandler "github.com/koderover/zadig/pkg/microservice/picket/core/filter/handler"
+	"github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
-func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
-	for _, r := range []injector{
-		new(evaluationhandler.Router),
-		new(filterhandler.Router),
-	} {
-		r.Inject(router.Group("/api/v1"))
-	}
+type Client struct {
+	*httpclient.Client
+
+	host string
 }
 
-type injector interface {
-	Inject(router *gin.RouterGroup)
+func New() *Client {
+	host := config.AslanServiceAddress()
+
+	c := httpclient.New(
+		httpclient.SetHostURL(host + "/api"),
+	)
+
+	return &Client{
+		Client: c,
+		host:   host,
+	}
 }
