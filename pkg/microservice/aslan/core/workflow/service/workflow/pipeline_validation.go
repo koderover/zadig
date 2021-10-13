@@ -17,7 +17,6 @@ limitations under the License.
 package workflow
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -26,7 +25,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	templ "text/template"
 	"time"
 
 	"github.com/google/go-github/v35/github"
@@ -547,26 +545,6 @@ type candidate struct {
 	EnvName     string
 }
 
-type variable struct {
-	SERVICE        string
-	TIMESTAMP      string
-	TASK_ID        string
-	REPO_COMMIT_ID string
-	PROJECT        string
-	ENV_NAME       string
-}
-
-func replaceRuleVariable(rule string, replaceValue *variable) string {
-	var replaceRuleVariable = templ.Must(templ.New("replaceRuleVariable").Parse(rule))
-	payload := bytes.NewBufferString("")
-	err := replaceRuleVariable.Execute(payload, replaceValue)
-	if err != nil {
-		return rule
-	}
-
-	return payload.String()
-}
-
 // There are four situations in total
 // 1.Execute workflow selection tag build
 // 2.Execute workflow selection branch and pr build
@@ -578,31 +556,24 @@ func replaceVariable(customRule *template.CustomRule, candidate *candidate) stri
 		if customRule == nil {
 			return fmt.Sprintf("%s:%s-%s", candidate.ServiceName, candidate.Timestamp, candidate.Tag)
 		}
-		currentRule = customRule.TagRule
-		currentRule = strings.Replace(currentRule, "{{.REPO_TAG}}", candidate.Tag, -1)
 	} else if candidate.Branch != "" && candidate.PR != 0 {
 		if customRule == nil {
 			return fmt.Sprintf("%s:%s-%d-%s-pr-%d", candidate.ServiceName, candidate.Timestamp, candidate.TaskID, candidate.Branch, candidate.PR)
 		}
 		currentRule = customRule.PRAndBranchRule
-		currentRule = strings.Replace(currentRule, "{{.REPO_PR}}", strconv.Itoa(candidate.PR), -1)
-		currentRule = strings.Replace(currentRule, "{{.REPO_BRANCH}}", candidate.Branch, -1)
 	} else if candidate.Branch == "" && candidate.PR != 0 {
 		if customRule == nil {
 			return fmt.Sprintf("%s:%s-%d-pr-%d", candidate.ServiceName, candidate.Timestamp, candidate.TaskID, candidate.PR)
 		}
-		currentRule = customRule.PRRule
-		currentRule = strings.Replace(currentRule, "{{.REPO_PR}}", strconv.Itoa(candidate.PR), -1)
 	} else if candidate.Branch != "" && candidate.PR == 0 {
 		if customRule == nil {
 			return fmt.Sprintf("%s:%s-%d-%s", candidate.ServiceName, candidate.Timestamp, candidate.TaskID, candidate.Branch)
 		}
-		currentRule = customRule.BranchRule
-		currentRule = strings.Replace(currentRule, "{{.REPO_BRANCH}}", candidate.Branch, -1)
 	}
 
-	currentRule = replaceRuleVariable(currentRule, &variable{
+	currentRule = commonservice.ReplaceRuleVariable(currentRule, &commonservice.Variable{
 		candidate.ServiceName, candidate.Timestamp, strconv.FormatInt(candidate.TaskID, 10), candidate.CommitID, candidate.ProductName, candidate.EnvName,
+		candidate.Tag, candidate.Branch, strconv.Itoa(candidate.PR),
 	})
 	return currentRule
 }

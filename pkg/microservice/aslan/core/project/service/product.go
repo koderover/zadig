@@ -17,14 +17,12 @@ limitations under the License.
 package service
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
-	templ "text/template"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
@@ -460,38 +458,6 @@ func validateRule(customImageRule *template.CustomRule, customTarRule *template.
 	return nil
 }
 
-type variable struct {
-	SERVICE        string
-	TIMESTAMP      string
-	TASK_ID        string
-	REPO_COMMIT_ID string
-	PROJECT        string
-	ENV_NAME       string
-	REPO_BRANCH    string
-	REPO_PR        string
-	REPO_TAG       string
-}
-
-func replaceRuleVariable(rule string) string {
-	template, err := templ.New("replaceRuleVariable").Parse(rule)
-	if err != nil {
-		log.Errorf("replaceRuleVariable Parse err:%s", err)
-		return rule
-	}
-	var replaceRuleVariable = templ.Must(template, err)
-	payload := bytes.NewBufferString("")
-	variable := &variable{
-		"ss", "ss", "ss", "ss", "ss", "ss", "ss", "ss", "ss",
-	}
-	err = replaceRuleVariable.Execute(payload, variable)
-	if err != nil {
-		log.Errorf("replaceRuleVariable Execute err:%s", err)
-		return rule
-	}
-
-	return payload.String()
-}
-
 func validateCommonRule(currentRule, ruleType, deliveryType string) error {
 	var (
 		imageRegexString = "^[a-z0-9][a-zA-Z0-9-_:.]+$"
@@ -508,7 +474,9 @@ func validateCommonRule(currentRule, ruleType, deliveryType string) error {
 		return fmt.Errorf("%s is invalid, must contain a colon", ruleType)
 	}
 
-	currentRule = replaceRuleVariable(currentRule)
+	currentRule = commonservice.ReplaceRuleVariable(currentRule, &commonservice.Variable{
+		"ss", "ss", "ss", "ss", "ss", "ss", "ss", "ss", "ss",
+	})
 	switch deliveryType {
 	case config.ImageResourceType:
 		if !regexp.MustCompile(imageRegexString).MatchString(currentRule) {
