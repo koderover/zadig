@@ -108,7 +108,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workflow.POST("", GetWorkflowProductName, gin2.IsHavePermission([]string{permission.WorkflowCreateUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, CreateWorkflow)
 		workflow.PUT("", GetWorkflowProductName, gin2.IsHavePermission([]string{permission.WorkflowUpdateUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, UpdateWorkflow)
 		workflow.GET("", ListWorkflows)
-		workflow.GET("/testName/:testName", ListAllWorkflows)
+		workflow.GET("/testName/:testName", ListTestWorkflows)
 		workflow.GET("/find/:name", FindWorkflow)
 		workflow.DELETE("/:name", GetProductNameByWorkflow, gin2.IsHavePermission([]string{permission.WorkflowDeleteUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, DeleteWorkflow)
 		workflow.GET("/preset/:productName", PreSetWorkflow)
