@@ -556,6 +556,7 @@ func replaceVariable(customRule *template.CustomRule, candidate *candidate) stri
 		if customRule == nil {
 			return fmt.Sprintf("%s:%s-%s", candidate.ServiceName, candidate.Timestamp, candidate.Tag)
 		}
+		currentRule = customRule.TagRule
 	} else if candidate.Branch != "" && candidate.PR != 0 {
 		if customRule == nil {
 			return fmt.Sprintf("%s:%s-%d-%s-pr-%d", candidate.ServiceName, candidate.Timestamp, candidate.TaskID, candidate.Branch, candidate.PR)
@@ -565,10 +566,12 @@ func replaceVariable(customRule *template.CustomRule, candidate *candidate) stri
 		if customRule == nil {
 			return fmt.Sprintf("%s:%s-%d-pr-%d", candidate.ServiceName, candidate.Timestamp, candidate.TaskID, candidate.PR)
 		}
+		currentRule = customRule.PRRule
 	} else if candidate.Branch != "" && candidate.PR == 0 {
 		if customRule == nil {
 			return fmt.Sprintf("%s:%s-%d-%s", candidate.ServiceName, candidate.Timestamp, candidate.TaskID, candidate.Branch)
 		}
+		currentRule = customRule.BranchRule
 	}
 
 	currentRule = commonservice.ReplaceRuleVariable(currentRule, &commonservice.Variable{
