@@ -71,6 +71,22 @@ func (c *ProductColl) FindProjectName(project string) (*template.Product, error)
 	return resp, err
 }
 
+func (c *ProductColl) ListProjectsByNames(projects []string) ([]*template.Product, error) {
+	resp := make([]*template.Product, 0)
+	ctx := context.TODO()
+	query := bson.M{"project_name": bson.M{"$in": projects}}
+	cursor, err := c.Collection.Find(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cursor.All(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 func (c *ProductColl) List() ([]*template.Product, error) {
 	var resp []*template.Product
 
@@ -84,34 +100,6 @@ func (c *ProductColl) List() ([]*template.Product, error) {
 	}
 
 	return resp, nil
-}
-
-func (c *ProductColl) ListNames() ([]string, error) {
-	var res []struct {
-		ProductName string `bson:"product_name"`
-	}
-
-	opts := options.Find()
-	projection := bson.D{
-		{"product_name", 1},
-	}
-	opts.SetProjection(projection)
-
-	cursor, err := c.Collection.Find(context.TODO(), bson.M{}, opts)
-	if err != nil {
-		return nil, err
-	}
-	err = cursor.All(context.TODO(), &res)
-	if err != nil {
-		return nil, err
-	}
-
-	var names []string
-	for _, r := range res {
-		names = append(names, r.ProductName)
-	}
-
-	return names, nil
 }
 
 type ProductListOpt struct {
