@@ -34,7 +34,6 @@ import (
 
 type BuildListOption struct {
 	Name         string
-	Version      string
 	Targets      []string
 	ProductName  string
 	ServiceName  string
@@ -47,7 +46,6 @@ type BuildListOption struct {
 // FindOption ...
 type BuildFindOption struct {
 	Name        string
-	Version     string
 	Targets     []string
 	ServiceName string
 	ProductName string
@@ -93,10 +91,6 @@ func (c *BuildColl) Find(opt *BuildFindOption) (*models.Build, error) {
 		query["name"] = opt.Name
 	}
 
-	if len(opt.Version) != 0 {
-		query["version"] = opt.Version
-	}
-
 	if len(opt.Targets) > 0 {
 		query["targets.service_module"] = bson.M{"$in": opt.Targets}
 	}
@@ -126,9 +120,6 @@ func (c *BuildColl) List(opt *BuildListOption) ([]*models.Build, error) {
 	query := bson.M{}
 	if len(strings.TrimSpace(opt.Name)) != 0 {
 		query["name"] = opt.Name
-	}
-	if len(strings.TrimSpace(opt.Version)) != 0 {
-		query["version"] = opt.Version
 	}
 	if len(opt.Targets) > 0 {
 		query["targets.service_module"] = bson.M{"$in": opt.Targets}
@@ -171,13 +162,10 @@ func (c *BuildColl) List(opt *BuildListOption) ([]*models.Build, error) {
 	return resp, nil
 }
 
-func (c *BuildColl) Delete(name, version, productName string) error {
+func (c *BuildColl) Delete(name, productName string) error {
 	query := bson.M{}
 	if len(name) != 0 {
 		query["name"] = name
-	}
-	if len(version) != 0 {
-		query["version"] = version
 	}
 	if len(productName) != 0 {
 		query["product_name"] = productName
@@ -200,7 +188,7 @@ func (c *BuildColl) Create(build *models.Build) error {
 	build.UpdateTime = time.Now().Unix()
 
 	//double check
-	buildModel, err := c.Find(&BuildFindOption{Name: build.Name, Version: build.Version})
+	buildModel, err := c.Find(&BuildFindOption{Name: build.Name})
 	if err == nil {
 		return fmt.Errorf("%s%s", buildModel.ProductName, "项目中有相同的构建名称存在,请检查!")
 	}
@@ -215,7 +203,7 @@ func (c *BuildColl) Update(build *models.Build) error {
 		return errors.New("nil Module args")
 	}
 
-	query := bson.M{"name": build.Name, "version": build.Version}
+	query := bson.M{"name": build.Name}
 	if build.ProductName != "" {
 		query["product_name"] = build.ProductName
 	}
@@ -239,8 +227,8 @@ func (c *BuildColl) UpdateTargets(name, productName string, targets []*models.Se
 	return err
 }
 
-func (c *BuildColl) UpdateBuildParam(name, version, productName string, params []*models.Parameter) error {
-	query := bson.M{"name": name, "version": version}
+func (c *BuildColl) UpdateBuildParam(name, productName string, params []*models.Parameter) error {
+	query := bson.M{"name": name}
 	if productName != "" {
 		query["product_name"] = productName
 	}

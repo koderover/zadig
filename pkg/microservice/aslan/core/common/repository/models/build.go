@@ -25,7 +25,6 @@ import (
 
 type Build struct {
 	ID      primitive.ObjectID `bson:"_id,omitempty"                json:"id,omitempty"`
-	Version string             `bson:"version"                      json:"version"`
 	Name    string             `bson:"name"                         json:"name"`
 	Team    string             `bson:"team,omitempty"               json:"team,omitempty"`
 	Source  string             `bson:"source,omitempty"             json:"source,omitempty"`
