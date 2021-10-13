@@ -508,7 +508,7 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 	//删除构建/删除测试/删除服务
 	//删除workflow和历史task
 	go func() {
-		_ = commonrepo.NewBuildColl().Delete("", "", productName)
+		_ = commonrepo.NewBuildColl().Delete("", productName)
 		_ = commonrepo.NewServiceColl().Delete("", "", productName, "", 0)
 		_ = commonservice.DeleteDeliveryInfos(productName, log)
 		_ = DeleteProductsAsync(userName, productName, requestID, log)
