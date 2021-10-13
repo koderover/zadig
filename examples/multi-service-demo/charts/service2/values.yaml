@@ -1,0 +1,22 @@
+
+
+fullnameOverride: "service2"
+replicaCount: 1
+port: 20221
+
+registrySecret: ""
+imagePullSecrets: "service2-secret"
+
+image:
+  repository: "ccr.ccs.tencentyun.com/koderover-public/service2"
+  tag: "latest"
+
+
+resources:
+  requests:
+    cpu: 1
+    mem: 512Mi
+
+  limits:
+    cpu: 10m
+    mem: 10Mi
