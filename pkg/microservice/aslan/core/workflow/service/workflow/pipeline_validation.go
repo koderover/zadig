@@ -490,50 +490,54 @@ func setManunalBuilds(builds []*types.Repository, buildArgs []*types.Repository,
 // TODO: max length of a tag is 128
 func releaseCandidate(b *task.Build, taskID int64, productName, envName, deliveryType string) string {
 	timeStamp := time.Now().Format("20060102150405")
-	if len(b.JobCtx.Builds) > 0 {
-		first := b.JobCtx.Builds[0]
-		for index, build := range b.JobCtx.Builds {
-			if build.IsPrimary {
-				first = b.JobCtx.Builds[index]
-			}
-		}
-
-		// 替换 Tag 和 Branch 中的非法字符为 "-", 避免 docker build 失败
-		var (
-			reg             = regexp.MustCompile(`[^\w.-]`)
-			customImageRule *template.CustomRule
-			customTarRule   *template.CustomRule
-		)
-
-		if project, err := templaterepo.NewProductColl().Find(productName); err != nil {
-			log.Errorf("find project err:%s", err)
-		} else {
-			customImageRule = project.CustomImageRule
-			customTarRule = project.CustomTarRule
-		}
-
-		candidate := &candidate{
-			Branch:      string(reg.ReplaceAll([]byte(first.Branch), []byte("-"))),
-			CommitID:    first.CommitID,
-			PR:          first.PR,
-			Tag:         string(reg.ReplaceAll([]byte(first.Tag), []byte("-"))),
-			EnvName:     envName,
-			Timestamp:   timeStamp,
-			TaskID:      taskID,
-			ProductName: productName,
-			ServiceName: b.ServiceName,
-		}
+	if len(b.JobCtx.Builds) == 0 {
 		switch deliveryType {
 		case config.ImageResourceType:
-			return replaceVariable(customImageRule, candidate)
+			return fmt.Sprintf("%s:%s", b.ServiceName, timeStamp)
 		case config.TarResourceType:
-			return replaceVariable(customTarRule, candidate)
+			return fmt.Sprintf("%s-%s", b.ServiceName, timeStamp)
 		}
 	}
-	if deliveryType == config.TarResourceType {
-		return fmt.Sprintf("%s-%s", b.ServiceName, timeStamp)
+
+	first := b.JobCtx.Builds[0]
+	for index, build := range b.JobCtx.Builds {
+		if build.IsPrimary {
+			first = b.JobCtx.Builds[index]
+		}
 	}
-	return fmt.Sprintf("%s:%s", b.ServiceName, timeStamp)
+
+	// 替换 Tag 和 Branch 中的非法字符为 "-", 避免 docker build 失败
+	var (
+		reg             = regexp.MustCompile(`[^\w.-]`)
+		customImageRule *template.CustomRule
+		customTarRule   *template.CustomRule
+	)
+
+	if project, err := templaterepo.NewProductColl().Find(productName); err != nil {
+		log.Errorf("find project err:%s", err)
+	} else {
+		customImageRule = project.CustomImageRule
+		customTarRule = project.CustomTarRule
+	}
+
+	candidate := &candidate{
+		Branch:      string(reg.ReplaceAll([]byte(first.Branch), []byte("-"))),
+		CommitID:    first.CommitID,
+		PR:          first.PR,
+		Tag:         string(reg.ReplaceAll([]byte(first.Tag), []byte("-"))),
+		EnvName:     envName,
+		Timestamp:   timeStamp,
+		TaskID:      taskID,
+		ProductName: productName,
+		ServiceName: b.ServiceName,
+	}
+	switch deliveryType {
+	case config.ImageResourceType:
+		return replaceVariable(customImageRule, candidate)
+	case config.TarResourceType:
+		return replaceVariable(customTarRule, candidate)
+	}
+	return replaceVariable(customImageRule, candidate)
 }
 
 type candidate struct {
