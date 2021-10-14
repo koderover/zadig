@@ -60,15 +60,21 @@ func getHelmServiceName(namespace, resType, resName string, kubeClient client.Cl
 	switch resType {
 	case setting.Deployment:
 		deployObj, found, err := getter.GetDeployment(namespace, resName, kubeClient)
-		if err != nil || !found {
+		if err != nil {
 			return "", fmt.Errorf("failed to find deployment %s, err %s", resName, err.Error())
+		}
+		if !found {
+			return "", fmt.Errorf("failed to find deployment %s", resName)
 		}
 		annotation = deployObj.Annotations
 
 	case setting.StatefulSet:
 		statefulSet, found, err := getter.GetStatefulSet(namespace, resName, kubeClient)
-		if err != nil || !found {
-			return "", fmt.Errorf("failed to find stateful set %s, err %s", resName, err.Error())
+		if err != nil {
+			return "", fmt.Errorf("failed to find statefulSet %s, err %s", resName, err.Error())
+		}
+		if !found {
+			return "", fmt.Errorf("failed to find statefulSet %s", resName)
 		}
 		annotation = statefulSet.Annotations
 	}
@@ -79,7 +85,7 @@ func getHelmServiceName(namespace, resType, resName string, kubeClient client.Cl
 			return util.ExtraServiceName(chartRelease, namespace), nil
 		}
 	}
-	return "", fmt.Errorf("failed to get annotation from resource %s", resName)
+	return "", fmt.Errorf("failed to get annotation from resource %s, type %s", resName, resType)
 }
 
 func getValidMatchData(spec *models.ImagePathSpec) map[string]string {
@@ -96,6 +102,7 @@ func getValidMatchData(spec *models.ImagePathSpec) map[string]string {
 	return ret
 }
 
+// prepare necessary data from db
 func prepareData(namespace, serviceName string, containerName string, product *models.Product) (targetContainer *models.Container,
 	targetChart *templatemodels.RenderChart, renderSet *models.RenderSet, serviceObj *models.Service, err error) {
 
@@ -215,7 +222,7 @@ func updateContainerForHelmChart(serviceName, resType, image, containerName stri
 		return err
 	}
 
-	// when replace image, should not wait helm
+	// when replace image, should not wait
 	err = installOrUpgradeHelmChartWithValues(namespace, replacedMergedValuesYaml, targetChart, serviceObj, 0, helmClient)
 	if err != nil {
 		return err
