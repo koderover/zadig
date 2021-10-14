@@ -26,8 +26,6 @@ import (
 type Router struct{}
 
 func (*Router) Inject(router *gin.RouterGroup) {
-	router.Use(gin2.Auth())
-
 	build := router.Group("build")
 	{
 		build.GET("/:name", FindBuildModule)

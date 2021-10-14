@@ -26,8 +26,6 @@ import (
 type Router struct{}
 
 func (*Router) Inject(router *gin.RouterGroup) {
-	router.Use(gin2.Auth())
-
 	// 查看自定义变量是否被引用
 	render := router.Group("renders")
 	{

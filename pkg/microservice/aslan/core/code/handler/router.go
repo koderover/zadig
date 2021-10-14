@@ -26,8 +26,6 @@ import (
 type Router struct{}
 
 func (*Router) Inject(router *gin.RouterGroup) {
-	router.Use(gin2.Auth())
-
 	codehost := router.Group("codehost")
 	{
 		codehost.GET("", GetCodeHostList)
