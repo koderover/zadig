@@ -29,7 +29,6 @@ import (
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 func GetProductTemplate(c *gin.Context) {
@@ -73,7 +72,7 @@ func CreateProductTemplate(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateProductTemplate json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "新增", "工程管理-项目", args.ProductName, permission.SuperUserUUID, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "新增", "项目管理-项目", args.ProductName, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
@@ -97,7 +96,7 @@ func UpdateProductTemplate(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdateProductTemplate json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "更新", "工程管理-项目环境模板或变量", args.ProductName, permission.ServiceTemplateEditUUID, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "更新", "项目管理-项目环境模板或变量", args.ProductName, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
@@ -131,7 +130,7 @@ func UpdateProject(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdateProject json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "更新", "工程管理-项目", args.ProductName, permission.SuperUserUUID, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "更新", "项目管理-项目", args.ProductName, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
@@ -151,7 +150,7 @@ func DeleteProductTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("name"), "删除", "工程管理-项目", c.Param("name"), permission.SuperUserUUID, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("name"), "删除", "项目管理-项目", c.Param("name"), "", ctx.Logger)
 	ctx.Err = projectservice.DeleteProductTemplate(ctx.Username, c.Param("name"), ctx.RequestID, ctx.Logger)
 }
 
@@ -180,4 +179,43 @@ func UnForkProduct(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	ctx.Err = projectservice.UnForkProduct(ctx.User.ID, ctx.Username, c.Param("productName"), c.Query("workflowName"), c.Query("envName"), ctx.RequestID, ctx.Logger)
+}
+
+func GetCustomMatchRules(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if c.Param("name") == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	ctx.Resp, ctx.Err = projectservice.GetCustomMatchRules(c.Param("name"), ctx.Logger)
+}
+
+func CreateOrUpdateMatchRules(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	if c.Param("name") == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
+		return
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("name"), "更新", "工程管理-项目", c.Param("name"), "", ctx.Logger)
+
+	args := new(projectservice.CustomParseDataArgs)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("CreateOrUpdateMatchRules c.GetRawData() err : %v", err)
+		ctx.Err = e.ErrInvalidParam
+		return
+	}
+	if err = json.Unmarshal(data, &args); err != nil {
+		log.Errorf("CreateOrUpdateMatchRules json.Unmarshal err : %v", err)
+		ctx.Err = e.ErrInvalidParam
+		return
+	}
+
+	ctx.Err = projectservice.UpdateCustomMatchRules(c.Param("name"), ctx.Username, args.Rules)
 }

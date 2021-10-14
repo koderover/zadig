@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sort"
@@ -33,6 +34,116 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
+
+type RepoConfig struct {
+	CodehostID  int      `json:"codehostID,omitempty"`
+	Owner       string   `json:"owner,omitempty"`
+	Repo        string   `json:"repo,omitempty"`
+	Branch      string   `json:"branch,omitempty"`
+	ValuesPaths []string `json:"valuesPaths,omitempty"`
+}
+
+type KVPair struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+type RenderChartArg struct {
+	EnvName        string      `json:"envName,omitempty"`
+	ServiceName    string      `json:"serviceName,omitempty"`
+	ChartVersion   string      `json:"chartVersion,omitempty"`
+	YamlSource     string      `json:"yamlSource,omitempty"`
+	GitRepoConfig  *RepoConfig `json:"gitRepoConfig,omitempty"`
+	OverrideValues []*KVPair   `json:"overrideValues,omitempty"`
+	ValuesYAML     string      `json:"valuesYAML,omitempty"`
+}
+
+func (args *RenderChartArg) toOverrideValueString() string {
+	if len(args.OverrideValues) == 0 {
+		return ""
+	}
+	bs, err := json.Marshal(args.OverrideValues)
+	if err != nil {
+		log.Errorf("override values json marshal error")
+		return ""
+	}
+	return string(bs)
+}
+
+func (args *RenderChartArg) fromOverrideValueString(valueStr string) {
+	if valueStr == "" {
+		args.OverrideValues = nil
+		return
+	}
+
+	args.OverrideValues = make([]*KVPair, 0)
+	err := json.Unmarshal([]byte(valueStr), &args.OverrideValues)
+	if err != nil {
+		log.Errorf("decode override value fail, ")
+	}
+}
+
+func (args *RenderChartArg) toCustomValuesYaml() *templatemodels.OverrideYaml {
+	switch args.YamlSource {
+	case setting.ValuesYamlSourceFreeEdit:
+		return &templatemodels.OverrideYaml{
+			YamlSource:  args.YamlSource,
+			YamlContent: args.ValuesYAML,
+		}
+	case setting.ValuesYamlSourceGitRepo:
+		return &templatemodels.OverrideYaml{
+			YamlSource:  args.YamlSource,
+			YamlContent: args.ValuesYAML,
+			ValuesPaths: args.GitRepoConfig.ValuesPaths,
+			GitRepoConfig: &templatemodels.GitRepoConfig{
+				CodehostID: args.GitRepoConfig.CodehostID,
+				Owner:      args.GitRepoConfig.Owner,
+				Repo:       args.GitRepoConfig.Repo,
+				Branch:     args.GitRepoConfig.Branch,
+			},
+		}
+	}
+	return nil
+}
+
+func (args *RenderChartArg) fromCustomValueYaml(customValuesYaml *templatemodels.OverrideYaml) {
+	if customValuesYaml == nil {
+		return
+	}
+	args.YamlSource = customValuesYaml.YamlSource
+	switch customValuesYaml.YamlSource {
+	case setting.ValuesYamlSourceFreeEdit:
+		args.ValuesYAML = customValuesYaml.YamlContent
+	case setting.ValuesYamlSourceGitRepo:
+		args.ValuesYAML = ""
+		if customValuesYaml.GitRepoConfig != nil {
+			args.GitRepoConfig = &RepoConfig{
+				CodehostID:  customValuesYaml.GitRepoConfig.CodehostID,
+				Owner:       customValuesYaml.GitRepoConfig.Owner,
+				Repo:        customValuesYaml.GitRepoConfig.Repo,
+				Branch:      customValuesYaml.GitRepoConfig.Branch,
+				ValuesPaths: customValuesYaml.ValuesPaths,
+			}
+		}
+
+	}
+}
+
+// FillRenderChartModel fill render chart model
+func (args *RenderChartArg) FillRenderChartModel(chart *templatemodels.RenderChart, version string) {
+	chart.ServiceName = args.ServiceName
+	chart.ChartVersion = version
+	chart.OverrideValues = args.toOverrideValueString()
+	chart.OverrideYaml = args.toCustomValuesYaml()
+}
+
+// LoadFromRenderChartModel load from render chart model
+func (args *RenderChartArg) LoadFromRenderChartModel(chart *templatemodels.RenderChart) {
+	args.ServiceName = chart.ServiceName
+	args.ChartVersion = chart.ChartVersion
+	args.fromOverrideValueString(chart.OverrideValues)
+	args.fromCustomValueYaml(chart.OverrideYaml)
+}
 
 func listTmplRenderKeys(productTmplName string, log *zap.SugaredLogger) ([]*templatemodels.RenderKV, map[string]*templatemodels.ServiceInfo, error) {
 	//如果没找到对应产品，则kv为空

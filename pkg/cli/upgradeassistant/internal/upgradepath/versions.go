@@ -17,35 +17,47 @@ limitations under the License.
 package upgradepath
 
 import (
-	"github.com/blang/semver/v4"
+	"sort"
 
-	"github.com/koderover/zadig/version"
+	"github.com/blang/semver/v4"
 )
 
 const (
 	Latest = iota + 1
 	V130
 	V131
+	V140
+	V150
 )
 
 var versionMap versions = map[string]int{
 	"1.3.0": V130,
 	"1.3.1": V131,
+	"1.4.0": V140,
+	"1.5.0": V150,
 }
 
 type versions map[string]int
 
 func (v versions) From(version string) int {
-	res, ok := v[version]
+	f, err := semver.Make(version)
+	if err != nil {
+		return Latest
+	}
+	res, ok := v[f.FinalizeVersion()]
 	if !ok {
-		return V130
+		return Latest
 	}
 
 	return res
 }
 
 func (v versions) To(version string) int {
-	res, ok := v[version]
+	t, err := semver.Make(version)
+	if err != nil {
+		return Latest
+	}
+	res, ok := v[t.FinalizeVersion()]
 	if !ok {
 		return Latest
 	}
@@ -66,22 +78,29 @@ func (v versions) MaxVersionString() string {
 		}
 	}
 
-	return max.String()
+	return max.FinalizeVersion()
 }
 
 func init() {
-	maxVersion, _ := semver.Make(versionMap.MaxVersionString())
-	currentVersion, _ := semver.Make(version.Version)
-	if currentVersion.GT(maxVersion) {
-		AddHandler(versionMap.Max(), Latest, UpgradeToLatest)
-		AddHandler(Latest, versionMap.Max(), RollbackFromLatest)
+	versionList := make([]string, 0, len(versionMap))
+	for v := range versionMap {
+		versionList = append(versionList, v)
+	}
+
+	sort.Strings(versionList)
+
+	for i := 0; i < len(versionList)-2; i++ {
+		lowVersion := versionList[i]
+		highVersion := versionList[i+1]
+		AddHandler(versionMap[lowVersion], versionMap[highVersion], defaultUpgradeHandler)
+		AddHandler(versionMap[highVersion], versionMap[lowVersion], defaultRollBackHandler)
 	}
 }
 
-func UpgradeToLatest() error {
+func defaultUpgradeHandler() error {
 	return nil
 }
 
-func RollbackFromLatest() error {
+func defaultRollBackHandler() error {
 	return nil
 }

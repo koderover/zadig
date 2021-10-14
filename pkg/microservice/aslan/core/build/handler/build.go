@@ -28,21 +28,20 @@ import (
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 func FindBuildModule(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = buildservice.FindBuild(c.Param("name"), c.Param("version"), c.Query("productName"), ctx.Logger)
+	ctx.Resp, ctx.Err = buildservice.FindBuild(c.Param("name"), c.Query("productName"), ctx.Logger)
 }
 
 func ListBuildModules(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = buildservice.ListBuild(c.Query("name"), c.Query("version"), c.Query("targets"), c.Query("productName"), ctx.Logger)
+	ctx.Resp, ctx.Err = buildservice.ListBuild(c.Query("name"), c.Query("targets"), c.Query("productName"), ctx.Logger)
 }
 
 func CreateBuildModule(c *gin.Context) {
@@ -57,7 +56,7 @@ func CreateBuildModule(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateBuildModule json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "新增", "工程管理-构建", args.Name, permission.BuildManageUUID, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "新增", "项目管理-构建", args.Name, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	err = c.BindJSON(args)
@@ -81,7 +80,7 @@ func UpdateBuildModule(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdateBuildModule json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "更新", "工程管理-构建", args.Name, permission.BuildManageUUID, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "更新", "项目管理-构建", args.Name, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	err = c.BindJSON(args)
@@ -97,21 +96,15 @@ func DeleteBuildModule(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	name := c.Query("name")
-	version := c.Query("version")
 	productName := c.Query("productName")
-	internalhandler.InsertOperationLog(c, ctx.Username, productName, "删除", "工程管理-构建", name, permission.BuildDeleteUUID, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, productName, "删除", "项目管理-构建", name, "", ctx.Logger)
 
 	if name == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty Name")
 		return
 	}
 
-	if version == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty Version")
-		return
-	}
-
-	ctx.Err = buildservice.DeleteBuild(name, version, productName, ctx.Logger)
+	ctx.Err = buildservice.DeleteBuild(name, productName, ctx.Logger)
 }
 
 func UpdateBuildTargets(c *gin.Context) {
@@ -133,7 +126,7 @@ func UpdateBuildTargets(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, c.Query("productName"), "更新", "工程管理-服务组件", args.Name, permission.BuildManageUUID, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, c.Query("productName"), "更新", "项目管理-服务组件", args.Name, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {

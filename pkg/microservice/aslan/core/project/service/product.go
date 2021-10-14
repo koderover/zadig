@@ -17,15 +17,18 @@ limitations under the License.
 package service
 
 import (
-	"errors"
+	"encoding/json"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -42,6 +45,18 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types/permission"
 )
+
+type CustomParseDataArgs struct {
+	Rules []*ImageParseData `json:"rules"`
+}
+
+type ImageParseData struct {
+	Repo     string `json:"repo,omitempty"`
+	Image    string `json:"image,omitempty"`
+	Tag      string `json:"tag,omitempty"`
+	InUse    bool   `json:"inUse,omitempty"`
+	PresetId int    `json:"presetId,omitempty"`
+}
 
 func GetProductTemplateServices(productName string, log *zap.SugaredLogger) (*template.Product, error) {
 	resp, err := templaterepo.NewProductColl().Find(productName)
@@ -388,19 +403,94 @@ func UpdateProductTmplStatus(productName, onboardingStatus string, log *zap.Suga
 
 // UpdateProject 更新项目
 func UpdateProject(name string, args *template.Product, log *zap.SugaredLogger) (err error) {
+	err = validateRule(args.CustomImageRule, args.CustomTarRule)
+	if err != nil {
+		return e.ErrInvalidParam.AddDesc(err.Error())
+	}
 	poetryCtl := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
-
 	//创建团建和项目之间的关系
 	_, err = poetryCtl.AddProductTeam(args.ProductName, args.TeamID, args.UserIDs, log)
 	if err != nil {
 		log.Errorf("Project.Create AddProductTeam error: %v", err)
-		return e.ErrCreateProduct.AddDesc(err.Error())
+		return e.ErrUpdateProduct.AddDesc(err.Error())
 	}
 
 	err = templaterepo.NewProductColl().Update(name, args)
 	if err != nil {
 		log.Errorf("Project.Update error: %v", err)
-		return e.ErrUpdateProduct
+		return e.ErrUpdateProduct.AddDesc(err.Error())
+	}
+	return nil
+}
+
+func validateRule(customImageRule *template.CustomRule, customTarRule *template.CustomRule) error {
+	var (
+		customImageRuleMap map[string]string
+		customTarRuleMap   map[string]string
+	)
+	body, err := json.Marshal(&customImageRule)
+	if err != nil {
+		return err
+	}
+	if err = json.Unmarshal(body, &customImageRuleMap); err != nil {
+		return err
+	}
+
+	for field, ruleValue := range customImageRuleMap {
+		if err := validateCommonRule(ruleValue, field, config.ImageResourceType); err != nil {
+			return err
+		}
+	}
+
+	body, err = json.Marshal(&customTarRule)
+	if err != nil {
+		return err
+	}
+	if err = json.Unmarshal(body, &customTarRuleMap); err != nil {
+		return err
+	}
+	for field, ruleValue := range customTarRuleMap {
+		if err := validateCommonRule(ruleValue, field, config.TarResourceType); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func validateCommonRule(currentRule, ruleType, deliveryType string) error {
+	var (
+		imageRegexString = "^[a-z0-9][a-zA-Z0-9-_:.]+$"
+		tarRegexString   = "^[a-z0-9][a-zA-Z0-9-_.]+$"
+		tagRegexString   = "^[a-z0-9A-Z_][a-zA-Z0-9-_.]+$"
+		errMessage       = "contains invalid characters, please check"
+	)
+
+	if currentRule == "" {
+		return fmt.Errorf("%s can not be empty", ruleType)
+	}
+
+	if deliveryType == config.ImageResourceType && !strings.Contains(currentRule, ":") {
+		return fmt.Errorf("%s is invalid, must contain a colon", ruleType)
+	}
+
+	currentRule = commonservice.ReplaceRuleVariable(currentRule, &commonservice.Variable{
+		"ss", "ss", "ss", "ss", "ss", "ss", "ss", "ss", "ss",
+	})
+	switch deliveryType {
+	case config.ImageResourceType:
+		if !regexp.MustCompile(imageRegexString).MatchString(currentRule) {
+			return fmt.Errorf("image %s %s", ruleType, errMessage)
+		}
+		// validate tag
+		tag := strings.Split(currentRule, ":")[1]
+		if !regexp.MustCompile(tagRegexString).MatchString(tag) {
+			return fmt.Errorf("image %s %s", ruleType, errMessage)
+		}
+	case config.TarResourceType:
+		if !regexp.MustCompile(tarRegexString).MatchString(currentRule) {
+			return fmt.Errorf("tar %s %s", ruleType, errMessage)
+		}
 	}
 	return nil
 }
@@ -495,10 +585,25 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 	//删除构建/删除测试/删除服务
 	//删除workflow和历史task
 	go func() {
-		_ = commonrepo.NewBuildColl().Delete("", "", productName)
+		_ = commonrepo.NewBuildColl().Delete("", productName)
 		_ = commonrepo.NewServiceColl().Delete("", "", productName, "", 0)
 		_ = commonservice.DeleteDeliveryInfos(productName, log)
 		_ = DeleteProductsAsync(userName, productName, requestID, log)
+	}()
+	// 删除workload
+	go func() {
+		workloads, _ := commonrepo.NewWorkLoadsStatColl().FindByProductName(productName)
+		for _, v := range workloads {
+			// update workloads
+			tmp := []commonmodels.Workload{}
+			for _, vv := range v.Workloads {
+				if vv.ProductName != productName {
+					tmp = append(tmp, vv)
+				}
+			}
+			v.Workloads = tmp
+			commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(v)
+		}
 	}()
 
 	return nil
@@ -560,8 +665,9 @@ func ForkProduct(userID int, username, requestID string, args *template.ForkProj
 				serviceResp.Containers = make([]*commonmodels.Container, 0)
 				for _, c := range serviceTmpl.Containers {
 					container := &commonmodels.Container{
-						Name:  c.Name,
-						Image: c.Image,
+						Name:      c.Name,
+						Image:     c.Image,
+						ImagePath: c.ImagePath,
 					}
 					serviceResp.Containers = append(serviceResp.Containers, container)
 				}
@@ -850,4 +956,148 @@ func ListTemplatesHierachy(userName string, userID int, superUser bool, log *zap
 		resp = append(resp, pInfo)
 	}
 	return resp, nil
+}
+
+func GetCustomMatchRules(productName string, log *zap.SugaredLogger) ([]*ImageParseData, error) {
+	productInfo, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		log.Errorf("query product:%s fail, err:%s", productName, err.Error())
+		return nil, fmt.Errorf("failed to find product %s", productName)
+	}
+
+	rules := productInfo.ImageSearchingRules
+	if len(rules) == 0 {
+		rules = commonservice.GetPresetRules()
+	}
+
+	ret := make([]*ImageParseData, 0, len(rules))
+	for _, singleData := range rules {
+		ret = append(ret, &ImageParseData{
+			Repo:     singleData.Repo,
+			Image:    singleData.Image,
+			Tag:      singleData.Tag,
+			InUse:    singleData.InUse,
+			PresetId: singleData.PresetId,
+		})
+	}
+	return ret, nil
+}
+
+func UpdateCustomMatchRules(productName string, userName string, matchRules []*ImageParseData) error {
+	productInfo, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		log.Errorf("query product:%s fail, err:%s", productName, err.Error())
+		return fmt.Errorf("failed to find product %s", productName)
+	}
+
+	if len(matchRules) == 0 {
+		return errors.New("match rules can't be empty")
+	}
+	haveInUse := false
+	for _, rule := range matchRules {
+		if rule.InUse {
+			haveInUse = true
+			break
+		}
+	}
+	if !haveInUse {
+		return errors.New("no rule is selected to be used")
+	}
+
+	imageRulesToSave := make([]*template.ImageSearchingRule, 0)
+	for _, singleData := range matchRules {
+		if singleData.Repo == "" && singleData.Image == "" && singleData.Tag == "" {
+			continue
+		}
+		imageRulesToSave = append(imageRulesToSave, &template.ImageSearchingRule{
+			Repo:     singleData.Repo,
+			Image:    singleData.Image,
+			Tag:      singleData.Tag,
+			InUse:    singleData.InUse,
+			PresetId: singleData.PresetId,
+		})
+	}
+
+	productInfo.ImageSearchingRules = imageRulesToSave
+	productInfo.UpdateBy = userName
+
+	services, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
+	if err != nil {
+		return err
+	}
+	err = reParseServices(userName, services, imageRulesToSave)
+	if err != nil {
+		return err
+	}
+
+	err = templaterepo.NewProductColl().Update(productName, productInfo)
+	if err != nil {
+		log.Errorf("failed to update product:%s, err:%s", productName, err.Error())
+		return fmt.Errorf("failed to store match rules")
+	}
+
+	return nil
+}
+
+// reparse values.yaml for each service
+func reParseServices(userName string, serviceList []*commonmodels.Service, matchRules []*template.ImageSearchingRule) error {
+	updatedServiceTmpls := make([]*commonmodels.Service, 0)
+
+	var err error
+	for _, serviceTmpl := range serviceList {
+		if serviceTmpl.Type != setting.HelmDeployType || serviceTmpl.HelmChart == nil {
+			continue
+		}
+		valuesYaml := serviceTmpl.HelmChart.ValuesYaml
+
+		valuesMap := make(map[string]interface{})
+		err = yaml.Unmarshal([]byte(valuesYaml), &valuesMap)
+		if err != nil {
+			err = errors.Wrapf(err, "failed to unmarshal values.yamf for service %s", serviceTmpl.ServiceName)
+			break
+		}
+
+		serviceTmpl.Containers, err = commonservice.ParseImagesByRules(valuesMap, matchRules)
+		if err != nil {
+			break
+		}
+
+		if len(serviceTmpl.Containers) == 0 {
+			log.Warnf("service:%s containers is empty after parse, valuesYaml %s", serviceTmpl.ServiceName, valuesYaml)
+		}
+
+		serviceTmpl.CreateBy = userName
+		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, serviceTmpl.ServiceName, serviceTmpl.ProductName)
+		rev, errRevision := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
+		if errRevision != nil {
+			err = fmt.Errorf("get next helm service revision error: %v", errRevision)
+			break
+		}
+		serviceTmpl.Revision = rev
+		if err = commonrepo.NewServiceColl().Delete(serviceTmpl.ServiceName, setting.HelmDeployType, serviceTmpl.ProductName, setting.ProductStatusDeleting, serviceTmpl.Revision); err != nil {
+			log.Errorf("helmService.update delete %s error: %v", serviceTmpl.ServiceName, err)
+			break
+		}
+
+		if err = commonrepo.NewServiceColl().Create(serviceTmpl); err != nil {
+			log.Errorf("helmService.update serviceName:%s error:%v", serviceTmpl.ServiceName, err)
+			err = e.ErrUpdateTemplate.AddDesc(err.Error())
+			break
+		}
+
+		updatedServiceTmpls = append(updatedServiceTmpls, serviceTmpl)
+	}
+
+	// roll back all template services if error occurs
+	if err != nil {
+		for _, serviceTmpl := range updatedServiceTmpls {
+			if err = commonrepo.NewServiceColl().Delete(serviceTmpl.ServiceName, setting.HelmDeployType, serviceTmpl.ProductName, "", serviceTmpl.Revision); err != nil {
+				log.Errorf("helmService.update delete %s error: %v", serviceTmpl.ServiceName, err)
+				continue
+			}
+		}
+		return err
+	}
+
+	return nil
 }

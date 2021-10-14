@@ -64,7 +64,10 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 	// 云主机场景不创建ops工作流
 	if productTmpl.ProductFeature != nil && productTmpl.ProductFeature.BasicFacility == "cloud_host" {
 		workflowNames = []string{productName + "-workflow-dev", productName + "-workflow-qa"}
+	} else if productTmpl.ProductFeature != nil && productTmpl.ProductFeature.CreateEnvType == setting.SourceFromExternal {
+		workflowNames = []string{productName + "-workflow-dev"}
 	}
+
 	workflowSlice := sets.NewString()
 	for _, workflowName := range workflowNames {
 		_, err := FindWorkflow(workflowName, log)
@@ -281,7 +284,6 @@ func PreSetWorkflow(productName string, log *zap.SugaredLogger) ([]*PreSetResp, 
 			for _, moTarget := range mo.Targets {
 				moduleTargetStr := fmt.Sprintf("%s%s%s%s%s", moTarget.ProductName, SplitSymbol, moTarget.ServiceName, SplitSymbol, moTarget.ServiceModule)
 				if moduleTargetStr == k {
-					preSet.BuildModuleVers = append(preSet.BuildModuleVers, mo.Version)
 					if len(mo.Repos) == 0 {
 						preSet.Repos = make([]*types.Repository, 0)
 					} else {

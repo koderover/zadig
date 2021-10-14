@@ -105,8 +105,7 @@ func UpdateContainerImage(requestID string, args *UpdateContainerImageArgs, log 
 
 	//如果环境是helm环境也要更新renderSet
 	if product.Source == setting.HelmDeployType && oldImageName != "" {
-		renderSetName := product.GetNamespace()
-		renderSetOpt := &commonrepo.RenderSetFindOption{Name: renderSetName, Revision: product.Render.Revision}
+		renderSetOpt := &commonrepo.RenderSetFindOption{Name: namespace, Revision: product.Render.Revision}
 		renderSet, err := commonrepo.NewRenderSetColl().Find(renderSetOpt)
 		if err != nil {
 			log.Errorf("[RenderSet.find] update product %s error: %v", args.ProductName, err)

@@ -86,6 +86,34 @@ func (c *ProductColl) List() ([]*template.Product, error) {
 	return resp, nil
 }
 
+func (c *ProductColl) ListNames() ([]string, error) {
+	var res []struct {
+		ProductName string `bson:"product_name"`
+	}
+
+	opts := options.Find()
+	projection := bson.D{
+		{"product_name", 1},
+	}
+	opts.SetProjection(projection)
+
+	cursor, err := c.Collection.Find(context.TODO(), bson.M{}, opts)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &res)
+	if err != nil {
+		return nil, err
+	}
+
+	var names []string
+	for _, r := range res {
+		names = append(names, r.ProductName)
+	}
+
+	return names, nil
+}
+
 type ProductListOpt struct {
 	IsOpensource          string
 	ContainSharedServices []*template.ServiceInfo
@@ -165,19 +193,34 @@ func (c *ProductColl) Update(productName string, args *template.Product) error {
 
 	query := bson.M{"product_name": productName}
 	change := bson.M{"$set": bson.M{
-		"project_name":    strings.TrimSpace(args.ProjectName),
-		"revision":        args.Revision,
-		"services":        args.Services,
-		"update_time":     time.Now().Unix(),
-		"update_by":       args.UpdateBy,
-		"teams":           args.Teams,
-		"enabled":         args.Enabled,
-		"description":     args.Description,
-		"visibility":      args.Visibility,
-		"user_ids":        args.UserIDs,
-		"team_id":         args.TeamID,
-		"timeout":         args.Timeout,
-		"shared_services": args.SharedServices,
+		"project_name":          strings.TrimSpace(args.ProjectName),
+		"revision":              args.Revision,
+		"services":              args.Services,
+		"update_time":           time.Now().Unix(),
+		"update_by":             args.UpdateBy,
+		"teams":                 args.Teams,
+		"enabled":               args.Enabled,
+		"description":           args.Description,
+		"visibility":            args.Visibility,
+		"user_ids":              args.UserIDs,
+		"team_id":               args.TeamID,
+		"timeout":               args.Timeout,
+		"shared_services":       args.SharedServices,
+		"image_searching_rules": args.ImageSearchingRules,
+		"custom_tar_rule":       args.CustomTarRule,
+		"custom_image_rule":     args.CustomImageRule,
+	}}
+
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
+// AddService adds a service to services[0] if it is not there.
+func (c *ProductColl) AddService(productName, serviceName string) error {
+
+	query := bson.M{"product_name": productName}
+	change := bson.M{"$addToSet": bson.M{
+		"services.0": serviceName,
 	}}
 
 	_, err := c.UpdateOne(context.TODO(), query, change)
@@ -185,7 +228,7 @@ func (c *ProductColl) Update(productName string, args *template.Product) error {
 }
 
 // UpdateAll updates all projects in a bulk write.
-// Currently only field `shared_services` is supported.
+// Currently, only field `shared_services` is supported.
 // Note: A bulk operation can have at most 1000 operations, but the client will do it for us.
 // see https://stackoverflow.com/questions/24237887/what-is-mongodb-batch-operation-max-size
 func (c *ProductColl) UpdateAll(projects []*template.Product) error {

@@ -1,0 +1,60 @@
+{
+  "attributes": {
+    "destination": {
+      "address": {
+        "socketAddress": {
+          "address": "10.8.0.77",
+          "portValue": 8080
+        }
+      }
+    },
+    "metadataContext": {},
+    "request": {
+      "http": {
+        "headers": {
+          ":authority": "1.117.135.124",
+          ":method": "GET",
+          ":path": "/api/articles?projectName=project1",
+          ":scheme": "http",
+          "accept": "*/*",
+          "accept-encoding": "gzip, deflate",
+          "accept-language": "zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en-US;q=0.3,en;q=0.2",
+          "authorization": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6ImFmMGNlZTQxOGY0NjJkNWMzMjYyNGRiY2FlN2NjM2E2MjFmMDlkMjMifQ.eyJpc3MiOiJodHRwOi8vZGV4LnRlc3QuOHNsYW4uY29tL2RleCIsInN1YiI6IkNpVXhNak0wTlRZM09EQXRaR0k0T0MwMFlqY3pMVGt3WVRrdE0yTmtNVFkyTVdZMU5EWTJFZ1ZzYjJOaGJBIiwiYXVkIjoiZXhhbXBsZS1hcHAiLCJleHAiOjE2MzM3ODQ2NTgsImlhdCI6MTYzMzY5ODI1OCwiYXRfaGFzaCI6IkhzV0trWFhucDAzZFh1aGxOc00ycUEiLCJjX2hhc2giOiJISjllRUhhMnNBTHY5elBVaERERDd3IiwiZW1haWwiOiJsb3V0ZXN0QGV4YW1wbGUuY29tIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsIm5hbWUiOiJhbGljZSJ9.cAphZs4fv_ZxTNZpIziPi4btm50eYpSvXJGrmNP7TQilGKqkaIF6oroCHsdxuBm3pwIOI8dE4nws7Eogxdtx1AH6EQ3vWv8OoIW1TpCDQit4cX5MsLnEyzuS3r30QQXxi1x2veabsfQungudPivFr4_1xQcjho9G1Y3AGxEDU9zA0-r3U7g9M3lrcF4domaF1xzR1FT2TP0V2QVPCxOocPUl65P-Oxu7oRxpnv44d5ORvAuTuU5IrulZMs5NyaY145qzpBZSTU_x3xQAl4BE35XYh_w1wBqqSEpNbAum9VlpX9kaNrHc8B-jHw2cBRuEIyJU6CPC4g1wcYlxoCrCDg",
+          "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:92.0) Gecko/20100101 Firefox/92.0",
+          "x-forwarded-proto": "http",
+          "x-request-id": "14404686-7a28-48a6-9be6-bdd6e119f81a"
+        },
+        "host": "1.117.135.124",
+        "id": "12546924088872138958",
+        "method": "GET",
+        "path": "/api/articles?projectName=project1",
+        "protocol": "HTTP/1.1",
+        "scheme": "http"
+      },
+      "time": "2021-10-09T03:07:11.345166Z"
+    },
+    "source": {
+      "address": {
+        "socketAddress": {
+          "address": "10.8.0.1",
+          "portValue": 29641
+        }
+      }
+    }
+  },
+  "parsed_body": null,
+  "parsed_path": [
+    "api",
+    "articles"
+  ],
+  "parsed_query": {
+    "projectName": [
+      "project1"
+    ]
+  },
+  "truncated_body": false,
+  "version": {
+    "encoding": "protojson",
+    "ext_authz": "v3"
+  }
+}

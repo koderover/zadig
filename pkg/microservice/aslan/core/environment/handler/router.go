@@ -69,7 +69,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	image := router.Group("image")
 	{
-		// image.POST("", middleware.StoreProductName, middleware.IsHavePermission([]string{permission.TestEnvManageUUID, permission.ProdEnvManageUUID}, permission.ContextKeyType), middleware.UpdateOperationLogStatus, UpdateContainerImage)
 		image.POST("/deployment", gin2.StoreProductName, gin2.IsHavePermission([]string{permission.TestEnvManageUUID, permission.ProdEnvManageUUID, permission.TestUpdateEnvUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, UpdateDeploymentContainerImage)
 		image.POST("/statefulset", gin2.StoreProductName, gin2.IsHavePermission([]string{permission.TestEnvManageUUID, permission.ProdEnvManageUUID, permission.TestUpdateEnvUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, UpdateStatefulSetContainerImage)
 	}
@@ -89,6 +88,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		kube.POST("/pods", ListServicePods)
 		kube.DELETE("/pods/:podName", gin2.IsHavePermission([]string{permission.TestEnvManageUUID, permission.ProdEnvManageUUID, permission.TestUpdateEnvUUID}, permission.QueryType), gin2.UpdateOperationLogStatus, DeletePod)
 		kube.GET("/pods/:podName/events", ListPodEvents)
+		kube.GET("/workloads", ListWorkloads)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -100,13 +100,17 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.POST("/:productName/auto", gin2.IsHavePermission([]string{permission.TestEnvCreateUUID}, permission.ParamType), AutoCreateProduct)
 		environments.PUT("/:productName/autoUpdate", gin2.IsHavePermission([]string{permission.TestEnvManageUUID, permission.ProdEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, AutoUpdateProduct)
 		environments.POST("", gin2.StoreProductName, gin2.IsHavePermission([]string{permission.TestEnvCreateUUID, permission.ProdEnvCreateUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, CreateProduct)
+
+		environments.POST("/:productName/helm", gin2.StoreProductName, gin2.IsHavePermission([]string{permission.TestEnvCreateUUID, permission.ProdEnvCreateUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, CreateHelmProduct)
+		environments.PUT("/:productName/multiHelmEnv", gin2.StoreProductName, gin2.IsHavePermission([]string{permission.TestEnvCreateUUID, permission.ProdEnvCreateUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, UpdateMultiHelmEnv)
+
 		environments.POST("/:productName", gin2.IsHavePermission([]string{permission.TestEnvManageUUID, permission.ProdEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateProduct)
 		environments.PUT("/:productName/envRecycle", gin2.IsHavePermission([]string{permission.TestEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateProductRecycleDay)
-		environments.PUT("/:productName/helmEnv", gin2.IsHavePermission([]string{permission.TestEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateHelmProduct)
-		environments.PUT("/:productName/helmEnvVariable", gin2.IsHavePermission([]string{permission.TestEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateHelmProductVariable)
+		environments.PUT("/:productName/renderchart", gin2.IsHavePermission([]string{permission.TestEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateHelmProductRenderCharts)
+
 		environments.GET("/:productName/helmChartVersions", GetHelmChartVersions)
 		environments.PUT("/:productName", gin2.IsHavePermission([]string{permission.TestEnvShareUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, EnvShare)
-		environments.PUT("/:productName/updateMultiEnv", gin2.IsHavePermission([]string{permission.TestEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateMultiHelmProduct)
+
 		environments.GET("/:productName", GetProduct)
 		environments.GET("/:productName/productInfo", GetProductInfo)
 		environments.GET("/:productName/ingressInfo", GetProductIngress)
@@ -114,7 +118,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.DELETE("/:productName", gin2.IsHavePermission([]string{permission.TestEnvDeleteUUID, permission.ProdEnvDeleteUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, DeleteProduct)
 
 		environments.GET("/:productName/groups", ListGroups)
-		environments.GET("/:productName/groups/:source", ListGroupsBySource)
+		environments.GET("/:productName/workloads", ListWorkloadsInEnv)
 
 		environments.GET("/:productName/services/:serviceName", GetService)
 		environments.PUT("/:productName/services/:serviceName/:serviceType", gin2.IsHavePermission([]string{permission.TestEnvManageUUID, permission.ProdEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateService)
@@ -123,6 +127,22 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.POST("/:productName/services/:serviceName/scale/:number", gin2.IsHavePermission([]string{permission.TestEnvManageUUID, permission.ProdEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, ScaleService)
 		environments.POST("/:productName/services/:serviceName/scaleNew/:number", gin2.IsHavePermission([]string{permission.TestEnvManageUUID, permission.ProdEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, ScaleNewService)
 		environments.GET("/:productName/services/:serviceName/containers/:container/namespaces/:namespace", GetServiceContainer)
+
+		environments.GET("/estimated-renderchart", GetEstimatedRenderCharts)
+
+		// need to be deprecated
+		environments.PUT("/:productName/helmEnv", gin2.IsHavePermission([]string{permission.TestEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateHelmProduct)
+		environments.PUT("/:productName/helmEnvVariable", gin2.IsHavePermission([]string{permission.TestEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateHelmProductVariable)
+		environments.PUT("/:productName/updateMultiEnv", gin2.IsHavePermission([]string{permission.TestEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateMultiHelmProduct)
+	}
+
+	// ---------------------------------------------------------------------------------------
+	// renderset相关接口
+	// ---------------------------------------------------------------------------------------
+	rendersets := router.Group("rendersets")
+	{
+		rendersets.GET("/renderchart", GetServiceRenderCharts)
+		rendersets.PUT("/renderchart", CreateOrUpdateRenderChart) // create or update renderchart when onBoarding
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -131,13 +151,5 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	revision := router.Group("revision")
 	{
 		revision.GET("/products", ListProductsRevision)
-	}
-
-	// ---------------------------------------------------------------------------------------
-	// Server Sent Events 接口
-	// ---------------------------------------------------------------------------------------
-	sse := router.Group("sse")
-	{
-		sse.GET("/products", ListProductsSSE)
 	}
 }

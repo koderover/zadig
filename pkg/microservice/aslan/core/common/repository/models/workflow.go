@@ -315,7 +315,6 @@ type TargetArgs struct {
 	ServiceName      string            `bson:"service_name"              json:"service_name"`
 	ProductName      string            `bson:"product_name"              json:"product_name"`
 	Build            *BuildArgs        `bson:"build"                     json:"build"`
-	Version          string            `bson:"version"                   json:"version"`
 	Deploy           []DeployEnv       `bson:"deloy"                     json:"deploy"`
 	Image            string            `bson:"image"                     json:"image"`
 	BinFile          string            `bson:"bin_file"                  json:"bin_file"`

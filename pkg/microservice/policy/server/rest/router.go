@@ -14,20 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package helmclient
+package rest
 
 import (
-	"sigs.k8s.io/yaml"
+	"github.com/gin-gonic/gin"
+
+	"github.com/koderover/zadig/pkg/microservice/policy/core/handler"
 )
 
-// GetValuesMap returns the mapped out values of a chart
-func (spec *ChartSpec) GetValuesMap() (map[string]interface{}, error) {
-	var values map[string]interface{}
-
-	err := yaml.Unmarshal([]byte(spec.ValuesYaml), &values)
-	if err != nil {
-		return nil, err
+func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
+	for name, r := range map[string]injector{
+		"/api/v1": new(handler.Router),
+	} {
+		r.Inject(router.Group(name))
 	}
+}
 
-	return values, nil
+type injector interface {
+	Inject(router *gin.RouterGroup)
 }

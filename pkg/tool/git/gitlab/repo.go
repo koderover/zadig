@@ -77,9 +77,9 @@ func (c *Client) GetRawFile(owner, repo string, sha string, fileName string) ([]
 	return nil, err
 }
 
-func (c *Client) GetFileContent(owner, repo, ref, path string) ([]byte, error) {
+func (c *Client) GetFileContent(owner, repo, path, branch string) ([]byte, error) {
 	opts := &gitlab.GetFileOptions{
-		Ref: gitlab.String(ref),
+		Ref: gitlab.String(branch),
 	}
 	f, err := wrap(c.RepositoryFiles.GetFile(generateProjectName(owner, repo), path, opts))
 	if err != nil {
@@ -119,7 +119,7 @@ func (c *Client) GetYAMLContents(owner, repo, path, branch string, isDir, split 
 			return nil, nil
 		}
 
-		ct, err := c.GetFileContent(owner, repo, branch, path)
+		ct, err := c.GetFileContent(owner, repo, path, branch)
 		if err != nil {
 			return nil, err
 		}
@@ -167,7 +167,7 @@ func (c *Client) GetTreeContents(owner, repo, path, branch string) (afero.Fs, er
 
 func (c *Client) getTreeContents(owner, repo, branch, base, path string, isDir bool, fs afero.Fs) error {
 	if !isDir {
-		ct, err := c.GetFileContent(owner, repo, branch, path)
+		ct, err := c.GetFileContent(owner, repo, path, branch)
 		if err != nil {
 			return err
 		}

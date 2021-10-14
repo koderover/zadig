@@ -222,6 +222,7 @@ const (
 
 	ProdENV = "prod"
 	TestENV = "test"
+	AllENV  = "all"
 
 	// action type
 	TypeEnableCronjob  = "enable"
@@ -455,6 +456,17 @@ const (
 	ProviderSourceQiniu
 	ProviderSourceHuawei
 	ProviderSourceSystemDefault
+)
+
+// helm related
+const (
+	ValuesYamlSourceFreeEdit = "freeEdit"
+	ValuesYamlSourceGitRepo  = "gitRepo"
+
+	// components used to search image paths from yaml
+	PathSearchComponentRepo  = "repo"
+	PathSearchComponentImage = "image"
+	PathSearchComponentTag   = "tag"
 )
 
 // Aliyun specific stuff

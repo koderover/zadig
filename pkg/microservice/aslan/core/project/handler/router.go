@@ -31,16 +31,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// 查看自定义变量是否被引用
 	render := router.Group("renders")
 	{
-		// render.POST("/data", CheckRenderDataStatus)
-		// render.GET("/keys", ListTmplRenderKeys)
-		// render.GET("", ListRenderSets)
-		// render.GET("/render/:name", GetRenderSet)
 		render.GET("/render/:name/revision/:revision", GetRenderSetInfo)
-		// render.GET("/covered/:productName/:renderName", ValidateRenderSet)
-		// render.POST("", CreateRenderSet)
 		render.PUT("", UpdateRenderSet)
-		// render.PUT("/default", SetDefaultRenderSet)
-		// render.PUT("relate/:productName/:renderName", RelateRender)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -51,6 +43,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		product.GET("/:name", GetProductTemplate)
 		product.GET("/:name/services", GetProductTemplateServices)
 		product.GET("", ListProductTemplate)
+		product.GET("/:name/searching-rules", GetCustomMatchRules)
+		product.PUT("/:name/searching-rules", gin2.StoreProductName, gin2.IsHavePermission([]string{permission.SuperUserUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, CreateOrUpdateMatchRules)
 		product.POST("", gin2.StoreProductName, gin2.IsHavePermission([]string{permission.SuperUserUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, CreateProductTemplate)
 		product.PUT("/:name", gin2.IsHavePermission([]string{permission.ServiceTemplateEditUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateProductTemplate)
 		product.PUT("/:name/:status", gin2.IsHavePermission([]string{permission.ServiceTemplateEditUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateProductTmplStatus)
@@ -67,5 +61,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	template := router.Group("templates")
 	{
 		template.GET("/info", ListTemplatesHierachy)
+	}
+
+	project := router.Group("projects")
+	{
+		project.GET("", ListProjects)
 	}
 }

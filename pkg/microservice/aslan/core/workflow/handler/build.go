@@ -27,7 +27,7 @@ func BuildModuleToSubTasks(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	resp, err := workflow.BuildModuleToSubTasks(c.Param("name"), c.Param("version"), "", "", c.Query("productName"), nil, nil, ctx.Logger)
+	resp, err := workflow.BuildModuleToSubTasks(c.Param("name"), "", "", c.Query("productName"), nil, nil, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		return

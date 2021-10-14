@@ -21,18 +21,22 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	helmclient "github.com/mittwald/go-helm-client"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/tool/helmclient"
+	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 )
 
@@ -98,10 +102,10 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 			}()
 
 			//卸载helm release资源
-			if helmClient, err := helmclient.NewClientFromRestConf(restConfig, productInfo.Namespace); err == nil {
+			if hc, err := helmtool.NewClientFromRestConf(restConfig, productInfo.Namespace); err == nil {
 				for _, services := range productInfo.Services {
 					for _, service := range services {
-						if err = helmClient.UninstallRelease(&helmclient.ChartSpec{
+						if err = hc.UninstallRelease(&helmclient.ChartSpec{
 							ReleaseName: fmt.Sprintf("%s-%s", productInfo.Namespace, service.ServiceName),
 							Namespace:   productInfo.Namespace,
 							Wait:        true,
@@ -133,6 +137,30 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 		if err != nil {
 			log.Errorf("DeleteEnvRole error: %v", err)
 		}
+
+		// 删除workload数据
+		tempProduct, err := template.NewProductColl().Find(productName)
+		if err != nil {
+			log.Errorf("project not found error:%s", err)
+		}
+		if tempProduct.ProductFeature != nil && tempProduct.ProductFeature.CreateEnvType == setting.SourceFromExternal {
+			workloadStat, err := mongodb.NewWorkLoadsStatColl().Find(productInfo.ClusterID, productInfo.Namespace)
+			if err != nil {
+				log.Errorf("workflowStat not found error:%s", err)
+			}
+			if workloadStat != nil {
+				workloadStat.Workloads = filterWorkloadsByEnv(workloadStat.Workloads, productInfo.EnvName)
+				if err := mongodb.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat); err != nil {
+					log.Errorf("update workloads fail error:%s", err)
+				}
+			}
+			// 删除所有external的服务
+			err = commonrepo.NewServiceColl().UpdateExternalServicesStatus("", productName, setting.ProductStatusDeleting, envName)
+			if err != nil {
+				log.Errorf("UpdateStatus  external services error:%s", err)
+			}
+		}
+
 	default:
 		go func() {
 			var err error
@@ -187,8 +215,17 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 			}
 		}()
 	}
-
 	return nil
+}
+
+func filterWorkloadsByEnv(exist []models.Workload, env string) []models.Workload {
+	result := make([]models.Workload, 0)
+	for _, v := range exist {
+		if v.EnvName != env {
+			result = append(result, v)
+		}
+	}
+	return result
 }
 
 func DeleteClusterResourceAsync(selector labels.Selector, kubeClient client.Client, log *zap.SugaredLogger) error {
@@ -288,7 +325,17 @@ func DeleteResourcesAsync(namespace string, selector labels.Selector, kubeClient
 	return errors.ErrorOrNil()
 }
 
-func GetProductEnvNamespace(envName, productName string) string {
-	product := &commonmodels.Product{EnvName: envName, ProductName: productName}
-	return product.GetNamespace()
+func GetProductEnvNamespace(envName, productName, namespace string) string {
+	if namespace != "" {
+		return namespace
+	}
+	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: envName,
+	})
+	if err != nil {
+		product = &commonmodels.Product{EnvName: envName, ProductName: productName}
+		return product.GetNamespace()
+	}
+	return product.Namespace
 }

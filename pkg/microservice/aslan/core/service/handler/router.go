@@ -18,7 +18,6 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
-
 	gin2 "github.com/koderover/zadig/pkg/middleware/gin"
 	"github.com/koderover/zadig/pkg/types/permission"
 )
@@ -42,7 +41,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		helm.GET("/:productName/:serviceName/serviceModule", GetHelmServiceModule)
 		helm.GET("/:productName/:serviceName/filePath", GetFilePath)
 		helm.GET("/:productName/:serviceName/fileContent", GetFileContent)
-		helm.POST("/:productName", gin2.IsHavePermission([]string{permission.ServiceTemplateManageUUID}, permission.ParamType), CreateHelmService)
+		helm.POST("/services", gin2.IsHavePermission([]string{permission.ServiceTemplateManageUUID}, permission.ParamType), CreateOrUpdateHelmService)
 		helm.PUT("/:productName", gin2.IsHavePermission([]string{permission.ServiceTemplateManageUUID}, permission.ParamType), UpdateHelmService)
 	}
 
@@ -56,6 +55,13 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		k8s.PUT("/yaml/validator", YamlValidator)
 		k8s.DELETE("/:name/:type", gin2.IsHavePermission([]string{permission.ServiceTemplateDeleteUUID}, permission.QueryType), gin2.UpdateOperationLogStatus, DeleteServiceTemplate)
 		k8s.GET("/:name/:type/ports", ListServicePort)
+	}
+
+	workload := router.Group("workloads")
+	{
+		workload.POST("", CreateK8sWorkloads)
+		workload.GET("", ListWorkloadTemplate)
+		workload.PUT("", UpdateWorkloads)
 	}
 
 	name := router.Group("name")
