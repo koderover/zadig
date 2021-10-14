@@ -530,6 +530,9 @@ func releaseCandidate(b *task.Build, taskID int64, productName, envName, deliver
 			return replaceVariable(customTarRule, candidate)
 		}
 	}
+	if deliveryType == config.TarResourceType {
+		return fmt.Sprintf("%s-%s", b.ServiceName, timeStamp)
+	}
 	return fmt.Sprintf("%s:%s", b.ServiceName, timeStamp)
 }
 
