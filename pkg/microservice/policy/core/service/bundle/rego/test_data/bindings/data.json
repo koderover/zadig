@@ -4,6 +4,15 @@
       "user": "alice",
       "bindings": [
         {
+          "namespace": "",
+          "role_refs": [
+            {
+              "name": "admin",
+              "namespace": ""
+            }
+          ]
+        },
+        {
           "namespace": "project1",
           "role_refs": [
             {

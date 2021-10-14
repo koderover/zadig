@@ -42,3 +42,16 @@ func CreateRoleBinding(c *gin.Context) {
 
 	ctx.Err = service.CreateRoleBinding(projectName, args, ctx.Logger)
 }
+
+func CreateGlobalRoleBinding(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := &service.RoleBinding{}
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Err = service.CreateRoleBinding("", args, ctx.Logger)
+}

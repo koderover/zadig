@@ -38,6 +38,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		roleBindings.POST("", CreateRoleBinding)
 	}
 
+	globalRoleBindings := router.Group("global-rolebindings")
+	{
+		globalRoleBindings.POST("", CreateGlobalRoleBinding)
+	}
+
 	bundles := router.Group("bundles")
 	{
 		bundles.GET("/:name", DownloadBundle)

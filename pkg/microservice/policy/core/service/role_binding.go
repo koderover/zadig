@@ -33,11 +33,6 @@ type RoleBinding struct {
 }
 
 func CreateRoleBinding(ns string, rb *RoleBinding, logger *zap.SugaredLogger) error {
-	if ns == "" {
-		logger.Errorf("Namespace is empty")
-		return fmt.Errorf("empty namespace")
-	}
-
 	nsRole := ns
 	if rb.Global {
 		nsRole = ""
