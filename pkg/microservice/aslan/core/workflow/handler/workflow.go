@@ -125,7 +125,7 @@ func ListTestWorkflows(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = workflow.ListAllWorkflows(c.Param("testName"), ctx.User.ID, c.QueryArray("projects"), ctx.Logger)
+	ctx.Resp, ctx.Err = workflow.ListTestWorkflows(c.Param("testName"), ctx.User.ID, c.QueryArray("projects"), ctx.Logger)
 }
 
 // FindWorkflow find a workflow

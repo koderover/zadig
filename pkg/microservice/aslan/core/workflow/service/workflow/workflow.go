@@ -488,7 +488,7 @@ func findWorkflowStat(workflow *commonmodels.Workflow, workflowStats []*commonmo
 	return 0, 0, 0
 }
 
-func ListAllWorkflows(testName string, userID int, projects []string, log *zap.SugaredLogger) (workflows []*commonmodels.Workflow, err error) {
+func ListTestWorkflows(testName string, userID int, projects []string, log *zap.SugaredLogger) (workflows []*commonmodels.Workflow, err error) {
 	allWorkflows, err := commonrepo.NewWorkflowColl().ListWorkflowsByProjects(projects)
 	if err != nil {
 		return nil, err
