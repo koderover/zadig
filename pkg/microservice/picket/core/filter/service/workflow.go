@@ -4,8 +4,9 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/koderover/zadig/pkg/microservice/picket/client/aslan"
 	"go.uber.org/zap"
+
+	"github.com/koderover/zadig/pkg/microservice/picket/client/aslan"
 )
 
 func ListTestWorkflows(testName string, header http.Header, qs url.Values, logger *zap.SugaredLogger) ([]byte, error) {
@@ -21,5 +22,5 @@ func ListTestWorkflows(testName string, header http.Header, qs url.Values, logge
 
 	aslanClient := aslan.New()
 
-	return aslanClient.ListTestProjects(testName, header, qs)
+	return aslanClient.ListTestWorkflows(testName, header, qs)
 }
