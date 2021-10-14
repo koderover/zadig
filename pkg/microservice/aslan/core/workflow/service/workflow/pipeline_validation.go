@@ -492,10 +492,10 @@ func releaseCandidate(b *task.Build, taskID int64, productName, envName, deliver
 	timeStamp := time.Now().Format("20060102150405")
 	if len(b.JobCtx.Builds) == 0 {
 		switch deliveryType {
-		case config.ImageResourceType:
-			return fmt.Sprintf("%s:%s", b.ServiceName, timeStamp)
 		case config.TarResourceType:
 			return fmt.Sprintf("%s-%s", b.ServiceName, timeStamp)
+		default:
+			return fmt.Sprintf("%s:%s", b.ServiceName, timeStamp)
 		}
 	}
 
@@ -532,12 +532,11 @@ func releaseCandidate(b *task.Build, taskID int64, productName, envName, deliver
 		ServiceName: b.ServiceName,
 	}
 	switch deliveryType {
-	case config.ImageResourceType:
-		return replaceVariable(customImageRule, candidate)
 	case config.TarResourceType:
 		return replaceVariable(customTarRule, candidate)
+	default:
+		return replaceVariable(customImageRule, candidate)
 	}
-	return replaceVariable(customImageRule, candidate)
 }
 
 type candidate struct {
