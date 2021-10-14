@@ -31,6 +31,12 @@ import (
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
+type ProjectInfo struct {
+	Name  string `bson:"product_name"`
+	Alias string `bson:"project_name"`
+	Desc  string `bson:"description"`
+}
+
 type ProductColl struct {
 	*mongo.Collection
 
@@ -71,20 +77,53 @@ func (c *ProductColl) FindProjectName(project string) (*template.Product, error)
 	return resp, err
 }
 
-func (c *ProductColl) ListProjectsByNames(projects []string) ([]*template.Product, error) {
-	resp := make([]*template.Product, 0)
-	ctx := context.TODO()
-	query := bson.M{"project_name": bson.M{"$in": projects}}
-	cursor, err := c.Collection.Find(ctx, query)
+func (c *ProductColl) ListNames(inNames []string) ([]string, error) {
+	res, err := c.listProjects(inNames, bson.D{
+		{"product_name", 1},
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	err = cursor.All(ctx, &resp)
+	var names []string
+	for _, r := range res {
+		names = append(names, r.Name)
+	}
+
+	return names, nil
+}
+
+func (c *ProductColl) ListProjectBriefs(inNames []string) ([]*ProjectInfo, error) {
+	return c.listProjects(inNames, bson.D{
+		{"product_name", 1},
+		{"project_name", 1},
+		{"description", 1},
+	})
+}
+
+func (c *ProductColl) listProjects(inNames []string, projection bson.D) ([]*ProjectInfo, error) {
+	opts := options.Find()
+	filter := bson.M{}
+	if len(inNames) > 0 {
+		filter["product_name"] = bson.M{"$in": inNames}
+	}
+
+	if len(projection) > 0 {
+		opts.SetProjection(projection)
+	}
+
+	cursor, err := c.Collection.Find(context.TODO(), filter, opts)
 	if err != nil {
 		return nil, err
 	}
-	return resp, nil
+
+	var res []*ProjectInfo
+	err = cursor.All(context.TODO(), &res)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }
 
 func (c *ProductColl) List() ([]*template.Product, error) {

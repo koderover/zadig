@@ -42,7 +42,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		product.GET("/:name", GetProductTemplate)
 		product.GET("/:name/services", GetProductTemplateServices)
-		product.GET("", ListProductTemplate)
 		product.GET("/:name/searching-rules", GetCustomMatchRules)
 		product.PUT("/:name/searching-rules", gin2.StoreProductName, gin2.IsHavePermission([]string{permission.SuperUserUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, CreateOrUpdateMatchRules)
 		product.POST("", gin2.StoreProductName, gin2.IsHavePermission([]string{permission.SuperUserUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, CreateProductTemplate)

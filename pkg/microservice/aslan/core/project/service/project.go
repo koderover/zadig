@@ -21,7 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 )
 
 type QueryVerbosity string
@@ -30,18 +30,20 @@ const (
 	VerbosityDetailed QueryVerbosity = "detailed" // all information
 	VerbosityBrief    QueryVerbosity = "brief"    // short information or a summary
 	VerbosityMinimal  QueryVerbosity = "minimal"  // very little information, usually only a resource identifier
+
+	allProjects = "*"
 )
 
 type ProjectListOptions struct {
 	IgnoreNoEnvs bool
 	Verbosity    QueryVerbosity
-	Projects     []string
+	Names        []string
 }
 
 type ProjectDetailedRepresentation struct {
 	*ProjectBriefRepresentation
-	Alias string
-	Desc  string
+	Alias string `json:"alias"`
+	Desc  string `json:"desc"`
 }
 
 type ProjectBriefRepresentation struct {
@@ -51,6 +53,14 @@ type ProjectBriefRepresentation struct {
 
 type ProjectMinimalRepresentation struct {
 	Name string `json:"name"`
+}
+
+func (o *ProjectListOptions) InNames() []string {
+	if len(o.Names) == 0 || (len(o.Names) == 1 && o.Names[0] == allProjects) {
+		return []string{}
+	}
+
+	return o.Names
 }
 
 func ListProjects(opts *ProjectListOptions, logger *zap.SugaredLogger) (interface{}, error) {
@@ -66,95 +76,82 @@ func ListProjects(opts *ProjectListOptions, logger *zap.SugaredLogger) (interfac
 	}
 }
 
-func listDetailedProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogger) (res []*ProjectDetailedRepresentation, err error) {
-	nameWithEnvs, err := mongodb.NewProductColl().ListProjects()
+func listDetailedProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogger) ([]*ProjectDetailedRepresentation, error) {
+	var res []*ProjectDetailedRepresentation
+
+	nameSet, nameMap, err := getProjects(opts)
 	if err != nil {
 		logger.Errorf("Failed to list projects, err: %s", err)
 		return nil, err
 	}
 
-	nameSet := sets.NewString()
-	for _, name := range opts.Projects {
-		nameSet.Insert(name)
+	nameWithEnvSet, nameWithEnvMap, err := getProjectsWithEnvs(opts)
+	if err != nil {
+		logger.Errorf("Failed to list projects, err: %s", err)
+		return nil, err
 	}
 
-	nameWithEnvsSet := sets.NewString()
-	for _, nameWithEnv := range nameWithEnvs {
-		// nameWithEnvs may contain projects which are already deleted.
-		if !nameSet.Has(nameWithEnv.ProjectName) {
-			continue
-		}
+	desiredSet := nameSet
+	if opts.IgnoreNoEnvs {
+		desiredSet = nameSet.Intersection(nameWithEnvSet)
+	}
+
+	for name := range desiredSet {
+		info := nameMap[name]
 		res = append(res, &ProjectDetailedRepresentation{
 			ProjectBriefRepresentation: &ProjectBriefRepresentation{
-				ProjectMinimalRepresentation: &ProjectMinimalRepresentation{Name: nameWithEnv.ProjectName},
-				Envs:                         nameWithEnv.Envs,
+				ProjectMinimalRepresentation: &ProjectMinimalRepresentation{Name: name},
+				Envs:                         nameWithEnvMap[name],
 			},
+			Alias: info.Alias,
+			Desc:  info.Desc,
 		})
-		nameWithEnvsSet.Insert(nameWithEnv.ProjectName)
-	}
-
-	projects, err := template.NewProductColl().ListProjectsByNames(opts.Projects)
-	if err != nil {
-		return nil, err
-	}
-	if !opts.IgnoreNoEnvs {
-		for _, project := range projects {
-			if !nameWithEnvsSet.Has(project.ProjectName) {
-				res = append(res, &ProjectDetailedRepresentation{
-					ProjectBriefRepresentation: &ProjectBriefRepresentation{
-						ProjectMinimalRepresentation: &ProjectMinimalRepresentation{Name: project.ProjectName},
-					},
-					Alias: project.ProductName,
-					Desc:  project.Description,
-				})
-			}
-		}
 	}
 
 	return res, nil
 }
 
-func listBriefProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogger) (res []*ProjectBriefRepresentation, err error) {
-	nameWithEnvs, err := mongodb.NewProductColl().ListProjects()
+func listBriefProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogger) ([]*ProjectBriefRepresentation, error) {
+	var res []*ProjectBriefRepresentation
+
+	nameSet, _, err := getProjects(opts)
 	if err != nil {
 		logger.Errorf("Failed to list projects, err: %s", err)
 		return nil, err
 	}
 
-	nameSet := sets.NewString()
-	for _, name := range opts.Projects {
-		nameSet.Insert(name)
+	nameWithEnvSet, nameWithEnvMap, err := getProjectsWithEnvs(opts)
+	if err != nil {
+		logger.Errorf("Failed to list projects, err: %s", err)
+		return nil, err
 	}
 
-	nameWithEnvsSet := sets.NewString()
-	for _, nameWithEnv := range nameWithEnvs {
-		// nameWithEnvs may contain projects which are already deleted.
-		if !nameSet.Has(nameWithEnv.ProjectName) {
-			continue
-		}
+	desiredSet := nameSet
+	if opts.IgnoreNoEnvs {
+		desiredSet = nameSet.Intersection(nameWithEnvSet)
+	}
+
+	for name := range desiredSet {
 		res = append(res, &ProjectBriefRepresentation{
-			ProjectMinimalRepresentation: &ProjectMinimalRepresentation{Name: nameWithEnv.ProjectName},
-			Envs:                         nameWithEnv.Envs,
+			ProjectMinimalRepresentation: &ProjectMinimalRepresentation{Name: name},
+			Envs:                         nameWithEnvMap[name],
 		})
-		nameWithEnvsSet.Insert(nameWithEnv.ProjectName)
-	}
-
-	if !opts.IgnoreNoEnvs {
-		for _, name := range opts.Projects {
-			if !nameWithEnvsSet.Has(name) {
-				res = append(res, &ProjectBriefRepresentation{
-					ProjectMinimalRepresentation: &ProjectMinimalRepresentation{Name: name},
-				})
-			}
-		}
 	}
 
 	return res, nil
 }
 
-func listMinimalProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogger) (res []*ProjectMinimalRepresentation, err error) {
+func listMinimalProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogger) ([]*ProjectMinimalRepresentation, error) {
+	var res []*ProjectMinimalRepresentation
+
+	names, err := templaterepo.NewProductColl().ListNames(opts.InNames())
+	if err != nil {
+		logger.Errorf("Failed to list project names, err: %s", err)
+		return nil, err
+	}
+
 	if !opts.IgnoreNoEnvs {
-		for _, name := range opts.Projects {
+		for _, name := range names {
 			res = append(res, &ProjectMinimalRepresentation{Name: name})
 		}
 
@@ -162,23 +159,55 @@ func listMinimalProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogger
 	}
 
 	nameSet := sets.NewString()
-	for _, name := range opts.Projects {
+	for _, name := range names {
 		nameSet.Insert(name)
 	}
 
-	nameWithEnvs, err := mongodb.NewProductColl().ListProjects()
+	nameWithEnvSet, _, err := getProjectsWithEnvs(opts)
 	if err != nil {
 		logger.Errorf("Failed to list projects, err: %s", err)
 		return nil, err
 	}
 
-	for _, nameWithEnv := range nameWithEnvs {
+	for name := range nameWithEnvSet {
 		// nameWithEnvs may contain projects which are already deleted.
-		if !nameSet.Has(nameWithEnv.ProjectName) {
+		if !nameSet.Has(name) {
 			continue
 		}
-		res = append(res, &ProjectMinimalRepresentation{Name: nameWithEnv.ProjectName})
+		res = append(res, &ProjectMinimalRepresentation{Name: name})
 	}
 
 	return res, nil
+}
+
+func getProjectsWithEnvs(opts *ProjectListOptions) (sets.String, map[string][]string, error) {
+	nameWithEnvs, err := mongodb.NewProductColl().ListProjectsInNames(opts.InNames())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	nameSet := sets.NewString()
+	nameMap := make(map[string][]string)
+	for _, nameWithEnv := range nameWithEnvs {
+		nameSet.Insert(nameWithEnv.ProjectName)
+		nameMap[nameWithEnv.ProjectName] = nameWithEnv.Envs
+	}
+
+	return nameSet, nameMap, nil
+}
+
+func getProjects(opts *ProjectListOptions) (sets.String, map[string]*templaterepo.ProjectInfo, error) {
+	res, err := templaterepo.NewProductColl().ListProjectBriefs(opts.InNames())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	nameSet := sets.NewString()
+	nameMap := make(map[string]*templaterepo.ProjectInfo)
+	for _, r := range res {
+		nameSet.Insert(r.Name)
+		nameMap[r.Name] = r
+	}
+
+	return nameSet, nameMap, nil
 }
