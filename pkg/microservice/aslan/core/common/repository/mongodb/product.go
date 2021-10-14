@@ -180,10 +180,15 @@ func (c *ProductColl) List(opt *ProductListOptions) ([]*models.Product, error) {
 	return ret, nil
 }
 
-func (c *ProductColl) ListProjects() ([]*projectEnvs, error) {
+func (c *ProductColl) ListProjectsInNames(names []string) ([]*projectEnvs, error) {
 	var res []*projectEnvs
-	pipeline := []bson.M{
-		{
+	var pipeline []bson.M
+	if len(names) > 0 {
+		pipeline = append(pipeline, bson.M{"$match": bson.M{"product_name": bson.M{"$in": names}}})
+	}
+
+	pipeline = append(pipeline,
+		bson.M{
 			"$group": bson.M{
 				"_id": bson.M{
 					"product_name": "$product_name",
@@ -192,7 +197,7 @@ func (c *ProductColl) ListProjects() ([]*projectEnvs, error) {
 				"envs":         bson.M{"$push": "$env_name"},
 			},
 		},
-	}
+	)
 
 	cursor, err := c.Aggregate(context.TODO(), pipeline)
 	if err != nil {

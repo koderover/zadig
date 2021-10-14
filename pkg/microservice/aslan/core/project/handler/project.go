@@ -39,8 +39,15 @@ func ListProjects(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
+
+	productType := c.DefaultQuery("productType", "normal")
+	if productType == "openSource" {
+		ctx.Resp, ctx.Err = projectservice.ListOpenSourceProduct(ctx.Logger)
+		return
+	}
+
 	ctx.Resp, ctx.Err = projectservice.ListProjects(
-		&projectservice.ProjectListOptions{IgnoreNoEnvs: args.IgnoreNoEnvs, Verbosity: projectservice.QueryVerbosity(args.Verbosity), Projects: args.Names},
+		&projectservice.ProjectListOptions{IgnoreNoEnvs: args.IgnoreNoEnvs, Verbosity: projectservice.QueryVerbosity(args.Verbosity), Names: args.Names},
 		ctx.Logger,
 	)
 }

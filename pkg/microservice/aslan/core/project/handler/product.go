@@ -47,19 +47,6 @@ func GetProductTemplateServices(c *gin.Context) {
 	ctx.Resp, ctx.Err = projectservice.GetProductTemplateServices(productTemplatName, ctx.Logger)
 }
 
-//ListProductTemplate 产品分页信息
-func ListProductTemplate(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	productType := c.DefaultQuery("productType", "normal")
-	if productType != "openSource" {
-		ctx.Resp, ctx.Err = projectservice.ListProductTemplate(ctx.User.ID, ctx.User.IsSuperUser, ctx.Logger)
-		return
-	}
-	ctx.Resp, ctx.Err = projectservice.ListOpenSourceProduct(ctx.Logger)
-}
-
 func CreateProductTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
