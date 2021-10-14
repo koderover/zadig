@@ -45,7 +45,6 @@ type Task struct {
 	ReqID        string                   `bson:"req_id,omitempty"          json:"req_id,omitempty"`
 	AgentHost    string                   `bson:"agent_host,omitempty"      json:"agent_host,omitempty"`
 	DockerHost   string                   `bson:"-"                         json:"docker_host,omitempty"`
-	TeamID       int                      `bson:"team_id,omitempty"         json:"team_id,omitempty"`
 	TeamName     string                   `bson:"team,omitempty"            json:"team,omitempty"`
 	IsDeleted    bool                     `bson:"is_deleted"                json:"is_deleted"`
 	IsArchived   bool                     `bson:"is_archived"               json:"is_archived"`

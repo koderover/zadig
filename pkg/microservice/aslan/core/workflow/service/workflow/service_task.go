@@ -232,7 +232,7 @@ func CreateServiceTask(args *commonmodels.ServiceTaskArgs, log *zap.SugaredLogge
 	}
 	sort.Sort(ByTaskKind(task.SubTasks))
 
-	if err := ensurePipelineTask(task, log); err != nil {
+	if err := ensurePipelineTask(task, "", log); err != nil {
 		log.Errorf("CreateServiceTask ensurePipelineTask err : %v", err)
 		return nil, err
 	}
