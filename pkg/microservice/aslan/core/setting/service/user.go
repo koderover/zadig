@@ -45,7 +45,6 @@ import (
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 type kubeCfgTmplArgs struct {
@@ -237,12 +236,8 @@ func ensureServiceAccount(namespace, username string, log *zap.SugaredLogger) er
 }
 
 func ensureUserRole(namespace, username, productName string, userID int, superUser bool, log *zap.SugaredLogger) error {
-	poetryClient := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
 	roleName := fmt.Sprintf("%s-role", username)
-	verbs := []string{"get", "list", "watch"}
-	if poetryClient.HasOperatePermission(productName, permission.TestEnvManageUUID, userID, superUser, log) {
-		verbs = []string{"*"}
-	}
+	verbs := []string{"*"}
 	role := &rbacv1beta1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      roleName,
