@@ -41,7 +41,6 @@ import (
 	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 type CustomParseDataArgs struct {
@@ -533,23 +532,6 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 }
 
 func ForkProduct(userID int, username, requestID string, args *template.ForkProject, log *zap.SugaredLogger) error {
-	poetryClient := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
-	// first check if the product have contributor role, if not, create one
-	if !poetryClient.ContributorRoleExist(args.ProductName, log) {
-		err := poetryClient.CreateContributorRole(args.ProductName, log)
-		if err != nil {
-			log.Errorf("Cannot create contributor role for product: %s, the error is: %v", args.ProductName, err)
-			return e.ErrForkProduct.AddDesc(err.Error())
-		}
-	}
-
-	// Give contributor role to this user
-	// first look for roleID
-	roleID := poetryClient.GetContributorRoleID(args.ProductName, log)
-	if roleID < 0 {
-		log.Errorf("Failed to get contributor Role ID from poetry client")
-		return e.ErrForkProduct.AddDesc("Failed to get contributor Role ID from poetry client")
-	}
 
 	prodTmpl, err := templaterepo.NewProductColl().Find(args.ProductName)
 	if err != nil {
@@ -620,24 +602,6 @@ func ForkProduct(userID int, username, requestID string, args *template.ForkProj
 		errMsg := fmt.Sprintf("Failed to create env in order to fork product, the error is: %+v", err)
 		log.Errorf(errMsg)
 		return e.ErrForkProduct.AddDesc(errMsg)
-	}
-
-	userList, _ := poetryClient.ListPermissionUsers(args.ProductName, roleID, poetry.ProjectType, log)
-	newUserList := append(userList, userID)
-	err = poetryClient.UpdateUserRole(roleID, poetry.ProjectType, args.ProductName, newUserList, log)
-	if err != nil {
-		log.Errorf("Failed to update user role, the error is: %v", err)
-		return e.ErrForkProduct.AddDesc(fmt.Sprintf("Failed to update user role, the error is: %v", err))
-	}
-
-	err = poetryClient.CreateUserEnvPermission(&poetry.UserEnvPermission{
-		UserID:          userID,
-		ProductName:     args.ProductName,
-		EnvName:         args.EnvName,
-		PermissionUUIDs: []string{permission.TestEnvListUUID, permission.TestEnvManageUUID},
-	})
-	if err != nil {
-		return e.ErrForkProduct.AddDesc(fmt.Sprintf("Failed to create env permission for user: %s", username))
 	}
 
 	workflowPreset, err := workflowservice.PreSetWorkflow(args.ProductName, log)

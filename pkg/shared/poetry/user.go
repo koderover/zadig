@@ -20,13 +20,11 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 //roleType
@@ -286,65 +284,6 @@ func (c *Client) ListProductPermissionUsers(productName, permissionID string, lo
 	}
 
 	return resp, nil
-}
-
-func (c *Client) CreateContributorRole(product string, log *zap.SugaredLogger) error {
-	// create role first
-	url := "/directory/roles"
-	req := &Role{
-		IsDisabled:  false,
-		Name:        setting.RoleContributor,
-		ProductName: product,
-		RoleType:    ProjectType,
-		UpdateBy:    setting.SystemUser,
-		UpdateAt:    time.Now().Unix(),
-	}
-
-	r := &Role{}
-	_, err := c.Post(url, httpclient.SetBody(req), httpclient.SetResult(r))
-	if err != nil {
-		log.Errorf("CreateContributorRole failed, error: %v", err)
-		return err
-	}
-
-	// 然后创建role product
-	roleProductURL := "/directory/roleProduct"
-	roleProductReq := RoleProduct{
-		RoleID:      r.ID,
-		ProductName: product,
-	}
-
-	_, err = c.Post(roleProductURL, httpclient.SetBody(roleProductReq))
-	if err != nil {
-		log.Errorf("CreateContributorRole failed, error: %v", err)
-		return err
-	}
-	permissionList := []string{
-		permission.WorkflowTaskUUID,
-		permission.WorkflowListUUID,
-		permission.TestEnvDeleteUUID,
-		permission.TestEnvManageUUID,
-		permission.TestEnvListUUID,
-		permission.TestUpdateEnvUUID,
-		permission.BuildListUUID,
-		permission.TestListUUID,
-		permission.ServiceTemplateListUUID,
-	}
-	permissionReq := RolePermissionReq{
-		RoleID:         r.ID,
-		RoleType:       r.RoleType,
-		PermissionUUID: permissionList,
-		ProductName:    product,
-	}
-	rolePermissionURL := "/directory/rolePermission"
-
-	_, err = c.Post(rolePermissionURL, httpclient.SetBody(permissionReq))
-	if err != nil {
-		log.Errorf("CreateContributorRole failed, error: %v", err)
-		return err
-	}
-
-	return nil
 }
 
 // ListRoles 根据项目里面的角色名称获取对应的角色ID
