@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
-
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
 )
 
