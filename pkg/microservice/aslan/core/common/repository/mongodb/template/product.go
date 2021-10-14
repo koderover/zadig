@@ -78,7 +78,7 @@ func (c *ProductColl) FindProjectName(project string) (*template.Product, error)
 }
 
 func (c *ProductColl) ListNames(inNames []string) ([]string, error) {
-	res, err := c.ListProjects(inNames, bson.D{
+	res, err := c.listProjects(inNames, bson.D{
 		{"product_name", 1},
 	})
 	if err != nil {
@@ -94,14 +94,14 @@ func (c *ProductColl) ListNames(inNames []string) ([]string, error) {
 }
 
 func (c *ProductColl) ListProjectBriefs(inNames []string) ([]*ProjectInfo, error) {
-	return c.ListProjects(inNames, bson.D{
+	return c.listProjects(inNames, bson.D{
 		{"product_name", 1},
 		{"project_name", 1},
 		{"description", 1},
 	})
 }
 
-func (c *ProductColl) ListProjects(inNames []string, projection bson.D) ([]*ProjectInfo, error) {
+func (c *ProductColl) listProjects(inNames []string, projection bson.D) ([]*ProjectInfo, error) {
 	opts := options.Find()
 	filter := bson.M{}
 	if len(inNames) > 0 {
