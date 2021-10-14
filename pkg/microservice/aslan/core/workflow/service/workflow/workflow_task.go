@@ -28,7 +28,6 @@ import (
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -45,7 +44,6 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
-	"github.com/koderover/zadig/pkg/types/permission"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -250,7 +248,7 @@ func EnsureBuildResp(mb *commonmodels.Build) {
 
 func ListBuildDetail(name, targets string, log *zap.SugaredLogger) ([]*commonmodels.Build, error) {
 	opt := &commonrepo.BuildListOption{
-		Name:    name,
+		Name: name,
 	}
 
 	if len(strings.TrimSpace(targets)) != 0 {
@@ -439,11 +437,6 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		return nil, e.ErrFindWorkflow.AddDesc(err.Error())
 	}
 	args.IsParallel = workflow.IsParallel
-
-	if !HasPermission(workflow.ProductTmplName, workflow.EnvName, args, userID, superUser, log) {
-		log.Warnf("该工作流[%s]绑定的环境您没有权限,用户[%s]不能执行该工作流!", workflow.Name, taskCreator)
-		return nil, e.ErrCreateTask.AddDesc("该工作流绑定的环境您没有更新环境或者环境管理权限,不能执行该工作流!")
-	}
 
 	var env *commonmodels.Product
 	if args.Namespace != "" {
@@ -854,86 +847,6 @@ func AddDataToArgs(args *commonmodels.WorkflowTaskArgs, log *zap.SugaredLogger) 
 	return nil
 }
 
-func HasPermission(productName, envName string, args *commonmodels.WorkflowTaskArgs, userID int, superUser bool, log *zap.SugaredLogger) bool {
-	//排除触发器触发和工作流没有绑定环境的情况
-	if userID == permission.AnonymousUserID || envName == "" {
-		return true
-	}
-	// 只有测试任务的情况
-	if len(args.Target) == 0 && len(args.Tests) > 0 {
-		return true
-	}
-	//权限判断
-	if superUser {
-		return true
-	}
-	poetryClient := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
-	productNameMap, err := poetryClient.GetUserProject(userID, log)
-	if err != nil {
-		log.Errorf("Collection.Product.List GetUserProject error: %v", err)
-		return false
-	}
-	//判断环境是类生产环境还是测试环境
-	isProd := false
-	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
-	prod, _ := commonrepo.NewProductColl().Find(opt)
-	if prod != nil && prod.ClusterID != "" {
-		if cluster, _ := commonrepo.NewK8SClusterColl().Get(prod.ClusterID); cluster != nil {
-			isProd = cluster.Production
-		}
-	}
-	for _, roleID := range productNameMap[productName] {
-		if roleID == poetry.ProjectOwner {
-			return true
-		}
-		if envRolePermissions, _ := poetryClient.ListEnvRolePermission(productName, envName, roleID, log); len(envRolePermissions) > 0 {
-			for _, envRolePermission := range envRolePermissions {
-				if envRolePermission.PermissionUUID == permission.TestEnvManageUUID {
-					return true
-				}
-			}
-		} else {
-			if !isProd {
-				if poetryClient.HasOperatePermission(productName, permission.TestUpdateEnvUUID, userID, superUser, log) {
-					return true
-				}
-				if poetryClient.HasOperatePermission(productName, permission.TestEnvManageUUID, userID, superUser, log) {
-					return true
-				}
-
-				envRolePermissions, _ := poetryClient.ListEnvRolePermission(productName, envName, 0, log)
-				for _, envRolePermission := range envRolePermissions {
-					if envRolePermission.PermissionUUID == permission.TestEnvManageUUID {
-						return true
-					}
-				}
-			} else {
-				if poetryClient.HasOperatePermission(productName, permission.ProdEnvManageUUID, userID, superUser, log) {
-					return true
-				}
-
-				envRolePermissions, _ := poetryClient.ListEnvRolePermission(productName, envName, 0, log)
-				for _, envRolePermission := range envRolePermissions {
-					if envRolePermission.PermissionUUID == permission.ProdEnvManageUUID {
-						return true
-					}
-				}
-			}
-		}
-	}
-	// 如果该项目设置过all-users,判断all-users的权限
-	productRole, _ := poetryClient.ListRoles(productName, log)
-	if productRole != nil {
-		permissionUUIDs, _ := poetryClient.GetUserPermissionUUIDs(productRole.ID, productName, log)
-		if isProd && sets.NewString(permissionUUIDs...).Has(permission.ProdEnvManageUUID) {
-			return true
-		} else if !isProd && sets.NewString(permissionUUIDs...).Has(permission.TestEnvManageUUID) {
-			return true
-		}
-	}
-	return false
-}
-
 func dealWithNamespace(args *commonmodels.WorkflowTaskArgs) {
 	args.Namespace = strings.TrimPrefix(args.Namespace, ",")
 	args.Namespace = strings.TrimSuffix(args.Namespace, ",")
@@ -1311,11 +1224,6 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 	if err != nil {
 		log.Errorf("Workflow.Find error: %v", err)
 		return nil, e.ErrFindWorkflow.AddDesc(err.Error())
-	}
-
-	if !HasPermission(workflow.ProductTmplName, workflow.EnvName, args, userID, superUser, log) {
-		log.Warnf("该工作流[%s]绑定的环境您没有权限,用户[%s]不能执行该工作流!", workflow.Name, taskCreator)
-		return nil, e.ErrCreateTask.AddDesc("该工作流绑定的环境您没有更新环境或者环境管理权限,不能执行该工作流")
 	}
 
 	var env *commonmodels.Product
