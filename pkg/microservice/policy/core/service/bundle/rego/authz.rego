@@ -5,9 +5,10 @@ import input.attributes.request.http as http_request
 # Policy rule definitions in rbac style which is consumed by OPA server.
 # you can use it to:
 # 1. decide if a request is allowed by querying: rbac.allow
-# 2. get all accessible proejcts for an authenticated user by querying: rbac.user_projects
-# 3. check if a user is system admin by querying: rbac.user_is_admin
-# 4. check if a user is project admin by querying: rbac.user_is_project_admin
+# 2. get all visible projects for an authenticated user by querying: rbac.user_visible_projects
+# 3. get all allowed projects for a certain action(method+endpoint) for an authenticated user by querying: rbac.user_allowed_projects
+# 4. check if a user is system admin by querying: rbac.user_is_admin
+# 5. check if a user is project admin by querying: rbac.user_is_project_admin
 
 
 # By default, deny requests.
@@ -45,7 +46,7 @@ allow {
 
 user_is_admin {
     some role
-    allewed_roles[role]
+    all_roles[role]
 
     role.name == "admin"
     role.namespace == ""
@@ -53,10 +54,10 @@ user_is_admin {
 
 user_is_project_admin {
     some role
-    allewed_roles[role]
+    allowed_roles[role]
 
     role.name == "admin"
-    role.namespace == projcet_name
+    role.namespace == project_name
 }
 
 url_is_public {
@@ -72,10 +73,10 @@ url_is_exempted {
 url_is_exempted {
     data.exemptions.namespaced[_].method == http_request.method
     glob.match(trim(data.exemptions.namespaced[_].endpoint, "/"), ["/"], concat("/", input.parsed_path))
-    user_projects[_] == projcet_name
+    user_projects[_] == project_name
 }
 
-projcet_name := pn {
+project_name := pn {
     pn := input.parsed_query.projectName[0]
 }
 
@@ -93,31 +94,59 @@ user_projects[project] {
     project := data.bindings.role_bindings[i].bindings[_].namespace
 }
 
+# all projects which are allowed by current user
+user_allowed_projects[project] {
+    some project
+    user_projects[project]
+    not user_is_admin
+    allow with project_name as project
+}
+
 # if user is system admin, return all projects
-user_projects[project] {
+user_allowed_projects[project] {
+    project := "*"
     user_is_admin
-    project := data.bindings.role_bindings[_].bindings[_].namespace
+}
+
+# all projects which are visible by current user
+user_visible_projects[project] {
+    some project
+    user_projects[project]
+    not user_is_admin
+}
+
+# if user is system admin, return all projects
+user_visible_projects[project] {
+    project := "*"
+    user_is_admin
+}
+
+
+all_roles[role_ref] {
+    some i
+    data.bindings.role_bindings[i].user == claims.name
+    role_ref := data.bindings.role_bindings[i].bindings[j].role_refs[_]
 }
 
 # only roles under the given project are allowed
-allewed_roles[role_ref] {
+allowed_roles[role_ref] {
     some i
     data.bindings.role_bindings[i].user == claims.name
-    data.bindings.role_bindings[i].bindings[j].namespace == projcet_name
+    data.bindings.role_bindings[i].bindings[j].namespace == project_name
     role_ref := data.bindings.role_bindings[i].bindings[j].role_refs[_]
 }
 
 # if the proejct is visible by all users (the user name is "*"), the bound roles are also allowed
-allewed_roles[role_ref] {
+allowed_roles[role_ref] {
     some i
     data.bindings.role_bindings[i].user == "*"
-    project := data.bindings.role_bindings[i].bindings[_].namespace == projcet_name
+    project := data.bindings.role_bindings[i].bindings[_].namespace == project_name
     role_ref := data.bindings.role_bindings[i].bindings[j].role_refs[_]
 }
 
 user_is_granted[grant] {
     some role_ref
-    allewed_roles[role_ref]
+    allowed_roles[role_ref]
 
     some i
     data.roles.roles[i].name == role_ref.name
