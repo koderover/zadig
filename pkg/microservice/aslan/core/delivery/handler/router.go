@@ -26,7 +26,6 @@ import (
 type Router struct{}
 
 func (*Router) Inject(router *gin.RouterGroup) {
-	router.Use(gin2.Auth())
 
 	deliveryArtifact := router.Group("artifacts")
 	{

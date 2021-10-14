@@ -34,8 +34,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		webhook.POST("", ProcessWebHook)
 	}
 
-	router.Use(gin2.Auth())
-
 	build := router.Group("build")
 	{
 		build.GET("/:name/:version/to/subtasks", BuildModuleToSubTasks)

@@ -18,6 +18,7 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+
 	gin2 "github.com/koderover/zadig/pkg/middleware/gin"
 	"github.com/koderover/zadig/pkg/types/permission"
 )
@@ -25,8 +26,6 @@ import (
 type Router struct{}
 
 func (*Router) Inject(router *gin.RouterGroup) {
-	router.Use(gin2.Auth())
-
 	harbor := router.Group("harbor")
 	{
 		harbor.GET("/project", ListHarborProjects)

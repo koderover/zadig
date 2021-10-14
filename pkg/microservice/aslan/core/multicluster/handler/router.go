@@ -31,8 +31,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		Agent.GET("/:id/agent.yaml", GetClusterYaml("/api/hub"))
 	}
 
-	router.Use(gin2.Auth())
-
 	Cluster := router.Group("clusters")
 	{
 		Cluster.GET("", ListClusters)
