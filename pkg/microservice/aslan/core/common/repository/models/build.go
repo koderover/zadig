@@ -25,7 +25,6 @@ import (
 
 type Build struct {
 	ID      primitive.ObjectID `bson:"_id,omitempty"                json:"id,omitempty"`
-	Version string             `bson:"version"                      json:"version"`
 	Name    string             `bson:"name"                         json:"name"`
 	Team    string             `bson:"team,omitempty"               json:"team,omitempty"`
 	Source  string             `bson:"source,omitempty"             json:"source,omitempty"`
@@ -37,7 +36,7 @@ type Build struct {
 	Description     string                 `bson:"desc,omitempty"                json:"desc"`
 	UpdateTime      int64                  `bson:"update_time"                   json:"update_time"`
 	UpdateBy        string                 `bson:"update_by"                     json:"update_by"`
-	Repos           []*types.Repository    `bson:"repos,omitempty"               json:"repos"`
+	Repos           []*types.Repository    `bson:"repos"                         json:"repos"`
 	PreBuild        *PreBuild              `bson:"pre_build"                     json:"pre_build"`
 	JenkinsBuild    *JenkinsBuild          `bson:"jenkins_build,omitempty"       json:"jenkins_build,omitempty"`
 	Scripts         string                 `bson:"scripts"                       json:"scripts"`

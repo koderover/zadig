@@ -31,16 +31,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// 查看自定义变量是否被引用
 	render := router.Group("renders")
 	{
-		// render.POST("/data", CheckRenderDataStatus)
-		// render.GET("/keys", ListTmplRenderKeys)
-		// render.GET("", ListRenderSets)
-		// render.GET("/render/:name", GetRenderSet)
 		render.GET("/render/:name/revision/:revision", GetRenderSetInfo)
-		// render.GET("/covered/:productName/:renderName", ValidateRenderSet)
-		// render.POST("", CreateRenderSet)
 		render.PUT("", UpdateRenderSet)
-		// render.PUT("/default", SetDefaultRenderSet)
-		// render.PUT("relate/:productName/:renderName", RelateRender)
 	}
 
 	// ---------------------------------------------------------------------------------------

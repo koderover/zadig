@@ -159,6 +159,15 @@ func WarpDriveServiceName() string {
 	return WarpDriveServiceInfo().Name
 }
 
+func OPAServiceInfo() *setting.ServiceInfo {
+	return GetServiceByCode(setting.OPA)
+}
+
+func OPAServiceAddress() string {
+	s := OPAServiceInfo()
+	return GetServiceAddress(s.Name, s.Port)
+}
+
 func GetServiceAddress(name string, port int32) string {
 	return fmt.Sprintf("http://%s:%d", name, port)
 }
@@ -197,4 +206,12 @@ func LocalTemplatePath(name, kind string) string {
 
 func LocalChartTemplatePath(name string) string {
 	return LocalTemplatePath(name, setting.ChartTemplatesPath)
+}
+
+func MongoURI() string {
+	return viper.GetString(setting.ENVMongoDBConnectionString)
+}
+
+func MongoDatabase() string {
+	return viper.GetString(setting.ENVAslanDBName)
 }

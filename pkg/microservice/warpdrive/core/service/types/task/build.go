@@ -53,6 +53,8 @@ type Build struct {
 	DockerBuildStatus *DockerBuildStatus   `bson:"docker_build_status,omitempty" json:"docker_build_status,omitempty"`
 	BuildStatus       *BuildStatus         `bson:"build_status,omitempty" json:"build_status,omitempty"`
 	IsRestart         bool                 `bson:"is_restart"                      json:"is_restart"`
+	// Get the host bound to the environment of the cloud host service configuration
+	EnvHostInfo map[string][]string `bson:"env_host_info,omitempty"         json:"env_host_info,omitempty"`
 }
 
 type Item struct {
