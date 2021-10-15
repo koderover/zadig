@@ -32,6 +32,8 @@ type RoleBinding struct {
 	Global bool   `json:"global"`
 }
 
+const SystemScope = "*"
+
 func CreateRoleBinding(ns string, rb *RoleBinding, logger *zap.SugaredLogger) error {
 	nsRole := ns
 	if rb.Global {
