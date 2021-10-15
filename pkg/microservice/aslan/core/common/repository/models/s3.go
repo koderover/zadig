@@ -36,7 +36,7 @@ type S3Storage struct {
 }
 
 type TarInfo struct {
-	Host         string `bson:"host"                json:"host"`
+	URL          string `bson:"url"                 json:"url"`
 	Name         string `bson:"name"                json:"name"`
 	WorkflowName string `bson:"workflow_name"       json:"workflow_name"`
 	TaskID       int64  `bson:"task_id"             json:"task_id"`

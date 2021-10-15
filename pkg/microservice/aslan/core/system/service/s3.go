@@ -103,16 +103,29 @@ func GetS3Storage(id string, logger *zap.SugaredLogger) (*commonmodels.S3Storage
 }
 
 func ListTars(id string, serviceNames []string, logger *zap.SugaredLogger) ([]*commonmodels.TarInfo, error) {
-	store, err := commonrepo.NewS3StorageColl().Find(id)
+	var (
+		wg         wait.Group
+		mutex      sync.RWMutex
+		tarInfos   = make([]*commonmodels.TarInfo, 0)
+		store      *commonmodels.S3Storage
+		defaultS3  s3.S3
+		defaultURL string
+		err        error
+	)
+
+	store, err = commonrepo.NewS3StorageColl().Find(id)
 	if err != nil {
-		logger.Errorf("can't find store by id %s", id)
+		logger.Errorf("can't find store by id:%s err:%s", id, err)
 		return nil, err
 	}
-	var (
-		wg       wait.Group
-		mutex    sync.RWMutex
-		tarInfos = make([]*commonmodels.TarInfo, 0)
-	)
+	defaultS3 = s3.S3{
+		S3Storage: store,
+	}
+	defaultURL, err = defaultS3.GetEncryptedURL()
+	if err != nil {
+		logger.Errorf("defaultS3 GetEncryptedURL err:%s", err)
+		return nil, err
+	}
 
 	for _, serviceName := range serviceNames {
 		wg.Start(func() {
@@ -142,7 +155,7 @@ func ListTars(id string, serviceNames []string, logger *zap.SugaredLogger) ([]*c
 
 				mutex.Lock()
 				tarInfos = append(tarInfos, &commonmodels.TarInfo{
-					Host:         store.Endpoint,
+					URL:          defaultURL,
 					Name:         serviceName,
 					FileName:     deliveryArtifact.Image,
 					WorkflowName: workflowName,

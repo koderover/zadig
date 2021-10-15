@@ -345,7 +345,7 @@ type ArtifactArgs struct {
 	Deploy       []DeployEnv `bson:"deploy"                              json:"deploy"`
 	WorkflowName string      `bson:"workflow_name,omitempty"             json:"workflow_name,omitempty"`
 	TaskID       int64       `bson:"task_id,omitempty"                   json:"task_id,omitempty"`
-	FileName     int64       `bson:"file_name,omitempty"                 json:"file_name,omitempty"`
+	FileName     string      `bson:"file_name,omitempty"                 json:"file_name,omitempty"`
 }
 
 type VersionArgs struct {
@@ -353,6 +353,18 @@ type VersionArgs struct {
 	Version string   `bson:"version" json:"version"`
 	Desc    string   `bson:"desc"    json:"desc"`
 	Labels  []string `bson:"labels"  json:"labels"`
+}
+
+type BuildModuleArgs struct {
+	BuildName    string
+	Target       string
+	ServiceName  string
+	ProductName  string
+	Variables    []*KeyVal
+	ENV          *Product
+	WorkflowName string
+	TaskID       int64
+	FileName     string
 }
 
 func (Workflow) TableName() string {
