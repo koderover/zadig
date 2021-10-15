@@ -8,6 +8,7 @@ type exemptionURLs struct {
 	Global     rules `json:"global"`     // global urls are only controlled by AuthN, and it is visible for all users
 	Namespaced rules `json:"namespaced"` // global urls are only controlled by AuthN, and it is visible for users under certain projects
 	Public     rules `json:"public"`     // public urls are not controlled by AuthN and AuthZ
+	Registered rules `json:"registered"` // registered urls are the entire list of urls which are controlled by AuthZ, which means that if an url is not in this list, it is not controlled by AuthZ
 }
 
 type policyRule struct {

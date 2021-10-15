@@ -16,5 +16,11 @@
       "method": "POST",
       "endpoint": "/api/aslan/webhook"
     }
+  ],
+  "registered": [
+    {
+      "method": "GET",
+      "endpoint": "/api/articles"
+    }
   ]
 }
