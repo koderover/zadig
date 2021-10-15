@@ -17,7 +17,9 @@ limitations under the License.
 package service
 
 import (
+	"encoding/json"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -401,19 +403,94 @@ func UpdateProductTmplStatus(productName, onboardingStatus string, log *zap.Suga
 
 // UpdateProject 更新项目
 func UpdateProject(name string, args *template.Product, log *zap.SugaredLogger) (err error) {
+	err = validateRule(args.CustomImageRule, args.CustomTarRule)
+	if err != nil {
+		return e.ErrInvalidParam.AddDesc(err.Error())
+	}
 	poetryCtl := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
-
 	//创建团建和项目之间的关系
 	_, err = poetryCtl.AddProductTeam(args.ProductName, args.TeamID, args.UserIDs, log)
 	if err != nil {
 		log.Errorf("Project.Create AddProductTeam error: %v", err)
-		return e.ErrCreateProduct.AddDesc(err.Error())
+		return e.ErrUpdateProduct.AddDesc(err.Error())
 	}
 
 	err = templaterepo.NewProductColl().Update(name, args)
 	if err != nil {
 		log.Errorf("Project.Update error: %v", err)
-		return e.ErrUpdateProduct
+		return e.ErrUpdateProduct.AddDesc(err.Error())
+	}
+	return nil
+}
+
+func validateRule(customImageRule *template.CustomRule, customTarRule *template.CustomRule) error {
+	var (
+		customImageRuleMap map[string]string
+		customTarRuleMap   map[string]string
+	)
+	body, err := json.Marshal(&customImageRule)
+	if err != nil {
+		return err
+	}
+	if err = json.Unmarshal(body, &customImageRuleMap); err != nil {
+		return err
+	}
+
+	for field, ruleValue := range customImageRuleMap {
+		if err := validateCommonRule(ruleValue, field, config.ImageResourceType); err != nil {
+			return err
+		}
+	}
+
+	body, err = json.Marshal(&customTarRule)
+	if err != nil {
+		return err
+	}
+	if err = json.Unmarshal(body, &customTarRuleMap); err != nil {
+		return err
+	}
+	for field, ruleValue := range customTarRuleMap {
+		if err := validateCommonRule(ruleValue, field, config.TarResourceType); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func validateCommonRule(currentRule, ruleType, deliveryType string) error {
+	var (
+		imageRegexString = "^[a-z0-9][a-zA-Z0-9-_:.]+$"
+		tarRegexString   = "^[a-z0-9][a-zA-Z0-9-_.]+$"
+		tagRegexString   = "^[a-z0-9A-Z_][a-zA-Z0-9-_.]+$"
+		errMessage       = "contains invalid characters, please check"
+	)
+
+	if currentRule == "" {
+		return fmt.Errorf("%s can not be empty", ruleType)
+	}
+
+	if deliveryType == config.ImageResourceType && !strings.Contains(currentRule, ":") {
+		return fmt.Errorf("%s is invalid, must contain a colon", ruleType)
+	}
+
+	currentRule = commonservice.ReplaceRuleVariable(currentRule, &commonservice.Variable{
+		"ss", "ss", "ss", "ss", "ss", "ss", "ss", "ss", "ss",
+	})
+	switch deliveryType {
+	case config.ImageResourceType:
+		if !regexp.MustCompile(imageRegexString).MatchString(currentRule) {
+			return fmt.Errorf("image %s %s", ruleType, errMessage)
+		}
+		// validate tag
+		tag := strings.Split(currentRule, ":")[1]
+		if !regexp.MustCompile(tagRegexString).MatchString(tag) {
+			return fmt.Errorf("image %s %s", ruleType, errMessage)
+		}
+	case config.TarResourceType:
+		if !regexp.MustCompile(tarRegexString).MatchString(currentRule) {
+			return fmt.Errorf("tar %s %s", ruleType, errMessage)
+		}
 	}
 	return nil
 }
@@ -508,7 +585,7 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 	//删除构建/删除测试/删除服务
 	//删除workflow和历史task
 	go func() {
-		_ = commonrepo.NewBuildColl().Delete("", "", productName)
+		_ = commonrepo.NewBuildColl().Delete("", productName)
 		_ = commonrepo.NewServiceColl().Delete("", "", productName, "", 0)
 		_ = commonservice.DeleteDeliveryInfos(productName, log)
 		_ = DeleteProductsAsync(userName, productName, requestID, log)

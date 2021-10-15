@@ -87,11 +87,11 @@ func CollieAPIAddress() string {
 }
 
 func MongoURI() string {
-	return viper.GetString(setting.ENVMongoDBConnectionString)
+	return configbase.MongoURI()
 }
 
 func MongoDatabase() string {
-	return viper.GetString(setting.ENVAslanDBName)
+	return configbase.MongoDatabase()
 }
 
 func NsqLookupAddrs() []string {

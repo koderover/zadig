@@ -33,7 +33,6 @@ import (
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 func GetProductNameByDelivery(c *gin.Context) {
@@ -344,7 +343,7 @@ func ListPackagesVersion(c *gin.Context) {
 func DeleteDeliveryVersion(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	internalhandler.InsertOperationLog(c, ctx.Username, c.GetString("productName"), "删除", "版本交付", fmt.Sprintf("主键ID:%s", c.Param("id")), permission.ReleaseDeleteUUID, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, c.GetString("productName"), "删除", "版本交付", fmt.Sprintf("主键ID:%s", c.Param("id")), "", ctx.Logger)
 
 	//params validate
 	ID := c.Param("id")

@@ -32,7 +32,6 @@ import (
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 func GetProductNameByPipelineTask(c *gin.Context) {
@@ -71,7 +70,7 @@ func CreatePipelineTask(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreatePipelineTask json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, c.GetString("productName"), "新增", "单服务-工作流task", args.PipelineName, permission.WorkflowTaskUUID, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, c.GetString("productName"), "新增", "单服务-工作流task", args.PipelineName, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
@@ -126,7 +125,7 @@ func GetPipelineTask(c *gin.Context) {
 func RestartPipelineTask(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	internalhandler.InsertOperationLog(c, ctx.Username, c.GetString("productName"), "重启", "单服务-工作流task", c.Param("name"), permission.WorkflowTaskUUID, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, c.GetString("productName"), "重启", "单服务-工作流task", c.Param("name"), "", ctx.Logger)
 
 	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -140,7 +139,7 @@ func RestartPipelineTask(c *gin.Context) {
 func CancelTaskV2(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	internalhandler.InsertOperationLog(c, ctx.Username, c.GetString("productName"), "取消", "单服务-工作流task", c.Param("name"), permission.WorkflowTaskUUID, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, c.GetString("productName"), "取消", "单服务-工作流task", c.Param("name"), "", ctx.Logger)
 
 	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
