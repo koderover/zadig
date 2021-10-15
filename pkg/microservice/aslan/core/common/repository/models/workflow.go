@@ -339,10 +339,13 @@ type DeployEnv struct {
 }
 
 type ArtifactArgs struct {
-	Name        string      `bson:"name"                      json:"name"`
-	ServiceName string      `bson:"service_name"              json:"service_name"`
-	Image       string      `bson:"image"                     json:"image"`
-	Deploy      []DeployEnv `bson:"deloy"                     json:"deploy"`
+	Name         string      `bson:"name"                                json:"name"`
+	ServiceName  string      `bson:"service_name"                        json:"service_name"`
+	Image        string      `bson:"image,omitempty"                     json:"image,omitempty"`
+	Deploy       []DeployEnv `bson:"deploy"                              json:"deploy"`
+	WorkflowName string      `bson:"workflow_name,omitempty"             json:"workflow_name,omitempty"`
+	TaskID       int64       `bson:"task_id,omitempty"                   json:"task_id,omitempty"`
+	FileName     int64       `bson:"file_name,omitempty"                 json:"file_name,omitempty"`
 }
 
 type VersionArgs struct {

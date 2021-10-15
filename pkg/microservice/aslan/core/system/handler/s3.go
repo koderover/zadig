@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
@@ -116,4 +117,21 @@ func DeleteS3Storage(c *gin.Context) {
 	internalhandler.InsertOperationLog(c, ctx.Username, "", "删除", "系统设置-对象存储", fmt.Sprintf("s3Storage ID:%s", c.Param("id")), "", ctx.Logger)
 
 	ctx.Err = service.DeleteS3Storage(ctx.Username, c.Param("id"), ctx.Logger)
+}
+
+type ListTarsOption struct {
+	Names []string `json:"names"`
+}
+
+func ListTars(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(ListTarsOption)
+	if err := c.ShouldBindWith(args, binding.JSON); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.ListTars(c.Param("id"), args.Names, ctx.Logger)
 }

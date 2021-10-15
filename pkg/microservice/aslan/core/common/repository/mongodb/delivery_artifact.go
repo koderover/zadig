@@ -187,3 +187,33 @@ func (c *DeliveryArtifactColl) Update(args *DeliveryArtifactArgs) error {
 	_, err := c.UpdateOne(context.TODO(), query, change, options.Update().SetUpsert(true))
 	return err
 }
+
+func (c *DeliveryArtifactColl) ListTars(args *DeliveryArtifactArgs) ([]*models.DeliveryArtifact, error) {
+	if args == nil {
+		return nil, errors.New("nil delivery_artifact args")
+	}
+
+	resp := make([]*models.DeliveryArtifact, 0)
+	query := bson.M{}
+	if args.Name != "" {
+		query["name"] = args.Name
+	}
+
+	if args.Type != "" {
+		query["type"] = args.Type
+	}
+
+	if args.Source != "" {
+		query["source"] = args.Source
+	}
+
+	cursor, err := c.Collection.Find(context.TODO(), query)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}

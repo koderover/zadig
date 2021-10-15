@@ -17,7 +17,13 @@ limitations under the License.
 package service
 
 import (
+	"strconv"
+	"strings"
+	"sync"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -94,4 +100,58 @@ func GetS3Storage(id string, logger *zap.SugaredLogger) (*commonmodels.S3Storage
 	}
 
 	return store, nil
+}
+
+func ListTars(id string, serviceNames []string, logger *zap.SugaredLogger) ([]*commonmodels.TarInfo, error) {
+	store, err := commonrepo.NewS3StorageColl().Find(id)
+	if err != nil {
+		logger.Errorf("can't find store by id %s", id)
+		return nil, err
+	}
+	var (
+		wg       wait.Group
+		mutex    sync.RWMutex
+		tarInfos = make([]*commonmodels.TarInfo, 0)
+	)
+
+	for _, serviceName := range serviceNames {
+		wg.Start(func() {
+			deliveryArtifacts, err := commonrepo.NewDeliveryArtifactColl().ListTars(&commonrepo.DeliveryArtifactArgs{
+				Name:   serviceName,
+				Type:   string(config.File),
+				Source: string(config.WorkflowType),
+			})
+			if err != nil {
+				logger.Errorf("ListTars err:%s", err)
+				return
+			}
+			for _, deliveryArtifact := range deliveryArtifacts {
+				activities, _, err := commonrepo.NewDeliveryActivityColl().List(&commonrepo.DeliveryActivityArgs{ArtifactID: deliveryArtifact.ID.Hex()})
+				if err != nil {
+					logger.Errorf("deliveryActivity.list err:%s", err)
+					return
+				}
+				urlArr := strings.Split(activities[0].URL, "/")
+				workflowName := urlArr[len(urlArr)-2]
+				taskIDStr := urlArr[len(urlArr)-1]
+				taskID, err := strconv.Atoi(taskIDStr)
+				if err != nil {
+					logger.Errorf("string convert to int err:%s", err)
+					return
+				}
+
+				mutex.Lock()
+				tarInfos = append(tarInfos, &commonmodels.TarInfo{
+					Host:         store.Endpoint,
+					Name:         serviceName,
+					FileName:     deliveryArtifact.Image,
+					WorkflowName: workflowName,
+					TaskID:       int64(taskID),
+				})
+				mutex.Unlock()
+			}
+		})
+	}
+	wg.Wait()
+	return tarInfos, nil
 }

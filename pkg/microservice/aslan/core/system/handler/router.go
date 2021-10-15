@@ -80,6 +80,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		s3storage.GET("/:id", GetS3Storage)
 		s3storage.PUT("/:id", gin2.RequireSuperAdminAuth, gin2.UpdateOperationLogStatus, UpdateS3Storage)
 		s3storage.DELETE("/:id", gin2.RequireSuperAdminAuth, gin2.UpdateOperationLogStatus, DeleteS3Storage)
+
+		s3storage.POST("/:id/release/tars/search", ListTars)
 	}
 
 	//系统清理缓存
