@@ -346,6 +346,7 @@ type ArtifactArgs struct {
 	WorkflowName string      `bson:"workflow_name,omitempty"             json:"workflow_name,omitempty"`
 	TaskID       int64       `bson:"task_id,omitempty"                   json:"task_id,omitempty"`
 	FileName     string      `bson:"file_name,omitempty"                 json:"file_name,omitempty"`
+	URL          string      `bson:"url,omitempty"                       json:"url,omitempty"`
 }
 
 type VersionArgs struct {
