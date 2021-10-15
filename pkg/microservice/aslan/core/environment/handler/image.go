@@ -29,7 +29,6 @@ import (
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 func UpdateStatefulSetContainerImage(c *gin.Context) {
@@ -53,7 +52,6 @@ func UpdateStatefulSetContainerImage(c *gin.Context) {
 		c, ctx.Username, args.ProductName,
 		"更新", "集成环境-服务镜像",
 		fmt.Sprintf("环境名称:%s,服务名称:%s,StatefulSet:%s", args.EnvName, args.ServiceName, args.Name),
-		fmt.Sprintf("%s,%s", permission.TestEnvManageUUID, permission.ProdEnvManageUUID),
 		string(data), ctx.Logger)
 
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
@@ -85,7 +83,6 @@ func UpdateDeploymentContainerImage(c *gin.Context) {
 		c, ctx.Username, args.ProductName,
 		"更新", "集成环境-服务镜像",
 		fmt.Sprintf("环境名称:%s,服务名称:%s,Deployment:%s", args.EnvName, args.ServiceName, args.Name),
-		fmt.Sprintf("%s,%s", permission.TestEnvManageUUID, permission.ProdEnvManageUUID),
 		string(data), ctx.Logger)
 
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))

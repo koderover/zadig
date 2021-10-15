@@ -69,7 +69,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	image := router.Group("image")
 	{
-		// image.POST("", middleware.StoreProductName, middleware.IsHavePermission([]string{permission.TestEnvManageUUID, permission.ProdEnvManageUUID}, permission.ContextKeyType), middleware.UpdateOperationLogStatus, UpdateContainerImage)
 		image.POST("/deployment", gin2.StoreProductName, gin2.IsHavePermission([]string{permission.TestEnvManageUUID, permission.ProdEnvManageUUID, permission.TestUpdateEnvUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, UpdateDeploymentContainerImage)
 		image.POST("/statefulset", gin2.StoreProductName, gin2.IsHavePermission([]string{permission.TestEnvManageUUID, permission.ProdEnvManageUUID, permission.TestUpdateEnvUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, UpdateStatefulSetContainerImage)
 	}

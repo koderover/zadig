@@ -34,7 +34,6 @@ import (
 
 type BuildResp struct {
 	ID          string                              `json:"id"`
-	Version     string                              `json:"version"`
 	Name        string                              `json:"name"`
 	Targets     []*commonmodels.ServiceModuleTarget `json:"targets"`
 	UpdateTime  int64                               `json:"update_time"`
@@ -43,16 +42,15 @@ type BuildResp struct {
 	ProductName string                              `json:"productName"`
 }
 
-func FindBuild(name, version, productName string, log *zap.SugaredLogger) (*commonmodels.Build, error) {
+func FindBuild(name, productName string, log *zap.SugaredLogger) (*commonmodels.Build, error) {
 	opt := &commonrepo.BuildFindOption{
 		Name:        name,
-		Version:     version,
 		ProductName: productName,
 	}
 
 	resp, err := commonrepo.NewBuildColl().Find(opt)
 	if err != nil {
-		log.Errorf("[Build.Find] %s:%s error: %v", name, version, err)
+		log.Errorf("[Build.Find] %s error: %v", name, err)
 		return nil, e.ErrGetBuildModule.AddErr(err)
 	}
 
@@ -61,10 +59,9 @@ func FindBuild(name, version, productName string, log *zap.SugaredLogger) (*comm
 	return resp, nil
 }
 
-func ListBuild(name, version, targets, productName string, log *zap.SugaredLogger) ([]*BuildResp, error) {
+func ListBuild(name, targets, productName string, log *zap.SugaredLogger) ([]*BuildResp, error) {
 	opt := &commonrepo.BuildListOption{
 		Name:        name,
-		Version:     version,
 		ProductName: productName,
 	}
 
@@ -74,13 +71,13 @@ func ListBuild(name, version, targets, productName string, log *zap.SugaredLogge
 
 	currentProductBuilds, err := commonrepo.NewBuildColl().List(opt)
 	if err != nil {
-		log.Errorf("[Pipeline.List] %s:%s error: %v", name, version, err)
+		log.Errorf("[Pipeline.List] %s error: %v", name, err)
 		return nil, e.ErrListBuildModule.AddErr(err)
 	}
 	// 获取全部 pipeline
 	pipes, err := commonrepo.NewPipelineColl().List(&commonrepo.PipelineListOption{IsPreview: true})
 	if err != nil {
-		log.Errorf("[Pipeline.List] %s:%s error: %v", name, version, err)
+		log.Errorf("[Pipeline.List] %s error: %v", name, err)
 		return nil, e.ErrListBuildModule.AddErr(err)
 	}
 
@@ -88,7 +85,6 @@ func ListBuild(name, version, targets, productName string, log *zap.SugaredLogge
 	for _, build := range currentProductBuilds {
 		b := &BuildResp{
 			ID:          build.ID.Hex(),
-			Version:     build.Version,
 			Name:        build.Name,
 			Targets:     build.Targets,
 			UpdateTime:  build.UpdateTime,
@@ -98,12 +94,10 @@ func ListBuild(name, version, targets, productName string, log *zap.SugaredLogge
 		}
 
 		for _, pipe := range pipes {
-			if pipe.BuildModuleVer == b.Version {
-				//	current build module used by this pipeline
-				for _, serviceModuleTarget := range b.Targets {
-					if serviceModuleTarget.ServiceModule == pipe.Target {
-						b.Pipelines = append(b.Pipelines, pipe.Name)
-					}
+			// current build module used by this pipeline
+			for _, serviceModuleTarget := range b.Targets {
+				if serviceModuleTarget.ServiceModule == pipe.Target {
+					b.Pipelines = append(b.Pipelines, pipe.Name)
 				}
 			}
 		}
@@ -115,15 +109,15 @@ func ListBuild(name, version, targets, productName string, log *zap.SugaredLogge
 
 func CreateBuild(username string, build *commonmodels.Build, log *zap.SugaredLogger) error {
 
-	if len(build.Name) == 0 || len(build.Version) == 0 {
-		return e.ErrCreateBuildModule.AddDesc("empty Name or Version")
+	if len(build.Name) == 0 {
+		return e.ErrCreateBuildModule.AddDesc("empty name")
 	}
 
 	build.UpdateBy = username
 	correctFields(build)
 
 	if err := commonrepo.NewBuildColl().Create(build); err != nil {
-		log.Errorf("[Build.Upsert] %s:%s error: %v", build.Name, build.Version, err)
+		log.Errorf("[Build.Upsert] %s error: %v", build.Name, err)
 		return e.ErrCreateBuildModule.AddErr(err)
 	}
 
@@ -131,11 +125,11 @@ func CreateBuild(username string, build *commonmodels.Build, log *zap.SugaredLog
 }
 
 func UpdateBuild(username string, build *commonmodels.Build, log *zap.SugaredLogger) error {
-	if len(build.Name) == 0 || len(build.Version) == 0 {
-		return e.ErrUpdateBuildModule.AddDesc("empty Name or Version")
+	if len(build.Name) == 0 {
+		return e.ErrUpdateBuildModule.AddDesc("empty name")
 	}
 
-	existed, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.Name, Version: build.Version, ProductName: build.ProductName})
+	existed, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.Name, ProductName: build.ProductName})
 	if err == nil && existed.PreBuild != nil && build.PreBuild != nil {
 		commonservice.EnsureSecretEnvs(existed.PreBuild.Envs, build.PreBuild.Envs)
 	}
@@ -145,22 +139,22 @@ func UpdateBuild(username string, build *commonmodels.Build, log *zap.SugaredLog
 	build.UpdateTime = time.Now().Unix()
 
 	if err := commonrepo.NewBuildColl().Update(build); err != nil {
-		log.Errorf("[Build.Upsert] %s:%s error: %v", build.Name, build.Version, err)
+		log.Errorf("[Build.Upsert] %s error: %v", build.Name, err)
 		return e.ErrUpdateBuildModule.AddErr(err)
 	}
 
 	return nil
 }
 
-func DeleteBuild(name, version, productName string, log *zap.SugaredLogger) error {
+func DeleteBuild(name, productName string, log *zap.SugaredLogger) error {
 
-	if len(name) == 0 || len(version) == 0 {
-		return e.ErrDeleteBuildModule.AddDesc("empty Name or Version")
+	if len(name) == 0 {
+		return e.ErrDeleteBuildModule.AddDesc("empty name")
 	}
 
-	existed, err := FindBuild(name, version, productName, log)
+	existed, err := FindBuild(name, productName, log)
 	if err != nil {
-		log.Errorf("[Build.Delete] %s:%s error: %v", name, version, err)
+		log.Errorf("[Build.Delete] %s error: %v", name, err)
 		return e.ErrDeleteBuildModule.AddErr(err)
 	}
 
@@ -179,12 +173,12 @@ func DeleteBuild(name, version, productName string, log *zap.SugaredLogger) erro
 		// 获取全部 pipeline
 		pipes, err := commonrepo.NewPipelineColl().List(opt)
 		if err != nil {
-			log.Errorf("[Pipeline.List] %s:%s error: %v", name, version, err)
+			log.Errorf("[Pipeline.List] %s error: %v", name, err)
 			return e.ErrDeleteBuildModule.AddErr(err)
 		}
 
 		if len(pipes) > 0 {
-			pipeNames := []string{}
+			var pipeNames []string
 			for _, pipe := range pipes {
 				pipeNames = append(pipeNames, pipe.Name)
 			}
@@ -201,25 +195,16 @@ func DeleteBuild(name, version, productName string, log *zap.SugaredLogger) erro
 		return e.ErrDeleteBuildModule.AddDesc(fmt.Sprintf("该构建被服务 [%s] 引用，请解除引用之后再做删除!", strings.Join(serviceNames, ",")))
 	}
 	// 删除服务配置，检查工作流是否有引用该编译模板，需要二次确认
-	if err := commonrepo.NewBuildColl().Delete(name, version, productName); err != nil {
-		log.Errorf("[Build.Delete] %s:%s error: %v", name, version, err)
+	if err := commonrepo.NewBuildColl().Delete(name, productName); err != nil {
+		log.Errorf("[Build.Delete] %s error: %v", name, err)
 		return e.ErrDeleteBuildModule.AddErr(err)
-	}
-	return nil
-}
-
-func UpdateBuildParam(name, version, productName string, params []*commonmodels.Parameter, log *zap.SugaredLogger) error {
-	err := commonrepo.NewBuildColl().UpdateBuildParam(name, version, productName, params)
-	if err != nil {
-		log.Errorf("[Build.UpdateBuildParam] %s:%s error: %v", name, version, err)
-		return e.ErrUpdateBuildParam.AddErr(err)
 	}
 	return nil
 }
 
 func handleServiceTargets(name, productName string, targets []*commonmodels.ServiceModuleTarget) {
 	var preTargets []*commonmodels.ServiceModuleTarget
-	if preBuild, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: name, Version: "stable", ProductName: productName}); err == nil {
+	if preBuild, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: name, ProductName: productName}); err == nil {
 		preTargets = preBuild.Targets
 	}
 

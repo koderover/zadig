@@ -24,6 +24,9 @@ RUN apt-get clean && apt-get update && apt-get install -y \
   librrd-dev \
   sudo
 
+# Upgrade Git to latest version
+RUN apt-get install -y software-properties-common && add-apt-repository -y ppa:git-core/ppa && apt-get update && apt-get install -y git=1:2.33.0-0ppa1~ubuntu16.04.1
+
 # 修改时区
 RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 

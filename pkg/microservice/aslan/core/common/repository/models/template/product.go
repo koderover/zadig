@@ -49,27 +49,29 @@ type Product struct {
 	// onboarding状态，0表示onboarding完成，1、2、3、4代表当前onboarding所在的步骤
 	OnboardingStatus int `bson:"onboarding_status"         json:"onboarding_status"`
 	// CI场景的onboarding流程创建的ci工作流id，用于前端跳转
-	CiPipelineID               string   `bson:"-"                         json:"ci_pipeline_id"`
-	Role                       string   `bson:"-"                         json:"role,omitempty"`
-	PermissionUUIDs            []string `bson:"-"                         json:"permissionUUIDs"`
-	TotalServiceNum            int      `bson:"-"                         json:"total_service_num"`
-	LatestServiceUpdateTime    int64    `bson:"-"                         json:"latest_service_update_time"`
-	LatestServiceUpdateBy      string   `bson:"-"                         json:"latest_service_update_by"`
-	TotalBuildNum              int      `bson:"-"                         json:"total_build_num"`
-	LatestBuildUpdateTime      int64    `bson:"-"                         json:"latest_build_update_time"`
-	LatestBuildUpdateBy        string   `bson:"-"                         json:"latest_build_update_by"`
-	TotalTestNum               int      `bson:"-"                         json:"total_test_num"`
-	LatestTestUpdateTime       int64    `bson:"-"                         json:"latest_test_update_time"`
-	LatestTestUpdateBy         string   `bson:"-"                         json:"latest_test_update_by"`
-	TotalEnvNum                int      `bson:"-"                         json:"total_env_num"`
-	LatestEnvUpdateTime        int64    `bson:"-"                         json:"latest_env_update_time"`
-	LatestEnvUpdateBy          string   `bson:"-"                         json:"latest_env_update_by"`
-	TotalWorkflowNum           int      `bson:"-"                         json:"total_workflow_num"`
-	LatestWorkflowUpdateTime   int64    `bson:"-"                         json:"latest_workflow_update_time"`
-	LatestWorkflowUpdateBy     string   `bson:"-"                         json:"latest_workflow_update_by"`
-	TotalEnvTemplateServiceNum int      `bson:"-"                         json:"total_env_template_service_num"`
-	ShowProject                bool     `bson:"-"                         json:"show_project"`
-	IsOpensource               bool     `bson:"is_opensource"             json:"is_opensource"`
+	CiPipelineID               string      `bson:"-"                                   json:"ci_pipeline_id"`
+	Role                       string      `bson:"-"                                   json:"role,omitempty"`
+	PermissionUUIDs            []string    `bson:"-"                                   json:"permissionUUIDs"`
+	TotalServiceNum            int         `bson:"-"                                   json:"total_service_num"`
+	LatestServiceUpdateTime    int64       `bson:"-"                                   json:"latest_service_update_time"`
+	LatestServiceUpdateBy      string      `bson:"-"                                   json:"latest_service_update_by"`
+	TotalBuildNum              int         `bson:"-"                                   json:"total_build_num"`
+	LatestBuildUpdateTime      int64       `bson:"-"                                   json:"latest_build_update_time"`
+	LatestBuildUpdateBy        string      `bson:"-"                                   json:"latest_build_update_by"`
+	TotalTestNum               int         `bson:"-"                                   json:"total_test_num"`
+	LatestTestUpdateTime       int64       `bson:"-"                                   json:"latest_test_update_time"`
+	LatestTestUpdateBy         string      `bson:"-"                                   json:"latest_test_update_by"`
+	TotalEnvNum                int         `bson:"-"                                   json:"total_env_num"`
+	LatestEnvUpdateTime        int64       `bson:"-"                                   json:"latest_env_update_time"`
+	LatestEnvUpdateBy          string      `bson:"-"                                   json:"latest_env_update_by"`
+	TotalWorkflowNum           int         `bson:"-"                                   json:"total_workflow_num"`
+	LatestWorkflowUpdateTime   int64       `bson:"-"                                   json:"latest_workflow_update_time"`
+	LatestWorkflowUpdateBy     string      `bson:"-"                                   json:"latest_workflow_update_by"`
+	TotalEnvTemplateServiceNum int         `bson:"-"                                   json:"total_env_template_service_num"`
+	ShowProject                bool        `bson:"-"                                   json:"show_project"`
+	IsOpensource               bool        `bson:"is_opensource"                       json:"is_opensource"`
+	CustomImageRule            *CustomRule `bson:"custom_image_rule,omitempty"         json:"custom_image_rule,omitempty"`
+	CustomTarRule              *CustomRule `bson:"custom_tar_rule,omitempty"           json:"custom_tar_rule,omitempty"`
 }
 
 type ServiceInfo struct {
@@ -146,6 +148,13 @@ type ImageSearchingRule struct {
 	Tag      string `bson:"tag,omitempty"`
 	InUse    bool   `bson:"in_use,omitempty"`
 	PresetId int    `bson:"preset_id,omitempty"`
+}
+
+type CustomRule struct {
+	PRRule          string `bson:"pr_rule,omitempty"             json:"pr_rule,omitempty"`
+	BranchRule      string `bson:"branch_rule,omitempty"         json:"branch_rule,omitempty"`
+	PRAndBranchRule string `bson:"pr_and_branch_rule,omitempty"  json:"pr_and_branch_rule,omitempty"`
+	TagRule         string `bson:"tag_rule,omitempty"            json:"tag_rule,omitempty"`
 }
 
 func (Product) TableName() string {

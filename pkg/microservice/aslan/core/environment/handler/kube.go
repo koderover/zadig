@@ -25,7 +25,6 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 type ListServicePodsArgs struct {
@@ -84,7 +83,7 @@ func DeletePod(c *gin.Context) {
 	envName := c.Query("envName")
 	productName := c.Query("productName")
 
-	internalhandler.InsertOperationLog(c, ctx.Username, c.Query("productName"), "重启", "集成环境-服务实例", fmt.Sprintf("环境名称:%s,pod名称:%s", c.Query("envName"), c.Param("podName")), fmt.Sprintf("%s,%s", permission.TestEnvManageUUID, permission.ProdEnvManageUUID), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, c.Query("productName"), "重启", "集成环境-服务实例", fmt.Sprintf("环境名称:%s,pod名称:%s", c.Query("envName"), c.Param("podName")), "", ctx.Logger)
 	ctx.Err = service.DeletePod(envName, productName, podName, ctx.Logger)
 }
 
