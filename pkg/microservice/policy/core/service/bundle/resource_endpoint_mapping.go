@@ -4,7 +4,7 @@ package bundle
 // to be managed by the Policy Service should register its rules to the Policy Service so that the Policy Service knows
 // how to make a decision without being aware of the detailed rules.
 
-var mappings = map[string]map[string][]*rule{
+var resourceActionMappings = map[string]map[string][]*rule{
 	"Workflow": workflowMapping,
 }
 

@@ -76,6 +76,15 @@ url_is_exempted {
     user_projects[_] == project_name
 }
 
+url_is_exempted {
+    not url_is_registered
+}
+
+url_is_registered {
+    data.exemptions.registered[_].method == http_request.method
+    glob.match(trim(data.exemptions.registered[_].endpoint, "/"), ["/"], concat("/", input.parsed_path))
+}
+
 project_name := pn {
     pn := input.parsed_query.projectName[0]
 }

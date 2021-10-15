@@ -196,36 +196,6 @@ func (o roleBindings) Less(i, j int) bool {
 	return o[i].User < o[j].User
 }
 
-func generateOPAResourceRoles(roles []*models.Role) *opaRoles {
-	data := &opaRoles{}
-
-	for _, ro := range roles {
-		opaRole := &role{Name: ro.Name, Namespace: ro.Namespace}
-		for _, r := range ro.Rules {
-			if len(r.Verbs) == 1 && r.Verbs[0] == models.MethodAll {
-				r.Verbs = AllActions
-			}
-			for _, res := range r.Resources {
-				if mapping, ok := mappings[res]; !ok {
-					continue
-				} else {
-					for _, v := range r.Verbs {
-						opaRole.Rules = append(opaRole.Rules, mapping[v]...)
-					}
-				}
-
-			}
-		}
-
-		sort.Sort(opaRole.Rules)
-		data.Roles = append(data.Roles, opaRole)
-	}
-
-	sort.Sort(data.Roles)
-
-	return data
-}
-
 func generateOPARoles(roles []*models.Role) *opaRoles {
 	data := &opaRoles{}
 
@@ -237,7 +207,7 @@ func generateOPARoles(roles []*models.Role) *opaRoles {
 					r.Verbs = AllActions
 				}
 				for _, res := range r.Resources {
-					if mapping, ok := mappings[res]; !ok {
+					if mapping, ok := resourceActionMappings[res]; !ok {
 						continue
 					} else {
 						for _, v := range r.Verbs {
@@ -340,6 +310,16 @@ func generateOPAExemptionURLs() *exemptionURLs {
 	}
 
 	sort.Sort(data.Public)
+
+	for _, resourceMappings := range resourceActionMappings {
+		for _, rs := range resourceMappings {
+			for _, r := range rs {
+				data.Registered = append(data.Registered, r)
+			}
+		}
+	}
+
+	sort.Sort(data.Registered)
 
 	return data
 }
