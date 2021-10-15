@@ -43,7 +43,7 @@ func CreateRoleBinding(c *gin.Context) {
 	ctx.Err = service.CreateRoleBinding(projectName, args, ctx.Logger)
 }
 
-func CreateGlobalRoleBinding(c *gin.Context) {
+func CreateSystemRoleBinding(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -53,5 +53,7 @@ func CreateGlobalRoleBinding(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.CreateRoleBinding("", args, ctx.Logger)
+	args.Global = false
+
+	ctx.Err = service.CreateRoleBinding(service.SystemScope, args, ctx.Logger)
 }

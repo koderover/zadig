@@ -49,7 +49,7 @@ user_is_admin {
     all_roles[role]
 
     role.name == "admin"
-    role.namespace == ""
+    role.namespace == "*"
 }
 
 user_is_project_admin {
