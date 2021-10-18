@@ -65,25 +65,21 @@ type Task struct {
 	// ServiceTaskArgs 脚本部署工作流任务参数
 	ServiceTaskArgs *ServiceTaskArgs `bson:"service_args,omitempty"         json:"service_args,omitempty"`
 	// ConfigPayload 系统配置信息
-	ConfigPayload *ConfigPayload `json:"config_payload,omitempty"`
-	Error         string         `bson:"error,omitempty"                json:"error,omitempty"`
-	// OrgID 单租户ID
-	OrgID      int                 `bson:"org_id,omitempty"          json:"org_id,omitempty"`
-	Services   [][]*ProductService `bson:"services"                  json:"services"`
-	Render     *RenderInfo         `bson:"render"                    json:"render"`
-	StorageURI string              `bson:"storage_uri,omitempty" json:"storage_uri,omitempty"`
+	ConfigPayload *ConfigPayload      `json:"config_payload,omitempty"`
+	Error         string              `bson:"error,omitempty"                json:"error,omitempty"`
+	OrgID         int                 `bson:"org_id,omitempty"          json:"org_id,omitempty"`
+	Services      [][]*ProductService `bson:"services"                  json:"services"`
+	Render        *RenderInfo         `bson:"render"                    json:"render"`
+	StorageURI    string              `bson:"storage_uri,omitempty" json:"storage_uri,omitempty"`
 	// interface{} 为types.TestReport
-	TestReports map[string]interface{} `bson:"test_reports,omitempty" json:"test_reports,omitempty"`
-
-	RwLock sync.Mutex `bson:"-" json:"-"`
-
-	ResetImage bool `json:"resetImage" bson:"resetImage"`
-
-	TriggerBy *TriggerBy `json:"trigger_by,omitempty" bson:"trigger_by,omitempty"`
-
-	Features        []string `bson:"features" json:"features"`
-	IsRestart       bool     `bson:"is_restart"                      json:"is_restart"`
-	StorageEndpoint string   `bson:"storage_endpoint"            json:"storage_endpoint"`
+	TestReports     map[string]interface{} `bson:"test_reports,omitempty" json:"test_reports,omitempty"`
+	RwLock          sync.Mutex             `bson:"-" json:"-"`
+	ResetImage      bool                   `json:"resetImage" bson:"resetImage"`
+	TriggerBy       *TriggerBy             `json:"trigger_by,omitempty" bson:"trigger_by,omitempty"`
+	Features        []string               `bson:"features" json:"features"`
+	IsRestart       bool                   `bson:"is_restart"                  json:"is_restart"`
+	StorageEndpoint string                 `bson:"storage_endpoint"            json:"storage_endpoint"`
+	ArtifactInfo    *ArtifactInfo          `bson:"artifact_info"               json:"artifact_info"`
 }
 
 type RenderInfo struct {

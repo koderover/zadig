@@ -309,6 +309,14 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 	ctx.StorageSK = pipelineTask.ConfigPayload.S3Storage.Sk
 	ctx.StorageBucket = pipelineTask.ConfigPayload.S3Storage.Bucket
 	ctx.StorageProvider = pipelineTask.ConfigPayload.S3Storage.Provider
+	if pipelineTask.ArtifactInfo != nil {
+		ctx.ArtifactInfo = &types.ArtifactInfo{
+			URL:          pipelineTask.ArtifactInfo.URL,
+			WorkflowName: pipelineTask.ArtifactInfo.WorkflowName,
+			TaskID:       pipelineTask.ArtifactInfo.TaskID,
+			FileName:     pipelineTask.ArtifactInfo.FileName,
+		}
+	}
 
 	return ctx
 }

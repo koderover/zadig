@@ -362,10 +362,11 @@ type BuildModuleArgs struct {
 	ServiceName  string
 	ProductName  string
 	Variables    []*KeyVal
-	ENV          *Product
+	Env          *Product
 	WorkflowName string
 	TaskID       int64
 	FileName     string
+	URL          string
 }
 
 func (Workflow) TableName() string {

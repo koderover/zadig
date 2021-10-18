@@ -509,7 +509,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 				ServiceName: target.ServiceName,
 				ProductName: target.ProductName,
 				Variables:   target.Envs,
-				ENV:         env,
+				Env:         env,
 			}
 			subTasks, err = BuildModuleToSubTasks(buildModuleArgs, log)
 		} else {
@@ -1402,10 +1402,14 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 			}
 		} else if artifact.FileName != "" {
 			buildModuleArgs := &commonmodels.BuildModuleArgs{
-				Target:      artifact.Name,
-				ServiceName: artifact.ServiceName,
-				ProductName: args.ProductTmplName,
-				ENV:         env,
+				Target:       artifact.Name,
+				ServiceName:  artifact.ServiceName,
+				ProductName:  args.ProductTmplName,
+				Env:          env,
+				URL:          artifact.URL,
+				WorkflowName: artifact.WorkflowName,
+				TaskID:       artifact.TaskID,
+				FileName:     artifact.FileName,
 			}
 			subTasks, err = BuildModuleToSubTasks(buildModuleArgs, log)
 		}
@@ -1585,7 +1589,7 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 		opt.Targets = []string{args.Target}
 	}
 
-	if args.ENV != nil {
+	if args.Env != nil {
 		serviceTmpl, _ = commonservice.GetServiceTemplate(
 			args.Target, setting.PMDeployType, args.ProductName, setting.ProductStatusDeleting, 0, log,
 		)
@@ -1632,7 +1636,7 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 		}
 
 		if serviceTmpl != nil {
-			build.Namespace = args.ENV.Namespace
+			build.Namespace = args.Env.Namespace
 			build.ServiceType = setting.PMDeployType
 			envHost := make(map[string][]string)
 			for _, envConfig := range serviceTmpl.EnvConfigs {
@@ -1648,8 +1652,8 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 			build.EnvHostInfo = envHost
 		}
 
-		if args.ENV != nil {
-			build.EnvName = args.ENV.EnvName
+		if args.Env != nil {
+			build.EnvName = args.Env.EnvName
 		}
 
 		if build.InstallItems == nil {
@@ -1731,6 +1735,15 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 		}
 
 		build.JobCtx.Caches = module.Caches
+
+		if args.FileName != "" {
+			build.ArtifactInfo = &task.ArtifactInfo{
+				URL:          args.URL,
+				WorkflowName: args.WorkflowName,
+				TaskID:       args.TaskID,
+				FileName:     args.FileName,
+			}
+		}
 
 		bst, err := build.ToSubTask()
 		if err != nil {

@@ -135,6 +135,16 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 		p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, envHostKeysVar)
 	}
 
+	// ARTIFACT
+	var artifactKeysVar *task.KeyVal
+	if p.Task.ArtifactInfo != nil {
+		pipelineTask.ArtifactInfo = p.Task.ArtifactInfo
+		artifactKeysVar = &task.KeyVal{Key: "ARTIFACT", Value: fmt.Sprintf("%s/%s", pipelineCtx.Workspace, p.Task.ArtifactInfo.FileName), IsCredential: false}
+	} else if p.Task.JobCtx.FileArchiveCtx != nil {
+		artifactKeysVar = &task.KeyVal{Key: "ARTIFACT", Value: fmt.Sprintf("%s/%s/%s", pipelineCtx.Workspace, p.Task.JobCtx.FileArchiveCtx.FileLocation, p.Task.JobCtx.FileArchiveCtx.FileName), IsCredential: false}
+	}
+	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, artifactKeysVar)
+
 	p.KubeNamespace = pipelineTask.ConfigPayload.Build.KubeNamespace
 	for _, repo := range p.Task.JobCtx.Builds {
 		repoName := strings.Replace(repo.RepoName, "-", "_", -1)
