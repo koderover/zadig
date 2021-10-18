@@ -74,19 +74,19 @@ func GetDockerfileTemplateDetail(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = templateservice.GetDockerfileTemplateDetail(c.Query("id"), ctx.Logger)
+	ctx.Resp, ctx.Err = templateservice.GetDockerfileTemplateDetail(c.Param("id"), ctx.Logger)
 }
 
 func DeleteDockerfileTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Err = templateservice.DeleteDockerfileTemplate(c.Query("id"), ctx.Logger)
+	ctx.Err = templateservice.DeleteDockerfileTemplate(c.Param("id"), ctx.Logger)
 }
 
 func GetDockerfileTemplateReference(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = templateservice.GetDockerfileTemplateReference(c.Query("id"), ctx.Logger)
+	ctx.Resp, ctx.Err = templateservice.GetDockerfileTemplateReference(c.Param("id"), ctx.Logger)
 }
