@@ -1465,6 +1465,7 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 
 		// 填充subtask之间关联内容
 		task := &task.Task{
+			PipelineName:  args.WorkflowName,
 			TaskID:        nextTaskID,
 			TaskCreator:   taskCreator,
 			ReqID:         args.ReqID,
