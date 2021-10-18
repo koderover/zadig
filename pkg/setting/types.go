@@ -47,6 +47,7 @@ const (
 	WarpDrive            // 10
 	Minio                // 11
 	OPA                  // 12
+	Policy               // 13
 )
 
 type ServiceInfo struct {
@@ -102,5 +103,9 @@ var Services = map[int]*ServiceInfo{
 	OPA: {
 		Name: "opa",
 		Port: 8181,
+	},
+	Policy: {
+		Name: "policy",
+		Port: 80,
 	},
 }
