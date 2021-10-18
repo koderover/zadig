@@ -52,7 +52,7 @@ type NamespaceResource struct {
 	Ingresses []resource.Ingress           `json:"ingresses"`
 }
 
-func ListProductsV3(c *gin.Context) {
+func ListProducts(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	projectName := c.Query("projectName")

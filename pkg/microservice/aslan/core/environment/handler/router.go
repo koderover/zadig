@@ -94,7 +94,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	environments := router.Group("environments")
 	{
-		environments.GET("", ListProductsV3)
+		environments.GET("", ListProducts)
 		environments.POST("/:productName/auto", gin2.IsHavePermission([]string{permission.TestEnvCreateUUID}, permission.ParamType), AutoCreateProduct)
 		environments.PUT("/:productName/autoUpdate", gin2.IsHavePermission([]string{permission.TestEnvManageUUID, permission.ProdEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, AutoUpdateProduct)
 		environments.POST("", gin2.StoreProductName, gin2.IsHavePermission([]string{permission.TestEnvCreateUUID, permission.ProdEnvCreateUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, CreateProduct)
