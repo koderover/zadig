@@ -300,6 +300,16 @@ func generateOPAExemptionURLs(policies []*models.Policy) *exemptionURLs {
 			}
 		}
 	}
+	for _, r := range adminURLs {
+		if len(r.Methods) == 1 && r.Methods[0] == models.MethodAll {
+			r.Methods = AllMethods
+		}
+		for _, method := range r.Methods {
+			for _, endpoint := range r.Endpoints {
+				data.Registered = append(data.Registered, &rule{Method: method, Endpoint: endpoint})
+			}
+		}
+	}
 
 	sort.Sort(data.Registered)
 

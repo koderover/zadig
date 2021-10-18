@@ -48,3 +48,11 @@ var publicURLs = []*policyRule{
 		Endpoints: []string{"api/aslan/kodespace/downloadUrl"},
 	},
 }
+
+// actions which are allowed for system admins only.
+var adminURLs = []*policyRule{
+	{
+		Methods:   []string{"POST"},
+		Endpoints: []string{"api/aslan/cluster/clusters"},
+	},
+}
