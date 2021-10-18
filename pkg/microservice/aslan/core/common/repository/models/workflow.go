@@ -140,18 +140,18 @@ type WorkflowTaskArgs struct {
 	ProductTmplName string `bson:"product_tmpl_name"            json:"product_tmpl_name"`
 	Description     string `bson:"description,omitempty"        json:"description,omitempty"`
 	//为了兼容老数据，namespace可能会存多个环境名称，用逗号隔开
-	Namespace          string          `bson:"namespace"                    json:"namespace"`
-	BaseNamespace      string          `bson:"base_namespace,omitempty"     json:"base_namespace,omitempty"`
-	EnvRecyclePolicy   string          `bson:"env_recycle_policy,omitempty" json:"env_recycle_policy,omitempty"`
-	EnvUpdatePolicy    string          `bson:"env_update_policy,omitempty"  json:"env_update_policy,omitempty"`
-	Target             []*TargetArgs   `bson:"targets"                      json:"targets"`
-	Artifact           []*ArtifactArgs `bson:"artifact_args"                json:"artifact_args"`
-	Tests              []*TestArgs     `bson:"tests"                        json:"tests"`
-	VersionArgs        *VersionArgs    `bson:"version_args,omitempty"       json:"version_args,omitempty"`
-	ReqID              string          `bson:"req_id"                       json:"req_id"`
-	RegistryID         string          `bson:"registry_id,omitempty"        json:"registry_id,omitempty"`
-	DistributeEnabled  bool            `bson:"distribute_enabled"           json:"distribute_enabled"`
-	WorklowTaskCreator string          `bson:"workflow_task_creator"        json:"workflow_task_creator"`
+	Namespace           string          `bson:"namespace"                    json:"namespace"`
+	BaseNamespace       string          `bson:"base_namespace,omitempty"     json:"base_namespace,omitempty"`
+	EnvRecyclePolicy    string          `bson:"env_recycle_policy,omitempty" json:"env_recycle_policy,omitempty"`
+	EnvUpdatePolicy     string          `bson:"env_update_policy,omitempty"  json:"env_update_policy,omitempty"`
+	Target              []*TargetArgs   `bson:"targets"                      json:"targets"`
+	Artifact            []*ArtifactArgs `bson:"artifact_args"                json:"artifact_args"`
+	Tests               []*TestArgs     `bson:"tests"                        json:"tests"`
+	VersionArgs         *VersionArgs    `bson:"version_args,omitempty"       json:"version_args,omitempty"`
+	ReqID               string          `bson:"req_id"                       json:"req_id"`
+	RegistryID          string          `bson:"registry_id,omitempty"        json:"registry_id,omitempty"`
+	DistributeEnabled   bool            `bson:"distribute_enabled"           json:"distribute_enabled"`
+	WorkflowTaskCreator string          `bson:"workflow_task_creator"        json:"workflow_task_creator"`
 	// Ignore docker build cache
 	IgnoreCache bool `json:"ignore_cache" bson:"ignore_cache"`
 	// Ignore workspace cache and reset volume

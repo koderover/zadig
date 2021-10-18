@@ -1188,7 +1188,7 @@ func addSecurityToSubTasks() (map[string]interface{}, error) {
 }
 
 func workFlowArgsToTaskArgs(target string, workflowArgs *commonmodels.WorkflowTaskArgs) *commonmodels.TaskArgs {
-	resp := &commonmodels.TaskArgs{PipelineName: workflowArgs.WorkflowName, TaskCreator: workflowArgs.WorklowTaskCreator}
+	resp := &commonmodels.TaskArgs{PipelineName: workflowArgs.WorkflowName, TaskCreator: workflowArgs.WorkflowTaskCreator}
 	for _, build := range workflowArgs.Target {
 		if build.Name == target {
 			if build.Build != nil {
@@ -1212,7 +1212,7 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *task.Task, log *
 	}
 
 	testArgs := args.Tests
-	testCreator := args.WorklowTaskCreator
+	testCreator := args.WorkflowTaskCreator
 
 	registries, err := commonservice.ListRegistryNamespaces(log)
 	if err != nil {
@@ -1930,7 +1930,7 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 			}
 			if t.Enabled {
 				if pt.TaskArgs == nil {
-					pt.TaskArgs = &commonmodels.TaskArgs{PipelineName: pt.WorkflowArgs.WorkflowName, TaskCreator: pt.WorkflowArgs.WorklowTaskCreator}
+					pt.TaskArgs = &commonmodels.TaskArgs{PipelineName: pt.WorkflowArgs.WorkflowName, TaskCreator: pt.WorkflowArgs.WorkflowTaskCreator}
 				}
 				registry := pt.ConfigPayload.RepoConfigs[pt.WorkflowArgs.RegistryID]
 				t.Image = fmt.Sprintf("%s/%s/%s", util.GetURLHostName(registry.RegAddr), registry.Namespace, t.Image)
