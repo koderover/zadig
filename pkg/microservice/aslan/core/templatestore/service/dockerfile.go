@@ -1,6 +1,8 @@
 package service
 
 import (
+	"strings"
+
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/repository/models"
@@ -54,7 +56,7 @@ func GetDockerfileTemplateDetail(id string, logger *zap.SugaredLogger) (*Dockerf
 		logger.Errorf("Failed to get dockerfile template from id: %s, the error is: %+v", id, err)
 		return nil, err
 	}
-	variables := getVariables(dockerfileTemplate.Content)
+	variables := getVariables(dockerfileTemplate.Content, logger)
 	resp.ID = dockerfileTemplate.ID.Hex()
 	resp.Name = dockerfileTemplate.Name
 	resp.Content = dockerfileTemplate.Content
@@ -74,6 +76,20 @@ func GetDockerfileTemplateReference(id string, logger *zap.SugaredLogger) ([]*Do
 	return []*DockerfileDetail{}, nil
 }
 
-func getVariables(s string) []*Variable {
+func getVariables(s string, logger *zap.SugaredLogger) []*Variable {
+	lines := strings.Split(s, "\n")
+	for i, line := range lines {
+		lineWithoutSpace := strings.TrimSpace(line)
+		logger.Infof(">>>>>>>>>> line [%d] is: %s <<<<<<<<<<<<<", i, lineWithoutSpace)
+		if strings.HasPrefix(lineWithoutSpace, "ARG") {
+			logger.Infof("!!!!!!!!!!! line [%d] has prefix ARG !!!!!!!!", i)
+			logger.Infof("Proceeding to find variables")
+		}
+	}
+	//reader := strings.NewReader(s)
+	//result, err := dockerfileparser.Parse(reader)
+	//if err != nil {
+	//	return nil
+	//}
 	return []*Variable{}
 }
