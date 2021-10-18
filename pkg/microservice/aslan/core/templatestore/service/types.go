@@ -28,3 +28,25 @@ type Chart struct {
 
 	Files []*fs.FileInfo `json:"files,omitempty"`
 }
+
+type DockerfileTemplate struct {
+	Name    string `json:"name"`
+	Content string `json:"content"`
+}
+
+type DockerfileListObject struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type DockerfileDetail struct {
+	ID        string      `json:"id"`
+	Name      string      `json:"name"`
+	Content   string      `json:"content"`
+	Variables []*Variable `json:"variable"`
+}
+
+type Variable struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
