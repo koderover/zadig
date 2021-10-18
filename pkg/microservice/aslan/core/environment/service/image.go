@@ -19,8 +19,13 @@ package service
 import (
 	"bytes"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
+
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
@@ -55,30 +60,30 @@ type UpdateContainerImageArgs struct {
 	Image         string `json:"image"`
 }
 
-func getHelmServiceName(namespace, resType, resName string, kubeClient client.Client) (string, error) {
-	var annotation map[string]string
-	switch resType {
-	case setting.Deployment:
-		deployObj, found, err := getter.GetDeployment(namespace, resName, kubeClient)
-		if err != nil {
-			return "", fmt.Errorf("failed to find deployment %s, err %s", resName, err.Error())
-		}
-		if !found {
-			return "", fmt.Errorf("failed to find deployment %s", resName)
-		}
-		annotation = deployObj.Annotations
+const (
+	imageUrlParseRegexString = `(?P<repo>.+/)?(?P<image>[^:]+){1}(:)?(?P<tag>.+)?`
+)
 
-	case setting.StatefulSet:
-		statefulSet, found, err := getter.GetStatefulSet(namespace, resName, kubeClient)
-		if err != nil {
-			return "", fmt.Errorf("failed to find statefulSet %s, err %s", resName, err.Error())
-		}
-		if !found {
-			return "", fmt.Errorf("failed to find statefulSet %s", resName)
-		}
-		annotation = statefulSet.Annotations
+var (
+	imageParseRegex = regexp.MustCompile(imageUrlParseRegexString)
+)
+
+func getHelmServiceName(namespace, resType, resName string, kubeClient client.Client) (string, error) {
+	res := &unstructured.Unstructured{}
+	res.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "apps",
+		Version: "v1",
+		Kind:    resType,
+	})
+	found, err := getter.GetResourceInCache(namespace, resName, res, kubeClient)
+	if err != nil {
+		return "", fmt.Errorf("failed to find resource %s, type %s, err %s", resName, resType, err.Error())
 	}
-	if annotation != nil {
+	if !found {
+		return "", fmt.Errorf("failed to find resource %s, type %s", resName, resType)
+	}
+	annotation := res.GetAnnotations()
+	if len(annotation) > 0 {
 		if chartRelease, ok := annotation[setting.HelmReleaseNameAnnotation]; !ok {
 			return "", fmt.Errorf("failed to get release name from resource")
 		} else {
@@ -102,6 +107,80 @@ func getValidMatchData(spec *models.ImagePathSpec) map[string]string {
 	return ret
 }
 
+// parse image url to map: repo=>xxx/xx/xx image=>xx tag=>xxx
+func resolveImageUrl(imageUrl string) map[string]string {
+	subMatchAll := imageParseRegex.FindStringSubmatch(imageUrl)
+	result := make(map[string]string)
+	exNames := imageParseRegex.SubexpNames()
+	for i, matchedStr := range subMatchAll {
+		if i != 0 && matchedStr != "" && matchedStr != ":" {
+			result[exNames[i]] = matchedStr
+		}
+	}
+	return result
+}
+
+// replace image defines in yaml by new version
+func replaceImage(sourceYaml string, imageValuesMap map[string]interface{}) (string, error) {
+	valuesMap := make(map[string]interface{})
+	err := yaml.Unmarshal([]byte(sourceYaml), &valuesMap)
+	if err != nil {
+		return "", err
+	}
+	replaceMap := util.ReplaceMapValue(valuesMap, imageValuesMap)
+	replacedValuesYaml, err := util.JSONToYaml(replaceMap)
+	if err != nil {
+		return "", err
+	}
+	return replacedValuesYaml, nil
+}
+
+// AssignImageData assign image url data into match data
+// matchData: image=>absolute-path repo=>absolute-path tag=>absolute-path
+// return: absolute-image-path=>image-value  absolute-repo-path=>repo-value absolute-tag-path=>tag-value
+func assignImageData(imageUrl string, matchData map[string]string) (map[string]interface{}, error) {
+	ret := make(map[string]interface{})
+	// total image url assigned into one single value
+	if len(matchData) == 1 {
+		for _, v := range matchData {
+			ret[v] = imageUrl
+		}
+		return ret, nil
+	}
+
+	resolvedImageUrl := resolveImageUrl(imageUrl)
+
+	// image url assigned into repo/image+tag
+	if len(matchData) == 3 {
+		ret[matchData[setting.PathSearchComponentRepo]] = strings.TrimSuffix(resolvedImageUrl[setting.PathSearchComponentRepo], "/")
+		ret[matchData[setting.PathSearchComponentImage]] = resolvedImageUrl[setting.PathSearchComponentImage]
+		ret[matchData[setting.PathSearchComponentTag]] = resolvedImageUrl[setting.PathSearchComponentTag]
+		return ret, nil
+	}
+
+	if len(matchData) == 2 {
+		// image url assigned into repo/image + tag
+		if tagPath, ok := matchData[setting.PathSearchComponentTag]; ok {
+			ret[tagPath] = resolvedImageUrl[setting.PathSearchComponentTag]
+			for k, imagePath := range matchData {
+				if k == setting.PathSearchComponentTag {
+					continue
+				}
+				ret[imagePath] = fmt.Sprintf("%s%s", resolvedImageUrl[setting.PathSearchComponentRepo], resolvedImageUrl[setting.PathSearchComponentImage])
+				break
+			}
+			return ret, nil
+		} else {
+			// image url assigned into repo + image(tag)
+			ret[matchData[setting.PathSearchComponentRepo]] = strings.TrimSuffix(resolvedImageUrl[setting.PathSearchComponentRepo], "/")
+			ret[matchData[setting.PathSearchComponentImage]] = fmt.Sprintf("%s:%s", resolvedImageUrl[setting.PathSearchComponentImage], resolvedImageUrl[setting.PathSearchComponentTag])
+			return ret, nil
+		}
+	}
+
+	return nil, errors.Errorf("match data illegal, expect length: 1-3, actual length: %d", len(matchData))
+}
+
 // prepare necessary data from db
 func prepareData(namespace, serviceName string, containerName string, product *models.Product) (targetContainer *models.Container,
 	targetChart *templatemodels.RenderChart, renderSet *models.RenderSet, serviceObj *models.Service, err error) {
@@ -119,6 +198,7 @@ func prepareData(namespace, serviceName string, containerName string, product *m
 			targetContainer = container
 			break
 		}
+		break
 	}
 	if targetContainer == nil {
 		err = fmt.Errorf("failed to find container %s", containerName)
@@ -127,17 +207,16 @@ func prepareData(namespace, serviceName string, containerName string, product *m
 
 	renderSet, err = commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{Name: namespace, Revision: product.Render.Revision})
 	if err != nil {
-		log.Errorf("[RenderSet.find] update product %s error: %v", product.ProductName, err)
+		log.Errorf("[RenderSet.find] update product %s error: %s", product.ProductName, err.Error())
 		err = fmt.Errorf("failed to find redset name %s revision %d", namespace, product.Render.Revision)
 		return
 	}
 
 	for _, chartInfo := range renderSet.ChartInfos {
-		if chartInfo.ServiceName != serviceName {
-			continue
+		if chartInfo.ServiceName == serviceName {
+			targetChart = chartInfo
+			break
 		}
-		targetChart = chartInfo
-		break
 	}
 	if targetChart == nil {
 		err = fmt.Errorf("failed to find chart info %s", serviceName)
@@ -173,20 +252,20 @@ func updateContainerForHelmChart(serviceName, resType, image, containerName stri
 
 	targetContainer, targetChart, renderSet, serviceObj, err := prepareData(namespace, serviceName, containerName, product)
 	if err != nil {
-		return e.ErrUpdateConainterImage.AddErr(err)
+		return err
 	}
 
 	// update image info in product.services.container
 	targetContainer.Image = image
 
 	// prepare image replace info
-	replaceValuesMap, err = util.AssignImageData(image, getValidMatchData(targetContainer.ImagePath))
+	replaceValuesMap, err = assignImageData(image, getValidMatchData(targetContainer.ImagePath))
 	if err != nil {
 		return fmt.Errorf("failed to pase image uri %s/%s, err %s", namespace, serviceName, err.Error())
 	}
 
 	// replace image into service's values.yaml
-	replacedValuesYaml, err = util.ReplaceImage(targetChart.ValuesYaml, replaceValuesMap)
+	replacedValuesYaml, err = replaceImage(targetChart.ValuesYaml, replaceValuesMap)
 	if err != nil {
 		return fmt.Errorf("failed to replace image uri %s/%s, err %s", namespace, serviceName, err.Error())
 
@@ -205,11 +284,8 @@ func updateContainerForHelmChart(serviceName, resType, image, containerName stri
 	}
 
 	// replace image into final merged values.yaml
-	replacedMergedValuesYaml, err = util.ReplaceImage(mergedValuesYaml, replaceValuesMap)
+	replacedMergedValuesYaml, err = replaceImage(mergedValuesYaml, replaceValuesMap)
 	if err != nil {
-		return err
-	}
-	if replacedMergedValuesYaml == "" {
 		return err
 	}
 
@@ -290,11 +366,10 @@ func UpdateContainerImage(requestID string, args *UpdateContainerImageArgs, log 
 				continue
 			}
 			for _, container := range service.Containers {
-				if container.Name != args.ContainerName {
-					continue
+				if container.Name == args.ContainerName {
+					container.Image = args.Image
+					break
 				}
-				container.Image = args.Image
-				break
 			}
 		}
 		if err := commonrepo.NewProductColl().Update(product); err != nil {
