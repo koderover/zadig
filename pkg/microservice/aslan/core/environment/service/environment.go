@@ -170,6 +170,12 @@ func ListProductsV3(productNameParam string, userName string, log *zap.SugaredLo
 			Render:      prod.Render,
 			Source:      prod.Source,
 		}
+		if product.ClusterID != "" {
+			cluster, _ := commonrepo.NewK8SClusterColl().Get(product.ClusterID)
+			if cluster != nil && cluster.Production {
+				product.IsProd = true
+			}
+		}
 		err = FillProductVars(products, log)
 		if err != nil {
 			return resp, err
