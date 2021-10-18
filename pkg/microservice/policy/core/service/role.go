@@ -24,11 +24,11 @@ import (
 )
 
 type Role struct {
-	Name  string        `json:"name"`
-	Rules []*PolicyRule `json:"rules"`
+	Name  string  `json:"name"`
+	Rules []*Rule `json:"rules"`
 }
 
-type PolicyRule struct {
+type Rule struct {
 	Verbs     []string `json:"verbs"`
 	Resources []string `json:"resources"`
 }
@@ -40,7 +40,7 @@ func CreateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
 	}
 
 	for _, r := range role.Rules {
-		obj.Rules = append(obj.Rules, &models.PolicyRule{
+		obj.Rules = append(obj.Rules, &models.Rule{
 			Verbs:     r.Verbs,
 			Resources: r.Resources,
 		})

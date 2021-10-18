@@ -47,4 +47,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		bundles.GET("/:name", DownloadBundle)
 	}
+
+	policyRegistrations := router.Group("policies")
+	{
+		policyRegistrations.PUT("/:resourceName", CreateOrUpdatePolicyRegistration)
+		policyRegistrations.GET("", GetPolicyRegistrationDefinitions)
+	}
+
 }
