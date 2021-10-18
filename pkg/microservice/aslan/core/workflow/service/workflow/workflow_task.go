@@ -1469,6 +1469,7 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 			SubTasks:      subTasks,
 			ServiceName:   artifact.Name,
 			ConfigPayload: configPayload,
+			TaskArgs:      workFlowArgsToTaskArgs(artifact.Name, args),
 			WorkflowArgs:  args,
 		}
 		sort.Sort(ByTaskKind(task.SubTasks))
