@@ -31,8 +31,4 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		workflows.GET("testName/:testName", ListTestWorkflows)
 	}
-	envs := router.Group("environments")
-	{
-		envs.GET("", ListEnvs)
-	}
 }
