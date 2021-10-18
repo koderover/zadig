@@ -1814,11 +1814,11 @@ func ArtifactDeployToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.Sugar
 			build.JobCtx.BuildSteps = append(build.JobCtx.BuildSteps, &task.BuildStep{BuildType: "shell", Scripts: module.Scripts})
 		}
 
-		if module.PMDeployScripts != "" && build.ServiceType == setting.PMDeployType {
+		if module.PMDeployScripts != "" {
 			build.JobCtx.PMDeployScripts = module.PMDeployScripts
 		}
 
-		if len(module.SSHs) > 0 && build.ServiceType == setting.PMDeployType {
+		if len(module.SSHs) > 0 {
 			privateKeys := make([]*task.SSH, 0)
 			for _, sshID := range module.SSHs {
 				//私钥信息可能被更新，而构建中存储的信息是旧的，需要根据id获取最新的私钥信息
