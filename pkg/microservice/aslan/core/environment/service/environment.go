@@ -185,14 +185,6 @@ func ListProducts(productNameParam string, userName string, log *zap.SugaredLogg
 	return nil, nil
 }
 
-type ListProductsRespV2 struct {
-	ClusterName string `json:"clusterName"`
-	Production  bool   `json:"production"`
-	Name        string `json:"name"`
-	ProjectName string `json:"projectName"`
-	Source      string `json:"source"`
-}
-
 func FillProductVars(products []*commonmodels.Product, log *zap.SugaredLogger) error {
 	for _, product := range products {
 		if product.Source == setting.SourceFromExternal || product.Source == setting.SourceFromHelm {
