@@ -48,7 +48,9 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
+	"github.com/koderover/zadig/pkg/util/converter"
 	"github.com/koderover/zadig/pkg/util/fs"
+	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 // InitializeDeployTaskPlugin to initiate deploy task plugin and return ref
@@ -638,17 +640,19 @@ func resolveImageUrl(imageUrl string) map[string]string {
 
 // replace image defines in yaml by new version
 func replaceImage(sourceYaml string, imageValuesMap map[string]interface{}) (string, error) {
-	valuesMap := make(map[string]interface{})
-	err := yaml.Unmarshal([]byte(sourceYaml), &valuesMap)
+	nestedMap, err := converter.Expand(imageValuesMap)
 	if err != nil {
 		return "", err
 	}
-	replaceMap := util.ReplaceMapValue(valuesMap, imageValuesMap)
-	replacedValuesYaml, err := util.JSONToYaml(replaceMap)
+	bs, err := yaml.Marshal(nestedMap)
 	if err != nil {
 		return "", err
 	}
-	return replacedValuesYaml, nil
+	mergedBs, err := yamlutil.Merge([][]byte{[]byte(sourceYaml), bs})
+	if err != nil {
+		return "", err
+	}
+	return string(mergedBs), nil
 }
 
 // assignImageData assign image url data into match data

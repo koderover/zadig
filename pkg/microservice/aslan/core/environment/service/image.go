@@ -23,14 +23,12 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/strvals"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
@@ -48,6 +46,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/converter"
+	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 type UpdateContainerImageArgs struct {
@@ -122,17 +121,19 @@ func resolveImageUrl(imageUrl string) map[string]string {
 
 // replace image defines in yaml by new version
 func replaceImage(sourceYaml string, imageValuesMap map[string]interface{}) (string, error) {
-	valuesMap := make(map[string]interface{})
-	err := yaml.Unmarshal([]byte(sourceYaml), &valuesMap)
+	nestedMap, err := converter.Expand(imageValuesMap)
 	if err != nil {
 		return "", err
 	}
-	replaceMap := util.ReplaceMapValue(valuesMap, imageValuesMap)
-	replacedValuesYaml, err := util.JSONToYaml(replaceMap)
+	bs, err := yaml.Marshal(nestedMap)
 	if err != nil {
 		return "", err
 	}
-	return replacedValuesYaml, nil
+	mergedBs, err := yamlutil.Merge([][]byte{[]byte(sourceYaml), bs})
+	if err != nil {
+		return "", err
+	}
+	return string(mergedBs), nil
 }
 
 // AssignImageData assign image url data into match data
