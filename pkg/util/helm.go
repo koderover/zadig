@@ -21,10 +21,6 @@ import (
 	"strings"
 )
 
-const (
-	imageUrlParseRegexString = `(?P<repo>.+/)?(?P<image>[^:]+){1}(:)?(?P<tag>.+)?`
-)
-
 func GeneHelmReleaseName(namespace, serviceName string) string {
 	return fmt.Sprintf("%s-%s", namespace, serviceName)
 }
