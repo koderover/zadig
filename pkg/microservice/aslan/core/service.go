@@ -33,8 +33,10 @@ import (
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	systemrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/mongodb"
 	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
+	workflowhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/handler"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/policy"
 	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
@@ -42,6 +44,10 @@ import (
 const (
 	webhookController = iota
 )
+
+type policyGetter interface {
+	Policies() *policy.Policy
+}
 
 type Controller interface {
 	Run(workers int, stopCh <-chan struct{})
@@ -67,6 +73,20 @@ func StartControllers(stopCh <-chan struct{}) {
 	wg.Wait()
 }
 
+func registerPolicies() {
+	policyClient := policy.New()
+
+	for _, r := range []policyGetter{
+		new(workflowhandler.Router),
+	} {
+		err := policyClient.CreateOrUpdatePolicy(r.Policies())
+		if err != nil {
+			// should not have happened here
+			log.DPanic(err)
+		}
+	}
+}
+
 func Start(ctx context.Context) {
 	log.Init(&log.Config{
 		Level:       commonconfig.LogLevel(),
@@ -86,6 +106,8 @@ func Start(ctx context.Context) {
 	environmentservice.CleanProducts()
 
 	environmentservice.ResetProductsStatus()
+
+	registerPolicies()
 
 	go StartControllers(ctx.Done())
 }

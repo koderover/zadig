@@ -17,13 +17,45 @@ limitations under the License.
 package handler
 
 import (
+	"encoding/json"
+
 	"github.com/gin-gonic/gin"
 
 	gin2 "github.com/koderover/zadig/pkg/middleware/gin"
+	"github.com/koderover/zadig/pkg/shared/client/policy"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 type Router struct{}
+
+var policies = `
+{
+	"resource": "Workflow",
+	"alias": "工作流",
+	"description": "",
+	"rules": [{
+		"action": "get_workflow",
+		"alias": "查看工作流",
+		"description": "",
+		"rules": [{
+			"method": "GET",
+			"endpoint": "api/aslan/workflow/workflow"
+		}]
+	}]
+}
+`
+
+func (*Router) Policies() *policy.Policy {
+	res := &policy.Policy{}
+	err := json.Unmarshal([]byte(policies), res)
+	if err != nil {
+		// should not have happened here
+		log.DPanic(err)
+	}
+
+	return res
+}
 
 func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
