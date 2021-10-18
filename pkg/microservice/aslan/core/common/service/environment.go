@@ -24,7 +24,9 @@ import (
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
@@ -193,6 +195,8 @@ type Workload struct {
 	Spec        corev1.ServiceSpec `json:"-"`
 	Images      []string           `json:"-"`
 	Ready       bool
+	Annotations map[string]string `json:"-"`
+	IngressInfo *IngressInfo      `json:"-"`
 }
 
 func ListWorkloads(envName, clusterID, namespace, productName string, perPage, page int, log *zap.SugaredLogger, filter ...FilterFunc) (int, []*ServiceResp, error) {
@@ -212,7 +216,13 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
 	}
 	for _, v := range listDeployments {
-		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: corev1.ServiceSpec{Selector: v.Spec.Selector.MatchLabels}, Type: setting.Deployment, Images: wrapper.Deployment(v).ImageInfos(), Ready: wrapper.Deployment(v).Ready()})
+		workLoads = append(workLoads, &Workload{Name: v.Name,
+			Spec:        corev1.ServiceSpec{Selector: v.Spec.Selector.MatchLabels},
+			Type:        setting.Deployment,
+			Images:      wrapper.Deployment(v).ImageInfos(),
+			Ready:       wrapper.Deployment(v).Ready(),
+			Annotations: v.GetAnnotations(),
+		})
 	}
 	statefulSets, err := getter.ListStatefulSets(namespace, nil, kubeClient)
 	if err != nil {
@@ -220,7 +230,13 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
 	}
 	for _, v := range statefulSets {
-		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: corev1.ServiceSpec{Selector: v.Spec.Selector.MatchLabels}, Type: setting.StatefulSet, Images: wrapper.StatefulSet(v).ImageInfos(), Ready: wrapper.StatefulSet(v).Ready()})
+		workLoads = append(workLoads, &Workload{Name: v.Name,
+			Spec:        corev1.ServiceSpec{Selector: v.Spec.Selector.MatchLabels},
+			Type:        setting.StatefulSet,
+			Images:      wrapper.StatefulSet(v).ImageInfos(),
+			Ready:       wrapper.StatefulSet(v).Ready(),
+			Annotations: v.GetAnnotations(),
+		})
 	}
 
 	log.Debugf("Found %d workloads in total", len(workLoads))
@@ -249,6 +265,8 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		}
 	}
 
+	fillIngressData(namespace, kubeClient, workLoads, log)
+
 	for _, workload := range workLoads {
 		tmpProductName := workload.ProductName
 		if tmpProductName == "" && productName != "" {
@@ -263,7 +281,9 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 			Images:       workload.Images,
 			Ready:        setting.PodReady,
 			Status:       setting.PodRunning,
+			Ingress:      workload.IngressInfo,
 		}
+
 		if !workload.Ready {
 			productRespInfo.Status = setting.PodUnstable
 			productRespInfo.Ready = setting.PodNotReady
@@ -274,4 +294,40 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	log.Infof("Finish to list workloads in namespace %s", namespace)
 
 	return count, resp, nil
+}
+
+func fillIngressData(namespace string, kubeClient client.Client, wordLoads []*Workload, log *zap.SugaredLogger) {
+	selector := labels.Set{"app.kubernetes.io/managed-by": "Helm"}.AsSelector()
+	ingressList, err := getter.ListIngresses(namespace, selector, kubeClient)
+	if err != nil {
+		log.Errorf("failed to list ingress in namespace %s, err %s", namespace, err.Error())
+		return
+	}
+	if len(ingressList) == 0 {
+		return
+	}
+
+	ingressSearcher := func(releaseName string) *IngressInfo {
+		if releaseName == "" {
+			return nil
+		}
+		ret := &IngressInfo{HostInfo: make([]resource.HostInfo, 0)}
+		for _, ingress := range ingressList {
+			if getReleaseNameFromAnnotation(ingress.Annotations) == releaseName {
+				ret.HostInfo = append(ret.HostInfo, wrapper.Ingress(ingress).HostInfo()...)
+			}
+		}
+		return ret
+	}
+
+	for _, workload := range wordLoads {
+		workload.IngressInfo = ingressSearcher(getReleaseNameFromAnnotation(workload.Annotations))
+	}
+}
+
+func getReleaseNameFromAnnotation(annotation map[string]string) string {
+	if annotation == nil {
+		return ""
+	}
+	return annotation["meta.helm.sh/release-name"]
 }
