@@ -137,11 +137,15 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 
 	// ARTIFACT
 	var artifactKeysVar *task.KeyVal
+	var workspace = "/workspace"
+	if pipelineTask.ConfigPayload.ClassicBuild {
+		workspace = pipelineCtx.Workspace
+	}
 	if p.Task.ArtifactInfo != nil {
 		pipelineTask.ArtifactInfo = p.Task.ArtifactInfo
-		artifactKeysVar = &task.KeyVal{Key: "ARTIFACT", Value: fmt.Sprintf("%s/%s", pipelineCtx.Workspace, p.Task.ArtifactInfo.FileName), IsCredential: false}
+		artifactKeysVar = &task.KeyVal{Key: "ARTIFACT", Value: fmt.Sprintf("%s/%s", workspace, p.Task.ArtifactInfo.FileName), IsCredential: false}
 	} else if p.Task.JobCtx.FileArchiveCtx != nil {
-		artifactKeysVar = &task.KeyVal{Key: "ARTIFACT", Value: fmt.Sprintf("%s/%s/%s", pipelineCtx.Workspace, p.Task.JobCtx.FileArchiveCtx.FileLocation, p.Task.JobCtx.FileArchiveCtx.FileName), IsCredential: false}
+		artifactKeysVar = &task.KeyVal{Key: "ARTIFACT", Value: fmt.Sprintf("%s/%s/%s", workspace, p.Task.JobCtx.FileArchiveCtx.FileLocation, p.Task.JobCtx.FileArchiveCtx.FileName), IsCredential: false}
 	}
 	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, artifactKeysVar)
 

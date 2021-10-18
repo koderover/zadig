@@ -1396,7 +1396,6 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 							subTasks = append(subTasks, resetImageTask)
 						}
 					}
-
 					subTasks = append(subTasks, deployTask)
 				}
 			}
@@ -1412,10 +1411,10 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 				FileName:     artifact.FileName,
 			}
 			subTasks, err = BuildModuleToSubTasks(buildModuleArgs, log)
-		}
-		if err != nil {
-			log.Errorf("buildModuleToSubTasks target:[%s] err:%v", artifact.Name, err)
-			return nil, e.ErrCreateTask.AddErr(err)
+			if err != nil {
+				log.Errorf("buildModuleToSubTasks target:[%s] err:%s", artifact.Name, err)
+				return nil, e.ErrCreateTask.AddErr(err)
+			}
 		}
 
 		// 生成分发的subtask
