@@ -40,7 +40,7 @@ func ListDockerfileTemplate(pageNum, pageSize int, logger *zap.SugaredLogger) ([
 	}
 	for _, obj := range templateList {
 		resp = append(resp, &DockerfileListObject{
-			ID:   obj.ID.String(),
+			ID:   obj.ID.Hex(),
 			Name: obj.Name,
 		})
 	}
@@ -55,7 +55,7 @@ func GetDockerfileTemplateDetail(id string, logger *zap.SugaredLogger) (*Dockerf
 		return nil, err
 	}
 	variables := getVariables(dockerfileTemplate.Content)
-	resp.ID = dockerfileTemplate.ID.String()
+	resp.ID = dockerfileTemplate.ID.Hex()
 	resp.Name = dockerfileTemplate.Name
 	resp.Content = dockerfileTemplate.Content
 	resp.Variables = variables
