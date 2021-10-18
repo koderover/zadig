@@ -5,11 +5,10 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/koderover/zadig/pkg/microservice/picket/client/opa"
-
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/picket/client/aslan"
+	"github.com/koderover/zadig/pkg/microservice/picket/client/opa"
 )
 
 func ListEnvs(header http.Header, qs url.Values, logger *zap.SugaredLogger) ([]byte, error) {
