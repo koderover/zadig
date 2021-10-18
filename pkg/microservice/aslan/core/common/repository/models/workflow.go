@@ -367,6 +367,7 @@ type BuildModuleArgs struct {
 	TaskID       int64
 	FileName     string
 	URL          string
+	TaskType     string
 }
 
 func (Workflow) TableName() string {

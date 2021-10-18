@@ -1409,8 +1409,9 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 				WorkflowName: artifact.WorkflowName,
 				TaskID:       artifact.TaskID,
 				FileName:     artifact.FileName,
+				TaskType:     string(config.TaskArtifactDeploy),
 			}
-			buildSubtasks, err := ArtifactDeployToSubTasks(buildModuleArgs, log)
+			buildSubtasks, err := BuildModuleToSubTasks(buildModuleArgs, log)
 			if err != nil {
 				log.Errorf("buildModuleToSubTasks target:[%s] err:%s", artifact.Name, err)
 				return nil, e.ErrCreateTask.AddErr(err)
@@ -1622,6 +1623,10 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 			Registries:   registries,
 		}
 
+		if args.TaskType != "" {
+			build.TaskType = config.TaskArtifactDeploy
+		}
+
 		// 自定义基础镜像的镜像名称可能会被更新，需要使用ID获取最新的镜像名称
 		if module.PreBuild.ImageID != "" {
 			basicImage, err := commonrepo.NewBasicImageColl().Find(module.PreBuild.ImageID)
@@ -1735,138 +1740,6 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 			build.JobCtx.PostScripts = module.PostBuild.Scripts
 		}
 
-		build.JobCtx.Caches = module.Caches
-
-		bst, err := build.ToSubTask()
-		if err != nil {
-			return subTasks, e.ErrConvertSubTasks.AddErr(err)
-		}
-		subTasks = append(subTasks, bst)
-	}
-
-	return subTasks, nil
-}
-
-func ArtifactDeployToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredLogger) ([]map[string]interface{}, error) {
-	var (
-		subTasks = make([]map[string]interface{}, 0)
-	)
-
-	opt := &commonrepo.BuildListOption{
-		Name:        args.BuildName,
-		ServiceName: args.ServiceName,
-		ProductName: args.ProductName,
-	}
-
-	if len(args.Target) > 0 {
-		opt.Targets = []string{args.Target}
-	}
-
-	modules, err := commonrepo.NewBuildColl().List(opt)
-	if err != nil {
-		return nil, e.ErrConvertSubTasks.AddErr(err)
-	}
-
-	for _, module := range modules {
-		build := &task.Build{
-			TaskType:     config.TaskArtifactDeploy,
-			Enabled:      true,
-			InstallItems: module.PreBuild.Installs,
-			ServiceName:  args.Target,
-			Service:      args.ServiceName,
-			JobCtx:       task.JobCtx{},
-			ImageID:      module.PreBuild.ImageID,
-			BuildOS:      module.PreBuild.BuildOS,
-			ImageFrom:    module.PreBuild.ImageFrom,
-			ResReq:       module.PreBuild.ResReq,
-			Timeout:      module.Timeout,
-		}
-
-		// 自定义基础镜像的镜像名称可能会被更新，需要使用ID获取最新的镜像名称
-		if module.PreBuild.ImageID != "" {
-			basicImage, err := commonrepo.NewBasicImageColl().Find(module.PreBuild.ImageID)
-			if err != nil {
-				log.Errorf("BasicImage.Find failed, id:%s, err:%v", module.PreBuild.ImageID, err)
-			} else {
-				build.BuildOS = basicImage.Value
-			}
-		}
-
-		if build.ImageFrom == "" {
-			build.ImageFrom = commonmodels.ImageFromKoderover
-		}
-
-		if args.Env != nil {
-			build.EnvName = args.Env.EnvName
-		}
-
-		if build.InstallItems == nil {
-			build.InstallItems = make([]*commonmodels.Item, 0)
-		}
-
-		build.JobCtx.Builds = module.Repos
-		if len(build.JobCtx.Builds) == 0 {
-			build.JobCtx.Builds = make([]*types.Repository, 0)
-		}
-
-		build.JobCtx.BuildSteps = []*task.BuildStep{}
-		if module.Scripts != "" {
-			build.JobCtx.BuildSteps = append(build.JobCtx.BuildSteps, &task.BuildStep{BuildType: "shell", Scripts: module.Scripts})
-		}
-
-		if module.PMDeployScripts != "" {
-			build.JobCtx.PMDeployScripts = module.PMDeployScripts
-		}
-
-		if len(module.SSHs) > 0 {
-			privateKeys := make([]*task.SSH, 0)
-			for _, sshID := range module.SSHs {
-				//私钥信息可能被更新，而构建中存储的信息是旧的，需要根据id获取最新的私钥信息
-				latestKeyInfo, err := commonrepo.NewPrivateKeyColl().Find(commonrepo.FindPrivateKeyOption{ID: sshID})
-				if err != nil || latestKeyInfo == nil {
-					log.Errorf("PrivateKey.Find failed, id:%s, err:%v", sshID, err)
-					continue
-				}
-				ssh := new(task.SSH)
-				ssh.Name = latestKeyInfo.Name
-				ssh.UserName = latestKeyInfo.UserName
-				ssh.IP = latestKeyInfo.IP
-				ssh.PrivateKey = latestKeyInfo.PrivateKey
-
-				privateKeys = append(privateKeys, ssh)
-			}
-			build.JobCtx.SSHs = privateKeys
-		}
-
-		build.JobCtx.EnvVars = module.PreBuild.Envs
-
-		if len(module.PreBuild.Envs) == 0 {
-			build.JobCtx.EnvVars = make([]*commonmodels.KeyVal, 0)
-		}
-
-		if len(args.Variables) > 0 {
-			for _, envVar := range build.JobCtx.EnvVars {
-				for _, overwrite := range args.Variables {
-					if overwrite.Key == envVar.Key && overwrite.Value != setting.MaskValue {
-						envVar.Value = overwrite.Value
-						envVar.IsCredential = overwrite.IsCredential
-						break
-					}
-				}
-			}
-		}
-
-		build.JobCtx.UploadPkg = module.PreBuild.UploadPkg
-		build.JobCtx.CleanWorkspace = module.PreBuild.CleanWorkspace
-		build.JobCtx.EnableProxy = module.PreBuild.EnableProxy
-
-		if module.PostBuild != nil && module.PostBuild.DockerBuild != nil {
-			build.JobCtx.DockerBuildCtx = &task.DockerBuildCtx{
-				WorkDir:    module.PostBuild.DockerBuild.WorkDir,
-				DockerFile: module.PostBuild.DockerBuild.DockerFile,
-				BuildArgs:  module.PostBuild.DockerBuild.BuildArgs,
-			}
-		}
 		build.JobCtx.Caches = module.Caches
 
 		if args.FileName != "" {
