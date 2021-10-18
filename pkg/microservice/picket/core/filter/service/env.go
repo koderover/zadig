@@ -13,7 +13,7 @@ import (
 )
 
 func ListEnvs(header http.Header, qs url.Values, logger *zap.SugaredLogger) ([]byte, error) {
-	allow, err := opaAllow(header, logger)
+	allow, err := opaAllowEnvList(header, logger)
 	if err != nil {
 		logger.Errorf("Failed to get allowed project names, err: %s", err)
 		return nil, err
@@ -26,7 +26,7 @@ func ListEnvs(header http.Header, qs url.Values, logger *zap.SugaredLogger) ([]b
 	return aslanClient.ListProjects(header, qs)
 }
 
-func opaAllow(headers http.Header, logger *zap.SugaredLogger) (bool, error) {
+func opaAllowEnvList(headers http.Header, logger *zap.SugaredLogger) (bool, error) {
 	res := &opaAllowResp{}
 
 	opaClient := opa.NewDefault()
