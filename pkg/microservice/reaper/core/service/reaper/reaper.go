@@ -390,12 +390,12 @@ func (r *Reaper) AfterExec(upStreamErr error) error {
 		}
 		// 将上面生成的统计结果文件上传到S3
 		if err = r.archiveTestFiles(); err != nil {
-			log.Errorf("archiveFiles err %v", err)
+			log.Errorf("archiveTestFiles err %v", err)
 			return err
 		}
 		// 将HTML测试报告上传到S3
 		if err = r.archiveHTMLTestReportFile(); err != nil {
-			log.Errorf("archiveFiles err %v", err)
+			log.Errorf("archiveHTMLTestReportFile err %v", err)
 			return err
 		}
 
