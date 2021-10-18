@@ -37,6 +37,7 @@ import (
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/policy"
 	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -330,6 +331,17 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 
 func ForkProduct(userID int, username, requestID string, args *template.ForkProject, log *zap.SugaredLogger) error {
 
+	policyClient := policy.New()
+	err := policyClient.RoleBinding(args.ProductName, policy.RoleBinding{
+		Name:   args.ProductName,
+		User:   username,
+		Role:   "Contributor",
+		Global: true,
+	})
+	if err != nil {
+		log.Error("rolebinding error")
+		return e.ErrForkProduct
+	}
 	prodTmpl, err := templaterepo.NewProductColl().Find(args.ProductName)
 	if err != nil {
 		errMsg := fmt.Sprintf("[ProductTmpl.Find] %s error: %v", args.ProductName, err)

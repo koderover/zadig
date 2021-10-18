@@ -32,3 +32,16 @@ func (c *Client) CreateOrUpdatePolicy(p *Policy) error {
 
 	return err
 }
+
+type RoleBinding struct {
+	Name   string
+	User   string
+	Role   string
+	Global bool
+}
+
+func (c *Client) RoleBinding(projectName string, roleBinding RoleBinding) error {
+	url := fmt.Sprintf("/rolebindings?projectName=%s", projectName)
+	_, err := c.Post(url, httpclient.SetBody(roleBinding))
+	return err
+}
