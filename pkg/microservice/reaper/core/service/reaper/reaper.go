@@ -403,14 +403,16 @@ func (r *Reaper) AfterExec(upStreamErr error) error {
 
 	// should archive file first, since compress cache will clean the workspace
 	if upStreamErr == nil {
-		if err = r.archiveS3Files(); err != nil {
-			log.Errorf("archiveFiles err %v", err)
-			return err
-		}
-		// 运行构建后置脚本
-		if err = r.RunPostScripts(); err != nil {
-			log.Errorf("RunPostScripts err %v", err)
-			return err
+		if r.Ctx.ArtifactInfo == nil {
+			if err = r.archiveS3Files(); err != nil {
+				log.Errorf("archiveFiles err %v", err)
+				return err
+			}
+			// 运行构建后置脚本
+			if err = r.RunPostScripts(); err != nil {
+				log.Errorf("RunPostScripts err %v", err)
+				return err
+			}
 		}
 
 		// 运行物理机部署脚本
