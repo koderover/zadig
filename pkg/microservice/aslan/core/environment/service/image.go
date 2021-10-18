@@ -372,6 +372,7 @@ func UpdateContainerImage(requestID string, args *UpdateContainerImageArgs, log 
 					break
 				}
 			}
+			break
 		}
 		if err := commonrepo.NewProductColl().Update(product); err != nil {
 			log.Errorf("[%s] update product %s error: %v", namespace, args.ProductName, err)
