@@ -14,25 +14,31 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package handler
+package main
 
 import (
-	"github.com/gin-gonic/gin"
-
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
-	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	"fmt"
+	"net/http"
 )
 
-func BuildModuleToSubTasks(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
+func hello(w http.ResponseWriter, req *http.Request) {
 
-	resp, err := workflow.BuildModuleToSubTasks(c.Param("name"), "", "", c.Query("productName"), nil, nil, ctx.Logger)
-	if err != nil {
-		ctx.Err = err
-		return
+	fmt.Fprintf(w, "hello, my name is service2~~\n")
+}
+
+func headers(w http.ResponseWriter, req *http.Request) {
+
+	for name, headers := range req.Header {
+		for _, h := range headers {
+			fmt.Fprintf(w, "%v: %v\n", name, h)
+		}
 	}
+}
 
-	workflow.EnsureSubTasksResp(resp)
-	ctx.Resp = resp
+func main() {
+
+	http.HandleFunc("/", hello)
+	http.HandleFunc("/headers", headers)
+
+	http.ListenAndServe(":20221", nil)
 }
