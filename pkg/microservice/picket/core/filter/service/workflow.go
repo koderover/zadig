@@ -54,12 +54,12 @@ func getAllowedProjectsWithUpdateWorkflowsPermission(headers http.Header, rules 
 }
 
 func intersect(s [][]string) []string {
-	tmp := sets.String{}
-	for i, v := range s {
+	if len(s) == 0 {
+		return nil
+	}
+	tmp := sets.NewString(s[0]...)
+	for _, v := range s[1:] {
 		t := sets.NewString(v...)
-		if i == 0 {
-			tmp = t
-		}
 		tmp = t.Intersection(tmp)
 	}
 	return tmp.List()
