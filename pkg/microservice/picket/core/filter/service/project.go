@@ -17,7 +17,7 @@ type allowedProjectsData struct {
 }
 
 func ListProjects(header http.Header, qs url.Values, logger *zap.SugaredLogger) ([]byte, error) {
-	names, err := getAllowedProjects(header, logger)
+	names, err := getVisibleProjects(header, logger)
 	if err != nil {
 		logger.Errorf("Failed to get allowed project names, err: %s", err)
 		return nil, err
@@ -32,30 +32,31 @@ func ListProjects(header http.Header, qs url.Values, logger *zap.SugaredLogger) 
 	return aslanClient.ListProjects(header, qs)
 }
 
-func getAllowedProjects(headers http.Header, logger *zap.SugaredLogger) ([]string, error) {
+func getVisibleProjects(headers http.Header, logger *zap.SugaredLogger) ([]string, error) {
 	res := &allowedProjectsData{}
-
 	opaClient := opa.NewDefault()
-	err := opaClient.Evaluate("rbac.user_projects", res, func() (*opa.Input, error) { return generateOPAInput(headers), nil })
+	err := opaClient.Evaluate("rbac.user_visible_projects", res, func() (*opa.Input, error) { return generateOPAInput(headers, "", ""), nil })
 	if err != nil {
 		logger.Errorf("opa evaluation failed, err: %s", err)
 		return nil, err
 	}
 
 	return res.Result, nil
-
 }
 
-func generateOPAInput(header http.Header) *opa.Input {
+func generateOPAInput(header http.Header, method string, endpoint string) *opa.Input {
 	authorization := header.Get(strings.ToLower(setting.AuthorizationHeader))
 	headers := map[string]string{}
+	parsedPath := strings.Split(strings.Trim(endpoint, "/"), "/")
 	headers[strings.ToLower(setting.AuthorizationHeader)] = authorization
 
 	return &opa.Input{
 		Attributes: &opa.Attributes{
 			Request: &opa.Request{HTTP: &opa.HTTPSpec{
 				Headers: headers,
+				Method:  method,
 			}},
 		},
+		ParsedPath: parsedPath,
 	}
 }
