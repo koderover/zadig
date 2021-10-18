@@ -23,7 +23,7 @@ func ListEnvs(header http.Header, qs url.Values, logger *zap.SugaredLogger) ([]b
 	}
 	aslanClient := aslan.New()
 
-	return aslanClient.ListProjects(header, qs)
+	return aslanClient.ListEnvs(header, qs)
 }
 
 func opaAllowEnvList(headers http.Header, logger *zap.SugaredLogger) (bool, error) {
