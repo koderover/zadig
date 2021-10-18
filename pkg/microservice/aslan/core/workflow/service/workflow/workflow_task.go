@@ -1369,14 +1369,14 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 	stages := make([]*commonmodels.Stage, 0)
 	for _, artifact := range args.Artifact {
 		subTasks := make([]map[string]interface{}, 0)
+		artifactSubtask, err := artifactToSubTasks(artifact.Name, artifact.Image)
+		if err != nil {
+			log.Errorf("artifactToSubTasks artifact.Name:[%s] err:%v", artifact.Name, err)
+			return nil, e.ErrCreateTask.AddErr(err)
+		}
+		subTasks = append(subTasks, artifactSubtask)
 		// image artifact deploy
 		if artifact.Image != "" {
-			artifactSubtask, err := artifactToSubTasks(artifact.Name, artifact.Image)
-			if err != nil {
-				log.Errorf("artifactToSubTasks artifact.Name:[%s] err:%v", artifact.Name, err)
-				return nil, e.ErrCreateTask.AddErr(err)
-			}
-			subTasks = append(subTasks, artifactSubtask)
 			if env != nil {
 				// 生成部署的subtask
 				for _, deployEnv := range artifact.Deploy {
@@ -1410,11 +1410,12 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 				TaskID:       artifact.TaskID,
 				FileName:     artifact.FileName,
 			}
-			subTasks, err = BuildModuleToSubTasks(buildModuleArgs, log)
+			buildSubtasks, err := BuildModuleToSubTasks(buildModuleArgs, log)
 			if err != nil {
 				log.Errorf("buildModuleToSubTasks target:[%s] err:%s", artifact.Name, err)
 				return nil, e.ErrCreateTask.AddErr(err)
 			}
+			subTasks = append(subTasks, buildSubtasks...)
 		}
 
 		// 生成分发的subtask
