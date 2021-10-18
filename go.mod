@@ -17,7 +17,7 @@ require (
 	github.com/cenkalti/backoff/v3 v3.0.0
 	github.com/coocood/freecache v1.1.0
 	github.com/docker/distribution v2.7.1+incompatible
-	github.com/docker/docker v17.12.0-ce-rc1.0.20200618181300-9dc6525e6118+incompatible
+	github.com/docker/docker v20.10.7+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7 // indirect
 	github.com/dsnet/compress v0.0.1 // indirect
@@ -30,9 +30,8 @@ require (
 	github.com/google/go-github/v35 v35.3.0
 	github.com/google/uuid v1.2.0
 	github.com/gorilla/handlers v1.5.1 // indirect
-	github.com/gorilla/mux v1.7.3
+	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.4.2
-	github.com/gotestyourself/gotestyourself v2.2.0+incompatible // indirect
 	github.com/gregjones/httpcache v0.0.0-20181110185634-c63ab54fda8f
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/huaweicloud/huaweicloud-sdk-go-v3 v0.0.50
@@ -40,13 +39,12 @@ require (
 	github.com/jinzhu/now v1.1.2
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
 	github.com/mittwald/go-helm-client v0.8.0
+	github.com/moby/buildkit v0.9.1
 	github.com/nsqio/go-nsq v1.0.7
 	github.com/nwaples/rardecode v1.0.0 // indirect
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.15.0
 	github.com/opencontainers/go-digest v1.0.0
-	github.com/opencontainers/selinux v1.6.0 // indirect
-	github.com/openshift/imagebuilder v1.2.1
 	github.com/otiai10/copy v1.6.0
 	github.com/pkg/errors v0.9.1
 	github.com/rfyiamcool/cronlib v1.0.0
@@ -60,7 +58,6 @@ require (
 	github.com/swaggo/gin-swagger v1.3.0
 	github.com/swaggo/swag v1.5.1
 	github.com/xanzy/go-gitlab v0.50.0
-	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 	github.com/yvasiyarov/go-metrics v0.0.0-20150112132944-c25f46c4b940 // indirect
 	github.com/yvasiyarov/gorelic v0.0.7 // indirect
 	github.com/yvasiyarov/newrelic_platform_go v0.0.0-20160601141957-9c099fbc30e9 // indirect
