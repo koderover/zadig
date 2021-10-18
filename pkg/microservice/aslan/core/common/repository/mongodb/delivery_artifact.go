@@ -207,7 +207,10 @@ func (c *DeliveryArtifactColl) ListTars(args *DeliveryArtifactArgs) ([]*models.D
 		query["source"] = args.Source
 	}
 
-	cursor, err := c.Collection.Find(context.TODO(), query)
+	opt := options.Find().
+		SetSort(bson.D{{"created_time", -1}})
+
+	cursor, err := c.Collection.Find(context.TODO(), query, opt)
 	if err != nil {
 		return nil, err
 	}
