@@ -49,7 +49,7 @@ func CreateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
 	return mongodb.NewRoleColl().Create(obj)
 }
 
-func ListRoles(projectName string) (roles []*Role, err error) {
+func ListRoles(projectName string, _ *zap.SugaredLogger) (roles []*Role, err error) {
 	projectRoles, err := mongodb.NewRoleColl().List(projectName)
 	if err != nil {
 		return nil, err
@@ -63,5 +63,5 @@ func ListRoles(projectName string) (roles []*Role, err error) {
 }
 
 func DeleteRole(name string, projectName string, _ *zap.SugaredLogger) (err error) {
-	return mongodb.NewRoleColl().Delete(name, projectName)
+	return mongodb.NewRoleColl().DeleteBy(name, projectName)
 }
