@@ -23,17 +23,15 @@ import (
 
 type Client struct {
 	APIBase string
-	Token   string
 	Conn    *http.Client
 }
 
 // NewAslanClient is to get aslan client func
-func NewAslanClient(host, token string) *Client {
+func NewAslanClient(host string) *Client {
 	jar, _ := cookiejar.New(nil)
 
 	c := &Client{
 		APIBase: host,
-		Token:   token,
 		Conn:    &http.Client{Transport: http.DefaultTransport, Jar: jar},
 	}
 

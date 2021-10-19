@@ -83,8 +83,8 @@ const (
 func NewCronClient() *CronClient {
 	nsqLookupAddrs := config.NsqLookupAddrs()
 
-	aslanCli := client.NewAslanClient(fmt.Sprintf("%s/api", configbase.AslanServiceAddress()), config.RootToken())
-	collieCli := client.NewCollieClient(config.CollieAPI(), config.CollieToken())
+	aslanCli := client.NewAslanClient(fmt.Sprintf("%s/api", configbase.AslanServiceAddress()))
+	collieCli := client.NewCollieClient(config.CollieAPI())
 	//初始化nsq
 	config := nsq.NewConfig()
 	// 注意 WD_POD_NAME 必须使用 Downward API 配置环境变量
@@ -160,7 +160,7 @@ func (c *CronClient) Init() {
 }
 
 func getFeatures() (string, error) {
-	cl := poetry.New(configbase.PoetryServiceAddress(), config.RootToken())
+	cl := poetry.New(configbase.PoetryServiceAddress())
 	fs, err := cl.ListFeatures()
 	if err != nil {
 		return "", err

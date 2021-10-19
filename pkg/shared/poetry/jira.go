@@ -42,7 +42,7 @@ func (c *Client) GetJiraInfo() (*JiraInfo, error) {
 	return jira, nil
 }
 
-func GetJiraInfo(host, token string) (*JiraInfo, error) {
-	c := New(host, token)
+func GetJiraInfo(host string) (*JiraInfo, error) {
+	c := New(host)
 	return c.GetJiraInfo()
 }

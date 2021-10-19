@@ -24,7 +24,6 @@ import (
 	"go.uber.org/zap"
 
 	configbase "github.com/koderover/zadig/pkg/config"
-	"github.com/koderover/zadig/pkg/setting"
 )
 
 func (c *Client) InitPullSonarStatScheduler(log *zap.SugaredLogger) error {
@@ -45,7 +44,6 @@ func (c *Client) InitPullSonarTestsMeasure(log *zap.SugaredLogger) error {
 		log.Errorf("create post request error : %v", err)
 		return err
 	}
-	request.Header.Set("Authorization", fmt.Sprintf("%s %s", setting.RootAPIKey, c.Token))
 
 	var resp *http.Response
 	resp, err = c.Conn.Do(request)
@@ -76,7 +74,6 @@ func (c *Client) InitPullSonarDeliveryMeasure(log *zap.SugaredLogger) error {
 		log.Errorf("create post request error : %v", err)
 		return err
 	}
-	request.Header.Set("Authorization", fmt.Sprintf("%s %s", setting.RootAPIKey, c.Token))
 
 	var resp *http.Response
 	resp, err = c.Conn.Do(request)
@@ -107,7 +104,6 @@ func (c *Client) InitPullSonarRepos(log *zap.SugaredLogger) error {
 		log.Errorf("create post request error : %v", err)
 		return err
 	}
-	request.Header.Set("Authorization", fmt.Sprintf("%s %s", setting.RootAPIKey, c.Token))
 
 	var resp *http.Response
 	resp, err = c.Conn.Do(request)

@@ -58,7 +58,7 @@ func ListProductsRevision(productName, envName string, userID int, superUser boo
 			productNamespaces.Insert(publicProduct.Namespace)
 		}
 
-		poetryCtl := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
+		poetryCtl := poetry.New(config.PoetryAPIServer())
 		productNameMap, err = poetryCtl.GetUserProject(userID, log)
 		if err != nil {
 			log.Errorf("Collection.Product.List GetUserProject error: %v", err)

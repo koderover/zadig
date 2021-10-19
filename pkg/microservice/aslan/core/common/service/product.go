@@ -72,7 +72,7 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 	log.Infof("[%s] delete product %s", username, productInfo.Namespace)
 	LogProductStats(username, setting.DeleteProductEvent, productName, requestID, eventStart, log)
 
-	poetryClient := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
+	poetryClient := poetry.New(config.PoetryAPIServer())
 
 	switch productInfo.Source {
 	case setting.SourceFromHelm:

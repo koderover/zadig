@@ -58,8 +58,6 @@ func InitializeDeployTaskPlugin(taskType config.TaskType) TaskPlugin {
 		kubeClient: krkubeclient.Client(),
 		restConfig: krkubeclient.RESTConfig(),
 		httpClient: httpclient.New(
-			httpclient.SetAuthScheme(setting.RootAPIKey),
-			httpclient.SetAuthToken(config.PoetryAPIRootKey()),
 			httpclient.SetHostURL(configbase.AslanServiceAddress()),
 		),
 	}

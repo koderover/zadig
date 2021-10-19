@@ -180,7 +180,7 @@ func sendSyscapNotify(handleErr error, totalCleanTasks *int) {
 		IsRead:     false,
 	}
 
-	poetryClient := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
+	poetryClient := poetry.New(config.PoetryAPIServer())
 	users, _ := poetryClient.ListProductPermissionUsers("", "", log.SugaredLogger())
 	for _, user := range users {
 		notifyInfo.Receiver = user
