@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -148,7 +147,7 @@ func UpdateProductPublic(productName string, args *ProductParams, log *zap.Sugar
 }
 
 func ListProducts(productNameParam string, userName string, log *zap.SugaredLogger) (resp []*ProductResp, err error) {
-	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productNameParam})
+	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productNameParam, IsSortByProductName: true})
 	if err != nil {
 		log.Errorf("[%s] Collections.Product.List error: %v", userName, err)
 		return resp, e.ErrListEnvs.AddDesc(err.Error())
@@ -181,7 +180,6 @@ func ListProducts(productNameParam string, userName string, log *zap.SugaredLogg
 		}
 		resp = append(resp, product)
 	}
-	sort.SliceStable(resp, func(i, j int) bool { return resp[i].ProductName < resp[j].ProductName })
 	return resp, nil
 }
 
