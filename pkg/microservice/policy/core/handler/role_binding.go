@@ -70,6 +70,14 @@ func DeleteRoleBinding(c *gin.Context) {
 	ctx.Err = service.DeleteRoleBinding(name, projectName, ctx.Logger)
 }
 
+func DeleteSystemRoleBinding(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	name := c.Param("name")
+	ctx.Err = service.DeleteRoleBinding(name, service.SystemScope, ctx.Logger)
+}
+
 func CreateSystemRoleBinding(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
