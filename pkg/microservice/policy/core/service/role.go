@@ -50,7 +50,7 @@ func CreateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
 }
 
 func ListRoles(projectName string, _ *zap.SugaredLogger) (roles []*Role, err error) {
-	projectRoles, err := mongodb.NewRoleColl().List(projectName)
+	projectRoles, err := mongodb.NewRoleColl().ListBy(projectName)
 	if err != nil {
 		return nil, err
 	}

@@ -77,7 +77,24 @@ func (c *RoleColl) Get(ns, name string) (*models.Role, bool, error) {
 	return res, true, nil
 }
 
-func (c *RoleColl) List(projectName string) ([]*models.Role, error) {
+func (c *RoleColl) List() ([]*models.Role, error) {
+	var res []*models.Role
+
+	ctx := context.Background()
+
+	cursor, err := c.Collection.Find(ctx, bson.M{})
+	if err != nil {
+		return nil, err
+	}
+
+	err = cursor.All(ctx, &res)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+func (c *RoleColl) ListBy(projectName string) ([]*models.Role, error) {
 	var res []*models.Role
 
 	ctx := context.Background()
@@ -93,7 +110,6 @@ func (c *RoleColl) List(projectName string) ([]*models.Role, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return res, nil
 }
 
