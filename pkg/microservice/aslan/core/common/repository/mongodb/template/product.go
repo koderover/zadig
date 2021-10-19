@@ -210,19 +210,13 @@ func (c *ProductColl) Create(args *template.Product) error {
 }
 
 // Update UpdateChoreographyService
-func (c *ProductColl) UpdateChoreographyService(productName string, args *template.Product) error {
-	// avoid panic issue
-	if args == nil {
-		return errors.New("nil ProductTmpl")
-	}
-
-	args.ProjectName = strings.TrimSpace(args.ProjectName)
+func (c *ProductColl) UpdateOrchestrationService(productName string, services [][]string, updateBy string) error {
 
 	query := bson.M{"product_name": productName}
 	change := bson.M{"$set": bson.M{
-		"services":    args.Services,
+		"services":    services,
 		"update_time": time.Now().Unix(),
-		"update_by":   args.UpdateBy,
+		"update_by":   updateBy,
 	}}
 
 	_, err := c.UpdateOne(context.TODO(), query, change)

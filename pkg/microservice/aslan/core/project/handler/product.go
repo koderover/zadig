@@ -133,28 +133,28 @@ func UpdateProject(c *gin.Context) {
 	ctx.Err = projectservice.UpdateProject(productName, args, ctx.Logger)
 }
 
-func UpdateChoreographyService(c *gin.Context) {
+type UpdateOrchestrationServiceReq struct {
+	Services [][]string `json:"services"`
+}
+
+func UpdateOrchestrationService(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := new(template.Product)
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("UpdateChoreographyService c.GetRawData() err : %v", err)
+	projectName := c.Param("name")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam
+		return
 	}
-	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("UpdateChoreographyService json.Unmarshal err : %v", err)
-	}
-	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "更新", "项目管理-项目服务编排", args.ProductName, string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	internalhandler.InsertOperationLog(c, ctx.Username, projectName, "更新", "项目管理-项目服务编排", projectName, "", ctx.Logger)
 
+	args := new(UpdateOrchestrationServiceReq)
 	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid ProductTmpl json args")
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid UpdateOrchestrationServiceReq json args")
 		return
 	}
 
-	args.UpdateBy = ctx.Username
-	ctx.Err = projectservice.UpdateChoreographyService(c.Param("name"), args, ctx.Logger)
+	ctx.Err = projectservice.UpdateOrchestrationService(projectName, args.Services, ctx.Username, ctx.Logger)
 }
 
 func DeleteProductTemplate(c *gin.Context) {
