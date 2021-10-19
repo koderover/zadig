@@ -194,7 +194,6 @@ func GetFileContent(serviceName, productName, filePath, fileName string, log *za
 	return string(fileContent), nil
 }
 
-// get default values.yaml content from chart template
 func prepareChartTemplateData(templateName string, logger *zap.SugaredLogger) (*ChartTemplateData, error) {
 	// get chart template from local disk
 	templateChart, err := mongodb.NewChartColl().Get(templateName)
@@ -220,7 +219,7 @@ func prepareChartTemplateData(templateName string, logger *zap.SugaredLogger) (*
 	}
 	chart := new(Chart)
 	if err = yaml.Unmarshal(chartFileContent, chart); err != nil {
-		log.Errorf("Failed to unmarshal chart yaml %s, err: %s", setting.ChartYaml, err)
+		logger.Errorf("Failed to unmarshal chart yaml %s, err: %s", setting.ChartYaml, err)
 		return nil, err
 	}
 
