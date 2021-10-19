@@ -126,8 +126,8 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 	return
 }
 
-func UpdateOrchestrationService(name string, services [][]string, updateBy string, log *zap.SugaredLogger) (err error) {
-	if err = templaterepo.NewProductColl().UpdateOrchestrationService(name, services, updateBy); err != nil {
+func UpdateServiceOrchestration(name string, services [][]string, updateBy string, log *zap.SugaredLogger) (err error) {
+	if err = templaterepo.NewProductColl().UpdateServiceOrchestration(name, services, updateBy); err != nil {
 		log.Errorf("UpdateChoreographyService error: %v", err)
 		return e.ErrUpdateProduct
 	}

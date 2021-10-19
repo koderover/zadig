@@ -137,7 +137,7 @@ type UpdateOrchestrationServiceReq struct {
 	Services [][]string `json:"services"`
 }
 
-func UpdateOrchestrationService(c *gin.Context) {
+func UpdateServiceOrchestration(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -154,7 +154,7 @@ func UpdateOrchestrationService(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = projectservice.UpdateOrchestrationService(projectName, args.Services, ctx.Username, ctx.Logger)
+	ctx.Err = projectservice.UpdateServiceOrchestration(projectName, args.Services, ctx.Username, ctx.Logger)
 }
 
 func DeleteProductTemplate(c *gin.Context) {
