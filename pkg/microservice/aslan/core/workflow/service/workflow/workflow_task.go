@@ -1623,6 +1623,7 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 			ResReq:       module.PreBuild.ResReq,
 			Timeout:      module.Timeout,
 			Registries:   registries,
+			ProductName:  args.ProductName,
 		}
 
 		if args.TaskType != "" {

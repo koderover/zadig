@@ -26,9 +26,10 @@ import (
 )
 
 type Build struct {
-	TaskType   config.TaskType `bson:"type"                       json:"type"`
-	Enabled    bool            `bson:"enabled"                    json:"enabled"`
-	TaskStatus config.Status   `bson:"status"                     json:"status"`
+	TaskType    config.TaskType `bson:"type"                       json:"type"`
+	Enabled     bool            `bson:"enabled"                    json:"enabled"`
+	TaskStatus  config.Status   `bson:"status"                     json:"status"`
+	ProductName string          `bson:"product_name"               json:"product_name"`
 	// 新增一个service表示服务名称
 	Service string `bson:"service"                    json:"service"`
 	// 该名称实际为服务组件名称
