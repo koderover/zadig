@@ -209,6 +209,19 @@ func (c *ProductColl) Create(args *template.Product) error {
 	return err
 }
 
+func (c *ProductColl) UpdateServiceOrchestration(productName string, services [][]string, updateBy string) error {
+
+	query := bson.M{"product_name": productName}
+	change := bson.M{"$set": bson.M{
+		"services":    services,
+		"update_time": time.Now().Unix(),
+		"update_by":   updateBy,
+	}}
+
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
 // Update existing ProductTmpl
 func (c *ProductColl) Update(productName string, args *template.Product) error {
 	// avoid panic issue

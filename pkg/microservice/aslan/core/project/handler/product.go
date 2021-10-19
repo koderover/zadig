@@ -133,6 +133,30 @@ func UpdateProject(c *gin.Context) {
 	ctx.Err = projectservice.UpdateProject(productName, args, ctx.Logger)
 }
 
+type UpdateOrchestrationServiceReq struct {
+	Services [][]string `json:"services"`
+}
+
+func UpdateServiceOrchestration(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Param("name")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam
+		return
+	}
+	internalhandler.InsertOperationLog(c, ctx.Username, projectName, "更新", "项目管理-项目服务编排", projectName, "", ctx.Logger)
+
+	args := new(UpdateOrchestrationServiceReq)
+	if err := c.BindJSON(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid UpdateOrchestrationServiceReq json args")
+		return
+	}
+
+	ctx.Err = projectservice.UpdateServiceOrchestration(projectName, args.Services, ctx.Username, ctx.Logger)
+}
+
 func DeleteProductTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
