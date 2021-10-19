@@ -209,7 +209,6 @@ func (c *ProductColl) Create(args *template.Product) error {
 	return err
 }
 
-// Update UpdateChoreographyService
 func (c *ProductColl) UpdateOrchestrationService(productName string, services [][]string, updateBy string) error {
 
 	query := bson.M{"product_name": productName}
