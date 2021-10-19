@@ -388,7 +388,7 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 				func(chartTree afero.Fs) (string, error) {
 					var err error
 					serviceName, chartVersion, err = readChartYAML(afero.NewIOFS(chartTree), filepath.Base(filePath), log)
-					valuesYAML, _, _ = readValuesYAML(afero.NewIOFS(chartTree), filepath.Base(filePath), log)
+					valuesYAML, _, err = readValuesYAML(afero.NewIOFS(chartTree), filepath.Base(filePath), log)
 					return serviceName, err
 				})
 			if err != nil {
@@ -469,9 +469,6 @@ func CreateOrUpdateBulkHelmServiceFromTemplate(projectName string, args *BulkHel
 	if err != nil {
 		return nil, err
 	}
-
-	// deal with values, values will come from template, git repo and user defined one,
-	// if one key exists in more than one values source, the latter one will override the former one.
 
 	localBase := configbase.LocalChartTemplatePath(templateArgs.TemplateName)
 	base := filepath.Base(templateChartData.TemplateData.Path)
@@ -568,7 +565,7 @@ func handleSingleService(projectName string, repoConfig *commonservice.RepoConfi
 	}
 
 	values := [][]byte{templateChartData.DefaultValuesYAML, valuesYAML}
-	merged, err := yamlutil.Merge(values)
+	mergedValues, err := yamlutil.Merge(values)
 	if err != nil {
 		logger.Errorf("Failed to merge values, err: %s", err)
 		return nil, err
@@ -584,7 +581,7 @@ func handleSingleService(projectName string, repoConfig *commonservice.RepoConfi
 	}
 
 	// write values.yaml file
-	if err = os.WriteFile(filepath.Join(to, setting.ValuesYaml), merged, 0644); err != nil {
+	if err = os.WriteFile(filepath.Join(to, setting.ValuesYaml), mergedValues, 0644); err != nil {
 		logger.Errorf("Failed to write values, err: %s", err)
 		return nil, err
 	}
@@ -600,7 +597,7 @@ func handleSingleService(projectName string, repoConfig *commonservice.RepoConfi
 		&helmServiceCreationArgs{
 			ChartName:    templateChartData.ChartName,
 			ChartVersion: templateChartData.ChartVersion,
-			ValuesYAML:   string(merged),
+			ValuesYAML:   string(mergedValues),
 			ServiceName:  serviceName,
 			FilePath:     to,
 			ProductName:  projectName,
@@ -617,7 +614,7 @@ func handleSingleService(projectName string, repoConfig *commonservice.RepoConfi
 	return &templatemodels.RenderChart{
 		ServiceName:  serviceName,
 		ChartVersion: templateChartData.ChartVersion,
-		ValuesYaml:   string(merged),
+		ValuesYaml:   string(mergedValues),
 	}, nil
 }
 
