@@ -82,10 +82,6 @@ func DeleteRole(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	name := c.Param("name")
 	projectName := c.Query("projectName")
-	if name == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("args projectName can't be empty")
-		return
-	}
 	ctx.Err = service.DeleteRole(name, projectName, ctx.Logger)
 	return
 }
