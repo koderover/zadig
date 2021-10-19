@@ -77,10 +77,6 @@ func (c *RoleColl) Get(ns, name string) (*models.Role, bool, error) {
 	return res, true, nil
 }
 
-type ListOpt struct {
-	ProjectSpace string
-}
-
 func (c *RoleColl) List(projectName string) ([]*models.Role, error) {
 	var res []*models.Role
 
