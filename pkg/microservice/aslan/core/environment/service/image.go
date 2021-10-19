@@ -24,7 +24,6 @@ import (
 	"time"
 
 	helmclient "github.com/mittwald/go-helm-client"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/strvals"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -176,7 +175,7 @@ func assignImageData(imageUrl string, matchData map[string]string) (map[string]i
 		return ret, nil
 	}
 
-	return nil, errors.Errorf("match data illegal, expect length: 1-3, actual length: %d", len(matchData))
+	return nil, fmt.Errorf("match data illegal, expect length: 1-3, actual length: %d", len(matchData))
 }
 
 // prepare necessary data from db
@@ -269,7 +268,7 @@ func updateContainerForHelmChart(serviceName, resType, image, containerName stri
 
 	}
 	if replacedValuesYaml == "" {
-		return errors.Errorf("failed to set new image uri into service's values.yaml %s/%s", namespace, serviceName)
+		return fmt.Errorf("failed to set new image uri into service's values.yaml %s/%s", namespace, serviceName)
 	}
 
 	// update values.yaml content in chart
@@ -304,7 +303,7 @@ func updateContainerForHelmChart(serviceName, resType, image, containerName stri
 
 	if err = commonrepo.NewRenderSetColl().Update(renderSet); err != nil {
 		log.Errorf("[RenderSet.update] product %s error: %v", product.ProductName, err)
-		return errors.Errorf("failed to update render set, productName %s", product.ProductName)
+		return fmt.Errorf("failed to update render set, productName %s", product.ProductName)
 	}
 
 	if err = commonrepo.NewProductColl().Update(product); err != nil {
@@ -356,7 +355,7 @@ func UpdateContainerImage(requestID string, args *UpdateContainerImageArgs, log 
 				return e.ErrUpdateConainterImage.AddDesc("更新 StatefulSet 容器镜像失败")
 			}
 		default:
-			return nil
+			return e.ErrUpdateConainterImage.AddDesc(fmt.Sprintf("不支持的资源类型%s", args.Type))
 		}
 		// update image info in product.services.container
 		for _, service := range product.GetServiceMap() {
