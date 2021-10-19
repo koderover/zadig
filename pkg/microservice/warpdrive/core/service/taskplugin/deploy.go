@@ -691,12 +691,11 @@ func assignImageData(imageUrl string, matchData map[string]string) (map[string]i
 				break
 			}
 			return ret, nil
-		} else {
-			// image url assigned into repo + image(tag)
-			ret[matchData[setting.PathSearchComponentRepo]] = strings.TrimSuffix(resolvedImageUrl[setting.PathSearchComponentRepo], "/")
-			ret[matchData[setting.PathSearchComponentImage]] = fmt.Sprintf("%s:%s", resolvedImageUrl[setting.PathSearchComponentImage], resolvedImageUrl[setting.PathSearchComponentTag])
-			return ret, nil
 		}
+		// image url assigned into repo + image(tag)
+		ret[matchData[setting.PathSearchComponentRepo]] = strings.TrimSuffix(resolvedImageUrl[setting.PathSearchComponentRepo], "/")
+		ret[matchData[setting.PathSearchComponentImage]] = fmt.Sprintf("%s:%s", resolvedImageUrl[setting.PathSearchComponentImage], resolvedImageUrl[setting.PathSearchComponentTag])
+		return ret, nil
 	}
 
 	return nil, errors.Errorf("match data illegal, expect length: 1-3, actual length: %d", len(matchData))
