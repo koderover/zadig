@@ -302,12 +302,12 @@ func updateContainerForHelmChart(serviceName, resType, image, containerName stri
 	}
 
 	if err = commonrepo.NewRenderSetColl().Update(renderSet); err != nil {
-		log.Errorf("[RenderSet.update] product %s error: %v", product.ProductName, err)
+		log.Errorf("[RenderSet.update] product %s error: %s", product.ProductName, err.Error())
 		return fmt.Errorf("failed to update render set, productName %s", product.ProductName)
 	}
 
 	if err = commonrepo.NewProductColl().Update(product); err != nil {
-		log.Errorf("[%s] update product %s error: %v", namespace, product.ProductName, err)
+		log.Errorf("[%s] update product %s error: %s", namespace, product.ProductName, err.Error())
 		return fmt.Errorf("failed to update product info, name %s", product.ProductName)
 	}
 
@@ -346,12 +346,12 @@ func UpdateContainerImage(requestID string, args *UpdateContainerImageArgs, log 
 		switch args.Type {
 		case setting.Deployment:
 			if err := updater.UpdateDeploymentImage(namespace, args.Name, args.ContainerName, args.Image, kubeClient); err != nil {
-				log.Errorf("[%s] UpdateDeploymentImageByName error: %v", namespace, err)
+				log.Errorf("[%s] UpdateDeploymentImageByName error: %s", namespace, err.Error())
 				return e.ErrUpdateConainterImage.AddDesc("更新 Deployment 容器镜像失败")
 			}
 		case setting.StatefulSet:
 			if err := updater.UpdateStatefulSetImage(namespace, args.Name, args.ContainerName, args.Image, kubeClient); err != nil {
-				log.Errorf("[%s] UpdateStatefulsetImageByName error: %v", namespace, err)
+				log.Errorf("[%s] UpdateStatefulsetImageByName error: %s", namespace, err.Error())
 				return e.ErrUpdateConainterImage.AddDesc("更新 StatefulSet 容器镜像失败")
 			}
 		default:
@@ -371,7 +371,7 @@ func UpdateContainerImage(requestID string, args *UpdateContainerImageArgs, log 
 			break
 		}
 		if err := commonrepo.NewProductColl().Update(product); err != nil {
-			log.Errorf("[%s] update product %s error: %v", namespace, args.ProductName, err)
+			log.Errorf("[%s] update product %s error: %s", namespace, args.ProductName, err.Error())
 			return e.ErrUpdateConainterImage.AddDesc("更新环境信息失败")
 		}
 	}
