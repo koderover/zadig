@@ -96,6 +96,10 @@ type DockerBuild struct {
 	DockerFile string `bson:"docker_file"            json:"docker_file"`
 	// BuildArgs docker build args
 	BuildArgs string `bson:"build_args,omitempty"    json:"build_args"`
+	// Source whether dockerfile comes from template or existing file
+	Source string `bson:"source"                     json:"source"`
+	// TemplateId is the id of the template dockerfile
+	TemplateId string `bson:"template_id"            json:"template_id"`
 }
 
 type JenkinsBuild struct {

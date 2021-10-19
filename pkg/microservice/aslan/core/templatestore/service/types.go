@@ -50,3 +50,8 @@ type Variable struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
 }
+
+type BuildReference struct {
+	BuildName   string `json:"build_name"`
+	ProjectName string `json:"project_name"`
+}

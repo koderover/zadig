@@ -1,12 +1,19 @@
 package service
 
 import (
+	"errors"
+	"fmt"
 	"strings"
 
 	"go.uber.org/zap"
 
+	dockerfileinstructions "github.com/moby/buildkit/frontend/dockerfile/instructions"
+	dockerfileparser "github.com/moby/buildkit/frontend/dockerfile/parser"
+
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/repository/mongodb"
+	"github.com/koderover/zadig/pkg/setting"
 )
 
 func CreateDockerfileTemplate(template *DockerfileTemplate, logger *zap.SugaredLogger) error {
@@ -56,7 +63,10 @@ func GetDockerfileTemplateDetail(id string, logger *zap.SugaredLogger) (*Dockerf
 		logger.Errorf("Failed to get dockerfile template from id: %s, the error is: %+v", id, err)
 		return nil, err
 	}
-	variables := getVariables(dockerfileTemplate.Content, logger)
+	variables, err := getVariables(dockerfileTemplate.Content, logger)
+	if err != nil {
+		return nil, errors.New("failed to get variables from dockerfile")
+	}
 	resp.ID = dockerfileTemplate.ID.Hex()
 	resp.Name = dockerfileTemplate.Name
 	resp.Content = dockerfileTemplate.Content
@@ -72,24 +82,56 @@ func DeleteDockerfileTemplate(id string, logger *zap.SugaredLogger) error {
 	return err
 }
 
-func GetDockerfileTemplateReference(id string, logger *zap.SugaredLogger) ([]*DockerfileDetail, error) {
-	return []*DockerfileDetail{}, nil
+func GetDockerfileTemplateReference(id string, logger *zap.SugaredLogger) ([]*BuildReference, error) {
+	ret := make([]*BuildReference, 0)
+	referenceList, err := commonrepo.NewBuildColl().GetDockerfileTemplateReference(id)
+	if err != nil {
+		logger.Errorf("Failed to get build reference for dockerfile template id: %s, the error is: %+v", id, err)
+		return ret, err
+	}
+	for _, reference := range referenceList {
+		ret = append(ret, &BuildReference{
+			BuildName:   reference.Name,
+			ProjectName: reference.ProductName,
+		})
+	}
+	return ret, nil
 }
 
-func getVariables(s string, logger *zap.SugaredLogger) []*Variable {
-	lines := strings.Split(s, "\n")
-	for i, line := range lines {
-		lineWithoutSpace := strings.TrimSpace(line)
-		logger.Infof(">>>>>>>>>> line [%d] is: %s <<<<<<<<<<<<<", i, lineWithoutSpace)
-		if strings.HasPrefix(lineWithoutSpace, "ARG") {
-			logger.Infof("!!!!!!!!!!! line [%d] has prefix ARG !!!!!!!!", i)
-			logger.Infof("Proceeding to find variables")
+func getVariables(s string, logger *zap.SugaredLogger) ([]*Variable, error) {
+	ret := make([]*Variable, 0)
+	reader := strings.NewReader(s)
+	result, err := dockerfileparser.Parse(reader)
+	if err != nil {
+		logger.Errorf("Failed to parse the dockerfile from source, the error is: %+v", err)
+		return []*Variable{}, err
+	}
+	stages, _, err := dockerfileinstructions.Parse(result.AST)
+	if err != nil {
+		logger.Errorf("Failed to parse stages from generated dockerfile AST, the error is: %+v", err)
+		return []*Variable{}, err
+	}
+	keyMap := make(map[string]int)
+	for _, stage := range stages {
+		for _, command := range stage.Commands {
+			if command.Name() == setting.DockerfileCmdArg {
+				fullCommand := fmt.Sprintf("%s", command)
+				commandContent := strings.Split(fullCommand, " ")[1]
+				kv := strings.Split(commandContent, "=")
+				key := kv[0]
+				value := ""
+				if len(kv) > 1 {
+					value = kv[1]
+				}
+				// if key has not been added yet
+				if keyMap[key] == 0 {
+					ret = append(ret, &Variable{
+						Key:   key,
+						Value: value,
+					})
+				}
+			}
 		}
 	}
-	//reader := strings.NewReader(s)
-	//result, err := dockerfileparser.Parse(reader)
-	//if err != nil {
-	//	return nil
-	//}
-	return []*Variable{}
+	return ret, nil
 }

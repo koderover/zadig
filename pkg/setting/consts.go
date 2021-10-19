@@ -474,6 +474,11 @@ const (
 	AliyunHost = ".aliyuncs.com"
 )
 
+// Dockerfile parsing consts
+const (
+	DockerfileCmdArg = "ARG"
+)
+
 const MaxTries = 1
 
 const DogFood = "/var/run/koderover-dog-food"
