@@ -61,11 +61,12 @@ func (c *RoleBindingColl) EnsureIndex(ctx context.Context) error {
 	return err
 }
 
-func (c *RoleBindingColl) List() ([]*models.RoleBinding, error) {
+func (c *RoleBindingColl) List(projectName string) ([]*models.RoleBinding, error) {
 	var res []*models.RoleBinding
 
 	ctx := context.Background()
-	cursor, err := c.Collection.Find(ctx, bson.M{})
+	query := bson.M{"namespace": projectName}
+	cursor, err := c.Collection.Find(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -76,6 +77,12 @@ func (c *RoleBindingColl) List() ([]*models.RoleBinding, error) {
 	}
 
 	return res, nil
+}
+
+func (c *RoleBindingColl) Delete(name string, projectName string) error {
+	query := bson.M{"name": name, "namespace": projectName}
+	_, err := c.DeleteOne(context.TODO(), query)
+	return err
 }
 
 func (c *RoleBindingColl) Create(obj *models.RoleBinding) error {
