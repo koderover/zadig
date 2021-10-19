@@ -29,6 +29,11 @@ type testParams struct {
 	expected map[string]interface{}
 }
 
+type testExpandParams struct {
+	flat     map[string]interface{}
+	expected map[string]interface{}
+}
+
 var testData1 = `
 a: b
 c:
@@ -69,6 +74,42 @@ var _ = Describe("Testing flatten", func() {
 		Entry("yaml with string array", testParams{
 			yaml:     testData3,
 			expected: map[string]interface{}{"a": "b", "c[0]": "d", "c[1]": "e"},
+		}),
+	)
+})
+
+var _ = Describe("Testing expand", func() {
+
+	DescribeTable("Testing flat map to yaml",
+		func(p testExpandParams) {
+			res, err := converter.Expand(p.flat)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(res).To(Equal(p.expected))
+		},
+		Entry("yaml without array value", testExpandParams{
+			flat: map[string]interface{}{"a": "b", "c.d": "e"},
+			expected: map[string]interface{}{"a": "b",
+				"c": map[string]interface{}{
+					"d": "e",
+				}},
+		}),
+		Entry("yaml with nested value", testExpandParams{
+			flat: map[string]interface{}{"a": "b", "c[0].d": "e", "c[1].d": "f"},
+			expected: map[string]interface{}{
+				"a": "b",
+				"c": []interface{}{
+					map[string]interface{}{"d": "e"},
+					map[string]interface{}{"d": "f"},
+				}},
+		}),
+		Entry("yaml with array", testExpandParams{
+			flat: map[string]interface{}{"a": "b", "c[0]": "d", "c[1]": "e"},
+			expected: map[string]interface{}{
+				"a": "b",
+				"c": []interface{}{
+					"d",
+					"e",
+				}},
 		}),
 	)
 })
