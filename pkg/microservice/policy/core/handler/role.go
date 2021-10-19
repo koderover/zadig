@@ -43,7 +43,7 @@ func CreateRole(c *gin.Context) {
 	ctx.Err = service.CreateRole(projectName, args, ctx.Logger)
 }
 
-func ListRole(c *gin.Context) {
+func ListRoles(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -52,7 +52,7 @@ func ListRole(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("args projectName can't be empty")
 		return
 	}
-	ctx.Resp, ctx.Err = service.ListRole(projectName)
+	ctx.Resp, ctx.Err = service.ListRoles(projectName)
 	return
 }
 
@@ -69,11 +69,11 @@ func CreateGlobalRole(c *gin.Context) {
 	ctx.Err = service.CreateRole("", args, ctx.Logger)
 }
 
-func ListGlobalRole(c *gin.Context) {
+func ListGlobalRoles(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListGlobalRole(ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListRoles("")
 	return
 }
 
