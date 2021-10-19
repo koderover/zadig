@@ -101,7 +101,7 @@ func GetProductTemplate(productName string, log *zap.SugaredLogger) (*template.P
 		return resp, fmt.Errorf("Testing.List err : %v", err)
 	}
 
-	totalEnvs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName, IsSort: true})
+	totalEnvs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName, IsSortByUpdateTime: true})
 	if err != nil {
 		return resp, fmt.Errorf("Product.List err : %v", err)
 	}

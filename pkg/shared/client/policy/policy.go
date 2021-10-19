@@ -3,6 +3,7 @@ package policy
 import (
 	"fmt"
 
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
@@ -30,5 +31,18 @@ func (c *Client) CreateOrUpdatePolicy(p *Policy) error {
 
 	_, err := c.Put(url, httpclient.SetBody(p))
 
+	return err
+}
+
+type RoleBinding struct {
+	Name   string
+	User   string
+	Role   setting.RoleType
+	Global bool
+}
+
+func (c *Client) CreateRoleBinding(projectName string, roleBinding *RoleBinding) error {
+	url := fmt.Sprintf("/rolebindings?projectName=%s", projectName)
+	_, err := c.Post(url, httpclient.SetBody(roleBinding))
 	return err
 }

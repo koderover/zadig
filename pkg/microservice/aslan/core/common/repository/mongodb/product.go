@@ -39,15 +39,16 @@ type ProductFindOptions struct {
 
 // ClusterId is a primitive.ObjectID{}.Hex()
 type ProductListOptions struct {
-	EnvName       string
-	Name          string
-	IsPublic      bool
-	ClusterID     string
-	IsSort        bool
-	ExcludeStatus string
-	ExcludeSource string
-	Source        string
-	InProjects    []string
+	EnvName             string
+	Name                string
+	IsPublic            bool
+	ClusterID           string
+	IsSortByUpdateTime  bool
+	IsSortByProductName bool
+	ExcludeStatus       string
+	ExcludeSource       string
+	Source              string
+	InProjects          []string
 }
 
 type projectEnvs struct {
@@ -164,8 +165,11 @@ func (c *ProductColl) List(opt *ProductListOptions) ([]*models.Product, error) {
 
 	ctx := context.Background()
 	opts := options.Find()
-	if opt.IsSort {
+	if opt.IsSortByUpdateTime {
 		opts.SetSort(bson.D{{"update_time", -1}})
+	}
+	if opt.IsSortByProductName {
+		opts.SetSort(bson.D{{"product_name", 1}})
 	}
 	cursor, err := c.Collection.Find(ctx, query, opts)
 	if err != nil {

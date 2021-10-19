@@ -37,6 +37,7 @@ import (
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/policy"
 	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -440,6 +441,17 @@ func ForkProduct(userID int, username, requestID string, args *template.ForkProj
 		Schedules: &commonmodels.ScheduleCtrl{Enabled: false, Items: []*commonmodels.Schedule{}},
 		CreateBy:  username,
 		UpdateBy:  username,
+	}
+	policyClient := policy.New()
+	err = policyClient.CreateRoleBinding(args.ProductName, &policy.RoleBinding{
+		Name:   fmt.Sprintf("%s-%s", args.ProductName, username),
+		User:   username,
+		Role:   setting.Contributor,
+		Global: true,
+	})
+	if err != nil {
+		log.Error("rolebinding error")
+		return e.ErrForkProduct
 	}
 
 	return workflowservice.CreateWorkflow(workflowArgs, log)

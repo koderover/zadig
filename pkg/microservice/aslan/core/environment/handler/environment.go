@@ -52,27 +52,15 @@ type NamespaceResource struct {
 	Ingresses []resource.Ingress           `json:"ingresses"`
 }
 
-// ListProducts list all product information
-// Args: projectName, which is formerly known as productName, is the primary key of the project in our system
 func ListProducts(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	if c.Query("projectName") != "" {
-		isProduction := c.Query("production")
-		var envFilter string
-		switch isProduction {
-		case "true":
-			envFilter = setting.ProdENV
-		case "false":
-			envFilter = setting.TestENV
-		default:
-			envFilter = isProduction
-		}
-		ctx.Resp, ctx.Err = service.ListProductsV2(c.Query("projectName"), envFilter, ctx.User.Name, ctx.User.ID, ctx.User.IsSuperUser, ctx.Logger)
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam
 		return
 	}
-	ctx.Resp, ctx.Err = service.ListProducts(c.Query("productName"), c.Query("envType"), ctx.User.Name, ctx.User.ID, ctx.User.IsSuperUser, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListProducts(c.Query("productName"), ctx.User.Name, ctx.Logger)
 }
 
 func AutoCreateProduct(c *gin.Context) {
