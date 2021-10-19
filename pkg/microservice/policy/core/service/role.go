@@ -25,7 +25,7 @@ import (
 
 type Role struct {
 	Name  string  `json:"name"`
-	Rules []*Rule `json:"rules"`
+	Rules []*Rule `json:"rules,omitempty"`
 }
 
 type Rule struct {
@@ -47,4 +47,21 @@ func CreateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
 	}
 
 	return mongodb.NewRoleColl().Create(obj)
+}
+
+func ListRoles(projectName string, _ *zap.SugaredLogger) (roles []*Role, err error) {
+	projectRoles, err := mongodb.NewRoleColl().ListBy(projectName)
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range projectRoles {
+		roles = append(roles, &Role{
+			Name: v.Name,
+		})
+	}
+	return roles, nil
+}
+
+func DeleteRole(name string, projectName string, _ *zap.SugaredLogger) (err error) {
+	return mongodb.NewRoleColl().Delete(name, projectName)
 }
