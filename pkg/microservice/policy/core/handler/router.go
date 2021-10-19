@@ -51,7 +51,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	policyRegistrations := router.Group("policies")
 	{
 		policyRegistrations.PUT("/:resourceName", CreateOrUpdatePolicyRegistration)
-		policyRegistrations.GET("", GetPolicyRegistrationDefinitions)
+	}
+
+	policyDefinitions := router.Group("policy-definitions")
+	{
+		policyDefinitions.GET("", GetPolicyRegistrationDefinitions)
 	}
 
 }
