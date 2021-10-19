@@ -62,7 +62,7 @@ func CreateRoleBinding(ns string, rb *RoleBinding, logger *zap.SugaredLogger) er
 }
 
 func ListRoleBindings(ns string, logger *zap.SugaredLogger) (roleBindings []*RoleBinding, err error) {
-	modelRoleBindings, err := mongodb.NewRoleBindingColl().List(ns)
+	modelRoleBindings, err := mongodb.NewRoleBindingColl().ListBy(ns)
 	if err != nil {
 		return nil, err
 	}
