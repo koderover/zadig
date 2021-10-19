@@ -124,6 +124,10 @@ type validateDockerfileTemplateReq struct {
 	Content string `json:"content"`
 }
 
+type validateDockerfileTemplateResp struct {
+	Error string `json:"error"`
+}
+
 func ValidateDockerfileTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -134,5 +138,9 @@ func ValidateDockerfileTemplate(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = templateservice.ValidateDockerfileTemplate(req.Content, ctx.Logger)
+	err := templateservice.ValidateDockerfileTemplate(req.Content, ctx.Logger)
+	ctx.Resp = &validateDockerfileTemplateResp{Error: ""}
+	if err != nil {
+		ctx.Resp = &validateDockerfileTemplateResp{Error: err.Error()}
+	}
 }
