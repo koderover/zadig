@@ -314,7 +314,7 @@ func getCodehostType(repoArgs *CreateFromRepo, repoLink string) (string, error) 
 	}
 	ch, err := codehost.GetCodeHostInfoByID(repoArgs.CodehostID)
 	if err != nil {
-		log.Errorf("Failed to get codeHost by id %d, err: %s", repoArgs.CodehostID, err)
+		log.Errorf("Failed to get codeHost by id %d, err: %s", repoArgs.CodehostID, err.Error())
 		return "", err
 	}
 	return ch.Type, nil
@@ -341,7 +341,7 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 
 	source, err := getCodehostType(repoArgs, repoLink)
 	if err != nil {
-		log.Errorf("Failed to get source form repo data %+v, err: %s", *repoArgs, err)
+		log.Errorf("Failed to get source form repo data %+v, err: %s", *repoArgs, err.Error())
 		return err
 	}
 
@@ -503,7 +503,7 @@ func geneCreateFromData(args *helmServiceCreationArgs) interface{} {
 		}
 
 		return &models.CreateFromChartTemplate{
-			ValuesYaml:   yamlData,
+			YamlData:     yamlData,
 			TemplateName: args.HelmTemplateName,
 			ServiceName:  args.ServiceName,
 		}
