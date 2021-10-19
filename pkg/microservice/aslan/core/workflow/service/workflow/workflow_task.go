@@ -1061,6 +1061,7 @@ func deployEnvToSubTasks(env commonmodels.DeployEnv, prodEnv *commonmodels.Produ
 			ProductName: prodEnv.ProductName,
 			EnvName:     prodEnv.EnvName,
 			Timeout:     timeout,
+			ClusterID:   prodEnv.ClusterID,
 		}
 	)
 
