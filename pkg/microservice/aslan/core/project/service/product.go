@@ -331,17 +331,6 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 
 func ForkProduct(userID int, username, requestID string, args *template.ForkProject, log *zap.SugaredLogger) error {
 
-	policyClient := policy.New()
-	err := policyClient.CreateRoleBinding(args.ProductName, &policy.RoleBinding{
-		Name:   fmt.Sprintf("%s-%s", args.ProductName, username),
-		User:   username,
-		Role:   setting.Contributor,
-		Global: true,
-	})
-	if err != nil {
-		log.Error("rolebinding error")
-		return e.ErrForkProduct
-	}
 	prodTmpl, err := templaterepo.NewProductColl().Find(args.ProductName)
 	if err != nil {
 		errMsg := fmt.Sprintf("[ProductTmpl.Find] %s error: %v", args.ProductName, err)
@@ -452,6 +441,17 @@ func ForkProduct(userID int, username, requestID string, args *template.ForkProj
 		Schedules: &commonmodels.ScheduleCtrl{Enabled: false, Items: []*commonmodels.Schedule{}},
 		CreateBy:  username,
 		UpdateBy:  username,
+	}
+	policyClient := policy.New()
+	err = policyClient.CreateRoleBinding(args.ProductName, &policy.RoleBinding{
+		Name:   fmt.Sprintf("%s-%s", args.ProductName, username),
+		User:   username,
+		Role:   setting.Contributor,
+		Global: true,
+	})
+	if err != nil {
+		log.Error("rolebinding error")
+		return e.ErrForkProduct
 	}
 
 	return workflowservice.CreateWorkflow(workflowArgs, log)
