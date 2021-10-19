@@ -83,9 +83,7 @@ func getHelmServiceName(namespace, resType, resName string, kubeClient client.Cl
 	}
 	annotation := res.GetAnnotations()
 	if len(annotation) > 0 {
-		if chartRelease, ok := annotation[setting.HelmReleaseNameAnnotation]; !ok {
-			return "", fmt.Errorf("failed to get release name from resource")
-		} else {
+		if chartRelease, ok := annotation[setting.HelmReleaseNameAnnotation]; ok {
 			return util.ExtraServiceName(chartRelease, namespace), nil
 		}
 	}
