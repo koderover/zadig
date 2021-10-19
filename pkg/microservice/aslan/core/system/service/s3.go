@@ -21,10 +21,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
@@ -102,7 +102,7 @@ func GetS3Storage(id string, logger *zap.SugaredLogger) (*commonmodels.S3Storage
 	return store, nil
 }
 
-func ListTars(id string, serviceNames []string, logger *zap.SugaredLogger) ([]*commonmodels.TarInfo, error) {
+func ListTars(id, kind string, serviceNames []string, logger *zap.SugaredLogger) ([]*commonmodels.TarInfo, error) {
 	var (
 		wg         wait.Group
 		mutex      sync.RWMutex
@@ -131,7 +131,7 @@ func ListTars(id string, serviceNames []string, logger *zap.SugaredLogger) ([]*c
 		wg.Start(func() {
 			deliveryArtifacts, err := commonrepo.NewDeliveryArtifactColl().ListTars(&commonrepo.DeliveryArtifactArgs{
 				Name:   serviceName,
-				Type:   string(config.File),
+				Type:   kind,
 				Source: string(config.WorkflowType),
 			})
 			if err != nil {

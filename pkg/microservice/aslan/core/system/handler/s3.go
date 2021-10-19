@@ -23,7 +23,6 @@ import (
 	"io/ioutil"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gin-gonic/gin/binding"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
@@ -128,10 +127,10 @@ func ListTars(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	args := new(ListTarsOption)
-	if err := c.ShouldBindWith(args, binding.JSON); err != nil {
+	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListTars(c.Param("id"), args.Names, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListTars(c.Param("id"), c.Query("kind"), args.Names, ctx.Logger)
 }
