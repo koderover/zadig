@@ -76,5 +76,9 @@ func ListGlobalRole(_ *zap.SugaredLogger) (roles []*Role, err error) {
 }
 
 func DeleteGlobalRole(name string, _ *zap.SugaredLogger) (err error) {
-	return mongodb.NewRoleColl().Delete(name)
+	return mongodb.NewRoleColl().Delete(name, "")
+}
+
+func DeleteRole(name string, projectName string, _ *zap.SugaredLogger) (err error) {
+	return mongodb.NewRoleColl().Delete(name, projectName)
 }

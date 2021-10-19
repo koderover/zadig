@@ -107,8 +107,11 @@ func (c *RoleColl) Create(obj *models.Role) error {
 	return err
 }
 
-func (c *RoleColl) Delete(name string) error {
+func (c *RoleColl) Delete(name string, projectName string) error {
 	query := bson.M{"name": name}
+	if projectName != "" {
+		query["namespace"] = projectName
+	}
 	_, err := c.DeleteOne(context.TODO(), query)
 	return err
 }

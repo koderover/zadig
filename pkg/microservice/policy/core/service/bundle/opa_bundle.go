@@ -331,7 +331,7 @@ func GenerateOPABundle() error {
 	log.Info("Generating OPA bundle")
 	defer log.Info("OPA bundle is generated")
 
-	rs, err := mongodb.NewRoleColl().List()
+	rs, err := mongodb.NewRoleColl().List("")
 	if err != nil {
 		log.Errorf("Failed to list roles, err: %s", err)
 	}
