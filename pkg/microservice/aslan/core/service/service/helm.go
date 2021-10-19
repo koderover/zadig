@@ -458,7 +458,7 @@ func readValuesYAML(chartTree fs.FS, base string, logger *zap.SugaredLogger) ([]
 	return content, valuesMap, nil
 }
 
-func geneCreateFromData(args *helmServiceCreationArgs) interface{} {
+func geneCreationDetail(args *helmServiceCreationArgs) interface{} {
 	switch args.Source {
 	case setting.SourceFromGitlab,
 		setting.SourceFromGithub,
@@ -493,12 +493,10 @@ func geneCreateFromData(args *helmServiceCreationArgs) interface{} {
 				},
 				ValuesPaths: args.ValuePaths,
 			}
-		} else {
-			if len(args.ValuesYaml) > 0 {
-				yamlData = &template.CustomYaml{
-					YamlSource:  setting.ValuesYamlSourceFreeEdit,
-					YamlContent: args.ValuesYaml,
-				}
+		} else if len(args.ValuesYaml) > 0 {
+			yamlData = &template.CustomYaml{
+				YamlSource:  setting.ValuesYamlSourceFreeEdit,
+				YamlContent: args.ValuesYaml,
 			}
 		}
 
@@ -555,7 +553,7 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 		BranchName:  args.Branch,
 		LoadPath:    args.FilePath,
 		SrcPath:     args.RepoLink,
-		CreateFrom:  geneCreateFromData(args),
+		CreateFrom:  geneCreationDetail(args),
 		Source:      args.Source,
 		HelmChart: &models.HelmChart{
 			Name:       chartName,
