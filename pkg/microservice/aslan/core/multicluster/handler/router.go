@@ -18,8 +18,6 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
-
-	gin2 "github.com/koderover/zadig/pkg/middleware/gin"
 )
 
 type Router struct{}
@@ -36,10 +34,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		Cluster.GET("", ListClusters)
 		Cluster.GET("/:id", GetCluster)
 
-		Cluster.POST("", gin2.RequireSuperAdminAuth, CreateCluster)
-		Cluster.PUT("/:id", gin2.RequireSuperAdminAuth, UpdateCluster)
-		Cluster.DELETE("/:id", gin2.RequireSuperAdminAuth, DeleteCluster)
-		Cluster.PUT("/:id/disconnect", gin2.RequireSuperAdminAuth, DisconnectCluster)
-		Cluster.PUT("/:id/reconnect", gin2.RequireSuperAdminAuth, ReconnectCluster)
+		Cluster.POST("", CreateCluster)
+		Cluster.PUT("/:id", UpdateCluster)
+		Cluster.DELETE("/:id", DeleteCluster)
+		Cluster.PUT("/:id/disconnect", DisconnectCluster)
+		Cluster.PUT("/:id/reconnect", ReconnectCluster)
 	}
 }
