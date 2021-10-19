@@ -81,6 +81,7 @@ func (c *RoleColl) List() ([]*models.Role, error) {
 	var res []*models.Role
 
 	ctx := context.Background()
+
 	cursor, err := c.Collection.Find(ctx, bson.M{})
 	if err != nil {
 		return nil, err
@@ -90,7 +91,24 @@ func (c *RoleColl) List() ([]*models.Role, error) {
 	if err != nil {
 		return nil, err
 	}
+	return res, nil
+}
 
+func (c *RoleColl) ListBy(projectName string) ([]*models.Role, error) {
+	var res []*models.Role
+
+	ctx := context.Background()
+	query := bson.M{"namespace": projectName}
+
+	cursor, err := c.Collection.Find(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cursor.All(ctx, &res)
+	if err != nil {
+		return nil, err
+	}
 	return res, nil
 }
 
@@ -101,5 +119,11 @@ func (c *RoleColl) Create(obj *models.Role) error {
 
 	_, err := c.InsertOne(context.TODO(), obj)
 
+	return err
+}
+
+func (c *RoleColl) Delete(name string, projectName string) error {
+	query := bson.M{"name": name, "namespace": projectName}
+	_, err := c.DeleteOne(context.TODO(), query)
 	return err
 }
