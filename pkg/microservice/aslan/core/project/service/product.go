@@ -332,10 +332,10 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 func ForkProduct(userID int, username, requestID string, args *template.ForkProject, log *zap.SugaredLogger) error {
 
 	policyClient := policy.New()
-	err := policyClient.RoleBinding(args.ProductName, policy.RoleBinding{
+	err := policyClient.CreateRoleBinding(args.ProductName, &policy.RoleBinding{
 		Name:   fmt.Sprintf("%s-%s", args.ProductName, username),
 		User:   username,
-		Role:   "Contributor",
+		Role:   setting.Contributor,
 		Global: true,
 	})
 	if err != nil {

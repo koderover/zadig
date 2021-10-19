@@ -182,7 +182,7 @@ func ListProducts(productNameParam string, userName string, log *zap.SugaredLogg
 		resp = append(resp, product)
 	}
 	sort.SliceStable(resp, func(i, j int) bool { return resp[i].ProductName < resp[j].ProductName })
-	return nil, nil
+	return resp, nil
 }
 
 func FillProductVars(products []*commonmodels.Product, log *zap.SugaredLogger) error {

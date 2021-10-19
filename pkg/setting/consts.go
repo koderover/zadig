@@ -484,3 +484,9 @@ const (
 )
 
 const ChartTemplatesPath = "charts"
+
+type RoleType string
+
+const (
+	Contributor RoleType = "Contributor"
+)
