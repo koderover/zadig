@@ -275,7 +275,7 @@ func (c *BuildColl) GetDockerfileTemplateReference(templateID string) ([]*models
 	if err != nil {
 		return nil, err
 	}
-	err = cursor.Decode(&ret)
+	err = cursor.All(context.TODO(), &ret)
 	if err != nil {
 		return nil, err
 	}

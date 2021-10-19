@@ -205,6 +205,8 @@ type DockerBuildCtx struct {
 	ImageName       string `yaml:"image_name" bson:"image_name" json:"image_name"`
 	BuildArgs       string `yaml:"build_args" bson:"build_args" json:"build_args"`
 	ImageReleaseTag string `yaml:"image_release_tag,omitempty" bson:"image_release_tag,omitempty" json:"image_release_tag"`
+	Source          string `yaml:"source" bson:"source" json:"source"`
+	TemplateID      string `yaml:"template_id" bson:"template_id" json:"template_id"`
 }
 
 type FileArchiveCtx struct {
