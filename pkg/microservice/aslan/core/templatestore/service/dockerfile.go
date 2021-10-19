@@ -98,6 +98,20 @@ func GetDockerfileTemplateReference(id string, logger *zap.SugaredLogger) ([]*Bu
 	return ret, nil
 }
 
+func ValidateDockerfileTemplate(template string, logger *zap.SugaredLogger) error {
+	// some dockerfile validation stuff
+	reader := strings.NewReader(template)
+	result, err := dockerfileparser.Parse(reader)
+	if err != nil {
+		return err
+	}
+	_, _, err = dockerfileinstructions.Parse(result.AST)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func getVariables(s string, logger *zap.SugaredLogger) ([]*Variable, error) {
 	ret := make([]*Variable, 0)
 	reader := strings.NewReader(s)

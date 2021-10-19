@@ -119,3 +119,20 @@ func GetDockerfileTemplateReference(c *gin.Context) {
 
 	ctx.Resp, ctx.Err = templateservice.GetDockerfileTemplateReference(c.Param("id"), ctx.Logger)
 }
+
+type validateDockerfileTemplateReq struct {
+	Content string `json:"content"`
+}
+
+func ValidateDockerfileTemplate(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	req := &validateDockerfileTemplateReq{}
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Err = templateservice.ValidateDockerfileTemplate(req.Content, ctx.Logger)
+}

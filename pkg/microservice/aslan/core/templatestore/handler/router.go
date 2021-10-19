@@ -49,5 +49,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		dockerfile.GET("/:id", GetDockerfileTemplateDetail)
 		dockerfile.DELETE("/:id", DeleteDockerfileTemplate)
 		dockerfile.GET("/:id/reference", GetDockerfileTemplateReference)
+		dockerfile.POST("/validation", ValidateDockerfileTemplate)
 	}
 }
