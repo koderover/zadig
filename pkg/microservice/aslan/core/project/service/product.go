@@ -126,6 +126,14 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 	return
 }
 
+func UpdateChoreographyService(name string, args *template.Product, log *zap.SugaredLogger) (err error) {
+	if err = templaterepo.NewProductColl().UpdateChoreographyService(name, args); err != nil {
+		log.Errorf("UpdateChoreographyService error: %v", err)
+		return e.ErrUpdateProduct
+	}
+	return nil
+}
+
 // UpdateProductTemplate 更新产品模板
 func UpdateProductTemplate(name string, args *template.Product, log *zap.SugaredLogger) (err error) {
 	kvs := args.Vars
