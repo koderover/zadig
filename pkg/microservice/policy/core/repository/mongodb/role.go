@@ -98,8 +98,7 @@ func (c *RoleColl) ListBy(projectName string) ([]*models.Role, error) {
 	var res []*models.Role
 
 	ctx := context.Background()
-	query := bson.M{}
-	query["namespace"] = projectName
+	query := bson.M{"namespace": projectName}
 
 	cursor, err := c.Collection.Find(ctx, query)
 	if err != nil {
@@ -124,8 +123,7 @@ func (c *RoleColl) Create(obj *models.Role) error {
 }
 
 func (c *RoleColl) Delete(name string, projectName string) error {
-	query := bson.M{"name": name}
-	query["namespace"] = projectName
+	query := bson.M{"name": name, "namespace": projectName}
 	_, err := c.DeleteOne(context.TODO(), query)
 	return err
 }
