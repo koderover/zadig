@@ -479,6 +479,14 @@ const (
 	DockerfileCmdArg = "ARG"
 )
 
+// Dockerfile template constant
+const (
+	DockerfileSourceLocal    = "local"
+	DockerfileSourceTemplate = "template"
+
+	ZadigDockerfilePath = "zadig-dockerfile"
+)
+
 const MaxTries = 1
 
 const DogFood = "/var/run/koderover-dog-food"

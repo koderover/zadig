@@ -19,6 +19,7 @@ package reaper
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -29,11 +30,14 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/reaper/config"
 	"github.com/koderover/zadig/pkg/microservice/reaper/core/service/archive"
+	"github.com/koderover/zadig/pkg/microservice/reaper/core/service/client"
 	"github.com/koderover/zadig/pkg/microservice/reaper/core/service/meta"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/util/fs"
 )
 
 const (
@@ -301,6 +305,10 @@ func (r *Reaper) dockerCommands() []*exec.Cmd {
 
 func (r *Reaper) runDockerBuild() error {
 	if r.Ctx.DockerBuildCtx != nil {
+		err := r.prepareDockerfile()
+		if err != nil {
+			return err
+		}
 		if r.Ctx.Proxy != nil {
 			r.setProxy(r.Ctx.DockerBuildCtx, r.Ctx.Proxy)
 		}
@@ -317,6 +325,24 @@ func (r *Reaper) runDockerBuild() error {
 		}
 	}
 
+	return nil
+}
+
+func (r *Reaper) prepareDockerfile() error {
+	if r.Ctx.DockerBuildCtx.Source == setting.DockerfileSourceTemplate {
+		aslanClient := client.NewAslanClient(configbase.AslanServiceAddress())
+		dockerfile, err := aslanClient.GetDockerfile(r.Ctx.DockerBuildCtx.TemplateID)
+		if err != nil {
+			return err
+		}
+		reader := strings.NewReader(dockerfile.Content)
+		readcloser := io.NopCloser(reader)
+		path := fmt.Sprintf("/%s", setting.ZadigDockerfilePath)
+		err = fs.SaveFile(readcloser, path)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

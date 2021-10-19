@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/koderover/zadig/pkg/microservice/reaper/config"
+	"github.com/koderover/zadig/pkg/setting"
 )
 
 // Context ...
@@ -127,14 +128,20 @@ type ArtifactInfo struct {
 // DockerFile: dockerfile名称, 默认为Dockerfile
 // ImageBuild: build image镜像全称, e.g. xxx.com/spock-release-candidates/image:tag
 type DockerBuildCtx struct {
-	WorkDir         string `yaml:"work_dir" bson:"work_dir" json:"work_dir"`
+	Source          string `yaml:"source"      bson:"source"      json:"source"`
+	TemplateID      string `yaml:"template_id" bson:"template_id" json:"template_id"`
+	WorkDir         string `yaml:"work_dir"    bson:"work_dir"    json:"work_dir"`
 	DockerFile      string `yaml:"docker_file" bson:"docker_file" json:"docker_file"`
-	ImageName       string `yaml:"image_name" bson:"image_name" json:"image_name"`
-	BuildArgs       string `yaml:"build_args" bson:"build_args" json:"build_args"`
+	ImageName       string `yaml:"image_name"  bson:"image_name"  json:"image_name"`
+	BuildArgs       string `yaml:"build_args"  bson:"build_args"  json:"build_args"`
 	ImageReleaseTag string `yaml:"image_release_tag,omitempty" bson:"image_release_tag,omitempty" json:"image_release_tag"`
 }
 
 func (c *DockerBuildCtx) GetDockerFile() string {
+	// if the source of the dockerfile is from template, we write our own dockerfile
+	if c.Source == "template" {
+		return fmt.Sprintf("/%s", setting.ZadigDockerfilePath)
+	}
 	if c.DockerFile == "" {
 		return "Dockerfile"
 	}
