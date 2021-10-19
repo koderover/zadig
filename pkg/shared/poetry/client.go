@@ -17,7 +17,6 @@ limitations under the License.
 package poetry
 
 import (
-	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
@@ -30,20 +29,16 @@ const (
 type Client struct {
 	*httpclient.Client
 
-	host  string
-	token string
+	host string
 }
 
-func New(host, token string) *Client {
+func New(host string) *Client {
 	c := httpclient.New(
-		httpclient.SetAuthScheme(setting.RootAPIKey),
-		httpclient.SetAuthToken(token),
 		httpclient.SetHostURL(host),
 	)
 
 	return &Client{
 		Client: c,
 		host:   host,
-		token:  token,
 	}
 }

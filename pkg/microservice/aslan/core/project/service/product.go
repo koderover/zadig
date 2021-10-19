@@ -206,7 +206,7 @@ func UpdateProductTmplStatus(productName, onboardingStatus string, log *zap.Suga
 
 // UpdateProject 更新项目
 func UpdateProject(name string, args *template.Product, log *zap.SugaredLogger) (err error) {
-	poetryCtl := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
+	poetryCtl := poetry.New(config.PoetryAPIServer())
 
 	//创建团建和项目之间的关系
 	_, err = poetryCtl.AddProductTeam(args.ProductName, args.TeamID, args.UserIDs, log)
@@ -242,7 +242,7 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 		}
 	}
 
-	poetryCtl := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
+	poetryCtl := poetry.New(config.PoetryAPIServer())
 
 	//删除项目团队信息
 	if err = poetryCtl.DeleteProductTeam(productName, log); err != nil {
@@ -284,7 +284,7 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 		log.Errorf("DeleteProductTemplate productName %s getFeatures err: %v", productName, err)
 	}
 	if strings.Contains(features, string(config.FreestyleType)) {
-		collieClient := collie.New(config.CollieAPIAddress(), config.PoetryAPIRootKey())
+		collieClient := collie.New(config.CollieAPIAddress())
 		if err = collieClient.DeleteCIPipelines(productName, log); err != nil {
 			log.Errorf("DeleteProductTemplate Delete productName %s freestyle pipeline err: %v", productName, err)
 		}
@@ -466,7 +466,7 @@ func ForkProduct(userID int, username, requestID string, args *template.ForkProj
 }
 
 func UnForkProduct(userID int, username, productName, workflowName, envName, requestID string, log *zap.SugaredLogger) error {
-	poetryClient := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
+	poetryClient := poetry.New(config.PoetryAPIServer())
 	if userEnvPermissions, _ := poetryClient.ListUserEnvPermission(productName, userID, log); len(userEnvPermissions) > 0 {
 		if err := poetryClient.DeleteUserEnvPermission(productName, username, userID, log); err != nil {
 			return e.ErrUnForkProduct.AddDesc(fmt.Sprintf("Failed to delete env permission for userID: %d, env: %s, productName: %s, the error is: %+v", userID, username, productName, err))
@@ -626,7 +626,7 @@ func ListTemplatesHierachy(userName string, userID int, superUser bool, log *zap
 			return nil, e.ErrListProducts.AddDesc(err.Error())
 		}
 	} else {
-		productNameMap, err := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey()).GetUserProject(userID, log)
+		productNameMap, err := poetry.New(config.PoetryAPIServer()).GetUserProject(userID, log)
 		if err != nil {
 			log.Errorf("ProfuctTmpl.List GetUserProject error: %v", err)
 			return resp, e.ErrListProducts.AddDesc(err.Error())

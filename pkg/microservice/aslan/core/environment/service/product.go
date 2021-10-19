@@ -74,7 +74,7 @@ func CleanProductCronJob(requestID string, log *zap.SugaredLogger) {
 				}
 			}
 
-			poetryClient := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
+			poetryClient := poetry.New(config.PoetryAPIServer())
 			users, _ := poetryClient.ListProductPermissionUsers("", "", log)
 			for _, user := range users {
 				commonservice.SendMessage(user, title, content, requestID, log)

@@ -88,7 +88,7 @@ func GetUserKubeConfig(userName string, userID int, superUser bool, log *zap.Sug
 			productEnvs = append(productEnvs, publicProduct)
 			namespaceSet.Insert(publicProduct.Namespace)
 		}
-		poetryClient := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
+		poetryClient := poetry.New(config.PoetryAPIServer())
 		productNameMap, err = poetryClient.GetUserProject(userID, log)
 		if err != nil {
 			log.Errorf("GetUserKubeConfig Collection.Product.List GetUserProject error: %v", err)

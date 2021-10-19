@@ -29,7 +29,7 @@ var secret string
 
 func GetHookSecret() string {
 	once.Do(func() {
-		poetryClient := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
+		poetryClient := poetry.New(config.PoetryAPIServer())
 		org, err := poetryClient.GetOrganization(poetry.DefaultOrganization)
 		if err != nil {
 			log.Errorf("failed to find default organization: %v", err)

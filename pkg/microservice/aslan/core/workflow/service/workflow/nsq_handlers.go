@@ -69,7 +69,7 @@ type TaskAckHandler struct {
 	log                  *zap.SugaredLogger
 }
 
-func NewTaskAckHandler(poetryServer, poetryRootKey string, maxInFlight int, log *zap.SugaredLogger) *TaskAckHandler {
+func NewTaskAckHandler(poetryServer string, maxInFlight int, log *zap.SugaredLogger) *TaskAckHandler {
 	return &TaskAckHandler{
 		queue:                NewPipelineQueue(log),
 		ptColl:               commonrepo.NewTaskColl(),
@@ -79,7 +79,7 @@ func NewTaskAckHandler(poetryServer, poetryRootKey string, maxInFlight int, log 
 		deliveryArtifactColl: commonrepo.NewDeliveryArtifactColl(),
 		deliveryActivityColl: commonrepo.NewDeliveryActivityColl(),
 		TestTaskStatColl:     commonrepo.NewTestTaskStatColl(),
-		PoetryClient:         poetry.New(poetryServer, poetryRootKey),
+		PoetryClient:         poetry.New(poetryServer),
 		messages:             make(chan *nsq.Message, maxInFlight*10),
 		log:                  log,
 	}

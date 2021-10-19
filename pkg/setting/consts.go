@@ -248,9 +248,6 @@ const (
 const (
 	SessionUsername     = "Username"
 	SessionUser         = "User"
-	UserAPIKey          = "X-API-KEY"
-	RootAPIKey          = "X-ROOT-API-KEY"
-	TIMERAPIKEY         = "X-TIMER-API-KEY"
 	AuthorizationHeader = "Authorization"
 )
 

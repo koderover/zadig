@@ -127,7 +127,7 @@ func UpdateProductPublic(productName string, args *ProductParams, log *zap.Sugar
 		return fmt.Errorf("UpdateProductPublic error: %v", err)
 	}
 
-	poetryCtl := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
+	poetryCtl := poetry.New(config.PoetryAPIServer())
 	if !args.IsPublic { //把公开设置成不公开
 		_, err := poetryCtl.AddEnvRolePermission(productName, args.EnvName, args.PermissionUUIDs, args.RoleID, log)
 		if err != nil {
