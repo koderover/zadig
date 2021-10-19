@@ -77,11 +77,18 @@ func (c *RoleColl) Get(ns, name string) (*models.Role, bool, error) {
 	return res, true, nil
 }
 
-func (c *RoleColl) List() ([]*models.Role, error) {
+type ListOpt struct {
+	ProjectSpace string
+}
+
+func (c *RoleColl) List(projectName string) ([]*models.Role, error) {
 	var res []*models.Role
 
 	ctx := context.Background()
-	cursor, err := c.Collection.Find(ctx, bson.M{})
+	query := bson.M{}
+	query["namespace"] = projectName
+
+	cursor, err := c.Collection.Find(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -101,5 +108,11 @@ func (c *RoleColl) Create(obj *models.Role) error {
 
 	_, err := c.InsertOne(context.TODO(), obj)
 
+	return err
+}
+
+func (c *RoleColl) Delete(name string) error {
+	query := bson.M{"name": name}
+	_, err := c.DeleteOne(context.TODO(), query)
 	return err
 }
