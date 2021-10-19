@@ -63,5 +63,5 @@ func ListRoles(projectName string, _ *zap.SugaredLogger) (roles []*Role, err err
 }
 
 func DeleteRole(name string, projectName string, _ *zap.SugaredLogger) (err error) {
-	return mongodb.NewRoleColl().DeleteBy(name, projectName)
+	return mongodb.NewRoleColl().Delete(name, projectName)
 }
