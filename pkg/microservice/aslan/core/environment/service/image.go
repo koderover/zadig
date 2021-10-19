@@ -355,7 +355,7 @@ func UpdateContainerImage(requestID string, args *UpdateContainerImageArgs, log 
 				return e.ErrUpdateConainterImage.AddDesc("更新 StatefulSet 容器镜像失败")
 			}
 		default:
-			return e.ErrUpdateConainterImage.AddDesc(fmt.Sprintf("不支持的资源类型%s", args.Type))
+			return e.ErrUpdateConainterImage.AddDesc(fmt.Sprintf("不支持的资源类型: %s", args.Type))
 		}
 		// update image info in product.services.container
 		for _, service := range product.GetServiceMap() {
