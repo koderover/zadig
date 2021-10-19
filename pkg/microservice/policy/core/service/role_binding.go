@@ -32,13 +32,6 @@ type RoleBinding struct {
 	Global bool   `json:"global"`
 }
 
-type RoleBindingResp struct {
-	Name      string
-	Namespace string
-	Subjects  []string
-	Role      string
-}
-
 const SystemScope = "*"
 
 func CreateRoleBinding(ns string, rb *RoleBinding, logger *zap.SugaredLogger) error {
@@ -68,7 +61,7 @@ func CreateRoleBinding(ns string, rb *RoleBinding, logger *zap.SugaredLogger) er
 	return mongodb.NewRoleBindingColl().Create(obj)
 }
 
-func ListRoleBindings(ns string, logger *zap.SugaredLogger) (roleBindings []*RoleBindingResp, err error) {
+func ListRoleBindings(ns string, logger *zap.SugaredLogger) (roleBindings []*RoleBinding, err error) {
 	modelRoleBindings, err := mongodb.NewRoleBindingColl().List(ns)
 	if err != nil {
 		return nil, err
@@ -78,10 +71,11 @@ func ListRoleBindings(ns string, logger *zap.SugaredLogger) (roleBindings []*Rol
 		for _, vv := range v.Subjects {
 			users = append(users, vv.Name)
 		}
-		roleBindings = append(roleBindings, &RoleBindingResp{
-			Name:     v.Name,
-			Role:     v.RoleRef.Name,
-			Subjects: users,
+		roleBindings = append(roleBindings, &RoleBinding{
+			Name:   v.Name,
+			Role:   v.RoleRef.Name,
+			User:   v.Subjects[0].Name,
+			Global: (v.Namespace == ""),
 		})
 	}
 	return
