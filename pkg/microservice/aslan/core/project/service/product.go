@@ -333,7 +333,7 @@ func ForkProduct(userID int, username, requestID string, args *template.ForkProj
 
 	policyClient := policy.New()
 	err := policyClient.RoleBinding(args.ProductName, policy.RoleBinding{
-		Name:   args.ProductName,
+		Name:   fmt.Sprintf("%s-%s", args.ProductName, username),
 		User:   username,
 		Role:   "Contributor",
 		Global: true,
