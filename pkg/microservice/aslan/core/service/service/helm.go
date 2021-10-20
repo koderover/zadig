@@ -36,6 +36,7 @@ import (
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
@@ -43,6 +44,7 @@ import (
 	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/codehost"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
@@ -91,15 +93,19 @@ type Chart struct {
 }
 
 type helmServiceCreationArgs struct {
-	ServiceName string
-	FilePath    string
-	ProductName string
-	CreateBy    string
-	CodehostID  int
-	Owner       string
-	Repo        string
-	Branch      string
-	RepoLink    string
+	ServiceName      string
+	FilePath         string
+	ProductName      string
+	CreateBy         string
+	CodehostID       int
+	Owner            string
+	Repo             string
+	Branch           string
+	RepoLink         string
+	Source           string
+	HelmTemplateName string
+	ValuePaths       []string
+	ValuesYaml       string
 }
 
 func ListHelmServices(productName string, log *zap.SugaredLogger) (*HelmService, error) {
@@ -132,6 +138,7 @@ func ListHelmServices(productName string, log *zap.SugaredLogger) (*HelmService,
 }
 
 func GetHelmServiceModule(serviceName, productName string, revision int64, log *zap.SugaredLogger) (*HelmServiceModule, error) {
+
 	serviceTemplate, err := commonservice.GetServiceTemplate(serviceName, setting.HelmDeployType, productName, setting.ProductStatusDeleting, revision, log)
 	if err != nil {
 		return nil, err
@@ -269,14 +276,18 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 	svc, err := createOrUpdateHelmService(
 		fsTree,
 		&helmServiceCreationArgs{
-			ServiceName: args.Name,
-			FilePath:    to,
-			ProductName: projectName,
-			CreateBy:    args.CreatedBy,
-			CodehostID:  templateArgs.CodehostID,
-			Owner:       templateArgs.Owner,
-			Repo:        templateArgs.Repo,
-			Branch:      templateArgs.Branch,
+			ServiceName:      args.Name,
+			FilePath:         to,
+			ProductName:      projectName,
+			CreateBy:         args.CreatedBy,
+			CodehostID:       templateArgs.CodehostID,
+			Owner:            templateArgs.Owner,
+			Repo:             templateArgs.Repo,
+			Branch:           templateArgs.Branch,
+			Source:           setting.SourceFromChartTemplate,
+			HelmTemplateName: templateArgs.TemplateName,
+			ValuePaths:       templateArgs.ValuesPaths,
+			ValuesYaml:       templateArgs.ValuesYAML,
 		},
 		logger,
 	)
@@ -297,6 +308,18 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 	return nil
 }
 
+func getCodehostType(repoArgs *CreateFromRepo, repoLink string) (string, error) {
+	if repoLink != "" {
+		return setting.SourceFromPublicRepo, nil
+	}
+	ch, err := codehost.GetCodeHostInfoByID(repoArgs.CodehostID)
+	if err != nil {
+		log.Errorf("Failed to get codeHost by id %d, err: %s", repoArgs.CodehostID, err.Error())
+		return "", err
+	}
+	return ch.Type, nil
+}
+
 func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceCreationArgs, log *zap.SugaredLogger) error {
 	var err error
 	var repoLink string
@@ -315,6 +338,13 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 
 		repoLink = publicArgs.RepoLink
 	}
+
+	source, err := getCodehostType(repoArgs, repoLink)
+	if err != nil {
+		log.Errorf("Failed to get source form repo data %+v, err: %s", *repoArgs, err.Error())
+		return err
+	}
+
 	helmRenderCharts := make([]*templatemodels.RenderChart, 0, len(repoArgs.Paths))
 	var errs *multierror.Error
 
@@ -370,6 +400,7 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 					Repo:        repoArgs.Repo,
 					Branch:      repoArgs.Branch,
 					RepoLink:    repoLink,
+					Source:      source,
 				},
 				log,
 			)
@@ -427,6 +458,57 @@ func readValuesYAML(chartTree fs.FS, base string, logger *zap.SugaredLogger) ([]
 	return content, valuesMap, nil
 }
 
+func geneCreationDetail(args *helmServiceCreationArgs) interface{} {
+	switch args.Source {
+	case setting.SourceFromGitlab,
+		setting.SourceFromGithub,
+		setting.SourceFromGerrit,
+		setting.SourceFromCodeHub,
+		setting.SourceFromIlyshin:
+		return &models.CreateFromRepo{
+			GitRepoConfig: &templatemodels.GitRepoConfig{
+				CodehostID: args.CodehostID,
+				Owner:      args.Owner,
+				Repo:       args.Repo,
+				Branch:     args.Branch,
+			},
+			LoadPath: args.FilePath,
+		}
+	case setting.SourceFromPublicRepo:
+		return &models.CreateFromPublicRepo{
+			RepoLink: args.RepoLink,
+			LoadPath: args.FilePath,
+		}
+	case setting.SourceFromChartTemplate:
+		var yamlData *template.CustomYaml
+		if args.CodehostID > 0 {
+			yamlData = &template.CustomYaml{
+				YamlSource:  setting.ValuesYamlSourceGitRepo,
+				YamlContent: "",
+				GitRepoConfig: &templatemodels.GitRepoConfig{
+					CodehostID: args.CodehostID,
+					Owner:      args.Owner,
+					Repo:       args.Repo,
+					Branch:     args.Branch,
+				},
+				ValuesPaths: args.ValuePaths,
+			}
+		} else if len(args.ValuesYaml) > 0 {
+			yamlData = &template.CustomYaml{
+				YamlSource:  setting.ValuesYamlSourceFreeEdit,
+				YamlContent: args.ValuesYaml,
+			}
+		}
+
+		return &models.CreateFromChartTemplate{
+			YamlData:     yamlData,
+			TemplateName: args.HelmTemplateName,
+			ServiceName:  args.ServiceName,
+		}
+	}
+	return nil
+}
+
 func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logger *zap.SugaredLogger) (*models.Service, error) {
 	chartName, chartVersion, err := readChartYAML(fsTree, args.ServiceName, logger)
 	if err != nil {
@@ -471,6 +553,8 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 		BranchName:  args.Branch,
 		LoadPath:    args.FilePath,
 		SrcPath:     args.RepoLink,
+		CreateFrom:  geneCreationDetail(args),
+		Source:      args.Source,
 		HelmChart: &models.HelmChart{
 			Name:       chartName,
 			Version:    chartVersion,
