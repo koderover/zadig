@@ -99,7 +99,7 @@ type DockerBuild struct {
 	// Source whether dockerfile comes from template or existing file
 	Source string `bson:"source"                     json:"source"`
 	// TemplateId is the id of the template dockerfile
-	TemplateId string `bson:"template_id"            json:"template_id"`
+	TemplateID string `bson:"template_id"            json:"template_id"`
 	// TemplateName is the name of the template dockerfile
 	TemplateName string `bson:"template_name"        json:"template_name"`
 }

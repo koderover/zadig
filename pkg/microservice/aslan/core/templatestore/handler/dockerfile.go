@@ -2,7 +2,6 @@ package handler
 
 import (
 	"errors"
-	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -67,6 +66,11 @@ func UpdateDockerfileTemplate(c *gin.Context) {
 	ctx.Err = templateservice.UpdateDockerfileTemplate(c.Param("id"), req, ctx.Logger)
 }
 
+type listDockerfileQuery struct {
+	PageSize int `json:"page_size" form:"page_size,default=100"`
+	PageNum  int `json:"page_num"  form:"page_num,default=1"`
+}
+
 type ListDockefileResp struct {
 	DockerfileTemplates []*templateservice.DockerfileListObject `json:"dockerfile_template"`
 	Total               int                                     `json:"total"`
@@ -77,20 +81,13 @@ func ListDockerfileTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	// Query Verification
-	pageSizeString := c.DefaultQuery("page_size", "100")
-	pageSize, err := strconv.Atoi(pageSizeString)
-	if err != nil {
-		ctx.Err = errors.New("invalid page_size query")
-		return
-	}
-	pageNumString := c.DefaultQuery("page_num", "1")
-	pageNum, err := strconv.Atoi(pageNumString)
-	if err != nil {
-		ctx.Err = errors.New("invalid page_num query")
+	args := listDockerfileQuery{}
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = err
 		return
 	}
 
-	dockerfileTemplateList, total, err := templateservice.ListDockerfileTemplate(pageNum, pageSize, ctx.Logger)
+	dockerfileTemplateList, total, err := templateservice.ListDockerfileTemplate(args.PageNum, args.PageSize, ctx.Logger)
 	resp := ListDockefileResp{
 		DockerfileTemplates: dockerfileTemplateList,
 		Total:               total,

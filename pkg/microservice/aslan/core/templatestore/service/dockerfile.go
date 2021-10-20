@@ -22,7 +22,7 @@ func CreateDockerfileTemplate(template *DockerfileTemplate, logger *zap.SugaredL
 		Content: template.Content,
 	})
 	if err != nil {
-		logger.Errorf("create dockerfile template error: %+v", err)
+		logger.Errorf("create dockerfile template error: %s", err)
 	}
 	return err
 }
@@ -36,7 +36,7 @@ func UpdateDockerfileTemplate(id string, template *DockerfileTemplate, logger *z
 		},
 	)
 	if err != nil {
-		logger.Errorf("update dockerfile template error: %+v", err)
+		logger.Errorf("update dockerfile template error: %s", err)
 	}
 	return err
 }
@@ -45,7 +45,7 @@ func ListDockerfileTemplate(pageNum, pageSize int, logger *zap.SugaredLogger) ([
 	resp := make([]*DockerfileListObject, 0)
 	templateList, total, err := mongodb.NewDockerfileTemplateColl().List(pageNum, pageSize)
 	if err != nil {
-		logger.Errorf("list dockerfile template error: %+v", err)
+		logger.Errorf("list dockerfile template error: %s", err)
 	}
 	for _, obj := range templateList {
 		resp = append(resp, &DockerfileListObject{
