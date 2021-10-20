@@ -85,3 +85,32 @@ func DeleteRole(c *gin.Context) {
 	ctx.Err = service.DeleteRole(name, projectName, ctx.Logger)
 	return
 }
+
+func CreateSystemRole(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := &service.Role{}
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Err = service.CreateRole("*", args, ctx.Logger)
+}
+
+func ListSystemRoles(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.ListRoles("*", ctx.Logger)
+	return
+}
+
+func DeleteSystemRole(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	name := c.Param("name")
+	ctx.Err = service.DeleteRole(name, "*", ctx.Logger)
+	return
+}
