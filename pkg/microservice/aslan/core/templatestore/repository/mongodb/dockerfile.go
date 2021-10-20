@@ -33,7 +33,14 @@ func (c *DockerfileTemplateColl) GetCollectionName() string {
 }
 
 func (c *DockerfileTemplateColl) EnsureIndex(ctx context.Context) error {
-	return nil
+	mod := mongo.IndexModel{
+		Keys:    bson.M{"name": 1},
+		Options: options.Index().SetUnique(true),
+	}
+
+	_, err := c.Indexes().CreateOne(ctx, mod)
+
+	return err
 }
 
 func (c *DockerfileTemplateColl) Create(obj *models.DockerfileTemplate) error {
