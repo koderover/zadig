@@ -23,6 +23,7 @@ func (c *Client) GetDockerfile(id string) (*Dockerfile, error) {
 	var err error
 
 	url := fmt.Sprintf("%s/template/dockerfile/%s", c.APIBase, id)
+	fmt.Println("url is:", url)
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		log.Errorf("new http request error: %v", err)
@@ -35,6 +36,7 @@ func (c *Client) GetDockerfile(id string) (*Dockerfile, error) {
 		defer func() { _ = ret.Body.Close() }()
 		var body []byte
 		body, err = ioutil.ReadAll(ret.Body)
+		fmt.Println("response body is:", string(body))
 		if err == nil {
 			if err = json.Unmarshal(body, &resp); err == nil {
 				return resp, nil
@@ -42,5 +44,5 @@ func (c *Client) GetDockerfile(id string) (*Dockerfile, error) {
 		}
 	}
 
-	return resp, errors.WithMessage(err, "failed to list pipeline")
+	return resp, errors.WithMessage(err, "failed to get dockerfile template")
 }
