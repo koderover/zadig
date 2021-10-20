@@ -210,6 +210,9 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 		ServiceName:     serviceName,
 		StorageEndpoint: pipelineTask.StorageEndpoint,
 	}
+	fmt.Println("github ssh key is:", pipelineTask.ConfigPayload.Github.SSHKey)
+	fmt.Println("gitlab ssh key is:", pipelineTask.ConfigPayload.Gitlab.SSHKey)
+	fmt.Println("git known host is:", pipelineTask.ConfigPayload.GetGitKnownHost())
 	for _, install := range b.Installs {
 		inst := &types.Install{
 			// TODO: 之后可以适配 install.Scripts 为[]string
