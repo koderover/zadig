@@ -529,7 +529,7 @@ func ForkProduct(userID int, username, requestID string, args *template.ForkProj
 	}
 	policyClient := policy.New()
 	err = policyClient.CreateRoleBinding(args.ProductName, &policy.RoleBinding{
-		Name:   fmt.Sprintf("%s-%s", args.ProductName, username),
+		Name:   fmt.Sprintf("contributor-%s-%s", args.ProductName, username),
 		User:   username,
 		Role:   setting.Contributor,
 		Global: true,
@@ -549,6 +549,12 @@ func UnForkProduct(userID int, username, productName, workflowName, envName, req
 			log.Errorf("Failed to delete forked workflow: %s, the error is: %+v", workflowName, err)
 			return e.ErrUnForkProduct.AddDesc(err.Error())
 		}
+	}
+	policyClient := policy.New()
+	err := policyClient.DeleteRoleBinding(fmt.Sprintf("contributor-%s-%s", productName, username), productName)
+	if err != nil {
+		log.Error("rolebinding delete error")
+		return e.ErrForkProduct
 	}
 
 	if err := commonservice.DeleteProduct(username, envName, productName, requestID, log); err != nil {
