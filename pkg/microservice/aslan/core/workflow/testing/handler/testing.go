@@ -59,7 +59,7 @@ func CreateTestModule(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateTestModule json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "新增", "项目管理-测试", args.Name, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", "项目管理-测试", args.Name, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	err = c.BindJSON(args)
@@ -68,7 +68,7 @@ func CreateTestModule(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.CreateTesting(ctx.Username, args, ctx.Logger)
+	ctx.Err = service.CreateTesting(ctx.UserName, args, ctx.Logger)
 }
 
 func UpdateTestModule(c *gin.Context) {
@@ -83,7 +83,7 @@ func UpdateTestModule(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdateTestModule json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "更新", "项目管理-测试", args.Name, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "项目管理-测试", args.Name, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	err = c.BindJSON(args)
@@ -92,7 +92,7 @@ func UpdateTestModule(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.UpdateTesting(ctx.Username, args, ctx.Logger)
+	ctx.Err = service.UpdateTesting(ctx.UserName, args, ctx.Logger)
 }
 
 func ListTestModules(c *gin.Context) {
@@ -119,7 +119,7 @@ func DeleteTestModule(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	internalhandler.InsertOperationLog(c, ctx.Username, c.Query("productName"), "删除", "项目管理-测试", c.Param("name"), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("productName"), "删除", "项目管理-测试", c.Param("name"), "", ctx.Logger)
 
 	name := c.Param("name")
 	if name == "" {

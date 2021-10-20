@@ -57,7 +57,7 @@ type kubeCfgTmplArgs struct {
 	ClientKeyBase64 string
 }
 
-func GetUserKubeConfig(userName string, userID int, superUser bool, log *zap.SugaredLogger) (string, error) {
+func GetUserKubeConfig(userName, userID string, superUser bool, log *zap.SugaredLogger) (string, error) {
 	username := strings.ToLower(userName)
 	username = config.NameSpaceRegex.ReplaceAllString(username, "-")
 	var (
@@ -89,7 +89,7 @@ func GetUserKubeConfig(userName string, userID int, superUser bool, log *zap.Sug
 			namespaceSet.Insert(publicProduct.Namespace)
 		}
 		poetryClient := poetry.New(config.PoetryAPIServer())
-		productNameMap, err = poetryClient.GetUserProject(userID, log)
+		productNameMap, err = poetryClient.GetUserProject(1, log)
 		if err != nil {
 			log.Errorf("GetUserKubeConfig Collection.Product.List GetUserProject error: %v", err)
 			return "", e.ErrListProducts.AddDesc(err.Error())
@@ -138,7 +138,6 @@ func GetUserKubeConfig(userName string, userID int, superUser bool, log *zap.Sug
 	)
 	for _, productEnv := range productEnvs {
 		namespace := productEnv.Namespace
-		productName := productEnv.ProductName
 
 		if _, found, err := getter.GetNamespace(namespace, krkubeclient.Client()); err != nil || !found {
 			log.Error(err)
@@ -152,7 +151,7 @@ func GetUserKubeConfig(userName string, userID int, superUser bool, log *zap.Sug
 				wg.Done()
 				<-pool
 			}()
-			if err := ensureUserRole(namespace, username, productName, userID, superUser, log); err != nil {
+			if err := ensureUserRole(namespace, username, log); err != nil {
 				log.Error(err)
 				errList = multierror.Append(errList, err)
 			}
@@ -235,7 +234,7 @@ func ensureServiceAccount(namespace, username string, log *zap.SugaredLogger) er
 	return nil
 }
 
-func ensureUserRole(namespace, username, productName string, userID int, superUser bool, log *zap.SugaredLogger) error {
+func ensureUserRole(namespace, username string, _ *zap.SugaredLogger) error {
 	roleName := fmt.Sprintf("%s-role", username)
 	verbs := []string{"*"}
 	role := &rbacv1beta1.Role{

@@ -19,7 +19,6 @@ package service
 import (
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -146,7 +145,7 @@ func ListConfigMaps(args *ListConfigMapArgs, log *zap.SugaredLogger) ([]*configM
 	return res, nil
 }
 
-func UpdateConfigMap(envName string, args *UpdateConfigMapArgs, userName string, userID int, log *zap.SugaredLogger) error {
+func UpdateConfigMap(envName string, args *UpdateConfigMapArgs, userName, userID string, log *zap.SugaredLogger) error {
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    args.ProductName,
 		EnvName: args.EnvName,
@@ -191,7 +190,7 @@ func UpdateConfigMap(envName string, args *UpdateConfigMapArgs, userName string,
 	cfg.Data = args.Data
 	// 记录修改configmap的用户
 	cfg.Labels[setting.UpdateBy] = kube.MakeSafeLabelValue(userName)
-	cfg.Labels[setting.UpdateByID] = fmt.Sprintf("%d", userID)
+	cfg.Labels[setting.UpdateByID] = userID
 	cfg.Labels[setting.UpdateTime] = time.Now().Format("20060102150405")
 	cfg.Labels[setting.DirtyLabel] = setting.LabelValueTrue
 
@@ -200,7 +199,7 @@ func UpdateConfigMap(envName string, args *UpdateConfigMapArgs, userName string,
 		as = make(map[string]string)
 	}
 	as[setting.ModifiedByAnnotation] = userName
-	as[setting.EditorIDAnnotation] = strconv.Itoa(userID)
+	as[setting.EditorIDAnnotation] = userID
 	as[setting.LastUpdateTimeAnnotation] = util.FormatTime(time.Now())
 	cfg.SetAnnotations(as)
 
@@ -223,7 +222,7 @@ func UpdateConfigMap(envName string, args *UpdateConfigMapArgs, userName string,
 	return nil
 }
 
-func RollBackConfigMap(envName string, args *RollBackConfigMapArgs, userName string, userID int, log *zap.SugaredLogger) error {
+func RollBackConfigMap(envName string, args *RollBackConfigMapArgs, userName, userID string, log *zap.SugaredLogger) error {
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    args.ProductName,
 		EnvName: args.EnvName,
@@ -260,7 +259,7 @@ func RollBackConfigMap(envName string, args *RollBackConfigMapArgs, userName str
 
 	destinSrc.Data = srcCfg.Data
 	destinSrc.Labels[setting.UpdateBy] = kube.MakeSafeLabelValue(userName)
-	destinSrc.Labels[setting.UpdateByID] = fmt.Sprintf("%d", userID)
+	destinSrc.Labels[setting.UpdateByID] = userID
 	destinSrc.Labels[setting.UpdateTime] = time.Now().Format("20060102150405")
 	// 回滚时显示回滚版本的时间
 	if updateTime, ok := srcCfg.Labels[setting.UpdateTime]; ok {

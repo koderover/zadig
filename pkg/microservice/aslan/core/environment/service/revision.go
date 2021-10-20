@@ -32,7 +32,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-func ListProductsRevision(productName, envName string, userID int, superUser bool, log *zap.SugaredLogger) ([]*ProductRevision, error) {
+func ListProductsRevision(productName, envName, userID string, superUser bool, log *zap.SugaredLogger) ([]*ProductRevision, error) {
 	var (
 		err               error
 		prodRevs          = make([]*ProductRevision, 0)
@@ -59,7 +59,7 @@ func ListProductsRevision(productName, envName string, userID int, superUser boo
 		}
 
 		poetryCtl := poetry.New(config.PoetryAPIServer())
-		productNameMap, err = poetryCtl.GetUserProject(userID, log)
+		productNameMap, err = poetryCtl.GetUserProject(1, log)
 		if err != nil {
 			log.Errorf("Collection.Product.List GetUserProject error: %v", err)
 			return prodRevs, e.ErrListProducts.AddDesc(err.Error())

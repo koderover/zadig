@@ -343,7 +343,7 @@ func ListPackagesVersion(c *gin.Context) {
 func DeleteDeliveryVersion(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	internalhandler.InsertOperationLog(c, ctx.Username, c.GetString("productName"), "删除", "版本交付", fmt.Sprintf("主键ID:%s", c.Param("id")), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.GetString("productName"), "删除", "版本交付", fmt.Sprintf("主键ID:%s", c.Param("id")), "", ctx.Logger)
 
 	//params validate
 	ID := c.Param("id")

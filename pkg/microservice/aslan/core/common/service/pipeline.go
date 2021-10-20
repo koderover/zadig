@@ -111,7 +111,7 @@ func DeletePipeline(pipelineName, requestID string, isDeletingProductTmpl bool, 
 	return nil
 }
 
-func GetPipelineInfo(userID int, pipelineName string, log *zap.SugaredLogger) (*commonmodels.Pipeline, error) {
+func GetPipelineInfo(pipelineName string, log *zap.SugaredLogger) (*commonmodels.Pipeline, error) {
 	resp, err := mongodb.NewPipelineColl().Find(&mongodb.PipelineFindOption{Name: pipelineName})
 	if err != nil {
 		log.Error(err)

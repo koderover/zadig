@@ -78,15 +78,15 @@ func CreateWorkflow(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateWorkflow json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductTmplName, "新增", "工作流", args.Name, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductTmplName, "新增", "工作流", args.Name, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	args.UpdateBy = ctx.Username
-	args.CreateBy = ctx.Username
+	args.UpdateBy = ctx.UserName
+	args.CreateBy = ctx.UserName
 	ctx.Err = workflow.CreateWorkflow(args, ctx.Logger)
 }
 
@@ -103,14 +103,14 @@ func UpdateWorkflow(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdateWorkflow json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductTmplName, "更新", "工作流", args.Name, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductTmplName, "更新", "工作流", args.Name, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	args.UpdateBy = ctx.Username
+	args.UpdateBy = ctx.UserName
 	ctx.Err = workflow.UpdateWorkflow(args, ctx.Logger)
 }
 
@@ -118,14 +118,14 @@ func ListWorkflows(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = workflow.ListWorkflows(c.Query("type"), ctx.User.ID, ctx.Logger)
+	ctx.Resp, ctx.Err = workflow.ListWorkflows(c.Query("type"), ctx.UserID, ctx.Logger)
 }
 
 func ListTestWorkflows(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = workflow.ListTestWorkflows(c.Param("testName"), ctx.User.ID, c.QueryArray("projects"), ctx.Logger)
+	ctx.Resp, ctx.Err = workflow.ListTestWorkflows(c.Param("testName"), c.QueryArray("projects"), ctx.Logger)
 }
 
 // FindWorkflow find a workflow
@@ -140,7 +140,7 @@ func DeleteWorkflow(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	internalhandler.InsertOperationLog(c, ctx.Username, c.GetString("productName"), "删除", "工作流", c.Param("name"), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.GetString("productName"), "删除", "工作流", c.Param("name"), "", ctx.Logger)
 	ctx.Err = commonservice.DeleteWorkflow(c.Param("name"), ctx.RequestID, false, ctx.Logger)
 }
 
@@ -155,5 +155,5 @@ func CopyWorkflow(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Err = workflow.CopyWorkflow(c.Param("old"), c.Param("new"), ctx.Username, ctx.Logger)
+	ctx.Err = workflow.CopyWorkflow(c.Param("old"), c.Param("new"), ctx.UserName, ctx.Logger)
 }

@@ -40,7 +40,6 @@ import (
 	gitlabtool "github.com/koderover/zadig/pkg/tool/git/gitlab"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
-	"github.com/koderover/zadig/pkg/types/permission"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -275,7 +274,7 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 			args.RepoName = item.MainRepo.RepoName
 			// 3. create task with args
 			if item.WorkflowArgs.BaseNamespace == "" {
-				if resp, err := workflowservice.CreateWorkflowTask(args, setting.WebhookTaskCreator, permission.AnonymousUserID, false, log); err != nil {
+				if resp, err := workflowservice.CreateWorkflowTask(args, setting.WebhookTaskCreator, log); err != nil {
 					log.Errorf("failed to create workflow task when receive push event %v due to %v ", event, err)
 					mErr = multierror.Append(mErr, err)
 					// 单独创建一条通知，展示任务创建失败的错误信息
@@ -447,7 +446,7 @@ func CreateEnvAndTaskByPR(workflowArgs *commonmodels.WorkflowTaskArgs, prID int,
 	}
 
 	workflowArgs.Namespace = envName
-	taskResp, err := workflowservice.CreateWorkflowTask(workflowArgs, setting.WebhookTaskCreator, permission.AnonymousUserID, false, log)
+	taskResp, err := workflowservice.CreateWorkflowTask(workflowArgs, setting.WebhookTaskCreator, log)
 	if err != nil {
 		return fmt.Errorf("CreateEnvAndTaskByPR CreateWorkflowTask err：%v ", err)
 	}
