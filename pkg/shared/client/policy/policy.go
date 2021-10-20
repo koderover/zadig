@@ -46,3 +46,9 @@ func (c *Client) CreateRoleBinding(projectName string, roleBinding *RoleBinding)
 	_, err := c.Post(url, httpclient.SetBody(roleBinding))
 	return err
 }
+
+func (c *Client) DeleteRoleBinding(name string, projectName string) error {
+	url := fmt.Sprintf("/rolebindings/%s?projectName=%s", name, projectName)
+	_, err := c.Delete(url)
+	return err
+}

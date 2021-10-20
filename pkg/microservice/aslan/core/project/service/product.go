@@ -529,7 +529,7 @@ func ForkProduct(username, requestID string, args *template.ForkProject, log *za
 	}
 	policyClient := policy.New()
 	err = policyClient.CreateRoleBinding(args.ProductName, &policy.RoleBinding{
-		Name:   fmt.Sprintf("%s-%s", args.ProductName, username),
+		Name:   fmt.Sprintf(setting.ContributorRoleBindingFmt, args.ProductName, username),
 		User:   username,
 		Role:   setting.Contributor,
 		Global: true,
@@ -543,13 +543,6 @@ func ForkProduct(username, requestID string, args *template.ForkProject, log *za
 }
 
 func UnForkProduct(userID string, username, productName, workflowName, envName, requestID string, log *zap.SugaredLogger) error {
-	poetryClient := poetry.New(config.PoetryAPIServer())
-	if userEnvPermissions, _ := poetryClient.ListUserEnvPermission(productName, 1, log); len(userEnvPermissions) > 0 {
-		if err := poetryClient.DeleteUserEnvPermission(productName, username, 1, log); err != nil {
-			return e.ErrUnForkProduct.AddDesc(fmt.Sprintf("Failed to delete env permission for userID: %d, env: %s, productName: %s, the error is: %+v", userID, username, productName, err))
-		}
-	}
-
 	if _, err := workflowservice.FindWorkflow(workflowName, log); err == nil {
 		err = commonservice.DeleteWorkflow(workflowName, requestID, false, log)
 		if err != nil {
@@ -558,14 +551,12 @@ func UnForkProduct(userID string, username, productName, workflowName, envName, 
 		}
 	}
 
-	if roleID := poetryClient.GetContributorRoleID(productName, log); roleID > 0 {
-		err := poetryClient.DeleteUserRole(roleID, poetry.ProjectType, 1, productName, log)
-		if err != nil {
-			log.Errorf("Failed to Delete user from role candidate, the error is: %v", err)
-			return e.ErrUnForkProduct.AddDesc(err.Error())
-		}
+	policyClient := policy.New()
+	err := policyClient.DeleteRoleBinding(fmt.Sprintf(setting.ContributorRoleBindingFmt, productName, username), productName)
+	if err != nil {
+		log.Error("rolebinding delete error")
+		return e.ErrForkProduct
 	}
-
 	if err := commonservice.DeleteProduct(username, envName, productName, requestID, log); err != nil {
 		_, messageMap := e.ErrorMessage(err)
 		if description, ok := messageMap["description"]; ok {
@@ -689,33 +680,17 @@ type ContainerInfo struct {
 	Label string `bson:"label"              json:"label"`
 }
 
-func ListTemplatesHierachy(userName, userID string, superUser bool, log *zap.SugaredLogger) ([]*ProductInfo, error) {
+func ListTemplatesHierachy(userName string, log *zap.SugaredLogger) ([]*ProductInfo, error) {
 	var (
 		err          error
 		resp         = make([]*ProductInfo, 0)
 		productTmpls = make([]*template.Product, 0)
 	)
 
-	if superUser {
-		productTmpls, err = templaterepo.NewProductColl().List()
-		if err != nil {
-			log.Errorf("[%s] ProductTmpl.List error: %v", userName, err)
-			return nil, e.ErrListProducts.AddDesc(err.Error())
-		}
-	} else {
-		productNameMap, err := poetry.New(config.PoetryAPIServer()).GetUserProject(1, log)
-		if err != nil {
-			log.Errorf("ProfuctTmpl.List GetUserProject error: %v", err)
-			return resp, e.ErrListProducts.AddDesc(err.Error())
-		}
-		for productName := range productNameMap {
-			product, err := templaterepo.NewProductColl().Find(productName)
-			if err != nil {
-				log.Errorf("ProfuctTmpl.List error: %v", err)
-				return resp, e.ErrListProducts.AddDesc(err.Error())
-			}
-			productTmpls = append(productTmpls, product)
-		}
+	productTmpls, err = templaterepo.NewProductColl().List()
+	if err != nil {
+		log.Errorf("[%s] ProductTmpl.List error: %v", userName, err)
+		return nil, e.ErrListProducts.AddDesc(err.Error())
 	}
 
 	for _, productTmpl := range productTmpls {

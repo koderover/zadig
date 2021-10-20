@@ -234,7 +234,7 @@ func AutoCreateProduct(productName, envType, requestID string, log *zap.SugaredL
 
 var mutexAutoUpdate sync.RWMutex
 
-func AutoUpdateProduct(envNames []string, productName, userID string, superUser bool, requestID string, force bool, log *zap.SugaredLogger) ([]*EnvStatus, error) {
+func AutoUpdateProduct(envNames []string, productName, requestID string, force bool, log *zap.SugaredLogger) ([]*EnvStatus, error) {
 	mutexAutoUpdate.Lock()
 	defer func() {
 		mutexAutoUpdate.Unlock()
@@ -271,7 +271,7 @@ func AutoUpdateProduct(envNames []string, productName, userID string, superUser 
 		}
 	}
 
-	productsRevison, err := ListProductsRevision(productName, "", userID, superUser, log)
+	productsRevison, err := ListProductsRevision(productName, "", log)
 	if err != nil {
 		log.Errorf("AutoUpdateProduct ListProductsRevision err:%v", err)
 		return envStatuses, err
@@ -952,7 +952,7 @@ func updateHelmProductVariable(productResp *commonmodels.Product, oldRenderVersi
 
 var mutexUpdateMultiHelm sync.RWMutex
 
-func UpdateMultipleHelmEnv(requestID, userID string, superUser bool, args *UpdateMultiHelmProductArg, log *zap.SugaredLogger) ([]*EnvStatus, error) {
+func UpdateMultipleHelmEnv(requestID string, args *UpdateMultiHelmProductArg, log *zap.SugaredLogger) ([]*EnvStatus, error) {
 	mutexUpdateMultiHelm.Lock()
 	defer func() {
 		mutexUpdateMultiHelm.Unlock()
@@ -961,7 +961,7 @@ func UpdateMultipleHelmEnv(requestID, userID string, superUser bool, args *Updat
 	envNames, productName := args.EnvNames, args.ProductName
 
 	envStatuses := make([]*EnvStatus, 0)
-	productsRevision, err := ListProductsRevision(productName, "", userID, superUser, log)
+	productsRevision, err := ListProductsRevision(productName, "", log)
 	if err != nil {
 		log.Errorf("UpdateMultiHelmProduct ListProductsRevision err:%v", err)
 		return envStatuses, err
@@ -1040,14 +1040,14 @@ func UpdateMultipleHelmEnv(requestID, userID string, superUser bool, args *Updat
 }
 
 // UpdateMultiHelmProduct TODO need to be deprecated
-func UpdateMultiHelmProduct(envNames []string, updateType, productName, userID string, superUser bool, requestID string, log *zap.SugaredLogger) []*EnvStatus {
+func UpdateMultiHelmProduct(envNames []string, updateType, productName string, requestID string, log *zap.SugaredLogger) []*EnvStatus {
 	mutexUpdateMultiHelm.Lock()
 	defer func() {
 		mutexUpdateMultiHelm.Unlock()
 	}()
 
 	envStatuses := make([]*EnvStatus, 0)
-	productsRevison, err := ListProductsRevision(productName, "", userID, superUser, log)
+	productsRevison, err := ListProductsRevision(productName, "", log)
 	if err != nil {
 		log.Errorf("UpdateMultiHelmProduct ListProductsRevision err:%v", err)
 		return envStatuses
