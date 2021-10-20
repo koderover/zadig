@@ -8,3 +8,23 @@ rules:
     rules:
       - method: GET
         endpoint: "api/aslan/workflow/workflow"
+      - method: GET
+        endpoint: "/api/aslan/workflow/workflow/find/?*"
+      - method: GET
+        endpoint: "/api/aslan/workflow/workflowtask/max/?*/start/?*/pipelines/?*"
+      - method: GET
+        endpoint: "/api/aslan/workflow/workflowtask/id/?*/pipelines/?*"
+      - method: GET
+        endpoint: "/api/aslan/workflow/sse/workflows/id/?*/pipelines/?*"
+      - method: GET
+        endpoint: "/api/aslan/logs/sse/workflow/build/?*/?*/?*/?*"
+      - method: GET
+        endpoint: "/api/aslan/logs/log/workflow/?*/tasks/?*/service/?*"
+      - method: GET
+        endpoint: "/api/aslan/logs/log/workflow/:name/tasks/:taskid/tests/test/service/:serviceName"
+      - method: GET
+        endpoint: "/api/aslan/logs/log/workflow/:name/tasks/:taskid/tests/test/service/:testName"
+      - method: GET
+        endpoint: "/api/aslan/testing/itreport/workflow/:workflowName/id/:taskid/names/:workflowName-:taskid-test/service/:testName"
+      - method: GET
+        endpoint: "/api/aslan/testing/itreport/workflow/:workflowName/id/:taskid/names/:workflowName-:taskid-test/service/:testName"
