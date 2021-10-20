@@ -1,0 +1,10 @@
+resource: Workflow
+alias: "工作流"
+description: ""
+rules:
+  - action: get_workflow
+    alias: "查看工作流"
+    description: ""
+    rules:
+      - method: GET
+        endpoint: "api/aslan/workflow/workflow"
