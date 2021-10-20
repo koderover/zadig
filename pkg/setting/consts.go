@@ -483,5 +483,6 @@ const ChartTemplatesPath = "charts"
 type RoleType string
 
 const (
-	Contributor RoleType = "Contributor"
+	Contributor               RoleType = "Contributor"
+	ContributorRoleBindingFmt string   = "contributor-project:%s-user:%s"
 )
