@@ -115,7 +115,7 @@ func CreateOrUpdateRenderset(c *gin.Context) {
 		log.Errorf("CreateOrUpdateRenderChart json.Unmarshal err : %v", err)
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "新增", "环境变量", c.Query("envName"), fmt.Sprintf("%s,%s", permission.TestEnvManageUUID, permission.ProdEnvManageUUID), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "新增", "环境变量", c.Query("envName"), string(data), ctx.Logger)
 
 	ctx.Err = service.CreateOrUpdateRenderset(c.Query("productName"), c.Query("envName"), args, ctx.Username, ctx.RequestID, ctx.Logger)
 }
