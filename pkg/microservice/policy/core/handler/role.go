@@ -86,6 +86,14 @@ func DeleteRole(c *gin.Context) {
 	return
 }
 
+func DeletePublicRole(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	name := c.Param("name")
+	ctx.Err = service.DeleteRole(name, "", ctx.Logger)
+	return
+}
+
 func CreateSystemRole(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
