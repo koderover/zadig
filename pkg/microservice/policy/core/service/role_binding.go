@@ -61,21 +61,18 @@ func CreateRoleBinding(ns string, rb *RoleBinding, logger *zap.SugaredLogger) er
 	return mongodb.NewRoleBindingColl().Create(obj)
 }
 
-func ListRoleBindings(ns string, logger *zap.SugaredLogger) (roleBindings []*RoleBinding, err error) {
-	modelRoleBindings, err := mongodb.NewRoleBindingColl().ListBy(ns)
+func ListRoleBindings(ns, user string, _ *zap.SugaredLogger) (roleBindings []*RoleBinding, err error) {
+	modelRoleBindings, err := mongodb.NewRoleBindingColl().ListBy(ns, user)
 	if err != nil {
 		return nil, err
 	}
+
 	for _, v := range modelRoleBindings {
-		users := []string{}
-		for _, vv := range v.Subjects {
-			users = append(users, vv.Name)
-		}
 		roleBindings = append(roleBindings, &RoleBinding{
 			Name:   v.Name,
 			Role:   v.RoleRef.Name,
 			User:   v.Subjects[0].Name,
-			Global: (v.Namespace == ""),
+			Global: v.Namespace == "",
 		})
 	}
 	return
