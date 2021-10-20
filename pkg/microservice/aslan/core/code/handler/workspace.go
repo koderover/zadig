@@ -27,7 +27,6 @@ import (
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 func GetProductNameByWorkspacePipeline(c *gin.Context) {
@@ -44,7 +43,7 @@ func GetProductNameByWorkspacePipeline(c *gin.Context) {
 func CleanWorkspace(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	internalhandler.InsertOperationLog(c, ctx.Username, c.GetString("productName"), "清理", "单服务工作流-工作目录", c.Query("pipelineName"), permission.WorkflowUpdateUUID, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, c.GetString("productName"), "清理", "单服务工作流-工作目录", c.Query("pipelineName"), "", ctx.Logger)
 	name := c.Query("pipelineName")
 	if name == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty pipeline name")

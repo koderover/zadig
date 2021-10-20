@@ -17,11 +17,13 @@ limitations under the License.
 package service
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
 	"strings"
+	templ "text/template"
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -678,4 +680,33 @@ func GetPresetRules() []*template.ImageSearchingRule {
 		})
 	}
 	return ret
+}
+
+type Variable struct {
+	SERVICE        string
+	TIMESTAMP      string
+	TASK_ID        string
+	REPO_COMMIT_ID string
+	PROJECT        string
+	ENV_NAME       string
+	REPO_TAG       string
+	REPO_BRANCH    string
+	REPO_PR        string
+}
+
+func ReplaceRuleVariable(rule string, replaceValue *Variable) string {
+	template, err := templ.New("replaceRuleVariable").Parse(rule)
+	if err != nil {
+		log.Errorf("replaceRuleVariable Parse err:%s", err)
+		return rule
+	}
+	var replaceRuleVariable = templ.Must(template, err)
+	payload := bytes.NewBufferString("")
+	err = replaceRuleVariable.Execute(payload, replaceValue)
+	if err != nil {
+		log.Errorf("replaceRuleVariable Execute err:%s", err)
+		return rule
+	}
+
+	return payload.String()
 }
