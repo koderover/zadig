@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -34,7 +33,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
@@ -72,18 +70,11 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 	log.Infof("[%s] delete product %s", username, productInfo.Namespace)
 	LogProductStats(username, setting.DeleteProductEvent, productName, requestID, eventStart, log)
 
-	poetryClient := poetry.New(config.PoetryAPIServer())
-
 	switch productInfo.Source {
 	case setting.SourceFromHelm:
 		err = mongodb.NewProductColl().Delete(envName, productName)
 		if err != nil {
 			log.Errorf("Product.Delete error: %v", err)
-		}
-
-		_, err = poetryClient.DeleteEnvRolePermission(productName, envName, log)
-		if err != nil {
-			log.Errorf("DeleteEnvRole error: %v", err)
 		}
 
 		go func() {
@@ -131,11 +122,6 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 		err = mongodb.NewProductColl().Delete(envName, productName)
 		if err != nil {
 			log.Errorf("Product.Delete error: %v", err)
-		}
-
-		_, err = poetryClient.DeleteEnvRolePermission(productName, envName, log)
-		if err != nil {
-			log.Errorf("DeleteEnvRole error: %v", err)
 		}
 
 		// 删除workload数据
@@ -207,11 +193,6 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 			err = mongodb.NewProductColl().Delete(envName, productName)
 			if err != nil {
 				log.Errorf("Product.Delete error: %v", err)
-			}
-
-			_, err = poetryClient.DeleteEnvRolePermission(productName, envName, log)
-			if err != nil {
-				log.Errorf("DeleteEnvRole error: %v", err)
 			}
 		}()
 	}
