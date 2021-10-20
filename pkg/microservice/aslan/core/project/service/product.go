@@ -543,25 +543,10 @@ func ForkProduct(userID int, username, requestID string, args *template.ForkProj
 }
 
 func UnForkProduct(userID int, username, productName, workflowName, envName, requestID string, log *zap.SugaredLogger) error {
-	poetryClient := poetry.New(config.PoetryAPIServer())
-	if userEnvPermissions, _ := poetryClient.ListUserEnvPermission(productName, userID, log); len(userEnvPermissions) > 0 {
-		if err := poetryClient.DeleteUserEnvPermission(productName, username, userID, log); err != nil {
-			return e.ErrUnForkProduct.AddDesc(fmt.Sprintf("Failed to delete env permission for userID: %d, env: %s, productName: %s, the error is: %+v", userID, username, productName, err))
-		}
-	}
-
 	if _, err := workflowservice.FindWorkflow(workflowName, log); err == nil {
 		err = commonservice.DeleteWorkflow(workflowName, requestID, false, log)
 		if err != nil {
 			log.Errorf("Failed to delete forked workflow: %s, the error is: %+v", workflowName, err)
-			return e.ErrUnForkProduct.AddDesc(err.Error())
-		}
-	}
-
-	if roleID := poetryClient.GetContributorRoleID(productName, log); roleID > 0 {
-		err := poetryClient.DeleteUserRole(roleID, poetry.ProjectType, userID, productName, log)
-		if err != nil {
-			log.Errorf("Failed to Delete user from role candidate, the error is: %v", err)
 			return e.ErrUnForkProduct.AddDesc(err.Error())
 		}
 	}
