@@ -824,7 +824,7 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 		); err == nil {
 			if serviceTmpl.BuildName != "" {
 				updateTargets := make([]*commonmodels.ServiceModuleTarget, 0)
-				if preBuild, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: serviceTmpl.BuildName, Version: "stable", ProductName: productName}); err == nil {
+				if preBuild, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: serviceTmpl.BuildName, ProductName: productName}); err == nil {
 					for _, target := range preBuild.Targets {
 						if target.ServiceName != serviceName {
 							updateTargets = append(updateTargets, target)

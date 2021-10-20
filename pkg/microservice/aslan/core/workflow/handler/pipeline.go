@@ -30,7 +30,6 @@ import (
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 func GetPipelineProductName(c *gin.Context) {
@@ -102,7 +101,7 @@ func UpsertPipeline(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpsertPipeline json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "新增", "单服务-工作流", args.Name, permission.WorkflowCreateUUID, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "新增", "单服务-工作流", args.Name, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil || len(args.Name) == 0 {
@@ -119,7 +118,7 @@ func CopyPipeline(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	internalhandler.InsertOperationLog(c, ctx.Username, c.GetString("productName"), "复制", "单服务-工作流", fmt.Sprintf("old:%s,new:%s", c.Param("old"), c.Param("new")), permission.WorkflowCreateUUID, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, c.GetString("productName"), "复制", "单服务-工作流", fmt.Sprintf("old:%s,new:%s", c.Param("old"), c.Param("new")), "", ctx.Logger)
 	ctx.Err = workflow.CopyPipeline(c.Param("old"), c.Param("new"), ctx.Username, ctx.Logger)
 }
 
@@ -128,7 +127,7 @@ func RenamePipeline(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	internalhandler.InsertOperationLog(c, ctx.Username, c.GetString("productName"), "修改", "单服务-工作流", fmt.Sprintf("old:%s,new:%s", c.Param("old"), c.Param("new")), permission.WorkflowUpdateUUID, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, c.GetString("productName"), "修改", "单服务-工作流", fmt.Sprintf("old:%s,new:%s", c.Param("old"), c.Param("new")), "", ctx.Logger)
 	ctx.Err = workflow.RenamePipeline(c.Param("old"), c.Param("new"), ctx.Logger)
 }
 
@@ -137,6 +136,6 @@ func DeletePipeline(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	internalhandler.InsertOperationLog(c, ctx.Username, c.GetString("productName"), "删除", "单服务-工作流", c.Param("name"), permission.WorkflowDeleteUUID, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, c.GetString("productName"), "删除", "单服务-工作流", c.Param("name"), "", ctx.Logger)
 	ctx.Err = commonservice.DeletePipeline(c.Param("name"), ctx.RequestID, false, ctx.Logger)
 }
