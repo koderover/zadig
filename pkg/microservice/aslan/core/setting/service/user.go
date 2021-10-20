@@ -40,7 +40,6 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
-	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
@@ -61,71 +60,19 @@ func GetUserKubeConfig(userName string, userID int, superUser bool, log *zap.Sug
 	username := strings.ToLower(userName)
 	username = config.NameSpaceRegex.ReplaceAllString(username, "-")
 	var (
-		err            error
-		productEnvs    = make([]*commonmodels.Product, 0)
-		productNameMap map[string][]int64
+		err         error
+		productEnvs = make([]*commonmodels.Product, 0)
 	)
-	if superUser {
-		productEnvs, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{})
-		if err != nil {
-			log.Errorf("GetUserKubeConfig Collection.Product.List error: %v", err)
-			return "", e.ErrListProducts.AddDesc(err.Error())
-		}
 
-		// 只管理同集群的资源，且排除状态为Terminating的namespace
-		productEnvs = filterProductWithoutExternalCluster(productEnvs)
-	} else {
-		//项目下所有公开环境
-		publicProducts, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{IsPublic: true})
-		if err != nil {
-			log.Errorf("GetUserKubeConfig Collection.Product.List List product error: %v", err)
-			return "", e.ErrListProducts.AddDesc(err.Error())
-		}
-		// 只管理同集群的资源，且排除状态为Terminating的namespace
-		filterPublicProductEnvs := filterProductWithoutExternalCluster(publicProducts)
-		namespaceSet := sets.NewString()
-		for _, publicProduct := range filterPublicProductEnvs {
-			productEnvs = append(productEnvs, publicProduct)
-			namespaceSet.Insert(publicProduct.Namespace)
-		}
-		poetryClient := poetry.New(config.PoetryAPIServer())
-		productNameMap, err = poetryClient.GetUserProject(userID, log)
-		if err != nil {
-			log.Errorf("GetUserKubeConfig Collection.Product.List GetUserProject error: %v", err)
-			return "", e.ErrListProducts.AddDesc(err.Error())
-		}
-		for productName, roleIDs := range productNameMap {
-			//用户关联角色所关联的环境
-			for _, roleID := range roleIDs {
-				if roleID == setting.RoleOwnerID {
-					tmpProducts, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName})
-					if err != nil {
-						log.Errorf("GetUserKubeConfig Collection.Product.List product error: %v", err)
-						return "", e.ErrListProducts.AddDesc(err.Error())
-					}
-					for _, product := range tmpProducts {
-						if !namespaceSet.Has(product.Namespace) {
-							productEnvs = append(productEnvs, product)
-						}
-					}
-				} else {
-					roleEnvs, err := poetryClient.ListRoleEnvs(productName, "", roleID, log)
-					if err != nil {
-						log.Errorf("GetUserKubeConfig Collection.Product.List ListRoleEnvs error: %v", err)
-						return "", e.ErrListProducts.AddDesc(err.Error())
-					}
-					for _, roleEnv := range roleEnvs {
-						product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: roleEnv.EnvName})
-						if err != nil {
-							log.Errorf("GetUserKubeConfig Collection.Product.List Find product error: %v", err)
-							return "", e.ErrListProducts.AddDesc(err.Error())
-						}
-						productEnvs = append(productEnvs, product)
-					}
-				}
-			}
-		}
+	productEnvs, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{})
+	if err != nil {
+		log.Errorf("GetUserKubeConfig Collection.Product.List error: %v", err)
+		return "", e.ErrListProducts.AddDesc(err.Error())
 	}
+
+	// 只管理同集群的资源，且排除状态为Terminating的namespace
+	productEnvs = filterProductWithoutExternalCluster(productEnvs)
+
 	saNamespace := config.Namespace()
 	if err := ensureServiceAccount(saNamespace, username, log); err != nil {
 		return "", err
