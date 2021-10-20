@@ -106,7 +106,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.PUT("/:productName/renderchart", gin2.UpdateOperationLogStatus, UpdateHelmProductRenderCharts)
 
 		environments.GET("/:productName/helmChartVersions", GetHelmChartVersions)
-		environments.PUT("/:productName", gin2.UpdateOperationLogStatus, EnvShare)
+		//environments.PUT("/:productName", gin2.UpdateOperationLogStatus, EnvShare)
 
 		environments.GET("/:productName", GetProduct)
 		environments.GET("/:productName/productInfo", GetProductInfo)

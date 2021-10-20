@@ -212,13 +212,6 @@ func UpdateProject(name string, args *template.Product, log *zap.SugaredLogger) 
 	if err != nil {
 		return e.ErrInvalidParam.AddDesc(err.Error())
 	}
-	poetryCtl := poetry.New(config.PoetryAPIServer())
-	//创建团建和项目之间的关系
-	_, err = poetryCtl.AddProductTeam(args.ProductName, args.TeamID, args.UserIDs, log)
-	if err != nil {
-		log.Errorf("Project.Create AddProductTeam error: %v", err)
-		return e.ErrUpdateProduct.AddDesc(err.Error())
-	}
 
 	err = templaterepo.NewProductColl().Update(name, args)
 	if err != nil {
@@ -317,14 +310,6 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 		if len(v) > 0 {
 			return e.ErrDeleteProduct.AddDesc(fmt.Sprintf("共享服务[%s]在项目%v中被引用，请解除引用后删除", k, v))
 		}
-	}
-
-	poetryCtl := poetry.New(config.PoetryAPIServer())
-
-	//删除项目团队信息
-	if err = poetryCtl.DeleteProductTeam(productName, log); err != nil {
-		log.Errorf("productTeam.Delete error: %v", err)
-		return e.ErrDeleteProduct
 	}
 
 	envs, _ := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName})

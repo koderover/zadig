@@ -455,7 +455,7 @@ func EnvShare(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.UpdateProductPublic(productName, args, ctx.Logger)
+	//ctx.Err = service.UpdateProductPublic(productName, args, ctx.Logger)
 }
 
 func ListGroups(c *gin.Context) {
