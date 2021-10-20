@@ -169,7 +169,7 @@ func ListTemplatesHierachy(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = projectservice.ListTemplatesHierachy(ctx.User.Name, ctx.User.ID, ctx.User.IsSuperUser, ctx.Logger)
+	ctx.Resp, ctx.Err = projectservice.ListTemplatesHierachy(ctx.User.Name, ctx.Logger)
 }
 
 func ForkProduct(c *gin.Context) {

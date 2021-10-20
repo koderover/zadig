@@ -680,33 +680,17 @@ type ContainerInfo struct {
 	Label string `bson:"label"              json:"label"`
 }
 
-func ListTemplatesHierachy(userName string, userID int, superUser bool, log *zap.SugaredLogger) ([]*ProductInfo, error) {
+func ListTemplatesHierachy(userName string, log *zap.SugaredLogger) ([]*ProductInfo, error) {
 	var (
 		err          error
 		resp         = make([]*ProductInfo, 0)
 		productTmpls = make([]*template.Product, 0)
 	)
 
-	if superUser {
-		productTmpls, err = templaterepo.NewProductColl().List()
-		if err != nil {
-			log.Errorf("[%s] ProductTmpl.List error: %v", userName, err)
-			return nil, e.ErrListProducts.AddDesc(err.Error())
-		}
-	} else {
-		productNameMap, err := poetry.New(config.PoetryAPIServer()).GetUserProject(userID, log)
-		if err != nil {
-			log.Errorf("ProfuctTmpl.List GetUserProject error: %v", err)
-			return resp, e.ErrListProducts.AddDesc(err.Error())
-		}
-		for productName := range productNameMap {
-			product, err := templaterepo.NewProductColl().Find(productName)
-			if err != nil {
-				log.Errorf("ProfuctTmpl.List error: %v", err)
-				return resp, e.ErrListProducts.AddDesc(err.Error())
-			}
-			productTmpls = append(productTmpls, product)
-		}
+	productTmpls, err = templaterepo.NewProductColl().List()
+	if err != nil {
+		log.Errorf("[%s] ProductTmpl.List error: %v", userName, err)
+		return nil, e.ErrListProducts.AddDesc(err.Error())
 	}
 
 	for _, productTmpl := range productTmpls {
