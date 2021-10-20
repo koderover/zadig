@@ -34,7 +34,6 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/codehost"
 	"github.com/koderover/zadig/pkg/types"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 const SplitSymbol = "&"
@@ -298,7 +297,7 @@ func TriggerWorkflowByGithubEvent(event interface{}, baseURI, deliveryID, reques
 					args.HookPayload = hookPayload
 
 					// 3. create task with args
-					if resp, err := workflowservice.CreateWorkflowTask(args, setting.WebhookTaskCreator, permission.AnonymousUserID, false, log); err != nil {
+					if resp, err := workflowservice.CreateWorkflowTask(args, setting.WebhookTaskCreator, log); err != nil {
 						log.Errorf("failed to create workflow task when receive push event due to %v ", err)
 						mErr = multierror.Append(mErr, err)
 					} else {

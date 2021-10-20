@@ -22,11 +22,11 @@ require (
 	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7 // indirect
 	github.com/dsnet/compress v0.0.1 // indirect
 	github.com/garyburd/redigo v1.6.2 // indirect
-	github.com/gin-contrib/sessions v0.0.3
 	github.com/gin-contrib/sse v0.1.0
 	github.com/gin-gonic/gin v1.7.2
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/gofrs/uuid v4.0.0+incompatible // indirect
+	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/google/go-github/v35 v35.3.0
 	github.com/google/uuid v1.2.0
 	github.com/gorilla/handlers v1.5.1 // indirect

@@ -234,7 +234,7 @@ func AutoCreateProduct(productName, envType, requestID string, log *zap.SugaredL
 
 var mutexAutoUpdate sync.RWMutex
 
-func AutoUpdateProduct(envNames []string, productName string, userID int, superUser bool, requestID string, force bool, log *zap.SugaredLogger) ([]*EnvStatus, error) {
+func AutoUpdateProduct(envNames []string, productName, userID string, superUser bool, requestID string, force bool, log *zap.SugaredLogger) ([]*EnvStatus, error) {
 	mutexAutoUpdate.Lock()
 	defer func() {
 		mutexAutoUpdate.Unlock()
@@ -952,7 +952,7 @@ func updateHelmProductVariable(productResp *commonmodels.Product, oldRenderVersi
 
 var mutexUpdateMultiHelm sync.RWMutex
 
-func UpdateMultipleHelmEnv(userName, requestID string, userID int, superUser bool, args *UpdateMultiHelmProductArg, log *zap.SugaredLogger) ([]*EnvStatus, error) {
+func UpdateMultipleHelmEnv(requestID, userID string, superUser bool, args *UpdateMultiHelmProductArg, log *zap.SugaredLogger) ([]*EnvStatus, error) {
 	mutexUpdateMultiHelm.Lock()
 	defer func() {
 		mutexUpdateMultiHelm.Unlock()
@@ -1040,7 +1040,7 @@ func UpdateMultipleHelmEnv(userName, requestID string, userID int, superUser boo
 }
 
 // UpdateMultiHelmProduct TODO need to be deprecated
-func UpdateMultiHelmProduct(envNames []string, updateType, productName string, userID int, superUser bool, requestID string, log *zap.SugaredLogger) []*EnvStatus {
+func UpdateMultiHelmProduct(envNames []string, updateType, productName, userID string, superUser bool, requestID string, log *zap.SugaredLogger) []*EnvStatus {
 	mutexUpdateMultiHelm.Lock()
 	defer func() {
 		mutexUpdateMultiHelm.Unlock()
@@ -1372,149 +1372,6 @@ func getProjectType(productName string) string {
 	}
 	return projectType
 }
-
-// createGroup create or update services in service group
-//func createGroup(envName, productName, username string, group []*commonmodels.ProductService, renderSet *commonmodels.RenderSet, kubeClient client.Client, log *zap.SugaredLogger) error {
-//	log.Infof("[Namespace:%s][Product:%s] createGroup", envName, productName)
-//	updatableServiceNameList := make([]string, 0)
-//
-//	// 异步创建无依赖的服务
-//	errList := &multierror.Error{
-//		ErrorFormat: func(es []error) string {
-//			points := make([]string, len(es))
-//			for i, err := range es {
-//				points[i] = fmt.Sprintf("%v", err)
-//			}
-//
-//			return strings.Join(points, "\n")
-//		},
-//	}
-//
-//	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
-//	prod, err := commonrepo.NewProductColl().Find(opt)
-//	if err != nil {
-//		errList = multierror.Append(errList, err)
-//	}
-//
-//	var wg sync.WaitGroup
-//	var lock sync.Mutex
-//	var resources []*unstructured.Unstructured
-//
-//	for i := range group {
-//		if group[i].Type == setting.K8SDeployType {
-//			// 只有在service有Pod的时候，才需要等待pod running或者等待pod succeed
-//			// 比如在group中，如果service下仅有configmap/service/ingress这些yaml的时候，不需要waitServicesRunning
-//			wg.Add(1)
-//			updatableServiceNameList = append(updatableServiceNameList, group[i].ServiceName)
-//			go func(svc *commonmodels.ProductService) {
-//				defer wg.Done()
-//				items, err := upsertService(false, prod, svc, nil, renderSet, kubeClient, log)
-//				if err != nil {
-//					lock.Lock()
-//					switch e := err.(type) {
-//					case *multierror.Error:
-//						errList = multierror.Append(errList, e.Errors...)
-//					default:
-//						errList = multierror.Append(errList, e)
-//					}
-//					lock.Unlock()
-//				}
-//
-//				//  concurrent array append
-//				lock.Lock()
-//				resources = append(resources, items...)
-//				lock.Unlock()
-//			}(group[i])
-//		} else if group[i].Type == setting.PMDeployType {
-//			//更新非k8s服务
-//			if len(group[i].EnvConfigs) > 0 {
-//				serviceTempl, err := commonservice.GetServiceTemplate(group[i].ServiceName, setting.PMDeployType, productName, setting.ProductStatusDeleting, group[i].Revision, log)
-//				if err != nil {
-//					errList = multierror.Append(errList, err)
-//				}
-//				if serviceTempl != nil {
-//					oldEnvConfigs := serviceTempl.EnvConfigs
-//					for _, currentEnvConfig := range group[i].EnvConfigs {
-//						envConfig := &commonmodels.EnvConfig{
-//							EnvName: currentEnvConfig.EnvName,
-//							HostIDs: currentEnvConfig.HostIDs,
-//						}
-//						oldEnvConfigs = append(oldEnvConfigs, envConfig)
-//					}
-//
-//					args := &commonservice.ServiceTmplBuildObject{
-//						ServiceTmplObject: &commonservice.ServiceTmplObject{
-//							ProductName:  serviceTempl.ProductName,
-//							ServiceName:  serviceTempl.ServiceName,
-//							Visibility:   serviceTempl.Visibility,
-//							Revision:     serviceTempl.Revision,
-//							Type:         serviceTempl.Type,
-//							Username:     username,
-//							HealthChecks: serviceTempl.HealthChecks,
-//							EnvConfigs:   oldEnvConfigs,
-//							EnvStatuses:  []*commonmodels.EnvStatus{},
-//							From:         "createEnv",
-//						},
-//						Build: &commonmodels.Build{Name: serviceTempl.BuildName},
-//					}
-//
-//					if err := commonservice.UpdatePmServiceTemplate(username, args, log); err != nil {
-//						errList = multierror.Append(errList, err)
-//					}
-//				}
-//			}
-//			var latestRevision int64 = group[i].Revision
-//			// 获取最新版本的服务
-//			if latestServiceTempl, _ := commonservice.GetServiceTemplate(group[i].ServiceName, setting.PMDeployType, productName, setting.ProductStatusDeleting, 0, log); latestServiceTempl != nil {
-//				latestRevision = latestServiceTempl.Revision
-//			}
-//			// 更新环境
-//			if latestRevision > group[i].Revision {
-//				// 更新产品服务
-//				for _, serviceGroup := range prod.Services {
-//					for j, service := range serviceGroup {
-//						if service.ServiceName == group[i].ServiceName && service.Type == setting.PMDeployType {
-//							serviceGroup[j].Revision = latestRevision
-//						}
-//					}
-//				}
-//				if err := commonrepo.NewProductColl().Update(prod); err != nil {
-//					log.Errorf("[%s][%s] Product.Update error: %v", envName, productName, err)
-//					errList = multierror.Append(errList, err)
-//				}
-//			}
-//			if _, err = commonservice.CreateServiceTask(&commonmodels.ServiceTaskArgs{
-//				ProductName:        productName,
-//				ServiceName:        group[i].ServiceName,
-//				Revision:           latestRevision,
-//				EnvNames:           []string{envName},
-//				ServiceTaskCreator: username,
-//			}, log); err != nil {
-//				errList = multierror.Append(errList, err)
-//			}
-//		}
-//	}
-//
-//	wg.Wait()
-//
-//	// 如果创建依赖服务组有返回错误, 停止等待
-//	if err := errList.ErrorOrNil(); err != nil {
-//		return err
-//	}
-//
-//	if err := waitResourceRunning(kubeClient, prod.Namespace, resources, config.ServiceStartTimeout(), log); err != nil {
-//		log.Errorf(
-//			"service group %s/%+v doesn't start in %d seconds: %v",
-//			prod.Namespace,
-//			updatableServiceNameList, config.ServiceStartTimeout(), err)
-//
-//		err = e.ErrUpdateEnv.AddErr(
-//			errors.Errorf(e.StartPodTimeout+"\n %s", "["+strings.Join(updatableServiceNameList, "], [")+"]"))
-//		return err
-//	}
-//
-//	return nil
-//}
 
 // upsertService 创建或者更新服务, 更新服务之前先创建服务需要的配置
 func upsertService(isUpdate bool, env *commonmodels.Product,

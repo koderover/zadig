@@ -422,7 +422,7 @@ func validateWorkflowHookNames(w *commonmodels.Workflow) error {
 	return validateHookNames(names)
 }
 
-func ListWorkflows(queryType string, userID int, log *zap.SugaredLogger) ([]*commonmodels.Workflow, error) {
+func ListWorkflows(queryType, userID string, log *zap.SugaredLogger) ([]*commonmodels.Workflow, error) {
 	workflows, err := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{})
 	if err != nil {
 		log.Errorf("Workflow.List error: %v", err)
@@ -488,7 +488,7 @@ func findWorkflowStat(workflow *commonmodels.Workflow, workflowStats []*commonmo
 	return 0, 0, 0
 }
 
-func ListTestWorkflows(testName string, userID int, projects []string, log *zap.SugaredLogger) (workflows []*commonmodels.Workflow, err error) {
+func ListTestWorkflows(testName string, projects []string, log *zap.SugaredLogger) (workflows []*commonmodels.Workflow, err error) {
 	allWorkflows, err := commonrepo.NewWorkflowColl().ListWorkflowsByProjects(projects)
 	if err != nil {
 		return nil, err

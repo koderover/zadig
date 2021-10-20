@@ -410,7 +410,7 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 	return resp, nil
 }
 
-func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string, userID int, superUser bool, log *zap.SugaredLogger) (*CreateTaskResp, error) {
+func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string, log *zap.SugaredLogger) (*CreateTaskResp, error) {
 	if args == nil {
 		return nil, fmt.Errorf("args should not be nil")
 	}
@@ -1211,7 +1211,7 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *task.Task, log *
 	return resp, nil
 }
 
-func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string, userID int, superUser bool, log *zap.SugaredLogger) (*CreateTaskResp, error) {
+func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string, log *zap.SugaredLogger) (*CreateTaskResp, error) {
 	if args == nil {
 		return nil, fmt.Errorf("args should not be nil")
 	}

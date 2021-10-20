@@ -246,8 +246,6 @@ const (
 )
 
 const (
-	SessionUsername     = "Username"
-	SessionUser         = "User"
 	AuthorizationHeader = "Authorization"
 )
 

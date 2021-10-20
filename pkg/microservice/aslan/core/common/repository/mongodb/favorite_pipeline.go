@@ -31,7 +31,7 @@ import (
 )
 
 type FavoriteArgs struct {
-	UserID      int
+	UserID      string
 	ProductName string
 	Name        string
 	Type        string
@@ -99,7 +99,7 @@ func (c *FavoriteColl) List(args *FavoriteArgs) ([]*models.Favorite, error) {
 	return resp, err
 }
 
-func (c *FavoriteColl) Find(userID int, name, Type string) (*models.Favorite, error) {
+func (c *FavoriteColl) Find(userID, name, Type string) (*models.Favorite, error) {
 	resp := new(models.Favorite)
 	query := bson.M{"user_id": userID, "name": name}
 	if Type != "" {

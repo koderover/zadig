@@ -60,7 +60,7 @@ func CreateCluster(c *gin.Context) {
 	}
 
 	args.CreatedAt = time.Now().Unix()
-	args.CreatedBy = ctx.Username
+	args.CreatedBy = ctx.UserName
 
 	ctx.Resp, ctx.Err = service.CreateCluster(args, ctx.Logger)
 }
@@ -87,21 +87,21 @@ func DeleteCluster(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Err = service.DeleteCluster(ctx.Username, c.Param("id"), ctx.Logger)
+	ctx.Err = service.DeleteCluster(ctx.UserName, c.Param("id"), ctx.Logger)
 }
 
 func DisconnectCluster(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Err = service.DisconnectCluster(ctx.Username, c.Param("id"), ctx.Logger)
+	ctx.Err = service.DisconnectCluster(ctx.UserName, c.Param("id"), ctx.Logger)
 }
 
 func ReconnectCluster(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Err = service.ReconnectCluster(ctx.Username, c.Param("id"), ctx.Logger)
+	ctx.Err = service.ReconnectCluster(ctx.UserName, c.Param("id"), ctx.Logger)
 }
 
 func ClusterConnectFromAgent(c *gin.Context) {

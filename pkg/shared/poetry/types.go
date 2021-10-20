@@ -16,8 +16,6 @@ limitations under the License.
 
 package poetry
 
-import "github.com/koderover/zadig/pkg/types/permission"
-
 const (
 	ProjectOwner = 3
 )
@@ -56,25 +54,4 @@ type EnvRolePermission struct {
 	RoleID         int64  `json:"roleId"`
 	PermissionUUID string `json:"permissionUUID"`
 	RoleName       string `json:"roleName"`
-}
-
-func ConvertUserInfo(userInfo *UserInfo) *permission.User {
-	if userInfo == nil {
-		return nil
-	}
-	user := new(permission.User)
-	user.ID = userInfo.ID
-	user.Name = userInfo.Name
-	user.Email = userInfo.Email
-	user.Password = userInfo.Password
-	user.Phone = userInfo.Phone
-	user.IsAdmin = userInfo.IsAdmin
-	user.IsSuperUser = userInfo.IsSuperUser
-	user.IsTeamLeader = userInfo.IsTeamLeader
-	user.OrganizationID = userInfo.OrganizationID
-	user.Directory = userInfo.Directory
-	user.LastLoginAt = userInfo.LastLoginAt
-	user.CreatedAt = userInfo.CreatedAt
-	user.UpdatedAt = userInfo.UpdatedAt
-	return user
 }

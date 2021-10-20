@@ -60,7 +60,7 @@ func ListProducts(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam
 		return
 	}
-	ctx.Resp, ctx.Err = service.ListProducts(c.Query("productName"), ctx.User.Name, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListProducts(c.Query("productName"), ctx.UserName, ctx.Logger)
 }
 
 func AutoCreateProduct(c *gin.Context) {
@@ -82,7 +82,7 @@ func AutoUpdateProduct(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("AutoUpdateProduct json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "自动更新", "集成环境", strings.Join(args.EnvNames, ","), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Param("productName"), "自动更新", "集成环境", strings.Join(args.EnvNames, ","), string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
@@ -92,7 +92,7 @@ func AutoUpdateProduct(c *gin.Context) {
 	}
 
 	force, _ := strconv.ParseBool(c.Query("force"))
-	ctx.Resp, ctx.Err = service.AutoUpdateProduct(args.EnvNames, c.Param("productName"), ctx.User.ID, ctx.User.IsSuperUser, ctx.RequestID, force, ctx.Logger)
+	ctx.Resp, ctx.Err = service.AutoUpdateProduct(args.EnvNames, c.Param("productName"), ctx.UserID, false, ctx.RequestID, force, ctx.Logger)
 }
 
 func CreateHelmProduct(c *gin.Context) {
@@ -119,10 +119,10 @@ func CreateHelmProduct(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "新增", "集成环境", args.EnvName, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", "集成环境", args.EnvName, string(data), ctx.Logger)
 
 	ctx.Err = service.CreateHelmProduct(
-		ctx.Username, ctx.RequestID, args, ctx.Logger,
+		ctx.UserName, ctx.RequestID, args, ctx.Logger,
 	)
 }
 
@@ -138,7 +138,7 @@ func CreateProduct(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateProduct json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "新增", "集成环境", args.EnvName, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", "集成环境", args.EnvName, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
@@ -151,9 +151,9 @@ func CreateProduct(c *gin.Context) {
 		return
 	}
 
-	args.UpdateBy = ctx.Username
+	args.UpdateBy = ctx.UserName
 	ctx.Err = service.CreateProduct(
-		ctx.Username, ctx.RequestID, args, ctx.Logger,
+		ctx.UserName, ctx.RequestID, args, ctx.Logger,
 	)
 }
 
@@ -172,7 +172,7 @@ func UpdateProduct(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdateProduct json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, productName, "更新", "集成环境", envName, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, productName, "更新", "集成环境", envName, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
@@ -182,7 +182,7 @@ func UpdateProduct(c *gin.Context) {
 
 	force, _ := strconv.ParseBool(c.Query("force"))
 	// update product asynchronously
-	ctx.Err = service.UpdateProductV2(envName, productName, ctx.Username, ctx.RequestID, force, args.Vars, ctx.Logger)
+	ctx.Err = service.UpdateProductV2(envName, productName, ctx.UserName, ctx.RequestID, force, args.Vars, ctx.Logger)
 	if ctx.Err != nil {
 		ctx.Logger.Errorf("failed to update product %s %s: %v", envName, productName, ctx.Err)
 	}
@@ -196,7 +196,7 @@ func UpdateProductRecycleDay(c *gin.Context) {
 	productName := c.Param("productName")
 	recycleDayStr := c.Query("recycleDay")
 
-	internalhandler.InsertOperationLog(c, ctx.Username, productName, "更新", "集成环境-环境回收", envName, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, productName, "更新", "集成环境-环境回收", envName, "", ctx.Logger)
 
 	var (
 		recycleDay int
@@ -223,7 +223,7 @@ func UpdateHelmProduct(c *gin.Context) {
 	updateType := c.Query("updateType")
 	productName := c.Param("productName")
 
-	ctx.Err = service.UpdateHelmProduct(productName, envName, updateType, ctx.Username, ctx.RequestID, nil, ctx.Logger)
+	ctx.Err = service.UpdateHelmProduct(productName, envName, updateType, ctx.UserName, ctx.RequestID, nil, ctx.Logger)
 	if ctx.Err != nil {
 		ctx.Logger.Errorf("failed to update product %s %s: %v", envName, productName, ctx.Err)
 	}
@@ -253,9 +253,9 @@ func UpdateHelmProductRenderCharts(c *gin.Context) {
 	if err = json.Unmarshal(data, arg); err != nil {
 		log.Errorf("UpdateHelmProductVariable json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "更新", "更新环境变量", "", string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Param("productName"), "更新", "更新环境变量", "", string(data), ctx.Logger)
 
-	ctx.Err = service.UpdateHelmProductRenderCharts(productName, envName, ctx.Username, ctx.RequestID, arg.ChartValues, ctx.Logger)
+	ctx.Err = service.UpdateHelmProductRenderCharts(productName, envName, ctx.UserName, ctx.RequestID, arg.ChartValues, ctx.Logger)
 	if ctx.Err != nil {
 		ctx.Logger.Errorf("failed to update product Variable %s %s: %v", envName, productName, ctx.Err)
 	}
@@ -276,7 +276,7 @@ func UpdateHelmProductVariable(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdateHelmProductVariable json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "更新", "helm集成环境变量", "", string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Param("productName"), "更新", "helm集成环境变量", "", string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
@@ -285,7 +285,7 @@ func UpdateHelmProductVariable(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.UpdateHelmProductVariable(productName, envName, ctx.Username, ctx.RequestID, args.ChartInfos, args.ChartInfos, ctx.Logger)
+	ctx.Err = service.UpdateHelmProductVariable(productName, envName, ctx.UserName, ctx.RequestID, args.ChartInfos, args.ChartInfos, ctx.Logger)
 	if ctx.Err != nil {
 		ctx.Logger.Errorf("failed to update product Variable %s %s: %v", envName, productName, ctx.Err)
 	}
@@ -310,10 +310,10 @@ func UpdateMultiHelmEnv(c *gin.Context) {
 	}
 	args.ProductName = c.Param("productName")
 
-	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "更新", "集成环境", strings.Join(args.EnvNames, ","), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "集成环境", strings.Join(args.EnvNames, ","), string(data), ctx.Logger)
 
 	ctx.Resp, ctx.Err = service.UpdateMultipleHelmEnv(
-		ctx.Username, ctx.RequestID, ctx.User.ID, ctx.User.IsSuperUser, args, ctx.Logger,
+		ctx.RequestID, ctx.UserID, false, args, ctx.Logger,
 	)
 }
 
@@ -329,7 +329,7 @@ func UpdateMultiHelmProduct(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdateMultiHelmProduct json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "更新helm环境", "集成环境", strings.Join(args.EnvNames, ","), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Param("productName"), "更新helm环境", "集成环境", strings.Join(args.EnvNames, ","), string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
@@ -338,7 +338,7 @@ func UpdateMultiHelmProduct(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp = service.UpdateMultiHelmProduct(args.EnvNames, args.UpdateType, c.Param("productName"), ctx.User.ID, ctx.User.IsSuperUser, ctx.RequestID, ctx.Logger)
+	ctx.Resp = service.UpdateMultiHelmProduct(args.EnvNames, args.UpdateType, c.Param("productName"), ctx.UserID, false, ctx.RequestID, ctx.Logger)
 }
 
 func GetProduct(c *gin.Context) {
@@ -348,7 +348,7 @@ func GetProduct(c *gin.Context) {
 	envName := c.Query("envName")
 	productName := c.Param("productName")
 
-	ctx.Resp, ctx.Err = service.GetProduct(ctx.Username, envName, productName, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetProduct(ctx.UserName, envName, productName, ctx.Logger)
 }
 
 func GetProductInfo(c *gin.Context) {
@@ -358,7 +358,7 @@ func GetProductInfo(c *gin.Context) {
 	envName := c.Query("envName")
 	productName := c.Param("productName")
 
-	ctx.Resp, ctx.Err = service.GetProductInfo(ctx.Username, envName, productName, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetProductInfo(ctx.UserName, envName, productName, ctx.Logger)
 }
 
 func GetProductIngress(c *gin.Context) {
@@ -366,7 +366,7 @@ func GetProductIngress(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	productName := c.Param("productName")
-	ctx.Resp, ctx.Err = service.GetProductIngress(ctx.Username, productName, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetProductIngress(ctx.UserName, productName, ctx.Logger)
 }
 
 func ListRenderCharts(c *gin.Context) {
@@ -420,8 +420,8 @@ func DeleteProduct(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	envName := c.Query("envName")
 
-	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "删除", "集成环境", envName, "", ctx.Logger)
-	ctx.Err = commonservice.DeleteProduct(ctx.Username, envName, c.Param("productName"), ctx.RequestID, ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Param("productName"), "删除", "集成环境", envName, "", ctx.Logger)
+	ctx.Err = commonservice.DeleteProduct(ctx.UserName, envName, c.Param("productName"), ctx.RequestID, ctx.Logger)
 }
 
 func EnvShare(c *gin.Context) {
@@ -437,7 +437,7 @@ func EnvShare(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateProduct json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, productName, "更新", "集成环境-环境授权", args.EnvName, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, productName, "更新", "集成环境-环境授权", args.EnvName, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if productName == "" {
