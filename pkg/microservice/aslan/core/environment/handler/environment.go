@@ -92,7 +92,7 @@ func AutoUpdateProduct(c *gin.Context) {
 	}
 
 	force, _ := strconv.ParseBool(c.Query("force"))
-	ctx.Resp, ctx.Err = service.AutoUpdateProduct(args.EnvNames, c.Param("productName"), ctx.UserID, false, ctx.RequestID, force, ctx.Logger)
+	ctx.Resp, ctx.Err = service.AutoUpdateProduct(args.EnvNames, c.Param("productName"), ctx.RequestID, force, ctx.Logger)
 }
 
 func CreateHelmProduct(c *gin.Context) {
@@ -313,7 +313,7 @@ func UpdateMultiHelmEnv(c *gin.Context) {
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "集成环境", strings.Join(args.EnvNames, ","), string(data), ctx.Logger)
 
 	ctx.Resp, ctx.Err = service.UpdateMultipleHelmEnv(
-		ctx.RequestID, ctx.UserID, false, args, ctx.Logger,
+		ctx.RequestID, args, ctx.Logger,
 	)
 }
 
@@ -338,7 +338,7 @@ func UpdateMultiHelmProduct(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp = service.UpdateMultiHelmProduct(args.EnvNames, args.UpdateType, c.Param("productName"), ctx.UserID, false, ctx.RequestID, ctx.Logger)
+	ctx.Resp = service.UpdateMultiHelmProduct(args.EnvNames, args.UpdateType, c.Param("productName"), ctx.RequestID, ctx.Logger)
 }
 
 func GetProduct(c *gin.Context) {
