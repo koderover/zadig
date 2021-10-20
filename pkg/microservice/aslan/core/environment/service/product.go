@@ -31,7 +31,6 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -61,24 +60,24 @@ func CleanProductCronJob(requestID string, log *zap.SugaredLogger) {
 		}
 
 		if time.Now().Unix()-product.UpdateTime > int64(60*60*24*product.RecycleDay) {
-			title := "系统清理产品信息"
-			content := fmt.Sprintf("环境 [%s] 已经连续%d天没有使用, 系统已自动删除该环境, 如有需要请重新创建。", product.EnvName, product.RecycleDay)
+			//title := "系统清理产品信息"
+			//content := fmt.Sprintf("环境 [%s] 已经连续%d天没有使用, 系统已自动删除该环境, 如有需要请重新创建。", product.EnvName, product.RecycleDay)
 
 			if err := commonservice.DeleteProduct("robot", product.EnvName, product.ProductName, requestID, log); err != nil {
 				log.Errorf("[%s][P:%s] delete product error: %v", product.EnvName, product.ProductName, err)
 
 				// 如果有错误，重试删除
 				if err := commonservice.DeleteProduct("robot", product.EnvName, product.ProductName, requestID, log); err != nil {
-					content = fmt.Sprintf("系统自动清理环境 [%s] 失败，请手动删除环境。", product.ProductName)
+					//content = fmt.Sprintf("系统自动清理环境 [%s] 失败，请手动删除环境。", product.ProductName)
 					log.Errorf("[%s][P:%s] retry delete product error: %v", product.EnvName, product.ProductName, err)
 				}
 			}
 
-			poetryClient := poetry.New(config.PoetryAPIServer())
-			users, _ := poetryClient.ListProductPermissionUsers("", "", log)
-			for _, user := range users {
-				commonservice.SendMessage(user, title, content, requestID, log)
-			}
+			//poetryClient := poetry.New(config.PoetryAPIServer())
+			//users, _ := poetryClient.ListProductPermissionUsers("", "", log)
+			//for _, user := range users {
+			//	commonservice.SendMessage(user, title, content, requestID, log)
+			//}
 
 			log.Warnf("[%s] product %s deleted", product.EnvName, product.ProductName)
 		}
