@@ -1947,9 +1947,8 @@ func upsertService(isUpdate bool, env *commonmodels.Product,
 			}
 			err = unstructured.SetNestedStringMap(u.Object, kube.MergeLabels(labels, podLabels), "spec", "template", "metadata", "labels")
 			if err != nil {
-				// should not have happened
-				errList = multierror.Append(errList, fmt.Errorf("merge label failed err:%s", err))
-				continue
+				log.Errorf("merge label failed err:%s", err)
+				u.Object = setFieldValueIsNotExist(u.Object, kube.MergeLabels(labels, podLabels), "spec", "template", "metadata", "labels")
 			}
 
 			podAnnotations, _, err := unstructured.NestedStringMap(u.Object, "spec", "template", "metadata", "annotations")
@@ -1958,8 +1957,8 @@ func upsertService(isUpdate bool, env *commonmodels.Product,
 			}
 			err = unstructured.SetNestedStringMap(u.Object, applyUpdatedAnnotations(podAnnotations), "spec", "template", "metadata", "annotations")
 			if err != nil {
-				errList = multierror.Append(errList, fmt.Errorf("merge annotation failed err:%s", err))
-				continue
+				log.Errorf("merge annotation failed err:%s", err)
+				u.Object = setFieldValueIsNotExist(u.Object, applyUpdatedAnnotations(podAnnotations), "spec", "template", "metadata", "annotations")
 			}
 
 			// Inject selector: s-product and s-service
@@ -1967,11 +1966,11 @@ func upsertService(isUpdate bool, env *commonmodels.Product,
 			if err != nil {
 				selector = nil
 			}
+
 			err = unstructured.SetNestedStringMap(u.Object, kube.MergeLabels(labels, selector), "spec", "selector", "matchLabels")
 			if err != nil {
-				// should not have happened
-				errList = multierror.Append(errList, fmt.Errorf("merge selector failed err:%s", err))
-				continue
+				log.Errorf("merge selector failed err:%s", err)
+				u.Object = setFieldValueIsNotExist(u.Object, kube.MergeLabels(labels, selector), "spec", "selector", "matchLabels")
 			}
 
 			jsonData, err := u.MarshalJSON()
@@ -3047,4 +3046,21 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 		errList = multierror.Append(errList, err)
 	}
 	return errList.ErrorOrNil()
+}
+
+func setFieldValueIsNotExist(obj map[string]interface{}, value interface{}, fields ...string) map[string]interface{} {
+	m := obj
+	for _, field := range fields[:len(fields)-1] {
+		if val, ok := m[field]; ok {
+			if valMap, ok := val.(map[string]interface{}); ok {
+				m = valMap
+			} else {
+				newVal := make(map[string]interface{})
+				m[field] = newVal
+				m = newVal
+			}
+		}
+	}
+	m[fields[len(fields)-1]] = value
+	return obj
 }
