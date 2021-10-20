@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -27,6 +28,7 @@ func (c *Client) GetDockerfile(id string) (*Dockerfile, error) {
 		log.Errorf("new http request error: %v", err)
 		return nil, err
 	}
+	request.Header.Set(setting.AuthorizationHeader, fmt.Sprintf("%s %s", setting.RootAPIKey, c.Token))
 	// No auth required
 	var ret *http.Response
 	if ret, err = c.Conn.Do(request); err == nil {

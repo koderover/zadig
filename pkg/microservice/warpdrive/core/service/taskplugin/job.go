@@ -174,6 +174,7 @@ func replaceWrapLine(script string) string {
 func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName string) *types.Context {
 
 	ctx := &types.Context{
+		APIToken:       pipelineTask.ConfigPayload.APIToken,
 		Workspace:      b.PipelineCtx.Workspace,
 		CleanWorkspace: b.JobCtx.CleanWorkspace,
 		IgnoreCache:    pipelineTask.ConfigPayload.IgnoreCache,

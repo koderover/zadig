@@ -29,6 +29,8 @@ import (
 
 // Context ...
 type Context struct {
+	// API token 服务访问使用的api token
+	APIToken string `yaml:"api_token"`
 	// Workspace 容器工作目录 [必填]
 	Workspace string `yaml:"workspace"`
 

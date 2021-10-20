@@ -111,7 +111,7 @@ type ServiceTaskArgs struct {
 }
 
 type ConfigPayload struct {
-	Aslan     AslanConfig    `json:"aslan"`
+	APIToken  string         `json:"api_token"`
 	Proxy     Proxy          `json:"proxy"`
 	S3Storage S3Config       `json:"s3_storage"`
 	Github    GithubConfig   `json:"github"`

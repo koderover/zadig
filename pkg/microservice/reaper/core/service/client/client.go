@@ -12,10 +12,11 @@ type Client struct {
 }
 
 // NewAslanClient is to get aslan client func
-func NewAslanClient(host string) *Client {
+func NewAslanClient(host, token string) *Client {
 	jar, _ := cookiejar.New(nil)
 
 	c := &Client{
+		Token:   token,
 		APIBase: host,
 		Conn:    &http.Client{Transport: http.DefaultTransport, Jar: jar},
 	}
