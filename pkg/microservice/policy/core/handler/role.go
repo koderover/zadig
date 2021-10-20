@@ -56,7 +56,7 @@ func ListRoles(c *gin.Context) {
 	return
 }
 
-func CreateGlobalRole(c *gin.Context) {
+func CreatePublicRole(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -69,7 +69,7 @@ func CreateGlobalRole(c *gin.Context) {
 	ctx.Err = service.CreateRole("", args, ctx.Logger)
 }
 
-func ListGlobalRoles(c *gin.Context) {
+func ListPublicRoles(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 

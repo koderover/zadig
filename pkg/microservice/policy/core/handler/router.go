@@ -30,11 +30,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		roles.DELETE("/:name", DeleteRole)
 	}
 
-	globalRoles := router.Group("global-roles")
+	PublicRoles := router.Group("public-roles")
 	{
-		globalRoles.POST("", CreateGlobalRole)
-		globalRoles.GET("", ListGlobalRoles)
-		globalRoles.DELETE("/:name", DeleteRole)
+		PublicRoles.POST("", CreatePublicRole)
+		PublicRoles.GET("", ListPublicRoles)
+		PublicRoles.DELETE("/:name", DeleteRole)
 	}
 
 	roleBindings := router.Group("rolebindings")

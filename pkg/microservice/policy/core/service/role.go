@@ -25,6 +25,7 @@ import (
 
 type Role struct {
 	Name  string  `json:"name"`
+	Kind  string  `json:"name"`
 	Rules []*Rule `json:"rules,omitempty"`
 }
 
@@ -37,6 +38,7 @@ func CreateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
 	obj := &models.Role{
 		Name:      role.Name,
 		Namespace: ns,
+		Kind:      role.Kind,
 	}
 
 	for _, r := range role.Rules {
