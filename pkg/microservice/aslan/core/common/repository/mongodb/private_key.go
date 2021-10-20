@@ -157,3 +157,35 @@ func (c *PrivateKeyColl) Delete(id string) error {
 	_, err = c.DeleteOne(context.TODO(), query)
 	return err
 }
+
+func (c *PrivateKeyColl) ListHostIPByIDs(ids []string) ([]*models.PrivateKey, error) {
+	query := bson.M{}
+	resp := make([]*models.PrivateKey, 0)
+	ctx := context.Background()
+
+	var oids []primitive.ObjectID
+	for _, id := range ids {
+		oid, err := primitive.ObjectIDFromHex(id)
+		if err != nil {
+			return nil, err
+		}
+		oids = append(oids, oid)
+	}
+	query["_id"] = bson.M{"$in": oids}
+	opt := options.Find()
+	selector := bson.D{
+		{"ip", 1},
+	}
+	opt.SetProjection(selector)
+	cursor, err := c.Collection.Find(ctx, query, opt)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cursor.All(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, err
+}

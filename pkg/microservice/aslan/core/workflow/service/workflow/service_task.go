@@ -142,7 +142,7 @@ func ListServiceWorkflows(productName, envName, serviceName, serviceType string,
 		}
 	}
 
-	allModules, err := ListBuildDetail("", "", "", log)
+	allModules, err := ListBuildDetail("", "", log)
 	if err != nil {
 		log.Errorf("BuildModule.ListDetail error: %v", err)
 		return resp, e.ErrListBuildModule.AddDesc(err.Error())
@@ -157,7 +157,7 @@ func ListServiceWorkflows(productName, envName, serviceName, serviceType string,
 				ServiceModule: container.Name,
 			}
 			serviceModuleTarget := fmt.Sprintf("%s%s%s%s%s", service.ProductName, SplitSymbol, service.ServiceName, SplitSymbol, container.Name)
-			moBuild := findModuleByTargetAndVersion(allModules, serviceModuleTarget, setting.Version)
+			moBuild := findModuleByTargetAndVersion(allModules, serviceModuleTarget)
 			if moBuild == nil {
 				continue
 			}
@@ -170,7 +170,7 @@ func ListServiceWorkflows(productName, envName, serviceName, serviceType string,
 			ServiceModule: service.ServiceName,
 		}
 		serviceModuleTarget := fmt.Sprintf("%s%s%s%s%s", service.ProductName, SplitSymbol, service.ServiceName, SplitSymbol, service.ServiceName)
-		moBuild := findModuleByTargetAndVersion(allModules, serviceModuleTarget, setting.Version)
+		moBuild := findModuleByTargetAndVersion(allModules, serviceModuleTarget)
 		if moBuild != nil {
 			resp.Targets = append(resp.Targets, target)
 		}
@@ -215,7 +215,7 @@ func CreateServiceTask(args *commonmodels.ServiceTaskArgs, log *zap.SugaredLogge
 	}
 
 	stages := make([]*commonmodels.Stage, 0)
-	subTasks, err := BuildModuleToSubTasks("", "stable", args.ServiceName, args.ServiceName, args.ProductName, nil, nil, log)
+	subTasks, err := BuildModuleToSubTasks("", args.ServiceName, args.ServiceName, args.ProductName, nil, nil, log)
 	if err != nil {
 		return nil, e.ErrCreateTask.AddErr(err)
 	}
@@ -232,7 +232,7 @@ func CreateServiceTask(args *commonmodels.ServiceTaskArgs, log *zap.SugaredLogge
 	}
 	sort.Sort(ByTaskKind(task.SubTasks))
 
-	if err := ensurePipelineTask(task, log); err != nil {
+	if err := ensurePipelineTask(task, "", log); err != nil {
 		log.Errorf("CreateServiceTask ensurePipelineTask err : %v", err)
 		return nil, err
 	}
@@ -289,7 +289,6 @@ func serviceTaskArgsToTaskArgs(serviceTaskArgs *commonmodels.ServiceTaskArgs) *c
 	resp := &commonmodels.TaskArgs{ProductName: serviceTaskArgs.ProductName, TaskCreator: serviceTaskArgs.ServiceTaskCreator}
 	opt := &commonrepo.BuildFindOption{
 		Name:        serviceTaskArgs.BuildName,
-		Version:     "stable",
 		ProductName: serviceTaskArgs.ProductName,
 	}
 	buildObj, err := commonrepo.NewBuildColl().Find(opt)
