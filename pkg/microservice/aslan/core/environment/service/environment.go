@@ -1943,7 +1943,7 @@ func upsertService(isUpdate bool, env *commonmodels.Product,
 
 			podLabels, _, err := unstructured.NestedStringMap(u.Object, "spec", "template", "metadata", "labels")
 			if err != nil {
-				podLabels = map[string]string{}
+				podLabels = nil
 			}
 			err = unstructured.SetNestedStringMap(u.Object, kube.MergeLabels(labels, podLabels), "spec", "template", "metadata", "labels")
 			if err != nil {
@@ -1954,7 +1954,7 @@ func upsertService(isUpdate bool, env *commonmodels.Product,
 
 			podAnnotations, _, err := unstructured.NestedStringMap(u.Object, "spec", "template", "metadata", "annotations")
 			if err != nil {
-				podAnnotations = map[string]string{}
+				podAnnotations = nil
 			}
 			err = unstructured.SetNestedStringMap(u.Object, applyUpdatedAnnotations(podAnnotations), "spec", "template", "metadata", "annotations")
 			if err != nil {
@@ -1965,7 +1965,7 @@ func upsertService(isUpdate bool, env *commonmodels.Product,
 			// Inject selector: s-product and s-service
 			selector, _, err := unstructured.NestedStringMap(u.Object, "spec", "selector", "matchLabels")
 			if err != nil {
-				selector = map[string]string{}
+				selector = nil
 			}
 			err = unstructured.SetNestedStringMap(u.Object, kube.MergeLabels(labels, selector), "spec", "selector", "matchLabels")
 			if err != nil {
