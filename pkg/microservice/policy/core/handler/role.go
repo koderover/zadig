@@ -56,7 +56,7 @@ func ListRoles(c *gin.Context) {
 	return
 }
 
-func CreateGlobalRole(c *gin.Context) {
+func CreatePublicRole(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -69,7 +69,7 @@ func CreateGlobalRole(c *gin.Context) {
 	ctx.Err = service.CreateRole("", args, ctx.Logger)
 }
 
-func ListGlobalRoles(c *gin.Context) {
+func ListPublicRoles(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -83,5 +83,42 @@ func DeleteRole(c *gin.Context) {
 	name := c.Param("name")
 	projectName := c.Query("projectName")
 	ctx.Err = service.DeleteRole(name, projectName, ctx.Logger)
+	return
+}
+
+func DeletePublicRole(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	name := c.Param("name")
+	ctx.Err = service.DeleteRole(name, "", ctx.Logger)
+	return
+}
+
+func CreateSystemRole(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := &service.Role{}
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Err = service.CreateRole("*", args, ctx.Logger)
+}
+
+func ListSystemRoles(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.ListRoles("*", ctx.Logger)
+	return
+}
+
+func DeleteSystemRole(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	name := c.Param("name")
+	ctx.Err = service.DeleteRole(name, "*", ctx.Logger)
 	return
 }
