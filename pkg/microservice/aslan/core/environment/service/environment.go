@@ -1941,26 +1941,37 @@ func upsertService(isUpdate bool, env *commonmodels.Product,
 			u.SetAPIVersion(setting.APIVersionAppsV1)
 			u.SetLabels(kube.MergeLabels(labels, u.GetLabels()))
 
-			podLabels, _, _ := unstructured.NestedStringMap(u.Object, "spec", "template", "metadata", "labels")
-			err := unstructured.SetNestedStringMap(u.Object, kube.MergeLabels(labels, podLabels), "spec", "template", "metadata", "labels")
+			podLabels, _, err := unstructured.NestedStringMap(u.Object, "spec", "template", "metadata", "labels")
+			if err != nil {
+				podLabels = map[string]string{}
+			}
+			err = unstructured.SetNestedStringMap(u.Object, kube.MergeLabels(labels, podLabels), "spec", "template", "metadata", "labels")
 			if err != nil {
 				// should not have happened
-				panic(err)
+				errList = multierror.Append(errList, fmt.Errorf("merge label failed err:%s", err))
+				continue
 			}
 
-			podAnnotations, _, _ := unstructured.NestedStringMap(u.Object, "spec", "template", "metadata", "annotations")
+			podAnnotations, _, err := unstructured.NestedStringMap(u.Object, "spec", "template", "metadata", "annotations")
+			if err != nil {
+				podAnnotations = map[string]string{}
+			}
 			err = unstructured.SetNestedStringMap(u.Object, applyUpdatedAnnotations(podAnnotations), "spec", "template", "metadata", "annotations")
 			if err != nil {
-				// should not have happened
-				panic(err)
+				errList = multierror.Append(errList, fmt.Errorf("merge annotation failed err:%s", err))
+				continue
 			}
 
 			// Inject selector: s-product and s-service
-			selector, _, _ := unstructured.NestedStringMap(u.Object, "spec", "selector", "matchLabels")
+			selector, _, err := unstructured.NestedStringMap(u.Object, "spec", "selector", "matchLabels")
+			if err != nil {
+				selector = map[string]string{}
+			}
 			err = unstructured.SetNestedStringMap(u.Object, kube.MergeLabels(labels, selector), "spec", "selector", "matchLabels")
 			if err != nil {
 				// should not have happened
-				panic(err)
+				errList = multierror.Append(errList, fmt.Errorf("merge selector failed err:%s", err))
+				continue
 			}
 
 			jsonData, err := u.MarshalJSON()
