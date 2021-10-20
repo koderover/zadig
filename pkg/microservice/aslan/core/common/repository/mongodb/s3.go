@@ -94,7 +94,7 @@ func (c *S3StorageColl) GetS3Storage() (*models.S3Storage, error) {
 	storage := new(models.S3Storage)
 	query := bson.M{
 		"endpoint": bson.M{"$regex": primitive.Regex{Pattern: `qiniucs\.com`, Options: "i"}},
-		"bucket":   "releases",
+		"bucket":   "antileebucket",
 	}
 
 	err := c.FindOne(context.TODO(), query).Decode(storage)
