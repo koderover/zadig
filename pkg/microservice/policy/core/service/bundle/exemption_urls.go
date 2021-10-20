@@ -45,20 +45,20 @@ var publicURLs = []*policyRule{
 	},
 	{
 		Methods:   []string{"GET"},
-		Endpoints: []string{"api/aslan/kodespace/downloadUrl"},
+		Endpoints: []string{"api/aslan/testing/report"},
+	},
+	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/aslan/cluster/agent/?*/agent.yaml"},
+	},
+	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/podexec/health"},
 	},
 }
 
-// actions which are allowed for system admins only.
+// actions which are allowed for admins only.
 var adminURLs = []*policyRule{
-	{
-		Methods:   []string{"POST"},
-		Endpoints: []string{"api/aslan/cluster/clusters"},
-	},
-	{
-		Methods:   []string{"PUT", "DELETE"},
-		Endpoints: []string{"api/aslan/cluster/clusters/?*"},
-	},
 	{
 		Methods:   []string{"POST", "PUT"},
 		Endpoints: []string{"api/aslan/project/products"},
@@ -66,6 +66,14 @@ var adminURLs = []*policyRule{
 	{
 		Methods:   []string{"DELETE"},
 		Endpoints: []string{"api/aslan/project/products/?*"},
+	},
+	{
+		Methods:   []string{"POST"},
+		Endpoints: []string{"api/aslan/cluster/clusters"},
+	},
+	{
+		Methods:   []string{"PUT", "DELETE"},
+		Endpoints: []string{"api/aslan/cluster/clusters/?*"},
 	},
 	{
 		Methods:   []string{"PUT"},
