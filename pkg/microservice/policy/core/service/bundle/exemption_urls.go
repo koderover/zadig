@@ -55,4 +55,128 @@ var adminURLs = []*policyRule{
 		Methods:   []string{"POST"},
 		Endpoints: []string{"api/aslan/cluster/clusters"},
 	},
+	{
+		Methods:   []string{"PUT", "DELETE"},
+		Endpoints: []string{"api/aslan/cluster/clusters/?*"},
+	},
+	{
+		Methods:   []string{"POST", "PUT"},
+		Endpoints: []string{"api/aslan/project/products"},
+	},
+	{
+		Methods:   []string{"DELETE"},
+		Endpoints: []string{"api/aslan/project/products/?*"},
+	},
+	{
+		Methods:   []string{"PUT"},
+		Endpoints: []string{"api/aslan/cluster/clusters/?*/disconnect"},
+	},
+	{
+		Methods:   []string{"PUT"},
+		Endpoints: []string{"api/aslan/cluster/clusters/?*/reconnect"},
+	},
+	{
+		Methods:   []string{"POST", "PUT"},
+		Endpoints: []string{"api/aslan/system/install"},
+	},
+	{
+		Methods:   []string{"PUT"},
+		Endpoints: []string{"api/aslan/system/install/delete"},
+	},
+	{
+		Methods:   []string{"POST"},
+		Endpoints: []string{"api/aslan/system/proxyManage"},
+	},
+	{
+		Methods:   []string{"PUT", "DELETE"},
+		Endpoints: []string{"api/aslan/system/proxyManage/?*"},
+	},
+	{
+		Methods:   []string{"GET", "POST"},
+		Endpoints: []string{"api/aslan/system/registry/namespaces"},
+	},
+	{
+		Methods:   []string{"PUT", "DELETE"},
+		Endpoints: []string{"api/aslan/system/registry/namespaces/?*"},
+	},
+	{
+		Methods:   []string{"POST"},
+		Endpoints: []string{"api/aslan/system/s3storage"},
+	},
+	{
+		Methods:   []string{"PUT", "DELETE"},
+		Endpoints: []string{"api/aslan/system/s3storage/?*"},
+	},
+	{
+		Methods:   []string{"POST"},
+		Endpoints: []string{"api/aslan/system/githubApp"},
+	},
+	{
+		Methods:   []string{"DELETE"},
+		Endpoints: []string{"api/aslan/system/githubApp/?*"},
+	},
+	{
+		Methods:   []string{"POST"},
+		Endpoints: []string{"api/aslan/system/jenkins/integration"},
+	},
+	{
+		Methods:   []string{"PUT", "DELETE"},
+		Endpoints: []string{"api/aslan/system/jenkins/integration/?*"},
+	},
+	{
+		Methods:   []string{"POST"},
+		Endpoints: []string{"api/aslan/system/jenkins/integration/user/connection"},
+	},
+	{
+		Methods:   []string{"POST"},
+		Endpoints: []string{"api/aslan/system/basicImages"},
+	},
+	{
+		Methods:   []string{"PUT", "DELETE"},
+		Endpoints: []string{"api/aslan/system/basicImages/?*"},
+	},
+	{
+		Methods:   []string{"POST"},
+		Endpoints: []string{"api/aslan/system/helm"},
+	},
+	{
+		Methods:   []string{"PUT", "DELETE"},
+		Endpoints: []string{"api/aslan/system/helm/?*"},
+	},
+	{
+		Methods:   []string{"POST"},
+		Endpoints: []string{"api/aslan/system/privateKey"},
+	},
+	{
+		Methods:   []string{"PUT", "DELETE"},
+		Endpoints: []string{"api/aslan/system/privateKey/?*"},
+	},
+	{
+		Methods:   []string{"POST"},
+		Endpoints: []string{"api/aslan/system/announcement"},
+	},
+	{
+		Methods:   []string{"PUT"},
+		Endpoints: []string{"api/aslan/system/announcement/update"},
+	},
+	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/aslan/system/announcement/all"},
+	},
+	{
+		Methods:   []string{"DELETE"},
+		Endpoints: []string{"api/aslan/system/announcement/?*"},
+	},
+	{
+		Methods:   []string{"GET", "POST"},
+		Endpoints: []string{"api/aslan/system/operation"},
+	},
+	{
+		Methods:   []string{"PUT"},
+		Endpoints: []string{"api/aslan/system/operation/?*"},
+	},
+	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/aslan/system/proxy/config"},
+	},
 }
