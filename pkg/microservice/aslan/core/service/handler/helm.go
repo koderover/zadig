@@ -69,6 +69,20 @@ func CreateOrUpdateHelmService(c *gin.Context) {
 	ctx.Err = svcservice.CreateOrUpdateHelmService(c.Query("productName"), args, ctx.Logger)
 }
 
+func CreateOrUpdateBulkHelmServices(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(svcservice.BulkHelmServiceCreationArgs)
+	if err := c.BindJSON(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid HelmService json args")
+		return
+	}
+	args.CreatedBy = ctx.Username
+
+	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateBulkHelmService(c.Query("productName"), args, ctx.Logger)
+}
+
 func UpdateHelmService(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
