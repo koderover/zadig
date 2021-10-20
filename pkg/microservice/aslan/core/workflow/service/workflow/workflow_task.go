@@ -250,7 +250,7 @@ func EnsureBuildResp(mb *commonmodels.Build) {
 
 func ListBuildDetail(name, targets string, log *zap.SugaredLogger) ([]*commonmodels.Build, error) {
 	opt := &commonrepo.BuildListOption{
-		Name:    name,
+		Name: name,
 	}
 
 	if len(strings.TrimSpace(targets)) != 0 {
@@ -1054,6 +1054,7 @@ func deployEnvToSubTasks(env commonmodels.DeployEnv, prodEnv *commonmodels.Produ
 			ProductName: prodEnv.ProductName,
 			EnvName:     prodEnv.EnvName,
 			Timeout:     timeout,
+			ClusterID:   prodEnv.ClusterID,
 		}
 	)
 
