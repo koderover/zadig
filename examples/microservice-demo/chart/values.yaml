@@ -15,10 +15,7 @@ Frontend:
     repository: ccr.ccs.tencentyun.com/koderover-public/frontend
     tag: "latest"
 
-domain: .app.8slan.com
+domain: demo.domain.com
 port: 20219
 
 registrySecret: ""
-
-
-

@@ -49,7 +49,7 @@ func CreateTestTask(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateTestTask json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "新增", "测试-task", fmt.Sprintf("%s-%s", args.TestName, "job"), "", string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "新增", "测试-task", fmt.Sprintf("%s-%s", args.TestName, "job"), string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
@@ -72,7 +72,7 @@ func RestartTestTask(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "重启", "测试任务", c.Param("name"), "", "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "重启", "测试任务", c.Param("name"), "", ctx.Logger)
 
 	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -86,7 +86,7 @@ func RestartTestTask(c *gin.Context) {
 func CancelTestTaskV2(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "取消", "测试任务", c.Param("name"), "", "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "取消", "测试任务", c.Param("name"), "", ctx.Logger)
 
 	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {

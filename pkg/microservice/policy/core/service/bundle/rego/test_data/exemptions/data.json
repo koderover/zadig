@@ -1,0 +1,20 @@
+{
+  "global": [
+    {
+      "method": "GET",
+      "endpoint": "/version"
+    }
+  ],
+  "namespaced": [
+    {
+      "method": "GET",
+      "endpoint": "/version1"
+    }
+  ],
+  "public": [
+    {
+      "method": "POST",
+      "endpoint": "/api/aslan/webhook"
+    }
+  ]
+}

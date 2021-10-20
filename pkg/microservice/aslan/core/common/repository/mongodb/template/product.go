@@ -207,6 +207,8 @@ func (c *ProductColl) Update(productName string, args *template.Product) error {
 		"timeout":               args.Timeout,
 		"shared_services":       args.SharedServices,
 		"image_searching_rules": args.ImageSearchingRules,
+		"custom_tar_rule":       args.CustomTarRule,
+		"custom_image_rule":     args.CustomImageRule,
 	}}
 
 	_, err := c.UpdateOne(context.TODO(), query, change)
