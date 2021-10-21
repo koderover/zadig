@@ -1,5 +1,5 @@
 resource: Delivery
-alias: "交付"
+alias: "交付中心"
 description: ""
 rules:
   - action: get_delivery

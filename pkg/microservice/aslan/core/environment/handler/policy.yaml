@@ -3,7 +3,7 @@ alias: "集成环境"
 description: ""
 rules:
   - action: get_environment
-    alias: "查看环境"
+    alias: "查看集成环境"
     description: ""
     rules:
       - method: GET
@@ -21,7 +21,7 @@ rules:
       - method: GET
         endpoint: "/api/aslan/service/workloads"
   - action: create_environment
-    alias: "新建环境"
+    alias: "新建集成环境"
     description: ""
     rules:
       - method: POST
@@ -31,7 +31,7 @@ rules:
       - method: POST
         endpoint: "/api/aslan/service/workloads"
   - action: config_environment
-    alias: "配置环境"
+    alias: "配置集成环境"
     description: ""
     rules:
       - method: PUT
@@ -47,7 +47,7 @@ rules:
       - method: PUT
         endpoint: "/api/aslan/service/workloads"
   - action: update_environment
-    alias: "更新环境"
+    alias: "管理服务实例"
     description: ""
     rules:
       - method: POST
@@ -81,7 +81,7 @@ rules:
       - method: PUT
         endpoint: " /api/podexec/?*/?*/?*/?*/podExec"
   - action: delete_environment
-    alias: "删除环境"
+    alias: "删除集成环境"
     description: ""
     rules:
       - method: DELETE

@@ -1,5 +1,5 @@
 resource: Test
-alias: "测试"
+alias: "质量管理"
 description: ""
 rules:
   - action: get_test

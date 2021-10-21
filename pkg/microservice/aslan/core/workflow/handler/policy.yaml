@@ -21,6 +21,8 @@ rules:
       - method: GET
         endpoint: "/api/aslan/logs/log/workflow/?*/tasks/?*/service/?*"
       - method: GET
+        endpoint: "/api/aslan/logs/sse/workflow/test/?*/?*/?*/?*/?*"
+      - method: GET
         endpoint: "/api/aslan/logs/log/workflow/?*/tasks/?*/tests/test/service/?*"
       - method: GET
         endpoint: "/api/aslan/logs/log/workflow/?*/tasks/?*/tests/test/service/?*"
