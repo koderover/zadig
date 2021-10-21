@@ -60,7 +60,7 @@ func ListProducts(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam
 		return
 	}
-	ctx.Resp, ctx.Err = service.ListProducts(c.Query("productName"), ctx.UserName, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListProducts(c.Query("projectName"), ctx.UserName, ctx.Logger)
 }
 
 func AutoCreateProduct(c *gin.Context) {
