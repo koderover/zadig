@@ -533,7 +533,11 @@ func releaseCandidate(b *task.Build, taskID int64, productName, envName, deliver
 	}
 	switch deliveryType {
 	case config.TarResourceType:
-		return replaceVariable(customTarRule, candidate)
+		newTarRule := replaceVariable(customTarRule, candidate)
+		if strings.Contains(newTarRule, ":") {
+			return strings.Replace(newTarRule, ":", "-", -1)
+		}
+		return newTarRule
 	default:
 		return replaceVariable(customImageRule, candidate)
 	}
