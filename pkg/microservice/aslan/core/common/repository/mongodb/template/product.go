@@ -32,9 +32,12 @@ import (
 )
 
 type ProjectInfo struct {
-	Name  string `bson:"product_name"`
-	Alias string `bson:"project_name"`
-	Desc  string `bson:"description"`
+	Name          string `bson:"product_name"`
+	Alias         string `bson:"project_name"`
+	Desc          string `bson:"description"`
+	UpdatedAt     int64  `bson:"update_time"`
+	UpdatedBy     string `bson:"update_by"`
+	OnboardStatus int    `bson:"onboarding_status"`
 }
 
 type ProductColl struct {
@@ -98,6 +101,9 @@ func (c *ProductColl) ListProjectBriefs(inNames []string) ([]*ProjectInfo, error
 		{"product_name", 1},
 		{"project_name", 1},
 		{"description", 1},
+		{"update_time", 1},
+		{"update_by", 1},
+		{"onboarding_status", 1},
 	})
 }
 
