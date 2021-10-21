@@ -241,6 +241,12 @@ func (rc *RenderChart) DiffOverrideYaml(other *RenderChart) bool {
 	if other.OverrideYaml == nil {
 		return true
 	}
+	if rc.OverrideYaml.GitRepoConfig == nil && other.OverrideYaml.GitRepoConfig != nil {
+		return true
+	}
+	if rc.OverrideYaml.GitRepoConfig != nil && other.OverrideYaml.GitRepoConfig == nil {
+		return true
+	}
 	if rc.OverrideYaml.YamlSource != other.OverrideYaml.YamlSource || rc.OverrideYaml.YamlContent != other.OverrideYaml.YamlContent {
 		return true
 	}
