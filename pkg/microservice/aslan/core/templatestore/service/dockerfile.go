@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"go.uber.org/zap"
-
 	dockerfileinstructions "github.com/moby/buildkit/frontend/dockerfile/instructions"
 	dockerfileparser "github.com/moby/buildkit/frontend/dockerfile/parser"
+	"go.uber.org/zap"
 
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/repository/models"
@@ -46,6 +45,7 @@ func ListDockerfileTemplate(pageNum, pageSize int, logger *zap.SugaredLogger) ([
 	templateList, total, err := mongodb.NewDockerfileTemplateColl().List(pageNum, pageSize)
 	if err != nil {
 		logger.Errorf("list dockerfile template error: %s", err)
+		return resp, 0, err
 	}
 	for _, obj := range templateList {
 		resp = append(resp, &DockerfileListObject{
@@ -60,7 +60,7 @@ func GetDockerfileTemplateDetail(id string, logger *zap.SugaredLogger) (*Dockerf
 	resp := new(DockerfileDetail)
 	dockerfileTemplate, err := mongodb.NewDockerfileTemplateColl().GetById(id)
 	if err != nil {
-		logger.Errorf("Failed to get dockerfile template from id: %s, the error is: %+v", id, err)
+		logger.Errorf("Failed to get dockerfile template from id: %s, the error is: %s", id, err)
 		return nil, err
 	}
 	variables, err := getVariables(dockerfileTemplate.Content, logger)
@@ -77,7 +77,7 @@ func GetDockerfileTemplateDetail(id string, logger *zap.SugaredLogger) (*Dockerf
 func DeleteDockerfileTemplate(id string, logger *zap.SugaredLogger) error {
 	err := mongodb.NewDockerfileTemplateColl().DeleteByID(id)
 	if err != nil {
-		logger.Errorf("Failed to delete dockerfile template of id: %s, the error is: %+v", id, err)
+		logger.Errorf("Failed to delete dockerfile template of id: %s, the error is: %s", id, err)
 	}
 	return err
 }
@@ -86,7 +86,7 @@ func GetDockerfileTemplateReference(id string, logger *zap.SugaredLogger) ([]*Bu
 	ret := make([]*BuildReference, 0)
 	referenceList, err := commonrepo.NewBuildColl().GetDockerfileTemplateReference(id)
 	if err != nil {
-		logger.Errorf("Failed to get build reference for dockerfile template id: %s, the error is: %+v", id, err)
+		logger.Errorf("Failed to get build reference for dockerfile template id: %s, the error is: %s", id, err)
 		return ret, err
 	}
 	for _, reference := range referenceList {
@@ -117,12 +117,12 @@ func getVariables(s string, logger *zap.SugaredLogger) ([]*Variable, error) {
 	reader := strings.NewReader(s)
 	result, err := dockerfileparser.Parse(reader)
 	if err != nil {
-		logger.Errorf("Failed to parse the dockerfile from source, the error is: %+v", err)
+		logger.Errorf("Failed to parse the dockerfile from source, the error is: %s", err)
 		return []*Variable{}, err
 	}
 	stages, _, err := dockerfileinstructions.Parse(result.AST)
 	if err != nil {
-		logger.Errorf("Failed to parse stages from generated dockerfile AST, the error is: %+v", err)
+		logger.Errorf("Failed to parse stages from generated dockerfile AST, the error is: %s", err)
 		return []*Variable{}, err
 	}
 	keyMap := make(map[string]int)

@@ -2,11 +2,8 @@ package handler
 
 import (
 	"errors"
-	"strings"
 
 	"github.com/gin-gonic/gin"
-	dockerfileinstructions "github.com/moby/buildkit/frontend/dockerfile/instructions"
-	dockerfileparser "github.com/moby/buildkit/frontend/dockerfile/parser"
 
 	templateservice "github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -24,13 +21,7 @@ func CreateDockerfileTemplate(c *gin.Context) {
 	}
 
 	// some dockerfile validation stuff
-	reader := strings.NewReader(req.Content)
-	result, err := dockerfileparser.Parse(reader)
-	if err != nil {
-		ctx.Err = errors.New("invalid dockerfile, please check")
-		return
-	}
-	_, _, err = dockerfileinstructions.Parse(result.AST)
+	err := templateservice.ValidateDockerfileTemplate(req.Content, ctx.Logger)
 	if err != nil {
 		ctx.Err = errors.New("invalid dockerfile, please check")
 		return
@@ -51,13 +42,7 @@ func UpdateDockerfileTemplate(c *gin.Context) {
 	}
 
 	// some dockerfile validation stuff
-	reader := strings.NewReader(req.Content)
-	result, err := dockerfileparser.Parse(reader)
-	if err != nil {
-		ctx.Err = errors.New("invalid dockerfile, please check")
-		return
-	}
-	_, _, err = dockerfileinstructions.Parse(result.AST)
+	err := templateservice.ValidateDockerfileTemplate(req.Content, ctx.Logger)
 	if err != nil {
 		ctx.Err = errors.New("invalid dockerfile, please check")
 		return

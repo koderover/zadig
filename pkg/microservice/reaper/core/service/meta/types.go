@@ -141,7 +141,7 @@ type DockerBuildCtx struct {
 
 func (c *DockerBuildCtx) GetDockerFile() string {
 	// if the source of the dockerfile is from template, we write our own dockerfile
-	if c.Source == "template" {
+	if c.Source == setting.DockerfileSourceTemplate {
 		return fmt.Sprintf("/%s", setting.ZadigDockerfilePath)
 	}
 	if c.DockerFile == "" {
