@@ -33,7 +33,7 @@ import (
 	deliveryhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/delivery/handler"
 	environmenthandler "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/handler"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
-	servicehandler "github.com/koderover/zadig/pkg/microservice/aslan/core/service/handler"
+	projecthandler "github.com/koderover/zadig/pkg/microservice/aslan/core/project/handler"
 	systemrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/mongodb"
 	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	workflowhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/handler"
@@ -83,7 +83,7 @@ func registerPolicies() {
 	for _, r := range []policyGetter{
 		new(workflowhandler.Router),
 		new(environmenthandler.Router),
-		new(servicehandler.Router),
+		new(projecthandler.Router),
 		new(testinghandler.Router),
 		new(deliveryhandler.Router),
 	} {
