@@ -399,7 +399,7 @@ func GetEstimatedRenderCharts(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	productName := c.Query("productName")
+	productName := c.Query("projectName")
 	if productName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("productName can't be empty!")
 	}

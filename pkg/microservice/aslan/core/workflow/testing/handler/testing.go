@@ -99,7 +99,7 @@ func ListTestModules(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListTestingOpt(c.Query("productName"), c.Query("testType"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListTestingOpt(c.Query("projectName"), c.Query("testType"), ctx.Logger)
 }
 
 func GetTestModule(c *gin.Context) {
@@ -112,14 +112,14 @@ func GetTestModule(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty Name")
 		return
 	}
-	ctx.Resp, ctx.Err = service.GetTesting(name, c.Query("productName"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetTesting(name, c.Query("projectName"), ctx.Logger)
 }
 
 func DeleteTestModule(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("productName"), "删除", "项目管理-测试", c.Param("name"), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "删除", "项目管理-测试", c.Param("name"), "", ctx.Logger)
 
 	name := c.Param("name")
 	if name == "" {
@@ -127,7 +127,7 @@ func DeleteTestModule(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.DeleteTestModule(name, c.Query("productName"), ctx.RequestID, ctx.Logger)
+	ctx.Err = service.DeleteTestModule(name, c.Query("projectName"), ctx.RequestID, ctx.Logger)
 }
 
 func GetHTMLTestReport(c *gin.Context) {

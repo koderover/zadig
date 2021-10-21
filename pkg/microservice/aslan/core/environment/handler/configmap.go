@@ -36,7 +36,7 @@ func ListConfigMaps(c *gin.Context) {
 
 	args := &service.ListConfigMapArgs{
 		EnvName:     c.Query("envName"),
-		ProductName: c.Query("productName"),
+		ProductName: c.Query("projectName"),
 		ServiceName: c.Query("serviceName"),
 	}
 

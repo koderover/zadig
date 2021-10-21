@@ -125,7 +125,7 @@ func UpdateProject(c *gin.Context) {
 		return
 	}
 	args.UpdateBy = ctx.UserName
-	productName := c.Query("productName")
+	productName := c.Query("projectName")
 	if productName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("productName can't be empty")
 		return

@@ -35,7 +35,7 @@ func ListFavoritePipelines(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	productName := c.Query("productName")
+	productName := c.Query("projectName")
 	workflowType := c.Query("type")
 	if workflowType == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("type can't be empty!")
