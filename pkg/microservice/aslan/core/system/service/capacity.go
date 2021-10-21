@@ -25,10 +25,8 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/poetry"
 	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
@@ -173,19 +171,19 @@ func sendSyscapNotify(handleErr error, totalCleanTasks *int) {
 		content.Content = fmt.Sprintf("清理时间: %s, 状态: 失败, 内容: %v", now, handleErr)
 	}
 
-	notifyInfo := &commonmodels.Notify{
-		Type:       config.Message,
-		Content:    content,
-		CreateTime: time.Now().Unix(),
-		IsRead:     false,
-	}
+	//notifyInfo := &commonmodels.Notify{
+	//	Type:       config.Message,
+	//	Content:    content,
+	//	CreateTime: time.Now().Unix(),
+	//	IsRead:     false,
+	//}
 
-	poetryClient := poetry.New(config.PoetryAPIServer())
-	users, _ := poetryClient.ListProductPermissionUsers("", "", log.SugaredLogger())
-	for _, user := range users {
-		notifyInfo.Receiver = user
-		notify.NewNotifyClient().CreateNotify(user, notifyInfo)
-	}
+	//poetryClient := poetry.New(config.PoetryAPIServer())
+	//users, _ := poetryClient.ListProductPermissionUsers("", "", log.SugaredLogger())
+	//for _, user := range users {
+	//	notifyInfo.Receiver = user
+	//	notify.NewNotifyClient().CreateNotify(user, notifyInfo)
+	//}
 }
 
 func handleWorkflowTaskRetentionCenter(strategy *commonmodels.CapacityStrategy, dryRun bool) error {
