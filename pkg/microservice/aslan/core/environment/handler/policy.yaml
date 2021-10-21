@@ -46,7 +46,7 @@ rules:
         endpoint: "/api/aslan/environment/environments/?*/multiHelmEnv"
       - method: PUT
         endpoint: "/api/aslan/service/workloads"
-  - action: update_environment
+  - action: manage_environment
     alias: "管理服务实例"
     description: ""
     rules:
