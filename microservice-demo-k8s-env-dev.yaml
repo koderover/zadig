@@ -1,0 +1,66 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"extensions/v1beta1","kind":"Ingress","metadata":{"annotations":{"kubernetes.io/ingress.class":"koderover-nginx","nginx.ingress.kubernetes.io/proxy-body-size":"100m","nginx.ingress.kubernetes.io/proxy-connect-timeout":"300","nginx.ingress.kubernetes.io/proxy-read-timeout":"300","nginx.ingress.kubernetes.io/proxy-send-timeout":"300"},"labels":{"app.kubernetes.io/instance":"frontend","app.kubernetes.io/name":"demo","s-product":"microservice-demo-k8s","s-service":"frontend"},"name":"frontend","namespace":"microservice-demo-k8s-env-dev"},"spec":{"rules":[{"host":"dev-microservice.test.8slan.com","http":{"paths":[{"backend":{"serviceName":"frontend","servicePort":80},"path":"/"}]}}]}}
+    kubernetes.io/ingress.class: koderover-nginx
+    nginx.ingress.kubernetes.io/proxy-body-size: 100m
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+  creationTimestamp: "2021-10-21T11:53:19Z"
+  generation: 2
+  labels:
+    app.kubernetes.io/instance: frontend
+    app.kubernetes.io/name: demo
+  managedFields:
+  - apiVersion: extensions/v1beta1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:metadata:
+        f:annotations:
+          .: {}
+          f:kubectl.kubernetes.io/last-applied-configuration: {}
+          f:kubernetes.io/ingress.class: {}
+          f:nginx.ingress.kubernetes.io/proxy-body-size: {}
+          f:nginx.ingress.kubernetes.io/proxy-connect-timeout: {}
+          f:nginx.ingress.kubernetes.io/proxy-read-timeout: {}
+          f:nginx.ingress.kubernetes.io/proxy-send-timeout: {}
+        f:labels:
+          .: {}
+          f:app.kubernetes.io/instance: {}
+          f:app.kubernetes.io/name: {}
+          f:s-product: {}
+          f:s-service: {}
+      f:spec:
+        f:rules: {}
+    manager: aslan
+    operation: Update
+    time: "2021-10-21T11:53:19Z"
+  - apiVersion: networking.k8s.io/v1beta1
+    fieldsType: FieldsV1
+    fieldsV1:
+      f:status:
+        f:loadBalancer:
+          f:ingress: {}
+    manager: nginx-ingress-controller
+    operation: Update
+    time: "2021-10-21T11:53:47Z"
+  name: frontend
+  namespace: mouuii-external
+  resourceVersion: "1726174826"
+  selfLink: /apis/networking.k8s.io/v1/namespaces/microservice-demo-k8s-env-dev/ingresses/frontend
+  uid: 3ae8383a-0568-4abd-b4b7-3fe74910cb7a
+spec:
+  rules:
+  - host: microservice-demo.test.8slan.com
+    http:
+      paths:
+      - backend:
+          service:
+            name: frontend
+            port:
+              number: 80
+        path: /
+        pathType: ImplementationSpecific
