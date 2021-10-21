@@ -1,0 +1,34 @@
+resource: Test
+alias: "测试"
+description: ""
+rules:
+  - action: get_test
+    alias: "查看测试"
+    description: ""
+    rules:
+      - method: GET
+        endpoint: "/api/aslan/testing/test"
+      - method: GET
+        endpoint: "/api/aslan/testing/test/?*"
+      - method: GET
+        endpoint: "/api/aslan/testing/testdetail"
+      - method: GET
+        endpoint: "/api/aslan/workflow/workflow/testName/?*"
+  - action: edit_test
+    alias: "编辑测试"
+    description: ""
+    rules:
+      - method: PUT
+        endpoint: "/api/aslan/testing/test"
+  - action: delete_test
+    alias: "删除测试"
+    description: ""
+    rules:
+      - method: DELETE
+        endpoint: "/api/aslan/testing/test/?*"
+  - action: create_test
+    alias: "新建测试"
+    description: ""
+    rules:
+      - method: POST
+        endpoint: "/api/aslan/testing/test"

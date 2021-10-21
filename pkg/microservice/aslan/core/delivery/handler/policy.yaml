@@ -1,0 +1,16 @@
+resource: Delivery
+alias: "交付"
+description: ""
+rules:
+  - action: get_delivery
+    alias: "查看版本"
+    description: ""
+    rules:
+      - method: GET
+        endpoint: "/api/aslan/delivery/releases"
+  - action: delete_delivery
+    alias: "删除版本"
+    description: ""
+    rules:
+      - method: DELETE
+        endpoint: "/api/aslan/delivery/releases/?*"
