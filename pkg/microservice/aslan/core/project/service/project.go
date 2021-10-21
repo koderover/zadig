@@ -44,9 +44,9 @@ type ProjectDetailedRepresentation struct {
 	*ProjectBriefRepresentation
 	Alias     string `json:"alias"`
 	Desc      string `json:"desc"`
-	UpdatedAt int64  `bson:"updatedAt"`
-	UpdatedBy string `bson:"updatedBy"`
-	Onboard   bool   `bson:"onboard"`
+	UpdatedAt int64  `json:"updatedAt"`
+	UpdatedBy string `json:"updatedBy"`
+	Onboard   bool   `json:"onboard"`
 }
 
 type ProjectBriefRepresentation struct {
