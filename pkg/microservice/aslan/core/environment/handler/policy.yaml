@@ -1,0 +1,88 @@
+resource: Environment
+alias: "集成环境"
+description: ""
+rules:
+  - action: get_environment
+    alias: "查看集成环境"
+    description: ""
+    rules:
+      - method: GET
+        endpoint: "/api/aslan/environment/environments"
+      - method: GET
+        endpoint: "/api/aslan/environment/environments/?*"
+      - method: GET
+        endpoint: "/api/aslan/environment/revision/products"
+      - method: GET
+        endpoint: "/api/aslan/environment/environments/?*/groups"
+      - method: GET
+        endpoint: "/api/aslan/environment/environments/?*/services/?*"
+      - method: GET
+        endpoint: "/api/aslan/environment/kube/workloads"
+      - method: GET
+        endpoint: "/api/aslan/service/workloads"
+  - action: create_environment
+    alias: "新建集成环境"
+    description: ""
+    rules:
+      - method: POST
+        endpoint: "/api/aslan/environment/environments"
+      - method: POST
+        endpoint: "/api/aslan/environment/environments/?*/helm"
+      - method: POST
+        endpoint: "/api/aslan/service/workloads"
+  - action: config_environment
+    alias: "配置集成环境"
+    description: ""
+    rules:
+      - method: PUT
+        endpoint: "/api/aslan/environment/environments/?*/autoUpdate"
+      - method: POST
+        endpoint: "/api/aslan/environment/environments/?*"
+      - method: PUT
+        endpoint: "/api/aslan/environment/environments/?*/envRecycle"
+      - method: PUT
+        endpoint: "/api/aslan/environment/environments/?*/renderchart"
+      - method: PUT
+        endpoint: "/api/aslan/environment/environments/?*/multiHelmEnv"
+      - method: PUT
+        endpoint: "/api/aslan/service/workloads"
+  - action: manage_environment
+    alias: "管理服务实例"
+    description: ""
+    rules:
+      - method: POST
+        endpoint: "/api/aslan/environment/image/deployment"
+      - method: POST
+        endpoint: "/api/aslan/environment/image/statefulset"
+      - method: DELETE
+        endpoint: "/api/aslan/environment/kube/pods/?*"
+      - method: POST
+        endpoint: "/api/aslan/environment/environments/?*/services/?*/restartNew"
+      - method: PUT
+        endpoint: "/api/aslan/environment/configmaps"
+      - method: POST
+        endpoint: "/api/aslan/environment/configmaps"
+      - method: GET
+        endpoint: "/api/aslan/environment/export/service"
+      - method: GET
+        endpoint: "/api/aslan/environment/kube/pods/?*/events"
+      - method: GET
+        endpoint: "/api/aslan/environment/export/service"
+      - method: GET
+        endpoint: "/api/aslan/logs/sse/pods/?*/containers/?*"
+      - method: PUT
+        endpoint: "/api/aslan/environment/environments/?*/services/?*/?*"
+      - method: POST
+        endpoint: "/api/aslan/environment/environments/?*/services/?*/restartNew"
+      - method: POST
+        endpoint: "/api/aslan/environment/environments/?*/services/?*/scale/?*"
+      - method: POST
+        endpoint: "/api/aslan/environment/environments/?*/services/?*/scaleNew/?*"
+      - method: PUT
+        endpoint: " /api/podexec/?*/?*/?*/?*/podExec"
+  - action: delete_environment
+    alias: "删除集成环境"
+    description: ""
+    rules:
+      - method: DELETE
+        endpoint: "/api/aslan/environment/environments/?*"
