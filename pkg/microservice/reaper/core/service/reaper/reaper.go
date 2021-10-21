@@ -413,6 +413,11 @@ func (r *Reaper) AfterExec(upStreamErr error) error {
 				log.Errorf("RunPostScripts err %v", err)
 				return err
 			}
+		} else {
+			if err = r.downloadArtifactFile(); err != nil {
+				log.Errorf("download archiveFiles err %v", err)
+				return err
+			}
 		}
 
 		// 运行物理机部署脚本

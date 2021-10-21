@@ -199,10 +199,6 @@ func (r *Reaper) createReadme(file string) error {
 }
 
 func (r *Reaper) runScripts() error {
-	// artifact deploy
-	if r.Ctx.ArtifactInfo != nil {
-		return r.downloadArtifactFile()
-	}
 	if len(r.Ctx.Scripts) == 0 {
 		return nil
 	}
