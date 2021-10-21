@@ -34,14 +34,14 @@ func FindBuildModule(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = buildservice.FindBuild(c.Param("name"), c.Query("productName"), ctx.Logger)
+	ctx.Resp, ctx.Err = buildservice.FindBuild(c.Param("name"), c.Query("projectName"), ctx.Logger)
 }
 
 func ListBuildModules(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = buildservice.ListBuild(c.Query("name"), c.Query("targets"), c.Query("productName"), ctx.Logger)
+	ctx.Resp, ctx.Err = buildservice.ListBuild(c.Query("name"), c.Query("targets"), c.Query("projectName"), ctx.Logger)
 }
 
 func CreateBuildModule(c *gin.Context) {
@@ -96,7 +96,7 @@ func DeleteBuildModule(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	name := c.Query("name")
-	productName := c.Query("productName")
+	productName := c.Query("projectName")
 	internalhandler.InsertOperationLog(c, ctx.UserName, productName, "删除", "项目管理-构建", name, "", ctx.Logger)
 
 	if name == "" {
@@ -126,7 +126,7 @@ func UpdateBuildTargets(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("productName"), "更新", "项目管理-服务组件", args.Name, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "更新", "项目管理-服务组件", args.Name, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
@@ -134,5 +134,5 @@ func UpdateBuildTargets(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = buildservice.UpdateBuildTargets(args.Name, c.Query("productName"), args.Targets, ctx.Logger)
+	ctx.Err = buildservice.UpdateBuildTargets(args.Name, c.Query("projectName"), args.Targets, ctx.Logger)
 }

@@ -31,8 +31,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	configmaps := router.Group("configmaps")
 	{
 		configmaps.GET("", ListConfigMaps)
-		configmaps.PUT("", gin2.StoreProductName, gin2.UpdateOperationLogStatus, UpdateConfigMap)
-		configmaps.POST("", gin2.StoreProductName, gin2.UpdateOperationLogStatus, RollBackConfigMap)
+		configmaps.PUT("", gin2.UpdateOperationLogStatus, UpdateConfigMap)
+		configmaps.POST("", gin2.UpdateOperationLogStatus, RollBackConfigMap)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -96,10 +96,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.GET("", ListProducts)
 		environments.POST("/:productName/auto", AutoCreateProduct)
 		environments.PUT("/:productName/autoUpdate", gin2.UpdateOperationLogStatus, AutoUpdateProduct)
-		environments.POST("", gin2.StoreProductName, gin2.UpdateOperationLogStatus, CreateProduct)
+		environments.POST("", gin2.UpdateOperationLogStatus, CreateProduct)
 
-		environments.POST("/:productName/helm", gin2.StoreProductName, gin2.UpdateOperationLogStatus, CreateHelmProduct)
-		environments.PUT("/:productName/multiHelmEnv", gin2.StoreProductName, gin2.UpdateOperationLogStatus, UpdateMultiHelmEnv)
+		environments.POST("/:productName/helm", gin2.UpdateOperationLogStatus, CreateHelmProduct)
+		environments.PUT("/:productName/multiHelmEnv", gin2.UpdateOperationLogStatus, UpdateMultiHelmEnv)
 
 		environments.POST("/:productName", gin2.UpdateOperationLogStatus, UpdateProduct)
 		environments.PUT("/:productName/envRecycle", gin2.UpdateOperationLogStatus, UpdateProductRecycleDay)

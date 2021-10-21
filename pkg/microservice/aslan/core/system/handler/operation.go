@@ -51,7 +51,7 @@ func GetOperationLogs(c *gin.Context) {
 
 	args := &service.OperationLogArgs{
 		Username:    c.Query("username"),
-		ProductName: c.Query("product_name"),
+		ProductName: c.Query("projectName"),
 		Function:    c.Query("function"),
 		Status:      status,
 		PerPage:     perPage,
