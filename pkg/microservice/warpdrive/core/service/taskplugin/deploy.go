@@ -193,7 +193,11 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		)
 		serviceInfo, err = p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType, p.Task.ProductName)
 		if err != nil {
-			return
+			// Maybe it is a share service, the entity is not under the project
+			serviceInfo, err = p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType, "")
+			if err != nil {
+				return
+			}
 		}
 		if serviceInfo.WorkloadType == "" {
 			selector := labels.Set{setting.ProductLabel: p.Task.ProductName, setting.ServiceLabel: p.Task.ServiceName}.AsSelector()

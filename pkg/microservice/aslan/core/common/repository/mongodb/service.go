@@ -204,15 +204,14 @@ func (c *ServiceColl) Find(opt *ServiceFindOption) (*models.Service, error) {
 	if opt.ServiceName == "" {
 		return nil, fmt.Errorf("ServiceName is empty")
 	}
-	if opt.ProductName == "" {
-		return nil, fmt.Errorf("ProductName is empty")
-	}
 
 	query := bson.M{}
 	query["service_name"] = opt.ServiceName
-	query["product_name"] = opt.ProductName
-	service := new(models.Service)
+	if opt.ProductName != "" {
+		query["product_name"] = opt.ProductName
+	}
 
+	service := new(models.Service)
 	if opt.Type != "" {
 		query["type"] = opt.Type
 	}
