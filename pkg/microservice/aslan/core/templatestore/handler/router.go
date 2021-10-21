@@ -51,4 +51,14 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		dockerfile.GET("/:id/reference", GetDockerfileTemplateReference)
 		dockerfile.POST("/validation", ValidateDockerfileTemplate)
 	}
+
+	yaml := router.Group("yaml")
+	{
+		yaml.POST("", CreateYamlTemplate)
+		yaml.PUT("/:id", UpdateYamlTemplate)
+		yaml.GET("", ListYamlTemplate)
+		yaml.GET("/:id", GetYamlTemplateDetail)
+		yaml.DELETE("/:id", DeleteYamlTemplate)
+		yaml.GET("/:id/reference", GetYamlTemplateReference)
+	}
 }

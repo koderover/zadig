@@ -487,6 +487,11 @@ const (
 	ZadigDockerfilePath = "zadig-dockerfile"
 )
 
+// Yaml template constant
+const (
+	RegExpParameter = `{{.(\w)+}}`
+)
+
 const MaxTries = 1
 
 const DogFood = "/var/run/koderover-dog-food"
