@@ -71,7 +71,7 @@ rules:
       - method: GET
         endpoint: "/api/aslan/logs/sse/pods/?*/containers/?*"
       - method: PUT
-        endpoint: "/api/aslan/environment/environments/?*/services/?*/:?*"
+        endpoint: "/api/aslan/environment/environments/?*/services/?*/?*"
       - method: POST
         endpoint: "/api/aslan/environment/environments/?*/services/?*/restartNew"
       - method: POST

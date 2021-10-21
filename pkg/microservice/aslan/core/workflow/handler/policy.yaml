@@ -53,7 +53,7 @@ rules:
     description: ""
     rules:
       - method: POST
-        endpoint: "/api/aslan/workflow/workflow/?*"
+        endpoint: "/api/aslan/workflow/workflowtask"
       - method: PUT
         endpoint: "/api/aslan/workflow/workflowtask"
       - method: POST
