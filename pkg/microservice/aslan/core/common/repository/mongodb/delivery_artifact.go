@@ -32,19 +32,20 @@ import (
 )
 
 type DeliveryArtifactArgs struct {
-	ID           string `json:"id"`
-	Image        string `json:"image"`
-	Name         string `json:"name"`
-	Type         string `json:"type"`
-	RepoName     string `json:"repo_name"`
-	Branch       string `json:"branch"`
-	Source       string `json:"source"`
-	ImageHash    string `json:"image_hash"`
-	ImageTag     string `json:"image_tag"`
-	ImageDigest  string `json:"image_digest"`
-	PerPage      int    `json:"per_page"`
-	Page         int    `json:"page"`
-	IsFuzzyQuery bool   `json:"is_fuzzy_query"`
+	ID                string `json:"id"`
+	Image             string `json:"image"`
+	Name              string `json:"name"`
+	Type              string `json:"type"`
+	RepoName          string `json:"repo_name"`
+	Branch            string `json:"branch"`
+	Source            string `json:"source"`
+	ImageHash         string `json:"image_hash"`
+	ImageTag          string `json:"image_tag"`
+	ImageDigest       string `json:"image_digest"`
+	PerPage           int    `json:"per_page"`
+	Page              int    `json:"page"`
+	IsFuzzyQuery      bool   `json:"is_fuzzy_query"`
+	PackageStorageURI string `json:"package_storage_uri"`
 }
 
 type DeliveryArtifactColl struct {
@@ -205,6 +206,10 @@ func (c *DeliveryArtifactColl) ListTars(args *DeliveryArtifactArgs) ([]*models.D
 
 	if args.Source != "" {
 		query["source"] = args.Source
+	}
+
+	if args.PackageStorageURI != "" {
+		query["package_storage_uri"] = args.PackageStorageURI
 	}
 
 	opt := options.Find().

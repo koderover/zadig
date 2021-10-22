@@ -244,8 +244,7 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 							deliveryArtifact.ImageTag = buildInfo.JobCtx.FileArchiveCtx.FileName
 							deliveryArtifact.Type = string(config.File)
 							deliveryArtifact.PackageFileLocation = buildInfo.JobCtx.FileArchiveCtx.FileLocation
-							storageInfo, _ := s3.NewS3StorageFromEncryptedURI(pt.StorageURI)
-							deliveryArtifact.PackageStorageURI = storageInfo.Endpoint
+							deliveryArtifact.PackageStorageURI = pt.StorageURI
 							deliveryArtifactArray = append(deliveryArtifactArray, deliveryArtifact)
 
 						}
