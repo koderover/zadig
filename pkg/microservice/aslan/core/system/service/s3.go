@@ -137,7 +137,7 @@ func ListTars(id, kind string, serviceNames []string, logger *zap.SugaredLogger)
 				Name:              newServiceName,
 				Type:              kind,
 				Source:            string(config.WorkflowType),
-				PackageStorageURI: defaultURL,
+				PackageStorageURI: id,
 			})
 			if err != nil {
 				logger.Errorf("ListTars err:%s", err)
