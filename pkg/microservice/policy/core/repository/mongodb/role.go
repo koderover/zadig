@@ -129,27 +129,13 @@ func (c *RoleColl) Delete(name string, projectName string) error {
 	return err
 }
 
-func (c *RoleColl) UpdateProjectRole(obj *models.Role) error {
+func (c *RoleColl) UpdateRole(obj *models.Role) error {
 	// avoid panic issue
 	if obj == nil {
 		return errors.New("nil Role")
 	}
 
 	query := bson.M{"name": obj.Name, "namespace": obj.Namespace}
-	change := bson.M{"$set": bson.M{
-		"rules": obj.Rules,
-	}}
-	_, err := c.UpdateOne(context.TODO(), query, change)
-	return err
-}
-
-func (c *RoleColl) UpdatePublicRole(obj *models.Role) error {
-	// avoid panic issue
-	if obj == nil {
-		return errors.New("nil Role")
-	}
-
-	query := bson.M{"name": obj.Name, "namespace": ""}
 	change := bson.M{"$set": bson.M{
 		"rules": obj.Rules,
 	}}

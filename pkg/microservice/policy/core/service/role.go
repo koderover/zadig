@@ -64,10 +64,7 @@ func UpdateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
 			Resources: r.Resources,
 		})
 	}
-	if ns == "" {
-		return mongodb.NewRoleColl().UpdatePublicRole(obj)
-	}
-	return mongodb.NewRoleColl().UpdateProjectRole(obj)
+	return mongodb.NewRoleColl().UpdateRole(obj)
 }
 
 func ListRoles(projectName string, _ *zap.SugaredLogger) (roles []*Role, err error) {
