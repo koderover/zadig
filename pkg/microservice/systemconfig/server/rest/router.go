@@ -19,7 +19,7 @@ package rest
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/pkg/microservice/policy/core/handler"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/handler"
 )
 
 func (s *engine) injectRouterGroup(router *gin.RouterGroup) {

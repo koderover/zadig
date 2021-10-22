@@ -14,22 +14,24 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package rest
+package models
 
-import (
-	"github.com/gin-gonic/gin"
+import "strconv"
 
-	"github.com/koderover/zadig/pkg/microservice/policy/core/handler"
-)
-
-func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
-	for _, r := range []injector{
-		new(handler.Router),
-	} {
-		r.Inject(router.Group("/api/v1"))
-	}
+type Connector struct {
+	ID              string `json:"id"`
+	Type            string `json:"type"`
+	Name            string `json:"name"`
+	ResourceVersion string `json:"resource_version"`
+	Config          string `json:"config"`
 }
 
-type injector interface {
-	Inject(router *gin.RouterGroup)
+func (m *Connector) IncreaseResourceVersion() {
+	rv, _ := strconv.Atoi(m.ResourceVersion)
+	m.ResourceVersion = strconv.Itoa(rv + 1)
+}
+
+// TableName sets the insert table name for this struct type
+func (Connector) TableName() string {
+	return "connector"
 }
