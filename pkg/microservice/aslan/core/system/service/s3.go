@@ -21,8 +21,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/koderover/zadig/pkg/tool/log"
-
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -137,7 +135,6 @@ func ListTars(id, kind string, serviceNames []string, logger *zap.SugaredLogger)
 				Type:   kind,
 				Source: string(config.WorkflowType),
 			})
-			log.Infof("serviceName:%s", newServiceName)
 			if err != nil {
 				logger.Errorf("ListTars err:%s", err)
 				return
