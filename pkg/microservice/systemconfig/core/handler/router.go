@@ -14,22 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package rest
+package handler
 
 import (
 	"github.com/gin-gonic/gin"
-
-	"github.com/koderover/zadig/pkg/microservice/policy/core/handler"
 )
 
-func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
-	for _, r := range []injector{
-		new(handler.Router),
-	} {
-		r.Inject(router.Group("/api/v1"))
-	}
-}
+type Router struct{}
 
-type injector interface {
-	Inject(router *gin.RouterGroup)
+func (*Router) Inject(router *gin.RouterGroup) {
+	roles := router.Group("connectors")
+	{
+		roles.POST("", CreateConnector)
+		roles.GET("", ListConnectors)
+		roles.GET("/:id", GetConnector)
+		roles.PUT("/:id", UpdateConnector)
+		roles.DELETE("/:id", DeleteConnector)
+	}
 }

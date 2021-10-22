@@ -14,22 +14,26 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package rest
+package core
 
 import (
-	"github.com/gin-gonic/gin"
+	"context"
 
-	"github.com/koderover/zadig/pkg/microservice/policy/core/handler"
+	"github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/pkg/setting"
+	gormtool "github.com/koderover/zadig/pkg/tool/gorm"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
-	for _, r := range []injector{
-		new(handler.Router),
-	} {
-		r.Inject(router.Group("/api/v1"))
-	}
+func Start(_ context.Context) {
+	log.Init(&log.Config{
+		Level:       config.LogLevel(),
+		Filename:    config.LogFile(),
+		SendToFile:  config.SendLogToFile(),
+		Development: config.Mode() != setting.ReleaseMode,
+	})
 }
 
-type injector interface {
-	Inject(router *gin.RouterGroup)
+func Stop(_ context.Context) {
+	gormtool.Close()
 }
