@@ -513,44 +513,22 @@ func CreateOrUpdateBulkHelmServiceFromTemplate(projectName string, args *BulkHel
 	failedServiceMap := &sync.Map{}
 	renderChartMap := &sync.Map{}
 
-	dataChan := make(chan string)
-	endChan := make(chan struct{})
-
 	wg := sync.WaitGroup{}
-	workerCount := len(args.ValuesData.GitRepoConfig.ValuesPaths)
-	if workerCount > 20 {
-		workerCount = 20
-	}
-
 	// run goroutines to speed up
-	for i := 0; i < workerCount; i++ {
+	for _, path := range args.ValuesData.GitRepoConfig.ValuesPaths {
 		wg.Add(1)
-		go func(repoConfig *commonservice.RepoConfig, taskChan <-chan string, endChan <-chan struct{}) {
+		go func(repoConfig *commonservice.RepoConfig, path string) {
 			defer func() {
 				wg.Done()
 			}()
-			for {
-				select {
-				case path := <-taskChan:
-					renderChart, err := handleSingleService(projectName, repoConfig, path, from, args.CreatedBy, templateChartData, logger)
-					if err != nil {
-						failedServiceMap.Store(path, err.Error())
-					} else {
-						renderChartMap.Store(renderChart.ServiceName, renderChart)
-					}
-				case <-endChan:
-					return
-				}
+			renderChart, err := handleSingleService(projectName, repoConfig, path, from, args.CreatedBy, templateChartData, logger)
+			if err != nil {
+				failedServiceMap.Store(path, err.Error())
+			} else {
+				renderChartMap.Store(renderChart.ServiceName, renderChart)
 			}
-		}(args.ValuesData.GitRepoConfig, dataChan, endChan)
+		}(args.ValuesData.GitRepoConfig, path)
 	}
-
-	go func() {
-		for _, singlePath := range args.ValuesData.GitRepoConfig.ValuesPaths {
-			dataChan <- singlePath
-		}
-		close(endChan)
-	}()
 
 	wg.Wait()
 
