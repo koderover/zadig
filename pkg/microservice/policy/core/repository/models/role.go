@@ -27,7 +27,7 @@ type Role struct {
 	Name      string  `bson:"name"      json:"name"`
 	Namespace string  `bson:"namespace" json:"namespace"`
 	Rules     []*Rule `bson:"rules"     json:"rules"`
-	Kind      string  `bson:"kind"     json:"kind"`
+	//Kind      string  `bson:"kind"     json:"kind"`
 }
 
 // Rule holds information that describes a policy rule, but does not contain information
@@ -39,6 +39,7 @@ type Rule struct {
 
 	// Resources is a list of resources this rule applies to. '*' represents all resources.
 	Resources []string `bson:"resources" json:"resources"`
+	Kind      string   `bson:"verbs" json:"verbs"`
 }
 
 func (Role) TableName() string {
