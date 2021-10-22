@@ -50,7 +50,7 @@ func ListYamlTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	// Query Verification
-	args := listYamlQuery{}
+	args := &listYamlQuery{}
 	if err := c.ShouldBindQuery(args); err != nil {
 		ctx.Err = err
 		return
