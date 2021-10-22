@@ -39,6 +39,7 @@ import (
 	workflowhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/handler"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	testinghandler "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/handler"
+	"github.com/koderover/zadig/pkg/microservice/policy/core/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -95,6 +96,18 @@ func registerPolicies() {
 	}
 }
 
+// register preset role
+func registerRole() {
+	policy.New().CreateSystemRole(&service.Role{
+		Name: "admin",
+		Kind: "user",
+		Rules: []*service.Rule{&service.Rule{
+			Verbs:     []string{"*"},
+			Resources: []string{"*"},
+		}},
+	})
+}
+
 func Start(ctx context.Context) {
 	log.Init(&log.Config{
 		Level:       commonconfig.LogLevel(),
@@ -116,6 +129,8 @@ func Start(ctx context.Context) {
 	environmentservice.ResetProductsStatus()
 
 	registerPolicies()
+
+	registerRole()
 
 	go StartControllers(ctx.Done())
 }
