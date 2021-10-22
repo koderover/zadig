@@ -19,6 +19,7 @@ package orm
 import (
 	"gorm.io/gorm"
 
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/config"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/repository/models"
 	gormtool "github.com/koderover/zadig/pkg/tool/gorm"
 )
@@ -32,7 +33,7 @@ type ConnectorColl struct {
 func NewConnectorColl() *ConnectorColl {
 	name := models.Connector{}.TableName()
 	return &ConnectorColl{
-		DB:   gormtool.DB(),
+		DB:   gormtool.DB(config.DexMysqlDB()),
 		coll: name,
 	}
 }

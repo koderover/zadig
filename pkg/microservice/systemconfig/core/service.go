@@ -19,7 +19,8 @@ package core
 import (
 	"context"
 
-	"github.com/koderover/zadig/pkg/config"
+	configbase "github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/config"
 	"github.com/koderover/zadig/pkg/setting"
 	gormtool "github.com/koderover/zadig/pkg/tool/gorm"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -27,11 +28,24 @@ import (
 
 func Start(_ context.Context) {
 	log.Init(&log.Config{
-		Level:       config.LogLevel(),
-		Filename:    config.LogFile(),
-		SendToFile:  config.SendLogToFile(),
-		Development: config.Mode() != setting.ReleaseMode,
+		Level:       configbase.LogLevel(),
+		Filename:    configbase.LogFile(),
+		SendToFile:  configbase.SendLogToFile(),
+		Development: configbase.Mode() != setting.ReleaseMode,
 	})
+
+	initDatabase()
+}
+
+func initDatabase() {
+	err := gormtool.Open(config.DexMysqlUser(),
+		config.DexMysqlPassword(),
+		config.DexMysqlHost(),
+		config.DexMysqlDB(),
+	)
+	if err != nil {
+		log.Panicf("Failed to open database %s", config.DexMysqlDB())
+	}
 }
 
 func Stop(_ context.Context) {
