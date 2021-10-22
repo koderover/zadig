@@ -1256,39 +1256,39 @@ func UpdateHelmProductRenderset(productName, envName, userName, requestID string
 }
 
 // UpdateHelmProductRenderCharts TODO need to be deprecated
-func UpdateHelmProductRenderCharts(productName, envName, userName, requestID string, args *EnvRenderChartArg, log *zap.SugaredLogger) error {
-
-	renderSetName := commonservice.GetProductEnvNamespace(envName, productName, "")
-
-	opt := &commonrepo.RenderSetFindOption{Name: renderSetName}
-	productRenderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
-	if err != nil || productRenderset == nil {
-		if err != nil {
-			log.Infof("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
-		}
-		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for envirionment: %s", envName))
-	}
-
-	// render charts need to be updated
-	updatedRcs := make([]*template.RenderChart, 0)
-
-	for _, requestRenderChart := range args.ChartValues {
-		// update renderset info
-		for _, curRenderChart := range productRenderset.ChartInfos {
-			if curRenderChart.ServiceName != requestRenderChart.ServiceName {
-				continue
-			}
-			if !checkOverrideValuesChange(curRenderChart, requestRenderChart) {
-				continue
-			}
-			requestRenderChart.FillRenderChartModel(curRenderChart, curRenderChart.ChartVersion)
-			updatedRcs = append(updatedRcs, curRenderChart)
-			break
-		}
-	}
-
-	return UpdateHelmProductVariable(productName, envName, userName, requestID, updatedRcs, productRenderset, log)
-}
+//func UpdateHelmProductRenderCharts(productName, envName, userName, requestID string, args *EnvRenderChartArg, log *zap.SugaredLogger) error {
+//
+//	renderSetName := commonservice.GetProductEnvNamespace(envName, productName, "")
+//
+//	opt := &commonrepo.RenderSetFindOption{Name: renderSetName}
+//	productRenderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
+//	if err != nil || productRenderset == nil {
+//		if err != nil {
+//			log.Infof("query renderset fail when updating helm product:%s render charts, err %s", productName, err.Error())
+//		}
+//		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for envirionment: %s", envName))
+//	}
+//
+//	// render charts need to be updated
+//	updatedRcs := make([]*template.RenderChart, 0)
+//
+//	for _, requestRenderChart := range args.ChartValues {
+//		// update renderset info
+//		for _, curRenderChart := range productRenderset.ChartInfos {
+//			if curRenderChart.ServiceName != requestRenderChart.ServiceName {
+//				continue
+//			}
+//			if !checkOverrideValuesChange(curRenderChart, requestRenderChart) {
+//				continue
+//			}
+//			requestRenderChart.FillRenderChartModel(curRenderChart, curRenderChart.ChartVersion)
+//			updatedRcs = append(updatedRcs, curRenderChart)
+//			break
+//		}
+//	}
+//
+//	return UpdateHelmProductVariable(productName, envName, userName, requestID, updatedRcs, productRenderset, log)
+//}
 
 func UpdateHelmProductVariable(productName, envName, username, requestID string, updatedRcs []*template.RenderChart, renderset *commonmodels.RenderSet, log *zap.SugaredLogger) error {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}

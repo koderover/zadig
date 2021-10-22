@@ -303,37 +303,37 @@ func UpdateHelmProductRenderset(c *gin.Context) {
 	}
 }
 
-func UpdateHelmProductRenderCharts(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	productName := c.Param("productName")
-	if productName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("productName can't be empty!")
-		return
-	}
-
-	envName := c.Query("envName")
-	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("envName can't be empty!")
-		return
-	}
-
-	arg := new(service.EnvRenderChartArg)
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("UpdateHelmProductVariable c.GetRawData() err : %v", err)
-	}
-	if err = json.Unmarshal(data, arg); err != nil {
-		log.Errorf("UpdateHelmProductVariable json.Unmarshal err : %v", err)
-	}
-	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "更新", "helm集成环境变量", "", string(data), ctx.Logger)
-
-	ctx.Err = service.UpdateHelmProductRenderCharts(productName, envName, ctx.Username, ctx.RequestID, arg, ctx.Logger)
-	if ctx.Err != nil {
-		ctx.Logger.Errorf("failed to update product Variable %s %s: %v", envName, productName, ctx.Err)
-	}
-}
+//func UpdateHelmProductRenderCharts(c *gin.Context) {
+//	ctx := internalhandler.NewContext(c)
+//	defer func() { internalhandler.JSONResponse(c, ctx) }()
+//
+//	productName := c.Param("productName")
+//	if productName == "" {
+//		ctx.Err = e.ErrInvalidParam.AddDesc("productName can't be empty!")
+//		return
+//	}
+//
+//	envName := c.Query("envName")
+//	if envName == "" {
+//		ctx.Err = e.ErrInvalidParam.AddDesc("envName can't be empty!")
+//		return
+//	}
+//
+//	arg := new(service.EnvRenderChartArg)
+//	data, err := c.GetRawData()
+//	if err != nil {
+//		log.Errorf("UpdateHelmProductVariable c.GetRawData() err : %v", err)
+//	}
+//	if err = json.Unmarshal(data, arg); err != nil {
+//		log.Errorf("UpdateHelmProductVariable json.Unmarshal err : %v", err)
+//	}
+//	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "更新", "helm集成环境变量", "", string(data), ctx.Logger)
+//
+//	ctx.Err = service.UpdateHelmProductRenderCharts(productName, envName, ctx.Username, ctx.RequestID, arg, ctx.Logger)
+//	if ctx.Err != nil {
+//		ctx.Logger.Errorf("failed to update product Variable %s %s: %v", envName, productName, ctx.Err)
+//	}
+//}
 
 func UpdateMultiHelmEnv(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
