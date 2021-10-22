@@ -62,6 +62,19 @@ func UpdateRole(c *gin.Context) {
 	ctx.Err = service.UpdateRole(projectName, args, ctx.Logger)
 }
 
+func UpdatePublicRole(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := &service.Role{}
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Err = service.UpdatePublicRole(args, ctx.Logger)
+}
+
 func ListRoles(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
