@@ -74,8 +74,7 @@ func ReloadServiceFromYamlTemplate(username, projectName, serviceName string, va
 
 func renderYamlFromTemplate(yaml string, variables []*Variable) string {
 	for _, variable := range variables {
-		fmt.Printf("Replacing %s with %s", buildVariable(variable.Key), buildVariable(variable.Value))
-		strings.Replace(yaml, buildVariable(variable.Key), variable.Value, -1)
+		yaml = strings.Replace(yaml, buildVariable(variable.Key), variable.Value, -1)
 	}
 	return yaml
 }

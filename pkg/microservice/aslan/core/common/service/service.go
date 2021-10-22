@@ -482,7 +482,7 @@ func ProcessServiceWebhook(updated, current *commonmodels.Service, serviceName s
 	var action string
 	var updatedHooks, currentHooks []*webhook.WebHook
 	if updated != nil {
-		if updated.Source == setting.SourceFromZadig || updated.Source == setting.SourceFromGerrit || updated.Source == "" || updated.Source == setting.SourceFromExternal {
+		if updated.Source == setting.ServiceSourceTemplate || updated.Source == setting.SourceFromZadig || updated.Source == setting.SourceFromGerrit || updated.Source == "" || updated.Source == setting.SourceFromExternal {
 			return
 		}
 		action = "add"
