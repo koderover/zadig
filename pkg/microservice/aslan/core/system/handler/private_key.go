@@ -103,3 +103,35 @@ func DeletePrivateKey(c *gin.Context) {
 	internalhandler.InsertOperationLog(c, ctx.Username, "", "删除", "资源管理-主机管理", fmt.Sprintf("id:%s", c.Param("id")), "", ctx.Logger)
 	ctx.Err = service.DeletePrivateKey(c.Param("id"), ctx.Logger)
 }
+
+func ListLabels(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.ListLabels(ctx.Logger)
+}
+
+func BatchCreatePrivateKey(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(commonmodels.PrivateKey)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("batchCreatePrivateKey c.GetRawData() err : %v", err)
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("batchCreatePrivateKey json.Unmarshal err : %v", err)
+	}
+	internalhandler.InsertOperationLog(c, ctx.Username, "", "批量新增", "资源管理-主机管理", fmt.Sprintf("hostName:%s ip:%s", args.Name, args.IP), string(data), ctx.Logger)
+
+	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+
+	if err := c.ShouldBindJSON(&args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid PrivateKey args")
+		return
+	}
+	args.UpdateBy = ctx.Username
+
+	ctx.Err = service.BatchCreatePrivateKey(args, ctx.Logger)
+}

@@ -153,7 +153,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		privateKey.GET("", ListPrivateKeys)
 		privateKey.GET("/:id", GetPrivateKey)
+		privateKey.GET("/labels", ListLabels)
 		privateKey.POST("", gin2.RequireSuperAdminAuth, gin2.UpdateOperationLogStatus, CreatePrivateKey)
+		privateKey.POST("/batch", gin2.RequireSuperAdminAuth, gin2.UpdateOperationLogStatus, BatchCreatePrivateKey)
 		privateKey.PUT("/:id", gin2.RequireSuperAdminAuth, gin2.UpdateOperationLogStatus, UpdatePrivateKey)
 		privateKey.DELETE("/:id", gin2.RequireSuperAdminAuth, gin2.UpdateOperationLogStatus, DeletePrivateKey)
 	}
