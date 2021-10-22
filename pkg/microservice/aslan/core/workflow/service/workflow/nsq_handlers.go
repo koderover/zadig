@@ -245,10 +245,11 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 							deliveryArtifact.Type = string(config.File)
 							deliveryArtifact.PackageFileLocation = buildInfo.JobCtx.FileArchiveCtx.FileLocation
 							if storageInfo, err := s3.NewS3StorageFromEncryptedURI(pt.StorageURI); err == nil {
-								deliveryArtifact.PackageStorageURI = storageInfo.ID.Hex()
+								deliveryArtifact.PackageStorageURI = storageInfo.Endpoint + "/" + storageInfo.Bucket
 							}
 
 							deliveryArtifactArray = append(deliveryArtifactArray, deliveryArtifact)
+
 						}
 						if buildInfo.ServiceType != setting.PMDeployType { // image
 							deliveryArtifact := new(commonmodels.DeliveryArtifact)
