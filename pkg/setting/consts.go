@@ -345,6 +345,8 @@ const (
 	GerritDefaultOwner = "dafault"
 	// YamlFileSeperator ...
 	YamlFileSeperator = "\n---\n"
+
+	ServiceSourceTemplate = "template"
 )
 
 const MaskValue = "********"

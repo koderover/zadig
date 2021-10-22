@@ -69,8 +69,9 @@ type ServiceModule struct {
 }
 
 type Variable struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
+	Key         string `json:"key"`
+	Value       string `json:"value"`
+	Description string `json:"description,omitempty"`
 }
 
 type YamlPreviewForPorts struct {

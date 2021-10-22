@@ -124,10 +124,15 @@ func getYamlVariables(s string, logger *zap.SugaredLogger) ([]*Variable, error) 
 		return []*Variable{}, err
 	}
 	params := regex.FindAllString(s, -1)
+	keyMap := make(map[string]int)
 	for _, param := range params {
-		resp = append(resp, &Variable{
-			Key: getParameterKey(param),
-		})
+		key := getParameterKey(param)
+		if keyMap[key] == 0 {
+			resp = append(resp, &Variable{
+				Key: key,
+			})
+			keyMap[key] = 1
+		}
 	}
 	return resp, nil
 }
