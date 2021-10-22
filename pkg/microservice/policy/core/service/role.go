@@ -32,6 +32,7 @@ type Role struct {
 type Rule struct {
 	Verbs     []string `json:"verbs"`
 	Resources []string `json:"resources"`
+	Kind      string   `json:"kind"`
 }
 
 func CreateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
@@ -43,6 +44,7 @@ func CreateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
 	for _, r := range role.Rules {
 		obj.Rules = append(obj.Rules, &models.Rule{
 			Verbs:     r.Verbs,
+			Kind:      r.Kind,
 			Resources: r.Resources,
 		})
 	}
@@ -59,6 +61,7 @@ func UpdateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
 	for _, r := range role.Rules {
 		obj.Rules = append(obj.Rules, &models.Rule{
 			Verbs:     r.Verbs,
+			Kind:      r.Kind,
 			Resources: r.Resources,
 		})
 	}
