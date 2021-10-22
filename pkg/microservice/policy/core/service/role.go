@@ -51,6 +51,23 @@ func CreateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
 	return mongodb.NewRoleColl().Create(obj)
 }
 
+func UpdateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
+	obj := &models.Role{
+		Name:      role.Name,
+		Namespace: ns,
+		Kind:      role.Kind,
+	}
+
+	for _, r := range role.Rules {
+		obj.Rules = append(obj.Rules, &models.Rule{
+			Verbs:     r.Verbs,
+			Resources: r.Resources,
+		})
+	}
+
+	return mongodb.NewRoleColl().UpdateProjectRole(obj)
+}
+
 func ListRoles(projectName string, _ *zap.SugaredLogger) (roles []*Role, err error) {
 	projectRoles, err := mongodb.NewRoleColl().ListBy(projectName)
 	if err != nil {
