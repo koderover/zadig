@@ -479,6 +479,10 @@ func DeleteServiceWebhookByName(serviceName, productName string, logger *zap.Sug
 }
 
 func ProcessServiceWebhook(updated, current *commonmodels.Service, serviceName string, logger *zap.SugaredLogger) {
+	// helm service doesn't support webhook
+	if current.Type == setting.HelmDeployType {
+		return
+	}
 	var action string
 	var updatedHooks, currentHooks []*webhook.WebHook
 	if updated != nil {
