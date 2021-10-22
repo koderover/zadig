@@ -21,6 +21,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/koderover/zadig/pkg/tool/log"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -126,6 +127,8 @@ func ListTars(id, kind string, serviceNames []string, logger *zap.SugaredLogger)
 		logger.Errorf("defaultS3 GetEncryptedURL err:%s", err)
 		return nil, err
 	}
+
+	log.Infof("defaultURL:%s", defaultURL)
 
 	for _, serviceName := range serviceNames {
 		newServiceName := serviceName
