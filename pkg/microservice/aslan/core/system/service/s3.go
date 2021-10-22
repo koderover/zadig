@@ -21,6 +21,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/koderover/zadig/pkg/tool/log"
+
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -128,12 +130,14 @@ func ListTars(id, kind string, serviceNames []string, logger *zap.SugaredLogger)
 	}
 
 	for _, serviceName := range serviceNames {
+		newServiceName := serviceName
 		wg.Start(func() {
 			deliveryArtifacts, err := commonrepo.NewDeliveryArtifactColl().ListTars(&commonrepo.DeliveryArtifactArgs{
-				Name:   serviceName,
+				Name:   newServiceName,
 				Type:   kind,
 				Source: string(config.WorkflowType),
 			})
+			log.Infof("serviceName:%s", newServiceName)
 			if err != nil {
 				logger.Errorf("ListTars err:%s", err)
 				return
@@ -156,7 +160,7 @@ func ListTars(id, kind string, serviceNames []string, logger *zap.SugaredLogger)
 				mutex.Lock()
 				tarInfos = append(tarInfos, &commonmodels.TarInfo{
 					URL:          defaultURL,
-					Name:         serviceName,
+					Name:         newServiceName,
 					FileName:     deliveryArtifact.Image,
 					WorkflowName: workflowName,
 					TaskID:       int64(taskID),
