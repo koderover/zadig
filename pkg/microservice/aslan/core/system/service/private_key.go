@@ -93,19 +93,24 @@ func ListLabels(log *zap.SugaredLogger) ([]string, error) {
 	return []string{}, nil
 }
 
-func BatchCreatePrivateKey(args *commonmodels.PrivateKey, log *zap.SugaredLogger) error {
-	//if !config.CVMNameRegex.MatchString(args.Name) {
-	//	return e.ErrCreatePrivateKey.AddDesc("主机名称仅支持字母，数字和下划线且首个字符不以数字开头")
-	//}
-	//
-	//if privateKeys, _ := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{Name: args.Name}); len(privateKeys) > 0 {
-	//	return e.ErrCreatePrivateKey.AddDesc("Name already exists")
-	//}
-	//
-	//err := commonrepo.NewPrivateKeyColl().Create(args)
-	//if err != nil {
-	//	log.Errorf("PrivateKey.Create error: %v", err)
-	//	return e.ErrCreatePrivateKey
-	//}
+func BatchCreatePrivateKey(args []*commonmodels.PrivateKey, username string, log *zap.SugaredLogger) error {
+	for _, currentPrivateKey := range args {
+		if !config.CVMNameRegex.MatchString(currentPrivateKey.Name) {
+			return e.ErrCreatePrivateKey.AddDesc("主机名称仅支持字母，数字和下划线且首个字符不以数字开头")
+		}
+
+		if privateKeys, _ := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{Name: currentPrivateKey.Name}); len(privateKeys) > 0 {
+			if err := commonrepo.NewPrivateKeyColl().Update(privateKeys[0].ID.Hex(), currentPrivateKey); err != nil {
+				log.Errorf("PrivateKey.Create error: %s", err)
+				return e.ErrCreatePrivateKey
+			}
+			continue
+		}
+
+		if err := commonrepo.NewPrivateKeyColl().Create(currentPrivateKey); err != nil {
+			log.Errorf("PrivateKey.Create error: %s", err)
+			return e.ErrCreatePrivateKey
+		}
+	}
 	return nil
 }

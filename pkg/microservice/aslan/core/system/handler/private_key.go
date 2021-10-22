@@ -115,7 +115,7 @@ func BatchCreatePrivateKey(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := new(commonmodels.PrivateKey)
+	args := make([]*commonmodels.PrivateKey, 0)
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("batchCreatePrivateKey c.GetRawData() err : %v", err)
@@ -123,7 +123,7 @@ func BatchCreatePrivateKey(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("batchCreatePrivateKey json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, "", "批量新增", "资源管理-主机管理", fmt.Sprintf("hostName:%s ip:%s", args.Name, args.IP), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, "", "批量新增", "资源管理-主机管理", "", string(data), ctx.Logger)
 
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
@@ -131,7 +131,6 @@ func BatchCreatePrivateKey(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid PrivateKey args")
 		return
 	}
-	args.UpdateBy = ctx.Username
 
-	ctx.Err = service.BatchCreatePrivateKey(args, ctx.Logger)
+	ctx.Err = service.BatchCreatePrivateKey(args, ctx.Username, ctx.Logger)
 }
