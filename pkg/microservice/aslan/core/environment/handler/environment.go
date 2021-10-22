@@ -263,7 +263,7 @@ func EstimatedValues(c *gin.Context) {
 	}
 
 	arg := new(service.EstimateValuesArg)
-	if err := c.ShouldBindQuery(arg); err != nil {
+	if err := c.ShouldBind(arg); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}

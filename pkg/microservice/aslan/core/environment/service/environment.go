@@ -166,9 +166,9 @@ func UpdateProductPublic(productName string, args *ProductParams, log *zap.Sugar
 	return nil
 }
 
-func GetProductStatus(envType string, log *zap.SugaredLogger) ([]*EnvStatus, error) {
+func GetProductStatus(productName string, log *zap.SugaredLogger) ([]*EnvStatus, error) {
 	//项目下所有公开环境
-	publicProducts, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{IsPublic: true})
+	publicProducts, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{IsPublic: true, Name: productName})
 	if err != nil {
 		log.Errorf("Collection.Product.List List product error: %v", err)
 		return nil, e.ErrListProducts.AddDesc(err.Error())
@@ -1154,21 +1154,18 @@ func UpdateHelmProduct(productName, envName, updateType, username, requestID str
 	return nil
 }
 
-func GeneEstimatedValues(productName, envName, serviceName, format string, arg *EstimateValuesArg, log *zap.SugaredLogger) (interface{}, error) {
-	var opt *commonrepo.RenderSetFindOption
-	if len(envName) > 0 {
-		renderSetName := commonservice.GetProductEnvNamespace(envName, productName, "")
-		opt = &commonrepo.RenderSetFindOption{Name: renderSetName}
-	} else {
-		opt = &commonrepo.RenderSetFindOption{Name: productName}
-	}
+func findTargetChartInfo(rendersetName, serviceName string) (*templatemodels.RenderChart, error) {
+	opt := &commonrepo.RenderSetFindOption{Name: rendersetName}
 	productRenderset, existed, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
 	if err != nil {
-		log.Errorf("failed to get renderset, productName %s evnName %s", productName, envName)
+		log.Errorf("failed to get renderset, name %s", rendersetName)
+		return nil, err
 	}
 	if !existed {
-		return nil, e.ErrGetRenderSet.AddDesc(fmt.Sprintf("failed to find renderset, envName: %s", envName))
+		//return nil, e.ErrGetRenderSet.AddDesc(fmt.Sprintf("failed to find renderset, envName: %s", envName))
+		return nil, nil
 	}
+
 	var targetChart *templatemodels.RenderChart
 	for _, chartInfo := range productRenderset.ChartInfos {
 		if chartInfo.ServiceName == serviceName {
@@ -1176,11 +1173,34 @@ func GeneEstimatedValues(productName, envName, serviceName, format string, arg *
 			break
 		}
 	}
+	return targetChart, nil
+}
+
+func GeneEstimatedValues(productName, envName, serviceName, format string, arg *EstimateValuesArg, log *zap.SugaredLogger) (interface{}, error) {
+	var targetChart *templatemodels.RenderChart
+	var err error
+	if len(envName) > 0 {
+		renderSetName := commonservice.GetProductEnvNamespace(envName, productName, "")
+		targetChart, err = findTargetChartInfo(renderSetName, serviceName)
+		if err != nil {
+			return nil, e.ErrGetRenderSet.AddDesc(fmt.Sprintf("failed to query chartInfo, serviceName: %s", serviceName))
+		}
+	}
+
+	// if chart info not exist in env.renderset, find form default renderset
+	if targetChart == nil {
+		targetChart, err = findTargetChartInfo(productName, serviceName)
+		if err != nil {
+			return nil, e.ErrGetRenderSet.AddDesc(fmt.Sprintf("failed to query chartInfo, serviceName: %s", serviceName))
+		}
+	}
+
 	if targetChart == nil {
 		return nil, e.ErrGetRenderSet.AddDesc(fmt.Sprintf("failed to find chart info, serviceName: %s", serviceName))
 	}
+
 	tempArg := &commonservice.RenderChartArg{OverrideValues: arg.OverrideValues}
-	mergeValues, err := helmtool.MergeOverrideValues(arg.DefaultValues, targetChart.ValuesYaml, arg.OverrideYaml, tempArg.ToOverrideValueString())
+	mergeValues, err := helmtool.MergeOverrideValues(targetChart.ValuesYaml, arg.DefaultValues, arg.OverrideYaml, tempArg.ToOverrideValueString())
 	if err != nil {
 		return nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to merge values, err %s", err))
 	}
@@ -2546,7 +2566,7 @@ func FindHelmRenderSet(productName, renderName string, log *zap.SugaredLogger) (
 }
 
 func installOrUpgradeHelmChart(namespace string, renderChart *template.RenderChart, defaultValues string, serviceObj *commonmodels.Service, timeout time.Duration, helmClient helmclient.Client) error {
-	mergedValuesYaml, err := helmtool.MergeOverrideValues(defaultValues, renderChart.ValuesYaml, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
+	mergedValuesYaml, err := helmtool.MergeOverrideValues(renderChart.ValuesYaml, defaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
 	if err != nil {
 		err = errors.WithMessagef(err, "failed to merge override yaml %s and values %s", renderChart.GetOverrideYaml(), renderChart.OverrideValues)
 		return err
@@ -2739,10 +2759,8 @@ func updateProductGroup(username, productName, envName, updateType string, produ
 		}
 	}
 
-	for _, serviceGroup := range productResp.Services {
-		for _, service := range serviceGroup {
-			productTemplServiceMap[service.ServiceName] = service
-		}
+	for _, service := range productResp.GetServiceMap() {
+		productTemplServiceMap[service.ServiceName] = service
 	}
 
 	// 找到环境里面还存在但是服务编排里面已经删除的服务卸载掉

@@ -449,7 +449,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		}
 
 		// merge override values and kvs into service's yaml
-		mergedValuesYaml, err = helmtool.MergeOverrideValues(renderInfo.DefaultValues, serviceValuesYaml, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
+		mergedValuesYaml, err = helmtool.MergeOverrideValues(serviceValuesYaml, renderInfo.DefaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
 		if err != nil {
 			err = errors.WithMessagef(
 				err,

@@ -49,11 +49,11 @@ type KV struct {
 // MergeOverrideValues merge override yaml and override kvs
 // override yaml used for -f option
 // override kvs used for --set option
-func MergeOverrideValues(defaultValues, valuesYaml, overrideYaml, overrideValues string) (string, error) {
+func MergeOverrideValues(valuesYaml, defaultValues, overrideYaml, overrideValues string) (string, error) {
 
 	// merge files for helm -f option
 	// precedence from low to high: defaultValues valuesYaml overrideYaml
-	valuesMap, err := yamlutil.MergeAndUnmarshal([][]byte{[]byte(defaultValues), []byte(valuesYaml), []byte(overrideYaml)})
+	valuesMap, err := yamlutil.MergeAndUnmarshal([][]byte{[]byte(valuesYaml), []byte(defaultValues), []byte(overrideYaml)})
 	if err != nil {
 		return "", err
 	}
