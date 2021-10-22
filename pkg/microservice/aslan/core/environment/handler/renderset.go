@@ -18,6 +18,13 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
+	"strconv"
+	"strings"
+
+	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
+
+	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 
 	"github.com/gin-gonic/gin"
 
@@ -114,8 +121,65 @@ func CreateOrUpdateRenderset(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateOrUpdateRenderChart json.Unmarshal err : %v", err)
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "新增", "环境变量", c.Query("envName"), string(data), ctx.Logger)
 
 	ctx.Err = service.CreateOrUpdateRenderset(c.Query("productName"), c.Query("envName"), args, ctx.Username, ctx.RequestID, ctx.Logger)
+}
+
+func GetYamlContent(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	var err error
+	codehostID := 0
+
+	codehostIDStr := c.Query("codehostID")
+	if len(codehostIDStr) > 0 {
+		codehostID, err = strconv.Atoi(codehostIDStr)
+		if err != nil {
+			ctx.Err = e.ErrInvalidParam.AddDesc("cannot convert codehost id to int")
+			return
+		}
+	}
+
+	if codehostID == 0 && len(c.Query("repoLink")) == 0 {
+		ctx.Err = e.ErrInvalidParam.AddDesc("neither codehost nor repo link is specified")
+		return
+	}
+
+	if len(c.Query("valuesPaths")) == 0 {
+		ctx.Err = e.ErrInvalidParam.AddDesc("paths can't be empty")
+		return
+	}
+
+	pathArr := strings.Split(c.Query("valuesPaths"), ",")
+
+	contentArr := make([][]byte, 0)
+	for _, path := range pathArr {
+		fileContent, err := fsservice.DownloadFileFromSource(
+			&fsservice.DownloadFromSourceArgs{
+				CodehostID: codehostID,
+				Owner:      c.Query("owner"),
+				Repo:       c.Query("repo"),
+				Path:       path,
+				Branch:     c.Query("branch"),
+				RepoLink:   c.Query("repoLink"),
+			})
+		if err != nil {
+			ctx.Err = fmt.Errorf("failed to download file from path %s, err %s", path, err)
+			return
+		}
+		if len(fileContent) > 0 {
+			contentArr = append(contentArr, fileContent)
+		}
+	}
+
+	ret, err := yamlutil.Merge(contentArr)
+	if err != nil {
+		ctx.Err = fmt.Errorf("failed to merge files, err %s", err)
+		return
+	}
+	ctx.Resp = string(ret)
 }

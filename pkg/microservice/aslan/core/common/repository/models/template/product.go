@@ -105,10 +105,10 @@ type GitRepoConfig struct {
 }
 
 type CustomYaml struct {
-	YamlSource    string         `bson:"yaml_source,omitempty"     json:"yaml_source,omitempty"`
-	YamlContent   string         `bson:"yaml_content,omitempty"    json:"yaml_content,omitempty"`
-	GitRepoConfig *GitRepoConfig `bson:"git_repo_config,omitempty"   json:"git_repo_config,omitempty"`
-	ValuesPaths   []string       `bson:"values_paths,omitempty"    json:"values_paths,omitempty"`
+	//YamlSource    string         `bson:"yaml_source,omitempty"     json:"yaml_source,omitempty"`
+	YamlContent string `bson:"yaml_content,omitempty"    json:"yaml_content,omitempty"`
+	//GitRepoConfig *GitRepoConfig `bson:"git_repo_config,omitempty"   json:"git_repo_config,omitempty"`
+	//ValuesPaths   []string       `bson:"values_paths,omitempty"    json:"values_paths,omitempty"`
 }
 
 // RenderChart ...
@@ -229,22 +229,6 @@ func (r *RenderKV) RemoveDupServices() {
 		}
 	}
 	r.Services = result
-}
-
-func (rc *RenderChart) DiffOverrideYaml(other *RenderChart) bool {
-	if rc.OverrideYaml == nil {
-		if other.OverrideYaml != nil {
-			return true
-		}
-		return false
-	}
-	if other.OverrideYaml == nil {
-		return true
-	}
-	if rc.OverrideYaml.YamlSource != other.OverrideYaml.YamlSource || rc.OverrideYaml.YamlContent != other.OverrideYaml.YamlContent {
-		return true
-	}
-	return false
 }
 
 func (rc *RenderChart) GetOverrideYaml() string {

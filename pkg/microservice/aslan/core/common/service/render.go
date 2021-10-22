@@ -59,7 +59,8 @@ type RenderChartArg struct {
 	ServiceName    string    `json:"serviceName,omitempty"`
 	ChartVersion   string    `json:"chartVersion,omitempty"`
 	OverrideValues []*KVPair `json:"overrideValues,omitempty"`
-	*YamlData
+	OverrideYaml   string    `json:"overrideYaml,omitempty"`
+	//*YamlData
 }
 
 type RendersetArg struct {
@@ -67,7 +68,7 @@ type RendersetArg struct {
 	*RenderChartArg
 }
 
-func (args *RenderChartArg) toOverrideValueString() string {
+func (args *RenderChartArg) ToOverrideValueString() string {
 	if len(args.OverrideValues) == 0 {
 		return ""
 	}
@@ -93,23 +94,9 @@ func (args *RenderChartArg) fromOverrideValueString(valueStr string) {
 }
 
 func (args *RenderChartArg) toCustomValuesYaml() *templatemodels.CustomYaml {
-	switch args.YamlSource {
-	case setting.ValuesYamlSourceFreeEdit:
+	if len(args.OverrideYaml) > 0 {
 		return &templatemodels.CustomYaml{
-			YamlSource:  args.YamlSource,
-			YamlContent: args.ValuesYAML,
-		}
-	case setting.ValuesYamlSourceGitRepo:
-		return &templatemodels.CustomYaml{
-			YamlSource:  args.YamlSource,
-			YamlContent: args.ValuesYAML,
-			ValuesPaths: args.GitRepoConfig.ValuesPaths,
-			GitRepoConfig: &templatemodels.GitRepoConfig{
-				CodehostID: args.GitRepoConfig.CodehostID,
-				Owner:      args.GitRepoConfig.Owner,
-				Repo:       args.GitRepoConfig.Repo,
-				Branch:     args.GitRepoConfig.Branch,
-			},
+			YamlContent: args.OverrideYaml,
 		}
 	}
 	return nil
@@ -119,37 +106,15 @@ func (args *RenderChartArg) fromCustomValueYaml(customValuesYaml *templatemodels
 	if customValuesYaml == nil {
 		return
 	}
-
-	switch customValuesYaml.YamlSource {
-	case setting.ValuesYamlSourceFreeEdit:
-		args.YamlData = &YamlData{
-			YamlSource: customValuesYaml.YamlSource,
-			ValuesYAML: customValuesYaml.YamlContent,
-		}
-	case setting.ValuesYamlSourceGitRepo:
-		args.YamlData = &YamlData{
-			YamlSource: customValuesYaml.YamlSource,
-			ValuesYAML: "",
-		}
-		if customValuesYaml.GitRepoConfig != nil {
-			args.YamlData.GitRepoConfig = &RepoConfig{
-				CodehostID:  customValuesYaml.GitRepoConfig.CodehostID,
-				Owner:       customValuesYaml.GitRepoConfig.Owner,
-				Repo:        customValuesYaml.GitRepoConfig.Repo,
-				Branch:      customValuesYaml.GitRepoConfig.Branch,
-				ValuesPaths: customValuesYaml.ValuesPaths,
-			}
-		}
-
-	}
+	args.OverrideYaml = customValuesYaml.YamlContent
 }
 
 // FillRenderChartModel fill render chart model
 func (args *RenderChartArg) FillRenderChartModel(chart *templatemodels.RenderChart, version string) {
 	chart.ServiceName = args.ServiceName
 	chart.ChartVersion = version
-	chart.OverrideValues = args.toOverrideValueString()
-	if args.YamlData != nil {
+	chart.OverrideValues = args.ToOverrideValueString()
+	if len(args.OverrideYaml) > 0 {
 		chart.OverrideYaml = args.toCustomValuesYaml()
 	} else {
 		chart.OverrideYaml = nil

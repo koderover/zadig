@@ -188,12 +188,6 @@ func CreateOrUpdateRenderset(productName, envName string, args *commonservice.Re
 		return e.ErrCreateRenderSet.AddDesc("missing helm chart info")
 	}
 
-	if args.RenderChartArg != nil && args.RenderChartArg.YamlData != nil {
-		err := generateValuesYaml(args.RenderChartArg.YamlData, log)
-		if err != nil {
-			return e.ErrCreateRenderSet.AddDesc(err.Error())
-		}
-	}
 	if args.DefaultValues != nil && args.DefaultValues.YamlSource != "" {
 		err := generateValuesYaml(args.DefaultValues, log)
 		if err != nil {
@@ -276,11 +270,6 @@ func CreateOrUpdateChartValues(productName, envName string, args *commonservice.
 
 	if serviceObj.HelmChart == nil {
 		return e.ErrCreateRenderSet.AddDesc("missing helm chart info")
-	}
-
-	err = generateValuesYaml(args.YamlData, log)
-	if err != nil {
-		return e.ErrCreateRenderSet.AddDesc(err.Error())
 	}
 
 	renderSetName := commonservice.GetProductEnvNamespace(envName, productName, "")

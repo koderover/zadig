@@ -57,13 +57,13 @@ type CreateFromPublicRepo struct {
 }
 
 type CreateFromChartTemplate struct {
-	CodehostID   int      `json:"codehostID"`
-	Owner        string   `json:"owner"`
-	Repo         string   `json:"repo"`
-	Branch       string   `json:"branch"`
-	TemplateName string   `json:"templateName"`
-	ValuesPaths  []string `json:"valuesPaths"`
-	ValuesYAML   string   `json:"valuesYAML"`
+	//CodehostID   int      `json:"codehostID"`
+	//Owner        string   `json:"owner"`
+	//Repo         string   `json:"repo"`
+	//Branch       string   `json:"branch"`
+	TemplateName string `json:"templateName"`
+	//ValuesPaths  []string `json:"valuesPaths"`
+	ValuesYAML string `json:"valuesYAML"`
 }
 
 func PublicRepoToPrivateRepoArgs(args *CreateFromPublicRepo) (*CreateFromRepo, error) {

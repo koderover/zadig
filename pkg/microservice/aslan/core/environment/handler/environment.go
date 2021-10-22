@@ -75,6 +75,14 @@ func ListProducts(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.ListProducts(c.Query("productName"), c.Query("envType"), ctx.User.Name, ctx.User.ID, ctx.User.IsSuperUser, ctx.Logger)
 }
 
+// GetProductStatus List product status
+func GetProductStatus(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.GetProductStatus(c.Query("productName"), ctx.Logger)
+}
+
 func AutoCreateProduct(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -116,25 +124,34 @@ func CreateHelmProduct(c *gin.Context) {
 		return
 	}
 
-	args := new(service.CreateHelmProductArg)
+	productName := c.Param("productName")
+
+	createArgs := make([]*service.CreateHelmProductArg, 0)
 	data, err := c.GetRawData()
 	if err != nil {
-		log.Errorf("CreateProduct c.GetRawData() err : %v", err)
+		log.Errorf("CreateHelmProduct c.GetRawData() err : %v", err)
+	} else if err = json.Unmarshal(data, &createArgs); err != nil {
+		log.Errorf("CreateHelmProduct json.Unmarshal err : %v", err)
 	}
-	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("CreateProduct json.Unmarshal err : %v", err)
-	}
-	args.ProductName = c.Param("productName")
-
-	if args.EnvName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("envName can not be null!")
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "新增", "集成环境", args.EnvName, string(data), ctx.Logger)
+	envNameList := make([]string, 0)
+	for _, arg := range createArgs {
+		if arg.EnvName == "" {
+			ctx.Err = e.ErrInvalidParam.AddDesc("envName is empty")
+			return
+		}
+		arg.ProductName = productName
+		envNameList = append(envNameList, arg.EnvName)
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.Username, productName, "新增", "集成环境", strings.Join(envNameList, "-"), string(data), ctx.Logger)
 
 	ctx.Err = service.CreateHelmProduct(
-		ctx.Username, ctx.RequestID, args, ctx.Logger,
+		productName, ctx.Username, ctx.RequestID, createArgs, ctx.Logger,
 	)
 }
 
@@ -183,6 +200,8 @@ func UpdateProduct(c *gin.Context) {
 	}
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdateProduct json.Unmarshal err : %v", err)
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.Username, productName, "更新", "集成环境", envName, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
@@ -225,6 +244,31 @@ func UpdateProductRecycleDay(c *gin.Context) {
 	}
 
 	ctx.Err = service.UpdateProductRecycleDay(envName, productName, recycleDay)
+}
+
+func EstimatedValues(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	productName := c.Param("productName")
+	if productName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can't be empty!")
+		return
+	}
+
+	serviceName := c.Query("serviceName")
+	if serviceName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("serviceName can't be empty!")
+		return
+	}
+
+	arg := new(service.EstimateValuesArg)
+	if err := c.ShouldBindQuery(arg); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GeneEstimatedValues(productName, c.Query("envName"), serviceName, c.Query("format"), arg, ctx.Logger)
 }
 
 func UpdateHelmProductRenderset(c *gin.Context) {
@@ -378,11 +422,13 @@ func GetEstimatedRenderCharts(c *gin.Context) {
 	productName := c.Query("productName")
 	if productName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("productName can't be empty!")
+		return
 	}
 
 	envName := c.Query("envName")
 	if envName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("envName can't be empty!")
+		return
 	}
 
 	ctx.Resp, ctx.Err = service.GetEstimatedRenderCharts(productName, envName, c.Query("serviceName"), ctx.Logger)
