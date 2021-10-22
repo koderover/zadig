@@ -26,6 +26,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	roles := router.Group("roles")
 	{
 		roles.POST("", CreateRole)
+		roles.PUT(":/name", UpdateRole)
 		roles.GET("", ListRoles)
 		roles.DELETE("/:name", DeleteRole)
 	}
@@ -34,6 +35,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		publicRoles.POST("", CreatePublicRole)
 		publicRoles.GET("", ListPublicRoles)
+		publicRoles.PUT("/:name", UpdatePublicRole)
 		publicRoles.DELETE("/:name", DeletePublicRole)
 	}
 
