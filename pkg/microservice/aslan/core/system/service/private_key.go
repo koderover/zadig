@@ -88,9 +88,8 @@ func DeletePrivateKey(id string, log *zap.SugaredLogger) error {
 	return nil
 }
 
-func ListLabels(log *zap.SugaredLogger) ([]string, error) {
-
-	return []string{}, nil
+func ListLabels() ([]string, error) {
+	return commonrepo.NewPrivateKeyColl().DistinctLabels()
 }
 
 func BatchCreatePrivateKey(args []*commonmodels.PrivateKey, username string, log *zap.SugaredLogger) error {
@@ -98,18 +97,18 @@ func BatchCreatePrivateKey(args []*commonmodels.PrivateKey, username string, log
 		if !config.CVMNameRegex.MatchString(currentPrivateKey.Name) {
 			return e.ErrCreatePrivateKey.AddDesc("主机名称仅支持字母，数字和下划线且首个字符不以数字开头")
 		}
-
+		currentPrivateKey.UpdateBy = username
 		if privateKeys, _ := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{Name: currentPrivateKey.Name}); len(privateKeys) > 0 {
 			if err := commonrepo.NewPrivateKeyColl().Update(privateKeys[0].ID.Hex(), currentPrivateKey); err != nil {
 				log.Errorf("PrivateKey.Create error: %s", err)
-				return e.ErrCreatePrivateKey
+				return e.ErrCreatePrivateKey.AddDesc("update failed")
 			}
 			continue
 		}
 
 		if err := commonrepo.NewPrivateKeyColl().Create(currentPrivateKey); err != nil {
 			log.Errorf("PrivateKey.Create error: %s", err)
-			return e.ErrCreatePrivateKey
+			return e.ErrCreatePrivateKey.AddDesc("add failed")
 		}
 	}
 	return nil

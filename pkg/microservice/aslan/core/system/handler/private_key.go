@@ -108,7 +108,7 @@ func ListLabels(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListLabels(ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListLabels()
 }
 
 func BatchCreatePrivateKey(c *gin.Context) {

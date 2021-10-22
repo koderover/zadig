@@ -189,3 +189,19 @@ func (c *PrivateKeyColl) ListHostIPByIDs(ids []string) ([]*models.PrivateKey, er
 
 	return resp, err
 }
+
+// DistinctLabels returns distinct label
+func (c *PrivateKeyColl) DistinctLabels() ([]string, error) {
+	var resp []string
+	query := bson.M{}
+	ctx := context.Background()
+	labels, err := c.Collection.Distinct(ctx, "label", query)
+
+	for _, labelInter := range labels {
+		if label, ok := labelInter.(string); ok {
+			resp = append(resp, label)
+		}
+	}
+
+	return resp, err
+}
