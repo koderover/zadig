@@ -64,24 +64,10 @@ func UpdateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
 			Resources: r.Resources,
 		})
 	}
-
+	if ns == "" {
+		return mongodb.NewRoleColl().UpdatePublicRole(obj)
+	}
 	return mongodb.NewRoleColl().UpdateProjectRole(obj)
-}
-
-func UpdatePublicRole(role *Role, _ *zap.SugaredLogger) error {
-	obj := &models.Role{
-		Name: role.Name,
-		Kind: role.Kind,
-	}
-
-	for _, r := range role.Rules {
-		obj.Rules = append(obj.Rules, &models.Rule{
-			Verbs:     r.Verbs,
-			Resources: r.Resources,
-		})
-	}
-
-	return mongodb.NewRoleColl().UpdatePublicRole(obj)
 }
 
 func ListRoles(projectName string, _ *zap.SugaredLogger) (roles []*Role, err error) {

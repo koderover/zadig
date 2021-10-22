@@ -75,7 +75,7 @@ func UpdatePublicRole(c *gin.Context) {
 	}
 	name := c.Param("name")
 	args.Name = name
-	ctx.Err = service.UpdatePublicRole(args, ctx.Logger)
+	ctx.Err = service.UpdateRole("", args, ctx.Logger)
 }
 
 func ListRoles(c *gin.Context) {
