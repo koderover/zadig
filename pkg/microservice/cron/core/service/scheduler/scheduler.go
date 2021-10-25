@@ -20,7 +20,6 @@ import (
 	"fmt"
 	stdlog "log"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/jasonlvhit/gocron"
@@ -33,7 +32,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/cron/core/service"
 	"github.com/koderover/zadig/pkg/microservice/cron/core/service/client"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/poetry"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -141,12 +139,6 @@ func (c *CronClient) Init() {
 	// 测试管理的定时任务触发
 	c.InitTestScheduler()
 
-	// 自由编排工作流定时任务触发
-	features, _ := getFeatures()
-	if strings.Contains(features, freestyleType) {
-		c.InitColliePipelineScheduler()
-	}
-
 	// 定时清理环境
 	c.InitCleanProductScheduler()
 	// 定时初始化构建数据
@@ -157,16 +149,6 @@ func (c *CronClient) Init() {
 	c.InitPullSonarStatScheduler()
 	// 定时初始化健康检查
 	c.InitHealthCheckScheduler()
-}
-
-func getFeatures() (string, error) {
-	cl := poetry.New(configbase.PoetryServiceAddress())
-	fs, err := cl.ListFeatures()
-	if err != nil {
-		return "", err
-	}
-
-	return strings.Join(fs, ","), nil
 }
 
 // InitCleanJobScheduler ...
@@ -207,16 +189,6 @@ func (c *CronClient) InitTestScheduler() {
 	c.Schedulers[UpsertTestScheduler].Every(1).Minutes().Do(c.UpsertTestScheduler, c.log)
 
 	c.Schedulers[UpsertTestScheduler].Start()
-}
-
-// InitJobScheduler ...
-func (c *CronClient) InitColliePipelineScheduler() {
-
-	c.Schedulers[UpsertColliePipelineScheduler] = gocron.NewScheduler()
-
-	c.Schedulers[UpsertColliePipelineScheduler].Every(1).Minutes().Do(c.UpsertColliePipelineScheduler, c.log)
-
-	c.Schedulers[UpsertColliePipelineScheduler].Start()
 }
 
 // InitBuildStatScheduler ...

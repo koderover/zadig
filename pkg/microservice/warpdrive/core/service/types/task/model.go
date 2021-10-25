@@ -81,9 +81,8 @@ type Task struct {
 
 	TriggerBy *TriggerBy `json:"trigger_by,omitempty" bson:"trigger_by,omitempty"`
 
-	Features        []string `bson:"features" json:"features"`
-	IsRestart       bool     `bson:"is_restart"                      json:"is_restart"`
-	StorageEndpoint string   `bson:"storage_endpoint"            json:"storage_endpoint"`
+	IsRestart       bool   `bson:"is_restart"                      json:"is_restart"`
+	StorageEndpoint string `bson:"storage_endpoint"            json:"storage_endpoint"`
 }
 
 type RenderInfo struct {
