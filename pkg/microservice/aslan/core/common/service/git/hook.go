@@ -19,9 +19,7 @@ package git
 import (
 	"sync"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/shared/poetry"
-	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/tool/crypto"
 )
 
 var once sync.Once
@@ -29,13 +27,17 @@ var secret string
 
 func GetHookSecret() string {
 	once.Do(func() {
-		poetryClient := poetry.New(config.PoetryAPIServer())
-		org, err := poetryClient.GetOrganization(poetry.DefaultOrganization)
+		//poetryClient := poetry.New(config.PoetryAPIServer())
+		//org, err := poetryClient.GetOrganization(poetry.DefaultOrganization)
+		//if err != nil {
+		//	log.Errorf("failed to find default organization: %v", err)
+		//	secret = "--impossible-token--"
+		//}
+		token, err := crypto.AesEncrypt("hook")
 		if err != nil {
-			log.Errorf("failed to find default organization: %v", err)
-			secret = "--impossible-token--"
+			panic("Failed to get token")
 		}
-		secret = org.Token
+		secret = token
 	})
 
 	return secret
