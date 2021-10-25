@@ -67,7 +67,7 @@ func ListDockerfileTemplate(c *gin.Context) {
 
 	// Query Verification
 	args := listDockerfileQuery{}
-	if err := c.ShouldBindQuery(args); err != nil {
+	if err := c.ShouldBindQuery(&args); err != nil {
 		ctx.Err = err
 		return
 	}
