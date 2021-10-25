@@ -1728,6 +1728,8 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 
 		if module.PostBuild != nil && module.PostBuild.DockerBuild != nil {
 			build.JobCtx.DockerBuildCtx = &task.DockerBuildCtx{
+				Source:     module.PostBuild.DockerBuild.Source,
+				TemplateID: module.PostBuild.DockerBuild.TemplateID,
 				WorkDir:    module.PostBuild.DockerBuild.WorkDir,
 				DockerFile: module.PostBuild.DockerBuild.DockerFile,
 				BuildArgs:  module.PostBuild.DockerBuild.BuildArgs,

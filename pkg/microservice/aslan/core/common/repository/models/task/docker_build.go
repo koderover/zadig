@@ -54,6 +54,8 @@ func (db *DockerBuild) ToSubTask() (map[string]interface{}, error) {
 // DockerFile: dockerfile名称, 默认为Dockerfile
 // ImageBuild: build image镜像全称, e.g. xxx.com/release-candidates/image:tag
 type DockerBuildCtx struct {
+	Source          string `yaml:"source" bson:"source" json:"source"`
+	TemplateID      string `yaml:"template_id" bson:"template_id" json:"template_id"`
 	WorkDir         string `yaml:"work_dir" bson:"work_dir" json:"work_dir"`
 	DockerFile      string `yaml:"docker_file" bson:"docker_file" json:"docker_file"`
 	ImageName       string `yaml:"image_name" bson:"image_name" json:"image_name"`
