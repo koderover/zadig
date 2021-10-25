@@ -19,15 +19,27 @@ package service
 import (
 	"encoding/json"
 
+	"github.com/dexidp/dex/connector/gitea"
 	"github.com/dexidp/dex/connector/github"
+	"github.com/dexidp/dex/connector/gitlab"
+	"github.com/dexidp/dex/connector/google"
 	"github.com/dexidp/dex/connector/ldap"
+	"github.com/dexidp/dex/connector/linkedin"
+	"github.com/dexidp/dex/connector/microsoft"
+	"github.com/dexidp/dex/connector/oidc"
 )
 
 type ConnectorType string
 
 const (
-	TypeLDAP   ConnectorType = "ldap"
-	TypeGitHub ConnectorType = "github"
+	TypeLDAP      ConnectorType = "ldap"
+	TypeGitHub    ConnectorType = "github"
+	TypeGitlab    ConnectorType = "gitlab"
+	TypeOIDC      ConnectorType = "oidc"
+	TypeGitea     ConnectorType = "gitea"
+	TypeGoogle    ConnectorType = "google"
+	TypeLinkedIn  ConnectorType = "linkedin"
+	TypeMicrosoft ConnectorType = "microsoft"
 )
 
 type Connector struct {
@@ -53,6 +65,18 @@ func (c *Connector) UnmarshalJSON(data []byte) error {
 		c.Config = &ldap.Config{}
 	case TypeGitHub:
 		c.Config = &github.Config{}
+	case TypeGitlab:
+		c.Config = &gitlab.Config{}
+	case TypeOIDC:
+		c.Config = &oidc.Config{}
+	case TypeGitea:
+		c.Config = &gitea.Config{}
+	case TypeGoogle:
+		c.Config = &google.Config{}
+	case TypeLinkedIn:
+		c.Config = &linkedin.Config{}
+	case TypeMicrosoft:
+		c.Config = &microsoft.Config{}
 	}
 
 	type tmp Connector
