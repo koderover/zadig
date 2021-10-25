@@ -75,7 +75,15 @@ func GetDockerfileTemplateDetail(id string, logger *zap.SugaredLogger) (*Dockerf
 }
 
 func DeleteDockerfileTemplate(id string, logger *zap.SugaredLogger) error {
-	err := mongodb.NewDockerfileTemplateColl().DeleteByID(id)
+	ref, err := commonrepo.NewBuildColl().GetDockerfileTemplateReference(id)
+	if err != nil {
+		logger.Errorf("Failed to get build reference for template id: %s, the error is: %s", id, err)
+		return err
+	}
+	if len(ref) > 0 {
+		return errors.New("this template is in use")
+	}
+	err = mongodb.NewDockerfileTemplateColl().DeleteByID(id)
 	if err != nil {
 		logger.Errorf("Failed to delete dockerfile template of id: %s, the error is: %s", id, err)
 	}
