@@ -259,20 +259,22 @@ func (r *Reaper) BeforeExec() error {
 }
 
 func dockerBuildCmd(dockerfile, fullImage, ctx, buildArgs string, ignoreCache bool) *exec.Cmd {
-	args := []string{"-c", "docker", "build", "--rm=true"}
+	args := []string{"-c"}
+	dockerCommand := "docker build --rm=true"
 	if ignoreCache {
-		args = append(args, "--no-cache")
+		dockerCommand += " --no-cache"
 	}
 
 	if buildArgs != "" {
 		for _, val := range strings.Fields(buildArgs) {
 			if val != "" {
-				args = append(args, val)
+				dockerCommand = dockerCommand + " " + val
 			}
 		}
 
 	}
-	args = append(args, []string{"-t", fullImage, "-f", dockerfile, ctx}...)
+	dockerCommand = dockerCommand + " -t " + fullImage + " -f " + dockerfile + ctx
+	args = append(args, dockerCommand)
 	return exec.Command("sh", args...)
 }
 
