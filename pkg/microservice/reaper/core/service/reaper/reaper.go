@@ -273,7 +273,7 @@ func dockerBuildCmd(dockerfile, fullImage, ctx, buildArgs string, ignoreCache bo
 		}
 
 	}
-	dockerCommand = dockerCommand + " -t " + fullImage + " -f " + dockerfile + ctx
+	dockerCommand = dockerCommand + " -t " + fullImage + " -f " + dockerfile + " " + ctx
 	args = append(args, dockerCommand)
 	return exec.Command("sh", args...)
 }
