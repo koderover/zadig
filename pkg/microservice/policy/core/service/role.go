@@ -25,7 +25,6 @@ import (
 
 type Role struct {
 	Name  string  `json:"name"`
-	Kind  string  `json:"name"`
 	Rules []*Rule `json:"rules,omitempty"`
 }
 
