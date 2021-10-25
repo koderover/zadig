@@ -163,20 +163,30 @@ func (c *PrivateKeyColl) DeleteAll() error {
 	return err
 }
 
-func (c *PrivateKeyColl) ListHostIPByIDs(ids []string) ([]*models.PrivateKey, error) {
+type ListHostIPArgs struct {
+	IDs    []string `json:"ids"`
+	Labels []string `json:"labels"`
+}
+
+func (c *PrivateKeyColl) ListHostIPByArgs(args *ListHostIPArgs) ([]*models.PrivateKey, error) {
 	query := bson.M{}
 	resp := make([]*models.PrivateKey, 0)
 	ctx := context.Background()
 
-	var oids []primitive.ObjectID
-	for _, id := range ids {
-		oid, err := primitive.ObjectIDFromHex(id)
-		if err != nil {
-			return nil, err
+	if len(args.IDs) > 0 {
+		var oids []primitive.ObjectID
+		for _, id := range args.IDs {
+			oid, err := primitive.ObjectIDFromHex(id)
+			if err != nil {
+				return nil, err
+			}
+			oids = append(oids, oid)
 		}
-		oids = append(oids, oid)
+		query["_id"] = bson.M{"$in": oids}
+	} else if len(args.Labels) > 0 {
+		query["label"] = bson.M{"$in": args.Labels}
 	}
-	query["_id"] = bson.M{"$in": oids}
+
 	opt := options.Find()
 	selector := bson.D{
 		{"ip", 1},
