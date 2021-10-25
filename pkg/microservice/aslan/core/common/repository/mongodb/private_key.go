@@ -173,6 +173,10 @@ func (c *PrivateKeyColl) ListHostIPByArgs(args *ListHostIPArgs) ([]*models.Priva
 	resp := make([]*models.PrivateKey, 0)
 	ctx := context.Background()
 
+	if len(args.IDs) == 0 && len(args.Labels) == 0 {
+		return resp, nil
+	}
+
 	if len(args.IDs) > 0 {
 		var oids []primitive.ObjectID
 		for _, id := range args.IDs {
