@@ -100,10 +100,29 @@ func registerPolicies() {
 func registerRole() {
 	policy.New().CreateSystemRole(&service.Role{
 		Name: "admin",
-		Kind: "user",
 		Rules: []*service.Rule{&service.Rule{
 			Verbs:     []string{"*"},
 			Resources: []string{"*"},
+		}},
+	})
+	policy.New().CreatePublicRole(&service.Role{
+		Name: string(setting.Contributor),
+		Rules: []*service.Rule{&service.Rule{
+			Verbs:     []string{"get_workflow", "run_workflow"},
+			Kind:      "resources",
+			Resources: []string{"Workflow"},
+		}, &service.Rule{
+			Verbs:     []string{"get_environment", "config_environment", "manage_environment", "delete_environment"},
+			Kind:      "resources",
+			Resources: []string{"Environment"},
+		}, &service.Rule{
+			Verbs:     []string{"get_build", "get_service"},
+			Kind:      "resources",
+			Resources: []string{"Service"},
+		}, &service.Rule{
+			Verbs:     []string{"get_test"},
+			Kind:      "resources",
+			Resources: []string{"Test"},
 		}},
 	})
 }

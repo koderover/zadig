@@ -59,3 +59,9 @@ func (c *Client) CreateSystemRole(role *service.Role) error {
 	_, err := c.Post(url, httpclient.SetBody(role))
 	return err
 }
+
+func (c *Client) CreatePublicRole(role *service.Role) error {
+	url := fmt.Sprintf("/public-roles", role)
+	_, err := c.Post(url, httpclient.SetBody(role))
+	return err
+}
