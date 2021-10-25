@@ -27,7 +27,7 @@ import (
 
 type RoleBinding struct {
 	Name   string `json:"name"`
-	User   string `json:"user"`
+	UID    string `json:"uid"`
 	Role   string `json:"role"`
 	Global bool   `json:"global"`
 }
@@ -51,7 +51,7 @@ func CreateRoleBinding(ns string, rb *RoleBinding, logger *zap.SugaredLogger) er
 	obj := &models.RoleBinding{
 		Name:      rb.Name,
 		Namespace: ns,
-		Subjects:  []*models.Subject{{Kind: models.UserKind, Name: rb.User}},
+		Subjects:  []*models.Subject{{Kind: models.UserKind, UID: rb.UID}},
 		RoleRef: &models.RoleRef{
 			Name:      role.Name,
 			Namespace: role.Namespace,
@@ -61,8 +61,9 @@ func CreateRoleBinding(ns string, rb *RoleBinding, logger *zap.SugaredLogger) er
 	return mongodb.NewRoleBindingColl().Create(obj)
 }
 
-func ListRoleBindings(ns, user string, _ *zap.SugaredLogger) (roleBindings []*RoleBinding, err error) {
-	modelRoleBindings, err := mongodb.NewRoleBindingColl().ListBy(ns, user)
+func ListRoleBindings(ns, uid string, _ *zap.SugaredLogger) ([]*RoleBinding, error) {
+	var roleBindings []*RoleBinding
+	modelRoleBindings, err := mongodb.NewRoleBindingColl().ListBy(ns, uid)
 	if err != nil {
 		return nil, err
 	}
@@ -71,13 +72,14 @@ func ListRoleBindings(ns, user string, _ *zap.SugaredLogger) (roleBindings []*Ro
 		roleBindings = append(roleBindings, &RoleBinding{
 			Name:   v.Name,
 			Role:   v.RoleRef.Name,
-			User:   v.Subjects[0].Name,
+			UID:    v.Subjects[0].UID,
 			Global: v.Namespace == "",
 		})
 	}
-	return
+
+	return roleBindings, nil
 }
 
-func DeleteRoleBinding(name string, projectName string, logger *zap.SugaredLogger) error {
+func DeleteRoleBinding(name string, projectName string, _ *zap.SugaredLogger) error {
 	return mongodb.NewRoleBindingColl().Delete(name, projectName)
 }

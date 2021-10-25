@@ -77,7 +77,7 @@ type rule struct {
 }
 
 type roleBinding struct {
-	User     string   `json:"user"`
+	UID      string   `json:"uid"`
 	Bindings bindings `json:"bindings"`
 }
 
@@ -183,7 +183,7 @@ type roleBindings []*roleBinding
 func (o roleBindings) Len() int      { return len(o) }
 func (o roleBindings) Swap(i, j int) { o[i], o[j] = o[j], o[i] }
 func (o roleBindings) Less(i, j int) bool {
-	return o[i].User < o[j].User
+	return o[i].UID < o[j].UID
 }
 
 func generateOPARoles(roles []*models.Role, policies []*models.Policy) *opaRoles {
@@ -227,10 +227,10 @@ func generateOPARoleBindings(rbs []*models.RoleBinding) *opaRoleBindings {
 	for _, rb := range rbs {
 		for _, s := range rb.Subjects {
 			if s.Kind == models.UserKind {
-				if _, ok := userRoleMap[s.Name]; !ok {
-					userRoleMap[s.Name] = make(map[string][]*roleRef)
+				if _, ok := userRoleMap[s.UID]; !ok {
+					userRoleMap[s.UID] = make(map[string][]*roleRef)
 				}
-				userRoleMap[s.Name][rb.Namespace] = append(userRoleMap[s.Name][rb.Namespace], &roleRef{Name: rb.RoleRef.Name, Namespace: rb.RoleRef.Namespace})
+				userRoleMap[s.UID][rb.Namespace] = append(userRoleMap[s.UID][rb.Namespace], &roleRef{Name: rb.RoleRef.Name, Namespace: rb.RoleRef.Namespace})
 			}
 		}
 	}
@@ -242,7 +242,7 @@ func generateOPARoleBindings(rbs []*models.RoleBinding) *opaRoleBindings {
 			bindingsData = append(bindingsData, &binding{Namespace: n, RoleRefs: b})
 		}
 		sort.Sort(bindings(bindingsData))
-		data.RoleBindings = append(data.RoleBindings, &roleBinding{User: u, Bindings: bindingsData})
+		data.RoleBindings = append(data.RoleBindings, &roleBinding{UID: u, Bindings: bindingsData})
 	}
 
 	sort.Sort(data.RoleBindings)
