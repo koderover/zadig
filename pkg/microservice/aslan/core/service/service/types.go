@@ -130,8 +130,7 @@ func (a *BulkHelmServiceCreationArgs) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	switch s.Source {
-	case LoadFromChartTemplate:
+	if s.Source == LoadFromChartTemplate {
 		a.CreateFrom = &CreateFromChartTemplate{}
 	}
 

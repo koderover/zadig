@@ -420,6 +420,9 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 				func(chartTree afero.Fs) (string, error) {
 					var err error
 					serviceName, chartVersion, err = readChartYAML(afero.NewIOFS(chartTree), filepath.Base(filePath), log)
+					if err != nil {
+						return serviceName, err
+					}
 					valuesYAML, _, err = readValuesYAML(afero.NewIOFS(chartTree), filepath.Base(filePath), log)
 					return serviceName, err
 				})
@@ -515,19 +518,17 @@ func CreateOrUpdateBulkHelmServiceFromTemplate(projectName string, args *BulkHel
 
 	wg := sync.WaitGroup{}
 	// run goroutines to speed up
-	for _, path := range args.ValuesData.GitRepoConfig.ValuesPaths {
+	for _, singlePath := range args.ValuesData.GitRepoConfig.ValuesPaths {
 		wg.Add(1)
 		go func(repoConfig *commonservice.RepoConfig, path string) {
-			defer func() {
-				wg.Done()
-			}()
+			defer wg.Done()
 			renderChart, err := handleSingleService(projectName, repoConfig, path, from, args.CreatedBy, templateChartData, logger)
 			if err != nil {
 				failedServiceMap.Store(path, err.Error())
 			} else {
 				renderChartMap.Store(renderChart.ServiceName, renderChart)
 			}
-		}(args.ValuesData.GitRepoConfig, path)
+		}(args.ValuesData.GitRepoConfig, singlePath)
 	}
 
 	wg.Wait()
