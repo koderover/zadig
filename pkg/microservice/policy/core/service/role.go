@@ -17,6 +17,8 @@ limitations under the License.
 package service
 
 import (
+	"fmt"
+
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
@@ -67,7 +69,8 @@ func UpdateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
 	return mongodb.NewRoleColl().UpdateRole(obj)
 }
 
-func ListRoles(projectName string, _ *zap.SugaredLogger) (roles []*Role, err error) {
+func ListRoles(projectName string, _ *zap.SugaredLogger) ([]*Role, error) {
+	var roles []*Role
 	projectRoles, err := mongodb.NewRoleColl().ListBy(projectName)
 	if err != nil {
 		return nil, err
@@ -78,6 +81,28 @@ func ListRoles(projectName string, _ *zap.SugaredLogger) (roles []*Role, err err
 		})
 	}
 	return roles, nil
+}
+
+func GetRole(ns, name string, _ *zap.SugaredLogger) (*Role, error) {
+	r, found, err := mongodb.NewRoleColl().Get(ns, name)
+	if err != nil {
+		return nil, err
+	} else if !found {
+		return nil, fmt.Errorf("role %s not found", name)
+	}
+
+	res := &Role{
+		Name: r.Name,
+	}
+	for _, ru := range r.Rules {
+		res.Rules = append(res.Rules, &Rule{
+			Verbs:     ru.Verbs,
+			Kind:      ru.Kind,
+			Resources: ru.Resources,
+		})
+	}
+
+	return res, nil
 }
 
 func DeleteRole(name string, projectName string, _ *zap.SugaredLogger) (err error) {
