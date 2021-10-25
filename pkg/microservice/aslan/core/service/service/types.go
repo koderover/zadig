@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
 )
 
@@ -37,10 +38,31 @@ type HelmLoadSource struct {
 
 type HelmServiceCreationArgs struct {
 	HelmLoadSource
-
 	Name       string      `json:"name"`
 	CreatedBy  string      `json:"createdBy"`
 	CreateFrom interface{} `json:"createFrom"`
+}
+
+type ValuesDataArgs struct {
+	YamlSource    string              `json:"yamlSource,omitempty"`
+	GitRepoConfig *service.RepoConfig `json:"gitRepoConfig,omitempty"`
+}
+
+type BulkHelmServiceCreationArgs struct {
+	HelmLoadSource
+	CreateFrom interface{}     `json:"createFrom"`
+	CreatedBy  string          `json:"createdBy"`
+	ValuesData *ValuesDataArgs `json:"valuesData"`
+}
+
+type FailedService struct {
+	Path  string `json:"path"`
+	Error string `json:"error"`
+}
+
+type BulkHelmServiceCreationResponse struct {
+	SuccessServices []string         `json:"successServices"`
+	FailedServices  []*FailedService `json:"failedServices"`
 }
 
 type CreateFromRepo struct {
@@ -57,13 +79,13 @@ type CreateFromPublicRepo struct {
 }
 
 type CreateFromChartTemplate struct {
-	CodehostID   int      `json:"codehostID"`
-	Owner        string   `json:"owner"`
-	Repo         string   `json:"repo"`
-	Branch       string   `json:"branch"`
+	CodehostID   int      `json:"codehostID,omitempty"`
+	Owner        string   `json:"owner,omitempty"`
+	Repo         string   `json:"repo,omitempty"`
+	Branch       string   `json:"branch,omitempty"`
 	TemplateName string   `json:"templateName"`
-	ValuesPaths  []string `json:"valuesPaths"`
-	ValuesYAML   string   `json:"valuesYAML"`
+	ValuesPaths  []string `json:"valuesPaths,omitempty"`
+	ValuesYAML   string   `json:"valuesYAML,omitempty"`
 }
 
 func PublicRepoToPrivateRepoArgs(args *CreateFromPublicRepo) (*CreateFromRepo, error) {
@@ -98,6 +120,21 @@ func (a *HelmServiceCreationArgs) UnmarshalJSON(data []byte) error {
 	}
 
 	type tmp HelmServiceCreationArgs
+
+	return json.Unmarshal(data, (*tmp)(a))
+}
+
+func (a *BulkHelmServiceCreationArgs) UnmarshalJSON(data []byte) error {
+	s := &HelmLoadSource{}
+	if err := json.Unmarshal(data, s); err != nil {
+		return err
+	}
+
+	if s.Source == LoadFromChartTemplate {
+		a.CreateFrom = &CreateFromChartTemplate{}
+	}
+
+	type tmp BulkHelmServiceCreationArgs
 
 	return json.Unmarshal(data, (*tmp)(a))
 }
