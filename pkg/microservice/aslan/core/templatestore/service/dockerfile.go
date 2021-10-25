@@ -120,12 +120,23 @@ func getVariables(s string, logger *zap.SugaredLogger) ([]*Variable, error) {
 		logger.Errorf("Failed to parse the dockerfile from source, the error is: %s", err)
 		return []*Variable{}, err
 	}
-	stages, _, err := dockerfileinstructions.Parse(result.AST)
+	stages, metaArgs, err := dockerfileinstructions.Parse(result.AST)
 	if err != nil {
 		logger.Errorf("Failed to parse stages from generated dockerfile AST, the error is: %s", err)
 		return []*Variable{}, err
 	}
 	keyMap := make(map[string]int)
+	for _, metaArg := range metaArgs {
+		for _, arg := range metaArg.Args {
+			if keyMap[arg.Key] == 0 {
+				ret = append(ret, &Variable{
+					Key:   arg.Key,
+					Value: arg.ValueString(),
+				})
+				keyMap[arg.Key] = 1
+			}
+		}
+	}
 	for _, stage := range stages {
 		for _, command := range stage.Commands {
 			if command.Name() == setting.DockerfileCmdArg {
@@ -143,6 +154,7 @@ func getVariables(s string, logger *zap.SugaredLogger) ([]*Variable, error) {
 						Key:   key,
 						Value: value,
 					})
+					keyMap[key] = 1
 				}
 			}
 		}
