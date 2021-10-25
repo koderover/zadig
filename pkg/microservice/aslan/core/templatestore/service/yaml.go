@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"regexp"
 	"strings"
 
@@ -106,7 +107,15 @@ func GetYamlTemplateDetail(id string, logger *zap.SugaredLogger) (*YamlDetail, e
 }
 
 func DeleteYamlTemplate(id string, logger *zap.SugaredLogger) error {
-	err := mongodb.NewYamlTemplateColl().DeleteByID(id)
+	ref, err := commonrepo.NewServiceColl().GetTemplateReference(id)
+	if err != nil {
+		logger.Errorf("Failed to get service reference for template id: %s, the error is: %s", id, err)
+		return err
+	}
+	if len(ref) > 0 {
+		return errors.New("this template is in use")
+	}
+	err = mongodb.NewYamlTemplateColl().DeleteByID(id)
 	if err != nil {
 		logger.Errorf("Failed to delete dockerfile template of id: %s, the error is: %s", id, err)
 	}
