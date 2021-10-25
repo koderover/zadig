@@ -162,6 +162,15 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 			prVar := &task.KeyVal{Key: fmt.Sprintf("%s_PR", repoName), Value: strconv.Itoa(repo.PR), IsCredential: false}
 			p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, prVar)
 		}
+
+		if len(repo.CommitID) > 0 {
+			commitVar := &task.KeyVal{
+				Key:          fmt.Sprintf("%s_COMMIT_ID", repoName),
+				Value:        repo.CommitID,
+				IsCredential: false,
+			}
+			p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, commitVar)
+		}
 	}
 
 	jobCtx := JobCtxBuilder{
