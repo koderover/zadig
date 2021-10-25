@@ -38,7 +38,7 @@ type Rule struct {
 
 	// Resources is a list of resources this rule applies to. '*' represents all resources.
 	Resources []string `bson:"resources" json:"resources"`
-	Kind      string   `bson:"verbs"     json:"verbs"`
+	Kind      string   `bson:"kind"     json:"kind"`
 }
 
 func (Role) TableName() string {
