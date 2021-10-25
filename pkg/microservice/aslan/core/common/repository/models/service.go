@@ -198,9 +198,9 @@ type EnvStatus struct {
 }
 
 type EnvConfig struct {
-	EnvName string   `bson:"env_name,omitempty" json:"env_name"`
-	HostIDs []string `bson:"host_ids,omitempty" json:"host_ids"`
-	Labels  []string `bson:"labels,omitempty"   json:"labels"`
+	EnvName string   `bson:"env_name" json:"env_name"`
+	HostIDs []string `bson:"host_ids" json:"host_ids"`
+	Labels  []string `bson:"labels"   json:"labels"`
 }
 
 type PmHealthCheck struct {
