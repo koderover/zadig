@@ -26,13 +26,11 @@ var once sync.Once
 var secret string
 
 func GetHookSecret() string {
-	once.Do(func() {
-		token, err := crypto.AesEncrypt("hook")
-		if err != nil {
-			panic("Failed to get token")
-		}
-		secret = token
-	})
+	token, err := crypto.AesEncrypt("hook")
+	if err != nil {
+		panic("Failed to get token")
+	}
+	secret = token
 
 	return secret
 }
