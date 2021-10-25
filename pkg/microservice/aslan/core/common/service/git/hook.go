@@ -17,20 +17,15 @@ limitations under the License.
 package git
 
 import (
-	"sync"
-
 	"github.com/koderover/zadig/pkg/tool/crypto"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
-
-var once sync.Once
-var secret string
 
 func GetHookSecret() string {
 	token, err := crypto.AesEncrypt("hook")
 	if err != nil {
-		panic("Failed to get token")
+		log.DPanic(err)
 	}
-	secret = token
 
-	return secret
+	return token
 }
