@@ -14,22 +14,25 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package rest
+package main
 
 import (
-	"github.com/gin-gonic/gin"
+	"context"
+	"log"
+	"os/signal"
+	"syscall"
 
-	"github.com/koderover/zadig/pkg/microservice/policy/core/handler"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/server"
 )
 
-func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
-	for _, r := range []injector{
-		new(handler.Router),
-	} {
-		r.Inject(router.Group("/api/v1"))
-	}
-}
+func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	go func() {
+		<-ctx.Done()
+		stop()
+	}()
 
-type injector interface {
-	Inject(router *gin.RouterGroup)
+	if err := server.Serve(ctx); err != nil {
+		log.Fatal(err)
+	}
 }

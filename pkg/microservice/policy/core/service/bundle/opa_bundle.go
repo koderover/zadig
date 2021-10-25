@@ -192,14 +192,12 @@ func generateOPARoles(roles []*models.Role, policies []*models.Policy) *opaRoles
 
 	for _, ro := range roles {
 		opaRole := &role{Name: ro.Name, Namespace: ro.Namespace}
-		if ro.Kind == models.KindResource {
-			for _, r := range ro.Rules {
+		for _, r := range ro.Rules {
+			if r.Kind == models.KindResource {
 				for _, res := range r.Resources {
 					opaRole.Rules = append(opaRole.Rules, resourceMappings.GetRules(res, r.Verbs)...)
 				}
-			}
-		} else {
-			for _, r := range ro.Rules {
+			} else {
 				if len(r.Verbs) == 1 && r.Verbs[0] == models.MethodAll {
 					r.Verbs = AllMethods
 				}
@@ -209,6 +207,7 @@ func generateOPARoles(roles []*models.Role, policies []*models.Policy) *opaRoles
 					}
 				}
 			}
+
 		}
 
 		sort.Sort(opaRole.Rules)
