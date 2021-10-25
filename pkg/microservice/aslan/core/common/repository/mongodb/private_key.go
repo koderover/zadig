@@ -138,6 +138,7 @@ func (c *PrivateKeyColl) Update(id string, args *models.PrivateKey) error {
 		"label":       args.Label,
 		"is_prod":     args.IsProd,
 		"private_key": args.PrivateKey,
+		"provider":    args.Provider,
 		"update_by":   args.UpdateBy,
 		"update_time": time.Now().Unix(),
 	}}

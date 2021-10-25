@@ -136,7 +136,7 @@ func BatchCreatePrivateKey(args []*commonmodels.PrivateKey, option, username str
 			currentPrivateKey.UpdateBy = username
 			if privateKeys, _ := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{Name: currentPrivateKey.Name}); len(privateKeys) > 0 {
 				if err := commonrepo.NewPrivateKeyColl().Update(privateKeys[0].ID.Hex(), currentPrivateKey); err != nil {
-					log.Errorf("PrivateKey.Create error: %s", err)
+					log.Errorf("PrivateKey.update error: %s", err)
 					return e.ErrBulkCreatePrivateKey.AddDesc("bulk update privateKey failed")
 				}
 				continue
