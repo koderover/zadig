@@ -456,6 +456,21 @@ func (c *ServiceColl) Count(productName string) (int, error) {
 	return cs[0].Count, nil
 }
 
+func (c *ServiceColl) GetTemplateReference(templateID string) ([]*models.Service, error) {
+	ret := make([]*models.Service, 0)
+	query := bson.M{"template_id": templateID}
+
+	cursor, err := c.Collection.Find(context.TODO(), query)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
+}
+
 func (c *ServiceColl) listMaxRevisions(preMatch, postMatch bson.M) ([]*models.Service, error) {
 	var pipeResp []*grouped
 	pipeline := []bson.M{

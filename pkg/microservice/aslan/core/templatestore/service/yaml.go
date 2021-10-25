@@ -8,6 +8,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 )
 
@@ -113,7 +114,19 @@ func DeleteYamlTemplate(id string, logger *zap.SugaredLogger) error {
 }
 
 func GetYamlTemplateReference(id string, logger *zap.SugaredLogger) ([]*ServiceReference, error) {
-	return []*ServiceReference{}, nil
+	ret := make([]*ServiceReference, 0)
+	referenceList, err := commonrepo.NewServiceColl().GetTemplateReference(id)
+	if err != nil {
+		logger.Errorf("Failed to get build reference for dockerfile template id: %s, the error is: %s", id, err)
+		return ret, err
+	}
+	for _, reference := range referenceList {
+		ret = append(ret, &ServiceReference{
+			ServiceName: reference.ServiceName,
+			ProjectName: reference.ProductName,
+		})
+	}
+	return ret, nil
 }
 
 func getYamlVariables(s string, logger *zap.SugaredLogger) ([]*Variable, error) {
