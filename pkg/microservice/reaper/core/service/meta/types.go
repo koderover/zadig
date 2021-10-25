@@ -106,11 +106,19 @@ type Context struct {
 	// IgnoreCache ignore docker build cache [runtime]
 	IgnoreCache bool `yaml:"ignore_cache"`
 
-	StorageEndpoint string `yaml:"storage_endpoint"`
-	StorageAK       string `yaml:"storage_ak"`
-	StorageSK       string `yaml:"storage_sk"`
-	StorageBucket   string `yaml:"storage_bucket"`
-	StorageProvider int    `yaml:"storage_provider"`
+	StorageEndpoint string        `yaml:"storage_endpoint"`
+	StorageAK       string        `yaml:"storage_ak"`
+	StorageSK       string        `yaml:"storage_sk"`
+	StorageBucket   string        `yaml:"storage_bucket"`
+	StorageProvider int           `yaml:"storage_provider"`
+	ArtifactInfo    *ArtifactInfo `yaml:"artifact_info"`
+}
+
+type ArtifactInfo struct {
+	URL          string `yaml:"url"`
+	WorkflowName string `yaml:"workflow_name"`
+	TaskID       int64  `yaml:"task_id"`
+	FileName     string `yaml:"file_name"`
 }
 
 // DockerBuildCtx ...

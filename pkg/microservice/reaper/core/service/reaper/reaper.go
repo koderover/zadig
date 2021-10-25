@@ -390,12 +390,12 @@ func (r *Reaper) AfterExec(upStreamErr error) error {
 		}
 		// 将上面生成的统计结果文件上传到S3
 		if err = r.archiveTestFiles(); err != nil {
-			log.Errorf("archiveFiles err %v", err)
+			log.Errorf("archiveTestFiles err %v", err)
 			return err
 		}
 		// 将HTML测试报告上传到S3
 		if err = r.archiveHTMLTestReportFile(); err != nil {
-			log.Errorf("archiveFiles err %v", err)
+			log.Errorf("archiveHTMLTestReportFile err %v", err)
 			return err
 		}
 
@@ -403,14 +403,21 @@ func (r *Reaper) AfterExec(upStreamErr error) error {
 
 	// should archive file first, since compress cache will clean the workspace
 	if upStreamErr == nil {
-		if err = r.archiveS3Files(); err != nil {
-			log.Errorf("archiveFiles err %v", err)
-			return err
-		}
-		// 运行构建后置脚本
-		if err = r.RunPostScripts(); err != nil {
-			log.Errorf("RunPostScripts err %v", err)
-			return err
+		if r.Ctx.ArtifactInfo == nil {
+			if err = r.archiveS3Files(); err != nil {
+				log.Errorf("archiveFiles err %v", err)
+				return err
+			}
+			// 运行构建后置脚本
+			if err = r.RunPostScripts(); err != nil {
+				log.Errorf("RunPostScripts err %v", err)
+				return err
+			}
+		} else {
+			if err = r.downloadArtifactFile(); err != nil {
+				log.Errorf("download archiveFiles err %v", err)
+				return err
+			}
 		}
 
 		// 运行物理机部署脚本

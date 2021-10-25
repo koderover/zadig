@@ -19,6 +19,7 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
@@ -26,8 +27,11 @@ import (
 func BuildModuleToSubTasks(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	resp, err := workflow.BuildModuleToSubTasks(c.Param("name"), "", "", c.Query("productName"), nil, nil, ctx.Logger)
+	args := &models.BuildModuleArgs{
+		BuildName:   c.Param("name"),
+		ProductName: c.Query("productName"),
+	}
+	resp, err := workflow.BuildModuleToSubTasks(args, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		return
