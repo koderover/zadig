@@ -191,16 +191,6 @@ func (c *CronClient) InitTestScheduler() {
 	c.Schedulers[UpsertTestScheduler].Start()
 }
 
-// InitJobScheduler ...
-func (c *CronClient) InitColliePipelineScheduler() {
-
-	c.Schedulers[UpsertColliePipelineScheduler] = gocron.NewScheduler()
-
-	c.Schedulers[UpsertColliePipelineScheduler].Every(1).Minutes().Do(c.UpsertColliePipelineScheduler, c.log)
-
-	c.Schedulers[UpsertColliePipelineScheduler].Start()
-}
-
 // InitBuildStatScheduler ...
 func (c *CronClient) InitBuildStatScheduler() {
 
