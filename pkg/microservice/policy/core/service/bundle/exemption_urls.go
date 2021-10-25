@@ -55,6 +55,22 @@ var publicURLs = []*policyRule{
 		Methods:   []string{"GET"},
 		Endpoints: []string{"api/podexec/health"},
 	},
+	{
+		Methods:   []string{"GET", "POST"},
+		Endpoints: []string{"login"},
+	},
+	{
+		Methods:   []string{"*"},
+		Endpoints: []string{"api/v1/callback"},
+	},
+	{
+		Methods:   []string{"*"},
+		Endpoints: []string{"dex/**"},
+	},
+	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{""},
+	},
 }
 
 // actions which are allowed for admins only.
@@ -186,5 +202,13 @@ var adminURLs = []*policyRule{
 	{
 		Methods:   []string{"GET"},
 		Endpoints: []string{"api/aslan/system/proxy/config"},
+	},
+	{
+		Methods:   []string{"*"},
+		Endpoints: []string{"api/v1/users"},
+	},
+	{
+		Methods:   []string{"*"},
+		Endpoints: []string{"api/v1/users/?*"},
 	},
 }
