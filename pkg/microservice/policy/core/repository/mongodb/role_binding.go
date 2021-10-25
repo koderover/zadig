@@ -78,13 +78,13 @@ func (c *RoleBindingColl) List() ([]*models.RoleBinding, error) {
 	return res, nil
 }
 
-func (c *RoleBindingColl) ListBy(projectName, user string) ([]*models.RoleBinding, error) {
+func (c *RoleBindingColl) ListBy(projectName, uid string) ([]*models.RoleBinding, error) {
 	var res []*models.RoleBinding
 
 	ctx := context.Background()
 	query := bson.M{"namespace": projectName}
-	if user != "" {
-		query["subjects.name"] = user
+	if uid != "" {
+		query["subjects.uid"] = uid
 		query["subjects.kind"] = models.UserKind
 	}
 

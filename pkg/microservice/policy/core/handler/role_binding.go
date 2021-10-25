@@ -53,7 +53,7 @@ func ListRoleBindings(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListRoleBindings(projectName, c.Query("user"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListRoleBindings(projectName, "", ctx.Logger)
 }
 
 func DeleteRoleBinding(c *gin.Context) {
@@ -97,5 +97,22 @@ func ListSystemRoleBindings(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListRoleBindings(service.SystemScope, c.Query("user"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListRoleBindings(service.SystemScope, "", ctx.Logger)
+}
+
+func ListUserBindings(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	uid := c.Query("uid")
+	if uid == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("uid is empty")
+		return
+	}
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		projectName = service.SystemScope
+	}
+
+	ctx.Resp, ctx.Err = service.ListRoleBindings(c.Query("projectName"), uid, ctx.Logger)
 }
