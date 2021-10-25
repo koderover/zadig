@@ -109,20 +109,64 @@ func registerRole() {
 		Name: string(setting.Contributor),
 		Rules: []*service.Rule{&service.Rule{
 			Verbs:     []string{"get_workflow", "run_workflow"},
-			Kind:      "resources",
+			Kind:      "resource",
 			Resources: []string{"Workflow"},
 		}, &service.Rule{
 			Verbs:     []string{"get_environment", "config_environment", "manage_environment", "delete_environment"},
-			Kind:      "resources",
+			Kind:      "resource",
 			Resources: []string{"Environment"},
 		}, &service.Rule{
 			Verbs:     []string{"get_build", "get_service"},
-			Kind:      "resources",
+			Kind:      "resource",
 			Resources: []string{"Service"},
 		}, &service.Rule{
 			Verbs:     []string{"get_test"},
-			Kind:      "resources",
+			Kind:      "resource",
 			Resources: []string{"Test"},
+		}},
+	})
+	policy.New().CreatePublicRole(&service.Role{
+		Name: string(setting.Contributor),
+		Rules: []*service.Rule{&service.Rule{
+			Verbs:     []string{"get_workflow", "run_workflow"},
+			Kind:      "resource",
+			Resources: []string{"Workflow"},
+		}, &service.Rule{
+			Verbs:     []string{"get_environment", "config_environment", "manage_environment", "delete_environment"},
+			Kind:      "resource",
+			Resources: []string{"Environment"},
+		}, &service.Rule{
+			Verbs:     []string{"get_build", "get_service"},
+			Kind:      "resource",
+			Resources: []string{"Service"},
+		}, &service.Rule{
+			Verbs:     []string{"get_test"},
+			Kind:      "resource",
+			Resources: []string{"Test"},
+		}},
+	})
+	policy.New().CreatePublicRole(&service.Role{
+		Name: string(setting.ReadOnly),
+		Rules: []*service.Rule{&service.Rule{
+			Verbs:     []string{"get_workflow"},
+			Kind:      "resource",
+			Resources: []string{"Workflow"},
+		}, &service.Rule{
+			Verbs:     []string{"get_environment"},
+			Kind:      "resource",
+			Resources: []string{"Environment"},
+		}, &service.Rule{
+			Verbs:     []string{"get_build", "get_service"},
+			Kind:      "resource",
+			Resources: []string{"Service"},
+		}, &service.Rule{
+			Verbs:     []string{"get_test"},
+			Kind:      "resource",
+			Resources: []string{"Test"},
+		}, &service.Rule{
+			Verbs:     []string{"get_delivery"},
+			Kind:      "resource",
+			Resources: []string{"Delivery"},
 		}},
 	})
 }
