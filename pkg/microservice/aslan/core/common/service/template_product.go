@@ -36,10 +36,6 @@ type PipelineResource struct {
 	Kind    string `json:"kind"`
 }
 
-//type Features struct {
-//	Features []string `json:"features"`
-//}
-
 func GetProductTemplate(productName string, log *zap.SugaredLogger) (*template.Product, error) {
 	resp, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil {
