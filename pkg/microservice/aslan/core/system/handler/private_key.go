@@ -111,11 +111,16 @@ func ListLabels(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.ListLabels()
 }
 
+type privateKeyArgs struct {
+	Option string                     `json:"option"`
+	Data   []*commonmodels.PrivateKey `json:"data"`
+}
+
 func BatchCreatePrivateKey(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := make([]*commonmodels.PrivateKey, 0)
+	args := new(privateKeyArgs)
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("batchCreatePrivateKey c.GetRawData() err : %v", err)
@@ -132,5 +137,5 @@ func BatchCreatePrivateKey(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.BatchCreatePrivateKey(args, ctx.Username, ctx.Logger)
+	ctx.Err = service.BatchCreatePrivateKey(args.Data, args.Option, ctx.Username, ctx.Logger)
 }

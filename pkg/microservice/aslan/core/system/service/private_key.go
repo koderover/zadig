@@ -92,24 +92,62 @@ func ListLabels() ([]string, error) {
 	return commonrepo.NewPrivateKeyColl().DistinctLabels()
 }
 
-func BatchCreatePrivateKey(args []*commonmodels.PrivateKey, username string, log *zap.SugaredLogger) error {
-	for _, currentPrivateKey := range args {
-		if !config.CVMNameRegex.MatchString(currentPrivateKey.Name) {
-			return e.ErrCreatePrivateKey.AddDesc("主机名称仅支持字母，数字和下划线且首个字符不以数字开头")
+// override: Full coverage
+// increment: Incremental coverage
+// patch: Overwrite existing
+func BatchCreatePrivateKey(args []*commonmodels.PrivateKey, option, username string, log *zap.SugaredLogger) error {
+	switch option {
+	case "override":
+		if err := commonrepo.NewPrivateKeyColl().DeleteAll(); err != nil {
+			return e.ErrBulkCreatePrivateKey.AddDesc("delete all privateKeys failed")
 		}
-		currentPrivateKey.UpdateBy = username
-		if privateKeys, _ := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{Name: currentPrivateKey.Name}); len(privateKeys) > 0 {
-			if err := commonrepo.NewPrivateKeyColl().Update(privateKeys[0].ID.Hex(), currentPrivateKey); err != nil {
-				log.Errorf("PrivateKey.Create error: %s", err)
-				return e.ErrCreatePrivateKey.AddDesc("update failed")
+		for _, currentPrivateKey := range args {
+			if !config.CVMNameRegex.MatchString(currentPrivateKey.Name) {
+				return e.ErrBulkCreatePrivateKey.AddDesc("主机名称仅支持字母，数字和下划线且首个字符不以数字开头")
 			}
-			continue
+			currentPrivateKey.UpdateBy = username
+			if err := commonrepo.NewPrivateKeyColl().Create(currentPrivateKey); err != nil {
+				log.Errorf("PrivateKey.Create error: %s", err)
+				return e.ErrBulkCreatePrivateKey.AddDesc("bulk add privateKey failed")
+			}
+		}
+	case "increment":
+		for _, currentPrivateKey := range args {
+			if !config.CVMNameRegex.MatchString(currentPrivateKey.Name) {
+				return e.ErrBulkCreatePrivateKey.AddDesc("主机名称仅支持字母，数字和下划线且首个字符不以数字开头")
+			}
+
+			if privateKeys, _ := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{Name: currentPrivateKey.Name}); len(privateKeys) > 0 {
+				continue
+			}
+
+			currentPrivateKey.UpdateBy = username
+			if err := commonrepo.NewPrivateKeyColl().Create(currentPrivateKey); err != nil {
+				log.Errorf("PrivateKey.Create error: %s", err)
+				return e.ErrBulkCreatePrivateKey.AddDesc("bulk add privateKey failed")
+			}
 		}
 
-		if err := commonrepo.NewPrivateKeyColl().Create(currentPrivateKey); err != nil {
-			log.Errorf("PrivateKey.Create error: %s", err)
-			return e.ErrCreatePrivateKey.AddDesc("add failed")
+	case "patch":
+		for _, currentPrivateKey := range args {
+			if !config.CVMNameRegex.MatchString(currentPrivateKey.Name) {
+				return e.ErrBulkCreatePrivateKey.AddDesc("主机名称仅支持字母，数字和下划线且首个字符不以数字开头")
+			}
+			currentPrivateKey.UpdateBy = username
+			if privateKeys, _ := commonrepo.NewPrivateKeyColl().List(&commonrepo.PrivateKeyArgs{Name: currentPrivateKey.Name}); len(privateKeys) > 0 {
+				if err := commonrepo.NewPrivateKeyColl().Update(privateKeys[0].ID.Hex(), currentPrivateKey); err != nil {
+					log.Errorf("PrivateKey.Create error: %s", err)
+					return e.ErrBulkCreatePrivateKey.AddDesc("bulk update privateKey failed")
+				}
+				continue
+			}
+
+			if err := commonrepo.NewPrivateKeyColl().Create(currentPrivateKey); err != nil {
+				log.Errorf("PrivateKey.Create error: %s", err)
+				return e.ErrBulkCreatePrivateKey.AddDesc("bulk add privateKey failed")
+			}
 		}
 	}
+
 	return nil
 }

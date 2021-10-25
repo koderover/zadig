@@ -158,6 +158,11 @@ func (c *PrivateKeyColl) Delete(id string) error {
 	return err
 }
 
+func (c *PrivateKeyColl) DeleteAll() error {
+	_, err := c.DeleteMany(context.TODO(), bson.M{})
+	return err
+}
+
 func (c *PrivateKeyColl) ListHostIPByIDs(ids []string) ([]*models.PrivateKey, error) {
 	query := bson.M{}
 	resp := make([]*models.PrivateKey, 0)
