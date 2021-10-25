@@ -22,7 +22,7 @@ allow {
 # Allow all valid users to visit exempted urls.
 allow {
     url_is_exempted
-    claims.name != ""
+    claims.uid != ""
 }
 
 # Allow admins to do anything.
@@ -92,14 +92,14 @@ project_name := pn {
 # get all projects which are visible by current user
 user_projects[project] {
     some i
-    data.bindings.role_bindings[i].user == claims.name
+    data.bindings.role_bindings[i].uid == claims.uid
     project := data.bindings.role_bindings[i].bindings[_].namespace
 }
 
 # get all projects which are visible by all users (the user name is "*")
 user_projects[project] {
     some i
-    data.bindings.role_bindings[i].user == "*"
+    data.bindings.role_bindings[i].uid == "*"
     project := data.bindings.role_bindings[i].bindings[_].namespace
 }
 
@@ -133,14 +133,14 @@ user_visible_projects[project] {
 
 all_roles[role_ref] {
     some i
-    data.bindings.role_bindings[i].user == claims.name
+    data.bindings.role_bindings[i].uid == claims.uid
     role_ref := data.bindings.role_bindings[i].bindings[j].role_refs[_]
 }
 
 # only roles under the given project are allowed
 allowed_roles[role_ref] {
     some i
-    data.bindings.role_bindings[i].user == claims.name
+    data.bindings.role_bindings[i].uid == claims.uid
     data.bindings.role_bindings[i].bindings[j].namespace == project_name
     role_ref := data.bindings.role_bindings[i].bindings[j].role_refs[_]
 }
@@ -148,7 +148,7 @@ allowed_roles[role_ref] {
 # if the proejct is visible by all users (the user name is "*"), the bound roles are also allowed
 allowed_roles[role_ref] {
     some i
-    data.bindings.role_bindings[i].user == "*"
+    data.bindings.role_bindings[i].uid == "*"
     project := data.bindings.role_bindings[i].bindings[_].namespace == project_name
     role_ref := data.bindings.role_bindings[i].bindings[j].role_refs[_]
 }
