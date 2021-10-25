@@ -118,7 +118,7 @@ func ListWorkflows(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = workflow.ListWorkflows(c.Query("type"), ctx.User.ID, ctx.Logger)
+	ctx.Resp, ctx.Err = workflow.ListWorkflows(c.Query("type"), c.Query("productName"), ctx.User.ID, ctx.Logger)
 }
 
 func ListAllWorkflows(c *gin.Context) {

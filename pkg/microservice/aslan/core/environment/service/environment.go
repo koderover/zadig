@@ -167,14 +167,17 @@ func UpdateProductPublic(productName string, args *ProductParams, log *zap.Sugar
 }
 
 func GetProductStatus(productName string, log *zap.SugaredLogger) ([]*EnvStatus, error) {
-	//项目下所有公开环境
-	publicProducts, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{IsPublic: true, Name: productName})
+	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName})
 	if err != nil {
 		log.Errorf("Collection.Product.List List product error: %v", err)
 		return nil, e.ErrListProducts.AddDesc(err.Error())
 	}
 	envStatusSlice := make([]*EnvStatus, 0)
-	for _, publicProduct := range publicProducts {
+	for _, publicProduct := range products {
+		//log.Infof("######### the product name is %s %s", publicProduct.ProductName, productName)
+		if publicProduct.ProductName != productName {
+			continue
+		}
 		envStatus := &EnvStatus{
 			EnvName: publicProduct.EnvName,
 			Status:  publicProduct.Status,
