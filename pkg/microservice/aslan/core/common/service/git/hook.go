@@ -21,8 +21,10 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
+const plainSecret = "webhook secret"
+
 func GetHookSecret() string {
-	token, err := crypto.AesEncrypt("hook")
+	token, err := crypto.AesEncrypt(plainSecret)
 	if err != nil {
 		log.DPanic(err)
 	}
