@@ -48,6 +48,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
@@ -1157,53 +1158,79 @@ func UpdateHelmProduct(productName, envName, updateType, username, requestID str
 	return nil
 }
 
-func findTargetChartInfo(rendersetName, serviceName string) (*templatemodels.RenderChart, error) {
-	opt := &commonrepo.RenderSetFindOption{Name: rendersetName}
-	productRenderset, existed, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
+func prepareEstimatedData(productName, envName, serviceName, scene, defaultValues string, log *zap.SugaredLogger) (string, string, error) {
+	var err error
+	templateService, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+		ServiceName: serviceName,
+		ProductName: productName,
+		Type:        setting.HelmDeployType,
+	})
 	if err != nil {
-		log.Errorf("failed to get renderset, name %s", rendersetName)
-		return nil, err
+		log.Errorf("failed to query service, name %s, err %s", serviceName, err)
+		return "", "", fmt.Errorf("faild to query service, name %s", serviceName)
 	}
-	if !existed {
-		//return nil, e.ErrGetRenderSet.AddDesc(fmt.Sprintf("failed to find renderset, envName: %s", envName))
-		return nil, nil
+
+	if scene == "createEnv" {
+		return templateService.HelmChart.ValuesYaml, defaultValues, nil
+	}
+
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: envName,
+	})
+	if err != nil {
+		return "", "", fmt.Errorf("faild to query product info, name %s", envName)
+	}
+
+	// find chart info from cur render set
+	opt := &mongodb.RenderSetFindOption{Name: productInfo.Render.Name, Revision: productInfo.Render.Revision}
+	renderSet, err := mongodb.NewRenderSetColl().Find(opt)
+	if err != nil {
+		log.Errorf("renderset Find error, productName:%s, envName:%s, err:%s", productInfo.ProductName, productInfo.EnvName, err)
+		return "", "", fmt.Errorf("faild to query renderset info, name %s", productInfo.Render.Name)
 	}
 
 	var targetChart *templatemodels.RenderChart
-	for _, chartInfo := range productRenderset.ChartInfos {
-		if chartInfo.ServiceName == serviceName {
-			targetChart = chartInfo
+	for _, chart := range renderSet.ChartInfos {
+		if chart.ServiceName == serviceName {
+			targetChart = chart
 			break
 		}
 	}
-	return targetChart, nil
+
+	if targetChart == nil {
+		return "", "", fmt.Errorf("faild to find chart info, name: %s", serviceName)
+	}
+
+	if scene == "updateEnv" {
+		imageRelatedKey := sets.NewString()
+		if templateService != nil {
+			for _, container := range templateService.Containers {
+				if container.ImagePath != nil {
+					imageRelatedKey.Insert(container.ImagePath.Image, container.ImagePath.Repo, container.ImagePath.Tag)
+				}
+			}
+		}
+		// merge environment values
+		mergedBs, err := overrideValues([]byte(targetChart.ValuesYaml), []byte(templateService.HelmChart.ValuesYaml), imageRelatedKey)
+		if err != nil {
+			return "", "", errors.Wrapf(err, "faild to override values")
+		}
+		return string(mergedBs), renderSet.DefaultValues, nil
+	} else if scene == "updateRenderSet" {
+		return targetChart.ValuesYaml, renderSet.DefaultValues, nil
+	}
+	return "", "", fmt.Errorf("unrecognized scene:%s", scene)
 }
 
-func GeneEstimatedValues(productName, envName, serviceName, format string, arg *EstimateValuesArg, log *zap.SugaredLogger) (interface{}, error) {
-	var targetChart *templatemodels.RenderChart
-	var err error
-	if len(envName) > 0 {
-		renderSetName := commonservice.GetProductEnvNamespace(envName, productName, "")
-		targetChart, err = findTargetChartInfo(renderSetName, serviceName)
-		if err != nil {
-			return nil, e.ErrGetRenderSet.AddDesc(fmt.Sprintf("failed to query chartInfo, serviceName: %s", serviceName))
-		}
-	}
-
-	// if chart info not exist in env.renderset, find form default renderset
-	if targetChart == nil {
-		targetChart, err = findTargetChartInfo(productName, serviceName)
-		if err != nil {
-			return nil, e.ErrGetRenderSet.AddDesc(fmt.Sprintf("failed to query chartInfo, serviceName: %s", serviceName))
-		}
-	}
-
-	if targetChart == nil {
-		return nil, e.ErrGetRenderSet.AddDesc(fmt.Sprintf("failed to find chart info, serviceName: %s", serviceName))
+func GeneEstimatedValues(productName, envName, serviceName, scene, format string, arg *EstimateValuesArg, log *zap.SugaredLogger) (interface{}, error) {
+	chartValues, defaultValues, err := prepareEstimatedData(productName, envName, serviceName, scene, arg.DefaultValues, log)
+	if err != nil {
+		return nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to prepare data, err %s", err))
 	}
 
 	tempArg := &commonservice.RenderChartArg{OverrideValues: arg.OverrideValues}
-	mergeValues, err := helmtool.MergeOverrideValues(targetChart.ValuesYaml, arg.DefaultValues, arg.OverrideYaml, tempArg.ToOverrideValueString())
+	mergeValues, err := helmtool.MergeOverrideValues(chartValues, defaultValues, arg.OverrideYaml, tempArg.ToOverrideValueString())
 	if err != nil {
 		return nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to merge values, err %s", err))
 	}
@@ -2928,8 +2955,18 @@ func diffRenderSet(username, productName, envName, updateType string, productRes
 		serviceMap := productResp.GetServiceMap()
 		for serviceName, latestChartInfo := range tmpLatestChartInfoMap {
 			if currentChartInfo, ok := tmpCurrentChartInfoMap[serviceName]; ok {
+				serviceInfo := serviceMap[serviceName]
+				imageRelatedKey := sets.NewString()
+				if serviceInfo != nil {
+					for _, container := range serviceInfo.Containers {
+						if container.ImagePath != nil {
+							imageRelatedKey.Insert(container.ImagePath.Image, container.ImagePath.Repo, container.ImagePath.Tag)
+						}
+					}
+				}
+
 				//拿当前环境values.yaml的key的value去替换服务里面的values.yaml的相同的key的value
-				newValuesYaml, err := overrideValues([]byte(currentChartInfo.ValuesYaml), []byte(latestChartInfo.ValuesYaml), serviceMap[serviceName])
+				newValuesYaml, err := overrideValues([]byte(currentChartInfo.ValuesYaml), []byte(latestChartInfo.ValuesYaml), imageRelatedKey)
 				if err != nil {
 					log.Errorf("Failed to override values for service %s, err: %s", serviceName, err)
 				} else {
@@ -2973,7 +3010,7 @@ func diffRenderSet(username, productName, envName, updateType string, productRes
 
 // for keys exist in both yaml, current values will override latest values
 // only for images
-func overrideValues(currentValuesYaml, latestValuesYaml []byte, templateService *commonmodels.ProductService) ([]byte, error) {
+func overrideValues(currentValuesYaml, latestValuesYaml []byte, imageRelatedKey sets.String) ([]byte, error) {
 	currentValuesMap := map[string]interface{}{}
 	if err := yaml.Unmarshal(currentValuesYaml, &currentValuesMap); err != nil {
 		return nil, err
@@ -2992,15 +3029,6 @@ func overrideValues(currentValuesYaml, latestValuesYaml []byte, templateService 
 	latestValuesFlatMap, err := converter.Flatten(latestValuesMap)
 	if err != nil {
 		return nil, err
-	}
-
-	imageRelatedKey := sets.NewString()
-	if templateService != nil {
-		for _, container := range templateService.Containers {
-			if container.ImagePath != nil {
-				imageRelatedKey.Insert(container.ImagePath.Image, container.ImagePath.Repo, container.ImagePath.Tag)
-			}
-		}
 	}
 
 	replaceMap := make(map[string]interface{})

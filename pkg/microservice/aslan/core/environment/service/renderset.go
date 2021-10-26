@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"strings"
 
+	"go.mongodb.org/mongo-driver/mongo"
+
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -76,18 +78,27 @@ func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredL
 }
 
 func GetDefaultValues(productName, envName string, log *zap.SugaredLogger) (*DefaultValuesResp, error) {
-	renderSetName := commonservice.GetProductEnvNamespace(envName, productName, "")
-
 	ret := &DefaultValuesResp{}
 
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: envName,
+	})
+	if err == mongo.ErrNoDocuments {
+		return ret, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("faild to query product info, productName %s envName %s", productName, envName)
+	}
+
 	opt := &commonrepo.RenderSetFindOption{
-		Name: renderSetName,
+		Name:     productInfo.Render.Name,
+		Revision: productInfo.Render.Revision,
 	}
 	rendersetObj, existed, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
 	if err != nil {
 		return nil, err
 	}
-
 	if !existed {
 		return ret, nil
 	}

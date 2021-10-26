@@ -268,7 +268,7 @@ func EstimatedValues(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GeneEstimatedValues(productName, c.Query("envName"), serviceName, c.Query("format"), arg, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GeneEstimatedValues(productName, c.Query("envName"), serviceName, c.Query("scene"), c.Query("format"), arg, ctx.Logger)
 }
 
 func UpdateHelmProductRenderset(c *gin.Context) {
