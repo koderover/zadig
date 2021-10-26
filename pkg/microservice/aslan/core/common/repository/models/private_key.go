@@ -37,13 +37,3 @@ type PrivateKey struct {
 func (PrivateKey) TableName() string {
 	return "private_key"
 }
-
-//type SSH struct {
-//	ID         string `json:"id"`
-//	Name       string `json:"name"`
-//	UserName   string `json:"user_name"`
-//	IP         string `json:"ip"`
-//	IsProd     bool   `json:"is_prod"`
-//	Label      string `json:"label"`
-//	PrivateKey string `json:"private_key"`
-//}

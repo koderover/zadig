@@ -204,15 +204,14 @@ func (c *ServiceColl) Find(opt *ServiceFindOption) (*models.Service, error) {
 	if opt.ServiceName == "" {
 		return nil, fmt.Errorf("ServiceName is empty")
 	}
-	if opt.ProductName == "" {
-		return nil, fmt.Errorf("ProductName is empty")
-	}
 
 	query := bson.M{}
 	query["service_name"] = opt.ServiceName
-	query["product_name"] = opt.ProductName
-	service := new(models.Service)
+	if opt.ProductName != "" {
+		query["product_name"] = opt.ProductName
+	}
 
+	service := new(models.Service)
 	if opt.Type != "" {
 		query["type"] = opt.Type
 	}
@@ -455,6 +454,15 @@ func (c *ServiceColl) Count(productName string) (int, error) {
 	}
 
 	return cs[0].Count, nil
+}
+
+func (c *ServiceColl) GetTemplateReference(templateID string) ([]*models.Service, error) {
+	query := bson.M{
+		"template_id": templateID,
+		"status":      bson.M{"$ne": setting.ProductStatusDeleting},
+	}
+
+	return c.listMaxRevisions(query, nil)
 }
 
 func (c *ServiceColl) listMaxRevisions(preMatch, postMatch bson.M) ([]*models.Service, error) {

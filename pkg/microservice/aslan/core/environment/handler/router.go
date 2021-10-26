@@ -102,7 +102,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.POST("", gin2.StoreProductName, gin2.IsHavePermission([]string{permission.TestEnvCreateUUID, permission.ProdEnvCreateUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, CreateProduct)
 
 		environments.POST("/:productName/helm", gin2.StoreProductName, gin2.IsHavePermission([]string{permission.TestEnvCreateUUID, permission.ProdEnvCreateUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, CreateHelmProduct)
-		environments.PUT("/:productName/multiHelmEnv", gin2.StoreProductName, gin2.IsHavePermission([]string{permission.TestEnvCreateUUID, permission.ProdEnvCreateUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, UpdateMultiHelmEnv)
+		environments.PUT("/:productName/multiHelmEnv", gin2.StoreProductName, gin2.IsHavePermission([]string{permission.TestEnvManageUUID, permission.ProdEnvManageUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, UpdateMultiHelmEnv)
 
 		environments.POST("/:productName", gin2.IsHavePermission([]string{permission.TestEnvManageUUID, permission.ProdEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateProduct)
 		environments.PUT("/:productName/envRecycle", gin2.IsHavePermission([]string{permission.TestEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateProductRecycleDay)

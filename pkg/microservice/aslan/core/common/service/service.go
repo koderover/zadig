@@ -17,11 +17,13 @@ limitations under the License.
 package service
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
 	"strings"
+	templ "text/template"
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -477,10 +479,14 @@ func DeleteServiceWebhookByName(serviceName, productName string, logger *zap.Sug
 }
 
 func ProcessServiceWebhook(updated, current *commonmodels.Service, serviceName string, logger *zap.SugaredLogger) {
+	// helm service doesn't support webhook
+	if current != nil && current.Type == setting.HelmDeployType {
+		return
+	}
 	var action string
 	var updatedHooks, currentHooks []*webhook.WebHook
 	if updated != nil {
-		if updated.Source == setting.SourceFromZadig || updated.Source == setting.SourceFromGerrit || updated.Source == "" || updated.Source == setting.SourceFromExternal {
+		if updated.Source == setting.ServiceSourceTemplate || updated.Source == setting.SourceFromZadig || updated.Source == setting.SourceFromGerrit || updated.Source == "" || updated.Source == setting.SourceFromExternal {
 			return
 		}
 		action = "add"
@@ -491,7 +497,7 @@ func ProcessServiceWebhook(updated, current *commonmodels.Service, serviceName s
 		updatedHooks = append(updatedHooks, &webhook.WebHook{Owner: updated.RepoOwner, Repo: updated.RepoName, Address: address, Name: "trigger", CodeHostID: updated.CodehostID})
 	}
 	if current != nil {
-		if current.Source == setting.SourceFromZadig || current.Source == setting.SourceFromGerrit || current.Source == "" || current.Source == setting.SourceFromExternal {
+		if current.Source == setting.ServiceSourceTemplate || current.Source == setting.SourceFromZadig || current.Source == setting.SourceFromGerrit || current.Source == "" || current.Source == setting.SourceFromExternal {
 			return
 		}
 		action = "remove"
@@ -674,4 +680,33 @@ func GetPresetRules() []*template.ImageSearchingRule {
 		})
 	}
 	return ret
+}
+
+type Variable struct {
+	SERVICE        string
+	TIMESTAMP      string
+	TASK_ID        string
+	REPO_COMMIT_ID string
+	PROJECT        string
+	ENV_NAME       string
+	REPO_TAG       string
+	REPO_BRANCH    string
+	REPO_PR        string
+}
+
+func ReplaceRuleVariable(rule string, replaceValue *Variable) string {
+	template, err := templ.New("replaceRuleVariable").Parse(rule)
+	if err != nil {
+		log.Errorf("replaceRuleVariable Parse err:%s", err)
+		return rule
+	}
+	var replaceRuleVariable = templ.Must(template, err)
+	payload := bytes.NewBufferString("")
+	err = replaceRuleVariable.Execute(payload, replaceValue)
+	if err != nil {
+		log.Errorf("replaceRuleVariable Execute err:%s", err)
+		return rule
+	}
+
+	return payload.String()
 }

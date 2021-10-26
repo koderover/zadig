@@ -59,6 +59,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types/permission"
 	"github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/converter"
@@ -1941,26 +1942,36 @@ func upsertService(isUpdate bool, env *commonmodels.Product,
 			u.SetAPIVersion(setting.APIVersionAppsV1)
 			u.SetLabels(kube.MergeLabels(labels, u.GetLabels()))
 
-			podLabels, _, _ := unstructured.NestedStringMap(u.Object, "spec", "template", "metadata", "labels")
-			err := unstructured.SetNestedStringMap(u.Object, kube.MergeLabels(labels, podLabels), "spec", "template", "metadata", "labels")
+			podLabels, _, err := unstructured.NestedStringMap(u.Object, "spec", "template", "metadata", "labels")
 			if err != nil {
-				// should not have happened
-				panic(err)
+				podLabels = nil
+			}
+			err = unstructured.SetNestedStringMap(u.Object, kube.MergeLabels(labels, podLabels), "spec", "template", "metadata", "labels")
+			if err != nil {
+				log.Errorf("merge label failed err:%s", err)
+				u.Object = setFieldValueIsNotExist(u.Object, kube.MergeLabels(labels, podLabels), "spec", "template", "metadata", "labels")
 			}
 
-			podAnnotations, _, _ := unstructured.NestedStringMap(u.Object, "spec", "template", "metadata", "annotations")
+			podAnnotations, _, err := unstructured.NestedStringMap(u.Object, "spec", "template", "metadata", "annotations")
+			if err != nil {
+				podAnnotations = nil
+			}
 			err = unstructured.SetNestedStringMap(u.Object, applyUpdatedAnnotations(podAnnotations), "spec", "template", "metadata", "annotations")
 			if err != nil {
-				// should not have happened
-				panic(err)
+				log.Errorf("merge annotation failed err:%s", err)
+				u.Object = setFieldValueIsNotExist(u.Object, applyUpdatedAnnotations(podAnnotations), "spec", "template", "metadata", "annotations")
 			}
 
 			// Inject selector: s-product and s-service
-			selector, _, _ := unstructured.NestedStringMap(u.Object, "spec", "selector", "matchLabels")
+			selector, _, err := unstructured.NestedStringMap(u.Object, "spec", "selector", "matchLabels")
+			if err != nil {
+				selector = nil
+			}
+
 			err = unstructured.SetNestedStringMap(u.Object, kube.MergeLabels(labels, selector), "spec", "selector", "matchLabels")
 			if err != nil {
-				// should not have happened
-				panic(err)
+				log.Errorf("merge selector failed err:%s", err)
+				u.Object = setFieldValueIsNotExist(u.Object, kube.MergeLabels(labels, selector), "spec", "selector", "matchLabels")
 			}
 
 			jsonData, err := u.MarshalJSON()
@@ -2476,7 +2487,49 @@ func FindHelmRenderSet(productName, renderName string, log *zap.SugaredLogger) (
 	return resp, nil
 }
 
-func installOrUpdateHelmChart(user, envName, requestID string, args *commonmodels.Product, eventStart int64, helmClient helmclient.Client, log *zap.SugaredLogger) {
+func installOrUpgradeHelmChart(namespace string, renderChart *template.RenderChart, serviceObj *commonmodels.Service, timeout time.Duration, helmClient helmclient.Client) error {
+	mergedValuesYaml, err := helmtool.MergeOverrideValues(renderChart.ValuesYaml, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
+	if err != nil {
+		err = errors.WithMessagef(err, "failed to merge override yaml %s and values %s", renderChart.GetOverrideYaml(), renderChart.OverrideValues)
+		return err
+	}
+	return installOrUpgradeHelmChartWithValues(namespace, mergedValuesYaml, renderChart, serviceObj, timeout, helmClient)
+}
+
+func installOrUpgradeHelmChartWithValues(namespace, valuesYaml string, renderChart *template.RenderChart, serviceObj *commonmodels.Service, timeout time.Duration, helmClient helmclient.Client) error {
+	base := config.LocalServicePath(serviceObj.ProductName, serviceObj.ServiceName)
+	if err := commonservice.PreLoadServiceManifests(base, serviceObj); err != nil {
+		log.Errorf("Failed to load manifest for service %s in project %s, err: %s", serviceObj.ServiceName, serviceObj.ProductName, err)
+		return err
+	}
+
+	chartFullPath := filepath.Join(base, serviceObj.ServiceName)
+	chartPath, err := fs.RelativeToCurrentPath(chartFullPath)
+	if err != nil {
+		log.Errorf("Failed to get relative path %s, err: %s", chartFullPath, err)
+		return err
+	}
+
+	chartSpec := &helmclient.ChartSpec{
+		ReleaseName: util.GeneHelmReleaseName(namespace, serviceObj.ServiceName),
+		ChartName:   chartPath,
+		Namespace:   namespace,
+		Version:     renderChart.ChartVersion,
+		ValuesYaml:  valuesYaml,
+		UpgradeCRDs: true,
+	}
+	if timeout > 0 {
+		chartSpec.Wait = true
+		chartSpec.Timeout = timeout
+	}
+
+	if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), chartSpec); err != nil {
+		return err
+	}
+	return nil
+}
+
+func installProductHelmCharts(user, envName, requestID string, args *commonmodels.Product, eventStart int64, helmClient helmclient.Client, log *zap.SugaredLogger) {
 	var (
 		err     error
 		wg      sync.WaitGroup
@@ -2534,45 +2587,8 @@ func installOrUpdateHelmChart(user, envName, requestID string, args *commonmodel
 					return
 				}
 
-				base := config.LocalServicePath(service.ProductName, service.ServiceName)
-				if err = commonservice.PreLoadServiceManifests(base, serviceObj); err != nil {
-					log.Errorf("Failed to load service menifests for service %s in project %s, err: %s", service.ServiceName, service.ProductName, err)
-					errList = multierror.Append(errList, err)
-					return
-				}
-
-				chartFullPath := filepath.Join(base, service.ServiceName)
-				chartPath, err := fs.RelativeToCurrentPath(chartFullPath)
+				err = installOrUpgradeHelmChart(args.Namespace, renderChart, serviceObj, Timeout*time.Second*10, helmClient)
 				if err != nil {
-					log.Errorf("Failed to get relative path %s, err: %s", chartFullPath, err)
-					errList = multierror.Append(errList, err)
-					return
-				}
-
-				mergedValuesYaml, err := helmtool.MergeOverrideValues(renderChart.ValuesYaml, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
-				if err != nil {
-					err = errors.WithMessagef(
-						err,
-						"failed to merge override yaml %s and values %s",
-						renderChart.GetOverrideYaml(),
-						renderChart.OverrideValues,
-					)
-					errList = multierror.Append(errList, err)
-					return
-				}
-
-				chartSpec := &helmclient.ChartSpec{
-					ReleaseName: util.GeneHelmReleaseName(args.Namespace, service.ServiceName),
-					ChartName:   chartPath,
-					Namespace:   args.Namespace,
-					Wait:        true,
-					Version:     renderChart.ChartVersion,
-					ValuesYaml:  mergedValuesYaml,
-					UpgradeCRDs: true,
-					Timeout:     Timeout * time.Second * 10,
-				}
-
-				if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), chartSpec); err != nil {
 					errList = multierror.Append(errList, err)
 					return
 				}
@@ -2695,6 +2711,14 @@ func updateProductGroup(productName, envName, updateType string, productResp *co
 		return e.ErrUpdateEnv.AddDesc("对比环境中的value.yaml和系统默认的value.yaml失败")
 	}
 
+	svcNameSet := sets.NewString()
+	for _, singleChart := range overrideCharts {
+		if singleChart.EnvName != envName {
+			continue
+		}
+		svcNameSet.Insert(singleChart.ServiceName)
+	}
+
 	for _, renderChart := range renderSet.ChartInfos {
 		renderChartMap[renderChart.ServiceName] = renderChart
 	}
@@ -2705,6 +2729,11 @@ func updateProductGroup(productName, envName, updateType string, productResp *co
 		for _, svc := range services {
 			renderChart, ok := renderChartMap[svc.ServiceName]
 			if !ok {
+				continue
+			}
+
+			// service is not in update list
+			if !svcNameSet.Has(svc.ServiceName) {
 				continue
 			}
 
@@ -2726,47 +2755,10 @@ func updateProductGroup(productName, envName, updateType string, productResp *co
 					return
 				}
 
-				base := config.LocalServicePath(service.ProductName, service.ServiceName)
-				if err = commonservice.PreLoadServiceManifests(base, serviceObj); err != nil {
-					log.Errorf("Failed to load service menifests for service %s in project %s, err: %s", service.ServiceName, service.ProductName, err)
-					errList = multierror.Append(errList, err)
-					return
-				}
-
-				chartFullPath := filepath.Join(base, service.ServiceName)
-				chartPath, err := fs.RelativeToCurrentPath(chartFullPath)
+				err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, serviceObj, Timeout*time.Second*10, helmClient)
 				if err != nil {
-					log.Errorf("Failed to get relative path %s, err: %s", chartFullPath, err)
 					errList = multierror.Append(errList, err)
 					return
-				}
-
-				mergedValuesYaml, err := helmtool.MergeOverrideValues(renderChart.ValuesYaml, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
-				if err != nil {
-					err = errors.WithMessagef(
-						err,
-						"failed to merge override yaml %s and values %s",
-						renderChart.GetOverrideYaml(),
-						renderChart.OverrideValues,
-					)
-					errList = multierror.Append(errList, err)
-					return
-				}
-
-				chartSpec := helmclient.ChartSpec{
-					ReleaseName: util.GeneHelmReleaseName(productResp.Namespace, service.ServiceName),
-					ChartName:   chartPath,
-					Namespace:   productResp.Namespace,
-					Wait:        true,
-					Version:     renderChart.ChartVersion,
-					ValuesYaml:  mergedValuesYaml,
-					UpgradeCRDs: true,
-					Timeout:     Timeout * time.Second * 10,
-				}
-
-				if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), &chartSpec); err != nil {
-					log.Errorf("install helm chart %s error :%+v", chartSpec.ReleaseName, err)
-					errList = multierror.Append(errList, err)
 				}
 			}(svc)
 		}
@@ -2979,47 +2971,10 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 				go func(tmpRenderChart *template.RenderChart, currentService *commonmodels.Service) {
 					defer wg.Done()
 
-					base := config.LocalServicePath(currentService.ProductName, currentService.ServiceName)
-					if err = commonservice.PreLoadServiceManifests(base, currentService); err != nil {
-						log.Errorf("Failed to load service menifests for service %s in project %s, err: %s", currentService.ServiceName, currentService.ProductName, err)
-						errList = multierror.Append(errList, err)
-						return
-					}
-
-					chartFullPath := filepath.Join(base, currentService.ServiceName)
-					chartPath, err := fs.RelativeToCurrentPath(chartFullPath)
+					err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, currentService, Timeout*time.Second*10, helmClient)
 					if err != nil {
-						log.Errorf("Failed to get relative path %s, err: %s", chartFullPath, err)
 						errList = multierror.Append(errList, err)
 						return
-					}
-
-					mergedValuesYaml, err := helmtool.MergeOverrideValues(tmpRenderChart.ValuesYaml, tmpRenderChart.GetOverrideYaml(), tmpRenderChart.OverrideValues)
-					if err != nil {
-						err = errors.WithMessagef(
-							err,
-							"failed to merge override yaml %s and values %s",
-							tmpRenderChart.GetOverrideYaml(),
-							tmpRenderChart.OverrideValues,
-						)
-						errList = multierror.Append(errList, err)
-						return
-					}
-
-					chartSpec := helmclient.ChartSpec{
-						ReleaseName: util.GeneHelmReleaseName(productResp.Namespace, tmpRenderChart.ServiceName),
-						ChartName:   chartPath,
-						Namespace:   productResp.Namespace,
-						Wait:        true,
-						Version:     tmpRenderChart.ChartVersion,
-						ValuesYaml:  mergedValuesYaml,
-						UpgradeCRDs: true,
-						Atomic:      true,
-						Timeout:     Timeout * time.Second * 10,
-					}
-					if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), &chartSpec); err != nil {
-						errList = multierror.Append(errList, err)
-						log.Errorf("install helm chart error :%+v", err)
 					}
 				}(renderChart, serviceObj)
 			}
@@ -3036,4 +2991,21 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 		errList = multierror.Append(errList, err)
 	}
 	return errList.ErrorOrNil()
+}
+
+func setFieldValueIsNotExist(obj map[string]interface{}, value interface{}, fields ...string) map[string]interface{} {
+	m := obj
+	for _, field := range fields[:len(fields)-1] {
+		if val, ok := m[field]; ok {
+			if valMap, ok := val.(map[string]interface{}); ok {
+				m = valMap
+			} else {
+				newVal := make(map[string]interface{})
+				m[field] = newVal
+				m = newVal
+			}
+		}
+	}
+	m[fields[len(fields)-1]] = value
+	return obj
 }

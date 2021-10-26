@@ -69,8 +69,9 @@ type ServiceModule struct {
 }
 
 type Variable struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
+	Key         string `json:"key"`
+	Value       string `json:"value"`
+	Description string `json:"description,omitempty"`
 }
 
 type YamlPreviewForPorts struct {
@@ -824,7 +825,7 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 		); err == nil {
 			if serviceTmpl.BuildName != "" {
 				updateTargets := make([]*commonmodels.ServiceModuleTarget, 0)
-				if preBuild, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: serviceTmpl.BuildName, Version: "stable", ProductName: productName}); err == nil {
+				if preBuild, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: serviceTmpl.BuildName, ProductName: productName}); err == nil {
 					for _, target := range preBuild.Targets {
 						if target.ServiceName != serviceName {
 							updateTargets = append(updateTargets, target)
@@ -1050,7 +1051,7 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 			args.Containers = make([]*commonmodels.Container, 0)
 		}
 		// Only the gerrit/spock/external type needs to be processed by yaml
-		if args.Source == setting.SourceFromGerrit || args.Source == setting.SourceFromZadig || args.Source == setting.SourceFromExternal {
+		if args.Source == setting.SourceFromGerrit || args.Source == setting.SourceFromZadig || args.Source == setting.SourceFromExternal || args.Source == setting.ServiceSourceTemplate {
 			// 拆分 all-in-one yaml文件
 			// 替换分隔符
 			args.Yaml = util.ReplaceWrapLine(args.Yaml)

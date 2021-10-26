@@ -17,8 +17,14 @@ limitations under the License.
 package service
 
 import (
-	"go.uber.org/zap"
+	"strconv"
+	"strings"
+	"sync"
 
+	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/wait"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
@@ -94,4 +100,73 @@ func GetS3Storage(id string, logger *zap.SugaredLogger) (*commonmodels.S3Storage
 	}
 
 	return store, nil
+}
+
+func ListTars(id, kind string, serviceNames []string, logger *zap.SugaredLogger) ([]*commonmodels.TarInfo, error) {
+	var (
+		wg         wait.Group
+		mutex      sync.RWMutex
+		tarInfos   = make([]*commonmodels.TarInfo, 0)
+		store      *commonmodels.S3Storage
+		defaultS3  s3.S3
+		defaultURL string
+		err        error
+	)
+
+	store, err = commonrepo.NewS3StorageColl().Find(id)
+	if err != nil {
+		logger.Errorf("can't find store by id:%s err:%s", id, err)
+		return nil, err
+	}
+	defaultS3 = s3.S3{
+		S3Storage: store,
+	}
+	defaultURL, err = defaultS3.GetEncryptedURL()
+	if err != nil {
+		logger.Errorf("defaultS3 GetEncryptedURL err:%s", err)
+		return nil, err
+	}
+
+	for _, serviceName := range serviceNames {
+		newServiceName := serviceName
+		wg.Start(func() {
+			deliveryArtifacts, err := commonrepo.NewDeliveryArtifactColl().ListTars(&commonrepo.DeliveryArtifactArgs{
+				Name:              newServiceName,
+				Type:              kind,
+				Source:            string(config.WorkflowType),
+				PackageStorageURI: store.Endpoint + "/" + store.Bucket,
+			})
+			if err != nil {
+				logger.Errorf("ListTars err:%s", err)
+				return
+			}
+			for _, deliveryArtifact := range deliveryArtifacts {
+				activities, _, err := commonrepo.NewDeliveryActivityColl().List(&commonrepo.DeliveryActivityArgs{ArtifactID: deliveryArtifact.ID.Hex()})
+				if err != nil {
+					logger.Errorf("deliveryActivity.list err:%s", err)
+					return
+				}
+				urlArr := strings.Split(activities[0].URL, "/")
+				workflowName := urlArr[len(urlArr)-2]
+				taskIDStr := urlArr[len(urlArr)-1]
+				taskID, err := strconv.Atoi(taskIDStr)
+				if err != nil {
+					logger.Errorf("string convert to int err:%s", err)
+					return
+				}
+
+				mutex.Lock()
+				tarInfos = append(tarInfos, &commonmodels.TarInfo{
+					URL:          defaultURL,
+					Name:         newServiceName,
+					FileName:     deliveryArtifact.Image,
+					WorkflowName: workflowName,
+					TaskID:       int64(taskID),
+				})
+				mutex.Unlock()
+			}
+		})
+	}
+	wg.Wait()
+	return tarInfos, nil
 }

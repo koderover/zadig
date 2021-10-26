@@ -67,7 +67,7 @@ func GetWorkflowArgs(productName, namespace string, log *zap.SugaredLogger) (*Cr
 		return resp, e.ErrFindProduct.AddDesc(err.Error())
 	}
 
-	allModules, err := ListBuildDetail("", "", "", log)
+	allModules, err := ListBuildDetail("", "", log)
 	if err != nil {
 		log.Errorf("BuildModule.List error: %v", err)
 		return resp, e.ErrListBuildModule.AddDesc(err.Error())
@@ -86,12 +86,11 @@ func GetWorkflowArgs(productName, namespace string, log *zap.SugaredLogger) (*Cr
 		}
 		target := &commonmodels.TargetArgs{Name: containerArr[2], ServiceName: containerArr[1], Deploy: targetMap[container], Build: &commonmodels.BuildArgs{}, HasBuild: true}
 
-		moBuild := findModuleByTargetAndVersion(allModules, container, setting.Version)
+		moBuild := findModuleByTargetAndVersion(allModules, container)
 		if moBuild == nil {
 			moBuild = &commonmodels.Build{}
 			target.HasBuild = false
 		}
-		target.Version = setting.Version
 
 		if len(moBuild.Repos) == 0 {
 			target.Build.Repos = make([]*types.Repository, 0)
@@ -192,7 +191,7 @@ func getProjectTargets(productName string) []string {
 	return targets
 }
 
-func findModuleByTargetAndVersion(allModules []*commonmodels.Build, serviceModuleTarget string, version string) *commonmodels.Build {
+func findModuleByTargetAndVersion(allModules []*commonmodels.Build, serviceModuleTarget string) *commonmodels.Build {
 	containerArr := strings.Split(serviceModuleTarget, SplitSymbol)
 	if len(containerArr) != 3 {
 		return nil
@@ -208,9 +207,6 @@ func findModuleByTargetAndVersion(allModules []*commonmodels.Build, serviceModul
 		containerArr[0] = serviceObj.ProductName
 	}
 	for _, mo := range allModules {
-		if mo.Version != version {
-			continue
-		}
 		for _, target := range mo.Targets {
 			targetStr := fmt.Sprintf("%s%s%s%s%s", target.ProductName, SplitSymbol, target.ServiceName, SplitSymbol, target.ServiceModule)
 			if targetStr == strings.Join(containerArr, SplitSymbol) {
@@ -252,10 +248,9 @@ func EnsureBuildResp(mb *commonmodels.Build) {
 	}
 }
 
-func ListBuildDetail(name, version, targets string, log *zap.SugaredLogger) ([]*commonmodels.Build, error) {
+func ListBuildDetail(name, targets string, log *zap.SugaredLogger) ([]*commonmodels.Build, error) {
 	opt := &commonrepo.BuildListOption{
-		Name:    name,
-		Version: version,
+		Name: name,
 	}
 
 	if len(strings.TrimSpace(targets)) != 0 {
@@ -264,7 +259,7 @@ func ListBuildDetail(name, version, targets string, log *zap.SugaredLogger) ([]*
 
 	resp, err := commonrepo.NewBuildColl().List(opt)
 	if err != nil {
-		log.Errorf("[Build.List] %s:%s error: %v", name, version, err)
+		log.Errorf("[Build.List] %s error: %v", name, err)
 		return nil, e.ErrListBuildModule.AddErr(err)
 	}
 
@@ -290,7 +285,7 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 		return resp, e.ErrFindProduct.AddDesc(err.Error())
 	}
 
-	allModules, err := ListBuildDetail("", "", "", log)
+	allModules, err := ListBuildDetail("", "", log)
 	if err != nil {
 		log.Errorf("BuildModule.List error: %v", err)
 		return resp, e.ErrListBuildModule.AddDesc(err.Error())
@@ -323,12 +318,11 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 				Build:       &commonmodels.BuildArgs{},
 				HasBuild:    true,
 			}
-			moBuild := findModuleByTargetAndVersion(allModules, container, setting.Version)
+			moBuild := findModuleByTargetAndVersion(allModules, container)
 			if moBuild == nil {
 				moBuild = &commonmodels.Build{}
 				target.HasBuild = false
 			}
-			target.Version = setting.Version
 
 			if len(moBuild.Repos) == 0 {
 				target.Build.Repos = make([]*types.Repository, 0)
@@ -509,13 +503,17 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 	for _, target := range args.Target {
 		var subTasks []map[string]interface{}
 		var err error
-		// should always be stable
-		target.Version = "stable"
 		if target.JenkinsBuildArgs == nil {
-			subTasks, err = BuildModuleToSubTasks("", target.Version, target.Name, target.ServiceName, target.ProductName, target.Envs, env, log)
+			buildModuleArgs := &commonmodels.BuildModuleArgs{
+				Target:      target.Name,
+				ServiceName: target.ServiceName,
+				ProductName: target.ProductName,
+				Variables:   target.Envs,
+				Env:         env,
+			}
+			subTasks, err = BuildModuleToSubTasks(buildModuleArgs, log)
 		} else {
 			subTasks, err = JenkinsBuildModuleToSubTasks(&JenkinsBuildOption{
-				Version:          target.Version,
 				Target:           target.Name,
 				ServiceName:      target.ServiceName,
 				ProductName:      args.ProductTmplName,
@@ -587,7 +585,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 
 		jiraInfo, _ := poetry.GetJiraInfo(config.PoetryAPIServer(), config.PoetryAPIRootKey())
 		if jiraInfo != nil {
-			jiraTask, err := AddJiraSubTask("", target.Version, target.Name, target.ServiceName, args.ProductTmplName, log)
+			jiraTask, err := AddJiraSubTask("", target.Name, target.ServiceName, args.ProductTmplName, log)
 			if err != nil {
 				log.Errorf("add jira task error: %v", err)
 				return nil, e.ErrCreateTask.AddErr(fmt.Errorf("add jira task error: %v", err))
@@ -622,7 +620,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		}
 		sort.Sort(ByTaskKind(task.SubTasks))
 
-		if err := ensurePipelineTask(task, log); err != nil {
+		if err := ensurePipelineTask(task, args.Namespace, log); err != nil {
 			log.Errorf("workflow_task ensurePipelineTask taskID:[%d] pipelineName:[%s] err:%v", task.ID, task.PipelineName, err)
 			if err, ok := err.(*ContainerNotFound); ok {
 				err := e.NewWithExtras(
@@ -1063,6 +1061,7 @@ func deployEnvToSubTasks(env commonmodels.DeployEnv, prodEnv *commonmodels.Produ
 			ProductName: prodEnv.ProductName,
 			EnvName:     prodEnv.EnvName,
 			Timeout:     timeout,
+			ClusterID:   prodEnv.ClusterID,
 		}
 	)
 
@@ -1156,12 +1155,11 @@ func formatDistributeSubtasks(releaseImages []commonmodels.RepoImage, imageRepo,
 	return resp, nil
 }
 
-func AddJiraSubTask(moduleName, version, target, serviceName, productName string, log *zap.SugaredLogger) (map[string]interface{}, error) {
+func AddJiraSubTask(moduleName, target, serviceName, productName string, log *zap.SugaredLogger) (map[string]interface{}, error) {
 	repos := make([]*types.Repository, 0)
 
 	opt := &commonrepo.BuildListOption{
 		Name:        moduleName,
-		Version:     version,
 		ServiceName: serviceName,
 		ProductName: productName,
 	}
@@ -1191,7 +1189,7 @@ func addSecurityToSubTasks() (map[string]interface{}, error) {
 }
 
 func workFlowArgsToTaskArgs(target string, workflowArgs *commonmodels.WorkflowTaskArgs) *commonmodels.TaskArgs {
-	resp := &commonmodels.TaskArgs{PipelineName: workflowArgs.WorkflowName, TaskCreator: workflowArgs.WorklowTaskCreator}
+	resp := &commonmodels.TaskArgs{PipelineName: workflowArgs.WorkflowName, TaskCreator: workflowArgs.WorkflowTaskCreator}
 	for _, build := range workflowArgs.Target {
 		if build.Name == target {
 			if build.Build != nil {
@@ -1215,7 +1213,7 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *task.Task, log *
 	}
 
 	testArgs := args.Tests
-	testCreator := args.WorklowTaskCreator
+	testCreator := args.WorkflowTaskCreator
 
 	registries, err := commonservice.ListRegistryNamespaces(log)
 	if err != nil {
@@ -1372,34 +1370,54 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 	stages := make([]*commonmodels.Stage, 0)
 	for _, artifact := range args.Artifact {
 		subTasks := make([]map[string]interface{}, 0)
-		artifactSubtask, err := artifactToSubTasks(artifact.Name, artifact.Image)
-		if err != nil {
-			log.Errorf("artifactToSubTasks artifact.Name:[%s] err:%v", artifact.Name, err)
-			return nil, e.ErrCreateTask.AddErr(err)
-		}
-		subTasks = append(subTasks, artifactSubtask)
-		if env != nil {
-			// 生成部署的subtask
-			for _, deployEnv := range artifact.Deploy {
-				deployTask, err := deployEnvToSubTasks(deployEnv, env, productTempl.Timeout)
-				if err != nil {
-					log.Errorf("deploy env to subtask error: %v", err)
-					return nil, err
-				}
-
-				if workflow.ResetImage {
-					resetImageTask, err := resetImageTaskToSubTask(deployEnv, env)
+		// image artifact deploy
+		if artifact.Image != "" {
+			artifactSubtask, err := artifactToSubTasks(artifact.Name, artifact.Image)
+			if err != nil {
+				log.Errorf("artifactToSubTasks artifact.Name:[%s] err:%v", artifact.Name, err)
+				return nil, e.ErrCreateTask.AddErr(err)
+			}
+			subTasks = append(subTasks, artifactSubtask)
+			if env != nil {
+				// 生成部署的subtask
+				for _, deployEnv := range artifact.Deploy {
+					deployTask, err := deployEnvToSubTasks(deployEnv, env, productTempl.Timeout)
 					if err != nil {
-						log.Errorf("resetImageTaskToSubTask deploy env:[%s] err:%v ", deployEnv.Env, err)
+						log.Errorf("deploy env to subtask error: %v", err)
 						return nil, err
 					}
-					if resetImageTask != nil {
-						subTasks = append(subTasks, resetImageTask)
-					}
-				}
 
-				subTasks = append(subTasks, deployTask)
+					if workflow.ResetImage {
+						resetImageTask, err := resetImageTaskToSubTask(deployEnv, env)
+						if err != nil {
+							log.Errorf("resetImageTaskToSubTask deploy env:[%s] err:%v ", deployEnv.Env, err)
+							return nil, err
+						}
+						if resetImageTask != nil {
+							subTasks = append(subTasks, resetImageTask)
+						}
+					}
+					subTasks = append(subTasks, deployTask)
+				}
 			}
+		} else if artifact.FileName != "" {
+			buildModuleArgs := &commonmodels.BuildModuleArgs{
+				Target:       artifact.Name,
+				ServiceName:  artifact.ServiceName,
+				ProductName:  args.ProductTmplName,
+				Env:          env,
+				URL:          artifact.URL,
+				WorkflowName: artifact.WorkflowName,
+				TaskID:       artifact.TaskID,
+				FileName:     artifact.FileName,
+				TaskType:     string(config.TaskArtifactDeploy),
+			}
+			buildSubtasks, err := BuildModuleToSubTasks(buildModuleArgs, log)
+			if err != nil {
+				log.Errorf("buildModuleToSubTasks target:[%s] err:%s", artifact.Name, err)
+				return nil, e.ErrCreateTask.AddErr(err)
+			}
+			subTasks = append(subTasks, buildSubtasks...)
 		}
 
 		// 生成分发的subtask
@@ -1448,17 +1466,20 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 
 		// 填充subtask之间关联内容
 		task := &task.Task{
+			ProductName:   args.ProductTmplName,
+			PipelineName:  args.WorkflowName,
 			TaskID:        nextTaskID,
 			TaskCreator:   taskCreator,
 			ReqID:         args.ReqID,
 			SubTasks:      subTasks,
 			ServiceName:   artifact.Name,
 			ConfigPayload: configPayload,
+			TaskArgs:      workFlowArgsToTaskArgs(artifact.Name, args),
 			WorkflowArgs:  args,
 		}
 		sort.Sort(ByTaskKind(task.SubTasks))
 
-		if err := ensurePipelineTask(task, log); err != nil {
+		if err := ensurePipelineTask(task, args.Namespace, log); err != nil {
 			log.Errorf("workflow_task ensurePipelineTask task:[%v] err:%v", task, err)
 			if err, ok := err.(*ContainerNotFound); ok {
 				err := e.NewWithExtras(
@@ -1557,26 +1578,25 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 	return resp, nil
 }
 
-func BuildModuleToSubTasks(moduleName, version, target, serviceName, productName string, envs []*commonmodels.KeyVal, pro *commonmodels.Product, log *zap.SugaredLogger) ([]map[string]interface{}, error) {
+func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredLogger) ([]map[string]interface{}, error) {
 	var (
 		subTasks    = make([]map[string]interface{}, 0)
 		serviceTmpl *commonmodels.Service
 	)
 
 	opt := &commonrepo.BuildListOption{
-		Name:        moduleName,
-		Version:     version,
-		ServiceName: serviceName,
-		ProductName: productName,
+		Name:        args.BuildName,
+		ServiceName: args.ServiceName,
+		ProductName: args.ProductName,
 	}
 
-	if len(target) > 0 {
-		opt.Targets = []string{target}
+	if len(args.Target) > 0 {
+		opt.Targets = []string{args.Target}
 	}
 
-	if pro != nil {
+	if args.Env != nil {
 		serviceTmpl, _ = commonservice.GetServiceTemplate(
-			target, setting.PMDeployType, productName, setting.ProductStatusDeleting, 0, log,
+			args.Target, setting.PMDeployType, args.ProductName, setting.ProductStatusDeleting, 0, log,
 		)
 	}
 
@@ -1595,8 +1615,8 @@ func BuildModuleToSubTasks(moduleName, version, target, serviceName, productName
 			TaskType:     config.TaskBuild,
 			Enabled:      true,
 			InstallItems: module.PreBuild.Installs,
-			ServiceName:  target,
-			Service:      serviceName,
+			ServiceName:  args.Target,
+			Service:      args.ServiceName,
 			JobCtx:       task.JobCtx{},
 			ImageID:      module.PreBuild.ImageID,
 			BuildOS:      module.PreBuild.BuildOS,
@@ -1604,6 +1624,11 @@ func BuildModuleToSubTasks(moduleName, version, target, serviceName, productName
 			ResReq:       module.PreBuild.ResReq,
 			Timeout:      module.Timeout,
 			Registries:   registries,
+			ProductName:  args.ProductName,
+		}
+
+		if args.TaskType != "" {
+			build.TaskType = config.TaskArtifactDeploy
 		}
 
 		// 自定义基础镜像的镜像名称可能会被更新，需要使用ID获取最新的镜像名称
@@ -1621,12 +1646,30 @@ func BuildModuleToSubTasks(moduleName, version, target, serviceName, productName
 		}
 
 		if serviceTmpl != nil {
-			build.Namespace = pro.Namespace
+			build.Namespace = args.Env.Namespace
 			build.ServiceType = setting.PMDeployType
+			envHost := make(map[string][]string)
+			for _, envConfig := range serviceTmpl.EnvConfigs {
+				privateKeys, err := commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{IDs: envConfig.HostIDs})
+				if err != nil {
+					log.Errorf("ListNameByArgs ids err:%s", err)
+					continue
+				}
+				ips := sets.NewString()
+				ips = extractHostIPs(privateKeys, ips)
+				privateKeys, err = commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{Labels: envConfig.Labels})
+				if err != nil {
+					log.Errorf("ListNameByArgs labels err:%s", err)
+					continue
+				}
+				ips = extractHostIPs(privateKeys, ips)
+				envHost[envConfig.EnvName] = ips.List()
+			}
+			build.EnvHostInfo = envHost
 		}
 
-		if pro != nil {
-			build.EnvName = pro.EnvName
+		if args.Env != nil {
+			build.EnvName = args.Env.EnvName
 		}
 
 		if build.InstallItems == nil {
@@ -1673,9 +1716,9 @@ func BuildModuleToSubTasks(moduleName, version, target, serviceName, productName
 			build.JobCtx.EnvVars = make([]*commonmodels.KeyVal, 0)
 		}
 
-		if len(envs) > 0 {
+		if len(args.Variables) > 0 {
 			for _, envVar := range build.JobCtx.EnvVars {
-				for _, overwrite := range envs {
+				for _, overwrite := range args.Variables {
 					if overwrite.Key == envVar.Key && overwrite.Value != setting.MaskValue {
 						envVar.Value = overwrite.Value
 						envVar.IsCredential = overwrite.IsCredential
@@ -1691,6 +1734,8 @@ func BuildModuleToSubTasks(moduleName, version, target, serviceName, productName
 
 		if module.PostBuild != nil && module.PostBuild.DockerBuild != nil {
 			build.JobCtx.DockerBuildCtx = &task.DockerBuildCtx{
+				Source:     module.PostBuild.DockerBuild.Source,
+				TemplateID: module.PostBuild.DockerBuild.TemplateID,
 				WorkDir:    module.PostBuild.DockerBuild.WorkDir,
 				DockerFile: module.PostBuild.DockerBuild.DockerFile,
 				BuildArgs:  module.PostBuild.DockerBuild.BuildArgs,
@@ -1709,6 +1754,15 @@ func BuildModuleToSubTasks(moduleName, version, target, serviceName, productName
 
 		build.JobCtx.Caches = module.Caches
 
+		if args.FileName != "" {
+			build.ArtifactInfo = &task.ArtifactInfo{
+				URL:          args.URL,
+				WorkflowName: args.WorkflowName,
+				TaskID:       args.TaskID,
+				FileName:     args.FileName,
+			}
+		}
+
 		bst, err := build.ToSubTask()
 		if err != nil {
 			return subTasks, e.ErrConvertSubTasks.AddErr(err)
@@ -1719,7 +1773,14 @@ func BuildModuleToSubTasks(moduleName, version, target, serviceName, productName
 	return subTasks, nil
 }
 
-func ensurePipelineTask(pt *task.Task, log *zap.SugaredLogger) error {
+func extractHostIPs(privateKeys []*commonmodels.PrivateKey, ips sets.String) sets.String {
+	for _, privateKey := range privateKeys {
+		ips.Insert(privateKey.IP)
+	}
+	return ips
+}
+
+func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) error {
 	var (
 		buildEnvs []*commonmodels.KeyVal
 	)
@@ -1741,7 +1802,7 @@ func ensurePipelineTask(pt *task.Task, log *zap.SugaredLogger) error {
 
 		switch pre.TaskType {
 
-		case config.TaskBuild:
+		case config.TaskBuild, config.TaskArtifactDeploy:
 			t, err := base.ToBuildTask(subTask)
 			fmtBuildsTask(t, log)
 			if err != nil {
@@ -1782,7 +1843,7 @@ func ensurePipelineTask(pt *task.Task, log *zap.SugaredLogger) error {
 				}
 
 				// 生成默认镜像tag后缀
-				pt.TaskArgs.Deploy.Tag = releaseCandidateTag(t, pt.TaskID)
+				//pt.TaskArgs.Deploy.Tag = releaseCandidate(t, pt.TaskID, pt.ProductName, pt.EnvName, "image")
 
 				// 设置镜像名称
 				// 编译任务使用 t.JobCtx.Image
@@ -1793,7 +1854,7 @@ func ensurePipelineTask(pt *task.Task, log *zap.SugaredLogger) error {
 					return e.ErrFindRegistry.AddDesc(err.Error())
 				}
 
-				t.JobCtx.Image = GetImage(reg, t.ServiceName, pt.TaskArgs.Deploy.Tag)
+				t.JobCtx.Image = GetImage(reg, releaseCandidate(t, pt.TaskID, pt.ProductName, envName, "image"))
 				pt.TaskArgs.Deploy.Image = t.JobCtx.Image
 
 				if pt.ConfigPayload != nil {
@@ -1806,7 +1867,7 @@ func ensurePipelineTask(pt *task.Task, log *zap.SugaredLogger) error {
 				// 二进制文件名称
 				// 编译任务使用 t.JobCtx.PackageFile
 				// 注意: 其他任务从 pt.TaskArgs.Deploy.PackageFile 获取, 必须要有编译任务
-				t.JobCtx.PackageFile = GetPackageFile(t.ServiceName, pt.TaskArgs.Deploy.Tag)
+				t.JobCtx.PackageFile = GetPackageFile(releaseCandidate(t, pt.TaskID, pt.ProductName, envName, "tar"))
 				pt.TaskArgs.Deploy.PackageFile = t.JobCtx.PackageFile
 
 				// 注入编译模块中用户定义环境变量
@@ -1821,7 +1882,7 @@ func ensurePipelineTask(pt *task.Task, log *zap.SugaredLogger) error {
 
 				if t.JobCtx.FileArchiveCtx != nil {
 					//t.JobCtx.FileArchiveCtx.FileName = t.ServiceName
-					t.JobCtx.FileArchiveCtx.FileName = GetPackageFile(t.ServiceName, pt.TaskArgs.Deploy.Tag)
+					t.JobCtx.FileArchiveCtx.FileName = t.JobCtx.PackageFile
 				}
 
 				// TODO: generic
@@ -1888,7 +1949,7 @@ func ensurePipelineTask(pt *task.Task, log *zap.SugaredLogger) error {
 			}
 			if t.Enabled {
 				if pt.TaskArgs == nil {
-					pt.TaskArgs = &commonmodels.TaskArgs{PipelineName: pt.WorkflowArgs.WorkflowName, TaskCreator: pt.WorkflowArgs.WorklowTaskCreator}
+					pt.TaskArgs = &commonmodels.TaskArgs{PipelineName: pt.WorkflowArgs.WorkflowName, TaskCreator: pt.WorkflowArgs.WorkflowTaskCreator}
 				}
 				registry := pt.ConfigPayload.RepoConfigs[pt.WorkflowArgs.RegistryID]
 				t.Image = fmt.Sprintf("%s/%s/%s", util.GetURLHostName(registry.RegAddr), registry.Namespace, t.Image)

@@ -36,7 +36,7 @@ type Build struct {
 	Description     string                 `bson:"desc,omitempty"                json:"desc"`
 	UpdateTime      int64                  `bson:"update_time"                   json:"update_time"`
 	UpdateBy        string                 `bson:"update_by"                     json:"update_by"`
-	Repos           []*types.Repository    `bson:"repos,omitempty"               json:"repos"`
+	Repos           []*types.Repository    `bson:"repos"                         json:"repos"`
 	PreBuild        *PreBuild              `bson:"pre_build"                     json:"pre_build"`
 	JenkinsBuild    *JenkinsBuild          `bson:"jenkins_build,omitempty"       json:"jenkins_build,omitempty"`
 	Scripts         string                 `bson:"scripts"                       json:"scripts"`
@@ -96,6 +96,12 @@ type DockerBuild struct {
 	DockerFile string `bson:"docker_file"            json:"docker_file"`
 	// BuildArgs docker build args
 	BuildArgs string `bson:"build_args,omitempty"    json:"build_args"`
+	// Source whether dockerfile comes from template or existing file
+	Source string `bson:"source"                     json:"source"`
+	// TemplateId is the id of the template dockerfile
+	TemplateID string `bson:"template_id"            json:"template_id"`
+	// TemplateName is the name of the template dockerfile
+	TemplateName string `bson:"template_name"        json:"template_name"`
 }
 
 type JenkinsBuild struct {

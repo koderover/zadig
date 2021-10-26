@@ -40,4 +40,26 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		install.PUT("/:name", UpdateChartTemplate)
 		install.DELETE("/:name", RemoveChartTemplate)
 	}
+
+	dockerfile := router.Group("dockerfile")
+	{
+		dockerfile.POST("", CreateDockerfileTemplate)
+		dockerfile.PUT("/:id", UpdateDockerfileTemplate)
+		dockerfile.GET("", ListDockerfileTemplate)
+		dockerfile.GET("/:id", GetDockerfileTemplateDetail)
+		dockerfile.DELETE("/:id", DeleteDockerfileTemplate)
+		dockerfile.GET("/:id/reference", GetDockerfileTemplateReference)
+		dockerfile.POST("/validation", ValidateDockerfileTemplate)
+	}
+
+	yaml := router.Group("yaml")
+	{
+		yaml.POST("", CreateYamlTemplate)
+		yaml.PUT("/:id", UpdateYamlTemplate)
+		yaml.GET("", ListYamlTemplate)
+		yaml.GET("/:id", GetYamlTemplateDetail)
+		yaml.DELETE("/:id", DeleteYamlTemplate)
+		yaml.GET("/:id/reference", GetYamlTemplateReference)
+		yaml.PUT("/:id/variables", UpdateYamlTemplateVariables)
+	}
 }
