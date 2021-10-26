@@ -484,5 +484,6 @@ type RoleType string
 
 const (
 	Contributor               RoleType = "Contributor"
+	ReadOnly                  RoleType = "ReadOnly"
 	ContributorRoleBindingFmt string   = "contributor-project:%s-user:%s"
 )
