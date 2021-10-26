@@ -219,6 +219,8 @@ const (
 	SourceFromHelm = "helm"
 	//SourceFromExternal
 	SourceFromExternal = "external"
+	// service from yaml template
+	ServiceSourceTemplate = "template"
 
 	ProdENV = "prod"
 	TestENV = "test"
@@ -485,6 +487,19 @@ const (
 	DockerfileSourceTemplate = "template"
 
 	ZadigDockerfilePath = "zadig-dockerfile"
+)
+
+// Yaml template constant
+const (
+	RegExpParameter = `{{.(\w)+}}`
+)
+
+// template common constant
+const (
+	TemplateVariableProduct            = "$T-Project$"
+	TemplateVariableProductDescription = "项目名称"
+	TemplateVariableService            = "$T-Service$"
+	TemplateVariableServiceDescription = "服务名称"
 )
 
 const MaxTries = 1

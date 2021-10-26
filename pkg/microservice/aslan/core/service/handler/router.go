@@ -81,4 +81,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		pm.POST("/:productName", gin2.IsHavePermission([]string{permission.ServiceTemplateManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, CreatePMService)
 		pm.PUT("/:productName", gin2.IsHavePermission([]string{permission.ServiceTemplateManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdatePmServiceTemplate)
 	}
+
+	template := router.Group("template")
+	{
+		template.POST("/load", LoadServiceFromYamlTemplate)
+		template.POST("/reload", ReloadServiceFromYamlTemplate)
+	}
 }
