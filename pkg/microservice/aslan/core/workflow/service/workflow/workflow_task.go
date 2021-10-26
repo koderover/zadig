@@ -1621,13 +1621,13 @@ func BuildModuleToSubTasks(moduleName, target, serviceName, productName string, 
 					continue
 				}
 				ips := sets.NewString()
-				getHostIPs(privateKeys, ips)
+				ips = extractHostIPs(privateKeys, ips)
 				privateKeys, err = commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{Labels: envConfig.Labels})
 				if err != nil {
 					log.Errorf("ListNameByArgs labels err:%s", err)
 					continue
 				}
-				getHostIPs(privateKeys, ips)
+				ips = extractHostIPs(privateKeys, ips)
 				envHost[envConfig.EnvName] = ips.List()
 			}
 			build.EnvHostInfo = envHost
@@ -1727,10 +1727,11 @@ func BuildModuleToSubTasks(moduleName, target, serviceName, productName string, 
 	return subTasks, nil
 }
 
-func getHostIPs(privateKeys []*commonmodels.PrivateKey, ips sets.String) {
+func extractHostIPs(privateKeys []*commonmodels.PrivateKey, ips sets.String) sets.String {
 	for _, privateKey := range privateKeys {
 		ips.Insert(privateKey.IP)
 	}
+	return ips
 }
 
 func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) error {
