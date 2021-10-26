@@ -166,6 +166,9 @@ const (
 	ClusterNotFound     = "NotFound"
 	ClusterDisconnected = "Disconnected"
 
+	// annotations
+	HelmReleaseNameAnnotation = "meta.helm.sh/release-name"
+
 	EnvCreatedBy              = "createdBy"
 	EnvCreator                = "koderover"
 	PodReady                  = "ready"
@@ -213,6 +216,11 @@ const (
 	SourceFromCodeHub = "codehub"
 	// SourceFromIlyshin 配置来源为ilyshin
 	SourceFromIlyshin = "ilyshin"
+	// SourceFromChartTemplate 配置来源为helmTemplate
+	SourceFromChartTemplate = "chartTemplate"
+	// SourceFromPublicRepo 配置来源为publicRepo
+	SourceFromPublicRepo = "publicRepo"
+
 	// SourceFromGUI 配置来源为gui
 	SourceFromGUI = "gui"
 	//SourceFromHelm
