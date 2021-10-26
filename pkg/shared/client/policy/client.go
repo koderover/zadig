@@ -47,8 +47,7 @@ func New() *Client {
 }
 
 func NewDefault() *Client {
-	//host := config.PolicyServiceAddress()
-	host := "http://localhost:8080"
+	host := config.PolicyServiceAddress()
 
 	c := httpclient.New(
 		httpclient.SetHostURL(host + "/api/v1"),
