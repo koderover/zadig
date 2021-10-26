@@ -79,8 +79,7 @@ func UpdateOrCreateRole(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("projectName is empty")
 		return
 	}
-	name := c.Param("name")
-	args.Name = name
+	args.Name = c.Param("name")
 
 	ctx.Err = service.UpdateOrCreateRole(projectName, args, ctx.Logger)
 }
