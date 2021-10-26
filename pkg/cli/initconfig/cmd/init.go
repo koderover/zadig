@@ -56,8 +56,8 @@ func run() error {
 	return initSystemConfig()
 }
 
-func initSystemConfig() {
-	presetRole()
+func initSystemConfig() error {
+	return presetRole()
 }
 func presetRole() error {
 	g := new(errgroup.Group)
