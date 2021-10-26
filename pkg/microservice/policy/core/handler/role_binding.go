@@ -114,5 +114,5 @@ func ListUserBindings(c *gin.Context) {
 		projectName = service.SystemScope
 	}
 
-	ctx.Resp, ctx.Err = service.ListRoleBindings(c.Query("projectName"), uid, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListRoleBindings(projectName, uid, ctx.Logger)
 }

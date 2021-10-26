@@ -164,11 +164,11 @@ user_is_granted[grant] {
 }
 
 claims := payload {
-	# TODO: Verify the signature on the Bearer token. The certificate can be
+	# Verify the signature on the Bearer token. The certificate can be
 	# hardcoded into the policy, and it could also be loaded via data or
 	# an environment variable. Environment variables can be accessed using
 	# the `opa.runtime()` built-in function.
-	# io.jwt.verify_rs256(bearer_token, certificate)
+	io.jwt.verify_hs256(bearer_token, secret)
 
 	# This statement invokes the built-in function `io.jwt.decode` passing the
 	# parsed bearer_token as a parameter. The `io.jwt.decode` function returns an
@@ -179,6 +179,12 @@ claims := payload {
 	# In Rego, you can pattern match values using the `=` and `:=` operators. This
 	# example pattern matches on the result to obtain the JWT payload.
 	[_, payload, _] := io.jwt.decode(bearer_token)
+
+    # it is not working, don't know why
+	# [valid, _, payload] := io.jwt.decode_verify(bearer_token, {
+    #     "secret": secret,
+    #     "alg": "alg",
+    # })
 }
 
 bearer_token := t {
@@ -188,4 +194,12 @@ bearer_token := t {
 	v := http_request.headers.authorization
 	startswith(v, "Bearer ")
 	t := substring(v, count("Bearer "), -1)
+}
+
+envs := env {
+    env := opa.runtime()["env"]
+}
+
+secret := s {
+    s := envs["SECRET_KEY"]
 }
