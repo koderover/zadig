@@ -133,9 +133,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.GET("/:productName/services/:serviceName/containers/:container/namespaces/:namespace", GetServiceContainer)
 
 		environments.GET("/estimated-renderchart", GetEstimatedRenderCharts)
-
-		//TODO need to be deprecated
-		//environments.PUT("/:productName/renderchart", gin2.IsHavePermission([]string{permission.TestEnvManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateHelmProductRenderCharts)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -146,11 +143,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		rendersets.GET("/renderchart", GetServiceRenderCharts)
 		rendersets.GET("/default-values", GetProductDefaultValues)
 		rendersets.GET("/yamlContent", GetYamlContent)
-
-		//TODO  need to deprecated
-		//rendersets.PUT("/renderset", CreateOrUpdateRenderset)
-		//TODO  need to deprecated
-		//rendersets.PUT("/renderchart", CreateOrUpdateRenderChart) // create or update renderchart when onBoarding
 	}
 
 	// ---------------------------------------------------------------------------------------

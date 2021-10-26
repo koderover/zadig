@@ -670,27 +670,7 @@ func geneCreationDetail(args *helmServiceCreationArgs) interface{} {
 			LoadPath: args.FilePath,
 		}
 	case setting.SourceFromChartTemplate:
-		var yamlData *template.CustomYaml
-		//if args.CodehostID > 0 {
-		//	yamlData = &template.CustomYaml{
-		//		YamlSource:  setting.ValuesYamlSourceGitRepo,
-		//		YamlContent: "",
-		//		GitRepoConfig: &templatemodels.GitRepoConfig{
-		//			CodehostID: args.CodehostID,
-		//			Owner:      args.Owner,
-		//			Repo:       args.Repo,
-		//			Branch:     args.Branch,
-		//		},
-		//		ValuesPaths: args.ValuePaths,
-		//	}
-		//} else if len(args.ValuesYaml) > 0 {
-		//	yamlData = &template.CustomYaml{
-		//		YamlSource:  setting.ValuesYamlSourceFreeEdit,
-		//		YamlContent: args.ValuesYaml,
-		//	}
-		//}
-
-		yamlData = &template.CustomYaml{
+		yamlData := &template.CustomYaml{
 			YamlContent: args.ValuesYaml,
 		}
 

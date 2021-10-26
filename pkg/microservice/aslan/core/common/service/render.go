@@ -48,12 +48,6 @@ type KVPair struct {
 	Value string `json:"value"`
 }
 
-//type YamlData struct {
-//YamlSource    string      `json:"yamlSource,omitempty"`
-//GitRepoConfig *RepoConfig `json:"gitRepoConfig,omitempty"`
-//ValuesYAML string `json:"valuesYAML,omitempty"`
-//}
-
 type RenderChartArg struct {
 	EnvName        string    `json:"envName,omitempty"`
 	ServiceName    string    `json:"serviceName,omitempty"`
@@ -61,11 +55,6 @@ type RenderChartArg struct {
 	OverrideValues []*KVPair `json:"overrideValues,omitempty"`
 	OverrideYaml   string    `json:"overrideYaml,omitempty"`
 }
-
-//type RendersetArg struct {
-//	DefaultValues *YamlData `json:"defaultValues"`
-//	*RenderChartArg
-//}
 
 func (args *RenderChartArg) ToOverrideValueString() string {
 	if len(args.OverrideValues) == 0 {

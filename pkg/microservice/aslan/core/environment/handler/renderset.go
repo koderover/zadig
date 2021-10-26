@@ -22,16 +22,14 @@ import (
 	"strings"
 	"sync"
 
-	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
+	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 
 	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
-
-	"github.com/gin-gonic/gin"
-
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 func GetServiceRenderCharts(c *gin.Context) {
@@ -67,65 +65,6 @@ func GetProductDefaultValues(c *gin.Context) {
 
 	ctx.Resp, ctx.Err = service.GetDefaultValues(c.Query("productName"), c.Query("envName"), ctx.Logger)
 }
-
-//func CreateOrUpdateRenderChart(c *gin.Context) {
-//	ctx := internalhandler.NewContext(c)
-//	defer func() { internalhandler.JSONResponse(c, ctx) }()
-//
-//	if c.Query("productName") == "" {
-//		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
-//		return
-//	}
-//
-//	if c.Query("envName") == "" {
-//		ctx.Err = e.ErrInvalidParam.AddDesc("envName can not be null!")
-//		return
-//	}
-//
-//	data, err := c.GetRawData()
-//	if err != nil {
-//		log.Errorf("CreateOrUpdateRenderChart c.GetRawData() err : %v", err)
-//	}
-//
-//	args := new(commonservice.RenderChartArg)
-//	if err = json.Unmarshal(data, args); err != nil {
-//		log.Errorf("CreateOrUpdateRenderChart json.Unmarshal err : %v", err)
-//		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-//	}
-//	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "新增", "环境变量", c.Query("envName"), string(data), ctx.Logger)
-//
-//	ctx.Err = service.CreateOrUpdateChartValues(c.Query("productName"), c.Query("envName"), args, ctx.Username, ctx.RequestID, ctx.Logger)
-//}
-
-//func CreateOrUpdateRenderset(c *gin.Context) {
-//	ctx := internalhandler.NewContext(c)
-//	defer func() { internalhandler.JSONResponse(c, ctx) }()
-//
-//	if c.Query("productName") == "" {
-//		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
-//		return
-//	}
-//
-//	if c.Query("envName") == "" {
-//		ctx.Err = e.ErrInvalidParam.AddDesc("envName can not be null!")
-//		return
-//	}
-//
-//	data, err := c.GetRawData()
-//	if err != nil {
-//		log.Errorf("CreateOrUpdateRenderChart c.GetRawData() err : %v", err)
-//	}
-//
-//	args := new(commonservice.RendersetArg)
-//	if err = json.Unmarshal(data, args); err != nil {
-//		log.Errorf("CreateOrUpdateRenderChart json.Unmarshal err : %v", err)
-//		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-//		return
-//	}
-//	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "新增", "环境变量", c.Query("envName"), string(data), ctx.Logger)
-//
-//	ctx.Err = service.CreateOrUpdateRenderset(c.Query("productName"), c.Query("envName"), args, ctx.Username, ctx.RequestID, ctx.Logger)
-//}
 
 func GetYamlContent(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
@@ -180,7 +119,7 @@ func GetYamlContent(c *gin.Context) {
 					RepoLink:   repoLink,
 				})
 			if err1 != nil {
-				err = errors.Errorf("fail to download file from git, err: %s, path: %s", err1.Error(), path)
+				err = errors.Errorf("fail to download file from git, err: %s, path: %s", err1, path)
 				return
 			}
 			fileContentMap.Store(index, fileContent)

@@ -47,8 +47,8 @@ type KV struct {
 }
 
 // MergeOverrideValues merge override yaml and override kvs
-// override yaml used for -f option
-// override kvs used for --set option
+// defaultValues overrideYaml used for -f option
+// overrideValues used for --set option
 func MergeOverrideValues(valuesYaml, defaultValues, overrideYaml, overrideValues string) (string, error) {
 
 	// merge files for helm -f option
