@@ -493,7 +493,7 @@ func ProcessServiceWebhook(updated, current *commonmodels.Service, serviceName s
 		updatedHooks = append(updatedHooks, &webhook.WebHook{Owner: updated.RepoOwner, Repo: updated.RepoName, Address: address, Name: "trigger", CodeHostID: updated.CodehostID})
 	}
 	if current != nil {
-		if current.Source == setting.SourceFromZadig || current.Source == setting.SourceFromGerrit || current.Source == "" || current.Source == setting.SourceFromExternal {
+		if updated.Source == setting.ServiceSourceTemplate || current.Source == setting.SourceFromZadig || current.Source == setting.SourceFromGerrit || current.Source == "" || current.Source == setting.SourceFromExternal {
 			return
 		}
 		action = "remove"
