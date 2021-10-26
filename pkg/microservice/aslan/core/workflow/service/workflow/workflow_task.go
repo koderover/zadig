@@ -1650,14 +1650,20 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 			build.ServiceType = setting.PMDeployType
 			envHost := make(map[string][]string)
 			for _, envConfig := range serviceTmpl.EnvConfigs {
-				privateKeys, err := commonrepo.NewPrivateKeyColl().ListHostIPByIDs(envConfig.HostIDs)
+				privateKeys, err := commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{IDs: envConfig.HostIDs})
 				if err != nil {
-					log.Errorf("ListNameByIDs err:%s", err)
+					log.Errorf("ListNameByArgs ids err:%s", err)
 					continue
 				}
-				for _, privateKey := range privateKeys {
-					envHost[envConfig.EnvName] = append(envHost[envConfig.EnvName], privateKey.IP)
+				ips := sets.NewString()
+				ips = extractHostIPs(privateKeys, ips)
+				privateKeys, err = commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{Labels: envConfig.Labels})
+				if err != nil {
+					log.Errorf("ListNameByArgs labels err:%s", err)
+					continue
 				}
+				ips = extractHostIPs(privateKeys, ips)
+				envHost[envConfig.EnvName] = ips.List()
 			}
 			build.EnvHostInfo = envHost
 		}
@@ -1765,6 +1771,13 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 	}
 
 	return subTasks, nil
+}
+
+func extractHostIPs(privateKeys []*commonmodels.PrivateKey, ips sets.String) sets.String {
+	for _, privateKey := range privateKeys {
+		ips.Insert(privateKey.IP)
+	}
+	return ips
 }
 
 func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) error {
