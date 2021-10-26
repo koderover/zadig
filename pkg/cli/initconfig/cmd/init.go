@@ -21,9 +21,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
-	"sigs.k8s.io/yaml"
 
-	"github.com/koderover/zadig/pkg/microservice/policy/core/service"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -62,23 +60,10 @@ func initSystemConfig() error {
 func presetRole() error {
 	g := new(errgroup.Group)
 	g.Go(func() error {
-		adminRole := &service.Role{}
-		if err := yaml.Unmarshal(admin, adminRole); err != nil {
-			log.DPanic(err)
-		}
-		return policy.NewDefault().CreateSystemRole(adminRole)
+		return policy.NewDefault().CreateSystemRole(admin)
 	})
 
-	var publicRoles []*service.Role
-	contributorRole := &service.Role{}
-	if err := yaml.Unmarshal(contributor, contributorRole); err != nil {
-		log.DPanic(err)
-	}
-	readOnlyRole := &service.Role{}
-	if err := yaml.Unmarshal(readOnly, readOnlyRole); err != nil {
-		log.DPanic(err)
-	}
-	publicRoles = append(publicRoles, contributorRole, readOnlyRole)
+	publicRoles := [][]byte{contributor, readOnly}
 
 	for _, v := range publicRoles {
 		g.Go(func() error {

@@ -3,7 +3,6 @@ package policy
 import (
 	"fmt"
 
-	"github.com/koderover/zadig/pkg/microservice/policy/core/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
@@ -54,14 +53,14 @@ func (c *Client) DeleteRoleBinding(name string, projectName string) error {
 	return err
 }
 
-func (c *Client) CreateSystemRole(role *service.Role) error {
+func (c *Client) CreateSystemRole(body []byte) error {
 	url := "/system-roles"
-	_, err := c.Post(url, httpclient.SetBody(role))
+	_, err := c.Post(url, httpclient.SetBody(body))
 	return err
 }
 
-func (c *Client) CreatePublicRole(role *service.Role) error {
+func (c *Client) CreatePublicRole(body []byte) error {
 	url := "/public-roles"
-	_, err := c.Post(url, httpclient.SetBody(role))
+	_, err := c.Post(url, httpclient.SetBody(body))
 	return err
 }
