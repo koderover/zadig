@@ -219,6 +219,8 @@ const (
 	SourceFromHelm = "helm"
 	//SourceFromExternal
 	SourceFromExternal = "external"
+	// service from yaml template
+	ServiceSourceTemplate = "template"
 
 	ProdENV = "prod"
 	TestENV = "test"
@@ -345,8 +347,6 @@ const (
 	GerritDefaultOwner = "dafault"
 	// YamlFileSeperator ...
 	YamlFileSeperator = "\n---\n"
-
-	ServiceSourceTemplate = "template"
 )
 
 const MaskValue = "********"
