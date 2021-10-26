@@ -19,11 +19,13 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+
 	"sort"
 	"strings"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -192,7 +194,7 @@ type Workload struct {
 	ProductName string             `json:"product_name"`
 	Spec        corev1.ServiceSpec `json:"-"`
 	Images      []string           `json:"-"`
-	Ready       bool
+	Ready       bool               `json:"ready"`
 }
 
 func ListWorkloads(envName, clusterID, namespace, productName string, perPage, page int, log *zap.SugaredLogger, filter ...FilterFunc) (int, []*ServiceResp, error) {
@@ -268,6 +270,17 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 			productRespInfo.Status = setting.PodUnstable
 			productRespInfo.Ready = setting.PodNotReady
 		}
+		selector := labels.SelectorFromValidatedSet(workload.Spec.Selector)
+		if ingresses, err := getter.ListIngresses(namespace, selector, kubeClient); err == nil {
+			ingressInfo := new(IngressInfo)
+			hostInfos := make([]resource.HostInfo, 0)
+			for _, ingress := range ingresses {
+				hostInfos = append(hostInfos, wrapper.Ingress(ingress).HostInfo()...)
+			}
+			ingressInfo.HostInfo = hostInfos
+			productRespInfo.Ingress = ingressInfo
+		}
+
 		resp = append(resp, productRespInfo)
 	}
 
