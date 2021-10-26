@@ -17,14 +17,13 @@ limitations under the License.
 package cmd
 
 import (
-	"fmt"
+	_ "embed"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"golang.org/x/sync/errgroup"
+	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/microservice/policy/core/service"
-	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -32,6 +31,15 @@ import (
 func init() {
 	rootCmd.AddCommand(migrateCmd)
 }
+
+//go:embed contributor.yaml
+var contributor []byte
+
+//go:embed read-only.yaml
+var readOnly []byte
+
+//go:embed admin.yaml
+var admin []byte
 
 var migrateCmd = &cobra.Command{
 	Use:   "init",
@@ -49,67 +57,28 @@ func run() error {
 }
 
 func presetRole() error {
-	ss := viper.Get("yaml")
-	fmt.Println(ss)
-	return nil
 	g := new(errgroup.Group)
 	g.Go(func() error {
-		return policy.NewDefault().CreateSystemRole(&service.Role{
-			Name: "admin",
-			Rules: []*service.Rule{&service.Rule{
-				Verbs:     []string{"*"},
-				Resources: []string{"*"},
-			}},
-		})
+		adminRole := &service.Role{}
+		if err := yaml.Unmarshal(admin, adminRole); err != nil {
+			log.DPanic(err)
+		}
+		return policy.NewDefault().CreateSystemRole(adminRole)
 	})
 
 	g.Go(func() error {
-		return policy.NewDefault().CreatePublicRole(&service.Role{
-			Name: string(setting.Contributor),
-			Rules: []*service.Rule{&service.Rule{
-				Verbs:     []string{"get_workflow", "run_workflow"},
-				Kind:      "resource",
-				Resources: []string{"Workflow"},
-			}, &service.Rule{
-				Verbs:     []string{"get_environment", "config_environment", "manage_environment", "delete_environment"},
-				Kind:      "resource",
-				Resources: []string{"Environment"},
-			}, &service.Rule{
-				Verbs:     []string{"get_build", "get_service"},
-				Kind:      "resource",
-				Resources: []string{"Service"},
-			}, &service.Rule{
-				Verbs:     []string{"get_test"},
-				Kind:      "resource",
-				Resources: []string{"Test"},
-			}},
-		})
+		contributorRole := &service.Role{}
+		if err := yaml.Unmarshal(contributor, contributorRole); err != nil {
+			log.DPanic(err)
+		}
+		return policy.NewDefault().CreatePublicRole(contributorRole)
 	})
 	g.Go(func() error {
-		return policy.NewDefault().CreatePublicRole(&service.Role{
-			Name: string(setting.ReadOnly),
-			Rules: []*service.Rule{&service.Rule{
-				Verbs:     []string{"get_workflow"},
-				Kind:      "resource",
-				Resources: []string{"Workflow"},
-			}, &service.Rule{
-				Verbs:     []string{"get_environment"},
-				Kind:      "resource",
-				Resources: []string{"Environment"},
-			}, &service.Rule{
-				Verbs:     []string{"get_build", "get_service"},
-				Kind:      "resource",
-				Resources: []string{"Service"},
-			}, &service.Rule{
-				Verbs:     []string{"get_test"},
-				Kind:      "resource",
-				Resources: []string{"Test"},
-			}, &service.Rule{
-				Verbs:     []string{"get_delivery"},
-				Kind:      "resource",
-				Resources: []string{"Delivery"},
-			}},
-		})
+		readOnlyRole := &service.Role{}
+		if err := yaml.Unmarshal(readOnly, readOnlyRole); err != nil {
+			log.DPanic(err)
+		}
+		return policy.NewDefault().CreatePublicRole(readOnlyRole)
 	})
 	if err := g.Wait(); err != nil {
 		return err
