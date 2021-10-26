@@ -27,7 +27,7 @@ import (
 )
 
 func init() {
-	rootCmd.AddCommand(initRoleCmd)
+	rootCmd.AddCommand(initCmd)
 }
 
 //go:embed contributor.yaml
@@ -39,10 +39,10 @@ var readOnly []byte
 //go:embed admin.yaml
 var admin []byte
 
-var initRoleCmd = &cobra.Command{
+var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "init cmd",
-	Long:  `init cmd.`,
+	Short: "init system config",
+	Long:  `init system config.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := run(); err != nil {
 			log.Fatal(err)
