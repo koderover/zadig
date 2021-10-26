@@ -69,11 +69,10 @@ type YamlListObject struct {
 }
 
 type YamlDetail struct {
-	ID              string      `json:"id"`
-	Name            string      `json:"name"`
-	Content         string      `json:"content"`
-	Variables       []*Variable `json:"variable"`
-	SystemVariables []*Variable `json:"system_variable"`
+	ID        string      `json:"id"`
+	Name      string      `json:"name"`
+	Content   string      `json:"content"`
+	Variables []*Variable `json:"variable"`
 }
 
 type ServiceReference struct {

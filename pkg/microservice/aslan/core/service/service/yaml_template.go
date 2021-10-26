@@ -18,7 +18,7 @@ func LoadServiceFromYamlTemplate(username, projectName, serviceName, templateID 
 		logger.Errorf("Failed to find template of ID: %s, the error is: %s", templateID, err)
 		return err
 	}
-	renderedYaml := renderYamlFromTemplate(template.Content, variables)
+	renderedYaml := renderYamlFromTemplate(template.Content, projectName, serviceName, variables)
 	service := &commonmodels.Service{
 		ServiceName: serviceName,
 		Type:        setting.K8SDeployType,
@@ -55,7 +55,7 @@ func ReloadServiceFromYamlTemplate(username, projectName, serviceName string, va
 		logger.Errorf("Failed to find template of ID: %s, the error is: %s", service.TemplateID, err)
 		return err
 	}
-	renderedYaml := renderYamlFromTemplate(template.Content, variables)
+	renderedYaml := renderYamlFromTemplate(template.Content, projectName, serviceName, variables)
 	svc := &commonmodels.Service{
 		ServiceName: serviceName,
 		Type:        setting.K8SDeployType,
@@ -72,10 +72,12 @@ func ReloadServiceFromYamlTemplate(username, projectName, serviceName string, va
 	return err
 }
 
-func renderYamlFromTemplate(yaml string, variables []*Variable) string {
+func renderYamlFromTemplate(yaml, productName, serviceName string, variables []*Variable) string {
 	for _, variable := range variables {
 		yaml = strings.Replace(yaml, buildVariable(variable.Key), variable.Value, -1)
 	}
+	yaml = strings.Replace(yaml, "$T-Product$", productName, -1)
+	yaml = strings.Replace(yaml, "$T-Service$", serviceName, -1)
 	return yaml
 }
 

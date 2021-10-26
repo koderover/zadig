@@ -15,8 +15,8 @@ import (
 )
 
 var DefaultSystemVariable = map[string]string{
-	"$Product$": "项目名称",
-	"$Service$": "服务名称",
+	"$T-Product$": "项目名称",
+	"$T-Service$": "服务名称",
 }
 
 func CreateYamlTemplate(template *YamlTemplate, logger *zap.SugaredLogger) error {
@@ -98,12 +98,10 @@ func GetYamlTemplateDetail(id string, logger *zap.SugaredLogger) (*YamlDetail, e
 			Value: v.Value,
 		})
 	}
-	systemVariables := getSystemDefaultVariables()
 	resp.ID = yamlTemplate.ID.Hex()
 	resp.Name = yamlTemplate.Name
 	resp.Content = yamlTemplate.Content
 	resp.Variables = variables
-	resp.SystemVariables = systemVariables
 	return resp, nil
 }
 
@@ -196,7 +194,7 @@ func getYamlVariables(s string, logger *zap.SugaredLogger) ([]*Variable, error) 
 	return resp, nil
 }
 
-func getSystemDefaultVariables() []*Variable {
+func GetSystemDefaultVariables() []*Variable {
 	resp := make([]*Variable, 0)
 	for key, description := range DefaultSystemVariable {
 		resp = append(resp, &Variable{

@@ -41,8 +41,9 @@ type listYamlQuery struct {
 }
 
 type ListYamlResp struct {
-	YamlTemplates []*templateservice.YamlListObject `json:"yaml_template"`
-	Total         int                               `json:"total"`
+	SystemVariables []*templateservice.Variable       `json:"system_variables"`
+	YamlTemplates   []*templateservice.YamlListObject `json:"yaml_template"`
+	Total           int                               `json:"total"`
 }
 
 func ListYamlTemplate(c *gin.Context) {
@@ -56,10 +57,12 @@ func ListYamlTemplate(c *gin.Context) {
 		return
 	}
 
+	systemVariables := templateservice.GetSystemDefaultVariables()
 	YamlTemplateList, total, err := templateservice.ListYamlTemplate(args.PageNum, args.PageSize, ctx.Logger)
 	resp := ListYamlResp{
-		YamlTemplates: YamlTemplateList,
-		Total:         total,
+		SystemVariables: systemVariables,
+		YamlTemplates:   YamlTemplateList,
+		Total:           total,
 	}
 	ctx.Resp = resp
 	ctx.Err = err
