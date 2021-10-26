@@ -69,6 +69,7 @@ func ConvertQueueToTask(queueTask *commonmodels.Queue) *task.Task {
 		RwLock:          queueTask.RwLock,
 		ResetImage:      queueTask.ResetImage,
 		TriggerBy:       queueTask.TriggerBy,
+		Features:        queueTask.Features,
 		IsRestart:       queueTask.IsRestart,
 		StorageEndpoint: queueTask.StorageEndpoint,
 	}
@@ -114,6 +115,7 @@ func ConvertTaskToQueue(task *task.Task) *commonmodels.Queue {
 		RwLock:          task.RwLock,
 		ResetImage:      task.ResetImage,
 		TriggerBy:       task.TriggerBy,
+		Features:        task.Features,
 		IsRestart:       task.IsRestart,
 		StorageEndpoint: task.StorageEndpoint,
 	}

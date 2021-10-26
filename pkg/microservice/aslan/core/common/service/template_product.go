@@ -18,22 +18,30 @@ package service
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collie"
+	"github.com/koderover/zadig/pkg/microservice/aslan/internal/cache"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 type PipelineResource struct {
 	Version string `json:"version"`
 	Kind    string `json:"kind"`
+}
+
+type Features struct {
+	Features []string `json:"features"`
 }
 
 func GetProductTemplate(productName string, log *zap.SugaredLogger) (*template.Product, error) {
@@ -44,6 +52,26 @@ func GetProductTemplate(productName string, log *zap.SugaredLogger) (*template.P
 	}
 
 	totalFreeStyles := make([]*collie.CiPipelineResource, 0)
+	features, err := GetFeatures(log)
+	if err != nil {
+		log.Errorf("GetProductTemplate GetFeatures err : %v", err)
+	}
+
+	if strings.Contains(features, string(config.FreestyleType)) {
+		// CI场景onboarding流程处于第二步时，需要返回ci工作流id，用于前端跳转
+		collieAPIAddress := config.CollieAPIAddress()
+		cl := collie.New(collieAPIAddress)
+		if resp.ProductFeature != nil && resp.ProductFeature.DevelopHabit == "yaml" && resp.OnboardingStatus == setting.OnboardingStatusSecond && collieAPIAddress != "" {
+			ciPipelines, err := cl.ListCIPipelines(productName, log)
+			if err != nil {
+				log.Errorf("GetProductTemplate error: %v", err)
+				return nil, e.ErrGetProduct.AddDesc(err.Error())
+			}
+			if len(ciPipelines) != 0 {
+				resp.CiPipelineID = ciPipelines[0].Metadata.ID
+			}
+		}
+	}
 
 	err = FillProductTemplateVars([]*template.Product{resp}, log)
 	if err != nil {
@@ -88,6 +116,15 @@ func GetProductTemplate(productName string, log *zap.SugaredLogger) (*template.P
 		return resp, fmt.Errorf("Pipeline.List err : %v", err)
 	}
 
+	if strings.Contains(features, string(config.FreestyleType)) {
+		collieAPIAddress := config.CollieAPIAddress()
+		cl := collie.New(collieAPIAddress)
+		totalFreeStyles, err = cl.ListCIPipelines(productName, log)
+		if err != nil {
+			log.Errorf("GetProductTemplate freestyle.List err : %v", err)
+		}
+	}
+
 	totalEnvTemplateServiceNum := 0
 	for _, services := range resp.Services {
 		totalEnvTemplateServiceNum += len(services)
@@ -126,6 +163,26 @@ func GetProductTemplate(productName string, log *zap.SugaredLogger) (*template.P
 	resp.TotalEnvTemplateServiceNum = totalEnvTemplateServiceNum
 
 	return resp, nil
+}
+
+func GetFeatures(log *zap.SugaredLogger) (string, error) {
+	featuresByteKey := []byte("features")
+	featuresByteValue, err := cache.Get(featuresByteKey)
+	if err != nil {
+		poetryCtl := poetry.New(config.PoetryAPIServer())
+		fs, err := poetryCtl.ListFeatures()
+		if err != nil {
+			return "", err
+		}
+		cacheValue := strings.Join(fs, ",")
+		// 一天过期
+		if err = cache.Set(featuresByteKey, []byte(cacheValue), 86400); err != nil {
+			log.Errorf("getFeatures set cache err:%v", err)
+		}
+		return cacheValue, nil
+	}
+
+	return string(featuresByteValue), nil
 }
 
 func FillProductTemplateVars(productTemplates []*template.Product, log *zap.SugaredLogger) error {
