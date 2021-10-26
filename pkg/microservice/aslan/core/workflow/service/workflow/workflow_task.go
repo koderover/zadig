@@ -1729,9 +1729,7 @@ func BuildModuleToSubTasks(moduleName, target, serviceName, productName string, 
 
 func getHostIPs(privateKeys []*commonmodels.PrivateKey, ips sets.String) {
 	for _, privateKey := range privateKeys {
-		if !ips.Has(privateKey.IP) {
-			ips.Insert(privateKey.IP)
-		}
+		ips.Insert(privateKey.IP)
 	}
 }
 
