@@ -457,7 +457,10 @@ func (c *ServiceColl) Count(productName string) (int, error) {
 }
 
 func (c *ServiceColl) GetTemplateReference(templateID string) ([]*models.Service, error) {
-	query := bson.M{"template_id": templateID}
+	query := bson.M{
+		"template_id": templateID,
+		"status":      bson.M{"$ne": setting.ProductStatusDeleting},
+	}
 
 	return c.listMaxRevisions(query, nil)
 }
