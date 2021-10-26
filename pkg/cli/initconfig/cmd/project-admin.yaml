@@ -1,0 +1,6 @@
+name: project-admin
+rules:
+  - verbs:
+      - "*"
+    resources:
+      - "*"

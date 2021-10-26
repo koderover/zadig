@@ -39,6 +39,9 @@ var readOnly []byte
 //go:embed admin.yaml
 var admin []byte
 
+//go:embed project-admin.yaml
+var projectAdmin []byte
+
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "init system config",
@@ -63,7 +66,7 @@ func presetRole() error {
 		return policy.NewDefault().CreateSystemRole(admin)
 	})
 
-	publicRoles := [][]byte{contributor, readOnly}
+	publicRoles := [][]byte{contributor, readOnly, projectAdmin}
 
 	for _, v := range publicRoles {
 		g.Go(func() error {
