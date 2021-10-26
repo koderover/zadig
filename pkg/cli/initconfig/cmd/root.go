@@ -21,6 +21,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/koderover/zadig/pkg/tool/log"
+
 	"github.com/spf13/viper"
 )
 
@@ -78,6 +80,10 @@ func initConfig() {
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match
+	log.Init(&log.Config{
+		Level:    "debug",
+		NoCaller: true,
+	})
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {

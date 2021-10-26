@@ -55,13 +55,13 @@ func (c *Client) DeleteRoleBinding(name string, projectName string) error {
 }
 
 func (c *Client) CreateSystemRole(role *service.Role) error {
-	url := fmt.Sprintf("/system-roles", role)
+	url := "/system-roles"
 	_, err := c.Post(url, httpclient.SetBody(role))
 	return err
 }
 
 func (c *Client) CreatePublicRole(role *service.Role) error {
-	url := fmt.Sprintf("/public-roles", role)
+	url := "/public-roles"
 	_, err := c.Post(url, httpclient.SetBody(role))
 	return err
 }

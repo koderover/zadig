@@ -17,7 +17,11 @@ limitations under the License.
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/koderover/zadig/pkg/microservice/policy/core/service"
 	"github.com/koderover/zadig/pkg/setting"
@@ -27,7 +31,6 @@ import (
 
 func init() {
 	rootCmd.AddCommand(migrateCmd)
-
 }
 
 var migrateCmd = &cobra.Command{
@@ -46,83 +49,69 @@ func run() error {
 }
 
 func presetRole() error {
-	if err := policy.New().CreateSystemRole(&service.Role{
-		Name: "admin",
-		Rules: []*service.Rule{&service.Rule{
-			Verbs:     []string{"*"},
-			Resources: []string{"*"},
-		}},
-	}); err != nil {
-		return err
-	}
-	if err := policy.New().CreatePublicRole(&service.Role{
-		Name: string(setting.Contributor),
-		Rules: []*service.Rule{&service.Rule{
-			Verbs:     []string{"get_workflow", "run_workflow"},
-			Kind:      "resource",
-			Resources: []string{"Workflow"},
-		}, &service.Rule{
-			Verbs:     []string{"get_environment", "config_environment", "manage_environment", "delete_environment"},
-			Kind:      "resource",
-			Resources: []string{"Environment"},
-		}, &service.Rule{
-			Verbs:     []string{"get_build", "get_service"},
-			Kind:      "resource",
-			Resources: []string{"Service"},
-		}, &service.Rule{
-			Verbs:     []string{"get_test"},
-			Kind:      "resource",
-			Resources: []string{"Test"},
-		}},
-	}); err != nil {
-		return err
-	}
-	if err := policy.New().CreatePublicRole(&service.Role{
-		Name: string(setting.Contributor),
-		Rules: []*service.Rule{&service.Rule{
-			Verbs:     []string{"get_workflow", "run_workflow"},
-			Kind:      "resource",
-			Resources: []string{"Workflow"},
-		}, &service.Rule{
-			Verbs:     []string{"get_environment", "config_environment", "manage_environment", "delete_environment"},
-			Kind:      "resource",
-			Resources: []string{"Environment"},
-		}, &service.Rule{
-			Verbs:     []string{"get_build", "get_service"},
-			Kind:      "resource",
-			Resources: []string{"Service"},
-		}, &service.Rule{
-			Verbs:     []string{"get_test"},
-			Kind:      "resource",
-			Resources: []string{"Test"},
-		}},
-	}); err != nil {
-		return err
-	}
-	if err := policy.New().CreatePublicRole(&service.Role{
-		Name: string(setting.ReadOnly),
-		Rules: []*service.Rule{&service.Rule{
-			Verbs:     []string{"get_workflow"},
-			Kind:      "resource",
-			Resources: []string{"Workflow"},
-		}, &service.Rule{
-			Verbs:     []string{"get_environment"},
-			Kind:      "resource",
-			Resources: []string{"Environment"},
-		}, &service.Rule{
-			Verbs:     []string{"get_build", "get_service"},
-			Kind:      "resource",
-			Resources: []string{"Service"},
-		}, &service.Rule{
-			Verbs:     []string{"get_test"},
-			Kind:      "resource",
-			Resources: []string{"Test"},
-		}, &service.Rule{
-			Verbs:     []string{"get_delivery"},
-			Kind:      "resource",
-			Resources: []string{"Delivery"},
-		}},
-	}); err != nil {
+	ss := viper.Get("yaml")
+	fmt.Println(ss)
+	return nil
+	g := new(errgroup.Group)
+	g.Go(func() error {
+		return policy.NewDefault().CreateSystemRole(&service.Role{
+			Name: "admin",
+			Rules: []*service.Rule{&service.Rule{
+				Verbs:     []string{"*"},
+				Resources: []string{"*"},
+			}},
+		})
+	})
+
+	g.Go(func() error {
+		return policy.NewDefault().CreatePublicRole(&service.Role{
+			Name: string(setting.Contributor),
+			Rules: []*service.Rule{&service.Rule{
+				Verbs:     []string{"get_workflow", "run_workflow"},
+				Kind:      "resource",
+				Resources: []string{"Workflow"},
+			}, &service.Rule{
+				Verbs:     []string{"get_environment", "config_environment", "manage_environment", "delete_environment"},
+				Kind:      "resource",
+				Resources: []string{"Environment"},
+			}, &service.Rule{
+				Verbs:     []string{"get_build", "get_service"},
+				Kind:      "resource",
+				Resources: []string{"Service"},
+			}, &service.Rule{
+				Verbs:     []string{"get_test"},
+				Kind:      "resource",
+				Resources: []string{"Test"},
+			}},
+		})
+	})
+	g.Go(func() error {
+		return policy.NewDefault().CreatePublicRole(&service.Role{
+			Name: string(setting.ReadOnly),
+			Rules: []*service.Rule{&service.Rule{
+				Verbs:     []string{"get_workflow"},
+				Kind:      "resource",
+				Resources: []string{"Workflow"},
+			}, &service.Rule{
+				Verbs:     []string{"get_environment"},
+				Kind:      "resource",
+				Resources: []string{"Environment"},
+			}, &service.Rule{
+				Verbs:     []string{"get_build", "get_service"},
+				Kind:      "resource",
+				Resources: []string{"Service"},
+			}, &service.Rule{
+				Verbs:     []string{"get_test"},
+				Kind:      "resource",
+				Resources: []string{"Test"},
+			}, &service.Rule{
+				Verbs:     []string{"get_delivery"},
+				Kind:      "resource",
+				Resources: []string{"Delivery"},
+			}},
+		})
+	})
+	if err := g.Wait(); err != nil {
 		return err
 	}
 	return nil
