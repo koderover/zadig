@@ -24,9 +24,10 @@ import (
 )
 
 type Build struct {
-	TaskType   config.TaskType `bson:"type"                       json:"type"`
-	Enabled    bool            `bson:"enabled"                    json:"enabled"`
-	TaskStatus config.Status   `bson:"status"                     json:"status"`
+	TaskType    config.TaskType `bson:"type"                       json:"type"`
+	Enabled     bool            `bson:"enabled"                    json:"enabled"`
+	TaskStatus  config.Status   `bson:"status"                     json:"status"`
+	ProductName string          `bson:"product_name"               json:"product_name"`
 	// 新增一个service表示服务名称
 	Service string `bson:"service"                    json:"service"`
 	// 该名称实际为服务组件名称
@@ -54,7 +55,15 @@ type Build struct {
 	BuildStatus       *BuildStatus         `bson:"build_status,omitempty" json:"build_status,omitempty"`
 	IsRestart         bool                 `bson:"is_restart"                      json:"is_restart"`
 	// Get the host bound to the environment of the cloud host service configuration
-	EnvHostInfo map[string][]string `bson:"env_host_info,omitempty"         json:"env_host_info,omitempty"`
+	EnvHostInfo  map[string][]string `bson:"env_host_info,omitempty"         json:"env_host_info,omitempty"`
+	ArtifactInfo *ArtifactInfo       `bson:"artifact_info,omitempty"         json:"artifact_info,omitempty"`
+}
+
+type ArtifactInfo struct {
+	URL          string `bson:"url"                 json:"url"`
+	WorkflowName string `bson:"workflow_name"       json:"workflow_name"`
+	TaskID       int64  `bson:"task_id"             json:"task_id"`
+	FileName     string `bson:"file_name"           json:"file_name"`
 }
 
 type Item struct {
@@ -196,6 +205,8 @@ type DockerBuildCtx struct {
 	ImageName       string `yaml:"image_name" bson:"image_name" json:"image_name"`
 	BuildArgs       string `yaml:"build_args" bson:"build_args" json:"build_args"`
 	ImageReleaseTag string `yaml:"image_release_tag,omitempty" bson:"image_release_tag,omitempty" json:"image_release_tag"`
+	Source          string `yaml:"source" bson:"source" json:"source"`
+	TemplateID      string `yaml:"template_id" bson:"template_id" json:"template_id"`
 }
 
 type FileArchiveCtx struct {

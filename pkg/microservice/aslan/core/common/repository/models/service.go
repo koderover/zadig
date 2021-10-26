@@ -65,6 +65,7 @@ type Service struct {
 	HealthChecks     []*PmHealthCheck `bson:"health_checks,omitempty"        json:"health_checks,omitempty"`
 	WorkloadType     string           `bson:"workload_type,omitempty"        json:"workload_type,omitempty"`
 	EnvName          string           `bson:"env_name,omitempty"             json:"env_name,omitempty"`
+	TemplateID       string           `bson:"template_id,omitempty"          json:"template_id,omitempty"`
 }
 
 type CreateFromRepo struct {
@@ -221,6 +222,7 @@ type EnvStatus struct {
 type EnvConfig struct {
 	EnvName string   `bson:"env_name,omitempty" json:"env_name"`
 	HostIDs []string `bson:"host_ids,omitempty" json:"host_ids"`
+	Labels  []string `bson:"labels,omitempty"   json:"labels"`
 }
 
 type PmHealthCheck struct {

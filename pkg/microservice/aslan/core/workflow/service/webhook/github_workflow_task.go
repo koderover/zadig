@@ -150,7 +150,7 @@ type workflowArgsFactory struct {
 func (waf *workflowArgsFactory) Update(product *commonmodels.Product, args *commonmodels.WorkflowTaskArgs, repo *types.Repository) *commonmodels.WorkflowTaskArgs {
 	workflow := waf.workflow
 	args.WorkflowName = workflow.Name
-	args.WorklowTaskCreator = setting.WebhookTaskCreator
+	args.WorkflowTaskCreator = setting.WebhookTaskCreator
 	args.ProductTmplName = workflow.ProductTmplName
 	args.ReqID = waf.reqID
 	var targetMap map[string][]commonmodels.DeployEnv

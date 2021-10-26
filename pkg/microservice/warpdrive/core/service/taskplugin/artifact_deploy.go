@@ -29,30 +29,28 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/poetry"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 )
 
 const (
-	// BuildTaskV2Timeout ...
-	BuildTaskV2Timeout = 60 * 60 * 3 // 60 minutes
+	// ArtifactDeployTaskV2Timeout ...
+	ArtifactDeployTaskV2Timeout = 60 * 60 * 1 // 60 minutes
 )
 
-// InitializeBuildTaskPlugin to initialize build task plugin, and return reference
-func InitializeBuildTaskPlugin(taskType config.TaskType) TaskPlugin {
-	return &BuildTaskPlugin{
+// InitializeArtifactTaskPlugin to initialize build task plugin, and return reference
+func InitializeArtifactTaskPlugin(taskType config.TaskType) TaskPlugin {
+	return &ArtifactDeployTaskPlugin{
 		Name:       taskType,
 		kubeClient: krkubeclient.Client(),
 	}
 }
 
 // BuildTaskPlugin is Plugin, name should be compatible with task type
-type BuildTaskPlugin struct {
+type ArtifactDeployTaskPlugin struct {
 	Name          config.TaskType
 	KubeNamespace string
 	JobName       string
@@ -64,35 +62,35 @@ type BuildTaskPlugin struct {
 	ack func()
 }
 
-func (p *BuildTaskPlugin) SetAckFunc(ack func()) {
+func (p *ArtifactDeployTaskPlugin) SetAckFunc(ack func()) {
 	p.ack = ack
 }
 
 // Init ...
-func (p *BuildTaskPlugin) Init(jobname, filename string, xl *zap.SugaredLogger) {
+func (p *ArtifactDeployTaskPlugin) Init(jobname, filename string, xl *zap.SugaredLogger) {
 	p.JobName = jobname
 	p.Log = xl
 	p.FileName = filename
 }
 
-func (p *BuildTaskPlugin) Type() config.TaskType {
+func (p *ArtifactDeployTaskPlugin) Type() config.TaskType {
 	return p.Name
 }
 
 // Status ...
-func (p *BuildTaskPlugin) Status() config.Status {
+func (p *ArtifactDeployTaskPlugin) Status() config.Status {
 	return p.Task.TaskStatus
 }
 
 // SetStatus ...
-func (p *BuildTaskPlugin) SetStatus(status config.Status) {
+func (p *ArtifactDeployTaskPlugin) SetStatus(status config.Status) {
 	p.Task.TaskStatus = status
 }
 
 // TaskTimeout ...
-func (p *BuildTaskPlugin) TaskTimeout() int {
+func (p *ArtifactDeployTaskPlugin) TaskTimeout() int {
 	if p.Task.Timeout == 0 {
-		p.Task.Timeout = BuildTaskV2Timeout
+		p.Task.Timeout = ArtifactDeployTaskV2Timeout
 	} else {
 		if !p.Task.IsRestart {
 			p.Task.Timeout = p.Task.Timeout * 60
@@ -101,22 +99,15 @@ func (p *BuildTaskPlugin) TaskTimeout() int {
 	return p.Task.Timeout
 }
 
-func (p *BuildTaskPlugin) SetBuildStatusCompleted(status config.Status) {
+func (p *ArtifactDeployTaskPlugin) SetBuildStatusCompleted(status config.Status) {
 	p.Task.BuildStatus.Status = status
 	p.Task.BuildStatus.EndTime = time.Now().Unix()
 }
 
-//TODO: Binded Archive File logic
-func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineCtx *task.PipelineCtx, serviceName string) {
-	if pipelineTask.Type == config.WorkflowType {
-		envName := pipelineTask.WorkflowArgs.Namespace
-		envNameVar := &task.KeyVal{Key: "ENV_NAME", Value: envName, IsCredential: false}
-		p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, envNameVar)
-	} else if pipelineTask.Type == config.ServiceType {
-		envName := pipelineTask.ServiceTaskArgs.Namespace
-		envNameVar := &task.KeyVal{Key: "ENV_NAME", Value: envName, IsCredential: false}
-		p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, envNameVar)
-	}
+func (p *ArtifactDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineCtx *task.PipelineCtx, serviceName string) {
+	envName := pipelineTask.WorkflowArgs.Namespace
+	envNameVar := &task.KeyVal{Key: "ENV_NAME", Value: envName, IsCredential: false}
+	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, envNameVar)
 
 	taskIDVar := &task.KeyVal{Key: "TASK_ID", Value: strconv.FormatInt(pipelineTask.TaskID, 10), IsCredential: false}
 	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, taskIDVar)
@@ -136,12 +127,13 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 	}
 
 	// ARTIFACT
-	if p.Task.JobCtx.FileArchiveCtx != nil {
+	if p.Task.ArtifactInfo != nil {
 		var workspace = "/workspace"
 		if pipelineTask.ConfigPayload.ClassicBuild {
 			workspace = pipelineCtx.Workspace
 		}
-		artifactKeysVar := &task.KeyVal{Key: "ARTIFACT", Value: fmt.Sprintf("%s/%s/%s", workspace, p.Task.JobCtx.FileArchiveCtx.FileLocation, p.Task.JobCtx.FileArchiveCtx.FileName), IsCredential: false}
+		pipelineTask.ArtifactInfo = p.Task.ArtifactInfo
+		artifactKeysVar := &task.KeyVal{Key: "ARTIFACT", Value: fmt.Sprintf("%s/%s", workspace, p.Task.ArtifactInfo.FileName), IsCredential: false}
 		p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, artifactKeysVar)
 	}
 
@@ -162,15 +154,6 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 			prVar := &task.KeyVal{Key: fmt.Sprintf("%s_PR", repoName), Value: strconv.Itoa(repo.PR), IsCredential: false}
 			p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, prVar)
 		}
-
-		if len(repo.CommitID) > 0 {
-			commitVar := &task.KeyVal{
-				Key:          fmt.Sprintf("%s_COMMIT_ID", repoName),
-				Value:        repo.CommitID,
-				IsCredential: false,
-			}
-			p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, commitVar)
-		}
 	}
 
 	jobCtx := JobCtxBuilder{
@@ -179,11 +162,6 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 		ArchiveFile: p.Task.JobCtx.PackageFile,
 		JobCtx:      p.Task.JobCtx,
 		Installs:    p.Task.InstallCtx,
-	}
-
-	poetryClient := poetry.New(configbase.PoetryServiceAddress(), config.PoetryAPIRootKey())
-	if fs, err := poetryClient.ListFeatures(); err == nil {
-		pipelineTask.Features = fs
 	}
 
 	if p.Task.BuildStatus == nil {
@@ -279,7 +257,7 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 }
 
 // Wait ...
-func (p *BuildTaskPlugin) Wait(ctx context.Context) {
+func (p *ArtifactDeployTaskPlugin) Wait(ctx context.Context) {
 	status := waitJobEndWithFile(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, true, p.kubeClient, p.Log)
 	p.SetBuildStatusCompleted(status)
 
@@ -309,7 +287,7 @@ func (p *BuildTaskPlugin) Wait(ctx context.Context) {
 }
 
 // Complete ...
-func (p *BuildTaskPlugin) Complete(ctx context.Context, pipelineTask *task.Task, serviceName string) {
+func (p *ArtifactDeployTaskPlugin) Complete(ctx context.Context, pipelineTask *task.Task, serviceName string) {
 	jobLabel := &JobLabel{
 		PipelineName: pipelineTask.PipelineName,
 		ServiceName:  serviceName,
@@ -340,7 +318,7 @@ func (p *BuildTaskPlugin) Complete(ctx context.Context, pipelineTask *task.Task,
 }
 
 // SetTask ...
-func (p *BuildTaskPlugin) SetTask(t map[string]interface{}) error {
+func (p *ArtifactDeployTaskPlugin) SetTask(t map[string]interface{}) error {
 	task, err := ToBuildTask(t)
 	if err != nil {
 		return err
@@ -350,12 +328,12 @@ func (p *BuildTaskPlugin) SetTask(t map[string]interface{}) error {
 }
 
 // GetTask ...
-func (p *BuildTaskPlugin) GetTask() interface{} {
+func (p *ArtifactDeployTaskPlugin) GetTask() interface{} {
 	return p.Task
 }
 
 // IsTaskDone ...
-func (p *BuildTaskPlugin) IsTaskDone() bool {
+func (p *ArtifactDeployTaskPlugin) IsTaskDone() bool {
 	if p.Task.TaskStatus != config.StatusCreated && p.Task.TaskStatus != config.StatusRunning {
 		return true
 	}
@@ -363,7 +341,7 @@ func (p *BuildTaskPlugin) IsTaskDone() bool {
 }
 
 // IsTaskFailed ...
-func (p *BuildTaskPlugin) IsTaskFailed() bool {
+func (p *ArtifactDeployTaskPlugin) IsTaskFailed() bool {
 	if p.Task.TaskStatus == config.StatusFailed || p.Task.TaskStatus == config.StatusTimeout || p.Task.TaskStatus == config.StatusCancelled {
 		return true
 	}
@@ -371,21 +349,21 @@ func (p *BuildTaskPlugin) IsTaskFailed() bool {
 }
 
 // SetStartTime ...
-func (p *BuildTaskPlugin) SetStartTime() {
+func (p *ArtifactDeployTaskPlugin) SetStartTime() {
 	p.Task.StartTime = time.Now().Unix()
 }
 
 // SetEndTime ...
-func (p *BuildTaskPlugin) SetEndTime() {
+func (p *ArtifactDeployTaskPlugin) SetEndTime() {
 	p.Task.EndTime = time.Now().Unix()
 }
 
 // IsTaskEnabled ...
-func (p *BuildTaskPlugin) IsTaskEnabled() bool {
+func (p *ArtifactDeployTaskPlugin) IsTaskEnabled() bool {
 	return p.Task.Enabled
 }
 
 // ResetError ...
-func (p *BuildTaskPlugin) ResetError() {
+func (p *ArtifactDeployTaskPlugin) ResetError() {
 	p.Task.Error = ""
 }

@@ -266,3 +266,18 @@ func (c *BuildColl) DistinctTargets(excludeModule []string, productName string) 
 
 	return resp, err
 }
+
+func (c *BuildColl) GetDockerfileTemplateReference(templateID string) ([]*models.Build, error) {
+	ret := make([]*models.Build, 0)
+	query := bson.M{"post_build.docker_build.template_id": templateID}
+
+	cursor, err := c.Collection.Find(context.TODO(), query)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
+}

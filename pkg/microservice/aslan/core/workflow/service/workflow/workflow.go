@@ -117,11 +117,7 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 	}
 
 	// 云主机场景不创建ops工作流
-	if productTmpl.ProductFeature != nil && productTmpl.ProductFeature.BasicFacility == "cloud_host" {
-		createArgs.clear()
-		createArgs.addWorkflowArg("dev", true, false)
-		createArgs.addWorkflowArg("qa", true, false)
-	} else if productTmpl.ProductFeature != nil && productTmpl.ProductFeature.CreateEnvType == setting.SourceFromExternal {
+	if productTmpl.ProductFeature != nil && productTmpl.ProductFeature.CreateEnvType == setting.SourceFromExternal {
 		createArgs.clear()
 		createArgs.addWorkflowArg("dev", true, false)
 	}

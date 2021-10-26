@@ -174,6 +174,7 @@ func replaceWrapLine(script string) string {
 func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName string) *types.Context {
 
 	ctx := &types.Context{
+		APIToken:       pipelineTask.ConfigPayload.APIToken,
 		Workspace:      b.PipelineCtx.Workspace,
 		CleanWorkspace: b.JobCtx.CleanWorkspace,
 		IgnoreCache:    pipelineTask.ConfigPayload.IgnoreCache,
@@ -209,7 +210,6 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 		ServiceName:     serviceName,
 		StorageEndpoint: pipelineTask.StorageEndpoint,
 	}
-
 	for _, install := range b.Installs {
 		inst := &types.Install{
 			// TODO: 之后可以适配 install.Scripts 为[]string
@@ -283,6 +283,8 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 
 	if b.JobCtx.DockerBuildCtx != nil {
 		ctx.DockerBuildCtx = &task.DockerBuildCtx{
+			Source:     b.JobCtx.DockerBuildCtx.Source,
+			TemplateID: b.JobCtx.DockerBuildCtx.TemplateID,
 			WorkDir:    b.JobCtx.DockerBuildCtx.WorkDir,
 			DockerFile: b.JobCtx.DockerBuildCtx.DockerFile,
 			ImageName:  b.JobCtx.DockerBuildCtx.ImageName,
@@ -309,6 +311,14 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 	ctx.StorageSK = pipelineTask.ConfigPayload.S3Storage.Sk
 	ctx.StorageBucket = pipelineTask.ConfigPayload.S3Storage.Bucket
 	ctx.StorageProvider = pipelineTask.ConfigPayload.S3Storage.Provider
+	if pipelineTask.ArtifactInfo != nil {
+		ctx.ArtifactInfo = &types.ArtifactInfo{
+			URL:          pipelineTask.ArtifactInfo.URL,
+			WorkflowName: pipelineTask.ArtifactInfo.WorkflowName,
+			TaskID:       pipelineTask.ArtifactInfo.TaskID,
+			FileName:     pipelineTask.ArtifactInfo.FileName,
+		}
+	}
 
 	return ctx
 }

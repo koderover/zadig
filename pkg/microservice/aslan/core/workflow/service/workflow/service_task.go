@@ -215,7 +215,12 @@ func CreateServiceTask(args *commonmodels.ServiceTaskArgs, log *zap.SugaredLogge
 	}
 
 	stages := make([]*commonmodels.Stage, 0)
-	subTasks, err := BuildModuleToSubTasks("", args.ServiceName, args.ServiceName, args.ProductName, nil, nil, log)
+	buildModuleArgs := &commonmodels.BuildModuleArgs{
+		Target:      args.ServiceName,
+		ServiceName: args.ServiceName,
+		ProductName: args.ProductName,
+	}
+	subTasks, err := BuildModuleToSubTasks(buildModuleArgs, log)
 	if err != nil {
 		return nil, e.ErrCreateTask.AddErr(err)
 	}

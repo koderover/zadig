@@ -54,9 +54,13 @@ func Execute() error {
 	if err = r.BeforeExec(); err != nil {
 		log.Fatal(err)
 	}
-	if err = r.Exec(); err != nil {
-		errs = multierror.Append(errs, err)
+
+	if r.Ctx.ArtifactInfo == nil {
+		if err = r.Exec(); err != nil {
+			errs = multierror.Append(errs, err)
+		}
 	}
+
 	if err = r.AfterExec(err); err != nil {
 		errs = multierror.Append(errs, err)
 	}

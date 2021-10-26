@@ -28,3 +28,54 @@ type Chart struct {
 
 	Files []*fs.FileInfo `json:"files,omitempty"`
 }
+
+type DockerfileTemplate struct {
+	Name    string `json:"name"`
+	Content string `json:"content"`
+}
+
+type DockerfileListObject struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type DockerfileDetail struct {
+	ID        string      `json:"id"`
+	Name      string      `json:"name"`
+	Content   string      `json:"content"`
+	Variables []*Variable `json:"variable"`
+}
+
+type Variable struct {
+	Key         string `json:"key"`
+	Value       string `json:"value,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
+type BuildReference struct {
+	BuildName   string `json:"build_name"`
+	ProjectName string `json:"project_name"`
+}
+
+type YamlTemplate struct {
+	Name     string      `json:"name"`
+	Content  string      `json:"content"`
+	Variable []*Variable `json:"variable"`
+}
+
+type YamlListObject struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type YamlDetail struct {
+	ID        string      `json:"id"`
+	Name      string      `json:"name"`
+	Content   string      `json:"content"`
+	Variables []*Variable `json:"variable"`
+}
+
+type ServiceReference struct {
+	ProjectName string `json:"project_name"`
+	ServiceName string `json:"service_name"`
+}

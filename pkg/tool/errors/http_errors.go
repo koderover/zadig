@@ -583,6 +583,7 @@ var (
 	ErrListPrivateKeys      = NewHTTPError(6684, "列出私钥失败")
 	ErrDeletePrivateKey     = NewHTTPError(6685, "删除私钥失败")
 	ErrDeleteUsedPrivateKey = NewHTTPError(6686, "删除私钥失败，此私钥已经被引用，请确认")
+	ErrBulkCreatePrivateKey = NewHTTPError(6687, "批量创建私钥失败")
 
 	//-----------------------------------------------------------------------------------------------
 	// signature APIs Range: 6690 - 6699

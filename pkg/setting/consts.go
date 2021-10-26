@@ -227,6 +227,8 @@ const (
 	SourceFromHelm = "helm"
 	//SourceFromExternal
 	SourceFromExternal = "external"
+	// service from yaml template
+	ServiceSourceTemplate = "template"
 
 	ProdENV = "prod"
 	TestENV = "test"
@@ -480,6 +482,32 @@ const (
 // Aliyun specific stuff
 const (
 	AliyunHost = ".aliyuncs.com"
+)
+
+// Dockerfile parsing consts
+const (
+	DockerfileCmdArg = "ARG"
+)
+
+// Dockerfile template constant
+const (
+	DockerfileSourceLocal    = "local"
+	DockerfileSourceTemplate = "template"
+
+	ZadigDockerfilePath = "zadig-dockerfile"
+)
+
+// Yaml template constant
+const (
+	RegExpParameter = `{{.(\w)+}}`
+)
+
+// template common constant
+const (
+	TemplateVariableProduct            = "$T-Project$"
+	TemplateVariableProductDescription = "项目名称"
+	TemplateVariableService            = "$T-Service$"
+	TemplateVariableServiceDescription = "服务名称"
 )
 
 const MaxTries = 1
