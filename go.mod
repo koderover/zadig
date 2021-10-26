@@ -16,13 +16,16 @@ require (
 	github.com/bugsnag/panicwrap v1.3.1 // indirect
 	github.com/cenkalti/backoff/v3 v3.0.0
 	github.com/coocood/freecache v1.1.0
+	github.com/coreos/go-oidc v2.1.0+incompatible
+	github.com/coreos/go-oidc/v3 v3.0.0
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/docker/docker v17.12.0-ce-rc1.0.20200618181300-9dc6525e6118+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7 // indirect
 	github.com/dsnet/compress v0.0.1 // indirect
+	github.com/erikstmartin/go-testdb v0.0.0-20160219214506-8d10e4a1bae5 // indirect
 	github.com/garyburd/redigo v1.6.2 // indirect
-	github.com/gin-contrib/sessions v0.0.3
 	github.com/gin-contrib/sse v0.1.0
 	github.com/gin-gonic/gin v1.7.2
 	github.com/go-resty/resty/v2 v2.6.0
@@ -37,6 +40,8 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/huaweicloud/huaweicloud-sdk-go-v3 v0.0.50
 	github.com/jasonlvhit/gocron v0.0.0-20171226191223-3c914c8681c3
+	github.com/jinzhu/gorm v0.0.0-20180213101209-6e1387b44c64
+	github.com/jinzhu/inflection v0.0.0-20170102125226-1c35d901db3d // indirect
 	github.com/jinzhu/now v1.1.2
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
 	github.com/mittwald/go-helm-client v0.8.0
@@ -65,6 +70,7 @@ require (
 	github.com/yvasiyarov/newrelic_platform_go v0.0.0-20160601141957-9c099fbc30e9 // indirect
 	go.mongodb.org/mongo-driver v1.5.0
 	go.uber.org/zap v1.19.0
+	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83
 	golang.org/x/net v0.0.0-20210428140749-89ef3d95e781
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c

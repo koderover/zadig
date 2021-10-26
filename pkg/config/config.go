@@ -85,6 +85,10 @@ func AslanServiceInfo() *setting.ServiceInfo {
 	return GetServiceByCode(setting.Aslan)
 }
 
+func SecretKey() string {
+	return viper.GetString(setting.SecretKey)
+}
+
 func AslanServiceAddress() string {
 	s := AslanServiceInfo()
 	return GetServiceAddress(s.Name, s.Port)

@@ -99,6 +99,24 @@ const (
 	DebugMode   = "debug"
 	ReleaseMode = "release"
 	TestMode    = "test"
+
+	// user
+	IssuerURL      = "ISSUER_URL"
+	Listen         = "LISTEN"
+	TlsCert        = "TLSCERT"
+	TlsKey         = "TLSKEY"
+	RootCAs        = "ROOT_CAS"
+	Debug          = "DEBUG"
+	ClientID       = "CLIENT_ID"
+	ClientSecret   = "CLIENT_SECRET"
+	RedirectURI    = "REDIRECT_URI"
+	SecretKey      = "SECRET_KEY"
+	OfflineAsScope = "OFFLINE_AS_SCOPE"
+	MysqlUser      = "MYSQL_USER"
+	Password       = "PASSWORD"
+	Host           = "HOST"
+	Name           = "NAME"
+	Scopes         = "SCOPES"
 )
 
 // k8s concepts

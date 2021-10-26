@@ -20,6 +20,8 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"github.com/dgrijalva/jwt-go"
+	"github.com/koderover/zadig/pkg/config"
 )
 
 // ComputeHmacSha256 According to ak/sk generate secret key
@@ -30,4 +32,26 @@ func ComputeHmacSha256(ak string, sk string) string {
 	sha := hex.EncodeToString(h.Sum(nil))
 	hex.EncodeToString(h.Sum(nil))
 	return sha
+}
+
+type Claims struct {
+	Name            string          `json:"name"`
+	Email           string          `json:"email"`
+	Uid             string          `json:"uid"`
+	FederatedClaims FederatedClaims `json:"federated_claims"`
+	jwt.StandardClaims
+}
+
+type FederatedClaims struct {
+	ConnectorId string `json:"connector_id"`
+	UserId      string `json:"user_id"`
+}
+
+func CreateToken(claims *Claims) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString([]byte(config.SecretKey()))
+	if err != nil {
+		return "", err
+	}
+	return tokenString, nil
 }
