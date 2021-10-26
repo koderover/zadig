@@ -219,6 +219,9 @@ func (c *PrivateKeyColl) DistinctLabels() ([]string, error) {
 
 	for _, labelInter := range labels {
 		if label, ok := labelInter.(string); ok {
+			if label == "" {
+				continue
+			}
 			resp = append(resp, label)
 		}
 	}
