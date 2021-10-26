@@ -76,13 +76,17 @@ func presetRole() error {
 	publicRoles := []*service.Role{}
 	var readOnlyRole *service.Role
 	var contributorRole *service.Role
+	var projectAdminRole *service.Role
 	if err := yaml.Unmarshal(readOnly, readOnlyRole); err != nil {
 		log.DPanic(err)
 	}
 	if err := yaml.Unmarshal(contributor, contributorRole); err != nil {
 		log.DPanic(err)
 	}
-	publicRoles = append(publicRoles, readOnlyRole, contributorRole)
+	if err := yaml.Unmarshal(projectAdmin, projectAdminRole); err != nil {
+		log.DPanic(err)
+	}
+	publicRoles = append(publicRoles, readOnlyRole, contributorRole, projectAdminRole)
 	for _, v := range publicRoles {
 		g.Go(func() error {
 			return policy.NewDefault().CreatePublicRole(v.Name, v)
