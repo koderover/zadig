@@ -85,3 +85,20 @@ func GetYamlTemplateReference(c *gin.Context) {
 
 	ctx.Resp, ctx.Err = templateservice.GetYamlTemplateReference(c.Param("id"), ctx.Logger)
 }
+
+type updateYamlTemplateVariablesReq struct {
+	Variables []*templateservice.Variable `json:"variables"`
+}
+
+func UpdateYamlTemplateVariables(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	req := &updateYamlTemplateVariablesReq{}
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Err = templateservice.UpdateYamlTemplateVariables(c.Param("id"), req.Variables, ctx.Logger)
+}

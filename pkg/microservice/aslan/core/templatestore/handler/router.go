@@ -60,5 +60,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		yaml.GET("/:id", GetYamlTemplateDetail)
 		yaml.DELETE("/:id", DeleteYamlTemplate)
 		yaml.GET("/:id/reference", GetYamlTemplateReference)
+		yaml.PUT("/:id/variables", UpdateYamlTemplateVariables)
 	}
 }

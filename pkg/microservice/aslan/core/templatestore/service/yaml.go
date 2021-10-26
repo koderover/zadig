@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -42,16 +43,18 @@ func CreateYamlTemplate(template *YamlTemplate, logger *zap.SugaredLogger) error
 }
 
 func UpdateYamlTemplate(id string, template *YamlTemplate, logger *zap.SugaredLogger) error {
-	variables := make([]*models.Variable, 0)
-	if template.Variable != nil {
-		for _, v := range template.Variable {
-			variables = append(variables, &models.Variable{
-				Key:   v.Key,
-				Value: v.Value,
-			})
-		}
+	variableList, err := getYamlVariables(template.Content, logger)
+	if err != nil {
+		return err
 	}
-	err := mongodb.NewYamlTemplateColl().Update(
+	variables := make([]*models.Variable, 0)
+	for _, v := range variableList {
+		variables = append(variables, &models.Variable{
+			Key:   v.Key,
+			Value: v.Value,
+		})
+	}
+	err = mongodb.NewYamlTemplateColl().Update(
 		id,
 		&models.YamlTemplate{
 			Name:      template.Name,
@@ -134,6 +137,42 @@ func GetYamlTemplateReference(id string, logger *zap.SugaredLogger) ([]*ServiceR
 		})
 	}
 	return ret, nil
+}
+
+func UpdateYamlTemplateVariables(id string, variables []*Variable, logger *zap.SugaredLogger) error {
+	templateDetail, err := mongodb.NewYamlTemplateColl().GetById(id)
+	if err != nil {
+		logger.Errorf("Failed to find yaml template of id: %s, the error is: %s", id, err)
+		return err
+	}
+	keyMap := make(map[string]int)
+	// the keys in database will not collide
+	for _, v := range templateDetail.Variables {
+		keyMap[v.Key] = 1
+	}
+	newVars := make([]*models.Variable, 0)
+	for _, vars := range variables {
+		if keyMap[vars.Key] == 0 {
+			errorMsg := fmt.Sprintf("Given key [%s] does not exist in yaml template [%s]", vars.Key, id)
+			return errors.New(errorMsg)
+		}
+		newVars = append(newVars, &models.Variable{
+			Key:   vars.Key,
+			Value: vars.Value,
+		})
+	}
+	err = mongodb.NewYamlTemplateColl().Update(
+		id,
+		&models.YamlTemplate{
+			Name:      templateDetail.Name,
+			Content:   templateDetail.Content,
+			Variables: newVars,
+		},
+	)
+	if err != nil {
+		logger.Errorf("update dockerfile template error: %s", err)
+	}
+	return err
 }
 
 func getYamlVariables(s string, logger *zap.SugaredLogger) ([]*Variable, error) {
