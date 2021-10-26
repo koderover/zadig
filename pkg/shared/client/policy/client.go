@@ -45,3 +45,16 @@ func New() *Client {
 		host:   host,
 	}
 }
+
+func NewDefault() *Client {
+	host := config.PolicyServiceAddress()
+
+	c := httpclient.New(
+		httpclient.SetHostURL(host + "/api/v1"),
+	)
+
+	return &Client{
+		Client: c,
+		host:   host,
+	}
+}
