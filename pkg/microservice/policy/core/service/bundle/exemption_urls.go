@@ -5,29 +5,14 @@ package bundle
 // how to make a decision without being aware of the detailed rules.
 
 type exemptionURLs struct {
-	Global     rules `json:"global"`     // global urls are only controlled by AuthN, and it is visible for all users
-	Namespaced rules `json:"namespaced"` // global urls are only controlled by AuthN, and it is visible for users under certain projects
 	Public     rules `json:"public"`     // public urls are not controlled by AuthN and AuthZ
+	Privileged rules `json:"privileged"` // privileged urls can only be visited by system admins
 	Registered rules `json:"registered"` // registered urls are the entire list of urls which are controlled by AuthZ, which means that if an url is not in this list, it is not controlled by AuthZ
 }
 
 type policyRule struct {
 	Methods   []string `json:"methods"`
 	Endpoints []string `json:"endpoints"`
-}
-
-var globalURLs = []*policyRule{
-	{
-		Methods:   []string{"*"},
-		Endpoints: []string{"api/v1/version"},
-	},
-}
-
-var namespacedURLs = []*policyRule{
-	{
-		Methods:   []string{"*"},
-		Endpoints: []string{"api/v1/version1"},
-	},
 }
 
 var publicURLs = []*policyRule{
@@ -71,12 +56,16 @@ var publicURLs = []*policyRule{
 		Methods:   []string{"GET"},
 		Endpoints: []string{""},
 	},
+	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/directory/check"},
+	},
 }
 
-// actions which are allowed for admins only.
-var adminURLs = []*policyRule{
+// actions which are allowed for system admins only.
+var systemAdminURLs = []*policyRule{
 	{
-		Methods:   []string{"POST", "PUT"},
+		Methods:   []string{"POST"},
 		Endpoints: []string{"api/aslan/project/products"},
 	},
 	{
@@ -204,11 +193,85 @@ var adminURLs = []*policyRule{
 		Endpoints: []string{"api/aslan/system/proxy/config"},
 	},
 	{
-		Methods:   []string{"*"},
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/v1/users/?*"},
+	},
+	{
+		Methods:   []string{"POST"},
 		Endpoints: []string{"api/v1/users"},
 	},
 	{
-		Methods:   []string{"*"},
-		Endpoints: []string{"api/v1/users/?*"},
+		Methods:   []string{"POST"},
+		Endpoints: []string{"api/v1/public-roles"},
+	},
+	{
+		Methods:   []string{"PUT", "DELETE"},
+		Endpoints: []string{"api/v1/public-roles/?*"},
+	},
+	{
+		Methods:   []string{"GET", "POST"},
+		Endpoints: []string{"api/v1/system-roles"},
+	},
+	{
+		Methods:   []string{"DELETE"},
+		Endpoints: []string{"api/v1/system-roles/?*"},
+	},
+	{
+		Methods:   []string{"GET", "POST"},
+		Endpoints: []string{"api/v1/system-rolebindings"},
+	},
+	{
+		Methods:   []string{"DELETE"},
+		Endpoints: []string{"api/v1/system-rolebindings/?*"},
 	},
 }
+
+// actions which are allowed for system admins only.
+var projectAdminURLs = []*policyRule{
+	{
+		Methods:   []string{"PUT"},
+		Endpoints: []string{"api/aslan/project/products"},
+	},
+	{
+		Methods:   []string{"DELETE"},
+		Endpoints: []string{"api/aslan/project/products/?*"},
+	},
+	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/v1/users"},
+	},
+	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/v1/roles"},
+	},
+	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/v1/roles/?*"},
+	},
+	{
+		Methods:   []string{"POST"},
+		Endpoints: []string{"api/v1/roles"},
+	},
+	{
+		Methods:   []string{"PUT", "DELETE"},
+		Endpoints: []string{"api/v1/roles/?*"},
+	},
+	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/v1/public-roles"},
+	},
+	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/v1/public-roles/?*"},
+	},
+	{
+		Methods:   []string{"GET", "POST"},
+		Endpoints: []string{"api/v1/rolebindings"},
+	},
+	{
+		Methods:   []string{"DELETE"},
+		Endpoints: []string{"api/v1/rolebindings/?*"},
+	},
+}
+
+var adminURLs = append(systemAdminURLs, projectAdminURLs...)

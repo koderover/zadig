@@ -32,11 +32,14 @@ allow {
 
 # Allow project admins to do anything under the given project.
 allow {
+    not url_is_privileged
     user_is_project_admin
 }
 
 # Allow the action if the user is granted permission to perform the action.
 allow {
+    not url_is_privileged
+
     some grant
     user_is_granted[grant]
 
@@ -60,22 +63,13 @@ user_is_project_admin {
     role.namespace == project_name
 }
 
+# public urls are visible for all users
 url_is_public {
     data.exemptions.public[_].method == http_request.method
     glob.match(trim(data.exemptions.public[_].endpoint, "/"), ["/"], concat("/", input.parsed_path))
 }
 
-url_is_exempted {
-    data.exemptions.global[_].method == http_request.method
-    glob.match(trim(data.exemptions.global[_].endpoint, "/"), ["/"], concat("/", input.parsed_path))
-}
-
-url_is_exempted {
-    data.exemptions.namespaced[_].method == http_request.method
-    glob.match(trim(data.exemptions.namespaced[_].endpoint, "/"), ["/"], concat("/", input.parsed_path))
-    user_projects[_] == project_name
-}
-
+# exempted urls are visible for all authenticated users
 url_is_exempted {
     not url_is_registered
 }
@@ -83,6 +77,12 @@ url_is_exempted {
 url_is_registered {
     data.exemptions.registered[_].method == http_request.method
     glob.match(trim(data.exemptions.registered[_].endpoint, "/"), ["/"], concat("/", input.parsed_path))
+}
+
+# privileged urls are visible for system admins only
+url_is_privileged {
+    data.exemptions.privileged[_].method == http_request.method
+    glob.match(trim(data.exemptions.privileged[_].endpoint, "/"), ["/"], concat("/", input.parsed_path))
 }
 
 project_name := pn {
