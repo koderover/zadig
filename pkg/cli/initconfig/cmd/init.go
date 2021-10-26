@@ -88,8 +88,9 @@ func presetRole() error {
 	}
 	publicRoles = append(publicRoles, readOnlyRole, contributorRole, projectAdminRole)
 	for _, v := range publicRoles {
+		tmp := v
 		g.Go(func() error {
-			return policy.NewDefault().CreatePublicRole(v.Name, v)
+			return policy.NewDefault().CreatePublicRole(tmp.Name, tmp)
 		})
 	}
 	if err := g.Wait(); err != nil {
