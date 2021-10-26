@@ -41,8 +41,8 @@ var admin []byte
 
 var initRoleCmd = &cobra.Command{
 	Use:   "init",
-	Short: "init preset role",
-	Long:  `init preset role.`,
+	Short: "init cmd",
+	Long:  `init cmd.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := run(); err != nil {
 			log.Fatal(err)
