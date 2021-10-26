@@ -494,6 +494,14 @@ const (
 	RegExpParameter = `{{.(\w)+}}`
 )
 
+// template common constant
+const (
+	TemplateVariableProduct            = "$T-Project$"
+	TemplateVariableProductDescription = "项目名称"
+	TemplateVariableService            = "$T-Service$"
+	TemplateVariableServiceDescription = "服务名称"
+)
+
 const MaxTries = 1
 
 const DogFood = "/var/run/koderover-dog-food"

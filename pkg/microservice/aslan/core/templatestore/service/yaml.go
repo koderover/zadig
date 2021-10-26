@@ -15,8 +15,8 @@ import (
 )
 
 var DefaultSystemVariable = map[string]string{
-	"$T-Product$": "项目名称",
-	"$T-Service$": "服务名称",
+	setting.TemplateVariableProduct: setting.TemplateVariableProductDescription,
+	setting.TemplateVariableService: setting.TemplateVariableServiceDescription,
 }
 
 func CreateYamlTemplate(template *YamlTemplate, logger *zap.SugaredLogger) error {

@@ -76,8 +76,8 @@ func renderYamlFromTemplate(yaml, productName, serviceName string, variables []*
 	for _, variable := range variables {
 		yaml = strings.Replace(yaml, buildVariable(variable.Key), variable.Value, -1)
 	}
-	yaml = strings.Replace(yaml, "$T-Product$", productName, -1)
-	yaml = strings.Replace(yaml, "$T-Service$", serviceName, -1)
+	yaml = strings.Replace(yaml, setting.TemplateVariableProduct, productName, -1)
+	yaml = strings.Replace(yaml, setting.TemplateVariableService, serviceName, -1)
 	return yaml
 }
 
