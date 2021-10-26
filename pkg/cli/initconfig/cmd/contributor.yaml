@@ -1,4 +1,4 @@
-name: Contributor
+name: contributor
 rules:
   - verbs:
       - get_workflow
