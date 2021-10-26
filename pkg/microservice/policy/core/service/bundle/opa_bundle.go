@@ -253,31 +253,6 @@ func generateOPARoleBindings(rbs []*models.RoleBinding) *opaRoleBindings {
 func generateOPAExemptionURLs(policies []*models.Policy) *exemptionURLs {
 	data := &exemptionURLs{}
 
-	for _, r := range globalURLs {
-		if len(r.Methods) == 1 && r.Methods[0] == models.MethodAll {
-			r.Methods = AllMethods
-		}
-		for _, method := range r.Methods {
-			for _, endpoint := range r.Endpoints {
-				data.Global = append(data.Global, &rule{Method: method, Endpoint: endpoint})
-			}
-		}
-	}
-	sort.Sort(data.Global)
-
-	for _, r := range namespacedURLs {
-		if len(r.Methods) == 1 && r.Methods[0] == models.MethodAll {
-			r.Methods = AllMethods
-		}
-		for _, method := range r.Methods {
-			for _, endpoint := range r.Endpoints {
-				data.Namespaced = append(data.Namespaced, &rule{Method: method, Endpoint: endpoint})
-			}
-		}
-	}
-
-	sort.Sort(data.Namespaced)
-
 	for _, r := range publicURLs {
 		if len(r.Methods) == 1 && r.Methods[0] == models.MethodAll {
 			r.Methods = AllMethods
@@ -288,8 +263,19 @@ func generateOPAExemptionURLs(policies []*models.Policy) *exemptionURLs {
 			}
 		}
 	}
-
 	sort.Sort(data.Public)
+
+	for _, r := range systemAdminURLs {
+		if len(r.Methods) == 1 && r.Methods[0] == models.MethodAll {
+			r.Methods = AllMethods
+		}
+		for _, method := range r.Methods {
+			for _, endpoint := range r.Endpoints {
+				data.Privileged = append(data.Privileged, &rule{Method: method, Endpoint: endpoint})
+			}
+		}
+	}
+	sort.Sort(data.Privileged)
 
 	resourceMappings := getResourceActionMappings(policies)
 	for _, resourceMappings := range resourceMappings {
