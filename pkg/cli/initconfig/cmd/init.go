@@ -74,9 +74,9 @@ func presetRole() error {
 	})
 
 	publicRoles := []*service.Role{}
-	var readOnlyRole *service.Role
-	var contributorRole *service.Role
-	var projectAdminRole *service.Role
+	readOnlyRole := &service.Role{}
+	contributorRole := &service.Role{}
+	projectAdminRole := &service.Role{}
 	if err := yaml.Unmarshal(readOnly, readOnlyRole); err != nil {
 		log.DPanic(err)
 	}
