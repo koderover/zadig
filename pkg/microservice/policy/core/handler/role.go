@@ -64,6 +64,27 @@ func UpdateRole(c *gin.Context) {
 	ctx.Err = service.UpdateRole(projectName, args, ctx.Logger)
 }
 
+func UpdateOrCreateRole(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := &service.Role{}
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName is empty")
+		return
+	}
+	name := c.Param("name")
+	args.Name = name
+
+	ctx.Err = service.UpdateOrCreateRole(projectName, args, ctx.Logger)
+}
+
 func UpdatePublicRole(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -76,6 +97,20 @@ func UpdatePublicRole(c *gin.Context) {
 	name := c.Param("name")
 	args.Name = name
 	ctx.Err = service.UpdateRole("", args, ctx.Logger)
+}
+
+func UpdateOrCreatePublicRole(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := &service.Role{}
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = err
+		return
+	}
+	name := c.Param("name")
+	args.Name = name
+	ctx.Err = service.UpdateOrCreateRole("", args, ctx.Logger)
 }
 
 func ListRoles(c *gin.Context) {

@@ -142,3 +142,15 @@ func (c *RoleColl) UpdateRole(obj *models.Role) error {
 	_, err := c.UpdateOne(context.TODO(), query, change)
 	return err
 }
+
+func (c *RoleColl) UpdateOrCreate(obj *models.Role) error {
+	if obj == nil {
+		return fmt.Errorf("nil object")
+	}
+
+	query := bson.M{"name": obj.Name, "namespace": obj.Namespace}
+	opts := options.Replace().SetUpsert(true)
+	_, err := c.ReplaceOne(context.TODO(), query, obj, opts)
+
+	return err
+}
