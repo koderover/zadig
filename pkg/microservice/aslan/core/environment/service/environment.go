@@ -2925,10 +2925,11 @@ func diffRenderSet(username, productName, envName, updateType string, productRes
 			}
 		}
 
+		serviceMap := productResp.GetServiceMap()
 		for serviceName, latestChartInfo := range tmpLatestChartInfoMap {
 			if currentChartInfo, ok := tmpCurrentChartInfoMap[serviceName]; ok {
 				//拿当前环境values.yaml的key的value去替换服务里面的values.yaml的相同的key的value
-				newValuesYaml, err := overrideValues([]byte(currentChartInfo.ValuesYaml), []byte(latestChartInfo.ValuesYaml))
+				newValuesYaml, err := overrideValues([]byte(currentChartInfo.ValuesYaml), []byte(latestChartInfo.ValuesYaml), serviceMap[serviceName])
 				if err != nil {
 					log.Errorf("Failed to override values for service %s, err: %s", serviceName, err)
 				} else {
@@ -2970,7 +2971,9 @@ func diffRenderSet(username, productName, envName, updateType string, productRes
 	return renderSet, nil
 }
 
-func overrideValues(currentValuesYaml, latestValuesYaml []byte) ([]byte, error) {
+// for keys exist in both yaml, current values will override latest values
+// only for images
+func overrideValues(currentValuesYaml, latestValuesYaml []byte, templateService *commonmodels.ProductService) ([]byte, error) {
 	currentValuesMap := map[string]interface{}{}
 	if err := yaml.Unmarshal(currentValuesYaml, &currentValuesMap); err != nil {
 		return nil, err
@@ -2991,8 +2994,20 @@ func overrideValues(currentValuesYaml, latestValuesYaml []byte) ([]byte, error) 
 		return nil, err
 	}
 
+	imageRelatedKey := sets.NewString()
+	if templateService != nil {
+		for _, container := range templateService.Containers {
+			if container.ImagePath != nil {
+				imageRelatedKey.Insert(container.ImagePath.Image, container.ImagePath.Repo, container.ImagePath.Tag)
+			}
+		}
+	}
+
 	replaceMap := make(map[string]interface{})
 	for key := range latestValuesFlatMap {
+		if !imageRelatedKey.Has(key) {
+			continue
+		}
 		if currentValue, ok := currentValuesFlatMap[key]; ok {
 			replaceMap[key] = currentValue
 		}
