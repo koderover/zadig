@@ -29,7 +29,7 @@ import (
 )
 
 func init() {
-	rootCmd.AddCommand(migrateCmd)
+	rootCmd.AddCommand(initRoleCmd)
 }
 
 //go:embed contributor.yaml
@@ -41,7 +41,7 @@ var readOnly []byte
 //go:embed admin.yaml
 var admin []byte
 
-var migrateCmd = &cobra.Command{
+var initRoleCmd = &cobra.Command{
 	Use:   "init",
 	Short: "init preset role",
 	Long:  `init preset role.`,
@@ -53,9 +53,12 @@ var migrateCmd = &cobra.Command{
 }
 
 func run() error {
-	return presetRole()
+	return initSystemConfig()
 }
 
+func initSystemConfig() {
+	presetRole()
+}
 func presetRole() error {
 	g := new(errgroup.Group)
 	g.Go(func() error {
@@ -66,20 +69,22 @@ func presetRole() error {
 		return policy.NewDefault().CreateSystemRole(adminRole)
 	})
 
-	g.Go(func() error {
-		contributorRole := &service.Role{}
-		if err := yaml.Unmarshal(contributor, contributorRole); err != nil {
-			log.DPanic(err)
-		}
-		return policy.NewDefault().CreatePublicRole(contributorRole)
-	})
-	g.Go(func() error {
-		readOnlyRole := &service.Role{}
-		if err := yaml.Unmarshal(readOnly, readOnlyRole); err != nil {
-			log.DPanic(err)
-		}
-		return policy.NewDefault().CreatePublicRole(readOnlyRole)
-	})
+	var publicRoles []*service.Role
+	contributorRole := &service.Role{}
+	if err := yaml.Unmarshal(contributor, contributorRole); err != nil {
+		log.DPanic(err)
+	}
+	readOnlyRole := &service.Role{}
+	if err := yaml.Unmarshal(readOnly, readOnlyRole); err != nil {
+		log.DPanic(err)
+	}
+	publicRoles = append(publicRoles, contributorRole, readOnlyRole)
+
+	for _, v := range publicRoles {
+		g.Go(func() error {
+			return policy.NewDefault().CreatePublicRole(v)
+		})
+	}
 	if err := g.Wait(); err != nil {
 		return err
 	}
