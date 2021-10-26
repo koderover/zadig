@@ -24,7 +24,6 @@ import (
 
 	"sigs.k8s.io/yaml"
 
-	"github.com/koderover/zadig/pkg/microservice/policy/core/service"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -63,34 +62,26 @@ func run() error {
 func initSystemConfig() error {
 	return presetRole()
 }
+
 func presetRole() error {
 	g := new(errgroup.Group)
 	g.Go(func() error {
-		systemRole := &service.Role{}
+		systemRole := &policy.Role{}
 		if err := yaml.Unmarshal(admin, systemRole); err != nil {
 			log.DPanic(err)
 		}
 		return policy.NewDefault().CreateSystemRole(systemRole.Name, systemRole)
 	})
 
-	publicRoles := []*service.Role{}
-	readOnlyRole := &service.Role{}
-	contributorRole := &service.Role{}
-	projectAdminRole := &service.Role{}
-	if err := yaml.Unmarshal(readOnly, readOnlyRole); err != nil {
-		log.DPanic(err)
-	}
-	if err := yaml.Unmarshal(contributor, contributorRole); err != nil {
-		log.DPanic(err)
-	}
-	if err := yaml.Unmarshal(projectAdmin, projectAdminRole); err != nil {
-		log.DPanic(err)
-	}
-	publicRoles = append(publicRoles, readOnlyRole, contributorRole, projectAdminRole)
-	for _, v := range publicRoles {
-		tmp := v
+	rolesArray := [][]byte{readOnly, contributor, projectAdmin}
+
+	for _, v := range rolesArray {
+		role := &policy.Role{}
+		if err := yaml.Unmarshal(v, role); err != nil {
+			log.DPanic(err)
+		}
 		g.Go(func() error {
-			return policy.NewDefault().CreatePublicRole(tmp.Name, tmp)
+			return policy.NewDefault().CreatePublicRole(role.Name, role)
 		})
 	}
 	if err := g.Wait(); err != nil {

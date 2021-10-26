@@ -13,7 +13,7 @@ rules:
       - delete_environment
     resources:
       - Environment
-    kind: resourcepkg/cli/initconfig/cmd/init.go
+    kind: resource
   - verbs:
       - get_build
       - get_service
