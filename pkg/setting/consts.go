@@ -264,11 +264,6 @@ const (
 )
 
 const (
-	SessionUsername     = "Username"
-	SessionUser         = "User"
-	UserAPIKey          = "X-API-KEY"
-	RootAPIKey          = "X-ROOT-API-KEY"
-	TIMERAPIKEY         = "X-TIMER-API-KEY"
 	AuthorizationHeader = "Authorization"
 )
 
@@ -506,5 +501,6 @@ const ChartTemplatesPath = "charts"
 type RoleType string
 
 const (
-	Contributor RoleType = "Contributor"
+	Contributor               RoleType = "Contributor"
+	ContributorRoleBindingFmt string   = "contributor-project:%s-user:%s"
 )

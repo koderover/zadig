@@ -17,6 +17,8 @@ limitations under the License.
 package service
 
 import (
+	"fmt"
+
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
@@ -25,12 +27,13 @@ import (
 
 type Role struct {
 	Name  string  `json:"name"`
-	Rules []*Rule `json:"rules"`
+	Rules []*Rule `json:"rules,omitempty"`
 }
 
 type Rule struct {
 	Verbs     []string `json:"verbs"`
 	Resources []string `json:"resources"`
+	Kind      string   `json:"kind"`
 }
 
 func CreateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
@@ -42,9 +45,66 @@ func CreateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
 	for _, r := range role.Rules {
 		obj.Rules = append(obj.Rules, &models.Rule{
 			Verbs:     r.Verbs,
+			Kind:      r.Kind,
 			Resources: r.Resources,
 		})
 	}
 
 	return mongodb.NewRoleColl().Create(obj)
+}
+
+func UpdateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
+	obj := &models.Role{
+		Name:      role.Name,
+		Namespace: ns,
+	}
+
+	for _, r := range role.Rules {
+		obj.Rules = append(obj.Rules, &models.Rule{
+			Verbs:     r.Verbs,
+			Kind:      r.Kind,
+			Resources: r.Resources,
+		})
+	}
+	return mongodb.NewRoleColl().UpdateRole(obj)
+}
+
+func ListRoles(projectName string, _ *zap.SugaredLogger) ([]*Role, error) {
+	var roles []*Role
+	projectRoles, err := mongodb.NewRoleColl().ListBy(projectName)
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range projectRoles {
+		roles = append(roles, &Role{
+			Name: v.Name,
+		})
+	}
+	return roles, nil
+}
+
+func GetRole(ns, name string, _ *zap.SugaredLogger) (*Role, error) {
+	r, found, err := mongodb.NewRoleColl().Get(ns, name)
+	if err != nil {
+		return nil, err
+	} else if !found {
+		return nil, fmt.Errorf("role %s not found", name)
+	}
+
+	res := &Role{
+		Name: r.Name,
+	}
+	for _, ru := range r.Rules {
+		res.Rules = append(res.Rules, &Rule{
+			Verbs:     ru.Verbs,
+			Kind:      ru.Kind,
+			Resources: ru.Resources,
+		})
+	}
+
+	return res, nil
+}
+
+func DeleteRole(name string, projectName string, _ *zap.SugaredLogger) (err error) {
+	return mongodb.NewRoleColl().Delete(name, projectName)
 }

@@ -163,7 +163,7 @@ func CreatePipelineTask(args *commonmodels.TaskArgs, log *zap.SugaredLogger) (*C
 		}
 	}
 
-	jiraInfo, _ := poetry.GetJiraInfo(config.PoetryAPIServer(), config.PoetryAPIRootKey())
+	jiraInfo, _ := poetry.GetJiraInfo(config.PoetryAPIServer())
 	if jiraInfo != nil {
 		jiraTask, err := AddPipelineJiraSubTask(pipeline, log)
 		if err != nil {
@@ -241,7 +241,7 @@ func CreatePipelineTask(args *commonmodels.TaskArgs, log *zap.SugaredLogger) (*C
 		pt.ConfigPayload.RepoConfigs[repo.ID.Hex()] = repo
 	}
 
-	if err := ensurePipelineTask(pt, log); err != nil {
+	if err := ensurePipelineTask(pt, pt.TaskArgs.Deploy.Namespace, log); err != nil {
 		log.Errorf("Service.ensurePipelineTask failed %v %v", args, err)
 		if err, ok := err.(*ContainerNotFound); ok {
 			return nil, e.NewWithExtras(

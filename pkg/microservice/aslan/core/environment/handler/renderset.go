@@ -32,7 +32,7 @@ func GetServiceRenderCharts(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	if c.Query("productName") == "" {
+	if c.Query("projectName") == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
@@ -42,14 +42,14 @@ func GetServiceRenderCharts(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetRenderCharts(c.Query("productName"), c.Query("envName"), c.Query("serviceName"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetRenderCharts(c.Query("projectName"), c.Query("envName"), c.Query("serviceName"), ctx.Logger)
 }
 
 func CreateOrUpdateRenderChart(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	if c.Query("productName") == "" {
+	if c.Query("projectName") == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
@@ -69,7 +69,7 @@ func CreateOrUpdateRenderChart(c *gin.Context) {
 		log.Errorf("CreateOrUpdateRenderChart json.Unmarshal err : %v", err)
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "新增", "环境变量", c.Query("envName"), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Param("productName"), "新增", "环境变量", c.Query("envName"), string(data), ctx.Logger)
 
-	ctx.Err = service.CreateOrUpdateChartValues(c.Query("productName"), c.Query("envName"), args, ctx.Username, ctx.RequestID, ctx.Logger)
+	ctx.Err = service.CreateOrUpdateChartValues(c.Query("projectName"), c.Query("envName"), args, ctx.UserName, ctx.RequestID, ctx.Logger)
 }

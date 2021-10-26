@@ -69,14 +69,10 @@ func InitExistedCronjob(client *client.Client, scheduler *cronlib.CronSchduler) 
 		failsafeJobList []*service.Cronjob
 	)
 	listAPI := fmt.Sprintf("%s/cron/cronjob", client.APIBase)
-	header := http.Header{}
-	header.Set("Authorization", fmt.Sprintf("%s %s", setting.TIMERAPIKEY, client.Token))
 	// failsafe function: get enabled workflow and register them
 	failsafeAPI := fmt.Sprintf("%s/cron/cronjob/failsafe", client.APIBase)
 
 	cl := httpclient.New(
-		httpclient.SetAuthScheme(setting.TIMERAPIKEY),
-		httpclient.SetAuthToken(client.Token),
 		httpclient.SetRetryCount(100),
 		httpclient.SetRetryWaitTime(PullInterval),
 	)
@@ -304,7 +300,6 @@ func (h *CronjobHandler) stopCronjob(name, ptype string) error {
 	var jobList []*service.Cronjob
 	listAPI := fmt.Sprintf("%s/cron/cronjob/type/%s/name/%s", h.aslanCli.APIBase, ptype, name)
 	header := http.Header{}
-	header.Set("Authorization", fmt.Sprintf("%s %s", setting.TIMERAPIKEY, h.aslanCli.Token))
 	resp, err := util.SendRequest(listAPI, "GET", header, nil)
 	if err != nil {
 		log.Errorf("Failed to get job list, the error is: %v, reconsuming", err)

@@ -26,21 +26,45 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	roles := router.Group("roles")
 	{
 		roles.POST("", CreateRole)
+		roles.PUT("/:name", UpdateRole)
+		roles.GET("", ListRoles)
+		roles.GET("/:name", GetRole)
+		roles.DELETE("/:name", DeleteRole)
 	}
 
-	globalRoles := router.Group("global-roles")
+	publicRoles := router.Group("public-roles")
 	{
-		globalRoles.POST("", CreateGlobalRole)
+		publicRoles.POST("", CreatePublicRole)
+		publicRoles.GET("", ListPublicRoles)
+		publicRoles.GET("/:name", GetPublicRole)
+		publicRoles.PUT("/:name", UpdatePublicRole)
+		publicRoles.DELETE("/:name", DeletePublicRole)
+	}
+
+	systemRoles := router.Group("system-roles")
+	{
+		systemRoles.POST("", CreateSystemRole)
+		systemRoles.GET("", ListSystemRoles)
+		systemRoles.DELETE("/:name", DeleteSystemRole)
 	}
 
 	roleBindings := router.Group("rolebindings")
 	{
 		roleBindings.POST("", CreateRoleBinding)
+		roleBindings.GET("", ListRoleBindings)
+		roleBindings.DELETE("/:name", DeleteRoleBinding)
 	}
 
 	systemRoleBindings := router.Group("system-rolebindings")
 	{
 		systemRoleBindings.POST("", CreateSystemRoleBinding)
+		systemRoleBindings.GET("", ListSystemRoleBindings)
+		systemRoleBindings.DELETE("/:name", DeleteSystemRoleBinding)
+	}
+
+	userBindings := router.Group("userbindings")
+	{
+		userBindings.GET("", ListUserBindings)
 	}
 
 	bundles := router.Group("bundles")

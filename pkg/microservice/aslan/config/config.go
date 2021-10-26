@@ -78,10 +78,6 @@ func PoetryAPIServer() string {
 	return configbase.PoetryServiceAddress()
 }
 
-func PoetryAPIRootKey() string {
-	return viper.GetString(setting.ENVPoetryAPIRootKey)
-}
-
 func CollieAPIAddress() string {
 	return configbase.CollieServiceAddress()
 }

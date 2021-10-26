@@ -18,8 +18,6 @@ package bundle
 
 import (
 	_ "embed"
-
-	_ "github.com/koderover/zadig/pkg/util/testing"
 )
 
 //go:embed rego/authz.rego

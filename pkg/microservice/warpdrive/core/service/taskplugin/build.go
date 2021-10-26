@@ -162,7 +162,7 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 		Installs:    p.Task.InstallCtx,
 	}
 
-	poetryClient := poetry.New(configbase.PoetryServiceAddress(), config.PoetryAPIRootKey())
+	poetryClient := poetry.New(configbase.PoetryServiceAddress())
 	if fs, err := poetryClient.ListFeatures(); err == nil {
 		pipelineTask.Features = fs
 	}

@@ -19,7 +19,9 @@ package converter
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
+	"helm.sh/helm/v3/pkg/strvals"
 	"sigs.k8s.io/yaml"
 )
 
@@ -95,4 +97,14 @@ func mergeMap(to map[string]interface{}, from map[string]interface{}) {
 	for kt, vt := range from {
 		to[kt] = vt
 	}
+}
+
+func Expand(flat map[string]interface{}) (nested map[string]interface{}, err error) {
+	nested = make(map[string]interface{})
+	joinedStrSlice := make([]string, 0)
+	for k, v := range flat {
+		joinedStrSlice = append(joinedStrSlice, fmt.Sprintf("%s=%v", k, v))
+	}
+	err = strvals.ParseInto(strings.Join(joinedStrSlice, ","), nested)
+	return nested, err
 }

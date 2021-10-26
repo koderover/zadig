@@ -41,8 +41,8 @@ type RoleBinding struct {
 type Subject struct {
 	// Kind of object being referenced. allowed values are "User", "Group".
 	Kind SubjectKind `bson:"kind" json:"kind"`
-	// Name of the object being referenced.
-	Name string `bson:"name" json:"name"`
+	// unique identifier of the object being referenced.
+	UID string `bson:"uid" json:"uid"`
 }
 
 // RoleRef contains information that points to the role being used

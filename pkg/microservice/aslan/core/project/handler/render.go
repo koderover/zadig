@@ -60,31 +60,6 @@ func GetRenderSetInfo(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GetRenderSetInfo(c.Param("name"), revision)
 }
 
-//func ValidateRenderSet(c *gin.Context) {
-//	ctx := internalhandler.NewContext(c)
-//	defer func() { internalhandler.JSONResponse(c, ctx) }()
-//	_, ctx.Err = projectservice.ValidateRenderSet(c.Param("productName"), c.Param("renderName"), "", ctx.Logger)
-//}
-//
-//func RelateRender(c *gin.Context) {
-//	ctx := internalhandler.NewContext(c)
-//	defer func() { internalhandler.JSONResponse(c, ctx) }()
-//	ctx.Err = projectservice.RelateRender(c.Param("productName"), c.Param("renderName"), ctx.Logger)
-//}
-//
-//func CreateRenderSet(c *gin.Context) {
-//	ctx := internalhandler.NewContext(c)
-//	defer func() { internalhandler.JSONResponse(c, ctx) }()
-//
-//	args := new(models.RenderSet)
-//	ctx.Err = c.BindJSON(args)
-//	if ctx.Err != nil {
-//		return
-//	}
-//	args.UpdateBy = ctx.Username
-//	ctx.Err = projectservice.CreateRenderSet(args, ctx.Logger)
-//}
-
 func UpdateRenderSet(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -94,6 +69,6 @@ func UpdateRenderSet(c *gin.Context) {
 	if ctx.Err != nil {
 		return
 	}
-	args.UpdateBy = ctx.Username
+	args.UpdateBy = ctx.UserName
 	ctx.Err = service.UpdateRenderSet(args, ctx.Logger)
 }

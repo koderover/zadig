@@ -77,7 +77,7 @@ type rule struct {
 }
 
 type roleBinding struct {
-	User     string   `json:"user"`
+	UID      string   `json:"uid"`
 	Bindings bindings `json:"bindings"`
 }
 
@@ -183,7 +183,7 @@ type roleBindings []*roleBinding
 func (o roleBindings) Len() int      { return len(o) }
 func (o roleBindings) Swap(i, j int) { o[i], o[j] = o[j], o[i] }
 func (o roleBindings) Less(i, j int) bool {
-	return o[i].User < o[j].User
+	return o[i].UID < o[j].UID
 }
 
 func generateOPARoles(roles []*models.Role, policies []*models.Policy) *opaRoles {
@@ -192,14 +192,12 @@ func generateOPARoles(roles []*models.Role, policies []*models.Policy) *opaRoles
 
 	for _, ro := range roles {
 		opaRole := &role{Name: ro.Name, Namespace: ro.Namespace}
-		if ro.Kind == models.KindResource {
-			for _, r := range ro.Rules {
+		for _, r := range ro.Rules {
+			if r.Kind == models.KindResource {
 				for _, res := range r.Resources {
 					opaRole.Rules = append(opaRole.Rules, resourceMappings.GetRules(res, r.Verbs)...)
 				}
-			}
-		} else {
-			for _, r := range ro.Rules {
+			} else {
 				if len(r.Verbs) == 1 && r.Verbs[0] == models.MethodAll {
 					r.Verbs = AllMethods
 				}
@@ -209,6 +207,7 @@ func generateOPARoles(roles []*models.Role, policies []*models.Policy) *opaRoles
 					}
 				}
 			}
+
 		}
 
 		sort.Sort(opaRole.Rules)
@@ -228,10 +227,10 @@ func generateOPARoleBindings(rbs []*models.RoleBinding) *opaRoleBindings {
 	for _, rb := range rbs {
 		for _, s := range rb.Subjects {
 			if s.Kind == models.UserKind {
-				if _, ok := userRoleMap[s.Name]; !ok {
-					userRoleMap[s.Name] = make(map[string][]*roleRef)
+				if _, ok := userRoleMap[s.UID]; !ok {
+					userRoleMap[s.UID] = make(map[string][]*roleRef)
 				}
-				userRoleMap[s.Name][rb.Namespace] = append(userRoleMap[s.Name][rb.Namespace], &roleRef{Name: rb.RoleRef.Name, Namespace: rb.RoleRef.Namespace})
+				userRoleMap[s.UID][rb.Namespace] = append(userRoleMap[s.UID][rb.Namespace], &roleRef{Name: rb.RoleRef.Name, Namespace: rb.RoleRef.Namespace})
 			}
 		}
 	}
@@ -243,7 +242,7 @@ func generateOPARoleBindings(rbs []*models.RoleBinding) *opaRoleBindings {
 			bindingsData = append(bindingsData, &binding{Namespace: n, RoleRefs: b})
 		}
 		sort.Sort(bindings(bindingsData))
-		data.RoleBindings = append(data.RoleBindings, &roleBinding{User: u, Bindings: bindingsData})
+		data.RoleBindings = append(data.RoleBindings, &roleBinding{UID: u, Bindings: bindingsData})
 	}
 
 	sort.Sort(data.RoleBindings)
@@ -253,31 +252,6 @@ func generateOPARoleBindings(rbs []*models.RoleBinding) *opaRoleBindings {
 
 func generateOPAExemptionURLs(policies []*models.Policy) *exemptionURLs {
 	data := &exemptionURLs{}
-
-	for _, r := range globalURLs {
-		if len(r.Methods) == 1 && r.Methods[0] == models.MethodAll {
-			r.Methods = AllMethods
-		}
-		for _, method := range r.Methods {
-			for _, endpoint := range r.Endpoints {
-				data.Global = append(data.Global, &rule{Method: method, Endpoint: endpoint})
-			}
-		}
-	}
-	sort.Sort(data.Global)
-
-	for _, r := range namespacedURLs {
-		if len(r.Methods) == 1 && r.Methods[0] == models.MethodAll {
-			r.Methods = AllMethods
-		}
-		for _, method := range r.Methods {
-			for _, endpoint := range r.Endpoints {
-				data.Namespaced = append(data.Namespaced, &rule{Method: method, Endpoint: endpoint})
-			}
-		}
-	}
-
-	sort.Sort(data.Namespaced)
 
 	for _, r := range publicURLs {
 		if len(r.Methods) == 1 && r.Methods[0] == models.MethodAll {
@@ -289,8 +263,19 @@ func generateOPAExemptionURLs(policies []*models.Policy) *exemptionURLs {
 			}
 		}
 	}
-
 	sort.Sort(data.Public)
+
+	for _, r := range systemAdminURLs {
+		if len(r.Methods) == 1 && r.Methods[0] == models.MethodAll {
+			r.Methods = AllMethods
+		}
+		for _, method := range r.Methods {
+			for _, endpoint := range r.Endpoints {
+				data.Privileged = append(data.Privileged, &rule{Method: method, Endpoint: endpoint})
+			}
+		}
+	}
+	sort.Sort(data.Privileged)
 
 	resourceMappings := getResourceActionMappings(policies)
 	for _, resourceMappings := range resourceMappings {

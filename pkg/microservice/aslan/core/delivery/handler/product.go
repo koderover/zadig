@@ -49,5 +49,5 @@ func GetProductByDeliveryInfo(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = deliveryservice.GetProductByDeliveryInfo(ctx.Username, releaseID, ctx.Logger)
+	ctx.Resp, ctx.Err = deliveryservice.GetProductByDeliveryInfo(ctx.UserName, releaseID, ctx.Logger)
 }

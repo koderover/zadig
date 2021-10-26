@@ -144,7 +144,7 @@ func ListDeliveryVersion(c *gin.Context) {
 
 	version := new(commonrepo.DeliveryVersionArgs)
 	version.OrgID = orgID
-	version.ProductName = c.Query("productName")
+	version.ProductName = c.Query("projectName")
 	version.WorkflowName = c.Query("workflowName")
 	version.TaskID = taskID
 	version.PerPage = perPage
@@ -295,7 +295,7 @@ func ListPackagesVersion(c *gin.Context) {
 	}
 	version := &commonrepo.DeliveryVersionArgs{
 		OrgID:       orgID,
-		ProductName: c.Query("productName"),
+		ProductName: c.Query("projectName"),
 	}
 	deliveryVersions, err := deliveryservice.FindDeliveryVersion(version, ctx.Logger)
 	if err != nil {
@@ -343,7 +343,7 @@ func ListPackagesVersion(c *gin.Context) {
 func DeleteDeliveryVersion(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	internalhandler.InsertOperationLog(c, ctx.Username, c.GetString("productName"), "删除", "版本交付", fmt.Sprintf("主键ID:%s", c.Param("id")), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.GetString("productName"), "删除", "版本交付", fmt.Sprintf("主键ID:%s", c.Param("id")), "", ctx.Logger)
 
 	//params validate
 	ID := c.Param("id")
@@ -382,7 +382,7 @@ func ListDeliveryServiceNames(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	productName := c.Query("productName")
+	productName := c.Query("projectName")
 	orgIDStr := c.Query("orgId")
 	orgID, err := strconv.Atoi(orgIDStr)
 	if err != nil {

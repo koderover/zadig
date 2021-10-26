@@ -94,7 +94,7 @@ func GetContainerLogs(c *gin.Context) {
 	podName := c.Param("name")
 	containerName := c.Query("container")
 	envName := c.Query("envName")
-	productName := c.Query("productName")
+	productName := c.Query("projectName")
 
 	tailLines, err := strconv.ParseInt(c.Query("tailLines"), 10, 64)
 	if err != nil {

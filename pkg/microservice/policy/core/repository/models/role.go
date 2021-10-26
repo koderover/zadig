@@ -27,7 +27,6 @@ type Role struct {
 	Name      string  `bson:"name"      json:"name"`
 	Namespace string  `bson:"namespace" json:"namespace"`
 	Rules     []*Rule `bson:"rules"     json:"rules"`
-	Kind      string  `bson:"kind"     json:"kind"`
 }
 
 // Rule holds information that describes a policy rule, but does not contain information
@@ -35,10 +34,11 @@ type Role struct {
 // If Kind is "resource", verbs are resource actions, while resources are resource names
 type Rule struct {
 	// Verbs is a list of http methods or resource actions that apply to ALL the Resources contained in this rule. '*' represents all methods.
-	Verbs []string `bson:"verbs" json:"verbs"`
+	Verbs []string `bson:"verbs"         json:"verbs"`
 
 	// Resources is a list of resources this rule applies to. '*' represents all resources.
 	Resources []string `bson:"resources" json:"resources"`
+	Kind      string   `bson:"kind"     json:"kind"`
 }
 
 func (Role) TableName() string {

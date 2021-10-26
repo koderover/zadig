@@ -32,9 +32,12 @@ import (
 )
 
 type ProjectInfo struct {
-	Name  string `bson:"product_name"`
-	Alias string `bson:"project_name"`
-	Desc  string `bson:"description"`
+	Name          string `bson:"product_name"`
+	Alias         string `bson:"project_name"`
+	Desc          string `bson:"description"`
+	UpdatedAt     int64  `bson:"update_time"`
+	UpdatedBy     string `bson:"update_by"`
+	OnboardStatus int    `bson:"onboarding_status"`
 }
 
 type ProductColl struct {
@@ -98,6 +101,9 @@ func (c *ProductColl) ListProjectBriefs(inNames []string) ([]*ProjectInfo, error
 		{"product_name", 1},
 		{"project_name", 1},
 		{"description", 1},
+		{"update_time", 1},
+		{"update_by", 1},
+		{"onboarding_status", 1},
 	})
 }
 
@@ -209,6 +215,19 @@ func (c *ProductColl) Create(args *template.Product) error {
 	return err
 }
 
+func (c *ProductColl) UpdateServiceOrchestration(productName string, services [][]string, updateBy string) error {
+
+	query := bson.M{"product_name": productName}
+	change := bson.M{"$set": bson.M{
+		"services":    services,
+		"update_time": time.Now().Unix(),
+		"update_by":   updateBy,
+	}}
+
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
 // Update existing ProductTmpl
 func (c *ProductColl) Update(productName string, args *template.Product) error {
 	// avoid panic issue
@@ -234,6 +253,8 @@ func (c *ProductColl) Update(productName string, args *template.Product) error {
 		"timeout":               args.Timeout,
 		"shared_services":       args.SharedServices,
 		"image_searching_rules": args.ImageSearchingRules,
+		"custom_tar_rule":       args.CustomTarRule,
+		"custom_image_rule":     args.CustomImageRule,
 	}}
 
 	_, err := c.UpdateOne(context.TODO(), query, change)

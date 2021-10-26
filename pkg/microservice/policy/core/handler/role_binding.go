@@ -43,6 +43,41 @@ func CreateRoleBinding(c *gin.Context) {
 	ctx.Err = service.CreateRoleBinding(projectName, args, ctx.Logger)
 }
 
+func ListRoleBindings(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName is empty")
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.ListRoleBindings(projectName, "", ctx.Logger)
+}
+
+func DeleteRoleBinding(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	name := c.Param("name")
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName is empty")
+		return
+	}
+
+	ctx.Err = service.DeleteRoleBinding(name, projectName, ctx.Logger)
+}
+
+func DeleteSystemRoleBinding(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	name := c.Param("name")
+	ctx.Err = service.DeleteRoleBinding(name, service.SystemScope, ctx.Logger)
+}
+
 func CreateSystemRoleBinding(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -56,4 +91,28 @@ func CreateSystemRoleBinding(c *gin.Context) {
 	args.Global = false
 
 	ctx.Err = service.CreateRoleBinding(service.SystemScope, args, ctx.Logger)
+}
+
+func ListSystemRoleBindings(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.ListRoleBindings(service.SystemScope, "", ctx.Logger)
+}
+
+func ListUserBindings(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	uid := c.Query("uid")
+	if uid == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("uid is empty")
+		return
+	}
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		projectName = service.SystemScope
+	}
+
+	ctx.Resp, ctx.Err = service.ListRoleBindings(projectName, uid, ctx.Logger)
 }

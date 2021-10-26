@@ -22,7 +22,7 @@ allow {
 # Allow all valid users to visit exempted urls.
 allow {
     url_is_exempted
-    claims.name != ""
+    claims.uid != ""
 }
 
 # Allow admins to do anything.
@@ -32,11 +32,14 @@ allow {
 
 # Allow project admins to do anything under the given project.
 allow {
+    not url_is_privileged
     user_is_project_admin
 }
 
 # Allow the action if the user is granted permission to perform the action.
 allow {
+    not url_is_privileged
+
     some grant
     user_is_granted[grant]
 
@@ -60,22 +63,13 @@ user_is_project_admin {
     role.namespace == project_name
 }
 
+# public urls are visible for all users
 url_is_public {
     data.exemptions.public[_].method == http_request.method
     glob.match(trim(data.exemptions.public[_].endpoint, "/"), ["/"], concat("/", input.parsed_path))
 }
 
-url_is_exempted {
-    data.exemptions.global[_].method == http_request.method
-    glob.match(trim(data.exemptions.global[_].endpoint, "/"), ["/"], concat("/", input.parsed_path))
-}
-
-url_is_exempted {
-    data.exemptions.namespaced[_].method == http_request.method
-    glob.match(trim(data.exemptions.namespaced[_].endpoint, "/"), ["/"], concat("/", input.parsed_path))
-    user_projects[_] == project_name
-}
-
+# exempted urls are visible for all authenticated users
 url_is_exempted {
     not url_is_registered
 }
@@ -85,6 +79,12 @@ url_is_registered {
     glob.match(trim(data.exemptions.registered[_].endpoint, "/"), ["/"], concat("/", input.parsed_path))
 }
 
+# privileged urls are visible for system admins only
+url_is_privileged {
+    data.exemptions.privileged[_].method == http_request.method
+    glob.match(trim(data.exemptions.privileged[_].endpoint, "/"), ["/"], concat("/", input.parsed_path))
+}
+
 project_name := pn {
     pn := input.parsed_query.projectName[0]
 }
@@ -92,14 +92,14 @@ project_name := pn {
 # get all projects which are visible by current user
 user_projects[project] {
     some i
-    data.bindings.role_bindings[i].user == claims.name
+    data.bindings.role_bindings[i].uid == claims.uid
     project := data.bindings.role_bindings[i].bindings[_].namespace
 }
 
 # get all projects which are visible by all users (the user name is "*")
 user_projects[project] {
     some i
-    data.bindings.role_bindings[i].user == "*"
+    data.bindings.role_bindings[i].uid == "*"
     project := data.bindings.role_bindings[i].bindings[_].namespace
 }
 
@@ -133,14 +133,14 @@ user_visible_projects[project] {
 
 all_roles[role_ref] {
     some i
-    data.bindings.role_bindings[i].user == claims.name
+    data.bindings.role_bindings[i].uid == claims.uid
     role_ref := data.bindings.role_bindings[i].bindings[j].role_refs[_]
 }
 
 # only roles under the given project are allowed
 allowed_roles[role_ref] {
     some i
-    data.bindings.role_bindings[i].user == claims.name
+    data.bindings.role_bindings[i].uid == claims.uid
     data.bindings.role_bindings[i].bindings[j].namespace == project_name
     role_ref := data.bindings.role_bindings[i].bindings[j].role_refs[_]
 }
@@ -148,7 +148,7 @@ allowed_roles[role_ref] {
 # if the proejct is visible by all users (the user name is "*"), the bound roles are also allowed
 allowed_roles[role_ref] {
     some i
-    data.bindings.role_bindings[i].user == "*"
+    data.bindings.role_bindings[i].uid == "*"
     project := data.bindings.role_bindings[i].bindings[_].namespace == project_name
     role_ref := data.bindings.role_bindings[i].bindings[j].role_refs[_]
 }
@@ -164,11 +164,11 @@ user_is_granted[grant] {
 }
 
 claims := payload {
-	# TODO: Verify the signature on the Bearer token. The certificate can be
+	# Verify the signature on the Bearer token. The certificate can be
 	# hardcoded into the policy, and it could also be loaded via data or
 	# an environment variable. Environment variables can be accessed using
 	# the `opa.runtime()` built-in function.
-	# io.jwt.verify_rs256(bearer_token, certificate)
+	io.jwt.verify_hs256(bearer_token, secret)
 
 	# This statement invokes the built-in function `io.jwt.decode` passing the
 	# parsed bearer_token as a parameter. The `io.jwt.decode` function returns an
@@ -179,6 +179,12 @@ claims := payload {
 	# In Rego, you can pattern match values using the `=` and `:=` operators. This
 	# example pattern matches on the result to obtain the JWT payload.
 	[_, payload, _] := io.jwt.decode(bearer_token)
+
+    # it is not working, don't know why
+	# [valid, _, payload] := io.jwt.decode_verify(bearer_token, {
+    #     "secret": secret,
+    #     "alg": "alg",
+    # })
 }
 
 bearer_token := t {
@@ -188,4 +194,12 @@ bearer_token := t {
 	v := http_request.headers.authorization
 	startswith(v, "Bearer ")
 	t := substring(v, count("Bearer "), -1)
+}
+
+envs := env {
+    env := opa.runtime()["env"]
+}
+
+secret := s {
+    s := envs["SECRET_KEY"]
 }

@@ -19,12 +19,14 @@ package config
 import (
 	"context"
 	"fmt"
-	"github.com/coreos/go-oidc"
-	_ "github.com/koderover/zadig/pkg/config"
-	"github.com/koderover/zadig/pkg/setting"
-	"github.com/spf13/viper"
 	"net/http"
 	"strings"
+
+	"github.com/coreos/go-oidc"
+	"github.com/spf13/viper"
+
+	_ "github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/pkg/setting"
 )
 
 func IssuerURL() string {

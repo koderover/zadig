@@ -36,7 +36,6 @@ import (
 	"github.com/koderover/zadig/pkg/shared/codehost"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/ilyshin"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 func ProcessIlyshinHook(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) error {
@@ -268,7 +267,7 @@ func TriggerWorkflowByIlyshinEvent(event interface{}, baseURI, requestID string,
 			args.RepoOwner = item.MainRepo.RepoOwner
 			args.RepoName = item.MainRepo.RepoName
 			// 3. create task with args
-			if _, err := workflowservice.CreateWorkflowTask(args, setting.WebhookTaskCreator, permission.AnonymousUserID, false, log); err != nil {
+			if _, err := workflowservice.CreateWorkflowTask(args, setting.WebhookTaskCreator, log); err != nil {
 				log.Errorf("failed to create workflow task when receive push event %v due to %s ", event, err)
 				mErr = multierror.Append(mErr, err)
 			} else {

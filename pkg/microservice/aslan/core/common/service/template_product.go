@@ -60,7 +60,7 @@ func GetProductTemplate(productName string, log *zap.SugaredLogger) (*template.P
 	if strings.Contains(features, string(config.FreestyleType)) {
 		// CI场景onboarding流程处于第二步时，需要返回ci工作流id，用于前端跳转
 		collieAPIAddress := config.CollieAPIAddress()
-		cl := collie.New(collieAPIAddress, config.PoetryAPIRootKey())
+		cl := collie.New(collieAPIAddress)
 		if resp.ProductFeature != nil && resp.ProductFeature.DevelopHabit == "yaml" && resp.OnboardingStatus == setting.OnboardingStatusSecond && collieAPIAddress != "" {
 			ciPipelines, err := cl.ListCIPipelines(productName, log)
 			if err != nil {
@@ -118,7 +118,7 @@ func GetProductTemplate(productName string, log *zap.SugaredLogger) (*template.P
 
 	if strings.Contains(features, string(config.FreestyleType)) {
 		collieAPIAddress := config.CollieAPIAddress()
-		cl := collie.New(collieAPIAddress, config.PoetryAPIRootKey())
+		cl := collie.New(collieAPIAddress)
 		totalFreeStyles, err = cl.ListCIPipelines(productName, log)
 		if err != nil {
 			log.Errorf("GetProductTemplate freestyle.List err : %v", err)
@@ -169,7 +169,7 @@ func GetFeatures(log *zap.SugaredLogger) (string, error) {
 	featuresByteKey := []byte("features")
 	featuresByteValue, err := cache.Get(featuresByteKey)
 	if err != nil {
-		poetryCtl := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
+		poetryCtl := poetry.New(config.PoetryAPIServer())
 		fs, err := poetryCtl.ListFeatures()
 		if err != nil {
 			return "", err

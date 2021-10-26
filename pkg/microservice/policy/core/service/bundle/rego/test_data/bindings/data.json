@@ -1,17 +1,8 @@
 {
   "role_bindings": [
     {
-      "user": "alice",
+      "uid": "2e6c5200-358f-11ec-981f-de2269351a1e",
       "bindings": [
-        {
-          "namespace": "",
-          "role_refs": [
-            {
-              "name": "admin",
-              "namespace": ""
-            }
-          ]
-        },
         {
           "namespace": "project1",
           "role_refs": [
@@ -41,7 +32,7 @@
       ]
     },
     {
-      "user": "*",
+      "uid": "*",
       "bindings": [
         {
           "namespace": "project3",
@@ -64,7 +55,7 @@
       ]
     },
     {
-      "user": "bob",
+      "uid": "bob",
       "bindings": [
         {
           "namespace": "project4",

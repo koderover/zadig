@@ -18,6 +18,7 @@ require (
 	github.com/coocood/freecache v1.1.0
 	github.com/coreos/go-oidc v2.1.0+incompatible
 	github.com/coreos/go-oidc/v3 v3.0.0
+	github.com/dexidp/dex v0.0.0-20210802203454-3fac2ab6bc3b
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/docker/docker v17.12.0-ce-rc1.0.20200618181300-9dc6525e6118+incompatible
@@ -32,8 +33,7 @@ require (
 	github.com/gofrs/uuid v4.0.0+incompatible // indirect
 	github.com/google/go-github/v35 v35.3.0
 	github.com/google/uuid v1.2.0
-	github.com/gorilla/handlers v1.5.1 // indirect
-	github.com/gorilla/mux v1.7.3
+	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.4.2
 	github.com/gotestyourself/gotestyourself v2.2.0+incompatible // indirect
 	github.com/gregjones/httpcache v0.0.0-20181110185634-c63ab54fda8f
@@ -41,7 +41,6 @@ require (
 	github.com/huaweicloud/huaweicloud-sdk-go-v3 v0.0.50
 	github.com/jasonlvhit/gocron v0.0.0-20171226191223-3c914c8681c3
 	github.com/jinzhu/gorm v0.0.0-20180213101209-6e1387b44c64
-	github.com/jinzhu/inflection v0.0.0-20170102125226-1c35d901db3d // indirect
 	github.com/jinzhu/now v1.1.2
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
 	github.com/mittwald/go-helm-client v0.8.0
@@ -56,8 +55,8 @@ require (
 	github.com/rfyiamcool/cronlib v1.0.0
 	github.com/satori/go.uuid v1.2.0
 	github.com/sirupsen/logrus v1.8.1
-	github.com/spf13/cobra v1.1.3
-	github.com/spf13/viper v1.7.0
+	github.com/spf13/cobra v1.2.1
+	github.com/spf13/viper v1.8.1
 	github.com/stevvooe/resumable v0.0.0-20180830230917-22b14a53ba50 // indirect
 	github.com/stretchr/testify v1.7.0
 	github.com/swaggo/files v0.0.0-20190704085106-630677cd5c14
@@ -70,14 +69,15 @@ require (
 	github.com/yvasiyarov/newrelic_platform_go v0.0.0-20160601141957-9c099fbc30e9 // indirect
 	go.mongodb.org/mongo-driver v1.5.0
 	go.uber.org/zap v1.19.0
-	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83
-	golang.org/x/net v0.0.0-20210428140749-89ef3d95e781
-	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
+	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
+	golang.org/x/net v0.0.0-20210503060351-7fd8e65b6420
+	golang.org/x/oauth2 v0.0.0-20210628180205-a41e5a781914
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/tools v0.1.5 // indirect
 	gopkg.in/mholt/archiver.v3 v3.1.1
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
+	gorm.io/driver/mysql v1.1.2
+	gorm.io/gorm v1.21.16
 	helm.sh/helm/v3 v3.6.2
 	k8s.io/api v0.22.1
 	k8s.io/apimachinery v0.22.1
