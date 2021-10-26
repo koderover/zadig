@@ -42,18 +42,16 @@ func CreateYamlTemplate(template *YamlTemplate, logger *zap.SugaredLogger) error
 }
 
 func UpdateYamlTemplate(id string, template *YamlTemplate, logger *zap.SugaredLogger) error {
-	variableList, err := getYamlVariables(template.Content, logger)
-	if err != nil {
-		return err
-	}
 	variables := make([]*models.Variable, 0)
-	for _, v := range variableList {
-		variables = append(variables, &models.Variable{
-			Key:   v.Key,
-			Value: v.Value,
-		})
+	if template.Variable != nil {
+		for _, v := range template.Variable {
+			variables = append(variables, &models.Variable{
+				Key:   v.Key,
+				Value: v.Value,
+			})
+		}
 	}
-	err = mongodb.NewYamlTemplateColl().Update(
+	err := mongodb.NewYamlTemplateColl().Update(
 		id,
 		&models.YamlTemplate{
 			Name:      template.Name,

@@ -58,8 +58,9 @@ type BuildReference struct {
 }
 
 type YamlTemplate struct {
-	Name    string `json:"name"`
-	Content string `json:"content"`
+	Name     string      `json:"name"`
+	Content  string      `json:"content"`
+	Variable []*Variable `json:"variable"`
 }
 
 type YamlListObject struct {
