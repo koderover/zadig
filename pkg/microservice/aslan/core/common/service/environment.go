@@ -187,13 +187,13 @@ func (f *workloadFilter) Match(workload *Workload) bool {
 }
 
 type Workload struct {
-	EnvName     string                           `json:"env_name"`
-	Name        string                           `json:"name"`
-	Type        string                           `json:"type"`
-	ProductName string                           `json:"product_name"`
-	Spec        corev1.ReplicationControllerSpec `json:"-"`
-	Images      []string                         `json:"-"`
-	Ready       bool                             `json:"ready"`
+	EnvName     string                 `json:"env_name"`
+	Name        string                 `json:"name"`
+	Type        string                 `json:"type"`
+	ProductName string                 `json:"product_name"`
+	Spec        corev1.PodTemplateSpec `json:"-"`
+	Images      []string               `json:"-"`
+	Ready       bool                   `json:"ready"`
 }
 
 func ListWorkloads(envName, clusterID, namespace, productName string, perPage, page int, log *zap.SugaredLogger, filter ...FilterFunc) (int, []*ServiceResp, error) {
@@ -213,7 +213,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
 	}
 	for _, v := range listDeployments {
-		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: corev1.ReplicationControllerSpec{Template: &v.Spec.Template}, Type: setting.Deployment, Images: wrapper.Deployment(v).ImageInfos(), Ready: wrapper.Deployment(v).Ready()})
+		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: v.Spec.Template, Type: setting.Deployment, Images: wrapper.Deployment(v).ImageInfos(), Ready: wrapper.Deployment(v).Ready()})
 	}
 	statefulSets, err := getter.ListStatefulSets(namespace, nil, kubeClient)
 	if err != nil {
@@ -221,7 +221,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
 	}
 	for _, v := range statefulSets {
-		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: corev1.ReplicationControllerSpec{Template: &v.Spec.Template}, Type: setting.StatefulSet, Images: wrapper.StatefulSet(v).ImageInfos(), Ready: wrapper.StatefulSet(v).Ready()})
+		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: v.Spec.Template, Type: setting.StatefulSet, Images: wrapper.StatefulSet(v).ImageInfos(), Ready: wrapper.StatefulSet(v).Ready()})
 	}
 
 	log.Debugf("Found %d workloads in total", len(workLoads))
@@ -278,7 +278,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 			productRespInfo.Ready = setting.PodNotReady
 		}
 
-		selector := labels.SelectorFromValidatedSet(workload.Spec.Template.Labels)
+		selector := labels.SelectorFromValidatedSet(workload.Spec.Labels)
 		if services, err := getter.ListServices(namespace, selector, kubeClient); err == nil {
 			productRespInfo.Ingress = &IngressInfo{
 				HostInfo: findServiceFromIngress(ingressM, services),
