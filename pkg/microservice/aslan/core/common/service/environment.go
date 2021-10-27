@@ -194,6 +194,7 @@ type Workload struct {
 	Spec        corev1.PodTemplateSpec `json:"-"`
 	Images      []string               `json:"-"`
 	Ready       bool                   `json:"ready"`
+	ServiceName string                 `json:"service_name"`
 }
 
 func ListWorkloads(envName, clusterID, namespace, productName string, perPage, page int, log *zap.SugaredLogger, filter ...FilterFunc) (int, []*ServiceResp, error) {
@@ -250,11 +251,32 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		}
 	}
 
+	hostInfos := make([]resource.HostInfo, 0)
 	// get all ingresses
-	ingressM := make(map[string][]resource.HostInfo)
 	if ingresses, err := getter.ListIngresses(namespace, nil, kubeClient); err == nil {
 		for _, ingress := range ingresses {
-			ingressM[ingress.Name] = wrapper.Ingress(ingress).HostInfo()
+			hostInfos = append(hostInfos, wrapper.Ingress(ingress).HostInfo()...)
+		}
+	}
+
+	// get all services
+	deployWorkloads := make([]*Workload, 0)
+	stsWorkloads := make([]*Workload, 0)
+	if services, err := getter.ListServices(namespace, nil, kubeClient); err == nil {
+		for _, service := range services {
+			selector := labels.SelectorFromValidatedSet(service.Spec.Selector)
+			if listDeployments, _ := getter.ListDeployments(namespace, selector, kubeClient); len(listDeployments) > 0 {
+				for _, deploy := range listDeployments {
+					deployWorkloads = append(deployWorkloads, &Workload{Name: deploy.Name, ServiceName: service.Name})
+				}
+				continue
+			}
+
+			if listStatefulsets, _ := getter.ListStatefulSets(namespace, selector, kubeClient); len(listStatefulsets) > 0 {
+				for _, sts := range listStatefulsets {
+					stsWorkloads = append(stsWorkloads, &Workload{Name: sts.Name, ServiceName: service.Name})
+				}
+			}
 		}
 	}
 
@@ -278,11 +300,8 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 			productRespInfo.Ready = setting.PodNotReady
 		}
 
-		selector := labels.SelectorFromValidatedSet(workload.Spec.Labels)
-		if services, err := getter.ListServices(namespace, selector, kubeClient); err == nil {
-			productRespInfo.Ingress = &IngressInfo{
-				HostInfo: findServiceFromIngress(ingressM, services),
-			}
+		productRespInfo.Ingress = &IngressInfo{
+			HostInfo: findServiceFromIngress(hostInfos, workload, deployWorkloads, stsWorkloads),
 		}
 
 		resp = append(resp, productRespInfo)
@@ -293,26 +312,34 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	return count, resp, nil
 }
 
-func findServiceFromIngress(ingressM map[string][]resource.HostInfo, services []*corev1.Service) []resource.HostInfo {
-	if len(services) == 0 || len(ingressM) == 0 {
+func findServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Workload, deployWorkloads []*Workload, stsWorkloads []*Workload) []resource.HostInfo {
+	if (len(deployWorkloads) == 0 && len(stsWorkloads) == 0) || len(hostInfos) == 0 {
 		return []resource.HostInfo{}
 	}
-	serviceNames := sets.NewString()
-	for _, service := range services {
-		serviceNames.Insert(service.Name)
-	}
-	resp := make([]resource.HostInfo, 0)
-	for _, hostInfos := range ingressM {
-		for _, hostInfo := range hostInfos {
-			contain := false
-			for _, backend := range hostInfo.Backends {
-				if serviceNames.Has(backend.ServiceName) {
-					contain = true
-					break
-				}
+	var serviceName string
+	switch currentWorkload.Type {
+	case setting.Deployment:
+		for _, deployWorkload := range deployWorkloads {
+			if deployWorkload.Name == currentWorkload.Name {
+				serviceName = deployWorkload.ServiceName
+				break
 			}
-			if contain {
+		}
+	case setting.StatefulSet:
+		for _, stsWorkload := range stsWorkloads {
+			if stsWorkload.Name == currentWorkload.Name {
+				serviceName = stsWorkload.ServiceName
+				break
+			}
+		}
+	}
+
+	resp := make([]resource.HostInfo, 0)
+	for _, hostInfo := range hostInfos {
+		for _, backend := range hostInfo.Backends {
+			if backend.ServiceName == serviceName {
 				resp = append(resp, hostInfo)
+				break
 			}
 		}
 	}
