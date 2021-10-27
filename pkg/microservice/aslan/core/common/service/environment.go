@@ -264,19 +264,20 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	stsWorkloads := make([]*Workload, 0)
 	if services, err := getter.ListServices(namespace, nil, kubeClient); err == nil {
 		for _, service := range services {
-			serviceName := service.Name
+			if len(service.Spec.Selector) == 0 {
+				continue
+			}
 			selector := labels.SelectorFromValidatedSet(service.Spec.Selector)
 			if listDeployments, _ := getter.ListDeployments(namespace, selector, kubeClient); len(listDeployments) > 0 {
 				for _, deploy := range listDeployments {
-					log.Infof("k8s serviceName:%s", serviceName)
-					deployWorkloads = append(deployWorkloads, &Workload{Name: deploy.Name, ServiceName: serviceName})
+					deployWorkloads = append(deployWorkloads, &Workload{Name: deploy.Name, ServiceName: service.Name})
 				}
 				continue
 			}
 
 			if listStatefulsets, _ := getter.ListStatefulSets(namespace, selector, kubeClient); len(listStatefulsets) > 0 {
 				for _, sts := range listStatefulsets {
-					stsWorkloads = append(stsWorkloads, &Workload{Name: sts.Name, ServiceName: serviceName})
+					stsWorkloads = append(stsWorkloads, &Workload{Name: sts.Name, ServiceName: service.Name})
 				}
 			}
 		}
@@ -309,7 +310,6 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		resp = append(resp, productRespInfo)
 	}
 	log.Infof("Finish to list workloads in namespace %s", namespace)
-	fmt.Println("--------------------------------------------------------------")
 
 	return count, resp, nil
 }
@@ -318,12 +318,10 @@ func findServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Work
 	if (len(deployWorkloads) == 0 && len(stsWorkloads) == 0) || len(hostInfos) == 0 {
 		return []resource.HostInfo{}
 	}
-	log.Infof("currentWorkload.workloadName:%s", currentWorkload.Name)
 	serviceName := ""
 	switch currentWorkload.Type {
 	case setting.Deployment:
 		for _, deployWorkload := range deployWorkloads {
-			log.Infof("workloadName:%s,serviceName:%s", deployWorkload.Name, deployWorkload.ServiceName)
 			if deployWorkload.Name == currentWorkload.Name {
 				serviceName = deployWorkload.ServiceName
 				break
@@ -338,7 +336,6 @@ func findServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Work
 		}
 	}
 
-	log.Infof("serviceName:%s", serviceName)
 	if serviceName == "" {
 		return []resource.HostInfo{}
 	}
