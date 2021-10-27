@@ -20,17 +20,31 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"github.com/27149chen/afero"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	configbase "github.com/koderover/zadig/pkg/config"
+	commonmodes "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/repository/mongodb"
+	"github.com/koderover/zadig/pkg/setting"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
 )
+
+var (
+	variableExtractRegexp = regexp.MustCompile("\\$(.*?)\\$")
+)
+
+type ChartTemplateListResp struct {
+	SystemVariables []*Variable `json:"systemVariables"`
+	ChartTemplates  []*Chart    `json:"chartTemplates"`
+}
 
 func GetChartTemplate(name string, logger *zap.SugaredLogger) (*Chart, error) {
 	chart, err := mongodb.NewChartColl().Get(name)
@@ -53,6 +67,14 @@ func GetChartTemplate(name string, logger *zap.SugaredLogger) (*Chart, error) {
 		return nil, err
 	}
 
+	variables := make([]*Variable, 0)
+	for _, v := range chart.Variables {
+		variables = append(variables, &Variable{
+			Key:   v.Key,
+			Value: v.Value,
+		})
+	}
+
 	return &Chart{
 		Name:       name,
 		CodehostID: chart.CodeHostID,
@@ -61,10 +83,11 @@ func GetChartTemplate(name string, logger *zap.SugaredLogger) (*Chart, error) {
 		Path:       chart.Path,
 		Branch:     chart.Branch,
 		Files:      fis,
+		Variables:  variables,
 	}, nil
 }
 
-func ListChartTemplates(logger *zap.SugaredLogger) ([]*Chart, error) {
+func ListChartTemplates(logger *zap.SugaredLogger) (*ChartTemplateListResp, error) {
 	cs, err := mongodb.NewChartColl().List()
 	if err != nil {
 		logger.Errorf("Failed to list chart templates, err: %s", err)
@@ -83,7 +106,12 @@ func ListChartTemplates(logger *zap.SugaredLogger) ([]*Chart, error) {
 		})
 	}
 
-	return res, nil
+	ret := &ChartTemplateListResp{
+		SystemVariables: GetSystemDefaultVariables(),
+		ChartTemplates:  res,
+	}
+
+	return ret, nil
 }
 
 func GetFileContent(name, filePath, fileName string, logger *zap.SugaredLogger) ([]byte, error) {
@@ -110,6 +138,22 @@ func GetFileContent(name, filePath, fileName string, logger *zap.SugaredLogger) 
 	return fileContent, nil
 }
 
+func parseTemplateVariables(name string, logger *zap.SugaredLogger) ([]string, error) {
+	valueYamlContent, err := GetFileContent(name, "", setting.ValuesYaml, logger)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read values.yaml")
+	}
+	strSet := sets.NewString()
+	allMatches := variableExtractRegexp.FindAllStringSubmatch(string(valueYamlContent), -1)
+	for _, match := range allMatches {
+		if len(match) < 1 {
+			continue
+		}
+		strSet.Insert(match[1:]...)
+	}
+	return strSet.List(), nil
+}
+
 func AddChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *zap.SugaredLogger) error {
 	if mongodb.NewChartColl().Exist(name) {
 		return fmt.Errorf("a chart template with name %s is already existing", name)
@@ -121,6 +165,18 @@ func AddChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *zap.
 		return err
 	}
 
+	variablesNames, err := parseTemplateVariables(name, logger)
+	if err != nil {
+		return errors.Wrapf(err, "faild to prase variables")
+	}
+
+	variables := make([]*commonmodes.Variable, 0, len(variablesNames))
+	for _, v := range variablesNames {
+		variables = append(variables, &commonmodes.Variable{
+			Key: v,
+		})
+	}
+
 	return mongodb.NewChartColl().Create(&models.Chart{
 		Name:       name,
 		Owner:      args.Owner,
@@ -129,6 +185,7 @@ func AddChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *zap.
 		Branch:     args.Branch,
 		CodeHostID: args.CodehostID,
 		Sha1:       sha1,
+		Variables:  variables,
 	})
 }
 
@@ -150,6 +207,24 @@ func UpdateChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *z
 		return nil
 	}
 
+	variablesNames, err := parseTemplateVariables(name, logger)
+	if err != nil {
+		return errors.Wrapf(err, "faild to prase variables")
+	}
+
+	variables := make([]*commonmodes.Variable, 0, len(variablesNames))
+	curVariableMap := chart.GetVariableMap()
+
+	for _, vName := range variablesNames {
+		variable := &commonmodes.Variable{
+			Key: vName,
+		}
+		if v, ok := curVariableMap[vName]; ok {
+			variable.Value = v.Value
+		}
+		variables = append(variables, variable)
+	}
+
 	return mongodb.NewChartColl().Update(&models.Chart{
 		Name:       name,
 		Owner:      args.Owner,
@@ -158,6 +233,35 @@ func UpdateChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *z
 		Branch:     args.Branch,
 		CodeHostID: args.CodehostID,
 		Sha1:       sha1,
+		Variables:  variables,
+	})
+}
+
+func UpdateChartTemplateVariables(name string, args []*Variable, logger *zap.SugaredLogger) error {
+	chart, err := mongodb.NewChartColl().Get(name)
+	if err != nil {
+		logger.Errorf("Failed to get chart template %s, err: %s", name, err)
+		return err
+	}
+
+	//TODO need validate keys
+	variables := make([]*commonmodes.Variable, 0)
+	for _, variable := range variables {
+		variables = append(variables, &commonmodes.Variable{
+			Key:   variable.Key,
+			Value: variable.Value,
+		})
+	}
+
+	return mongodb.NewChartColl().Update(&models.Chart{
+		Name:       name,
+		Owner:      chart.Owner,
+		Repo:       chart.Repo,
+		Path:       chart.Path,
+		Branch:     chart.Branch,
+		CodeHostID: chart.CodeHostID,
+		Sha1:       chart.Sha1,
+		Variables:  variables,
 	})
 }
 
