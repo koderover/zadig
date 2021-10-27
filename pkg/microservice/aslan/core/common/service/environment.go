@@ -336,6 +336,7 @@ func findServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Work
 			}
 		}
 	}
+
 	log.Infof("serviceName:%s", serviceName)
 	if serviceName == "" {
 		return []resource.HostInfo{}
