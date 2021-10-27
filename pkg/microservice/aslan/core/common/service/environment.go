@@ -307,8 +307,8 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 
 		resp = append(resp, productRespInfo)
 	}
-
 	log.Infof("Finish to list workloads in namespace %s", namespace)
+	fmt.Println("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
 
 	return count, resp, nil
 }
@@ -317,6 +317,7 @@ func findServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Work
 	if (len(deployWorkloads) == 0 && len(stsWorkloads) == 0) || len(hostInfos) == 0 {
 		return []resource.HostInfo{}
 	}
+	log.Infof("currentWorkload:%+v", currentWorkload)
 	var serviceName string
 	switch currentWorkload.Type {
 	case setting.Deployment:
