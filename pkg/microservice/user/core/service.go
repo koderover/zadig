@@ -19,32 +19,37 @@ package core
 import (
 	"context"
 
-	configbase "github.com/koderover/zadig/pkg/config"
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/config"
+	"gorm.io/gorm"
+
+	"github.com/koderover/zadig/pkg/config"
+	config2 "github.com/koderover/zadig/pkg/microservice/user/config"
 	"github.com/koderover/zadig/pkg/setting"
 	gormtool "github.com/koderover/zadig/pkg/tool/gorm"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
+var DB *gorm.DB
+
 func Start(_ context.Context) {
 	log.Init(&log.Config{
-		Level:       configbase.LogLevel(),
-		Filename:    configbase.LogFile(),
-		SendToFile:  configbase.SendLogToFile(),
-		Development: configbase.Mode() != setting.ReleaseMode,
+		Level:       config.LogLevel(),
+		Filename:    config.LogFile(),
+		SendToFile:  config.SendLogToFile(),
+		Development: config.Mode() != setting.ReleaseMode,
 	})
 
 	initDatabase()
+	DB = gormtool.DB(config2.MysqlUserDB())
 }
 
 func initDatabase() {
-	err := gormtool.Open(configbase.MysqlUser(),
-		configbase.MysqlPassword(),
-		configbase.MysqlHost(),
-		config.MysqlDexDB(),
+	err := gormtool.Open(config.MysqlUser(),
+		config.MysqlPassword(),
+		config.MysqlHost(),
+		config2.MysqlUserDB(),
 	)
 	if err != nil {
-		log.Panicf("Failed to open database %s", config.MysqlDexDB())
+		log.Panicf("Failed to open database %s", config2.MysqlUserDB())
 	}
 }
 

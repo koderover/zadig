@@ -33,7 +33,7 @@ type ConnectorColl struct {
 func NewConnectorColl() *ConnectorColl {
 	name := models.Connector{}.TableName()
 	return &ConnectorColl{
-		DB:   gormtool.DB(config.DexMysqlDB()),
+		DB:   gormtool.DB(config.MysqlDexDB()),
 		coll: name,
 	}
 }

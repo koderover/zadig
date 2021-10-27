@@ -16,6 +16,7 @@ require (
 	github.com/bugsnag/panicwrap v1.3.1 // indirect
 	github.com/cenkalti/backoff/v3 v3.0.0
 	github.com/coocood/freecache v1.1.0
+	github.com/coreos/go-oidc/v3 v3.0.0
 	github.com/dexidp/dex v0.0.0-20210802203454-3fac2ab6bc3b
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/docker/docker v17.12.0-ce-rc1.0.20200618181300-9dc6525e6118+incompatible
@@ -27,6 +28,7 @@ require (
 	github.com/gin-gonic/gin v1.7.2
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/gofrs/uuid v4.0.0+incompatible // indirect
+	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/google/go-github/v35 v35.3.0
 	github.com/google/uuid v1.2.0
 	github.com/gorilla/mux v1.8.0
@@ -64,6 +66,7 @@ require (
 	github.com/yvasiyarov/newrelic_platform_go v0.0.0-20160601141957-9c099fbc30e9 // indirect
 	go.mongodb.org/mongo-driver v1.5.0
 	go.uber.org/zap v1.19.0
+	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
 	golang.org/x/net v0.0.0-20210503060351-7fd8e65b6420
 	golang.org/x/oauth2 v0.0.0-20210628180205-a41e5a781914
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
