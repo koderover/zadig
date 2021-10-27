@@ -11,7 +11,8 @@ import (
 )
 
 var featureM map[string]string = map[string]string{
-	"xx": "true",
+	"ModernWorkflow": "false",
+	"CommunityProjectRepository":"false",
 }
 
 var FeatureFlag string
@@ -21,6 +22,15 @@ func GetFeatures(c *gin.Context) {
 	featureName := c.Query("feature")
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	initOnce()
+	if v,ok := featureM[featureName];ok{
+		ctx.Resp = v
+		return
+	}
+	ctx.Resp = "notfound"
+}
+
+func initOnce(){
 	once.Do(func(){
 		features := config.Features()
 		featureList := strings.Split(features,",")
@@ -34,9 +44,4 @@ func GetFeatures(c *gin.Context) {
 			}
 		}
 	})
-	if v,ok := featureM[featureName];ok{
-		ctx.Resp = v
-	}
-	ctx.Resp = "notfound"
-
 }
