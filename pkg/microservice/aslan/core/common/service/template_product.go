@@ -55,7 +55,7 @@ func GetProductTemplate(productName string, log *zap.SugaredLogger) (*template.P
 
 	totalFreeStyles := make([]*collie.CiPipelineResource, 0)
 	cl := configCli.New(configbase.ConfigServiceAddress())
-	if enable, err := cl.CheckFeature(setting.ModernWorkflowType);err !=nil && enable{
+	if enable, err := cl.CheckFeature(setting.ModernWorkflowType);err ==nil && enable{
 		// CI场景onboarding流程处于第二步时，需要返回ci工作流id，用于前端跳转
 		collieAPIAddress := config.CollieAPIAddress()
 		cl := collie.New(collieAPIAddress)
@@ -114,7 +114,7 @@ func GetProductTemplate(productName string, log *zap.SugaredLogger) (*template.P
 		return resp, fmt.Errorf("Pipeline.List err : %v", err)
 	}
 
-	if enable, err := cl.CheckFeature(setting.ModernWorkflowType);err !=nil && enable{
+	if enable, err := cl.CheckFeature(setting.ModernWorkflowType);err ==nil && enable{
 		collieAPIAddress := config.CollieAPIAddress()
 		cl := collie.New(collieAPIAddress)
 		totalFreeStyles, err = cl.ListCIPipelines(productName, log)

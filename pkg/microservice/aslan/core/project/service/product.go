@@ -343,7 +343,7 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 
 	//删除自由编排工作流
 	cl := configCli.New(configbase.ConfigServiceAddress())
-	if enable, err := cl.CheckFeature(setting.ModernWorkflowType);err !=nil && enable{
+	if enable, err := cl.CheckFeature(setting.ModernWorkflowType);err ==nil && enable{
 		collieClient := collie.New(config.CollieAPIAddress())
 		if err = collieClient.DeleteCIPipelines(productName, log); err != nil {
 			log.Errorf("DeleteProductTemplate Delete productName %s freestyle pipeline err: %v", productName, err)

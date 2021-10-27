@@ -140,7 +140,7 @@ func (c *CronClient) Init() {
 
 	// 自由编排工作流定时任务触发
 	cl := configCli.New(configbase.ConfigServiceAddress())
-	if enable, err := cl.CheckFeature(setting.ModernWorkflowType);err !=nil && enable{
+	if enable, err := cl.CheckFeature(setting.ModernWorkflowType);err ==nil && enable{
 		c.InitColliePipelineScheduler()
 	}
 
