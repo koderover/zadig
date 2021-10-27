@@ -500,3 +500,7 @@ const (
 	ReadOnly                  RoleType = "ReadOnly"
 	ContributorRoleBindingFmt string   = "contributor-project:%s-user:%s"
 )
+
+
+// ModernWorkflowType 自由编排工作流
+const ModernWorkflowType = "ModernWorkflow"
