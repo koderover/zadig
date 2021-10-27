@@ -43,6 +43,13 @@ func GetChartTemplate(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GetChartTemplate(c.Param("name"), ctx.Logger)
 }
 
+func GetTemplateVariables(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.GetChartTemplateVariables(c.Param("name"), ctx.Logger)
+}
+
 func ListFiles(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -96,7 +103,7 @@ func UpdateChartTemplateVariables(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	args := make([]*templateservice.Variable, 0)
-	if err := c.ShouldBindJSON(args); err != nil {
+	if err := c.ShouldBindJSON(&args); err != nil {
 		ctx.Err = errors.ErrInvalidParam.AddErr(err)
 		return
 	}

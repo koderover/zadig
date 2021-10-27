@@ -110,6 +110,7 @@ type helmServiceCreationArgs struct {
 	HelmTemplateName string
 	ValuePaths       []string
 	ValuesYaml       string
+	Variables        []*Variable
 }
 
 type ChartTemplateData struct {
@@ -312,6 +313,7 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 			Source:           setting.SourceFromChartTemplate,
 			HelmTemplateName: templateArgs.TemplateName,
 			ValuesYaml:       templateArgs.ValuesYAML,
+			Variables:        templateArgs.Variables,
 		},
 		logger,
 	)
@@ -672,11 +674,18 @@ func geneCreationDetail(args *helmServiceCreationArgs) interface{} {
 		yamlData := &template.CustomYaml{
 			YamlContent: args.ValuesYaml,
 		}
-
+		variables := make([]*models.Variable, 0, len(args.Variables))
+		for _, variable := range args.Variables {
+			variables = append(variables, &models.Variable{
+				Key:   variable.Key,
+				Value: variable.Value,
+			})
+		}
 		return &models.CreateFromChartTemplate{
 			YamlData:     yamlData,
 			TemplateName: args.HelmTemplateName,
 			ServiceName:  args.ServiceName,
+			Variables:    variables,
 		}
 	}
 	return nil

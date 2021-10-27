@@ -25,7 +25,7 @@ type Chart struct {
 	Repo       string      `json:"repo"`
 	Branch     string      `json:"branch"`
 	Path       string      `json:"path"`
-	Variables  []*Variable `json:"variable"`
+	Variables  []*Variable `json:"variables,omitempty"`
 
 	Files []*fs.FileInfo `json:"files,omitempty"`
 }

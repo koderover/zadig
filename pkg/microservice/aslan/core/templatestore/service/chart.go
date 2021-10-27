@@ -87,6 +87,23 @@ func GetChartTemplate(name string, logger *zap.SugaredLogger) (*Chart, error) {
 	}, nil
 }
 
+func GetChartTemplateVariables(name string, logger *zap.SugaredLogger) ([]*Variable, error) {
+	chart, err := mongodb.NewChartColl().Get(name)
+	if err != nil {
+		logger.Errorf("Failed to get chart template %s, err: %s", name, err)
+		return nil, err
+	}
+
+	variables := make([]*Variable, 0)
+	for _, v := range chart.Variables {
+		variables = append(variables, &Variable{
+			Key:   v.Key,
+			Value: v.Value,
+		})
+	}
+	return variables, nil
+}
+
 func ListChartTemplates(logger *zap.SugaredLogger) (*ChartTemplateListResp, error) {
 	cs, err := mongodb.NewChartColl().List()
 	if err != nil {
@@ -246,7 +263,7 @@ func UpdateChartTemplateVariables(name string, args []*Variable, logger *zap.Sug
 
 	//TODO need validate keys
 	variables := make([]*commonmodes.Variable, 0)
-	for _, variable := range variables {
+	for _, variable := range args {
 		variables = append(variables, &commonmodes.Variable{
 			Key:   variable.Key,
 			Value: variable.Value,
