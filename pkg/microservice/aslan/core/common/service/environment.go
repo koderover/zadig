@@ -265,7 +265,6 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	if services, err := getter.ListServices(namespace, nil, kubeClient); err == nil {
 		for _, service := range services {
 			selector := labels.SelectorFromValidatedSet(service.Spec.Selector)
-			log.Infof("service.Spec.Selector:%+v", service.Spec.Selector)
 			if listDeployments, _ := getter.ListDeployments(namespace, selector, kubeClient); len(listDeployments) > 0 {
 				for _, deploy := range listDeployments {
 					deployWorkloads = append(deployWorkloads, &Workload{Name: deploy.Name, ServiceName: service.Name})
@@ -308,7 +307,6 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		resp = append(resp, productRespInfo)
 	}
 	log.Infof("Finish to list workloads in namespace %s", namespace)
-	fmt.Println("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
 
 	return count, resp, nil
 }
@@ -317,12 +315,10 @@ func findServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Work
 	if (len(deployWorkloads) == 0 && len(stsWorkloads) == 0) || len(hostInfos) == 0 {
 		return []resource.HostInfo{}
 	}
-	log.Infof("currentWorkload:%+v", currentWorkload)
-	var serviceName string
+	serviceName := ""
 	switch currentWorkload.Type {
 	case setting.Deployment:
 		for _, deployWorkload := range deployWorkloads {
-			log.Infof("deployWorkload:%+v", deployWorkload)
 			if deployWorkload.Name == currentWorkload.Name {
 				serviceName = deployWorkload.ServiceName
 				break
@@ -330,7 +326,6 @@ func findServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Work
 		}
 	case setting.StatefulSet:
 		for _, stsWorkload := range stsWorkloads {
-			log.Infof("stsWorkload:%+v", stsWorkload)
 			if stsWorkload.Name == currentWorkload.Name {
 				serviceName = stsWorkload.ServiceName
 				break
