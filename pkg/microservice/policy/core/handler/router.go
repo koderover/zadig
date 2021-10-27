@@ -46,6 +46,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	systemRoles := router.Group("system-roles")
 	{
 		systemRoles.POST("", CreateSystemRole)
+		systemRoles.PUT("/:name",UpdateOrCreateSystemRole)
 		systemRoles.GET("", ListSystemRoles)
 		systemRoles.DELETE("/:name", DeleteSystemRole)
 	}
