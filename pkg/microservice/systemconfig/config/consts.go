@@ -6,3 +6,7 @@ const (
 	ENVDexMysqlUser     = "DEX_MYSQL_USER"
 	ENVDexMysqlPassword = "DEX_MYSQL_PASSWORD"
 )
+
+const (
+	FeatureFlag = "features"
+)

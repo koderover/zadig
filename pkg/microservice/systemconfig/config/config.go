@@ -21,3 +21,7 @@ func DexMysqlUser() string {
 func DexMysqlPassword() string {
 	return viper.GetString(ENVDexMysqlPassword)
 }
+
+func Features()string {
+	return viper.GetString(FeatureFlag)
+}
