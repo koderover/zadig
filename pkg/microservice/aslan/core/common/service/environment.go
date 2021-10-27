@@ -187,13 +187,13 @@ func (f *workloadFilter) Match(workload *Workload) bool {
 }
 
 type Workload struct {
-	EnvName     string             `json:"env_name"`
-	Name        string             `json:"name"`
-	Type        string             `json:"type"`
-	ProductName string             `json:"product_name"`
-	Spec        corev1.ServiceSpec `json:"-"`
-	Images      []string           `json:"-"`
-	Ready       bool               `json:"ready"`
+	EnvName     string                           `json:"env_name"`
+	Name        string                           `json:"name"`
+	Type        string                           `json:"type"`
+	ProductName string                           `json:"product_name"`
+	Spec        corev1.ReplicationControllerSpec `json:"-"`
+	Images      []string                         `json:"-"`
+	Ready       bool                             `json:"ready"`
 }
 
 func ListWorkloads(envName, clusterID, namespace, productName string, perPage, page int, log *zap.SugaredLogger, filter ...FilterFunc) (int, []*ServiceResp, error) {
@@ -213,7 +213,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
 	}
 	for _, v := range listDeployments {
-		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: corev1.ServiceSpec{Selector: v.Spec.Selector.MatchLabels}, Type: setting.Deployment, Images: wrapper.Deployment(v).ImageInfos(), Ready: wrapper.Deployment(v).Ready()})
+		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: corev1.ReplicationControllerSpec{Selector: v.Spec.Selector.MatchLabels, Template: &v.Spec.Template}, Type: setting.Deployment, Images: wrapper.Deployment(v).ImageInfos(), Ready: wrapper.Deployment(v).Ready()})
 	}
 	statefulSets, err := getter.ListStatefulSets(namespace, nil, kubeClient)
 	if err != nil {
@@ -221,7 +221,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
 	}
 	for _, v := range statefulSets {
-		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: corev1.ServiceSpec{Selector: v.Spec.Selector.MatchLabels}, Type: setting.StatefulSet, Images: wrapper.StatefulSet(v).ImageInfos(), Ready: wrapper.StatefulSet(v).Ready()})
+		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: corev1.ReplicationControllerSpec{Selector: v.Spec.Selector.MatchLabels, Template: &v.Spec.Template}, Type: setting.StatefulSet, Images: wrapper.StatefulSet(v).ImageInfos(), Ready: wrapper.StatefulSet(v).Ready()})
 	}
 
 	log.Debugf("Found %d workloads in total", len(workLoads))
@@ -250,6 +250,13 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		}
 	}
 
+	ingressM := make(map[string][]resource.HostInfo)
+	if ingresses, err := getter.ListIngresses(namespace, nil, kubeClient); err == nil {
+		for _, ingress := range ingresses {
+			ingressM[ingress.Name] = wrapper.Ingress(ingress).HostInfo()
+		}
+	}
+
 	for _, workload := range workLoads {
 		tmpProductName := workload.ProductName
 		if tmpProductName == "" && productName != "" {
@@ -269,15 +276,12 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 			productRespInfo.Status = setting.PodUnstable
 			productRespInfo.Ready = setting.PodNotReady
 		}
-		selector := labels.SelectorFromValidatedSet(workload.Spec.Selector)
-		if ingresses, err := getter.ListIngresses(namespace, selector, kubeClient); err == nil {
-			ingressInfo := new(IngressInfo)
-			hostInfos := make([]resource.HostInfo, 0)
-			for _, ingress := range ingresses {
-				hostInfos = append(hostInfos, wrapper.Ingress(ingress).HostInfo()...)
+
+		selector := labels.SelectorFromValidatedSet(workload.Spec.Template.Labels)
+		if services, err := getter.ListServices(namespace, selector, kubeClient); err == nil {
+			productRespInfo.Ingress = &IngressInfo{
+				HostInfo: findServiceFromIngress(ingressM, services),
 			}
-			ingressInfo.HostInfo = hostInfos
-			productRespInfo.Ingress = ingressInfo
 		}
 
 		resp = append(resp, productRespInfo)
@@ -286,4 +290,30 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	log.Infof("Finish to list workloads in namespace %s", namespace)
 
 	return count, resp, nil
+}
+
+func findServiceFromIngress(ingressM map[string][]resource.HostInfo, services []*corev1.Service) []resource.HostInfo {
+	if len(services) == 0 {
+		return []resource.HostInfo{}
+	}
+	serviceNames := sets.NewString()
+	for _, service := range services {
+		serviceNames.Insert(service.Name)
+	}
+	hostInfos := make([]resource.HostInfo, 0)
+	for _, hostInfos := range ingressM {
+		for _, hostInfo := range hostInfos {
+			contain := false
+			for _, backend := range hostInfo.Backends {
+				if serviceNames.Has(backend.ServiceName) {
+					contain = true
+					break
+				}
+			}
+			if contain {
+				hostInfos = append(hostInfos, hostInfo)
+			}
+		}
+	}
+	return hostInfos
 }
