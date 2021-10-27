@@ -9,3 +9,7 @@ import (
 func MysqlDexDB() string {
 	return viper.GetString(ENVMysqlDexDB)
 }
+
+func Features()string {
+	return viper.GetString(FeatureFlag)
+}

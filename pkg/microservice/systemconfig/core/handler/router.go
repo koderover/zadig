@@ -31,4 +31,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		roles.PUT("/:id", UpdateConnector)
 		roles.DELETE("/:id", DeleteConnector)
 	}
+	features := router.Group("features")
+	{
+		features.GET("", GetFeatures)
+	}
 }
