@@ -22,8 +22,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/koderover/zadig/pkg/tool/log"
-
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -281,8 +279,6 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		}
 
 		selector := labels.SelectorFromValidatedSet(workload.Spec.Template.Labels)
-		log.Infof("workload.Spec.Template.Labels:%+v", workload.Spec.Template.Labels)
-		log.Infof("workload.Spec.Selector:%+v", workload.Spec.Selector)
 		if services, err := getter.ListServices(namespace, selector, kubeClient); err == nil {
 			productRespInfo.Ingress = &IngressInfo{
 				HostInfo: findServiceFromIngress(ingressM, services),
@@ -303,10 +299,9 @@ func findServiceFromIngress(ingressM map[string][]resource.HostInfo, services []
 	}
 	serviceNames := sets.NewString()
 	for _, service := range services {
-		log.Infof("service.name:%s", service.Name)
 		serviceNames.Insert(service.Name)
 	}
-	hostInfos := make([]resource.HostInfo, 0)
+	resp := make([]resource.HostInfo, 0)
 	for _, hostInfos := range ingressM {
 		for _, hostInfo := range hostInfos {
 			contain := false
@@ -317,9 +312,9 @@ func findServiceFromIngress(ingressM map[string][]resource.HostInfo, services []
 				}
 			}
 			if contain {
-				hostInfos = append(hostInfos, hostInfo)
+				resp = append(resp, hostInfo)
 			}
 		}
 	}
-	return hostInfos
+	return resp
 }
