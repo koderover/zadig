@@ -33,6 +33,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	}
 	features := router.Group("features")
 	{
-		features.GET("", GetFeatures)
+		features.GET("/:name", GetFeature)
 	}
 }
