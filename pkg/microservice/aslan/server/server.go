@@ -53,7 +53,7 @@ func Serve(ctx context.Context) error {
 		defer cancel()
 
 		if err := server.Shutdown(ctx); err != nil {
-			log.Errorf("Failed to stop server, error : %s", err)
+			log.Errorf("Failed to stop server, error: %s", err)
 		}
 	}()
 
