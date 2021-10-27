@@ -41,7 +41,7 @@ import (
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
-	configCli "github.com/koderover/zadig/pkg/shared/config"
+	configclient "github.com/koderover/zadig/pkg/shared/config"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -342,7 +342,7 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 	}
 
 	//删除自由编排工作流
-	cl := configCli.New(configbase.ConfigServiceAddress())
+	cl := configclient.New(configbase.ConfigServiceAddress())
 	if enable, err := cl.CheckFeature(setting.ModernWorkflowType);err ==nil && enable{
 		collieClient := collie.New(config.CollieAPIAddress())
 		if err = collieClient.DeleteCIPipelines(productName, log); err != nil {

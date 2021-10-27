@@ -32,7 +32,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/cron/core/service"
 	"github.com/koderover/zadig/pkg/microservice/cron/core/service/client"
 	"github.com/koderover/zadig/pkg/setting"
-	configCli "github.com/koderover/zadig/pkg/shared/config"
+	configclient "github.com/koderover/zadig/pkg/shared/config"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -139,7 +139,7 @@ func (c *CronClient) Init() {
 	c.InitTestScheduler()
 
 	// 自由编排工作流定时任务触发
-	cl := configCli.New(configbase.ConfigServiceAddress())
+	cl := configclient.New(configbase.ConfigServiceAddress())
 	if enable, err := cl.CheckFeature(setting.ModernWorkflowType);err ==nil && enable{
 		c.InitColliePipelineScheduler()
 	}
