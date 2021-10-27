@@ -32,7 +32,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collie"
 	"github.com/koderover/zadig/pkg/microservice/aslan/internal/cache"
 	"github.com/koderover/zadig/pkg/setting"
-	configcli "github.com/koderover/zadig/pkg/shared/config"
+	configclient "github.com/koderover/zadig/pkg/shared/config"
 	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
@@ -54,7 +54,7 @@ func GetProductTemplate(productName string, log *zap.SugaredLogger) (*template.P
 	}
 
 	totalFreeStyles := make([]*collie.CiPipelineResource, 0)
-	cl := configcli.New(configbase.ConfigServiceAddress())
+	cl := configclient.New(configbase.ConfigServiceAddress())
 	if enable, err := cl.CheckFeature(setting.ModernWorkflowType);err ==nil && enable{
 		// CI场景onboarding流程处于第二步时，需要返回ci工作流id，用于前端跳转
 		collieAPIAddress := config.CollieAPIAddress()
