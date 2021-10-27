@@ -21,6 +21,7 @@ import (
 
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/config"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/service/featuregates"
 	"github.com/koderover/zadig/pkg/setting"
 	gormtool "github.com/koderover/zadig/pkg/tool/gorm"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -35,6 +36,8 @@ func Start(_ context.Context) {
 	})
 
 	initDatabase()
+
+	featuregates.Features.MergeFeatureGates(featuregates.ToFeatureGates(config.Features()))
 }
 
 func initDatabase() {
