@@ -1,7 +1,8 @@
-package mysql
+package orm
 
 import (
-	"github.com/jinzhu/gorm"
+	"gorm.io/gorm"
+
 	"github.com/koderover/zadig/pkg/microservice/user/core"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 )
@@ -40,8 +41,8 @@ func GetUserByUid(uid string, db *gorm.DB) (*models.User, error) {
 	return &user, nil
 }
 
-// GetUsers gets a list of users based on paging constraints
-func GetUsers(page int, perPage int, name string, db *gorm.DB) ([]models.User, error) {
+// ListUsers gets a list of users based on paging constraints
+func ListUsers(page int, perPage int, name string, db *gorm.DB) ([]models.User, error) {
 	var (
 		users []models.User
 		err   error
@@ -60,11 +61,11 @@ func GetUsers(page int, perPage int, name string, db *gorm.DB) ([]models.User, e
 }
 
 // GetUsersCount gets user count
-func GetUsersCount(name string) (int, error) {
+func GetUsersCount(name string) (int64, error) {
 	var (
 		users []models.User
 		err   error
-		count int
+		count int64
 	)
 
 	err = core.DB.Where("name LIKE ?", "%"+name+"%").Find(&users).Count(&count).Error

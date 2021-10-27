@@ -2,13 +2,15 @@ package user
 
 import (
 	"fmt"
+
 	"github.com/google/uuid"
+	"go.uber.org/zap"
+	"golang.org/x/crypto/bcrypt"
+
 	"github.com/koderover/zadig/pkg/microservice/user/config"
 	"github.com/koderover/zadig/pkg/microservice/user/core"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/user/core/repository/mysql"
-	"go.uber.org/zap"
-	"golang.org/x/crypto/bcrypt"
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
 )
 
 type User struct {
@@ -18,7 +20,7 @@ type User struct {
 	Phone    string `json:"phone,omitempty"`
 }
 
-type Users struct {
+type QueryArgs struct {
 	Name    string `json:"name"`
 	PerPage int    `json:"per_page"`
 	Page    int    `json:"page"`
@@ -39,13 +41,13 @@ type Password struct {
 	NewPassword string `json:"newPassword"`
 }
 
-type GetUsersResp struct {
+type UsersResp struct {
 	Users      []UserInfo `json:"users"`
-	TotalCount int        `json:"totalCount"`
+	TotalCount int64      `json:"totalCount"`
 }
 
 func GetUser(uid string, logger *zap.SugaredLogger) (*models.User, error) {
-	user, err := mysql.GetUserByUid(uid, core.DB)
+	user, err := orm.GetUserByUid(uid, core.DB)
 	if err != nil {
 		logger.Errorf("GetUser getUserByUid:%s error, error msg:%s", uid, err.Error())
 		return nil, err
@@ -53,24 +55,29 @@ func GetUser(uid string, logger *zap.SugaredLogger) (*models.User, error) {
 	return user, nil
 }
 
-func GetUsers(args *Users, logger *zap.SugaredLogger) (*GetUsersResp, error) {
-	count, err := mysql.GetUsersCount(args.Name)
+func SeachUsers(args *QueryArgs, logger *zap.SugaredLogger) (*UsersResp, error) {
+	count, err := orm.GetUsersCount(args.Name)
 	if err != nil {
-		logger.Errorf("GetUsers GetUsersCount By name:%s error, error msg:%s", args.Name, err.Error())
+		logger.Errorf("SeachUsers GetUsersCount By name:%s error, error msg:%s", args.Name, err.Error())
 		return nil, err
 	}
-	users, err := mysql.GetUsers(args.Page, args.PerPage, args.Name, core.DB)
+	if count == 0 {
+		return &UsersResp{
+			TotalCount: 0,
+		}, nil
+	}
+	users, err := orm.ListUsers(args.Page, args.PerPage, args.Name, core.DB)
 	if err != nil {
-		logger.Errorf("GetUsers GetUsers By name:%s error, error msg:%s", args.Name, err.Error())
+		logger.Errorf("SeachUsers SeachUsers By name:%s error, error msg:%s", args.Name, err.Error())
 		return nil, err
 	}
 	var uids []string
 	for _, user := range users {
-		uids = append(uids, user.Uid)
+		uids = append(uids, user.UID)
 	}
-	userLogins, err := mysql.GetUserLogins(uids, core.DB)
+	userLogins, err := orm.ListUserLogins(uids, core.DB)
 	if err != nil {
-		logger.Errorf("GetUsers GetUserLogins By uids:%s error, error msg:%s", uids, err.Error())
+		logger.Errorf("SeachUsers ListUserLogins By uids:%s error, error msg:%s", uids, err.Error())
 		return nil, err
 	}
 	userLoginMap := make(map[string]models.UserLogin)
@@ -79,10 +86,10 @@ func GetUsers(args *Users, logger *zap.SugaredLogger) (*GetUsersResp, error) {
 	}
 	var usersInfo []UserInfo
 	for _, user := range users {
-		if userLogin, ok := userLoginMap[user.Uid]; ok {
+		if userLogin, ok := userLoginMap[user.UID]; ok {
 			usersInfo = append(usersInfo, UserInfo{
 				LastLoginTime: userLogin.LastLoginTime,
-				Uid:           user.Uid,
+				Uid:           user.UID,
 				Phone:         user.Phone,
 				Name:          user.Name,
 				Email:         user.Email,
@@ -92,7 +99,7 @@ func GetUsers(args *Users, logger *zap.SugaredLogger) (*GetUsersResp, error) {
 			logger.Error("user:%s login info not exist")
 		}
 	}
-	return &GetUsersResp{
+	return &UsersResp{
 		Users:      usersInfo,
 		TotalCount: count,
 	}, nil
@@ -105,7 +112,7 @@ func CreateUser(args *User, logger *zap.SugaredLogger) error {
 		Email:        args.Email,
 		IdentityType: config.SystemIdentityType,
 		Phone:        args.Phone,
-		Uid:          uid.String(),
+		UID:          uid.String(),
 	}
 	tx := core.DB.Begin()
 	defer func() {
@@ -113,7 +120,7 @@ func CreateUser(args *User, logger *zap.SugaredLogger) error {
 			tx.Rollback()
 		}
 	}()
-	err := mysql.CreateUser(user, tx)
+	err := orm.CreateUser(user, tx)
 	if err != nil {
 		tx.Rollback()
 		logger.Errorf("CreateUser CreateUser :%v error, error msg:%s", user, err.Error())
@@ -121,11 +128,11 @@ func CreateUser(args *User, logger *zap.SugaredLogger) error {
 	}
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(args.Password), bcrypt.DefaultCost)
 	userLogin := &models.UserLogin{
-		Uid:           user.Uid,
+		Uid:           user.UID,
 		Password:      string(hashedPassword),
 		LastLoginTime: 0,
 	}
-	err = mysql.CreateUserLogin(userLogin, tx)
+	err = orm.CreateUserLogin(userLogin, tx)
 	if err != nil {
 		tx.Rollback()
 		logger.Errorf("CreateUser CreateUserLogin:%v error, error msg:%s", user, err.Error())
@@ -135,7 +142,7 @@ func CreateUser(args *User, logger *zap.SugaredLogger) error {
 }
 
 func UpdatePassword(args *Password, logger *zap.SugaredLogger) error {
-	user, err := mysql.GetUserByUid(args.Uid, core.DB)
+	user, err := orm.GetUserByUid(args.Uid, core.DB)
 	if err != nil {
 		logger.Errorf("UpdatePassword GetUserByUid:%s error, error msg:%s", args.Uid, err.Error())
 		return err
@@ -143,7 +150,7 @@ func UpdatePassword(args *Password, logger *zap.SugaredLogger) error {
 	if user == nil {
 		return fmt.Errorf("user not exist")
 	}
-	userLogin, err := mysql.GetUserLogin(user.Uid, core.DB)
+	userLogin, err := orm.GetUserLogin(user.UID, core.DB)
 	if err != nil {
 		logger.Errorf("UpdatePassword GetUserLogin:%s error, error msg:%s", args.Uid, err.Error())
 		return err
@@ -164,10 +171,10 @@ func UpdatePassword(args *Password, logger *zap.SugaredLogger) error {
 	}
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(args.NewPassword), bcrypt.DefaultCost)
 	userLogin = &models.UserLogin{
-		Uid:      user.Uid,
+		Uid:      user.UID,
 		Password: string(hashedPassword),
 	}
-	err = mysql.UpdateUserLogin(user.Uid, userLogin, core.DB)
+	err = orm.UpdateUserLogin(user.UID, userLogin, core.DB)
 	if err != nil {
 		logger.Errorf("UpdatePassword UpdateUserLogin:%v error, error msg:%s", userLogin, err.Error())
 		return err

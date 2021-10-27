@@ -2,9 +2,9 @@ package user
 
 import (
 	"github.com/gin-gonic/gin"
+
 	"github.com/koderover/zadig/pkg/microservice/user/core/service/user"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
-	"strconv"
 )
 
 func GetUser(c *gin.Context) {
@@ -13,14 +13,15 @@ func GetUser(c *gin.Context) {
 	ctx.Resp, ctx.Err = user.GetUser(c.Param("uid"), ctx.Logger)
 }
 
-func GetUsers(c *gin.Context) {
+func ListUsers(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	args := &user.Users{}
-	args.Name = c.Query("name")
-	args.Page, _ = strconv.Atoi(c.Query("page"))
-	args.PerPage, _ = strconv.Atoi(c.Query("per_page"))
-	ctx.Resp, ctx.Err = user.GetUsers(args, ctx.Logger)
+	args := &user.QueryArgs{}
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = err
+		return
+	}
+	ctx.Resp, ctx.Err = user.SeachUsers(args, ctx.Logger)
 }
 
 func CreateUser(c *gin.Context) {

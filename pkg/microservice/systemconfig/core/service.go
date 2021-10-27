@@ -38,13 +38,13 @@ func Start(_ context.Context) {
 }
 
 func initDatabase() {
-	err := gormtool.Open(config.DexMysqlUser(),
-		config.DexMysqlPassword(),
-		config.DexMysqlHost(),
-		config.DexMysqlDB(),
+	err := gormtool.Open(configbase.MysqlUser(),
+		configbase.MysqlPassword(),
+		configbase.MysqlHost(),
+		config.MysqlDexDB(),
 	)
 	if err != nil {
-		log.Panicf("Failed to open database %s", config.DexMysqlDB())
+		log.Panicf("Failed to open database %s", config.MysqlDexDB())
 	}
 }
 

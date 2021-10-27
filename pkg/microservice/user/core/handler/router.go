@@ -18,6 +18,7 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+
 	"github.com/koderover/zadig/pkg/microservice/user/core/handler/login"
 	"github.com/koderover/zadig/pkg/microservice/user/core/handler/user"
 )
@@ -25,20 +26,16 @@ import (
 type Router struct{}
 
 func (*Router) Inject(router *gin.RouterGroup) {
-	users := router.Group("/")
+	users := router.Group("")
 	{
-		users.GET("login", login.Login)
+		users.GET("/callback", login.Callback)
 
-		users.GET("api/v1/callback", login.Callback)
+		users.POST("/users", user.CreateUser)
 
-		users.POST("login", login.InternalLogin)
+		users.PUT("/users/:uid/password", user.UpdatePassword)
 
-		users.POST("api/v1/users", user.CreateUser)
+		users.GET("/users/:uid", user.GetUser)
 
-		users.PUT("api/v1/users/:uid/password", user.UpdatePassword)
-
-		users.GET("api/v1/users/:uid", user.GetUser)
-
-		users.GET("api/v1/users", user.GetUsers)
+		users.GET("/users", user.ListUsers)
 	}
 }

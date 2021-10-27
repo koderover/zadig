@@ -33,7 +33,7 @@ func Serve(ctx context.Context) error {
 	log.Info("Start policy service")
 
 	engine := rest.NewEngine()
-	server := &http.Server{Addr: ":5555", Handler: engine}
+	server := &http.Server{Addr: ":80", Handler: engine}
 
 	stopChan := make(chan struct{})
 	go func() {

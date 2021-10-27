@@ -20,11 +20,16 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/microservice/user/core/handler"
+	"github.com/koderover/zadig/pkg/microservice/user/core/handler/login"
 )
 
 func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
+	{
+		router.GET("login", login.Login)
+		router.POST("login", login.LocalLogin)
+	}
 	for name, r := range map[string]injector{
-		"/": new(handler.Router),
+		"/api/v1": new(handler.Router),
 	} {
 		r.Inject(router.Group(name))
 	}

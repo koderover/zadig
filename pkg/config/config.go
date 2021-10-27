@@ -86,7 +86,7 @@ func AslanServiceInfo() *setting.ServiceInfo {
 }
 
 func SecretKey() string {
-	return viper.GetString(setting.SecretKey)
+	return viper.GetString(setting.ENVSecretKey)
 }
 
 func AslanServiceAddress() string {
@@ -227,4 +227,16 @@ func MongoURI() string {
 
 func MongoDatabase() string {
 	return viper.GetString(setting.ENVAslanDBName)
+}
+
+func MysqlUser() string {
+	return viper.GetString(setting.ENVMysqlUser)
+}
+
+func MysqlPassword() string {
+	return viper.GetString(setting.ENVMysqlPassword)
+}
+
+func MysqlHost() string {
+	return viper.GetString(setting.ENVMysqlHost)
 }

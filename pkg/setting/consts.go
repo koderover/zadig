@@ -29,6 +29,9 @@ const (
 	ENVAslanDBName             = "ASLAN_DB"
 	ENVHubAgentImage           = "HUB_AGENT_IMAGE"
 	ENVPoetryAPIRootKey        = "POETRY_API_ROOT_KEY"
+	ENVMysqlUser               = "MYSQL_USER"
+	ENVMysqlPassword           = "MYSQL_PASSWORD"
+	ENVMysqlHost               = "MYSQL_HOST"
 
 	// Aslan
 	ENVPodName              = "BE_POD_NAME"
@@ -101,22 +104,15 @@ const (
 	TestMode    = "test"
 
 	// user
-	IssuerURL      = "ISSUER_URL"
-	Listen         = "LISTEN"
-	TlsCert        = "TLSCERT"
-	TlsKey         = "TLSKEY"
-	RootCAs        = "ROOT_CAS"
-	Debug          = "DEBUG"
-	ClientID       = "CLIENT_ID"
-	ClientSecret   = "CLIENT_SECRET"
-	RedirectURI    = "REDIRECT_URI"
-	SecretKey      = "SECRET_KEY"
-	OfflineAsScope = "OFFLINE_AS_SCOPE"
-	MysqlUser      = "MYSQL_USER"
-	Password       = "PASSWORD"
-	Host           = "HOST"
-	Name           = "NAME"
-	Scopes         = "SCOPES"
+	ENVIssuerURL      = "ISSUER_URL"
+	ENVDebug          = "DEBUG"
+	ENVClientID       = "CLIENT_ID"
+	ENVClientSecret   = "CLIENT_SECRET"
+	ENVRedirectURI    = "REDIRECT_URI"
+	ENVSecretKey      = "SECRET_KEY"
+	ENVMysqlUserDB    = "MYSQL_USER_DB"
+	ENVScopes         = "SCOPES"
+	ENVTokenExpiresAt = "TOKEN_EXPIRES_AT"
 )
 
 // k8s concepts

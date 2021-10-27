@@ -18,6 +18,5 @@ package config
 
 const (
 	AppState           = "zadig user"
-	Audience           = "zadig"
 	SystemIdentityType = "system"
 )

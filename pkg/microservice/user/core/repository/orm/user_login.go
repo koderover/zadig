@@ -1,7 +1,8 @@
-package mysql
+package orm
 
 import (
-	"github.com/jinzhu/gorm"
+	"gorm.io/gorm"
+
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 )
 
@@ -26,8 +27,8 @@ func GetUserLogin(uid string, db *gorm.DB) (*models.UserLogin, error) {
 	return &userLogin, nil
 }
 
-// GetUserLogins Get a userLogin based on uid list
-func GetUserLogins(uids []string, db *gorm.DB) (*[]models.UserLogin, error) {
+// ListUserLogins Get a userLogin based on uid list
+func ListUserLogins(uids []string, db *gorm.DB) (*[]models.UserLogin, error) {
 	var userLogins []models.UserLogin
 	err := db.Where("uid IN (?)", uids).Find(&userLogins).Error
 	if err != nil {

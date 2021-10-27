@@ -17,71 +17,48 @@ limitations under the License.
 package config
 
 import (
-	"context"
-	"fmt"
-	"net/http"
+	"strconv"
 	"strings"
 
-	"github.com/coreos/go-oidc"
 	"github.com/spf13/viper"
 
 	_ "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 func IssuerURL() string {
-	return viper.GetString(setting.IssuerURL)
+	return viper.GetString(setting.ENVIssuerURL)
 }
 
 func Debug() string {
-	return viper.GetString(setting.Debug)
+	return viper.GetString(setting.ENVDebug)
 }
 
 func ClientID() string {
-	return viper.GetString(setting.ClientID)
+	return viper.GetString(setting.ENVClientID)
 }
 
 func ClientSecret() string {
-	return viper.GetString(setting.ClientSecret)
+	return viper.GetString(setting.ENVClientSecret)
 }
 
 func RedirectURI() string {
-	return viper.GetString(setting.RedirectURI)
+	return viper.GetString(setting.ENVRedirectURI)
 }
 
 func Scopes() []string {
-	return strings.Split(viper.GetString(setting.Scopes), ",")
+	return strings.Split(viper.GetString(setting.ENVScopes), ",")
 }
 
-func Client() *http.Client {
-	return http.DefaultClient
+func MysqlUserDB() string {
+	return viper.GetString(setting.ENVMysqlUserDB)
 }
 
-func Provider() *oidc.Provider {
-	ctx := oidc.ClientContext(context.Background(), Client())
-	provider, err := oidc.NewProvider(ctx, IssuerURL())
+func TokenExpiresAt() int {
+	expiresAt, err := strconv.Atoi(viper.GetString(setting.ENVTokenExpiresAt))
 	if err != nil {
-		panic(fmt.Sprintf("init provider error:%s", err.Error()))
+		log.Panic(err)
 	}
-	return provider
-}
-
-func Verifier() *oidc.IDTokenVerifier {
-	return Provider().Verifier(&oidc.Config{ClientID: ClientID()})
-}
-
-func User() string {
-	return viper.GetString(setting.MysqlUser)
-}
-
-func Password() string {
-	return viper.GetString(setting.Password)
-}
-
-func Host() string {
-	return viper.GetString(setting.Host)
-}
-
-func Name() string {
-	return viper.GetString(setting.Name)
+	return expiresAt
 }

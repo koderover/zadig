@@ -1,12 +1,14 @@
 package login
 
 import (
+	"time"
+
 	"github.com/google/uuid"
+	"go.uber.org/zap"
+
 	"github.com/koderover/zadig/pkg/microservice/user/core"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/user/core/repository/mysql"
-	"go.uber.org/zap"
-	"time"
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
 )
 
 type SyncUserInfo struct {
@@ -16,7 +18,7 @@ type SyncUserInfo struct {
 }
 
 func SyncUser(syncUserInfo *SyncUserInfo, logger *zap.SugaredLogger) (*models.User, error) {
-	user, err := mysql.GetUser(syncUserInfo.Email, syncUserInfo.IdentityType, core.DB)
+	user, err := orm.GetUser(syncUserInfo.Email, syncUserInfo.IdentityType, core.DB)
 	if err != nil {
 		logger.Error("SyncUser get user:%s error, error msg:%s", syncUserInfo.Email, err.Error())
 		return nil, err
@@ -30,40 +32,40 @@ func SyncUser(syncUserInfo *SyncUserInfo, logger *zap.SugaredLogger) (*models.Us
 	if user == nil {
 		uid, _ := uuid.NewUUID()
 		user = &models.User{
-			Uid:          uid.String(),
+			UID:          uid.String(),
 			Name:         syncUserInfo.Name,
 			Email:        syncUserInfo.Email,
 			IdentityType: syncUserInfo.IdentityType,
 		}
-		err = mysql.CreateUser(user, tx)
+		err = orm.CreateUser(user, tx)
 		if err != nil {
 			tx.Rollback()
 			logger.Error("SyncUser create user:%s error, error msg:%s", syncUserInfo.Email, err.Error())
 			return nil, err
 		}
 	}
-	userLogin, err := mysql.GetUserLogin(user.Uid, tx)
+	userLogin, err := orm.GetUserLogin(user.UID, tx)
 	if err != nil {
 		tx.Rollback()
-		logger.Error("UpdateLoginInfo get user:%s login error, error msg:%s", user.Uid, err.Error())
+		logger.Error("UpdateLoginInfo get user:%s login error, error msg:%s", user.UID, err.Error())
 		return nil, err
 	}
 	if userLogin != nil {
 		userLogin.LastLoginTime = time.Now().Unix()
-		err = mysql.UpdateUserLogin(user.Uid, userLogin, tx)
+		err = orm.UpdateUserLogin(user.UID, userLogin, tx)
 		if err != nil {
 			tx.Rollback()
-			logger.Error("UpdateLoginInfo update user:%s login error, error msg:%s", user.Uid, err.Error())
+			logger.Error("UpdateLoginInfo update user:%s login error, error msg:%s", user.UID, err.Error())
 			return nil, err
 		}
 	} else {
-		err = mysql.CreateUserLogin(&models.UserLogin{
-			Uid:           user.Uid,
+		err = orm.CreateUserLogin(&models.UserLogin{
+			Uid:           user.UID,
 			LastLoginTime: time.Now().Unix(),
 		}, tx)
 		if err != nil {
 			tx.Rollback()
-			logger.Error("UpdateLoginInfo create user:%s login error, error msg:%s", user.Uid, err.Error())
+			logger.Error("UpdateLoginInfo create user:%s login error, error msg:%s", user.UID, err.Error())
 			return nil, err
 		}
 	}

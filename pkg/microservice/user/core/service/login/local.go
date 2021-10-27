@@ -2,14 +2,16 @@ package login
 
 import (
 	"fmt"
-	"github.com/dgrijalva/jwt-go"
-	"github.com/koderover/zadig/pkg/microservice/user/config"
-	"github.com/koderover/zadig/pkg/microservice/user/core"
-	"github.com/koderover/zadig/pkg/microservice/user/core/repository/mysql"
-	"github.com/koderover/zadig/pkg/util"
+	"time"
+
+	"github.com/golang-jwt/jwt"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
-	"time"
+
+	"github.com/koderover/zadig/pkg/microservice/user/config"
+	"github.com/koderover/zadig/pkg/microservice/user/core"
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
+	"github.com/koderover/zadig/pkg/setting"
 )
 
 type LoginArgs struct {
@@ -27,7 +29,7 @@ type User struct {
 }
 
 func InternalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, error) {
-	user, err := mysql.GetUser(args.Email, config.SystemIdentityType, core.DB)
+	user, err := orm.GetUser(args.Email, config.SystemIdentityType, core.DB)
 	if err != nil {
 		logger.Errorf("InternalLogin get user email:%s error", args.Email)
 		return nil, err
@@ -35,7 +37,7 @@ func InternalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, error) {
 	if user == nil {
 		return nil, fmt.Errorf("user not exist")
 	}
-	userLogin, err := mysql.GetUserLogin(user.Uid, core.DB)
+	userLogin, err := orm.GetUserLogin(user.UID, core.DB)
 	if err != nil {
 		logger.Errorf("InternalLogin get user:%s user login not exist, error msg:%s", args.Email, err.Error())
 		return nil, err
@@ -51,17 +53,17 @@ func InternalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, error) {
 		return nil, fmt.Errorf("check password error, error msg:%s", err.Error())
 	}
 	userLogin.LastLoginTime = time.Now().Unix()
-	err = mysql.UpdateUserLogin(userLogin.Uid, userLogin, core.DB)
+	err = orm.UpdateUserLogin(userLogin.Uid, userLogin, core.DB)
 	if err != nil {
 		logger.Errorf("InternalLogin user:%s update user login password error, error msg:%s", args.Email, err.Error())
 		return nil, err
 	}
-	token, err := util.CreateToken(&util.Claims{
+	token, err := CreateToken(&Claims{
 		Name:  user.Name,
 		Email: user.Email,
-		Uid:   user.Uid,
+		Uid:   user.UID,
 		StandardClaims: jwt.StandardClaims{
-			Audience:  config.Audience,
+			Audience:  setting.ProductName,
 			ExpiresAt: time.Now().Add(24 * time.Hour).Unix(),
 		},
 	})
@@ -70,7 +72,7 @@ func InternalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, error) {
 		return nil, err
 	}
 	return &User{
-		Uid:          user.Uid,
+		Uid:          user.UID,
 		Token:        token,
 		Email:        user.Email,
 		Phone:        user.Phone,

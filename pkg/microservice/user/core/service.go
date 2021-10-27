@@ -18,15 +18,22 @@ package core
 
 import (
 	"context"
-	"fmt"
-	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/mysql"
+
+	"gorm.io/gorm"
+
 	"github.com/koderover/zadig/pkg/config"
 	config2 "github.com/koderover/zadig/pkg/microservice/user/config"
 	"github.com/koderover/zadig/pkg/setting"
+	gormtool "github.com/koderover/zadig/pkg/tool/gorm"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"time"
 )
+
+var DB *gorm.DB
+
+type Model struct {
+	CreatedAt int64 `json:"created_at"`
+	UpdatedAt int64 `json:"updated_at"`
+}
 
 func Start(_ context.Context) {
 	log.Init(&log.Config{
@@ -35,64 +42,22 @@ func Start(_ context.Context) {
 		SendToFile:  config.SendLogToFile(),
 		Development: config.Mode() != setting.ReleaseMode,
 	})
-	Setup()
+
+	initDatabase()
+	DB = gormtool.DB(config2.MysqlUserDB())
 }
 
-var DB *gorm.DB
-
-type Model struct {
-	CreatedAt int `json:"created_at"`
-	UpdatedAt int `json:"updated_at"`
-}
-
-// Setup initializes the database instance
-func Setup() {
-	var err error
-	DB, err = gorm.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8&parseTime=True&loc=Local",
-		config2.User(),
-		config2.Password(),
-		config2.Host(),
-		config2.Name()))
+func initDatabase() {
+	err := gormtool.Open(config.MysqlUser(),
+		config.MysqlPassword(),
+		config.MysqlHost(),
+		config2.MysqlUserDB(),
+	)
 	if err != nil {
-		log.Fatalf("models.Setup err: %v", err)
-	}
-
-	gorm.DefaultTableNameHandler = func(db *gorm.DB, defaultTableName string) string {
-		return defaultTableName
-	}
-
-	DB.SingularTable(true)
-	DB.Callback().Create().Replace("gorm:update_time_stamp", updateTimeStampForCreateCallback)
-	DB.Callback().Update().Replace("gorm:update_time_stamp", updateTimeStampForUpdateCallback)
-	DB.DB().SetMaxIdleConns(10)
-	DB.DB().SetMaxOpenConns(100)
-}
-
-// updateTimeStampForCreateCallback will set `CreatedOn`, `ModifiedOn` when creating
-func updateTimeStampForCreateCallback(scope *gorm.Scope) {
-	if !scope.HasError() {
-		nowTime := time.Now().Unix()
-		if createTimeField, ok := scope.FieldByName("CreatedAt"); ok {
-			if createTimeField.IsBlank {
-				createTimeField.Set(nowTime)
-			}
-		}
-
-		if modifyTimeField, ok := scope.FieldByName("UpdatedAt"); ok {
-			if modifyTimeField.IsBlank {
-				modifyTimeField.Set(nowTime)
-			}
-		}
-	}
-}
-
-// updateTimeStampForUpdateCallback will set `ModifiedOn` when updating
-func updateTimeStampForUpdateCallback(scope *gorm.Scope) {
-	if _, ok := scope.Get("gorm:update_column"); !ok {
-		scope.SetColumn("ModifiedOn", time.Now().Unix())
+		log.Panicf("Failed to open database %s", config2.MysqlUserDB())
 	}
 }
 
 func Stop(_ context.Context) {
-	DB.Close()
+	gormtool.Close()
 }
