@@ -34,13 +34,22 @@ func CreateRoleBinding(c *gin.Context) {
 		return
 	}
 
-	args := &service.RoleBinding{}
-	if err := c.ShouldBindJSON(args); err != nil {
-		ctx.Err = err
-		return
+	args := make([]*service.RoleBinding, 0)
+	if c.Query("bulk") == "true" {
+		if err := c.ShouldBindJSON(&args); err != nil {
+			ctx.Err = err
+			return
+		}
+	} else {
+		rb := &service.RoleBinding{}
+		if err := c.ShouldBindJSON(rb); err != nil {
+			ctx.Err = err
+			return
+		}
+		args = append(args, rb)
 	}
 
-	ctx.Err = service.CreateRoleBinding(projectName, args, ctx.Logger)
+	ctx.Err = service.CreateRoleBindings(projectName, args, ctx.Logger)
 }
 
 func ListRoleBindings(c *gin.Context) {
@@ -88,9 +97,9 @@ func CreateSystemRoleBinding(c *gin.Context) {
 		return
 	}
 
-	args.Global = false
+	args.Public = false
 
-	ctx.Err = service.CreateRoleBinding(service.SystemScope, args, ctx.Logger)
+	ctx.Err = service.CreateRoleBindings(service.SystemScope, []*service.RoleBinding{args}, ctx.Logger)
 }
 
 func ListSystemRoleBindings(c *gin.Context) {
