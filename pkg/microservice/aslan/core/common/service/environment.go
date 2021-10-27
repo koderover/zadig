@@ -264,17 +264,18 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	stsWorkloads := make([]*Workload, 0)
 	if services, err := getter.ListServices(namespace, nil, kubeClient); err == nil {
 		for _, service := range services {
+			serviceName := service.Name
 			selector := labels.SelectorFromValidatedSet(service.Spec.Selector)
 			if listDeployments, _ := getter.ListDeployments(namespace, selector, kubeClient); len(listDeployments) > 0 {
 				for _, deploy := range listDeployments {
-					deployWorkloads = append(deployWorkloads, &Workload{Name: deploy.Name, ServiceName: service.Name})
+					deployWorkloads = append(deployWorkloads, &Workload{Name: deploy.Name, ServiceName: serviceName})
 				}
 				continue
 			}
 
 			if listStatefulsets, _ := getter.ListStatefulSets(namespace, selector, kubeClient); len(listStatefulsets) > 0 {
 				for _, sts := range listStatefulsets {
-					stsWorkloads = append(stsWorkloads, &Workload{Name: sts.Name, ServiceName: service.Name})
+					stsWorkloads = append(stsWorkloads, &Workload{Name: sts.Name, ServiceName: serviceName})
 				}
 			}
 		}
