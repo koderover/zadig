@@ -286,7 +286,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		}
 
 		productRespInfo.Ingress = &IngressInfo{
-			HostInfo: findServiceFromIngress(hostInfos, workload, allServices, log),
+			HostInfo: findServiceFromIngress(hostInfos, workload, allServices),
 		}
 
 		resp = append(resp, productRespInfo)
@@ -296,19 +296,24 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	return count, resp, nil
 }
 
-func findServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Workload, allServices []*corev1.Service, log *zap.SugaredLogger) []resource.HostInfo {
+func findServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Workload, allServices []*corev1.Service) []resource.HostInfo {
 	if len(allServices) == 0 || len(hostInfos) == 0 {
 		return []resource.HostInfo{}
 	}
 	serviceName := ""
 	podLabels := labels.Set(currentWorkload.Spec.Labels)
+	fmt.Println(fmt.Sprintf("podLabels:%+v", podLabels))
 	for _, svc := range allServices {
+		if len(svc.Spec.Selector) == 0 {
+			continue
+		}
+		fmt.Println(fmt.Sprintf("svc.Spec.Selector:%+v", svc.Spec.Selector))
 		if labels.SelectorFromValidatedSet(svc.Spec.Selector).Matches(podLabels) {
 			serviceName = svc.Name
 			break
 		}
 	}
-
+	fmt.Println(fmt.Sprintf("serviceName:%+v", serviceName))
 	if serviceName == "" {
 		return []resource.HostInfo{}
 	}
