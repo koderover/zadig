@@ -82,7 +82,7 @@ func SeachUsers(args *QueryArgs, logger *zap.SugaredLogger) (*UsersResp, error) 
 	}
 	userLoginMap := make(map[string]models.UserLogin)
 	for _, userLogin := range *userLogins {
-		userLoginMap[userLogin.Uid] = userLogin
+		userLoginMap[userLogin.UID] = userLogin
 	}
 	var usersInfo []UserInfo
 	for _, user := range users {
@@ -128,7 +128,7 @@ func CreateUser(args *User, logger *zap.SugaredLogger) error {
 	}
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(args.Password), bcrypt.DefaultCost)
 	userLogin := &models.UserLogin{
-		Uid:           user.UID,
+		UID:           user.UID,
 		Password:      string(hashedPassword),
 		LastLoginTime: 0,
 	}
@@ -171,7 +171,7 @@ func UpdatePassword(args *Password, logger *zap.SugaredLogger) error {
 	}
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(args.NewPassword), bcrypt.DefaultCost)
 	userLogin = &models.UserLogin{
-		Uid:      user.UID,
+		UID:      user.UID,
 		Password: string(hashedPassword),
 	}
 	err = orm.UpdateUserLogin(user.UID, userLogin, core.DB)

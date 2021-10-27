@@ -17,22 +17,16 @@ limitations under the License.
 package config
 
 import (
-	"strconv"
 	"strings"
 
 	"github.com/spf13/viper"
 
 	_ "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 func IssuerURL() string {
 	return viper.GetString(setting.ENVIssuerURL)
-}
-
-func Debug() string {
-	return viper.GetString(setting.ENVDebug)
 }
 
 func ClientID() string {
@@ -56,9 +50,5 @@ func MysqlUserDB() string {
 }
 
 func TokenExpiresAt() int {
-	expiresAt, err := strconv.Atoi(viper.GetString(setting.ENVTokenExpiresAt))
-	if err != nil {
-		log.Panic(err)
-	}
-	return expiresAt
+	return viper.GetInt(setting.ENVTokenExpiresAt)
 }

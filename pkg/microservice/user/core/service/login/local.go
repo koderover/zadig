@@ -28,7 +28,7 @@ type User struct {
 	IdentityType string `json:"identityType"`
 }
 
-func InternalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, error) {
+func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, error) {
 	user, err := orm.GetUser(args.Email, config.SystemIdentityType, core.DB)
 	if err != nil {
 		logger.Errorf("InternalLogin get user email:%s error", args.Email)
@@ -53,7 +53,7 @@ func InternalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, error) {
 		return nil, fmt.Errorf("check password error, error msg:%s", err.Error())
 	}
 	userLogin.LastLoginTime = time.Now().Unix()
-	err = orm.UpdateUserLogin(userLogin.Uid, userLogin, core.DB)
+	err = orm.UpdateUserLogin(userLogin.UID, userLogin, core.DB)
 	if err != nil {
 		logger.Errorf("InternalLogin user:%s update user login password error, error msg:%s", args.Email, err.Error())
 		return nil, err

@@ -30,7 +30,7 @@ func Serve(ctx context.Context) error {
 	core.Start(ctx)
 	defer core.Stop(ctx)
 
-	log.Info("Start policy service")
+	log.Info("Start user system service")
 
 	engine := rest.NewEngine()
 	server := &http.Server{Addr: ":80", Handler: engine}

@@ -15,5 +15,5 @@ func LocalLogin(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	ctx.Resp, ctx.Err = login.InternalLogin(args, ctx.Logger)
+	ctx.Resp, ctx.Err = login.LocalLogin(args, ctx.Logger)
 }

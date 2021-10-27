@@ -105,7 +105,6 @@ const (
 
 	// user
 	ENVIssuerURL      = "ISSUER_URL"
-	ENVDebug          = "DEBUG"
 	ENVClientID       = "CLIENT_ID"
 	ENVClientSecret   = "CLIENT_SECRET"
 	ENVRedirectURI    = "REDIRECT_URI"

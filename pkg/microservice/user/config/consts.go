@@ -16,7 +16,11 @@ limitations under the License.
 
 package config
 
+import (
+	"github.com/koderover/zadig/pkg/setting"
+)
+
 const (
-	AppState           = "zadig user"
+	AppState           = setting.ProductName + "user"
 	SystemIdentityType = "system"
 )

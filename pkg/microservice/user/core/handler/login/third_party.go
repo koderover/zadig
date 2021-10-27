@@ -24,7 +24,7 @@ func provider() *oidc.Provider {
 	ctx := oidc.ClientContext(context.Background(), http.DefaultClient)
 	provider, err := oidc.NewProvider(ctx, config.IssuerURL())
 	if err != nil {
-		log.Panic(fmt.Sprintf("init provider error:%s", err))
+		log.Panicf(fmt.Sprintf("init provider error:%s", err))
 	}
 	return provider
 }

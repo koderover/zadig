@@ -30,11 +30,6 @@ import (
 
 var DB *gorm.DB
 
-type Model struct {
-	CreatedAt int64 `json:"created_at"`
-	UpdatedAt int64 `json:"updated_at"`
-}
-
 func Start(_ context.Context) {
 	log.Init(&log.Config{
 		Level:       config.LogLevel(),

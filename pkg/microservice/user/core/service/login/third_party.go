@@ -60,7 +60,7 @@ func SyncUser(syncUserInfo *SyncUserInfo, logger *zap.SugaredLogger) (*models.Us
 		}
 	} else {
 		err = orm.CreateUserLogin(&models.UserLogin{
-			Uid:           user.UID,
+			UID:           user.UID,
 			LastLoginTime: time.Now().Unix(),
 		}, tx)
 		if err != nil {

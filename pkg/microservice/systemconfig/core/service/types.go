@@ -19,7 +19,6 @@ package service
 import (
 	"encoding/json"
 
-	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/dexidp/dex/connector/gitea"
 	"github.com/dexidp/dex/connector/github"
 	"github.com/dexidp/dex/connector/gitlab"
@@ -27,6 +26,7 @@ import (
 	"github.com/dexidp/dex/connector/ldap"
 	"github.com/dexidp/dex/connector/linkedin"
 	"github.com/dexidp/dex/connector/microsoft"
+	"github.com/dexidp/dex/connector/oidc"
 )
 
 type ConnectorType string
