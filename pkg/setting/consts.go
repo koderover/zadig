@@ -166,6 +166,9 @@ const (
 	ClusterNotFound     = "NotFound"
 	ClusterDisconnected = "Disconnected"
 
+	// annotations
+	HelmReleaseNameAnnotation = "meta.helm.sh/release-name"
+
 	EnvCreatedBy              = "createdBy"
 	EnvCreator                = "koderover"
 	PodReady                  = "ready"
@@ -213,12 +216,19 @@ const (
 	SourceFromCodeHub = "codehub"
 	// SourceFromIlyshin 配置来源为ilyshin
 	SourceFromIlyshin = "ilyshin"
+	// SourceFromChartTemplate 配置来源为helmTemplate
+	SourceFromChartTemplate = "chartTemplate"
+	// SourceFromPublicRepo 配置来源为publicRepo
+	SourceFromPublicRepo = "publicRepo"
+
 	// SourceFromGUI 配置来源为gui
 	SourceFromGUI = "gui"
 	//SourceFromHelm
 	SourceFromHelm = "helm"
 	//SourceFromExternal
 	SourceFromExternal = "external"
+	// service from yaml template
+	ServiceSourceTemplate = "template"
 
 	ProdENV = "prod"
 	TestENV = "test"
@@ -472,6 +482,32 @@ const (
 // Aliyun specific stuff
 const (
 	AliyunHost = ".aliyuncs.com"
+)
+
+// Dockerfile parsing consts
+const (
+	DockerfileCmdArg = "ARG"
+)
+
+// Dockerfile template constant
+const (
+	DockerfileSourceLocal    = "local"
+	DockerfileSourceTemplate = "template"
+
+	ZadigDockerfilePath = "zadig-dockerfile"
+)
+
+// Yaml template constant
+const (
+	RegExpParameter = `{{.(\w)+}}`
+)
+
+// template common constant
+const (
+	TemplateVariableProduct            = "$T-Project$"
+	TemplateVariableProductDescription = "项目名称"
+	TemplateVariableService            = "$T-Service$"
+	TemplateVariableServiceDescription = "服务名称"
 )
 
 const MaxTries = 1

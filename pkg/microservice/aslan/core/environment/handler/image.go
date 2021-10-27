@@ -94,26 +94,3 @@ func UpdateDeploymentContainerImage(c *gin.Context) {
 
 	ctx.Err = service.UpdateContainerImage(ctx.RequestID, args, ctx.Logger)
 }
-
-//func UpdateContainerImage(c *gin.Context) {
-//	ctx := internalhandler.NewContext(c)
-//	defer func() { internalhandler.JSONResponse(c, ctx) }()
-//
-//	args := new(service.UpdateContainerImageArgs)
-//	data, err := c.GetRawData()
-//	if err != nil {
-//		log.Errorf("UpdateContainerImage c.GetRawData() err : %v", err)
-//	}
-//	if err = json.Unmarshal(data, args); err != nil {
-//		log.Errorf("UpdateContainerImage json.Unmarshal err : %v", err)
-//	}
-//	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "更新", "集成环境-服务镜像", fmt.Sprintf("环境名称:%s,服务名称:%s", args.EnvName, args.ServiceName), fmt.Sprintf("%s,%s", permission.TestEnvManageUUID, permission.ProdEnvManageUUID), string(data), ctx.Logger)
-//	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
-//
-//	if err := c.BindJSON(args); err != nil {
-//		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-//		return
-//	}
-//
-//	ctx.Err = service.CtrlMgr.UpdateContainerImage(args.EnvName, args.ProductName, args, ctx.Logger)
-//}

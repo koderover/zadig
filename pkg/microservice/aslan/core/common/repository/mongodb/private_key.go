@@ -138,6 +138,7 @@ func (c *PrivateKeyColl) Update(id string, args *models.PrivateKey) error {
 		"label":       args.Label,
 		"is_prod":     args.IsProd,
 		"private_key": args.PrivateKey,
+		"provider":    args.Provider,
 		"update_by":   args.UpdateBy,
 		"update_time": time.Now().Unix(),
 	}}
@@ -158,20 +159,39 @@ func (c *PrivateKeyColl) Delete(id string) error {
 	return err
 }
 
-func (c *PrivateKeyColl) ListHostIPByIDs(ids []string) ([]*models.PrivateKey, error) {
+func (c *PrivateKeyColl) DeleteAll() error {
+	_, err := c.DeleteMany(context.TODO(), bson.M{})
+	return err
+}
+
+type ListHostIPArgs struct {
+	IDs    []string `json:"ids"`
+	Labels []string `json:"labels"`
+}
+
+func (c *PrivateKeyColl) ListHostIPByArgs(args *ListHostIPArgs) ([]*models.PrivateKey, error) {
 	query := bson.M{}
 	resp := make([]*models.PrivateKey, 0)
 	ctx := context.Background()
 
-	var oids []primitive.ObjectID
-	for _, id := range ids {
-		oid, err := primitive.ObjectIDFromHex(id)
-		if err != nil {
-			return nil, err
-		}
-		oids = append(oids, oid)
+	if len(args.IDs) == 0 && len(args.Labels) == 0 {
+		return resp, nil
 	}
-	query["_id"] = bson.M{"$in": oids}
+
+	if len(args.IDs) > 0 {
+		var oids []primitive.ObjectID
+		for _, id := range args.IDs {
+			oid, err := primitive.ObjectIDFromHex(id)
+			if err != nil {
+				return nil, err
+			}
+			oids = append(oids, oid)
+		}
+		query["_id"] = bson.M{"$in": oids}
+	} else if len(args.Labels) > 0 {
+		query["label"] = bson.M{"$in": args.Labels}
+	}
+
 	opt := options.Find()
 	selector := bson.D{
 		{"ip", 1},
@@ -185,6 +205,25 @@ func (c *PrivateKeyColl) ListHostIPByIDs(ids []string) ([]*models.PrivateKey, er
 	err = cursor.All(ctx, &resp)
 	if err != nil {
 		return nil, err
+	}
+
+	return resp, err
+}
+
+// DistinctLabels returns distinct label
+func (c *PrivateKeyColl) DistinctLabels() ([]string, error) {
+	var resp []string
+	query := bson.M{}
+	ctx := context.Background()
+	labels, err := c.Collection.Distinct(ctx, "label", query)
+
+	for _, labelInter := range labels {
+		if label, ok := labelInter.(string); ok {
+			if label == "" {
+				continue
+			}
+			resp = append(resp, label)
+		}
 	}
 
 	return resp, err

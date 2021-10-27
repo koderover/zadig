@@ -479,10 +479,14 @@ func DeleteServiceWebhookByName(serviceName, productName string, logger *zap.Sug
 }
 
 func ProcessServiceWebhook(updated, current *commonmodels.Service, serviceName string, logger *zap.SugaredLogger) {
+	// helm service doesn't support webhook
+	if current != nil && current.Type == setting.HelmDeployType {
+		return
+	}
 	var action string
 	var updatedHooks, currentHooks []*webhook.WebHook
 	if updated != nil {
-		if updated.Source == setting.SourceFromZadig || updated.Source == setting.SourceFromGerrit || updated.Source == "" || updated.Source == setting.SourceFromExternal {
+		if updated.Source == setting.ServiceSourceTemplate || updated.Source == setting.SourceFromZadig || updated.Source == setting.SourceFromGerrit || updated.Source == "" || updated.Source == setting.SourceFromExternal {
 			return
 		}
 		action = "add"
@@ -493,7 +497,7 @@ func ProcessServiceWebhook(updated, current *commonmodels.Service, serviceName s
 		updatedHooks = append(updatedHooks, &webhook.WebHook{Owner: updated.RepoOwner, Repo: updated.RepoName, Address: address, Name: "trigger", CodeHostID: updated.CodehostID})
 	}
 	if current != nil {
-		if current.Source == setting.SourceFromZadig || current.Source == setting.SourceFromGerrit || current.Source == "" || current.Source == setting.SourceFromExternal {
+		if current.Source == setting.ServiceSourceTemplate || current.Source == setting.SourceFromZadig || current.Source == setting.SourceFromGerrit || current.Source == "" || current.Source == setting.SourceFromExternal {
 			return
 		}
 		action = "remove"

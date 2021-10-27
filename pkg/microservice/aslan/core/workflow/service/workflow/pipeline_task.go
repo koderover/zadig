@@ -68,7 +68,9 @@ func CreatePipelineTask(args *commonmodels.TaskArgs, log *zap.SugaredLogger) (*C
 
 	// 如果用户使用预定义编译配置, 则从编译模块配置中生成SubTasks
 	if pipeline.BuildModuleVer != "" {
-		subTasks, err := BuildModuleToSubTasks("", pipeline.Target, "", "", nil, nil, log)
+		subTasks, err := BuildModuleToSubTasks(&commonmodels.BuildModuleArgs{
+			Target: pipeline.Target,
+		}, log)
 		if err != nil {
 			return nil, e.ErrCreateTask.AddErr(err)
 		}

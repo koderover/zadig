@@ -135,6 +135,16 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 		p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, envHostKeysVar)
 	}
 
+	// ARTIFACT
+	if p.Task.JobCtx.FileArchiveCtx != nil {
+		var workspace = "/workspace"
+		if pipelineTask.ConfigPayload.ClassicBuild {
+			workspace = pipelineCtx.Workspace
+		}
+		artifactKeysVar := &task.KeyVal{Key: "ARTIFACT", Value: fmt.Sprintf("%s/%s/%s", workspace, p.Task.JobCtx.FileArchiveCtx.FileLocation, p.Task.JobCtx.FileArchiveCtx.FileName), IsCredential: false}
+		p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, artifactKeysVar)
+	}
+
 	p.KubeNamespace = pipelineTask.ConfigPayload.Build.KubeNamespace
 	for _, repo := range p.Task.JobCtx.Builds {
 		repoName := strings.Replace(repo.RepoName, "-", "_", -1)
@@ -151,6 +161,15 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 		if repo.PR > 0 {
 			prVar := &task.KeyVal{Key: fmt.Sprintf("%s_PR", repoName), Value: strconv.Itoa(repo.PR), IsCredential: false}
 			p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, prVar)
+		}
+
+		if len(repo.CommitID) > 0 {
+			commitVar := &task.KeyVal{
+				Key:          fmt.Sprintf("%s_COMMIT_ID", repoName),
+				Value:        repo.CommitID,
+				IsCredential: false,
+			}
+			p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, commitVar)
 		}
 	}
 

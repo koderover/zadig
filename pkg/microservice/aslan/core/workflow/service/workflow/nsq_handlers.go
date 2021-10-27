@@ -232,21 +232,30 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 							h.log.Errorf("uploadTaskData get buildInfo ToBuildTask failed ! err:%v", err)
 							continue
 						}
-						deliveryArtifact := new(commonmodels.DeliveryArtifact)
-						deliveryArtifact.CreatedBy = pt.TaskCreator
-						deliveryArtifact.CreatedTime = time.Now().Unix()
-						deliveryArtifact.Source = string(config.WorkflowType)
+						deliveryArtifactArray := []*commonmodels.DeliveryArtifact{}
 						if buildInfo.JobCtx.FileArchiveCtx != nil { // file
+							deliveryArtifact := new(commonmodels.DeliveryArtifact)
+							deliveryArtifact.CreatedBy = pt.TaskCreator
+							deliveryArtifact.CreatedTime = time.Now().Unix()
+							deliveryArtifact.Source = string(config.WorkflowType)
 							deliveryArtifact.Name = buildInfo.ServiceName
 							// TODO(Ray) file类型的交付物名称存放在Image和ImageTag字段是不规范的，优化时需要考虑历史数据的兼容问题。
 							deliveryArtifact.Image = buildInfo.JobCtx.FileArchiveCtx.FileName
 							deliveryArtifact.ImageTag = buildInfo.JobCtx.FileArchiveCtx.FileName
 							deliveryArtifact.Type = string(config.File)
 							deliveryArtifact.PackageFileLocation = buildInfo.JobCtx.FileArchiveCtx.FileLocation
-							storageInfo, _ := s3.NewS3StorageFromEncryptedURI(pt.StorageURI)
-							deliveryArtifact.PackageStorageURI = storageInfo.Endpoint
+							if storageInfo, err := s3.NewS3StorageFromEncryptedURI(pt.StorageURI); err == nil {
+								deliveryArtifact.PackageStorageURI = storageInfo.Endpoint + "/" + storageInfo.Bucket
+							}
 
-						} else if buildInfo.ServiceType != setting.PMDeployType { // image
+							deliveryArtifactArray = append(deliveryArtifactArray, deliveryArtifact)
+
+						}
+						if buildInfo.ServiceType != setting.PMDeployType { // image
+							deliveryArtifact := new(commonmodels.DeliveryArtifact)
+							deliveryArtifact.CreatedBy = pt.TaskCreator
+							deliveryArtifact.CreatedTime = time.Now().Unix()
+							deliveryArtifact.Source = string(config.WorkflowType)
 							image := buildInfo.JobCtx.Image
 							imageArray := strings.Split(image, "/")
 							tagArray := strings.Split(imageArray[len(imageArray)-1], ":")
@@ -314,63 +323,66 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 									}
 								}
 							}
+							deliveryArtifactArray = append(deliveryArtifactArray, deliveryArtifact)
 						}
-						tempDeliveryArtifacts, _, _ := h.deliveryArtifactColl.List(&commonrepo.DeliveryArtifactArgs{Name: deliveryArtifact.Name, Type: deliveryArtifact.Type, ImageTag: deliveryArtifact.ImageTag})
-						if len(tempDeliveryArtifacts) == 0 {
-							err = h.deliveryArtifactColl.Insert(deliveryArtifact)
-							if err == nil {
-								deliveryArtifacts = append(deliveryArtifacts, deliveryArtifact)
-								//添加事件
-								deliveryActivity := new(commonmodels.DeliveryActivity)
-								deliveryActivity.Type = setting.BuildType
-								deliveryActivity.ArtifactID = deliveryArtifact.ID
-								deliveryActivity.URL = fmt.Sprintf("/v1/projects/detail/%s/pipelines/multi/%s/%d", pt.ProductName, pt.PipelineName, pt.TaskID)
-								commits := make([]*commonmodels.ActivityCommit, 0)
-								for _, build := range buildInfo.JobCtx.Builds {
-									deliveryCommit := new(commonmodels.ActivityCommit)
-									deliveryCommit.Address = build.Address
-									deliveryCommit.Source = build.Source
-									deliveryCommit.RepoOwner = build.RepoOwner
-									deliveryCommit.RepoName = build.RepoName
-									deliveryCommit.Branch = build.Branch
-									deliveryCommit.Tag = build.Tag
-									deliveryCommit.PR = build.PR
-									deliveryCommit.CommitID = build.CommitID
-									deliveryCommit.CommitMessage = build.CommitMessage
-									deliveryCommit.AuthorName = build.AuthorName
+						for _, deliveryArtifact := range deliveryArtifactArray {
+							tempDeliveryArtifacts, _, _ := h.deliveryArtifactColl.List(&commonrepo.DeliveryArtifactArgs{Name: deliveryArtifact.Name, Type: deliveryArtifact.Type, ImageTag: deliveryArtifact.ImageTag})
+							if len(tempDeliveryArtifacts) == 0 {
+								err = h.deliveryArtifactColl.Insert(deliveryArtifact)
+								if err == nil {
+									deliveryArtifacts = append(deliveryArtifacts, deliveryArtifact)
+									//添加事件
+									deliveryActivity := new(commonmodels.DeliveryActivity)
+									deliveryActivity.Type = setting.BuildType
+									deliveryActivity.ArtifactID = deliveryArtifact.ID
+									deliveryActivity.URL = fmt.Sprintf("/v1/projects/detail/%s/pipelines/multi/%s/%d", pt.ProductName, pt.PipelineName, pt.TaskID)
+									commits := make([]*commonmodels.ActivityCommit, 0)
+									for _, build := range buildInfo.JobCtx.Builds {
+										deliveryCommit := new(commonmodels.ActivityCommit)
+										deliveryCommit.Address = build.Address
+										deliveryCommit.Source = build.Source
+										deliveryCommit.RepoOwner = build.RepoOwner
+										deliveryCommit.RepoName = build.RepoName
+										deliveryCommit.Branch = build.Branch
+										deliveryCommit.Tag = build.Tag
+										deliveryCommit.PR = build.PR
+										deliveryCommit.CommitID = build.CommitID
+										deliveryCommit.CommitMessage = build.CommitMessage
+										deliveryCommit.AuthorName = build.AuthorName
 
-									commits = append(commits, deliveryCommit)
-								}
-								deliveryActivity.Commits = commits
-
-								issueURLs := make([]string, 0)
-								//找到jira这个stage
-								for _, jiraSubStage := range stageArray {
-									if jiraSubStage.TaskType == config.TaskJira {
-										jiraSubBuildTaskMap := jiraSubStage.SubTasks
-										for _, jiraSubTask := range jiraSubBuildTaskMap {
-											jiraInfo, _ := base.ToJiraTask(jiraSubTask)
-											if jiraInfo != nil {
-												for _, issue := range jiraInfo.Issues {
-													issueURLs = append(issueURLs, issue.URL)
-												}
-												break
-											}
-										}
-										break
+										commits = append(commits, deliveryCommit)
 									}
-								}
+									deliveryActivity.Commits = commits
 
-								deliveryActivity.Issues = issueURLs
-								deliveryActivity.CreatedBy = pt.TaskCreator
-								deliveryActivity.CreatedTime = time.Now().Unix()
-								deliveryActivity.StartTime = buildInfo.StartTime
-								deliveryActivity.EndTime = buildInfo.EndTime
+									issueURLs := make([]string, 0)
+									//找到jira这个stage
+									for _, jiraSubStage := range stageArray {
+										if jiraSubStage.TaskType == config.TaskJira {
+											jiraSubBuildTaskMap := jiraSubStage.SubTasks
+											for _, jiraSubTask := range jiraSubBuildTaskMap {
+												jiraInfo, _ := base.ToJiraTask(jiraSubTask)
+												if jiraInfo != nil {
+													for _, issue := range jiraInfo.Issues {
+														issueURLs = append(issueURLs, issue.URL)
+													}
+													break
+												}
+											}
+											break
+										}
+									}
 
-								err = h.deliveryActivityColl.Insert(deliveryActivity)
-								if err != nil {
-									h.log.Errorf("uploadTaskData build deliveryActivityColl insert err:%v", err)
-									continue
+									deliveryActivity.Issues = issueURLs
+									deliveryActivity.CreatedBy = pt.TaskCreator
+									deliveryActivity.CreatedTime = time.Now().Unix()
+									deliveryActivity.StartTime = buildInfo.StartTime
+									deliveryActivity.EndTime = buildInfo.EndTime
+
+									err = h.deliveryActivityColl.Insert(deliveryActivity)
+									if err != nil {
+										h.log.Errorf("uploadTaskData build deliveryActivityColl insert err:%v", err)
+										continue
+									}
 								}
 							}
 						}

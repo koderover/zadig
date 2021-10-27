@@ -30,8 +30,11 @@ func (c *Client) CreateWebHook(owner, repo string) (string, error) {
 		Secret: gitservice.GetHookSecret(),
 		Events: []string{git.PushEvent, git.PullRequestEvent, git.BranchOrTagCreateEvent},
 	})
+	if err != nil {
+		return "", err
+	}
 
-	return strconv.Itoa(projectHook.ID), err
+	return strconv.Itoa(projectHook.ID), nil
 }
 
 func (c *Client) DeleteWebHook(owner, repo, hookID string) error {

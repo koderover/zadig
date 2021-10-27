@@ -195,7 +195,11 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		)
 		serviceInfo, err = p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType, p.Task.ProductName)
 		if err != nil {
-			return
+			// Maybe it is a share service, the entity is not under the project
+			serviceInfo, err = p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType, "")
+			if err != nil {
+				return
+			}
 		}
 		if serviceInfo.WorkloadType == "" {
 			selector := labels.Set{setting.ProductLabel: p.Task.ProductName, setting.ServiceLabel: p.Task.ServiceName}.AsSelector()
@@ -417,8 +421,9 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		serviceValuesYaml := renderChart.ValuesYaml
 
 		// prepare image replace info
-		getValidMatchData := getValidMatchData(targetContainer.ImagePath)
-		replaceValuesMap, err = assignImageData(p.Task.Image, getValidMatchData)
+		validMatchData := getValidMatchData(targetContainer.ImagePath)
+
+		replaceValuesMap, err = assignImageData(p.Task.Image, validMatchData)
 		if err != nil {
 			err = errors.WithMessagef(
 				err,
@@ -624,18 +629,29 @@ func getValidMatchData(spec *types.ImagePathSpec) map[string]string {
 	return ret
 }
 
+// parse image url to map: repo=>xxx/xx/xx image=>xx tag=>xxx
+func resolveImageUrl(imageUrl string) map[string]string {
+	subMatchAll := imageParseRegex.FindStringSubmatch(imageUrl)
+	result := make(map[string]string)
+	exNames := imageParseRegex.SubexpNames()
+	for i, matchedStr := range subMatchAll {
+		if i != 0 && matchedStr != "" && matchedStr != ":" {
+			result[exNames[i]] = matchedStr
+		}
+	}
+	return result
+}
+
 // replace image defines in yaml by new version
 func replaceImage(sourceYaml string, imageValuesMap map[string]interface{}) (string, error) {
 	nestedMap, err := converter.Expand(imageValuesMap)
 	if err != nil {
 		return "", err
 	}
-
 	bs, err := yaml.Marshal(nestedMap)
 	if err != nil {
 		return "", err
 	}
-
 	mergedBs, err := yamlutil.Merge([][]byte{[]byte(sourceYaml), bs})
 	if err != nil {
 		return "", err
@@ -643,7 +659,7 @@ func replaceImage(sourceYaml string, imageValuesMap map[string]interface{}) (str
 	return string(mergedBs), nil
 }
 
-// assign image url data into match data
+// assignImageData assign image url data into match data
 // matchData: image=>absolute-path repo=>absolute-path tag=>absolute-path
 // return: absolute-image-path=>image-value  absolute-repo-path=>repo-value absolute-tag-path=>tag-value
 func assignImageData(imageUrl string, matchData map[string]string) (map[string]interface{}, error) {
@@ -678,28 +694,14 @@ func assignImageData(imageUrl string, matchData map[string]string) (map[string]i
 				break
 			}
 			return ret, nil
-		} else {
-			// image url assigned into repo + image(tag)
-			ret[matchData[setting.PathSearchComponentRepo]] = strings.TrimSuffix(resolvedImageUrl[setting.PathSearchComponentRepo], "/")
-			ret[matchData[setting.PathSearchComponentImage]] = fmt.Sprintf("%s:%s", resolvedImageUrl[setting.PathSearchComponentImage], resolvedImageUrl[setting.PathSearchComponentTag])
-			return ret, nil
 		}
+		// image url assigned into repo + image(tag)
+		ret[matchData[setting.PathSearchComponentRepo]] = strings.TrimSuffix(resolvedImageUrl[setting.PathSearchComponentRepo], "/")
+		ret[matchData[setting.PathSearchComponentImage]] = fmt.Sprintf("%s:%s", resolvedImageUrl[setting.PathSearchComponentImage], resolvedImageUrl[setting.PathSearchComponentTag])
+		return ret, nil
 	}
 
 	return nil, errors.Errorf("match data illegal, expect length: 1-3, actual length: %d", len(matchData))
-}
-
-// parse image url to map: repo=>xxx/xx/xx image=>xx tag=>xxx
-func resolveImageUrl(imageUrl string) map[string]string {
-	subMatchAll := imageParseRegex.FindStringSubmatch(imageUrl)
-	result := make(map[string]string)
-	exNames := imageParseRegex.SubexpNames()
-	for i, matchedStr := range subMatchAll {
-		if i != 0 && matchedStr != "" && matchedStr != ":" {
-			result[exNames[i]] = matchedStr
-		}
-	}
-	return result
 }
 
 // Wait ...
