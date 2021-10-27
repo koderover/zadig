@@ -80,7 +80,8 @@ Please follow [Quick Start](https://docs.koderover.com/zadig/quick-start/try-out
 
 ### Bootcamps
 
-Zadig [bootcamp](https://github.com/koderover/zadig-bootcamp) are designed to expose developers to both the simplicity and depth of the continuous delivery solution. With many Hands-on tips, best practice case study, and demonstrations of typical application scenario,and much more.
+With many hands-on tips, best practices, case studies and demos of typical application scenarios, Zadig [bootcamp](https://github.com/koderover/zadig-bootcamp) is designed to expose developers to the simplicity and the depth of the Zadig continuous delivery solution.
+
 Just follow [Tutorials](https://www.koderover.com/tutorials) to try it step by step.
 
 ### How to make contribution?
