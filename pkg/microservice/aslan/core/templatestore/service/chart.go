@@ -131,20 +131,24 @@ func ListChartTemplates(logger *zap.SugaredLogger) (*ChartTemplateListResp, erro
 	return ret, nil
 }
 
-func GetFileContent(name, filePath, fileName string, logger *zap.SugaredLogger) ([]byte, error) {
+func GetFileContentForTemplate(name, filePath, fileName string, logger *zap.SugaredLogger) ([]byte, error) {
 	chart, err := mongodb.NewChartColl().Get(name)
 	if err != nil {
 		logger.Errorf("Failed to get chart template %s, err: %s", name, err)
 		return nil, err
 	}
 
+	return getFileContent(name, chart.Path, filePath, fileName, logger)
+}
+
+func getFileContent(name, path, filePath, fileName string, logger *zap.SugaredLogger) ([]byte, error) {
 	localBase := configbase.LocalChartTemplatePath(name)
 	s3Base := configbase.ObjectStorageChartTemplatePath(name)
-	if err = fs.PreloadFiles(name, localBase, s3Base, logger); err != nil {
+	if err := fs.PreloadFiles(name, localBase, s3Base, logger); err != nil {
 		return nil, err
 	}
 
-	base := filepath.Base(chart.Path)
+	base := filepath.Base(path)
 	file := filepath.Join(localBase, base, filePath, fileName)
 	fileContent, err := os.ReadFile(file)
 	if err != nil {
@@ -155,8 +159,8 @@ func GetFileContent(name, filePath, fileName string, logger *zap.SugaredLogger) 
 	return fileContent, nil
 }
 
-func parseTemplateVariables(name string, logger *zap.SugaredLogger) ([]string, error) {
-	valueYamlContent, err := GetFileContent(name, "", setting.ValuesYaml, logger)
+func parseTemplateVariables(name, path string, logger *zap.SugaredLogger) ([]string, error) {
+	valueYamlContent, err := getFileContent(name, path, "", setting.ValuesYaml, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read values.yaml")
 	}
@@ -182,7 +186,7 @@ func AddChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *zap.
 		return err
 	}
 
-	variablesNames, err := parseTemplateVariables(name, logger)
+	variablesNames, err := parseTemplateVariables(name, args.Path, logger)
 	if err != nil {
 		return errors.Wrapf(err, "faild to prase variables")
 	}
@@ -224,7 +228,7 @@ func UpdateChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *z
 		return nil
 	}
 
-	variablesNames, err := parseTemplateVariables(name, logger)
+	variablesNames, err := parseTemplateVariables(name, chart.Path, logger)
 	if err != nil {
 		return errors.Wrapf(err, "faild to prase variables")
 	}
