@@ -265,6 +265,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	if services, err := getter.ListServices(namespace, nil, kubeClient); err == nil {
 		for _, service := range services {
 			selector := labels.SelectorFromValidatedSet(service.Spec.Selector)
+			log.Infof("service.Spec.Selector:%+v", service.Spec.Selector)
 			if listDeployments, _ := getter.ListDeployments(namespace, selector, kubeClient); len(listDeployments) > 0 {
 				for _, deploy := range listDeployments {
 					deployWorkloads = append(deployWorkloads, &Workload{Name: deploy.Name, ServiceName: service.Name})
@@ -301,7 +302,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		}
 
 		productRespInfo.Ingress = &IngressInfo{
-			HostInfo: findServiceFromIngress(hostInfos, workload, deployWorkloads, stsWorkloads),
+			HostInfo: findServiceFromIngress(hostInfos, workload, deployWorkloads, stsWorkloads, log),
 		}
 
 		resp = append(resp, productRespInfo)
@@ -312,7 +313,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	return count, resp, nil
 }
 
-func findServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Workload, deployWorkloads []*Workload, stsWorkloads []*Workload) []resource.HostInfo {
+func findServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Workload, deployWorkloads []*Workload, stsWorkloads []*Workload, log *zap.SugaredLogger) []resource.HostInfo {
 	if (len(deployWorkloads) == 0 && len(stsWorkloads) == 0) || len(hostInfos) == 0 {
 		return []resource.HostInfo{}
 	}
@@ -320,6 +321,7 @@ func findServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Work
 	switch currentWorkload.Type {
 	case setting.Deployment:
 		for _, deployWorkload := range deployWorkloads {
+			log.Infof("deployWorkload:%+v", deployWorkload)
 			if deployWorkload.Name == currentWorkload.Name {
 				serviceName = deployWorkload.ServiceName
 				break
@@ -327,11 +329,16 @@ func findServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Work
 		}
 	case setting.StatefulSet:
 		for _, stsWorkload := range stsWorkloads {
+			log.Infof("stsWorkload:%+v", stsWorkload)
 			if stsWorkload.Name == currentWorkload.Name {
 				serviceName = stsWorkload.ServiceName
 				break
 			}
 		}
+	}
+	log.Infof("serviceName:%s", serviceName)
+	if serviceName == "" {
+		return []resource.HostInfo{}
 	}
 
 	resp := make([]resource.HostInfo, 0)
