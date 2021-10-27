@@ -260,27 +260,9 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	}
 
 	// get all services
-	deployWorkloads := make([]*Workload, 0)
-	stsWorkloads := make([]*Workload, 0)
-	if services, err := getter.ListServices(namespace, nil, kubeClient); err == nil {
-		for _, service := range services {
-			if len(service.Spec.Selector) == 0 {
-				continue
-			}
-			selector := labels.SelectorFromValidatedSet(service.Spec.Selector)
-			if listDeployments, _ := getter.ListDeployments(namespace, selector, kubeClient); len(listDeployments) > 0 {
-				for _, deploy := range listDeployments {
-					deployWorkloads = append(deployWorkloads, &Workload{Name: deploy.Name, ServiceName: service.Name})
-				}
-				continue
-			}
-
-			if listStatefulsets, _ := getter.ListStatefulSets(namespace, selector, kubeClient); len(listStatefulsets) > 0 {
-				for _, sts := range listStatefulsets {
-					stsWorkloads = append(stsWorkloads, &Workload{Name: sts.Name, ServiceName: service.Name})
-				}
-			}
-		}
+	allServices, err := getter.ListServices(namespace, nil, kubeClient)
+	if err != nil {
+		log.Errorf("[%s][%s] list service error: %s", envName, namespace, err)
 	}
 
 	for _, workload := range workLoads {
@@ -304,7 +286,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		}
 
 		productRespInfo.Ingress = &IngressInfo{
-			HostInfo: findServiceFromIngress(hostInfos, workload, deployWorkloads, stsWorkloads, log),
+			HostInfo: findServiceFromIngress(hostInfos, workload, allServices, log),
 		}
 
 		resp = append(resp, productRespInfo)
@@ -314,25 +296,16 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	return count, resp, nil
 }
 
-func findServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Workload, deployWorkloads []*Workload, stsWorkloads []*Workload, log *zap.SugaredLogger) []resource.HostInfo {
-	if (len(deployWorkloads) == 0 && len(stsWorkloads) == 0) || len(hostInfos) == 0 {
+func findServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Workload, allServices []*corev1.Service, log *zap.SugaredLogger) []resource.HostInfo {
+	if len(allServices) == 0 || len(hostInfos) == 0 {
 		return []resource.HostInfo{}
 	}
 	serviceName := ""
-	switch currentWorkload.Type {
-	case setting.Deployment:
-		for _, deployWorkload := range deployWorkloads {
-			if deployWorkload.Name == currentWorkload.Name {
-				serviceName = deployWorkload.ServiceName
-				break
-			}
-		}
-	case setting.StatefulSet:
-		for _, stsWorkload := range stsWorkloads {
-			if stsWorkload.Name == currentWorkload.Name {
-				serviceName = stsWorkload.ServiceName
-				break
-			}
+	podLabels := labels.Set(currentWorkload.Spec.Labels)
+	for _, svc := range allServices {
+		if labels.SelectorFromValidatedSet(svc.Spec.Selector).Matches(podLabels) {
+			serviceName = svc.Name
+			break
 		}
 	}
 
