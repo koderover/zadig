@@ -824,7 +824,7 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 		); err == nil {
 			if serviceTmpl.BuildName != "" {
 				updateTargets := make([]*commonmodels.ServiceModuleTarget, 0)
-				if preBuild, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: serviceTmpl.BuildName, Version: "stable", ProductName: productName}); err == nil {
+				if preBuild, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: serviceTmpl.BuildName, ProductName: productName}); err == nil {
 					for _, target := range preBuild.Targets {
 						if target.ServiceName != serviceName {
 							updateTargets = append(updateTargets, target)
@@ -878,7 +878,7 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 		if serviceType == setting.HelmDeployType && productTempl.OnboardingStatus != 0 {
 			envNames := []string{"dev", "qa"}
 			for _, envName := range envNames {
-				rendersetName := commonservice.GetProductEnvNamespace(envName, productName)
+				rendersetName := commonservice.GetProductEnvNamespace(envName, productName, "")
 				err := removeServiceFromRenderset(productName, rendersetName, serviceName)
 				if err != nil {
 					log.Warnf("failed to update renderset: %s when deleting service: %s, err: %s", rendersetName, serviceName, err.Error())

@@ -137,7 +137,6 @@ func JenkinsBuildModuleToSubTasks(jenkinsBuildOption *JenkinsBuildOption, log *z
 	)
 
 	opt := &commonrepo.BuildListOption{
-		Version:     jenkinsBuildOption.Version,
 		ServiceName: jenkinsBuildOption.ServiceName,
 		ProductName: jenkinsBuildOption.ProductName,
 	}

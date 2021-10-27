@@ -68,7 +68,7 @@ func CreatePipelineTask(args *commonmodels.TaskArgs, log *zap.SugaredLogger) (*C
 
 	// 如果用户使用预定义编译配置, 则从编译模块配置中生成SubTasks
 	if pipeline.BuildModuleVer != "" {
-		subTasks, err := BuildModuleToSubTasks("", pipeline.BuildModuleVer, pipeline.Target, "", "", nil, nil, log)
+		subTasks, err := BuildModuleToSubTasks("", pipeline.Target, "", "", nil, nil, log)
 		if err != nil {
 			return nil, e.ErrCreateTask.AddErr(err)
 		}
@@ -385,7 +385,7 @@ func RestartPipelineTaskV2(userName string, taskID int64, pipelineName string, t
 				subBuildTaskMap := subStage.SubTasks
 				for serviceModule, subTask := range subBuildTaskMap {
 					if buildInfo, err := base.ToBuildTask(subTask); err == nil {
-						if newModules, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{Version: "stable", Targets: []string{serviceModule}, ServiceName: buildInfo.Service, ProductName: t.ProductName}); err == nil {
+						if newModules, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{Targets: []string{serviceModule}, ServiceName: buildInfo.Service, ProductName: t.ProductName}); err == nil {
 							newBuildInfo := newModules[0]
 							buildInfo.JobCtx.BuildSteps = []*task.BuildStep{}
 							if newBuildInfo.Scripts != "" {

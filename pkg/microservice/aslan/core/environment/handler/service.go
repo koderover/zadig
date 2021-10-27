@@ -26,7 +26,6 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 func GetService(c *gin.Context) {
@@ -50,14 +49,14 @@ func RestartService(c *gin.Context) {
 		ServiceName: c.Param("serviceName"),
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "重启", "集成环境-服务", fmt.Sprintf("环境名称:%s,服务名称:%s", c.Query("envName"), c.Param("serviceName")), fmt.Sprintf("%s,%s", permission.TestEnvManageUUID, permission.ProdEnvManageUUID), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "重启", "集成环境-服务", fmt.Sprintf("环境名称:%s,服务名称:%s", c.Query("envName"), c.Param("serviceName")), "", ctx.Logger)
 	ctx.Err = service.RestartService(args.EnvName, args, ctx.Logger)
 }
 
 func UpdateService(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "更新", "集成环境-单服务", fmt.Sprintf("环境名称:%s,服务名称:%s", c.Query("envName"), c.Param("serviceName")), fmt.Sprintf("%s,%s", permission.TestEnvManageUUID, permission.ProdEnvManageUUID), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "更新", "集成环境-单服务", fmt.Sprintf("环境名称:%s,服务名称:%s", c.Query("envName"), c.Param("serviceName")), "", ctx.Logger)
 
 	svcRev := new(service.SvcRevision)
 	if err := c.BindJSON(svcRev); err != nil {
@@ -97,7 +96,6 @@ func RestartNewService(c *gin.Context) {
 		fmt.Sprintf(
 			"环境名称:%s,服务名称:%s,%s:%s", args.EnvName, args.ServiceName, args.Type, args.Name,
 		),
-		fmt.Sprintf("%s,%s", permission.TestEnvManageUUID, permission.ProdEnvManageUUID),
 		"", ctx.Logger,
 	)
 
@@ -123,7 +121,7 @@ func ScaleNewService(c *gin.Context) {
 		"伸缩",
 		"集成环境-服务",
 		fmt.Sprintf("环境名称:%s,%s:%s", args.EnvName, args.Type, args.Name),
-		fmt.Sprintf("%s,%s", permission.TestEnvManageUUID, permission.ProdEnvManageUUID), "", ctx.Logger)
+		"", ctx.Logger)
 
 	number, err := strconv.Atoi(c.Param("number"))
 	if err != nil {
@@ -144,7 +142,7 @@ func ScaleNewService(c *gin.Context) {
 func ScaleService(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "伸缩", "集成环境-服务", fmt.Sprintf("环境名称:%s,服务名称:%s", c.Query("envName"), c.Param("serviceName")), fmt.Sprintf("%s,%s", permission.TestEnvManageUUID, permission.ProdEnvManageUUID), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "伸缩", "集成环境-服务", fmt.Sprintf("环境名称:%s,服务名称:%s", c.Query("envName"), c.Param("serviceName")), "", ctx.Logger)
 
 	number, err := strconv.Atoi(c.Param("number"))
 	if err != nil {

@@ -33,7 +33,6 @@ import (
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 func GetWorkflowTaskProductName(c *gin.Context) {
@@ -98,7 +97,7 @@ func CreateWorkflowTask(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateWorkflowTask json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductTmplName, "新增", "工作流-task", args.WorkflowName, permission.WorkflowTaskUUID, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductTmplName, "新增", "工作流-task", args.WorkflowName, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
@@ -131,7 +130,7 @@ func CreateArtifactWorkflowTask(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateArtifactWorkflowTask json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductTmplName, "新增", "工作流-task", args.WorkflowName, permission.WorkflowTaskUUID, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductTmplName, "新增", "工作流-task", args.WorkflowName, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
@@ -189,7 +188,7 @@ func GetWorkflowTask(c *gin.Context) {
 func RestartWorkflowTask(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	internalhandler.InsertOperationLog(c, ctx.Username, c.GetString("productName"), "重启", "工作流-task", c.Param("name"), permission.WorkflowTaskUUID, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, c.GetString("productName"), "重启", "工作流-task", c.Param("name"), "", ctx.Logger)
 
 	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -203,7 +202,7 @@ func RestartWorkflowTask(c *gin.Context) {
 func CancelWorkflowTaskV2(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	internalhandler.InsertOperationLog(c, ctx.Username, c.GetString("productName"), "取消", "工作流-task", c.Param("name"), permission.WorkflowTaskUUID, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Username, c.GetString("productName"), "取消", "工作流-task", c.Param("name"), "", ctx.Logger)
 
 	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {

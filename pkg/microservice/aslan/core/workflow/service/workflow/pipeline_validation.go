@@ -548,7 +548,6 @@ func prepareTaskEnvs(pt *task.Task, log *zap.SugaredLogger) []*commonmodels.KeyV
 	// 设置编译模块参数化配置信息
 	if pt.BuildModuleVer != "" {
 		opt := &commonrepo.BuildFindOption{
-			Version:     pt.BuildModuleVer,
 			Targets:     []string{pt.Target},
 			ProductName: pt.ProductName,
 		}
