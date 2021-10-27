@@ -268,6 +268,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 			selector := labels.SelectorFromValidatedSet(service.Spec.Selector)
 			if listDeployments, _ := getter.ListDeployments(namespace, selector, kubeClient); len(listDeployments) > 0 {
 				for _, deploy := range listDeployments {
+					log.Infof("k8s serviceName:%s", serviceName)
 					deployWorkloads = append(deployWorkloads, &Workload{Name: deploy.Name, ServiceName: serviceName})
 				}
 				continue
