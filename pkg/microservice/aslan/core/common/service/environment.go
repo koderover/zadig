@@ -294,7 +294,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 }
 
 func findServiceFromIngress(ingressM map[string][]resource.HostInfo, services []*corev1.Service) []resource.HostInfo {
-	if len(services) == 0 {
+	if len(services) == 0 || len(ingressM) == 0 {
 		return []resource.HostInfo{}
 	}
 	serviceNames := sets.NewString()
