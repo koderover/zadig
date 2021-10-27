@@ -302,18 +302,15 @@ func findServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Work
 	}
 	serviceName := ""
 	podLabels := labels.Set(currentWorkload.Spec.Labels)
-	fmt.Println(fmt.Sprintf("podLabels:%+v", podLabels))
 	for _, svc := range allServices {
 		if len(svc.Spec.Selector) == 0 {
 			continue
 		}
-		fmt.Println(fmt.Sprintf("svc.Spec.Selector:%+v", svc.Spec.Selector))
 		if labels.SelectorFromValidatedSet(svc.Spec.Selector).Matches(podLabels) {
 			serviceName = svc.Name
 			break
 		}
 	}
-	fmt.Println(fmt.Sprintf("serviceName:%+v", serviceName))
 	if serviceName == "" {
 		return []resource.HostInfo{}
 	}
