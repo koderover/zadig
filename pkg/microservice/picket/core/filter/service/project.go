@@ -23,6 +23,10 @@ func ListProjects(header http.Header, qs url.Values, logger *zap.SugaredLogger) 
 		return nil, err
 	}
 
+	if len(names) == 0 {
+		return []byte("[]"), nil
+	}
+
 	for _, name := range names {
 		qs.Add("names", name)
 	}

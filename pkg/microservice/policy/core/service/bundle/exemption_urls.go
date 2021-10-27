@@ -54,7 +54,7 @@ var publicURLs = []*policyRule{
 	},
 	{
 		Methods:   []string{"GET"},
-		Endpoints: []string{"", "signin", "setup", "loading", "static/**"},
+		Endpoints: []string{"", "signin", "setup", "loading", "static/**", "v1/**", "mobile/**", "productpipelines/**"},
 	},
 	{
 		Methods:   []string{"GET"},
