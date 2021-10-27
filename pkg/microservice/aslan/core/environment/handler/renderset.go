@@ -17,19 +17,13 @@ limitations under the License.
 package handler
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
-
-	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 func GetServiceRenderCharts(c *gin.Context) {
@@ -93,56 +87,11 @@ func GetYamlContent(c *gin.Context) {
 	}
 
 	pathArr := strings.Split(c.Query("valuesPaths"), ",")
-
-	contentArr := make([][]byte, 0)
-
 	var (
-		fileContentMap sync.Map
-		wg             sync.WaitGroup
-		owner          = c.Query("owner")
-		repo           = c.Query("repo")
-		branch         = c.Query("branch")
-		repoLink       = c.Query("repoLink")
+		owner    = c.Query("owner")
+		repo     = c.Query("repo")
+		branch   = c.Query("branch")
+		repoLink = c.Query("repoLink")
 	)
-
-	for i, filePath := range pathArr {
-		wg.Add(1)
-		go func(index int, path string) {
-			defer wg.Done()
-			fileContent, errDownload := fsservice.DownloadFileFromSource(
-				&fsservice.DownloadFromSourceArgs{
-					CodehostID: codehostID,
-					Owner:      owner,
-					Repo:       repo,
-					Path:       path,
-					Branch:     branch,
-					RepoLink:   repoLink,
-				})
-			if errDownload != nil {
-				err = errors.Wrapf(errDownload, fmt.Sprintf("fail to download file from git, path %s", path))
-				return
-			}
-			fileContentMap.Store(index, fileContent)
-		}(i, filePath)
-	}
-	wg.Wait()
-
-	if err != nil {
-		ctx.Err = err
-		return
-	}
-
-	allValueYamls := make([][]byte, len(pathArr), len(pathArr))
-	for i := 0; i < len(pathArr); i++ {
-		contentObj, _ := fileContentMap.Load(i)
-		allValueYamls[i] = contentObj.([]byte)
-		contentArr = append(contentArr, contentObj.([]byte))
-	}
-	ret, err := yamlutil.Merge(contentArr)
-	if err != nil {
-		ctx.Err = fmt.Errorf("failed to merge files, err %s", err)
-		return
-	}
-
-	ctx.Resp = string(ret)
+	ctx.Resp, ctx.Err = service.GetMergedYamlContent(codehostID, owner, repo, branch, repoLink, pathArr)
 }

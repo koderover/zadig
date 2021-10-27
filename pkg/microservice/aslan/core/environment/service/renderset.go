@@ -19,6 +19,9 @@ package service
 import (
 	"fmt"
 	"strings"
+	"sync"
+
+	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
@@ -27,6 +30,8 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
+	"github.com/pkg/errors"
 )
 
 type DefaultValuesResp struct {
@@ -107,4 +112,48 @@ func GetDefaultValues(productName, envName string, log *zap.SugaredLogger) (*Def
 	}
 	ret.DefaultValues = rendersetObj.DefaultValues
 	return ret, nil
+}
+
+func GetMergedYamlContent(codehostID int, owner, repo, branch, repoLink string, paths []string) (string, error) {
+	var (
+		fileContentMap sync.Map
+		wg             sync.WaitGroup
+		err            error
+	)
+	for i, filePath := range paths {
+		wg.Add(1)
+		go func(index int, path string) {
+			defer wg.Done()
+			fileContent, errDownload := fsservice.DownloadFileFromSource(
+				&fsservice.DownloadFromSourceArgs{
+					CodehostID: codehostID,
+					Owner:      owner,
+					Repo:       repo,
+					Path:       path,
+					Branch:     branch,
+					RepoLink:   repoLink,
+				})
+			if errDownload != nil {
+				err = errors.Wrapf(errDownload, fmt.Sprintf("fail to download file from git, path %s", path))
+				return
+			}
+			fileContentMap.Store(index, fileContent)
+		}(i, filePath)
+	}
+	wg.Wait()
+
+	if err != nil {
+		return "", err
+	}
+
+	contentArr := make([][]byte, 0, len(paths))
+	for i := 0; i < len(paths); i++ {
+		contentObj, _ := fileContentMap.Load(i)
+		contentArr = append(contentArr, contentObj.([]byte))
+	}
+	ret, err := yamlutil.Merge(contentArr)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to merge files")
+	}
+	return string(ret), nil
 }
