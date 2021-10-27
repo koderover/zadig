@@ -275,7 +275,7 @@ func updateContainerForHelmChart(serviceName, resType, image, containerName stri
 	targetChart.ValuesYaml = replacedValuesYaml
 
 	// merge override values and kvs into service's yaml
-	mergedValuesYaml, err = helmtool.MergeOverrideValues(replacedValuesYaml, targetChart.GetOverrideYaml(), targetChart.OverrideValues)
+	mergedValuesYaml, err = helmtool.MergeOverrideValues(replacedValuesYaml, renderSet.DefaultValues, targetChart.GetOverrideYaml(), targetChart.OverrideValues)
 	if err != nil {
 		return err
 	}

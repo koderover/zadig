@@ -17,15 +17,13 @@ limitations under the License.
 package handler
 
 import (
-	"encoding/json"
+	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
-
-	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 func GetServiceRenderCharts(c *gin.Context) {
@@ -45,7 +43,7 @@ func GetServiceRenderCharts(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GetRenderCharts(c.Query("productName"), c.Query("envName"), c.Query("serviceName"), ctx.Logger)
 }
 
-func CreateOrUpdateRenderChart(c *gin.Context) {
+func GetProductDefaultValues(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -59,17 +57,41 @@ func CreateOrUpdateRenderChart(c *gin.Context) {
 		return
 	}
 
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("CreateOrUpdateRenderChart c.GetRawData() err : %v", err)
+	ctx.Resp, ctx.Err = service.GetDefaultValues(c.Query("productName"), c.Query("envName"), ctx.Logger)
+}
+
+func GetYamlContent(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	var err error
+	codehostID := 0
+
+	codehostIDStr := c.Query("codehostID")
+	if len(codehostIDStr) > 0 {
+		codehostID, err = strconv.Atoi(codehostIDStr)
+		if err != nil {
+			ctx.Err = e.ErrInvalidParam.AddDesc("cannot convert codehost id to int")
+			return
+		}
 	}
 
-	args := new(commonservice.RenderChartArg)
-	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("CreateOrUpdateRenderChart json.Unmarshal err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+	if codehostID == 0 && len(c.Query("repoLink")) == 0 {
+		ctx.Err = e.ErrInvalidParam.AddDesc("neither codehost nor repo link is specified")
+		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "新增", "环境变量", c.Query("envName"), string(data), ctx.Logger)
 
-	ctx.Err = service.CreateOrUpdateChartValues(c.Query("productName"), c.Query("envName"), args, ctx.Username, ctx.RequestID, ctx.Logger)
+	if len(c.Query("valuesPaths")) == 0 {
+		ctx.Err = e.ErrInvalidParam.AddDesc("paths can't be empty")
+		return
+	}
+
+	pathArr := strings.Split(c.Query("valuesPaths"), ",")
+	var (
+		owner    = c.Query("owner")
+		repo     = c.Query("repo")
+		branch   = c.Query("branch")
+		repoLink = c.Query("repoLink")
+	)
+	ctx.Resp, ctx.Err = service.GetMergedYamlContent(codehostID, owner, repo, branch, repoLink, pathArr)
 }

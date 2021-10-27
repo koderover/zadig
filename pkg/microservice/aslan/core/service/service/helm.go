@@ -266,21 +266,6 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 		values = append(values, templateChartInfo.DefaultValuesYAML)
 	}
 
-	for _, path := range templateArgs.ValuesPaths {
-		v, err := fsservice.DownloadFileFromSource(&fsservice.DownloadFromSourceArgs{
-			CodehostID: templateArgs.CodehostID,
-			Owner:      templateArgs.Owner,
-			Repo:       templateArgs.Repo,
-			Path:       path,
-			Branch:     templateArgs.Branch,
-		})
-		if err != nil {
-			return err
-		}
-
-		values = append(values, v)
-	}
-
 	if len(templateArgs.ValuesYAML) > 0 {
 		values = append(values, []byte(templateArgs.ValuesYAML))
 	}
@@ -324,13 +309,8 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 			FilePath:         to,
 			ProductName:      projectName,
 			CreateBy:         args.CreatedBy,
-			CodehostID:       templateArgs.CodehostID,
-			Owner:            templateArgs.Owner,
-			Repo:             templateArgs.Repo,
-			Branch:           templateArgs.Branch,
 			Source:           setting.SourceFromChartTemplate,
 			HelmTemplateName: templateArgs.TemplateName,
-			ValuePaths:       templateArgs.ValuesPaths,
 			ValuesYaml:       templateArgs.ValuesYAML,
 		},
 		logger,
@@ -689,24 +669,8 @@ func geneCreationDetail(args *helmServiceCreationArgs) interface{} {
 			LoadPath: args.FilePath,
 		}
 	case setting.SourceFromChartTemplate:
-		var yamlData *template.CustomYaml
-		if args.CodehostID > 0 {
-			yamlData = &template.CustomYaml{
-				YamlSource:  setting.ValuesYamlSourceGitRepo,
-				YamlContent: "",
-				GitRepoConfig: &templatemodels.GitRepoConfig{
-					CodehostID: args.CodehostID,
-					Owner:      args.Owner,
-					Repo:       args.Repo,
-					Branch:     args.Branch,
-				},
-				ValuesPaths: args.ValuePaths,
-			}
-		} else if len(args.ValuesYaml) > 0 {
-			yamlData = &template.CustomYaml{
-				YamlSource:  setting.ValuesYamlSourceFreeEdit,
-				YamlContent: args.ValuesYaml,
-			}
+		yamlData := &template.CustomYaml{
+			YamlContent: args.ValuesYaml,
 		}
 
 		return &models.CreateFromChartTemplate{
