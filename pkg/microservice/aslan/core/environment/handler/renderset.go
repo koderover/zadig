@@ -105,11 +105,11 @@ func GetYamlContent(c *gin.Context) {
 		repoLink       = c.Query("repoLink")
 	)
 
-	for index, filePath := range pathArr {
+	for i, filePath := range pathArr {
 		wg.Add(1)
 		go func(index int, path string) {
 			defer wg.Done()
-			fileContent, err1 := fsservice.DownloadFileFromSource(
+			fileContent, errDownload := fsservice.DownloadFileFromSource(
 				&fsservice.DownloadFromSourceArgs{
 					CodehostID: codehostID,
 					Owner:      owner,
@@ -118,12 +118,12 @@ func GetYamlContent(c *gin.Context) {
 					Branch:     branch,
 					RepoLink:   repoLink,
 				})
-			if err1 != nil {
-				err = errors.Errorf("fail to download file from git, err: %s, path: %s", err1, path)
+			if errDownload != nil {
+				err = errors.Wrapf(errDownload, fmt.Sprintf("fail to download file from git, path %s", path))
 				return
 			}
 			fileContentMap.Store(index, fileContent)
-		}(index, filePath)
+		}(i, filePath)
 	}
 	wg.Wait()
 

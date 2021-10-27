@@ -85,7 +85,12 @@ func GetDefaultValues(productName, envName string, log *zap.SugaredLogger) (*Def
 		return ret, nil
 	}
 	if err != nil {
+		log.Errorf("faild to query product info, productName %s envName %s err %s", productName, envName, err)
 		return nil, fmt.Errorf("faild to query product info, productName %s envName %s", productName, envName)
+	}
+
+	if productInfo.Render == nil {
+		return nil, fmt.Errorf("invalid product, nil render data")
 	}
 
 	opt := &commonrepo.RenderSetFindOption{
@@ -94,6 +99,7 @@ func GetDefaultValues(productName, envName string, log *zap.SugaredLogger) (*Def
 	}
 	rendersetObj, existed, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
 	if err != nil {
+		log.Errorf("faild to query renderset info, envName %s err %s", productInfo.Render.Name, err)
 		return nil, err
 	}
 	if !existed {

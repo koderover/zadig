@@ -311,8 +311,7 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 			CreateBy:         args.CreatedBy,
 			Source:           setting.SourceFromChartTemplate,
 			HelmTemplateName: templateArgs.TemplateName,
-			//ValuePaths:       templateArgs.ValuesPaths,
-			ValuesYaml: templateArgs.ValuesYAML,
+			ValuesYaml:       templateArgs.ValuesYAML,
 		},
 		logger,
 	)

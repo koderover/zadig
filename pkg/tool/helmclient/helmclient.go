@@ -52,7 +52,7 @@ type KV struct {
 func MergeOverrideValues(valuesYaml, defaultValues, overrideYaml, overrideValues string) (string, error) {
 
 	// merge files for helm -f option
-	// precedence from low to high: defaultValues valuesYaml overrideYaml
+	// precedence from low to high: valuesYaml defaultValues overrideYaml
 	valuesMap, err := yamlutil.MergeAndUnmarshal([][]byte{[]byte(valuesYaml), []byte(defaultValues), []byte(overrideYaml)})
 	if err != nil {
 		return "", err
