@@ -196,6 +196,20 @@ func CreateSystemRole(c *gin.Context) {
 	ctx.Err = service.CreateRole("*", args, ctx.Logger)
 }
 
+func UpdateOrCreateSystemRole(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := &service.Role{}
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = err
+		return
+	}
+	name := c.Param("name")
+	args.Name = name
+	ctx.Err = service.UpdateOrCreateRole("*", args, ctx.Logger)
+}
+
 func ListSystemRoles(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
