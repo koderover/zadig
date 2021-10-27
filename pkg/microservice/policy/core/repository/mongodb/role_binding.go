@@ -116,3 +116,18 @@ func (c *RoleBindingColl) Create(obj *models.RoleBinding) error {
 
 	return err
 }
+
+func (c *RoleBindingColl) BulkCreate(objs []*models.RoleBinding) error {
+	if len(objs) == 0 {
+		return nil
+	}
+
+	var ois []interface{}
+	for _, obj := range objs {
+		ois = append(ois, obj)
+	}
+
+	_, err := c.InsertMany(context.TODO(), ois)
+
+	return err
+}

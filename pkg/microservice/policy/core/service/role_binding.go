@@ -29,36 +29,23 @@ type RoleBinding struct {
 	Name   string `json:"name"`
 	UID    string `json:"uid"`
 	Role   string `json:"role"`
-	Global bool   `json:"global"`
+	Public bool   `json:"public"`
 }
 
 const SystemScope = "*"
 
-func CreateRoleBinding(ns string, rb *RoleBinding, logger *zap.SugaredLogger) error {
-	nsRole := ns
-	if rb.Global {
-		nsRole = ""
-	}
-	role, found, err := mongodb.NewRoleColl().Get(nsRole, rb.Role)
-	if err != nil {
-		logger.Errorf("Failed to get role %s in namespace %s, err: %s", rb.Role, nsRole, err)
-		return err
-	} else if !found {
-		logger.Errorf("Role %s is not found in namespace %s", rb.Role, nsRole)
-		return fmt.Errorf("role %s not found", rb.Role)
+func CreateRoleBindings(ns string, rbs []*RoleBinding, logger *zap.SugaredLogger) error {
+	var objs []*models.RoleBinding
+	for _, rb := range rbs {
+		obj, err := createRoleBindingObject(ns, rb, logger)
+		if err != nil {
+			return err
+		}
+
+		objs = append(objs, obj)
 	}
 
-	obj := &models.RoleBinding{
-		Name:      rb.Name,
-		Namespace: ns,
-		Subjects:  []*models.Subject{{Kind: models.UserKind, UID: rb.UID}},
-		RoleRef: &models.RoleRef{
-			Name:      role.Name,
-			Namespace: role.Namespace,
-		},
-	}
-
-	return mongodb.NewRoleBindingColl().Create(obj)
+	return mongodb.NewRoleBindingColl().BulkCreate(objs)
 }
 
 func ListRoleBindings(ns, uid string, _ *zap.SugaredLogger) ([]*RoleBinding, error) {
@@ -73,7 +60,7 @@ func ListRoleBindings(ns, uid string, _ *zap.SugaredLogger) ([]*RoleBinding, err
 			Name:   v.Name,
 			Role:   v.RoleRef.Name,
 			UID:    v.Subjects[0].UID,
-			Global: v.Namespace == "",
+			Public: v.Namespace == "",
 		})
 	}
 
@@ -82,4 +69,29 @@ func ListRoleBindings(ns, uid string, _ *zap.SugaredLogger) ([]*RoleBinding, err
 
 func DeleteRoleBinding(name string, projectName string, _ *zap.SugaredLogger) error {
 	return mongodb.NewRoleBindingColl().Delete(name, projectName)
+}
+
+func createRoleBindingObject(ns string, rb *RoleBinding, logger *zap.SugaredLogger) (*models.RoleBinding, error) {
+	nsRole := ns
+	if rb.Public {
+		nsRole = ""
+	}
+	role, found, err := mongodb.NewRoleColl().Get(nsRole, rb.Role)
+	if err != nil {
+		logger.Errorf("Failed to get role %s in namespace %s, err: %s", rb.Role, nsRole, err)
+		return nil, err
+	} else if !found {
+		logger.Errorf("Role %s is not found in namespace %s", rb.Role, nsRole)
+		return nil, fmt.Errorf("role %s not found", rb.Role)
+	}
+
+	return &models.RoleBinding{
+		Name:      rb.Name,
+		Namespace: ns,
+		Subjects:  []*models.Subject{{Kind: models.UserKind, UID: rb.UID}},
+		RoleRef: &models.RoleRef{
+			Name:      role.Name,
+			Namespace: role.Namespace,
+		},
+	}, nil
 }
