@@ -61,5 +61,5 @@ func GetTestArtifactInfo(pipelineName, dir string, taskID int64, log *zap.Sugare
 		_, fileName := path.Split(file)
 		resp = append(resp, fileName)
 	}
-	return files, nil
+	return resp, nil
 }
