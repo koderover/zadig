@@ -38,7 +38,7 @@ type RoleBinding struct {
 	Name   string
 	User   string
 	Role   setting.RoleType
-	Global bool
+	Public bool
 }
 
 func (c *Client) CreateRoleBinding(projectName string, roleBinding *RoleBinding) error {

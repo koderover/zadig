@@ -510,12 +510,11 @@ func ForkProduct(username, requestID string, args *template.ForkProject, log *za
 		CreateBy:  username,
 		UpdateBy:  username,
 	}
-	policyClient := policy.New()
-	err = policyClient.CreateRoleBinding(args.ProductName, &policy.RoleBinding{
+	err = policy.NewDefault().CreateRoleBinding(args.ProductName, &policy.RoleBinding{
 		Name:   fmt.Sprintf(setting.ContributorRoleBindingFmt, args.ProductName, username),
 		User:   username,
 		Role:   setting.Contributor,
-		Global: true,
+		Public: true,
 	})
 	if err != nil {
 		log.Error("rolebinding error")

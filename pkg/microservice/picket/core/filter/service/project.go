@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -10,10 +11,30 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/picket/client/aslan"
 	"github.com/koderover/zadig/pkg/microservice/picket/client/opa"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/policy"
 )
 
 type allowedProjectsData struct {
 	Result []string `json:"result"`
+}
+
+func CreateProject(header http.Header,body []byte,projectName string,public bool, logger *zap.SugaredLogger)([]byte, error){
+	// role binding
+	if public{
+		err := policy.NewDefault().CreateRoleBinding(projectName, &policy.RoleBinding{
+			Name:   fmt.Sprintf(setting.ReadOnlyRoleBindingFmt, projectName, setting.ReadOnly),
+			User:   "*",
+			Role:   setting.ReadOnly,
+			Public: true,
+		})
+		logger.Error(err)
+	}
+
+	res, err :=  aslan.New().CreateProject(header,body,projectName)
+	if err !=nil {
+		policy.NewDefault().DeleteRoleBinding(fmt.Sprintf(setting.ReadOnlyRoleBindingFmt, projectName, setting.ReadOnly),projectName)
+	}
+	return res,err
 }
 
 func ListProjects(header http.Header, qs url.Values, logger *zap.SugaredLogger) ([]byte, error) {
