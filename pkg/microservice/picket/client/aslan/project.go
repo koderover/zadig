@@ -1,7 +1,6 @@
 package aslan
 
 import (
-	"fmt"
 	"net/http"
 	"net/url"
 
@@ -19,8 +18,8 @@ func (c *Client) ListProjects(header http.Header, qs url.Values) ([]byte, error)
 	return res.Body(), nil
 }
 
-func (c *Client) CreateProject(header http.Header, body []byte, projectName string) ([]byte, error) {
-	url := fmt.Sprintf("/project/products/%s", projectName)
+func (c *Client) CreateProject(header http.Header, body []byte) ([]byte, error) {
+	url := "/project/products"
 	res, err := c.Post(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetBody(body))
 	if err != nil {
 		return nil, err

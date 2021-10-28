@@ -498,7 +498,8 @@ type RoleType string
 const (
 	Contributor RoleType = "contributor"
 	ReadOnly    RoleType = "readonly"
-	RoleBindFmt string   = "userid:%s-role:%s"
+	//scope is in {namespaced, public, system}
+	RoleBindingNameFmt string = "user:%s,role:%s,project:%s"
 )
 
 // ModernWorkflowType 自由编排工作流

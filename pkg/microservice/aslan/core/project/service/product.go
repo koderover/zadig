@@ -511,7 +511,7 @@ func ForkProduct(username, userid, requestID string, args *template.ForkProject,
 		UpdateBy:  username,
 	}
 	err = policy.NewDefault().CreateRoleBinding(args.ProductName, &policy.RoleBinding{
-		Name:   fmt.Sprintf(setting.RoleBindFmt, args.ProductName, userid),
+		Name:   fmt.Sprintf(setting.RoleBindingNameFmt, args.ProductName, userid, args.ProductName),
 		User:   userid,
 		Role:   setting.Contributor,
 		Public: true,
@@ -534,7 +534,7 @@ func UnForkProduct(userID string, username, productName, workflowName, envName, 
 	}
 
 	policyClient := policy.New()
-	err := policyClient.DeleteRoleBinding(fmt.Sprintf(setting.RoleBindFmt, userID, setting.Contributor), productName)
+	err := policyClient.DeleteRoleBinding(fmt.Sprintf(setting.RoleBindingNameFmt, userID, setting.Contributor, productName), productName)
 	if err != nil {
 		log.Error("rolebinding delete error")
 		return e.ErrForkProduct
