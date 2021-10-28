@@ -96,7 +96,7 @@ type Chart struct {
 type helmServiceCreationArgs struct {
 	ChartName        string
 	ChartVersion     string
-	ValuesYAML       string
+	MergedValues     string
 	ServiceName      string
 	FilePath         string
 	ProductName      string
@@ -304,7 +304,7 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 		&helmServiceCreationArgs{
 			ChartName:        templateChartInfo.ChartName,
 			ChartVersion:     templateChartInfo.ChartVersion,
-			ValuesYAML:       string(merged),
+			MergedValues:     string(merged),
 			ServiceName:      args.Name,
 			FilePath:         to,
 			ProductName:      projectName,
@@ -403,7 +403,7 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 					if err != nil {
 						return serviceName, err
 					}
-					valuesYAML, _, err = readValuesYAML(afero.NewIOFS(chartTree), filepath.Base(filePath), log)
+					valuesYAML, err = readValuesYAML(afero.NewIOFS(chartTree), filepath.Base(filePath), log)
 					return serviceName, err
 				})
 			if err != nil {
@@ -426,7 +426,7 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 				&helmServiceCreationArgs{
 					ChartName:    serviceName,
 					ChartVersion: chartVersion,
-					ValuesYAML:   string(valuesYAML),
+					MergedValues: string(valuesYAML),
 					ServiceName:  serviceName,
 					FilePath:     filePath,
 					ProductName:  projectName,
@@ -591,7 +591,7 @@ func handleSingleService(projectName string, repoConfig *commonservice.RepoConfi
 		&helmServiceCreationArgs{
 			ChartName:        templateChartData.ChartName,
 			ChartVersion:     templateChartData.ChartVersion,
-			ValuesYAML:       string(mergedValues),
+			MergedValues:     string(mergedValues),
 			ServiceName:      serviceName,
 			FilePath:         to,
 			ProductName:      projectName,
@@ -631,20 +631,13 @@ func readChartYAML(chartTree fs.FS, base string, logger *zap.SugaredLogger) (str
 	return chart.Name, chart.Version, nil
 }
 
-func readValuesYAML(chartTree fs.FS, base string, logger *zap.SugaredLogger) ([]byte, map[string]interface{}, error) {
+func readValuesYAML(chartTree fs.FS, base string, logger *zap.SugaredLogger) ([]byte, error) {
 	content, err := fs.ReadFile(chartTree, filepath.Join(base, setting.ValuesYaml))
 	if err != nil {
 		logger.Errorf("Failed to read %s, err: %s", setting.ValuesYaml, err)
-		return nil, nil, err
+		return nil, err
 	}
-
-	valuesMap := make(map[string]interface{})
-	if err = yaml.Unmarshal(content, &valuesMap); err != nil {
-		logger.Errorf("Failed to unmarshal yaml %s, err: %s", setting.ValuesYaml, err)
-		return nil, nil, err
-	}
-
-	return content, valuesMap, nil
+	return content, nil
 }
 
 func geneCreationDetail(args *helmServiceCreationArgs) interface{} {
@@ -689,12 +682,13 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 		return nil, err
 	}
 
-	values, valuesMap, err := readValuesYAML(fsTree, args.ServiceName, logger)
+	valuesYaml := args.ValuesYaml
+	valuesMap := make(map[string]interface{})
+	err = yaml.Unmarshal([]byte(valuesYaml), &valuesMap)
 	if err != nil {
-		logger.Errorf("Failed to read values.yaml, err %s", err)
+		logger.Errorf("Failed to unmarshall yaml, err %s", err)
 		return nil, err
 	}
-	valuesYaml := string(values)
 
 	serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceName, args.ProductName)
 	rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
