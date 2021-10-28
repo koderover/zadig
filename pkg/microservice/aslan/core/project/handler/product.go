@@ -182,7 +182,7 @@ func ForkProduct(c *gin.Context) {
 		return
 	}
 	args.ProductName = c.Param("productName")
-	ctx.Err = projectservice.ForkProduct(ctx.UserName, ctx.RequestID, args, ctx.Logger)
+	ctx.Err = projectservice.ForkProduct(ctx.UserName, ctx.UserID, ctx.RequestID, args, ctx.Logger)
 }
 
 func UnForkProduct(c *gin.Context) {

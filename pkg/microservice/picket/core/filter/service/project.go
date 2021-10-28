@@ -20,19 +20,22 @@ type allowedProjectsData struct {
 
 func CreateProject(header http.Header, body []byte, projectName string, public bool, logger *zap.SugaredLogger) ([]byte, error) {
 	// role binding
+	roleBindingName := fmt.Sprintf(setting.RoleBindFmt, "*", setting.ReadOnly)
 	if public {
+
 		err := policy.NewDefault().CreateRoleBinding(projectName, &policy.RoleBinding{
-			Name:   fmt.Sprintf(setting.ReadOnlyRoleBindingFmt, projectName, setting.ReadOnly),
+			Name:   roleBindingName,
 			User:   "*",
 			Role:   setting.ReadOnly,
 			Public: true,
 		})
-		logger.Error(err)
+		logger.Errorf("create rolebinding: %s err: %s", roleBindingName, err)
 	}
 
 	res, err := aslan.New().CreateProject(header, body, projectName)
 	if err != nil {
-		policy.NewDefault().DeleteRoleBinding(fmt.Sprintf(setting.ReadOnlyRoleBindingFmt, projectName, setting.ReadOnly), projectName)
+		policy.NewDefault().DeleteRoleBinding(roleBindingName, projectName)
+		logger.Errorf("delete rolebinding: %s err: %s", roleBindingName, err)
 	}
 	return res, err
 }
