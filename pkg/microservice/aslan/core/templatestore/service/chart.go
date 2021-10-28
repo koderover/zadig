@@ -38,7 +38,8 @@ import (
 )
 
 var (
-	variableExtractRegexp = regexp.MustCompile("\\$(.*?)\\$")
+	//variableExtractRegexp = regexp.MustCompile("\\$(.*?)\\$")
+	variableExtractRegexp = regexp.MustCompile("{{.(\\w*)}}")
 )
 
 type ChartTemplateListResp struct {
@@ -167,7 +168,7 @@ func parseTemplateVariables(name, path string, logger *zap.SugaredLogger) ([]str
 	strSet := sets.NewString()
 	allMatches := variableExtractRegexp.FindAllStringSubmatch(string(valueYamlContent), -1)
 	for _, match := range allMatches {
-		if len(match) < 1 {
+		if len(match) < 2 {
 			continue
 		}
 		strSet.Insert(match[1:]...)

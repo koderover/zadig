@@ -17,13 +17,17 @@ limitations under the License.
 package service
 
 import (
+	"bytes"
 	"fmt"
+	"html/template"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
+
+	//"text/template"
 
 	"github.com/27149chen/afero"
 	"github.com/hashicorp/go-multierror"
@@ -36,7 +40,7 @@ import (
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+	templatedata "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
@@ -266,7 +270,12 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 
 	var values [][]byte
 	if len(templateChartInfo.DefaultValuesYAML) > 0 {
-		values = append(values, templateChartInfo.DefaultValuesYAML)
+		//render variables
+		renderedYaml, err := renderVariablesToYaml(string(templateChartInfo.DefaultValuesYAML), projectName, args.Name, templateArgs.Variables)
+		if err != nil {
+			return err
+		}
+		values = append(values, []byte(renderedYaml))
 	}
 
 	if len(templateArgs.ValuesYAML) > 0 {
@@ -662,7 +671,7 @@ func geneCreationDetail(args *helmServiceCreationArgs) interface{} {
 			LoadPath: args.FilePath,
 		}
 	case setting.SourceFromChartTemplate:
-		yamlData := &template.CustomYaml{
+		yamlData := &templatedata.CustomYaml{
 			YamlContent: args.ValuesYaml,
 		}
 		variables := make([]*models.Variable, 0, len(args.Variables))
@@ -682,16 +691,26 @@ func geneCreationDetail(args *helmServiceCreationArgs) interface{} {
 	return nil
 }
 
-func renderVariablesToYaml(valuesYaml string, productName, serviceName string, variables []*Variable) string {
+func renderVariablesToYaml(valuesYaml string, productName, serviceName string, variables []*Variable) (string, error) {
 	valuesYaml = strings.Replace(valuesYaml, setting.TemplateVariableProduct, productName, -1)
 	valuesYaml = strings.Replace(valuesYaml, setting.TemplateVariableService, serviceName, -1)
-	variableFormatter := func(rawName string) string {
-		return fmt.Sprintf("$%s$", rawName)
-	}
+
+	// build replace data
+	valuesMap := make(map[string]interface{})
 	for _, variable := range variables {
-		valuesYaml = strings.Replace(valuesYaml, variableFormatter(variable.Key), variable.Value, -1)
+		valuesMap[variable.Key] = variable.Value
 	}
-	return valuesYaml
+
+	tmpl := template.Must(template.New("values").Parse(valuesYaml))
+	buf := bytes.NewBufferString("")
+
+	err := tmpl.Execute(buf, valuesMap)
+	if err != nil {
+		log.Errorf("failed to render values content, err %s", err)
+		return "", fmt.Errorf("failed to render variables")
+	}
+	valuesYaml = buf.String()
+	return valuesYaml, nil
 }
 
 func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logger *zap.SugaredLogger) (*models.Service, error) {
@@ -701,16 +720,13 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 		return nil, err
 	}
 
-	valuesYaml := args.ValuesYaml
+	valuesYaml := args.MergedValues
 	valuesMap := make(map[string]interface{})
 	err = yaml.Unmarshal([]byte(valuesYaml), &valuesMap)
 	if err != nil {
 		logger.Errorf("Failed to unmarshall yaml, err %s", err)
 		return nil, err
 	}
-
-	//render variables
-	valuesYaml = renderVariablesToYaml(valuesYaml, args.ProductName, args.ServiceName, args.Variables)
 
 	serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceName, args.ProductName)
 	rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
