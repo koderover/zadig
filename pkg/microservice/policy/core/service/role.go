@@ -121,8 +121,13 @@ func GetRole(ns, name string, _ *zap.SugaredLogger) (*Role, error) {
 	return res, nil
 }
 
-func DeleteRole(name string, projectName string, _ *zap.SugaredLogger) error {
-	return mongodb.NewRoleColl().Delete(name, projectName)
+func DeleteRole(name string, projectName string, logger *zap.SugaredLogger) error {
+	err := mongodb.NewRoleColl().Delete(name, projectName)
+	if err != nil {
+		logger.Errorf("Failed to delete role %s in project %s, err: %s", name, projectName, err)
+	}
+
+	return mongodb.NewRoleBindingColl().DeleteByRole(name, projectName)
 }
 
 func DeleteRoles(names []string, projectName string, _ *zap.SugaredLogger) error {
