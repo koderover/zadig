@@ -937,6 +937,7 @@ func GetArtifactFileContent(pipelineName string, taskID int64, log *zap.SugaredL
 	}
 
 	for _, artifactFile := range artifactFiles {
+		log.Infof("artifactFile:%+v", artifactFile)
 		artifactFileArr := strings.Split(artifactFile, "/")
 		if len(artifactFileArr) > 1 {
 			artifactFileName := artifactFileArr[len(artifactFileArr)-1]
