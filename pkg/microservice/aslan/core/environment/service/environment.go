@@ -1166,7 +1166,7 @@ func prepareEstimatedData(productName, envName, serviceName, scene, defaultValue
 	})
 	if err != nil {
 		log.Errorf("failed to query service, name %s, err %s", serviceName, err)
-		return "", "", fmt.Errorf("faild to query service, name %s", serviceName)
+		return "", "", fmt.Errorf("failed to query service, name %s", serviceName)
 	}
 
 	if scene == "createEnv" {
@@ -1178,7 +1178,7 @@ func prepareEstimatedData(productName, envName, serviceName, scene, defaultValue
 		EnvName: envName,
 	})
 	if err != nil {
-		return "", "", fmt.Errorf("faild to query product info, name %s", envName)
+		return "", "", fmt.Errorf("failed to query product info, name %s", envName)
 	}
 
 	// find chart info from cur render set
@@ -1186,7 +1186,7 @@ func prepareEstimatedData(productName, envName, serviceName, scene, defaultValue
 	renderSet, err := mongodb.NewRenderSetColl().Find(opt)
 	if err != nil {
 		log.Errorf("renderset Find error, productName:%s, envName:%s, err:%s", productInfo.ProductName, productInfo.EnvName, err)
-		return "", "", fmt.Errorf("faild to query renderset info, name %s", productInfo.Render.Name)
+		return "", "", fmt.Errorf("failed to query renderset info, name %s", productInfo.Render.Name)
 	}
 
 	var targetChart *templatemodels.RenderChart
@@ -1198,7 +1198,7 @@ func prepareEstimatedData(productName, envName, serviceName, scene, defaultValue
 	}
 
 	if targetChart == nil {
-		return "", "", fmt.Errorf("faild to find chart info, name: %s", serviceName)
+		return "", "", fmt.Errorf("failed to find chart info, name: %s", serviceName)
 	}
 
 	if scene == "updateEnv" {
@@ -1213,7 +1213,7 @@ func prepareEstimatedData(productName, envName, serviceName, scene, defaultValue
 		// merge environment values
 		mergedBs, err := overrideValues([]byte(targetChart.ValuesYaml), []byte(templateService.HelmChart.ValuesYaml), imageRelatedKey)
 		if err != nil {
-			return "", "", errors.Wrapf(err, "faild to override values")
+			return "", "", errors.Wrapf(err, "failed to override values")
 		}
 		return string(mergedBs), renderSet.DefaultValues, nil
 	} else if scene == "updateRenderSet" {

@@ -21,8 +21,6 @@ import (
 	"strings"
 	"sync"
 
-	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
-
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -30,6 +28,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 	"github.com/pkg/errors"
 )
@@ -90,8 +89,8 @@ func GetDefaultValues(productName, envName string, log *zap.SugaredLogger) (*Def
 		return ret, nil
 	}
 	if err != nil {
-		log.Errorf("faild to query product info, productName %s envName %s err %s", productName, envName, err)
-		return nil, fmt.Errorf("faild to query product info, productName %s envName %s", productName, envName)
+		log.Errorf("failed to query product info, productName %s envName %s err %s", productName, envName, err)
+		return nil, fmt.Errorf("failed to query product info, productName %s envName %s", productName, envName)
 	}
 
 	if productInfo.Render == nil {
@@ -104,7 +103,7 @@ func GetDefaultValues(productName, envName string, log *zap.SugaredLogger) (*Def
 	}
 	rendersetObj, existed, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
 	if err != nil {
-		log.Errorf("faild to query renderset info, envName %s err %s", productInfo.Render.Name, err)
+		log.Errorf("failed to query renderset info, name %s err %s", productInfo.Render.Name, err)
 		return nil, err
 	}
 	if !existed {
