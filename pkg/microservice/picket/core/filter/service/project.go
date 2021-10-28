@@ -18,9 +18,9 @@ type allowedProjectsData struct {
 	Result []string `json:"result"`
 }
 
-func CreateProject(header http.Header,body []byte,projectName string,public bool, logger *zap.SugaredLogger)([]byte, error){
+func CreateProject(header http.Header, body []byte, projectName string, public bool, logger *zap.SugaredLogger) ([]byte, error) {
 	// role binding
-	if public{
+	if public {
 		err := policy.NewDefault().CreateRoleBinding(projectName, &policy.RoleBinding{
 			Name:   fmt.Sprintf(setting.ReadOnlyRoleBindingFmt, projectName, setting.ReadOnly),
 			User:   "*",
@@ -30,11 +30,11 @@ func CreateProject(header http.Header,body []byte,projectName string,public bool
 		logger.Error(err)
 	}
 
-	res, err :=  aslan.New().CreateProject(header,body,projectName)
-	if err !=nil {
-		policy.NewDefault().DeleteRoleBinding(fmt.Sprintf(setting.ReadOnlyRoleBindingFmt, projectName, setting.ReadOnly),projectName)
+	res, err := aslan.New().CreateProject(header, body, projectName)
+	if err != nil {
+		policy.NewDefault().DeleteRoleBinding(fmt.Sprintf(setting.ReadOnlyRoleBindingFmt, projectName, setting.ReadOnly), projectName)
 	}
-	return res,err
+	return res, err
 }
 
 func ListProjects(header http.Header, qs url.Values, logger *zap.SugaredLogger) ([]byte, error) {
