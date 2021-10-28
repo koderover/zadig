@@ -950,7 +950,8 @@ func GetArtifactFileContent(pipelineName string, taskID int64, log *zap.SugaredL
 			}()
 
 			objectKey := s3Storage.GetObjectPath(artifactFile)
-			err = client.Download(s3Storage.Bucket, objectKey, file.Name())
+			log.Infof("objectKey:%s", objectKey)
+			err = client.Download(s3Storage.Bucket, artifactFile, file.Name())
 			if err != nil {
 				return nil, fmt.Errorf("failed to download %s %v", artifactFile, err)
 			}
