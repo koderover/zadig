@@ -212,8 +212,7 @@ func (c *Client) ListFiles(bucketName, prefix string, recursive bool) ([]string,
 	for _, item := range output.Contents {
 		itemKey := *item.Key
 		_, fileName := path.Split(itemKey)
-		fmt.Println(fmt.Sprintf("itemKey:%+v,fileName:%s", itemKey, fileName))
-		ret = append(ret, itemKey)
+		ret = append(ret, fileName)
 	}
 
 	return ret, nil
