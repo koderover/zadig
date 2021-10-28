@@ -96,16 +96,10 @@ type DeliverySecurityStatsInfo struct {
 func ListDeliveryVersion(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	//params validate
-	orgIDStr := c.Query("orgId")
-	orgID, err := strconv.Atoi(orgIDStr)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("orgId can't be empty!")
-		return
-	}
 
 	taskIDStr := c.Query("taskId")
 	var taskID = 0
+	var err error
 	if taskIDStr != "" {
 		taskID, err = strconv.Atoi(taskIDStr)
 		if err != nil {
@@ -143,7 +137,6 @@ func ListDeliveryVersion(c *gin.Context) {
 	serviceName := c.Query("serviceName")
 
 	version := new(commonrepo.DeliveryVersionArgs)
-	version.OrgID = orgID
 	version.ProductName = c.Query("projectName")
 	version.WorkflowName = c.Query("workflowName")
 	version.TaskID = taskID
@@ -286,15 +279,8 @@ type DeliveryFileInfo struct {
 func ListPackagesVersion(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	//params validate
-	orgIDStr := c.Query("orgId")
-	orgID, err := strconv.Atoi(orgIDStr)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("orgId can't be empty!")
-		return
-	}
+
 	version := &commonrepo.DeliveryVersionArgs{
-		OrgID:       orgID,
 		ProductName: c.Query("projectName"),
 	}
 	deliveryVersions, err := deliveryservice.FindDeliveryVersion(version, ctx.Logger)
@@ -383,12 +369,5 @@ func ListDeliveryServiceNames(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	productName := c.Query("projectName")
-	orgIDStr := c.Query("orgId")
-	orgID, err := strconv.Atoi(orgIDStr)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("orgId can't be empty!")
-		return
-	}
-
-	ctx.Resp, ctx.Err = deliveryservice.ListDeliveryServiceNames(orgID, productName, ctx.Logger)
+	ctx.Resp, ctx.Err = deliveryservice.ListDeliveryServiceNames(productName, ctx.Logger)
 }
