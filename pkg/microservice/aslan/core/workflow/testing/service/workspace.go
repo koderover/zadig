@@ -55,7 +55,7 @@ func GetTestArtifactInfo(pipelineName, dir string, taskID int64, log *zap.Sugare
 		log.Errorf("GetTestArtifactInfo ListFiles err:%v", err)
 		return fis, nil
 	}
-	resp := make([]string, len(files))
+	resp := make([]string, 0)
 	for _, file := range files {
 		_, fileName := path.Split(file)
 		resp = append(resp, fileName)
