@@ -633,7 +633,6 @@ func CreateHelmProduct(userName, requestID string, args *CreateHelmProductArg, l
 	productObj := &commonmodels.Product{
 		ProductName:     args.ProductName,
 		Revision:        1,
-		Enabled:         false,
 		EnvName:         args.EnvName,
 		UpdateBy:        userName,
 		IsPublic:        true,

@@ -247,7 +247,6 @@ func (c *ProductColl) Update(productName string, args *template.Product) error {
 		"teams":                 args.Teams,
 		"enabled":               args.Enabled,
 		"description":           args.Description,
-		"visibility":            args.Visibility,
 		"user_ids":              args.UserIDs,
 		"team_id":               args.TeamID,
 		"timeout":               args.Timeout,
