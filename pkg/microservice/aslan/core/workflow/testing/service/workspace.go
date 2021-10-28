@@ -33,7 +33,7 @@ func GetTestArtifactInfo(pipelineName, dir string, taskID int64, log *zap.Sugare
 	storage, err := s3.FindDefaultS3()
 	if err != nil {
 		log.Errorf("GetTestArtifactInfo FindDefaultS3 err:%v", err)
-		return fis, nil
+		return fis, err
 	}
 	if storage.Subfolder != "" {
 		storage.Subfolder = fmt.Sprintf("%s/%s/%d/%s", storage.Subfolder, pipelineName, taskID, "artifact")
@@ -47,13 +47,13 @@ func GetTestArtifactInfo(pipelineName, dir string, taskID int64, log *zap.Sugare
 	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
 	if err != nil {
 		log.Errorf("GetTestArtifactInfo create s3 client err:%v", err)
-		return fis, nil
+		return fis, err
 	}
 	prefix := storage.GetObjectPath(dir)
 	files, err := client.ListFiles(storage.Bucket, prefix, true)
 	if err != nil || len(files) <= 0 {
 		log.Errorf("GetTestArtifactInfo ListFiles err:%v", err)
-		return fis, nil
+		return fis, err
 	}
 	resp := make([]string, 0)
 	for _, file := range files {
