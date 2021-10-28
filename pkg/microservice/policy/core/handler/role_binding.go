@@ -24,6 +24,10 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
+type deleteRoleBindingsArgs struct {
+	Names []string `json:"names"`
+}
+
 func CreateRoleBinding(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -77,6 +81,25 @@ func DeleteRoleBinding(c *gin.Context) {
 	}
 
 	ctx.Err = service.DeleteRoleBinding(name, projectName, ctx.Logger)
+}
+
+func DeleteRoleBindings(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("args projectName can't be empty")
+		return
+	}
+
+	args := &deleteRoleBindingsArgs{}
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Err = service.DeleteRoleBindings(args.Names, projectName, ctx.Logger)
 }
 
 func DeleteSystemRoleBinding(c *gin.Context) {

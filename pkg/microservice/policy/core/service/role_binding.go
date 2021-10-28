@@ -71,6 +71,18 @@ func DeleteRoleBinding(name string, projectName string, _ *zap.SugaredLogger) er
 	return mongodb.NewRoleBindingColl().Delete(name, projectName)
 }
 
+func DeleteRoleBindings(names []string, projectName string, _ *zap.SugaredLogger) error {
+	if len(names) == 0 {
+		return nil
+	}
+
+	if names[0] == "*" {
+		names = []string{}
+	}
+
+	return mongodb.NewRoleBindingColl().DeleteMany(names, projectName)
+}
+
 func createRoleBindingObject(ns string, rb *RoleBinding, logger *zap.SugaredLogger) (*models.RoleBinding, error) {
 	nsRole := ns
 	if rb.Public {
