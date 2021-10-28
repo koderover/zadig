@@ -926,7 +926,10 @@ func GePackageFileContent(pipelineName string, taskID int64, log *zap.SugaredLog
 }
 
 func GetArtifactFileContent(pipelineName string, taskID int64, log *zap.SugaredLogger) ([]byte, error) {
-	s3Storage, client, artifactFiles, _ := GetS3AndClient(pipelineName, "", taskID, log)
+	s3Storage, client, artifactFiles, err := GetS3AndClient(pipelineName, "", taskID, log)
+	if err != nil {
+		return nil, fmt.Errorf("download artifact err: %s", err)
+	}
 	tempDir, _ := ioutil.TempDir("", "")
 	sourcePath := path.Join(tempDir, "artifact")
 	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
@@ -941,7 +944,9 @@ func GetArtifactFileContent(pipelineName string, taskID int64, log *zap.SugaredL
 			if err != nil {
 				return nil, fmt.Errorf("failed to create file %s %v", artifactFileName, err)
 			}
-			defer file.Close()
+			defer func() {
+				_ = file.Close()
+			}()
 
 			objectKey := s3Storage.GetObjectPath(artifactFile)
 			err = client.Download(s3Storage.Bucket, objectKey, file.Name())
@@ -953,13 +958,13 @@ func GetArtifactFileContent(pipelineName string, taskID int64, log *zap.SugaredL
 	//将该目录压缩
 	goCacheManager := new(GoCacheManager)
 	artifactTarFileName := path.Join(sourcePath, "artifact.tar.gz")
-	err := goCacheManager.Archive(sourcePath, artifactTarFileName)
+	err = goCacheManager.Archive(sourcePath, artifactTarFileName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to Archive %s %v", sourcePath, err)
 	}
 	defer func() {
-		_ = os.Remove(artifactTarFileName)
-		_ = os.Remove(tempDir)
+		//_ = os.Remove(artifactTarFileName)
+		//_ = os.Remove(tempDir)
 	}()
 
 	fileBytes, err := ioutil.ReadFile(path.Join(sourcePath, "artifact.tar.gz"))
@@ -972,7 +977,7 @@ func GetS3AndClient(pipelineName, dir string, taskID int64, log *zap.SugaredLogg
 	storage, err := s3.FindDefaultS3()
 	if err != nil {
 		log.Errorf("GetTestArtifactInfo FindDefaultS3 err:%v", err)
-		return nil, nil, fis, nil
+		return nil, nil, fis, err
 	}
 
 	if storage.Subfolder != "" {
@@ -987,13 +992,13 @@ func GetS3AndClient(pipelineName, dir string, taskID int64, log *zap.SugaredLogg
 	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
 	if err != nil {
 		log.Errorf("GetTestArtifactInfo Create S3 client err:%+v", err)
-		return nil, nil, fis, nil
+		return nil, nil, fis, err
 	}
 	prefix := storage.GetObjectPath(dir)
 	files, err := client.ListFiles(storage.Bucket, prefix, true)
 	if err != nil || len(files) <= 0 {
 		log.Errorf("GetTestArtifactInfo ListFiles err:%v", err)
-		return nil, nil, fis, nil
+		return nil, nil, fis, err
 	}
 	return storage, client, files, nil
 }
