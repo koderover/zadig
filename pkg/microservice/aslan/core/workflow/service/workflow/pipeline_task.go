@@ -933,7 +933,9 @@ func GetArtifactFileContent(pipelineName string, taskID int64, log *zap.SugaredL
 		_ = os.MkdirAll(sourcePath, 0777)
 	}
 
+	log.Infof("len(artifactFiles):%d", len(artifactFiles))
 	for _, artifactFile := range artifactFiles {
+		log.Infof("artifactFile:%s", artifactFile)
 		artifactFileArr := strings.Split(artifactFile, "/")
 		if len(artifactFileArr) > 1 {
 			artifactFileName := artifactFileArr[len(artifactFileArr)-1]
