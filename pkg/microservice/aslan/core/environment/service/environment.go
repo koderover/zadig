@@ -2776,8 +2776,8 @@ func updateProductGroup(username, productName, envName, updateType string, produ
 					ReleaseName: util.GeneHelmReleaseName(namespace, serviceName),
 					Namespace:   namespace,
 					Wait:        true,
-					Force:       true,
-					Timeout:     Timeout * time.Second * 10,
+					//Force:       true,
+					//Timeout:     Timeout * time.Second * 10,
 				}); err != nil {
 					log.Errorf("helm uninstall release %s err:%v", fmt.Sprintf("%s-%s", namespace, serviceName), err)
 				}
@@ -2804,6 +2804,7 @@ func updateProductGroup(username, productName, envName, updateType string, produ
 	}
 
 	errList := new(multierror.Error)
+	sIndex := 0
 	for groupIndex, services := range productResp.Services {
 		var wg sync.WaitGroup
 		for _, svc := range services {
@@ -2816,6 +2817,8 @@ func updateProductGroup(username, productName, envName, updateType string, produ
 			if !svcNameSet.Has(svc.ServiceName) {
 				continue
 			}
+
+			index := sIndex
 
 			wg.Add(1)
 			go func(service *commonmodels.ProductService) {
@@ -2835,12 +2838,17 @@ func updateProductGroup(username, productName, envName, updateType string, produ
 					return
 				}
 
-				err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderSet.DefaultValues, serviceObj, Timeout*time.Second*10, helmClient)
+				//TODO for little optimize
+				time.Sleep(time.Millisecond * 1500 * time.Duration(index))
+
+				//err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderSet.DefaultValues, serviceObj, Timeout*time.Second*10, helmClient)
+				err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderSet.DefaultValues, serviceObj, 0, helmClient)
 				if err != nil {
 					errList = multierror.Append(errList, err)
 					return
 				}
 			}(svc)
+			sIndex++
 		}
 
 		wg.Wait()
@@ -3048,6 +3056,7 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 	}
 
 	errList := new(multierror.Error)
+	sIndex := 0
 	for groupIndex, services := range productResp.Services {
 		var wg sync.WaitGroup
 		groupServices := make([]*commonmodels.ProductService, 0)
@@ -3066,14 +3075,21 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 					continue
 				}
 				wg.Add(1)
+				index := sIndex
 				go func(tmpRenderChart *template.RenderChart, currentService *commonmodels.Service) {
 					defer wg.Done()
-					err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderset.DefaultValues, currentService, Timeout*time.Second*10, helmClient)
+					//err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderset.DefaultValues, currentService, Timeout*time.Second*10, helmClient)
+
+					//TODO for little optimize
+					time.Sleep(time.Millisecond * 1500 * time.Duration(index))
+
+					err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderset.DefaultValues, currentService, 0, helmClient)
 					if err != nil {
 						errList = multierror.Append(errList, err)
 						return
 					}
 				}(renderChart, serviceObj)
+				sIndex++
 			}
 			groupServices = append(groupServices, service)
 		}
