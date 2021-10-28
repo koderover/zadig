@@ -19,7 +19,7 @@ func ListProjects(c *gin.Context) {
 
 type CreateProjectReq struct {
 	Public              bool                  `json:"public"`
-	ProjectName         string                `json:"project_name"`
+	ProductName         string                `json:"product_name"`
 }
 
 func CreateProject(c *gin.Context){
@@ -32,5 +32,5 @@ func CreateProject(c *gin.Context){
 		return
 	}
 	body ,_ := ioutil.ReadAll(c.Request.Body)
-	ctx.Resp,ctx.Err = service.CreateProject(c.Request.Header,body,args.ProjectName,args.Public,ctx.Logger)
+	ctx.Resp,ctx.Err = service.CreateProject(c.Request.Header,body,args.ProductName,args.Public,ctx.Logger)
 }

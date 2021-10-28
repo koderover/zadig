@@ -26,7 +26,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	projects := router.Group("projects")
 	{
 		projects.GET("", ListProjects)
-		projects.POST("",CreateProject)
+	}
+	products := router.Group("products")
+	{
+		products.POST("",CreateProject)
 	}
 	workflows := router.Group("workflows")
 	{
