@@ -937,7 +937,6 @@ func GetArtifactFileContent(pipelineName string, taskID int64, log *zap.SugaredL
 	}
 
 	for _, artifactFile := range artifactFiles {
-		log.Infof("artifactFile:%+v", artifactFile)
 		artifactFileArr := strings.Split(artifactFile, "/")
 		if len(artifactFileArr) > 1 {
 			artifactFileName := artifactFileArr[len(artifactFileArr)-1]
@@ -949,8 +948,6 @@ func GetArtifactFileContent(pipelineName string, taskID int64, log *zap.SugaredL
 				_ = file.Close()
 			}()
 
-			objectKey := s3Storage.GetObjectPath(artifactFile)
-			log.Infof("objectKey:%s", objectKey)
 			err = client.Download(s3Storage.Bucket, artifactFile, file.Name())
 			if err != nil {
 				return nil, fmt.Errorf("failed to download %s %v", artifactFile, err)
@@ -965,8 +962,8 @@ func GetArtifactFileContent(pipelineName string, taskID int64, log *zap.SugaredL
 		return nil, fmt.Errorf("failed to Archive %s %v", sourcePath, err)
 	}
 	defer func() {
-		//_ = os.Remove(artifactTarFileName)
-		//_ = os.Remove(tempDir)
+		_ = os.Remove(artifactTarFileName)
+		_ = os.Remove(tempDir)
 	}()
 
 	fileBytes, err := ioutil.ReadFile(path.Join(sourcePath, "artifact.tar.gz"))
