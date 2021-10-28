@@ -265,7 +265,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 	// 检查环境是否存在，envName和productName唯一
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	if _, err := commonrepo.NewProductColl().Find(opt); err == nil {
-		log.Errorf("[%s][P:%s] duplicate envName in the same project", envName, productName)
+		log.Errorf("[%s][P:%s] duplicate envName in the same product", envName, productName)
 		return e.ErrCreateEnv.AddDesc(e.DuplicateEnvErrMsg)
 	}
 
