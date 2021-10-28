@@ -927,8 +927,8 @@ func GePackageFileContent(pipelineName string, taskID int64, log *zap.SugaredLog
 
 func GetArtifactFileContent(pipelineName string, taskID int64, log *zap.SugaredLogger) ([]byte, error) {
 	s3Storage, artifactFiles, _ := GetTestArtifactInfo(pipelineName, "", taskID, log)
-	tempDir, _ := ioutil.TempDir("", "")
-	sourcePath := path.Join(tempDir, "artifact")
+	tempdir, _ := ioutil.TempDir("", "")
+	sourcePath := path.Join(tempdir, "artifact")
 	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
 		_ = os.MkdirAll(sourcePath, 0777)
 	}
@@ -970,7 +970,7 @@ func GetArtifactFileContent(pipelineName string, taskID int64, log *zap.SugaredL
 	}
 	defer func() {
 		_ = os.Remove(artifactTarFileName)
-		_ = os.Remove(tempDir)
+		_ = os.Remove(tempdir)
 	}()
 
 	fileBytes, err := ioutil.ReadFile(path.Join(sourcePath, "artifact.tar.gz"))
