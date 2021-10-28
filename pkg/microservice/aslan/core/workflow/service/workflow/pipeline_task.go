@@ -945,8 +945,8 @@ func GetArtifactFileContent(pipelineName string, taskID int64, log *zap.SugaredL
 				file.Close()
 			}()
 
-			objectKey := s3Storage.GetObjectPath(artifactFile)
-			err = client.Download(s3Storage.Bucket, objectKey, file.Name())
+			//objectKey := s3Storage.GetObjectPath(artifactFile)
+			err = client.Download(s3Storage.Bucket, artifactFile, file.Name())
 			if err != nil {
 				return nil, fmt.Errorf("failed to download %s %v", artifactFile, err)
 			}
@@ -960,8 +960,8 @@ func GetArtifactFileContent(pipelineName string, taskID int64, log *zap.SugaredL
 		return nil, fmt.Errorf("failed to Archive %s %v", sourcePath, err)
 	}
 	defer func() {
-		_ = os.Remove(artifactTarFileName)
-		_ = os.Remove(tempDir)
+		//_ = os.Remove(artifactTarFileName)
+		//_ = os.Remove(tempDir)
 	}()
 
 	fileBytes, err := ioutil.ReadFile(path.Join(sourcePath, "artifact.tar.gz"))
