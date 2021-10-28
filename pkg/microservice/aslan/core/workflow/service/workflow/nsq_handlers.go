@@ -691,7 +691,7 @@ func (h *TaskAckHandler) createVersion(pt *task.Task) error {
 			}
 			if isDeploy {
 				//版本交付
-				return commonservice.AddDeliveryVersion(1, int(pt.TaskID), pt.ProductName, pt.PipelineName, pt, log.SugaredLogger())
+				return commonservice.AddDeliveryVersion(int(pt.TaskID), pt.ProductName, pt.PipelineName, pt, log.SugaredLogger())
 			}
 		}
 	}

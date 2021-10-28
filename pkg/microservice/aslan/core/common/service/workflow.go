@@ -112,7 +112,7 @@ func DeleteWorkflow(workflowName, requestID string, isDeletingProductTmpl bool, 
 		log.Errorf("PipelineTaskV2.DeleteByPipelineName error: %v", err)
 	}
 
-	if deliveryVersions, err := mongodb.NewDeliveryVersionColl().Find(&mongodb.DeliveryVersionArgs{OrgID: 1, WorkflowName: workflowName}); err == nil {
+	if deliveryVersions, err := mongodb.NewDeliveryVersionColl().Find(&mongodb.DeliveryVersionArgs{WorkflowName: workflowName}); err == nil {
 		for _, deliveryVersion := range deliveryVersions {
 			if err := mongodb.NewDeliveryVersionColl().Delete(deliveryVersion.ID.Hex()); err != nil {
 				log.Errorf("DeleteWorkflow.DeliveryVersion.Delete error: %v", err)

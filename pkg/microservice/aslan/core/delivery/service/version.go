@@ -52,11 +52,10 @@ func DeleteDeliveryVersion(args *commonrepo.DeliveryVersionArgs, log *zap.Sugare
 	return nil
 }
 
-func ListDeliveryServiceNames(orgID int, productName string, log *zap.SugaredLogger) ([]string, error) {
+func ListDeliveryServiceNames(productName string, log *zap.SugaredLogger) ([]string, error) {
 	serviceNames := sets.String{}
 
 	version := new(commonrepo.DeliveryVersionArgs)
-	version.OrgID = orgID
 	version.ProductName = productName
 	deliveryVersions, err := FindDeliveryVersion(version, log)
 	if err != nil {
