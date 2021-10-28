@@ -211,9 +211,9 @@ func (c *Client) ListFiles(bucketName, prefix string, recursive bool) ([]string,
 
 	for _, item := range output.Contents {
 		itemKey := *item.Key
-		fmt.Println(fmt.Sprintf("itemKey:%+v", itemKey))
 		_, fileName := path.Split(itemKey)
-		ret = append(ret, fileName)
+		fmt.Println(fmt.Sprintf("itemKey:%+v,fileName:%s", itemKey, fileName))
+		ret = append(ret, itemKey)
 	}
 
 	return ret, nil
