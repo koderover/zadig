@@ -18,6 +18,7 @@ package service
 
 import (
 	"fmt"
+	"path"
 
 	"go.uber.org/zap"
 
@@ -53,6 +54,12 @@ func GetTestArtifactInfo(pipelineName, dir string, taskID int64, log *zap.Sugare
 	if err != nil || len(files) <= 0 {
 		log.Errorf("GetTestArtifactInfo ListFiles err:%v", err)
 		return fis, nil
+	}
+
+	resp := make([]string, 0)
+	for _, file := range files {
+		_, fileName := path.Split(file)
+		resp = append(resp, fileName)
 	}
 	return files, nil
 }
