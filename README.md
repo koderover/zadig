@@ -47,31 +47,42 @@ The architecture is as follows:
 
 The Highlighted Features:
 
-- **High Concurrency**
+<details>
+  <summary><b>High Concurrency</b></summary>
+  Based on cloud-native design, through simple configuration, the system automatically generates workflows to achieve high concurrent execution for continuous delivery relevant tasks such as building, testing and deployment, across multiple services. It significantly improves the efficiency of multi-services deployment in microservice architecture.
+  </details>
 
-Based on cloud-native design, through simple configuration, the system automatically generates workflows to achieve high concurrent execution for continuous delivery relevant tasks such as building, testing and deployment, across multiple services. It significantly improves the efficiency of multi-services deployment in microservice architecture.
+<details>
+  <summary><b>Service-oriented Environment</b></summary>
+  With just one set of service configuration, multiple encapsulated environments will be provided automatically within minutes, empowering independent environments for developers, QAs and product managers.
 
-- **Service-oriented Environment**
+  Minimum to none migration cost of existing environments -- just hosting with one click, the system allows browsing and adjusting all the services at your fingertips.
+  </details>
 
-With just one set of service configuration, multiple encapsulated environments will be provided automatically within minutes, empowering independent environments for developers, QAs and product managers.
+<details>
+  <summary><b>Non-intrusive Testing Automation</b></summary>
+  Zadig can easily and non-intrusively embed existing testing automation frameworks, and achieve continuous building, testing and deployment via GitHub/GitLab Webhook.
 
-Minimum to none migration cost of existing environments -- just hosting with one click, the system allows browsing and adjusting all the services at your fingertips.
+  It also integrates with productivity bots to provide instant quality report, which effectively applies shift-left testing best practices.
+  </details>
 
-- **Non-intrusive Testing Automation**
+<details>
+  <summary><b>Convenient Development CLI/IDE Plugin</b></summary>
+  Zadig also provides a convenient toolkit with development commandline interface which allows compiling, building and deploying the changes to dev environment with one command. It enables collaborated debugging and testing with minimum manual toil, reduces cognitive load and allows teams to focus more on business.
+  </details>
 
-Zadig can easily and non-intrusively embed existing testing automation frameworks, and achieve continuous building, testing and deployment via GitHub/GitLab Webhook.
-
-It also integrates with productivity bots to provide instant quality report, which effectively applies shift-left testing best practices.
-
-- **Convenient Development CLI**
-
-Zadig also provides a convenient toolkit with development commandline interface which allows compiling, building and deploying the changes to dev environment with one command. It enables collaborated debugging and testing with minimum manual toil, reduces cognitive load and allows teams to focus more on business.
 
 ## Quick start
 
 ### How to use?
 
 Please follow [Quick Start](https://docs.koderover.com/zadig/quick-start/try-out-install)
+
+### Bootcamps
+
+With many hands-on tips, case studies and demos of different application types, Zadig [bootcamp](https://github.com/koderover/zadig-bootcamp) gives developers easy to follow best practices in a cloud native CI/CD solution
+
+Just follow [Tutorials](https://www.koderover.com/tutorials) to try it step by step.
 
 ### How to make contribution?
 
