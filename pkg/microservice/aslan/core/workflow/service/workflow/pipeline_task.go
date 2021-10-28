@@ -926,7 +926,7 @@ func GePackageFileContent(pipelineName string, taskID int64, log *zap.SugaredLog
 }
 
 func GetArtifactFileContent(pipelineName string, taskID int64, log *zap.SugaredLogger) ([]byte, error) {
-	s3Storage, client, artifactFiles, err := GetS3AndClient(pipelineName, "", taskID, log)
+	s3Storage, client, artifactFiles, err := GetArtifactAndS3Info(pipelineName, "", taskID, log)
 	if err != nil {
 		return nil, fmt.Errorf("download artifact err: %s", err)
 	}
@@ -970,7 +970,7 @@ func GetArtifactFileContent(pipelineName string, taskID int64, log *zap.SugaredL
 	return fileBytes, err
 }
 
-func GetS3AndClient(pipelineName, dir string, taskID int64, log *zap.SugaredLogger) (*s3.S3, *s3tool.Client, []string, error) {
+func GetArtifactAndS3Info(pipelineName, dir string, taskID int64, log *zap.SugaredLogger) (*s3.S3, *s3tool.Client, []string, error) {
 	fis := make([]string, 0)
 
 	storage, err := s3.FindDefaultS3()
