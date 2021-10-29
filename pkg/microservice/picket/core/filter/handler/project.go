@@ -41,7 +41,7 @@ func getReqBody(c *gin.Context) (body []byte) {
 			body = cbb
 		}
 	}
-	return nil
+	return body
 }
 
 type UpdateProjectReq struct {

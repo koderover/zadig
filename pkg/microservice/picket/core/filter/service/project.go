@@ -53,6 +53,13 @@ func UpdateProject(header http.Header, body []byte, qs url.Values, projectName s
 		if err := policy.NewDefault().DeleteRoleBinding(roleBindingName, projectName); err != nil {
 			logger.Warnf("Failed to delete role binding, err: %s", err)
 		}
+	} else {
+		policy.NewDefault().CreateRoleBinding(projectName, &policy.RoleBinding{
+			Name:   roleBindingName,
+			UID:    "*",
+			Role:   string(setting.ReadOnly),
+			Public: true,
+		})
 	}
 
 	res, err := aslan.New().UpdateProject(header, qs, body)
