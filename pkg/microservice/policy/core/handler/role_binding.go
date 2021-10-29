@@ -37,9 +37,10 @@ func UpdateRoleBinding(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("projectName is empty")
 		return
 	}
-
 	args := &service.RoleBinding{}
-
+	if err := c.ShouldBindJSON(&args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("bind json fail %s")
+	}
 	ctx.Err = service.UpdateOrCreateRoleBinding(projectName, args, ctx.Logger)
 }
 
