@@ -61,7 +61,7 @@ func UpdateProject(header http.Header, qs url.Values, body []byte, projectName s
 			Role:   string(setting.ReadOnly),
 			Public: true,
 		}); err != nil {
-			logger.Warnf("Failed to create role binding, err: %s", err)
+			logger.Errorf("Failed to create role binding, err: %s", err)
 			return nil, err
 		}
 	}
