@@ -30,7 +30,7 @@ func (c *Client) CreateProject(header http.Header, body []byte) ([]byte, error) 
 
 func (c *Client) UpdateProject(header http.Header, qs url.Values, body []byte) ([]byte, error) {
 	url := "/project/products"
-	res, err := c.Put(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetBody(body))
+	res, err := c.Put(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs), httpclient.SetBody(body))
 	if err != nil {
 		return nil, err
 	}
