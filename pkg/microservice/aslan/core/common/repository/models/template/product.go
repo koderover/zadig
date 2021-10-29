@@ -72,7 +72,7 @@ type Product struct {
 	IsOpensource               bool        `bson:"is_opensource"                       json:"is_opensource"`
 	CustomImageRule            *CustomRule `bson:"custom_image_rule,omitempty"         json:"custom_image_rule,omitempty"`
 	CustomTarRule              *CustomRule `bson:"custom_tar_rule,omitempty"           json:"custom_tar_rule,omitempty"`
-	Public                     bool        `bson:"public"                              json:"public"`
+	Public                     bool        `bson:"public,omitempty"                              json:"public"`
 }
 
 type ServiceInfo struct {

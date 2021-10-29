@@ -32,7 +32,7 @@ func CreateProject(c *gin.Context) {
 	}
 	body := getReqBody(c)
 
-	ctx.Resp, ctx.Err = service.CreateProject(c.Request.Header, body, args.ProductName, args.Public, ctx.Logger)
+	ctx.Resp, ctx.Err = service.CreateProject(c.Request.Header, body, c.Request.URL.Query(), args.ProductName, args.Public, ctx.Logger)
 }
 
 func getReqBody(c *gin.Context) (body []byte) {
@@ -59,5 +59,5 @@ func UpdateProject(c *gin.Context) {
 		return
 	}
 	body := getReqBody(c)
-	ctx.Resp, ctx.Err = service.UpdateProject(c.Request.Header, body, c.Request.URL.Query(), args.ProductName, args.Public, ctx.Logger)
+	ctx.Resp, ctx.Err = service.UpdateProject(c.Request.Header, c.Request.URL.Query(), body, args.ProductName, args.Public, ctx.Logger)
 }

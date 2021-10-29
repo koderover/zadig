@@ -18,7 +18,7 @@ type allowedProjectsData struct {
 	Result []string `json:"result"`
 }
 
-func CreateProject(header http.Header, body []byte, projectName string, public bool, logger *zap.SugaredLogger) ([]byte, error) {
+func CreateProject(header http.Header, body []byte, qs url.Values, projectName string, public bool, logger *zap.SugaredLogger) ([]byte, error) {
 	// role binding
 	roleBindingName := fmt.Sprintf(setting.RoleBindingNameFmt, "*", setting.ReadOnly, projectName)
 	if public {
@@ -33,7 +33,7 @@ func CreateProject(header http.Header, body []byte, projectName string, public b
 		}
 	}
 
-	res, err := aslan.New().CreateProject(header, body)
+	res, err := aslan.New().CreateProject(header, qs, body)
 	if err != nil {
 		logger.Errorf("Failed to create project %s, err: %s", projectName, err)
 		if err1 := policy.NewDefault().DeleteRoleBinding(roleBindingName, projectName); err1 != nil {
@@ -46,7 +46,7 @@ func CreateProject(header http.Header, body []byte, projectName string, public b
 	return res, nil
 }
 
-func UpdateProject(header http.Header, body []byte, qs url.Values, projectName string, public bool, logger *zap.SugaredLogger) ([]byte, error) {
+func UpdateProject(header http.Header, qs url.Values, body []byte, projectName string, public bool, logger *zap.SugaredLogger) ([]byte, error) {
 	// role binding
 	roleBindingName := fmt.Sprintf(setting.RoleBindingNameFmt, "*", setting.ReadOnly, projectName)
 	if !public {
