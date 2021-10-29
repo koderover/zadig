@@ -600,7 +600,7 @@ func handleSingleService(projectName string, repoConfig *commonservice.RepoConfi
 			Source:           setting.SourceFromChartTemplate,
 			HelmTemplateName: templateChartData.TemplateName,
 			ValuePaths:       []string{path},
-			ValuesYaml:       string(templateChartData.DefaultValuesYAML),
+			ValuesYaml:       string(valuesYAML),
 		},
 		logger,
 	)
@@ -682,7 +682,7 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 		return nil, err
 	}
 
-	valuesYaml := args.ValuesYaml
+	valuesYaml := args.MergedValues
 	valuesMap := make(map[string]interface{})
 	err = yaml.Unmarshal([]byte(valuesYaml), &valuesMap)
 	if err != nil {

@@ -2834,17 +2834,18 @@ func updateProductGroup(username, productName, envName, updateType string, produ
 				serviceObj, err := commonrepo.NewServiceColl().Find(opt)
 				if err != nil {
 					log.Errorf("Failed to find service with opt %+v, err: %s", opt, err)
-					errList = multierror.Append(errList, err)
+					errList = multierror.Append(errList, errors.Wrapf(err, "failed to find template servce %s", service.ServiceName))
 					return
 				}
 
 				//TODO for little optimize
-				time.Sleep(time.Millisecond * 1500 * time.Duration(index))
+				time.Sleep(time.Millisecond * 2500 * time.Duration(index))
 
 				//err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderSet.DefaultValues, serviceObj, Timeout*time.Second*10, helmClient)
+				//TODO service update may fail, should modify data
 				err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderSet.DefaultValues, serviceObj, 0, helmClient)
 				if err != nil {
-					errList = multierror.Append(errList, err)
+					errList = multierror.Append(errList, errors.Wrapf(err, "failed to install of upgrade service %s", service.ServiceName))
 					return
 				}
 			}(svc)
@@ -3081,11 +3082,11 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 					//err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderset.DefaultValues, currentService, Timeout*time.Second*10, helmClient)
 
 					//TODO for little optimize
-					time.Sleep(time.Millisecond * 1500 * time.Duration(index))
+					time.Sleep(time.Millisecond * 2500 * time.Duration(index))
 
 					err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderset.DefaultValues, currentService, 0, helmClient)
 					if err != nil {
-						errList = multierror.Append(errList, err)
+						errList = multierror.Append(errList, errors.Wrapf(err, "failed to upgrade service %s", currentService.ServiceName))
 						return
 					}
 				}(renderChart, serviceObj)
