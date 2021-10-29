@@ -12,6 +12,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/picket/client/opa"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type allowedProjectsData struct {
@@ -97,8 +98,12 @@ func ListProjects(header http.Header, qs url.Values, logger *zap.SugaredLogger) 
 
 func DeleteProject(header http.Header, qs url.Values, productName string, logger *zap.SugaredLogger) ([]byte, error) {
 	// delete roles and rolebindings
-	policy.NewDefault().DeleteRoleBindings([]string{"*"}, productName)
-	policy.NewDefault().DeleteRoles([]string{"*"}, productName)
+	if err := policy.NewDefault().DeleteRoleBindings([]string{"*"}, productName); err != nil {
+		log.Errorf("delete rolebindings err:%s", err)
+	}
+	if err := policy.NewDefault().DeleteRoles([]string{"*"}, productName); err != nil {
+		log.Errorf("delete roles err:%s", err)
+	}
 	return aslan.New().DeleteProject(header, qs, productName)
 }
 

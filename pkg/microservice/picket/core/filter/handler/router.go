@@ -25,7 +25,7 @@ type Router struct{}
 func (*Router) Inject(router *gin.RouterGroup) {
 	projects := router.Group("projects")
 	{
-		projects.DELETE("/:project", DeleteProject)
+		projects.DELETE("/:name", DeleteProject)
 		projects.GET("", ListProjects)
 		projects.POST("", CreateProject)
 		projects.PUT("/:name", UpdateProject)

@@ -66,5 +66,5 @@ func DeleteProject(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.DeleteProject(c.Request.Header, c.Request.URL.Query(), c.Param("project"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.DeleteProject(c.Request.Header, c.Request.URL.Query(), c.Param("name"), ctx.Logger)
 }
