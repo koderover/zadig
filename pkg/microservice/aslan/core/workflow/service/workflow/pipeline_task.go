@@ -196,7 +196,6 @@ func CreatePipelineTask(args *commonmodels.TaskArgs, log *zap.SugaredLogger) (*C
 		MultiRun:       pipeline.MultiRun,
 		BuildModuleVer: pipeline.BuildModuleVer,
 		Target:         pipeline.Target,
-		OrgID:          pipeline.OrgID,
 		StorageURI:     defaultStorageURI,
 	}
 

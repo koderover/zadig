@@ -67,8 +67,6 @@ type Task struct {
 	// ConfigPayload 系统配置信息
 	ConfigPayload *ConfigPayload `json:"config_payload,omitempty"`
 	Error         string         `bson:"error,omitempty"                json:"error,omitempty"`
-	// OrgID 单租户ID
-	OrgID      int                 `bson:"org_id,omitempty"          json:"org_id,omitempty"`
 	Services   [][]*ProductService `bson:"services"                  json:"services"`
 	Render     *RenderInfo         `bson:"render"                    json:"render"`
 	StorageURI string              `bson:"storage_uri,omitempty" json:"storage_uri,omitempty"`
