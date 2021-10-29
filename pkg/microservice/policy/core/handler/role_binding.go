@@ -28,6 +28,22 @@ type deleteRoleBindingsArgs struct {
 	Names []string `json:"names"`
 }
 
+func UpdateRoleBinding(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName is empty")
+		return
+	}
+	args := &service.RoleBinding{}
+	if err := c.ShouldBindJSON(&args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("bind json fail %s")
+	}
+	ctx.Err = service.UpdateOrCreateRoleBinding(projectName, args, ctx.Logger)
+}
+
 func CreateRoleBinding(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

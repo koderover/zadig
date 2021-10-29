@@ -60,6 +60,10 @@ var publicURLs = []*policyRule{
 		Methods:   []string{"GET"},
 		Endpoints: []string{"api/directory/check"},
 	},
+	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/directory/codehostss/?*/auth", "api/directory/codehosts/callback"},
+	},
 }
 
 // actions which are allowed for system admins only.
