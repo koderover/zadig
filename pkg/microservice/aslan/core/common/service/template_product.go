@@ -23,6 +23,7 @@ import (
 
 	"go.uber.org/zap"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
@@ -31,6 +32,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collie"
 	"github.com/koderover/zadig/pkg/microservice/aslan/internal/cache"
 	"github.com/koderover/zadig/pkg/setting"
+	configclient "github.com/koderover/zadig/pkg/shared/config"
 	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
@@ -52,12 +54,8 @@ func GetProductTemplate(productName string, log *zap.SugaredLogger) (*template.P
 	}
 
 	totalFreeStyles := make([]*collie.CiPipelineResource, 0)
-	features, err := GetFeatures(log)
-	if err != nil {
-		log.Errorf("GetProductTemplate GetFeatures err : %v", err)
-	}
-
-	if strings.Contains(features, string(config.FreestyleType)) {
+	cl := configclient.New(configbase.ConfigServiceAddress())
+	if enable, err := cl.CheckFeature(setting.ModernWorkflowType);err ==nil && enable{
 		// CI场景onboarding流程处于第二步时，需要返回ci工作流id，用于前端跳转
 		collieAPIAddress := config.CollieAPIAddress()
 		cl := collie.New(collieAPIAddress)
@@ -116,7 +114,7 @@ func GetProductTemplate(productName string, log *zap.SugaredLogger) (*template.P
 		return resp, fmt.Errorf("Pipeline.List err : %v", err)
 	}
 
-	if strings.Contains(features, string(config.FreestyleType)) {
+	if enable, err := cl.CheckFeature(setting.ModernWorkflowType);err ==nil && enable{
 		collieAPIAddress := config.CollieAPIAddress()
 		cl := collie.New(collieAPIAddress)
 		totalFreeStyles, err = cl.ListCIPipelines(productName, log)

@@ -150,8 +150,17 @@ func PoetryServiceInfo() *setting.ServiceInfo {
 	return GetServiceByCode(setting.Poetry)
 }
 
+func ConfigServiceInfo() *setting.ServiceInfo {
+	return GetServiceByCode(setting.Poetry)
+}
+
 func PoetryServiceAddress() string {
 	s := PoetryServiceInfo()
+	return GetServiceAddress(s.Name, s.Port)
+}
+
+func ConfigServiceAddress() string {
+	s := ConfigServiceInfo()
 	return GetServiceAddress(s.Name, s.Port)
 }
 
@@ -178,6 +187,15 @@ func PolicyServiceInfo() *setting.ServiceInfo {
 
 func PolicyServiceAddress() string {
 	s := PolicyServiceInfo()
+	return GetServiceAddress(s.Name, s.Port)
+}
+
+func UserServiceInfo() *setting.ServiceInfo {
+	return GetServiceByCode(setting.User)
+}
+
+func UserServiceAddress() string {
+	s := UserServiceInfo()
 	return GetServiceAddress(s.Name, s.Port)
 }
 

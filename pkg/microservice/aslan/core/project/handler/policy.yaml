@@ -15,8 +15,6 @@ rules:
       - method: GET
         endpoint: "/api/aslan/service/services/?*"
       - method: GET
-        endpoint: "/api/aslan/service/name"
-      - method: GET
         endpoint: "/api/aslan/project/products/?*/searching-rules"
       - method: GET
         endpoint: "/api/aslan/service/helm/?*/?*/filePath"

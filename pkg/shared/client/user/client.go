@@ -14,25 +14,28 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package handler
+package user
 
 import (
-	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
-type Router struct{}
+type Client struct {
+	*httpclient.Client
 
-func (*Router) Inject(router *gin.RouterGroup) {
-	roles := router.Group("connectors")
-	{
-		roles.POST("", CreateConnector)
-		roles.GET("", ListConnectors)
-		roles.GET("/:id", GetConnector)
-		roles.PUT("/:id", UpdateConnector)
-		roles.DELETE("/:id", DeleteConnector)
-	}
-	features := router.Group("features")
-	{
-		features.GET("/:name", GetFeature)
+	host string
+}
+
+func New() *Client {
+	host := config.UserServiceAddress()
+
+	c := httpclient.New(
+		httpclient.SetHostURL(host + "/api/v1"),
+	)
+
+	return &Client{
+		Client: c,
+		host:   host,
 	}
 }

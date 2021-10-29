@@ -107,11 +107,9 @@ func GetInitProduct(productTmplName string, log *zap.SugaredLogger) (*commonmode
 	//返回中的ProductName即产品模板的名称
 	ret.ProductName = prodTmpl.ProductName
 	ret.Revision = prodTmpl.Revision
-	ret.Enabled = prodTmpl.Enabled
 	ret.Services = [][]*commonmodels.ProductService{}
 	ret.UpdateBy = prodTmpl.UpdateBy
 	ret.CreateTime = prodTmpl.CreateTime
-	ret.Visibility = prodTmpl.Visibility
 	ret.Render = &commonmodels.RenderInfo{Name: "", Description: ""}
 	ret.Vars = prodTmpl.Vars
 	ret.ChartInfos = prodTmpl.ChartInfos

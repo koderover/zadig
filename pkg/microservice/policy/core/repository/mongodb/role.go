@@ -129,6 +129,15 @@ func (c *RoleColl) Delete(name string, projectName string) error {
 	return err
 }
 
+func (c *RoleColl) DeleteMany(names []string, projectName string) error {
+	query := bson.M{"namespace": projectName}
+	if len(names) > 0 {
+		query["name"] = bson.M{"$in": names}
+	}
+	_, err := c.Collection.DeleteMany(context.TODO(), query)
+	return err
+}
+
 func (c *RoleColl) UpdateRole(obj *models.Role) error {
 	// avoid panic issue
 	if obj == nil {

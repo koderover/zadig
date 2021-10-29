@@ -32,11 +32,12 @@ import (
 
 func main() {
 
-	flag.String(config.FeatureFlag, "", "help message for flagname")
+	flag.String(config.FeatureFlag, "", "turn a set of features on or off")
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 	viper.BindPFlags(pflag.CommandLine)
+
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	go func() {
 		<-ctx.Done()

@@ -24,6 +24,10 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
+type deleteRolesArgs struct {
+	Names []string `json:"names"`
+}
+
 func CreateRole(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -169,10 +173,34 @@ func GetPublicRole(c *gin.Context) {
 func DeleteRole(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
 	name := c.Param("name")
 	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("args projectName can't be empty")
+		return
+	}
+
 	ctx.Err = service.DeleteRole(name, projectName, ctx.Logger)
-	return
+}
+
+func DeleteRoles(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("args projectName can't be empty")
+		return
+	}
+
+	args := &deleteRolesArgs{}
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Err = service.DeleteRoles(args.Names, projectName, ctx.Logger)
 }
 
 func DeletePublicRole(c *gin.Context) {
@@ -194,6 +222,20 @@ func CreateSystemRole(c *gin.Context) {
 	}
 
 	ctx.Err = service.CreateRole("*", args, ctx.Logger)
+}
+
+func UpdateOrCreateSystemRole(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := &service.Role{}
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = err
+		return
+	}
+	name := c.Param("name")
+	args.Name = name
+	ctx.Err = service.UpdateOrCreateRole("*", args, ctx.Logger)
 }
 
 func ListSystemRoles(c *gin.Context) {

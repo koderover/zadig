@@ -23,12 +23,19 @@ import (
 type Router struct{}
 
 func (*Router) Inject(router *gin.RouterGroup) {
-	roles := router.Group("projects")
+	projects := router.Group("projects")
 	{
-		roles.GET("", ListProjects)
+		projects.GET("", ListProjects)
+		projects.POST("", CreateProject)
 	}
+
 	workflows := router.Group("workflows")
 	{
 		workflows.GET("testName/:testName", ListTestWorkflows)
+	}
+
+	rolebindings := router.Group("rolebindings")
+	{
+		rolebindings.GET("", ListRoleBindings)
 	}
 }

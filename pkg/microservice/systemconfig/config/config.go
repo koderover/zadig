@@ -10,6 +10,6 @@ func MysqlDexDB() string {
 	return viper.GetString(ENVMysqlDexDB)
 }
 
-func Features()string {
+func Features() string {
 	return viper.GetString(FeatureFlag)
 }

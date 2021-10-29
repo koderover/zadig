@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -10,10 +11,39 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/picket/client/aslan"
 	"github.com/koderover/zadig/pkg/microservice/picket/client/opa"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/policy"
 )
 
 type allowedProjectsData struct {
 	Result []string `json:"result"`
+}
+
+func CreateProject(header http.Header, body []byte, projectName string, public bool, logger *zap.SugaredLogger) ([]byte, error) {
+	// role binding
+	roleBindingName := fmt.Sprintf(setting.RoleBindingNameFmt, "*", setting.ReadOnly, projectName)
+	if public {
+		if err := policy.NewDefault().CreateRoleBinding(projectName, &policy.RoleBinding{
+			Name:   roleBindingName,
+			UID:    "*",
+			Role:   string(setting.ReadOnly),
+			Public: true,
+		}); err != nil {
+			logger.Errorf("Failed to create rolebinding %s, err: %s", roleBindingName, err)
+			return nil, err
+		}
+	}
+
+	res, err := aslan.New().CreateProject(header, body)
+	if err != nil {
+		logger.Errorf("Failed to create project %s, err: %s", projectName, err)
+		if err1 := policy.NewDefault().DeleteRoleBinding(roleBindingName, projectName); err1 != nil {
+			logger.Warnf("Failed to delete role binding, err: %s", err1)
+		}
+
+		return nil, err
+	}
+
+	return res, nil
 }
 
 func ListProjects(header http.Header, qs url.Values, logger *zap.SugaredLogger) ([]byte, error) {
@@ -21,6 +51,10 @@ func ListProjects(header http.Header, qs url.Values, logger *zap.SugaredLogger) 
 	if err != nil {
 		logger.Errorf("Failed to get allowed project names, err: %s", err)
 		return nil, err
+	}
+
+	if len(names) == 0 {
+		return []byte("[]"), nil
 	}
 
 	for _, name := range names {

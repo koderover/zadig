@@ -54,11 +54,15 @@ var publicURLs = []*policyRule{
 	},
 	{
 		Methods:   []string{"GET"},
-		Endpoints: []string{"", "signin", "setup", "loading", "static/**"},
+		Endpoints: []string{"", "signin", "setup", "loading", "static/**", "v1/**", "mobile/**", "productpipelines/**"},
 	},
 	{
 		Methods:   []string{"GET"},
 		Endpoints: []string{"api/directory/check"},
+	},
+	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/directory/codehostss/?*/auth", "api/directory/codehosts/callback"},
 	},
 }
 
@@ -67,6 +71,10 @@ var systemAdminURLs = []*policyRule{
 	{
 		Methods:   []string{"POST"},
 		Endpoints: []string{"api/aslan/project/products"},
+	},
+	{
+		Methods:   []string{"POST"},
+		Endpoints: []string{"api/picket/projects"},
 	},
 	{
 		Methods:   []string{"DELETE"},
@@ -226,7 +234,7 @@ var systemAdminURLs = []*policyRule{
 	},
 }
 
-// actions which are allowed for system admins only.
+// actions which are allowed for project admins.
 var projectAdminURLs = []*policyRule{
 	{
 		Methods:   []string{"PUT"},
@@ -239,6 +247,10 @@ var projectAdminURLs = []*policyRule{
 	{
 		Methods:   []string{"GET"},
 		Endpoints: []string{"api/v1/users"},
+	},
+	{
+		Methods:   []string{"POST"},
+		Endpoints: []string{"api/v1/users/search"},
 	},
 	{
 		Methods:   []string{"GET"},
@@ -257,6 +269,10 @@ var projectAdminURLs = []*policyRule{
 		Endpoints: []string{"api/v1/roles/?*"},
 	},
 	{
+		Methods:   []string{"POST"},
+		Endpoints: []string{"api/v1/roles/bulk-delete"},
+	},
+	{
 		Methods:   []string{"GET"},
 		Endpoints: []string{"api/v1/public-roles"},
 	},
@@ -269,8 +285,16 @@ var projectAdminURLs = []*policyRule{
 		Endpoints: []string{"api/v1/rolebindings"},
 	},
 	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/v1/picket/rolebindings"},
+	},
+	{
 		Methods:   []string{"DELETE"},
 		Endpoints: []string{"api/v1/rolebindings/?*"},
+	},
+	{
+		Methods:   []string{"POST"},
+		Endpoints: []string{"api/v1/rolebindings/bulk-delete"},
 	},
 }
 

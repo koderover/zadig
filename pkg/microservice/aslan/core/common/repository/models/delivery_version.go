@@ -22,7 +22,6 @@ import (
 
 type DeliveryVersion struct {
 	ID             primitive.ObjectID `bson:"_id,omitempty"           json:"id,omitempty"`
-	OrgID          int                `bson:"org_id"                  json:"orgId"`
 	Version        string             `bson:"version"                 json:"version"`
 	ProductName    string             `bson:"product_name"            json:"productName"`
 	WorkflowName   string             `bson:"workflow_name"           json:"workflowName"`

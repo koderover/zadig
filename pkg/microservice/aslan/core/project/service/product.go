@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
@@ -40,6 +41,7 @@ import (
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
+	configclient "github.com/koderover/zadig/pkg/shared/config"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -340,11 +342,8 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 	}
 
 	//删除自由编排工作流
-	features, err := commonservice.GetFeatures(log)
-	if err != nil {
-		log.Errorf("DeleteProductTemplate productName %s getFeatures err: %v", productName, err)
-	}
-	if strings.Contains(features, string(config.FreestyleType)) {
+	cl := configclient.New(configbase.ConfigServiceAddress())
+	if enable, err := cl.CheckFeature(setting.ModernWorkflowType); err == nil && enable {
 		collieClient := collie.New(config.CollieAPIAddress())
 		if err = collieClient.DeleteCIPipelines(productName, log); err != nil {
 			log.Errorf("DeleteProductTemplate Delete productName %s freestyle pipeline err: %v", productName, err)
@@ -398,7 +397,7 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 	return nil
 }
 
-func ForkProduct(username, requestID string, args *template.ForkProject, log *zap.SugaredLogger) error {
+func ForkProduct(username, uid, requestID string, args *template.ForkProject, log *zap.SugaredLogger) error {
 
 	prodTmpl, err := templaterepo.NewProductColl().Find(args.ProductName)
 	if err != nil {
@@ -511,12 +510,11 @@ func ForkProduct(username, requestID string, args *template.ForkProject, log *za
 		CreateBy:  username,
 		UpdateBy:  username,
 	}
-	policyClient := policy.New()
-	err = policyClient.CreateRoleBinding(args.ProductName, &policy.RoleBinding{
-		Name:   fmt.Sprintf(setting.ContributorRoleBindingFmt, args.ProductName, username),
-		User:   username,
-		Role:   setting.Contributor,
-		Global: true,
+	err = policy.NewDefault().CreateRoleBinding(args.ProductName, &policy.RoleBinding{
+		Name:   fmt.Sprintf(setting.RoleBindingNameFmt, args.ProductName, uid, args.ProductName),
+		UID:    uid,
+		Role:   string(setting.Contributor),
+		Public: true,
 	})
 	if err != nil {
 		log.Error("rolebinding error")
@@ -536,7 +534,7 @@ func UnForkProduct(userID string, username, productName, workflowName, envName, 
 	}
 
 	policyClient := policy.New()
-	err := policyClient.DeleteRoleBinding(fmt.Sprintf(setting.ContributorRoleBindingFmt, productName, username), productName)
+	err := policyClient.DeleteRoleBinding(fmt.Sprintf(setting.RoleBindingNameFmt, userID, setting.Contributor, productName), productName)
 	if err != nil {
 		log.Error("rolebinding delete error")
 		return e.ErrForkProduct
