@@ -15,6 +15,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/user/config"
 	"github.com/koderover/zadig/pkg/microservice/user/core/service/login"
+	"github.com/koderover/zadig/pkg/microservice/user/core/service/user"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -102,9 +103,8 @@ func Callback(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	user, err := login.SyncUser(&login.SyncUserInfo{
-		Email:        claims.Email,
-		Name:         claims.Name,
+	user, err := user.SyncUser(&user.SyncUserInfo{
+		Account:      claims.Name,
 		IdentityType: claims.FederatedClaims.ConnectorId,
 	}, ctx.Logger)
 	if err != nil {

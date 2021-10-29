@@ -16,9 +16,9 @@ func CreateUser(user *models.User, db *gorm.DB) error {
 }
 
 // GetUser Get a user based on email and identityType
-func GetUser(email string, identityType string, db *gorm.DB) (*models.User, error) {
+func GetUser(account string, identityType string, db *gorm.DB) (*models.User, error) {
 	var user models.User
-	err := db.Where("email = ? and identity_type = ?", email, identityType).First(&user).Error
+	err := db.Where("account = ? and identity_type = ?", account, identityType).First(&user).Error
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
 	}
@@ -52,6 +52,22 @@ func ListUsers(page int, perPage int, name string, db *gorm.DB) ([]models.User, 
 	} else {
 		err = db.Where("name LIKE ?", "%"+name+"%").Find(&users).Error
 	}
+
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	return users, nil
+}
+
+// ListUsersByUIDs gets a list of users based on paging constraints
+func ListUsersByUIDs(uids []string, db *gorm.DB) ([]models.User, error) {
+	var (
+		users []models.User
+		err   error
+	)
+
+	err = db.Find(&users, "uid in ?", uids).Error
 
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
