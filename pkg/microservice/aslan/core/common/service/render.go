@@ -83,15 +83,15 @@ func (args *RenderChartArg) fromOverrideValueString(valueStr string) {
 	}
 }
 
-func (args *RenderChartArg) toCustomValuesYaml() *templatemodels.OverrideYaml {
+func (args *RenderChartArg) toCustomValuesYaml() *templatemodels.CustomYaml {
 	switch args.YamlSource {
 	case setting.ValuesYamlSourceFreeEdit:
-		return &templatemodels.OverrideYaml{
+		return &templatemodels.CustomYaml{
 			YamlSource:  args.YamlSource,
 			YamlContent: args.ValuesYAML,
 		}
 	case setting.ValuesYamlSourceGitRepo:
-		return &templatemodels.OverrideYaml{
+		return &templatemodels.CustomYaml{
 			YamlSource:  args.YamlSource,
 			YamlContent: args.ValuesYAML,
 			ValuesPaths: args.GitRepoConfig.ValuesPaths,
@@ -106,7 +106,7 @@ func (args *RenderChartArg) toCustomValuesYaml() *templatemodels.OverrideYaml {
 	return nil
 }
 
-func (args *RenderChartArg) fromCustomValueYaml(customValuesYaml *templatemodels.OverrideYaml) {
+func (args *RenderChartArg) fromCustomValueYaml(customValuesYaml *templatemodels.CustomYaml) {
 	if customValuesYaml == nil {
 		return
 	}

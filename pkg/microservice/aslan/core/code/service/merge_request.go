@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 
+	"github.com/google/go-github/v35/github"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -69,7 +70,9 @@ func CodeHostListPRs(codeHostID int, projectName, namespace, targetBr string, lo
 	} else {
 		//	github
 		gh := git.NewClient(ch.AccessToken, config.ProxyHTTPSAddr())
-		pullRequests, err := gh.ListPullRequests(context.TODO(), namespace, projectName, nil)
+		pullRequests, err := gh.ListPullRequests(context.TODO(), namespace, projectName, &github.PullRequestListOptions{
+			ListOptions: github.ListOptions{PerPage: 100},
+		})
 		if err != nil {
 			return nil, err
 		}

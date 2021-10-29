@@ -65,25 +65,21 @@ type Task struct {
 	// ServiceTaskArgs 脚本部署工作流任务参数
 	ServiceTaskArgs *ServiceTaskArgs `bson:"service_args,omitempty"         json:"service_args,omitempty"`
 	// ConfigPayload 系统配置信息
-	ConfigPayload *ConfigPayload `json:"config_payload,omitempty"`
-	Error         string         `bson:"error,omitempty"                json:"error,omitempty"`
-	// OrgID 单租户ID
-	OrgID      int                 `bson:"org_id,omitempty"          json:"org_id,omitempty"`
-	Services   [][]*ProductService `bson:"services"                  json:"services"`
-	Render     *RenderInfo         `bson:"render"                    json:"render"`
-	StorageURI string              `bson:"storage_uri,omitempty" json:"storage_uri,omitempty"`
+	ConfigPayload *ConfigPayload      `json:"config_payload,omitempty"`
+	Error         string              `bson:"error,omitempty"                json:"error,omitempty"`
+	OrgID         int                 `bson:"org_id,omitempty"          json:"org_id,omitempty"`
+	Services      [][]*ProductService `bson:"services"                  json:"services"`
+	Render        *RenderInfo         `bson:"render"                    json:"render"`
+	StorageURI    string              `bson:"storage_uri,omitempty" json:"storage_uri,omitempty"`
 	// interface{} 为types.TestReport
-	TestReports map[string]interface{} `bson:"test_reports,omitempty" json:"test_reports,omitempty"`
-
-	RwLock sync.Mutex `bson:"-" json:"-"`
-
-	ResetImage bool `json:"resetImage" bson:"resetImage"`
-
-	TriggerBy *TriggerBy `json:"trigger_by,omitempty" bson:"trigger_by,omitempty"`
-
-	Features        []string `bson:"features" json:"features"`
-	IsRestart       bool     `bson:"is_restart"                      json:"is_restart"`
-	StorageEndpoint string   `bson:"storage_endpoint"            json:"storage_endpoint"`
+	TestReports     map[string]interface{} `bson:"test_reports,omitempty" json:"test_reports,omitempty"`
+	RwLock          sync.Mutex             `bson:"-" json:"-"`
+	ResetImage      bool                   `json:"resetImage" bson:"resetImage"`
+	TriggerBy       *TriggerBy             `json:"trigger_by,omitempty" bson:"trigger_by,omitempty"`
+	Features        []string               `bson:"features" json:"features"`
+	IsRestart       bool                   `bson:"is_restart"                  json:"is_restart"`
+	StorageEndpoint string                 `bson:"storage_endpoint"            json:"storage_endpoint"`
+	ArtifactInfo    *ArtifactInfo          `bson:"artifact_info"               json:"artifact_info"`
 }
 
 type RenderInfo struct {
@@ -137,6 +133,7 @@ type WorkflowTaskArgs struct {
 	VersionArgs        *VersionArgs    `bson:"version_args,omitempty"       json:"version_args,omitempty"`
 	ReqID              string          `bson:"req_id"                       json:"req_id"`
 	RegistryID         string          `bson:"registry_id,omitempty"        json:"registry_id,omitempty"`
+	StorageID          string          `bson:"storage_id,omitempty"         json:"storage_id,omitempty"`
 	DistributeEnabled  bool            `bson:"distribute_enabled"           json:"distribute_enabled"`
 	WorklowTaskCreator string          `bson:"workflow_task_creator"        json:"workflow_task_creator"`
 	// Ignore docker build cache
@@ -170,10 +167,14 @@ type TestArgs struct {
 }
 
 type ArtifactArgs struct {
-	Name        string      `bson:"name"                      json:"name"`
-	ServiceName string      `bson:"service_name"              json:"service_name"`
-	Image       string      `bson:"image"                     json:"image"`
-	Deploy      []DeployEnv `bson:"deloy"                     json:"deploy"`
+	Name         string      `bson:"name"                      json:"name"`
+	ServiceName  string      `bson:"service_name"              json:"service_name"`
+	Image        string      `bson:"image"                     json:"image"`
+	Deploy       []DeployEnv `bson:"deploy"                    json:"deploy"`
+	WorkflowName string      `bson:"workflow_name,omitempty"   json:"workflow_name,omitempty"`
+	TaskID       int64       `bson:"task_id,omitempty"         json:"task_id,omitempty"`
+	FileName     string      `bson:"file_name,omitempty"       json:"file_name,omitempty"`
+	URL          string      `bson:"url,omitempty"             json:"url,omitempty"`
 }
 
 type VersionArgs struct {

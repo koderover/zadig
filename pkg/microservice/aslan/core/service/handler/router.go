@@ -40,6 +40,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		helm.GET("/:productName/:serviceName/filePath", GetFilePath)
 		helm.GET("/:productName/:serviceName/fileContent", GetFileContent)
 		helm.POST("/services", CreateOrUpdateHelmService)
+		helm.POST("/services/bulk", CreateOrUpdateBulkHelmServices)
 		helm.PUT("/:productName", UpdateHelmService)
 	}
 
@@ -78,5 +79,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		pm.POST("/:productName", gin2.UpdateOperationLogStatus, CreatePMService)
 		pm.PUT("/:productName", gin2.UpdateOperationLogStatus, UpdatePmServiceTemplate)
+	}
+
+	template := router.Group("template")
+	{
+		template.POST("/load", LoadServiceFromYamlTemplate)
+		template.POST("/reload", ReloadServiceFromYamlTemplate)
 	}
 }

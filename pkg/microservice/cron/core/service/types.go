@@ -260,6 +260,7 @@ type WorkflowTaskArgs struct {
 	VersionArgs        *VersionArgs    `bson:"version_args,omitempty"       json:"version_args,omitempty"`
 	ReqID              string          `bson:"req_id"                       json:"req_id"`
 	RegistryID         string          `bson:"registry_id,omitempty"        json:"registry_id,omitempty"`
+	StorageID          string          `bson:"storage_id,omitempty"         json:"storage_id,omitempty"`
 	DistributeEnabled  bool            `bson:"distribute_enabled"           json:"distribute_enabled"`
 	WorklowTaskCreator string          `bson:"workflow_task_creator"        json:"workflow_task_creator"`
 	// Ignore docker build cache
