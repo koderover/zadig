@@ -1,12 +1,12 @@
 package user
 
 import (
-	"fmt"
-
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/microservice/user/core/service/user"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+
+	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 func GetUser(c *gin.Context) {
@@ -20,7 +20,7 @@ func GetPersonalUser(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	uid := c.Param("uid")
 	if ctx.UserID != uid {
-		ctx.Err = fmt.Errorf("token uid doesn't match uid")
+		ctx.Err = e.ErrForbidden
 	}
 	ctx.Resp, ctx.Err = user.GetUser(uid, ctx.Logger)
 }

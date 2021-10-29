@@ -183,8 +183,8 @@ func CreateUser(args *User, logger *zap.SugaredLogger) (*models.User, error) {
 		UID:           user.UID,
 		Password:      string(hashedPassword),
 		LastLoginTime: 0,
-		LoginId:       getLoginId(user, config.AccountLocinType),
-		LoginType:     int(config.AccountLocinType),
+		LoginId:       getLoginId(user, config.AccountLoginType),
+		LoginType:     int(config.AccountLoginType),
 	}
 	err = orm.CreateUserLogin(userLogin, tx)
 	if err != nil {

@@ -28,5 +28,5 @@ const (
 type LoginType int
 
 const (
-	AccountLocinType LoginType = 0
+	AccountLoginType LoginType = 0
 )
