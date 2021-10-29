@@ -26,6 +26,7 @@ require (
 	github.com/garyburd/redigo v1.6.2 // indirect
 	github.com/gin-contrib/sse v0.1.0
 	github.com/gin-gonic/gin v1.7.2
+	github.com/go-ldap/ldap/v3 v3.3.0
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/gofrs/uuid v4.0.0+incompatible // indirect
 	github.com/golang-jwt/jwt v3.2.2+incompatible

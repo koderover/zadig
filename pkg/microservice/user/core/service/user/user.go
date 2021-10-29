@@ -23,7 +23,7 @@ type User struct {
 }
 
 type QueryArgs struct {
-	Name    string   `json:"name,omitempty"`
+	Account string   `json:"account,omitempty"`
 	UIDs    []string `json:"uids,omitempty"`
 	PerPage int      `json:"per_page,omitempty"`
 	Page    int      `json:"page,omitempty"`
@@ -72,9 +72,9 @@ func GetUser(uid string, logger *zap.SugaredLogger) (*UserInfo, error) {
 }
 
 func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*UsersResp, error) {
-	count, err := orm.GetUsersCount(args.Name)
+	count, err := orm.GetUsersCount(args.Account)
 	if err != nil {
-		logger.Errorf("SeachUsers GetUsersCount By name:%s error, error msg:%s", args.Name, err.Error())
+		logger.Errorf("SeachUsers GetUsersCount By account:%s error, error msg:%s", args.Account, err.Error())
 		return nil, err
 	}
 	if count == 0 {
@@ -83,9 +83,9 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*UsersResp, error)
 		}, nil
 	}
 
-	users, err := orm.ListUsers(args.Page, args.PerPage, args.Name, core.DB)
+	users, err := orm.ListUsers(args.Page, args.PerPage, args.Account, core.DB)
 	if err != nil {
-		logger.Errorf("SeachUsers SeachUsers By name:%s error, error msg:%s", args.Name, err.Error())
+		logger.Errorf("SeachUsers SeachUsers By account:%s error, error msg:%s", args.Account, err.Error())
 		return nil, err
 	}
 	var uids []string
