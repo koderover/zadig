@@ -265,7 +265,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 	// 检查环境是否存在，envName和productName唯一
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	if _, err := commonrepo.NewProductColl().Find(opt); err == nil {
-		log.Errorf("[%s][P:%s] duplicate envName in the same product", envName, productName)
+		log.Errorf("[%s][P:%s] duplicate envName in the same project", envName, productName)
 		return e.ErrCreateEnv.AddDesc(e.DuplicateEnvErrMsg)
 	}
 
@@ -275,22 +275,31 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 		mu           sync.Mutex
 	)
 
-	// pre judge  workLoads same name
 	serviceString := sets.NewString()
 	services, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, "")
 	for _, v := range services {
 		serviceString.Insert(v.ServiceName)
 	}
-	for _, workload := range workLoads {
-		if serviceString.Has(workload.Name) {
-			return e.ErrCreateTemplate.AddDesc(fmt.Sprintf("do not support import same service name: %s", workload.Name))
-		}
-	}
+	//for _, workload := range workLoads {
+	//	if serviceString.Has(workload.Name) {
+	//		return e.ErrCreateTemplate.AddDesc(fmt.Sprintf("do not support import same service name: %s", workload.Name))
+	//	}
+	//}
 
 	g := new(errgroup.Group)
 	for _, workload := range workLoads {
 		tempWorkload := workload
 		g.Go(func() error {
+			if serviceString.Has(tempWorkload.Name) {
+				return commonrepo.NewServicesInExternalEnvColl().Create(&commonmodels.ServicesInExternalEnv{
+					ProductName: productName,
+					ServiceName: tempWorkload.Name,
+					EnvName:     envName,
+					Namespace:   namespace,
+					ClusterID:   clusterID,
+				})
+			}
+
 			var bs []byte
 			switch tempWorkload.Type {
 			case setting.Deployment:
@@ -341,6 +350,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 			ClusterID:   clusterID,
 			EnvName:     envName,
 			Namespace:   namespace,
+			UpdateBy:    username,
 		}, log); err != nil {
 			return e.ErrCreateProduct.AddDesc("create product Error for unknown reason")
 		}

@@ -159,6 +159,13 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 			if err != nil {
 				log.Errorf("UpdateStatus  external services error:%s", err)
 			}
+			// delete services_in_external_env data
+			if err = commonrepo.NewServicesInExternalEnvColl().Delete(&commonrepo.ServicesInExternalEnvArgs{
+				ProductName: productName,
+				EnvName:     envName,
+			}); err != nil {
+				log.Errorf("remove services in external env error:%s", err)
+			}
 		}
 
 	default:
