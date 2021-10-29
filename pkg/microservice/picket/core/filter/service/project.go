@@ -22,7 +22,7 @@ func CreateProject(header http.Header, body []byte, qs url.Values, projectName s
 	// role binding
 	roleBindingName := fmt.Sprintf(setting.RoleBindingNameFmt, "*", setting.ReadOnly, projectName)
 	if public {
-		if err := policy.NewDefault().CreateRoleBinding(projectName, &policy.RoleBinding{
+		if err := policy.NewDefault().CreateOrUpdateRoleBinding(projectName, &policy.RoleBinding{
 			Name:   roleBindingName,
 			UID:    "*",
 			Role:   string(setting.ReadOnly),
