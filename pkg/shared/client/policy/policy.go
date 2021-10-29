@@ -67,7 +67,7 @@ type NameArgs struct {
 
 func (c *Client) DeleteRoleBindings(names []string, projectName string) error {
 	url := fmt.Sprintf("/rolebindings/bulk-delete?projectName=%s", projectName)
-	nameArgs := NameArgs{}
+	nameArgs := &NameArgs{}
 	for _, v := range names {
 		nameArgs.Names = append(nameArgs.Names, v)
 	}
@@ -77,7 +77,7 @@ func (c *Client) DeleteRoleBindings(names []string, projectName string) error {
 
 func (c *Client) DeleteRoles(names []string, projectName string) error {
 	url := fmt.Sprintf("/roles/bulk-delete?projectName=%s", projectName)
-	nameArgs := NameArgs{}
+	nameArgs := &NameArgs{}
 	for _, v := range names {
 		nameArgs.Names = append(nameArgs.Names, v)
 	}
