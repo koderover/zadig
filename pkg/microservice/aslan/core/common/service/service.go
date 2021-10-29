@@ -238,9 +238,11 @@ func ListWorkloadTemplate(productName, envName string, log *zap.SugaredLogger) (
 		}
 	}
 
-	newServices, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, "", externalServiceNames.List()...)
-	for _, service := range newServices {
-		services = append(services, service)
+	if len(externalServiceNames) > 0 {
+		newServices, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, "", externalServiceNames.List()...)
+		for _, service := range newServices {
+			services = append(services, service)
+		}
 	}
 
 	for _, serviceObject := range services {
