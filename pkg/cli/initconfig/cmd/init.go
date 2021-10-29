@@ -61,13 +61,17 @@ func run() error {
 }
 
 func initSystemConfig() error {
-	if err := presetUser(); err != nil {
+	if err := presetSystemAdmin(); err != nil {
 		return err
 	}
-	return presetRole()
+	if err := presetRole(); err != nil {
+		return err
+	}
+
+	return presetRoleBinding()
 }
 
-func presetUser() error {
+func presetSystemAdmin() error {
 	return user.New().CreateUser(&user.CreateUserArgs{
 		Name:     "admin",
 		Password: "admin",
@@ -75,6 +79,11 @@ func presetUser() error {
 		Phone:    "admin",
 		Account:  "admin",
 	})
+}
+
+func presetRoleBinding() error {
+	// TODO : MOUUII
+	return nil
 }
 
 func presetRole() error {
