@@ -18,6 +18,7 @@ default response = {
 
 response = r {
   not is_authenticated
+  not url_is_public
   r := {
     "allowed": false,
     "http_status": 401
