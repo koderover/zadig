@@ -124,6 +124,6 @@ func (c *ServicesInExternalEnvColl) Delete(args *ServicesInExternalEnvArgs) erro
 		query["env_name"] = args.EnvName
 	}
 
-	_, err := c.DeleteOne(context.TODO(), query)
+	_, err := c.DeleteMany(context.TODO(), query)
 	return err
 }
