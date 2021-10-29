@@ -30,14 +30,18 @@ func CreateProject(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err).AddDesc("invalid CreateProjectReq")
 		return
 	}
-	var body []byte
+	body := getReqBody(c)
+
+	ctx.Resp, ctx.Err = service.CreateProject(c.Request.Header, body, args.ProductName, args.Public, ctx.Logger)
+}
+
+func getReqBody(c *gin.Context) (body []byte) {
 	if cb, ok := c.Get(gin.BodyBytesKey); ok {
 		if cbb, ok := cb.([]byte); ok {
 			body = cbb
 		}
 	}
-
-	ctx.Resp, ctx.Err = service.CreateProject(c.Request.Header, body, args.ProductName, args.Public, ctx.Logger)
+	return nil
 }
 
 type UpdateProjectReq struct {
@@ -54,11 +58,6 @@ func UpdateProject(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err).AddDesc("invalid UpdateProject")
 		return
 	}
-	var body []byte
-	if cb, ok := c.Get(gin.BodyBytesKey); ok {
-		if cbb, ok := cb.([]byte); ok {
-			body = cbb
-		}
-	}
+	body := getReqBody(c)
 	ctx.Resp, ctx.Err = service.UpdateProject(c.Request.Header, body, c.Request.URL.Query(), args.ProductName, args.Public, ctx.Logger)
 }
