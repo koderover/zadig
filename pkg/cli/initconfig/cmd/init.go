@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/shared/client/policy"
+	"github.com/koderover/zadig/pkg/shared/client/user"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -60,7 +61,20 @@ func run() error {
 }
 
 func initSystemConfig() error {
+	if err := presetUser(); err != nil {
+		return err
+	}
 	return presetRole()
+}
+
+func presetUser() error {
+	return user.New().CreateUser(&user.CreateUserArgs{
+		Name:     "admin",
+		Password: "admin",
+		Email:    "admin",
+		Phone:    "admin",
+		Account:  "admin",
+	})
 }
 
 func presetRole() error {

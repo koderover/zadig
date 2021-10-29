@@ -30,3 +30,17 @@ func (c *Client) ListUsers(args *SearchArgs) ([]*User, error) {
 
 	return res.Users, err
 }
+
+type CreateUserArgs struct {
+	Name     string
+	Password string
+	Email    string
+	Phone    string
+	Account  string
+}
+
+func (c *Client) CreateUser(args *CreateUserArgs) error {
+	url := "/users"
+	_, err := c.Post(url, httpclient.SetBody(args))
+	return err
+}
