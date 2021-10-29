@@ -49,9 +49,9 @@ func (c *Client) ListRoleBindings(projectName string) ([]*RoleBinding, error) {
 	return res, err
 }
 
-func (c *Client) CreateRoleBinding(projectName string, roleBinding *RoleBinding) error {
+func (c *Client) CreateOrUpdateRoleBinding(projectName string, roleBinding *RoleBinding) error {
 	url := fmt.Sprintf("/rolebindings?projectName=%s", projectName)
-	_, err := c.Post(url, httpclient.SetBody(roleBinding))
+	_, err := c.Put(url, httpclient.SetBody(roleBinding))
 	return err
 }
 
