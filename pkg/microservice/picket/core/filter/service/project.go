@@ -37,7 +37,7 @@ func CreateProject(header http.Header, body []byte, qs url.Values, projectName s
 	if err != nil {
 		logger.Errorf("Failed to create project %s, err: %s", projectName, err)
 		if err1 := policy.NewDefault().DeleteRoleBinding(roleBindingName, projectName); err1 != nil {
-			logger.Warnf("Failed to delete role binding, err: %s", err1)
+			logger.Errorf("Failed to delete role binding, err: %s", err1)
 		}
 
 		return nil, err
@@ -51,7 +51,8 @@ func UpdateProject(header http.Header, qs url.Values, body []byte, projectName s
 	roleBindingName := fmt.Sprintf(setting.RoleBindingNameFmt, "*", setting.ReadOnly, projectName)
 	if !public {
 		if err := policy.NewDefault().DeleteRoleBinding(roleBindingName, projectName); err != nil {
-			logger.Warnf("Failed to delete role binding, err: %s", err)
+			logger.Errorf("Failed to delete role binding, err: %s", err)
+			return nil, err
 		}
 	} else {
 		if err := policy.NewDefault().CreateOrUpdateRoleBinding(projectName, &policy.RoleBinding{
@@ -61,6 +62,7 @@ func UpdateProject(header http.Header, qs url.Values, body []byte, projectName s
 			Public: true,
 		}); err != nil {
 			logger.Warnf("Failed to create role binding, err: %s", err)
+			return nil, err
 		}
 	}
 
