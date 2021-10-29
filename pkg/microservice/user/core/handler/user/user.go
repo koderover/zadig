@@ -21,6 +21,7 @@ func GetPersonalUser(c *gin.Context) {
 	uid := c.Param("uid")
 	if ctx.UserID != uid {
 		ctx.Err = e.ErrForbidden
+		return
 	}
 	ctx.Resp, ctx.Err = user.GetUser(uid, ctx.Logger)
 }
