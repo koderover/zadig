@@ -66,6 +66,10 @@ func ListProjects(header http.Header, qs url.Values, logger *zap.SugaredLogger) 
 	return aslanClient.ListProjects(header, qs)
 }
 
+func DeleteProject(header http.Header, qs url.Values, productName string, logger *zap.SugaredLogger) ([]byte, error) {
+	return aslan.New().DeleteProject(header, qs, productName)
+}
+
 func getVisibleProjects(headers http.Header, logger *zap.SugaredLogger) ([]string, error) {
 	res := &allowedProjectsData{}
 	opaClient := opa.NewDefault()

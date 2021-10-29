@@ -39,3 +39,10 @@ func CreateProject(c *gin.Context) {
 
 	ctx.Resp, ctx.Err = service.CreateProject(c.Request.Header, body, args.ProductName, args.Public, ctx.Logger)
 }
+
+func DeleteProject(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.DeleteProject(c.Request.Header, c.Request.URL.Query(), c.Param("project"), ctx.Logger)
+}
