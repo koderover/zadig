@@ -5,11 +5,31 @@ import input.attributes.request.http as http_request
 # Policy rule definitions in rbac style which is consumed by OPA server.
 # you can use it to:
 # 1. decide if a request is allowed by querying: rbac.allow
-# 2. get all visible projects for an authenticated user by querying: rbac.user_visible_projects
-# 3. get all allowed projects for a certain action(method+endpoint) for an authenticated user by querying: rbac.user_allowed_projects
-# 4. check if a user is system admin by querying: rbac.user_is_admin
-# 5. check if a user is project admin by querying: rbac.user_is_project_admin
+# 2. decide if a request is allowed and get the status code by querying: rbac.response
+# 3. get all visible projects for an authenticated user by querying: rbac.user_visible_projects
+# 4. get all allowed projects for a certain action(method+endpoint) for an authenticated user by querying: rbac.user_allowed_projects
+# 5. check if a user is system admin by querying: rbac.user_is_admin
+# 6. check if a user is project admin by querying: rbac.user_is_project_admin
 
+default response = {
+  "allowed": false,
+  "http_status": 403
+}
+
+response = r {
+  not is_authenticated
+  r := {
+    "allowed": false,
+    "http_status": 401
+  }
+}
+
+response = r {
+  allow
+  r := {
+    "allowed": true,
+  }
+}
 
 # By default, deny requests.
 default allow = false
@@ -21,8 +41,8 @@ allow {
 
 # Allow all valid users to visit exempted urls.
 allow {
+    is_authenticated
     url_is_exempted
-    claims.uid != ""
 }
 
 # Allow admins to do anything.
@@ -194,6 +214,11 @@ bearer_token := t {
 	v := http_request.headers.authorization
 	startswith(v, "Bearer ")
 	t := substring(v, count("Bearer "), -1)
+}
+
+is_authenticated {
+    claims
+    claims.uid != ""
 }
 
 envs := env {
