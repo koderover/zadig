@@ -67,6 +67,9 @@ func ListProjects(header http.Header, qs url.Values, logger *zap.SugaredLogger) 
 }
 
 func DeleteProject(header http.Header, qs url.Values, productName string, logger *zap.SugaredLogger) ([]byte, error) {
+	// delete roles and rolebindings
+	policy.NewDefault().DeleteRoleBindings([]string{"*"}, productName)
+	policy.NewDefault().DeleteRoles([]string{"*"}, productName)
 	return aslan.New().DeleteProject(header, qs, productName)
 }
 
