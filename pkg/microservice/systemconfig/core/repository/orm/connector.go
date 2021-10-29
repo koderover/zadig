@@ -77,7 +77,7 @@ func (c *ConnectorColl) Update(obj *models.Connector) error {
 }
 
 func (c *ConnectorColl) Delete(id string) error {
-	result := c.DB.Delete(&models.Connector{}, id)
+	result := c.DB.Delete(&models.Connector{ID: id})
 
 	return result.Error
 }
