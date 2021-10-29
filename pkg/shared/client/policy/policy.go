@@ -61,6 +61,30 @@ func (c *Client) DeleteRoleBinding(name string, projectName string) error {
 	return err
 }
 
+type NameArgs struct {
+	Names []string `json:"names"`
+}
+
+func (c *Client) DeleteRoleBindings(names []string, projectName string) error {
+	url := fmt.Sprintf("/rolebindings/bulk-delete?projectName=%s", projectName)
+	nameArgs := &NameArgs{}
+	for _, v := range names {
+		nameArgs.Names = append(nameArgs.Names, v)
+	}
+	_, err := c.Post(url, httpclient.SetBody(nameArgs))
+	return err
+}
+
+func (c *Client) DeleteRoles(names []string, projectName string) error {
+	url := fmt.Sprintf("/roles/bulk-delete?projectName=%s", projectName)
+	nameArgs := &NameArgs{}
+	for _, v := range names {
+		nameArgs.Names = append(nameArgs.Names, v)
+	}
+	_, err := c.Post(url, httpclient.SetBody(nameArgs))
+	return err
+}
+
 func (c *Client) CreateSystemRole(name string, role *Role) error {
 	url := fmt.Sprintf("/system-roles/%s", name)
 	_, err := c.Put(url, httpclient.SetBody(role))
