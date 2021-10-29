@@ -25,7 +25,7 @@ func LoadServiceFromYamlTemplate(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = svcservice.LoadServiceFromYamlTemplate(ctx.Username, req.ProjectName, req.ServiceName, req.TemplateID, req.Variables, ctx.Logger)
+	ctx.Err = svcservice.LoadServiceFromYamlTemplate(ctx.UserName, req.ProjectName, req.ServiceName, req.TemplateID, req.Variables, ctx.Logger)
 }
 
 func ReloadServiceFromYamlTemplate(c *gin.Context) {
@@ -38,5 +38,5 @@ func ReloadServiceFromYamlTemplate(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = svcservice.ReloadServiceFromYamlTemplate(ctx.Username, req.ProjectName, req.ServiceName, req.Variables, ctx.Logger)
+	ctx.Err = svcservice.ReloadServiceFromYamlTemplate(ctx.UserName, req.ProjectName, req.ServiceName, req.Variables, ctx.Logger)
 }

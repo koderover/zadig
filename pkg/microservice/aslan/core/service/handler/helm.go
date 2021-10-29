@@ -78,7 +78,7 @@ func CreateOrUpdateBulkHelmServices(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid HelmService json args")
 		return
 	}
-	args.CreatedBy = ctx.Username
+	args.CreatedBy = ctx.UserName
 
 	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateBulkHelmService(c.Query("productName"), args, ctx.Logger)
 }
