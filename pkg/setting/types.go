@@ -49,6 +49,7 @@ const (
 	OPA                  // 12
 	Policy               // 13
 	Config               // 14
+	User                 // 15
 )
 
 type ServiceInfo struct {
@@ -109,8 +110,12 @@ var Services = map[int]*ServiceInfo{
 		Name: "policy",
 		Port: 80,
 	},
-	Config:{
-		Name:"config",
-		Port:80,
+	Config: {
+		Name: "config",
+		Port: 80,
+	},
+	User: {
+		Name: "user",
+		Port: 80,
 	},
 }

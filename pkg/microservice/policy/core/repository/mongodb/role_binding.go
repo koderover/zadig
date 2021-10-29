@@ -116,12 +116,27 @@ func (c *RoleBindingColl) DeleteMany(names []string, projectName string) error {
 
 	return err
 }
+
 func (c *RoleBindingColl) DeleteByRole(roleName string, projectName string) error {
 	query := bson.M{"role_ref.name": roleName, "role_ref.namespace": projectName}
 	// if projectName == "", delete all rolebindings in all namespaces
 	if projectName != "" {
 		query["namespace"] = projectName
 	}
+	_, err := c.Collection.DeleteMany(context.TODO(), query)
+
+	return err
+}
+
+func (c *RoleBindingColl) DeleteByRoles(roleNames []string, projectName string) error {
+	if projectName == "" {
+		return fmt.Errorf("projectName is empty")
+	}
+	if len(roleNames) == 0 {
+		return nil
+	}
+
+	query := bson.M{"role_ref.name": bson.M{"$in": roleNames}, "role_ref.namespace": projectName, "namespace": projectName}
 	_, err := c.Collection.DeleteMany(context.TODO(), query)
 
 	return err

@@ -397,7 +397,7 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 	return nil
 }
 
-func ForkProduct(username, userid, requestID string, args *template.ForkProject, log *zap.SugaredLogger) error {
+func ForkProduct(username, uid, requestID string, args *template.ForkProject, log *zap.SugaredLogger) error {
 
 	prodTmpl, err := templaterepo.NewProductColl().Find(args.ProductName)
 	if err != nil {
@@ -511,9 +511,9 @@ func ForkProduct(username, userid, requestID string, args *template.ForkProject,
 		UpdateBy:  username,
 	}
 	err = policy.NewDefault().CreateRoleBinding(args.ProductName, &policy.RoleBinding{
-		Name:   fmt.Sprintf(setting.RoleBindingNameFmt, args.ProductName, userid, args.ProductName),
-		User:   userid,
-		Role:   setting.Contributor,
+		Name:   fmt.Sprintf(setting.RoleBindingNameFmt, args.ProductName, uid, args.ProductName),
+		UID:    uid,
+		Role:   string(setting.Contributor),
 		Public: true,
 	})
 	if err != nil {

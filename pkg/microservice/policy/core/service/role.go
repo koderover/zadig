@@ -125,19 +125,29 @@ func DeleteRole(name string, projectName string, logger *zap.SugaredLogger) erro
 	err := mongodb.NewRoleColl().Delete(name, projectName)
 	if err != nil {
 		logger.Errorf("Failed to delete role %s in project %s, err: %s", name, projectName, err)
+		return err
 	}
 
 	return mongodb.NewRoleBindingColl().DeleteByRole(name, projectName)
 }
 
-func DeleteRoles(names []string, projectName string, _ *zap.SugaredLogger) error {
+func DeleteRoles(names []string, projectName string, logger *zap.SugaredLogger) error {
 	if len(names) == 0 {
 		return nil
+	}
+	if projectName == "" {
+		return fmt.Errorf("projectName is empty")
 	}
 
 	if names[0] == "*" {
 		names = []string{}
 	}
 
-	return mongodb.NewRoleColl().DeleteMany(names, projectName)
+	err := mongodb.NewRoleColl().DeleteMany(names, projectName)
+	if err != nil {
+		logger.Errorf("Failed to delete roles %s in project %s, err: %s", names, projectName, err)
+		return err
+	}
+
+	return mongodb.NewRoleBindingColl().DeleteByRoles(names, projectName)
 }
