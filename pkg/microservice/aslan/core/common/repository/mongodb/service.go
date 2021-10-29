@@ -279,7 +279,7 @@ func (c *ServiceColl) Update(args *models.Service) error {
 }
 
 // ListExternalServicesBy list service only for external services  ,other service type not use  before refactor
-func (c *ServiceColl) ListExternalWorkloadsBy(productName, envName string) ([]*models.Service, error) {
+func (c *ServiceColl) ListExternalWorkloadsBy(productName, envName string, serviceNames ...string) ([]*models.Service, error) {
 	services := make([]*models.Service, 0)
 	query := bson.M{
 		"status": bson.M{"$ne": setting.ProductStatusDeleting},
@@ -289,6 +289,10 @@ func (c *ServiceColl) ListExternalWorkloadsBy(productName, envName string) ([]*m
 	}
 	if envName != "" {
 		query["env_name"] = envName
+	}
+
+	if len(serviceNames) > 0 {
+		query["service_name"] = bson.M{"$in": serviceNames}
 	}
 	ctx := context.Background()
 	cursor, err := c.Collection.Find(ctx, query)

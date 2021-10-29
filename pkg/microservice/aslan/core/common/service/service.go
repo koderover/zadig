@@ -221,6 +221,21 @@ func ListWorkloadTemplate(productName, envName string, log *zap.SugaredLogger) (
 		return resp, e.ErrListTemplate.AddDesc(err.Error())
 	}
 
+	servicesInExternalEnv, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
+		ProductName: productName,
+		EnvName:     envName,
+	})
+
+	serviceNames := sets.NewString()
+	for _, serviceInExternalEnv := range servicesInExternalEnv {
+		serviceNames.Insert(serviceInExternalEnv.ServiceName)
+	}
+
+	newServices, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, "", serviceNames.List()...)
+	for _, service := range newServices {
+		services = append(services, service)
+	}
+
 	for _, serviceObject := range services {
 		spmap := &ServiceProductMap{
 			Service:     serviceObject.ServiceName,
