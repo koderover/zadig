@@ -46,6 +46,24 @@ func CreateProject(header http.Header, body []byte, projectName string, public b
 	return res, nil
 }
 
+func UpdateProject(header http.Header, body []byte, qs url.Values, projectName string, public bool, logger *zap.SugaredLogger) ([]byte, error) {
+	// role binding
+	roleBindingName := fmt.Sprintf(setting.RoleBindingNameFmt, "*", setting.ReadOnly, projectName)
+	if !public {
+		if err := policy.NewDefault().DeleteRoleBinding(roleBindingName, projectName); err != nil {
+			logger.Warnf("Failed to delete role binding, err: %s", err)
+		}
+	}
+
+	res, err := aslan.New().UpdateProject(header, qs, body)
+	if err != nil {
+		logger.Errorf("Failed to create project %s, err: %s", projectName, err)
+		return nil, err
+	}
+
+	return res, nil
+}
+
 func ListProjects(header http.Header, qs url.Values, logger *zap.SugaredLogger) ([]byte, error) {
 	names, err := getVisibleProjects(header, logger)
 	if err != nil {

@@ -39,3 +39,26 @@ func CreateProject(c *gin.Context) {
 
 	ctx.Resp, ctx.Err = service.CreateProject(c.Request.Header, body, args.ProductName, args.Public, ctx.Logger)
 }
+
+type UpdateProjectReq struct {
+	Public      bool   `json:"public"`
+	ProductName string `json:"product_name"`
+}
+
+func UpdateProject(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(UpdateProjectReq)
+	if err := c.ShouldBindBodyWith(args, binding.JSON); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err).AddDesc("invalid UpdateProject")
+		return
+	}
+	var body []byte
+	if cb, ok := c.Get(gin.BodyBytesKey); ok {
+		if cbb, ok := cb.([]byte); ok {
+			body = cbb
+		}
+	}
+	ctx.Resp, ctx.Err = service.UpdateProject(c.Request.Header, body, c.Request.URL.Query(), args.ProductName, args.Public, ctx.Logger)
+}
