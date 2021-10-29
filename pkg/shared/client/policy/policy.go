@@ -3,7 +3,6 @@ package policy
 import (
 	"fmt"
 
-	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
@@ -26,6 +25,13 @@ type ActionRule struct {
 	Endpoint string `json:"endpoint"`
 }
 
+type RoleBinding struct {
+	Name   string `json:"name"`
+	UID    string `json:"uid"`
+	Role   string `json:"role"`
+	Public bool   `json:"public"`
+}
+
 func (c *Client) CreateOrUpdatePolicy(p *Policy) error {
 	url := fmt.Sprintf("/policies/%s", p.Resource)
 
@@ -34,11 +40,13 @@ func (c *Client) CreateOrUpdatePolicy(p *Policy) error {
 	return err
 }
 
-type RoleBinding struct {
-	Name   string
-	User   string
-	Role   setting.RoleType
-	Public bool
+func (c *Client) ListRoleBindings(projectName string) ([]*RoleBinding, error) {
+	url := fmt.Sprintf("/rolebindings?projectName=%s", projectName)
+
+	res := make([]*RoleBinding, 0)
+	_, err := c.Get(url, httpclient.SetResult(&res))
+
+	return res, err
 }
 
 func (c *Client) CreateRoleBinding(projectName string, roleBinding *RoleBinding) error {
