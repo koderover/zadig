@@ -18,9 +18,19 @@ func (c *Client) ListProjects(header http.Header, qs url.Values) ([]byte, error)
 	return res.Body(), nil
 }
 
-func (c *Client) CreateProject(header http.Header, body []byte) ([]byte, error) {
+func (c *Client) CreateProject(header http.Header, qs url.Values, body []byte) ([]byte, error) {
 	url := "/project/products"
-	res, err := c.Post(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetBody(body))
+	res, err := c.Post(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs), httpclient.SetBody(body))
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Body(), nil
+}
+
+func (c *Client) UpdateProject(header http.Header, qs url.Values, body []byte) ([]byte, error) {
+	url := "/project/products"
+	res, err := c.Put(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs), httpclient.SetBody(body))
 	if err != nil {
 		return nil, err
 	}

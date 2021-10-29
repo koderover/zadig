@@ -18,11 +18,11 @@ type allowedProjectsData struct {
 	Result []string `json:"result"`
 }
 
-func CreateProject(header http.Header, body []byte, projectName string, public bool, logger *zap.SugaredLogger) ([]byte, error) {
+func CreateProject(header http.Header, body []byte, qs url.Values, projectName string, public bool, logger *zap.SugaredLogger) ([]byte, error) {
 	// role binding
 	roleBindingName := fmt.Sprintf(setting.RoleBindingNameFmt, "*", setting.ReadOnly, projectName)
 	if public {
-		if err := policy.NewDefault().CreateRoleBinding(projectName, &policy.RoleBinding{
+		if err := policy.NewDefault().CreateOrUpdateRoleBinding(projectName, &policy.RoleBinding{
 			Name:   roleBindingName,
 			UID:    "*",
 			Role:   string(setting.ReadOnly),
@@ -33,13 +33,42 @@ func CreateProject(header http.Header, body []byte, projectName string, public b
 		}
 	}
 
-	res, err := aslan.New().CreateProject(header, body)
+	res, err := aslan.New().CreateProject(header, qs, body)
 	if err != nil {
 		logger.Errorf("Failed to create project %s, err: %s", projectName, err)
 		if err1 := policy.NewDefault().DeleteRoleBinding(roleBindingName, projectName); err1 != nil {
-			logger.Warnf("Failed to delete role binding, err: %s", err1)
+			logger.Errorf("Failed to delete role binding, err: %s", err1)
 		}
 
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func UpdateProject(header http.Header, qs url.Values, body []byte, projectName string, public bool, logger *zap.SugaredLogger) ([]byte, error) {
+	// role binding
+	roleBindingName := fmt.Sprintf(setting.RoleBindingNameFmt, "*", setting.ReadOnly, projectName)
+	if !public {
+		if err := policy.NewDefault().DeleteRoleBinding(roleBindingName, projectName); err != nil {
+			logger.Errorf("Failed to delete role binding, err: %s", err)
+			return nil, err
+		}
+	} else {
+		if err := policy.NewDefault().CreateOrUpdateRoleBinding(projectName, &policy.RoleBinding{
+			Name:   roleBindingName,
+			UID:    "*",
+			Role:   string(setting.ReadOnly),
+			Public: true,
+		}); err != nil {
+			logger.Errorf("Failed to create role binding, err: %s", err)
+			return nil, err
+		}
+	}
+
+	res, err := aslan.New().UpdateProject(header, qs, body)
+	if err != nil {
+		logger.Errorf("Failed to create project %s, err: %s", projectName, err)
 		return nil, err
 	}
 

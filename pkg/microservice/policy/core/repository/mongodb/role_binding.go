@@ -166,3 +166,15 @@ func (c *RoleBindingColl) BulkCreate(objs []*models.RoleBinding) error {
 
 	return err
 }
+
+func (c *RoleBindingColl) UpdateOrCreate(obj *models.RoleBinding) error {
+	if obj == nil {
+		return fmt.Errorf("nil object")
+	}
+
+	query := bson.M{"name": obj.Name, "namespace": obj.Namespace}
+	opts := options.Replace().SetUpsert(true)
+	_, err := c.ReplaceOne(context.TODO(), query, obj, opts)
+
+	return err
+}
