@@ -51,7 +51,7 @@ func (c *ConnectorColl) List() ([]*models.Connector, error) {
 
 func (c *ConnectorColl) Get(id string) (*models.Connector, error) {
 	res := &models.Connector{}
-	result := c.First(&res, id)
+	result := c.First(&res, "id=?", id)
 
 	return res, result.Error
 }

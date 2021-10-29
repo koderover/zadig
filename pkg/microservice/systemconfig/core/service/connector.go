@@ -35,7 +35,7 @@ func ListConnectors(logger *zap.SugaredLogger) ([]*Connector, error) {
 	var res []*Connector
 	for _, c := range cs {
 		cf := make(map[string]interface{})
-		err = json.Unmarshal([]byte(c.Config), cf)
+		err = json.Unmarshal([]byte(c.Config), &cf)
 		if err != nil {
 			logger.Warnf("Failed to unmarshal config, err: %s", err)
 			continue
@@ -61,7 +61,7 @@ func GetConnector(id string, logger *zap.SugaredLogger) (*Connector, error) {
 	}
 
 	cf := make(map[string]interface{})
-	err = json.Unmarshal([]byte(c.Config), cf)
+	err = json.Unmarshal([]byte(c.Config), &cf)
 	if err != nil {
 		logger.Warnf("Failed to unmarshal config, err: %s", err)
 
