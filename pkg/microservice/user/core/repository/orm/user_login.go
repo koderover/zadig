@@ -3,6 +3,7 @@ package orm
 import (
 	"gorm.io/gorm"
 
+	"github.com/koderover/zadig/pkg/microservice/user/config"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 )
 
@@ -15,9 +16,9 @@ func CreateUserLogin(userLogin *models.UserLogin, db *gorm.DB) error {
 }
 
 // GetUserLogin Get a userLogin based on uid
-func GetUserLogin(uid string, db *gorm.DB) (*models.UserLogin, error) {
+func GetUserLogin(uid string, account string, loginType config.LoginType, db *gorm.DB) (*models.UserLogin, error) {
 	var userLogin models.UserLogin
-	err := db.Where("uid = ?", uid).First(&userLogin).Error
+	err := db.Where("uid = ? and login_id = ? and login_type = ?", uid, account, loginType).First(&userLogin).Error
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
 	}
@@ -30,7 +31,7 @@ func GetUserLogin(uid string, db *gorm.DB) (*models.UserLogin, error) {
 // ListUserLogins Get a userLogin based on uid list
 func ListUserLogins(uids []string, db *gorm.DB) (*[]models.UserLogin, error) {
 	var userLogins []models.UserLogin
-	err := db.Where("uid IN (?)", uids).Find(&userLogins).Error
+	err := db.Find(&userLogins, "uid in ?", uids).Error
 	if err != nil {
 		return nil, err
 	}

@@ -24,3 +24,9 @@ const (
 	AppState           = setting.ProductName + "user"
 	SystemIdentityType = "system"
 )
+
+type LoginType int
+
+const (
+	AccountLocinType LoginType = 0
+)

@@ -36,6 +36,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		users.GET("/users/:uid", user.GetUser)
 
-		users.GET("/users", user.ListUsers)
+		users.GET("/users/:uid/personal", user.GetPersonalUser)
+
+		users.POST("/users/search", user.ListUsers)
 	}
 }
