@@ -18,22 +18,22 @@ package service
 
 import (
 	"fmt"
+	"path"
 
 	"go.uber.org/zap"
 
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/setting"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 )
 
-func GetTestArtifactInfo(pipelineName, dir string, taskID int64, log *zap.SugaredLogger) (*commonmodels.S3Storage, []string, error) {
+func GetTestArtifactInfo(pipelineName, dir string, taskID int64, log *zap.SugaredLogger) ([]string, error) {
 	fis := make([]string, 0)
 
 	storage, err := s3.FindDefaultS3()
 	if err != nil {
 		log.Errorf("GetTestArtifactInfo FindDefaultS3 err:%v", err)
-		return nil, fis, nil
+		return fis, err
 	}
 	if storage.Subfolder != "" {
 		storage.Subfolder = fmt.Sprintf("%s/%s/%d/%s", storage.Subfolder, pipelineName, taskID, "artifact")
@@ -47,13 +47,18 @@ func GetTestArtifactInfo(pipelineName, dir string, taskID int64, log *zap.Sugare
 	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
 	if err != nil {
 		log.Errorf("GetTestArtifactInfo create s3 client err:%v", err)
-		return nil, fis, nil
+		return fis, err
 	}
 	prefix := storage.GetObjectPath(dir)
 	files, err := client.ListFiles(storage.Bucket, prefix, true)
 	if err != nil || len(files) <= 0 {
 		log.Errorf("GetTestArtifactInfo ListFiles err:%v", err)
-		return nil, fis, nil
+		return fis, err
 	}
-	return storage.S3Storage, files, nil
+	resp := make([]string, 0)
+	for _, file := range files {
+		_, fileName := path.Split(file)
+		resp = append(resp, fileName)
+	}
+	return resp, nil
 }

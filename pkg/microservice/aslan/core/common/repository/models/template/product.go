@@ -104,20 +104,20 @@ type GitRepoConfig struct {
 	Branch     string `bson:"branch,omitempty"`
 }
 
-type OverrideYaml struct {
+type CustomYaml struct {
 	YamlSource    string         `bson:"yaml_source,omitempty"     json:"yaml_source,omitempty"`
 	YamlContent   string         `bson:"yaml_content,omitempty"    json:"yaml_content,omitempty"`
-	GitRepoConfig *GitRepoConfig `bson:"git_repo_config,omitempty"   json:"gitRepoConfig,omitempty"`
+	GitRepoConfig *GitRepoConfig `bson:"git_repo_config,omitempty"   json:"git_repo_config,omitempty"`
 	ValuesPaths   []string       `bson:"values_paths,omitempty"    json:"values_paths,omitempty"`
 }
 
 // RenderChart ...
 type RenderChart struct {
-	ServiceName    string        `bson:"service_name,omitempty"    json:"service_name,omitempty"`
-	ChartVersion   string        `bson:"chart_version,omitempty"   json:"chart_version,omitempty"`
-	ValuesYaml     string        `bson:"values_yaml,omitempty"     json:"values_yaml,omitempty"`
-	OverrideYaml   *OverrideYaml `bson:"override_yaml,omitempty"   json:"override_yaml,omitempty"`
-	OverrideValues string        `bson:"override_values,omitempty"   json:"override_values,omitempty"`
+	ServiceName    string      `bson:"service_name,omitempty"    json:"service_name,omitempty"`
+	ChartVersion   string      `bson:"chart_version,omitempty"   json:"chart_version,omitempty"`
+	ValuesYaml     string      `bson:"values_yaml,omitempty"     json:"values_yaml,omitempty"`
+	OverrideYaml   *CustomYaml `bson:"override_yaml,omitempty"   json:"override_yaml,omitempty"`
+	OverrideValues string      `bson:"override_values,omitempty"   json:"override_values,omitempty"`
 }
 
 type ProductFeature struct {

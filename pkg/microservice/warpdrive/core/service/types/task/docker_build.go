@@ -23,6 +23,8 @@ import (
 )
 
 type DockerBuild struct {
+	Source     string          `bson:"source"                  json:"source"` // Dockerfile source
+	TemplateID string          `bson:"template_id"             json:"template_id"`
 	TaskType   config.TaskType `bson:"type"                    json:"type"`
 	Enabled    bool            `bson:"enabled"                 json:"enabled"`
 	TaskStatus config.Status   `bson:"status"                  json:"status"`

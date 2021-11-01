@@ -105,11 +105,11 @@ func CreateWorkflowTask(c *gin.Context) {
 		return
 	}
 
-	if args.WorklowTaskCreator != setting.CronTaskCreator && args.WorklowTaskCreator != setting.WebhookTaskCreator {
-		args.WorklowTaskCreator = ctx.UserName
+	if args.WorkflowTaskCreator != setting.CronTaskCreator && args.WorkflowTaskCreator != setting.WebhookTaskCreator {
+		args.WorkflowTaskCreator = ctx.UserName
 	}
 
-	ctx.Resp, ctx.Err = workflow.CreateWorkflowTask(args, args.WorklowTaskCreator, ctx.Logger)
+	ctx.Resp, ctx.Err = workflow.CreateWorkflowTask(args, args.WorkflowTaskCreator, ctx.Logger)
 
 	// 发送通知
 	if ctx.Err != nil {
@@ -138,11 +138,11 @@ func CreateArtifactWorkflowTask(c *gin.Context) {
 		return
 	}
 
-	if args.WorklowTaskCreator != setting.CronTaskCreator && args.WorklowTaskCreator != setting.WebhookTaskCreator {
-		args.WorklowTaskCreator = ctx.UserName
+	if args.WorkflowTaskCreator != setting.CronTaskCreator && args.WorkflowTaskCreator != setting.WebhookTaskCreator {
+		args.WorkflowTaskCreator = ctx.UserName
 	}
 
-	ctx.Resp, ctx.Err = workflow.CreateArtifactWorkflowTask(args, args.WorklowTaskCreator, ctx.Logger)
+	ctx.Resp, ctx.Err = workflow.CreateArtifactWorkflowTask(args, args.WorkflowTaskCreator, ctx.Logger)
 }
 
 // ListWorkflowTasksResult workflowtask分页信息

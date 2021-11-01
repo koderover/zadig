@@ -21,6 +21,7 @@ type TaskType string
 const (
 	TaskPipeline       TaskType = "pipeline"
 	TaskBuild          TaskType = "buildv2"
+	TaskArtifactDeploy TaskType = "artifact_deploy"
 	TaskJenkinsBuild   TaskType = "jenkins_build"
 	TaskArtifact       TaskType = "artifact"
 	TaskDeploy         TaskType = "deploy"

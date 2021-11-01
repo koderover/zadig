@@ -373,3 +373,40 @@ func (r *Reaper) RunPMDeployScripts() error {
 
 	return cmd.Run()
 }
+
+func (r *Reaper) downloadArtifactFile() error {
+	var err error
+	var store *s3.S3
+	if store, err = s3.NewS3StorageFromEncryptedURI(r.Ctx.ArtifactInfo.URL); err != nil {
+		log.Errorf("Archive failed to create s3 storage %s", r.Ctx.ArtifactInfo.URL)
+		return err
+	}
+	if store.Subfolder != "" {
+		store.Subfolder = fmt.Sprintf("%s/%s/%d/%s", store.Subfolder, r.Ctx.ArtifactInfo.WorkflowName, r.Ctx.ArtifactInfo.TaskID, "file")
+	} else {
+		store.Subfolder = fmt.Sprintf("%s/%d/%s", r.Ctx.ArtifactInfo.WorkflowName, r.Ctx.ArtifactInfo.TaskID, "file")
+	}
+
+	forcedPathStyle := true
+	if store.Provider == setting.ProviderSourceAli {
+		forcedPathStyle = false
+	}
+	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
+	if err != nil {
+		log.Errorf("s3 create client err:%s", err)
+		return err
+	}
+	files, err := s3client.ListFiles(store.Bucket, store.GetObjectPath(r.Ctx.ArtifactInfo.FileName), false)
+	if err != nil {
+		log.Errorf("s3 list file err:%s", err)
+		return err
+	}
+	if len(files) > 0 {
+		objectKey := store.GetObjectPath(files[0])
+		if err = s3client.Download(store.Bucket, objectKey, fmt.Sprintf("%s/%s", r.ActiveWorkspace, r.Ctx.ArtifactInfo.FileName)); err != nil {
+			log.Errorf("s3 download file err:%s", err)
+			return err
+		}
+	}
+	return nil
+}

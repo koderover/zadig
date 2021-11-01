@@ -24,10 +24,13 @@ import (
 	"strings"
 
 	"github.com/koderover/zadig/pkg/microservice/reaper/config"
+	"github.com/koderover/zadig/pkg/setting"
 )
 
 // Context ...
 type Context struct {
+	// API token 服务访问使用的api token
+	APIToken string `yaml:"api_token"`
 	// Workspace 容器工作目录 [必填]
 	Workspace string `yaml:"workspace"`
 
@@ -106,11 +109,19 @@ type Context struct {
 	// IgnoreCache ignore docker build cache [runtime]
 	IgnoreCache bool `yaml:"ignore_cache"`
 
-	StorageEndpoint string `yaml:"storage_endpoint"`
-	StorageAK       string `yaml:"storage_ak"`
-	StorageSK       string `yaml:"storage_sk"`
-	StorageBucket   string `yaml:"storage_bucket"`
-	StorageProvider int    `yaml:"storage_provider"`
+	StorageEndpoint string        `yaml:"storage_endpoint"`
+	StorageAK       string        `yaml:"storage_ak"`
+	StorageSK       string        `yaml:"storage_sk"`
+	StorageBucket   string        `yaml:"storage_bucket"`
+	StorageProvider int           `yaml:"storage_provider"`
+	ArtifactInfo    *ArtifactInfo `yaml:"artifact_info"`
+}
+
+type ArtifactInfo struct {
+	URL          string `yaml:"url"`
+	WorkflowName string `yaml:"workflow_name"`
+	TaskID       int64  `yaml:"task_id"`
+	FileName     string `yaml:"file_name"`
 }
 
 // DockerBuildCtx ...
@@ -119,14 +130,20 @@ type Context struct {
 // DockerFile: dockerfile名称, 默认为Dockerfile
 // ImageBuild: build image镜像全称, e.g. xxx.com/spock-release-candidates/image:tag
 type DockerBuildCtx struct {
-	WorkDir         string `yaml:"work_dir" bson:"work_dir" json:"work_dir"`
+	Source          string `yaml:"source"      bson:"source"      json:"source"`
+	TemplateID      string `yaml:"template_id" bson:"template_id" json:"template_id"`
+	WorkDir         string `yaml:"work_dir"    bson:"work_dir"    json:"work_dir"`
 	DockerFile      string `yaml:"docker_file" bson:"docker_file" json:"docker_file"`
-	ImageName       string `yaml:"image_name" bson:"image_name" json:"image_name"`
-	BuildArgs       string `yaml:"build_args" bson:"build_args" json:"build_args"`
+	ImageName       string `yaml:"image_name"  bson:"image_name"  json:"image_name"`
+	BuildArgs       string `yaml:"build_args"  bson:"build_args"  json:"build_args"`
 	ImageReleaseTag string `yaml:"image_release_tag,omitempty" bson:"image_release_tag,omitempty" json:"image_release_tag"`
 }
 
 func (c *DockerBuildCtx) GetDockerFile() string {
+	// if the source of the dockerfile is from template, we write our own dockerfile
+	if c.Source == setting.DockerfileSourceTemplate {
+		return fmt.Sprintf("/%s", setting.ZadigDockerfilePath)
+	}
 	if c.DockerFile == "" {
 		return "Dockerfile"
 	}
