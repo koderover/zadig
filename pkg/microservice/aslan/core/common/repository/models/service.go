@@ -16,6 +16,10 @@ limitations under the License.
 
 package models
 
+import (
+	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+)
+
 // TODO: move Revision out of Service.
 
 // Service : service template struct
@@ -57,9 +61,27 @@ type Service struct {
 	BranchName       string           `bson:"branch_name,omitempty"          json:"branch_name,omitempty"`
 	LoadPath         string           `bson:"load_path,omitempty"            json:"load_path,omitempty"`
 	LoadFromDir      bool             `bson:"is_dir,omitempty"               json:"is_dir,omitempty"`
+	CreateFrom       interface{}      `bson:"create_from,omitempty"               json:"create_from,omitempty"`
 	HealthChecks     []*PmHealthCheck `bson:"health_checks,omitempty"        json:"health_checks,omitempty"`
 	WorkloadType     string           `bson:"workload_type,omitempty"        json:"workload_type,omitempty"`
 	EnvName          string           `bson:"env_name,omitempty"             json:"env_name,omitempty"`
+	TemplateID       string           `bson:"template_id,omitempty"          json:"template_id,omitempty"`
+}
+
+type CreateFromRepo struct {
+	GitRepoConfig *templatemodels.GitRepoConfig `bson:"git_repo_config,omitempty"            json:"git_repo_config,omitempty"`
+	LoadPath      string                        `bson:"load_path,omitempty"            json:"load_path,omitempty"`
+}
+
+type CreateFromPublicRepo struct {
+	RepoLink string `bson:"repo_link" json:"repo_link"`
+	LoadPath string `bson:"load_path,omitempty"        json:"load_path,omitempty"`
+}
+
+type CreateFromChartTemplate struct {
+	YamlData     *templatemodels.CustomYaml `bson:"yaml_data,omitempty"   json:"yaml_data,omitempty"`
+	TemplateName string                     `bson:"template_name" json:"template_name"`
+	ServiceName  string                     `bson:"service_name" json:"service_name"`
 }
 
 type GUIConfig struct {
@@ -200,6 +222,7 @@ type EnvStatus struct {
 type EnvConfig struct {
 	EnvName string   `bson:"env_name,omitempty" json:"env_name"`
 	HostIDs []string `bson:"host_ids,omitempty" json:"host_ids"`
+	Labels  []string `bson:"labels,omitempty"   json:"labels"`
 }
 
 type PmHealthCheck struct {
