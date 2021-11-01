@@ -37,6 +37,8 @@ func ListUsers(c *gin.Context) {
 	if len(args.UIDs) > 0 {
 		ctx.Resp, ctx.Err = user.SearchUsersByUIDs(args.UIDs, ctx.Logger)
 		return
+	} else if len(args.Account) > 0 {
+		ctx.Resp, ctx.Err = user.SearchUserByAccount(args, ctx.Logger)
 	} else {
 		ctx.Resp, ctx.Err = user.SearchUsers(args, ctx.Logger)
 		return

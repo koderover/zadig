@@ -38,7 +38,7 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, error) {
 	if user == nil {
 		return nil, fmt.Errorf("user not exist")
 	}
-	userLogin, err := orm.GetUserLogin(user.UID, args.Account, config.AccountLocinType, core.DB)
+	userLogin, err := orm.GetUserLogin(user.UID, args.Account, config.AccountLoginType, core.DB)
 	if err != nil {
 		logger.Errorf("LocalLogin get user:%s user login not exist, error msg:%s", args.Account, err.Error())
 		return nil, err

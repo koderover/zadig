@@ -23,10 +23,12 @@ type User struct {
 }
 
 type QueryArgs struct {
-	Name    string   `json:"name,omitempty"`
-	UIDs    []string `json:"uids,omitempty"`
-	PerPage int      `json:"per_page,omitempty"`
-	Page    int      `json:"page,omitempty"`
+	Name         string   `json:"name,omitempty"`
+	Account      string   `json:"account,omitempty"`
+	IdentityType string   `json:"identity_type,omitempty"`
+	UIDs         []string `json:"uids,omitempty"`
+	PerPage      int      `json:"per_page,omitempty"`
+	Page         int      `json:"page,omitempty"`
 }
 
 type UserInfo struct {
@@ -62,13 +64,31 @@ func GetUser(uid string, logger *zap.SugaredLogger) (*UserInfo, error) {
 		logger.Errorf("GetUser getUserByUid:%s error, error msg:%s", uid, err.Error())
 		return nil, err
 	}
-	userLogin, err := orm.GetUserLogin(uid, user.Account, config.AccountLocinType, core.DB)
+	userLogin, err := orm.GetUserLogin(uid, user.Account, config.AccountLoginType, core.DB)
 	if err != nil {
 		logger.Errorf("GetUser GetUserLogin:%s error, error msg:%s", uid, err.Error())
 		return nil, err
 	}
 	userInfo := mergeUserLogin([]models.User{*user}, []models.UserLogin{*userLogin}, logger)
 	return &userInfo[0], nil
+}
+
+func SearchUserByAccount(args *QueryArgs, logger *zap.SugaredLogger) (*UsersResp, error) {
+	user, err := orm.GetUser(args.Account, args.IdentityType, core.DB)
+	if err != nil {
+		logger.Errorf("SearchUserByAccount GetUser By account:%s error, error msg:%s", args.Account, err.Error())
+		return nil, err
+	}
+	userLogins, err := orm.ListUserLogins([]string{user.UID}, core.DB)
+	if err != nil {
+		logger.Errorf("SearchUserByAccount ListUserLogins By uid:%s error, error msg:%s", user.UID, err.Error())
+		return nil, err
+	}
+	usersInfo := mergeUserLogin([]models.User{*user}, *userLogins, logger)
+	return &UsersResp{
+		Users:      usersInfo,
+		TotalCount: int64(len(usersInfo)),
+	}, nil
 }
 
 func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*UsersResp, error) {
@@ -148,7 +168,7 @@ func SearchUsersByUIDs(uids []string, logger *zap.SugaredLogger) (*UsersResp, er
 
 func getLoginId(user *models.User, loginType config.LoginType) string {
 	switch loginType {
-	case config.AccountLocinType:
+	case config.AccountLoginType:
 		return user.Account
 	default:
 		return user.Account
@@ -204,7 +224,7 @@ func UpdatePassword(args *Password, logger *zap.SugaredLogger) error {
 	if user == nil {
 		return fmt.Errorf("user not exist")
 	}
-	userLogin, err := orm.GetUserLogin(user.UID, user.Account, config.AccountLocinType, core.DB)
+	userLogin, err := orm.GetUserLogin(user.UID, user.Account, config.AccountLoginType, core.DB)
 	if err != nil {
 		logger.Errorf("UpdatePassword GetUserLogin:%s error, error msg:%s", args.Uid, err.Error())
 		return err
@@ -263,7 +283,7 @@ func SyncUser(syncUserInfo *SyncUserInfo, logger *zap.SugaredLogger) (*models.Us
 			return nil, err
 		}
 	}
-	userLogin, err := orm.GetUserLogin(user.UID, user.Account, config.AccountLocinType, tx)
+	userLogin, err := orm.GetUserLogin(user.UID, user.Account, config.AccountLoginType, tx)
 	if err != nil {
 		tx.Rollback()
 		logger.Error("UpdateLoginInfo get user:%s login error, error msg:%s", user.UID, err.Error())
@@ -281,8 +301,8 @@ func SyncUser(syncUserInfo *SyncUserInfo, logger *zap.SugaredLogger) (*models.Us
 		err = orm.CreateUserLogin(&models.UserLogin{
 			UID:           user.UID,
 			LastLoginTime: time.Now().Unix(),
-			LoginId:       getLoginId(user, config.AccountLocinType),
-			LoginType:     int(config.AccountLocinType),
+			LoginId:       getLoginId(user, config.AccountLoginType),
+			LoginType:     int(config.AccountLoginType),
 		}, tx)
 		if err != nil {
 			tx.Rollback()
