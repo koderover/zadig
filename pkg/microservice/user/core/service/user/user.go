@@ -137,6 +137,12 @@ func SearchUserByAccount(args *QueryArgs, logger *zap.SugaredLogger) (*UsersResp
 		logger.Errorf("SearchUserByAccount GetUser By account:%s error, error msg:%s", args.Account, err.Error())
 		return nil, err
 	}
+	if user == nil {
+		return &UsersResp{
+			Users:      nil,
+			TotalCount: 0,
+		}, nil
+	}
 	userLogins, err := orm.ListUserLogins([]string{user.UID}, core.DB)
 	if err != nil {
 		logger.Errorf("SearchUserByAccount ListUserLogins By uid:%s error, error msg:%s", user.UID, err.Error())
