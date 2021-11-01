@@ -37,6 +37,7 @@ func (c *ServicesInExternalEnvColl) EnsureIndex(ctx context.Context) error {
 			Keys: bson.D{
 				bson.E{Key: "product_name", Value: 1},
 				bson.E{Key: "env_name", Value: 1},
+				bson.E{Key: "service_name", Value: 1},
 			},
 			Options: options.Index().SetUnique(false),
 		},
@@ -127,6 +128,10 @@ func (c *ServicesInExternalEnvColl) Delete(args *ServicesInExternalEnvArgs) erro
 
 	if args.EnvName != "" {
 		query["env_name"] = args.EnvName
+	}
+
+	if args.ServiceName != "" {
+		query["service_name"] = args.ServiceName
 	}
 
 	_, err := c.DeleteMany(context.TODO(), query)
