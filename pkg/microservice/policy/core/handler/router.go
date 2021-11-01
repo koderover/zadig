@@ -66,7 +66,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		systemRoleBindings.POST("", CreateSystemRoleBinding)
 		systemRoleBindings.GET("", ListSystemRoleBindings)
 		systemRoleBindings.DELETE("/:name", DeleteSystemRoleBinding)
-		//systemRoleBindings.PUT("", CreateOrUpdateSystemRoleBinding)
+		systemRoleBindings.PUT("/:name", CreateOrUpdateSystemRoleBinding)
 	}
 
 	userBindings := router.Group("userbindings")
