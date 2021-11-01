@@ -41,7 +41,7 @@ type Product struct {
 	Vars                []*RenderKV           `bson:"vars"                      json:"vars"`
 	EnvVars             []*EnvRenderKV        `bson:"-"                         json:"env_vars,omitempty"`
 	ChartInfos          []*RenderChart        `bson:"-"                         json:"chart_infos,omitempty"`
-	UserIDs             []string                 `bson:"user_ids"                  json:"user_ids"`
+	UserIDs             []string              `bson:"user_ids"                  json:"user_ids"`
 	TeamID              int                   `bson:"team_id"                   json:"team_id"`
 	Description         string                `bson:"description,omitempty"     json:"desc,omitempty"`
 	ProductFeature      *ProductFeature       `bson:"product_feature,omitempty" json:"product_feature,omitempty"`
@@ -72,6 +72,7 @@ type Product struct {
 	IsOpensource               bool        `bson:"is_opensource"                       json:"is_opensource"`
 	CustomImageRule            *CustomRule `bson:"custom_image_rule,omitempty"         json:"custom_image_rule,omitempty"`
 	CustomTarRule              *CustomRule `bson:"custom_tar_rule,omitempty"           json:"custom_tar_rule,omitempty"`
+	Public                     bool        `bson:"public,omitempty"                              json:"public"`
 }
 
 type ServiceInfo struct {

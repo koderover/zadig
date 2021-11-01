@@ -49,15 +49,39 @@ func (c *Client) ListRoleBindings(projectName string) ([]*RoleBinding, error) {
 	return res, err
 }
 
-func (c *Client) CreateRoleBinding(projectName string, roleBinding *RoleBinding) error {
-	url := fmt.Sprintf("/rolebindings?projectName=%s", projectName)
-	_, err := c.Post(url, httpclient.SetBody(roleBinding))
+func (c *Client) CreateOrUpdateRoleBinding(projectName string, roleBinding *RoleBinding) error {
+	url := fmt.Sprintf("/rolebindings/%s?projectName=%s", roleBinding.Name, projectName)
+	_, err := c.Put(url, httpclient.SetBody(roleBinding))
 	return err
 }
 
 func (c *Client) DeleteRoleBinding(name string, projectName string) error {
 	url := fmt.Sprintf("/rolebindings/%s?projectName=%s", name, projectName)
 	_, err := c.Delete(url)
+	return err
+}
+
+type NameArgs struct {
+	Names []string `json:"names"`
+}
+
+func (c *Client) DeleteRoleBindings(names []string, projectName string) error {
+	url := fmt.Sprintf("/rolebindings/bulk-delete?projectName=%s", projectName)
+	nameArgs := &NameArgs{}
+	for _, v := range names {
+		nameArgs.Names = append(nameArgs.Names, v)
+	}
+	_, err := c.Post(url, httpclient.SetBody(nameArgs))
+	return err
+}
+
+func (c *Client) DeleteRoles(names []string, projectName string) error {
+	url := fmt.Sprintf("/roles/bulk-delete?projectName=%s", projectName)
+	nameArgs := &NameArgs{}
+	for _, v := range names {
+		nameArgs.Names = append(nameArgs.Names, v)
+	}
+	_, err := c.Post(url, httpclient.SetBody(nameArgs))
 	return err
 }
 
