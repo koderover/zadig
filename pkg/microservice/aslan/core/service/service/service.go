@@ -424,12 +424,12 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 		}
 	}
 	// pre judge  workLoads same name
-	services, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, "")
-	for _, v := range services {
-		if addString.Has(v.ServiceName) {
-			return e.ErrCreateTemplate.AddDesc(fmt.Sprintf("do not support import same service name: %s", v.ServiceName))
-		}
-	}
+	//services, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, "")
+	//for _, v := range services {
+	//	if addString.Has(v.ServiceName) {
+	//		return e.ErrCreateTemplate.AddDesc(fmt.Sprintf("do not support import same service name: %s", v.ServiceName))
+	//	}
+	//}
 
 	for _, v := range args.WorkLoads {
 		if addString.Has(v.Name) {
@@ -443,13 +443,28 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 		}
 	}
 
+	externalEnvServices, err := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
+		ProductName:    productName,
+		ExcludeEnvName: envName,
+	})
+	if err != nil {
+		log.Errorf("failed to list external service, error:%s", err)
+	}
+
+	externalEnvServiceM := make(map[string]bool)
+	for _, externalEnvService := range externalEnvServices {
+		externalEnvServiceM[externalEnvService.ServiceName] = true
+	}
+
 	for _, v := range diff {
 		switch v.Operation {
 		// 删除workload的引用
 		case "delete":
-			err = commonrepo.NewServiceColl().UpdateExternalServicesStatus(v.Name, productName, setting.ProductStatusDeleting, envName)
-			if err != nil {
-				log.Errorf("UpdateStatus external services error:%s", err)
+			if _, isExist := externalEnvServiceM[v.Name]; !isExist {
+				err = commonrepo.NewServiceColl().UpdateExternalServicesStatus(v.Name, productName, setting.ProductStatusDeleting, envName)
+				if err != nil {
+					log.Errorf("UpdateStatus external services error:%s", err)
+				}
 			}
 		// 添加workload的引用
 		case "add":
@@ -566,7 +581,21 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, log *za
 			}
 		}
 	} else {
-		return e.ErrCreateTemplate.AddDesc("do not support import same service name")
+		product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+			Name:    args.ProductName,
+			EnvName: args.EnvName,
+		})
+		if err != nil {
+			return err
+		}
+		return commonrepo.NewServicesInExternalEnvColl().Create(&commonmodels.ServicesInExternalEnv{
+			ProductName: args.ProductName,
+			ServiceName: args.ServiceName,
+			EnvName:     args.EnvName,
+			Namespace:   product.Namespace,
+			ClusterID:   product.ClusterID,
+		})
+		//return e.ErrCreateTemplate.AddDesc("do not support import same service name")
 	}
 
 	if err := commonrepo.NewServiceColl().Delete(args.ServiceName, args.Type, args.ProductName, setting.ProductStatusDeleting, 0); err != nil {

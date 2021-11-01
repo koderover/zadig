@@ -161,21 +161,22 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 				log.Errorf("failed to list external workload, error:%s", err)
 			}
 
-			externnalEnvSerivces, err := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
-				ProductName: productName,
+			externalEnvServices, err := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
+				ProductName:    productName,
+				ExcludeEnvName: envName,
 			})
 			if err != nil {
 				log.Errorf("failed to list external service, error:%s", err)
 			}
 
-			externnalEnvSerivceM := make(map[string]bool)
-			for _, externnalEnvSerivce := range externnalEnvSerivces {
-				externnalEnvSerivceM[externnalEnvSerivce.ServiceName] = true
+			externalEnvServiceM := make(map[string]bool)
+			for _, externalEnvService := range externalEnvServices {
+				externalEnvServiceM[externalEnvService.ServiceName] = true
 			}
 
 			deleteServices := sets.NewString()
 			for _, currentEnvService := range currentEnvServices {
-				if _, isExist := externnalEnvSerivceM[currentEnvService.ServiceName]; !isExist {
+				if _, isExist := externalEnvServiceM[currentEnvService.ServiceName]; !isExist {
 					deleteServices.Insert(currentEnvService.ServiceName)
 				}
 			}

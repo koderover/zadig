@@ -67,11 +67,12 @@ func (c *ServicesInExternalEnvColl) Create(args *models.ServicesInExternalEnv) e
 }
 
 type ServicesInExternalEnvArgs struct {
-	ProductName string
-	ServiceName string
-	EnvName     string
-	Namespace   string
-	ClusterID   string
+	ProductName    string
+	ServiceName    string
+	EnvName        string
+	Namespace      string
+	ClusterID      string
+	ExcludeEnvName string
 }
 
 func (c *ServicesInExternalEnvColl) List(args *ServicesInExternalEnvArgs) ([]*models.ServicesInExternalEnv, error) {
@@ -85,6 +86,10 @@ func (c *ServicesInExternalEnvColl) List(args *ServicesInExternalEnvArgs) ([]*mo
 
 	if args.EnvName != "" {
 		query["env_name"] = args.EnvName
+	}
+
+	if args.ExcludeEnvName != "" {
+		query["env_name"] = bson.M{"$ne": args.ExcludeEnvName}
 	}
 
 	if args.Namespace != "" {
