@@ -83,7 +83,7 @@ func presetSystemAdmin() error {
 
 func presetRoleBinding() error {
 	return policy.NewDefault().CreateOrUpdateRoleBinding("*", &policy.RoleBinding{
-		Name:   fmt.Sprintf(setting.SystemRoleBindingNameFmt, "admin"),
+		Name:   fmt.Sprintf(setting.RoleBindingNameFmt, "admin", "admin", ""),
 		UID:    "1",
 		Role:   "admin",
 		Public: true,
