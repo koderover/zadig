@@ -76,7 +76,6 @@ type Install struct {
 }
 
 type RegistryNamespace struct {
-	OrgID       int    `bson:"org_id"                      json:"org_id"`
 	RegAddr     string `bson:"reg_addr"                    json:"reg_addr"`
 	RegType     string `bson:"reg_type"                    json:"reg_type"`
 	RegProvider string `bson:"reg_provider"                json:"reg_provider"`

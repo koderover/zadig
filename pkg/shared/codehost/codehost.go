@@ -34,7 +34,6 @@ const (
 
 type CodeHost struct {
 	ID          int    `json:"id"`
-	OrgID       int    `json:"orgId"`
 	Address     string `json:"address"`
 	Type        string `json:"type"`
 	AccessToken string `json:"accessToken"`
