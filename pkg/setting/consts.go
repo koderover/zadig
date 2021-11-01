@@ -496,9 +496,10 @@ const ChartTemplatesPath = "charts"
 type RoleType string
 
 const (
-	Contributor        RoleType = "contributor"
-	ReadOnly           RoleType = "readonly"
-	RoleBindingNameFmt string   = "user:%s,role:%s,project:%s"
+	Contributor              RoleType = "contributor"
+	ReadOnly                 RoleType = "readonly"
+	RoleBindingNameFmt       string   = "user:%s,role:%s,project:%s"
+	SystemRoleBindingNameFmt string   = "system-rolebinding,user:%s"
 )
 
 // ModernWorkflowType 自由编排工作流

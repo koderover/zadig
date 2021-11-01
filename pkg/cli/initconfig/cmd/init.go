@@ -18,12 +18,14 @@ package cmd
 
 import (
 	_ "embed"
+	"fmt"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 
 	"sigs.k8s.io/yaml"
 
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
 	"github.com/koderover/zadig/pkg/shared/client/user"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -75,15 +77,17 @@ func presetSystemAdmin() error {
 	return user.New().CreateUser(&user.CreateUserArgs{
 		Name:     "admin",
 		Password: "admin",
-		Email:    "admin",
-		Phone:    "admin",
 		Account:  "admin",
 	})
 }
 
 func presetRoleBinding() error {
-	// TODO : MOUUII
-	return nil
+	return policy.NewDefault().CreateOrUpdateRoleBinding("", &policy.RoleBinding{
+		Name:   fmt.Sprintf(setting.SystemRoleBindingNameFmt, "admin"),
+		UID:    "1",
+		Role:   "admin",
+		Public: true,
+	})
 }
 
 func presetRole() error {
