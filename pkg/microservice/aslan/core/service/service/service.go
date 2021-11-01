@@ -469,7 +469,11 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 	for _, externalEnvService := range otherExternalEnvServices {
 		externalEnvServiceM[externalEnvService.ServiceName] = true
 	}
+	log.Infof("deleteString:%s", deleteString.List())
+	log.Infof("externalEnvServiceM:%+v", externalEnvServiceM)
 	for _, v := range diff {
+		log.Infof("v.Operation:%s", v.Operation)
+		log.Infof("serviceName:%s", v.Name)
 		switch v.Operation {
 		// 删除workload的引用
 		case "delete":
