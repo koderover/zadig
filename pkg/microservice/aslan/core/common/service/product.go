@@ -179,7 +179,7 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 					deleteServices.Insert(currentEnvService.ServiceName)
 				}
 			}
-			err = commonrepo.NewServiceColl().BatchUpdateExternalServicesStatus(productName, envName, setting.ProductStatusDeleting, deleteServices.List())
+			err = commonrepo.NewServiceColl().BatchUpdateExternalServicesStatus(productName, "", setting.ProductStatusDeleting, deleteServices.List())
 			if err != nil {
 				log.Errorf("UpdateStatus external services error:%s", err)
 			}

@@ -308,9 +308,6 @@ func (c *ServiceColl) ListExternalWorkloadsBy(productName, envName string, servi
 }
 
 func (c *ServiceColl) BatchUpdateExternalServicesStatus(productName, envName, status string, serviceNames []string) error {
-	if envName == "" {
-		return fmt.Errorf("envName is empty")
-	}
 	if productName == "" {
 		return fmt.Errorf("productName is empty")
 	}
@@ -319,7 +316,11 @@ func (c *ServiceColl) BatchUpdateExternalServicesStatus(productName, envName, st
 		return fmt.Errorf("servicenNames is empty")
 	}
 
-	query := bson.M{"product_name": productName, "env_name": envName, "service_name": bson.M{"$in": serviceNames}}
+	query := bson.M{"product_name": productName, "service_name": bson.M{"$in": serviceNames}}
+	if envName != "" {
+		query["env_name"] = envName
+	}
+
 	change := bson.M{"$set": bson.M{
 		"status": status,
 	}}

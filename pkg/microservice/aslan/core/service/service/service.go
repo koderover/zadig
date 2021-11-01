@@ -555,7 +555,7 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, log *za
 			//获取项目里面的所有服务
 			if len(productTempl.Services) > 0 && !sets.NewString(productTempl.Services[0]...).Has(args.ServiceName) {
 				productTempl.Services[0] = append(productTempl.Services[0], args.ServiceName)
-			} else {
+			} else if len(productTempl.Services) == 0 {
 				productTempl.Services = [][]string{{args.ServiceName}}
 			}
 			//更新项目模板
