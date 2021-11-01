@@ -44,3 +44,19 @@ func (c *Client) CreateUser(args *CreateUserArgs) error {
 	_, err := c.Post(url, httpclient.SetBody(args))
 	return err
 }
+
+type SearchUserArgs struct {
+	Account string
+}
+
+type SearchUserResp struct {
+	TotalCount int               `json:"totalCount"`
+	Users      []*CreateUserArgs `json:"users"`
+}
+
+func (c *Client) SearchUser(args *SearchUserArgs) (*SearchUserResp, error) {
+	url := "/users/search"
+	resp := &SearchUserResp{}
+	_, err := c.Post(url, httpclient.SetBody(args), httpclient.SetBody(resp))
+	return resp, err
+}

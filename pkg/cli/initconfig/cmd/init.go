@@ -80,6 +80,14 @@ func initSystemConfig() error {
 }
 
 func presetSystemAdmin() error {
+	r, err := user.New().SearchUser(&user.SearchUserArgs{Account: "admin"})
+	if err != nil {
+		return err
+	}
+	if len(r.Users) > 0 {
+		log.Infof("already created system admin")
+		return nil
+	}
 	return user.New().CreateUser(&user.CreateUserArgs{
 		Name:     "admin",
 		Password: "admin",
