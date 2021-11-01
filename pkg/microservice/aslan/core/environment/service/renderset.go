@@ -38,12 +38,12 @@ type DefaultValuesResp struct {
 }
 
 type YamlContentRequestArg struct {
-	CodehostID  int    `json:"codehostID"`
-	Owner       string `json:"owner"`
-	Repo        string `json:"repo"`
-	Branch      string `json:"branch"`
-	RepoLink    string `json:"repoLink"`
-	ValuesPaths string `json:"valuesPaths"`
+	CodehostID  int    `json:"codehostID" form:"codehostID"`
+	Owner       string `json:"owner" form:"owner"`
+	Repo        string `json:"repo" form:"repo"`
+	Branch      string `json:"branch" form:"branch"`
+	RepoLink    string `json:"repoLink" form:"repoLink"`
+	ValuesPaths string `json:"valuesPaths" form:"valuesPaths"`
 }
 
 func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*commonservice.RenderChartArg, error) {
