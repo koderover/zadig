@@ -63,11 +63,9 @@ func GetYamlContent(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	var err error
 	arg := &service.YamlContentRequestArg{}
 
-	err = c.ShouldBindQuery(arg)
-	if err != nil {
+	if err := c.ShouldBindQuery(arg); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
