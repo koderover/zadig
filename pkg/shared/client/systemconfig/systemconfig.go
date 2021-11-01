@@ -5,6 +5,14 @@ import (
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
+type Connector struct {
+	service.ConnectorBase
+
+	ID     string      `json:"id"`
+	Name   string      `json:"name"`
+	Config interface{} `json:"config"`
+}
+
 func (c *Client) GetConnector(id string) (*service.Connector, error) {
 	url := "/connectors/" + id
 

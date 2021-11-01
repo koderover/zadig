@@ -1,15 +1,8 @@
 package user
 
 import (
-	"fmt"
-
-	"github.com/dexidp/dex/connector/ldap"
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 
-	ldapv3 "github.com/go-ldap/ldap/v3"
-
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/service"
 	"github.com/koderover/zadig/pkg/microservice/user/core/service/user"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -17,55 +10,9 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-func searchAndSyncUser(si *service.Connector, logger *zap.SugaredLogger) error {
-	if si == nil || si.Config == nil {
-		logger.Error("can't find connector")
-		return fmt.Errorf("can't find connector")
-	}
-	config, _ := si.Config.(*ldap.Config)
-	l, err := ldapv3.Dial("tcp", config.Host)
-	if err != nil {
-		logger.Error(err)
-		return err
-	}
-	defer l.Close()
-
-	err = l.Bind(config.BindDN, config.BindPW)
-	if err != nil {
-		logger.Error(err)
-		return err
-	}
-
-	searchRequest := ldapv3.NewSearchRequest(
-		config.GroupSearch.BaseDN,
-		ldapv3.ScopeWholeSubtree, ldapv3.NeverDerefAliases, 0, 0, false,
-		config.GroupSearch.Filter, // The filter to apply
-		[]string{config.UserSearch.NameAttr, config.UserSearch.EmailAttr}, // A list attributes to retrieve
-		nil,
-	)
-
-	sr, err := l.Search(searchRequest)
-	if err != nil {
-		logger.Error(err)
-		return err
-	}
-
-	for _, entry := range sr.Entries {
-		_, err := user.SyncUser(&user.SyncUserInfo{
-			Account:      entry.GetAttributeValue(config.UserSearch.NameAttr),
-			IdentityType: si.ID,
-		}, logger)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func SyncLdapUser(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Logger.Info("SyncLdapUser start")
 	ldapId := c.Param("ldapId")
 	systemConfigClient := systemconfig.New()
 	si, err := systemConfigClient.GetConnector(ldapId)
@@ -78,7 +25,12 @@ func SyncLdapUser(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	ctx.Err = searchAndSyncUser(si, ctx.Logger)
+	ctx.Err = user.SearchAndSyncUser(&systemconfig.Connector{
+		ConnectorBase: si.ConnectorBase,
+		ID:            si.ID,
+		Name:          si.Name,
+		Config:        si.Config,
+	}, ctx.Logger)
 }
 
 func GetUser(c *gin.Context) {
