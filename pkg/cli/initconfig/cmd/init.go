@@ -63,7 +63,8 @@ func run() error {
 }
 
 func initSystemConfig() error {
-	if err := presetSystemAdmin(); err != nil {
+	uid, err := presetSystemAdmin()
+	if err != nil {
 		log.Errorf("presetSystemAdmin err:%s", err)
 		return err
 	}
@@ -72,35 +73,34 @@ func initSystemConfig() error {
 		return err
 	}
 
-	if err := presetRoleBinding(); err != nil {
+	if err := presetRoleBinding(uid); err != nil {
 		log.Errorf("presetRoleBinding :%s", err)
 		return err
 	}
 	return nil
 }
 
-func presetSystemAdmin() error {
+func presetSystemAdmin() (string, error) {
 	r, err := user.New().SearchUser(&user.SearchUserArgs{Account: "admin"})
 	if err != nil {
-		return err
+		return "", err
 	}
 	if len(r.Users) > 0 {
 		log.Infof("already created system admin")
-		return nil
+		return "", nil
 	}
-	return user.New().CreateUser(&user.CreateUserArgs{
+	return r.Users[0].Account, user.New().CreateUser(&user.CreateUserArgs{
 		Name:     "admin",
 		Password: "admin",
 		Account:  "admin",
 	})
 }
 
-func presetRoleBinding() error {
+func presetRoleBinding(uid string) error {
 	return policy.NewDefault().CreateOrUpdateSystemRoleBinding(&policy.RoleBinding{
-		Name:   fmt.Sprintf(setting.RoleBindingNameFmt, "admin", "admin", ""),
-		UID:    "7fa8c20b-38ba-11ec-b426-36545d5d90cb",
-		Role:   "admin",
-		Public: false,
+		Name: fmt.Sprintf(setting.RoleBindingNameFmt, "admin", "admin", ""),
+		UID:  uid,
+		Role: "admin",
 	})
 
 }
