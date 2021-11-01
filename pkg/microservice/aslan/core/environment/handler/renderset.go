@@ -19,8 +19,6 @@ package handler
 import (
 	"strings"
 
-	"github.com/koderover/zadig/pkg/tool/log"
-
 	"github.com/gin-gonic/gin"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -71,8 +69,6 @@ func GetYamlContent(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	log.Info("######### the arg info is %+v", *arg)
-
 	if arg.CodehostID == 0 && len(arg.RepoLink) == 0 {
 		ctx.Err = e.ErrInvalidParam.AddDesc("neither codehost nor repo link is specified")
 		return

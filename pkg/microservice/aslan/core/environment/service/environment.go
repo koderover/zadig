@@ -25,7 +25,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -2748,25 +2747,20 @@ func intervalExecutor(interval time.Duration, serviceList []interface{}, handler
 	}
 	wg := sync.WaitGroup{}
 	errList := new(multierror.Error)
-	var executeIndex int32
 	wg.Add(len(serviceList))
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
-	go func() {
-		for ; true; <-ticker.C {
-			go func() {
-				defer wg.Done()
-				err := handler(serviceList[int(atomic.LoadInt32(&executeIndex))], log)
-				if err != nil {
-					errList = multierror.Append(errList, err)
-				}
-			}()
-			atomic.AddInt32(&executeIndex, 1)
-			if int(atomic.LoadInt32(&executeIndex)) >= len(serviceList) {
-				break
+
+	for _, data := range serviceList {
+		go func() {
+			defer wg.Done()
+			err := handler(data, log)
+			if err != nil {
+				errList = multierror.Append(errList, err)
 			}
-		}
-	}()
+		}()
+		<-ticker.C
+	}
 	wg.Wait()
 	return errList
 }
