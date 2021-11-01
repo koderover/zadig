@@ -21,6 +21,9 @@ func ListTestWorkflows(testName string, header http.Header, qs url.Values, logge
 		logger.Errorf("Failed to get allowed project names, err: %s", err)
 		return nil, err
 	}
+	if len(names) == 0 {
+		return nil, nil
+	}
 
 	for _, name := range names {
 		qs.Add("projects", name)
