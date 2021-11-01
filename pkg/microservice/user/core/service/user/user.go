@@ -122,6 +122,9 @@ func GetUser(uid string, logger *zap.SugaredLogger) (*UserInfo, error) {
 		logger.Errorf("GetUser getUserByUid:%s error, error msg:%s", uid, err.Error())
 		return nil, err
 	}
+	if user == nil {
+		return nil, nil
+	}
 	userLogin, err := orm.GetUserLogin(uid, user.Account, config.AccountLoginType, core.DB)
 	if err != nil {
 		logger.Errorf("GetUser GetUserLogin:%s error, error msg:%s", uid, err.Error())
