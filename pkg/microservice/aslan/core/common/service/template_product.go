@@ -89,7 +89,9 @@ func GetProductTemplate(productName string, log *zap.SugaredLogger) (*template.P
 		for _, service := range totalServices {
 			serviceNamesSet.Insert(service.ServiceName)
 		}
-		resp.Services[0] = serviceNamesSet.List()
+		if len(resp.Services) > 0 {
+			resp.Services[0] = serviceNamesSet.List()
+		}
 	} else {
 		totalServices, err = commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
 		if err != nil {
