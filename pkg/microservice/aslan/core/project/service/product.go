@@ -76,7 +76,6 @@ func GetProductTemplateServices(productName string, log *zap.SugaredLogger) (*te
 		for _, service := range services {
 			serviceNamesSet.Insert(service.ServiceName)
 		}
-		resp.Services = make([][]string, 0)
 		resp.Services[0] = serviceNamesSet.List()
 	}
 
