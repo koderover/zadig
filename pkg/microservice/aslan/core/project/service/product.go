@@ -73,7 +73,6 @@ func GetProductTemplateServices(productName string, log *zap.SugaredLogger) (*te
 	if resp.Services == nil {
 		resp.Services = make([][]string, 0)
 	}
-
 	return resp, nil
 }
 
