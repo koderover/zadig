@@ -240,9 +240,7 @@ func ListWorkloadTemplate(productName, envName string, log *zap.SugaredLogger) (
 
 	if len(externalServiceNames) > 0 {
 		newServices, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, "", externalServiceNames.List()...)
-		for _, service := range newServices {
-			services = append(services, service)
-		}
+		services = append(services, newServices...)
 	}
 
 	for _, serviceObject := range services {
