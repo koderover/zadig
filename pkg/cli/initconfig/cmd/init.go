@@ -63,14 +63,20 @@ func run() error {
 }
 
 func initSystemConfig() error {
-	if err := presetSystemAdmin(); err != nil {
-		return err
-	}
-	if err := presetRole(); err != nil {
-		return err
-	}
+	//if err := presetSystemAdmin(); err != nil {
+	//	log.Errorf("presetSystemAdmin err:%s", err)
+	//	return err
+	//}
+	//if err := presetRole(); err != nil {
+	//	log.Errorf("presetRole err:%s", err)
+	//	return err
+	//}
 
-	return presetRoleBinding()
+	if err := presetRoleBinding(); err != nil {
+		log.Errorf("presetRoleBinding :%s", err)
+		return err
+	}
+	return nil
 }
 
 func presetSystemAdmin() error {
@@ -84,9 +90,9 @@ func presetSystemAdmin() error {
 func presetRoleBinding() error {
 	return policy.NewDefault().CreateOrUpdateRoleBinding("*", &policy.RoleBinding{
 		Name:   fmt.Sprintf(setting.RoleBindingNameFmt, "admin", "admin", ""),
-		UID:    "1",
+		UID:    "7fa8c20b-38ba-11ec-b426-36545d5d90cb",
 		Role:   "admin",
-		Public: true,
+		Public: false,
 	})
 }
 
