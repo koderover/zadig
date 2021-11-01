@@ -37,6 +37,15 @@ type DefaultValuesResp struct {
 	DefaultValues string `json:"defaultValues"`
 }
 
+type YamlContentRequestArg struct {
+	CodehostID  int    `json:"codehostID"`
+	Owner       string `json:"owner"`
+	Repo        string `json:"repo"`
+	Branch      string `json:"branch"`
+	RepoLink    string `json:"repoLink"`
+	ValuesPaths string `json:"valuesPaths"`
+}
+
 func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*commonservice.RenderChartArg, error) {
 
 	renderSetName := commonservice.GetProductEnvNamespace(envName, productName, "")
@@ -113,7 +122,7 @@ func GetDefaultValues(productName, envName string, log *zap.SugaredLogger) (*Def
 	return ret, nil
 }
 
-func GetMergedYamlContent(codehostID int, owner, repo, branch, repoLink string, paths []string) (string, error) {
+func GetMergedYamlContent(arg *YamlContentRequestArg, paths []string) (string, error) {
 	var (
 		fileContentMap sync.Map
 		wg             sync.WaitGroup
@@ -125,12 +134,12 @@ func GetMergedYamlContent(codehostID int, owner, repo, branch, repoLink string, 
 			defer wg.Done()
 			fileContent, errDownload := fsservice.DownloadFileFromSource(
 				&fsservice.DownloadFromSourceArgs{
-					CodehostID: codehostID,
-					Owner:      owner,
-					Repo:       repo,
+					CodehostID: arg.CodehostID,
+					Owner:      arg.Owner,
+					Repo:       arg.Repo,
 					Path:       path,
-					Branch:     branch,
-					RepoLink:   repoLink,
+					Branch:     arg.Branch,
+					RepoLink:   arg.RepoLink,
 				})
 			if errDownload != nil {
 				err = errors.Wrapf(errDownload, fmt.Sprintf("fail to download file from git, path %s", path))
