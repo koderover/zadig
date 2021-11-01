@@ -403,6 +403,15 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 			originSet.Insert(v.Name)
 		}
 	}
+
+	externalEnvServices, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
+		ProductName: productName,
+		EnvName:     envName,
+	})
+	for _, externalEnvService := range externalEnvServices {
+		originSet.Insert(externalEnvService.ServiceName)
+	}
+
 	for _, v := range args.WorkLoads {
 		uploadSet.Insert(v.Name)
 	}
@@ -443,15 +452,16 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 		}
 	}
 
-	externalEnvServices, err := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
-		ProductName: productName,
+	otherExternalEnvServices, err := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
+		ProductName:    productName,
+		ExcludeEnvName: envName,
 	})
 	if err != nil {
 		log.Errorf("failed to list external service, error:%s", err)
 	}
 
 	externalEnvServiceM := make(map[string]bool)
-	for _, externalEnvService := range externalEnvServices {
+	for _, externalEnvService := range otherExternalEnvServices {
 		externalEnvServiceM[externalEnvService.ServiceName] = true
 	}
 	log.Infof("externalEnvServiceM:%+v", externalEnvServiceM)
