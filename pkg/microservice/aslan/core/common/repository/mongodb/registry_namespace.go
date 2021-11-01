@@ -33,7 +33,6 @@ import (
 
 type FindRegOps struct {
 	ID          string `json:"id"`
-	OrgID       int    `json:"org_id"`
 	RegAddr     string `json:"reg_addr"`
 	RegType     string `json:"reg_type"`
 	RegProvider string `json:"reg_provider"`
@@ -95,10 +94,6 @@ func (opt FindRegOps) getQuery() bson.M {
 
 	if opt.IsDefault {
 		query["is_default"] = true
-	}
-
-	if opt.OrgID != 0 {
-		query["org_id"] = opt.OrgID
 	}
 
 	if opt.RegType != "" {
