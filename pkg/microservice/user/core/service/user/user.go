@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/dexidp/dex/connector/ldap"
+	ldapv3 "github.com/go-ldap/ldap/v3"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
@@ -12,6 +14,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/user/core"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 )
 
 type User struct {
@@ -23,7 +26,7 @@ type User struct {
 }
 
 type QueryArgs struct {
-	Name    string   `json:"name,omitempty"`
+	Account string   `json:"account,omitempty"`
 	UIDs    []string `json:"uids,omitempty"`
 	PerPage int      `json:"per_page,omitempty"`
 	Page    int      `json:"page,omitempty"`
@@ -56,13 +59,68 @@ type SyncUserInfo struct {
 	Name         string `json:"name"`
 }
 
+func SearchAndSyncUser(ldapId string, logger *zap.SugaredLogger) error {
+	systemConfigClient := systemconfig.New()
+	si, err := systemConfigClient.GetConnector(ldapId)
+	if err != nil {
+		logger.Errorf("SearchAndSyncUser GetConnector error, error msg:%s", err)
+		return fmt.Errorf("SearchAndSyncUser GetConnector error, error msg:%s", err)
+	}
+	if si == nil || si.Config == nil {
+		logger.Error("can't find connector")
+		return fmt.Errorf("can't find connector")
+	}
+	config, ok := si.Config.(*ldap.Config)
+	if !ok {
+		return fmt.Errorf("connector config error")
+	}
+	l, err := ldapv3.Dial("tcp", config.Host)
+	if err != nil {
+		logger.Errorf("ldap dial host:%s error, error msg:%s", config.Host, err)
+		return err
+	}
+	defer l.Close()
+
+	err = l.Bind(config.BindDN, config.BindPW)
+	if err != nil {
+		logger.Errorf("ldap bind host:%s error, error msg:%s", config.Host, err)
+		return err
+	}
+
+	searchRequest := ldapv3.NewSearchRequest(
+		config.GroupSearch.BaseDN,
+		ldapv3.ScopeWholeSubtree, ldapv3.NeverDerefAliases, 0, 0, false,
+		config.GroupSearch.Filter,            // The filter to apply
+		[]string{config.UserSearch.NameAttr}, // A list attributes to retrieve
+		nil,
+	)
+
+	sr, err := l.Search(searchRequest)
+	if err != nil {
+		logger.Errorf("ldap search host:%s error, error msg:%s", config.Host, err)
+		return err
+	}
+
+	for _, entry := range sr.Entries {
+		_, err := SyncUser(&SyncUserInfo{
+			Account:      entry.GetAttributeValue(config.UserSearch.NameAttr),
+			IdentityType: si.ID,
+		}, logger)
+		if err != nil {
+			logger.Errorf("ldap host:%s sync user error, error msg:%s", config.Host, err)
+			return err
+		}
+	}
+	return nil
+}
+
 func GetUser(uid string, logger *zap.SugaredLogger) (*UserInfo, error) {
 	user, err := orm.GetUserByUid(uid, core.DB)
 	if err != nil {
 		logger.Errorf("GetUser getUserByUid:%s error, error msg:%s", uid, err.Error())
 		return nil, err
 	}
-	userLogin, err := orm.GetUserLogin(uid, user.Account, config.AccountLocinType, core.DB)
+	userLogin, err := orm.GetUserLogin(uid, user.Account, config.AccountLoginType, core.DB)
 	if err != nil {
 		logger.Errorf("GetUser GetUserLogin:%s error, error msg:%s", uid, err.Error())
 		return nil, err
@@ -72,9 +130,9 @@ func GetUser(uid string, logger *zap.SugaredLogger) (*UserInfo, error) {
 }
 
 func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*UsersResp, error) {
-	count, err := orm.GetUsersCount(args.Name)
+	count, err := orm.GetUsersCount(args.Account)
 	if err != nil {
-		logger.Errorf("SeachUsers GetUsersCount By name:%s error, error msg:%s", args.Name, err.Error())
+		logger.Errorf("SeachUsers GetUsersCount By account:%s error, error msg:%s", args.Account, err.Error())
 		return nil, err
 	}
 	if count == 0 {
@@ -83,9 +141,9 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*UsersResp, error)
 		}, nil
 	}
 
-	users, err := orm.ListUsers(args.Page, args.PerPage, args.Name, core.DB)
+	users, err := orm.ListUsers(args.Page, args.PerPage, args.Account, core.DB)
 	if err != nil {
-		logger.Errorf("SeachUsers SeachUsers By name:%s error, error msg:%s", args.Name, err.Error())
+		logger.Errorf("SeachUsers SeachUsers By account:%s error, error msg:%s", args.Account, err.Error())
 		return nil, err
 	}
 	var uids []string
@@ -148,7 +206,7 @@ func SearchUsersByUIDs(uids []string, logger *zap.SugaredLogger) (*UsersResp, er
 
 func getLoginId(user *models.User, loginType config.LoginType) string {
 	switch loginType {
-	case config.AccountLocinType:
+	case config.AccountLoginType:
 		return user.Account
 	default:
 		return user.Account
@@ -204,7 +262,7 @@ func UpdatePassword(args *Password, logger *zap.SugaredLogger) error {
 	if user == nil {
 		return fmt.Errorf("user not exist")
 	}
-	userLogin, err := orm.GetUserLogin(user.UID, user.Account, config.AccountLocinType, core.DB)
+	userLogin, err := orm.GetUserLogin(user.UID, user.Account, config.AccountLoginType, core.DB)
 	if err != nil {
 		logger.Errorf("UpdatePassword GetUserLogin:%s error, error msg:%s", args.Uid, err.Error())
 		return err
@@ -263,7 +321,7 @@ func SyncUser(syncUserInfo *SyncUserInfo, logger *zap.SugaredLogger) (*models.Us
 			return nil, err
 		}
 	}
-	userLogin, err := orm.GetUserLogin(user.UID, user.Account, config.AccountLocinType, tx)
+	userLogin, err := orm.GetUserLogin(user.UID, user.Account, config.AccountLoginType, tx)
 	if err != nil {
 		tx.Rollback()
 		logger.Error("UpdateLoginInfo get user:%s login error, error msg:%s", user.UID, err.Error())
@@ -281,8 +339,8 @@ func SyncUser(syncUserInfo *SyncUserInfo, logger *zap.SugaredLogger) (*models.Us
 		err = orm.CreateUserLogin(&models.UserLogin{
 			UID:           user.UID,
 			LastLoginTime: time.Now().Unix(),
-			LoginId:       getLoginId(user, config.AccountLocinType),
-			LoginType:     int(config.AccountLocinType),
+			LoginId:       getLoginId(user, config.AccountLoginType),
+			LoginType:     int(config.AccountLoginType),
 		}, tx)
 		if err != nil {
 			tx.Rollback()

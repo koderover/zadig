@@ -9,6 +9,14 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
+func SyncLdapUser(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	ldapID := c.Param("ldapId")
+
+	ctx.Err = user.SearchAndSyncUser(ldapID, ctx.Logger)
+}
+
 func GetUser(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
