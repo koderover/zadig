@@ -471,24 +471,21 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 	}
 	log.Infof("externalEnvServiceM:%+v", externalEnvServiceM)
 	for _, v := range diff {
-		log.Infof("v.Operation:%s", v.Operation)
 		switch v.Operation {
 		// 删除workload的引用
 		case "delete":
-			log.Infof("delete ServiceName:%s", v.Name)
 			if _, isExist := externalEnvServiceM[v.Name]; !isExist {
 				err = commonrepo.NewServiceColl().UpdateExternalServicesStatus(v.Name, productName, setting.ProductStatusDeleting, envName)
 				if err != nil {
 					log.Errorf("UpdateStatus external services error:%s", err)
 				}
-			} else {
-				if err = commonrepo.NewServicesInExternalEnvColl().Delete(&commonrepo.ServicesInExternalEnvArgs{
-					ProductName: productName,
-					EnvName:     envName,
-					ServiceName: v.Name,
-				}); err != nil {
-					log.Errorf("delete services in external env error:%s", err)
-				}
+			}
+			if err = commonrepo.NewServicesInExternalEnvColl().Delete(&commonrepo.ServicesInExternalEnvArgs{
+				ProductName: productName,
+				EnvName:     envName,
+				ServiceName: v.Name,
+			}); err != nil {
+				log.Errorf("delete services in external env error:%s", err)
 			}
 		// 添加workload的引用
 		case "add":
