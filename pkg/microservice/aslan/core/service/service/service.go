@@ -395,6 +395,19 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 		log.Errorf("[%s][%s]NewWorkLoadsStatColl().Find %s", args.ClusterID, args.Namespace, err)
 		return err
 	}
+	externalEnvServices, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
+		ProductName: productName,
+		EnvName:     envName,
+	})
+
+	for _, externalEnvService := range externalEnvServices {
+		workloadStat.Workloads = append(workloadStat.Workloads, commonmodels.Workload{
+			ProductName: externalEnvService.ProductName,
+			EnvName:     externalEnvService.EnvName,
+			Name:        externalEnvService.ServiceName,
+		})
+	}
+
 	diff := map[string]*ServiceWorkloadsUpdateAction{}
 	originSet := sets.NewString()
 	uploadSet := sets.NewString()
@@ -402,14 +415,6 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 		if v.ProductName == productName && v.EnvName == envName {
 			originSet.Insert(v.Name)
 		}
-	}
-
-	externalEnvServices, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
-		ProductName: productName,
-		EnvName:     envName,
-	})
-	for _, externalEnvService := range externalEnvServices {
-		originSet.Insert(externalEnvService.ServiceName)
 	}
 
 	for _, v := range args.WorkLoads {
