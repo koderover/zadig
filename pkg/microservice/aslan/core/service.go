@@ -36,6 +36,7 @@ import (
 	projecthandler "github.com/koderover/zadig/pkg/microservice/aslan/core/project/handler"
 	systemrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/mongodb"
 	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/repository/mongodb"
 	workflowhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/handler"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	testinghandler "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/handler"
@@ -198,6 +199,9 @@ func initDatabase() {
 		commonrepo.NewWorkflowColl(),
 		commonrepo.NewWorkflowStatColl(),
 		commonrepo.NewWorkLoadsStatColl(),
+
+		templaterepo.NewChartColl(),
+		templaterepo.NewDockerfileTemplateColl(),
 
 		systemrepo.NewAnnouncementColl(),
 		systemrepo.NewOperationLogColl(),

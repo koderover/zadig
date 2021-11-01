@@ -67,8 +67,6 @@ type Queue struct {
 	ServiceTaskArgs *ServiceTaskArgs `bson:"service_args,omitempty"         json:"service_args,omitempty"`
 	ConfigPayload   *ConfigPayload   `json:"config_payload,omitempty"`
 	Error           string           `bson:"error,omitempty"                json:"error,omitempty"`
-	// OrgID 单租户ID
-	OrgID      int                 `bson:"org_id,omitempty"          json:"org_id,omitempty"`
 	Services   [][]*ProductService `bson:"services"                  json:"services"`
 	Render     *RenderInfo         `bson:"render"                    json:"render"`
 	StorageURI string              `bson:"storage_uri,omitempty" json:"storage_uri,omitempty"`
@@ -111,7 +109,6 @@ type ServiceTaskArgs struct {
 }
 
 type ConfigPayload struct {
-	Aslan     AslanConfig    `json:"aslan"`
 	Proxy     Proxy          `json:"proxy"`
 	S3Storage S3Config       `json:"s3_storage"`
 	Github    GithubConfig   `json:"github"`
@@ -164,15 +161,15 @@ type S3Config struct {
 
 type GithubConfig struct {
 	// github API access token
-	AccessToken string
+	AccessToken string `json:"access_token"`
 	// github ssh key with base64 encoded
-	SSHKey string
+	SSHKey string `json:"ssh_key"`
 	// github knownhost
-	KnownHost string
+	KnownHost string `json:"known_host"`
 	// github app private key
-	AppKey string
+	AppKey string `json:"app_key"`
 	// gihhub app id
-	AppID int
+	AppID int `json:"app_id"`
 }
 
 type GitlabConfig struct {

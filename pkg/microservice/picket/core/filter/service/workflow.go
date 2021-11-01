@@ -21,14 +21,15 @@ func ListTestWorkflows(testName string, header http.Header, qs url.Values, logge
 		logger.Errorf("Failed to get allowed project names, err: %s", err)
 		return nil, err
 	}
-
-	for _, name := range names {
-		qs.Add("projects", name)
+	if len(names) == 0 {
+		return nil, nil
 	}
-
-	aslanClient := aslan.New()
-
-	return aslanClient.ListTestWorkflows(testName, header, qs)
+	if !(len(names) == 1 && names[0] == "*") {
+		for _, name := range names {
+			qs.Add("projects", name)
+		}
+	}
+	return aslan.New().ListTestWorkflows(testName, header, qs)
 }
 
 type rule struct {

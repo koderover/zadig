@@ -119,6 +119,7 @@ const (
 	TaskBuild          TaskType = "buildv2"
 	TaskJenkinsBuild   TaskType = "jenkins_build"
 	TaskArtifact       TaskType = "artifact"
+	TaskArtifactDeploy TaskType = "artifact_deploy"
 	TaskDeploy         TaskType = "deploy"
 	TaskTestingV2      TaskType = "testingv2"
 	TaskDistributeToS3 TaskType = "distribute2kodo"

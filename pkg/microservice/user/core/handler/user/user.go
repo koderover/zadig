@@ -5,7 +5,17 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/user/core/service/user"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+
+	e "github.com/koderover/zadig/pkg/tool/errors"
 )
+
+func SyncLdapUser(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	ldapID := c.Param("ldapId")
+
+	ctx.Err = user.SearchAndSyncUser(ldapID, ctx.Logger)
+}
 
 func GetUser(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
@@ -13,15 +23,32 @@ func GetUser(c *gin.Context) {
 	ctx.Resp, ctx.Err = user.GetUser(c.Param("uid"), ctx.Logger)
 }
 
+func GetPersonalUser(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	uid := c.Param("uid")
+	if ctx.UserID != uid {
+		ctx.Err = e.ErrForbidden
+		return
+	}
+	ctx.Resp, ctx.Err = user.GetUser(uid, ctx.Logger)
+}
+
 func ListUsers(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	args := &user.QueryArgs{}
-	if err := c.ShouldBindQuery(args); err != nil {
+	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.Err = err
 		return
 	}
-	ctx.Resp, ctx.Err = user.SeachUsers(args, ctx.Logger)
+	if len(args.UIDs) > 0 {
+		ctx.Resp, ctx.Err = user.SearchUsersByUIDs(args.UIDs, ctx.Logger)
+		return
+	} else {
+		ctx.Resp, ctx.Err = user.SearchUsers(args, ctx.Logger)
+		return
+	}
 }
 
 func CreateUser(c *gin.Context) {
@@ -32,7 +59,7 @@ func CreateUser(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	ctx.Err = user.CreateUser(args, ctx.Logger)
+	ctx.Resp, ctx.Err = user.CreateUser(args, ctx.Logger)
 }
 
 func UpdatePassword(c *gin.Context) {

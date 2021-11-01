@@ -540,6 +540,7 @@ func initTaskPlugins(execHandler *ExecHandler) {
 	pluginConf := map[config.TaskType]plugins.Initiator{
 		config.TaskJira:           plugins.InitializeJiraTaskPlugin,
 		config.TaskBuild:          plugins.InitializeBuildTaskPlugin,
+		config.TaskArtifactDeploy: plugins.InitializeArtifactTaskPlugin,
 		config.TaskJenkinsBuild:   plugins.InitializeJenkinsBuildPlugin,
 		config.TaskDockerBuild:    plugins.InitializeDockerBuildTaskPlugin,
 		config.TaskDeploy:         plugins.InitializeDeployTaskPlugin,

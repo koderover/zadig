@@ -61,3 +61,10 @@ func UpdateProject(c *gin.Context) {
 	body := getReqBody(c)
 	ctx.Resp, ctx.Err = service.UpdateProject(c.Request.Header, c.Request.URL.Query(), body, args.ProductName, args.Public, ctx.Logger)
 }
+
+func DeleteProject(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.DeleteProject(c.Request.Header, c.Request.URL.Query(), c.Param("name"), ctx.Logger)
+}

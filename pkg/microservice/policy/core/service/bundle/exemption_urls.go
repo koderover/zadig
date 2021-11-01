@@ -74,7 +74,7 @@ var systemAdminURLs = []*policyRule{
 	},
 	{
 		Methods:   []string{"POST"},
-		Endpoints: []string{"api/picket/projects"},
+		Endpoints: []string{"api/v1/picket/projects"},
 	},
 	{
 		Methods:   []string{"DELETE"},
