@@ -469,7 +469,6 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 	for _, externalEnvService := range otherExternalEnvServices {
 		externalEnvServiceM[externalEnvService.ServiceName] = true
 	}
-	log.Infof("externalEnvServiceM:%+v", externalEnvServiceM)
 	for _, v := range diff {
 		switch v.Operation {
 		// 删除workload的引用
