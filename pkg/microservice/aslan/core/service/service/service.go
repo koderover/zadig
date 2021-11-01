@@ -444,8 +444,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 	}
 
 	externalEnvServices, err := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
-		ProductName:    productName,
-		ExcludeEnvName: envName,
+		ProductName: productName,
 	})
 	if err != nil {
 		log.Errorf("failed to list external service, error:%s", err)
@@ -457,6 +456,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 	}
 	log.Infof("externalEnvServiceM:%+v", externalEnvServiceM)
 	for _, v := range diff {
+		log.Infof("v.Operation:%s", v.Operation)
 		switch v.Operation {
 		// 删除workload的引用
 		case "delete":
