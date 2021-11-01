@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -84,6 +85,11 @@ func GetProductTemplate(productName string, log *zap.SugaredLogger) (*template.P
 		if err != nil {
 			return resp, fmt.Errorf("ListExternalWorkloadsBy err : %s", err)
 		}
+		serviceNamesSet := sets.NewString()
+		for _, service := range totalServices {
+			serviceNamesSet.Insert(service.ServiceName)
+		}
+		resp.Services[0] = serviceNamesSet.List()
 	} else {
 		totalServices, err = commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
 		if err != nil {
