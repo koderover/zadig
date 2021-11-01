@@ -24,14 +24,15 @@ func ListTestWorkflows(testName string, header http.Header, qs url.Values, logge
 	if len(names) == 0 {
 		return nil, nil
 	}
+	if len(names) == 1 && names[0] == "*" {
+		return aslan.New().ListTestWorkflows(testName, header, qs)
+	}
 
 	for _, name := range names {
 		qs.Add("projects", name)
 	}
 
-	aslanClient := aslan.New()
-
-	return aslanClient.ListTestWorkflows(testName, header, qs)
+	return aslan.New().ListTestWorkflows(testName, header, qs)
 }
 
 type rule struct {
