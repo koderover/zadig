@@ -290,6 +290,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 	for _, workload := range workLoads {
 		tempWorkload := workload
 		g.Go(func() error {
+			// If the service is already included in the database service template, add it to the new association table
 			if serviceString.Has(tempWorkload.Name) {
 				return commonrepo.NewServicesInExternalEnvColl().Create(&commonmodels.ServicesInExternalEnv{
 					ProductName: productName,
