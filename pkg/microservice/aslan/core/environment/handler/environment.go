@@ -532,6 +532,20 @@ func ListWorkloads(c *gin.Context) {
 		for _, workload := range workloadStat.Workloads {
 			workloadM[workload.Name] = workload
 		}
+
+		// add services in external env data
+		servicesInExternalEnv, _ := mongodb.NewServicesInExternalEnvColl().List(&mongodb.ServicesInExternalEnvArgs{
+			Namespace: args.Namespace,
+			ClusterID: args.ClusterID,
+		})
+
+		for _, serviceInExternalEnv := range servicesInExternalEnv {
+			workloadM[serviceInExternalEnv.ServiceName] = commonmodels.Workload{
+				EnvName:     serviceInExternalEnv.EnvName,
+				ProductName: serviceInExternalEnv.ProductName,
+			}
+		}
+
 		for index, currentWorkload := range workloads {
 			if existWorkload, ok := workloadM[currentWorkload.Name]; ok {
 				workloads[index].EnvName = existWorkload.EnvName
