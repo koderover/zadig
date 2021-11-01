@@ -4,7 +4,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/microservice/user/core/service/user"
-	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -13,24 +12,9 @@ import (
 func SyncLdapUser(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ldapId := c.Param("ldapId")
-	systemConfigClient := systemconfig.New()
-	si, err := systemConfigClient.GetConnector(ldapId)
-	if err != nil {
-		ctx.Logger.Error(err)
-		ctx.Err = err
-		return
-	}
-	if err != nil {
-		ctx.Err = err
-		return
-	}
-	ctx.Err = user.SearchAndSyncUser(&systemconfig.Connector{
-		ConnectorBase: si.ConnectorBase,
-		ID:            si.ID,
-		Name:          si.Name,
-		Config:        si.Config,
-	}, ctx.Logger)
+	ldapID := c.Param("ldapId")
+
+	ctx.Err = user.SearchAndSyncUser(ldapID, ctx.Logger)
 }
 
 func GetUser(c *gin.Context) {

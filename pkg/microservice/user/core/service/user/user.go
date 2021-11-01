@@ -59,7 +59,13 @@ type SyncUserInfo struct {
 	Name         string `json:"name"`
 }
 
-func SearchAndSyncUser(si *systemconfig.Connector, logger *zap.SugaredLogger) error {
+func SearchAndSyncUser(ldapId string, logger *zap.SugaredLogger) error {
+	systemConfigClient := systemconfig.New()
+	si, err := systemConfigClient.GetConnector(ldapId)
+	if err != nil {
+		logger.Errorf("SearchAndSyncUser GetConnector error, error msg:%s", err)
+		return fmt.Errorf("SearchAndSyncUser GetConnector error, error msg:%s", err)
+	}
 	if si == nil || si.Config == nil {
 		logger.Error("can't find connector")
 		return fmt.Errorf("can't find connector")

@@ -1,22 +1,20 @@
 package systemconfig
 
 import (
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/service"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
 type Connector struct {
-	service.ConnectorBase
-
+	Type   string      `json:"type"`
 	ID     string      `json:"id"`
 	Name   string      `json:"name"`
 	Config interface{} `json:"config"`
 }
 
-func (c *Client) GetConnector(id string) (*service.Connector, error) {
+func (c *Client) GetConnector(id string) (*Connector, error) {
 	url := "/connectors/" + id
 
-	res := &service.Connector{}
+	res := &Connector{}
 	_, err := c.Get(url, httpclient.SetResult(res))
 	if err != nil {
 		return nil, err
