@@ -70,6 +70,16 @@ func GetProductTemplateServices(productName string, log *zap.SugaredLogger) (*te
 		return nil, fmt.Errorf("FillProductTemplateVars err : %v", err)
 	}
 
+	if resp.ProductFeature != nil && resp.ProductFeature.CreateEnvType == setting.SourceFromExternal {
+		services, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(resp.ProductName, "")
+		serviceNamesSet := sets.NewString()
+		for _, service := range services {
+			serviceNamesSet.Insert(service.ServiceName)
+		}
+		resp.Services = make([][]string, 0)
+		resp.Services[0] = serviceNamesSet.List()
+	}
+
 	if resp.Services == nil {
 		resp.Services = make([][]string, 0)
 	}
