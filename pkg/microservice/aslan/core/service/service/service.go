@@ -455,11 +455,12 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 	for _, externalEnvService := range externalEnvServices {
 		externalEnvServiceM[externalEnvService.ServiceName] = true
 	}
-
+	log.Infof("externalEnvServiceM:%+v", externalEnvServiceM)
 	for _, v := range diff {
 		switch v.Operation {
 		// 删除workload的引用
 		case "delete":
+			log.Infof("delete ServiceName:%s", v.Name)
 			if _, isExist := externalEnvServiceM[v.Name]; !isExist {
 				err = commonrepo.NewServiceColl().UpdateExternalServicesStatus(v.Name, productName, setting.ProductStatusDeleting, envName)
 				if err != nil {
