@@ -28,6 +28,16 @@ func GetUserLogin(uid string, account string, loginType config.LoginType, db *go
 	return &userLogin, nil
 }
 
+// DeleteUserLoginByUids Delete  userLogin based on uids
+func DeleteUserLoginByUids(uids []string, db *gorm.DB) error {
+	var userLogin models.UserLogin
+	err := db.Where("uid in ?", uids).Delete(&userLogin).Error
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // ListUserLogins Get a userLogin based on uid list
 func ListUserLogins(uids []string, db *gorm.DB) (*[]models.UserLogin, error) {
 	var userLogins []models.UserLogin

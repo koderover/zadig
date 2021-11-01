@@ -73,6 +73,32 @@ func ListUsersByUIDs(uids []string, db *gorm.DB) ([]models.User, error) {
 	return users, nil
 }
 
+// ListUsersByIdentityType gets a list of users based on identityType
+func ListUsersByIdentityType(identityType string, db *gorm.DB) ([]models.User, error) {
+	var (
+		users []models.User
+		err   error
+	)
+
+	err = db.Find(&users, "identity_type = ?", identityType).Error
+
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	return users, nil
+}
+
+// DeleteUserByUids Delete  users based on uids
+func DeleteUserByUids(uids []string, db *gorm.DB) error {
+	var user models.User
+	err := db.Where("uid in ?", uids).Delete(&user).Error
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // GetUsersCount gets user count
 func GetUsersCount(account string) (int64, error) {
 	var (
