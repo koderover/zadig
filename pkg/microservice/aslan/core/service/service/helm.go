@@ -19,12 +19,12 @@ package service
 import (
 	"bytes"
 	"fmt"
-	"html/template"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"text/template"
 	"time"
 
 	"github.com/27149chen/afero"
