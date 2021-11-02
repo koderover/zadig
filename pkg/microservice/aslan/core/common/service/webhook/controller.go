@@ -29,7 +29,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehub"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gitlab"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/ilyshin"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -132,8 +131,6 @@ func removeWebhook(t *task, logger *zap.Logger) {
 		}
 	case setting.SourceFromCodeHub:
 		cl = codehub.NewClient(t.ak, t.sk, t.region)
-	case setting.SourceFromIlyshin:
-		cl = ilyshin.NewClient(t.address, t.token)
 	default:
 		t.err = fmt.Errorf("invaild source: %s", t.from)
 		t.doneCh <- struct{}{}
@@ -195,8 +192,6 @@ func addWebhook(t *task, logger *zap.Logger) {
 
 	case setting.SourceFromCodeHub:
 		cl = codehub.NewClient(t.ak, t.sk, t.region)
-	case setting.SourceFromIlyshin:
-		cl = ilyshin.NewClient(t.address, t.token)
 	default:
 		t.err = fmt.Errorf("invaild source: %s", t.from)
 		t.doneCh <- struct{}{}
