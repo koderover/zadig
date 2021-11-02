@@ -102,7 +102,7 @@ func GetGitlabAddress(URL string) (string, error) {
 // GetOwnerRepoBranchPath 获取gitlab路径中的owner、repo、branch和path
 func GetOwnerRepoBranchPath(URL string) (string, string, string, string, string, string, error) {
 	if !strings.Contains(URL, "https") && !strings.Contains(URL, "http") {
-		return "", "", "", "", "", "", fmt.Errorf("url is illegal")
+		return "", "", "", "", "", "", fmt.Errorf("url is illegal:%s", URL)
 	}
 	//适配公网的gitlab
 	if strings.Contains(URL, "-") {
