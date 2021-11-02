@@ -146,32 +146,6 @@ type RawYamlResp struct {
 	YamlContent string `json:"yamlContent"`
 }
 
-func UpdateProductPublic(productName string, args *ProductParams, log *zap.SugaredLogger) error {
-	err := commonrepo.NewProductColl().UpdateIsPublic(args.EnvName, productName, args.IsPublic)
-	if err != nil {
-		log.Errorf("UpdateProductPublic error: %v", err)
-		return fmt.Errorf("UpdateProductPublic error: %v", err)
-	}
-
-	poetryCtl := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
-	if !args.IsPublic { //把公开设置成不公开
-		_, err := poetryCtl.AddEnvRolePermission(productName, args.EnvName, args.PermissionUUIDs, args.RoleID, log)
-		if err != nil {
-			log.Errorf("UpdateProductPublic AddEnvRole error: %v", err)
-			return fmt.Errorf("UpdateProductPublic AddEnvRole error: %v", err)
-		}
-		return nil
-	}
-	//把不公开设成公开 删除原来环境绑定的角色
-	_, err = poetryCtl.DeleteEnvRolePermission(productName, args.EnvName, log)
-	if err != nil {
-		log.Errorf("UpdateProductPublic DeleteEnvRole error: %v", err)
-		return fmt.Errorf("UpdateProductPublic DeleteEnvRole error: %v", err)
-	}
-
-	return nil
-}
-
 func GetProductStatus(productName string, log *zap.SugaredLogger) ([]*EnvStatus, error) {
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName})
 	if err != nil {
