@@ -38,6 +38,7 @@ type ProjectInfo struct {
 	UpdatedAt     int64  `bson:"update_time"`
 	UpdatedBy     string `bson:"update_by"`
 	OnboardStatus int    `bson:"onboarding_status"`
+	Public        bool   `bson:"public"`
 }
 
 type ProductColl struct {
@@ -104,6 +105,7 @@ func (c *ProductColl) ListProjectBriefs(inNames []string) ([]*ProjectInfo, error
 		{"update_time", 1},
 		{"update_by", 1},
 		{"onboarding_status", 1},
+		{"public", 1},
 	})
 }
 

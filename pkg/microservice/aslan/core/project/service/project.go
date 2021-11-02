@@ -47,6 +47,7 @@ type ProjectDetailedRepresentation struct {
 	UpdatedAt int64  `json:"updatedAt"`
 	UpdatedBy string `json:"updatedBy"`
 	Onboard   bool   `json:"onboard"`
+	Public    bool   `json:"public"`
 }
 
 type ProjectBriefRepresentation struct {
@@ -111,6 +112,7 @@ func listDetailedProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogge
 			UpdatedAt: info.UpdatedAt,
 			UpdatedBy: info.UpdatedBy,
 			Onboard:   info.OnboardStatus != 0,
+			Public:    info.Public,
 		})
 	}
 
