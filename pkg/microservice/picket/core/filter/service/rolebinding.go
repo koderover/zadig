@@ -13,6 +13,8 @@ import (
 type roleBinding struct {
 	*policy.RoleBinding
 	Username string `json:"username"`
+	Email    string `json:"email"`
+	Phone    string `json:"phone"`
 }
 
 func ListRoleBindings(header http.Header, qs url.Values, logger *zap.SugaredLogger) ([]*roleBinding, error) {
@@ -39,6 +41,8 @@ func ListRoleBindings(header http.Header, qs url.Values, logger *zap.SugaredLogg
 	for _, u := range users {
 		if rb, ok := uidToRoleBinding[u.UID]; ok {
 			rb.Username = u.Name
+			rb.Email = u.Email
+			rb.Phone = u.Phone
 			res = append(res, rb)
 		}
 	}
