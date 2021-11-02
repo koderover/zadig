@@ -2620,7 +2620,6 @@ func installOrUpgradeHelmChartWithValues(namespace, valuesYaml string, renderCha
 func installProductHelmCharts(user, envName, requestID string, args *commonmodels.Product, renderset *commonmodels.RenderSet, eventStart int64, helmClient helmclient.Client, log *zap.SugaredLogger) {
 	var (
 		err     error
-		wg      sync.WaitGroup
 		errList = &multierror.Error{}
 	)
 
@@ -2647,43 +2646,51 @@ func installProductHelmCharts(user, envName, requestID string, args *commonmodel
 			return
 		}
 	}()
+
 	chartInfoMap := make(map[string]*template.RenderChart)
 	for _, renderChart := range args.ChartInfos {
 		chartInfoMap[renderChart.ServiceName] = renderChart
 	}
+
+	serviceList := make([]interface{}, 0)
+	handler := func(data interface{}, logger *zap.SugaredLogger) error {
+		service := data.(*commonmodels.ProductService)
+		// 获取服务详情
+		opt := &commonrepo.ServiceFindOption{
+			ServiceName:   service.ServiceName,
+			Type:          service.Type,
+			Revision:      service.Revision,
+			ProductName:   args.ProductName,
+			ExcludeStatus: setting.ProductStatusDeleting,
+		}
+		serviceObj, err := commonrepo.NewServiceColl().Find(opt)
+		if err != nil {
+			return err
+		}
+
+		renderChart := chartInfoMap[service.ServiceName]
+		err = installOrUpgradeHelmChart(args.Namespace, renderChart, renderset.DefaultValues, serviceObj, 0, helmClient)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
 	for _, serviceGroups := range args.Services {
 		for _, svc := range serviceGroups {
-			renderChart, ok := chartInfoMap[svc.ServiceName]
+			_, ok := chartInfoMap[svc.ServiceName]
 			if !ok {
 				continue
 			}
-
-			wg.Add(1)
-			go func(service *commonmodels.ProductService) {
-				defer wg.Done()
-
-				// 获取服务详情
-				opt := &commonrepo.ServiceFindOption{
-					ServiceName:   service.ServiceName,
-					Type:          service.Type,
-					Revision:      service.Revision,
-					ProductName:   args.ProductName,
-					ExcludeStatus: setting.ProductStatusDeleting,
-				}
-				serviceObj, err := commonrepo.NewServiceColl().Find(opt)
-				if err != nil {
-					return
-				}
-
-				err = installOrUpgradeHelmChart(args.Namespace, renderChart, renderset.DefaultValues, serviceObj, Timeout*time.Second*10, helmClient)
-				if err != nil {
-					errList = multierror.Append(errList, err)
-					return
-				}
-			}(svc)
+			serviceList = append(serviceList, svc)
 		}
 	}
-	wg.Wait()
+
+	serviceGroupErr := intervalExecutor(time.Millisecond*2500, serviceList, handler, log)
+	if serviceGroupErr != nil {
+		errList = multierror.Append(errList, serviceGroupErr...)
+	}
+
 	err = errList.ErrorOrNil()
 }
 
@@ -2844,13 +2851,13 @@ func updateProductGroup(username, productName, envName, updateType string, produ
 		}
 		serviceObj, err := commonrepo.NewServiceColl().Find(opt)
 		if err != nil {
-			log.Errorf("Failed to find service with opt %+v, err: %s", opt, err)
+			log.Errorf("failed to find service with opt %+v, err: %s", opt, err)
 			return errors.Wrapf(err, "failed to find template servce %s", service.ServiceName)
 		}
-		renderChart, _ := renderChartMap[service.ServiceName]
+		renderChart := renderChartMap[service.ServiceName]
 		err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderSet.DefaultValues, serviceObj, 0, helmClient)
 		if err != nil {
-			return errors.Wrapf(err, "failed to install of upgrade service %s", service.ServiceName)
+			return errors.Wrapf(err, "failed to install or upgrade service %s", service.ServiceName)
 		}
 		return nil
 	}
@@ -3080,7 +3087,7 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 
 	handler := func(data interface{}, log *zap.SugaredLogger) error {
 		service := data.(*commonmodels.Service)
-		renderChart, _ := renderChartMap[service.ServiceName]
+		renderChart := renderChartMap[service.ServiceName]
 		err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderset.DefaultValues, service, 0, helmClient)
 		if err != nil {
 			return errors.Wrapf(err, "failed to upgrade service %s", service.ServiceName)
