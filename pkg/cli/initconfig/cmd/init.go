@@ -91,7 +91,7 @@ func presetSystemAdmin(email string, password string) (string, error) {
 		return "", err
 	}
 	if len(r.Users) > 0 {
-		log.Infof("already created system admin")
+		log.Infof("User admin exists, skip it.")
 		return r.Users[0].UID, nil
 	}
 	user, err := user.New().CreateUser(&user.CreateUserArgs{
