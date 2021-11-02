@@ -27,8 +27,6 @@ import (
 	"sync"
 	"time"
 
-	//"text/template"
-
 	"github.com/27149chen/afero"
 	"github.com/hashicorp/go-multierror"
 	"github.com/otiai10/copy"
@@ -697,10 +695,14 @@ func renderVariablesToYaml(valuesYaml string, productName, serviceName string, v
 		valuesMap[variable.Key] = variable.Value
 	}
 
-	tmpl := template.Must(template.New("values").Parse(valuesYaml))
-	buf := bytes.NewBufferString("")
+	tmpl, err := template.New("values").Parse(valuesYaml)
+	if err != nil {
+		log.Errorf("failed to parse template, err %s valuesYaml %s", err, valuesYaml)
+		return "", errors.Wrapf(err, "failed to parse template, err %s", err)
+	}
 
-	err := tmpl.Execute(buf, valuesMap)
+	buf := bytes.NewBufferString("")
+	err = tmpl.Execute(buf, valuesMap)
 	if err != nil {
 		log.Errorf("failed to render values content, err %s", err)
 		return "", fmt.Errorf("failed to render variables")

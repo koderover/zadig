@@ -38,7 +38,6 @@ import (
 )
 
 var (
-	//variableExtractRegexp = regexp.MustCompile("\\$(.*?)\\$")
 	variableExtractRegexp = regexp.MustCompile("{{.(\\w*)}}")
 )
 
@@ -68,7 +67,7 @@ func GetChartTemplate(name string, logger *zap.SugaredLogger) (*Chart, error) {
 		return nil, err
 	}
 
-	variables := make([]*Variable, 0)
+	variables := make([]*Variable, 0, len(chart.Variables))
 	for _, v := range chart.Variables {
 		variables = append(variables, &Variable{
 			Key:   v.Key,
@@ -266,16 +265,26 @@ func UpdateChartTemplateVariables(name string, args []*Variable, logger *zap.Sug
 		return err
 	}
 
-	//TODO need validate keys
+	requestKeys := sets.NewString()
 	variables := make([]*commonmodes.Variable, 0)
 	for _, variable := range args {
 		variables = append(variables, &commonmodes.Variable{
 			Key:   variable.Key,
 			Value: variable.Value,
 		})
+		requestKeys.Insert(variable.Key)
 	}
 
-	return mongodb.NewChartColl().Update(&models.Chart{
+	curKeys := sets.NewString()
+	for _, variable := range chart.Variables {
+		curKeys.Insert(variable.Key)
+	}
+
+	if !requestKeys.Equal(curKeys) {
+		return fmt.Errorf("request variable keys are different from keys in file")
+	}
+
+	err = mongodb.NewChartColl().Update(&models.Chart{
 		Name:       name,
 		Owner:      chart.Owner,
 		Repo:       chart.Repo,
@@ -285,6 +294,12 @@ func UpdateChartTemplateVariables(name string, args []*Variable, logger *zap.Sug
 		Sha1:       chart.Sha1,
 		Variables:  variables,
 	})
+
+	if err != nil {
+		logger.Errorf("failed to save variables err %s", err)
+		return fmt.Errorf("failed to save variables")
+	}
+	return nil
 }
 
 func RemoveChartTemplate(name string, logger *zap.SugaredLogger) error {

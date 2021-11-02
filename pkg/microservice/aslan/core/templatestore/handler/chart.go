@@ -18,12 +18,12 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/koderover/zadig/pkg/tool/errors"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/service"
 	templateservice "github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	"github.com/koderover/zadig/pkg/tool/errors"
 )
 
 type addChartArgs struct {
@@ -56,12 +56,6 @@ func ListFiles(c *gin.Context) {
 
 	// TODO: support to return multiple files in a bulk
 	ctx.Resp, ctx.Err = service.GetFileContentForTemplate(c.Param("name"), c.Query("filePath"), c.Query("fileName"), ctx.Logger)
-}
-
-func GetChartTemplateReferences(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	return
 }
 
 func ListChartTemplates(c *gin.Context) {
