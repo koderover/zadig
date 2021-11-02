@@ -112,6 +112,11 @@ const (
 	ENVMysqlUserDB    = "MYSQL_USER_DB"
 	ENVScopes         = "SCOPES"
 	ENVTokenExpiresAt = "TOKEN_EXPIRES_AT"
+
+	// initconfig
+	ENVAdminEmail    = "ADMIN_EMAIL"
+	ENVAdminPassword = "ADMIN_PASSWORD"
+	PresetAccount    = "admin"
 )
 
 // k8s concepts

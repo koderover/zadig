@@ -21,11 +21,11 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"golang.org/x/sync/errgroup"
 
 	"sigs.k8s.io/yaml"
 
+	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
 	"github.com/koderover/zadig/pkg/shared/client/user"
@@ -64,9 +64,10 @@ func run() error {
 }
 
 func initSystemConfig() error {
-	account := viper.GetString("account")
-	password := viper.GetString("password")
-	uid, err := presetSystemAdmin(account, password)
+	email := config.AdminEmail()
+	password := config.AdminPassword()
+
+	uid, err := presetSystemAdmin(email, password)
 	if err != nil {
 		log.Errorf("presetSystemAdmin err:%s", err)
 		return err
@@ -76,15 +77,15 @@ func initSystemConfig() error {
 		return err
 	}
 
-	if err := presetRoleBinding(uid, account); err != nil {
+	if err := presetRoleBinding(uid); err != nil {
 		log.Errorf("presetRoleBinding :%s", err)
 		return err
 	}
 	return nil
 }
 
-func presetSystemAdmin(account string, password string) (string, error) {
-	r, err := user.New().SearchUser(&user.SearchUserArgs{Account: account})
+func presetSystemAdmin(email string, password string) (string, error) {
+	r, err := user.New().SearchUser(&user.SearchUserArgs{Account: setting.PresetAccount})
 	if err != nil {
 		log.Errorf("SearchUser err:%s", err)
 		return "", err
@@ -94,9 +95,10 @@ func presetSystemAdmin(account string, password string) (string, error) {
 		return r.Users[0].UID, nil
 	}
 	user, err := user.New().CreateUser(&user.CreateUserArgs{
-		Name:     account,
+		Name:     setting.PresetAccount,
 		Password: password,
-		Account:  account,
+		Account:  setting.PresetAccount,
+		Email:    email,
 	})
 	if err != nil {
 		log.Infof("created  admin err:%s", err)
@@ -105,9 +107,9 @@ func presetSystemAdmin(account string, password string) (string, error) {
 	return user.Uid, nil
 }
 
-func presetRoleBinding(uid string, account string) error {
+func presetRoleBinding(uid string) error {
 	return policy.NewDefault().CreateOrUpdateSystemRoleBinding(&policy.RoleBinding{
-		Name: fmt.Sprintf(setting.RoleBindingNameFmt, setting.RoleAdmin, account, ""),
+		Name: fmt.Sprintf(setting.RoleBindingNameFmt, setting.RoleAdmin, setting.PresetAccount, ""),
 		UID:  uid,
 		Role: setting.RoleAdmin,
 	})

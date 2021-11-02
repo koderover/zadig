@@ -36,10 +36,6 @@ func Execute() error {
 
 func init() {
 	cobra.OnInitialize(initConfig)
-	rootCmd.PersistentFlags().StringP("account", "a", "admin", "assign system admin account")
-	rootCmd.PersistentFlags().StringP("password", "p", "admin", "assign system admin password")
-	viper.BindPFlag("account", rootCmd.PersistentFlags().Lookup("account"))
-	viper.BindPFlag("password", rootCmd.PersistentFlags().Lookup("password"))
 }
 
 func initConfig() {
