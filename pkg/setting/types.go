@@ -107,15 +107,15 @@ var Services = map[int]*ServiceInfo{
 		Port: 8181,
 	},
 	Policy: {
-		Name: "127.0.0.1",
-		Port: 8080,
+		Name: "policy",
+		Port: 80,
 	},
 	Config: {
 		Name: "config",
 		Port: 80,
 	},
 	User: {
-		Name: "127.0.0.1",
-		Port: 8081,
+		Name: "user",
+		Port: 80,
 	},
 }
