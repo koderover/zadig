@@ -275,6 +275,11 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 	// copy template to service path and update the values.yaml
 	from := filepath.Join(localBase, base)
 	to := filepath.Join(config.LocalServicePath(projectName, args.Name), args.Name)
+	// remove old files
+	if err = os.RemoveAll(to); err != nil {
+		logger.Errorf("Failed to remove dir %s, err: %s", to, err)
+		return err
+	}
 	if err = copy.Copy(from, to); err != nil {
 		logger.Errorf("Failed to copy file from %s to %s, err: %s", from, to, err)
 		return err
@@ -573,6 +578,11 @@ func handleSingleService(projectName string, repoConfig *commonservice.RepoConfi
 	serviceName = strings.TrimSuffix(serviceName, filepath.Ext(serviceName))
 
 	to := filepath.Join(config.LocalServicePath(projectName, serviceName), serviceName)
+	// remove old files
+	if err = os.RemoveAll(to); err != nil {
+		logger.Errorf("Failed to remove dir %s, err: %s", to, err)
+		return nil, err
+	}
 	if err = copy.Copy(fromPath, to); err != nil {
 		logger.Errorf("Failed to copy file from %s to %s, err: %s", fromPath, to, err)
 		return nil, err
