@@ -122,7 +122,7 @@ type updateServiceOrderArgs struct {
 	Services [][]string `json:"services"`
 }
 
-func UpdateServiceOrder(c *gin.Context) {
+func UpdateServiceOrchestration(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -132,7 +132,7 @@ func UpdateServiceOrder(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = projectservice.UpdateServiceOrder(ctx.User.Name, c.Param("name"), args.Services, ctx.Logger)
+	ctx.Err = projectservice.UpdateServiceOrchestration(ctx.User.Name, c.Param("name"), args.Services, ctx.Logger)
 }
 
 func UpdateProject(c *gin.Context) {

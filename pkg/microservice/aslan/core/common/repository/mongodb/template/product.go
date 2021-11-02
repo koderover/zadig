@@ -215,8 +215,14 @@ func (c *ProductColl) Update(productName string, args *template.Product) error {
 	return err
 }
 
+type ProductArgs struct {
+	ProductName string     `json:"product_name"`
+	Services    [][]string `json:"services"`
+	UpdateBy    string     `json:"update_by"`
+}
+
 // UpdateServiceOrder existing ProductTmpl
-func (c *ProductColl) UpdateServiceOrder(args *template.ProductArgs) error {
+func (c *ProductColl) UpdateServiceOrder(args *ProductArgs) error {
 	// avoid panic issue
 	if args == nil {
 		return errors.New("nil product args")

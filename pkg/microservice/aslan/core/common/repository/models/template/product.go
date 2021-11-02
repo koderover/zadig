@@ -74,11 +74,6 @@ type Product struct {
 	CustomTarRule              *CustomRule `bson:"custom_tar_rule,omitempty"           json:"custom_tar_rule,omitempty"`
 }
 
-type ProductArgs struct {
-	ProductName string     `json:"product_name"`
-	Services    [][]string `json:"services"`
-	UpdateBy    string     `json:"update_by"`
-}
 type ServiceInfo struct {
 	Name  string `bson:"name"  json:"name"`
 	Owner string `bson:"owner" json:"owner"`
