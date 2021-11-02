@@ -66,7 +66,6 @@ func run() error {
 func initSystemConfig() error {
 	account := viper.GetString("account")
 	password := viper.GetString("password")
-	fmt.Println(account, password)
 	uid, err := presetSystemAdmin(account, password)
 	if err != nil {
 		log.Errorf("presetSystemAdmin err:%s", err)
