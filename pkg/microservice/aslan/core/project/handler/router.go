@@ -48,6 +48,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		product.POST("", gin2.StoreProductName, gin2.IsHavePermission([]string{permission.SuperUserUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, CreateProductTemplate)
 		product.PUT("/:name", gin2.IsHavePermission([]string{permission.ServiceTemplateEditUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateProductTemplate)
 		product.PUT("/:name/:status", gin2.IsHavePermission([]string{permission.ServiceTemplateEditUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateProductTmplStatus)
+		product.PUT("/:name/serviceOrder", gin2.IsHavePermission([]string{permission.ServiceTemplateEditUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdateProductTmplStatus)
 		product.PUT("", gin2.StoreProductName, gin2.IsHavePermission([]string{permission.SuperUserUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, UpdateProject)
 		product.DELETE("/:name", gin2.IsHavePermission([]string{permission.SuperUserUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, DeleteProductTemplate)
 	}

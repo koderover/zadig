@@ -53,8 +53,9 @@ import (
 )
 
 type HelmService struct {
-	Services  []*models.Service `json:"services"`
-	FileInfos []*types.FileInfo `json:"file_infos"`
+	ServiceInfos []*models.Service `json:"service_infos"`
+	FileInfos    []*types.FileInfo `json:"file_infos"`
+	Services     [][]string        `json:"services"`
 }
 
 type HelmServiceReq struct {
@@ -122,8 +123,9 @@ type ChartTemplateData struct {
 
 func ListHelmServices(productName string, log *zap.SugaredLogger) (*HelmService, error) {
 	helmService := &HelmService{
-		Services:  []*models.Service{},
-		FileInfos: []*types.FileInfo{},
+		ServiceInfos: []*models.Service{},
+		FileInfos:    []*types.FileInfo{},
+		Services:     [][]string{},
 	}
 
 	opt := &commonrepo.ServiceListOption{
@@ -136,7 +138,7 @@ func ListHelmServices(productName string, log *zap.SugaredLogger) (*HelmService,
 		log.Errorf("[helmService.list] err:%v", err)
 		return nil, e.ErrListTemplate.AddErr(err)
 	}
-	helmService.Services = services
+	helmService.ServiceInfos = services
 
 	if len(services) > 0 {
 		fis, err := loadServiceFileInfos(services[0].ProductName, services[0].ServiceName, "")
@@ -146,6 +148,13 @@ func ListHelmServices(productName string, log *zap.SugaredLogger) (*HelmService,
 		}
 		helmService.FileInfos = fis
 	}
+	project, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		log.Errorf("Failed to find project info, err: %s", err)
+		return nil, e.ErrListTemplate.AddErr(err)
+	}
+	helmService.Services = project.Services
+
 	return helmService, nil
 }
 
