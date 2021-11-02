@@ -105,6 +105,7 @@ func (c *ProductColl) ListProjectBriefs(inNames []string) ([]*ProjectInfo, error
 		{"update_time", 1},
 		{"update_by", 1},
 		{"onboarding_status", 1},
+		{"public", 1},
 	})
 }
 
