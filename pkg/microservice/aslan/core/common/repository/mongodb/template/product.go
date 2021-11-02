@@ -38,6 +38,7 @@ type ProjectInfo struct {
 	UpdatedAt     int64  `bson:"update_time"`
 	UpdatedBy     string `bson:"update_by"`
 	OnboardStatus int    `bson:"onboarding_status"`
+	Public        bool   `bson:"public"`
 }
 
 type ProductColl struct {
