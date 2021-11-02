@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"golang.org/x/sync/errgroup"
 
 	"sigs.k8s.io/yaml"
@@ -63,7 +64,10 @@ func run() error {
 }
 
 func initSystemConfig() error {
-	uid, err := presetSystemAdmin()
+	account := viper.GetString("account")
+	password := viper.GetString("password")
+	fmt.Println(account, password)
+	uid, err := presetSystemAdmin(account, password)
 	if err != nil {
 		log.Errorf("presetSystemAdmin err:%s", err)
 		return err
@@ -73,15 +77,15 @@ func initSystemConfig() error {
 		return err
 	}
 
-	if err := presetRoleBinding(uid); err != nil {
+	if err := presetRoleBinding(uid, account); err != nil {
 		log.Errorf("presetRoleBinding :%s", err)
 		return err
 	}
 	return nil
 }
 
-func presetSystemAdmin() (string, error) {
-	r, err := user.New().SearchUser(&user.SearchUserArgs{Account: "admin"})
+func presetSystemAdmin(account string, password string) (string, error) {
+	r, err := user.New().SearchUser(&user.SearchUserArgs{Account: account})
 	if err != nil {
 		log.Errorf("SearchUser err:%s", err)
 		return "", err
@@ -91,9 +95,9 @@ func presetSystemAdmin() (string, error) {
 		return r.Users[0].UID, nil
 	}
 	user, err := user.New().CreateUser(&user.CreateUserArgs{
-		Name:     "admin",
-		Password: "admin",
-		Account:  "admin",
+		Name:     account,
+		Password: password,
+		Account:  account,
 	})
 	if err != nil {
 		log.Infof("created  admin err:%s", err)
@@ -102,11 +106,11 @@ func presetSystemAdmin() (string, error) {
 	return user.Uid, nil
 }
 
-func presetRoleBinding(uid string) error {
+func presetRoleBinding(uid string, account string) error {
 	return policy.NewDefault().CreateOrUpdateSystemRoleBinding(&policy.RoleBinding{
-		Name: fmt.Sprintf(setting.RoleBindingNameFmt, "admin", "admin", ""),
+		Name: fmt.Sprintf(setting.RoleBindingNameFmt, setting.RoleAdmin, account, ""),
 		UID:  uid,
-		Role: "admin",
+		Role: setting.RoleAdmin,
 	})
 
 }
