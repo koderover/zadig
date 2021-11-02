@@ -106,8 +106,7 @@ func getContainerLogFromS3(pipelineName, filenamePrefix string, taskID int64, lo
 	if len(fileList) == 0 {
 		return "", nil
 	}
-	objectKey := storage.GetObjectPath(fileList[0])
-	err = client.Download(storage.Bucket, objectKey, tempFile)
+	err = client.Download(storage.Bucket, fileList[0], tempFile)
 	if err != nil {
 		log.Errorf("GetContainerLogFromS3 Download err:%v", err)
 		return "", err

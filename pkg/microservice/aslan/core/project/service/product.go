@@ -605,7 +605,12 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 			commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(v)
 		}
 	}()
-
+	// delete servicesInExternalEnv data
+	go func() {
+		_ = commonrepo.NewServicesInExternalEnvColl().Delete(&commonrepo.ServicesInExternalEnvArgs{
+			ProductName: productName,
+		})
+	}()
 	return nil
 }
 
