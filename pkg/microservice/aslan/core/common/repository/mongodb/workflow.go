@@ -175,9 +175,12 @@ func (c *WorkflowColl) ListWithScheduleEnabled() ([]*models.Workflow, error) {
 
 func (c *WorkflowColl) ListWorkflowsByProjects(projects []string) ([]*models.Workflow, error) {
 	resp := make([]*models.Workflow, 0)
-	query := bson.M{"product_tmpl_name": bson.M{
-		"$in": projects,
-	}}
+	query := bson.M{}
+	if len(projects) != 0 {
+		query = bson.M{"product_tmpl_name": bson.M{
+			"$in": projects,
+		}}
+	}
 
 	cursor, err := c.Collection.Find(context.TODO(), query)
 	if err != nil {

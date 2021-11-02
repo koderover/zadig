@@ -2,7 +2,7 @@ package rbac
 
 import input.attributes.request.http as http_request
 
-# Policy rule definitions in rbac style which is consumed by OPA server.
+# Policy rule definitions in rbac style, which is consumed by OPA server.
 # you can use it to:
 # 1. decide if a request is allowed by querying: rbac.allow
 # 2. decide if a request is allowed and get the status code by querying: rbac.response
@@ -40,25 +40,30 @@ allow {
     url_is_public
 }
 
-# Allow all valid users to visit exempted urls.
 allow {
     is_authenticated
+    access_is_granted
+
+}
+
+# Allow all valid users to visit exempted urls.
+access_is_granted {
     url_is_exempted
 }
 
 # Allow admins to do anything.
-allow {
+access_is_granted {
     user_is_admin
 }
 
 # Allow project admins to do anything under the given project.
-allow {
+access_is_granted {
     not url_is_privileged
     user_is_project_admin
 }
 
 # Allow the action if the user is granted permission to perform the action.
-allow {
+access_is_granted {
     not url_is_privileged
 
     some grant
@@ -220,6 +225,7 @@ bearer_token := t {
 is_authenticated {
     claims
     claims.uid != ""
+    claims.exp > time.now_ns()/1000000000
 }
 
 envs := env {
