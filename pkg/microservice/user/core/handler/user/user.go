@@ -53,7 +53,6 @@ func ListUsers(c *gin.Context) {
 	} else {
 		ctx.Resp, ctx.Err = user.SearchUsers(args, ctx.Logger)
 	}
-	return
 }
 
 func CreateUser(c *gin.Context) {
