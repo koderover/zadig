@@ -408,7 +408,7 @@ func UpdateServiceOrder(username, name string, services [][]string, log *zap.Sug
 		UpdateBy:    username,
 	}); err != nil {
 		log.Errorf("failed to update service order,err:%s", err)
-		return err
+		return e.ErrUpdateProduct.AddDesc("failed to update service order")
 	}
 	return nil
 }
