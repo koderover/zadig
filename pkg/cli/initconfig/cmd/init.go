@@ -83,17 +83,23 @@ func initSystemConfig() error {
 func presetSystemAdmin() (string, error) {
 	r, err := user.New().SearchUser(&user.SearchUserArgs{Account: "admin"})
 	if err != nil {
+		log.Errorf("SearchUser err:%s", err)
 		return "", err
 	}
 	if len(r.Users) > 0 {
 		log.Infof("already created system admin")
-		return "", nil
+		return r.Users[0].UID, nil
 	}
-	return r.Users[0].Account, user.New().CreateUser(&user.CreateUserArgs{
+	user, err := user.New().CreateUser(&user.CreateUserArgs{
 		Name:     "admin",
 		Password: "admin",
 		Account:  "admin",
 	})
+	if err != nil {
+		log.Infof("created  admin err:%s", err)
+		return "", err
+	}
+	return user.Uid, nil
 }
 
 func presetRoleBinding(uid string) error {

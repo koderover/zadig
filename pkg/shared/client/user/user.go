@@ -39,24 +39,31 @@ type CreateUserArgs struct {
 	Account  string
 }
 
-func (c *Client) CreateUser(args *CreateUserArgs) error {
+type CreateUserResp struct {
+	Name    string
+	Account string
+	Uid     string
+}
+
+func (c *Client) CreateUser(args *CreateUserArgs) (*CreateUserResp, error) {
 	url := "/users"
-	_, err := c.Post(url, httpclient.SetBody(args))
-	return err
+	resp := &CreateUserResp{}
+	_, err := c.Post(url, httpclient.SetBody(args), httpclient.SetResult(resp))
+	return resp, err
 }
 
 type SearchUserArgs struct {
-	Account string
+	Account string `json:"account"`
 }
 
 type SearchUserResp struct {
-	TotalCount int               `json:"totalCount"`
-	Users      []*CreateUserArgs `json:"users"`
+	TotalCount int     `json:"totalCount"`
+	Users      []*User `json:"users"`
 }
 
 func (c *Client) SearchUser(args *SearchUserArgs) (*SearchUserResp, error) {
 	url := "/users/search"
 	resp := &SearchUserResp{}
-	_, err := c.Post(url, httpclient.SetBody(args), httpclient.SetBody(resp))
+	_, err := c.Post(url, httpclient.SetBody(args), httpclient.SetResult(resp))
 	return resp, err
 }
