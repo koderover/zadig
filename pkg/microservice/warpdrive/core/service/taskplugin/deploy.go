@@ -405,6 +405,11 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			return
 		}
 
+		if targetContainer.ImagePath == nil {
+			err = errors.Errorf("failed to get image path of  %s from service %s", p.Task.ContainerName, p.Task.ServiceName)
+			return
+		}
+
 		for _, chartInfo := range renderInfo.ChartInfos {
 			if chartInfo.ServiceName == p.Task.ServiceName {
 				renderChart = chartInfo
@@ -448,7 +453,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		}
 
 		// merge override values and kvs into service's yaml
-		mergedValuesYaml, err = helmtool.MergeOverrideValues(serviceValuesYaml, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
+		mergedValuesYaml, err = helmtool.MergeOverrideValues(serviceValuesYaml, renderInfo.DefaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
 		if err != nil {
 			err = errors.WithMessagef(
 				err,
@@ -532,9 +537,10 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 
 		// TODO too dangerous to override entire renderset!
 		err = p.updateRenderSet(ctx, &types.RenderSet{
-			Name:       renderInfo.Name,
-			Revision:   renderInfo.Revision,
-			ChartInfos: renderInfo.ChartInfos,
+			Name:          renderInfo.Name,
+			Revision:      renderInfo.Revision,
+			DefaultValues: renderInfo.DefaultValues,
+			ChartInfos:    renderInfo.ChartInfos,
 		})
 		if err != nil {
 			err = errors.WithMessagef(

@@ -46,6 +46,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
@@ -55,17 +56,6 @@ import (
 type HelmService struct {
 	Services  []*models.Service `json:"services"`
 	FileInfos []*types.FileInfo `json:"file_infos"`
-}
-
-type HelmServiceReq struct {
-	ProductName string   `json:"product_name"`
-	CreateBy    string   `json:"create_by"`
-	CodehostID  int      `json:"codehost_id"`
-	RepoOwner   string   `json:"repo_owner"`
-	RepoName    string   `json:"repo_name"`
-	BranchName  string   `json:"branch_name"`
-	FilePaths   []string `json:"file_paths"`
-	SrcPath     string   `json:"src_path"`
 }
 
 type HelmServiceArgs struct {
@@ -96,7 +86,7 @@ type Chart struct {
 type helmServiceCreationArgs struct {
 	ChartName        string
 	ChartVersion     string
-	ValuesYAML       string
+	MergedValues     string
 	ServiceName      string
 	FilePath         string
 	ProductName      string
@@ -266,21 +256,6 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 		values = append(values, templateChartInfo.DefaultValuesYAML)
 	}
 
-	for _, path := range templateArgs.ValuesPaths {
-		v, err := fsservice.DownloadFileFromSource(&fsservice.DownloadFromSourceArgs{
-			CodehostID: templateArgs.CodehostID,
-			Owner:      templateArgs.Owner,
-			Repo:       templateArgs.Repo,
-			Path:       path,
-			Branch:     templateArgs.Branch,
-		})
-		if err != nil {
-			return err
-		}
-
-		values = append(values, v)
-	}
-
 	if len(templateArgs.ValuesYAML) > 0 {
 		values = append(values, []byte(templateArgs.ValuesYAML))
 	}
@@ -319,18 +294,13 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 		&helmServiceCreationArgs{
 			ChartName:        templateChartInfo.ChartName,
 			ChartVersion:     templateChartInfo.ChartVersion,
-			ValuesYAML:       string(merged),
+			MergedValues:     string(merged),
 			ServiceName:      args.Name,
 			FilePath:         to,
 			ProductName:      projectName,
 			CreateBy:         args.CreatedBy,
-			CodehostID:       templateArgs.CodehostID,
-			Owner:            templateArgs.Owner,
-			Repo:             templateArgs.Repo,
-			Branch:           templateArgs.Branch,
 			Source:           setting.SourceFromChartTemplate,
 			HelmTemplateName: templateArgs.TemplateName,
-			ValuePaths:       templateArgs.ValuesPaths,
 			ValuesYaml:       templateArgs.ValuesYAML,
 		},
 		logger,
@@ -352,16 +322,16 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 	return nil
 }
 
-func getCodehostType(repoArgs *CreateFromRepo, repoLink string) (string, error) {
+func getCodehostType(repoArgs *CreateFromRepo, repoLink string) (string, *poetry.CodeHost, error) {
 	if repoLink != "" {
-		return setting.SourceFromPublicRepo, nil
+		return setting.SourceFromPublicRepo, nil, nil
 	}
 	ch, err := codehost.GetCodeHostInfoByID(repoArgs.CodehostID)
 	if err != nil {
 		log.Errorf("Failed to get codeHost by id %d, err: %s", repoArgs.CodehostID, err.Error())
-		return "", err
+		return "", ch, err
 	}
-	return ch.Type, nil
+	return ch.Type, ch, nil
 }
 
 func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceCreationArgs, log *zap.SugaredLogger) error {
@@ -381,9 +351,11 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 		}
 
 		repoLink = publicArgs.RepoLink
+	} else {
+
 	}
 
-	source, err := getCodehostType(repoArgs, repoLink)
+	source, codehostInfo, err := getCodehostType(repoArgs, repoLink)
 	if err != nil {
 		log.Errorf("Failed to get source form repo data %+v, err: %s", *repoArgs, err.Error())
 		return err
@@ -423,7 +395,7 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 					if err != nil {
 						return serviceName, err
 					}
-					valuesYAML, _, err = readValuesYAML(afero.NewIOFS(chartTree), filepath.Base(filePath), log)
+					valuesYAML, err = readValuesYAML(afero.NewIOFS(chartTree), filepath.Base(filePath), log)
 					return serviceName, err
 				})
 			if err != nil {
@@ -441,12 +413,16 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 				return
 			}
 
+			if source != setting.SourceFromPublicRepo && codehostInfo != nil {
+				repoLink = fmt.Sprintf("%s/%s/%s/%s/%s/%s", codehostInfo.Address, repoArgs.Owner, repoArgs.Repo, "tree", repoArgs.Branch, filePath)
+			}
+
 			svc, err := createOrUpdateHelmService(
 				fsTree,
 				&helmServiceCreationArgs{
 					ChartName:    serviceName,
 					ChartVersion: chartVersion,
-					ValuesYAML:   string(valuesYAML),
+					MergedValues: string(valuesYAML),
 					ServiceName:  serviceName,
 					FilePath:     filePath,
 					ProductName:  projectName,
@@ -611,7 +587,7 @@ func handleSingleService(projectName string, repoConfig *commonservice.RepoConfi
 		&helmServiceCreationArgs{
 			ChartName:        templateChartData.ChartName,
 			ChartVersion:     templateChartData.ChartVersion,
-			ValuesYAML:       string(mergedValues),
+			MergedValues:     string(mergedValues),
 			ServiceName:      serviceName,
 			FilePath:         to,
 			ProductName:      projectName,
@@ -620,7 +596,7 @@ func handleSingleService(projectName string, repoConfig *commonservice.RepoConfi
 			Source:           setting.SourceFromChartTemplate,
 			HelmTemplateName: templateChartData.TemplateName,
 			ValuePaths:       []string{path},
-			ValuesYaml:       string(templateChartData.DefaultValuesYAML),
+			ValuesYaml:       string(valuesYAML),
 		},
 		logger,
 	)
@@ -651,20 +627,13 @@ func readChartYAML(chartTree fs.FS, base string, logger *zap.SugaredLogger) (str
 	return chart.Name, chart.Version, nil
 }
 
-func readValuesYAML(chartTree fs.FS, base string, logger *zap.SugaredLogger) ([]byte, map[string]interface{}, error) {
+func readValuesYAML(chartTree fs.FS, base string, logger *zap.SugaredLogger) ([]byte, error) {
 	content, err := fs.ReadFile(chartTree, filepath.Join(base, setting.ValuesYaml))
 	if err != nil {
 		logger.Errorf("Failed to read %s, err: %s", setting.ValuesYaml, err)
-		return nil, nil, err
+		return nil, err
 	}
-
-	valuesMap := make(map[string]interface{})
-	if err = yaml.Unmarshal(content, &valuesMap); err != nil {
-		logger.Errorf("Failed to unmarshal yaml %s, err: %s", setting.ValuesYaml, err)
-		return nil, nil, err
-	}
-
-	return content, valuesMap, nil
+	return content, nil
 }
 
 func geneCreationDetail(args *helmServiceCreationArgs) interface{} {
@@ -689,24 +658,8 @@ func geneCreationDetail(args *helmServiceCreationArgs) interface{} {
 			LoadPath: args.FilePath,
 		}
 	case setting.SourceFromChartTemplate:
-		var yamlData *template.CustomYaml
-		if args.CodehostID > 0 {
-			yamlData = &template.CustomYaml{
-				YamlSource:  setting.ValuesYamlSourceGitRepo,
-				YamlContent: "",
-				GitRepoConfig: &templatemodels.GitRepoConfig{
-					CodehostID: args.CodehostID,
-					Owner:      args.Owner,
-					Repo:       args.Repo,
-					Branch:     args.Branch,
-				},
-				ValuesPaths: args.ValuePaths,
-			}
-		} else if len(args.ValuesYaml) > 0 {
-			yamlData = &template.CustomYaml{
-				YamlSource:  setting.ValuesYamlSourceFreeEdit,
-				YamlContent: args.ValuesYaml,
-			}
+		yamlData := &template.CustomYaml{
+			YamlContent: args.ValuesYaml,
 		}
 
 		return &models.CreateFromChartTemplate{
@@ -725,12 +678,13 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 		return nil, err
 	}
 
-	values, valuesMap, err := readValuesYAML(fsTree, args.ServiceName, logger)
+	valuesYaml := args.MergedValues
+	valuesMap := make(map[string]interface{})
+	err = yaml.Unmarshal([]byte(valuesYaml), &valuesMap)
 	if err != nil {
-		logger.Errorf("Failed to read values.yaml, err %s", err)
+		logger.Errorf("Failed to unmarshall yaml, err %s", err)
 		return nil, err
 	}
-	valuesYaml := string(values)
 
 	serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceName, args.ProductName)
 	rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
