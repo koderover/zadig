@@ -91,8 +91,9 @@ user_is_project_admin {
 
 # public urls are visible for all users
 url_is_public {
-    data.exemptions.public[_].method == http_request.method
-    glob.match(trim(data.exemptions.public[_].endpoint, "/"), ["/"], concat("/", input.parsed_path))
+    some i
+    data.exemptions.public[i].method == http_request.method
+    glob.match(trim(data.exemptions.public[i].endpoint, "/"), ["/"], concat("/", input.parsed_path))
 }
 
 # exempted urls are visible for all authenticated users
@@ -101,14 +102,16 @@ url_is_exempted {
 }
 
 url_is_registered {
-    data.exemptions.registered[_].method == http_request.method
-    glob.match(trim(data.exemptions.registered[_].endpoint, "/"), ["/"], concat("/", input.parsed_path))
+    some i
+    data.exemptions.registered[i].method == http_request.method
+    glob.match(trim(data.exemptions.registered[i].endpoint, "/"), ["/"], concat("/", input.parsed_path))
 }
 
 # privileged urls are visible for system admins only
 url_is_privileged {
-    data.exemptions.privileged[_].method == http_request.method
-    glob.match(trim(data.exemptions.privileged[_].endpoint, "/"), ["/"], concat("/", input.parsed_path))
+    some i
+    data.exemptions.privileged[i].method == http_request.method
+    glob.match(trim(data.exemptions.privileged[i].endpoint, "/"), ["/"], concat("/", input.parsed_path))
 }
 
 project_name := pn {
