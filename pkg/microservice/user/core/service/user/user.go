@@ -159,7 +159,7 @@ func SearchUserByAccount(args *QueryArgs, logger *zap.SugaredLogger) (*UsersResp
 }
 
 func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*UsersResp, error) {
-	count, err := orm.GetUsersCount(args.Account)
+	count, err := orm.GetUsersCount(args.Name)
 	if err != nil {
 		logger.Errorf("SeachUsers GetUsersCount By account:%s error, error msg:%s", args.Account, err.Error())
 		return nil, err
@@ -170,9 +170,9 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*UsersResp, error)
 		}, nil
 	}
 
-	users, err := orm.ListUsers(args.Page, args.PerPage, args.Account, core.DB)
+	users, err := orm.ListUsers(args.Page, args.PerPage, args.Name, core.DB)
 	if err != nil {
-		logger.Errorf("SeachUsers SeachUsers By account:%s error, error msg:%s", args.Account, err.Error())
+		logger.Errorf("SeachUsers SeachUsers By name:%s error, error msg:%s", args.Name, err.Error())
 		return nil, err
 	}
 	var uids []string
