@@ -142,7 +142,7 @@ func GetMergedYamlContent(arg *YamlContentRequestArg, paths []string) (string, e
 					RepoLink:   arg.RepoLink,
 				})
 			if errDownload != nil {
-				err = errors.Wrapf(errDownload, fmt.Sprintf("fail to download file from git, path %s", path))
+				err = errors.Wrapf(errDownload, fmt.Sprintf("failed to download file from git, path %s", path))
 				return
 			}
 			fileContentMap.Store(index, fileContent)
