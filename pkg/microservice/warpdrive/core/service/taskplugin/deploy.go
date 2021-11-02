@@ -406,7 +406,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		}
 
 		if targetContainer.ImagePath == nil {
-			err = errors.Errorf("failded to get image path of  %s from service %s", p.Task.ContainerName, p.Task.ServiceName)
+			err = errors.Errorf("failed to get image path of  %s from service %s", p.Task.ContainerName, p.Task.ServiceName)
 			return
 		}
 

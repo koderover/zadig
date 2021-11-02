@@ -21,8 +21,6 @@ import (
 	"strings"
 	"sync"
 
-	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
-
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -30,12 +28,22 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 	"github.com/pkg/errors"
 )
 
 type DefaultValuesResp struct {
 	DefaultValues string `json:"defaultValues"`
+}
+
+type YamlContentRequestArg struct {
+	CodehostID  int    `json:"codehostID" form:"codehostID"`
+	Owner       string `json:"owner" form:"owner"`
+	Repo        string `json:"repo" form:"repo"`
+	Branch      string `json:"branch" form:"branch"`
+	RepoLink    string `json:"repoLink" form:"repoLink"`
+	ValuesPaths string `json:"valuesPaths" form:"valuesPaths"`
 }
 
 func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*commonservice.RenderChartArg, error) {
@@ -90,8 +98,8 @@ func GetDefaultValues(productName, envName string, log *zap.SugaredLogger) (*Def
 		return ret, nil
 	}
 	if err != nil {
-		log.Errorf("faild to query product info, productName %s envName %s err %s", productName, envName, err)
-		return nil, fmt.Errorf("faild to query product info, productName %s envName %s", productName, envName)
+		log.Errorf("failed to query product info, productName %s envName %s err %s", productName, envName, err)
+		return nil, fmt.Errorf("failed to query product info, productName %s envName %s", productName, envName)
 	}
 
 	if productInfo.Render == nil {
@@ -104,7 +112,7 @@ func GetDefaultValues(productName, envName string, log *zap.SugaredLogger) (*Def
 	}
 	rendersetObj, existed, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
 	if err != nil {
-		log.Errorf("faild to query renderset info, envName %s err %s", productInfo.Render.Name, err)
+		log.Errorf("failed to query renderset info, name %s err %s", productInfo.Render.Name, err)
 		return nil, err
 	}
 	if !existed {
@@ -114,7 +122,7 @@ func GetDefaultValues(productName, envName string, log *zap.SugaredLogger) (*Def
 	return ret, nil
 }
 
-func GetMergedYamlContent(codehostID int, owner, repo, branch, repoLink string, paths []string) (string, error) {
+func GetMergedYamlContent(arg *YamlContentRequestArg, paths []string) (string, error) {
 	var (
 		fileContentMap sync.Map
 		wg             sync.WaitGroup
@@ -126,15 +134,15 @@ func GetMergedYamlContent(codehostID int, owner, repo, branch, repoLink string, 
 			defer wg.Done()
 			fileContent, errDownload := fsservice.DownloadFileFromSource(
 				&fsservice.DownloadFromSourceArgs{
-					CodehostID: codehostID,
-					Owner:      owner,
-					Repo:       repo,
+					CodehostID: arg.CodehostID,
+					Owner:      arg.Owner,
+					Repo:       arg.Repo,
 					Path:       path,
-					Branch:     branch,
-					RepoLink:   repoLink,
+					Branch:     arg.Branch,
+					RepoLink:   arg.RepoLink,
 				})
 			if errDownload != nil {
-				err = errors.Wrapf(errDownload, fmt.Sprintf("fail to download file from git, path %s", path))
+				err = errors.Wrapf(errDownload, fmt.Sprintf("failed to download file from git, path %s", path))
 				return
 			}
 			fileContentMap.Store(index, fileContent)

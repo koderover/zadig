@@ -17,7 +17,6 @@ limitations under the License.
 package handler
 
 import (
-	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -64,34 +63,22 @@ func GetYamlContent(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	var err error
-	codehostID := 0
+	arg := &service.YamlContentRequestArg{}
 
-	codehostIDStr := c.Query("codehostID")
-	if len(codehostIDStr) > 0 {
-		codehostID, err = strconv.Atoi(codehostIDStr)
-		if err != nil {
-			ctx.Err = e.ErrInvalidParam.AddDesc("cannot convert codehost id to int")
-			return
-		}
+	if err := c.ShouldBindQuery(arg); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
 	}
-
-	if codehostID == 0 && len(c.Query("repoLink")) == 0 {
+	if arg.CodehostID == 0 && len(arg.RepoLink) == 0 {
 		ctx.Err = e.ErrInvalidParam.AddDesc("neither codehost nor repo link is specified")
 		return
 	}
 
-	if len(c.Query("valuesPaths")) == 0 {
+	if len(arg.ValuesPaths) == 0 {
 		ctx.Err = e.ErrInvalidParam.AddDesc("paths can't be empty")
 		return
 	}
 
-	pathArr := strings.Split(c.Query("valuesPaths"), ",")
-	var (
-		owner    = c.Query("owner")
-		repo     = c.Query("repo")
-		branch   = c.Query("branch")
-		repoLink = c.Query("repoLink")
-	)
-	ctx.Resp, ctx.Err = service.GetMergedYamlContent(codehostID, owner, repo, branch, repoLink, pathArr)
+	pathArr := strings.Split(arg.ValuesPaths, ",")
+	ctx.Resp, ctx.Err = service.GetMergedYamlContent(arg, pathArr)
 }

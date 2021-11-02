@@ -50,6 +50,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
@@ -59,17 +60,6 @@ import (
 type HelmService struct {
 	Services  []*models.Service `json:"services"`
 	FileInfos []*types.FileInfo `json:"file_infos"`
-}
-
-type HelmServiceReq struct {
-	ProductName string   `json:"product_name"`
-	CreateBy    string   `json:"create_by"`
-	CodehostID  int      `json:"codehost_id"`
-	RepoOwner   string   `json:"repo_owner"`
-	RepoName    string   `json:"repo_name"`
-	BranchName  string   `json:"branch_name"`
-	FilePaths   []string `json:"file_paths"`
-	SrcPath     string   `json:"src_path"`
 }
 
 type HelmServiceArgs struct {
@@ -343,16 +333,16 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 	return nil
 }
 
-func getCodehostType(repoArgs *CreateFromRepo, repoLink string) (string, error) {
+func getCodehostType(repoArgs *CreateFromRepo, repoLink string) (string, *poetry.CodeHost, error) {
 	if repoLink != "" {
-		return setting.SourceFromPublicRepo, nil
+		return setting.SourceFromPublicRepo, nil, nil
 	}
 	ch, err := codehost.GetCodeHostInfoByID(repoArgs.CodehostID)
 	if err != nil {
 		log.Errorf("Failed to get codeHost by id %d, err: %s", repoArgs.CodehostID, err.Error())
-		return "", err
+		return "", ch, err
 	}
-	return ch.Type, nil
+	return ch.Type, ch, nil
 }
 
 func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceCreationArgs, log *zap.SugaredLogger) error {
@@ -372,9 +362,11 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 		}
 
 		repoLink = publicArgs.RepoLink
+	} else {
+
 	}
 
-	source, err := getCodehostType(repoArgs, repoLink)
+	source, codehostInfo, err := getCodehostType(repoArgs, repoLink)
 	if err != nil {
 		log.Errorf("Failed to get source form repo data %+v, err: %s", *repoArgs, err.Error())
 		return err
@@ -430,6 +422,10 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 				log.Errorf("Failed to save or upload files for service %s in project %s, error: %s", serviceName, projectName, err)
 				finalErr = e.ErrCreateTemplate.AddErr(err)
 				return
+			}
+
+			if source != setting.SourceFromPublicRepo && codehostInfo != nil {
+				repoLink = fmt.Sprintf("%s/%s/%s/%s/%s/%s", codehostInfo.Address, repoArgs.Owner, repoArgs.Repo, "tree", repoArgs.Branch, filePath)
 			}
 
 			svc, err := createOrUpdateHelmService(
@@ -609,7 +605,7 @@ func handleSingleService(projectName string, repoConfig *commonservice.RepoConfi
 			Source:           setting.SourceFromChartTemplate,
 			HelmTemplateName: templateChartData.TemplateName,
 			ValuePaths:       []string{path},
-			ValuesYaml:       string(templateChartData.DefaultValuesYAML),
+			ValuesYaml:       string(valuesYAML),
 		},
 		logger,
 	)

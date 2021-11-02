@@ -24,6 +24,7 @@ import (
 	helmclient "github.com/mittwald/go-helm-client"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -154,10 +155,41 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 					log.Errorf("update workloads fail error:%s", err)
 				}
 			}
-			// 删除所有external的服务
-			err = commonrepo.NewServiceColl().UpdateExternalServicesStatus("", productName, setting.ProductStatusDeleting, envName)
+			// 获取所有external的服务
+			currentEnvServices, err := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, envName)
 			if err != nil {
-				log.Errorf("UpdateStatus  external services error:%s", err)
+				log.Errorf("failed to list external workload, error:%s", err)
+			}
+
+			externalEnvServices, err := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
+				ProductName:    productName,
+				ExcludeEnvName: envName,
+			})
+			if err != nil {
+				log.Errorf("failed to list external service, error:%s", err)
+			}
+
+			externalEnvServiceM := make(map[string]bool)
+			for _, externalEnvService := range externalEnvServices {
+				externalEnvServiceM[externalEnvService.ServiceName] = true
+			}
+
+			deleteServices := sets.NewString()
+			for _, currentEnvService := range currentEnvServices {
+				if _, isExist := externalEnvServiceM[currentEnvService.ServiceName]; !isExist {
+					deleteServices.Insert(currentEnvService.ServiceName)
+				}
+			}
+			err = commonrepo.NewServiceColl().BatchUpdateExternalServicesStatus(productName, "", setting.ProductStatusDeleting, deleteServices.List())
+			if err != nil {
+				log.Errorf("UpdateStatus external services error:%s", err)
+			}
+			// delete services_in_external_env data
+			if err = commonrepo.NewServicesInExternalEnvColl().Delete(&commonrepo.ServicesInExternalEnvArgs{
+				ProductName: productName,
+				EnvName:     envName,
+			}); err != nil {
+				log.Errorf("remove services in external env error:%s", err)
 			}
 		}
 

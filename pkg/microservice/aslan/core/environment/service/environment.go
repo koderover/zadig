@@ -74,6 +74,14 @@ const (
 	UpdateTypeEnv    = "envVar"
 )
 
+type usageScenario string
+
+const (
+	usageScenarioCreateEnv       = "createEnv"
+	usageScenarioUpdateEnv       = "updateEnv"
+	usageScenarioUpdateRenderSet = "updateRenderSet"
+)
+
 type EnvStatus struct {
 	EnvName    string `json:"env_name,omitempty"`
 	Status     string `json:"status"`
@@ -1157,7 +1165,7 @@ func UpdateHelmProduct(productName, envName, updateType, username, requestID str
 	return nil
 }
 
-func prepareEstimatedData(productName, envName, serviceName, scene, defaultValues string, log *zap.SugaredLogger) (string, string, error) {
+func prepareEstimatedData(productName, envName, serviceName, usageScenario, defaultValues string, log *zap.SugaredLogger) (string, string, error) {
 	var err error
 	templateService, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
 		ServiceName: serviceName,
@@ -1166,10 +1174,10 @@ func prepareEstimatedData(productName, envName, serviceName, scene, defaultValue
 	})
 	if err != nil {
 		log.Errorf("failed to query service, name %s, err %s", serviceName, err)
-		return "", "", fmt.Errorf("faild to query service, name %s", serviceName)
+		return "", "", fmt.Errorf("failed to query service, name %s", serviceName)
 	}
 
-	if scene == "createEnv" {
+	if usageScenario == usageScenarioCreateEnv {
 		return templateService.HelmChart.ValuesYaml, defaultValues, nil
 	}
 
@@ -1178,7 +1186,7 @@ func prepareEstimatedData(productName, envName, serviceName, scene, defaultValue
 		EnvName: envName,
 	})
 	if err != nil {
-		return "", "", fmt.Errorf("faild to query product info, name %s", envName)
+		return "", "", fmt.Errorf("failed to query product info, name %s", envName)
 	}
 
 	// find chart info from cur render set
@@ -1186,7 +1194,7 @@ func prepareEstimatedData(productName, envName, serviceName, scene, defaultValue
 	renderSet, err := mongodb.NewRenderSetColl().Find(opt)
 	if err != nil {
 		log.Errorf("renderset Find error, productName:%s, envName:%s, err:%s", productInfo.ProductName, productInfo.EnvName, err)
-		return "", "", fmt.Errorf("faild to query renderset info, name %s", productInfo.Render.Name)
+		return "", "", fmt.Errorf("failed to query renderset info, name %s", productInfo.Render.Name)
 	}
 
 	var targetChart *templatemodels.RenderChart
@@ -1198,10 +1206,11 @@ func prepareEstimatedData(productName, envName, serviceName, scene, defaultValue
 	}
 
 	if targetChart == nil {
-		return "", "", fmt.Errorf("faild to find chart info, name: %s", serviceName)
+		return "", "", fmt.Errorf("failed to find chart info, name: %s", serviceName)
 	}
 
-	if scene == "updateEnv" {
+	switch usageScenario {
+	case usageScenarioUpdateEnv:
 		imageRelatedKey := sets.NewString()
 		if templateService != nil {
 			for _, container := range templateService.Containers {
@@ -1213,13 +1222,14 @@ func prepareEstimatedData(productName, envName, serviceName, scene, defaultValue
 		// merge environment values
 		mergedBs, err := overrideValues([]byte(targetChart.ValuesYaml), []byte(templateService.HelmChart.ValuesYaml), imageRelatedKey)
 		if err != nil {
-			return "", "", errors.Wrapf(err, "faild to override values")
+			return "", "", errors.Wrapf(err, "failed to override values")
 		}
 		return string(mergedBs), renderSet.DefaultValues, nil
-	} else if scene == "updateRenderSet" {
+	case usageScenarioUpdateRenderSet:
 		return targetChart.ValuesYaml, renderSet.DefaultValues, nil
+	default:
+		return "", "", fmt.Errorf("unrecognized usageScenario:%s", usageScenario)
 	}
-	return "", "", fmt.Errorf("unrecognized scene:%s", scene)
 }
 
 func GeneEstimatedValues(productName, envName, serviceName, scene, format string, arg *EstimateValuesArg, log *zap.SugaredLogger) (interface{}, error) {
@@ -1234,10 +1244,6 @@ func GeneEstimatedValues(productName, envName, serviceName, scene, format string
 		return nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to merge values, err %s", err))
 	}
 
-	type YamlCountResp struct {
-		YamlContent string `json:"yamlContent"`
-	}
-
 	switch format {
 	case "flatMap":
 		mapData, err := converter.YamlToFlatMap([]byte(mergeValues))
@@ -1246,7 +1252,7 @@ func GeneEstimatedValues(productName, envName, serviceName, scene, format string
 		}
 		return mapData, nil
 	default:
-		return &YamlCountResp{YamlContent: mergeValues}, nil
+		return &RawYamlResp{YamlContent: mergeValues}, nil
 	}
 }
 
@@ -2741,6 +2747,30 @@ func getUpdatedProductServices(updateProduct *commonmodels.Product, serviceRevis
 	return updatedAllServices
 }
 
+func intervalExecutor(interval time.Duration, serviceList []interface{}, handler func(data interface{}, log *zap.SugaredLogger) error, log *zap.SugaredLogger) []error {
+	if len(serviceList) == 0 {
+		return nil
+	}
+	wg := sync.WaitGroup{}
+	wg.Add(len(serviceList))
+	errList := make([]error, 0)
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for _, data := range serviceList {
+		go func() {
+			defer wg.Done()
+			err := handler(data, log)
+			if err != nil {
+				errList = append(errList, err)
+			}
+		}()
+		<-ticker.C
+	}
+	wg.Wait()
+	return errList
+}
+
 func updateProductGroup(username, productName, envName, updateType string, productResp *commonmodels.Product, currentProductServices [][]*commonmodels.ProductService, overrideCharts []*commonservice.RenderChartArg, log *zap.SugaredLogger) error {
 	var (
 		renderChartMap         = make(map[string]*template.RenderChart)
@@ -2776,8 +2806,8 @@ func updateProductGroup(username, productName, envName, updateType string, produ
 					ReleaseName: util.GeneHelmReleaseName(namespace, serviceName),
 					Namespace:   namespace,
 					Wait:        true,
-					Force:       true,
-					Timeout:     Timeout * time.Second * 10,
+					//Force:       true,
+					//Timeout:     Timeout * time.Second * 10,
 				}); err != nil {
 					log.Errorf("helm uninstall release %s err:%v", fmt.Sprintf("%s-%s", namespace, serviceName), err)
 				}
@@ -2811,12 +2841,10 @@ func updateProductGroup(username, productName, envName, updateType string, produ
 			if !ok {
 				continue
 			}
-
 			// service is not in update list
 			if !svcNameSet.Has(svc.ServiceName) {
 				continue
 			}
-
 			wg.Add(1)
 			go func(service *commonmodels.ProductService) {
 				defer wg.Done()
@@ -3047,12 +3075,23 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 		renderChartMap[renderChart.ServiceName] = renderChart
 	}
 
+	handler := func(data interface{}, log *zap.SugaredLogger) error {
+		service := data.(*commonmodels.Service)
+		renderChart, _ := renderChartMap[service.ServiceName]
+		err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderset.DefaultValues, service, 0, helmClient)
+		if err != nil {
+			return errors.Wrapf(err, "failed to upgrade service %s", service.ServiceName)
+		}
+		return err
+	}
+
 	errList := new(multierror.Error)
 	for groupIndex, services := range productResp.Services {
+		serviceList := make([]interface{}, 0)
 		var wg sync.WaitGroup
 		groupServices := make([]*commonmodels.ProductService, 0)
 		for _, service := range services {
-			if renderChart, isExist := renderChartMap[service.ServiceName]; isExist {
+			if _, isExist := renderChartMap[service.ServiceName]; isExist {
 				opt := &commonrepo.ServiceFindOption{
 					ServiceName: service.ServiceName,
 					Type:        service.Type,
@@ -3065,15 +3104,12 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 					log.Errorf("failed to find service %s, err %s", service.ServiceName, err.Error())
 					continue
 				}
-				wg.Add(1)
-				go func(tmpRenderChart *template.RenderChart, currentService *commonmodels.Service) {
-					defer wg.Done()
-					err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderset.DefaultValues, currentService, Timeout*time.Second*10, helmClient)
-					if err != nil {
-						errList = multierror.Append(errList, err)
-						return
-					}
-				}(renderChart, serviceObj)
+				serviceList = append(serviceList, serviceObj)
+
+				groupServiceErr := intervalExecutor(time.Millisecond*2500, serviceList, handler, log)
+				if groupServiceErr != nil {
+					errList = multierror.Append(errList, groupServiceErr...)
+				}
 			}
 			groupServices = append(groupServices, service)
 		}
