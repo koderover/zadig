@@ -268,7 +268,7 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 	to := filepath.Join(config.LocalServicePath(projectName, args.Name), args.Name)
 	// remove old files
 	if err = os.RemoveAll(to); err != nil {
-		logger.Errorf("Failed to remove dir to %s, err: %s", to, err)
+		logger.Errorf("Failed to remove dir %s, err: %s", to, err)
 		return err
 	}
 	if err = copy.Copy(from, to); err != nil {
@@ -571,7 +571,7 @@ func handleSingleService(projectName string, repoConfig *commonservice.RepoConfi
 	to := filepath.Join(config.LocalServicePath(projectName, serviceName), serviceName)
 	// remove old files
 	if err = os.RemoveAll(to); err != nil {
-		logger.Errorf("Failed to remove dir to %s, err: %s", to, err)
+		logger.Errorf("Failed to remove dir %s, err: %s", to, err)
 		return nil, err
 	}
 	if err = copy.Copy(fromPath, to); err != nil {
