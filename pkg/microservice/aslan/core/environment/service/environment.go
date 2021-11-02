@@ -2833,11 +2833,33 @@ func updateProductGroup(username, productName, envName, updateType string, produ
 		renderChartMap[renderChart.ServiceName] = renderChart
 	}
 
+	handler := func(data interface{}, log *zap.SugaredLogger) error {
+		service := data.(*commonmodels.ProductService)
+		opt := &commonrepo.ServiceFindOption{
+			ServiceName:   service.ServiceName,
+			Type:          service.Type,
+			Revision:      service.Revision,
+			ProductName:   service.ProductName,
+			ExcludeStatus: setting.ProductStatusDeleting,
+		}
+		serviceObj, err := commonrepo.NewServiceColl().Find(opt)
+		if err != nil {
+			log.Errorf("Failed to find service with opt %+v, err: %s", opt, err)
+			return errors.Wrapf(err, "failed to find template servce %s", service.ServiceName)
+		}
+		renderChart, _ := renderChartMap[service.ServiceName]
+		err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderSet.DefaultValues, serviceObj, 0, helmClient)
+		if err != nil {
+			return errors.Wrapf(err, "failed to install of upgrade service %s", service.ServiceName)
+		}
+		return nil
+	}
+
 	errList := new(multierror.Error)
 	for groupIndex, services := range productResp.Services {
-		var wg sync.WaitGroup
+		serviceList := make([]interface{}, 0)
 		for _, svc := range services {
-			renderChart, ok := renderChartMap[svc.ServiceName]
+			_, ok := renderChartMap[svc.ServiceName]
 			if !ok {
 				continue
 			}
@@ -2845,33 +2867,14 @@ func updateProductGroup(username, productName, envName, updateType string, produ
 			if !svcNameSet.Has(svc.ServiceName) {
 				continue
 			}
-			wg.Add(1)
-			go func(service *commonmodels.ProductService) {
-				defer wg.Done()
-
-				opt := &commonrepo.ServiceFindOption{
-					ServiceName:   service.ServiceName,
-					Type:          service.Type,
-					Revision:      service.Revision,
-					ProductName:   service.ProductName,
-					ExcludeStatus: setting.ProductStatusDeleting,
-				}
-				serviceObj, err := commonrepo.NewServiceColl().Find(opt)
-				if err != nil {
-					log.Errorf("Failed to find service with opt %+v, err: %s", opt, err)
-					errList = multierror.Append(errList, err)
-					return
-				}
-
-				err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderSet.DefaultValues, serviceObj, Timeout*time.Second*10, helmClient)
-				if err != nil {
-					errList = multierror.Append(errList, err)
-					return
-				}
-			}(svc)
+			serviceList = append(serviceList, svc)
 		}
 
-		wg.Wait()
+		serviceGroupErr := intervalExecutor(time.Millisecond*2500, serviceList, handler, log)
+		if serviceGroupErr != nil {
+			errList = multierror.Append(errList, serviceGroupErr...)
+		}
+
 		if err = commonrepo.NewProductColl().UpdateGroup(envName, productName, groupIndex, services); err != nil {
 			log.Errorf("Failed to update service group %d, err: %s", groupIndex, err)
 			errList = multierror.Append(errList, err)
