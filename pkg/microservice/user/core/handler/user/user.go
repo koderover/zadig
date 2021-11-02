@@ -3,6 +3,7 @@ package user
 import (
 	"github.com/gin-gonic/gin"
 
+	"github.com/koderover/zadig/pkg/microservice/user/config"
 	"github.com/koderover/zadig/pkg/microservice/user/core/service/user"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 
@@ -46,7 +47,7 @@ func ListUsers(c *gin.Context) {
 		ctx.Resp, ctx.Err = user.SearchUsersByUIDs(args.UIDs, ctx.Logger)
 	} else if len(args.Account) > 0 {
 		if len(args.IdentityType) == 0 {
-			args.IdentityType = "system"
+			args.IdentityType = config.SystemIdentityType
 		}
 		ctx.Resp, ctx.Err = user.SearchUserByAccount(args, ctx.Logger)
 	} else {
