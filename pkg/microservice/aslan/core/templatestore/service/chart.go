@@ -228,7 +228,7 @@ func UpdateChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *z
 		return nil
 	}
 
-	variablesNames, err := parseTemplateVariables(name, chart.Path, logger)
+	variablesNames, err := parseTemplateVariables(name, args.Path, logger)
 	if err != nil {
 		return errors.Wrapf(err, "faild to prase variables")
 	}
