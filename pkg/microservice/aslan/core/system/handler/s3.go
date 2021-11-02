@@ -134,3 +134,20 @@ func ListTars(c *gin.Context) {
 
 	ctx.Resp, ctx.Err = service.ListTars(c.Param("id"), c.Query("kind"), args.Names, ctx.Logger)
 }
+
+type ListTarsOption struct {
+	Names []string `json:"names"`
+}
+
+func ListTars(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(ListTarsOption)
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.ListTars(c.Param("id"), c.Query("kind"), args.Names, ctx.Logger)
+}

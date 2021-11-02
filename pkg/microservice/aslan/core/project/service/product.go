@@ -207,6 +207,18 @@ func UpdateProductTmplStatus(productName, onboardingStatus string, log *zap.Suga
 	return nil
 }
 
+func UpdateServiceOrchestration(username, name string, services [][]string, log *zap.SugaredLogger) error {
+	if err := templaterepo.NewProductColl().UpdateServiceOrder(&template.ProductArgs{
+		ProductName: name,
+		Services:    services,
+		UpdateBy:    username,
+	}); err != nil {
+		log.Errorf("failed to update service order,err:%s", err)
+		return e.ErrUpdateProduct.AddDesc("failed to update service order")
+	}
+	return nil
+}
+
 // UpdateProject 更新项目
 func UpdateProject(name string, args *template.Product, log *zap.SugaredLogger) (err error) {
 	err = validateRule(args.CustomImageRule, args.CustomTarRule)
@@ -393,7 +405,12 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 			commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(v)
 		}
 	}()
-
+	// delete servicesInExternalEnv data
+	go func() {
+		_ = commonrepo.NewServicesInExternalEnvColl().Delete(&commonrepo.ServicesInExternalEnvArgs{
+			ProductName: productName,
+		})
+	}()
 	return nil
 }
 

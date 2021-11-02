@@ -263,6 +263,30 @@ func (c *ProductColl) Update(productName string, args *template.Product) error {
 	return err
 }
 
+type ProductArgs struct {
+	ProductName string     `json:"product_name"`
+	Services    [][]string `json:"services"`
+	UpdateBy    string     `json:"update_by"`
+}
+
+// UpdateServiceOrder existing ProductTmpl
+func (c *ProductColl) UpdateServiceOrder(args *ProductArgs) error {
+	// avoid panic issue
+	if args == nil {
+		return errors.New("nil product args")
+	}
+
+	query := bson.M{"product_name": args.ProductName}
+	change := bson.M{"$set": bson.M{
+		"services":    args.Services,
+		"update_time": time.Now().Unix(),
+		"update_by":   args.UpdateBy,
+	}}
+
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
 // AddService adds a service to services[0] if it is not there.
 func (c *ProductColl) AddService(productName, serviceName string) error {
 

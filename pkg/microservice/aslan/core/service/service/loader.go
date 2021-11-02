@@ -23,7 +23,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 
 	"github.com/google/go-github/v35/github"
@@ -40,7 +39,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/codehub"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
-	"github.com/koderover/zadig/pkg/tool/ilyshin"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
 )
@@ -67,8 +65,6 @@ func PreloadServiceFromCodeHost(codehostID int, repoOwner, repoName, repoUUID, b
 		ret, err = preloadGerritService(ch, repoName, branchName, remoteName, path, isDir)
 	case setting.SourceFromCodeHub:
 		ret, err = preloadCodehubService(ch, repoName, repoUUID, branchName, path, isDir)
-	case setting.SourceFromIlyshin:
-		ret, err = preloadIlyshinService(ch, repoOwner, repoName, branchName, path, isDir)
 	default:
 		return nil, e.ErrPreloadServiceTemplate.AddDesc("Not supported code source")
 	}
@@ -90,8 +86,6 @@ func LoadServiceFromCodeHost(username string, codehostID int, repoOwner, repoNam
 		return loadGerritService(username, ch, repoOwner, repoName, branchName, remoteName, args, log)
 	case setting.SourceFromCodeHub:
 		return loadCodehubService(username, ch, repoOwner, repoName, repoUUID, branchName, args, log)
-	case setting.SourceFromIlyshin:
-		return loadIlyshinService(username, ch, repoOwner, repoName, branchName, args, log)
 	default:
 		return e.ErrLoadServiceTemplate.AddDesc("unsupported code source")
 	}
@@ -113,8 +107,6 @@ func ValidateServiceUpdate(codehostID int, serviceName, repoOwner, repoName, rep
 		return validateServiceUpdateGerrit(detail, serviceName, repoName, branchName, remoteName, path, isDir)
 	case setting.SourceFromCodeHub:
 		return validateServiceUpdateCodehub(detail, serviceName, repoName, repoUUID, branchName, path, isDir)
-	case setting.SourceFromIlyshin:
-		return validateServiceUpdateIlyshin(detail, serviceName, repoOwner, repoName, branchName, path, isDir)
 	default:
 		return e.ErrValidateServiceUpdate.AddDesc("Not supported code source")
 	}
@@ -233,64 +225,6 @@ func preloadCodehubService(detail *poetry.CodeHost, repoName, repoUUID, branchNa
 				return ret, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
 			}
 			if isValidCodehubServiceDir(subTreeInfo) {
-				isGrandparent = true
-				ret = append(ret, entry.Name)
-			}
-		}
-	}
-	if !isGrandparent {
-		log.Errorf("invalid folder selected since no yaml is presented in path: %s", path)
-		return ret, e.ErrPreloadServiceTemplate.AddDesc("所选路径下没有yaml，请重新选择")
-	}
-
-	return ret, nil
-}
-
-// 根据 repo 信息获取 ilyshin 可以加载的服务列表
-func preloadIlyshinService(detail *poetry.CodeHost, repoOwner, repoName, branchName, path string, isDir bool) ([]string, error) {
-	ret := make([]string, 0)
-
-	ilyshinClient := ilyshin.NewClient(detail.Address, detail.AccessToken)
-	// 非文件夹情况下直接获取文件信息
-	if !isDir {
-		if !isYaml(path) {
-			return ret, e.ErrPreloadServiceTemplate.AddDesc("File is not of type yaml or yml, select again")
-		}
-		fileInfo, err := ilyshinClient.GetFile(repoOwner, repoName, branchName, path)
-		if err != nil {
-			log.Errorf("Failed to get file info from ilyshin with path: %s, the error is %+v", path, err)
-			return ret, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
-		}
-		extension := filepath.Ext(fileInfo.FileName)
-		fileName := fileInfo.FileName[0 : len(fileInfo.FileName)-len(extension)]
-		ret = append(ret, fileName)
-		return ret, nil
-	}
-
-	treeInfo, err := ilyshinClient.ListTree(repoOwner, repoName, branchName, path)
-	if err != nil {
-		log.Errorf("Failed to get dir content from ilyshin with path: %s, the error is: %+v", path, err)
-		return ret, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
-	}
-	if isValidIlyshinServiceDir(treeInfo) {
-		svcName := path
-		if path == "" {
-			svcName = repoName
-		}
-		pathList := strings.Split(svcName, "/")
-		folderName := pathList[len(pathList)-1]
-		ret = append(ret, folderName)
-		return ret, nil
-	}
-	isGrandparent := false
-	for _, entry := range treeInfo {
-		if entry.Type == "tree" {
-			subtreeInfo, err := ilyshinClient.ListTree(repoOwner, repoName, branchName, path)
-			if err != nil {
-				log.Errorf("Failed to get dir content from ilyshin with path: %s, the error is: %+v", path, err)
-				return ret, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
-			}
-			if isValidIlyshinServiceDir(subtreeInfo) {
 				isGrandparent = true
 				ret = append(ret, entry.Name)
 			}
@@ -569,124 +503,6 @@ func loadServiceFromCodehub(client *codehub.CodeHubClient, tree []*codehub.TreeN
 	return err
 }
 
-// 根据 repo 信息从 Ilyshin 加载服务
-func loadIlyshinService(username string, ch *poetry.CodeHost, repoOwner, repoName, branchName string, args *LoadServiceReq, log *zap.SugaredLogger) error {
-	ilyshinClient := ilyshin.NewClient(ch.Address, ch.AccessToken)
-	repoInfo := fmt.Sprintf("%s/%s", repoOwner, repoName)
-	if !args.LoadFromDir {
-		file, err := ilyshinClient.GetFile(repoOwner, repoName, branchName, args.LoadPath)
-		if err != nil {
-			log.Errorf("Failed to get file info for path: %s from ilyshin, the error is: %+v", args.LoadPath, err)
-			return e.ErrLoadServiceTemplate.AddDesc(err.Error())
-		}
-		decodedContent, err := base64.StdEncoding.DecodeString(file.Content)
-		if err != nil {
-			log.Errorf("Failed to decode file, the error is: %+v", err)
-			return e.ErrLoadServiceTemplate.AddDesc(err.Error())
-		}
-		srcPath := fmt.Sprintf("%s/%s/blob/%s/%s", ch.Address, repoInfo, branchName, args.LoadPath)
-		splittedYaml := SplitYaml(string(decodedContent))
-		createSvcArgs := &models.Service{
-			CodehostID:  ch.ID,
-			RepoOwner:   repoOwner,
-			RepoName:    repoName,
-			BranchName:  branchName,
-			LoadPath:    args.LoadPath,
-			LoadFromDir: args.LoadFromDir,
-			KubeYamls:   splittedYaml,
-			SrcPath:     srcPath,
-			CreateBy:    username,
-			ServiceName: getFileName(file.FileName),
-			Type:        args.Type,
-			ProductName: args.ProductName,
-			Source:      setting.SourceFromIlyshin,
-			Yaml:        string(decodedContent),
-			Commit:      &models.Commit{SHA: file.CommitID},
-			Visibility:  args.Visibility,
-		}
-
-		_, err = CreateServiceTemplate(username, createSvcArgs, log)
-		if err != nil {
-			_, messageMap := e.ErrorMessage(err)
-			if description, ok := messageMap["description"]; ok {
-				return e.ErrLoadServiceTemplate.AddDesc(description.(string))
-			}
-			return e.ErrLoadServiceTemplate.AddDesc("Load Service Error for unknown reason")
-		}
-		return nil
-	}
-
-	treeInfo, err := ilyshinClient.ListTree(repoOwner, repoName, branchName, args.LoadPath)
-	if err != nil {
-		log.Errorf("Failed to get dir content from ilyshin with path: %s, the error is: %+v", args.LoadPath, err)
-		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
-	}
-	if isValidIlyshinServiceDir(treeInfo) {
-		return loadServiceFromIlyshin(ilyshinClient, treeInfo, ch, username, repoOwner, repoName, branchName, args.LoadPath, args, log)
-	}
-	for _, treeNode := range treeInfo {
-		if treeNode.Type == "tree" {
-			subtree, err := ilyshinClient.ListTree(repoOwner, repoName, branchName, args.LoadPath)
-			if err != nil {
-				log.Errorf("Failed to get dir content from ilyshin with path: %s, the error is %+v", treeNode.Path, err)
-				return e.ErrLoadServiceTemplate.AddDesc(err.Error())
-			}
-			if isValidIlyshinServiceDir(subtree) {
-				if err := loadServiceFromIlyshin(ilyshinClient, subtree, ch, username, repoOwner, repoName, branchName, treeNode.Path, args, log); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	return nil
-}
-
-func loadServiceFromIlyshin(client *ilyshin.Client, tree []*ilyshin.TreeNode, ch *poetry.CodeHost, username, repoOwner, repoName, branchName, path string, args *LoadServiceReq, log *zap.SugaredLogger) error {
-	pathList := strings.Split(path, "/")
-	splittedYaml := []string{}
-	serviceName := pathList[len(pathList)-1]
-	repoInfo := fmt.Sprintf("%s/%s", repoOwner, repoName)
-	yamlList, sha, err := extractIlyshinYamls(client, tree, repoOwner, repoName, branchName)
-	if err != nil {
-		log.Errorf("Failed to extract yamls from ilyshin, the error is: %+v", err)
-		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
-	}
-	for _, yamlEntry := range yamlList {
-		splittedYaml = append(splittedYaml, SplitYaml(yamlEntry)...)
-	}
-	yml := joinYamls(yamlList)
-	srcPath := fmt.Sprintf("%s/%s/tree/%s/%s", ch.Address, repoInfo, branchName, path)
-	createSvcArgs := &models.Service{
-		CodehostID:  ch.ID,
-		RepoOwner:   repoOwner,
-		RepoName:    repoName,
-		BranchName:  branchName,
-		LoadPath:    path,
-		LoadFromDir: args.LoadFromDir,
-		KubeYamls:   splittedYaml,
-		SrcPath:     srcPath,
-		CreateBy:    username,
-		ServiceName: serviceName,
-		Type:        args.Type,
-		ProductName: args.ProductName,
-		Source:      setting.SourceFromIlyshin,
-		Yaml:        yml,
-		Commit:      &models.Commit{SHA: sha},
-		Visibility:  args.Visibility,
-	}
-
-	_, err = CreateServiceTemplate(username, createSvcArgs, log)
-	if err != nil {
-		_, messageMap := e.ErrorMessage(err)
-		if description, ok := messageMap["description"]; ok {
-			err = e.ErrLoadServiceTemplate.AddDesc(description.(string))
-		} else {
-			err = e.ErrLoadServiceTemplate.AddDesc("Load Service Error for unknown reason")
-		}
-	}
-	return err
-}
-
 // 根据github repo决定服务是否可以更新这个repo地址
 func validateServiceUpdateGithub(detail *poetry.CodeHost, serviceName, repoOwner, repoName, branchName, path string, isDir bool) error {
 	ctx := context.Background()
@@ -879,47 +695,6 @@ func validateServiceUpdateCodehub(detail *poetry.CodeHost, serviceName, repoName
 	return e.ErrValidateServiceUpdate.AddDesc("所选路径中没有yaml，请重新选择")
 }
 
-// 根据 ilyshin repo 决定服务是否可以更新这个 repo 地址
-func validateServiceUpdateIlyshin(detail *poetry.CodeHost, serviceName, repoOwner, repoName, branchName, path string, isDir bool) error {
-	ilyshinClient := ilyshin.NewClient(detail.Address, detail.AccessToken)
-	// 非文件夹情况下直接获取文件信息
-	if !isDir {
-		if !isYaml(path) {
-			return e.ErrValidateServiceUpdate.AddDesc("File is not of type yaml or yml, select again")
-		}
-		fileInfo, err := ilyshinClient.GetFile(repoOwner, repoName, branchName, path)
-		if err != nil {
-			log.Errorf("Failed to get file info from ilyshin with path: %s, the error is %+v", path, err)
-			return e.ErrValidateServiceUpdate.AddDesc(err.Error())
-		}
-		if getFileName(fileInfo.FileName) != serviceName {
-			log.Errorf("The loaded file name [%s] is the same as the service to be updated: [%s]", fileInfo.FileName, serviceName)
-			return e.ErrValidateServiceUpdate.AddDesc("文件名称和服务名称不一致")
-		}
-		return nil
-	}
-
-	treeInfo, err := ilyshinClient.ListTree(repoOwner, repoName, branchName, path)
-	if err != nil {
-		log.Errorf("Failed to get dir content from gitlab with path: %s, the error is: %+v", path, err)
-		return e.ErrValidateServiceUpdate.AddDesc(err.Error())
-	}
-	if isValidIlyshinServiceDir(treeInfo) {
-		svcName := path
-		if path == "" {
-			svcName = repoName
-		}
-		pathList := strings.Split(svcName, "/")
-		folderName := pathList[len(pathList)-1]
-		if folderName != serviceName {
-			log.Errorf("The loaded file name [%s] is the same as the service to be updated: [%s]", folderName, serviceName)
-			return e.ErrValidateServiceUpdate.AddDesc("文件夹名称和服务名称不一致")
-		}
-		return nil
-	}
-	return e.ErrValidateServiceUpdate.AddDesc("所选路径中没有yaml，请重新选择")
-}
-
 func isValidGithubServiceDir(child []*github.RepositoryContent) bool {
 	for _, entry := range child {
 		if entry.GetType() == "file" && isYaml(entry.GetName()) {
@@ -930,15 +705,6 @@ func isValidGithubServiceDir(child []*github.RepositoryContent) bool {
 }
 
 func isValidGitlabServiceDir(child []*gitlab.TreeNode) bool {
-	for _, entry := range child {
-		if entry.Type == "blob" && isYaml(entry.Name) {
-			return true
-		}
-	}
-	return false
-}
-
-func isValidIlyshinServiceDir(child []*ilyshin.TreeNode) bool {
 	for _, entry := range child {
 		if entry.Type == "blob" && isYaml(entry.Name) {
 			return true
@@ -998,26 +764,4 @@ func extractGerritYamls(basePath string, tree []os.FileInfo) ([]string, error) {
 		}
 	}
 	return ret, nil
-}
-
-func extractIlyshinYamls(client *ilyshin.Client, tree []*ilyshin.TreeNode, repoOwner, repoName, branchName string) ([]string, string, error) {
-	ret := []string{}
-	var sha string
-	for _, entry := range tree {
-		if isYaml(entry.Name) {
-			fileInfo, err := client.GetFile(repoOwner, repoName, branchName, entry.Path)
-			if err != nil {
-				log.Errorf("Failed to download ilyshin file: %s, the error is: %+v", entry.Path, err)
-				return nil, "", err
-			}
-			decodedFile, err := base64.StdEncoding.DecodeString(fileInfo.Content)
-			if err != nil {
-				log.Errorf("Failed to decode content from the given file of path: %s, the error is: %s", entry.Path, err)
-				return nil, "", err
-			}
-			ret = append(ret, string(decodedFile))
-			sha = fileInfo.CommitID
-		}
-	}
-	return ret, sha, nil
 }
