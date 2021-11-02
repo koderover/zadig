@@ -32,17 +32,17 @@ func (c *Client) ListUsers(args *SearchArgs) ([]*User, error) {
 }
 
 type CreateUserArgs struct {
-	Name     string
-	Password string
-	Email    string
-	Phone    string
-	Account  string
+	Name     string `json:"name"`
+	Password string `json:"password"`
+	Email    string `json:"email"`
+	Phone    string `json:"phone"`
+	Account  string `json:"account"`
 }
 
 type CreateUserResp struct {
-	Name    string
-	Account string
-	Uid     string
+	Name    string `json:"name"`
+	Account string `json:"account"`
+	Uid     string `json:"uid"`
 }
 
 func (c *Client) CreateUser(args *CreateUserArgs) (*CreateUserResp, error) {
