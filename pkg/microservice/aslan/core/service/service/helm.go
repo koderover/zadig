@@ -641,8 +641,7 @@ func geneCreationDetail(args *helmServiceCreationArgs) interface{} {
 	case setting.SourceFromGitlab,
 		setting.SourceFromGithub,
 		setting.SourceFromGerrit,
-		setting.SourceFromCodeHub,
-		setting.SourceFromIlyshin:
+		setting.SourceFromCodeHub:
 		return &models.CreateFromRepo{
 			GitRepoConfig: &templatemodels.GitRepoConfig{
 				CodehostID: args.CodehostID,
