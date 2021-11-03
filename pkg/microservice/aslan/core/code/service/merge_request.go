@@ -28,7 +28,6 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
 	"github.com/koderover/zadig/pkg/tool/git/gitlab"
-	"github.com/koderover/zadig/pkg/tool/ilyshin"
 )
 
 func CodeHostListPRs(codeHostID int, projectName, namespace, targetBr string, log *zap.SugaredLogger) ([]*PullRequest, error) {
@@ -55,14 +54,6 @@ func CodeHostListPRs(codeHostID int, projectName, namespace, targetBr string, lo
 
 		return ToPullRequests(prs), nil
 
-	} else if ch.Type == CodeHostIlyshin {
-		client := ilyshin.NewClient(ch.Address, ch.AccessToken)
-		prs, err := client.ListOpenedProjectMergeRequests(namespace, projectName, targetBr, log)
-		if err != nil {
-			log.Error(err)
-			return nil, e.ErrCodehostListPrs.AddDesc(err.Error())
-		}
-		return ToPullRequests(prs), nil
 	} else if ch.Type == gerrit.CodehostTypeGerrit {
 		return nil, nil
 	} else if ch.Type == CodeHostCodeHub {

@@ -126,6 +126,31 @@ func getProductTargetMap(prod *commonmodels.Product) map[string][]commonmodels.D
 	resp := make(map[string][]commonmodels.DeployEnv)
 	if prod.Source == setting.SourceFromExternal {
 		services, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(prod.ProductName, prod.EnvName)
+
+		currentServiceNames := sets.NewString()
+		for _, service := range services {
+			currentServiceNames.Insert(service.ServiceName)
+		}
+
+		servicesInExternalEnv, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
+			ProductName: prod.ProductName,
+			EnvName:     prod.EnvName,
+		})
+
+		externalServiceNames := sets.NewString()
+		for _, serviceInExternalEnv := range servicesInExternalEnv {
+			if !currentServiceNames.Has(serviceInExternalEnv.ServiceName) {
+				externalServiceNames.Insert(serviceInExternalEnv.ServiceName)
+			}
+		}
+
+		if len(externalServiceNames) > 0 {
+			newServices, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(prod.ProductName, "", externalServiceNames.List()...)
+			for _, service := range newServices {
+				services = append(services, service)
+			}
+		}
+
 		for _, service := range services {
 			for _, container := range service.Containers {
 				env := service.ServiceName + "/" + container.Name

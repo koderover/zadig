@@ -18,7 +18,6 @@ package webhook
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"path"
@@ -41,7 +40,6 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	githubtool "github.com/koderover/zadig/pkg/tool/git/github"
 	gitlabtool "github.com/koderover/zadig/pkg/tool/git/gitlab"
-	"github.com/koderover/zadig/pkg/tool/ilyshin"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
@@ -106,18 +104,6 @@ func fillServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sugar
 			// Set args.Yaml & args.KubeYamls
 			if err := syncContentFromGitlab(userName, args); err != nil {
 				log.Errorf("Sync content from gitlab failed, error: %v", err)
-				return err
-			}
-		} else if args.Source == setting.SourceFromIlyshin {
-			// Set args.Commit
-			if err := syncIlyshinLatestCommit(args, log); err != nil {
-				log.Errorf("Sync change log from ilyshin failed, error: %v", err)
-				return err
-			}
-			// 从 ilyshin 同步 args 指定的 Commit 下，指定目录中对应的 Yaml 文件
-			// Set args.Yaml & args.KubeYamls
-			if err := syncContentFromIlyshin(userName, args); err != nil {
-				log.Errorf("Sync content from ilyshin failed, error: %v", err)
 				return err
 			}
 		} else if args.Source == setting.SourceFromGithub {
@@ -186,32 +172,6 @@ func syncLatestCommit(service *commonmodels.Service) error {
 	return nil
 }
 
-func syncIlyshinLatestCommit(service *commonmodels.Service, log *zap.SugaredLogger) error {
-	if service.SrcPath == "" {
-		return fmt.Errorf("url不能是空的")
-	}
-
-	address, owner, repo, branch, path, _, err := GetOwnerRepoBranchPath(service.SrcPath)
-	if err != nil {
-		return fmt.Errorf("url 必须包含 owner/repo/tree/branch/path，具体请参考 Placeholder 提示")
-	}
-
-	client, err := getIlyshinClientByAddress(address)
-	if err != nil {
-		return err
-	}
-
-	commit, err := client.GetLatestCommit(owner, repo, branch, path, log)
-	if err != nil {
-		return err
-	}
-	service.Commit = &commonmodels.Commit{
-		SHA:     commit.ID,
-		Message: commit.Message,
-	}
-	return nil
-}
-
 func syncCodehubLatestCommit(service *commonmodels.Service) error {
 	if service.SrcPath == "" {
 		return fmt.Errorf("url不能是空的")
@@ -249,21 +209,6 @@ func getCodehubClientByAddress(address string) (*codehub.Client, error) {
 		return nil, e.ErrCodehostListProjects.AddDesc("git client is nil")
 	}
 	client := codehub.NewClient(codehost.AccessKey, codehost.SecretKey, codehost.Region)
-
-	return client, nil
-}
-
-func getIlyshinClientByAddress(address string) (*ilyshin.Client, error) {
-	opt := &codehost.Option{
-		Address:      address,
-		CodeHostType: codehost.IlyshinProvider,
-	}
-	codehost, err := codehost.GetCodeHostInfo(opt)
-	if err != nil {
-		log.Error(err)
-		return nil, e.ErrCodehostListProjects.AddDesc("git client is nil")
-	}
-	client := ilyshin.NewClient(codehost.Address, codehost.AccessToken)
 
 	return client, nil
 }
@@ -382,82 +327,6 @@ func syncContentFromGitlab(userName string, args *commonmodels.Service) error {
 
 func joinYamls(files []string) string {
 	return strings.Join(files, setting.YamlFileSeperator)
-}
-
-// IlyshinGetRawFiles ...
-func IlyshinGetRawFiles(client *ilyshin.Client, owner, repo, ref, path, pathType string) (files []string, err error) {
-	files = make([]string, 0)
-	var errs *multierror.Error
-	if pathType == "tree" {
-		nodes, err := client.ListTree(owner, repo, ref, path)
-		if err != nil {
-			return files, err
-		}
-		for _, node := range nodes {
-			// if node type is "tree", it is a directory, skip it for now
-			if node.Type == "tree" {
-				continue
-			}
-			fileName := strings.ToLower(node.Name)
-			if !strings.HasSuffix(fileName, ".yaml") && !strings.HasSuffix(fileName, ".yml") {
-				continue
-			}
-			// if node type is "blob", it is a file
-			// Path is filepath of a node
-			content, err := client.GetRawFile(owner, repo, ref, node.Path)
-			if err != nil {
-				errs = multierror.Append(errs, err)
-			}
-			contentStr := string(content)
-			contentStr = util.ReplaceWrapLine(contentStr)
-			files = append(files, contentStr)
-		}
-		return files, errs.ErrorOrNil()
-	}
-	fileInfo, err := client.GetFile(owner, repo, ref, path)
-	if err != nil {
-		return files, err
-	}
-	decodedFile, err := base64.StdEncoding.DecodeString(fileInfo.Content)
-	if err != nil {
-		return files, err
-	}
-	files = append(files, string(decodedFile))
-	return files, errs.ErrorOrNil()
-}
-
-// syncContentFromIlyshin ...
-// sync content with commit, args.Commit should not be nil
-func syncContentFromIlyshin(userName string, args *commonmodels.Service) error {
-	if args.Commit == nil {
-		return nil
-	}
-
-	address, owner, repo, branch, path, pathType, err := GetOwnerRepoBranchPath(args.SrcPath)
-	if err != nil {
-		return fmt.Errorf("url format failed")
-	}
-
-	client, err := getIlyshinClientByAddress(address)
-	if err != nil {
-		return err
-	}
-
-	files, err := IlyshinGetRawFiles(client, owner, repo, branch, path, pathType)
-	if err != nil {
-		return err
-	}
-	if userName != setting.WebhookTaskCreator {
-		if len(files) == 0 {
-			return fmt.Errorf("没有检索到yml,yaml类型文件，请检查目录是否正确")
-		}
-	}
-	// KubeYamls field is dynamicly synced.
-	// 根据gitlab sync的内容来设置args.KubeYamls
-	args.KubeYamls = files
-	// 拼装并设置args.Yaml
-	args.Yaml = joinYamls(files)
-	return nil
 }
 
 func syncContentFromGithub(args *commonmodels.Service, log *zap.SugaredLogger) error {

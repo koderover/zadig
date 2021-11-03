@@ -17,11 +17,8 @@ limitations under the License.
 package service
 
 import (
-	"strings"
-
 	"github.com/andygrunwald/go-gerrit"
 	"github.com/google/go-github/v35/github"
-	"github.com/koderover/zadig/pkg/tool/ilyshin"
 	"github.com/xanzy/go-gitlab"
 
 	"github.com/koderover/zadig/pkg/tool/codehub"
@@ -106,14 +103,6 @@ func ToBranches(obj interface{}) []*Branch {
 				Merged:    o.Merged,
 			})
 		}
-	case []*ilyshin.Branch:
-		for _, o := range os {
-			res = append(res, &Branch{
-				Name:      o.Name,
-				Protected: o.Protected,
-				Merged:    o.Merged,
-			})
-		}
 	}
 
 	return res
@@ -139,20 +128,6 @@ func ToPullRequests(obj interface{}) []*PullRequest {
 			})
 		}
 	case []*gitlab.MergeRequest:
-		for _, o := range os {
-			res = append(res, &PullRequest{
-				ID:             o.IID,
-				TargetBranch:   o.TargetBranch,
-				SourceBranch:   o.SourceBranch,
-				ProjectID:      o.ProjectID,
-				Title:          o.Title,
-				State:          o.State,
-				CreatedAt:      o.CreatedAt.Unix(),
-				UpdatedAt:      o.UpdatedAt.Unix(),
-				AuthorUsername: o.Author.Username,
-			})
-		}
-	case []*ilyshin.MergeRequest:
 		for _, o := range os {
 			res = append(res, &PullRequest{
 				ID:             o.IID,
@@ -214,14 +189,6 @@ func ToNamespaces(obj interface{}) []*Namespace {
 				ProjectUUID: o.ProjectUUID,
 			})
 		}
-	case []*ilyshin.Project:
-		for _, o := range os {
-			res = append(res, &Namespace{
-				Name: o.Namespace.Name,
-				Path: o.Namespace.Path,
-				Kind: GroupKind,
-			})
-		}
 	}
 
 	return res
@@ -271,17 +238,6 @@ func ToProjects(obj interface{}) []*Project {
 				RepoID:        project.RepoID,
 			})
 		}
-	case []*ilyshin.Project:
-		for _, o := range os {
-			namespaces := strings.Split(o.PathWithNamespace, "/")
-			res = append(res, &Project{
-				ID:            o.ID,
-				Name:          o.Path,
-				Namespace:     namespaces[0],
-				Description:   o.Description,
-				DefaultBranch: "master",
-			})
-		}
 	}
 
 	return res
@@ -317,13 +273,6 @@ func ToTags(obj interface{}) []*Tag {
 		for _, o := range os {
 			res = append(res, &Tag{
 				Name: o.Name,
-			})
-		}
-	case []*ilyshin.Tag:
-		for _, o := range os {
-			res = append(res, &Tag{
-				Name:    o.Name,
-				Message: o.Message,
 			})
 		}
 	}

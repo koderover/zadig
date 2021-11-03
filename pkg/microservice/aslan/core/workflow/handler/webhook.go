@@ -28,7 +28,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/webhook"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	"github.com/koderover/zadig/pkg/tool/codehub"
-	"github.com/koderover/zadig/pkg/tool/ilyshin"
 )
 
 // @Router /workflow/webhook [POST]
@@ -51,8 +50,6 @@ func ProcessWebHook(c *gin.Context) {
 		ctx.Err = webhook.ProcessGitlabHook(payload, c.Request, ctx.RequestID, ctx.Logger)
 	} else if codehub.HookEventType(c.Request) != "" {
 		ctx.Err = webhook.ProcessCodehubHook(payload, c.Request, ctx.RequestID, ctx.Logger)
-	} else if ilyshin.HookEventType(c.Request) != "" {
-		ctx.Err = webhook.ProcessIlyshinHook(payload, c.Request, ctx.RequestID, ctx.Logger)
 	} else {
 		ctx.Err = webhook.ProcessGerritHook(payload, c.Request, ctx.RequestID, ctx.Logger)
 	}
