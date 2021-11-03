@@ -47,7 +47,7 @@ func (pgpem *pipelineGitlabPushEventMatcher) Match(hookRepo *commonmodels.MainHo
 		changedFiles = make([]string, 0)
 	)
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.Project.PathWithNamespace {
-		if hookRepo.Branch == getBranchFromRef(ev.Ref) && EventConfigured(*hookRepo, config.HookEventPush) {
+		if hookRepo.Branch == getBranchFromRef(ev.Ref) && EventConfigured(hookRepo, config.HookEventPush) {
 			for _, commit := range ev.Commits {
 				changedFiles = append(changedFiles, commit.Added...)
 				changedFiles = append(changedFiles, commit.Removed...)
@@ -55,7 +55,7 @@ func (pgpem *pipelineGitlabPushEventMatcher) Match(hookRepo *commonmodels.MainHo
 			}
 		}
 	}
-	if MatchChanges(*hookRepo, changedFiles) {
+	if MatchChanges(hookRepo, changedFiles) {
 		var (
 			branch        = getBranchFromRef(ev.Ref)
 			ref           = ev.Ref
@@ -108,7 +108,7 @@ func (pgmem *pipelineGitlabMergeEventMatcher) Match(hookRepo *commonmodels.MainH
 		changedFiles = make([]string, 0)
 	)
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.ObjectAttributes.Target.PathWithNamespace {
-		if EventConfigured(*hookRepo, config.HookEventPr) && (hookRepo.Branch == ev.ObjectAttributes.TargetBranch) {
+		if EventConfigured(hookRepo, config.HookEventPr) && (hookRepo.Branch == ev.ObjectAttributes.TargetBranch) {
 			if ev.ObjectAttributes.State == "opened" {
 				changedFiles, err = pgmem.diffFunc(ev, hookRepo.CodehostID)
 				if err != nil {
@@ -119,7 +119,7 @@ func (pgmem *pipelineGitlabMergeEventMatcher) Match(hookRepo *commonmodels.MainH
 			}
 		}
 	}
-	if MatchChanges(*hookRepo, changedFiles) {
+	if MatchChanges(hookRepo, changedFiles) {
 		var (
 			branch        = ev.ObjectAttributes.TargetBranch
 			commitID      = ev.ObjectAttributes.LastCommit.ID

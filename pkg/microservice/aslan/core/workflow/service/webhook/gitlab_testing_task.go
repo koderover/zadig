@@ -32,7 +32,7 @@ import (
 )
 
 type gitEventMatcherForTesting interface {
-	Match(commonmodels.MainHookRepo) (bool, error)
+	Match(*commonmodels.MainHookRepo) (bool, error)
 	UpdateTaskArgs(*commonmodels.TestTaskArgs, string) *commonmodels.TestTaskArgs
 }
 
@@ -56,7 +56,7 @@ type gitlabPushEventMatcherForTesting struct {
 	event   *gitlab.PushEvent
 }
 
-func (gpem *gitlabPushEventMatcherForTesting) Match(hookRepo commonmodels.MainHookRepo) (bool, error) {
+func (gpem *gitlabPushEventMatcherForTesting) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
 	ev := gpem.event
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.Project.PathWithNamespace {
 		if hookRepo.Branch == getBranchFromRef(ev.Ref) && EventConfigured(hookRepo, config.HookEventPush) {
@@ -139,7 +139,7 @@ func TriggerTestByGitlabEvent(event interface{}, baseURI, requestID string, log 
 						// 发送本次commit的通知
 						if notification == nil {
 							notification, _ = scmnotify.NewService().SendInitWebhookComment(
-								&item.MainRepo, ev.ObjectAttributes.IID, baseURI, false, true, log,
+								item.MainRepo, ev.ObjectAttributes.IID, baseURI, false, true, log,
 							)
 						}
 					}
@@ -202,7 +202,7 @@ type gitlabMergeEventMatcherForTesting struct {
 	event    *gitlab.MergeEvent
 }
 
-func (gmem *gitlabMergeEventMatcherForTesting) Match(hookRepo commonmodels.MainHookRepo) (bool, error) {
+func (gmem *gitlabMergeEventMatcherForTesting) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
 	ev := gmem.event
 	// TODO: match codehost
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.ObjectAttributes.Target.PathWithNamespace {

@@ -39,7 +39,7 @@ type codehubMergeEventMatcher struct {
 	event    *codehub.MergeEvent
 }
 
-func (cmem *codehubMergeEventMatcher) Match(hookRepo commonmodels.MainHookRepo) (bool, error) {
+func (cmem *codehubMergeEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
 	ev := cmem.event
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.ObjectAttributes.Target.PathWithNamespace {
 		if EventConfigured(hookRepo, config.HookEventPr) && (hookRepo.Branch == ev.ObjectAttributes.TargetBranch) {
@@ -52,7 +52,7 @@ func (cmem *codehubMergeEventMatcher) Match(hookRepo commonmodels.MainHookRepo) 
 }
 
 func (cmem *codehubMergeEventMatcher) UpdateTaskArgs(
-	product *commonmodels.Product, args *commonmodels.WorkflowTaskArgs, hookRepo commonmodels.MainHookRepo, requestID string,
+	product *commonmodels.Product, args *commonmodels.WorkflowTaskArgs, hookRepo *commonmodels.MainHookRepo, requestID string,
 ) *commonmodels.WorkflowTaskArgs {
 	factory := &workflowArgsFactory{
 		workflow: cmem.workflow,
@@ -76,7 +76,7 @@ type codehubPushEventMatcher struct {
 	event    *codehub.PushEvent
 }
 
-func (cpem *codehubPushEventMatcher) Match(hookRepo commonmodels.MainHookRepo) (bool, error) {
+func (cpem *codehubPushEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
 	ev := cpem.event
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.Project.PathWithNamespace {
 		if hookRepo.Branch == getBranchFromRef(ev.Ref) && EventConfigured(hookRepo, config.HookEventPush) {
@@ -88,7 +88,7 @@ func (cpem *codehubPushEventMatcher) Match(hookRepo commonmodels.MainHookRepo) (
 }
 
 func (cpem *codehubPushEventMatcher) UpdateTaskArgs(
-	product *commonmodels.Product, args *commonmodels.WorkflowTaskArgs, hookRepo commonmodels.MainHookRepo, requestID string,
+	product *commonmodels.Product, args *commonmodels.WorkflowTaskArgs, hookRepo *commonmodels.MainHookRepo, requestID string,
 ) *commonmodels.WorkflowTaskArgs {
 	factory := &workflowArgsFactory{
 		workflow: cpem.workflow,

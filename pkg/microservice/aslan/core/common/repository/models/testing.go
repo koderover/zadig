@@ -60,7 +60,7 @@ type TestingHookCtrl struct {
 
 type TestingHook struct {
 	AutoCancel bool          `bson:"auto_cancel" json:"auto_cancel"`
-	MainRepo   MainHookRepo  `bson:"main_repo"   json:"main_repo"`
+	MainRepo   *MainHookRepo `bson:"main_repo"   json:"main_repo"`
 	TestArgs   *TestTaskArgs `bson:"test_args"   json:"test_args"`
 }
 

@@ -54,7 +54,7 @@ type gitlabMergeEventMatcher struct {
 	event    *gitlab.MergeEvent
 }
 
-func (gmem *gitlabMergeEventMatcher) Match(hookRepo commonmodels.MainHookRepo) (bool, error) {
+func (gmem *gitlabMergeEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
 	ev := gmem.event
 	// TODO: match codehost
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.ObjectAttributes.Target.PathWithNamespace {
@@ -62,8 +62,6 @@ func (gmem *gitlabMergeEventMatcher) Match(hookRepo commonmodels.MainHookRepo) (
 			return false, nil
 		}
 		isRegular := hookRepo.IsRegular
-		fmt.Println(fmt.Sprintf("isRegular:%v", isRegular))
-
 		if !isRegular && hookRepo.Branch != ev.ObjectAttributes.TargetBranch {
 			return false, nil
 		}
@@ -75,6 +73,7 @@ func (gmem *gitlabMergeEventMatcher) Match(hookRepo commonmodels.MainHookRepo) (
 		if isRegular && !regexp.MustCompile(hookRepo.Branch).MatchString(ev.ObjectAttributes.TargetBranch) {
 			return false, nil
 		}
+		hookRepo.Branch = ev.ObjectAttributes.TargetBranch
 		if ev.ObjectAttributes.State == "opened" {
 			var changedFiles []string
 			changedFiles, err := gmem.diffFunc(ev, hookRepo.CodehostID)
@@ -91,7 +90,7 @@ func (gmem *gitlabMergeEventMatcher) Match(hookRepo commonmodels.MainHookRepo) (
 }
 
 func (gmem *gitlabMergeEventMatcher) UpdateTaskArgs(
-	product *commonmodels.Product, args *commonmodels.WorkflowTaskArgs, hookRepo commonmodels.MainHookRepo, requestID string,
+	product *commonmodels.Product, args *commonmodels.WorkflowTaskArgs, hookRepo *commonmodels.MainHookRepo, requestID string,
 ) *commonmodels.WorkflowTaskArgs {
 	factory := &workflowArgsFactory{
 		workflow: gmem.workflow,
@@ -137,7 +136,7 @@ type gitlabPushEventMatcher struct {
 	event    *gitlab.PushEvent
 }
 
-func (gpem *gitlabPushEventMatcher) Match(hookRepo commonmodels.MainHookRepo) (bool, error) {
+func (gpem *gitlabPushEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
 	ev := gpem.event
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.Project.PathWithNamespace {
 		if !EventConfigured(hookRepo, config.HookEventPush) {
@@ -151,6 +150,8 @@ func (gpem *gitlabPushEventMatcher) Match(hookRepo commonmodels.MainHookRepo) (b
 		if isRegular && !regexp.MustCompile(hookRepo.Branch).MatchString(getBranchFromRef(ev.Ref)) {
 			return false, nil
 		}
+
+		hookRepo.Branch = getBranchFromRef(ev.Ref)
 
 		var changedFiles []string
 		detail, err := codehost.GetCodehostDetail(hookRepo.CodehostID)
@@ -183,7 +184,7 @@ func (gpem *gitlabPushEventMatcher) Match(hookRepo commonmodels.MainHookRepo) (b
 }
 
 func (gpem *gitlabPushEventMatcher) UpdateTaskArgs(
-	product *commonmodels.Product, args *commonmodels.WorkflowTaskArgs, hookRepo commonmodels.MainHookRepo, requestID string,
+	product *commonmodels.Product, args *commonmodels.WorkflowTaskArgs, hookRepo *commonmodels.MainHookRepo, requestID string,
 ) *commonmodels.WorkflowTaskArgs {
 	factory := &workflowArgsFactory{
 		workflow: gpem.workflow,
@@ -279,7 +280,7 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 
 				if notification == nil {
 					notification, _ = scmnotify.NewService().SendInitWebhookComment(
-						&item.MainRepo, ev.ObjectAttributes.IID, baseURI, false, false, log,
+						item.MainRepo, ev.ObjectAttributes.IID, baseURI, false, false, log,
 					)
 
 					// 初始化 gitlab diff_note
@@ -305,7 +306,7 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 					mErr = multierror.Append(mErr, err)
 					// 单独创建一条通知，展示任务创建失败的错误信息
 					_, err2 := scmnotify.NewService().SendErrWebhookComment(
-						&item.MainRepo, workflow, err, prID, baseURI, false, false, log,
+						item.MainRepo, workflow, err, prID, baseURI, false, false, log,
 					)
 					if err2 != nil {
 						log.Errorf("SendErrWebhookComment failed, product:%s, workflow:%s, err:%v", workflow.ProductTmplName, workflow.Name, err2)
@@ -340,7 +341,7 @@ func findChangedFilesOfMergeRequest(event *gitlab.MergeEvent, codehostID int) ([
 }
 
 // InitDiffNote 调用gitlab接口初始化DiffNote，并保存到数据库
-func InitDiffNote(ev *gitlab.MergeEvent, mainRepo commonmodels.MainHookRepo, log *zap.SugaredLogger) error {
+func InitDiffNote(ev *gitlab.MergeEvent, mainRepo *commonmodels.MainHookRepo, log *zap.SugaredLogger) error {
 	commitID := ev.ObjectAttributes.LastCommit.ID
 	body := "KodeRover CI 检查中..."
 

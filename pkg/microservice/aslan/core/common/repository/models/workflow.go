@@ -71,7 +71,7 @@ type WorkflowHookCtrl struct {
 type WorkflowHook struct {
 	AutoCancel          bool              `bson:"auto_cancel"             json:"auto_cancel"`
 	CheckPatchSetChange bool              `bson:"check_patch_set_change"  json:"check_patch_set_change"`
-	MainRepo            MainHookRepo      `bson:"main_repo"               json:"main_repo"`
+	MainRepo            *MainHookRepo     `bson:"main_repo"               json:"main_repo"`
 	WorkflowArgs        *WorkflowTaskArgs `bson:"workflow_args"           json:"workflow_args"`
 }
 
