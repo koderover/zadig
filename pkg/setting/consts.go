@@ -503,8 +503,10 @@ const (
 // template common constant
 const (
 	TemplateVariableProduct            = "$T-Project$"
+	PresetTemplateVariableProduct      = "PROJECTNAME"
 	TemplateVariableProductDescription = "项目名称"
 	TemplateVariableService            = "$T-Service$"
+	PresetTemplateVariableService      = "SERVICENAME"
 	TemplateVariableServiceDescription = "服务名称"
 )
 

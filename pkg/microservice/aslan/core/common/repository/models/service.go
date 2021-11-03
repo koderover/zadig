@@ -82,6 +82,7 @@ type CreateFromChartTemplate struct {
 	YamlData     *templatemodels.CustomYaml `bson:"yaml_data,omitempty"   json:"yaml_data,omitempty"`
 	TemplateName string                     `bson:"template_name" json:"template_name"`
 	ServiceName  string                     `bson:"service_name" json:"service_name"`
+	Variables    []*Variable                `bson:"variables" json:"variables"`
 }
 
 type GUIConfig struct {
