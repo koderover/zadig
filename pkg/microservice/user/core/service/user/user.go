@@ -97,7 +97,6 @@ func SearchAndSyncUser(ldapId string, logger *zap.SugaredLogger) error {
 		logger.Errorf("ldap search host:%s error, error msg:%s", si.Config.Host, err)
 		return err
 	}
-	syncUserMap := make(map[string]bool)
 	for _, entry := range sr.Entries {
 		account := si.Config.UserSearch.NameAttr
 		_, err := SyncUser(&SyncUserInfo{
@@ -108,40 +107,6 @@ func SearchAndSyncUser(ldapId string, logger *zap.SugaredLogger) error {
 			logger.Errorf("ldap host:%s sync user error, error msg:%s", si.Config.Host, err)
 			return err
 		}
-		syncUserMap[account] = true
-	}
-	users, err := orm.ListUsersByIdentityType(si.ID, core.DB)
-	if err != nil {
-		logger.Errorf("ListUsers by identityType:%s error, error msg:%s", si.ID, err)
-		return err
-	}
-	var deletedUsers []string
-	for _, user := range users {
-		if ok := syncUserMap[user.Account]; !ok {
-			deletedUsers = append(deletedUsers, user.UID)
-		}
-	}
-	tx := core.DB.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-	err = orm.DeleteUserByUids(deletedUsers, tx)
-	if err != nil {
-		tx.Rollback()
-		logger.Errorf("SearchAndSyncUser delete user by uids:%s error, error msg:%s", deletedUsers, err)
-		return fmt.Errorf("SearchAndSyncUser delete user by uids:%s error, error msg:%s", deletedUsers, err)
-	}
-	err = orm.DeleteUserLoginByUids(deletedUsers, tx)
-	if err != nil {
-		tx.Rollback()
-		logger.Errorf("SearchAndSyncUser delete userlogin by uids:%s error, error msg:%s", deletedUsers, err)
-		return fmt.Errorf("SearchAndSyncUser delete userlogin by uids:%s error, error msg:%s", deletedUsers, err)
-	}
-	err = tx.Commit().Error
-	if err != nil {
-		return err
 	}
 	return nil
 }
