@@ -17,17 +17,17 @@ limitations under the License.
 package git
 
 import (
-	"github.com/koderover/zadig/pkg/tool/crypto"
+	"golang.org/x/crypto/bcrypt"
+
+	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-const plainSecret = "webhook secret"
-
 func GetHookSecret() string {
-	token, err := crypto.AesEncrypt(plainSecret)
+	token, err := bcrypt.GenerateFromPassword([]byte(config.SecretKey()), bcrypt.MinCost)
 	if err != nil {
 		log.DPanic(err)
 	}
 
-	return token
+	return string(token)
 }
