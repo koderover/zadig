@@ -38,13 +38,12 @@ import (
 )
 
 var (
-	variableExtractRegexp = regexp.MustCompile("{{.(\\w*)}}")
+	variableExtractRegexp              = regexp.MustCompile("{{.(\\w*)}}")
+	ChartTemplateDefaultSystemVariable = map[string]string{
+		setting.PresetTemplateVariableProduct: setting.TemplateVariableProductDescription,
+		setting.PresetTemplateVariableService: setting.TemplateVariableServiceDescription,
+	}
 )
-
-var ChartTemplateDefaultSystemVariable = map[string]string{
-	setting.PresetTemplateVariableProduct: setting.TemplateVariableProductDescription,
-	setting.PresetTemplateVariableService: setting.TemplateVariableServiceDescription,
-}
 
 type ChartTemplateListResp struct {
 	SystemVariables []*Variable `json:"systemVariables"`
