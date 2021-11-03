@@ -3098,7 +3098,6 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 	errList := new(multierror.Error)
 	for groupIndex, services := range productResp.Services {
 		serviceList := make([]interface{}, 0)
-		var wg sync.WaitGroup
 		groupServices := make([]*commonmodels.ProductService, 0)
 		for _, service := range services {
 			if _, isExist := renderChartMap[service.ServiceName]; isExist {
@@ -3115,15 +3114,13 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 					continue
 				}
 				serviceList = append(serviceList, serviceObj)
-
-				groupServiceErr := intervalExecutor(time.Millisecond*2500, serviceList, handler, log)
-				if groupServiceErr != nil {
-					errList = multierror.Append(errList, groupServiceErr...)
-				}
 			}
 			groupServices = append(groupServices, service)
 		}
-		wg.Wait()
+		groupServiceErr := intervalExecutor(time.Millisecond*2500, serviceList, handler, log)
+		if groupServiceErr != nil {
+			errList = multierror.Append(errList, groupServiceErr...)
+		}
 		err = commonrepo.NewProductColl().UpdateGroup(envName, productName, groupIndex, groupServices)
 		if err != nil {
 			log.Errorf("Failed to update collection - service group %d. Error: %v", groupIndex, err)
