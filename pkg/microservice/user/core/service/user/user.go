@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dexidp/dex/connector/ldap"
 	ldapv3 "github.com/go-ldap/ldap/v3"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -72,45 +71,41 @@ func SearchAndSyncUser(ldapId string, logger *zap.SugaredLogger) error {
 		logger.Error("can't find connector")
 		return fmt.Errorf("can't find connector")
 	}
-	config, ok := si.Config.(*ldap.Config)
-	if !ok {
-		return fmt.Errorf("connector config error")
-	}
-	l, err := ldapv3.Dial("tcp", config.Host)
+	l, err := ldapv3.Dial("tcp", si.Config.Host)
 	if err != nil {
-		logger.Errorf("ldap dial host:%s error, error msg:%s", config.Host, err)
+		logger.Errorf("ldap dial host:%s error, error msg:%s", si.Config.Host, err)
 		return err
 	}
 	defer l.Close()
 
-	err = l.Bind(config.BindDN, config.BindPW)
+	err = l.Bind(si.Config.BindDN, si.Config.BindPW)
 	if err != nil {
-		logger.Errorf("ldap bind host:%s error, error msg:%s", config.Host, err)
+		logger.Errorf("ldap bind host:%s error, error msg:%s", si.Config.Host, err)
 		return err
 	}
 
 	searchRequest := ldapv3.NewSearchRequest(
-		config.GroupSearch.BaseDN,
+		si.Config.GroupSearch.BaseDN,
 		ldapv3.ScopeWholeSubtree, ldapv3.NeverDerefAliases, 0, 0, false,
-		config.GroupSearch.Filter,            // The filter to apply
-		[]string{config.UserSearch.NameAttr}, // A list attributes to retrieve
+		si.Config.GroupSearch.Filter,            // The filter to apply
+		[]string{si.Config.UserSearch.NameAttr}, // A list attributes to retrieve
 		nil,
 	)
 
 	sr, err := l.Search(searchRequest)
 	if err != nil {
-		logger.Errorf("ldap search host:%s error, error msg:%s", config.Host, err)
+		logger.Errorf("ldap search host:%s error, error msg:%s", si.Config.Host, err)
 		return err
 	}
 	syncUserMap := make(map[string]bool)
 	for _, entry := range sr.Entries {
-		account := config.UserSearch.NameAttr
+		account := si.Config.UserSearch.NameAttr
 		_, err := SyncUser(&SyncUserInfo{
 			Account:      entry.GetAttributeValue(account),
 			IdentityType: si.ID,
 		}, logger)
 		if err != nil {
-			logger.Errorf("ldap host:%s sync user error, error msg:%s", config.Host, err)
+			logger.Errorf("ldap host:%s sync user error, error msg:%s", si.Config.Host, err)
 			return err
 		}
 		syncUserMap[account] = true
