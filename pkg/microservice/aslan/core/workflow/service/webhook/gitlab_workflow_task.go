@@ -18,6 +18,7 @@ package webhook
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -57,18 +58,26 @@ func (gmem *gitlabMergeEventMatcher) Match(hookRepo commonmodels.MainHookRepo) (
 	ev := gmem.event
 	// TODO: match codehost
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.ObjectAttributes.Target.PathWithNamespace {
-		if EventConfigured(hookRepo, config.HookEventPr) && (hookRepo.Branch == ev.ObjectAttributes.TargetBranch) {
-			if ev.ObjectAttributes.State == "opened" {
-				var changedFiles []string
-				changedFiles, err := gmem.diffFunc(ev, hookRepo.CodehostID)
-				if err != nil {
-					gmem.log.Warnf("failed to get changes of event %v, err:%v", ev, err)
-					return false, err
-				}
-				gmem.log.Debugf("succeed to get %d changes in merge event", len(changedFiles))
-
-				return MatchChanges(hookRepo, changedFiles), nil
+		if !EventConfigured(hookRepo, config.HookEventPr) {
+			return false, nil
+		}
+		isRegular := hookRepo.IsRegular
+		if !isRegular && hookRepo.Branch != ev.ObjectAttributes.TargetBranch {
+			return false, nil
+		}
+		if isRegular && !regexp.MustCompile(hookRepo.Branch).MatchString(ev.ObjectAttributes.TargetBranch) {
+			return false, nil
+		}
+		if ev.ObjectAttributes.State == "opened" {
+			var changedFiles []string
+			changedFiles, err := gmem.diffFunc(ev, hookRepo.CodehostID)
+			if err != nil {
+				gmem.log.Warnf("failed to get changes of event %v, err:%v", ev, err)
+				return false, err
 			}
+			gmem.log.Debugf("succeed to get %d changes in merge event", len(changedFiles))
+
+			return MatchChanges(hookRepo, changedFiles), nil
 		}
 	}
 	return false, nil
@@ -124,34 +133,43 @@ type gitlabPushEventMatcher struct {
 func (gpem *gitlabPushEventMatcher) Match(hookRepo commonmodels.MainHookRepo) (bool, error) {
 	ev := gpem.event
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.Project.PathWithNamespace {
-		if hookRepo.Branch == getBranchFromRef(ev.Ref) && EventConfigured(hookRepo, config.HookEventPush) {
-			var changedFiles []string
-
-			detail, err := codehost.GetCodehostDetail(hookRepo.CodehostID)
-			if err != nil {
-				gpem.log.Errorf("GetCodehostDetail error: %v", err)
-				return false, err
-			}
-
-			client, err := gitlabtool.NewClient(detail.Address, detail.OauthToken)
-			if err != nil {
-				gpem.log.Errorf("NewClient error: %v", err)
-				return false, err
-			}
-
-			// compare接口获取两个commit之间的最终的改动
-			diffs, err := client.Compare(ev.ProjectID, ev.Before, ev.After)
-			if err != nil {
-				gpem.log.Errorf("Failed to get push event diffs, error: %v", err)
-				return false, err
-			}
-			for _, diff := range diffs {
-				changedFiles = append(changedFiles, diff.NewPath)
-				changedFiles = append(changedFiles, diff.OldPath)
-			}
-
-			return MatchChanges(hookRepo, changedFiles), nil
+		if !EventConfigured(hookRepo, config.HookEventPush) {
+			return false, nil
 		}
+
+		isRegular := hookRepo.IsRegular
+		if !isRegular && hookRepo.Branch != getBranchFromRef(ev.Ref) {
+			return false, nil
+		}
+		if isRegular && !regexp.MustCompile(hookRepo.Branch).MatchString(getBranchFromRef(ev.Ref)) {
+			return false, nil
+		}
+
+		var changedFiles []string
+		detail, err := codehost.GetCodehostDetail(hookRepo.CodehostID)
+		if err != nil {
+			gpem.log.Errorf("GetCodehostDetail error: %v", err)
+			return false, err
+		}
+
+		client, err := gitlabtool.NewClient(detail.Address, detail.OauthToken)
+		if err != nil {
+			gpem.log.Errorf("NewClient error: %v", err)
+			return false, err
+		}
+
+		// compare接口获取两个commit之间的最终的改动
+		diffs, err := client.Compare(ev.ProjectID, ev.Before, ev.After)
+		if err != nil {
+			gpem.log.Errorf("Failed to get push event diffs, error: %v", err)
+			return false, err
+		}
+		for _, diff := range diffs {
+			changedFiles = append(changedFiles, diff.NewPath)
+			changedFiles = append(changedFiles, diff.OldPath)
+		}
+
+		return MatchChanges(hookRepo, changedFiles), nil
 	}
 
 	return false, nil

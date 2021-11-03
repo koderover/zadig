@@ -87,6 +87,7 @@ type MainHookRepo struct {
 	Events       []config.HookEventType `bson:"events"                    json:"events"`
 	Label        string                 `bson:"label"                     json:"label"`
 	Revision     string                 `bson:"revision"                  json:"revision"`
+	IsRegular    bool                   `bson:"is_regular"                json:"is_regular"`
 }
 
 func (m MainHookRepo) GetLabelValue() string {
