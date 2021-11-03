@@ -13,7 +13,7 @@ type Connector struct {
 	Config *ldap.Config `json:"config"`
 }
 
-func (c *Client) GetConnector(id string) (*Connector, error) {
+func (c *Client) GetLDAPConnector(id string) (*Connector, error) {
 	url := "/connectors/" + id
 
 	res := &Connector{}

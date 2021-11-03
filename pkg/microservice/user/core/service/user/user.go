@@ -62,10 +62,10 @@ type SyncUserInfo struct {
 
 func SearchAndSyncUser(ldapId string, logger *zap.SugaredLogger) error {
 	systemConfigClient := systemconfig.New()
-	si, err := systemConfigClient.GetConnector(ldapId)
+	si, err := systemConfigClient.GetLDAPConnector(ldapId)
 	if err != nil {
-		logger.Errorf("SearchAndSyncUser GetConnector error, error msg:%s", err)
-		return fmt.Errorf("SearchAndSyncUser GetConnector error, error msg:%s", err)
+		logger.Errorf("SearchAndSyncUser GetLDAPConnector error, error msg:%s", err)
+		return fmt.Errorf("SearchAndSyncUser GetLDAPConnector error, error msg:%s", err)
 	}
 	if si == nil || si.Config == nil {
 		logger.Error("can't find connector")
@@ -101,7 +101,7 @@ func SearchAndSyncUser(ldapId string, logger *zap.SugaredLogger) error {
 		account := si.Config.UserSearch.NameAttr
 		_, err := SyncUser(&SyncUserInfo{
 			Account:      entry.GetAttributeValue(account),
-			IdentityType: si.ID,
+			IdentityType: si.ID, // ldap may have not only one instance, so use id as identityType
 		}, logger)
 		if err != nil {
 			logger.Errorf("ldap host:%s sync user error, error msg:%s", si.Config.Host, err)
