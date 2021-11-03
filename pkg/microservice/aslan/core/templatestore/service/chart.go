@@ -212,7 +212,7 @@ func AddChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *zap.
 
 	variablesNames, err := parseTemplateVariables(name, args.Path, logger)
 	if err != nil {
-		return errors.Wrapf(err, "faild to prase variables")
+		return errors.Wrapf(err, "failed to prase variables")
 	}
 
 	variables := make([]*commonmodes.Variable, 0, len(variablesNames))
@@ -254,7 +254,7 @@ func UpdateChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *z
 
 	variablesNames, err := parseTemplateVariables(name, args.Path, logger)
 	if err != nil {
-		return errors.Wrapf(err, "faild to prase variables")
+		return errors.Wrapf(err, "failed to prase variables")
 	}
 
 	variables := make([]*commonmodes.Variable, 0, len(variablesNames))
