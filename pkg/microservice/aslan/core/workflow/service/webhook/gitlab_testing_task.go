@@ -17,6 +17,7 @@ limitations under the License.
 package webhook
 
 import (
+	"regexp"
 	"strconv"
 
 	multierror "github.com/hashicorp/go-multierror"
@@ -59,16 +60,26 @@ type gitlabPushEventMatcherForTesting struct {
 func (gpem *gitlabPushEventMatcherForTesting) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
 	ev := gpem.event
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.Project.PathWithNamespace {
-		if hookRepo.Branch == getBranchFromRef(ev.Ref) && EventConfigured(hookRepo, config.HookEventPush) {
-			var changedFiles []string
-			for _, commit := range ev.Commits {
-				changedFiles = append(changedFiles, commit.Added...)
-				changedFiles = append(changedFiles, commit.Removed...)
-				changedFiles = append(changedFiles, commit.Modified...)
-			}
-
-			return MatchChanges(hookRepo, changedFiles), nil
+		if !EventConfigured(hookRepo, config.HookEventPush) {
+			return false, nil
 		}
+		isRegular := hookRepo.IsRegular
+		if !isRegular && hookRepo.Branch != getBranchFromRef(ev.Ref) {
+			return false, nil
+		}
+
+		if isRegular && !regexp.MustCompile(hookRepo.Branch).MatchString(getBranchFromRef(ev.Ref)) {
+			return false, nil
+		}
+		hookRepo.Branch = getBranchFromRef(ev.Ref)
+		var changedFiles []string
+		for _, commit := range ev.Commits {
+			changedFiles = append(changedFiles, commit.Added...)
+			changedFiles = append(changedFiles, commit.Removed...)
+			changedFiles = append(changedFiles, commit.Modified...)
+		}
+
+		return MatchChanges(hookRepo, changedFiles), nil
 	}
 
 	return false, nil
@@ -206,19 +217,32 @@ func (gmem *gitlabMergeEventMatcherForTesting) Match(hookRepo *commonmodels.Main
 	ev := gmem.event
 	// TODO: match codehost
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.ObjectAttributes.Target.PathWithNamespace {
-		if EventConfigured(hookRepo, config.HookEventPr) && (hookRepo.Branch == ev.ObjectAttributes.TargetBranch) {
-			if ev.ObjectAttributes.State == "opened" {
-				var changedFiles []string
-				changedFiles, err := gmem.diffFunc(ev, hookRepo.CodehostID)
-				if err != nil {
-					gmem.log.Warnf("failed to get changes of event %v", ev)
-					return false, err
-				}
-				gmem.log.Debugf("succeed to get %d changes in merge event", len(changedFiles))
-
-				return MatchChanges(hookRepo, changedFiles), nil
-			}
+		if !EventConfigured(hookRepo, config.HookEventPr) {
+			return false, nil
 		}
+
+		isRegular := hookRepo.IsRegular
+		if !isRegular && hookRepo.Branch != ev.ObjectAttributes.TargetBranch {
+			return false, nil
+		}
+
+		if isRegular && !regexp.MustCompile(hookRepo.Branch).MatchString(ev.ObjectAttributes.TargetBranch) {
+			return false, nil
+		}
+		hookRepo.Branch = ev.ObjectAttributes.TargetBranch
+
+		if ev.ObjectAttributes.State == "opened" {
+			var changedFiles []string
+			changedFiles, err := gmem.diffFunc(ev, hookRepo.CodehostID)
+			if err != nil {
+				gmem.log.Warnf("failed to get changes of event %v", ev)
+				return false, err
+			}
+			gmem.log.Debugf("succeed to get %d changes in merge event", len(changedFiles))
+
+			return MatchChanges(hookRepo, changedFiles), nil
+		}
+
 	}
 	return false, nil
 }
