@@ -365,8 +365,6 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 		}
 
 		repoLink = publicArgs.RepoLink
-	} else {
-
 	}
 
 	source, codehostInfo, err := getCodehostType(repoArgs, repoLink)
