@@ -402,7 +402,7 @@ func UpdateProductTmplStatus(productName, onboardingStatus string, log *zap.Suga
 }
 
 func UpdateServiceOrchestration(username, name string, services [][]string, log *zap.SugaredLogger) error {
-	if err := templaterepo.NewProductColl().UpdateServiceOrder(&template.ProductArgs{
+	if err := templaterepo.NewProductColl().UpdateServiceOrder(&templaterepo.ProductArgs{
 		ProductName: name,
 		Services:    services,
 		UpdateBy:    username,
