@@ -160,32 +160,6 @@ func (c *ServiceColl) ListMaxRevisionsForServices(services []*templatemodels.Ser
 	return c.listMaxRevisions(pre, post)
 }
 
-// TODO refactor mouuii
-// ListExternalServicesBy list service only for external services  ,other service type not use  before refactor
-func (c *ServiceColl) ListExternalWorkloadsBy(productName, envName string) ([]*models.Service, error) {
-	services := make([]*models.Service, 0)
-	query := bson.M{
-		"status": bson.M{"$ne": setting.ProductStatusDeleting},
-	}
-	if productName != "" {
-		query["product_name"] = productName
-	}
-	if envName != "" {
-		query["env_name"] = envName
-	}
-	ctx := context.Background()
-	cursor, err := c.Collection.Find(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-
-	err = cursor.All(ctx, &services)
-	if err != nil {
-		return nil, err
-	}
-	return services, nil
-}
-
 func (c *ServiceColl) ListMaxRevisionsByProduct(productName string) ([]*models.Service, error) {
 	m := bson.M{
 		"product_name": productName,
@@ -301,6 +275,57 @@ func (c *ServiceColl) Update(args *models.Service) error {
 	}
 	change := bson.M{"$set": changeMap}
 	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
+// ListExternalServicesBy list service only for external services  ,other service type not use  before refactor
+func (c *ServiceColl) ListExternalWorkloadsBy(productName, envName string, serviceNames ...string) ([]*models.Service, error) {
+	services := make([]*models.Service, 0)
+	query := bson.M{
+		"status": bson.M{"$ne": setting.ProductStatusDeleting},
+	}
+	if productName != "" {
+		query["product_name"] = productName
+	}
+	if envName != "" {
+		query["env_name"] = envName
+	}
+
+	if len(serviceNames) > 0 {
+		query["service_name"] = bson.M{"$in": serviceNames}
+	}
+	ctx := context.Background()
+	cursor, err := c.Collection.Find(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cursor.All(ctx, &services)
+	if err != nil {
+		return nil, err
+	}
+	return services, nil
+}
+
+func (c *ServiceColl) BatchUpdateExternalServicesStatus(productName, envName, status string, serviceNames []string) error {
+	if productName == "" {
+		return fmt.Errorf("productName is empty")
+	}
+
+	if len(serviceNames) == 0 {
+		return fmt.Errorf("servicenNames is empty")
+	}
+
+	query := bson.M{"product_name": productName, "service_name": bson.M{"$in": serviceNames}}
+	if envName != "" {
+		query["env_name"] = envName
+	}
+
+	change := bson.M{"$set": bson.M{
+		"status": status,
+	}}
+
+	_, err := c.UpdateMany(context.TODO(), query, change)
 	return err
 }
 

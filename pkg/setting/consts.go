@@ -112,6 +112,11 @@ const (
 	ENVMysqlUserDB    = "MYSQL_USER_DB"
 	ENVScopes         = "SCOPES"
 	ENVTokenExpiresAt = "TOKEN_EXPIRES_AT"
+
+	// initconfig
+	ENVAdminEmail    = "ADMIN_EMAIL"
+	ENVAdminPassword = "ADMIN_PASSWORD"
+	PresetAccount    = "admin"
 )
 
 // k8s concepts
@@ -227,8 +232,6 @@ const (
 	SourceFromGerrit = "gerrit"
 	// SourceFromCodeHub 配置来源为codehub
 	SourceFromCodeHub = "codehub"
-	// SourceFromIlyshin 配置来源为ilyshin
-	SourceFromIlyshin = "ilyshin"
 	// SourceFromChartTemplate 配置来源为helmTemplate
 	SourceFromChartTemplate = "chartTemplate"
 	// SourceFromPublicRepo 配置来源为publicRepo

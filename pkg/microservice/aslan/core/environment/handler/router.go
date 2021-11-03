@@ -94,7 +94,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	environments := router.Group("environments")
 	{
 		environments.GET("", ListProducts)
+		environments.GET("/:productName/status", GetProductStatus)
 		environments.POST("/:productName/auto", AutoCreateProduct)
+
 		environments.PUT("/:productName/autoUpdate", gin2.UpdateOperationLogStatus, AutoUpdateProduct)
 		environments.POST("", gin2.UpdateOperationLogStatus, CreateProduct)
 
@@ -103,7 +105,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		environments.POST("/:productName", gin2.UpdateOperationLogStatus, UpdateProduct)
 		environments.PUT("/:productName/envRecycle", gin2.UpdateOperationLogStatus, UpdateProductRecycleDay)
-		environments.PUT("/:productName/renderchart", gin2.UpdateOperationLogStatus, UpdateHelmProductRenderCharts)
+
+		environments.POST("/:productName/estimated-values", EstimatedValues)
+		environments.PUT("/:productName/renderset", gin2.UpdateOperationLogStatus, UpdateHelmProductRenderset)
 
 		environments.GET("/:productName/helmChartVersions", GetHelmChartVersions)
 		//environments.PUT("/:productName", gin2.UpdateOperationLogStatus, EnvShare)
@@ -126,11 +130,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.GET("/:productName/services/:serviceName/containers/:container/namespaces/:namespace", GetServiceContainer)
 
 		environments.GET("/estimated-renderchart", GetEstimatedRenderCharts)
-
-		// need to be deprecated
-		environments.PUT("/:productName/helmEnv", gin2.UpdateOperationLogStatus, UpdateHelmProduct)
-		environments.PUT("/:productName/helmEnvVariable", gin2.UpdateOperationLogStatus, UpdateHelmProductVariable)
-		environments.PUT("/:productName/updateMultiEnv", gin2.UpdateOperationLogStatus, UpdateMultiHelmProduct)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -139,7 +138,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	rendersets := router.Group("rendersets")
 	{
 		rendersets.GET("/renderchart", GetServiceRenderCharts)
-		rendersets.PUT("/renderchart", CreateOrUpdateRenderChart) // create or update renderchart when onBoarding
+		rendersets.GET("/default-values", GetProductDefaultValues)
+		rendersets.GET("/yamlContent", GetYamlContent)
 	}
 
 	// ---------------------------------------------------------------------------------------

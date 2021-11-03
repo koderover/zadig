@@ -67,7 +67,7 @@ type GitRepoConfig struct {
 	Branch     string `bson:"branch,omitempty"`
 }
 
-type OverrideYaml struct {
+type CustomYaml struct {
 	YamlSource    string         `bson:"yaml_source,omitempty"     json:"yaml_source,omitempty"`
 	YamlContent   string         `bson:"yaml_content,omitempty"    json:"yaml_content,omitempty"`
 	GitRepoConfig *GitRepoConfig `bson:"git_repo_config,omitempty"   json:"git_repo_config,omitempty"`
@@ -75,11 +75,11 @@ type OverrideYaml struct {
 }
 
 type RenderChart struct {
-	ServiceName    string        `bson:"service_name,omitempty"    json:"service_name,omitempty"`
-	ChartVersion   string        `bson:"chart_version,omitempty"   json:"chart_version,omitempty"`
-	ValuesYaml     string        `bson:"values_yaml,omitempty"     json:"values_yaml,omitempty"`
-	OverrideYaml   *OverrideYaml `bson:"override_yaml,omitempty"   json:"override_yaml,omitempty"`
-	OverrideValues string        `bson:"override_values,omitempty"   json:"override_values,omitempty"`
+	ServiceName    string      `bson:"service_name,omitempty"    json:"service_name,omitempty"`
+	ChartVersion   string      `bson:"chart_version,omitempty"   json:"chart_version,omitempty"`
+	ValuesYaml     string      `bson:"values_yaml,omitempty"     json:"values_yaml,omitempty"`
+	OverrideYaml   *CustomYaml `bson:"override_yaml,omitempty"   json:"override_yaml,omitempty"`
+	OverrideValues string      `bson:"override_values,omitempty"   json:"override_values,omitempty"`
 }
 
 type ProductAuth struct {
@@ -97,17 +97,6 @@ type Service struct {
 	Render      *task.RenderInfo `bson:"render,omitempty"           json:"render,omitempty"` // 记录每个服务render信息 便于更新单个服务
 	EnvConfigs  []*EnvConfig     `bson:"-"                          json:"env_configs,omitempty"`
 }
-
-//type EnvConfig struct {
-//	EnvName string   `json:"env_name"`
-//	HostIDs []string `json:"host_ids"`
-//}
-//
-//// Container ...
-//type Container struct {
-//	Name  string `bson:"name"           json:"name"`
-//	Image string `bson:"image"          json:"image"`
-//}
 
 // Config ...
 type Config struct {
