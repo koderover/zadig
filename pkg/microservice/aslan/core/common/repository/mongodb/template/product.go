@@ -38,6 +38,7 @@ type ProjectInfo struct {
 	UpdatedAt     int64  `bson:"update_time"`
 	UpdatedBy     string `bson:"update_by"`
 	OnboardStatus int    `bson:"onboarding_status"`
+	Public        bool   `bson:"public"`
 }
 
 type ProductColl struct {
@@ -104,6 +105,7 @@ func (c *ProductColl) ListProjectBriefs(inNames []string) ([]*ProjectInfo, error
 		{"update_time", 1},
 		{"update_by", 1},
 		{"onboarding_status", 1},
+		{"public", 1},
 	})
 }
 
@@ -255,6 +257,30 @@ func (c *ProductColl) Update(productName string, args *template.Product) error {
 		"custom_tar_rule":       args.CustomTarRule,
 		"custom_image_rule":     args.CustomImageRule,
 		"public":                args.Public,
+	}}
+
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
+type ProductArgs struct {
+	ProductName string     `json:"product_name"`
+	Services    [][]string `json:"services"`
+	UpdateBy    string     `json:"update_by"`
+}
+
+// UpdateServiceOrder existing ProductTmpl
+func (c *ProductColl) UpdateServiceOrder(args *ProductArgs) error {
+	// avoid panic issue
+	if args == nil {
+		return errors.New("nil product args")
+	}
+
+	query := bson.M{"product_name": args.ProductName}
+	change := bson.M{"$set": bson.M{
+		"services":    args.Services,
+		"update_time": time.Now().Unix(),
+		"update_by":   args.UpdateBy,
 	}}
 
 	_, err := c.UpdateOne(context.TODO(), query, change)

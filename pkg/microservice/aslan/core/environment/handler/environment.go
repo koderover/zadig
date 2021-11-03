@@ -63,6 +63,14 @@ func ListProducts(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.ListProducts(c.Query("projectName"), ctx.UserName, ctx.Logger)
 }
 
+// GetProductStatus List product status
+func GetProductStatus(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.GetProductStatus(c.Param("productName"), ctx.Logger)
+}
+
 func AutoCreateProduct(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -104,25 +112,34 @@ func CreateHelmProduct(c *gin.Context) {
 		return
 	}
 
-	args := new(service.CreateHelmProductArg)
+	productName := c.Param("productName")
+
+	createArgs := make([]*service.CreateHelmProductArg, 0)
 	data, err := c.GetRawData()
 	if err != nil {
-		log.Errorf("CreateProduct c.GetRawData() err : %v", err)
+		log.Errorf("CreateHelmProduct c.GetRawData() err : %v", err)
+	} else if err = json.Unmarshal(data, &createArgs); err != nil {
+		log.Errorf("CreateHelmProduct json.Unmarshal err : %v", err)
 	}
-	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("CreateProduct json.Unmarshal err : %v", err)
-	}
-	args.ProductName = c.Param("productName")
-
-	if args.EnvName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("envName can not be null!")
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", "集成环境", args.EnvName, string(data), ctx.Logger)
+	envNameList := make([]string, 0)
+	for _, arg := range createArgs {
+		if arg.EnvName == "" {
+			ctx.Err = e.ErrInvalidParam.AddDesc("envName is empty")
+			return
+		}
+		arg.ProductName = productName
+		envNameList = append(envNameList, arg.EnvName)
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, productName, "新增", "集成环境", strings.Join(envNameList, "-"), string(data), ctx.Logger)
 
 	ctx.Err = service.CreateHelmProduct(
-		ctx.UserName, ctx.RequestID, args, ctx.Logger,
+		productName, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger,
 	)
 }
 
@@ -171,6 +188,8 @@ func UpdateProduct(c *gin.Context) {
 	}
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdateProduct json.Unmarshal err : %v", err)
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, productName, "更新", "集成环境", envName, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
@@ -215,21 +234,32 @@ func UpdateProductRecycleDay(c *gin.Context) {
 	ctx.Err = service.UpdateProductRecycleDay(envName, productName, recycleDay)
 }
 
-func UpdateHelmProduct(c *gin.Context) {
+func EstimatedValues(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	envName := c.Query("envName")
-	updateType := c.Query("updateType")
 	productName := c.Param("productName")
-
-	ctx.Err = service.UpdateHelmProduct(productName, envName, updateType, ctx.UserName, ctx.RequestID, nil, ctx.Logger)
-	if ctx.Err != nil {
-		ctx.Logger.Errorf("failed to update product %s %s: %v", envName, productName, ctx.Err)
+	if productName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("productName can't be empty!")
+		return
 	}
+
+	serviceName := c.Query("serviceName")
+	if serviceName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("serviceName can't be empty!")
+		return
+	}
+
+	arg := new(service.EstimateValuesArg)
+	if err := c.ShouldBind(arg); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GeneEstimatedValues(productName, c.Query("envName"), serviceName, c.Query("scene"), c.Query("format"), arg, ctx.Logger)
 }
 
-func UpdateHelmProductRenderCharts(c *gin.Context) {
+func UpdateHelmProductRenderset(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -245,7 +275,7 @@ func UpdateHelmProductRenderCharts(c *gin.Context) {
 		return
 	}
 
-	arg := new(service.EnvRenderChartArg)
+	arg := new(service.EnvRendersetArg)
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("UpdateHelmProductVariable c.GetRawData() err : %v", err)
@@ -255,37 +285,7 @@ func UpdateHelmProductRenderCharts(c *gin.Context) {
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, c.Param("productName"), "更新", "更新环境变量", "", string(data), ctx.Logger)
 
-	ctx.Err = service.UpdateHelmProductRenderCharts(productName, envName, ctx.UserName, ctx.RequestID, arg.ChartValues, ctx.Logger)
-	if ctx.Err != nil {
-		ctx.Logger.Errorf("failed to update product Variable %s %s: %v", envName, productName, ctx.Err)
-	}
-}
-
-func UpdateHelmProductVariable(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	envName := c.Query("envName")
-	productName := c.Param("productName")
-
-	args := new(ChartInfoArgs)
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("UpdateHelmProductVariable c.GetRawData() err : %v", err)
-	}
-	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("UpdateHelmProductVariable json.Unmarshal err : %v", err)
-	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, c.Param("productName"), "更新", "helm集成环境变量", "", string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
-
-	if err := c.BindJSON(args); err != nil {
-		ctx.Logger.Error(err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-		return
-	}
-
-	ctx.Err = service.UpdateHelmProductVariable(productName, envName, ctx.UserName, ctx.RequestID, args.ChartInfos, args.ChartInfos, ctx.Logger)
+	ctx.Err = service.UpdateHelmProductRenderset(productName, envName, ctx.UserName, ctx.RequestID, arg, ctx.Logger)
 	if ctx.Err != nil {
 		ctx.Logger.Errorf("failed to update product Variable %s %s: %v", envName, productName, ctx.Err)
 	}
@@ -315,30 +315,6 @@ func UpdateMultiHelmEnv(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.UpdateMultipleHelmEnv(
 		ctx.RequestID, args, ctx.Logger,
 	)
-}
-
-func UpdateMultiHelmProduct(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	args := new(UpdateEnvs)
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("UpdateMultiHelmProduct c.GetRawData() err : %v", err)
-	}
-	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("UpdateMultiHelmProduct json.Unmarshal err : %v", err)
-	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, c.Param("productName"), "更新helm环境", "集成环境", strings.Join(args.EnvNames, ","), string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
-
-	if err := c.BindJSON(args); err != nil {
-		ctx.Logger.Error(err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-		return
-	}
-
-	ctx.Resp = service.UpdateMultiHelmProduct(args.EnvNames, args.UpdateType, c.Param("productName"), ctx.RequestID, ctx.Logger)
 }
 
 func GetProduct(c *gin.Context) {
@@ -402,11 +378,13 @@ func GetEstimatedRenderCharts(c *gin.Context) {
 	productName := c.Query("projectName")
 	if productName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("productName can't be empty!")
+		return
 	}
 
 	envName := c.Query("envName")
 	if envName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("envName can't be empty!")
+		return
 	}
 
 	ctx.Resp, ctx.Err = service.GetEstimatedRenderCharts(productName, envName, c.Query("serviceName"), ctx.Logger)
@@ -520,6 +498,20 @@ func ListWorkloads(c *gin.Context) {
 		for _, workload := range workloadStat.Workloads {
 			workloadM[workload.Name] = workload
 		}
+
+		// add services in external env data
+		servicesInExternalEnv, _ := mongodb.NewServicesInExternalEnvColl().List(&mongodb.ServicesInExternalEnvArgs{
+			Namespace: args.Namespace,
+			ClusterID: args.ClusterID,
+		})
+
+		for _, serviceInExternalEnv := range servicesInExternalEnv {
+			workloadM[serviceInExternalEnv.ServiceName] = commonmodels.Workload{
+				EnvName:     serviceInExternalEnv.EnvName,
+				ProductName: serviceInExternalEnv.ProductName,
+			}
+		}
+
 		for index, currentWorkload := range workloads {
 			if existWorkload, ok := workloadM[currentWorkload.Name]; ok {
 				workloads[index].EnvName = existWorkload.EnvName

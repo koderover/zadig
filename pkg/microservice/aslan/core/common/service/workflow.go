@@ -175,7 +175,7 @@ func ProcessWebhook(updatedHooks, currentHooks interface{}, name string, logger 
 			}
 
 			switch ch.Type {
-			case setting.SourceFromGithub, setting.SourceFromGitlab, setting.SourceFromCodeHub, setting.SourceFromIlyshin:
+			case setting.SourceFromGithub, setting.SourceFromGitlab, setting.SourceFromCodeHub:
 				err = webhook.NewClient().RemoveWebHook(&webhook.TaskOption{
 					Name:    wh.name,
 					Owner:   wh.owner,
@@ -209,7 +209,7 @@ func ProcessWebhook(updatedHooks, currentHooks interface{}, name string, logger 
 			}
 
 			switch ch.Type {
-			case setting.SourceFromGithub, setting.SourceFromGitlab, setting.SourceFromCodeHub, setting.SourceFromIlyshin:
+			case setting.SourceFromGithub, setting.SourceFromGitlab, setting.SourceFromCodeHub:
 				err = webhook.NewClient().AddWebHook(&webhook.TaskOption{
 					Name:    wh.name,
 					Owner:   wh.owner,

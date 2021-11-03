@@ -18,7 +18,6 @@ package service
 
 import (
 	"encoding/json"
-	"fmt"
 	"sort"
 	"strings"
 
@@ -131,12 +130,20 @@ func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, 
 			}
 			productServiceNames := sets.NewString()
 			for _, productService := range productServices {
-				productServiceNames.Insert(fmt.Sprintf("%s/%s", productService.WorkloadType, productService.ServiceName))
+				productServiceNames.Insert(productService.ServiceName)
+			}
+			// add services in external env data
+			servicesInExternalEnv, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
+				ProductName: productName,
+				EnvName:     envName,
+			})
+			for _, serviceInExternalEnv := range servicesInExternalEnv {
+				productServiceNames.Insert(serviceInExternalEnv.ServiceName)
 			}
 
 			var res []*Workload
 			for _, workload := range workloads {
-				if productServiceNames.Has(fmt.Sprintf("%s/%s", workload.Type, workload.Name)) {
+				if productServiceNames.Has(workload.Name) {
 					res = append(res, workload)
 				}
 			}

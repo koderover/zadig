@@ -18,13 +18,17 @@ package cmd
 
 import (
 	_ "embed"
+	"fmt"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 
 	"sigs.k8s.io/yaml"
 
+	"github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
+	"github.com/koderover/zadig/pkg/shared/client/user"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -60,7 +64,56 @@ func run() error {
 }
 
 func initSystemConfig() error {
-	return presetRole()
+	email := config.AdminEmail()
+	password := config.AdminPassword()
+
+	uid, err := presetSystemAdmin(email, password)
+	if err != nil {
+		log.Errorf("presetSystemAdmin err:%s", err)
+		return err
+	}
+	if err := presetRole(); err != nil {
+		log.Errorf("presetRole err:%s", err)
+		return err
+	}
+
+	if err := presetRoleBinding(uid); err != nil {
+		log.Errorf("presetRoleBinding :%s", err)
+		return err
+	}
+	return nil
+}
+
+func presetSystemAdmin(email string, password string) (string, error) {
+	r, err := user.New().SearchUser(&user.SearchUserArgs{Account: setting.PresetAccount})
+	if err != nil {
+		log.Errorf("SearchUser err:%s", err)
+		return "", err
+	}
+	if len(r.Users) > 0 {
+		log.Infof("User admin exists, skip it.")
+		return r.Users[0].UID, nil
+	}
+	user, err := user.New().CreateUser(&user.CreateUserArgs{
+		Name:     setting.PresetAccount,
+		Password: password,
+		Account:  setting.PresetAccount,
+		Email:    email,
+	})
+	if err != nil {
+		log.Infof("created  admin err:%s", err)
+		return "", err
+	}
+	return user.Uid, nil
+}
+
+func presetRoleBinding(uid string) error {
+	return policy.NewDefault().CreateOrUpdateSystemRoleBinding(&policy.RoleBinding{
+		Name: fmt.Sprintf(setting.RoleBindingNameFmt, setting.RoleAdmin, setting.PresetAccount, ""),
+		UID:  uid,
+		Role: setting.RoleAdmin,
+	})
+
 }
 
 func presetRole() error {

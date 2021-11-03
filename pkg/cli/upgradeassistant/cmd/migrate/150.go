@@ -151,5 +151,5 @@ func findImageByContainerName(flatMap map[string]interface{}, matchedPath []map[
 		}
 		return nil
 	}
-	return fmt.Errorf("faild to find image for contianer %s", container.Image)
+	return fmt.Errorf("failed to find image for contianer %s", container.Image)
 }

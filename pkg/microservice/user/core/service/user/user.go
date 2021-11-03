@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dexidp/dex/connector/ldap"
 	ldapv3 "github.com/go-ldap/ldap/v3"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -72,46 +71,77 @@ func SearchAndSyncUser(ldapId string, logger *zap.SugaredLogger) error {
 		logger.Error("can't find connector")
 		return fmt.Errorf("can't find connector")
 	}
-	config, ok := si.Config.(*ldap.Config)
-	if !ok {
-		return fmt.Errorf("connector config error")
-	}
-	l, err := ldapv3.Dial("tcp", config.Host)
+	l, err := ldapv3.Dial("tcp", si.Config.Host)
 	if err != nil {
-		logger.Errorf("ldap dial host:%s error, error msg:%s", config.Host, err)
+		logger.Errorf("ldap dial host:%s error, error msg:%s", si.Config.Host, err)
 		return err
 	}
 	defer l.Close()
 
-	err = l.Bind(config.BindDN, config.BindPW)
+	err = l.Bind(si.Config.BindDN, si.Config.BindPW)
 	if err != nil {
-		logger.Errorf("ldap bind host:%s error, error msg:%s", config.Host, err)
+		logger.Errorf("ldap bind host:%s error, error msg:%s", si.Config.Host, err)
 		return err
 	}
 
 	searchRequest := ldapv3.NewSearchRequest(
-		config.GroupSearch.BaseDN,
+		si.Config.GroupSearch.BaseDN,
 		ldapv3.ScopeWholeSubtree, ldapv3.NeverDerefAliases, 0, 0, false,
-		config.GroupSearch.Filter,            // The filter to apply
-		[]string{config.UserSearch.NameAttr}, // A list attributes to retrieve
+		si.Config.GroupSearch.Filter,            // The filter to apply
+		[]string{si.Config.UserSearch.NameAttr}, // A list attributes to retrieve
 		nil,
 	)
 
 	sr, err := l.Search(searchRequest)
 	if err != nil {
-		logger.Errorf("ldap search host:%s error, error msg:%s", config.Host, err)
+		logger.Errorf("ldap search host:%s error, error msg:%s", si.Config.Host, err)
 		return err
 	}
-
+	syncUserMap := make(map[string]bool)
 	for _, entry := range sr.Entries {
+		account := si.Config.UserSearch.NameAttr
 		_, err := SyncUser(&SyncUserInfo{
-			Account:      entry.GetAttributeValue(config.UserSearch.NameAttr),
+			Account:      entry.GetAttributeValue(account),
 			IdentityType: si.ID,
 		}, logger)
 		if err != nil {
-			logger.Errorf("ldap host:%s sync user error, error msg:%s", config.Host, err)
+			logger.Errorf("ldap host:%s sync user error, error msg:%s", si.Config.Host, err)
 			return err
 		}
+		syncUserMap[account] = true
+	}
+	users, err := orm.ListUsersByIdentityType(si.ID, core.DB)
+	if err != nil {
+		logger.Errorf("ListUsers by identityType:%s error, error msg:%s", si.ID, err)
+		return err
+	}
+	var deletedUsers []string
+	for _, user := range users {
+		if ok := syncUserMap[user.Account]; !ok {
+			deletedUsers = append(deletedUsers, user.UID)
+		}
+	}
+	tx := core.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+	err = orm.DeleteUserByUids(deletedUsers, tx)
+	if err != nil {
+		tx.Rollback()
+		logger.Errorf("SearchAndSyncUser delete user by uids:%s error, error msg:%s", deletedUsers, err)
+		return fmt.Errorf("SearchAndSyncUser delete user by uids:%s error, error msg:%s", deletedUsers, err)
+	}
+	err = orm.DeleteUserLoginByUids(deletedUsers, tx)
+	if err != nil {
+		tx.Rollback()
+		logger.Errorf("SearchAndSyncUser delete userlogin by uids:%s error, error msg:%s", deletedUsers, err)
+		return fmt.Errorf("SearchAndSyncUser delete userlogin by uids:%s error, error msg:%s", deletedUsers, err)
+	}
+	err = tx.Commit().Error
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -161,7 +191,7 @@ func SearchUserByAccount(args *QueryArgs, logger *zap.SugaredLogger) (*UsersResp
 func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*UsersResp, error) {
 	count, err := orm.GetUsersCount(args.Name)
 	if err != nil {
-		logger.Errorf("SeachUsers GetUsersCount By account:%s error, error msg:%s", args.Account, err.Error())
+		logger.Errorf("SeachUsers GetUsersCount By name:%s error, error msg:%s", args.Name, err.Error())
 		return nil, err
 	}
 	if count == 0 {

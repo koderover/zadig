@@ -313,7 +313,7 @@ func setBuildInfo(build *types.Repository, log *zap.SugaredLogger) {
 		log.Errorf("failed to get codehost detail %d %v", build.CodehostID, err)
 		return
 	}
-	if codeHostInfo.Type == codehost.GitLabProvider || codeHostInfo.Type == codehost.GerritProvider || codeHostInfo.Type == codehost.IlyshinProvider {
+	if codeHostInfo.Type == codehost.GitLabProvider || codeHostInfo.Type == codehost.GerritProvider {
 		if build.CommitID == "" {
 			var commit *RepoCommit
 			var pr *PRCommit
