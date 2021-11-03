@@ -41,6 +41,11 @@ var (
 	variableExtractRegexp = regexp.MustCompile("{{.(\\w*)}}")
 )
 
+var ChartTemplateDefaultSystemVariable = map[string]string{
+	setting.PresetTemplateVariableProduct: setting.TemplateVariableProductDescription,
+	setting.PresetTemplateVariableService: setting.TemplateVariableServiceDescription,
+}
+
 type ChartTemplateListResp struct {
 	SystemVariables []*Variable `json:"systemVariables"`
 	ChartTemplates  []*Chart    `json:"chartTemplates"`
@@ -104,6 +109,22 @@ func GetChartTemplateVariables(name string, logger *zap.SugaredLogger) ([]*Varia
 	return variables, nil
 }
 
+func getChartTemplateDefaultVariables() []*Variable {
+	resp := make([]*Variable, 0)
+	for key, description := range ChartTemplateDefaultSystemVariable {
+		resp = append(resp, &Variable{
+			Key:         key,
+			Description: description,
+		})
+	}
+	return resp
+}
+
+func isPresetVariable(key string) bool {
+	_, ok := ChartTemplateDefaultSystemVariable[key]
+	return ok
+}
+
 func ListChartTemplates(logger *zap.SugaredLogger) (*ChartTemplateListResp, error) {
 	cs, err := mongodb.NewChartColl().List()
 	if err != nil {
@@ -124,7 +145,7 @@ func ListChartTemplates(logger *zap.SugaredLogger) (*ChartTemplateListResp, erro
 	}
 
 	ret := &ChartTemplateListResp{
-		SystemVariables: GetSystemDefaultVariables(),
+		SystemVariables: getChartTemplateDefaultVariables(),
 		ChartTemplates:  res,
 	}
 
@@ -170,7 +191,11 @@ func parseTemplateVariables(name, path string, logger *zap.SugaredLogger) ([]str
 		if len(match) < 2 {
 			continue
 		}
-		strSet.Insert(match[1:]...)
+		for _, key := range match[1:] {
+			if !isPresetVariable(key) {
+				strSet.Insert(key)
+			}
+		}
 	}
 	return strSet.List(), nil
 }

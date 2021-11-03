@@ -686,14 +686,14 @@ func geneCreationDetail(args *helmServiceCreationArgs) interface{} {
 }
 
 func renderVariablesToYaml(valuesYaml string, productName, serviceName string, variables []*Variable) (string, error) {
-	valuesYaml = strings.Replace(valuesYaml, setting.TemplateVariableProduct, productName, -1)
-	valuesYaml = strings.Replace(valuesYaml, setting.TemplateVariableService, serviceName, -1)
 
 	// build replace data
 	valuesMap := make(map[string]interface{})
 	for _, variable := range variables {
 		valuesMap[variable.Key] = variable.Value
 	}
+	valuesMap[setting.PresetTemplateVariableProduct] = productName
+	valuesMap[setting.PresetTemplateVariableService] = serviceName
 
 	tmpl, err := template.New("values").Parse(valuesYaml)
 	if err != nil {
