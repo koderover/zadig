@@ -17,17 +17,14 @@ limitations under the License.
 package git
 
 import (
-	"golang.org/x/crypto/bcrypt"
+	"crypto/sha256"
+	"encoding/hex"
 
 	"github.com/koderover/zadig/pkg/config"
-	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 func GetHookSecret() string {
-	token, err := bcrypt.GenerateFromPassword([]byte(config.SecretKey()), bcrypt.MinCost)
-	if err != nil {
-		log.DPanic(err)
-	}
+	hash := sha256.Sum256([]byte(config.SecretKey()))
 
-	return string(token)
+	return hex.EncodeToString(hash[:])
 }
