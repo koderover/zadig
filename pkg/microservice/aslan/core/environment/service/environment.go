@@ -2652,23 +2652,9 @@ func installProductHelmCharts(user, envName, requestID string, args *commonmodel
 		chartInfoMap[renderChart.ServiceName] = renderChart
 	}
 
-	serviceList := make([]interface{}, 0)
-	handler := func(data interface{}, logger *zap.SugaredLogger) error {
-		service := data.(*commonmodels.ProductService)
-		// 获取服务详情
-		opt := &commonrepo.ServiceFindOption{
-			ServiceName:   service.ServiceName,
-			Type:          service.Type,
-			Revision:      service.Revision,
-			ProductName:   args.ProductName,
-			ExcludeStatus: setting.ProductStatusDeleting,
-		}
-		serviceObj, err := commonrepo.NewServiceColl().Find(opt)
-		if err != nil {
-			return err
-		}
-
-		renderChart := chartInfoMap[service.ServiceName]
+	serviceList := make([]*commonmodels.Service, 0)
+	handler := func(serviceObj *commonmodels.Service, logger *zap.SugaredLogger) error {
+		renderChart := chartInfoMap[serviceObj.ServiceName]
 		err = installOrUpgradeHelmChart(args.Namespace, renderChart, renderset.DefaultValues, serviceObj, 0, helmClient)
 		if err != nil {
 			return err
@@ -2682,7 +2668,22 @@ func installProductHelmCharts(user, envName, requestID string, args *commonmodel
 			if !ok {
 				continue
 			}
-			serviceList = append(serviceList, svc)
+
+			// 获取服务详情
+			opt := &commonrepo.ServiceFindOption{
+				ServiceName:   svc.ServiceName,
+				Type:          svc.Type,
+				Revision:      svc.Revision,
+				ProductName:   args.ProductName,
+				ExcludeStatus: setting.ProductStatusDeleting,
+			}
+			serviceObj, err := commonrepo.NewServiceColl().Find(opt)
+			if err != nil {
+				errList = multierror.Append(errList, errors.Wrapf(err, "failed to find template servce, serviceName %s", svc.ServiceName))
+				continue
+			}
+
+			serviceList = append(serviceList, serviceObj)
 		}
 	}
 
@@ -2754,7 +2755,7 @@ func getUpdatedProductServices(updateProduct *commonmodels.Product, serviceRevis
 	return updatedAllServices
 }
 
-func intervalExecutor(interval time.Duration, serviceList []interface{}, handler func(data interface{}, log *zap.SugaredLogger) error, log *zap.SugaredLogger) []error {
+func intervalExecutor(interval time.Duration, serviceList []*commonmodels.Service, handler func(data *commonmodels.Service, log *zap.SugaredLogger) error, log *zap.SugaredLogger) []error {
 	if len(serviceList) == 0 {
 		return nil
 	}
@@ -2767,9 +2768,11 @@ func intervalExecutor(interval time.Duration, serviceList []interface{}, handler
 	for _, data := range serviceList {
 		go func() {
 			defer wg.Done()
+			log.Infof("handling single serivce %s", data.ServiceName)
 			err := handler(data, log)
 			if err != nil {
 				errList = append(errList, err)
+				log.Errorf("service:%s apply fail, err %s", data.ServiceName, err)
 			}
 		}()
 		<-ticker.C
@@ -2840,31 +2843,18 @@ func updateProductGroup(username, productName, envName, updateType string, produ
 		renderChartMap[renderChart.ServiceName] = renderChart
 	}
 
-	handler := func(data interface{}, log *zap.SugaredLogger) error {
-		service := data.(*commonmodels.ProductService)
-		opt := &commonrepo.ServiceFindOption{
-			ServiceName:   service.ServiceName,
-			Type:          service.Type,
-			Revision:      service.Revision,
-			ProductName:   service.ProductName,
-			ExcludeStatus: setting.ProductStatusDeleting,
-		}
-		serviceObj, err := commonrepo.NewServiceColl().Find(opt)
-		if err != nil {
-			log.Errorf("failed to find service with opt %+v, err: %s", opt, err)
-			return errors.Wrapf(err, "failed to find template servce %s", service.ServiceName)
-		}
-		renderChart := renderChartMap[service.ServiceName]
+	handler := func(serviceObj *commonmodels.Service, log *zap.SugaredLogger) error {
+		renderChart := renderChartMap[serviceObj.ServiceName]
 		err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderSet.DefaultValues, serviceObj, 0, helmClient)
 		if err != nil {
-			return errors.Wrapf(err, "failed to install or upgrade service %s", service.ServiceName)
+			return errors.Wrapf(err, "failed to install or upgrade service %s", serviceObj.ServiceName)
 		}
 		return nil
 	}
 
 	errList := new(multierror.Error)
 	for groupIndex, services := range productResp.Services {
-		serviceList := make([]interface{}, 0)
+		serviceList := make([]*commonmodels.Service, 0)
 		for _, svc := range services {
 			_, ok := renderChartMap[svc.ServiceName]
 			if !ok {
@@ -2874,7 +2864,22 @@ func updateProductGroup(username, productName, envName, updateType string, produ
 			if !svcNameSet.Has(svc.ServiceName) {
 				continue
 			}
-			serviceList = append(serviceList, svc)
+
+			opt := &commonrepo.ServiceFindOption{
+				ServiceName:   svc.ServiceName,
+				Type:          svc.Type,
+				Revision:      svc.Revision,
+				ProductName:   svc.ProductName,
+				ExcludeStatus: setting.ProductStatusDeleting,
+			}
+			serviceObj, err := commonrepo.NewServiceColl().Find(opt)
+			if err != nil {
+				log.Errorf("failed to find service with opt %+v, err: %s", opt, err)
+				errList = multierror.Append(errList, errors.Wrapf(err, "failed to find template servce, serviceName %s", svc.ServiceName))
+				continue
+			}
+
+			serviceList = append(serviceList, serviceObj)
 		}
 
 		serviceGroupErr := intervalExecutor(time.Millisecond*2500, serviceList, handler, log)
@@ -3085,8 +3090,7 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 		renderChartMap[renderChart.ServiceName] = renderChart
 	}
 
-	handler := func(data interface{}, log *zap.SugaredLogger) error {
-		service := data.(*commonmodels.Service)
+	handler := func(service *commonmodels.Service, log *zap.SugaredLogger) error {
 		renderChart := renderChartMap[service.ServiceName]
 		err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderset.DefaultValues, service, 0, helmClient)
 		if err != nil {
@@ -3097,7 +3101,7 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 
 	errList := new(multierror.Error)
 	for groupIndex, services := range productResp.Services {
-		serviceList := make([]interface{}, 0)
+		serviceList := make([]*commonmodels.Service, 0)
 		groupServices := make([]*commonmodels.ProductService, 0)
 		for _, service := range services {
 			if _, isExist := renderChartMap[service.ServiceName]; isExist {
