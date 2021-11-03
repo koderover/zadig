@@ -17,17 +17,14 @@ limitations under the License.
 package git
 
 import (
-	"github.com/koderover/zadig/pkg/tool/crypto"
-	"github.com/koderover/zadig/pkg/tool/log"
+	"crypto/sha256"
+	"encoding/hex"
+
+	"github.com/koderover/zadig/pkg/config"
 )
 
-const plainSecret = "webhook secret"
-
 func GetHookSecret() string {
-	token, err := crypto.AesEncrypt(plainSecret)
-	if err != nil {
-		log.DPanic(err)
-	}
+	hash := sha256.Sum256([]byte(config.SecretKey()))
 
-	return token
+	return hex.EncodeToString(hash[:])
 }
