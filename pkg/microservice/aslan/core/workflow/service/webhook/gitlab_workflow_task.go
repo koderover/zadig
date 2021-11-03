@@ -62,9 +62,16 @@ func (gmem *gitlabMergeEventMatcher) Match(hookRepo commonmodels.MainHookRepo) (
 			return false, nil
 		}
 		isRegular := hookRepo.IsRegular
+		fmt.Println(fmt.Sprintf("isRegular:%v", isRegular))
+
 		if !isRegular && hookRepo.Branch != ev.ObjectAttributes.TargetBranch {
 			return false, nil
 		}
+
+		fmt.Println(fmt.Sprintf("hookRepo.Branch:%s", hookRepo.Branch))
+		fmt.Println(fmt.Sprintf("ev.ObjectAttributes.TargetBranch:%s", ev.ObjectAttributes.TargetBranch))
+		fmt.Println(fmt.Sprintf("match:%v", regexp.MustCompile(hookRepo.Branch).MatchString(ev.ObjectAttributes.TargetBranch)))
+
 		if isRegular && !regexp.MustCompile(hookRepo.Branch).MatchString(ev.ObjectAttributes.TargetBranch) {
 			return false, nil
 		}
