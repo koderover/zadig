@@ -5,10 +5,12 @@ import (
 )
 
 type User struct {
-	UID   string `json:"uid"`
-	Name  string `json:"name"`
-	Email string `json:"email"`
-	Phone string `json:"phone"`
+	UID          string `json:"uid"`
+	Name         string `json:"name"`
+	Email        string `json:"email"`
+	Phone        string `json:"phone"`
+	IdentityType string `json:"identity_type"`
+	Account      string `json:"account"`
 }
 
 type usersResp struct {

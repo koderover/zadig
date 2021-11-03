@@ -12,9 +12,11 @@ import (
 
 type roleBinding struct {
 	*policy.RoleBinding
-	Username string `json:"username"`
-	Email    string `json:"email"`
-	Phone    string `json:"phone"`
+	Username     string `json:"username"`
+	Email        string `json:"email"`
+	Phone        string `json:"phone"`
+	IdentityType string `json:"identity_type"`
+	Account      string `json:"account"`
 }
 
 func ListRoleBindings(header http.Header, qs url.Values, logger *zap.SugaredLogger) ([]*roleBinding, error) {
@@ -25,10 +27,10 @@ func ListRoleBindings(header http.Header, qs url.Values, logger *zap.SugaredLogg
 	}
 
 	var uids []string
-	uidToRoleBinding := make(map[string]*roleBinding)
+	uidToRoleBinding := make(map[string][]*roleBinding)
 	for _, rb := range rbs {
 		uids = append(uids, rb.UID)
-		uidToRoleBinding[rb.UID] = &roleBinding{RoleBinding: rb}
+		uidToRoleBinding[rb.UID] = append(uidToRoleBinding[rb.UID], &roleBinding{RoleBinding: rb})
 	}
 
 	users, err := user.New().ListUsers(&user.SearchArgs{UIDs: uids})
@@ -40,10 +42,16 @@ func ListRoleBindings(header http.Header, qs url.Values, logger *zap.SugaredLogg
 	var res []*roleBinding
 	for _, u := range users {
 		if rb, ok := uidToRoleBinding[u.UID]; ok {
-			rb.Username = u.Name
-			rb.Email = u.Email
-			rb.Phone = u.Phone
-			res = append(res, rb)
+			for _, r := range rb {
+				r.Username = u.Name
+				r.Email = u.Email
+				r.Phone = u.Phone
+				r.IdentityType = u.IdentityType
+				r.Account = u.Account
+
+				res = append(res, r)
+			}
+
 		}
 	}
 
