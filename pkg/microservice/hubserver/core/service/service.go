@@ -17,8 +17,6 @@ limitations under the License.
 package service
 
 import (
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -29,6 +27,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"k8s.io/apimachinery/pkg/util/proxy"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/koderover/zadig/pkg/microservice/hubserver/config"
 	"github.com/koderover/zadig/pkg/microservice/hubserver/core/repository/models"
@@ -171,12 +170,23 @@ func Forward(server *remotedialer.Server, w http.ResponseWriter, r *http.Request
 		}
 	}()
 
-	_, err = mongodb.NewK8sClusterColl().Get(clientKey)
-	if err != nil {
-		return
-	}
+	//_, err = mongodb.NewK8sClusterColl().Get(clientKey)
+	//if err != nil {
+	//	return
+	//}
 
 	clusterInfo, exists := clusters.Load(clientKey)
+	if !server.HasSession(clientKey) || !exists {
+		for i := 0; i < 4; i++ {
+			if server.HasSession(clientKey) && exists {
+				break
+			}
+			time.Sleep(wait.Jitter(3*time.Second, 2))
+			clusterInfo, exists = clusters.Load(clientKey)
+		}
+	}
+
+	clusterInfo, exists = clusters.Load(clientKey)
 	if !server.HasSession(clientKey) || !exists {
 		errHandled = true
 		logger.Infof("waiting for cluster %s to connect", clientKey)
@@ -204,22 +214,28 @@ func Forward(server *remotedialer.Server, w http.ResponseWriter, r *http.Request
 	r.URL.Host = r.Host
 	r.Header.Set("authorization", "Bearer "+cluster.Token)
 
-	var certBytes []byte
-	certBytes, err = base64.StdEncoding.DecodeString(cluster.CACert)
+	//var certBytes []byte
+	//certBytes, err = base64.StdEncoding.DecodeString(cluster.CACert)
+	//if err != nil {
+	//	return
+	//}
+
+	//certs := x509.NewCertPool()
+	//certs.AppendCertsFromPEM(certBytes)
+
+	//transport := &http.Transport{}
+
+	transport, err := server.GetTransport(cluster.CACert, clientKey)
 	if err != nil {
+		log.Errorf(fmt.Sprintf("failed to get transport, err %s", err))
 		return
 	}
 
-	certs := x509.NewCertPool()
-	certs.AppendCertsFromPEM(certBytes)
-
-	transport := &http.Transport{}
-
 	//noinspection GoDeprecation
-	transport.Dial = server.Dialer(clientKey, 15*time.Second)
-	transport.TLSClientConfig = &tls.Config{
-		RootCAs: certs,
-	}
+	//transport.Dial = server.Dialer(clientKey)
+	//transport.TLSClientConfig = &tls.Config{
+	//	RootCAs: certs,
+	//}
 
 	httpProxy := proxy.NewUpgradeAwareHandler(endpoint, transport, true, false, er)
 	httpProxy.ServeHTTP(w, r)

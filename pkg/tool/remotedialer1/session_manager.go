@@ -1,14 +1,29 @@
+/*
+Copyright 2021 The KodeRover Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package remotedialer
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/rancher/remotedialer/metrics"
 )
 
 type sessionListener interface {
@@ -31,12 +46,12 @@ func newSessionManager() *sessionManager {
 	}
 }
 
-func toDialer(s *Session, prefix string) Dialer {
-	return func(ctx context.Context, proto, address string) (net.Conn, error) {
+func toDialer(s *Session, prefix string, deadline time.Duration) Dialer {
+	return func(proto, address string) (net.Conn, error) {
 		if prefix == "" {
-			return s.serverConnectContext(ctx, proto, address)
+			return s.serverConnect(deadline, proto, address)
 		}
-		return s.serverConnectContext(ctx, prefix+"::"+proto, address)
+		return s.serverConnect(deadline, prefix+"::"+proto, address)
 	}
 }
 
@@ -66,13 +81,13 @@ func (sm *sessionManager) addListener(listener sessionListener) {
 	}
 }
 
-func (sm *sessionManager) getDialer(clientKey string) (Dialer, error) {
+func (sm *sessionManager) getDialer(clientKey string, deadline time.Duration) (Dialer, error) {
 	sm.Lock()
 	defer sm.Unlock()
 
 	sessions := sm.clients[clientKey]
 	if len(sessions) > 0 {
-		return toDialer(sessions[0], ""), nil
+		return toDialer(sessions[0], "", deadline), nil
 	}
 
 	for _, sessions := range sm.peers {
@@ -81,7 +96,7 @@ func (sm *sessionManager) getDialer(clientKey string) (Dialer, error) {
 			keys := session.remoteClientKeys[clientKey]
 			session.Unlock()
 			if len(keys) > 0 {
-				return toDialer(session, clientKey), nil
+				return toDialer(session, clientKey, deadline), nil
 			}
 		}
 	}
@@ -101,7 +116,6 @@ func (sm *sessionManager) add(clientKey string, conn *websocket.Conn, peer bool)
 	} else {
 		sm.clients[clientKey] = append(sm.clients[clientKey], session)
 	}
-	metrics.IncSMTotalAddWS(clientKey, peer)
 
 	for l := range sm.listeners {
 		l.sessionAdded(clientKey, session.sessionKey)
@@ -111,21 +125,14 @@ func (sm *sessionManager) add(clientKey string, conn *websocket.Conn, peer bool)
 }
 
 func (sm *sessionManager) remove(s *Session) {
-	var isPeer bool
 	sm.Lock()
 	defer sm.Unlock()
 
-	for i, store := range []map[string][]*Session{sm.clients, sm.peers} {
+	for _, store := range []map[string][]*Session{sm.clients, sm.peers} {
 		var newSessions []*Session
 
 		for _, v := range store[s.clientKey] {
 			if v.sessionKey == s.sessionKey {
-				if i == 0 {
-					isPeer = false
-				} else {
-					isPeer = true
-				}
-				metrics.IncSMTotalRemoveWS(s.clientKey, isPeer)
 				continue
 			}
 			newSessions = append(newSessions, v)

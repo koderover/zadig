@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -173,6 +174,7 @@ func (c *Client) Start() error {
 		tm := time.Now()
 
 		remotedialer.ClientConnect(
+			context.Background(),
 			connectURL,
 			headers,
 			&websocket.Dialer{

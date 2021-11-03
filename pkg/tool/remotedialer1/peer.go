@@ -1,3 +1,19 @@
+/*
+Copyright 2021 The KodeRover Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package remotedialer
 
 import (
@@ -10,7 +26,6 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/rancher/remotedialer/metrics"
 	"github.com/sirupsen/logrus"
 )
 
@@ -80,7 +95,7 @@ func (p *peer) start(ctx context.Context, s *Server) {
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: true,
 		},
-		HandshakeTimeout: HandshakeTimeOut,
+		HandshakeTimeout: 10 * time.Second,
 	}
 
 outer:
@@ -91,27 +106,24 @@ outer:
 		default:
 		}
 
-		metrics.IncSMTotalAddPeerAttempt(p.id)
 		ws, _, err := dialer.Dial(p.url, headers)
 		if err != nil {
 			logrus.Errorf("Failed to connect to peer %s [local ID=%s]: %v", p.url, s.PeerID, err)
 			time.Sleep(5 * time.Second)
 			continue
 		}
-		metrics.IncSMTotalPeerConnected(p.id)
 
 		session := NewClientSession(func(string, string) bool { return true }, ws)
-		session.dialer = func(ctx context.Context, network, address string) (net.Conn, error) {
+		session.dialer = func(network, address string) (net.Conn, error) {
 			parts := strings.SplitN(network, "::", 2)
 			if len(parts) != 2 {
 				return nil, fmt.Errorf("invalid clientKey/proto: %s", network)
 			}
-			d := s.Dialer(parts[0])
-			return d(ctx, parts[1], address)
+			return s.Dial(parts[0], 15*time.Second, parts[1], address)
 		}
 
 		s.sessions.addListener(session)
-		_, err = session.Serve(ctx)
+		_, err = session.Serve()
 		s.sessions.removeListener(session)
 		session.Close()
 
