@@ -26,10 +26,12 @@ type User struct {
 }
 
 type QueryArgs struct {
-	Account string   `json:"account,omitempty"`
-	UIDs    []string `json:"uids,omitempty"`
-	PerPage int      `json:"per_page,omitempty"`
-	Page    int      `json:"page,omitempty"`
+	Name         string   `json:"name,omitempty"`
+	Account      string   `json:"account,omitempty"`
+	IdentityType string   `json:"identity_type,omitempty"`
+	UIDs         []string `json:"uids,omitempty"`
+	PerPage      int      `json:"per_page,omitempty"`
+	Page         int      `json:"page,omitempty"`
 }
 
 type UserInfo struct {
@@ -155,6 +157,9 @@ func GetUser(uid string, logger *zap.SugaredLogger) (*UserInfo, error) {
 		logger.Errorf("GetUser getUserByUid:%s error, error msg:%s", uid, err.Error())
 		return nil, err
 	}
+	if user == nil {
+		return nil, nil
+	}
 	userLogin, err := orm.GetUserLogin(uid, user.Account, config.AccountLoginType, core.DB)
 	if err != nil {
 		logger.Errorf("GetUser GetUserLogin:%s error, error msg:%s", uid, err.Error())
@@ -164,10 +169,34 @@ func GetUser(uid string, logger *zap.SugaredLogger) (*UserInfo, error) {
 	return &userInfo[0], nil
 }
 
-func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*UsersResp, error) {
-	count, err := orm.GetUsersCount(args.Account)
+func SearchUserByAccount(args *QueryArgs, logger *zap.SugaredLogger) (*UsersResp, error) {
+	user, err := orm.GetUser(args.Account, args.IdentityType, core.DB)
 	if err != nil {
-		logger.Errorf("SeachUsers GetUsersCount By account:%s error, error msg:%s", args.Account, err.Error())
+		logger.Errorf("SearchUserByAccount GetUser By account:%s error, error msg:%s", args.Account, err.Error())
+		return nil, err
+	}
+	if user == nil {
+		return &UsersResp{
+			Users:      nil,
+			TotalCount: 0,
+		}, nil
+	}
+	userLogins, err := orm.ListUserLogins([]string{user.UID}, core.DB)
+	if err != nil {
+		logger.Errorf("SearchUserByAccount ListUserLogins By uid:%s error, error msg:%s", user.UID, err.Error())
+		return nil, err
+	}
+	usersInfo := mergeUserLogin([]models.User{*user}, *userLogins, logger)
+	return &UsersResp{
+		Users:      usersInfo,
+		TotalCount: int64(len(usersInfo)),
+	}, nil
+}
+
+func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*UsersResp, error) {
+	count, err := orm.GetUsersCount(args.Name)
+	if err != nil {
+		logger.Errorf("SeachUsers GetUsersCount By name:%s error, error msg:%s", args.Name, err.Error())
 		return nil, err
 	}
 	if count == 0 {
@@ -176,9 +205,9 @@ func SearchUsers(args *QueryArgs, logger *zap.SugaredLogger) (*UsersResp, error)
 		}, nil
 	}
 
-	users, err := orm.ListUsers(args.Page, args.PerPage, args.Account, core.DB)
+	users, err := orm.ListUsers(args.Page, args.PerPage, args.Name, core.DB)
 	if err != nil {
-		logger.Errorf("SeachUsers SeachUsers By account:%s error, error msg:%s", args.Account, err.Error())
+		logger.Errorf("SeachUsers SeachUsers By name:%s error, error msg:%s", args.Name, err.Error())
 		return nil, err
 	}
 	var uids []string

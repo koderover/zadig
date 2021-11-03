@@ -42,13 +42,13 @@ func GetUserByUid(uid string, db *gorm.DB) (*models.User, error) {
 }
 
 // ListUsers gets a list of users based on paging constraints
-func ListUsers(page int, perPage int, account string, db *gorm.DB) ([]models.User, error) {
+func ListUsers(page int, perPage int, name string, db *gorm.DB) ([]models.User, error) {
 	var (
 		users []models.User
 		err   error
 	)
 
-	err = db.Where("account LIKE ?", "%"+account+"%").Offset((page - 1) * perPage).Limit(perPage).Find(&users).Error
+	err = db.Where("name LIKE ?", "%"+name+"%").Offset((page - 1) * perPage).Limit(perPage).Find(&users).Error
 
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
@@ -100,14 +100,14 @@ func DeleteUserByUids(uids []string, db *gorm.DB) error {
 }
 
 // GetUsersCount gets user count
-func GetUsersCount(account string) (int64, error) {
+func GetUsersCount(name string) (int64, error) {
 	var (
 		users []models.User
 		err   error
 		count int64
 	)
 
-	err = core.DB.Where("account LIKE ?", "%"+account+"%").Find(&users).Count(&count).Error
+	err = core.DB.Where("name LIKE ?", "%"+name+"%").Find(&users).Count(&count).Error
 
 	if err != nil {
 		return 0, err
