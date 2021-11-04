@@ -5,15 +5,15 @@ import (
 )
 
 type Jira struct {
-	ObjectID       bson.ObjectId `json:"-"					bson:"_id,omitempty"`
-	ID             int64         `json:"id"					bson:"id"`
-	Host           string        `json:"host"				bson:"host"`
-	User           string        `json:"user"				bson:"user"`
-	AccessToken    string        `json:"access_token"		bson:"access_token"`
-	OrganizationID int           `json:"organization_id"	bson:"organization_id"`
-	CreatedAt      int64         `json:"created_at"			bson:"created_at"`
-	UpdatedAt      int64         `json:"updated_at"			bson:"updated_at"`
-	DeletedAt      int64         `json:"deleted_at"			bson:"deleted_at"`
+	ObjectID       bson.ObjectId `bson:"_id,omitempty"json:"-"					`
+	ID             int64         `bson:"id"json:"id"					`
+	Host           string        `bson:"host"json:"host"				`
+	User           string        `bson:"user"json:"user"				`
+	AccessToken    string        `bson:"access_token" json:"access_token"`
+	OrganizationID int           `bson:"organization_id"json:"organization_id"`
+	CreatedAt      int64         `bson:"created_at"json:"created_at"`
+	UpdatedAt      int64         `bson:"updated_at" json:"updated_at"`
+	DeletedAt      int64         `bson:"deleted_at"json:"deleted_at"`
 }
 
 func (Jira) TableName() string {
