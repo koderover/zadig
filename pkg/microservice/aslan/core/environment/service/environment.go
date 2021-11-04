@@ -2786,7 +2786,6 @@ func intervalExecutor(interval time.Duration, serviceList []*commonmodels.Servic
 	for _, data := range serviceList {
 		go func() {
 			defer wg.Done()
-			log.Infof("handling single serivce %s", data.ServiceName)
 			err := handler(data, log)
 			if err != nil {
 				errList = append(errList, err)
