@@ -1,6 +1,7 @@
 package user
 
 import (
+	_ "embed"
 	"fmt"
 	"net/url"
 	"time"
@@ -19,7 +20,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/user/core/service/login"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
-	"github.com/koderover/zadig/pkg/util/mail"
+	"github.com/koderover/zadig/pkg/tool/mail"
 )
 
 type User struct {
@@ -113,10 +114,14 @@ func SearchAndSyncUser(ldapId string, logger *zap.SugaredLogger) error {
 		return err
 	}
 	for _, entry := range sr.Entries {
-		account := si.Config.UserSearch.NameAttr
+		account := si.Config.UserSearch.Username
+		name := account
+		if len(si.Config.UserSearch.NameAttr) != 0 {
+			name = si.Config.UserSearch.NameAttr
+		}
 		_, err := SyncUser(&SyncUserInfo{
 			Account:      entry.GetAttributeValue(account),
-			Name:         entry.GetAttributeValue(account),
+			Name:         name,
 			IdentityType: si.ID, // ldap may have not only one instance, so use id as identityType
 		}, logger)
 		if err != nil {
@@ -276,43 +281,8 @@ func DeleteUserByUID(uid string, logger *zap.SugaredLogger) error {
 	return tx.Commit().Error
 }
 
-func getRetrieveHtmlTemplate() string {
-	return `
-<div>
-  	<div>
-    <table style="width:100%; max-width: 1024px;">
-      <tbody>
-        <tr>
-          	<td style="font-weight: 300; font-size: 18px; text-align:left; border-bottom: 1px solid #f0f0f0;">hi，您好</td>
-        </tr>
-      </tbody>
-    </table>
-  	</div>
-</div>
-
-<div>
-  <div style="margin-bottom: 5px; ">
-        <h3 style="font-size:18px;font-weight: 300;text-align:left; ">非常感谢使用 Zadig，点击下面的链接完成重置密码。</h3>
-  </div>
-  <div class="card-body">
-    <table style="width:100%; max-width: 1024px;">
-      <tbody>
-        <tr>
-          <td style="font-weight: 300; font-size: 18px; text-align:left; "><a href="{{.Url}}" target="_blank">{{.Url}}</a></td>
-        </tr>
-		<tr>
-          <td style="font-weight: 300; font-size: 18px; text-align:left; ">如果您不想继续完成密码重置，请忽略该邮件，链接将在5分钟之后过期!</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</div>
-
-<div style="margin: 20px auto;font-size:90%">
-	<p style="text-align: left">本邮件由 Zadig 系统自动发出，请勿直接回复。</p>
-	<p style="text-align: left">Made By Zadig Team ♥ Happy Coding.</p>
-</div>`
-}
+//go:embed retrieve.html
+var retrieveHemlTemplate []byte
 
 func Retrieve(account string, logger *zap.SugaredLogger) (*RetrieveResp, error) {
 	user, err := orm.GetUser(account, config.SystemIdentityType, core.DB)
@@ -344,7 +314,7 @@ func Retrieve(account string, logger *zap.SugaredLogger) (*RetrieveResp, error) 
 	v := url.Values{}
 	v.Add("idtoken", token)
 	retrieveURL := configbase.SystemAddress() + "/signin?" + v.Encode()
-	body, err := mail.RenderEmailTemplate(retrieveURL, getRetrieveHtmlTemplate())
+	body, err := mail.RenderEmailTemplate(retrieveURL, string(retrieveHemlTemplate))
 	if err != nil {
 		logger.Errorf("Retrieve renderEmailTemplate error, error msg:%s ", err)
 		return nil, fmt.Errorf("Retrieve renderEmailTemplate error, error msg:%s ", err)

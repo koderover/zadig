@@ -25,6 +25,10 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 )
 
+func init() {
+	viper.SetDefault(setting.ENVUserPort, "80")
+}
+
 func IssuerURL() string {
 	return viper.GetString(setting.ENVIssuerURL)
 }
@@ -62,9 +66,5 @@ func NoReplyEmailPassword() string {
 }
 
 func UserPort() string {
-	port := viper.GetString(setting.ENVUserPort)
-	if len(port) > 0 {
-		return port
-	}
-	return "80"
+	return viper.GetString(setting.ENVUserPort)
 }

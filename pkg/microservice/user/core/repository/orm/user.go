@@ -48,7 +48,7 @@ func ListUsers(page int, perPage int, name string, db *gorm.DB) ([]models.User, 
 		err   error
 	)
 
-	err = db.Where("name LIKE ?", "%"+name+"%").Offset((page - 1) * perPage).Limit(perPage).Find(&users).Error
+	err = db.Where("name LIKE ?", "%"+name+"%").Order("account ASC").Offset((page - 1) * perPage).Limit(perPage).Find(&users).Error
 
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
