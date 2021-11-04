@@ -124,6 +124,7 @@ func GetClusterYaml(hubURI string) func(*gin.Context) {
 		yaml, err := service.GetYaml(
 			c.Param("id"),
 			hubURI,
+			c.Query("k8s-version"),
 			strings.HasPrefix(c.Query("type"), "deploy"),
 			ctx.Logger,
 		)

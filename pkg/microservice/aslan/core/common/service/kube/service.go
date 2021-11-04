@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/hashicorp/go-version"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -208,7 +209,7 @@ func (s *Service) ListConnectedClusters(logger *zap.SugaredLogger) ([]*models.K8
 	return clusters, nil
 }
 
-func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment bool, logger *zap.SugaredLogger) ([]byte, error) {
+func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI, kubeVersion string, useDeployment bool, logger *zap.SugaredLogger) ([]byte, error) {
 	var (
 		cluster *models.K8SCluster
 		err     error
@@ -235,12 +236,19 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 		return nil, err
 	}
 
+	rbacv1betaused := false
+	if kubeVersion != "" {
+		rbacv1beta, _ := version.NewVersion("1.17.0")
+		rbacv1betaused = rbacv1beta.LessThan(version.Must(version.NewVersion(kubeVersion)))
+	}
+
 	if cluster.Namespace == "" {
 		err = YamlTemplate.Execute(buffer, TemplateSchema{
 			HubAgentImage:     agentImage,
 			ClientToken:       token,
 			HubServerBaseAddr: hubBase.String(),
 			UseDeployment:     useDeployment,
+			Rbacv1beta:        rbacv1betaused,
 		})
 	} else {
 		err = YamlTemplateForNamespace.Execute(buffer, TemplateSchema{
@@ -249,6 +257,7 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI string, useDeployment
 			HubServerBaseAddr: hubBase.String(),
 			UseDeployment:     useDeployment,
 			Namespace:         cluster.Namespace,
+			Rbacv1beta:        rbacv1betaused,
 		})
 	}
 
@@ -265,6 +274,7 @@ type TemplateSchema struct {
 	HubServerBaseAddr string
 	Namespace         string
 	UseDeployment     bool
+	Rbacv1beta        bool // 兼容1.17以下版本
 }
 
 var YamlTemplate = template.Must(template.New("agentYaml").Parse(`
@@ -284,8 +294,11 @@ metadata:
   namespace: koderover-agent
 
 ---
-
+{{- if .Rbacv1beta }}
+apiVersion: rbac.authorization.k8s.io/v1beta1
+{{- else }}
 apiVersion: rbac.authorization.k8s.io/v1
+{{- end }}
 kind: ClusterRoleBinding
 metadata:
   name: koderover-agent-admin-binding
@@ -300,8 +313,11 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 
 ---
-
+{{- if .Rbacv1beta }}
+apiVersion: rbac.authorization.k8s.io/v1beta1
+{{- else }}
 apiVersion: rbac.authorization.k8s.io/v1
+{{- end }}
 kind: ClusterRole
 metadata:
   name: koderover-agent-admin
@@ -393,7 +409,11 @@ metadata:
 
 ---
 
+{{- if .Rbacv1beta }}
+apiVersion: rbac.authorization.k8s.io/v1beta1
+{{- else }}
 apiVersion: rbac.authorization.k8s.io/v1
+{{- end }}
 kind: RoleBinding
 metadata:
   name: koderover-agent-admin-binding
@@ -409,7 +429,11 @@ roleRef:
 
 ---
 
+{{- if .Rbacv1beta }}
+apiVersion: rbac.authorization.k8s.io/v1beta1
+{{- else }}
 apiVersion: rbac.authorization.k8s.io/v1
+{{- end }}
 kind: Role
 metadata:
   name: koderover-agent-admin-role

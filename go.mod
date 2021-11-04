@@ -32,6 +32,7 @@ require (
 	github.com/gorilla/websocket v1.4.2
 	github.com/gregjones/httpcache v0.0.0-20181110185634-c63ab54fda8f
 	github.com/hashicorp/go-multierror v1.1.1
+	github.com/hashicorp/go-version v1.3.0
 	github.com/huaweicloud/huaweicloud-sdk-go-v3 v0.0.50
 	github.com/jasonlvhit/gocron v0.0.0-20171226191223-3c914c8681c3
 	github.com/jinzhu/now v1.1.2
