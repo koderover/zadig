@@ -47,4 +47,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		emails.PATCH("/service", UpdateEmailService)
 		emails.DELETE("/service", DeleteEmailService)
 	}
+
+	jira := router.Group("jira")
+	{
+		jira.GET("", GetJira)
+		jira.POST("", CreateJira)
+		jira.PATCH("", UpdateJira)
+		jira.DELETE("", DeleteJira)
+	}
 }
