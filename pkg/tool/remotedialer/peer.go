@@ -1,3 +1,19 @@
+/*
+Copyright 2021 The KodeRover Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package remotedialer
 
 import (
@@ -10,7 +26,6 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/rancher/remotedialer/metrics"
 	"github.com/sirupsen/logrus"
 )
 
@@ -91,14 +106,12 @@ outer:
 		default:
 		}
 
-		metrics.IncSMTotalAddPeerAttempt(p.id)
 		ws, _, err := dialer.Dial(p.url, headers)
 		if err != nil {
 			logrus.Errorf("Failed to connect to peer %s [local ID=%s]: %v", p.url, s.PeerID, err)
 			time.Sleep(5 * time.Second)
 			continue
 		}
-		metrics.IncSMTotalPeerConnected(p.id)
 
 		session := NewClientSession(func(string, string) bool { return true }, ws)
 		session.dialer = func(ctx context.Context, network, address string) (net.Conn, error) {

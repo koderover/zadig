@@ -1,11 +1,25 @@
+/*
+Copyright 2021 The KodeRover Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package remotedialer
 
 import (
 	"io"
 	"net"
 	"time"
-
-	"github.com/rancher/remotedialer/metrics"
 )
 
 type connection struct {
@@ -27,12 +41,10 @@ func newConnection(connID int64, session *Session, proto, address string) *conne
 		connID:  connID,
 		session: session,
 	}
-	metrics.IncSMTotalAddConnectionsForWS(session.clientKey, proto, address)
 	return c
 }
 
 func (c *connection) tunnelClose(err error) {
-	metrics.IncSMTotalRemoveConnectionsForWS(c.session.clientKey, c.addr.Network(), c.addr.String())
 	c.writeErr(err)
 	c.doTunnelClose(err)
 }
@@ -61,7 +73,6 @@ func (c *connection) Close() error {
 
 func (c *connection) Read(b []byte) (int, error) {
 	n, err := c.buffer.Read(b)
-	metrics.AddSMTotalReceiveBytesOnWS(c.session.clientKey, float64(n))
 	return n, err
 }
 
@@ -70,14 +81,12 @@ func (c *connection) Write(b []byte) (int, error) {
 		return 0, io.ErrClosedPipe
 	}
 	msg := newMessage(c.connID, b)
-	metrics.AddSMTotalTransmitBytesOnWS(c.session.clientKey, float64(len(msg.Bytes())))
 	return c.session.writeMessage(c.writeDeadline, msg)
 }
 
 func (c *connection) writeErr(err error) {
 	if err != nil {
 		msg := newErrorMessage(c.connID, err)
-		metrics.AddSMTotalTransmitErrorBytesOnWS(c.session.clientKey, float64(len(msg.Bytes())))
 		c.session.writeMessage(c.writeDeadline, msg)
 	}
 }

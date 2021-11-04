@@ -178,8 +178,9 @@ func Forward(server *remotedialer.Server, w http.ResponseWriter, r *http.Request
 	clusterInfo, exists := clusters.Load(clientKey)
 	if !server.HasSession(clientKey) || !exists {
 		for i := 0; i < 4; i++ {
-			log.Infof("stuck waiting for connections index:%d", i)
+			log.Infof("stuck waiting for connection index:%d", i)
 			if server.HasSession(clientKey) && exists {
+				log.Infof("succeeded waiting for connection index:%d", i)
 				break
 			}
 			time.Sleep(wait.Jitter(3*time.Second, 2))
@@ -187,7 +188,6 @@ func Forward(server *remotedialer.Server, w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	clusterInfo, exists = clusters.Load(clientKey)
 	if !server.HasSession(clientKey) || !exists {
 		errHandled = true
 		logger.Infof("waiting for cluster %s to connect", clientKey)
