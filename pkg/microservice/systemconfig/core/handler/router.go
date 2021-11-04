@@ -18,6 +18,9 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/handler"
+	handler2 "github.com/koderover/zadig/pkg/microservice/systemconfig/core/jira/handler"
 )
 
 type Router struct{}
@@ -37,23 +40,23 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	}
 	emails := router.Group("emails")
 	{
-		emails.GET("/host", GetEmailHost)
-		emails.POST("/host", CreateEmailHost)
-		emails.PATCH("/host", UpdateEmailHost)
-		emails.DELETE("/host", DeleteEmailHost)
+		emails.GET("/host", handler.GetEmailHost)
+		emails.POST("/host", handler.CreateEmailHost)
+		emails.PATCH("/host", handler.UpdateEmailHost)
+		emails.DELETE("/host", handler.DeleteEmailHost)
 
-		emails.GET("/service", GetEmailService)
-		emails.POST("/service", CreateEmailService)
-		emails.PATCH("/service", UpdateEmailService)
-		emails.DELETE("/service", DeleteEmailService)
+		emails.GET("/service", handler.GetEmailService)
+		emails.POST("/service", handler.CreateEmailService)
+		emails.PATCH("/service", handler.UpdateEmailService)
+		emails.DELETE("/service", handler.DeleteEmailService)
 	}
 
 	jira := router.Group("jira")
 	{
-		jira.GET("", GetJira)
-		jira.POST("", CreateJira)
-		jira.PATCH("", UpdateJira)
-		jira.DELETE("", DeleteJira)
+		jira.GET("", handler2.GetJira)
+		jira.POST("", handler2.CreateJira)
+		jira.PATCH("", handler2.UpdateJira)
+		jira.DELETE("", handler2.DeleteJira)
 	}
 	codehost := router.Group("codehost")
 	{

@@ -4,9 +4,8 @@ import (
 	"context"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-
-	"github.com/globalsign/mgo/bson"
 
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/config"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/repository/models"
