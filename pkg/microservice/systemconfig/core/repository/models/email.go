@@ -5,15 +5,14 @@ import (
 )
 
 type EmailHost struct {
-	ID             int    `json:"id"`
-	Name           string `json:"name"`
-	Port           int    `json:"port"`
-	Username       string `json:"username"`
-	Password       string `json:"password"`
-	IsTLS          bool   `json:"isTLS"`
-	OrganizationID int    `json:"orgId"`
-	CreatedAt      int64  `json:"created_at"`
-	UpdatedAt      int64  `json:"updated_at"`
+	ID        int    `json:"id" bson:"id"`
+	Name      string `json:"name" bson:"name"`
+	Port      int    `json:"port" bson:"port"`
+	Username  string `json:"username" bson:"username"`
+	Password  string `json:"password" bson:"password"`
+	IsTLS     bool   `json:"isTLS" bson:"is_tls"`
+	CreatedAt int64  `json:"created_at" bson:"created_at"`
+	UpdatedAt int64  `json:"updated_at" bson:"updated_at"`
 }
 
 func (EmailHost) TableName() string {
@@ -22,15 +21,15 @@ func (EmailHost) TableName() string {
 
 type EmailService struct {
 	ObjectID       bson.ObjectId `bson:"_id,omitempty"`
-	ID             int           `bson:"id"`
-	Name           string        `bson:"name"`
-	Address        string        `bson:"address"`
-	DisplayName    string        `bson:"display_name"`
-	Theme          string        `bson:"theme"`
-	OrganizationID int           `bson:"organization_id"`
-	CreatedAt      int64         `bson:"created_at"`
-	UpdatedAt      int64         `bson:"updated_at"`
-	DeletedAt      int64         `bson:"deleted_at"`
+	ID             int           `json:"id"   	         bson:"id"`
+	Name           string        `json:"name" 	         bson:"name"`
+	Address        string        `json:"address" 	     bson:"address"`
+	DisplayName    string        `json:"display_name" 	 bson:"display_name"`
+	Theme          string        `json:"theme" 	         bson:"theme"`
+	OrganizationID int           `json:"organization_id" bson:"organization_id"`
+	CreatedAt      int64         `json:"created_at" 	 bson:"created_at"`
+	UpdatedAt      int64         `json:"updated_at" 	 bson:"updated_at"`
+	DeletedAt      int64         `json:"deleted_at" 	 bson:"deleted_at"`
 }
 
 func (EmailService) TableName() string {
