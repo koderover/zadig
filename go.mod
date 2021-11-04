@@ -13,7 +13,7 @@ require (
 	github.com/bradleyfalzon/ghinstallation v1.1.1
 	github.com/bugsnag/bugsnag-go v2.1.0+incompatible // indirect
 	github.com/bugsnag/panicwrap v1.3.1 // indirect
-	github.com/cenkalti/backoff/v3 v3.0.0
+	github.com/cenkalti/backoff/v4 v4.1.1
 	github.com/coocood/freecache v1.1.0
 	github.com/docker/distribution v2.7.1+incompatible
 	github.com/docker/docker v20.10.7+incompatible
