@@ -18,7 +18,11 @@ package core
 
 import (
 	"context"
+	"database/sql"
+	_ "embed"
+	"fmt"
 
+	_ "github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
 
 	"github.com/koderover/zadig/pkg/config"
@@ -29,6 +33,28 @@ import (
 )
 
 var DB *gorm.DB
+
+//go:embed service/init/mysql.sql
+var mysql []byte
+
+func initDBAndTables() {
+	if len(mysql) == 0 {
+		return
+	}
+	db, err := sql.Open("mysql", fmt.Sprintf(
+		"%s:%s@tcp(%s)/?charset=utf8&multiStatements=true",
+		config.MysqlUser(), config.MysqlPassword(), config.MysqlHost(),
+	))
+	defer db.Close()
+	if err != nil {
+		log.Panic(err)
+	}
+	_, err = db.Exec(string(mysql))
+
+	if err != nil {
+		log.Panic(err)
+	}
+}
 
 func Start(_ context.Context) {
 	log.Init(&log.Config{
@@ -43,6 +69,7 @@ func Start(_ context.Context) {
 }
 
 func initDatabase() {
+	initDBAndTables()
 	err := gormtool.Open(config.MysqlUser(),
 		config.MysqlPassword(),
 		config.MysqlHost(),

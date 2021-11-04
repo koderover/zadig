@@ -41,6 +41,5 @@ func openDB(username, password, host, db string) (*gorm.DB, error) {
 		"%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
 		username, password, host, db,
 	)
-
 	return gorm.Open(mysql.Open(dsn), &gorm.Config{})
 }
