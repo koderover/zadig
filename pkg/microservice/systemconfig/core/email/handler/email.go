@@ -3,8 +3,8 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
+	models2 "github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/models"
 	service2 "github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/service"
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/repository/models"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
@@ -17,7 +17,7 @@ func GetEmailHost(c *gin.Context) {
 func CreateEmailHost(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	req := new(models.EmailHost)
+	req := new(models2.EmailHost)
 	if err := c.ShouldBindJSON(req); err != nil {
 		ctx.Err = err
 		return
@@ -28,7 +28,7 @@ func CreateEmailHost(c *gin.Context) {
 func UpdateEmailHost(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	req := new(models.EmailHost)
+	req := new(models2.EmailHost)
 	if err := c.ShouldBindJSON(req); err != nil {
 		ctx.Err = err
 		return
@@ -53,7 +53,7 @@ func GetEmailService(c *gin.Context) {
 func CreateEmailService(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	req := new(models.EmailService)
+	req := new(models2.EmailService)
 	if err := c.ShouldBindJSON(req); err != nil {
 		ctx.Err = err
 		return
@@ -64,7 +64,7 @@ func CreateEmailService(c *gin.Context) {
 func UpdateEmailService(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	req := new(models.EmailService)
+	req := new(models2.EmailService)
 	if err := c.ShouldBindJSON(req); err != nil {
 		ctx.Err = err
 		return
