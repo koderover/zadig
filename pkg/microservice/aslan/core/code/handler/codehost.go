@@ -192,3 +192,21 @@ func ListRepoInfos(c *gin.Context) {
 	param := c.Query("param")
 	ctx.Resp, ctx.Err = service.ListRepoInfos(args.Infos, param, ctx.Logger)
 }
+
+type BranchesRequest struct {
+	Regular  string   `json:"regular"`
+	Branches []string `json:"branches"`
+}
+
+func MatchBranchesList(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(BranchesRequest)
+	err := c.ShouldBindJSON(args)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid branches args")
+		return
+	}
+	ctx.Resp = service.MatchBranchesList(args.Regular, args.Branches)
+}
