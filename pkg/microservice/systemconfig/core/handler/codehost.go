@@ -19,7 +19,7 @@ func CreateCodehost(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.CreateCodehost(rep, ctx.Logger)
 }
 
-func FindCodehost(c *gin.Context) {
+func ListCodehost(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	ctx.Resp, ctx.Err = service.FindCodehost(ctx.Logger)

@@ -57,6 +57,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	}
 	codehost := router.Group("codehost")
 	{
-		codehost.POST("", CreateCodehost)
+		codehost.POST("", ListCodehost)
 	}
 }
