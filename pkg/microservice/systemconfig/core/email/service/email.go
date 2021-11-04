@@ -4,37 +4,37 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/repository/mongo"
+	mongo2 "github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/repository/mongo"
 )
 
 func GetEmailHost(_ *zap.SugaredLogger) (*models.EmailHost, error) {
-	return mongo.NewEmailHostColl().Find()
+	return mongo2.NewEmailHostColl().Find()
 }
 
 func CreateEmailHost(emailHost *models.EmailHost, _ *zap.SugaredLogger) (*models.EmailHost, error) {
-	return mongo.NewEmailHostColl().Add(emailHost)
+	return mongo2.NewEmailHostColl().Add(emailHost)
 }
 
 func UpdateEmailHost(host *models.EmailHost, _ *zap.SugaredLogger) (*models.EmailHost, error) {
-	return mongo.NewEmailHostColl().Update(host)
+	return mongo2.NewEmailHostColl().Update(host)
 }
 
 func DeleteEmailHost(_ *zap.SugaredLogger) error {
-	return mongo.NewEmailHostColl().Delete()
+	return mongo2.NewEmailHostColl().Delete()
 }
 
 func GetEmailService(_ *zap.SugaredLogger) (*models.EmailService, error) {
-	return mongo.NewEmailServiceColl().GetEmailService()
+	return mongo2.NewEmailServiceColl().GetEmailService()
 }
 
 func CreateEmailService(service *models.EmailService, _ *zap.SugaredLogger) (*models.EmailService, error) {
-	return mongo.NewEmailServiceColl().AddEmailService(service)
+	return mongo2.NewEmailServiceColl().AddEmailService(service)
 }
 
 func UpdateEmailService(service *models.EmailService, _ *zap.SugaredLogger) (*models.EmailService, error) {
-	return mongo.NewEmailServiceColl().UpdateEmailService(service)
+	return mongo2.NewEmailServiceColl().UpdateEmailService(service)
 }
 
 func DeleteEmailService(_ *zap.SugaredLogger) error {
-	return mongo.NewEmailServiceColl().DeleteEmailService()
+	return mongo2.NewEmailServiceColl().DeleteEmailService()
 }
