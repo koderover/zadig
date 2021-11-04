@@ -68,8 +68,10 @@ func (gpem *gitlabPushEventMatcherForTesting) Match(hookRepo *commonmodels.MainH
 			return false, nil
 		}
 
-		if isRegular && !regexp.MustCompile(hookRepo.Branch).MatchString(getBranchFromRef(ev.Ref)) {
-			return false, nil
+		if isRegular {
+			if matched, _ := regexp.MatchString(hookRepo.Branch, getBranchFromRef(ev.Ref)); !matched {
+				return false, nil
+			}
 		}
 		hookRepo.Branch = getBranchFromRef(ev.Ref)
 		var changedFiles []string
@@ -226,8 +228,10 @@ func (gmem *gitlabMergeEventMatcherForTesting) Match(hookRepo *commonmodels.Main
 			return false, nil
 		}
 
-		if isRegular && !regexp.MustCompile(hookRepo.Branch).MatchString(ev.ObjectAttributes.TargetBranch) {
-			return false, nil
+		if isRegular {
+			if matched, _ := regexp.MatchString(hookRepo.Branch, ev.ObjectAttributes.TargetBranch); !matched {
+				return false, nil
+			}
 		}
 		hookRepo.Branch = ev.ObjectAttributes.TargetBranch
 

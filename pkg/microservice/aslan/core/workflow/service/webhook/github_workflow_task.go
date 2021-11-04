@@ -64,8 +64,11 @@ func (gpem *githubPushEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (
 		if !isRegular && hookRepo.Branch != getBranchFromRef(*ev.Ref) {
 			return false, nil
 		}
-		if isRegular && !regexp.MustCompile(hookRepo.Branch).MatchString(getBranchFromRef(*ev.Ref)) {
-			return false, nil
+		if isRegular {
+			// Do not use regexp.MustCompile to avoid panic
+			if matched, _ := regexp.MatchString(hookRepo.Branch, getBranchFromRef(*ev.Ref)); !matched {
+				return false, nil
+			}
 		}
 		hookRepo.Branch = getBranchFromRef(*ev.Ref)
 		var changedFiles []string
@@ -125,8 +128,10 @@ func (gmem *githubMergeEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) 
 		if !isRegular && hookRepo.Branch != *ev.PullRequest.Base.Ref {
 			return false, nil
 		}
-		if isRegular && !regexp.MustCompile(hookRepo.Branch).MatchString(*ev.PullRequest.Base.Ref) {
-			return false, nil
+		if isRegular {
+			if matched, _ := regexp.MatchString(hookRepo.Branch, *ev.PullRequest.Base.Ref); !matched {
+				return false, nil
+			}
 		}
 		hookRepo.Branch = *ev.PullRequest.Base.Ref
 		if *ev.PullRequest.State == "open" {
