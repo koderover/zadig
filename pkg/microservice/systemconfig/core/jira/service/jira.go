@@ -4,21 +4,21 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/jira/repository/models"
-	mongo2 "github.com/koderover/zadig/pkg/microservice/systemconfig/core/jira/repository/mongo"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/jira/repository/mongo"
 )
 
 func GeJira(_ *zap.SugaredLogger) (*models.Jira, error) {
-	return mongo2.NewJiraColl().GetJira()
+	return mongo.NewJiraColl().GetJira()
 }
 
 func CreateJira(jira *models.Jira, _ *zap.SugaredLogger) (*models.Jira, error) {
-	return mongo2.NewJiraColl().AddJira(jira)
+	return mongo.NewJiraColl().AddJira(jira)
 }
 
 func UpdateJira(jira *models.Jira, _ *zap.SugaredLogger) (*models.Jira, error) {
-	return mongo2.NewJiraColl().UpdateJira(jira)
+	return mongo.NewJiraColl().UpdateJira(jira)
 }
 
 func DeleteJira(_ *zap.SugaredLogger) error {
-	return mongo2.NewJiraColl().DeleteJira()
+	return mongo.NewJiraColl().DeleteJira()
 }
