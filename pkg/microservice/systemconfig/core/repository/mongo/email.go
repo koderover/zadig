@@ -68,7 +68,7 @@ func (c *EmailHostColl) Find() (*models.EmailHost, error) {
 }
 
 func (c *EmailHostColl) Update(emailHost *models.EmailHost) (*models.EmailHost, error) {
-	query := bson.M{"organization_id": emailHost.OrganizationID, "deleted_at": 0}
+	query := bson.M{"deleted_at": 0}
 	change := bson.M{"$set": bson.M{
 		"name":       emailHost.Name,
 		"port":       emailHost.Port,

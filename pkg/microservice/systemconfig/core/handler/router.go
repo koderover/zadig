@@ -55,4 +55,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		jira.PATCH("", UpdateJira)
 		jira.DELETE("", DeleteJira)
 	}
+	codehost := router.Group("codehost")
+	{
+		codehost.POST("", CreateCodehost)
+	}
 }

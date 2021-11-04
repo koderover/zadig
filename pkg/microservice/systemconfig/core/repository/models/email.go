@@ -10,7 +10,7 @@ type EmailHost struct {
 	Port      int    `json:"port" bson:"port"`
 	Username  string `json:"username" bson:"username"`
 	Password  string `json:"password" bson:"password"`
-	IsTLS     bool   `json:"isTLS" bson:"is_tls"`
+	IsTLS     bool   `json:"isTLS" 		bson:"is_tls"`
 	CreatedAt int64  `json:"created_at" bson:"created_at"`
 	UpdatedAt int64  `json:"updated_at" bson:"updated_at"`
 }
