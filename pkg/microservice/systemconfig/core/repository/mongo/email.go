@@ -124,8 +124,7 @@ func (c *EmailServiceColl) GetEmailService() (*models.EmailService, error) {
 	iEmailService := &models.EmailService{}
 	err := c.Collection.FindOne(context.TODO(), query).Decode(iEmailService)
 	if err != nil {
-		log.Error("repository GetEmailService err : %v", err)
-		return nil, err
+		return nil, nil
 	}
 	return iEmailService, nil
 }
