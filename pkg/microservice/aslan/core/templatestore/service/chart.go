@@ -40,8 +40,8 @@ import (
 var (
 	variableExtractRegexp              = regexp.MustCompile("{{.(\\w*)}}")
 	ChartTemplateDefaultSystemVariable = map[string]string{
-		setting.PresetTemplateVariableProduct: setting.TemplateVariableProductDescription,
-		setting.PresetTemplateVariableService: setting.TemplateVariableServiceDescription,
+		setting.TemplateVariableProduct: setting.TemplateVariableProductDescription,
+		setting.TemplateVariableService: setting.TemplateVariableServiceDescription,
 	}
 )
 
@@ -119,11 +119,6 @@ func getChartTemplateDefaultVariables() []*Variable {
 	return resp
 }
 
-func isPresetVariable(key string) bool {
-	_, ok := ChartTemplateDefaultSystemVariable[key]
-	return ok
-}
-
 func ListChartTemplates(logger *zap.SugaredLogger) (*ChartTemplateListResp, error) {
 	cs, err := mongodb.NewChartColl().List()
 	if err != nil {
@@ -187,14 +182,10 @@ func parseTemplateVariables(name, path string, logger *zap.SugaredLogger) ([]str
 	strSet := sets.NewString()
 	allMatches := variableExtractRegexp.FindAllStringSubmatch(string(valueYamlContent), -1)
 	for _, match := range allMatches {
-		if len(match) < 2 {
+		if len(match) != 2 {
 			continue
 		}
-		for _, key := range match[1:] {
-			if !isPresetVariable(key) {
-				strSet.Insert(key)
-			}
-		}
+		strSet.Insert(match[1])
 	}
 	return strSet.List(), nil
 }
