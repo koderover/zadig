@@ -61,8 +61,7 @@ func (c *EmailHostColl) Find() (*models.EmailHost, error) {
 
 	err := c.Collection.FindOne(ctx, query).Decode(emailHost)
 	if err != nil {
-		log.Errorf("repository GetEmailHost err : %v", err)
-		return nil, err
+		return nil, nil
 	}
 	return emailHost, nil
 }
