@@ -2771,7 +2771,7 @@ func intervalExecutorWithRetry(retryCount uint64, interval time.Duration, servic
 		}
 		log.Infof("%d services waiting to retry", len(failedServices))
 		serviceList = failedServices
-		return fmt.Errorf("%d services apply fail", len(errList))
+		return fmt.Errorf("%d services apply failed", len(errList))
 	}, retryBo)
 	return errList
 }
