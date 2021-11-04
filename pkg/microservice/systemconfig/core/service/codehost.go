@@ -10,3 +10,7 @@ import (
 func CreateCodehost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
 	return mongo.NewCodehostColl().AddCodeHost(codehost)
 }
+
+func FindCodehost(_ *zap.SugaredLogger) ([]*models.CodeHost, error) {
+	return mongo.NewCodehostColl().FindCodeHosts()
+}
