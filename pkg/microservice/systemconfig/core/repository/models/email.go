@@ -12,6 +12,7 @@ type EmailHost struct {
 	Password  string `bson:"password"  json:"password"`
 	IsTLS     bool   `bson:"is_tls" json:"isTLS"`
 	CreatedAt int64  `bson:"created_at" json:"created_at"`
+	DeletedAt int64  `bson:"deleted_at"  json:"deleted_at"`
 	UpdatedAt int64  `bson:"updated_at" json:"updated_at"`
 }
 
