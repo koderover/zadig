@@ -104,14 +104,17 @@ const (
 	TestMode    = "test"
 
 	// user
-	ENVIssuerURL      = "ISSUER_URL"
-	ENVClientID       = "CLIENT_ID"
-	ENVClientSecret   = "CLIENT_SECRET"
-	ENVRedirectURI    = "REDIRECT_URI"
-	ENVSecretKey      = "SECRET_KEY"
-	ENVMysqlUserDB    = "MYSQL_USER_DB"
-	ENVScopes         = "SCOPES"
-	ENVTokenExpiresAt = "TOKEN_EXPIRES_AT"
+	ENVIssuerURL            = "ISSUER_URL"
+	ENVClientID             = "CLIENT_ID"
+	ENVClientSecret         = "CLIENT_SECRET"
+	ENVRedirectURI          = "REDIRECT_URI"
+	ENVSecretKey            = "SECRET_KEY"
+	ENVMysqlUserDB          = "MYSQL_USER_DB"
+	ENVScopes               = "SCOPES"
+	ENVTokenExpiresAt       = "TOKEN_EXPIRES_AT"
+	ENVNoReplyEmailAddress  = "NOREPLY_EMAIL_ADDRESS"
+	ENVNoReplyEmailPassword = "NOREPLY_EMAIL_PASSWORD"
+	ENVUserPort             = "USER_PORT"
 
 	// initconfig
 	ENVAdminEmail    = "ADMIN_EMAIL"

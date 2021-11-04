@@ -99,6 +99,16 @@ func DeleteUserByUids(uids []string, db *gorm.DB) error {
 	return nil
 }
 
+// DeleteUserByUid Delete  users based on uids
+func DeleteUserByUid(uid string, db *gorm.DB) error {
+	var user models.User
+	err := db.Where("uid = ?", uid).Delete(&user).Error
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // GetUsersCount gets user count
 func GetUsersCount(name string) (int64, error) {
 	var (

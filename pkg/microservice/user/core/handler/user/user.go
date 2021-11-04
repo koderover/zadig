@@ -24,6 +24,12 @@ func GetUser(c *gin.Context) {
 	ctx.Resp, ctx.Err = user.GetUser(c.Param("uid"), ctx.Logger)
 }
 
+func DeleteUser(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	ctx.Err = user.DeleteUserByUID(c.Param("uid"), ctx.Logger)
+}
+
 func GetPersonalUser(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -66,6 +72,23 @@ func CreateUser(c *gin.Context) {
 	ctx.Resp, ctx.Err = user.CreateUser(args, ctx.Logger)
 }
 
+func SignUp(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	args := &user.User{}
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = err
+		return
+	}
+	ctx.Resp, ctx.Err = user.CreateUser(args, ctx.Logger)
+}
+
+func Retrieve(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	ctx.Resp, ctx.Err = user.Retrieve(c.Query("account"), ctx.Logger)
+}
+
 func UpdatePassword(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -76,4 +99,16 @@ func UpdatePassword(c *gin.Context) {
 	}
 	args.Uid = c.Param("uid")
 	ctx.Err = user.UpdatePassword(args, ctx.Logger)
+}
+
+func Reset(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	args := &user.ResetParams{}
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = err
+		return
+	}
+	args.Uid = ctx.UserID
+	ctx.Err = user.Reset(args, ctx.Logger)
 }
