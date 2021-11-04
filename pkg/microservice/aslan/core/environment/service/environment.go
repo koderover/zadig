@@ -2761,19 +2761,18 @@ func getUpdatedProductServices(updateProduct *commonmodels.Product, serviceRevis
 func intervalExecutorWithRetry(retryCount uint64, interval time.Duration, serviceList []*commonmodels.Service, handler intervalExecutorHandler, log *zap.SugaredLogger) []error {
 	bo := backoff.NewExponentialBackOff()
 	bo.InitialInterval = 3 * time.Second
-	bo1 := backoff.WithMaxRetries(bo, retryCount)
+	retryBo := backoff.WithMaxRetries(bo, retryCount)
 	errList := make([]error, 0)
-
 	_ = backoff.Retry(func() error {
 		failedServices := make([]*commonmodels.Service, 0)
 		errList = intervalExecutor(interval, serviceList, &failedServices, handler, log)
 		if len(errList) == 0 {
 			return nil
 		}
-		log.Infof("############################# %d services waiting to retry", len(failedServices))
+		log.Infof("%d services waiting to retry", len(failedServices))
 		serviceList = failedServices
 		return fmt.Errorf("%d services apply fail", len(errList))
-	}, bo1)
+	}, retryBo)
 	return errList
 }
 
