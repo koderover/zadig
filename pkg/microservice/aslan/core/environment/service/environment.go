@@ -27,7 +27,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cenkalti/backoff/v3"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/go-multierror"
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
@@ -2688,7 +2688,7 @@ func installProductHelmCharts(user, envName, requestID string, args *commonmodel
 
 			serviceList = append(serviceList, serviceObj)
 		}
-		serviceGroupErr := intervalExecutorWithRetry(3, time.Millisecond*2500, serviceList, handler, log)
+		serviceGroupErr := intervalExecutorWithRetry(5, time.Millisecond*2500, serviceList, handler, log)
 		if serviceGroupErr != nil {
 			errList = multierror.Append(errList, serviceGroupErr...)
 		}
@@ -2757,8 +2757,7 @@ func getUpdatedProductServices(updateProduct *commonmodels.Product, serviceRevis
 }
 
 func intervalExecutorWithRetry(retryCount uint64, interval time.Duration, serviceList []*commonmodels.Service, handler intervalExecutorHandler, log *zap.SugaredLogger) []error {
-	bo := backoff.NewExponentialBackOff()
-	bo.InitialInterval = 3 * time.Second
+	bo := backoff.NewConstantBackOff(time.Second * 3)
 	retryBo := backoff.WithMaxRetries(bo, retryCount)
 	errList := make([]error, 0)
 	_ = backoff.Retry(func() error {
@@ -2902,7 +2901,7 @@ func updateProductGroup(username, productName, envName, updateType string, produ
 			serviceList = append(serviceList, serviceObj)
 		}
 
-		serviceGroupErr := intervalExecutorWithRetry(3, time.Millisecond*2500, serviceList, handler, log)
+		serviceGroupErr := intervalExecutorWithRetry(5, time.Millisecond*2500, serviceList, handler, log)
 		if serviceGroupErr != nil {
 			errList = multierror.Append(errList, serviceGroupErr...)
 		}
@@ -3141,7 +3140,7 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 			}
 			groupServices = append(groupServices, service)
 		}
-		groupServiceErr := intervalExecutorWithRetry(3, time.Millisecond*2500, serviceList, handler, log)
+		groupServiceErr := intervalExecutorWithRetry(5, time.Millisecond*2500, serviceList, handler, log)
 		if groupServiceErr != nil {
 			errList = multierror.Append(errList, groupServiceErr...)
 		}
