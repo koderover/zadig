@@ -25,6 +25,10 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 )
 
+func init() {
+	viper.SetDefault(setting.ENVUserPort, "80")
+}
+
 func IssuerURL() string {
 	return viper.GetString(setting.ENVIssuerURL)
 }
@@ -51,4 +55,12 @@ func MysqlUserDB() string {
 
 func TokenExpiresAt() int {
 	return viper.GetInt(setting.ENVTokenExpiresAt)
+}
+
+func NoReplyEmailAddress() string {
+	return viper.GetString(setting.ENVNoReplyEmailAddress)
+}
+
+func NoReplyEmailPassword() string {
+	return viper.GetString(setting.ENVNoReplyEmailPassword)
 }

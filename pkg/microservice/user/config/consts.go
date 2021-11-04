@@ -23,6 +23,7 @@ import (
 const (
 	AppState           = setting.ProductName + "user"
 	SystemIdentityType = "system"
+	FeiShuEmailHost    = "smtp.feishu.cn"
 )
 
 type LoginType int

@@ -48,7 +48,7 @@ func ListUsers(page int, perPage int, name string, db *gorm.DB) ([]models.User, 
 		err   error
 	)
 
-	err = db.Where("name LIKE ?", "%"+name+"%").Offset((page - 1) * perPage).Limit(perPage).Find(&users).Error
+	err = db.Where("name LIKE ?", "%"+name+"%").Order("account ASC").Offset((page - 1) * perPage).Limit(perPage).Find(&users).Error
 
 	if err != nil && err != gorm.ErrRecordNotFound {
 		return nil, err
@@ -93,6 +93,16 @@ func ListUsersByIdentityType(identityType string, db *gorm.DB) ([]models.User, e
 func DeleteUserByUids(uids []string, db *gorm.DB) error {
 	var user models.User
 	err := db.Where("uid in ?", uids).Delete(&user).Error
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// DeleteUserByUid Delete  users based on uids
+func DeleteUserByUid(uid string, db *gorm.DB) error {
+	var user models.User
+	err := db.Where("uid = ?", uid).Delete(&user).Error
 	if err != nil {
 		return err
 	}

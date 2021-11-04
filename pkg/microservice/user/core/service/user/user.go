@@ -1,19 +1,26 @@
 package user
 
 import (
+	_ "embed"
 	"fmt"
+	"net/url"
 	"time"
 
 	ldapv3 "github.com/go-ldap/ldap/v3"
+	"github.com/golang-jwt/jwt"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/user/config"
 	"github.com/koderover/zadig/pkg/microservice/user/core"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
+	"github.com/koderover/zadig/pkg/microservice/user/core/service/login"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
+	"github.com/koderover/zadig/pkg/tool/mail"
 )
 
 type User struct {
@@ -49,6 +56,11 @@ type Password struct {
 	NewPassword string `json:"newPassword"`
 }
 
+type ResetParams struct {
+	Uid      string `json:"uid"`
+	Password string `json:"password"`
+}
+
 type UsersResp struct {
 	Users      []UserInfo `json:"users"`
 	TotalCount int64      `json:"totalCount"`
@@ -58,6 +70,10 @@ type SyncUserInfo struct {
 	Account      string `json:"account"`
 	IdentityType string `json:"identityType"`
 	Name         string `json:"name"`
+}
+
+type RetrieveResp struct {
+	Email string `json:"email"`
 }
 
 func SearchAndSyncUser(ldapId string, logger *zap.SugaredLogger) error {
@@ -98,9 +114,14 @@ func SearchAndSyncUser(ldapId string, logger *zap.SugaredLogger) error {
 		return err
 	}
 	for _, entry := range sr.Entries {
-		account := si.Config.UserSearch.NameAttr
+		account := si.Config.UserSearch.Username
+		name := account
+		if len(si.Config.UserSearch.NameAttr) != 0 {
+			name = si.Config.UserSearch.NameAttr
+		}
 		_, err := SyncUser(&SyncUserInfo{
 			Account:      entry.GetAttributeValue(account),
+			Name:         name,
 			IdentityType: si.ID, // ldap may have not only one instance, so use id as identityType
 		}, logger)
 		if err != nil {
@@ -238,6 +259,85 @@ func getLoginId(user *models.User, loginType config.LoginType) string {
 
 }
 
+func DeleteUserByUID(uid string, logger *zap.SugaredLogger) error {
+	tx := core.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+	err := orm.DeleteUserByUid(uid, tx)
+	if err != nil {
+		tx.Rollback()
+		logger.Errorf("DeleteUserByUID DeleteUserByUid :%s error, error msg:%s", uid, err.Error())
+		return err
+	}
+	err = orm.DeleteUserLoginByUid(uid, tx)
+	if err != nil {
+		tx.Rollback()
+		logger.Errorf("DeleteUserByUID DeleteUserLoginByUid:%s error, error msg:%s", uid, err.Error())
+		return err
+	}
+	return tx.Commit().Error
+}
+
+//go:embed retrieve.html
+var retrieveHemlTemplate []byte
+
+func Retrieve(account string, logger *zap.SugaredLogger) (*RetrieveResp, error) {
+	user, err := orm.GetUser(account, config.SystemIdentityType, core.DB)
+	if err != nil {
+		logger.Errorf("Retrieve GetUser:%s error, error msg:%s ", account, err)
+		return nil, fmt.Errorf("Retrieve GetUser:%s error, error msg:%s ", account, err)
+	}
+	if user == nil {
+		return nil, fmt.Errorf("user not exist")
+	}
+	if len(user.Email) == 0 {
+		logger.Errorf("the account:%s has not email", account)
+		return nil, fmt.Errorf("the account has not email")
+	}
+
+	token, err := login.CreateToken(&login.Claims{
+		Name:    user.Name,
+		Account: user.Account,
+		Uid:     user.UID,
+		StandardClaims: jwt.StandardClaims{
+			Audience:  setting.ProductName,
+			ExpiresAt: time.Now().Add(5 * time.Minute).Unix(),
+		},
+	})
+	if err != nil {
+		logger.Errorf("Retrieve user:%s create token error, error msg:%s", user.Account, err)
+		return nil, err
+	}
+	v := url.Values{}
+	v.Add("idtoken", token)
+	retrieveURL := configbase.SystemAddress() + "/signin?" + v.Encode()
+	body, err := mail.RenderEmailTemplate(retrieveURL, string(retrieveHemlTemplate))
+	if err != nil {
+		logger.Errorf("Retrieve renderEmailTemplate error, error msg:%s ", err)
+		return nil, fmt.Errorf("Retrieve renderEmailTemplate error, error msg:%s ", err)
+	}
+	err = mail.SendEmail(&mail.EmailParams{
+		From:     config.NoReplyEmailAddress(),
+		To:       user.Email,
+		Subject:  "重置密码",
+		Host:     config.FeiShuEmailHost,
+		UserName: config.NoReplyEmailAddress(),
+		Password: config.NoReplyEmailPassword(),
+		Port:     465,
+		Body:     body,
+	})
+	if err != nil {
+		logger.Errorf("Retrieve SendEmail error, error msg:%s ", err)
+		return nil, err
+	}
+	return &RetrieveResp{
+		Email: user.Email,
+	}, nil
+}
+
 func CreateUser(args *User, logger *zap.SugaredLogger) (*models.User, error) {
 	uid, _ := uuid.NewUUID()
 	user := &models.User{
@@ -318,6 +418,30 @@ func UpdatePassword(args *Password, logger *zap.SugaredLogger) error {
 	return nil
 }
 
+func Reset(args *ResetParams, logger *zap.SugaredLogger) error {
+	user, err := orm.GetUserByUid(args.Uid, core.DB)
+	if err != nil {
+		logger.Errorf("Reset GetUserByUid:%s error, error msg:%s", args.Uid, err)
+		return err
+	}
+	if user == nil {
+		logger.Error("user not exist")
+		return fmt.Errorf("user not exist")
+	}
+
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(args.Password), bcrypt.DefaultCost)
+	userLogin := &models.UserLogin{
+		UID:      user.UID,
+		Password: string(hashedPassword),
+	}
+	err = orm.UpdateUserLogin(user.UID, userLogin, core.DB)
+	if err != nil {
+		logger.Errorf("UpdatePassword UpdateUserLogin:%v error, error msg:%s", userLogin, err.Error())
+		return err
+	}
+	return nil
+}
+
 func SyncUser(syncUserInfo *SyncUserInfo, logger *zap.SugaredLogger) (*models.User, error) {
 	user, err := orm.GetUser(syncUserInfo.Account, syncUserInfo.IdentityType, core.DB)
 	if err != nil {
@@ -374,6 +498,7 @@ func SyncUser(syncUserInfo *SyncUserInfo, logger *zap.SugaredLogger) (*models.Us
 	}
 	err = tx.Commit().Error
 	if err != nil {
+		logger.Errorf("SyncUser tx commit error, error msg:%s ", err)
 		return nil, err
 	}
 	return user, nil
