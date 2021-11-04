@@ -3,7 +3,7 @@ package service
 import (
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/models"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/repository/mongo"
 )
 

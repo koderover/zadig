@@ -18,9 +18,6 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
-
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/handler"
-	handler2 "github.com/koderover/zadig/pkg/microservice/systemconfig/core/jira/handler"
 )
 
 type Router struct{}
@@ -37,29 +34,5 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	features := router.Group("features")
 	{
 		features.GET("/:name", GetFeature)
-	}
-	emails := router.Group("emails")
-	{
-		emails.GET("/host", handler.GetEmailHost)
-		emails.POST("/host", handler.CreateEmailHost)
-		emails.PATCH("/host", handler.UpdateEmailHost)
-		emails.DELETE("/host", handler.DeleteEmailHost)
-
-		emails.GET("/service", handler.GetEmailService)
-		emails.POST("/service", handler.CreateEmailService)
-		emails.PATCH("/service", handler.UpdateEmailService)
-		emails.DELETE("/service", handler.DeleteEmailService)
-	}
-
-	jira := router.Group("jira")
-	{
-		jira.GET("", handler2.GetJira)
-		jira.POST("", handler2.CreateJira)
-		jira.PATCH("", handler2.UpdateJira)
-		jira.DELETE("", handler2.DeleteJira)
-	}
-	codehost := router.Group("codehost")
-	{
-		codehost.POST("", ListCodehost)
 	}
 }
