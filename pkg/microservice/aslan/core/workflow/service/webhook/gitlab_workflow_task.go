@@ -154,20 +154,20 @@ func (gpem *gitlabPushEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (
 		var changedFiles []string
 		detail, err := codehost.GetCodehostDetail(hookRepo.CodehostID)
 		if err != nil {
-			gpem.log.Errorf("GetCodehostDetail error: %v", err)
+			gpem.log.Errorf("GetCodehostDetail error: %s", err)
 			return false, err
 		}
 
 		client, err := gitlabtool.NewClient(detail.Address, detail.OauthToken)
 		if err != nil {
-			gpem.log.Errorf("NewClient error: %v", err)
+			gpem.log.Errorf("NewClient error: %s", err)
 			return false, err
 		}
 
 		// compare接口获取两个commit之间的最终的改动
 		diffs, err := client.Compare(ev.ProjectID, ev.Before, ev.After)
 		if err != nil {
-			gpem.log.Errorf("Failed to get push event diffs, error: %v", err)
+			gpem.log.Errorf("Failed to get push event diffs, error: %s", err)
 			return false, err
 		}
 		for _, diff := range diffs {
