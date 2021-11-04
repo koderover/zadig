@@ -11,7 +11,7 @@ import (
 func DeleteJira(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Err = service.DeleteEmailService(ctx.Logger)
+	ctx.Err = service.DeleteJira(ctx.Logger)
 }
 
 func GetJira(c *gin.Context) {

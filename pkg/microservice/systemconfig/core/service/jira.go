@@ -20,5 +20,5 @@ func UpdateJira(jira *models.Jira, _ *zap.SugaredLogger) (*models.Jira, error) {
 }
 
 func DeleteJira(_ *zap.SugaredLogger) error {
-	return mongo.NewEmailServiceColl().DeleteEmailService()
+	return mongo.NewJiraColl().DeleteJira()
 }

@@ -44,8 +44,8 @@ func (c *CodehostColl) AddCodeHost(iCodeHost *models.CodeHost) (*models.CodeHost
 	return iCodeHost, nil
 }
 
-func (c *CodehostColl) DeleteCodeHostByID(ID int) error {
-	query := bson.M{"id": ID, "deleted_at": 0}
+func (c *CodehostColl) DeleteCodeHost() error {
+	query := bson.M{"deleted_at": 0}
 	change := bson.M{"$set": bson.M{
 		"deleted_at": time.Now().Unix(),
 	}}
