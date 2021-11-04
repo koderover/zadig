@@ -19,6 +19,7 @@ package rest
 import (
 	"github.com/gin-gonic/gin"
 
+	codehosthandler "github.com/koderover/zadig/pkg/microservice/aslan/core/code/handler"
 	emailHandler "github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/handler"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/handler"
 	jiraHandler "github.com/koderover/zadig/pkg/microservice/systemconfig/core/jira/handler"
@@ -29,6 +30,7 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 		new(handler.Router),
 		new(emailHandler.Router),
 		new(jiraHandler.Router),
+		new(codehosthandler.Router),
 	} {
 		r.Inject(router.Group("/api/v1"))
 	}
