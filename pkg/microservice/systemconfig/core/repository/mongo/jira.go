@@ -82,8 +82,7 @@ func (c *JiraColl) GetJira() (*models.Jira, error) {
 
 	err := c.Collection.FindOne(context.TODO(), query).Decode(jira)
 	if err != nil {
-		log.Error("repository GetJira err : %v", err)
-		return nil, err
+		return nil, nil
 	}
 	return jira, nil
 }
