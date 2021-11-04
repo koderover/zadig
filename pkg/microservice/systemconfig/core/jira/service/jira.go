@@ -3,8 +3,8 @@ package service
 import (
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/repository/mongo"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/repository/mongo"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/jira/repository/models"
 )
 
 func GeJira(_ *zap.SugaredLogger) (*models.Jira, error) {

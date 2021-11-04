@@ -3,7 +3,7 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/models"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )

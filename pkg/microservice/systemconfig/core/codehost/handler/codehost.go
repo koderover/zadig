@@ -3,8 +3,8 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/service"
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/repository/models"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 

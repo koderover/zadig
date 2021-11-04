@@ -3,8 +3,8 @@ package service
 import (
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/repository/mongo"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/mongo"
 )
 
 func CreateCodehost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
