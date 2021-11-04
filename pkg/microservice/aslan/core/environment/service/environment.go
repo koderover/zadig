@@ -2794,7 +2794,7 @@ func intervalExecutor(interval time.Duration, serviceList []*commonmodels.Servic
 			if err != nil {
 				errList = append(errList, err)
 				*failedServices = append(*failedServices, data)
-				log.Errorf("service:%s apply fail, err %s", data.ServiceName, err)
+				log.Errorf("service:%s apply failed, err %s", data.ServiceName, err)
 			}
 		}()
 		<-ticker.C
