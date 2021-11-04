@@ -64,7 +64,3 @@ func NoReplyEmailAddress() string {
 func NoReplyEmailPassword() string {
 	return viper.GetString(setting.ENVNoReplyEmailPassword)
 }
-
-func UserPort() string {
-	return viper.GetString(setting.ENVUserPort)
-}

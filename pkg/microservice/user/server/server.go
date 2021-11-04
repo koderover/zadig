@@ -21,7 +21,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/koderover/zadig/pkg/microservice/user/config"
 	"github.com/koderover/zadig/pkg/microservice/user/core"
 	"github.com/koderover/zadig/pkg/microservice/user/server/rest"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -34,7 +33,8 @@ func Serve(ctx context.Context) error {
 	log.Info("Start user system service")
 
 	engine := rest.NewEngine()
-	server := &http.Server{Addr: ":" + config.UserPort(), Handler: engine}
+	server := &http.Server{Addr: ":80", Handler: engine}
+
 	stopChan := make(chan struct{})
 	go func() {
 		defer close(stopChan)
