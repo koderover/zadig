@@ -178,6 +178,7 @@ func Forward(server *remotedialer.Server, w http.ResponseWriter, r *http.Request
 	clusterInfo, exists := clusters.Load(clientKey)
 	if !server.HasSession(clientKey) || !exists {
 		for i := 0; i < 4; i++ {
+			log.Infof("stuck waiting for connections index:%d", i)
 			if server.HasSession(clientKey) && exists {
 				break
 			}
@@ -214,28 +215,11 @@ func Forward(server *remotedialer.Server, w http.ResponseWriter, r *http.Request
 	r.URL.Host = r.Host
 	r.Header.Set("authorization", "Bearer "+cluster.Token)
 
-	//var certBytes []byte
-	//certBytes, err = base64.StdEncoding.DecodeString(cluster.CACert)
-	//if err != nil {
-	//	return
-	//}
-
-	//certs := x509.NewCertPool()
-	//certs.AppendCertsFromPEM(certBytes)
-
-	//transport := &http.Transport{}
-
 	transport, err := server.GetTransport(cluster.CACert, clientKey)
 	if err != nil {
 		log.Errorf(fmt.Sprintf("failed to get transport, err %s", err))
 		return
 	}
-
-	//noinspection GoDeprecation
-	//transport.Dial = server.Dialer(clientKey)
-	//transport.TLSClientConfig = &tls.Config{
-	//	RootCAs: certs,
-	//}
 
 	httpProxy := proxy.NewUpgradeAwareHandler(endpoint, transport, true, false, er)
 	httpProxy.ServeHTTP(w, r)
