@@ -93,7 +93,7 @@ type getYamlTemplateVariablesReq struct {
 	Content string `json:"content"`
 }
 
-func GetYamlVariables(c *gin.Context) {
+func GetYamlTemplateVariables(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
