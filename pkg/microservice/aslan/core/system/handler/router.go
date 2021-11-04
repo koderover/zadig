@@ -188,4 +188,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		operation.PUT("/:id", gin2.RequireSuperAdminAuth, UpdateOperationLog)
 	}
 
+	regular := router.Group("regular")
+	{
+		regular.GET("/check", CheckRegularValid)
+	}
 }
