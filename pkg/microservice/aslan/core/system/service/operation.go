@@ -17,8 +17,6 @@ limitations under the License.
 package service
 
 import (
-	"regexp"
-
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/models"
@@ -74,18 +72,4 @@ func UpdateOperation(id string, status int, log *zap.SugaredLogger) error {
 		return e.ErrUpdateOperationLog
 	}
 	return nil
-}
-
-type CheckRegularValidResp struct {
-	Valid bool `json:"valid"`
-}
-
-func CheckRegularValid(regular string) (*CheckRegularValidResp, error) {
-	valid := false
-	if _, err := regexp.Compile(regular); err == nil {
-		valid = true
-	}
-	return &CheckRegularValidResp{
-		Valid: valid,
-	}, nil
 }

@@ -101,10 +101,3 @@ func UpdateOperationLog(c *gin.Context) {
 	}
 	ctx.Err = service.UpdateOperation(c.Param("id"), args.Status, ctx.Logger)
 }
-
-func CheckRegularValid(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	ctx.Resp, ctx.Err = service.CheckRegularValid(c.Query("regular"))
-}
