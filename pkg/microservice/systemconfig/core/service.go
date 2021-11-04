@@ -18,13 +18,18 @@ package core
 
 import (
 	"context"
+	"fmt"
+	"sync"
+	"time"
 
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/config"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/repository/mongo"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/service/featuregates"
 	"github.com/koderover/zadig/pkg/setting"
 	gormtool "github.com/koderover/zadig/pkg/tool/gorm"
 	"github.com/koderover/zadig/pkg/tool/log"
+	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
 func Start(_ context.Context) {
@@ -49,6 +54,35 @@ func initDatabase() {
 	if err != nil {
 		log.Panicf("Failed to open database %s", config.MysqlDexDB())
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	mongotool.Init(ctx, config.MongoURI())
+	if err := mongotool.Ping(ctx); err != nil {
+		panic(fmt.Errorf("failed to connect to mongo, error: %s", err))
+	}
+	idxCtx, idxCancel := context.WithTimeout(ctx, 10*time.Minute)
+	defer idxCancel()
+	var wg sync.WaitGroup
+	for _, r := range []indexer{
+		mongo.NewEmailHostColl(),
+	} {
+
+		wg.Add(1)
+		go func(r indexer) {
+			defer wg.Done()
+			if err := r.EnsureIndex(idxCtx); err != nil {
+				panic(fmt.Errorf("failed to create index for %s, error: %s", r.GetCollectionName(), err))
+			}
+		}(r)
+	}
+	wg.Wait()
+}
+
+type indexer interface {
+	EnsureIndex(ctx context.Context) error
+	GetCollectionName() string
 }
 
 func Stop(_ context.Context) {
