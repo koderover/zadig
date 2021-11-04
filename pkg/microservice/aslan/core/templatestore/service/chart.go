@@ -182,10 +182,10 @@ func parseTemplateVariables(name, path string, logger *zap.SugaredLogger) ([]str
 	strSet := sets.NewString()
 	allMatches := variableExtractRegexp.FindAllStringSubmatch(string(valueYamlContent), -1)
 	for _, match := range allMatches {
-		if len(match) < 2 {
+		if len(match) != 2 {
 			continue
 		}
-		strSet.Insert(match[1:]...)
+		strSet.Insert(match[1])
 	}
 	return strSet.List(), nil
 }
