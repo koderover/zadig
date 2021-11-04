@@ -45,10 +45,10 @@ func initDBAndTables() {
 		"%s:%s@tcp(%s)/?charset=utf8&multiStatements=true",
 		config.MysqlUser(), config.MysqlPassword(), config.MysqlHost(),
 	))
-	defer db.Close()
 	if err != nil {
 		log.Panic(err)
 	}
+	defer db.Close()
 	_, err = db.Exec(string(mysql))
 
 	if err != nil {
