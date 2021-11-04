@@ -75,7 +75,7 @@ func (gmem *gitlabMergeEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) 
 			var changedFiles []string
 			changedFiles, err := gmem.diffFunc(ev, hookRepo.CodehostID)
 			if err != nil {
-				gmem.log.Warnf("failed to get changes of event %v, err:%v", ev, err)
+				gmem.log.Warnf("failed to get changes of event %v, err:%s", ev, err)
 				return false, err
 			}
 			gmem.log.Debugf("succeed to get %d changes in merge event", len(changedFiles))
