@@ -5,7 +5,7 @@ import (
 )
 
 type Jira struct {
-	ObjectID       bson.ObjectId `bson:"_id,omitempty"`
+	ObjectID       bson.ObjectId `json:"-"					bson:"_id,omitempty"`
 	ID             int64         `json:"id"					bson:"id"`
 	Host           string        `json:"host"				bson:"host"`
 	User           string        `json:"user"				bson:"user"`
