@@ -2655,7 +2655,6 @@ func installProductHelmCharts(user, envName, requestID string, args *commonmodel
 		chartInfoMap[renderChart.ServiceName] = renderChart
 	}
 
-	serviceList := make([]*commonmodels.Service, 0)
 	handler := func(serviceObj *commonmodels.Service, logger *zap.SugaredLogger) error {
 		renderChart := chartInfoMap[serviceObj.ServiceName]
 		err = installOrUpgradeHelmChart(args.Namespace, renderChart, renderset.DefaultValues, serviceObj, 0, helmClient)
@@ -2666,6 +2665,7 @@ func installProductHelmCharts(user, envName, requestID string, args *commonmodel
 	}
 
 	for _, serviceGroups := range args.Services {
+		serviceList := make([]*commonmodels.Service, 0)
 		for _, svc := range serviceGroups {
 			_, ok := chartInfoMap[svc.ServiceName]
 			if !ok {
@@ -2688,13 +2688,11 @@ func installProductHelmCharts(user, envName, requestID string, args *commonmodel
 
 			serviceList = append(serviceList, serviceObj)
 		}
+		serviceGroupErr := intervalExecutorWithRetry(3, time.Millisecond*2500, serviceList, handler, log)
+		if serviceGroupErr != nil {
+			errList = multierror.Append(errList, serviceGroupErr...)
+		}
 	}
-
-	serviceGroupErr := intervalExecutorWithRetry(3, time.Millisecond*2500, serviceList, handler, log)
-	if serviceGroupErr != nil {
-		errList = multierror.Append(errList, serviceGroupErr...)
-	}
-
 	err = errList.ErrorOrNil()
 }
 
