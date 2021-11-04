@@ -178,7 +178,7 @@ allowed_roles[role_ref] {
 allowed_roles[role_ref] {
     some i
     data.bindings.role_bindings[i].uid == "*"
-    project := data.bindings.role_bindings[i].bindings[_].namespace == project_name
+    data.bindings.role_bindings[i].bindings[_].namespace == project_name
     role_ref := data.bindings.role_bindings[i].bindings[j].role_refs[_]
 }
 
