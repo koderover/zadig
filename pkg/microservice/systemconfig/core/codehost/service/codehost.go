@@ -22,3 +22,7 @@ func DeleteCodeHost(id int, _ *zap.SugaredLogger) error {
 func UpdateCodeHost(host *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
 	return mongodb.NewCodehostColl().UpdateCodeHost(host)
 }
+
+func GetCodeHost(id int, _ *zap.SugaredLogger) (*models.CodeHost, error) {
+	return mongodb.NewCodehostColl().GetCodeHostByID(id)
+}

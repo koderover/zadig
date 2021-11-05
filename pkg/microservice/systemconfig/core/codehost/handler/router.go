@@ -12,5 +12,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		codehost.GET("", ListCodeHost)
 		codehost.DELETE("/:id", DeleteCodeHost)
 		codehost.POST("", CreateCodeHost)
+		codehost.PATCH("/:id", UpdateCodeHost)
+		codehost.GET("/:id", GetCodeHost)
 	}
 }
