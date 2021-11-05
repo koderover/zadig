@@ -29,8 +29,6 @@ type Product struct {
 	ProductName         string                `bson:"product_name"              json:"product_name"`
 	Revision            int64                 `bson:"revision"                  json:"revision"`
 	CreateTime          int64                 `bson:"create_time"               json:"create_time"`
-	Teams               []*Team               `bson:"teams"                     json:"teams"`
-	Team                string                `bson:"team"                      json:"team"`
 	UpdateTime          int64                 `bson:"update_time"               json:"update_time"`
 	UpdateBy            string                `bson:"update_by"                 json:"update_by"`
 	Enabled             bool                  `bson:"enabled"                   json:"enabled"`
@@ -41,8 +39,6 @@ type Product struct {
 	Vars                []*RenderKV           `bson:"vars"                      json:"vars"`
 	EnvVars             []*EnvRenderKV        `bson:"-"                         json:"env_vars,omitempty"`
 	ChartInfos          []*RenderChart        `bson:"-"                         json:"chart_infos,omitempty"`
-	UserIDs             []string              `bson:"user_ids"                  json:"user_ids"`
-	TeamID              int                   `bson:"team_id"                   json:"team_id"`
 	Description         string                `bson:"description,omitempty"     json:"desc,omitempty"`
 	ProductFeature      *ProductFeature       `bson:"product_feature,omitempty" json:"product_feature,omitempty"`
 	ImageSearchingRules []*ImageSearchingRule `bson:"image_searching_rules,omitempty" json:"image_searching_rules,omitempty"`

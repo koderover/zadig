@@ -29,6 +29,10 @@ import (
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
+type ListOptions struct {
+	RoleName, RoleNamespace string
+}
+
 type RoleBindingColl struct {
 	*mongo.Collection
 
@@ -61,11 +65,20 @@ func (c *RoleBindingColl) EnsureIndex(ctx context.Context) error {
 	return err
 }
 
-func (c *RoleBindingColl) List() ([]*models.RoleBinding, error) {
+func (c *RoleBindingColl) List(opts ...*ListOptions) ([]*models.RoleBinding, error) {
 	var res []*models.RoleBinding
 
 	ctx := context.Background()
-	cursor, err := c.Collection.Find(ctx, bson.M{})
+	query := bson.M{}
+	if len(opts) > 0 {
+		opt := opts[0]
+		if opt.RoleName != "" {
+			query["role_ref.name"] = opt.RoleName
+			query["role_ref.namespace"] = opt.RoleNamespace
+		}
+	}
+
+	cursor, err := c.Collection.Find(ctx, query)
 	if err != nil {
 		return nil, err
 	}
