@@ -50,7 +50,7 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, error) {
 	password := []byte(args.Password)
 	err = bcrypt.CompareHashAndPassword([]byte(userLogin.Password), password)
 	if err == bcrypt.ErrMismatchedHashAndPassword {
-		return nil, fmt.Errorf("password is wrong")
+		return nil, fmt.Errorf("wrong password")
 	}
 	if err != nil {
 		logger.Errorf("LocalLogin user:%s check password error, error msg:%s", args.Account, err)
