@@ -7,10 +7,18 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 )
 
-func CreateCodehost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
+func CreateCodeHost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
 	return mongodb.NewCodehostColl().AddCodeHost(codehost)
 }
 
-func FindCodehost(_ *zap.SugaredLogger) ([]*models.CodeHost, error) {
+func FindCodeHost(_ *zap.SugaredLogger) ([]*models.CodeHost, error) {
 	return mongodb.NewCodehostColl().FindCodeHosts()
+}
+
+func DeleteCodeHost(id int, _ *zap.SugaredLogger) error {
+	return mongodb.NewCodehostColl().DeleteCodeHostByID(id)
+}
+
+func UpdateCodeHost(host *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
+	return mongodb.NewCodehostColl().UpdateCodeHost(host)
 }

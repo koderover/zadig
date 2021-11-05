@@ -82,3 +82,34 @@ func (c *CodehostColl) FindCodeHosts() ([]*models.CodeHost, error) {
 	}
 	return codeHosts, nil
 }
+
+func (c *CodehostColl) DeleteCodeHostByID(ID int) error {
+	query := bson.M{"id": ID, "deleted_at": 0}
+	change := bson.M{"$set": bson.M{
+		"deleted_at": time.Now().Unix(),
+	}}
+	_, err := c.Collection.UpdateOne(context.TODO(), query, change)
+	if err != nil {
+		log.Error("repository update fail")
+		return err
+	}
+	return nil
+}
+
+func (c *CodehostColl) UpdateCodeHost(host *models.CodeHost) (*models.CodeHost, error) {
+	query := bson.M{"id": host.ID, "deleted_at": 0}
+	change := bson.M{"$set": bson.M{
+		"name":           host.Name,
+		"type":           host.Type,
+		"address":        host.Address,
+		"namespace":      host.Namespace,
+		"application_id": host.ApplicationId,
+		"client_secret":  host.ClientSecret,
+		"region":         host.Region,
+		"username":       host.Username,
+		"password":       host.Password,
+		"updated_at":     time.Now().Unix(),
+	}}
+	_, err := c.Collection.UpdateOne(context.TODO(), query, change)
+	return host, err
+}
