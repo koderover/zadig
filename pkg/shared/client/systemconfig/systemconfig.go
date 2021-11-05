@@ -32,7 +32,7 @@ func (c *Client) GetLDAPConnector(id string) (*Connector, error) {
 	return res, err
 }
 
-func (c *Client) GetHost() (*Email, error) {
+func (c *Client) GetEmailHost() (*Email, error) {
 	url := "/emails/internal/host/"
 
 	res := &Email{}

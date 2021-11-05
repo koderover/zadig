@@ -320,10 +320,10 @@ func Retrieve(account string, logger *zap.SugaredLogger) (*RetrieveResp, error) 
 		return nil, fmt.Errorf("Retrieve renderEmailTemplate error, error msg:%s ", err)
 	}
 	systemConfigClient := systemconfig.New()
-	email, err := systemConfigClient.GetHost()
+	email, err := systemConfigClient.GetEmailHost()
 	if err != nil {
-		logger.Errorf("SearchAndSyncUser GetLDAPConnector error, error msg:%s", err)
-		return nil, fmt.Errorf("SearchAndSyncUser GetLDAPConnector error, error msg:%s", err)
+		logger.Errorf("Retrieve GetEmailHost error, error msg:%s", err)
+		return nil, fmt.Errorf("Retrieve GetEmailHost error, error msg:%s ", err)
 	}
 	err = mail.SendEmail(&mail.EmailParams{
 		From:     email.UserName,
