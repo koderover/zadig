@@ -79,8 +79,9 @@ type CreateFromPublicRepo struct {
 }
 
 type CreateFromChartTemplate struct {
-	TemplateName string `json:"templateName"`
-	ValuesYAML   string `json:"valuesYAML"`
+	TemplateName string      `json:"templateName"`
+	ValuesYAML   string      `json:"valuesYAML"`
+	Variables    []*Variable `json:"variables"`
 }
 
 func PublicRepoToPrivateRepoArgs(args *CreateFromPublicRepo) (*CreateFromRepo, error) {

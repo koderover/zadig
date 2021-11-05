@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -25,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cenkalti/backoff/v3"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -173,6 +174,7 @@ func (c *Client) Start() error {
 		tm := time.Now()
 
 		remotedialer.ClientConnect(
+			context.Background(),
 			connectURL,
 			headers,
 			&websocket.Dialer{

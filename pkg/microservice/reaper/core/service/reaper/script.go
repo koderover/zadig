@@ -402,8 +402,7 @@ func (r *Reaper) downloadArtifactFile() error {
 		return err
 	}
 	if len(files) > 0 {
-		objectKey := store.GetObjectPath(files[0])
-		if err = s3client.Download(store.Bucket, objectKey, fmt.Sprintf("%s/%s", r.ActiveWorkspace, r.Ctx.ArtifactInfo.FileName)); err != nil {
+		if err = s3client.Download(store.Bucket, files[0], fmt.Sprintf("%s/%s", r.ActiveWorkspace, r.Ctx.ArtifactInfo.FileName)); err != nil {
 			log.Errorf("s3 download file err:%s", err)
 			return err
 		}
