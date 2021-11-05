@@ -28,7 +28,6 @@ import (
 	"time"
 
 	"github.com/27149chen/afero"
-	"github.com/hashicorp/go-multierror"
 	"github.com/otiai10/copy"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -242,26 +241,26 @@ func prepareChartTemplateData(templateName string, logger *zap.SugaredLogger) (*
 	}, nil
 }
 
-func CreateOrUpdateHelmService(projectName string, args *HelmServiceCreationArgs, logger *zap.SugaredLogger) error {
+func CreateOrUpdateHelmService(projectName string, args *HelmServiceCreationArgs, logger *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
 	switch args.Source {
 	case LoadFromRepo, LoadFromPublicRepo:
 		return CreateOrUpdateHelmServiceFromGitRepo(projectName, args, logger)
 	case LoadFromChartTemplate:
 		return CreateOrUpdateHelmServiceFromChartTemplate(projectName, args, logger)
 	default:
-		return fmt.Errorf("invalid source")
+		return nil, fmt.Errorf("invalid source")
 	}
 }
 
-func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmServiceCreationArgs, logger *zap.SugaredLogger) error {
+func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmServiceCreationArgs, logger *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
 	templateArgs, ok := args.CreateFrom.(*CreateFromChartTemplate)
 	if !ok {
-		return fmt.Errorf("invalid argument")
+		return nil, fmt.Errorf("invalid argument")
 	}
 
 	templateChartInfo, err := prepareChartTemplateData(templateArgs.TemplateName, logger)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var values [][]byte
@@ -269,7 +268,7 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 		//render variables
 		renderedYaml, err := renderVariablesToYaml(string(templateChartInfo.DefaultValuesYAML), projectName, args.Name, templateArgs.Variables)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		values = append(values, []byte(renderedYaml))
 	}
@@ -287,29 +286,29 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 	// remove old files
 	if err = os.RemoveAll(to); err != nil {
 		logger.Errorf("Failed to remove dir %s, err: %s", to, err)
-		return err
+		return nil, err
 	}
 	if err = copy.Copy(from, to); err != nil {
 		logger.Errorf("Failed to copy file from %s to %s, err: %s", from, to, err)
-		return err
+		return nil, err
 	}
 
 	merged, err := yamlutil.Merge(values)
 	if err != nil {
 		logger.Errorf("Failed to merge values, err: %s", err)
-		return err
+		return nil, err
 	}
 
 	if err = os.WriteFile(filepath.Join(to, setting.ValuesYaml), merged, 0644); err != nil {
 		logger.Errorf("Failed to write values, err: %s", err)
-		return err
+		return nil, err
 	}
 
 	fsTree := os.DirFS(config.LocalServicePath(projectName, args.Name))
 	ServiceS3Base := config.ObjectStorageServicePath(projectName, args.Name)
 	if err = fsservice.ArchiveAndUploadFilesToS3(fsTree, args.Name, ServiceS3Base, logger); err != nil {
 		logger.Errorf("Failed to upload files for service %s in project %s, err: %s", args.Name, projectName, err)
-		return err
+		return nil, err
 	}
 
 	svc, err := createOrUpdateHelmService(
@@ -331,7 +330,7 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 	)
 	if err != nil {
 		logger.Errorf("Failed to create service %s in project %s, error: %s", args.Name, projectName, err)
-		return err
+		return nil, err
 	}
 
 	compareHelmVariable([]*templatemodels.RenderChart{
@@ -341,7 +340,9 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 		},
 	}, projectName, args.CreatedBy, logger)
 
-	return nil
+	return &BulkHelmServiceCreationResponse{
+		SuccessServices: []string{args.Name},
+	}, nil
 }
 
 func getCodehostType(repoArgs *CreateFromRepo, repoLink string) (string, *systemconfig.CodeHost, error) {
@@ -356,56 +357,59 @@ func getCodehostType(repoArgs *CreateFromRepo, repoLink string) (string, *system
 	return ch.Type, ch, nil
 }
 
-func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceCreationArgs, log *zap.SugaredLogger) error {
+func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceCreationArgs, log *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
 	var err error
 	var repoLink string
 	repoArgs, ok := args.CreateFrom.(*CreateFromRepo)
 	if !ok {
 		publicArgs, ok := args.CreateFrom.(*CreateFromPublicRepo)
 		if !ok {
-			return fmt.Errorf("invalid argument")
+			return nil, fmt.Errorf("invalid argument")
 		}
 
 		repoArgs, err = PublicRepoToPrivateRepoArgs(publicArgs)
 		if err != nil {
 			log.Errorf("Failed to parse repo args %+v, err: %s", publicArgs, err)
-			return err
+			return nil, err
 		}
 
 		repoLink = publicArgs.RepoLink
 	}
 
+	response := &BulkHelmServiceCreationResponse{}
 	source, codehostInfo, err := getCodehostType(repoArgs, repoLink)
 	if err != nil {
 		log.Errorf("Failed to get source form repo data %+v, err: %s", *repoArgs, err.Error())
-		return err
+		return nil, err
 	}
 
 	helmRenderCharts := make([]*templatemodels.RenderChart, 0, len(repoArgs.Paths))
-	var errs *multierror.Error
 
 	var wg wait.Group
 	var mux sync.RWMutex
 	for _, p := range repoArgs.Paths {
 		filePath := strings.TrimLeft(p, "/")
 		wg.Start(func() {
-			var finalErr error
-
-			defer func() {
-				if finalErr != nil {
-					mux.Lock()
-					errs = multierror.Append(errs, finalErr)
-					mux.Unlock()
-				}
-			}()
-
-			log.Infof("Loading chart under path %s", filePath)
-
 			var (
 				serviceName  string
 				chartVersion string
 				valuesYAML   []byte
+				finalErr     error
 			)
+			defer func() {
+				mux.Lock()
+				if finalErr != nil {
+					response.FailedServices = append(response.FailedServices, &FailedService{
+						Path:  filePath,
+						Error: finalErr.Error(),
+					})
+				} else {
+					response.SuccessServices = append(response.SuccessServices, serviceName)
+				}
+				mux.Unlock()
+			}()
+
+			log.Infof("Loading chart under path %s", filePath)
 
 			fsTree, err := fsservice.DownloadFilesFromSource(
 				&fsservice.DownloadFromSourceArgs{CodehostID: repoArgs.CodehostID, Owner: repoArgs.Owner, Repo: repoArgs.Repo, Path: filePath, Branch: repoArgs.Branch, RepoLink: repoLink},
@@ -473,8 +477,7 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 	wg.Wait()
 
 	compareHelmVariable(helmRenderCharts, projectName, args.CreatedBy, log)
-
-	return errs.ErrorOrNil()
+	return response, nil
 }
 
 func CreateOrUpdateBulkHelmService(projectName string, args *BulkHelmServiceCreationArgs, logger *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
