@@ -109,19 +109,6 @@ type updateServiceOrderArgs struct {
 	Services [][]string `json:"services"`
 }
 
-func UpdateServiceOrchestration(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	args := new(updateServiceOrderArgs)
-	if err := c.ShouldBindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid updateServiceOrder args")
-		return
-	}
-
-	ctx.Err = projectservice.UpdateServiceOrchestration(ctx.User.Name, c.Param("name"), args.Services, ctx.Logger)
-}
-
 func UpdateProject(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

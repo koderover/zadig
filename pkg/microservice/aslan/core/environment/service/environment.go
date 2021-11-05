@@ -55,7 +55,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
-	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
@@ -150,13 +149,6 @@ type RawYamlResp struct {
 
 type intervalExecutorHandler func(data *commonmodels.Service, log *zap.SugaredLogger) error
 
-func UpdateProductPublic(productName string, args *ProductParams, log *zap.SugaredLogger) error {
-	err := commonrepo.NewProductColl().UpdateIsPublic(args.EnvName, productName, args.IsPublic)
-	if err != nil {
-		log.Errorf("UpdateProductPublic error: %v", err)
-		return fmt.Errorf("UpdateProductPublic error: %v", err)
-	}
-
 func GetProductStatus(productName string, log *zap.SugaredLogger) ([]*EnvStatus, error) {
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName})
 	if err != nil {
@@ -164,51 +156,10 @@ func GetProductStatus(productName string, log *zap.SugaredLogger) ([]*EnvStatus,
 		return nil, e.ErrListProducts.AddDesc(err.Error())
 	}
 
-	return nil
-}
-
-func GetProductStatus(productName string, log *zap.SugaredLogger) ([]*EnvStatus, error) {
-	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName})
-	if err != nil {
-		log.Errorf("Collection.Product.List List product error: %v", err)
-		return nil, e.ErrListProducts.AddDesc(err.Error())
-	}
 	envStatusSlice := make([]*EnvStatus, 0)
 	for _, publicProduct := range products {
 		if publicProduct.ProductName != productName {
 			continue
-		}
-		envStatus := &EnvStatus{
-			EnvName: publicProduct.EnvName,
-			Status:  publicProduct.Status,
-		}
-		if len(publicProduct.Error) > 0 {
-			envStatus.ErrMessage = publicProduct.Error
-		}
-		envStatusSlice = append(envStatusSlice, envStatus)
-	}
-	return envStatusSlice, err
-}
-
-func ListProducts(productNameParam, envType string, userName string, userID int, superUser bool, log *zap.SugaredLogger) ([]*ProductResp, error) {
-	var (
-		err               error
-		testResp          []*ProductResp
-		prodResp          []*ProductResp
-		products          = make([]*commonmodels.Product, 0)
-		productNameMap    map[string][]int64
-		productNamespaces = sets.NewString()
-	)
-	resp := make([]*ProductResp, 0)
-
-	poetryCtl := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
-
-	// 获取所有产品
-	if superUser {
-		products, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productNameParam})
-		if err != nil {
-			log.Errorf("[%s] Collections.Product.List error: %v", userName, err)
-			return resp, e.ErrListEnvs.AddDesc(err.Error())
 		}
 		envStatus := &EnvStatus{
 			EnvName: publicProduct.EnvName,

@@ -71,14 +71,6 @@ func GetProductStatus(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GetProductStatus(c.Param("productName"), ctx.Logger)
 }
 
-// GetProductStatus List product status
-func GetProductStatus(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	ctx.Resp, ctx.Err = service.GetProductStatus(c.Param("productName"), ctx.Logger)
-}
-
 func AutoCreateProduct(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
