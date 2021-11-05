@@ -2,6 +2,7 @@ package mongodb
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -80,8 +81,22 @@ func (c *EmailHostColl) Delete() error {
 }
 
 func (c *EmailHostColl) Add(emailHost *models.EmailHost) (*models.EmailHost, error) {
+	// TODO: tmp solution to avoid bug
+	var res []*models.EmailHost
+	query := bson.M{"deleted_at": 0}
+	cur, err := c.Collection.Find(context.TODO(), query)
+	if err != nil {
+		return nil, err
+	}
+	err = cur.All(context.TODO(), &res)
+	if err != nil {
+		return nil, err
+	}
+	if len(res) >= 1 {
+		return nil, errors.New("cant add more than one emailhost")
+	}
 
-	_, err := c.Collection.InsertOne(context.TODO(), emailHost)
+	_, err = c.Collection.InsertOne(context.TODO(), emailHost)
 	if err != nil {
 		log.Error("repository AddEmailHost err : %v", err)
 		return nil, err
