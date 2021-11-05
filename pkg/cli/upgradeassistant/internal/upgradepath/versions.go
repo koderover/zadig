@@ -28,6 +28,7 @@ const (
 	V131
 	V140
 	V150
+	V160
 )
 
 var versionMap versions = map[string]int{
@@ -35,6 +36,7 @@ var versionMap versions = map[string]int{
 	"1.3.1": V131,
 	"1.4.0": V140,
 	"1.5.0": V150,
+	"1.6.0": V150,
 }
 
 type versions map[string]int
