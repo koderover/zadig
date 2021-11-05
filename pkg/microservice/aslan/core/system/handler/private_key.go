@@ -58,7 +58,7 @@ func CreatePrivateKey(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreatePrivateKey json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, "", "新增", "资源管理-主机管理", fmt.Sprintf("hostName:%s ip:%s", args.Name, args.IP), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "资源管理-主机管理", fmt.Sprintf("hostName:%s ip:%s", args.Name, args.IP), string(data), ctx.Logger)
 
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
@@ -66,7 +66,7 @@ func CreatePrivateKey(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid PrivateKey args")
 		return
 	}
-	args.UpdateBy = ctx.Username
+	args.UpdateBy = ctx.UserName
 
 	ctx.Err = service.CreatePrivateKey(args, ctx.Logger)
 }
@@ -83,7 +83,7 @@ func UpdatePrivateKey(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdatePrivateKey json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, "", "更新", "资源管理-主机管理", fmt.Sprintf("hostName:%s ip:%s", args.Name, args.IP), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "资源管理-主机管理", fmt.Sprintf("hostName:%s ip:%s", args.Name, args.IP), string(data), ctx.Logger)
 
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
@@ -91,7 +91,7 @@ func UpdatePrivateKey(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid PrivateKey args")
 		return
 	}
-	args.UpdateBy = ctx.Username
+	args.UpdateBy = ctx.UserName
 
 	ctx.Err = service.UpdatePrivateKey(c.Param("id"), args, ctx.Logger)
 }
@@ -100,7 +100,7 @@ func DeletePrivateKey(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	internalhandler.InsertOperationLog(c, ctx.Username, "", "删除", "资源管理-主机管理", fmt.Sprintf("id:%s", c.Param("id")), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "资源管理-主机管理", fmt.Sprintf("id:%s", c.Param("id")), "", ctx.Logger)
 	ctx.Err = service.DeletePrivateKey(c.Param("id"), ctx.Logger)
 }
 
@@ -128,7 +128,8 @@ func BatchCreatePrivateKey(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("batchCreatePrivateKey json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, "", "批量新增", "资源管理-主机管理", "", string(data), ctx.Logger)
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "批量新增", "资源管理-主机管理", "", string(data), ctx.Logger)
 
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
@@ -137,5 +138,5 @@ func BatchCreatePrivateKey(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.BatchCreatePrivateKey(args.Data, args.Option, ctx.Username, ctx.Logger)
+	ctx.Err = service.BatchCreatePrivateKey(args.Data, args.Option, ctx.UserName, ctx.Logger)
 }

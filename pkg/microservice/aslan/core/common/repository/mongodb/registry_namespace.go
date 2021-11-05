@@ -33,7 +33,6 @@ import (
 
 type FindRegOps struct {
 	ID          string `json:"id"`
-	OrgID       int    `json:"org_id"`
 	RegAddr     string `json:"reg_addr"`
 	RegType     string `json:"reg_type"`
 	RegProvider string `json:"reg_provider"`
@@ -97,10 +96,6 @@ func (opt FindRegOps) getQuery() bson.M {
 		query["is_default"] = true
 	}
 
-	if opt.OrgID != 0 {
-		query["org_id"] = opt.OrgID
-	}
-
 	if opt.RegType != "" {
 		query["reg_type"] = opt.RegType
 	}
@@ -135,28 +130,6 @@ func (r *RegistryNamespaceColl) FindAll(opt *FindRegOps) ([]*models.RegistryName
 	opts := options.Find()
 	resp := make([]*models.RegistryNamespace, 0)
 
-	cursor, err := r.Collection.Find(ctx, query, opts)
-	if err != nil {
-		return nil, err
-	}
-
-	err = cursor.All(ctx, &resp)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, err
-}
-
-func (r *RegistryNamespaceColl) List(orgID int, regType string) ([]*models.RegistryNamespace, error) {
-	query := bson.M{"org_id": orgID}
-	if regType != "" {
-		query["reg_type"] = regType
-	}
-
-	ctx := context.Background()
-	opts := options.Find()
-	resp := make([]*models.RegistryNamespace, 0)
 	cursor, err := r.Collection.Find(ctx, query, opts)
 	if err != nil {
 		return nil, err

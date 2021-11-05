@@ -33,10 +33,8 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/types"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 var mut sync.Mutex
@@ -474,7 +472,7 @@ func validateWorkflowHookNames(w *commonmodels.Workflow) error {
 	return validateHookNames(names)
 }
 
-func ListWorkflows(queryType string, productName string, userID int, log *zap.SugaredLogger) ([]*commonmodels.Workflow, error) {
+func ListWorkflows(queryType string, productName string, userID string, log *zap.SugaredLogger) ([]*commonmodels.Workflow, error) {
 	workflows, err := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{ProductName: productName})
 	if err != nil {
 		log.Errorf("Workflow.List error: %v", err)
@@ -540,51 +538,11 @@ func findWorkflowStat(workflow *commonmodels.Workflow, workflowStats []*commonmo
 	return 0, 0, 0
 }
 
-func ListAllWorkflows(testName string, userID int, superUser bool, log *zap.SugaredLogger) ([]*commonmodels.Workflow, error) {
-	allWorkflows := make([]*commonmodels.Workflow, 0)
-	workflows := make([]*commonmodels.Workflow, 0)
-	var err error
-	if superUser {
-		allWorkflows, err = commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{})
-		if err != nil {
-			log.Errorf("Workflow.List error: %v", err)
-			return allWorkflows, e.ErrListWorkflow.AddDesc(err.Error())
-		}
-	} else {
-		poetryCtl := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
-		productNameMap, err := poetryCtl.GetUserProject(userID, log)
-		if err != nil {
-			log.Errorf("ListAllWorkflows GetUserProject error: %v", err)
-			return nil, fmt.Errorf("ListAllWorkflows GetUserProject error: %v", err)
-		}
-		productNames := make([]string, 0)
-		for productName, roleIDs := range productNameMap {
-			roleID := roleIDs[0]
-			if roleID == setting.RoleOwnerID {
-				productNames = append(productNames, productName)
-			} else {
-				uuids, err := poetryCtl.GetUserPermissionUUIDs(roleID, productName, log)
-				if err != nil {
-					log.Errorf("ListAllWorkflows GetUserPermissionUUIDs error: %v", err)
-					return nil, fmt.Errorf("ListAllWorkflows GetUserPermissionUUIDs error: %v", err)
-				}
-
-				ids := sets.NewString(uuids...)
-				if ids.Has(permission.WorkflowUpdateUUID) {
-					productNames = append(productNames, productName)
-				}
-			}
-		}
-		for _, productName := range productNames {
-			tempWorkflows, err := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{ProductName: productName})
-			if err != nil {
-				log.Errorf("ListAllWorkflows Workflow.List error: %v", err)
-				return nil, fmt.Errorf("ListAllWorkflows Workflow.List error: %v", err)
-			}
-			allWorkflows = append(allWorkflows, tempWorkflows...)
-		}
+func ListTestWorkflows(testName string, projects []string, log *zap.SugaredLogger) (workflows []*commonmodels.Workflow, err error) {
+	allWorkflows, err := commonrepo.NewWorkflowColl().ListWorkflowsByProjects(projects)
+	if err != nil {
+		return nil, err
 	}
-
 	for _, workflow := range allWorkflows {
 		if workflow.TestStage != nil {
 			testNames := sets.NewString(workflow.TestStage.TestNames...)

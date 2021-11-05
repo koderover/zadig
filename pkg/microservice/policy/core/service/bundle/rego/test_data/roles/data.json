@@ -71,6 +71,16 @@
       ]
     },
     {
+      "name": "view",
+      "namespace": "project3",
+      "rules": [
+        {
+          "method": "GET",
+          "endpoint": "/api/articles"
+        }
+      ]
+    },
+    {
       "name": "reader2",
       "namespace": "project1",
       "rules": [

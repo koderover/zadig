@@ -340,7 +340,7 @@ func (p *JiraPlugin) SetEndTime() {
 func (p *JiraPlugin) getJiraIssue(pipelineTask *task.Task, key string) (*task.JiraIssue, error) {
 	jiraIssue := new(task.JiraIssue)
 
-	poetryClient := poetry.New(configbase.PoetryServiceAddress(), config.PoetryAPIRootKey())
+	poetryClient := poetry.New(configbase.PoetryServiceAddress())
 	jiraInfo, err := poetryClient.GetJiraInfo()
 	if err != nil {
 		return nil, fmt.Errorf("getJiraInfo [%s] error: %v", key, err)

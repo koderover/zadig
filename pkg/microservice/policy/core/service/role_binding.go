@@ -27,39 +27,124 @@ import (
 
 type RoleBinding struct {
 	Name   string `json:"name"`
-	User   string `json:"user"`
+	UID    string `json:"uid"`
 	Role   string `json:"role"`
-	Global bool   `json:"global"`
+	Public bool   `json:"public"`
 }
 
-func CreateRoleBinding(ns string, rb *RoleBinding, logger *zap.SugaredLogger) error {
-	if ns == "" {
-		logger.Errorf("Namespace is empty")
-		return fmt.Errorf("empty namespace")
+const SystemScope = "*"
+
+func CreateRoleBindings(ns string, rbs []*RoleBinding, logger *zap.SugaredLogger) error {
+	var objs []*models.RoleBinding
+	for _, rb := range rbs {
+		obj, err := createRoleBindingObject(ns, rb, logger)
+		if err != nil {
+			return err
+		}
+
+		objs = append(objs, obj)
 	}
 
+	return mongodb.NewRoleBindingColl().BulkCreate(objs)
+}
+
+func CreateOrUpdateSystemRoleBinding(ns string, rb *RoleBinding, logger *zap.SugaredLogger) error {
+
+	obj, err := createRoleBindingObject(ns, rb, logger)
+	if err != nil {
+		return err
+	}
+	return mongodb.NewRoleBindingColl().UpdateOrCreate(obj)
+}
+
+func UpdateOrCreateRoleBinding(ns string, rb *RoleBinding, logger *zap.SugaredLogger) error {
+	obj, err := createRoleBindingObject(ns, rb, logger)
+	if err != nil {
+		return err
+	}
+	return mongodb.NewRoleBindingColl().UpdateOrCreate(obj)
+}
+
+func ListRoleBindings(ns, uid string, _ *zap.SugaredLogger) ([]*RoleBinding, error) {
+	var roleBindings []*RoleBinding
+	modelRoleBindings, err := mongodb.NewRoleBindingColl().ListBy(ns, uid)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, v := range modelRoleBindings {
+		roleBindings = append(roleBindings, &RoleBinding{
+			Name:   v.Name,
+			Role:   v.RoleRef.Name,
+			UID:    v.Subjects[0].UID,
+			Public: v.RoleRef.Namespace == "",
+		})
+	}
+
+	return roleBindings, nil
+}
+
+func ListRoleBindingsByRole(ns, roleName string, publicRole bool, _ *zap.SugaredLogger) ([]*RoleBinding, error) {
+	var roleBindings []*RoleBinding
+
+	roleNamespace := ns
+	if publicRole {
+		roleNamespace = ""
+	}
+	modelRoleBindings, err := mongodb.NewRoleBindingColl().List(&mongodb.ListOptions{RoleName: roleName, RoleNamespace: roleNamespace})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, v := range modelRoleBindings {
+		roleBindings = append(roleBindings, &RoleBinding{
+			Name:   v.Name,
+			Role:   v.RoleRef.Name,
+			UID:    v.Subjects[0].UID,
+			Public: v.RoleRef.Namespace == "",
+		})
+	}
+
+	return roleBindings, nil
+}
+
+func DeleteRoleBinding(name string, projectName string, _ *zap.SugaredLogger) error {
+	return mongodb.NewRoleBindingColl().Delete(name, projectName)
+}
+
+func DeleteRoleBindings(names []string, projectName string, _ *zap.SugaredLogger) error {
+	if len(names) == 0 {
+		return nil
+	}
+
+	if names[0] == "*" {
+		names = []string{}
+	}
+
+	return mongodb.NewRoleBindingColl().DeleteMany(names, projectName)
+}
+
+func createRoleBindingObject(ns string, rb *RoleBinding, logger *zap.SugaredLogger) (*models.RoleBinding, error) {
 	nsRole := ns
-	if rb.Global {
+	if rb.Public {
 		nsRole = ""
 	}
 	role, found, err := mongodb.NewRoleColl().Get(nsRole, rb.Role)
 	if err != nil {
 		logger.Errorf("Failed to get role %s in namespace %s, err: %s", rb.Role, nsRole, err)
-		return err
+		return nil, err
 	} else if !found {
 		logger.Errorf("Role %s is not found in namespace %s", rb.Role, nsRole)
-		return fmt.Errorf("role %s not found", rb.Role)
+		return nil, fmt.Errorf("role %s not found", rb.Role)
 	}
 
-	obj := &models.RoleBinding{
+	return &models.RoleBinding{
 		Name:      rb.Name,
 		Namespace: ns,
-		Subjects:  []*models.Subject{{Kind: models.UserKind, Name: rb.User}},
+		Subjects:  []*models.Subject{{Kind: models.UserKind, UID: rb.UID}},
 		RoleRef: &models.RoleRef{
 			Name:      role.Name,
 			Namespace: role.Namespace,
 		},
-	}
-
-	return mongodb.NewRoleBindingColl().Create(obj)
+	}, nil
 }

@@ -59,11 +59,11 @@ var testBinding1 = `
     "subjects": [
         {
             "kind": "user",
-            "name": "alice"
+            "uid": "alice"
         },
         {
             "kind": "user",
-            "name": "bob"
+            "uid": "bob"
         }
     ],
     "roleRef": {
@@ -80,7 +80,7 @@ var testBinding2 = `
     "subjects": [
         {
             "kind": "user",
-            "name": "alice"
+            "uid": "alice"
         }
     ],
     "roleRef": {
@@ -149,7 +149,7 @@ var expectOPARoleBindings = `
 {
     "role_bindings": [
         {
-            "user": "alice",
+            "uid": "alice",
             "role_refs": [
                 {
                     "name": "author",
@@ -162,7 +162,7 @@ var expectOPARoleBindings = `
             ]
         },
         {
-            "user": "bob",
+            "uid": "bob",
             "role_refs": [
                 {
                     "name": "superuser",
@@ -193,7 +193,7 @@ var _ = Describe("Testing generate OPA roles and bindings", func() {
 		})
 
 		It("should work as expected", func() {
-			data := generateOPARoles(testRoles)
+			data := generateOPARoles(testRoles, nil)
 			actual, err := json.MarshalIndent(data, "", "    ")
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(string(actual)).To(Equal(strings.TrimSpace(expectOPARoles)))

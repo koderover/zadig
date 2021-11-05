@@ -85,6 +85,10 @@ func AslanServiceInfo() *setting.ServiceInfo {
 	return GetServiceByCode(setting.Aslan)
 }
 
+func SecretKey() string {
+	return viper.GetString(setting.ENVSecretKey)
+}
+
 func AslanServiceAddress() string {
 	s := AslanServiceInfo()
 	return GetServiceAddress(s.Name, s.Port)
@@ -151,6 +155,15 @@ func PoetryServiceAddress() string {
 	return GetServiceAddress(s.Name, s.Port)
 }
 
+func ConfigServiceInfo() *setting.ServiceInfo {
+	return GetServiceByCode(setting.Config)
+}
+
+func ConfigServiceAddress() string {
+	s := ConfigServiceInfo()
+	return GetServiceAddress(s.Name, s.Port)
+}
+
 func WarpDriveServiceInfo() *setting.ServiceInfo {
 	return GetServiceByCode(setting.WarpDrive)
 }
@@ -165,6 +178,24 @@ func OPAServiceInfo() *setting.ServiceInfo {
 
 func OPAServiceAddress() string {
 	s := OPAServiceInfo()
+	return GetServiceAddress(s.Name, s.Port)
+}
+
+func PolicyServiceInfo() *setting.ServiceInfo {
+	return GetServiceByCode(setting.Policy)
+}
+
+func PolicyServiceAddress() string {
+	s := PolicyServiceInfo()
+	return GetServiceAddress(s.Name, s.Port)
+}
+
+func UserServiceInfo() *setting.ServiceInfo {
+	return GetServiceByCode(setting.User)
+}
+
+func UserServiceAddress() string {
+	s := UserServiceInfo()
 	return GetServiceAddress(s.Name, s.Port)
 }
 
@@ -214,4 +245,24 @@ func MongoURI() string {
 
 func MongoDatabase() string {
 	return viper.GetString(setting.ENVAslanDBName)
+}
+
+func MysqlUser() string {
+	return viper.GetString(setting.ENVMysqlUser)
+}
+
+func MysqlPassword() string {
+	return viper.GetString(setting.ENVMysqlPassword)
+}
+
+func MysqlHost() string {
+	return viper.GetString(setting.ENVMysqlHost)
+}
+
+func AdminEmail() string {
+	return viper.GetString(setting.ENVAdminEmail)
+}
+
+func AdminPassword() string {
+	return viper.GetString(setting.ENVAdminPassword)
 }

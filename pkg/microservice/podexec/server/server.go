@@ -43,8 +43,6 @@ func Serve(ctx context.Context) error {
 		_ = json.NewEncoder(w).Encode(map[string]string{"message": "success"})
 	})
 	router.HandleFunc("/api/{productName}/{namespace}/{podName}/{containerName}/podExec", service.ServeWs)
-	router.Use(service.AuthMiddleware)
-	router.Use(service.PermissionMiddleware)
 
 	server := &http.Server{
 		Addr:         "0.0.0.0:27000",

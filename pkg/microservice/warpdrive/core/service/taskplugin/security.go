@@ -29,7 +29,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
-	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
@@ -39,8 +38,6 @@ func InitializeSecurityPlugin(taskType config.TaskType) TaskPlugin {
 		Name:      taskType,
 		errorChan: make(chan error, 1),
 		httpClient: httpclient.New(
-			httpclient.SetAuthScheme(setting.RootAPIKey),
-			httpclient.SetAuthToken(config.PoetryAPIRootKey()),
 			httpclient.SetHostURL(configbase.AslanServiceAddress()),
 		),
 	}

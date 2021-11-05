@@ -24,6 +24,10 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
+type deleteRolesArgs struct {
+	Names []string `json:"names"`
+}
+
 func CreateRole(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -43,7 +47,102 @@ func CreateRole(c *gin.Context) {
 	ctx.Err = service.CreateRole(projectName, args, ctx.Logger)
 }
 
-func CreateGlobalRole(c *gin.Context) {
+func UpdateRole(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := &service.Role{}
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName is empty")
+		return
+	}
+	name := c.Param("name")
+	args.Name = name
+
+	ctx.Err = service.UpdateRole(projectName, args, ctx.Logger)
+}
+
+func UpdateOrCreateRole(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := &service.Role{}
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName is empty")
+		return
+	}
+	args.Name = c.Param("name")
+
+	ctx.Err = service.UpdateOrCreateRole(projectName, args, ctx.Logger)
+}
+
+func UpdatePublicRole(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := &service.Role{}
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = err
+		return
+	}
+	name := c.Param("name")
+	args.Name = name
+	ctx.Err = service.UpdateRole("", args, ctx.Logger)
+}
+
+func UpdateOrCreatePublicRole(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := &service.Role{}
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = err
+		return
+	}
+	name := c.Param("name")
+	args.Name = name
+	ctx.Err = service.UpdateOrCreateRole("", args, ctx.Logger)
+}
+
+func ListRoles(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("args projectName can't be empty")
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.ListRoles(projectName, ctx.Logger)
+}
+
+func GetRole(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("args projectName can't be empty")
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetRole(projectName, c.Param("name"), ctx.Logger)
+}
+
+func CreatePublicRole(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -54,4 +153,103 @@ func CreateGlobalRole(c *gin.Context) {
 	}
 
 	ctx.Err = service.CreateRole("", args, ctx.Logger)
+}
+
+func ListPublicRoles(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.ListRoles("", ctx.Logger)
+	return
+}
+
+func GetPublicRole(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.GetRole("", c.Param("name"), ctx.Logger)
+}
+
+func DeleteRole(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	name := c.Param("name")
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("args projectName can't be empty")
+		return
+	}
+
+	ctx.Err = service.DeleteRole(name, projectName, ctx.Logger)
+}
+
+func DeleteRoles(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("args projectName can't be empty")
+		return
+	}
+
+	args := &deleteRolesArgs{}
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Err = service.DeleteRoles(args.Names, projectName, ctx.Logger)
+}
+
+func DeletePublicRole(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	name := c.Param("name")
+	ctx.Err = service.DeleteRole(name, "", ctx.Logger)
+	return
+}
+
+func CreateSystemRole(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := &service.Role{}
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Err = service.CreateRole("*", args, ctx.Logger)
+}
+
+func UpdateOrCreateSystemRole(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := &service.Role{}
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = err
+		return
+	}
+	name := c.Param("name")
+	args.Name = name
+	ctx.Err = service.UpdateOrCreateRole("*", args, ctx.Logger)
+}
+
+func ListSystemRoles(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.ListRoles("*", ctx.Logger)
+	return
+}
+
+func DeleteSystemRole(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	name := c.Param("name")
+	ctx.Err = service.DeleteRole(name, "*", ctx.Logger)
+	return
 }

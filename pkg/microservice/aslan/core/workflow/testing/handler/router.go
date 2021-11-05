@@ -20,7 +20,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	gin2 "github.com/koderover/zadig/pkg/middleware/gin"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 type Router struct{}
@@ -31,8 +30,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		testReport.GET("", GetHTMLTestReport)
 	}
-
-	router.Use(gin2.Auth())
 
 	// ---------------------------------------------------------------------------------------
 	// 系统测试接口
@@ -49,11 +46,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	tester := router.Group("test")
 	{
-		tester.POST("", GetTestProductName, gin2.IsHavePermission([]string{permission.TestManageUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, CreateTestModule)
-		tester.PUT("", GetTestProductName, gin2.IsHavePermission([]string{permission.TestManageUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, UpdateTestModule)
+		tester.POST("", GetTestProductName, gin2.UpdateOperationLogStatus, CreateTestModule)
+		tester.PUT("", GetTestProductName, gin2.UpdateOperationLogStatus, UpdateTestModule)
 		tester.GET("", ListTestModules)
 		tester.GET("/:name", GetTestModule)
-		tester.DELETE("/:name", gin2.IsHavePermission([]string{permission.TestDeleteUUID}, permission.QueryType), gin2.UpdateOperationLogStatus, DeleteTestModule)
+		tester.DELETE("/:name", gin2.UpdateOperationLogStatus, DeleteTestModule)
 	}
 
 	testStat := router.Group("teststat")

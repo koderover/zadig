@@ -69,7 +69,7 @@ func CreateProxy(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateProxy json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, "", "新增", "代理", fmt.Sprintf("server:%s:%d", args.Address, args.Port), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "代理", fmt.Sprintf("server:%s:%d", args.Address, args.Port), string(data), ctx.Logger)
 
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
@@ -77,7 +77,7 @@ func CreateProxy(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid proxy args")
 		return
 	}
-	args.UpdateBy = ctx.Username
+	args.UpdateBy = ctx.UserName
 
 	ctx.Err = service.CreateProxy(args, ctx.Logger)
 }
@@ -94,7 +94,7 @@ func UpdateProxy(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdateProxy json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, "", "更新", "代理", fmt.Sprintf("id:%s", args.ID), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "代理", fmt.Sprintf("id:%s", args.ID), string(data), ctx.Logger)
 
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
@@ -102,7 +102,7 @@ func UpdateProxy(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid proxy args")
 		return
 	}
-	args.UpdateBy = ctx.Username
+	args.UpdateBy = ctx.UserName
 
 	ctx.Err = service.UpdateProxy(c.Param("id"), args, ctx.Logger)
 }
@@ -111,7 +111,7 @@ func DeleteProxy(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	internalhandler.InsertOperationLog(c, ctx.Username, "", "删除", "代理", fmt.Sprintf("id:%s", c.Param("id")), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "代理", fmt.Sprintf("id:%s", c.Param("id")), "", ctx.Logger)
 
 	ctx.Err = service.DeleteProxy(c.Param("id"), ctx.Logger)
 }

@@ -37,7 +37,6 @@ import (
 	"github.com/koderover/zadig/pkg/shared/codehost"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
 	"github.com/koderover/zadig/pkg/types"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 type patchsetCreatedEvent struct {
@@ -382,7 +381,7 @@ func TriggerWorkflowByGerritEvent(event *gerritTypeEvent, body []byte, uri, base
 						workflowArgs.RepoOwner = item.MainRepo.RepoOwner
 						workflowArgs.RepoName = item.MainRepo.RepoName
 
-						if resp, err := workflowservice.CreateWorkflowTask(workflowArgs, setting.WebhookTaskCreator, permission.AnonymousUserID, false, log); err != nil {
+						if resp, err := workflowservice.CreateWorkflowTask(workflowArgs, setting.WebhookTaskCreator, log); err != nil {
 							log.Errorf("TriggerWorkflowByGerritEvent failed to create workflow task when receive push event %v due to %v ", event, err)
 							errorList = multierror.Append(errorList, err)
 						} else {

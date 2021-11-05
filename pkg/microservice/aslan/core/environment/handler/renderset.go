@@ -29,7 +29,7 @@ func GetServiceRenderCharts(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	if c.Query("productName") == "" {
+	if c.Query("projectName") == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
@@ -39,14 +39,14 @@ func GetServiceRenderCharts(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetRenderCharts(c.Query("productName"), c.Query("envName"), c.Query("serviceName"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetRenderCharts(c.Query("projectName"), c.Query("envName"), c.Query("serviceName"), ctx.Logger)
 }
 
 func GetProductDefaultValues(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	if c.Query("productName") == "" {
+	if c.Query("projectName") == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}

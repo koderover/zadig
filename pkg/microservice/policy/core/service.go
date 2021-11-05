@@ -90,6 +90,7 @@ func initDatabase(ctx context.Context) {
 	for _, r := range []indexer{
 		mongodb.NewRoleColl(),
 		mongodb.NewRoleBindingColl(),
+		mongodb.NewPolicyColl(),
 	} {
 		wg.Add(1)
 		go func(r indexer) {

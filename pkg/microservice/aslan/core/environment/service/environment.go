@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -56,14 +55,12 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
-	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/types/permission"
 	"github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/converter"
 	"github.com/koderover/zadig/pkg/util/fs"
@@ -152,38 +149,13 @@ type RawYamlResp struct {
 
 type intervalExecutorHandler func(data *commonmodels.Service, log *zap.SugaredLogger) error
 
-func UpdateProductPublic(productName string, args *ProductParams, log *zap.SugaredLogger) error {
-	err := commonrepo.NewProductColl().UpdateIsPublic(args.EnvName, productName, args.IsPublic)
-	if err != nil {
-		log.Errorf("UpdateProductPublic error: %v", err)
-		return fmt.Errorf("UpdateProductPublic error: %v", err)
-	}
-
-	poetryCtl := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
-	if !args.IsPublic { //把公开设置成不公开
-		_, err := poetryCtl.AddEnvRolePermission(productName, args.EnvName, args.PermissionUUIDs, args.RoleID, log)
-		if err != nil {
-			log.Errorf("UpdateProductPublic AddEnvRole error: %v", err)
-			return fmt.Errorf("UpdateProductPublic AddEnvRole error: %v", err)
-		}
-		return nil
-	}
-	//把不公开设成公开 删除原来环境绑定的角色
-	_, err = poetryCtl.DeleteEnvRolePermission(productName, args.EnvName, log)
-	if err != nil {
-		log.Errorf("UpdateProductPublic DeleteEnvRole error: %v", err)
-		return fmt.Errorf("UpdateProductPublic DeleteEnvRole error: %v", err)
-	}
-
-	return nil
-}
-
 func GetProductStatus(productName string, log *zap.SugaredLogger) ([]*EnvStatus, error) {
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName})
 	if err != nil {
 		log.Errorf("Collection.Product.List List product error: %v", err)
 		return nil, e.ErrListProducts.AddDesc(err.Error())
 	}
+
 	envStatusSlice := make([]*EnvStatus, 0)
 	for _, publicProduct := range products {
 		if publicProduct.ProductName != productName {
@@ -201,128 +173,11 @@ func GetProductStatus(productName string, log *zap.SugaredLogger) ([]*EnvStatus,
 	return envStatusSlice, err
 }
 
-func ListProducts(productNameParam, envType string, userName string, userID int, superUser bool, log *zap.SugaredLogger) ([]*ProductResp, error) {
-	var (
-		err               error
-		testResp          []*ProductResp
-		prodResp          []*ProductResp
-		products          = make([]*commonmodels.Product, 0)
-		productNameMap    map[string][]int64
-		productNamespaces = sets.NewString()
-	)
-	resp := make([]*ProductResp, 0)
-
-	poetryCtl := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
-
-	// 获取所有产品
-	if superUser {
-		products, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productNameParam})
-		if err != nil {
-			log.Errorf("[%s] Collections.Product.List error: %v", userName, err)
-			return resp, e.ErrListEnvs.AddDesc(err.Error())
-		}
-	} else {
-		//项目下所有公开环境
-		publicProducts, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{IsPublic: true})
-		if err != nil {
-			log.Errorf("Collection.Product.List List product error: %v", err)
-			return resp, e.ErrListProducts.AddDesc(err.Error())
-		}
-		for _, publicProduct := range publicProducts {
-			if productNameParam == "" {
-				products = append(products, publicProduct)
-				productNamespaces.Insert(publicProduct.Namespace)
-			} else if publicProduct.ProductName == productNameParam {
-				products = append(products, publicProduct)
-				productNamespaces.Insert(publicProduct.Namespace)
-			}
-		}
-
-		productNameMap, err = poetryCtl.GetUserProject(userID, log)
-		if err != nil {
-			log.Errorf("Collection.Product.List GetUserProject error: %v", err)
-			return resp, e.ErrListProducts.AddDesc(err.Error())
-		}
-		for productName, roleIDs := range productNameMap {
-			//用户关联角色所关联的环境
-			for _, roleID := range roleIDs {
-				if roleID == setting.RoleOwnerID {
-					tmpProducts, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName})
-					if err != nil {
-						log.Errorf("Collection.Product.List Find product error: %v", err)
-						return resp, e.ErrListProducts.AddDesc(err.Error())
-					}
-					for _, product := range tmpProducts {
-						if productNameParam == "" {
-							if !productNamespaces.Has(product.Namespace) {
-								products = append(products, product)
-							}
-						} else if product.ProductName == productNameParam {
-							if !productNamespaces.Has(product.Namespace) {
-								products = append(products, product)
-							}
-						}
-					}
-				} else {
-					productMap := make(map[string]int)
-					// 先列出环境-用户授权
-					userEnvPermissionList, err := poetryCtl.GetUserEnvPermission(userID, log)
-					if err != nil {
-						log.Errorf("failed to get user env permission, err: %v", err)
-						return resp, err
-					}
-					for _, userEnvPermission := range userEnvPermissionList {
-						product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: userEnvPermission.EnvName})
-						if err != nil {
-							log.Errorf("Collection.Product.List Find product error: %v", err)
-							continue
-						}
-						if productNameParam == "" {
-							if !productNamespaces.Has(product.Namespace) && userEnvPermission.PermissionUUID == permission.TestEnvListUUID {
-								products = append(products, product)
-								productNamespaces = productNamespaces.Insert(product.Namespace)
-								productMap[product.EnvName] = 1
-							}
-						} else if product.ProductName == productNameParam {
-							if !productNamespaces.Has(product.Namespace) && userEnvPermission.PermissionUUID == permission.TestEnvManageUUID {
-								products = append(products, product)
-								productNamespaces = productNamespaces.Insert(product.Namespace)
-								productMap[product.EnvName] = 1
-							}
-						}
-					}
-					// 再获取环境-角色授权
-					roleEnvPermissions, err := poetryCtl.ListEnvRolePermission(productName, "", roleID, log)
-					if err != nil {
-						log.Errorf("Collection.Product.List ListRoleEnvs error: %v", err)
-						return resp, e.ErrListProducts.AddDesc(err.Error())
-					}
-					for _, roleEnvPermission := range roleEnvPermissions {
-						product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: roleEnvPermission.EnvName})
-						if err != nil {
-							log.Errorf("Collection.Product.List Find product error: %v", err)
-							continue
-						}
-						if productNameParam == "" {
-							if !productNamespaces.Has(product.Namespace) && roleEnvPermission.PermissionUUID == permission.TestEnvListUUID {
-								products = append(products, product)
-								productNamespaces.Insert(product.Namespace)
-							}
-						} else if product.ProductName == productNameParam {
-							if !productNamespaces.Has(product.Namespace) && roleEnvPermission.PermissionUUID == permission.TestEnvManageUUID {
-								products = append(products, product)
-								productNamespaces.Insert(product.Namespace)
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
-	err = FillProductVars(products, log)
+func ListProducts(productNameParam string, userName string, log *zap.SugaredLogger) (resp []*ProductResp, err error) {
+	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productNameParam, IsSortByProductName: true})
 	if err != nil {
-		return resp, err
+		log.Errorf("[%s] Collections.Product.List error: %v", userName, err)
+		return resp, e.ErrListEnvs.AddDesc(err.Error())
 	}
 
 	for _, prod := range products {
@@ -340,212 +195,19 @@ func ListProducts(productNameParam, envType string, userName string, userID int,
 			Render:      prod.Render,
 			Source:      prod.Source,
 		}
-
-		if prod.ClusterID != "" {
-			cluster, _ := commonrepo.NewK8SClusterColl().Get(prod.ClusterID)
-			if cluster != nil && cluster.Production {
-				product.IsProd = true
-				operatorPerm := poetryCtl.HasOperatePermission(prod.ProductName, permission.ProdEnvManageUUID, userID, superUser, log)
-				viewPerm := poetryCtl.HasOperatePermission(prod.ProductName, permission.ProdEnvListUUID, userID, superUser, log)
-				if envType == "" && (operatorPerm || viewPerm) {
-					prodResp = append(prodResp, product)
-				} else if envType == setting.ProdENV {
-					prodResp = append(prodResp, product)
-				}
-			} else if cluster != nil && !cluster.Production {
-				product.IsProd = false
-				testResp = append(testResp, product)
-			}
-		} else {
-			product.IsProd = false
-			testResp = append(testResp, product)
-		}
-	}
-	switch envType {
-	case setting.ProdENV:
-		resp = append(resp, prodResp...)
-	case setting.TestENV:
-		resp = append(resp, testResp...)
-	default:
-		resp = append(resp, prodResp...)
-		resp = append(resp, testResp...)
-	}
-
-	sort.SliceStable(resp, func(i, j int) bool { return resp[i].ProductName < resp[j].ProductName })
-
-	return resp, nil
-}
-
-type ListProductsRespV2 struct {
-	ClusterName string `json:"clusterName"`
-	Production  bool   `json:"production"`
-	Name        string `json:"name"`
-	ProjectName string `json:"projectName"`
-	Source      string `json:"source"`
-}
-
-// Args: projectName, which is formerly known as productName, is the primary key of the project in our system
-func ListProductsV2(projectName, envFilter string, userName string, userID int, superUser bool, log *zap.SugaredLogger) ([]*ListProductsRespV2, error) {
-	var (
-		err               error
-		testResp          []*ListProductsRespV2
-		prodResp          []*ListProductsRespV2
-		products          = make([]*commonmodels.Product, 0)
-		productNameMap    map[string][]int64
-		productNamespaces = sets.NewString()
-	)
-	ret := make([]*ListProductsRespV2, 0)
-
-	poetryCtl := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
-
-	// 获取所有产品
-	if superUser {
-		products, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: projectName})
-		if err != nil {
-			log.Errorf("[%s] Collections.Product.List error: %v", userName, err)
-			return ret, e.ErrListEnvs.AddDesc(err.Error())
-		}
-	} else {
-		//项目下所有公开环境
-		publicProducts, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{IsPublic: true})
-		if err != nil {
-			log.Errorf("Collection.Product.List List product error: %v", err)
-			return ret, e.ErrListProducts.AddDesc(err.Error())
-		}
-		for _, publicProduct := range publicProducts {
-			if projectName == "" {
-				products = append(products, publicProduct)
-				productNamespaces.Insert(publicProduct.Namespace)
-			} else if publicProduct.ProductName == projectName {
-				products = append(products, publicProduct)
-				productNamespaces.Insert(publicProduct.Namespace)
-			}
-		}
-
-		productNameMap, err = poetryCtl.GetUserProject(userID, log)
-		if err != nil {
-			log.Errorf("Collection.Product.List GetUserProject error: %v", err)
-			return ret, e.ErrListProducts.AddDesc(err.Error())
-		}
-		for productName, roleIDs := range productNameMap {
-			//用户关联角色所关联的环境
-			for _, roleID := range roleIDs {
-				if roleID == setting.RoleOwnerID {
-					tmpProducts, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName})
-					if err != nil {
-						log.Errorf("Collection.Product.List Find product error: %v", err)
-						return ret, e.ErrListProducts.AddDesc(err.Error())
-					}
-					for _, product := range tmpProducts {
-						if projectName == "" {
-							if !productNamespaces.Has(product.Namespace) {
-								products = append(products, product)
-							}
-						} else if product.ProductName == projectName {
-							if !productNamespaces.Has(product.Namespace) {
-								products = append(products, product)
-							}
-						}
-					}
-				} else {
-					productMap := make(map[string]int)
-					// 先列出环境-用户授权
-					userEnvPermissionList, err := poetryCtl.GetUserEnvPermission(userID, log)
-					if err != nil {
-						log.Errorf("failed to get user env permission, err: %v", err)
-						return ret, err
-					}
-					for _, userEnvPermission := range userEnvPermissionList {
-						product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: userEnvPermission.EnvName})
-						if err != nil {
-							log.Errorf("Collection.Product.List Find product error: %v", err)
-							continue
-						}
-						if projectName == "" {
-							if !productNamespaces.Has(product.Namespace) && userEnvPermission.PermissionUUID == permission.TestEnvListUUID {
-								products = append(products, product)
-								productNamespaces = productNamespaces.Insert(product.Namespace)
-								productMap[product.EnvName] = 1
-							}
-						} else if product.ProductName == projectName {
-							if !productNamespaces.Has(product.Namespace) && userEnvPermission.PermissionUUID == permission.TestEnvManageUUID {
-								products = append(products, product)
-								productNamespaces = productNamespaces.Insert(product.Namespace)
-								productMap[product.EnvName] = 1
-							}
-						}
-					}
-					// 再获取环境-角色授权
-					roleEnvPermissions, err := poetryCtl.ListEnvRolePermission(productName, "", roleID, log)
-					if err != nil {
-						log.Errorf("Collection.Product.List ListRoleEnvs error: %v", err)
-						return ret, e.ErrListProducts.AddDesc(err.Error())
-					}
-					for _, roleEnvPermission := range roleEnvPermissions {
-						product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: roleEnvPermission.EnvName})
-						if err != nil {
-							log.Errorf("Collection.Product.List Find product error: %v", err)
-							continue
-						}
-						if projectName == "" {
-							if !productNamespaces.Has(product.Namespace) && roleEnvPermission.PermissionUUID == permission.TestEnvListUUID {
-								products = append(products, product)
-								productNamespaces.Insert(product.Namespace)
-							}
-						} else if product.ProductName == projectName {
-							if !productNamespaces.Has(product.Namespace) && roleEnvPermission.PermissionUUID == permission.TestEnvManageUUID {
-								products = append(products, product)
-								productNamespaces.Insert(product.Namespace)
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
-	for _, product := range products {
-		item := &ListProductsRespV2{
-			Name:        product.EnvName,
-			ProjectName: product.ProductName,
-			Source:      product.Source,
-		}
 		if product.ClusterID != "" {
 			cluster, _ := commonrepo.NewK8SClusterColl().Get(product.ClusterID)
 			if cluster != nil && cluster.Production {
-				item.Production = true
-				item.ClusterName = cluster.Name
-				operatorPerm := poetryCtl.HasOperatePermission(product.ProductName, permission.ProdEnvManageUUID, userID, superUser, log)
-				viewPerm := poetryCtl.HasOperatePermission(product.ProductName, permission.ProdEnvListUUID, userID, superUser, log)
-				if envFilter == "" && (operatorPerm || viewPerm) {
-					prodResp = append(prodResp, item)
-				} else if envFilter == setting.ProdENV {
-					prodResp = append(prodResp, item)
-				}
-			} else if cluster != nil && !cluster.Production {
-				item.Production = false
-				item.ClusterName = cluster.Name
-				testResp = append(testResp, item)
+				product.IsProd = true
 			}
-		} else {
-			item.Production = false
-			testResp = append(testResp, item)
 		}
+		err = FillProductVars(products, log)
+		if err != nil {
+			return resp, err
+		}
+		resp = append(resp, product)
 	}
-
-	switch envFilter {
-	case setting.ProdENV:
-		ret = append(ret, prodResp...)
-	case setting.TestENV:
-		ret = append(ret, testResp...)
-	default:
-		ret = append(ret, prodResp...)
-		ret = append(ret, testResp...)
-	}
-
-	sort.SliceStable(ret, func(i, j int) bool { return ret[i].ProjectName < ret[j].ProjectName })
-
-	return ret, nil
+	return resp, nil
 }
 
 func FillProductVars(products []*commonmodels.Product, log *zap.SugaredLogger) error {
@@ -599,7 +261,7 @@ func AutoCreateProduct(productName, envType, requestID string, log *zap.SugaredL
 
 var mutexAutoUpdate sync.RWMutex
 
-func AutoUpdateProduct(envNames []string, productName string, userID int, superUser bool, requestID string, force bool, log *zap.SugaredLogger) ([]*EnvStatus, error) {
+func AutoUpdateProduct(envNames []string, productName, requestID string, force bool, log *zap.SugaredLogger) ([]*EnvStatus, error) {
 	mutexAutoUpdate.Lock()
 	defer func() {
 		mutexAutoUpdate.Unlock()
@@ -636,7 +298,7 @@ func AutoUpdateProduct(envNames []string, productName string, userID int, superU
 		}
 	}
 
-	productsRevison, err := ListProductsRevision(productName, "", userID, superUser, log)
+	productsRevison, err := ListProductsRevision(productName, "", log)
 	if err != nil {
 		log.Errorf("AutoUpdateProduct ListProductsRevision err:%v", err)
 		return envStatuses, err
@@ -1413,7 +1075,7 @@ func updateHelmProductVariable(productResp *commonmodels.Product, renderset *com
 
 var mutexUpdateMultiHelm sync.RWMutex
 
-func UpdateMultipleHelmEnv(userName, requestID string, userID int, superUser bool, args *UpdateMultiHelmProductArg, log *zap.SugaredLogger) ([]*EnvStatus, error) {
+func UpdateMultipleHelmEnv(requestID string, args *UpdateMultiHelmProductArg, log *zap.SugaredLogger) ([]*EnvStatus, error) {
 	mutexUpdateMultiHelm.Lock()
 	defer func() {
 		mutexUpdateMultiHelm.Unlock()
@@ -1422,7 +1084,7 @@ func UpdateMultipleHelmEnv(userName, requestID string, userID int, superUser boo
 	envNames, productName := args.EnvNames, args.ProductName
 
 	envStatuses := make([]*EnvStatus, 0)
-	productsRevision, err := ListProductsRevision(productName, "", userID, superUser, log)
+	productsRevision, err := ListProductsRevision(productName, "", log)
 	if err != nil {
 		log.Errorf("UpdateMultiHelmProduct ListProductsRevision err:%v", err)
 		return envStatuses, err
@@ -1776,149 +1438,6 @@ func getProjectType(productName string) string {
 	}
 	return projectType
 }
-
-// createGroup create or update services in service group
-//func createGroup(envName, productName, username string, group []*commonmodels.ProductService, renderSet *commonmodels.RenderSet, kubeClient client.Client, log *zap.SugaredLogger) error {
-//	log.Infof("[Namespace:%s][Product:%s] createGroup", envName, productName)
-//	updatableServiceNameList := make([]string, 0)
-//
-//	// 异步创建无依赖的服务
-//	errList := &multierror.Error{
-//		ErrorFormat: func(es []error) string {
-//			points := make([]string, len(es))
-//			for i, err := range es {
-//				points[i] = fmt.Sprintf("%v", err)
-//			}
-//
-//			return strings.Join(points, "\n")
-//		},
-//	}
-//
-//	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
-//	prod, err := commonrepo.NewProductColl().Find(opt)
-//	if err != nil {
-//		errList = multierror.Append(errList, err)
-//	}
-//
-//	var wg sync.WaitGroup
-//	var lock sync.Mutex
-//	var resources []*unstructured.Unstructured
-//
-//	for i := range group {
-//		if group[i].Type == setting.K8SDeployType {
-//			// 只有在service有Pod的时候，才需要等待pod running或者等待pod succeed
-//			// 比如在group中，如果service下仅有configmap/service/ingress这些yaml的时候，不需要waitServicesRunning
-//			wg.Add(1)
-//			updatableServiceNameList = append(updatableServiceNameList, group[i].ServiceName)
-//			go func(svc *commonmodels.ProductService) {
-//				defer wg.Done()
-//				items, err := upsertService(false, prod, svc, nil, renderSet, kubeClient, log)
-//				if err != nil {
-//					lock.Lock()
-//					switch e := err.(type) {
-//					case *multierror.Error:
-//						errList = multierror.Append(errList, e.Errors...)
-//					default:
-//						errList = multierror.Append(errList, e)
-//					}
-//					lock.Unlock()
-//				}
-//
-//				//  concurrent array append
-//				lock.Lock()
-//				resources = append(resources, items...)
-//				lock.Unlock()
-//			}(group[i])
-//		} else if group[i].Type == setting.PMDeployType {
-//			//更新非k8s服务
-//			if len(group[i].EnvConfigs) > 0 {
-//				serviceTempl, err := commonservice.GetServiceTemplate(group[i].ServiceName, setting.PMDeployType, productName, setting.ProductStatusDeleting, group[i].Revision, log)
-//				if err != nil {
-//					errList = multierror.Append(errList, err)
-//				}
-//				if serviceTempl != nil {
-//					oldEnvConfigs := serviceTempl.EnvConfigs
-//					for _, currentEnvConfig := range group[i].EnvConfigs {
-//						envConfig := &commonmodels.EnvConfig{
-//							EnvName: currentEnvConfig.EnvName,
-//							HostIDs: currentEnvConfig.HostIDs,
-//						}
-//						oldEnvConfigs = append(oldEnvConfigs, envConfig)
-//					}
-//
-//					args := &commonservice.ServiceTmplBuildObject{
-//						ServiceTmplObject: &commonservice.ServiceTmplObject{
-//							ProductName:  serviceTempl.ProductName,
-//							ServiceName:  serviceTempl.ServiceName,
-//							Visibility:   serviceTempl.Visibility,
-//							Revision:     serviceTempl.Revision,
-//							Type:         serviceTempl.Type,
-//							Username:     username,
-//							HealthChecks: serviceTempl.HealthChecks,
-//							EnvConfigs:   oldEnvConfigs,
-//							EnvStatuses:  []*commonmodels.EnvStatus{},
-//							From:         "createEnv",
-//						},
-//						Build: &commonmodels.Build{Name: serviceTempl.BuildName},
-//					}
-//
-//					if err := commonservice.UpdatePmServiceTemplate(username, args, log); err != nil {
-//						errList = multierror.Append(errList, err)
-//					}
-//				}
-//			}
-//			var latestRevision int64 = group[i].Revision
-//			// 获取最新版本的服务
-//			if latestServiceTempl, _ := commonservice.GetServiceTemplate(group[i].ServiceName, setting.PMDeployType, productName, setting.ProductStatusDeleting, 0, log); latestServiceTempl != nil {
-//				latestRevision = latestServiceTempl.Revision
-//			}
-//			// 更新环境
-//			if latestRevision > group[i].Revision {
-//				// 更新产品服务
-//				for _, serviceGroup := range prod.Services {
-//					for j, service := range serviceGroup {
-//						if service.ServiceName == group[i].ServiceName && service.Type == setting.PMDeployType {
-//							serviceGroup[j].Revision = latestRevision
-//						}
-//					}
-//				}
-//				if err := commonrepo.NewProductColl().Update(prod); err != nil {
-//					log.Errorf("[%s][%s] Product.Update error: %v", envName, productName, err)
-//					errList = multierror.Append(errList, err)
-//				}
-//			}
-//			if _, err = commonservice.CreateServiceTask(&commonmodels.ServiceTaskArgs{
-//				ProductName:        productName,
-//				ServiceName:        group[i].ServiceName,
-//				Revision:           latestRevision,
-//				EnvNames:           []string{envName},
-//				ServiceTaskCreator: username,
-//			}, log); err != nil {
-//				errList = multierror.Append(errList, err)
-//			}
-//		}
-//	}
-//
-//	wg.Wait()
-//
-//	// 如果创建依赖服务组有返回错误, 停止等待
-//	if err := errList.ErrorOrNil(); err != nil {
-//		return err
-//	}
-//
-//	if err := waitResourceRunning(kubeClient, prod.Namespace, resources, config.ServiceStartTimeout(), log); err != nil {
-//		log.Errorf(
-//			"service group %s/%+v doesn't start in %d seconds: %v",
-//			prod.Namespace,
-//			updatableServiceNameList, config.ServiceStartTimeout(), err)
-//
-//		err = e.ErrUpdateEnv.AddErr(
-//			errors.Errorf(e.StartPodTimeout+"\n %s", "["+strings.Join(updatableServiceNameList, "], [")+"]"))
-//		return err
-//	}
-//
-//	return nil
-//}
 
 // upsertService 创建或者更新服务, 更新服务之前先创建服务需要的配置
 func upsertService(isUpdate bool, env *commonmodels.Product,
@@ -2693,6 +2212,7 @@ func installProductHelmCharts(user, envName, requestID string, args *commonmodel
 			errList = multierror.Append(errList, serviceGroupErr...)
 		}
 	}
+
 	err = errList.ErrorOrNil()
 }
 

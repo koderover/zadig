@@ -39,7 +39,7 @@ func GetContainerLogsSSE(c *gin.Context) {
 	}
 
 	envName := c.Query("envName")
-	productName := c.Query("productName")
+	productName := c.Query("projectName")
 
 	internalhandler.Stream(c, func(ctx context.Context, streamChan chan interface{}) {
 		logservice.ContainerLogStream(ctx, streamChan, envName, productName, c.Param("podName"), c.Param("containerName"), true, tails, logger)
@@ -102,7 +102,7 @@ func GetWorkflowBuildJobContainerLogsSSE(c *gin.Context) {
 		ServiceName:  c.Param("serviceName"),
 		PipelineType: string(config.WorkflowType),
 		EnvName:      c.Query("envName"),
-		ProductName:  c.Query("productName"),
+		ProductName:  c.Query("projectName"),
 	}
 
 	internalhandler.Stream(c, func(ctx1 context.Context, streamChan chan interface{}) {
