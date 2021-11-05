@@ -56,11 +56,3 @@ func MysqlUserDB() string {
 func TokenExpiresAt() int {
 	return viper.GetInt(setting.ENVTokenExpiresAt)
 }
-
-func NoReplyEmailAddress() string {
-	return viper.GetString(setting.ENVNoReplyEmailAddress)
-}
-
-func NoReplyEmailPassword() string {
-	return viper.GetString(setting.ENVNoReplyEmailPassword)
-}

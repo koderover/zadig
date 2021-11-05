@@ -13,10 +13,29 @@ type Connector struct {
 	Config *ldap.Config `json:"config"`
 }
 
+type Email struct {
+	Name     string `json:"name"`
+	Port     int    `json:"port"`
+	UserName string `json:"username"`
+	Password string `json:"password"`
+}
+
 func (c *Client) GetLDAPConnector(id string) (*Connector, error) {
 	url := "/connectors/" + id
 
 	res := &Connector{}
+	_, err := c.Get(url, httpclient.SetResult(res))
+	if err != nil {
+		return nil, err
+	}
+
+	return res, err
+}
+
+func (c *Client) GetHost() (*Email, error) {
+	url := "/emails/internal/host/"
+
+	res := &Email{}
 	_, err := c.Get(url, httpclient.SetResult(res))
 	if err != nil {
 		return nil, err
