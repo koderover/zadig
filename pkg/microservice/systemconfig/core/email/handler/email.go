@@ -48,8 +48,6 @@ func DeleteEmailHost(c *gin.Context) {
 	ctx.Err = service.DeleteEmailHost(ctx.Logger)
 }
 
-////
-
 func GetEmailService(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
