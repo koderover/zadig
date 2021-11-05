@@ -42,7 +42,7 @@ var publicURLs = []*policyRule{
 	},
 	{
 		Methods:   []string{"GET", "POST"},
-		Endpoints: []string{"login"},
+		Endpoints: []string{"api/v1/login", "api/v1/signup", "api/v1/retrieve"},
 	},
 	{
 		Methods:   []string{"*"},
@@ -55,10 +55,6 @@ var publicURLs = []*policyRule{
 	{
 		Methods:   []string{"GET"},
 		Endpoints: []string{"", "signin", "setup", "loading", "static/**", "v1/**", "mobile/**", "productpipelines/**"},
-	},
-	{
-		Methods:   []string{"GET"},
-		Endpoints: []string{"api/directory/check"},
 	},
 	{
 		Methods:   []string{"GET"},
@@ -201,7 +197,7 @@ var systemAdminURLs = []*policyRule{
 		Endpoints: []string{"api/aslan/system/proxy/config"},
 	},
 	{
-		Methods:   []string{"GET"},
+		Methods:   []string{"GET", "DELETE"},
 		Endpoints: []string{"api/v1/users/?*"},
 	},
 	{
