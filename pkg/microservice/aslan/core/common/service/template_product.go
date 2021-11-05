@@ -142,10 +142,11 @@ func GetProductTemplate(productName string, log *zap.SugaredLogger) (*template.P
 	if len(totalServices) > 0 {
 		serviceObj, err := GetServiceTemplate(totalServices[0].ServiceName, totalServices[0].Type, productName, setting.ProductStatusDeleting, totalServices[0].Revision, log)
 		if err != nil {
-			return resp, fmt.Errorf("GetServiceTemplate err : %v", err)
+			log.Errorf("GetServiceTemplate err : %v", err)
+		} else {
+			resp.LatestServiceUpdateTime = serviceObj.CreateTime
+			resp.LatestServiceUpdateBy = serviceObj.CreateBy
 		}
-		resp.LatestServiceUpdateTime = serviceObj.CreateTime
-		resp.LatestServiceUpdateBy = serviceObj.CreateBy
 	}
 	resp.TotalBuildNum = len(totalBuilds)
 	if len(totalBuilds) > 0 {
