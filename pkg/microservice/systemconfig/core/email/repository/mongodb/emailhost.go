@@ -81,6 +81,7 @@ func (c *EmailHostColl) Delete() error {
 }
 
 func (c *EmailHostColl) Add(emailHost *models.EmailHost) (*models.EmailHost, error) {
+	// TODO: tmp solution to avoid bug
 	var res []*models.EmailHost
 	query := bson.M{"deleted_at": 0}
 	cur, err := c.Collection.Find(context.TODO(), query)

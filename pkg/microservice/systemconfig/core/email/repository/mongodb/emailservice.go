@@ -35,6 +35,7 @@ func (c *EmailServiceColl) EnsureIndex(ctx context.Context) error {
 }
 
 func (c *EmailServiceColl) AddEmailService(iEmailService *models.EmailService) (*models.EmailService, error) {
+	// TODO: tmp solution to avoid bug
 	var res []*models.EmailService
 	query := bson.M{"deleted_at": 0}
 	cur, err := c.Collection.Find(context.TODO(), query)
