@@ -492,7 +492,7 @@ func (m MatchFolders) ContainsFile(file string) bool {
 	return false
 }
 
-func MatchChanges(m commonmodels.MainHookRepo, files []string) bool {
+func MatchChanges(m *commonmodels.MainHookRepo, files []string) bool {
 	mf := MatchFolders(m.MatchFolders)
 	for _, file := range files {
 		if matches := mf.ContainsFile(file); matches {
@@ -502,7 +502,7 @@ func MatchChanges(m commonmodels.MainHookRepo, files []string) bool {
 	return false
 }
 
-func EventConfigured(m commonmodels.MainHookRepo, event config.HookEventType) bool {
+func EventConfigured(m *commonmodels.MainHookRepo, event config.HookEventType) bool {
 	for _, ev := range m.Events {
 		if ev == event {
 			return true

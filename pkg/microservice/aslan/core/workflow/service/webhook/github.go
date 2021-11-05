@@ -460,7 +460,7 @@ type AutoCancelOpt struct {
 	MergeRequestID string
 	CommitID       string
 	TaskType       config.PipelineType
-	MainRepo       commonmodels.MainHookRepo
+	MainRepo       *commonmodels.MainHookRepo
 	WorkflowArgs   *commonmodels.WorkflowTaskArgs
 	TestArgs       *commonmodels.TestTaskArgs
 }
