@@ -43,5 +43,15 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		users.POST("/users/search", user.ListUsers)
 
 		users.POST("/users/ldap/:ldapId", user.SyncLdapUser)
+
+		router.GET("login", login.Login)
+
+		router.POST("login", login.LocalLogin)
+
+		router.POST("signup", user.SignUp)
+
+		router.GET("retrieve", user.Retrieve)
+
+		router.POST("reset", user.Reset)
 	}
 }

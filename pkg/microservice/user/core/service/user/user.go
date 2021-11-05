@@ -319,14 +319,20 @@ func Retrieve(account string, logger *zap.SugaredLogger) (*RetrieveResp, error) 
 		logger.Errorf("Retrieve renderEmailTemplate error, error msg:%s ", err)
 		return nil, fmt.Errorf("Retrieve renderEmailTemplate error, error msg:%s ", err)
 	}
+	systemConfigClient := systemconfig.New()
+	email, err := systemConfigClient.GetEmailHost()
+	if err != nil {
+		logger.Errorf("Retrieve GetEmailHost error, error msg:%s", err)
+		return nil, fmt.Errorf("Retrieve GetEmailHost error, error msg:%s ", err)
+	}
 	err = mail.SendEmail(&mail.EmailParams{
-		From:     config.NoReplyEmailAddress(),
+		From:     email.UserName,
 		To:       user.Email,
 		Subject:  "重置密码",
-		Host:     config.FeiShuEmailHost,
-		UserName: config.NoReplyEmailAddress(),
-		Password: config.NoReplyEmailPassword(),
-		Port:     465,
+		Host:     email.Name,
+		UserName: email.UserName,
+		Password: email.Password,
+		Port:     email.Port,
 		Body:     body,
 	})
 	if err != nil {
