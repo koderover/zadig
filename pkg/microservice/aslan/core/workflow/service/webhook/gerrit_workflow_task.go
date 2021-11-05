@@ -156,8 +156,8 @@ type SubmitterInfo struct {
 }
 
 type gerritEventMatcher interface {
-	Match(commonmodels.MainHookRepo) (bool, error)
-	UpdateTaskArgs(*commonmodels.Product, *commonmodels.WorkflowTaskArgs, commonmodels.MainHookRepo, string) *commonmodels.WorkflowTaskArgs
+	Match(*commonmodels.MainHookRepo) (bool, error)
+	UpdateTaskArgs(*commonmodels.Product, *commonmodels.WorkflowTaskArgs, *commonmodels.MainHookRepo, string) *commonmodels.WorkflowTaskArgs
 }
 
 type gerritChangeMergedEventMatcher struct {
@@ -167,7 +167,7 @@ type gerritChangeMergedEventMatcher struct {
 	Event    *changeMergedEvent
 }
 
-func (gruem *gerritChangeMergedEventMatcher) Match(hookRepo commonmodels.MainHookRepo) (bool, error) {
+func (gruem *gerritChangeMergedEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
 	event := gruem.Event
 	if event == nil {
 		return false, fmt.Errorf("event doesn't match")
@@ -186,7 +186,7 @@ func (gruem *gerritChangeMergedEventMatcher) Match(hookRepo commonmodels.MainHoo
 }
 
 func (gruem *gerritChangeMergedEventMatcher) UpdateTaskArgs(
-	product *commonmodels.Product, args *commonmodels.WorkflowTaskArgs, hookRepo commonmodels.MainHookRepo, requestID string,
+	product *commonmodels.Product, args *commonmodels.WorkflowTaskArgs, hookRepo *commonmodels.MainHookRepo, requestID string,
 ) *commonmodels.WorkflowTaskArgs {
 	factory := &workflowArgsFactory{
 		workflow: gruem.Workflow,
@@ -210,7 +210,7 @@ type gerritPatchsetCreatedEventMatcher struct {
 	Event    *patchsetCreatedEvent
 }
 
-func (gpcem *gerritPatchsetCreatedEventMatcher) Match(commonmodels.MainHookRepo) (bool, error) {
+func (gpcem *gerritPatchsetCreatedEventMatcher) Match(*commonmodels.MainHookRepo) (bool, error) {
 	event := gpcem.Event
 	if event == nil {
 		return false, fmt.Errorf("event doesn't match")
@@ -228,7 +228,7 @@ func (gpcem *gerritPatchsetCreatedEventMatcher) Match(commonmodels.MainHookRepo)
 	return false, nil
 }
 
-func (gpcem *gerritPatchsetCreatedEventMatcher) UpdateTaskArgs(product *commonmodels.Product, args *commonmodels.WorkflowTaskArgs, hookRepo commonmodels.MainHookRepo, requestID string) *commonmodels.WorkflowTaskArgs {
+func (gpcem *gerritPatchsetCreatedEventMatcher) UpdateTaskArgs(product *commonmodels.Product, args *commonmodels.WorkflowTaskArgs, hookRepo *commonmodels.MainHookRepo, requestID string) *commonmodels.WorkflowTaskArgs {
 	factory := &workflowArgsFactory{
 		workflow: gpcem.Workflow,
 		reqID:    requestID,
@@ -365,7 +365,7 @@ func TriggerWorkflowByGerritEvent(event *gerritTypeEvent, body []byte, uri, base
 								mainRepo.RepoOwner = ""
 								mainRepo.Revision = m.Event.PatchSet.Revision
 								notification, _ = scmnotify.NewService().SendInitWebhookComment(
-									&mainRepo, m.Event.Change.Number, baseURI, false, false, log,
+									mainRepo, m.Event.Change.Number, baseURI, false, false, log,
 								)
 							}
 						}

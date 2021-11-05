@@ -20,21 +20,17 @@ var DefaultSystemVariable = map[string]string{
 }
 
 func CreateYamlTemplate(template *YamlTemplate, logger *zap.SugaredLogger) error {
-	variableList, err := getYamlVariables(template.Content, logger)
-	if err != nil {
-		return err
-	}
-	variables := make([]*models.Variable, 0)
-	for _, v := range variableList {
-		variables = append(variables, &models.Variable{
-			Key:   v.Key,
-			Value: v.Value,
+	vars := make([]*models.Variable, 0)
+	for _, variable := range template.Variable {
+		vars = append(vars, &models.Variable{
+			Key:   variable.Key,
+			Value: variable.Value,
 		})
 	}
-	err = mongodb.NewYamlTemplateColl().Create(&models.YamlTemplate{
+	err := mongodb.NewYamlTemplateColl().Create(&models.YamlTemplate{
 		Name:      template.Name,
 		Content:   template.Content,
-		Variables: variables,
+		Variables: vars,
 	})
 	if err != nil {
 		logger.Errorf("create dockerfile template error: %s", err)
@@ -43,23 +39,19 @@ func CreateYamlTemplate(template *YamlTemplate, logger *zap.SugaredLogger) error
 }
 
 func UpdateYamlTemplate(id string, template *YamlTemplate, logger *zap.SugaredLogger) error {
-	variableList, err := getYamlVariables(template.Content, logger)
-	if err != nil {
-		return err
-	}
-	variables := make([]*models.Variable, 0)
-	for _, v := range variableList {
-		variables = append(variables, &models.Variable{
-			Key:   v.Key,
-			Value: v.Value,
+	vars := make([]*models.Variable, 0)
+	for _, variable := range template.Variable {
+		vars = append(vars, &models.Variable{
+			Key:   variable.Key,
+			Value: variable.Value,
 		})
 	}
-	err = mongodb.NewYamlTemplateColl().Update(
+	err := mongodb.NewYamlTemplateColl().Update(
 		id,
 		&models.YamlTemplate{
 			Name:      template.Name,
 			Content:   template.Content,
-			Variables: variables,
+			Variables: vars,
 		},
 	)
 	if err != nil {
@@ -137,43 +129,7 @@ func GetYamlTemplateReference(id string, logger *zap.SugaredLogger) ([]*ServiceR
 	return ret, nil
 }
 
-func UpdateYamlTemplateVariables(id string, variables []*Variable, logger *zap.SugaredLogger) error {
-	templateDetail, err := mongodb.NewYamlTemplateColl().GetById(id)
-	if err != nil {
-		logger.Errorf("Failed to find yaml template of id: %s, the error is: %s", id, err)
-		return err
-	}
-	keyMap := make(map[string]int)
-	// the keys in database will not collide
-	for _, v := range templateDetail.Variables {
-		keyMap[v.Key] = 1
-	}
-	newVars := make([]*models.Variable, 0)
-	for _, vars := range variables {
-		if keyMap[vars.Key] == 0 {
-			errorMsg := fmt.Sprintf("Given key [%s] does not exist in yaml template [%s]", vars.Key, id)
-			return errors.New(errorMsg)
-		}
-		newVars = append(newVars, &models.Variable{
-			Key:   vars.Key,
-			Value: vars.Value,
-		})
-	}
-	err = mongodb.NewYamlTemplateColl().Update(
-		id,
-		&models.YamlTemplate{
-			Name:      templateDetail.Name,
-			Content:   templateDetail.Content,
-			Variables: newVars,
-		},
-	)
-	if err != nil {
-		logger.Errorf("update dockerfile template error: %s", err)
-	}
-	return err
-}
-
-func getYamlVariables(s string, logger *zap.SugaredLogger) ([]*Variable, error) {
+func GetYamlVariables(s string, logger *zap.SugaredLogger) ([]*Variable, error) {
 	resp := make([]*Variable, 0)
 	regex, err := regexp.Compile(setting.RegExpParameter)
 	if err != nil {

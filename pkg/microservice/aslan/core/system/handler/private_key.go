@@ -128,6 +128,7 @@ func BatchCreatePrivateKey(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("batchCreatePrivateKey json.Unmarshal err : %v", err)
 	}
+
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "批量新增", "资源管理-主机管理", "", string(data), ctx.Logger)
 
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))

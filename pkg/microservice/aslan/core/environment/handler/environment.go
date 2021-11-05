@@ -71,6 +71,14 @@ func GetProductStatus(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GetProductStatus(c.Param("productName"), ctx.Logger)
 }
 
+// GetProductStatus List product status
+func GetProductStatus(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.GetProductStatus(c.Param("productName"), ctx.Logger)
+}
+
 func AutoCreateProduct(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -283,6 +291,7 @@ func UpdateHelmProductRenderset(c *gin.Context) {
 	if err = json.Unmarshal(data, arg); err != nil {
 		log.Errorf("UpdateHelmProductVariable json.Unmarshal err : %v", err)
 	}
+
 	internalhandler.InsertOperationLog(c, ctx.UserName, c.Param("productName"), "更新", "更新环境变量", "", string(data), ctx.Logger)
 
 	ctx.Err = service.UpdateHelmProductRenderset(productName, envName, ctx.UserName, ctx.RequestID, arg, ctx.Logger)

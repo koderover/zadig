@@ -78,7 +78,7 @@ func GetCodeHostInfo(option *Option) (*poetry.CodeHost, error) {
 			switch option.CodeHostType {
 			case GitHubProvider:
 				ns := strings.ToLower(codeHost.Namespace)
-				if strings.Contains(option.Address, codeHost.Address) && option.Namespace == ns {
+				if strings.Contains(option.Address, codeHost.Address) && strings.ToLower(option.Namespace) == ns {
 					return codeHost, nil
 				}
 			default:
