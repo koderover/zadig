@@ -216,13 +216,22 @@ claims := payload {
     # })
 }
 
-bearer_token := t {
+bearer_token_in_header := t {
 	# Bearer tokens are contained inside of the HTTP Authorization header. This rule
 	# parses the header and extracts the Bearer token value. If no Bearer token is
 	# provided, the `bearer_token` value is undefined.
 	v := http_request.headers.authorization
 	startswith(v, "Bearer ")
 	t := substring(v, count("Bearer "), -1)
+}
+
+bearer_token = t {
+    t := bearer_token_in_header
+}
+
+bearer_token = t {
+    not bearer_token_in_header
+    t := input.parsed_query.token[0]
 }
 
 is_authenticated {
