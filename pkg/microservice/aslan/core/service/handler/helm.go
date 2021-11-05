@@ -66,7 +66,7 @@ func CreateOrUpdateHelmService(c *gin.Context) {
 	}
 	args.CreatedBy = ctx.Username
 
-	ctx.Err = svcservice.CreateOrUpdateHelmService(c.Query("productName"), args, ctx.Logger)
+	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateHelmService(c.Query("productName"), args, ctx.Logger)
 }
 
 func CreateOrUpdateBulkHelmServices(c *gin.Context) {
