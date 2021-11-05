@@ -27,7 +27,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/cron/core/service"
-	"github.com/koderover/zadig/pkg/setting"
 )
 
 func (c *Client) ListEnvs(log *zap.SugaredLogger) ([]*service.ProductRevision, error) {
@@ -44,7 +43,6 @@ func (c *Client) ListEnvs(log *zap.SugaredLogger) ([]*service.ProductRevision, e
 		return nil, err
 	}
 
-	request.Header.Set("Authorization", fmt.Sprintf("%s %s", setting.RootAPIKey, c.Token))
 	var ret *http.Response
 	if ret, err = c.Conn.Do(request); err == nil {
 		defer func() { _ = ret.Body.Close() }()
@@ -71,7 +69,6 @@ func (c *Client) GetEnvService(productName, envName string, log *zap.SugaredLogg
 		return nil, err
 	}
 
-	request.Header.Set("Authorization", fmt.Sprintf("%s %s", setting.RootAPIKey, c.Token))
 	var ret *http.Response
 	if ret, err = c.Conn.Do(request); err == nil {
 		defer func() { _ = ret.Body.Close() }()
@@ -99,7 +96,6 @@ func (c *Client) GetService(serviceName, productName, serviceType string, revisi
 		return nil, err
 	}
 
-	request.Header.Set("Authorization", fmt.Sprintf("%s %s", setting.RootAPIKey, c.Token))
 	var ret *http.Response
 	if ret, err = c.Conn.Do(request); err == nil {
 		defer func() { _ = ret.Body.Close() }()
@@ -129,7 +125,6 @@ func (c *Client) UpdateService(args *service.ServiceTmplObject, log *zap.Sugared
 		return err
 	}
 
-	request.Header.Set("Authorization", fmt.Sprintf("%s %s", setting.RootAPIKey, c.Token))
 	var ret *http.Response
 	if ret, err = c.Conn.Do(request); err == nil {
 		defer func() { _ = ret.Body.Close() }()
@@ -154,7 +149,6 @@ func (c *Client) GetHostInfo(hostID string, log *zap.SugaredLogger) (*service.Pr
 		return nil, err
 	}
 
-	request.Header.Set("Authorization", fmt.Sprintf("%s %s", setting.RootAPIKey, c.Token))
 	var ret *http.Response
 	if ret, err = c.Conn.Do(request); err == nil {
 		defer func() { _ = ret.Body.Close() }()

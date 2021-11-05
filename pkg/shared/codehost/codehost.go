@@ -33,7 +33,6 @@ const (
 
 type CodeHost struct {
 	ID          int    `json:"id"`
-	OrgID       int    `json:"orgId"`
 	Address     string `json:"address"`
 	Type        string `json:"type"`
 	AccessToken string `json:"accessToken"`
@@ -62,7 +61,7 @@ type Detail struct {
 }
 
 func GetCodeHostList() ([]*poetry.CodeHost, error) {
-	poetryClient := poetry.New(config.PoetryServiceAddress(), config.PoetryAPIRootKey())
+	poetryClient := poetry.New(config.PoetryServiceAddress())
 	return poetryClient.ListCodeHosts()
 }
 

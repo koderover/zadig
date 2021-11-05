@@ -17,66 +17,36 @@ limitations under the License.
 package service
 
 import (
-	"encoding/json"
 	"net/http"
 	"strings"
 
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/picket/client/opa"
+	"github.com/koderover/zadig/pkg/setting"
 )
 
-type input struct {
-	ParsedQuery parseQuery `json:"parsed_query"`
-	ParsedPath  []string   `json:"parsed_path"`
-	Attributes  attributes `json:"attributes"`
-}
-type parseQuery struct {
-	ProjectName []string `json:"projectName"`
-}
-
-type attributes struct {
-	Request request `json:"request"`
-}
-
-type request struct {
-	Http HTTP `json:"http"`
-}
-
-type HTTP struct {
-	Method  string            `json:"method"`
-	Headers map[string]string `json:"headers"`
-}
-
-type opaRes struct {
+type evaluateResult struct {
 	Result bool `json:"result"`
 }
 
 func Evaluate(header http.Header, projectName string, grantsReq []GrantReq, logger *zap.SugaredLogger) ([]GrantRes, error) {
-	// 拼接参数，请求opa
-	authorization := header.Get("authorization")
-	opaHeaders := map[string]string{}
-	opaHeaders["authorization"] = authorization
 
 	var grantsRes []GrantRes
 	opaClient := opa.NewDefault()
 	// 对于每一个action+endpoint 都去请求opa
 	for _, v := range grantsReq {
 		parsedPath := strings.Split(strings.Trim(v.EndPoint, "/"), "/")
-		input := generateOPAInput(projectName, parsedPath, v.Method, opaHeaders)
-		res, err := opaClient.Evaluate("rbac.allow", input)
+		res := &evaluateResult{}
+		err := opaClient.Evaluate(
+			"rbac.allow", res,
+			func() (*opa.Input, error) { return generateOPAInput(header, projectName, v.Method, parsedPath), nil })
 		if err != nil {
 			logger.Errorf("opa evaluate endpoint: %v method: %v err: %s", v.EndPoint, v.Method, err)
 			grantsRes = append(grantsRes, GrantRes{v, false})
 			continue
 		}
-		var opaR opaRes
-		if err := json.Unmarshal(res, &opaR); err != nil {
-			logger.Errorf("opa res Unmarshal err %s", err)
-			grantsRes = append(grantsRes, GrantRes{v, false})
-			continue
-		}
-		grantsRes = append(grantsRes, GrantRes{v, opaR.Result})
+		grantsRes = append(grantsRes, GrantRes{v, res.Result})
 	}
 	return grantsRes, nil
 }
@@ -91,16 +61,20 @@ type GrantRes struct {
 	Allow bool `json:"allow"`
 }
 
-func generateOPAInput(projectName string, parsedPath []string, method string, head map[string]string) input {
-	return input{
-		ParsedQuery: parseQuery{
+func generateOPAInput(header http.Header, projectName, method string, parsedPath []string) *opa.Input {
+	authorization := header.Get(strings.ToLower(setting.AuthorizationHeader))
+	headers := map[string]string{}
+	headers[strings.ToLower(setting.AuthorizationHeader)] = authorization
+
+	return &opa.Input{
+		ParsedQuery: &opa.ParseQuery{
 			ProjectName: []string{projectName},
 		},
 		ParsedPath: parsedPath,
-		Attributes: attributes{
-			Request: request{Http: HTTP{
+		Attributes: &opa.Attributes{
+			Request: &opa.Request{HTTP: &opa.HTTPSpec{
 				Method:  method,
-				Headers: head,
+				Headers: headers,
 			}},
 		},
 	}

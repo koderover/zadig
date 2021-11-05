@@ -31,7 +31,7 @@ func UpdateOperationLogStatus(c *gin.Context) {
 	if c.GetString("operationLogID") == "" {
 		return
 	}
-	err := aslan.New(config.AslanServiceAddress(), config.PoetryAPIRootKey()).UpdateAuditLog(c.GetString("operationLogID"), c.Writer.Status(), log)
+	err := aslan.New(config.AslanServiceAddress()).UpdateAuditLog(c.GetString("operationLogID"), c.Writer.Status(), log)
 	if err != nil {
 		log.Errorf("UpdateOperation err:%v", err)
 	}

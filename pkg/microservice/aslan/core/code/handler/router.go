@@ -20,14 +20,11 @@ import (
 	"github.com/gin-gonic/gin"
 
 	gin2 "github.com/koderover/zadig/pkg/middleware/gin"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 type Router struct{}
 
 func (*Router) Inject(router *gin.RouterGroup) {
-	router.Use(gin2.Auth())
-
 	codehost := router.Group("codehost")
 	{
 		codehost.GET("", GetCodeHostList)
@@ -45,7 +42,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	workspace := router.Group("workspace")
 	{
-		workspace.DELETE("", GetProductNameByWorkspacePipeline, gin2.IsHavePermission([]string{permission.WorkflowUpdateUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, CleanWorkspace)
+		workspace.DELETE("", GetProductNameByWorkspacePipeline, gin2.UpdateOperationLogStatus, CleanWorkspace)
 		workspace.GET("/file", GetWorkspaceFile)
 		workspace.GET("/git/:codehostId/:repoName/:branchName/:remoteName", GetGitRepoInfo)
 

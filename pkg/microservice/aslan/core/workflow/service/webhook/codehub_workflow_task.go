@@ -30,7 +30,6 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/codehub"
 	"github.com/koderover/zadig/pkg/types"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 type codehubMergeEventMatcher struct {
@@ -200,7 +199,7 @@ func TriggerWorkflowByCodehubEvent(event interface{}, baseURI, requestID string,
 			args.RepoOwner = item.MainRepo.RepoOwner
 			args.RepoName = item.MainRepo.RepoName
 			// 3. create task with args
-			if resp, err := workflowservice.CreateWorkflowTask(args, setting.WebhookTaskCreator, permission.AnonymousUserID, false, log); err != nil {
+			if resp, err := workflowservice.CreateWorkflowTask(args, setting.WebhookTaskCreator, log); err != nil {
 				log.Errorf("failed to create workflow task when receive push event %v due to %v ", event, err)
 				mErr = multierror.Append(mErr, err)
 			} else {

@@ -27,6 +27,7 @@ import (
 func BuildModuleToSubTasks(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
 	args := &models.BuildModuleArgs{
 		BuildName:   c.Param("name"),
 		ProductName: c.Query("productName"),

@@ -17,26 +17,14 @@ limitations under the License.
 package git
 
 import (
-	"sync"
+	"crypto/sha256"
+	"encoding/hex"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/shared/poetry"
-	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/config"
 )
 
-var once sync.Once
-var secret string
-
 func GetHookSecret() string {
-	once.Do(func() {
-		poetryClient := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
-		org, err := poetryClient.GetOrganization(poetry.DefaultOrganization)
-		if err != nil {
-			log.Errorf("failed to find default organization: %v", err)
-			secret = "--impossible-token--"
-		}
-		secret = org.Token
-	})
+	hash := sha256.Sum256([]byte(config.SecretKey()))
 
-	return secret
+	return hex.EncodeToString(hash[:])
 }

@@ -31,7 +31,7 @@ func PullNotify(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.PullNotify(ctx.Username, ctx.Logger)
+	ctx.Resp, ctx.Err = service.PullNotify(ctx.UserName, ctx.Logger)
 }
 
 type readNotificationsArgs struct {
@@ -48,7 +48,7 @@ func ReadNotify(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid readnotificationsargs")
 		return
 	}
-	ctx.Err = service.ReadNotify(ctx.Username, args.IDs, ctx.Logger)
+	ctx.Err = service.ReadNotify(ctx.UserName, args.IDs, ctx.Logger)
 }
 
 type deleteNotificationsArgs struct {
@@ -65,7 +65,7 @@ func DeleteNotifies(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid args")
 		return
 	}
-	ctx.Err = service.DeleteNotifies(ctx.Username, args.IDs, ctx.Logger)
+	ctx.Err = service.DeleteNotifies(ctx.UserName, args.IDs, ctx.Logger)
 }
 
 func UpsertSubscription(c *gin.Context) {
@@ -78,7 +78,7 @@ func UpsertSubscription(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid subscription args")
 		return
 	}
-	ctx.Err = service.UpsertSubscription(ctx.Username, args, ctx.Logger)
+	ctx.Err = service.UpsertSubscription(ctx.UserName, args, ctx.Logger)
 }
 
 func UpdateSubscribe(c *gin.Context) {
@@ -96,7 +96,7 @@ func UpdateSubscribe(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid notification type")
 		return
 	}
-	ctx.Err = service.UpdateSubscribe(ctx.Username, notifytype, args, ctx.Logger)
+	ctx.Err = service.UpdateSubscribe(ctx.UserName, notifytype, args, ctx.Logger)
 }
 
 func Unsubscribe(c *gin.Context) {
@@ -107,12 +107,12 @@ func Unsubscribe(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid notification type")
 		return
 	}
-	ctx.Err = service.Unsubscribe(ctx.Username, notifytype, ctx.Logger)
+	ctx.Err = service.Unsubscribe(ctx.UserName, notifytype, ctx.Logger)
 }
 
 func ListSubscriptions(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListSubscriptions(ctx.Username, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListSubscriptions(ctx.UserName, ctx.Logger)
 }

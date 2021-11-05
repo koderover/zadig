@@ -20,11 +20,13 @@ import (
 	"github.com/gin-gonic/gin"
 
 	evaluationhandler "github.com/koderover/zadig/pkg/microservice/picket/core/evaluation/handler"
+	filterhandler "github.com/koderover/zadig/pkg/microservice/picket/core/filter/handler"
 )
 
 func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 	for _, r := range []injector{
 		new(evaluationhandler.Router),
+		new(filterhandler.Router),
 	} {
 		r.Inject(router.Group("/api/v1"))
 	}

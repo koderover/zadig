@@ -17,6 +17,8 @@ limitations under the License.
 package service
 
 import (
+	"fmt"
+
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
@@ -24,13 +26,14 @@ import (
 )
 
 type Role struct {
-	Name  string        `json:"name"`
-	Rules []*PolicyRule `json:"rules"`
+	Name  string  `json:"name"`
+	Rules []*Rule `json:"rules,omitempty"`
 }
 
-type PolicyRule struct {
+type Rule struct {
 	Verbs     []string `json:"verbs"`
 	Resources []string `json:"resources"`
+	Kind      string   `json:"kind"`
 }
 
 func CreateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
@@ -40,11 +43,111 @@ func CreateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
 	}
 
 	for _, r := range role.Rules {
-		obj.Rules = append(obj.Rules, &models.PolicyRule{
+		obj.Rules = append(obj.Rules, &models.Rule{
 			Verbs:     r.Verbs,
+			Kind:      r.Kind,
 			Resources: r.Resources,
 		})
 	}
 
 	return mongodb.NewRoleColl().Create(obj)
+}
+
+func UpdateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
+	obj := &models.Role{
+		Name:      role.Name,
+		Namespace: ns,
+	}
+
+	for _, r := range role.Rules {
+		obj.Rules = append(obj.Rules, &models.Rule{
+			Verbs:     r.Verbs,
+			Kind:      r.Kind,
+			Resources: r.Resources,
+		})
+	}
+	return mongodb.NewRoleColl().UpdateRole(obj)
+}
+
+func UpdateOrCreateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
+	obj := &models.Role{
+		Name:      role.Name,
+		Namespace: ns,
+	}
+
+	for _, r := range role.Rules {
+		obj.Rules = append(obj.Rules, &models.Rule{
+			Verbs:     r.Verbs,
+			Kind:      r.Kind,
+			Resources: r.Resources,
+		})
+	}
+	return mongodb.NewRoleColl().UpdateOrCreate(obj)
+}
+
+func ListRoles(projectName string, _ *zap.SugaredLogger) ([]*Role, error) {
+	var roles []*Role
+	projectRoles, err := mongodb.NewRoleColl().ListBy(projectName)
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range projectRoles {
+		roles = append(roles, &Role{
+			Name: v.Name,
+		})
+	}
+	return roles, nil
+}
+
+func GetRole(ns, name string, _ *zap.SugaredLogger) (*Role, error) {
+	r, found, err := mongodb.NewRoleColl().Get(ns, name)
+	if err != nil {
+		return nil, err
+	} else if !found {
+		return nil, fmt.Errorf("role %s not found", name)
+	}
+
+	res := &Role{
+		Name: r.Name,
+	}
+	for _, ru := range r.Rules {
+		res.Rules = append(res.Rules, &Rule{
+			Verbs:     ru.Verbs,
+			Kind:      ru.Kind,
+			Resources: ru.Resources,
+		})
+	}
+
+	return res, nil
+}
+
+func DeleteRole(name string, projectName string, logger *zap.SugaredLogger) error {
+	err := mongodb.NewRoleColl().Delete(name, projectName)
+	if err != nil {
+		logger.Errorf("Failed to delete role %s in project %s, err: %s", name, projectName, err)
+		return err
+	}
+
+	return mongodb.NewRoleBindingColl().DeleteByRole(name, projectName)
+}
+
+func DeleteRoles(names []string, projectName string, logger *zap.SugaredLogger) error {
+	if len(names) == 0 {
+		return nil
+	}
+	if projectName == "" {
+		return fmt.Errorf("projectName is empty")
+	}
+
+	if names[0] == "*" {
+		names = []string{}
+	}
+
+	err := mongodb.NewRoleColl().DeleteMany(names, projectName)
+	if err != nil {
+		logger.Errorf("Failed to delete roles %s in project %s, err: %s", names, projectName, err)
+		return err
+	}
+
+	return mongodb.NewRoleBindingColl().DeleteByRoles(names, projectName)
 }

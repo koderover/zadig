@@ -67,8 +67,6 @@ type Queue struct {
 	ServiceTaskArgs *ServiceTaskArgs `bson:"service_args,omitempty"         json:"service_args,omitempty"`
 	ConfigPayload   *ConfigPayload   `json:"config_payload,omitempty"`
 	Error           string           `bson:"error,omitempty"                json:"error,omitempty"`
-	// OrgID 单租户ID
-	OrgID      int                 `bson:"org_id,omitempty"          json:"org_id,omitempty"`
 	Services   [][]*ProductService `bson:"services"                  json:"services"`
 	Render     *RenderInfo         `bson:"render"                    json:"render"`
 	StorageURI string              `bson:"storage_uri,omitempty" json:"storage_uri,omitempty"`
@@ -111,7 +109,6 @@ type ServiceTaskArgs struct {
 }
 
 type ConfigPayload struct {
-	APIToken  string         `json:"api_token"`
 	Proxy     Proxy          `json:"proxy"`
 	S3Storage S3Config       `json:"s3_storage"`
 	Github    GithubConfig   `json:"github"`
