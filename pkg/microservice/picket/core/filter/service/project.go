@@ -15,30 +15,53 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
+type CreateProjectArgs struct {
+	Public      bool     `json:"public"`
+	ProductName string   `json:"product_name"`
+	Admins      []string `json:"admins"`
+}
+
 type allowedProjectsData struct {
 	Result []string `json:"result"`
 }
 
-func CreateProject(header http.Header, body []byte, qs url.Values, projectName string, public bool, logger *zap.SugaredLogger) ([]byte, error) {
-	// role binding
-	roleBindingName := fmt.Sprintf(setting.RoleBindingNameFmt, "*", setting.ReadOnly, projectName)
-	if public {
-		if err := policy.NewDefault().CreateOrUpdateRoleBinding(projectName, &policy.RoleBinding{
+func CreateProject(header http.Header, body []byte, qs url.Values, args *CreateProjectArgs, logger *zap.SugaredLogger) ([]byte, error) {
+	var rbs []*policy.RoleBinding
+	for _, uid := range args.Admins {
+		roleBindingName := fmt.Sprintf(setting.RoleBindingNameFmt, uid, setting.Admin, args.ProductName)
+		rbs = append(rbs, &policy.RoleBinding{
+			Name:   roleBindingName,
+			UID:    uid,
+			Role:   string(setting.Admin),
+			Public: true,
+		})
+	}
+
+	if args.Public {
+		roleBindingName := fmt.Sprintf(setting.RoleBindingNameFmt, "*", setting.ReadOnly, args.ProductName)
+		rbs = append(rbs, &policy.RoleBinding{
 			Name:   roleBindingName,
 			UID:    "*",
 			Role:   string(setting.ReadOnly),
 			Public: true,
-		}); err != nil {
-			logger.Errorf("Failed to create rolebinding %s, err: %s", roleBindingName, err)
+		})
+	}
+
+	policyClient := policy.NewDefault()
+	for _, rb := range rbs {
+		if err := policyClient.CreateOrUpdateRoleBinding(args.ProductName, rb); err != nil {
+			logger.Errorf("Failed to create rolebinding %s, err: %s", rb.Name, err)
 			return nil, err
 		}
 	}
 
 	res, err := aslan.New().CreateProject(header, qs, body)
 	if err != nil {
-		logger.Errorf("Failed to create project %s, err: %s", projectName, err)
-		if err1 := policy.NewDefault().DeleteRoleBinding(roleBindingName, projectName); err1 != nil {
-			logger.Errorf("Failed to delete role binding, err: %s", err1)
+		logger.Errorf("Failed to create project %s, err: %s", args.ProductName, err)
+		for _, rb := range rbs {
+			if err1 := policyClient.DeleteRoleBinding(rb.Name, args.ProductName); err1 != nil {
+				logger.Errorf("Failed to create rolebinding %s, err: %s", rb.Name, err1)
+			}
 		}
 
 		return nil, err

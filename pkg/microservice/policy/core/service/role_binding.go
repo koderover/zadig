@@ -77,7 +77,31 @@ func ListRoleBindings(ns, uid string, _ *zap.SugaredLogger) ([]*RoleBinding, err
 			Name:   v.Name,
 			Role:   v.RoleRef.Name,
 			UID:    v.Subjects[0].UID,
-			Public: v.Namespace == "",
+			Public: v.RoleRef.Namespace == "",
+		})
+	}
+
+	return roleBindings, nil
+}
+
+func ListRoleBindingsByRole(ns, roleName string, publicRole bool, _ *zap.SugaredLogger) ([]*RoleBinding, error) {
+	var roleBindings []*RoleBinding
+
+	roleNamespace := ns
+	if publicRole {
+		roleNamespace = ""
+	}
+	modelRoleBindings, err := mongodb.NewRoleBindingColl().List(&mongodb.ListOptions{RoleName: roleName, RoleNamespace: roleNamespace})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, v := range modelRoleBindings {
+		roleBindings = append(roleBindings, &RoleBinding{
+			Name:   v.Name,
+			Role:   v.RoleRef.Name,
+			UID:    v.Subjects[0].UID,
+			Public: v.RoleRef.Namespace == "",
 		})
 	}
 

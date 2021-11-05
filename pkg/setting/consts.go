@@ -540,6 +540,7 @@ type RoleType string
 const (
 	Contributor        RoleType = "contributor"
 	ReadOnly           RoleType = "readonly"
+	Admin              RoleType = "admin"
 	RoleBindingNameFmt string   = "user:%s,role:%s,project:%s"
 )
 
