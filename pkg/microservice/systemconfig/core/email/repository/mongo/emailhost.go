@@ -43,7 +43,6 @@ func (c *EmailHostColl) Find() (*models.EmailHost, error) {
 	if err != nil {
 		return nil, nil
 	}
-	emailHost.Password = "***"
 	return emailHost, nil
 }
 

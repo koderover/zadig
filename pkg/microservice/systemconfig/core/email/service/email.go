@@ -8,6 +8,14 @@ import (
 )
 
 func GetEmailHost(_ *zap.SugaredLogger) (*models.EmailHost, error) {
+	host, err := mongo2.NewEmailHostColl().Find()
+	if host != nil {
+		host.Password = "***"
+	}
+	return host, err
+}
+
+func InternalGetEmailHost(_ *zap.SugaredLogger) (*models.EmailHost, error) {
 	return mongo2.NewEmailHostColl().Find()
 }
 

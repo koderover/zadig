@@ -14,6 +14,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		emails.PATCH("/host", UpdateEmailHost)
 		emails.DELETE("/host", DeleteEmailHost)
 
+		emails.GET("/internal/host", InternalGetEmailHost)
+
 		emails.GET("/service", GetEmailService)
 		emails.POST("/service", CreateEmailService)
 		emails.PATCH("/service", UpdateEmailService)
