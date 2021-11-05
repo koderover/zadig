@@ -4,11 +4,11 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/repository/models"
-	mongo2 "github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/repository/mongo"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/repository/mongodb"
 )
 
 func GetEmailHost(_ *zap.SugaredLogger) (*models.EmailHost, error) {
-	host, err := mongo2.NewEmailHostColl().Find()
+	host, err := mongodb.NewEmailHostColl().Find()
 	if host != nil {
 		host.Password = "***"
 	}
@@ -16,33 +16,33 @@ func GetEmailHost(_ *zap.SugaredLogger) (*models.EmailHost, error) {
 }
 
 func InternalGetEmailHost(_ *zap.SugaredLogger) (*models.EmailHost, error) {
-	return mongo2.NewEmailHostColl().Find()
+	return mongodb.NewEmailHostColl().Find()
 }
 
 func CreateEmailHost(emailHost *models.EmailHost, _ *zap.SugaredLogger) (*models.EmailHost, error) {
-	return mongo2.NewEmailHostColl().Add(emailHost)
+	return mongodb.NewEmailHostColl().Add(emailHost)
 }
 
 func UpdateEmailHost(host *models.EmailHost, _ *zap.SugaredLogger) (*models.EmailHost, error) {
-	return mongo2.NewEmailHostColl().Update(host)
+	return mongodb.NewEmailHostColl().Update(host)
 }
 
 func DeleteEmailHost(_ *zap.SugaredLogger) error {
-	return mongo2.NewEmailHostColl().Delete()
+	return mongodb.NewEmailHostColl().Delete()
 }
 
 func GetEmailService(_ *zap.SugaredLogger) (*models.EmailService, error) {
-	return mongo2.NewEmailServiceColl().GetEmailService()
+	return mongodb.NewEmailServiceColl().GetEmailService()
 }
 
 func CreateEmailService(service *models.EmailService, _ *zap.SugaredLogger) (*models.EmailService, error) {
-	return mongo2.NewEmailServiceColl().AddEmailService(service)
+	return mongodb.NewEmailServiceColl().AddEmailService(service)
 }
 
 func UpdateEmailService(service *models.EmailService, _ *zap.SugaredLogger) (*models.EmailService, error) {
-	return mongo2.NewEmailServiceColl().UpdateEmailService(service)
+	return mongodb.NewEmailServiceColl().UpdateEmailService(service)
 }
 
 func DeleteEmailService(_ *zap.SugaredLogger) error {
-	return mongo2.NewEmailServiceColl().DeleteEmailService()
+	return mongodb.NewEmailServiceColl().DeleteEmailService()
 }

@@ -24,7 +24,7 @@ import (
 
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/config"
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/repository/mongo"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/service/featuregates"
 	"github.com/koderover/zadig/pkg/setting"
 	gormtool "github.com/koderover/zadig/pkg/tool/gorm"
@@ -66,7 +66,7 @@ func initDatabase() {
 	defer idxCancel()
 	var wg sync.WaitGroup
 	for _, r := range []indexer{
-		mongo.NewEmailHostColl(),
+		mongodb.NewEmailHostColl(),
 	} {
 
 		wg.Add(1)
