@@ -49,9 +49,12 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, error) {
 	}
 	password := []byte(args.Password)
 	err = bcrypt.CompareHashAndPassword([]byte(userLogin.Password), password)
+	if err == bcrypt.ErrMismatchedHashAndPassword {
+		return nil, fmt.Errorf("password is wrong")
+	}
 	if err != nil {
-		logger.Errorf("LocalLogin user:%s check password error, error msg:%s", args.Account, err.Error())
-		return nil, fmt.Errorf("check password error, error msg:%s", err.Error())
+		logger.Errorf("LocalLogin user:%s check password error, error msg:%s", args.Account, err)
+		return nil, fmt.Errorf("check password error, error msg:%s", err)
 	}
 	userLogin.LastLoginTime = time.Now().Unix()
 	err = orm.UpdateUserLogin(userLogin.UID, userLogin, core.DB)
