@@ -91,7 +91,7 @@ func init() {
 
 	sort.Strings(versionList)
 
-	for i := 0; i < len(versionList)-2; i++ {
+	for i := 0; i < len(versionList)-1; i++ {
 		lowVersion := versionList[i]
 		highVersion := versionList[i+1]
 		AddHandler(versionMap[lowVersion], versionMap[highVersion], defaultUpgradeHandler)
