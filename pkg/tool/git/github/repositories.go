@@ -185,6 +185,10 @@ func (c *Client) CreateHook(ctx context.Context, owner, repo string, hook *git.H
 		Active: hook.Active,
 	}
 	created, err := wrap(c.Repositories.CreateHook(ctx, owner, repo, h))
+	if err != nil {
+		return nil, err
+	}
+
 	if h, ok := created.(*github.Hook); ok {
 		return h, err
 	}
@@ -208,6 +212,10 @@ func (c *Client) UpdateHook(ctx context.Context, owner, repo string, id int64, h
 		h.Active = hook.Active
 	}
 	updated, err := wrap(c.Repositories.EditHook(ctx, owner, repo, id, h))
+	if err != nil {
+		return nil, err
+	}
+
 	if h, ok := updated.(*github.Hook); ok {
 		return h, err
 	}
