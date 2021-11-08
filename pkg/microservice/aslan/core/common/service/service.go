@@ -356,7 +356,7 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 		}
 
 		detail, err := codehost.GetCodeHostInfo(
-			&codehost.Option{CodeHostType: poetry.GitHubProvider, Address: address, Namespace: owner})
+			&codehost.Option{CodeHostType: poetry.GitHubProvider, Address: address, Namespace: owner, CodeHostID: resp.CodehostID})
 		if err != nil {
 			log.Errorf("get github codeHostInfo failed, err:%v", err)
 			return nil, err

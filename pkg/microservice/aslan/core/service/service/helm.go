@@ -17,12 +17,14 @@ limitations under the License.
 package service
 
 import (
+	"bytes"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"text/template"
 	"time"
 
 	"github.com/27149chen/afero"
@@ -36,7 +38,7 @@ import (
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+	templatedata "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
@@ -101,6 +103,7 @@ type helmServiceCreationArgs struct {
 	HelmTemplateName string
 	ValuePaths       []string
 	ValuesYaml       string
+	Variables        []*Variable
 }
 
 type ChartTemplateData struct {
@@ -201,16 +204,17 @@ func GetFileContent(serviceName, productName, filePath, fileName string, log *za
 }
 
 func prepareChartTemplateData(templateName string, logger *zap.SugaredLogger) (*ChartTemplateData, error) {
-	// get chart template from local disk
 	templateChart, err := mongodb.NewChartColl().Get(templateName)
 	if err != nil {
 		logger.Errorf("Failed to get chart template %s, err: %s", templateName, err)
-		return nil, err
+		return nil, fmt.Errorf("failed to get chart template: %s", templateName)
 	}
 
+	// get chart template from local disk
 	localBase := configbase.LocalChartTemplatePath(templateName)
 	s3Base := configbase.ObjectStorageChartTemplatePath(templateName)
 	if err = fsservice.PreloadFiles(templateName, localBase, s3Base, logger); err != nil {
+		logger.Errorf("Failed to download template %s, err: %s", templateName, err)
 		return nil, err
 	}
 
@@ -221,6 +225,7 @@ func prepareChartTemplateData(templateName string, logger *zap.SugaredLogger) (*
 	chartFilePath := filepath.Join(localBase, base, setting.ChartYaml)
 	chartFileContent, err := os.ReadFile(chartFilePath)
 	if err != nil {
+		logger.Errorf("Failed to read chartfile template %s, err: %s", templateName, err)
 		return nil, err
 	}
 	chart := new(Chart)
@@ -262,7 +267,12 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 
 	var values [][]byte
 	if len(templateChartInfo.DefaultValuesYAML) > 0 {
-		values = append(values, templateChartInfo.DefaultValuesYAML)
+		//render variables
+		renderedYaml, err := renderVariablesToYaml(string(templateChartInfo.DefaultValuesYAML), projectName, args.Name, templateArgs.Variables)
+		if err != nil {
+			return err
+		}
+		values = append(values, []byte(renderedYaml))
 	}
 
 	if len(templateArgs.ValuesYAML) > 0 {
@@ -316,6 +326,7 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 			Source:           setting.SourceFromChartTemplate,
 			HelmTemplateName: templateArgs.TemplateName,
 			ValuesYaml:       templateArgs.ValuesYAML,
+			Variables:        templateArgs.Variables,
 		},
 		logger,
 	)
@@ -324,14 +335,12 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 		return err
 	}
 
-	if svc.HelmChart != nil {
-		compareHelmVariable([]*templatemodels.RenderChart{
-			{ServiceName: args.Name,
-				ChartVersion: svc.HelmChart.Version,
-				ValuesYaml:   svc.HelmChart.ValuesYaml,
-			},
-		}, projectName, args.CreatedBy, logger)
-	}
+	compareHelmVariable([]*templatemodels.RenderChart{
+		{ServiceName: args.Name,
+			ChartVersion: svc.HelmChart.Version,
+			ValuesYaml:   svc.HelmChart.ValuesYaml,
+		},
+	}, projectName, args.CreatedBy, logger)
 
 	return nil
 }
@@ -454,13 +463,11 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 				return
 			}
 
-			if svc.HelmChart != nil {
-				helmRenderCharts = append(helmRenderCharts, &templatemodels.RenderChart{
-					ServiceName:  serviceName,
-					ChartVersion: svc.HelmChart.Version,
-					ValuesYaml:   svc.HelmChart.ValuesYaml,
-				})
-			}
+			helmRenderCharts = append(helmRenderCharts, &templatemodels.RenderChart{
+				ServiceName:  serviceName,
+				ChartVersion: svc.HelmChart.Version,
+				ValuesYaml:   svc.HelmChart.ValuesYaml,
+			})
 		})
 	}
 
@@ -674,17 +681,50 @@ func geneCreationDetail(args *helmServiceCreationArgs) interface{} {
 			LoadPath: args.FilePath,
 		}
 	case setting.SourceFromChartTemplate:
-		yamlData := &template.CustomYaml{
+		yamlData := &templatedata.CustomYaml{
 			YamlContent: args.ValuesYaml,
 		}
-
+		variables := make([]*models.Variable, 0, len(args.Variables))
+		for _, variable := range args.Variables {
+			variables = append(variables, &models.Variable{
+				Key:   variable.Key,
+				Value: variable.Value,
+			})
+		}
 		return &models.CreateFromChartTemplate{
 			YamlData:     yamlData,
 			TemplateName: args.HelmTemplateName,
 			ServiceName:  args.ServiceName,
+			Variables:    variables,
 		}
 	}
 	return nil
+}
+
+func renderVariablesToYaml(valuesYaml string, productName, serviceName string, variables []*Variable) (string, error) {
+	valuesYaml = strings.Replace(valuesYaml, setting.TemplateVariableProduct, productName, -1)
+	valuesYaml = strings.Replace(valuesYaml, setting.TemplateVariableService, serviceName, -1)
+
+	// build replace data
+	valuesMap := make(map[string]interface{})
+	for _, variable := range variables {
+		valuesMap[variable.Key] = variable.Value
+	}
+
+	tmpl, err := template.New("values").Parse(valuesYaml)
+	if err != nil {
+		log.Errorf("failed to parse template, err %s valuesYaml %s", err, valuesYaml)
+		return "", errors.Wrapf(err, "failed to parse template, err %s", err)
+	}
+
+	buf := bytes.NewBufferString("")
+	err = tmpl.Execute(buf, valuesMap)
+	if err != nil {
+		log.Errorf("failed to render values content, err %s", err)
+		return "", fmt.Errorf("failed to render variables")
+	}
+	valuesYaml = buf.String()
+	return valuesYaml, nil
 }
 
 func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logger *zap.SugaredLogger) (*models.Service, error) {
@@ -824,6 +864,7 @@ func UpdateHelmService(args *HelmServiceArgs, log *zap.SugaredLogger) error {
 		}
 
 		// TODO：use yaml compare instead of just comparing the characters
+		// TODO service variables
 		if helmServiceInfo.FileName == setting.ValuesYaml && preServiceTmpl.HelmChart.ValuesYaml != helmServiceInfo.FileContent {
 			var valuesMap map[string]interface{}
 			if err = yaml.Unmarshal([]byte(helmServiceInfo.FileContent), &valuesMap); err != nil {

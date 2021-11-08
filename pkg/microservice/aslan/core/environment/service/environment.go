@@ -26,6 +26,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/go-multierror"
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
@@ -146,12 +147,15 @@ type RawYamlResp struct {
 	YamlContent string `json:"yamlContent"`
 }
 
+type intervalExecutorHandler func(data *commonmodels.Service, log *zap.SugaredLogger) error
+
 func GetProductStatus(productName string, log *zap.SugaredLogger) ([]*EnvStatus, error) {
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName})
 	if err != nil {
 		log.Errorf("Collection.Product.List List product error: %v", err)
 		return nil, e.ErrListProducts.AddDesc(err.Error())
 	}
+
 	envStatusSlice := make([]*EnvStatus, 0)
 	for _, publicProduct := range products {
 		if publicProduct.ProductName != productName {
@@ -2170,23 +2174,8 @@ func installProductHelmCharts(user, envName, requestID string, args *commonmodel
 		chartInfoMap[renderChart.ServiceName] = renderChart
 	}
 
-	serviceList := make([]interface{}, 0)
-	handler := func(data interface{}, logger *zap.SugaredLogger) error {
-		service := data.(*commonmodels.ProductService)
-		// 获取服务详情
-		opt := &commonrepo.ServiceFindOption{
-			ServiceName:   service.ServiceName,
-			Type:          service.Type,
-			Revision:      service.Revision,
-			ProductName:   args.ProductName,
-			ExcludeStatus: setting.ProductStatusDeleting,
-		}
-		serviceObj, err := commonrepo.NewServiceColl().Find(opt)
-		if err != nil {
-			return err
-		}
-
-		renderChart := chartInfoMap[service.ServiceName]
+	handler := func(serviceObj *commonmodels.Service, logger *zap.SugaredLogger) error {
+		renderChart := chartInfoMap[serviceObj.ServiceName]
 		err = installOrUpgradeHelmChart(args.Namespace, renderChart, renderset.DefaultValues, serviceObj, 0, helmClient)
 		if err != nil {
 			return err
@@ -2195,18 +2184,33 @@ func installProductHelmCharts(user, envName, requestID string, args *commonmodel
 	}
 
 	for _, serviceGroups := range args.Services {
+		serviceList := make([]*commonmodels.Service, 0)
 		for _, svc := range serviceGroups {
 			_, ok := chartInfoMap[svc.ServiceName]
 			if !ok {
 				continue
 			}
-			serviceList = append(serviceList, svc)
-		}
-	}
 
-	serviceGroupErr := intervalExecutor(time.Millisecond*2500, serviceList, handler, log)
-	if serviceGroupErr != nil {
-		errList = multierror.Append(errList, serviceGroupErr...)
+			// 获取服务详情
+			opt := &commonrepo.ServiceFindOption{
+				ServiceName:   svc.ServiceName,
+				Type:          svc.Type,
+				Revision:      svc.Revision,
+				ProductName:   args.ProductName,
+				ExcludeStatus: setting.ProductStatusDeleting,
+			}
+			serviceObj, err := commonrepo.NewServiceColl().Find(opt)
+			if err != nil {
+				errList = multierror.Append(errList, errors.Wrapf(err, "failed to find template servce, serviceName %s", svc.ServiceName))
+				continue
+			}
+
+			serviceList = append(serviceList, serviceObj)
+		}
+		serviceGroupErr := intervalExecutorWithRetry(5, time.Millisecond*2500, serviceList, handler, log)
+		if serviceGroupErr != nil {
+			errList = multierror.Append(errList, serviceGroupErr...)
+		}
 	}
 
 	err = errList.ErrorOrNil()
@@ -2272,7 +2276,24 @@ func getUpdatedProductServices(updateProduct *commonmodels.Product, serviceRevis
 	return updatedAllServices
 }
 
-func intervalExecutor(interval time.Duration, serviceList []interface{}, handler func(data interface{}, log *zap.SugaredLogger) error, log *zap.SugaredLogger) []error {
+func intervalExecutorWithRetry(retryCount uint64, interval time.Duration, serviceList []*commonmodels.Service, handler intervalExecutorHandler, log *zap.SugaredLogger) []error {
+	bo := backoff.NewConstantBackOff(time.Second * 3)
+	retryBo := backoff.WithMaxRetries(bo, retryCount)
+	errList := make([]error, 0)
+	_ = backoff.Retry(func() error {
+		failedServices := make([]*commonmodels.Service, 0)
+		errList = intervalExecutor(interval, serviceList, &failedServices, handler, log)
+		if len(errList) == 0 {
+			return nil
+		}
+		log.Infof("%d services waiting to retry", len(failedServices))
+		serviceList = failedServices
+		return fmt.Errorf("%d services apply failed", len(errList))
+	}, retryBo)
+	return errList
+}
+
+func intervalExecutor(interval time.Duration, serviceList []*commonmodels.Service, failedServices *[]*commonmodels.Service, handler intervalExecutorHandler, log *zap.SugaredLogger) []error {
 	if len(serviceList) == 0 {
 		return nil
 	}
@@ -2288,6 +2309,8 @@ func intervalExecutor(interval time.Duration, serviceList []interface{}, handler
 			err := handler(data, log)
 			if err != nil {
 				errList = append(errList, err)
+				*failedServices = append(*failedServices, data)
+				log.Errorf("service:%s apply failed, err %s", data.ServiceName, err)
 			}
 		}()
 		<-ticker.C
@@ -2358,31 +2381,18 @@ func updateProductGroup(username, productName, envName, updateType string, produ
 		renderChartMap[renderChart.ServiceName] = renderChart
 	}
 
-	handler := func(data interface{}, log *zap.SugaredLogger) error {
-		service := data.(*commonmodels.ProductService)
-		opt := &commonrepo.ServiceFindOption{
-			ServiceName:   service.ServiceName,
-			Type:          service.Type,
-			Revision:      service.Revision,
-			ProductName:   service.ProductName,
-			ExcludeStatus: setting.ProductStatusDeleting,
-		}
-		serviceObj, err := commonrepo.NewServiceColl().Find(opt)
-		if err != nil {
-			log.Errorf("failed to find service with opt %+v, err: %s", opt, err)
-			return errors.Wrapf(err, "failed to find template servce %s", service.ServiceName)
-		}
-		renderChart := renderChartMap[service.ServiceName]
+	handler := func(serviceObj *commonmodels.Service, log *zap.SugaredLogger) error {
+		renderChart := renderChartMap[serviceObj.ServiceName]
 		err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderSet.DefaultValues, serviceObj, 0, helmClient)
 		if err != nil {
-			return errors.Wrapf(err, "failed to install or upgrade service %s", service.ServiceName)
+			return errors.Wrapf(err, "failed to install or upgrade service %s", serviceObj.ServiceName)
 		}
 		return nil
 	}
 
 	errList := new(multierror.Error)
 	for groupIndex, services := range productResp.Services {
-		serviceList := make([]interface{}, 0)
+		serviceList := make([]*commonmodels.Service, 0)
 		for _, svc := range services {
 			_, ok := renderChartMap[svc.ServiceName]
 			if !ok {
@@ -2392,10 +2402,25 @@ func updateProductGroup(username, productName, envName, updateType string, produ
 			if !svcNameSet.Has(svc.ServiceName) {
 				continue
 			}
-			serviceList = append(serviceList, svc)
+
+			opt := &commonrepo.ServiceFindOption{
+				ServiceName:   svc.ServiceName,
+				Type:          svc.Type,
+				Revision:      svc.Revision,
+				ProductName:   svc.ProductName,
+				ExcludeStatus: setting.ProductStatusDeleting,
+			}
+			serviceObj, err := commonrepo.NewServiceColl().Find(opt)
+			if err != nil {
+				log.Errorf("failed to find service with opt %+v, err: %s", opt, err)
+				errList = multierror.Append(errList, errors.Wrapf(err, "failed to find template servce, serviceName %s", svc.ServiceName))
+				continue
+			}
+
+			serviceList = append(serviceList, serviceObj)
 		}
 
-		serviceGroupErr := intervalExecutor(time.Millisecond*2500, serviceList, handler, log)
+		serviceGroupErr := intervalExecutorWithRetry(5, time.Millisecond*2500, serviceList, handler, log)
 		if serviceGroupErr != nil {
 			errList = multierror.Append(errList, serviceGroupErr...)
 		}
@@ -2603,8 +2628,7 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 		renderChartMap[renderChart.ServiceName] = renderChart
 	}
 
-	handler := func(data interface{}, log *zap.SugaredLogger) error {
-		service := data.(*commonmodels.Service)
+	handler := func(service *commonmodels.Service, log *zap.SugaredLogger) error {
 		renderChart := renderChartMap[service.ServiceName]
 		err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderset.DefaultValues, service, 0, helmClient)
 		if err != nil {
@@ -2615,8 +2639,7 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 
 	errList := new(multierror.Error)
 	for groupIndex, services := range productResp.Services {
-		serviceList := make([]interface{}, 0)
-		var wg sync.WaitGroup
+		serviceList := make([]*commonmodels.Service, 0)
 		groupServices := make([]*commonmodels.ProductService, 0)
 		for _, service := range services {
 			if _, isExist := renderChartMap[service.ServiceName]; isExist {
@@ -2633,15 +2656,13 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 					continue
 				}
 				serviceList = append(serviceList, serviceObj)
-
-				groupServiceErr := intervalExecutor(time.Millisecond*2500, serviceList, handler, log)
-				if groupServiceErr != nil {
-					errList = multierror.Append(errList, groupServiceErr...)
-				}
 			}
 			groupServices = append(groupServices, service)
 		}
-		wg.Wait()
+		groupServiceErr := intervalExecutorWithRetry(5, time.Millisecond*2500, serviceList, handler, log)
+		if groupServiceErr != nil {
+			errList = multierror.Append(errList, groupServiceErr...)
+		}
 		err = commonrepo.NewProductColl().UpdateGroup(envName, productName, groupIndex, groupServices)
 		if err != nil {
 			log.Errorf("Failed to update collection - service group %d. Error: %v", groupIndex, err)

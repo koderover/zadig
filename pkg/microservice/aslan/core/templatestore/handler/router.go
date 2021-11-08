@@ -31,8 +31,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		install.GET("", ListChartTemplates)
 		install.GET("/:name", GetChartTemplate)
 		install.GET("/:name/files", ListFiles)
+		install.GET("/:name/variables", GetTemplateVariables)
 		install.POST("", AddChartTemplate)
 		install.PUT("/:name", UpdateChartTemplate)
+		install.PUT("/:name/variables", UpdateChartTemplateVariables)
 		install.DELETE("/:name", RemoveChartTemplate)
 	}
 
@@ -55,6 +57,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		yaml.GET("/:id", GetYamlTemplateDetail)
 		yaml.DELETE("/:id", DeleteYamlTemplate)
 		yaml.GET("/:id/reference", GetYamlTemplateReference)
-		yaml.PUT("/:id/variables", UpdateYamlTemplateVariables)
+		yaml.POST("/getVariables", GetYamlTemplateVariables)
 	}
 }
