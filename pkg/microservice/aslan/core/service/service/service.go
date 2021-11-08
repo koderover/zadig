@@ -478,6 +478,8 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 				if err != nil {
 					log.Errorf("UpdateStatus external services error:%s", err)
 				}
+			} else {
+
 			}
 			if err = commonrepo.NewServicesInExternalEnvColl().Delete(&commonrepo.ServicesInExternalEnvArgs{
 				ProductName: productName,
