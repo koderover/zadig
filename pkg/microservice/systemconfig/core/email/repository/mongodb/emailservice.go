@@ -21,7 +21,7 @@ type EmailServiceColl struct {
 }
 
 func NewEmailServiceColl() *EmailServiceColl {
-	name := models.EmailHost{}.TableName()
+	name := models.EmailService{}.TableName()
 	coll := &EmailServiceColl{Collection: mongotool.Database(config.MongoDatabase()).Collection(name), coll: name}
 
 	return coll
