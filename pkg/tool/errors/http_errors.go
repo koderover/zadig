@@ -672,4 +672,12 @@ var (
 	ErrTestJenkinsConnection    = NewHTTPError(6835, "用户名或者密码不正确")
 	ErrListJobNames             = NewHTTPError(6836, "获取job名称列表失败")
 	ErrListJobBuildArgs         = NewHTTPError(6837, "获取job构建参数列表失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// external link Error Range: 6840 - 6849
+	//-----------------------------------------------------------------------------------------------
+	ErrCreateExternalLink = NewHTTPError(6841, "创建链接失败")
+	ErrUpdateExternalLink = NewHTTPError(6842, "更新链接失败")
+	ErrDeleteExternalLink = NewHTTPError(6843, "删除链接失败")
+	ErrListExternalLink   = NewHTTPError(6844, "获取链接列表失败")
 )
