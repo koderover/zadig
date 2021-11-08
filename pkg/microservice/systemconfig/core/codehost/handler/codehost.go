@@ -78,7 +78,7 @@ func AuthCodeHost(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	callBackUrl := fmt.Sprintf("%s://%s%s", redirectHost.Scheme, redirectHost.Host, "/api/directory/codehosts/callback")
+	callBackUrl := fmt.Sprintf("%s://%s%s", redirectHost.Scheme, redirectHost.Host, "/api/v1/codehosts/callback")
 	authConfig := &oauth2.Config{
 		ClientID:     codeHost.ApplicationId,
 		ClientSecret: codeHost.ClientSecret,
