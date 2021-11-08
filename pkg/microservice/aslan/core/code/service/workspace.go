@@ -28,7 +28,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
-	"github.com/koderover/zadig/pkg/shared/codehost"
 	"github.com/koderover/zadig/pkg/tool/codehub"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
@@ -145,7 +144,7 @@ func GetGitRepoInfo(codehostID int, repoOwner, repoName, branchName, remoteName,
 	if err := os.RemoveAll(base); err != nil {
 		log.Errorf("dir remove err:%v", err)
 	}
-	detail, err := codehost.GetCodehostDetail(codehostID)
+	detail, err := systemconfig.GetCodehostDetail(codehostID)
 	if err != nil {
 		log.Errorf("GetGitRepoInfo GetCodehostDetail err:%v", err)
 		return fis, e.ErrListRepoDir.AddDesc(err.Error())
@@ -189,7 +188,7 @@ type CodehostFileInfo struct {
 func GetCodehubRepoInfo(codehostID int, repoUUID, branchName, path string, log *zap.SugaredLogger) ([]*CodehostFileInfo, error) {
 	fileInfos := make([]*CodehostFileInfo, 0)
 
-	detail, err := codehost.GetCodehostDetail(codehostID)
+	detail, err := systemconfig.GetCodehostDetail(codehostID)
 	if err != nil {
 		log.Errorf("GetCodehubRepoInfo GetCodehostDetail err:%s", err)
 		return fileInfos, e.ErrListWorkspace.AddDesc(err.Error())

@@ -47,7 +47,6 @@ import (
 	templatestore "github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/codehost"
 	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -349,7 +348,7 @@ func getCodehostType(repoArgs *CreateFromRepo, repoLink string) (string, *poetry
 	if repoLink != "" {
 		return setting.SourceFromPublicRepo, nil, nil
 	}
-	ch, err := codehost.GetCodeHostInfoByID(repoArgs.CodehostID)
+	ch, err := systemconfig.GetCodeHostInfoByID(repoArgs.CodehostID)
 	if err != nil {
 		log.Errorf("Failed to get codeHost by id %d, err: %s", repoArgs.CodehostID, err.Error())
 		return "", ch, err

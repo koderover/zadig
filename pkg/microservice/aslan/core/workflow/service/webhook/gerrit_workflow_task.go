@@ -34,7 +34,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
 	"github.com/koderover/zadig/pkg/types"
 )
@@ -305,7 +305,7 @@ func TriggerWorkflowByGerritEvent(event *gerritTypeEvent, body []byte, uri, base
 				if item.WorkflowArgs == nil {
 					continue
 				}
-				detail, err := codehost.GetCodehostDetail(item.MainRepo.CodehostID)
+				detail, err := systemconfig.GetCodehostDetail(item.MainRepo.CodehostID)
 				if err != nil {
 					log.Errorf("TriggerWorkflowByGerritEvent GetCodehostDetail err:%v", err)
 					return err
@@ -410,7 +410,7 @@ func addWebHookUser(match gerritEventMatcher, domain string) {
 	}
 }
 
-func checkLatestTaskStaus(pipelineName, mergeRequestID, commitID string, detail *codehost.Detail, log *zap.SugaredLogger) bool {
+func checkLatestTaskStaus(pipelineName, mergeRequestID, commitID string, detail *systemconfig.Detail, log *zap.SugaredLogger) bool {
 	opt := &commonrepo.ListTaskOption{
 		PipelineName:   pipelineName,
 		Type:           config.WorkflowType,

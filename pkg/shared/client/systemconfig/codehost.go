@@ -65,7 +65,7 @@ func GetCodeHostInfo(option *Option) (*CodeHost, error) {
 	return nil, errors.New("not find codeHost")
 }
 
-func (c *Client) GetCodeHostInfoByID(id int) (*CodeHost, error) {
+func GetCodeHostInfoByID(id int) (*CodeHost, error) {
 	return GetCodeHostInfo(&Option{CodeHostID: id})
 }
 
@@ -83,7 +83,7 @@ type Detail struct {
 	SecretKey  string `json:"clientSecret"`
 }
 
-func (c *Client) GetCodehostDetail(codehostID int) (*Detail, error) {
+func GetCodehostDetail(codehostID int) (*Detail, error) {
 	codehost, err := GetCodeHostInfo(&Option{CodeHostID: codehostID})
 	if err != nil {
 		return nil, err
@@ -105,7 +105,7 @@ func (c *Client) GetCodehostDetail(codehostID int) (*Detail, error) {
 	return detail, nil
 }
 
-func (c *Client) ListCodehostDetial() ([]*Detail, error) {
+func ListCodehostDetial() ([]*Detail, error) {
 	codehosts, err := GetCodeHostList()
 	if err != nil {
 		return nil, err
