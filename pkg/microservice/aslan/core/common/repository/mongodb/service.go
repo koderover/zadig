@@ -329,6 +329,24 @@ func (c *ServiceColl) BatchUpdateExternalServicesStatus(productName, envName, st
 	return err
 }
 
+// UpdateExternalServiceEnvName only used by external services
+func (c *ServiceColl) UpdateExternalServiceEnvName(serviceName, productName, envName string) error {
+	if serviceName == "" {
+		return fmt.Errorf("serviceName is empty")
+	}
+	if productName == "" {
+		return fmt.Errorf("productName is empty")
+	}
+
+	query := bson.M{"service_name": serviceName, "product_name": productName}
+	change := bson.M{"$set": bson.M{
+		"env_name": envName,
+	}}
+
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
 // UpdateExternalServicesStatus only used by external services
 func (c *ServiceColl) UpdateExternalServicesStatus(serviceName, productName, status, envName string) error {
 	if serviceName == "" && envName == "" {
