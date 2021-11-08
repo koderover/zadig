@@ -29,10 +29,10 @@ func CreateExternalLink(c *gin.Context) {
 	args := new(commonmodels.ExternalLink)
 	data, err := c.GetRawData()
 	if err != nil {
-		log.Errorf("CreateExternalLink c.GetRawData() err : %v", err)
+		log.Errorf("CreateExternalLink c.GetRawData() err : %s", err)
 	}
 	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("CreateExternalLink json.Unmarshal err : %v", err)
+		log.Errorf("CreateExternalLink json.Unmarshal err : %s", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统配置-快捷链接", fmt.Sprintf("name:%s url:%s", args.Name, args.URL), string(data), ctx.Logger)
 
@@ -54,10 +54,10 @@ func UpdateExternalLink(c *gin.Context) {
 	args := new(commonmodels.ExternalLink)
 	data, err := c.GetRawData()
 	if err != nil {
-		log.Errorf("UpdateExternal c.GetRawData() err : %v", err)
+		log.Errorf("UpdateExternal c.GetRawData() err : %s", err)
 	}
 	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("UpdateExternal json.Unmarshal err : %v", err)
+		log.Errorf("UpdateExternal json.Unmarshal err : %s", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统配置-快捷链接", fmt.Sprintf("name:%s url:%s", args.Name, args.URL), string(data), ctx.Logger)
 
