@@ -11,6 +11,11 @@ func CreateCodeHost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*models.Co
 	if codehost.Type == "codehub" {
 		codehost.IsReady = "2"
 	}
+	list, err := mongodb.NewCodehostColl().CodeHostList()
+	if err != nil {
+		return nil, err
+	}
+	codehost.ID = len(list) + 1
 	return mongodb.NewCodehostColl().AddCodeHost(codehost)
 }
 

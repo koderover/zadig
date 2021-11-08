@@ -92,6 +92,20 @@ func (c *CodehostColl) FindCodeHosts() ([]*models.CodeHost, error) {
 	return codeHosts, nil
 }
 
+func (c *CodehostColl) CodeHostList() ([]*models.CodeHost, error) {
+	codeHosts := make([]*models.CodeHost, 0)
+
+	cursor, err := c.Collection.Find(context.TODO(), bson.M{})
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &codeHosts)
+	if err != nil {
+		return nil, err
+	}
+	return codeHosts, nil
+}
+
 func (c *CodehostColl) DeleteCodeHostByID(ID int) error {
 	query := bson.M{"id": ID, "deleted_at": 0}
 	change := bson.M{"$set": bson.M{
