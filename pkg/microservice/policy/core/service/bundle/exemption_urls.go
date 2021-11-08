@@ -45,6 +45,10 @@ var publicURLs = []*policyRule{
 		Endpoints: []string{"api/v1/login", "api/v1/signup", "api/v1/retrieve"},
 	},
 	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/v1/codehost/?*/auth"},
+	},
+	{
 		Methods:   []string{"*"},
 		Endpoints: []string{"api/v1/callback"},
 	},
