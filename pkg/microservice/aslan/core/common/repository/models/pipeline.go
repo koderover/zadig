@@ -32,8 +32,6 @@ type Pipeline struct {
 	Enabled     bool                `bson:"enabled"                      json:"enabled"`
 	TeamName    string              `bson:"team"                         json:"team"`
 	ProductName string              `bson:"product_name"                 json:"product_name"`
-	// OrgID 单租户ID
-	OrgID int `bson:"org_id"                     json:"org_id"`
 	// target 服务名称, k8s为容器名称, 物理机为服务名
 	Target string `bson:"target"                    json:"target"`
 	// 使用预定义编译管理模块中的内容生成SubTasks,

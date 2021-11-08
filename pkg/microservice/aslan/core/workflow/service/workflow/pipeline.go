@@ -42,7 +42,7 @@ func ListPipelines(log *zap.SugaredLogger) ([]*commonmodels.Pipeline, error) {
 	return resp, nil
 }
 
-func GetPipeline(userID int, pipelineName string, log *zap.SugaredLogger) (*commonmodels.Pipeline, error) {
+func GetPipeline(userID, pipelineName string, log *zap.SugaredLogger) (*commonmodels.Pipeline, error) {
 	resp, err := commonrepo.NewPipelineColl().Find(&commonrepo.PipelineFindOption{Name: pipelineName})
 	if err != nil {
 		log.Error(err)

@@ -18,16 +18,11 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
-
-	ginmiddleware "github.com/koderover/zadig/pkg/middleware/gin"
 )
 
 type Router struct{}
 
 func (*Router) Inject(router *gin.RouterGroup) {
-
-	router.Use(ginmiddleware.Auth())
-
 	// ---------------------------------------------------------------------------------------
 	// chart templates
 	// ---------------------------------------------------------------------------------------

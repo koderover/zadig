@@ -20,82 +20,17 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-func ListProductsRevision(productName, envName string, userID int, superUser bool, log *zap.SugaredLogger) ([]*ProductRevision, error) {
-	var (
-		err               error
-		prodRevs          = make([]*ProductRevision, 0)
-		products          = make([]*commonmodels.Product, 0)
-		productNameMap    map[string][]int64
-		productNamespaces = sets.NewString()
-	)
-	if superUser {
-		products, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{ExcludeStatus: setting.ProductStatusDeleting, Name: productName, EnvName: envName})
-		if err != nil {
-			log.Errorf("Collection.Product.List error: %v", err)
-			return prodRevs, e.ErrListProducts.AddDesc(err.Error())
-		}
-	} else {
-		//项目下所有公开环境
-		publicProducts, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{IsPublic: true, ExcludeStatus: setting.ProductStatusDeleting, Name: productName, EnvName: envName})
-		if err != nil {
-			log.Errorf("Collection.Product.List List product error: %v", err)
-			return prodRevs, e.ErrListProducts.AddDesc(err.Error())
-		}
-		for _, publicProduct := range publicProducts {
-			products = append(products, publicProduct)
-			productNamespaces.Insert(publicProduct.Namespace)
-		}
-
-		poetryCtl := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
-		productNameMap, err = poetryCtl.GetUserProject(userID, log)
-		if err != nil {
-			log.Errorf("Collection.Product.List GetUserProject error: %v", err)
-			return prodRevs, e.ErrListProducts.AddDesc(err.Error())
-		}
-		for productName, roleIDs := range productNameMap {
-			//用户关联角色所关联的环境
-			for _, roleID := range roleIDs {
-				if roleID == setting.RoleOwnerID {
-					tmpProducts, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{ExcludeStatus: setting.ProductStatusDeleting, Name: productName, EnvName: envName})
-					if err != nil {
-						log.Errorf("Collection.Product.List Find product error: %v", err)
-						return prodRevs, e.ErrListProducts.AddDesc(err.Error())
-					}
-					for _, product := range tmpProducts {
-						if !productNamespaces.Has(product.Namespace) {
-							products = append(products, product)
-						}
-					}
-				} else {
-					roleEnvs, err := poetryCtl.ListRoleEnvs(productName, envName, roleID, log)
-					if err != nil {
-						log.Errorf("Collection.Product.List ListRoleEnvs error: %v", err)
-						return prodRevs, e.ErrListProducts.AddDesc(err.Error())
-					}
-					for _, roleEnv := range roleEnvs {
-						product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: roleEnv.EnvName})
-						if err != nil {
-							log.Errorf("Collection.Product.List Find product error: %v", err)
-							return prodRevs, e.ErrListProducts.AddDesc(err.Error())
-						}
-						products = append(products, product)
-					}
-				}
-			}
-		}
-	}
+func ListProductsRevision(productName, envName string, log *zap.SugaredLogger) (prodRevs []*ProductRevision, err error) {
+	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName, IsSortByProductName: true, EnvName: envName})
 
 	// 获取所有服务模板最新模板信息
 	allServiceTmpls, err := commonrepo.NewServiceColl().ListAllRevisions()

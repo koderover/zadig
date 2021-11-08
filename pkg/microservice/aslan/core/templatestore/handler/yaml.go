@@ -98,10 +98,6 @@ func GetYamlTemplateVariables(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	req := &getYamlTemplateVariablesReq{}
-	if err := c.ShouldBindJSON(req); err != nil {
-		ctx.Err = err
-		return
-	}
 
 	ctx.Resp, ctx.Err = templateservice.GetYamlVariables(req.Content, ctx.Logger)
 }

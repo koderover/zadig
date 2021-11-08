@@ -29,7 +29,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/cron/core/service"
-	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/rsa"
 )
 
@@ -169,7 +168,7 @@ func (c *Client) sendRequest(url string) error {
 	if err != nil {
 		return err
 	}
-	request.Header.Set("Authorization", fmt.Sprintf("%s %s", setting.TIMERAPIKEY, c.Token))
+
 	resp, err := c.Conn.Do(request)
 	if err == nil {
 		defer func() { _ = resp.Body.Close() }()
@@ -183,7 +182,6 @@ func (c *Client) sendPostRequest(url string, body io.Reader, log *zap.SugaredLog
 		log.Errorf("create post request error : %v", err)
 		return "", err
 	}
-	request.Header.Set("Authorization", fmt.Sprintf("%s %s", setting.TIMERAPIKEY, c.Token))
 	var resp *http.Response
 	resp, err = c.Conn.Do(request)
 	if err != nil {

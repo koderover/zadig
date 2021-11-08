@@ -26,7 +26,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/cron/core/service"
-	"github.com/koderover/zadig/pkg/setting"
 )
 
 func (c *Client) ListPipelines(log *zap.SugaredLogger) ([]*service.Pipeline, error) {
@@ -40,7 +39,6 @@ func (c *Client) ListPipelines(log *zap.SugaredLogger) ([]*service.Pipeline, err
 		return nil, err
 	}
 
-	request.Header.Set("Authorization", fmt.Sprintf("%s %s", setting.RootAPIKey, c.Token))
 	var ret *http.Response
 	if ret, err = c.Conn.Do(request); err == nil {
 		defer func() { _ = ret.Body.Close() }()

@@ -29,6 +29,10 @@ import (
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
+type ListOptions struct {
+	RoleName, RoleNamespace string
+}
+
 type RoleBindingColl struct {
 	*mongo.Collection
 
@@ -61,11 +65,20 @@ func (c *RoleBindingColl) EnsureIndex(ctx context.Context) error {
 	return err
 }
 
-func (c *RoleBindingColl) List() ([]*models.RoleBinding, error) {
+func (c *RoleBindingColl) List(opts ...*ListOptions) ([]*models.RoleBinding, error) {
 	var res []*models.RoleBinding
 
 	ctx := context.Background()
-	cursor, err := c.Collection.Find(ctx, bson.M{})
+	query := bson.M{}
+	if len(opts) > 0 {
+		opt := opts[0]
+		if opt.RoleName != "" {
+			query["role_ref.name"] = opt.RoleName
+			query["role_ref.namespace"] = opt.RoleNamespace
+		}
+	}
+
+	cursor, err := c.Collection.Find(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -78,12 +91,103 @@ func (c *RoleBindingColl) List() ([]*models.RoleBinding, error) {
 	return res, nil
 }
 
+func (c *RoleBindingColl) ListBy(projectName, uid string) ([]*models.RoleBinding, error) {
+	var res []*models.RoleBinding
+
+	ctx := context.Background()
+	query := bson.M{"namespace": projectName}
+	if uid != "" {
+		query["subjects.uid"] = uid
+		query["subjects.kind"] = models.UserKind
+	}
+
+	cursor, err := c.Collection.Find(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cursor.All(ctx, &res)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (c *RoleBindingColl) Delete(name string, projectName string) error {
+	query := bson.M{"name": name, "namespace": projectName}
+	_, err := c.DeleteOne(context.TODO(), query)
+	return err
+}
+
+func (c *RoleBindingColl) DeleteMany(names []string, projectName string) error {
+	query := bson.M{"namespace": projectName}
+	if len(names) > 0 {
+		query["name"] = bson.M{"$in": names}
+	}
+	_, err := c.Collection.DeleteMany(context.TODO(), query)
+
+	return err
+}
+
+func (c *RoleBindingColl) DeleteByRole(roleName string, projectName string) error {
+	query := bson.M{"role_ref.name": roleName, "role_ref.namespace": projectName}
+	// if projectName == "", delete all rolebindings in all namespaces
+	if projectName != "" {
+		query["namespace"] = projectName
+	}
+	_, err := c.Collection.DeleteMany(context.TODO(), query)
+
+	return err
+}
+
+func (c *RoleBindingColl) DeleteByRoles(roleNames []string, projectName string) error {
+	if projectName == "" {
+		return fmt.Errorf("projectName is empty")
+	}
+	if len(roleNames) == 0 {
+		return nil
+	}
+
+	query := bson.M{"role_ref.name": bson.M{"$in": roleNames}, "role_ref.namespace": projectName, "namespace": projectName}
+	_, err := c.Collection.DeleteMany(context.TODO(), query)
+
+	return err
+}
+
 func (c *RoleBindingColl) Create(obj *models.RoleBinding) error {
 	if obj == nil {
 		return fmt.Errorf("nil object")
 	}
 
 	_, err := c.InsertOne(context.TODO(), obj)
+
+	return err
+}
+
+func (c *RoleBindingColl) BulkCreate(objs []*models.RoleBinding) error {
+	if len(objs) == 0 {
+		return nil
+	}
+
+	var ois []interface{}
+	for _, obj := range objs {
+		ois = append(ois, obj)
+	}
+
+	_, err := c.InsertMany(context.TODO(), ois)
+
+	return err
+}
+
+func (c *RoleBindingColl) UpdateOrCreate(obj *models.RoleBinding) error {
+	if obj == nil {
+		return fmt.Errorf("nil object")
+	}
+
+	query := bson.M{"name": obj.Name, "namespace": obj.Namespace}
+	opts := options.Replace().SetUpsert(true)
+	_, err := c.ReplaceOne(context.TODO(), query, obj, opts)
 
 	return err
 }

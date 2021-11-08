@@ -36,7 +36,7 @@ import (
 )
 
 func DeleteDeliveryInfos(productName string, log *zap.SugaredLogger) error {
-	deliveryVersions, err := mongodb.NewDeliveryVersionColl().ListDeliveryVersions(productName, 1)
+	deliveryVersions, err := mongodb.NewDeliveryVersionColl().ListDeliveryVersions(productName)
 	if err != nil {
 		log.Errorf("delete DeleteDeliveryInfo error: %v", err)
 		return e.ErrDeleteDeliveryVersion
@@ -71,9 +71,8 @@ func DeleteDeliveryInfos(productName string, log *zap.SugaredLogger) error {
 	return nil
 }
 
-func AddDeliveryVersion(orgID, taskID int, productName, workflowName string, pipelineTask *taskmodels.Task, logger *zap.SugaredLogger) error {
+func AddDeliveryVersion(taskID int, productName, workflowName string, pipelineTask *taskmodels.Task, logger *zap.SugaredLogger) error {
 	deliveryVersionArgs := &mongodb.DeliveryVersionArgs{
-		OrgID:        orgID,
 		ProductName:  productName,
 		WorkflowName: workflowName,
 		TaskID:       taskID,
@@ -87,7 +86,6 @@ func AddDeliveryVersion(orgID, taskID int, productName, workflowName string, pip
 	}
 
 	deliveryVersion := new(commonmodels.DeliveryVersion)
-	deliveryVersion.OrgID = orgID
 	deliveryVersion.WorkflowName = workflowName
 	deliveryVersion.TaskID = taskID
 	deliveryVersion.ProductName = productName

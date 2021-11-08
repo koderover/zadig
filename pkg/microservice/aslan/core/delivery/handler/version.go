@@ -96,16 +96,10 @@ type DeliverySecurityStatsInfo struct {
 func ListDeliveryVersion(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	//params validate
-	orgIDStr := c.Query("orgId")
-	orgID, err := strconv.Atoi(orgIDStr)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("orgId can't be empty!")
-		return
-	}
 
 	taskIDStr := c.Query("taskId")
 	var taskID = 0
+	var err error
 	if taskIDStr != "" {
 		taskID, err = strconv.Atoi(taskIDStr)
 		if err != nil {
@@ -143,8 +137,7 @@ func ListDeliveryVersion(c *gin.Context) {
 	serviceName := c.Query("serviceName")
 
 	version := new(commonrepo.DeliveryVersionArgs)
-	version.OrgID = orgID
-	version.ProductName = c.Query("productName")
+	version.ProductName = c.Query("projectName")
 	version.WorkflowName = c.Query("workflowName")
 	version.TaskID = taskID
 	version.PerPage = perPage
@@ -286,16 +279,9 @@ type DeliveryFileInfo struct {
 func ListPackagesVersion(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	//params validate
-	orgIDStr := c.Query("orgId")
-	orgID, err := strconv.Atoi(orgIDStr)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("orgId can't be empty!")
-		return
-	}
+
 	version := &commonrepo.DeliveryVersionArgs{
-		OrgID:       orgID,
-		ProductName: c.Query("productName"),
+		ProductName: c.Query("projectName"),
 	}
 	deliveryVersions, err := deliveryservice.FindDeliveryVersion(version, ctx.Logger)
 	if err != nil {
@@ -343,7 +329,7 @@ func ListPackagesVersion(c *gin.Context) {
 func DeleteDeliveryVersion(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	internalhandler.InsertOperationLog(c, ctx.Username, c.GetString("productName"), "删除", "版本交付", fmt.Sprintf("主键ID:%s", c.Param("id")), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.GetString("productName"), "删除", "版本交付", fmt.Sprintf("主键ID:%s", c.Param("id")), "", ctx.Logger)
 
 	//params validate
 	ID := c.Param("id")
@@ -382,13 +368,6 @@ func ListDeliveryServiceNames(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	productName := c.Query("productName")
-	orgIDStr := c.Query("orgId")
-	orgID, err := strconv.Atoi(orgIDStr)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("orgId can't be empty!")
-		return
-	}
-
-	ctx.Resp, ctx.Err = deliveryservice.ListDeliveryServiceNames(orgID, productName, ctx.Logger)
+	productName := c.Query("projectName")
+	ctx.Resp, ctx.Err = deliveryservice.ListDeliveryServiceNames(productName, ctx.Logger)
 }

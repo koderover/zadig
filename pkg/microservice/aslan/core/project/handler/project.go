@@ -25,8 +25,9 @@ import (
 )
 
 type projectListArgs struct {
-	IgnoreNoEnvs bool   `json:"ignoreNoEnvs"    form:"ignoreNoEnvs"`
-	Verbosity    string `json:"verbosity"    form:"verbosity"`
+	IgnoreNoEnvs bool     `json:"ignoreNoEnvs"    form:"ignoreNoEnvs"`
+	Verbosity    string   `json:"verbosity"       form:"verbosity"`
+	Names        []string `json:"names"           form:"names"`
 }
 
 func ListProjects(c *gin.Context) {
@@ -39,8 +40,14 @@ func ListProjects(c *gin.Context) {
 		return
 	}
 
+	productType := c.DefaultQuery("productType", "normal")
+	if productType == "openSource" {
+		ctx.Resp, ctx.Err = projectservice.ListOpenSourceProduct(ctx.Logger)
+		return
+	}
+
 	ctx.Resp, ctx.Err = projectservice.ListProjects(
-		&projectservice.ProjectListOptions{IgnoreNoEnvs: args.IgnoreNoEnvs, Verbosity: projectservice.QueryVerbosity(args.Verbosity)},
+		&projectservice.ProjectListOptions{IgnoreNoEnvs: args.IgnoreNoEnvs, Verbosity: projectservice.QueryVerbosity(args.Verbosity), Names: args.Names},
 		ctx.Logger,
 	)
 }

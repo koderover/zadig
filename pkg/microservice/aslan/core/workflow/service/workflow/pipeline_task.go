@@ -165,7 +165,7 @@ func CreatePipelineTask(args *commonmodels.TaskArgs, log *zap.SugaredLogger) (*C
 		}
 	}
 
-	jiraInfo, _ := poetry.GetJiraInfo(config.PoetryAPIServer(), config.PoetryAPIRootKey())
+	jiraInfo, _ := poetry.GetJiraInfo(config.PoetryAPIServer())
 	if jiraInfo != nil {
 		jiraTask, err := AddPipelineJiraSubTask(pipeline, log)
 		if err != nil {
@@ -198,7 +198,6 @@ func CreatePipelineTask(args *commonmodels.TaskArgs, log *zap.SugaredLogger) (*C
 		MultiRun:       pipeline.MultiRun,
 		BuildModuleVer: pipeline.BuildModuleVer,
 		Target:         pipeline.Target,
-		OrgID:          pipeline.OrgID,
 		StorageURI:     defaultStorageURI,
 	}
 
@@ -387,7 +386,7 @@ func RestartPipelineTaskV2(userName string, taskID int64, pipelineName string, t
 				subBuildTaskMap := subStage.SubTasks
 				for serviceModule, subTask := range subBuildTaskMap {
 					if buildInfo, err := base.ToBuildTask(subTask); err == nil {
-						if newModules, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{Targets: []string{serviceModule}, ServiceName: buildInfo.Service, ProductName: t.ProductName}); err == nil {
+						if newModules, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{Targets: []string{serviceModule}, ServiceName: buildInfo.Service, ProductName: t.ProductName}); err == nil && len(newModules) > 0 {
 							newBuildInfo := newModules[0]
 							buildInfo.JobCtx.BuildSteps = []*task.BuildStep{}
 							if newBuildInfo.Scripts != "" {

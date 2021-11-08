@@ -97,7 +97,7 @@ func CreateWorkflowTask(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateWorkflowTask json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductTmplName, "新增", "工作流-task", args.WorkflowName, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductTmplName, "新增", "工作流-task", args.WorkflowName, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
@@ -106,14 +106,14 @@ func CreateWorkflowTask(c *gin.Context) {
 	}
 
 	if args.WorkflowTaskCreator != setting.CronTaskCreator && args.WorkflowTaskCreator != setting.WebhookTaskCreator {
-		args.WorkflowTaskCreator = ctx.Username
+		args.WorkflowTaskCreator = ctx.UserName
 	}
 
-	ctx.Resp, ctx.Err = workflow.CreateWorkflowTask(args, args.WorkflowTaskCreator, ctx.User.ID, ctx.User.IsSuperUser, ctx.Logger)
+	ctx.Resp, ctx.Err = workflow.CreateWorkflowTask(args, args.WorkflowTaskCreator, ctx.Logger)
 
 	// 发送通知
 	if ctx.Err != nil {
-		commonservice.SendFailedTaskMessage(ctx.Username, args.ProductTmplName, args.WorkflowName, ctx.RequestID, config.WorkflowType, ctx.Err, ctx.Logger)
+		commonservice.SendFailedTaskMessage(ctx.UserName, args.ProductTmplName, args.WorkflowName, ctx.RequestID, config.WorkflowType, ctx.Err, ctx.Logger)
 	}
 }
 
@@ -130,7 +130,7 @@ func CreateArtifactWorkflowTask(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateArtifactWorkflowTask json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductTmplName, "新增", "工作流-task", args.WorkflowName, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductTmplName, "新增", "工作流-task", args.WorkflowName, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
@@ -139,10 +139,10 @@ func CreateArtifactWorkflowTask(c *gin.Context) {
 	}
 
 	if args.WorkflowTaskCreator != setting.CronTaskCreator && args.WorkflowTaskCreator != setting.WebhookTaskCreator {
-		args.WorkflowTaskCreator = ctx.Username
+		args.WorkflowTaskCreator = ctx.UserName
 	}
 
-	ctx.Resp, ctx.Err = workflow.CreateArtifactWorkflowTask(args, args.WorkflowTaskCreator, ctx.User.ID, ctx.User.IsSuperUser, ctx.Logger)
+	ctx.Resp, ctx.Err = workflow.CreateArtifactWorkflowTask(args, args.WorkflowTaskCreator, ctx.Logger)
 }
 
 // ListWorkflowTasksResult workflowtask分页信息
@@ -188,7 +188,7 @@ func GetWorkflowTask(c *gin.Context) {
 func RestartWorkflowTask(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	internalhandler.InsertOperationLog(c, ctx.Username, c.GetString("productName"), "重启", "工作流-task", c.Param("name"), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.GetString("productName"), "重启", "工作流-task", c.Param("name"), "", ctx.Logger)
 
 	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -196,18 +196,18 @@ func RestartWorkflowTask(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = workflow.RestartPipelineTaskV2(ctx.Username, taskID, c.Param("name"), config.WorkflowType, ctx.Logger)
+	ctx.Err = workflow.RestartPipelineTaskV2(ctx.UserName, taskID, c.Param("name"), config.WorkflowType, ctx.Logger)
 }
 
 func CancelWorkflowTaskV2(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	internalhandler.InsertOperationLog(c, ctx.Username, c.GetString("productName"), "取消", "工作流-task", c.Param("name"), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.GetString("productName"), "取消", "工作流-task", c.Param("name"), "", ctx.Logger)
 
 	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
-	ctx.Err = commonservice.CancelTaskV2(ctx.Username, c.Param("name"), taskID, config.WorkflowType, ctx.RequestID, ctx.Logger)
+	ctx.Err = commonservice.CancelTaskV2(ctx.UserName, c.Param("name"), taskID, config.WorkflowType, ctx.RequestID, ctx.Logger)
 }

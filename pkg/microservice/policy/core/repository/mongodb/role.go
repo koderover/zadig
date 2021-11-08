@@ -18,6 +18,7 @@ package mongodb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -81,6 +82,7 @@ func (c *RoleColl) List() ([]*models.Role, error) {
 	var res []*models.Role
 
 	ctx := context.Background()
+
 	cursor, err := c.Collection.Find(ctx, bson.M{})
 	if err != nil {
 		return nil, err
@@ -90,7 +92,24 @@ func (c *RoleColl) List() ([]*models.Role, error) {
 	if err != nil {
 		return nil, err
 	}
+	return res, nil
+}
 
+func (c *RoleColl) ListBy(projectName string) ([]*models.Role, error) {
+	var res []*models.Role
+
+	ctx := context.Background()
+	query := bson.M{"namespace": projectName}
+
+	cursor, err := c.Collection.Find(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cursor.All(ctx, &res)
+	if err != nil {
+		return nil, err
+	}
 	return res, nil
 }
 
@@ -100,6 +119,47 @@ func (c *RoleColl) Create(obj *models.Role) error {
 	}
 
 	_, err := c.InsertOne(context.TODO(), obj)
+
+	return err
+}
+
+func (c *RoleColl) Delete(name string, projectName string) error {
+	query := bson.M{"name": name, "namespace": projectName}
+	_, err := c.DeleteOne(context.TODO(), query)
+	return err
+}
+
+func (c *RoleColl) DeleteMany(names []string, projectName string) error {
+	query := bson.M{"namespace": projectName}
+	if len(names) > 0 {
+		query["name"] = bson.M{"$in": names}
+	}
+	_, err := c.Collection.DeleteMany(context.TODO(), query)
+	return err
+}
+
+func (c *RoleColl) UpdateRole(obj *models.Role) error {
+	// avoid panic issue
+	if obj == nil {
+		return errors.New("nil Role")
+	}
+
+	query := bson.M{"name": obj.Name, "namespace": obj.Namespace}
+	change := bson.M{"$set": bson.M{
+		"rules": obj.Rules,
+	}}
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
+func (c *RoleColl) UpdateOrCreate(obj *models.Role) error {
+	if obj == nil {
+		return fmt.Errorf("nil object")
+	}
+
+	query := bson.M{"name": obj.Name, "namespace": obj.Namespace}
+	opts := options.Replace().SetUpsert(true)
+	_, err := c.ReplaceOne(context.TODO(), query, obj, opts)
 
 	return err
 }
