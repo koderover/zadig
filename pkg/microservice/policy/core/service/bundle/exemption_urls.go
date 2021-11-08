@@ -46,7 +46,7 @@ var publicURLs = []*policyRule{
 	},
 	{
 		Methods:   []string{"GET"},
-		Endpoints: []string{"api/v1/codehost/?*/auth"},
+		Endpoints: []string{"api/v1/codehosts/?*/auth", "api/v1/codehosts/callback"},
 	},
 	{
 		Methods:   []string{"*"},
