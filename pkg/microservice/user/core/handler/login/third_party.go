@@ -103,8 +103,10 @@ func Callback(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
+
 	user, err := user.SyncUser(&user.SyncUserInfo{
 		Account:      claims.Name,
+		Name:         claims.Name,
 		IdentityType: claims.FederatedClaims.ConnectorId,
 	}, ctx.Logger)
 	if err != nil {
@@ -112,6 +114,7 @@ func Callback(c *gin.Context) {
 		return
 	}
 	claims.Uid = user.UID
+	claims.Account = claims.Name
 	claims.StandardClaims.ExpiresAt = time.Now().Add(time.Duration(config.TokenExpiresAt()) * time.Minute).Unix()
 	userToken, err := login.CreateToken(claims)
 	if err != nil {

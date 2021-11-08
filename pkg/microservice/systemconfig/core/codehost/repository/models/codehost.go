@@ -1,7 +1,7 @@
 package models
 
 type CodeHost struct {
-	ID             int    `bson:"id"`
+	ID             int    `bson:"id"               json:"id"`
 	Name           string `bson:"name"             json:"name"`
 	Type           string `bson:"type"             json:"type"`
 	Address        string `bson:"address"          json:"address"`

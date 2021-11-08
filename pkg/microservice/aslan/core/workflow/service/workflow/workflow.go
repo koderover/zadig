@@ -62,6 +62,10 @@ func (args *workflowCreateArgs) addWorkflowArg(envName string, buildStageEnabled
 	if artifactStageEnabled {
 		wName = fmt.Sprintf("%s-%s-workflow", args.productName, "ops")
 	}
+	// The hosting env workflow name is not bound to the environment
+	if envName == "" {
+		wName = fmt.Sprintf("%s-workflow", args.productName)
+	}
 	args.argsMap[wName] = &workflowCreateArg{
 		name:                 wName,
 		envName:              envName,
@@ -114,10 +118,10 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 		createArgs.addWorkflowArg("", false, true)
 	}
 
-	// 云主机场景不创建ops工作流
+	// Only one workflow is created in the hosting environment
 	if productTmpl.ProductFeature != nil && productTmpl.ProductFeature.CreateEnvType == setting.SourceFromExternal {
 		createArgs.clear()
-		createArgs.addWorkflowArg("dev", true, false)
+		createArgs.addWorkflowArg("", true, false)
 	}
 
 	workflowSlice := sets.NewString()
