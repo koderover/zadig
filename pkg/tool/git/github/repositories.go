@@ -192,6 +192,29 @@ func (c *Client) CreateHook(ctx context.Context, owner, repo string, hook *git.H
 	return nil, err
 }
 
+func (c *Client) UpdateHook(ctx context.Context, owner, repo string, id int64, hook *git.Hook) (*github.Hook, error) {
+	h := &github.Hook{
+		Config: map[string]interface{}{
+			"secret": hook.Secret,
+		},
+	}
+	if hook.URL != "" {
+		h.Config["url"] = hook.URL
+	}
+	if len(hook.Events) > 0 {
+		h.Events = hook.Events
+	}
+	if hook.Active != nil {
+		h.Active = hook.Active
+	}
+	updated, err := wrap(c.Repositories.EditHook(ctx, owner, repo, id, h))
+	if h, ok := updated.(*github.Hook); ok {
+		return h, err
+	}
+
+	return nil, err
+}
+
 func (c *Client) CreateStatus(ctx context.Context, owner, repo, ref string, status *github.RepoStatus) (*github.RepoStatus, error) {
 	created, err := wrap(c.Repositories.CreateStatus(ctx, owner, repo, ref, status))
 	if s, ok := created.(*github.RepoStatus); ok {

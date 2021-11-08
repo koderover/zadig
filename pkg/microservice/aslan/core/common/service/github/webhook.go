@@ -31,14 +31,29 @@ func (c *Client) CreateWebHook(owner, repo string) (string, error) {
 		Secret: gitservice.GetHookSecret(),
 		Events: []string{git.PushEvent, git.PullRequestEvent, git.BranchOrTagCreateEvent, git.CheckRunEvent},
 	})
+	if err != nil {
+		return "", err
+	}
 
 	return strconv.Itoa(int(hook.GetID())), err
 }
 
 func (c *Client) DeleteWebHook(owner, repo, hookID string) error {
-	hookIDInt, err := strconv.Atoi(hookID)
+	hookIDInt, err := strconv.ParseInt(hookID, 10, 64)
 	if err != nil {
 		return err
 	}
-	return c.DeleteHook(context.TODO(), owner, repo, int64(hookIDInt))
+	return c.DeleteHook(context.TODO(), owner, repo, hookIDInt)
+}
+
+func (c *Client) RefreshWebHookSecret(owner, repo, hookID string) error {
+	hookIDInt, err := strconv.ParseInt(hookID, 10, 64)
+	if err != nil {
+		return err
+	}
+	_, err = c.UpdateHook(context.TODO(), owner, repo, hookIDInt, &git.Hook{
+		Secret: gitservice.GetHookSecret(),
+	})
+
+	return err
 }

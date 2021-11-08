@@ -44,3 +44,15 @@ func (c *Client) DeleteWebHook(owner, repo, hookID string) error {
 	}
 	return c.DeleteProjectHook(owner, repo, hookIDInt)
 }
+
+func (c *Client) RefreshWebHookSecret(owner, repo, hookID string) error {
+	hookIDInt, err := strconv.Atoi(hookID)
+	if err != nil {
+		return err
+	}
+	_, err = c.UpdateProjectHook(owner, repo, hookIDInt, &git.Hook{
+		Secret: gitservice.GetHookSecret(),
+	})
+
+	return err
+}

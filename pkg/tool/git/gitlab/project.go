@@ -74,6 +74,27 @@ func (c *Client) AddProjectHook(owner, repo string, hook *git.Hook) (*gitlab.Pro
 	return nil, err
 }
 
+func (c *Client) UpdateProjectHook(owner, repo string, id int, hook *git.Hook) (*gitlab.ProjectHook, error) {
+	opts := &gitlab.EditProjectHookOptions{}
+	if hook.URL != "" {
+		opts.URL = gitlab.String(hook.URL)
+	}
+	if hook.Secret != "" {
+		opts.Token = gitlab.String(hook.Secret)
+	}
+	opts = addEventsToProjectHookEditOptions(hook.Events, opts)
+	updated, err := wrap(c.Projects.EditProjectHook(generateProjectName(owner, repo), id, opts))
+	if err != nil {
+		return nil, err
+	}
+
+	if h, ok := updated.(*gitlab.ProjectHook); ok {
+		return h, nil
+	}
+
+	return nil, err
+}
+
 func (c *Client) DeleteProjectHook(owner, repo string, id int) error {
 	err := wrapError(c.Projects.DeleteProjectHook(generateProjectName(owner, repo), id))
 	if httpclient.IsNotFound(err) {
@@ -127,6 +148,21 @@ func (c *Client) getProject(owner, repo string) (*gitlab.Project, error) {
 }
 
 func addEventsToProjectHookOptions(events []string, opts *gitlab.AddProjectHookOptions) *gitlab.AddProjectHookOptions {
+	for _, evt := range events {
+		switch evt {
+		case git.PushEvent:
+			opts.PushEvents = boolptr.True()
+		case git.PullRequestEvent:
+			opts.MergeRequestsEvents = boolptr.True()
+		case git.BranchOrTagCreateEvent:
+			opts.TagPushEvents = boolptr.True()
+		}
+	}
+
+	return opts
+}
+
+func addEventsToProjectHookEditOptions(events []string, opts *gitlab.EditProjectHookOptions) *gitlab.EditProjectHookOptions {
 	for _, evt := range events {
 		switch evt {
 		case git.PushEvent:
