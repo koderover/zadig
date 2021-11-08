@@ -14,5 +14,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		codehost.POST("", CreateCodeHost)
 		codehost.PATCH("/:id", UpdateCodeHost)
 		codehost.GET("/:id", GetCodeHost)
+		codehost.GET("/:id/auth", AuthCodeHost)
 	}
 }
