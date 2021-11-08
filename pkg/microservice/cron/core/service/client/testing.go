@@ -26,7 +26,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/cron/core/service"
-	"github.com/koderover/zadig/pkg/setting"
 )
 
 func (c *Client) ListTests(log *zap.SugaredLogger) ([]*service.TestingOpt, error) {
@@ -39,7 +38,6 @@ func (c *Client) ListTests(log *zap.SugaredLogger) ([]*service.TestingOpt, error
 		return nil, err
 	}
 
-	request.Header.Set("Authorization", fmt.Sprintf("%s %s", setting.RootAPIKey, c.Token))
 	var ret *http.Response
 
 	ret, err = c.Conn.Do(request)

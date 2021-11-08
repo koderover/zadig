@@ -28,7 +28,7 @@ func ListPipelinesPreview(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = workflow.ListPipelinesPreview(ctx.User.ID, ctx.Logger)
+	ctx.Resp, ctx.Err = workflow.ListPipelinesPreview(ctx.UserID, ctx.Logger)
 }
 
 // find task by commitId

@@ -17,27 +17,22 @@ limitations under the License.
 package client
 
 import (
-	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
 type CollieClient struct {
 	*httpclient.Client
 
-	host  string
-	token string
+	host string
 }
 
-func NewCollieClient(host, token string) *CollieClient {
+func NewCollieClient(host string) *CollieClient {
 	c := httpclient.New(
-		httpclient.SetAuthScheme(setting.RootAPIKey),
-		httpclient.SetAuthToken(token),
 		httpclient.SetHostURL(host),
 	)
 
 	return &CollieClient{
 		Client: c,
 		host:   host,
-		token:  token,
 	}
 }

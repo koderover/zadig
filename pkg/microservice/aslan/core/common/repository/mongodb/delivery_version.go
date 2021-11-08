@@ -33,7 +33,6 @@ import (
 
 type DeliveryVersionArgs struct {
 	ID           string `json:"id"`
-	OrgID        int    `json:"orgId"`
 	ProductName  string `json:"productName"`
 	WorkflowName string `json:"workflowName"`
 	TaskID       int    `json:"taskId"`
@@ -91,7 +90,7 @@ func (c *DeliveryVersionColl) Find(args *DeliveryVersionArgs) ([]*models.Deliver
 	}
 
 	var resp []*models.DeliveryVersion
-	query := bson.M{"org_id": args.OrgID, "deleted_at": 0}
+	query := bson.M{"deleted_at": 0}
 	if args.ProductName != "" {
 		query["product_name"] = args.ProductName
 	}
@@ -137,9 +136,9 @@ func (c *DeliveryVersionColl) Delete(id string) error {
 	return err
 }
 
-func (c *DeliveryVersionColl) ListDeliveryVersions(productName string, orgID int) ([]*models.DeliveryVersion, error) {
+func (c *DeliveryVersionColl) ListDeliveryVersions(productName string) ([]*models.DeliveryVersion, error) {
 	var resp []*models.DeliveryVersion
-	query := bson.M{"org_id": orgID, "deleted_at": 0}
+	query := bson.M{"deleted_at": 0}
 	if productName != "" {
 		query["product_name"] = productName
 	}
@@ -167,7 +166,7 @@ func (c *DeliveryVersionColl) Get(args *DeliveryVersionArgs) (*models.DeliveryVe
 	if args.ID != "" {
 		query = bson.M{"_id": args.ID, "deleted_at": 0}
 	} else {
-		query = bson.M{"org_id": args.OrgID, "product_name": args.ProductName, "workflow_name": args.WorkflowName, "task_id": args.TaskID, "deleted_at": 0}
+		query = bson.M{"product_name": args.ProductName, "workflow_name": args.WorkflowName, "task_id": args.TaskID, "deleted_at": 0}
 	}
 
 	err := c.FindOne(context.TODO(), query).Decode(&resp)
@@ -205,9 +204,9 @@ func (c *DeliveryVersionColl) Update(args *models.DeliveryVersion) error {
 	return err
 }
 
-func (c *DeliveryVersionColl) FindProducts(orgID int) ([]string, error) {
+func (c *DeliveryVersionColl) FindProducts() ([]string, error) {
 	resp := make([]string, 0)
-	query := bson.M{"org_id": orgID, "deleted_at": 0}
+	query := bson.M{"deleted_at": 0}
 	ret, err := c.Distinct(context.TODO(), "product_name", query)
 	if err != nil {
 		return nil, err

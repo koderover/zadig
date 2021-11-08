@@ -39,15 +39,16 @@ type ProductFindOptions struct {
 
 // ClusterId is a primitive.ObjectID{}.Hex()
 type ProductListOptions struct {
-	EnvName       string
-	Name          string
-	IsPublic      bool
-	ClusterID     string
-	IsSort        bool
-	ExcludeStatus string
-	ExcludeSource string
-	Source        string
-	InProjects    []string
+	EnvName             string
+	Name                string
+	IsPublic            bool
+	ClusterID           string
+	IsSortByUpdateTime  bool
+	IsSortByProductName bool
+	ExcludeStatus       string
+	ExcludeSource       string
+	Source              string
+	InProjects          []string
 }
 
 type projectEnvs struct {
@@ -164,8 +165,11 @@ func (c *ProductColl) List(opt *ProductListOptions) ([]*models.Product, error) {
 
 	ctx := context.Background()
 	opts := options.Find()
-	if opt.IsSort {
+	if opt.IsSortByUpdateTime {
 		opts.SetSort(bson.D{{"update_time", -1}})
+	}
+	if opt.IsSortByProductName {
+		opts.SetSort(bson.D{{"product_name", 1}})
 	}
 	cursor, err := c.Collection.Find(ctx, query, opts)
 	if err != nil {
@@ -180,10 +184,15 @@ func (c *ProductColl) List(opt *ProductListOptions) ([]*models.Product, error) {
 	return ret, nil
 }
 
-func (c *ProductColl) ListProjects() ([]*projectEnvs, error) {
+func (c *ProductColl) ListProjectsInNames(names []string) ([]*projectEnvs, error) {
 	var res []*projectEnvs
-	pipeline := []bson.M{
-		{
+	var pipeline []bson.M
+	if len(names) > 0 {
+		pipeline = append(pipeline, bson.M{"$match": bson.M{"product_name": bson.M{"$in": names}}})
+	}
+
+	pipeline = append(pipeline,
+		bson.M{
 			"$group": bson.M{
 				"_id": bson.M{
 					"product_name": "$product_name",
@@ -192,7 +201,7 @@ func (c *ProductColl) ListProjects() ([]*projectEnvs, error) {
 				"envs":         bson.M{"$push": "$env_name"},
 			},
 		},
-	}
+	)
 
 	cursor, err := c.Aggregate(context.TODO(), pipeline)
 	if err != nil {

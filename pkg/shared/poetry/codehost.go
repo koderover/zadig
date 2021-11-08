@@ -22,7 +22,6 @@ import (
 
 type CodeHost struct {
 	ID          int    `json:"id"`
-	OrgID       int    `json:"orgId"`
 	Address     string `json:"address"`
 	Type        string `json:"type"`
 	AccessToken string `json:"accessToken"`
@@ -38,7 +37,7 @@ func (c *Client) ListCodeHosts() ([]*CodeHost, error) {
 	url := "/directory/codehostss/search"
 
 	codeHosts := make([]*CodeHost, 0)
-	_, err := c.Get(url, httpclient.SetResult(&codeHosts), httpclient.SetQueryParam("orgId", "1"))
+	_, err := c.Get(url, httpclient.SetResult(&codeHosts))
 	if err != nil {
 		return nil, err
 	}

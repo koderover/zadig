@@ -29,6 +29,9 @@ const (
 	ENVAslanDBName             = "ASLAN_DB"
 	ENVHubAgentImage           = "HUB_AGENT_IMAGE"
 	ENVPoetryAPIRootKey        = "POETRY_API_ROOT_KEY"
+	ENVMysqlUser               = "MYSQL_USER"
+	ENVMysqlPassword           = "MYSQL_PASSWORD"
+	ENVMysqlHost               = "MYSQL_HOST"
 
 	// Aslan
 	ENVPodName              = "BE_POD_NAME"
@@ -99,6 +102,22 @@ const (
 	DebugMode   = "debug"
 	ReleaseMode = "release"
 	TestMode    = "test"
+
+	// user
+	ENVIssuerURL      = "ISSUER_URL"
+	ENVClientID       = "CLIENT_ID"
+	ENVClientSecret   = "CLIENT_SECRET"
+	ENVRedirectURI    = "REDIRECT_URI"
+	ENVSecretKey      = "SECRET_KEY"
+	ENVMysqlUserDB    = "MYSQL_USER_DB"
+	ENVScopes         = "SCOPES"
+	ENVTokenExpiresAt = "TOKEN_EXPIRES_AT"
+	ENVUserPort       = "USER_PORT"
+
+	// initconfig
+	ENVAdminEmail    = "ADMIN_EMAIL"
+	ENVAdminPassword = "ADMIN_PASSWORD"
+	PresetAccount    = "admin"
 )
 
 // k8s concepts
@@ -254,11 +273,6 @@ const (
 )
 
 const (
-	SessionUsername     = "Username"
-	SessionUser         = "User"
-	UserAPIKey          = "X-API-KEY"
-	RootAPIKey          = "X-ROOT-API-KEY"
-	TIMERAPIKEY         = "X-TIMER-API-KEY"
 	AuthorizationHeader = "Authorization"
 )
 
@@ -518,3 +532,15 @@ const (
 )
 
 const ChartTemplatesPath = "charts"
+
+type RoleType string
+
+const (
+	Contributor        RoleType = "contributor"
+	ReadOnly           RoleType = "readonly"
+	Admin              RoleType = "admin"
+	RoleBindingNameFmt string   = "user:%s,role:%s,project:%s"
+)
+
+// ModernWorkflowType 自由编排工作流
+const ModernWorkflowType = "ModernWorkflow"

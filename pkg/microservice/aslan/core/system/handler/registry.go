@@ -79,7 +79,7 @@ func CreateRegistryNamespace(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateRegistryNamespace json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, "", "新增", "系统设置-Registry", fmt.Sprintf("提供商:%s,Namespace:%s", args.RegProvider, args.Namespace), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统设置-Registry", fmt.Sprintf("提供商:%s,Namespace:%s", args.RegProvider, args.Namespace), string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
@@ -92,7 +92,7 @@ func CreateRegistryNamespace(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.CreateRegistryNamespace(ctx.Username, args, ctx.Logger)
+	ctx.Err = service.CreateRegistryNamespace(ctx.UserName, args, ctx.Logger)
 }
 
 func UpdateRegistryNamespace(c *gin.Context) {
@@ -107,7 +107,7 @@ func UpdateRegistryNamespace(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdateRegistryNamespace json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, "", "更新", "系统设置-Registry", fmt.Sprintf("提供商:%s,Namespace:%s", args.RegProvider, args.Namespace), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统设置-Registry", fmt.Sprintf("提供商:%s,Namespace:%s", args.RegProvider, args.Namespace), string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
@@ -120,14 +120,14 @@ func UpdateRegistryNamespace(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.UpdateRegistryNamespace(ctx.Username, c.Param("id"), args, ctx.Logger)
+	ctx.Err = service.UpdateRegistryNamespace(ctx.UserName, c.Param("id"), args, ctx.Logger)
 }
 
 func DeleteRegistryNamespace(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	internalhandler.InsertOperationLog(c, ctx.Username, "", "删除", "系统设置-Registry", fmt.Sprintf("registry ID:%s", c.Param("id")), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统设置-Registry", fmt.Sprintf("registry ID:%s", c.Param("id")), "", ctx.Logger)
 
 	ctx.Err = service.DeleteRegistryNamespace(c.Param("id"), ctx.Logger)
 }

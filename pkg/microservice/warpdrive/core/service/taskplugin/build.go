@@ -29,11 +29,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/poetry"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 )
@@ -179,11 +177,6 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 		ArchiveFile: p.Task.JobCtx.PackageFile,
 		JobCtx:      p.Task.JobCtx,
 		Installs:    p.Task.InstallCtx,
-	}
-
-	poetryClient := poetry.New(configbase.PoetryServiceAddress(), config.PoetryAPIRootKey())
-	if fs, err := poetryClient.ListFeatures(); err == nil {
-		pipelineTask.Features = fs
 	}
 
 	if p.Task.BuildStatus == nil {

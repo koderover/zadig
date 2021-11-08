@@ -49,7 +49,7 @@ func UpdateStatefulSetContainerImage(c *gin.Context) {
 	}
 
 	internalhandler.InsertOperationLog(
-		c, ctx.Username, args.ProductName,
+		c, ctx.UserName, args.ProductName,
 		"更新", "集成环境-服务镜像",
 		fmt.Sprintf("环境名称:%s,服务名称:%s,StatefulSet:%s", args.EnvName, args.ServiceName, args.Name),
 		string(data), ctx.Logger)
@@ -80,7 +80,7 @@ func UpdateDeploymentContainerImage(c *gin.Context) {
 	}
 
 	internalhandler.InsertOperationLog(
-		c, ctx.Username, args.ProductName,
+		c, ctx.UserName, args.ProductName,
 		"更新", "集成环境-服务镜像",
 		fmt.Sprintf("环境名称:%s,服务名称:%s,Deployment:%s", args.EnvName, args.ServiceName, args.Name),
 		string(data), ctx.Logger)

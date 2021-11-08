@@ -34,7 +34,7 @@ func (c *Client) GetJiraInfo() (*JiraInfo, error) {
 	url := "/directory/jira"
 
 	jira := &JiraInfo{}
-	_, err := c.Get(url, httpclient.SetResult(jira), httpclient.SetQueryParam("orgId", "1"))
+	_, err := c.Get(url, httpclient.SetResult(jira))
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +42,7 @@ func (c *Client) GetJiraInfo() (*JiraInfo, error) {
 	return jira, nil
 }
 
-func GetJiraInfo(host, token string) (*JiraInfo, error) {
-	c := New(host, token)
+func GetJiraInfo(host string) (*JiraInfo, error) {
+	c := New(host)
 	return c.GetJiraInfo()
 }

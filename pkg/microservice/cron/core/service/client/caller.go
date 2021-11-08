@@ -24,8 +24,6 @@ import (
 	"net/http"
 
 	"go.uber.org/zap"
-
-	"github.com/koderover/zadig/pkg/setting"
 )
 
 func (c *Client) ScheduleCall(api string, args interface{}, log *zap.SugaredLogger) error {
@@ -41,7 +39,7 @@ func (c *Client) ScheduleCall(api string, args interface{}, log *zap.SugaredLogg
 		log.Errorf("create post request error : %v", err)
 		return err
 	}
-	request.Header.Set("Authorization", fmt.Sprintf("%s %s", setting.TIMERAPIKEY, c.Token))
+
 	var resp *http.Response
 	resp, err = c.Conn.Do(request)
 	if err == nil {
