@@ -65,6 +65,9 @@ func (c *CodehostColl) GetCodeHostByID(ID int) (*models.CodeHost, error) {
 	if err != nil {
 		return nil, nil
 	}
+	if v, ok := config.CodeHostMap[codehost.Type]; ok {
+		codehost.Type = v
+	}
 	return codehost, nil
 }
 
@@ -80,5 +83,56 @@ func (c *CodehostColl) FindCodeHosts() ([]*models.CodeHost, error) {
 	if err != nil {
 		return nil, err
 	}
+	// NOTE: to adapt old data
+	for i, v := range codeHosts {
+		if v, ok := config.CodeHostMap[v.Type]; ok {
+			codeHosts[i].Type = v
+		}
+	}
 	return codeHosts, nil
+}
+
+func (c *CodehostColl) CodeHostList() ([]*models.CodeHost, error) {
+	codeHosts := make([]*models.CodeHost, 0)
+
+	cursor, err := c.Collection.Find(context.TODO(), bson.M{})
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &codeHosts)
+	if err != nil {
+		return nil, err
+	}
+	return codeHosts, nil
+}
+
+func (c *CodehostColl) DeleteCodeHostByID(ID int) error {
+	query := bson.M{"id": ID, "deleted_at": 0}
+	change := bson.M{"$set": bson.M{
+		"deleted_at": time.Now().Unix(),
+	}}
+	_, err := c.Collection.UpdateOne(context.TODO(), query, change)
+	if err != nil {
+		log.Error("repository update fail")
+		return err
+	}
+	return nil
+}
+
+func (c *CodehostColl) UpdateCodeHost(host *models.CodeHost) (*models.CodeHost, error) {
+	query := bson.M{"id": host.ID, "deleted_at": 0}
+	change := bson.M{"$set": bson.M{
+		"name":           host.Name,
+		"type":           host.Type,
+		"address":        host.Address,
+		"namespace":      host.Namespace,
+		"application_id": host.ApplicationId,
+		"client_secret":  host.ClientSecret,
+		"region":         host.Region,
+		"username":       host.Username,
+		"password":       host.Password,
+		"updated_at":     time.Now().Unix(),
+	}}
+	_, err := c.Collection.UpdateOne(context.TODO(), query, change)
+	return host, err
 }

@@ -19,7 +19,7 @@ package rest
 import (
 	"github.com/gin-gonic/gin"
 
-	codehosthandler "github.com/koderover/zadig/pkg/microservice/aslan/core/code/handler"
+	codehosthandler "github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/handler"
 	emailHandler "github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/handler"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/handler"
 	jiraHandler "github.com/koderover/zadig/pkg/microservice/systemconfig/core/jira/handler"

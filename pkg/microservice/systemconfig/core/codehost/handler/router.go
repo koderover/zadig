@@ -9,6 +9,10 @@ type Router struct{}
 func (*Router) Inject(router *gin.RouterGroup) {
 	codehost := router.Group("codehost")
 	{
-		codehost.POST("", ListCodehost)
+		codehost.GET("", ListCodeHost)
+		codehost.DELETE("/:id", DeleteCodeHost)
+		codehost.POST("", CreateCodeHost)
+		codehost.PATCH("/:id", UpdateCodeHost)
+		codehost.GET("/:id", GetCodeHost)
 	}
 }
