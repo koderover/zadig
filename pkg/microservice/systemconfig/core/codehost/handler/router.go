@@ -7,8 +7,9 @@ import (
 type Router struct{}
 
 func (*Router) Inject(router *gin.RouterGroup) {
-	codehost := router.Group("codehost")
+	codehost := router.Group("codehosts")
 	{
+		codehost.GET("/callback", Callback)
 		codehost.GET("", ListCodeHost)
 		codehost.DELETE("/:id", DeleteCodeHost)
 		codehost.POST("", CreateCodeHost)
