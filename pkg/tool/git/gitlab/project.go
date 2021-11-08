@@ -68,11 +68,12 @@ func (c *Client) AddProjectHook(owner, repo string, hook *git.Hook) (*gitlab.Pro
 		return nil, err
 	}
 
-	if h, ok := created.(*gitlab.ProjectHook); !ok {
+	res, ok := created.(*gitlab.ProjectHook)
+	if !ok {
 		return nil, fmt.Errorf("object is not a gitlab Hook")
-	} else {
-		return h, nil
 	}
+
+	return res, nil
 }
 
 func (c *Client) UpdateProjectHook(owner, repo string, id int, hook *git.Hook) (*gitlab.ProjectHook, error) {
@@ -89,11 +90,12 @@ func (c *Client) UpdateProjectHook(owner, repo string, id int, hook *git.Hook) (
 		return nil, err
 	}
 
-	if h, ok := updated.(*gitlab.ProjectHook); !ok {
+	res, ok := updated.(*gitlab.ProjectHook)
+	if !ok {
 		return nil, fmt.Errorf("object is not a gitlab Hook")
-	} else {
-		return h, nil
 	}
+
+	return res, nil
 }
 
 func (c *Client) DeleteProjectHook(owner, repo string, id int) error {

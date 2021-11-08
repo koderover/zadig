@@ -189,11 +189,12 @@ func (c *Client) CreateHook(ctx context.Context, owner, repo string, hook *git.H
 		return nil, err
 	}
 
-	if h, ok := created.(*github.Hook); !ok {
+	res, ok := created.(*github.Hook)
+	if !ok {
 		return nil, fmt.Errorf("object is not a github Hook")
-	} else {
-		return h, nil
 	}
+
+	return res, nil
 }
 
 func (c *Client) UpdateHook(ctx context.Context, owner, repo string, id int64, hook *git.Hook) (*github.Hook, error) {
@@ -216,11 +217,12 @@ func (c *Client) UpdateHook(ctx context.Context, owner, repo string, id int64, h
 		return nil, err
 	}
 
-	if h, ok := updated.(*github.Hook); !ok {
+	res, ok := updated.(*github.Hook)
+	if !ok {
 		return nil, fmt.Errorf("object is not a github Hook")
-	} else {
-		return h, nil
 	}
+
+	return res, nil
 }
 
 func (c *Client) CreateStatus(ctx context.Context, owner, repo, ref string, status *github.RepoStatus) (*github.RepoStatus, error) {
