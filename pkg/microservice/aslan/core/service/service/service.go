@@ -437,13 +437,6 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 			}
 		}
 	}
-	// pre judge  workLoads same name
-	//services, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, "")
-	//for _, v := range services {
-	//	if addString.Has(v.ServiceName) {
-	//		return e.ErrCreateTemplate.AddDesc(fmt.Sprintf("do not support import same service name: %s", v.ServiceName))
-	//	}
-	//}
 
 	for _, v := range args.WorkLoads {
 		if addString.Has(v.Name) {
@@ -465,28 +458,38 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 		log.Errorf("failed to list external service, error:%s", err)
 	}
 
-	externalEnvServiceM := make(map[string]bool)
+	externalEnvServiceM := make(map[string]*commonmodels.ServicesInExternalEnv)
 	for _, externalEnvService := range otherExternalEnvServices {
-		externalEnvServiceM[externalEnvService.ServiceName] = true
+		externalEnvServiceM[externalEnvService.ServiceName] = externalEnvService
 	}
 	for _, v := range diff {
 		switch v.Operation {
 		// 删除workload的引用
 		case "delete":
-			if _, isExist := externalEnvServiceM[v.Name]; !isExist {
-				err = commonrepo.NewServiceColl().UpdateExternalServicesStatus(v.Name, productName, setting.ProductStatusDeleting, envName)
-				if err != nil {
+			if externalService, isExist := externalEnvServiceM[v.Name]; !isExist {
+				if err = commonrepo.NewServiceColl().UpdateExternalServicesStatus(v.Name, productName, setting.ProductStatusDeleting, envName); err != nil {
 					log.Errorf("UpdateStatus external services error:%s", err)
 				}
 			} else {
-
+				// 更新服务中的环境名称
+				if err = commonrepo.NewServiceColl().UpdateExternalServiceEnvName(v.Name, productName, externalService.EnvName); err != nil {
+					log.Errorf("UpdateEnvName external services error:%s", err)
+				}
+				// 删除服务的引用
+				if err = commonrepo.NewServicesInExternalEnvColl().Delete(&commonrepo.ServicesInExternalEnvArgs{
+					ProductName: externalService.ProductName,
+					EnvName:     externalService.EnvName,
+					ServiceName: externalService.ServiceName,
+				}); err != nil {
+					log.Errorf("delete service in external env envName:%s error:%s", externalService.EnvName, err)
+				}
 			}
 			if err = commonrepo.NewServicesInExternalEnvColl().Delete(&commonrepo.ServicesInExternalEnvArgs{
 				ProductName: productName,
 				EnvName:     envName,
 				ServiceName: v.Name,
 			}); err != nil {
-				log.Errorf("delete services in external env error:%s", err)
+				log.Errorf("delete service in external env envName:%s error:%s", envName, err)
 			}
 		// 添加workload的引用
 		case "add":

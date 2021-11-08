@@ -118,7 +118,7 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 		createArgs.addWorkflowArg("", false, true)
 	}
 
-	// 托管环境只创建一个工作流
+	// Only one workflow is created in the hosting environment
 	if productTmpl.ProductFeature != nil && productTmpl.ProductFeature.CreateEnvType == setting.SourceFromExternal {
 		createArgs.clear()
 		createArgs.addWorkflowArg("", true, false)
