@@ -65,6 +65,9 @@ func (c *CodehostColl) GetCodeHostByID(ID int) (*models.CodeHost, error) {
 	if err != nil {
 		return nil, nil
 	}
+	if v, ok := config.CodeHostMap[codehost.Type]; ok {
+		codehost.Type = v
+	}
 	return codehost, nil
 }
 
@@ -79,6 +82,12 @@ func (c *CodehostColl) FindCodeHosts() ([]*models.CodeHost, error) {
 	err = cursor.All(context.TODO(), &codeHosts)
 	if err != nil {
 		return nil, err
+	}
+	// NOTE: to adapt old data
+	for i, v := range codeHosts {
+		if v, ok := config.CodeHostMap[v.Type]; ok {
+			codeHosts[i].Type = v
+		}
 	}
 	return codeHosts, nil
 }

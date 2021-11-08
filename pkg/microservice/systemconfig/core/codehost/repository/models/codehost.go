@@ -5,7 +5,7 @@ type CodeHost struct {
 	Name           string `bson:"name"             json:"name"`
 	Type           string `bson:"type"             json:"type"`
 	Address        string `bson:"address"          json:"address"`
-	IsReadyV2      bool   `bson:"is_ready_v2"      json:"is_ready_v2"`
+	IsReady        string `bson:"is_ready"         json:"ready"`
 	AccessToken    string `bson:"access_token"     json:"accessToken"`
 	RefreshToken   string `bson:"refresh_token"    json:"refreshToken"`
 	Namespace      string `bson:"namespace"        json:"namespace"`
