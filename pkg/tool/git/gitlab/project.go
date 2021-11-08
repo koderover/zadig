@@ -17,6 +17,7 @@ limitations under the License.
 package gitlab
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/xanzy/go-gitlab"
@@ -67,11 +68,11 @@ func (c *Client) AddProjectHook(owner, repo string, hook *git.Hook) (*gitlab.Pro
 		return nil, err
 	}
 
-	if h, ok := created.(*gitlab.ProjectHook); ok {
+	if h, ok := created.(*gitlab.ProjectHook); !ok {
+		return nil, fmt.Errorf("object is not a gitlab Hook")
+	} else {
 		return h, nil
 	}
-
-	return nil, err
 }
 
 func (c *Client) UpdateProjectHook(owner, repo string, id int, hook *git.Hook) (*gitlab.ProjectHook, error) {
@@ -88,11 +89,11 @@ func (c *Client) UpdateProjectHook(owner, repo string, id int, hook *git.Hook) (
 		return nil, err
 	}
 
-	if h, ok := updated.(*gitlab.ProjectHook); ok {
+	if h, ok := updated.(*gitlab.ProjectHook); !ok {
+		return nil, fmt.Errorf("object is not a gitlab Hook")
+	} else {
 		return h, nil
 	}
-
-	return nil, err
 }
 
 func (c *Client) DeleteProjectHook(owner, repo string, id int) error {
