@@ -5,13 +5,25 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/pkg/shared/codehost"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
-func GetCodeHostList() ([]*models.CodeHost, error) {
-	var list []*models.CodeHost
+type CodeHost struct {
+	ID          int    `json:"id"`
+	Address     string `json:"address"`
+	Type        string `json:"type"`
+	AccessToken string `json:"accessToken"`
+	Namespace   string `json:"namespace"`
+	Region      string `json:"region"`
+	AccessKey   string `json:"applicationId"`
+	SecretKey   string `json:"clientSecret"`
+	Username    string `json:"username"`
+	Password    string `json:"password"`
+}
+
+func GetCodeHostList() ([]*CodeHost, error) {
+	var list []*CodeHost
 	_, err := New().Post(fmt.Sprintf("/api/v1/codehost"), httpclient.SetResult(&list))
 	if err != nil {
 		return nil, err
@@ -26,7 +38,7 @@ type Option struct {
 	CodeHostID   int
 }
 
-func GetCodeHostInfo(option *Option) (*models.CodeHost, error) {
+func GetCodeHostInfo(option *Option) (*CodeHost, error) {
 	codeHosts, err := GetCodeHostList()
 	if err != nil {
 		return nil, err
@@ -53,7 +65,7 @@ func GetCodeHostInfo(option *Option) (*models.CodeHost, error) {
 	return nil, errors.New("not find codeHost")
 }
 
-func (c *Client) GetCodeHostInfoByID(id int) (*models.CodeHost, error) {
+func (c *Client) GetCodeHostInfoByID(id int) (*CodeHost, error) {
 	return GetCodeHostInfo(&Option{CodeHostID: id})
 }
 
@@ -86,8 +98,8 @@ func (c *Client) GetCodehostDetail(codehostID int) (*Detail, error) {
 		codehost.Region,
 		codehost.Username,
 		codehost.Password,
-		codehost.ApplicationId,
-		codehost.ClientSecret,
+		codehost.AccessKey,
+		codehost.SecretKey,
 	}
 
 	return detail, nil
@@ -112,8 +124,8 @@ func (c *Client) ListCodehostDetial() ([]*Detail, error) {
 			codehost.Region,
 			codehost.Username,
 			codehost.Password,
-			codehost.ApplicationId,
-			codehost.ClientSecret,
+			codehost.AccessKey,
+			codehost.SecretKey,
 		})
 	}
 
