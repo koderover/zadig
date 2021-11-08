@@ -170,6 +170,7 @@ func initDatabase() {
 		commonrepo.NewWorkflowStatColl(),
 		commonrepo.NewWorkLoadsStatColl(),
 		commonrepo.NewServicesInExternalEnvColl(),
+		commonrepo.NewExternalLinkColl(),
 
 		templaterepo.NewChartColl(),
 		templaterepo.NewDockerfileTemplateColl(),

@@ -188,4 +188,14 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		operation.PUT("/:id", gin2.RequireSuperAdminAuth, UpdateOperationLog)
 	}
 
+	// ---------------------------------------------------------------------------------------
+	// system external link
+	// ---------------------------------------------------------------------------------------
+	externalLink := router.Group("externalLink")
+	{
+		externalLink.GET("", ListExternalLinks)
+		externalLink.POST("", gin2.RequireSuperAdminAuth, gin2.UpdateOperationLogStatus, CreateExternalLink)
+		externalLink.PUT("/:id", gin2.RequireSuperAdminAuth, gin2.UpdateOperationLogStatus, UpdateExternalLink)
+		externalLink.DELETE("/:id", gin2.RequireSuperAdminAuth, gin2.UpdateOperationLogStatus, DeleteExternalLink)
+	}
 }
