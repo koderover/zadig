@@ -471,11 +471,11 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 					log.Errorf("UpdateStatus external services error:%s", err)
 				}
 			} else {
-				// 更新服务中的环境名称
+				// Update the env name in the service
 				if err = commonrepo.NewServiceColl().UpdateExternalServiceEnvName(v.Name, productName, externalService.EnvName); err != nil {
 					log.Errorf("UpdateEnvName external services error:%s", err)
 				}
-				// 删除服务的引用
+				// Delete the reference in the original service
 				if err = commonrepo.NewServicesInExternalEnvColl().Delete(&commonrepo.ServicesInExternalEnvArgs{
 					ProductName: externalService.ProductName,
 					EnvName:     externalService.EnvName,
