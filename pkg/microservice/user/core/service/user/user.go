@@ -24,11 +24,17 @@ import (
 )
 
 type User struct {
-	Name     string `json:"name,omitempty"`
+	Name     string `json:"name"`
 	Password string `json:"password"`
-	Email    string `json:"email,omitempty"`
+	Email    string `json:"email"`
 	Account  string `json:"account"`
 	Phone    string `json:"phone,omitempty"`
+}
+
+type UpdateUserInfo struct {
+	Name  string `json:"name,omitempty"`
+	Email string `json:"email,omitempty"`
+	Phone string `json:"phone,omitempty"`
 }
 
 type QueryArgs struct {
@@ -381,6 +387,16 @@ func CreateUser(args *User, logger *zap.SugaredLogger) (*models.User, error) {
 		return nil, err
 	}
 	return user, tx.Commit().Error
+}
+
+func UpdateUser(uid string, args *UpdateUserInfo, _ *zap.SugaredLogger) error {
+	user := &models.User{
+		Name:  args.Name,
+		Email: args.Email,
+		Phone: args.Phone,
+	}
+	return orm.UpdateUser(uid, user, core.DB)
+
 }
 
 func UpdatePassword(args *Password, logger *zap.SugaredLogger) error {

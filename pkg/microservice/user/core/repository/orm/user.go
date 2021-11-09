@@ -125,3 +125,11 @@ func GetUsersCount(name string) (int64, error) {
 
 	return count, nil
 }
+
+// UpdateUser update user info
+func UpdateUser(uid string, user *models.User, db *gorm.DB) error {
+	if err := db.Model(&models.User{}).Where("uid = ?", uid).Updates(user).Error; err != nil {
+		return err
+	}
+	return nil
+}

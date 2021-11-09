@@ -72,6 +72,34 @@ func CreateUser(c *gin.Context) {
 	ctx.Resp, ctx.Err = user.CreateUser(args, ctx.Logger)
 }
 
+func UpdateUser(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	args := &user.UpdateUserInfo{}
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = err
+		return
+	}
+	uid := c.Param("uid")
+	ctx.Err = user.UpdateUser(uid, args, ctx.Logger)
+}
+
+func UpdatePersonalUser(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	args := &user.UpdateUserInfo{}
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = err
+		return
+	}
+	uid := c.Param("uid")
+	if ctx.UserID != uid {
+		ctx.Err = e.ErrForbidden
+		return
+	}
+	ctx.Err = user.UpdateUser(uid, args, ctx.Logger)
+}
+
 func SignUp(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
