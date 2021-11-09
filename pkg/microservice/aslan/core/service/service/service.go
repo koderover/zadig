@@ -46,7 +46,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
@@ -1284,10 +1284,10 @@ func getCronJobContainers(data string) ([]*commonmodels.Container, error) {
 }
 
 func updateGerritWebhookByService(lastService, currentService *commonmodels.Service) error {
-	var codehostDetail *codehost.Detail
+	var codehostDetail *systemconfig.Detail
 	var err error
 	if lastService != nil && lastService.Source == setting.SourceFromGerrit {
-		codehostDetail, err = codehost.GetCodehostDetail(lastService.GerritCodeHostID)
+		codehostDetail, err = systemconfig.GetCodehostDetail(lastService.GerritCodeHostID)
 		if err != nil {
 			log.Errorf("updateGerritWebhookByService GetCodehostDetail err:%v", err)
 			return err
@@ -1300,11 +1300,11 @@ func updateGerritWebhookByService(lastService, currentService *commonmodels.Serv
 			log.Errorf("updateGerritWebhookByService deleteGerritWebhook err:%v", err)
 		}
 	}
-	var detail *codehost.Detail
+	var detail *systemconfig.Detail
 	if lastService.GerritCodeHostID == currentService.GerritCodeHostID && codehostDetail != nil {
 		detail = codehostDetail
 	} else {
-		detail, _ = codehost.GetCodehostDetail(currentService.GerritCodeHostID)
+		detail, _ = systemconfig.GetCodehostDetail(currentService.GerritCodeHostID)
 	}
 
 	cl := gerrit.NewHTTPClient(detail.Address, detail.OauthToken)
@@ -1327,7 +1327,7 @@ func updateGerritWebhookByService(lastService, currentService *commonmodels.Serv
 }
 
 func createGerritWebhookByService(codehostID int, serviceName, repoName, branchName string) error {
-	detail, err := codehost.GetCodehostDetail(codehostID)
+	detail, err := systemconfig.GetCodehostDetail(codehostID)
 	if err != nil {
 		log.Errorf("createGerritWebhookByService GetCodehostDetail err:%v", err)
 		return err
@@ -1352,7 +1352,7 @@ func createGerritWebhookByService(codehostID int, serviceName, repoName, branchN
 	return nil
 }
 
-func syncGerritLatestCommit(service *commonmodels.Service) (*codehost.Detail, error) {
+func syncGerritLatestCommit(service *commonmodels.Service) (*systemconfig.Detail, error) {
 	if service.GerritCodeHostID == 0 {
 		return nil, fmt.Errorf("codehostId不能是空的")
 	}
@@ -1362,7 +1362,7 @@ func syncGerritLatestCommit(service *commonmodels.Service) (*codehost.Detail, er
 	if service.GerritBranchName == "" {
 		return nil, fmt.Errorf("branchName不能是空的")
 	}
-	ch, _ := codehost.GetCodehostDetail(service.GerritCodeHostID)
+	ch, _ := systemconfig.GetCodehostDetail(service.GerritCodeHostID)
 
 	gerritCli := gerrit.NewClient(ch.Address, ch.OauthToken)
 	commit, err := gerritCli.GetCommitByBranch(service.GerritRepoName, service.GerritBranchName)

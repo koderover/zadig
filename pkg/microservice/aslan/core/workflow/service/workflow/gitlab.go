@@ -26,7 +26,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
 )
 
@@ -40,10 +40,10 @@ type RepoCommit struct {
 }
 
 func QueryByBranch(id int, owner, name, branch string, log *zap.SugaredLogger) (*RepoCommit, error) {
-	opt := &codehost.Option{
+	opt := &systemconfig.Option{
 		CodeHostID: id,
 	}
-	ch, err := codehost.GetCodeHostInfo(opt)
+	ch, err := systemconfig.GetCodeHostInfo(opt)
 	if err != nil {
 		return nil, err
 	}
@@ -90,10 +90,10 @@ func QueryByBranch(id int, owner, name, branch string, log *zap.SugaredLogger) (
 }
 
 func QueryByTag(id int, owner, name, tag string, log *zap.SugaredLogger) (*RepoCommit, error) {
-	opt := &codehost.Option{
+	opt := &systemconfig.Option{
 		CodeHostID: id,
 	}
-	ch, err := codehost.GetCodeHostInfo(opt)
+	ch, err := systemconfig.GetCodeHostInfo(opt)
 	if err != nil {
 		return nil, err
 	}
@@ -150,10 +150,10 @@ type PRCommit struct {
 func GetLatestPrCommit(codehostID, pr int, namespace, projectName string, log *zap.SugaredLogger) (*PRCommit, error) {
 	projectID := fmt.Sprintf("%s/%s", namespace, projectName)
 
-	opt := &codehost.Option{
+	opt := &systemconfig.Option{
 		CodeHostID: codehostID,
 	}
-	ch, err := codehost.GetCodeHostInfo(opt)
+	ch, err := systemconfig.GetCodeHostInfo(opt)
 	if err != nil {
 		return nil, err
 	}

@@ -35,11 +35,8 @@ func (c *ExternalLinkColl) GetCollectionName() string {
 
 func (c *ExternalLinkColl) EnsureIndex(ctx context.Context) error {
 	mod := mongo.IndexModel{
-		Keys: bson.D{
-			bson.E{Key: "name", Value: 1},
-			bson.E{Key: "url", Value: 1},
-		},
-		Options: options.Index().SetUnique(true),
+		Keys:    bson.M{"name": 1, "url": 1},
+		Options: options.Index().SetUnique(false),
 	}
 
 	_, err := c.Indexes().CreateOne(ctx, mod)

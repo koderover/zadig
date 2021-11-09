@@ -45,6 +45,7 @@ import (
 	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/shared/codehost"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -257,10 +258,10 @@ func FmtBuilds(builds []*types.Repository, log *zap.SugaredLogger) {
 			log.Error("codehostID can't be empty")
 			return
 		}
-		opt := &codehost.Option{
+		opt := &systemconfig.Option{
 			CodeHostID: cID,
 		}
-		detail, err := codehost.GetCodeHostInfo(opt)
+		detail, err := systemconfig.GetCodeHostInfo(opt)
 		if err != nil {
 			log.Error(err)
 			return
@@ -305,10 +306,10 @@ func SetTriggerBuilds(builds []*types.Repository, buildArgs []*types.Repository,
 }
 
 func setBuildInfo(build *types.Repository, log *zap.SugaredLogger) {
-	opt := &codehost.Option{
+	opt := &systemconfig.Option{
 		CodeHostID: build.CodehostID,
 	}
-	codeHostInfo, err := codehost.GetCodeHostInfo(opt)
+	codeHostInfo, err := systemconfig.GetCodeHostInfo(opt)
 	if err != nil {
 		log.Errorf("failed to get codehost detail %d %v", build.CodehostID, err)
 		return

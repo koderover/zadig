@@ -185,11 +185,44 @@ func (c *Client) CreateHook(ctx context.Context, owner, repo string, hook *git.H
 		Active: hook.Active,
 	}
 	created, err := wrap(c.Repositories.CreateHook(ctx, owner, repo, h))
-	if h, ok := created.(*github.Hook); ok {
-		return h, err
+	if err != nil {
+		return nil, err
 	}
 
-	return nil, err
+	res, ok := created.(*github.Hook)
+	if !ok {
+		return nil, fmt.Errorf("object is not a github Hook")
+	}
+
+	return res, nil
+}
+
+func (c *Client) UpdateHook(ctx context.Context, owner, repo string, id int64, hook *git.Hook) (*github.Hook, error) {
+	h := &github.Hook{
+		Config: map[string]interface{}{
+			"secret": hook.Secret,
+		},
+	}
+	if hook.URL != "" {
+		h.Config["url"] = hook.URL
+	}
+	if len(hook.Events) > 0 {
+		h.Events = hook.Events
+	}
+	if hook.Active != nil {
+		h.Active = hook.Active
+	}
+	updated, err := wrap(c.Repositories.EditHook(ctx, owner, repo, id, h))
+	if err != nil {
+		return nil, err
+	}
+
+	res, ok := updated.(*github.Hook)
+	if !ok {
+		return nil, fmt.Errorf("object is not a github Hook")
+	}
+
+	return res, nil
 }
 
 func (c *Client) CreateStatus(ctx context.Context, owner, repo, ref string, status *github.RepoStatus) (*github.RepoStatus, error) {
