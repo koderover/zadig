@@ -32,10 +32,9 @@ type User struct {
 }
 
 type UpdateUserInfo struct {
-	Name         string `json:"name,omitempty"`
-	Email        string `json:"email,omitempty"`
-	Phone        string `json:"phone,omitempty"`
-	IdentityType string `json:"identity_type"`
+	Name  string `json:"name,omitempty"`
+	Email string `json:"email,omitempty"`
+	Phone string `json:"phone,omitempty"`
 }
 
 type QueryArgs struct {
@@ -392,10 +391,9 @@ func CreateUser(args *User, logger *zap.SugaredLogger) (*models.User, error) {
 
 func UpdateUser(uid string, args *UpdateUserInfo, _ *zap.SugaredLogger) error {
 	user := &models.User{
-		Name:         args.Name,
-		Email:        args.Email,
-		IdentityType: args.IdentityType,
-		Phone:        args.Phone,
+		Name:  args.Name,
+		Email: args.Email,
+		Phone: args.Phone,
 	}
 	return orm.UpdateUser(uid, user, core.DB)
 
