@@ -180,7 +180,7 @@ func Callback(c *gin.Context) {
 	ctx.Logger.Infof("%+v", iCodehost)
 	_, err = service.UpdateCodeHostByToken(iCodehost, ctx.Logger)
 	if err != nil {
-		ctx.Logger.Errorf("UpdateCodeHostByToken err: %v", err)
+		ctx.Logger.Errorf("UpdateCodeHostByToken err: %s", err)
 		url := fmt.Sprintf("%s%s%s", frontEndUrl, "?", "&errMessage=update codehost failed")
 		c.Redirect(http.StatusFound, url)
 		return
