@@ -118,6 +118,7 @@ const (
 	ENVAdminEmail    = "ADMIN_EMAIL"
 	ENVAdminPassword = "ADMIN_PASSWORD"
 	PresetAccount    = "admin"
+	ENVHttpProxy     = "HTTP_PROXY"
 )
 
 // k8s concepts

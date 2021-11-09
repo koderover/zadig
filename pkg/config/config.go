@@ -266,3 +266,7 @@ func AdminEmail() string {
 func AdminPassword() string {
 	return viper.GetString(setting.ENVAdminPassword)
 }
+
+func HttpProxy() string {
+	return viper.GetString(setting.ENVHttpProxy)
+}

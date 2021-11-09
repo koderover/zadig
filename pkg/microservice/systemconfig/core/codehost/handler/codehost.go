@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -10,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"golang.org/x/oauth2"
 
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/config"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -72,7 +74,7 @@ func AuthCodeHost(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	authStateString := fmt.Sprintf("%s%s%d%s%s", redirect, "&codeHostId=", id, "&provider=", provider)
+	authStateString := fmt.Sprintf("%s%s%s%s%s", redirect, "&codeHostId=", id, "&provider=", provider)
 	codeHost, err := service.GetCodeHost(idInt, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
@@ -85,8 +87,21 @@ func AuthCodeHost(c *gin.Context) {
 		RedirectURL:  callBackUrl,
 		//RedirectURL: "http://localhost:34001/directory/codehosts/callback",
 	}
+	if provider == "gitlab" {
+		authConfig.Scopes = []string{"api", "read_user"}
+		authConfig.Endpoint = oauth2.Endpoint{
+			AuthURL:  fmt.Sprintf("%s%s", codeHost.Address, "/oauth/authorize"),
+			TokenURL: fmt.Sprintf("%s%s", codeHost.Address, "/oauth/token"),
+		}
+	} else if provider == "github" {
+		authConfig.Scopes = []string{"repo", "user"}
+		authConfig.Endpoint = oauth2.Endpoint{
+			AuthURL:  fmt.Sprintf("%s%s", codeHost.Address, "/login/oauth/authorize"),
+			TokenURL: fmt.Sprintf("%s%s", codeHost.Address, "/login/oauth/access_token"),
+		}
+	}
 	redirectURL := authConfig.AuthCodeURL(authStateString)
-	http.Redirect(c.Writer, c.Request, redirectURL, http.StatusFound)
+	c.Redirect(http.StatusFound, redirectURL)
 }
 
 func Callback(c *gin.Context) {
@@ -103,37 +118,35 @@ func Callback(c *gin.Context) {
 
 	gitlabError := c.Query("error")
 	if gitlabError != "" {
-		ctx.Logger.Warn("view code_host_get_call_back_gitlab user denied")
-		url := fmt.Sprintf("%s%s%d%s", frontEndUrl, "?errCode=", 10007, "&errMessage=access_denied")
-		http.Redirect(c.Writer, c.Request, url, http.StatusFound)
+		ctx.Logger.Warn("code_host_get_call_back_gitlab user denied")
+		url := fmt.Sprintf("%s%s%s", frontEndUrl, "?", "&errMessage=access_denied")
+		c.Redirect(http.StatusFound, url)
 		return
 	}
 	stateURL, err := url.Parse(state)
 	if err != nil {
-		url := fmt.Sprintf("%s%s%d%s", frontEndUrl, "?errCode=", 404, "&errMessage=failed_to_parse_redirect_url")
+		url := fmt.Sprintf("%s%s%s", frontEndUrl, "?", "&errMessage=failed_to_parse_redirect_url")
 		http.Redirect(c.Writer, c.Request, url, http.StatusFound)
 		return
 	}
 	codeHostArray := strings.Split(urlArray[1], "&provider=")
 	codeHostID, err := strconv.Atoi(codeHostArray[0])
 	if err != nil {
-		ctx.Logger.Error("view code_host_get_call_back_gitlab codeHostID convert err : %v", err)
-		url := fmt.Sprintf("%s%s%d%s", frontEndUrl, "?errCode=", 404, "&errMessage=codeHostID convert failed")
-		http.Redirect(c.Writer, c.Request, url, http.StatusFound)
+		ctx.Logger.Error("code_host_get_call_back_gitlab codeHostID convert err : %v", err)
+		url := fmt.Sprintf("%s%s%s", frontEndUrl, "?", "&errMessage=codeHostID convert failed")
+		c.Redirect(http.StatusFound, url)
 		return
 	}
 	code := c.Query("code")
 	iCodehost, err := service.GetCodeHost(codeHostID, ctx.Logger)
 	if err != nil {
-		ctx.Logger.Error("view code_host_get_call_back_gitlab GetCodeHostByID  err : %v", err)
-		url := fmt.Sprintf("%s%s%d%s", frontEndUrl, "?errCode=", 404, "&errMessage=get codehost failed")
-		http.Redirect(c.Writer, c.Request, url, http.StatusFound)
+		ctx.Logger.Errorf("code_host_get_call_back_gitlab GetCodeHostByID  err: %v", err)
+		url := fmt.Sprintf("%s%s%s", frontEndUrl, "?", "&errMessage=get codehost failed")
+		c.Redirect(http.StatusFound, url)
 		return
 	}
 
-	codehost := new(models.CodeHost)
-
-	callBackUrl := fmt.Sprintf("%s://%s%s", stateURL.Scheme, stateURL.Host, "/api/directory/codehosts/callback")
+	callBackUrl := fmt.Sprintf("%s://%s%s", stateURL.Scheme, stateURL.Host, "/api/v1/codehosts/callback")
 	authConfig := &oauth2.Config{
 		ClientID:     iCodehost.ApplicationId,
 		ClientSecret: iCodehost.ClientSecret,
@@ -153,22 +166,39 @@ func Callback(c *gin.Context) {
 			TokenURL: fmt.Sprintf("%s%s", iCodehost.Address, "/login/oauth/access_token"),
 		}
 	}
-
-	token, err := authConfig.Exchange(oauth2.NoContext, code)
+	dc := http.DefaultClient
+	// if http proxy env is set
+	if config.HttpPorxy() != "" {
+		p, err := url.Parse("http://proxy.proxy-env-dev:7890")
+		if err != nil {
+			ctx.Logger.Errorf("parse proxy err: %v", err)
+			url := fmt.Sprintf("%s%s%s", frontEndUrl, "?", "&errMessage=parse proxy err")
+			c.Redirect(http.StatusFound, url)
+			return
+		}
+		proxy := http.ProxyURL(p)
+		trans := &http.Transport{
+			Proxy: proxy,
+		}
+		dc = &http.Client{Transport: trans}
+	}
+	ctxx := context.WithValue(context.Background(), oauth2.HTTPClient, dc)
+	token, err := authConfig.Exchange(ctxx, code)
 	if err != nil {
-		ctx.Logger.Error("view code_host_get_call_back_gitlab Exchange  err : %v", err)
-		url := fmt.Sprintf("%s%s%d%s", frontEndUrl, "?errCode=", 10007, "&errMessage=exchange failed")
-		http.Redirect(c.Writer, c.Request, url, http.StatusFound)
+		ctx.Logger.Errorf("code_host_get_call_back_gitlab Exchange  err: %v", err)
+		url := fmt.Sprintf("%s%s%s", frontEndUrl, "?", "&errMessage=exchange failed")
+		c.Redirect(http.StatusFound, url)
 		return
 	}
 
-	codehost.AccessToken = token.AccessToken
-	codehost.RefreshToken = token.RefreshToken
-	_, err = service.UpdateCodeHost(codehost, ctx.Logger)
+	iCodehost.AccessToken = token.AccessToken
+	iCodehost.RefreshToken = token.RefreshToken
+	ctx.Logger.Infof("%+v", iCodehost)
+	_, err = service.UpdateCodeHostByToken(iCodehost, ctx.Logger)
 	if err != nil {
-		ctx.Logger.Error("view UpdateCodeHostByToken err : %v", err)
-		url := fmt.Sprintf("%s%s%d%s", frontEndUrl, "?errCode=", 404, "&errMessage=update codehost failed")
-		http.Redirect(c.Writer, c.Request, url, http.StatusFound)
+		ctx.Logger.Errorf("view UpdateCodeHostByToken err: %v", err)
+		url := fmt.Sprintf("%s%s%s", frontEndUrl, "?", "&errMessage=update codehost failed")
+		c.Redirect(http.StatusFound, url)
 		return
 	}
 
@@ -179,7 +209,8 @@ func Callback(c *gin.Context) {
 	} else {
 		redirectURL = fmt.Sprintf("%s%s", frontEndUrl, "?succeed=true")
 	}
-	http.Redirect(c.Writer, c.Request, redirectURL, http.StatusFound)
+	c.Redirect(http.StatusFound, redirectURL)
+
 }
 
 func UpdateCodeHost(c *gin.Context) {

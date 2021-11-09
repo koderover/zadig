@@ -22,3 +22,7 @@ func MongoURI() string {
 func MongoDatabase() string {
 	return configbase.MongoDatabase()
 }
+
+func HttpPorxy() string {
+	return configbase.HttpProxy()
+}

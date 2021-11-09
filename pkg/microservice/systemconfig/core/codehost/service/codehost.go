@@ -31,6 +31,10 @@ func UpdateCodeHost(host *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHo
 	return mongodb.NewCodehostColl().UpdateCodeHost(host)
 }
 
+func UpdateCodeHostByToken(host *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
+	return mongodb.NewCodehostColl().UpdateCodeHostByToken(host)
+}
+
 func GetCodeHost(id int, _ *zap.SugaredLogger) (*models.CodeHost, error) {
 	return mongodb.NewCodehostColl().GetCodeHostByID(id)
 }
