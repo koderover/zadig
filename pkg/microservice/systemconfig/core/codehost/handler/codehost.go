@@ -11,7 +11,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"golang.org/x/oauth2"
 
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/config"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -168,20 +167,20 @@ func Callback(c *gin.Context) {
 	}
 	dc := http.DefaultClient
 	// if http proxy env is set
-	if config.HttpPorxy() != "" {
-		p, err := url.Parse("http://proxy.proxy-env-dev:7890")
-		if err != nil {
-			ctx.Logger.Errorf("parse proxy err: %v", err)
-			url := fmt.Sprintf("%s%s%s", frontEndUrl, "?", "&errMessage=parse proxy err")
-			c.Redirect(http.StatusFound, url)
-			return
-		}
-		proxy := http.ProxyURL(p)
-		trans := &http.Transport{
-			Proxy: proxy,
-		}
-		dc = &http.Client{Transport: trans}
-	}
+	//if config.HttpPorxy() != "" {
+	//	p, err := url.Parse("***")
+	//	if err != nil {
+	//		ctx.Logger.Errorf("parse proxy err: %v", err)
+	//		url := fmt.Sprintf("%s%s%s", frontEndUrl, "?", "&errMessage=parse proxy err")
+	//		c.Redirect(http.StatusFound, url)
+	//		return
+	//	}
+	//	proxy := http.ProxyURL(p)
+	//	trans := &http.Transport{
+	//		Proxy: proxy,
+	//	}
+	//	dc = &http.Client{Transport: trans}
+	//}
 	ctxx := context.WithValue(context.Background(), oauth2.HTTPClient, dc)
 	token, err := authConfig.Exchange(ctxx, code)
 	if err != nil {
@@ -196,7 +195,7 @@ func Callback(c *gin.Context) {
 	ctx.Logger.Infof("%+v", iCodehost)
 	_, err = service.UpdateCodeHostByToken(iCodehost, ctx.Logger)
 	if err != nil {
-		ctx.Logger.Errorf("view UpdateCodeHostByToken err: %v", err)
+		ctx.Logger.Errorf("UpdateCodeHostByToken err: %v", err)
 		url := fmt.Sprintf("%s%s%s", frontEndUrl, "?", "&errMessage=update codehost failed")
 		c.Redirect(http.StatusFound, url)
 		return
