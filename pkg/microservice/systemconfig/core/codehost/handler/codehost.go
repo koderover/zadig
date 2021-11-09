@@ -131,7 +131,7 @@ func Callback(c *gin.Context) {
 	codeHostArray := strings.Split(urlArray[1], "&provider=")
 	codeHostID, err := strconv.Atoi(codeHostArray[0])
 	if err != nil {
-		ctx.Logger.Error("code_host_get_call_back_gitlab codeHostID convert err : %v", err)
+		ctx.Logger.Errorf("code_host_get_call_back_gitlab codeHostID convert err : %v", err)
 		url := fmt.Sprintf("%s%s%s", frontEndUrl, "?", "&errMessage=codeHostID convert failed")
 		c.Redirect(http.StatusFound, url)
 		return
