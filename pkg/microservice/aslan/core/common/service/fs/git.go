@@ -27,6 +27,7 @@ import (
 	githubservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
 	gitlabservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gitlab"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 

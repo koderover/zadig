@@ -33,6 +33,7 @@ import (
 	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/types"
 )
 

@@ -34,8 +34,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/codehost"
-	"github.com/koderover/zadig/pkg/shared/poetry"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/codehub"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
@@ -113,12 +112,12 @@ func ValidateServiceUpdate(codehostID int, serviceName, repoOwner, repoName, rep
 }
 
 // 根据repo信息获取gerrit可以加载的服务列表
-func preloadGerritService(detail *poetry.CodeHost, repoName, branchName, remoteName, loadPath string, isDir bool) ([]string, error) {
+func preloadGerritService(detail *systemconfig.CodeHost, repoName, branchName, remoteName, loadPath string, isDir bool) ([]string, error) {
 	ret := make([]string, 0)
 
 	base := path.Join(config.S3StoragePath(), repoName)
 	if _, err := os.Stat(base); os.IsNotExist(err) {
-		chDetail := &codehost.Detail{
+		chDetail := &systemconfig.Detail{
 			ID:         detail.ID,
 			Name:       "",
 			Address:    detail.Address,
@@ -182,7 +181,7 @@ func preloadGerritService(detail *poetry.CodeHost, repoName, branchName, remoteN
 }
 
 // 根据 repo 信息获取 codehub 可以加载的服务列表
-func preloadCodehubService(detail *poetry.CodeHost, repoName, repoUUID, branchName, path string, isDir bool) ([]string, error) {
+func preloadCodehubService(detail *systemconfig.CodeHost, repoName, repoUUID, branchName, path string, isDir bool) ([]string, error) {
 	var ret []string
 
 	codeHubClient := codehub.NewCodeHubClient(detail.AccessKey, detail.SecretKey, detail.Region)
@@ -239,10 +238,10 @@ func preloadCodehubService(detail *poetry.CodeHost, repoName, repoUUID, branchNa
 }
 
 // 根据repo信息从gerrit加载服务
-func loadGerritService(username string, ch *poetry.CodeHost, repoOwner, repoName, branchName, remoteName string, args *LoadServiceReq, log *zap.SugaredLogger) error {
+func loadGerritService(username string, ch *systemconfig.CodeHost, repoOwner, repoName, branchName, remoteName string, args *LoadServiceReq, log *zap.SugaredLogger) error {
 	base := path.Join(config.S3StoragePath(), repoName)
 	if _, err := os.Stat(base); os.IsNotExist(err) {
-		err = command.RunGitCmds(&codehost.Detail{Source: ch.Type, Address: ch.Address, OauthToken: ch.AccessToken}, repoOwner, repoName, branchName, remoteName)
+		err = command.RunGitCmds(&systemconfig.Detail{Source: ch.Type, Address: ch.Address, OauthToken: ch.AccessToken}, repoOwner, repoName, branchName, remoteName)
 		if err != nil {
 			return e.ErrLoadServiceTemplate.AddDesc(err.Error())
 		}
@@ -378,7 +377,7 @@ func loadServiceFromGerrit(tree []os.FileInfo, id int, username, branchName, loa
 }
 
 // load codehub service
-func loadCodehubService(username string, ch *poetry.CodeHost, repoOwner, repoName, repoUUID, branchName string, args *LoadServiceReq, log *zap.SugaredLogger) error {
+func loadCodehubService(username string, ch *systemconfig.CodeHost, repoOwner, repoName, repoUUID, branchName string, args *LoadServiceReq, log *zap.SugaredLogger) error {
 	codeHubClient := codehub.NewCodeHubClient(ch.AccessKey, ch.SecretKey, ch.Region)
 
 	if !args.LoadFromDir {
@@ -449,7 +448,7 @@ func loadCodehubService(username string, ch *poetry.CodeHost, repoOwner, repoNam
 	return nil
 }
 
-func loadServiceFromCodehub(client *codehub.CodeHubClient, tree []*codehub.TreeNode, ch *poetry.CodeHost, username, repoOwner, repoName, repoUUID, branchName, path string, args *LoadServiceReq, log *zap.SugaredLogger) error {
+func loadServiceFromCodehub(client *codehub.CodeHubClient, tree []*codehub.TreeNode, ch *systemconfig.CodeHost, username, repoOwner, repoName, repoUUID, branchName, path string, args *LoadServiceReq, log *zap.SugaredLogger) error {
 	pathList := strings.Split(path, "/")
 	var splittedYaml []string
 	serviceName := pathList[len(pathList)-1]
@@ -504,7 +503,7 @@ func loadServiceFromCodehub(client *codehub.CodeHubClient, tree []*codehub.TreeN
 }
 
 // 根据github repo决定服务是否可以更新这个repo地址
-func validateServiceUpdateGithub(detail *poetry.CodeHost, serviceName, repoOwner, repoName, branchName, path string, isDir bool) error {
+func validateServiceUpdateGithub(detail *systemconfig.CodeHost, serviceName, repoOwner, repoName, branchName, path string, isDir bool) error {
 	ctx := context.Background()
 	tokenSource := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: detail.AccessToken},
@@ -551,7 +550,7 @@ func validateServiceUpdateGithub(detail *poetry.CodeHost, serviceName, repoOwner
 }
 
 // 根据gitlab repo决定服务是否可以更新这个repo地址
-func validateServiceUpdateGitlab(detail *poetry.CodeHost, serviceName, repoOwner, repoName, branchName, path string, isDir bool) error {
+func validateServiceUpdateGitlab(detail *systemconfig.CodeHost, serviceName, repoOwner, repoName, branchName, path string, isDir bool) error {
 	repoInfo := fmt.Sprintf("%s/%s", repoOwner, repoName)
 
 	gitlabClient, err := gitlab.NewOAuthClient(detail.AccessToken, gitlab.WithBaseURL(detail.Address))
@@ -603,10 +602,10 @@ func validateServiceUpdateGitlab(detail *poetry.CodeHost, serviceName, repoOwner
 }
 
 // 根据gerrit repo决定服务是否可以更新这个repo地址
-func validateServiceUpdateGerrit(detail *poetry.CodeHost, serviceName, repoName, branchName, remoteName, loadPath string, isDir bool) error {
+func validateServiceUpdateGerrit(detail *systemconfig.CodeHost, serviceName, repoName, branchName, remoteName, loadPath string, isDir bool) error {
 	base := path.Join(config.S3StoragePath(), repoName)
 	if _, err := os.Stat(base); os.IsNotExist(err) {
-		chDetail := &codehost.Detail{
+		chDetail := &systemconfig.Detail{
 			ID:         detail.ID,
 			Name:       "",
 			Address:    detail.Address,
@@ -655,7 +654,7 @@ func validateServiceUpdateGerrit(detail *poetry.CodeHost, serviceName, repoName,
 	return e.ErrValidateServiceUpdate.AddDesc("所选路径中没有yaml，请重新选择")
 }
 
-func validateServiceUpdateCodehub(detail *poetry.CodeHost, serviceName, repoName, repoUUID, branchName, loadPath string, isDir bool) error {
+func validateServiceUpdateCodehub(detail *systemconfig.CodeHost, serviceName, repoName, repoUUID, branchName, loadPath string, isDir bool) error {
 	codeHubClient := codehub.NewCodeHubClient(detail.AccessKey, detail.SecretKey, detail.Region)
 	// 非文件夹情况下直接获取文件信息
 	if !isDir {

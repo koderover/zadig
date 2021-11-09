@@ -30,13 +30,13 @@ import (
 	githubservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
 	gitlabservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gitlab"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/poetry"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
 )
 
-func preloadService(ch *poetry.CodeHost, owner, repo, branch, path string, isDir bool, logger *zap.SugaredLogger) ([]string, error) {
+func preloadService(ch *systemconfig.CodeHost, owner, repo, branch, path string, isDir bool, logger *zap.SugaredLogger) ([]string, error) {
 	logger.Infof("Preloading service from %s with owner %s, repo %s, branch %s and path %s", ch.Type, owner, repo, branch, path)
 
 	loader, err := getLoader(ch)
@@ -95,7 +95,7 @@ type serviceInfo struct {
 	yamls []string
 }
 
-func loadService(username string, ch *poetry.CodeHost, owner, repo, branch string, args *LoadServiceReq, logger *zap.SugaredLogger) error {
+func loadService(username string, ch *systemconfig.CodeHost, owner, repo, branch string, args *LoadServiceReq, logger *zap.SugaredLogger) error {
 	logger.Infof("Loading service from %s with owner %s, repo %s, branch %s and path %s", ch.Type, owner, repo, branch, args.LoadPath)
 
 	project, err := templaterepo.NewProductColl().Find(args.ProductName)
@@ -236,7 +236,7 @@ type yamlLoader interface {
 	GetTree(owner, repo, path, branch string) ([]*git.TreeNode, error)
 }
 
-func getLoader(ch *poetry.CodeHost) (yamlLoader, error) {
+func getLoader(ch *systemconfig.CodeHost) (yamlLoader, error) {
 	switch ch.Type {
 	case setting.SourceFromGithub:
 		return githubservice.NewClient(ch.AccessToken, config.ProxyHTTPSAddr()), nil
