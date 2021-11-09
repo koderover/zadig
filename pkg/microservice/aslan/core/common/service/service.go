@@ -131,7 +131,7 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 				return nil, e.ErrListTemplate.AddDesc(err.Error())
 			}
 
-			details, err := systemconfig.ListCodehostDetial()
+			details, err := systemconfig.New().ListCodeHosts()
 			if err != nil {
 				log.Errorf("无法从原有数据中恢复加载信息, listCodehostDetail failed err: %+v", err)
 				return nil, e.ErrListTemplate.AddDesc(err.Error())
@@ -318,7 +318,7 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 
 	if resp.Source == setting.SourceFromGitlab && resp.RepoName == "" {
 		if gitlabAddress, err := GetGitlabAddress(resp.SrcPath); err == nil {
-			if details, err := systemconfig.ListCodehostDetial(); err == nil {
+			if details, err := systemconfig.New().ListCodeHosts(); err == nil {
 				for _, detail := range details {
 					if strings.Contains(detail.Address, gitlabAddress) {
 						resp.GerritCodeHostID = detail.ID

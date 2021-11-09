@@ -40,10 +40,7 @@ type RepoCommit struct {
 }
 
 func QueryByBranch(id int, owner, name, branch string, log *zap.SugaredLogger) (*RepoCommit, error) {
-	opt := &systemconfig.Option{
-		CodeHostID: id,
-	}
-	ch, err := systemconfig.GetCodeHostInfo(opt)
+	ch, err := systemconfig.New().GetCodeHost(id)
 	if err != nil {
 		return nil, err
 	}
@@ -90,10 +87,7 @@ func QueryByBranch(id int, owner, name, branch string, log *zap.SugaredLogger) (
 }
 
 func QueryByTag(id int, owner, name, tag string, log *zap.SugaredLogger) (*RepoCommit, error) {
-	opt := &systemconfig.Option{
-		CodeHostID: id,
-	}
-	ch, err := systemconfig.GetCodeHostInfo(opt)
+	ch, err := systemconfig.New().GetCodeHost(id)
 	if err != nil {
 		return nil, err
 	}
@@ -150,10 +144,7 @@ type PRCommit struct {
 func GetLatestPrCommit(codehostID, pr int, namespace, projectName string, log *zap.SugaredLogger) (*PRCommit, error) {
 	projectID := fmt.Sprintf("%s/%s", namespace, projectName)
 
-	opt := &systemconfig.Option{
-		CodeHostID: codehostID,
-	}
-	ch, err := systemconfig.GetCodeHostInfo(opt)
+	ch, err := systemconfig.New().GetCodeHost(codehostID)
 	if err != nil {
 		return nil, err
 	}

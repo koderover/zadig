@@ -37,7 +37,7 @@ func DeleteGerritWebhook(workflow *models.Workflow, log *zap.SugaredLogger) erro
 				continue
 			}
 
-			detail, err := systemconfig.GetCodeHostInfoByID(workflowWebhook.MainRepo.CodehostID)
+			detail, err := systemconfig.New().GetCodeHost(workflowWebhook.MainRepo.CodehostID)
 			if err != nil {
 				log.Errorf("DeleteGerritWebhook GetCodehostDetail err:%v", err)
 				continue

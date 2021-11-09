@@ -31,10 +31,7 @@ import (
 )
 
 func CodeHostListTags(codeHostID int, projectName string, namespace string, log *zap.SugaredLogger) ([]*Tag, error) {
-	opt := &systemconfig.Option{
-		CodeHostID: codeHostID,
-	}
-	ch, err := systemconfig.GetCodeHostInfo(opt)
+	ch, err := systemconfig.New().GetCodeHost(codeHostID)
 	if err != nil {
 		log.Error(err)
 		return nil, e.ErrCodehostListTags.AddDesc("git client is nil")

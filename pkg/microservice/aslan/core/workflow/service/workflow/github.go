@@ -85,9 +85,9 @@ func createGitCheck(pt *task.Task, log *zap.SugaredLogger) error {
 	}
 
 	log.Infof("Init GitHub status")
-	ch, err := systemconfig.GetCodeHostInfoByID(pt.TriggerBy.CodehostID)
+	ch, err := systemconfig.New().GetCodeHost(pt.TriggerBy.CodehostID)
 	if err != nil {
-		log.Errorf("GetCodeHostInfoByID failed, err:%v", err)
+		log.Errorf("Failed to get codeHost, err:%v", err)
 		return e.ErrGithubUpdateStatus.AddErr(err)
 	}
 	gc := github.NewClient(ch.AccessToken, config.ProxyHTTPSAddr())

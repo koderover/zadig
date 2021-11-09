@@ -22,10 +22,6 @@ type CodeHost struct {
 	Password    string `json:"password"`
 }
 
-func GetCodeHostList() ([]*CodeHost, error) {
-	return New().ListCodeHosts()
-}
-
 type Option struct {
 	CodeHostType string
 	Address      string
@@ -34,7 +30,7 @@ type Option struct {
 }
 
 func GetCodeHostInfo(option *Option) (*CodeHost, error) {
-	codeHosts, err := GetCodeHostList()
+	codeHosts, err := New().ListCodeHosts()
 	if err != nil {
 		return nil, err
 	}
@@ -60,71 +56,16 @@ func GetCodeHostInfo(option *Option) (*CodeHost, error) {
 	return nil, errors.New("not find codeHost")
 }
 
-func GetCodeHostInfoByID(id int) (*CodeHost, error) {
-	return GetCodeHostInfo(&Option{CodeHostID: id})
-}
+func (c *Client) GetCodeHost(id int) (*CodeHost, error) {
+	url := fmt.Sprintf("/codehosts/%d", id)
 
-type Detail struct {
-	ID         int    `json:"id"`
-	Name       string `json:"name"`
-	Address    string `json:"address"`
-	Owner      string `json:"repoowner"`
-	Source     string `json:"source"`
-	OauthToken string `json:"oauth_token"`
-	Region     string `json:"region"`
-	Username   string `json:"username"`
-	Password   string `json:"password"`
-	AccessKey  string `json:"applicationId"`
-	SecretKey  string `json:"clientSecret"`
-}
-
-func GetCodehostDetail(codehostID int) (*Detail, error) {
-	codehost, err := GetCodeHostInfo(&Option{CodeHostID: codehostID})
-	if err != nil {
-		return nil, err
-	}
-	detail := &Detail{
-		codehostID,
-		"",
-		codehost.Address,
-		codehost.Namespace,
-		codehost.Type,
-		codehost.AccessToken,
-		codehost.Region,
-		codehost.Username,
-		codehost.Password,
-		codehost.AccessKey,
-		codehost.SecretKey,
-	}
-
-	return detail, nil
-}
-
-func ListCodehostDetial() ([]*Detail, error) {
-	codehosts, err := GetCodeHostList()
+	res := &CodeHost{}
+	_, err := c.Get(url, httpclient.SetResult(res))
 	if err != nil {
 		return nil, err
 	}
 
-	var details []*Detail
-
-	for _, codehost := range codehosts {
-		details = append(details, &Detail{
-			codehost.ID,
-			"",
-			codehost.Address,
-			codehost.Namespace,
-			codehost.Type,
-			codehost.AccessToken,
-			codehost.Region,
-			codehost.Username,
-			codehost.Password,
-			codehost.AccessKey,
-			codehost.SecretKey,
-		})
-	}
-
-	return details, nil
+	return res, nil
 }
 
 func (c *Client) ListCodeHosts() ([]*CodeHost, error) {
@@ -139,11 +80,18 @@ func (c *Client) ListCodeHosts() ([]*CodeHost, error) {
 	return res, nil
 }
 
-func (c *Client) GetCodeHostByAddressAndOwner(address, owner string) (*CodeHost, error) {
+func (c *Client) GetCodeHostByAddressAndOwner(address, owner, source string) (*CodeHost, error) {
 	url := "/codehosts"
 
 	res := make([]*CodeHost, 0)
-	_, err := c.Get(url, httpclient.SetQueryParam("address", address), httpclient.SetQueryParam("owner", owner), httpclient.SetResult(&res))
+
+	req := map[string]string{
+		"address": address,
+		"owner":   owner,
+		"source":  source,
+	}
+
+	_, err := c.Get(url, httpclient.SetQueryParams(req), httpclient.SetResult(&res))
 	if err != nil {
 		return nil, err
 	}

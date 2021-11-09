@@ -19,7 +19,6 @@ package service
 import (
 	"bytes"
 	"fmt"
-
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -349,7 +348,7 @@ func getCodehostType(repoArgs *CreateFromRepo, repoLink string) (string, *system
 	if repoLink != "" {
 		return setting.SourceFromPublicRepo, nil, nil
 	}
-	ch, err := systemconfig.GetCodeHostInfoByID(repoArgs.CodehostID)
+	ch, err := systemconfig.New().GetCodeHost(repoArgs.CodehostID)
 	if err != nil {
 		log.Errorf("Failed to get codeHost by id %d, err: %s", repoArgs.CodehostID, err.Error())
 		return "", ch, err

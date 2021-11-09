@@ -36,10 +36,7 @@ func CreateGerritWebhook(workflow *commonmodels.Workflow, log *zap.SugaredLogger
 				continue
 			}
 
-			opt := &systemconfig.Option{
-				CodeHostID: workflowWebhook.MainRepo.CodehostID,
-			}
-			detail, err := systemconfig.GetCodeHostInfo(opt)
+			detail, err := systemconfig.New().GetCodeHost(workflowWebhook.MainRepo.CodehostID)
 			if err != nil {
 				return err
 			}
@@ -88,10 +85,7 @@ func UpdateGerritWebhook(currentWorkflow *commonmodels.Workflow, log *zap.Sugare
 				continue
 			}
 
-			opt := &systemconfig.Option{
-				CodeHostID: oldWorkflowWebhook.MainRepo.CodehostID,
-			}
-			detail, err := systemconfig.GetCodeHostInfo(opt)
+			detail, err := systemconfig.New().GetCodeHost(oldWorkflowWebhook.MainRepo.CodehostID)
 			if err != nil {
 				return err
 			}
@@ -113,10 +107,7 @@ func UpdateGerritWebhook(currentWorkflow *commonmodels.Workflow, log *zap.Sugare
 				continue
 			}
 
-			opt := &systemconfig.Option{
-				CodeHostID: workflowWebhook.MainRepo.CodehostID,
-			}
-			detail, err := systemconfig.GetCodeHostInfo(opt)
+			detail, err := systemconfig.New().GetCodeHost(workflowWebhook.MainRepo.CodehostID)
 			if err != nil {
 				return err
 			}
@@ -155,10 +146,7 @@ func DeleteGerritWebhook(workflow *commonmodels.Workflow, log *zap.SugaredLogger
 				continue
 			}
 
-			opt := &systemconfig.Option{
-				CodeHostID: workflowWebhook.MainRepo.CodehostID,
-			}
-			detail, err := systemconfig.GetCodeHostInfo(opt)
+			detail, err := systemconfig.New().GetCodeHost(workflowWebhook.MainRepo.CodehostID)
 			if err != nil {
 				return err
 			}

@@ -101,7 +101,7 @@ func GetPublicTreeGetter(repoLink string) (TreeGetter, error) {
 }
 
 func GetTreeGetter(codeHostID int) (TreeGetter, error) {
-	ch, err := systemconfig.GetCodeHostInfoByID(codeHostID)
+	ch, err := systemconfig.New().GetCodeHost(codeHostID)
 	if err != nil {
 		log.Errorf("Failed to get codeHost by id %d, err: %s", codeHostID, err)
 		return nil, err

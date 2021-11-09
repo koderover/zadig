@@ -167,7 +167,7 @@ func ProcessWebhook(updatedHooks, currentHooks interface{}, name string, logger 
 		wg.Add(1)
 		go func(wh hookItem) {
 			defer wg.Done()
-			ch, err := systemconfig.GetCodeHostInfoByID(wh.codeHostID)
+			ch, err := systemconfig.New().GetCodeHost(wh.codeHostID)
 			if err != nil {
 				logger.Errorf("Failed to get codeHost by id %d, err: %s", wh.codeHostID, err)
 				errs = multierror.Append(errs, err)
@@ -201,7 +201,7 @@ func ProcessWebhook(updatedHooks, currentHooks interface{}, name string, logger 
 		wg.Add(1)
 		go func(wh hookItem) {
 			defer wg.Done()
-			ch, err := systemconfig.GetCodeHostInfoByID(wh.codeHostID)
+			ch, err := systemconfig.New().GetCodeHost(wh.codeHostID)
 			if err != nil {
 				logger.Errorf("Failed to get codeHost by id %d, err: %s", wh.codeHostID, err)
 				errs = multierror.Append(errs, err)

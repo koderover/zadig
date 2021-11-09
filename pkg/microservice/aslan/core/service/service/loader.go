@@ -52,7 +52,7 @@ type LoadServiceReq struct {
 
 func PreloadServiceFromCodeHost(codehostID int, repoOwner, repoName, repoUUID, branchName, remoteName, path string, isDir bool, log *zap.SugaredLogger) ([]string, error) {
 	var ret []string
-	ch, err := systemconfig.GetCodeHostInfoByID(codehostID)
+	ch, err := systemconfig.New().GetCodeHost(codehostID)
 	if err != nil {
 		log.Errorf("Failed to load codehost for preload service list, the error is: %+v", err)
 		return nil, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
@@ -73,7 +73,7 @@ func PreloadServiceFromCodeHost(codehostID int, repoOwner, repoName, repoUUID, b
 
 // LoadServiceFromCodeHost 根据提供的codehost信息加载服务
 func LoadServiceFromCodeHost(username string, codehostID int, repoOwner, repoName, repoUUID, branchName, remoteName string, args *LoadServiceReq, log *zap.SugaredLogger) error {
-	ch, err := systemconfig.GetCodeHostInfoByID(codehostID)
+	ch, err := systemconfig.New().GetCodeHost(codehostID)
 	if err != nil {
 		log.Errorf("Failed to load codehost for preload service list, the error is: %+v", err)
 		return e.ErrLoadServiceTemplate.AddDesc(err.Error())
@@ -92,7 +92,7 @@ func LoadServiceFromCodeHost(username string, codehostID int, repoOwner, repoNam
 
 // ValidateServiceUpdate 根据服务名和提供的加载信息确认是否可以更新服务加载地址
 func ValidateServiceUpdate(codehostID int, serviceName, repoOwner, repoName, repoUUID, branchName, remoteName, path string, isDir bool, log *zap.SugaredLogger) error {
-	detail, err := systemconfig.GetCodeHostInfoByID(codehostID)
+	detail, err := systemconfig.New().GetCodeHost(codehostID)
 	if err != nil {
 		log.Errorf("Failed to load codehost for validate service update, the error is: %+v", err)
 		return e.ErrValidateServiceUpdate.AddDesc(err.Error())
@@ -117,15 +117,7 @@ func preloadGerritService(detail *systemconfig.CodeHost, repoName, branchName, r
 
 	base := path.Join(config.S3StoragePath(), repoName)
 	if _, err := os.Stat(base); os.IsNotExist(err) {
-		chDetail := &systemconfig.Detail{
-			ID:         detail.ID,
-			Name:       "",
-			Address:    detail.Address,
-			Owner:      detail.Namespace,
-			Source:     detail.Type,
-			OauthToken: detail.AccessToken,
-		}
-		err = command.RunGitCmds(chDetail, setting.GerritDefaultOwner, repoName, branchName, remoteName)
+		err = command.RunGitCmds(detail, setting.GerritDefaultOwner, repoName, branchName, remoteName)
 		if err != nil {
 			return nil, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
 		}
@@ -241,7 +233,7 @@ func preloadCodehubService(detail *systemconfig.CodeHost, repoName, repoUUID, br
 func loadGerritService(username string, ch *systemconfig.CodeHost, repoOwner, repoName, branchName, remoteName string, args *LoadServiceReq, log *zap.SugaredLogger) error {
 	base := path.Join(config.S3StoragePath(), repoName)
 	if _, err := os.Stat(base); os.IsNotExist(err) {
-		err = command.RunGitCmds(&systemconfig.Detail{Source: ch.Type, Address: ch.Address, OauthToken: ch.AccessToken}, repoOwner, repoName, branchName, remoteName)
+		err = command.RunGitCmds(ch, repoOwner, repoName, branchName, remoteName)
 		if err != nil {
 			return e.ErrLoadServiceTemplate.AddDesc(err.Error())
 		}
@@ -605,15 +597,7 @@ func validateServiceUpdateGitlab(detail *systemconfig.CodeHost, serviceName, rep
 func validateServiceUpdateGerrit(detail *systemconfig.CodeHost, serviceName, repoName, branchName, remoteName, loadPath string, isDir bool) error {
 	base := path.Join(config.S3StoragePath(), repoName)
 	if _, err := os.Stat(base); os.IsNotExist(err) {
-		chDetail := &systemconfig.Detail{
-			ID:         detail.ID,
-			Name:       "",
-			Address:    detail.Address,
-			Owner:      detail.Namespace,
-			Source:     detail.Type,
-			OauthToken: detail.AccessToken,
-		}
-		err = command.RunGitCmds(chDetail, setting.GerritDefaultOwner, repoName, branchName, remoteName)
+		err = command.RunGitCmds(detail, setting.GerritDefaultOwner, repoName, branchName, remoteName)
 		if err != nil {
 			return e.ErrValidateServiceUpdate.AddDesc(err.Error())
 		}

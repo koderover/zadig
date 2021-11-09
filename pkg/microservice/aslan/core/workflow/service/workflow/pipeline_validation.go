@@ -258,10 +258,7 @@ func FmtBuilds(builds []*types.Repository, log *zap.SugaredLogger) {
 			log.Error("codehostID can't be empty")
 			return
 		}
-		opt := &systemconfig.Option{
-			CodeHostID: cID,
-		}
-		detail, err := systemconfig.GetCodeHostInfo(opt)
+		detail, err := systemconfig.New().GetCodeHost(cID)
 		if err != nil {
 			log.Error(err)
 			return
@@ -306,10 +303,7 @@ func SetTriggerBuilds(builds []*types.Repository, buildArgs []*types.Repository,
 }
 
 func setBuildInfo(build *types.Repository, log *zap.SugaredLogger) {
-	opt := &systemconfig.Option{
-		CodeHostID: build.CodehostID,
-	}
-	codeHostInfo, err := systemconfig.GetCodeHostInfo(opt)
+	codeHostInfo, err := systemconfig.New().GetCodeHost(build.CodehostID)
 	if err != nil {
 		log.Errorf("failed to get codehost detail %d %v", build.CodehostID, err)
 		return
