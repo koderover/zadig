@@ -80,7 +80,7 @@ func UpdateService(c *gin.Context) {
 func UpdateServiceRevision(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "更新Revision", "集成环境-单服务", fmt.Sprintf("环境名称:%s,服务名称:%s", c.Query("envName"), c.Param("serviceName")), fmt.Sprintf("%s,%s", permission.TestEnvManageUUID, permission.ProdEnvManageUUID), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Param("productName"), "更新Revision", "集成环境-单服务", fmt.Sprintf("环境名称:%s,服务名称:%s", c.Query("envName"), c.Param("serviceName")), "", ctx.Logger)
 
 	revision, err := strconv.ParseInt(c.DefaultQuery("revision", "0"), 10, 64)
 	if err != nil || revision == 0 {

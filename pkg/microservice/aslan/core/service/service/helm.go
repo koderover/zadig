@@ -28,8 +28,6 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
-
 	"github.com/27149chen/afero"
 	"github.com/hashicorp/go-multierror"
 	"github.com/otiai10/copy"
