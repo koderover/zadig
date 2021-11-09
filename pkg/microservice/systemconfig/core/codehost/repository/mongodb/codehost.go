@@ -19,6 +19,11 @@ type CodehostColl struct {
 	coll string
 }
 
+type ListArgs struct {
+	Owner   string `json:"owner"`
+	Address string `json:"address"`
+}
+
 func NewCodehostColl() *CodehostColl {
 	name := models.CodeHost{}.TableName()
 	coll := &CodehostColl{Collection: mongotool.Database(config.MongoDatabase()).Collection(name), coll: name}
@@ -71,9 +76,15 @@ func (c *CodehostColl) GetCodeHostByID(ID int) (*models.CodeHost, error) {
 	return codehost, nil
 }
 
-func (c *CodehostColl) FindCodeHosts() ([]*models.CodeHost, error) {
+func (c *CodehostColl) List(args *ListArgs) ([]*models.CodeHost, error) {
 	codeHosts := make([]*models.CodeHost, 0)
 	query := bson.M{"deleted_at": 0}
+	if args.Address != "" {
+		query["address"] = args.Address
+	}
+	if args.Owner != "" {
+		query["namespace"] = args.Owner
+	}
 
 	cursor, err := c.Collection.Find(context.TODO(), query)
 	if err != nil {
@@ -122,7 +133,6 @@ func (c *CodehostColl) DeleteCodeHostByID(ID int) error {
 func (c *CodehostColl) UpdateCodeHost(host *models.CodeHost) (*models.CodeHost, error) {
 	query := bson.M{"id": host.ID, "deleted_at": 0}
 	change := bson.M{"$set": bson.M{
-		"name":           host.Name,
 		"type":           host.Type,
 		"address":        host.Address,
 		"namespace":      host.Namespace,
