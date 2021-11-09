@@ -65,7 +65,7 @@ type Command struct {
 	IgnoreError bool
 }
 
-func RunGitCmds(codehostDetail *systemconfig.Detail, repoOwner, repoName, branchName, remoteName string) error {
+func RunGitCmds(codehostDetail *systemconfig.CodeHost, repoOwner, repoName, branchName, remoteName string) error {
 	var (
 		tokens []string
 		repo   *Repo
@@ -73,11 +73,11 @@ func RunGitCmds(codehostDetail *systemconfig.Detail, repoOwner, repoName, branch
 		cmds   = make([]*Command, 0)
 	)
 	repo = &Repo{
-		Source:     codehostDetail.Source,
+		Source:     codehostDetail.Type,
 		Address:    codehostDetail.Address,
 		Name:       repoName,
 		Branch:     branchName,
-		OauthToken: codehostDetail.OauthToken,
+		OauthToken: codehostDetail.AccessToken,
 		RemoteName: remoteName,
 		Owner:      repoOwner,
 	}

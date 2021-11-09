@@ -31,10 +31,7 @@ import (
 )
 
 func CodeHostListBranches(codeHostID int, projectName, namespace string, log *zap.SugaredLogger) ([]*Branch, error) {
-	opt := &systemconfig.Option{
-		CodeHostID: codeHostID,
-	}
-	ch, err := systemconfig.GetCodeHostInfo(opt)
+	ch, err := systemconfig.New().GetCodeHost(codeHostID)
 	if err != nil {
 		return nil, e.ErrCodehostListBranches.AddDesc("git client is nil")
 	}

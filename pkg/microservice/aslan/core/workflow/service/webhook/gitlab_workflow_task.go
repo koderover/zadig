@@ -151,13 +151,13 @@ func (gpem *gitlabPushEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (
 		hookRepo.Branch = getBranchFromRef(ev.Ref)
 
 		var changedFiles []string
-		detail, err := systemconfig.GetCodehostDetail(hookRepo.CodehostID)
+		detail, err := systemconfig.New().GetCodeHost(hookRepo.CodehostID)
 		if err != nil {
 			gpem.log.Errorf("GetCodehostDetail error: %s", err)
 			return false, err
 		}
 
-		client, err := gitlabtool.NewClient(detail.Address, detail.OauthToken)
+		client, err := gitlabtool.NewClient(detail.Address, detail.AccessToken)
 		if err != nil {
 			gpem.log.Errorf("NewClient error: %s", err)
 			return false, err
@@ -323,12 +323,12 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 }
 
 func findChangedFilesOfMergeRequest(event *gitlab.MergeEvent, codehostID int) ([]string, error) {
-	detail, err := systemconfig.GetCodehostDetail(codehostID)
+	detail, err := systemconfig.New().GetCodeHost(codehostID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find codehost %d: %v", codehostID, err)
 	}
 
-	client, err := gitlabtool.NewClient(detail.Address, detail.OauthToken)
+	client, err := gitlabtool.NewClient(detail.Address, detail.AccessToken)
 	if err != nil {
 		log.Error(err)
 		return nil, e.ErrCodehostListProjects.AddDesc(err.Error())
@@ -343,12 +343,12 @@ func InitDiffNote(ev *gitlab.MergeEvent, mainRepo *commonmodels.MainHookRepo, lo
 	body := "KodeRover CI 检查中..."
 
 	// 调用gitlab api获取相关数据
-	detail, err := systemconfig.GetCodehostDetail(mainRepo.CodehostID)
+	detail, err := systemconfig.New().GetCodeHost(mainRepo.CodehostID)
 	if err != nil {
 		log.Errorf("GetCodehostDetail failed, codehost:%d, err:%v", mainRepo.CodehostID, err)
 		return fmt.Errorf("failed to find codehost %d: %v", mainRepo.CodehostID, err)
 	}
-	cli, _ := gitlab.NewOAuthClient(detail.OauthToken, gitlab.WithBaseURL(detail.Address))
+	cli, _ := gitlab.NewOAuthClient(detail.AccessToken, gitlab.WithBaseURL(detail.Address))
 
 	opt := &commonrepo.DiffNoteFindOpt{
 		CodehostID:     mainRepo.CodehostID,
@@ -402,7 +402,7 @@ func InitDiffNote(ev *gitlab.MergeEvent, mainRepo *commonmodels.MainHookRepo, lo
 			Source:     "gitlab",
 			ProjectID:  mainRepo.RepoOwner + "/" + mainRepo.RepoName,
 			Address:    detail.Address,
-			OauthToken: detail.OauthToken,
+			OauthToken: detail.AccessToken,
 		},
 		MergeRequestID: ev.ObjectAttributes.IID,
 		CommitID:       commitID,

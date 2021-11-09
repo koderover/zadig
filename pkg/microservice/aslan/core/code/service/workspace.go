@@ -145,7 +145,7 @@ func GetGitRepoInfo(codehostID int, repoOwner, repoName, branchName, remoteName,
 	if err := os.RemoveAll(base); err != nil {
 		log.Errorf("dir remove err:%v", err)
 	}
-	detail, err := systemconfig.GetCodehostDetail(codehostID)
+	detail, err := systemconfig.New().GetCodeHost(codehostID)
 	if err != nil {
 		log.Errorf("GetGitRepoInfo GetCodehostDetail err:%v", err)
 		return fis, e.ErrListRepoDir.AddDesc(err.Error())
@@ -189,7 +189,7 @@ type CodehostFileInfo struct {
 func GetCodehubRepoInfo(codehostID int, repoUUID, branchName, path string, log *zap.SugaredLogger) ([]*CodehostFileInfo, error) {
 	fileInfos := make([]*CodehostFileInfo, 0)
 
-	detail, err := systemconfig.GetCodehostDetail(codehostID)
+	detail, err := systemconfig.New().GetCodeHost(codehostID)
 	if err != nil {
 		log.Errorf("GetCodehubRepoInfo GetCodehostDetail err:%s", err)
 		return fileInfos, e.ErrListWorkspace.AddDesc(err.Error())

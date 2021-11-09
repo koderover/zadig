@@ -1284,15 +1284,15 @@ func getCronJobContainers(data string) ([]*commonmodels.Container, error) {
 }
 
 func updateGerritWebhookByService(lastService, currentService *commonmodels.Service) error {
-	var codehostDetail *systemconfig.Detail
+	var codehostDetail *systemconfig.CodeHost
 	var err error
 	if lastService != nil && lastService.Source == setting.SourceFromGerrit {
-		codehostDetail, err = systemconfig.GetCodehostDetail(lastService.GerritCodeHostID)
+		codehostDetail, err = systemconfig.New().GetCodeHost(lastService.GerritCodeHostID)
 		if err != nil {
 			log.Errorf("updateGerritWebhookByService GetCodehostDetail err:%v", err)
 			return err
 		}
-		cl := gerrit.NewHTTPClient(codehostDetail.Address, codehostDetail.OauthToken)
+		cl := gerrit.NewHTTPClient(codehostDetail.Address, codehostDetail.AccessToken)
 		webhookURLPrefix := fmt.Sprintf("/%s/%s/%s", "a/config/server/webhooks~projects", gerrit.Escape(lastService.GerritRepoName), "remotes")
 		_, _ = cl.Delete(fmt.Sprintf("%s/%s", webhookURLPrefix, gerrit.RemoteName))
 		_, err = cl.Delete(fmt.Sprintf("%s/%s", webhookURLPrefix, lastService.ServiceName))
@@ -1300,14 +1300,14 @@ func updateGerritWebhookByService(lastService, currentService *commonmodels.Serv
 			log.Errorf("updateGerritWebhookByService deleteGerritWebhook err:%v", err)
 		}
 	}
-	var detail *systemconfig.Detail
+	var detail *systemconfig.CodeHost
 	if lastService.GerritCodeHostID == currentService.GerritCodeHostID && codehostDetail != nil {
 		detail = codehostDetail
 	} else {
-		detail, _ = systemconfig.GetCodehostDetail(currentService.GerritCodeHostID)
+		detail, _ = systemconfig.New().GetCodeHost(currentService.GerritCodeHostID)
 	}
 
-	cl := gerrit.NewHTTPClient(detail.Address, detail.OauthToken)
+	cl := gerrit.NewHTTPClient(detail.Address, detail.AccessToken)
 	webhookURL := fmt.Sprintf("/%s/%s/%s/%s", "a/config/server/webhooks~projects", gerrit.Escape(currentService.GerritRepoName), "remotes", currentService.ServiceName)
 	if _, err := cl.Get(webhookURL); err != nil {
 		log.Errorf("updateGerritWebhookByService getGerritWebhook err:%v", err)
@@ -1327,13 +1327,13 @@ func updateGerritWebhookByService(lastService, currentService *commonmodels.Serv
 }
 
 func createGerritWebhookByService(codehostID int, serviceName, repoName, branchName string) error {
-	detail, err := systemconfig.GetCodehostDetail(codehostID)
+	detail, err := systemconfig.New().GetCodeHost(codehostID)
 	if err != nil {
 		log.Errorf("createGerritWebhookByService GetCodehostDetail err:%v", err)
 		return err
 	}
 
-	cl := gerrit.NewHTTPClient(detail.Address, detail.OauthToken)
+	cl := gerrit.NewHTTPClient(detail.Address, detail.AccessToken)
 	webhookURL := fmt.Sprintf("/%s/%s/%s/%s", "a/config/server/webhooks~projects", gerrit.Escape(repoName), "remotes", serviceName)
 	if _, err := cl.Get(webhookURL); err != nil {
 		log.Errorf("createGerritWebhookByService getGerritWebhook err:%v", err)
@@ -1352,7 +1352,7 @@ func createGerritWebhookByService(codehostID int, serviceName, repoName, branchN
 	return nil
 }
 
-func syncGerritLatestCommit(service *commonmodels.Service) (*systemconfig.Detail, error) {
+func syncGerritLatestCommit(service *commonmodels.Service) (*systemconfig.CodeHost, error) {
 	if service.GerritCodeHostID == 0 {
 		return nil, fmt.Errorf("codehostId不能是空的")
 	}
@@ -1362,9 +1362,9 @@ func syncGerritLatestCommit(service *commonmodels.Service) (*systemconfig.Detail
 	if service.GerritBranchName == "" {
 		return nil, fmt.Errorf("branchName不能是空的")
 	}
-	ch, _ := systemconfig.GetCodehostDetail(service.GerritCodeHostID)
+	ch, _ := systemconfig.New().GetCodeHost(service.GerritCodeHostID)
 
-	gerritCli := gerrit.NewClient(ch.Address, ch.OauthToken)
+	gerritCli := gerrit.NewClient(ch.Address, ch.AccessToken)
 	commit, err := gerritCli.GetCommitByBranch(service.GerritRepoName, service.GerritBranchName)
 	if err != nil {
 		return nil, err
