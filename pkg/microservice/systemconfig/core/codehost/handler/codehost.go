@@ -120,7 +120,7 @@ func Callback(c *gin.Context) {
 
 	gitlabError := c.Query("error")
 	if gitlabError != "" {
-		ctx.Logger.Warnf("code_host_get_call_back_gitlab user denied: %s", gitlabError)
+		ctx.Logger.Warnf("code_host_get_call_back_gitlab user denied err: %s", gitlabError)
 		url := fmt.Sprintf("%s%s%s", frontEndUrl, "?", "&errMessage=access_denied")
 		c.Redirect(http.StatusFound, url)
 		return
