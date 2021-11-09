@@ -80,12 +80,7 @@ func AuthCodeHost(c *gin.Context) {
 		return
 	}
 	callBackUrl := fmt.Sprintf("%s://%s%s", redirectHost.Scheme, redirectHost.Host, "/api/v1/codehosts/callback")
-	authConfig := &oauth2.Config{
-		ClientID:     codeHost.ApplicationId,
-		ClientSecret: codeHost.ClientSecret,
-		RedirectURL:  callBackUrl,
-		//RedirectURL: "http://localhost:34001/directory/codehosts/callback",
-	}
+
 	var authUrl string
 	var tokenUrl string
 	var scopes []string
@@ -98,11 +93,16 @@ func AuthCodeHost(c *gin.Context) {
 		authUrl = codeHost.Address + "/login/oauth/authorize"
 		tokenUrl = codeHost.Address + "/login/oauth/access_token"
 	}
-	authConfig.Endpoint = oauth2.Endpoint{
-		AuthURL:  authUrl,
-		TokenURL: tokenUrl,
+	authConfig := &oauth2.Config{
+		ClientID:     codeHost.ApplicationId,
+		ClientSecret: codeHost.ClientSecret,
+		RedirectURL:  callBackUrl,
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  authUrl,
+			TokenURL: tokenUrl,
+		},
+		Scopes: scopes,
 	}
-	authConfig.Scopes = scopes
 	redirectURL := authConfig.AuthCodeURL(authStateString)
 	c.Redirect(http.StatusFound, redirectURL)
 }
