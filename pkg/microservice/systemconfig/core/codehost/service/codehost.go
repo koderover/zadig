@@ -20,7 +20,15 @@ func CreateCodeHost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*models.Co
 }
 
 func FindCodeHost(_ *zap.SugaredLogger) ([]*models.CodeHost, error) {
-	return mongodb.NewCodehostColl().FindCodeHosts()
+	list, err := mongodb.NewCodehostColl().FindCodeHosts()
+	if err != nil {
+		return nil, err
+	}
+	for k, _ := range list {
+		list[k].AccessToken = "***"
+		list[k].ClientSecret = "***"
+	}
+	return list, err
 }
 
 func DeleteCodeHost(id int, _ *zap.SugaredLogger) error {
