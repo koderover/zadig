@@ -32,8 +32,8 @@ type User struct {
 }
 
 type UpdateUserInfo struct {
-	Name         string `json:"name"`
-	Email        string `json:"email"`
+	Name         string `json:"name,omitempty"`
+	Email        string `json:"email,omitempty"`
 	Phone        string `json:"phone,omitempty"`
 	IdentityType string `json:"identity_type"`
 }
