@@ -31,6 +31,16 @@ import (
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
+type ProjectInfo struct {
+	Name          string `bson:"product_name"`
+	Alias         string `bson:"project_name"`
+	Desc          string `bson:"description"`
+	UpdatedAt     int64  `bson:"update_time"`
+	UpdatedBy     string `bson:"update_by"`
+	OnboardStatus int    `bson:"onboarding_status"`
+	Public        bool   `bson:"public"`
+}
+
 type ProductColl struct {
 	*mongo.Collection
 
@@ -69,6 +79,59 @@ func (c *ProductColl) FindProjectName(project string) (*template.Product, error)
 	query := bson.M{"project_name": project}
 	err := c.FindOne(context.TODO(), query).Decode(resp)
 	return resp, err
+}
+
+func (c *ProductColl) ListNames(inNames []string) ([]string, error) {
+	res, err := c.listProjects(inNames, bson.D{
+		{"product_name", 1},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var names []string
+	for _, r := range res {
+		names = append(names, r.Name)
+	}
+
+	return names, nil
+}
+
+func (c *ProductColl) ListProjectBriefs(inNames []string) ([]*ProjectInfo, error) {
+	return c.listProjects(inNames, bson.D{
+		{"product_name", 1},
+		{"project_name", 1},
+		{"description", 1},
+		{"update_time", 1},
+		{"update_by", 1},
+		{"onboarding_status", 1},
+		{"public", 1},
+	})
+}
+
+func (c *ProductColl) listProjects(inNames []string, projection bson.D) ([]*ProjectInfo, error) {
+	opts := options.Find()
+	filter := bson.M{}
+	if len(inNames) > 0 {
+		filter["product_name"] = bson.M{"$in": inNames}
+	}
+
+	if len(projection) > 0 {
+		opts.SetProjection(projection)
+	}
+
+	cursor, err := c.Collection.Find(context.TODO(), filter, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	var res []*ProjectInfo
+	err = cursor.All(context.TODO(), &res)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }
 
 func (c *ProductColl) List() ([]*template.Product, error) {
@@ -154,6 +217,19 @@ func (c *ProductColl) Create(args *template.Product) error {
 	return err
 }
 
+func (c *ProductColl) UpdateServiceOrchestration(productName string, services [][]string, updateBy string) error {
+
+	query := bson.M{"product_name": productName}
+	change := bson.M{"$set": bson.M{
+		"services":    services,
+		"update_time": time.Now().Unix(),
+		"update_by":   updateBy,
+	}}
+
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
 // Update existing ProductTmpl
 func (c *ProductColl) Update(productName string, args *template.Product) error {
 	// avoid panic issue
@@ -165,19 +241,37 @@ func (c *ProductColl) Update(productName string, args *template.Product) error {
 
 	query := bson.M{"product_name": productName}
 	change := bson.M{"$set": bson.M{
-		"project_name":    strings.TrimSpace(args.ProjectName),
-		"revision":        args.Revision,
-		"services":        args.Services,
-		"update_time":     time.Now().Unix(),
-		"update_by":       args.UpdateBy,
-		"teams":           args.Teams,
-		"enabled":         args.Enabled,
-		"description":     args.Description,
-		"visibility":      args.Visibility,
-		"user_ids":        args.UserIDs,
-		"team_id":         args.TeamID,
-		"timeout":         args.Timeout,
-		"shared_services": args.SharedServices,
+		"project_name":          strings.TrimSpace(args.ProjectName),
+		"revision":              args.Revision,
+		"services":              args.Services,
+		"update_time":           time.Now().Unix(),
+		"update_by":             args.UpdateBy,
+		"enabled":               args.Enabled,
+		"description":           args.Description,
+		"timeout":               args.Timeout,
+		"shared_services":       args.SharedServices,
+		"image_searching_rules": args.ImageSearchingRules,
+		"custom_tar_rule":       args.CustomTarRule,
+		"custom_image_rule":     args.CustomImageRule,
+		"public":                args.Public,
+	}}
+
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
+type ProductArgs struct {
+	ProductName string     `json:"product_name"`
+	Services    [][]string `json:"services"`
+	UpdateBy    string     `json:"update_by"`
+}
+
+// AddService adds a service to services[0] if it is not there.
+func (c *ProductColl) AddService(productName, serviceName string) error {
+
+	query := bson.M{"product_name": productName}
+	change := bson.M{"$addToSet": bson.M{
+		"services.0": serviceName,
 	}}
 
 	_, err := c.UpdateOne(context.TODO(), query, change)
@@ -185,7 +279,7 @@ func (c *ProductColl) Update(productName string, args *template.Product) error {
 }
 
 // UpdateAll updates all projects in a bulk write.
-// Currently only field `shared_services` is supported.
+// Currently, only field `shared_services` is supported.
 // Note: A bulk operation can have at most 1000 operations, but the client will do it for us.
 // see https://stackoverflow.com/questions/24237887/what-is-mongodb-batch-operation-max-size
 func (c *ProductColl) UpdateAll(projects []*template.Product) error {

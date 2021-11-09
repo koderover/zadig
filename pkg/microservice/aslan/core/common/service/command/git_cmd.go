@@ -30,7 +30,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -65,7 +65,7 @@ type Command struct {
 	IgnoreError bool
 }
 
-func RunGitCmds(codehostDetail *codehost.Detail, repoOwner, repoName, branchName, remoteName string) error {
+func RunGitCmds(codehostDetail *systemconfig.Detail, repoOwner, repoName, branchName, remoteName string) error {
 	var (
 		tokens []string
 		repo   *Repo

@@ -26,9 +26,8 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
-	"github.com/koderover/zadig/pkg/tool/ilyshin"
 )
 
 // RepoCommit : Repository commit struct
@@ -41,10 +40,10 @@ type RepoCommit struct {
 }
 
 func QueryByBranch(id int, owner, name, branch string, log *zap.SugaredLogger) (*RepoCommit, error) {
-	opt := &codehost.Option{
+	opt := &systemconfig.Option{
 		CodeHostID: id,
 	}
-	ch, err := codehost.GetCodeHostInfo(opt)
+	ch, err := systemconfig.GetCodeHostInfo(opt)
 	if err != nil {
 		return nil, err
 	}
@@ -85,33 +84,16 @@ func QueryByBranch(id int, owner, name, branch string, log *zap.SugaredLogger) (
 			CreatedAt:  &commitDate,
 			Message:    commit.Message,
 		}, nil
-	} else if ch.Type == setting.SourceFromIlyshin {
-		client := ilyshin.NewClient(ch.Address, ch.AccessToken)
-		branches, err := client.ListBranches(owner, name, log)
-		if err != nil {
-			return nil, err
-		}
-		for _, br := range branches {
-			if br.Name == branch {
-				return &RepoCommit{
-					ID:         br.Commit.ID,
-					Title:      br.Commit.Title,
-					AuthorName: br.Commit.AuthorName,
-					CreatedAt:  br.Commit.CreatedAt,
-					Message:    br.Commit.Message,
-				}, nil
-			}
-		}
 	}
 
 	return nil, errors.New(ch.Type + "is not supported yet")
 }
 
 func QueryByTag(id int, owner, name, tag string, log *zap.SugaredLogger) (*RepoCommit, error) {
-	opt := &codehost.Option{
+	opt := &systemconfig.Option{
 		CodeHostID: id,
 	}
-	ch, err := codehost.GetCodeHostInfo(opt)
+	ch, err := systemconfig.GetCodeHostInfo(opt)
 	if err != nil {
 		return nil, err
 	}
@@ -152,23 +134,6 @@ func QueryByTag(id int, owner, name, tag string, log *zap.SugaredLogger) (*RepoC
 			CreatedAt:  &commitDate,
 			Message:    commit.Message,
 		}, nil
-	} else if ch.Type == setting.SourceFromIlyshin {
-		client := ilyshin.NewClient(ch.Address, ch.AccessToken)
-		tags, err := client.ListTags(owner, name, log)
-		if err != nil {
-			return nil, err
-		}
-		for _, tagInfo := range tags {
-			if tagInfo.Name == tag {
-				return &RepoCommit{
-					ID:         tagInfo.Commit.ID,
-					Title:      tagInfo.Commit.Title,
-					AuthorName: tagInfo.Commit.AuthorName,
-					CreatedAt:  tagInfo.Commit.CreatedAt,
-					Message:    tagInfo.Commit.Message,
-				}, nil
-			}
-		}
 	}
 
 	return nil, errors.New(ch.Type + "is not supported yet")
@@ -185,10 +150,10 @@ type PRCommit struct {
 func GetLatestPrCommit(codehostID, pr int, namespace, projectName string, log *zap.SugaredLogger) (*PRCommit, error) {
 	projectID := fmt.Sprintf("%s/%s", namespace, projectName)
 
-	opt := &codehost.Option{
+	opt := &systemconfig.Option{
 		CodeHostID: codehostID,
 	}
-	ch, err := codehost.GetCodeHostInfo(opt)
+	ch, err := systemconfig.GetCodeHostInfo(opt)
 	if err != nil {
 		return nil, err
 	}
@@ -218,18 +183,6 @@ func GetLatestPrCommit(codehostID, pr int, namespace, projectName string, log *z
 			AuthorName:  change.Revisions[change.CurrentRevision].Uploader.Name,
 			CreatedAt:   &tm,
 			CheckoutRef: change.Revisions[change.CurrentRevision].Ref,
-		}, nil
-	} else if ch.Type == setting.SourceFromIlyshin {
-		client := ilyshin.NewClient(ch.Address, ch.AccessToken)
-		commit, err := client.GetLatestPRCommitList(projectID, pr, log)
-		if err != nil {
-			return nil, err
-		}
-		return &PRCommit{
-			ID:         commit.ID,
-			Title:      commit.Title,
-			AuthorName: commit.AuthorName,
-			CreatedAt:  commit.CreatedAt,
 		}, nil
 	}
 	return GetLatestPRCommitList(cli, projectID, pr)

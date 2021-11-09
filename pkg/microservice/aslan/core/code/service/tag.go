@@ -23,19 +23,18 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
-	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/codehub"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
 	"github.com/koderover/zadig/pkg/tool/git/gitlab"
-	"github.com/koderover/zadig/pkg/tool/ilyshin"
 )
 
 func CodeHostListTags(codeHostID int, projectName string, namespace string, log *zap.SugaredLogger) ([]*Tag, error) {
-	opt := &codehost.Option{
+	opt := &systemconfig.Option{
 		CodeHostID: codeHostID,
 	}
-	ch, err := codehost.GetCodeHostInfo(opt)
+	ch, err := systemconfig.GetCodeHostInfo(opt)
 	if err != nil {
 		log.Error(err)
 		return nil, e.ErrCodehostListTags.AddDesc("git client is nil")
@@ -49,13 +48,6 @@ func CodeHostListTags(codeHostID int, projectName string, namespace string, log 
 		}
 
 		tags, err := client.ListTags(namespace, projectName, nil)
-		if err != nil {
-			return nil, err
-		}
-		return ToTags(tags), nil
-	} else if ch.Type == CodeHostIlyshin {
-		client := ilyshin.NewClient(ch.Address, ch.AccessToken)
-		tags, err := client.ListTags(namespace, projectName, log)
 		if err != nil {
 			return nil, err
 		}

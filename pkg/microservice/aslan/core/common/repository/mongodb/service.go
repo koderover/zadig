@@ -96,6 +96,10 @@ func (c *ServiceColl) EnsureIndex(ctx context.Context) error {
 			Options: options.Index().SetUnique(false),
 		},
 		{
+			Keys:    bson.M{"revision": 1},
+			Options: options.Index().SetUnique(false),
+		},
+		{
 			Keys: bson.D{
 				bson.E{Key: "service_name", Value: 1},
 				bson.E{Key: "type", Value: 1},
@@ -157,10 +161,12 @@ func (c *ServiceColl) ListMaxRevisionsForServices(services []*templatemodels.Ser
 }
 
 func (c *ServiceColl) ListMaxRevisionsByProduct(productName string) ([]*models.Service, error) {
-	return c.listMaxRevisions(bson.M{
+	m := bson.M{
 		"product_name": productName,
 		"status":       bson.M{"$ne": setting.ProductStatusDeleting},
-	}, nil)
+	}
+
+	return c.listMaxRevisions(m, nil)
 }
 
 // Find 根据service_name和type查询特定版本的配置模板
@@ -172,15 +178,14 @@ func (c *ServiceColl) Find(opt *ServiceFindOption) (*models.Service, error) {
 	if opt.ServiceName == "" {
 		return nil, fmt.Errorf("ServiceName is empty")
 	}
-	if opt.ProductName == "" {
-		return nil, fmt.Errorf("ProductName is empty")
-	}
 
 	query := bson.M{}
 	query["service_name"] = opt.ServiceName
-	query["product_name"] = opt.ProductName
-	service := new(models.Service)
+	if opt.ProductName != "" {
+		query["product_name"] = opt.ProductName
+	}
 
+	service := new(models.Service)
 	if opt.Type != "" {
 		query["type"] = opt.Type
 	}
@@ -270,6 +275,99 @@ func (c *ServiceColl) Update(args *models.Service) error {
 	}
 	change := bson.M{"$set": changeMap}
 	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
+// ListExternalServicesBy list service only for external services  ,other service type not use  before refactor
+func (c *ServiceColl) ListExternalWorkloadsBy(productName, envName string, serviceNames ...string) ([]*models.Service, error) {
+	services := make([]*models.Service, 0)
+	query := bson.M{
+		"status": bson.M{"$ne": setting.ProductStatusDeleting},
+	}
+	if productName != "" {
+		query["product_name"] = productName
+	}
+	if envName != "" {
+		query["env_name"] = envName
+	}
+
+	if len(serviceNames) > 0 {
+		query["service_name"] = bson.M{"$in": serviceNames}
+	}
+	ctx := context.Background()
+	cursor, err := c.Collection.Find(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cursor.All(ctx, &services)
+	if err != nil {
+		return nil, err
+	}
+	return services, nil
+}
+
+func (c *ServiceColl) BatchUpdateExternalServicesStatus(productName, envName, status string, serviceNames []string) error {
+	if productName == "" {
+		return fmt.Errorf("productName is empty")
+	}
+
+	if len(serviceNames) == 0 {
+		return fmt.Errorf("servicenNames is empty")
+	}
+
+	query := bson.M{"product_name": productName, "service_name": bson.M{"$in": serviceNames}}
+	if envName != "" {
+		query["env_name"] = envName
+	}
+
+	change := bson.M{"$set": bson.M{
+		"status": status,
+	}}
+
+	_, err := c.UpdateMany(context.TODO(), query, change)
+	return err
+}
+
+// UpdateExternalServiceEnvName only used by external services
+func (c *ServiceColl) UpdateExternalServiceEnvName(serviceName, productName, envName string) error {
+	if serviceName == "" {
+		return fmt.Errorf("serviceName is empty")
+	}
+	if productName == "" {
+		return fmt.Errorf("productName is empty")
+	}
+
+	query := bson.M{"service_name": serviceName, "product_name": productName}
+	change := bson.M{"$set": bson.M{
+		"env_name": envName,
+	}}
+
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
+// UpdateExternalServicesStatus only used by external services
+func (c *ServiceColl) UpdateExternalServicesStatus(serviceName, productName, status, envName string) error {
+	if serviceName == "" && envName == "" {
+		return fmt.Errorf("serviceName and envName can't  be both empty")
+	}
+	if productName == "" {
+		return fmt.Errorf("productName is empty")
+	}
+
+	query := bson.M{"product_name": productName}
+	if serviceName != "" {
+		query["service_name"] = serviceName
+	}
+	if envName != "" {
+		query["env_name"] = envName
+	}
+	change := bson.M{"$set": bson.M{
+		"status": status,
+	}}
+
+	_, err := c.UpdateMany(context.TODO(), query, change)
 	return err
 }
 
@@ -399,6 +497,15 @@ func (c *ServiceColl) Count(productName string) (int, error) {
 	}
 
 	return cs[0].Count, nil
+}
+
+func (c *ServiceColl) GetTemplateReference(templateID string) ([]*models.Service, error) {
+	query := bson.M{
+		"template_id": templateID,
+		"status":      bson.M{"$ne": setting.ProductStatusDeleting},
+	}
+
+	return c.listMaxRevisions(query, nil)
 }
 
 func (c *ServiceColl) listMaxRevisions(preMatch, postMatch bson.M) ([]*models.Service, error) {

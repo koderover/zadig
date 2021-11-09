@@ -96,10 +96,13 @@ func SaveAndUploadServiceWithRevision(projectName, serviceName string, fileTree 
 
 func preLoadServiceManifestsFromSource(svc *commonmodels.Service) error {
 	tree, err := fsservice.DownloadFilesFromSource(
-		&fsservice.DownloadFromSourceArgs{CodehostID: svc.CodehostID, Owner: svc.RepoOwner, Repo: svc.RepoName, Path: svc.LoadPath, Branch: svc.BranchName},
+		&fsservice.DownloadFromSourceArgs{CodehostID: svc.CodehostID, Owner: svc.RepoOwner, Repo: svc.RepoName, Path: svc.LoadPath, Branch: svc.BranchName, RepoLink: svc.SrcPath},
 		func(afero.Fs) (string, error) {
 			return svc.ServiceName, nil
 		})
+	if err != nil {
+		return err
+	}
 
 	// save files to disk and upload them to s3
 	if err = SaveAndUploadService(svc.ProductName, svc.ServiceName, tree); err != nil {

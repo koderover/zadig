@@ -23,12 +23,11 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
-	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/codehub"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
 	"github.com/koderover/zadig/pkg/tool/git/gitlab"
-	"github.com/koderover/zadig/pkg/tool/ilyshin"
 )
 
 const (
@@ -39,14 +38,13 @@ const (
 	page            = 1
 	perPage         = 100
 	CodeHostCodeHub = "codehub"
-	CodeHostIlyshin = "ilyshin"
 )
 
 func CodeHostListNamespaces(codeHostID int, keyword string, log *zap.SugaredLogger) ([]*Namespace, error) {
-	opt := &codehost.Option{
+	opt := &systemconfig.Option{
 		CodeHostID: codeHostID,
 	}
-	ch, err := codehost.GetCodeHostInfo(opt)
+	ch, err := systemconfig.GetCodeHostInfo(opt)
 	if err != nil {
 		return nil, e.ErrCodehostListNamespaces.AddDesc("git client is nil")
 	}
@@ -59,13 +57,6 @@ func CodeHostListNamespaces(codeHostID int, keyword string, log *zap.SugaredLogg
 		}
 
 		nsList, err := client.ListNamespaces(keyword, nil)
-		if err != nil {
-			return nil, err
-		}
-		return ToNamespaces(nsList), nil
-	} else if ch.Type == CodeHostIlyshin {
-		client := ilyshin.NewClient(ch.Address, ch.AccessToken)
-		nsList, err := client.ListNamespaces(keyword, log)
 		if err != nil {
 			return nil, err
 		}

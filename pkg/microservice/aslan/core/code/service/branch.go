@@ -23,19 +23,18 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
-	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/codehub"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
 	"github.com/koderover/zadig/pkg/tool/git/gitlab"
-	"github.com/koderover/zadig/pkg/tool/ilyshin"
 )
 
 func CodeHostListBranches(codeHostID int, projectName, namespace string, log *zap.SugaredLogger) ([]*Branch, error) {
-	opt := &codehost.Option{
+	opt := &systemconfig.Option{
 		CodeHostID: codeHostID,
 	}
-	ch, err := codehost.GetCodeHostInfo(opt)
+	ch, err := systemconfig.GetCodeHostInfo(opt)
 	if err != nil {
 		return nil, e.ErrCodehostListBranches.AddDesc("git client is nil")
 	}
@@ -48,13 +47,6 @@ func CodeHostListBranches(codeHostID int, projectName, namespace string, log *za
 		}
 
 		brList, err := client.ListBranches(namespace, projectName, nil)
-		if err != nil {
-			return nil, err
-		}
-		return ToBranches(brList), nil
-	} else if ch.Type == CodeHostIlyshin {
-		client := ilyshin.NewClient(ch.Address, ch.AccessToken)
-		brList, err := client.ListBranches(namespace, projectName, log)
 		if err != nil {
 			return nil, err
 		}

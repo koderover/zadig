@@ -20,14 +20,11 @@ import (
 	"github.com/gin-gonic/gin"
 
 	gin2 "github.com/koderover/zadig/pkg/middleware/gin"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 type Router struct{}
 
 func (*Router) Inject(router *gin.RouterGroup) {
-	router.Use(gin2.Auth())
-
 	harbor := router.Group("harbor")
 	{
 		harbor.GET("/project", ListHarborProjects)
@@ -42,8 +39,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		helm.GET("/:productName/:serviceName/serviceModule", GetHelmServiceModule)
 		helm.GET("/:productName/:serviceName/filePath", GetFilePath)
 		helm.GET("/:productName/:serviceName/fileContent", GetFileContent)
-		helm.POST("/:productName", gin2.IsHavePermission([]string{permission.ServiceTemplateManageUUID}, permission.ParamType), CreateHelmService)
-		helm.PUT("/:productName", gin2.IsHavePermission([]string{permission.ServiceTemplateManageUUID}, permission.ParamType), UpdateHelmService)
+		helm.POST("/services", CreateOrUpdateHelmService)
+		helm.POST("/services/bulk", CreateOrUpdateBulkHelmServices)
+		helm.PUT("/:productName", UpdateHelmService)
 	}
 
 	k8s := router.Group("services")
@@ -51,11 +49,18 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		k8s.GET("", ListServiceTemplate)
 		k8s.GET("/:name/:type", GetServiceTemplate)
 		k8s.GET("/:name", GetServiceTemplateOption)
-		k8s.POST("", GetServiceTemplateProductName, gin2.IsHavePermission([]string{permission.ServiceTemplateManageUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, CreateServiceTemplate)
-		k8s.PUT("", GetServiceTemplateObjectProductName, gin2.IsHavePermission([]string{permission.ServiceTemplateManageUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, UpdateServiceTemplate)
+		k8s.POST("", GetServiceTemplateProductName, gin2.UpdateOperationLogStatus, CreateServiceTemplate)
+		k8s.PUT("", GetServiceTemplateObjectProductName, gin2.UpdateOperationLogStatus, UpdateServiceTemplate)
 		k8s.PUT("/yaml/validator", YamlValidator)
-		k8s.DELETE("/:name/:type", gin2.IsHavePermission([]string{permission.ServiceTemplateDeleteUUID}, permission.QueryType), gin2.UpdateOperationLogStatus, DeleteServiceTemplate)
+		k8s.DELETE("/:name/:type", gin2.UpdateOperationLogStatus, DeleteServiceTemplate)
 		k8s.GET("/:name/:type/ports", ListServicePort)
+	}
+
+	workload := router.Group("workloads")
+	{
+		workload.POST("", CreateK8sWorkloads)
+		workload.GET("", ListWorkloadTemplate)
+		workload.PUT("", UpdateWorkloads)
 	}
 
 	name := router.Group("name")
@@ -72,7 +77,13 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 	pm := router.Group("pm")
 	{
-		pm.POST("/:productName", gin2.IsHavePermission([]string{permission.ServiceTemplateManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, CreatePMService)
-		pm.PUT("/:productName", gin2.IsHavePermission([]string{permission.ServiceTemplateManageUUID}, permission.ParamType), gin2.UpdateOperationLogStatus, UpdatePmServiceTemplate)
+		pm.POST("/:productName", gin2.UpdateOperationLogStatus, CreatePMService)
+		pm.PUT("/:productName", gin2.UpdateOperationLogStatus, UpdatePmServiceTemplate)
+	}
+
+	template := router.Group("template")
+	{
+		template.POST("/load", LoadServiceFromYamlTemplate)
+		template.POST("/reload", ReloadServiceFromYamlTemplate)
 	}
 }

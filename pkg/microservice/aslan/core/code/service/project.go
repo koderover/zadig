@@ -23,19 +23,18 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
-	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/codehub"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
 	"github.com/koderover/zadig/pkg/tool/git/gitlab"
-	"github.com/koderover/zadig/pkg/tool/ilyshin"
 )
 
 func CodeHostListProjects(codeHostID int, namespace, namespaceType, keyword string, log *zap.SugaredLogger) ([]*Project, error) {
-	opt := &codehost.Option{
+	opt := &systemconfig.Option{
 		CodeHostID: codeHostID,
 	}
-	ch, err := codehost.GetCodeHostInfo(opt)
+	ch, err := systemconfig.GetCodeHostInfo(opt)
 	if err != nil {
 		log.Error(err)
 		return nil, e.ErrCodehostListProjects.AddDesc("git client is nil")
@@ -64,14 +63,6 @@ func CodeHostListProjects(codeHostID int, namespace, namespaceType, keyword stri
 		}
 		return ToProjects(projects), nil
 
-	} else if ch.Type == CodeHostIlyshin {
-		cli := ilyshin.NewClient(ch.Address, ch.AccessToken)
-		projects, err := cli.ListGroupProjects(namespace, keyword, log)
-		if err != nil {
-			log.Error(err)
-			return nil, e.ErrCodehostListProjects.AddDesc(err.Error())
-		}
-		return ToProjects(projects), nil
 	} else if ch.Type == gerrit.CodehostTypeGerrit {
 		cli := gerrit.NewClient(ch.Address, ch.AccessToken)
 		projects, err := cli.ListProjectsByKey(keyword)

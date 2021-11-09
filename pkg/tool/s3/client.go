@@ -19,7 +19,6 @@ package s3
 import (
 	"fmt"
 	"os"
-	"path"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -84,7 +83,7 @@ func (c *Client) Download(bucketName, objectKey, dest string) error {
 		obj, err1 := c.GetObject(opt)
 		if err1 != nil {
 			if e, ok := err1.(awserr.Error); ok && e.Code() == s3.ErrCodeNoSuchKey {
-				return err
+				return err1
 			}
 
 			log.Warnf("Failed to get object %s from s3, try again, err: %s", objectKey, err1)
@@ -211,8 +210,7 @@ func (c *Client) ListFiles(bucketName, prefix string, recursive bool) ([]string,
 
 	for _, item := range output.Contents {
 		itemKey := *item.Key
-		_, fileName := path.Split(itemKey)
-		ret = append(ret, fileName)
+		ret = append(ret, itemKey)
 	}
 
 	return ret, nil

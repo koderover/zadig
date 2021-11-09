@@ -24,7 +24,6 @@ import (
 
 type RegistryNamespace struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty"               json:"id,omitempty"`
-	OrgID       int                `bson:"org_id"                      json:"org_id"`
 	RegAddr     string             `bson:"reg_addr"                    json:"reg_addr"`
 	RegType     string             `bson:"reg_type"                    json:"reg_type"`
 	RegProvider string             `bson:"reg_provider"                json:"reg_provider"`
@@ -38,9 +37,6 @@ type RegistryNamespace struct {
 }
 
 func (ns *RegistryNamespace) Validate() error {
-	if ns.OrgID == 0 {
-		return errors.New("empty org_id")
-	}
 
 	if ns.RegAddr == "" {
 		return errors.New("empty reg_addr")

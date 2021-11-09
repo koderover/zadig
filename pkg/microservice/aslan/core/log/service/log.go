@@ -106,8 +106,7 @@ func getContainerLogFromS3(pipelineName, filenamePrefix string, taskID int64, lo
 	if len(fileList) == 0 {
 		return "", nil
 	}
-	objectKey := storage.GetObjectPath(fileList[0])
-	err = client.Download(storage.Bucket, objectKey, tempFile)
+	err = client.Download(storage.Bucket, fileList[0], tempFile)
 	if err != nil {
 		log.Errorf("GetContainerLogFromS3 Download err:%v", err)
 		return "", err
@@ -121,25 +120,24 @@ func getContainerLogFromS3(pipelineName, filenamePrefix string, taskID int64, lo
 	return string(containerLog), nil
 }
 
-func GetCurrentContainerLogs(podName, containerName, envName, productName string, tail int64, log *zap.SugaredLogger) (string, error) {
-
-	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName})
+func GetCurrentContainerLogs(podName, containerName, envName, productName string, tailLines int64, log *zap.SugaredLogger) (string, error) {
+	env, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName})
 	if err != nil {
-		log.Errorf("commonrepo.NewProductColl().Find error: %v", err)
+		log.Errorf("Failed to find env %s in project %s, err: %s", envName, productName, err)
 		return "", err
 	}
-	clientSet, err := kube.GetClientset(productInfo.ClusterID)
+	clientset, err := kube.GetClientset(env.ClusterID)
 	if err != nil {
-		log.Errorf("kube.GetClientset error: %v", err)
+		log.Errorf("Failed to get kube client, err: %s", err)
 		return "", err
 	}
 
 	buf := new(bytes.Buffer)
-	err = containerlog.GetContainerLogs(envName, podName, containerName, false, tail, buf, clientSet)
+	err = containerlog.GetContainerLogs(env.Namespace, podName, containerName, false, tailLines, buf, clientset)
 	if err != nil {
-		log.Errorf("containerlog.GetContainerLogs error: %v", err)
+		log.Errorf("Failed to get container logs, err: %s", err)
 		return "", err
 	}
-	str := buf.String()
-	return str, nil
+
+	return buf.String(), nil
 }

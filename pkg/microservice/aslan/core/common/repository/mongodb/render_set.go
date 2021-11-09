@@ -39,8 +39,8 @@ type RenderSetListOption struct {
 // RenderSetFindOption ...
 type RenderSetFindOption struct {
 	// if Revision == 0 then search max revision of RenderSet
-	Revision int64
-	Name     string
+	Revision       int64
+	Name           string
 }
 
 type RenderSetPipeResp struct {
@@ -136,7 +136,7 @@ func (c *RenderSetColl) FindRenderSet(opt *RenderSetFindOption) (*models.RenderS
 
 func (c *RenderSetColl) Find(opt *RenderSetFindOption) (*models.RenderSet, error) {
 	if opt == nil {
-		return nil, errors.New("RenderSetFindOption cannot be ni")
+		return nil, errors.New("RenderSetFindOption cannot be nil")
 	}
 
 	query := bson.M{"name": opt.Name}

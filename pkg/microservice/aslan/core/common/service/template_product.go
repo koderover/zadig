@@ -18,19 +18,20 @@ package service
 
 import (
 	"fmt"
-	"strings"
 	"sync"
 
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collie"
-	"github.com/koderover/zadig/pkg/microservice/aslan/internal/cache"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/poetry"
+	configclient "github.com/koderover/zadig/pkg/shared/config"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
@@ -51,15 +52,11 @@ func GetProductTemplate(productName string, log *zap.SugaredLogger) (*template.P
 	}
 
 	totalFreeStyles := make([]*collie.CiPipelineResource, 0)
-	features, err := GetFeatures(log)
-	if err != nil {
-		log.Errorf("GetProductTemplate GetFeatures err : %v", err)
-	}
-
-	if strings.Contains(features, string(config.FreestyleType)) {
+	cl := configclient.New(configbase.ConfigServiceAddress())
+	if enable, err := cl.CheckFeature(setting.ModernWorkflowType); err == nil && enable {
 		// CI场景onboarding流程处于第二步时，需要返回ci工作流id，用于前端跳转
 		collieAPIAddress := config.CollieAPIAddress()
-		cl := collie.New(collieAPIAddress, config.PoetryAPIRootKey())
+		cl := collie.New(collieAPIAddress)
 		if resp.ProductFeature != nil && resp.ProductFeature.DevelopHabit == "yaml" && resp.OnboardingStatus == setting.OnboardingStatusSecond && collieAPIAddress != "" {
 			ciPipelines, err := cl.ListCIPipelines(productName, log)
 			if err != nil {
@@ -77,9 +74,24 @@ func GetProductTemplate(productName string, log *zap.SugaredLogger) (*template.P
 		return nil, fmt.Errorf("FillProductTemplateVars err : %v", err)
 	}
 
-	totalServices, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
-	if err != nil {
-		return resp, fmt.Errorf("DistinctServices err : %v", err)
+	var totalServices []*models.Service
+	if resp.ProductFeature != nil && resp.ProductFeature.CreateEnvType == setting.SourceFromExternal {
+		totalServices, err = commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, "")
+		if err != nil {
+			return resp, fmt.Errorf("ListExternalWorkloadsBy err : %s", err)
+		}
+		serviceNamesSet := sets.NewString()
+		for _, service := range totalServices {
+			serviceNamesSet.Insert(service.ServiceName)
+		}
+		if len(resp.Services) > 0 {
+			resp.Services[0] = serviceNamesSet.List()
+		}
+	} else {
+		totalServices, err = commonrepo.NewServiceColl().ListMaxRevisionsByProduct(productName)
+		if err != nil {
+			return resp, fmt.Errorf("ListMaxRevisionsByProduct err : %s", err)
+		}
 	}
 
 	totalBuilds, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{ProductName: productName, IsSort: true})
@@ -92,7 +104,7 @@ func GetProductTemplate(productName string, log *zap.SugaredLogger) (*template.P
 		return resp, fmt.Errorf("Testing.List err : %v", err)
 	}
 
-	totalEnvs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName, IsSort: true})
+	totalEnvs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName, IsSortByUpdateTime: true})
 	if err != nil {
 		return resp, fmt.Errorf("Product.List err : %v", err)
 	}
@@ -107,9 +119,9 @@ func GetProductTemplate(productName string, log *zap.SugaredLogger) (*template.P
 		return resp, fmt.Errorf("Pipeline.List err : %v", err)
 	}
 
-	if strings.Contains(features, string(config.FreestyleType)) {
+	if enable, err := cl.CheckFeature(setting.ModernWorkflowType); err == nil && enable {
 		collieAPIAddress := config.CollieAPIAddress()
-		cl := collie.New(collieAPIAddress, config.PoetryAPIRootKey())
+		cl := collie.New(collieAPIAddress)
 		totalFreeStyles, err = cl.ListCIPipelines(productName, log)
 		if err != nil {
 			log.Errorf("GetProductTemplate freestyle.List err : %v", err)
@@ -125,10 +137,11 @@ func GetProductTemplate(productName string, log *zap.SugaredLogger) (*template.P
 	if len(totalServices) > 0 {
 		serviceObj, err := GetServiceTemplate(totalServices[0].ServiceName, totalServices[0].Type, productName, setting.ProductStatusDeleting, totalServices[0].Revision, log)
 		if err != nil {
-			return resp, fmt.Errorf("GetServiceTemplate err : %v", err)
+			log.Errorf("GetServiceTemplate err : %s", err)
+		} else {
+			resp.LatestServiceUpdateTime = serviceObj.CreateTime
+			resp.LatestServiceUpdateBy = serviceObj.CreateBy
 		}
-		resp.LatestServiceUpdateTime = serviceObj.CreateTime
-		resp.LatestServiceUpdateBy = serviceObj.CreateBy
 	}
 	resp.TotalBuildNum = len(totalBuilds)
 	if len(totalBuilds) > 0 {
@@ -154,26 +167,6 @@ func GetProductTemplate(productName string, log *zap.SugaredLogger) (*template.P
 	resp.TotalEnvTemplateServiceNum = totalEnvTemplateServiceNum
 
 	return resp, nil
-}
-
-func GetFeatures(log *zap.SugaredLogger) (string, error) {
-	featuresByteKey := []byte("features")
-	featuresByteValue, err := cache.Get(featuresByteKey)
-	if err != nil {
-		poetryCtl := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
-		fs, err := poetryCtl.ListFeatures()
-		if err != nil {
-			return "", err
-		}
-		cacheValue := strings.Join(fs, ",")
-		// 一天过期
-		if err = cache.Set(featuresByteKey, []byte(cacheValue), 86400); err != nil {
-			log.Errorf("getFeatures set cache err:%v", err)
-		}
-		return cacheValue, nil
-	}
-
-	return string(featuresByteValue), nil
 }
 
 func FillProductTemplateVars(productTemplates []*template.Product, log *zap.SugaredLogger) error {

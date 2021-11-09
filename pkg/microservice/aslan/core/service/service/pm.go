@@ -90,7 +90,7 @@ func CreatePMService(username string, args *ServiceTmplBuildObject, log *zap.Sug
 	}
 
 	// Confirm whether the build exists
-	build, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: args.Build.Name})
+	build, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: args.Build.Name, ProductName: args.Build.ProductName})
 	if err != nil {
 		if err := commonservice.CreateBuild(username, args.Build, log); err != nil {
 			log.Errorf("pmService.Create build %s error: %v", args.Build.Name, err)

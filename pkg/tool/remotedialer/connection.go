@@ -17,20 +17,15 @@ limitations under the License.
 package remotedialer
 
 import (
-	"errors"
 	"io"
 	"net"
-	"sync"
 	"time"
 )
 
 type connection struct {
-	sync.Mutex
-
 	err           error
 	writeDeadline time.Time
-	buf           chan []byte
-	readBuf       []byte
+	buffer        *readBuffer
 	addr          addr
 	session       *Session
 	connID        int64
@@ -38,13 +33,13 @@ type connection struct {
 
 func newConnection(connID int64, session *Session, proto, address string) *connection {
 	c := &connection{
+		buffer: newReadBuffer(),
 		addr: addr{
 			proto:   proto,
 			address: address,
 		},
 		connID:  connID,
 		session: session,
-		buf:     make(chan []byte, 1024),
 	}
 	return c
 }
@@ -55,9 +50,6 @@ func (c *connection) tunnelClose(err error) {
 }
 
 func (c *connection) doTunnelClose(err error) {
-	c.Lock()
-	defer c.Unlock()
-
 	if c.err != nil {
 		return
 	}
@@ -67,11 +59,11 @@ func (c *connection) doTunnelClose(err error) {
 		c.err = io.ErrClosedPipe
 	}
 
-	close(c.buf)
+	c.buffer.Close(c.err)
 }
 
-func (c *connection) tunnelWriter() io.Writer {
-	return chanWriter{conn: c, C: c.buf}
+func (c *connection) OnData(m *message) error {
+	return c.buffer.Offer(m.body)
 }
 
 func (c *connection) Close() error {
@@ -79,56 +71,23 @@ func (c *connection) Close() error {
 	return nil
 }
 
-func (c *connection) copyData(b []byte) int {
-	n := copy(b, c.readBuf)
-	c.readBuf = c.readBuf[n:]
-	return n
-}
-
 func (c *connection) Read(b []byte) (int, error) {
-	if len(b) == 0 {
-		return 0, nil
-	}
-
-	n := c.copyData(b)
-	if n > 0 {
-		return n, nil
-	}
-
-	next, ok := <-c.buf
-	if !ok {
-		err := io.EOF
-		c.Lock()
-		if c.err != nil {
-			err = c.err
-		}
-		c.Unlock()
-		return 0, err
-	}
-
-	c.readBuf = next
-	n = c.copyData(b)
-	return n, nil
+	n, err := c.buffer.Read(b)
+	return n, err
 }
 
 func (c *connection) Write(b []byte) (int, error) {
-	c.Lock()
 	if c.err != nil {
-		defer c.Unlock()
-		return 0, c.err
+		return 0, io.ErrClosedPipe
 	}
-	c.Unlock()
-
-	deadline := int64(0)
-	if !c.writeDeadline.IsZero() {
-		deadline = time.Until(c.writeDeadline).Nanoseconds() / 1000000
-	}
-	return c.session.writeMessage(newMessage(c.connID, deadline, b))
+	msg := newMessage(c.connID, b)
+	return c.session.writeMessage(c.writeDeadline, msg)
 }
 
 func (c *connection) writeErr(err error) {
 	if err != nil {
-		c.session.writeMessage(newErrorMessage(c.connID, err))
+		msg := newErrorMessage(c.connID, err)
+		c.session.writeMessage(c.writeDeadline, msg)
 	}
 }
 
@@ -148,6 +107,7 @@ func (c *connection) SetDeadline(t time.Time) error {
 }
 
 func (c *connection) SetReadDeadline(t time.Time) error {
+	c.buffer.deadline = t
 	return nil
 }
 
@@ -167,35 +127,4 @@ func (a addr) Network() string {
 
 func (a addr) String() string {
 	return a.address
-}
-
-type chanWriter struct {
-	conn *connection
-	C    chan []byte
-}
-
-func (c chanWriter) Write(buf []byte) (int, error) {
-	c.conn.Lock()
-	defer c.conn.Unlock()
-
-	if c.conn.err != nil {
-		return 0, c.conn.err
-	}
-
-	newBuf := make([]byte, len(buf))
-	copy(newBuf, buf)
-	buf = newBuf
-
-	select {
-	// must copy the buffer
-	case c.C <- buf:
-		return len(buf), nil
-	default:
-		select {
-		case c.C <- buf:
-			return len(buf), nil
-		case <-time.After(15 * time.Second):
-			return 0, errors.New("backed up reader")
-		}
-	}
 }

@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -35,13 +36,16 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehub"
 	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/shared/codehost"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -254,10 +258,10 @@ func FmtBuilds(builds []*types.Repository, log *zap.SugaredLogger) {
 			log.Error("codehostID can't be empty")
 			return
 		}
-		opt := &codehost.Option{
+		opt := &systemconfig.Option{
 			CodeHostID: cID,
 		}
-		detail, err := codehost.GetCodeHostInfo(opt)
+		detail, err := systemconfig.GetCodeHostInfo(opt)
 		if err != nil {
 			log.Error(err)
 			return
@@ -302,15 +306,15 @@ func SetTriggerBuilds(builds []*types.Repository, buildArgs []*types.Repository,
 }
 
 func setBuildInfo(build *types.Repository, log *zap.SugaredLogger) {
-	opt := &codehost.Option{
+	opt := &systemconfig.Option{
 		CodeHostID: build.CodehostID,
 	}
-	codeHostInfo, err := codehost.GetCodeHostInfo(opt)
+	codeHostInfo, err := systemconfig.GetCodeHostInfo(opt)
 	if err != nil {
 		log.Errorf("failed to get codehost detail %d %v", build.CodehostID, err)
 		return
 	}
-	if codeHostInfo.Type == codehost.GitLabProvider || codeHostInfo.Type == codehost.GerritProvider || codeHostInfo.Type == codehost.IlyshinProvider {
+	if codeHostInfo.Type == codehost.GitLabProvider || codeHostInfo.Type == codehost.GerritProvider {
 		if build.CommitID == "" {
 			var commit *RepoCommit
 			var pr *PRCommit
@@ -319,7 +323,7 @@ func setBuildInfo(build *types.Repository, log *zap.SugaredLogger) {
 				commit, err = QueryByTag(build.CodehostID, build.RepoOwner, build.RepoName, build.Tag, log)
 			} else if build.Branch != "" && build.PR == 0 {
 				commit, err = QueryByBranch(build.CodehostID, build.RepoOwner, build.RepoName, build.Branch, log)
-			} else if build.Branch != "" && build.PR > 0 {
+			} else if build.PR > 0 {
 				pr, err = GetLatestPrCommit(build.CodehostID, build.PR, build.RepoOwner, build.RepoName, log)
 				if err == nil && pr != nil {
 					commit = &RepoCommit{
@@ -383,7 +387,7 @@ func setBuildInfo(build *types.Repository, log *zap.SugaredLogger) {
 						}
 					}
 				}
-			} else if build.Branch != "" && build.PR > 0 {
+			} else if build.PR > 0 {
 				opt := &github.ListOptions{Page: 1, PerPage: 100}
 				prCommits, _, err := gitCli.PullRequests.ListCommits(context.Background(), build.RepoOwner, build.RepoName, build.PR, opt)
 				sort.SliceStable(prCommits, func(i, j int) bool {
@@ -483,52 +487,119 @@ func setManunalBuilds(builds []*types.Repository, buildArgs []*types.Repository,
 	return nil
 }
 
-// releaseCandidateTag 根据 TaskID 生成编译镜像Tag或者二进制包后缀
+// releaseCandidate 根据 TaskID 生成编译镜像Tag或者二进制包后缀
 // TODO: max length of a tag is 128
-func releaseCandidateTag(b *task.Build, taskID int64) string {
+func releaseCandidate(b *task.Build, taskID int64, productName, envName, deliveryType string) string {
 	timeStamp := time.Now().Format("20060102150405")
-
-	if len(b.JobCtx.Builds) > 0 {
-		first := b.JobCtx.Builds[0]
-		for index, build := range b.JobCtx.Builds {
-			if build.IsPrimary {
-				first = b.JobCtx.Builds[index]
-			}
-		}
-
-		// 替换 Tag 和 Branch 中的非法字符为 "-", 避免 docker build 失败
-		var (
-			reg    = regexp.MustCompile(`[^\w.-]`)
-			tag    = string(reg.ReplaceAll([]byte(first.Tag), []byte("-")))
-			branch = string(reg.ReplaceAll([]byte(first.Branch), []byte("-")))
-		)
-
-		if tag != "" {
-			return fmt.Sprintf("%s-%s", timeStamp, tag)
-		}
-		if branch != "" && first.PR != 0 {
-			return fmt.Sprintf("%s-%d-%s-pr-%d", timeStamp, taskID, branch, first.PR)
-		}
-		if branch == "" && first.PR != 0 {
-			return fmt.Sprintf("%s-%d-pr-%d", timeStamp, taskID, first.PR)
-		}
-		if branch != "" && first.PR == 0 {
-			return fmt.Sprintf("%s-%d-%s", timeStamp, taskID, branch)
+	if len(b.JobCtx.Builds) == 0 {
+		switch deliveryType {
+		case config.TarResourceType:
+			return fmt.Sprintf("%s-%s", b.ServiceName, timeStamp)
+		default:
+			return fmt.Sprintf("%s:%s", b.ServiceName, timeStamp)
 		}
 	}
-	return timeStamp
+
+	first := b.JobCtx.Builds[0]
+	for index, build := range b.JobCtx.Builds {
+		if build.IsPrimary {
+			first = b.JobCtx.Builds[index]
+		}
+	}
+
+	// 替换 Tag 和 Branch 中的非法字符为 "-", 避免 docker build 失败
+	var (
+		reg             = regexp.MustCompile(`[^\w.-]`)
+		customImageRule *template.CustomRule
+		customTarRule   *template.CustomRule
+	)
+
+	if project, err := templaterepo.NewProductColl().Find(productName); err != nil {
+		log.Errorf("find project err:%s", err)
+	} else {
+		customImageRule = project.CustomImageRule
+		customTarRule = project.CustomTarRule
+	}
+
+	candidate := &candidate{
+		Branch:      string(reg.ReplaceAll([]byte(first.Branch), []byte("-"))),
+		CommitID:    first.CommitID,
+		PR:          first.PR,
+		Tag:         string(reg.ReplaceAll([]byte(first.Tag), []byte("-"))),
+		EnvName:     envName,
+		Timestamp:   timeStamp,
+		TaskID:      taskID,
+		ProductName: productName,
+		ServiceName: b.ServiceName,
+	}
+	switch deliveryType {
+	case config.TarResourceType:
+		newTarRule := replaceVariable(customTarRule, candidate)
+		if strings.Contains(newTarRule, ":") {
+			return strings.Replace(newTarRule, ":", "-", -1)
+		}
+		return newTarRule
+	default:
+		return replaceVariable(customImageRule, candidate)
+	}
+}
+
+type candidate struct {
+	Branch      string
+	Tag         string
+	CommitID    string
+	PR          int
+	TaskID      int64
+	Timestamp   string
+	ProductName string
+	ServiceName string
+	EnvName     string
+}
+
+// There are four situations in total
+// 1.Execute workflow selection tag build
+// 2.Execute workflow selection branch and pr build
+// 3.Execute workflow selection branch pr build
+// 4.Execute workflow selection branch build
+func replaceVariable(customRule *template.CustomRule, candidate *candidate) string {
+	var currentRule string
+	if candidate.Tag != "" {
+		if customRule == nil {
+			return fmt.Sprintf("%s:%s-%s", candidate.ServiceName, candidate.Timestamp, candidate.Tag)
+		}
+		currentRule = customRule.TagRule
+	} else if candidate.Branch != "" && candidate.PR != 0 {
+		if customRule == nil {
+			return fmt.Sprintf("%s:%s-%d-%s-pr-%d", candidate.ServiceName, candidate.Timestamp, candidate.TaskID, candidate.Branch, candidate.PR)
+		}
+		currentRule = customRule.PRAndBranchRule
+	} else if candidate.Branch == "" && candidate.PR != 0 {
+		if customRule == nil {
+			return fmt.Sprintf("%s:%s-%d-pr-%d", candidate.ServiceName, candidate.Timestamp, candidate.TaskID, candidate.PR)
+		}
+		currentRule = customRule.PRRule
+	} else if candidate.Branch != "" && candidate.PR == 0 {
+		if customRule == nil {
+			return fmt.Sprintf("%s:%s-%d-%s", candidate.ServiceName, candidate.Timestamp, candidate.TaskID, candidate.Branch)
+		}
+		currentRule = customRule.BranchRule
+	}
+
+	currentRule = commonservice.ReplaceRuleVariable(currentRule, &commonservice.Variable{
+		candidate.ServiceName, candidate.Timestamp, strconv.FormatInt(candidate.TaskID, 10), candidate.CommitID, candidate.ProductName, candidate.EnvName,
+		candidate.Tag, candidate.Branch, strconv.Itoa(candidate.PR),
+	})
+	return currentRule
 }
 
 // GetImage suffix 可以是 branch name 或者 pr number
-func GetImage(registry *commonmodels.RegistryNamespace, serviceName, suffix string) string {
-	image := fmt.Sprintf("%s/%s/%s:%s", util.GetURLHostName(registry.RegAddr), registry.Namespace, serviceName, suffix)
-	return image
+func GetImage(registry *commonmodels.RegistryNamespace, suffix string) string {
+	return fmt.Sprintf("%s/%s/%s", util.GetURLHostName(registry.RegAddr), registry.Namespace, suffix)
 }
 
 // GetPackageFile suffix 可以是 branch name 或者 pr number
-func GetPackageFile(serviceName, suffix string) string {
-	packageFile := fmt.Sprintf("%s-%s.tar.gz", serviceName, suffix)
-	return packageFile
+func GetPackageFile(suffix string) string {
+	return fmt.Sprintf("%s.tar.gz", suffix)
 }
 
 // prepareTaskEnvs 注入运行pipeline task所需要环境变量
@@ -548,7 +619,6 @@ func prepareTaskEnvs(pt *task.Task, log *zap.SugaredLogger) []*commonmodels.KeyV
 	// 设置编译模块参数化配置信息
 	if pt.BuildModuleVer != "" {
 		opt := &commonrepo.BuildFindOption{
-			Version:     pt.BuildModuleVer,
 			Targets:     []string{pt.Target},
 			ProductName: pt.ProductName,
 		}
@@ -657,8 +727,8 @@ func (c *ImageIllegal) Error() string {
 func validateServiceContainer2(namespace, envName, productName, serviceName, container, source string, kubeClient client.Client) (string, error) {
 	var selector labels.Selector
 
-	//helm类型的服务查询所有标签的pod
-	if source != setting.SourceFromHelm {
+	//helm和托管类型的服务查询所有标签的pod
+	if source != setting.SourceFromHelm && source != setting.SourceFromExternal {
 		selector = labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceName}.AsSelector()
 		//builder := &SelectorBuilder{ProductName: productName, ServiceName: serviceName}
 		//selector = builder.BuildSelector()

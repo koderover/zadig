@@ -78,20 +78,16 @@ func PoetryAPIServer() string {
 	return configbase.PoetryServiceAddress()
 }
 
-func PoetryAPIRootKey() string {
-	return viper.GetString(setting.ENVPoetryAPIRootKey)
-}
-
 func CollieAPIAddress() string {
 	return configbase.CollieServiceAddress()
 }
 
 func MongoURI() string {
-	return viper.GetString(setting.ENVMongoDBConnectionString)
+	return configbase.MongoURI()
 }
 
 func MongoDatabase() string {
-	return viper.GetString(setting.ENVAslanDBName)
+	return configbase.MongoDatabase()
 }
 
 func NsqLookupAddrs() []string {

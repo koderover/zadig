@@ -36,7 +36,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	gerritservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gerrit"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
 	"github.com/koderover/zadig/pkg/util"
@@ -94,7 +94,7 @@ func updateServiceTemplateByGerritEvent(uri string, log *zap.SugaredLogger) erro
 			log.Errorf("updateServiceTemplateByGerritEvent GetServiceTemplate err:%v", err)
 			errs = multierror.Append(errs, err)
 		}
-		detail, err := codehost.GetCodehostDetail(service.GerritCodeHostID)
+		detail, err := systemconfig.GetCodehostDetail(service.GerritCodeHostID)
 		if err != nil {
 			log.Errorf("updateServiceTemplateByGerritEvent GetCodehostDetail err:%v", err)
 			errs = multierror.Append(errs, err)
@@ -228,7 +228,7 @@ func SyncServiceTemplateFromGerrit(service *commonmodels.Service, log *zap.Sugar
 	return nil
 }
 
-func syncGerritLatestCommit(service *commonmodels.Service) (*codehost.Detail, error) {
+func syncGerritLatestCommit(service *commonmodels.Service) (*systemconfig.Detail, error) {
 	if service.GerritCodeHostID == 0 {
 		return nil, fmt.Errorf("codehostId不能是空的")
 	}
@@ -238,7 +238,7 @@ func syncGerritLatestCommit(service *commonmodels.Service) (*codehost.Detail, er
 	if service.GerritBranchName == "" {
 		return nil, fmt.Errorf("branchName不能是空的")
 	}
-	detail, err := codehost.GetCodehostDetail(service.GerritCodeHostID)
+	detail, err := systemconfig.GetCodehostDetail(service.GerritCodeHostID)
 	if err != nil {
 		return nil, err
 	}

@@ -40,12 +40,10 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
-	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 type kubeCfgTmplArgs struct {
@@ -58,75 +56,23 @@ type kubeCfgTmplArgs struct {
 	ClientKeyBase64 string
 }
 
-func GetUserKubeConfig(userName string, userID int, superUser bool, log *zap.SugaredLogger) (string, error) {
+func GetUserKubeConfig(userName string, log *zap.SugaredLogger) (string, error) {
 	username := strings.ToLower(userName)
 	username = config.NameSpaceRegex.ReplaceAllString(username, "-")
 	var (
-		err            error
-		productEnvs    = make([]*commonmodels.Product, 0)
-		productNameMap map[string][]int64
+		err         error
+		productEnvs = make([]*commonmodels.Product, 0)
 	)
-	if superUser {
-		productEnvs, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{})
-		if err != nil {
-			log.Errorf("GetUserKubeConfig Collection.Product.List error: %v", err)
-			return "", e.ErrListProducts.AddDesc(err.Error())
-		}
 
-		// 只管理同集群的资源，且排除状态为Terminating的namespace
-		productEnvs = filterProductWithoutExternalCluster(productEnvs)
-	} else {
-		//项目下所有公开环境
-		publicProducts, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{IsPublic: true})
-		if err != nil {
-			log.Errorf("GetUserKubeConfig Collection.Product.List List product error: %v", err)
-			return "", e.ErrListProducts.AddDesc(err.Error())
-		}
-		// 只管理同集群的资源，且排除状态为Terminating的namespace
-		filterPublicProductEnvs := filterProductWithoutExternalCluster(publicProducts)
-		namespaceSet := sets.NewString()
-		for _, publicProduct := range filterPublicProductEnvs {
-			productEnvs = append(productEnvs, publicProduct)
-			namespaceSet.Insert(publicProduct.Namespace)
-		}
-		poetryClient := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
-		productNameMap, err = poetryClient.GetUserProject(userID, log)
-		if err != nil {
-			log.Errorf("GetUserKubeConfig Collection.Product.List GetUserProject error: %v", err)
-			return "", e.ErrListProducts.AddDesc(err.Error())
-		}
-		for productName, roleIDs := range productNameMap {
-			//用户关联角色所关联的环境
-			for _, roleID := range roleIDs {
-				if roleID == setting.RoleOwnerID {
-					tmpProducts, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName})
-					if err != nil {
-						log.Errorf("GetUserKubeConfig Collection.Product.List product error: %v", err)
-						return "", e.ErrListProducts.AddDesc(err.Error())
-					}
-					for _, product := range tmpProducts {
-						if !namespaceSet.Has(product.Namespace) {
-							productEnvs = append(productEnvs, product)
-						}
-					}
-				} else {
-					roleEnvs, err := poetryClient.ListRoleEnvs(productName, "", roleID, log)
-					if err != nil {
-						log.Errorf("GetUserKubeConfig Collection.Product.List ListRoleEnvs error: %v", err)
-						return "", e.ErrListProducts.AddDesc(err.Error())
-					}
-					for _, roleEnv := range roleEnvs {
-						product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: roleEnv.EnvName})
-						if err != nil {
-							log.Errorf("GetUserKubeConfig Collection.Product.List Find product error: %v", err)
-							return "", e.ErrListProducts.AddDesc(err.Error())
-						}
-						productEnvs = append(productEnvs, product)
-					}
-				}
-			}
-		}
+	productEnvs, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{})
+	if err != nil {
+		log.Errorf("GetUserKubeConfig Collection.Product.List error: %v", err)
+		return "", e.ErrListProducts.AddDesc(err.Error())
 	}
+
+	// 只管理同集群的资源，且排除状态为Terminating的namespace
+	productEnvs = filterProductWithoutExternalCluster(productEnvs)
+
 	saNamespace := config.Namespace()
 	if err := ensureServiceAccount(saNamespace, username, log); err != nil {
 		return "", err
@@ -139,7 +85,6 @@ func GetUserKubeConfig(userName string, userID int, superUser bool, log *zap.Sug
 	)
 	for _, productEnv := range productEnvs {
 		namespace := productEnv.Namespace
-		productName := productEnv.ProductName
 
 		if _, found, err := getter.GetNamespace(namespace, krkubeclient.Client()); err != nil || !found {
 			log.Error(err)
@@ -153,7 +98,7 @@ func GetUserKubeConfig(userName string, userID int, superUser bool, log *zap.Sug
 				wg.Done()
 				<-pool
 			}()
-			if err := ensureUserRole(namespace, username, productName, userID, superUser, log); err != nil {
+			if err := ensureUserRole(namespace, username, log); err != nil {
 				log.Error(err)
 				errList = multierror.Append(errList, err)
 			}
@@ -206,7 +151,8 @@ func filterProductWithoutExternalCluster(products []*commonmodels.Product) []*co
 		}
 		// 过滤外部环境托管
 		sources := sets.NewString(setting.SourceFromZadig, setting.HelmDeployType)
-		if !sources.Has(product.Source) {
+		// Compatible with the environment source created in the onboarding process is empty
+		if product.Source != "" && !sources.Has(product.Source) {
 			continue
 		}
 		// 过滤状态为Terminating的namespace
@@ -235,13 +181,9 @@ func ensureServiceAccount(namespace, username string, log *zap.SugaredLogger) er
 	return nil
 }
 
-func ensureUserRole(namespace, username, productName string, userID int, superUser bool, log *zap.SugaredLogger) error {
-	poetryClient := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
+func ensureUserRole(namespace, username string, _ *zap.SugaredLogger) error {
 	roleName := fmt.Sprintf("%s-role", username)
-	verbs := []string{"get", "list", "watch"}
-	if poetryClient.HasOperatePermission(productName, permission.TestEnvManageUUID, userID, superUser, log) {
-		verbs = []string{"*"}
-	}
+	verbs := []string{"*"}
 	role := &rbacv1beta1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      roleName,

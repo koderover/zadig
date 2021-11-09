@@ -312,8 +312,8 @@ func updateServiceTemplateByPushEvent(event *EventPush, log *zap.SugaredLogger) 
 
 func GetGitlabServiceTemplates() ([]*commonmodels.Service, error) {
 	opt := &commonrepo.ServiceListOption{
-		Type:          setting.K8SDeployType,
-		Source:        setting.SourceFromGitlab,
+		Type:   setting.K8SDeployType,
+		Source: setting.SourceFromGitlab,
 	}
 	return commonrepo.NewServiceColl().ListMaxRevisions(opt)
 }

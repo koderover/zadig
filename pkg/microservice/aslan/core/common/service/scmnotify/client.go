@@ -27,7 +27,6 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/shared/codehost"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
 	gitlabtool "github.com/koderover/zadig/pkg/tool/git/gitlab"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -55,7 +54,7 @@ func (c *Client) Comment(notify *models.Notification) error {
 		}
 	}
 
-	codeHostDetail, err := codehost.GetCodeHostInfoByID(notify.CodehostID)
+	codeHostDetail, err := systemconfig.GetCodeHostInfoByID(notify.CodehostID)
 	if err != nil {
 		return errors.Wrapf(err, "codehost %d not found to comment", notify.CodehostID)
 	}

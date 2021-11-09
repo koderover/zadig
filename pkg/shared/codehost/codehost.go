@@ -29,12 +29,10 @@ const (
 	GitHubProvider  = "github"
 	GerritProvider  = "gerrit"
 	CodeHubProvider = "codehub"
-	IlyshinProvider = "ilyshin"
 )
 
 type CodeHost struct {
 	ID          int    `json:"id"`
-	OrgID       int    `json:"orgId"`
 	Address     string `json:"address"`
 	Type        string `json:"type"`
 	AccessToken string `json:"accessToken"`
@@ -63,7 +61,7 @@ type Detail struct {
 }
 
 func GetCodeHostList() ([]*poetry.CodeHost, error) {
-	poetryClient := poetry.New(config.PoetryServiceAddress(), config.PoetryAPIRootKey())
+	poetryClient := poetry.New(config.PoetryServiceAddress())
 	return poetryClient.ListCodeHosts()
 }
 
@@ -79,7 +77,8 @@ func GetCodeHostInfo(option *Option) (*poetry.CodeHost, error) {
 		} else if option.CodeHostID == 0 && option.CodeHostType != "" {
 			switch option.CodeHostType {
 			case GitHubProvider:
-				if strings.Contains(option.Address, codeHost.Address) && option.Namespace == codeHost.Namespace {
+				ns := strings.ToLower(codeHost.Namespace)
+				if strings.Contains(option.Address, codeHost.Address) && strings.ToLower(option.Namespace) == ns {
 					return codeHost, nil
 				}
 			default:

@@ -23,15 +23,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 )
 
-//type RepoImage struct {
-//	RepoID    string `json:"repo_id" bson:"repo_id"`
-//	Name      string `json:"name" bson:"name" yaml:"name"`
-//	Username  string `json:"-" yaml:"username"`
-//	Password  string `json:"-" yaml:"password"`
-//	Host      string `json:"host" yaml:"host"`
-//	Namespace string `json:"namespace" yaml:"namespace"`
-//}
-
 type ReleaseImageItem struct {
 	RepoID string `bson:"id" json:"id"`
 	Image  string `bson:"image" json:"image"`

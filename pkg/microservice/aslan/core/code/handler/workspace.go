@@ -27,12 +27,11 @@ import (
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 func GetProductNameByWorkspacePipeline(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
-	pipeline, err := commonservice.GetPipelineInfo(ctx.User.ID, c.Query("pipelineName"), ctx.Logger)
+	pipeline, err := commonservice.GetPipelineInfo(c.Query("pipelineName"), ctx.Logger)
 	if err != nil {
 		log.Errorf("GetProductNameByWorkspacePipeline err : %v", err)
 		return
@@ -44,13 +43,13 @@ func GetProductNameByWorkspacePipeline(c *gin.Context) {
 func CleanWorkspace(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	internalhandler.InsertOperationLog(c, ctx.Username, c.GetString("productName"), "清理", "单服务工作流-工作目录", c.Query("pipelineName"), permission.WorkflowUpdateUUID, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.GetString("productName"), "清理", "单服务工作流-工作目录", c.Query("pipelineName"), "", ctx.Logger)
 	name := c.Query("pipelineName")
 	if name == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty pipeline name")
 		return
 	}
-	ctx.Err = service.CleanWorkspace(ctx.Username, name, ctx.Logger)
+	ctx.Err = service.CleanWorkspace(ctx.UserName, name, ctx.Logger)
 }
 
 func GetWorkspaceFile(c *gin.Context) {
@@ -70,7 +69,7 @@ func GetWorkspaceFile(c *gin.Context) {
 		return
 	}
 
-	fileRealPath, err := service.GetWorkspaceFilePath(ctx.Username, name, file, ctx.Logger)
+	fileRealPath, err := service.GetWorkspaceFilePath(ctx.UserName, name, file, ctx.Logger)
 	if err != nil {
 		c.JSON(e.ErrorMessage(err))
 		c.Abort()
@@ -129,6 +128,7 @@ type repoInfo struct {
 	Repo       string `json:"repo"        form:"repo"`
 	Path       string `json:"path"        form:"path"`
 	Branch     string `json:"branch"      form:"branch"`
+	RepoLink   string `json:"repoLink"    form:"repoLink"`
 }
 
 func GetRepoTree(c *gin.Context) {
@@ -141,20 +141,12 @@ func GetRepoTree(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetRepoTree(info.CodeHostID, info.Owner, info.Repo, info.Path, info.Branch, ctx.Logger)
-}
-
-func GetPublicGitRepoInfo(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	url := c.Query("url")
-	if url == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("empty url")
+	if info.RepoLink != "" {
+		ctx.Resp, ctx.Err = service.GetPublicRepoTree(info.RepoLink, info.Path, ctx.Logger)
 		return
 	}
-	dir := c.Query("dir")
-	ctx.Resp, ctx.Err = service.GetPublicGitRepoInfo(url, dir, ctx.Logger)
+
+	ctx.Resp, ctx.Err = service.GetRepoTree(info.CodeHostID, info.Owner, info.Repo, info.Path, info.Branch, ctx.Logger)
 }
 
 func GetCodehubRepoInfo(c *gin.Context) {

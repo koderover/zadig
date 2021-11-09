@@ -26,47 +26,49 @@ import (
 )
 
 type operationLog struct {
-	Username       string `json:"username"`
-	ProductName    string `json:"product_name"`
-	Method         string `json:"method"`
-	PermissionUUID string `json:"permission_uuid"`
-	Function       string `json:"function"`
-	Name           string `json:"name"`
-	RequestBody    string `json:"request_body"`
-	Status         int    `json:"status"`
-	CreatedAt      int64  `json:"created_at"`
+	Username    string `json:"username"`
+	ProductName string `json:"product_name"`
+	Method      string `json:"method"`
+	Function    string `json:"function"`
+	Name        string `json:"name"`
+	RequestBody string `json:"request_body"`
+	Status      int    `json:"status"`
+	CreatedAt   int64  `json:"created_at"`
 }
 
 type updateOperationArgs struct {
 	Status int `json:"status"`
 }
 
-func (c *Client) AddAuditLog(username, productName, method, function, detail, permissionUUID, requestBody string, log *zap.SugaredLogger) (string, error) {
-	url := "/api/system/operation"
+type AddAuditLogResp struct {
+	OperationLogID string `json:"id"`
+}
+
+func (c *Client) AddAuditLog(username, productName, method, function, detail, requestBody string, log *zap.SugaredLogger) (string, error) {
+	url := "/system/operation"
 	req := operationLog{
-		Username:       username,
-		ProductName:    productName,
-		Method:         method,
-		PermissionUUID: permissionUUID,
-		Function:       function,
-		Name:           detail,
-		RequestBody:    requestBody,
-		Status:         0,
-		CreatedAt:      time.Now().Unix(),
+		Username:    username,
+		ProductName: productName,
+		Method:      method,
+		Function:    function,
+		Name:        detail,
+		RequestBody: requestBody,
+		Status:      0,
+		CreatedAt:   time.Now().Unix(),
 	}
 
-	var operationLogID string
+	var operationLogID AddAuditLogResp
 	_, err := c.Post(url, httpclient.SetBody(req), httpclient.SetResult(&operationLogID))
 	if err != nil {
 		log.Errorf("Failed to add audit log, error: %s", err)
 		return "", err
 	}
 
-	return operationLogID, nil
+	return operationLogID.OperationLogID, nil
 }
 
 func (c *Client) UpdateAuditLog(id string, status int, log *zap.SugaredLogger) error {
-	url := fmt.Sprintf("/api/system/operation/%s", id)
+	url := fmt.Sprintf("/system/operation/%s", id)
 	req := updateOperationArgs{
 		Status: status,
 	}

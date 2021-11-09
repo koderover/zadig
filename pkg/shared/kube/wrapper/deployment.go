@@ -66,3 +66,17 @@ func (w *deployment) WorkloadResource(pods []*corev1.Pod) *resource.Workload {
 
 	return wl
 }
+
+func (w *deployment) Images() (images []string) {
+	for _, v := range w.Spec.Template.Spec.Containers {
+		images = append(images, v.Name)
+	}
+	return
+}
+
+func (w *deployment) ImageInfos() (images []string) {
+	for _, v := range w.Spec.Template.Spec.Containers {
+		images = append(images, v.Image)
+	}
+	return
+}

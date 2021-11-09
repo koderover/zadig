@@ -17,7 +17,6 @@ limitations under the License.
 package util
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -25,18 +24,6 @@ import (
 )
 
 // TODO: LOU: drop all methods in this file
-
-func YamlToJSON(valuesYaml string) (map[string]interface{}, error) {
-	var valuesMap map[string]interface{}
-	yamlValuesByte, err := yaml.YAMLToJSON([]byte(valuesYaml))
-	if err != nil {
-		return valuesMap, err
-	}
-	if err := json.Unmarshal(yamlValuesByte, &valuesMap); err != nil {
-		return valuesMap, err
-	}
-	return valuesMap, nil
-}
 
 func JSONToYaml(json map[string]interface{}) (string, error) {
 	jsonBytes, err := yaml.Marshal(json)

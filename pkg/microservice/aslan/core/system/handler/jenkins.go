@@ -36,7 +36,7 @@ func CreateJenkinsIntegration(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid jenkinsIntegration json args")
 		return
 	}
-	args.UpdateBy = ctx.Username
+	args.UpdateBy = ctx.UserName
 	if _, err := url.Parse(args.URL); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid url")
 		return
@@ -60,7 +60,7 @@ func UpdateJenkinsIntegration(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid jenkinsIntegration json args")
 		return
 	}
-	args.UpdateBy = ctx.Username
+	args.UpdateBy = ctx.UserName
 	ctx.Err = service.UpdateJenkinsIntegration(c.Param("id"), args, ctx.Logger)
 }
 

@@ -30,18 +30,16 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		proxy.GET("/config", GetProxyConfig)
 	}
 
-	router.Use(gin2.Auth())
-
 	// ---------------------------------------------------------------------------------------
 	// 安装脚本管理接口
 	// ---------------------------------------------------------------------------------------
 	install := router.Group("install")
 	{
-		install.POST("", gin2.RequireSuperAdminAuth, gin2.UpdateOperationLogStatus, CreateInstall)
-		install.PUT("", gin2.RequireSuperAdminAuth, gin2.UpdateOperationLogStatus, UpdateInstall)
+		install.POST("", gin2.UpdateOperationLogStatus, CreateInstall)
+		install.PUT("", gin2.UpdateOperationLogStatus, UpdateInstall)
 		install.GET("/:name/:version", GetInstall)
 		install.GET("", ListInstalls)
-		install.PUT("/delete", gin2.RequireSuperAdminAuth, gin2.UpdateOperationLogStatus, DeleteInstall)
+		install.PUT("/delete", gin2.UpdateOperationLogStatus, DeleteInstall)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -51,9 +49,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		proxyManage.GET("", ListProxies)
 		proxyManage.GET("/:id", GetProxy)
-		proxyManage.POST("", gin2.RequireSuperAdminAuth, gin2.UpdateOperationLogStatus, CreateProxy)
-		proxyManage.PUT("/:id", gin2.RequireSuperAdminAuth, gin2.UpdateOperationLogStatus, UpdateProxy)
-		proxyManage.DELETE("/:id", gin2.RequireSuperAdminAuth, gin2.UpdateOperationLogStatus, DeleteProxy)
+		proxyManage.POST("", gin2.UpdateOperationLogStatus, CreateProxy)
+		proxyManage.PUT("/:id", gin2.UpdateOperationLogStatus, UpdateProxy)
+		proxyManage.DELETE("/:id", gin2.UpdateOperationLogStatus, DeleteProxy)
 
 		proxyManage.POST("/connectionTest", TestConnection)
 	}
@@ -63,11 +61,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		registry.GET("", ListRegistries)
 		// 获取默认的镜像仓库配置，用于kodespace CLI调用
 		registry.GET("/namespaces/default", GetDefaultRegistryNamespace)
-		registry.GET("/namespaces", gin2.RequireSuperAdminAuth, ListRegistryNamespaces)
-		registry.POST("/namespaces", gin2.RequireSuperAdminAuth, gin2.UpdateOperationLogStatus, CreateRegistryNamespace)
-		registry.PUT("/namespaces/:id", gin2.RequireSuperAdminAuth, gin2.UpdateOperationLogStatus, UpdateRegistryNamespace)
+		registry.GET("/namespaces", ListRegistryNamespaces)
+		registry.POST("/namespaces", gin2.UpdateOperationLogStatus, CreateRegistryNamespace)
+		registry.PUT("/namespaces/:id", gin2.UpdateOperationLogStatus, UpdateRegistryNamespace)
 
-		registry.DELETE("/namespaces/:id", gin2.RequireSuperAdminAuth, gin2.UpdateOperationLogStatus, DeleteRegistryNamespace)
+		registry.DELETE("/namespaces/:id", gin2.UpdateOperationLogStatus, DeleteRegistryNamespace)
 		registry.GET("/release/repos", ListAllRepos)
 		registry.POST("/images", ListImages)
 		registry.GET("/images/repos/:name", ListRepoImages)
@@ -76,10 +74,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	s3storage := router.Group("s3storage")
 	{
 		s3storage.GET("", ListS3Storage)
-		s3storage.POST("", gin2.RequireSuperAdminAuth, gin2.UpdateOperationLogStatus, CreateS3Storage)
+		s3storage.POST("", gin2.UpdateOperationLogStatus, CreateS3Storage)
 		s3storage.GET("/:id", GetS3Storage)
-		s3storage.PUT("/:id", gin2.RequireSuperAdminAuth, gin2.UpdateOperationLogStatus, UpdateS3Storage)
-		s3storage.DELETE("/:id", gin2.RequireSuperAdminAuth, gin2.UpdateOperationLogStatus, DeleteS3Storage)
+		s3storage.PUT("/:id", gin2.UpdateOperationLogStatus, UpdateS3Storage)
+		s3storage.DELETE("/:id", gin2.UpdateOperationLogStatus, DeleteS3Storage)
+		s3storage.POST("/:id/releases/search", ListTars)
 	}
 
 	//系统清理缓存
@@ -95,8 +94,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	github := router.Group("githubApp")
 	{
 		github.GET("", GetGithubApp)
-		github.POST("", gin2.RequireSuperAdminAuth, CreateGithubApp)
-		github.DELETE("/:id", gin2.RequireSuperAdminAuth, DeleteGithubApp)
+		github.POST("", CreateGithubApp)
+		github.DELETE("/:id", DeleteGithubApp)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -104,13 +103,13 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	jenkins := router.Group("jenkins")
 	{
-		jenkins.POST("/integration", gin2.RequireSuperAdminAuth, CreateJenkinsIntegration)
+		jenkins.POST("/integration", CreateJenkinsIntegration)
 		jenkins.GET("/integration", ListJenkinsIntegration)
-		jenkins.PUT("/integration/:id", gin2.RequireSuperAdminAuth, UpdateJenkinsIntegration)
-		jenkins.DELETE("/integration/:id", gin2.RequireSuperAdminAuth, DeleteJenkinsIntegration)
-		jenkins.POST("/user/connection", gin2.RequireSuperAdminAuth, TestJenkinsConnection)
-		jenkins.GET("/jobNames", gin2.RequireSuperAdminAuth, ListJobNames)
-		jenkins.GET("/buildArgs/:jobName", gin2.RequireSuperAdminAuth, ListJobBuildArgs)
+		jenkins.PUT("/integration/:id", UpdateJenkinsIntegration)
+		jenkins.DELETE("/integration/:id", DeleteJenkinsIntegration)
+		jenkins.POST("/user/connection", TestJenkinsConnection)
+		jenkins.GET("/jobNames", ListJobNames)
+		jenkins.GET("/buildArgs/:jobName", ListJobBuildArgs)
 	}
 
 	//系统配额
@@ -130,9 +129,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		basicImages.GET("", ListBasicImages)
 		basicImages.GET("/:id", GetBasicImage)
-		basicImages.POST("", gin2.RequireSuperAdminAuth, gin2.UpdateOperationLogStatus, CreateBasicImage)
-		basicImages.PUT("/:id", gin2.RequireSuperAdminAuth, gin2.UpdateOperationLogStatus, UpdateBasicImage)
-		basicImages.DELETE("/:id", gin2.RequireSuperAdminAuth, gin2.UpdateOperationLogStatus, DeleteBasicImage)
+		basicImages.POST("", gin2.UpdateOperationLogStatus, CreateBasicImage)
+		basicImages.PUT("/:id", gin2.UpdateOperationLogStatus, UpdateBasicImage)
+		basicImages.DELETE("/:id", gin2.UpdateOperationLogStatus, DeleteBasicImage)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -141,9 +140,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	integration := router.Group("helm")
 	{
 		integration.GET("", ListHelmRepos)
-		integration.POST("", gin2.RequireSuperAdminAuth, CreateHelmRepo)
-		integration.PUT("/:id", gin2.RequireSuperAdminAuth, UpdateHelmRepo)
-		integration.DELETE("/:id", gin2.RequireSuperAdminAuth, DeleteHelmRepo)
+		integration.POST("", CreateHelmRepo)
+		integration.PUT("/:id", UpdateHelmRepo)
+		integration.DELETE("/:id", DeleteHelmRepo)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -153,9 +152,11 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		privateKey.GET("", ListPrivateKeys)
 		privateKey.GET("/:id", GetPrivateKey)
-		privateKey.POST("", gin2.RequireSuperAdminAuth, gin2.UpdateOperationLogStatus, CreatePrivateKey)
-		privateKey.PUT("/:id", gin2.RequireSuperAdminAuth, gin2.UpdateOperationLogStatus, UpdatePrivateKey)
-		privateKey.DELETE("/:id", gin2.RequireSuperAdminAuth, gin2.UpdateOperationLogStatus, DeletePrivateKey)
+		privateKey.GET("/labels", ListLabels)
+		privateKey.POST("", gin2.UpdateOperationLogStatus, CreatePrivateKey)
+		privateKey.POST("/batch", gin2.UpdateOperationLogStatus, BatchCreatePrivateKey)
+		privateKey.PUT("/:id", gin2.UpdateOperationLogStatus, UpdatePrivateKey)
+		privateKey.DELETE("/:id", gin2.UpdateOperationLogStatus, DeletePrivateKey)
 	}
 
 	notification := router.Group("notification")
@@ -171,18 +172,18 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 	announcement := router.Group("announcement")
 	{
-		announcement.POST("", gin2.RequireSuperAdminAuth, CreateAnnouncement)
-		announcement.PUT("/update", gin2.RequireSuperAdminAuth, UpdateAnnouncement)
-		announcement.GET("/all", gin2.RequireSuperAdminAuth, PullAllAnnouncement)
+		announcement.POST("", CreateAnnouncement)
+		announcement.PUT("/update", UpdateAnnouncement)
+		announcement.GET("/all", PullAllAnnouncement)
 		announcement.GET("", PullNotifyAnnouncement)
-		announcement.DELETE("/:id", gin2.RequireSuperAdminAuth, DeleteAnnouncement)
+		announcement.DELETE("/:id", DeleteAnnouncement)
 	}
 
 	operation := router.Group("operation")
 	{
-		operation.GET("", gin2.RequireSuperAdminAuth, GetOperationLogs)
-		operation.POST("", gin2.RequireSuperAdminAuth, AddSystemOperationLog)
-		operation.PUT("/:id", gin2.RequireSuperAdminAuth, UpdateOperationLog)
+		operation.GET("", GetOperationLogs)
+		operation.POST("", AddSystemOperationLog)
+		operation.PUT("/:id", UpdateOperationLog)
 	}
 
 }

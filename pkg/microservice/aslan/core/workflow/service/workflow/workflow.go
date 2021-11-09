@@ -33,10 +33,8 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/types"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 var mut sync.Mutex
@@ -45,6 +43,45 @@ type EnvStatus struct {
 	EnvName    string `json:"env_name,omitempty"`
 	Status     string `json:"status"`
 	ErrMessage string `json:"err_message"`
+}
+
+type workflowCreateArg struct {
+	name                 string
+	envName              string
+	buildStageEnabled    bool
+	ArtifactStageEnabled bool
+}
+
+type workflowCreateArgs struct {
+	productName string
+	argsMap     map[string]*workflowCreateArg
+}
+
+func (args *workflowCreateArgs) addWorkflowArg(envName string, buildStageEnabled, artifactStageEnabled bool) {
+	wName := fmt.Sprintf("%s-workflow-%s", args.productName, envName)
+	if artifactStageEnabled {
+		wName = fmt.Sprintf("%s-%s-workflow", args.productName, "ops")
+	}
+	// The hosting env workflow name is not bound to the environment
+	if envName == "" {
+		wName = fmt.Sprintf("%s-workflow", args.productName)
+	}
+	args.argsMap[wName] = &workflowCreateArg{
+		name:                 wName,
+		envName:              envName,
+		buildStageEnabled:    buildStageEnabled,
+		ArtifactStageEnabled: artifactStageEnabled,
+	}
+}
+
+func (args *workflowCreateArgs) initDefaultWorkflows() {
+	args.addWorkflowArg("dev", true, false)
+	args.addWorkflowArg("qa", true, false)
+	args.addWorkflowArg("", false, true)
+}
+
+func (args *workflowCreateArgs) clear() {
+	args.argsMap = make(map[string]*workflowCreateArg)
 }
 
 func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
@@ -60,19 +97,42 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 		mut.Unlock()
 	}()
 
-	workflowNames := []string{productName + "-workflow-dev", productName + "-workflow-qa", productName + "-workflow-ops"}
-	// 云主机场景不创建ops工作流
-	if productTmpl.ProductFeature != nil && productTmpl.ProductFeature.BasicFacility == "cloud_host" {
-		workflowNames = []string{productName + "-workflow-dev", productName + "-workflow-qa"}
+	createArgs := &workflowCreateArgs{
+		productName: productName,
+		argsMap:     make(map[string]*workflowCreateArg),
 	}
+	createArgs.initDefaultWorkflows()
+
+	// helm project may have customized products, use the real created products
+	if productTmpl.ProductFeature != nil && productTmpl.ProductFeature.DeployType == setting.HelmDeployType {
+		productList, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+			Name: productName,
+		})
+		if err != nil {
+			log.Errorf("fialed to list products, projectName %s, err %s", productName, err)
+		}
+		createArgs.clear()
+		for _, product := range productList {
+			createArgs.addWorkflowArg(product.EnvName, true, false)
+		}
+		createArgs.addWorkflowArg("", false, true)
+	}
+
+	// Only one workflow is created in the hosting environment
+	if productTmpl.ProductFeature != nil && productTmpl.ProductFeature.CreateEnvType == setting.SourceFromExternal {
+		createArgs.clear()
+		createArgs.addWorkflowArg("", true, false)
+	}
+
 	workflowSlice := sets.NewString()
-	for _, workflowName := range workflowNames {
+	for workflowName, _ := range createArgs.argsMap {
 		_, err := FindWorkflow(workflowName, log)
 		if err == nil {
 			workflowSlice.Insert(workflowName)
 		}
 	}
-	if len(workflowSlice) < len(workflowNames) {
+
+	if len(workflowSlice) < len(createArgs.argsMap) {
 		preSetResps, err := PreSetWorkflow(productName, log)
 		if err != nil {
 			errList = multierror.Append(errList, err)
@@ -92,7 +152,7 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 			artifactModules = append(artifactModules, artifactModule)
 		}
 
-		for _, workflowName := range workflowNames {
+		for workflowName, workflowArg := range createArgs.argsMap {
 			if workflowSlice.Has(workflowName) {
 				continue
 			}
@@ -105,24 +165,19 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 			workflow.Name = workflowName
 			workflow.CreateBy = setting.SystemUser
 			workflow.UpdateBy = setting.SystemUser
-			workflow.EnvName = "dev"
+			workflow.EnvName = workflowArg.envName
 			workflow.BuildStage = &commonmodels.BuildStage{
-				Enabled: true,
+				Enabled: workflowArg.buildStageEnabled,
 				Modules: buildModules,
 			}
 
-			if strings.Contains(workflowName, "qa") {
-				workflow.EnvName = "qa"
-			}
-
-			if strings.Contains(workflowName, "ops") {
-				//如果是开启artifactStage，则关闭buildStage
-				workflow.BuildStage.Enabled = false
+			//如果是开启artifactStage，则关闭buildStage
+			if workflowArg.ArtifactStageEnabled {
 				workflow.ArtifactStage = &commonmodels.ArtifactStage{
 					Enabled: true,
 					Modules: artifactModules,
 				}
-				workflow.EnvName = "ops"
+				workflow.EnvName = "ops" //TODO necessary to set a fake env name?
 			}
 
 			workflow.Schedules = &commonmodels.ScheduleCtrl{
@@ -159,7 +214,7 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 			return &EnvStatus{Status: setting.ProductStatusFailed, ErrMessage: err.Error()}
 		}
 		return &EnvStatus{Status: setting.ProductStatusCreating}
-	} else if len(workflowSlice) == len(workflowNames) {
+	} else if len(workflowSlice) == len(createArgs.argsMap) {
 		return &EnvStatus{Status: setting.ProductStatusSuccess}
 	}
 	return nil
@@ -281,7 +336,6 @@ func PreSetWorkflow(productName string, log *zap.SugaredLogger) ([]*PreSetResp, 
 			for _, moTarget := range mo.Targets {
 				moduleTargetStr := fmt.Sprintf("%s%s%s%s%s", moTarget.ProductName, SplitSymbol, moTarget.ServiceName, SplitSymbol, moTarget.ServiceModule)
 				if moduleTargetStr == k {
-					preSet.BuildModuleVers = append(preSet.BuildModuleVers, mo.Version)
 					if len(mo.Repos) == 0 {
 						preSet.Repos = make([]*types.Repository, 0)
 					} else {
@@ -422,8 +476,8 @@ func validateWorkflowHookNames(w *commonmodels.Workflow) error {
 	return validateHookNames(names)
 }
 
-func ListWorkflows(queryType string, userID int, log *zap.SugaredLogger) ([]*commonmodels.Workflow, error) {
-	workflows, err := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{})
+func ListWorkflows(queryType string, productName string, userID string, log *zap.SugaredLogger) ([]*commonmodels.Workflow, error) {
+	workflows, err := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{ProductName: productName})
 	if err != nil {
 		log.Errorf("Workflow.List error: %v", err)
 		return workflows, e.ErrListWorkflow.AddDesc(err.Error())
@@ -488,51 +542,11 @@ func findWorkflowStat(workflow *commonmodels.Workflow, workflowStats []*commonmo
 	return 0, 0, 0
 }
 
-func ListAllWorkflows(testName string, userID int, superUser bool, log *zap.SugaredLogger) ([]*commonmodels.Workflow, error) {
-	allWorkflows := make([]*commonmodels.Workflow, 0)
-	workflows := make([]*commonmodels.Workflow, 0)
-	var err error
-	if superUser {
-		allWorkflows, err = commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{})
-		if err != nil {
-			log.Errorf("Workflow.List error: %v", err)
-			return allWorkflows, e.ErrListWorkflow.AddDesc(err.Error())
-		}
-	} else {
-		poetryCtl := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
-		productNameMap, err := poetryCtl.GetUserProject(userID, log)
-		if err != nil {
-			log.Errorf("ListAllWorkflows GetUserProject error: %v", err)
-			return nil, fmt.Errorf("ListAllWorkflows GetUserProject error: %v", err)
-		}
-		productNames := make([]string, 0)
-		for productName, roleIDs := range productNameMap {
-			roleID := roleIDs[0]
-			if roleID == setting.RoleOwnerID {
-				productNames = append(productNames, productName)
-			} else {
-				uuids, err := poetryCtl.GetUserPermissionUUIDs(roleID, productName, log)
-				if err != nil {
-					log.Errorf("ListAllWorkflows GetUserPermissionUUIDs error: %v", err)
-					return nil, fmt.Errorf("ListAllWorkflows GetUserPermissionUUIDs error: %v", err)
-				}
-
-				ids := sets.NewString(uuids...)
-				if ids.Has(permission.WorkflowUpdateUUID) {
-					productNames = append(productNames, productName)
-				}
-			}
-		}
-		for _, productName := range productNames {
-			tempWorkflows, err := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{ProductName: productName})
-			if err != nil {
-				log.Errorf("ListAllWorkflows Workflow.List error: %v", err)
-				return nil, fmt.Errorf("ListAllWorkflows Workflow.List error: %v", err)
-			}
-			allWorkflows = append(allWorkflows, tempWorkflows...)
-		}
+func ListTestWorkflows(testName string, projects []string, log *zap.SugaredLogger) (workflows []*commonmodels.Workflow, err error) {
+	allWorkflows, err := commonrepo.NewWorkflowColl().ListWorkflowsByProjects(projects)
+	if err != nil {
+		return nil, err
 	}
-
 	for _, workflow := range allWorkflows {
 		if workflow.TestStage != nil {
 			testNames := sets.NewString(workflow.TestStage.TestNames...)

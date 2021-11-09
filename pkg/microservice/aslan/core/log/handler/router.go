@@ -18,14 +18,14 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
-
-	gin2 "github.com/koderover/zadig/pkg/middleware/gin"
 )
 
 type Router struct{}
 
 func (*Router) Inject(router *gin.RouterGroup) {
-	router.Use(gin2.Auth())
+	{
+		router.GET("/pods/:name", GetContainerLogs)
+	}
 
 	log := router.Group("log")
 	{
@@ -33,7 +33,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		log.GET("/workflow/:pipelineName/tasks/:taskId/service/:serviceName", GetWorkflowBuildJobContainerLogs)
 		log.GET("/pipelines/:pipelineName/tasks/:taskId/tests/:testName", GetTestJobContainerLogs)
 		log.GET("/workflow/:pipelineName/tasks/:taskId/tests/:testName/service/:serviceName", GetWorkflowTestJobContainerLogs)
-		log.GET("/pods/:podName/containers/:containerName", GetContainerLogs)
 	}
 
 	sse := router.Group("sse")

@@ -32,7 +32,6 @@ import (
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 func GetProductNameByPipelineTask(c *gin.Context) {
@@ -48,7 +47,7 @@ func GetProductNameByPipelineTask(c *gin.Context) {
 		return
 	}
 
-	pipeline, err := workflow.GetPipeline(ctx.User.ID, args.PipelineName, ctx.Logger)
+	pipeline, err := workflow.GetPipeline(ctx.UserID, args.PipelineName, ctx.Logger)
 	if err != nil {
 		log.Errorf("GetProductNameByPipelineTask err : %v", err)
 		return
@@ -71,7 +70,7 @@ func CreatePipelineTask(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreatePipelineTask json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, c.GetString("productName"), "新增", "单服务-工作流task", args.PipelineName, permission.WorkflowTaskUUID, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.GetString("productName"), "新增", "单服务-工作流task", args.PipelineName, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
@@ -79,7 +78,7 @@ func CreatePipelineTask(c *gin.Context) {
 		return
 	}
 	if args.TaskCreator == "" {
-		args.TaskCreator = ctx.Username
+		args.TaskCreator = ctx.UserName
 	}
 
 	args.ReqID = ctx.RequestID
@@ -87,7 +86,7 @@ func CreatePipelineTask(c *gin.Context) {
 
 	// 发送通知
 	if ctx.Err != nil {
-		commonservice.SendFailedTaskMessage(ctx.Username, args.ProductName, args.PipelineName, ctx.RequestID, config.SingleType, ctx.Err, ctx.Logger)
+		commonservice.SendFailedTaskMessage(ctx.UserName, args.ProductName, args.PipelineName, ctx.RequestID, config.SingleType, ctx.Err, ctx.Logger)
 	}
 
 }
@@ -126,7 +125,7 @@ func GetPipelineTask(c *gin.Context) {
 func RestartPipelineTask(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	internalhandler.InsertOperationLog(c, ctx.Username, c.GetString("productName"), "重启", "单服务-工作流task", c.Param("name"), permission.WorkflowTaskUUID, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.GetString("productName"), "重启", "单服务-工作流task", c.Param("name"), "", ctx.Logger)
 
 	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -134,20 +133,20 @@ func RestartPipelineTask(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = workflow.RestartPipelineTaskV2(ctx.Username, taskID, c.Param("name"), config.SingleType, ctx.Logger)
+	ctx.Err = workflow.RestartPipelineTaskV2(ctx.UserName, taskID, c.Param("name"), config.SingleType, ctx.Logger)
 }
 
 func CancelTaskV2(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	internalhandler.InsertOperationLog(c, ctx.Username, c.GetString("productName"), "取消", "单服务-工作流task", c.Param("name"), permission.WorkflowTaskUUID, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.GetString("productName"), "取消", "单服务-工作流task", c.Param("name"), "", ctx.Logger)
 
 	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
-	ctx.Err = commonservice.CancelTaskV2(ctx.Username, c.Param("name"), taskID, config.SingleType, ctx.RequestID, ctx.Logger)
+	ctx.Err = commonservice.CancelTaskV2(ctx.UserName, c.Param("name"), taskID, config.SingleType, ctx.RequestID, ctx.Logger)
 }
 
 // ListPipelineUpdatableProductNames 启动任务时检查部署环境
@@ -155,7 +154,7 @@ func ListPipelineUpdatableProductNames(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = workflow.ListPipelineUpdatableProductNames(ctx.Username, c.Param("name"), ctx.Logger)
+	ctx.Resp, ctx.Err = workflow.ListPipelineUpdatableProductNames(ctx.UserName, c.Param("name"), ctx.Logger)
 }
 
 func GetPackageFile(c *gin.Context) {

@@ -29,6 +29,9 @@ const (
 	ENVAslanDBName             = "ASLAN_DB"
 	ENVHubAgentImage           = "HUB_AGENT_IMAGE"
 	ENVPoetryAPIRootKey        = "POETRY_API_ROOT_KEY"
+	ENVMysqlUser               = "MYSQL_USER"
+	ENVMysqlPassword           = "MYSQL_PASSWORD"
+	ENVMysqlHost               = "MYSQL_HOST"
 
 	// Aslan
 	ENVPodName              = "BE_POD_NAME"
@@ -99,6 +102,22 @@ const (
 	DebugMode   = "debug"
 	ReleaseMode = "release"
 	TestMode    = "test"
+
+	// user
+	ENVIssuerURL      = "ISSUER_URL"
+	ENVClientID       = "CLIENT_ID"
+	ENVClientSecret   = "CLIENT_SECRET"
+	ENVRedirectURI    = "REDIRECT_URI"
+	ENVSecretKey      = "SECRET_KEY"
+	ENVMysqlUserDB    = "MYSQL_USER_DB"
+	ENVScopes         = "SCOPES"
+	ENVTokenExpiresAt = "TOKEN_EXPIRES_AT"
+	ENVUserPort       = "USER_PORT"
+
+	// initconfig
+	ENVAdminEmail    = "ADMIN_EMAIL"
+	ENVAdminPassword = "ADMIN_PASSWORD"
+	PresetAccount    = "admin"
 )
 
 // k8s concepts
@@ -166,6 +185,9 @@ const (
 	ClusterNotFound     = "NotFound"
 	ClusterDisconnected = "Disconnected"
 
+	// annotations
+	HelmReleaseNameAnnotation = "meta.helm.sh/release-name"
+
 	EnvCreatedBy              = "createdBy"
 	EnvCreator                = "koderover"
 	PodReady                  = "ready"
@@ -176,7 +198,7 @@ const (
 
 	APIVersionAppsV1 = "apps/v1"
 
-	DefaultCandidateImagePullSecret = "default-candidate-registry-secret"
+	DefaultImagePullSecret = "default-registry-secret"
 )
 
 const (
@@ -211,17 +233,23 @@ const (
 	SourceFromGerrit = "gerrit"
 	// SourceFromCodeHub 配置来源为codehub
 	SourceFromCodeHub = "codehub"
-	// SourceFromIlyshin 配置来源为ilyshin
-	SourceFromIlyshin = "ilyshin"
+	// SourceFromChartTemplate 配置来源为helmTemplate
+	SourceFromChartTemplate = "chartTemplate"
+	// SourceFromPublicRepo 配置来源为publicRepo
+	SourceFromPublicRepo = "publicRepo"
+
 	// SourceFromGUI 配置来源为gui
 	SourceFromGUI = "gui"
 	//SourceFromHelm
 	SourceFromHelm = "helm"
 	//SourceFromExternal
 	SourceFromExternal = "external"
+	// service from yaml template
+	ServiceSourceTemplate = "template"
 
 	ProdENV = "prod"
 	TestENV = "test"
+	AllENV  = "all"
 
 	// action type
 	TypeEnableCronjob  = "enable"
@@ -245,11 +273,6 @@ const (
 )
 
 const (
-	SessionUsername     = "Username"
-	SessionUser         = "User"
-	UserAPIKey          = "X-API-KEY"
-	RootAPIKey          = "X-ROOT-API-KEY"
-	TIMERAPIKEY         = "X-TIMER-API-KEY"
 	AuthorizationHeader = "Authorization"
 )
 
@@ -457,9 +480,46 @@ const (
 	ProviderSourceSystemDefault
 )
 
+// helm related
+const (
+	ValuesYamlSourceFreeEdit = "freeEdit"
+	ValuesYamlSourceGitRepo  = "gitRepo"
+
+	// components used to search image paths from yaml
+	PathSearchComponentRepo  = "repo"
+	PathSearchComponentImage = "image"
+	PathSearchComponentTag   = "tag"
+)
+
 // Aliyun specific stuff
 const (
 	AliyunHost = ".aliyuncs.com"
+)
+
+// Dockerfile parsing consts
+const (
+	DockerfileCmdArg = "ARG"
+)
+
+// Dockerfile template constant
+const (
+	DockerfileSourceLocal    = "local"
+	DockerfileSourceTemplate = "template"
+
+	ZadigDockerfilePath = "zadig-dockerfile"
+)
+
+// Yaml template constant
+const (
+	RegExpParameter = `{{.(\w)+}}`
+)
+
+// template common constant
+const (
+	TemplateVariableProduct            = "$T-Project$"
+	TemplateVariableProductDescription = "项目名称"
+	TemplateVariableService            = "$T-Service$"
+	TemplateVariableServiceDescription = "服务名称"
 )
 
 const MaxTries = 1
@@ -472,3 +532,15 @@ const (
 )
 
 const ChartTemplatesPath = "charts"
+
+type RoleType string
+
+const (
+	Contributor        RoleType = "contributor"
+	ReadOnly           RoleType = "readonly"
+	Admin              RoleType = "admin"
+	RoleBindingNameFmt string   = "user:%s,role:%s,project:%s"
+)
+
+// ModernWorkflowType 自由编排工作流
+const ModernWorkflowType = "ModernWorkflow"

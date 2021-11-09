@@ -37,7 +37,7 @@ import (
 	gitservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	githubtool "github.com/koderover/zadig/pkg/tool/git/github"
@@ -188,8 +188,8 @@ func prEventToPipelineTasks(event *github.PullRequestEvent, requestID string, lo
 		log.Errorf("GetAddress failed, url: %s, err: %s", event.Repo.GetURL(), err)
 		return nil, err
 	}
-	ch, err := codehost.GetCodeHostInfo(
-		&codehost.Option{CodeHostType: poetry.GitHubProvider, Address: address, Namespace: owner})
+	ch, err := systemconfig.GetCodeHostInfo(
+		&systemconfig.Option{CodeHostType: poetry.GitHubProvider, Address: address, Namespace: owner})
 	if err != nil {
 		log.Errorf("GetCodeHostInfo failed, err: %v", err)
 		return nil, err
@@ -327,8 +327,8 @@ func pushEventToPipelineTasks(event *github.PushEvent, requestID string, log *za
 		log.Errorf("GetAddress failed, url: %s, err: %s", event.Repo.GetURL(), err)
 		return nil, err
 	}
-	ch, err := codehost.GetCodeHostInfo(
-		&codehost.Option{CodeHostType: poetry.GitHubProvider, Address: address, Namespace: owner})
+	ch, err := systemconfig.GetCodeHostInfo(
+		&systemconfig.Option{CodeHostType: poetry.GitHubProvider, Address: address, Namespace: owner})
 	if err != nil {
 		log.Errorf("GetCodeHostInfo failed, err: %v", err)
 		return nil, err
@@ -460,13 +460,25 @@ type AutoCancelOpt struct {
 	MergeRequestID string
 	CommitID       string
 	TaskType       config.PipelineType
-	MainRepo       commonmodels.MainHookRepo
+	MainRepo       *commonmodels.MainHookRepo
 	WorkflowArgs   *commonmodels.WorkflowTaskArgs
 	TestArgs       *commonmodels.TestTaskArgs
 }
 
 func getProductTargetMap(prod *commonmodels.Product) map[string][]commonmodels.DeployEnv {
 	resp := make(map[string][]commonmodels.DeployEnv)
+	if prod.Source == setting.SourceFromExternal {
+		services, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(prod.ProductName, prod.EnvName)
+		for _, service := range services {
+			for _, container := range service.Containers {
+				env := service.ServiceName + "/" + container.Name
+				deployEnv := commonmodels.DeployEnv{Type: setting.K8SDeployType, Env: env}
+				target := strings.Join([]string{service.ProductName, service.ServiceName, container.Name}, SplitSymbol)
+				resp[target] = append(resp[target], deployEnv)
+			}
+		}
+		return resp
+	}
 	for _, services := range prod.Services {
 		for _, serviceObj := range services {
 			switch serviceObj.Type {
@@ -554,8 +566,8 @@ func updateServiceTemplateByGithubPush(pushEvent *github.PushEvent, log *zap.Sug
 
 func GetGithubServiceTemplates() ([]*commonmodels.Service, error) {
 	opt := &commonrepo.ServiceListOption{
-		Type:          setting.K8SDeployType,
-		Source:        setting.SourceFromGithub,
+		Type:   setting.K8SDeployType,
+		Source: setting.SourceFromGithub,
 	}
 	return commonrepo.NewServiceColl().ListMaxRevisions(opt)
 }

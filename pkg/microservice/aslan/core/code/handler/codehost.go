@@ -24,9 +24,8 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/service"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
-	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
@@ -34,8 +33,8 @@ func GetCodeHostList(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	codeHostSlice := make([]*poetry.CodeHost, 0)
-	codeHosts, err := codehost.GetCodeHostList()
+	codeHostSlice := make([]*systemconfig.CodeHost, 0)
+	codeHosts, err := systemconfig.GetCodeHostList()
 	ctx.Err = err
 	for _, codeHost := range codeHosts {
 		codeHost.AccessToken = setting.MaskValue
@@ -191,4 +190,22 @@ func ListRepoInfos(c *gin.Context) {
 	}
 	param := c.Query("param")
 	ctx.Resp, ctx.Err = service.ListRepoInfos(args.Infos, param, ctx.Logger)
+}
+
+type BranchesRequest struct {
+	Regular  string   `json:"regular"`
+	Branches []string `json:"branches"`
+}
+
+func MatchBranchesList(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(BranchesRequest)
+	err := c.ShouldBindJSON(args)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid branches args")
+		return
+	}
+	ctx.Resp = service.MatchBranchesList(args.Regular, args.Branches)
 }

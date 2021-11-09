@@ -18,7 +18,6 @@ package taskplugin
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -26,8 +25,7 @@ import (
 	"strings"
 	"time"
 
-	fsutil "github.com/koderover/zadig/pkg/util/fs"
-
+	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
@@ -43,7 +41,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
-	"github.com/koderover/zadig/pkg/tool/helmclient"
+	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
@@ -51,6 +49,10 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
+	"github.com/koderover/zadig/pkg/util/converter"
+	"github.com/koderover/zadig/pkg/util/fs"
+	fsutil "github.com/koderover/zadig/pkg/util/fs"
+	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 // InitializeDeployTaskPlugin to initiate deploy task plugin and return ref
@@ -60,8 +62,6 @@ func InitializeDeployTaskPlugin(taskType config.TaskType) TaskPlugin {
 		kubeClient: krkubeclient.Client(),
 		restConfig: krkubeclient.RESTConfig(),
 		httpClient: httpclient.New(
-			httpclient.SetAuthScheme(setting.RootAPIKey),
-			httpclient.SetAuthToken(config.PoetryAPIRootKey()),
 			httpclient.SetHostURL(configbase.AslanServiceAddress()),
 		),
 	}
@@ -85,12 +85,12 @@ func (p *DeployTaskPlugin) SetAckFunc(func()) {
 
 const (
 	// DeployTimeout ...
-	DeployTimeout    = 60 * 10 // 10 minutes
-	ImageRegexString = "^[a-zA-Z0-9.:\\/-]+$"
+	DeployTimeout            = 60 * 10 // 10 minutes
+	imageUrlParseRegexString = `(?P<repo>.+/)?(?P<image>[^:]+){1}(:)?(?P<tag>.+)?`
 )
 
 var (
-	ImageRegex = regexp.MustCompile(ImageRegexString)
+	imageParseRegex = regexp.MustCompile(imageUrlParseRegexString)
 )
 
 // Init ...
@@ -188,60 +188,133 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 	}
 
 	if p.Task.ServiceType != setting.HelmDeployType {
-		selector := labels.Set{setting.ProductLabel: p.Task.ProductName, setting.ServiceLabel: p.Task.ServiceName}.AsSelector()
-
-		var deployments []*appsv1.Deployment
-		deployments, err = getter.ListDeployments(p.Task.Namespace, selector, p.kubeClient)
+		// get servcie info
+		var (
+			serviceInfo *types.ServiceTmpl
+			selector    labels.Selector
+		)
+		serviceInfo, err = p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType, p.Task.ProductName, 0)
 		if err != nil {
-			return
-		}
-
-		var statefulSets []*appsv1.StatefulSet
-		statefulSets, err = getter.ListStatefulSets(p.Task.Namespace, selector, p.kubeClient)
-		if err != nil {
-			return
-		}
-
-		for _, deploy := range deployments {
-			for _, container := range deploy.Spec.Template.Spec.Containers {
-				if container.Name == p.Task.ContainerName {
-					err = updater.UpdateDeploymentImage(deploy.Namespace, deploy.Name, p.Task.ContainerName, p.Task.Image, p.kubeClient)
-					if err != nil {
-						err = errors.WithMessagef(
-							err,
-							"failed to update container image in %s/deployments/%s/%s",
-							p.Task.Namespace, deploy.Name, container.Name)
-						return
-					}
-					p.Task.ReplaceResources = append(p.Task.ReplaceResources, task.Resource{
-						Kind:      setting.Deployment,
-						Container: container.Name,
-						Origin:    container.Image,
-						Name:      deploy.Name,
-					})
-					replaced = true
-				}
+			// Maybe it is a share service, the entity is not under the project
+			serviceInfo, err = p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType, "", 0)
+			if err != nil {
+				return
 			}
 		}
+		if serviceInfo.WorkloadType == "" {
+			selector := labels.Set{setting.ProductLabel: p.Task.ProductName, setting.ServiceLabel: p.Task.ServiceName}.AsSelector()
 
-		for _, sts := range statefulSets {
-			for _, container := range sts.Spec.Template.Spec.Containers {
-				if container.Name == p.Task.ContainerName {
-					err = updater.UpdateStatefulSetImage(sts.Namespace, sts.Name, p.Task.ContainerName, p.Task.Image, p.kubeClient)
-					if err != nil {
-						err = errors.WithMessagef(
-							err,
-							"failed to update container image in %s/statefulsets/%s/%s",
-							p.Task.Namespace, sts.Name, container.Name)
-						return
+			var deployments []*appsv1.Deployment
+			deployments, err = getter.ListDeployments(p.Task.Namespace, selector, p.kubeClient)
+			if err != nil {
+				return
+			}
+
+			var statefulSets []*appsv1.StatefulSet
+			statefulSets, err = getter.ListStatefulSets(p.Task.Namespace, selector, p.kubeClient)
+			if err != nil {
+				return
+			}
+
+		L:
+			for _, deploy := range deployments {
+				for _, container := range deploy.Spec.Template.Spec.Containers {
+					if container.Name == p.Task.ContainerName {
+						err = updater.UpdateDeploymentImage(deploy.Namespace, deploy.Name, p.Task.ContainerName, p.Task.Image, p.kubeClient)
+						if err != nil {
+							err = errors.WithMessagef(
+								err,
+								"failed to update container image in %s/deployments/%s/%s",
+								p.Task.Namespace, deploy.Name, container.Name)
+							return
+						}
+						p.Task.ReplaceResources = append(p.Task.ReplaceResources, task.Resource{
+							Kind:      setting.Deployment,
+							Container: container.Name,
+							Origin:    container.Image,
+							Name:      deploy.Name,
+						})
+						replaced = true
+						break L
 					}
-					p.Task.ReplaceResources = append(p.Task.ReplaceResources, task.Resource{
-						Kind:      setting.StatefulSet,
-						Container: container.Name,
-						Origin:    container.Image,
-						Name:      sts.Name,
-					})
-					replaced = true
+				}
+			}
+		Loop:
+			for _, sts := range statefulSets {
+				for _, container := range sts.Spec.Template.Spec.Containers {
+					if container.Name == p.Task.ContainerName {
+						err = updater.UpdateStatefulSetImage(sts.Namespace, sts.Name, p.Task.ContainerName, p.Task.Image, p.kubeClient)
+						if err != nil {
+							err = errors.WithMessagef(
+								err,
+								"failed to update container image in %s/statefulsets/%s/%s",
+								p.Task.Namespace, sts.Name, container.Name)
+							return
+						}
+						p.Task.ReplaceResources = append(p.Task.ReplaceResources, task.Resource{
+							Kind:      setting.StatefulSet,
+							Container: container.Name,
+							Origin:    container.Image,
+							Name:      sts.Name,
+						})
+						replaced = true
+						break Loop
+					}
+				}
+			}
+		} else {
+			switch serviceInfo.WorkloadType {
+			case setting.StatefulSet:
+				var statefulSet *appsv1.StatefulSet
+				statefulSet, _, err = getter.GetStatefulSet(p.Task.Namespace, p.Task.ServiceName, p.kubeClient)
+				if err != nil {
+					return
+				}
+				for _, container := range statefulSet.Spec.Template.Spec.Containers {
+					if container.Name == p.Task.ContainerName {
+						err = updater.UpdateStatefulSetImage(statefulSet.Namespace, statefulSet.Name, p.Task.ContainerName, p.Task.Image, p.kubeClient)
+						if err != nil {
+							err = errors.WithMessagef(
+								err,
+								"failed to update container image in %s/statefulsets/%s/%s",
+								p.Task.Namespace, statefulSet.Name, container.Name)
+							return
+						}
+						p.Task.ReplaceResources = append(p.Task.ReplaceResources, task.Resource{
+							Kind:      setting.StatefulSet,
+							Container: container.Name,
+							Origin:    container.Image,
+							Name:      statefulSet.Name,
+						})
+						replaced = true
+						break
+					}
+				}
+			case setting.Deployment:
+				var deployment *appsv1.Deployment
+				deployment, _, err = getter.GetDeployment(p.Task.Namespace, p.Task.ServiceName, p.kubeClient)
+				if err != nil {
+					return
+				}
+				for _, container := range deployment.Spec.Template.Spec.Containers {
+					if container.Name == p.Task.ContainerName {
+						err = updater.UpdateDeploymentImage(deployment.Namespace, deployment.Name, p.Task.ContainerName, p.Task.Image, p.kubeClient)
+						if err != nil {
+							err = errors.WithMessagef(
+								err,
+								"failed to update container image in %s/deployments/%s/%s",
+								p.Task.Namespace, deployment.Name, container.Name)
+							return
+						}
+						p.Task.ReplaceResources = append(p.Task.ReplaceResources, task.Resource{
+							Kind:      setting.Deployment,
+							Container: container.Name,
+							Origin:    container.Image,
+							Name:      deployment.Name,
+						})
+						replaced = true
+						break
+					}
 				}
 			}
 		}
@@ -252,14 +325,16 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		}
 	} else if p.Task.ServiceType == setting.HelmDeployType {
 		var (
-			productInfo       *types.Product
-			chartInfoMap      = make(map[string]*types.RenderChart)
-			renderChart       *types.RenderChart
-			isExist           = false
-			replaceValuesYaml string
-			yamlValuesByte    []byte
-			renderInfo        *types.RenderSet
-			helmClient        helmclient.Client
+			productInfo              *types.Product
+			renderChart              *types.RenderChart
+			replacedValuesYaml       string
+			mergedValuesYaml         string
+			replacedMergedValuesYaml string
+			servicePath              string
+			chartPath                string
+			replaceValuesMap         map[string]interface{}
+			renderInfo               *types.RenderSet
+			helmClient               helmclient.Client
 		)
 
 		deployments, _ := getter.ListDeployments(p.Task.Namespace, nil, p.kubeClient)
@@ -291,6 +366,10 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				}
 			}
 		}
+
+		p.Log.Infof("start helm deploy, productName %s serviceName %s containerName %s namespace %s", p.Task.ProductName,
+			p.Task.ServiceName, p.Task.ContainerName, p.Task.Namespace)
+
 		productInfo, err = p.getProductInfo(ctx, &EnvArgs{EnvName: p.Task.EnvName, ProductName: p.Task.ProductName})
 		if err != nil {
 			err = errors.WithMessagef(
@@ -308,9 +387,6 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				productInfo.Render.Name, productInfo.Render.Revision)
 			return
 		}
-		for _, chartInfo := range renderInfo.ChartInfos {
-			chartInfoMap[chartInfo.ServiceName] = chartInfo
-		}
 
 		curRevisionInProduct := int64(0)
 		for _, serviceGroup := range productInfo.Services {
@@ -325,166 +401,200 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			}
 		}
 
-		if renderChart, isExist = chartInfoMap[p.Task.ServiceName]; isExist {
-			yamlValuesByte, err = yaml.YAMLToJSON([]byte(renderChart.ValuesYaml))
-			if err != nil {
-				err = errors.WithMessagef(
-					err,
-					"failed to YAMLToJSON %s/%s",
-					p.Task.Namespace, p.Task.ServiceName)
-				return
-			}
-
-			var currentValuesYamlMap map[string]interface{}
-			if err = json.Unmarshal(yamlValuesByte, &currentValuesYamlMap); err != nil {
-				err = errors.WithMessagef(
-					err,
-					"failed to Unmarshal values.yaml %s/%s",
-					p.Task.Namespace, p.Task.ServiceName)
-				return
-			}
-
-			//找到需要替换的镜像
-			p.ReplaceImage = ""
-			p.recursionReplaceImage(currentValuesYamlMap, p.Task.Image)
-			if p.ReplaceImage != "" {
-				//先替换镜像名称
-				var oldImageName, newImageName, newImageTag string
-				oldImageArr := strings.Split(p.ReplaceImage, ":")
-				newImageArr := strings.Split(p.Task.Image, ":")
-
-				if len(oldImageArr) < 2 || len(newImageArr) < 2 {
-					err = errors.WithMessagef(
-						err,
-						"image is invalid %s/%s",
-						p.ReplaceImage, p.Task.Image)
-					return
-				}
-
-				oldImageName = oldImageArr[0]
-				newImageName = newImageArr[0]
-				newImageTag = newImageArr[1]
-				//根据value找到对应的key
-				currentChartInfoMap := util.GetJSONData(currentValuesYamlMap)
-				sameKeyMap := make(map[string]interface{})
-				for mapKey, mapValue := range currentChartInfoMap {
-					if mapValue == oldImageName {
-						sameKeyMap[mapKey] = newImageName
-						imageTag := strings.Replace(mapKey, ".repository", ".tag", 1)
-						sameKeyMap[imageTag] = newImageTag
-					}
-				}
-
-				replaceMap := util.ReplaceMapValue(currentValuesYamlMap, sameKeyMap)
-				replaceValuesYaml, err = util.JSONToYaml(replaceMap)
-				if err != nil {
-					err = errors.WithMessagef(
-						err,
-						"failed to jsonToYaml %s/%s",
-						p.Task.Namespace, p.Task.ServiceName)
-					return
-				}
-			} else {
-				p.recursionReplaceImageByColon(currentValuesYamlMap, p.Task.Image)
-				if p.ReplaceImage != "" {
-					replaceValuesYaml = renderChart.ValuesYaml
-					replaceValuesYaml = strings.Replace(replaceValuesYaml, p.ReplaceImage, p.Task.Image, -1)
-				}
-			}
-			if replaceValuesYaml != "" {
-				helmClient, err = helmclient.NewClientFromRestConf(p.restConfig, p.Task.Namespace)
-				if err != nil {
-					err = errors.WithMessagef(
-						err,
-						"failed to create helm client %s/%s",
-						p.Task.Namespace, p.Task.ServiceName)
-					return
-				}
-				chartSpec := helmclient.ChartSpec{
-					ReleaseName: fmt.Sprintf("%s-%s", p.Task.Namespace, p.Task.ServiceName),
-					ChartName:   fmt.Sprintf("%s/%s", p.Task.Namespace, p.Task.ServiceName),
-					Namespace:   p.Task.Namespace,
-					Wait:        true,
-					ReuseValues: true,
-					Version:     renderChart.ChartVersion,
-					ValuesYaml:  replaceValuesYaml,
-					SkipCRDs:    false,
-					UpgradeCRDs: true,
-					Timeout:     time.Second * DeployTimeout,
-				}
-
-				//task执行时候 product.service.revision 可能已经更新，需要使用当前环境中的service.revision
-				targetRevision := p.Task.ServiceRevision
-				if curRevisionInProduct > 0 && curRevisionInProduct != p.Task.ServiceRevision {
-					targetRevision = curRevisionInProduct
-				}
-
-				path, errDownload := p.downloadService(pipelineTask.ProductName, p.Task.ServiceName,
-					pipelineTask.StorageURI, targetRevision)
-				if errDownload != nil {
-					path, errDownload = p.downloadService(pipelineTask.ProductName, p.Task.ServiceName,
-						pipelineTask.StorageURI, 0)
-					if errDownload != nil {
-						err = errors.WithMessagef(
-							errDownload,
-							"failed to download service %s/%s",
-							p.Task.Namespace, p.Task.ServiceName)
-						_ = os.Remove(path)
-						return
-					}
-
-					//获取当前service的最新revision
-					latestService, errGetService := p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType,
-						pipelineTask.ProductName, 0)
-					if errGetService != nil {
-						err = errors.WithMessagef(
-							errDownload,
-							"failed to get latest service %s/%s",
-							p.Task.Namespace, p.Task.ServiceName)
-						_ = os.Remove(path)
-					}
-
-					//当前实际的revision
-					targetRevision = latestService.Revision
-				}
-
-				if err = helmClient.InstallOrUpgradeChart(context.Background(), &chartSpec, &helmclient.ChartOption{
-					ChartPath: path}, p.Log); err != nil {
-					err = errors.WithMessagef(
-						err,
-						"failed to install helm chart %s/%s",
-						p.Task.Namespace, p.Task.ServiceName)
-					_ = os.Remove(path)
-					return
-				}
-
-				//替换环境变量中的chartInfos
-				for _, chartInfo := range renderInfo.ChartInfos {
-					if chartInfo.ServiceName == p.Task.ServiceName {
-						chartInfo.ValuesYaml = replaceValuesYaml
-						break
-					}
-				}
-				_ = p.updateRenderSet(ctx, &types.RenderSet{
-					Name:       renderInfo.Name,
-					Revision:   renderInfo.Revision,
-					ChartInfos: renderInfo.ChartInfos,
-				})
-
-				// update product.service.revision when use the latest revision
-				if targetRevision > 0 && targetRevision != p.Task.ServiceRevision {
-					err = p.updateServiceRevision(ctx, p.Task.ServiceName, pipelineTask.ProductName, p.Task.EnvName, targetRevision)
-					if err != nil {
-						p.Log.Errorf("update service version fail [env:%v][productName:%v][serviceName:%v], err %v", p.Task.EnvName, p.Task.ProductName, p.Task.ServiceName, err)
+		var targetContainer *types.Container
+		for _, serviceGroup := range productInfo.Services {
+			for _, service := range serviceGroup {
+				if service.ServiceName == p.Task.ServiceName {
+					for _, container := range service.Containers {
+						if container.Name == p.Task.ContainerName {
+							targetContainer = container
+						}
 					}
 				}
 			}
+		}
+
+		if targetContainer == nil {
+			err = errors.Errorf("failed to find target container %s from service %s", p.Task.ContainerName, p.Task.ServiceName)
 			return
 		}
-		err = errors.WithMessagef(
-			err,
-			"failed to update container image in %s/%s，not find",
-			p.Task.Namespace, p.Task.ServiceName)
+
+		if targetContainer.ImagePath == nil {
+			err = errors.Errorf("failed to get image path of  %s from service %s", p.Task.ContainerName, p.Task.ServiceName)
+			return
+		}
+
+		for _, chartInfo := range renderInfo.ChartInfos {
+			if chartInfo.ServiceName == p.Task.ServiceName {
+				renderChart = chartInfo
+				break
+			}
+		}
+
+		//task执行时候 product.service.revision 可能已经更新，需要使用当前环境中的service.revision
+		targetRevision := p.Task.ServiceRevision
+		if curRevisionInProduct > 0 && curRevisionInProduct != p.Task.ServiceRevision {
+			targetRevision = curRevisionInProduct
+		}
+
+		path, errDownload := p.downloadService(pipelineTask.ProductName, p.Task.ServiceName,
+			pipelineTask.StorageURI, targetRevision)
+		if errDownload != nil {
+			path, errDownload = p.downloadService(pipelineTask.ProductName, p.Task.ServiceName,
+				pipelineTask.StorageURI, 0)
+			if errDownload != nil {
+				err = errors.WithMessagef(
+					errDownload,
+					"failed to download service %s/%s",
+					p.Task.Namespace, p.Task.ServiceName)
+				_ = os.Remove(path)
+				return
+			}
+
+			//获取当前service的最新revision
+			latestService, errGetService := p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType,
+				pipelineTask.ProductName, 0)
+			if errGetService != nil {
+				err = errors.WithMessagef(
+					errDownload,
+					"failed to get latest service %s/%s",
+					p.Task.Namespace, p.Task.ServiceName)
+				_ = os.Remove(path)
+			}
+
+			//当前实际的revision
+			targetRevision = latestService.Revision
+		}
+		chartPath, err = fs.RelativeToCurrentPath(path)
+		if err != nil {
+			err = errors.WithMessagef(
+				err,
+				"failed to get relative path %s",
+				servicePath,
+			)
+			return
+		}
+
+		if renderChart == nil {
+			err = errors.Errorf("failed to update container image in %s/%s，not find",
+				p.Task.Namespace, p.Task.ServiceName)
+			return
+		}
+
+		serviceValuesYaml := renderChart.ValuesYaml
+
+		// prepare image replace info
+		validMatchData := getValidMatchData(targetContainer.ImagePath)
+
+		// update product.service.revision when use the latest revision
+		if targetRevision > 0 && targetRevision != p.Task.ServiceRevision {
+			err = p.updateServiceRevision(ctx, p.Task.ServiceName, pipelineTask.ProductName, p.Task.EnvName, targetRevision)
+			if err != nil {
+				p.Log.Errorf("update service version fail [env:%v][productName:%v][serviceName:%v], err %v", p.Task.EnvName, p.Task.ProductName, p.Task.ServiceName, err)
+			}
+		}
+		replaceValuesMap, err = assignImageData(p.Task.Image, validMatchData)
+		if err != nil {
+			err = errors.WithMessagef(
+				err,
+				"failed to pase image uri %s/%s",
+				p.Task.Namespace, p.Task.ServiceName)
+			return
+		}
+
+		// replace image into service's values.yaml
+		replacedValuesYaml, err = replaceImage(serviceValuesYaml, replaceValuesMap)
+		if err != nil {
+			err = errors.WithMessagef(
+				err,
+				"failed to replace image uri %s/%s",
+				p.Task.Namespace, p.Task.ServiceName)
+			return
+		}
+		if replacedValuesYaml == "" {
+			err = errors.Errorf("failed to set new image uri into service's values.yaml %s/%s",
+				p.Task.Namespace, p.Task.ServiceName)
+			return
+		}
+
+		// merge override values and kvs into service's yaml
+		mergedValuesYaml, err = helmtool.MergeOverrideValues(serviceValuesYaml, renderInfo.DefaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
+		if err != nil {
+			err = errors.WithMessagef(
+				err,
+				"failed to merge override values %s",
+				renderChart.OverrideValues,
+			)
+			return
+		}
+
+		// replace image into final merged values.yaml
+		replacedMergedValuesYaml, err = replaceImage(mergedValuesYaml, replaceValuesMap)
+		if err != nil {
+			err = errors.WithMessagef(
+				err,
+				"failed to replace image uri into helm values %s/%s",
+				p.Task.Namespace, p.Task.ServiceName)
+			return
+		}
+		if replacedMergedValuesYaml == "" {
+			err = errors.Errorf("failed to set image uri into mreged values.yaml in %s/%s",
+				p.Task.Namespace, p.Task.ServiceName)
+			return
+		}
+
+		p.Log.Infof("final replaced merged values: \n%s", replacedMergedValuesYaml)
+
+		helmClient, err = helmtool.NewClientFromRestConf(p.restConfig, p.Task.Namespace)
+		if err != nil {
+			err = errors.WithMessagef(
+				err,
+				"failed to create helm client %s/%s",
+				p.Task.Namespace, p.Task.ServiceName)
+			return
+		}
+
+		chartSpec := helmclient.ChartSpec{
+			ReleaseName: util.GeneHelmReleaseName(p.Task.Namespace, p.Task.ServiceName),
+			ChartName:   chartPath,
+			Namespace:   p.Task.Namespace,
+			ReuseValues: true,
+			Version:     renderChart.ChartVersion,
+			ValuesYaml:  replacedMergedValuesYaml,
+			SkipCRDs:    false,
+			UpgradeCRDs: true,
+			Timeout:     time.Second * DeployTimeout,
+		}
+
+		if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), &chartSpec); err != nil {
+			err = errors.WithMessagef(
+				err,
+				"failed to Install helm chart %s/%s",
+				p.Task.Namespace, p.Task.ServiceName)
+			return
+		}
+
+		//替换环境变量中的chartInfos
+		for _, chartInfo := range renderInfo.ChartInfos {
+			if chartInfo.ServiceName == p.Task.ServiceName {
+				chartInfo.ValuesYaml = replacedValuesYaml
+				break
+			}
+		}
+
+		// TODO too dangerous to override entire renderset!
+		err = p.updateRenderSet(ctx, &types.RenderSet{
+			Name:          renderInfo.Name,
+			Revision:      renderInfo.Revision,
+			DefaultValues: renderInfo.DefaultValues,
+			ChartInfos:    renderInfo.ChartInfos,
+		})
+		if err != nil {
+			err = errors.WithMessagef(
+				err,
+				"failed to update renderset info %s/%s, renderset %s",
+				p.Task.Namespace, p.Task.ServiceName, renderInfo.Name)
+		}
 	}
 }
 
@@ -589,62 +699,93 @@ func (p *DeployTaskPlugin) updateRenderSet(ctx context.Context, args *types.Rend
 	return err
 }
 
-// 递归循环找到要替换的镜像的标签
-func (p *DeployTaskPlugin) recursionReplaceImage(jsonValues map[string]interface{}, image string) {
-	for jsonKey, jsonValue := range jsonValues {
-		levelMap := p.isMap(jsonValue)
-		if levelMap != nil {
-			p.recursionReplaceImage(levelMap, image)
-		} else if repository, isStr := jsonValue.(string); isStr {
-			if !strings.Contains(jsonKey, "repository") {
-				continue
-			}
-			if imageTag, isExist := jsonValues["tag"]; isExist {
-				if imageTag == "" {
+func getValidMatchData(spec *types.ImagePathSpec) map[string]string {
+	ret := make(map[string]string)
+	if spec.Repo != "" {
+		ret[setting.PathSearchComponentRepo] = spec.Repo
+	}
+	if spec.Image != "" {
+		ret[setting.PathSearchComponentImage] = spec.Image
+	}
+	if spec.Tag != "" {
+		ret[setting.PathSearchComponentTag] = spec.Tag
+	}
+	return ret
+}
+
+// parse image url to map: repo=>xxx/xx/xx image=>xx tag=>xxx
+func resolveImageUrl(imageUrl string) map[string]string {
+	subMatchAll := imageParseRegex.FindStringSubmatch(imageUrl)
+	result := make(map[string]string)
+	exNames := imageParseRegex.SubexpNames()
+	for i, matchedStr := range subMatchAll {
+		if i != 0 && matchedStr != "" && matchedStr != ":" {
+			result[exNames[i]] = matchedStr
+		}
+	}
+	return result
+}
+
+// replace image defines in yaml by new version
+func replaceImage(sourceYaml string, imageValuesMap map[string]interface{}) (string, error) {
+	nestedMap, err := converter.Expand(imageValuesMap)
+	if err != nil {
+		return "", err
+	}
+	bs, err := yaml.Marshal(nestedMap)
+	if err != nil {
+		return "", err
+	}
+	mergedBs, err := yamlutil.Merge([][]byte{[]byte(sourceYaml), bs})
+	if err != nil {
+		return "", err
+	}
+	return string(mergedBs), nil
+}
+
+// assignImageData assign image url data into match data
+// matchData: image=>absolute-path repo=>absolute-path tag=>absolute-path
+// return: absolute-image-path=>image-value  absolute-repo-path=>repo-value absolute-tag-path=>tag-value
+func assignImageData(imageUrl string, matchData map[string]string) (map[string]interface{}, error) {
+	ret := make(map[string]interface{})
+	// total image url assigned into one single value
+	if len(matchData) == 1 {
+		for _, v := range matchData {
+			ret[v] = imageUrl
+		}
+		return ret, nil
+	}
+
+	resolvedImageUrl := resolveImageUrl(imageUrl)
+
+	// image url assigned into repo/image+tag
+	if len(matchData) == 3 {
+		ret[matchData[setting.PathSearchComponentRepo]] = strings.TrimSuffix(resolvedImageUrl[setting.PathSearchComponentRepo], "/")
+		ret[matchData[setting.PathSearchComponentImage]] = resolvedImageUrl[setting.PathSearchComponentImage]
+		ret[matchData[setting.PathSearchComponentTag]] = resolvedImageUrl[setting.PathSearchComponentTag]
+		return ret, nil
+	}
+
+	if len(matchData) == 2 {
+		// image url assigned into repo/image + tag
+		if tagPath, ok := matchData[setting.PathSearchComponentTag]; ok {
+			ret[tagPath] = resolvedImageUrl[setting.PathSearchComponentTag]
+			for k, imagePath := range matchData {
+				if k == setting.PathSearchComponentTag {
 					continue
 				}
-				currentImageName := strings.Split(image, ":")[0]
-				currentImageNameArr := strings.Split(currentImageName, "/")
-				serviceName := currentImageNameArr[len(currentImageNameArr)-1]
-				if strings.Contains(repository, serviceName) {
-					p.Log.Infof("find replace imageName:%s imageTag:%v", repository, imageTag)
-					p.ReplaceImage = fmt.Sprintf("%s:%v", repository, imageTag)
-					return
-				}
+				ret[imagePath] = fmt.Sprintf("%s%s", resolvedImageUrl[setting.PathSearchComponentRepo], resolvedImageUrl[setting.PathSearchComponentImage])
+				break
 			}
+			return ret, nil
 		}
+		// image url assigned into repo + image(tag)
+		ret[matchData[setting.PathSearchComponentRepo]] = strings.TrimSuffix(resolvedImageUrl[setting.PathSearchComponentRepo], "/")
+		ret[matchData[setting.PathSearchComponentImage]] = fmt.Sprintf("%s:%s", resolvedImageUrl[setting.PathSearchComponentImage], resolvedImageUrl[setting.PathSearchComponentTag])
+		return ret, nil
 	}
-}
 
-// 递归循环找到根据包含冒号要替换的镜像的标签
-func (p *DeployTaskPlugin) recursionReplaceImageByColon(jsonValues map[string]interface{}, image string) {
-	for _, jsonValue := range jsonValues {
-		levelMap := p.isMap(jsonValue)
-		if levelMap != nil {
-			p.recursionReplaceImageByColon(levelMap, image)
-		} else if repository, isStr := jsonValue.(string); isStr {
-			if strings.Contains(repository, ":") && ImageRegex.MatchString(repository) {
-				currentImageName := strings.Split(image, ":")[0]
-				currentImageNameArr := strings.Split(currentImageName, "/")
-				serviceName := currentImageNameArr[len(currentImageNameArr)-1]
-				if strings.Contains(repository, serviceName) {
-					p.Log.Infof("find replace image:%s", repository)
-					p.ReplaceImage = repository
-					return
-				}
-			}
-		}
-	}
-}
-
-func (p *DeployTaskPlugin) isMap(yamlMap interface{}) map[string]interface{} {
-	switch value := yamlMap.(type) {
-	case map[string]interface{}:
-		return value
-	default:
-		return nil
-	}
-	return nil
+	return nil, errors.Errorf("match data illegal, expect length: 1-3, actual length: %d", len(matchData))
 }
 
 // Wait ...

@@ -88,7 +88,6 @@ func (Product) TableName() string {
 
 // TODO: LOU: what namespace is it??
 func (p *Product) GetNamespace() string {
-	//return "koderover-" + p.EnvName + "-" + p.ProductName
 	return p.ProductName + "-env-" + p.EnvName
 }
 

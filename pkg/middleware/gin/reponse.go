@@ -17,6 +17,8 @@ limitations under the License.
 package gin
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/setting"
@@ -32,8 +34,8 @@ func Response() gin.HandlerFunc {
 }
 
 func handleResponse(c *gin.Context) {
-	// skip set response when previous middlewares  already do
-	if c.Writer.Written() {
+	// skip if response or status is already set
+	if c.Writer.Written() || c.Writer.Status() != http.StatusOK {
 		return
 	}
 
@@ -43,9 +45,19 @@ func handleResponse(c *gin.Context) {
 	}
 
 	if v, ok := c.Get(setting.ResponseData); ok {
-		c.JSON(200, v)
+		setResponse(v, c)
 	} else {
 		c.JSON(200, gin.H{"message": "success"})
 	}
+}
 
+func setResponse(resp interface{}, c *gin.Context) {
+	switch r := resp.(type) {
+	case string:
+		c.String(200, r)
+	case []byte:
+		c.String(200, string(r))
+	default:
+		c.JSON(200, r)
+	}
 }
