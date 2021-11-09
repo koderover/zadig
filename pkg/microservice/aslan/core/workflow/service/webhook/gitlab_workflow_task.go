@@ -36,7 +36,6 @@ import (
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/codehost"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	gitlabtool "github.com/koderover/zadig/pkg/tool/git/gitlab"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -151,7 +150,7 @@ func (gpem *gitlabPushEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (
 		hookRepo.Branch = getBranchFromRef(ev.Ref)
 
 		var changedFiles []string
-		detail, err := codehost.GetCodehostDetail(hookRepo.CodehostID)
+		detail, err := systemconfig.GetCodehostDetail(hookRepo.CodehostID)
 		if err != nil {
 			gpem.log.Errorf("GetCodehostDetail error: %s", err)
 			return false, err
@@ -323,7 +322,7 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 }
 
 func findChangedFilesOfMergeRequest(event *gitlab.MergeEvent, codehostID int) ([]string, error) {
-	detail, err := codehost.GetCodehostDetail(codehostID)
+	detail, err := systemconfig.GetCodehostDetail(codehostID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find codehost %d: %v", codehostID, err)
 	}
@@ -343,7 +342,7 @@ func InitDiffNote(ev *gitlab.MergeEvent, mainRepo *commonmodels.MainHookRepo, lo
 	body := "KodeRover CI 检查中..."
 
 	// 调用gitlab api获取相关数据
-	detail, err := codehost.GetCodehostDetail(mainRepo.CodehostID)
+	detail, err := systemconfig.GetCodehostDetail(mainRepo.CodehostID)
 	if err != nil {
 		log.Errorf("GetCodehostDetail failed, codehost:%d, err:%v", mainRepo.CodehostID, err)
 		return fmt.Errorf("failed to find codehost %d: %v", mainRepo.CodehostID, err)

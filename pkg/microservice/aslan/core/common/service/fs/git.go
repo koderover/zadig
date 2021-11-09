@@ -27,7 +27,6 @@ import (
 	githubservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
 	gitlabservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gitlab"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/codehost"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -101,7 +100,7 @@ func GetPublicTreeGetter(repoLink string) (TreeGetter, error) {
 }
 
 func GetTreeGetter(codeHostID int) (TreeGetter, error) {
-	ch, err := codehost.GetCodeHostInfoByID(codeHostID)
+	ch, err := systemconfig.GetCodeHostInfoByID(codeHostID)
 	if err != nil {
 		log.Errorf("Failed to get codeHost by id %d, err: %s", codeHostID, err)
 		return nil, err

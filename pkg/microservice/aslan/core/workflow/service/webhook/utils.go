@@ -35,6 +35,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehub"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/shared/codehost"
 	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -199,11 +200,11 @@ func syncCodehubLatestCommit(service *commonmodels.Service) error {
 }
 
 func getCodehubClientByAddress(address string) (*codehub.Client, error) {
-	opt := &codehost.Option{
+	opt := &systemconfig.Option{
 		Address:      address,
 		CodeHostType: codehost.CodeHubProvider,
 	}
-	codehost, err := codehost.GetCodeHostInfo(opt)
+	codehost, err := systemconfig.GetCodeHostInfo(opt)
 	if err != nil {
 		log.Error(err)
 		return nil, e.ErrCodehostListProjects.AddDesc("git client is nil")
@@ -214,11 +215,11 @@ func getCodehubClientByAddress(address string) (*codehub.Client, error) {
 }
 
 func getGitlabClientByAddress(address string) (*gitlabtool.Client, error) {
-	opt := &codehost.Option{
+	opt := &systemconfig.Option{
 		Address:      address,
 		CodeHostType: codehost.GitLabProvider,
 	}
-	codehost, err := codehost.GetCodeHostInfo(opt)
+	codehost, err := systemconfig.GetCodeHostInfo(opt)
 	if err != nil {
 		log.Error(err)
 		return nil, e.ErrCodehostListProjects.AddDesc("git client is nil")
@@ -337,8 +338,8 @@ func syncContentFromGithub(args *commonmodels.Service, log *zap.SugaredLogger) e
 		return errors.New("invalid url " + args.SrcPath)
 	}
 
-	ch, err := codehost.GetCodeHostInfo(
-		&codehost.Option{CodeHostType: poetry.GitHubProvider, Address: address, Namespace: owner})
+	ch, err := systemconfig.GetCodeHostInfo(
+		&systemconfig.Option{CodeHostType: poetry.GitHubProvider, Address: address, Namespace: owner})
 	if err != nil {
 		log.Errorf("GetCodeHostInfo failed, srcPath:%s, err:%v", args.SrcPath, err)
 		return err

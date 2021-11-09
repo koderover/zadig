@@ -1,6 +1,5 @@
 package config
 
-
 import (
 	"fmt"
 
@@ -13,7 +12,7 @@ type feature struct {
 }
 
 func (c *Client) CheckFeature(featureName string) (bool, error) {
-	url := fmt.Sprintf("/api/v1/features/%s",featureName)
+	url := fmt.Sprintf("/api/v1/features/%s", featureName)
 
 	fs := &feature{}
 	_, err := c.Get(url, httpclient.SetResult(fs))

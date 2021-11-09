@@ -37,7 +37,7 @@ import (
 	gitservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	githubtool "github.com/koderover/zadig/pkg/tool/git/github"
@@ -188,8 +188,8 @@ func prEventToPipelineTasks(event *github.PullRequestEvent, requestID string, lo
 		log.Errorf("GetAddress failed, url: %s, err: %s", event.Repo.GetURL(), err)
 		return nil, err
 	}
-	ch, err := codehost.GetCodeHostInfo(
-		&codehost.Option{CodeHostType: poetry.GitHubProvider, Address: address, Namespace: owner})
+	ch, err := systemconfig.GetCodeHostInfo(
+		&systemconfig.Option{CodeHostType: poetry.GitHubProvider, Address: address, Namespace: owner})
 	if err != nil {
 		log.Errorf("GetCodeHostInfo failed, err: %v", err)
 		return nil, err
@@ -327,8 +327,8 @@ func pushEventToPipelineTasks(event *github.PushEvent, requestID string, log *za
 		log.Errorf("GetAddress failed, url: %s, err: %s", event.Repo.GetURL(), err)
 		return nil, err
 	}
-	ch, err := codehost.GetCodeHostInfo(
-		&codehost.Option{CodeHostType: poetry.GitHubProvider, Address: address, Namespace: owner})
+	ch, err := systemconfig.GetCodeHostInfo(
+		&systemconfig.Option{CodeHostType: poetry.GitHubProvider, Address: address, Namespace: owner})
 	if err != nil {
 		log.Errorf("GetCodeHostInfo failed, err: %v", err)
 		return nil, err

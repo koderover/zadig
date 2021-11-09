@@ -21,7 +21,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 )
 
 func GetConfigPayload(codeHostID int) *models.ConfigPayload {
@@ -73,7 +73,7 @@ func GetConfigPayload(codeHostID int) *models.ConfigPayload {
 	}
 
 	if codeHostID > 0 {
-		ch, _ := codehost.GetCodeHostInfoByID(codeHostID)
+		ch, _ := systemconfig.GetCodeHostInfoByID(codeHostID)
 		if ch != nil && ch.Type == setting.SourceFromGithub {
 			payload.Github.AccessToken = ch.AccessToken
 		}

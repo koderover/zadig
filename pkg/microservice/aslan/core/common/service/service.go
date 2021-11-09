@@ -37,7 +37,7 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -131,7 +131,7 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 				return nil, e.ErrListTemplate.AddDesc(err.Error())
 			}
 
-			details, err := codehost.ListCodehostDetial()
+			details, err := systemconfig.ListCodehostDetial()
 			if err != nil {
 				log.Errorf("无法从原有数据中恢复加载信息, listCodehostDetail failed err: %+v", err)
 				return nil, e.ErrListTemplate.AddDesc(err.Error())
@@ -162,8 +162,8 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 				return nil, err
 			}
 
-			detail, err := codehost.GetCodeHostInfo(
-				&codehost.Option{CodeHostType: poetry.GitHubProvider, Address: address, Namespace: owner})
+			detail, err := systemconfig.GetCodeHostInfo(
+				&systemconfig.Option{CodeHostType: poetry.GitHubProvider, Address: address, Namespace: owner})
 			if err != nil {
 				log.Errorf("get github codeHostInfo failed, err:%v", err)
 				return nil, err
@@ -318,7 +318,7 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 
 	if resp.Source == setting.SourceFromGitlab && resp.RepoName == "" {
 		if gitlabAddress, err := GetGitlabAddress(resp.SrcPath); err == nil {
-			if details, err := codehost.ListCodehostDetial(); err == nil {
+			if details, err := systemconfig.ListCodehostDetial(); err == nil {
 				for _, detail := range details {
 					if strings.Contains(detail.Address, gitlabAddress) {
 						resp.GerritCodeHostID = detail.ID
@@ -355,8 +355,8 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 			return nil, err
 		}
 
-		detail, err := codehost.GetCodeHostInfo(
-			&codehost.Option{CodeHostType: poetry.GitHubProvider, Address: address, Namespace: owner, CodeHostID: resp.CodehostID})
+		detail, err := systemconfig.GetCodeHostInfo(
+			&systemconfig.Option{CodeHostType: poetry.GitHubProvider, Address: address, Namespace: owner, CodeHostID: resp.CodehostID})
 		if err != nil {
 			log.Errorf("get github codeHostInfo failed, err:%v", err)
 			return nil, err
