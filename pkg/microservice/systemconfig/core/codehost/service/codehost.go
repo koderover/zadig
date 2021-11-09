@@ -19,8 +19,11 @@ func CreateCodeHost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*models.Co
 	return mongodb.NewCodehostColl().AddCodeHost(codehost)
 }
 
-func FindCodeHost(_ *zap.SugaredLogger) ([]*models.CodeHost, error) {
-	return mongodb.NewCodehostColl().FindCodeHosts()
+func List(address, owner string, _ *zap.SugaredLogger) ([]*models.CodeHost, error) {
+	return mongodb.NewCodehostColl().List(&mongodb.ListArgs{
+		Address: address,
+		Owner:   owner,
+	})
 }
 
 func DeleteCodeHost(id int, _ *zap.SugaredLogger) error {

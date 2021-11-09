@@ -119,6 +119,20 @@ func (c *WebHookColl) Delete(owner, repo, address string) error {
 	return nil
 }
 
+func (c *WebHookColl) List() ([]*models.WebHook, error) {
+	res := make([]*models.WebHook, 0)
+	cursor, err := c.Collection.Find(context.TODO(), bson.M{})
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &res)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, err
+}
+
 // Find find webhook
 func (c *WebHookColl) Find(owner, repo, address string) (*models.WebHook, error) {
 	query := bson.M{"owner": owner, "repo": repo, "address": address}

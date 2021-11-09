@@ -23,12 +23,7 @@ type CodeHost struct {
 }
 
 func GetCodeHostList() ([]*CodeHost, error) {
-	var list []*CodeHost
-	_, err := New().Post(fmt.Sprintf("/api/v1/codehost"), httpclient.SetResult(&list))
-	if err != nil {
-		return nil, err
-	}
-	return list, nil
+	return New().ListCodeHosts()
 }
 
 type Option struct {
@@ -130,4 +125,34 @@ func ListCodehostDetial() ([]*Detail, error) {
 	}
 
 	return details, nil
+}
+
+func (c *Client) ListCodeHosts() ([]*CodeHost, error) {
+	url := "/codehosts"
+
+	res := make([]*CodeHost, 0)
+	_, err := c.Get(url, httpclient.SetResult(&res))
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (c *Client) GetCodeHostByAddressAndOwner(address, owner string) (*CodeHost, error) {
+	url := "/codehosts"
+
+	res := make([]*CodeHost, 0)
+	_, err := c.Get(url, httpclient.SetQueryParam("address", address), httpclient.SetQueryParam("owner", owner), httpclient.SetResult(&res))
+	if err != nil {
+		return nil, err
+	}
+
+	if len(res) == 0 {
+		return nil, fmt.Errorf("no codehost found")
+	} else if len(res) > 1 {
+		return nil, fmt.Errorf("more than one codehosts found")
+	}
+
+	return res[0], nil
 }
