@@ -30,6 +30,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gerrit"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 

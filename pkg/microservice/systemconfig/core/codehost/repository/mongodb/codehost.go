@@ -136,3 +136,15 @@ func (c *CodehostColl) UpdateCodeHost(host *models.CodeHost) (*models.CodeHost, 
 	_, err := c.Collection.UpdateOne(context.TODO(), query, change)
 	return host, err
 }
+
+func (c *CodehostColl) UpdateCodeHostByToken(host *models.CodeHost) (*models.CodeHost, error) {
+	query := bson.M{"id": host.ID, "deleted_at": 0}
+	change := bson.M{"$set": bson.M{
+		"is_ready":      "2",
+		"access_token":  host.AccessToken,
+		"updated_at":    time.Now().Unix(),
+		"refresh_token": host.RefreshToken,
+	}}
+	_, err := c.Collection.UpdateOne(context.TODO(), query, change)
+	return host, err
+}
