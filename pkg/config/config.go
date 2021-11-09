@@ -73,10 +73,6 @@ func RequestLogFile() string {
 	return LogPath() + RequestLogName()
 }
 
-func PoetryAPIRootKey() string {
-	return viper.GetString(setting.ENVPoetryAPIRootKey)
-}
-
 func GetServiceByCode(code int) *setting.ServiceInfo {
 	return setting.Services[code]
 }
@@ -143,15 +139,6 @@ func CollieServiceInfo() *setting.ServiceInfo {
 
 func CollieServiceAddress() string {
 	s := CollieServiceInfo()
-	return GetServiceAddress(s.Name, s.Port)
-}
-
-func PoetryServiceInfo() *setting.ServiceInfo {
-	return GetServiceByCode(setting.Poetry)
-}
-
-func PoetryServiceAddress() string {
-	s := PoetryServiceInfo()
 	return GetServiceAddress(s.Name, s.Port)
 }
 

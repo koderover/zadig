@@ -41,7 +41,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/poetry"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
@@ -602,7 +602,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 			subTasks = append(subTasks, distributeTasks...)
 		}
 
-		jiraInfo, _ := poetry.GetJiraInfo(config.PoetryAPIServer())
+		jiraInfo, _ := systemconfig.New().GetJiraInfo()
 		if jiraInfo != nil {
 			jiraTask, err := AddJiraSubTask("", target.Name, target.ServiceName, args.ProductTmplName, log)
 			if err != nil {

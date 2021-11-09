@@ -121,13 +121,13 @@ type RegistryConfig struct {
 
 type ReleaseConfig struct {
 	// ReaperImage sets build job image
-	// e.g. xxx.com/poetry-resources/reaper-plugin:1.0.0
+	// e.g. xxx.com/resources/reaper-plugin:1.0.0
 	ReaperImage string
 	// ReaperBinaryFile sets download url of reaper binary file in build job
 	// e.g. http://resource.koderover.com/reaper-20201014203000
 	ReaperBinaryFile string
 	// PredatorImage sets docker build image
-	// e.g. xxx.com/poetry-resources/predator-plugin:v0.1.0
+	// e.g. xxx.com/resources/predator-plugin:v0.1.0
 	PredatorImage string
 }
 

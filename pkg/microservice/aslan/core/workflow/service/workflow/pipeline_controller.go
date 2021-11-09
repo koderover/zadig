@@ -43,7 +43,7 @@ func SubScribeNSQ() error {
 	// init ack consumer
 	ackConfig := nsqservice.Config()
 	ackConfig.MaxInFlight = 50
-	ackHandler := NewTaskAckHandler(config.PoetryAPIServer(), ackConfig.MaxInFlight, logger)
+	ackHandler := NewTaskAckHandler(ackConfig.MaxInFlight, logger)
 	err := nsqservice.SubScribe(setting.TopicAck, "ack", 1, ackConfig, ackHandler)
 	if err != nil {
 		logger.Errorf("ack subscription failed, the error is: %v", err)

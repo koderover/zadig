@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package poetry
+package systemconfig
 
 import (
 	"github.com/koderover/zadig/pkg/tool/httpclient"
@@ -31,7 +31,7 @@ type JiraInfo struct {
 }
 
 func (c *Client) GetJiraInfo() (*JiraInfo, error) {
-	url := "/directory/jira"
+	url := "/jira"
 
 	jira := &JiraInfo{}
 	_, err := c.Get(url, httpclient.SetResult(jira))
@@ -40,9 +40,4 @@ func (c *Client) GetJiraInfo() (*JiraInfo, error) {
 	}
 
 	return jira, nil
-}
-
-func GetJiraInfo(host string) (*JiraInfo, error) {
-	c := New(host)
-	return c.GetJiraInfo()
 }
