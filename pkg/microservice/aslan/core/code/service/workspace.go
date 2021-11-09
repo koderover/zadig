@@ -28,6 +28,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/codehub"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )

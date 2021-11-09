@@ -19,6 +19,7 @@ package service
 import (
 	"bytes"
 	"fmt"
+
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -47,7 +48,7 @@ import (
 	templatestore "github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/poetry"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
@@ -344,7 +345,7 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 	return nil
 }
 
-func getCodehostType(repoArgs *CreateFromRepo, repoLink string) (string, *poetry.CodeHost, error) {
+func getCodehostType(repoArgs *CreateFromRepo, repoLink string) (string, *systemconfig.CodeHost, error) {
 	if repoLink != "" {
 		return setting.SourceFromPublicRepo, nil, nil
 	}
