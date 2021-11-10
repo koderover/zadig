@@ -254,6 +254,6 @@ func AdminPassword() string {
 	return viper.GetString(setting.ENVAdminPassword)
 }
 
-func AdminDomain() string {
-	return viper.GetString(setting.ENVAdminDomain)
+func Domain() string {
+	return viper.GetString(setting.ENVDomain)
 }
