@@ -111,7 +111,10 @@ func presetSystemAdmin(email string, password, domain string) (string, error) {
 		return "", err
 	}
 	// report register
-	go reportRegister(domain, email)
+	err = reportRegister(domain, email)
+	if err != nil {
+		log.Infof("reportRegister err: %s", err)
+	}
 	return user.Uid, nil
 }
 
@@ -119,7 +122,7 @@ type Operation struct {
 	Data string `json:"data"`
 }
 
-func reportRegister(domain, email string) {
+func reportRegister(domain, email string) error {
 	uploadStrFmt := `
 	{
 		"domain":"%s",
@@ -128,13 +131,17 @@ func reportRegister(domain, email string) {
 		"created_at":%d
 	}`
 
-	encrypt := RSA_Encrypt([]byte(fmt.Sprintf(uploadStrFmt, domain, email, time.Now().Unix())))
+	encrypt, err := RSA_Encrypt([]byte(fmt.Sprintf(uploadStrFmt, domain, email, time.Now().Unix())))
+	if err != nil {
+		return err
+	}
 	encodeString := base64.StdEncoding.EncodeToString(encrypt)
 	resp := Operation{Data: encodeString}
 	bs, _ := json.Marshal(resp)
-	http.Post("https://api.koderover.com/api/operation/admin/user",
+	_, err = http.Post("https://api.koderover.com/api/operation/admin/user",
 		"application/json",
 		strings.NewReader(string(bs)))
+	return err
 }
 
 func presetRoleBinding(uid string) error {

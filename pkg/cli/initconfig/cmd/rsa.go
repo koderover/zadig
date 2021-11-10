@@ -11,17 +11,17 @@ import (
 
 var pub *rsa.PublicKey
 
-func RSA_Encrypt(plainText []byte) []byte {
+func RSA_Encrypt(plainText []byte) ([]byte, error) {
 	if err := LoadPubKey(""); err != nil {
-		return nil
+		return nil, err
 	}
 	//对明文进行加密
 	cipherText, err := rsa.EncryptPKCS1v15(rand.Reader, pub, plainText)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	//返回密文
-	return cipherText
+	return cipherText, nil
 }
 
 // LoadPubKey ...
