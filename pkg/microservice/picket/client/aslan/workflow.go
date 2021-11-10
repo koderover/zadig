@@ -46,7 +46,7 @@ func (c *Client) RestartWorkflowTask(header http.Header, qs url.Values, id strin
 
 	res, err := c.Delete(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs))
 	if err != nil {
-		return nil, err
+		return http.StatusInternalServerError, err
 	}
 
 	return res.StatusCode(), nil
