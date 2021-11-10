@@ -72,6 +72,7 @@ func GetWorkflowTestJobContainerLogs(pipelineName, serviceName, pipelineType str
 
 func getContainerLogFromS3(pipelineName, filenamePrefix string, taskID int64, log *zap.SugaredLogger) (string, error) {
 	fileName := strings.Replace(strings.ToLower(filenamePrefix), "_", "-", -1)
+	fileName += ".log"
 	tempFile, _ := util.GenerateTmpFile()
 	defer func() {
 		_ = os.Remove(tempFile)
@@ -97,16 +98,11 @@ func getContainerLogFromS3(pipelineName, filenamePrefix string, taskID int64, lo
 		log.Errorf("Failed to create s3 client, the error is: %+v", err)
 		return "", err
 	}
-	objectPrefix := storage.GetObjectPath(fileName)
-	fileList, err := client.ListFiles(storage.Bucket, objectPrefix, false)
-	if err != nil {
-		log.Errorf("GetContainerLogFromS3 ListFiles err:%v", err)
-		return "", err
-	}
-	if len(fileList) == 0 {
-		return "", nil
-	}
-	err = client.Download(storage.Bucket, fileList[0], tempFile)
+	fullPath := storage.GetObjectPath(fileName)
+	err = client.DownloadWithOption(storage.Bucket, fullPath, tempFile, &s3tool.DownloadOption{
+		IgnoreNotExistError: true,
+		RetryNum:            3,
+	})
 	if err != nil {
 		log.Errorf("GetContainerLogFromS3 Download err:%v", err)
 		return "", err

@@ -38,6 +38,15 @@ type Client struct {
 	*s3.S3
 }
 
+type DownloadOption struct {
+	IgnoreNotExistError bool
+	RetryNum            int
+}
+
+var defaultDownloadOption = &DownloadOption{
+	RetryNum: 3,
+}
+
 func NewClient(endpoint, ak, sk string, insecure, forcedPathStyle bool) (*Client, error) {
 	creds := credentials.NewStaticCredentials(ak, sk, "")
 	config := &aws.Config{
@@ -70,12 +79,21 @@ func (c *Client) ValidateBucket(bucketName string) error {
 	return fmt.Errorf("validate s3 error: given bucket does not exist")
 }
 
+func (c *Client) DownloadWithOption(bucketName, objectKey, dest string, option *DownloadOption) error {
+	return c.download(bucketName, objectKey, dest, option)
+}
+
 // Download the file to object storage
 func (c *Client) Download(bucketName, objectKey, dest string) error {
+	return c.download(bucketName, objectKey, dest, defaultDownloadOption)
+}
+
+func (c *Client) download(bucketName, objectKey, dest string, option *DownloadOption) error {
+
 	retry := 0
 	var err error
 
-	for retry < 3 {
+	for retry < option.RetryNum {
 		opt := &s3.GetObjectInput{
 			Bucket: aws.String(bucketName),
 			Key:    aws.String(objectKey),
@@ -83,6 +101,9 @@ func (c *Client) Download(bucketName, objectKey, dest string) error {
 		obj, err1 := c.GetObject(opt)
 		if err1 != nil {
 			if e, ok := err1.(awserr.Error); ok && e.Code() == s3.ErrCodeNoSuchKey {
+				if option.IgnoreNotExistError {
+					return nil
+				}
 				return err1
 			}
 
