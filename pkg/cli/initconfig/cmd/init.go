@@ -19,10 +19,7 @@ package cmd
 import (
 	_ "embed"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
-	"net/http"
-	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -34,11 +31,18 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
 	"github.com/koderover/zadig/pkg/shared/client/user"
+	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 func init() {
 	rootCmd.AddCommand(initCmd)
+	log.Init(&log.Config{
+		Level:       config.LogLevel(),
+		Filename:    config.LogFile(),
+		SendToFile:  config.SendLogToFile(),
+		Development: config.Mode() != setting.ReleaseMode,
+	})
 }
 
 //go:embed contributor.yaml
@@ -113,7 +117,7 @@ func presetSystemAdmin(email string, password, domain string) (string, error) {
 	// report register
 	err = reportRegister(domain, email)
 	if err != nil {
-		log.Infof("reportRegister err: %s", err)
+		log.Errorf("reportRegister err: %s", err)
 	}
 	return user.Uid, nil
 }
@@ -131,16 +135,18 @@ func reportRegister(domain, email string) error {
 		"created_at":%d
 	}`
 
-	encrypt, err := RSA_Encrypt([]byte(fmt.Sprintf(uploadStrFmt, domain, email, time.Now().Unix())))
+	encrypt, err := RSAEncrypt([]byte(fmt.Sprintf(uploadStrFmt, domain, email, time.Now().Unix())))
 	if err != nil {
 		return err
 	}
 	encodeString := base64.StdEncoding.EncodeToString(encrypt)
 	resp := Operation{Data: encodeString}
-	bs, _ := json.Marshal(resp)
-	_, err = http.Post("https://api.koderover.com/api/operation/admin/user",
-		"application/json",
-		strings.NewReader(string(bs)))
+	//bs, _ := json.Marshal(resp)
+	//_, err = http.Post("https://api.koderover.com/api/operation/admin/user",
+	//	"application/json",
+	//	strings.NewReader(string(bs)))
+
+	_, err = httpclient.Post("https://api.koderover.com/api/operation/admin/user", httpclient.SetBody(resp), httpclient.ForceContentType("application/json"))
 	return err
 }
 

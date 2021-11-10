@@ -6,12 +6,12 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
-	"io/ioutil"
+	"os"
 )
 
 var pub *rsa.PublicKey
 
-func RSA_Encrypt(plainText []byte) ([]byte, error) {
+func RSAEncrypt(plainText []byte) ([]byte, error) {
 	if err := LoadPubKey(""); err != nil {
 		return nil, err
 	}
@@ -28,9 +28,9 @@ func RSA_Encrypt(plainText []byte) ([]byte, error) {
 func LoadPubKey(filename string) (err error) {
 	var block *pem.Block
 	if filename == "" {
-		block, _ = pem.Decode(defaultPublicKey)
+		block, _ = pem.Decode([]byte(defaultPublicKey))
 	} else {
-		b, err := ioutil.ReadFile(filename)
+		b, err := os.ReadFile(filename)
 		if err != nil {
 			return err
 		}
@@ -47,7 +47,7 @@ func LoadPubKey(filename string) (err error) {
 	return
 }
 
-var defaultPublicKey = []byte(`
+var defaultPublicKey = `
 -----BEGIN RSA PUBLIC KEY-----
 MIIBpTANBgkqhkiG9w0BAQEFAAOCAZIAMIIBjQKCAYQAz5IqagSbovHGXmUf7wTB
 XrR+DZ0u3p5jsgJW08ISJl83t0rCCGMEtcsRXJU8bE2dIIfndNwvmBiqh13/WnJd
@@ -59,4 +59,4 @@ srOnJd65N8anoMGxQqNv+ycAHB9aI1Yrtgue2KKzpI/Fneghd/ZavGVFWKDYoFP3
 h7uu0/9B/gn81o2f+c8GSplWB5bALhQH8tJZnvmWZGI9OnrIlWmQZsuUBooTul9Q
 ZJ/w3sE1Zoxa+Or1/eWijqtIfhukOJBNyGaj+esFg6uEeBgHAgMBAAE=
 -----END RSA PUBLIC KEY-----
-`)
+`
