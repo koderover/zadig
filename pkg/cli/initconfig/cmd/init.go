@@ -71,7 +71,7 @@ func run() error {
 func initSystemConfig() error {
 	email := config.AdminEmail()
 	password := config.AdminPassword()
-	domain := config.AdminDomain()
+	domain := config.Domain()
 
 	uid, err := presetSystemAdmin(email, password, domain)
 	if err != nil {
