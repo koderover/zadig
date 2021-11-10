@@ -7,7 +7,7 @@ import (
 )
 
 func ListCodeHost(_ *zap.SugaredLogger) ([]*systemconfig.CodeHost, error) {
-	list, err := systemconfig.GetCodeHostList()
+	list, err := systemconfig.New().ListCodeHosts()
 	if err != nil {
 		return nil, err
 	}
