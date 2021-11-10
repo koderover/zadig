@@ -24,3 +24,7 @@ func RestartWorkflowTask(header http.Header, qs url.Values, id string, name stri
 func ListWorkflowTask(header http.Header, qs url.Values, commitId string, _ *zap.SugaredLogger) ([]byte, error) {
 	return aslan.New().ListWorkflowTask(header, qs, commitId)
 }
+
+func ListDelivery(header http.Header, qs url.Values, productName string, workflowName string, taskId string, perPage string, page string, _ *zap.SugaredLogger) ([]byte, error) {
+	return aslan.New().ListDelivery(header, qs, productName, workflowName, taskId, perPage, page)
+}

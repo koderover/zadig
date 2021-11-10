@@ -97,3 +97,14 @@ func ListWorkflowTask(c *gin.Context) {
 	commitId := c.Param("commitId")
 	ctx.Resp, ctx.Err = service.ListWorkflowTask(c.Request.Header, c.Request.URL.Query(), commitId, ctx.Logger)
 }
+
+func ListDelivery(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	productName := c.Query("productName")
+	workflowName := c.Query("workflowName")
+	taskIDStr := c.Query("taskId")
+	perPageStr := c.Query("perPage")
+	pageStr := c.Query("page")
+	ctx.Resp, ctx.Err = service.ListDelivery(c.Request.Header, c.Request.URL.Query(), productName, workflowName, taskIDStr, perPageStr, pageStr, ctx.Logger)
+}
