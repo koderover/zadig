@@ -6,6 +6,7 @@ import (
 	"net/url"
 
 	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 func (c *Client) ListTestWorkflows(testName string, header http.Header, qs url.Values) ([]byte, error) {
@@ -46,6 +47,7 @@ func (c *Client) RestartWorkflowTask(header http.Header, qs url.Values, id strin
 
 	res, err := c.Delete(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs))
 	if err != nil {
+		log.Errorf("RestartWorkflowTask err: %s,res: %s", err, string(res.Body()))
 		return http.StatusInternalServerError, err
 	}
 
