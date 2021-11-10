@@ -20,8 +20,9 @@ type CodehostColl struct {
 }
 
 type ListArgs struct {
-	Owner   string `json:"owner"`
-	Address string `json:"address"`
+	Owner   string
+	Address string
+	Source  string
 }
 
 func NewCodehostColl() *CodehostColl {
@@ -84,6 +85,9 @@ func (c *CodehostColl) List(args *ListArgs) ([]*models.CodeHost, error) {
 	}
 	if args.Owner != "" {
 		query["namespace"] = args.Owner
+	}
+	if args.Source != "" {
+		query["type"] = args.Source
 	}
 
 	cursor, err := c.Collection.Find(context.TODO(), query)

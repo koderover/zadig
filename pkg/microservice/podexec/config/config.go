@@ -17,15 +17,8 @@ limitations under the License.
 package config
 
 import (
-	"github.com/spf13/viper"
-
 	configbase "github.com/koderover/zadig/pkg/config"
-	"github.com/koderover/zadig/pkg/setting"
 )
-
-func PoetryAPIRootKey() string {
-	return viper.GetString(setting.ENVPoetryAPIRootKey)
-}
 
 func HubServerAddr() string {
 	return configbase.HubServerServiceAddress()

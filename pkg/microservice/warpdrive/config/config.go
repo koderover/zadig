@@ -34,10 +34,6 @@ func NSQLookupAddrs() []string {
 	return strings.Split(viper.GetString(setting.ENVNsqLookupAddrs), ",")
 }
 
-func PoetryAPIRootKey() string {
-	return viper.GetString(setting.ENVPoetryAPIRootKey)
-}
-
 func ReleaseImageTimeout() string {
 	return viper.GetString(setting.ReleaseImageTimeout)
 }

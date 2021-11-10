@@ -46,7 +46,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/registry"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/poetry"
 	"github.com/koderover/zadig/pkg/tool/git/gitlab"
 	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
@@ -64,12 +63,11 @@ type TaskAckHandler struct {
 	deliveryArtifactColl *commonrepo.DeliveryArtifactColl
 	deliveryActivityColl *commonrepo.DeliveryActivityColl
 	TestTaskStatColl     *commonrepo.TestTaskStatColl
-	PoetryClient         *poetry.Client
 	messages             chan *nsq.Message
 	log                  *zap.SugaredLogger
 }
 
-func NewTaskAckHandler(poetryServer string, maxInFlight int, log *zap.SugaredLogger) *TaskAckHandler {
+func NewTaskAckHandler(maxInFlight int, log *zap.SugaredLogger) *TaskAckHandler {
 	return &TaskAckHandler{
 		queue:                NewPipelineQueue(log),
 		ptColl:               commonrepo.NewTaskColl(),
@@ -79,7 +77,6 @@ func NewTaskAckHandler(poetryServer string, maxInFlight int, log *zap.SugaredLog
 		deliveryArtifactColl: commonrepo.NewDeliveryArtifactColl(),
 		deliveryActivityColl: commonrepo.NewDeliveryActivityColl(),
 		TestTaskStatColl:     commonrepo.NewTestTaskStatColl(),
-		PoetryClient:         poetry.New(poetryServer),
 		messages:             make(chan *nsq.Message, maxInFlight*10),
 		log:                  log,
 	}

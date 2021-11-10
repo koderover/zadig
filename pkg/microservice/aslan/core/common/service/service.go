@@ -38,7 +38,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
-	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util/converter"
@@ -163,7 +162,7 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 			}
 
 			detail, err := systemconfig.GetCodeHostInfo(
-				&systemconfig.Option{CodeHostType: poetry.GitHubProvider, Address: address, Namespace: owner})
+				&systemconfig.Option{CodeHostType: systemconfig.GitHubProvider, Address: address, Namespace: owner})
 			if err != nil {
 				log.Errorf("get github codeHostInfo failed, err:%v", err)
 				return nil, err
@@ -356,7 +355,7 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 		}
 
 		detail, err := systemconfig.GetCodeHostInfo(
-			&systemconfig.Option{CodeHostType: poetry.GitHubProvider, Address: address, Namespace: owner, CodeHostID: resp.CodehostID})
+			&systemconfig.Option{CodeHostType: systemconfig.GitHubProvider, Address: address, Namespace: owner})
 		if err != nil {
 			log.Errorf("get github codeHostInfo failed, err:%v", err)
 			return nil, err

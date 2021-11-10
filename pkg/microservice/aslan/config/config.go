@@ -74,10 +74,6 @@ func LogLevel() int {
 	return viper.GetInt(setting.ENVLogLevel)
 }
 
-func PoetryAPIServer() string {
-	return configbase.PoetryServiceAddress()
-}
-
 func CollieAPIAddress() string {
 	return configbase.CollieServiceAddress()
 }

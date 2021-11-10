@@ -1,12 +1,16 @@
 package systemconfig
 
 import (
-	"errors"
 	"fmt"
-	"strings"
 
-	"github.com/koderover/zadig/pkg/shared/codehost"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
+)
+
+const (
+	GitLabProvider  = "gitlab"
+	GitHubProvider  = "github"
+	GerritProvider  = "gerrit"
+	CodeHubProvider = "codehub"
 )
 
 type CodeHost struct {
@@ -29,31 +33,8 @@ type Option struct {
 	CodeHostID   int
 }
 
-func GetCodeHostInfo(option *Option) (*CodeHost, error) {
-	codeHosts, err := New().ListCodeHosts()
-	if err != nil {
-		return nil, err
-	}
-
-	for _, codeHost := range codeHosts {
-		if option.CodeHostID != 0 && codeHost.ID == option.CodeHostID {
-			return codeHost, nil
-		} else if option.CodeHostID == 0 && option.CodeHostType != "" {
-			switch option.CodeHostType {
-			case codehost.GitHubProvider:
-				ns := strings.ToLower(codeHost.Namespace)
-				if strings.Contains(option.Address, codeHost.Address) && strings.ToLower(option.Namespace) == ns {
-					return codeHost, nil
-				}
-			default:
-				if strings.Contains(option.Address, codeHost.Address) {
-					return codeHost, nil
-				}
-			}
-		}
-	}
-
-	return nil, errors.New("not find codeHost")
+func GetCodeHostInfo(opt *Option) (*CodeHost, error) {
+	return New().GetCodeHostByAddressAndOwner(opt.Address, opt.Namespace, opt.CodeHostType)
 }
 
 func (c *Client) GetCodeHost(id int) (*CodeHost, error) {

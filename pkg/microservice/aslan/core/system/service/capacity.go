@@ -170,20 +170,6 @@ func sendSyscapNotify(handleErr error, totalCleanTasks *int) {
 	if handleErr != nil {
 		content.Content = fmt.Sprintf("清理时间: %s, 状态: 失败, 内容: %v", now, handleErr)
 	}
-
-	//notifyInfo := &commonmodels.Notify{
-	//	Type:       config.Message,
-	//	Content:    content,
-	//	CreateTime: time.Now().Unix(),
-	//	IsRead:     false,
-	//}
-
-	//poetryClient := poetry.New(config.PoetryAPIServer())
-	//users, _ := poetryClient.ListProductPermissionUsers("", "", log.SugaredLogger())
-	//for _, user := range users {
-	//	notifyInfo.Receiver = user
-	//	notify.NewNotifyClient().CreateNotify(user, notifyInfo)
-	//}
 }
 
 func handleWorkflowTaskRetentionCenter(strategy *commonmodels.CapacityStrategy, dryRun bool) error {
