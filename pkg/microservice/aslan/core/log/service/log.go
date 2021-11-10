@@ -25,8 +25,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
@@ -101,12 +99,11 @@ func getContainerLogFromS3(pipelineName, filenamePrefix string, taskID int64, lo
 		return "", err
 	}
 	fullPath := storage.GetObjectPath(fileName)
-	err = client.Download(storage.Bucket, fullPath, tempFile)
+	err = client.DownloadWithOption(storage.Bucket, fullPath, tempFile, &s3tool.DownloadOption{
+		IgnoreNotExistError: true,
+		RetryNum:            3,
+	})
 	if err != nil {
-		//ignore error if log not exist
-		if e, ok := err.(awserr.Error); ok && e.Code() == s3.ErrCodeNoSuchKey {
-			return "", nil
-		}
 		log.Errorf("GetContainerLogFromS3 Download err:%v", err)
 		return "", err
 	}
