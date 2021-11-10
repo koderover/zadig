@@ -140,6 +140,7 @@ func reportRegister(domain, email string) error {
 	registerByte, _ := json.Marshal(register)
 	encrypt, err := RSAEncrypt([]byte(registerByte))
 	if err != nil {
+		log.Errorf("RSAEncrypt err: %s", err)
 		return err
 	}
 	encodeString := base64.StdEncoding.EncodeToString(encrypt)
