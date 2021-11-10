@@ -1,12 +1,12 @@
 package service
 
 import (
-	"github.com/koderover/zadig/pkg/microservice/picket/client/aslan"
-
 	"net/http"
 	"net/url"
 
 	"go.uber.org/zap"
+
+	"github.com/koderover/zadig/pkg/microservice/picket/client/aslan"
 )
 
 func CreateWorkflowTask(header http.Header, qs url.Values, body []byte, _ *zap.SugaredLogger) ([]byte, error) {

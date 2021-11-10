@@ -44,12 +44,4 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		codehosts.GET("", ListCodeHost)
 	}
-	dev := router.Group("dev")
-	{
-		dev.POST("/workflowTask", CreateWorkflowTask)
-		dev.DELETE("/workflowTask", CancelWorkflowTask)
-		dev.POST("/workflowTask/restart", RestartWorkflowTask)
-		dev.GET("/workflowTask", ListWorkflowTask)
-		dev.GET("/delivery", ListDelivery)
-	}
 }
