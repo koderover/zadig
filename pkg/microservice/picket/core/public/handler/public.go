@@ -6,7 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	service2 "github.com/koderover/zadig/pkg/microservice/picket/core/public/service"
+	"github.com/koderover/zadig/pkg/microservice/picket/core/public/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
@@ -14,7 +14,7 @@ func CreateWorkflowTask(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	body, _ := c.GetRawData()
-	res, err := service2.CreateWorkflowTask(c.Request.Header, c.Request.URL.Query(), body, ctx.Logger)
+	res, err := service.CreateWorkflowTask(c.Request.Header, c.Request.URL.Query(), body, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		return
@@ -47,7 +47,7 @@ func CancelWorkflowTask(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	id := c.Param("id")
 	name := c.Param("name")
-	statusCode, _ := service2.CancelWorkflowTask(c.Request.Header, c.Request.URL.Query(), id, name, ctx.Logger)
+	statusCode, _ := service.CancelWorkflowTask(c.Request.Header, c.Request.URL.Query(), id, name, ctx.Logger)
 	var code int
 	var errorMsg string
 	if statusCode == http.StatusOK {
@@ -71,7 +71,7 @@ func RestartWorkflowTask(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	id := c.Param("id")
 	name := c.Param("name")
-	statusCode, _ := service2.RestartWorkflowTask(c.Request.Header, c.Request.URL.Query(), id, name, ctx.Logger)
+	statusCode, _ := service.RestartWorkflowTask(c.Request.Header, c.Request.URL.Query(), id, name, ctx.Logger)
 	var code int
 	var errorMsg string
 	if statusCode == http.StatusOK {
@@ -94,7 +94,7 @@ func ListWorkflowTask(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	commitId := c.Query("commitId")
-	ctx.Resp, ctx.Err = service2.ListWorkflowTask(c.Request.Header, c.Request.URL.Query(), commitId, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListWorkflowTask(c.Request.Header, c.Request.URL.Query(), commitId, ctx.Logger)
 }
 
 func ListDelivery(c *gin.Context) {
@@ -105,5 +105,5 @@ func ListDelivery(c *gin.Context) {
 	taskIDStr := c.Query("taskId")
 	perPageStr := c.Query("perPage")
 	pageStr := c.Query("page")
-	ctx.Resp, ctx.Err = service2.ListDelivery(c.Request.Header, c.Request.URL.Query(), productName, workflowName, taskIDStr, perPageStr, pageStr, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListDelivery(c.Request.Header, c.Request.URL.Query(), productName, workflowName, taskIDStr, perPageStr, pageStr, ctx.Logger)
 }
