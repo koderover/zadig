@@ -11,7 +11,6 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
-	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -38,10 +37,10 @@ func CreateExternalLink(c *gin.Context) {
 
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
-	if err := c.ShouldBindJSON(&args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid externalLink args")
-		return
-	}
+	//if err := c.ShouldBindJSON(&args); err != nil {
+	//	ctx.Err = e.ErrInvalidParam.AddDesc("invalid externalLink args")
+	//	return
+	//}
 	args.UpdateBy = ctx.UserName
 
 	ctx.Err = service.CreateExternalLink(args, ctx.Logger)
@@ -63,10 +62,10 @@ func UpdateExternalLink(c *gin.Context) {
 
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
-	if err := c.ShouldBindJSON(&args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid externalLink args")
-		return
-	}
+	//if err := c.ShouldBindJSON(&args); err != nil {
+	//	ctx.Err = e.ErrInvalidParam.AddDesc("invalid externalLink args")
+	//	return
+	//}
 	args.UpdateBy = ctx.UserName
 
 	ctx.Err = service.UpdateExternalLink(c.Param("id"), args, ctx.Logger)
