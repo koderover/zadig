@@ -28,7 +28,7 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/hashicorp/go-version"
+	"github.com/blang/semver/v4"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -238,8 +238,9 @@ func (s *Service) GetYaml(id, agentImage, aslanURL, hubURI, kubeVersion string, 
 
 	rbacv1betaused := false
 	if kubeVersion != "" {
-		rbacv1beta, _ := version.NewVersion("1.17.0")
-		rbacv1betaused = rbacv1beta.LessThan(version.Must(version.NewVersion(kubeVersion)))
+		v1, _ := semver.Make("1.17.0")
+		v2, _ := semver.Make(kubeVersion)
+		rbacv1betaused = v2.LT(v1)
 	}
 
 	if cluster.Namespace == "" {
