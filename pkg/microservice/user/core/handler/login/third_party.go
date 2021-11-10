@@ -42,6 +42,13 @@ func Login(c *gin.Context) {
 	c.Redirect(http.StatusSeeOther, authCodeURL)
 }
 
+func ThirdPartyLoginEnabled(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp = login.ThirdPartyLoginEnabled()
+}
+
 func verifyAndDecode(ctx context.Context, code string) (*login.Claims, error) {
 	oidcCtx := oidc.ClientContext(ctx, http.DefaultClient)
 	oauth2Config := &oauth2.Config{

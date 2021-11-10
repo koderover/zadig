@@ -50,6 +50,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		router.GET("login", login.Login)
 
+		router.GET("login-enabled", login.ThirdPartyLoginEnabled)
+
 		router.POST("login", login.LocalLogin)
 
 		router.POST("signup", user.SignUp)

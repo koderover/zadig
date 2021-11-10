@@ -23,10 +23,10 @@ import (
 )
 
 func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
-	for name, r := range map[string]injector{
-		"/api/v1": new(handler.Router),
+	for _, r := range []injector{
+		new(handler.Router),
 	} {
-		r.Inject(router.Group(name))
+		r.Inject(router.Group("/api/v1"))
 	}
 }
 
