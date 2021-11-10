@@ -40,3 +40,24 @@ func (c *Client) CancelWorkflowTask(header http.Header, qs url.Values, id string
 
 	return res.StatusCode(), nil
 }
+
+func (c *Client) RestartWorkflowTask(header http.Header, qs url.Values, id string, name string) (statusCode int, err error) {
+	url := fmt.Sprintf("/workflow/workflowtask/id/%s/pipelines/%s/restart", id, name)
+
+	res, err := c.Delete(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs))
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
+
+	return res.StatusCode(), nil
+}
+func (c *Client) ListWorkflowTask(header http.Header, qs url.Values, commitId string) ([]byte, error) {
+	url := fmt.Sprintf("/workflow/v2/status/task/info?commitId=%s", commitId)
+
+	res, err := c.Get(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs))
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Body(), nil
+}

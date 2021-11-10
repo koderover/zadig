@@ -48,5 +48,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		dev.POST("/workflowTask", CreateWorkflowTask)
 		dev.DELETE("/workflowTask", CancelWorkflowTask)
+		dev.POST("/workflowTask/restart", RestartWorkflowTask)
+		dev.GET("/workflowTask", ListWorkflowTask)
 	}
 }

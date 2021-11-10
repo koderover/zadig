@@ -66,3 +66,34 @@ func CancelWorkflowTask(c *gin.Context) {
 		ErrorMsg:   errorMsg,
 	}
 }
+
+func RestartWorkflowTask(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	id := c.Param("id")
+	name := c.Param("name")
+	statusCode, _ := service.RestartWorkflowTask(c.Request.Header, c.Request.URL.Query(), id, name, ctx.Logger)
+	var code int
+	var errorMsg string
+	if statusCode == http.StatusOK {
+		code = 0
+		errorMsg = "success"
+	} else if statusCode == http.StatusForbidden {
+		code = statusCode
+		errorMsg = "forbidden"
+	} else {
+		code = statusCode
+		errorMsg = "fail"
+	}
+	ctx.Resp = EndpointResponse{
+		ResultCode: code,
+		ErrorMsg:   errorMsg,
+	}
+}
+
+func ListWorkflowTask(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	commitId := c.Param("commitId")
+	ctx.Resp, ctx.Err = service.ListWorkflowTask(c.Request.Header, c.Request.URL.Query(), commitId, ctx.Logger)
+}
