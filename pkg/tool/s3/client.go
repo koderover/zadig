@@ -93,7 +93,7 @@ func (c *Client) download(bucketName, objectKey, dest string, option *DownloadOp
 	retry := 0
 	var err error
 
-	for retry < 3 {
+	for retry < option.RetryNum {
 		opt := &s3.GetObjectInput{
 			Bucket: aws.String(bucketName),
 			Key:    aws.String(objectKey),
