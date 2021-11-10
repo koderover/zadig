@@ -116,7 +116,6 @@ const (
 	// initconfig
 	ENVAdminEmail    = "ADMIN_EMAIL"
 	ENVAdminPassword = "ADMIN_PASSWORD"
-	ENVDomain        = "ADDRESS"
 	PresetAccount    = "admin"
 )
 
