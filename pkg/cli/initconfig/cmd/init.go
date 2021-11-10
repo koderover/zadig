@@ -19,6 +19,7 @@ package cmd
 import (
 	_ "embed"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -122,17 +123,22 @@ func presetSystemAdmin(email string, password, domain string) (string, error) {
 type Operation struct {
 	Data string `json:"data"`
 }
+type Register struct {
+	Domain    string `json:"domain"`
+	Username  string `json:"username"`
+	Email     string `json:"email"`
+	CreatedAt int64  `json:"created_at"`
+}
 
 func reportRegister(domain, email string) error {
-	uploadStrFmt := `
-	{
-		"domain":"%s",
-		"username":"admin",
-		"email":"%s",
-		"created_at":%d
-	}`
-
-	encrypt, err := RSAEncrypt([]byte(fmt.Sprintf(uploadStrFmt, domain, email, time.Now().Unix())))
+	register := Register{
+		Domain:    domain,
+		Username:  "admin",
+		Email:     email,
+		CreatedAt: time.Now().Unix(),
+	}
+	registerByte, _ := json.Marshal(register)
+	encrypt, err := RSAEncrypt([]byte(registerByte))
 	if err != nil {
 		return err
 	}
