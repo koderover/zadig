@@ -80,19 +80,19 @@ func DownloadServiceManifests(base, projectName, serviceName string) error {
 	return fsservice.DownloadAndExtractFilesFromS3(serviceName, base, s3Base, log.SugaredLogger())
 }
 
-func SaveAndUploadService(projectName, serviceName string, fileTree fs.FS) error {
+func SaveAndUploadService(projectName, serviceName string, copies []string, fileTree fs.FS) error {
 	localBase := config.LocalServicePath(projectName, serviceName)
 	s3Base := config.ObjectStorageServicePath(projectName, serviceName)
-	return fsservice.SaveAndUploadFiles(fileTree, serviceName, localBase, s3Base, log.SugaredLogger())
+	return fsservice.SaveAndUploadFiles(fileTree, serviceName, localBase, s3Base, copies, log.SugaredLogger())
 }
 
 // SaveAndUploadServiceWithRevision save file to local and upload to s3
-func SaveAndUploadServiceWithRevision(projectName, serviceName string, fileTree fs.FS, revision int64) error {
-	serviceNameWithRevision := config.ServiceNameWithRevision(serviceName, revision)
-	localBase := config.LocalServicePathWithRevision(projectName, serviceName, revision)
-	s3Base := config.ObjectStorageServicePath(projectName, serviceName)
-	return fsservice.SaveAndUploadFiles(fileTree, serviceNameWithRevision, localBase, s3Base, log.SugaredLogger())
-}
+//func SaveAndUploadServiceWithRevision(projectName, serviceName string, fileTree fs.FS, revision int64) error {
+//	serviceNameWithRevision := config.ServiceNameWithRevision(serviceName, revision)
+//	localBase := config.LocalServicePathWithRevision(projectName, serviceName, revision)
+//	s3Base := config.ObjectStorageServicePath(projectName, serviceName)
+//	return fsservice.SaveAndUploadFiles(fileTree, serviceNameWithRevision, localBase, s3Base, log.SugaredLogger())
+//}
 
 func preLoadServiceManifestsFromSource(svc *commonmodels.Service) error {
 	tree, err := fsservice.DownloadFilesFromSource(
@@ -105,7 +105,7 @@ func preLoadServiceManifestsFromSource(svc *commonmodels.Service) error {
 	}
 
 	// save files to disk and upload them to s3
-	if err = SaveAndUploadService(svc.ProductName, svc.ServiceName, tree); err != nil {
+	if err = SaveAndUploadService(svc.ProductName, svc.ServiceName, nil, tree); err != nil {
 		log.Errorf("Failed to save or upload files for service %s in project %s, error: %s", svc.ServiceName, svc.ProductName, err)
 		return err
 	}

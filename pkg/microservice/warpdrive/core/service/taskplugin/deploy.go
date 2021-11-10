@@ -432,10 +432,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		}
 
 		//task执行时候 product.service.revision 可能已经更新，需要使用当前环境中的service.revision
-		targetRevision := p.Task.ServiceRevision
-		if curRevisionInProduct > 0 && curRevisionInProduct != p.Task.ServiceRevision {
-			targetRevision = curRevisionInProduct
-		}
+		targetRevision := curRevisionInProduct
 
 		path, errDownload := p.downloadService(pipelineTask.ProductName, p.Task.ServiceName,
 			pipelineTask.StorageURI, targetRevision)
@@ -609,14 +606,13 @@ func (p *DeployTaskPlugin) getProductInfo(ctx context.Context, args *EnvArgs) (*
 	return prod, nil
 }
 
-func (p *DeployTaskPlugin) getService(ctx context.Context, name, serviceType,
-	productName string, revision int64) (*types.ServiceTmpl, error) {
+func (p *DeployTaskPlugin) getService(ctx context.Context, name, serviceType, productName string, revision int64) (*types.ServiceTmpl, error) {
 	url := fmt.Sprintf("/api/service/services/%s/%s", name, serviceType)
 
 	s := &types.ServiceTmpl{}
 	_, err := p.httpClient.Get(url, httpclient.SetResult(s), httpclient.SetQueryParams(map[string]string{
 		"productName": productName,
-		"revision":    fmt.Sprintf("%v", revision),
+		"revision":    fmt.Sprintf("%d", revision),
 	}))
 	if err != nil {
 		return nil, err
@@ -631,7 +627,7 @@ func (p *DeployTaskPlugin) updateServiceRevision(ctx context.Context, name, prod
 	_, err := p.httpClient.Put(url, httpclient.SetQueryParams(map[string]string{
 		"productName": productName,
 		"envName":     envName,
-		"revision":    fmt.Sprintf("%v", revision),
+		"revision":    fmt.Sprintf("%d", revision),
 	}))
 	return err
 }
@@ -653,7 +649,11 @@ func (p *DeployTaskPlugin) downloadService(productName, serviceName, storageURI 
 	localBase := configbase.LocalServicePath(productName, serviceName)
 	tarFilePath := filepath.Join(localBase, tarball)
 
-	if exists, _ := fsutil.FileExists(tarFilePath); exists {
+	exists, err := fsutil.FileExists(tarFilePath)
+	if err != nil {
+		return "", err
+	}
+	if exists {
 		return tarFilePath, nil
 	}
 
@@ -662,21 +662,24 @@ func (p *DeployTaskPlugin) downloadService(productName, serviceName, storageURI 
 	if s3Storage.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
 	}
-	client, err1 := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
+	s3Client, err1 := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
 	if err1 != nil {
 		p.Log.Errorf("failed to create s3 client, err: %+v", err1)
 		return "", err1
 	}
-	if err = client.Download(s3Storage.Bucket, s3Storage.GetObjectPath(tarball), tarFilePath); err != nil {
+	if err = s3Client.Download(s3Storage.Bucket, s3Storage.GetObjectPath(tarball), tarFilePath); err != nil {
 		logger.Errorf("Failed to download file from s3, err: %s", err)
 		_ = os.Remove(tarFilePath)
 		return "", err
 	}
 
-	if exist, _ := fsutil.FileExists(tarFilePath); !exist {
+	exists, err = fsutil.FileExists(tarFilePath)
+	if err != nil {
+		return "", err
+	}
+	if !exists {
 		return "", fmt.Errorf("file %s on s3 not found", s3Storage.GetObjectPath(tarball))
 	}
-
 	return tarFilePath, nil
 }
 

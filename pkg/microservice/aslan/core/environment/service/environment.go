@@ -2631,17 +2631,18 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 	productServiceMap := productResp.GetServiceMap()
 
 	handler := func(service *commonmodels.Service, log *zap.SugaredLogger) error {
+		targetRevision := service.Revision
 		//preload chart info with specific revision
 		base := config.LocalServicePathWithRevision(service.ProductName, service.ServiceName, service.Revision)
 		if err := commonservice.PreloadServiceManifestsByRevision(base, service); err != nil {
+			log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
+				service.Revision, service.ServiceName)
 			// use the latest version when it fails to download the specific version
 			base = config.LocalServicePath(service.ProductName, service.ServiceName)
 			if err = commonservice.PreLoadServiceManifests(base, service); err != nil {
 				log.Errorf("failed to load chart info for service %v", service.ServiceName)
 				return fmt.Errorf("failed to load chart info for service %s", service.ServiceName)
 			}
-			log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
-				service.Revision, service.ServiceName)
 
 			findOpt := &commonrepo.ServiceFindOption{
 				ServiceName:   service.ServiceName,
@@ -2654,15 +2655,16 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 				log.Errorf("failed to get service:%v with latest version", service.ServiceName)
 				return fmt.Errorf("failed to get service:%v with latest version", service.ServiceName)
 			}
-			if productService, ok := productServiceMap[service.ServiceName]; ok {
-				productService.Revision = latestService.Revision
-			}
+			targetRevision = latestService.Revision
 		}
 
 		renderChart := renderChartMap[service.ServiceName]
 		err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderset.DefaultValues, service, 0, helmClient)
 		if err != nil {
 			return errors.Wrapf(err, "failed to upgrade service %s", service.ServiceName)
+		}
+		if productService, ok := productServiceMap[service.ServiceName]; ok {
+			productService.Revision = targetRevision
 		}
 		return err
 	}

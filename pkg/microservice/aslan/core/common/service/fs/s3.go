@@ -30,7 +30,7 @@ import (
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
 )
 
-func ArchiveAndUploadFilesToS3(fileTree fs.FS, name, s3Base string, logger *zap.SugaredLogger) error {
+func ArchiveAndUploadFilesToS3(fileTree fs.FS, name, s3Base string, copies []string, logger *zap.SugaredLogger) error {
 	tmpDir, err := os.MkdirTemp("", "")
 	if err != nil {
 		logger.Errorf("Failed to create temp dir, err: %s", err)
@@ -62,6 +62,16 @@ func ArchiveAndUploadFilesToS3(fileTree fs.FS, name, s3Base string, logger *zap.
 	if err = client.Upload(s3Storage.Bucket, localPath, s3Path); err != nil {
 		logger.Errorf("Failed to upload file %s to s3, err: %s", localPath, err)
 		return err
+	}
+
+	//copy file to avoid duplicated file transfer
+	for _, copyName := range copies {
+		targetPath := filepath.Join(s3Storage.Subfolder, s3Base, fmt.Sprintf("%s.tar.gz", copyName))
+		err = client.CopyObject(s3Storage.Bucket, s3Path, targetPath)
+		if err != nil {
+			logger.Errorf("Failed to copy object from %s to %s", s3Path, targetPath)
+			return err
+		}
 	}
 
 	return nil
