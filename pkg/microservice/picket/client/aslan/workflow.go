@@ -45,7 +45,7 @@ func (c *Client) CancelWorkflowTask(header http.Header, qs url.Values, id string
 func (c *Client) RestartWorkflowTask(header http.Header, qs url.Values, id string, name string) (statusCode int, err error) {
 	url := fmt.Sprintf("/workflow/workflowtask/id/%s/pipelines/%s/restart", id, name)
 
-	res, err := c.Delete(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs))
+	res, err := c.Post(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs))
 	if err != nil {
 		log.Errorf("RestartWorkflowTask err: %s,res: %s", err, string(res.Body()))
 		return http.StatusInternalServerError, err
