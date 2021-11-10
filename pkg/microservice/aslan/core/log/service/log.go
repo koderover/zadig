@@ -25,6 +25,8 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
@@ -72,6 +74,7 @@ func GetWorkflowTestJobContainerLogs(pipelineName, serviceName, pipelineType str
 
 func getContainerLogFromS3(pipelineName, filenamePrefix string, taskID int64, log *zap.SugaredLogger) (string, error) {
 	fileName := strings.Replace(strings.ToLower(filenamePrefix), "_", "-", -1)
+	fileName += ".log"
 	tempFile, _ := util.GenerateTmpFile()
 	defer func() {
 		_ = os.Remove(tempFile)
@@ -97,18 +100,13 @@ func getContainerLogFromS3(pipelineName, filenamePrefix string, taskID int64, lo
 		log.Errorf("Failed to create s3 client, the error is: %+v", err)
 		return "", err
 	}
-	fileName += ".log"
-	objectPrefix := storage.GetObjectPath(fileName)
-	fileList, err := client.ListFiles(storage.Bucket, objectPrefix, false)
+	fullPath := storage.GetObjectPath(fileName)
+	err = client.Download(storage.Bucket, fullPath, tempFile)
 	if err != nil {
-		log.Errorf("GetContainerLogFromS3 ListFiles err:%v", err)
-		return "", err
-	}
-	if len(fileList) == 0 {
-		return "", nil
-	}
-	err = client.Download(storage.Bucket, fileList[0], tempFile)
-	if err != nil {
+		//ignore error if log not exist
+		if e, ok := err.(awserr.Error); ok && e.Code() == s3.ErrCodeNoSuchKey {
+			return "", nil
+		}
 		log.Errorf("GetContainerLogFromS3 Download err:%v", err)
 		return "", err
 	}
