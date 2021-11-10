@@ -18,7 +18,12 @@ package cmd
 
 import (
 	_ "embed"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
@@ -66,8 +71,9 @@ func run() error {
 func initSystemConfig() error {
 	email := config.AdminEmail()
 	password := config.AdminPassword()
+	domain := config.AdminDomain()
 
-	uid, err := presetSystemAdmin(email, password)
+	uid, err := presetSystemAdmin(email, password, domain)
 	if err != nil {
 		log.Errorf("presetSystemAdmin err:%s", err)
 		return err
@@ -84,7 +90,7 @@ func initSystemConfig() error {
 	return nil
 }
 
-func presetSystemAdmin(email string, password string) (string, error) {
+func presetSystemAdmin(email string, password, domain string) (string, error) {
 	r, err := user.New().SearchUser(&user.SearchUserArgs{Account: setting.PresetAccount})
 	if err != nil {
 		log.Errorf("SearchUser err:%s", err)
@@ -104,7 +110,31 @@ func presetSystemAdmin(email string, password string) (string, error) {
 		log.Infof("created  admin err:%s", err)
 		return "", err
 	}
+	// report register
+	go reportRegister(domain, email)
 	return user.Uid, nil
+}
+
+type Operation struct {
+	Data string `json:"data"`
+}
+
+func reportRegister(domain, email string) {
+	uploadStrFmt := `
+	{
+		"domain":"%s",
+		"username":"admin",
+		"email":"%s",
+		"created_at":%d
+	}`
+
+	encrypt := RSA_Encrypt([]byte(fmt.Sprintf(uploadStrFmt, domain, email, time.Now().Unix())))
+	encodeString := base64.StdEncoding.EncodeToString(encrypt)
+	resp := Operation{Data: encodeString}
+	bs, _ := json.Marshal(resp)
+	http.Post("https://api.koderover.com/api/operation/admin/user",
+		"application/json",
+		strings.NewReader(string(bs)))
 }
 
 func presetRoleBinding(uid string) error {
