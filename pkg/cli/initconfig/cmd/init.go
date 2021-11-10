@@ -38,10 +38,7 @@ import (
 func init() {
 	rootCmd.AddCommand(initCmd)
 	log.Init(&log.Config{
-		Level:       config.LogLevel(),
-		Filename:    config.LogFile(),
-		SendToFile:  config.SendLogToFile(),
-		Development: config.Mode() != setting.ReleaseMode,
+		Level: config.LogLevel(),
 	})
 }
 
@@ -111,7 +108,7 @@ func presetSystemAdmin(email string, password, domain string) (string, error) {
 		Email:    email,
 	})
 	if err != nil {
-		log.Infof("created  admin err:%s", err)
+		log.Errorf("created  admin err:%s", err)
 		return "", err
 	}
 	// report register
@@ -141,7 +138,7 @@ func reportRegister(domain, email string) error {
 	}
 	encodeString := base64.StdEncoding.EncodeToString(encrypt)
 	reqBody := Operation{Data: encodeString}
-	_, err = httpclient.Post("https://api.koderover.com/api/operation/admin/user", httpclient.SetBody(reqBody), httpclient.ForceContentType("application/json"))
+	_, err = httpclient.Post("https://api.koderover.com/api/operation/admin/user", httpclient.SetBody(reqBody))
 	return err
 }
 
