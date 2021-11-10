@@ -75,7 +75,7 @@ func run() error {
 func initSystemConfig() error {
 	email := config.AdminEmail()
 	password := config.AdminPassword()
-	domain := config.Domain()
+	domain := config.SystemAddress()
 
 	uid, err := presetSystemAdmin(email, password, domain)
 	if err != nil {
@@ -140,13 +140,8 @@ func reportRegister(domain, email string) error {
 		return err
 	}
 	encodeString := base64.StdEncoding.EncodeToString(encrypt)
-	resp := Operation{Data: encodeString}
-	//bs, _ := json.Marshal(resp)
-	//_, err = http.Post("https://api.koderover.com/api/operation/admin/user",
-	//	"application/json",
-	//	strings.NewReader(string(bs)))
-
-	_, err = httpclient.Post("https://api.koderover.com/api/operation/admin/user", httpclient.SetBody(resp), httpclient.ForceContentType("application/json"))
+	reqBody := Operation{Data: encodeString}
+	_, err = httpclient.Post("https://api.koderover.com/api/operation/admin/user", httpclient.SetBody(reqBody), httpclient.ForceContentType("application/json"))
 	return err
 }
 

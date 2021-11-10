@@ -253,7 +253,3 @@ func AdminEmail() string {
 func AdminPassword() string {
 	return viper.GetString(setting.ENVAdminPassword)
 }
-
-func Domain() string {
-	return viper.GetString(setting.ENVDomain)
-}
