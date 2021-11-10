@@ -97,6 +97,7 @@ func getContainerLogFromS3(pipelineName, filenamePrefix string, taskID int64, lo
 		log.Errorf("Failed to create s3 client, the error is: %+v", err)
 		return "", err
 	}
+	fileName += ".log"
 	objectPrefix := storage.GetObjectPath(fileName)
 	fileList, err := client.ListFiles(storage.Bucket, objectPrefix, false)
 	if err != nil {
