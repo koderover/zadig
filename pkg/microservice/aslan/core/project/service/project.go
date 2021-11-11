@@ -30,8 +30,6 @@ const (
 	VerbosityDetailed QueryVerbosity = "detailed" // all information
 	VerbosityBrief    QueryVerbosity = "brief"    // short information or a summary
 	VerbosityMinimal  QueryVerbosity = "minimal"  // very little information, usually only a resource identifier
-
-	allProjects = "*"
 )
 
 type ProjectListOptions struct {
@@ -57,14 +55,6 @@ type ProjectBriefRepresentation struct {
 
 type ProjectMinimalRepresentation struct {
 	Name string `json:"name"`
-}
-
-func (o *ProjectListOptions) InNames() []string {
-	if len(o.Names) == 0 || (len(o.Names) == 1 && o.Names[0] == allProjects) {
-		return []string{}
-	}
-
-	return o.Names
 }
 
 func ListProjects(opts *ProjectListOptions, logger *zap.SugaredLogger) (interface{}, error) {
@@ -152,7 +142,7 @@ func listBriefProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogger) 
 func listMinimalProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogger) ([]*ProjectMinimalRepresentation, error) {
 	var res []*ProjectMinimalRepresentation
 
-	names, err := templaterepo.NewProductColl().ListNames(opts.InNames())
+	names, err := templaterepo.NewProductColl().ListNames(opts.Names)
 	if err != nil {
 		logger.Errorf("Failed to list project names, err: %s", err)
 		return nil, err
@@ -189,7 +179,7 @@ func listMinimalProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogger
 }
 
 func getProjectsWithEnvs(opts *ProjectListOptions) (sets.String, map[string][]string, error) {
-	nameWithEnvs, err := mongodb.NewProductColl().ListProjectsInNames(opts.InNames())
+	nameWithEnvs, err := mongodb.NewProductColl().ListProjectsInNames(opts.Names)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -205,7 +195,7 @@ func getProjectsWithEnvs(opts *ProjectListOptions) (sets.String, map[string][]st
 }
 
 func getProjects(opts *ProjectListOptions) (sets.String, map[string]*templaterepo.ProjectInfo, error) {
-	res, err := templaterepo.NewProductColl().ListProjectBriefs(opts.InNames())
+	res, err := templaterepo.NewProductColl().ListProjectBriefs(opts.Names)
 	if err != nil {
 		return nil, nil, err
 	}
