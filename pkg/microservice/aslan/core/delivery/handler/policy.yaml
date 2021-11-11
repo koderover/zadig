@@ -8,6 +8,8 @@ rules:
     rules:
       - method: GET
         endpoint: "/api/aslan/delivery/releases"
+      - method: GET
+        endpoint: "/api/directory/dc/releases"
   - action: delete_delivery
     alias: "删除版本"
     description: ""
