@@ -30,7 +30,6 @@ import (
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 func GetBasicImage(c *gin.Context) {
@@ -59,7 +58,7 @@ func CreateBasicImage(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateBasicImage json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, "", "新增", "基础镜像", fmt.Sprintf("label:%s", args.Label), permission.SuperUserUUID, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "基础镜像", fmt.Sprintf("label:%s", args.Label), string(data), ctx.Logger)
 
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
@@ -67,7 +66,7 @@ func CreateBasicImage(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid BasicImage args")
 		return
 	}
-	args.UpdateBy = ctx.Username
+	args.UpdateBy = ctx.UserName
 
 	ctx.Err = service.CreateBasicImage(args, ctx.Logger)
 }
@@ -84,7 +83,7 @@ func UpdateBasicImage(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdateBasicImage json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, "", "更新", "基础镜像", fmt.Sprintf("id:%s", args.ID), permission.SuperUserUUID, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "基础镜像", fmt.Sprintf("id:%s", args.ID), string(data), ctx.Logger)
 
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
@@ -92,7 +91,7 @@ func UpdateBasicImage(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid BasicImage args")
 		return
 	}
-	args.UpdateBy = ctx.Username
+	args.UpdateBy = ctx.UserName
 
 	ctx.Err = service.UpdateBasicImage(c.Param("id"), args, ctx.Logger)
 }
@@ -101,7 +100,7 @@ func DeleteBasicImage(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	internalhandler.InsertOperationLog(c, ctx.Username, "", "删除", "基础镜像", fmt.Sprintf("id:%s", c.Param("id")), permission.SuperUserUUID, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "基础镜像", fmt.Sprintf("id:%s", c.Param("id")), "", ctx.Logger)
 
 	ctx.Err = service.DeleteBasicImage(c.Param("id"), ctx.Logger)
 }

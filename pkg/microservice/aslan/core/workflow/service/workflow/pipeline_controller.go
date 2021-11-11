@@ -43,7 +43,7 @@ func SubScribeNSQ() error {
 	// init ack consumer
 	ackConfig := nsqservice.Config()
 	ackConfig.MaxInFlight = 50
-	ackHandler := NewTaskAckHandler(config.PoetryAPIServer(), config.PoetryAPIRootKey(), ackConfig.MaxInFlight, logger)
+	ackHandler := NewTaskAckHandler(ackConfig.MaxInFlight, logger)
 	err := nsqservice.SubScribe(setting.TopicAck, "ack", 1, ackConfig, ackHandler)
 	if err != nil {
 		logger.Errorf("ack subscription failed, the error is: %v", err)
@@ -500,7 +500,7 @@ func updateAgentAndQueue(t *task.Task) error {
 
 	// 发送当前任务到nsq
 	log.Infof("sending task to warpdrive %s:%d", t.PipelineName, t.TaskID)
-	if err = nsqservice.Publish(config.TopicProcess, b); err != nil {
+	if err = nsqservice.Publish(setting.TopicProcess, b); err != nil {
 		log.Errorf("Publish %s:%d to nsq error: %v", t.PipelineName, t.TaskID, err)
 		return err
 	}

@@ -17,11 +17,13 @@ limitations under the License.
 package gitlab
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/xanzy/go-gitlab"
 
 	"github.com/koderover/zadig/pkg/tool/git"
+	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/util/boolptr"
 )
 
@@ -32,7 +34,7 @@ func (c *Client) ListUserProjects(owner, keyword string, opts *ListOptions) ([]*
 			ListOptions: *o,
 		}
 
-		if keyword == "" {
+		if keyword != "" {
 			popts.Search = &keyword
 		}
 		ps, r, err := c.Projects.ListUserProjects(encodeOwner, popts)
@@ -66,15 +68,42 @@ func (c *Client) AddProjectHook(owner, repo string, hook *git.Hook) (*gitlab.Pro
 		return nil, err
 	}
 
-	if h, ok := created.(*gitlab.ProjectHook); ok {
-		return h, nil
+	res, ok := created.(*gitlab.ProjectHook)
+	if !ok {
+		return nil, fmt.Errorf("object is not a gitlab Hook")
 	}
 
-	return nil, err
+	return res, nil
+}
+
+func (c *Client) UpdateProjectHook(owner, repo string, id int, hook *git.Hook) (*gitlab.ProjectHook, error) {
+	opts := &gitlab.EditProjectHookOptions{}
+	if hook.URL != "" {
+		opts.URL = gitlab.String(hook.URL)
+	}
+	if hook.Secret != "" {
+		opts.Token = gitlab.String(hook.Secret)
+	}
+	opts = addEventsToProjectHookEditOptions(hook.Events, opts)
+	updated, err := wrap(c.Projects.EditProjectHook(generateProjectName(owner, repo), id, opts))
+	if err != nil {
+		return nil, err
+	}
+
+	res, ok := updated.(*gitlab.ProjectHook)
+	if !ok {
+		return nil, fmt.Errorf("object is not a gitlab Hook")
+	}
+
+	return res, nil
 }
 
 func (c *Client) DeleteProjectHook(owner, repo string, id int) error {
-	return wrapError(c.Projects.DeleteProjectHook(generateProjectName(owner, repo), id))
+	err := wrapError(c.Projects.DeleteProjectHook(generateProjectName(owner, repo), id))
+	if httpclient.IsNotFound(err) {
+		return nil
+	}
+	return err
 }
 
 func (c *Client) ListProjectHooks(owner, repo string, opts *ListOptions) ([]*gitlab.ProjectHook, error) {
@@ -122,6 +151,21 @@ func (c *Client) getProject(owner, repo string) (*gitlab.Project, error) {
 }
 
 func addEventsToProjectHookOptions(events []string, opts *gitlab.AddProjectHookOptions) *gitlab.AddProjectHookOptions {
+	for _, evt := range events {
+		switch evt {
+		case git.PushEvent:
+			opts.PushEvents = boolptr.True()
+		case git.PullRequestEvent:
+			opts.MergeRequestsEvents = boolptr.True()
+		case git.BranchOrTagCreateEvent:
+			opts.TagPushEvents = boolptr.True()
+		}
+	}
+
+	return opts
+}
+
+func addEventsToProjectHookEditOptions(events []string, opts *gitlab.EditProjectHookOptions) *gitlab.EditProjectHookOptions {
 	for _, evt := range events {
 		switch evt {
 		case git.PushEvent:

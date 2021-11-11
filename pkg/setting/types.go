@@ -42,10 +42,13 @@ const (
 	Cron                 // 5
 	HubServer            // 6
 	PodExec              // 7
-	Poetry               // 8
 	SonarQube            // 9
 	WarpDrive            // 10
 	Minio                // 11
+	OPA                  // 12
+	Policy               // 13
+	Config               // 14
+	User                 // 15
 )
 
 type ServiceInfo struct {
@@ -82,10 +85,6 @@ var Services = map[int]*ServiceInfo{
 		Name: "podexec",
 		Port: 27000,
 	},
-	Poetry: {
-		Name: "poetry",
-		Port: 34001,
-	},
 	SonarQube: {
 		Name: "sonarqube",
 		Port: 80,
@@ -97,5 +96,21 @@ var Services = map[int]*ServiceInfo{
 	Minio: {
 		Name: "zadig-minio",
 		Port: 9000,
+	},
+	OPA: {
+		Name: "opa",
+		Port: 8181,
+	},
+	Policy: {
+		Name: "policy",
+		Port: 80,
+	},
+	Config: {
+		Name: "config",
+		Port: 80,
+	},
+	User: {
+		Name: "user",
+		Port: 80,
 	},
 }

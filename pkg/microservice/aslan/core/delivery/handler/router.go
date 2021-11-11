@@ -20,13 +20,11 @@ import (
 	"github.com/gin-gonic/gin"
 
 	gin2 "github.com/koderover/zadig/pkg/middleware/gin"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 type Router struct{}
 
 func (*Router) Inject(router *gin.RouterGroup) {
-	router.Use(gin2.Auth())
 
 	deliveryArtifact := router.Group("artifacts")
 	{
@@ -45,10 +43,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 	deliveryRelease := router.Group("releases")
 	{
-		deliveryRelease.POST("", gin2.IsHavePermission([]string{permission.WorkflowDeliveryUUID}, permission.QueryType), gin2.UpdateOperationLogStatus, AddDeliveryVersion)
 		deliveryRelease.GET("/:id", GetDeliveryVersion)
 		deliveryRelease.GET("", ListDeliveryVersion)
-		deliveryRelease.DELETE("/:id", GetProductNameByDelivery, gin2.IsHavePermission([]string{permission.ReleaseDeleteUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, DeleteDeliveryVersion)
+		deliveryRelease.DELETE("/:id", GetProductNameByDelivery, gin2.UpdateOperationLogStatus, DeleteDeliveryVersion)
 	}
 
 	deliveryPackage := router.Group("packages")

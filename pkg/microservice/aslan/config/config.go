@@ -74,24 +74,16 @@ func LogLevel() int {
 	return viper.GetInt(setting.ENVLogLevel)
 }
 
-func PoetryAPIServer() string {
-	return configbase.PoetryServiceAddress()
-}
-
-func PoetryAPIRootKey() string {
-	return viper.GetString(setting.ENVPoetryAPIRootKey)
-}
-
 func CollieAPIAddress() string {
 	return configbase.CollieServiceAddress()
 }
 
 func MongoURI() string {
-	return viper.GetString(setting.ENVMongoDBConnectionString)
+	return configbase.MongoURI()
 }
 
 func MongoDatabase() string {
-	return viper.GetString(setting.ENVAslanDBName)
+	return configbase.MongoDatabase()
 }
 
 func NsqLookupAddrs() []string {
@@ -224,4 +216,12 @@ func JenkinsImage() string {
 
 func WebHookURL() string {
 	return fmt.Sprintf("%s/api/aslan/webhook", configbase.SystemAddress())
+}
+
+func ObjectStorageServicePath(project, service string) string {
+	return configbase.ObjectStorageServicePath(project, service)
+}
+
+func LocalServicePath(project, service string) string {
+	return configbase.LocalServicePath(project, service)
 }

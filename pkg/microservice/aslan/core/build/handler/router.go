@@ -20,22 +20,19 @@ import (
 	"github.com/gin-gonic/gin"
 
 	gin2 "github.com/koderover/zadig/pkg/middleware/gin"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 type Router struct{}
 
 func (*Router) Inject(router *gin.RouterGroup) {
-	router.Use(gin2.Auth())
-
 	build := router.Group("build")
 	{
-		build.GET("/:name/:version", FindBuildModule)
+		build.GET("/:name", FindBuildModule)
 		build.GET("", ListBuildModules)
-		build.POST("", gin2.StoreProductName, gin2.IsHavePermission([]string{permission.BuildManageUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, CreateBuildModule)
-		build.PUT("", gin2.StoreProductName, gin2.IsHavePermission([]string{permission.BuildManageUUID}, permission.ContextKeyType), gin2.UpdateOperationLogStatus, UpdateBuildModule)
-		build.DELETE("", gin2.IsHavePermission([]string{permission.BuildDeleteUUID}, permission.QueryType), gin2.UpdateOperationLogStatus, DeleteBuildModule)
-		build.POST("/targets", gin2.IsHavePermission([]string{permission.BuildManageUUID}, permission.QueryType), gin2.UpdateOperationLogStatus, UpdateBuildTargets)
+		build.POST("", gin2.UpdateOperationLogStatus, CreateBuildModule)
+		build.PUT("", gin2.UpdateOperationLogStatus, UpdateBuildModule)
+		build.DELETE("", gin2.UpdateOperationLogStatus, DeleteBuildModule)
+		build.POST("/targets", gin2.UpdateOperationLogStatus, UpdateBuildTargets)
 	}
 
 	target := router.Group("targets")

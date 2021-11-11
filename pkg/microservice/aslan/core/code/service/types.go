@@ -59,8 +59,8 @@ type Project struct {
 	Description   string `json:"description"`
 	DefaultBranch string `json:"defaultBranch"`
 	Namespace     string `json:"namespace"`
-	RepoUUID      string `json:"repo_uuid"`
-	RepoID        string `json:"repo_id"`
+	RepoUUID      string `json:"repo_uuid,omitempty"`
+	RepoID        string `json:"repo_id,omitempty"`
 }
 
 type Tag struct {

@@ -1,10 +1,11 @@
 ---
-name: "Bug report"
+name: Bug report
 about: Tell us about a problem you are experiencing
+title: "[bug]"
+labels: bug
+assignees: jamsman94
 
 ---
-
-/kind bug
 
 **What steps did you take and what happened:**
 [A clear and concise description of what the bug is.]

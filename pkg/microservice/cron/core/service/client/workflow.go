@@ -26,7 +26,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/cron/core/service"
-	"github.com/koderover/zadig/pkg/setting"
 )
 
 // ListWorkflows ...
@@ -71,6 +70,5 @@ func (c *Client) genListWorkFlowReq(log *zap.SugaredLogger) (*http.Request, erro
 		return nil, err
 	}
 
-	request.Header.Set(setting.AuthorizationHeader, fmt.Sprintf("%s %s", setting.RootAPIKey, c.Token))
 	return request, nil
 }

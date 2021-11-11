@@ -49,7 +49,7 @@ func CreateTestTask(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateTestTask json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "新增", "测试-task", fmt.Sprintf("%s-%s", args.TestName, "job"), "", string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", "测试-task", fmt.Sprintf("%s-%s", args.TestName, "job"), string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
@@ -58,13 +58,13 @@ func CreateTestTask(c *gin.Context) {
 	}
 
 	if args.TestTaskCreator != setting.CronTaskCreator && args.TestTaskCreator != setting.WebhookTaskCreator {
-		args.TestTaskCreator = ctx.Username
+		args.TestTaskCreator = ctx.UserName
 	}
 
 	ctx.Resp, ctx.Err = service.CreateTestTask(args, ctx.Logger)
 	// 发送通知
 	if ctx.Err != nil {
-		commonservice.SendFailedTaskMessage(ctx.Username, args.ProductName, args.TestName, ctx.RequestID, config.TestType, ctx.Err, ctx.Logger)
+		commonservice.SendFailedTaskMessage(ctx.UserName, args.ProductName, args.TestName, ctx.RequestID, config.TestType, ctx.Err, ctx.Logger)
 	}
 }
 
@@ -72,7 +72,7 @@ func RestartTestTask(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "重启", "测试任务", c.Param("name"), "", "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Param("productName"), "重启", "测试任务", c.Param("name"), "", ctx.Logger)
 
 	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -80,18 +80,18 @@ func RestartTestTask(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = workflowservice.RestartPipelineTaskV2(ctx.Username, taskID, c.Param("name"), config.TestType, ctx.Logger)
+	ctx.Err = workflowservice.RestartPipelineTaskV2(ctx.UserName, taskID, c.Param("name"), config.TestType, ctx.Logger)
 }
 
 func CancelTestTaskV2(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "取消", "测试任务", c.Param("name"), "", "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Param("productName"), "取消", "测试任务", c.Param("name"), "", ctx.Logger)
 
 	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
 		return
 	}
-	ctx.Err = commonservice.CancelTaskV2(ctx.Username, c.Param("name"), taskID, config.TestType, ctx.RequestID, ctx.Logger)
+	ctx.Err = commonservice.CancelTaskV2(ctx.UserName, c.Param("name"), taskID, config.TestType, ctx.RequestID, ctx.Logger)
 }

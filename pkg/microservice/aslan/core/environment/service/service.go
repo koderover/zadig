@@ -160,11 +160,14 @@ func RestartScale(args *RestartScaleArgs, _ *zap.SugaredLogger) error {
 	return nil
 }
 
-func GetService(envName, productName, serviceName string, log *zap.SugaredLogger) (ret *SvcResp, err error) {
+func GetService(envName, productName, serviceName string, workLoadType string, log *zap.SugaredLogger) (ret *SvcResp, err error) {
 	ret = &SvcResp{
 		ServiceName: serviceName,
 		EnvName:     envName,
 		ProductName: productName,
+		Services:    make([]*internalresource.Service, 0),
+		Ingress:     make([]*internalresource.Ingress, 0),
+		Scales:      make([]*internalresource.Workload, 0),
 	}
 
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
@@ -181,39 +184,38 @@ func GetService(envName, productName, serviceName string, log *zap.SugaredLogger
 	namespace := env.Namespace
 	switch env.Source {
 	case setting.SourceFromExternal, setting.SourceFromHelm:
-		svc, found, err := getter.GetService(namespace, serviceName, kubeClient)
-		if err != nil {
-			return nil, e.ErrGetService.AddErr(err)
-		}
-		if !found {
+		k8sServices, _ := getter.ListServices(namespace, nil, kubeClient)
+		switch workLoadType {
+		case setting.StatefulSet:
+			statefulSet, found, err := getter.GetStatefulSet(namespace, serviceName, kubeClient)
+			if !found || err != nil {
+				return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found", serviceName))
+			}
+			scale := getStatefulSetWorkloadResource(statefulSet, kubeClient, log)
+			ret.Scales = append(ret.Scales, scale)
+			podLabels := labels.Set(statefulSet.Spec.Template.GetLabels())
+			for _, svc := range k8sServices {
+				if labels.SelectorFromValidatedSet(svc.Spec.Selector).Matches(podLabels) {
+					ret.Services = append(ret.Services, wrapper.Service(svc).Resource())
+					break
+				}
+			}
+		case setting.Deployment:
+			deploy, found, err := getter.GetDeployment(namespace, serviceName, kubeClient)
+			if !found || err != nil {
+				return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found", serviceName))
+			}
+			scale := getDeploymentWorkloadResource(deploy, kubeClient, log)
+			ret.Scales = append(ret.Scales, scale)
+			podLabels := labels.Set(deploy.Spec.Template.GetLabels())
+			for _, svc := range k8sServices {
+				if labels.SelectorFromValidatedSet(svc.Spec.Selector).Matches(podLabels) {
+					ret.Services = append(ret.Services, wrapper.Service(svc).Resource())
+					break
+				}
+			}
+		default:
 			return nil, e.ErrGetService.AddDesc(fmt.Sprintf("service %s not found", serviceName))
-		}
-		ret.Services = append(ret.Services, wrapper.Service(svc).Resource())
-
-		selector := labels.SelectorFromValidatedSet(svc.Spec.Selector)
-		//deployment
-		if deployments, err := getter.ListDeployments(namespace, selector, kubeClient); err == nil {
-			log.Infof("namespace:%s , serviceName:%s , selector:%s , len(deployments):%d", namespace, serviceName, selector, len(deployments))
-			for _, d := range deployments {
-				scale := getDeploymentWorkloadResource(d, kubeClient, log)
-				ret.Scales = append(ret.Scales, scale)
-			}
-		}
-		//statefulSets
-		if statefulSets, err := getter.ListStatefulSets(namespace, selector, kubeClient); err == nil {
-			log.Infof("namespace:%s , serviceName:%s , selector:%s , len(statefulSets):%d", namespace, serviceName, selector, len(statefulSets))
-			for _, sts := range statefulSets {
-				scale := getStatefulSetWorkloadResource(sts, kubeClient, log)
-				ret.Scales = append(ret.Scales, scale)
-			}
-		}
-
-		//ingress
-		if ingresses, err := getter.ListIngresses(namespace, selector, kubeClient); err == nil {
-			log.Infof("namespace:%s , serviceName:%s , selector:%s , len(ingresses):%d", namespace, serviceName, selector, len(ingresses))
-			for _, ing := range ingresses {
-				ret.Ingress = append(ret.Ingress, wrapper.Ingress(ing).Resource())
-			}
 		}
 	default:
 		var service *commonmodels.ProductService
@@ -235,6 +237,7 @@ func GetService(envName, productName, serviceName string, log *zap.SugaredLogger
 		// 获取服务模板
 		opt := &commonrepo.ServiceFindOption{
 			ServiceName:   service.ServiceName,
+			ProductName:   service.ProductName,
 			Type:          service.Type,
 			Revision:      service.Revision,
 			ExcludeStatus: setting.ProductStatusDeleting,
@@ -307,18 +310,6 @@ func GetService(envName, productName, serviceName string, log *zap.SugaredLogger
 		}
 	}
 
-	if len(ret.Ingress) == 0 {
-		ret.Ingress = make([]*internalresource.Ingress, 0)
-	}
-
-	if len(ret.Scales) == 0 {
-		ret.Scales = make([]*internalresource.Workload, 0)
-	}
-
-	if len(ret.Services) == 0 {
-		ret.Services = make([]*internalresource.Service, 0)
-	}
-
 	return
 }
 
@@ -373,7 +364,7 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 				if serviceObj.ServiceName == args.ServiceName {
 					productService = serviceObj
 					serviceTmpl, err = commonservice.GetServiceTemplate(
-						serviceObj.ServiceName, setting.K8SDeployType, "", setting.ProductStatusDeleting, serviceObj.Revision, log,
+						serviceObj.ServiceName, setting.K8SDeployType, serviceObj.ProductName, setting.ProductStatusDeleting, serviceObj.Revision, log,
 					)
 					if err != nil {
 						err = e.ErrDeleteProduct.AddDesc(e.DeleteServiceContainerErrMsg + ": " + err.Error())

@@ -29,9 +29,8 @@ import (
 	"strings"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -66,7 +65,7 @@ type Command struct {
 	IgnoreError bool
 }
 
-func RunGitCmds(codehostDetail *codehost.Detail, repoOwner, repoName, branchName, remoteName string) error {
+func RunGitCmds(codehostDetail *systemconfig.CodeHost, repoOwner, repoName, branchName, remoteName string) error {
 	var (
 		tokens []string
 		repo   *Repo
@@ -74,11 +73,11 @@ func RunGitCmds(codehostDetail *codehost.Detail, repoOwner, repoName, branchName
 		cmds   = make([]*Command, 0)
 	)
 	repo = &Repo{
-		Source:     codehostDetail.Source,
+		Source:     codehostDetail.Type,
 		Address:    codehostDetail.Address,
 		Name:       repoName,
 		Branch:     branchName,
-		OauthToken: codehostDetail.OauthToken,
+		OauthToken: codehostDetail.AccessToken,
 		RemoteName: remoteName,
 		Owner:      repoOwner,
 	}
@@ -99,11 +98,13 @@ func RunGitCmds(codehostDetail *codehost.Detail, repoOwner, repoName, branchName
 	cmds = append(cmds, buildGitCommands(repo)...)
 
 	if repo.Source == setting.SourceFromGithub {
-		proxies, _ := commonrepo.NewProxyColl().List(&commonrepo.ProxyArgs{})
-		if len(proxies) > 0 {
-			url := proxies[0].GetProxyURL()
-			envs = append(envs, fmt.Sprintf("http_proxy=%s", url))
-			envs = append(envs, fmt.Sprintf("https_proxy=%s", url))
+		httpsProxy := config.ProxyHTTPSAddr()
+		httpProxy := config.ProxyHTTPAddr()
+		if httpsProxy != "" {
+			envs = append(envs, fmt.Sprintf("https_proxy=%s", httpsProxy))
+		}
+		if httpProxy != "" {
+			envs = append(envs, fmt.Sprintf("http_proxy=%s", httpProxy))
 		}
 	}
 

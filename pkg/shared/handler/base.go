@@ -17,17 +17,18 @@ limitations under the License.
 package handler
 
 import (
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/client/aslanx"
-	"github.com/koderover/zadig/pkg/shared/poetry"
-	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/types/permission"
+	"github.com/koderover/zadig/pkg/shared/client/aslan"
 	"github.com/koderover/zadig/pkg/util/ginzap"
 )
 
@@ -36,57 +37,74 @@ type Context struct {
 	Logger    *zap.SugaredLogger
 	Err       error
 	Resp      interface{}
-	Username  string
-	User      *permission.User
+	UserName  string
+	UserID    string
 	RequestID string
 }
 
+type jwtClaims struct {
+	Name string `json:"name"`
+	UID  string `json:"uid"`
+}
+
 func NewContext(c *gin.Context) *Context {
+	logger := ginzap.WithContext(c).Sugar()
+	var claims jwtClaims
+
+	token := c.GetHeader(setting.AuthorizationHeader)
+	if len(token) > 0 {
+		var err error
+		claims, err = getUserFromJWT(token)
+		if err != nil {
+			logger.Warnf("Failed to get user from token, err: %s", err)
+		}
+	}
+
 	return &Context{
-		Username:  currentUsername(c),
-		User:      currentUser(c),
+		UserName:  claims.Name,
+		UserID:    claims.UID,
 		Logger:    ginzap.WithContext(c).Sugar(),
 		RequestID: c.GetString(setting.RequestID),
 	}
 }
 
-// CurrentUser return current session user
-func currentUser(c *gin.Context) *permission.User {
-	userInfo, isExist := c.Get(setting.SessionUser)
-	user, ok := userInfo.(*poetry.UserInfo)
-	if isExist && ok {
-		return poetry.ConvertUserInfo(user)
-	}
-	return permission.AnonymousUser
-}
+func getUserFromJWT(token string) (jwtClaims, error) {
+	cs := jwtClaims{}
 
-func currentUsername(c *gin.Context) (username string) {
-	return c.GetString(setting.SessionUsername)
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return cs, fmt.Errorf("compact JWS format must have three parts")
+	}
+
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return cs, err
+	}
+
+	err = json.Unmarshal(payload, &cs)
+	if err != nil {
+		return cs, err
+	}
+
+	return cs, nil
 }
 
 func JSONResponse(c *gin.Context, ctx *Context) {
 	if ctx.Err != nil {
-		c.JSON(e.ErrorMessage(ctx.Err))
+		c.Set(setting.ResponseError, ctx.Err)
 		c.Abort()
 		return
 	}
 
-	realResp := responseHelper(ctx.Resp)
-
-	if ctx.Resp == nil {
-		c.JSON(200, gin.H{"message": "success"})
-	} else {
-		c.JSON(200, realResp)
+	if ctx.Resp != nil {
+		realResp := responseHelper(ctx.Resp)
+		c.Set(setting.ResponseData, realResp)
 	}
 }
 
 // InsertOperationLog 插入操作日志
-func InsertOperationLog(c *gin.Context, username, productName, method, function, detail, permissionUUID, requestBody string, logger *zap.SugaredLogger) {
-	if !config.Enterprise() {
-		return
-	}
-
-	operationLogID, err := aslanx.New(config.AslanxServiceAddress(), config.PoetryAPIRootKey()).AddAuditLog(username, productName, method, function, detail, permissionUUID, requestBody, logger)
+func InsertOperationLog(c *gin.Context, username, productName, method, function, detail, requestBody string, logger *zap.SugaredLogger) {
+	operationLogID, err := aslan.New(config.AslanServiceAddress()).AddAuditLog(username, productName, method, function, detail, requestBody, logger)
 	if err != nil {
 		logger.Errorf("InsertOperation err:%v", err)
 	}
@@ -100,6 +118,11 @@ func InsertOperationLog(c *gin.Context, username, productName, method, function,
 //    pointer a passed in, a pointer will be returned, not a double pointer
 // 2. All private fields of the struct will be deleted during the process.
 func responseHelper(response interface{}) interface{} {
+	switch response.(type) {
+	case string, []byte:
+		return response
+	}
+
 	val := reflect.ValueOf(response)
 	switch val.Kind() {
 	case reflect.Ptr:

@@ -26,7 +26,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
 )
 
@@ -37,7 +37,7 @@ func DeleteGerritWebhook(workflow *models.Workflow, log *zap.SugaredLogger) erro
 				continue
 			}
 
-			detail, err := codehost.GetCodeHostInfoByID(workflowWebhook.MainRepo.CodehostID)
+			detail, err := systemconfig.New().GetCodeHost(workflowWebhook.MainRepo.CodehostID)
 			if err != nil {
 				log.Errorf("DeleteGerritWebhook GetCodehostDetail err:%v", err)
 				continue

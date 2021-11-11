@@ -255,7 +255,7 @@ func updateServiceTemplateByPushEvent(event *EventPush, log *zap.SugaredLogger) 
 		return err
 	}
 
-	address, err := GetGitlabAddress(gitlabEvent.Project.WebURL)
+	address, err := GetAddress(gitlabEvent.Project.WebURL)
 	if err != nil {
 		log.Errorf("GetGitlabAddress failed, error: %v", err)
 		return err
@@ -311,12 +311,11 @@ func updateServiceTemplateByPushEvent(event *EventPush, log *zap.SugaredLogger) 
 }
 
 func GetGitlabServiceTemplates() ([]*commonmodels.Service, error) {
-	opt := &commonrepo.ServiceFindOption{
-		Type:          setting.K8SDeployType,
-		Source:        setting.SourceFromGitlab,
-		ExcludeStatus: setting.ProductStatusDeleting,
+	opt := &commonrepo.ServiceListOption{
+		Type:   setting.K8SDeployType,
+		Source: setting.SourceFromGitlab,
 	}
-	return commonrepo.NewServiceColl().List(opt)
+	return commonrepo.NewServiceColl().ListMaxRevisions(opt)
 }
 
 // SyncServiceTemplateFromGitlab Force to sync Service Template to latest commit and content,

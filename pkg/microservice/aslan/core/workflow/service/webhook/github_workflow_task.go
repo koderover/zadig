@@ -19,6 +19,7 @@ package webhook
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -32,9 +33,8 @@ import (
 	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/types"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 const SplitSymbol = "&"
@@ -42,8 +42,8 @@ const SplitSymbol = "&"
 type githubPullRequestDiffFunc func(event *github.PullRequestEvent, id int) ([]string, error)
 
 type gitEventMatcher interface {
-	Match(commonmodels.MainHookRepo) (bool, error)
-	UpdateTaskArgs(*commonmodels.Product, *commonmodels.WorkflowTaskArgs, commonmodels.MainHookRepo, string) *commonmodels.WorkflowTaskArgs
+	Match(*commonmodels.MainHookRepo) (bool, error)
+	UpdateTaskArgs(*commonmodels.Product, *commonmodels.WorkflowTaskArgs, *commonmodels.MainHookRepo, string) *commonmodels.WorkflowTaskArgs
 }
 
 type githubPushEventMatcher struct {
@@ -52,18 +52,31 @@ type githubPushEventMatcher struct {
 	event    *github.PushEvent
 }
 
-func (gpem *githubPushEventMatcher) Match(hookRepo commonmodels.MainHookRepo) (bool, error) {
+func (gpem *githubPushEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
 	ev := gpem.event
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == *ev.Repo.FullName {
-		if hookRepo.Branch == getBranchFromRef(*ev.Ref) && EventConfigured(hookRepo, config.HookEventPush) {
-			var changedFiles []string
-			for _, commit := range ev.Commits {
-				changedFiles = append(changedFiles, commit.Added...)
-				changedFiles = append(changedFiles, commit.Removed...)
-				changedFiles = append(changedFiles, commit.Modified...)
-			}
-			return MatchChanges(hookRepo, changedFiles), nil
+		if !EventConfigured(hookRepo, config.HookEventPush) {
+			return false, nil
 		}
+
+		isRegular := hookRepo.IsRegular
+		if !isRegular && hookRepo.Branch != getBranchFromRef(*ev.Ref) {
+			return false, nil
+		}
+		if isRegular {
+			// Do not use regexp.MustCompile to avoid panic
+			if matched, _ := regexp.MatchString(hookRepo.Branch, getBranchFromRef(*ev.Ref)); !matched {
+				return false, nil
+			}
+		}
+		hookRepo.Branch = getBranchFromRef(*ev.Ref)
+		var changedFiles []string
+		for _, commit := range ev.Commits {
+			changedFiles = append(changedFiles, commit.Added...)
+			changedFiles = append(changedFiles, commit.Removed...)
+			changedFiles = append(changedFiles, commit.Modified...)
+		}
+		return MatchChanges(hookRepo, changedFiles), nil
 	}
 
 	return false, nil
@@ -79,7 +92,7 @@ func getBranchFromRef(ref string) string {
 }
 
 func (gpem *githubPushEventMatcher) UpdateTaskArgs(
-	product *commonmodels.Product, args *commonmodels.WorkflowTaskArgs, hookRepo commonmodels.MainHookRepo, requestID string,
+	product *commonmodels.Product, args *commonmodels.WorkflowTaskArgs, hookRepo *commonmodels.MainHookRepo, requestID string,
 ) *commonmodels.WorkflowTaskArgs {
 	factory := &workflowArgsFactory{
 		workflow: gpem.workflow,
@@ -103,28 +116,40 @@ type githubMergeEventMatcher struct {
 	event    *github.PullRequestEvent
 }
 
-func (gmem *githubMergeEventMatcher) Match(hookRepo commonmodels.MainHookRepo) (bool, error) {
+func (gmem *githubMergeEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
 	ev := gmem.event
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == *ev.PullRequest.Base.Repo.FullName {
-		if EventConfigured(hookRepo, config.HookEventPr) && (hookRepo.Branch == *ev.PullRequest.Base.Ref) {
-			if *ev.PullRequest.State == "open" {
-				var changedFiles []string
-				changedFiles, err := gmem.diffFunc(ev, hookRepo.CodehostID)
-				if err != nil {
-					gmem.log.Warnf("failed to get changes of event %v", ev)
-					return false, err
-				}
-				gmem.log.Debugf("succeed to get %d changes in merge event", len(changedFiles))
+		if !EventConfigured(hookRepo, config.HookEventPr) {
+			return false, nil
+		}
 
-				return MatchChanges(hookRepo, changedFiles), nil
+		isRegular := hookRepo.IsRegular
+		if !isRegular && hookRepo.Branch != *ev.PullRequest.Base.Ref {
+			return false, nil
+		}
+		if isRegular {
+			if matched, _ := regexp.MatchString(hookRepo.Branch, *ev.PullRequest.Base.Ref); !matched {
+				return false, nil
 			}
+		}
+		hookRepo.Branch = *ev.PullRequest.Base.Ref
+		if *ev.PullRequest.State == "open" {
+			var changedFiles []string
+			changedFiles, err := gmem.diffFunc(ev, hookRepo.CodehostID)
+			if err != nil {
+				gmem.log.Warnf("failed to get changes of event %v", ev)
+				return false, err
+			}
+			gmem.log.Debugf("succeed to get %d changes in merge event", len(changedFiles))
+
+			return MatchChanges(hookRepo, changedFiles), nil
 		}
 	}
 	return false, nil
 }
 
 func (gmem *githubMergeEventMatcher) UpdateTaskArgs(
-	product *commonmodels.Product, args *commonmodels.WorkflowTaskArgs, hookRepo commonmodels.MainHookRepo, requestID string,
+	product *commonmodels.Product, args *commonmodels.WorkflowTaskArgs, hookRepo *commonmodels.MainHookRepo, requestID string,
 ) *commonmodels.WorkflowTaskArgs {
 	factory := &workflowArgsFactory{
 		workflow: gmem.workflow,
@@ -150,7 +175,7 @@ type workflowArgsFactory struct {
 func (waf *workflowArgsFactory) Update(product *commonmodels.Product, args *commonmodels.WorkflowTaskArgs, repo *types.Repository) *commonmodels.WorkflowTaskArgs {
 	workflow := waf.workflow
 	args.WorkflowName = workflow.Name
-	args.WorklowTaskCreator = setting.WebhookTaskCreator
+	args.WorkflowTaskCreator = setting.WebhookTaskCreator
 	args.ProductTmplName = workflow.ProductTmplName
 	args.ReqID = waf.reqID
 	var targetMap map[string][]commonmodels.DeployEnv
@@ -298,7 +323,7 @@ func TriggerWorkflowByGithubEvent(event interface{}, baseURI, deliveryID, reques
 					args.HookPayload = hookPayload
 
 					// 3. create task with args
-					if resp, err := workflowservice.CreateWorkflowTask(args, setting.WebhookTaskCreator, permission.AnonymousUserID, false, log); err != nil {
+					if resp, err := workflowservice.CreateWorkflowTask(args, setting.WebhookTaskCreator, log); err != nil {
 						log.Errorf("failed to create workflow task when receive push event due to %v ", err)
 						mErr = multierror.Append(mErr, err)
 					} else {
@@ -315,12 +340,12 @@ func TriggerWorkflowByGithubEvent(event interface{}, baseURI, deliveryID, reques
 }
 
 func findChangedFilesOfPullRequest(event *github.PullRequestEvent, codehostID int) ([]string, error) {
-	detail, err := codehost.GetCodehostDetail(codehostID)
+	detail, err := systemconfig.New().GetCodeHost(codehostID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find codehost %d: %v", codehostID, err)
 	}
 	//pullrequest文件修改
-	githubCli := git.NewClient(detail.OauthToken, config.ProxyHTTPSAddr())
+	githubCli := git.NewClient(detail.AccessToken, config.ProxyHTTPSAddr())
 	commitComparison, _, err := githubCli.Repositories.CompareCommits(context.Background(), *event.PullRequest.Base.Repo.Owner.Login, *event.PullRequest.Base.Repo.Name, *event.PullRequest.Base.SHA, *event.PullRequest.Head.SHA)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get changes from github, err: %v", err)

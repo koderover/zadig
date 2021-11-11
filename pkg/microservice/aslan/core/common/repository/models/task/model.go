@@ -45,7 +45,6 @@ type Task struct {
 	ReqID        string                   `bson:"req_id,omitempty"          json:"req_id,omitempty"`
 	AgentHost    string                   `bson:"agent_host,omitempty"      json:"agent_host,omitempty"`
 	DockerHost   string                   `bson:"-"                         json:"docker_host,omitempty"`
-	TeamID       int                      `bson:"team_id,omitempty"         json:"team_id,omitempty"`
 	TeamName     string                   `bson:"team,omitempty"            json:"team,omitempty"`
 	IsDeleted    bool                     `bson:"is_deleted"                json:"is_deleted"`
 	IsArchived   bool                     `bson:"is_archived"               json:"is_archived"`
@@ -71,8 +70,6 @@ type Task struct {
 	// ConfigPayload 系统配置信息
 	ConfigPayload *models.ConfigPayload `json:"config_payload,omitempty"`
 	Error         string                `bson:"error,omitempty"                json:"error,omitempty"`
-	// OrgID 单租户ID
-	OrgID      int                        `bson:"org_id,omitempty"          json:"org_id,omitempty"`
 	Services   [][]*models.ProductService `bson:"services"                  json:"services"`
 	Render     *models.RenderInfo         `bson:"render"                    json:"render"`
 	StorageURI string                     `bson:"storage_uri,omitempty" json:"storage_uri,omitempty"`

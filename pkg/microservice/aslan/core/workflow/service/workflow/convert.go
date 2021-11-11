@@ -47,7 +47,6 @@ func ConvertQueueToTask(queueTask *commonmodels.Queue) *task.Task {
 		ReqID:           queueTask.ReqID,
 		AgentHost:       queueTask.AgentHost,
 		DockerHost:      queueTask.DockerHost,
-		TeamID:          queueTask.TeamID,
 		TeamName:        queueTask.TeamName,
 		IsDeleted:       queueTask.IsDeleted,
 		IsArchived:      queueTask.IsArchived,
@@ -62,7 +61,6 @@ func ConvertQueueToTask(queueTask *commonmodels.Queue) *task.Task {
 		ServiceTaskArgs: queueTask.ServiceTaskArgs,
 		ConfigPayload:   queueTask.ConfigPayload,
 		Error:           queueTask.Error,
-		OrgID:           queueTask.OrgID,
 		Services:        queueTask.Services,
 		Render:          queueTask.Render,
 		StorageURI:      queueTask.StorageURI,
@@ -94,7 +92,6 @@ func ConvertTaskToQueue(task *task.Task) *commonmodels.Queue {
 		ReqID:           task.ReqID,
 		AgentHost:       task.AgentHost,
 		DockerHost:      task.DockerHost,
-		TeamID:          task.TeamID,
 		TeamName:        task.TeamName,
 		IsDeleted:       task.IsDeleted,
 		IsArchived:      task.IsArchived,
@@ -109,7 +106,6 @@ func ConvertTaskToQueue(task *task.Task) *commonmodels.Queue {
 		ServiceTaskArgs: task.ServiceTaskArgs,
 		ConfigPayload:   task.ConfigPayload,
 		Error:           task.Error,
-		OrgID:           task.OrgID,
 		Services:        task.Services,
 		Render:          task.Render,
 		StorageURI:      task.StorageURI,
@@ -137,7 +133,6 @@ func JenkinsBuildModuleToSubTasks(jenkinsBuildOption *JenkinsBuildOption, log *z
 	)
 
 	opt := &commonrepo.BuildListOption{
-		Version:     jenkinsBuildOption.Version,
 		ServiceName: jenkinsBuildOption.ServiceName,
 		ProductName: jenkinsBuildOption.ProductName,
 	}

@@ -28,6 +28,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/setting"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
@@ -38,14 +39,26 @@ type ProductFindOptions struct {
 
 // ClusterId is a primitive.ObjectID{}.Hex()
 type ProductListOptions struct {
-	EnvName       string
-	Name          string
-	IsPublic      bool
-	ClusterID     string
-	IsSort        bool
-	ExcludeStatus string
-	ExcludeSource string
-	Source        string
+	EnvName             string
+	Name                string
+	IsPublic            bool
+	ClusterID           string
+	IsSortByUpdateTime  bool
+	IsSortByProductName bool
+	ExcludeStatus       string
+	ExcludeSource       string
+	Source              string
+	InProjects          []string
+}
+
+type projectEnvs struct {
+	ID          projectID `bson:"_id"`
+	ProjectName string    `bson:"project_name"`
+	Envs        []string  `bson:"envs"`
+}
+
+type projectID struct {
+	ProductName string `bson:"product_name"`
 }
 
 type ProductColl struct {
@@ -146,11 +159,17 @@ func (c *ProductColl) List(opt *ProductListOptions) ([]*models.Product, error) {
 	if opt.ExcludeStatus != "" {
 		query["status"] = bson.M{"$ne": opt.ExcludeStatus}
 	}
+	if len(opt.InProjects) > 0 {
+		query["product_name"] = bson.M{"$in": opt.InProjects}
+	}
 
 	ctx := context.Background()
 	opts := options.Find()
-	if opt.IsSort {
+	if opt.IsSortByUpdateTime {
 		opts.SetSort(bson.D{{"update_time", -1}})
+	}
+	if opt.IsSortByProductName {
+		opts.SetSort(bson.D{{"product_name", 1}})
 	}
 	cursor, err := c.Collection.Find(ctx, query, opts)
 	if err != nil {
@@ -163,6 +182,37 @@ func (c *ProductColl) List(opt *ProductListOptions) ([]*models.Product, error) {
 	}
 
 	return ret, nil
+}
+
+func (c *ProductColl) ListProjectsInNames(names []string) ([]*projectEnvs, error) {
+	var res []*projectEnvs
+	var pipeline []bson.M
+	if len(names) > 0 {
+		pipeline = append(pipeline, bson.M{"$match": bson.M{"product_name": bson.M{"$in": names}}})
+	}
+
+	pipeline = append(pipeline,
+		bson.M{
+			"$group": bson.M{
+				"_id": bson.M{
+					"product_name": "$product_name",
+				},
+				"project_name": bson.M{"$last": "$product_name"},
+				"envs":         bson.M{"$push": "$env_name"},
+			},
+		},
+	)
+
+	cursor, err := c.Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = cursor.All(context.TODO(), &res); err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }
 
 func (c *ProductColl) UpdateStatus(owner, productName, status string) error {
@@ -267,6 +317,34 @@ func (c *ProductColl) UpdateIsPublic(envName, productName string, isPublic bool)
 		"is_public":   isPublic,
 	}}
 	_, err := c.UpdateOne(context.TODO(), query, change)
+
+	return err
+}
+
+func (c *ProductColl) Count(productName string) (int, error) {
+	num, err := c.CountDocuments(context.TODO(), bson.M{"product_name": productName, "status": bson.M{"$ne": setting.ProductStatusDeleting}})
+
+	return int(num), err
+}
+
+// UpdateAll updates all envs in a bulk write.
+// Currently only field `services` is supported.
+// Note: A bulk operation can have at most 1000 operations, but the client will do it for us.
+// see https://stackoverflow.com/questions/24237887/what-is-mongodb-batch-operation-max-size
+func (c *ProductColl) UpdateAll(envs []*models.Product) error {
+	if len(envs) == 0 {
+		return nil
+	}
+
+	var ms []mongo.WriteModel
+	for _, env := range envs {
+		ms = append(ms,
+			mongo.NewUpdateOneModel().
+				SetFilter(bson.D{{"_id", env.ID}}).
+				SetUpdate(bson.D{{"$set", bson.D{{"services", env.Services}}}}),
+		)
+	}
+	_, err := c.BulkWrite(context.TODO(), ms)
 
 	return err
 }

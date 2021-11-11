@@ -19,21 +19,19 @@ package service
 import (
 	"context"
 
+	"github.com/google/go-github/v35/github"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
-	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
 	"github.com/koderover/zadig/pkg/tool/git/gitlab"
 )
 
 func CodeHostListPRs(codeHostID int, projectName, namespace, targetBr string, log *zap.SugaredLogger) ([]*PullRequest, error) {
-	opt := &codehost.Option{
-		CodeHostID: codeHostID,
-	}
-	ch, err := codehost.GetCodeHostInfo(opt)
+	ch, err := systemconfig.New().GetCodeHost(codeHostID)
 	if err != nil {
 		return nil, e.ErrCodehostListPrs.AddDesc("git client is nil")
 	}
@@ -60,7 +58,9 @@ func CodeHostListPRs(codeHostID int, projectName, namespace, targetBr string, lo
 	} else {
 		//	github
 		gh := git.NewClient(ch.AccessToken, config.ProxyHTTPSAddr())
-		pullRequests, err := gh.ListPullRequests(context.TODO(), namespace, projectName, nil)
+		pullRequests, err := gh.ListPullRequests(context.TODO(), namespace, projectName, &github.PullRequestListOptions{
+			ListOptions: github.ListOptions{PerPage: 100},
+		})
 		if err != nil {
 			return nil, err
 		}

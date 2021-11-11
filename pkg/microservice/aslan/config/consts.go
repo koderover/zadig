@@ -24,25 +24,18 @@ var (
 	// RenderTemplateAlias ...
 	RenderTemplateAlias = regexp.MustCompile(`{{\s?\.\w+\s?}}`)
 	ServiceNameAlias    = regexp.MustCompile(`\$Service\$`)
-
-	NameSpaceRegex = regexp.MustCompile(NameSpaceRegexString)
+	NameSpaceRegex      = regexp.MustCompile(NameSpaceRegexString)
 )
 
 const (
 	ServiceNameRegexString = "^[a-zA-Z0-9-_]+$"
 	ConfigNameRegexString  = "^[a-zA-Z0-9-]+$"
 	ImageRegexString       = "^[a-zA-Z0-9.:\\/-]+$"
+	CVMNameRegexString     = "^[a-zA-Z_]\\w+$"
 
 	EnvRecyclePolicyAlways     = "always"
 	EnvRecyclePolicyTaskStatus = "success"
 	EnvRecyclePolicyNever      = "never"
-
-	TopicProcess      = "task.process"
-	TopicCancel       = "task.cancel"
-	TopicAck          = "task.ack"
-	TopicItReport     = "task.it.report"
-	TopicNotification = "task.notification"
-	TopicCronjob      = "cronjob"
 
 	// 定时器的所属job类型
 	WorkflowCronjob = "workflow"
@@ -53,6 +46,7 @@ var (
 	ServiceNameRegex = regexp.MustCompile(ServiceNameRegexString)
 	ConfigNameRegex  = regexp.MustCompile(ConfigNameRegexString)
 	ImageRegex       = regexp.MustCompile(ImageRegexString)
+	CVMNameRegex     = regexp.MustCompile(CVMNameRegexString)
 )
 
 // ScheduleType 触发模式
@@ -125,6 +119,7 @@ const (
 	TaskBuild          TaskType = "buildv2"
 	TaskJenkinsBuild   TaskType = "jenkins_build"
 	TaskArtifact       TaskType = "artifact"
+	TaskArtifactDeploy TaskType = "artifact_deploy"
 	TaskDeploy         TaskType = "deploy"
 	TaskTestingV2      TaskType = "testingv2"
 	TaskDistributeToS3 TaskType = "distribute2kodo"
@@ -219,4 +214,9 @@ const (
 
 const (
 	SWRProvider = "swr"
+)
+
+const (
+	ImageResourceType = "image"
+	TarResourceType   = "tar"
 )

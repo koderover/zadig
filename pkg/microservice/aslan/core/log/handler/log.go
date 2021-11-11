@@ -17,6 +17,7 @@ limitations under the License.
 package handler
 
 import (
+	"context"
 	"strconv"
 	"strings"
 
@@ -84,4 +85,33 @@ func GetWorkflowTestJobContainerLogs(c *gin.Context) {
 
 	// job名称使用全小写，避免出现subdomain错误
 	ctx.Resp, ctx.Err = logservice.GetWorkflowTestJobContainerLogs(c.Param("pipelineName"), c.Param("serviceName"), c.Query("workflowType"), taskID, ctx.Logger)
+}
+
+func GetContainerLogs(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	podName := c.Param("name")
+	containerName := c.Query("container")
+	envName := c.Query("envName")
+	productName := c.Query("projectName")
+
+	tailLines, err := strconv.ParseInt(c.Query("tailLines"), 10, 64)
+	if err != nil {
+		tailLines = int64(-1)
+	}
+
+	follow, err := strconv.ParseBool(c.Query("follow"))
+	if err != nil {
+		follow = false
+	}
+
+	if !follow {
+		ctx.Resp, ctx.Err = logservice.GetCurrentContainerLogs(podName, containerName, envName, productName, tailLines, ctx.Logger)
+		return
+	}
+
+	internalhandler.Stream(c, func(ctx1 context.Context, streamChan chan interface{}) {
+		logservice.ContainerLogStream(ctx1, streamChan, envName, productName, podName, containerName, follow, tailLines, ctx.Logger)
+	}, ctx.Logger)
 }

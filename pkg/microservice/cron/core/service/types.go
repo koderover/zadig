@@ -260,6 +260,7 @@ type WorkflowTaskArgs struct {
 	VersionArgs        *VersionArgs    `bson:"version_args,omitempty"       json:"version_args,omitempty"`
 	ReqID              string          `bson:"req_id"                       json:"req_id"`
 	RegistryID         string          `bson:"registry_id,omitempty"        json:"registry_id,omitempty"`
+	StorageID          string          `bson:"storage_id,omitempty"         json:"storage_id,omitempty"`
 	DistributeEnabled  bool            `bson:"distribute_enabled"           json:"distribute_enabled"`
 	WorklowTaskCreator string          `bson:"workflow_task_creator"        json:"workflow_task_creator"`
 	// Ignore docker build cache
@@ -439,8 +440,6 @@ type Pipeline struct {
 	Enabled     bool               `bson:"enabled"                      json:"enabled"`
 	TeamName    string             `bson:"team"                         json:"team"`
 	ProductName string             `bson:"product_name"                 json:"product_name"`
-	// OrgID 单租户ID
-	OrgID int `bson:"org_id"                     json:"org_id"`
 	// target 服务名称, k8s为容器名称, 物理机为服务名
 	Target string `bson:"target"                    json:"target"`
 	// 使用预定义编译管理模块中的内容生成SubTasks,

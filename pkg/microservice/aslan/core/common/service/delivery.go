@@ -27,6 +27,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	taskmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	s3service "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
@@ -35,7 +36,7 @@ import (
 )
 
 func DeleteDeliveryInfos(productName string, log *zap.SugaredLogger) error {
-	deliveryVersions, err := mongodb.NewDeliveryVersionColl().ListDeliveryVersions(productName, 1)
+	deliveryVersions, err := mongodb.NewDeliveryVersionColl().ListDeliveryVersions(productName)
 	if err != nil {
 		log.Errorf("delete DeleteDeliveryInfo error: %v", err)
 		return e.ErrDeleteDeliveryVersion
@@ -70,9 +71,8 @@ func DeleteDeliveryInfos(productName string, log *zap.SugaredLogger) error {
 	return nil
 }
 
-func AddDeliveryVersion(orgID, taskID int, productName, workflowName string, pipelineTask *taskmodels.Task, logger *zap.SugaredLogger) error {
+func AddDeliveryVersion(taskID int, productName, workflowName string, pipelineTask *taskmodels.Task, logger *zap.SugaredLogger) error {
 	deliveryVersionArgs := &mongodb.DeliveryVersionArgs{
-		OrgID:        orgID,
 		ProductName:  productName,
 		WorkflowName: workflowName,
 		TaskID:       taskID,
@@ -86,7 +86,6 @@ func AddDeliveryVersion(orgID, taskID int, productName, workflowName string, pip
 	}
 
 	deliveryVersion := new(commonmodels.DeliveryVersion)
-	deliveryVersion.OrgID = orgID
 	deliveryVersion.WorkflowName = workflowName
 	deliveryVersion.TaskID = taskID
 	deliveryVersion.ProductName = productName
@@ -367,7 +366,16 @@ func getProductEnvInfo(pipelineTask *taskmodels.Task, log *zap.SugaredLogger) (*
 	product.ProductName = pipelineTask.WorkflowArgs.ProductTmplName
 	product.EnvName = pipelineTask.WorkflowArgs.Namespace
 
-	if renderSet, err := GetRenderSet(product.GetNamespace(), pipelineTask.Render.Revision, log); err == nil {
+	if productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    product.ProductName,
+		EnvName: product.EnvName,
+	}); err != nil {
+		product.Namespace = product.GetNamespace()
+	} else {
+		product.Namespace = productInfo.Namespace
+	}
+
+	if renderSet, err := GetRenderSet(product.Namespace, pipelineTask.Render.Revision, log); err == nil {
 		product.Vars = renderSet.KVs
 	} else {
 		log.Errorf("GetProductEnvInfo GetRenderSet namespace:%s pipelineTask.Render.Revision:%d err:%v", product.GetNamespace(), pipelineTask.Render.Revision, err)
@@ -449,11 +457,17 @@ func getServiceRenderYAML(productInfo *commonmodels.Product, containers []*commo
 			log.Errorf("[%s][P:%s]renderset Find error: %v", productInfo.EnvName, productInfo.ProductName, err)
 			return "", fmt.Errorf("get pure yaml %s error: %v", serviceName, err)
 		}
+
+		serviceInfo := productInfo.GetServiceMap()[serviceName]
+		if serviceInfo == nil {
+			return "", fmt.Errorf("service %s not found", serviceName)
+		}
 		// 获取服务模板
 		serviceFindOption := &mongodb.ServiceFindOption{
 			ServiceName: serviceName,
+			ProductName: serviceInfo.ProductName,
 			Type:        setting.K8SDeployType,
-			Revision:    getServiceRevision(serviceName, productInfo.Services),
+			Revision:    serviceInfo.Revision,
 		}
 		svcTmpl, err := mongodb.NewServiceColl().Find(serviceFindOption)
 		if err != nil {
@@ -469,15 +483,4 @@ func getServiceRenderYAML(productInfo *commonmodels.Product, containers []*commo
 		return parsedYaml, nil
 	}
 	return "", nil
-}
-
-func getServiceRevision(serviceName string, productServices [][]*commonmodels.ProductService) int64 {
-	for _, services := range productServices {
-		for _, serviceInfo := range services {
-			if serviceInfo.ServiceName == serviceName {
-				return serviceInfo.Revision
-			}
-		}
-	}
-	return 0
 }

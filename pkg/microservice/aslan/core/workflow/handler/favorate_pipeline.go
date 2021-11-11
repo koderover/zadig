@@ -35,13 +35,13 @@ func ListFavoritePipelines(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	productName := c.Query("productName")
+	productName := c.Query("projectName")
 	workflowType := c.Query("type")
 	if workflowType == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("type can't be empty!")
 		return
 	}
-	ctx.Resp, ctx.Err = workflow.ListFavoritePipelines(&commonrepo.FavoriteArgs{UserID: ctx.User.ID, ProductName: productName, Type: workflowType})
+	ctx.Resp, ctx.Err = workflow.ListFavoritePipelines(&commonrepo.FavoriteArgs{UserID: ctx.UserID, ProductName: productName, Type: workflowType})
 }
 
 func DeleteFavoritePipeline(c *gin.Context) {
@@ -55,8 +55,8 @@ func DeleteFavoritePipeline(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("productName or name or type can't be empty!")
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, productName, "删除", "收藏工作流", workflowName, "", "", ctx.Logger)
-	ctx.Err = workflow.DeleteFavoritePipeline(&commonrepo.FavoriteArgs{UserID: ctx.User.ID, ProductName: productName, Type: workflowType, Name: workflowName})
+	internalhandler.InsertOperationLog(c, ctx.UserName, productName, "删除", "收藏工作流", workflowName, "", ctx.Logger)
+	ctx.Err = workflow.DeleteFavoritePipeline(&commonrepo.FavoriteArgs{UserID: ctx.UserID, ProductName: productName, Type: workflowType, Name: workflowName})
 }
 
 func CreateFavoritePipeline(c *gin.Context) {
@@ -71,14 +71,14 @@ func CreateFavoritePipeline(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateFavoritePipeline json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, args.ProductName, "新增", "收藏工作流", args.Name, "", string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", "收藏工作流", args.Name, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid Favorite json args")
 		return
 	}
-	args.UserID = ctx.User.ID
+	args.UserID = ctx.UserID
 
 	ctx.Err = workflow.CreateFavoritePipeline(args, ctx.Logger)
 }

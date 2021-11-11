@@ -23,7 +23,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
-	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/codehub"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
@@ -31,10 +31,7 @@ import (
 )
 
 func CodeHostListTags(codeHostID int, projectName string, namespace string, log *zap.SugaredLogger) ([]*Tag, error) {
-	opt := &codehost.Option{
-		CodeHostID: codeHostID,
-	}
-	ch, err := codehost.GetCodeHostInfo(opt)
+	ch, err := systemconfig.New().GetCodeHost(codeHostID)
 	if err != nil {
 		log.Error(err)
 		return nil, e.ErrCodehostListTags.AddDesc("git client is nil")
@@ -47,11 +44,11 @@ func CodeHostListTags(codeHostID int, projectName string, namespace string, log 
 			return nil, e.ErrCodehostListTags.AddDesc(err.Error())
 		}
 
-		brList, err := client.ListTags(namespace, projectName, nil)
+		tags, err := client.ListTags(namespace, projectName, nil)
 		if err != nil {
 			return nil, err
 		}
-		return ToTags(brList), nil
+		return ToTags(tags), nil
 	} else if ch.Type == gerrit.CodehostTypeGerrit {
 		client := gerrit.NewClient(ch.Address, ch.AccessToken)
 		tags, err := client.ListTags(projectName)

@@ -27,5 +27,5 @@ func ListDetailTestModules(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListTestingDetails(c.Query("productName"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListTestingDetails(c.Query("projectName"), ctx.Logger)
 }

@@ -19,6 +19,7 @@ package server
 import (
 	"context"
 	"net/http"
+	_ "net/http/pprof"
 	"time"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core"
@@ -53,6 +54,14 @@ func Serve(ctx context.Context) error {
 
 		if err := server.Shutdown(ctx); err != nil {
 			log.Errorf("Failed to stop server, error: %s", err)
+		}
+	}()
+
+	// pprof service, you can access it by {your_ip}:8888/debug/pprof
+	go func() {
+		err := http.ListenAndServe("0.0.0.0:8888", nil)
+		if err != nil {
+			log.Fatal(err)
 		}
 	}()
 

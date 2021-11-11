@@ -25,16 +25,8 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 )
 
-func RootToken() string {
-	return viper.GetString(setting.ENVRootToken)
-}
-
 func CollieAPI() string {
 	return configbase.CollieServiceAddress()
-}
-
-func CollieToken() string {
-	return RootToken()
 }
 
 func NsqLookupAddrs() []string {

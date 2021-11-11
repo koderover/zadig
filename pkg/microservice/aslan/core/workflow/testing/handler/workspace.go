@@ -38,5 +38,5 @@ func GetTestArtifactInfo(c *gin.Context) {
 
 	dir := c.Query("dir")
 
-	_, ctx.Resp, ctx.Err = service.GetTestArtifactInfo(c.Param("pipelineName"), dir, taskID, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetTestArtifactInfo(c.Param("pipelineName"), dir, taskID, ctx.Logger)
 }

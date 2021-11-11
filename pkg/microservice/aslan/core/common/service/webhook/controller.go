@@ -143,6 +143,8 @@ func removeWebhook(t *task, logger *zap.Logger) {
 		t.doneCh <- struct{}{}
 		return
 	}
+
+	logger = logger.With(zap.String("hookID", webhook.HookID))
 	logger.Info("Removing webhook")
 	updated, err := coll.RemoveReference(t.owner, t.repo, t.address, t.ref)
 	if err != nil {
@@ -212,12 +214,12 @@ func addWebhook(t *task, logger *zap.Logger) {
 		if err = coll.Delete(t.owner, t.repo, t.address); err != nil {
 			logger.Error("Failed to delete webhook record in db", zap.Error(err))
 		}
-	}
-
-	if hookID != "" {
-		if err = coll.Update(t.owner, t.repo, t.address, hookID); err != nil {
-			t.err = err
-			logger.Error("Failed to update webhook", zap.Error(err))
+	} else {
+		if hookID != "" {
+			if err = coll.Update(t.owner, t.repo, t.address, hookID); err != nil {
+				t.err = err
+				logger.Error("Failed to update webhook", zap.Error(err))
+			}
 		}
 	}
 

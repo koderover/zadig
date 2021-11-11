@@ -35,8 +35,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehub"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/codehost"
-	"github.com/koderover/zadig/pkg/shared/poetry"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	githubtool "github.com/koderover/zadig/pkg/tool/git/github"
 	gitlabtool "github.com/koderover/zadig/pkg/tool/git/gitlab"
@@ -135,7 +134,7 @@ func fillServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sugar
 	}
 
 	// 设置新的版本号
-	serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceName, args.Type)
+	serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceName, args.ProductName)
 	rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
 	if err != nil {
 		return fmt.Errorf("get next service template revision error: %v", err)
@@ -199,11 +198,11 @@ func syncCodehubLatestCommit(service *commonmodels.Service) error {
 }
 
 func getCodehubClientByAddress(address string) (*codehub.Client, error) {
-	opt := &codehost.Option{
+	opt := &systemconfig.Option{
 		Address:      address,
-		CodeHostType: codehost.CodeHubProvider,
+		CodeHostType: systemconfig.CodeHubProvider,
 	}
-	codehost, err := codehost.GetCodeHostInfo(opt)
+	codehost, err := systemconfig.GetCodeHostInfo(opt)
 	if err != nil {
 		log.Error(err)
 		return nil, e.ErrCodehostListProjects.AddDesc("git client is nil")
@@ -214,11 +213,11 @@ func getCodehubClientByAddress(address string) (*codehub.Client, error) {
 }
 
 func getGitlabClientByAddress(address string) (*gitlabtool.Client, error) {
-	opt := &codehost.Option{
+	opt := &systemconfig.Option{
 		Address:      address,
-		CodeHostType: codehost.GitLabProvider,
+		CodeHostType: systemconfig.GitLabProvider,
 	}
-	codehost, err := codehost.GetCodeHostInfo(opt)
+	codehost, err := systemconfig.GetCodeHostInfo(opt)
 	if err != nil {
 		log.Error(err)
 		return nil, e.ErrCodehostListProjects.AddDesc("git client is nil")
@@ -233,7 +232,7 @@ func getGitlabClientByAddress(address string) (*gitlabtool.Client, error) {
 }
 
 func GitlabGetLatestCommit(client *gitlabtool.Client, owner, repo string, ref, path string) (*gitlab.Commit, error) {
-	commit, err := client.GetLatestCommit(owner, repo, ref, path)
+	commit, err := client.GetLatestRepositoryCommit(owner, repo, path, ref)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get lastest commit with project %s/%s, ref: %s, path:%s, error: %v",
 			owner, repo, ref, path, err)
@@ -245,7 +244,7 @@ func CodehubGetLatestCommit(client *codehub.Client, owner, repo string, branch s
 	commit, err := client.GetLatestRepositoryCommit(owner, repo, branch)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to get lastest commit with project %s/%s, ref: %s, error: %s",
-			owner, repo, CodehubGetLatestCommit, err)
+			owner, repo, branch, err)
 	}
 	return commit.ID, commit.Message, nil
 }
@@ -258,7 +257,7 @@ func GitlabGetRawFiles(client *gitlabtool.Client, owner, repo, ref, path, pathTy
 	files = make([]string, 0)
 	var errs *multierror.Error
 	if pathType == "tree" {
-		nodes, err := client.ListTree(owner, repo, ref, path)
+		nodes, err := client.ListTree(owner, repo, path, ref, false, nil)
 		if err != nil {
 			return files, err
 		}
@@ -283,7 +282,7 @@ func GitlabGetRawFiles(client *gitlabtool.Client, owner, repo, ref, path, pathTy
 		}
 		return files, errs.ErrorOrNil()
 	}
-	content, err := client.GetFileContent(owner, repo, ref, path)
+	content, err := client.GetFileContent(owner, repo, path, ref)
 	if err != nil {
 		return files, err
 	}
@@ -337,8 +336,8 @@ func syncContentFromGithub(args *commonmodels.Service, log *zap.SugaredLogger) e
 		return errors.New("invalid url " + args.SrcPath)
 	}
 
-	ch, err := codehost.GetCodeHostInfo(
-		&codehost.Option{CodeHostType: poetry.GitHubProvider, Address: address, Namespace: owner})
+	ch, err := systemconfig.GetCodeHostInfo(
+		&systemconfig.Option{CodeHostType: systemconfig.GitHubProvider, Address: address, Namespace: owner})
 	if err != nil {
 		log.Errorf("GetCodeHostInfo failed, srcPath:%s, err:%v", args.SrcPath, err)
 		return err
@@ -380,15 +379,6 @@ func syncContentFromGithub(args *commonmodels.Service, log *zap.SugaredLogger) e
 
 func SplitYaml(yaml string) []string {
 	return strings.Split(yaml, setting.YamlFileSeperator)
-}
-
-type githubFileContent struct {
-	SHA      string `json:"sha"`
-	NodeID   string `json:"node_id"`
-	Size     int    `json:"size"`
-	URL      string `json:"url"`
-	Content  string `json:"content"`
-	Encoding string `json:"encoding"`
 }
 
 func syncSingleFileFromGithub(owner, repo, branch, path, token string) (string, error) {
@@ -501,7 +491,7 @@ func (m MatchFolders) ContainsFile(file string) bool {
 	return false
 }
 
-func MatchChanges(m commonmodels.MainHookRepo, files []string) bool {
+func MatchChanges(m *commonmodels.MainHookRepo, files []string) bool {
 	mf := MatchFolders(m.MatchFolders)
 	for _, file := range files {
 		if matches := mf.ContainsFile(file); matches {
@@ -511,7 +501,7 @@ func MatchChanges(m commonmodels.MainHookRepo, files []string) bool {
 	return false
 }
 
-func EventConfigured(m commonmodels.MainHookRepo, event config.HookEventType) bool {
+func EventConfigured(m *commonmodels.MainHookRepo, event config.HookEventType) bool {
 	for _, ev := range m.Events {
 		if ev == event {
 			return true

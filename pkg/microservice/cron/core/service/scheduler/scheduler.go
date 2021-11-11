@@ -20,7 +20,6 @@ import (
 	"fmt"
 	stdlog "log"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/jasonlvhit/gocron"
@@ -33,7 +32,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/cron/core/service"
 	"github.com/koderover/zadig/pkg/microservice/cron/core/service/client"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/poetry"
+	configclient "github.com/koderover/zadig/pkg/shared/config"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -74,8 +73,6 @@ const (
 	//InitHealthCheckScheduler
 	InitHealthCheckScheduler = "InitHealthCheckScheduler"
 
-	// FreestyleType 自由编排工作流
-	freestyleType = "freestyle"
 )
 
 // NewCronClient ...
@@ -83,8 +80,8 @@ const (
 func NewCronClient() *CronClient {
 	nsqLookupAddrs := config.NsqLookupAddrs()
 
-	aslanCli := client.NewAslanClient(fmt.Sprintf("%s/api", configbase.AslanServiceAddress()), config.RootToken())
-	collieCli := client.NewCollieClient(config.CollieAPI(), config.CollieToken())
+	aslanCli := client.NewAslanClient(fmt.Sprintf("%s/api", configbase.AslanServiceAddress()))
+	collieCli := client.NewCollieClient(config.CollieAPI())
 	//初始化nsq
 	config := nsq.NewConfig()
 	// 注意 WD_POD_NAME 必须使用 Downward API 配置环境变量
@@ -142,8 +139,8 @@ func (c *CronClient) Init() {
 	c.InitTestScheduler()
 
 	// 自由编排工作流定时任务触发
-	features, _ := getFeatures()
-	if strings.Contains(features, freestyleType) {
+	cl := configclient.New(configbase.ConfigServiceAddress())
+	if enable, err := cl.CheckFeature(setting.ModernWorkflowType);err ==nil && enable{
 		c.InitColliePipelineScheduler()
 	}
 
@@ -159,15 +156,6 @@ func (c *CronClient) Init() {
 	c.InitHealthCheckScheduler()
 }
 
-func getFeatures() (string, error) {
-	cl := poetry.New(configbase.PoetryServiceAddress(), config.RootToken())
-	fs, err := cl.ListFeatures()
-	if err != nil {
-		return "", err
-	}
-
-	return strings.Join(fs, ","), nil
-}
 
 // InitCleanJobScheduler ...
 func (c *CronClient) InitCleanJobScheduler() {
@@ -262,7 +250,7 @@ func (c *CronClient) InitHealthCheckScheduler() {
 
 	c.Schedulers[InitHealthCheckScheduler] = gocron.NewScheduler()
 
-	c.Schedulers[InitHealthCheckScheduler].Every(1).Minutes().Do(c.UpsertEnvServiceScheduler, c.log)
+	c.Schedulers[InitHealthCheckScheduler].Every(10).Seconds().Do(c.UpsertEnvServiceScheduler, c.log)
 
 	c.Schedulers[InitHealthCheckScheduler].Start()
 }

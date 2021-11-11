@@ -36,7 +36,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	gerritservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gerrit"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
 	"github.com/koderover/zadig/pkg/util"
@@ -94,7 +94,7 @@ func updateServiceTemplateByGerritEvent(uri string, log *zap.SugaredLogger) erro
 			log.Errorf("updateServiceTemplateByGerritEvent GetServiceTemplate err:%v", err)
 			errs = multierror.Append(errs, err)
 		}
-		detail, err := codehost.GetCodehostDetail(service.GerritCodeHostID)
+		detail, err := systemconfig.New().GetCodeHost(service.GerritCodeHostID)
 		if err != nil {
 			log.Errorf("updateServiceTemplateByGerritEvent GetCodehostDetail err:%v", err)
 			errs = multierror.Append(errs, err)
@@ -194,12 +194,11 @@ func GetGerritWorkspaceBasePath(repoName string) (string, error) {
 
 // GetGerritServiceTemplates Get all service templates maintained in gerrit
 func GetGerritServiceTemplates() ([]*commonmodels.Service, error) {
-	opt := &commonrepo.ServiceFindOption{
-		Type:          setting.K8SDeployType,
-		Source:        setting.SourceFromGerrit,
-		ExcludeStatus: setting.ProductStatusDeleting,
+	opt := &commonrepo.ServiceListOption{
+		Type:   setting.K8SDeployType,
+		Source: setting.SourceFromGerrit,
 	}
-	return commonrepo.NewServiceColl().List(opt)
+	return commonrepo.NewServiceColl().ListMaxRevisions(opt)
 }
 
 // SyncServiceTemplateFromGerrit Force to sync Service Template to latest commit and content,
@@ -229,7 +228,7 @@ func SyncServiceTemplateFromGerrit(service *commonmodels.Service, log *zap.Sugar
 	return nil
 }
 
-func syncGerritLatestCommit(service *commonmodels.Service) (*codehost.Detail, error) {
+func syncGerritLatestCommit(service *commonmodels.Service) (*systemconfig.CodeHost, error) {
 	if service.GerritCodeHostID == 0 {
 		return nil, fmt.Errorf("codehostId不能是空的")
 	}
@@ -239,12 +238,12 @@ func syncGerritLatestCommit(service *commonmodels.Service) (*codehost.Detail, er
 	if service.GerritBranchName == "" {
 		return nil, fmt.Errorf("branchName不能是空的")
 	}
-	detail, err := codehost.GetCodehostDetail(service.GerritCodeHostID)
+	detail, err := systemconfig.New().GetCodeHost(service.GerritCodeHostID)
 	if err != nil {
 		return nil, err
 	}
 
-	gerritCli := gerrit.NewClient(detail.Address, detail.OauthToken)
+	gerritCli := gerrit.NewClient(detail.Address, detail.AccessToken)
 	commit, err := gerritCli.GetCommitByBranch(service.GerritRepoName, service.GerritBranchName)
 	if err != nil {
 		return detail, err
@@ -309,7 +308,7 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 	}
 
 	// 设置新的版本号
-	serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceName, args.Type)
+	serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceName, args.ProductName)
 	rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
 	if err != nil {
 		return fmt.Errorf("get next service template revision error: %v", err)

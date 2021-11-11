@@ -22,6 +22,7 @@ import (
 	"os"
 	"path"
 	"sort"
+	"strconv"
 	"strings"
 
 	"go.uber.org/zap"
@@ -39,7 +40,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/poetry"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
@@ -67,7 +68,9 @@ func CreatePipelineTask(args *commonmodels.TaskArgs, log *zap.SugaredLogger) (*C
 
 	// 如果用户使用预定义编译配置, 则从编译模块配置中生成SubTasks
 	if pipeline.BuildModuleVer != "" {
-		subTasks, err := BuildModuleToSubTasks("", pipeline.BuildModuleVer, pipeline.Target, "", "", nil, nil, log)
+		subTasks, err := BuildModuleToSubTasks(&commonmodels.BuildModuleArgs{
+			Target: pipeline.Target,
+		}, log)
 		if err != nil {
 			return nil, e.ErrCreateTask.AddErr(err)
 		}
@@ -162,7 +165,7 @@ func CreatePipelineTask(args *commonmodels.TaskArgs, log *zap.SugaredLogger) (*C
 		}
 	}
 
-	jiraInfo, _ := poetry.GetJiraInfo(config.PoetryAPIServer(), config.PoetryAPIRootKey())
+	jiraInfo, _ := systemconfig.New().GetJiraInfo()
 	if jiraInfo != nil {
 		jiraTask, err := AddPipelineJiraSubTask(pipeline, log)
 		if err != nil {
@@ -195,7 +198,6 @@ func CreatePipelineTask(args *commonmodels.TaskArgs, log *zap.SugaredLogger) (*C
 		MultiRun:       pipeline.MultiRun,
 		BuildModuleVer: pipeline.BuildModuleVer,
 		Target:         pipeline.Target,
-		OrgID:          pipeline.OrgID,
 		StorageURI:     defaultStorageURI,
 	}
 
@@ -240,7 +242,7 @@ func CreatePipelineTask(args *commonmodels.TaskArgs, log *zap.SugaredLogger) (*C
 		pt.ConfigPayload.RepoConfigs[repo.ID.Hex()] = repo
 	}
 
-	if err := ensurePipelineTask(pt, log); err != nil {
+	if err := ensurePipelineTask(pt, pt.TaskArgs.Deploy.Namespace, log); err != nil {
 		log.Errorf("Service.ensurePipelineTask failed %v %v", args, err)
 		if err, ok := err.(*ContainerNotFound); ok {
 			return nil, e.NewWithExtras(
@@ -384,7 +386,7 @@ func RestartPipelineTaskV2(userName string, taskID int64, pipelineName string, t
 				subBuildTaskMap := subStage.SubTasks
 				for serviceModule, subTask := range subBuildTaskMap {
 					if buildInfo, err := base.ToBuildTask(subTask); err == nil {
-						if newModules, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{Version: "stable", Targets: []string{serviceModule}, ServiceName: buildInfo.Service, ProductName: t.ProductName}); err == nil {
+						if newModules, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{Targets: []string{serviceModule}, ServiceName: buildInfo.Service, ProductName: t.ProductName}); err == nil && len(newModules) > 0 {
 							newBuildInfo := newModules[0]
 							buildInfo.JobCtx.BuildSteps = []*task.BuildStep{}
 							if newBuildInfo.Scripts != "" {
@@ -539,6 +541,8 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 				testArg.Builds = make([]*types.Repository, 0)
 			} else {
 				testArg.Builds = testing.Repos
+				pr, _ := strconv.Atoi(args.MergeRequestID)
+				testArg.Builds[0].PR = pr
 			}
 
 			if testing.PreTest != nil {
@@ -609,7 +613,7 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 	}
 	// Iterate test jobctx builds, and replace it if params specified from task.
 	// 外部触发的pipeline
-	_ = setManunalBuilds(testTask.JobCtx.Builds, testArg.Builds)
+	_ = setManunalBuilds(testTask.JobCtx.Builds, testArg.Builds, log)
 	return testTask, nil
 }
 
@@ -903,9 +907,9 @@ func GePackageFileContent(pipelineName string, taskID int64, log *zap.SugaredLog
 	defer func() {
 		_ = os.Remove(tmpfile.Name())
 	}()
-	forcedPathStyle := false
-	if storage.Provider == setting.ProviderSourceSystemDefault {
-		forcedPathStyle = true
+	forcedPathStyle := true
+	if storage.Provider == setting.ProviderSourceAli {
+		forcedPathStyle = false
 	}
 	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
 	if err != nil {
@@ -921,19 +925,14 @@ func GePackageFileContent(pipelineName string, taskID int64, log *zap.SugaredLog
 }
 
 func GetArtifactFileContent(pipelineName string, taskID int64, log *zap.SugaredLogger) ([]byte, error) {
-	s3Storage, artifactFiles, _ := GetTestArtifactInfo(pipelineName, "", taskID, log)
-	tempdir, _ := ioutil.TempDir("", "")
-	sourcePath := path.Join(tempdir, "artifact")
+	s3Storage, client, artifactFiles, err := GetArtifactAndS3Info(pipelineName, "", taskID, log)
+	if err != nil {
+		return nil, fmt.Errorf("download artifact err: %s", err)
+	}
+	tempDir, _ := ioutil.TempDir("", "")
+	sourcePath := path.Join(tempDir, "artifact")
 	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
 		_ = os.MkdirAll(sourcePath, 0777)
-	}
-	forcedPathStyle := false
-	if s3Storage.Provider == setting.ProviderSourceSystemDefault {
-		forcedPathStyle = true
-	}
-	client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create s3 client , error: %v", err)
 	}
 
 	for _, artifactFile := range artifactFiles {
@@ -945,12 +944,10 @@ func GetArtifactFileContent(pipelineName string, taskID int64, log *zap.SugaredL
 				return nil, fmt.Errorf("failed to create file %s %v", artifactFileName, err)
 			}
 			defer func() {
-				file.Close()
-				os.Remove(path.Join(sourcePath, artifactFileName))
+				_ = file.Close()
 			}()
 
-			objectKey := s3Storage.GetObjectPath(artifactFile)
-			err = client.Download(s3Storage.Bucket, objectKey, file.Name())
+			err = client.Download(s3Storage.Bucket, artifactFile, file.Name())
 			if err != nil {
 				return nil, fmt.Errorf("failed to download %s %v", artifactFile, err)
 			}
@@ -965,20 +962,20 @@ func GetArtifactFileContent(pipelineName string, taskID int64, log *zap.SugaredL
 	}
 	defer func() {
 		_ = os.Remove(artifactTarFileName)
-		_ = os.Remove(tempdir)
+		_ = os.Remove(tempDir)
 	}()
 
 	fileBytes, err := ioutil.ReadFile(path.Join(sourcePath, "artifact.tar.gz"))
 	return fileBytes, err
 }
 
-func GetTestArtifactInfo(pipelineName, dir string, taskID int64, log *zap.SugaredLogger) (*s3.S3, []string, error) {
+func GetArtifactAndS3Info(pipelineName, dir string, taskID int64, log *zap.SugaredLogger) (*s3.S3, *s3tool.Client, []string, error) {
 	fis := make([]string, 0)
 
 	storage, err := s3.FindDefaultS3()
 	if err != nil {
 		log.Errorf("GetTestArtifactInfo FindDefaultS3 err:%v", err)
-		return nil, fis, nil
+		return nil, nil, fis, err
 	}
 
 	if storage.Subfolder != "" {
@@ -986,20 +983,20 @@ func GetTestArtifactInfo(pipelineName, dir string, taskID int64, log *zap.Sugare
 	} else {
 		storage.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineName, taskID, "artifact")
 	}
-	forcedPathStyle := false
-	if storage.Provider == setting.ProviderSourceSystemDefault {
-		forcedPathStyle = true
+	forcedPathStyle := true
+	if storage.Provider == setting.ProviderSourceAli {
+		forcedPathStyle = false
 	}
 	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
 	if err != nil {
 		log.Errorf("GetTestArtifactInfo Create S3 client err:%+v", err)
-		return nil, fis, nil
+		return nil, nil, fis, err
 	}
 	prefix := storage.GetObjectPath(dir)
 	files, err := client.ListFiles(storage.Bucket, prefix, true)
 	if err != nil || len(files) <= 0 {
 		log.Errorf("GetTestArtifactInfo ListFiles err:%v", err)
-		return nil, fis, nil
+		return nil, nil, fis, err
 	}
-	return storage, files, nil
+	return storage, client, files, nil
 }

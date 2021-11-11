@@ -28,9 +28,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/notify"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 func SendMessage(sender, title, content, requestID string, log *zap.SugaredLogger) {
@@ -54,11 +52,6 @@ func SendMessage(sender, title, content, requestID string, log *zap.SugaredLogge
 
 func SendFailedTaskMessage(username, productName, name, requestID string, workflowType config.PipelineType, err error, log *zap.SugaredLogger) {
 	title := "创建工作流任务失败"
-	perm := permission.WorkflowUpdateUUID
-	if workflowType == config.TestType {
-		title = "创建测试任务失败"
-		perm = permission.TestManageUUID
-	}
 
 	errStr := err.Error()
 	_, messageMap := e.ErrorMessage(err)
@@ -74,17 +67,10 @@ func SendFailedTaskMessage(username, productName, name, requestID string, workfl
 		SendMessage(username, title, content, requestID, log)
 		return
 	}
-
-	// 如果是timer创建的任务，通知需要发送给该项目下有编辑工作流权限的用户
-	poetryClient := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
-	users, _ := poetryClient.ListProductPermissionUsers(productName, perm, log)
-	for _, user := range users {
-		SendMessage(user, title, content, requestID, log)
-	}
 }
 
 func SendErrorMessage(sender, title, requestID string, err error, log *zap.SugaredLogger) {
-	content := fmt.Sprintf("错误信息: %s", e.String(err))
+	content := fmt.Sprintf("错误信息: %s", err)
 	SendMessage(sender, title, content, requestID, log)
 }
 
@@ -102,7 +88,7 @@ func GetGitlabAddress(URL string) (string, error) {
 // GetOwnerRepoBranchPath 获取gitlab路径中的owner、repo、branch和path
 func GetOwnerRepoBranchPath(URL string) (string, string, string, string, string, string, error) {
 	if !strings.Contains(URL, "https") && !strings.Contains(URL, "http") {
-		return "", "", "", "", "", "", fmt.Errorf("url is illegal")
+		return "", "", "", "", "", "", fmt.Errorf("url is illegal:%s", URL)
 	}
 	//适配公网的gitlab
 	if strings.Contains(URL, "-") {

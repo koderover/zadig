@@ -30,7 +30,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gerrit"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
@@ -89,7 +89,6 @@ func DeleteWorkflow(workflowName, requestID string, isDeletingProductTmpl bool, 
 	err = ProcessWebhook(nil, workflow.HookCtl.Items, webhook.WorkflowPrefix+workflow.Name, log)
 	if err != nil {
 		log.Errorf("Failed to process webhook, err: %s", err)
-		return e.ErrUpsertWorkflow.AddDesc(err.Error())
 	}
 
 	go gerrit.DeleteGerritWebhook(workflow, log)
@@ -113,7 +112,7 @@ func DeleteWorkflow(workflowName, requestID string, isDeletingProductTmpl bool, 
 		log.Errorf("PipelineTaskV2.DeleteByPipelineName error: %v", err)
 	}
 
-	if deliveryVersions, err := mongodb.NewDeliveryVersionColl().Find(&mongodb.DeliveryVersionArgs{OrgID: 1, WorkflowName: workflowName}); err == nil {
+	if deliveryVersions, err := mongodb.NewDeliveryVersionColl().Find(&mongodb.DeliveryVersionArgs{WorkflowName: workflowName}); err == nil {
 		for _, deliveryVersion := range deliveryVersions {
 			if err := mongodb.NewDeliveryVersionColl().Delete(deliveryVersion.ID.Hex()); err != nil {
 				log.Errorf("DeleteWorkflow.DeliveryVersion.Delete error: %v", err)
@@ -168,7 +167,7 @@ func ProcessWebhook(updatedHooks, currentHooks interface{}, name string, logger 
 		wg.Add(1)
 		go func(wh hookItem) {
 			defer wg.Done()
-			ch, err := codehost.GetCodeHostInfoByID(wh.codeHostID)
+			ch, err := systemconfig.New().GetCodeHost(wh.codeHostID)
 			if err != nil {
 				logger.Errorf("Failed to get codeHost by id %d, err: %s", wh.codeHostID, err)
 				errs = multierror.Append(errs, err)
@@ -202,7 +201,7 @@ func ProcessWebhook(updatedHooks, currentHooks interface{}, name string, logger 
 		wg.Add(1)
 		go func(wh hookItem) {
 			defer wg.Done()
-			ch, err := codehost.GetCodeHostInfoByID(wh.codeHostID)
+			ch, err := systemconfig.New().GetCodeHost(wh.codeHostID)
 			if err != nil {
 				logger.Errorf("Failed to get codeHost by id %d, err: %s", wh.codeHostID, err)
 				errs = multierror.Append(errs, err)

@@ -23,9 +23,10 @@ import (
 	"time"
 
 	"github.com/xanzy/go-gitlab"
+	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
 )
 
@@ -38,11 +39,8 @@ type RepoCommit struct {
 	Message    string     `json:"message"`
 }
 
-func QueryByBranch(id int, owner string, name string, branch string) (*RepoCommit, error) {
-	opt := &codehost.Option{
-		CodeHostID: id,
-	}
-	ch, err := codehost.GetCodeHostInfo(opt)
+func QueryByBranch(id int, owner, name, branch string, log *zap.SugaredLogger) (*RepoCommit, error) {
+	ch, err := systemconfig.New().GetCodeHost(id)
 	if err != nil {
 		return nil, err
 	}
@@ -88,11 +86,8 @@ func QueryByBranch(id int, owner string, name string, branch string) (*RepoCommi
 	return nil, errors.New(ch.Type + "is not supported yet")
 }
 
-func QueryByTag(id int, owner string, name string, tag string) (*RepoCommit, error) {
-	opt := &codehost.Option{
-		CodeHostID: id,
-	}
-	ch, err := codehost.GetCodeHostInfo(opt)
+func QueryByTag(id int, owner, name, tag string, log *zap.SugaredLogger) (*RepoCommit, error) {
+	ch, err := systemconfig.New().GetCodeHost(id)
 	if err != nil {
 		return nil, err
 	}
@@ -146,17 +141,10 @@ type PRCommit struct {
 	CheckoutRef string     `json:"checkout_ref"`
 }
 
-func GetLatestPrCommit(codehostID, pr int, namespace, projectName string) (*PRCommit, error) {
+func GetLatestPrCommit(codehostID, pr int, namespace, projectName string, log *zap.SugaredLogger) (*PRCommit, error) {
 	projectID := fmt.Sprintf("%s/%s", namespace, projectName)
-	//codehost, err := s.client.dir.Codehosts.GetCodehostDetial(codehostId)
-	//if err != nil {
-	//	return nil, err
-	//}
 
-	opt := &codehost.Option{
-		CodeHostID: codehostID,
-	}
-	ch, err := codehost.GetCodeHostInfo(opt)
+	ch, err := systemconfig.New().GetCodeHost(codehostID)
 	if err != nil {
 		return nil, err
 	}

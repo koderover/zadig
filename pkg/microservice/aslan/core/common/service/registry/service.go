@@ -395,6 +395,9 @@ func (s *SwrService) ListRepoImages(option ListRepoImagesOption, log *zap.Sugare
 
 			var koderoverTags, customTags, sortedTags []string
 			for _, repoResp := range *repoDetails.Body {
+				if repoResp.Name != name {
+					continue
+				}
 				for _, tag := range repoResp.Tags {
 					tagArray := strings.Split(tag, "-")
 					if len(tagArray) > 1 && len(tagArray[0]) == 14 {

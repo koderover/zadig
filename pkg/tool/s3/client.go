@@ -1,11 +1,27 @@
+/*
+Copyright 2021 The KodeRover Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package s3
 
 import (
 	"fmt"
 	"os"
-	"path"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -20,6 +36,15 @@ const (
 
 type Client struct {
 	*s3.S3
+}
+
+type DownloadOption struct {
+	IgnoreNotExistError bool
+	RetryNum            int
+}
+
+var defaultDownloadOption = &DownloadOption{
+	RetryNum: 3,
 }
 
 func NewClient(endpoint, ak, sk string, insecure, forcedPathStyle bool) (*Client, error) {
@@ -54,27 +79,83 @@ func (c *Client) ValidateBucket(bucketName string) error {
 	return fmt.Errorf("validate s3 error: given bucket does not exist")
 }
 
+func (c *Client) DownloadWithOption(bucketName, objectKey, dest string, option *DownloadOption) error {
+	return c.download(bucketName, objectKey, dest, option)
+}
+
 // Download the file to object storage
 func (c *Client) Download(bucketName, objectKey, dest string) error {
-	retry := 0
+	return c.download(bucketName, objectKey, dest, defaultDownloadOption)
+}
 
-	for retry < 3 {
+func (c *Client) download(bucketName, objectKey, dest string, option *DownloadOption) error {
+
+	retry := 0
+	var err error
+
+	for retry < option.RetryNum {
 		opt := &s3.GetObjectInput{
 			Bucket: aws.String(bucketName),
 			Key:    aws.String(objectKey),
 		}
-		obj, err := c.GetObject(opt)
-		if err != nil {
+		obj, err1 := c.GetObject(opt)
+		if err1 != nil {
+			if e, ok := err1.(awserr.Error); ok && e.Code() == s3.ErrCodeNoSuchKey {
+				if option.IgnoreNotExistError {
+					return nil
+				}
+				return err1
+			}
+
+			log.Warnf("Failed to get object %s from s3, try again, err: %s", objectKey, err1)
+			err = err1
+
 			retry++
 			continue
 		}
 		err = fs.SaveFile(obj.Body, dest)
-		if err == nil {
-			return nil
+		if err != nil {
+			log.Errorf("Failed to save file to %s, err: %s", dest, err)
 		}
-		retry++
+		return err
 	}
-	return fmt.Errorf("download file with key: %s failed", objectKey)
+
+	return err
+}
+
+// CopyObject copies an object to a new place in the same bucket.
+func (c *Client) CopyObject(bucketName, oldKey, newKey string) error {
+	opt := &s3.CopyObjectInput{
+		Bucket:     aws.String(bucketName),
+		CopySource: aws.String(bucketName + "/" + oldKey),
+		Key:        aws.String(newKey),
+	}
+	_, err := c.S3.CopyObject(opt)
+
+	return err
+}
+
+// DeleteObjects deletes all the objects listed in keys.
+func (c *Client) DeleteObjects(bucketName string, keys []string) error {
+	if len(keys) == 0 {
+		return nil
+	}
+
+	var ids []*s3.ObjectIdentifier
+	for _, k := range keys {
+		ids = append(ids, &s3.ObjectIdentifier{
+			Key: aws.String(k),
+		})
+	}
+
+	input := &s3.DeleteObjectsInput{
+		Bucket: aws.String(bucketName),
+		Delete: &s3.Delete{Objects: ids},
+	}
+
+	_, err := c.S3.DeleteObjects(input)
+
+	return err
 }
 
 // RemoveFiles removes the files with a specific list of prefixes and delete ALL of them
@@ -89,7 +170,7 @@ func (c *Client) RemoveFiles(bucketName string, prefixList []string) {
 		}
 		objects, err := c.ListObjects(input)
 		if err != nil {
-			log.Errorf("List s3 objects with prefix %s err: %+v", prefix, err)
+			log.Errorf("Failed to list s3 objects with prefix %s err: %s", prefix, err)
 			continue
 		}
 		for _, object := range objects.Contents {
@@ -99,13 +180,19 @@ func (c *Client) RemoveFiles(bucketName string, prefixList []string) {
 		}
 	}
 
+	if len(deleteList) == 0 {
+		log.Warnf("Nothing to remove")
+		return
+	}
+
 	input := &s3.DeleteObjectsInput{
 		Bucket: aws.String(bucketName),
 		Delete: &s3.Delete{Objects: deleteList},
 	}
-	_, err := c.DeleteObjects(input)
+
+	_, err := c.S3.DeleteObjects(input)
 	if err != nil {
-		log.Errorf("Failed to delete object with prefix: %v from bucket %s", prefixList, bucketName)
+		log.Errorf("Failed to delete object with prefix: %v in bucket %s, err: %s", prefixList, bucketName, err)
 	}
 }
 
@@ -144,8 +231,7 @@ func (c *Client) ListFiles(bucketName, prefix string, recursive bool) ([]string,
 
 	for _, item := range output.Contents {
 		itemKey := *item.Key
-		_, fileName := path.Split(itemKey)
-		ret = append(ret, fileName)
+		ret = append(ret, itemKey)
 	}
 
 	return ret, nil
