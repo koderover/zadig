@@ -8,8 +8,8 @@ import (
 
 type Claims struct {
 	Name            string          `json:"name"`
-	Account         string          `json:"account"`
-	Uid             string          `json:"uid"`
+	Email           string          `json:"email"`
+	UID             string          `json:"uid"`
 	FederatedClaims FederatedClaims `json:"federated_claims"`
 	jwt.StandardClaims
 }
