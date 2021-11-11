@@ -30,8 +30,6 @@ const (
 	VerbosityDetailed QueryVerbosity = "detailed" // all information
 	VerbosityBrief    QueryVerbosity = "brief"    // short information or a summary
 	VerbosityMinimal  QueryVerbosity = "minimal"  // very little information, usually only a resource identifier
-
-	allProjects = "*"
 )
 
 type ProjectListOptions struct {
