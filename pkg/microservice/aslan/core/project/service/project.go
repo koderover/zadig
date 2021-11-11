@@ -60,7 +60,7 @@ type ProjectMinimalRepresentation struct {
 }
 
 func (o *ProjectListOptions) InNames() []string {
-	if len(o.Names) == 0 || (len(o.Names) == 1 && o.Names[0] == allProjects) {
+	if len(o.Names) == 0 {
 		return []string{}
 	}
 
