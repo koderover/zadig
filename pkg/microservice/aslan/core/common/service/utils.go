@@ -67,13 +67,6 @@ func SendFailedTaskMessage(username, productName, name, requestID string, workfl
 		SendMessage(username, title, content, requestID, log)
 		return
 	}
-
-	//// 如果是timer创建的任务，通知需要发送给该项目下有编辑工作流权限的用户
-	//poetryClient := poetry.New(config.PoetryAPIServer())
-	//users, _ := poetryClient.ListProductPermissionUsers(productName, perm, log)
-	//for _, user := range users {
-	//	SendMessage(user, title, content, requestID, log)
-	//}
 }
 
 func SendErrorMessage(sender, title, requestID string, err error, log *zap.SugaredLogger) {

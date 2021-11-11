@@ -64,12 +64,12 @@ type Queue struct {
 	// TestArgs 测试任务参数
 	TestArgs *TestTaskArgs `bson:"test_args,omitempty"         json:"test_args,omitempty"`
 	// ServiceTaskArgs 脚本部署工作流任务参数
-	ServiceTaskArgs *ServiceTaskArgs `bson:"service_args,omitempty"         json:"service_args,omitempty"`
-	ConfigPayload   *ConfigPayload   `json:"config_payload,omitempty"`
-	Error           string           `bson:"error,omitempty"                json:"error,omitempty"`
-	Services   [][]*ProductService `bson:"services"                  json:"services"`
-	Render     *RenderInfo         `bson:"render"                    json:"render"`
-	StorageURI string              `bson:"storage_uri,omitempty" json:"storage_uri,omitempty"`
+	ServiceTaskArgs *ServiceTaskArgs    `bson:"service_args,omitempty"         json:"service_args,omitempty"`
+	ConfigPayload   *ConfigPayload      `json:"config_payload,omitempty"`
+	Error           string              `bson:"error,omitempty"                json:"error,omitempty"`
+	Services        [][]*ProductService `bson:"services"                  json:"services"`
+	Render          *RenderInfo         `bson:"render"                    json:"render"`
+	StorageURI      string              `bson:"storage_uri,omitempty" json:"storage_uri,omitempty"`
 	// interface{} 为types.TestReport
 	TestReports map[string]interface{} `bson:"test_reports,omitempty" json:"test_reports,omitempty"`
 
@@ -200,13 +200,13 @@ type RegistryConfig struct {
 
 type ReleaseConfig struct {
 	// ReaperImage sets build job image
-	// e.g. xxx.com/poetry-resources/reaper-plugin:1.0.0
+	// e.g. xxx.com/resources/reaper-plugin:1.0.0
 	ReaperImage string
 	// ReaperBinaryFile sets download url of reaper binary file in build job
 	// e.g. http://resource.koderover.com/reaper-20201014203000
 	ReaperBinaryFile string
 	// PredatorImage sets docker build image
-	// e.g. xxx.com/poetry-resources/predator-plugin:v0.1.0
+	// e.g. xxx.com/resources/predator-plugin:v0.1.0
 	PredatorImage string
 }
 

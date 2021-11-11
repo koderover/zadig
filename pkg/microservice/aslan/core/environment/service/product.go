@@ -73,12 +73,6 @@ func CleanProductCronJob(requestID string, log *zap.SugaredLogger) {
 				}
 			}
 
-			//poetryClient := poetry.New(config.PoetryAPIServer())
-			//users, _ := poetryClient.ListProductPermissionUsers("", "", log)
-			//for _, user := range users {
-			//	commonservice.SendMessage(user, title, content, requestID, log)
-			//}
-
 			log.Warnf("[%s] product %s deleted", product.EnvName, product.ProductName)
 		}
 	}

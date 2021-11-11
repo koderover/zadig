@@ -94,7 +94,7 @@ func updateServiceTemplateByGerritEvent(uri string, log *zap.SugaredLogger) erro
 			log.Errorf("updateServiceTemplateByGerritEvent GetServiceTemplate err:%v", err)
 			errs = multierror.Append(errs, err)
 		}
-		detail, err := systemconfig.GetCodehostDetail(service.GerritCodeHostID)
+		detail, err := systemconfig.New().GetCodeHost(service.GerritCodeHostID)
 		if err != nil {
 			log.Errorf("updateServiceTemplateByGerritEvent GetCodehostDetail err:%v", err)
 			errs = multierror.Append(errs, err)
@@ -228,7 +228,7 @@ func SyncServiceTemplateFromGerrit(service *commonmodels.Service, log *zap.Sugar
 	return nil
 }
 
-func syncGerritLatestCommit(service *commonmodels.Service) (*systemconfig.Detail, error) {
+func syncGerritLatestCommit(service *commonmodels.Service) (*systemconfig.CodeHost, error) {
 	if service.GerritCodeHostID == 0 {
 		return nil, fmt.Errorf("codehostId不能是空的")
 	}
@@ -238,12 +238,12 @@ func syncGerritLatestCommit(service *commonmodels.Service) (*systemconfig.Detail
 	if service.GerritBranchName == "" {
 		return nil, fmt.Errorf("branchName不能是空的")
 	}
-	detail, err := systemconfig.GetCodehostDetail(service.GerritCodeHostID)
+	detail, err := systemconfig.New().GetCodeHost(service.GerritCodeHostID)
 	if err != nil {
 		return nil, err
 	}
 
-	gerritCli := gerrit.NewClient(detail.Address, detail.OauthToken)
+	gerritCli := gerrit.NewClient(detail.Address, detail.AccessToken)
 	commit, err := gerritCli.GetCommitByBranch(service.GerritRepoName, service.GerritBranchName)
 	if err != nil {
 		return detail, err

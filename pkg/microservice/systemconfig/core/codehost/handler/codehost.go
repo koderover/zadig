@@ -30,7 +30,7 @@ func CreateCodeHost(c *gin.Context) {
 func ListCodeHost(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = service.FindCodeHost(ctx.Logger)
+	ctx.Resp, ctx.Err = service.List(c.Query("address"), c.Query("owner"), c.Query("source"), ctx.Logger)
 }
 
 func DeleteCodeHost(c *gin.Context) {
@@ -79,7 +79,7 @@ func AuthCodeHost(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	callBackUrl := fmt.Sprintf("%s://%s%s", redirectHost.Scheme, redirectHost.Host, "/api/v1/codehosts/callback")
+	callBackUrl := fmt.Sprintf("%s://%s%s", redirectHost.Scheme, redirectHost.Host, "/api/directory/codehosts/callback")
 
 	var authUrl string
 	var tokenUrl string
@@ -148,7 +148,7 @@ func Callback(c *gin.Context) {
 		return
 	}
 
-	callBackUrl := fmt.Sprintf("%s://%s%s", stateURL.Scheme, stateURL.Host, "/api/v1/codehosts/callback")
+	callBackUrl := fmt.Sprintf("%s://%s%s", stateURL.Scheme, stateURL.Host, "/api/directory/codehosts/callback")
 	authConfig := &oauth2.Config{
 		ClientID:     iCodehost.ApplicationId,
 		ClientSecret: iCodehost.ClientSecret,

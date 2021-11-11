@@ -18,7 +18,10 @@ package cmd
 
 import (
 	_ "embed"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
@@ -29,11 +32,15 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
 	"github.com/koderover/zadig/pkg/shared/client/user"
+	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 func init() {
 	rootCmd.AddCommand(initCmd)
+	log.Init(&log.Config{
+		Level: config.LogLevel(),
+	})
 }
 
 //go:embed contributor.yaml
@@ -66,8 +73,9 @@ func run() error {
 func initSystemConfig() error {
 	email := config.AdminEmail()
 	password := config.AdminPassword()
+	domain := config.SystemAddress()
 
-	uid, err := presetSystemAdmin(email, password)
+	uid, err := presetSystemAdmin(email, password, domain)
 	if err != nil {
 		log.Errorf("presetSystemAdmin err:%s", err)
 		return err
@@ -84,7 +92,7 @@ func initSystemConfig() error {
 	return nil
 }
 
-func presetSystemAdmin(email string, password string) (string, error) {
+func presetSystemAdmin(email string, password, domain string) (string, error) {
 	r, err := user.New().SearchUser(&user.SearchUserArgs{Account: setting.PresetAccount})
 	if err != nil {
 		log.Errorf("SearchUser err:%s", err)
@@ -101,10 +109,44 @@ func presetSystemAdmin(email string, password string) (string, error) {
 		Email:    email,
 	})
 	if err != nil {
-		log.Infof("created  admin err:%s", err)
+		log.Errorf("created  admin err:%s", err)
 		return "", err
 	}
+	// report register
+	err = reportRegister(domain, email)
+	if err != nil {
+		log.Errorf("reportRegister err: %s", err)
+	}
 	return user.Uid, nil
+}
+
+type Operation struct {
+	Data string `json:"data"`
+}
+type Register struct {
+	Domain    string `json:"domain"`
+	Username  string `json:"username"`
+	Email     string `json:"email"`
+	CreatedAt int64  `json:"created_at"`
+}
+
+func reportRegister(domain, email string) error {
+	register := Register{
+		Domain:    domain,
+		Username:  "admin",
+		Email:     email,
+		CreatedAt: time.Now().Unix(),
+	}
+	registerByte, _ := json.Marshal(register)
+	encrypt, err := RSAEncrypt([]byte(registerByte))
+	if err != nil {
+		log.Errorf("RSAEncrypt err: %s", err)
+		return err
+	}
+	encodeString := base64.StdEncoding.EncodeToString(encrypt)
+	reqBody := Operation{Data: encodeString}
+	_, err = httpclient.Post("https://api.koderover.com/api/operation/admin/user", httpclient.SetBody(reqBody))
+	return err
 }
 
 func presetRoleBinding(uid string) error {

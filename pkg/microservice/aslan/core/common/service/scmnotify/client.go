@@ -55,7 +55,7 @@ func (c *Client) Comment(notify *models.Notification) error {
 		}
 	}
 
-	codeHostDetail, err := systemconfig.GetCodeHostInfoByID(notify.CodehostID)
+	codeHostDetail, err := systemconfig.New().GetCodeHost(notify.CodehostID)
 	if err != nil {
 		return errors.Wrapf(err, "codehost %d not found to comment", notify.CodehostID)
 	}

@@ -51,6 +51,7 @@ func (c *Client) RefreshWebHookSecret(owner, repo, hookID string) error {
 		return err
 	}
 	_, err = c.UpdateProjectHook(owner, repo, hookIDInt, &git.Hook{
+		URL:    config.WebHookURL(),
 		Secret: gitservice.GetHookSecret(),
 	})
 

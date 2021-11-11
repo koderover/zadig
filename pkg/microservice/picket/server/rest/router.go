@@ -21,6 +21,7 @@ import (
 
 	evaluationhandler "github.com/koderover/zadig/pkg/microservice/picket/core/evaluation/handler"
 	filterhandler "github.com/koderover/zadig/pkg/microservice/picket/core/filter/handler"
+	publichandler "github.com/koderover/zadig/pkg/microservice/picket/core/public/handler"
 )
 
 func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
@@ -30,6 +31,13 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 	} {
 		r.Inject(router.Group("/api/v1"))
 	}
+
+	for _, r := range []injector{
+		new(publichandler.Router),
+	} {
+		r.Inject(router.Group("/public-api/v1"))
+	}
+
 }
 
 type injector interface {

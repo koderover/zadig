@@ -28,7 +28,6 @@ const (
 	ENVMongoDBConnectionString = "MONGODB_CONNECTION_STRING"
 	ENVAslanDBName             = "ASLAN_DB"
 	ENVHubAgentImage           = "HUB_AGENT_IMAGE"
-	ENVPoetryAPIRootKey        = "POETRY_API_ROOT_KEY"
 	ENVMysqlUser               = "MYSQL_USER"
 	ENVMysqlPassword           = "MYSQL_PASSWORD"
 	ENVMysqlHost               = "MYSQL_HOST"

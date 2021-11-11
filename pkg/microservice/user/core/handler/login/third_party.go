@@ -42,6 +42,13 @@ func Login(c *gin.Context) {
 	c.Redirect(http.StatusSeeOther, authCodeURL)
 }
 
+func ThirdPartyLoginEnabled(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp = login.ThirdPartyLoginEnabled()
+}
+
 func verifyAndDecode(ctx context.Context, code string) (*login.Claims, error) {
 	oidcCtx := oidc.ClientContext(ctx, http.DefaultClient)
 	oauth2Config := &oauth2.Config{
@@ -105,16 +112,16 @@ func Callback(c *gin.Context) {
 	}
 
 	user, err := user.SyncUser(&user.SyncUserInfo{
-		Account:      claims.Name,
+		Account:      claims.FederatedClaims.UserId,
 		Name:         claims.Name,
+		Email:        claims.Email,
 		IdentityType: claims.FederatedClaims.ConnectorId,
 	}, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		return
 	}
-	claims.Uid = user.UID
-	claims.Account = claims.Name
+	claims.UID = user.UID
 	claims.StandardClaims.ExpiresAt = time.Now().Add(time.Duration(config.TokenExpiresAt()) * time.Minute).Unix()
 	userToken, err := login.CreateToken(claims)
 	if err != nil {

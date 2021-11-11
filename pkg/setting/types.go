@@ -42,7 +42,6 @@ const (
 	Cron                 // 5
 	HubServer            // 6
 	PodExec              // 7
-	Poetry               // 8
 	SonarQube            // 9
 	WarpDrive            // 10
 	Minio                // 11
@@ -85,10 +84,6 @@ var Services = map[int]*ServiceInfo{
 	PodExec: {
 		Name: "podexec",
 		Port: 27000,
-	},
-	Poetry: {
-		Name: "poetry",
-		Port: 34001,
 	},
 	SonarQube: {
 		Name: "sonarqube",

@@ -305,12 +305,12 @@ func TriggerWorkflowByGerritEvent(event *gerritTypeEvent, body []byte, uri, base
 				if item.WorkflowArgs == nil {
 					continue
 				}
-				detail, err := systemconfig.GetCodehostDetail(item.MainRepo.CodehostID)
+				detail, err := systemconfig.New().GetCodeHost(item.MainRepo.CodehostID)
 				if err != nil {
 					log.Errorf("TriggerWorkflowByGerritEvent GetCodehostDetail err:%v", err)
 					return err
 				}
-				if detail.Source == gerrit.CodehostTypeGerrit {
+				if detail.Type == gerrit.CodehostTypeGerrit {
 					log.Debugf("TriggerWorkflowByGerritEvent find gerrit hook in workflow %s", workflow.Name)
 					matcher := createGerritEventMatcher(event, body, item, workflow, log)
 					if matcher == nil {
@@ -410,7 +410,7 @@ func addWebHookUser(match gerritEventMatcher, domain string) {
 	}
 }
 
-func checkLatestTaskStaus(pipelineName, mergeRequestID, commitID string, detail *systemconfig.Detail, log *zap.SugaredLogger) bool {
+func checkLatestTaskStaus(pipelineName, mergeRequestID, commitID string, detail *systemconfig.CodeHost, log *zap.SugaredLogger) bool {
 	opt := &commonrepo.ListTaskOption{
 		PipelineName:   pipelineName,
 		Type:           config.WorkflowType,
@@ -434,7 +434,7 @@ func checkLatestTaskStaus(pipelineName, mergeRequestID, commitID string, detail 
 	}
 
 	// 比较本次patchset 和 上一个触发任务的patchset 的change file是否相同
-	cli := gerrit.NewClient(detail.Address, detail.OauthToken)
+	cli := gerrit.NewClient(detail.Address, detail.AccessToken)
 	isDiff, err := cli.CompareTwoPatchset(mergeRequestID, commitID, tasks[0].TriggerBy.CommitID)
 	if err != nil {
 		log.Errorf("CompareTwoPatchset failed, mergeRequestID:%s, patchsetID:%s, oldPatchsetID:%s, err:%v", mergeRequestID, commitID, tasks[0].TriggerBy.CommitID, err)

@@ -34,7 +34,7 @@ func GetCodeHostList(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	codeHostSlice := make([]*systemconfig.CodeHost, 0)
-	codeHosts, err := systemconfig.GetCodeHostList()
+	codeHosts, err := systemconfig.New().ListCodeHosts()
 	ctx.Err = err
 	for _, codeHost := range codeHosts {
 		codeHost.AccessToken = setting.MaskValue

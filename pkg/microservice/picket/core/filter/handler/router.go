@@ -40,4 +40,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		rolebindings.GET("", ListRoleBindings)
 	}
+	codehosts := router.Group("codehosts")
+	{
+		codehosts.GET("", ListCodeHost)
+	}
 }

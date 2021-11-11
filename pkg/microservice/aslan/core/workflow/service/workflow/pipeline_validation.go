@@ -46,7 +46,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
-	"github.com/koderover/zadig/pkg/shared/codehost"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
@@ -258,10 +257,7 @@ func FmtBuilds(builds []*types.Repository, log *zap.SugaredLogger) {
 			log.Error("codehostID can't be empty")
 			return
 		}
-		opt := &systemconfig.Option{
-			CodeHostID: cID,
-		}
-		detail, err := systemconfig.GetCodeHostInfo(opt)
+		detail, err := systemconfig.New().GetCodeHost(cID)
 		if err != nil {
 			log.Error(err)
 			return
@@ -306,15 +302,12 @@ func SetTriggerBuilds(builds []*types.Repository, buildArgs []*types.Repository,
 }
 
 func setBuildInfo(build *types.Repository, log *zap.SugaredLogger) {
-	opt := &systemconfig.Option{
-		CodeHostID: build.CodehostID,
-	}
-	codeHostInfo, err := systemconfig.GetCodeHostInfo(opt)
+	codeHostInfo, err := systemconfig.New().GetCodeHost(build.CodehostID)
 	if err != nil {
 		log.Errorf("failed to get codehost detail %d %v", build.CodehostID, err)
 		return
 	}
-	if codeHostInfo.Type == codehost.GitLabProvider || codeHostInfo.Type == codehost.GerritProvider {
+	if codeHostInfo.Type == systemconfig.GitLabProvider || codeHostInfo.Type == systemconfig.GerritProvider {
 		if build.CommitID == "" {
 			var commit *RepoCommit
 			var pr *PRCommit
@@ -349,7 +342,7 @@ func setBuildInfo(build *types.Repository, log *zap.SugaredLogger) {
 			build.CommitMessage = commit.Message
 			build.AuthorName = commit.AuthorName
 		}
-	} else if codeHostInfo.Type == codehost.CodeHubProvider {
+	} else if codeHostInfo.Type == systemconfig.CodeHubProvider {
 		codeHubClient := codehub.NewClient(codeHostInfo.AccessKey, codeHostInfo.SecretKey, codeHostInfo.Region)
 		if build.CommitID == "" && build.Branch != "" {
 			branchList, _ := codeHubClient.BranchList(build.RepoUUID)

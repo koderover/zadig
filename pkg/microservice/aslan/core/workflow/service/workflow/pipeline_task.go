@@ -40,7 +40,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/poetry"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
@@ -165,7 +165,7 @@ func CreatePipelineTask(args *commonmodels.TaskArgs, log *zap.SugaredLogger) (*C
 		}
 	}
 
-	jiraInfo, _ := poetry.GetJiraInfo(config.PoetryAPIServer())
+	jiraInfo, _ := systemconfig.New().GetJiraInfo()
 	if jiraInfo != nil {
 		jiraTask, err := AddPipelineJiraSubTask(pipeline, log)
 		if err != nil {

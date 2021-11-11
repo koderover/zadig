@@ -340,12 +340,12 @@ func TriggerWorkflowByGithubEvent(event interface{}, baseURI, deliveryID, reques
 }
 
 func findChangedFilesOfPullRequest(event *github.PullRequestEvent, codehostID int) ([]string, error) {
-	detail, err := systemconfig.GetCodehostDetail(codehostID)
+	detail, err := systemconfig.New().GetCodeHost(codehostID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find codehost %d: %v", codehostID, err)
 	}
 	//pullrequest文件修改
-	githubCli := git.NewClient(detail.OauthToken, config.ProxyHTTPSAddr())
+	githubCli := git.NewClient(detail.AccessToken, config.ProxyHTTPSAddr())
 	commitComparison, _, err := githubCli.Repositories.CompareCommits(context.Background(), *event.PullRequest.Base.Repo.Owner.Login, *event.PullRequest.Base.Repo.Name, *event.PullRequest.Base.SHA, *event.PullRequest.Head.SHA)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get changes from github, err: %v", err)

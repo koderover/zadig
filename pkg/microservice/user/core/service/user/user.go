@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/dexidp/dex/connector/ldap"
 	ldapv3 "github.com/go-ldap/ldap/v3"
 	"github.com/golang-jwt/jwt"
 	"github.com/google/uuid"
@@ -24,11 +25,17 @@ import (
 )
 
 type User struct {
-	Name     string `json:"name,omitempty"`
+	Name     string `json:"name"`
 	Password string `json:"password"`
-	Email    string `json:"email,omitempty"`
+	Email    string `json:"email"`
 	Account  string `json:"account"`
 	Phone    string `json:"phone,omitempty"`
+}
+
+type UpdateUserInfo struct {
+	Name  string `json:"name,omitempty"`
+	Email string `json:"email,omitempty"`
+	Phone string `json:"phone,omitempty"`
 }
 
 type QueryArgs struct {
@@ -70,6 +77,7 @@ type SyncUserInfo struct {
 	Account      string `json:"account"`
 	IdentityType string `json:"identityType"`
 	Name         string `json:"name"`
+	Email        string `json:"email"`
 }
 
 type RetrieveResp struct {
@@ -87,45 +95,48 @@ func SearchAndSyncUser(ldapId string, logger *zap.SugaredLogger) error {
 		logger.Error("can't find connector")
 		return fmt.Errorf("can't find connector")
 	}
-	l, err := ldapv3.Dial("tcp", si.Config.Host)
+
+	config := si.Config.(*ldap.Config)
+	l, err := ldapv3.Dial("tcp", config.Host)
 	if err != nil {
-		logger.Errorf("ldap dial host:%s error, error msg:%s", si.Config.Host, err)
+		logger.Errorf("ldap dial host:%s error, error msg:%s", config.Host, err)
 		return err
 	}
 	defer l.Close()
 
-	err = l.Bind(si.Config.BindDN, si.Config.BindPW)
+	err = l.Bind(config.BindDN, config.BindPW)
 	if err != nil {
-		logger.Errorf("ldap bind host:%s error, error msg:%s", si.Config.Host, err)
+		logger.Errorf("ldap bind host:%s error, error msg:%s", config.Host, err)
 		return err
 	}
 
 	searchRequest := ldapv3.NewSearchRequest(
-		si.Config.GroupSearch.BaseDN,
+		config.GroupSearch.BaseDN,
 		ldapv3.ScopeWholeSubtree, ldapv3.NeverDerefAliases, 0, 0, false,
-		si.Config.GroupSearch.Filter,            // The filter to apply
-		[]string{si.Config.UserSearch.NameAttr}, // A list attributes to retrieve
+		config.GroupSearch.Filter,            // The filter to apply
+		[]string{config.UserSearch.NameAttr}, // A list attributes to retrieve
 		nil,
 	)
 
 	sr, err := l.Search(searchRequest)
 	if err != nil {
-		logger.Errorf("ldap search host:%s error, error msg:%s", si.Config.Host, err)
+		logger.Errorf("ldap search host:%s error, error msg:%s", config.Host, err)
 		return err
 	}
 	for _, entry := range sr.Entries {
-		account := si.Config.UserSearch.Username
+		account := config.UserSearch.Username
 		name := account
-		if len(si.Config.UserSearch.NameAttr) != 0 {
-			name = si.Config.UserSearch.NameAttr
+		if len(config.UserSearch.NameAttr) != 0 {
+			name = config.UserSearch.NameAttr
 		}
 		_, err := SyncUser(&SyncUserInfo{
 			Account:      entry.GetAttributeValue(account),
 			Name:         name,
+			Email:        config.UserSearch.EmailAttr,
 			IdentityType: si.ID, // ldap may have not only one instance, so use id as identityType
 		}, logger)
 		if err != nil {
-			logger.Errorf("ldap host:%s sync user error, error msg:%s", si.Config.Host, err)
+			logger.Errorf("ldap host:%s sync user error, error msg:%s", config.Host, err)
 			return err
 		}
 	}
@@ -299,12 +310,16 @@ func Retrieve(account string, logger *zap.SugaredLogger) (*RetrieveResp, error) 
 	}
 
 	token, err := login.CreateToken(&login.Claims{
-		Name:    user.Name,
-		Account: user.Account,
-		Uid:     user.UID,
+		Name:  user.Name,
+		UID:   user.UID,
+		Email: user.Email,
 		StandardClaims: jwt.StandardClaims{
 			Audience:  setting.ProductName,
 			ExpiresAt: time.Now().Add(5 * time.Minute).Unix(),
+		},
+		FederatedClaims: login.FederatedClaims{
+			UserId:      user.Account,
+			ConnectorId: user.IdentityType,
 		},
 	})
 	if err != nil {
@@ -381,6 +396,16 @@ func CreateUser(args *User, logger *zap.SugaredLogger) (*models.User, error) {
 		return nil, err
 	}
 	return user, tx.Commit().Error
+}
+
+func UpdateUser(uid string, args *UpdateUserInfo, _ *zap.SugaredLogger) error {
+	user := &models.User{
+		Name:  args.Name,
+		Email: args.Email,
+		Phone: args.Phone,
+	}
+	return orm.UpdateUser(uid, user, core.DB)
+
 }
 
 func UpdatePassword(args *Password, logger *zap.SugaredLogger) error {

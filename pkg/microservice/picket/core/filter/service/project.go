@@ -110,8 +110,10 @@ func ListProjects(header http.Header, qs url.Values, logger *zap.SugaredLogger) 
 		return []byte("[]"), nil
 	}
 
-	for _, name := range names {
-		qs.Add("names", name)
+	if !(len(names) == 1 && names[0] == "*") {
+		for _, name := range names {
+			qs.Add("names", name)
+		}
 	}
 
 	aslanClient := aslan.New()

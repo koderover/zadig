@@ -63,7 +63,7 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 		public.GET("/health", commonhandler.Health)
 	}
 
-	// no auth required, should not be exposed via poetry-api-proxy or will fail
+	// no auth required
 	router.GET("/api/hub/connect", multiclusterhandler.ClusterConnectFromAgent)
 
 	router.GET("/api/kodespace/downloadUrl", commonhandler.GetToolDownloadURL)

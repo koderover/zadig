@@ -73,7 +73,7 @@ func GetConfigPayload(codeHostID int) *models.ConfigPayload {
 	}
 
 	if codeHostID > 0 {
-		ch, _ := systemconfig.GetCodeHostInfoByID(codeHostID)
+		ch, _ := systemconfig.New().GetCodeHost(codeHostID)
 		if ch != nil && ch.Type == setting.SourceFromGithub {
 			payload.Github.AccessToken = ch.AccessToken
 		}

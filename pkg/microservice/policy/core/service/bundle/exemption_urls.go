@@ -42,7 +42,7 @@ var publicURLs = []*policyRule{
 	},
 	{
 		Methods:   []string{"GET", "POST"},
-		Endpoints: []string{"api/v1/login", "api/v1/signup", "api/v1/retrieve"},
+		Endpoints: []string{"api/v1/login", "api/v1/signup", "api/v1/retrieve", "api/v1/login-enabled"},
 	},
 	{
 		Methods:   []string{"GET"},
@@ -201,7 +201,7 @@ var systemAdminURLs = []*policyRule{
 		Endpoints: []string{"api/aslan/system/proxy/config"},
 	},
 	{
-		Methods:   []string{"GET", "DELETE"},
+		Methods:   []string{"*"},
 		Endpoints: []string{"api/v1/users/?*"},
 	},
 	{
