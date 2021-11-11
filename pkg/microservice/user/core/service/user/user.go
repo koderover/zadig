@@ -131,8 +131,8 @@ func SearchAndSyncUser(ldapId string, logger *zap.SugaredLogger) error {
 		}
 		_, err := SyncUser(&SyncUserInfo{
 			Account:      entry.GetAttributeValue(account),
-			Name:         name,
-			Email:        config.UserSearch.EmailAttr,
+			Name:         entry.GetAttributeValue(name),
+			Email:        entry.GetAttributeValue(config.UserSearch.EmailAttr),
 			IdentityType: si.ID, // ldap may have not only one instance, so use id as identityType
 		}, logger)
 		if err != nil {
@@ -491,12 +491,24 @@ func SyncUser(syncUserInfo *SyncUserInfo, logger *zap.SugaredLogger) (*models.Us
 			UID:          uid.String(),
 			Name:         syncUserInfo.Name,
 			Account:      syncUserInfo.Account,
+			Email:        syncUserInfo.Email,
 			IdentityType: syncUserInfo.IdentityType,
 		}
 		err = orm.CreateUser(user, tx)
 		if err != nil {
 			tx.Rollback()
 			logger.Error("SyncUser create user:%s error, error msg:%s", syncUserInfo.Account, err.Error())
+			return nil, err
+		}
+	} else {
+		err = orm.UpdateUser(user.UID, &models.User{
+			Name:    syncUserInfo.Name,
+			Account: syncUserInfo.Account,
+			Email:   syncUserInfo.Email,
+		}, tx)
+		if err != nil {
+			tx.Rollback()
+			logger.Error("SyncUser update user:%s error, error msg:%s", syncUserInfo.Account, err.Error())
 			return nil, err
 		}
 	}

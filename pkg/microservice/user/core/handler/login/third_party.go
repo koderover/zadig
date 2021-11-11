@@ -112,7 +112,7 @@ func Callback(c *gin.Context) {
 	}
 
 	user, err := user.SyncUser(&user.SyncUserInfo{
-		Account:      claims.FederatedClaims.UserId,
+		Account:      claims.PreferredUsername,
 		Name:         claims.Name,
 		Email:        claims.Email,
 		IdentityType: claims.FederatedClaims.ConnectorId,
