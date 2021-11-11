@@ -63,12 +63,16 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, error) {
 		return nil, err
 	}
 	token, err := CreateToken(&Claims{
-		Name:    user.Name,
-		Account: user.Account,
-		Uid:     user.UID,
+		Name:  user.Name,
+		UID:   user.UID,
+		Email: user.Email,
 		StandardClaims: jwt.StandardClaims{
 			Audience:  setting.ProductName,
 			ExpiresAt: time.Now().Add(24 * time.Hour).Unix(),
+		},
+		FederatedClaims: FederatedClaims{
+			ConnectorId: user.IdentityType,
+			UserId:      user.Account,
 		},
 	})
 	if err != nil {

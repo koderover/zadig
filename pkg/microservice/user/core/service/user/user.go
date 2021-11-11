@@ -77,6 +77,7 @@ type SyncUserInfo struct {
 	Account      string `json:"account"`
 	IdentityType string `json:"identityType"`
 	Name         string `json:"name"`
+	Email        string `json:"email"`
 }
 
 type RetrieveResp struct {
@@ -131,6 +132,7 @@ func SearchAndSyncUser(ldapId string, logger *zap.SugaredLogger) error {
 		_, err := SyncUser(&SyncUserInfo{
 			Account:      entry.GetAttributeValue(account),
 			Name:         name,
+			Email:        config.UserSearch.EmailAttr,
 			IdentityType: si.ID, // ldap may have not only one instance, so use id as identityType
 		}, logger)
 		if err != nil {
@@ -308,12 +310,16 @@ func Retrieve(account string, logger *zap.SugaredLogger) (*RetrieveResp, error) 
 	}
 
 	token, err := login.CreateToken(&login.Claims{
-		Name:    user.Name,
-		Account: user.Account,
-		Uid:     user.UID,
+		Name:  user.Name,
+		UID:   user.UID,
+		Email: user.Email,
 		StandardClaims: jwt.StandardClaims{
 			Audience:  setting.ProductName,
 			ExpiresAt: time.Now().Add(5 * time.Minute).Unix(),
+		},
+		FederatedClaims: login.FederatedClaims{
+			UserId:      user.Account,
+			ConnectorId: user.IdentityType,
 		},
 	})
 	if err != nil {
