@@ -28,6 +28,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -139,22 +140,68 @@ type SelectorBuilder struct {
 	EnvName      string
 }
 
-const (
-	// ProductLabel ...
-	ProductLabel = "s-product"
-	// GroupLabel ...
-	GroupLabel = "s-group"
-	// ServiceLabel ...
-	ServiceLabel = "s-service"
-	// ConfigBackupLabel ...
-	ConfigBackupLabel = "config-backup"
-	// NamespaceLabel
-	EnvNameLabel = "s-env"
-	// EnvName ...
-	UpdateBy   = "update-by"
-	UpdateByID = "update-by-id"
-	UpdateTime = "update-time"
-)
+type ResourceComponentSet struct {
+	Name        string
+	Kind        string
+	Containers  []v1.Container
+	Annotations map[string]string
+}
+
+func RcsListFromDeployments(source []*appsv1.Deployment) []*ResourceComponentSet {
+	rcsList := make([]*ResourceComponentSet, 0)
+	for _, deploy := range source {
+		rcsList = append(rcsList, &ResourceComponentSet{
+			Name:        deploy.Name,
+			Kind:        setting.Deployment,
+			Containers:  deploy.Spec.Template.Spec.Containers,
+			Annotations: deploy.Annotations,
+		})
+	}
+	return rcsList
+}
+
+func RcsListFromStatefulSets(source []*appsv1.StatefulSet) []*ResourceComponentSet {
+	rcsList := make([]*ResourceComponentSet, 0)
+	for _, sfs := range source {
+		rcsList = append(rcsList, &ResourceComponentSet{
+			Name:        sfs.Name,
+			Kind:        setting.StatefulSet,
+			Containers:  sfs.Spec.Template.Spec.Containers,
+			Annotations: sfs.Annotations,
+		})
+	}
+	return rcsList
+}
+
+// find affected resources(deployment+statefulSet) for helm install or upgrade
+// resource type: deployment statefulSet
+func (p *DeployTaskPlugin) findHelmAffectedResources(namespace, serviceName string, resList []*ResourceComponentSet) {
+	for _, res := range resList {
+		annotation := res.Annotations
+		if len(annotation) == 0 {
+			continue
+		}
+		// filter by services
+		if chartRelease, ok := annotation[setting.HelmReleaseNameAnnotation]; ok {
+			extractedServiceName := util.ExtraServiceName(chartRelease, namespace)
+			if extractedServiceName != serviceName {
+				continue
+			}
+		}
+		for _, container := range res.Containers {
+			resolvedImageUrl := resolveImageUrl(container.Image)
+			if resolvedImageUrl[setting.PathSearchComponentImage] == p.Task.ContainerName {
+				p.Log.Infof("%s find match container.name:%s container.image:%s", res.Kind, container.Name, container.Image)
+				p.Task.ReplaceResources = append(p.Task.ReplaceResources, task.Resource{
+					Kind:      res.Kind,
+					Container: container.Name,
+					Origin:    container.Image,
+					Name:      res.Name,
+				})
+			}
+		}
+	}
+}
 
 func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *task.PipelineCtx, _ string) {
 	var (
@@ -335,34 +382,18 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			helmClient               helmclient.Client
 		)
 
-		deployments, _ := getter.ListDeployments(p.Task.Namespace, nil, p.kubeClient)
-		for _, deploy := range deployments {
-			for _, container := range deploy.Spec.Template.Spec.Containers {
-				if strings.Contains(container.Image, p.Task.ContainerName) {
-					p.Log.Infof("deployments find match container.name:%s", container.Name)
-					p.Task.ReplaceResources = append(p.Task.ReplaceResources, task.Resource{
-						Kind:      setting.Deployment,
-						Container: container.Name,
-						Origin:    container.Image,
-						Name:      deploy.Name,
-					})
-				}
-			}
+		deployments, err := getter.ListDeployments(p.Task.Namespace, nil, p.kubeClient)
+		if err != nil {
+			p.Log.Errorf("failed to list deployments in namespace %s, productName %s, err %s", p.Task.Namespace, p.Task.ProductName, err)
+		} else {
+			p.findHelmAffectedResources(p.Task.Namespace, p.Task.ServiceName, RcsListFromDeployments(deployments))
 		}
 
 		statefulSets, _ := getter.ListStatefulSets(p.Task.Namespace, nil, p.kubeClient)
-		for _, sts := range statefulSets {
-			for _, container := range sts.Spec.Template.Spec.Containers {
-				if strings.Contains(container.Image, p.Task.ContainerName) {
-					p.Log.Infof("statefulSets find match container.name:%s", container.Name)
-					p.Task.ReplaceResources = append(p.Task.ReplaceResources, task.Resource{
-						Kind:      setting.StatefulSet,
-						Container: container.Name,
-						Origin:    container.Image,
-						Name:      sts.Name,
-					})
-				}
-			}
+		if err != nil {
+			p.Log.Errorf("failed to list statefulsets in namespace %s, productName %s, err %s", p.Task.Namespace, p.Task.ProductName, err)
+		} else {
+			p.findHelmAffectedResources(p.Task.Namespace, p.Task.ServiceName, RcsListFromStatefulSets(statefulSets))
 		}
 
 		p.Log.Infof("start helm deploy, productName %s serviceName %s containerName %s namespace %s", p.Task.ProductName,
