@@ -28,7 +28,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -40,6 +39,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
@@ -132,52 +132,34 @@ type EnvArgs struct {
 	ProductName string `json:"product_name"`
 }
 
-type SelectorBuilder struct {
-	ProductName  string
-	GroupName    string
-	ServiceName  string
-	ConfigBackup string
-	EnvName      string
+type ResourceComponentSet interface {
+	GetName() string
+	GetAnnotations() map[string]string
+	Containers() []*resource.ContainerImage
+	GetKind() string
 }
 
-type ResourceComponentSet struct {
-	Name        string
-	Kind        string
-	Containers  []v1.Container
-	Annotations map[string]string
-}
-
-func RcsListFromDeployments(source []*appsv1.Deployment) []*ResourceComponentSet {
-	rcsList := make([]*ResourceComponentSet, 0)
+func RcsListFromDeployments(source []*appsv1.Deployment) []ResourceComponentSet {
+	rcsList := make([]ResourceComponentSet, 0, len(source))
 	for _, deploy := range source {
-		rcsList = append(rcsList, &ResourceComponentSet{
-			Name:        deploy.Name,
-			Kind:        setting.Deployment,
-			Containers:  deploy.Spec.Template.Spec.Containers,
-			Annotations: deploy.Annotations,
-		})
+		rcsList = append(rcsList, wrapper.Deployment(deploy))
 	}
 	return rcsList
 }
 
-func RcsListFromStatefulSets(source []*appsv1.StatefulSet) []*ResourceComponentSet {
-	rcsList := make([]*ResourceComponentSet, 0)
+func RcsListFromStatefulSets(source []*appsv1.StatefulSet) []ResourceComponentSet {
+	rcsList := make([]ResourceComponentSet, 0, len(source))
 	for _, sfs := range source {
-		rcsList = append(rcsList, &ResourceComponentSet{
-			Name:        sfs.Name,
-			Kind:        setting.StatefulSet,
-			Containers:  sfs.Spec.Template.Spec.Containers,
-			Annotations: sfs.Annotations,
-		})
+		rcsList = append(rcsList, wrapper.StatefulSet(sfs))
 	}
 	return rcsList
 }
 
 // find affected resources(deployment+statefulSet) for helm install or upgrade
 // resource type: deployment statefulSet
-func (p *DeployTaskPlugin) findHelmAffectedResources(namespace, serviceName string, resList []*ResourceComponentSet) {
+func (p *DeployTaskPlugin) findHelmAffectedResources(namespace, serviceName string, resList []ResourceComponentSet) {
 	for _, res := range resList {
-		annotation := res.Annotations
+		annotation := res.GetAnnotations()
 		if len(annotation) == 0 {
 			continue
 		}
@@ -188,15 +170,15 @@ func (p *DeployTaskPlugin) findHelmAffectedResources(namespace, serviceName stri
 				continue
 			}
 		}
-		for _, container := range res.Containers {
+		for _, container := range res.Containers() {
 			resolvedImageUrl := resolveImageUrl(container.Image)
 			if resolvedImageUrl[setting.PathSearchComponentImage] == p.Task.ContainerName {
-				p.Log.Infof("%s find match container.name:%s container.image:%s", res.Kind, container.Name, container.Image)
+				p.Log.Infof("%s find match container.name:%s container.image:%s", res.GetKind(), container.Name, container.Image)
 				p.Task.ReplaceResources = append(p.Task.ReplaceResources, task.Resource{
-					Kind:      res.Kind,
+					Kind:      res.GetKind(),
 					Container: container.Name,
 					Origin:    container.Image,
-					Name:      res.Name,
+					Name:      res.GetName(),
 				})
 			}
 		}
@@ -382,19 +364,20 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			helmClient               helmclient.Client
 		)
 
+		rcsList := make([]ResourceComponentSet, 0)
 		deployments, err := getter.ListDeployments(p.Task.Namespace, nil, p.kubeClient)
 		if err != nil {
 			p.Log.Errorf("failed to list deployments in namespace %s, productName %s, err %s", p.Task.Namespace, p.Task.ProductName, err)
 		} else {
-			p.findHelmAffectedResources(p.Task.Namespace, p.Task.ServiceName, RcsListFromDeployments(deployments))
+			rcsList = append(rcsList, RcsListFromDeployments(deployments)...)
 		}
-
 		statefulSets, _ := getter.ListStatefulSets(p.Task.Namespace, nil, p.kubeClient)
 		if err != nil {
 			p.Log.Errorf("failed to list statefulsets in namespace %s, productName %s, err %s", p.Task.Namespace, p.Task.ProductName, err)
 		} else {
-			p.findHelmAffectedResources(p.Task.Namespace, p.Task.ServiceName, RcsListFromStatefulSets(statefulSets))
+			rcsList = append(rcsList, RcsListFromStatefulSets(statefulSets)...)
 		}
+		p.findHelmAffectedResources(p.Task.Namespace, p.Task.ServiceName, rcsList)
 
 		p.Log.Infof("start helm deploy, productName %s serviceName %s containerName %s namespace %s", p.Task.ProductName,
 			p.Task.ServiceName, p.Task.ContainerName, p.Task.Namespace)
