@@ -54,6 +54,11 @@ func V160ToV170() error {
 
 func V170ToV160() error {
 	log.Info("Rollback data from 1.7.0 to 1.6.0")
+	err := RollbackchangeCodehostType()
+	if err != nil {
+		log.Errorf("Failed to rollback codehost type, err: %s", err)
+		return err
+	}
 	return nil
 }
 
@@ -133,6 +138,23 @@ func changeCodehostType() error {
 	for _, v := range codeHosts {
 		if err := mongo.NewCodehostColl().ChangeType(v.ID, v.Type); err != nil {
 			log.Errorf("fail to change id:%d type:%s , err: %s", v.ID, v.Type, err)
+			return err
+		}
+	}
+	return nil
+}
+
+func RollbackchangeCodehostType() error {
+	// get all codehosts
+	codeHosts, err := systemconfig.New().ListCodeHosts()
+	if err != nil {
+		log.Errorf("fail to list codehosts, err: %s", err)
+		return err
+	}
+	// rollback change type to readable string
+	for _, v := range codeHosts {
+		if err := mongo.NewCodehostColl().ChangeType(v.ID, v.Type); err != nil {
+			log.Errorf("fail to rollback id:%d type:%s , err: %s", v.ID, v.Type, err)
 			return err
 		}
 	}

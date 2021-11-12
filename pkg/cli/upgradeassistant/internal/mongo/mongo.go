@@ -39,6 +39,33 @@ func (c *CodehostColl) ChangeType(ID int, sourceType string) error {
 	return nil
 }
 
+func (c *CodehostColl) RollbackChangeType(ID int, sourceType string) error {
+	query := bson.M{"id": ID}
+
+	if sourceType == "gitlab" {
+		sourceType = "1"
+	} else if sourceType == "github" {
+		sourceType = "2"
+	} else if sourceType == "gerrit" {
+		sourceType = "3"
+	} else if sourceType == "codehub" {
+		sourceType = "4"
+	} else if sourceType == "ilyshin" {
+		sourceType = "5"
+	}
+
+	change := bson.M{"$set": bson.M{
+		"type": sourceType,
+	}}
+	_, err := c.Collection.UpdateOne(context.TODO(), query, change)
+	if err != nil {
+		log.Error("repository update fail")
+		return err
+	}
+	log.Infof("success to rollback id:%d to type:%s", ID, sourceType)
+	return nil
+}
+
 type CodehostColl struct {
 	*mongo.Collection
 
