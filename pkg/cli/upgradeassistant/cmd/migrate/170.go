@@ -17,6 +17,7 @@ limitations under the License.
 package migrate
 
 import (
+	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/mongo"
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -36,7 +37,13 @@ func init() {
 func V160ToV170() error {
 	log.Info("Migrating data from 1.6.0 to 1.7.0")
 
-	err := refreshWebHookSecret()
+	err := changeCodehostType()
+	if err != nil {
+		log.Errorf("Failed to change codehost type, err: %s", err)
+		return err
+	}
+
+	err = refreshWebHookSecret()
 	if err != nil {
 		log.Errorf("Failed to refresh webhook secret, err: %s", err)
 		return err
@@ -112,5 +119,22 @@ func getCodeHostByAddressAndOwner(address, owner string, all []*systemconfig.Cod
 		}
 	}
 
+	return nil
+}
+
+func changeCodehostType() error {
+	// get all codehosts
+	codeHosts, err := systemconfig.New().ListCodeHosts()
+	if err != nil {
+		log.Errorf("fail to list codehosts, err: %s", err)
+		return err
+	}
+	// change type to readable string
+	for _, v := range codeHosts {
+		if err := mongo.NewCodehostColl().ChangeType(v.ID, v.Type); err != nil {
+			log.Errorf("fail to change id:%d type:%s , err: %s", v.ID, v.Type, err)
+			return err
+		}
+	}
 	return nil
 }
