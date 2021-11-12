@@ -11,3 +11,10 @@ var CodeHostMap = map[string]string{
 	"3": "gerrit",
 	"4": "codehub",
 }
+
+var CodeHostSource2TypeMap = map[string]string{
+	"gitlab":  "1",
+	"github":  "2",
+	"gerrit":  "3",
+	"codehub": "4",
+}

@@ -86,8 +86,12 @@ func (c *CodehostColl) List(args *ListArgs) ([]*models.CodeHost, error) {
 	if args.Owner != "" {
 		query["namespace"] = args.Owner
 	}
+	typeArr := []string{args.Source}
+	if t, ok := config.CodeHostSource2TypeMap[args.Source]; ok {
+		typeArr = append(typeArr, t)
+	}
 	if args.Source != "" {
-		query["type"] = args.Source
+		query["type"] = bson.D{{"$in", typeArr}}
 	}
 
 	cursor, err := c.Collection.Find(context.TODO(), query)
