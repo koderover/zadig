@@ -222,9 +222,13 @@ func (h *TaskAckHandler) getDockerfileContent(build *types.Repository, ctx *task
 			return ""
 		}
 		return content
-	default:
+	default: // TODO need rewrite
 		path := ctx.DockerFile
 		pathArray := strings.Split(path, "/")
+		if len(pathArray[0])+1 >= len(path) {
+			h.log.Errorf("Failed to get dockerfile content, build context: %+v", *ctx)
+			return ""
+		}
 		dockerfilePath := path[len(pathArray[0])+1:]
 		if strings.Contains(build.Address, "gitlab") {
 			cli, err := gitlab.NewClient(build.Address, build.OauthToken)
