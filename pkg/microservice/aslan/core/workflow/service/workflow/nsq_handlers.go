@@ -49,6 +49,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/git/gitlab"
 	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
+	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -212,6 +213,49 @@ func (h *TaskAckHandler) handle(message *nsq.Message) error {
 	return nil
 }
 
+func (h *TaskAckHandler) getDockerfileContent(build *types.Repository, ctx *task.DockerBuildCtx) string {
+	switch ctx.Source {
+	case setting.ServiceSourceTemplate:
+		content, err := commonservice.GetDockerfileTemplateContent(ctx.TemplateID)
+		if err != nil {
+			h.log.Errorf("Failed to get dockerfile template content, err: %v", err)
+			return ""
+		}
+		return content
+	default:
+		path := ctx.DockerFile
+		pathArray := strings.Split(path, "/")
+		dockerfilePath := path[len(pathArray[0])+1:]
+		if strings.Contains(build.Address, "gitlab") {
+			cli, err := gitlab.NewClient(build.Address, build.OauthToken)
+			if err != nil {
+				h.log.Errorf("Failed to get gitlab client, err: %v", err)
+				return ""
+			}
+			content, err := cli.GetRawFile(build.RepoOwner, build.RepoName, build.Branch, dockerfilePath)
+			if err != nil {
+				h.log.Errorf("uploadTaskData gitlab GetRawFile err:%v", err)
+				return ""
+			}
+			return string(content)
+		} else {
+			gitClient := git.NewClient(build.OauthToken, config.ProxyHTTPSAddr())
+			fileContent, _, _, _ := gitClient.Repositories.GetContents(context.Background(), build.RepoOwner, build.RepoName, dockerfilePath, nil)
+			if fileContent != nil {
+				dockerfileContent := *fileContent.Content
+				dockerfileContent = dockerfileContent[:len(dockerfileContent)-2]
+				content, err := base64.StdEncoding.DecodeString(dockerfileContent)
+				if err != nil {
+					h.log.Errorf("uploadTaskData github GetRawFile err:%v", err)
+					return ""
+				}
+				return string(content)
+			}
+		}
+		return ""
+	}
+}
+
 func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 	deliveryArtifacts := make([]*commonmodels.DeliveryArtifact, 0)
 	if pt.Type == config.WorkflowType {
@@ -289,35 +333,7 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 
 							if buildInfo.JobCtx.DockerBuildCtx != nil {
 								for _, build := range buildInfo.JobCtx.Builds {
-									path := buildInfo.JobCtx.DockerBuildCtx.DockerFile
-									pathArray := strings.Split(path, "/")
-									dockerfilePath := path[len(pathArray[0])+1:]
-									if strings.Contains(build.Address, "gitlab") {
-										cli, err := gitlab.NewClient(build.Address, build.OauthToken)
-										if err != nil {
-											h.log.Errorf("Failed to get gitlab client, err: %v", err)
-											continue
-										}
-										content, err := cli.GetRawFile(build.RepoOwner, build.RepoName, build.Branch, dockerfilePath)
-										if err != nil {
-											h.log.Errorf("uploadTaskData gitlab GetRawFile err:%v", err)
-											continue
-										}
-										deliveryArtifact.DockerFile = string(content)
-									} else {
-										gitClient := git.NewClient(build.OauthToken, config.ProxyHTTPSAddr())
-										fileContent, _, _, _ := gitClient.Repositories.GetContents(context.Background(), build.RepoOwner, build.RepoName, dockerfilePath, nil)
-										if fileContent != nil {
-											dockerfileContent := *fileContent.Content
-											dockerfileContent = dockerfileContent[:len(dockerfileContent)-2]
-											content, err := base64.StdEncoding.DecodeString(dockerfileContent)
-											if err != nil {
-												h.log.Errorf("uploadTaskData github GetRawFile err:%v", err)
-												continue
-											}
-											deliveryArtifact.DockerFile = string(content)
-										}
-									}
+									deliveryArtifact.DockerFile = h.getDockerfileContent(build, buildInfo.JobCtx.DockerBuildCtx)
 								}
 							}
 							deliveryArtifactArray = append(deliveryArtifactArray, deliveryArtifact)
