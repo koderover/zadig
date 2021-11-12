@@ -79,7 +79,7 @@ rules:
       - method: POST
         endpoint: "/api/aslan/environment/environments/?*/services/?*/scaleNew/?*"
       - method: GET
-        endpoint: " /api/podexec/?*/?*/?*/?*/podExec"
+        endpoint: "/api/podexec/?*/?*/?*/?*/podExec"
   - action: delete_environment
     alias: "删除集成环境"
     description: ""
