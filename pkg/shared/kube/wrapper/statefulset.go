@@ -86,7 +86,7 @@ func (w *statefulSet) GetKind() string {
 }
 
 func (w *statefulSet) GetContainers() []*resource.ContainerImage {
-	containers := make([]*resource.ContainerImage, 0)
+	containers := make([]*resource.ContainerImage, 0, len(w.Spec.Template.Spec.Containers))
 	for _, c := range w.Spec.Template.Spec.Containers {
 		containers = append(containers, &resource.ContainerImage{Name: c.Name, Image: c.Image})
 	}
