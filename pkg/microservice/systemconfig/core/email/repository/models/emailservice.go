@@ -1,7 +1,6 @@
 package models
 
 type EmailService struct {
-	ID          int    `json:"id"            bson:"id"`
 	Name        string `json:"name"          bson:"name"`
 	Address     string `json:"address"       bson:"address"`
 	DisplayName string `json:"display_name"  bson:"display_name"`
