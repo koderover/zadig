@@ -3,6 +3,7 @@ package service
 import (
 	"encoding/base64"
 	"fmt"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -18,6 +19,8 @@ func CreateCodeHost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*models.Co
 		codehost.IsReady = "2"
 		codehost.AccessToken = base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", codehost.Username, codehost.Password)))
 	}
+	codehost.CreatedAt = time.Now().Unix()
+	codehost.UpdatedAt = time.Now().Unix()
 
 	list, err := mongodb.NewCodehostColl().CodeHostList()
 	if err != nil {
