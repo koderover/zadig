@@ -32,3 +32,9 @@ rules:
     rules:
       - method: POST
         endpoint: "/api/aslan/testing/test"
+  - action: run_test
+    alias: "执行测试"
+    description: ""
+    rules:
+      - method: POST
+        endpoint: "/api/aslan/testing/testtask"
