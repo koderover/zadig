@@ -1,6 +1,9 @@
 package service
 
 import (
+	"encoding/base64"
+	"fmt"
+
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/models"
@@ -8,9 +11,14 @@ import (
 )
 
 func CreateCodeHost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
-	if codehost.Type == "codehub" || codehost.Type == "gerrit" {
+	if codehost.Type == "codehub" {
 		codehost.IsReady = "2"
 	}
+	if codehost.Type == "gerrit" {
+		codehost.IsReady = "2"
+		codehost.AccessToken = base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", codehost.Username, codehost.Password)))
+	}
+
 	list, err := mongodb.NewCodehostColl().CodeHostList()
 	if err != nil {
 		return nil, err
