@@ -8,7 +8,7 @@ import (
 )
 
 func CreateCodeHost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
-	if codehost.Type == "codehub" {
+	if codehost.Type == "codehub" || codehost.Type == "gerrit" {
 		codehost.IsReady = "2"
 	}
 	list, err := mongodb.NewCodehostColl().CodeHostList()
