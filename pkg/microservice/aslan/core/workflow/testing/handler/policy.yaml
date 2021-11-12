@@ -14,6 +14,8 @@ rules:
         endpoint: "/api/aslan/testing/testdetail"
       - method: GET
         endpoint: "/api/aslan/workflow/workflow/testName/?*"
+      - method: GET
+        endpoint: "/api/aslan/workflow/v2/tasks/workflow/workflow/?*/taskId/?*"
   - action: edit_test
     alias: "编辑测试"
     description: ""
