@@ -23,7 +23,7 @@ import (
 
 func hello(w http.ResponseWriter, req *http.Request) {
 
-	fmt.Fprintf(w, "hello, my name is service1~~\n")
+	fmt.Fprintf(w, "hello, my name is service1~\n")
 }
 
 func headers(w http.ResponseWriter, req *http.Request) {
@@ -40,5 +40,5 @@ func main() {
 	http.HandleFunc("/", hello)
 	http.HandleFunc("/headers", headers)
 
-	http.ListenAndServe(":20220", nil)
+	http.ListenAndServe(":20222", nil)
 }
