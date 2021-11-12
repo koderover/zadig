@@ -43,6 +43,8 @@ rules:
       - method: PUT
         endpoint: "/api/aslan/environment/environments/?*/renderchart"
       - method: PUT
+        endpoint: "/api/aslan/environment/environments/?*/renderset"
+      - method: PUT
         endpoint: "/api/aslan/environment/environments/?*/multiHelmEnv"
       - method: PUT
         endpoint: "/api/aslan/service/workloads"
@@ -67,6 +69,8 @@ rules:
       - method: GET
         endpoint: "/api/aslan/environment/kube/pods/?*/events"
       - method: GET
+        endpoint: "/api/aslan/environment/kube/events"
+      - method: GET
         endpoint: "/api/aslan/environment/export/service"
       - method: GET
         endpoint: "/api/aslan/logs/sse/pods/?*/containers/?*"
@@ -79,7 +83,7 @@ rules:
       - method: POST
         endpoint: "/api/aslan/environment/environments/?*/services/?*/scaleNew/?*"
       - method: GET
-        endpoint: " /api/podexec/?*/?*/?*/?*/podExec"
+        endpoint: "/api/podexec/?*/?*/?*/?*/podExec"
   - action: delete_environment
     alias: "删除集成环境"
     description: ""

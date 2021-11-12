@@ -1,7 +1,6 @@
 package models
 
 type Jira struct {
-	ID          int64  `bson:"id"           json:"id"`
 	Host        string `bson:"host"         json:"host"`
 	User        string `bson:"user"         json:"user"`
 	AccessToken string `bson:"access_token" json:"access_token"`

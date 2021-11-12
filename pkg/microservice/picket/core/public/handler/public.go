@@ -100,7 +100,7 @@ func ListWorkflowTask(c *gin.Context) {
 func ListDelivery(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	productName := c.Query("productName")
+	productName := c.Query("projectName")
 	workflowName := c.Query("workflowName")
 	taskIDStr := c.Query("taskId")
 	perPageStr := c.Query("perPage")

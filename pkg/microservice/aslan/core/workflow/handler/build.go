@@ -30,7 +30,7 @@ func BuildModuleToSubTasks(c *gin.Context) {
 
 	args := &models.BuildModuleArgs{
 		BuildName:   c.Param("name"),
-		ProductName: c.Query("productName"),
+		ProductName: c.Query("projectName"),
 	}
 	resp, err := workflow.BuildModuleToSubTasks(args, ctx.Logger)
 	if err != nil {
