@@ -33,9 +33,10 @@ const (
 )
 
 type ProjectListOptions struct {
-	IgnoreNoEnvs bool
-	Verbosity    QueryVerbosity
-	Names        []string
+	IgnoreNoEnvs     bool
+	IgnoreNoVersions bool
+	Verbosity        QueryVerbosity
+	Names            []string
 }
 
 type ProjectDetailedRepresentation struct {
@@ -139,7 +140,40 @@ func listBriefProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogger) 
 	return res, nil
 }
 
+func listMinimalProjectInfoForDelivery(opts *ProjectListOptions, logger *zap.SugaredLogger) ([]*ProjectMinimalRepresentation, error) {
+	var res []*ProjectMinimalRepresentation
+	names, err := templaterepo.NewProductColl().ListNames(opts.Names)
+	if err != nil {
+		logger.Errorf("Failed to list project names, err: %s", err)
+		return nil, err
+	}
+
+	nameSet := sets.NewString()
+	for _, name := range names {
+		nameSet.Insert(name)
+	}
+	namesWithDelivery, err := mongodb.NewDeliveryVersionColl().FindProducts()
+	if err != nil {
+		logger.Errorf("Failed to list projects by delivery, err: %s", err)
+		return nil, err
+	}
+
+	for _, name := range namesWithDelivery {
+		// namesWithDelivery may contain projects which are already deleted.
+		if !nameSet.Has(name) {
+			continue
+		}
+		res = append(res, &ProjectMinimalRepresentation{Name: name})
+	}
+
+	return res, nil
+}
+
 func listMinimalProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogger) ([]*ProjectMinimalRepresentation, error) {
+	if opts.IgnoreNoVersions {
+		return listMinimalProjectInfoForDelivery(opts, logger)
+	}
+
 	var res []*ProjectMinimalRepresentation
 
 	names, err := templaterepo.NewProductColl().ListNames(opts.Names)
