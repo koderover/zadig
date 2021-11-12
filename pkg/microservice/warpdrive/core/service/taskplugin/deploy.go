@@ -135,7 +135,7 @@ type EnvArgs struct {
 type ResourceComponentSet interface {
 	GetName() string
 	GetAnnotations() map[string]string
-	Containers() []*resource.ContainerImage
+	GetContainers() []*resource.ContainerImage
 	GetKind() string
 }
 
@@ -170,7 +170,7 @@ func (p *DeployTaskPlugin) findHelmAffectedResources(namespace, serviceName stri
 				continue
 			}
 		}
-		for _, container := range res.Containers() {
+		for _, container := range res.GetContainers() {
 			resolvedImageUrl := resolveImageUrl(container.Image)
 			if resolvedImageUrl[setting.PathSearchComponentImage] == p.Task.ContainerName {
 				p.Log.Infof("%s find match container.name:%s container.image:%s", res.GetKind(), container.Name, container.Image)
