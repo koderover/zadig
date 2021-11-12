@@ -27,8 +27,6 @@ rules:
     description: ""
     rules:
       - method: POST
-        endpoint: "/api/aslan/service/helm/services"
-      - method: POST
         endpoint: "/api/aslan/service/helm/?*"
       - method: PUT
         endpoint: "/api/aslan/service/services"
@@ -54,6 +52,8 @@ rules:
         endpoint: "/api/aslan/service/loader/preload/?*/?*"
       - method: POST
         endpoint: "/api/aslan/service/loader/load/?*/?*"
+      - method: POST
+        endpoint: "/api/aslan/service/helm/services"
   - action: delete_service
     alias: "删除服务"
     description: ""
