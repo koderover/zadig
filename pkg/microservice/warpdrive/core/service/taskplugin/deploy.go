@@ -402,29 +402,18 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			return
 		}
 
-		curRevisionInProduct := int64(0)
-		for _, serviceGroup := range productInfo.Services {
-			for _, service := range serviceGroup {
-				if service.ServiceName == p.Task.ServiceName {
-					curRevisionInProduct = service.Revision
-					break
-				}
-			}
-			if curRevisionInProduct > 0 {
-				break
-			}
-		}
-
+		serviceRevisionInProduct := int64(0)
 		var targetContainer *types.Container
-		for _, serviceGroup := range productInfo.Services {
-			for _, service := range serviceGroup {
-				if service.ServiceName == p.Task.ServiceName {
-					for _, container := range service.Containers {
-						if container.Name == p.Task.ContainerName {
-							targetContainer = container
-						}
+		for _, service := range productInfo.GetServiceMap() {
+			if service.ServiceName == p.Task.ServiceName {
+				serviceRevisionInProduct = service.Revision
+				for _, container := range service.Containers {
+					if container.Name == p.Task.ContainerName {
+						targetContainer = container
+						break
 					}
 				}
+				break
 			}
 		}
 
@@ -446,11 +435,11 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		}
 
 		//task执行时候 product.service.revision 可能已经更新，需要使用当前环境中的service.revision
-		targetRevision := curRevisionInProduct
-
 		path, errDownload := p.downloadService(pipelineTask.ProductName, p.Task.ServiceName,
-			pipelineTask.StorageURI, targetRevision)
+			pipelineTask.StorageURI, serviceRevisionInProduct)
 		if errDownload != nil {
+			p.Log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
+				serviceRevisionInProduct, p.Task.ServiceName)
 			path, errDownload = p.downloadService(pipelineTask.ProductName, p.Task.ServiceName,
 				pipelineTask.StorageURI, 0)
 			if errDownload != nil {
@@ -461,21 +450,8 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				_ = os.Remove(path)
 				return
 			}
-
-			//获取当前service的最新revision
-			latestService, errGetService := p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType,
-				pipelineTask.ProductName, 0)
-			if errGetService != nil {
-				err = errors.WithMessagef(
-					errDownload,
-					"failed to get latest service %s/%s",
-					p.Task.Namespace, p.Task.ServiceName)
-				_ = os.Remove(path)
-			}
-
-			//当前实际的revision
-			targetRevision = latestService.Revision
 		}
+
 		chartPath, err = fs.RelativeToCurrentPath(path)
 		if err != nil {
 			err = errors.WithMessagef(
@@ -497,13 +473,6 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		// prepare image replace info
 		validMatchData := getValidMatchData(targetContainer.ImagePath)
 
-		// update product.service.revision when use the latest revision
-		if targetRevision > 0 && targetRevision != p.Task.ServiceRevision {
-			err = p.updateServiceRevision(ctx, p.Task.ServiceName, pipelineTask.ProductName, p.Task.EnvName, targetRevision)
-			if err != nil {
-				p.Log.Errorf("update service version fail [env:%v][productName:%v][serviceName:%v], err %v", p.Task.EnvName, p.Task.ProductName, p.Task.ServiceName, err)
-			}
-		}
 		replaceValuesMap, err = assignImageData(p.Task.Image, validMatchData)
 		if err != nil {
 			err = errors.WithMessagef(
@@ -632,18 +601,6 @@ func (p *DeployTaskPlugin) getService(ctx context.Context, name, serviceType, pr
 		return nil, err
 	}
 	return s, nil
-}
-
-func (p *DeployTaskPlugin) updateServiceRevision(ctx context.Context, name, productName, envName string,
-	revision int64) error {
-	url := fmt.Sprintf("/api/environment/environments/%s/services/%s/updateRevision", productName, name)
-
-	_, err := p.httpClient.Put(url, httpclient.SetQueryParams(map[string]string{
-		"productName": productName,
-		"envName":     envName,
-		"revision":    fmt.Sprintf("%d", revision),
-	}))
-	return err
 }
 
 // download chart info of specific version, use the latest version if fails

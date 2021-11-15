@@ -122,7 +122,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.GET("/:productName/workloads", ListWorkloadsInEnv)
 
 		environments.GET("/:productName/services/:serviceName", GetService)
-		environments.PUT("/:productName/services/:serviceName/revision", gin2.UpdateOperationLogStatus, UpdateServiceRevision)
 		environments.PUT("/:productName/services/:serviceName/:serviceType", gin2.UpdateOperationLogStatus, UpdateService)
 		environments.POST("/:productName/services/:serviceName/restart", gin2.UpdateOperationLogStatus, RestartService)
 		environments.POST("/:productName/services/:serviceName/restartNew", gin2.UpdateOperationLogStatus, RestartNewService)

@@ -110,3 +110,13 @@ func (rc *RenderChart) GetOverrideYaml() string {
 	}
 	return rc.OverrideYaml.YamlContent
 }
+
+func (p *Product) GetServiceMap() map[string]*Service {
+	ret := make(map[string]*Service)
+	for _, group := range p.Services {
+		for _, svc := range group {
+			ret[svc.ServiceName] = svc
+		}
+	}
+	return ret
+}

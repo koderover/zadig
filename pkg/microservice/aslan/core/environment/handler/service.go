@@ -76,20 +76,6 @@ func UpdateService(c *gin.Context) {
 	ctx.Err = service.UpdateService(args, ctx.Logger)
 }
 
-// update revison of a service in product
-func UpdateServiceRevision(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	internalhandler.InsertOperationLog(c, ctx.UserName, c.Param("productName"), "更新Revision", "集成环境-单服务", fmt.Sprintf("环境名称:%s,服务名称:%s", c.Query("envName"), c.Param("serviceName")), "", ctx.Logger)
-
-	revision, err := strconv.ParseInt(c.DefaultQuery("revision", "0"), 10, 64)
-	if err != nil || revision == 0 {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid revision number")
-		return
-	}
-	ctx.Err = service.UpdateServiceRevision(c.Query("envName"), c.Param("productName"), c.Param("serviceName"), revision, ctx.Logger)
-}
-
 func RestartNewService(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

@@ -402,40 +402,6 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 	return nil
 }
 
-func UpdateServiceRevision(envName, productName, serviceName string, targetRevision int64, log *zap.SugaredLogger) (err error) {
-	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
-	productInfo, err := commonrepo.NewProductColl().Find(opt)
-	if err != nil {
-		return e.ErrUpdateEnv.AddDesc(err.Error())
-	}
-
-	groupIndex := -1
-	var targetGroup []*commonmodels.ProductService
-	for gIndex, serviceGroup := range productInfo.Services {
-		for _, service := range serviceGroup {
-			if service.ServiceName == serviceName {
-				groupIndex = gIndex
-				targetGroup = serviceGroup
-				service.Revision = targetRevision
-				break
-			}
-		}
-		if groupIndex >= 0 {
-			break
-		}
-	}
-
-	if groupIndex < 0 {
-		return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("servce: %v not found", serviceName))
-	}
-
-	err = commonrepo.NewProductColl().UpdateGroup(envName, productName, groupIndex, targetGroup)
-	if err != nil {
-		return e.ErrUpdateEnv.AddDesc(err.Error())
-	}
-	return nil
-}
-
 func queryPodsStatus(namespace, productName, serviceName string, kubeClient client.Client, log *zap.SugaredLogger) (string, string, []string) {
 	ls := labels.Set{}
 	if productName != "" {

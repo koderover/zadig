@@ -2107,10 +2107,16 @@ func installOrUpgradeHelmChart(namespace string, renderChart *template.RenderCha
 }
 
 func installOrUpgradeHelmChartWithValues(namespace, valuesYaml string, renderChart *template.RenderChart, serviceObj *commonmodels.Service, timeout time.Duration, helmClient helmclient.Client) error {
-	base := config.LocalServicePath(serviceObj.ProductName, serviceObj.ServiceName)
-	if err := commonservice.PreLoadServiceManifests(base, serviceObj); err != nil {
-		log.Errorf("Failed to load manifest for service %s in project %s, err: %s", serviceObj.ServiceName, serviceObj.ProductName, err)
-		return err
+	base := config.LocalServicePathWithRevision(serviceObj.ProductName, serviceObj.ServiceName, serviceObj.Revision)
+	if err := commonservice.PreloadServiceManifestsByRevision(base, serviceObj); err != nil {
+		log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
+			serviceObj.Revision, serviceObj.ServiceName)
+		// use the latest version when it fails to download the specific version
+		base = config.LocalServicePath(serviceObj.ProductName, serviceObj.ServiceName)
+		if err = commonservice.PreLoadServiceManifests(base, serviceObj); err != nil {
+			log.Errorf("failed to load chart info for service %v", serviceObj.ServiceName)
+			return fmt.Errorf("failed to load chart info for service %s", serviceObj.ServiceName)
+		}
 	}
 
 	chartFullPath := filepath.Join(base, serviceObj.ServiceName)
@@ -2628,45 +2634,13 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 		renderChartMap[renderChart.ServiceName] = renderChart
 	}
 
-	productServiceMap := productResp.GetServiceMap()
-
 	handler := func(service *commonmodels.Service, log *zap.SugaredLogger) error {
-		targetRevision := service.Revision
-		//preload chart info with specific revision
-		base := config.LocalServicePathWithRevision(service.ProductName, service.ServiceName, service.Revision)
-		if err := commonservice.PreloadServiceManifestsByRevision(base, service); err != nil {
-			log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
-				service.Revision, service.ServiceName)
-			// use the latest version when it fails to download the specific version
-			base = config.LocalServicePath(service.ProductName, service.ServiceName)
-			if err = commonservice.PreLoadServiceManifests(base, service); err != nil {
-				log.Errorf("failed to load chart info for service %v", service.ServiceName)
-				return fmt.Errorf("failed to load chart info for service %s", service.ServiceName)
-			}
-
-			findOpt := &commonrepo.ServiceFindOption{
-				ServiceName:   service.ServiceName,
-				Type:          service.Type,
-				ProductName:   productName,
-				ExcludeStatus: setting.ProductStatusDeleting,
-			}
-			latestService, err := commonrepo.NewServiceColl().Find(findOpt)
-			if err != nil {
-				log.Errorf("failed to get service:%v with latest version", service.ServiceName)
-				return fmt.Errorf("failed to get service:%v with latest version", service.ServiceName)
-			}
-			targetRevision = latestService.Revision
-		}
-
 		renderChart := renderChartMap[service.ServiceName]
 		err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderset.DefaultValues, service, 0, helmClient)
 		if err != nil {
 			return errors.Wrapf(err, "failed to upgrade service %s", service.ServiceName)
 		}
-		if productService, ok := productServiceMap[service.ServiceName]; ok {
-			productService.Revision = targetRevision
-		}
-		return err
+		return nil
 	}
 
 	errList := new(multierror.Error)
