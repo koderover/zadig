@@ -63,7 +63,7 @@ func (args *workflowCreateArgs) addWorkflowArg(envName string, buildStageEnabled
 		wName = fmt.Sprintf("%s-%s-workflow", args.productName, "ops")
 	}
 	// The hosting env workflow name is not bound to the environment
-	if envName == "" {
+	if !artifactStageEnabled && envName == "" {
 		wName = fmt.Sprintf("%s-workflow", args.productName)
 	}
 	args.argsMap[wName] = &workflowCreateArg{
