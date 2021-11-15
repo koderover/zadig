@@ -58,7 +58,7 @@ var publicURLs = []*policyRule{
 	},
 	{
 		Methods:   []string{"GET"},
-		Endpoints: []string{"", "signin", "setup", "loading", "static/**", "v1/**", "mobile/**", "productpipelines/**"},
+		Endpoints: []string{"", "signin", "setup", "static/**", "v1/**", "mobile/**", "productpipelines/**", "favicon.ico"},
 	},
 	{
 		Methods:   []string{"GET"},
@@ -75,10 +75,6 @@ var systemAdminURLs = []*policyRule{
 	{
 		Methods:   []string{"POST"},
 		Endpoints: []string{"api/v1/picket/projects"},
-	},
-	{
-		Methods:   []string{"DELETE"},
-		Endpoints: []string{"api/aslan/project/products/?*"},
 	},
 	{
 		Methods:   []string{"POST"},
@@ -201,7 +197,7 @@ var systemAdminURLs = []*policyRule{
 		Endpoints: []string{"api/aslan/system/proxy/config"},
 	},
 	{
-		Methods:   []string{"*"},
+		Methods:   []string{"GET", "PUT", "PATCH", "DELETE"},
 		Endpoints: []string{"api/v1/users/?*"},
 	},
 	{
@@ -239,6 +235,10 @@ var projectAdminURLs = []*policyRule{
 	{
 		Methods:   []string{"PUT"},
 		Endpoints: []string{"api/aslan/project/products"},
+	},
+	{
+		Methods:   []string{"PUT", "DELETE"},
+		Endpoints: []string{"api/v1/picket/projects/?*"},
 	},
 	{
 		Methods:   []string{"DELETE"},

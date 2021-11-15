@@ -66,7 +66,7 @@ func CreateOrUpdateHelmService(c *gin.Context) {
 	}
 	args.CreatedBy = ctx.UserName
 
-	ctx.Err = svcservice.CreateOrUpdateHelmService(c.Query("projectName"), args, ctx.Logger)
+	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateHelmService(c.Query("projectName"), args, ctx.Logger)
 }
 
 func CreateOrUpdateBulkHelmServices(c *gin.Context) {
@@ -80,7 +80,7 @@ func CreateOrUpdateBulkHelmServices(c *gin.Context) {
 	}
 	args.CreatedBy = ctx.UserName
 
-	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateBulkHelmService(c.Query("productName"), args, ctx.Logger)
+	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateBulkHelmService(c.Query("projectName"), args, ctx.Logger)
 }
 
 func UpdateHelmService(c *gin.Context) {

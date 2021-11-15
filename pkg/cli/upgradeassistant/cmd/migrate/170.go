@@ -67,20 +67,19 @@ func refreshWebHookSecret() error {
 		return err
 	}
 
-	cs := toCodeHostSet(codeHosts)
 	for _, hook := range hooks {
 		var cl hookRefresher
-		ch, ok := cs[codeHostUniqueID{address: hook.Address, owner: hook.Owner}]
-		if !ok {
+		ch := getCodeHostByAddressAndOwner(hook.Address, hook.Owner, codeHosts)
+		if ch == nil {
 			log.Warnf("Failed to get codehost for %s/%s", hook.Address, hook.Owner)
 			continue
 		}
 
 		switch ch.Type {
 		case setting.SourceFromGithub:
-			cl = github.NewClient(ch.accessToken, config.ProxyHTTPSAddr())
+			cl = github.NewClient(ch.AccessToken, config.ProxyHTTPSAddr())
 		case setting.SourceFromGitlab:
-			cl, err = gitlab.NewClient(ch.address, ch.accessToken)
+			cl, err = gitlab.NewClient(ch.Address, ch.AccessToken)
 			if err != nil {
 				log.Warnf("Failed to create gitlab client, err: %s", err)
 				continue
@@ -99,45 +98,19 @@ func refreshWebHookSecret() error {
 	return nil
 }
 
-type codeHostUniqueID struct {
-	address, owner string
-}
-
-type codeHostItem struct {
-	codeHostUniqueID
-	accessToken string
-	Type        string
-}
-
-type codeHostSet map[codeHostUniqueID]codeHostItem
-
-// NewCodeHostSet creates a HookSet from a list of values.
-func NewCodeHostSet(items ...codeHostItem) codeHostSet {
-	ss := codeHostSet{}
-	ss.Insert(items...)
-	return ss
-}
-
-// Insert adds items to the set.
-func (s codeHostSet) Insert(items ...codeHostItem) codeHostSet {
-	for _, item := range items {
-		s[item.codeHostUniqueID] = item
-	}
-	return s
-}
-
-func toCodeHostSet(codeHosts []*systemconfig.CodeHost) codeHostSet {
-	res := NewCodeHostSet()
-	for _, h := range codeHosts {
-		res.Insert(codeHostItem{
-			codeHostUniqueID: codeHostUniqueID{
-				address: h.Address,
-				owner:   h.Namespace,
-			},
-			accessToken: h.AccessToken,
-			Type:        h.Type,
-		})
+func getCodeHostByAddressAndOwner(address, owner string, all []*systemconfig.CodeHost) *systemconfig.CodeHost {
+	for _, one := range all {
+		if one.Address != address {
+			continue
+		}
+		// it is a limitation, we support only one gitlab account before
+		if one.Type == "gitlab" {
+			return one
+		}
+		if one.Namespace == owner {
+			return one
+		}
 	}
 
-	return res
+	return nil
 }

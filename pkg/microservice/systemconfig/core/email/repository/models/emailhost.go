@@ -1,7 +1,6 @@
 package models
 
 type EmailHost struct {
-	ID        int    `bson:"id"         json:"id"`
 	Name      string `bson:"name"       json:"name"`
 	Port      int    `bson:"port"       json:"port"`
 	Username  string `bson:"username"   json:"username"`

@@ -24,16 +24,6 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-func FindDeliveryProduct(log *zap.SugaredLogger) ([]string, error) {
-	productNames, err := commonrepo.NewDeliveryVersionColl().FindProducts()
-	if err != nil {
-		log.Errorf("find FindDeliveryProduct error: %v", err)
-		return []string{}, e.ErrFindDeliveryProducts
-	}
-
-	return productNames, err
-}
-
 func GetProductByDeliveryInfo(username, releaseID string, log *zap.SugaredLogger) (*commonmodels.Product, error) {
 	version := new(commonrepo.DeliveryVersionArgs)
 	version.ID = releaseID

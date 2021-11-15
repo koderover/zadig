@@ -24,13 +24,6 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-func ListDeliveryProduct(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	ctx.Resp, ctx.Err = deliveryservice.FindDeliveryProduct(ctx.Logger)
-}
-
 func GetProductByDeliveryInfo(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

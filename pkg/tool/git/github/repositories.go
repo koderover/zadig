@@ -200,11 +200,10 @@ func (c *Client) CreateHook(ctx context.Context, owner, repo string, hook *git.H
 func (c *Client) UpdateHook(ctx context.Context, owner, repo string, id int64, hook *git.Hook) (*github.Hook, error) {
 	h := &github.Hook{
 		Config: map[string]interface{}{
-			"secret": hook.Secret,
+			"url":          hook.URL,
+			"content_type": "json",
+			"secret":       hook.Secret,
 		},
-	}
-	if hook.URL != "" {
-		h.Config["url"] = hook.URL
 	}
 	if len(hook.Events) > 0 {
 		h.Events = hook.Events
