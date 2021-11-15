@@ -59,7 +59,7 @@ rules:
       - method: DELETE
         endpoint: "/api/aslan/environment/kube/pods/?*"
       - method: POST
-        endpoint: "/api/aslan/environment/environments/?*/services/?*/restartNew"
+        endpoint: "/api/aslan/environment/environments/?*/services/?*/restart"
       - method: PUT
         endpoint: "/api/aslan/environment/configmaps"
       - method: POST
