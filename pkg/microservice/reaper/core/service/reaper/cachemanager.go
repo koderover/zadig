@@ -153,8 +153,7 @@ func (gcm *TarCacheManager) Unarchive(source, dest string) error {
 				defer func() {
 					_ = os.Remove(sourceFilename)
 				}()
-				objectKey := store.GetObjectPath(files[0])
-				err = s3client.Download(store.Bucket, objectKey, sourceFilename)
+				err = s3client.Download(store.Bucket, files[0], sourceFilename)
 				if err != nil {
 					return err
 				}
