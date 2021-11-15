@@ -77,10 +77,6 @@ var systemAdminURLs = []*policyRule{
 		Endpoints: []string{"api/v1/picket/projects"},
 	},
 	{
-		Methods:   []string{"DELETE"},
-		Endpoints: []string{"api/aslan/project/products/?*"},
-	},
-	{
 		Methods:   []string{"POST"},
 		Endpoints: []string{"api/aslan/cluster/clusters"},
 	},
@@ -241,7 +237,7 @@ var projectAdminURLs = []*policyRule{
 		Endpoints: []string{"api/aslan/project/products"},
 	},
 	{
-		Methods:   []string{"PUT"},
+		Methods:   []string{"PUT", "DELETE"},
 		Endpoints: []string{"api/v1/picket/projects/?*"},
 	},
 	{

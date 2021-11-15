@@ -9,7 +9,7 @@ import (
 )
 
 func (c *Client) DeleteProject(header http.Header, qs url.Values, productName string) ([]byte, error) {
-	url := fmt.Sprintf("/project/prodects/%s", productName)
+	url := fmt.Sprintf("/project/products/%s", productName)
 
 	res, err := c.Delete(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs))
 	if err != nil {
