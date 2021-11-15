@@ -25,14 +25,6 @@ func NewOrganizationColl() *OrganizationColl {
 	}
 }
 
-func (c *OrganizationColl) GetCollectionName() string {
-	return c.coll
-}
-
-func (c *OrganizationColl) EnsureIndex(_ context.Context) error {
-	return nil
-}
-
 func (c *OrganizationColl) Get(id int) (*models.Organization, bool, error) {
 	org := &models.Organization{}
 	query := bson.M{"id": id}
