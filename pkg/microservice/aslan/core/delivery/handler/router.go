@@ -37,7 +37,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 	deliveryProduct := router.Group("products")
 	{
-		deliveryProduct.GET("", ListDeliveryProduct)
 		deliveryProduct.GET("/:releaseId", GetProductByDeliveryInfo)
 	}
 
