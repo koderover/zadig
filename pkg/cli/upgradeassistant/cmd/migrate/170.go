@@ -168,7 +168,7 @@ func rollbackChangeCodehostType() error {
 	}
 	// rollback change type to readable string
 	for _, v := range codeHosts {
-		if err := internalmongodb.NewCodehostColl().RollbackChangeType(v.ID, v.Type); err != nil {
+		if err := internalmongodb.NewCodehostColl().RollbackType(v.ID, v.Type); err != nil {
 			log.Warnf("fail to rollback id:%d type:%s , err: %s", v.ID, v.Type, err)
 			continue
 		}

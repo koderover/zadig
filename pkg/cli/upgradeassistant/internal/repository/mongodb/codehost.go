@@ -3,13 +3,12 @@ package mongodb
 import (
 	"context"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-
+	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
 	"github.com/koderover/zadig/pkg/config"
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func (c *CodehostColl) ChangeType(ID int, sourceType string) error {
@@ -40,7 +39,7 @@ func (c *CodehostColl) ChangeType(ID int, sourceType string) error {
 	return nil
 }
 
-func (c *CodehostColl) RollbackChangeType(ID int, sourceType string) error {
+func (c *CodehostColl) RollbackType(ID int, sourceType string) error {
 	query := bson.M{"id": ID}
 
 	if sourceType == "gitlab" {
@@ -67,13 +66,8 @@ func (c *CodehostColl) RollbackChangeType(ID int, sourceType string) error {
 	return nil
 }
 
-type CodeHost struct {
-	ID   int    `bson:"id"               json:"id"`
-	Type string `bson:"type"             json:"type"`
-}
-
-func (c *CodehostColl) ListCodeHosts() ([]*CodeHost, error) {
-	codeHosts := make([]*CodeHost, 0)
+func (c *CodehostColl) ListCodeHosts() ([]*models.CodeHost, error) {
+	codeHosts := make([]*models.CodeHost, 0)
 
 	cursor, err := c.Collection.Find(context.TODO(), bson.M{})
 	if err != nil {
