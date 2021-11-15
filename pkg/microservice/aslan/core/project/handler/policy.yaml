@@ -31,8 +31,6 @@ rules:
       - method: PUT
         endpoint: "/api/aslan/service/services"
       - method: PUT
-        endpoint: " /api/aslan/service/services/yaml/validator"
-      - method: PUT
         endpoint: "/api/aslan/service/pm/?*"
       - method: PUT
         endpoint: "/api/aslan/project/products/?*"

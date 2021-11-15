@@ -20,6 +20,14 @@ rules:
         endpoint: "/api/aslan/environment/kube/workloads"
       - method: GET
         endpoint: "/api/aslan/service/workloads"
+      - method: GET
+        endpoint: "/api/aslan/environment/export/service"
+      - method: GET
+        endpoint: "/api/aslan/environment/kube/pods/?*/events"
+      - method: GET
+        endpoint: "/api/aslan/environment/kube/events"
+      - method: GET
+        endpoint: "/api/aslan/logs/sse/pods/?*/containers/?*"
   - action: create_environment
     alias: "新建集成环境"
     description: ""
@@ -64,16 +72,6 @@ rules:
         endpoint: "/api/aslan/environment/configmaps"
       - method: POST
         endpoint: "/api/aslan/environment/configmaps"
-      - method: GET
-        endpoint: "/api/aslan/environment/export/service"
-      - method: GET
-        endpoint: "/api/aslan/environment/kube/pods/?*/events"
-      - method: GET
-        endpoint: "/api/aslan/environment/kube/events"
-      - method: GET
-        endpoint: "/api/aslan/environment/export/service"
-      - method: GET
-        endpoint: "/api/aslan/logs/sse/pods/?*/containers/?*"
       - method: PUT
         endpoint: "/api/aslan/environment/environments/?*/services/?*/?*"
       - method: POST
