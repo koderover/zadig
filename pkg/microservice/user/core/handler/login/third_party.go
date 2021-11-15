@@ -84,6 +84,9 @@ func verifyAndDecode(ctx context.Context, code string) (*login.Claims, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(claims.Name) == 0 {
+		claims.Name = claims.PreferredUsername
+	}
 	return &claims, nil
 }
 

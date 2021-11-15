@@ -113,8 +113,9 @@ func SearchAndSyncUser(ldapId string, logger *zap.SugaredLogger) error {
 	searchRequest := ldapv3.NewSearchRequest(
 		config.GroupSearch.BaseDN,
 		ldapv3.ScopeWholeSubtree, ldapv3.NeverDerefAliases, 0, 0, false,
-		config.GroupSearch.Filter,            // The filter to apply
-		[]string{config.UserSearch.NameAttr}, // A list attributes to retrieve
+		config.GroupSearch.Filter, // The filter to apply
+		[]string{config.GroupSearch.NameAttr, config.UserSearch.NameAttr, config.UserSearch.PreferredUsernameAttrAttr,
+			config.UserSearch.EmailAttr}, // A list attributes to retrieve
 		nil,
 	)
 
@@ -124,7 +125,7 @@ func SearchAndSyncUser(ldapId string, logger *zap.SugaredLogger) error {
 		return err
 	}
 	for _, entry := range sr.Entries {
-		account := config.UserSearch.Username
+		account := config.UserSearch.PreferredUsernameAttrAttr
 		name := account
 		if len(config.UserSearch.NameAttr) != 0 {
 			name = config.UserSearch.NameAttr
