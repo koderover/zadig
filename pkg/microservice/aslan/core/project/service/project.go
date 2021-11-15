@@ -167,11 +167,7 @@ func listMinimalProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogger
 		return nil, err
 	}
 
-	nameSet := sets.NewString()
-	for _, name := range names {
-		nameSet.Insert(name)
-	}
-
+	nameSet := sets.NewString(names...)
 	if opts.IgnoreNoVersions {
 		return listMinimalProjectInfoForDelivery(opts, nameSet, logger)
 	}
