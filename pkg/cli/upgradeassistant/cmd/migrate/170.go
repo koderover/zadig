@@ -55,7 +55,7 @@ func V160ToV170() error {
 
 func V170ToV160() error {
 	log.Info("Rollback data from 1.7.0 to 1.6.0")
-	err := rollbackChangeCodehostType()
+	err := rollbackCodehostType()
 	if err != nil {
 		log.Errorf("Failed to rollback codehost type, err: %s", err)
 		return err
@@ -159,7 +159,7 @@ func changeCodehostType() error {
 }
 
 // rollback type "github,gitlab..." to "1,2..."
-func rollbackChangeCodehostType() error {
+func rollbackCodehostType() error {
 	// get all codehosts
 	codeHosts, err := internalmongodb.NewCodehostColl().ListCodeHosts()
 	if err != nil {
