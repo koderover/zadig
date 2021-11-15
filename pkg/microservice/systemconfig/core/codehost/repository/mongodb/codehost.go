@@ -119,7 +119,7 @@ func (c *CodehostColl) DeleteCodeHostByID(ID int) error {
 	}}
 	_, err := c.Collection.UpdateOne(context.TODO(), query, change)
 	if err != nil {
-		log.Error("repository update fail")
+		log.Errorf("repository update fail,err:%s", err)
 		return err
 	}
 	return nil

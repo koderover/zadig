@@ -127,9 +127,10 @@ func getCodeHostByAddressAndOwner(address, owner string, all []*systemconfig.Cod
 	return nil
 }
 
+// change type "1,2,3,4" to "github,gitlab..."
 func changeCodehostType() error {
 	// get all codehosts
-	codeHosts, err := systemconfig.New().ListCodeHosts()
+	codeHosts, err := mongo.NewCodehostColl().ListCodeHosts()
 	if err != nil {
 		log.Errorf("fail to list codehosts, err: %s", err)
 		return err
@@ -144,9 +145,10 @@ func changeCodehostType() error {
 	return nil
 }
 
+// rollback type "github,gitlab..." to "1,2..."
 func RollbackchangeCodehostType() error {
 	// get all codehosts
-	codeHosts, err := systemconfig.New().ListCodeHosts()
+	codeHosts, err := mongo.NewCodehostColl().ListCodeHosts()
 	if err != nil {
 		log.Errorf("fail to list codehosts, err: %s", err)
 		return err
