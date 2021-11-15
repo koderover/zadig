@@ -197,7 +197,7 @@ var systemAdminURLs = []*policyRule{
 		Endpoints: []string{"api/aslan/system/proxy/config"},
 	},
 	{
-		Methods:   []string{"*"},
+		Methods:   []string{"GET", "PUT", "PATCH", "DELETE"},
 		Endpoints: []string{"api/v1/users/?*"},
 	},
 	{
