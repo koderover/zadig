@@ -23,6 +23,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
+	"github.com/koderover/zadig/pkg/setting"
 )
 
 type Role struct {
@@ -92,6 +93,10 @@ func ListRoles(projectName string, _ *zap.SugaredLogger) ([]*Role, error) {
 		return nil, err
 	}
 	for _, v := range projectRoles {
+		// frontend doesn't need to see contributor role
+		if v.Name == string(setting.Contributor) {
+			continue
+		}
 		roles = append(roles, &Role{
 			Name: v.Name,
 		})
