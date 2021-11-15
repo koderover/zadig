@@ -138,8 +138,8 @@ func changeCodehostType() error {
 	// change type to readable string
 	for _, v := range codeHosts {
 		if err := mongo.NewCodehostColl().ChangeType(v.ID, v.Type); err != nil {
-			log.Errorf("fail to change id:%d type:%s , err: %s", v.ID, v.Type, err)
-			return err
+			log.Warnf("fail to change id:%d type:%s , err: %s", v.ID, v.Type, err)
+			continue
 		}
 	}
 	return nil
@@ -155,9 +155,9 @@ func RollbackchangeCodehostType() error {
 	}
 	// rollback change type to readable string
 	for _, v := range codeHosts {
-		if err := mongo.NewCodehostColl().ChangeType(v.ID, v.Type); err != nil {
-			log.Errorf("fail to rollback id:%d type:%s , err: %s", v.ID, v.Type, err)
-			return err
+		if err := mongo.NewCodehostColl().RollbackChangeType(v.ID, v.Type); err != nil {
+			log.Warnf("fail to rollback id:%d type:%s , err: %s", v.ID, v.Type, err)
+			continue
 		}
 	}
 	return nil

@@ -51,6 +51,8 @@ func (c *CodehostColl) RollbackChangeType(ID int, sourceType string) error {
 		sourceType = "3"
 	} else if sourceType == "codehub" {
 		sourceType = "4"
+	} else {
+		return nil
 	}
 
 	change := bson.M{"$set": bson.M{
