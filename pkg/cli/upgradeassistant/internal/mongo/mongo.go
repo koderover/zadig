@@ -15,6 +15,7 @@ import (
 func (c *CodehostColl) ChangeType(ID int, sourceType string) error {
 	query := bson.M{"id": ID}
 
+	preType := sourceType
 	if sourceType == "1" {
 		sourceType = "gitlab"
 	} else if sourceType == "2" {
@@ -23,8 +24,6 @@ func (c *CodehostColl) ChangeType(ID int, sourceType string) error {
 		sourceType = "gerrit"
 	} else if sourceType == "4" {
 		sourceType = "codehub"
-	} else if sourceType == "5" {
-		sourceType = "ilyshin"
 	}
 
 	change := bson.M{"$set": bson.M{
@@ -35,7 +34,7 @@ func (c *CodehostColl) ChangeType(ID int, sourceType string) error {
 		log.Error("repository update fail")
 		return err
 	}
-	log.Infof("success to change id:%d to type:%s", ID, sourceType)
+	log.Infof("success to change id:%d type:%s to type:%s", ID, preType, sourceType)
 	return nil
 }
 
