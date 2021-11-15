@@ -148,14 +148,15 @@ func changeCodehostType() error {
 		log.Errorf("fail to list codehosts, err: %s", err)
 		return err
 	}
+	var finalErr error
 	// change type to readable string
 	for _, v := range codeHosts {
 		if err := internalmongodb.NewCodehostColl().ChangeType(v.ID, v.Type); err != nil {
 			log.Warnf("fail to change id:%d type:%s , err: %s", v.ID, v.Type, err)
-			continue
+			finalErr = err
 		}
 	}
-	return nil
+	return finalErr
 }
 
 // rollback type "github,gitlab..." to "1,2..."
@@ -166,14 +167,16 @@ func rollbackCodehostType() error {
 		log.Errorf("fail to list codehosts, err: %s", err)
 		return err
 	}
+	var finalErr error
 	// rollback change type to readable string
 	for _, v := range codeHosts {
 		if err := internalmongodb.NewCodehostColl().RollbackType(v.ID, v.Type); err != nil {
 			log.Warnf("fail to rollback id:%d type:%s , err: %s", v.ID, v.Type, err)
+			finalErr = err
 			continue
 		}
 	}
-	return nil
+	return finalErr
 }
 
 func getWebHookTokenFromOrganization() string {
