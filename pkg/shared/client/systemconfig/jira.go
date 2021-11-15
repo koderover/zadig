@@ -24,7 +24,7 @@ type JiraInfo struct {
 	ID             int64  `json:"id"`
 	Host           string `json:"host"`
 	User           string `json:"user"`
-	AccessToken    string `json:"accessToken"`
+	AccessToken    string `json:"access_token"`
 	OrganizationID int    `json:"organizationId"`
 	CreatedAt      int64  `json:"created_at"`
 	UpdatedAt      int64  `json:"updated_at"`
