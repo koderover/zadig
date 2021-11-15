@@ -38,7 +38,13 @@ func init() {
 func V160ToV170() error {
 	log.Info("Migrating data from 1.6.0 to 1.7.0")
 
-	err := refreshWebHookSecret(gitservice.GetHookSecret())
+	err := changeCodehostType()
+	if err != nil {
+		log.Errorf("Failed to change codehost type, err: %s", err)
+		return err
+	}
+
+	err = refreshWebHookSecret(gitservice.GetHookSecret())
 	if err != nil {
 		log.Errorf("Failed to refresh webhook secret, err: %s", err)
 		return err
@@ -49,14 +55,18 @@ func V160ToV170() error {
 
 func V170ToV160() error {
 	log.Info("Rollback data from 1.7.0 to 1.6.0")
-
+	err := rollbackCodehostType()
+	if err != nil {
+		log.Errorf("Failed to rollback codehost type, err: %s", err)
+		return err
+	}
 	token := getWebHookTokenFromOrganization()
 	if token == "" {
 		return nil
 	}
 
 	log.Info("Start to rollback all webhook secrets")
-	err := refreshWebHookSecret(token)
+	err = refreshWebHookSecret(token)
 	if err != nil {
 		log.Errorf("Failed to refresh webhook secret, err: %s", err)
 		return err
@@ -128,6 +138,45 @@ func getCodeHostByAddressAndOwner(address, owner string, all []*systemconfig.Cod
 	}
 
 	return nil
+}
+
+// change type "1,2,3,4" to "github,gitlab..."
+func changeCodehostType() error {
+	// get all codehosts
+	codeHosts, err := internalmongodb.NewCodehostColl().ListCodeHosts()
+	if err != nil {
+		log.Errorf("fail to list codehosts, err: %s", err)
+		return err
+	}
+	var finalErr error
+	// change type to readable string
+	for _, v := range codeHosts {
+		if err := internalmongodb.NewCodehostColl().ChangeType(v.ID, v.Type); err != nil {
+			log.Warnf("fail to change id:%d type:%s , err: %s", v.ID, v.Type, err)
+			finalErr = err
+		}
+	}
+	return finalErr
+}
+
+// rollback type "github,gitlab..." to "1,2..."
+func rollbackCodehostType() error {
+	// get all codehosts
+	codeHosts, err := internalmongodb.NewCodehostColl().ListCodeHosts()
+	if err != nil {
+		log.Errorf("fail to list codehosts, err: %s", err)
+		return err
+	}
+	var finalErr error
+	// rollback change type to readable string
+	for _, v := range codeHosts {
+		if err := internalmongodb.NewCodehostColl().RollbackType(v.ID, v.Type); err != nil {
+			log.Warnf("fail to rollback id:%d type:%s , err: %s", v.ID, v.Type, err)
+			finalErr = err
+			continue
+		}
+	}
+	return finalErr
 }
 
 func getWebHookTokenFromOrganization() string {

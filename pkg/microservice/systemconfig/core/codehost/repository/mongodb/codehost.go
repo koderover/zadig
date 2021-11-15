@@ -71,9 +71,6 @@ func (c *CodehostColl) GetCodeHostByID(ID int) (*models.CodeHost, error) {
 	if err != nil {
 		return nil, nil
 	}
-	if v, ok := config.CodeHostMap[codehost.Type]; ok {
-		codehost.Type = v
-	}
 	return codehost, nil
 }
 
@@ -97,12 +94,6 @@ func (c *CodehostColl) List(args *ListArgs) ([]*models.CodeHost, error) {
 	err = cursor.All(context.TODO(), &codeHosts)
 	if err != nil {
 		return nil, err
-	}
-	// NOTE: to adapt old data
-	for i, v := range codeHosts {
-		if v, ok := config.CodeHostMap[v.Type]; ok {
-			codeHosts[i].Type = v
-		}
 	}
 	return codeHosts, nil
 }
@@ -128,7 +119,7 @@ func (c *CodehostColl) DeleteCodeHostByID(ID int) error {
 	}}
 	_, err := c.Collection.UpdateOne(context.TODO(), query, change)
 	if err != nil {
-		log.Error("repository update fail")
+		log.Errorf("repository update fail,err:%s", err)
 		return err
 	}
 	return nil
