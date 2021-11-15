@@ -93,6 +93,7 @@ func ListRoles(projectName string, _ *zap.SugaredLogger) ([]*Role, error) {
 		return nil, err
 	}
 	for _, v := range projectRoles {
+		// front end doesn't need to see contributor role
 		if v.Name == string(setting.Contributor) {
 			continue
 		}
