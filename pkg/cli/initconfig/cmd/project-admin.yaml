@@ -1,4 +1,4 @@
-name: admin
+name: project-admin
 rules:
   - verbs:
       - "*"

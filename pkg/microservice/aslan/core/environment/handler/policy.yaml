@@ -43,6 +43,8 @@ rules:
       - method: PUT
         endpoint: "/api/aslan/environment/environments/?*/renderchart"
       - method: PUT
+        endpoint: "/api/aslan/environment/environments/?*/renderset"
+      - method: PUT
         endpoint: "/api/aslan/environment/environments/?*/multiHelmEnv"
       - method: PUT
         endpoint: "/api/aslan/service/workloads"
@@ -57,7 +59,7 @@ rules:
       - method: DELETE
         endpoint: "/api/aslan/environment/kube/pods/?*"
       - method: POST
-        endpoint: "/api/aslan/environment/environments/?*/services/?*/restartNew"
+        endpoint: "/api/aslan/environment/environments/?*/services/?*/restart"
       - method: PUT
         endpoint: "/api/aslan/environment/configmaps"
       - method: POST
@@ -66,6 +68,8 @@ rules:
         endpoint: "/api/aslan/environment/export/service"
       - method: GET
         endpoint: "/api/aslan/environment/kube/pods/?*/events"
+      - method: GET
+        endpoint: "/api/aslan/environment/kube/events"
       - method: GET
         endpoint: "/api/aslan/environment/export/service"
       - method: GET

@@ -84,6 +84,9 @@ func verifyAndDecode(ctx context.Context, code string) (*login.Claims, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(claims.Name) == 0 {
+		claims.Name = claims.PreferredUsername
+	}
 	return &claims, nil
 }
 
@@ -112,7 +115,7 @@ func Callback(c *gin.Context) {
 	}
 
 	user, err := user.SyncUser(&user.SyncUserInfo{
-		Account:      claims.FederatedClaims.UserId,
+		Account:      claims.PreferredUsername,
 		Name:         claims.Name,
 		Email:        claims.Email,
 		IdentityType: claims.FederatedClaims.ConnectorId,

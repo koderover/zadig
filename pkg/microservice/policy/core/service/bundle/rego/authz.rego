@@ -85,8 +85,8 @@ user_is_project_admin {
     some role
     allowed_roles[role]
 
-    role.name == "admin"
-    role.namespace == project_name
+    role.name == "project-admin"
+    #role.namespace == project_name
 }
 
 # public urls are visible for all users
