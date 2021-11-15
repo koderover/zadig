@@ -140,18 +140,8 @@ func listBriefProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogger) 
 	return res, nil
 }
 
-func listMinimalProjectInfoForDelivery(opts *ProjectListOptions, logger *zap.SugaredLogger) ([]*ProjectMinimalRepresentation, error) {
+func listMinimalProjectInfoForDelivery(_ *ProjectListOptions, nameSet sets.String, logger *zap.SugaredLogger) ([]*ProjectMinimalRepresentation, error) {
 	var res []*ProjectMinimalRepresentation
-	names, err := templaterepo.NewProductColl().ListNames(opts.Names)
-	if err != nil {
-		logger.Errorf("Failed to list project names, err: %s", err)
-		return nil, err
-	}
-
-	nameSet := sets.NewString()
-	for _, name := range names {
-		nameSet.Insert(name)
-	}
 	namesWithDelivery, err := mongodb.NewDeliveryVersionColl().FindProducts()
 	if err != nil {
 		logger.Errorf("Failed to list projects by delivery, err: %s", err)
@@ -170,16 +160,20 @@ func listMinimalProjectInfoForDelivery(opts *ProjectListOptions, logger *zap.Sug
 }
 
 func listMinimalProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogger) ([]*ProjectMinimalRepresentation, error) {
-	if opts.IgnoreNoVersions {
-		return listMinimalProjectInfoForDelivery(opts, logger)
-	}
-
 	var res []*ProjectMinimalRepresentation
-
 	names, err := templaterepo.NewProductColl().ListNames(opts.Names)
 	if err != nil {
 		logger.Errorf("Failed to list project names, err: %s", err)
 		return nil, err
+	}
+
+	nameSet := sets.NewString()
+	for _, name := range names {
+		nameSet.Insert(name)
+	}
+
+	if opts.IgnoreNoVersions {
+		return listMinimalProjectInfoForDelivery(opts, nameSet, logger)
 	}
 
 	if !opts.IgnoreNoEnvs {
@@ -188,11 +182,6 @@ func listMinimalProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogger
 		}
 
 		return res, nil
-	}
-
-	nameSet := sets.NewString()
-	for _, name := range names {
-		nameSet.Insert(name)
 	}
 
 	nameWithEnvSet, _, err := getProjectsWithEnvs(opts)
