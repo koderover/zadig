@@ -56,7 +56,7 @@ func GetProductDefaultValues(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetDefaultValues(c.Query("productName"), c.Query("envName"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetDefaultValues(c.Query("projectName"), c.Query("envName"), ctx.Logger)
 }
 
 func GetYamlContent(c *gin.Context) {

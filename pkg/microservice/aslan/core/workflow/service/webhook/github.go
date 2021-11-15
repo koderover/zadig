@@ -49,32 +49,31 @@ const (
 	payloadFormParam = "payload"
 )
 
-func ProcessGithubHook(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) (output string, err error) {
+func ProcessGithubHook(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) (string, error) {
 	hookType := github.WebHookType(req)
 	if hookType == "integration_installation" || hookType == "installation" || hookType == "ping" {
-		output = fmt.Sprintf("event %s received", hookType)
-		return
+		return fmt.Sprintf("event %s received", hookType), nil
 	}
 
 	hookSecret := gitservice.GetHookSecret()
-
 	if hookSecret == "" {
 		var headers []string
 		for header := range req.Header {
 			headers = append(headers, fmt.Sprintf("%s: %s", header, req.Header.Get(header)))
 		}
-
 		log.Infof("[Webhook] hook headers: \n  %s", strings.Join(headers, "\n  "))
 	}
 
-	err = validateSecret(payload, []byte(hookSecret), req)
+	err := validateSecret(payload, []byte(hookSecret), req)
 	if err != nil {
-		return
+		log.Errorf("Failed to validate secret, err: %s", err)
+		return "", err
 	}
 
 	event, err := github.ParseWebHook(github.WebHookType(req), payload)
 	if err != nil {
-		return
+		log.Errorf("Failed to parse webhook, err: %s", err)
+		return "", err
 	}
 
 	deliveryID := github.DeliveryID(req)
@@ -85,15 +84,13 @@ func ProcessGithubHook(payload []byte, req *http.Request, requestID string, log 
 	switch et := event.(type) {
 	case *github.PullRequestEvent:
 		if *et.Action != "opened" && *et.Action != "synchronize" && *et.Action != "reopened" {
-			output = fmt.Sprintf("action %s is skipped", *et.Action)
-			return
+			return fmt.Sprintf("action %s is skipped", *et.Action), nil
 		}
 
 		tasks, err = prEventToPipelineTasks(et, requestID, log)
 		if err != nil {
 			log.Errorf("prEventToPipelineTasks error: %v", err)
-			err = e.ErrGithubWebHook.AddErr(err)
-			return
+			return "", e.ErrGithubWebHook.AddErr(err)
 		}
 
 	case *github.PushEvent:
@@ -111,40 +108,34 @@ func ProcessGithubHook(payload []byte, req *http.Request, requestID string, log 
 
 		tasks, err = pushEventToPipelineTasks(et, requestID, log)
 		if err != nil {
-			log.Infof("pushEventToPipelineTasks error: %v", err)
-			err = e.ErrGithubWebHook.AddErr(err)
-			return
+			log.Errorf("pushEventToPipelineTasks error: %v", err)
+			return "", e.ErrGithubWebHook.AddErr(err)
 		}
 	case *github.CheckRunEvent:
 		// The action performed. Can be "created", "updated", "rerequested" or "requested_action".
 		if *et.Action != "rerequested" {
-			output = fmt.Sprintf("action %s is skipped", *et.Action)
-			return
+			return fmt.Sprintf("action %s is skipped", *et.Action), nil
 		}
 
 		id := et.CheckRun.GetExternalID()
 		items := strings.Split(id, "/")
 		if len(items) != 2 {
-			err = fmt.Errorf("invalid CheckRun ExternalID %s", id)
-			return
+			return "", fmt.Errorf("invalid CheckRun ExternalID %s", id)
 		}
 
 		pipeName := items[0]
 		var taskID int64
 		taskID, err = strconv.ParseInt(items[1], 10, 64)
 		if err != nil {
-			err = fmt.Errorf("invalid taskID in CheckRun ExternalID %s", id)
-			return
+			return "", fmt.Errorf("invalid taskID in CheckRun ExternalID %s", id)
 		}
 
 		if err = workflowservice.RestartPipelineTaskV2("CheckRun", taskID, pipeName, config.SingleType, log); err != nil {
-			err = e.ErrGithubWebHook.AddErr(err)
-			return
+			return "", e.ErrGithubWebHook.AddErr(err)
 		}
 
 	default:
-		output = fmt.Sprintf("event %s not support", hookType)
-		return
+		return fmt.Sprintf("event %s not support", hookType), nil
 	}
 
 	for _, task := range tasks {
@@ -158,7 +149,7 @@ func ProcessGithubHook(payload []byte, req *http.Request, requestID string, log 
 		log.Infof("[Webhook] %s triggered task %s:%d", deliveryID, task.PipelineName, resp.TaskID)
 	}
 
-	return
+	return "", nil
 }
 
 func validateSecret(payload, secretKey []byte, r *http.Request) error {
