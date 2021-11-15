@@ -61,7 +61,7 @@ rules:
       - method: POST
         endpoint: "/api/aslan/service/template/load"
       - method: GET
-        endpoint: "/api/aslan/template/charts/service-demo/variables"
+        endpoint: "/api/aslan/template/charts/?*/variables"
       - method: POST
         endpoint: "/api/aslan/service/helm/services/bulk"
   - action: delete_service
