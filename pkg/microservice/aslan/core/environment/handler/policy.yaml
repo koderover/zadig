@@ -23,6 +23,8 @@ rules:
       - method: GET
         endpoint: "/api/aslan/environment/export/service"
       - method: GET
+        endpoint: "/api/aslan/environment/configmaps"
+      - method: GET
         endpoint: "/api/aslan/environment/kube/pods/?*/events"
       - method: GET
         endpoint: "/api/aslan/environment/kube/events"
