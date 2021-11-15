@@ -46,14 +46,14 @@ func (c *Client) DeleteWebHook(owner, repo, hookID string) error {
 	return c.DeleteHook(context.TODO(), owner, repo, hookIDInt)
 }
 
-func (c *Client) RefreshWebHookSecret(owner, repo, hookID string) error {
+func (c *Client) RefreshWebHookSecret(secret, owner, repo, hookID string) error {
 	hookIDInt, err := strconv.ParseInt(hookID, 10, 64)
 	if err != nil {
 		return err
 	}
 	_, err = c.UpdateHook(context.TODO(), owner, repo, hookIDInt, &git.Hook{
 		URL:    config.WebHookURL(),
-		Secret: gitservice.GetHookSecret(),
+		Secret: secret,
 	})
 
 	return err

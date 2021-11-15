@@ -17,9 +17,11 @@ limitations under the License.
 package migrate
 
 import (
+	internalmongodb "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/mongodb"
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	gitservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gitlab"
 	"github.com/koderover/zadig/pkg/setting"
@@ -36,7 +38,7 @@ func init() {
 func V160ToV170() error {
 	log.Info("Migrating data from 1.6.0 to 1.7.0")
 
-	err := refreshWebHookSecret()
+	err := refreshWebHookSecret(gitservice.GetHookSecret())
 	if err != nil {
 		log.Errorf("Failed to refresh webhook secret, err: %s", err)
 		return err
@@ -47,14 +49,27 @@ func V160ToV170() error {
 
 func V170ToV160() error {
 	log.Info("Rollback data from 1.7.0 to 1.6.0")
+
+	token := getWebHookTokenFromOrganization()
+	if token == "" {
+		return nil
+	}
+
+	log.Info("Start to rollback all webhook secrets")
+	err := refreshWebHookSecret(token)
+	if err != nil {
+		log.Errorf("Failed to refresh webhook secret, err: %s", err)
+		return err
+	}
+
 	return nil
 }
 
 type hookRefresher interface {
-	RefreshWebHookSecret(owner, repo, hookID string) error
+	RefreshWebHookSecret(secret, owner, repo, hookID string) error
 }
 
-func refreshWebHookSecret() error {
+func refreshWebHookSecret(secret string) error {
 	hooks, err := mongodb.NewWebHookColl().List()
 	if err != nil {
 		log.Errorf("Failed to list webhooks, err: %s", err)
@@ -89,7 +104,7 @@ func refreshWebHookSecret() error {
 			continue
 		}
 
-		if err = cl.RefreshWebHookSecret(hook.Owner, hook.Repo, hook.HookID); err != nil {
+		if err = cl.RefreshWebHookSecret(secret, hook.Owner, hook.Repo, hook.HookID); err != nil {
 			log.Warnf("Failed to refresh webhook secret for hook %d in %s/%s, err: %s", hook.HookID, hook.Owner, hook.Repo, err)
 			continue
 		}
@@ -113,4 +128,14 @@ func getCodeHostByAddressAndOwner(address, owner string, all []*systemconfig.Cod
 	}
 
 	return nil
+}
+
+func getWebHookTokenFromOrganization() string {
+	org, found, err := internalmongodb.NewOrganizationColl().Get(1)
+	if err != nil || !found {
+		log.Warnf("Failed to get organization, err: %s", err)
+		return ""
+	}
+
+	return org.Token
 }
