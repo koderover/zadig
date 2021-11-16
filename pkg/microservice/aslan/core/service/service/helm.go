@@ -484,17 +484,17 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 				return
 			}
 
-			err = copyChartRevision(projectName, serviceName, rev)
-			if err != nil {
-				log.Errorf("Failed to copy file %s, err: %s", args.Name, err)
-				finalErr = errors.Wrapf(err, "Failed to copy chart info, service %s", args.Name)
-				return
-			}
-
 			// save files to disk and upload them to s3
 			if err = commonservice.SaveAndUploadService(projectName, serviceName, []string{fmt.Sprintf("%s-%d", serviceName, rev)}, fsTree); err != nil {
 				log.Errorf("Failed to save or upload files for service %s in project %s, error: %s", serviceName, projectName, err)
 				finalErr = e.ErrCreateTemplate.AddErr(err)
+				return
+			}
+
+			err = copyChartRevision(projectName, serviceName, rev)
+			if err != nil {
+				log.Errorf("Failed to copy file %s, err: %s", args.Name, err)
+				finalErr = errors.Wrapf(err, "Failed to copy chart info, service %s", args.Name)
 				return
 			}
 

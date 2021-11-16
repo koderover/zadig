@@ -86,14 +86,6 @@ func SaveAndUploadService(projectName, serviceName string, copies []string, file
 	return fsservice.SaveAndUploadFiles(fileTree, serviceName, localBase, s3Base, copies, log.SugaredLogger())
 }
 
-// SaveAndUploadServiceWithRevision save file to local and upload to s3
-//func SaveAndUploadServiceWithRevision(projectName, serviceName string, fileTree fs.FS, revision int64) error {
-//	serviceNameWithRevision := config.ServiceNameWithRevision(serviceName, revision)
-//	localBase := config.LocalServicePathWithRevision(projectName, serviceName, revision)
-//	s3Base := config.ObjectStorageServicePath(projectName, serviceName)
-//	return fsservice.SaveAndUploadFiles(fileTree, serviceNameWithRevision, localBase, s3Base, log.SugaredLogger())
-//}
-
 func preLoadServiceManifestsFromSource(svc *commonmodels.Service) error {
 	tree, err := fsservice.DownloadFilesFromSource(
 		&fsservice.DownloadFromSourceArgs{CodehostID: svc.CodehostID, Owner: svc.RepoOwner, Repo: svc.RepoName, Path: svc.LoadPath, Branch: svc.BranchName, RepoLink: svc.SrcPath},
