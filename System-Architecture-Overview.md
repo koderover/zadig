@@ -20,14 +20,14 @@ API Gateway：
 Zadig Core：
 - Picket：backend for frontend service.
 - Aslan：main service for all business logic. Project, environment, service, workflow, build, system management are all in this service.
-- Policy:  data source of OPA and policy registration center.
-- Config: system configuration center.
+- Policy：data source of OPA and policy registration center.
+- Config：system configuration center.
 - Workflow Runner：
   - warpdrive：workflow engine, manages reaper and predator
-  - reaper: workflow runner. Used for building, testing tasks.
+  - reaper：workflow runner. Used for building, testing tasks.
   - predator：workflow runner. Used for distribute tasks.
   - plugins：workflow plugins
-    - Jenkins-plugin: workflow runner. Used as connector to trigger Jenkins job and retrieve job information.
+    - Jenkins-plugin：workflow runner. Used as connector to trigger Jenkins job and retrieve job information.
 - Cron：cronjob runner
 - NSQ：message queue
 
