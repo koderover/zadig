@@ -1,4 +1,4 @@
-name: readonly
+name: read-only
 rules:
   - verbs:
       - get_workflow

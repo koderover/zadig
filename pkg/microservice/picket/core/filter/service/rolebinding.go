@@ -10,6 +10,8 @@ import (
 	"github.com/koderover/zadig/pkg/shared/client/user"
 )
 
+const allUsers = "*"
+
 type roleBinding struct {
 	*policy.RoleBinding
 	Username     string `json:"username"`
@@ -29,7 +31,9 @@ func ListRoleBindings(header http.Header, qs url.Values, logger *zap.SugaredLogg
 	var uids []string
 	uidToRoleBinding := make(map[string][]*roleBinding)
 	for _, rb := range rbs {
-		uids = append(uids, rb.UID)
+		if rb.UID != allUsers {
+			uids = append(uids, rb.UID)
+		}
 		uidToRoleBinding[rb.UID] = append(uidToRoleBinding[rb.UID], &roleBinding{RoleBinding: rb})
 	}
 
@@ -54,6 +58,9 @@ func ListRoleBindings(header http.Header, qs url.Values, logger *zap.SugaredLogg
 
 		}
 	}
+
+	// add all 'allUsers' roles
+	res = append(res, uidToRoleBinding[allUsers]...)
 
 	return res, nil
 }

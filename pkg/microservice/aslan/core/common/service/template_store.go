@@ -14,30 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package systemconfig
+package service
 
-import (
-	"github.com/koderover/zadig/pkg/tool/httpclient"
-)
+import "github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/repository/mongodb"
 
-type JiraInfo struct {
-	ID             int64  `json:"id"`
-	Host           string `json:"host"`
-	User           string `json:"user"`
-	AccessToken    string `json:"access_token"`
-	OrganizationID int    `json:"organizationId"`
-	CreatedAt      int64  `json:"created_at"`
-	UpdatedAt      int64  `json:"updated_at"`
-}
-
-func (c *Client) GetJiraInfo() (*JiraInfo, error) {
-	url := "/jira"
-
-	jira := &JiraInfo{}
-	_, err := c.Get(url, httpclient.SetResult(jira))
+func GetDockerfileTemplateContent(id string) (string, error) {
+	dockerfileTemplate, err := mongodb.NewDockerfileTemplateColl().GetById(id)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-
-	return jira, nil
+	return dockerfileTemplate.Content, nil
 }

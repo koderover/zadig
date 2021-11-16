@@ -173,7 +173,7 @@ func prEventToPipelineTasks(event *github.PullRequestEvent, requestID string, lo
 		commitMessage = *event.PullRequest.Title
 	)
 
-	address, err := util.GetAddress(event.Repo.GetURL())
+	address, err := util.GetAddress(event.Repo.GetHTMLURL())
 	if err != nil {
 		log.Errorf("GetAddress failed, url: %s, err: %s", event.Repo.GetURL(), err)
 		return nil, err

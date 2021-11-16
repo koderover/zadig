@@ -20,6 +20,18 @@ rules:
         endpoint: "/api/aslan/environment/kube/workloads"
       - method: GET
         endpoint: "/api/aslan/service/workloads"
+      - method: GET
+        endpoint: "/api/aslan/environment/export/service"
+      - method: GET
+        endpoint: "/api/aslan/environment/configmaps"
+      - method: GET
+        endpoint: "/api/aslan/environment/kube/pods/?*/events"
+      - method: GET
+        endpoint: "/api/aslan/environment/kube/events"
+      - method: GET
+        endpoint: "/api/aslan/logs/sse/pods/?*/containers/?*"
+      - method: GET
+        endpoint: "/api/aslan/project/products/?*/services"
   - action: create_environment
     alias: "新建集成环境"
     description: ""
@@ -30,6 +42,10 @@ rules:
         endpoint: "/api/aslan/environment/environments/?*/helm"
       - method: POST
         endpoint: "/api/aslan/service/workloads"
+      - method: GET
+        endpoint: "/api/aslan/project/products/?*/services"
+      - method: GET
+        endpoint: "/api/aslan/delivery/releases"
   - action: config_environment
     alias: "配置集成环境"
     description: ""
@@ -48,6 +64,8 @@ rules:
         endpoint: "/api/aslan/environment/environments/?*/multiHelmEnv"
       - method: PUT
         endpoint: "/api/aslan/service/workloads"
+      - method: GET
+        endpoint: "/api/aslan/project/products/?*/services"
   - action: manage_environment
     alias: "管理服务实例"
     description: ""
@@ -64,16 +82,6 @@ rules:
         endpoint: "/api/aslan/environment/configmaps"
       - method: POST
         endpoint: "/api/aslan/environment/configmaps"
-      - method: GET
-        endpoint: "/api/aslan/environment/export/service"
-      - method: GET
-        endpoint: "/api/aslan/environment/kube/pods/?*/events"
-      - method: GET
-        endpoint: "/api/aslan/environment/kube/events"
-      - method: GET
-        endpoint: "/api/aslan/environment/export/service"
-      - method: GET
-        endpoint: "/api/aslan/logs/sse/pods/?*/containers/?*"
       - method: PUT
         endpoint: "/api/aslan/environment/environments/?*/services/?*/?*"
       - method: POST

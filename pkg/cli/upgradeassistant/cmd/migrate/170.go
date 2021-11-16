@@ -17,9 +17,11 @@ limitations under the License.
 package migrate
 
 import (
+	internalmongodb "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/mongodb"
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	gitservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gitlab"
 	"github.com/koderover/zadig/pkg/setting"
@@ -36,7 +38,13 @@ func init() {
 func V160ToV170() error {
 	log.Info("Migrating data from 1.6.0 to 1.7.0")
 
-	err := refreshWebHookSecret()
+	err := changeCodehostType()
+	if err != nil {
+		log.Errorf("Failed to change codehost type, err: %s", err)
+		return err
+	}
+
+	err = refreshWebHookSecret(gitservice.GetHookSecret())
 	if err != nil {
 		log.Errorf("Failed to refresh webhook secret, err: %s", err)
 		return err
@@ -47,14 +55,31 @@ func V160ToV170() error {
 
 func V170ToV160() error {
 	log.Info("Rollback data from 1.7.0 to 1.6.0")
+	err := rollbackCodehostType()
+	if err != nil {
+		log.Errorf("Failed to rollback codehost type, err: %s", err)
+		return err
+	}
+	token := getWebHookTokenFromOrganization()
+	if token == "" {
+		return nil
+	}
+
+	log.Info("Start to rollback all webhook secrets")
+	err = refreshWebHookSecret(token)
+	if err != nil {
+		log.Errorf("Failed to refresh webhook secret, err: %s", err)
+		return err
+	}
+
 	return nil
 }
 
 type hookRefresher interface {
-	RefreshWebHookSecret(owner, repo, hookID string) error
+	RefreshWebHookSecret(secret, owner, repo, hookID string) error
 }
 
-func refreshWebHookSecret() error {
+func refreshWebHookSecret(secret string) error {
 	hooks, err := mongodb.NewWebHookColl().List()
 	if err != nil {
 		log.Errorf("Failed to list webhooks, err: %s", err)
@@ -89,7 +114,7 @@ func refreshWebHookSecret() error {
 			continue
 		}
 
-		if err = cl.RefreshWebHookSecret(hook.Owner, hook.Repo, hook.HookID); err != nil {
+		if err = cl.RefreshWebHookSecret(secret, hook.Owner, hook.Repo, hook.HookID); err != nil {
 			log.Warnf("Failed to refresh webhook secret for hook %d in %s/%s, err: %s", hook.HookID, hook.Owner, hook.Repo, err)
 			continue
 		}
@@ -113,4 +138,53 @@ func getCodeHostByAddressAndOwner(address, owner string, all []*systemconfig.Cod
 	}
 
 	return nil
+}
+
+// change type "1,2,3,4" to "github,gitlab..."
+func changeCodehostType() error {
+	// get all codehosts
+	codeHosts, err := internalmongodb.NewCodehostColl().ListCodeHosts()
+	if err != nil {
+		log.Errorf("fail to list codehosts, err: %s", err)
+		return err
+	}
+	var finalErr error
+	// change type to readable string
+	for _, v := range codeHosts {
+		if err := internalmongodb.NewCodehostColl().ChangeType(v.ID, v.Type); err != nil {
+			log.Warnf("fail to change id:%d type:%s , err: %s", v.ID, v.Type, err)
+			finalErr = err
+		}
+	}
+	return finalErr
+}
+
+// rollback type "github,gitlab..." to "1,2..."
+func rollbackCodehostType() error {
+	// get all codehosts
+	codeHosts, err := internalmongodb.NewCodehostColl().ListCodeHosts()
+	if err != nil {
+		log.Errorf("fail to list codehosts, err: %s", err)
+		return err
+	}
+	var finalErr error
+	// rollback change type to readable string
+	for _, v := range codeHosts {
+		if err := internalmongodb.NewCodehostColl().RollbackType(v.ID, v.Type); err != nil {
+			log.Warnf("fail to rollback id:%d type:%s , err: %s", v.ID, v.Type, err)
+			finalErr = err
+			continue
+		}
+	}
+	return finalErr
+}
+
+func getWebHookTokenFromOrganization() string {
+	org, found, err := internalmongodb.NewOrganizationColl().Get(1)
+	if err != nil || !found {
+		log.Warnf("Failed to get organization, err: %s", err)
+		return ""
+	}
+
+	return org.Token
 }

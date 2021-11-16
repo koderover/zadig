@@ -7,10 +7,11 @@ import (
 )
 
 type Claims struct {
-	Name            string          `json:"name"`
-	Email           string          `json:"email"`
-	UID             string          `json:"uid"`
-	FederatedClaims FederatedClaims `json:"federated_claims"`
+	Name              string          `json:"name"`
+	Email             string          `json:"email"`
+	UID               string          `json:"uid"`
+	PreferredUsername string          `json:"preferred_username"`
+	FederatedClaims   FederatedClaims `json:"federated_claims"`
 	jwt.StandardClaims
 }
 

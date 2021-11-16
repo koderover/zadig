@@ -73,6 +73,13 @@ access_is_granted {
     glob.match(trim(grant.endpoint, "/"), ["/"], concat("/", input.parsed_path))
 }
 
+# Temporarily skip this endpoint, it will be fixed in 1.7.1
+access_is_granted {
+    concat("/", input.parsed_path) == "api/aslan/workflow/workflow"
+    http_request.method == "GET"
+    project_name == ""
+}
+
 user_is_admin {
     some role
     all_roles[role]
@@ -85,7 +92,7 @@ user_is_project_admin {
     some role
     allowed_roles[role]
 
-    role.name == "admin"
+    role.name == "project-admin"
     #role.namespace == project_name
 }
 
