@@ -38,6 +38,7 @@ func NewEngine() *engine {
 	gin.SetMode(s.mode)
 
 	s.injectMiddlewares()
+
 	s.injectRouters()
 
 	return s

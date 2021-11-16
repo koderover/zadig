@@ -22,6 +22,9 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/internal/biz"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/internal/data"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/internal/service"
 	ginmiddleware "github.com/koderover/zadig/pkg/middleware/gin"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -29,11 +32,16 @@ import (
 type engine struct {
 	*gin.Engine
 
-	mode string
+	mode            string
+	CodeHostService *service.CodeHostService
 }
 
 func NewEngine() *engine {
-	s := &engine{mode: config.Mode()}
+	database := data.NewMongo()
+	dataData, _, _ := data.NewData(database)
+	codeHostRepo := data.NewCodeHostRepo(dataData)
+	useC := biz.NewCodeHostUseCase(codeHostRepo, nil)
+	s := &engine{mode: config.Mode(), CodeHostService: service.NewCodeHostService(useC, nil)}
 
 	gin.SetMode(s.mode)
 

@@ -19,15 +19,17 @@ package main
 import (
 	"context"
 	"flag"
-	"log"
 	"os/signal"
 	"syscall"
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/config"
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/server"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/internal/server"
+	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 func main() {
@@ -44,6 +46,12 @@ func main() {
 		stop()
 	}()
 
+	log.Init(&log.Config{
+		Level:       configbase.LogLevel(),
+		Filename:    configbase.LogFile(),
+		SendToFile:  configbase.SendLogToFile(),
+		Development: configbase.Mode() != setting.ReleaseMode,
+	})
 	if err := server.Serve(ctx); err != nil {
 		log.Fatal(err)
 	}

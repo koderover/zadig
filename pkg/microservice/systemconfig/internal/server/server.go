@@ -21,14 +21,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core"
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/server/rest"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/internal/server/rest"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 func Serve(ctx context.Context) error {
-	core.Start(ctx)
-	defer core.Stop(ctx)
 
 	log.Info("Start system config service")
 
