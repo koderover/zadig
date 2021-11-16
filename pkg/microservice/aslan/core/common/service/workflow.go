@@ -35,7 +35,7 @@ import (
 )
 
 func DeleteWorkflows(productName, requestID string, log *zap.SugaredLogger) error {
-	workflows, err := mongodb.NewWorkflowColl().List(&mongodb.ListWorkflowOption{ProductName: productName})
+	workflows, err := mongodb.NewWorkflowColl().List(&mongodb.ListWorkflowOption{Projects: []string{productName}})
 	if err != nil {
 		log.Errorf("Workflow.List error: %v", err)
 		return fmt.Errorf("DeleteWorkflows productName %s Workflow.List error: %v", productName, err)

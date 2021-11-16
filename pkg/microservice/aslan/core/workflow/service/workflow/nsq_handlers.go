@@ -894,7 +894,7 @@ func (h *TaskNotificationHandler) HandleMessage(message *nsq.Message) error {
 }
 
 func upsertWorkflowStat(args *commonmodels.WorkflowStat, log *zap.SugaredLogger) error {
-	if workflowStats, _ := commonrepo.NewWorkflowStatColl().FindWorkflowStat(&commonrepo.WorkflowStatArgs{Name: args.Name, Type: args.Type}); len(workflowStats) > 0 {
+	if workflowStats, _ := commonrepo.NewWorkflowStatColl().FindWorkflowStat(&commonrepo.WorkflowStatArgs{Names: []string{args.Name}, Type: args.Type}); len(workflowStats) > 0 {
 		currentWorkflowStat := workflowStats[0]
 		currentWorkflowStat.TotalDuration += args.TotalDuration
 		currentWorkflowStat.TotalSuccess += args.TotalSuccess
