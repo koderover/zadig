@@ -68,10 +68,7 @@ func (c *CodehostColl) GetCodeHostByID(ID int) (*models.CodeHost, error) {
 	codehost := new(models.CodeHost)
 	query := bson.M{"id": ID, "deleted_at": 0}
 	err := c.Collection.FindOne(context.TODO(), query).Decode(codehost)
-	if err != nil {
-		return nil, nil
-	}
-	return codehost, nil
+	return codehost, err
 }
 
 func (c *CodehostColl) List(args *ListArgs) ([]*models.CodeHost, error) {
