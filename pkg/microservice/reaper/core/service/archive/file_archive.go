@@ -243,7 +243,6 @@ func (c *WorkspaceAchiever) Achieve(target string) error {
 func (c *WorkspaceAchiever) renderPathVariable(path string) (string, error) {
 	envs := c.Envs
 	cmd := exec.Command("/bin/bash", "-c", fmt.Sprintf("%s %s", "echo", path))
-	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Env = envs
 	data, err := cmd.Output()
