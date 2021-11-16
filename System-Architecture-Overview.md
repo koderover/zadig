@@ -7,8 +7,8 @@
 ## Main Components
 
 User Interface：
-- zadig-portal：zadig web component
-- kodespace：zadig command line tools
+- zadig-portal：Zadig web component
+- kodespace：Zadig command line tools
 - Zadig Toolkit：vscode plugin
 
 API Gateway：
@@ -36,4 +36,4 @@ Data Plane：
 - MySQL：dex configuration,database for user.
 
 Kubernetes Cluster：
-- zadig business runs on standard K8s clusters from cloud vendors
+- Zadig business runs on standard K8s clusters from cloud vendors

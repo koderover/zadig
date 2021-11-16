@@ -7,15 +7,15 @@
 ## 核心组件介绍
 
 用户入口：
-- zadig-portal：zadig 前端组件
-- kodespace：zadig 开发者命令行工具
+- zadig-portal：Zadig 前端组件
+- kodespace：Zadig 开发者命令行工具
 - Zadig Toolkit：vscode 开发者插件
 
 API 网关：
-- Gloo Edge：zadig 的 API 网关组件
+- Gloo Edge：Zadig 的 API 网关组件
 - OPA：认证和授权组件
 - User：用户管理，Token 生成
-- Dex：zadig 的身份认证服务，用于连接其他第三方认证系统，比如 AD / LDAP / OAuth2 / GitHub / ..
+- Dex：Zadig 的身份认证服务，用于连接其他第三方认证系统，比如 AD / LDAP / OAuth2 / GitHub / ..
 
 Zadig 核心业务：
 - Picket：数据聚合服务
@@ -36,4 +36,4 @@ Zadig 核心业务：
 - MySQL：存储 dex 配置、用户信息的数据库
 
 K8s 集群：
-- zadig 业务运行在各种云厂商的标准 K8s 集群
+- Zadig 业务运行在各种云厂商的标准 K8s 集群
