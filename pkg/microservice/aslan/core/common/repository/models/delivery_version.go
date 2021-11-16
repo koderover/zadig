@@ -25,6 +25,7 @@ type DeliveryVersion struct {
 	Version        string             `bson:"version"                 json:"version"`
 	ProductName    string             `bson:"product_name"            json:"productName"`
 	WorkflowName   string             `bson:"workflow_name"           json:"workflowName"`
+	Type           string             `bson:"type"          		  json:"type"`
 	TaskID         int                `bson:"task_id"                 json:"taskId"`
 	Desc           string             `bson:"desc"                    json:"desc"`
 	Labels         []string           `bson:"labels"                  json:"labels"`
