@@ -346,8 +346,8 @@ func (p *JiraPlugin) getJiraIssue(pipelineTask *task.Task, key string) (*task.Ji
 	jiraCli := jira.NewJiraClient(jiraInfo.User, jiraInfo.AccessToken, jiraInfo.Host)
 	issue, err := jiraCli.Issue.GetByKeyOrID(key, "")
 	if err != nil {
-		fmt.Printf("GetIssueByKeyOrID [%s] error: %v user:%s access:%s host: %s,", key, err, jiraInfo.User, jiraInfo.AccessToken)
-		return jiraIssue, fmt.Errorf("GetIssueByKeyOrID [%s] error: %v user:%s access:%s host: %s,", key, err, jiraInfo.User, jiraInfo.AccessToken)
+		fmt.Printf("GetIssueByKeyOrID [%s] error: %v user:%s access:%s host: %s,", key, err, jiraInfo.User, jiraInfo.AccessToken, jiraInfo.Host)
+		return jiraIssue, fmt.Errorf("GetIssueByKeyOrID [%s] error: %v user:%s access:%s host: %s,", key, err, jiraInfo.User, jiraInfo.AccessToken, jiraInfo.Host)
 	}
 
 	jiraIssue.ID = issue.ID
