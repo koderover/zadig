@@ -13,6 +13,9 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/service"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/internal/biz"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/internal/data"
+	service2 "github.com/koderover/zadig/pkg/microservice/systemconfig/internal/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
@@ -54,7 +57,12 @@ func GetCodeHost(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	ctx.Resp, ctx.Err = service.GetCodeHost(id, ctx.Logger)
+	database := data.NewMongo()
+	dataData, _, err := data.NewData(database)
+	codeHostRepo := data.NewCodeHostRepo(dataData)
+	useC := biz.NewCodeHostUseCase(codeHostRepo, ctx.Logger)
+	s := service2.NewCodeHostService(useC, ctx.Logger)
+	ctx.Resp, ctx.Err = s.GetCodeHost(context.TODO(), id)
 }
 
 func AuthCodeHost(c *gin.Context) {
