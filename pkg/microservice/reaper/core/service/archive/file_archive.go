@@ -121,6 +121,11 @@ func (c *WorkspaceAchiever) process(match string) bool {
 
 func (c *WorkspaceAchiever) processPaths(paths []string, verbose bool) {
 	for _, path := range paths {
+		//replace path
+		path, err := c.renderPathVariable(path)
+		if err != nil {
+			fmt.Println("err:", err)
+		}
 		fmt.Println("path:", path)
 		matches, err := filepath.Glob(filepath.Join(c.wd, path))
 		if err != nil {
@@ -233,4 +238,15 @@ func (c *WorkspaceAchiever) Achieve(target string) error {
 
 	return nil
 
+}
+
+func (c *WorkspaceAchiever) renderPathVariable(path string) (string, error) {
+	envs := c.Envs
+	cmd := exec.Command("/bin/bash", "-c", fmt.Sprintf("%s %s", "echo", path))
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = envs
+	data, err := cmd.Output()
+
+	return string(data), err
 }
