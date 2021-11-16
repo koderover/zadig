@@ -8,6 +8,8 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
+
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/config"
 )
 
 type Data struct {
@@ -17,7 +19,7 @@ type Data struct {
 // NewMongo
 func NewMongo() *mongo.Database {
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27019"))
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI(config.MongoURI()))
 	if err != nil {
 		panic(err)
 	}
@@ -25,7 +27,7 @@ func NewMongo() *mongo.Database {
 	if err != nil {
 		panic(err)
 	}
-	return client.Database("testing")
+	return client.Database("nga")
 }
 
 // NewData
