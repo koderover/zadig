@@ -85,7 +85,7 @@ func (r *Reaper) GetCacheFile() string {
 }
 
 func (r *Reaper) archiveCustomCaches(wd, dest string, caches []string) error {
-	fileAchiever := archive.NewWorkspaceAchiever(r.Ctx.StorageURI, r.Ctx.PipelineName, r.Ctx.ServiceName, wd, caches, []string{})
+	fileAchiever := archive.NewWorkspaceAchiever(r.Ctx.StorageURI, r.Ctx.PipelineName, r.Ctx.ServiceName, wd, caches, []string{}, r.getUserEnvs())
 
 	// list files matches caches
 	return fileAchiever.Achieve(dest)
