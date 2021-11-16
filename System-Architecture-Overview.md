@@ -13,7 +13,7 @@ User Interface：
 
 API Gateway：
 - Gloo Edge：Zadig API gateway
-- OPA：Authentication  and authorization
+- OPA：Authentication and authorization
 - User：User management, token generation
 - Dex：Identity service for Zadig, acts as a portal to other identity providers like AD, LDAP, OAuth2, GitHub, ...
 
@@ -37,4 +37,4 @@ Data Plane：
 - mysql：dex configuration,database for user.
 
 Kubernetes Cluster：
-- Zadig business runs on standard K8s clusters from cloud vendors
+- zadig business runs on standard K8s clusters from cloud vendors
