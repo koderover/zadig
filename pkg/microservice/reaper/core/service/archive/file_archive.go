@@ -41,9 +41,10 @@ type WorkspaceAchiever struct {
 	StorageURI   string
 	PipelineName string
 	ServiceName  string
+	Envs         []string
 }
 
-func NewWorkspaceAchiever(storageURI, pipelineName, serviceName, wd string, caches []string, gitFolders []string) *WorkspaceAchiever {
+func NewWorkspaceAchiever(storageURI, pipelineName, serviceName, wd string, caches, gitFolders, envs []string) *WorkspaceAchiever {
 	return &WorkspaceAchiever{
 		paths:        caches,
 		wd:           wd,
@@ -51,6 +52,7 @@ func NewWorkspaceAchiever(storageURI, pipelineName, serviceName, wd string, cach
 		StorageURI:   storageURI,
 		PipelineName: pipelineName,
 		ServiceName:  serviceName,
+		Envs:         envs,
 	}
 }
 
@@ -119,6 +121,7 @@ func (c *WorkspaceAchiever) process(match string) bool {
 
 func (c *WorkspaceAchiever) processPaths(paths []string, verbose bool) {
 	for _, path := range paths {
+		fmt.Println("path:", path)
 		matches, err := filepath.Glob(filepath.Join(c.wd, path))
 		if err != nil {
 			log.Warningf("%s: %v", path, err)
