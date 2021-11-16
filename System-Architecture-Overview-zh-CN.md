@@ -19,8 +19,8 @@ API 网关：
 
 Zadig 核心业务：
 - Picket：数据聚合服务
-- Policy：OPA 数据源，策略注册中心
 - Aslan：项目 / 环境 / 服务 / 工作流 / 构建配置 / 系统配置等系统功能
+- Policy：OPA 数据源，策略注册中心
 - Config: 系统配置
 - Workflow Runner：
   - warpdrive：工作流引擎，负责 reaper、predator 实例的创建销毁等管理操作

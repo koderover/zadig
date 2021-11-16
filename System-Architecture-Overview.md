@@ -19,8 +19,8 @@ API Gateway：
 
 Zadig Core：
 - Picket：backend for frontend service.
-- Policy:  data source of OPA and policy registration center.
 - Aslan：main service for all business logic. Project, environment, service, workflow, build, system management are all in this service.
+- Policy:  data source of OPA and policy registration center.
 - Config: system configuration center.
 - Workflow Runner：
   - warpdrive：workflow engine, manages reaper and predator
