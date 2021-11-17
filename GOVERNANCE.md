@@ -61,3 +61,4 @@ The council will make a decision for the nomination. The candidate has to have d
 - [jiangpeipei327](https://github.com/jiangpeipei327)
 - [lyzhang1999](https://github.com/lyzhang1999)
 - [avtion](https://github.com/avtion)
+- [wbjxxzx](https://github.com/wbjxxzx)
