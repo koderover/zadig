@@ -133,4 +133,16 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		serviceTask.GET("/workflows/:productName/:envName/:serviceName/:serviceType", ListServiceWorkflows)
 	}
+
+	// ---------------------------------------------------------------------------------------
+	// 新版本 通用工作流（暂命名） 接口
+	// ---------------------------------------------------------------------------------------
+	workflowV3 := router.Group("v3")
+	{
+		workflowV3.POST("", gin2.UpdateOperationLogStatus, CreateWorkflowV3)
+		workflowV3.GET("", ListWorkflowsV3)
+		workflowV3.GET("/:id", GetWorkflowV3Detail)
+		workflowV3.PUT("/:id", gin2.UpdateOperationLogStatus, UpdateWorkflowV3)
+		workflowV3.DELETE("/:id", DeleteWorkflowV3)
+	}
 }
