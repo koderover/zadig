@@ -50,6 +50,7 @@ type Workflow struct {
 	ProjectName          string                     `json:"projectName"`
 	UpdateTime           int64                      `json:"updateTime"`
 	CreateTime           int64                      `json:"createTime"`
+	UpdateBy             string                     `json:"updateBy,omitempty"`
 	Schedules            *commonmodels.ScheduleCtrl `json:"schedules,omitempty"`
 	SchedulerEnabled     bool                       `json:"schedulerEnabled"`
 	EnabledStages        []string                   `json:"enabledStages"`
@@ -527,6 +528,7 @@ func ListWorkflows(projects []string, userID string, log *zap.SugaredLogger) ([]
 			ProjectName:      w.ProductTmplName,
 			UpdateTime:       w.UpdateTime,
 			CreateTime:       w.CreateTime,
+			UpdateBy:         w.UpdateBy,
 			SchedulerEnabled: w.ScheduleEnabled,
 			Schedules:        w.Schedules,
 			EnabledStages:    stages,
