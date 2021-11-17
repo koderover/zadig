@@ -38,12 +38,14 @@ func init() {
 func V160ToV170() error {
 	log.Info("Migrating data from 1.6.0 to 1.7.0")
 
+	log.Info("Start to change codeHost type")
 	err := changeCodehostType()
 	if err != nil {
 		log.Errorf("Failed to change codehost type, err: %s", err)
 		return err
 	}
 
+	log.Info("Start to refresh all webhook secrets")
 	err = refreshWebHookSecret(gitservice.GetHookSecret())
 	if err != nil {
 		log.Errorf("Failed to refresh webhook secret, err: %s", err)
@@ -55,20 +57,23 @@ func V160ToV170() error {
 
 func V170ToV160() error {
 	log.Info("Rollback data from 1.7.0 to 1.6.0")
-	err := rollbackCodehostType()
-	if err != nil {
-		log.Errorf("Failed to rollback codehost type, err: %s", err)
-		return err
-	}
+
 	token := getWebHookTokenFromOrganization()
 	if token == "" {
 		return nil
 	}
 
 	log.Info("Start to rollback all webhook secrets")
-	err = refreshWebHookSecret(token)
+	err := refreshWebHookSecret(token)
 	if err != nil {
 		log.Errorf("Failed to refresh webhook secret, err: %s", err)
+		return err
+	}
+
+	log.Info("Start to rollback codeHost type")
+	err = rollbackCodehostType()
+	if err != nil {
+		log.Errorf("Failed to rollback codehost type, err: %s", err)
 		return err
 	}
 
