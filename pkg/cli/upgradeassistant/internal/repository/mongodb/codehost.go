@@ -3,12 +3,13 @@ package mongodb
 import (
 	"context"
 
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
 	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func (c *CodehostColl) ChangeType(ID int, sourceType string) error {
@@ -66,10 +67,10 @@ func (c *CodehostColl) RollbackType(ID int, sourceType string) error {
 	return nil
 }
 
-func (c *CodehostColl) ListCodeHosts() ([]*models.CodeHost, error) {
+func (c *CodehostColl) List() ([]*models.CodeHost, error) {
 	codeHosts := make([]*models.CodeHost, 0)
-
-	cursor, err := c.Collection.Find(context.TODO(), bson.M{})
+	query := bson.M{"deleted_at": 0}
+	cursor, err := c.Collection.Find(context.TODO(), query)
 	if err != nil {
 		return nil, err
 	}
@@ -77,6 +78,7 @@ func (c *CodehostColl) ListCodeHosts() ([]*models.CodeHost, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return codeHosts, nil
 }
 

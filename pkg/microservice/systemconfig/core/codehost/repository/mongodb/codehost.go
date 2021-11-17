@@ -76,6 +76,10 @@ func (c *CodehostColl) GetCodeHostByID(ID int) (*models.CodeHost, error) {
 func (c *CodehostColl) List(args *ListArgs) ([]*models.CodeHost, error) {
 	codeHosts := make([]*models.CodeHost, 0)
 	query := bson.M{"deleted_at": 0}
+
+	if args == nil {
+		args = &ListArgs{}
+	}
 	if args.Address != "" {
 		query["address"] = args.Address
 	}
