@@ -10,20 +10,37 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 )
 
-func CreateWorkflowV3(user string, workflow *WorkflowV3, logger *zap.SugaredLogger) error {
-	workflowModel := new(commonmodels.WorkflowV3)
-	out, err := json.Marshal(workflow)
-	if err != nil {
-		logger.Errorf("Failed to unmarshal given workflow, the error is: %s", err)
-		return err
-	}
-	logger.Infof("out:%s", string(out))
-	err = json.Unmarshal(out, workflowModel)
-	if err != nil {
-		logger.Errorf("Cannot convert workflow into database model, the error is: %s", err)
-		return err
-	}
-	logger.Infof("workflowModel:%+v", workflowModel)
+func CreateWorkflowV3(user string, workflowModel *commonmodels.WorkflowV3, logger *zap.SugaredLogger) error {
+	//workflowModel := &commonmodels.WorkflowV3{
+	//	Name:        workflow.Name,
+	//	ProjectName: workflow.ProjectName,
+	//	Description: workflow.Description,
+	//	Parameters:  workflow.Parameters,
+	//	SubTasks:    workflow.SubTasks,
+	//}
+	//out, err := json.Marshal(workflow)
+	//if err != nil {
+	//	logger.Errorf("Failed to unmarshal given workflow, the error is: %s", err)
+	//	return err
+	//}out, err := json.Marshal(workflow)
+	//	//if err != nil {
+	//	//	logger.Errorf("Failed to unmarshal given workflow, the error is: %s", err)
+	//	//	return err
+	//	//}
+	//	//logger.Infof("out:%s", string(out))
+	//	//err = json.Unmarshal(out, workflowModel)
+	//	//if err != nil {
+	//	//	logger.Errorf("Cannot convert workflow into database model, the error is: %s", err)
+	//	//	return err
+	//	//}
+	//	//logger.Infof("workflowModel:%+v", workflowModel)
+	//logger.Infof("out:%s", string(out))
+	//err = json.Unmarshal(out, workflowModel)
+	//if err != nil {
+	//	logger.Errorf("Cannot convert workflow into database model, the error is: %s", err)
+	//	return err
+	//}
+	//logger.Infof("workflowModel:%+v", workflowModel)
 	workflowModel.CreatedBy = user
 	workflowModel.UpdatedBy = user
 	workflowModel.CreateTime = time.Now().Unix()

@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	"github.com/koderover/zadig/pkg/tool/errors"
@@ -17,7 +18,7 @@ func CreateWorkflowV3(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	req := &workflowservice.WorkflowV3{}
+	req := &commonmodels.WorkflowV3{}
 
 	data, err := c.GetRawData()
 	if err != nil {
