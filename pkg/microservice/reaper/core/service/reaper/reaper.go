@@ -98,7 +98,7 @@ func (r *Reaper) CompressCache(storageURI string) error {
 		return err
 	}
 	if len(r.Ctx.Caches) > 0 {
-		log.Infof("custom caches will be cached: %v", r.Ctx.Caches)
+		log.Infof("custom caches will be cached")
 		if err := r.archiveCustomCaches(r.ActiveWorkspace, r.GetCacheFile(), r.Ctx.Caches); err != nil {
 			return err
 		}
