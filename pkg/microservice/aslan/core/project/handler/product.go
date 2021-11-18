@@ -105,10 +105,6 @@ func UpdateProductTmplStatus(c *gin.Context) {
 	ctx.Err = projectservice.UpdateProductTmplStatus(productName, onboardingStatus, ctx.Logger)
 }
 
-type updateServiceOrderArgs struct {
-	Services [][]string `json:"services"`
-}
-
 func UpdateProject(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
