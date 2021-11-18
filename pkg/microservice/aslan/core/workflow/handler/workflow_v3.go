@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gin-gonic/gin/binding"
 
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -20,14 +19,14 @@ func CreateWorkflowV3(c *gin.Context) {
 
 	data, err := c.GetRawData()
 	if err != nil {
-		log.Errorf("CreateWorkflowV3 err: %v", err)
+		log.Errorf("CreateWorkflowV3 err: %s", err)
 	}
 	if err = json.Unmarshal(data, req); err != nil {
-		log.Errorf("CreateWorkflow unmarshal json err: %v", err)
+		log.Errorf("CreateWorkflow unmarshal json err: %s", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, req.ProjectName, "新增", "工作流V3", req.Name, string(data), ctx.Logger)
 
-	if err := c.ShouldBindWith(&req, binding.JSON); err != nil {
+	if err := c.ShouldBindJSON(&req); err != nil {
 		ctx.Err = errors.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
@@ -80,14 +79,14 @@ func UpdateWorkflowV3(c *gin.Context) {
 
 	data, err := c.GetRawData()
 	if err != nil {
-		log.Errorf("CreateWorkflowV3 err: %v", err)
+		log.Errorf("CreateWorkflowV3 err: %s", err)
 	}
 	if err = json.Unmarshal(data, req); err != nil {
-		log.Errorf("CreateWorkflow unmarshal json err: %v", err)
+		log.Errorf("CreateWorkflow unmarshal json err: %s", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, req.ProjectName, "修改", "工作流V3", req.Name, string(data), ctx.Logger)
 
-	if err := c.ShouldBindWith(&req, binding.JSON); err != nil {
+	if err := c.ShouldBindJSON(&req); err != nil {
 		ctx.Err = errors.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
