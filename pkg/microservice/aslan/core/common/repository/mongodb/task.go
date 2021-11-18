@@ -246,7 +246,7 @@ func (c *TaskColl) ListRecentTasks(args *ListTaskOption) ([]*TaskInfo, error) {
 		return nil, err
 	}
 
-	return res, err
+	return res, nil
 }
 
 func (c *TaskColl) List(option *ListTaskOption) (ret []*TaskPreview, err error) {

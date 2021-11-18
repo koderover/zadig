@@ -119,7 +119,12 @@ func ListWorkflows(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	projects := c.QueryArray("projects")
-	if c.Query("projectName") != "" {
+	projectName := c.Query("projectName")
+	if projectName != "" && len(projects) > 0 {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projects and projectName can not be set together")
+		return
+	}
+	if projectName != "" {
 		projects = []string{c.Query("projectName")}
 	}
 
