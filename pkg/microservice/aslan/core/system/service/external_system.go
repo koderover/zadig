@@ -15,7 +15,7 @@ func CreateExternalSystem(args *ExternalSystemDetail, log *zap.SugaredLogger) er
 		APIToken: args.APIToken,
 	})
 	if err != nil {
-		log.Errorf("ExternalLink.Create error: %s", err)
+		log.Errorf("Create external system error: %s", err)
 		return e.ErrCreateExternalLink.AddErr(err)
 	}
 	return nil
@@ -52,10 +52,14 @@ func GetExternalSystemDetail(id string, log *zap.SugaredLogger) (*ExternalSystem
 	return resp, nil
 }
 
-func UpdateExternalSystem(id string, system *commonmodels.ExternalSystem, log *zap.SugaredLogger) error {
+func UpdateExternalSystem(id string, system *ExternalSystemDetail, log *zap.SugaredLogger) error {
 	err := commonrepo.NewExternalSystemColl().Update(
 		id,
-		system,
+		&commonmodels.ExternalSystem{
+			Name:     system.Name,
+			Server:   system.Server,
+			APIToken: system.APIToken,
+		},
 	)
 	if err != nil {
 		log.Errorf("update external system error: %s", err)
@@ -66,7 +70,7 @@ func UpdateExternalSystem(id string, system *commonmodels.ExternalSystem, log *z
 func DeleteExternalSystem(id string, log *zap.SugaredLogger) error {
 	err := commonrepo.NewExternalSystemColl().DeleteByID(id)
 	if err != nil {
-		log.Errorf("Failed to delete dockerfile template of id: %s, the error is: %s", id, err)
+		log.Errorf("Failed to delete external system of id: %s, the error is: %s", id, err)
 	}
 	return err
 }

@@ -9,7 +9,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -66,6 +65,7 @@ func ListExternalSystem(c *gin.Context) {
 			SystemList: systemList,
 			Total:      length,
 		}
+		return
 	}
 	ctx.Err = err
 }
@@ -81,7 +81,7 @@ func UpdateExternalSystem(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	req := new(commonmodels.ExternalSystem)
+	req := new(service.ExternalSystemDetail)
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("UpdateExternalSystem GetRawData err : %s", err)

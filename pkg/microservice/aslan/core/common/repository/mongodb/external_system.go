@@ -70,7 +70,7 @@ func (c *ExternalSystemColl) List(pageNum, pageSize int64) ([]*models.ExternalSy
 		return nil, 0, err
 	}
 
-	return resp, count, err
+	return resp, count, nil
 }
 
 func (c *ExternalSystemColl) GetByID(idstring string) (*models.ExternalSystem, error) {
