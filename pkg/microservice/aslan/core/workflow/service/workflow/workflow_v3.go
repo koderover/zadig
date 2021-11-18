@@ -17,13 +17,17 @@ func CreateWorkflowV3(user string, workflow *WorkflowV3, logger *zap.SugaredLogg
 		logger.Errorf("Failed to unmarshal given workflow, the error is: %s", err)
 		return err
 	}
-	err = json.Unmarshal(out, &workflowModel)
+	logger.Infof("out:%s", string(out))
+	err = json.Unmarshal(out, workflowModel)
 	if err != nil {
 		logger.Errorf("Cannot convert workflow into database model, the error is: %s", err)
 		return err
 	}
+	logger.Infof("workflowModel:%+v", workflowModel)
 	workflowModel.CreatedBy = user
+	workflowModel.UpdatedBy = user
 	workflowModel.CreateTime = time.Now().Unix()
+	workflowModel.UpdateTime = time.Now().Unix()
 	return commonrepo.NewWorkflowV3Coll().Create(workflowModel)
 }
 
