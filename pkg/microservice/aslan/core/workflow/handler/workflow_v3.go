@@ -79,10 +79,10 @@ func UpdateWorkflowV3(c *gin.Context) {
 
 	data, err := c.GetRawData()
 	if err != nil {
-		log.Errorf("CreateWorkflowV3 err: %s", err)
+		log.Errorf("UpdateWorkflowV3 err: %s", err)
 	}
 	if err = json.Unmarshal(data, req); err != nil {
-		log.Errorf("CreateWorkflow unmarshal json err: %s", err)
+		log.Errorf("UpdateWorkflowV3 unmarshal json err: %s", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, req.ProjectName, "修改", "工作流V3", req.Name, string(data), ctx.Logger)
 
