@@ -6,7 +6,7 @@ import (
 )
 
 type WorkflowV3 struct {
-	ID          primitive.ObjectID       `bson:"_id"`
+	ID          primitive.ObjectID       `bson:"_id,omitempty"`
 	Name        string                   `bson:"name"`
 	ProjectName string                   `bson:"project_name"`
 	Description string                   `bson:"description"`
