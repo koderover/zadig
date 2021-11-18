@@ -47,7 +47,7 @@ func (c *ExternalSystemColl) Create(args *models.ExternalSystem) error {
 	return err
 }
 
-func (c *ExternalSystemColl) List(pageSize, pageNum int64) ([]*models.ExternalSystem, int64, error) {
+func (c *ExternalSystemColl) List(pageNum, pageSize int64) ([]*models.ExternalSystem, int64, error) {
 	query := bson.M{}
 	resp := make([]*models.ExternalSystem, 0)
 	ctx := context.Background()
