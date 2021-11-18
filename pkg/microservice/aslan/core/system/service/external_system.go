@@ -8,8 +8,12 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-func CreateExternalSystem(args *commonmodels.ExternalSystem, log *zap.SugaredLogger) error {
-	err := commonrepo.NewExternalSystemColl().Create(args)
+func CreateExternalSystem(args *ExternalSystemDetail, log *zap.SugaredLogger) error {
+	err := commonrepo.NewExternalSystemColl().Create(&commonmodels.ExternalSystem{
+		Name:     args.Name,
+		Server:   args.Server,
+		APIToken: args.APIToken,
+	})
 	if err != nil {
 		log.Errorf("ExternalLink.Create error: %s", err)
 		return e.ErrCreateExternalLink.AddErr(err)

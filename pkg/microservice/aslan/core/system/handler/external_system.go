@@ -19,7 +19,7 @@ func CreateExternalSystem(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := new(commonmodels.ExternalSystem)
+	args := new(service.ExternalSystemDetail)
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("CreateExternalSystem GetRawData err : %s", err)
