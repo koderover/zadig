@@ -196,4 +196,16 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		externalLink.PUT("/:id", gin2.UpdateOperationLogStatus, UpdateExternalLink)
 		externalLink.DELETE("/:id", gin2.UpdateOperationLogStatus, DeleteExternalLink)
 	}
+
+	// ---------------------------------------------------------------------------------------
+	// external system API
+	// ---------------------------------------------------------------------------------------
+	externalSystem := router.Group("external")
+	{
+		externalSystem.POST("", gin2.UpdateOperationLogStatus, CreateExternalSystem)
+		externalSystem.GET("", ListExternalSystem)
+		externalSystem.GET("/:id", GetExternalSystemDetail)
+		externalSystem.PUT("/:id", gin2.UpdateOperationLogStatus, UpdateExternalSystem)
+		externalSystem.DELETE("/:id", gin2.UpdateOperationLogStatus, DeleteExternalSystem)
+	}
 }
