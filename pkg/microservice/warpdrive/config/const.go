@@ -21,6 +21,7 @@ type TaskType string
 const (
 	TaskPipeline       TaskType = "pipeline"
 	TaskBuild          TaskType = "buildv2"
+	TaskBuildV3        TaskType = "buildv3"
 	TaskArtifactDeploy TaskType = "artifact_deploy"
 	TaskJenkinsBuild   TaskType = "jenkins_build"
 	TaskArtifact       TaskType = "artifact"
@@ -33,6 +34,7 @@ const (
 	TaskSecurity       TaskType = "security"
 	TaskResetImage     TaskType = "reset_image"
 	TaskDistribute     TaskType = "distribute"
+	TaskTrigger        TaskType = "trigger"
 )
 
 type Status string
@@ -65,6 +67,8 @@ const (
 	TestType PipelineType = "test"
 	// ServiceType 服务
 	ServiceType PipelineType = "service"
+	// workflowTypeV3 服务
+	WorkflowTypeV3 PipelineType = "workflow_v3"
 )
 
 type NotifyType int

@@ -1,155 +1,187 @@
 package workflow
 
-//func CreateWorkflowTaskV3(args *commonmodels.WorkflowV3Args, username, reqID string, log *zap.SugaredLogger) (*CreateTaskResp, error) {
-//	pipeline, err := commonrepo.NewPipelineColl().Find(&commonrepo.PipelineFindOption{Name: args.PipelineName})
-//	if err != nil {
-//		log.Errorf("PipelineV2.Find %s error: %v", args.PipelineName, err)
-//		return nil, e.ErrCreateTask.AddDesc(e.FindPipelineErrMsg)
-//	}
-//
-//	nextTaskID, err := commonrepo.NewCounterColl().GetNextSeq(fmt.Sprintf(setting.PipelineTaskFmt, args.Name))
-//	if err != nil {
-//		log.Errorf("Counter.GetNextSeq error: %v", err)
-//		return nil, e.ErrGetCounter.AddDesc(err.Error())
-//	}
-//
-//	// 更新单服务工作的subtask的build_os
-//	// 自定义基础镜像的镜像名称可能会被更新，需要使用ID获取最新的镜像名称
-//	for i, subTask := range pipeline.SubTasks {
-//		pre, err := base.ToPreview(subTask)
-//		if err != nil {
-//			log.Errorf("subTask.ToPreview error: %v", err)
-//			continue
-//		}
-//		switch pre.TaskType {
-//		case config.TaskBuildV3:
-//			build, err := base.ToBuildTask(subTask)
-//			if err != nil || build == nil {
-//				log.Errorf("subTask.ToBuildTask error: %v", err)
-//				continue
-//			}
-//			if build.ImageID == "" {
-//				continue
-//			}
-//			basicImage, err := commonrepo.NewBasicImageColl().Find(build.ImageID)
-//			if err != nil {
-//				log.Errorf("BasicImage.Find failed, id:%s, err:%v", build.ImageID, err)
-//				continue
-//			}
-//			build.BuildOS = basicImage.Value
-//
-//			// 创建任务时可以临时编辑环境变量，需要将pipeline中的环境变量更新成新的值。
-//			if args.BuildArgs != nil {
-//				build.JobCtx.EnvVars = args.BuildArgs
-//			}
-//
-//			pipeline.SubTasks[i], err = build.ToSubTask()
-//			if err != nil {
-//				log.Errorf("build.ToSubTask error: %v", err)
-//				continue
-//			}
-//		}
-//	}
-//
-//	var defaultStorageURI string
-//	if defaultS3, err := s3.FindDefaultS3(); err == nil {
-//		defaultStorageURI, err = defaultS3.GetEncryptedURL()
-//		if err != nil {
-//			return nil, e.ErrS3Storage.AddErr(err)
-//		}
-//	}
-//
-//	pt := &task.Task{
-//		TaskID:        nextTaskID,
-//		ProductName:   pipeline.ProductName,
-//		PipelineName:  args.Name,
-//		Type:          config.WorkflowTypeV3,
-//		TaskCreator:   username,
-//		ReqID:         reqID,
-//		Status:        config.StatusCreated,
-//		SubTasks:      pipeline.SubTasks,
-//		TeamName:      pipeline.TeamName,
-//		ConfigPayload: commonservice.GetConfigPayload(0),
-//		MultiRun:      pipeline.MultiRun,
-//		StorageURI:    defaultStorageURI,
-//	}
-//
-//	sort.Sort(ByTaskKind(pt.SubTasks))
-//
-//	for i, t := range pt.SubTasks {
-//		preview, err := base.ToPreview(t)
-//		if err != nil {
-//			continue
-//		}
-//		if preview.TaskType != config.TaskDeploy {
-//			continue
-//		}
-//
-//		t, err := base.ToDeployTask(t)
-//		if err == nil && t.Enabled {
-//			env, err := commonrepo.NewProductColl().FindEnv(&commonrepo.ProductEnvFindOptions{
-//				Namespace: pt.TaskArgs.Deploy.Namespace,
-//				Name:      pt.ProductName,
-//			})
-//
-//			if err != nil {
-//				return nil, e.ErrCreateTask.AddDesc(
-//					e.EnvNotFoundErrMsg + ": " + pt.TaskArgs.Deploy.Namespace,
-//				)
-//			}
-//
-//			t.EnvName = env.EnvName
-//			t.ProductName = pt.ProductName
-//			pt.ConfigPayload.DeployClusterID = env.ClusterID
-//			pt.SubTasks[i], _ = t.ToSubTask()
-//		}
-//	}
-//
-//	repos, err := commonrepo.NewRegistryNamespaceColl().FindAll(&commonrepo.FindRegOps{})
-//	if err != nil {
-//		return nil, e.ErrCreateTask.AddErr(err)
-//	}
-//
-//	pt.ConfigPayload.RepoConfigs = make(map[string]*commonmodels.RegistryNamespace)
-//	for _, repo := range repos {
-//		pt.ConfigPayload.RepoConfigs[repo.ID.Hex()] = repo
-//	}
-//
-//	if err := ensurePipelineTask(pt, pt.TaskArgs.Deploy.Namespace, log); err != nil {
-//		log.Errorf("Service.ensurePipelineTask failed %v %v", args, err)
-//		if err, ok := err.(*ContainerNotFound); ok {
-//			return nil, e.NewWithExtras(
-//				e.ErrCreateTaskFailed,
-//				"container doesn't exists", map[string]interface{}{
-//					"productName":   err.ProductName,
-//					"envName":       err.EnvName,
-//					"serviceName":   err.ServiceName,
-//					"containerName": err.Container,
-//				})
-//		}
-//
-//		return nil, e.ErrCreateTask.AddDesc(err.Error())
-//	}
-//
-//	if len(pt.SubTasks) <= 0 {
-//		return nil, e.ErrCreateTask.AddDesc(e.PipelineSubTaskNotFoundErrMsg)
-//	}
-//
-//	if config.EnableGitCheck() {
-//		if err := createGitCheck(pt, log); err != nil {
-//			log.Error(err)
-//		}
-//	}
-//
-//	// send to queue to execute task
-//	if err := CreateTask(pt); err != nil {
-//		log.Error(err)
-//		return nil, e.ErrCreateTask
-//	}
-//
-//	resp := &CreateTaskResp{
-//		PipelineName: args.Name,
-//		TaskID:       nextTaskID,
-//	}
-//	return resp, nil
-//}
+import (
+	"fmt"
+	"sort"
+
+	"go.uber.org/zap"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
+	"github.com/koderover/zadig/pkg/setting"
+	e "github.com/koderover/zadig/pkg/tool/errors"
+)
+
+func CreateWorkflowTaskV3(args *commonmodels.WorkflowV3Args, username, reqID string, log *zap.SugaredLogger) (*CreateTaskResp, error) {
+	workflowV3, err := commonrepo.NewWorkflowV3Coll().GetByID(args.ID)
+	if err != nil {
+		log.Errorf("workflowV3.Find %s error: %s", args.Name, err)
+		return nil, e.ErrCreateTask.AddDesc(e.FindPipelineErrMsg)
+	}
+
+	nextTaskID, err := commonrepo.NewCounterColl().GetNextSeq(fmt.Sprintf(setting.WorkflowTaskV3Fmt, args.Name))
+	if err != nil {
+		log.Errorf("Counter.GetNextSeq error: %s", err)
+		return nil, e.ErrGetCounter.AddDesc(err.Error())
+	}
+
+	// 自定义基础镜像的镜像名称可能会被更新，需要使用ID获取最新的镜像名称
+	for i, subTask := range workflowV3.SubTasks {
+		pre, err := base.ToPreview(subTask)
+		if err != nil {
+			log.Errorf("subTask.ToPreview error: %s", err)
+			continue
+		}
+		switch pre.TaskType {
+		case config.TaskBuildV3:
+			build, err := base.ToBuildTask(subTask)
+			if err != nil || build == nil {
+				log.Errorf("subTask.ToBuildTask error: %s", err)
+				continue
+			}
+			if build.ImageID == "" {
+				continue
+			}
+			basicImage, err := commonrepo.NewBasicImageColl().Find(build.ImageID)
+			if err != nil {
+				log.Errorf("BasicImage.Find failed, id:%s, err:%s", build.ImageID, err)
+				continue
+			}
+			build.BuildOS = basicImage.Value
+
+			// 创建任务时可以临时编辑环境变量，需要将pipeline中的环境变量更新成新的值。
+			if args.BuildArgs != nil {
+				build.JobCtx.EnvVars = args.BuildArgs
+			}
+
+			workflowV3.SubTasks[i], err = build.ToSubTask()
+			if err != nil {
+				log.Errorf("build.ToSubTask error: %s", err)
+				continue
+			}
+		case config.TaskTrigger:
+			if !pre.Enabled {
+				continue
+			}
+			trigger, err := base.ToTriggerTask(subTask)
+			if err != nil || trigger == nil {
+				log.Errorf("subTask.ToTriggerTask error: %s", err)
+				continue
+			}
+			workflowV3.SubTasks[i], err = trigger.ToSubTask()
+		}
+	}
+
+	var defaultStorageURI string
+	if defaultS3, err := s3.FindDefaultS3(); err == nil {
+		defaultStorageURI, err = defaultS3.GetEncryptedURL()
+		if err != nil {
+			return nil, e.ErrS3Storage.AddErr(err)
+		}
+	}
+
+	pt := &task.Task{
+		TaskID:        nextTaskID,
+		ProductName:   args.ProjectName,
+		PipelineName:  args.Name,
+		Type:          config.WorkflowTypeV3,
+		TaskCreator:   username,
+		ReqID:         reqID,
+		Status:        config.StatusCreated,
+		SubTasks:      workflowV3.SubTasks,
+		ConfigPayload: commonservice.GetConfigPayload(0),
+		StorageURI:    defaultStorageURI,
+	}
+
+	sort.Sort(ByTaskKind(pt.SubTasks))
+
+	if err := ensurePipelineTask(pt, "", log); err != nil {
+		log.Errorf("Service.ensurePipelineTask failed %v %s", args, err)
+		if err, ok := err.(*ContainerNotFound); ok {
+			return nil, e.NewWithExtras(
+				e.ErrCreateTaskFailed,
+				"container doesn't exists", map[string]interface{}{
+					"productName":   err.ProductName,
+					"envName":       err.EnvName,
+					"serviceName":   err.ServiceName,
+					"containerName": err.Container,
+				})
+		}
+
+		return nil, e.ErrCreateTask.AddDesc(err.Error())
+	}
+
+	if len(pt.SubTasks) <= 0 {
+		return nil, e.ErrCreateTask.AddDesc(e.PipelineSubTaskNotFoundErrMsg)
+	}
+
+	// send to queue to execute task
+	if err := CreateTask(pt); err != nil {
+		log.Error(err)
+		return nil, e.ErrCreateTask
+	}
+
+	resp := &CreateTaskResp{
+		PipelineName: args.Name,
+		TaskID:       nextTaskID,
+	}
+	return resp, nil
+}
+
+func RestartWorkflowTaskV3(userName string, taskID int64, workflowName string, typeString config.PipelineType, log *zap.SugaredLogger) error {
+	t, err := commonrepo.NewTaskColl().Find(taskID, workflowName, typeString)
+	if err != nil {
+		log.Errorf("[%d:%s] find workflow task v3 error: %s", taskID, workflowName, err)
+		return e.ErrRestartTask.AddDesc(e.FindPipelineTaskErrMsg)
+	}
+
+	// 不重试已经成功的workflow task
+	if t.Status == config.StatusRunning || t.Status == config.StatusPassed {
+		log.Errorf("cannot restart running or passed task. Status: %v", t.Status)
+		return e.ErrRestartTask.AddDesc(e.RestartPassedTaskErrMsg)
+	}
+
+	t.IsRestart = true
+	t.Status = config.StatusCreated
+	t.TaskCreator = userName
+	if err := UpdateTask(t); err != nil {
+		log.Errorf("update workflow task v3 error: %s", err)
+		return e.ErrRestartTask.AddDesc(e.UpdatePipelineTaskErrMsg)
+	}
+	return nil
+}
+
+// ListWorkflowTasksV3Result 工作流任务分页信息
+func ListWorkflowTasksV3Result(name string, typeString config.PipelineType, maxResult, startAt int, log *zap.SugaredLogger) (*TaskResult, error) {
+	ret := &TaskResult{MaxResult: maxResult, StartAt: startAt}
+	var err error
+	ret.Data, err = commonrepo.NewTaskColl().List(&commonrepo.ListTaskOption{PipelineName: name, Limit: maxResult, Skip: startAt, Detail: true, Type: typeString})
+	if err != nil {
+		log.Errorf("PipelineTaskV2.List error: %s", err)
+		return ret, e.ErrListTasks
+	}
+
+	pipelineList := []string{name}
+	ret.Total, err = commonrepo.NewTaskColl().Count(&commonrepo.CountTaskOption{PipelineNames: pipelineList, Type: typeString})
+	if err != nil {
+		log.Errorf("workflowTaskV3.List error: %s", err)
+		return ret, e.ErrCountTasks
+	}
+	return ret, nil
+}
+
+func GetWorkflowTaskV3(taskID int64, pipelineName string, typeString config.PipelineType, log *zap.SugaredLogger) (*task.Task, error) {
+	resp, err := commonrepo.NewTaskColl().Find(taskID, pipelineName, typeString)
+	if err != nil {
+		log.Errorf("[%d:%s] PipelineTaskV2.Find error: %s", taskID, pipelineName, err)
+		return resp, e.ErrGetTask
+	}
+
+	Clean(resp)
+	return resp, nil
+}

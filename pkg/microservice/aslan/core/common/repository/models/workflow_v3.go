@@ -1,6 +1,9 @@
 package models
 
-import "go.mongodb.org/mongo-driver/bson/primitive"
+import (
+	"github.com/koderover/zadig/pkg/types"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
 
 type WorkflowV3 struct {
 	ID          primitive.ObjectID       `bson:"_id"`
@@ -8,7 +11,7 @@ type WorkflowV3 struct {
 	ProjectName string                   `bson:"project_name"`
 	Description string                   `bson:"description"`
 	Parameters  []*ParameterSetting      `bson:"parameters"`
-	Subtasks    []map[string]interface{} `bson:"subtasks"`
+	SubTasks    []map[string]interface{} `bson:"sub_tasks"`
 	CreatedBy   string                   `bson:"created_by"`
 	CreateTime  int64                    `bson:"create_time"`
 	UpdatedBy   string                   `bson:"updated_by"`
@@ -57,6 +60,15 @@ type ExternalParamMapping struct {
 	// 返回中的key的位置
 	ResponseKey string `bson:"response_key"`
 	Display     bool   `bson:"display"`
+}
+
+// WorkflowV3Args 工作流v3任务参数
+type WorkflowV3Args struct {
+	ProjectName string              `bson:"project_name"            json:"project_name"`
+	ID          string              `bson:"id"                      json:"id"`
+	Name        string              `bson:"name"                    json:"name"`
+	Builds      []*types.Repository `bson:"builds"                  json:"builds"`
+	BuildArgs   []*KeyVal           `bson:"build_args"              json:"build_args"`
 }
 
 func (WorkflowV3) TableName() string {

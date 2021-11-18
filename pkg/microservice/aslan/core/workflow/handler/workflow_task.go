@@ -178,26 +178,3 @@ func CancelWorkflowTaskV2(c *gin.Context) {
 	}
 	ctx.Err = commonservice.CancelTaskV2(ctx.UserName, c.Param("name"), taskID, config.WorkflowType, ctx.RequestID, ctx.Logger)
 }
-
-func CreateWorkflowTaskV3(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	args := new(commonmodels.WorkflowV3Args)
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("CreateWorkflowTaskV3 c.GetRawData() err : %s", err)
-	}
-	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("CreateWorkflowTaskV3 json.Unmarshal err : %s", err)
-	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "新增", "工作流v3-task", args.Name, string(data), ctx.Logger)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
-
-	if err := c.ShouldBindJSON(&args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-		return
-	}
-
-	ctx.Resp, ctx.Err = workflow.CreateWorkflowTaskV3(args, ctx.UserName, ctx.RequestID, ctx.Logger)
-}

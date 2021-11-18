@@ -132,6 +132,7 @@ const (
 	TaskSecurity       TaskType = "security"
 	TaskResetImage     TaskType = "reset_image"
 	TaskDistribute     TaskType = "distribute"
+	TaskTrigger        TaskType = "trigger"
 )
 
 type DistributeType string

@@ -1736,7 +1736,7 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 
 		switch pre.TaskType {
 
-		case config.TaskBuild, config.TaskArtifactDeploy:
+		case config.TaskBuild, config.TaskArtifactDeploy, config.TaskBuildV3:
 			t, err := base.ToBuildTask(subTask)
 			fmtBuildsTask(t, log)
 			if err != nil {

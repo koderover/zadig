@@ -540,6 +540,7 @@ func initTaskPlugins(execHandler *ExecHandler) {
 	pluginConf := map[config.TaskType]plugins.Initiator{
 		config.TaskJira:           plugins.InitializeJiraTaskPlugin,
 		config.TaskBuild:          plugins.InitializeBuildTaskPlugin,
+		config.TaskBuildV3:        plugins.InitializeBuildTaskV3Plugin,
 		config.TaskArtifactDeploy: plugins.InitializeArtifactTaskPlugin,
 		config.TaskJenkinsBuild:   plugins.InitializeJenkinsBuildPlugin,
 		config.TaskDockerBuild:    plugins.InitializeDockerBuildTaskPlugin,
@@ -549,6 +550,7 @@ func initTaskPlugins(execHandler *ExecHandler) {
 		config.TaskReleaseImage:   plugins.InitializeReleaseImagePlugin,
 		config.TaskDistributeToS3: plugins.InitializeDistribute2S3TaskPlugin,
 		config.TaskResetImage:     plugins.InitializeDeployTaskPlugin,
+		config.TaskTrigger:        plugins.InitializeTriggerTaskPlugin,
 	}
 	for name, pluginInitiator := range pluginConf {
 		registerTaskPlugin(execHandler, name, pluginInitiator)
