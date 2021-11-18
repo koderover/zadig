@@ -6,16 +6,16 @@ import (
 )
 
 type WorkflowV3 struct {
-	ID          primitive.ObjectID       `bson:"_id,omitempty"`
-	Name        string                   `bson:"name"`
-	ProjectName string                   `bson:"project_name"`
-	Description string                   `bson:"description"`
-	Parameters  []*ParameterSetting      `bson:"parameters"`
-	SubTasks    []map[string]interface{} `bson:"sub_tasks"`
-	CreatedBy   string                   `bson:"created_by"`
-	CreateTime  int64                    `bson:"create_time"`
-	UpdatedBy   string                   `bson:"updated_by"`
-	UpdateTime  int64                    `bson:"update_time"`
+	ID          primitive.ObjectID       `bson:"_id,omitempty"  json:"id,omitempty"`
+	Name        string                   `bson:"name"           json:"name"`
+	ProjectName string                   `bson:"project_name"   json:"project_name"`
+	Description string                   `bson:"description"    json:"description"`
+	Parameters  []*ParameterSetting      `bson:"parameters"     json:"parameters"`
+	SubTasks    []map[string]interface{} `bson:"sub_tasks"      json:"sub_tasks"`
+	CreatedBy   string                   `bson:"created_by"     json:"created_by"`
+	CreateTime  int64                    `bson:"create_time"    json:"create_time"`
+	UpdatedBy   string                   `bson:"updated_by"     json:"updated_by"`
+	UpdateTime  int64                    `bson:"update_time"    json:"update_time"`
 }
 
 type ParameterSetting struct {
@@ -64,8 +64,8 @@ type ExternalParamMapping struct {
 
 // WorkflowV3Args 工作流v3任务参数
 type WorkflowV3Args struct {
-	ProjectName string              `bson:"project_name"            json:"project_name"`
 	ID          string              `bson:"id"                      json:"id"`
+	ProjectName string              `bson:"project_name"            json:"project_name"`
 	Name        string              `bson:"name"                    json:"name"`
 	Builds      []*types.Repository `bson:"builds"                  json:"builds"`
 	BuildArgs   []*KeyVal           `bson:"build_args"              json:"build_args"`

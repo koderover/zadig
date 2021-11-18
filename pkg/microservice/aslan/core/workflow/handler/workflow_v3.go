@@ -19,7 +19,6 @@ func CreateWorkflowV3(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	req := &commonmodels.WorkflowV3{}
-
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("CreateWorkflowV3 err: %s", err)
