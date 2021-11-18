@@ -81,6 +81,8 @@ const (
 	TestType PipelineType = "test"
 	// ServiceType 服务
 	ServiceType PipelineType = "service"
+	// WorkflowTypeV3
+	WorkflowTypeV3 PipelineType = "workflow_v3"
 )
 
 type Status string
@@ -117,6 +119,7 @@ type TaskType string
 const (
 	TaskPipeline       TaskType = "pipeline"
 	TaskBuild          TaskType = "buildv2"
+	TaskBuildV3        TaskType = "buildv3"
 	TaskJenkinsBuild   TaskType = "jenkins_build"
 	TaskArtifact       TaskType = "artifact"
 	TaskArtifactDeploy TaskType = "artifact_deploy"

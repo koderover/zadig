@@ -35,39 +35,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-func GetWorkflowTaskProductName(c *gin.Context) {
-	args := new(commonmodels.WorkflowTaskArgs)
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("c.GetRawData() err : %v", err)
-		return
-	}
-	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("json.Unmarshal err : %v", err)
-		return
-	}
-	c.Set("productName", args.ProductTmplName)
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
-	c.Next()
-}
-
-func GetWorkflowTaskProductNameByTask(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
-		return
-	}
-
-	pipelineTask, err := workflow.GetPipelineTaskV2(taskID, c.Param("name"), config.WorkflowType, ctx.Logger)
-	if err != nil {
-		log.Errorf("GetPipelineTaskV2 err : %v", err)
-		return
-	}
-	c.Set("productName", pipelineTask.WorkflowArgs.ProductTmplName)
-	c.Next()
-}
-
 // GetWorkflowArgs find workflow args
 func GetWorkflowArgs(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
@@ -210,4 +177,27 @@ func CancelWorkflowTaskV2(c *gin.Context) {
 		return
 	}
 	ctx.Err = commonservice.CancelTaskV2(ctx.UserName, c.Param("name"), taskID, config.WorkflowType, ctx.RequestID, ctx.Logger)
+}
+
+func CreateWorkflowTaskV3(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(commonmodels.WorkflowV3Args)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("CreateWorkflowTaskV3 c.GetRawData() err : %s", err)
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("CreateWorkflowTaskV3 json.Unmarshal err : %s", err)
+	}
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "新增", "工作流v3-task", args.Name, string(data), ctx.Logger)
+	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+
+	if err := c.ShouldBindJSON(&args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	ctx.Resp, ctx.Err = workflow.CreateWorkflowTaskV3(args, ctx.UserName, ctx.RequestID, ctx.Logger)
 }
