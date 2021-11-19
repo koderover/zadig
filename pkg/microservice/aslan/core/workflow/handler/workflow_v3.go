@@ -78,7 +78,7 @@ func UpdateWorkflowV3(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	req := &workflowservice.WorkflowV3{}
+	req := &commonmodels.WorkflowV3{}
 
 	data, err := c.GetRawData()
 	if err != nil {

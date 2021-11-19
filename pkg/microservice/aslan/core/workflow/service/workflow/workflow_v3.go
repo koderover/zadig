@@ -8,15 +8,20 @@ import (
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 func CreateWorkflowV3(user string, workflowModel *commonmodels.WorkflowV3, logger *zap.SugaredLogger) error {
-	logger.Infof("workflowModel:%+v", workflowModel)
 	workflowModel.CreatedBy = user
 	workflowModel.UpdatedBy = user
 	workflowModel.CreateTime = time.Now().Unix()
 	workflowModel.UpdateTime = time.Now().Unix()
-	return commonrepo.NewWorkflowV3Coll().Create(workflowModel)
+
+	if err := commonrepo.NewWorkflowV3Coll().Create(workflowModel); err != nil {
+		logger.Errorf("Failed to create workflow v3, the error is: %s", err)
+		return e.ErrUpsertWorkflow.AddErr(err)
+	}
+	return nil
 }
 
 func ListWorkflowsV3(projectName string, pageNum, pageSize int64, logger *zap.SugaredLogger) ([]*WorkflowV3Brief, int64, error) {
@@ -58,34 +63,36 @@ func GetWorkflowV3Detail(id string, logger *zap.SugaredLogger) (*WorkflowV3, err
 	return resp, nil
 }
 
-func UpdateWorkflowV3(id, user string, workflow *WorkflowV3, logger *zap.SugaredLogger) error {
-	workflowModel := new(commonmodels.WorkflowV3)
-	out, err := json.Marshal(workflow)
-	if err != nil {
-		logger.Errorf("Failed to unmarshal given workflow, the error is: %s", err)
-		return err
-	}
-	err = json.Unmarshal(out, &workflowModel)
-	if err != nil {
-		logger.Errorf("Cannot convert workflow into database model, the error is: %s", err)
-		return err
-	}
+func UpdateWorkflowV3(id, user string, workflowModel *commonmodels.WorkflowV3, logger *zap.SugaredLogger) error {
+	//workflowModel := new(commonmodels.WorkflowV3)
+	//out, err := json.Marshal(workflow)
+	//if err != nil {
+	//	logger.Errorf("Failed to unmarshal given workflow, the error is: %s", err)
+	//	return err
+	//}
+	//err = json.Unmarshal(out, &workflowModel)
+	//if err != nil {
+	//	logger.Errorf("Cannot convert workflow into database model, the error is: %s", err)
+	//	return err
+	//}
 	workflowModel.UpdatedBy = user
 	workflowModel.UpdateTime = time.Now().Unix()
-	err = commonrepo.NewWorkflowV3Coll().Update(
+	err := commonrepo.NewWorkflowV3Coll().Update(
 		id,
 		workflowModel,
 	)
 	if err != nil {
 		logger.Errorf("update workflowV3 error: %s", err)
+		return e.ErrUpsertWorkflow.AddErr(err)
 	}
-	return err
+	return nil
 }
 
 func DeleteWorkflowV3(id string, logger *zap.SugaredLogger) error {
 	err := commonrepo.NewWorkflowV3Coll().DeleteByID(id)
 	if err != nil {
 		logger.Errorf("Failed to WorkflowV3 of id: %s, the error is: %s", id, err)
+		return e.ErrDeleteWorkflow.AddErr(err)
 	}
-	return err
+	return nil
 }

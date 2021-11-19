@@ -20,46 +20,46 @@ type WorkflowV3 struct {
 
 type ParameterSetting struct {
 	// External type parameter will NOT use this key.
-	Key string `bson:"key"`
+	Key string `bson:"key" json:"key"`
 	// Type list：
 	// string
 	// choice
 	// external
-	Type string `bson:"type"`
+	Type string `bson:"type" json:"type"`
 	//DefaultValue is the
-	DefaultValue string `bson:"default_value"`
+	DefaultValue string `bson:"default_value" json:"default_value"`
 	// choiceOption 是枚举的所有选项
-	ChoiceOption []string `bson:"choice_option"`
+	ChoiceOption []string `bson:"choice_option" json:"choice_option"`
 	// ExternalSetting 是外部系统获取变量的配置
-	ExternalSetting *ExternalSetting `bson:"external_setting"`
+	ExternalSetting *ExternalSetting `bson:"external_setting" json:"external_setting"`
 }
 
 type ExternalSetting struct {
 	// 外部系统ID
-	SystemID string `bson:"system_id"`
+	SystemID string `bson:"system_id" json:"system_id"`
 	// Endpoint路径
-	Endpoint string `bson:"endpoint"`
+	Endpoint string `bson:"endpoint" json:"endpoint"`
 	// 请求方法
-	Method string `bson:"method"`
+	Method string `bson:"method" json:"method"`
 	// 请求头
-	Headers []*KV `bson:"headers"`
+	Headers []*KV `bson:"headers" json:"headers"`
 	// 请求体
-	Body string `bson:"body"`
+	Body string `bson:"body" json:"body"`
 	// 外部变量配置
-	Params []*ExternalParamMapping `bson:"params"`
+	Params []*ExternalParamMapping `bson:"params" json:"params"`
 }
 
 type KV struct {
-	Key   string `bson:"key"`
-	Value string `bson:"value"`
+	Key   string `bson:"key"   json:"key"`
+	Value string `bson:"value" json:"value"`
 }
 
 type ExternalParamMapping struct {
 	// zadig变量名称
-	ParamKey string `bson:"param_key"`
+	ParamKey string `bson:"param_key" json:"param_key"`
 	// 返回中的key的位置
-	ResponseKey string `bson:"response_key"`
-	Display     bool   `bson:"display"`
+	ResponseKey string `bson:"response_key" json:"response_key"`
+	Display     bool   `bson:"display"      json:"display"`
 }
 
 // WorkflowV3Args 工作流v3任务参数
