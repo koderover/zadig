@@ -37,7 +37,7 @@ func CreateWorkflowV3(c *gin.Context) {
 }
 
 type listWorkflowV3Query struct {
-	PageSize    int64  `json:"page_size"    form:"page_size,default=100"`
+	PageSize    int64  `json:"page_size"    form:"page_size,default=20"`
 	PageNum     int64  `json:"page_num"     form:"page_num,default=1"`
 	ProjectName string `json:"project_name" form:"project_name"`
 }

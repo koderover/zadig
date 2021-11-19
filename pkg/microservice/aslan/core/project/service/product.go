@@ -336,6 +336,11 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 		return err
 	}
 
+	if err = commonservice.DeleteWorkflowV3s(productName, requestID, log); err != nil {
+		log.Errorf("DeleteProductTemplate Delete productName %s workflowV3 err: %s", productName, err)
+		return err
+	}
+
 	if err = commonservice.DeletePipelines(productName, requestID, log); err != nil {
 		log.Errorf("DeleteProductTemplate Delete productName %s pipeline err: %v", productName, err)
 		return err
