@@ -65,9 +65,6 @@ func CreateWorkflowTaskV3(args *commonmodels.WorkflowV3Args, username, reqID str
 				continue
 			}
 		case config.TaskTrigger:
-			if !pre.Enabled {
-				continue
-			}
 			trigger, err := base.ToTriggerTask(subTask)
 			if err != nil || trigger == nil {
 				log.Errorf("subTask.ToTriggerTask error: %s", err)
