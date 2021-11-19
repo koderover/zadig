@@ -89,6 +89,7 @@ func CreateWorkflowTaskV3(args *commonmodels.WorkflowV3Args, username, reqID str
 		Type:          config.WorkflowTypeV3,
 		TaskCreator:   username,
 		ReqID:         reqID,
+		TaskArgs:      &commonmodels.TaskArgs{Builds: args.Builds, BuildArgs: args.BuildArgs},
 		Status:        config.StatusCreated,
 		SubTasks:      workflowV3.SubTasks,
 		ConfigPayload: commonservice.GetConfigPayload(0),
