@@ -47,7 +47,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		sse.GET("/tasks/running", RunningPipelineTasksSSE)
 		sse.GET("/tasks/pending", PendingPipelineTasksSSE)
 		sse.GET("/tasks/id/:id/pipelines/:name", GetPipelineTaskSSE)
-		sse.GET("/workflowTask/v3/id/:id/name/:name", GetWorkflowTaskV3SSE)
+		sse.GET("/workflowtask/v3/id/:id/name/:name", GetWorkflowTaskV3SSE)
 	}
 
 	// ---------------------------------------------------------------------------------------
