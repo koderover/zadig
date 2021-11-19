@@ -18,6 +18,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 
 	"github.com/gin-contrib/sse"
@@ -241,6 +242,7 @@ func GetWorkflowBuildV3JobContainerLogsSSE(c *gin.Context) {
 		PipelineType: string(config.WorkflowTypeV3),
 		EnvName:      c.Query("envName"),
 		ProductName:  c.Query("projectName"),
+		ServiceName:  fmt.Sprintf("%s-job", c.Param("workflowName")),
 	}
 
 	internalhandler.Stream(c, func(ctx1 context.Context, streamChan chan interface{}) {

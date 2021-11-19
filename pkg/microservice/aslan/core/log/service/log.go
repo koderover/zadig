@@ -139,7 +139,7 @@ func GetCurrentContainerLogs(podName, containerName, envName, productName string
 }
 
 func GetWorkflowBuildV3JobContainerLogs(workflowName, buildType string, taskID int64, log *zap.SugaredLogger) (string, error) {
-	buildJobNamePrefix := fmt.Sprintf("%s-%s-%d-%s", config.WorkflowTypeV3, workflowName, taskID, buildType)
+	buildJobNamePrefix := fmt.Sprintf("%s-%s-%d-%s-%s", config.WorkflowTypeV3, workflowName, taskID, buildType, fmt.Sprintf("%s-job", workflowName))
 	buildLog, err := getContainerLogFromS3(workflowName, buildJobNamePrefix, taskID, log)
 	if err != nil {
 		return "", err
