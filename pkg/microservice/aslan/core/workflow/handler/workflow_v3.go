@@ -88,6 +88,7 @@ func UpdateWorkflowV3(c *gin.Context) {
 		log.Errorf("UpdateWorkflowV3 unmarshal json err: %s", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, req.ProjectName, "修改", "工作流V3", req.Name, string(data), ctx.Logger)
+	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		ctx.Err = errors.ErrInvalidParam.AddDesc(err.Error())

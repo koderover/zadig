@@ -103,7 +103,6 @@ func (p *BuildTaskV3Plugin) SetBuildStatusCompleted(status config.Status) {
 	p.Task.BuildStatus.EndTime = time.Now().Unix()
 }
 
-//TODO: Binded Archive File logic
 func (p *BuildTaskV3Plugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineCtx *task.PipelineCtx, serviceName string) {
 	taskIDVar := &task.KeyVal{Key: "TASK_ID", Value: strconv.FormatInt(pipelineTask.TaskID, 10), IsCredential: false}
 	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, taskIDVar)
