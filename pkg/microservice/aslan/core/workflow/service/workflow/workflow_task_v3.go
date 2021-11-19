@@ -59,6 +59,7 @@ func CreateWorkflowTaskV3(args *commonmodels.WorkflowV3Args, username, reqID str
 				build.JobCtx.EnvVars = args.BuildArgs
 			}
 
+			build.ServiceName = fmt.Sprintf("%s-job", args.Name)
 			workflowV3.SubTasks[i], err = build.ToSubTask()
 			if err != nil {
 				log.Errorf("build.ToSubTask error: %s", err)
@@ -180,6 +181,51 @@ func GetWorkflowTaskV3(taskID int64, pipelineName string, typeString config.Pipe
 		return resp, e.ErrGetTask
 	}
 
-	Clean(resp)
+	CleanWorkflow3(resp)
 	return resp, nil
+}
+
+func CleanWorkflow3(task *task.Task) {
+	task.ConfigPayload = nil
+	task.TaskArgs = nil
+
+	EnsureSubTasksV3Resp(task.SubTasks)
+	for _, stage := range task.Stages {
+		ensureSubStageV3Resp(stage)
+	}
+}
+
+// EnsureSubTasksResp 确保SubTask中敏感信息和其他不必要信息不返回给前端
+func EnsureSubTasksV3Resp(subTasks []map[string]interface{}) {
+	for i, subTask := range subTasks {
+		pre, err := base.ToPreview(subTask)
+		if err != nil {
+			continue
+		}
+
+		switch pre.TaskType {
+		case config.TaskBuildV3:
+			if newTask, err := ensureBuildTask(subTask); err == nil {
+				subTasks[i] = newTask
+			}
+		}
+
+	}
+}
+
+func ensureSubStageV3Resp(stage *commonmodels.Stage) {
+	subTasks := stage.SubTasks
+	for key, subTask := range subTasks {
+		pre, err := base.ToPreview(subTask)
+		if err != nil {
+			continue
+		}
+
+		switch pre.TaskType {
+		case config.TaskBuildV3:
+			if newTask, err := ensureBuildTask(subTask); err == nil {
+				subTasks[key] = newTask
+			}
+		}
+	}
 }
