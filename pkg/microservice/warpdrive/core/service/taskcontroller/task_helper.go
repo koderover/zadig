@@ -136,6 +136,9 @@ func updatePipelineSubTask(t interface{}, pipelineTask *task.Task, pos int, serv
 	} else if pipelineTask.Type == config.ServiceType {
 		xl.Info("pipeline type is service type: pipeline 3.0")
 		pipelineTask.Stages[pos].SubTasks[servicename] = subTask
+	} else if pipelineTask.Type == config.WorkflowTypeV3 {
+		xl.Info("pipeline type is workflow type: pipeline 3.0")
+		pipelineTask.Stages[pos].SubTasks[servicename] = subTask
 	}
 }
 

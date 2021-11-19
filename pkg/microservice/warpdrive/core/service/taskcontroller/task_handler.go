@@ -337,7 +337,7 @@ func (h *ExecHandler) runStage(stagePosition int, stage *task.Stage) {
 func (h *ExecHandler) execute(ctx context.Context, pipelineTask *task.Task, pipelineCtx *task.PipelineCtx, xl *zap.SugaredLogger) {
 	xl.Info("start pipeline task executor...")
 	// 如果是pipeline 1.0， 先将subtasks进行transform，转化为stages结构
-	if pipelineTask.Type == config.SingleType || pipelineTask.Type == "" {
+	if pipelineTask.Type == config.SingleType || pipelineTask.Type == "" || pipelineTask.Type == config.WorkflowTypeV3 {
 		err := transformToStages(pipelineTask, xl)
 		// 初始化出错时，直接返回pipeline状态错误
 		if err != nil {
@@ -457,7 +457,7 @@ func (h *ExecHandler) executeTask(taskCtx context.Context, plugin plugins.TaskPl
 	xl.Info("start to call plugin.Run")
 	// 如果是并行跑，用servicename来区分不同的workspace
 	runCtx := *pipelineCtx
-	if pipelineTask.Type == config.WorkflowType {
+	if pipelineTask.Type == config.WorkflowType || pipelineTask.Type == config.WorkflowTypeV3 {
 		runCtx.Workspace = fmt.Sprintf("%s/%s", pipelineCtx.Workspace, servicename)
 	}
 	// 运行 SubTask, 如果需要异步，请在方法内实现
