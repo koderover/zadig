@@ -45,6 +45,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		deliveryRelease.GET("/:id", GetDeliveryVersion)
 		deliveryRelease.GET("", ListDeliveryVersion)
 		deliveryRelease.DELETE("/:id", GetProductNameByDelivery, gin2.UpdateOperationLogStatus, DeleteDeliveryVersion)
+
+		deliveryRelease.POST("/helm", CreateHelmDeliveryVersion)
 	}
 
 	deliveryPackage := router.Group("packages")

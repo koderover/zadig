@@ -20,6 +20,12 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+type DeliveryChart struct {
+	Name    string `bson:"name" json:"name"`
+	Version string `bson:"version" json:"version"`
+	Repo    string `bson:"repo" json:"repo"`
+}
+
 type DeliveryVersion struct {
 	ID             primitive.ObjectID `bson:"_id,omitempty"           json:"id,omitempty"`
 	Version        string             `bson:"version"                 json:"version"`
@@ -30,6 +36,10 @@ type DeliveryVersion struct {
 	Desc           string             `bson:"desc"                    json:"desc"`
 	Labels         []string           `bson:"labels"                  json:"labels"`
 	ProductEnvInfo *Product           `bson:"product_env_info"        json:"productEnvInfo"`
+	Charts         []*DeliveryChart   `bson:"charts" 				  json:"charts"`
+	Status         string             `bson:"status"        		  json:"status"`
+	Error          string             `bson:"log"        			  json:"log"`
+	CreateArgument interface{}        `bson:"createArgument"          json:"-"`
 	CreatedBy      string             `bson:"created_by"              json:"createdBy"`
 	CreatedAt      int64              `bson:"created_at"              json:"created_at"`
 	DeletedAt      int64              `bson:"deleted_at"              json:"deleted_at"`

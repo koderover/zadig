@@ -190,6 +190,34 @@ func (c *DeliveryVersionColl) Insert(args *models.DeliveryVersion) error {
 	return nil
 }
 
+func (c *DeliveryVersionColl) UpdateStatusByName(versionName, status, errorStr string) error {
+	query := bson.M{"version": versionName, "deleted_at": 0}
+	change := bson.M{"$set": bson.M{
+		"status": status,
+		"error":  errorStr,
+	}}
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
+func (c *DeliveryVersionColl) AddDeliveryChart(versionName string, chartInfo *models.DeliveryChart) error {
+	query := bson.M{
+		"version":     versionName,
+		"deleted_at":  0,
+		"charts.name": bson.M{"$ne": chartInfo.Name},
+	}
+	change := bson.M{
+		"$push": bson.M{
+			"charts": bson.M{
+				"name":    chartInfo.Name,
+				"version": chartInfo.Version,
+				"repo":    chartInfo.Repo,
+			},
+		}}
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
 func (c *DeliveryVersionColl) Update(args *models.DeliveryVersion) error {
 	if args == nil {
 		return errors.New("nil delivery_version args")

@@ -272,6 +272,10 @@ const (
 )
 
 const (
+	DeliveryVersionTypeChart = "HelmChart"
+)
+
+const (
 	AuthorizationHeader = "Authorization"
 )
 
@@ -320,6 +324,13 @@ const (
 	ProductStatusDeleting = "deleting"
 	ProductStatusUnknown  = "unknown"
 	ProductStatusUnstable = "Unstable"
+)
+
+// DeliveryVersion status
+const (
+	DeliveryVersionStatusSuccess  = "success"
+	DeliveryVersionStatusFailed   = "failed"
+	DeliveryVersionStatusCreating = "creating"
 )
 
 const (

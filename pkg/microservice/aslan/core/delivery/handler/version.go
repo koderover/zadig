@@ -326,6 +326,20 @@ func ListPackagesVersion(c *gin.Context) {
 	ctx.Resp = fileInfoList
 }
 
+func CreateHelmDeliveryVersion(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(deliveryservice.CreateHelmDeliveryVersionArgs)
+	err := c.ShouldBindJSON(args)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	args.CreateBy = ctx.UserName
+	ctx.Err = deliveryservice.CreateHelmDeliveryVersion(args, ctx.Logger)
+}
+
 func DeleteDeliveryVersion(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

@@ -46,8 +46,11 @@ func GetHelmServiceModule(c *gin.Context) {
 func GetFilePath(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	c.Query("revision")
-	revision, err := strconv.ParseInt(c.DefaultQuery("revision", "0"), 10, 64)
+	revision := int64(0)
+	var err error
+	if len(c.Query("revision")) > 0 {
+		revision, err = strconv.ParseInt(c.Query("revision"), 10, 64)
+	}
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid revision number")
 		return

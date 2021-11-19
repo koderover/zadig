@@ -23,26 +23,23 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/otiai10/copy"
-
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-
-	"github.com/koderover/zadig/pkg/tool/log"
-
-	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 
 	"github.com/hashicorp/go-multierror"
-	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/util"
-
-	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
+	"github.com/otiai10/copy"
+	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	"go.uber.org/zap"
+	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
+	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 type HelmReleaseResp struct {
@@ -67,23 +64,23 @@ func ListReleases(productName, envName string, log *zap.SugaredLogger) ([]*HelmR
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
-		return nil, e.ErrListHelmReleases.AddDesc(err.Error())
+		return nil, e.ErrCreateDeliveryVersion.AddDesc(err.Error())
 	}
 
 	restConfig, err := kube.GetRESTConfig(prod.ClusterID)
 	if err != nil {
 		log.Errorf("GetRESTConfig error: %v", err)
-		return nil, e.ErrListHelmReleases.AddDesc(err.Error())
+		return nil, e.ErrCreateDeliveryVersion.AddDesc(err.Error())
 	}
 	helmClient, err := helmtool.NewClientFromRestConf(restConfig, prod.Namespace)
 	if err != nil {
 		log.Errorf("[%s][%s] NewClientFromRestConf error: %v", envName, productName, err)
-		return nil, e.ErrListHelmReleases.AddErr(err)
+		return nil, e.ErrCreateDeliveryVersion.AddErr(err)
 	}
 
 	releases, err := helmClient.ListDeployedReleases()
 	if err != nil {
-		return nil, e.ErrListHelmReleases.AddErr(err)
+		return nil, e.ErrCreateDeliveryVersion.AddErr(err)
 	}
 
 	ret := make([]*HelmReleaseResp, 0, len(releases))
@@ -144,7 +141,7 @@ func loadChartFilesInfo(productName, serviceName string, revision int64, dir str
 }
 
 //prepare chart version data
-func prepareChartVersionData(productName string, serviceObj *models.Service) error {
+func prepareChartVersionData(productName string, serviceObj *models.Service, renderChart *template.RenderChart, renderset *models.RenderSet) error {
 	serviceName, revision := serviceObj.ServiceName, serviceObj.Revision
 	base := config.LocalServicePathWithRevision(productName, serviceName, revision)
 	if err := commonservice.PreloadServiceManifestsByRevision(base, serviceObj); err != nil {
@@ -161,11 +158,16 @@ func prepareChartVersionData(productName string, serviceObj *models.Service) err
 	deliveryChartPath := filepath.Join(config.LocalDeliveryChartPathWithRevision(productName, serviceObj.ServiceName, serviceObj.Revision), serviceObj.ServiceName)
 	err := copy.Copy(fullPath, deliveryChartPath)
 	if err != nil {
-		return nil
+		return err
+	}
+
+	mergedValuesYaml, err := helmtool.MergeOverrideValues(renderChart.ValuesYaml, renderset.DefaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
+	if err != nil {
+		return err
 	}
 
 	// write values.yaml
-	if err = os.WriteFile(filepath.Join(deliveryChartPath, setting.ValuesYaml), []byte("this is fake data"), 0644); err != nil {
+	if err = os.WriteFile(filepath.Join(deliveryChartPath, setting.ValuesYaml), []byte(mergedValuesYaml), 0644); err != nil {
 		return err
 	}
 
@@ -178,23 +180,22 @@ func GetChartInfos(productName, envName, serviceName string, log *zap.SugaredLog
 	if err != nil {
 		return nil, e.ErrGetHelmCharts.AddErr(err)
 	}
+	renderSet, err := FindHelmRenderSet(productName, envName, log)
+	if err != nil {
+		log.Errorf("[%s][P:%s] find product renderset error: %v", envName, productName, err)
+		return nil, e.ErrGetHelmCharts.AddErr(err)
+	}
 
-	//restConfig, err := kube.GetRESTConfig(prod.ClusterID)
-	//if err != nil {
-	//	log.Errorf("GetRESTConfig error: %v", err)
-	//	return nil, e.ErrGetHelmCharts.AddDesc(err.Error())
-	//}
-	//helmClient, err := helmtool.NewClientFromRestConf(restConfig, prod.Namespace)
-	//if err != nil {
-	//	log.Errorf("[%s][%s] NewClientFromRestConf error: %v", envName, productName, err)
-	//	return nil, e.ErrGetHelmCharts.AddErr(err)
-	//}
+	chartMap := make(map[string]*template.RenderChart)
+	for _, chart := range renderSet.ChartInfos {
+		chartMap[chart.ServiceName] = chart
+	}
 
 	allServiceMap := prod.GetServiceMap()
 	serviceMap := make(map[string]*models.ProductService)
+	//validate data, make sure service and chart info exists
 	if len(serviceName) > 0 {
 		serviceList := strings.Split(serviceName, ",")
-		// validate service exists in environment
 		for _, singleService := range serviceList {
 			if service, ok := allServiceMap[singleService]; ok {
 				serviceMap[service.ServiceName] = service
@@ -237,7 +238,12 @@ func GetChartInfos(productName, envName, serviceName string, log *zap.SugaredLog
 				errList = multierror.Append(errList, fmt.Errorf("failed to query service, serviceName: %s, revision: %d", serviceName, revision))
 				return
 			}
-			err = prepareChartVersionData(productName, serviceObj)
+			renderChart, ok := chartMap[serviceName]
+			if !ok {
+				errList = multierror.Append(errList, fmt.Errorf("failed to find render chart for service %s in target namespace", serviceName))
+				return
+			}
+			err = prepareChartVersionData(productName, serviceObj, renderChart, renderSet)
 			if err != nil {
 				errList = multierror.Append(errList, fmt.Errorf("failed to prepare chart info for service %s", serviceObj.ServiceName))
 				return
