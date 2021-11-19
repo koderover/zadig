@@ -319,8 +319,8 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 			FileName:     pipelineTask.ArtifactInfo.FileName,
 		}
 	}
-	if len(b.JobCtx.ArtifactPaths) > 0 {
-		ctx.ArtifactPaths = b.JobCtx.ArtifactPaths
+	if b.JobCtx.ArtifactPath != "" {
+		ctx.ArtifactPath = b.JobCtx.ArtifactPath
 	}
 
 	return ctx
