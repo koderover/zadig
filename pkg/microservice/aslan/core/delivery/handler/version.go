@@ -385,3 +385,30 @@ func ListDeliveryServiceNames(c *gin.Context) {
 	productName := c.Query("projectName")
 	ctx.Resp, ctx.Err = deliveryservice.ListDeliveryServiceNames(productName, ctx.Logger)
 }
+
+func DownloadDeliveryChart(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	versionName := c.Query("version")
+	chartName := c.Query("chartName")
+	projectName := c.Query("projectName")
+
+	filePath, err := deliveryservice.DownloadDeliveryChart(projectName, versionName, chartName, ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	c.File(filePath)
+}
+
+func PreviewGetDeliveryChart(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	versionName := c.Query("version")
+	chartName := c.Query("chartName")
+	projectName := c.Query("projectName")
+
+	ctx.Resp, ctx.Err = deliveryservice.PreviewDeliveryChart(projectName, versionName, chartName, ctx.Logger)
+}

@@ -38,7 +38,7 @@ type DeliveryVersion struct {
 	ProductEnvInfo *Product           `bson:"product_env_info"        json:"productEnvInfo"`
 	Charts         []*DeliveryChart   `bson:"charts" 				  json:"charts"`
 	Status         string             `bson:"status"        		  json:"status"`
-	Error          string             `bson:"log"        			  json:"log"`
+	Error          string             `bson:"error"        			  json:"error"`
 	CreateArgument interface{}        `bson:"createArgument"          json:"-"`
 	CreatedBy      string             `bson:"created_by"              json:"createdBy"`
 	CreatedAt      int64              `bson:"created_at"              json:"created_at"`

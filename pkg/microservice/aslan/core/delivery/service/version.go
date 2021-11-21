@@ -23,23 +23,19 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
-
-	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
-
-	fsutil "github.com/koderover/zadig/pkg/util/fs"
-
-	"github.com/hashicorp/go-multierror"
-
 	cm "github.com/chartmuseum/helm-push/pkg/chartmuseum"
 	"github.com/chartmuseum/helm-push/pkg/helm"
+	"github.com/hashicorp/go-multierror"
 	"github.com/otiai10/copy"
 	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 	chartloader "helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/chartutil"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
 
@@ -48,9 +44,12 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
+	fsutil "github.com/koderover/zadig/pkg/util/fs"
 )
 
 type CreateHelmDeliveryVersionOption struct {
@@ -65,15 +64,13 @@ type CreateHelmDeliveryVersionChartData struct {
 }
 
 type CreateHelmDeliveryVersionArgs struct {
-	CreateBy    string   `json:"-"`
-	Version     string   `json:"version"`
-	Desc        string   `json:"desc"`
-	ProductName string   `json:"productName"`
-	EnvName     string   `json:"envName"`
-	Labels      []string `json:"labels"`
-	//ChartDatas    []*CreateHelmDeliveryVersionChartData `json:"chartDatas"`
-	ChartRepoName string `json:"chartRepoName"`
-	//Options       *CreateHelmDeliveryVersionOption      `json:"options"`
+	CreateBy      string   `json:"-"`
+	Version       string   `json:"version"`
+	Desc          string   `json:"desc"`
+	ProductName   string   `json:"productName"`
+	EnvName       string   `json:"envName"`
+	Labels        []string `json:"labels"`
+	ChartRepoName string   `json:"chartRepoName"`
 	*DeliveryVersionChartData
 }
 
@@ -82,10 +79,14 @@ type DeliveryVersionChartData struct {
 	Options    *CreateHelmDeliveryVersionOption      `json:"options"`
 }
 
-type ChartDeliveryData struct {
+type DeliveryChartData struct {
 	ChartData      *CreateHelmDeliveryVersionChartData
 	ProductService *commonmodels.ProductService
 	ServiceObj     *commonmodels.Service
+}
+
+type DeliveryChartResp struct {
+	FileInfos []*types.FileInfo `json:"fileInfos"`
 }
 
 func GetDeliveryVersion(args *commonrepo.DeliveryVersionArgs, log *zap.SugaredLogger) (*commonmodels.DeliveryVersion, error) {
@@ -115,6 +116,16 @@ func DeleteDeliveryVersion(args *commonrepo.DeliveryVersionArgs, log *zap.Sugare
 	return nil
 }
 
+func getChartTGZDir(productName, versionName string) string {
+	tmpDir := os.TempDir()
+	return filepath.Join(tmpDir, "chart-tgz", productName, versionName)
+}
+
+func getChartExpandDir(productName, versionName string) string {
+	tmpDir := os.TempDir()
+	return filepath.Join(tmpDir, "chart", productName, versionName)
+}
+
 func getProductEnvInfo(productName, envName string) (*commonmodels.Product, error) {
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    productName,
@@ -139,12 +150,12 @@ func createChartRepoClient(repo *commonmodels.HelmRepo) (*cm.Client, error) {
 		// need support more auth types
 	)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create chart repo client")
+		return nil, errors.Wrapf(err, "failed to create chart repo client, repoName: %s", repo.RepoName)
 	}
 	return client, nil
 }
 
-func handleSingleChart(chartData *ChartDeliveryData, chartRepo *commonmodels.HelmRepo, dir string) error {
+func handleSingleChart(chartData *DeliveryChartData, chartRepo *commonmodels.HelmRepo, dir string) error {
 	serviceObj := chartData.ServiceObj
 	serviceName, revision := serviceObj.ServiceName, serviceObj.Revision
 	base := config.LocalServicePathWithRevision(serviceObj.ProductName, serviceName, revision)
@@ -230,9 +241,8 @@ func getChartmuseumError(b []byte, code int) error {
 	return errors.Errorf("%d: %s", code, er.Error)
 }
 
-func mkChartTGZFileDir(versionName string) (string, error) {
-	tmpDir := os.TempDir()
-	path := filepath.Join(tmpDir, "chart-tgz", versionName)
+func mkChartTGZFileDir(productName, versionName string) (string, error) {
+	path := getChartTGZDir(productName, versionName)
 	if err := os.RemoveAll(path); err != nil {
 		if !os.IsExist(err) {
 			return "", errors.Wrapf(err, "failed to claer dir for chart tgz files")
@@ -260,17 +270,17 @@ func CreateHelmDeliveryVersion(args *CreateHelmDeliveryVersionArgs, logger *zap.
 	repoInfo, err := getChartRepoData(args.ChartRepoName)
 	if err != nil {
 		log.Infof("failed to query chart-repo info, procutName: %s envName %s, err: %s", args.ProductName, args.EnvName, err)
-		return e.ErrCreateDeliveryVersion.AddDesc(fmt.Sprintf("failed to query chart-repo info, procutName: %s envName %s", args.ProductName, args.EnvName))
+		return e.ErrCreateDeliveryVersion.AddDesc(fmt.Sprintf("failed to query chart-repo info, procutName: %s, envName %s, repoName", args.ProductName, args.EnvName, args.ChartRepoName))
 	}
 
-	dir, err := mkChartTGZFileDir(args.Version)
+	dir, err := mkChartTGZFileDir(args.ProductName, args.Version)
 	if err != nil {
 		return e.ErrCreateDeliveryVersion.AddErr(err)
 	}
 
 	// validate chartInfo, make sure service is in environment
 	// prepare data set for chart delivery
-	chartDataMap := make(map[string]*ChartDeliveryData)
+	chartDataMap := make(map[string]*DeliveryChartData)
 	serviceMap := productInfo.GetServiceMap()
 	for _, chartDta := range args.ChartDatas {
 		if productService, ok := serviceMap[chartDta.ServiceName]; ok {
@@ -283,7 +293,7 @@ func CreateHelmDeliveryVersion(args *CreateHelmDeliveryVersionArgs, logger *zap.
 			if err != nil {
 				return e.ErrCreateDeliveryVersion.AddDesc(fmt.Sprintf("failed to query service: %s", chartDta.ServiceName))
 			}
-			chartDataMap[chartDta.ServiceName] = &ChartDeliveryData{
+			chartDataMap[chartDta.ServiceName] = &DeliveryChartData{
 				ChartData:      chartDta,
 				ProductService: productService,
 				ServiceObj:     serviceObj,
@@ -344,7 +354,7 @@ func CreateHelmDeliveryVersion(args *CreateHelmDeliveryVersionArgs, logger *zap.
 		wg := sync.WaitGroup{}
 		for _, chartData := range chartDataMap {
 			wg.Add(1)
-			go func(cData *ChartDeliveryData) {
+			go func(cData *DeliveryChartData) {
 				defer wg.Done()
 				err := handleSingleChart(cData, repoInfo, dir)
 				if err != nil {
@@ -374,7 +384,9 @@ func CreateHelmDeliveryVersion(args *CreateHelmDeliveryVersionArgs, logger *zap.
 			logger.Errorf("failed to create temp dir, err: %s", err)
 			return
 		}
-		defer os.RemoveAll(tmpDir)
+		defer func(path string) {
+			_ = os.RemoveAll(path)
+		}(tmpDir)
 
 		//tar all chart files and send to s3 store
 		fsTree := os.DirFS(dir)
@@ -424,4 +436,144 @@ func ListDeliveryServiceNames(productName string, log *zap.SugaredLogger) ([]str
 	}
 
 	return serviceNames.UnsortedList(), nil
+}
+
+func downloadChart(version *commonmodels.DeliveryVersion, chartInfo *commonmodels.DeliveryChart) (string, error) {
+	chartTGZName := fmt.Sprintf("%s-%s.tgz", chartInfo.Name, chartInfo.Version)
+	chartTGZFileParent := getChartTGZDir(version.ProductName, version.Version)
+	chartTGZFilePath := filepath.Join(chartTGZFileParent, chartTGZName)
+	if _, err := os.Stat(chartTGZFilePath); err == nil {
+		// local cache exists
+		log.Infof("local cache exists, path %s", chartTGZFilePath)
+		return chartTGZFilePath, nil
+	}
+
+	chartRepo, err := getChartRepoData(chartInfo.Repo)
+	if err != nil {
+		return "", fmt.Errorf("failed to query chart-repo info, repoName %s", chartInfo.Repo)
+	}
+
+	client, err := createChartRepoClient(chartRepo)
+	if err != nil {
+		return "", err
+	}
+
+	if err = os.MkdirAll(chartTGZFileParent, 0644); err != nil {
+		return "", errors.Wrapf(err, "failed to craete tgz parent dir")
+	}
+
+	out, err := os.Create(chartTGZFilePath)
+	if err != nil {
+		os.RemoveAll(chartTGZFilePath)
+		return "", errors.Wrapf(err, "failed to create chart tgz file")
+	}
+
+	response, err := client.DownloadFile(fmt.Sprintf("charts/%s", chartTGZName))
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to download file")
+	}
+
+	//helm.CreateChartPackage()
+
+	if response.StatusCode != 200 {
+		return "", errors.Wrapf(err, "download file failed %s", chartTGZName)
+	}
+
+	b, err := ioutil.ReadAll(response.Body)
+	defer response.Body.Close()
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to read response data")
+	}
+
+	defer func(out *os.File) {
+		_ = out.Close()
+	}(out)
+
+	err = ioutil.WriteFile(chartTGZFilePath, b, 0644)
+	if err != nil {
+		return "", err
+	}
+	return chartTGZFilePath, nil
+}
+
+func DownloadDeliveryChart(projectName, version string, chartName string, log *zap.SugaredLogger) (string, error) {
+	deliveryVersion, err := GetDeliveryVersion(&commonrepo.DeliveryVersionArgs{
+		ProductName: projectName,
+		Version:     version,
+	}, log)
+	if err != nil {
+		return "", err
+	}
+
+	var chartInfo *commonmodels.DeliveryChart
+	for _, singleChart := range deliveryVersion.Charts {
+		if singleChart.Name == chartName {
+			chartInfo = singleChart
+		}
+	}
+
+	if chartInfo == nil {
+		return "", fmt.Errorf("can't find target chart: %s", chartName)
+	}
+
+	// prepare chart data
+	filePath, err := downloadChart(deliveryVersion, chartInfo)
+	if err != nil {
+		return "", err
+	}
+
+	return filePath, err
+}
+
+func PreviewDeliveryChart(projectName, version string, chartName string, log *zap.SugaredLogger) (*DeliveryChartResp, error) {
+	filePath, err := DownloadDeliveryChart(projectName, version, chartName, log)
+	if err != nil {
+		return nil, err
+	}
+	fileName := filepath.Base(filePath)
+	dstDir := getChartExpandDir(projectName, version)
+
+	fileName = strings.TrimSuffix(fileName, filepath.Ext(fileName))
+	dstDir = filepath.Join(dstDir, fileName)
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to open tarball")
+	}
+	defer file.Close()
+
+	err = chartutil.Expand(dstDir, file)
+	if err != nil {
+		log.Errorf("failed to uncompress file: %s", filePath)
+		return nil, errors.Wrapf(err, "failed to uncompress file")
+	}
+
+	ret := &DeliveryChartResp{
+		FileInfos: make([]*types.FileInfo, 0),
+	}
+
+	var fis []*types.FileInfo
+	files, err := os.ReadDir(filepath.Join(dstDir, chartName))
+	if err != nil {
+		return nil, err
+	}
+
+	for _, file := range files {
+		info, _ := file.Info()
+		if info == nil {
+			continue
+		}
+		fi := &types.FileInfo{
+			Parent:  "",
+			Name:    file.Name(),
+			Size:    info.Size(),
+			Mode:    file.Type(),
+			ModTime: info.ModTime().Unix(),
+			IsDir:   file.IsDir(),
+		}
+
+		fis = append(fis, fi)
+	}
+	ret.FileInfos = fis
+	return ret, nil
 }
