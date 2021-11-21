@@ -97,16 +97,32 @@ func (p *TriggerTaskPlugin) SetTriggerStatusCompleted(status config.Status) {
 }
 
 func (p *TriggerTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineCtx *task.PipelineCtx, serviceName string) {
-
 	p.Log.Infof("succeed to create trigger task %s", p.JobName)
+
 }
 
 // Wait ...
 func (p *TriggerTaskPlugin) Wait(ctx context.Context) {
-	status := waitJobEndWithFile(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, true, p.kubeClient, p.Log)
-	p.SetTriggerStatusCompleted(status)
+	timeout := time.After(time.Duration(p.TaskTimeout()))
 
-	p.SetStatus(status)
+	for {
+		select {
+		case <-ctx.Done():
+			p.Task.TaskStatus = config.StatusCancelled
+			return
+
+		case <-timeout:
+			p.Task.TaskStatus = config.StatusTimeout
+			return
+
+		default:
+			time.Sleep(time.Second * 1)
+
+			if p.IsTaskDone() {
+				return
+			}
+		}
+	}
 }
 
 // Complete ...

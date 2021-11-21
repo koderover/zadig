@@ -418,7 +418,7 @@ func (r *Reaper) AfterExec(upStreamErr error) error {
 		}
 
 		if r.Ctx.ArtifactPath != "" {
-			if err = artifactsUpload(r.Ctx, r.ActiveWorkspace, []string{r.Ctx.ArtifactPath}); err != nil {
+			if err = artifactsUpload(r.Ctx, r.ActiveWorkspace, []string{r.Ctx.ArtifactPath}, "buildv3"); err != nil {
 				log.Errorf("artifactsUpload err %s", err)
 				return err
 			}

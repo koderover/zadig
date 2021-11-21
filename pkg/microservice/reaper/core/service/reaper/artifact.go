@@ -31,7 +31,7 @@ import (
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 )
 
-func artifactsUpload(ctx *meta.Context, activeWorkspace string, artifactPaths []string) error {
+func artifactsUpload(ctx *meta.Context, activeWorkspace string, artifactPaths []string, pluginType ...string) error {
 	var (
 		err   error
 		store *s3.S3
@@ -49,49 +49,52 @@ func artifactsUpload(ctx *meta.Context, activeWorkspace string, artifactPaths []
 		}
 	}
 
-	for _, artifactPath := range artifactPaths {
-		if len(artifactPath) == 0 {
-			continue
-		}
-
-		artifactPath = strings.TrimPrefix(artifactPath, "/")
-
-		artifactPath = filepath.Join(activeWorkspace, artifactPath)
-
-		artifactFiles, err := ioutil.ReadDir(artifactPath)
-		if err != nil || len(artifactFiles) == 0 {
-			continue
-		}
-
-		for _, artifactFile := range artifactFiles {
-			if artifactFile.IsDir() {
-				continue
-			}
-			filePath := path.Join(artifactPath, artifactFile.Name())
-
-			if _, err := os.Stat(filePath); os.IsNotExist(err) {
+	if len(pluginType) == 0 {
+		for _, artifactPath := range artifactPaths {
+			if len(artifactPath) == 0 {
 				continue
 			}
 
-			if store != nil {
-				forcedPathStyle := true
-				if store.Provider == setting.ProviderSourceAli {
-					forcedPathStyle = false
-				}
-				s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
-				if err != nil {
-					log.Errorf("failed to create s3 client, error is: %+v", err)
-					return err
-				}
-				objectKey := store.GetObjectPath(fmt.Sprintf("%s/%s", artifactPath, artifactFile.Name()))
-				err = s3client.Upload(store.Bucket, filePath, objectKey)
+			artifactPath = strings.TrimPrefix(artifactPath, "/")
 
-				if err != nil {
-					log.Errorf("artifactsUpload failed to upload package %s, err:%v", filePath, err)
-					return err
+			artifactPath = filepath.Join(activeWorkspace, artifactPath)
+
+			artifactFiles, err := ioutil.ReadDir(artifactPath)
+			if err != nil || len(artifactFiles) == 0 {
+				continue
+			}
+
+			for _, artifactFile := range artifactFiles {
+				if artifactFile.IsDir() {
+					continue
+				}
+				filePath := path.Join(artifactPath, artifactFile.Name())
+
+				if _, err := os.Stat(filePath); os.IsNotExist(err) {
+					continue
+				}
+
+				if store != nil {
+					forcedPathStyle := true
+					if store.Provider == setting.ProviderSourceAli {
+						forcedPathStyle = false
+					}
+					s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
+					if err != nil {
+						log.Errorf("failed to create s3 client, error is: %+v", err)
+						return err
+					}
+					objectKey := store.GetObjectPath(fmt.Sprintf("%s/%s", artifactPath, artifactFile.Name()))
+					err = s3client.Upload(store.Bucket, filePath, objectKey)
+
+					if err != nil {
+						log.Errorf("artifactsUpload failed to upload package %s, err:%v", filePath, err)
+						return err
+					}
 				}
 			}
 		}
 	}
+
 	return nil
 }
