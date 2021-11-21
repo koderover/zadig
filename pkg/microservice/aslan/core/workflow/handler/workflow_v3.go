@@ -104,3 +104,10 @@ func DeleteWorkflowV3(c *gin.Context) {
 
 	ctx.Err = workflowservice.DeleteWorkflowV3(c.Param("id"), ctx.Logger)
 }
+
+func GetWorkflowV3Args(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = workflowservice.GetWorkflowV3Args(c.Param("id"), ctx.Logger)
+}

@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -169,4 +171,93 @@ func DeleteWorkflowV3(id string, logger *zap.SugaredLogger) error {
 		return e.ErrDeleteWorkflow.AddErr(err)
 	}
 	return nil
+}
+
+func GetWorkflowV3Args(id string, logger *zap.SugaredLogger) ([]*WorkflowV3TaskArgs, error) {
+	workflow, err := commonrepo.NewWorkflowV3Coll().GetByID(id)
+	if err != nil {
+		logger.Errorf("Failed to get workflowV3 detail from id: %s, the error is: %s", id, err)
+		return nil, err
+	}
+	resp := make([]*WorkflowV3TaskArgs, 0)
+	for _, param := range workflow.Parameters {
+		switch param.Type {
+		case "string":
+			resp = append(resp, &WorkflowV3TaskArgs{
+				Type:  param.Type,
+				Key:   param.Key,
+				Value: param.DefaultValue,
+			})
+		case "choice":
+			resp = append(resp, &WorkflowV3TaskArgs{
+				Type:   param.Type,
+				Key:    param.Key,
+				Value:  param.DefaultValue,
+				Choice: param.ChoiceOption,
+			})
+		case "external":
+			externalEnv := &WorkflowV3TaskArgs{
+				Type: param.Type,
+			}
+			for _, kv := range param.ExternalSetting.Params {
+				if kv.Display {
+					externalEnv.DisplayKey = kv.ParamKey
+					break
+				}
+			}
+			if externalEnv.DisplayKey == "" {
+				errorMsg := fmt.Sprintf("error getting external key, cannot find the display key")
+				logger.Error(errorMsg)
+				return nil, errors.New(errorMsg)
+			}
+			options, err := getEnvsFromExternalSystem(param.ExternalSetting)
+			if err != nil {
+				logger.Errorf("Failed to get response from external system, the error is: %s", err)
+				return nil, err
+			}
+			externalEnv.Options = options
+			resp = append(resp, externalEnv)
+		default:
+			return nil, err
+		}
+	}
+	return resp, nil
+}
+
+func getEnvsFromExternalSystem(setting *commonmodels.ExternalSetting) ([]map[string]interface{}, error) {
+	externalSystem, err := commonrepo.NewExternalSystemColl().GetByID(setting.SystemID)
+	if err != nil {
+		return nil, err
+	}
+	server := fmt.Sprintf("%s/%s", externalSystem.Server, setting.Endpoint)
+	client := http.Client{}
+	req, err := http.NewRequest(setting.Method, server, strings.NewReader(setting.Body))
+	if err != nil {
+		return nil, err
+	}
+	if setting.Headers != nil {
+		for _, header := range setting.Headers {
+			req.Header.Set(header.Key, header.Value)
+		}
+	}
+	resp, err := client.Do(req)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		return nil, errors.New("failed to get response from external system")
+	}
+	decoder := json.NewDecoder(resp.Body)
+	respList := make([]map[string]interface{}, 0)
+	err = decoder.Decode(&respList)
+	if err != nil {
+		return nil, err
+	}
+	envList := make([]map[string]interface{}, 0)
+	// find every single key required
+	for _, respItem := range respList {
+		item := map[string]interface{}{}
+		for _, kv := range setting.Params {
+			item[kv.ParamKey] = respItem[kv.ResponseKey]
+		}
+		envList = append(envList, item)
+	}
+	return envList, nil
 }
