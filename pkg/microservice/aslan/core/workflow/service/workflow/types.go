@@ -6,7 +6,7 @@ type WorkflowV3 struct {
 	ProjectName string                   `json:"project_name"`
 	Description string                   `json:"description"`
 	Parameters  []*ParameterSetting      `json:"parameters"`
-	Subtasks    []map[string]interface{} `json:"subtasks"`
+	SubTasks    []map[string]interface{} `json:"sub_tasks"`
 }
 
 type WorkflowV3Brief struct {

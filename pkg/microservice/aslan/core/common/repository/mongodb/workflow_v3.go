@@ -66,9 +66,14 @@ func (c *WorkflowV3Coll) List(opt *ListWorkflowV3Option, pageNum, pageSize int64
 	if err != nil {
 		return nil, 0, err
 	}
-	findOption := options.Find().
-		SetSkip((pageNum - 1) * pageSize).
-		SetLimit(pageSize)
+	var findOption *options.FindOptions
+	if pageNum == 0 && pageSize == 0 {
+		findOption = options.Find()
+	} else {
+		findOption = options.Find().
+			SetSkip((pageNum - 1) * pageSize).
+			SetLimit(pageSize)
+	}
 
 	cursor, err := c.Collection.Find(context.TODO(), query, findOption)
 	if err != nil {
@@ -79,6 +84,17 @@ func (c *WorkflowV3Coll) List(opt *ListWorkflowV3Option, pageNum, pageSize int64
 		return nil, 0, err
 	}
 	return resp, count, nil
+}
+
+func (c *WorkflowV3Coll) Find(name string) (*models.WorkflowV3, error) {
+	resp := new(models.WorkflowV3)
+	query := bson.M{"name": name}
+
+	err := c.FindOne(context.TODO(), query).Decode(&resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
 
 func (c *WorkflowV3Coll) GetByID(idstring string) (*models.WorkflowV3, error) {

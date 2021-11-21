@@ -136,6 +136,9 @@ func updatePipelineSubTask(t interface{}, pipelineTask *task.Task, pos int, serv
 	} else if pipelineTask.Type == config.ServiceType {
 		xl.Info("pipeline type is service type: pipeline 3.0")
 		pipelineTask.Stages[pos].SubTasks[servicename] = subTask
+	} else if pipelineTask.Type == config.WorkflowTypeV3 {
+		xl.Info("pipeline type is workflow type: pipeline 3.0")
+		pipelineTask.Stages[pos].SubTasks[servicename] = subTask
 	}
 }
 
@@ -540,6 +543,7 @@ func initTaskPlugins(execHandler *ExecHandler) {
 	pluginConf := map[config.TaskType]plugins.Initiator{
 		config.TaskJira:           plugins.InitializeJiraTaskPlugin,
 		config.TaskBuild:          plugins.InitializeBuildTaskPlugin,
+		config.TaskBuildV3:        plugins.InitializeBuildTaskV3Plugin,
 		config.TaskArtifactDeploy: plugins.InitializeArtifactTaskPlugin,
 		config.TaskJenkinsBuild:   plugins.InitializeJenkinsBuildPlugin,
 		config.TaskDockerBuild:    plugins.InitializeDockerBuildTaskPlugin,
@@ -549,6 +553,7 @@ func initTaskPlugins(execHandler *ExecHandler) {
 		config.TaskReleaseImage:   plugins.InitializeReleaseImagePlugin,
 		config.TaskDistributeToS3: plugins.InitializeDistribute2S3TaskPlugin,
 		config.TaskResetImage:     plugins.InitializeDeployTaskPlugin,
+		config.TaskTrigger:        plugins.InitializeTriggerTaskPlugin,
 	}
 	for name, pluginInitiator := range pluginConf {
 		registerTaskPlugin(execHandler, name, pluginInitiator)

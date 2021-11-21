@@ -134,3 +134,37 @@ func GetWorkflowTaskSSE(c *gin.Context) {
 		}
 	}, ctx.Logger)
 }
+
+func GetWorkflowTaskV3SSE(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+
+	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("Invalid id Args")
+		internalhandler.JSONResponse(c, ctx)
+		return
+	}
+
+	internalhandler.Stream(c, func(ctx1 context.Context, msgChan chan interface{}) {
+		startTime := time.Now()
+		err := wait.PollImmediateUntil(time.Second, func() (bool, error) {
+			res, err := workflow.GetWorkflowTaskV3(taskID, c.Param("name"), config.WorkflowTypeV3, ctx.Logger)
+			if err != nil {
+				ctx.Logger.Errorf("[%s] GetWorkflowTaskV3SSE error: %s", ctx.UserName, err)
+				return false, err
+			}
+
+			msgChan <- res
+
+			if time.Since(startTime).Minutes() == float64(60) {
+				ctx.Logger.Warnf("[%s] Query GetWorkflowTaskV3SSE API over 60 minutes", ctx.UserName)
+			}
+
+			return false, nil
+		}, ctx1.Done())
+
+		if err != nil && err != wait.ErrWaitTimeout {
+			ctx.Logger.Error(err)
+		}
+	}, ctx.Logger)
+}

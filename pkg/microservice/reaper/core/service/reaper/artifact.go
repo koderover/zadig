@@ -31,7 +31,7 @@ import (
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 )
 
-func artifactsUpload(ctx *meta.Context, activeWorkspace string) error {
+func artifactsUpload(ctx *meta.Context, activeWorkspace string, artifactPaths []string) error {
 	var (
 		err   error
 		store *s3.S3
@@ -49,7 +49,6 @@ func artifactsUpload(ctx *meta.Context, activeWorkspace string) error {
 		}
 	}
 
-	artifactPaths := ctx.GinkgoTest.ArtifactPaths
 	for _, artifactPath := range artifactPaths {
 		if len(artifactPath) == 0 {
 			continue

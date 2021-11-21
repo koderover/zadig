@@ -47,6 +47,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		sse.GET("/tasks/running", RunningPipelineTasksSSE)
 		sse.GET("/tasks/pending", PendingPipelineTasksSSE)
 		sse.GET("/tasks/id/:id/pipelines/:name", GetPipelineTaskSSE)
+		sse.GET("/workflowtask/v3/id/:id/name/:name", GetWorkflowTaskV3SSE)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -121,12 +122,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		//todo 修改权限的uuid
 		workflowtask.GET("/targets/:productName/:namespace", GetWorkflowArgs)
 		workflowtask.GET("/preset/:namespace/:workflowName", PresetWorkflowArgs)
-		workflowtask.POST("", GetWorkflowTaskProductName, gin2.UpdateOperationLogStatus, CreateWorkflowTask)
-		workflowtask.PUT("", GetWorkflowTaskProductName, gin2.UpdateOperationLogStatus, CreateArtifactWorkflowTask)
+		workflowtask.POST("", gin2.UpdateOperationLogStatus, CreateWorkflowTask)
+		workflowtask.PUT("", gin2.UpdateOperationLogStatus, CreateArtifactWorkflowTask)
 		workflowtask.GET("/max/:max/start/:start/pipelines/:name", ListWorkflowTasksResult)
 		workflowtask.GET("/id/:id/pipelines/:name", GetWorkflowTask)
-		workflowtask.POST("/id/:id/pipelines/:name/restart", GetWorkflowTaskProductNameByTask, gin2.UpdateOperationLogStatus, RestartWorkflowTask)
-		workflowtask.DELETE("/id/:id/pipelines/:name", GetWorkflowTaskProductNameByTask, gin2.UpdateOperationLogStatus, CancelWorkflowTaskV2)
+		workflowtask.POST("/id/:id/pipelines/:name/restart", gin2.UpdateOperationLogStatus, RestartWorkflowTask)
+		workflowtask.DELETE("/id/:id/pipelines/:name", gin2.UpdateOperationLogStatus, CancelWorkflowTaskV2)
 	}
 
 	serviceTask := router.Group("servicetask")
@@ -144,5 +145,17 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workflowV3.GET("/:id", GetWorkflowV3Detail)
 		workflowV3.PUT("/:id", gin2.UpdateOperationLogStatus, UpdateWorkflowV3)
 		workflowV3.DELETE("/:id", DeleteWorkflowV3)
+	}
+
+	// ---------------------------------------------------------------------------------------
+	// workflow v3 任务接口
+	// ---------------------------------------------------------------------------------------
+	taskV3 := router.Group("v3/workflowtask")
+	{
+		taskV3.POST("", gin2.UpdateOperationLogStatus, CreateWorkflowTaskV3)
+		taskV3.POST("/id/:id/name/:name/restart", gin2.UpdateOperationLogStatus, RestartWorkflowTaskV3)
+		taskV3.DELETE("/id/:id/name/:name", gin2.UpdateOperationLogStatus, CancelWorkflowTaskV3)
+		taskV3.GET("/max/:max/start/:start/name/:name", ListWorkflowV3TasksResult)
+		taskV3.GET("/id/:id/name/:name", GetWorkflowTaskV3)
 	}
 }

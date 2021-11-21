@@ -1,10 +1,13 @@
 package handler
 
 import (
+	"bytes"
 	"encoding/json"
+	"io/ioutil"
 
 	"github.com/gin-gonic/gin"
 
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	"github.com/koderover/zadig/pkg/tool/errors"
@@ -15,8 +18,7 @@ func CreateWorkflowV3(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	req := &workflowservice.WorkflowV3{}
-
+	req := &commonmodels.WorkflowV3{}
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("CreateWorkflowV3 err: %s", err)
@@ -25,6 +27,7 @@ func CreateWorkflowV3(c *gin.Context) {
 		log.Errorf("CreateWorkflow unmarshal json err: %s", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, req.ProjectName, "新增", "工作流V3", req.Name, string(data), ctx.Logger)
+	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		ctx.Err = errors.ErrInvalidParam.AddDesc(err.Error())
@@ -34,7 +37,7 @@ func CreateWorkflowV3(c *gin.Context) {
 }
 
 type listWorkflowV3Query struct {
-	PageSize    int64  `json:"page_size"    form:"page_size,default=100"`
+	PageSize    int64  `json:"page_size"    form:"page_size,default=20"`
 	PageNum     int64  `json:"page_num"     form:"page_num,default=1"`
 	ProjectName string `json:"project_name" form:"project_name"`
 }
@@ -75,7 +78,7 @@ func UpdateWorkflowV3(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	req := &workflowservice.WorkflowV3{}
+	req := &commonmodels.WorkflowV3{}
 
 	data, err := c.GetRawData()
 	if err != nil {
@@ -85,6 +88,7 @@ func UpdateWorkflowV3(c *gin.Context) {
 		log.Errorf("UpdateWorkflowV3 unmarshal json err: %s", err)
 	}
 	internalhandler.InsertOperationLog(c, ctx.UserName, req.ProjectName, "修改", "工作流V3", req.Name, string(data), ctx.Logger)
+	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		ctx.Err = errors.ErrInvalidParam.AddDesc(err.Error())
