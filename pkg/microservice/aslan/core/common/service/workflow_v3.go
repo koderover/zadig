@@ -51,11 +51,11 @@ func DeleteWorkflowV3(workflowID, workflowName, requestID string, log *zap.Sugar
 	}
 
 	if err := mongodb.NewTaskColl().DeleteByPipelineNameAndType(workflowName, config.WorkflowTypeV3); err != nil {
-		log.Errorf("PipelineTaskV2.DeleteByPipelineName error: %v", err)
+		log.Errorf("PipelineTaskV2.DeleteByPipelineName error: %s", err)
 	}
 
-	if err := mongodb.NewCounterColl().Delete("WorkflowTask:" + workflowName); err != nil {
-		log.Errorf("Counter.Delete error: %v", err)
+	if err := mongodb.NewCounterColl().Delete("WorkflowTaskV3:" + workflowName); err != nil {
+		log.Errorf("Counter.Delete error: %s", err)
 	}
 	return nil
 }
