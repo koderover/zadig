@@ -18,14 +18,19 @@ package taskplugin
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"time"
 
 	"go.uber.org/zap"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
+	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/s3"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
+	"github.com/koderover/zadig/pkg/tool/httpclient"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 const (
@@ -97,8 +102,61 @@ func (p *TriggerTaskPlugin) SetTriggerStatusCompleted(status config.Status) {
 }
 
 func (p *TriggerTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineCtx *task.PipelineCtx, serviceName string) {
+	var (
+		err          error
+		body         []byte
+		artifactPath string
+	)
+	defer func() {
+		if err != nil {
+			p.Log.Error(err)
+			p.Task.TaskStatus = config.StatusFailed
+			p.Task.Error = err.Error()
+			return
+		}
+	}()
 	p.Log.Infof("succeed to create trigger task %s", p.JobName)
+	httpClient := httpclient.New(
+		httpclient.SetHostURL(p.Task.URL),
+	)
+	url := p.Task.Path
+	artifactPath, err = p.getS3Storage(pipelineTask)
+	if err != nil {
+		return
+	}
+	taskOutput := &task.TaskOutput{
+		Type:  "object_storage",
+		Value: artifactPath,
+	}
+	webhookPayload := &task.WebhookPayload{
+		EventName:   "workflow",
+		ProjectName: pipelineTask.ProductName,
+		TaskName:    pipelineTask.PipelineName,
+		TaskID:      pipelineTask.TaskID,
+		TaskOutput:  []*task.TaskOutput{taskOutput},
+		TaskEnvs:    pipelineTask.TaskArgs.BuildArgs,
+	}
+	body, err = json.Marshal(webhookPayload)
+	_, err = httpClient.Post(url, httpclient.SetHeader("X-Zadig-Event", "Workflow"), httpclient.SetBody(body))
+	if err != nil {
+		return
+	}
+}
 
+func (p *TriggerTaskPlugin) getS3Storage(pipelineTask *task.Task) (string, error) {
+	var err error
+	var store *s3.S3
+	if store, err = s3.NewS3StorageFromEncryptedURI(pipelineTask.StorageURI); err != nil {
+		log.Errorf("Archive failed to create s3 storage %s", pipelineTask.StorageURI)
+		return "", err
+	}
+	subPath := ""
+	if store.Subfolder != "" {
+		subPath = fmt.Sprintf("%s/%s/%s/%s", store.Subfolder, pipelineTask.PipelineName, pipelineTask.ServiceName, "artifact")
+	} else {
+		subPath = fmt.Sprintf("%s/%s/%s", pipelineTask.PipelineName, pipelineTask.ServiceName, "artifact")
+	}
+	return fmt.Sprintf("%s/%s/artifact.tar.gz", store.Endpoint, subPath), nil
 }
 
 // Wait ...

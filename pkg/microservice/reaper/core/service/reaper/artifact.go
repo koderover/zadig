@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
@@ -93,6 +94,41 @@ func artifactsUpload(ctx *meta.Context, activeWorkspace string, artifactPaths []
 					}
 				}
 			}
+		}
+		return nil
+	}
+
+	artifactPath := artifactPaths[0]
+	temp, err := ioutil.TempFile("", "*artifact.tar.gz")
+	if err != nil {
+		log.Errorf("failed to create temp file %s", err)
+		return err
+	}
+
+	_ = temp.Close()
+	cmd := exec.Command("tar", "czf", temp.Name(), "-C", artifactPath, ".")
+	cmd.Dir = artifactPath
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	if err = cmd.Run(); err != nil {
+		log.Errorf("failed to compress artifact %s", err)
+		return err
+	}
+	if store != nil {
+		forcedPathStyle := true
+		if store.Provider == setting.ProviderSourceAli {
+			forcedPathStyle = false
+		}
+		s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
+		if err != nil {
+			log.Errorf("failed to create s3 client, error is: %s", err)
+			return err
+		}
+
+		objectKey := store.GetObjectPath("artifact.tar.gz")
+		if err = s3client.Upload(store.Bucket, temp.Name(), objectKey); err != nil {
+			log.Errorf("Archive s3 upload err:%s", err)
+			return err
 		}
 	}
 

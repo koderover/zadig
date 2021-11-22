@@ -28,3 +28,17 @@ func (t *Trigger) ToSubTask() (map[string]interface{}, error) {
 	}
 	return task, nil
 }
+
+type WebhookPayload struct {
+	EventName   string        `json:"event_name"`
+	ProjectName string        `json:"project_name"`
+	TaskName    string        `json:"task_name"`
+	TaskID      int64         `json:"task_id"`
+	TaskOutput  []*TaskOutput `json:"task_output"`
+	TaskEnvs    []*KeyVal     `json:"task_envs"`
+}
+
+type TaskOutput struct {
+	Type  string `json:"type"`
+	Value string `json:"value"`
+}
