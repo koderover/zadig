@@ -52,7 +52,7 @@ func GenerateClaimsByUser(user *models.User) *Claims {
 	}
 }
 
-func GenerateClaimsByUserID(userID string, expire time.Duration) (*Claims, error) {
+func generateClaimsByUserID(userID string, expire time.Duration) (*Claims, error) {
 	user, err := orm.GetUserByUid(userID, core.DB)
 	if err != nil {
 		return nil, err
