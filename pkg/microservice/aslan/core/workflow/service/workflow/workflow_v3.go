@@ -225,7 +225,7 @@ func GetWorkflowV3Args(id string, logger *zap.SugaredLogger) ([]*WorkflowV3TaskA
 	return resp, nil
 }
 
-func getEnvsFromExternalSystem(setting *commonmodels.ExternalSetting) ([]map[string]string, error) {
+func getEnvsFromExternalSystem(setting *commonmodels.ExternalSetting) ([]map[string]interface{}, error) {
 	externalSystem, err := commonrepo.NewExternalSystemColl().GetByID(setting.SystemID)
 	if err != nil {
 		return nil, err
@@ -246,15 +246,15 @@ func getEnvsFromExternalSystem(setting *commonmodels.ExternalSetting) ([]map[str
 		return nil, errors.New("failed to get response from external system")
 	}
 	decoder := json.NewDecoder(resp.Body)
-	respList := make([]map[string]string, 0)
+	respList := make([]map[string]interface{}, 0)
 	err = decoder.Decode(&respList)
 	if err != nil {
 		return nil, err
 	}
-	envList := make([]map[string]string, 0)
+	envList := make([]map[string]interface{}, 0)
 	// find every single key required
 	for _, respItem := range respList {
-		item := map[string]string{}
+		item := map[string]interface{}{}
 		for _, kv := range setting.Params {
 			item[kv.ParamKey] = respItem[kv.ResponseKey]
 		}
