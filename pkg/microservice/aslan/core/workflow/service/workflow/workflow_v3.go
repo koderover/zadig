@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -19,13 +20,13 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-func CreateWorkflowV3(user string, workflowModel *commonmodels.WorkflowV3, logger *zap.SugaredLogger) error {
+func CreateWorkflowV3(user string, workflowModel *commonmodels.WorkflowV3, logger *zap.SugaredLogger) (string, error) {
 	if !checkWorkflowSubModules(workflowModel) {
 		errStr := "工作流没有子模块，请先设置子模块"
-		return e.ErrUpsertWorkflow.AddDesc(errStr)
+		return "", e.ErrUpsertWorkflow.AddDesc(errStr)
 	}
 	if err := ensureWorkflowV3(workflowModel, logger); err != nil {
-		return e.ErrUpsertWorkflow.AddDesc(err.Error())
+		return "", e.ErrUpsertWorkflow.AddDesc(err.Error())
 	}
 
 	workflowModel.CreatedBy = user
@@ -33,11 +34,12 @@ func CreateWorkflowV3(user string, workflowModel *commonmodels.WorkflowV3, logge
 	workflowModel.CreateTime = time.Now().Unix()
 	workflowModel.UpdateTime = time.Now().Unix()
 
-	if err := commonrepo.NewWorkflowV3Coll().Create(workflowModel); err != nil {
+	workflowID, err := commonrepo.NewWorkflowV3Coll().Create(workflowModel)
+	if err != nil {
 		logger.Errorf("Failed to create workflow v3, the error is: %s", err)
-		return e.ErrUpsertWorkflow.AddErr(err)
+		return "", e.ErrUpsertWorkflow.AddErr(err)
 	}
-	return nil
+	return workflowID, nil
 }
 
 func ensureWorkflowV3(args *commonmodels.WorkflowV3, log *zap.SugaredLogger) error {
@@ -229,10 +231,13 @@ func getEnvsFromExternalSystem(setting *commonmodels.ExternalSetting) ([]map[str
 	if err != nil {
 		return nil, err
 	}
-	server := fmt.Sprintf("%s/%s", externalSystem.Server, setting.Endpoint)
-	fmt.Println(">>>>>>>>>>>>> server:", server, "<<<<<<<<<<<<<<<")
+	serverURL, err := url.Parse(externalSystem.Server)
+	if err != nil {
+		return nil, err
+	}
 	client := http.Client{}
-	req, err := http.NewRequest(setting.Method, server, strings.NewReader(setting.Body))
+	requestPath := fmt.Sprintf("%s/%s/%s", serverURL.Host, serverURL.Path, setting.Endpoint)
+	req, err := http.NewRequest(setting.Method, requestPath, strings.NewReader(setting.Body))
 	if err != nil {
 		return nil, err
 	}

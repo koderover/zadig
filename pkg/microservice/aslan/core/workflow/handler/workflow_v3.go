@@ -14,6 +14,10 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
+type createWorkflowResp struct {
+	ID string `json:"id"`
+}
+
 func CreateWorkflowV3(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -33,7 +37,10 @@ func CreateWorkflowV3(c *gin.Context) {
 		ctx.Err = errors.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	ctx.Err = workflowservice.CreateWorkflowV3(ctx.UserName, req, ctx.Logger)
+	workflowID, err := workflowservice.CreateWorkflowV3(ctx.UserName, req, ctx.Logger)
+	resp := createWorkflowResp{ID: workflowID}
+	ctx.Resp = resp
+	ctx.Err = err
 }
 
 type listWorkflowV3Query struct {

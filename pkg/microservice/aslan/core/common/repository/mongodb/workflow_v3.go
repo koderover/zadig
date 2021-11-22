@@ -2,6 +2,7 @@ package mongodb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -47,13 +48,20 @@ func (c *WorkflowV3Coll) EnsureIndex(ctx context.Context) error {
 	return err
 }
 
-func (c *WorkflowV3Coll) Create(obj *models.WorkflowV3) error {
+func (c *WorkflowV3Coll) Create(obj *models.WorkflowV3) (string, error) {
 	if obj == nil {
-		return fmt.Errorf("nil object")
+		return "", fmt.Errorf("nil object")
 	}
 
-	_, err := c.InsertOne(context.TODO(), obj)
-	return err
+	res, err := c.InsertOne(context.TODO(), obj)
+	if err != nil {
+		return "", err
+	}
+	ID, ok := res.InsertedID.(primitive.ObjectID)
+	if !ok {
+		return "", errors.New("failed to get object id from create")
+	}
+	return ID.Hex(), err
 }
 
 func (c *WorkflowV3Coll) List(opt *ListWorkflowV3Option, pageNum, pageSize int64) ([]*models.WorkflowV3, int64, error) {
