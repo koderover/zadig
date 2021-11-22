@@ -52,3 +52,33 @@ func (c *CallbackRequestColl) Create(req *models.CallbackRequest) error {
 
 	return err
 }
+
+type CallbackFindOption struct {
+	TaskID       int64
+	PipelineName string
+	ProjectName  string
+}
+
+func (c *CallbackRequestColl) Find(req *CallbackFindOption) (*models.CallbackRequest, error) {
+	if req == nil {
+		return nil, errors.New("nil FindOption")
+	}
+
+	query := bson.M{}
+	if req.TaskID != 0 {
+		query["task_id"] = req.TaskID
+	}
+	if req.PipelineName != "" {
+		query["task_name"] = req.PipelineName
+	}
+	if req.ProjectName != "" {
+		query["project_name"] = req.ProjectName
+	}
+
+	resp := new(models.CallbackRequest)
+	err := c.Collection.FindOne(context.TODO(), query).Decode(resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}

@@ -190,6 +190,14 @@ func GetWorkflowTaskV3(taskID int64, pipelineName string, typeString config.Pipe
 	return resp, nil
 }
 
+func GetWorkflowTaskV3Callback(taskID int64, pipelineName, projectName string, logger *zap.SugaredLogger) (*commonmodels.CallbackRequest, error) {
+	return commonrepo.NewCallbackRequestColl().Find(&commonrepo.CallbackFindOption{
+		TaskID:       taskID,
+		PipelineName: pipelineName,
+		ProjectName:  projectName,
+	})
+}
+
 func CleanWorkflow3(task *task.Task) {
 	task.ConfigPayload = nil
 	task.TaskArgs = nil
