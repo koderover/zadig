@@ -237,6 +237,7 @@ func getEnvsFromExternalSystem(setting *commonmodels.ExternalSetting) ([]map[str
 	}
 	client := http.Client{}
 	requestPath := fmt.Sprintf("%s/%s/%s", serverURL.Host, serverURL.Path, setting.Endpoint)
+	fmt.Println("!!!!!!!!! request path is:", requestPath, "!!!!!!!!!!!!!!!!!")
 	req, err := http.NewRequest(setting.Method, requestPath, strings.NewReader(setting.Body))
 	if err != nil {
 		return nil, err
@@ -248,6 +249,8 @@ func getEnvsFromExternalSystem(setting *commonmodels.ExternalSetting) ([]map[str
 	}
 	resp, err := client.Do(req)
 	if err != nil || resp.StatusCode != http.StatusOK {
+		fmt.Println(">>>>>>>>>>>>>>>>>>>> error is:", err, "<<<<<<<<<<<<<<<<<<<<")
+		fmt.Println(">>>>>>>>>>>>>>>>>>>> status code is:", resp.StatusCode, "<<<<<<<<<<<<<<<<<")
 		return nil, errors.New("failed to get response from external system")
 	}
 	decoder := json.NewDecoder(resp.Body)
