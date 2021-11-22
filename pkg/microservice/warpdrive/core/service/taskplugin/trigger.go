@@ -162,7 +162,7 @@ func (p *TriggerTaskPlugin) getS3Storage(pipelineTask *task.Task) (string, error
 
 // Wait ...
 func (p *TriggerTaskPlugin) Wait(ctx context.Context) {
-	timeout := time.After(time.Duration(p.TaskTimeout()))
+	timeout := time.After(time.Duration(p.TaskTimeout()) * time.Second)
 	defer p.cancel()
 	for {
 		select {

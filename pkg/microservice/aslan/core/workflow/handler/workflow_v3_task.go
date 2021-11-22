@@ -3,7 +3,6 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"strconv"
 
@@ -120,18 +119,14 @@ type KeyVal struct {
 	IsCredential bool   `bson:"is_credential"       json:"is_credential"`
 }
 
-func OutputWebhookPayload(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	args := new(WebhookPayload)
-	if err := c.ShouldBindJSON(&args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-		return
-	}
-	fmt.Println(fmt.Sprintf("args:%+v", args))
-	fmt.Println(fmt.Sprintf("args.TaskEnvs:%+v", args.TaskEnvs))
-	fmt.Println(fmt.Sprintf("args.TaskOutput:%+v", args.TaskOutput))
-	fmt.Println(fmt.Sprintf("header:%+v", c.Request.Header))
-	return
-}
+//func OutputWebhookPayload(c *gin.Context) {
+//	ctx := internalhandler.NewContext(c)
+//	defer func() { internalhandler.JSONResponse(c, ctx) }()
+//
+//	args := new(WebhookPayload)
+//	if err := c.ShouldBindJSON(&args); err != nil {
+//		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+//		return
+//	}
+//	return
+//}
