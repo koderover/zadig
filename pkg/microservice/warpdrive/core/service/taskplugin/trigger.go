@@ -168,16 +168,13 @@ func (p *TriggerTaskPlugin) Wait(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			p.Task.TaskStatus = config.StatusCancelled
-			p.Log.Infof("11111111111111")
 			return
 		case <-timeout:
 			p.Task.TaskStatus = config.StatusTimeout
 			p.Task.Error = "timeout"
-			p.Log.Infof("11111111222222")
 			return
 		default:
 			time.Sleep(time.Second * 1)
-			p.Log.Infof("111111113333333")
 			if p.IsTaskDone() {
 				return
 			}
