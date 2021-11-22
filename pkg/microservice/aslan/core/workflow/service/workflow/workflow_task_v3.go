@@ -17,7 +17,12 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-func CreateWorkflowTaskV3(args *commonmodels.WorkflowV3Args, username, reqID string, log *zap.SugaredLogger) (*CreateTaskResp, error) {
+type TaskResp struct {
+	Name   string `json:"name"`
+	TaskID int64  `json:"task_id"`
+}
+
+func CreateWorkflowTaskV3(args *commonmodels.WorkflowV3Args, username, reqID string, log *zap.SugaredLogger) (*TaskResp, error) {
 	workflowV3, err := commonrepo.NewWorkflowV3Coll().GetByID(args.ID)
 	if err != nil {
 		log.Errorf("workflowV3.Find %s error: %s", args.Name, err)
@@ -125,9 +130,9 @@ func CreateWorkflowTaskV3(args *commonmodels.WorkflowV3Args, username, reqID str
 		return nil, e.ErrCreateTask
 	}
 
-	resp := &CreateTaskResp{
-		PipelineName: args.Name,
-		TaskID:       nextTaskID,
+	resp := &TaskResp{
+		Name:   args.Name,
+		TaskID: nextTaskID,
 	}
 	return resp, nil
 }
