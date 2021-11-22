@@ -161,6 +161,7 @@ func (p *TriggerTaskPlugin) getS3Storage(pipelineTask *task.Task) (string, error
 
 // Wait ...
 func (p *TriggerTaskPlugin) Wait(ctx context.Context) {
+	p.Log.Infof("p.TaskTimeout():%d", p.TaskTimeout())
 	timeout := time.After(time.Duration(p.TaskTimeout()))
 
 	for {
