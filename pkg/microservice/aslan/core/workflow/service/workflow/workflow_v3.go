@@ -230,6 +230,7 @@ func getEnvsFromExternalSystem(setting *commonmodels.ExternalSetting) ([]map[str
 		return nil, err
 	}
 	server := fmt.Sprintf("%s/%s", externalSystem.Server, setting.Endpoint)
+	fmt.Println(">>>>>>>>>>>>> server:", server, "<<<<<<<<<<<<<<<")
 	client := http.Client{}
 	req, err := http.NewRequest(setting.Method, server, strings.NewReader(setting.Body))
 	if err != nil {
