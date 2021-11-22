@@ -242,9 +242,14 @@ func getEnvsFromExternalSystem(setting *commonmodels.ExternalSetting, logger *za
 		}
 	}
 	resp, err := client.Do(req)
-	if err != nil || resp.StatusCode != http.StatusOK {
-		logger.Errorf("failed to get response from external system, the error is: %s", err)
-		return nil, errors.New("failed to get response from external system")
+	if err != nil {
+		logger.Errorf("failed to get env from external system, the error is: %s", err)
+		return nil, err
+	}
+	if resp.StatusCode != 200 {
+		logger.Errorf("failed to get env from external system, the status code is: %d", resp.StatusCode)
+		errMsg := fmt.Sprintf("got response code %d from external system", resp.StatusCode)
+		return nil, errors.New(errMsg)
 	}
 	decoder := json.NewDecoder(resp.Body)
 	respList := make([]map[string]interface{}, 0)
