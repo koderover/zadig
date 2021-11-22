@@ -211,7 +211,7 @@ func GetWorkflowV3Args(id string, logger *zap.SugaredLogger) ([]*WorkflowV3TaskA
 				logger.Error(errorMsg)
 				return nil, errors.New(errorMsg)
 			}
-			options, err := getEnvsFromExternalSystem(param.ExternalSetting)
+			options, err := getEnvsFromExternalSystem(param.ExternalSetting, logger)
 			if err != nil {
 				logger.Errorf("Failed to get response from external system, the error is: %s", err)
 				return nil, err
@@ -225,7 +225,7 @@ func GetWorkflowV3Args(id string, logger *zap.SugaredLogger) ([]*WorkflowV3TaskA
 	return resp, nil
 }
 
-func getEnvsFromExternalSystem(setting *commonmodels.ExternalSetting) ([]map[string]interface{}, error) {
+func getEnvsFromExternalSystem(setting *commonmodels.ExternalSetting, logger *zap.SugaredLogger) ([]map[string]interface{}, error) {
 	externalSystem, err := commonrepo.NewExternalSystemColl().GetByID(setting.SystemID)
 	if err != nil {
 		return nil, err
@@ -243,6 +243,7 @@ func getEnvsFromExternalSystem(setting *commonmodels.ExternalSetting) ([]map[str
 	}
 	resp, err := client.Do(req)
 	if err != nil || resp.StatusCode != http.StatusOK {
+		logger.Errorf("failed to get response from external system, the error is: %s", err)
 		return nil, errors.New("failed to get response from external system")
 	}
 	decoder := json.NewDecoder(resp.Body)
