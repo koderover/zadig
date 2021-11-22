@@ -20,11 +20,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"go.uber.org/zap"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/s3"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
@@ -178,12 +180,36 @@ func (p *TriggerTaskPlugin) Wait(ctx context.Context) {
 			p.Task.Error = "timeout"
 			return
 		default:
-			time.Sleep(time.Second * 1)
-			if p.IsTaskDone() {
-				return
-			}
+			time.Sleep(time.Second * 3)
+			p.Task.CallbackType = "wechat_callback"
+			p.Task.CallbackPayload = &task.CallbackPayload{QRCodeURL: "nihao"}
+			p.Task.TaskStatus = config.StatusPassed
+			return
+			//if p.IsTaskDone() {
+			//	return
+			//}
 		}
 	}
+}
+
+func (p *TriggerTaskPlugin) getCallbackObj(pipelineTask *task.Task) (*task.CallbackPayloadObj, error) {
+	url := "/api/"
+	httpClient := httpclient.New(
+		httpclient.SetHostURL(configbase.AslanServiceAddress()),
+	)
+
+	qs := map[string]string{
+		"name":        pipelineTask.PipelineName,
+		"taskId":      strconv.Itoa(int(pipelineTask.TaskID)),
+		"projectName": pipelineTask.ProductName,
+	}
+
+	CallbackPayloadObj := new(task.CallbackPayloadObj)
+	_, err := httpClient.Get(url, httpclient.SetResult(&CallbackPayloadObj), httpclient.SetQueryParams(qs))
+	if err != nil {
+		return nil, err
+	}
+	return CallbackPayloadObj, nil
 }
 
 // Complete ...
