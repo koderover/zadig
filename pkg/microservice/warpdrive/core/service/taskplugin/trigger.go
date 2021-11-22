@@ -125,6 +125,7 @@ func (p *TriggerTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pi
 	if err != nil {
 		return
 	}
+	p.Log.Infof("artifactPath:%s", artifactPath)
 	taskOutput := &task.TaskOutput{
 		Type:  "object_storage",
 		Value: artifactPath,
