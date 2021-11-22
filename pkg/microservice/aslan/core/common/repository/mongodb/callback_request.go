@@ -1,0 +1,54 @@
+package mongodb
+
+import (
+	"context"
+	"errors"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
+)
+
+type CallbackRequestColl struct {
+	*mongo.Collection
+
+	coll string
+}
+
+func NewCallbackRequestColl() *CallbackRequestColl {
+	name := models.CallbackRequest{}.TableName()
+	return &CallbackRequestColl{Collection: mongotool.Database(config.MongoDatabase()).Collection(name), coll: name}
+}
+
+func (c *CallbackRequestColl) GetCollectionName() string {
+	return c.coll
+}
+
+func (c *CallbackRequestColl) EnsureIndex(ctx context.Context) error {
+	mod := mongo.IndexModel{
+		Keys: bson.D{
+			bson.E{Key: "task_name", Value: 1},
+			bson.E{Key: "project_name", Value: 1},
+			bson.E{Key: "task_id", Value: 1},
+		},
+		Options: options.Index().SetUnique(false),
+	}
+
+	_, err := c.Indexes().CreateOne(ctx, mod)
+
+	return err
+}
+
+func (c *CallbackRequestColl) Create(req *models.CallbackRequest) error {
+	if req == nil {
+		return errors.New("nil Module args")
+	}
+
+	_, err := c.Collection.InsertOne(context.TODO(), req)
+
+	return err
+}
