@@ -145,6 +145,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workflowV3.GET("/:id", GetWorkflowV3Detail)
 		workflowV3.PUT("/:id", gin2.UpdateOperationLogStatus, UpdateWorkflowV3)
 		workflowV3.DELETE("/:id", DeleteWorkflowV3)
+		workflowV3.GET("/:id/args", GetWorkflowV3Args)
 	}
 
 	// ---------------------------------------------------------------------------------------

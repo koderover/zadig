@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -17,13 +19,13 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-func CreateWorkflowV3(user string, workflowModel *commonmodels.WorkflowV3, logger *zap.SugaredLogger) error {
+func CreateWorkflowV3(user string, workflowModel *commonmodels.WorkflowV3, logger *zap.SugaredLogger) (string, error) {
 	if !checkWorkflowSubModules(workflowModel) {
 		errStr := "工作流没有子模块，请先设置子模块"
-		return e.ErrUpsertWorkflow.AddDesc(errStr)
+		return "", e.ErrUpsertWorkflow.AddDesc(errStr)
 	}
 	if err := ensureWorkflowV3(workflowModel, logger); err != nil {
-		return e.ErrUpsertWorkflow.AddDesc(err.Error())
+		return "", e.ErrUpsertWorkflow.AddDesc(err.Error())
 	}
 
 	workflowModel.CreatedBy = user
@@ -31,11 +33,12 @@ func CreateWorkflowV3(user string, workflowModel *commonmodels.WorkflowV3, logge
 	workflowModel.CreateTime = time.Now().Unix()
 	workflowModel.UpdateTime = time.Now().Unix()
 
-	if err := commonrepo.NewWorkflowV3Coll().Create(workflowModel); err != nil {
+	workflowID, err := commonrepo.NewWorkflowV3Coll().Create(workflowModel)
+	if err != nil {
 		logger.Errorf("Failed to create workflow v3, the error is: %s", err)
-		return e.ErrUpsertWorkflow.AddErr(err)
+		return "", e.ErrUpsertWorkflow.AddErr(err)
 	}
-	return nil
+	return workflowID, nil
 }
 
 func ensureWorkflowV3(args *commonmodels.WorkflowV3, log *zap.SugaredLogger) error {
@@ -169,4 +172,99 @@ func DeleteWorkflowV3(id string, logger *zap.SugaredLogger) error {
 		return e.ErrDeleteWorkflow.AddErr(err)
 	}
 	return nil
+}
+
+func GetWorkflowV3Args(id string, logger *zap.SugaredLogger) ([]*WorkflowV3TaskArgs, error) {
+	workflow, err := commonrepo.NewWorkflowV3Coll().GetByID(id)
+	if err != nil {
+		logger.Errorf("Failed to get workflowV3 detail from id: %s, the error is: %s", id, err)
+		return nil, err
+	}
+	resp := make([]*WorkflowV3TaskArgs, 0)
+	for _, param := range workflow.Parameters {
+		switch param.Type {
+		case "string":
+			resp = append(resp, &WorkflowV3TaskArgs{
+				Type:  param.Type,
+				Key:   param.Key,
+				Value: param.DefaultValue,
+			})
+		case "choice":
+			resp = append(resp, &WorkflowV3TaskArgs{
+				Type:   param.Type,
+				Key:    param.Key,
+				Value:  param.DefaultValue,
+				Choice: param.ChoiceOption,
+			})
+		case "external":
+			externalEnv := &WorkflowV3TaskArgs{
+				Type: param.Type,
+			}
+			for _, kv := range param.ExternalSetting.Params {
+				if kv.Display {
+					externalEnv.Key = kv.ParamKey
+					break
+				}
+			}
+			if externalEnv.Key == "" {
+				errorMsg := fmt.Sprintf("error getting external key, cannot find the display key")
+				logger.Error(errorMsg)
+				return nil, errors.New(errorMsg)
+			}
+			options, err := getEnvsFromExternalSystem(param.ExternalSetting, logger)
+			if err != nil {
+				logger.Errorf("Failed to get response from external system, the error is: %s", err)
+				return nil, err
+			}
+			externalEnv.Options = options
+			resp = append(resp, externalEnv)
+		default:
+			return nil, fmt.Errorf("parameter of type %s is not supported", param.Type)
+		}
+	}
+	return resp, nil
+}
+
+func getEnvsFromExternalSystem(setting *commonmodels.ExternalSetting, logger *zap.SugaredLogger) ([]map[string]interface{}, error) {
+	externalSystem, err := commonrepo.NewExternalSystemColl().GetByID(setting.SystemID)
+	if err != nil {
+		return nil, err
+	}
+	client := http.Client{}
+	requestPath := fmt.Sprintf("%s/%s", externalSystem.Server, setting.Endpoint)
+	req, err := http.NewRequest(setting.Method, requestPath, strings.NewReader(setting.Body))
+	if err != nil {
+		return nil, err
+	}
+	if setting.Headers != nil {
+		for _, header := range setting.Headers {
+			req.Header.Set(header.Key, header.Value)
+		}
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		logger.Errorf("failed to get env from external system, the error is: %s", err)
+		return nil, err
+	}
+	if resp.StatusCode != 200 {
+		logger.Errorf("failed to get env from external system, the status code is: %d", resp.StatusCode)
+		errMsg := fmt.Sprintf("got response code %d from external system", resp.StatusCode)
+		return nil, errors.New(errMsg)
+	}
+	decoder := json.NewDecoder(resp.Body)
+	respList := make([]map[string]interface{}, 0)
+	err = decoder.Decode(&respList)
+	if err != nil {
+		return nil, err
+	}
+	envList := make([]map[string]interface{}, 0)
+	// find every single key required
+	for _, respItem := range respList {
+		item := map[string]interface{}{}
+		for _, kv := range setting.Params {
+			item[kv.ParamKey] = respItem[kv.ResponseKey]
+		}
+		envList = append(envList, item)
+	}
+	return envList, nil
 }
