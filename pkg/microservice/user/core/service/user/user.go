@@ -8,7 +8,6 @@ import (
 
 	"github.com/dexidp/dex/connector/ldap"
 	ldapv3 "github.com/go-ldap/ldap/v3"
-	"github.com/golang-jwt/jwt"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
@@ -19,7 +18,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
 	"github.com/koderover/zadig/pkg/microservice/user/core/service/login"
-	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/mail"
 )
@@ -310,19 +308,7 @@ func Retrieve(account string, logger *zap.SugaredLogger) (*RetrieveResp, error) 
 		return nil, fmt.Errorf("the account has not email")
 	}
 
-	token, err := login.CreateToken(&login.Claims{
-		Name:  user.Name,
-		UID:   user.UID,
-		Email: user.Email,
-		StandardClaims: jwt.StandardClaims{
-			Audience:  setting.ProductName,
-			ExpiresAt: time.Now().Add(5 * time.Minute).Unix(),
-		},
-		FederatedClaims: login.FederatedClaims{
-			UserId:      user.Account,
-			ConnectorId: user.IdentityType,
-		},
-	})
+	token, err := login.CreateToken(login.GenerateClaimsByUser(user))
 	if err != nil {
 		logger.Errorf("Retrieve user:%s create token error, error msg:%s", user.Account, err)
 		return nil, err

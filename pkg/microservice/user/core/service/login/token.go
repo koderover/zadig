@@ -1,9 +1,15 @@
 package login
 
 import (
+	"time"
+
 	"github.com/golang-jwt/jwt"
 
 	"github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/pkg/microservice/user/core"
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
+	"github.com/koderover/zadig/pkg/setting"
 )
 
 type Claims struct {
@@ -27,4 +33,47 @@ func CreateToken(claims *Claims) (string, error) {
 		return "", err
 	}
 	return tokenString, nil
+}
+
+func GenerateClaimsByUser(user *models.User) *Claims {
+	return &Claims{
+		Name:              user.Name,
+		UID:               user.UID,
+		Email:             user.Email,
+		PreferredUsername: user.Account,
+		StandardClaims: jwt.StandardClaims{
+			Audience:  setting.ProductName,
+			ExpiresAt: time.Now().Add(24 * time.Hour).Unix(),
+		},
+		FederatedClaims: FederatedClaims{
+			ConnectorId: user.IdentityType,
+			UserId:      user.Account,
+		},
+	}
+}
+
+func GenerateClaimsByUserID(userID string, expire time.Duration) (*Claims, error) {
+	user, err := orm.GetUserByUid(userID, core.DB)
+	if err != nil {
+		return nil, err
+	}
+
+	if expire == 0 {
+		expire = 24 * time.Hour
+	}
+
+	return &Claims{
+		Name:              user.Name,
+		UID:               user.UID,
+		Email:             user.Email,
+		PreferredUsername: user.Account,
+		StandardClaims: jwt.StandardClaims{
+			Audience:  setting.ProductName,
+			ExpiresAt: time.Now().Add(expire).Unix(),
+		},
+		FederatedClaims: FederatedClaims{
+			ConnectorId: user.IdentityType,
+			UserId:      user.Account,
+		},
+	}, nil
 }

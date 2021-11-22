@@ -4,14 +4,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang-jwt/jwt"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/koderover/zadig/pkg/microservice/user/config"
 	"github.com/koderover/zadig/pkg/microservice/user/core"
 	"github.com/koderover/zadig/pkg/microservice/user/core/repository/orm"
-	"github.com/koderover/zadig/pkg/setting"
 )
 
 type LoginArgs struct {
@@ -20,7 +18,7 @@ type LoginArgs struct {
 }
 
 type User struct {
-	Uid          string `json:"uid"`
+	UID          string `json:"uid"`
 	Token        string `json:"token"`
 	Email        string `json:"email"`
 	Phone        string `json:"phone"`
@@ -62,26 +60,13 @@ func LocalLogin(args *LoginArgs, logger *zap.SugaredLogger) (*User, error) {
 		logger.Errorf("LocalLogin user:%s update user login password error, error msg:%s", args.Account, err.Error())
 		return nil, err
 	}
-	token, err := CreateToken(&Claims{
-		Name:              user.Name,
-		UID:               user.UID,
-		Email:             user.Email,
-		PreferredUsername: user.Account,
-		StandardClaims: jwt.StandardClaims{
-			Audience:  setting.ProductName,
-			ExpiresAt: time.Now().Add(24 * time.Hour).Unix(),
-		},
-		FederatedClaims: FederatedClaims{
-			ConnectorId: user.IdentityType,
-			UserId:      user.Account,
-		},
-	})
+	token, err := CreateToken(GenerateClaimsByUser(user))
 	if err != nil {
 		logger.Errorf("LocalLogin user:%s create token error, error msg:%s", args.Account, err.Error())
 		return nil, err
 	}
 	return &User{
-		Uid:          user.UID,
+		UID:          user.UID,
 		Token:        token,
 		Email:        user.Email,
 		Phone:        user.Phone,
