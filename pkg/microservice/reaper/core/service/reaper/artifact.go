@@ -76,20 +76,8 @@ func artifactsUpload(ctx *meta.Context, activeWorkspace string, artifactPaths []
 				}
 
 				if store != nil {
-					forcedPathStyle := true
-					if store.Provider == setting.ProviderSourceAli {
-						forcedPathStyle = false
-					}
-					s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
-					if err != nil {
-						log.Errorf("failed to create s3 client, error is: %+v", err)
-						return err
-					}
 					objectKey := store.GetObjectPath(fmt.Sprintf("%s/%s", artifactPath, artifactFile.Name()))
-					err = s3client.Upload(store.Bucket, filePath, objectKey)
-
-					if err != nil {
-						log.Errorf("artifactsUpload failed to upload package %s, err:%v", filePath, err)
+					if err = s3FileUpload(store, filePath, objectKey); err != nil {
 						return err
 					}
 				}
@@ -115,22 +103,29 @@ func artifactsUpload(ctx *meta.Context, activeWorkspace string, artifactPaths []
 		return err
 	}
 	if store != nil {
-		forcedPathStyle := true
-		if store.Provider == setting.ProviderSourceAli {
-			forcedPathStyle = false
-		}
-		s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
-		if err != nil {
-			log.Errorf("failed to create s3 client, error is: %s", err)
-			return err
-		}
-
 		objectKey := store.GetObjectPath("artifact.tar.gz")
-		if err = s3client.Upload(store.Bucket, temp.Name(), objectKey); err != nil {
-			log.Errorf("Archive s3 upload err:%s", err)
+		if err = s3FileUpload(store, temp.Name(), objectKey); err != nil {
 			return err
 		}
 	}
 
+	return nil
+}
+
+func s3FileUpload(store *s3.S3, sourceFile, objectKey string) error {
+	forcedPathStyle := true
+	if store.Provider == setting.ProviderSourceAli {
+		forcedPathStyle = false
+	}
+	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
+	if err != nil {
+		log.Errorf("failed to create s3 client, error is: %s", err)
+		return err
+	}
+
+	if err = s3client.Upload(store.Bucket, sourceFile, objectKey); err != nil {
+		log.Errorf("Archive s3 upload err:%s", err)
+		return err
+	}
 	return nil
 }
