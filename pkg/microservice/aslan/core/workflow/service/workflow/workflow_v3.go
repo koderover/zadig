@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -234,12 +233,8 @@ func getEnvsFromExternalSystem(setting *commonmodels.ExternalSetting) ([]map[str
 	if err != nil {
 		return nil, err
 	}
-	serverURL, err := url.Parse(externalSystem.Server)
-	if err != nil {
-		return nil, err
-	}
 	client := http.Client{}
-	requestPath := fmt.Sprintf("%s%s/%s", serverURL.Host, serverURL.Path, setting.Endpoint)
+	requestPath := fmt.Sprintf("%s/%s", externalSystem.Server, setting.Endpoint)
 	fmt.Println("!!!!!!!!! request path is:", requestPath, "!!!!!!!!!!!!!!!!!")
 	req, err := http.NewRequest(setting.Method, requestPath, strings.NewReader(setting.Body))
 	if err != nil {
