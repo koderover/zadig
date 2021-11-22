@@ -60,10 +60,9 @@ type ExternalParamMapping struct {
 }
 
 type WorkflowV3TaskArgs struct {
-	Type       string                   `json:"type"`
-	Key        string                   `json:"key,omitempty"`
-	Value      string                   `json:"value,omitempty"`
-	Choice     []string                 `json:"choice,omitempty"`
-	DisplayKey string                   `json:"display_key,omitempty"`
-	Options    []map[string]interface{} `json:"options,omitempty"`
+	Type    string                   `json:"type"`
+	Key     string                   `json:"key,omitempty"`
+	Value   string                   `json:"value,omitempty"`
+	Choice  []string                 `json:"choice,omitempty"`
+	Options []map[string]interface{} `json:"options,omitempty"`
 }

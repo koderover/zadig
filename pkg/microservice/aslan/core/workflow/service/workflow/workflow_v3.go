@@ -180,8 +180,6 @@ func GetWorkflowV3Args(id string, logger *zap.SugaredLogger) ([]*WorkflowV3TaskA
 		logger.Errorf("Failed to get workflowV3 detail from id: %s, the error is: %s", id, err)
 		return nil, err
 	}
-	fmt.Println("ID is:", workflow.ID)
-	fmt.Println("Name is:", workflow.Name)
 	resp := make([]*WorkflowV3TaskArgs, 0)
 	for _, param := range workflow.Parameters {
 		switch param.Type {
@@ -204,16 +202,15 @@ func GetWorkflowV3Args(id string, logger *zap.SugaredLogger) ([]*WorkflowV3TaskA
 			}
 			for _, kv := range param.ExternalSetting.Params {
 				if kv.Display {
-					externalEnv.DisplayKey = kv.ParamKey
+					externalEnv.Key = kv.ParamKey
 					break
 				}
 			}
-			if externalEnv.DisplayKey == "" {
+			if externalEnv.Key == "" {
 				errorMsg := fmt.Sprintf("error getting external key, cannot find the display key")
 				logger.Error(errorMsg)
 				return nil, errors.New(errorMsg)
 			}
-			fmt.Println("stuff is:", param.ExternalSetting.Endpoint)
 			options, err := getEnvsFromExternalSystem(param.ExternalSetting)
 			if err != nil {
 				logger.Errorf("Failed to get response from external system, the error is: %s", err)
@@ -235,7 +232,6 @@ func getEnvsFromExternalSystem(setting *commonmodels.ExternalSetting) ([]map[str
 	}
 	client := http.Client{}
 	requestPath := fmt.Sprintf("%s/%s", externalSystem.Server, setting.Endpoint)
-	fmt.Println("!!!!!!!!! request path is:", requestPath, "!!!!!!!!!!!!!!!!!")
 	req, err := http.NewRequest(setting.Method, requestPath, strings.NewReader(setting.Body))
 	if err != nil {
 		return nil, err
@@ -247,8 +243,6 @@ func getEnvsFromExternalSystem(setting *commonmodels.ExternalSetting) ([]map[str
 	}
 	resp, err := client.Do(req)
 	if err != nil || resp.StatusCode != http.StatusOK {
-		fmt.Println(">>>>>>>>>>>>>>>>>>>> error is:", err, "<<<<<<<<<<<<<<<<<<<<")
-		fmt.Println(">>>>>>>>>>>>>>>>>>>> status code is:", resp.StatusCode, "<<<<<<<<<<<<<<<<<")
 		return nil, errors.New("failed to get response from external system")
 	}
 	decoder := json.NewDecoder(resp.Body)
