@@ -181,6 +181,8 @@ func GetWorkflowV3Args(id string, logger *zap.SugaredLogger) ([]*WorkflowV3TaskA
 		logger.Errorf("Failed to get workflowV3 detail from id: %s, the error is: %s", id, err)
 		return nil, err
 	}
+	fmt.Println("ID is:", workflow.ID)
+	fmt.Println("Name is:", workflow.Name)
 	resp := make([]*WorkflowV3TaskArgs, 0)
 	for _, param := range workflow.Parameters {
 		switch param.Type {
@@ -212,6 +214,7 @@ func GetWorkflowV3Args(id string, logger *zap.SugaredLogger) ([]*WorkflowV3TaskA
 				logger.Error(errorMsg)
 				return nil, errors.New(errorMsg)
 			}
+			fmt.Println("stuff is:", param.ExternalSetting.Endpoint)
 			options, err := getEnvsFromExternalSystem(param.ExternalSetting)
 			if err != nil {
 				logger.Errorf("Failed to get response from external system, the error is: %s", err)
@@ -236,7 +239,7 @@ func getEnvsFromExternalSystem(setting *commonmodels.ExternalSetting) ([]map[str
 		return nil, err
 	}
 	client := http.Client{}
-	requestPath := fmt.Sprintf("%s/%s/%s", serverURL.Host, serverURL.Path, setting.Endpoint)
+	requestPath := fmt.Sprintf("%s%s/%s", serverURL.Host, serverURL.Path, setting.Endpoint)
 	fmt.Println("!!!!!!!!! request path is:", requestPath, "!!!!!!!!!!!!!!!!!")
 	req, err := http.NewRequest(setting.Method, requestPath, strings.NewReader(setting.Body))
 	if err != nil {
