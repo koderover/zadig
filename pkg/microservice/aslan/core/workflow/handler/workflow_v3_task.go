@@ -130,6 +130,8 @@ func OutputWebhookPayload(c *gin.Context) {
 		return
 	}
 	fmt.Println(fmt.Sprintf("args:%+v", args))
+	fmt.Println(fmt.Sprintf("args.TaskEnvs:%+v", args.TaskEnvs))
+	fmt.Println(fmt.Sprintf("args.TaskOutput:%+v", args.TaskOutput))
 	fmt.Println(fmt.Sprintf("header:%+v", c.Request.Header))
 	return
 }

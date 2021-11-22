@@ -55,8 +55,8 @@ type TriggerTaskPlugin struct {
 	kubeClient    client.Client
 	Task          *task.Trigger
 	Log           *zap.SugaredLogger
-
-	ack func()
+	cancel        context.CancelFunc
+	ack           func()
 }
 
 func (p *TriggerTaskPlugin) SetAckFunc(ack func()) {
@@ -116,6 +116,7 @@ func (p *TriggerTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pi
 		}
 	}()
 	p.Log.Infof("succeed to create trigger task %s", p.JobName)
+	ctx, p.cancel = context.WithCancel(context.Background())
 	httpClient := httpclient.New(
 		httpclient.SetHostURL(p.Task.URL),
 	)
@@ -161,22 +162,22 @@ func (p *TriggerTaskPlugin) getS3Storage(pipelineTask *task.Task) (string, error
 
 // Wait ...
 func (p *TriggerTaskPlugin) Wait(ctx context.Context) {
-	p.Log.Infof("p.TaskTimeout():%d", p.TaskTimeout())
 	timeout := time.After(time.Duration(p.TaskTimeout()))
-
+	defer p.cancel()
 	for {
 		select {
 		case <-ctx.Done():
 			p.Task.TaskStatus = config.StatusCancelled
+			p.Log.Infof("11111111111111")
 			return
-
 		case <-timeout:
 			p.Task.TaskStatus = config.StatusTimeout
+			p.Task.Error = "timeout"
+			p.Log.Infof("11111111222222")
 			return
-
 		default:
 			time.Sleep(time.Second * 1)
-
+			p.Log.Infof("111111113333333")
 			if p.IsTaskDone() {
 				return
 			}
