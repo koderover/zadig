@@ -219,7 +219,7 @@ func GetWorkflowV3Args(id string, logger *zap.SugaredLogger) ([]*WorkflowV3TaskA
 			externalEnv.Options = options
 			resp = append(resp, externalEnv)
 		default:
-			return nil, err
+			return nil, fmt.Errorf("parameter of type %s is not supported", param.Type)
 		}
 	}
 	return resp, nil
