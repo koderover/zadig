@@ -86,7 +86,7 @@ func artifactsUpload(ctx *meta.Context, activeWorkspace string, artifactPaths []
 		return nil
 	}
 
-	artifactPath := artifactPaths[0]
+	artifactPath := filepath.Join(activeWorkspace, artifactPaths[0])
 	temp, err := ioutil.TempFile("", "*artifact.tar.gz")
 	if err != nil {
 		log.Errorf("failed to create temp file %s", err)
