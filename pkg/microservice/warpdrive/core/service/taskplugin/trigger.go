@@ -143,6 +143,9 @@ func (p *TriggerTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pi
 	if err != nil {
 		return
 	}
+	if !p.Task.IsCallback {
+		p.SetTriggerStatusCompleted(config.StatusPassed)
+	}
 }
 
 func (p *TriggerTaskPlugin) getS3Storage(pipelineTask *task.Task) (string, error) {
