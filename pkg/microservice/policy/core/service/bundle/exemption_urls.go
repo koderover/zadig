@@ -62,12 +62,20 @@ var publicURLs = []*policyRule{
 	},
 	{
 		Methods:   []string{"GET"},
-		Endpoints: []string{"api/directory/codehostss/?*/auth", "api/directory/codehosts/callback"},
+		Endpoints: []string{"api/directory/codehosts/callback"},
+	},
+	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/v1/features/?*"},
 	},
 }
 
 // actions which are allowed for system admins only.
 var systemAdminURLs = []*policyRule{
+	{
+		Methods:   []string{"PUT"},
+		Endpoints: []string{"api/v1/features/?*"},
+	},
 	{
 		Methods:   []string{"POST"},
 		Endpoints: []string{"api/aslan/project/products"},

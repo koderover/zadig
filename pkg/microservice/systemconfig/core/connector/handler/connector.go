@@ -19,7 +19,7 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/service"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/connector/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
