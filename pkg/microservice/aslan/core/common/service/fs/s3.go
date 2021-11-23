@@ -24,13 +24,32 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	s3service "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/setting"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
 )
 
+func ArchiveAndUploadFilesToSpecifiedS3(fileTree fs.FS, name, s3Base string, copies []string, s3Id string, logger *zap.SugaredLogger) error {
+	s3Storage, err := s3service.FindS3ById(s3Id)
+	if err != nil {
+		logger.Errorf("Failed to find default s3, err:%v", err)
+		return err
+	}
+	return archiveAndUploadFiles(fileTree, name, s3Base, copies, s3Storage, logger)
+}
+
 func ArchiveAndUploadFilesToS3(fileTree fs.FS, name, s3Base string, copies []string, logger *zap.SugaredLogger) error {
+	s3Storage, err := s3service.FindDefaultS3()
+	if err != nil {
+		logger.Errorf("Failed to find default s3, err:%v", err)
+		return err
+	}
+	return archiveAndUploadFiles(fileTree, name, s3Base, copies, s3Storage, logger)
+}
+
+func archiveAndUploadFiles(fileTree fs.FS, name, s3Base string, copies []string, s3Storage *s3.S3, logger *zap.SugaredLogger) error {
 	tmpDir, err := os.MkdirTemp("", "")
 	if err != nil {
 		logger.Errorf("Failed to create temp dir, err: %s", err)
@@ -44,11 +63,7 @@ func ArchiveAndUploadFilesToS3(fileTree fs.FS, name, s3Base string, copies []str
 		logger.Errorf("Failed to archive tarball %s, err: %s", localPath, err)
 		return err
 	}
-	s3Storage, err := s3service.FindDefaultS3()
-	if err != nil {
-		logger.Errorf("Failed to find default s3, err:%v", err)
-		return err
-	}
+
 	forcedPathStyle := true
 	if s3Storage.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false

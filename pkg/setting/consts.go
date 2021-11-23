@@ -331,6 +331,14 @@ const (
 	DeliveryVersionStatusSuccess  = "success"
 	DeliveryVersionStatusFailed   = "failed"
 	DeliveryVersionStatusCreating = "creating"
+	DeliveryVersionStatusRetrying = "retrying"
+)
+
+const (
+	DeliveryVersionPackageStatusSuccess   = "success"
+	DeliveryVersionPackageStatusFailed    = "failed"
+	DeliveryVersionPackageStatusWaiting   = "waiting"
+	DeliveryVersionPackageStatusUploading = "uploading"
 )
 
 const (

@@ -180,7 +180,7 @@ func GetChartInfos(productName, envName, serviceName string, log *zap.SugaredLog
 	if err != nil {
 		return nil, e.ErrGetHelmCharts.AddErr(err)
 	}
-	renderSet, err := FindHelmRenderSet(productName, envName, log)
+	renderSet, err := FindHelmRenderSet(productName, prod.Render.Name, log)
 	if err != nil {
 		log.Errorf("[%s][P:%s] find product renderset error: %v", envName, productName, err)
 		return nil, e.ErrGetHelmCharts.AddErr(err)
@@ -193,6 +193,7 @@ func GetChartInfos(productName, envName, serviceName string, log *zap.SugaredLog
 
 	allServiceMap := prod.GetServiceMap()
 	serviceMap := make(map[string]*models.ProductService)
+
 	//validate data, make sure service and chart info exists
 	if len(serviceName) > 0 {
 		serviceList := strings.Split(serviceName, ",")

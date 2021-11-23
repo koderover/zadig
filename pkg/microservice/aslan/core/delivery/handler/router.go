@@ -48,6 +48,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		deliveryRelease.GET("/charts", DownloadDeliveryChart)
 		deliveryRelease.GET("/charts/preview", PreviewGetDeliveryChart)
+		deliveryRelease.GET("/charts/filePath", GetDeliveryChartFilePath)
+		deliveryRelease.GET("/charts/fileContent", GetDeliveryChartFileContent)
 
 		deliveryRelease.POST("/helm", CreateHelmDeliveryVersion)
 

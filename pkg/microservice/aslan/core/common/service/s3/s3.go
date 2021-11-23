@@ -148,6 +148,25 @@ func FindDefaultS3() (*S3, error) {
 	return &S3{S3Storage: storage}, nil
 }
 
+func FindS3ById(id string) (*S3, error) {
+	storage, err := commonrepo.NewS3StorageColl().Find(id)
+	if err != nil {
+		log.Warnf("Failed to find default s3 in db, err: %s", err)
+		return &S3{
+			S3Storage: &models.S3Storage{
+				Ak:       config.S3StorageAK(),
+				Sk:       config.S3StorageSK(),
+				Endpoint: config.S3StorageEndpoint(),
+				Bucket:   config.S3StorageBucket(),
+				Insecure: config.S3StorageProtocol() == "http",
+				Provider: setting.ProviderSourceSystemDefault,
+			},
+		}, nil
+	}
+
+	return &S3{S3Storage: storage}, nil
+}
+
 // 获取内置的s3
 func FindInternalS3() *S3 {
 	storage := &models.S3Storage{

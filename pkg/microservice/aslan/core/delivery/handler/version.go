@@ -152,6 +152,7 @@ func ListDeliveryVersion(c *gin.Context) {
 	for _, deliveryVersion := range deliveryVersions {
 		releaseInfo := new(ReleaseInfo)
 		//versionInfo
+		deliveryVersion.Progress = deliveryservice.FillDeliveryProgressInfo(deliveryVersion)
 		releaseInfo.VersionInfo = deliveryVersion
 
 		//deployInfo
@@ -411,4 +412,32 @@ func PreviewGetDeliveryChart(c *gin.Context) {
 	projectName := c.Query("projectName")
 
 	ctx.Resp, ctx.Err = deliveryservice.PreviewDeliveryChart(projectName, versionName, chartName, ctx.Logger)
+}
+
+func GetDeliveryChartFilePath(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(deliveryservice.DeliveryChartFilePathArgs)
+	err := c.BindQuery(args)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Resp, ctx.Err = deliveryservice.GetDeliveryChartFilePath(args, ctx.Logger)
+}
+
+func GetDeliveryChartFileContent(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(deliveryservice.DeliveryChartFileContentArgs)
+	err := c.BindQuery(args)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Resp, ctx.Err = deliveryservice.GetDeliveryChartFileContent(args, ctx.Logger)
 }

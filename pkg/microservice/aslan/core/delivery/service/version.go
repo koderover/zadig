@@ -23,7 +23,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -49,7 +48,6 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
-	fsutil "github.com/koderover/zadig/pkg/util/fs"
 )
 
 type CreateHelmDeliveryVersionOption struct {
@@ -65,28 +63,45 @@ type CreateHelmDeliveryVersionChartData struct {
 
 type CreateHelmDeliveryVersionArgs struct {
 	CreateBy      string   `json:"-"`
+	ProductName   string   `json:"productName"`
+	Retry         bool     `json:"retry"`
 	Version       string   `json:"version"`
 	Desc          string   `json:"desc"`
-	ProductName   string   `json:"productName"`
 	EnvName       string   `json:"envName"`
 	Labels        []string `json:"labels"`
-	ChartRepoName string   `json:"chartRepoName"`
+	ImageRepoName string   `json:"imageRepoName"`
 	*DeliveryVersionChartData
 }
 
 type DeliveryVersionChartData struct {
-	ChartDatas []*CreateHelmDeliveryVersionChartData `json:"chartDatas"`
-	Options    *CreateHelmDeliveryVersionOption      `json:"options"`
+	ChartRepoName   string                                `json:"chartRepoName"`
+	ImageRegistryID string                                `json:"imageRegistryID"`
+	ChartDatas      []*CreateHelmDeliveryVersionChartData `json:"chartDatas"`
+	Options         *CreateHelmDeliveryVersionOption      `json:"options"`
 }
 
 type DeliveryChartData struct {
-	ChartData      *CreateHelmDeliveryVersionChartData
-	ProductService *commonmodels.ProductService
-	ServiceObj     *commonmodels.Service
+	ChartData  *CreateHelmDeliveryVersionChartData
+	ServiceObj *commonmodels.Service
 }
 
 type DeliveryChartResp struct {
 	FileInfos []*types.FileInfo `json:"fileInfos"`
+}
+
+type DeliveryChartFilePathArgs struct {
+	Dir         string `json:"dir"`
+	ProjectName string `json:"projectName"`
+	ChartName   string `json:"chartName"`
+	Version     string `json:"version"`
+}
+
+type DeliveryChartFileContentArgs struct {
+	FilePath    string `json:"filePath"`
+	FileName    string `json:"fileName"`
+	ProjectName string `json:"projectName"`
+	ChartName   string `json:"chartName"`
+	Version     string `json:"version"`
 }
 
 func GetDeliveryVersion(args *commonrepo.DeliveryVersionArgs, log *zap.SugaredLogger) (*commonmodels.DeliveryVersion, error) {
@@ -114,6 +129,53 @@ func DeleteDeliveryVersion(args *commonrepo.DeliveryVersionArgs, log *zap.Sugare
 		return e.ErrDeleteDeliveryVersion
 	}
 	return nil
+}
+
+func FillDeliveryProgressInfo(deliveryVersion *commonmodels.DeliveryVersion) *commonmodels.DeliveryVersionProgress {
+	if deliveryVersion.Type != setting.DeliveryVersionTypeChart {
+		return nil
+	}
+	successfulChartCount := len(deliveryVersion.Charts)
+
+	progress := &commonmodels.DeliveryVersionProgress{
+		SuccessChartCount:   successfulChartCount,
+		TotalChartCount:     0,
+		PackageUploadStatus: "",
+		Error:               "",
+	}
+	if deliveryVersion.Status == setting.DeliveryVersionStatusSuccess {
+		progress.TotalChartCount = successfulChartCount
+		progress.PackageUploadStatus = setting.DeliveryVersionPackageStatusSuccess
+		return progress
+	}
+
+	argsBytes, err := json.Marshal(deliveryVersion.CreateArgument)
+	if err != nil {
+		log.Errorf("failed to marshal arguments, versionName: %s err %s", deliveryVersion.Version, err)
+		return progress
+	}
+	createArgs := new(DeliveryVersionChartData)
+	err = json.Unmarshal(argsBytes, createArgs)
+	if err != nil {
+		log.Errorf("failed to unMarshal arguments, versionName: %s err %s", deliveryVersion.Version, err)
+		return progress
+	}
+
+	progress.TotalChartCount = len(createArgs.ChartDatas)
+
+	if deliveryVersion.Status == setting.DeliveryVersionStatusFailed {
+		progress.PackageUploadStatus = setting.DeliveryVersionPackageStatusFailed
+		return progress
+	}
+
+	if len(createArgs.ChartDatas) > successfulChartCount {
+		progress.PackageUploadStatus = setting.DeliveryVersionPackageStatusWaiting
+		return progress
+	}
+
+	progress.PackageUploadStatus = setting.DeliveryVersionPackageStatusUploading
+	return progress
+
 }
 
 func getChartTGZDir(productName, versionName string) string {
@@ -168,6 +230,9 @@ func handleSingleChart(chartData *DeliveryChartData, chartRepo *commonmodels.Hel
 			return err
 		}
 	}
+
+	// push 镜像
+	//commonrepo.NewRegistryNamespaceColl().Find(&commonrepo.FindRegOps{})
 
 	fullPath := filepath.Join(base, serviceObj.ServiceName)
 	revisionBasePath := config.LocalDeliveryChartPathWithRevision(serviceObj.ProductName, serviceObj.ServiceName, serviceObj.Revision)
@@ -241,7 +306,7 @@ func getChartmuseumError(b []byte, code int) error {
 	return errors.Errorf("%d: %s", code, er.Error)
 }
 
-func mkChartTGZFileDir(productName, versionName string) (string, error) {
+func makeChartTGZFileDir(productName, versionName string) (string, error) {
 	path := getChartTGZDir(productName, versionName)
 	if err := os.RemoveAll(path); err != nil {
 		if !os.IsExist(err) {
@@ -256,6 +321,121 @@ func mkChartTGZFileDir(productName, versionName string) (string, error) {
 }
 
 func CreateHelmDeliveryVersion(args *CreateHelmDeliveryVersionArgs, logger *zap.SugaredLogger) error {
+	if args.Retry {
+		return RetryCreateHelmDeliveryVersion(args.ProductName, args.Version, logger)
+	} else {
+		return CreateNewHelmDeliveryVersion(args, logger)
+	}
+}
+
+// validate chartInfo, make sure service is in environment
+// prepare data set for chart delivery
+func prepareChartData(chartDatas []*CreateHelmDeliveryVersionChartData, productInfo *commonmodels.Product) (map[string]*DeliveryChartData, error) {
+	chartDataMap := make(map[string]*DeliveryChartData)
+	serviceMap := productInfo.GetServiceMap()
+	for _, chartDta := range chartDatas {
+		if productService, ok := serviceMap[chartDta.ServiceName]; ok {
+			serviceObj, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+				ServiceName: chartDta.ServiceName,
+				Revision:    productService.Revision,
+				Type:        setting.HelmDeployType,
+				ProductName: productInfo.ProductName,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("failed to query service: %s", chartDta.ServiceName)
+			}
+			chartDataMap[chartDta.ServiceName] = &DeliveryChartData{
+				ChartData: chartDta,
+				//ProductService: productService,
+				ServiceObj: serviceObj,
+			}
+		} else {
+			return nil, fmt.Errorf("service %s not found in environment", chartDta.ServiceName)
+		}
+	}
+	return chartDataMap, nil
+}
+
+func buildDeliveryCharts(chartDataMap map[string]*DeliveryChartData, deliveryVersion *commonmodels.DeliveryVersion, args *DeliveryVersionChartData, logger *zap.SugaredLogger) (err error) {
+	defer func() {
+		if err != nil {
+			deliveryVersion.Status = setting.DeliveryVersionStatusFailed
+			deliveryVersion.Error = err.Error()
+		} else {
+			deliveryVersion.Status = setting.DeliveryVersionStatusSuccess
+			deliveryVersion.Error = ""
+		}
+		err = commonrepo.NewDeliveryVersionColl().UpdateStatusByName(deliveryVersion.Version, deliveryVersion.Status, deliveryVersion.Error)
+		if err != nil {
+			logger.Errorf("failed to update delivery version data, name: %s error: %s", deliveryVersion.Version, err)
+		}
+	}()
+
+	var errLock sync.Mutex
+	errorList := &multierror.Error{}
+
+	appendError := func(err error) {
+		errLock.Lock()
+		defer errLock.Unlock()
+		errorList = multierror.Append(errorList, err)
+	}
+
+	dir, err := makeChartTGZFileDir(deliveryVersion.ProductName, deliveryVersion.Version)
+	if err != nil {
+		return err
+	}
+	repoInfo, err := getChartRepoData(args.ChartRepoName)
+	if err != nil {
+		log.Infof("failed to query chart-repo info, productName: %s, err: %s", deliveryVersion.ProductName, err)
+		return fmt.Errorf("failed to query chart-repo info, productName: %s, repoName: %s", deliveryVersion.ProductName, args.ChartRepoName)
+	}
+
+	// push charts to repo
+	wg := sync.WaitGroup{}
+	for _, chartData := range chartDataMap {
+		wg.Add(1)
+		go func(cData *DeliveryChartData) {
+			defer wg.Done()
+			err := handleSingleChart(cData, repoInfo, dir)
+			if err != nil {
+				logger.Errorf("failed to handle single chart data, serviceName: %s err: %s", cData.ChartData.ServiceName, err)
+				appendError(err)
+			} else {
+				err = commonrepo.NewDeliveryVersionColl().AddDeliveryChart(deliveryVersion.Version, &commonmodels.DeliveryChart{
+					Name:    cData.ChartData.ServiceName,
+					Version: cData.ChartData.Version,
+					Repo:    args.ChartRepoName,
+				})
+				if err != nil {
+					appendError(errors.Wrapf(err, "failed to save delivery chart: %s", cData.ChartData.ServiceName))
+				}
+			}
+		}(chartData)
+	}
+	wg.Wait()
+
+	if errorList.ErrorOrNil() != nil {
+		err = errorList.ErrorOrNil()
+		return
+	}
+
+	// no need to upload chart packages
+	if args.Options == nil || !args.Options.EnableOfflineDist {
+		return
+	}
+
+	//tar all chart files and send to s3 store
+	fsTree := os.DirFS(dir)
+	ServiceS3Base := configbase.ObjectStorageDeliveryVersionPath(deliveryVersion.ProductName)
+	if err = fsservice.ArchiveAndUploadFilesToSpecifiedS3(fsTree, deliveryVersion.Version, ServiceS3Base, nil, args.Options.S3StorageID, logger); err != nil {
+		logger.Errorf("failed to upload chart package files for project %s, err: %s", deliveryVersion.ProductName, err)
+		err = errors.Wrapf(err, "failed to upload package file")
+		return
+	}
+	return
+}
+
+func CreateNewHelmDeliveryVersion(args *CreateHelmDeliveryVersionArgs, logger *zap.SugaredLogger) error {
 	// need appoint chart info
 	if len(args.ChartDatas) == 0 {
 		return e.ErrCreateDeliveryVersion.AddDesc("no chart info appointed")
@@ -264,43 +444,13 @@ func CreateHelmDeliveryVersion(args *CreateHelmDeliveryVersionArgs, logger *zap.
 	// prepare data
 	productInfo, err := getProductEnvInfo(args.ProductName, args.EnvName)
 	if err != nil {
-		log.Infof("failed to query product info, procutName: %s envName %s, err: %s", args.ProductName, args.EnvName, err)
+		log.Infof("failed to query product info, productName: %s envName %s, err: %s", args.ProductName, args.EnvName, err)
 		return e.ErrCreateDeliveryVersion.AddDesc(fmt.Sprintf("failed to query product info, procutName: %s envName %s", args.ProductName, args.EnvName))
 	}
-	repoInfo, err := getChartRepoData(args.ChartRepoName)
-	if err != nil {
-		log.Infof("failed to query chart-repo info, procutName: %s envName %s, err: %s", args.ProductName, args.EnvName, err)
-		return e.ErrCreateDeliveryVersion.AddDesc(fmt.Sprintf("failed to query chart-repo info, procutName: %s, envName %s, repoName", args.ProductName, args.EnvName, args.ChartRepoName))
-	}
 
-	dir, err := mkChartTGZFileDir(args.ProductName, args.Version)
+	chartDataMap, err := prepareChartData(args.ChartDatas, productInfo)
 	if err != nil {
 		return e.ErrCreateDeliveryVersion.AddErr(err)
-	}
-
-	// validate chartInfo, make sure service is in environment
-	// prepare data set for chart delivery
-	chartDataMap := make(map[string]*DeliveryChartData)
-	serviceMap := productInfo.GetServiceMap()
-	for _, chartDta := range args.ChartDatas {
-		if productService, ok := serviceMap[chartDta.ServiceName]; ok {
-			serviceObj, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
-				ServiceName: chartDta.ServiceName,
-				Revision:    productService.Revision,
-				Type:        setting.HelmDeployType,
-				ProductName: args.ProductName,
-			})
-			if err != nil {
-				return e.ErrCreateDeliveryVersion.AddDesc(fmt.Sprintf("failed to query service: %s", chartDta.ServiceName))
-			}
-			chartDataMap[chartDta.ServiceName] = &DeliveryChartData{
-				ChartData:      chartDta,
-				ProductService: productService,
-				ServiceObj:     serviceObj,
-			}
-		} else {
-			return e.ErrCreateDeliveryVersion.AddDesc(fmt.Sprintf("service %s not found in environment", chartDta.ServiceName))
-		}
 	}
 
 	productInfo.ID, _ = primitive.ObjectIDFromHex("")
@@ -322,91 +472,149 @@ func CreateHelmDeliveryVersion(args *CreateHelmDeliveryVersionArgs, logger *zap.
 	err = commonrepo.NewDeliveryVersionColl().Insert(versionObj)
 	if err != nil {
 		logger.Errorf("failed to insert version data, err: %s", err)
-		return fmt.Errorf("failed to insert delivery version: %s", versionObj.Version)
+		return e.ErrCreateDeliveryVersion.AddErr(fmt.Errorf("failed to insert delivery version: %s", versionObj.Version))
 	}
 
-	go func() {
-		var err error
-		defer func() {
-			if err != nil {
-				versionObj.Status = setting.DeliveryVersionStatusFailed
-				versionObj.Error = err.Error()
-			} else {
-				versionObj.Status = setting.DeliveryVersionStatusSuccess
-				versionObj.Error = ""
-			}
-			err = commonrepo.NewDeliveryVersionColl().UpdateStatusByName(versionObj.Version, versionObj.Status, versionObj.Error)
-			if err != nil {
-				logger.Errorf("failed to update delivery version data, name: %s error: %s", versionObj.Version, err)
-			}
-		}()
+	err = buildDeliveryCharts(chartDataMap, versionObj, args.DeliveryVersionChartData, logger)
+	if err != nil {
+		return err
+	}
 
-		var errLock sync.Mutex
-		errorList := &multierror.Error{}
+	//go func() {
+	//	var err error
+	//	defer func() {
+	//		if err != nil {
+	//			versionObj.Status = setting.DeliveryVersionStatusFailed
+	//			versionObj.Error = err.Error()
+	//		} else {
+	//			versionObj.Status = setting.DeliveryVersionStatusSuccess
+	//			versionObj.Error = ""
+	//		}
+	//		err = commonrepo.NewDeliveryVersionColl().UpdateStatusByName(versionObj.Version, versionObj.Status, versionObj.Error)
+	//		if err != nil {
+	//			logger.Errorf("failed to update delivery version data, name: %s error: %s", versionObj.Version, err)
+	//		}
+	//	}()
+	//
+	//	var errLock sync.Mutex
+	//	errorList := &multierror.Error{}
+	//
+	//	appendError := func(err error) {
+	//		errLock.Lock()
+	//		defer errLock.Unlock()
+	//		errorList = multierror.Append(errorList, err)
+	//	}
+	//
+	//	// push charts to repo
+	//	wg := sync.WaitGroup{}
+	//	for _, chartData := range chartDataMap {
+	//		wg.Add(1)
+	//		go func(cData *DeliveryChartData) {
+	//			defer wg.Done()
+	//			err := handleSingleChart(cData, repoInfo, dir)
+	//			if err != nil {
+	//				logger.Errorf("failed to handle single chart data, serviceName: %s err: %s", cData.ChartData.ServiceName, err)
+	//				appendError(err)
+	//			} else {
+	//				err = commonrepo.NewDeliveryVersionColl().AddDeliveryChart(versionObj.Version, &commonmodels.DeliveryChart{
+	//					Name:    cData.ChartData.ServiceName,
+	//					Version: cData.ChartData.Version,
+	//					Repo:    args.ChartRepoName,
+	//				})
+	//				if err != nil {
+	//					appendError(errors.Wrapf(err, "failed to save delivery chart: %s", cData.ChartData.ServiceName))
+	//				}
+	//			}
+	//		}(chartData)
+	//	}
+	//	wg.Wait()
+	//
+	//	if errorList.ErrorOrNil() != nil {
+	//		err = errorList.ErrorOrNil()
+	//		return
+	//	}
+	//
+	//	// no need to upload chart packages
+	//	if args.Options == nil || !args.Options.EnableOfflineDist {
+	//		return
+	//	}
+	//
+	//	//tar all chart files and send to s3 store
+	//	fsTree := os.DirFS(dir)
+	//	ServiceS3Base := configbase.ObjectStorageDeliveryVersionPath(args.ProductName)
+	//	if err = fsservice.ArchiveAndUploadFilesToSpecifiedS3(fsTree, versionObj.Version, ServiceS3Base, nil, args.Options.S3StorageID, logger); err != nil {
+	//		logger.Errorf("failed to upload chart package files for project %s, err: %s", args.ProductName, err)
+	//		err = errors.Wrapf(err, "failed to upload package file")
+	//		return
+	//	}
+	//}()
 
-		appendError := func(err error) {
-			errLock.Lock()
-			defer errLock.Unlock()
-			errorList = multierror.Append(errorList, err)
-		}
+	return nil
+}
 
-		// push charts to repo
-		wg := sync.WaitGroup{}
-		for _, chartData := range chartDataMap {
-			wg.Add(1)
-			go func(cData *DeliveryChartData) {
-				defer wg.Done()
-				err := handleSingleChart(cData, repoInfo, dir)
-				if err != nil {
-					logger.Errorf("failed to handle single chart data, serviceName: %s err: %s", cData.ChartData.ServiceName, err)
-					appendError(err)
-				} else {
-					err = commonrepo.NewDeliveryVersionColl().AddDeliveryChart(versionObj.Version, &commonmodels.DeliveryChart{
-						Name:    cData.ServiceObj.ServiceName,
-						Version: cData.ChartData.Version,
-						Repo:    args.ChartRepoName,
-					})
-					if err != nil {
-						appendError(errors.Wrapf(err, "failed to save delivery chart: %s", cData.ChartData.ServiceName))
-					}
-				}
-			}(chartData)
-		}
-		wg.Wait()
+func RetryCreateHelmDeliveryVersion(projectName, versionName string, logger *zap.SugaredLogger) error {
+	deliveryVersion, err := commonrepo.NewDeliveryVersionColl().Get(&commonrepo.DeliveryVersionArgs{
+		ProductName: projectName,
+		Version:     versionName,
+	})
+	if err != nil {
+		logger.Errorf("failed to query delivery version data, verisonName: %s, error: %s", versionName, err)
+		return fmt.Errorf("failed to query delivery version data, verisonName: %s", versionName)
+	}
 
-		if errorList.ErrorOrNil() != nil {
-			err = errorList.ErrorOrNil()
-			return
-		}
+	if deliveryVersion.Status != setting.DeliveryVersionStatusFailed {
+		return fmt.Errorf("can't reCreate version with status:%s", deliveryVersion.Status)
+	}
 
-		tmpDir, err := os.MkdirTemp("", "delivery-")
+	argsBytes, err := json.Marshal(deliveryVersion.CreateArgument)
+	if err != nil {
+		return errors.Wrapf(err, "failed to marshal arguments, versionName: %s err %s", deliveryVersion.Version)
+	}
+	createArgs := new(DeliveryVersionChartData)
+	err = json.Unmarshal(argsBytes, createArgs)
+	if err != nil {
+		return errors.Wrapf(err, "failed to unMarshal arguments, versionName: %s err %s", deliveryVersion.Version)
+	}
+
+	productInfoSnap := deliveryVersion.ProductEnvInfo
+
+	// for charts has been successfully handled, download charts directly
+	successCharts := sets.NewString()
+	for _, singleChart := range deliveryVersion.Charts {
+		// prepare chart data
+		_, err := downloadChart(projectName, versionName, singleChart)
 		if err != nil {
-			logger.Errorf("failed to create temp dir, err: %s", err)
-			return
+			log.Errorf("failed to download chart from chart repo, chartName: %s, err: %s", singleChart.Name, err)
+			continue
 		}
-		defer func(path string) {
-			_ = os.RemoveAll(path)
-		}(tmpDir)
+		successCharts.Insert(singleChart.Name)
+	}
 
-		//tar all chart files and send to s3 store
-		fsTree := os.DirFS(dir)
-		tarball := fmt.Sprintf("%s.tar.gz", versionObj.Version)
-		localPath := filepath.Join(tmpDir, tarball)
-		if err = fsutil.Tar(fsTree, localPath); err != nil {
-			logger.Errorf("failed to archive tarball %s, err: %s", localPath, err)
-			versionObj.Status = setting.DeliveryVersionStatusFailed
-			err = errors.Wrapf(err, "failed to archive chart files, path %s", localPath)
-			return
+	chartsToBeHandled := make([]*CreateHelmDeliveryVersionChartData, 0)
+	for _, chartConfig := range createArgs.ChartDatas {
+		if successCharts.Has(chartConfig.ServiceName) {
+			continue
 		}
+		chartsToBeHandled = append(chartsToBeHandled, chartConfig)
+	}
 
-		ServiceS3Base := configbase.ObjectStorageDeliveryVersionPath(args.ProductName)
-		if err = fsservice.ArchiveAndUploadFilesToS3(fsTree, versionObj.Version, ServiceS3Base, nil, logger); err != nil {
-			logger.Errorf("failed to upload chart package files for project %s, err: %s", args.ProductName, err)
-			err = errors.Wrapf(err, "failed to upload package file")
-			return
-		}
+	chartDataMap, err := prepareChartData(chartsToBeHandled, productInfoSnap)
+	if err != nil {
+		return e.ErrCreateDeliveryVersion.AddErr(err)
+	}
 
-	}()
+	err = buildDeliveryCharts(chartDataMap, deliveryVersion, createArgs, logger)
+	if err != nil {
+		return err
+	}
+
+	// update status
+	deliveryVersion.Status = setting.DeliveryVersionStatusRetrying
+	err = commonrepo.NewDeliveryVersionColl().UpdateStatusByName(deliveryVersion.Version, deliveryVersion.Status, "")
+	if err != nil {
+		logger.Errorf("failed to update delivery status, name: %s, err: %s", deliveryVersion.Version, err)
+		return fmt.Errorf("failed to update delivery status, name: %s", deliveryVersion.Version)
+	}
 
 	return nil
 }
@@ -438,9 +646,9 @@ func ListDeliveryServiceNames(productName string, log *zap.SugaredLogger) ([]str
 	return serviceNames.UnsortedList(), nil
 }
 
-func downloadChart(version *commonmodels.DeliveryVersion, chartInfo *commonmodels.DeliveryChart) (string, error) {
+func downloadChart(productName, versionName string, chartInfo *commonmodels.DeliveryChart) (string, error) {
 	chartTGZName := fmt.Sprintf("%s-%s.tgz", chartInfo.Name, chartInfo.Version)
-	chartTGZFileParent := getChartTGZDir(version.ProductName, version.Version)
+	chartTGZFileParent := getChartTGZDir(productName, versionName)
 	chartTGZFilePath := filepath.Join(chartTGZFileParent, chartTGZName)
 	if _, err := os.Stat(chartTGZFilePath); err == nil {
 		// local cache exists
@@ -464,7 +672,7 @@ func downloadChart(version *commonmodels.DeliveryVersion, chartInfo *commonmodel
 
 	out, err := os.Create(chartTGZFilePath)
 	if err != nil {
-		os.RemoveAll(chartTGZFilePath)
+		_ = os.RemoveAll(chartTGZFilePath)
 		return "", errors.Wrapf(err, "failed to create chart tgz file")
 	}
 
@@ -473,14 +681,12 @@ func downloadChart(version *commonmodels.DeliveryVersion, chartInfo *commonmodel
 		return "", errors.Wrapf(err, "failed to download file")
 	}
 
-	//helm.CreateChartPackage()
-
 	if response.StatusCode != 200 {
 		return "", errors.Wrapf(err, "download file failed %s", chartTGZName)
 	}
+	defer func() { _ = response.Body.Close() }()
 
 	b, err := ioutil.ReadAll(response.Body)
-	defer response.Body.Close()
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to read response data")
 	}
@@ -496,13 +702,13 @@ func downloadChart(version *commonmodels.DeliveryVersion, chartInfo *commonmodel
 	return chartTGZFilePath, nil
 }
 
-func DownloadDeliveryChart(projectName, version string, chartName string, log *zap.SugaredLogger) (string, error) {
+func getChartConfigInfo(projectName, version string, chartName string, log *zap.SugaredLogger) (*commonmodels.DeliveryChart, error) {
 	deliveryVersion, err := GetDeliveryVersion(&commonrepo.DeliveryVersionArgs{
 		ProductName: projectName,
 		Version:     version,
 	}, log)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	var chartInfo *commonmodels.DeliveryChart
@@ -513,39 +719,57 @@ func DownloadDeliveryChart(projectName, version string, chartName string, log *z
 	}
 
 	if chartInfo == nil {
-		return "", fmt.Errorf("can't find target chart: %s", chartName)
+		return nil, fmt.Errorf("can't find target chart: %s", chartName)
 	}
+	return chartInfo, nil
+}
 
+func DownloadDeliveryChart(projectName, version string, chartName string, log *zap.SugaredLogger) (string, error) {
+	chartInfo, err := getChartConfigInfo(projectName, version, chartName, log)
+	if err != nil {
+		return "", err
+	}
 	// prepare chart data
-	filePath, err := downloadChart(deliveryVersion, chartInfo)
+	filePath, err := downloadChart(projectName, version, chartInfo)
+	if err != nil {
+		return "", err
+	}
+	return filePath, err
+}
+
+func preDownloadAndUncompressChart(projectName, versionName, chartName string, log *zap.SugaredLogger) (string, error) {
+
+	chartInfo, err := getChartConfigInfo(projectName, versionName, chartName, log)
+	if err != nil {
+		return "", err
+	}
+	dstDir := getChartExpandDir(projectName, versionName)
+	dstDir = filepath.Join(dstDir, fmt.Sprintf("%s-%s", chartInfo.Name, chartInfo.Version))
+
+	filePath, err := DownloadDeliveryChart(projectName, versionName, chartName, log)
 	if err != nil {
 		return "", err
 	}
 
-	return filePath, err
-}
-
-func PreviewDeliveryChart(projectName, version string, chartName string, log *zap.SugaredLogger) (*DeliveryChartResp, error) {
-	filePath, err := DownloadDeliveryChart(projectName, version, chartName, log)
-	if err != nil {
-		return nil, err
-	}
-	fileName := filepath.Base(filePath)
-	dstDir := getChartExpandDir(projectName, version)
-
-	fileName = strings.TrimSuffix(fileName, filepath.Ext(fileName))
-	dstDir = filepath.Join(dstDir, fileName)
-
 	file, err := os.Open(filePath)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to open tarball")
+		return "", errors.Wrap(err, "unable to open tarball")
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	err = chartutil.Expand(dstDir, file)
 	if err != nil {
 		log.Errorf("failed to uncompress file: %s", filePath)
-		return nil, errors.Wrapf(err, "failed to uncompress file")
+		return "", errors.Wrapf(err, "failed to uncompress file")
+	}
+	return dstDir, nil
+}
+
+func PreviewDeliveryChart(projectName, version, chartName string, log *zap.SugaredLogger) (*DeliveryChartResp, error) {
+
+	dstDir, err := preDownloadAndUncompressChart(projectName, version, chartName, log)
+	if err != nil {
+		return nil, err
 	}
 
 	ret := &DeliveryChartResp{
@@ -576,4 +800,61 @@ func PreviewDeliveryChart(projectName, version string, chartName string, log *za
 	}
 	ret.FileInfos = fis
 	return ret, nil
+}
+
+// load chart file infos
+func loadChartFileInfos(fileDir, chartName string, dir string) ([]*types.FileInfo, error) {
+	var fis []*types.FileInfo
+	files, err := os.ReadDir(filepath.Join(fileDir, chartName, dir))
+	if err != nil {
+		return nil, e.ErrFilePath.AddDesc(err.Error())
+	}
+
+	for _, file := range files {
+		info, _ := file.Info()
+		if info == nil {
+			continue
+		}
+		fi := &types.FileInfo{
+			Parent:  dir,
+			Name:    file.Name(),
+			Size:    info.Size(),
+			Mode:    file.Type(),
+			ModTime: info.ModTime().Unix(),
+			IsDir:   file.IsDir(),
+		}
+		fis = append(fis, fi)
+	}
+	return fis, nil
+}
+
+func GetDeliveryChartFilePath(args *DeliveryChartFilePathArgs, log *zap.SugaredLogger) ([]*types.FileInfo, error) {
+	projectName, version, chartName := args.ProjectName, args.Version, args.ChartName
+	dstDir, err := preDownloadAndUncompressChart(projectName, version, chartName, log)
+	if err != nil {
+		return nil, nil
+	}
+
+	fileInfos, err := loadChartFileInfos(dstDir, chartName, args.Dir)
+	if err != nil {
+		return nil, err
+	}
+	return fileInfos, nil
+}
+
+func GetDeliveryChartFileContent(args *DeliveryChartFileContentArgs, log *zap.SugaredLogger) (string, error) {
+	projectName, version, chartName := args.ProjectName, args.Version, args.ChartName
+	dstDir, err := preDownloadAndUncompressChart(projectName, version, chartName, log)
+	if err != nil {
+		return "", nil
+	}
+
+	file := filepath.Join(dstDir, chartName, args.FilePath, args.FileName)
+	fileContent, err := os.ReadFile(file)
+	if err != nil {
+		log.Errorf("Failed to read file %s, err: %s", file, err)
+		return "", e.ErrFileContent.AddDesc(err.Error())
+	}
+
+	return string(fileContent), nil
 }
