@@ -351,7 +351,7 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 
 	fsTree := os.DirFS(config.LocalServicePath(projectName, args.Name))
 	ServiceS3Base := config.ObjectStorageServicePath(projectName, args.Name)
-	if err = fsservice.ArchiveAndUploadFilesToS3(fsTree, args.Name, ServiceS3Base, []string{fmt.Sprintf("%s-%d", args.Name, rev)}, logger); err != nil {
+	if err = fsservice.ArchiveAndUploadFilesToS3(fsTree, []string{args.Name, fmt.Sprintf("%s-%d", args.Name, rev)}, ServiceS3Base, logger); err != nil {
 		logger.Errorf("Failed to upload files for service %s in project %s, err: %s", args.Name, projectName, err)
 		return nil, err
 	}
@@ -677,7 +677,7 @@ func handleSingleService(projectName string, repoConfig *commonservice.RepoConfi
 
 	fsTree := os.DirFS(config.LocalServicePath(projectName, serviceName))
 	ServiceS3Base := config.ObjectStorageServicePath(projectName, serviceName)
-	if err = fsservice.ArchiveAndUploadFilesToS3(fsTree, serviceName, ServiceS3Base, []string{fmt.Sprintf("%s-%d", serviceName, rev)}, logger); err != nil {
+	if err = fsservice.ArchiveAndUploadFilesToS3(fsTree, []string{serviceName, fmt.Sprintf("%s-%d", serviceName, rev)}, ServiceS3Base, logger); err != nil {
 		logger.Errorf("Failed to upload files for service %s in project %s, err: %s", serviceName, projectName, err)
 		return nil, err
 	}
@@ -1004,7 +1004,7 @@ func UpdateHelmService(args *HelmServiceArgs, log *zap.SugaredLogger) error {
 
 	for serviceName, rev := range serviceMap {
 		s3Base := config.ObjectStorageServicePath(args.ProductName, serviceName)
-		if err := fsservice.ArchiveAndUploadFilesToS3(os.DirFS(config.LocalServicePath(args.ProductName, serviceName)), serviceName, s3Base, []string{fmt.Sprintf("%s-%d", serviceName, rev)}, log); err != nil {
+		if err := fsservice.ArchiveAndUploadFilesToS3(os.DirFS(config.LocalServicePath(args.ProductName, serviceName)), []string{serviceName, fmt.Sprintf("%s-%d", serviceName, rev)}, s3Base, log); err != nil {
 			return e.ErrUpdateTemplate.AddDesc(err.Error())
 		}
 	}

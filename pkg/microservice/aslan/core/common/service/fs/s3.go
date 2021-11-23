@@ -30,13 +30,22 @@ import (
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
 )
 
-func ArchiveAndUploadFilesToS3(fileTree fs.FS, name, s3Base string, copies []string, logger *zap.SugaredLogger) error {
+// ArchiveAndUploadFilesToS3 archive local files and upload to default s3 storage
+// if multiple names appointed, s3storage.copy will be used to handle extra names
+func ArchiveAndUploadFilesToS3(fileTree fs.FS, names []string, s3Base string, logger *zap.SugaredLogger) error {
+	if len(names) == 0 {
+		return fmt.Errorf("names not appointed")
+	}
+
 	tmpDir, err := os.MkdirTemp("", "")
 	if err != nil {
 		logger.Errorf("Failed to create temp dir, err: %s", err)
 		return err
 	}
 	defer os.RemoveAll(tmpDir)
+
+	name := names[0]
+	copies := names[1:]
 
 	tarball := fmt.Sprintf("%s.tar.gz", name)
 	localPath := filepath.Join(tmpDir, tarball)

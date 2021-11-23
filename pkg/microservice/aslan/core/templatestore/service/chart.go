@@ -352,7 +352,7 @@ func processChartFromSource(name string, args *fs.DownloadFromSourceArgs, logger
 		localBase := configbase.LocalChartTemplatePath(name)
 		s3Base := configbase.ObjectStorageChartTemplatePath(name)
 
-		err1 := fs.SaveAndUploadFiles(tree, name, localBase, s3Base, nil, logger)
+		err1 := fs.SaveAndUploadFiles(tree, []string{name}, localBase, s3Base, logger)
 		if err1 != nil {
 			logger.Errorf("Failed to save files to disk, err: %s", err1)
 			err = err1
