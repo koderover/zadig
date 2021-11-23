@@ -32,8 +32,8 @@ func (c *CallbackRequestColl) EnsureIndex(ctx context.Context) error {
 	mod := mongo.IndexModel{
 		Keys: bson.D{
 			bson.E{Key: "task_name", Value: 1},
-			bson.E{Key: "project_name", Value: 1},
 			bson.E{Key: "task_id", Value: 1},
+			bson.E{Key: "project_name", Value: 1},
 		},
 		Options: options.Index().SetUnique(false),
 	}
@@ -45,7 +45,7 @@ func (c *CallbackRequestColl) EnsureIndex(ctx context.Context) error {
 
 func (c *CallbackRequestColl) Create(req *models.CallbackRequest) error {
 	if req == nil {
-		return errors.New("nil Module args")
+		return errors.New("nil callbackRequest args")
 	}
 
 	_, err := c.Collection.InsertOne(context.TODO(), req)
