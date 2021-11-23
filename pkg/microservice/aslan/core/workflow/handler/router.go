@@ -158,7 +158,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		taskV3.DELETE("/id/:id/name/:name", gin2.UpdateOperationLogStatus, CancelWorkflowTaskV3)
 		taskV3.GET("/max/:max/start/:start/name/:name", ListWorkflowV3TasksResult)
 		taskV3.GET("/id/:id/name/:name", GetWorkflowTaskV3)
-		taskV3.POST("/workflow/webhookPayload", OutputWebhookPayload)
 		taskV3.GET("/callback/id/:id/name/:name", GetWorkflowTaskV3Callback)
 	}
 }
