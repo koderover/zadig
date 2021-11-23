@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/oauth2"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/user/config"
 	"github.com/koderover/zadig/pkg/microservice/user/core/service/login"
 	"github.com/koderover/zadig/pkg/microservice/user/core/service/user"
@@ -39,6 +41,7 @@ func Login(c *gin.Context) {
 		RedirectURL:  config.RedirectURI(),
 	}
 	authCodeURL := oauth2Config.AuthCodeURL(config.AppState, oauth2.AccessTypeOffline)
+	authCodeURL = strings.Replace(authCodeURL, config.IssuerURL(), configbase.SystemAddress()+"/dex", -1)
 	c.Redirect(http.StatusSeeOther, authCodeURL)
 }
 
