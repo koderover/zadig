@@ -109,5 +109,5 @@ func GetWorkflowTaskV3Callback(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = workflow.GetWorkflowTaskV3Callback(taskID, c.Param("name"), c.Query("project_name"), ctx.Logger)
+	ctx.Resp, ctx.Err = workflow.GetWorkflowTaskV3Callback(taskID, c.Param("name"), ctx.Logger)
 }
