@@ -26,6 +26,8 @@ import (
 	"sync"
 	"time"
 
+	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
+
 	cm "github.com/chartmuseum/helm-push/pkg/chartmuseum"
 	"github.com/chartmuseum/helm-push/pkg/helm"
 	"github.com/hashicorp/go-multierror"
@@ -57,7 +59,7 @@ type CreateHelmDeliveryVersionOption struct {
 
 type CreateHelmDeliveryVersionChartData struct {
 	ServiceName       string `json:"serviceName"`
-	Version           string `json:"version"`
+	Version           string `json:"version,omitempty"`
 	ValuesYamlContent string `json:"valuesYamlContent"`
 }
 
@@ -74,6 +76,7 @@ type CreateHelmDeliveryVersionArgs struct {
 }
 
 type DeliveryVersionChartData struct {
+	GlobalVariables string                                `json:"globalVariables"`
 	ChartRepoName   string                                `json:"chartRepoName"`
 	ImageRegistryID string                                `json:"imageRegistryID"`
 	ChartDatas      []*CreateHelmDeliveryVersionChartData `json:"chartDatas"`
@@ -102,6 +105,11 @@ type DeliveryChartFileContentArgs struct {
 	ProjectName string `json:"projectName"`
 	ChartName   string `json:"chartName"`
 	Version     string `json:"version"`
+}
+
+type DeliveryVariablesApplyArgs struct {
+	GlobalVariables string                                `json:"globalVariables,omitempty"`
+	ChartDatas      []*CreateHelmDeliveryVersionChartData `json:"chartDatas"`
 }
 
 func GetDeliveryVersion(args *commonrepo.DeliveryVersionArgs, log *zap.SugaredLogger) (*commonmodels.DeliveryVersion, error) {
@@ -217,7 +225,7 @@ func createChartRepoClient(repo *commonmodels.HelmRepo) (*cm.Client, error) {
 	return client, nil
 }
 
-func handleSingleChart(chartData *DeliveryChartData, chartRepo *commonmodels.HelmRepo, dir string) error {
+func handleSingleChart(chartData *DeliveryChartData, chartRepo *commonmodels.HelmRepo, dir string, globalVariables string) error {
 	serviceObj := chartData.ServiceObj
 	serviceName, revision := serviceObj.ServiceName, serviceObj.Revision
 	base := config.LocalServicePathWithRevision(serviceObj.ProductName, serviceName, revision)
@@ -252,13 +260,23 @@ func handleSingleChart(chartData *DeliveryChartData, chartRepo *commonmodels.Hel
 	chartRequested.Metadata.Name = chartData.ChartData.ServiceName
 	chartRequested.Metadata.Version = chartData.ChartData.Version
 	chartRequested.Metadata.AppVersion = chartData.ChartData.Version
-	if len(chartData.ChartData.ValuesYamlContent) > 0 {
+
+	if len(chartData.ChartData.ValuesYamlContent) > 0 { // values.yaml was edited directly
 		valuesInfo := make(map[string]interface{})
 		if err = yaml.Unmarshal([]byte(chartData.ChartData.ValuesYamlContent), map[string]interface{}{}); err != nil {
 			log.Errorf("invalid yaml content, serviceName: %s, yamlContent: %s", serviceObj.ServiceName, chartData.ChartData.ValuesYamlContent)
 			return errors.Wrapf(err, "invalid yaml content for service: %s", serviceObj.ServiceName)
 		}
 		chartRequested.Values = valuesInfo
+	} else if len(globalVariables) > 0 { // merge global variables
+		curValuesStr, err := yaml.Marshal(chartRequested.Values)
+		if err != nil {
+			return errors.Wrapf(err, "failed to marshal values.yaml for service: %s", serviceObj.ServiceName)
+		}
+		chartRequested.Values, err = yamlutil.MergeAndUnmarshal([][]byte{curValuesStr, []byte(globalVariables)})
+		if err != nil {
+			return errors.Wrapf(err, "failed to merge global variables for service: %s", serviceObj.ServiceName)
+		}
 	}
 
 	chartPackagePath, err := helm.CreateChartPackage(&helm.Chart{Chart: chartRequested}, dir)
@@ -286,6 +304,7 @@ func handleSingleChart(chartData *DeliveryChartData, chartRepo *commonmodels.Hel
 func handlePushResponse(resp *http.Response) error {
 	if resp.StatusCode != 201 && resp.StatusCode != 202 {
 		b, err := ioutil.ReadAll(resp.Body)
+		defer resp.Body.Close()
 		if err != nil {
 			return err
 		}
@@ -396,7 +415,7 @@ func buildDeliveryCharts(chartDataMap map[string]*DeliveryChartData, deliveryVer
 		wg.Add(1)
 		go func(cData *DeliveryChartData) {
 			defer wg.Done()
-			err := handleSingleChart(cData, repoInfo, dir)
+			err := handleSingleChart(cData, repoInfo, dir, args.GlobalVariables)
 			if err != nil {
 				logger.Errorf("failed to handle single chart data, serviceName: %s err: %s", cData.ChartData.ServiceName, err)
 				appendError(err)
@@ -479,75 +498,6 @@ func CreateNewHelmDeliveryVersion(args *CreateHelmDeliveryVersionArgs, logger *z
 	if err != nil {
 		return err
 	}
-
-	//go func() {
-	//	var err error
-	//	defer func() {
-	//		if err != nil {
-	//			versionObj.Status = setting.DeliveryVersionStatusFailed
-	//			versionObj.Error = err.Error()
-	//		} else {
-	//			versionObj.Status = setting.DeliveryVersionStatusSuccess
-	//			versionObj.Error = ""
-	//		}
-	//		err = commonrepo.NewDeliveryVersionColl().UpdateStatusByName(versionObj.Version, versionObj.Status, versionObj.Error)
-	//		if err != nil {
-	//			logger.Errorf("failed to update delivery version data, name: %s error: %s", versionObj.Version, err)
-	//		}
-	//	}()
-	//
-	//	var errLock sync.Mutex
-	//	errorList := &multierror.Error{}
-	//
-	//	appendError := func(err error) {
-	//		errLock.Lock()
-	//		defer errLock.Unlock()
-	//		errorList = multierror.Append(errorList, err)
-	//	}
-	//
-	//	// push charts to repo
-	//	wg := sync.WaitGroup{}
-	//	for _, chartData := range chartDataMap {
-	//		wg.Add(1)
-	//		go func(cData *DeliveryChartData) {
-	//			defer wg.Done()
-	//			err := handleSingleChart(cData, repoInfo, dir)
-	//			if err != nil {
-	//				logger.Errorf("failed to handle single chart data, serviceName: %s err: %s", cData.ChartData.ServiceName, err)
-	//				appendError(err)
-	//			} else {
-	//				err = commonrepo.NewDeliveryVersionColl().AddDeliveryChart(versionObj.Version, &commonmodels.DeliveryChart{
-	//					Name:    cData.ChartData.ServiceName,
-	//					Version: cData.ChartData.Version,
-	//					Repo:    args.ChartRepoName,
-	//				})
-	//				if err != nil {
-	//					appendError(errors.Wrapf(err, "failed to save delivery chart: %s", cData.ChartData.ServiceName))
-	//				}
-	//			}
-	//		}(chartData)
-	//	}
-	//	wg.Wait()
-	//
-	//	if errorList.ErrorOrNil() != nil {
-	//		err = errorList.ErrorOrNil()
-	//		return
-	//	}
-	//
-	//	// no need to upload chart packages
-	//	if args.Options == nil || !args.Options.EnableOfflineDist {
-	//		return
-	//	}
-	//
-	//	//tar all chart files and send to s3 store
-	//	fsTree := os.DirFS(dir)
-	//	ServiceS3Base := configbase.ObjectStorageDeliveryVersionPath(args.ProductName)
-	//	if err = fsservice.ArchiveAndUploadFilesToSpecifiedS3(fsTree, versionObj.Version, ServiceS3Base, nil, args.Options.S3StorageID, logger); err != nil {
-	//		logger.Errorf("failed to upload chart package files for project %s, err: %s", args.ProductName, err)
-	//		err = errors.Wrapf(err, "failed to upload package file")
-	//		return
-	//	}
-	//}()
 
 	return nil
 }
@@ -857,4 +807,19 @@ func GetDeliveryChartFileContent(args *DeliveryChartFileContentArgs, log *zap.Su
 	}
 
 	return string(fileContent), nil
+}
+
+func ApplyDeliveryGlobalVariables(args *DeliveryVariablesApplyArgs, log *zap.SugaredLogger) (interface{}, error) {
+	ret := new(DeliveryVariablesApplyArgs)
+	for _, chartData := range args.ChartDatas {
+		mergedYaml, err := yamlutil.Merge([][]byte{[]byte(chartData.ValuesYamlContent), []byte(args.GlobalVariables)})
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to merge global variable for service: %s", chartData.ServiceName)
+		}
+		ret.ChartDatas = append(ret.ChartDatas, &CreateHelmDeliveryVersionChartData{
+			ServiceName:       chartData.ServiceName,
+			ValuesYamlContent: string(mergedYaml),
+		})
+	}
+	return ret, nil
 }

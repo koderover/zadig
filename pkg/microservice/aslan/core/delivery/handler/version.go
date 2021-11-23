@@ -438,6 +438,18 @@ func GetDeliveryChartFileContent(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-
 	ctx.Resp, ctx.Err = deliveryservice.GetDeliveryChartFileContent(args, ctx.Logger)
+}
+
+func ApplyDeliveryGlobalVariables(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(deliveryservice.DeliveryVariablesApplyArgs)
+	err := c.BindJSON(args)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	ctx.Resp, ctx.Err = deliveryservice.ApplyDeliveryGlobalVariables(args, ctx.Logger)
 }
