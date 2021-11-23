@@ -31,9 +31,8 @@ import (
 )
 
 type ListWorkflowOption struct {
-	ProductName string
-	IsSort      bool
-	TestName    string
+	IsSort   bool
+	Projects []string
 }
 
 type WorkflowColl struct {
@@ -64,8 +63,8 @@ func (c *WorkflowColl) EnsureIndex(ctx context.Context) error {
 
 func (c *WorkflowColl) List(opt *ListWorkflowOption) ([]*models.Workflow, error) {
 	query := bson.M{}
-	if opt.ProductName != "" {
-		query["product_tmpl_name"] = opt.ProductName
+	if len(opt.Projects) > 0 {
+		query["product_tmpl_name"] = bson.M{"$in": opt.Projects}
 	}
 
 	resp := make([]*models.Workflow, 0)
