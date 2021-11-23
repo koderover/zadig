@@ -26,18 +26,6 @@ import (
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
 )
 
-type fileHook interface {
-	Execute() error
-}
-
-type LocalFileCopy struct {
-	ExtraFiles []string
-}
-
-func (hook *LocalFileCopy) Execute() error {
-	return nil
-}
-
 // PreloadFiles downloads a tarball from object storage and extracts it to a local path for further usage.
 // It happens only if files do not exist in local disk.
 func PreloadFiles(name, localBase, s3Base string, logger *zap.SugaredLogger) error {
