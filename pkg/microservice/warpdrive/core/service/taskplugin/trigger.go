@@ -18,14 +18,20 @@ package taskplugin
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"time"
 
 	"go.uber.org/zap"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
+	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/s3"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
+	"github.com/koderover/zadig/pkg/tool/httpclient"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 const (
@@ -50,8 +56,10 @@ type TriggerTaskPlugin struct {
 	kubeClient    client.Client
 	Task          *task.Trigger
 	Log           *zap.SugaredLogger
-
-	ack func()
+	cancel        context.CancelFunc
+	ack           func()
+	pipelineName  string
+	taskId        int64
 }
 
 func (p *TriggerTaskPlugin) SetAckFunc(ack func()) {
@@ -97,16 +105,118 @@ func (p *TriggerTaskPlugin) SetTriggerStatusCompleted(status config.Status) {
 }
 
 func (p *TriggerTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineCtx *task.PipelineCtx, serviceName string) {
-
+	var (
+		err          error
+		body         []byte
+		artifactPath string
+	)
+	defer func() {
+		if err != nil {
+			p.Log.Error(err)
+			p.Task.TaskStatus = config.StatusFailed
+			p.Task.Error = err.Error()
+			return
+		}
+	}()
+	p.pipelineName = pipelineTask.PipelineName
+	p.taskId = pipelineTask.TaskID
 	p.Log.Infof("succeed to create trigger task %s", p.JobName)
+	ctx, p.cancel = context.WithCancel(context.Background())
+	httpClient := httpclient.New(
+		httpclient.SetHostURL(p.Task.URL),
+	)
+	url := p.Task.Path
+	artifactPath, err = p.getS3Storage(pipelineTask)
+	if err != nil {
+		return
+	}
+	p.Log.Infof("artifactPath:%s", artifactPath)
+	taskOutput := &task.TaskOutput{
+		Type:  "object_storage",
+		Value: artifactPath,
+	}
+	webhookPayload := &task.WebhookPayload{
+		EventName:   "workflow",
+		ProjectName: pipelineTask.ProductName,
+		TaskName:    pipelineTask.PipelineName,
+		TaskID:      pipelineTask.TaskID,
+		TaskOutput:  []*task.TaskOutput{taskOutput},
+		TaskEnvs:    pipelineTask.TaskArgs.BuildArgs,
+	}
+	body, err = json.Marshal(webhookPayload)
+	_, err = httpClient.Post(url, httpclient.SetHeader("X-Zadig-Event", "Workflow"), httpclient.SetBody(body))
+	if err != nil {
+		return
+	}
+	if !p.Task.IsCallback {
+		p.SetTriggerStatusCompleted(config.StatusPassed)
+	}
+}
+
+func (p *TriggerTaskPlugin) getS3Storage(pipelineTask *task.Task) (string, error) {
+	var err error
+	var store *s3.S3
+	if store, err = s3.NewS3StorageFromEncryptedURI(pipelineTask.StorageURI); err != nil {
+		log.Errorf("Archive failed to create s3 storage %s", pipelineTask.StorageURI)
+		return "", err
+	}
+	subPath := ""
+	if store.Subfolder != "" {
+		subPath = fmt.Sprintf("%s/%s/%s/%s", store.Subfolder, pipelineTask.PipelineName, pipelineTask.ServiceName, "artifact")
+	} else {
+		subPath = fmt.Sprintf("%s/%s/%s", pipelineTask.PipelineName, pipelineTask.ServiceName, "artifact")
+	}
+	return fmt.Sprintf("%s/%s/artifact.tar.gz", store.Endpoint, subPath), nil
 }
 
 // Wait ...
 func (p *TriggerTaskPlugin) Wait(ctx context.Context) {
-	status := waitJobEndWithFile(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, true, p.kubeClient, p.Log)
-	p.SetTriggerStatusCompleted(status)
+	timeout := time.After(time.Duration(p.TaskTimeout()) * time.Second)
+	defer p.cancel()
 
-	p.SetStatus(status)
+	for {
+		select {
+		case <-ctx.Done():
+			p.Task.TaskStatus = config.StatusCancelled
+			return
+		case <-timeout:
+			p.Task.TaskStatus = config.StatusTimeout
+			p.Task.Error = "timeout"
+			return
+		default:
+			time.Sleep(time.Second * 3)
+			callbackPayloadObj, _ := p.getCallbackObj(p.taskId, p.pipelineName)
+			if callbackPayloadObj != nil {
+				p.Task.CallbackType = callbackPayloadObj.Type
+				p.Task.CallbackPayload = callbackPayloadObj.Payload
+				if callbackPayloadObj.Status == "success" {
+					p.Task.TaskStatus = config.StatusPassed
+					return
+				}
+				p.Task.TaskStatus = config.StatusFailed
+				p.Task.Error = callbackPayloadObj.StatusMessage
+				return
+			}
+
+			if p.IsTaskDone() {
+				return
+			}
+		}
+	}
+}
+
+func (p *TriggerTaskPlugin) getCallbackObj(taskID int64, pipelineName string) (*task.CallbackPayloadObj, error) {
+	url := fmt.Sprintf("/api/workflow/v3/workflowtask/callback/id/%d/name/%s", taskID, pipelineName)
+	httpClient := httpclient.New(
+		httpclient.SetHostURL(configbase.AslanServiceAddress()),
+	)
+
+	CallbackPayloadObj := new(task.CallbackPayloadObj)
+	_, err := httpClient.Get(url, httpclient.SetResult(&CallbackPayloadObj))
+	if err != nil {
+		return nil, err
+	}
+	return CallbackPayloadObj, nil
 }
 
 // Complete ...

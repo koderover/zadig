@@ -99,6 +99,26 @@ func GetWorkflowTaskV3(c *gin.Context) {
 	ctx.Resp, ctx.Err = workflow.GetWorkflowTaskV3(taskID, c.Param("name"), config.WorkflowTypeV3, ctx.Logger)
 }
 
+type WebhookPayload struct {
+	EventName   string        `json:"event_name"`
+	ProjectName string        `json:"project_name"`
+	TaskName    string        `json:"task_name"`
+	TaskID      int64         `json:"task_id"`
+	TaskOutput  []*TaskOutput `json:"task_output"`
+	TaskEnvs    []*KeyVal     `json:"task_envs"`
+}
+
+type TaskOutput struct {
+	Type  string `json:"type"`
+	Value string `json:"value"`
+}
+
+type KeyVal struct {
+	Key          string `bson:"key"                 json:"key"`
+	Value        string `bson:"value"               json:"value"`
+	IsCredential bool   `bson:"is_credential"       json:"is_credential"`
+}
+
 func GetWorkflowTaskV3Callback(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

@@ -417,13 +417,6 @@ func (r *Reaper) AfterExec(upStreamErr error) error {
 			}
 		}
 
-		if r.Ctx.ArtifactPath != "" {
-			if err = artifactsUpload(r.Ctx, r.ActiveWorkspace, []string{r.Ctx.ArtifactPath}); err != nil {
-				log.Errorf("artifactsUpload err %s", err)
-				return err
-			}
-		}
-
 		// 将上面生成的统计结果文件上传到S3
 		if err = r.archiveTestFiles(); err != nil {
 			log.Errorf("archiveTestFiles err %v", err)
@@ -452,6 +445,13 @@ func (r *Reaper) AfterExec(upStreamErr error) error {
 		} else {
 			if err = r.downloadArtifactFile(); err != nil {
 				log.Errorf("download archiveFiles err %v", err)
+				return err
+			}
+		}
+
+		if r.Ctx.ArtifactPath != "" {
+			if err = artifactsUpload(r.Ctx, r.ActiveWorkspace, []string{r.Ctx.ArtifactPath}, "buildv3"); err != nil {
+				log.Errorf("artifactsUpload err %s", err)
 				return err
 			}
 		}
