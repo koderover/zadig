@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: $T-Service$
+  labels: 
+    app.kubernetes.io/name: $T-Project$
+    app.kubernetes.io/instance: $T-Service$
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: $T-Project$
+      app.kubernetes.io/instance: $T-Service$
+  replicas: 2
+  template:
+    metadata: 
+      labels:
+        app.kubernetes.io/name: $T-Project$
+        app.kubernetes.io/instance: $T-Service$
+    spec:
+      containers:
+        - name: $T-Service$
+          image: ccr.ccs.tencentyun.com/koderover-public/$T-Service$:latest
+          imagePullPolicy: Always 
+          command:
+            - /workspace/$T-Service$
+          ports:
+            - protocol: TCP
+              containerPort: {{.port}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: $T-Service$
+  labels:
+    app.kubernetes.io/name: $T-Project$
+    app.kubernetes.io/instance: $T-Service$
+spec:
+  type: NodePort
+  ports:
+    - protocol: TCP
+      port: {{.port}}
+      targetPort: {{.port}}

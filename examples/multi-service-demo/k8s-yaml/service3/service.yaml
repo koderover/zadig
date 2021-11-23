@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: service2
+  name: service3
   labels:
     app.kubernetes.io/name: demo
-    app.kubernetes.io/instance: service2
+    app.kubernetes.io/instance: service3
 spec:
   type: NodePort
   ports:
     - protocol: TCP
-      port: 20222
-      targetPort: 20222
+      port: 20223
+      targetPort: 20223
