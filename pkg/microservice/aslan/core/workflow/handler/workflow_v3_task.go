@@ -119,17 +119,17 @@ type KeyVal struct {
 	IsCredential bool   `bson:"is_credential"       json:"is_credential"`
 }
 
-//func OutputWebhookPayload(c *gin.Context) {
-//	ctx := internalhandler.NewContext(c)
-//	defer func() { internalhandler.JSONResponse(c, ctx) }()
-//
-//	args := new(WebhookPayload)
-//	if err := c.ShouldBindJSON(&args); err != nil {
-//		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-//		return
-//	}
-//	return
-//}
+func OutputWebhookPayload(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(WebhookPayload)
+	if err := c.ShouldBindJSON(&args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+	return
+}
 
 func GetWorkflowTaskV3Callback(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
