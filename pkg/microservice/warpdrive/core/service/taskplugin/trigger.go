@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"time"
 
 	"go.uber.org/zap"
@@ -59,6 +58,8 @@ type TriggerTaskPlugin struct {
 	Log           *zap.SugaredLogger
 	cancel        context.CancelFunc
 	ack           func()
+	pipelineName  string
+	taskId        int64
 }
 
 func (p *TriggerTaskPlugin) SetAckFunc(ack func()) {
@@ -117,6 +118,8 @@ func (p *TriggerTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pi
 			return
 		}
 	}()
+	p.pipelineName = pipelineTask.PipelineName
+	p.taskId = pipelineTask.TaskID
 	p.Log.Infof("succeed to create trigger task %s", p.JobName)
 	ctx, p.cancel = context.WithCancel(context.Background())
 	httpClient := httpclient.New(
@@ -170,6 +173,7 @@ func (p *TriggerTaskPlugin) getS3Storage(pipelineTask *task.Task) (string, error
 func (p *TriggerTaskPlugin) Wait(ctx context.Context) {
 	timeout := time.After(time.Duration(p.TaskTimeout()) * time.Second)
 	defer p.cancel()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -184,28 +188,30 @@ func (p *TriggerTaskPlugin) Wait(ctx context.Context) {
 			p.Task.CallbackType = "wechat_callback"
 			p.Task.CallbackPayload = &task.CallbackPayload{QRCodeURL: "nihao"}
 			p.Task.TaskStatus = config.StatusPassed
-			return
-			//if p.IsTaskDone() {
-			//	return
-			//}
+
+			callbackPayloadObj, err := p.getCallbackObj(p.taskId, p.pipelineName)
+			if err != nil {
+				p.Log.Error(err)
+				p.Task.TaskStatus = config.StatusFailed
+				p.Task.Error = err.Error()
+				return
+			}
+			p.Log.Infof("callbackPayloadObj:%+v", callbackPayloadObj)
+			if p.IsTaskDone() {
+				return
+			}
 		}
 	}
 }
 
-func (p *TriggerTaskPlugin) getCallbackObj(pipelineTask *task.Task) (*task.CallbackPayloadObj, error) {
-	url := "/api/"
+func (p *TriggerTaskPlugin) getCallbackObj(taskID int64, pipelineName string) (*task.CallbackPayloadObj, error) {
+	url := fmt.Sprintf("/api/workflow/v3/workflowtask/callback/id/%d/name/%s", taskID, pipelineName)
 	httpClient := httpclient.New(
 		httpclient.SetHostURL(configbase.AslanServiceAddress()),
 	)
 
-	qs := map[string]string{
-		"name":        pipelineTask.PipelineName,
-		"taskId":      strconv.Itoa(int(pipelineTask.TaskID)),
-		"projectName": pipelineTask.ProductName,
-	}
-
 	CallbackPayloadObj := new(task.CallbackPayloadObj)
-	_, err := httpClient.Get(url, httpclient.SetResult(&CallbackPayloadObj), httpclient.SetQueryParams(qs))
+	_, err := httpClient.Get(url, httpclient.SetResult(&CallbackPayloadObj))
 	if err != nil {
 		return nil, err
 	}
