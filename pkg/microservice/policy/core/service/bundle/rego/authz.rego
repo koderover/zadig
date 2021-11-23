@@ -66,11 +66,51 @@ access_is_granted {
 access_is_granted {
     not url_is_privileged
 
-    some grant
-    user_is_granted[grant]
+    some rule
 
-    grant.method == http_request.method
-    glob.match(trim(grant.endpoint, "/"), ["/"], concat("/", input.parsed_path))
+    allowed_plain_rules[rule]
+    rule.method == http_request.method
+    glob.match(trim(rule.endpoint, "/"), ["/"], concat("/", input.parsed_path))
+}
+
+access_is_granted {
+    some rule
+
+    allowed_attributive_rules[rule]
+    rule.method == http_request.method
+    glob.match(trim(rule.endpoint, "/"), ["/"], concat("/", input.parsed_path))
+    all_attributes_match(rule.matchAttributes, rule.resourceType, get_resource_id(rule.idRegex))
+}
+
+all_attributes_match(attributes, resourceType, resourceID) {
+    res := data.resources[_]
+    res.resourceType == resourceType
+    res.resourceID == resourceID
+    res.projectName
+    res.projectName == project_name
+
+    # a && b <=> !(!a || !b)
+    not attributes_mismatch(attributes, res)
+}
+
+attributes_mismatch(attributes, res) {
+    attribute := attributes[_]
+    attribute_mismatch(attribute, res)
+}
+
+attribute_mismatch(attribute, res) {
+    res[attribute.key] != attribute.value
+}
+
+attribute_mismatch(attribute, res) {
+    not res[attribute.key]
+}
+
+get_resource_id(idRegex) = id {
+    output := regex.find_all_string_submatch_n(trim(idRegex, "/"), concat("/", input.parsed_path), -1)
+    count(output) == 1
+    count(output[0]) == 2
+    id := output[0][1]
 }
 
 user_is_admin {
@@ -159,7 +199,6 @@ user_visible_projects[project] {
     user_is_admin
 }
 
-
 all_roles[role_ref] {
     some i
     data.bindings.role_bindings[i].uid == claims.uid
@@ -182,14 +221,30 @@ allowed_roles[role_ref] {
     role_ref := data.bindings.role_bindings[i].bindings[j].role_refs[_]
 }
 
-user_is_granted[grant] {
+allowed_rules[rule] {
     some role_ref
     allowed_roles[role_ref]
 
     some i
     data.roles.roles[i].name == role_ref.name
     data.roles.roles[i].namespace == role_ref.namespace
-    grant := data.roles.roles[i].rules[_]
+    rule := data.roles.roles[i].rules[_]
+}
+
+allowed_plain_rules[rule] {
+    rule := allowed_rules[_]
+    not rule.matchAttributes
+    not rule.matchExpressions
+}
+
+allowed_attributive_rules[rule] {
+    rule := allowed_rules[_]
+    rule.matchAttributes
+}
+
+allowed_attributive_rules[rule] {
+    rule := allowed_rules[_]
+    rule.matchExpressions
 }
 
 claims := payload {
