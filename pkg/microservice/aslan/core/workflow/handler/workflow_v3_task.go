@@ -98,3 +98,16 @@ func GetWorkflowTaskV3(c *gin.Context) {
 
 	ctx.Resp, ctx.Err = workflow.GetWorkflowTaskV3(taskID, c.Param("name"), config.WorkflowTypeV3, ctx.Logger)
 }
+
+func GetWorkflowTaskV3Callback(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	taskID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		return
+	}
+
+	ctx.Resp, ctx.Err = workflow.GetWorkflowTaskV3Callback(taskID, c.Param("name"), ctx.Logger)
+}
