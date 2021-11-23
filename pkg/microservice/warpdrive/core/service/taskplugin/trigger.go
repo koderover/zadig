@@ -185,18 +185,19 @@ func (p *TriggerTaskPlugin) Wait(ctx context.Context) {
 			return
 		default:
 			time.Sleep(time.Second * 3)
-			p.Task.CallbackType = "wechat_callback"
-			p.Task.CallbackPayload = &task.CallbackPayload{QRCodeURL: "nihao"}
-			p.Task.TaskStatus = config.StatusPassed
-
-			callbackPayloadObj, err := p.getCallbackObj(p.taskId, p.pipelineName)
-			if err != nil {
-				p.Log.Error(err)
+			callbackPayloadObj, _ := p.getCallbackObj(p.taskId, p.pipelineName)
+			if callbackPayloadObj != nil {
+				p.Task.CallbackType = callbackPayloadObj.Type
+				p.Task.CallbackPayload = callbackPayloadObj.Payload
+				if callbackPayloadObj.Status == "success" {
+					p.Task.TaskStatus = config.StatusPassed
+					return
+				}
 				p.Task.TaskStatus = config.StatusFailed
-				p.Task.Error = err.Error()
+				p.Task.Error = callbackPayloadObj.StatusMessage
 				return
 			}
-			p.Log.Infof("callbackPayloadObj:%+v", callbackPayloadObj)
+
 			if p.IsTaskDone() {
 				return
 			}

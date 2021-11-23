@@ -50,15 +50,11 @@ type TaskOutput struct {
 }
 
 type CallbackPayloadObj struct {
-	TaskName      string   `json:"task_name"`
-	ProjectName   string   `json:"project_name"`
-	TaskID        int      `json:"task_id"`
-	Type          string   `json:"type"`
-	Status        string   `json:"status"`
-	StatusMessage string   `json:"status_message"`
-	Payload       *Payload `json:"payload"`
-}
-
-type Payload struct {
-	QRCodeURL string `json:"QR_code_URL"`
+	TaskName      string           `json:"task_name"`
+	ProjectName   string           `json:"project_name"`
+	TaskID        int              `json:"task_id"`
+	Type          string           `json:"type"`
+	Status        string           `json:"status"`
+	StatusMessage string           `json:"status_message"`
+	Payload       *CallbackPayload `json:"payload"`
 }
