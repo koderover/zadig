@@ -73,7 +73,7 @@ func ArchiveAndUploadFilesToS3(fileTree fs.FS, names []string, s3Base string, lo
 		return err
 	}
 
-	//copy file to avoid duplicated file transfer
+	// copy file to avoid duplicated file transfer
 	for _, copyName := range copies {
 		targetPath := filepath.Join(s3Storage.Subfolder, s3Base, fmt.Sprintf("%s.tar.gz", copyName))
 		err = client.CopyObject(s3Storage.Bucket, s3Path, targetPath)
@@ -124,15 +124,20 @@ func DownloadAndExtractFilesFromS3(name, localBase, s3Base string, logger *zap.S
 	return nil
 }
 
-func DeleteArchivedFileFromS3(name, s3Base string, logger *zap.SugaredLogger) error {
+func DeleteArchivedFileFromS3(names []string, s3Base string, logger *zap.SugaredLogger) error {
 	s3, err := s3service.FindDefaultS3()
 	if err != nil {
 		logger.Errorf("Failed to find default s3, err: %s", err)
 		return err
 	}
 
-	tarball := fmt.Sprintf("%s.tar.gz", name)
-	s3Path := filepath.Join(s3.Subfolder, s3Base, tarball)
+	s3PathList := make([]string, 0, len(names))
+	for _, name := range s3PathList {
+		tarball := fmt.Sprintf("%s.tar.gz", name)
+		s3Path := filepath.Join(s3.Subfolder, s3Base, tarball)
+		s3PathList = append(s3PathList, s3Path)
+	}
+
 	forcedPathStyle := true
 	if s3.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
@@ -143,5 +148,5 @@ func DeleteArchivedFileFromS3(name, s3Base string, logger *zap.SugaredLogger) er
 		return err
 	}
 
-	return client.DeleteObjects(s3.Bucket, []string{s3Path})
+	return client.DeleteObjects(s3.Bucket, s3PathList)
 }

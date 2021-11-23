@@ -324,7 +324,7 @@ func RemoveChartTemplate(name string, logger *zap.SugaredLogger) error {
 		return err
 	}
 
-	if err = fs.DeleteArchivedFileFromS3(name, configbase.ObjectStorageChartTemplatePath(name), logger); err != nil {
+	if err = fs.DeleteArchivedFileFromS3([]string{name}, configbase.ObjectStorageChartTemplatePath(name), logger); err != nil {
 		logger.Warnf("Failed to delete file %s, err: %s", name, err)
 	}
 

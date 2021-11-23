@@ -255,7 +255,7 @@ func getNextServiceRevision(productName, serviceName string) (int64, error) {
 	return rev, err
 }
 
-//make local chart info copy with revision
+// make local chart info copy with revision
 func copyChartRevision(projectName, serviceName string, revision int64) error {
 	sourceChartPath := config.LocalServicePath(projectName, serviceName)
 	revisionChartLocalPath := config.LocalServicePathWithRevision(projectName, serviceName, revision)
@@ -272,6 +272,32 @@ func copyChartRevision(projectName, serviceName string, revision int64) error {
 		return err
 	}
 	return nil
+}
+
+func clearChartFiles(projectName, serviceName string, revision int64, logger *zap.SugaredLogger) {
+	clearChartFilesInS3Storage(projectName, serviceName, revision, logger)
+	clearLocalChartFiles(projectName, serviceName, revision, logger)
+}
+
+// clear chart files in s3 storage
+func clearChartFilesInS3Storage(projectName, serviceName string, revision int64, logger *zap.SugaredLogger) {
+	s3FileNames := []string{serviceName, fmt.Sprintf("%s-%d", serviceName, revision)}
+	errRemoveFile := fsservice.DeleteArchivedFileFromS3(s3FileNames, config.ObjectStorageServicePath(projectName, serviceName), logger)
+	if errRemoveFile != nil {
+		logger.Errorf("Failed to remove files: %v from s3 strorage, err: %s", s3FileNames, errRemoveFile)
+	}
+}
+
+// clear local chart infos
+func clearLocalChartFiles(projectName, serviceName string, revision int64, logger *zap.SugaredLogger) {
+	latestChartPath := config.LocalServicePath(projectName, serviceName)
+	revisionChartLocalPath := config.LocalServicePathWithRevision(projectName, serviceName, revision)
+	for _, path := range []string{latestChartPath, revisionChartLocalPath} {
+		err := os.RemoveAll(path)
+		if err != nil {
+			logger.Errorf("failed to remove local chart data, path: %s, err: %s", path, err)
+		}
+	}
 }
 
 func CreateOrUpdateHelmService(projectName string, args *HelmServiceCreationArgs, logger *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
@@ -339,24 +365,31 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 
 	rev, err := getNextServiceRevision(projectName, args.Name)
 	if err != nil {
-		log.Errorf("Failed to get next revision for service %s, err: %s", args.Name, err)
+		logger.Errorf("Failed to get next revision for service %s, err: %s", args.Name, err)
 		return nil, errors.Wrapf(err, "Failed to get service next revision, service %s", args.Name)
 	}
 
 	err = copyChartRevision(projectName, args.Name, rev)
 	if err != nil {
-		log.Errorf("Failed to copy file %s, err: %s", args.Name, err)
+		logger.Errorf("Failed to copy file %s, err: %s", args.Name, err)
 		return nil, errors.Wrapf(err, "Failed to copy chart info, service %s", args.Name)
 	}
 
+	// clear files from both s3 and local when error occurred in next stages
+	defer func() {
+		if err != nil {
+			clearChartFiles(projectName, args.Name, rev, logger)
+		}
+	}()
+
 	fsTree := os.DirFS(config.LocalServicePath(projectName, args.Name))
-	ServiceS3Base := config.ObjectStorageServicePath(projectName, args.Name)
-	if err = fsservice.ArchiveAndUploadFilesToS3(fsTree, []string{args.Name, fmt.Sprintf("%s-%d", args.Name, rev)}, ServiceS3Base, logger); err != nil {
+	serviceS3Base := config.ObjectStorageServicePath(projectName, args.Name)
+	if err = fsservice.ArchiveAndUploadFilesToS3(fsTree, []string{args.Name, fmt.Sprintf("%s-%d", args.Name, rev)}, serviceS3Base, logger); err != nil {
 		logger.Errorf("Failed to upload files for service %s in project %s, err: %s", args.Name, projectName, err)
 		return nil, err
 	}
 
-	svc, err := createOrUpdateHelmService(
+	svc, errCreate := createOrUpdateHelmService(
 		fsTree,
 		&helmServiceCreationArgs{
 			ChartName:        templateChartInfo.ChartName,
@@ -375,7 +408,8 @@ func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmSe
 		logger,
 	)
 
-	if err != nil {
+	if errCreate != nil {
+		err = errCreate
 		logger.Errorf("Failed to create service %s in project %s, error: %s", args.Name, projectName, err)
 		return nil, err
 	}
@@ -483,6 +517,13 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 				finalErr = e.ErrCreateTemplate.AddErr(err)
 				return
 			}
+
+			// clear files from both s3 and local when error occurred in next stages
+			defer func() {
+				if finalErr != nil {
+					clearChartFiles(projectName, serviceName, rev, log)
+				}
+			}()
 
 			// save files to disk and upload them to s3
 			if err = commonservice.SaveAndUploadService(projectName, serviceName, []string{fmt.Sprintf("%s-%d", serviceName, rev)}, fsTree); err != nil {
@@ -676,8 +717,16 @@ func handleSingleService(projectName string, repoConfig *commonservice.RepoConfi
 	}
 
 	fsTree := os.DirFS(config.LocalServicePath(projectName, serviceName))
-	ServiceS3Base := config.ObjectStorageServicePath(projectName, serviceName)
-	if err = fsservice.ArchiveAndUploadFilesToS3(fsTree, []string{serviceName, fmt.Sprintf("%s-%d", serviceName, rev)}, ServiceS3Base, logger); err != nil {
+	serviceS3Base := config.ObjectStorageServicePath(projectName, serviceName)
+
+	// clear files from both s3 and local when error occurred in next stages
+	defer func() {
+		if err != nil {
+			clearChartFiles(projectName, serviceName, rev, logger)
+		}
+	}()
+
+	if err = fsservice.ArchiveAndUploadFilesToS3(fsTree, []string{serviceName, fmt.Sprintf("%s-%d", serviceName, rev)}, serviceS3Base, logger); err != nil {
 		logger.Errorf("Failed to upload files for service %s in project %s, err: %s", serviceName, projectName, err)
 		return nil, err
 	}
@@ -999,7 +1048,6 @@ func UpdateHelmService(args *HelmServiceArgs, log *zap.SugaredLogger) error {
 			log.Errorf("helmService.update serviceName:%s error:%v", helmServiceInfo.ServiceName, err)
 			return e.ErrUpdateTemplate.AddDesc(err.Error())
 		}
-
 	}
 
 	for serviceName, rev := range serviceMap {

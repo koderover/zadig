@@ -47,7 +47,7 @@ func PreloadFiles(name, localBase, s3Base string, logger *zap.SugaredLogger) err
 }
 
 // SaveAndUploadFiles saves a tree of files to local disk, at the same time, archives them and uploads to object storage.
-func SaveAndUploadFiles(fileTree fs.FS, names []string, localBase string, s3Base string, logger *zap.SugaredLogger) error {
+func SaveAndUploadFiles(fileTree fs.FS, names []string, localBase, s3Base string, logger *zap.SugaredLogger) error {
 	var wg wait.Group
 	var err error
 
