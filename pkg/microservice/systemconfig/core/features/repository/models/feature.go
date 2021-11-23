@@ -5,6 +5,6 @@ type Feature struct {
 	Enabled bool   `bson:"enabled"       json:"enabled"`
 }
 
-func (f *Feature) TableName() string {
+func (Feature) TableName() string {
 	return "feature"
 }
