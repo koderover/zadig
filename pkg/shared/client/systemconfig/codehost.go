@@ -17,13 +17,14 @@ type CodeHost struct {
 	ID          int    `json:"id"`
 	Address     string `json:"address"`
 	Type        string `json:"type"`
-	AccessToken string `json:"accessToken"`
+	AccessToken string `json:"access_token"`
 	Namespace   string `json:"namespace"`
 	Region      string `json:"region"`
-	AccessKey   string `json:"applicationId"`
-	SecretKey   string `json:"clientSecret"`
-	Username    string `json:"username"`
-	Password    string `json:"password"`
+	// the field and tag not consistent because of db field
+	AccessKey string `json:"application_id"`
+	SecretKey string `json:"client_secret"`
+	Username  string `json:"username"`
+	Password  string `json:"password"`
 }
 
 type Option struct {
