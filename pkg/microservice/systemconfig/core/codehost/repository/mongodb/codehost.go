@@ -67,12 +67,8 @@ func (c *CodehostColl) GetCodeHostByID(ID int) (*models.CodeHost, error) {
 
 	codehost := new(models.CodeHost)
 	query := bson.M{"id": ID, "deleted_at": 0}
-	err := c.Collection.FindOne(context.TODO(), query).Decode(codehost)
-	if err != nil {
-		return nil, nil
-	}
-	if v, ok := config.CodeHostMap[codehost.Type]; ok {
-		codehost.Type = v
+	if err := c.Collection.FindOne(context.TODO(), query).Decode(codehost); err != nil {
+		return nil, err
 	}
 	return codehost, nil
 }
@@ -80,6 +76,10 @@ func (c *CodehostColl) GetCodeHostByID(ID int) (*models.CodeHost, error) {
 func (c *CodehostColl) List(args *ListArgs) ([]*models.CodeHost, error) {
 	codeHosts := make([]*models.CodeHost, 0)
 	query := bson.M{"deleted_at": 0}
+
+	if args == nil {
+		args = &ListArgs{}
+	}
 	if args.Address != "" {
 		query["address"] = args.Address
 	}
@@ -97,12 +97,6 @@ func (c *CodehostColl) List(args *ListArgs) ([]*models.CodeHost, error) {
 	err = cursor.All(context.TODO(), &codeHosts)
 	if err != nil {
 		return nil, err
-	}
-	// NOTE: to adapt old data
-	for i, v := range codeHosts {
-		if v, ok := config.CodeHostMap[v.Type]; ok {
-			codeHosts[i].Type = v
-		}
 	}
 	return codeHosts, nil
 }
@@ -128,7 +122,7 @@ func (c *CodehostColl) DeleteCodeHostByID(ID int) error {
 	}}
 	_, err := c.Collection.UpdateOne(context.TODO(), query, change)
 	if err != nil {
-		log.Error("repository update fail")
+		log.Errorf("repository update fail,err:%s", err)
 		return err
 	}
 	return nil

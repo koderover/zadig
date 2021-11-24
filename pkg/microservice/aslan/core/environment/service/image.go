@@ -17,7 +17,6 @@ limitations under the License.
 package service
 
 import (
-	"bytes"
 	"fmt"
 	"regexp"
 	"strings"
@@ -25,7 +24,6 @@ import (
 
 	helmclient "github.com/mittwald/go-helm-client"
 	"go.uber.org/zap"
-	"helm.sh/helm/v3/pkg/strvals"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
@@ -376,40 +374,4 @@ func UpdateContainerImage(requestID string, args *UpdateContainerImageArgs, log 
 		}
 	}
 	return nil
-}
-
-func updateImageTagInValues(valuesYaml []byte, repo, newTag string) ([]byte, error) {
-	if !bytes.Contains(valuesYaml, []byte(repo)) {
-		return nil, nil
-	}
-
-	valuesMap := map[string]interface{}{}
-	if err := yaml.Unmarshal(valuesYaml, &valuesMap); err != nil {
-		return nil, err
-	}
-
-	valuesFlatMap, err := converter.Flatten(valuesMap)
-	if err != nil {
-		return nil, err
-	}
-
-	var matchingKey string
-	for k, v := range valuesFlatMap {
-		if val, ok := v.(string); ok && repo == val {
-			matchingKey = k
-		}
-	}
-	if matchingKey == "" {
-		return nil, fmt.Errorf("key is not found for value %s in map %v", repo, valuesFlatMap)
-	}
-
-	newKey := strings.Replace(matchingKey, ".repository", ".tag", 1)
-	if newKey == matchingKey {
-		return nil, fmt.Errorf("field repository is not found in key %s", matchingKey)
-	}
-	if err := strvals.ParseInto(fmt.Sprintf("%s=%s", newKey, newTag), valuesMap); err != nil {
-		return nil, err
-	}
-
-	return yaml.Marshal(valuesMap)
 }

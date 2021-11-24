@@ -90,7 +90,7 @@ func ListServiceWorkflows(productName, envName, serviceName, serviceType string,
 	}
 
 	// 获取支持升级此服务的产品工作流
-	workflowOpt := &commonrepo.ListWorkflowOption{ProductName: productName}
+	workflowOpt := &commonrepo.ListWorkflowOption{Projects: []string{productName}}
 	workflows, err := commonrepo.NewWorkflowColl().List(workflowOpt)
 	if err != nil {
 		log.Errorf("Workflow.List failed, productName:%s, serviceName:%s, serviceType:%s, err:%v", productName, serviceName, serviceType, err)

@@ -32,10 +32,6 @@ type addChartArgs struct {
 	Name string `json:"name"`
 }
 
-type updateChartTemplateVariablesReq struct {
-	Variables []*templateservice.Variable `json:"variables"`
-}
-
 func GetChartTemplate(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

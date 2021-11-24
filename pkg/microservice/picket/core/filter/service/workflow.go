@@ -11,12 +11,38 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/picket/client/opa"
 )
 
+type rule struct {
+	method   string
+	endpoint string
+}
+
+func ListWorkflows(header http.Header, qs url.Values, logger *zap.SugaredLogger) ([]byte, error) {
+	rules := []*rule{{
+		method:   "/api/aslan/workflow/workflow",
+		endpoint: "GET",
+	}}
+	names, err := getAllowedProjects(header, rules, logger)
+	if err != nil {
+		logger.Errorf("Failed to get allowed project names, err: %s", err)
+		return nil, err
+	}
+	if len(names) == 0 {
+		return nil, nil
+	}
+	if !(len(names) == 1 && names[0] == "*") {
+		for _, name := range names {
+			qs.Add("projects", name)
+		}
+	}
+	return aslan.New().ListWorkflows(header, qs)
+}
+
 func ListTestWorkflows(testName string, header http.Header, qs url.Values, logger *zap.SugaredLogger) ([]byte, error) {
 	rules := []*rule{{
 		method:   "/api/aslan/workflow/workflow",
 		endpoint: "PUT",
 	}}
-	names, err := getAllowedProjectsWithUpdateWorkflowsPermission(header, rules, logger)
+	names, err := getAllowedProjects(header, rules, logger)
 	if err != nil {
 		logger.Errorf("Failed to get allowed project names, err: %s", err)
 		return nil, err
@@ -32,26 +58,21 @@ func ListTestWorkflows(testName string, header http.Header, qs url.Values, logge
 	return aslan.New().ListTestWorkflows(testName, header, qs)
 }
 
-type rule struct {
-	method   string
-	endpoint string
-}
-
-func getAllowedProjectsWithUpdateWorkflowsPermission(headers http.Header, rules []*rule, logger *zap.SugaredLogger) (projects []string, err error) {
-	resps := [][]string{}
+func getAllowedProjects(headers http.Header, rules []*rule, logger *zap.SugaredLogger) (projects []string, err error) {
+	var res [][]string
 	for _, v := range rules {
-		res := &allowedProjectsData{}
+		allowedProjects := &allowedProjectsData{}
 		opaClient := opa.NewDefault()
-		err := opaClient.Evaluate("rbac.user_allowed_projects", res, func() (*opa.Input, error) {
+		err := opaClient.Evaluate("rbac.user_allowed_projects", allowedProjects, func() (*opa.Input, error) {
 			return generateOPAInput(headers, v.method, v.endpoint), nil
 		})
 		if err != nil {
 			logger.Errorf("opa evaluation failed, err: %s", err)
 			return nil, err
 		}
-		resps = append(resps, res.Result)
+		res = append(res, allowedProjects.Result)
 	}
-	return intersect(resps), nil
+	return intersect(res), nil
 }
 
 func intersect(s [][]string) []string {
