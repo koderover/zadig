@@ -176,12 +176,12 @@ func (c *WorkspaceAchiever) enumerate() error {
 
 func (c *WorkspaceAchiever) Achieve(target string) ([]string, error) {
 	if err := c.enumerate(); err != nil {
-		return []string{}, err
+		return nil, err
 	}
 
 	f, err := ioutil.TempFile("", "*cached_files.txt")
 	if err != nil {
-		return []string{}, err
+		return nil, err
 	}
 
 	defer func() {
@@ -192,18 +192,18 @@ func (c *WorkspaceAchiever) Achieve(target string) ([]string, error) {
 	for _, path := range c.sortedFiles() {
 		_, err = f.WriteString(path + "\n")
 		if err != nil {
-			return []string{}, fmt.Errorf("failed to create cache file list: %s", err)
+			return nil, fmt.Errorf("failed to create cache file list: %s", err)
 		}
 	}
 
 	if err := os.MkdirAll(filepath.Dir(target), os.ModePerm); err != nil {
-		return []string{}, err
+		return nil, err
 	}
 
 	temp, err := ioutil.TempFile("", "*reaper.tar.gz")
 	if err != nil {
 		log.Errorf("failed to create temporary file: %v", err)
-		return []string{}, err
+		return nil, err
 	}
 
 	_ = temp.Close()
@@ -216,7 +216,7 @@ func (c *WorkspaceAchiever) Achieve(target string) ([]string, error) {
 
 	if err := cmd.Run(); err != nil {
 		log.Errorf("failed to compress %v", err)
-		return []string{}, err
+		return nil, err
 	}
 
 	//if err := helper.Move(temp.Name(), target); err != nil {
@@ -232,12 +232,12 @@ func (c *WorkspaceAchiever) Achieve(target string) ([]string, error) {
 		s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
 		if err != nil {
 			log.Errorf("Archive s3 create s3 client error: %+v", err)
-			return []string{}, err
+			return nil, err
 		}
 		objectKey := store.GetObjectPath(fmt.Sprintf("%s/%s/%s/%s", c.PipelineName, c.ServiceName, "cache", meta.FileName))
 		if err = s3client.Upload(store.Bucket, temp.Name(), objectKey); err != nil {
 			log.Errorf("Archive s3 upload err:%v", err)
-			return []string{}, err
+			return nil, err
 		}
 	}
 
