@@ -124,8 +124,8 @@ func (c *WorkspaceAchiever) processPaths(paths []string, verbose bool) error {
 	for _, path := range paths {
 		path, err := c.renderPathVariable(path)
 		if err != nil {
-			log.Errorf("Failed to render variables, error :%s", err)
-			return fmt.Errorf("Failed to render variables")
+			log.Errorf("The variable of the custom cache directory is invalid, failed to render variables, error :%s", err)
+			return err
 		}
 		newPath = append(newPath, path)
 		matches, err := filepath.Glob(filepath.Join(c.wd, path))
@@ -245,6 +245,7 @@ func (c *WorkspaceAchiever) Achieve(target string) ([]string, error) {
 
 }
 
+// The path contains shell variables, use linux's own ability to render
 func (c *WorkspaceAchiever) renderPathVariable(path string) (string, error) {
 	envs := c.Envs
 	cmd := exec.Command("/bin/bash", "-c", fmt.Sprintf("%s %s", "echo", path))
@@ -252,5 +253,5 @@ func (c *WorkspaceAchiever) renderPathVariable(path string) (string, error) {
 	cmd.Env = envs
 	data, err := cmd.Output()
 
-	return strings.Replace(string(data), "\n", "", -1), err
+	return strings.TrimSuffix(string(data), "\n"), err
 }
