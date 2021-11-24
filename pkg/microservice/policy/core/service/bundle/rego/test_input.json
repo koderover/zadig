@@ -47,8 +47,7 @@
     "api",
     "aslan",
     "environment",
-    "environments",
-    "test"
+    "environments"
   ],
   "parsed_query": {
     "projectName": [
