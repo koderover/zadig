@@ -124,6 +124,7 @@ func (c *WorkspaceAchiever) processPaths(paths []string, verbose bool) error {
 	for _, path := range paths {
 		path, err := c.renderPathVariable(path)
 		if err != nil {
+			log.Errorf("Failed to render variables, error :%s", err)
 			return fmt.Errorf("Failed to render variables")
 		}
 		newPath = append(newPath, path)
