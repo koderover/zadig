@@ -251,5 +251,5 @@ func (c *WorkspaceAchiever) renderPathVariable(path string) (string, error) {
 	cmd.Env = envs
 	data, err := cmd.Output()
 
-	return string(data), err
+	return strings.Replace(string(data), "\n", "", -1), err
 }
