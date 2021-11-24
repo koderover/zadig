@@ -103,7 +103,7 @@ func (r *Reaper) CompressCache(storageURI string) error {
 		if err != nil {
 			return err
 		}
-		log.Infof("succeed to cache %s", caches)
+		log.Infof("succeed to cache [%s]", strings.Join(caches, ","))
 	} else {
 		log.Infof("workspace will be cached in background")
 		if err := r.cm.Archive(r.ActiveWorkspace, r.GetCacheFile()); err != nil {
