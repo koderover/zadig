@@ -119,14 +119,14 @@ func (c *WorkspaceAchiever) process(match string) bool {
 	return false
 }
 
-func (c *WorkspaceAchiever) processPaths(paths []string, verbose bool) {
+func (c *WorkspaceAchiever) processPaths(paths []string, verbose bool) error {
+	newPath := make([]string, 0)
 	for _, path := range paths {
-		//replace path
 		path, err := c.renderPathVariable(path)
 		if err != nil {
-			fmt.Println("err:", err)
+			return fmt.Errorf("Failed to render variables")
 		}
-		fmt.Println("path:", path)
+		newPath = append(newPath, path)
 		matches, err := filepath.Glob(filepath.Join(c.wd, path))
 		if err != nil {
 			log.Warningf("%s: %v", path, err)
@@ -155,12 +155,16 @@ func (c *WorkspaceAchiever) processPaths(paths []string, verbose bool) {
 			}
 		}
 	}
+	c.paths = newPath
+	return nil
 }
 
 func (c *WorkspaceAchiever) enumerate() error {
 	c.files = make(map[string]os.FileInfo)
 
-	c.processPaths(c.paths, true)
+	if err := c.processPaths(c.paths, true); err != nil {
+		return err
+	}
 
 	for _, folder := range c.gitFolders {
 		c.processPaths([]string{filepath.Join(folder, ".git")}, false)
@@ -169,14 +173,14 @@ func (c *WorkspaceAchiever) enumerate() error {
 	return nil
 }
 
-func (c *WorkspaceAchiever) Achieve(target string) error {
+func (c *WorkspaceAchiever) Achieve(target string) ([]string, error) {
 	if err := c.enumerate(); err != nil {
-		return err
+		return []string{}, err
 	}
 
 	f, err := ioutil.TempFile("", "*cached_files.txt")
 	if err != nil {
-		return err
+		return []string{}, err
 	}
 
 	defer func() {
@@ -187,18 +191,18 @@ func (c *WorkspaceAchiever) Achieve(target string) error {
 	for _, path := range c.sortedFiles() {
 		_, err = f.WriteString(path + "\n")
 		if err != nil {
-			return fmt.Errorf("failed to create cache file list: %s", err)
+			return []string{}, fmt.Errorf("failed to create cache file list: %s", err)
 		}
 	}
 
 	if err := os.MkdirAll(filepath.Dir(target), os.ModePerm); err != nil {
-		return err
+		return []string{}, err
 	}
 
 	temp, err := ioutil.TempFile("", "*reaper.tar.gz")
 	if err != nil {
 		log.Errorf("failed to create temporary file: %v", err)
-		return err
+		return []string{}, err
 	}
 
 	_ = temp.Close()
@@ -211,7 +215,7 @@ func (c *WorkspaceAchiever) Achieve(target string) error {
 
 	if err := cmd.Run(); err != nil {
 		log.Errorf("failed to compress %v", err)
-		return err
+		return []string{}, err
 	}
 
 	//if err := helper.Move(temp.Name(), target); err != nil {
@@ -227,16 +231,16 @@ func (c *WorkspaceAchiever) Achieve(target string) error {
 		s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
 		if err != nil {
 			log.Errorf("Archive s3 create s3 client error: %+v", err)
-			return err
+			return []string{}, err
 		}
 		objectKey := store.GetObjectPath(fmt.Sprintf("%s/%s/%s/%s", c.PipelineName, c.ServiceName, "cache", meta.FileName))
 		if err = s3client.Upload(store.Bucket, temp.Name(), objectKey); err != nil {
 			log.Errorf("Archive s3 upload err:%v", err)
-			return err
+			return []string{}, err
 		}
 	}
 
-	return nil
+	return c.paths, nil
 
 }
 
