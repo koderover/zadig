@@ -120,7 +120,7 @@ func (c *WorkspaceAchiever) process(match string) bool {
 }
 
 func (c *WorkspaceAchiever) processPaths(paths []string, verbose bool) error {
-	newPath := make([]string, 0)
+	newPath := make([]string, 0, len(paths))
 	for _, path := range paths {
 		path, err := c.renderPathVariable(path)
 		if err != nil {
