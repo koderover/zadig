@@ -59,6 +59,9 @@ type kubeCfgTmplArgs struct {
 
 func GetUserKubeConfigV2(userID string, log *zap.SugaredLogger) (string, error) {
 	saNamespace := config.Namespace()
+	if err := ensurClusterRole(); err != nil {
+		return "", err
+	}
 	if err := ensureServiceAccount(saNamespace, userID, log); err != nil {
 		return "", err
 	}
@@ -205,6 +208,36 @@ func filterProductWithoutExternalCluster(products []*commonmodels.Product) []*co
 	}
 
 	return ret
+}
+
+func ensurClusterRole() error {
+	if _, found, err := getter.GetClusterRole("zadig-env-edit", krkubeclient.Client()); err == nil && !found {
+		if err := updater.CreateClusterRole(&rbacv1beta1.ClusterRole{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "zadig-env-edit",
+			},
+			Rules: []rbacv1beta1.PolicyRule{rbacv1beta1.PolicyRule{
+				Verbs:     []string{"*"},
+				APIGroups: []string{""},
+				Resources: []string{"*"},
+			}},
+		}, krkubeclient.Client()); err != nil {
+			fmt.Println(err)
+		}
+	}
+	if _, found, err := getter.GetClusterRole("zadig-env-read", krkubeclient.Client()); err == nil && !found {
+		updater.CreateClusterRole(&rbacv1beta1.ClusterRole{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "zadig-env-read",
+			},
+			Rules: []rbacv1beta1.PolicyRule{rbacv1beta1.PolicyRule{
+				Verbs:     []string{"get", "watch", "list"},
+				APIGroups: []string{""},
+				Resources: []string{"*"},
+			}},
+		}, krkubeclient.Client())
+	}
+	return nil
 }
 
 func ensureServiceAccount(namespace, userID string, log *zap.SugaredLogger) error {
