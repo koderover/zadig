@@ -57,12 +57,12 @@ type kubeCfgTmplArgs struct {
 	ClientKeyBase64 string
 }
 
-func GetUserKubeConfigV2(userID string, log *zap.SugaredLogger) (string, error) {
+func GetUserKubeConfigV2(userID string, editEnvProjects []string, readEnvProjects []string, log *zap.SugaredLogger) (string, error) {
 	saNamespace := config.Namespace()
 	if err := ensurClusterRole(); err != nil {
 		return "", err
 	}
-	if err := ensureServiceAccount(saNamespace, userID, log); err != nil {
+	if err := ensureServiceAccount(saNamespace, editEnvProjects, readEnvProjects, userID, log); err != nil {
 		return "", err
 	}
 	crt, token, err := getCrtAndToken(saNamespace, userID)
@@ -117,7 +117,7 @@ func GetUserKubeConfig(userName string, log *zap.SugaredLogger) (string, error) 
 	productEnvs = filterProductWithoutExternalCluster(productEnvs)
 
 	saNamespace := config.Namespace()
-	if err := ensureServiceAccount(saNamespace, username, log); err != nil {
+	if err := ensureServiceAccount(saNamespace, nil, nil, username, log); err != nil {
 		return "", err
 	}
 
@@ -240,7 +240,7 @@ func ensurClusterRole() error {
 	return nil
 }
 
-func ensureServiceAccount(namespace, userID string, log *zap.SugaredLogger) error {
+func ensureServiceAccount(namespace string, editEnvProjects []string, readEnvProjects []string, userID string, log *zap.SugaredLogger) error {
 	serviceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      userID + "-sa",
@@ -248,13 +248,80 @@ func ensureServiceAccount(namespace, userID string, log *zap.SugaredLogger) erro
 		},
 	}
 	_, found, err := getter.GetServiceAccount(namespace, userID+"-sa", krkubeclient.Client())
+	if err != nil {
+		return err
+	}
 	if found && err == nil {
 		return nil
 	}
+	// user's first time download kubeconfig
+	//1. create serviceAccount
 	if err := updater.CreateServiceAccount(serviceAccount, krkubeclient.Client()); err != nil {
 		log.Errorf("CreateServiceAccount err: %+v", err)
 		return nil
 	}
+	//2. create rolebinding
+	for _, v := range editEnvProjects {
+		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: v, IsSortByProductName: true})
+		if err != nil {
+			log.Errorf("[%s] Collections.Product.List error: %v", v, err)
+		}
+		for _, vv := range products {
+			if err := updater.CreateRoleBinding(&rbacv1beta1.RoleBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("%s-%s-edit", userID, vv.Namespace),
+					Namespace: vv.Namespace,
+				},
+				Subjects: []rbacv1beta1.Subject{rbacv1beta1.Subject{
+					Kind:      "ServiceAccount",
+					Name:      fmt.Sprintf("%s-sa", userID),
+					Namespace: namespace,
+				}},
+				RoleRef: rbacv1beta1.RoleRef{
+					// APIGroup is the group for the resource being referenced
+					APIGroup: "rbac.authorization.k8s.io",
+					// Kind is the type of resource being referenced
+					Kind: "ClusterRole",
+					// Name is the name of resource being referenced
+					Name: "zadig-env-edit",
+				},
+			}, krkubeclient.Client()); err != nil {
+				log.Errorf("create rolebinding err: %s", err)
+			}
+		}
+
+	}
+	for _, v := range readEnvProjects {
+		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: v, IsSortByProductName: true})
+		if err != nil {
+			log.Errorf("[%s] Collections.Product.List error: %v", v, err)
+		}
+		for _, vv := range products {
+			if err := updater.CreateRoleBinding(&rbacv1beta1.RoleBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("%s-%s-read", userID, vv.Namespace),
+					Namespace: vv.Namespace,
+				},
+				Subjects: []rbacv1beta1.Subject{rbacv1beta1.Subject{
+					Kind:      "ServiceAccount",
+					Name:      fmt.Sprintf("%s-sa", userID),
+					Namespace: namespace,
+				}},
+				RoleRef: rbacv1beta1.RoleRef{
+					// APIGroup is the group for the resource being referenced
+					APIGroup: "rbac.authorization.k8s.io",
+					// Kind is the type of resource being referenced
+					Kind: "ClusterRole",
+					// Name is the name of resource being referenced
+					Name: "zadig-env-read",
+				},
+			}, krkubeclient.Client()); err != nil {
+				log.Errorf("create rolebinding err:%v", err)
+			}
+		}
+
+	}
+
 	return nil
 }
 

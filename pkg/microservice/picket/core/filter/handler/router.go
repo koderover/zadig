@@ -45,4 +45,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		codehosts.GET("", ListCodeHost)
 	}
+	downloads := router.Group("downloads")
+	{
+		downloads.GET("/kube", KubeConfig)
+	}
+
 }

@@ -21,7 +21,7 @@ func ListWorkflows(header http.Header, qs url.Values, logger *zap.SugaredLogger)
 		method:   "/api/aslan/workflow/workflow",
 		endpoint: "GET",
 	}}
-	names, err := getAllowedProjects(header, rules, logger)
+	names, err := getAllowedProjects(header, rules, false, logger)
 	if err != nil {
 		logger.Errorf("Failed to get allowed project names, err: %s", err)
 		return nil, err
@@ -42,7 +42,7 @@ func ListTestWorkflows(testName string, header http.Header, qs url.Values, logge
 		method:   "/api/aslan/workflow/workflow",
 		endpoint: "PUT",
 	}}
-	names, err := getAllowedProjects(header, rules, logger)
+	names, err := getAllowedProjects(header, rules, false, logger)
 	if err != nil {
 		logger.Errorf("Failed to get allowed project names, err: %s", err)
 		return nil, err
@@ -58,7 +58,7 @@ func ListTestWorkflows(testName string, header http.Header, qs url.Values, logge
 	return aslan.New().ListTestWorkflows(testName, header, qs)
 }
 
-func getAllowedProjects(headers http.Header, rules []*rule, logger *zap.SugaredLogger) (projects []string, err error) {
+func getAllowedProjects(headers http.Header, rules []*rule, rulesOr bool, logger *zap.SugaredLogger) (projects []string, err error) {
 	var res [][]string
 	for _, v := range rules {
 		allowedProjects := &allowedProjectsData{}
@@ -72,7 +72,22 @@ func getAllowedProjects(headers http.Header, rules []*rule, logger *zap.SugaredL
 		}
 		res = append(res, allowedProjects.Result)
 	}
+	if rulesOr {
+		return combine(res), nil
+	}
 	return intersect(res), nil
+}
+
+func combine(s [][]string) []string {
+	if len(s) == 0 {
+		return nil
+	}
+	tmp := sets.NewString(s[0]...)
+	for _, v := range s[1:] {
+		t := sets.NewString(v...)
+		tmp = t.Union(tmp)
+	}
+	return tmp.List()
 }
 
 func intersect(s [][]string) []string {
