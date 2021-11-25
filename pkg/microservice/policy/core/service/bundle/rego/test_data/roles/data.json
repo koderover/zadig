@@ -1,104 +1,35 @@
 {
   "roles": [
     {
-      "name": "author",
-      "namespace": "project2",
+      "name": "test",
+      "namespace": "test",
       "rules": [
         {
           "method": "GET",
-          "endpoint": "/api/authors"
-        },
-        {
-          "method": "POST",
-          "endpoint": "/api/authors"
-        },
-        {
-          "method": "PUT",
-          "endpoint": "/api/authors"
-        },
-        {
-          "method": "PATCH",
-          "endpoint": "/api/authors"
-        },
-        {
-          "method": "DELETE",
-          "endpoint": "/api/authors"
-        }
-      ]
-    },
-    {
-      "name": "reader",
-      "namespace": "project2",
-      "rules": [
-        {
-          "method": "GET",
-          "endpoint": "/api/authors"
+          "endpoint": "/api/aslan/environment/environments/?*",
+          "resourceType": "Environment",
+          "idRegex": "/api/aslan/environment/environments/([\\w\\W]+?)$",
+          "matchAttributes": [
+            {
+              "key": "production",
+              "value": "true"
+            },
+            {
+              "key": "production1",
+              "value": "true1"
+            }
+          ]
         },
         {
           "method": "GET",
-          "endpoint": "/api/articles"
-        },
-        {
-          "method": "POST",
-          "endpoint": "/api/authors"
-        },
-        {
-          "method": "POST",
-          "endpoint": "/api/articles"
-        }
-      ]
-    },
-    {
-      "name": "reader1",
-      "namespace": "project1",
-      "rules": [
-        {
-          "method": "GET",
-          "endpoint": "/api/authors"
-        },
-        {
-          "method": "GET",
-          "endpoint": "/api/articles"
-        },
-        {
-          "method": "POST",
-          "endpoint": "/api/authors"
-        },
-        {
-          "method": "POST",
-          "endpoint": "/api/articles"
-        }
-      ]
-    },
-    {
-      "name": "view",
-      "namespace": "project3",
-      "rules": [
-        {
-          "method": "GET",
-          "endpoint": "/api/articles"
-        }
-      ]
-    },
-    {
-      "name": "reader2",
-      "namespace": "project1",
-      "rules": [
-        {
-          "method": "GET",
-          "endpoint": "/api/authors"
-        },
-        {
-          "method": "GET",
-          "endpoint": "/api/articles"
-        },
-        {
-          "method": "POST",
-          "endpoint": "/api/authors"
-        },
-        {
-          "method": "POST",
-          "endpoint": "/api/articles"
+          "endpoint": "/api/aslan/environment/environments",
+          "resourceType": "Environment",
+          "matchAttributes": [
+            {
+              "key": "production",
+              "value": "true"
+            }
+          ]
         }
       ]
     }

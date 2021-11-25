@@ -26,6 +26,5 @@ type TestingOpt struct {
 	ExecuteNum  int           `json:"execute_num,omitempty"`
 	PassRate    float64       `json:"pass_rate,omitempty"`
 	AvgDuration float64       `json:"avg_duration,omitempty"`
-	Workflows   []*Workflow   `json:"workflows,omitempty"`
 	Schedules   *ScheduleCtrl `json:"schedules,omitempty"`
 }

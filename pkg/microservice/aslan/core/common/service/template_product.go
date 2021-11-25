@@ -109,7 +109,7 @@ func GetProductTemplate(productName string, log *zap.SugaredLogger) (*template.P
 		return resp, fmt.Errorf("Product.List err : %v", err)
 	}
 
-	totalWorkflows, err := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{ProductName: productName, IsSort: true})
+	totalWorkflows, err := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{Projects: []string{productName}, IsSort: true})
 	if err != nil {
 		return resp, fmt.Errorf("Workflow.List err : %v", err)
 	}

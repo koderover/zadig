@@ -1,0 +1,22 @@
+{
+  "Environment": [
+    {
+      "projectName": "test",
+      "resourceID": "test",
+      "production": "true",
+      "production1": "true1"
+    },
+    {
+      "projectName": "test",
+      "resourceID": "test1",
+      "production": "true",
+      "production1": "true1"
+    },
+    {
+      "projectName": "test",
+      "resourceID": "test2",
+      "production": "false",
+      "production1": "true1"
+    }
+  ]
+}

@@ -9,6 +9,17 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
+func (c *Client) ListWorkflows(header http.Header, qs url.Values) ([]byte, error) {
+	url := "/workflow/workflow"
+
+	res, err := c.Get(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs))
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Body(), nil
+}
+
 func (c *Client) ListTestWorkflows(testName string, header http.Header, qs url.Values) ([]byte, error) {
 	url := fmt.Sprintf("/workflow/workflow/testName/%s", testName)
 

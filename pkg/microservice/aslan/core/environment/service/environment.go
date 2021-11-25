@@ -72,8 +72,6 @@ const (
 	UpdateTypeEnv    = "envVar"
 )
 
-type usageScenario string
-
 const (
 	usageScenarioCreateEnv       = "createEnv"
 	usageScenarioUpdateEnv       = "updateEnv"
