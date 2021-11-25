@@ -253,5 +253,6 @@ func (c *WorkspaceAchiever) renderPathVariable(path string) (string, error) {
 	cmd.Env = envs
 	data, err := cmd.Output()
 
-	return strings.TrimSuffix(string(data), "\n"), err
+	//return strings.TrimSuffix(string(data), "\n"), err
+	return strings.TrimSpace(string(data)), err
 }
