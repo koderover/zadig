@@ -24,10 +24,12 @@ import (
 
 	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 func DownloadBundle(c *gin.Context) {
 	if err := service.GenerateOPABundle(); err != nil {
+		log.Errorf("Failed to generate OPA bundle, err: %s", err)
 		c.String(http.StatusInternalServerError, "bundle generation failure, err: %s", err)
 		return
 	}
