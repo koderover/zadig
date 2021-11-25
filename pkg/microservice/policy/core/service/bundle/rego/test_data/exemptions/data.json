@@ -9,6 +9,10 @@
     {
       "method": "GET",
       "endpoint": "/api/aslan/environment/environments/?*"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/api/aslan/environment/environments"
     }
   ]
 }

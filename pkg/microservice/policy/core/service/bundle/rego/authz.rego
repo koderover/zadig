@@ -4,12 +4,11 @@ import input.attributes.request.http as http_request
 
 # Policy rule definitions in rbac style, which is consumed by OPA server.
 # you can use it to:
-# 1. decide if a request is allowed by querying: rbac.allow
-# 2. decide if a request is allowed and get the status code by querying: rbac.response
-# 3. get all visible projects for an authenticated user by querying: rbac.user_visible_projects
-# 4. get all allowed projects for a certain action(method+endpoint) for an authenticated user by querying: rbac.user_allowed_projects
-# 5. check if a user is system admin by querying: rbac.user_is_admin
-# 6. check if a user is project admin by querying: rbac.user_is_project_admin
+# 1. decide if a request is allowed and get status code and additional headers(if any) by querying: rbac.response
+# 2. get all visible projects for an authenticated user by querying: rbac.user_visible_projects
+# 3. get all allowed projects for a certain action(method+endpoint) for an authenticated user by querying: rbac.user_allowed_projects
+# 4. check if a user is system admin by querying: rbac.user_is_admin
+# 5. check if a user is project admin by querying: rbac.user_is_project_admin
 
 default response = {
   "allowed": false,
@@ -17,19 +16,28 @@ default response = {
 }
 
 response = r {
-  not is_authenticated
-  not url_is_public
-  r := {
-    "allowed": false,
-    "http_status": 401
-  }
+    not is_authenticated
+    not url_is_public
+    r := {
+      "allowed": false,
+      "http_status": 401
+    }
 }
 
 response = r {
-  allow
-  r := {
-    "allowed": true,
-  }
+    allow
+    r := {
+      "allowed": true
+    }
+}
+
+# response for resource filtering, all allowed resources IDs will be returned in headers
+response = r {
+    rule_is_matched_for_filtering
+    r := {
+      "allowed": true,
+      "headers": {"Resources": concat(",", user_allowed_resources)}
+    }
 }
 
 # By default, deny requests.
@@ -79,17 +87,40 @@ access_is_granted {
     allowed_attributive_rules[rule]
     rule.method == http_request.method
     glob.match(trim(rule.endpoint, "/"), ["/"], concat("/", input.parsed_path))
+
     all_attributes_match(rule.matchAttributes, rule.resourceType, get_resource_id(rule.idRegex))
 }
 
+rule_is_matched_for_filtering {
+    count(user_matched_rule_for_filtering) > 0
+}
+
+# get all resources which matches the attributes
+user_allowed_resources[resourceID] {
+    some rule
+
+    user_matched_rule_for_filtering[rule]
+    res := data.resources[rule.resourceType][_]
+    res.projectName == project_name
+    not attributes_mismatch(rule.matchAttributes, res)
+    resourceID := res.resourceID
+}
+
+user_matched_rule_for_filtering[rule] {
+    some rule
+
+    allowed_attributive_rules[rule]
+    rule.method == http_request.method
+    glob.match(trim(rule.endpoint, "/"), ["/"], concat("/", input.parsed_path))
+    not rule.idRegex
+}
+
 all_attributes_match(attributes, resourceType, resourceID) {
-    res := data.resources[_]
-    res.resourceType == resourceType
+    res := data.resources[resourceType][_]
     res.resourceID == resourceID
-    res.projectName
     res.projectName == project_name
 
-    # a && b <=> !(!a || !b)
+    # a && b <=> !(!a || !b), De Morgan’s laws, see details in https://www.fugue.co/blog/5-tips-for-using-the-rego-language-for-open-policy-agent-opa
     not attributes_mismatch(attributes, res)
 }
 

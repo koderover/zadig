@@ -19,6 +19,17 @@
               "value": "true1"
             }
           ]
+        },
+        {
+          "method": "GET",
+          "endpoint": "/api/aslan/environment/environments",
+          "resourceType": "Environment",
+          "matchAttributes": [
+            {
+              "key": "production",
+              "value": "true"
+            }
+          ]
         }
       ]
     }
