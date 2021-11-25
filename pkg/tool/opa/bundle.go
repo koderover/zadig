@@ -85,6 +85,7 @@ func (b *Bundle) Hash() (string, error) {
 func (b *Bundle) Save(parentPath string) error {
 	mf, err := b.serializeOPAManifest()
 	if err != nil {
+		log.Errorf("Failed to serialize OPA manifest, err: %s", err)
 		return err
 	}
 	b.serialized = append(b.serialized, mf)
@@ -116,6 +117,7 @@ func (b *Bundle) Save(parentPath string) error {
 func (b *Bundle) generateOPAManifest() (*Manifest, error) {
 	revision, err := b.Hash()
 	if err != nil {
+		log.Errorf("Failed to get hash, err: %s", err)
 		return nil, err
 	}
 
