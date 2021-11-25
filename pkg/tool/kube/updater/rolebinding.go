@@ -33,3 +33,7 @@ func CreateRoleBinding(rb *rbacv1beta1.RoleBinding, cl client.Client) error {
 func UpdateRoleBinding(rb *rbacv1beta1.RoleBinding, cl client.Client) error {
 	return updateObject(rb, cl)
 }
+
+func CreateOrPatchRoleBinding(rb *rbacv1beta1.RoleBinding, cl client.Client) error {
+	return createOrPatchObject(rb, cl)
+}
