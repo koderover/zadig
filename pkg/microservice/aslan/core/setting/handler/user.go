@@ -29,3 +29,10 @@ func GetUserKubeConfig(c *gin.Context) {
 
 	ctx.Resp, ctx.Err = settingservice.GetUserKubeConfig(ctx.UserName, ctx.Logger)
 }
+
+func GetUserKubeConfigV2(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = settingservice.GetUserKubeConfigV2(ctx.UserID, ctx.Logger)
+}

@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
@@ -54,6 +55,45 @@ type kubeCfgTmplArgs struct {
 	User            string
 	ClientCrtBase64 string
 	ClientKeyBase64 string
+}
+
+func GetUserKubeConfigV2(userID string, log *zap.SugaredLogger) (string, error) {
+	saNamespace := config.Namespace()
+	if err := ensureServiceAccount(saNamespace, userID, log); err != nil {
+		return "", err
+	}
+	crt, token, err := getCrtAndToken(saNamespace, userID)
+	if err != nil {
+		return "", err
+	}
+	args := &kubeCfgTmplArgs{
+		KubeServerAddr: config.KubeServerAddr(),
+		CaCrtBase64:    crt,
+		User:           userID,
+		CaKeyBase64:    token,
+	}
+
+	return renderCfgTmplv2(args)
+}
+
+func getCrtAndToken(namespace, userID string) (string, string, error) {
+	kubeClient := krkubeclient.Client()
+	sa, found, err := getter.GetServiceAccount(namespace, userID+"-sa", kubeClient)
+	if err != nil {
+		return "", "", err
+	} else if !found {
+		return "", "", errors.New("sa not fonud")
+	} else if len(sa.Secrets) == 0 {
+		return "", "", errors.New("no secrets in sa")
+	}
+	time.Sleep(time.Second)
+	secret, found, err := getter.GetSecret(namespace, sa.Secrets[0].Name, kubeClient)
+	if err != nil {
+		return "", "", err
+	} else if !found {
+		return "", "", errors.New("secret not found")
+	}
+	return base64.StdEncoding.EncodeToString(secret.Data["ca.crt"]), string(secret.Data["token"]), nil
 }
 
 func GetUserKubeConfig(userName string, log *zap.SugaredLogger) (string, error) {
@@ -167,12 +207,16 @@ func filterProductWithoutExternalCluster(products []*commonmodels.Product) []*co
 	return ret
 }
 
-func ensureServiceAccount(namespace, username string, log *zap.SugaredLogger) error {
+func ensureServiceAccount(namespace, userID string, log *zap.SugaredLogger) error {
 	serviceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      username + "-sa",
+			Name:      userID + "-sa",
 			Namespace: namespace,
 		},
+	}
+	_, found, err := getter.GetServiceAccount(namespace, userID+"-sa", krkubeclient.Client())
+	if found && err == nil {
+		return nil
 	}
 	if err := updater.CreateServiceAccount(serviceAccount, krkubeclient.Client()); err != nil {
 		log.Errorf("CreateServiceAccount err: %+v", err)
@@ -326,4 +370,35 @@ users:
   user:
     token: {{.CaKeyBase64}}
     client-key-data: {{.CaCrtBase64}}
+`
+
+func renderCfgTmplv2(args *kubeCfgTmplArgs) (string, error) {
+	buf := new(bytes.Buffer)
+	t := template.Must(template.New("cfgv2").Parse(kubeCfgTmplv2))
+	err := t.Execute(buf, args)
+	if err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
+const kubeCfgTmplv2 = `
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: {{.CaCrtBase64}}
+    server: {{.KubeServerAddr}}
+  name: koderover
+contexts:
+- context:
+    cluster: koderover
+    user: {{.User}}
+  name: koderover
+current-context: koderover
+kind: Config
+preferences: {}
+users:
+- name: {{.User}}
+  user:
+    token: {{.CaKeyBase64}}
 `

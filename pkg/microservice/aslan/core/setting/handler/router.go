@@ -26,5 +26,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	user := router.Group("user")
 	{
 		user.GET("/kube/config", GetUserKubeConfig)
+		user.GET("/kube/config/v2", GetUserKubeConfigV2)
 	}
 }
