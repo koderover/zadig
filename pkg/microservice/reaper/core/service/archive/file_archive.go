@@ -41,9 +41,10 @@ type WorkspaceAchiever struct {
 	StorageURI   string
 	PipelineName string
 	ServiceName  string
+	Envs         []string
 }
 
-func NewWorkspaceAchiever(storageURI, pipelineName, serviceName, wd string, caches []string, gitFolders []string) *WorkspaceAchiever {
+func NewWorkspaceAchiever(storageURI, pipelineName, serviceName, wd string, caches, gitFolders, envs []string) *WorkspaceAchiever {
 	return &WorkspaceAchiever{
 		paths:        caches,
 		wd:           wd,
@@ -51,6 +52,7 @@ func NewWorkspaceAchiever(storageURI, pipelineName, serviceName, wd string, cach
 		StorageURI:   storageURI,
 		PipelineName: pipelineName,
 		ServiceName:  serviceName,
+		Envs:         envs,
 	}
 }
 
@@ -117,8 +119,15 @@ func (c *WorkspaceAchiever) process(match string) bool {
 	return false
 }
 
-func (c *WorkspaceAchiever) processPaths(paths []string, verbose bool) {
+func (c *WorkspaceAchiever) processPaths(paths []string, verbose bool) error {
+	newPath := make([]string, 0, len(paths))
 	for _, path := range paths {
+		path, err := c.renderPathVariable(path)
+		if err != nil {
+			log.Errorf("The variable of the custom cache directory is invalid, failed to render variables, error :%s", err)
+			return err
+		}
+		newPath = append(newPath, path)
 		matches, err := filepath.Glob(filepath.Join(c.wd, path))
 		if err != nil {
 			log.Warningf("%s: %v", path, err)
@@ -147,12 +156,16 @@ func (c *WorkspaceAchiever) processPaths(paths []string, verbose bool) {
 			}
 		}
 	}
+	c.paths = newPath
+	return nil
 }
 
 func (c *WorkspaceAchiever) enumerate() error {
 	c.files = make(map[string]os.FileInfo)
 
-	c.processPaths(c.paths, true)
+	if err := c.processPaths(c.paths, true); err != nil {
+		return err
+	}
 
 	for _, folder := range c.gitFolders {
 		c.processPaths([]string{filepath.Join(folder, ".git")}, false)
@@ -161,14 +174,14 @@ func (c *WorkspaceAchiever) enumerate() error {
 	return nil
 }
 
-func (c *WorkspaceAchiever) Achieve(target string) error {
+func (c *WorkspaceAchiever) Achieve(target string) ([]string, error) {
 	if err := c.enumerate(); err != nil {
-		return err
+		return nil, err
 	}
 
 	f, err := ioutil.TempFile("", "*cached_files.txt")
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	defer func() {
@@ -179,18 +192,18 @@ func (c *WorkspaceAchiever) Achieve(target string) error {
 	for _, path := range c.sortedFiles() {
 		_, err = f.WriteString(path + "\n")
 		if err != nil {
-			return fmt.Errorf("failed to create cache file list: %s", err)
+			return nil, fmt.Errorf("failed to create cache file list: %s", err)
 		}
 	}
 
 	if err := os.MkdirAll(filepath.Dir(target), os.ModePerm); err != nil {
-		return err
+		return nil, err
 	}
 
 	temp, err := ioutil.TempFile("", "*reaper.tar.gz")
 	if err != nil {
 		log.Errorf("failed to create temporary file: %v", err)
-		return err
+		return nil, err
 	}
 
 	_ = temp.Close()
@@ -203,7 +216,7 @@ func (c *WorkspaceAchiever) Achieve(target string) error {
 
 	if err := cmd.Run(); err != nil {
 		log.Errorf("failed to compress %v", err)
-		return err
+		return nil, err
 	}
 
 	//if err := helper.Move(temp.Name(), target); err != nil {
@@ -219,15 +232,26 @@ func (c *WorkspaceAchiever) Achieve(target string) error {
 		s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
 		if err != nil {
 			log.Errorf("Archive s3 create s3 client error: %+v", err)
-			return err
+			return nil, err
 		}
 		objectKey := store.GetObjectPath(fmt.Sprintf("%s/%s/%s/%s", c.PipelineName, c.ServiceName, "cache", meta.FileName))
 		if err = s3client.Upload(store.Bucket, temp.Name(), objectKey); err != nil {
 			log.Errorf("Archive s3 upload err:%v", err)
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	return c.paths, nil
 
+}
+
+// The path contains shell variables, use linux's own ability to render
+func (c *WorkspaceAchiever) renderPathVariable(path string) (string, error) {
+	envs := c.Envs
+	cmd := exec.Command("/bin/bash", "-c", fmt.Sprintf("%s %s", "echo", path))
+	cmd.Stderr = os.Stderr
+	cmd.Env = envs
+	data, err := cmd.Output()
+
+	return strings.TrimSuffix(string(data), "\n"), err
 }
