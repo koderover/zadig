@@ -1,0 +1,9 @@
+[
+  {
+    "resourceType": "Environment",
+    "projectName": "test",
+    "resourceID": "test",
+    "production": "true",
+    "production1": "true1"
+  }
+]
