@@ -17,19 +17,14 @@ limitations under the License.
 package handler
 
 import (
-	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	deliveryservice "github.com/koderover/zadig/pkg/microservice/aslan/core/delivery/service"
-	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -65,190 +60,31 @@ func GetDeliveryVersion(c *gin.Context) {
 	}
 	version := new(commonrepo.DeliveryVersionArgs)
 	version.ID = ID
-	ctx.Resp, ctx.Err = deliveryservice.GetDeliveryVersion(version, ctx.Logger)
-}
-
-type ReleaseInfo struct {
-	VersionInfo    *commonmodels.DeliveryVersion      `json:"versionInfo"`
-	BuildInfo      []*commonmodels.DeliveryBuild      `json:"buildInfo"`
-	DeployInfo     []*commonmodels.DeliveryDeploy     `json:"deployInfo"`
-	TestInfo       []*commonmodels.DeliveryTest       `json:"testInfo"`
-	DistributeInfo []*commonmodels.DeliveryDistribute `json:"distributeInfo"`
-	SecurityInfo   []*DeliverySecurityStats           `json:"securityStatsInfo"`
-}
-
-type DeliverySecurityStats struct {
-	ImageName                 string                    `json:"imageName"`
-	ImageID                   string                    `json:"imageId"`
-	DeliverySecurityStatsInfo DeliverySecurityStatsInfo `json:"deliverySecurityStatsInfo"`
-}
-
-type DeliverySecurityStatsInfo struct {
-	Total      int `json:"total"`
-	Unknown    int `json:"unkown"`
-	Negligible int `json:"negligible"`
-	Low        int `json:"low"`
-	Medium     int `json:"medium"`
-	High       int `json:"high"`
-	Critical   int `json:"critical"`
+	ctx.Resp, ctx.Err = deliveryservice.GetDetailReleaseData(version, ctx.Logger)
 }
 
 func ListDeliveryVersion(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	taskIDStr := c.Query("taskId")
-	var taskID = 0
-	var err error
-	if taskIDStr != "" {
-		taskID, err = strconv.Atoi(taskIDStr)
-		if err != nil {
-			ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-			return
-		}
-	}
-
-	perPageStr := c.Query("per_page")
-	pageStr := c.Query("page")
-	var (
-		perPage int
-		page    int
-	)
-	if perPageStr == "" {
-		perPage = 20
-	} else {
-		perPage, err = strconv.Atoi(perPageStr)
-		if err != nil {
-			ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("perPage args err :%s", err))
-			return
-		}
-	}
-
-	if pageStr == "" {
-		page = 1
-	} else {
-		page, err = strconv.Atoi(pageStr)
-		if err != nil {
-			ctx.Err = e.ErrInvalidParam.AddDesc(fmt.Sprintf("page args err :%s", err))
-			return
-		}
-	}
-
-	serviceName := c.Query("serviceName")
-
-	version := new(commonrepo.DeliveryVersionArgs)
-	version.ProductName = c.Query("projectName")
-	version.WorkflowName = c.Query("workflowName")
-	version.TaskID = taskID
-	version.PerPage = perPage
-	version.Page = page
-	deliveryVersions, err := deliveryservice.FindDeliveryVersion(version, ctx.Logger)
-
+	args := new(deliveryservice.ListDeliveryVersionArgs)
+	err := c.BindQuery(args)
 	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
-	releaseInfos := make([]*ReleaseInfo, 0)
-	for _, deliveryVersion := range deliveryVersions {
-		releaseInfo := new(ReleaseInfo)
-		//versionInfo
-		deliveryVersion.Progress = deliveryservice.FillDeliveryProgressInfo(deliveryVersion)
-		releaseInfo.VersionInfo = deliveryVersion
 
-		//deployInfo
-		deliveryDeployArgs := new(commonrepo.DeliveryDeployArgs)
-		deliveryDeployArgs.ReleaseID = deliveryVersion.ID.Hex()
-		deliveryDeploys, err := deliveryservice.FindDeliveryDeploy(deliveryDeployArgs, ctx.Logger)
-		if err != nil {
-			ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-		}
-		// 查询条件serviceName
-		if serviceName != "" {
-			match := false
-			for _, deliveryDeploy := range deliveryDeploys {
-				if deliveryDeploy.ServiceName == serviceName {
-					match = true
-					break
-				}
-			}
-			if !match {
-				continue
-			}
-		}
-		// 将serviceName替换为服务名/服务组件的形式，用于前端展示
-		for _, deliveryDeploy := range deliveryDeploys {
-			if deliveryDeploy.ContainerName != "" {
-				deliveryDeploy.ServiceName = deliveryDeploy.ServiceName + "/" + deliveryDeploy.ContainerName
-			}
-		}
-		releaseInfo.DeployInfo = deliveryDeploys
-
-		//buildInfo
-		deliveryBuildArgs := new(commonrepo.DeliveryBuildArgs)
-		deliveryBuildArgs.ReleaseID = deliveryVersion.ID.Hex()
-		deliveryBuilds, err := deliveryservice.FindDeliveryBuild(deliveryBuildArgs, ctx.Logger)
-		if err != nil {
-			ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-		}
-		releaseInfo.BuildInfo = deliveryBuilds
-
-		//testInfo
-		deliveryTestArgs := new(commonrepo.DeliveryTestArgs)
-		deliveryTestArgs.ReleaseID = deliveryVersion.ID.Hex()
-		deliveryTests, err := deliveryservice.FindDeliveryTest(deliveryTestArgs, ctx.Logger)
-		if err != nil {
-			ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-		}
-		releaseInfo.TestInfo = deliveryTests
-
-		//securityStatsInfo
-		deliverySecurityStatss := make([]*DeliverySecurityStats, 0)
-		if pipelineTask, err := workflowservice.GetPipelineTaskV2(int64(deliveryVersion.TaskID), deliveryVersion.WorkflowName, config.WorkflowType, ctx.Logger); err == nil {
-			for _, subStage := range pipelineTask.Stages {
-				if subStage.TaskType == config.TaskSecurity {
-					subSecurityTaskMap := subStage.SubTasks
-					for _, subTask := range subSecurityTaskMap {
-						securityInfo, _ := base.ToSecurityTask(subTask)
-
-						deliverySecurityStats := new(DeliverySecurityStats)
-						deliverySecurityStats.ImageName = securityInfo.ImageName
-						deliverySecurityStats.ImageID = securityInfo.ImageID
-						deliverySecurityStatsMap, err := deliveryservice.FindDeliverySecurityStatistics(securityInfo.ImageID, ctx.Logger)
-						if err != nil {
-							ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-						}
-						var transErr error
-						b, err := json.Marshal(deliverySecurityStatsMap)
-						if err != nil {
-							transErr = fmt.Errorf("marshal task error: %v", err)
-						}
-
-						if err := json.Unmarshal(b, &deliverySecurityStats.DeliverySecurityStatsInfo); err != nil {
-							transErr = fmt.Errorf("unmarshal task error: %v", err)
-						}
-						if transErr != nil {
-							ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-						}
-
-						deliverySecurityStatss = append(deliverySecurityStatss, deliverySecurityStats)
-					}
-					break
-				}
-			}
-			releaseInfo.SecurityInfo = deliverySecurityStatss
-		}
-
-		//distributeInfo
-		deliveryDistributeArgs := new(commonrepo.DeliveryDistributeArgs)
-		deliveryDistributeArgs.ReleaseID = deliveryVersion.ID.Hex()
-		deliveryDistributes, _ := deliveryservice.FindDeliveryDistribute(deliveryDistributeArgs, ctx.Logger)
-
-		releaseInfo.DistributeInfo = deliveryDistributes
-
-		releaseInfos = append(releaseInfos, releaseInfo)
+	if args.Page <= 0 {
+		args.Page = 1
 	}
-	ctx.Err = err
-	ctx.Resp = releaseInfos
+	if args.PerPage <= 0 {
+		args.Page = 20
+	}
+	if len(args.Verbosity) == 0 {
+		args.Verbosity = deliveryservice.VerbosityDetailed
+	}
+
+	ctx.Resp, ctx.Err = deliveryservice.ListDeliveryVersion(args, ctx.Logger)
 }
 
 func getFileName(fileName string) string {

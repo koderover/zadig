@@ -85,17 +85,6 @@ func ListReleases(productName, envName string, log *zap.SugaredLogger) ([]*HelmR
 
 	ret := make([]*HelmReleaseResp, 0, len(releases))
 	for _, release := range releases {
-
-		for _, singleFile := range release.Chart.Files {
-			log.Infof("###### single file name is %s", singleFile.Name)
-			log.Infof("###### single file data is %s", string(singleFile.Data))
-		}
-
-		for _, singleFile := range release.Chart.Templates {
-			log.Infof("###### single file name is %s", singleFile.Name)
-			log.Infof("###### single file data is %s", string(singleFile.Data))
-		}
-
 		ret = append(ret, &HelmReleaseResp{
 			ReleaseName: release.Name,
 			ServiceName: util.ExtraServiceName(release.Name, prod.Namespace),

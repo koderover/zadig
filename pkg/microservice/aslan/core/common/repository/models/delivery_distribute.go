@@ -28,6 +28,8 @@ type DeliveryDistribute struct {
 	ServiceName    string                `bson:"service_name"           json:"serviceName"`
 	DistributeType config.DistributeType `bson:"distribute_type"        json:"distributeType"`
 	RegistryName   string                `bson:"registry_name"          json:"registryName"`
+	Version        string                `bson:"version" json:"version"`
+	ChartRepoName  string                `bson:"chart_repo_name"  json:"chartRepoName"`
 	Namespace      string                `bson:"namespace"              json:"namespace"`
 	PackageFile    string                `bson:"package_file"           json:"packageFile"`
 	RemoteFileKey  string                `bson:"remote_file_key"        json:"remoteFileKey"`

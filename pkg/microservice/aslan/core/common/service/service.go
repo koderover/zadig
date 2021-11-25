@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 	templ "text/template"
@@ -607,6 +608,41 @@ func ExtractImageName(imageURI string) string {
 	for i, matchedStr := range subMatchAll {
 		if i != 0 && matchedStr != "" && matchedStr != ":" {
 			if exNames[i] == "image" {
+				return matchedStr
+			}
+		}
+	}
+	return ""
+}
+
+// ExtractImageRegistry extract registry url from total image uri
+func ExtractImageRegistry(imageURI string) (string, error) {
+	subMatchAll := imageParseRegex.FindStringSubmatch(imageURI)
+	exNames := imageParseRegex.SubexpNames()
+	for i, matchedStr := range subMatchAll {
+		if i != 0 && matchedStr != "" && matchedStr != ":" {
+			if exNames[i] == "repo" {
+				u, err := url.Parse(matchedStr)
+				if err != nil {
+					return "", err
+				}
+				if len(u.Scheme) > 0 {
+					matchedStr = strings.TrimPrefix(matchedStr, fmt.Sprintf("%s://", u.Scheme))
+				}
+				return matchedStr, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("failed to extract registry url")
+}
+
+// ExtractImageTag extract image tag from total image uri
+func ExtractImageTag(imageURI string) string {
+	subMatchAll := imageParseRegex.FindStringSubmatch(imageURI)
+	exNames := imageParseRegex.SubexpNames()
+	for i, matchedStr := range subMatchAll {
+		if i != 0 && matchedStr != "" && matchedStr != ":" {
+			if exNames[i] == "tag" {
 				return matchedStr
 			}
 		}

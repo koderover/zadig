@@ -272,7 +272,13 @@ const (
 )
 
 const (
-	DeliveryVersionTypeChart = "HelmChart"
+	DeliveryVersionTypeChart       = "HelmChart"
+	DeliveryVersionTypeK8SWorkflow = "K8SWorkflow"
+)
+
+const (
+	DeliveryDeployTypeImage = "image"
+	DeliveryDeployTypeChart = "chart"
 )
 
 const (

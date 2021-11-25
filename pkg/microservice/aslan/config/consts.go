@@ -136,6 +136,7 @@ type DistributeType string
 const (
 	File  DistributeType = "file"
 	Image DistributeType = "image"
+	Chart DistributeType = "chart"
 )
 
 type K8SClusterStatus string

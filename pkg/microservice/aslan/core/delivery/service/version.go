@@ -17,16 +17,21 @@ limitations under the License.
 package service
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
-	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
+	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 
 	cm "github.com/chartmuseum/helm-push/pkg/chartmuseum"
 	"github.com/chartmuseum/helm-push/pkg/helm"
@@ -43,14 +48,28 @@ import (
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/pkg/util/converter"
+	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
+
+const (
+	VerbosityBrief    string = "brief"    // brief delivery data
+	VerbosityDetailed string = "detailed" // detailed delivery version with total data
+)
+
+type DeliveryVersionFilter struct {
+	ServiceName string
+}
 
 type CreateHelmDeliveryVersionOption struct {
 	EnableOfflineDist bool   `json:"enableOfflineDist"`
@@ -112,13 +131,57 @@ type DeliveryVariablesApplyArgs struct {
 	ChartDatas      []*CreateHelmDeliveryVersionChartData `json:"chartDatas"`
 }
 
+type ListDeliveryVersionArgs struct {
+	Page         int    `form:"page"`
+	PerPage      int    `form:"per_page"`
+	TaskId       int    `form:"taskId"`
+	ServiceName  string `form:"serviceName"`
+	Verbosity    string `form:"verbosity"`
+	ProjectName  string `form:"projectName"`
+	WorkflowName string `form:"workflowName"`
+}
+
+type ReleaseInfo struct {
+	VersionInfo    *commonmodels.DeliveryVersion      `json:"versionInfo"`
+	BuildInfo      []*commonmodels.DeliveryBuild      `json:"buildInfo,omitempty"`
+	DeployInfo     []*commonmodels.DeliveryDeploy     `json:"deployInfo,omitempty"`
+	TestInfo       []*commonmodels.DeliveryTest       `json:"testInfo,omitempty"`
+	DistributeInfo []*commonmodels.DeliveryDistribute `json:"distributeInfo,omitempty"`
+	SecurityInfo   []*DeliverySecurityStats           `json:"securityStatsInfo,omitempty"`
+}
+
+type DeliverySecurityStatsInfo struct {
+	Total      int `json:"total"`
+	Unknown    int `json:"unkown"`
+	Negligible int `json:"negligible"`
+	Low        int `json:"low"`
+	Medium     int `json:"medium"`
+	High       int `json:"high"`
+	Critical   int `json:"critical"`
+}
+
+type DeliverySecurityStats struct {
+	ImageName                 string                    `json:"imageName"`
+	ImageID                   string                    `json:"imageId"`
+	DeliverySecurityStatsInfo DeliverySecurityStatsInfo `json:"deliverySecurityStatsInfo"`
+}
+
 func GetDeliveryVersion(args *commonrepo.DeliveryVersionArgs, log *zap.SugaredLogger) (*commonmodels.DeliveryVersion, error) {
-	resp, err := commonrepo.NewDeliveryVersionColl().Get(args)
+	versionData, err := commonrepo.NewDeliveryVersionColl().Get(args)
 	if err != nil {
 		log.Errorf("get deliveryVersion error: %v", err)
 		return nil, e.ErrGetDeliveryVersion
 	}
-	return resp, err
+	return versionData, err
+}
+
+func GetDetailReleaseData(args *commonrepo.DeliveryVersionArgs, log *zap.SugaredLogger) (*ReleaseInfo, error) {
+	versionData, err := commonrepo.NewDeliveryVersionColl().Get(args)
+	if err != nil {
+		log.Errorf("get deliveryVersion error: %v", err)
+		return nil, e.ErrGetDeliveryVersion
+	}
+	return buildReleaseRespData(VerbosityDetailed, versionData, nil, log)
 }
 
 func FindDeliveryVersion(args *commonrepo.DeliveryVersionArgs, log *zap.SugaredLogger) ([]*commonmodels.DeliveryVersion, error) {
@@ -139,11 +202,176 @@ func DeleteDeliveryVersion(args *commonrepo.DeliveryVersionArgs, log *zap.Sugare
 	return nil
 }
 
-func FillDeliveryProgressInfo(deliveryVersion *commonmodels.DeliveryVersion) *commonmodels.DeliveryVersionProgress {
+func filterReleases(filter *DeliveryVersionFilter, deliveryVersion *commonmodels.DeliveryVersion, logger *zap.SugaredLogger) bool {
+	if filter == nil {
+		return true
+	}
+	if filter.ServiceName != "" {
+		deliveryDeployArgs := new(commonrepo.DeliveryDeployArgs)
+		deliveryDeployArgs.ReleaseID = deliveryVersion.ID.Hex()
+		deliveryDeploys, err := FindDeliveryDeploy(deliveryDeployArgs, logger)
+		if err != nil {
+			return true
+		}
+		match := false
+		for _, deliveryDeploy := range deliveryDeploys {
+			if deliveryDeploy.ServiceName == filter.ServiceName {
+				match = true
+				break
+			}
+		}
+		if !match {
+			return false
+		}
+	}
+	return true
+}
+
+func buildBriefRelease(deliveryVersion *commonmodels.DeliveryVersion, _ *zap.SugaredLogger) (*ReleaseInfo, error) {
+	return &ReleaseInfo{
+		VersionInfo: deliveryVersion,
+	}, nil
+}
+
+func buildDetailedRelease(deliveryVersion *commonmodels.DeliveryVersion, filterOpt *DeliveryVersionFilter, logger *zap.SugaredLogger) (*ReleaseInfo, error) {
+	releaseInfo := new(ReleaseInfo)
+	//versionInfo
+	releaseInfo.VersionInfo = deliveryVersion
+
+	//deployInfo
+	deliveryDeployArgs := new(commonrepo.DeliveryDeployArgs)
+	deliveryDeployArgs.ReleaseID = deliveryVersion.ID.Hex()
+	deliveryDeploys, err := FindDeliveryDeploy(deliveryDeployArgs, logger)
+	if err != nil {
+		return nil, err
+	}
+	if filterOpt != nil {
+		if !filterReleases(filterOpt, deliveryVersion, logger) {
+			return nil, nil
+		}
+	}
+	// 将serviceName替换为服务名/服务组件的形式，用于前端展示
+	for _, deliveryDeploy := range deliveryDeploys {
+		if deliveryDeploy.ContainerName != "" {
+			deliveryDeploy.ServiceName = deliveryDeploy.ServiceName + "/" + deliveryDeploy.ContainerName
+		}
+	}
+	releaseInfo.DeployInfo = deliveryDeploys
+
+	//buildInfo
+	deliveryBuildArgs := new(commonrepo.DeliveryBuildArgs)
+	deliveryBuildArgs.ReleaseID = deliveryVersion.ID.Hex()
+	deliveryBuilds, err := FindDeliveryBuild(deliveryBuildArgs, logger)
+	if err != nil {
+		return nil, err
+	}
+	releaseInfo.BuildInfo = deliveryBuilds
+
+	//testInfo
+	deliveryTestArgs := new(commonrepo.DeliveryTestArgs)
+	deliveryTestArgs.ReleaseID = deliveryVersion.ID.Hex()
+	deliveryTests, err := FindDeliveryTest(deliveryTestArgs, logger)
+	if err != nil {
+		return nil, err
+	}
+	releaseInfo.TestInfo = deliveryTests
+
+	//securityStatsInfo
+	deliverySecurityStatss := make([]*DeliverySecurityStats, 0)
+	if pipelineTask, err := workflowservice.GetPipelineTaskV2(int64(deliveryVersion.TaskID), deliveryVersion.WorkflowName, config.WorkflowType, logger); err == nil {
+		for _, subStage := range pipelineTask.Stages {
+			if subStage.TaskType == config.TaskSecurity {
+				subSecurityTaskMap := subStage.SubTasks
+				for _, subTask := range subSecurityTaskMap {
+					securityInfo, _ := base.ToSecurityTask(subTask)
+
+					deliverySecurityStats := new(DeliverySecurityStats)
+					deliverySecurityStats.ImageName = securityInfo.ImageName
+					deliverySecurityStats.ImageID = securityInfo.ImageID
+					deliverySecurityStatsMap, err := FindDeliverySecurityStatistics(securityInfo.ImageID, logger)
+					if err != nil {
+						return nil, err
+					}
+					var transErr error
+					b, err := json.Marshal(deliverySecurityStatsMap)
+					if err != nil {
+						transErr = fmt.Errorf("marshal task error: %v", err)
+					}
+					if err := json.Unmarshal(b, &deliverySecurityStats.DeliverySecurityStatsInfo); err != nil {
+						transErr = fmt.Errorf("unmarshal task error: %v", err)
+					}
+					if transErr != nil {
+						return nil, transErr
+					}
+
+					deliverySecurityStatss = append(deliverySecurityStatss, deliverySecurityStats)
+				}
+				break
+			}
+		}
+		releaseInfo.SecurityInfo = deliverySecurityStatss
+	}
+
+	//distributeInfo
+	deliveryDistributeArgs := new(commonrepo.DeliveryDistributeArgs)
+	deliveryDistributeArgs.ReleaseID = deliveryVersion.ID.Hex()
+	deliveryDistributes, _ := FindDeliveryDistribute(deliveryDistributeArgs, logger)
+
+	deliveryVersion.Progress = FillDeliveryProgressInfo(deliveryVersion, deliveryDistributes)
+
+	releaseInfo.DistributeInfo = deliveryDistributes
+	return releaseInfo, nil
+}
+
+func buildReleaseRespData(verbosity string, deliveryVersion *commonmodels.DeliveryVersion, filterOpt *DeliveryVersionFilter, logger *zap.SugaredLogger) (*ReleaseInfo, error) {
+	switch verbosity {
+	case VerbosityBrief:
+		return buildBriefRelease(deliveryVersion, logger)
+	case VerbosityDetailed:
+		return buildDetailedRelease(deliveryVersion, filterOpt, logger)
+	default:
+		return buildDetailedRelease(deliveryVersion, filterOpt, logger)
+	}
+}
+
+func ListDeliveryVersion(args *ListDeliveryVersionArgs, logger *zap.SugaredLogger) ([]*ReleaseInfo, error) {
+	version := new(commonrepo.DeliveryVersionArgs)
+	version.ProductName = args.ProjectName
+	version.WorkflowName = args.WorkflowName
+	version.TaskID = args.TaskId
+	version.PerPage = args.PerPage
+	version.Page = args.Page
+	deliveryVersions, err := FindDeliveryVersion(version, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Infof("###### the verbosity is %s, projectName is %s", args.Verbosity, args.ProjectName)
+	releaseInfos := make([]*ReleaseInfo, 0)
+	for _, deliveryVersion := range deliveryVersions {
+		releaseInfo, err := buildReleaseRespData(args.Verbosity, deliveryVersion, &DeliveryVersionFilter{ServiceName: args.ServiceName}, logger)
+		if err != nil {
+			return nil, err
+		}
+		if releaseInfo == nil {
+			continue
+		}
+		releaseInfos = append(releaseInfos, releaseInfo)
+	}
+	return releaseInfos, nil
+}
+
+func FillDeliveryProgressInfo(deliveryVersion *commonmodels.DeliveryVersion, deliveryDistribute []*commonmodels.DeliveryDistribute) *commonmodels.DeliveryVersionProgress {
 	if deliveryVersion.Type != setting.DeliveryVersionTypeChart {
 		return nil
 	}
-	successfulChartCount := len(deliveryVersion.Charts)
+	chartDeploys := make([]*commonmodels.DeliveryDistribute, 0)
+	for _, deliveryDistribute := range deliveryDistribute {
+		if deliveryDistribute.DistributeType == config.Chart {
+			chartDeploys = append(chartDeploys, deliveryDistribute)
+		}
+	}
+	successfulChartCount := len(chartDeploys)
 
 	progress := &commonmodels.DeliveryVersionProgress{
 		SuccessChartCount:   successfulChartCount,
@@ -173,6 +401,7 @@ func FillDeliveryProgressInfo(deliveryVersion *commonmodels.DeliveryVersion) *co
 
 	if deliveryVersion.Status == setting.DeliveryVersionStatusFailed {
 		progress.PackageUploadStatus = setting.DeliveryVersionPackageStatusFailed
+		progress.Error = deliveryVersion.Error
 		return progress
 	}
 
@@ -225,24 +454,109 @@ func createChartRepoClient(repo *commonmodels.HelmRepo) (*cm.Client, error) {
 	return client, nil
 }
 
-func handleSingleChart(chartData *DeliveryChartData, chartRepo *commonmodels.HelmRepo, dir string, globalVariables string) error {
+func runDockerCommand(cmd *exec.Cmd) error {
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// pull image from currently using registry and push to specified repo
+func pushImages(serviceObj *commonmodels.Service, valuesMap map[string]interface{}, targetRegistry *commonmodels.RegistryNamespace, registryMap map[string]*commonmodels.RegistryNamespace) error {
+
+	log.Infof("######## start pushing image #########")
+
+	flatMap, err := converter.Flatten(valuesMap)
+	if err != nil {
+		return err
+	}
+
+	imagePathSpecs := make([]map[string]string, 0)
+	for _, container := range serviceObj.Containers {
+		imageSearchRule := &template.ImageSearchingRule{
+			Repo:  container.ImagePath.Repo,
+			Image: container.ImagePath.Image,
+			Tag:   container.ImagePath.Tag,
+		}
+		pattern := imageSearchRule.GetSearchingPattern()
+		imagePathSpecs = append(imagePathSpecs, pattern)
+	}
+
+	// find full image uris from values.yaml
+	imageUris := make([]string, 0)
+	for _, spec := range imagePathSpecs {
+		imageUri, err := commonservice.GeneImageURI(spec, flatMap)
+		if err != nil {
+			return err
+		}
+		imageUris = append(imageUris, imageUri)
+	}
+
+	// login to the target repo
+	err = runDockerCommand(dockerLogin(targetRegistry.AccessKey, targetRegistry.SecretKey, targetRegistry.RegAddr))
+	if err != nil {
+		return errors.Wrapf(err, fmt.Sprintf("failed to login docker registry, url: %s", targetRegistry.RegAddr))
+	}
+
+	for _, imageUri := range imageUris {
+		log.Infof("##### handle single image uri %s ######", imageUri)
+		registryUrl, err := commonservice.ExtractImageRegistry(imageUri)
+		if err != nil {
+			return errors.Wrapf(err, "failed to parse registry from image uri: %s", imageUri)
+		}
+		registryUrl = strings.TrimSuffix(registryUrl, "/")
+		log.Infof("#### extract registry url %s ####", registryUrl)
+		if registry, ok := registryMap[registryUrl]; ok {
+			if registry.ID == targetRegistry.ID {
+				log.Infof("######## same registry, no need to push again ########")
+				continue
+			}
+			//TODO need optimize to avoid login to same repo multiple times
+			err := runDockerCommand(dockerLogin(registry.AccessKey, registry.SecretKey, registry.RegAddr))
+			if err != nil {
+				return errors.Wrapf(err, fmt.Sprintf("failed to login docker registry, url: %s", registry.RegAddr))
+			}
+		}
+		err = runDockerCommand(dockerPull(imageUri))
+		if err != nil {
+			return errors.Wrapf(err, fmt.Sprintf("failed to pull docker image, source url: %s", imageUri))
+		}
+
+		imageName := commonservice.ExtractImageName(imageUri)
+		imageTag := commonservice.ExtractImageTag(imageUri)
+
+		targetFullImageUri := fmt.Sprintf("%s/%s/%s:%s", targetRegistry.RegAddr, targetRegistry.Namespace, imageName, imageTag)
+		err = runDockerCommand(dockerTag(imageUri, targetFullImageUri))
+		if err != nil {
+			return errors.Wrapf(err, "failed to tag image from: %s to : %s", imageUri, targetFullImageUri)
+		}
+
+		err = runDockerCommand(dockerPush(targetFullImageUri))
+		if err != nil {
+			return errors.Wrapf(err, "failed to push image: %s", targetFullImageUri)
+		}
+	}
+	return nil
+}
+
+func handleSingleChart(chartData *DeliveryChartData, chartRepo *commonmodels.HelmRepo, dir string, globalVariables string, targetRegistry *commonmodels.RegistryNamespace, registryMap map[string]*commonmodels.RegistryNamespace) error {
 	serviceObj := chartData.ServiceObj
 	serviceName, revision := serviceObj.ServiceName, serviceObj.Revision
-	base := config.LocalServicePathWithRevision(serviceObj.ProductName, serviceName, revision)
-	if err := commonservice.PreloadServiceManifestsByRevision(base, serviceObj); err != nil {
+	basePath := config.LocalServicePathWithRevision(serviceObj.ProductName, serviceName, revision)
+	if err := commonservice.PreloadServiceManifestsByRevision(basePath, serviceObj); err != nil {
 		log.Warnf("failed to get chart of revision: %d for service: %s, use latest version", revision, serviceName)
 		// use the latest version when it fails to download the specific version
-		base = config.LocalServicePath(serviceObj.ProductName, serviceName)
-		if err = commonservice.PreLoadServiceManifests(base, serviceObj); err != nil {
+		basePath = config.LocalServicePath(serviceObj.ProductName, serviceName)
+		if err = commonservice.PreLoadServiceManifests(basePath, serviceObj); err != nil {
 			log.Errorf("failed to load chart info for service %v", serviceObj.ServiceName)
 			return err
 		}
 	}
 
-	// push 镜像
-	//commonrepo.NewRegistryNamespaceColl().Find(&commonrepo.FindRegOps{})
-
-	fullPath := filepath.Join(base, serviceObj.ServiceName)
+	fullPath := filepath.Join(basePath, serviceObj.ServiceName)
 	revisionBasePath := config.LocalDeliveryChartPathWithRevision(serviceObj.ProductName, serviceObj.ServiceName, serviceObj.Revision)
 	deliveryChartPath := filepath.Join(revisionBasePath, serviceObj.ServiceName)
 	err := copy.Copy(fullPath, deliveryChartPath)
@@ -284,9 +598,15 @@ func handleSingleChart(chartData *DeliveryChartData, chartRepo *commonmodels.Hel
 		return err
 	}
 
+	// push docker image
+	err = pushImages(serviceObj, chartRequested.Values, targetRegistry, registryMap)
+	if err != nil {
+		return errors.Wrapf(err, "failed to handle image")
+	}
+
 	client, err := createChartRepoClient(chartRepo)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "failed to create chart repo client, repoName: %s", chartRepo.RepoName)
 	}
 
 	log.Infof("pushing %s to %s...\n", filepath.Base(chartPackagePath), chartRepo.URL)
@@ -304,7 +624,9 @@ func handleSingleChart(chartData *DeliveryChartData, chartRepo *commonmodels.Hel
 func handlePushResponse(resp *http.Response) error {
 	if resp.StatusCode != 201 && resp.StatusCode != 202 {
 		b, err := ioutil.ReadAll(resp.Body)
-		defer resp.Body.Close()
+		defer func(Body io.ReadCloser) {
+			_ = Body.Close()
+		}(resp.Body)
 		if err != nil {
 			return err
 		}
@@ -375,6 +697,24 @@ func prepareChartData(chartDatas []*CreateHelmDeliveryVersionChartData, productI
 	return chartDataMap, nil
 }
 
+func buildRegistryMap() (map[string]*commonmodels.RegistryNamespace, error) {
+	registries, err := commonrepo.NewRegistryNamespaceColl().FindAll(&mongodb.FindRegOps{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to query registries")
+	}
+	ret := make(map[string]*commonmodels.RegistryNamespace)
+	for _, singleRegistry := range registries {
+		fullUrl := fmt.Sprintf("%s/%s", singleRegistry.RegAddr, singleRegistry.Namespace)
+		fullUrl = strings.TrimSuffix(fullUrl, "/")
+		u, _ := url.Parse(fullUrl)
+		if len(u.Scheme) > 0 {
+			fullUrl = strings.TrimPrefix(fullUrl, fmt.Sprintf("%s://", u.Scheme))
+		}
+		ret[fullUrl] = singleRegistry
+	}
+	return ret, nil
+}
+
 func buildDeliveryCharts(chartDataMap map[string]*DeliveryChartData, deliveryVersion *commonmodels.DeliveryVersion, args *DeliveryVersionChartData, logger *zap.SugaredLogger) (err error) {
 	defer func() {
 		if err != nil {
@@ -405,8 +745,26 @@ func buildDeliveryCharts(chartDataMap map[string]*DeliveryChartData, deliveryVer
 	}
 	repoInfo, err := getChartRepoData(args.ChartRepoName)
 	if err != nil {
-		log.Infof("failed to query chart-repo info, productName: %s, err: %s", deliveryVersion.ProductName, err)
+		log.Errorf("failed to query chart-repo info, productName: %s, err: %s", deliveryVersion.ProductName, err)
 		return fmt.Errorf("failed to query chart-repo info, productName: %s, repoName: %s", deliveryVersion.ProductName, args.ChartRepoName)
+	}
+
+	targetRegistry, err := commonrepo.NewRegistryNamespaceColl().Find(&mongodb.FindRegOps{
+		ID: args.ImageRegistryID,
+	})
+	if err != nil {
+		log.Errorf("failed to query target image registry with ID: %s, err %s", args.ImageRegistryID, err)
+		return fmt.Errorf("faild to query target registry namespace")
+	}
+
+	registryMap, err := buildRegistryMap()
+	if err != nil {
+		return fmt.Errorf("failed to build registry map")
+	}
+
+	err = runDockerCommand(dockerInfo())
+	if err != nil {
+		return fmt.Errorf("failed to run docker deamon")
 	}
 
 	// push charts to repo
@@ -415,19 +773,19 @@ func buildDeliveryCharts(chartDataMap map[string]*DeliveryChartData, deliveryVer
 		wg.Add(1)
 		go func(cData *DeliveryChartData) {
 			defer wg.Done()
-			err := handleSingleChart(cData, repoInfo, dir, args.GlobalVariables)
+			err := handleSingleChart(cData, repoInfo, dir, args.GlobalVariables, targetRegistry, registryMap)
 			if err != nil {
 				logger.Errorf("failed to handle single chart data, serviceName: %s err: %s", cData.ChartData.ServiceName, err)
 				appendError(err)
 			} else {
-				err = commonrepo.NewDeliveryVersionColl().AddDeliveryChart(deliveryVersion.Version, &commonmodels.DeliveryChart{
-					Name:    cData.ChartData.ServiceName,
-					Version: cData.ChartData.Version,
-					Repo:    args.ChartRepoName,
-				})
-				if err != nil {
-					appendError(errors.Wrapf(err, "failed to save delivery chart: %s", cData.ChartData.ServiceName))
-				}
+				//err = commonrepo.NewDeliveryVersionColl().AddDeliveryChart(deliveryVersion.Version, &commonmodels.DeliveryChart{
+				//	Name:    cData.ChartData.ServiceName,
+				//	Version: cData.ChartData.Version,
+				//	Repo:    args.ChartRepoName,
+				//})
+				//if err != nil {
+				//	appendError(errors.Wrapf(err, "failed to save delivery chart: %s", cData.ChartData.ServiceName))
+				//}
 			}
 		}(chartData)
 	}
@@ -465,6 +823,14 @@ func CreateNewHelmDeliveryVersion(args *CreateHelmDeliveryVersionArgs, logger *z
 	if err != nil {
 		log.Infof("failed to query product info, productName: %s envName %s, err: %s", args.ProductName, args.EnvName, err)
 		return e.ErrCreateDeliveryVersion.AddDesc(fmt.Sprintf("failed to query product info, procutName: %s envName %s", args.ProductName, args.EnvName))
+	}
+
+	// validate necessary params
+	if len(args.ChartRepoName) == 0 {
+		return e.ErrCreateDeliveryVersion.AddDesc("chart repo not appointed")
+	}
+	if len(args.ImageRegistryID) == 0 {
+		return e.ErrCreateDeliveryVersion.AddDesc("image registry not appointed")
 	}
 
 	chartDataMap, err := prepareChartData(args.ChartDatas, productInfo)
@@ -518,27 +884,28 @@ func RetryCreateHelmDeliveryVersion(projectName, versionName string, logger *zap
 
 	argsBytes, err := json.Marshal(deliveryVersion.CreateArgument)
 	if err != nil {
-		return errors.Wrapf(err, "failed to marshal arguments, versionName: %s err %s", deliveryVersion.Version)
+		return errors.Wrapf(err, "failed to marshal arguments, versionName: %s err: %s", deliveryVersion.Version, err)
 	}
 	createArgs := new(DeliveryVersionChartData)
 	err = json.Unmarshal(argsBytes, createArgs)
 	if err != nil {
-		return errors.Wrapf(err, "failed to unMarshal arguments, versionName: %s err %s", deliveryVersion.Version)
+		return errors.Wrapf(err, "failed to unMarshal arguments, versionName: %s err: %s", deliveryVersion.Version, err)
 	}
 
 	productInfoSnap := deliveryVersion.ProductEnvInfo
 
+	//deploys := make
+
 	// for charts has been successfully handled, download charts directly
 	successCharts := sets.NewString()
-	for _, singleChart := range deliveryVersion.Charts {
-		// prepare chart data
-		_, err := downloadChart(projectName, versionName, singleChart)
-		if err != nil {
-			log.Errorf("failed to download chart from chart repo, chartName: %s, err: %s", singleChart.Name, err)
-			continue
-		}
-		successCharts.Insert(singleChart.Name)
-	}
+	//for _, singleChart := range deliveryVersion.Charts {
+	//	_, err := downloadChart(projectName, versionName, singleChart)
+	//	if err != nil {
+	//		log.Errorf("failed to download chart from chart repo, chartName: %s, err: %s", singleChart.Name, err)
+	//		continue
+	//	}
+	//	successCharts.Insert(singleChart.Name)
+	//}
 
 	chartsToBeHandled := make([]*CreateHelmDeliveryVersionChartData, 0)
 	for _, chartConfig := range createArgs.ChartDatas {
@@ -596,8 +963,8 @@ func ListDeliveryServiceNames(productName string, log *zap.SugaredLogger) ([]str
 	return serviceNames.UnsortedList(), nil
 }
 
-func downloadChart(productName, versionName string, chartInfo *commonmodels.DeliveryChart) (string, error) {
-	chartTGZName := fmt.Sprintf("%s-%s.tgz", chartInfo.Name, chartInfo.Version)
+func downloadChart(productName, versionName string, chartInfo *commonmodels.DeliveryDistribute) (string, error) {
+	chartTGZName := fmt.Sprintf("%s-%s.tgz", chartInfo.ServiceName, chartInfo.Version)
 	chartTGZFileParent := getChartTGZDir(productName, versionName)
 	chartTGZFilePath := filepath.Join(chartTGZFileParent, chartTGZName)
 	if _, err := os.Stat(chartTGZFilePath); err == nil {
@@ -606,9 +973,9 @@ func downloadChart(productName, versionName string, chartInfo *commonmodels.Deli
 		return chartTGZFilePath, nil
 	}
 
-	chartRepo, err := getChartRepoData(chartInfo.Repo)
+	chartRepo, err := getChartRepoData(chartInfo.ChartRepoName)
 	if err != nil {
-		return "", fmt.Errorf("failed to query chart-repo info, repoName %s", chartInfo.Repo)
+		return "", fmt.Errorf("failed to query chart-repo info, repoName %s", chartInfo.ChartRepoName)
 	}
 
 	client, err := createChartRepoClient(chartRepo)
@@ -652,19 +1019,26 @@ func downloadChart(productName, versionName string, chartInfo *commonmodels.Deli
 	return chartTGZFilePath, nil
 }
 
-func getChartConfigInfo(projectName, version string, chartName string, log *zap.SugaredLogger) (*commonmodels.DeliveryChart, error) {
-	deliveryVersion, err := GetDeliveryVersion(&commonrepo.DeliveryVersionArgs{
-		ProductName: projectName,
-		Version:     version,
-	}, log)
-	if err != nil {
-		return nil, err
-	}
+func getChartDistributeInfo(projectName, version string, chartName string, log *zap.SugaredLogger) (*commonmodels.DeliveryDistribute, error) {
+	//deliveryVersion, err := GetDeliveryVersion(&commonrepo.DeliveryVersionArgs{
+	//	ProductName: projectName,
+	//	Version:     version,
+	//}, log)
 
-	var chartInfo *commonmodels.DeliveryChart
-	for _, singleChart := range deliveryVersion.Charts {
-		if singleChart.Name == chartName {
-			chartInfo = singleChart
+	//if err != nil {
+	//	return nil, err
+	//}
+
+	distributes, _ := FindDeliveryDistribute(&commonrepo.DeliveryDistributeArgs{
+		ReleaseID:      "",
+		ServiceName:    chartName,
+		DistributeType: config.Chart,
+	}, log)
+
+	var chartInfo *commonmodels.DeliveryDistribute
+	for _, distribute := range distributes {
+		if distribute.ServiceName == chartName {
+			chartInfo = distribute
 		}
 	}
 
@@ -675,7 +1049,7 @@ func getChartConfigInfo(projectName, version string, chartName string, log *zap.
 }
 
 func DownloadDeliveryChart(projectName, version string, chartName string, log *zap.SugaredLogger) (string, error) {
-	chartInfo, err := getChartConfigInfo(projectName, version, chartName, log)
+	chartInfo, err := getChartDistributeInfo(projectName, version, chartName, log)
 	if err != nil {
 		return "", err
 	}
@@ -689,12 +1063,12 @@ func DownloadDeliveryChart(projectName, version string, chartName string, log *z
 
 func preDownloadAndUncompressChart(projectName, versionName, chartName string, log *zap.SugaredLogger) (string, error) {
 
-	chartInfo, err := getChartConfigInfo(projectName, versionName, chartName, log)
+	chartDistribute, err := getChartDistributeInfo(projectName, versionName, chartName, log)
 	if err != nil {
 		return "", err
 	}
 	dstDir := getChartExpandDir(projectName, versionName)
-	dstDir = filepath.Join(dstDir, fmt.Sprintf("%s-%s", chartInfo.Name, chartInfo.Version))
+	dstDir = filepath.Join(dstDir, fmt.Sprintf("%s-%s", chartDistribute.ServiceName, chartDistribute.Version))
 
 	filePath, err := DownloadDeliveryChart(projectName, versionName, chartName, log)
 	if err != nil {
@@ -809,12 +1183,13 @@ func GetDeliveryChartFileContent(args *DeliveryChartFileContentArgs, log *zap.Su
 	return string(fileContent), nil
 }
 
-func ApplyDeliveryGlobalVariables(args *DeliveryVariablesApplyArgs, log *zap.SugaredLogger) (interface{}, error) {
+func ApplyDeliveryGlobalVariables(args *DeliveryVariablesApplyArgs, logger *zap.SugaredLogger) (interface{}, error) {
 	ret := new(DeliveryVariablesApplyArgs)
 	for _, chartData := range args.ChartDatas {
 		mergedYaml, err := yamlutil.Merge([][]byte{[]byte(chartData.ValuesYamlContent), []byte(args.GlobalVariables)})
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to merge global variable for service: %s", chartData.ServiceName)
+			logger.Errorf("failed to merge gobal variables for service: %s", chartData.ServiceName)
+			return nil, errors.Wrapf(err, "failed to merge global variables for service: %s", chartData.ServiceName)
 		}
 		ret.ChartDatas = append(ret.ChartDatas, &CreateHelmDeliveryVersionChartData{
 			ServiceName:       chartData.ServiceName,
