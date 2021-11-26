@@ -37,10 +37,10 @@ const (
 
 // RequestSpec
 type RequestSpec struct {
-	CpuLimit    string
-	MemoryLimit string
-	CpuReq      string
-	MemoryReq   string
+	CpuLimit    string `bson:"cpu_limit"           json:"cpu_limit"`
+	MemoryLimit string `bson:"memory_limit"        json:"memory_limit"`
+	CpuReq      string `bson:"cpu_req"             json:"cpu_req,omitempty"`
+	MemoryReq   string `bson:"memory_req"          json:"memory_req,omitempty"`
 }
 
 var (
