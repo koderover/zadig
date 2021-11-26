@@ -97,3 +97,10 @@ func ListPodEvents(c *gin.Context) {
 
 	ctx.Resp, ctx.Err = service.ListPodEvents(envName, productName, podName, ctx.Logger)
 }
+
+func ListNodes(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.ListAvailableNodes(c.Query("clusterId"), ctx.Logger)
+}

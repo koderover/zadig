@@ -223,3 +223,36 @@ func getModifiedServiceFromObjectMeta(om metav1.Object) *serviceInfo {
 		LastUpdateTime: t,
 	}
 }
+
+func ListAvailableNodes(clusterID string, log *zap.SugaredLogger) ([]*resource.Node, error) {
+	resp := make([]*resource.Node, 0)
+	kubeClient, err := kube.GetKubeClient(clusterID)
+	if err != nil {
+		log.Errorf("ListAvailableNodes clusterID:%s err:%s", clusterID, err)
+		return resp, err
+	}
+
+	nodes, err := getter.ListNodes(kubeClient)
+	if err != nil {
+		log.Errorf("ListNodes err:%s", err)
+		if apierrors.IsForbidden(err) {
+			return resp, nil
+		}
+		return resp, err
+	}
+
+	for _, node := range nodes {
+		labelM := node.Labels
+		labels := make([]string, 0, len(labelM))
+		for key, value := range labelM {
+			labels = append(labels, fmt.Sprintf("%s:%s", key, value))
+		}
+		nodeResource := &resource.Node{
+			Status: string(node.Status.Phase),
+			Labels: labels,
+		}
+		resp = append(resp, nodeResource)
+	}
+
+	return resp, nil
+}
