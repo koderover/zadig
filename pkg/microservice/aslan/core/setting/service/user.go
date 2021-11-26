@@ -171,10 +171,11 @@ func ensureServiceAccount(namespace string, editEnvProjects []string, readEnvPro
 	}
 	//2. create rolebinding
 	for _, v := range editEnvProjects {
-		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: v, IsSortByProductName: true})
+		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: v})
 		if err != nil {
 			log.Errorf("[%s] Collections.Product.List error: %v", v, err)
 		}
+		products = filterProductWithoutExternalCluster(products)
 		for _, vv := range products {
 
 			rolebinding, found, err := getter.GetRoleBinding(vv.Namespace, "zadig-env-edit", krkubeclient.Client())
@@ -211,6 +212,7 @@ func ensureServiceAccount(namespace string, editEnvProjects []string, readEnvPro
 		if err != nil {
 			log.Errorf("[%s] Collections.Product.List error: %v", v, err)
 		}
+		products = filterProductWithoutExternalCluster(products)
 		for _, vv := range products {
 			rolebinding, found, err := getter.GetRoleBinding(vv.Namespace, "zadig-env-read", krkubeclient.Client())
 			subs := []rbacv1beta1.Subject{rbacv1beta1.Subject{
