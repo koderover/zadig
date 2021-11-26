@@ -270,13 +270,13 @@ func ensureServiceAccount(namespace string, editEnvProjects []string, readEnvPro
 		for _, vv := range products {
 
 			rolebinding, found, err := getter.GetRoleBinding(vv.Namespace, "zadig-env-edit", krkubeclient.Client())
-			subs := []rbacv1beta1.Subject{}
+			subs := []rbacv1beta1.Subject{rbacv1beta1.Subject{
+				Kind:      "ServiceAccount",
+				Name:      fmt.Sprintf("%s-sa", userID),
+				Namespace: namespace,
+			}}
 			if err == nil && found {
-				subs = append(rolebinding.Subjects, rbacv1beta1.Subject{
-					Kind:      "ServiceAccount",
-					Name:      fmt.Sprintf("%s-sa", userID),
-					Namespace: namespace,
-				})
+				subs = append(subs, rolebinding.Subjects...)
 			}
 			if err := updater.CreateOrPatchRoleBinding(&rbacv1beta1.RoleBinding{
 				ObjectMeta: metav1.ObjectMeta{
@@ -305,13 +305,17 @@ func ensureServiceAccount(namespace string, editEnvProjects []string, readEnvPro
 		}
 		for _, vv := range products {
 			rolebinding, found, err := getter.GetRoleBinding(vv.Namespace, "zadig-env-read", krkubeclient.Client())
-			subs := []rbacv1beta1.Subject{}
+			subs := []rbacv1beta1.Subject{rbacv1beta1.Subject{
+				Kind:      "ServiceAccount",
+				Name:      fmt.Sprintf("%s-sa", userID),
+				Namespace: namespace,
+			}}
+			if err != nil {
+				log.Errorf("GetRoleBinding err: %s", err)
+				continue
+			}
 			if err == nil && found {
-				subs = append(rolebinding.Subjects, rbacv1beta1.Subject{
-					Kind:      "ServiceAccount",
-					Name:      fmt.Sprintf("%s-sa", userID),
-					Namespace: namespace,
-				})
+				subs = append(subs, rolebinding.Subjects...)
 			}
 			if err := updater.CreateOrPatchRoleBinding(&rbacv1beta1.RoleBinding{
 				ObjectMeta: metav1.ObjectMeta{
