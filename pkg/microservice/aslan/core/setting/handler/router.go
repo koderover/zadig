@@ -25,6 +25,6 @@ type Router struct{}
 func (*Router) Inject(router *gin.RouterGroup) {
 	user := router.Group("user")
 	{
-		user.GET("/kube/config", GetUserKubeConfigV2)
+		user.GET("/kube/config", GetUserKubeConfig)
 	}
 }

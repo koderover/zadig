@@ -23,11 +23,11 @@ import (
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
-func GetUserKubeConfigV2(c *gin.Context) {
+func GetUserKubeConfig(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	editEnvProjects := c.QueryArray("editEnvProjects")
 	readEnvProjects := c.QueryArray("readEnvProjects")
-	ctx.Resp, ctx.Err = settingservice.GetUserKubeConfigV2(ctx.UserID, editEnvProjects, readEnvProjects, ctx.Logger)
+	ctx.Resp, ctx.Err = settingservice.GetUserKubeConfig(ctx.UserID, editEnvProjects, readEnvProjects, ctx.Logger)
 }

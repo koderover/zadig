@@ -50,7 +50,7 @@ type kubeCfgTmplArgs struct {
 	ClientKeyBase64 string
 }
 
-func GetUserKubeConfigV2(userID string, editEnvProjects []string, readEnvProjects []string, log *zap.SugaredLogger) (string, error) {
+func GetUserKubeConfig(userID string, editEnvProjects []string, readEnvProjects []string, log *zap.SugaredLogger) (string, error) {
 	saNamespace := config.Namespace()
 	if err := ensurClusterRole(); err != nil {
 		return "", err
