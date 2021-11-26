@@ -156,18 +156,18 @@ func ensureServiceAccount(namespace string, editEnvProjects []string, readEnvPro
 			Namespace: namespace,
 		},
 	}
-	_, found, err := getter.GetServiceAccount(namespace, userID+"-sa", krkubeclient.Client())
-	if err != nil {
-		return err
-	}
-	if found && err == nil {
-		return nil
-	}
+	//_, found, err := getter.GetServiceAccount(namespace, userID+"-sa", krkubeclient.Client())
+	//if err != nil {
+	//	return err
+	//}
+	//if found && err == nil {
+	//	return nil
+	//}
 	// user's first time download kubeconfig
 	//1. create serviceAccount
 	if err := updater.CreateOrPatchServiceAccount(serviceAccount, krkubeclient.Client()); err != nil {
 		log.Errorf("CreateServiceAccount err: %+v", err)
-		return nil
+		return err
 	}
 	//2. create rolebinding
 	for _, v := range editEnvProjects {
