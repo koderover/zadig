@@ -28,10 +28,8 @@ func DownloadKubeConfig(header http.Header, qs url.Values, logger *zap.SugaredLo
 		return nil, err
 	}
 
-	if !(len(readEnvProjects) == 1 && readEnvProjects[0] == "*") {
-		for _, name := range readEnvProjects {
-			qs.Add("readEnvProjects", name)
-		}
+	for _, name := range readEnvProjects {
+		qs.Add("readEnvProjects", name)
 	}
 
 	editEnvProjects, err := getAllowedProjects(header, editEnvRules, true, logger)
@@ -40,10 +38,9 @@ func DownloadKubeConfig(header http.Header, qs url.Values, logger *zap.SugaredLo
 		return nil, err
 	}
 
-	if !(len(editEnvProjects) == 1 && editEnvProjects[0] == "*") {
-		for _, name := range editEnvProjects {
-			qs.Add("editEnvProjects", name)
-		}
+	for _, name := range editEnvProjects {
+		qs.Add("editEnvProjects", name)
 	}
-	return aslan.New().DownloadKubeConfig(readEnvProjects, editEnvProjects, header, qs)
+
+	return aslan.New().DownloadKubeConfig(header, qs)
 }

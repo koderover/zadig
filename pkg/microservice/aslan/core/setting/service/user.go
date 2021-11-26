@@ -33,6 +33,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
@@ -168,6 +169,19 @@ func ensureServiceAccount(namespace string, editEnvProjects []string, readEnvPro
 	}
 
 	//2. create rolebinding
+	if len(editEnvProjects) == 1 && editEnvProjects[0] == "*" {
+		res, err := templaterepo.NewProductColl().ListProjectBriefs(nil)
+		if err != nil {
+			log.Errorf("ListProjectBriefs err:%s", err)
+			return err
+		}
+		tmp := []string{}
+		for _, v := range res {
+			tmp = append(tmp, v.Name)
+		}
+
+		editEnvProjects = tmp
+	}
 	for _, v := range editEnvProjects {
 		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: v})
 		if err != nil {
@@ -211,7 +225,19 @@ func ensureServiceAccount(namespace string, editEnvProjects []string, readEnvPro
 			}
 		}
 	}
+	if len(readEnvProjects) == 1 && readEnvProjects[0] == "*" {
+		res, err := templaterepo.NewProductColl().ListProjectBriefs(nil)
+		if err != nil {
+			log.Errorf("ListProjectBriefs err:%s", err)
+			return err
+		}
+		tmp := []string{}
+		for _, v := range res {
+			tmp = append(tmp, v.Name)
+		}
 
+		readEnvProjects = tmp
+	}
 	for _, v := range readEnvProjects {
 		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: v, IsSortByProductName: true})
 		if err != nil {
