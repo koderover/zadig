@@ -63,7 +63,7 @@ func TestCreateJobConfigMap(t *testing.T) {
 		TaskType:     fmt.Sprintf("%s", config.TaskBuild),
 	}
 
-	createJobConfigMap(FakeKubeCli, namespace, jobname, jobLabel, jobCtx)
+	createJobConfigMap(namespace, jobname, jobLabel, jobCtx, FakeKubeCli)
 	jobConfigmap, err := FakeKubeCli.GetConfigMap(namespace, jobname)
 	assert.Nil(err)
 	assert.Equal(jobname, jobConfigmap.Name)
@@ -150,7 +150,7 @@ func TestBuildJob(t *testing.T) {
 		ConfigPayload: &task.ConfigPayload{},
 	}
 
-	_, err := buildJob(config.TaskBuild, jobImage, "test-build-job", "test123", setting.LowRequest, pipelineCtx, pipelineTask, nil)
+	_, err := buildJob(config.TaskBuild, jobImage, "test-build-job", "test123", setting.LowRequest, setting.LowRequestSpec, pipelineCtx, pipelineTask, nil)
 	log.Error(err)
 
 	const (
@@ -158,7 +158,7 @@ func TestBuildJob(t *testing.T) {
 		serviceName = "Test123"
 	)
 	job, err := buildJob(config.TaskBuild, jobImage, jobName, serviceName,
-		setting.LowRequest, pipelineCtx, pipelineTask, make([]*task.RegistryNamespace, 0))
+		setting.LowRequest, setting.LowRequestSpec, pipelineCtx, pipelineTask, make([]*task.RegistryNamespace, 0))
 	assert.Nil(err)
 
 	assert.Equal(jobName, job.ObjectMeta.Name)
@@ -194,7 +194,7 @@ func TestEnsureDeleteJob(t *testing.T) {
 		ConfigPayload: &task.ConfigPayload{},
 	}
 
-	job, err := buildJob(config.TaskBuild, jobImage, jobname, servicename, setting.LowRequest, pipelineCtx, pipelineTask, nil)
+	job, err := buildJob(config.TaskBuild, jobImage, jobname, servicename, setting.LowRequest, setting.LowRequestSpec, pipelineCtx, pipelineTask, nil)
 	assert.Nil(err)
 
 	defer func() {

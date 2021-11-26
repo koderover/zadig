@@ -29,6 +29,65 @@ const (
 	LowRequest Request = "low"
 	// MinRequest 2 CPU 2 G
 	MinRequest Request = "min"
+	// DefaultRequest 4 CPU 8 G
+	DefaultRequest Request = "default"
+	// DefineRequest x CPU x G
+	DefineRequest Request = "define"
+)
+
+// RequestSpec
+type RequestSpec struct {
+	CpuLimit    string
+	MemoryLimit string
+	CpuReq      string
+	MemoryReq   string
+}
+
+var (
+	// HighRequest 16 CPU 32 G
+	HighRequestSpec = RequestSpec{
+		CpuLimit:    "16",
+		MemoryLimit: "32Gi",
+		CpuReq:      "4",
+		MemoryReq:   "4Gi",
+	}
+
+	// MediumRequest 8 CPU 16 G
+	MediumRequestSpec = RequestSpec{
+		CpuLimit:    "8",
+		MemoryLimit: "16Gi",
+		CpuReq:      "2",
+		MemoryReq:   "2Gi",
+	}
+	// LowRequest 4 CPU 8 G
+	LowRequestSpec = RequestSpec{
+		CpuLimit:    "4",
+		MemoryLimit: "8Gi",
+		CpuReq:      "1",
+		MemoryReq:   "1Gi",
+	}
+	// MinRequest 2 CPU 2 G
+	MinRequestSpec = RequestSpec{
+		CpuLimit:    "2",
+		MemoryLimit: "2Gi",
+		CpuReq:      "0.5",
+		MemoryReq:   "512Mi",
+	}
+	// DefineRequest X CPU X G
+	DefineRequestSpec = RequestSpec{}
+	// DefaultRequest 4 CPU 8 G
+	DefaultRequestSpec = RequestSpec{
+		CpuLimit:    "4",
+		MemoryLimit: "8Gi",
+		CpuReq:      "1",
+		MemoryReq:   "1Gi",
+	}
+)
+
+const (
+	CpuUintM     string = "m"
+	MemoryUintMi string = "Mi"
+	MemoryUintGi string = "Gi"
 )
 
 var ValidName = regexp.MustCompile(`^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$`)

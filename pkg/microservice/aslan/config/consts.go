@@ -158,20 +158,6 @@ const (
 	NameSpaceRegexString = "[^a-z0-9.-]"
 )
 
-// Request ...
-type Request string
-
-const (
-	// HighRequest 16 CPU 32 G
-	HighRequest = Request("high")
-	// MediumRequest 8 CPU 16 G
-	MediumRequest = Request("medium")
-	// LowRequest 4 CPU 8 G
-	LowRequest = Request("low")
-	// MinRequest 2 CPU 2 G
-	MinRequest = Request("min")
-)
-
 //ProductPermission ...
 type ProductPermission string
 
