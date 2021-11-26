@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"html/template"
 	"time"
 
@@ -182,52 +181,9 @@ func ensureServiceAccountAndRolebinding(namespace string, editEnvProjects []stri
 			log.Errorf("ListProjectBriefs err:%s", err)
 			return err
 		}
-
 		editEnvProjects = res
 	}
-	for _, v := range editEnvProjects {
-		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: v})
-		if err != nil {
-			log.Errorf("[%s] Collections.Product.List error: %v", v, err)
-		}
-		products = filterProductWithoutExternalCluster(products)
-		for _, vv := range products {
-			rolebinding, found, err := getter.GetRoleBinding(vv.Namespace, config.RoleBindingNameEditEnv, krkubeclient.Client())
-			subs := []rbacv1beta1.Subject{{
-				Kind:      "ServiceAccount",
-				Name:      config.ServiceAccountName(userID),
-				Namespace: namespace,
-			}}
-			if err == nil && found {
-				isExist := false
-				for _, v := range rolebinding.Subjects {
-					if v.Name == fmt.Sprintf("%s-sa", userID) {
-						isExist = true
-					}
-				}
-				if !isExist {
-					subs = append(subs, rolebinding.Subjects...)
-				}
-			}
-			if err := updater.CreateOrPatchRoleBinding(&rbacv1beta1.RoleBinding{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      config.RoleBindingNameEditEnv,
-					Namespace: vv.Namespace,
-				},
-				Subjects: subs,
-				RoleRef: rbacv1beta1.RoleRef{
-					// APIGroup is the group for the resource being referenced
-					APIGroup: "rbac.authorization.k8s.io",
-					// Kind is the type of resource being referenced
-					Kind: "ClusterRole",
-					// Name is the name of resource being referenced
-					Name: "zadig-env-edit",
-				},
-			}, krkubeclient.Client()); err != nil {
-				log.Errorf("create rolebinding err: %s", err)
-			}
-		}
-	}
+
 	if len(readEnvProjects) == 1 && readEnvProjects[0] == "*" {
 		res, err := templaterepo.NewProductColl().ListNames(nil)
 		if err != nil {
@@ -236,6 +192,20 @@ func ensureServiceAccountAndRolebinding(namespace string, editEnvProjects []stri
 		}
 		readEnvProjects = res
 	}
+
+	for _, v := range editEnvProjects {
+		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: v})
+		if err != nil {
+			log.Errorf("[%s] Collections.Product.List error: %v", v, err)
+		}
+		products = filterProductWithoutExternalCluster(products)
+		for _, vv := range products {
+			if err := CreateRoleBinding(vv.Namespace, namespace, config.ServiceAccountName(userID), config.RoleBindingNameEditEnv); err != nil {
+				log.Errorf("CreateRoleBinding err: %s", err)
+			}
+		}
+	}
+
 	for _, v := range readEnvProjects {
 		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: v, IsSortByProductName: true})
 		if err != nil {
@@ -243,43 +213,8 @@ func ensureServiceAccountAndRolebinding(namespace string, editEnvProjects []stri
 		}
 		products = filterProductWithoutExternalCluster(products)
 		for _, vv := range products {
-			rolebinding, found, err := getter.GetRoleBinding(vv.Namespace, config.RoleBindingNameReadEnv, krkubeclient.Client())
-			subs := []rbacv1beta1.Subject{{
-				Kind:      "ServiceAccount",
-				Name:      config.ServiceAccountName(userID),
-				Namespace: namespace,
-			}}
-			if err != nil {
-				log.Errorf("GetRoleBinding err: %s", err)
-				continue
-			}
-			if err == nil && found {
-				isExist := false
-				for _, v := range rolebinding.Subjects {
-					if v.Name == fmt.Sprintf("%s-sa", userID) {
-						isExist = true
-					}
-				}
-				if !isExist {
-					subs = append(subs, rolebinding.Subjects...)
-				}
-			}
-			if err := updater.CreateOrPatchRoleBinding(&rbacv1beta1.RoleBinding{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      config.RoleBindingNameReadEnv,
-					Namespace: vv.Namespace,
-				},
-				Subjects: subs,
-				RoleRef: rbacv1beta1.RoleRef{
-					// APIGroup is the group for the resource being referenced
-					APIGroup: "rbac.authorization.k8s.io",
-					// Kind is the type of resource being referenced
-					Kind: "ClusterRole",
-					// Name is the name of resource being referenced
-					Name: "zadig-env-read",
-				},
-			}, krkubeclient.Client()); err != nil {
-				log.Errorf("create rolebinding err: %s", err)
+			if err := CreateRoleBinding(vv.Namespace, namespace, config.ServiceAccountName(userID), config.RoleBindingNameReadEnv); err != nil {
+				log.Errorf("CreateRoleBinding err: %s", err)
 			}
 		}
 	}
@@ -316,3 +251,46 @@ users:
   user:
     token: {{.CaKeyBase64}}
 `
+
+func CreateRoleBinding(rbNamespace, saNamspace, serviceAccountName, roleBindName string) error {
+	rolebinding, found, err := getter.GetRoleBinding(rbNamespace, config.RoleBindingNameEditEnv, krkubeclient.Client())
+	subs := []rbacv1beta1.Subject{{
+		Kind:      "ServiceAccount",
+		Name:      serviceAccountName,
+		Namespace: saNamspace,
+	}}
+	if err != nil {
+		log.Errorf("GetRoleBinding err: %s", err)
+		return err
+	}
+	if found {
+		isExist := false
+		for _, v := range rolebinding.Subjects {
+			if v.Name == serviceAccountName {
+				isExist = true
+			}
+		}
+		if !isExist {
+			subs = append(subs, rolebinding.Subjects...)
+		}
+	}
+	if err := updater.CreateOrPatchRoleBinding(&rbacv1beta1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      config.RoleBindingNameEditEnv,
+			Namespace: rbNamespace,
+		},
+		Subjects: subs,
+		RoleRef: rbacv1beta1.RoleRef{
+			// APIGroup is the group for the resource being referenced
+			APIGroup: "rbac.authorization.k8s.io",
+			// Kind is the type of resource being referenced
+			Kind: "ClusterRole",
+			// Name is the name of resource being referenced
+			Name: "zadig-env-edit",
+		},
+	}, krkubeclient.Client()); err != nil {
+		log.Errorf("create rolebinding err: %s", err)
+		return err
+	}
+	return nil
+}
