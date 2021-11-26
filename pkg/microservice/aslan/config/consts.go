@@ -18,6 +18,9 @@ package config
 
 import (
 	"regexp"
+
+	rbacv1beta1 "k8s.io/api/rbac/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
@@ -219,4 +222,30 @@ const (
 const (
 	ImageResourceType = "image"
 	TarResourceType   = "tar"
+)
+
+const (
+	RoleBindingNameEditEnv = "zadig-env-edit"
+	RoleBindingNameReadEnv = "zadig-env-read"
+)
+
+var (
+	ClusterRoleEdit = &rbacv1beta1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: RoleBindingNameEditEnv,
+		},
+		Rules: []rbacv1beta1.PolicyRule{rbacv1beta1.PolicyRule{
+			Verbs:     []string{"*"},
+			APIGroups: []string{""},
+			Resources: []string{"*"},
+		}}}
+	ClusterRoleRead = &rbacv1beta1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: RoleBindingNameReadEnv,
+		},
+		Rules: []rbacv1beta1.PolicyRule{rbacv1beta1.PolicyRule{
+			Verbs:     []string{"get", "watch", "list"},
+			APIGroups: []string{""},
+			Resources: []string{"*"},
+		}}}
 )
