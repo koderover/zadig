@@ -8,7 +8,7 @@ import (
 )
 
 func (c *Client) DownloadKubeConfig(readEnvProjects []string, editEnvProject []string, header http.Header, qs url.Values) ([]byte, error) {
-	url := "/setting/user/kube/config/v2"
+	url := "/setting/user/kube/config"
 
 	res, err := c.Get(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs))
 	if err != nil {

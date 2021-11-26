@@ -70,7 +70,7 @@ func GetUserKubeConfigV2(userID string, editEnvProjects []string, readEnvProject
 		CaKeyBase64:    token,
 	}
 
-	return renderCfgTmplv2(args)
+	return renderCfgTmpl(args)
 }
 
 func getCrtAndToken(namespace, userID string) (string, string, error) {
@@ -156,19 +156,17 @@ func ensureServiceAccount(namespace string, editEnvProjects []string, readEnvPro
 			Namespace: namespace,
 		},
 	}
-	//_, found, err := getter.GetServiceAccount(namespace, userID+"-sa", krkubeclient.Client())
-	//if err != nil {
-	//	return err
-	//}
-	//if found && err == nil {
-	//	return nil
-	//}
-	// user's first time download kubeconfig
-	//1. create serviceAccount
-	if err := updater.CreateOrPatchServiceAccount(serviceAccount, krkubeclient.Client()); err != nil {
-		log.Errorf("CreateServiceAccount err: %+v", err)
+	_, found, err := getter.GetServiceAccount(namespace, userID+"-sa", krkubeclient.Client())
+	if err != nil {
 		return err
 	}
+	if !found && err == nil {
+		if err := updater.CreateServiceAccount(serviceAccount, krkubeclient.Client()); err != nil {
+			log.Errorf("CreateServiceAccount err: %+v", err)
+			return err
+		}
+	}
+
 	//2. create rolebinding
 	for _, v := range editEnvProjects {
 		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: v})
@@ -177,7 +175,6 @@ func ensureServiceAccount(namespace string, editEnvProjects []string, readEnvPro
 		}
 		products = filterProductWithoutExternalCluster(products)
 		for _, vv := range products {
-
 			rolebinding, found, err := getter.GetRoleBinding(vv.Namespace, "zadig-env-edit", krkubeclient.Client())
 			subs := []rbacv1beta1.Subject{rbacv1beta1.Subject{
 				Kind:      "ServiceAccount",
@@ -311,9 +308,9 @@ func ensureServiceAccount(namespace string, editEnvProjects []string, readEnvPro
 	return nil
 }
 
-func renderCfgTmplv2(args *kubeCfgTmplArgs) (string, error) {
+func renderCfgTmpl(args *kubeCfgTmplArgs) (string, error) {
 	buf := new(bytes.Buffer)
-	t := template.Must(template.New("cfgv2").Parse(kubeCfgTmplv2))
+	t := template.Must(template.New("cfg").Parse(kubeCfgTmpl))
 	err := t.Execute(buf, args)
 	if err != nil {
 		return "", err
@@ -321,7 +318,7 @@ func renderCfgTmplv2(args *kubeCfgTmplArgs) (string, error) {
 	return buf.String(), nil
 }
 
-const kubeCfgTmplv2 = `
+const kubeCfgTmpl = `
 apiVersion: v1
 clusters:
 - cluster:

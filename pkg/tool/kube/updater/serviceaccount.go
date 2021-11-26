@@ -29,7 +29,3 @@ func DeleteServiceAccounts(ns string, selector labels.Selector, cl client.Client
 func CreateServiceAccount(sa *corev1.ServiceAccount, cl client.Client) error {
 	return createObject(sa, cl)
 }
-
-func CreateOrPatchServiceAccount(sa *corev1.ServiceAccount, cl client.Client) error {
-	return createOrPatchObject(sa, cl)
-}
