@@ -171,41 +171,55 @@ func GetProductStatus(productName string, log *zap.SugaredLogger) ([]*EnvStatus,
 	return envStatusSlice, err
 }
 
-func ListProducts(productNameParam string, userName string, log *zap.SugaredLogger) (resp []*ProductResp, err error) {
-	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productNameParam, IsSortByProductName: true})
+func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger) ([]*ProductResp, error) {
+	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: projectName, InEnvs: envNames, IsSortByProductName: true})
 	if err != nil {
-		log.Errorf("[%s] Collections.Product.List error: %v", userName, err)
-		return resp, e.ErrListEnvs.AddDesc(err.Error())
+		log.Errorf("Failed to list envs, err: %s", err)
+		return nil, e.ErrListEnvs.AddDesc(err.Error())
 	}
 
-	for _, prod := range products {
-		product := &ProductResp{
-			ID:          prod.ID.Hex(),
-			ProductName: prod.ProductName,
-			EnvName:     prod.EnvName,
-			Namespace:   prod.Namespace,
-			Vars:        prod.Vars[:],
-			IsPublic:    prod.IsPublic,
-			ClusterID:   prod.ClusterID,
-			UpdateTime:  prod.UpdateTime,
-			UpdateBy:    prod.UpdateBy,
-			RecycleDay:  prod.RecycleDay,
-			Render:      prod.Render,
-			Source:      prod.Source,
-		}
-		if product.ClusterID != "" {
-			cluster, _ := commonrepo.NewK8SClusterColl().Get(product.ClusterID)
-			if cluster != nil && cluster.Production {
-				product.IsProd = true
-			}
-		}
-		err = FillProductVars(products, log)
-		if err != nil {
-			return resp, err
-		}
-		resp = append(resp, product)
+	err = FillProductVars(envs, log)
+	if err != nil {
+		return nil, err
 	}
-	return resp, nil
+
+	var res []*ProductResp
+	clusterMap := make(map[string]*commonmodels.K8SCluster)
+	for _, env := range envs {
+		clusterID := env.ClusterID
+		production := false
+		if clusterID != "" {
+			cluster, ok := clusterMap[clusterID]
+			if !ok {
+				cluster, err = commonrepo.NewK8SClusterColl().Get(clusterID)
+				if err != nil {
+					log.Warnf("Failed to get cluster %s in db, can not determine if env %s is a production env or not, err: %s", clusterID, env.EnvName, err)
+					continue
+				}
+				clusterMap[clusterID] = cluster
+			}
+
+			production = cluster.Production
+		}
+
+		res = append(res, &ProductResp{
+			ID:          env.ID.Hex(),
+			ProductName: env.ProductName,
+			EnvName:     env.EnvName,
+			Namespace:   env.Namespace,
+			Vars:        env.Vars[:],
+			IsPublic:    env.IsPublic,
+			ClusterID:   env.ClusterID,
+			UpdateTime:  env.UpdateTime,
+			UpdateBy:    env.UpdateBy,
+			RecycleDay:  env.RecycleDay,
+			Render:      env.Render,
+			Source:      env.Source,
+			IsProd:      production,
+		})
+	}
+
+	return res, nil
 }
 
 func FillProductVars(products []*commonmodels.Product, log *zap.SugaredLogger) error {
@@ -1172,11 +1186,11 @@ func GetProductInfo(username, envName, productName string, log *zap.SugaredLogge
 	return prod, nil
 }
 
-func GetProductIngress(username, productName string, log *zap.SugaredLogger) ([]*ProductIngressInfo, error) {
+func GetProductIngress(productName string, log *zap.SugaredLogger) ([]*ProductIngressInfo, error) {
 	productIngressInfos := make([]*ProductIngressInfo, 0)
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName})
 	if err != nil {
-		log.Errorf("[%s] Collections.Product.List error: %v", username, err)
+		log.Errorf("Failed to list envs, err: %s", err)
 		return productIngressInfos, e.ErrListEnvs.AddDesc(err.Error())
 	}
 	for _, prod := range products {

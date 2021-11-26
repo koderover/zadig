@@ -68,6 +68,14 @@ func NewContext(c *gin.Context) *Context {
 	}
 }
 
+func GetResourcesInHeader(c *gin.Context) ([]string, bool) {
+	_, ok := c.Request.Header[setting.ResourcesHeader]
+	if !ok {
+		return nil, false
+	}
+	return strings.Split(c.GetHeader(setting.ResourcesHeader), ","), true
+}
+
 func getUserFromJWT(token string) (jwtClaims, error) {
 	cs := jwtClaims{}
 

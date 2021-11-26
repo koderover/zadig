@@ -29,21 +29,6 @@ func (m resourceActionMappings) GetRules(resource string, actions []string) []*r
 	return res
 }
 
-//var resourceActionMappings = map[string]map[string][]*rule{
-//	"Workflow": workflowMapping,
-//}
-//
-//var workflowMapping = map[string][]*rule{
-//	ActionCreate: {
-//		{Method: MethodPost, Endpoint: "/api/aslan/workflow/workflow"},
-//		{Method: MethodPost, Endpoint: "/api/aslan/workflow/v2/pipelines"},
-//	},
-//	ActionDelete: {
-//		{Method: MethodPost, Endpoint: "/api/aslan/workflow/workflow/?*"},
-//		{Method: MethodPost, Endpoint: "/api/aslan/workflow/v2/pipelines/?*"},
-//	},
-//}
-
 func getResourceActionMappings(policies []*models.Policy) resourceActionMappings {
 	data := make(resourceActionMappings)
 	for _, p := range policies {
@@ -53,7 +38,18 @@ func getResourceActionMappings(policies []*models.Policy) resourceActionMappings
 
 		for _, r := range p.Rules {
 			for _, ar := range r.Rules {
-				data[p.Resource][r.Action] = append(data[p.Resource][r.Action], &rule{Method: ar.Method, Endpoint: ar.Endpoint})
+				var as []attribute
+				for _, a := range ar.MatchAttributes {
+					as = append(as, attribute{Key: a.Key, Value: a.Value})
+				}
+
+				data[p.Resource][r.Action] = append(data[p.Resource][r.Action], &rule{
+					Method:          ar.Method,
+					Endpoint:        ar.Endpoint,
+					ResourceType:    ar.ResourceType,
+					IDRegex:         ar.IDRegex,
+					MatchAttributes: as,
+				})
 			}
 		}
 	}
