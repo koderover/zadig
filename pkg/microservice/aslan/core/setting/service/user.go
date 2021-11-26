@@ -22,14 +22,8 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"strings"
-	"sync"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1beta1 "k8s.io/api/rbac/v1beta1"
@@ -41,7 +35,6 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
-	e "github.com/koderover/zadig/pkg/tool/errors"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
@@ -98,91 +91,6 @@ func getCrtAndToken(namespace, userID string) (string, string, error) {
 		return "", "", errors.New("secret not found")
 	}
 	return base64.StdEncoding.EncodeToString(secret.Data["ca.crt"]), string(secret.Data["token"]), nil
-}
-
-func GetUserKubeConfig(userName string, log *zap.SugaredLogger) (string, error) {
-	username := strings.ToLower(userName)
-	username = config.NameSpaceRegex.ReplaceAllString(username, "-")
-	var (
-		err         error
-		productEnvs = make([]*commonmodels.Product, 0)
-	)
-
-	productEnvs, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{})
-	if err != nil {
-		log.Errorf("GetUserKubeConfig Collection.Product.List error: %v", err)
-		return "", e.ErrListProducts.AddDesc(err.Error())
-	}
-
-	// 只管理同集群的资源，且排除状态为Terminating的namespace
-	productEnvs = filterProductWithoutExternalCluster(productEnvs)
-
-	saNamespace := config.Namespace()
-	if err := ensureServiceAccount(saNamespace, nil, nil, username, log); err != nil {
-		return "", err
-	}
-
-	var (
-		wg      sync.WaitGroup
-		pool    = make(chan int, 20)
-		errList = new(multierror.Error)
-	)
-	for _, productEnv := range productEnvs {
-		namespace := productEnv.Namespace
-
-		if _, found, err := getter.GetNamespace(namespace, krkubeclient.Client()); err != nil || !found {
-			log.Error(err)
-			continue
-		}
-
-		wg.Add(1)
-		pool <- 1
-		go func() {
-			defer func() {
-				wg.Done()
-				<-pool
-			}()
-			if err := ensureUserRole(namespace, username, log); err != nil {
-				log.Error(err)
-				errList = multierror.Append(errList, err)
-			}
-
-			if err := ensureUserRoleBinding(saNamespace, namespace, username); err != nil {
-				log.Error(err)
-				errList = multierror.Append(errList, err)
-			}
-		}()
-	}
-	wg.Wait()
-	close(pool)
-	if err := errList.ErrorOrNil(); err != nil {
-		log.Error(err)
-		return "", err
-	}
-
-	if err := createK8sSSLCert(saNamespace, username); err != nil {
-		log.Errorf("[%s] createSSLCert error: %v", username, err)
-		return "", err
-	}
-
-	caCrtBase64, err := ioutil.ReadFile(filepath.Join(os.TempDir(), username, "ca.crt"))
-	if err != nil {
-		return "", fmt.Errorf("get client.crt error: %v", err)
-	}
-
-	caKeyBase64, err := ioutil.ReadFile(filepath.Join(os.TempDir(), username, "ca.key"))
-	if err != nil {
-		return "", fmt.Errorf("get client.key error: %v", err)
-	}
-
-	args := &kubeCfgTmplArgs{
-		KubeServerAddr: config.KubeServerAddr(),
-		User:           username,
-		CaCrtBase64:    string(caCrtBase64),
-		CaKeyBase64:    string(caKeyBase64),
-	}
-
-	return renderCfgTmpl(args)
 }
 
 func filterProductWithoutExternalCluster(products []*commonmodels.Product) []*commonmodels.Product {
@@ -400,153 +308,6 @@ func ensureServiceAccount(namespace string, editEnvProjects []string, readEnvPro
 
 	return nil
 }
-
-func ensureUserRole(namespace, username string, _ *zap.SugaredLogger) error {
-	roleName := fmt.Sprintf("%s-role", username)
-	verbs := []string{"*"}
-	role := &rbacv1beta1.Role{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      roleName,
-			Namespace: namespace,
-		},
-		Rules: []rbacv1beta1.PolicyRule{
-			rbacv1beta1.PolicyRule{
-				APIGroups: []string{"*"},
-				Resources: []string{"*"},
-				Verbs:     verbs,
-			},
-			rbacv1beta1.PolicyRule{
-				APIGroups: []string{"*"},
-				Resources: []string{
-					"limitranges",
-					"resourcequotas",
-				},
-				Verbs: []string{"get", "list", "watch"},
-			},
-		},
-	}
-
-	old, found, err := getter.GetRole(namespace, roleName, krkubeclient.Client())
-	if err == nil && found {
-		old.Rules = role.Rules
-		if err := updater.UpdateRole(old, krkubeclient.Client()); err != nil {
-			return err
-		}
-	} else {
-		if err := updater.CreateRole(role, krkubeclient.Client()); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func ensureUserRoleBinding(saNamespace, namespace, username string) error {
-	roleName := fmt.Sprintf("%s-role", username)
-	roleBindName := fmt.Sprintf("%s-role-bind", username)
-	rolebinding := &rbacv1beta1.RoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      roleBindName,
-			Namespace: namespace,
-		},
-		RoleRef: rbacv1beta1.RoleRef{
-			APIGroup: "rbac.authorization.k8s.io",
-			Kind:     "Role",
-			Name:     roleName,
-		},
-		Subjects: []rbacv1beta1.Subject{
-			rbacv1beta1.Subject{
-				//APIGroup: "rbac.authorization.k8s.io",
-				//Kind:     "User",
-				//Name:     namespace,
-				Kind:      "ServiceAccount",
-				Name:      username + "-sa",
-				Namespace: saNamespace,
-			},
-		},
-	}
-	_, found, err := getter.GetRoleBinding(namespace, roleBindName, krkubeclient.Client())
-	if err != nil || !found {
-		if err := updater.CreateRoleBinding(rolebinding, krkubeclient.Client()); err != nil {
-			return err
-		}
-	} else {
-		if err := updater.UpdateRoleBinding(rolebinding, krkubeclient.Client()); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func createK8sSSLCert(namespace, username string) error {
-	workDir := filepath.Join(os.TempDir(), username)
-	if err := os.MkdirAll(workDir, os.ModePerm); err != nil {
-		return err
-	}
-
-	kubeClient := krkubeclient.Client()
-
-	sa, found, err := getter.GetServiceAccount(namespace, username+"-sa", kubeClient)
-	if err != nil {
-		return err
-	} else if !found {
-		return errors.New("sa not fonud")
-	} else if len(sa.Secrets) == 0 {
-		return errors.New("no secrets in sa")
-	}
-	secret, found, err := getter.GetSecret(namespace, sa.Secrets[0].Name, kubeClient)
-	if err != nil {
-		return err
-	} else if !found {
-		return errors.New("secret not found")
-	}
-	keyPath := filepath.Join(workDir, "ca.key")
-	certPath := filepath.Join(workDir, "ca.crt")
-
-	err = ioutil.WriteFile(keyPath, secret.Data["token"], 0644)
-	if err != nil {
-		return err
-	}
-	cert := make([]byte, base64.StdEncoding.EncodedLen(len(secret.Data["ca.crt"])))
-	base64.StdEncoding.Encode(cert, secret.Data["ca.crt"])
-	err = ioutil.WriteFile(certPath, cert, 0644)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func renderCfgTmpl(args *kubeCfgTmplArgs) (string, error) {
-	buf := new(bytes.Buffer)
-	t := template.Must(template.New("cfg").Parse(kubeCfgTmpl))
-	err := t.Execute(buf, args)
-	if err != nil {
-		return "", err
-	}
-	return buf.String(), nil
-}
-
-const kubeCfgTmpl = `
-apiVersion: v1
-clusters:
-- cluster:
-    certificate-authority-data: {{.CaCrtBase64}}
-    server: {{.KubeServerAddr}}
-  name: koderover
-contexts:
-- context:
-    cluster: koderover
-    user: {{.User}}
-  name: {{.User}}@kubernetes
-current-context: {{.User}}@kubernetes
-kind: Config
-preferences: {}
-users:
-- name: {{.User}}
-  user:
-    token: {{.CaKeyBase64}}
-    client-key-data: {{.CaCrtBase64}}
-`
 
 func renderCfgTmplv2(args *kubeCfgTmplArgs) (string, error) {
 	buf := new(bytes.Buffer)
