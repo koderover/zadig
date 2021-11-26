@@ -33,6 +33,7 @@ response = r {
 
 # response for resource filtering, all allowed resources IDs will be returned in headers
 response = r {
+    not allow
     rule_is_matched_for_filtering
     r := {
       "allowed": true,
@@ -51,7 +52,6 @@ allow {
 allow {
     is_authenticated
     access_is_granted
-
 }
 
 # Allow all valid users to visit exempted urls.

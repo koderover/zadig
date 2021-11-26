@@ -124,20 +124,21 @@ func GenerateEnvironmentBundle() ([]opaMeta, error) {
 	}
 
 	clusterMap := make(map[string]*models.K8SCluster)
+	clusters, err := mongodb.NewK8SClusterColl().Find("")
+	if err != nil {
+		log.Errorf("Failed to list clusters in db, err: %s", err)
+		return nil, err
+	}
+
+	for _, cls := range clusters {
+		clusterMap[cls.ID.Hex()] = cls
+	}
+
 	for _, env := range envs {
 		clusterID := env.ClusterID
 		production := false
-		if clusterID != "" {
-			cluster, ok := clusterMap[clusterID]
-			if !ok {
-				cluster, err = mongodb.NewK8SClusterColl().Get(clusterID)
-				if err != nil {
-					log.Warnf("Failed to get cluster %s in db, can not determine if env %s is a production env or not, err: %s", clusterID, env.EnvName, err)
-					continue
-				}
-				clusterMap[clusterID] = cluster
-			}
-
+		cluster, ok := clusterMap[clusterID]
+		if ok {
 			production = cluster.Production
 		}
 
