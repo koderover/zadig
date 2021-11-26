@@ -182,7 +182,15 @@ func ensureServiceAccount(namespace string, editEnvProjects []string, readEnvPro
 				Namespace: namespace,
 			}}
 			if err == nil && found {
-				subs = append(subs, rolebinding.Subjects...)
+				isExist := false
+				for _, v := range rolebinding.Subjects {
+					if v.Name == fmt.Sprintf("%s-sa", userID) {
+						isExist = true
+					}
+				}
+				if !isExist {
+					subs = append(subs, rolebinding.Subjects...)
+				}
 			}
 			if err := updater.CreateOrPatchRoleBinding(&rbacv1beta1.RoleBinding{
 				ObjectMeta: metav1.ObjectMeta{
@@ -222,7 +230,15 @@ func ensureServiceAccount(namespace string, editEnvProjects []string, readEnvPro
 				continue
 			}
 			if err == nil && found {
-				subs = append(subs, rolebinding.Subjects...)
+				isExist := false
+				for _, v := range rolebinding.Subjects {
+					if v.Name == fmt.Sprintf("%s-sa", userID) {
+						isExist = true
+					}
+				}
+				if !isExist {
+					subs = append(subs, rolebinding.Subjects...)
+				}
 			}
 			if err := updater.CreateOrPatchRoleBinding(&rbacv1beta1.RoleBinding{
 				ObjectMeta: metav1.ObjectMeta{
