@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"go.uber.org/zap"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -242,17 +244,32 @@ func ListAvailableNodes(clusterID string, log *zap.SugaredLogger) ([]*resource.N
 	}
 
 	for _, node := range nodes {
-		labelM := node.Labels
-		labels := make([]string, 0, len(labelM))
-		for key, value := range labelM {
-			labels = append(labels, fmt.Sprintf("%s:%s", key, value))
-		}
 		nodeResource := &resource.Node{
-			Status: string(node.Status.Phase),
-			Labels: labels,
+			Status: nodeReady(node),
+			Labels: nodeLabel(node),
 		}
 		resp = append(resp, nodeResource)
 	}
 
 	return resp, nil
+}
+
+// Ready indicates that the node is ready for traffic.
+func nodeReady(node *corev1.Node) string {
+	cs := node.Status.Conditions
+	for _, c := range cs {
+		if c.Type == corev1.NodeReady && c.Status == corev1.ConditionTrue {
+			return "ready"
+		}
+	}
+	return "not ready"
+}
+
+func nodeLabel(node *corev1.Node) []string {
+	labels := make([]string, 0, len(node.Labels))
+	labelM := node.Labels
+	for key, value := range labelM {
+		labels = append(labels, fmt.Sprintf("%s:%s", key, value))
+	}
+	return labels
 }
