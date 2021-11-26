@@ -253,7 +253,7 @@ users:
 `
 
 func CreateRoleBinding(rbNamespace, saNamspace, serviceAccountName, roleBindName string) error {
-	rolebinding, found, err := getter.GetRoleBinding(rbNamespace, config.RoleBindingNameEditEnv, krkubeclient.Client())
+	rolebinding, found, err := getter.GetRoleBinding(rbNamespace, roleBindName, krkubeclient.Client())
 	subs := []rbacv1beta1.Subject{{
 		Kind:      "ServiceAccount",
 		Name:      serviceAccountName,
@@ -276,7 +276,7 @@ func CreateRoleBinding(rbNamespace, saNamspace, serviceAccountName, roleBindName
 	}
 	if err := updater.CreateOrPatchRoleBinding(&rbacv1beta1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      config.RoleBindingNameEditEnv,
+			Name:      roleBindName,
 			Namespace: rbNamespace,
 		},
 		Subjects: subs,
