@@ -165,7 +165,7 @@ func ensureServiceAccount(namespace string, editEnvProjects []string, readEnvPro
 	}
 	// user's first time download kubeconfig
 	//1. create serviceAccount
-	if err := updater.CreateServiceAccount(serviceAccount, krkubeclient.Client()); err != nil {
+	if err := updater.CreateOrPatchServiceAccount(serviceAccount, krkubeclient.Client()); err != nil {
 		log.Errorf("CreateServiceAccount err: %+v", err)
 		return nil
 	}
