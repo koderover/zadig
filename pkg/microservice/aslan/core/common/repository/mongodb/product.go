@@ -138,6 +138,9 @@ func (c *ProductColl) List(opt *ProductListOptions) ([]*models.Product, error) {
 	var ret []*models.Product
 	query := bson.M{}
 
+	if opt == nil {
+		opt = &ProductListOptions{}
+	}
 	if opt.EnvName != "" {
 		query["env_name"] = opt.EnvName
 	}
