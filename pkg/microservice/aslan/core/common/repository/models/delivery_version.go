@@ -20,12 +20,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-//type DeliveryChart struct {
-//	Name    string `bson:"name" json:"name"`
-//	Version string `bson:"version" json:"version"`
-//	Repo    string `bson:"repo" json:"repo"`
-//}
-
 type DeliveryVersionProgress struct {
 	SuccessChartCount   int    `json:"successChartCount"`
 	TotalChartCount     int    `json:"totalChartCount"`
@@ -34,16 +28,15 @@ type DeliveryVersionProgress struct {
 }
 
 type DeliveryVersion struct {
-	ID             primitive.ObjectID `bson:"_id,omitempty"           json:"id,omitempty"`
-	Version        string             `bson:"version"                 json:"version"`
-	ProductName    string             `bson:"product_name"            json:"productName"`
-	WorkflowName   string             `bson:"workflow_name"           json:"workflowName"`
-	Type           string             `bson:"type" json:"type"`
-	TaskID         int                `bson:"task_id"                 json:"taskId"`
-	Desc           string             `bson:"desc"                    json:"desc"`
-	Labels         []string           `bson:"labels"                  json:"labels"`
-	ProductEnvInfo *Product           `bson:"product_env_info"        json:"productEnvInfo"`
-	//Charts         []*DeliveryChart         `bson:"charts"   json:"charts"`
+	ID             primitive.ObjectID       `bson:"_id,omitempty"           json:"id,omitempty"`
+	Version        string                   `bson:"version"                 json:"version"`
+	ProductName    string                   `bson:"product_name"            json:"productName"`
+	WorkflowName   string                   `bson:"workflow_name"           json:"workflowName"`
+	Type           string                   `bson:"type" json:"type"`
+	TaskID         int                      `bson:"task_id"                 json:"taskId"`
+	Desc           string                   `bson:"desc"                    json:"desc"`
+	Labels         []string                 `bson:"labels"                  json:"labels"`
+	ProductEnvInfo *Product                 `bson:"product_env_info"        json:"productEnvInfo"`
 	Status         string                   `bson:"status"   json:"status"`
 	Error          string                   `bson:"error"      json:"-"`
 	Progress       *DeliveryVersionProgress `bson:"-"       json:"progress"`

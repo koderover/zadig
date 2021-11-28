@@ -18,6 +18,7 @@ package handler
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -78,7 +79,7 @@ func ListDeliveryVersion(c *gin.Context) {
 		args.Page = 1
 	}
 	if args.PerPage <= 0 {
-		args.Page = 20
+		args.PerPage = 20
 	}
 	if len(args.Verbosity) == 0 {
 		args.Verbosity = deliveryservice.VerbosityDetailed
@@ -231,12 +232,14 @@ func DownloadDeliveryChart(c *gin.Context) {
 	chartName := c.Query("chartName")
 	projectName := c.Query("projectName")
 
-	filePath, err := deliveryservice.DownloadDeliveryChart(projectName, versionName, chartName, ctx.Logger)
+	fileBytes, fileName, err := deliveryservice.DownloadDeliveryChart(projectName, versionName, chartName, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		return
 	}
-	c.File(filePath)
+
+	c.Writer.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, fileName))
+	c.Data(http.StatusOK, "application/octet-stream", fileBytes)
 }
 
 func PreviewGetDeliveryChart(c *gin.Context) {

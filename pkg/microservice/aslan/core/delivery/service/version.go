@@ -17,7 +17,6 @@ limitations under the License.
 package service
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -25,7 +24,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -181,7 +179,7 @@ func GetDetailReleaseData(args *commonrepo.DeliveryVersionArgs, log *zap.Sugared
 		log.Errorf("get deliveryVersion error: %v", err)
 		return nil, e.ErrGetDeliveryVersion
 	}
-	return buildReleaseRespData(VerbosityDetailed, versionData, nil, log)
+	return buildListReleaseResp(VerbosityDetailed, versionData, nil, log)
 }
 
 func FindDeliveryVersion(args *commonrepo.DeliveryVersionArgs, log *zap.SugaredLogger) ([]*commonmodels.DeliveryVersion, error) {
@@ -316,14 +314,15 @@ func buildDetailedRelease(deliveryVersion *commonmodels.DeliveryVersion, filterO
 	deliveryDistributeArgs := new(commonrepo.DeliveryDistributeArgs)
 	deliveryDistributeArgs.ReleaseID = deliveryVersion.ID.Hex()
 	deliveryDistributes, _ := FindDeliveryDistribute(deliveryDistributeArgs, logger)
-
-	deliveryVersion.Progress = FillDeliveryProgressInfo(deliveryVersion, deliveryDistributes)
-
 	releaseInfo.DistributeInfo = deliveryDistributes
+
+	// fill some data for helm delivery releases
+	processReleaseRespData(releaseInfo)
+
 	return releaseInfo, nil
 }
 
-func buildReleaseRespData(verbosity string, deliveryVersion *commonmodels.DeliveryVersion, filterOpt *DeliveryVersionFilter, logger *zap.SugaredLogger) (*ReleaseInfo, error) {
+func buildListReleaseResp(verbosity string, deliveryVersion *commonmodels.DeliveryVersion, filterOpt *DeliveryVersionFilter, logger *zap.SugaredLogger) (*ReleaseInfo, error) {
 	switch verbosity {
 	case VerbosityBrief:
 		return buildBriefRelease(deliveryVersion, logger)
@@ -335,21 +334,20 @@ func buildReleaseRespData(verbosity string, deliveryVersion *commonmodels.Delive
 }
 
 func ListDeliveryVersion(args *ListDeliveryVersionArgs, logger *zap.SugaredLogger) ([]*ReleaseInfo, error) {
-	version := new(commonrepo.DeliveryVersionArgs)
-	version.ProductName = args.ProjectName
-	version.WorkflowName = args.WorkflowName
-	version.TaskID = args.TaskId
-	version.PerPage = args.PerPage
-	version.Page = args.Page
-	deliveryVersions, err := FindDeliveryVersion(version, logger)
+	versionListArgs := new(commonrepo.DeliveryVersionArgs)
+	versionListArgs.ProductName = args.ProjectName
+	versionListArgs.WorkflowName = args.WorkflowName
+	versionListArgs.TaskID = args.TaskId
+	versionListArgs.PerPage = args.PerPage
+	versionListArgs.Page = args.Page
+	deliveryVersions, err := FindDeliveryVersion(versionListArgs, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	log.Infof("###### the verbosity is %s, projectName is %s", args.Verbosity, args.ProjectName)
 	releaseInfos := make([]*ReleaseInfo, 0)
 	for _, deliveryVersion := range deliveryVersions {
-		releaseInfo, err := buildReleaseRespData(args.Verbosity, deliveryVersion, &DeliveryVersionFilter{ServiceName: args.ServiceName}, logger)
+		releaseInfo, err := buildListReleaseResp(args.Verbosity, deliveryVersion, &DeliveryVersionFilter{ServiceName: args.ServiceName}, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -361,17 +359,50 @@ func ListDeliveryVersion(args *ListDeliveryVersionArgs, logger *zap.SugaredLogge
 	return releaseInfos, nil
 }
 
-func FillDeliveryProgressInfo(deliveryVersion *commonmodels.DeliveryVersion, deliveryDistribute []*commonmodels.DeliveryDistribute) *commonmodels.DeliveryVersionProgress {
+// fill release
+func processReleaseRespData(release *ReleaseInfo) {
+	if release.VersionInfo.Type != setting.DeliveryVersionTypeChart {
+		return
+	}
+
+	distributeMap := make(map[string][]*commonmodels.DeliveryDistribute)
+	for _, distributeImage := range release.DistributeInfo {
+		if distributeImage.DistributeType != config.Image {
+			continue
+		}
+		distributeMap[distributeImage.ChartName] = append(distributeMap[distributeImage.ChartName], distributeImage)
+	}
+
+	chartDistributeCount := 0
+	distributes := make([]*commonmodels.DeliveryDistribute, 0)
+	for _, distribute := range release.DistributeInfo {
+		if distribute.DistributeType == config.Image {
+			continue
+		}
+		switch distribute.DistributeType {
+		case config.Chart:
+			chartDistributeCount++
+			distribute.SubDistributes = distributeMap[distribute.ChartName]
+		case config.File:
+			s3Storage, err := commonrepo.NewS3StorageColl().Find(distribute.S3StorageID)
+			if err != nil {
+				log.Errorf("failed to query s3 storageID: %s, err: %s", distribute.S3StorageID, err)
+			} else {
+				distribute.StorageURL = s3Storage.Endpoint
+				distribute.StorageBucket = s3Storage.Bucket
+			}
+		}
+		distributes = append(distributes, distribute)
+	}
+	release.DistributeInfo = distributes
+
+	release.VersionInfo.Progress = buildDeliveryProgressInfo(release.VersionInfo, chartDistributeCount)
+}
+
+func buildDeliveryProgressInfo(deliveryVersion *commonmodels.DeliveryVersion, successfulChartCount int) *commonmodels.DeliveryVersionProgress {
 	if deliveryVersion.Type != setting.DeliveryVersionTypeChart {
 		return nil
 	}
-	chartDeploys := make([]*commonmodels.DeliveryDistribute, 0)
-	for _, deliveryDistribute := range deliveryDistribute {
-		if deliveryDistribute.DistributeType == config.Chart {
-			chartDeploys = append(chartDeploys, deliveryDistribute)
-		}
-	}
-	successfulChartCount := len(chartDeploys)
 
 	progress := &commonmodels.DeliveryVersionProgress{
 		SuccessChartCount:   successfulChartCount,
@@ -454,18 +485,8 @@ func createChartRepoClient(repo *commonmodels.HelmRepo) (*cm.Client, error) {
 	return client, nil
 }
 
-func runDockerCommand(cmd *exec.Cmd) error {
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-	if err := cmd.Run(); err != nil {
-		return err
-	}
-	return nil
-}
-
 // pull image from currently using registry and push to specified repo
-func pushImages(serviceObj *commonmodels.Service, valuesMap map[string]interface{}, targetRegistry *commonmodels.RegistryNamespace, registryMap map[string]*commonmodels.RegistryNamespace) error {
+func pushImages(deliveryVersion *commonmodels.DeliveryVersion, serviceObj *commonmodels.Service, valuesMap map[string]interface{}, targetRegistry *commonmodels.RegistryNamespace, registryMap map[string]*commonmodels.RegistryNamespace) error {
 
 	log.Infof("######## start pushing image #########")
 
@@ -495,12 +516,6 @@ func pushImages(serviceObj *commonmodels.Service, valuesMap map[string]interface
 		imageUris = append(imageUris, imageUri)
 	}
 
-	// login to the target repo
-	err = runDockerCommand(dockerLogin(targetRegistry.AccessKey, targetRegistry.SecretKey, targetRegistry.RegAddr))
-	if err != nil {
-		return errors.Wrapf(err, fmt.Sprintf("failed to login docker registry, url: %s", targetRegistry.RegAddr))
-	}
-
 	for _, imageUri := range imageUris {
 		log.Infof("##### handle single image uri %s ######", imageUri)
 		registryUrl, err := commonservice.ExtractImageRegistry(imageUri)
@@ -509,40 +524,37 @@ func pushImages(serviceObj *commonmodels.Service, valuesMap map[string]interface
 		}
 		registryUrl = strings.TrimSuffix(registryUrl, "/")
 		log.Infof("#### extract registry url %s ####", registryUrl)
-		if registry, ok := registryMap[registryUrl]; ok {
-			if registry.ID == targetRegistry.ID {
-				log.Infof("######## same registry, no need to push again ########")
-				continue
-			}
-			//TODO need optimize to avoid login to same repo multiple times
-			err := runDockerCommand(dockerLogin(registry.AccessKey, registry.SecretKey, registry.RegAddr))
-			if err != nil {
-				return errors.Wrapf(err, fmt.Sprintf("failed to login docker registry, url: %s", registry.RegAddr))
-			}
-		}
-		err = runDockerCommand(dockerPull(imageUri))
-		if err != nil {
-			return errors.Wrapf(err, fmt.Sprintf("failed to pull docker image, source url: %s", imageUri))
-		}
 
 		imageName := commonservice.ExtractImageName(imageUri)
 		imageTag := commonservice.ExtractImageTag(imageUri)
+		imageNamespace := commonservice.ExtractRegistryNamespace(imageUri)
+		targetFullImageUri := imageUri
 
-		targetFullImageUri := fmt.Sprintf("%s/%s/%s:%s", targetRegistry.RegAddr, targetRegistry.Namespace, imageName, imageTag)
-		err = runDockerCommand(dockerTag(imageUri, targetFullImageUri))
-		if err != nil {
-			return errors.Wrapf(err, "failed to tag image from: %s to : %s", imageUri, targetFullImageUri)
+		if registry, ok := registryMap[registryUrl]; ok {
+			if registry.ID != targetRegistry.ID {
+				targetFullImageUri = fmt.Sprintf("%s/%s/%s:%s", targetRegistry.RegAddr, targetRegistry.Namespace, imageName, imageTag)
+			}
 		}
 
-		err = runDockerCommand(dockerPush(targetFullImageUri))
+		// add image distribution data
+		err = commonrepo.NewDeliveryDistributeColl().Insert(&commonmodels.DeliveryDistribute{
+			ReleaseID:      deliveryVersion.ID,
+			ServiceName:    imageName,
+			ChartName:      serviceObj.ServiceName,
+			DistributeType: config.Image,
+			RegistryName:   targetFullImageUri,
+			Namespace:      imageNamespace,
+			CreatedAt:      time.Now().Unix(),
+		})
 		if err != nil {
-			return errors.Wrapf(err, "failed to push image: %s", targetFullImageUri)
+			log.Errorf("failed to insert image distribute data, version: %s, image: %s, err: %s", deliveryVersion.Version, targetFullImageUri, err)
+			return fmt.Errorf("failed to insert image distribute data")
 		}
 	}
 	return nil
 }
 
-func handleSingleChart(chartData *DeliveryChartData, chartRepo *commonmodels.HelmRepo, dir string, globalVariables string, targetRegistry *commonmodels.RegistryNamespace, registryMap map[string]*commonmodels.RegistryNamespace) error {
+func handleSingleChart(deliveryVersion *commonmodels.DeliveryVersion, chartData *DeliveryChartData, chartRepo *commonmodels.HelmRepo, dir string, globalVariables string, targetRegistry *commonmodels.RegistryNamespace, registryMap map[string]*commonmodels.RegistryNamespace) error {
 	serviceObj := chartData.ServiceObj
 	serviceName, revision := serviceObj.ServiceName, serviceObj.Revision
 	basePath := config.LocalServicePathWithRevision(serviceObj.ProductName, serviceName, revision)
@@ -599,7 +611,7 @@ func handleSingleChart(chartData *DeliveryChartData, chartRepo *commonmodels.Hel
 	}
 
 	// push docker image
-	err = pushImages(serviceObj, chartRequested.Values, targetRegistry, registryMap)
+	err = pushImages(deliveryVersion, serviceObj, chartRequested.Values, targetRegistry, registryMap)
 	if err != nil {
 		return errors.Wrapf(err, "failed to handle image")
 	}
@@ -762,10 +774,10 @@ func buildDeliveryCharts(chartDataMap map[string]*DeliveryChartData, deliveryVer
 		return fmt.Errorf("failed to build registry map")
 	}
 
-	err = runDockerCommand(dockerInfo())
-	if err != nil {
-		return fmt.Errorf("failed to run docker deamon")
-	}
+	//err = runDockerCommand(dockerInfo())
+	//if err != nil {
+	//	return fmt.Errorf("failed to run docker deamon")
+	//}
 
 	// push charts to repo
 	wg := sync.WaitGroup{}
@@ -773,19 +785,24 @@ func buildDeliveryCharts(chartDataMap map[string]*DeliveryChartData, deliveryVer
 		wg.Add(1)
 		go func(cData *DeliveryChartData) {
 			defer wg.Done()
-			err := handleSingleChart(cData, repoInfo, dir, args.GlobalVariables, targetRegistry, registryMap)
+			err := handleSingleChart(deliveryVersion, cData, repoInfo, dir, args.GlobalVariables, targetRegistry, registryMap)
 			if err != nil {
 				logger.Errorf("failed to handle single chart data, serviceName: %s err: %s", cData.ChartData.ServiceName, err)
 				appendError(err)
-			} else {
-				//err = commonrepo.NewDeliveryVersionColl().AddDeliveryChart(deliveryVersion.Version, &commonmodels.DeliveryChart{
-				//	Name:    cData.ChartData.ServiceName,
-				//	Version: cData.ChartData.Version,
-				//	Repo:    args.ChartRepoName,
-				//})
-				//if err != nil {
-				//	appendError(errors.Wrapf(err, "failed to save delivery chart: %s", cData.ChartData.ServiceName))
-				//}
+				return
+			}
+			err = commonrepo.NewDeliveryDistributeColl().Insert(&commonmodels.DeliveryDistribute{
+				ReleaseID:      deliveryVersion.ID,
+				DistributeType: config.Chart,
+				ChartName:      cData.ChartData.ServiceName,
+				ChartVersion:   cData.ChartData.Version,
+				ChartRepoName:  args.ChartRepoName,
+				SubDistributes: nil,
+				CreatedAt:      time.Now().Unix(),
+			})
+			if err != nil {
+				logger.Errorf("failed to insert delivery distribute chart, serviceName: %s, err: %s", cData.ChartData.ServiceName, err)
+				appendError(err)
 			}
 		}(chartData)
 	}
@@ -801,14 +818,28 @@ func buildDeliveryCharts(chartDataMap map[string]*DeliveryChartData, deliveryVer
 		return
 	}
 
-	//tar all chart files and send to s3 store
+	//tar all chart files and image offline packages, send to s3 store
 	fsTree := os.DirFS(dir)
-	ServiceS3Base := configbase.ObjectStorageDeliveryVersionPath(deliveryVersion.ProductName)
-	if err = fsservice.ArchiveAndUploadFilesToSpecifiedS3(fsTree, deliveryVersion.Version, ServiceS3Base, nil, args.Options.S3StorageID, logger); err != nil {
+	s3Base := configbase.ObjectStorageDeliveryVersionPath(deliveryVersion.ProductName)
+	if err = fsservice.ArchiveAndUploadFilesToSpecifiedS3(fsTree, deliveryVersion.Version, s3Base, nil, args.Options.S3StorageID, logger); err != nil {
 		logger.Errorf("failed to upload chart package files for project %s, err: %s", deliveryVersion.ProductName, err)
 		err = errors.Wrapf(err, "failed to upload package file")
 		return
 	}
+
+	err = commonrepo.NewDeliveryDistributeColl().Insert(&commonmodels.DeliveryDistribute{
+		ReleaseID:      deliveryVersion.ID,
+		DistributeType: config.File,
+		PackageFile:    fmt.Sprintf("%s.tar.gz", deliveryVersion.Version),
+		RemoteFileKey:  filepath.Join(s3Base, fmt.Sprintf("%s.tar.gz", deliveryVersion.Version)),
+		S3StorageID:    args.Options.S3StorageID,
+		CreatedAt:      time.Now().Unix(),
+	})
+	if err != nil {
+		logger.Errorf("failed to insert file distribute data, version: %s, err: %s", deliveryVersion.Version, err)
+		return fmt.Errorf("failed to insert file distribute data")
+	}
+
 	return
 }
 
@@ -896,16 +927,26 @@ func RetryCreateHelmDeliveryVersion(projectName, versionName string, logger *zap
 
 	//deploys := make
 
+	distributes, err := commonrepo.NewDeliveryDistributeColl().Find(&commonrepo.DeliveryDistributeArgs{
+		ReleaseID: deliveryVersion.ID.Hex(),
+	})
+	if err != nil {
+		return errors.Wrapf(err, "failed to query distrubutes, versionName: %s", deliveryVersion.Version)
+	}
+
 	// for charts has been successfully handled, download charts directly
 	successCharts := sets.NewString()
-	//for _, singleChart := range deliveryVersion.Charts {
-	//	_, err := downloadChart(projectName, versionName, singleChart)
-	//	if err != nil {
-	//		log.Errorf("failed to download chart from chart repo, chartName: %s, err: %s", singleChart.Name, err)
-	//		continue
-	//	}
-	//	successCharts.Insert(singleChart.Name)
-	//}
+	for _, distribute := range distributes {
+		if distribute.DistributeType != config.Chart {
+			continue
+		}
+		_, err := downloadChart(deliveryVersion, distribute)
+		if err != nil {
+			log.Errorf("failed to download chart from chart repo, chartName: %s, err: %s", distribute.ChartName, err)
+			continue
+		}
+		successCharts.Insert(distribute.ChartName)
+	}
 
 	chartsToBeHandled := make([]*CreateHelmDeliveryVersionChartData, 0)
 	for _, chartConfig := range createArgs.ChartDatas {
@@ -963,8 +1004,9 @@ func ListDeliveryServiceNames(productName string, log *zap.SugaredLogger) ([]str
 	return serviceNames.UnsortedList(), nil
 }
 
-func downloadChart(productName, versionName string, chartInfo *commonmodels.DeliveryDistribute) (string, error) {
-	chartTGZName := fmt.Sprintf("%s-%s.tgz", chartInfo.ServiceName, chartInfo.Version)
+func downloadChart(deliveryVersion *commonmodels.DeliveryVersion, chartInfo *commonmodels.DeliveryDistribute) (string, error) {
+	productName, versionName := deliveryVersion.ProductName, deliveryVersion.Version
+	chartTGZName := fmt.Sprintf("%s-%s.tgz", chartInfo.ChartName, chartInfo.ChartVersion)
 	chartTGZFileParent := getChartTGZDir(productName, versionName)
 	chartTGZFilePath := filepath.Join(chartTGZFileParent, chartTGZName)
 	if _, err := os.Stat(chartTGZFilePath); err == nil {
@@ -1019,25 +1061,16 @@ func downloadChart(productName, versionName string, chartInfo *commonmodels.Deli
 	return chartTGZFilePath, nil
 }
 
-func getChartDistributeInfo(projectName, version string, chartName string, log *zap.SugaredLogger) (*commonmodels.DeliveryDistribute, error) {
-	//deliveryVersion, err := GetDeliveryVersion(&commonrepo.DeliveryVersionArgs{
-	//	ProductName: projectName,
-	//	Version:     version,
-	//}, log)
-
-	//if err != nil {
-	//	return nil, err
-	//}
-
+func getChartDistributeInfo(releaseID, chartName string, log *zap.SugaredLogger) (*commonmodels.DeliveryDistribute, error) {
 	distributes, _ := FindDeliveryDistribute(&commonrepo.DeliveryDistributeArgs{
-		ReleaseID:      "",
+		ReleaseID:      releaseID,
 		ServiceName:    chartName,
 		DistributeType: config.Chart,
 	}, log)
 
 	var chartInfo *commonmodels.DeliveryDistribute
 	for _, distribute := range distributes {
-		if distribute.ServiceName == chartName {
+		if distribute.ChartName == chartName {
 			chartInfo = distribute
 		}
 	}
@@ -1048,13 +1081,36 @@ func getChartDistributeInfo(projectName, version string, chartName string, log *
 	return chartInfo, nil
 }
 
-func DownloadDeliveryChart(projectName, version string, chartName string, log *zap.SugaredLogger) (string, error) {
-	chartInfo, err := getChartDistributeInfo(projectName, version, chartName, log)
+func DownloadDeliveryChart(projectName, version string, chartName string, log *zap.SugaredLogger) ([]byte, string, error) {
+
+	filePath, err := preDownloadChart(projectName, version, chartName, log)
+	if err != nil {
+		return nil, "", err
+	}
+
+	fileBytes, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return fileBytes, filepath.Base(filePath), err
+}
+
+func preDownloadChart(projectName, versionName, chartName string, log *zap.SugaredLogger) (string, error) {
+	deliveryInfo, err := GetDeliveryVersion(&commonrepo.DeliveryVersionArgs{
+		ProductName: projectName,
+		Version:     versionName,
+	}, log)
+	if err != nil {
+		return "", fmt.Errorf("failed to query delivery info")
+	}
+
+	chartInfo, err := getChartDistributeInfo(deliveryInfo.ID.Hex(), chartName, log)
 	if err != nil {
 		return "", err
 	}
 	// prepare chart data
-	filePath, err := downloadChart(projectName, version, chartInfo)
+	filePath, err := downloadChart(deliveryInfo, chartInfo)
 	if err != nil {
 		return "", err
 	}
@@ -1063,14 +1119,22 @@ func DownloadDeliveryChart(projectName, version string, chartName string, log *z
 
 func preDownloadAndUncompressChart(projectName, versionName, chartName string, log *zap.SugaredLogger) (string, error) {
 
-	chartDistribute, err := getChartDistributeInfo(projectName, versionName, chartName, log)
+	deliveryInfo, err := GetDeliveryVersion(&commonrepo.DeliveryVersionArgs{
+		ProductName: projectName,
+		Version:     versionName,
+	}, log)
+	if err != nil {
+		return "", fmt.Errorf("failed to query delivery info")
+	}
+
+	chartDistribute, err := getChartDistributeInfo(deliveryInfo.ID.Hex(), chartName, log)
 	if err != nil {
 		return "", err
 	}
 	dstDir := getChartExpandDir(projectName, versionName)
-	dstDir = filepath.Join(dstDir, fmt.Sprintf("%s-%s", chartDistribute.ServiceName, chartDistribute.Version))
+	dstDir = filepath.Join(dstDir, fmt.Sprintf("%s-%s", chartDistribute.ChartName, chartDistribute.ChartVersion))
 
-	filePath, err := DownloadDeliveryChart(projectName, versionName, chartName, log)
+	filePath, err := preDownloadChart(projectName, versionName, chartName, log)
 	if err != nil {
 		return "", err
 	}

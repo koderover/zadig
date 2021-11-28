@@ -91,8 +91,9 @@ type ServiceProductMap struct {
 }
 
 var (
-	imageParseRegex = regexp.MustCompile(`(?P<repo>.+/)?(?P<image>[^:]+){1}(:)?(?P<tag>.+)?`)
-	presetPatterns  = []map[string]string{
+	imageParseRegex      = regexp.MustCompile(`(?P<repo>.+/)?(?P<image>[^:]+){1}(:)?(?P<tag>.+)?`)
+	imageSpaceParseRegex = regexp.MustCompile(`\/(.*?)\/`)
+	presetPatterns       = []map[string]string{
 		{setting.PathSearchComponentImage: "image.repository", setting.PathSearchComponentTag: "image.tag"},
 		{setting.PathSearchComponentImage: "image"},
 	}
@@ -648,6 +649,19 @@ func ExtractImageTag(imageURI string) string {
 		}
 	}
 	return ""
+}
+
+// ExtractRegistryNamespace extract registry namespace form image uri
+func ExtractRegistryNamespace(imageURI string) string {
+	imageURI = strings.TrimPrefix(imageURI, "http://")
+	imageURI = strings.TrimPrefix(imageURI, "https://")
+
+	firstIndex := strings.Index(imageURI, "/")
+	lastIndex := strings.LastIndex(imageURI, "/")
+	if lastIndex == firstIndex {
+		return ""
+	}
+	return strings.TrimPrefix(imageURI[firstIndex:lastIndex], "/")
 }
 
 func parseImagesByPattern(nested map[string]interface{}, patterns []map[string]string) ([]*models.Container, error) {

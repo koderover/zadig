@@ -116,7 +116,7 @@ func (c *DeliveryDistributeColl) Find(args *DeliveryDistributeArgs) ([]*models.D
 	query := bson.M{"release_id": releaseID, "deleted_at": 0}
 
 	if args.DistributeType != "" {
-		query["distribute_type"] = config.File
+		query["distribute_type"] = string(args.DistributeType)
 	}
 	cursor, err := c.Collection.Find(context.TODO(), query)
 	if err != nil {

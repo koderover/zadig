@@ -211,7 +211,7 @@ func ObjectStorageTemplatePath(name, kind string) string {
 }
 
 func ObjectStorageDeliveryVersionPath(project string) string {
-	return filepath.Join(project, "delivery-versions")
+	return filepath.Join("delivery-distributes", "files", project)
 }
 
 func ObjectStorageChartTemplatePath(name string) string {

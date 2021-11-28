@@ -90,7 +90,6 @@ func (c *DeliveryVersionColl) Find(args *DeliveryVersionArgs) ([]*models.Deliver
 		return nil, errors.New("nil delivery_version args")
 	}
 
-	var resp []*models.DeliveryVersion
 	query := bson.M{"deleted_at": 0}
 	if args.ProductName != "" {
 		query["product_name"] = args.ProductName
@@ -114,6 +113,7 @@ func (c *DeliveryVersionColl) Find(args *DeliveryVersionArgs) ([]*models.Deliver
 		return nil, err
 	}
 
+	resp := make([]*models.DeliveryVersion, 0)
 	err = cursor.All(ctx, &resp)
 	if err != nil {
 		return nil, err
@@ -205,24 +205,6 @@ func (c *DeliveryVersionColl) UpdateStatusByName(versionName, status, errorStr s
 	}}
 	_, err := c.UpdateOne(context.TODO(), query, change)
 	return err
-}
-
-func (c *DeliveryVersionColl) AddDeliveryChart(versionName string, chartInfo *models.DeliveryDistribute) error {
-	//query := bson.M{
-	//	"version":     versionName,
-	//	"deleted_at":  0,
-	//	"charts.name": bson.M{"$ne": chartInfo.Name},
-	//}
-	//change := bson.M{
-	//	"$push": bson.M{
-	//		"charts": bson.M{
-	//			"name":    chartInfo.Name,
-	//			"version": chartInfo.Version,
-	//			"repo":    chartInfo.Repo,
-	//		},
-	//	}}
-	//_, err := c.UpdateOne(context.TODO(), query, change)
-	return nil
 }
 
 func (c *DeliveryVersionColl) Update(args *models.DeliveryVersion) error {

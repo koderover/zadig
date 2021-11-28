@@ -151,17 +151,8 @@ func FindDefaultS3() (*S3, error) {
 func FindS3ById(id string) (*S3, error) {
 	storage, err := commonrepo.NewS3StorageColl().Find(id)
 	if err != nil {
-		log.Warnf("Failed to find default s3 in db, err: %s", err)
-		return &S3{
-			S3Storage: &models.S3Storage{
-				Ak:       config.S3StorageAK(),
-				Sk:       config.S3StorageSK(),
-				Endpoint: config.S3StorageEndpoint(),
-				Bucket:   config.S3StorageBucket(),
-				Insecure: config.S3StorageProtocol() == "http",
-				Provider: setting.ProviderSourceSystemDefault,
-			},
-		}, nil
+		log.Warnf("Failed to find s3 in db, err: %s", err)
+		return nil, err
 	}
 
 	return &S3{S3Storage: storage}, nil
