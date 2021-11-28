@@ -675,14 +675,11 @@ func generateResourceRequirements(req setting.Request, reqSpec setting.RequestSp
 	}
 
 	// DefineRequest
-	reqSpec.CpuLimit = strings.TrimSuffix(reqSpec.CpuLimit, setting.CpuUintM)
-	cpuLimitInt, _ := strconv.Atoi(reqSpec.CpuLimit)
+	cpuLimitInt, _ := strconv.Atoi(strings.TrimSuffix(reqSpec.CpuLimit, setting.CpuUintM))
 	cpuReqInt := cpuLimitInt / 4 / 1000
-
-	reqSpec.MemoryLimit = strings.TrimSuffix(reqSpec.MemoryLimit, setting.MemoryUintMi)
-	memoryLimitInt, _ := strconv.Atoi(reqSpec.MemoryLimit)
+	memoryLimitInt, _ := strconv.Atoi(strings.TrimSuffix(reqSpec.MemoryLimit, setting.MemoryUintMi))
 	memoryReqInt := memoryLimitInt / 4
-	if memoryLimitInt > 2*1024 {
+	if memoryReqInt >= 2*1024 {
 		memoryReqInt = memoryReqInt / 2
 	}
 

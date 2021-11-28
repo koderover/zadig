@@ -41,7 +41,7 @@ type Testing struct {
 	ImageID      string            `bson:"image_id"                        json:"image_id"`
 	// ResReq defines job requested resources
 	ResReq         setting.Request             `bson:"res_req"                         json:"res_req"`
-	ResReqSpec     setting.RequestSpec         `bson:"res_req_spec"               json:"res_req_spec"`
+	ResReqSpec     setting.RequestSpec         `bson:"res_req_spec"                    json:"res_req_spec"`
 	LogFile        string                      `bson:"log_file"                        json:"log_file"`
 	TestModuleName string                      `bson:"test_module_name"                json:"test_module_name"`
 	ReportReady    bool                        `bson:"report_ready"                    json:"report_ready"`

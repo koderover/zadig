@@ -18,17 +18,18 @@ package taskplugin
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 //Test create configmap named jobname
@@ -229,4 +230,64 @@ func TestEnsureDeleteJob(t *testing.T) {
 		assert.Nil(err)
 		assert.Nil(getJob)
 	*/
+}
+
+func Test_getResourceRequirements(t *testing.T) {
+	type args struct {
+		resReq     setting.Request
+		resReqSpec setting.RequestSpec
+	}
+	tests := []struct {
+		name string
+		args args
+		want corev1.ResourceRequirements
+	}{
+		{
+			name: "high",
+			args: args{
+				resReq:     setting.HighRequest,
+				resReqSpec: setting.HighRequestSpec,
+			},
+			want: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("16"),
+					corev1.ResourceMemory: resource.MustParse("32Gi"),
+				},
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("4"),
+					corev1.ResourceMemory: resource.MustParse("4Gi"),
+				},
+			},
+		},
+		{
+			name: "define",
+			args: args{
+				resReq: setting.DefineRequest,
+				resReqSpec: setting.RequestSpec{
+					CpuLimit:    "4000m",
+					MemoryLimit: "2048Mi",
+				},
+			},
+			want: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("4000m"),
+					corev1.ResourceMemory: resource.MustParse("2048Mi"),
+				},
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("1"),
+					corev1.ResourceMemory: resource.MustParse("512Mi"),
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := getResourceRequirements(tt.args.resReq, tt.args.resReqSpec)
+			fmt.Println("Limit:", got.Limits.Cpu().String(), got.Limits.Memory().String())
+			fmt.Println("Memory:", got.Requests.Cpu().String(), got.Requests.Memory().String())
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("getResourceRequirements() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
