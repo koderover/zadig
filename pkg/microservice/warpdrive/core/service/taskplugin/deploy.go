@@ -564,10 +564,10 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 }
 
 func (p *DeployTaskPlugin) getProductInfo(ctx context.Context, args *EnvArgs) (*types.Product, error) {
-	url := fmt.Sprintf("/api/environment/environments/%s/productInfo", args.ProductName)
+	url := fmt.Sprintf("/api/environment/environments/%s/productInfo", args.EnvName)
 
 	prod := &types.Product{}
-	_, err := p.httpClient.Get(url, httpclient.SetResult(prod), httpclient.SetQueryParam("envName", args.EnvName))
+	_, err := p.httpClient.Get(url, httpclient.SetResult(prod), httpclient.SetQueryParam("projectName", args.ProductName))
 	if err != nil {
 		return nil, err
 	}

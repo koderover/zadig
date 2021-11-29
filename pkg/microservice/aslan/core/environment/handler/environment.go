@@ -373,19 +373,6 @@ func GetProductInfo(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GetProductInfo(ctx.UserName, envName, projectName, ctx.Logger)
 }
 
-func ListRenderCharts(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	envName := c.Param("name")
-	projectName := c.Query("projectName")
-
-	ctx.Resp, ctx.Err = service.ListRenderCharts(projectName, envName, ctx.Logger)
-	if ctx.Err != nil {
-		ctx.Logger.Errorf("failed to listRenderCharts %s %s: %v", envName, projectName, ctx.Err)
-	}
-}
-
 func GetHelmChartVersions(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

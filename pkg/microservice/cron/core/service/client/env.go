@@ -62,7 +62,7 @@ func (c *Client) GetEnvService(productName, envName string, log *zap.SugaredLogg
 		err    error
 		envObj = new(service.ProductResp)
 	)
-	url := fmt.Sprintf("%s/environment/environments/%s?envName=%s", c.APIBase, productName, envName)
+	url := fmt.Sprintf("%s/environment/environments/%s?projectName=%s", c.APIBase, envName, productName)
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		log.Errorf("GetService new http request error: %v", err)

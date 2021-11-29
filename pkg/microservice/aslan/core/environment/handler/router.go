@@ -103,7 +103,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.PUT("/:name/renderset", gin2.UpdateOperationLogStatus, UpdateHelmProductRenderset)
 		environments.GET("/:name/helmChartVersions", GetHelmChartVersions)
 		environments.GET("/:name/productInfo", GetProductInfo)
-		environments.GET("/:name/helmRenderCharts", ListRenderCharts)
 		environments.DELETE("/:name", gin2.UpdateOperationLogStatus, DeleteProduct)
 		environments.GET("/:name/groups", ListGroups)
 		environments.GET("/:name/workloads", ListWorkloadsInEnv)

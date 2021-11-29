@@ -1197,29 +1197,6 @@ func GetProductIngress(productName string, log *zap.SugaredLogger) ([]*ProductIn
 	return productIngressInfos, nil
 }
 
-// ListRenderCharts 获取集成环境中的values.yaml的值
-func ListRenderCharts(productName, envName string, log *zap.SugaredLogger) ([]*template.RenderChart, error) {
-	renderSetOpt := &commonrepo.RenderSetFindOption{Name: productName}
-	if envName != "" {
-		opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
-		productResp, err := commonrepo.NewProductColl().Find(opt)
-		if err != nil {
-			log.Errorf("GetProduct envName:%s, productName:%s, err:%+v", envName, productName, err)
-			return nil, e.ErrListRenderSets.AddDesc(err.Error())
-		}
-
-		renderSetName := productResp.Namespace
-		renderSetOpt = &commonrepo.RenderSetFindOption{Name: renderSetName, Revision: productResp.Render.Revision}
-	}
-
-	renderSet, err := commonrepo.NewRenderSetColl().Find(renderSetOpt)
-	if err != nil {
-		log.Errorf("find helm renderset[%s] error: %v", productName, err)
-		return nil, e.ErrListRenderSets.AddDesc(err.Error())
-	}
-	return renderSet.ChartInfos, nil
-}
-
 func GetHelmChartVersions(productName, envName string, log *zap.SugaredLogger) ([]*commonmodels.HelmVersions, error) {
 	var (
 		helmVersions = make([]*commonmodels.HelmVersions, 0)
