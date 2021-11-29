@@ -158,7 +158,7 @@ func (j *JenkinsBuildPlugin) Run(ctx context.Context, pipelineTask *task.Task, p
 	j.Log.Infof("succeed to create cm for jenkins build job %s", j.JobName)
 
 	j.Log.Infof("JenkinsBuildConfig : %+v", pipelineTask.ConfigPayload.JenkinsBuildConfig)
-	job, err := buildJob(j.Type(), pipelineTask.ConfigPayload.JenkinsBuildConfig.JenkinsBuildImage, j.JobName, serviceName, setting.MinRequest, pipelineCtx, pipelineTask, []*task.RegistryNamespace{})
+	job, err := buildJob(j.Type(), pipelineTask.ConfigPayload.JenkinsBuildConfig.JenkinsBuildImage, j.JobName, serviceName, "", setting.MinRequest, pipelineCtx, pipelineTask, []*task.RegistryNamespace{})
 	if err != nil {
 		msg := fmt.Sprintf("create jenkins build job context error: %v", err)
 		j.Log.Error(msg)

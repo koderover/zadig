@@ -57,9 +57,10 @@ const (
 	defaultSecretEmail = "bot@koderover.com"
 	PredatorPlugin     = "predator-plugin"
 	JenkinsPlugin      = "jenkins-plugin"
-)
+	NormalSchedule     = "normal"
+	RequiredSchedule   = "required"
+	PreferredSchedule  = "preferred"
 
-const (
 	registrySecretSuffix = "-registry-secret"
 )
 
@@ -381,12 +382,13 @@ func createJobConfigMap(namespace, jobName string, jobLabel *JobLabel, jobCtx st
 //"s-job":  pipelinename-taskid-tasktype-servicename,
 //"s-task": pipelinename-taskid,
 //"s-type": tasktype,
-func buildJob(taskType config.TaskType, jobImage, jobName, serviceName string, resReq setting.Request, ctx *task.PipelineCtx, pipelineTask *task.Task, registries []*task.RegistryNamespace) (*batchv1.Job, error) {
+func buildJob(taskType config.TaskType, jobImage, jobName, serviceName, clusterID string, resReq setting.Request, ctx *task.PipelineCtx, pipelineTask *task.Task, registries []*task.RegistryNamespace) (*batchv1.Job, error) {
 	return buildJobWithLinkedNs(
 		taskType,
 		jobImage,
 		jobName,
 		serviceName,
+		clusterID,
 		resReq,
 		ctx,
 		pipelineTask,
@@ -396,7 +398,7 @@ func buildJob(taskType config.TaskType, jobImage, jobName, serviceName string, r
 	)
 }
 
-func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceName string, resReq setting.Request, ctx *task.PipelineCtx, pipelineTask *task.Task, registries []*task.RegistryNamespace, execNs, linkedNs string) (*batchv1.Job, error) {
+func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceName, clusterID string, resReq setting.Request, ctx *task.PipelineCtx, pipelineTask *task.Task, registries []*task.RegistryNamespace, execNs, linkedNs string) (*batchv1.Job, error) {
 	var reaperBootingScript string
 
 	if !strings.Contains(jobImage, PredatorPlugin) && !strings.Contains(jobImage, JenkinsPlugin) {
@@ -804,4 +806,55 @@ func checkDogFoodExistsInContainer(namespace string, pod string, container strin
 	})
 
 	return success, err
+}
+
+func addNodeAffinity(clusterID string, K8SClusters []*task.K8SCluster) *corev1.Affinity {
+	clusterConfig := findClusterConfig(clusterID, K8SClusters)
+	if clusterConfig == nil {
+		return nil
+	}
+
+	switch clusterConfig.Strategy {
+	case NormalSchedule:
+		return nil
+	case RequiredSchedule:
+		if len(clusterConfig.NodeLabels) == 0 {
+			return nil
+		}
+		nodeSelectorTerms := make([]corev1.NodeSelectorTerm, 0)
+		for _, nodeLabel := range clusterConfig.NodeLabels {
+			if !strings.Contains(nodeLabel, ":") || len(strings.Split(nodeLabel, ":")) != 2 {
+				continue
+			}
+			matchExpressions := make([]corev1.NodeSelectorRequirement, 0)
+			matchExpressions = append(matchExpressions, corev1.NodeSelectorRequirement{
+				Key:      strings.Split(nodeLabel, ":")[0],
+				Operator: "in",
+				Values:   []string{strings.Split(nodeLabel, ":")[1]},
+			})
+			nodeSelectorTerms = append(nodeSelectorTerms, corev1.NodeSelectorTerm{
+				MatchExpressions: matchExpressions,
+			})
+		}
+		affinity := &corev1.Affinity{
+			NodeAffinity: &corev1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+					NodeSelectorTerms: nodeSelectorTerms,
+				},
+			},
+		}
+		return affinity
+	case PreferredSchedule:
+
+	}
+	return nil
+}
+
+func findClusterConfig(clusterID string, K8SClusters []*task.K8SCluster) *task.ClusterConfig {
+	for _, K8SCluster := range K8SClusters {
+		if K8SCluster.ID.Hex() == clusterID {
+			return K8SCluster.ClusterConfig
+		}
+	}
+	return nil
 }
