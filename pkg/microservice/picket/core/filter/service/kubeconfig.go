@@ -25,24 +25,24 @@ func DownloadKubeConfig(header http.Header, qs url.Values, logger *zap.SugaredLo
 		endpoint: "/api/aslan/environment/environments/?*/services/?*/restart",
 	},
 	}
-	readEnvProjects, err := getAllowedProjects(header, readEnvRules, consts.OR, logger)
+	projectsEnvCanView, err := getAllowedProjects(header, readEnvRules, consts.OR, logger)
 	if err != nil {
 		logger.Errorf("Failed to get allowed project names, err: %s", err)
 		return nil, err
 	}
 
-	for _, name := range readEnvProjects {
-		qs.Add("readEnvProjects", name)
+	for _, name := range projectsEnvCanView {
+		qs.Add("projectsEnvCanView", name)
 	}
 
-	editEnvProjects, err := getAllowedProjects(header, editEnvRules, consts.OR, logger)
+	projectsEnvCanEdit, err := getAllowedProjects(header, editEnvRules, consts.OR, logger)
 	if err != nil {
 		logger.Errorf("Failed to get allowed project names, err: %s", err)
 		return nil, err
 	}
 
-	for _, name := range editEnvProjects {
-		qs.Add("editEnvProjects", name)
+	for _, name := range projectsEnvCanEdit {
+		qs.Add("projectsEnvCanEdit", name)
 	}
 
 	return aslan.New().DownloadKubeConfig(header, qs)

@@ -51,13 +51,13 @@ type kubeCfgTmplArgs struct {
 	ClientKeyBase64 string
 }
 
-func GetUserKubeConfig(userID string, editEnvProjects []string, readEnvProjects []string, log *zap.SugaredLogger) (string, error) {
+func GetUserKubeConfig(userID string, projectsEnvCanEdit []string, projectsEnvCanView []string, log *zap.SugaredLogger) (string, error) {
 	saNamespace := config.Namespace()
 	if err := ensureClusterRole(log); err != nil {
 		log.Errorf("ensurClusterRole err: %s", err)
 		return "", err
 	}
-	if err := ensureServiceAccountAndRolebinding(saNamespace, editEnvProjects, readEnvProjects, userID, log); err != nil {
+	if err := ensureServiceAccountAndRolebinding(saNamespace, projectsEnvCanEdit, projectsEnvCanView, userID, log); err != nil {
 		log.Errorf("ensureServiceAccountAndRolebinding err: %s", err)
 		return "", err
 	}
@@ -177,7 +177,7 @@ func ensureClusterRole(log *zap.SugaredLogger) error {
 	return nil
 }
 
-func ensureServiceAccountAndRolebinding(namespace string, editEnvProjects []string, readEnvProjects []string, userID string, log *zap.SugaredLogger) error {
+func ensureServiceAccountAndRolebinding(namespace string, projectsEnvCanEdit []string, projectsEnvCanView []string, userID string, log *zap.SugaredLogger) error {
 	serviceAccountName := config.ServiceAccountNameForUser(userID)
 	serviceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
@@ -199,27 +199,27 @@ func ensureServiceAccountAndRolebinding(namespace string, editEnvProjects []stri
 
 	// picket service provide a list of projects for which the user has permission to edit env or read env
 	// while []string{*} means all projects
-	if len(editEnvProjects) == 1 && editEnvProjects[0] == "*" {
+	if len(projectsEnvCanEdit) == 1 && projectsEnvCanEdit[0] == "*" {
 		res, err := templaterepo.NewProductColl().ListNames(nil)
 		if err != nil {
 			log.Errorf("ListProjectBriefs err:%s", err)
 			return err
 		}
-		editEnvProjects = res
+		projectsEnvCanEdit = res
 	}
 
-	if len(readEnvProjects) == 1 && readEnvProjects[0] == "*" {
+	if len(projectsEnvCanView) == 1 && projectsEnvCanView[0] == "*" {
 		res, err := templaterepo.NewProductColl().ListNames(nil)
 		if err != nil {
 			log.Errorf("ListProjectBriefs err:%s", err)
 			return err
 		}
-		readEnvProjects = res
+		projectsEnvCanView = res
 	}
 
-	canEditProducts, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{InProjects: editEnvProjects})
+	canEditProducts, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{InProjects: projectsEnvCanEdit})
 	if err != nil {
-		log.Errorf("[%s] Collections.Product.List error: %v", v, err)
+		log.Errorf("[%s] Collections.Product.List error: %s", projectsEnvCanEdit, err)
 	}
 	canEditProducts = filterProductWithoutExternalCluster(canEditProducts)
 	for _, vv := range canEditProducts {
@@ -228,9 +228,9 @@ func ensureServiceAccountAndRolebinding(namespace string, editEnvProjects []stri
 		}
 	}
 
-	canViewProducts, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{InProjects: readEnvProjects})
+	canViewProducts, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{InProjects: projectsEnvCanView})
 	if err != nil {
-		log.Errorf("[%s] Collections.Product.List error: %v", v, err)
+		log.Errorf("[%s] Collections.Product.List error: %s", projectsEnvCanView, err)
 	}
 	canViewProducts = filterProductWithoutExternalCluster(canViewProducts)
 	for _, vv := range canViewProducts {

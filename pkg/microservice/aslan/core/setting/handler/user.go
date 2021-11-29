@@ -27,7 +27,7 @@ func GetUserKubeConfig(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	editEnvProjects := c.QueryArray("editEnvProjects")
-	readEnvProjects := c.QueryArray("readEnvProjects")
-	ctx.Resp, ctx.Err = settingservice.GetUserKubeConfig(ctx.UserID, editEnvProjects, readEnvProjects, ctx.Logger)
+	projectsEnvCanEdit := c.QueryArray("projectsEnvCanEdit")
+	projectsEnvCanView := c.QueryArray("projectsEnvCanView")
+	ctx.Resp, ctx.Err = settingservice.GetUserKubeConfig(ctx.UserID, projectsEnvCanEdit, projectsEnvCanView, ctx.Logger)
 }
