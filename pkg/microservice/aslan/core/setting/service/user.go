@@ -217,31 +217,28 @@ func ensureServiceAccountAndRolebinding(namespace string, editEnvProjects []stri
 		readEnvProjects = res
 	}
 
-	for _, v := range editEnvProjects {
-		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: v})
-		if err != nil {
-			log.Errorf("[%s] Collections.Product.List error: %v", v, err)
-		}
-		products = filterProductWithoutExternalCluster(products)
-		for _, vv := range products {
-			if err := CreateRoleBinding(vv.Namespace, namespace, serviceAccountName, config.RoleBindingNameEdit); err != nil {
-				log.Errorf("CreateRoleBinding err: %s", err)
-			}
+	canEditProducts, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{InProjects: editEnvProjects})
+	if err != nil {
+		log.Errorf("[%s] Collections.Product.List error: %v", v, err)
+	}
+	canEditProducts = filterProductWithoutExternalCluster(canEditProducts)
+	for _, vv := range canEditProducts {
+		if err := CreateRoleBinding(vv.Namespace, namespace, serviceAccountName, config.RoleBindingNameEdit); err != nil {
+			log.Errorf("CreateRoleBinding err: %s", err)
 		}
 	}
 
-	for _, v := range readEnvProjects {
-		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: v})
-		if err != nil {
-			log.Errorf("[%s] Collections.Product.List error: %v", v, err)
-		}
-		products = filterProductWithoutExternalCluster(products)
-		for _, vv := range products {
-			if err := CreateRoleBinding(vv.Namespace, namespace, serviceAccountName, config.RoleBindingNameView); err != nil {
-				log.Errorf("CreateRoleBinding err: %s", err)
-			}
+	canViewProducts, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{InProjects: readEnvProjects})
+	if err != nil {
+		log.Errorf("[%s] Collections.Product.List error: %v", v, err)
+	}
+	canViewProducts = filterProductWithoutExternalCluster(canViewProducts)
+	for _, vv := range canViewProducts {
+		if err := CreateRoleBinding(vv.Namespace, namespace, serviceAccountName, config.RoleBindingNameView); err != nil {
+			log.Errorf("CreateRoleBinding err: %s", err)
 		}
 	}
+
 	return nil
 }
 
@@ -294,7 +291,9 @@ func CreateRoleBinding(rbNamespace, saNamspace, serviceAccountName, roleBindName
 				isExist = true
 			}
 		}
-		if !isExist {
+		if isExist {
+			return nil
+		}else{
 			subs = append(subs, rolebinding.Subjects...)
 		}
 	}
