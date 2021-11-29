@@ -24,6 +24,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
+
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -106,6 +108,20 @@ func (p *BuildTaskPlugin) SetBuildStatusCompleted(status config.Status) {
 
 //TODO: Binded Archive File logic
 func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineCtx *task.PipelineCtx, serviceName string) {
+	p.KubeNamespace = pipelineTask.ConfigPayload.Build.KubeNamespace
+	if p.Task.Namespace != "" {
+		p.KubeNamespace = p.Task.Namespace
+		kubeClient, err := multicluster.GetKubeClient(pipelineTask.ConfigPayload.HubServerAddr, p.Task.ClusterID)
+		if err != nil {
+			msg := fmt.Sprintf("failed to get kube client: %s", err)
+			p.Log.Error(msg)
+			p.Task.TaskStatus = config.StatusFailed
+			p.Task.Error = msg
+			p.SetBuildStatusCompleted(config.StatusFailed)
+			return
+		}
+		p.kubeClient = kubeClient
+	}
 	if pipelineTask.Type == config.WorkflowType {
 		envName := pipelineTask.WorkflowArgs.Namespace
 		envNameVar := &task.KeyVal{Key: "ENV_NAME", Value: envName, IsCredential: false}
@@ -143,7 +159,6 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 		p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, artifactKeysVar)
 	}
 
-	p.KubeNamespace = pipelineTask.ConfigPayload.Build.KubeNamespace
 	for _, repo := range p.Task.JobCtx.Builds {
 		repoName := strings.Replace(repo.RepoName, "-", "_", -1)
 		if len(repo.Branch) > 0 {
@@ -313,13 +328,16 @@ func (p *BuildTaskPlugin) Complete(ctx context.Context, pipelineTask *task.Task,
 
 	// 清理用户取消和超时的任务
 	defer func() {
-		if p.Task.TaskStatus == config.StatusCancelled || p.Task.TaskStatus == config.StatusTimeout {
-			if err := ensureDeleteJob(p.KubeNamespace, jobLabel, p.kubeClient); err != nil {
-				p.Log.Error(err)
-				p.Task.Error = err.Error()
-			}
-			return
+		if err := ensureDeleteJob(p.KubeNamespace, jobLabel, p.kubeClient); err != nil {
+			p.Log.Error(err)
+			p.Task.Error = err.Error()
 		}
+
+		if err := ensureDeleteConfigMap(p.KubeNamespace, jobLabel, p.kubeClient); err != nil {
+			p.Log.Error(err)
+			p.Task.Error = err.Error()
+		}
+		return
 	}()
 
 	err := saveContainerLog(pipelineTask, p.KubeNamespace, p.FileName, jobLabel, p.kubeClient)

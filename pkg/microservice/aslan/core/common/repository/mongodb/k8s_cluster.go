@@ -201,3 +201,20 @@ func (c *K8SClusterColl) GetByToken(token string) (*models.K8SCluster, error) {
 
 	return c.Get(id)
 }
+
+func (c *K8SClusterColl) List() ([]*models.K8SCluster, error) {
+	resp := make([]*models.K8SCluster, 0)
+	ctx := context.Background()
+
+	cursor, err := c.Collection.Find(ctx, bson.M{})
+	if err != nil {
+		return nil, err
+	}
+
+	err = cursor.All(ctx, &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, err
+}

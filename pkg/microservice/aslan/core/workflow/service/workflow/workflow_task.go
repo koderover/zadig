@@ -1212,6 +1212,8 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *task.Task, log *
 			testTask.ImageID = testModule.PreTest.ImageID
 			testTask.BuildOS = testModule.PreTest.BuildOS
 			testTask.ImageFrom = testModule.PreTest.ImageFrom
+			testTask.ClusterID = testModule.PreTest.ClusterID
+			testTask.Namespace = testModule.PreTest.Namespace
 			// 自定义基础镜像的镜像名称可能会被更新，需要使用ID获取最新的镜像名称
 			if testModule.PreTest.ImageID != "" {
 				basicImage, err := commonrepo.NewBasicImageColl().Find(testModule.PreTest.ImageID)
@@ -1559,6 +1561,8 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 			Timeout:      module.Timeout,
 			Registries:   registries,
 			ProductName:  args.ProductName,
+			Namespace:    module.PreBuild.Namespace,
+			ClusterID:    module.PreBuild.ClusterID,
 		}
 
 		if args.TaskType != "" {

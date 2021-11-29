@@ -136,6 +136,7 @@ type ConfigPayload struct {
 	ResetCache         bool               `json:"reset_cache"`
 	JenkinsBuildConfig JenkinsBuildConfig `json:"jenkins_build_config"`
 	PrivateKeys        []*PrivateKey      `json:"private_keys"`
+	K8SClusters        []*K8SCluster      `json:"k8s_cluster"`
 }
 
 type AslanConfig struct {

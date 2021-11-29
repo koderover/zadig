@@ -18,6 +18,9 @@ package task
 
 import (
 	"fmt"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type ConfigPayload struct {
@@ -49,6 +52,7 @@ type ConfigPayload struct {
 	// ResetCache means ignore workspace cache
 	ResetCache  bool          `json:"reset_cache"`
 	PrivateKeys []*PrivateKey `json:"private_keys"`
+	K8SClusters []*K8SCluster `json:"k8s_cluster"`
 }
 
 func (cp *ConfigPayload) GetGitKnownHost() string {
@@ -147,4 +151,18 @@ type JenkinsBuildConfig struct {
 
 type PrivateKey struct {
 	Name string `json:"name"`
+}
+
+type K8SCluster struct {
+	ID            primitive.ObjectID      `json:"id,omitempty"                bson:"_id,omitempty"`
+	Name          string                  `json:"name"                        bson:"name"`
+	Status        config.K8SClusterStatus `json:"status"                      bson:"status"`
+	ClusterConfig *ClusterConfig          `json:"config,omitempty"            bson:"config,omitempty"`
+	Production    bool                    `json:"production"                  bson:"production"`
+	Disconnected  bool                    `json:"-"                           bson:"disconnected"`
+}
+
+type ClusterConfig struct {
+	Strategy   string   `json:"strategy,omitempty"      bson:"strategy,omitempty"`
+	NodeLabels []string `json:"node_labels,omitempty"   bson:"node_labels,omitempty"`
 }

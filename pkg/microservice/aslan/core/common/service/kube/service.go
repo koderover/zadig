@@ -36,10 +36,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
 )
 
-func GetKubeClient(clusterID string) (client.Client, error) {
-	return multicluster.GetKubeClient(config.HubServerAddress(), clusterID)
-}
-
 func GetKubeAPIReader(clusterID string) (client.Reader, error) {
 	return multicluster.GetKubeAPIReader(config.HubServerAddress(), clusterID)
 }

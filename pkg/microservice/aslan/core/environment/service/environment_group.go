@@ -24,6 +24,7 @@ import (
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
@@ -32,6 +33,7 @@ import (
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/util"
 )
@@ -65,7 +67,7 @@ func ListGroups(serviceName, envName, productName string, perPage, page int, log
 	//将获取到的所有服务按照名称进行排序
 	sort.SliceStable(allServices, func(i, j int) bool { return allServices[i].ServiceName < allServices[j].ServiceName })
 
-	kubeClient, err := kube.GetKubeClient(productInfo.ClusterID)
+	kubeClient, err := multicluster.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
 	if err != nil {
 		log.Errorf("[%s][%s] error: %v", envName, productName, err)
 		return resp, count, e.ErrListGroups.AddDesc(err.Error())

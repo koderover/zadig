@@ -29,21 +29,22 @@ import (
 var namePattern = regexp.MustCompile(`^[0-9a-zA-Z_.-]{1,32}$`)
 
 type K8SCluster struct {
-	ID           primitive.ObjectID      `json:"id,omitempty"                bson:"_id,omitempty"`
-	Name         string                  `json:"name" bson:"name"`
-	Tags         []string                `json:"tags" bson:"tags"`
-	Description  string                  `json:"description" bson:"description"`
-	Namespace    string                  `json:"namespace" bson:"namespace"`
-	Info         *K8SClusterInfo         `json:"info,omitempty" bson:"info,omitempty"`
-	Status       config.K8SClusterStatus `json:"status" bson:"status"`
-	Error        string                  `json:"error" bson:"error"`
-	Yaml         string                  `json:"yaml" bson:"yaml"`
-	Production   bool                    `json:"production" bson:"production"`
-	CreatedAt    int64                   `json:"createdAt" bson:"createdAt"`
-	CreatedBy    string                  `json:"createdBy" bson:"createdBy"`
-	Disconnected bool                    `json:"-" bson:"disconnected"`
-	Token        string                  `json:"token" bson:"-"`
-	Provider     int8                    `json:"provider"       bson:"provider"`
+	ID            primitive.ObjectID      `json:"id,omitempty"                bson:"_id,omitempty"`
+	Name          string                  `json:"name"                        bson:"name"`
+	Tags          []string                `json:"tags"                        bson:"tags"`
+	Description   string                  `json:"description"                 bson:"description"`
+	Namespace     string                  `json:"namespace"                   bson:"namespace"`
+	Info          *K8SClusterInfo         `json:"info,omitempty"              bson:"info,omitempty"`
+	ClusterConfig *ClusterConfig          `json:"config,omitempty"            bson:"config,omitempty"`
+	Status        config.K8SClusterStatus `json:"status"                      bson:"status"`
+	Error         string                  `json:"error"                       bson:"error"`
+	Yaml          string                  `json:"yaml"                        bson:"yaml"`
+	Production    bool                    `json:"production"                  bson:"production"`
+	CreatedAt     int64                   `json:"createdAt"                   bson:"createdAt"`
+	CreatedBy     string                  `json:"createdBy"                   bson:"createdBy"`
+	Disconnected  bool                    `json:"-"                           bson:"disconnected"`
+	Token         string                  `json:"token"                       bson:"-"`
+	Provider      int8                    `json:"provider"                    bson:"provider"`
 }
 
 type K8SClusterInfo struct {
@@ -51,6 +52,11 @@ type K8SClusterInfo struct {
 	Version string `json:"version" bson:"version"`
 	CPU     string `json:"cpu" bson:"cpu"`
 	Memory  string `json:"memory" bson:"memory"`
+}
+
+type ClusterConfig struct {
+	Strategy   string   `json:"strategy,omitempty"      bson:"strategy,omitempty"`
+	NodeLabels []string `json:"node_labels,omitempty"   bson:"node_labels,omitempty"`
 }
 
 func (K8SCluster) TableName() string {

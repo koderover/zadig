@@ -33,6 +33,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
 )
 
 type CreateProductParam struct {
@@ -120,7 +121,7 @@ func newHelmProductCreator() *HelmProductCreator {
 }
 
 func (creator *HelmProductCreator) Create(user, requestID string, args *models.Product, log *zap.SugaredLogger) error {
-	kubeClient, err := kube.GetKubeClient(args.ClusterID)
+	kubeClient, err := multicluster.GetKubeClient(config.HubServerAddress(), args.ClusterID)
 	if err != nil {
 		log.Errorf("[%s][%s] GetKubeClient error: %v", args.EnvName, args.ProductName, err)
 		return e.ErrCreateEnv.AddErr(err)
@@ -277,7 +278,7 @@ func newDefaultProductCreator() *DefaultProductCreator {
 }
 
 func (creator *DefaultProductCreator) Create(user, requestID string, args *models.Product, log *zap.SugaredLogger) error {
-	kubeClient, err := kube.GetKubeClient(args.ClusterID)
+	kubeClient, err := multicluster.GetKubeClient(config.HubServerAddress(), args.ClusterID)
 	if err != nil {
 		return e.ErrCreateEnv.AddErr(err)
 	}

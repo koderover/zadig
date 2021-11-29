@@ -20,14 +20,14 @@ import (
 	"fmt"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
-
 	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
@@ -35,6 +35,7 @@ import (
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/kube/util"
 )
@@ -111,7 +112,7 @@ func ListPodEvents(envName, productName, podName string, log *zap.SugaredLogger)
 // ListAvailableNamespaces lists available namespaces created by non-koderover
 func ListAvailableNamespaces(clusterID string, log *zap.SugaredLogger) ([]*resource.Namespace, error) {
 	resp := make([]*resource.Namespace, 0)
-	kubeClient, err := kube.GetKubeClient(clusterID)
+	kubeClient, err := multicluster.GetKubeClient(config.HubServerAddress(), clusterID)
 	if err != nil {
 		log.Errorf("ListNamespaces clusterID:%s err:%v", clusterID, err)
 		return resp, err
@@ -148,7 +149,7 @@ func ListServicePods(productName, envName string, serviceName string, log *zap.S
 	if err != nil {
 		return res, e.ErrListServicePod.AddErr(err)
 	}
-	kubeClient, err := kube.GetKubeClient(product.ClusterID)
+	kubeClient, err := multicluster.GetKubeClient(config.HubServerAddress(), product.ClusterID)
 	if err != nil {
 		return res, e.ErrListServicePod.AddErr(err)
 	}
@@ -175,7 +176,7 @@ func DeletePod(envName, productName, podName string, log *zap.SugaredLogger) err
 	if err != nil {
 		return e.ErrDeletePod.AddErr(err)
 	}
-	kubeClient, err := kube.GetKubeClient(product.ClusterID)
+	kubeClient, err := multicluster.GetKubeClient(config.HubServerAddress(), product.ClusterID)
 	if err != nil {
 		return e.ErrDeletePod.AddErr(err)
 	}
@@ -228,7 +229,7 @@ func getModifiedServiceFromObjectMeta(om metav1.Object) *serviceInfo {
 
 func ListAvailableNodes(clusterID string, log *zap.SugaredLogger) ([]*resource.Node, error) {
 	resp := make([]*resource.Node, 0)
-	kubeClient, err := kube.GetKubeClient(clusterID)
+	kubeClient, err := multicluster.GetKubeClient(config.HubServerAddress(), clusterID)
 	if err != nil {
 		log.Errorf("ListAvailableNodes clusterID:%s err:%s", clusterID, err)
 		return resp, err
