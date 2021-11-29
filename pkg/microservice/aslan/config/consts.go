@@ -18,6 +18,8 @@ package config
 
 import (
 	"regexp"
+
+	"github.com/koderover/zadig/pkg/setting"
 )
 
 var (
@@ -222,6 +224,6 @@ const (
 )
 
 const (
-	RoleBindingNameEdit = "zadig-edit"
-	RoleBindingNameView = "zadig-view"
+	RoleBindingNameEdit = setting.ProductName+"-edit"
+	RoleBindingNameView = setting.ProductName+"-view"
 )

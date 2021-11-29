@@ -3,6 +3,6 @@ package consts
 type RulesLogicalOperator string
 
 const (
-	AND RulesLogicalOperator = "&&"
-	OR  RulesLogicalOperator = "||"
+	AND RulesLogicalOperator = "and"
+	OR  RulesLogicalOperator = "or"
 )

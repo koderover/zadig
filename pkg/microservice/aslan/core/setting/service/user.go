@@ -82,7 +82,7 @@ func getCrtAndToken(namespace, userID string) (string, string, error) {
 	for i := 0; i < 5; i++ {
 		tmpsa, found, err := getter.GetServiceAccount(namespace, config.ServiceAccountNameForUser(userID), kubeClient)
 		if err != nil {
-			log.Errorf("GetServiceAccount err:%s", err)
+			log.Errorf("GetServiceAccount err:%s name:%s namespace:%s", err, config.ServiceAccountNameForUser(userID), namespace)
 			return "", "", err
 		} else if found || len(sa.Secrets) > 0 {
 			sa = tmpsa
@@ -93,7 +93,7 @@ func getCrtAndToken(namespace, userID string) (string, string, error) {
 
 	}
 	if sa == nil {
-		log.Errorf("serviceAccount not found in namespace:%s for user%s", namespace, userID)
+		log.Errorf("can not get user:%s service account in namespace:%s", userID, namespace)
 		return "", "", errors.New("serviceAccount not found")
 	}
 
@@ -159,18 +159,18 @@ func ensureClusterRole(log *zap.SugaredLogger) error {
 	if _, found, err := getter.GetClusterRole(config.RoleBindingNameEdit, krkubeclient.Client()); err != nil {
 		log.Errorf("GetClusterRole:%s err: %s", config.RoleBindingNameEdit, err)
 		return err
-	} else if err == nil && !found {
+	} else if !found {
 		if err := updater.CreateClusterRole(clusterRoleEdit, krkubeclient.Client()); err != nil {
-			log.Errorf("CreateClusterRole:%v err: %s", clusterRoleEdit, err)
+			log.Errorf("CreateClusterRole:%s err: %s", clusterRoleEdit, err)
 			return err
 		}
 	}
 	if _, found, err := getter.GetClusterRole(config.RoleBindingNameView, krkubeclient.Client()); err != nil {
 		log.Errorf("GetClusterRole:%s err: %s", config.RoleBindingNameView, err)
 		return err
-	} else if err == nil && !found {
+	} else if !found {
 		if err := updater.CreateClusterRole(clusterRoleView, krkubeclient.Client()); err != nil {
-			log.Errorf("CreateClusterRole:%v err: %s", clusterRoleView, err)
+			log.Errorf("CreateClusterRole:%s err: %s", clusterRoleView, err)
 			return err
 		}
 	}
@@ -197,7 +197,7 @@ func ensureServiceAccountAndRolebinding(namespace string, projectsEnvCanEdit []s
 		}
 	}
 
-	// picket service provide a list of projects for which the user has permission to edit env or read env
+	// caller provide a list of projects for which the user has permission to edit env or read env
 	// while []string{*} means all projects
 	if len(projectsEnvCanEdit) == 1 && projectsEnvCanEdit[0] == "*" {
 		res, err := templaterepo.NewProductColl().ListNames(nil)
@@ -281,7 +281,7 @@ func CreateRoleBinding(rbNamespace, saNamspace, serviceAccountName, roleBindName
 		Namespace: saNamspace,
 	}}
 	if err != nil {
-		log.Errorf("GetRoleBinding err: %s", err)
+		log.Errorf("GetRoleBinding name:%s err: %s", roleBindName, err)
 		return err
 	}
 	if found {
@@ -293,7 +293,7 @@ func CreateRoleBinding(rbNamespace, saNamspace, serviceAccountName, roleBindName
 		}
 		if isExist {
 			return nil
-		}else{
+		} else {
 			subs = append(subs, rolebinding.Subjects...)
 		}
 	}
@@ -312,7 +312,7 @@ func CreateRoleBinding(rbNamespace, saNamspace, serviceAccountName, roleBindName
 			Name: roleBindName,
 		},
 	}, krkubeclient.Client()); err != nil {
-		log.Errorf("create rolebinding err: %s", err)
+		log.Errorf("create rolebinding:%s err: %s", roleBindName, err)
 		return err
 	}
 	return nil
