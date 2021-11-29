@@ -74,12 +74,12 @@ func getAllowedProjects(headers http.Header, rules []*rule, rulesLogicalOperator
 		res = append(res, allowedProjects.Result)
 	}
 	if rulesLogicalOperator == consts.OR {
-		return combine(res), nil
+		return union(res), nil
 	}
 	return intersect(res), nil
 }
 
-func combine(s [][]string) []string {
+func union(s [][]string) []string {
 	if len(s) == 0 {
 		return nil
 	}
