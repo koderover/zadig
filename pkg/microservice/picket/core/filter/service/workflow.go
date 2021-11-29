@@ -59,6 +59,8 @@ func ListTestWorkflows(testName string, header http.Header, qs url.Values, logge
 	return aslan.New().ListTestWorkflows(testName, header, qs)
 }
 
+//getAllowedProjects
+//rulesLogicalOperator@ OR:satisfy any one of rules / AND:satisfy all rules
 func getAllowedProjects(headers http.Header, rules []*rule, rulesLogicalOperator consts.RulesLogicalOperator, logger *zap.SugaredLogger) (projects []string, err error) {
 	var res [][]string
 	for _, v := range rules {
