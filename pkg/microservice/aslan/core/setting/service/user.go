@@ -80,7 +80,7 @@ func getCrtAndToken(namespace, userID string) (string, string, error) {
 	kubeClient := krkubeclient.Client()
 	var sa *corev1.ServiceAccount
 	for i := 0; i < 5; i++ {
-		tmpsa, found, err := getter.GetServiceAccount(namespace, config.ServiceAccountName(userID), kubeClient)
+		tmpsa, found, err := getter.GetServiceAccount(namespace, config.ServiceAccountNameForUser(userID), kubeClient)
 		if err != nil {
 			log.Warnf("GetServiceAccount err:%s", err)
 			return "", "", err
@@ -133,9 +133,30 @@ func filterProductWithoutExternalCluster(products []*commonmodels.Product) []*co
 	return ret
 }
 
+var (
+	clusterRoleEdit = &rbacv1beta1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: config.RoleBindingNameEditEnv,
+		},
+		Rules: []rbacv1beta1.PolicyRule{rbacv1beta1.PolicyRule{
+			Verbs:     []string{"*"},
+			APIGroups: []string{"*"},
+			Resources: []string{"*"},
+		}}}
+	clusterRoleRead = &rbacv1beta1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: config.RoleBindingNameReadEnv,
+		},
+		Rules: []rbacv1beta1.PolicyRule{rbacv1beta1.PolicyRule{
+			Verbs:     []string{"get", "watch", "list"},
+			APIGroups: []string{"*"},
+			Resources: []string{"*"},
+		}}}
+)
+
 func ensureClusterRole(log *zap.SugaredLogger) error {
 	if _, found, err := getter.GetClusterRole(config.RoleBindingNameEditEnv, krkubeclient.Client()); err == nil && !found {
-		if err := updater.CreateClusterRole(config.ClusterRoleEdit, krkubeclient.Client()); err != nil {
+		if err := updater.CreateClusterRole(clusterRoleEdit, krkubeclient.Client()); err != nil {
 			log.Errorf("CreateClusterRole err: %s", err)
 			return err
 		}
@@ -144,7 +165,7 @@ func ensureClusterRole(log *zap.SugaredLogger) error {
 		return err
 	}
 	if _, found, err := getter.GetClusterRole(config.RoleBindingNameReadEnv, krkubeclient.Client()); err == nil && !found {
-		if err := updater.CreateClusterRole(config.ClusterRoleRead, krkubeclient.Client()); err != nil {
+		if err := updater.CreateClusterRole(clusterRoleRead, krkubeclient.Client()); err != nil {
 			log.Errorf("CreateClusterRole err: %s", err)
 			return err
 		}
@@ -156,25 +177,27 @@ func ensureClusterRole(log *zap.SugaredLogger) error {
 }
 
 func ensureServiceAccountAndRolebinding(namespace string, editEnvProjects []string, readEnvProjects []string, userID string, log *zap.SugaredLogger) error {
+	serviceAccountName := config.ServiceAccountNameForUser(userID)
 	serviceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      config.ServiceAccountName(userID),
+			Name:      serviceAccountName,
 			Namespace: namespace,
 		},
 	}
-	_, found, err := getter.GetServiceAccount(namespace, config.ServiceAccountName(userID), krkubeclient.Client())
+	_, found, err := getter.GetServiceAccount(namespace, serviceAccountName, krkubeclient.Client())
 	if err != nil {
-		log.Errorf("GetServiceAccount err: %s", err)
+		log.Errorf("GetServiceAccount name:%s err:%s", err)
 		return err
 	}
 	if !found {
 		if err := updater.CreateServiceAccount(serviceAccount, krkubeclient.Client()); err != nil {
-			log.Errorf("CreateServiceAccount err: %+v", err)
+			log.Errorf("CreateServiceAccount name:%s err:%s", serviceAccountName, err)
 			return err
 		}
 	}
 
-	//2. create rolebinding
+	// picket service provide a list of projects for which the user has permission to edit env or read env
+	// while []string{*} means all projects
 	if len(editEnvProjects) == 1 && editEnvProjects[0] == "*" {
 		res, err := templaterepo.NewProductColl().ListNames(nil)
 		if err != nil {
@@ -200,7 +223,7 @@ func ensureServiceAccountAndRolebinding(namespace string, editEnvProjects []stri
 		}
 		products = filterProductWithoutExternalCluster(products)
 		for _, vv := range products {
-			if err := CreateRoleBinding(vv.Namespace, namespace, config.ServiceAccountName(userID), config.RoleBindingNameEditEnv); err != nil {
+			if err := CreateRoleBinding(vv.Namespace, namespace, serviceAccountName, config.RoleBindingNameEditEnv); err != nil {
 				log.Errorf("CreateRoleBinding err: %s", err)
 			}
 		}
@@ -213,7 +236,7 @@ func ensureServiceAccountAndRolebinding(namespace string, editEnvProjects []stri
 		}
 		products = filterProductWithoutExternalCluster(products)
 		for _, vv := range products {
-			if err := CreateRoleBinding(vv.Namespace, namespace, config.ServiceAccountName(userID), config.RoleBindingNameReadEnv); err != nil {
+			if err := CreateRoleBinding(vv.Namespace, namespace, serviceAccountName, config.RoleBindingNameReadEnv); err != nil {
 				log.Errorf("CreateRoleBinding err: %s", err)
 			}
 		}

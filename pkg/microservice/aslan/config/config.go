@@ -226,6 +226,6 @@ func LocalServicePath(project, service string) string {
 	return configbase.LocalServicePath(project, service)
 }
 
-func ServiceAccountName(userID string) string {
+func ServiceAccountNameForUser(userID string) string {
 	return fmt.Sprintf("%s-sa", userID)
 }
