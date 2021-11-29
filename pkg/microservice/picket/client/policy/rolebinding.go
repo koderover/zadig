@@ -25,3 +25,11 @@ func (c *Client) ListRoleBindings(header http.Header, qs url.Values) ([]*RoleBin
 
 	return res, nil
 }
+
+func (c *Client) DeleteRoleBindings(userID string,header http.Header, qs url.Values) ([]byte,error) {
+	url := "/rolebindings"
+
+	qs.Add("userID", userID)
+	res, err := c.Delete(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs))
+	return res.Body(),err
+}

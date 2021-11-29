@@ -45,4 +45,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		codehosts.GET("", ListCodeHost)
 	}
+	users := router.Group("users")
+	{
+		users.DELETE("/:id",DeleteUser)
+	}
 }
