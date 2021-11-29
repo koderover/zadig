@@ -222,6 +222,6 @@ const (
 )
 
 const (
-	RoleBindingNameEditEnv = "write"
-	RoleBindingNameReadEnv = "read"
+	RoleBindingNameEdit = "zadig-edit"
+	RoleBindingNameView = "zadig-view"
 )

@@ -137,16 +137,16 @@ func filterProductWithoutExternalCluster(products []*commonmodels.Product) []*co
 var (
 	clusterRoleEdit = &rbacv1beta1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: config.RoleBindingNameEditEnv,
+			Name: config.RoleBindingNameEdit,
 		},
 		Rules: []rbacv1beta1.PolicyRule{rbacv1beta1.PolicyRule{
 			Verbs:     []string{"*"},
 			APIGroups: []string{"*"},
 			Resources: []string{"*"},
 		}}}
-	clusterRoleRead = &rbacv1beta1.ClusterRole{
+	clusterRoleView = &rbacv1beta1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: config.RoleBindingNameReadEnv,
+			Name: config.RoleBindingNameView,
 		},
 		Rules: []rbacv1beta1.PolicyRule{rbacv1beta1.PolicyRule{
 			Verbs:     []string{"get", "watch", "list"},
@@ -156,8 +156,8 @@ var (
 )
 
 func ensureClusterRole(log *zap.SugaredLogger) error {
-	if _, found, err := getter.GetClusterRole(config.RoleBindingNameEditEnv, krkubeclient.Client()); err != nil {
-		log.Errorf("GetClusterRole:%s err: %s", config.RoleBindingNameEditEnv, err)
+	if _, found, err := getter.GetClusterRole(config.RoleBindingNameEdit, krkubeclient.Client()); err != nil {
+		log.Errorf("GetClusterRole:%s err: %s", config.RoleBindingNameEdit, err)
 		return err
 	} else if err == nil && !found {
 		if err := updater.CreateClusterRole(clusterRoleEdit, krkubeclient.Client()); err != nil {
@@ -165,12 +165,12 @@ func ensureClusterRole(log *zap.SugaredLogger) error {
 			return err
 		}
 	}
-	if _, found, err := getter.GetClusterRole(config.RoleBindingNameReadEnv, krkubeclient.Client()); err != nil {
-		log.Errorf("GetClusterRole:%s err: %s", config.RoleBindingNameReadEnv, err)
+	if _, found, err := getter.GetClusterRole(config.RoleBindingNameView, krkubeclient.Client()); err != nil {
+		log.Errorf("GetClusterRole:%s err: %s", config.RoleBindingNameView, err)
 		return err
 	} else if err == nil && !found {
-		if err := updater.CreateClusterRole(clusterRoleRead, krkubeclient.Client()); err != nil {
-			log.Errorf("CreateClusterRole:%v err: %s", clusterRoleRead, err)
+		if err := updater.CreateClusterRole(clusterRoleView, krkubeclient.Client()); err != nil {
+			log.Errorf("CreateClusterRole:%v err: %s", clusterRoleView, err)
 			return err
 		}
 	}
@@ -224,7 +224,7 @@ func ensureServiceAccountAndRolebinding(namespace string, editEnvProjects []stri
 		}
 		products = filterProductWithoutExternalCluster(products)
 		for _, vv := range products {
-			if err := CreateRoleBinding(vv.Namespace, namespace, serviceAccountName, config.RoleBindingNameEditEnv); err != nil {
+			if err := CreateRoleBinding(vv.Namespace, namespace, serviceAccountName, config.RoleBindingNameEdit); err != nil {
 				log.Errorf("CreateRoleBinding err: %s", err)
 			}
 		}
@@ -237,7 +237,7 @@ func ensureServiceAccountAndRolebinding(namespace string, editEnvProjects []stri
 		}
 		products = filterProductWithoutExternalCluster(products)
 		for _, vv := range products {
-			if err := CreateRoleBinding(vv.Namespace, namespace, serviceAccountName, config.RoleBindingNameReadEnv); err != nil {
+			if err := CreateRoleBinding(vv.Namespace, namespace, serviceAccountName, config.RoleBindingNameView); err != nil {
 				log.Errorf("CreateRoleBinding err: %s", err)
 			}
 		}
@@ -310,7 +310,7 @@ func CreateRoleBinding(rbNamespace, saNamspace, serviceAccountName, roleBindName
 			// Kind is the type of resource being referenced
 			Kind: "ClusterRole",
 			// Name is the name of resource being referenced
-			Name: "zadig-env-edit",
+			Name: roleBindName,
 		},
 	}, krkubeclient.Client()); err != nil {
 		log.Errorf("create rolebinding err: %s", err)
