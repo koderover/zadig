@@ -9,7 +9,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/picket/client/aslan"
 	"github.com/koderover/zadig/pkg/microservice/picket/client/opa"
-	consts "github.com/koderover/zadig/pkg/microservice/picket/core/const"
+	"github.com/koderover/zadig/pkg/microservice/picket/config"
 )
 
 type rule struct {
@@ -22,7 +22,7 @@ func ListWorkflows(header http.Header, qs url.Values, logger *zap.SugaredLogger)
 		method:   "/api/aslan/workflow/workflow",
 		endpoint: "GET",
 	}}
-	names, err := getAllowedProjects(header, rules, consts.AND, logger)
+	names, err := getAllowedProjects(header, rules, config.AND, logger)
 	if err != nil {
 		logger.Errorf("Failed to get allowed project names, err: %s", err)
 		return nil, err
@@ -43,7 +43,7 @@ func ListTestWorkflows(testName string, header http.Header, qs url.Values, logge
 		method:   "/api/aslan/workflow/workflow",
 		endpoint: "PUT",
 	}}
-	names, err := getAllowedProjects(header, rules, consts.AND, logger)
+	names, err := getAllowedProjects(header, rules, config.AND, logger)
 	if err != nil {
 		logger.Errorf("Failed to get allowed project names, err: %s", err)
 		return nil, err
@@ -61,7 +61,7 @@ func ListTestWorkflows(testName string, header http.Header, qs url.Values, logge
 
 //getAllowedProjects
 //rulesLogicalOperator@ OR:satisfy any one of rules / AND:satisfy all rules
-func getAllowedProjects(headers http.Header, rules []*rule, rulesLogicalOperator consts.RulesLogicalOperator, logger *zap.SugaredLogger) (projects []string, err error) {
+func getAllowedProjects(headers http.Header, rules []*rule, rulesLogicalOperator config.RulesLogicalOperator, logger *zap.SugaredLogger) (projects []string, err error) {
 	var res [][]string
 	for _, v := range rules {
 		allowedProjects := &allowedProjectsData{}
@@ -75,7 +75,7 @@ func getAllowedProjects(headers http.Header, rules []*rule, rulesLogicalOperator
 		}
 		res = append(res, allowedProjects.Result)
 	}
-	if rulesLogicalOperator == consts.OR {
+	if rulesLogicalOperator == config.OR {
 		return union(res), nil
 	}
 	return intersect(res), nil

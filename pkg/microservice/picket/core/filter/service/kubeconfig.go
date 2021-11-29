@@ -7,7 +7,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/picket/client/aslan"
-	consts "github.com/koderover/zadig/pkg/microservice/picket/core/const"
+	"github.com/koderover/zadig/pkg/microservice/picket/config"
 )
 
 //DownloadKubeConfig user download kube config file which has permission to read or edit namespaces he has permission to
@@ -25,7 +25,7 @@ func DownloadKubeConfig(header http.Header, qs url.Values, logger *zap.SugaredLo
 		endpoint: "/api/aslan/environment/environments/?*/services/?*/restart",
 	},
 	}
-	projectsEnvCanView, err := getAllowedProjects(header, readEnvRules, consts.OR, logger)
+	projectsEnvCanView, err := getAllowedProjects(header, readEnvRules, config.OR, logger)
 	if err != nil {
 		logger.Errorf("Failed to get allowed project names, err: %s", err)
 		return nil, err
@@ -35,7 +35,7 @@ func DownloadKubeConfig(header http.Header, qs url.Values, logger *zap.SugaredLo
 		qs.Add("projectsEnvCanView", name)
 	}
 
-	projectsEnvCanEdit, err := getAllowedProjects(header, editEnvRules, consts.OR, logger)
+	projectsEnvCanEdit, err := getAllowedProjects(header, editEnvRules, config.OR, logger)
 	if err != nil {
 		logger.Errorf("Failed to get allowed project names, err: %s", err)
 		return nil, err
