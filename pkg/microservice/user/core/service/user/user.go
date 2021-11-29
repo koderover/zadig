@@ -547,3 +547,13 @@ func SyncUser(syncUserInfo *SyncUserInfo, logger *zap.SugaredLogger) (*models.Us
 	}
 	return user, nil
 }
+
+// UserSvrHealthz
+func UserSvrHealthz(logger *zap.SugaredLogger) error {
+	err := orm.CheckUserMysqlDbHealthz()
+	if err != nil {
+		logger.Errorf("CheckUserMysqlDbHealthz error,error msg:%s ", err)
+		return err
+	}
+	return nil
+}

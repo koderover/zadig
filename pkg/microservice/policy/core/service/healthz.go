@@ -14,27 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package service
 
 import (
 	"context"
-	"log"
-	"os/signal"
-	"syscall"
 
-	"github.com/koderover/zadig/pkg/cli/initconfig/cmd"
+	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
+	"go.uber.org/zap"
 )
 
-func main() {
-
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
-	go func() {
-		<-ctx.Done()
-		stop()
-	}()
-
-	if err := cmd.Serve(ctx); err != nil {
-		log.Fatal(err)
-	}
-
+// GetPolicySvrHealthz
+func GetPolicySvrHealthz(ctx context.Context, _ *zap.SugaredLogger) error {
+	return mongodb.CheckMongodbHealth(ctx)
 }

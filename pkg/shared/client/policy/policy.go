@@ -111,3 +111,9 @@ type Role struct {
 		Kind      string   `json:"kind"`
 	} `json:"rules"`
 }
+
+func (c *Client) GetPolicySvrHealthz() error {
+	url := fmt.Sprintf("/healthz")
+	_, err := c.Get(url)
+	return err
+}

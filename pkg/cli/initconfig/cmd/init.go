@@ -21,9 +21,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
-	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 
 	"sigs.k8s.io/yaml"
@@ -34,12 +34,15 @@ import (
 	"github.com/koderover/zadig/pkg/shared/client/user"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/spf13/viper"
 )
 
 func init() {
-	rootCmd.AddCommand(initCmd)
+	viper.AutomaticEnv()
+
 	log.Init(&log.Config{
-		Level: config.LogLevel(),
+		Level:    config.LogLevel(),
+		NoCaller: true,
 	})
 }
 
@@ -55,18 +58,9 @@ var admin []byte
 //go:embed project-admin.yaml
 var projectAdmin []byte
 
-var initCmd = &cobra.Command{
-	Use:   "init",
-	Short: "init system config",
-	Long:  `init system config.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		if err := run(); err != nil {
-			log.Fatal(err)
-		}
-	},
-}
+var once sync.Once
 
-func run() error {
+func Run() error {
 	return initSystemConfig()
 }
 

@@ -14,35 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cmd
+package handler
 
 import (
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-
-	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/pkg/microservice/policy/core/service"
+	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
-var rootCmd = &cobra.Command{
-	Use:   "config",
-	Short: "init config for zadig",
-	Long:  `init system config  for zadig`,
-}
-
-// Execute executes the root command.
-func Execute() error {
-	return rootCmd.Execute()
-}
-
-func init() {
-	cobra.OnInitialize(initConfig)
-}
-
-func initConfig() {
-	viper.AutomaticEnv()
-
-	log.Init(&log.Config{
-		Level:    "debug",
-		NoCaller: true,
-	})
+// PolicySvrHealthz
+func PolicySvrHealthz(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	ctx.Err = service.GetPolicySvrHealthz(c.Request.Context(), ctx.Logger)
 }
