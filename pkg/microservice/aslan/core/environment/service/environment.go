@@ -89,7 +89,7 @@ type ProductResp struct {
 	ProductName string                   `json:"product_name"`
 	Namespace   string                   `json:"namespace"`
 	Status      string                   `json:"status"`
-	Error       string                   `json:"error"`
+	Error       string                   `json:"error,omitempty"`
 	EnvName     string                   `json:"env_name"`
 	UpdateBy    string                   `json:"update_by"`
 	UpdateTime  int64                    `json:"update_time"`
@@ -98,6 +98,7 @@ type ProductResp struct {
 	Vars        []*template.RenderKV     `json:"vars"`
 	IsPublic    bool                     `json:"isPublic"`
 	ClusterID   string                   `json:"cluster_id,omitempty"`
+	ClusterName string                   `json:"cluster_name,omitempty"`
 	RecycleDay  int                      `json:"recycle_day"`
 	IsProd      bool                     `json:"is_prod"`
 	Source      string                   `json:"source"`
@@ -147,30 +148,6 @@ type RawYamlResp struct {
 
 type intervalExecutorHandler func(data *commonmodels.Service, log *zap.SugaredLogger) error
 
-func GetProductStatus(productName string, log *zap.SugaredLogger) ([]*EnvStatus, error) {
-	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName})
-	if err != nil {
-		log.Errorf("Collection.Product.List List product error: %v", err)
-		return nil, e.ErrListProducts.AddDesc(err.Error())
-	}
-
-	envStatusSlice := make([]*EnvStatus, 0)
-	for _, publicProduct := range products {
-		if publicProduct.ProductName != productName {
-			continue
-		}
-		envStatus := &EnvStatus{
-			EnvName: publicProduct.EnvName,
-			Status:  publicProduct.Status,
-		}
-		if len(publicProduct.Error) > 0 {
-			envStatus.ErrMessage = publicProduct.Error
-		}
-		envStatusSlice = append(envStatusSlice, envStatus)
-	}
-	return envStatusSlice, err
-}
-
 func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger) ([]*ProductResp, error) {
 	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: projectName, InEnvs: envNames, IsSortByProductName: true})
 	if err != nil {
@@ -198,9 +175,11 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 	for _, env := range envs {
 		clusterID := env.ClusterID
 		production := false
+		clusterName := ""
 		cluster, ok := clusterMap[clusterID]
 		if ok {
 			production = cluster.Production
+			clusterName = cluster.Name
 		}
 
 		res = append(res, &ProductResp{
@@ -211,12 +190,15 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 			Vars:        env.Vars[:],
 			IsPublic:    env.IsPublic,
 			ClusterID:   env.ClusterID,
+			ClusterName: clusterName,
 			UpdateTime:  env.UpdateTime,
 			UpdateBy:    env.UpdateBy,
 			RecycleDay:  env.RecycleDay,
 			Render:      env.Render,
 			Source:      env.Source,
 			IsProd:      production,
+			Status:      env.Status,
+			Error:       env.Error,
 		})
 	}
 
