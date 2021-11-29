@@ -2105,10 +2105,16 @@ func installOrUpgradeHelmChart(namespace string, renderChart *template.RenderCha
 }
 
 func installOrUpgradeHelmChartWithValues(namespace, valuesYaml string, renderChart *template.RenderChart, serviceObj *commonmodels.Service, timeout time.Duration, helmClient helmclient.Client) error {
-	base := config.LocalServicePath(serviceObj.ProductName, serviceObj.ServiceName)
-	if err := commonservice.PreLoadServiceManifests(base, serviceObj); err != nil {
-		log.Errorf("Failed to load manifest for service %s in project %s, err: %s", serviceObj.ServiceName, serviceObj.ProductName, err)
-		return err
+	base := config.LocalServicePathWithRevision(serviceObj.ProductName, serviceObj.ServiceName, serviceObj.Revision)
+	if err := commonservice.PreloadServiceManifestsByRevision(base, serviceObj); err != nil {
+		log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
+			serviceObj.Revision, serviceObj.ServiceName)
+		// use the latest version when it fails to download the specific version
+		base = config.LocalServicePath(serviceObj.ProductName, serviceObj.ServiceName)
+		if err = commonservice.PreLoadServiceManifests(base, serviceObj); err != nil {
+			log.Errorf("failed to load chart info for service %v", serviceObj.ServiceName)
+			return fmt.Errorf("failed to load chart info for service %s", serviceObj.ServiceName)
+		}
 	}
 
 	chartFullPath := filepath.Join(base, serviceObj.ServiceName)
@@ -2632,7 +2638,7 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 		if err != nil {
 			return errors.Wrapf(err, "failed to upgrade service %s", service.ServiceName)
 		}
-		return err
+		return nil
 	}
 
 	errList := new(multierror.Error)
