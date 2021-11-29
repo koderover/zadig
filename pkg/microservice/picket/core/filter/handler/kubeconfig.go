@@ -11,5 +11,5 @@ func GetKubeConfig(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.DownloadKubeConfig(c.Request.Header, c.Request.URL.Query(), ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetKubeConfig(c.Request.Header, c.Request.URL.Query(), ctx.Logger)
 }
