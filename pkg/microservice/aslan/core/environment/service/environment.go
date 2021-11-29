@@ -89,7 +89,7 @@ type ProductResp struct {
 	ProductName string                   `json:"product_name"`
 	Namespace   string                   `json:"namespace"`
 	Status      string                   `json:"status"`
-	Error       string                   `json:"error,omitempty"`
+	Error       string                   `json:"error"`
 	EnvName     string                   `json:"env_name"`
 	UpdateBy    string                   `json:"update_by"`
 	UpdateTime  int64                    `json:"update_time"`
