@@ -19,7 +19,6 @@ package service
 import (
 	"strconv"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -32,37 +31,18 @@ type resourceSpec struct {
 
 func GetBundleResources() ([]*resourceSpec, error) {
 	var res []*resourceSpec
-
-	envs, err := mongodb.NewProductColl().List(nil)
-	if err != nil {
-		log.Errorf("Failed to list envs, err: %s", err)
-		return nil, err
-	}
-
-	clusterMap := make(map[string]*models.K8SCluster)
 	clusters, err := mongodb.NewK8SClusterColl().List(nil)
 	if err != nil {
 		log.Errorf("Failed to list clusters in db, err: %s", err)
 		return nil, err
 	}
 
-	for _, cls := range clusters {
-		clusterMap[cls.ID.Hex()] = cls
-	}
-
-	for _, env := range envs {
-		clusterID := env.ClusterID
-		production := false
-		cluster, ok := clusterMap[clusterID]
-		if ok {
-			production = cluster.Production
-		}
-
+	for _, cluster := range clusters {
 		res = append(res, &resourceSpec{
-			ResourceID:  env.EnvName,
-			ProjectName: env.ProductName,
+			ResourceID:  cluster.ID.Hex(),
+			ProjectName: "",
 			Spec: map[string]interface{}{
-				"production": strconv.FormatBool(production),
+				"production": strconv.FormatBool(cluster.Production),
 			},
 		})
 	}

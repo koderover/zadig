@@ -73,7 +73,13 @@ func GetResourcesInHeader(c *gin.Context) ([]string, bool) {
 	if !ok {
 		return nil, false
 	}
-	return strings.Split(c.GetHeader(setting.ResourcesHeader), ","), true
+
+	res := c.GetHeader(setting.ResourcesHeader)
+	if res == "" {
+		return nil, true
+	}
+
+	return strings.Split(res, ","), true
 }
 
 func getUserFromJWT(token string) (jwtClaims, error) {

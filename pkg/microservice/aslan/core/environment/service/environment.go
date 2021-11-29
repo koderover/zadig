@@ -161,7 +161,7 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 	}
 
 	clusterMap := make(map[string]*commonmodels.K8SCluster)
-	clusters, err := commonrepo.NewK8SClusterColl().Find("")
+	clusters, err := commonrepo.NewK8SClusterColl().List(nil)
 	if err != nil {
 		log.Errorf("Failed to list clusters in db, err: %s", err)
 		return nil, err

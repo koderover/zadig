@@ -102,9 +102,17 @@ user_allowed_resources[resourceID] {
 
     user_matched_rule_for_filtering[rule]
     res := data.resources[rule.resourceType][_]
-    res.projectName == project_name
+    project_name_is_match(res)
     not attributes_mismatch(rule.matchAttributes, res)
     resourceID := res.resourceID
+}
+
+project_name_is_match(res) {
+    res.projectName == project_name
+}
+
+project_name_is_match(res) {
+    res.projectName == ""
 }
 
 user_matched_rule_for_filtering[rule] {
@@ -119,7 +127,7 @@ user_matched_rule_for_filtering[rule] {
 all_attributes_match(attributes, resourceType, resourceID) {
     res := data.resources[resourceType][_]
     res.resourceID == resourceID
-    res.projectName == project_name
+    project_name_is_match(res)
 
     # a && b <=> !(!a || !b), De Morgan’s laws, see details in https://www.fugue.co/blog/5-tips-for-using-the-rego-language-for-open-policy-agent-opa
     not attributes_mismatch(attributes, res)
@@ -131,11 +139,11 @@ attributes_mismatch(attributes, res) {
 }
 
 attribute_mismatch(attribute, res) {
-    res[attribute.key] != attribute.value
+    res.spec[attribute.key] != attribute.value
 }
 
 attribute_mismatch(attribute, res) {
-    not res[attribute.key]
+    not res.spec[attribute.key]
 }
 
 get_resource_id(idRegex) = id {

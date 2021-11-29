@@ -181,6 +181,16 @@ func CreateProduct(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateProduct json.Unmarshal err : %v", err)
 	}
+
+	allowedClusters, found := internalhandler.GetResourcesInHeader(c)
+	if found {
+		allowedSet := sets.NewString(allowedClusters...)
+		if !allowedSet.Has(args.ClusterID) {
+			c.String(http.StatusForbidden, "permission denied for cluster %s", args.ClusterID)
+			return
+		}
+	}
+
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", "集成环境", args.EnvName, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 

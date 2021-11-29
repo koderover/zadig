@@ -135,4 +135,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		revision.GET("/products", ListProductsRevision)
 	}
+
+	bundles := router.Group("bundle-resources")
+	{
+		bundles.GET("", GetBundleResources)
+	}
 }

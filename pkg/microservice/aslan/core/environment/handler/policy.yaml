@@ -57,12 +57,22 @@ rules:
     rules:
       - method: POST
         endpoint: "/api/aslan/environment/environments"
+        resourceType: "Cluster"
+        matchAttributes:
+          - key: "production"
+            value: "false"
       - method: POST
         endpoint: "/api/aslan/service/workloads"
       - method: GET
         endpoint: "/api/aslan/project/products/?*/services"
       - method: GET
         endpoint: "/api/aslan/delivery/releases"
+      - method: GET
+        endpoint: "api/aslan/cluster/clusters"
+        resourceType: "Cluster"
+        matchAttributes:
+          - key: "production"
+            value: "false"
   - action: config_environment
     alias: "配置集成环境"
     description: ""

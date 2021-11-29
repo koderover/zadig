@@ -18,31 +18,14 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/multicluster/service"
+	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
-type Router struct{}
+func GetBundleResources(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-func (*Router) Inject(router *gin.RouterGroup) {
-
-	Agent := router.Group("agent")
-	{
-		Agent.GET("/:id/agent.yaml", GetClusterYaml("/api/hub"))
-	}
-
-	Cluster := router.Group("clusters")
-	{
-		Cluster.GET("", ListClusters)
-		Cluster.GET("/:id", GetCluster)
-
-		Cluster.POST("", CreateCluster)
-		Cluster.PUT("/:id", UpdateCluster)
-		Cluster.DELETE("/:id", DeleteCluster)
-		Cluster.PUT("/:id/disconnect", DisconnectCluster)
-		Cluster.PUT("/:id/reconnect", ReconnectCluster)
-	}
-
-	bundles := router.Group("bundle-resources")
-	{
-		bundles.GET("", GetBundleResources)
-	}
+	ctx.Resp, ctx.Err = service.GetBundleResources()
 }
