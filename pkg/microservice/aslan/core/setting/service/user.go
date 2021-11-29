@@ -82,26 +82,27 @@ func getCrtAndToken(namespace, userID string) (string, string, error) {
 	for i := 0; i < 5; i++ {
 		tmpsa, found, err := getter.GetServiceAccount(namespace, config.ServiceAccountNameForUser(userID), kubeClient)
 		if err != nil {
-			log.Warnf("GetServiceAccount err:%s", err)
+			log.Errorf("GetServiceAccount err:%s", err)
 			return "", "", err
-		} else if !found || len(sa.Secrets) == 0 {
-			time.Sleep(time.Second)
-		} else {
+		} else if found || len(sa.Secrets) > 0 {
 			sa = tmpsa
 			break
 		}
+		log.Warnf("waiting for the secret created")
+		time.Sleep(time.Second)
+
 	}
 	if sa == nil {
-		log.Errorf("can not get sa")
-		return "", "", errors.New("can not get sa")
+		log.Errorf("serviceAccount not found in namespace:%s for user%s", namespace, userID)
+		return "", "", errors.New("serviceAccount not found")
 	}
 
 	secret, found, err := getter.GetSecret(namespace, sa.Secrets[0].Name, kubeClient)
 	if err != nil {
-		log.Errorf("GetSecret err: %s", err)
+		log.Errorf("GetSecret:%s err: %s", sa.Secrets[0].Name, err)
 		return "", "", err
 	} else if !found {
-		log.Error("secret not found")
+		log.Error("secret:%s not found in namespace:%s", sa.Secrets[0].Name, namespace)
 		return "", "", errors.New("secret not found")
 	}
 	return base64.StdEncoding.EncodeToString(secret.Data["ca.crt"]), string(secret.Data["token"]), nil
@@ -160,7 +161,7 @@ func ensureClusterRole(log *zap.SugaredLogger) error {
 		return err
 	} else if err == nil && !found {
 		if err := updater.CreateClusterRole(clusterRoleEdit, krkubeclient.Client()); err != nil {
-			log.Errorf("CreateClusterRole err: %s", err)
+			log.Errorf("CreateClusterRole:%s err: %s", clusterRoleEdit, err)
 			return err
 		}
 	}
@@ -169,7 +170,7 @@ func ensureClusterRole(log *zap.SugaredLogger) error {
 		return err
 	} else if err == nil && !found {
 		if err := updater.CreateClusterRole(clusterRoleRead, krkubeclient.Client()); err != nil {
-			log.Errorf("CreateClusterRole err: %s", err)
+			log.Errorf("CreateClusterRole:%s err: %s", clusterRoleRead, err)
 			return err
 		}
 	}
@@ -230,7 +231,7 @@ func ensureServiceAccountAndRolebinding(namespace string, editEnvProjects []stri
 	}
 
 	for _, v := range readEnvProjects {
-		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: v, IsSortByProductName: true})
+		products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: v})
 		if err != nil {
 			log.Errorf("[%s] Collections.Product.List error: %v", v, err)
 		}
