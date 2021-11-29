@@ -33,6 +33,7 @@ response = r {
 
 # response for resource filtering, all allowed resources IDs will be returned in headers
 response = r {
+    is_authenticated
     not allow
     rule_is_matched_for_filtering
     r := {
