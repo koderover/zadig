@@ -112,7 +112,7 @@ func DeleteRoleBindings(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.DeleteRoleBindings(args.Names, projectName,userID, ctx.Logger)
+	ctx.Err = service.DeleteRoleBindings(args.Names, projectName, userID, ctx.Logger)
 }
 
 func DeleteSystemRoleBinding(c *gin.Context) {

@@ -120,9 +120,9 @@ func (c *RoleBindingColl) Delete(name string, projectName string) error {
 	return err
 }
 
-func (c *RoleBindingColl) DeleteMany(names []string, projectName string,userID string) error {
+func (c *RoleBindingColl) DeleteMany(names []string, projectName string, userID string) error {
 	query := bson.M{}
-	if projectName != ""{
+	if projectName != "" {
 		query["namespace"] = projectName
 	}
 	if len(names) > 0 {
