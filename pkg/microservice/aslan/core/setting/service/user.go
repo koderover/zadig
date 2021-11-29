@@ -284,7 +284,26 @@ func CreateRoleBinding(rbNamespace, saNamspace, serviceAccountName, roleBindName
 		log.Errorf("GetRoleBinding name:%s err: %s", roleBindName, err)
 		return err
 	}
-	if found {
+	if !found{
+		if err := updater.CreateRoleBinding(&rbacv1beta1.RoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      roleBindName,
+				Namespace: rbNamespace,
+			},
+			Subjects: subs,
+			RoleRef: rbacv1beta1.RoleRef{
+				// APIGroup is the group for the resource being referenced
+				APIGroup: "rbac.authorization.k8s.io",
+				// Kind is the type of resource being referenced
+				Kind: "ClusterRole",
+				// Name is the name of resource being referenced
+				Name: roleBindName,
+			},
+		}, krkubeclient.Client()); err != nil {
+			log.Errorf("create rolebinding:%s err: %s", roleBindName, err)
+			return err
+		}
+	}else{
 		isExist := false
 		for _, v := range rolebinding.Subjects {
 			if v.Name == serviceAccountName {
@@ -297,7 +316,7 @@ func CreateRoleBinding(rbNamespace, saNamspace, serviceAccountName, roleBindName
 			subs = append(subs, rolebinding.Subjects...)
 		}
 	}
-	if err := updater.CreateOrPatchRoleBinding(&rbacv1beta1.RoleBinding{
+	if err := updater.UpdateRoleBinding(&rbacv1beta1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      roleBindName,
 			Namespace: rbNamespace,
