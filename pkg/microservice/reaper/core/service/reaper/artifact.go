@@ -30,6 +30,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
+	"github.com/koderover/zadig/pkg/util/fs"
 )
 
 func artifactsUpload(ctx *meta.Context, activeWorkspace string, artifactPaths []string, pluginType ...string) error {
@@ -87,25 +88,36 @@ func artifactsUpload(ctx *meta.Context, activeWorkspace string, artifactPaths []
 	}
 
 	artifactPath := filepath.Join(activeWorkspace, artifactPaths[0])
-	temp, err := ioutil.TempFile("", "*artifact.tar.gz")
-	if err != nil {
-		log.Errorf("failed to create temp file %s", err)
-		return err
-	}
-
-	_ = temp.Close()
-	cmd := exec.Command("tar", "czf", temp.Name(), "-C", artifactPath, ".")
-	cmd.Dir = artifactPath
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
-	if err = cmd.Run(); err != nil {
-		log.Errorf("failed to compress artifact %s", err)
-		return err
-	}
-	if store != nil {
-		objectKey := store.GetObjectPath("artifact.tar.gz")
-		if err = s3FileUpload(store, temp.Name(), objectKey); err != nil {
+	isDir := fs.IsDir(artifactPath)
+	if isDir {
+		temp, err := ioutil.TempFile("", "*artifact.tar.gz")
+		if err != nil {
+			log.Errorf("failed to create temp file %s", err)
 			return err
+		}
+
+		_ = temp.Close()
+		cmd := exec.Command("tar", "czf", temp.Name(), "-C", artifactPath, ".")
+		cmd.Dir = artifactPath
+		cmd.Stderr = os.Stderr
+		cmd.Stdout = os.Stdout
+		if err = cmd.Run(); err != nil {
+			log.Errorf("failed to compress artifact err:%s", err)
+			return err
+		}
+		if store != nil {
+			objectKey := store.GetObjectPath("artifact.tar.gz")
+			if err = s3FileUpload(store, temp.Name(), objectKey); err != nil {
+				return err
+			}
+		}
+	} else {
+		st, _ := os.Stat(artifactPath)
+		if store != nil {
+			objectKey := store.GetObjectPath(artifactPath)
+			if err = s3FileUpload(store, st.Name(), objectKey); err != nil {
+				return err
+			}
 		}
 	}
 
