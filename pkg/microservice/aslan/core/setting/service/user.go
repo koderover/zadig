@@ -155,23 +155,23 @@ var (
 )
 
 func ensureClusterRole(log *zap.SugaredLogger) error {
-	if _, found, err := getter.GetClusterRole(config.RoleBindingNameEditEnv, krkubeclient.Client()); err == nil && !found {
+	if _, found, err := getter.GetClusterRole(config.RoleBindingNameEditEnv, krkubeclient.Client()); err != nil {
+		log.Errorf("GetClusterRole err: %s", err)
+		return err
+	} else if err == nil && !found {
 		if err := updater.CreateClusterRole(clusterRoleEdit, krkubeclient.Client()); err != nil {
 			log.Errorf("CreateClusterRole err: %s", err)
 			return err
 		}
-	} else if err != nil {
+	}
+	if _, found, err := getter.GetClusterRole(config.RoleBindingNameReadEnv, krkubeclient.Client()); err != nil {
 		log.Errorf("GetClusterRole err: %s", err)
 		return err
-	}
-	if _, found, err := getter.GetClusterRole(config.RoleBindingNameReadEnv, krkubeclient.Client()); err == nil && !found {
+	} else if err == nil && !found {
 		if err := updater.CreateClusterRole(clusterRoleRead, krkubeclient.Client()); err != nil {
 			log.Errorf("CreateClusterRole err: %s", err)
 			return err
 		}
-	} else if err != nil {
-		log.Errorf("GetClusterRole err: %s", err)
-		return err
 	}
 	return nil
 }

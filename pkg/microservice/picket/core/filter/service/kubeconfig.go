@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/picket/client/aslan"
+	consts "github.com/koderover/zadig/pkg/microservice/picket/core/const"
 )
 
 func DownloadKubeConfig(header http.Header, qs url.Values, logger *zap.SugaredLogger) ([]byte, error) {
@@ -22,7 +23,7 @@ func DownloadKubeConfig(header http.Header, qs url.Values, logger *zap.SugaredLo
 		endpoint: "/api/aslan/environment/environments/?*/services/?*/restart",
 	},
 	}
-	readEnvProjects, err := getAllowedProjects(header, readEnvRules, true, logger)
+	readEnvProjects, err := getAllowedProjects(header, readEnvRules, consts.OR, logger)
 	if err != nil {
 		logger.Errorf("Failed to get allowed project names, err: %s", err)
 		return nil, err
@@ -32,7 +33,7 @@ func DownloadKubeConfig(header http.Header, qs url.Values, logger *zap.SugaredLo
 		qs.Add("readEnvProjects", name)
 	}
 
-	editEnvProjects, err := getAllowedProjects(header, editEnvRules, true, logger)
+	editEnvProjects, err := getAllowedProjects(header, editEnvRules, consts.OR, logger)
 	if err != nil {
 		logger.Errorf("Failed to get allowed project names, err: %s", err)
 		return nil, err

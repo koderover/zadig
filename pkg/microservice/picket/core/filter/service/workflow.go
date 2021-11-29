@@ -9,6 +9,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/picket/client/aslan"
 	"github.com/koderover/zadig/pkg/microservice/picket/client/opa"
+	consts "github.com/koderover/zadig/pkg/microservice/picket/core/const"
 )
 
 type rule struct {
@@ -21,7 +22,7 @@ func ListWorkflows(header http.Header, qs url.Values, logger *zap.SugaredLogger)
 		method:   "/api/aslan/workflow/workflow",
 		endpoint: "GET",
 	}}
-	names, err := getAllowedProjects(header, rules, false, logger)
+	names, err := getAllowedProjects(header, rules, consts.AND, logger)
 	if err != nil {
 		logger.Errorf("Failed to get allowed project names, err: %s", err)
 		return nil, err
@@ -42,7 +43,7 @@ func ListTestWorkflows(testName string, header http.Header, qs url.Values, logge
 		method:   "/api/aslan/workflow/workflow",
 		endpoint: "PUT",
 	}}
-	names, err := getAllowedProjects(header, rules, false, logger)
+	names, err := getAllowedProjects(header, rules, consts.AND, logger)
 	if err != nil {
 		logger.Errorf("Failed to get allowed project names, err: %s", err)
 		return nil, err
@@ -58,7 +59,7 @@ func ListTestWorkflows(testName string, header http.Header, qs url.Values, logge
 	return aslan.New().ListTestWorkflows(testName, header, qs)
 }
 
-func getAllowedProjects(headers http.Header, rules []*rule, rulesOr bool, logger *zap.SugaredLogger) (projects []string, err error) {
+func getAllowedProjects(headers http.Header, rules []*rule, rulesLogicalOperator consts.RulesLogicalOperator, logger *zap.SugaredLogger) (projects []string, err error) {
 	var res [][]string
 	for _, v := range rules {
 		allowedProjects := &allowedProjectsData{}
@@ -72,7 +73,7 @@ func getAllowedProjects(headers http.Header, rules []*rule, rulesOr bool, logger
 		}
 		res = append(res, allowedProjects.Result)
 	}
-	if rulesOr {
+	if rulesLogicalOperator == consts.OR {
 		return combine(res), nil
 	}
 	return intersect(res), nil
