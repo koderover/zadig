@@ -178,7 +178,7 @@ func (p *TriggerTaskPlugin) getS3Storage(pipelineTask *task.Task) (string, error
 		return "", err
 	}
 	prefix := store.GetObjectPath("")
-	files, err := s3client.ListFiles(store.Bucket, prefix, false)
+	files, err := s3client.ListFiles(store.Bucket, prefix, true)
 	if err != nil {
 		return "", err
 	}
