@@ -35,6 +35,7 @@ func CreateWorkflowTaskV3(args *commonmodels.WorkflowV3Args, username, reqID str
 		return nil, e.ErrGetCounter.AddDesc(err.Error())
 	}
 
+	artifactPath := ""
 	// 自定义基础镜像的镜像名称可能会被更新，需要使用ID获取最新的镜像名称
 	for i, subTask := range workflowV3.SubTasks {
 		pre, err := base.ToPreview(subTask)
@@ -63,7 +64,7 @@ func CreateWorkflowTaskV3(args *commonmodels.WorkflowV3Args, username, reqID str
 			if args.BuildArgs != nil {
 				build.JobCtx.EnvVars = args.BuildArgs
 			}
-
+			artifactPath = build.JobCtx.ArtifactPath
 			build.ServiceName = fmt.Sprintf("%s-job", args.Name)
 			workflowV3.SubTasks[i], err = build.ToSubTask()
 			if err != nil {
@@ -76,6 +77,7 @@ func CreateWorkflowTaskV3(args *commonmodels.WorkflowV3Args, username, reqID str
 				log.Errorf("subTask.ToTriggerTask error: %s", err)
 				continue
 			}
+			trigger.ArtifactPath = artifactPath
 			workflowV3.SubTasks[i], err = trigger.ToSubTask()
 		}
 	}

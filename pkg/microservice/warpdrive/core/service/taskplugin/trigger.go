@@ -29,11 +29,9 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/s3"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
-	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/log"
-	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 )
 
 const (
@@ -168,21 +166,8 @@ func (p *TriggerTaskPlugin) getS3Storage(pipelineTask *task.Task) (string, error
 	} else {
 		subPath = fmt.Sprintf("%s/%d/%s", pipelineTask.PipelineName, pipelineTask.TaskID, "artifact")
 	}
-	forcedPathStyle := true
-	if store.Provider == setting.ProviderSourceAli {
-		forcedPathStyle = false
-	}
-	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
-	if err != nil {
-		return "", err
-	}
-	prefix := store.GetObjectPath("")
-	files, err := s3client.ListFiles(store.Bucket, prefix, true)
-	if err != nil {
-		return "", err
-	}
-	if len(files) > 0 {
-		return fmt.Sprintf("%s/%s/%s", store.Endpoint, subPath, files[0]), nil
+	if p.Task.ArtifactPath != "" {
+		return fmt.Sprintf("%s/%s/workspace/%s", store.Endpoint, subPath, p.Task.ArtifactPath), nil
 	}
 	return fmt.Sprintf("%s/%s/artifact.tar.gz", store.Endpoint, subPath), nil
 }
