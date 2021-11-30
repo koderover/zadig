@@ -163,11 +163,10 @@ func (p *TriggerTaskPlugin) getS3Storage(pipelineTask *task.Task) (string, error
 		log.Errorf("Archive failed to create s3 storage %s", pipelineTask.StorageURI)
 		return "", err
 	}
-	subPath := ""
 	if store.Subfolder != "" {
-		subPath = fmt.Sprintf("%s/%s/%d/%s", store.Subfolder, pipelineTask.PipelineName, pipelineTask.TaskID, "artifact")
+		store.Subfolder = fmt.Sprintf("%s/%s/%d/%s", store.Subfolder, pipelineTask.PipelineName, pipelineTask.TaskID, "artifact")
 	} else {
-		subPath = fmt.Sprintf("%s/%d/%s", pipelineTask.PipelineName, pipelineTask.TaskID, "artifact")
+		store.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineTask.PipelineName, pipelineTask.TaskID, "artifact")
 	}
 	forcedPathStyle := true
 	if store.Provider == setting.ProviderSourceAli {
@@ -178,7 +177,7 @@ func (p *TriggerTaskPlugin) getS3Storage(pipelineTask *task.Task) (string, error
 		return "", err
 	}
 	prefix := store.GetObjectPath("")
-	files, err := s3client.ListFiles(store.Bucket, prefix, true)
+	files, err := s3client.ListFiles(store.Bucket, prefix, false)
 	if err != nil {
 		return "", err
 	}
@@ -187,7 +186,7 @@ func (p *TriggerTaskPlugin) getS3Storage(pipelineTask *task.Task) (string, error
 		fileName = files[0]
 	}
 	log.Infof("files:%s", strings.Join(files, ","))
-	return fmt.Sprintf("%s://%s/%s/%s", store.GetSchema(), store.Endpoint, subPath, fileName), nil
+	return fmt.Sprintf("%s://%s/%s/%s", store.GetSchema(), store.Endpoint, store.Subfolder, fileName), nil
 }
 
 // Wait ...
