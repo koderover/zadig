@@ -54,9 +54,9 @@ func getResourceActionMappings(policies []*models.Policy) resourceActionMappings
 
 		for _, r := range p.Rules {
 			for _, ar := range r.Rules {
-				var as []attribute
+				var as []*Attribute
 				for _, a := range ar.MatchAttributes {
-					as = append(as, attribute{Key: a.Key, Value: a.Value})
+					as = append(as, &Attribute{Key: a.Key, Value: a.Value})
 				}
 
 				data[p.Resource][r.Action] = append(data[p.Resource][r.Action], &rule{
