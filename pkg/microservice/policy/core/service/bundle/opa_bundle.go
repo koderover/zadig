@@ -33,11 +33,13 @@ const (
 	rolesPath        = "roles/data.json"
 	rolebindingsPath = "bindings/data.json"
 	exemptionsPath   = "exemptions/data.json"
+	resourcesPath    = "resources/data.json"
 
 	policyRoot       = "rbac"
 	rolesRoot        = "roles"
 	rolebindingsRoot = "bindings"
 	exemptionsRoot   = "exemptions"
+	resourcesRoot    = "resources"
 )
 
 type expressionOperator string
@@ -301,8 +303,9 @@ func GenerateOPABundle() error {
 			{Data: generateOPARoles(rs, ps), Path: rolesPath},
 			{Data: generateOPARoleBindings(bs), Path: rolebindingsPath},
 			{Data: generateOPAExemptionURLs(ps), Path: exemptionsPath},
+			{Data: generateResourceBundle(), Path: resourcesPath},
 		},
-		Roots: []string{policyRoot, rolesRoot, rolebindingsRoot, exemptionsRoot},
+		Roots: []string{policyRoot, rolesRoot, rolebindingsRoot, exemptionsRoot, resourcesRoot},
 	}
 
 	hash, err := bundle.Rehash()
