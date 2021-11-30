@@ -30,3 +30,13 @@ func GetRole(ns, name string, cl client.Client) (*rbacv1beta1.Role, bool, error)
 
 	return g, found, err
 }
+
+func GetClusterRole(name string, cl client.Client) (*rbacv1beta1.ClusterRole, bool, error) {
+	g := &rbacv1beta1.ClusterRole{}
+	found, err := GetResourceInCache("", name, g, cl)
+	if err != nil || !found {
+		g = nil
+	}
+
+	return g, found, err
+}
