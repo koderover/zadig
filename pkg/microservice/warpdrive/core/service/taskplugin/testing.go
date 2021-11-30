@@ -200,7 +200,7 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 
 	// search namespace should also include desired namespace
 	job, err := buildJobWithLinkedNs(
-		p.Type(), jobImage, p.JobName, serviceName, p.Task.ResReq, pipelineCtx, pipelineTask, p.Task.Registries,
+		p.Type(), jobImage, p.JobName, serviceName, p.Task.ResReq, p.Task.ResReqSpec, pipelineCtx, pipelineTask, p.Task.Registries,
 		p.KubeNamespace,
 		linkedNamespace,
 	)
