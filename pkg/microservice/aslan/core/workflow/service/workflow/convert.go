@@ -166,6 +166,7 @@ func JenkinsBuildModuleToSubTasks(jenkinsBuildOption *JenkinsBuildOption, log *z
 			ServiceName: jenkinsBuildOption.Target,
 			Service:     jenkinsBuildOption.ServiceName,
 			ResReq:      module.PreBuild.ResReq,
+			ResReqSpec:  module.PreBuild.ResReqSpec,
 			Timeout:     module.Timeout,
 			JenkinsBuildArgs: &task.JenkinsBuildArgs{
 				JobName:            jenkinsBuildOption.JenkinsBuildArgs.JobName,

@@ -32,6 +32,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -43,7 +44,9 @@ func CreateTesting(username string, testing *commonmodels.Testing, log *zap.Suga
 	if len(testing.Name) == 0 {
 		return e.ErrCreateTestModule.AddDesc("empty Name")
 	}
-
+	if err := commonutil.CheckDefineResourceParam(testing.PreTest.ResReq, testing.PreTest.ResReqSpec); err != nil {
+		return e.ErrCreateTestModule.AddDesc(err.Error())
+	}
 	err := HandleCronjob(testing, log)
 	if err != nil {
 		return e.ErrCreateTestModule.AddErr(err)
@@ -96,7 +99,9 @@ func UpdateTesting(username string, testing *commonmodels.Testing, log *zap.Suga
 	if len(testing.Name) == 0 {
 		return e.ErrUpdateTestModule.AddDesc("empty Name")
 	}
-
+	if err := commonutil.CheckDefineResourceParam(testing.PreTest.ResReq, testing.PreTest.ResReqSpec); err != nil {
+		return e.ErrUpdateTestModule.AddDesc(err.Error())
+	}
 	err := HandleCronjob(testing, log)
 	if err != nil {
 		return e.ErrUpdateTestModule.AddErr(err)

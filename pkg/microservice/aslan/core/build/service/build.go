@@ -28,6 +28,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
@@ -112,6 +113,9 @@ func CreateBuild(username string, build *commonmodels.Build, log *zap.SugaredLog
 	if len(build.Name) == 0 {
 		return e.ErrCreateBuildModule.AddDesc("empty name")
 	}
+	if err := commonutil.CheckDefineResourceParam(build.PreBuild.ResReq, build.PreBuild.ResReqSpec); err != nil {
+		return e.ErrCreateBuildModule.AddDesc(err.Error())
+	}
 
 	build.UpdateBy = username
 	correctFields(build)
@@ -127,6 +131,9 @@ func CreateBuild(username string, build *commonmodels.Build, log *zap.SugaredLog
 func UpdateBuild(username string, build *commonmodels.Build, log *zap.SugaredLogger) error {
 	if len(build.Name) == 0 {
 		return e.ErrUpdateBuildModule.AddDesc("empty name")
+	}
+	if err := commonutil.CheckDefineResourceParam(build.PreBuild.ResReq, build.PreBuild.ResReqSpec); err != nil {
+		return e.ErrUpdateBuildModule.AddDesc(err.Error())
 	}
 
 	existed, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: build.Name, ProductName: build.ProductName})
