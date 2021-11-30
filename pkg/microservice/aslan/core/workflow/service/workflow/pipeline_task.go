@@ -413,6 +413,7 @@ func RestartPipelineTaskV2(userName string, taskID int64, pipelineName string, t
 								buildInfo.BuildOS = newBuildInfo.PreBuild.BuildOS
 								buildInfo.ImageFrom = newBuildInfo.PreBuild.ImageFrom
 								buildInfo.ResReq = newBuildInfo.PreBuild.ResReq
+								buildInfo.ResReqSpec = newBuildInfo.PreBuild.ResReqSpec
 							}
 
 							if newBuildInfo.PostBuild != nil && newBuildInfo.PostBuild.DockerBuild != nil {
@@ -477,6 +478,7 @@ func RestartPipelineTaskV2(userName string, taskID int64, pipelineName string, t
 								testInfo.BuildOS = newTestInfo.PreTest.BuildOS
 								testInfo.ImageFrom = newTestInfo.PreTest.ImageFrom
 								testInfo.ResReq = newTestInfo.PreTest.ResReq
+								testInfo.ResReqSpec = newTestInfo.PreTest.ResReqSpec
 							}
 							// 设置 build 安装脚本
 							testInfo.InstallCtx, err = buildInstallCtx(testInfo.InstallItems)
@@ -604,6 +606,7 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 		testTask.BuildOS = testModule.PreTest.BuildOS
 		testTask.ImageFrom = testModule.PreTest.ImageFrom
 		testTask.ResReq = testModule.PreTest.ResReq
+		testTask.ResReqSpec = testModule.PreTest.ResReqSpec
 	}
 	// 设置 build 安装脚本
 	testTask.InstallCtx, err = buildInstallCtx(testTask.InstallItems)

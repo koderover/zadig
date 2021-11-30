@@ -24,19 +24,19 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 )
 
-// CheckDefineResourceParam
 func CheckDefineResourceParam(req setting.Request, reqSpec setting.RequestSpec) error {
-	if req == setting.DefineRequest {
-		cpuLimit := strings.TrimSuffix(reqSpec.CpuLimit, setting.CpuUintM)
-		cpuLimitInt, err := strconv.Atoi(cpuLimit)
-		if err != nil || cpuLimitInt <= 0 {
-			return fmt.Errorf("Parameter res_req.cpu_limit must be greater than 0")
-		}
-		memoryLimit := strings.TrimSuffix(reqSpec.MemoryLimit, setting.MemoryUintMi)
-		memoryLimitInt, err := strconv.Atoi(memoryLimit)
-		if err != nil || memoryLimitInt <= 0 {
-			return fmt.Errorf("Parameter res_req.memory_limit must be greater than 0")
-		}
+	if req != setting.DefineRequest {
+		return nil
+	}
+	cpuLimit := strings.TrimSuffix(reqSpec.CpuLimit, setting.CpuUintM)
+	cpuLimitInt, err := strconv.Atoi(cpuLimit)
+	if err != nil || cpuLimitInt <= 1 {
+		return fmt.Errorf("Parameter res_req_spc.cpu_limit must be greater than 1m")
+	}
+	memoryLimit := strings.TrimSuffix(reqSpec.MemoryLimit, setting.MemoryUintMi)
+	memoryLimitInt, err := strconv.Atoi(memoryLimit)
+	if err != nil || memoryLimitInt <= 1 {
+		return fmt.Errorf("Parameter res_req_spc.memory_limit must be greater than 1Mi")
 	}
 	return nil
 }
