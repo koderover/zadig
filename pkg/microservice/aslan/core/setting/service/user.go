@@ -222,26 +222,26 @@ func ensureServiceAccountAndRolebinding(namespace string, projectsEnvCanEdit []s
 	if len(projectsEnvCanEdit) != 0 {
 		canEditProducts, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{InProjects: projectsEnvCanEdit})
 		if err != nil {
-			log.Errorf("[%s] Collections.Product.List error: %s", projectsEnvCanEdit, err)
+			log.Warnf("[%s] Collections.Product.List error: %s", projectsEnvCanEdit, err)
 		}
 	}
 	canEditProducts = filterProductWithoutExternalCluster(canEditProducts)
 	for _, vv := range canEditProducts {
 		if err := CreateRoleBinding(vv.Namespace, namespace, serviceAccountName, config.RoleBindingNameEdit); err != nil {
-			log.Errorf("CreateRoleBinding err: %s", err)
+			log.Warnf("CreateRoleBinding err: %s", err)
 		}
 	}
 	canViewProducts := []*models.Product{}
 	if len(projectsEnvCanView) != 0 {
 		canViewProducts, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{InProjects: projectsEnvCanView})
 		if err != nil {
-			log.Errorf("[%s] Collections.Product.List error: %s", projectsEnvCanView, err)
+			log.Warnf("[%s] Collections.Product.List error: %s", projectsEnvCanView, err)
 		}
 	}
 	canViewProducts = filterProductWithoutExternalCluster(canViewProducts)
 	for _, vv := range canViewProducts {
 		if err := CreateRoleBinding(vv.Namespace, namespace, serviceAccountName, config.RoleBindingNameView); err != nil {
-			log.Errorf("CreateRoleBinding err: %s", err)
+			log.Warnf("CreateRoleBinding err: %s", err)
 		}
 	}
 
