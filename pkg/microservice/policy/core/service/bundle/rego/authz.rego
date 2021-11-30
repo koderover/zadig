@@ -218,7 +218,7 @@ user_allowed_projects[project] {
     some project
     user_projects[project]
     not user_is_admin
-    allow with project_name as project
+    response.allowed with project_name as project
 }
 
 # if user is system admin, return all projects
