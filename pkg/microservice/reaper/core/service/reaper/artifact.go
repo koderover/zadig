@@ -119,7 +119,8 @@ func artifactsUpload(ctx *meta.Context, activeWorkspace string, artifactPaths []
 			dir, fileName := filepath.Split(artifactPath)
 			log.Infof("dir:%s", dir)
 			log.Infof("fileName:%s", fileName)
-			if err = s3FileUpload(store, artifactPath, fileName); err != nil {
+			objectKey := store.GetObjectPath(fileName)
+			if err = s3FileUpload(store, artifactPath, objectKey); err != nil {
 				return err
 			}
 		}
