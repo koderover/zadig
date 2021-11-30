@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
@@ -142,7 +143,7 @@ var (
 		Rules: []rbacv1beta1.PolicyRule{rbacv1beta1.PolicyRule{
 			Verbs:     []string{"*"},
 			APIGroups: []string{"*"},
-			Resources: []string{"*"},
+			Resources: []string{"pods", "deployments", "configmaps", "crobjobs", "daemonsets", "ingresses", "jobs", "secrets", "services", "statefulsets"},
 		}}}
 	clusterRoleView = &rbacv1beta1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
@@ -217,9 +218,12 @@ func ensureServiceAccountAndRolebinding(namespace string, projectsEnvCanEdit []s
 		projectsEnvCanView = res
 	}
 
-	canEditProducts, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{InProjects: projectsEnvCanEdit})
-	if err != nil {
-		log.Errorf("[%s] Collections.Product.List error: %s", projectsEnvCanEdit, err)
+	canEditProducts := []*models.Product{}
+	if len(projectsEnvCanEdit) != 0 {
+		canEditProducts, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{InProjects: projectsEnvCanEdit})
+		if err != nil {
+			log.Errorf("[%s] Collections.Product.List error: %s", projectsEnvCanEdit, err)
+		}
 	}
 	canEditProducts = filterProductWithoutExternalCluster(canEditProducts)
 	for _, vv := range canEditProducts {
@@ -227,10 +231,12 @@ func ensureServiceAccountAndRolebinding(namespace string, projectsEnvCanEdit []s
 			log.Errorf("CreateRoleBinding err: %s", err)
 		}
 	}
-
-	canViewProducts, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{InProjects: projectsEnvCanView})
-	if err != nil {
-		log.Errorf("[%s] Collections.Product.List error: %s", projectsEnvCanView, err)
+	canViewProducts := []*models.Product{}
+	if len(projectsEnvCanView) != 0 {
+		canViewProducts, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{InProjects: projectsEnvCanView})
+		if err != nil {
+			log.Errorf("[%s] Collections.Product.List error: %s", projectsEnvCanView, err)
+		}
 	}
 	canViewProducts = filterProductWithoutExternalCluster(canViewProducts)
 	for _, vv := range canViewProducts {
@@ -284,7 +290,7 @@ func CreateRoleBinding(rbNamespace, saNamspace, serviceAccountName, roleBindName
 		log.Errorf("GetRoleBinding name:%s err: %s", roleBindName, err)
 		return err
 	}
-	if !found{
+	if !found {
 		if err := updater.CreateRoleBinding(&rbacv1beta1.RoleBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      roleBindName,
@@ -303,7 +309,7 @@ func CreateRoleBinding(rbNamespace, saNamspace, serviceAccountName, roleBindName
 			log.Errorf("create rolebinding:%s err: %s", roleBindName, err)
 			return err
 		}
-	}else{
+	} else {
 		isExist := false
 		for _, v := range rolebinding.Subjects {
 			if v.Name == serviceAccountName {
