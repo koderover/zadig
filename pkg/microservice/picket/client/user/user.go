@@ -23,8 +23,8 @@ import (
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
-func (c *Client) DeleteUser(userId string,header http.Header, qs url.Values) ([]byte, error) {
-	url := "/v1/users/"+userId
+func (c *Client) DeleteUser(userId string, header http.Header, qs url.Values) ([]byte, error) {
+	url := "/users/" + userId
 
 	res, err := c.Delete(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs))
 	if err != nil {

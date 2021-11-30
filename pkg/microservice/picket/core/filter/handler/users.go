@@ -28,5 +28,5 @@ func DeleteUser(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	uid := c.Param("id")
-	ctx.Resp , ctx.Err = service.DeleteUser(uid,c.Request.Header, c.Request.URL.Query(),ctx.Logger)
+	ctx.Resp, ctx.Err = service.DeleteUser(uid, c.Request.Header, c.Request.URL.Query(), ctx.Logger)
 }

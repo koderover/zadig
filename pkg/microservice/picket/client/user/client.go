@@ -16,7 +16,6 @@ limitations under the License.
 
 package user
 
-
 import (
 	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
@@ -32,7 +31,7 @@ func New() *Client {
 	host := config.UserServiceAddress()
 
 	c := httpclient.New(
-		httpclient.SetHostURL(host + "/api"),
+		httpclient.SetHostURL(host + "/api/v1"),
 	)
 
 	return &Client{
