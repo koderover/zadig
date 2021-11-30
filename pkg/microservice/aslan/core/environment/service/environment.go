@@ -84,6 +84,19 @@ type EnvStatus struct {
 	ErrMessage string `json:"err_message"`
 }
 
+type EnvResp struct {
+	ProjectName string `json:"projectName"`
+	Status      string `json:"status"`
+	Error       string `json:"error"`
+	Name        string `json:"name"`
+	UpdateBy    string `json:"updateBy"`
+	UpdateTime  int64  `json:"updateTime"`
+	IsPublic    bool   `json:"isPublic"`
+	ClusterName string `json:"clusterName"`
+	Production  bool   `json:"production"`
+	Source      string `json:"source"`
+}
+
 type ProductResp struct {
 	ID          string                   `json:"id"`
 	ProductName string                   `json:"product_name"`
@@ -148,16 +161,11 @@ type RawYamlResp struct {
 
 type intervalExecutorHandler func(data *commonmodels.Service, log *zap.SugaredLogger) error
 
-func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger) ([]*ProductResp, error) {
+func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger) ([]*EnvResp, error) {
 	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: projectName, InEnvs: envNames, IsSortByProductName: true})
 	if err != nil {
 		log.Errorf("Failed to list envs, err: %s", err)
 		return nil, e.ErrListEnvs.AddDesc(err.Error())
-	}
-
-	err = FillProductVars(envs, log)
-	if err != nil {
-		return nil, err
 	}
 
 	clusterMap := make(map[string]*commonmodels.K8SCluster)
@@ -171,7 +179,7 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 		clusterMap[cls.ID.Hex()] = cls
 	}
 
-	var res []*ProductResp
+	var res []*EnvResp
 	for _, env := range envs {
 		clusterID := env.ClusterID
 		production := false
@@ -182,23 +190,17 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 			clusterName = cluster.Name
 		}
 
-		res = append(res, &ProductResp{
-			ID:          env.ID.Hex(),
-			ProductName: env.ProductName,
-			EnvName:     env.EnvName,
-			Namespace:   env.Namespace,
-			Vars:        env.Vars[:],
+		res = append(res, &EnvResp{
+			ProjectName: projectName,
+			Name:        env.EnvName,
 			IsPublic:    env.IsPublic,
-			ClusterID:   env.ClusterID,
 			ClusterName: clusterName,
-			UpdateTime:  env.UpdateTime,
-			UpdateBy:    env.UpdateBy,
-			RecycleDay:  env.RecycleDay,
-			Render:      env.Render,
 			Source:      env.Source,
-			IsProd:      production,
+			Production:  production,
 			Status:      env.Status,
 			Error:       env.Error,
+			UpdateTime:  env.UpdateTime,
+			UpdateBy:    env.UpdateBy,
 		})
 	}
 

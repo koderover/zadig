@@ -39,8 +39,7 @@ func GetBundleResources() ([]*resourceSpec, error) {
 
 	for _, cluster := range clusters {
 		res = append(res, &resourceSpec{
-			ResourceID:  cluster.ID.Hex(),
-			ProjectName: "",
+			ResourceID: cluster.ID.Hex(),
 			Spec: map[string]interface{}{
 				"production": strconv.FormatBool(cluster.Production),
 			},
