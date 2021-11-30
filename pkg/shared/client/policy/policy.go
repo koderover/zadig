@@ -21,8 +21,16 @@ type Rule struct {
 }
 
 type ActionRule struct {
-	Method   string `json:"method"`
-	Endpoint string `json:"endpoint"`
+	Method          string       `json:"method"`
+	Endpoint        string       `json:"endpoint"`
+	ResourceType    string       `json:"resourceType,omitempty"`
+	IDRegex         string       `json:"idRegex,omitempty"`
+	MatchAttributes []*Attribute `json:"matchAttributes,omitempty"`
+}
+
+type Attribute struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
 }
 
 type RoleBinding struct {
