@@ -63,7 +63,6 @@ func CreateWorkflowTaskV3(args *commonmodels.WorkflowV3Args, username, reqID str
 			if args.BuildArgs != nil {
 				build.JobCtx.EnvVars = args.BuildArgs
 			}
-
 			build.ServiceName = fmt.Sprintf("%s-job", args.Name)
 			workflowV3.SubTasks[i], err = build.ToSubTask()
 			if err != nil {

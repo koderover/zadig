@@ -29,9 +29,11 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/s3"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/log"
+	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 )
 
 const (
@@ -130,7 +132,6 @@ func (p *TriggerTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pi
 	if err != nil {
 		return
 	}
-	p.Log.Infof("artifactPath:%s", artifactPath)
 	taskOutput := &task.TaskOutput{
 		Type:  "object_storage",
 		Value: artifactPath,
@@ -160,13 +161,29 @@ func (p *TriggerTaskPlugin) getS3Storage(pipelineTask *task.Task) (string, error
 		log.Errorf("Archive failed to create s3 storage %s", pipelineTask.StorageURI)
 		return "", err
 	}
-	subPath := ""
 	if store.Subfolder != "" {
-		subPath = fmt.Sprintf("%s/%s/%s/%s", store.Subfolder, pipelineTask.PipelineName, pipelineTask.ServiceName, "artifact")
+		store.Subfolder = fmt.Sprintf("%s/%s/%d/%s", store.Subfolder, pipelineTask.PipelineName, pipelineTask.TaskID, "artifact")
 	} else {
-		subPath = fmt.Sprintf("%s/%s/%s", pipelineTask.PipelineName, pipelineTask.ServiceName, "artifact")
+		store.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineTask.PipelineName, pipelineTask.TaskID, "artifact")
 	}
-	return fmt.Sprintf("%s/%s/artifact.tar.gz", store.Endpoint, subPath), nil
+	forcedPathStyle := true
+	if store.Provider == setting.ProviderSourceAli {
+		forcedPathStyle = false
+	}
+	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
+	if err != nil {
+		return "", err
+	}
+	prefix := store.GetObjectPath("")
+	files, err := s3client.ListFiles(store.Bucket, prefix, true)
+	if err != nil {
+		return "", err
+	}
+	fileName := "artifact.tar.gz"
+	if len(files) > 0 {
+		fileName = files[0]
+	}
+	return fmt.Sprintf("%s://%s.%s/%s", store.GetSchema(), store.Bucket, store.Endpoint, fileName), nil
 }
 
 // Wait ...
