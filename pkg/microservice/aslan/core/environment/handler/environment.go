@@ -205,6 +205,10 @@ func CreateProduct(c *gin.Context) {
 	}
 
 	args.UpdateBy = ctx.UserName
+	// don't save the local cluster id to db
+	if args.ClusterID == setting.LocalClusterID {
+		args.ClusterID = ""
+	}
 	ctx.Err = service.CreateProduct(
 		ctx.UserName, ctx.RequestID, args, ctx.Logger,
 	)
