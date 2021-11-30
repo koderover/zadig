@@ -107,19 +107,14 @@ func artifactsUpload(ctx *meta.Context, activeWorkspace string, artifactPaths []
 		}
 		if store != nil {
 			objectKey := store.GetObjectPath("artifact.tar.gz")
-			log.Infof("temp.Name():%+v", temp.Name())
-			log.Infof("objectKey:%+v", objectKey)
 			if err = s3FileUpload(store, temp.Name(), objectKey); err != nil {
 				return err
 			}
 		}
 	} else {
-		st, _ := os.Stat(artifactPath)
 		if store != nil {
 			objectKey := store.GetObjectPath(artifactPath)
-			log.Infof("st.Name():%+v", st.Name())
-			log.Infof("objectKey:%s", objectKey)
-			if err = s3FileUpload(store, st.Name(), objectKey); err != nil {
+			if err = s3FileUpload(store, artifactPath, objectKey); err != nil {
 				return err
 			}
 		}
