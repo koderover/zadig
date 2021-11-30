@@ -114,7 +114,7 @@ func DeleteRoleBinding(name string, projectName string, _ *zap.SugaredLogger) er
 
 func DeleteRoleBindings(names []string, projectName string, userID string, _ *zap.SugaredLogger) error {
 
-	if len(names)== 1 && names[0] == "*" {
+	if len(names) == 1 && names[0] == "*" {
 		names = []string{}
 	}
 
