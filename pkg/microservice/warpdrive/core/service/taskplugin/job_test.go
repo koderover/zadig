@@ -250,12 +250,12 @@ func Test_getResourceRequirements(t *testing.T) {
 			},
 			want: corev1.ResourceRequirements{
 				Limits: corev1.ResourceList{
-					corev1.ResourceCPU:    resource.MustParse("16"),
-					corev1.ResourceMemory: resource.MustParse("32Gi"),
+					corev1.ResourceCPU:    resource.MustParse("16000m"),
+					corev1.ResourceMemory: resource.MustParse("32768Mi"),
 				},
 				Requests: corev1.ResourceList{
-					corev1.ResourceCPU:    resource.MustParse("4"),
-					corev1.ResourceMemory: resource.MustParse("4Gi"),
+					corev1.ResourceCPU:    resource.MustParse("4000m"),
+					corev1.ResourceMemory: resource.MustParse("4096Mi"),
 				},
 			},
 		},
@@ -264,8 +264,8 @@ func Test_getResourceRequirements(t *testing.T) {
 			args: args{
 				resReq: setting.DefineRequest,
 				resReqSpec: setting.RequestSpec{
-					CpuLimit:    "4000m",
-					MemoryLimit: "2048Mi",
+					CpuLimit:    4000,
+					MemoryLimit: 2048,
 				},
 			},
 			want: corev1.ResourceRequirements{
@@ -274,7 +274,7 @@ func Test_getResourceRequirements(t *testing.T) {
 					corev1.ResourceMemory: resource.MustParse("2048Mi"),
 				},
 				Requests: corev1.ResourceList{
-					corev1.ResourceCPU:    resource.MustParse("1"),
+					corev1.ResourceCPU:    resource.MustParse("1000m"),
 					corev1.ResourceMemory: resource.MustParse("512Mi"),
 				},
 			},

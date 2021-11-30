@@ -664,24 +664,21 @@ func generateResourceRequirements(req setting.Request, reqSpec setting.RequestSp
 	if req != setting.DefineRequest {
 		return corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse(reqSpec.CpuLimit),
-				corev1.ResourceMemory: resource.MustParse(reqSpec.MemoryLimit),
+				corev1.ResourceCPU:    resource.MustParse(strconv.Itoa(reqSpec.CpuLimit) + setting.CpuUintM),
+				corev1.ResourceMemory: resource.MustParse(strconv.Itoa(reqSpec.MemoryLimit) + setting.MemoryUintMi),
 			},
 			Requests: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse(reqSpec.CpuReq),
-				corev1.ResourceMemory: resource.MustParse(reqSpec.MemoryReq),
+				corev1.ResourceCPU:    resource.MustParse(strconv.Itoa(reqSpec.CpuReq) + setting.CpuUintM),
+				corev1.ResourceMemory: resource.MustParse(strconv.Itoa(reqSpec.MemoryReq) + setting.MemoryUintMi),
 			},
 		}
 	}
 
-	// DefineRequest
-	cpuLimitInt, _ := strconv.Atoi(strings.TrimSuffix(reqSpec.CpuLimit, setting.CpuUintM))
-	cpuReqInt := cpuLimitInt / 4
+	cpuReqInt := reqSpec.CpuLimit / 4
 	if cpuReqInt < 1 {
 		cpuReqInt = 1
 	}
-	memoryLimitInt, _ := strconv.Atoi(strings.TrimSuffix(reqSpec.MemoryLimit, setting.MemoryUintMi))
-	memoryReqInt := memoryLimitInt / 4
+	memoryReqInt := reqSpec.MemoryLimit / 4
 	if memoryReqInt >= 2*1024 {
 		memoryReqInt = memoryReqInt / 2
 	}
@@ -691,8 +688,8 @@ func generateResourceRequirements(req setting.Request, reqSpec setting.RequestSp
 
 	return corev1.ResourceRequirements{
 		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse(reqSpec.CpuLimit),
-			corev1.ResourceMemory: resource.MustParse(reqSpec.MemoryLimit),
+			corev1.ResourceCPU:    resource.MustParse(strconv.Itoa(reqSpec.CpuLimit) + setting.CpuUintM),
+			corev1.ResourceMemory: resource.MustParse(strconv.Itoa(reqSpec.MemoryLimit) + setting.MemoryUintMi),
 		},
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse(strconv.Itoa(cpuReqInt) + setting.CpuUintM),

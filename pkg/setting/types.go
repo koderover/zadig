@@ -36,45 +36,48 @@ const (
 )
 
 type RequestSpec struct {
-	CpuLimit    string `bson:"cpu_limit"           json:"cpu_limit"`
-	MemoryLimit string `bson:"memory_limit"        json:"memory_limit"`
-	CpuReq      string `bson:"cpu_req"             json:"cpu_req,omitempty"`
-	MemoryReq   string `bson:"memory_req"          json:"memory_req,omitempty"`
+	CpuLimit    int `bson:"cpu_limit"           json:"cpu_limit"`
+	MemoryLimit int `bson:"memory_limit"        json:"memory_limit"`
+	CpuReq      int `bson:"cpu_req"             json:"cpu_req,omitempty"`
+	MemoryReq   int `bson:"memory_req"          json:"memory_req,omitempty"`
 }
 
 var (
+	// HighRequestSpec 16 CPU 32 G
 	HighRequestSpec = RequestSpec{
-		CpuLimit:    "16",
-		MemoryLimit: "32Gi",
-		CpuReq:      "4",
-		MemoryReq:   "4Gi",
+		CpuLimit:    16000,
+		MemoryLimit: 32768,
+		CpuReq:      4000,
+		MemoryReq:   4096,
 	}
-
+	// MediumRequestSpec 8 CPU 16 G
 	MediumRequestSpec = RequestSpec{
-		CpuLimit:    "8",
-		MemoryLimit: "16Gi",
-		CpuReq:      "2",
-		MemoryReq:   "2Gi",
+		CpuLimit:    8000,
+		MemoryLimit: 16384,
+		CpuReq:      2000,
+		MemoryReq:   2048,
 	}
+	// LowRequestSpec 4 CPU 8 G
 	LowRequestSpec = RequestSpec{
-		CpuLimit:    "4",
-		MemoryLimit: "8Gi",
-		CpuReq:      "1",
-		MemoryReq:   "1Gi",
+		CpuLimit:    4000,
+		MemoryLimit: 8192,
+		CpuReq:      1000,
+		MemoryReq:   1024,
 	}
+	// MinRequestSpec 2 CPU 2 G
 	MinRequestSpec = RequestSpec{
-		CpuLimit:    "2",
-		MemoryLimit: "2Gi",
-		CpuReq:      "0.5",
-		MemoryReq:   "512Mi",
+		CpuLimit:    2000,
+		MemoryLimit: 2048,
+		CpuReq:      500,
+		MemoryReq:   512,
 	}
 	// DefineRequest X CPU X G
 	DefineRequestSpec  = RequestSpec{}
 	DefaultRequestSpec = RequestSpec{
-		CpuLimit:    "4",
-		MemoryLimit: "8Gi",
-		CpuReq:      "1",
-		MemoryReq:   "1Gi",
+		CpuLimit:    4000,
+		MemoryLimit: 8192,
+		CpuReq:      1000,
+		MemoryReq:   1024,
 	}
 )
 
