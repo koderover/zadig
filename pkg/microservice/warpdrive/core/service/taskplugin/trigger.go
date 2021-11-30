@@ -164,9 +164,9 @@ func (p *TriggerTaskPlugin) getS3Storage(pipelineTask *task.Task) (string, error
 	}
 	subPath := ""
 	if store.Subfolder != "" {
-		subPath = fmt.Sprintf("%s/%s/%s/%s", store.Subfolder, pipelineTask.PipelineName, pipelineTask.ServiceName, "artifact")
+		subPath = fmt.Sprintf("%s/%s/%d/%s", store.Subfolder, pipelineTask.PipelineName, pipelineTask.TaskID, "artifact")
 	} else {
-		subPath = fmt.Sprintf("%s/%s/%s", pipelineTask.PipelineName, pipelineTask.ServiceName, "artifact")
+		subPath = fmt.Sprintf("%s/%d/%s", pipelineTask.PipelineName, pipelineTask.TaskID, "artifact")
 	}
 	forcedPathStyle := true
 	if store.Provider == setting.ProviderSourceAli {
@@ -176,8 +176,7 @@ func (p *TriggerTaskPlugin) getS3Storage(pipelineTask *task.Task) (string, error
 	if err != nil {
 		return "", err
 	}
-	prefix := store.GetObjectPath("")
-	files, err := s3client.ListFiles(store.Bucket, prefix, true)
+	files, err := s3client.ListFiles(store.Bucket, "/", true)
 	if err != nil {
 		return "", err
 	}
