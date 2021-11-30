@@ -108,6 +108,7 @@ user_allowed_resources[resourceID] {
 }
 
 project_name_is_match(res) {
+    res.projectName != ""
     res.projectName == project_name
 }
 
