@@ -184,7 +184,7 @@ func (p *TriggerTaskPlugin) getS3Storage(pipelineTask *task.Task) (string, error
 	if len(files) > 0 {
 		fileName = files[0]
 	}
-	return fmt.Sprintf("%s://%s/%s", store.GetSchema(), store.Endpoint, fileName), nil
+	return fmt.Sprintf("%s://%s.%s/%s", store.GetSchema(), store.Bucket, store.Endpoint, fileName), nil
 }
 
 // Wait ...
