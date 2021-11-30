@@ -15,7 +15,6 @@ type Trigger struct {
 	IsCallback      bool             `bson:"is_callback,omitempty"      json:"is_callback,omitempty"`
 	CallbackType    string           `bson:"callback_type,omitempty"    json:"callback_type,omitempty"`
 	CallbackPayload *CallbackPayload `bson:"callback_payload,omitempty" json:"callback_payload,omitempty"`
-	ArtifactPath    string           `bson:"artifact_path,omitempty"    json:"artifact_path,omitempty"`
 	Timeout         int              `bson:"timeout"                    json:"timeout,omitempty"`
 	IsRestart       bool             `bson:"is_restart"                 json:"is_restart"`
 	Error           string           `bson:"error,omitempty"            json:"error,omitempty"`
