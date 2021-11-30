@@ -1224,6 +1224,7 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *task.Task, log *
 				}
 			}
 			testTask.ResReq = testModule.PreTest.ResReq
+			testTask.ResReqSpec = testModule.PreTest.ResReqSpec
 		}
 		// 设置 build 安装脚本
 		testTask.InstallCtx, err = buildInstallCtx(testTask.InstallItems)
@@ -1558,6 +1559,7 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 			BuildOS:      module.PreBuild.BuildOS,
 			ImageFrom:    module.PreBuild.ImageFrom,
 			ResReq:       module.PreBuild.ResReq,
+			ResReqSpec:   module.PreBuild.ResReqSpec,
 			Timeout:      module.Timeout,
 			Registries:   registries,
 			ProductName:  args.ProductName,

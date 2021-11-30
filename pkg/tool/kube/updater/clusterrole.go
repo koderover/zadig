@@ -25,3 +25,7 @@ import (
 func DeleteClusterRoles(selector labels.Selector, cl client.Client) error {
 	return deleteObjectsWithDefaultOptions("", selector, &rbacv1beta1.ClusterRole{}, cl)
 }
+
+func CreateClusterRole(role *rbacv1beta1.ClusterRole, cl client.Client) error {
+	return createObject(role, cl)
+}

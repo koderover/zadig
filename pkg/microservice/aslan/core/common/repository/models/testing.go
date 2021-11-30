@@ -19,7 +19,7 @@ package models
 import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types"
 )
 
@@ -72,7 +72,8 @@ type PreTest struct {
 	ImageFrom string `bson:"image_from"                      json:"image_from"`
 	ImageID   string `bson:"image_id"                        json:"image_id"`
 	// ResReq defines job requested resources
-	ResReq config.Request `bson:"res_req"                json:"res_req"`
+	ResReq     setting.Request     `bson:"res_req"                json:"res_req"`
+	ResReqSpec setting.RequestSpec `bson:"res_req_spec"           json:"res_req_spec"`
 	// Installs defines apps to be installed for build
 	Installs []*Item `bson:"installs,omitempty"    json:"installs"`
 	// Envs stores user defined env key val for build

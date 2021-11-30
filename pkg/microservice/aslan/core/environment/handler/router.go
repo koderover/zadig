@@ -95,42 +95,28 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	environments := router.Group("environments")
 	{
 		environments.GET("", ListProducts)
-		environments.GET("/:productName/status", GetProductStatus)
-		environments.POST("/:productName/auto", AutoCreateProduct)
-
-		environments.PUT("/:productName/autoUpdate", gin2.UpdateOperationLogStatus, AutoUpdateProduct)
+		environments.PUT("/:name", gin2.UpdateOperationLogStatus, UpdateProduct)
+		environments.PUT("", gin2.UpdateOperationLogStatus, UpdateMultiProducts)
 		environments.POST("", gin2.UpdateOperationLogStatus, CreateProduct)
+		environments.GET("/:name", GetProduct)
+		environments.PUT("/:name/envRecycle", gin2.UpdateOperationLogStatus, UpdateProductRecycleDay)
+		environments.POST("/:name/estimated-values", EstimatedValues)
+		environments.PUT("/:name/renderset", gin2.UpdateOperationLogStatus, UpdateHelmProductRenderset)
+		environments.GET("/:name/helmChartVersions", GetHelmChartVersions)
+		environments.GET("/:name/productInfo", GetProductInfo)
+		environments.DELETE("/:name", gin2.UpdateOperationLogStatus, DeleteProduct)
+		environments.GET("/:name/groups", ListGroups)
+		environments.GET("/:name/workloads", ListWorkloadsInEnv)
 
-		environments.POST("/:productName/helm", gin2.UpdateOperationLogStatus, CreateHelmProduct)
-		environments.PUT("/:productName/multiHelmEnv", gin2.UpdateOperationLogStatus, UpdateMultiHelmEnv)
+		environments.GET("/:name/services/:serviceName", GetService)
+		environments.PUT("/:name/services/:serviceName", gin2.UpdateOperationLogStatus, UpdateService)
+		environments.POST("/:name/services/:serviceName/restart", gin2.UpdateOperationLogStatus, RestartService)
+		environments.POST("/:name/services/:serviceName/restartNew", gin2.UpdateOperationLogStatus, RestartNewService)
+		environments.POST("/:name/services/:serviceName/scale", gin2.UpdateOperationLogStatus, ScaleService)
+		environments.POST("/:name/services/:serviceName/scaleNew", gin2.UpdateOperationLogStatus, ScaleNewService)
+		environments.GET("/:name/services/:serviceName/containers/:container", GetServiceContainer)
 
-		environments.POST("/:productName", gin2.UpdateOperationLogStatus, UpdateProduct)
-		environments.PUT("/:productName/envRecycle", gin2.UpdateOperationLogStatus, UpdateProductRecycleDay)
-
-		environments.POST("/:productName/estimated-values", EstimatedValues)
-		environments.PUT("/:productName/renderset", gin2.UpdateOperationLogStatus, UpdateHelmProductRenderset)
-
-		environments.GET("/:productName/helmChartVersions", GetHelmChartVersions)
-		//environments.PUT("/:productName", gin2.UpdateOperationLogStatus, EnvShare)
-
-		environments.GET("/:productName", GetProduct)
-		environments.GET("/:productName/productInfo", GetProductInfo)
-		environments.GET("/:productName/ingressInfo", GetProductIngress)
-		environments.GET("/:productName/helmRenderCharts", ListRenderCharts)
-		environments.DELETE("/:productName", gin2.UpdateOperationLogStatus, DeleteProduct)
-
-		environments.GET("/:productName/groups", ListGroups)
-		environments.GET("/:productName/workloads", ListWorkloadsInEnv)
-
-		environments.GET("/:productName/services/:serviceName", GetService)
-		environments.PUT("/:productName/services/:serviceName/:serviceType", gin2.UpdateOperationLogStatus, UpdateService)
-		environments.POST("/:productName/services/:serviceName/restart", gin2.UpdateOperationLogStatus, RestartService)
-		environments.POST("/:productName/services/:serviceName/restartNew", gin2.UpdateOperationLogStatus, RestartNewService)
-		environments.POST("/:productName/services/:serviceName/scale/:number", gin2.UpdateOperationLogStatus, ScaleService)
-		environments.POST("/:productName/services/:serviceName/scaleNew/:number", gin2.UpdateOperationLogStatus, ScaleNewService)
-		environments.GET("/:productName/services/:serviceName/containers/:container/namespaces/:namespace", GetServiceContainer)
-
-		environments.GET("/estimated-renderchart", GetEstimatedRenderCharts)
+		environments.GET("/:name/estimated-renderchart", GetEstimatedRenderCharts)
 	}
 
 	// ---------------------------------------------------------------------------------------
@@ -149,5 +135,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	revision := router.Group("revision")
 	{
 		revision.GET("/products", ListProductsRevision)
+	}
+
+	bundles := router.Group("bundle-resources")
+	{
+		bundles.GET("", GetBundleResources)
 	}
 }

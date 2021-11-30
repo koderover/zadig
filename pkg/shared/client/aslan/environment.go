@@ -27,7 +27,7 @@ func (c *Client) ListEnvironments(projectName string) ([]*Environment, error) {
 	url := "/environment/environments"
 
 	res := make([]*Environment, 0)
-	_, err := c.Get(url, httpclient.SetQueryParam("productName", projectName), httpclient.SetResult(&res))
+	_, err := c.Get(url, httpclient.SetQueryParam("projectName", projectName), httpclient.SetResult(&res))
 	if err != nil {
 		return nil, err
 	}
@@ -36,10 +36,10 @@ func (c *Client) ListEnvironments(projectName string) ([]*Environment, error) {
 }
 
 func (c *Client) GetEnvironment(envName, projectName string) (*Environment, error) {
-	url := fmt.Sprintf("/environment/environments/%s", projectName)
+	url := fmt.Sprintf("/environment/environments/%s", envName)
 
 	res := &Environment{}
-	_, err := c.Get(url, httpclient.SetQueryParam("envName", envName), httpclient.SetResult(res))
+	_, err := c.Get(url, httpclient.SetQueryParam("projectName", projectName), httpclient.SetResult(res))
 	if err != nil {
 		return nil, err
 	}
@@ -48,10 +48,10 @@ func (c *Client) GetEnvironment(envName, projectName string) (*Environment, erro
 }
 
 func (c *Client) ListHelmServicesInEnvironment(envName, projectName string) ([]*Service, error) {
-	url := fmt.Sprintf("/environment/environments/%s/groups/helm", projectName)
+	url := fmt.Sprintf("/environment/environments/%s/groups", envName)
 
 	res := &ServicesResp{}
-	_, err := c.Get(url, httpclient.SetQueryParam("envName", envName), httpclient.SetResult(res))
+	_, err := c.Get(url, httpclient.SetQueryParam("projectName", projectName), httpclient.SetResult(res))
 	if err != nil {
 		return nil, err
 	}
@@ -60,20 +60,20 @@ func (c *Client) ListHelmServicesInEnvironment(envName, projectName string) ([]*
 }
 
 func (c *Client) ListServices(envName, projectName string) ([]*Service, error) {
-	url := fmt.Sprintf("/environment/environments/%s/groups", projectName)
+	url := fmt.Sprintf("/environment/environments/%s/groups", envName)
 
 	res := make([]*Service, 0)
-	_, err := c.Get(url, httpclient.SetQueryParam("envName", envName), httpclient.SetResult(&res))
+	_, err := c.Get(url, httpclient.SetQueryParam("projectName", projectName), httpclient.SetResult(&res))
 
 	return res, err
 }
 
 func (c *Client) GetServiceDetail(projectName, serviceName, envName string) (*ServiceDetail, error) {
-	url := fmt.Sprintf("/environment/environments/%s/services/%s", projectName, serviceName)
+	url := fmt.Sprintf("/environment/environments/%s/services/%s", envName, serviceName)
 
 	res := &ServiceDetail{}
 	req := map[string]string{
-		"envName": envName,
+		"projectName": projectName,
 	}
 	_, err := c.Get(url, httpclient.SetQueryParams(req), httpclient.SetResult(res))
 	if err != nil {
@@ -100,7 +100,7 @@ func (c *Client) ListServicesStatusByEnvironment(envName, projectName string) ([
 		for _, s := range ss {
 			res = append(res, &ServiceStatus{
 				ServiceName: s.ServiceName,
-				Status: s.Status,
+				Status:      s.Status,
 			})
 		}
 
@@ -113,7 +113,7 @@ func (c *Client) ListServicesStatusByEnvironment(envName, projectName string) ([
 		for _, s := range ss {
 			res = append(res, &ServiceStatus{
 				ServiceName: s.ServiceName,
-				Status: s.Status,
+				Status:      s.Status,
 			})
 		}
 	}

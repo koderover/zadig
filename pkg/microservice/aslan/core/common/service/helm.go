@@ -59,16 +59,32 @@ func PreLoadServiceManifests(base string, svc *commonmodels.Service) error {
 	return preLoadServiceManifestsFromSource(svc)
 }
 
+func PreloadServiceManifestsByRevision(base string, svc *commonmodels.Service) error {
+	ok, err := fsutil.DirExists(base)
+	if err != nil {
+		log.Errorf("Failed to check if dir %s is exiting, err: %s", base, err)
+		return err
+	}
+	if ok {
+		return nil
+	}
+
+	//download chart info by revision
+	serviceNameWithRevision := config.ServiceNameWithRevision(svc.ServiceName, svc.Revision)
+	s3Base := config.ObjectStorageServicePath(svc.ProductName, svc.ServiceName)
+	return fsservice.DownloadAndExtractFilesFromS3(serviceNameWithRevision, base, s3Base, log.SugaredLogger())
+}
+
 func DownloadServiceManifests(base, projectName, serviceName string) error {
 	s3Base := config.ObjectStorageServicePath(projectName, serviceName)
 	return fsservice.DownloadAndExtractFilesFromS3(serviceName, base, s3Base, log.SugaredLogger())
 }
 
-func SaveAndUploadService(projectName, serviceName string, fileTree fs.FS) error {
+func SaveAndUploadService(projectName, serviceName string, copies []string, fileTree fs.FS) error {
 	localBase := config.LocalServicePath(projectName, serviceName)
 	s3Base := config.ObjectStorageServicePath(projectName, serviceName)
-
-	return fsservice.SaveAndUploadFiles(fileTree, serviceName, localBase, s3Base, log.SugaredLogger())
+	names := append([]string{serviceName}, copies...)
+	return fsservice.SaveAndUploadFiles(fileTree, names, localBase, s3Base, log.SugaredLogger())
 }
 
 func preLoadServiceManifestsFromSource(svc *commonmodels.Service) error {
@@ -82,7 +98,7 @@ func preLoadServiceManifestsFromSource(svc *commonmodels.Service) error {
 	}
 
 	// save files to disk and upload them to s3
-	if err = SaveAndUploadService(svc.ProductName, svc.ServiceName, tree); err != nil {
+	if err = SaveAndUploadService(svc.ProductName, svc.ServiceName, nil, tree); err != nil {
 		log.Errorf("Failed to save or upload files for service %s in project %s, error: %s", svc.ServiceName, svc.ProductName, err)
 		return err
 	}

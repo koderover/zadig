@@ -50,6 +50,7 @@ type JenkinsBuild struct {
 	Timeout            int                 `bson:"timeout"                 json:"timeout,omitempty"`
 	Error              string              `bson:"error"                   json:"error,omitempty"`
 	ResReq             setting.Request     `bson:"res_req"                 json:"res_req"`
+	ResReqSpec         setting.RequestSpec `bson:"res_req_spec"            json:"res_req_spec"`
 	JenkinsIntegration *JenkinsIntegration `bson:"-"                       json:"jenkins_integration"`
 	JenkinsBuildArgs   *JenkinsBuildArgs   `bson:"-"                       json:"jenkins_build_args"`
 	StartTime          int64               `bson:"start_time"              json:"start_time,omitempty"`

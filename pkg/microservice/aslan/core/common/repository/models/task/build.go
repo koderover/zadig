@@ -48,6 +48,7 @@ type Build struct {
 	ImageFrom         string                      `bson:"image_from"                 json:"image_from,omitempty"`
 	ImageID           string                      `bson:"image_id"                   json:"image_id"`
 	ResReq            setting.Request             `bson:"res_req"                    json:"res_req"`
+	ResReqSpec        setting.RequestSpec         `bson:"res_req_spec"               json:"res_req_spec"`
 	LogFile           string                      `bson:"log_file"                   json:"log_file"`
 	InstallCtx        []*models.Install           `bson:"-"                          json:"install_ctx,omitempty"`
 	Registries        []*models.RegistryNamespace `bson:"-"                   json:"registries"`

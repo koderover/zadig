@@ -17,33 +17,15 @@ limitations under the License.
 package handler
 
 import (
-	"net/http"
-	"path/filepath"
-
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
-	"github.com/koderover/zadig/pkg/tool/log"
+	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
-func DownloadBundle(c *gin.Context) {
-	if err := service.GenerateOPABundle(); err != nil {
-		log.Errorf("Failed to generate OPA bundle, err: %s", err)
-		c.String(http.StatusInternalServerError, "bundle generation failure, err: %s", err)
-		return
-	}
+func GetBundleResources(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	revision := service.GetRevision()
-	matching := c.GetHeader("If-None-Match")
-	if revision != "" && revision == matching {
-		c.Status(http.StatusNotModified)
-		return
-	}
-
-	c.Header("Content-Type", "application/gzip")
-	if revision != "" {
-		c.Header("Etag", revision)
-	}
-	c.File(filepath.Join(config.DataPath(), c.Param("name")))
+	ctx.Resp, ctx.Err = service.GetBundleResources()
 }

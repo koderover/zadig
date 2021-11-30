@@ -51,7 +51,8 @@ type Build struct {
 type PreBuild struct {
 	CleanWorkspace bool `bson:"clean_workspace"            json:"clean_workspace"`
 	// ResReq defines job requested resources
-	ResReq setting.Request `bson:"res_req"                json:"res_req"`
+	ResReq     setting.Request     `bson:"res_req"                json:"res_req"`
+	ResReqSpec setting.RequestSpec `bson:"res_req_spec"           json:"res_req_spec"`
 	// BuildOS defines job image OS, it supports 12.04, 14.04, 16.04
 	BuildOS   string `bson:"build_os"                      json:"build_os"`
 	ImageFrom string `bson:"image_from"                    json:"image_from"`

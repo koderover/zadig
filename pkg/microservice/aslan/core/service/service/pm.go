@@ -28,6 +28,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
@@ -43,6 +44,9 @@ func CreatePMService(username string, args *ServiceTmplBuildObject, log *zap.Sug
 	}
 	if !config.ServiceNameRegex.MatchString(args.ServiceTmplObject.ServiceName) {
 		return e.ErrInvalidParam.AddDesc("服务名称格式错误，请检查")
+	}
+	if err := commonutil.CheckDefineResourceParam(args.Build.PreBuild.ResReq, args.Build.PreBuild.ResReqSpec); err != nil {
+		return e.ErrInvalidParam.AddDesc(err.Error())
 	}
 
 	opt := &commonrepo.ServiceFindOption{

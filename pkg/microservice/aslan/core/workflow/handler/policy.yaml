@@ -38,6 +38,10 @@ rules:
         endpoint: "api/aslan/workflow/workflow"
       - method: GET
         endpoint: "/api/aslan/environment/environments"
+        resourceType: "Environment"
+        matchAttributes:
+          - key: "placeholder"
+            value: "placeholder"
       - method: GET
         endpoint: "/api/aslan/workflow/workflow/preset/?*"
       - method: GET
@@ -54,6 +58,10 @@ rules:
         endpoint: "/api/directory/workflowTask/create"
       - method: GET
         endpoint: "/api/aslan/environment/environments"
+        resourceType: "Environment"
+        matchAttributes:
+          - key: "placeholder"
+            value: "placeholder"
       - method: GET
         endpoint: "/api/aslan/testing/testdetail"
   - action: delete_workflow

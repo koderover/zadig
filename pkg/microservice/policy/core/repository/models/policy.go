@@ -31,8 +31,16 @@ type PolicyRule struct {
 }
 
 type ActionRule struct {
-	Method   string `bson:"method"   json:"method"`
-	Endpoint string `bson:"endpoint" json:"endpoint"`
+	Method          string      `bson:"method"                     json:"method"`
+	Endpoint        string      `bson:"endpoint"                   json:"endpoint"`
+	ResourceType    string      `bson:"resource_type,omitempty"    json:"resourceType,omitempty"`
+	IDRegex         string      `bson:"id_regex,omitempty"         json:"idRegex,omitempty"`
+	MatchAttributes []Attribute `bson:"match_attributes,omitempty" json:"matchAttributes,omitempty"`
+}
+
+type Attribute struct {
+	Key   string `bson:"key"   json:"key"`
+	Value string `bson:"value" json:"value"`
 }
 
 func (Policy) TableName() string {

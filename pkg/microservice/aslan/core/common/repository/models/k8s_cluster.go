@@ -45,6 +45,7 @@ type K8SCluster struct {
 	Disconnected  bool                    `json:"-"                           bson:"disconnected"`
 	Token         string                  `json:"token"                       bson:"-"`
 	Provider      int8                    `json:"provider"                    bson:"provider"`
+	Local         bool                    `json:"local"                       bson:"local"`
 }
 
 type K8SClusterInfo struct {
