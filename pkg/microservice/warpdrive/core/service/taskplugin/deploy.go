@@ -51,6 +51,7 @@ import (
 	"github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/converter"
 	"github.com/koderover/zadig/pkg/util/fs"
+	fsutil "github.com/koderover/zadig/pkg/util/fs"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
@@ -220,10 +221,10 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			serviceInfo *types.ServiceTmpl
 			selector    labels.Selector
 		)
-		serviceInfo, err = p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType, p.Task.ProductName)
+		serviceInfo, err = p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType, p.Task.ProductName, 0)
 		if err != nil {
 			// Maybe it is a share service, the entity is not under the project
-			serviceInfo, err = p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType, "")
+			serviceInfo, err = p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType, "", 0)
 			if err != nil {
 				return
 			}
@@ -390,6 +391,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				p.Task.Namespace, p.Task.ServiceName)
 			return
 		}
+
 		renderInfo, err = p.getRenderSet(ctx, productInfo.Render.Name, productInfo.Render.Revision)
 		if err != nil {
 			err = errors.WithMessagef(
@@ -399,16 +401,18 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			return
 		}
 
+		serviceRevisionInProduct := int64(0)
 		var targetContainer *types.Container
-		for _, serviceGroup := range productInfo.Services {
-			for _, service := range serviceGroup {
-				if service.ServiceName == p.Task.ServiceName {
-					for _, container := range service.Containers {
-						if container.Name == p.Task.ContainerName {
-							targetContainer = container
-						}
+		for _, service := range productInfo.GetServiceMap() {
+			if service.ServiceName == p.Task.ServiceName {
+				serviceRevisionInProduct = service.Revision
+				for _, container := range service.Containers {
+					if container.Name == p.Task.ContainerName {
+						targetContainer = container
+						break
 					}
 				}
+				break
 			}
 		}
 
@@ -430,8 +434,35 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		}
 
 		if renderChart == nil {
-			err = errors.Errorf("failed to update container image in %s/%s，not find",
+			err = errors.Errorf("failed to update container image in %s/%s，chart not found",
 				p.Task.Namespace, p.Task.ServiceName)
+			return
+		}
+
+		// use revision of service currently applied in environment instead of the latest revision
+		path, errDownload := p.downloadService(pipelineTask.ProductName, p.Task.ServiceName,
+			pipelineTask.StorageURI, serviceRevisionInProduct)
+		if errDownload != nil {
+			p.Log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
+				serviceRevisionInProduct, p.Task.ServiceName)
+			path, errDownload = p.downloadService(pipelineTask.ProductName, p.Task.ServiceName,
+				pipelineTask.StorageURI, 0)
+			if errDownload != nil {
+				err = errors.WithMessagef(
+					errDownload,
+					"failed to download service %s/%s",
+					p.Task.Namespace, p.Task.ServiceName)
+				return
+			}
+		}
+
+		chartPath, err = fs.RelativeToCurrentPath(path)
+		if err != nil {
+			err = errors.WithMessagef(
+				err,
+				"failed to get relative path %s",
+				servicePath,
+			)
 			return
 		}
 
@@ -501,24 +532,6 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			return
 		}
 
-		servicePath, err = p.downloadService(pipelineTask.ProductName, p.Task.ServiceName, pipelineTask.StorageURI)
-		if err != nil {
-			err = errors.WithMessagef(
-				err,
-				"failed to download service %s/%s",
-				p.Task.Namespace, p.Task.ServiceName)
-			return
-		}
-		chartPath, err = fs.RelativeToCurrentPath(servicePath)
-		if err != nil {
-			err = errors.WithMessagef(
-				err,
-				"failed to get relative path %s",
-				servicePath,
-			)
-			return
-		}
-
 		chartSpec := helmclient.ChartSpec{
 			ReleaseName: util.GeneHelmReleaseName(p.Task.Namespace, p.Task.ServiceName),
 			ChartName:   chartPath,
@@ -574,41 +587,66 @@ func (p *DeployTaskPlugin) getProductInfo(ctx context.Context, args *EnvArgs) (*
 	return prod, nil
 }
 
-func (p *DeployTaskPlugin) getService(ctx context.Context, name, serviceType, productName string) (*types.ServiceTmpl, error) {
+func (p *DeployTaskPlugin) getService(ctx context.Context, name, serviceType, productName string, revision int64) (*types.ServiceTmpl, error) {
 	url := fmt.Sprintf("/api/service/services/%s/%s", name, serviceType)
 
 	s := &types.ServiceTmpl{}
-	_, err := p.httpClient.Get(url, httpclient.SetResult(s), httpclient.SetQueryParam("productName", productName))
+	_, err := p.httpClient.Get(url, httpclient.SetResult(s), httpclient.SetQueryParams(map[string]string{
+		"productName": productName,
+		"revision":    fmt.Sprintf("%d", revision),
+	}))
 	if err != nil {
 		return nil, err
 	}
 	return s, nil
 }
 
-func (p *DeployTaskPlugin) downloadService(productName, serviceName, storageURI string) (string, error) {
+// download chart info of specific version, use the latest version if fails
+func (p *DeployTaskPlugin) downloadService(productName, serviceName, storageURI string, revision int64) (string, error) {
 	logger := p.Log
 
-	base := configbase.LocalServicePath(productName, serviceName)
+	fileName := serviceName
+	if revision > 0 {
+		fileName = fmt.Sprintf("%s-%d", serviceName, revision)
+	}
+	tarball := fmt.Sprintf("%s.tar.gz", fileName)
+	localBase := configbase.LocalServicePath(productName, serviceName)
+	tarFilePath := filepath.Join(localBase, tarball)
+
+	exists, err := fsutil.FileExists(tarFilePath)
+	if err != nil {
+		return "", err
+	}
+	if exists {
+		return tarFilePath, nil
+	}
+
 	s3Storage, err := s3.NewS3StorageFromEncryptedURI(storageURI)
 	if err != nil {
 		return "", err
 	}
 
-	tarball := fmt.Sprintf("%s.tar.gz", serviceName)
-	tarFilePath := filepath.Join(base, tarball)
 	s3Storage.Subfolder = filepath.Join(s3Storage.Subfolder, configbase.ObjectStorageServicePath(productName, serviceName))
 	forcedPathStyle := true
 	if s3Storage.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
 	}
-	client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
+	s3Client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
 	if err != nil {
-		p.Log.Errorf("failed to create s3 client, err: %+v", err)
+		p.Log.Errorf("failed to create s3 client, err: %s", err)
 		return "", err
 	}
-	if err = client.Download(s3Storage.Bucket, s3Storage.GetObjectPath(tarball), tarFilePath); err != nil {
-		logger.Errorf("Failed to download file from s3, err: %s", err)
+	if err = s3Client.Download(s3Storage.Bucket, s3Storage.GetObjectPath(tarball), tarFilePath); err != nil {
+		logger.Errorf("failed to download file from s3, err: %s", err)
 		return "", err
+	}
+
+	exists, err = fsutil.FileExists(tarFilePath)
+	if err != nil {
+		return "", err
+	}
+	if !exists {
+		return "", fmt.Errorf("file %s on s3 not found", s3Storage.GetObjectPath(tarball))
 	}
 
 	return tarFilePath, nil
@@ -622,6 +660,7 @@ func (p *DeployTaskPlugin) getRenderSet(ctx context.Context, name string, revisi
 	if err != nil {
 		return nil, err
 	}
+
 	return rs, nil
 }
 
