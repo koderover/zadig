@@ -8,9 +8,9 @@ import (
 )
 
 func (c *Client) DeleteUser(userId string,header http.Header, qs url.Values) ([]byte, error) {
-	url := "/users/"+userId
+	url := "/v1/users/"+userId
 
-	res, err := c.Get(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs))
+	res, err := c.Delete(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs))
 	if err != nil {
 		return nil, err
 	}
