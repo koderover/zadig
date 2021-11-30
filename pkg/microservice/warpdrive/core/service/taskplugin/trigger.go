@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -185,8 +184,7 @@ func (p *TriggerTaskPlugin) getS3Storage(pipelineTask *task.Task) (string, error
 	if len(files) > 0 {
 		fileName = files[0]
 	}
-	log.Infof("files:%s", strings.Join(files, ","))
-	return fmt.Sprintf("%s://%s/%s/%s", store.GetSchema(), store.Endpoint, store.Subfolder, fileName), nil
+	return fmt.Sprintf("%s://%s/%s", store.GetSchema(), store.Endpoint, fileName), nil
 }
 
 // Wait ...
