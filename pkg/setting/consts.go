@@ -543,3 +543,10 @@ const (
 
 // ModernWorkflowType 自由编排工作流
 const ModernWorkflowType = "ModernWorkflow"
+
+const (
+	Subresource        = "subresource"
+	StatusSubresource  = "status"
+	IngressSubresource = "ingress"
+	ResourcesHeader    = "Resources"
+)

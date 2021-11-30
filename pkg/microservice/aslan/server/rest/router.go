@@ -68,11 +68,6 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 
 	router.GET("/api/kodespace/downloadUrl", commonhandler.GetToolDownloadURL)
 
-	bundles := router.Group("/api/bundles")
-	{
-		bundles.GET("/:name", environmenthandler.DownloadBundle)
-	}
-
 	for name, r := range map[string]injector{
 		"/api/project":     new(projecthandler.Router),
 		"/api/code":        new(codehosthandler.Router),

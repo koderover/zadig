@@ -233,3 +233,7 @@ func LocalServicePathWithRevision(project, service string, revision int64) strin
 func ServiceNameWithRevision(serviceName string, revision int64) string {
 	return fmt.Sprintf("%s-%d", serviceName, revision)
 }
+
+func ServiceAccountNameForUser(userID string) string {
+	return fmt.Sprintf("%s-sa", userID)
+}

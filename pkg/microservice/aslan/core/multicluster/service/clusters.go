@@ -30,10 +30,39 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-func ListClusters(clusterType string, logger *zap.SugaredLogger) ([]*commonmodels.K8SCluster, error) {
-	s, _ := kube.NewService("")
+type K8SCluster struct {
+	ID          string                  `json:"id"`
+	Name        string                  `json:"name"`
+	Description string                  `json:"description"`
+	Status      config.K8SClusterStatus `json:"status"`
+	Production  bool                    `json:"production"`
+	CreatedAt   int64                   `json:"createdAt"`
+	CreatedBy   string                  `json:"createdBy"`
+	Provider    int8                    `json:"provider"`
+}
 
-	return s.ListClusters(clusterType, logger)
+func ListClusters(ids []string, logger *zap.SugaredLogger) ([]*K8SCluster, error) {
+	cs, err := commonrepo.NewK8SClusterColl().List(&commonrepo.ClusterListOpts{IDs: ids})
+	if err != nil {
+		logger.Errorf("Failed to list clusters, err: %s", err)
+		return nil, err
+	}
+
+	var res []*K8SCluster
+	for _, c := range cs {
+		res = append(res, &K8SCluster{
+			ID:          c.ID.Hex(),
+			Name:        c.Name,
+			Description: c.Description,
+			Status:      c.Status,
+			Production:  c.Production,
+			CreatedBy:   c.CreatedBy,
+			CreatedAt:   c.CreatedAt,
+			Provider:    c.Provider,
+		})
+	}
+
+	return res, nil
 }
 
 func GetCluster(id string, logger *zap.SugaredLogger) (*commonmodels.K8SCluster, error) {

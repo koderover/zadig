@@ -49,6 +49,7 @@ type ProductListOptions struct {
 	ExcludeSource       string
 	Source              string
 	InProjects          []string
+	InEnvs              []string
 }
 
 type projectEnvs struct {
@@ -143,6 +144,8 @@ func (c *ProductColl) List(opt *ProductListOptions) ([]*models.Product, error) {
 	}
 	if opt.EnvName != "" {
 		query["env_name"] = opt.EnvName
+	} else if len(opt.InEnvs) > 0 {
+		query["env_name"] = bson.M{"$in": opt.InEnvs}
 	}
 	if opt.Name != "" {
 		query["product_name"] = opt.Name

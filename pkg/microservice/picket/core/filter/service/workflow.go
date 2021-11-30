@@ -1,3 +1,19 @@
+/*
+Copyright 2021 The KodeRover Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package service
 
 import (
@@ -9,6 +25,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/picket/client/aslan"
 	"github.com/koderover/zadig/pkg/microservice/picket/client/opa"
+	"github.com/koderover/zadig/pkg/microservice/picket/config"
 )
 
 type rule struct {
@@ -21,7 +38,7 @@ func ListWorkflows(header http.Header, qs url.Values, logger *zap.SugaredLogger)
 		method:   "/api/aslan/workflow/workflow",
 		endpoint: "GET",
 	}}
-	names, err := getAllowedProjects(header, rules, logger)
+	names, err := getAllowedProjects(header, rules, config.AND, logger)
 	if err != nil {
 		logger.Errorf("Failed to get allowed project names, err: %s", err)
 		return nil, err
@@ -42,7 +59,7 @@ func ListTestWorkflows(testName string, header http.Header, qs url.Values, logge
 		method:   "/api/aslan/workflow/workflow",
 		endpoint: "PUT",
 	}}
-	names, err := getAllowedProjects(header, rules, logger)
+	names, err := getAllowedProjects(header, rules, config.AND, logger)
 	if err != nil {
 		logger.Errorf("Failed to get allowed project names, err: %s", err)
 		return nil, err
@@ -58,7 +75,9 @@ func ListTestWorkflows(testName string, header http.Header, qs url.Values, logge
 	return aslan.New().ListTestWorkflows(testName, header, qs)
 }
 
-func getAllowedProjects(headers http.Header, rules []*rule, logger *zap.SugaredLogger) (projects []string, err error) {
+//getAllowedProjects
+//rulesLogicalOperator@ OR:satisfy any one of rules / AND:satisfy all rules
+func getAllowedProjects(headers http.Header, rules []*rule, rulesLogicalOperator config.RulesLogicalOperator, logger *zap.SugaredLogger) (projects []string, err error) {
 	var res [][]string
 	for _, v := range rules {
 		allowedProjects := &allowedProjectsData{}
@@ -72,7 +91,22 @@ func getAllowedProjects(headers http.Header, rules []*rule, logger *zap.SugaredL
 		}
 		res = append(res, allowedProjects.Result)
 	}
+	if rulesLogicalOperator == config.OR {
+		return union(res), nil
+	}
 	return intersect(res), nil
+}
+
+func union(s [][]string) []string {
+	if len(s) == 0 {
+		return nil
+	}
+	tmp := sets.NewString(s[0]...)
+	for _, v := range s[1:] {
+		t := sets.NewString(v...)
+		tmp = t.Union(tmp)
+	}
+	return tmp.List()
 }
 
 func intersect(s [][]string) []string {

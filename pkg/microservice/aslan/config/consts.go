@@ -18,6 +18,8 @@ package config
 
 import (
 	"regexp"
+
+	"github.com/koderover/zadig/pkg/setting"
 )
 
 var (
@@ -205,4 +207,9 @@ const (
 const (
 	ImageResourceType = "image"
 	TarResourceType   = "tar"
+)
+
+const (
+	RoleBindingNameEdit = setting.ProductName+"-edit"
+	RoleBindingNameView = setting.ProductName+"-view"
 )
