@@ -177,11 +177,14 @@ func (p *TriggerTaskPlugin) getS3Storage(pipelineTask *task.Task) (string, error
 		return "", err
 	}
 	prefix := store.GetObjectPath("")
-	files, err := s3client.ListFiles(store.Bucket, prefix, false)
+	files, err := s3client.ListFiles(store.Bucket, prefix, true)
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("%s/%s/%s", store.Endpoint, subPath, files[0]), nil
+	if len(files) > 0 {
+		return fmt.Sprintf("%s/%s/%s", store.Endpoint, subPath, files[0]), nil
+	}
+	return fmt.Sprintf("%s/%s/artifact.tar.gz", store.Endpoint, subPath), nil
 }
 
 // Wait ...
