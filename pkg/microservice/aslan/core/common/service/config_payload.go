@@ -54,6 +54,7 @@ func GetConfigPayload(codeHostID int) *models.ConfigPayload {
 			ReaperImage:      config.ReaperImage(),
 			ReaperBinaryFile: config.ReaperBinaryFile(),
 			PredatorImage:    config.PredatorImage(),
+			PackagerImage:    config.PackagerImage(),
 		},
 		Docker: models.DockerConfig{
 			HostList: config.DockerHosts(),

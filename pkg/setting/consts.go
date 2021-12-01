@@ -50,6 +50,7 @@ const (
 	ENVReaperImage      = "REAPER_IMAGE"
 	ENVReaperBinaryFile = "REAPER_BINARY_FILE"
 	ENVPredatorImage    = "PREDATOR_IMAGE"
+	EnvPackagerImage    = "PACKAGER_IMAGE"
 
 	ENVDockerHosts = "DOCKER_HOSTS"
 
@@ -310,6 +311,10 @@ const (
 )
 
 const (
+	BuildChartPackage = "chart-package"
+)
+
+const (
 	JenkinsBuildJob = "jenkins-build"
 )
 
@@ -549,6 +554,8 @@ const (
 const MaxTries = 1
 
 const DogFood = "/var/run/koderover-dog-food"
+
+const ProgressFile = "/var/log/job-progress"
 
 const (
 	ResponseError = "error"

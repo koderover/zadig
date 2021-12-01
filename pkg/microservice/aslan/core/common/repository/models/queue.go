@@ -19,9 +19,8 @@ package models
 import (
 	"sync"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
-
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type Queue struct {
@@ -64,12 +63,14 @@ type Queue struct {
 	// TestArgs 测试任务参数
 	TestArgs *TestTaskArgs `bson:"test_args,omitempty"         json:"test_args,omitempty"`
 	// ServiceTaskArgs 脚本部署工作流任务参数
-	ServiceTaskArgs *ServiceTaskArgs    `bson:"service_args,omitempty"         json:"service_args,omitempty"`
-	ConfigPayload   *ConfigPayload      `json:"config_payload,omitempty"`
-	Error           string              `bson:"error,omitempty"                json:"error,omitempty"`
-	Services        [][]*ProductService `bson:"services"                  json:"services"`
-	Render          *RenderInfo         `bson:"render"                    json:"render"`
-	StorageURI      string              `bson:"storage_uri,omitempty" json:"storage_uri,omitempty"`
+	ServiceTaskArgs *ServiceTaskArgs `bson:"service_args,omitempty"         json:"service_args,omitempty"`
+	// ArtifactPackageTaskArgs arguments for artifact-package type tasks
+	ArtifactPackageTaskArgs *ArtifactPackageTaskArgs `bson:"artifact_package_args,omitempty"         json:"artifact_package_args,omitempty"`
+	ConfigPayload           *ConfigPayload           `json:"config_payload,omitempty"`
+	Error                   string                   `bson:"error,omitempty"                json:"error,omitempty"`
+	Services                [][]*ProductService      `bson:"services"                  json:"services"`
+	Render                  *RenderInfo              `bson:"render"                    json:"render"`
+	StorageURI              string                   `bson:"storage_uri,omitempty" json:"storage_uri,omitempty"`
 	// interface{} 为types.TestReport
 	TestReports map[string]interface{} `bson:"test_reports,omitempty" json:"test_reports,omitempty"`
 
@@ -106,6 +107,25 @@ type ServiceTaskArgs struct {
 	Namespace          string   `bson:"namespace"               json:"namespace"`
 	K8sNamespace       string   `bson:"k8s_namespace"           json:"k8s_namespace"`
 	Updatable          bool     `bson:"updatable"               json:"updatable"`
+}
+
+type ImageData struct {
+	ImageUrl  string `bson:"image_url" json:"image_url"`
+	ImageName string `bson:"image_name" json:"image_name"`
+	ImageTag  string `bson:"image_tag" json:"image_tag"`
+}
+
+type ImagesByService struct {
+	ServiceName string       `bson:"service_name" json:"service_name"`
+	Images      []*ImageData `bson:"images" json:"images"`
+}
+
+type ArtifactPackageTaskArgs struct {
+	ProjectName      string             `bson:"project_name"            json:"project_name"`
+	EnvName          string             `bson:"env_name" json:"env_name"`
+	Images           []*ImagesByService `bson:"images" json:"images"`
+	SourceRegistries []string           `json:"source_registries" json:"source_registries"`
+	TargetRegistries []string           `json:"target_registries" json:"target_registries"`
 }
 
 type ConfigPayload struct {
@@ -208,6 +228,9 @@ type ReleaseConfig struct {
 	// PredatorImage sets docker build image
 	// e.g. xxx.com/resources/predator-plugin:v0.1.0
 	PredatorImage string
+	// PackagerImage sets docker build image
+	// e.g. xxx.com/resources/predator-plugin:v0.1.0
+	PackagerImage string
 }
 
 type ImageReleaseConfig struct {

@@ -190,6 +190,10 @@ func PredatorImage() string {
 	return viper.GetString(setting.ENVPredatorImage)
 }
 
+func PackagerImage() string {
+	return viper.GetString(setting.EnvPackagerImage)
+}
+
 func DockerHosts() []string {
 	return strings.Split(viper.GetString(setting.ENVDockerHosts), ",")
 }

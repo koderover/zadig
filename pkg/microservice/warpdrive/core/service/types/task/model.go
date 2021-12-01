@@ -64,6 +64,8 @@ type Task struct {
 	TestArgs *TestTaskArgs `bson:"test_args,omitempty"         json:"test_args,omitempty"`
 	// ServiceTaskArgs 脚本部署工作流任务参数
 	ServiceTaskArgs *ServiceTaskArgs `bson:"service_args,omitempty"         json:"service_args,omitempty"`
+	// ArtifactPackageTaskArgs arguments for artifact-package type tasks
+	ArtifactPackageTaskArgs *ArtifactPackageTaskArgs `bson:"artifact_package_args,omitempty"         json:"artifact_package_args,omitempty"`
 	// ConfigPayload 系统配置信息
 	ConfigPayload *ConfigPayload      `json:"config_payload,omitempty"`
 	Error         string              `bson:"error,omitempty"                json:"error,omitempty"`
@@ -241,6 +243,24 @@ type ServiceTaskArgs struct {
 	Namespace          string   `bson:"namespace"               json:"namespace"`
 	K8sNamespace       string   `bson:"k8s_namespace"           json:"k8s_namespace"`
 	Updatable          bool     `bson:"updatable"               json:"updatable"`
+}
+
+type ImageData struct {
+	ImageUrl  string `bson:"image_url" json:"image_url"`
+	ImageName string `bson:"image_name" json:"image_name"`
+	ImageTag  string `bson:"image_tag" json:"image_tag"`
+}
+
+type ImagesByService struct {
+	ServiceName string       `bson:"service_name" json:"service_name"`
+	Images      []*ImageData `bson:"images" json:"images"`
+}
+
+type ArtifactPackageTaskArgs struct {
+	ProductName      string             `bson:"product_name"            json:"product_name"`
+	Images           []*ImagesByService `bson:"images" json:"images"`
+	SourceRegistries []string           `bson:"source_registries" json:"source_registries"`
+	TargetRegistries []string           `bson:"target_registries" json:"target_registries"`
 }
 
 type ProductService struct {

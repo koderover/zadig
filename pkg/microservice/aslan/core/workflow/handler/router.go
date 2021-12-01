@@ -103,6 +103,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		workflow.POST("/:productName/auto", AutoCreateWorkflow)
 		workflow.POST("", GetWorkflowProductName, gin2.UpdateOperationLogStatus, CreateWorkflow)
+
+		// test api need to delete
+		workflow.POST("airifactTask", GetWorkflowProductName, gin2.UpdateOperationLogStatus, CreateArtifactTask)
+
 		workflow.PUT("", GetWorkflowProductName, gin2.UpdateOperationLogStatus, UpdateWorkflow)
 		workflow.GET("", ListWorkflows)
 		workflow.GET("/testName/:testName", ListTestWorkflows)
