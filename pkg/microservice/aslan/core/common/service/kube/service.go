@@ -101,7 +101,9 @@ func (s *Service) CreateCluster(cluster *models.K8SCluster, logger *zap.SugaredL
 		return nil, e.ErrCreateCluster.AddDesc(e.DuplicateClusterNameFound)
 	}
 
-	cluster.Status = setting.Pending
+	if cluster.Status == "" {
+		cluster.Status = setting.Pending
+	}
 
 	err = s.coll.Create(cluster)
 
