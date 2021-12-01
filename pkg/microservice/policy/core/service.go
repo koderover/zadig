@@ -109,6 +109,6 @@ type indexer interface {
 	GetCollectionName() string
 }
 
-func CheckMongodbHealth(ctx context.Context) error {
+func Healthz(ctx context.Context) error {
 	return mongotool.Ping(ctx)
 }

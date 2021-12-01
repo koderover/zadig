@@ -149,10 +149,3 @@ func UpdateUser(uid string, user *models.User, db *gorm.DB) error {
 	}
 	return nil
 }
-
-func CheckUserMysqlDbHealthz() error {
-	if err := core.DB.Model(&models.User{}).Select("1").Limit(1).Error; err != nil {
-		return err
-	}
-	return nil
-}
