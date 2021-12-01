@@ -136,8 +136,8 @@ type Role struct {
 	} `json:"rules"`
 }
 
-func (c *Client) GetPolicySvrHealthz() error {
-	url := fmt.Sprintf("/healthz")
+func (c *Client) Healthz() error {
+	url := "/healthz"
 	_, err := c.Get(url)
 	return err
 }

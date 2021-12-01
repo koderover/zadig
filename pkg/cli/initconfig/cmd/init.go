@@ -24,8 +24,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spf13/viper"
 	"golang.org/x/sync/errgroup"
-
 	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/config"
@@ -34,7 +34,6 @@ import (
 	"github.com/koderover/zadig/pkg/shared/client/user"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/spf13/viper"
 )
 
 func init() {

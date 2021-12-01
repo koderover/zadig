@@ -18,13 +18,12 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/koderover/zadig/pkg/microservice/policy/core/service"
+	"github.com/koderover/zadig/pkg/microservice/user/core"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
-// PolicySvrHealthz
-func PolicySvrHealthz(c *gin.Context) {
+func Healthz(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Err = service.GetPolicySvrHealthz(c.Request.Context(), ctx.Logger)
+	ctx.Err = core.Healthz()
 }

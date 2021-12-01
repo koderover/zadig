@@ -60,6 +60,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		router.POST("reset", user.Reset)
 
-		router.GET("/healthz", user.Healthz)
+		router.GET("/healthz", Healthz)
 	}
 }

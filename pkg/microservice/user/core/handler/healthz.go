@@ -14,15 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package mongodb
+package handler
 
 import (
-	"context"
+	"github.com/gin-gonic/gin"
 
-	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
+	"github.com/koderover/zadig/pkg/microservice/user/core"
+	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
-// CheckMongodbHealth
-func CheckMongodbHealth(ctx context.Context) error {
-	return mongotool.Ping(ctx)
+func Healthz(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	ctx.Err = core.Healthz()
 }

@@ -86,7 +86,7 @@ func (c *Client) SearchUser(args *SearchUserArgs) (*SearchUserResp, error) {
 	return resp, err
 }
 
-func (c *Client) GetUserSvrHealthz() error {
+func (c *Client) Healthz() error {
 	url := "/healthz"
 	_, err := c.Get(url)
 	return err

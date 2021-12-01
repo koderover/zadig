@@ -156,9 +156,3 @@ func Reset(c *gin.Context) {
 	args.Uid = ctx.UserID
 	ctx.Err = user.Reset(args, ctx.Logger)
 }
-
-func Healthz(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Err = user.UserSvrHealthz(ctx.Logger)
-}
