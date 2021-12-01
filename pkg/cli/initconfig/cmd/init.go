@@ -25,11 +25,11 @@ import (
 
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
-
 	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/aslan"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
 	"github.com/koderover/zadig/pkg/shared/client/user"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
@@ -86,9 +86,15 @@ func initSystemConfig() error {
 	}
 
 	if err := presetRoleBinding(uid); err != nil {
-		log.Errorf("presetRoleBinding :%s", err)
+		log.Errorf("presetRoleBinding err:%s", err)
 		return err
 	}
+
+	if err := createMultiCluster(); err != nil {
+		log.Errorf("createMultiCluster err:%s", err)
+		return err
+	}
+
 	return nil
 }
 
@@ -181,6 +187,24 @@ func presetRole() error {
 	}
 	if err := g.Wait(); err != nil {
 		return err
+	}
+	return nil
+}
+
+func createMultiCluster() error {
+	clusters, err := aslan.New(config.AslanServiceAddress()).ListMultiCluster()
+	if err != nil {
+		return err
+	}
+	var hasLocal bool
+	for _, cluster := range clusters {
+		if cluster.Local {
+			hasLocal = true
+			break
+		}
+	}
+	if !hasLocal {
+		return aslan.New(config.AslanServiceAddress()).AddMultiCluster()
 	}
 	return nil
 }

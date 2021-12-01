@@ -41,11 +41,11 @@ type K8SCluster struct {
 	CreatedAt   int64                    `json:"createdAt"`
 	CreatedBy   string                   `json:"createdBy"`
 	Provider    int8                     `json:"provider"`
+	Local       bool                     `json:"local"`
 }
 
 func ListClusters(ids []string, logger *zap.SugaredLogger) ([]*K8SCluster, error) {
 	idSet := sets.NewString(ids...)
-	localClusterIncluded := idSet.Has(setting.LocalClusterID)
 	idSet = idSet.Delete(setting.LocalClusterID)
 	cs, err := commonrepo.NewK8SClusterColl().List(&commonrepo.ClusterListOpts{IDs: idSet.UnsortedList()})
 	if err != nil {
@@ -54,15 +54,6 @@ func ListClusters(ids []string, logger *zap.SugaredLogger) ([]*K8SCluster, error
 	}
 
 	var res []*K8SCluster
-	if len(ids) == 0 || localClusterIncluded {
-		res = append(res, &K8SCluster{
-			ID:         setting.LocalClusterID,
-			Name:       setting.LocalClusterName,
-			Production: false,
-			Status:     setting.Normal,
-		})
-	}
-
 	for _, c := range cs {
 		res = append(res, &K8SCluster{
 			ID:          c.ID.Hex(),
@@ -73,6 +64,7 @@ func ListClusters(ids []string, logger *zap.SugaredLogger) ([]*K8SCluster, error
 			CreatedBy:   c.CreatedBy,
 			CreatedAt:   c.CreatedAt,
 			Provider:    c.Provider,
+			Local:       c.Local,
 		})
 	}
 
