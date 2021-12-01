@@ -19,7 +19,7 @@
           "accept": "*/*",
           "accept-encoding": "gzip, deflate",
           "accept-language": "zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en-US;q=0.3,en;q=0.2",
-          "authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiYWRtaW4xIiwiZW1haWwiOiJhZG1pbjFAa29kZXJvdmVyLmNvbSIsInVpZCI6IjJlNmM1MjAwLTM1OGYtMTFlYy05ODFmLWRlMjI2OTM1MWExZSIsImZlZGVyYXRlZF9jbGFpbXMiOnsiY29ubmVjdG9yX2lkIjoiIiwidXNlcl9pZCI6IiJ9LCJhdWQiOiJ6YWRpZyIsImV4cCI6MTYzNTI1MTQxOH0.7GAndkOICyk7QucBaUiGmd7ZJstWJfoNDw5JKZjz4TY",
+          "authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoibG91dGVzdCIsImVtYWlsIjoibG91dGVzdEBleGFtcGxlLmNvbSIsInVpZCI6IjJlNmM1MjAwLTM1OGYtMTFlYy05ODFmLWRlMjI2OTM1MWExZSIsInByZWZlcnJlZF91c2VybmFtZSI6ImxvdXRlc3QiLCJmZWRlcmF0ZWRfY2xhaW1zIjp7ImNvbm5lY3Rvcl9pZCI6InN5c3RlbSIsInVzZXJfaWQiOiJsb3V0ZXN0In0sImF1ZCI6InphZGlnIiwiZXhwIjoxNzI0MDQ3NTMyfQ.H05PvCXmvPX4gpgMjfHDNUlS1s_EpYrqcFG61SYUJB8",
           "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:92.0) Gecko/20100101 Firefox/92.0",
           "x-forwarded-proto": "http",
           "x-request-id": "14404686-7a28-48a6-9be6-bdd6e119f81a"
@@ -45,11 +45,13 @@
   "parsed_body": null,
   "parsed_path": [
     "api",
-    "articles"
+    "aslan",
+    "environment",
+    "environments"
   ],
   "parsed_query": {
     "projectName": [
-      "project1"
+      "test"
     ]
   },
   "truncated_body": false,

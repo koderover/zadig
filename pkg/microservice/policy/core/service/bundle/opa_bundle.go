@@ -17,19 +17,14 @@ limitations under the License.
 package bundle
 
 import (
-	"encoding/json"
 	"net/http"
-	"path/filepath"
 	"sort"
-
-	"github.com/27149chen/afero"
-	"github.com/google/uuid"
 
 	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
 	"github.com/koderover/zadig/pkg/tool/log"
-	fsutil "github.com/koderover/zadig/pkg/util/fs"
+	"github.com/koderover/zadig/pkg/tool/opa"
 )
 
 const (
@@ -37,7 +32,23 @@ const (
 	policyPath       = "authz.rego"
 	rolesPath        = "roles/data.json"
 	rolebindingsPath = "bindings/data.json"
-	exemptionPath    = "exemptions/data.json"
+	exemptionsPath   = "exemptions/data.json"
+	resourcesPath    = "resources/data.json"
+
+	policyRoot       = "rbac"
+	rolesRoot        = "roles"
+	rolebindingsRoot = "bindings"
+	exemptionsRoot   = "exemptions"
+	resourcesRoot    = "resources"
+)
+
+type expressionOperator string
+
+const (
+	OperatorIn           expressionOperator = "In"
+	OperatorNotIn        expressionOperator = "NotIn"
+	OperatorExists       expressionOperator = "Exists"
+	OperatorDoesNotExist expressionOperator = "DoesNotExist"
 )
 
 const (
@@ -50,7 +61,7 @@ const (
 
 var AllMethods = []string{MethodGet, MethodPost, MethodPut, MethodPatch, MethodDelete}
 
-var cacheFS afero.Fs
+var revision string
 
 type opaRoles struct {
 	Roles roles `json:"roles"`
@@ -60,11 +71,6 @@ type opaRoleBindings struct {
 	RoleBindings roleBindings `json:"role_bindings"`
 }
 
-type opaManifest struct {
-	Revision string   `json:"revision"`
-	Roots    []string `json:"roots"`
-}
-
 type role struct {
 	Name      string `json:"name"`
 	Namespace string `json:"namespace"`
@@ -72,8 +78,52 @@ type role struct {
 }
 
 type rule struct {
-	Method   string `json:"method"`
-	Endpoint string `json:"endpoint"`
+	Method           string       `json:"method"`
+	Endpoint         string       `json:"endpoint"`
+	ResourceType     string       `json:"resourceType,omitempty"`
+	IDRegex          string       `json:"idRegex,omitempty"`
+	MatchAttributes  Attributes   `json:"matchAttributes,omitempty"`
+	MatchExpressions []expression `json:"matchExpressions,omitempty"`
+}
+
+type Attribute struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+type Attributes []*Attribute
+
+func (a Attributes) LessOrEqual(other Attributes) bool {
+	if len(a) == 0 {
+		return true
+	}
+	if len(other) == 0 {
+		return false
+	}
+	for i, attr := range a {
+		if i > len(other)-1 {
+			return false
+		}
+		ki := attr.Key
+		kj := other[i].Key
+		vi := attr.Value
+		vj := other[i].Value
+		if ki == kj {
+			if vi == vj {
+				continue
+			}
+			return vi < vj
+		}
+		return ki < kj
+	}
+
+	return true
+}
+
+type expression struct {
+	Key      string             `json:"key"`
+	Values   []string           `json:"values"`
+	Operator expressionOperator `json:"operator"`
 }
 
 type roleBinding struct {
@@ -91,58 +141,15 @@ type roleRef struct {
 	Namespace string `json:"namespace"`
 }
 
-type opaDataSpec struct {
-	data interface{}
-	path string
-}
-
-type opaData []*opaDataSpec
-
-func (o *opaData) save() error {
-	var err error
-
-	cacheFS = afero.NewMemMapFs()
-	for _, file := range *o {
-		var content []byte
-		switch c := file.data.(type) {
-		case []byte:
-			content = c
-		default:
-			content, err = json.MarshalIndent(c, "", "    ")
-			if err != nil {
-				log.Errorf("Failed to marshal file %s, err: %s", file.path, err)
-				return err
-			}
-		}
-
-		err = cacheFS.MkdirAll(filepath.Dir(file.path), 0755)
-		if err != nil {
-			log.Errorf("Failed to create path %s, err: %s", filepath.Dir(file.path), err)
-			return err
-		}
-		err = afero.WriteFile(cacheFS, file.path, content, 0644)
-		if err != nil {
-			log.Errorf("Failed to write file %s, err: %s", file.path, err)
-			return err
-		}
-	}
-
-	tarball := "bundle.tar.gz"
-	path := filepath.Join(config.DataPath(), tarball)
-	if err = fsutil.Tar(afero.NewIOFS(cacheFS), path); err != nil {
-		log.Errorf("Failed to archive tarball %s, err: %s", path, err)
-		return err
-	}
-
-	return nil
-}
-
 type rules []*rule
 
 func (o rules) Len() int      { return len(o) }
 func (o rules) Swap(i, j int) { o[i], o[j] = o[j], o[i] }
 func (o rules) Less(i, j int) bool {
 	if o[i].Endpoint == o[j].Endpoint {
+		if o[i].Method == o[j].Method {
+			return o[i].MatchAttributes.LessOrEqual(o[j].MatchAttributes)
+		}
 		return o[i].Method < o[j].Method
 	}
 	return o[i].Endpoint < o[j].Endpoint
@@ -301,13 +308,6 @@ func generateOPAExemptionURLs(policies []*models.Policy) *exemptionURLs {
 	return data
 }
 
-func generateOPAManifest() *opaManifest {
-	return &opaManifest{
-		Revision: uuid.New().String(),
-		Roots:    []string{""},
-	}
-}
-
 func generateOPAPolicy() []byte {
 	return authz
 }
@@ -329,29 +329,27 @@ func GenerateOPABundle() error {
 		log.Errorf("Failed to list policies, err: %s", err)
 	}
 
-	data := &opaData{
-		{data: generateOPAManifest(), path: manifestPath},
-		{data: generateOPAPolicy(), path: policyPath},
-		{data: generateOPARoles(rs, ps), path: rolesPath},
-		{data: generateOPARoleBindings(bs), path: rolebindingsPath},
-		{data: generateOPAExemptionURLs(ps), path: exemptionPath},
+	bundle := &opa.Bundle{
+		Data: []*opa.DataSpec{
+			{Data: generateOPAPolicy(), Path: policyPath},
+			{Data: generateOPARoles(rs, ps), Path: rolesPath},
+			{Data: generateOPARoleBindings(bs), Path: rolebindingsPath},
+			{Data: generateOPAExemptionURLs(ps), Path: exemptionsPath},
+			{Data: generateResourceBundle(), Path: resourcesPath},
+		},
+		Roots: []string{policyRoot, rolesRoot, rolebindingsRoot, exemptionsRoot, resourcesRoot},
 	}
 
-	return data.save()
+	hash, err := bundle.Rehash()
+	if err != nil {
+		log.Errorf("Failed to calculate bundle hash, err: %s", err)
+		return err
+	}
+	revision = hash
+
+	return bundle.Save(config.DataPath())
 }
 
 func GetRevision() string {
-	data, err := afero.ReadFile(cacheFS, manifestPath)
-	if err != nil {
-		log.Errorf("Failed to read manifest, err: %s", err)
-		return ""
-	}
-
-	mf := &opaManifest{}
-	if err = json.Unmarshal(data, mf); err != nil {
-		log.Errorf("Failed to Unmarshal manifest, err: %s", err)
-		return ""
-	}
-
-	return mf.Revision
+	return revision
 }

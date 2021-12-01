@@ -104,10 +104,7 @@ func DeleteRoleBindings(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("args projectName can't be empty")
-		return
-	}
+	userID := c.Query("userID")
 
 	args := &deleteRoleBindingsArgs{}
 	if err := c.ShouldBindJSON(args); err != nil {
@@ -115,7 +112,7 @@ func DeleteRoleBindings(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.DeleteRoleBindings(args.Names, projectName, ctx.Logger)
+	ctx.Err = service.DeleteRoleBindings(args.Names, projectName, userID, ctx.Logger)
 }
 
 func DeleteSystemRoleBinding(c *gin.Context) {

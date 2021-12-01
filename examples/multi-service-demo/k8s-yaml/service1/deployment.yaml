@@ -25,5 +25,5 @@ spec:
             - /workspace/service1
           ports:
             - protocol: TCP
-              containerPort: 20220
+              containerPort: 20221
      

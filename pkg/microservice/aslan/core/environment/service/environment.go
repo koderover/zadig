@@ -72,8 +72,6 @@ const (
 	UpdateTypeEnv    = "envVar"
 )
 
-type usageScenario string
-
 const (
 	usageScenarioCreateEnv       = "createEnv"
 	usageScenarioUpdateEnv       = "updateEnv"
@@ -84,6 +82,19 @@ type EnvStatus struct {
 	EnvName    string `json:"env_name,omitempty"`
 	Status     string `json:"status"`
 	ErrMessage string `json:"err_message"`
+}
+
+type EnvResp struct {
+	ProjectName string `json:"projectName"`
+	Status      string `json:"status"`
+	Error       string `json:"error"`
+	Name        string `json:"name"`
+	UpdateBy    string `json:"updateBy"`
+	UpdateTime  int64  `json:"updateTime"`
+	IsPublic    bool   `json:"isPublic"`
+	ClusterName string `json:"clusterName"`
+	Production  bool   `json:"production"`
+	Source      string `json:"source"`
 }
 
 type ProductResp struct {
@@ -100,6 +111,7 @@ type ProductResp struct {
 	Vars        []*template.RenderKV     `json:"vars"`
 	IsPublic    bool                     `json:"isPublic"`
 	ClusterID   string                   `json:"cluster_id,omitempty"`
+	ClusterName string                   `json:"cluster_name,omitempty"`
 	RecycleDay  int                      `json:"recycle_day"`
 	IsProd      bool                     `json:"is_prod"`
 	Source      string                   `json:"source"`
@@ -149,65 +161,50 @@ type RawYamlResp struct {
 
 type intervalExecutorHandler func(data *commonmodels.Service, log *zap.SugaredLogger) error
 
-func GetProductStatus(productName string, log *zap.SugaredLogger) ([]*EnvStatus, error) {
-	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName})
+func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger) ([]*EnvResp, error) {
+	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: projectName, InEnvs: envNames, IsSortByProductName: true})
 	if err != nil {
-		log.Errorf("Collection.Product.List List product error: %v", err)
-		return nil, e.ErrListProducts.AddDesc(err.Error())
+		log.Errorf("Failed to list envs, err: %s", err)
+		return nil, e.ErrListEnvs.AddDesc(err.Error())
 	}
 
-	envStatusSlice := make([]*EnvStatus, 0)
-	for _, publicProduct := range products {
-		if publicProduct.ProductName != productName {
-			continue
-		}
-		envStatus := &EnvStatus{
-			EnvName: publicProduct.EnvName,
-			Status:  publicProduct.Status,
-		}
-		if len(publicProduct.Error) > 0 {
-			envStatus.ErrMessage = publicProduct.Error
-		}
-		envStatusSlice = append(envStatusSlice, envStatus)
-	}
-	return envStatusSlice, err
-}
-
-func ListProducts(productNameParam string, userName string, log *zap.SugaredLogger) (resp []*ProductResp, err error) {
-	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productNameParam, IsSortByProductName: true})
+	clusterMap := make(map[string]*commonmodels.K8SCluster)
+	clusters, err := commonrepo.NewK8SClusterColl().List(nil)
 	if err != nil {
-		log.Errorf("[%s] Collections.Product.List error: %v", userName, err)
-		return resp, e.ErrListEnvs.AddDesc(err.Error())
+		log.Errorf("Failed to list clusters in db, err: %s", err)
+		return nil, err
 	}
 
-	for _, prod := range products {
-		product := &ProductResp{
-			ID:          prod.ID.Hex(),
-			ProductName: prod.ProductName,
-			EnvName:     prod.EnvName,
-			Namespace:   prod.Namespace,
-			Vars:        prod.Vars[:],
-			IsPublic:    prod.IsPublic,
-			ClusterID:   prod.ClusterID,
-			UpdateTime:  prod.UpdateTime,
-			UpdateBy:    prod.UpdateBy,
-			RecycleDay:  prod.RecycleDay,
-			Render:      prod.Render,
-			Source:      prod.Source,
-		}
-		if product.ClusterID != "" {
-			cluster, _ := commonrepo.NewK8SClusterColl().Get(product.ClusterID)
-			if cluster != nil && cluster.Production {
-				product.IsProd = true
-			}
-		}
-		err = FillProductVars(products, log)
-		if err != nil {
-			return resp, err
-		}
-		resp = append(resp, product)
+	for _, cls := range clusters {
+		clusterMap[cls.ID.Hex()] = cls
 	}
-	return resp, nil
+
+	var res []*EnvResp
+	for _, env := range envs {
+		clusterID := env.ClusterID
+		production := false
+		clusterName := ""
+		cluster, ok := clusterMap[clusterID]
+		if ok {
+			production = cluster.Production
+			clusterName = cluster.Name
+		}
+
+		res = append(res, &EnvResp{
+			ProjectName: projectName,
+			Name:        env.EnvName,
+			IsPublic:    env.IsPublic,
+			ClusterName: clusterName,
+			Source:      env.Source,
+			Production:  production,
+			Status:      env.Status,
+			Error:       env.Error,
+			UpdateTime:  env.UpdateTime,
+			UpdateBy:    env.UpdateBy,
+		})
+	}
+
+	return res, nil
 }
 
 func FillProductVars(products []*commonmodels.Product, log *zap.SugaredLogger) error {
@@ -1174,11 +1171,11 @@ func GetProductInfo(username, envName, productName string, log *zap.SugaredLogge
 	return prod, nil
 }
 
-func GetProductIngress(username, productName string, log *zap.SugaredLogger) ([]*ProductIngressInfo, error) {
+func GetProductIngress(productName string, log *zap.SugaredLogger) ([]*ProductIngressInfo, error) {
 	productIngressInfos := make([]*ProductIngressInfo, 0)
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName})
 	if err != nil {
-		log.Errorf("[%s] Collections.Product.List error: %v", username, err)
+		log.Errorf("Failed to list envs, err: %s", err)
 		return productIngressInfos, e.ErrListEnvs.AddDesc(err.Error())
 	}
 	for _, prod := range products {
@@ -1200,29 +1197,6 @@ func GetProductIngress(username, productName string, log *zap.SugaredLogger) ([]
 		productIngressInfos = append(productIngressInfos, productIngressInfo)
 	}
 	return productIngressInfos, nil
-}
-
-// ListRenderCharts 获取集成环境中的values.yaml的值
-func ListRenderCharts(productName, envName string, log *zap.SugaredLogger) ([]*template.RenderChart, error) {
-	renderSetOpt := &commonrepo.RenderSetFindOption{Name: productName}
-	if envName != "" {
-		opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
-		productResp, err := commonrepo.NewProductColl().Find(opt)
-		if err != nil {
-			log.Errorf("GetProduct envName:%s, productName:%s, err:%+v", envName, productName, err)
-			return nil, e.ErrListRenderSets.AddDesc(err.Error())
-		}
-
-		renderSetName := productResp.Namespace
-		renderSetOpt = &commonrepo.RenderSetFindOption{Name: renderSetName, Revision: productResp.Render.Revision}
-	}
-
-	renderSet, err := commonrepo.NewRenderSetColl().Find(renderSetOpt)
-	if err != nil {
-		log.Errorf("find helm renderset[%s] error: %v", productName, err)
-		return nil, e.ErrListRenderSets.AddDesc(err.Error())
-	}
-	return renderSet.ChartInfos, nil
 }
 
 func GetHelmChartVersions(productName, envName string, log *zap.SugaredLogger) ([]*commonmodels.HelmVersions, error) {
@@ -2107,10 +2081,16 @@ func installOrUpgradeHelmChart(namespace string, renderChart *template.RenderCha
 }
 
 func installOrUpgradeHelmChartWithValues(namespace, valuesYaml string, renderChart *template.RenderChart, serviceObj *commonmodels.Service, timeout time.Duration, helmClient helmclient.Client) error {
-	base := config.LocalServicePath(serviceObj.ProductName, serviceObj.ServiceName)
-	if err := commonservice.PreLoadServiceManifests(base, serviceObj); err != nil {
-		log.Errorf("Failed to load manifest for service %s in project %s, err: %s", serviceObj.ServiceName, serviceObj.ProductName, err)
-		return err
+	base := config.LocalServicePathWithRevision(serviceObj.ProductName, serviceObj.ServiceName, serviceObj.Revision)
+	if err := commonservice.PreloadServiceManifestsByRevision(base, serviceObj); err != nil {
+		log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
+			serviceObj.Revision, serviceObj.ServiceName)
+		// use the latest version when it fails to download the specific version
+		base = config.LocalServicePath(serviceObj.ProductName, serviceObj.ServiceName)
+		if err = commonservice.PreLoadServiceManifests(base, serviceObj); err != nil {
+			log.Errorf("failed to load chart info for service %v", serviceObj.ServiceName)
+			return fmt.Errorf("failed to load chart info for service %s", serviceObj.ServiceName)
+		}
 	}
 
 	chartFullPath := filepath.Join(base, serviceObj.ServiceName)
@@ -2634,7 +2614,7 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 		if err != nil {
 			return errors.Wrapf(err, "failed to upgrade service %s", service.ServiceName)
 		}
-		return err
+		return nil
 	}
 
 	errList := new(multierror.Error)

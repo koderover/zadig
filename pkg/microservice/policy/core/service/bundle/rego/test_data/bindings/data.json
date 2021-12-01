@@ -4,11 +4,11 @@
       "uid": "2e6c5200-358f-11ec-981f-de2269351a1e",
       "bindings": [
         {
-          "namespace": "project1",
+          "namespace": "test",
           "role_refs": [
             {
-              "name": "reader1",
-              "namespace": "project1"
+              "name": "test",
+              "namespace": "test"
             },
             {
               "name": "reader2",
@@ -45,29 +45,6 @@
         },
         {
           "namespace": "project1",
-          "role_refs": [
-            {
-              "name": "view",
-              "namespace": ""
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "uid": "bob",
-      "bindings": [
-        {
-          "namespace": "project4",
-          "role_refs": [
-            {
-              "name": "view",
-              "namespace": ""
-            }
-          ]
-        },
-        {
-          "namespace": "project5",
           "role_refs": [
             {
               "name": "view",
