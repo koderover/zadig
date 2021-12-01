@@ -29,17 +29,17 @@ func (initCheck) Check(req *http.Request) error {
 		return err
 	}
 
-	go func() {
-		once.Do(func() {
+	once.Do(func() {
+		go func() {
+			defer syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
 			err := Run()
 			if err != nil {
 				log.Errorf("once do init Run err:%s", err)
 				return
 			}
 			log.Info("zadig init success")
-			syscall.Kill(syscall.Getpid(), syscall.SIGTERM)
-		})
-	}()
+		}()
+	})
 	return nil
 }
 
