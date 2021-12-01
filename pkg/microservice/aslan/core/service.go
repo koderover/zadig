@@ -36,6 +36,7 @@ import (
 	projecthandler "github.com/koderover/zadig/pkg/microservice/aslan/core/project/handler"
 	systemrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/mongodb"
 	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
+	templatehandler "github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/handler"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/repository/mongodb"
 	workflowhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/handler"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
@@ -87,6 +88,7 @@ func registerPolicies() {
 		new(projecthandler.Router),
 		new(testinghandler.Router),
 		new(deliveryhandler.Router),
+		new(templatehandler.Router),
 	} {
 		policies = append(policies, r.Policies()...)
 	}

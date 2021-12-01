@@ -1,0 +1,58 @@
+resource: Template
+alias: "模板库管理"
+description: ""
+rules:
+  - action: get_template
+    alias: "查看模板"
+    description: ""
+    rules:
+      - method: GET
+        endpoint: "/api/aslan/template/charts"
+      - method: GET
+        endpoint: "/api/aslan/template/charts/?*"
+      - method: GET
+        endpoint: "/api/aslan/template/dockerfile"
+      - method: GET
+        endpoint: "/api/aslan/template/dockerfile/?*"
+      - method: GET
+        endpoint: "/api/aslan/template/yaml"
+      - method: GET
+        endpoint: "/api/aslan/template/yaml/?*"
+      - method: GET
+        endpoint: "/api/aslan/template/charts/?*/files"
+      - method: GET
+        endpoint: "/api/aslan/template/yaml/?*/reference"
+      - method: GET
+        endpoint: "/api/aslan/template/dockerfile/?*/reference"
+      - method: POST
+        endpoint: "/api/aslan/template/yaml/getVariables"
+  - action: create_template
+    alias: "新建模板"
+    description: ""
+    rules:
+      - method: POST
+        endpoint: "/api/aslan/template/yaml"
+      - method: POST
+        endpoint: "/api/aslan/template/dockerfile"
+      - method: POST
+        endpoint: "/api/aslan/template/charts"
+  - action: edit_template
+    alias: "编辑模板"
+    description: ""
+    rules:
+      - method: PUT
+        endpoint: "/api/aslan/template/charts/?*/variables"
+      - method: PUT
+        endpoint: "/api/aslan/template/yaml/?*"
+      - method: PUT
+        endpoint: "/api/aslan/template/dockerfile/?*"
+  - action: delete_template
+    alias: "删除模板"
+    description: ""
+    rules:
+      - method: DELETE
+        endpoint: "/api/aslan/template/yaml/?*"
+      - method: DELETE
+        endpoint: "/api/aslan/template/dockerfile/?*"
+      - method: DELETE
+        endpoint: "/api/aslan/template/charts/?*"
