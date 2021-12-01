@@ -89,7 +89,7 @@ func GetConfigPayload(codeHostID int) *models.ConfigPayload {
 		payload.PrivateKeys = privateKeys
 	}
 
-	k8sClusters, _ := mongodb.NewK8SClusterColl().List()
+	k8sClusters, _ := mongodb.NewK8SClusterColl().List(nil)
 	if len(k8sClusters) != 0 {
 		payload.K8SClusters = k8sClusters
 	}
