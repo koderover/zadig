@@ -54,10 +54,6 @@ rules:
         endpoint: "/api/aslan/service/loader/load/?*/?*"
       - method: POST
         endpoint: "/api/aslan/service/helm/services"
-      - method: GET
-        endpoint: "/api/aslan/template/yaml"
-      - method: GET
-        endpoint: "/api/aslan/template/yaml/?*"
       - method: POST
         endpoint: "/api/aslan/service/template/load"
       - method: GET

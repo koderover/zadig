@@ -23,29 +23,28 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/setting"
 )
 
 var namePattern = regexp.MustCompile(`^[0-9a-zA-Z_.-]{1,32}$`)
 
 type K8SCluster struct {
-	ID            primitive.ObjectID      `json:"id,omitempty"                bson:"_id,omitempty"`
-	Name          string                  `json:"name"                        bson:"name"`
-	Tags          []string                `json:"tags"                        bson:"tags"`
-	Description   string                  `json:"description"                 bson:"description"`
-	Namespace     string                  `json:"namespace"                   bson:"namespace"`
-	Info          *K8SClusterInfo         `json:"info,omitempty"              bson:"info,omitempty"`
-	ClusterConfig *ClusterConfig          `json:"config,omitempty"            bson:"config,omitempty"`
-	Status        config.K8SClusterStatus `json:"status"                      bson:"status"`
-	Error         string                  `json:"error"                       bson:"error"`
-	Yaml          string                  `json:"yaml"                        bson:"yaml"`
-	Production    bool                    `json:"production"                  bson:"production"`
-	CreatedAt     int64                   `json:"createdAt"                   bson:"createdAt"`
-	CreatedBy     string                  `json:"createdBy"                   bson:"createdBy"`
-	Disconnected  bool                    `json:"-"                           bson:"disconnected"`
-	Token         string                  `json:"token"                       bson:"-"`
-	Provider      int8                    `json:"provider"                    bson:"provider"`
-	Local         bool                    `json:"local"                       bson:"local"`
+	ID           primitive.ObjectID       `json:"id,omitempty"   bson:"_id,omitempty"`
+	Name         string                   `json:"name"           bson:"name"`
+	Tags         []string                 `json:"tags"           bson:"tags"`
+	Description  string                   `json:"description"    bson:"description"`
+	Namespace    string                   `json:"namespace"      bson:"namespace"`
+	Info         *K8SClusterInfo          `json:"info,omitempty" bson:"info,omitempty"`
+	Status       setting.K8SClusterStatus `json:"status"         bson:"status"`
+	Error        string                   `json:"error"          bson:"error"`
+	Yaml         string                   `json:"yaml"           bson:"yaml"`
+	Production   bool                     `json:"production"     bson:"production"`
+	CreatedAt    int64                    `json:"createdAt"      bson:"createdAt"`
+	CreatedBy    string                   `json:"createdBy"      bson:"createdBy"`
+	Disconnected bool                     `json:"-"              bson:"disconnected"`
+	Token        string                   `json:"token"          bson:"-"`
+	Provider     int8                     `json:"provider"       bson:"provider"`
+	Local        bool                     `json:"local"          bson:"local"`
 }
 
 type K8SClusterInfo struct {

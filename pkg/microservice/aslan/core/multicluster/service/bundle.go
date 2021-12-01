@@ -20,6 +20,7 @@ import (
 	"strconv"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -30,13 +31,20 @@ type resourceSpec struct {
 }
 
 func GetBundleResources() ([]*resourceSpec, error) {
-	var res []*resourceSpec
 	clusters, err := mongodb.NewK8SClusterColl().List(nil)
 	if err != nil {
 		log.Errorf("Failed to list clusters in db, err: %s", err)
 		return nil, err
 	}
 
+	res := []*resourceSpec{
+		{
+			ResourceID: setting.LocalClusterID,
+			Spec: map[string]interface{}{
+				"production": "false",
+			},
+		},
+	}
 	for _, cluster := range clusters {
 		res = append(res, &resourceSpec{
 			ResourceID: cluster.ID.Hex(),
