@@ -20,17 +20,19 @@ import (
 	"github.com/gin-gonic/gin"
 
 	codehosthandler "github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/handler"
+	connectorHandler "github.com/koderover/zadig/pkg/microservice/systemconfig/core/connector/handler"
 	emailHandler "github.com/koderover/zadig/pkg/microservice/systemconfig/core/email/handler"
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/handler"
+	featuresHandler "github.com/koderover/zadig/pkg/microservice/systemconfig/core/features/handler"
 	jiraHandler "github.com/koderover/zadig/pkg/microservice/systemconfig/core/jira/handler"
 )
 
 func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 	for _, r := range []injector{
-		new(handler.Router),
+		new(connectorHandler.Router),
 		new(emailHandler.Router),
 		new(jiraHandler.Router),
 		new(codehosthandler.Router),
+		new(featuresHandler.Router),
 	} {
 		r.Inject(router.Group("/api/v1"))
 	}

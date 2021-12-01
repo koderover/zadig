@@ -45,6 +45,29 @@ type EnvStatus struct {
 	ErrMessage string `json:"err_message"`
 }
 
+type Workflow struct {
+	Name                 string                     `json:"name"`
+	ProjectName          string                     `json:"projectName"`
+	UpdateTime           int64                      `json:"updateTime"`
+	CreateTime           int64                      `json:"createTime"`
+	UpdateBy             string                     `json:"updateBy,omitempty"`
+	Schedules            *commonmodels.ScheduleCtrl `json:"schedules,omitempty"`
+	SchedulerEnabled     bool                       `json:"schedulerEnabled"`
+	EnabledStages        []string                   `json:"enabledStages"`
+	IsFavorite           bool                       `json:"isFavorite"`
+	RecentTask           *TaskInfo                  `json:"recentTask"`
+	RecentSuccessfulTask *TaskInfo                  `json:"recentSuccessfulTask"`
+	RecentFailedTask     *TaskInfo                  `json:"recentFailedTask"`
+	AverageExecutionTime float64                    `json:"averageExecutionTime"`
+	SuccessRate          float64                    `json:"successRate"`
+}
+
+type TaskInfo struct {
+	TaskID       int64  `json:"taskID"`
+	PipelineName string `json:"pipelineName"`
+	Status       string `json:"status"`
+}
+
 type workflowCreateArg struct {
 	name                 string
 	envName              string
@@ -476,70 +499,117 @@ func validateWorkflowHookNames(w *commonmodels.Workflow) error {
 	return validateHookNames(names)
 }
 
-func ListWorkflows(queryType string, productName string, userID string, log *zap.SugaredLogger) ([]*commonmodels.Workflow, error) {
-	workflows, err := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{ProductName: productName})
+func ListWorkflows(projects []string, userID string, log *zap.SugaredLogger) ([]*Workflow, error) {
+	existingProjects, err := template.NewProductColl().ListNames(projects)
 	if err != nil {
-		log.Errorf("Workflow.List error: %v", err)
-		return workflows, e.ErrListWorkflow.AddDesc(err.Error())
+		log.Errorf("Failed to list projects, err: %s", err)
+		return nil, e.ErrListWorkflow.AddDesc(err.Error())
+	}
+
+	workflows, err := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{Projects: existingProjects})
+	if err != nil {
+		log.Errorf("Failed to list workflows, err: %s", err)
+		return nil, e.ErrListWorkflow.AddDesc(err.Error())
+	}
+
+	var workflowNames []string
+	var res []*Workflow
+	for _, w := range workflows {
+		stages := make([]string, 0, 4)
+		if w.BuildStage != nil && w.BuildStage.Enabled {
+			stages = append(stages, "build")
+		}
+		if w.ArtifactStage != nil && w.ArtifactStage.Enabled {
+			stages = append(stages, "artifact")
+		}
+		if w.TestStage != nil && w.TestStage.Enabled {
+			stages = append(stages, "test")
+		}
+		if w.DistributeStage != nil && w.DistributeStage.Enabled {
+			stages = append(stages, "distribute")
+		}
+
+		res = append(res, &Workflow{
+			Name:             w.Name,
+			ProjectName:      w.ProductTmplName,
+			UpdateTime:       w.UpdateTime,
+			CreateTime:       w.CreateTime,
+			UpdateBy:         w.UpdateBy,
+			SchedulerEnabled: w.ScheduleEnabled,
+			Schedules:        w.Schedules,
+			EnabledStages:    stages,
+		})
+
+		workflowNames = append(workflowNames, w.Name)
 	}
 
 	favorites, err := commonrepo.NewFavoriteColl().List(&commonrepo.FavoriteArgs{UserID: userID, Type: string(config.WorkflowType)})
 	if err != nil {
-		log.Errorf("list favorite error: %v", err)
-		return workflows, e.ErrListFavorite
+		log.Warnf("Failed to list favorites, err: %s", err)
+	}
+	favoriteSet := sets.NewString()
+	for _, f := range favorites {
+		favoriteSet.Insert(f.Name)
 	}
 
-	workflowStats, err := commonrepo.NewWorkflowStatColl().FindWorkflowStat(&commonrepo.WorkflowStatArgs{Type: string(config.WorkflowType)})
+	workflowStats, err := commonrepo.NewWorkflowStatColl().FindWorkflowStat(&commonrepo.WorkflowStatArgs{Names: workflowNames, Type: string(config.WorkflowType)})
 	if err != nil {
-		log.Errorf("list workflow stat error: %v", err)
-		return workflows, fmt.Errorf("列出工作流统计失败")
+		log.Warnf("Failed to list workflow stats, err: %s", err)
+	}
+	workflowStatMap := make(map[string]*commonmodels.WorkflowStat)
+	for _, s := range workflowStats {
+		workflowStatMap[s.Name] = s
 	}
 
-	for _, workflow := range workflows {
-		if queryType == "artifact" {
-			if workflow.ArtifactStage == nil || !workflow.ArtifactStage.Enabled {
-				continue
-			}
+	recentTaskMap := getTaskMap(workflowNames, "", log)
+	recentSuccessfulTaskMap := getTaskMap(workflowNames, config.StatusPassed, log)
+	recentFailedTaskMap := getTaskMap(workflowNames, config.StatusFailed, log)
+	for _, r := range res {
+		if t, ok := recentTaskMap[r.Name]; ok {
+			r.RecentTask = t
 		}
-		latestTask, _ := commonrepo.NewTaskColl().FindLatestTask(&commonrepo.FindTaskOption{PipelineName: workflow.Name, Type: config.WorkflowType})
-		if latestTask != nil {
-			workflow.LastestTask = &commonmodels.TaskInfo{TaskID: latestTask.TaskID, PipelineName: latestTask.PipelineName, Status: latestTask.Status}
+		if t, ok := recentSuccessfulTaskMap[r.Name]; ok {
+			r.RecentSuccessfulTask = t
 		}
-
-		latestPassedTask, _ := commonrepo.NewTaskColl().FindLatestTask(&commonrepo.FindTaskOption{PipelineName: workflow.Name, Type: config.WorkflowType, Status: config.StatusPassed})
-		if latestPassedTask != nil {
-			workflow.LastSucessTask = &commonmodels.TaskInfo{TaskID: latestPassedTask.TaskID, PipelineName: latestPassedTask.PipelineName}
+		if t, ok := recentFailedTaskMap[r.Name]; ok {
+			r.RecentFailedTask = t
 		}
 
-		latestFailedTask, _ := commonrepo.NewTaskColl().FindLatestTask(&commonrepo.FindTaskOption{PipelineName: workflow.Name, Type: config.WorkflowType, Status: config.StatusFailed})
-		if latestFailedTask != nil {
-			workflow.LastFailureTask = &commonmodels.TaskInfo{TaskID: latestFailedTask.TaskID, PipelineName: latestFailedTask.PipelineName}
+		if favoriteSet.Has(r.Name) {
+			r.IsFavorite = true
 		}
 
-		workflow.IsFavorite = IsFavoriteWorkflow(workflow, favorites)
+		if s, ok := workflowStatMap[r.Name]; ok {
+			total := float64(s.TotalSuccess + s.TotalFailure)
+			successful := float64(s.TotalSuccess)
+			totalDuration := float64(s.TotalDuration)
 
-		workflow.TotalDuration, workflow.TotalNum, workflow.TotalSuccess = findWorkflowStat(workflow, workflowStats)
+			r.AverageExecutionTime = totalDuration / total
+			r.SuccessRate = successful / total
+		}
 	}
 
-	return workflows, nil
+	return res, nil
 }
 
-func IsFavoriteWorkflow(workflow *commonmodels.Workflow, favorites []*commonmodels.Favorite) bool {
-	for _, favorite := range favorites {
-		if workflow.Name == favorite.Name && workflow.ProductTmplName == favorite.ProductName {
-			return true
-		}
-	}
-	return false
-}
+func getTaskMap(names []string, status config.Status, logger *zap.SugaredLogger) map[string]*TaskInfo {
+	res := make(map[string]*TaskInfo)
 
-func findWorkflowStat(workflow *commonmodels.Workflow, workflowStats []*commonmodels.WorkflowStat) (int64, int, int) {
-	for _, workflowStat := range workflowStats {
-		if workflow.Name == workflowStat.Name {
-			return workflowStat.TotalDuration, workflowStat.TotalSuccess + workflowStat.TotalFailure, workflowStat.TotalSuccess
+	tasks, err := commonrepo.NewTaskColl().ListRecentTasks(&commonrepo.ListTaskOption{PipelineNames: names, Type: config.WorkflowType, Status: status})
+	if err != nil {
+		logger.Warnf("Failed to list tasks, err: %s", err)
+		return res
+	}
+
+	for _, t := range tasks {
+		res[t.PipelineName] = &TaskInfo{
+			TaskID:       t.TaskID,
+			PipelineName: t.PipelineName,
+			Status:       t.Status,
 		}
 	}
-	return 0, 0, 0
+
+	return res
 }
 
 func ListTestWorkflows(testName string, projects []string, log *zap.SugaredLogger) (workflows []*commonmodels.Workflow, err error) {

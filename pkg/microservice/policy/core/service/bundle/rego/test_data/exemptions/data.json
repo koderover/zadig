@@ -1,16 +1,4 @@
 {
-  "global": [
-    {
-      "method": "GET",
-      "endpoint": "/version"
-    }
-  ],
-  "namespaced": [
-    {
-      "method": "GET",
-      "endpoint": "/version1"
-    }
-  ],
   "public": [
     {
       "method": "POST",
@@ -20,7 +8,11 @@
   "registered": [
     {
       "method": "GET",
-      "endpoint": "/api/articles"
+      "endpoint": "/api/aslan/environment/environments/?*"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/api/aslan/environment/environments"
     }
   ]
 }

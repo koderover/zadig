@@ -84,8 +84,8 @@ func (r *Reaper) GetCacheFile() string {
 	return filepath.Join(r.Ctx.Workspace, "reaper.tar.gz")
 }
 
-func (r *Reaper) archiveCustomCaches(wd, dest string, caches []string) error {
-	fileAchiever := archive.NewWorkspaceAchiever(r.Ctx.StorageURI, r.Ctx.PipelineName, r.Ctx.ServiceName, wd, caches, []string{})
+func (r *Reaper) archiveCustomCaches(wd, dest string, caches []string) ([]string, error) {
+	fileAchiever := archive.NewWorkspaceAchiever(r.Ctx.StorageURI, r.Ctx.PipelineName, r.Ctx.ServiceName, wd, caches, []string{}, r.getUserEnvs())
 
 	// list files matches caches
 	return fileAchiever.Achieve(dest)
@@ -98,11 +98,12 @@ func (r *Reaper) CompressCache(storageURI string) error {
 		return err
 	}
 	if len(r.Ctx.Caches) > 0 {
-		log.Infof("custom caches will be cached: %v", r.Ctx.Caches)
-		if err := r.archiveCustomCaches(r.ActiveWorkspace, r.GetCacheFile(), r.Ctx.Caches); err != nil {
+		log.Infof("custom caches will be cached")
+		caches, err := r.archiveCustomCaches(r.ActiveWorkspace, r.GetCacheFile(), r.Ctx.Caches)
+		if err != nil {
 			return err
 		}
-		log.Infof("succeed to cache %s", r.Ctx.Caches)
+		log.Infof("succeed to cache [%s]", strings.Join(caches, ","))
 	} else {
 		log.Infof("workspace will be cached in background")
 		if err := r.cm.Archive(r.ActiveWorkspace, r.GetCacheFile()); err != nil {

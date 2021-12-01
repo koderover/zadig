@@ -8,14 +8,31 @@ rules:
     rules:
       - method: GET
         endpoint: "/api/aslan/environment/environments"
+        resourceType: "Environment"
+        matchAttributes:
+          - key: "production"
+            value: "false"
       - method: GET
         endpoint: "/api/aslan/environment/environments/?*"
-      - method: GET
-        endpoint: "/api/aslan/environment/revision/products"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)$"
+        matchAttributes:
+          - key: "production"
+            value: "false"
       - method: GET
         endpoint: "/api/aslan/environment/environments/?*/groups"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/groups$"
+        matchAttributes:
+          - key: "production"
+            value: "false"
       - method: GET
         endpoint: "/api/aslan/environment/environments/?*/services/?*"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/services/"
+        matchAttributes:
+          - key: "production"
+            value: "false"
       - method: GET
         endpoint: "/api/aslan/environment/kube/workloads"
       - method: GET
@@ -32,36 +49,61 @@ rules:
         endpoint: "/api/aslan/logs/sse/pods/?*/containers/?*"
       - method: GET
         endpoint: "/api/aslan/project/products/?*/services"
+      - method: GET
+        endpoint: "/api/aslan/environment/revision/products"
   - action: create_environment
     alias: "新建集成环境"
     description: ""
     rules:
       - method: POST
         endpoint: "/api/aslan/environment/environments"
-      - method: POST
-        endpoint: "/api/aslan/environment/environments/?*/helm"
+        resourceType: "Cluster"
+        matchAttributes:
+          - key: "production"
+            value: "false"
       - method: POST
         endpoint: "/api/aslan/service/workloads"
       - method: GET
         endpoint: "/api/aslan/project/products/?*/services"
       - method: GET
         endpoint: "/api/aslan/delivery/releases"
+      - method: GET
+        endpoint: "api/aslan/cluster/clusters"
+        resourceType: "Cluster"
+        matchAttributes:
+          - key: "production"
+            value: "false"
   - action: config_environment
     alias: "配置集成环境"
     description: ""
     rules:
       - method: PUT
-        endpoint: "/api/aslan/environment/environments/?*/autoUpdate"
-      - method: POST
+        endpoint: "/api/aslan/environment/environments"
+        resourceType: "Environment"
+        matchAttributes:
+          - key: "production"
+            value: "false"
+      - method: PUT
         endpoint: "/api/aslan/environment/environments/?*"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)$"
+        matchAttributes:
+          - key: "production"
+            value: "false"
       - method: PUT
         endpoint: "/api/aslan/environment/environments/?*/envRecycle"
-      - method: PUT
-        endpoint: "/api/aslan/environment/environments/?*/renderchart"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/envRecycle$"
+        matchAttributes:
+          - key: "production"
+            value: "false"
       - method: PUT
         endpoint: "/api/aslan/environment/environments/?*/renderset"
-      - method: PUT
-        endpoint: "/api/aslan/environment/environments/?*/multiHelmEnv"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/renderset$"
+        matchAttributes:
+          - key: "production"
+            value: "false"
       - method: PUT
         endpoint: "/api/aslan/service/workloads"
       - method: GET
@@ -71,25 +113,50 @@ rules:
     description: ""
     rules:
       - method: POST
+        endpoint: "/api/aslan/environment/environments/?*/services/?*/restart"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/services/"
+        matchAttributes:
+          - key: "production"
+            value: "false"
+      - method: POST
+        endpoint: "/api/aslan/environment/environments/?*/services/?*/restartNew"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/services/"
+        matchAttributes:
+          - key: "production"
+            value: "false"
+      - method: POST
+        endpoint: "/api/aslan/environment/environments/?*/services/?*/scale"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/services/"
+        matchAttributes:
+          - key: "production"
+            value: "false"
+      - method: POST
+        endpoint: "/api/aslan/environment/environments/?*/services/?*/scaleNew"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/services/"
+        matchAttributes:
+          - key: "production"
+            value: "false"
+      - method: PUT
+        endpoint: "/api/aslan/environment/environments/?*/services/?*"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/services/"
+        matchAttributes:
+          - key: "production"
+            value: "false"
+      - method: POST
         endpoint: "/api/aslan/environment/image/deployment"
       - method: POST
         endpoint: "/api/aslan/environment/image/statefulset"
       - method: DELETE
         endpoint: "/api/aslan/environment/kube/pods/?*"
-      - method: POST
-        endpoint: "/api/aslan/environment/environments/?*/services/?*/restart"
       - method: PUT
         endpoint: "/api/aslan/environment/configmaps"
       - method: POST
         endpoint: "/api/aslan/environment/configmaps"
-      - method: PUT
-        endpoint: "/api/aslan/environment/environments/?*/services/?*/?*"
-      - method: POST
-        endpoint: "/api/aslan/environment/environments/?*/services/?*/restartNew"
-      - method: POST
-        endpoint: "/api/aslan/environment/environments/?*/services/?*/scale/?*"
-      - method: POST
-        endpoint: "/api/aslan/environment/environments/?*/services/?*/scaleNew/?*"
       - method: GET
         endpoint: "/api/podexec/?*/?*/?*/?*/podExec"
   - action: delete_environment
@@ -98,3 +165,8 @@ rules:
     rules:
       - method: DELETE
         endpoint: "/api/aslan/environment/environments/?*"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)$"
+        matchAttributes:
+          - key: "production"
+            value: "false"

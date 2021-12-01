@@ -26,6 +26,7 @@ import (
 	"os"
 	"path"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -384,13 +385,14 @@ func createJobConfigMap(namespace, jobName string, jobLabel *JobLabel, jobCtx st
 //"s-job":  pipelinename-taskid-tasktype-servicename,
 //"s-task": pipelinename-taskid,
 //"s-type": tasktype,
-func buildJob(taskType config.TaskType, jobImage, jobName, serviceName string, resReq setting.Request, ctx *task.PipelineCtx, pipelineTask *task.Task, registries []*task.RegistryNamespace) (*batchv1.Job, error) {
+func buildJob(taskType config.TaskType, jobImage, jobName, serviceName string, resReq setting.Request, resReqSpec setting.RequestSpec, ctx *task.PipelineCtx, pipelineTask *task.Task, registries []*task.RegistryNamespace) (*batchv1.Job, error) {
 	return buildJobWithLinkedNs(
 		taskType,
 		jobImage,
 		jobName,
 		serviceName,
 		resReq,
+		resReqSpec,
 		ctx,
 		pipelineTask,
 		registries,
@@ -399,7 +401,7 @@ func buildJob(taskType config.TaskType, jobImage, jobName, serviceName string, r
 	)
 }
 
-func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceName string, resReq setting.Request, ctx *task.PipelineCtx, pipelineTask *task.Task, registries []*task.RegistryNamespace, execNs, linkedNs string) (*batchv1.Job, error) {
+func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceName string, resReq setting.Request, resReqSpec setting.RequestSpec, ctx *task.PipelineCtx, pipelineTask *task.Task, registries []*task.RegistryNamespace, execNs, linkedNs string) (*batchv1.Job, error) {
 	var reaperBootingScript string
 
 	if !strings.Contains(jobImage, PredatorPlugin) && !strings.Contains(jobImage, JenkinsPlugin) {
@@ -474,7 +476,7 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 								},
 							},
 							VolumeMounts: getVolumeMounts(ctx),
-							Resources:    getResourceRequirements(resReq),
+							Resources:    getResourceRequirements(resReq, resReqSpec),
 						},
 					},
 					Volumes: getVolumes(jobName),
@@ -634,66 +636,68 @@ func getVolumes(jobName string) []corev1.Volume {
 // ResReqLow 4 CPU 8 G used by testing module
 // ResReqMin 2 CPU 2 G used by docker build, release image module
 // Fallback ResReq 1 CPU 1 G
-func getResourceRequirements(resReq setting.Request) corev1.ResourceRequirements {
+func getResourceRequirements(resReq setting.Request, resReqSpec setting.RequestSpec) corev1.ResourceRequirements {
 
 	switch resReq {
-
 	case setting.HighRequest:
-		return corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("16"),
-				corev1.ResourceMemory: resource.MustParse("32Gi"),
-			},
-			Requests: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("4"),
-				corev1.ResourceMemory: resource.MustParse("4Gi"),
-			},
-		}
+		return generateResourceRequirements(setting.HighRequest, setting.HighRequestSpec)
+
 	case setting.MediumRequest:
-		return corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("8"),
-				corev1.ResourceMemory: resource.MustParse("16Gi"),
-			},
-			Requests: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("2"),
-				corev1.ResourceMemory: resource.MustParse("2Gi"),
-			},
-		}
+		return generateResourceRequirements(setting.MediumRequest, setting.MediumRequestSpec)
+
 	case setting.LowRequest:
-		return corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("4"),
-				corev1.ResourceMemory: resource.MustParse("8Gi"),
-			},
-			Requests: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("1"),
-				corev1.ResourceMemory: resource.MustParse("1Gi"),
-			},
-		}
+		return generateResourceRequirements(setting.LowRequest, setting.LowRequestSpec)
 
 	case setting.MinRequest:
-		return corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("2"),
-				corev1.ResourceMemory: resource.MustParse("2Gi"),
-			},
-			Requests: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("0.5"),
-				corev1.ResourceMemory: resource.MustParse("512Mi"),
-			},
-		}
+		return generateResourceRequirements(setting.MinRequest, setting.MinRequestSpec)
+
+	case setting.DefineRequest:
+		return generateResourceRequirements(resReq, resReqSpec)
+
 	default:
+		return generateResourceRequirements(setting.DefaultRequest, setting.DefaultRequestSpec)
+	}
+}
+
+//generateResourceRequirements
+//cpu Request:Limit=1:4
+//memory default Request:Limit=1:4 ; if memoryLimit>= 8Gi,Request:Limit=1:8
+func generateResourceRequirements(req setting.Request, reqSpec setting.RequestSpec) corev1.ResourceRequirements {
+
+	if req != setting.DefineRequest {
 		return corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("4"),
-				corev1.ResourceMemory: resource.MustParse("8Gi"),
+				corev1.ResourceCPU:    resource.MustParse(strconv.Itoa(reqSpec.CpuLimit) + setting.CpuUintM),
+				corev1.ResourceMemory: resource.MustParse(strconv.Itoa(reqSpec.MemoryLimit) + setting.MemoryUintMi),
 			},
 			Requests: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("1"),
-				corev1.ResourceMemory: resource.MustParse("1Gi"),
+				corev1.ResourceCPU:    resource.MustParse(strconv.Itoa(reqSpec.CpuReq) + setting.CpuUintM),
+				corev1.ResourceMemory: resource.MustParse(strconv.Itoa(reqSpec.MemoryReq) + setting.MemoryUintMi),
 			},
 		}
+	}
+
+	cpuReqInt := reqSpec.CpuLimit / 4
+	if cpuReqInt < 1 {
+		cpuReqInt = 1
+	}
+	memoryReqInt := reqSpec.MemoryLimit / 4
+	if memoryReqInt >= 2*1024 {
+		memoryReqInt = memoryReqInt / 2
+	}
+	if memoryReqInt < 1 {
+		memoryReqInt = 1
+	}
+
+	return corev1.ResourceRequirements{
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse(strconv.Itoa(reqSpec.CpuLimit) + setting.CpuUintM),
+			corev1.ResourceMemory: resource.MustParse(strconv.Itoa(reqSpec.MemoryLimit) + setting.MemoryUintMi),
+		},
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse(strconv.Itoa(cpuReqInt) + setting.CpuUintM),
+			corev1.ResourceMemory: resource.MustParse(strconv.Itoa(memoryReqInt) + setting.MemoryUintMi),
+		},
 	}
 }
 

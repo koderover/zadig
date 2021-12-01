@@ -34,6 +34,7 @@ import (
 
 type ListTaskOption struct {
 	PipelineName   string
+	PipelineNames  []string
 	Status         config.Status
 	Team           string
 	TeamID         int
@@ -189,6 +190,63 @@ func (c *TaskColl) FindLatestTask(args *FindTaskOption) (*task.Task, error) {
 	err := c.FindOne(context.TODO(), query, opts).Decode(res)
 
 	return res, err
+}
+
+type TaskInfo struct {
+	ID           taskGrouped `bson:"_id"`
+	TaskID       int64       `bson:"task_id"`
+	PipelineName string      `bson:"pipeline_name"`
+	Status       string      `bson:"status"`
+}
+
+type taskGrouped struct {
+	PipelineName string              `bson:"pipeline_name"`
+	Type         config.PipelineType `bson:"type"`
+}
+
+func (c *TaskColl) ListRecentTasks(args *ListTaskOption) ([]*TaskInfo, error) {
+	query := bson.M{"is_deleted": false}
+	if args.Type != "" {
+		query["type"] = args.Type
+	}
+	if args.Status != "" {
+		query["status"] = args.Status
+	}
+	if len(args.PipelineNames) > 0 {
+		query["pipeline_name"] = bson.M{"$in": args.PipelineNames}
+	}
+
+	pipeline := []bson.M{
+		{
+			"$match": query,
+		},
+		{
+			"$sort": bson.M{"task_id": -1},
+		},
+		{
+			"$group": bson.M{
+				"_id": bson.D{
+					{"pipeline_name", "$pipeline_name"},
+					{"type", "$type"},
+				},
+				"pipeline_name": bson.M{"$first": "$pipeline_name"},
+				"task_id":       bson.M{"$first": "$task_id"},
+				"status":        bson.M{"$first": "$status"},
+			},
+		},
+	}
+
+	cursor, err := c.Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]*TaskInfo, 0)
+	if err := cursor.All(context.TODO(), &res); err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }
 
 func (c *TaskColl) List(option *ListTaskOption) (ret []*TaskPreview, err error) {

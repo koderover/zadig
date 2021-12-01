@@ -118,7 +118,17 @@ func ListWorkflows(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = workflow.ListWorkflows(c.Query("type"), c.Query("projectName"), ctx.UserID, ctx.Logger)
+	projects := c.QueryArray("projects")
+	projectName := c.Query("projectName")
+	if projectName != "" && len(projects) > 0 {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projects and projectName can not be set together")
+		return
+	}
+	if projectName != "" {
+		projects = []string{c.Query("projectName")}
+	}
+
+	ctx.Resp, ctx.Err = workflow.ListWorkflows(projects, ctx.UserID, ctx.Logger)
 }
 
 func ListTestWorkflows(c *gin.Context) {

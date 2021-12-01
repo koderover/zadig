@@ -67,7 +67,7 @@ func Start(ctx context.Context) {
 
 	go StartControllers(ctx.Done())
 
-	bundle.RefreshOPABundle()
+	bundle.GenerateOPABundle()
 }
 
 func Stop(ctx context.Context) {

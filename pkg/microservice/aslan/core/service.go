@@ -51,7 +51,7 @@ const (
 )
 
 type policyGetter interface {
-	Policies() *policy.Policy
+	Policies() []*policy.Policy
 }
 
 type Controller interface {
@@ -80,7 +80,7 @@ func StartControllers(stopCh <-chan struct{}) {
 
 func registerPolicies() {
 	policyClient := policy.New()
-
+	var policies []*policy.Policy
 	for _, r := range []policyGetter{
 		new(workflowhandler.Router),
 		new(environmenthandler.Router),
@@ -88,7 +88,11 @@ func registerPolicies() {
 		new(testinghandler.Router),
 		new(deliveryhandler.Router),
 	} {
-		err := policyClient.CreateOrUpdatePolicy(r.Policies())
+		policies = append(policies, r.Policies()...)
+	}
+
+	for _, p := range policies {
+		err := policyClient.CreateOrUpdatePolicy(p)
 		if err != nil {
 			// should not have happened here
 			log.DPanic(err)

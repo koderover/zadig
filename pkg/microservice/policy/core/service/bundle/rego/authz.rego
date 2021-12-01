@@ -4,12 +4,11 @@ import input.attributes.request.http as http_request
 
 # Policy rule definitions in rbac style, which is consumed by OPA server.
 # you can use it to:
-# 1. decide if a request is allowed by querying: rbac.allow
-# 2. decide if a request is allowed and get the status code by querying: rbac.response
-# 3. get all visible projects for an authenticated user by querying: rbac.user_visible_projects
-# 4. get all allowed projects for a certain action(method+endpoint) for an authenticated user by querying: rbac.user_allowed_projects
-# 5. check if a user is system admin by querying: rbac.user_is_admin
-# 6. check if a user is project admin by querying: rbac.user_is_project_admin
+# 1. decide if a request is allowed and get status code and additional headers(if any) by querying: rbac.response
+# 2. get all visible projects for an authenticated user by querying: rbac.user_visible_projects
+# 3. get all allowed projects for a certain action(method+endpoint) for an authenticated user by querying: rbac.user_allowed_projects
+# 4. check if a user is system admin by querying: rbac.user_is_admin
+# 5. check if a user is project admin by querying: rbac.user_is_project_admin
 
 default response = {
   "allowed": false,
@@ -17,19 +16,30 @@ default response = {
 }
 
 response = r {
-  not is_authenticated
-  not url_is_public
-  r := {
-    "allowed": false,
-    "http_status": 401
-  }
+    not is_authenticated
+    not url_is_public
+    r := {
+      "allowed": false,
+      "http_status": 401
+    }
 }
 
 response = r {
-  allow
-  r := {
-    "allowed": true,
-  }
+    allow
+    r := {
+      "allowed": true
+    }
+}
+
+# response for resource filtering, all allowed resources IDs will be returned in headers
+response = r {
+    is_authenticated
+    not allow
+    rule_is_matched_for_filtering
+    r := {
+      "allowed": true,
+      "headers": {"Resources": concat(",", user_allowed_resources)}
+    }
 }
 
 # By default, deny requests.
@@ -43,7 +53,6 @@ allow {
 allow {
     is_authenticated
     access_is_granted
-
 }
 
 # Allow all valid users to visit exempted urls.
@@ -66,18 +75,83 @@ access_is_granted {
 access_is_granted {
     not url_is_privileged
 
-    some grant
-    user_is_granted[grant]
+    some rule
 
-    grant.method == http_request.method
-    glob.match(trim(grant.endpoint, "/"), ["/"], concat("/", input.parsed_path))
+    allowed_plain_rules[rule]
+    rule.method == http_request.method
+    glob.match(trim(rule.endpoint, "/"), ["/"], concat("/", input.parsed_path))
 }
 
-# Temporarily skip this endpoint, it will be fixed in 1.7.1
 access_is_granted {
-    concat("/", input.parsed_path) == "api/aslan/workflow/workflow"
-    http_request.method == "GET"
-    project_name == ""
+    some rule
+
+    allowed_attributive_rules[rule]
+    rule.method == http_request.method
+    glob.match(trim(rule.endpoint, "/"), ["/"], concat("/", input.parsed_path))
+
+    all_attributes_match(rule.matchAttributes, rule.resourceType, get_resource_id(rule.idRegex))
+}
+
+rule_is_matched_for_filtering {
+    count(user_matched_rule_for_filtering) > 0
+}
+
+# get all resources which matches the attributes
+user_allowed_resources[resourceID] {
+    some rule
+
+    user_matched_rule_for_filtering[rule]
+    res := data.resources[rule.resourceType][_]
+    project_name_is_match(res)
+    not attributes_mismatch(rule.matchAttributes, res)
+    resourceID := res.resourceID
+}
+
+project_name_is_match(res) {
+    res.projectName != ""
+    res.projectName == project_name
+}
+
+project_name_is_match(res) {
+    res.projectName == ""
+}
+
+user_matched_rule_for_filtering[rule] {
+    some rule
+
+    allowed_attributive_rules[rule]
+    rule.method == http_request.method
+    glob.match(trim(rule.endpoint, "/"), ["/"], concat("/", input.parsed_path))
+    not rule.idRegex
+}
+
+all_attributes_match(attributes, resourceType, resourceID) {
+    res := data.resources[resourceType][_]
+    res.resourceID == resourceID
+    project_name_is_match(res)
+
+    # a && b <=> !(!a || !b), De Morgan’s laws, see details in https://www.fugue.co/blog/5-tips-for-using-the-rego-language-for-open-policy-agent-opa
+    not attributes_mismatch(attributes, res)
+}
+
+attributes_mismatch(attributes, res) {
+    attribute := attributes[_]
+    attribute_mismatch(attribute, res)
+}
+
+attribute_mismatch(attribute, res) {
+    res.spec[attribute.key] != attribute.value
+}
+
+attribute_mismatch(attribute, res) {
+    not res.spec[attribute.key]
+}
+
+get_resource_id(idRegex) = id {
+    output := regex.find_all_string_submatch_n(trim(idRegex, "/"), concat("/", input.parsed_path), -1)
+    count(output) == 1
+    count(output[0]) == 2
+    id := output[0][1]
 }
 
 user_is_admin {
@@ -144,7 +218,7 @@ user_allowed_projects[project] {
     some project
     user_projects[project]
     not user_is_admin
-    allow with project_name as project
+    response.allowed with project_name as project
 }
 
 # if user is system admin, return all projects
@@ -165,7 +239,6 @@ user_visible_projects[project] {
     project := "*"
     user_is_admin
 }
-
 
 all_roles[role_ref] {
     some i
@@ -189,14 +262,30 @@ allowed_roles[role_ref] {
     role_ref := data.bindings.role_bindings[i].bindings[j].role_refs[_]
 }
 
-user_is_granted[grant] {
+allowed_rules[rule] {
     some role_ref
     allowed_roles[role_ref]
 
     some i
     data.roles.roles[i].name == role_ref.name
     data.roles.roles[i].namespace == role_ref.namespace
-    grant := data.roles.roles[i].rules[_]
+    rule := data.roles.roles[i].rules[_]
+}
+
+allowed_plain_rules[rule] {
+    rule := allowed_rules[_]
+    not rule.matchAttributes
+    not rule.matchExpressions
+}
+
+allowed_attributive_rules[rule] {
+    rule := allowed_rules[_]
+    rule.matchAttributes
+}
+
+allowed_attributive_rules[rule] {
+    rule := allowed_rules[_]
+    rule.matchExpressions
 }
 
 claims := payload {

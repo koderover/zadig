@@ -55,7 +55,7 @@ func (s *engine) injectMiddlewares() {
 	g.Use(ginmiddleware.Response())
 	g.Use(ginmiddleware.RequestID())
 	g.Use(ginmiddleware.RequestLog(log.NewFileLogger(config.RequestLogFile())))
-	g.Use(RefreshOPABundle())
+	//g.Use(RefreshOPABundle())
 	g.Use(gin.Recovery())
 }
 

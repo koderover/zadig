@@ -20,15 +20,9 @@ import (
 	"bytes"
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"html/template"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"strings"
-	"sync"
+	"time"
 
-	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1beta1 "k8s.io/api/rbac/v1beta1"
@@ -38,12 +32,13 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
-	e "github.com/koderover/zadig/pkg/tool/errors"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type kubeCfgTmplArgs struct {
@@ -56,89 +51,61 @@ type kubeCfgTmplArgs struct {
 	ClientKeyBase64 string
 }
 
-func GetUserKubeConfig(userName string, log *zap.SugaredLogger) (string, error) {
-	username := strings.ToLower(userName)
-	username = config.NameSpaceRegex.ReplaceAllString(username, "-")
-	var (
-		err         error
-		productEnvs = make([]*commonmodels.Product, 0)
-	)
-
-	productEnvs, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{})
-	if err != nil {
-		log.Errorf("GetUserKubeConfig Collection.Product.List error: %v", err)
-		return "", e.ErrListProducts.AddDesc(err.Error())
-	}
-
-	// 只管理同集群的资源，且排除状态为Terminating的namespace
-	productEnvs = filterProductWithoutExternalCluster(productEnvs)
-
+func GetUserKubeConfig(userID string, projectsEnvCanEdit []string, projectsEnvCanView []string, log *zap.SugaredLogger) (string, error) {
 	saNamespace := config.Namespace()
-	if err := ensureServiceAccount(saNamespace, username, log); err != nil {
+	if err := ensureClusterRole(log); err != nil {
+		log.Errorf("ensurClusterRole err: %s", err)
 		return "", err
 	}
-
-	var (
-		wg      sync.WaitGroup
-		pool    = make(chan int, 20)
-		errList = new(multierror.Error)
-	)
-	for _, productEnv := range productEnvs {
-		namespace := productEnv.Namespace
-
-		if _, found, err := getter.GetNamespace(namespace, krkubeclient.Client()); err != nil || !found {
-			log.Error(err)
-			continue
-		}
-
-		wg.Add(1)
-		pool <- 1
-		go func() {
-			defer func() {
-				wg.Done()
-				<-pool
-			}()
-			if err := ensureUserRole(namespace, username, log); err != nil {
-				log.Error(err)
-				errList = multierror.Append(errList, err)
-			}
-
-			if err := ensureUserRoleBinding(saNamespace, namespace, username); err != nil {
-				log.Error(err)
-				errList = multierror.Append(errList, err)
-			}
-		}()
-	}
-	wg.Wait()
-	close(pool)
-	if err := errList.ErrorOrNil(); err != nil {
-		log.Error(err)
+	if err := ensureServiceAccountAndRolebinding(saNamespace, projectsEnvCanEdit, projectsEnvCanView, userID, log); err != nil {
+		log.Errorf("ensureServiceAccountAndRolebinding err: %s", err)
 		return "", err
 	}
-
-	if err := createK8sSSLCert(saNamespace, username); err != nil {
-		log.Errorf("[%s] createSSLCert error: %v", username, err)
-		return "", err
-	}
-
-	caCrtBase64, err := ioutil.ReadFile(filepath.Join(os.TempDir(), username, "ca.crt"))
+	crt, token, err := getCrtAndToken(saNamespace, userID)
 	if err != nil {
-		return "", fmt.Errorf("get client.crt error: %v", err)
+		log.Errorf("getCrtAndToken err: %s", err)
+		return "", err
 	}
-
-	caKeyBase64, err := ioutil.ReadFile(filepath.Join(os.TempDir(), username, "ca.key"))
-	if err != nil {
-		return "", fmt.Errorf("get client.key error: %v", err)
-	}
-
 	args := &kubeCfgTmplArgs{
 		KubeServerAddr: config.KubeServerAddr(),
-		User:           username,
-		CaCrtBase64:    string(caCrtBase64),
-		CaKeyBase64:    string(caKeyBase64),
+		CaCrtBase64:    crt,
+		User:           userID,
+		CaKeyBase64:    token,
 	}
 
 	return renderCfgTmpl(args)
+}
+
+func getCrtAndToken(namespace, userID string) (string, string, error) {
+	kubeClient := krkubeclient.Client()
+	var sa *corev1.ServiceAccount
+	for i := 0; i < 5; i++ {
+		tmpsa, found, err := getter.GetServiceAccount(namespace, config.ServiceAccountNameForUser(userID), kubeClient)
+		if err != nil {
+			log.Errorf("GetServiceAccount err:%s name:%s namespace:%s", err, config.ServiceAccountNameForUser(userID), namespace)
+			return "", "", err
+		} else if found || len(sa.Secrets) > 0 {
+			sa = tmpsa
+			break
+		}
+		log.Warnf("waiting for the secret created")
+		time.Sleep(time.Second)
+
+	}
+	if sa == nil {
+		log.Errorf("can not get user:%s service account in namespace:%s", userID, namespace)
+		return "", "", errors.New("serviceAccount not found")
+	}
+
+	secret, found, err := getter.GetSecret(namespace, sa.Secrets[0].Name, kubeClient)
+	if err != nil {
+		log.Errorf("GetSecret:%s err: %s", sa.Secrets[0].Name, err)
+		return "", "", err
+	} else if !found {
+		log.Error("secret:%s not found in namespace:%s", sa.Secrets[0].Name, namespace)
+		return "", "", errors.New("secret not found")
+	}
+	return base64.StdEncoding.EncodeToString(secret.Data["ca.crt"]), string(secret.Data["token"]), nil
 }
 
 func filterProductWithoutExternalCluster(products []*commonmodels.Product) []*commonmodels.Product {
@@ -167,132 +134,111 @@ func filterProductWithoutExternalCluster(products []*commonmodels.Product) []*co
 	return ret
 }
 
-func ensureServiceAccount(namespace, username string, log *zap.SugaredLogger) error {
+var (
+	clusterRoleEdit = &rbacv1beta1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: config.RoleBindingNameEdit,
+		},
+		Rules: []rbacv1beta1.PolicyRule{rbacv1beta1.PolicyRule{
+			Verbs:     []string{"*"},
+			APIGroups: []string{"*"},
+			Resources: []string{"*"},
+		}}}
+	clusterRoleView = &rbacv1beta1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: config.RoleBindingNameView,
+		},
+		Rules: []rbacv1beta1.PolicyRule{rbacv1beta1.PolicyRule{
+			Verbs:     []string{"get", "watch", "list"},
+			APIGroups: []string{"*"},
+			Resources: []string{"*"},
+		}}}
+)
+
+func ensureClusterRole(log *zap.SugaredLogger) error {
+	if _, found, err := getter.GetClusterRole(config.RoleBindingNameEdit, krkubeclient.Client()); err != nil {
+		log.Errorf("GetClusterRole:%s err: %s", config.RoleBindingNameEdit, err)
+		return err
+	} else if !found {
+		if err := updater.CreateClusterRole(clusterRoleEdit, krkubeclient.Client()); err != nil {
+			log.Errorf("CreateClusterRole:%s err: %s", clusterRoleEdit, err)
+			return err
+		}
+	}
+	if _, found, err := getter.GetClusterRole(config.RoleBindingNameView, krkubeclient.Client()); err != nil {
+		log.Errorf("GetClusterRole:%s err: %s", config.RoleBindingNameView, err)
+		return err
+	} else if !found {
+		if err := updater.CreateClusterRole(clusterRoleView, krkubeclient.Client()); err != nil {
+			log.Errorf("CreateClusterRole:%s err: %s", clusterRoleView, err)
+			return err
+		}
+	}
+	return nil
+}
+
+func ensureServiceAccountAndRolebinding(namespace string, projectsEnvCanEdit []string, projectsEnvCanView []string, userID string, log *zap.SugaredLogger) error {
+	serviceAccountName := config.ServiceAccountNameForUser(userID)
 	serviceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      username + "-sa",
+			Name:      serviceAccountName,
 			Namespace: namespace,
 		},
 	}
-	if err := updater.CreateServiceAccount(serviceAccount, krkubeclient.Client()); err != nil {
-		log.Errorf("CreateServiceAccount err: %+v", err)
-		return nil
+	_, found, err := getter.GetServiceAccount(namespace, serviceAccountName, krkubeclient.Client())
+	if err != nil {
+		log.Errorf("GetServiceAccount name:%s err:%s", err)
+		return err
 	}
-	return nil
-}
-
-func ensureUserRole(namespace, username string, _ *zap.SugaredLogger) error {
-	roleName := fmt.Sprintf("%s-role", username)
-	verbs := []string{"*"}
-	role := &rbacv1beta1.Role{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      roleName,
-			Namespace: namespace,
-		},
-		Rules: []rbacv1beta1.PolicyRule{
-			rbacv1beta1.PolicyRule{
-				APIGroups: []string{"*"},
-				Resources: []string{"*"},
-				Verbs:     verbs,
-			},
-			rbacv1beta1.PolicyRule{
-				APIGroups: []string{"*"},
-				Resources: []string{
-					"limitranges",
-					"resourcequotas",
-				},
-				Verbs: []string{"get", "list", "watch"},
-			},
-		},
-	}
-
-	old, found, err := getter.GetRole(namespace, roleName, krkubeclient.Client())
-	if err == nil && found {
-		old.Rules = role.Rules
-		if err := updater.UpdateRole(old, krkubeclient.Client()); err != nil {
-			return err
-		}
-	} else {
-		if err := updater.CreateRole(role, krkubeclient.Client()); err != nil {
+	if !found {
+		if err := updater.CreateServiceAccount(serviceAccount, krkubeclient.Client()); err != nil {
+			log.Errorf("CreateServiceAccount name:%s err:%s", serviceAccountName, err)
 			return err
 		}
 	}
 
-	return nil
-}
-
-func ensureUserRoleBinding(saNamespace, namespace, username string) error {
-	roleName := fmt.Sprintf("%s-role", username)
-	roleBindName := fmt.Sprintf("%s-role-bind", username)
-	rolebinding := &rbacv1beta1.RoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      roleBindName,
-			Namespace: namespace,
-		},
-		RoleRef: rbacv1beta1.RoleRef{
-			APIGroup: "rbac.authorization.k8s.io",
-			Kind:     "Role",
-			Name:     roleName,
-		},
-		Subjects: []rbacv1beta1.Subject{
-			rbacv1beta1.Subject{
-				//APIGroup: "rbac.authorization.k8s.io",
-				//Kind:     "User",
-				//Name:     namespace,
-				Kind:      "ServiceAccount",
-				Name:      username + "-sa",
-				Namespace: saNamespace,
-			},
-		},
-	}
-	_, found, err := getter.GetRoleBinding(namespace, roleBindName, krkubeclient.Client())
-	if err != nil || !found {
-		if err := updater.CreateRoleBinding(rolebinding, krkubeclient.Client()); err != nil {
+	// caller provide a list of projects for which the user has permission to edit env or read env
+	// while []string{*} means all projects
+	if len(projectsEnvCanEdit) == 1 && projectsEnvCanEdit[0] == "*" {
+		res, err := templaterepo.NewProductColl().ListNames(nil)
+		if err != nil {
+			log.Errorf("ListProjectBriefs err:%s", err)
 			return err
 		}
-	} else {
-		if err := updater.UpdateRoleBinding(rolebinding, krkubeclient.Client()); err != nil {
+		projectsEnvCanEdit = res
+	}
+
+	if len(projectsEnvCanView) == 1 && projectsEnvCanView[0] == "*" {
+		res, err := templaterepo.NewProductColl().ListNames(nil)
+		if err != nil {
+			log.Errorf("ListProjectBriefs err:%s", err)
 			return err
 		}
-	}
-	return nil
-}
-
-func createK8sSSLCert(namespace, username string) error {
-	workDir := filepath.Join(os.TempDir(), username)
-	if err := os.MkdirAll(workDir, os.ModePerm); err != nil {
-		return err
+		projectsEnvCanView = res
 	}
 
-	kubeClient := krkubeclient.Client()
+	canEditProducts, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{InProjects: projectsEnvCanEdit})
+	if err != nil {
+		log.Errorf("[%s] Collections.Product.List error: %s", projectsEnvCanEdit, err)
+	}
+	canEditProducts = filterProductWithoutExternalCluster(canEditProducts)
+	for _, vv := range canEditProducts {
+		if err := CreateRoleBinding(vv.Namespace, namespace, serviceAccountName, config.RoleBindingNameEdit); err != nil {
+			log.Errorf("CreateRoleBinding err: %s", err)
+		}
+	}
 
-	sa, found, err := getter.GetServiceAccount(namespace, username+"-sa", kubeClient)
+	canViewProducts, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{InProjects: projectsEnvCanView})
 	if err != nil {
-		return err
-	} else if !found {
-		return errors.New("sa not fonud")
-	} else if len(sa.Secrets) == 0 {
-		return errors.New("no secrets in sa")
+		log.Errorf("[%s] Collections.Product.List error: %s", projectsEnvCanView, err)
 	}
-	secret, found, err := getter.GetSecret(namespace, sa.Secrets[0].Name, kubeClient)
-	if err != nil {
-		return err
-	} else if !found {
-		return errors.New("secret not found")
+	canViewProducts = filterProductWithoutExternalCluster(canViewProducts)
+	for _, vv := range canViewProducts {
+		if err := CreateRoleBinding(vv.Namespace, namespace, serviceAccountName, config.RoleBindingNameView); err != nil {
+			log.Errorf("CreateRoleBinding err: %s", err)
+		}
 	}
-	keyPath := filepath.Join(workDir, "ca.key")
-	certPath := filepath.Join(workDir, "ca.crt")
 
-	err = ioutil.WriteFile(keyPath, secret.Data["token"], 0644)
-	if err != nil {
-		return err
-	}
-	cert := make([]byte, base64.StdEncoding.EncodedLen(len(secret.Data["ca.crt"])))
-	base64.StdEncoding.Encode(cert, secret.Data["ca.crt"])
-	err = ioutil.WriteFile(certPath, cert, 0644)
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -317,13 +263,76 @@ contexts:
 - context:
     cluster: koderover
     user: {{.User}}
-  name: {{.User}}@kubernetes
-current-context: {{.User}}@kubernetes
+  name: koderover
+current-context: koderover
 kind: Config
 preferences: {}
 users:
 - name: {{.User}}
   user:
     token: {{.CaKeyBase64}}
-    client-key-data: {{.CaCrtBase64}}
 `
+
+func CreateRoleBinding(rbNamespace, saNamspace, serviceAccountName, roleBindName string) error {
+	rolebinding, found, err := getter.GetRoleBinding(rbNamespace, roleBindName, krkubeclient.Client())
+	subs := []rbacv1beta1.Subject{{
+		Kind:      "ServiceAccount",
+		Name:      serviceAccountName,
+		Namespace: saNamspace,
+	}}
+	if err != nil {
+		log.Errorf("GetRoleBinding name:%s err: %s", roleBindName, err)
+		return err
+	}
+	if !found{
+		if err := updater.CreateRoleBinding(&rbacv1beta1.RoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      roleBindName,
+				Namespace: rbNamespace,
+			},
+			Subjects: subs,
+			RoleRef: rbacv1beta1.RoleRef{
+				// APIGroup is the group for the resource being referenced
+				APIGroup: "rbac.authorization.k8s.io",
+				// Kind is the type of resource being referenced
+				Kind: "ClusterRole",
+				// Name is the name of resource being referenced
+				Name: roleBindName,
+			},
+		}, krkubeclient.Client()); err != nil {
+			log.Errorf("create rolebinding:%s err: %s", roleBindName, err)
+			return err
+		}
+	}else{
+		isExist := false
+		for _, v := range rolebinding.Subjects {
+			if v.Name == serviceAccountName {
+				isExist = true
+			}
+		}
+		if isExist {
+			return nil
+		} else {
+			subs = append(subs, rolebinding.Subjects...)
+		}
+	}
+	if err := updater.UpdateRoleBinding(&rbacv1beta1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      roleBindName,
+			Namespace: rbNamespace,
+		},
+		Subjects: subs,
+		RoleRef: rbacv1beta1.RoleRef{
+			// APIGroup is the group for the resource being referenced
+			APIGroup: "rbac.authorization.k8s.io",
+			// Kind is the type of resource being referenced
+			Kind: "ClusterRole",
+			// Name is the name of resource being referenced
+			Name: roleBindName,
+		},
+	}, krkubeclient.Client()); err != nil {
+		log.Errorf("create rolebinding:%s err: %s", roleBindName, err)
+		return err
+	}
+	return nil
+}

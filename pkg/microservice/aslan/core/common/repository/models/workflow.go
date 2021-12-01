@@ -49,13 +49,6 @@ type Workflow struct {
 	DistributeStage *DistributeStage   `bson:"distribute_stage"             json:"distribute_stage"`
 	NotifyCtl       *NotifyCtl         `bson:"notify_ctl,omitempty"         json:"notify_ctl,omitempty"`
 	HookCtl         *WorkflowHookCtrl  `bson:"hook_ctl"                     json:"hook_ctl"`
-	IsFavorite      bool               `bson:"-"                            json:"is_favorite"`
-	LastestTask     *TaskInfo          `bson:"-"                            json:"lastest_task"`
-	LastSucessTask  *TaskInfo          `bson:"-"                            json:"last_task_success"`
-	LastFailureTask *TaskInfo          `bson:"-"                            json:"last_task_failure"`
-	TotalDuration   int64              `bson:"-"                            json:"total_duration"`
-	TotalNum        int                `bson:"-"                            json:"total_num"`
-	TotalSuccess    int                `bson:"-"                            json:"total_success"`
 
 	// ResetImage indicate whether reset image to original version after completion
 	ResetImage bool `json:"reset_image" bson:"reset_image"`
