@@ -17,20 +17,19 @@ limitations under the License.
 package updater
 
 import (
-	rbacv1beta1 "k8s.io/api/rbac/v1beta1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func DeleteRoleBindings(ns string, selector labels.Selector, cl client.Client) error {
-	return deleteObjectsWithDefaultOptions(ns, selector, &rbacv1beta1.RoleBinding{}, cl)
+	return deleteObjectsWithDefaultOptions(ns, selector, &rbacv1.RoleBinding{}, cl)
 }
 
-func CreateRoleBinding(rb *rbacv1beta1.RoleBinding, cl client.Client) error {
+func CreateRoleBinding(rb *rbacv1.RoleBinding, cl client.Client) error {
 	return createObject(rb, cl)
 }
 
-func UpdateRoleBinding(rb *rbacv1beta1.RoleBinding, cl client.Client) error {
+func UpdateRoleBinding(rb *rbacv1.RoleBinding, cl client.Client) error {
 	return updateObject(rb, cl)
 }
-

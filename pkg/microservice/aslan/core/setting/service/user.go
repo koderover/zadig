@@ -25,7 +25,7 @@ import (
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1beta1 "k8s.io/api/rbac/v1beta1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -136,20 +136,20 @@ func filterProductWithoutExternalCluster(products []*commonmodels.Product) []*co
 }
 
 var (
-	clusterRoleEdit = &rbacv1beta1.ClusterRole{
+	clusterRoleEdit = &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: config.RoleBindingNameEdit,
 		},
-		Rules: []rbacv1beta1.PolicyRule{rbacv1beta1.PolicyRule{
+		Rules: []rbacv1.PolicyRule{rbacv1.PolicyRule{
 			Verbs:     []string{"*"},
 			APIGroups: []string{"*"},
 			Resources: []string{"pods", "deployments", "configmaps", "crobjobs", "daemonsets", "ingresses", "jobs", "secrets", "services", "statefulsets"},
 		}}}
-	clusterRoleView = &rbacv1beta1.ClusterRole{
+	clusterRoleView = &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: config.RoleBindingNameView,
 		},
-		Rules: []rbacv1beta1.PolicyRule{rbacv1beta1.PolicyRule{
+		Rules: []rbacv1.PolicyRule{rbacv1.PolicyRule{
 			Verbs:     []string{"get", "watch", "list"},
 			APIGroups: []string{"*"},
 			Resources: []string{"*"},
@@ -281,7 +281,7 @@ users:
 
 func CreateRoleBinding(rbNamespace, saNamspace, serviceAccountName, roleBindName string) error {
 	rolebinding, found, err := getter.GetRoleBinding(rbNamespace, roleBindName, krkubeclient.Client())
-	subs := []rbacv1beta1.Subject{{
+	subs := []rbacv1.Subject{{
 		Kind:      "ServiceAccount",
 		Name:      serviceAccountName,
 		Namespace: saNamspace,
@@ -291,13 +291,13 @@ func CreateRoleBinding(rbNamespace, saNamspace, serviceAccountName, roleBindName
 		return err
 	}
 	if !found {
-		if err := updater.CreateRoleBinding(&rbacv1beta1.RoleBinding{
+		if err := updater.CreateRoleBinding(&rbacv1.RoleBinding{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      roleBindName,
 				Namespace: rbNamespace,
 			},
 			Subjects: subs,
-			RoleRef: rbacv1beta1.RoleRef{
+			RoleRef: rbacv1.RoleRef{
 				// APIGroup is the group for the resource being referenced
 				APIGroup: "rbac.authorization.k8s.io",
 				// Kind is the type of resource being referenced
@@ -322,13 +322,13 @@ func CreateRoleBinding(rbNamespace, saNamspace, serviceAccountName, roleBindName
 			subs = append(subs, rolebinding.Subjects...)
 		}
 	}
-	if err := updater.UpdateRoleBinding(&rbacv1beta1.RoleBinding{
+	if err := updater.UpdateRoleBinding(&rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      roleBindName,
 			Namespace: rbNamespace,
 		},
 		Subjects: subs,
-		RoleRef: rbacv1beta1.RoleRef{
+		RoleRef: rbacv1.RoleRef{
 			// APIGroup is the group for the resource being referenced
 			APIGroup: "rbac.authorization.k8s.io",
 			// Kind is the type of resource being referenced

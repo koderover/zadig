@@ -17,12 +17,12 @@ limitations under the License.
 package getter
 
 import (
-	rbacv1beta1 "k8s.io/api/rbac/v1beta1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func GetRoleBinding(ns, name string, cl client.Client) (*rbacv1beta1.RoleBinding, bool, error) {
-	g := &rbacv1beta1.RoleBinding{}
+func GetRoleBinding(ns, name string, cl client.Client) (*rbacv1.RoleBinding, bool, error) {
+	g := &rbacv1.RoleBinding{}
 	found, err := GetResourceInCache(ns, name, g, cl)
 	if err != nil || !found {
 		g = nil

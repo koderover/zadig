@@ -17,14 +17,14 @@ limitations under the License.
 package getter
 
 import (
-	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func GetIngress(ns, name string, cl client.Client) (*extensionsv1beta1.Ingress, bool, error) {
-	g := &extensionsv1beta1.Ingress{}
+func GetIngress(ns, name string, cl client.Client) (*networkingv1beta1.Ingress, bool, error) {
+	g := &networkingv1beta1.Ingress{}
 	found, err := GetResourceInCache(ns, name, g, cl)
 	if err != nil || !found {
 		g = nil
@@ -33,15 +33,14 @@ func GetIngress(ns, name string, cl client.Client) (*extensionsv1beta1.Ingress, 
 	return g, found, err
 }
 
-func ListIngresses(ns string, selector labels.Selector, cl client.Client) ([]*extensionsv1beta1.Ingress, error) {
-	// ingress is moved to networking.k8s.io/v1beta1 from extensions/v1beta1.
-	is := &extensionsv1beta1.IngressList{}
+func ListIngresses(ns string, selector labels.Selector, cl client.Client) ([]*networkingv1beta1.Ingress, error) {
+	is := &networkingv1beta1.IngressList{}
 	err := ListResourceInCache(ns, selector, nil, is, cl)
 	if err != nil {
 		return nil, err
 	}
 
-	var res []*extensionsv1beta1.Ingress
+	var res []*networkingv1beta1.Ingress
 	for i := range is.Items {
 		res = append(res, &is.Items[i])
 	}
@@ -50,7 +49,7 @@ func ListIngresses(ns string, selector labels.Selector, cl client.Client) ([]*ex
 
 func ListIngressesYaml(ns string, selector labels.Selector, cl client.Client) ([][]byte, error) {
 	gvk := schema.GroupVersionKind{
-		Group:   "extensions",
+		Group:   "networking.k8s.io",
 		Kind:    "Ingress",
 		Version: "v1beta1",
 	}

@@ -17,15 +17,15 @@ limitations under the License.
 package updater
 
 import (
-	rbacv1beta1 "k8s.io/api/rbac/v1beta1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func DeleteClusterRoles(selector labels.Selector, cl client.Client) error {
-	return deleteObjectsWithDefaultOptions("", selector, &rbacv1beta1.ClusterRole{}, cl)
+	return deleteObjectsWithDefaultOptions("", selector, &rbacv1.ClusterRole{}, cl)
 }
 
-func CreateClusterRole(role *rbacv1beta1.ClusterRole, cl client.Client) error {
+func CreateClusterRole(role *rbacv1.ClusterRole, cl client.Client) error {
 	return createObject(role, cl)
 }

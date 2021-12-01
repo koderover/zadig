@@ -17,18 +17,18 @@ limitations under the License.
 package wrapper
 
 import (
-	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/pkg/util"
 )
 
-// ingress is the wrapper for extensionsv1beta1.Ingress type.
+// ingress is the wrapper for Ingress type.
 type ingress struct {
-	*extensionsv1beta1.Ingress
+	*networkingv1beta1.Ingress
 }
 
-func Ingress(ing *extensionsv1beta1.Ingress) *ingress {
+func Ingress(ing *networkingv1beta1.Ingress) *ingress {
 	if ing == nil {
 		return nil
 	}
@@ -38,8 +38,8 @@ func Ingress(ing *extensionsv1beta1.Ingress) *ingress {
 	}
 }
 
-// Unwrap returns the extensionsv1beta1.Ingress object.
-func (ing *ingress) Unwrap() *extensionsv1beta1.Ingress {
+// Unwrap returns the Ingress object.
+func (ing *ingress) Unwrap() *networkingv1beta1.Ingress {
 	return ing.Ingress
 }
 

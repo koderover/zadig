@@ -24,7 +24,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
-	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -102,13 +102,13 @@ func (d *decoder) YamlToStatefulSet(manifest []byte) (*appsv1.StatefulSet, error
 	return res, err
 }
 
-func (d *decoder) YamlToIngress(manifest []byte) (*extensionsv1beta1.Ingress, error) {
+func (d *decoder) YamlToIngress(manifest []byte) (*networkingv1beta1.Ingress, error) {
 	obj, err := d.YamlToRuntimeObject(manifest)
 	if err != nil {
 		return nil, err
 	}
 
-	res, ok := obj.(*extensionsv1beta1.Ingress)
+	res, ok := obj.(*networkingv1beta1.Ingress)
 	if !ok {
 		return nil, fmt.Errorf("object is not a Ingress")
 	}

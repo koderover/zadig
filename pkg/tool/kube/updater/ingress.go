@@ -17,11 +17,11 @@ limitations under the License.
 package updater
 
 import (
-	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func DeleteIngresses(ns string, selector labels.Selector, cl client.Client) error {
-	return deleteObjectsWithDefaultOptions(ns, selector, &extensionsv1beta1.Ingress{}, cl)
+	return deleteObjectsWithDefaultOptions(ns, selector, &networkingv1beta1.Ingress{}, cl)
 }

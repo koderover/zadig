@@ -17,11 +17,11 @@ limitations under the License.
 package updater
 
 import (
-	rbacv1beta1 "k8s.io/api/rbac/v1beta1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func DeleteClusterRoleBindings(selector labels.Selector, cl client.Client) error {
-	return deleteObjectsWithDefaultOptions("", selector, &rbacv1beta1.ClusterRoleBinding{}, cl)
+	return deleteObjectsWithDefaultOptions("", selector, &rbacv1.ClusterRoleBinding{}, cl)
 }
