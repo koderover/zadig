@@ -20,25 +20,24 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"os"
 	"sort"
 
-	"github.com/koderover/zadig/pkg/config"
+	"sigs.k8s.io/yaml"
+
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-const (
-	EnvironmentType = "Environment"
-	ClusterType     = "Cluster"
-)
+const configPath = "/config/config.yaml"
 
-type resourceBundleService struct {
-	endpoint, resourceType string
+type ResourceBundleService struct {
+	Endpoint     string `json:"endpoint"`
+	ResourceType string `json:"resourceType"`
 }
 
-var resourceBundleMap = map[string]resourceBundleService{
-	EnvironmentType: {resourceType: EnvironmentType, endpoint: fmt.Sprintf("%s/api/environment/bundle-resources", config.AslanServiceAddress())},
-	ClusterType:     {resourceType: ClusterType, endpoint: fmt.Sprintf("%s/api/cluster/bundle-resources", config.AslanServiceAddress())},
+type Config struct {
+	Bundles []*ResourceBundleService `json:"bundles"`
 }
 
 type ResourceSpec struct {
@@ -86,6 +85,22 @@ func (r ResourceBundle) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+func loadConfig() (*Config, error) {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		log.Errorf("Failed to load config, err: %s", err)
+		return nil, err
+	}
+
+	conf := &Config{}
+	if err = yaml.Unmarshal(data, conf); err != nil {
+		log.Errorf("Failed to unmarshal yaml, err: %s", err)
+		return nil, err
+	}
+
+	return conf, nil
+}
+
 func AppendOPAResources(res ResourceBundle, resourceType string, objs []*ResourceSpec) ResourceBundle {
 	if res == nil {
 		res = make(map[string]resources)
@@ -100,16 +115,21 @@ func AppendOPAResources(res ResourceBundle, resourceType string, objs []*Resourc
 func generateResourceBundle() ResourceBundle {
 	var res ResourceBundle
 
+	cfg, err := loadConfig()
+	if err != nil {
+		return nil
+	}
+
 	cl := httpclient.New()
-	for resourceType, bundleService := range resourceBundleMap {
+	for _, bundleService := range cfg.Bundles {
 		objs := make([]*ResourceSpec, 0)
-		_, err := cl.Get(bundleService.endpoint, httpclient.SetResult(&objs))
+		_, err := cl.Get(bundleService.Endpoint, httpclient.SetResult(&objs))
 		if err != nil {
-			log.Warnf("Failed to get %s bundle, err: %s", resourceType, err)
+			log.Warnf("Failed to get %s bundle, err: %s", bundleService.ResourceType, err)
 			continue
 		}
 
-		res = AppendOPAResources(res, resourceType, objs)
+		res = AppendOPAResources(res, bundleService.ResourceType, objs)
 	}
 
 	return res
