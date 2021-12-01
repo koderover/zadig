@@ -33,7 +33,7 @@ func (c *Client) ListMultiCluster() ([]*cluster, error) {
 	url := "/cluster/clusters"
 
 	clusters := make([]*cluster, 0)
-	_, err := c.Get(url, httpclient.SetResult(clusters))
+	_, err := c.Get(url, httpclient.SetResult(&clusters))
 	if err != nil {
 		return nil, fmt.Errorf("Failed to list multi cluster, error: %s", err)
 	}
