@@ -117,7 +117,6 @@ func generateResourceBundle() ResourceBundle {
 
 	cfg, err := loadConfig()
 	if err != nil {
-		log.Warnf("Failed to load config, err: %s", err)
 		return nil
 	}
 
