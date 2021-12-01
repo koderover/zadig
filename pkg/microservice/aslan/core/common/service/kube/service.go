@@ -31,6 +31,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/crypto"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
@@ -104,7 +105,7 @@ func (s *Service) CreateCluster(cluster *models.K8SCluster, logger *zap.SugaredL
 		return nil, e.ErrCreateCluster.AddDesc(e.DuplicateClusterNameFound)
 	}
 
-	cluster.Status = config.Pending
+	cluster.Status = setting.Pending
 
 	err = s.coll.Create(cluster)
 
