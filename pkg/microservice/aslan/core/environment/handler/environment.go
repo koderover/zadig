@@ -488,6 +488,10 @@ func ListWorkloads(c *gin.Context) {
 		return
 	}
 
+	if args.ClusterID == setting.LocalClusterID {
+		args.ClusterID = ""
+	}
+
 	count, services, err := commonservice.ListWorkloads("", args.ClusterID, args.Namespace, "", args.PerPage, args.Page, ctx.Logger, func(workloads []*commonservice.Workload) []*commonservice.Workload {
 		workloadStat, _ := mongodb.NewWorkLoadsStatColl().Find(args.ClusterID, args.Namespace)
 		workloadM := map[string]commonmodels.Workload{}
