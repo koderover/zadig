@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -227,8 +228,8 @@ func getModifiedServiceFromObjectMeta(om metav1.Object) *serviceInfo {
 	}
 }
 
-func ListAvailableNodes(clusterID string, log *zap.SugaredLogger) ([]*resource.Node, error) {
-	resp := make([]*resource.Node, 0)
+func ListAvailableNodes(clusterID string, log *zap.SugaredLogger) (*resource.NodeResp, error) {
+	resp := new(resource.NodeResp)
 	kubeClient, err := multicluster.GetKubeClient(config.HubServerAddress(), clusterID)
 	if err != nil {
 		log.Errorf("ListAvailableNodes clusterID:%s err:%s", clusterID, err)
@@ -244,14 +245,19 @@ func ListAvailableNodes(clusterID string, log *zap.SugaredLogger) ([]*resource.N
 		return resp, err
 	}
 
+	nodeInfos := make([]*resource.Node, 0)
+	labels := sets.NewString()
 	for _, node := range nodes {
 		nodeResource := &resource.Node{
 			Status: nodeReady(node),
 			Labels: nodeLabel(node),
+			IP:     node.Name,
 		}
-		resp = append(resp, nodeResource)
+		nodeInfos = append(nodeInfos, nodeResource)
+		labels.Insert(nodeResource.Labels...)
 	}
-
+	resp.Nodes = nodeInfos
+	resp.Labels = labels.List()
 	return resp, nil
 }
 
