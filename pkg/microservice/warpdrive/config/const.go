@@ -19,20 +19,21 @@ package config
 type TaskType string
 
 const (
-	TaskPipeline       TaskType = "pipeline"
-	TaskBuild          TaskType = "buildv2"
-	TaskArtifactDeploy TaskType = "artifact_deploy"
-	TaskJenkinsBuild   TaskType = "jenkins_build"
-	TaskArtifact       TaskType = "artifact"
-	TaskDeploy         TaskType = "deploy"
-	TaskTestingV2      TaskType = "testingv2"
-	TaskDistributeToS3 TaskType = "distribute2kodo"
-	TaskReleaseImage   TaskType = "release_image"
-	TaskJira           TaskType = "jira"
-	TaskDockerBuild    TaskType = "docker_build"
-	TaskSecurity       TaskType = "security"
-	TaskResetImage     TaskType = "reset_image"
-	TaskDistribute     TaskType = "distribute"
+	TaskPipeline        TaskType = "pipeline"
+	TaskBuild           TaskType = "buildv2"
+	TaskArtifactDeploy  TaskType = "artifact_deploy"
+	TaskJenkinsBuild    TaskType = "jenkins_build"
+	TaskArtifact        TaskType = "artifact"
+	TaskDeploy          TaskType = "deploy"
+	TaskTestingV2       TaskType = "testingv2"
+	TaskDistributeToS3  TaskType = "distribute2kodo"
+	TaskReleaseImage    TaskType = "release_image"
+	TaskJira            TaskType = "jira"
+	TaskDockerBuild     TaskType = "docker_build"
+	TaskSecurity        TaskType = "security"
+	TaskResetImage      TaskType = "reset_image"
+	TaskDistribute      TaskType = "distribute"
+	TaskArtifactPackage TaskType = "artifact_package"
 )
 
 type Status string
@@ -65,6 +66,8 @@ const (
 	TestType PipelineType = "test"
 	// ServiceType 服务
 	ServiceType PipelineType = "service"
+	// ArtifactType 服务
+	ArtifactType PipelineType = "artifact"
 )
 
 type NotifyType int

@@ -90,6 +90,28 @@ func CreateWorkflow(c *gin.Context) {
 	ctx.Err = workflow.CreateWorkflow(args, ctx.Logger)
 }
 
+// TODO test code need to delete
+func CreateArtifactTask(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(commonmodels.ArtifactPackageTaskArgs)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("CreateWorkflow c.GetRawData() err : %v", err)
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("CreateWorkflow json.Unmarshal err : %v", err)
+	}
+	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	if err := c.ShouldBindWith(&args, binding.JSON); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	ctx.Err = workflow.CreateArtifactPackageTask(args, ctx.Logger)
+}
+
 // UpdateWorkflow  update a workflow
 func UpdateWorkflow(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)

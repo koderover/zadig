@@ -57,6 +57,7 @@ const (
 	defaultSecretEmail = "bot@koderover.com"
 	PredatorPlugin     = "predator-plugin"
 	JenkinsPlugin      = "jenkins-plugin"
+	PackagerPlugin     = "packager-plugin"
 )
 
 const (
@@ -106,6 +107,7 @@ func saveContainerLog(pipelineTask *task.Task, namespace, fileName string, jobLa
 		if err = saveFile(buf, tempFileName); err == nil {
 			var store *s3.S3
 			if store, err = s3.NewS3StorageFromEncryptedURI(pipelineTask.StorageURI); err != nil {
+				log.Errorf("failed to NewS3StorageFromEncryptedURI ")
 				return err
 			}
 			if store.Subfolder != "" {
@@ -351,12 +353,19 @@ const (
 
 // getJobLabels get labels k-v map from JobLabel struct
 func getJobLabels(jobLabel *JobLabel) map[string]string {
-	return map[string]string{
+	retMap := map[string]string{
 		jobLabelTaskKey:    fmt.Sprintf("%s-%d", strings.ToLower(jobLabel.PipelineName), jobLabel.TaskID),
 		jobLabelServiceKey: strings.ToLower(jobLabel.ServiceName),
 		jobLabelSTypeKey:   strings.Replace(jobLabel.TaskType, "_", "-", -1),
 		jobLabelPTypeKey:   jobLabel.PipelineType,
 	}
+	// no need to add labels with empty value to a job
+	for k, v := range retMap {
+		if len(v) == 0 {
+			delete(retMap, k)
+		}
+	}
+	return retMap
 }
 
 func createJobConfigMap(namespace, jobName string, jobLabel *JobLabel, jobCtx string, kubeClient client.Client) error {
@@ -399,7 +408,7 @@ func buildJob(taskType config.TaskType, jobImage, jobName, serviceName string, r
 func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceName string, resReq setting.Request, ctx *task.PipelineCtx, pipelineTask *task.Task, registries []*task.RegistryNamespace, execNs, linkedNs string) (*batchv1.Job, error) {
 	var reaperBootingScript string
 
-	if !strings.Contains(jobImage, PredatorPlugin) && !strings.Contains(jobImage, JenkinsPlugin) {
+	if !strings.Contains(jobImage, PredatorPlugin) && !strings.Contains(jobImage, JenkinsPlugin) && !strings.Contains(jobImage, PackagerPlugin) {
 		reaperBootingScript = fmt.Sprintf("curl -m 60 --retry-delay 5 --retry 3 -sL %s -o reaper && chmod +x reaper && mv reaper /usr/local/bin && /usr/local/bin/reaper", pipelineTask.ConfigPayload.Release.ReaperBinaryFile)
 		if pipelineTask.ConfigPayload.Proxy.EnableApplicationProxy && pipelineTask.ConfigPayload.Proxy.Type == "http" {
 			reaperBootingScript = fmt.Sprintf("curl -m 60 --retry-delay 5 --retry 3 -sL --proxy %s %s -o reaper && chmod +x reaper && mv reaper /usr/local/bin && /usr/local/bin/reaper",
@@ -480,7 +489,7 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 		},
 	}
 
-	if !strings.Contains(jobImage, PredatorPlugin) && !strings.Contains(jobImage, JenkinsPlugin) {
+	if !strings.Contains(jobImage, PredatorPlugin) && !strings.Contains(jobImage, JenkinsPlugin) && !strings.Contains(jobImage, PackagerPlugin) {
 		job.Spec.Template.Spec.Containers[0].Command = []string{"/bin/sh", "-c"}
 		job.Spec.Template.Spec.Containers[0].Args = []string{reaperBootingScript}
 	}

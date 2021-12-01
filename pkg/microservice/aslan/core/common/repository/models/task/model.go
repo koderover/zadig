@@ -67,12 +67,14 @@ type Task struct {
 	TestArgs *models.TestTaskArgs `bson:"test_args,omitempty"         json:"test_args,omitempty"`
 	// ServiceTaskArgs 脚本部署工作流任务参数
 	ServiceTaskArgs *models.ServiceTaskArgs `bson:"service_args,omitempty"         json:"service_args,omitempty"`
+	// ArtifactPackageTaskArgs arguments for artifact-package type tasks
+	ArtifactPackageTaskArgs *models.ArtifactPackageTaskArgs `bson:"artifact_package_args,omitempty"         json:"artifact_package_args,omitempty"`
 	// ConfigPayload 系统配置信息
-	ConfigPayload *models.ConfigPayload `json:"config_payload,omitempty"`
-	Error         string                `bson:"error,omitempty"                json:"error,omitempty"`
-	Services   [][]*models.ProductService `bson:"services"                  json:"services"`
-	Render     *models.RenderInfo         `bson:"render"                    json:"render"`
-	StorageURI string                     `bson:"storage_uri,omitempty" json:"storage_uri,omitempty"`
+	ConfigPayload *models.ConfigPayload      `json:"config_payload,omitempty"`
+	Error         string                     `bson:"error,omitempty"                json:"error,omitempty"`
+	Services      [][]*models.ProductService `bson:"services"                  json:"services"`
+	Render        *models.RenderInfo         `bson:"render"                    json:"render"`
+	StorageURI    string                     `bson:"storage_uri,omitempty" json:"storage_uri,omitempty"`
 	// interface{} 为types.TestReport
 	TestReports map[string]interface{} `bson:"test_reports,omitempty" json:"test_reports,omitempty"`
 
