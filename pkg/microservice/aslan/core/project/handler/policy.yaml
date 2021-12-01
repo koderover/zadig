@@ -84,6 +84,10 @@ rules:
     rules:
       - method: POST
         endpoint: "/api/aslan/build/build"
+      - method: GET
+        endpoint: "/api/aslan/template/dockerfile"
+      - method: GET
+        endpoint: "/api/aslan/template/dockerfile/?*"
   - action: edit_build
     alias: "编辑构建配置"
     description: ""
@@ -94,6 +98,10 @@ rules:
         endpoint: "/api/aslan/build/targets"
       - method: POST
         endpoint: "/api/aslan/build/build/targets"
+      - method: GET
+        endpoint: "/api/aslan/template/dockerfile"
+      - method: GET
+        endpoint: "/api/aslan/template/dockerfile/?*"
   - action: delete_build
     alias: "删除构建配置"
     description: ""
