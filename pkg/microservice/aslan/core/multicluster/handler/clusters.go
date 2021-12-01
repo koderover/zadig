@@ -32,9 +32,13 @@ func ListClusters(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListClusters(c.Query("clusterType"),
-		ctx.Logger,
-	)
+	clusters, found := internalhandler.GetResourcesInHeader(c)
+	if found && len(clusters) == 0 {
+		ctx.Resp = []*service.K8SCluster{}
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.ListClusters(clusters, ctx.Logger)
 }
 
 func GetCluster(c *gin.Context) {

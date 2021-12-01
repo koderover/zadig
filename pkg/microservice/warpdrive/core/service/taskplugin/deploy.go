@@ -19,7 +19,6 @@ package taskplugin
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -434,7 +433,13 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			}
 		}
 
-		//task执行时候 product.service.revision 可能已经更新，需要使用当前环境中的service.revision
+		if renderChart == nil {
+			err = errors.Errorf("failed to update container image in %s/%s，chart not found",
+				p.Task.Namespace, p.Task.ServiceName)
+			return
+		}
+
+		// use revision of service currently applied in environment instead of the latest revision
 		path, errDownload := p.downloadService(pipelineTask.ProductName, p.Task.ServiceName,
 			pipelineTask.StorageURI, serviceRevisionInProduct)
 		if errDownload != nil {
@@ -447,7 +452,6 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 					errDownload,
 					"failed to download service %s/%s",
 					p.Task.Namespace, p.Task.ServiceName)
-				_ = os.Remove(path)
 				return
 			}
 		}
@@ -459,12 +463,6 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				"failed to get relative path %s",
 				servicePath,
 			)
-			return
-		}
-
-		if renderChart == nil {
-			err = errors.Errorf("failed to update container image in %s/%s，not find",
-				p.Task.Namespace, p.Task.ServiceName)
 			return
 		}
 
@@ -579,10 +577,10 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 }
 
 func (p *DeployTaskPlugin) getProductInfo(ctx context.Context, args *EnvArgs) (*types.Product, error) {
-	url := fmt.Sprintf("/api/environment/environments/%s/productInfo", args.ProductName)
+	url := fmt.Sprintf("/api/environment/environments/%s/productInfo", args.EnvName)
 
 	prod := &types.Product{}
-	_, err := p.httpClient.Get(url, httpclient.SetResult(prod), httpclient.SetQueryParam("envName", args.EnvName))
+	_, err := p.httpClient.Get(url, httpclient.SetResult(prod), httpclient.SetQueryParam("projectName", args.ProductName))
 	if err != nil {
 		return nil, err
 	}
@@ -607,11 +605,6 @@ func (p *DeployTaskPlugin) getService(ctx context.Context, name, serviceType, pr
 func (p *DeployTaskPlugin) downloadService(productName, serviceName, storageURI string, revision int64) (string, error) {
 	logger := p.Log
 
-	s3Storage, err := s3.NewS3StorageFromEncryptedURI(storageURI)
-	if err != nil {
-		return "", err
-	}
-
 	fileName := serviceName
 	if revision > 0 {
 		fileName = fmt.Sprintf("%s-%d", serviceName, revision)
@@ -628,19 +621,23 @@ func (p *DeployTaskPlugin) downloadService(productName, serviceName, storageURI 
 		return tarFilePath, nil
 	}
 
+	s3Storage, err := s3.NewS3StorageFromEncryptedURI(storageURI)
+	if err != nil {
+		return "", err
+	}
+
 	s3Storage.Subfolder = filepath.Join(s3Storage.Subfolder, configbase.ObjectStorageServicePath(productName, serviceName))
 	forcedPathStyle := true
 	if s3Storage.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
 	}
-	s3Client, err1 := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
-	if err1 != nil {
-		p.Log.Errorf("failed to create s3 client, err: %+v", err1)
-		return "", err1
+	s3Client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
+	if err != nil {
+		p.Log.Errorf("failed to create s3 client, err: %s", err)
+		return "", err
 	}
 	if err = s3Client.Download(s3Storage.Bucket, s3Storage.GetObjectPath(tarball), tarFilePath); err != nil {
-		logger.Errorf("Failed to download file from s3, err: %s", err)
-		_ = os.Remove(tarFilePath)
+		logger.Errorf("failed to download file from s3, err: %s", err)
 		return "", err
 	}
 
@@ -651,6 +648,7 @@ func (p *DeployTaskPlugin) downloadService(productName, serviceName, storageURI 
 	if !exists {
 		return "", fmt.Errorf("file %s on s3 not found", s3Storage.GetObjectPath(tarball))
 	}
+
 	return tarFilePath, nil
 }
 
@@ -662,6 +660,7 @@ func (p *DeployTaskPlugin) getRenderSet(ctx context.Context, name string, revisi
 	if err != nil {
 		return nil, err
 	}
+
 	return rs, nil
 }
 

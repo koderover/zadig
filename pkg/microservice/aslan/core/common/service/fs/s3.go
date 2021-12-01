@@ -31,31 +31,41 @@ import (
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
 )
 
-func ArchiveAndUploadFilesToSpecifiedS3(fileTree fs.FS, name, s3Base string, copies []string, s3Id string, logger *zap.SugaredLogger) error {
+func ArchiveAndUploadFilesToSpecifiedS3(fileTree fs.FS, names []string, s3Base, s3Id string, logger *zap.SugaredLogger) error {
 	s3Storage, err := s3service.FindS3ById(s3Id)
 	if err != nil {
 		logger.Errorf("Failed to find default s3, err:%v", err)
 		return err
 	}
-	return archiveAndUploadFiles(fileTree, name, s3Base, copies, s3Storage, logger)
+	return archiveAndUploadFiles(fileTree, names, s3Base, s3Storage, logger)
 }
 
-func ArchiveAndUploadFilesToS3(fileTree fs.FS, name, s3Base string, copies []string, logger *zap.SugaredLogger) error {
+func ArchiveAndUploadFilesToS3(fileTree fs.FS, names []string, s3Base string, logger *zap.SugaredLogger) error {
 	s3Storage, err := s3service.FindDefaultS3()
 	if err != nil {
 		logger.Errorf("Failed to find default s3, err:%v", err)
 		return err
 	}
-	return archiveAndUploadFiles(fileTree, name, s3Base, copies, s3Storage, logger)
+	return archiveAndUploadFiles(fileTree, names, s3Base, s3Storage, logger)
 }
 
-func archiveAndUploadFiles(fileTree fs.FS, name, s3Base string, copies []string, s3Storage *s3.S3, logger *zap.SugaredLogger) error {
+// archiveAndUploadFiles archive local files and upload to default s3 storage
+// if multiple names appointed, s3storage.copy will be used to handle extra names
+func archiveAndUploadFiles(fileTree fs.FS, names []string, s3Base string, s3Storage *s3.S3, logger *zap.SugaredLogger) error {
+
+	if len(names) == 0 {
+		return fmt.Errorf("names not appointed")
+	}
+
 	tmpDir, err := os.MkdirTemp("", "")
 	if err != nil {
 		logger.Errorf("Failed to create temp dir, err: %s", err)
 		return err
 	}
 	defer os.RemoveAll(tmpDir)
+
+	name := names[0]
+	copies := names[1:]
 
 	tarball := fmt.Sprintf("%s.tar.gz", name)
 	localPath := filepath.Join(tmpDir, tarball)
@@ -79,7 +89,7 @@ func archiveAndUploadFiles(fileTree fs.FS, name, s3Base string, copies []string,
 		return err
 	}
 
-	//copy file to avoid duplicated file transfer
+	// copy file to avoid duplicated file transfer
 	for _, copyName := range copies {
 		targetPath := filepath.Join(s3Storage.Subfolder, s3Base, fmt.Sprintf("%s.tar.gz", copyName))
 		err = client.CopyObject(s3Storage.Bucket, s3Path, targetPath)
@@ -130,15 +140,20 @@ func DownloadAndExtractFilesFromS3(name, localBase, s3Base string, logger *zap.S
 	return nil
 }
 
-func DeleteArchivedFileFromS3(name, s3Base string, logger *zap.SugaredLogger) error {
+func DeleteArchivedFileFromS3(names []string, s3Base string, logger *zap.SugaredLogger) error {
 	s3, err := s3service.FindDefaultS3()
 	if err != nil {
 		logger.Errorf("Failed to find default s3, err: %s", err)
 		return err
 	}
 
-	tarball := fmt.Sprintf("%s.tar.gz", name)
-	s3Path := filepath.Join(s3.Subfolder, s3Base, tarball)
+	s3PathList := make([]string, 0, len(names))
+	for _, name := range s3PathList {
+		tarball := fmt.Sprintf("%s.tar.gz", name)
+		s3Path := filepath.Join(s3.Subfolder, s3Base, tarball)
+		s3PathList = append(s3PathList, s3Path)
+	}
+
 	forcedPathStyle := true
 	if s3.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
@@ -149,5 +164,5 @@ func DeleteArchivedFileFromS3(name, s3Base string, logger *zap.SugaredLogger) er
 		return err
 	}
 
-	return client.DeleteObjects(s3.Bucket, []string{s3Path})
+	return client.DeleteObjects(s3.Bucket, s3PathList)
 }

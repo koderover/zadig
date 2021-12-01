@@ -821,7 +821,7 @@ func buildDeliveryCharts(chartDataMap map[string]*DeliveryChartData, deliveryVer
 	//tar all chart files and image offline packages, send to s3 store
 	fsTree := os.DirFS(dir)
 	s3Base := configbase.ObjectStorageDeliveryVersionPath(deliveryVersion.ProductName)
-	if err = fsservice.ArchiveAndUploadFilesToSpecifiedS3(fsTree, deliveryVersion.Version, s3Base, nil, args.Options.S3StorageID, logger); err != nil {
+	if err = fsservice.ArchiveAndUploadFilesToSpecifiedS3(fsTree, []string{deliveryVersion.Version}, s3Base, args.Options.S3StorageID, logger); err != nil {
 		logger.Errorf("failed to upload chart package files for project %s, err: %s", deliveryVersion.ProductName, err)
 		err = errors.Wrapf(err, "failed to upload package file")
 		return
