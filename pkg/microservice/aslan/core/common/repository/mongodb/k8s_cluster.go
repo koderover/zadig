@@ -221,9 +221,9 @@ func (c *K8SClusterColl) UpdateConnectState(id string, disconnected bool) error 
 	newState := bson.M{"disconnected": disconnected}
 
 	if disconnected {
-		newState["status"] = config.Disconnected
+		newState["status"] = string(setting.Disconnected)
 	} else {
-		newState["status"] = config.Pending
+		newState["status"] = string(setting.Pending)
 	}
 
 	_, err = c.UpdateMany(context.TODO(), bson.M{"_id": oid}, bson.M{"$set": newState})

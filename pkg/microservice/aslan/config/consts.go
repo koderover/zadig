@@ -140,13 +140,6 @@ const (
 	Image DistributeType = "image"
 )
 
-type K8SClusterStatus string
-
-const (
-	Disconnected K8SClusterStatus = "disconnected"
-	Pending      K8SClusterStatus = "pending"
-)
-
 type NotifyType int
 
 var (
@@ -210,6 +203,6 @@ const (
 )
 
 const (
-	RoleBindingNameEdit = setting.ProductName+"-edit"
-	RoleBindingNameView = setting.ProductName+"-view"
+	RoleBindingNameEdit = setting.ProductName + "-edit"
+	RoleBindingNameView = setting.ProductName + "-view"
 )
