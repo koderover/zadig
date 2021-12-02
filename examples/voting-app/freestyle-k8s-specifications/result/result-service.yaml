@@ -27,5 +27,8 @@ spec:
       paths:
       - path: /
         backend:
-          serviceName: result
-          servicePort: 5001
+          service:
+            name: result
+            port:
+              number: 5001
+        pathType: ImplementationSpecific
