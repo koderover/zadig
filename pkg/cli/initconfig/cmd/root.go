@@ -13,29 +13,36 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package cmd
 
 import (
-	"fmt"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
-	"github.com/koderover/zadig/pkg/shared/client/policy"
-	"github.com/koderover/zadig/pkg/shared/client/user"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-func Healthz() error {
-	if err := checkUserServiceHealth(); err != nil {
-		return fmt.Errorf("checkUserServiceHealth error:%s", err.Error())
-	}
-	if err := checkPolicyServiceHealth(); err != nil {
-		return fmt.Errorf("checkPolicyServiceHealth error:%s", err.Error())
-	}
-	return nil
+var rootCmd = &cobra.Command{
+	Use:   "config",
+	Short: "init config for zadig",
+	Long:  `init system config  for zadig`,
 }
 
-func checkUserServiceHealth() error {
-	return user.New().Healthz()
+// Execute executes the root command.
+func Execute() error {
+	return rootCmd.Execute()
 }
 
-func checkPolicyServiceHealth() error {
-	return policy.NewDefault().Healthz()
+func init() {
+	cobra.OnInitialize(initConfig)
+}
+
+func initConfig() {
+	viper.AutomaticEnv()
+
+	log.Init(&log.Config{
+		Level:    "debug",
+		NoCaller: true,
+	})
 }

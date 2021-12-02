@@ -17,24 +17,9 @@ limitations under the License.
 package main
 
 import (
-	"context"
-	"log"
-	"os/signal"
-	"syscall"
-
 	"github.com/koderover/zadig/pkg/cli/initconfig/cmd"
 )
 
 func main() {
-
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
-	go func() {
-		<-ctx.Done()
-		stop()
-	}()
-
-	if err := cmd.Serve(ctx); err != nil {
-		log.Fatal(err)
-	}
-
+	cmd.Execute()
 }

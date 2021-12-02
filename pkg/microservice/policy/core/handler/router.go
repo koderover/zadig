@@ -89,8 +89,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		policyDefinitions.GET("", GetPolicyRegistrationDefinitions)
 	}
 
-	userSvrHealthz := router.Group("healthz")
+	policySvrHealthz := router.Group("healthz")
 	{
-		userSvrHealthz.GET("", Healthz)
+		policySvrHealthz.GET("", Healthz)
 	}
 }
