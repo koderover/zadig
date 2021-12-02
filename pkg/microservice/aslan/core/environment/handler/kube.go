@@ -55,9 +55,6 @@ func ListAvailableNamespaces(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	clusterID := c.Query("clusterId")
-	if clusterID == setting.LocalClusterID {
-		clusterID = ""
-	}
 	ctx.Resp, ctx.Err = service.ListAvailableNamespaces(clusterID, ctx.Logger)
 }
 

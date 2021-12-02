@@ -489,6 +489,10 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 		job.Spec.Template.Spec.Containers[0].Args = []string{reaperBootingScript}
 	}
 
+	if affinity := addNodeAffinity(clusterID, pipelineTask.ConfigPayload.K8SClusters); affinity != nil {
+		job.Spec.Template.Spec.Affinity = affinity
+	}
+
 	if linkedNs != "" && execNs != "" && pipelineTask.ConfigPayload.CustomDNSSupported {
 		job.Spec.Template.Spec.DNSConfig = &corev1.PodDNSConfig{
 			Searches: []string{
@@ -818,13 +822,12 @@ func addNodeAffinity(clusterID string, K8SClusters []*task.K8SCluster) *corev1.A
 		return nil
 	}
 
-	switch clusterConfig.Strategy {
-	case NormalSchedule:
+	if len(clusterConfig.NodeLabels) == 0 {
 		return nil
+	}
+
+	switch clusterConfig.Strategy {
 	case RequiredSchedule:
-		if len(clusterConfig.NodeLabels) == 0 {
-			return nil
-		}
 		nodeSelectorTerms := make([]corev1.NodeSelectorTerm, 0)
 		for _, nodeLabel := range clusterConfig.NodeLabels {
 			if !strings.Contains(nodeLabel, ":") || len(strings.Split(nodeLabel, ":")) != 2 {
@@ -849,9 +852,35 @@ func addNodeAffinity(clusterID string, K8SClusters []*task.K8SCluster) *corev1.A
 		}
 		return affinity
 	case PreferredSchedule:
+		preferredScheduleTerms := make([]corev1.PreferredSchedulingTerm, 0)
+		for _, nodeLabel := range clusterConfig.NodeLabels {
+			if !strings.Contains(nodeLabel, ":") || len(strings.Split(nodeLabel, ":")) != 2 {
+				continue
+			}
+			matchExpressions := make([]corev1.NodeSelectorRequirement, 0)
+			matchExpressions = append(matchExpressions, corev1.NodeSelectorRequirement{
+				Key:      strings.Split(nodeLabel, ":")[0],
+				Operator: "in",
+				Values:   []string{strings.Split(nodeLabel, ":")[1]},
+			})
+			nodeSelectorTerm := corev1.NodeSelectorTerm{
+				MatchExpressions: matchExpressions,
+			}
+			preferredScheduleTerms = append(preferredScheduleTerms, corev1.PreferredSchedulingTerm{
+				Weight:     10,
+				Preference: nodeSelectorTerm,
+			})
+		}
 
+		affinity := &corev1.Affinity{
+			NodeAffinity: &corev1.NodeAffinity{
+				PreferredDuringSchedulingIgnoredDuringExecution: preferredScheduleTerms,
+			},
+		}
+		return affinity
+	default:
+		return nil
 	}
-	return nil
 }
 
 func findClusterConfig(clusterID string, K8SClusters []*task.K8SCluster) *task.ClusterConfig {
