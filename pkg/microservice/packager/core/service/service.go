@@ -42,10 +42,11 @@ type Packager struct {
 	Ctx *Context
 }
 
-type ServicePackageResult struct {
-	ServiceName string `json:"service_name"`
-	Result      string `json:"result"`
-	ErrorMsg    string `json:"error_msg"`
+type PackageResult struct {
+	ServiceName string       `json:"service_name"`
+	Result      string       `json:"result"`
+	ErrorMsg    string       `json:"error_msg"`
+	ImageData   []*ImageData `json:"image_data"`
 }
 
 func NewPackager() (*Packager, error) {
@@ -105,7 +106,7 @@ func (p *Packager) Exec() error {
 		return err
 	}
 
-	realTimeProgress := make([]*ServicePackageResult, 0)
+	realTimeProgress := make([]*PackageResult, 0)
 
 	for _, image := range p.Ctx.Images {
 		cmds := p.dockerCommands(image)
@@ -119,7 +120,7 @@ func (p *Packager) Exec() error {
 			}
 		}
 
-		result := &ServicePackageResult{
+		result := &PackageResult{
 			ServiceName: image.ServiceName,
 		}
 
@@ -129,6 +130,7 @@ func (p *Packager) Exec() error {
 			log.Infof("[result][fail][%s][%s]", image.ServiceName, err)
 		} else {
 			result.Result = "success"
+			result.ImageData = image.Images
 			log.Infof("[result][success][%s]", image.ServiceName)
 		}
 
