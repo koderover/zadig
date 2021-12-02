@@ -733,13 +733,16 @@ func validateServiceContainer2(namespace, envName, productName, serviceName, con
 	}
 
 	for _, p := range pods {
-		// filter by serviceName because same container name may exist in multi-services
+		// need to filter by serviceName because same container name may exist in multi services
 		if source == setting.SourceFromHelm {
 			annotation := p.Annotations
-			if chartRelease, ok := annotation[setting.HelmReleaseNameAnnotation]; ok {
-				if util.ExtraServiceName(chartRelease, namespace) != serviceName {
-					continue
-				}
+			if len(annotation) == 0 {
+				continue
+			}
+			if chartRelease, ok := annotation[setting.HelmReleaseNameAnnotation]; !ok {
+				continue
+			} else if util.ExtraServiceName(chartRelease, namespace) != serviceName {
+				continue
 			}
 		}
 
