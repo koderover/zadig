@@ -33,15 +33,16 @@ import (
 )
 
 type K8SCluster struct {
-	ID          string                   `json:"id"`
-	Name        string                   `json:"name"`
-	Description string                   `json:"description"`
-	Status      setting.K8SClusterStatus `json:"status"`
-	Production  bool                     `json:"production"`
-	CreatedAt   int64                    `json:"createdAt"`
-	CreatedBy   string                   `json:"createdBy"`
-	Provider    int8                     `json:"provider"`
-	Local       bool                     `json:"local"`
+	ID            string                      `json:"id"`
+	Name          string                      `json:"name"`
+	Description   string                      `json:"description"`
+	Status        setting.K8SClusterStatus    `json:"status"`
+	Production    bool                        `json:"production"`
+	CreatedAt     int64                       `json:"createdAt"`
+	CreatedBy     string                      `json:"createdBy"`
+	Provider      int8                        `json:"provider"`
+	Local         bool                        `json:"local"`
+	ClusterConfig *commonmodels.ClusterConfig `json:"config,omitempty"`
 }
 
 func ListClusters(ids []string, logger *zap.SugaredLogger) ([]*K8SCluster, error) {
@@ -55,15 +56,16 @@ func ListClusters(ids []string, logger *zap.SugaredLogger) ([]*K8SCluster, error
 	var res []*K8SCluster
 	for _, c := range cs {
 		res = append(res, &K8SCluster{
-			ID:          c.ID.Hex(),
-			Name:        c.Name,
-			Description: c.Description,
-			Status:      c.Status,
-			Production:  c.Production,
-			CreatedBy:   c.CreatedBy,
-			CreatedAt:   c.CreatedAt,
-			Provider:    c.Provider,
-			Local:       c.Local,
+			ID:            c.ID.Hex(),
+			Name:          c.Name,
+			Description:   c.Description,
+			Status:        c.Status,
+			Production:    c.Production,
+			CreatedBy:     c.CreatedBy,
+			CreatedAt:     c.CreatedAt,
+			Provider:      c.Provider,
+			Local:         c.Local,
+			ClusterConfig: c.ClusterConfig,
 		})
 	}
 

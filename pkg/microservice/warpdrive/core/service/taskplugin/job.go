@@ -836,7 +836,7 @@ func addNodeAffinity(clusterID string, K8SClusters []*task.K8SCluster) *corev1.A
 			matchExpressions := make([]corev1.NodeSelectorRequirement, 0)
 			matchExpressions = append(matchExpressions, corev1.NodeSelectorRequirement{
 				Key:      strings.Split(nodeLabel, ":")[0],
-				Operator: "in",
+				Operator: corev1.NodeSelectorOpIn,
 				Values:   []string{strings.Split(nodeLabel, ":")[1]},
 			})
 			nodeSelectorTerms = append(nodeSelectorTerms, corev1.NodeSelectorTerm{
@@ -860,7 +860,7 @@ func addNodeAffinity(clusterID string, K8SClusters []*task.K8SCluster) *corev1.A
 			matchExpressions := make([]corev1.NodeSelectorRequirement, 0)
 			matchExpressions = append(matchExpressions, corev1.NodeSelectorRequirement{
 				Key:      strings.Split(nodeLabel, ":")[0],
-				Operator: "in",
+				Operator: corev1.NodeSelectorOpIn,
 				Values:   []string{strings.Split(nodeLabel, ":")[1]},
 			})
 			nodeSelectorTerm := corev1.NodeSelectorTerm{
