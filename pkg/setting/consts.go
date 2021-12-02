@@ -559,3 +559,5 @@ const (
 	Normal       K8SClusterStatus = "normal"
 	Abnormal     K8SClusterStatus = "abnormal"
 )
+
+const LocalClusterID = "0123456789ABCDEF12345678"

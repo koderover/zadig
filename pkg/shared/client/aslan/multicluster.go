@@ -4,22 +4,25 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/koderover/zadig/pkg/setting"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
 type cluster struct {
+	ID     primitive.ObjectID       `json:"id,omitempty"`
 	Name   string                   `json:"name"`
 	Status setting.K8SClusterStatus `json:"status"`
 	Local  bool                     `json:"local"`
 }
 
 func (c *Client) AddMultiCluster() error {
-	timeStamp := time.Now().Format("20060102150405")
+	oid, _ := primitive.ObjectIDFromHex(setting.LocalClusterID)
 	url := "/cluster/clusters"
 	req := cluster{
-		Name:   fmt.Sprintf("%s-%s", "local", timeStamp),
+		ID:     oid,
+		Name:   fmt.Sprintf("%s-%s", "local", time.Now().Format("20060102150405")),
 		Local:  true,
 		Status: setting.Normal,
 	}

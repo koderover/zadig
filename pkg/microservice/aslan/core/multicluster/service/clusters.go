@@ -46,7 +46,6 @@ type K8SCluster struct {
 
 func ListClusters(ids []string, logger *zap.SugaredLogger) ([]*K8SCluster, error) {
 	idSet := sets.NewString(ids...)
-	idSet = idSet.Delete(setting.LocalClusterID)
 	cs, err := commonrepo.NewK8SClusterColl().List(&commonrepo.ClusterListOpts{IDs: idSet.UnsortedList()})
 	if err != nil {
 		logger.Errorf("Failed to list clusters, err: %s", err)
