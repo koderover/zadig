@@ -185,6 +185,7 @@ func (c *K8SClusterColl) UpdateMutableFields(cluster *models.K8SCluster) error {
 			"tags":        cluster.Tags,
 			"namespace":   cluster.Namespace,
 			"production":  cluster.Production,
+			"config":      cluster.ClusterConfig,
 		}},
 	)
 
