@@ -50,6 +50,7 @@ type Product struct {
 	RecycleDay   int                           `bson:"recycle_day"               json:"recycle_day"`
 	Source       string                        `bson:"source"                    json:"source"`
 	IsOpenSource bool                          `bson:"is_opensource"             json:"is_opensource"`
+	RegistryId   string                        `bson:"registry_id"               json:"registry_id"`
 	// TODO: temp flag
 	IsForkedProduct bool `bson:"-" json:"-"`
 }

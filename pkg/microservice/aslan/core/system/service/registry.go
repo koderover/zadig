@@ -91,7 +91,7 @@ func CreateRegistryNamespace(username string, args *commonmodels.RegistryNamespa
 					log.Errorf("[updateRegistry] Failed to get kubecli for namespace: %s", prod.Namespace)
 					return
 				}
-				err = commonservice.EnsureDefaultRegistrySecret(prod.Namespace, kubeClient, log)
+				err = commonservice.EnsureDefaultRegistrySecret(prod.Namespace, args.ID.String(), kubeClient, log)
 				if err != nil {
 					log.Errorf("[updateRegistry] Failed to update registry secret for namespace: %s, the error is: %+v", prod.Namespace, err)
 				}
@@ -166,7 +166,7 @@ func UpdateRegistryNamespace(username, id string, args *commonmodels.RegistryNam
 				log.Errorf("[updateRegistry] Failed to get kubecli for namespace: %s", prod.Namespace)
 				return
 			}
-			err = commonservice.EnsureDefaultRegistrySecret(prod.Namespace, kubeClient, log)
+			err = commonservice.EnsureDefaultRegistrySecret(prod.Namespace, id, kubeClient, log)
 			if err != nil {
 				log.Errorf("[updateRegistry] Failed to update registry secret for namespace: %s, the error is: %+v", prod.Namespace, err)
 			}

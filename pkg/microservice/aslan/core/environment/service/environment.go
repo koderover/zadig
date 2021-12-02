@@ -547,7 +547,7 @@ func UpdateProductV2(envName, productName, user, requestID string, force bool, k
 		}
 	}
 
-	err = ensureKubeEnv(exitedProd.Namespace, kubeClient, log)
+	err = ensureKubeEnv(exitedProd.Namespace, exitedProd.RegistryId, kubeClient, log)
 
 	if err != nil {
 		log.Errorf("[%s][P:%s] service.UpdateProductV2 create kubeEnv error: %v", envName, productName, err)
@@ -1844,7 +1844,8 @@ func waitResourceRunning(
 	})
 }
 
-func preCreateProduct(envName string, args *commonmodels.Product, kubeClient client.Client, log *zap.SugaredLogger) error {
+func preCreateProduct(envName string, args *commonmodels.Product, kubeClient client.Client,
+	log *zap.SugaredLogger) error {
 	var (
 		productTemplateName = args.ProductName
 		renderSetName       = commonservice.GetProductEnvNamespace(envName, args.ProductName, args.Namespace)
@@ -1925,7 +1926,7 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 
 	args.Render = tmpRenderInfo
 	if preCreateNSAndSecret(productTmpl.ProductFeature) {
-		return ensureKubeEnv(args.Namespace, kubeClient, log)
+		return ensureKubeEnv(args.Namespace, args.ID.String(), kubeClient, log)
 	}
 	return nil
 }
@@ -2037,7 +2038,7 @@ func applySystemImagePullSecrets(podSpec *corev1.PodSpec) {
 		})
 }
 
-func ensureKubeEnv(namespace string, kubeClient client.Client, log *zap.SugaredLogger) error {
+func ensureKubeEnv(namespace string, registryId string, kubeClient client.Client, log *zap.SugaredLogger) error {
 	err := kube.CreateNamespace(namespace, kubeClient)
 	if err != nil {
 		log.Errorf("[%s] get or create namespace error: %v", namespace, err)
@@ -2045,7 +2046,7 @@ func ensureKubeEnv(namespace string, kubeClient client.Client, log *zap.SugaredL
 	}
 
 	// 创建默认的镜像仓库secret
-	if err := commonservice.EnsureDefaultRegistrySecret(namespace, kubeClient, log); err != nil {
+	if err := commonservice.EnsureDefaultRegistrySecret(namespace, registryId, kubeClient, log); err != nil {
 		log.Errorf("[%s] get or create namespace error: %v", namespace, err)
 		return e.ErrCreateSecret.AddDesc(e.CreateDefaultRegistryErrMsg)
 	}
