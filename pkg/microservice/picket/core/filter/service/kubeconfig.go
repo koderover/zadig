@@ -18,7 +18,7 @@ func GetKubeConfig(header http.Header, qs url.Values, logger *zap.SugaredLogger)
 		endpoint: "/api/aslan/environment/environments",
 	}}
 	editEnvRules := []*rule{{
-		method:   "POST",
+		method:   "PUT",
 		endpoint: "/api/aslan/environment/environments/?*",
 	}, {
 		method:   "POST",
