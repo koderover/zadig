@@ -115,6 +115,7 @@ type ProductResp struct {
 	ClusterName string                   `json:"cluster_name,omitempty"`
 	RecycleDay  int                      `json:"recycle_day"`
 	IsProd      bool                     `json:"is_prod"`
+	IsLocal     bool                     `json:"is_local"`
 	Source      string                   `json:"source"`
 }
 

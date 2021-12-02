@@ -207,6 +207,7 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 		}
 		prodResp.IsProd = cluster.Production
 		prodResp.ClusterName = cluster.Name
+		prodResp.IsLocal = cluster.Local
 
 		if !clusterService.ClusterConnected(prod.ClusterID) {
 			prodResp.Status = setting.ClusterDisconnected
