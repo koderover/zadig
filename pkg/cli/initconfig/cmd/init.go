@@ -60,12 +60,16 @@ var initCmd = &cobra.Command{
 	Long:  `init system config.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		for {
-			if err := run(); err != nil {
-				log.Fatal(err)
-			} else {
+			time.Sleep(10 * time.Second)
+			if err := Healthz(); err != nil {
+				log.Error(err)
+				continue
+			}
+			if err := initSystemConfig(); err != nil {
+				log.Error(err)
 				break
 			}
-			time.Sleep(10 * time.Second)
+			log.Info("zadig init success")
 		}
 	},
 }
