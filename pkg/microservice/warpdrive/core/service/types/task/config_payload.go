@@ -19,7 +19,8 @@ package task
 import (
 	"fmt"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/setting"
+
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -154,12 +155,12 @@ type PrivateKey struct {
 }
 
 type K8SCluster struct {
-	ID            primitive.ObjectID      `json:"id,omitempty"                bson:"_id,omitempty"`
-	Name          string                  `json:"name"                        bson:"name"`
-	Status        config.K8SClusterStatus `json:"status"                      bson:"status"`
-	ClusterConfig *ClusterConfig          `json:"config,omitempty"            bson:"config,omitempty"`
-	Production    bool                    `json:"production"                  bson:"production"`
-	Disconnected  bool                    `json:"-"                           bson:"disconnected"`
+	ID            primitive.ObjectID       `json:"id,omitempty"                bson:"_id,omitempty"`
+	Name          string                   `json:"name"                        bson:"name"`
+	Status        setting.K8SClusterStatus `json:"status"                      bson:"status"`
+	ClusterConfig *ClusterConfig           `json:"config,omitempty"            bson:"config,omitempty"`
+	Production    bool                     `json:"production"                  bson:"production"`
+	Disconnected  bool                     `json:"-"                           bson:"disconnected"`
 }
 
 type ClusterConfig struct {
