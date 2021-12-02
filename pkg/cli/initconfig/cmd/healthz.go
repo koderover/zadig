@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package cmd
 
 import (
@@ -24,10 +25,10 @@ import (
 
 func Healthz() error {
 	if err := checkUserServiceHealth(); err != nil {
-		return fmt.Errorf("checkUserServiceHealth error:%s", err.Error())
+		return fmt.Errorf("checkUserServiceHealth error:%s", err)
 	}
 	if err := checkPolicyServiceHealth(); err != nil {
-		return fmt.Errorf("checkPolicyServiceHealth error:%s", err.Error())
+		return fmt.Errorf("checkPolicyServiceHealth error:%s", err)
 	}
 	return nil
 }
