@@ -377,7 +377,7 @@ func (r *Reaper) RunPMDeployScripts() error {
 func (r *Reaper) downloadArtifactFile() error {
 	var err error
 	var store *s3.S3
-	if store, err = s3.NewS3StorageFromEncryptedURI(r.Ctx.ArtifactInfo.URL); err != nil {
+	if store, err = s3.NewS3StorageFromEncryptedURI(r.Ctx.ArtifactInfo.URL, r.Ctx.AesKey); err != nil {
 		log.Errorf("Archive failed to create s3 storage %s", r.Ctx.ArtifactInfo.URL)
 		return err
 	}

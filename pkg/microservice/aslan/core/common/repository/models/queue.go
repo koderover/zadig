@@ -126,6 +126,7 @@ type ConfigPayload struct {
 	CustomDNSSupported bool `json:"custom_dns_supported"`
 	HubServerAddr      string
 	DeployClusterID    string
+	AesKey             string
 
 	RepoConfigs map[string]*RegistryNamespace
 

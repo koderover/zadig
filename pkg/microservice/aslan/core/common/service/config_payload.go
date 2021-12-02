@@ -22,6 +22,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
+	"github.com/koderover/zadig/pkg/tool/crypto"
 )
 
 func GetConfigPayload(codeHostID int) *models.ConfigPayload {
@@ -64,6 +65,7 @@ func GetConfigPayload(codeHostID int) *models.ConfigPayload {
 		JenkinsBuildConfig: models.JenkinsBuildConfig{
 			JenkinsBuildImage: config.JenkinsImage(),
 		},
+		AesKey: crypto.GetAesKey(),
 	}
 
 	githubApps, _ := mongodb.NewGithubAppColl().Find()
