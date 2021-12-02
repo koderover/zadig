@@ -113,10 +113,6 @@ func ListPodEvents(envName, productName, podName string, log *zap.SugaredLogger)
 // ListAvailableNamespaces lists available namespaces created by non-koderover
 func ListAvailableNamespaces(clusterID string, log *zap.SugaredLogger) ([]*resource.Namespace, error) {
 	resp := make([]*resource.Namespace, 0)
-	isLocalCluster := isLocalCluster(clusterID, log)
-	if isLocalCluster {
-		clusterID = ""
-	}
 	kubeClient, err := multicluster.GetKubeClient(config.HubServerAddress(), clusterID)
 	if err != nil {
 		log.Errorf("ListNamespaces clusterID:%s err:%v", clusterID, err)
@@ -234,10 +230,6 @@ func getModifiedServiceFromObjectMeta(om metav1.Object) *serviceInfo {
 
 func ListAvailableNodes(clusterID string, log *zap.SugaredLogger) (*resource.NodeResp, error) {
 	resp := new(resource.NodeResp)
-	isLocalCluster := isLocalCluster(clusterID, log)
-	if isLocalCluster {
-		clusterID = ""
-	}
 	kubeClient, err := multicluster.GetKubeClient(config.HubServerAddress(), clusterID)
 	if err != nil {
 		log.Errorf("ListAvailableNodes clusterID:%s err:%s", clusterID, err)
@@ -287,18 +279,4 @@ func nodeLabel(node *corev1.Node) []string {
 		labels = append(labels, fmt.Sprintf("%s:%s", key, value))
 	}
 	return labels
-}
-
-func isLocalCluster(clusterID string, log *zap.SugaredLogger) bool {
-	clusters, err := commonrepo.NewK8SClusterColl().List(nil)
-	if err != nil {
-		log.Errorf("list k8s cluster err:%s", err)
-		return false
-	}
-	for _, cluster := range clusters {
-		if clusterID == cluster.ID.Hex() && cluster.Local {
-			return true
-		}
-	}
-	return false
 }

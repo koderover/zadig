@@ -28,11 +28,12 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/koderover/zadig/pkg/setting"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 )
 
 func GetKubeClient(hubServerAddr, clusterID string) (client.Client, error) {
-	if clusterID == "" {
+	if clusterID == "" || clusterID == setting.LocalClusterID {
 		return krkubeclient.Client(), nil
 	}
 
