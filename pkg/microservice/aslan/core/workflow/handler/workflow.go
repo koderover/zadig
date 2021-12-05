@@ -109,7 +109,7 @@ func CreateArtifactTask(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = workflow.CreateArtifactPackageTask(args, ctx.Logger)
+	_, ctx.Err = workflow.CreateArtifactPackageTask(args, ctx.UserName, ctx.Logger)
 }
 
 // UpdateWorkflow  update a workflow

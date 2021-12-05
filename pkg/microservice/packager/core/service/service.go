@@ -101,6 +101,7 @@ func (p *Packager) Exec() error {
 	allRegistries := make([]*DockerRegistry, 0)
 	allRegistries = append(allRegistries, p.Ctx.SourceRegistries...)
 	allRegistries = append(allRegistries, p.Ctx.TargetRegistries...)
+	log.Infof("all registry count %v", len(allRegistries))
 	err := writeDockerConfig(allRegistries)
 	if err != nil {
 		return err
@@ -209,6 +210,7 @@ func (p *Packager) dockerCommands(imageByService *ImagesByService) []*exec.Cmd {
 				targetImage := buildTargetImage(image.ImageName, image.ImageTag, registry.Host, registry.Namespace)
 				cmds = append(cmds, dockerTag(image.ImageUrl, targetImage))
 				cmds = append(cmds, dockerPush(targetImage))
+				image.ImageUrl = targetImage
 			}
 		}
 	}

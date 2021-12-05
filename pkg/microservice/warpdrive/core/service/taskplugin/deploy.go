@@ -366,15 +366,15 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		)
 
 		rcsList := make([]ResourceComponentSet, 0)
-		deployments, err := getter.ListDeployments(p.Task.Namespace, nil, p.kubeClient)
-		if err != nil {
-			p.Log.Errorf("failed to list deployments in namespace %s, productName %s, err %s", p.Task.Namespace, p.Task.ProductName, err)
+		deployments, errListDeploy := getter.ListDeployments(p.Task.Namespace, nil, p.kubeClient)
+		if errListDeploy != nil {
+			p.Log.Errorf("failed to list deployments in namespace %s, productName %s, err %s", p.Task.Namespace, p.Task.ProductName, errListDeploy)
 		} else {
 			rcsList = append(rcsList, RcsListFromDeployments(deployments)...)
 		}
-		statefulSets, _ := getter.ListStatefulSets(p.Task.Namespace, nil, p.kubeClient)
-		if err != nil {
-			p.Log.Errorf("failed to list statefulsets in namespace %s, productName %s, err %s", p.Task.Namespace, p.Task.ProductName, err)
+		statefulSets, errListSts := getter.ListStatefulSets(p.Task.Namespace, nil, p.kubeClient)
+		if errListSts != nil {
+			p.Log.Errorf("failed to list statefulsets in namespace %s, productName %s, err %s", p.Task.Namespace, p.Task.ProductName, errListSts)
 		} else {
 			rcsList = append(rcsList, RcsListFromStatefulSets(statefulSets)...)
 		}

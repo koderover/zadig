@@ -25,16 +25,16 @@ import (
 func ListReleases(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	envName := c.Query("envName")
-	productName := c.Param("productName")
-	ctx.Resp, ctx.Err = service.ListReleases(productName, envName, ctx.Logger)
+	envName := c.Param("name")
+	projectName := c.Query("projectName")
+	ctx.Resp, ctx.Err = service.ListReleases(projectName, envName, ctx.Logger)
 }
 
 func GetChartInfos(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	envName := c.Query("envName")
+	envName := c.Param("name")
 	servicesName := c.Query("serviceName")
-	productName := c.Param("productName")
-	ctx.Resp, ctx.Err = service.GetChartInfos(productName, envName, servicesName, ctx.Logger)
+	projectName := c.Query("projectName")
+	ctx.Resp, ctx.Err = service.GetChartInfos(projectName, envName, servicesName, ctx.Logger)
 }
