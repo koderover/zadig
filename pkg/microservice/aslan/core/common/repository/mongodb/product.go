@@ -33,8 +33,9 @@ import (
 )
 
 type ProductFindOptions struct {
-	Name    string
-	EnvName string
+	Name      string
+	EnvName   string
+	Namespace string
 }
 
 // ClusterId is a primitive.ObjectID{}.Hex()
@@ -129,6 +130,9 @@ func (c *ProductColl) Find(opt *ProductFindOptions) (*models.Product, error) {
 	}
 	if opt.EnvName != "" {
 		query["env_name"] = opt.EnvName
+	}
+	if opt.Namespace != "" {
+		query["namespace"] = opt.Namespace
 	}
 
 	err := c.FindOne(context.TODO(), query).Decode(res)
@@ -235,6 +239,16 @@ func (c *ProductColl) UpdateErrors(owner, productName, errorMsg string) error {
 	query := bson.M{"env_name": owner, "product_name": productName}
 	change := bson.M{"$set": bson.M{
 		"error": errorMsg,
+	}}
+	_, err := c.UpdateOne(context.TODO(), query, change)
+
+	return err
+}
+
+func (c *ProductColl) UpdateRegistry(namespace, registryId string) error {
+	query := bson.M{"namespace": namespace}
+	change := bson.M{"$set": bson.M{
+		"registry_id": registryId,
 	}}
 	_, err := c.UpdateOne(context.TODO(), query, change)
 

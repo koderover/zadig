@@ -61,6 +61,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		registry.GET("", ListRegistries)
 		// 获取默认的镜像仓库配置，用于kodespace CLI调用
 		registry.GET("/namespaces/default", GetDefaultRegistryNamespace)
+		registry.GET("/namespaces/:id", GetRegistryNamespace)
 		registry.GET("/namespaces", ListRegistryNamespaces)
 		registry.POST("/namespaces", gin2.UpdateOperationLogStatus, CreateRegistryNamespace)
 		registry.PUT("/namespaces/:id", gin2.UpdateOperationLogStatus, UpdateRegistryNamespace)

@@ -60,6 +60,24 @@ func GetDefaultRegistryNamespace(c *gin.Context) {
 	}
 }
 
+func GetRegistryNamespace(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	reg, err := commonservice.GetRegistryNamespace(c.Param("id"), ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Resp = &Registry{
+		ID:        reg.ID.Hex(),
+		RegAddr:   reg.RegAddr,
+		IsDefault: reg.IsDefault,
+		Namespace: reg.Namespace,
+	}
+}
+
 func ListRegistryNamespaces(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

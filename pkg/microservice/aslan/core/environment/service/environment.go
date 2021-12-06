@@ -522,6 +522,31 @@ func UpdateProduct(existedProd, updateProd *commonmodels.Product, renderSet *com
 	return nil
 }
 
+func UpdateProductRegistry(namespace, registryID string, log *zap.SugaredLogger) (err error) {
+	opt := &commonrepo.ProductFindOptions{Namespace: namespace}
+	exitedProd, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		log.Errorf("UpdateProductRegistry find product by namespace:%s,error: %v", namespace, err)
+		return e.ErrUpdateEnv.AddDesc(e.EnvNotFoundErrMsg)
+	}
+	err = commonrepo.NewProductColl().UpdateRegistry(namespace, registryID)
+	if err != nil {
+		log.Errorf("UpdateProductRegistry UpdateRegistry by namespace:%s registryID:%s error: %v", namespace, registryID, err)
+		return e.ErrUpdateEnv.AddErr(err)
+	}
+	kubeClient, err := kube.GetKubeClient(exitedProd.ClusterID)
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(err)
+	}
+	err = ensureKubeEnv(exitedProd.Namespace, exitedProd.RegistryId, kubeClient, log)
+
+	if err != nil {
+		log.Errorf("UpdateProductRegistry ensureKubeEnv by namespace:%s,error: %v", namespace, err)
+		return err
+	}
+	return nil
+}
+
 func UpdateProductV2(envName, productName, user, requestID string, force bool, kvs []*template.RenderKV, log *zap.SugaredLogger) (err error) {
 	// 根据产品名称和产品创建者到数据库中查找已有产品记录
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
@@ -641,7 +666,7 @@ func UpdateProductV2(envName, productName, user, requestID string, force bool, k
 	return nil
 }
 
-func CreateHelmProduct(productName, userName, requestID string, args []*CreateHelmProductArg, log *zap.SugaredLogger) error {
+func CreateHelmProduct(productName, userName, requestID, registryID string, args []*CreateHelmProductArg, log *zap.SugaredLogger) error {
 	templateProduct, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil || templateProduct == nil {
 		if err != nil {
@@ -698,7 +723,7 @@ func CreateHelmProduct(productName, userName, requestID string, args []*CreateHe
 
 	errList := new(multierror.Error)
 	for _, arg := range args {
-		err = createSingleHelmProduct(templateProduct, serviceGroup, requestID, userName, arg, log)
+		err = createSingleHelmProduct(templateProduct, serviceGroup, requestID, userName, registryID, arg, log)
 		if err != nil {
 			errList = multierror.Append(errList, err)
 		}
@@ -706,7 +731,7 @@ func CreateHelmProduct(productName, userName, requestID string, args []*CreateHe
 	return errList.ErrorOrNil()
 }
 
-func createSingleHelmProduct(templateProduct *template.Product, serviceGroup [][]*commonmodels.ProductService, requestID, userName string, arg *CreateHelmProductArg, log *zap.SugaredLogger) error {
+func createSingleHelmProduct(templateProduct *template.Product, serviceGroup [][]*commonmodels.ProductService, requestID, userName, registryID string, arg *CreateHelmProductArg, log *zap.SugaredLogger) error {
 	productObj := &commonmodels.Product{
 		ProductName:     templateProduct.ProductName,
 		Revision:        1,
@@ -721,6 +746,7 @@ func createSingleHelmProduct(templateProduct *template.Product, serviceGroup [][
 		IsOpenSource:    templateProduct.IsOpensource,
 		ChartInfos:      templateProduct.ChartInfos,
 		IsForkedProduct: false,
+		RegistryId:      registryID,
 	}
 
 	customChartValueMap := make(map[string]*commonservice.RenderChartArg)
@@ -927,9 +953,8 @@ func checkOverrideValuesChange(source *template.RenderChart, args *commonservice
 }
 
 func UpdateHelmProductRenderset(productName, envName, userName, requestID string, args *EnvRendersetArg, log *zap.SugaredLogger) error {
-	renderSetName := commonservice.GetProductEnvNamespace(envName, productName, "")
-
-	opt := &commonrepo.RenderSetFindOption{Name: renderSetName}
+	product := commonservice.GetProductEnv(envName, productName, "")
+	opt := &commonrepo.RenderSetFindOption{Name: product.Namespace}
 	productRenderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
 	if err != nil || productRenderset == nil {
 		if err != nil {
@@ -969,7 +994,16 @@ func UpdateHelmProductRenderset(productName, envName, userName, requestID string
 		updatedRcList = append(updatedRcList, updatedRc)
 	}
 
-	return UpdateHelmProductVariable(productName, envName, userName, requestID, updatedRcList, productRenderset, log)
+	err = UpdateHelmProductVariable(productName, envName, userName, requestID, updatedRcList, productRenderset, log)
+	if err != nil {
+		return err
+	}
+	kubeClient, err := kube.GetKubeClient(product.ClusterID)
+	if err != nil {
+		log.Errorf("UpdateHelmProductRenderset GetKubeClient error, error msg:%s", err)
+		return err
+	}
+	return ensureKubeEnv(product.Namespace, product.RegistryId, kubeClient, log)
 }
 
 func UpdateHelmProductVariable(productName, envName, username, requestID string, updatedRcs []*template.RenderChart, renderset *commonmodels.RenderSet, log *zap.SugaredLogger) error {

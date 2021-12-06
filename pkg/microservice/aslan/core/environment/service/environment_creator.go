@@ -41,6 +41,7 @@ type CreateProductParam struct {
 	ProductName string
 	EnvType     string
 	log         *zap.SugaredLogger
+	RegistryID  string
 }
 
 type AutoCreator struct {
@@ -84,6 +85,7 @@ func (autoCreator *AutoCreator) Create(envName string) (string, error) {
 	productObject.Namespace = commonservice.GetProductEnvNamespace(envName, productName, "")
 	productObject.UpdateBy = autoCreator.Param.UserName
 	productObject.EnvName = envName
+	productObject.RegistryId = autoCreator.Param.RegistryID
 	if autoCreator.Param.EnvType == setting.HelmDeployType {
 		productObject.Source = setting.SourceFromHelm
 	}
