@@ -32,9 +32,9 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
-	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/containerlog"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
 	"github.com/koderover/zadig/pkg/tool/kube/watcher"
 )
 
@@ -53,6 +53,7 @@ type GetContainerOptions struct {
 	TestName     string
 	EnvName      string
 	ProductName  string
+	ClusterID    string
 }
 
 func ContainerLogStream(ctx context.Context, streamChan chan interface{}, envName, productName, podName, containerName string, follow bool, tailLines int64, log *zap.SugaredLogger) {
@@ -127,6 +128,20 @@ func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, op
 				options.TaskID = taskObj.TaskID
 			}
 		}
+	} else if options.ProductName != "" {
+		build, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{
+			ProductName: options.ProductName,
+			Targets:     []string{options.ServiceName},
+		})
+		if err != nil {
+			// Maybe this service is a shared service
+			build, err = commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{
+				Targets: []string{options.ServiceName},
+			})
+		}
+		if build != nil && build.PreBuild != nil {
+			options.ClusterID = build.PreBuild.ClusterID
+		}
 	}
 
 	if options.SubTask == "" {
@@ -137,9 +152,14 @@ func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, op
 }
 
 func TestJobContainerLogStream(ctx context.Context, streamChan chan interface{}, options *GetContainerOptions, log *zap.SugaredLogger) {
-
 	options.SubTask = string(config.TaskTestingV2)
 	selector := getPipelineSelector(options)
+	// get cluster ID
+	testName := strings.Replace(options.ServiceName, "-job", "", 1)
+	testing, _ := commonrepo.NewTestingColl().Find(testName, "")
+	if testing != nil && testing.PreTest != nil {
+		options.ClusterID = testing.PreTest.ClusterID
+	}
 
 	waitAndGetLog(ctx, streamChan, selector, options, log)
 }
@@ -149,12 +169,22 @@ func waitAndGetLog(ctx context.Context, streamChan chan interface{}, selector la
 	defer cancel()
 
 	log.Debugf("Waiting until pod is running before establishing the stream.")
-	err := watcher.WaitUntilPodRunning(PodCtx, options.Namespace, selector, krkubeclient.Clientset())
+	clientSet, err := multicluster.GetClientset(config.HubServerAddress(), options.ClusterID)
 	if err != nil {
-		log.Errorf("GetContainerLogs, wait pod running error: %+v", err)
+		log.Errorf("GetContainerLogs, get client set error: %s", err)
 		return
 	}
-	pods, err := getter.ListPods(options.Namespace, selector, krkubeclient.Client())
+	err = watcher.WaitUntilPodRunning(PodCtx, options.Namespace, selector, clientSet)
+	if err != nil {
+		log.Errorf("GetContainerLogs, wait pod running error: %s", err)
+		return
+	}
+	kubeClient, err := multicluster.GetKubeClient(config.HubServerAddress(), options.ClusterID)
+	if err != nil {
+		log.Errorf("GetContainerLogs, get kube client error: %s", err)
+		return
+	}
+	pods, err := getter.ListPods(options.Namespace, selector, kubeClient)
 	if err != nil {
 		log.Errorf("GetContainerLogs, get pod error: %+v", err)
 		return
@@ -169,7 +199,7 @@ func waitAndGetLog(ctx context.Context, streamChan chan interface{}, selector la
 			pods[0].Name, options.SubTask,
 			true,
 			options.TailLines,
-			krkubeclient.Clientset(),
+			clientSet,
 			log,
 		)
 	}
