@@ -29,7 +29,9 @@ import (
 
 	"github.com/google/go-github/v35/github"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	configbase "github.com/koderover/zadig/pkg/config"
@@ -716,6 +718,57 @@ func (c *ImageIllegal) Error() string {
 	return ""
 }
 
+func getServiceNameFromDeploy(namespace, resName string, kubeClient client.Client) (string, error) {
+	res := &unstructured.Unstructured{}
+	res.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "apps",
+		Version: "v1",
+		Kind:    setting.ReplicaSet,
+	})
+	found, err := getter.GetResourceInCache(namespace, resName, res, kubeClient)
+	if err != nil || !found {
+		return "", err
+	}
+	for _, or := range res.GetOwnerReferences() {
+		if or.Kind == setting.Deployment {
+			return commonservice.GetHelmServiceName(namespace, or.Kind, or.Name, kubeClient)
+		}
+	}
+	return "", nil
+}
+
+func validateHelmServiceByReplica(namespace, serviceName, resName string, kubeClient client.Client) (bool, error) {
+	res := &unstructured.Unstructured{}
+	res.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "apps",
+		Version: "v1",
+		Kind:    setting.ReplicaSet,
+	})
+	found, err := getter.GetResourceInCache(namespace, resName, res, kubeClient)
+	if err != nil || !found {
+		return false, err
+	}
+	extractedServiceName := ""
+	for _, or := range res.GetOwnerReferences() {
+		if or.Kind == setting.Deployment {
+			extractedServiceName, err = commonservice.GetHelmServiceName(namespace, or.Kind, or.Name, kubeClient)
+			if err != nil {
+				return false, err
+			}
+			break
+		}
+	}
+	return extractedServiceName == serviceName, nil
+}
+
+func validateHelmServiceBySts(namespace, serviceName, resName string, kubeClient client.Client) (bool, error) {
+	extractedServiceName, err := commonservice.GetHelmServiceName(namespace, setting.StatefulSet, resName, kubeClient)
+	if err != nil {
+		return false, err
+	}
+	return extractedServiceName == serviceName, nil
+}
+
 // validateServiceContainer2 validate container with raw namespace like dev-product
 func validateServiceContainer2(namespace, envName, productName, serviceName, container, source string, kubeClient client.Client) (string, error) {
 	var selector labels.Selector
@@ -733,22 +786,27 @@ func validateServiceContainer2(namespace, envName, productName, serviceName, con
 	}
 
 	for _, p := range pods {
-		// need to filter by serviceName because same container name may exist in multi services
-		if source == setting.SourceFromHelm {
-			annotation := p.Annotations
-			if len(annotation) == 0 {
-				continue
-			}
-			if chartRelease, ok := annotation[setting.HelmReleaseNameAnnotation]; !ok {
-				continue
-			} else if util.ExtraServiceName(chartRelease, namespace) != serviceName {
-				continue
-			}
-		}
-
 		pod := wrapper.Pod(p).Resource()
 		for _, c := range pod.ContainerStatuses {
 			if c.Name == container || strings.Contains(c.Image, container) {
+				// filter by serviceName because same container name may exist in multi services
+				if source == setting.SourceFromHelm {
+					matched := false
+					for _, or := range p.OwnerReferences {
+						if or.Kind == setting.ReplicaSet {
+							matched, err = validateHelmServiceByReplica(namespace, serviceName, or.Name, kubeClient)
+						} else if or.Kind == setting.StatefulSet {
+							matched, err = validateHelmServiceBySts(namespace, serviceName, or.Name, kubeClient)
+						}
+						if err != nil {
+							return "", err
+						}
+						break
+					}
+					if !matched {
+						continue
+					}
+				}
 				return c.Image, nil
 			}
 		}
