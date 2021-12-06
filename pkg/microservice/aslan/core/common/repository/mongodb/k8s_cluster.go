@@ -30,6 +30,10 @@ import (
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
+type ClusterListOpts struct {
+	IDs []string
+}
+
 type K8SClusterColl struct {
 	*mongo.Collection
 
@@ -108,6 +112,39 @@ func (c *K8SClusterColl) HasDuplicateName(id, name string) (bool, error) {
 	return count > 0, nil
 }
 
+func (c *K8SClusterColl) List(opts *ClusterListOpts) ([]*models.K8SCluster, error) {
+	var clusters []*models.K8SCluster
+
+	if opts == nil {
+		opts = &ClusterListOpts{}
+	}
+
+	query := bson.M{}
+	if len(opts.IDs) > 0 {
+		var ids []primitive.ObjectID
+		for _, id := range opts.IDs {
+			oid, err := primitive.ObjectIDFromHex(id)
+			if err != nil {
+				return nil, err
+			}
+			ids = append(ids, oid)
+		}
+
+		query["_id"] = bson.M{"$in": ids}
+	}
+
+	cursor, err := c.Collection.Find(context.TODO(), query)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &clusters)
+	if err != nil {
+		return nil, err
+	}
+
+	return clusters, err
+}
+
 func (c *K8SClusterColl) Find(clusterType string) ([]*models.K8SCluster, error) {
 	var clusters []*models.K8SCluster
 
@@ -184,9 +221,9 @@ func (c *K8SClusterColl) UpdateConnectState(id string, disconnected bool) error 
 	newState := bson.M{"disconnected": disconnected}
 
 	if disconnected {
-		newState["status"] = config.Disconnected
+		newState["status"] = string(setting.Disconnected)
 	} else {
-		newState["status"] = config.Pending
+		newState["status"] = string(setting.Pending)
 	}
 
 	_, err = c.UpdateMany(context.TODO(), bson.M{"_id": oid}, bson.M{"$set": newState})

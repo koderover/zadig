@@ -67,7 +67,7 @@ func Start(ctx context.Context) {
 
 	go StartControllers(ctx.Done())
 
-	bundle.RefreshOPABundle()
+	bundle.GenerateOPABundle()
 }
 
 func Stop(ctx context.Context) {
@@ -107,4 +107,8 @@ func initDatabase(ctx context.Context) {
 type indexer interface {
 	EnsureIndex(ctx context.Context) error
 	GetCollectionName() string
+}
+
+func Healthz(ctx context.Context) error {
+	return mongotool.Ping(ctx)
 }

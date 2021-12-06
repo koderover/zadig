@@ -1049,6 +1049,22 @@ func resetImageTaskToSubTask(env commonmodels.DeployEnv, prodEnv *commonmodels.P
 		deployTask.ServiceName = envList[0]
 		deployTask.ContainerName = envList[1]
 		return deployTask.ToSubTask()
+	case setting.HelmDeployType:
+		deployTask := task.Deploy{TaskType: config.TaskResetImage, Enabled: true}
+		deployTask.Namespace = prodEnv.Namespace
+		deployTask.ProductName = prodEnv.ProductName
+		deployTask.SkipWaiting = true
+		deployTask.EnvName = prodEnv.EnvName
+		envList := strings.Split(env.Env, "/")
+		if len(envList) != 2 {
+			err := fmt.Errorf("[%s]split target env error", env.Env)
+			log.Error(err)
+			return nil, err
+		}
+		deployTask.ServiceName = envList[0]
+		deployTask.ContainerName = envList[1]
+		deployTask.ServiceType = setting.HelmDeployType
+		return deployTask.ToSubTask()
 	default:
 		return nil, nil
 	}
@@ -1222,6 +1238,7 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *task.Task, log *
 				}
 			}
 			testTask.ResReq = testModule.PreTest.ResReq
+			testTask.ResReqSpec = testModule.PreTest.ResReqSpec
 		}
 		// 设置 build 安装脚本
 		testTask.InstallCtx, err = buildInstallCtx(testTask.InstallItems)
@@ -1556,6 +1573,7 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 			BuildOS:      module.PreBuild.BuildOS,
 			ImageFrom:    module.PreBuild.ImageFrom,
 			ResReq:       module.PreBuild.ResReq,
+			ResReqSpec:   module.PreBuild.ResReqSpec,
 			Timeout:      module.Timeout,
 			Registries:   registries,
 			ProductName:  args.ProductName,

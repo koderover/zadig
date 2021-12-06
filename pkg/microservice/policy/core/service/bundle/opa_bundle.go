@@ -33,11 +33,13 @@ const (
 	rolesPath        = "roles/data.json"
 	rolebindingsPath = "bindings/data.json"
 	exemptionsPath   = "exemptions/data.json"
+	resourcesPath    = "resources/data.json"
 
 	policyRoot       = "rbac"
 	rolesRoot        = "roles"
 	rolebindingsRoot = "bindings"
 	exemptionsRoot   = "exemptions"
+	resourcesRoot    = "resources"
 )
 
 type expressionOperator string
@@ -80,13 +82,42 @@ type rule struct {
 	Endpoint         string       `json:"endpoint"`
 	ResourceType     string       `json:"resourceType,omitempty"`
 	IDRegex          string       `json:"idRegex,omitempty"`
-	MatchAttributes  []attribute  `json:"matchAttributes,omitempty"`
+	MatchAttributes  Attributes   `json:"matchAttributes,omitempty"`
 	MatchExpressions []expression `json:"matchExpressions,omitempty"`
 }
 
-type attribute struct {
+type Attribute struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
+}
+
+type Attributes []*Attribute
+
+func (a Attributes) LessOrEqual(other Attributes) bool {
+	if len(a) == 0 {
+		return true
+	}
+	if len(other) == 0 {
+		return false
+	}
+	for i, attr := range a {
+		if i > len(other)-1 {
+			return false
+		}
+		ki := attr.Key
+		kj := other[i].Key
+		vi := attr.Value
+		vj := other[i].Value
+		if ki == kj {
+			if vi == vj {
+				continue
+			}
+			return vi < vj
+		}
+		return ki < kj
+	}
+
+	return true
 }
 
 type expression struct {
@@ -116,6 +147,9 @@ func (o rules) Len() int      { return len(o) }
 func (o rules) Swap(i, j int) { o[i], o[j] = o[j], o[i] }
 func (o rules) Less(i, j int) bool {
 	if o[i].Endpoint == o[j].Endpoint {
+		if o[i].Method == o[j].Method {
+			return o[i].MatchAttributes.LessOrEqual(o[j].MatchAttributes)
+		}
 		return o[i].Method < o[j].Method
 	}
 	return o[i].Endpoint < o[j].Endpoint
@@ -301,8 +335,9 @@ func GenerateOPABundle() error {
 			{Data: generateOPARoles(rs, ps), Path: rolesPath},
 			{Data: generateOPARoleBindings(bs), Path: rolebindingsPath},
 			{Data: generateOPAExemptionURLs(ps), Path: exemptionsPath},
+			{Data: generateResourceBundle(), Path: resourcesPath},
 		},
-		Roots: []string{policyRoot, rolesRoot, rolebindingsRoot, exemptionsRoot},
+		Roots: []string{policyRoot, rolesRoot, rolebindingsRoot, exemptionsRoot, resourcesRoot},
 	}
 
 	hash, err := bundle.Rehash()
