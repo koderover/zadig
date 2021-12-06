@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 )
 
 type Trigger struct {
@@ -15,6 +16,7 @@ type Trigger struct {
 	IsCallback      bool             `bson:"is_callback,omitempty"      json:"is_callback,omitempty"`
 	CallbackType    string           `bson:"callback_type,omitempty"    json:"callback_type,omitempty"`
 	CallbackPayload *CallbackPayload `bson:"callback_payload,omitempty" json:"callback_payload,omitempty"`
+	Headers         []*models.KeyVal `bson:"headers,omitempty"          json:"headers,omitempty"`
 	Timeout         int              `bson:"timeout"                    json:"timeout,omitempty"`
 	IsRestart       bool             `bson:"is_restart"                 json:"is_restart"`
 	Error           string           `bson:"error,omitempty"            json:"error,omitempty"`

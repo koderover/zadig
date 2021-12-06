@@ -145,6 +145,9 @@ func (p *TriggerTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pi
 		TaskEnvs:    pipelineTask.TaskArgs.BuildArgs,
 	}
 	body, err = json.Marshal(webhookPayload)
+	for _, header := range p.Task.Headers {
+		httpclient.SetHeader(header.Key, header.Value)
+	}
 	_, err = httpClient.Post(url, httpclient.SetHeader("X-Zadig-Event", "Workflow"), httpclient.SetBody(body))
 	if err != nil {
 		return
