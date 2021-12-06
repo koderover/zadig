@@ -83,3 +83,12 @@ func initDatabase() {
 func Stop(_ context.Context) {
 	gormtool.Close()
 }
+
+func Healthz() error {
+	sqlDB, err := DB.DB()
+	if err != nil {
+		log.Errorf("Healthz get db error:%s", err.Error())
+		return err
+	}
+	return sqlDB.Ping()
+}

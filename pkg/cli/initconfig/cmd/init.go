@@ -25,7 +25,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
-
 	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/config"
@@ -67,7 +66,19 @@ var initCmd = &cobra.Command{
 }
 
 func run() error {
-	return initSystemConfig()
+	for {
+		err := Healthz()
+		if err == nil {
+			break
+		}
+		log.Error(err)
+		time.Sleep(10 * time.Second)
+	}
+	err := initSystemConfig()
+	if err == nil {
+		log.Info("zadig init success")
+	}
+	return err
 }
 
 func initSystemConfig() error {

@@ -85,3 +85,9 @@ func (c *Client) SearchUser(args *SearchUserArgs) (*SearchUserResp, error) {
 	_, err := c.Post(url, httpclient.SetBody(args), httpclient.SetResult(resp))
 	return resp, err
 }
+
+func (c *Client) Healthz() error {
+	url := "/healthz"
+	_, err := c.Get(url)
+	return err
+}

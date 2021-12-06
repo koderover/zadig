@@ -21,34 +21,48 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 type K8SCluster struct {
-	ID          string                  `json:"id"`
-	Name        string                  `json:"name"`
-	Description string                  `json:"description"`
-	Status      config.K8SClusterStatus `json:"status"`
-	Production  bool                    `json:"production"`
-	CreatedAt   int64                   `json:"createdAt"`
-	CreatedBy   string                  `json:"createdBy"`
-	Provider    int8                    `json:"provider"`
+	ID          string                   `json:"id"`
+	Name        string                   `json:"name"`
+	Description string                   `json:"description"`
+	Status      setting.K8SClusterStatus `json:"status"`
+	Production  bool                     `json:"production"`
+	CreatedAt   int64                    `json:"createdAt"`
+	CreatedBy   string                   `json:"createdBy"`
+	Provider    int8                     `json:"provider"`
 }
 
 func ListClusters(ids []string, logger *zap.SugaredLogger) ([]*K8SCluster, error) {
-	cs, err := commonrepo.NewK8SClusterColl().List(&commonrepo.ClusterListOpts{IDs: ids})
+	idSet := sets.NewString(ids...)
+	localClusterIncluded := idSet.Has(setting.LocalClusterID)
+	idSet = idSet.Delete(setting.LocalClusterID)
+	cs, err := commonrepo.NewK8SClusterColl().List(&commonrepo.ClusterListOpts{IDs: idSet.UnsortedList()})
 	if err != nil {
 		logger.Errorf("Failed to list clusters, err: %s", err)
 		return nil, err
 	}
 
 	var res []*K8SCluster
+	if len(ids) == 0 || localClusterIncluded {
+		res = append(res, &K8SCluster{
+			ID:         setting.LocalClusterID,
+			Name:       setting.LocalClusterName,
+			Production: false,
+			Status:     setting.Normal,
+		})
+	}
+
 	for _, c := range cs {
 		res = append(res, &K8SCluster{
 			ID:          c.ID.Hex(),
