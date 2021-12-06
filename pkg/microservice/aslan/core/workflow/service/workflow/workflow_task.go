@@ -1778,13 +1778,20 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 					setManunalBuilds(t.JobCtx.Builds, pt.TaskArgs.Builds, log)
 				}
 
+				opt := &commonrepo.ProductFindOptions{Namespace: envName}
+				exitedProd, err := commonrepo.NewProductColl().Find(opt)
+				if err != nil {
+					log.Errorf("can't find product by namespace:%s error msg: %v", envName, err)
+					return e.ErrFindRegistry.AddDesc(err.Error())
+				}
+
 				// 生成默认镜像tag后缀
 				//pt.TaskArgs.Deploy.Tag = releaseCandidate(t, pt.TaskID, pt.ProductName, pt.EnvName, "image")
 
 				// 设置镜像名称
 				// 编译任务使用 t.JobCtx.Image
 				// 注意: 其他任务从 pt.TaskArgs.Deploy.Image 获取, 必须要有编译任务
-				reg, err := commonservice.FindDefaultRegistry(log)
+				reg, err := commonservice.FindRegistryById(exitedProd.RegistryId, log)
 				if err != nil {
 					log.Errorf("can't find default candidate registry: %v", err)
 					return e.ErrFindRegistry.AddDesc(err.Error())
