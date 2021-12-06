@@ -25,7 +25,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
@@ -220,24 +219,9 @@ func (c *ProductColl) Create(args *template.Product) error {
 
 func (c *ProductColl) UpdateServiceOrchestration(productName string, services [][]string, updateBy string) error {
 
-	//validate services data, avoid duplicate services
-	serviceSet := sets.NewString()
-	validServices := make([][]string, 0)
-
-	for _, serviceSeq := range services {
-		validServiceSeq := make([]string, 0)
-		for _, service := range serviceSeq {
-			if !serviceSet.Has(service) {
-				validServiceSeq = append(validServiceSeq, service)
-				serviceSet.Insert(service)
-			}
-		}
-		validServices = append(validServices, validServiceSeq)
-	}
-
 	query := bson.M{"product_name": productName}
 	change := bson.M{"$set": bson.M{
-		"services":    validServices,
+		"services":    services,
 		"update_time": time.Now().Unix(),
 		"update_by":   updateBy,
 	}}
