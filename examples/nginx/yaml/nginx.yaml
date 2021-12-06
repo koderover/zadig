@@ -52,7 +52,7 @@ metadata:
   name: nginx-expose
 spec:
   rules:
-  - host: $EnvName$-nginx-expose.app.8slan.com
+  - host: $EnvName$-nginx-test.8slan.com
     http:
       paths:
       - backend:
