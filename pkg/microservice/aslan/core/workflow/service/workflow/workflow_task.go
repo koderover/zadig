@@ -1778,7 +1778,6 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 				//		}
 				//	}
 				//}
-
 				// 设置Pipeline对应的服务名称
 				if t.ServiceName != "" {
 					pt.ServiceName = t.ServiceName

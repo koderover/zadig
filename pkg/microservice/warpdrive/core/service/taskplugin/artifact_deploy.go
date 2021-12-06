@@ -307,7 +307,7 @@ func (p *ArtifactDeployTaskPlugin) Complete(ctx context.Context, pipelineTask *t
 		}
 	}()
 
-	err := saveContainerLog(pipelineTask, p.KubeNamespace, p.FileName, jobLabel, p.kubeClient)
+	err := saveContainerLog(pipelineTask, p.KubeNamespace, "", p.FileName, jobLabel, p.kubeClient)
 	if err != nil {
 		p.Log.Error(err)
 		p.Task.Error = err.Error()

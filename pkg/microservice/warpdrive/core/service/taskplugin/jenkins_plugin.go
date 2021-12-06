@@ -233,7 +233,7 @@ func (j *JenkinsBuildPlugin) Complete(ctx context.Context, pipelineTask *task.Ta
 	}()
 
 	// 保存实时日志到s3
-	err := saveContainerLog(pipelineTask, j.KubeNamespace, j.FileName, jobLabel, j.kubeClient)
+	err := saveContainerLog(pipelineTask, j.KubeNamespace, "", j.FileName, jobLabel, j.kubeClient)
 	if err != nil {
 		j.Log.Error(err)
 		j.Task.Error = err.Error()

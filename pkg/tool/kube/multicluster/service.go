@@ -46,7 +46,7 @@ func GetKubeClient(hubServerAddr, clusterID string) (client.Client, error) {
 }
 
 func GetKubeAPIReader(hubServerAddr, clusterID string) (client.Reader, error) {
-	if clusterID == "" {
+	if clusterID == "" || clusterID == setting.LocalClusterID {
 		return krkubeclient.APIReader(), nil
 	}
 
@@ -59,7 +59,7 @@ func GetKubeAPIReader(hubServerAddr, clusterID string) (client.Reader, error) {
 }
 
 func GetRESTConfig(hubServerAddr, clusterID string) (*rest.Config, error) {
-	if clusterID == "" {
+	if clusterID == "" || clusterID == setting.LocalClusterID {
 		return krkubeclient.RESTConfig(), nil
 	}
 
@@ -68,7 +68,7 @@ func GetRESTConfig(hubServerAddr, clusterID string) (*rest.Config, error) {
 
 // GetClientset returns a client to interact with APIServer which implements kubernetes.Interface
 func GetClientset(hubServerAddr, clusterID string) (kubernetes.Interface, error) {
-	if clusterID == "" {
+	if clusterID == "" || clusterID == setting.LocalClusterID {
 		return krkubeclient.Clientset(), nil
 	}
 

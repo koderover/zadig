@@ -44,9 +44,9 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
-	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/containerlog"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
 	"github.com/koderover/zadig/pkg/tool/kube/podexec"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -77,7 +77,7 @@ func saveFile(src io.Reader, localFile string) error {
 	return err
 }
 
-func saveContainerLog(pipelineTask *task.Task, namespace, fileName string, jobLabel *JobLabel, kubeClient client.Client) error {
+func saveContainerLog(pipelineTask *task.Task, namespace, clusterID, fileName string, jobLabel *JobLabel, kubeClient client.Client) error {
 	selector := labels.Set(getJobLabels(jobLabel)).AsSelector()
 	pods, err := getter.ListPods(namespace, selector, kubeClient)
 	if err != nil {
@@ -97,7 +97,14 @@ func saveContainerLog(pipelineTask *task.Task, namespace, fileName string, jobLa
 	sort.SliceStable(pods, func(i, j int) bool {
 		return pods[i].CreationTimestamp.Before(&pods[j].CreationTimestamp)
 	})
-	if err := containerlog.GetContainerLogs(namespace, pods[0].Name, pods[0].Spec.Containers[0].Name, false, int64(0), buf, krkubeclient.Clientset()); err != nil {
+
+	clientSet, err := multicluster.GetClientset(pipelineTask.ConfigPayload.HubServerAddr, clusterID)
+	if err != nil {
+		log.Errorf("saveContainerLog, get client set error: %s", err)
+		return err
+	}
+
+	if err := containerlog.GetContainerLogs(namespace, pods[0].Name, pods[0].Spec.Containers[0].Name, false, int64(0), buf, clientSet); err != nil {
 		return err
 	}
 

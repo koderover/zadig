@@ -244,7 +244,7 @@ func (p *DockerBuildPlugin) Complete(ctx context.Context, pipelineTask *task.Tas
 	}()
 
 	// 保存实时日志到s3
-	err := saveContainerLog(pipelineTask, p.KubeNamespace, p.FileName, jobLabel, p.kubeClient)
+	err := saveContainerLog(pipelineTask, p.KubeNamespace, "", p.FileName, jobLabel, p.kubeClient)
 	if err != nil {
 		p.Log.Error(err)
 		p.Task.Error = err.Error()
