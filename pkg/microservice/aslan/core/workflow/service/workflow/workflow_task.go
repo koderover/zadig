@@ -1791,10 +1791,20 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 				// 设置镜像名称
 				// 编译任务使用 t.JobCtx.Image
 				// 注意: 其他任务从 pt.TaskArgs.Deploy.Image 获取, 必须要有编译任务
-				reg, err := commonservice.FindRegistryById(exitedProd.RegistryId, log)
-				if err != nil {
-					log.Errorf("can't find default candidate registry: %v", err)
-					return e.ErrFindRegistry.AddDesc(err.Error())
+				var reg *commonmodels.RegistryNamespace
+				if len(exitedProd.RegistryId) > 0 {
+					reg, err = commonservice.FindRegistryById(exitedProd.RegistryId, log)
+					if err != nil {
+						log.Errorf("service.EnsureRegistrySecret: failed to find registry: %s error msg:%v",
+							exitedProd.RegistryId, err)
+						return e.ErrFindRegistry.AddDesc(err.Error())
+					}
+				} else {
+					reg, err = commonservice.FindDefaultRegistry(log)
+					if err != nil {
+						log.Errorf("can't find default candidate registry: %v", err)
+						return e.ErrFindRegistry.AddDesc(err.Error())
+					}
 				}
 
 				t.JobCtx.Image = GetImage(reg, releaseCandidate(t, pt.TaskID, pt.ProductName, envName, "image"))

@@ -92,13 +92,26 @@ func ListRegistryNamespaces(log *zap.SugaredLogger) ([]*models.RegistryNamespace
 }
 
 func EnsureDefaultRegistrySecret(namespace string, registryId string, kubeClient client.Client, log *zap.SugaredLogger) error {
-	reg, err := FindRegistryById(registryId, log)
-	if err != nil {
-		log.Errorf(
-			"service.EnsureRegistrySecret: failed to find default candidate registry: %s %v",
-			namespace, err,
-		)
-		return err
+	var reg *models.RegistryNamespace
+	var err error
+	if len(registryId) > 0 {
+		reg, err = FindRegistryById(registryId, log)
+		if err != nil {
+			log.Errorf(
+				"service.EnsureRegistrySecret: failed to find registry: %s error msg:%v",
+				registryId, err,
+			)
+			return err
+		}
+	} else {
+		reg, err = FindDefaultRegistry(log)
+		if err != nil {
+			log.Errorf(
+				"service.EnsureRegistrySecret: failed to find default candidate registry: %s %v",
+				namespace, err,
+			)
+			return err
+		}
 	}
 
 	err = kube.CreateOrUpdateRegistrySecret(namespace, reg, kubeClient)
