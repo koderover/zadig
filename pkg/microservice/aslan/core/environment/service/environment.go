@@ -95,6 +95,7 @@ type EnvResp struct {
 	ClusterName string `json:"clusterName"`
 	Production  bool   `json:"production"`
 	Source      string `json:"source"`
+	RegistryID  string `json:"registry_id"`
 }
 
 type ProductResp struct {
@@ -181,11 +182,19 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 	}
 
 	var res []*EnvResp
+	reg, err := commonservice.FindDefaultRegistry(log)
+	if err != nil {
+		log.Errorf("FindDefaultRegistry error: %v", err)
+		return nil, err
+	}
 	for _, env := range envs {
 		clusterID := env.ClusterID
 		production := false
 		clusterName := ""
 		cluster, ok := clusterMap[clusterID]
+		if len(env.RegistryId) == 0 {
+			env.RegistryId = reg.ID.String()
+		}
 		if ok {
 			production = cluster.Production
 			clusterName = cluster.Name
@@ -202,6 +211,7 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 			Error:       env.Error,
 			UpdateTime:  env.UpdateTime,
 			UpdateBy:    env.UpdateBy,
+			RegistryID:  env.RegistryId,
 		})
 	}
 
