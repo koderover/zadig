@@ -1034,7 +1034,7 @@ func deployEnvToSubTasks(env commonmodels.DeployEnv, prodEnv *commonmodels.Produ
 
 func resetImageTaskToSubTask(env commonmodels.DeployEnv, prodEnv *commonmodels.Product) (map[string]interface{}, error) {
 	switch env.Type {
-	case setting.K8SDeployType, setting.HelmDeployType:
+	case setting.K8SDeployType:
 		deployTask := task.Deploy{TaskType: config.TaskResetImage, Enabled: true}
 		deployTask.Namespace = prodEnv.Namespace
 		deployTask.ProductName = prodEnv.ProductName
