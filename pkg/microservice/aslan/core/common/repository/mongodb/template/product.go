@@ -270,10 +270,17 @@ type ProductArgs struct {
 func (c *ProductColl) AddService(productName, serviceName string) error {
 
 	query := bson.M{"product_name": productName}
+	serviceUniqueFilter := bson.M{
+		"$elemMatch": bson.M{
+			"$elemMatch": bson.M{
+				"$eq": serviceName,
+			},
+		},
+	}
+	query["services"] = bson.M{"$not": serviceUniqueFilter}
 	change := bson.M{"$addToSet": bson.M{
-		"services.0": serviceName,
+		"services.1": serviceName,
 	}}
-
 	_, err := c.UpdateOne(context.TODO(), query, change)
 	return err
 }
