@@ -135,3 +135,9 @@ type Role struct {
 		Kind      string   `json:"kind"`
 	} `json:"rules"`
 }
+
+func (c *Client) Healthz() error {
+	url := "/healthz"
+	_, err := c.Get(url)
+	return err
+}

@@ -11,6 +11,11 @@ rules:
       - Environment
     kind: resource
   - verbs:
+      - get_environment
+    resources:
+      - ProductionEnvironment
+    kind: resource
+  - verbs:
       - get_build
       - get_service
     resources:

@@ -1049,6 +1049,22 @@ func resetImageTaskToSubTask(env commonmodels.DeployEnv, prodEnv *commonmodels.P
 		deployTask.ServiceName = envList[0]
 		deployTask.ContainerName = envList[1]
 		return deployTask.ToSubTask()
+	case setting.HelmDeployType:
+		deployTask := task.Deploy{TaskType: config.TaskResetImage, Enabled: true}
+		deployTask.Namespace = prodEnv.Namespace
+		deployTask.ProductName = prodEnv.ProductName
+		deployTask.SkipWaiting = true
+		deployTask.EnvName = prodEnv.EnvName
+		envList := strings.Split(env.Env, "/")
+		if len(envList) != 2 {
+			err := fmt.Errorf("[%s]split target env error", env.Env)
+			log.Error(err)
+			return nil, err
+		}
+		deployTask.ServiceName = envList[0]
+		deployTask.ContainerName = envList[1]
+		deployTask.ServiceType = setting.HelmDeployType
+		return deployTask.ToSubTask()
 	default:
 		return nil, nil
 	}
