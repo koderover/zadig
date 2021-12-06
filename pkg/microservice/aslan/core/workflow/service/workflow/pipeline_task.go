@@ -567,6 +567,7 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 		TestName: "test",
 		Timeout:  testModule.Timeout,
 	}
+
 	testTask.TestModuleName = testModule.Name
 	testTask.JobCtx.TestType = testModule.TestType
 	testTask.JobCtx.Builds = testModule.Repos
@@ -588,6 +589,8 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 		testTask.InstallItems = testModule.PreTest.Installs
 		testTask.JobCtx.CleanWorkspace = testModule.PreTest.CleanWorkspace
 		testTask.JobCtx.EnableProxy = testModule.PreTest.EnableProxy
+		testTask.Namespace = testModule.PreTest.Namespace
+		testTask.ClusterID = testModule.PreTest.ClusterID
 
 		envs := testModule.PreTest.Envs[:]
 
