@@ -141,6 +141,7 @@ func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, op
 		}
 		if build != nil && build.PreBuild != nil {
 			options.ClusterID = build.PreBuild.ClusterID
+			options.Namespace = build.PreBuild.Namespace
 		}
 	}
 
@@ -159,6 +160,7 @@ func TestJobContainerLogStream(ctx context.Context, streamChan chan interface{},
 	testing, _ := commonrepo.NewTestingColl().Find(testName, "")
 	if testing != nil && testing.PreTest != nil {
 		options.ClusterID = testing.PreTest.ClusterID
+		options.Namespace = testing.PreTest.Namespace
 	}
 
 	waitAndGetLog(ctx, streamChan, selector, options, log)
