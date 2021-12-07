@@ -4,21 +4,24 @@ import (
 	"fmt"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
 type cluster struct {
-	ID     string                   `json:"id"`
+	ID     primitive.ObjectID       `json:"id,omitempty"`
 	Name   string                   `json:"name"`
 	Status setting.K8SClusterStatus `json:"status"`
 	Local  bool                     `json:"local"`
 }
 
 func (c *Client) AddLocalCluster() error {
+	oid, _ := primitive.ObjectIDFromHex(setting.LocalClusterID)
 	url := "/cluster/clusters"
 	req := cluster{
-		ID:     setting.LocalClusterID,
+		ID:     oid,
 		Name:   fmt.Sprintf("%s-%s", "local", time.Now().Format("20060102150405")),
 		Local:  true,
 		Status: setting.Normal,
@@ -43,7 +46,6 @@ func (c *Client) GetCluster() (*clusterResp, error) {
 	clusterResp := &clusterResp{}
 	_, err := c.Get(url, httpclient.SetResult(clusterResp))
 	if err != nil {
-		fmt.Println(fmt.Sprintf("err:%+v", err))
 		return nil, fmt.Errorf("Failed to get cluster, error: %s", err)
 	}
 
