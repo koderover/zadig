@@ -130,11 +130,6 @@ func createHelmProduct(c *gin.Context, ctx *internalhandler.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can not be empty")
 		return
 	}
-	registryID := c.Query("registryID")
-	if registryID == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("registryID can not be empty")
-		return
-	}
 	createArgs := make([]*service.CreateHelmProductArg, 0)
 	data, err := c.GetRawData()
 	if err != nil {
@@ -160,22 +155,13 @@ func createHelmProduct(c *gin.Context, ctx *internalhandler.Context) {
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "新增", "集成环境", strings.Join(envNameList, "-"), string(data), ctx.Logger)
 
 	ctx.Err = service.CreateHelmProduct(
-		projectName, ctx.UserName, ctx.RequestID, registryID, createArgs, ctx.Logger,
+		projectName, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger,
 	)
 }
 
 func CreateProduct(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	args := new(commonmodels.Product)
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("CreateProduct c.GetRawData() err : %v", err)
-	}
-	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("CreateProduct json.Unmarshal err : %v", err)
-	}
 
 	if c.Query("auto") == "true" {
 		ctx.Resp = service.AutoCreateProduct(c.Query("projectName"), c.Query("envType"), ctx.RequestID, ctx.Logger)
@@ -184,6 +170,15 @@ func CreateProduct(c *gin.Context) {
 	if c.Query("helm") == "true" {
 		createHelmProduct(c, ctx)
 		return
+	}
+
+	args := new(commonmodels.Product)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("CreateProduct c.GetRawData() err : %v", err)
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("CreateProduct json.Unmarshal err : %v", err)
 	}
 
 	allowedClusters, found := internalhandler.GetResourcesInHeader(c)

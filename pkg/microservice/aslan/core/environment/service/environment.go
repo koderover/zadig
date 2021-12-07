@@ -147,6 +147,7 @@ type CreateHelmProductArg struct {
 	Namespace     string                          `json:"namespace"`
 	ClusterID     string                          `json:"clusterID"`
 	DefaultValues string                          `json:"defaultValues"`
+	RegistryID    string                          `json:"registry_id"`
 	ChartValues   []*commonservice.RenderChartArg `json:"chartValues"`
 }
 
@@ -677,7 +678,7 @@ func UpdateProductV2(envName, productName, user, requestID string, force bool, k
 	return nil
 }
 
-func CreateHelmProduct(productName, userName, requestID, registryID string, args []*CreateHelmProductArg, log *zap.SugaredLogger) error {
+func CreateHelmProduct(productName, userName, requestID string, args []*CreateHelmProductArg, log *zap.SugaredLogger) error {
 	templateProduct, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil || templateProduct == nil {
 		if err != nil {
@@ -734,7 +735,7 @@ func CreateHelmProduct(productName, userName, requestID, registryID string, args
 
 	errList := new(multierror.Error)
 	for _, arg := range args {
-		err = createSingleHelmProduct(templateProduct, serviceGroup, requestID, userName, registryID, arg, log)
+		err = createSingleHelmProduct(templateProduct, serviceGroup, requestID, userName, arg.RegistryID, arg, log)
 		if err != nil {
 			errList = multierror.Append(errList, err)
 		}
