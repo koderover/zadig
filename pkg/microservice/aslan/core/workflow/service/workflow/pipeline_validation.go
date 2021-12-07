@@ -29,9 +29,7 @@ import (
 
 	"github.com/google/go-github/v35/github"
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	configbase "github.com/koderover/zadig/pkg/config"
@@ -716,38 +714,6 @@ type ImageIllegal struct {
 
 func (c *ImageIllegal) Error() string {
 	return ""
-}
-
-func validateHelmServiceByReplica(namespace, serviceName, resName string, kubeClient client.Client) (bool, error) {
-	res := &unstructured.Unstructured{}
-	res.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "apps",
-		Version: "v1",
-		Kind:    setting.ReplicaSet,
-	})
-	found, err := getter.GetResourceInCache(namespace, resName, res, kubeClient)
-	if err != nil || !found {
-		return false, err
-	}
-	extractedServiceName := ""
-	for _, or := range res.GetOwnerReferences() {
-		if or.Kind == setting.Deployment {
-			extractedServiceName, err = commonservice.GetHelmServiceName(namespace, or.Kind, or.Name, kubeClient)
-			if err != nil {
-				return false, err
-			}
-			break
-		}
-	}
-	return extractedServiceName == serviceName, nil
-}
-
-func validateHelmServiceBySts(namespace, serviceName, resName string, kubeClient client.Client) (bool, error) {
-	extractedServiceName, err := commonservice.GetHelmServiceName(namespace, setting.StatefulSet, resName, kubeClient)
-	if err != nil {
-		return false, err
-	}
-	return extractedServiceName == serviceName, nil
 }
 
 // find currently using image for services deployed by helm
