@@ -26,6 +26,7 @@ const (
 	PipelinePrefix = "pipeline-"
 	ColliePrefix   = "collie-"
 	ServicePrefix  = "service-"
+	TestingPrefix  = "testing-"
 
 	taskTimeoutSecond = 10
 )

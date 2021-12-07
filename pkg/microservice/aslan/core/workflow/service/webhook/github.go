@@ -381,6 +381,42 @@ func pushEventCommitsFiles(e *github.PushEvent) []string {
 	return files
 }
 
+
+func ProcessGithubWebHookForTest(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger)error{
+	hookType := github.WebHookType(req)
+	if hookType == "integration_installation" || hookType == "installation" || hookType == "ping" {
+		return nil
+	}
+
+	err := validateSecret(payload, []byte(gitservice.GetHookSecret()), req)
+	if err != nil {
+		return err
+	}
+
+	event, err := github.ParseWebHook(github.WebHookType(req), payload)
+	if err != nil {
+		return err
+	}
+
+	switch et := event.(type) {
+	case *github.PullRequestEvent:
+		err = TriggerTestByGithubEvent(et, requestID, log)
+		if err != nil {
+			log.Errorf("TriggerTestByGithubEvent error: %v", err)
+			return e.ErrGithubWebHook.AddErr(err)
+		}
+
+	case *github.PushEvent:
+		err = TriggerTestByGithubEvent(et, requestID, log)
+		if err != nil {
+			log.Infof("TriggerTestByGithubEvent error: %v", err)
+			return e.ErrGithubWebHook.AddErr(err)
+		}
+	}
+	return nil
+}
+
+
 func ProcessGithubWebHook(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) error {
 	forwardedProto := req.Header.Get("X-Forwarded-Proto")
 	forwardedHost := req.Header.Get("X-Forwarded-Host")
