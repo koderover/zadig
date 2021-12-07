@@ -39,11 +39,12 @@ type clusterResp struct {
 }
 
 func (c *Client) GetCluster() (*clusterResp, error) {
-	url := "/cluster/clusters/" + setting.LocalClusterID
+	url := fmt.Sprintf("/cluster/clusters/%s", setting.LocalClusterID)
 
-	var clusterResp *clusterResp
+	clusterResp := new(clusterResp)
 	_, err := c.Get(url, httpclient.SetResult(&clusterResp))
 	if err != nil {
+		fmt.Println(fmt.Sprintf("err:%+v", err))
 		return nil, fmt.Errorf("Failed to get cluster, error: %s", err)
 	}
 
