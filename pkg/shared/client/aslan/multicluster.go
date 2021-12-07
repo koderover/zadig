@@ -33,16 +33,15 @@ func (c *Client) AddLocalCluster() error {
 }
 
 type clusterResp struct {
-	Name   string                   `json:"name"`
-	Status setting.K8SClusterStatus `json:"status"`
-	Local  bool                     `json:"local"`
+	Name  string `json:"name"`
+	Local bool   `json:"local"`
 }
 
 func (c *Client) GetCluster() (*clusterResp, error) {
 	url := fmt.Sprintf("/cluster/clusters/%s", setting.LocalClusterID)
 
-	clusterResp := new(clusterResp)
-	_, err := c.Get(url, httpclient.SetResult(&clusterResp))
+	clusterResp := &clusterResp{}
+	_, err := c.Get(url, httpclient.SetResult(clusterResp))
 	if err != nil {
 		fmt.Println(fmt.Sprintf("err:%+v", err))
 		return nil, fmt.Errorf("Failed to get cluster, error: %s", err)

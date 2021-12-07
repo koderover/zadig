@@ -204,7 +204,10 @@ func presetRole() error {
 }
 
 func createLocalCluster() error {
-	cluster, _ := aslan.New(config.AslanServiceAddress()).GetCluster()
+	cluster, err := aslan.New(config.AslanServiceAddress()).GetCluster()
+	if err != nil {
+		fmt.Println("err:", err)
+	}
 	if cluster != nil {
 		return nil
 	}
