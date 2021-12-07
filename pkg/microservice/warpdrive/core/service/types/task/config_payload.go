@@ -19,9 +19,9 @@ package task
 import (
 	"fmt"
 
-	"github.com/koderover/zadig/pkg/setting"
-
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/koderover/zadig/pkg/setting"
 )
 
 type ConfigPayload struct {
