@@ -22,6 +22,8 @@ import (
 	"regexp"
 	"strings"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -172,6 +174,9 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 		Local:          args.Local,
 		CreatedAt:      args.CreatedAt,
 		CreatedBy:      args.CreatedBy,
+	}
+	if args.ID != "" {
+		cluster.ID, _ = primitive.ObjectIDFromHex(args.ID)
 	}
 	return s.CreateCluster(cluster, logger)
 }
