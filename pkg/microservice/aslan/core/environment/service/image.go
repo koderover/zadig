@@ -24,10 +24,7 @@ import (
 
 	helmclient "github.com/mittwald/go-helm-client"
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -40,10 +37,8 @@ import (
 	client2 "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
-	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/converter"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
@@ -65,29 +60,6 @@ const (
 var (
 	imageParseRegex = regexp.MustCompile(imageUrlParseRegexString)
 )
-
-func getHelmServiceName(namespace, resType, resName string, kubeClient client.Client) (string, error) {
-	res := &unstructured.Unstructured{}
-	res.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "apps",
-		Version: "v1",
-		Kind:    resType,
-	})
-	found, err := getter.GetResourceInCache(namespace, resName, res, kubeClient)
-	if err != nil {
-		return "", fmt.Errorf("failed to find resource %s, type %s, err %s", resName, resType, err.Error())
-	}
-	if !found {
-		return "", fmt.Errorf("failed to find resource %s, type %s", resName, resType)
-	}
-	annotation := res.GetAnnotations()
-	if len(annotation) > 0 {
-		if chartRelease, ok := annotation[setting.HelmReleaseNameAnnotation]; ok {
-			return util.ExtraServiceName(chartRelease, namespace), nil
-		}
-	}
-	return "", fmt.Errorf("failed to get annotation from resource %s, type %s", resName, resType)
-}
 
 func getValidMatchData(spec *models.ImagePathSpec) map[string]string {
 	ret := make(map[string]string)
@@ -334,7 +306,7 @@ func UpdateContainerImage(requestID string, args *UpdateContainerImageArgs, log 
 
 	// update service in helm way
 	if product.Source == setting.HelmDeployType {
-		serviceName, err := getHelmServiceName(namespace, args.Type, args.Name, kubeClient)
+		serviceName, err := commonservice.GetHelmServiceName(namespace, args.Type, args.Name, kubeClient)
 		if err != nil {
 			return e.ErrUpdateConainterImage.AddErr(err)
 		}
