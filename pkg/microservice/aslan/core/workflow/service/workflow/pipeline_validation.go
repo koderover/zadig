@@ -787,7 +787,7 @@ func validateServiceContainer2(productInfo *commonmodels.Product, serviceName, c
 	for _, p := range pods {
 		pod := wrapper.Pod(p).Resource()
 		for _, c := range pod.ContainerStatuses {
-			if commonservice.ExtractImageName(c.Image) == container {
+			if c.Name == container || commonservice.ExtractImageName(c.Image) == container {
 				return c.Image, nil
 			}
 		}
