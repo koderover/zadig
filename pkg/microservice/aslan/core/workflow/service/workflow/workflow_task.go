@@ -1778,10 +1778,10 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 					setManunalBuilds(t.JobCtx.Builds, pt.TaskArgs.Builds, log)
 				}
 
-				opt := &commonrepo.ProductFindOptions{Namespace: envName}
+				opt := &commonrepo.ProductFindOptions{Name: pt.ProductName}
 				exitedProd, err := commonrepo.NewProductColl().Find(opt)
 				if err != nil {
-					log.Errorf("can't find product by namespace:%s error msg: %v", envName, err)
+					log.Errorf("can't find product by name:%s error msg: %v", pt.ProductName, err)
 					return e.ErrFindRegistry.AddDesc(err.Error())
 				}
 
@@ -1794,6 +1794,7 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 				var reg *commonmodels.RegistryNamespace
 				if len(exitedProd.RegistryId) > 0 {
 					reg, err = commonservice.FindRegistryById(exitedProd.RegistryId, log)
+					log.Infof("FindRegistryById %s", exitedProd.RegistryId)
 					if err != nil {
 						log.Errorf("service.EnsureRegistrySecret: failed to find registry: %s error msg:%v",
 							exitedProd.RegistryId, err)
