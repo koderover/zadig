@@ -116,7 +116,7 @@ type ProductResp struct {
 	RecycleDay  int                      `json:"recycle_day"`
 	IsProd      bool                     `json:"is_prod"`
 	Source      string                   `json:"source"`
-	RegisterID  string                   `json:"register_id"`
+	RegisterID  string                   `json:"registry_id"`
 }
 
 type ProductParams struct {

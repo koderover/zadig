@@ -255,28 +255,29 @@ func UpdateProductRegistry(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	namespace := c.Param("namespace")
 	projectName := c.Query("projectName")
 	args := new(commonmodels.Product)
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("UpdateProduct c.GetRawData() err : %v", err)
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdateProduct json.Unmarshal err : %v", err)
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "集成环境", namespace, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "集成环境", args.Namespace, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	ctx.Err = service.UpdateProductRegistry(namespace, args.RegistryId, ctx.Logger)
+	ctx.Err = service.UpdateProductRegistry(args.Namespace, args.RegistryId, ctx.Logger)
 	if ctx.Err != nil {
-		ctx.Logger.Errorf("failed to update product %s %s: %v", namespace, args.RegistryId, ctx.Err)
+		ctx.Logger.Errorf("failed to update product %s %s: %v", args.Namespace, args.RegistryId, ctx.Err)
 	}
 }
 
