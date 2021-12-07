@@ -338,6 +338,8 @@ func findServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Work
 	return resp
 }
 
+// GetHelmServiceName get service name from annotations of resources deployed by helm
+// resType currently only support Deployment and StatefulSet
 func GetHelmServiceName(namespace, resType, resName string, kubeClient client.Client) (string, error) {
 	res := &unstructured.Unstructured{}
 	res.SetGroupVersionKind(schema.GroupVersionKind{

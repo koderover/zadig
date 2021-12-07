@@ -696,7 +696,7 @@ func validateServiceContainer(envName, productName, serviceName, container strin
 	}
 
 	return validateServiceContainer2(
-		product.Namespace, envName, productName, serviceName, container, product.Source, kubeClient,
+		product, serviceName, container, kubeClient,
 	)
 }
 
@@ -716,25 +716,6 @@ type ImageIllegal struct {
 
 func (c *ImageIllegal) Error() string {
 	return ""
-}
-
-func getServiceNameFromDeploy(namespace, resName string, kubeClient client.Client) (string, error) {
-	res := &unstructured.Unstructured{}
-	res.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "apps",
-		Version: "v1",
-		Kind:    setting.ReplicaSet,
-	})
-	found, err := getter.GetResourceInCache(namespace, resName, res, kubeClient)
-	if err != nil || !found {
-		return "", err
-	}
-	for _, or := range res.GetOwnerReferences() {
-		if or.Kind == setting.Deployment {
-			return commonservice.GetHelmServiceName(namespace, or.Kind, or.Name, kubeClient)
-		}
-	}
-	return "", nil
 }
 
 func validateHelmServiceByReplica(namespace, serviceName, resName string, kubeClient client.Client) (bool, error) {
@@ -769,10 +750,28 @@ func validateHelmServiceBySts(namespace, serviceName, resName string, kubeClient
 	return extractedServiceName == serviceName, nil
 }
 
-// validateServiceContainer2 validate container with raw namespace like dev-product
-func validateServiceContainer2(namespace, envName, productName, serviceName, container, source string, kubeClient client.Client) (string, error) {
-	var selector labels.Selector
+// find currently using image for services deployed by helm
+func findCurrentlyUsingImage(productInfo *commonmodels.Product, serviceName, containerName string) (string, error) {
+	for _, service := range productInfo.GetServiceMap() {
+		if service.ServiceName == serviceName {
+			for _, container := range service.Containers {
+				if container.Name == containerName {
+					return container.Image, nil
+				}
+			}
+		}
+	}
+	return "", fmt.Errorf("failed to find image url")
+}
 
+// validateServiceContainer2 validate container with raw namespace like dev-product
+func validateServiceContainer2(productInfo *commonmodels.Product, serviceName, container string, kubeClient client.Client) (string, error) {
+	namespace, productName, envName, source := productInfo.Namespace, productInfo.ProductName, productInfo.EnvName, productInfo.Source
+	if source == setting.SourceFromHelm {
+		return findCurrentlyUsingImage(productInfo, serviceName, container)
+	}
+
+	var selector labels.Selector
 	//helm和托管类型的服务查询所有标签的pod
 	if source != setting.SourceFromHelm && source != setting.SourceFromExternal {
 		selector = labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceName}.AsSelector()
@@ -788,25 +787,7 @@ func validateServiceContainer2(namespace, envName, productName, serviceName, con
 	for _, p := range pods {
 		pod := wrapper.Pod(p).Resource()
 		for _, c := range pod.ContainerStatuses {
-			if c.Name == container || strings.Contains(c.Image, container) {
-				// filter by serviceName because same container name may exist in multi services
-				if source == setting.SourceFromHelm {
-					matched := false
-					for _, or := range p.OwnerReferences {
-						if or.Kind == setting.ReplicaSet {
-							matched, err = validateHelmServiceByReplica(namespace, serviceName, or.Name, kubeClient)
-						} else if or.Kind == setting.StatefulSet {
-							matched, err = validateHelmServiceBySts(namespace, serviceName, or.Name, kubeClient)
-						}
-						if err != nil {
-							return "", err
-						}
-						break
-					}
-					if !matched {
-						continue
-					}
-				}
+			if commonservice.ExtractImageName(c.Image) == container {
 				return c.Image, nil
 			}
 		}
