@@ -196,7 +196,6 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 		AdvancedConfig: advancedConfig,
 		Production:     args.Production,
 	}
-	logger.Infof("advancedConfig:%+v", cluster.AdvancedConfig)
 	return s.UpdateCluster(id, cluster, logger)
 }
 

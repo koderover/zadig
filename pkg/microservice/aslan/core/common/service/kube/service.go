@@ -23,6 +23,8 @@ import (
 	"strings"
 	"text/template"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -134,7 +136,7 @@ func (s *Service) UpdateCluster(id string, cluster *models.K8SCluster, logger *z
 
 		return nil, e.ErrUpdateCluster.AddDesc(e.DuplicateClusterNameFound)
 	}
-
+	cluster.ID, _ = primitive.ObjectIDFromHex(id)
 	err = s.coll.UpdateMutableFields(cluster)
 	if err != nil {
 		logger.Errorf("failed to update mutable fields %v", err)
