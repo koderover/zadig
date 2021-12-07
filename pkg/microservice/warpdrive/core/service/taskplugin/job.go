@@ -409,14 +409,21 @@ func buildJob(taskType config.TaskType, jobImage, jobName, serviceName, clusterI
 }
 
 func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceName, clusterID string, resReq setting.Request, resReqSpec setting.RequestSpec, ctx *task.PipelineCtx, pipelineTask *task.Task, registries []*task.RegistryNamespace, execNs, linkedNs string) (*batchv1.Job, error) {
-	var reaperBootingScript string
+	var (
+		reaperBootingScript string
+		reaperBinaryFile    = pipelineTask.ConfigPayload.Release.ReaperBinaryFile
+	)
+	// not local cluster
+	if clusterID != "" && clusterID != setting.LocalClusterID {
+		reaperBinaryFile = strings.Replace(reaperBinaryFile, "resource-server", "resource-server.koderover-agent", -1)
+	}
 
 	if !strings.Contains(jobImage, PredatorPlugin) && !strings.Contains(jobImage, JenkinsPlugin) {
-		reaperBootingScript = fmt.Sprintf("curl -m 60 --retry-delay 5 --retry 3 -sL %s -o reaper && chmod +x reaper && mv reaper /usr/local/bin && /usr/local/bin/reaper", pipelineTask.ConfigPayload.Release.ReaperBinaryFile)
+		reaperBootingScript = fmt.Sprintf("curl -m 60 --retry-delay 5 --retry 3 -sL %s -o reaper && chmod +x reaper && mv reaper /usr/local/bin && /usr/local/bin/reaper", reaperBinaryFile)
 		if pipelineTask.ConfigPayload.Proxy.EnableApplicationProxy && pipelineTask.ConfigPayload.Proxy.Type == "http" {
 			reaperBootingScript = fmt.Sprintf("curl -m 60 --retry-delay 5 --retry 3 -sL --proxy %s %s -o reaper && chmod +x reaper && mv reaper /usr/local/bin && /usr/local/bin/reaper",
 				pipelineTask.ConfigPayload.Proxy.GetProxyURL(),
-				pipelineTask.ConfigPayload.Release.ReaperBinaryFile,
+				reaperBinaryFile,
 			)
 		}
 	}
