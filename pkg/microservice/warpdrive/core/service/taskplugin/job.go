@@ -841,17 +841,18 @@ func addNodeAffinity(clusterID string, K8SClusters []*task.K8SCluster) *corev1.A
 		return nil
 	}
 
+	nodeLabelM := make(map[string][]string, 0)
+	for _, nodeLabel := range clusterConfig.NodeLabels {
+		if !strings.Contains(nodeLabel, ":") || len(strings.Split(nodeLabel, ":")) != 2 {
+			continue
+		}
+		key := strings.Split(nodeLabel, ":")[0]
+		value := strings.Split(nodeLabel, ":")[1]
+		nodeLabelM[key] = append(nodeLabelM[key], value)
+	}
+
 	switch clusterConfig.Strategy {
 	case RequiredSchedule:
-		nodeLabelM := make(map[string][]string, 0)
-		for _, nodeLabel := range clusterConfig.NodeLabels {
-			if !strings.Contains(nodeLabel, ":") || len(strings.Split(nodeLabel, ":")) != 2 {
-				continue
-			}
-			key := strings.Split(nodeLabel, ":")[0]
-			value := strings.Split(nodeLabel, ":")[1]
-			nodeLabelM[key] = append(nodeLabelM[key], value)
-		}
 		nodeSelectorTerms := make([]corev1.NodeSelectorTerm, 0)
 		for key, value := range nodeLabelM {
 			var matchExpressions []corev1.NodeSelectorRequirement
@@ -874,15 +875,6 @@ func addNodeAffinity(clusterID string, K8SClusters []*task.K8SCluster) *corev1.A
 		}
 		return affinity
 	case PreferredSchedule:
-		nodeLabelM := make(map[string][]string, 0)
-		for _, nodeLabel := range clusterConfig.NodeLabels {
-			if !strings.Contains(nodeLabel, ":") || len(strings.Split(nodeLabel, ":")) != 2 {
-				continue
-			}
-			key := strings.Split(nodeLabel, ":")[0]
-			value := strings.Split(nodeLabel, ":")[1]
-			nodeLabelM[key] = append(nodeLabelM[key], value)
-		}
 		preferredScheduleTerms := make([]corev1.PreferredSchedulingTerm, 0)
 		for key, value := range nodeLabelM {
 			var matchExpressions []corev1.NodeSelectorRequirement
