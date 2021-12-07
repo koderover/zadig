@@ -32,9 +32,9 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/containerlog"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
-	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
 	"github.com/koderover/zadig/pkg/tool/kube/watcher"
 )
 
@@ -156,8 +156,7 @@ func TestJobContainerLogStream(ctx context.Context, streamChan chan interface{},
 	options.SubTask = string(config.TaskTestingV2)
 	selector := getPipelineSelector(options)
 	// get cluster ID
-	testName := strings.Replace(options.ServiceName, "-job", "", 1)
-	testing, _ := commonrepo.NewTestingColl().Find(testName, "")
+	testing, _ := commonrepo.NewTestingColl().Find(getTestName(options.ServiceName), "")
 	if testing != nil && testing.PreTest != nil {
 		options.ClusterID = testing.PreTest.ClusterID
 		options.Namespace = testing.PreTest.Namespace
@@ -166,12 +165,17 @@ func TestJobContainerLogStream(ctx context.Context, streamChan chan interface{},
 	waitAndGetLog(ctx, streamChan, selector, options, log)
 }
 
+func getTestName(serviceName string) string {
+	testName := strings.TrimRight(serviceName, "-job")
+	return testName
+}
+
 func waitAndGetLog(ctx context.Context, streamChan chan interface{}, selector labels.Selector, options *GetContainerOptions, log *zap.SugaredLogger) {
 	PodCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	log.Debugf("Waiting until pod is running before establishing the stream.")
-	clientSet, err := multicluster.GetClientset(config.HubServerAddress(), options.ClusterID)
+	clientSet, err := client.GetClientset(config.HubServerAddress(), options.ClusterID)
 	if err != nil {
 		log.Errorf("GetContainerLogs, get client set error: %s", err)
 		return
@@ -181,7 +185,7 @@ func waitAndGetLog(ctx context.Context, streamChan chan interface{}, selector la
 		log.Errorf("GetContainerLogs, wait pod running error: %s", err)
 		return
 	}
-	kubeClient, err := multicluster.GetKubeClient(config.HubServerAddress(), options.ClusterID)
+	kubeClient, err := client.GetKubeClient(config.HubServerAddress(), options.ClusterID)
 	if err != nil {
 		log.Errorf("GetContainerLogs, get kube client error: %s", err)
 		return

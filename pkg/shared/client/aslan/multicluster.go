@@ -4,24 +4,21 @@ import (
 	"fmt"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
-
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
 type cluster struct {
-	ID     primitive.ObjectID       `json:"id,omitempty"`
+	ID     string                   `json:"id"`
 	Name   string                   `json:"name"`
 	Status setting.K8SClusterStatus `json:"status"`
 	Local  bool                     `json:"local"`
 }
 
-func (c *Client) AddMultiCluster() error {
-	oid, _ := primitive.ObjectIDFromHex(setting.LocalClusterID)
+func (c *Client) AddLocalCluster() error {
 	url := "/cluster/clusters"
 	req := cluster{
-		ID:     oid,
+		ID:     setting.LocalClusterID,
 		Name:   fmt.Sprintf("%s-%s", "local", time.Now().Format("20060102150405")),
 		Local:  true,
 		Status: setting.Normal,
@@ -35,14 +32,14 @@ func (c *Client) AddMultiCluster() error {
 	return nil
 }
 
-func (c *Client) ListMultiCluster() ([]*cluster, error) {
-	url := "/cluster/clusters"
+func (c *Client) GetCluster() (*cluster, error) {
+	url := "/cluster/clusters/" + setting.LocalClusterID
 
-	clusters := make([]*cluster, 0)
-	_, err := c.Get(url, httpclient.SetResult(&clusters))
+	var cluster *cluster
+	_, err := c.Get(url, httpclient.SetResult(&cluster))
 	if err != nil {
-		return nil, fmt.Errorf("Failed to list multi cluster, error: %s", err)
+		return nil, fmt.Errorf("Failed to get cluster, error: %s", err)
 	}
 
-	return clusters, nil
+	return cluster, nil
 }

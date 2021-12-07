@@ -24,8 +24,8 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
+	client2 "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
-	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
 )
 
 // ExportYaml 查询使用到服务模板的服务组模板
@@ -40,7 +40,7 @@ func ExportYaml(envName, productName, serviceName string, log *zap.SugaredLogger
 	}
 
 	namespace := env.Namespace
-	kubeClient, err := multicluster.GetKubeClient(config.HubServerAddress(), env.ClusterID)
+	kubeClient, err := client2.GetKubeClient(config.HubServerAddress(), env.ClusterID)
 	if err != nil {
 		log.Errorf("cluster is not connected [%s][%s][%s]", env.EnvName, env.ProductName, env.ClusterID)
 		return res

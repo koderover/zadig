@@ -34,8 +34,8 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/setting"
+	client2 "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
 )
 
 type K8sService struct {
@@ -83,7 +83,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		return errors.New(e.UpsertServiceErrMsg)
 	}
 
-	kubeClient, err := multicluster.GetKubeClient(config.HubServerAddress(), exitedProd.ClusterID)
+	kubeClient, err := client2.GetKubeClient(config.HubServerAddress(), exitedProd.ClusterID)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}

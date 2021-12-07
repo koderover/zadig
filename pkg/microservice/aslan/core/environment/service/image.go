@@ -37,10 +37,10 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
+	client2 "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
-	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
@@ -321,7 +321,7 @@ func UpdateContainerImage(requestID string, args *UpdateContainerImageArgs, log 
 	}
 
 	namespace := product.Namespace
-	kubeClient, err := multicluster.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+	kubeClient, err := client2.GetKubeClient(config.HubServerAddress(), product.ClusterID)
 	if err != nil {
 		return e.ErrUpdateConainterImage.AddErr(err)
 	}

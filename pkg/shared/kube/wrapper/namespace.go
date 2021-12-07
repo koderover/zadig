@@ -19,7 +19,7 @@ package wrapper
 import (
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/pkg/util"
 )

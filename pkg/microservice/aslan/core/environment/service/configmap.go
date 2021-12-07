@@ -33,10 +33,10 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
+	client2 "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
-	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/kube/util"
 )
@@ -100,7 +100,7 @@ func ListConfigMaps(args *ListConfigMapArgs, log *zap.SugaredLogger) ([]*configM
 	if err != nil {
 		return nil, e.ErrListConfigMaps.AddErr(err)
 	}
-	kubeClient, err := multicluster.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+	kubeClient, err := client2.GetKubeClient(config.HubServerAddress(), product.ClusterID)
 	if err != nil {
 		return nil, e.ErrListConfigMaps.AddErr(err)
 	}
@@ -155,7 +155,7 @@ func UpdateConfigMap(envName string, args *UpdateConfigMapArgs, userName, userID
 	if err != nil {
 		return e.ErrUpdateConfigMap.AddErr(err)
 	}
-	kubeClient, err := multicluster.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+	kubeClient, err := client2.GetKubeClient(config.HubServerAddress(), product.ClusterID)
 	if err != nil {
 		return e.ErrUpdateConfigMap.AddErr(err)
 	}
@@ -232,7 +232,7 @@ func RollBackConfigMap(envName string, args *RollBackConfigMapArgs, userName, us
 	if err != nil {
 		return e.ErrUpdateConfigMap.AddErr(err)
 	}
-	kubeClient, err := multicluster.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+	kubeClient, err := client2.GetKubeClient(config.HubServerAddress(), product.ClusterID)
 	if err != nil {
 		return e.ErrUpdateConfigMap.AddErr(err)
 	}

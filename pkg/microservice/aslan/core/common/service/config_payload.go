@@ -93,7 +93,15 @@ func GetConfigPayload(codeHostID int) *models.ConfigPayload {
 
 	k8sClusters, _ := mongodb.NewK8SClusterColl().List(nil)
 	if len(k8sClusters) != 0 {
-		payload.K8SClusters = k8sClusters
+		var K8SClusterResp []*models.K8SClusterResp
+		for _, k8sCluster := range k8sClusters {
+			K8SClusterResp = append(K8SClusterResp, &models.K8SClusterResp{
+				ID:             k8sCluster.ID.Hex(),
+				Name:           k8sCluster.Name,
+				AdvancedConfig: k8sCluster.AdvancedConfig,
+			})
+		}
+		payload.K8SClusters = K8SClusterResp
 	}
 	return payload
 }

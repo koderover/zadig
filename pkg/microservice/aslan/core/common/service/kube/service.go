@@ -32,22 +32,23 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
+	client2 "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/crypto"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
 )
 
 func GetKubeAPIReader(clusterID string) (client.Reader, error) {
-	return multicluster.GetKubeAPIReader(config.HubServerAddress(), clusterID)
+	return client2.GetKubeAPIReader(config.HubServerAddress(), clusterID)
 }
 
 func GetRESTConfig(clusterID string) (*rest.Config, error) {
-	return multicluster.GetRESTConfig(config.HubServerAddress(), clusterID)
+	return client2.GetRESTConfig(config.HubServerAddress(), clusterID)
 }
 
 // GetClientset returns a client to interact with APIServer which implements kubernetes.Interface
 func GetClientset(clusterID string) (kubernetes.Interface, error) {
-	return multicluster.GetClientset(config.HubServerAddress(), clusterID)
+	return client2.GetClientset(config.HubServerAddress(), clusterID)
 }
 
 type Service struct {

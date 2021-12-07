@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	client2 "github.com/koderover/zadig/pkg/shared/kube/client"
 	helmclient "github.com/mittwald/go-helm-client"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/labels"
@@ -37,7 +38,6 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
-	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 )
 
@@ -53,7 +53,7 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 		return e.ErrDeleteEnv.AddDesc("not found")
 	}
 
-	kubeClient, err := multicluster.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
+	kubeClient, err := client2.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
 	if err != nil {
 		return e.ErrDeleteEnv.AddErr(err)
 	}

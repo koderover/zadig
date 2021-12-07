@@ -33,11 +33,11 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
+	client2 "github.com/koderover/zadig/pkg/shared/kube/client"
 	internalresource "github.com/koderover/zadig/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
-	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -61,7 +61,7 @@ func ScaleService(envName, productName, serviceName string, number int, log *zap
 		return e.ErrScaleService.AddErr(err)
 	}
 
-	kubeClient, err := multicluster.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
+	kubeClient, err := client2.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
 	if err != nil {
 		return e.ErrScaleService.AddErr(err)
 	}
@@ -112,7 +112,7 @@ func Scale(args *ScaleArgs, logger *zap.SugaredLogger) error {
 		return e.ErrScaleService.AddErr(err)
 	}
 
-	kubeClient, err := multicluster.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
+	kubeClient, err := client2.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
 	if err != nil {
 		return e.ErrScaleService.AddErr(err)
 	}
@@ -142,7 +142,7 @@ func RestartScale(args *RestartScaleArgs, _ *zap.SugaredLogger) error {
 		return err
 	}
 
-	kubeClient, err := multicluster.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
+	kubeClient, err := client2.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
 	if err != nil {
 		return err
 	}
@@ -178,7 +178,7 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 		return nil, e.ErrGetService.AddErr(err)
 	}
 
-	kubeClient, err := multicluster.GetKubeClient(config.HubServerAddress(), env.ClusterID)
+	kubeClient, err := client2.GetKubeClient(config.HubServerAddress(), env.ClusterID)
 	if err != nil {
 		return nil, e.ErrGetService.AddErr(err)
 	}
@@ -324,7 +324,7 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 	if err != nil {
 		return err
 	}
-	kubeClient, err := multicluster.GetKubeClient(config.HubServerAddress(), productObj.ClusterID)
+	kubeClient, err := client2.GetKubeClient(config.HubServerAddress(), productObj.ClusterID)
 	if err != nil {
 		return err
 	}
@@ -423,7 +423,7 @@ func validateServiceContainer(envName, productName, serviceName, container strin
 		return "", err
 	}
 
-	kubeClient, err := multicluster.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
+	kubeClient, err := client2.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
 	if err != nil {
 		return "", err
 	}

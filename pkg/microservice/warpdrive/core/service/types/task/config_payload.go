@@ -19,9 +19,7 @@ package task
 import (
 	"fmt"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
-
-	"github.com/koderover/zadig/pkg/setting"
+	corev1 "k8s.io/api/core/v1"
 )
 
 type ConfigPayload struct {
@@ -44,7 +42,7 @@ type ConfigPayload struct {
 	CustomDNSSupported bool `json:"custom_dns_supported"`
 	HubServerAddr      string
 	DeployClusterID    string
-	AesKey             string
+	AesKey             string `json:"aes_key"`
 
 	RepoConfigs map[string]*RegistryNamespace
 
@@ -156,15 +154,18 @@ type PrivateKey struct {
 }
 
 type K8SCluster struct {
-	ID            primitive.ObjectID       `json:"id,omitempty"                bson:"_id,omitempty"`
-	Name          string                   `json:"name"                        bson:"name"`
-	Status        setting.K8SClusterStatus `json:"status"                      bson:"status"`
-	ClusterConfig *ClusterConfig           `json:"config,omitempty"            bson:"config,omitempty"`
-	Production    bool                     `json:"production"                  bson:"production"`
-	Disconnected  bool                     `json:"-"                           bson:"disconnected"`
+	ID             string          `json:"id,omitempty"                bson:"_id,omitempty"`
+	Name           string          `json:"name"                        bson:"name"`
+	AdvancedConfig *AdvancedConfig `json:"config,omitempty"            bson:"config,omitempty"`
 }
 
-type ClusterConfig struct {
-	Strategy   string   `json:"strategy,omitempty"      bson:"strategy,omitempty"`
-	NodeLabels []string `json:"node_labels,omitempty"   bson:"node_labels,omitempty"`
+type AdvancedConfig struct {
+	Strategy   string                     `json:"strategy,omitempty"      bson:"strategy,omitempty"`
+	NodeLabels []*NodeSelectorRequirement `json:"node_labels,omitempty"   bson:"node_labels,omitempty"`
+}
+
+type NodeSelectorRequirement struct {
+	Key      string                      `json:"key"`
+	Value    []string                    `json:"value"`
+	Operator corev1.NodeSelectorOperator `json:"operator"`
 }

@@ -43,10 +43,10 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
+	client2 "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	"github.com/koderover/zadig/pkg/tool/kube/containerlog"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
-	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
 	"github.com/koderover/zadig/pkg/tool/kube/podexec"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -98,7 +98,7 @@ func saveContainerLog(pipelineTask *task.Task, namespace, clusterID, fileName st
 		return pods[i].CreationTimestamp.Before(&pods[j].CreationTimestamp)
 	})
 
-	clientSet, err := multicluster.GetClientset(pipelineTask.ConfigPayload.HubServerAddr, clusterID)
+	clientSet, err := client2.GetClientset(pipelineTask.ConfigPayload.HubServerAddr, clusterID)
 	if err != nil {
 		log.Errorf("saveContainerLog, get client set error: %s", err)
 		return err
@@ -841,25 +841,15 @@ func addNodeAffinity(clusterID string, K8SClusters []*task.K8SCluster) *corev1.A
 		return nil
 	}
 
-	nodeLabelM := make(map[string][]string, 0)
-	for _, nodeLabel := range clusterConfig.NodeLabels {
-		if !strings.Contains(nodeLabel, ":") || len(strings.Split(nodeLabel, ":")) != 2 {
-			continue
-		}
-		key := strings.Split(nodeLabel, ":")[0]
-		value := strings.Split(nodeLabel, ":")[1]
-		nodeLabelM[key] = append(nodeLabelM[key], value)
-	}
-
 	switch clusterConfig.Strategy {
 	case RequiredSchedule:
 		nodeSelectorTerms := make([]corev1.NodeSelectorTerm, 0)
-		for key, value := range nodeLabelM {
+		for _, nodeLabel := range clusterConfig.NodeLabels {
 			var matchExpressions []corev1.NodeSelectorRequirement
 			matchExpressions = append(matchExpressions, corev1.NodeSelectorRequirement{
-				Key:      key,
-				Operator: corev1.NodeSelectorOpIn,
-				Values:   value,
+				Key:      nodeLabel.Key,
+				Operator: nodeLabel.Operator,
+				Values:   nodeLabel.Value,
 			})
 			nodeSelectorTerms = append(nodeSelectorTerms, corev1.NodeSelectorTerm{
 				MatchExpressions: matchExpressions,
@@ -876,12 +866,12 @@ func addNodeAffinity(clusterID string, K8SClusters []*task.K8SCluster) *corev1.A
 		return affinity
 	case PreferredSchedule:
 		preferredScheduleTerms := make([]corev1.PreferredSchedulingTerm, 0)
-		for key, value := range nodeLabelM {
+		for _, nodeLabel := range clusterConfig.NodeLabels {
 			var matchExpressions []corev1.NodeSelectorRequirement
 			matchExpressions = append(matchExpressions, corev1.NodeSelectorRequirement{
-				Key:      key,
-				Operator: corev1.NodeSelectorOpIn,
-				Values:   value,
+				Key:      nodeLabel.Key,
+				Operator: nodeLabel.Operator,
+				Values:   nodeLabel.Value,
 			})
 			nodeSelectorTerm := corev1.NodeSelectorTerm{
 				MatchExpressions: matchExpressions,
@@ -902,10 +892,10 @@ func addNodeAffinity(clusterID string, K8SClusters []*task.K8SCluster) *corev1.A
 	}
 }
 
-func findClusterConfig(clusterID string, K8SClusters []*task.K8SCluster) *task.ClusterConfig {
+func findClusterConfig(clusterID string, K8SClusters []*task.K8SCluster) *task.AdvancedConfig {
 	for _, K8SCluster := range K8SClusters {
-		if K8SCluster.ID.Hex() == clusterID {
-			return K8SCluster.ClusterConfig
+		if K8SCluster.ID == clusterID {
+			return K8SCluster.AdvancedConfig
 		}
 	}
 	return nil

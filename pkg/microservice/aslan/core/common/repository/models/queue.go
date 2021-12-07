@@ -126,7 +126,7 @@ type ConfigPayload struct {
 	CustomDNSSupported bool `json:"custom_dns_supported"`
 	HubServerAddr      string
 	DeployClusterID    string
-	AesKey             string
+	AesKey             string `bson:"-" json:"aes_key"`
 
 	RepoConfigs map[string]*RegistryNamespace
 
@@ -137,7 +137,7 @@ type ConfigPayload struct {
 	ResetCache         bool               `json:"reset_cache"`
 	JenkinsBuildConfig JenkinsBuildConfig `json:"jenkins_build_config"`
 	PrivateKeys        []*PrivateKey      `json:"private_keys"`
-	K8SClusters        []*K8SCluster      `json:"k8s_cluster"`
+	K8SClusters        []*K8SClusterResp  `bson:"-"  json:"k8s_cluster"`
 }
 
 type AslanConfig struct {

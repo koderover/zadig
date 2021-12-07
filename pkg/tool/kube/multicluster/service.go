@@ -28,12 +28,11 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/koderover/zadig/pkg/setting"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 )
 
 func GetKubeClient(hubServerAddr, clusterID string) (client.Client, error) {
-	if clusterID == "" || clusterID == setting.LocalClusterID {
+	if clusterID == "" {
 		return krkubeclient.Client(), nil
 	}
 
@@ -46,7 +45,7 @@ func GetKubeClient(hubServerAddr, clusterID string) (client.Client, error) {
 }
 
 func GetKubeAPIReader(hubServerAddr, clusterID string) (client.Reader, error) {
-	if clusterID == "" || clusterID == setting.LocalClusterID {
+	if clusterID == "" {
 		return krkubeclient.APIReader(), nil
 	}
 
@@ -59,7 +58,7 @@ func GetKubeAPIReader(hubServerAddr, clusterID string) (client.Reader, error) {
 }
 
 func GetRESTConfig(hubServerAddr, clusterID string) (*rest.Config, error) {
-	if clusterID == "" || clusterID == setting.LocalClusterID {
+	if clusterID == "" {
 		return krkubeclient.RESTConfig(), nil
 	}
 
@@ -68,7 +67,7 @@ func GetRESTConfig(hubServerAddr, clusterID string) (*rest.Config, error) {
 
 // GetClientset returns a client to interact with APIServer which implements kubernetes.Interface
 func GetClientset(hubServerAddr, clusterID string) (kubernetes.Interface, error) {
-	if clusterID == "" || clusterID == setting.LocalClusterID {
+	if clusterID == "" {
 		return krkubeclient.Clientset(), nil
 	}
 

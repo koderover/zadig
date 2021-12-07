@@ -102,8 +102,8 @@ func initSystemConfig() error {
 		return err
 	}
 
-	if err := createMultiCluster(); err != nil {
-		log.Errorf("createMultiCluster err:%s", err)
+	if err := createLocalCluster(); err != nil {
+		log.Errorf("createLocalCluster err:%s", err)
 		return err
 	}
 
@@ -203,20 +203,10 @@ func presetRole() error {
 	return nil
 }
 
-func createMultiCluster() error {
-	clusters, err := aslan.New(config.AslanServiceAddress()).ListMultiCluster()
-	if err != nil {
-		return err
+func createLocalCluster() error {
+	cluster, _ := aslan.New(config.AslanServiceAddress()).GetCluster()
+	if cluster != nil {
+		return nil
 	}
-	var hasLocal bool
-	for _, cluster := range clusters {
-		if cluster.Local {
-			hasLocal = true
-			break
-		}
-	}
-	if !hasLocal {
-		return aslan.New(config.AslanServiceAddress()).AddMultiCluster()
-	}
-	return nil
+	return aslan.New(config.AslanServiceAddress()).AddLocalCluster()
 }

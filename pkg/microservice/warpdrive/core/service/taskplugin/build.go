@@ -32,8 +32,8 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
+	client2 "github.com/koderover/zadig/pkg/shared/kube/client"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
-	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 )
 
@@ -110,7 +110,7 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 	p.KubeNamespace = pipelineTask.ConfigPayload.Build.KubeNamespace
 	if p.Task.Namespace != "" {
 		p.KubeNamespace = p.Task.Namespace
-		kubeClient, err := multicluster.GetKubeClient(pipelineTask.ConfigPayload.HubServerAddr, p.Task.ClusterID)
+		kubeClient, err := client2.GetKubeClient(pipelineTask.ConfigPayload.HubServerAddr, p.Task.ClusterID)
 		if err != nil {
 			msg := fmt.Sprintf("failed to get kube client: %s", err)
 			p.Log.Error(msg)
