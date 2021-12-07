@@ -120,14 +120,14 @@ func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, op
 		return
 	}
 	log.Debugf("Start to get task container log.")
-	if options.EnvName != "" && options.ProductName != "" {
+	// Cloud host scenario reads real-time logs from the environment, so pipelineName is empty
+	if options.EnvName != "" && options.ProductName != "" && options.PipelineName == "" {
 		//修改pipelineName，判断pipelineName是否为空，为空代表是来自环境里面请求，不为空代表是来自工作流任务的请求
-		if options.PipelineName == "" {
-			options.PipelineName = fmt.Sprintf("%s-%s-%s", options.ServiceName, options.EnvName, "job")
-			if taskObj, err := commonrepo.NewTaskColl().FindTask(options.PipelineName, config.ServiceType); err == nil {
-				options.TaskID = taskObj.TaskID
-			}
+		options.PipelineName = fmt.Sprintf("%s-%s-%s", options.ServiceName, options.EnvName, "job")
+		if taskObj, err := commonrepo.NewTaskColl().FindTask(options.PipelineName, config.ServiceType); err == nil {
+			options.TaskID = taskObj.TaskID
 		}
+		// Need to get build info based on the project name and service component name, then get clusterID and namespace
 	} else if options.ProductName != "" {
 		build, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{
 			ProductName: options.ProductName,
