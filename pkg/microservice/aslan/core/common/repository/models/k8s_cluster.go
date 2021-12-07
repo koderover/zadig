@@ -62,9 +62,9 @@ type AdvancedConfig struct {
 }
 
 type NodeSelectorRequirement struct {
-	Key      string                      `json:"key"`
-	Value    []string                    `json:"value"`
-	Operator corev1.NodeSelectorOperator `json:"operator"`
+	Key      string                      `json:"key"      bson:"key"`
+	Value    []string                    `json:"value"    bson:"value"`
+	Operator corev1.NodeSelectorOperator `json:"operator" bson:"operator"`
 }
 
 func (K8SCluster) TableName() string {
