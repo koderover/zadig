@@ -40,8 +40,9 @@ func (c *Client) GetLocalCluster() (*clusterResp, error) {
 	url := fmt.Sprintf("/cluster/clusters/%s", setting.LocalClusterID)
 
 	clusterResp := &clusterResp{}
-	_, err := c.Get(url, httpclient.SetResult(clusterResp))
+	resp, err := c.Get(url, httpclient.SetResult(clusterResp))
 	if err != nil {
+		fmt.Println(fmt.Sprintf("resp.body:%s", string(resp.Body())))
 		if strings.Contains(err.Error(), "\"code\":6643") {
 			return nil, nil
 		}
