@@ -57,7 +57,7 @@ type AdvancedConfig struct {
 	NodeLabels []string `json:"node_labels,omitempty"   bson:"node_labels,omitempty"`
 }
 
-func (k *K8SCluster) Validate() error {
+func (k *K8SCluster) Clean() error {
 	k.Name = strings.TrimSpace(k.Name)
 	k.Description = strings.TrimSpace(k.Description)
 
@@ -80,8 +80,10 @@ func ListClusters(ids []string, logger *zap.SugaredLogger) ([]*K8SCluster, error
 	for _, c := range cs {
 		var advancedConfig *AdvancedConfig
 		if c.AdvancedConfig != nil {
-			advancedConfig = convertToAdvancedConfig(c.AdvancedConfig.NodeLabels)
-			advancedConfig.Strategy = c.AdvancedConfig.Strategy
+			advancedConfig = &AdvancedConfig{
+				Strategy:   c.AdvancedConfig.Strategy,
+				NodeLabels: convertToNodeLabels(c.AdvancedConfig.NodeLabels),
+			}
 		}
 		res = append(res, &K8SCluster{
 			ID:             c.ID.Hex(),
@@ -106,23 +108,21 @@ func GetCluster(id string, logger *zap.SugaredLogger) (*commonmodels.K8SCluster,
 	return s.GetCluster(id, logger)
 }
 
-func convertToAdvancedConfig(nodeSelectorRequirements []*commonmodels.NodeSelectorRequirement) *AdvancedConfig {
+func convertToNodeLabels(nodeSelectorRequirements []*commonmodels.NodeSelectorRequirement) []string {
 	var nodeLabels []string
 	for _, nodeSelectorRequirement := range nodeSelectorRequirements {
 		for _, labelValue := range nodeSelectorRequirement.Value {
 			nodeLabels = append(nodeLabels, fmt.Sprintf("%s:%s", nodeSelectorRequirement.Key, labelValue))
 		}
 	}
-	advancedConfig := &AdvancedConfig{
-		NodeLabels: nodeLabels,
-	}
-	return advancedConfig
+
+	return nodeLabels
 }
 
-func convertToNodeSelectorRequirements(args *AdvancedConfig) []*commonmodels.NodeSelectorRequirement {
+func convertToNodeSelectorRequirements(nodeLabels []string) []*commonmodels.NodeSelectorRequirement {
 	var nodeSelectorRequirements []*commonmodels.NodeSelectorRequirement
 	nodeLabelM := make(map[string][]string)
-	for _, nodeLabel := range args.NodeLabels {
+	for _, nodeLabel := range nodeLabels {
 		if !strings.Contains(nodeLabel, ":") || len(strings.Split(nodeLabel, ":")) != 2 {
 			continue
 		}
@@ -145,7 +145,7 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 	advancedConfig := new(commonmodels.AdvancedConfig)
 	if args.AdvancedConfig != nil {
 		advancedConfig.Strategy = args.AdvancedConfig.Strategy
-		advancedConfig.NodeLabels = convertToNodeSelectorRequirements(args.AdvancedConfig)
+		advancedConfig.NodeLabels = convertToNodeSelectorRequirements(args.AdvancedConfig.NodeLabels)
 	}
 	cluster := &commonmodels.K8SCluster{
 		Name:           args.Name,
@@ -169,7 +169,7 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 	advancedConfig := new(commonmodels.AdvancedConfig)
 	if args.AdvancedConfig != nil {
 		advancedConfig.Strategy = args.AdvancedConfig.Strategy
-		advancedConfig.NodeLabels = convertToNodeSelectorRequirements(args.AdvancedConfig)
+		advancedConfig.NodeLabels = convertToNodeSelectorRequirements(args.AdvancedConfig.NodeLabels)
 	}
 	cluster := &commonmodels.K8SCluster{
 		Name:           args.Name,
