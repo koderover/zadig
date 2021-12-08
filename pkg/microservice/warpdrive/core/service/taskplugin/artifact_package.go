@@ -21,21 +21,20 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
-	"github.com/koderover/zadig/pkg/tool/kube/getter"
-	"github.com/koderover/zadig/pkg/tool/kube/podexec"
-	"k8s.io/apimachinery/pkg/labels"
-
-	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types"
-	"github.com/koderover/zadig/pkg/setting"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
+	"k8s.io/apimachinery/pkg/labels"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
+	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
+	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
+	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/kube/podexec"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
-	"go.uber.org/zap"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // InitializeArtifactPackagePlugin to ini

@@ -19,8 +19,9 @@ package models
 import (
 	"sync"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 )
 
 type Queue struct {
