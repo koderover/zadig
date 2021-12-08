@@ -1,8 +1,8 @@
 package aslan
 
 import (
+	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/koderover/zadig/pkg/setting"
@@ -36,14 +36,23 @@ type clusterResp struct {
 	Local bool   `json:"local"`
 }
 
+type ErrorMessage struct {
+	Type string `json:"type"`
+	Code int    `json:"code"`
+}
+
 func (c *Client) GetLocalCluster() (*clusterResp, error) {
 	url := fmt.Sprintf("/cluster/clusters/%s", setting.LocalClusterID)
 
 	clusterResp := &clusterResp{}
 	resp, err := c.Get(url, httpclient.SetResult(clusterResp))
 	if err != nil {
-		fmt.Println(fmt.Sprintf("resp.body:%s", string(resp.Body())))
-		if strings.Contains(err.Error(), "\"code\":6643") {
+		errorMessage := new(ErrorMessage)
+		err := json.Unmarshal(resp.Body(), errorMessage)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to get cluster, error: %s", err)
+		}
+		if errorMessage.Code == 6643 {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("Failed to get cluster, error: %s", err)
