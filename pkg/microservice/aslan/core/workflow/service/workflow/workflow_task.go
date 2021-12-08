@@ -1174,7 +1174,7 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *task.Task, log *
 		for _, service := range args.Target {
 			servicesArray = append(servicesArray, service.ServiceName)
 		}
-		services = strings.Replace(strings.Trim(fmt.Sprint(servicesArray), "[]"), " ", ",", -1)
+		services = strings.Join(servicesArray,",")
 		log.Info("获取本次任务执行的服务services:%v", services)
 	}
 
