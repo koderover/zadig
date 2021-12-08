@@ -94,16 +94,18 @@ func ListClusters(ids []string, logger *zap.SugaredLogger) ([]*K8SCluster, error
 
 	var res []*K8SCluster
 	for _, c := range cs {
-		advancedConfig := new(AdvancedConfig)
+		var advancedConfig *AdvancedConfig
 		if c.AdvancedConfig != nil {
-			advancedConfig.Strategy = c.AdvancedConfig.Strategy
 			var nodeLabels []string
 			for _, nodeSelectorRequirement := range c.AdvancedConfig.NodeLabels {
 				for _, labelValue := range nodeSelectorRequirement.Value {
 					nodeLabels = append(nodeLabels, fmt.Sprintf("%s:%s", nodeSelectorRequirement.Key, labelValue))
 				}
 			}
-			advancedConfig.NodeLabels = nodeLabels
+			advancedConfig = &AdvancedConfig{
+				Strategy:   c.AdvancedConfig.Strategy,
+				NodeLabels: nodeLabels,
+			}
 		}
 		res = append(res, &K8SCluster{
 			ID:             c.ID.Hex(),
