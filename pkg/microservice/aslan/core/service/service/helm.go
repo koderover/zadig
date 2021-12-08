@@ -211,13 +211,7 @@ func GetFileContent(serviceName, productName string, param *GetFileContentParam,
 	}
 
 	if forDelivery {
-		fullPath := filepath.Join(base, serviceName)
 		base = config.LocalDeliveryChartPathWithRevision(productName, serviceName, revision)
-		deliveryChartPath := filepath.Join(base, serviceName)
-		err := copy.Copy(fullPath, deliveryChartPath)
-		if err != nil {
-			return "", e.ErrFileContent.AddErr(err)
-		}
 	}
 
 	file := filepath.Join(base, serviceName, filePath, fileName)

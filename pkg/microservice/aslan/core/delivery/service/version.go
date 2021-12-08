@@ -29,10 +29,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
-
-	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
-
 	cm "github.com/chartmuseum/helm-push/pkg/chartmuseum"
 	"github.com/chartmuseum/helm-push/pkg/helm"
 	"github.com/hashicorp/go-multierror"
@@ -47,16 +43,19 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
+	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
-	"github.com/koderover/zadig/pkg/util/converter"
+	fsutil "github.com/koderover/zadig/pkg/util/fs"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
@@ -101,8 +100,11 @@ type DeliveryVersionChartData struct {
 }
 
 type DeliveryChartData struct {
-	ChartData  *CreateHelmDeliveryVersionChartData
-	ServiceObj *commonmodels.Service
+	ChartData      *CreateHelmDeliveryVersionChartData
+	ServiceObj     *commonmodels.Service
+	ProductService *commonmodels.ProductService
+	RenderChart    *template.RenderChart
+	RenderSet      *commonmodels.RenderSet
 }
 
 type DeliveryChartResp struct {
@@ -175,6 +177,11 @@ type ServiceImageDetails struct {
 	ServiceName string
 	Images      []*ImageUrlDetail
 	Registries  []string
+}
+
+type ChartVersionResp struct {
+	ChartName    string `json:"chartName"`
+	ChartVersion string `json:"chartVersion"`
 }
 
 func GetDeliveryVersion(args *commonrepo.DeliveryVersionArgs, log *zap.SugaredLogger) (*commonmodels.DeliveryVersion, error) {
@@ -499,44 +506,22 @@ func createChartRepoClient(repo *commonmodels.HelmRepo) (*cm.Client, error) {
 }
 
 // pull image from currently using registry and push to specified repo
-func extractImages(deliveryVersion *commonmodels.DeliveryVersion, serviceObj *commonmodels.Service, valuesMap map[string]interface{},
-	targetRegistry *commonmodels.RegistryNamespace, registryMap map[string]*commonmodels.RegistryNamespace) (*ServiceImageDetails, error) {
+func extractImages(productService *commonmodels.ProductService, registryMap map[string]*commonmodels.RegistryNamespace) (*ServiceImageDetails, error) {
 
-	flatMap, err := converter.Flatten(valuesMap)
-	if err != nil {
-		return nil, err
-	}
-
-	imagePathSpecs := make([]map[string]string, 0)
-	for _, container := range serviceObj.Containers {
-		imageSearchRule := &template.ImageSearchingRule{
-			Repo:  container.ImagePath.Repo,
-			Image: container.ImagePath.Image,
-			Tag:   container.ImagePath.Tag,
-		}
-		pattern := imageSearchRule.GetSearchingPattern()
-		imagePathSpecs = append(imagePathSpecs, pattern)
-	}
-
-	// find full image uris from values.yaml
-	imageUrls := make([]string, 0)
-	for _, spec := range imagePathSpecs {
-		imageUri, err := commonservice.GeneImageURI(spec, flatMap)
-		if err != nil {
-			return nil, err
-		}
-
-		imageUrls = append(imageUrls, imageUri)
+	// find all images in one single chart
+	imageUrlsSet := sets.NewString()
+	for _, container := range productService.Containers {
+		imageUrlsSet.Insert(container.Image)
 	}
 
 	ret := &ServiceImageDetails{
-		ServiceName: serviceObj.ServiceName,
+		ServiceName: productService.ServiceName,
 		Images:      make([]*ImageUrlDetail, 0),
 	}
 
 	registrySet := sets.NewString()
 
-	for _, imageUrl := range imageUrls {
+	for _, imageUrl := range imageUrlsSet.List() {
 
 		registryUrl, err := commonservice.ExtractImageRegistry(imageUrl)
 		if err != nil {
@@ -561,36 +546,17 @@ func extractImages(deliveryVersion *commonmodels.DeliveryVersion, serviceObj *co
 
 	ret.Registries = registrySet.List()
 	return ret, nil
-
-	//for _, imageUrl := range imageUrls {
-	//	registryUrl, err := commonservice.ExtractImageRegistry(imageUrl)
-	//	if err != nil {
-	//		return nil, errors.Wrapf(err, "failed to parse registry from image uri: %s", imageUrl)
-	//	}
-	//	registryUrl = strings.TrimSuffix(registryUrl, "/")
-	//
-	//	imageName := commonservice.ExtractImageName(imageUrl)
-	//	imageTag := commonservice.ExtractImageTag(imageUrl)
-	//	imageNamespace := commonservice.ExtractRegistryNamespace(imageUrl)
-	//	targetFullImageUri := imageUrl
-	//
-	//	if registry, ok := registryMap[registryUrl]; ok {
-	//		if registry.ID != targetRegistry.ID {
-	//			targetFullImageUri = fmt.Sprintf("%s/%s/%s:%s", targetRegistry.RegAddr, targetRegistry.Namespace, imageName, imageTag)
-	//		}
-	//	}
-	//
-	//	if err != nil {
-	//		log.Errorf("failed to insert image distribute data, version: %s, image: %s, err: %s", deliveryVersion.Version, targetFullImageUri, err)
-	//		return nil, fmt.Errorf("failed to insert image distribute data")
-	//	}
-	//}
-	//return nil, nil
 }
 
-func handleSingleChart(deliveryVersion *commonmodels.DeliveryVersion, chartData *DeliveryChartData, chartRepo *commonmodels.HelmRepo, dir string, globalVariables string,
-	targetRegistry *commonmodels.RegistryNamespace, registryMap map[string]*commonmodels.RegistryNamespace) (*ServiceImageDetails, error) {
+// ensure chart files exist
+func ensureChartFiles(chartData *DeliveryChartData) (string, error) {
 	serviceObj := chartData.ServiceObj
+	revisionBasePath := config.LocalDeliveryChartPathWithRevision(serviceObj.ProductName, serviceObj.ServiceName, serviceObj.Revision)
+	deliveryChartPath := filepath.Join(revisionBasePath, serviceObj.ServiceName)
+	if exists, _ := fsutil.DirExists(deliveryChartPath); exists {
+		return deliveryChartPath, nil
+	}
+
 	serviceName, revision := serviceObj.ServiceName, serviceObj.Revision
 	basePath := config.LocalServicePathWithRevision(serviceObj.ProductName, serviceName, revision)
 	if err := commonservice.PreloadServiceManifestsByRevision(basePath, serviceObj); err != nil {
@@ -599,73 +565,97 @@ func handleSingleChart(deliveryVersion *commonmodels.DeliveryVersion, chartData 
 		basePath = config.LocalServicePath(serviceObj.ProductName, serviceName)
 		if err = commonservice.PreLoadServiceManifests(basePath, serviceObj); err != nil {
 			log.Errorf("failed to load chart info for service %v", serviceObj.ServiceName)
-			return nil, err
+			return "", err
 		}
 	}
 
 	fullPath := filepath.Join(basePath, serviceObj.ServiceName)
-	revisionBasePath := config.LocalDeliveryChartPathWithRevision(serviceObj.ProductName, serviceObj.ServiceName, serviceObj.Revision)
-	deliveryChartPath := filepath.Join(revisionBasePath, serviceObj.ServiceName)
 	err := copy.Copy(fullPath, deliveryChartPath)
 	if err != nil {
-		return nil, err
+		return "", err
+	}
+
+	mergedValuesYaml, err := helmtool.MergeOverrideValues(chartData.RenderChart.ValuesYaml, chartData.RenderSet.DefaultValues, chartData.RenderChart.GetOverrideYaml(), chartData.RenderChart.OverrideValues)
+	if err != nil {
+		return "", err
+	}
+	err = os.WriteFile(filepath.Join(deliveryChartPath, setting.ValuesYaml), []byte(mergedValuesYaml), 0644)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to write values.yaml")
+	}
+
+	return deliveryChartPath, nil
+}
+
+func buildChartPackage(chartData *DeliveryChartData, chartRepo *commonmodels.HelmRepo, dir string, globalVariables string, registryMap map[string]*commonmodels.RegistryNamespace) error {
+	serviceObj := chartData.ServiceObj
+
+	deliveryChartPath, err := ensureChartFiles(chartData)
+	if err != nil {
+		return err
+	}
+
+	valuesYamlData := make(map[string]interface{})
+	valuesFilePath := filepath.Join(deliveryChartPath, setting.ValuesYaml)
+	valueYamlContent, err := os.ReadFile(valuesFilePath)
+	if err != nil {
+		return errors.Wrapf(err, "failed to read values.yaml for service %s", serviceObj.ServiceName)
+	}
+	err = yaml.Unmarshal(valueYamlContent, &valuesYamlData)
+	if err != nil {
+		return errors.Wrapf(err, "failed to unmarshal values.yaml for service %s", serviceObj.ServiceName)
+	}
+
+	// write values.yaml file before load
+	if len(chartData.ChartData.ValuesYamlContent) > 0 { // values.yaml was edited directly
+		if err = yaml.Unmarshal([]byte(chartData.ChartData.ValuesYamlContent), map[string]interface{}{}); err != nil {
+			log.Errorf("invalid yaml content, serviceName: %s, yamlContent: %s", serviceObj.ServiceName, chartData.ChartData.ValuesYamlContent)
+			return errors.Wrapf(err, "invalid yaml content for service: %s", serviceObj.ServiceName)
+		}
+		valueYamlContent = []byte(chartData.ChartData.ValuesYamlContent)
+	} else if len(globalVariables) > 0 { // merge global variables
+		valueYamlContent, err = yamlutil.Merge([][]byte{valueYamlContent, []byte(globalVariables)})
+		if err != nil {
+			return errors.Wrapf(err, "failed to merge global variables for service: %s", serviceObj.ServiceName)
+		}
+	}
+	err = os.WriteFile(valuesFilePath, valueYamlContent, 0644)
+	if err != nil {
+		return errors.Wrapf(err, "failed to write values.yaml file for service %s", serviceObj.ServiceName)
 	}
 
 	//load chart info from local storage
 	chartRequested, err := chartloader.Load(deliveryChartPath)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to load chart info, path %s", deliveryChartPath)
+		return errors.Wrapf(err, "failed to load chart info, path %s", deliveryChartPath)
 	}
 
-	//set version and values.yaml content
+	//set metadata
 	chartRequested.Metadata.Name = chartData.ChartData.ServiceName
 	chartRequested.Metadata.Version = chartData.ChartData.Version
 	chartRequested.Metadata.AppVersion = chartData.ChartData.Version
 
-	if len(chartData.ChartData.ValuesYamlContent) > 0 { // values.yaml was edited directly
-		valuesInfo := make(map[string]interface{})
-		if err = yaml.Unmarshal([]byte(chartData.ChartData.ValuesYamlContent), map[string]interface{}{}); err != nil {
-			log.Errorf("invalid yaml content, serviceName: %s, yamlContent: %s", serviceObj.ServiceName, chartData.ChartData.ValuesYamlContent)
-			return nil, errors.Wrapf(err, "invalid yaml content for service: %s", serviceObj.ServiceName)
-		}
-		chartRequested.Values = valuesInfo
-	} else if len(globalVariables) > 0 { // merge global variables
-		curValuesStr, err := yaml.Marshal(chartRequested.Values)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to marshal values.yaml for service: %s", serviceObj.ServiceName)
-		}
-		chartRequested.Values, err = yamlutil.MergeAndUnmarshal([][]byte{curValuesStr, []byte(globalVariables)})
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to merge global variables for service: %s", serviceObj.ServiceName)
-		}
-	}
-
+	//create local chart package
 	chartPackagePath, err := helm.CreateChartPackage(&helm.Chart{Chart: chartRequested}, dir)
 	if err != nil {
-		return nil, err
-	}
-
-	// parse docker image
-	imagesData, err := extractImages(deliveryVersion, serviceObj, chartRequested.Values, targetRegistry, registryMap)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to handle image")
+		return err
 	}
 
 	client, err := createChartRepoClient(chartRepo)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create chart repo client, repoName: %s", chartRepo.RepoName)
+		return errors.Wrapf(err, "failed to create chart repo client, repoName: %s", chartRepo.RepoName)
 	}
 
-	log.Infof("pushing %s to %s...\n", filepath.Base(chartPackagePath), chartRepo.URL)
+	log.Infof("pushing chart %s to %s...", filepath.Base(chartPackagePath), chartRepo.URL)
 	resp, err := client.UploadChartPackage(chartPackagePath, false)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to prepare pushing chart: %s", chartPackagePath)
+		return errors.Wrapf(err, "failed to prepare pushing chart: %s", chartPackagePath)
 	}
 	err = handlePushResponse(resp)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to push chart: %s ", chartPackagePath)
+		return errors.Wrapf(err, "failed to push chart: %s ", chartPackagePath)
 	}
-	return imagesData, nil
+	return nil
 }
 
 func handlePushResponse(resp *http.Response) error {
@@ -719,26 +709,45 @@ func CreateHelmDeliveryVersion(args *CreateHelmDeliveryVersionArgs, logger *zap.
 // validate chartInfo, make sure service is in environment
 // prepare data set for chart delivery
 func prepareChartData(chartDatas []*CreateHelmDeliveryVersionChartData, productInfo *commonmodels.Product) (map[string]*DeliveryChartData, error) {
+
+	renderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+		Revision: productInfo.Render.Revision,
+		Name:     productInfo.Render.Name,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to find renderSet: %s, revision: %d", productInfo.Render.Name, productInfo.Render.Revision)
+	}
+	chartMap := make(map[string]*template.RenderChart)
+	for _, rChart := range renderSet.ChartInfos {
+		chartMap[rChart.ServiceName] = rChart
+	}
+
 	chartDataMap := make(map[string]*DeliveryChartData)
 	serviceMap := productInfo.GetServiceMap()
-	for _, chartDta := range chartDatas {
-		if productService, ok := serviceMap[chartDta.ServiceName]; ok {
+	for _, chartData := range chartDatas {
+		if productService, ok := serviceMap[chartData.ServiceName]; ok {
 			serviceObj, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
-				ServiceName: chartDta.ServiceName,
+				ServiceName: chartData.ServiceName,
 				Revision:    productService.Revision,
 				Type:        setting.HelmDeployType,
 				ProductName: productInfo.ProductName,
 			})
 			if err != nil {
-				return nil, fmt.Errorf("failed to query service: %s", chartDta.ServiceName)
+				return nil, fmt.Errorf("failed to query service: %s", chartData.ServiceName)
 			}
-			chartDataMap[chartDta.ServiceName] = &DeliveryChartData{
-				ChartData: chartDta,
-				//ProductService: productService,
-				ServiceObj: serviceObj,
+			renderChart, ok := chartMap[chartData.ServiceName]
+			if !ok {
+				return nil, fmt.Errorf("can't find renderChart for service: %s", chartData.ServiceName)
+			}
+			chartDataMap[chartData.ServiceName] = &DeliveryChartData{
+				ChartData:      chartData,
+				RenderChart:    renderChart,
+				ServiceObj:     serviceObj,
+				ProductService: productService,
+				RenderSet:      renderSet,
 			}
 		} else {
-			return nil, fmt.Errorf("service %s not found in environment", chartDta.ServiceName)
+			return nil, fmt.Errorf("service %s not found in environment", chartData.ServiceName)
 		}
 	}
 	return chartDataMap, nil
@@ -857,14 +866,6 @@ func buildDeliveryCharts(chartDataMap map[string]*DeliveryChartData, deliveryVer
 		return fmt.Errorf("failed to query chart-repo info, productName: %s, repoName: %s", deliveryVersion.ProductName, args.ChartRepoName)
 	}
 
-	targetRegistry, err := commonrepo.NewRegistryNamespaceColl().Find(&mongodb.FindRegOps{
-		ID: args.ImageRegistryID,
-	})
-	if err != nil {
-		log.Errorf("failed to query target image registry with ID: %s, err %s", args.ImageRegistryID, err)
-		return fmt.Errorf("faild to query target registry namespace")
-	}
-
 	registryMap, err := buildRegistryMap()
 	if err != nil {
 		return fmt.Errorf("failed to build registry map")
@@ -878,14 +879,19 @@ func buildDeliveryCharts(chartDataMap map[string]*DeliveryChartData, deliveryVer
 		wg.Add(1)
 		go func(cData *DeliveryChartData) {
 			defer wg.Done()
-			imagesData, err := handleSingleChart(deliveryVersion, cData, repoInfo, dir, args.GlobalVariables, targetRegistry, registryMap)
+			err := buildChartPackage(cData, repoInfo, dir, args.GlobalVariables, registryMap)
 			if err != nil {
-				logger.Errorf("failed to handle single chart data, serviceName: %s err: %s", cData.ChartData.ServiceName, err)
+				logger.Errorf("failed to build chart package, serviceName: %s err: %s", cData.ChartData.ServiceName, err)
 				appendError(err)
 				return
 			}
-			imagesDataMap.Store(cData.ServiceObj.ServiceName, imagesData)
-
+			imageData, err := extractImages(cData.ProductService, registryMap)
+			if err != nil {
+				logger.Errorf("failed to extract image data, serviceName: %s err: %s", cData.ChartData.ServiceName, err)
+				appendError(err)
+				return
+			}
+			imagesDataMap.Store(cData.ServiceObj.ServiceName, imageData)
 		}(chartData)
 	}
 	wg.Wait()
@@ -950,7 +956,7 @@ func taskFinished(status config.Status) bool {
 }
 
 func waitVersionDone(deliveryVersion *commonmodels.DeliveryVersion) {
-	waitTimeout := time.After(10 * time.Minute)
+	waitTimeout := time.After(60 * time.Minute * 2)
 	for {
 		select {
 		case <-waitTimeout:
@@ -1048,6 +1054,9 @@ func checkVersionStatus(deliveryVersion *commonmodels.DeliveryVersion) (bool, er
 
 		if !taskFinished(artifactPackageArgs.TaskStatus) {
 			allTaskDone = false
+		}
+		if len(artifactPackageArgs.Error) > 0 {
+			errorList = multierror.Append(errorList, fmt.Errorf(artifactPackageArgs.Error))
 		}
 	}
 
@@ -1332,6 +1341,86 @@ func preDownloadChart(projectName, versionName, chartName string, log *zap.Sugar
 		return "", err
 	}
 	return filePath, err
+}
+
+func getIndexDownloader(client *cm.Client) helm.IndexDownloader {
+	return func() ([]byte, error) {
+		resp, err := client.DownloadFile("index.yaml")
+		if err != nil {
+			return nil, err
+		}
+		defer func(Body io.ReadCloser) {
+			_ = Body.Close()
+		}(resp.Body)
+
+		b, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		if resp.StatusCode != 200 {
+			return nil, getChartmuseumError(b, resp.StatusCode)
+		}
+		return b, nil
+	}
+}
+
+func GetChartVersions(chartName, chartRepoName string) ([]*ChartVersionResp, error) {
+
+	chartRepo, err := getChartRepoData(chartRepoName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query chart-repo info, repoName %s", chartRepoName)
+	}
+
+	client, err := createChartRepoClient(chartRepo)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create chart repo client")
+	}
+
+	resp, err := client.DownloadFile("index.yaml")
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to download index.yaml")
+	}
+
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
+
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != 200 {
+		return nil, errors.Wrapf(getChartmuseumError(b, resp.StatusCode), "failed to download index.yaml")
+	}
+
+	log.Infof("###### the raw data is %s", string(b))
+
+	index, err := helm.LoadIndex(b)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to parse index.yaml")
+	}
+
+	chartNameList := strings.Split(chartName, ",")
+	chartNameSet := sets.NewString(chartNameList...)
+
+	ret := make([]*ChartVersionResp, 0)
+
+	for name, entry := range index.Entries {
+		if !chartNameSet.Has(name) {
+			continue
+		}
+		if len(entry) == 0 {
+			continue
+		}
+		latestEntry := entry[0]
+		ret = append(ret, &ChartVersionResp{
+			ChartName:    name,
+			ChartVersion: latestEntry.Version,
+		})
+	}
+
+	return ret, nil
 }
 
 func preDownloadAndUncompressChart(projectName, versionName, chartName string, log *zap.SugaredLogger) (string, error) {

@@ -242,6 +242,16 @@ func DownloadDeliveryChart(c *gin.Context) {
 	c.Data(http.StatusOK, "application/octet-stream", fileBytes)
 }
 
+func GetChartVersionFromRepo(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	chartName := c.Query("chartName")
+	chartRepoName := c.Query("chartRepoName")
+
+	ctx.Resp, ctx.Err = deliveryservice.GetChartVersions(chartName, chartRepoName)
+}
+
 func PreviewGetDeliveryChart(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

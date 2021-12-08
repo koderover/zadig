@@ -219,6 +219,7 @@ func GetChartInfos(productName, envName, serviceName string, log *zap.SugaredLog
 		go func(serviceName string, revision int64) {
 			defer wg.Done()
 			serviceObj, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+				ProductName: productName,
 				ServiceName: serviceName,
 				Revision:    revision,
 				Type:        setting.HelmDeployType,
