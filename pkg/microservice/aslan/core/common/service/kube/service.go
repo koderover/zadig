@@ -24,7 +24,6 @@ import (
 	"text/template"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
-
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
