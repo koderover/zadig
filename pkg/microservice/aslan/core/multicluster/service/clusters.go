@@ -141,10 +141,12 @@ func convertToNodeSelectorRequirements(nodeLabels []string) []*commonmodels.Node
 
 func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K8SCluster, error) {
 	s, _ := kube.NewService("")
-	advancedConfig := new(commonmodels.AdvancedConfig)
+	var advancedConfig *commonmodels.AdvancedConfig
 	if args.AdvancedConfig != nil {
-		advancedConfig.Strategy = args.AdvancedConfig.Strategy
-		advancedConfig.NodeLabels = convertToNodeSelectorRequirements(args.AdvancedConfig.NodeLabels)
+		advancedConfig = &commonmodels.AdvancedConfig{
+			Strategy:   args.AdvancedConfig.Strategy,
+			NodeLabels: convertToNodeSelectorRequirements(args.AdvancedConfig.NodeLabels),
+		}
 	}
 	cluster := &commonmodels.K8SCluster{
 		Name:           args.Name,
