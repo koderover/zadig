@@ -2,6 +2,7 @@ package aslan
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/koderover/zadig/pkg/setting"
@@ -41,7 +42,7 @@ func (c *Client) GetLocalCluster() (*clusterResp, error) {
 	clusterResp := &clusterResp{}
 	_, err := c.Get(url, httpclient.SetResult(clusterResp))
 	if err != nil {
-		if httpclient.IsNotFound(err) {
+		if strings.Contains(err.Error(), "\"code\":6643") {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("Failed to get cluster, error: %s", err)
