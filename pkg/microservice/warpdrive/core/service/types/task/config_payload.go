@@ -49,6 +49,8 @@ type ConfigPayload struct {
 	// ResetCache means ignore workspace cache
 	ResetCache  bool          `json:"reset_cache"`
 	PrivateKeys []*PrivateKey `json:"private_keys"`
+
+	RegistryID string `json:"registry_id"`
 }
 
 func (cp *ConfigPayload) GetGitKnownHost() string {

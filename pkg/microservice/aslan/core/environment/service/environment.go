@@ -93,6 +93,7 @@ type EnvResp struct {
 	UpdateTime  int64  `json:"updateTime"`
 	IsPublic    bool   `json:"isPublic"`
 	ClusterName string `json:"clusterName"`
+	ClusterID   string `json:"cluster_id"`
 	Production  bool   `json:"production"`
 	Source      string `json:"source"`
 	RegistryID  string `json:"registry_id"`
@@ -213,6 +214,7 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 			UpdateTime:  env.UpdateTime,
 			UpdateBy:    env.UpdateBy,
 			RegistryID:  env.RegistryId,
+			ClusterID:   env.ClusterID,
 		})
 	}
 
@@ -550,7 +552,7 @@ func UpdateProductRegistry(namespace, registryID string, log *zap.SugaredLogger)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
-	err = ensureKubeEnv(exitedProd.Namespace, exitedProd.RegistryId, kubeClient, log)
+	err = ensureKubeEnv(exitedProd.Namespace, registryID, kubeClient, log)
 
 	if err != nil {
 		log.Errorf("UpdateProductRegistry ensureKubeEnv by namespace:%s,error: %v", namespace, err)

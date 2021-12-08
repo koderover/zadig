@@ -494,6 +494,18 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 
 	// 获取全局configpayload
 	configPayload := commonservice.GetConfigPayload(args.CodehostID)
+	if len(env.RegistryId) == 0 {
+		op := &commonrepo.FindRegOps{
+			IsDefault: true,
+		}
+		reg, err := commonrepo.NewRegistryNamespaceColl().Find(op)
+		if err != nil {
+			log.Errorf("get default registry error: %v", err)
+			return nil, e.ErrGetCounter.AddDesc(err.Error())
+		}
+		env.RegistryId = reg.ID.String()
+	}
+	configPayload.RegistryID = env.RegistryId
 	repos, err := commonrepo.NewRegistryNamespaceColl().FindAll(&commonrepo.FindRegOps{})
 	if err == nil {
 		configPayload.RepoConfigs = make(map[string]*commonmodels.RegistryNamespace)
