@@ -12,10 +12,10 @@
 - Zadig Toolkit：vscode 开发者插件
 
 API 网关：
-- Gloo Edge：Zadig 的 API 网关组件
-- OPA：认证和授权组件
+- [Gloo Edge](https://github.com/solo-io/gloo)：Zadig 的 API 网关组件
+- [OPA](https://github.com/open-policy-agent/opa)：认证和授权组件
+- [Dex](https://github.com/dexidp/dex)：Zadig 的身份认证服务，用于连接其他第三方认证系统，比如 AD / LDAP / OAuth2 / GitHub / ..
 - User：用户管理，Token 生成
-- Dex：Zadig 的身份认证服务，用于连接其他第三方认证系统，比如 AD / LDAP / OAuth2 / GitHub / ..
 
 Zadig 核心业务：
 - Picket：数据聚合服务

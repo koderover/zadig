@@ -12,10 +12,10 @@ User Interface：
 - Zadig Toolkit：vscode plugin
 
 API Gateway：
-- Gloo Edge：Zadig API gateway
-- OPA：Authentication and authorization
+- [Gloo Edge](https://github.com/solo-io/gloo)：Zadig API gateway
+- [OPA](https://github.com/open-policy-agent/opa)：Authentication and authorization
+- [Dex](https://github.com/dexidp/dex)：Identity service for Zadig, acts as a portal to other identity providers like AD / LDAP / OAuth2 / GitHub / ..
 - User：User management, token generation
-- Dex：Identity service for Zadig, acts as a portal to other identity providers like AD / LDAP / OAuth2 / GitHub / ..
 
 Zadig Core：
 - Picket：backend for frontend service.
