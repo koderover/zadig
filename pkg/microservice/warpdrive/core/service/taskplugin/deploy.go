@@ -39,7 +39,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
-	client2 "github.com/koderover/zadig/pkg/shared/kube/client"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
@@ -202,13 +202,13 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 	}()
 
 	if pipelineTask.ConfigPayload.DeployClusterID != "" {
-		p.restConfig, err = client2.GetRESTConfig(pipelineTask.ConfigPayload.HubServerAddr, pipelineTask.ConfigPayload.DeployClusterID)
+		p.restConfig, err = kubeclient.GetRESTConfig(pipelineTask.ConfigPayload.HubServerAddr, pipelineTask.ConfigPayload.DeployClusterID)
 		if err != nil {
 			err = errors.WithMessage(err, "can't get k8s rest config")
 			return
 		}
 
-		p.kubeClient, err = client2.GetKubeClient(pipelineTask.ConfigPayload.HubServerAddr, pipelineTask.ConfigPayload.DeployClusterID)
+		p.kubeClient, err = kubeclient.GetKubeClient(pipelineTask.ConfigPayload.HubServerAddr, pipelineTask.ConfigPayload.DeployClusterID)
 		if err != nil {
 			err = errors.WithMessage(err, "can't init k8s client")
 			return

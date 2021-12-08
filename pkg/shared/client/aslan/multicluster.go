@@ -18,10 +18,8 @@ type cluster struct {
 func (c *Client) AddLocalCluster() error {
 	url := "/cluster/clusters"
 	req := cluster{
-		ID:     setting.LocalClusterID,
-		Name:   fmt.Sprintf("%s-%s", "local", time.Now().Format("20060102150405")),
-		Local:  true,
-		Status: setting.Normal,
+		ID:   setting.LocalClusterID,
+		Name: fmt.Sprintf("%s-%s", "local", time.Now().Format("20060102150405")),
 	}
 
 	_, err := c.Post(url, httpclient.SetBody(req))
@@ -37,12 +35,15 @@ type clusterResp struct {
 	Local bool   `json:"local"`
 }
 
-func (c *Client) GetCluster() (*clusterResp, error) {
+func (c *Client) GetLocalCluster() (*clusterResp, error) {
 	url := fmt.Sprintf("/cluster/clusters/%s", setting.LocalClusterID)
 
 	clusterResp := &clusterResp{}
 	_, err := c.Get(url, httpclient.SetResult(clusterResp))
 	if err != nil {
+		if httpclient.IsNotFound(err) {
+			return nil, nil
+		}
 		return nil, fmt.Errorf("Failed to get cluster, error: %s", err)
 	}
 

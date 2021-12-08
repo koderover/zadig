@@ -54,7 +54,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
-	client2 "github.com/koderover/zadig/pkg/shared/kube/client"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
@@ -277,7 +277,7 @@ func AutoUpdateProduct(envNames []string, productName, requestID string, force b
 				continue
 			}
 
-			kubeClient, err := client2.GetKubeClient(config.HubServerAddress(), p.ClusterID)
+			kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), p.ClusterID)
 			if err != nil {
 				log.Errorf("Failed to get kube client for %s, error: %v", productName, err)
 				continue
@@ -389,7 +389,7 @@ func UpdateProduct(existedProd, updateProd *commonmodels.Product, renderSet *com
 		return
 	}
 
-	kubeClient, err := client2.GetKubeClient(config.HubServerAddress(), existedProd.ClusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), existedProd.ClusterID)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
@@ -533,7 +533,7 @@ func UpdateProductV2(envName, productName, user, requestID string, force bool, k
 		return e.ErrUpdateEnv.AddDesc(e.EnvNotFoundErrMsg)
 	}
 
-	kubeClient, err := client2.GetKubeClient(config.HubServerAddress(), exitedProd.ClusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), exitedProd.ClusterID)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}

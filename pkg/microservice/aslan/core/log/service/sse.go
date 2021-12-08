@@ -32,7 +32,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/kube/client"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/containerlog"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/watcher"
@@ -175,7 +175,7 @@ func waitAndGetLog(ctx context.Context, streamChan chan interface{}, selector la
 	defer cancel()
 
 	log.Debugf("Waiting until pod is running before establishing the stream.")
-	clientSet, err := client.GetClientset(config.HubServerAddress(), options.ClusterID)
+	clientSet, err := kubeclient.GetClientset(config.HubServerAddress(), options.ClusterID)
 	if err != nil {
 		log.Errorf("GetContainerLogs, get client set error: %s", err)
 		return
@@ -185,7 +185,7 @@ func waitAndGetLog(ctx context.Context, streamChan chan interface{}, selector la
 		log.Errorf("GetContainerLogs, wait pod running error: %s", err)
 		return
 	}
-	kubeClient, err := client.GetKubeClient(config.HubServerAddress(), options.ClusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), options.ClusterID)
 	if err != nil {
 		log.Errorf("GetContainerLogs, get kube client error: %s", err)
 		return

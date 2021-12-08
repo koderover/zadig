@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -154,14 +153,11 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 		Status:         args.Status,
 		Production:     args.Production,
 		Provider:       args.Provider,
-		Local:          args.Local,
 		CreatedAt:      args.CreatedAt,
 		CreatedBy:      args.CreatedBy,
 	}
-	if args.ID != "" {
-		cluster.ID, _ = primitive.ObjectIDFromHex(args.ID)
-	}
-	return s.CreateCluster(cluster, logger)
+
+	return s.CreateCluster(cluster, args.ID, logger)
 }
 
 func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K8SCluster, error) {

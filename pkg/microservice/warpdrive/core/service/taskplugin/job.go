@@ -43,7 +43,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
-	client2 "github.com/koderover/zadig/pkg/shared/kube/client"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	"github.com/koderover/zadig/pkg/tool/kube/containerlog"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
@@ -98,7 +98,7 @@ func saveContainerLog(pipelineTask *task.Task, namespace, clusterID, fileName st
 		return pods[i].CreationTimestamp.Before(&pods[j].CreationTimestamp)
 	})
 
-	clientSet, err := client2.GetClientset(pipelineTask.ConfigPayload.HubServerAddr, clusterID)
+	clientSet, err := kubeclient.GetClientset(pipelineTask.ConfigPayload.HubServerAddr, clusterID)
 	if err != nil {
 		log.Errorf("saveContainerLog, get client set error: %s", err)
 		return err

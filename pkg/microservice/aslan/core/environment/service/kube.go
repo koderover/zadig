@@ -32,7 +32,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/kube/client"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -113,7 +113,7 @@ func ListPodEvents(envName, productName, podName string, log *zap.SugaredLogger)
 // ListAvailableNamespaces lists available namespaces created by non-koderover
 func ListAvailableNamespaces(clusterID string, log *zap.SugaredLogger) ([]*resource.Namespace, error) {
 	resp := make([]*resource.Namespace, 0)
-	kubeClient, err := client.GetKubeClient(config.HubServerAddress(), clusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
 	if err != nil {
 		log.Errorf("ListNamespaces clusterID:%s err:%v", clusterID, err)
 		return resp, err
@@ -150,7 +150,7 @@ func ListServicePods(productName, envName string, serviceName string, log *zap.S
 	if err != nil {
 		return res, e.ErrListServicePod.AddErr(err)
 	}
-	kubeClient, err := client.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
 	if err != nil {
 		return res, e.ErrListServicePod.AddErr(err)
 	}
@@ -177,7 +177,7 @@ func DeletePod(envName, productName, podName string, log *zap.SugaredLogger) err
 	if err != nil {
 		return e.ErrDeletePod.AddErr(err)
 	}
-	kubeClient, err := client.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
 	if err != nil {
 		return e.ErrDeletePod.AddErr(err)
 	}
@@ -228,9 +228,9 @@ func getModifiedServiceFromObjectMeta(om metav1.Object) *serviceInfo {
 	}
 }
 
-func ListAvailableNodes(clusterID string, log *zap.SugaredLogger) (*resource.NodeResp, error) {
-	resp := new(resource.NodeResp)
-	kubeClient, err := client.GetKubeClient(config.HubServerAddress(), clusterID)
+func ListAvailableNodes(clusterID string, log *zap.SugaredLogger) (*NodeResp, error) {
+	resp := new(NodeResp)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
 	if err != nil {
 		log.Errorf("ListAvailableNodes clusterID:%s err:%s", clusterID, err)
 		return resp, err

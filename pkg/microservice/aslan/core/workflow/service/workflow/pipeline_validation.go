@@ -45,7 +45,7 @@ import (
 	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
-	client2 "github.com/koderover/zadig/pkg/shared/kube/client"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
@@ -688,7 +688,7 @@ func validateServiceContainer(envName, productName, serviceName, container strin
 		return "", err
 	}
 
-	kubeClient, err := client2.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
 	if err != nil {
 		return "", err
 	}

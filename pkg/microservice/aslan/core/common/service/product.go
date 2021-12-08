@@ -35,7 +35,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
-	client2 "github.com/koderover/zadig/pkg/shared/kube/client"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
@@ -53,7 +53,7 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 		return e.ErrDeleteEnv.AddDesc("not found")
 	}
 
-	kubeClient, err := client2.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
 	if err != nil {
 		return e.ErrDeleteEnv.AddErr(err)
 	}
