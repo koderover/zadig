@@ -17,26 +17,25 @@ limitations under the License.
 package service
 
 import (
+	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
-	"os/exec"
-	"path"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/client"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
 
 	"github.com/koderover/zadig/pkg/microservice/packager/config"
-	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-// Packager ...
 type Packager struct {
 	Ctx *Context
 }
@@ -49,7 +48,7 @@ type PackageResult struct {
 }
 
 func NewPackager() (*Packager, error) {
-	context, err := ioutil.ReadFile(config.JobConfigFile())
+	context, err := os.ReadFile(config.JobConfigFile())
 	if err != nil {
 		return nil, err
 	}
@@ -66,71 +65,144 @@ func NewPackager() (*Packager, error) {
 	return packager, nil
 }
 
-// BeforeExec ...
-func (p *Packager) BeforeExec() error {
-	log.Info("wait for docker daemon to start")
+func buildRegistryMap(registries []*DockerRegistry) map[string]*DockerRegistry {
+	ret := make(map[string]*DockerRegistry)
+	for _, registry := range registries {
+		ret[registry.RegistryID] = registry
+	}
+	return ret
+}
+
+func base64EncodeAuth(auth *types.AuthConfig) (string, error) {
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(auth); err != nil {
+		return "", err
+	}
+	return base64.URLEncoding.EncodeToString(buf.Bytes()), nil
+}
+
+func buildTargetImage(imageName, imageTag, host, nameSpace string) string {
+	ret := ""
+	if len(nameSpace) > 0 {
+		ret = fmt.Sprintf("%s/%s/%s:%s", host, nameSpace, imageName, imageTag)
+	} else {
+		ret = fmt.Sprintf("%s/%s:%s", host, imageName, imageTag)
+	}
+	ret = strings.TrimPrefix(ret, "http://")
+	ret = strings.TrimPrefix(ret, "https://")
+	return ret
+}
+
+func handleSingleService(imageByService *ImagesByService, allRegistries map[string]*DockerRegistry, targetRegistries []*DockerRegistry, dockerClient *client.Client) error {
+	targetImageUrlByRepo := make(map[string][]string)
+	for _, singleImage := range imageByService.Images {
+		options := types.ImagePullOptions{}
+		// for images from public repo，registryID won't be appointed
+		if len(singleImage.RegistryID) > 0 {
+			registryInfo, ok := allRegistries[singleImage.RegistryID]
+			if !ok {
+				return fmt.Errorf("failed to find source registry for image: %s", singleImage.ImageUrl)
+			}
+			encodedAuth, err := base64EncodeAuth(&types.AuthConfig{
+				Username:      registryInfo.UserName,
+				Password:      registryInfo.Password,
+				ServerAddress: registryInfo.Host,
+			})
+			if err != nil {
+				return errors.Wrapf(err, "faied to create docker pull auth data")
+			}
+			options.RegistryAuth = encodedAuth
+		}
+
+		// pull image
+		_, err := dockerClient.ImagePull(context.TODO(), singleImage.ImageUrl, options)
+		if err != nil {
+			return errors.Wrapf(err, "failed to pull image: %s", singleImage.ImageUrl)
+		}
+
+		// tag image
+		for _, registry := range targetRegistries {
+			targetImage := buildTargetImage(singleImage.ImageName, singleImage.ImageTag, registry.Host, registry.Namespace)
+			err = dockerClient.ImageTag(context.TODO(), singleImage.ImageUrl, targetImage)
+			if err != nil {
+				return errors.Wrapf(err, "failed to tag image from: %s to: %s", singleImage.ImageUrl, targetImage)
+			}
+			targetImageUrlByRepo[registry.RegistryID] = append(targetImageUrlByRepo[registry.RegistryID], targetImage)
+		}
+	}
+
+	// push image
+	for _, registry := range targetRegistries {
+		encodedAuth, err := base64EncodeAuth(&types.AuthConfig{
+			Username:      registry.UserName,
+			Password:      registry.Password,
+			ServerAddress: registry.Host,
+		})
+		if err != nil {
+			return errors.Wrapf(err, "faied to create docker push auth data")
+		}
+		options := types.ImagePushOptions{
+			RegistryAuth: encodedAuth,
+		}
+		for _, targetImageUrl := range targetImageUrlByRepo[registry.RegistryID] {
+			_, err = dockerClient.ImagePush(context.TODO(), targetImageUrl, options)
+			if err != nil {
+				return errors.Wrapf(err, "failed to push image: %s", targetImageUrl)
+			}
+		}
+	}
+	return nil
+}
+
+func (p *Packager) Exec() error {
+
+	// init docker client
+	cli, err := client.NewClientWithOpts(client.FromEnv)
+	if err != nil {
+		log.Errorf("failed to init docker client %s", err)
+	}
+
+	// run docker info to ensure docker daemon connection
 	for i := 0; i < 120; i++ {
-		err := dockerInfo().Run()
+		_, err := cli.Info(context.TODO())
 		if err == nil {
 			break
 		}
+		log.Errorf("failed tor run docker info, try index: %d, err: %s", i, err)
 		time.Sleep(time.Second * 1)
 	}
 
-	if len(p.Ctx.ProgressFile) == 0 {
-		return nil
-	}
-
 	// create log file
-	if err := os.MkdirAll(filepath.Dir(p.Ctx.ProgressFile), 0770); err != nil {
-		return errors.Wrapf(err, "failed to create progress file dir")
-	}
-	file, err := os.Create(p.Ctx.ProgressFile)
-	if err != nil {
-		return errors.Wrapf(err, "failed to create progress file")
-	}
-	err = file.Close()
-	return errors.Wrapf(err, "failed to close progress file")
-}
-
-// Exec ...
-func (p *Packager) Exec() error {
-
-	// add docker registry auths for all registries
-	allRegistries := make([]*DockerRegistry, 0)
-	allRegistries = append(allRegistries, p.Ctx.SourceRegistries...)
-	allRegistries = append(allRegistries, p.Ctx.TargetRegistries...)
-	err := writeDockerConfig(allRegistries)
-	if err != nil {
-		return err
+	if len(p.Ctx.ProgressFile) >= 0 {
+		if err := os.MkdirAll(filepath.Dir(p.Ctx.ProgressFile), 0770); err != nil {
+			return errors.Wrapf(err, "failed to create progress file dir")
+		}
+		file, err := os.Create(p.Ctx.ProgressFile)
+		if err != nil {
+			return errors.Wrapf(err, "failed to create progress file")
+		}
+		if err = file.Close(); err != nil {
+			return errors.Wrapf(err, "failed to close progress file")
+		}
 	}
 
+	allRegistries := append(p.Ctx.SourceRegistries, p.Ctx.TargetRegistries...)
 	realTimeProgress := make([]*PackageResult, 0)
 
-	for _, image := range p.Ctx.Images {
-		cmds := p.dockerCommands(image)
-		var err error
-		for _, cmd := range cmds {
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			log.Info(strings.Join(cmd.Args, " "))
-			if err = cmd.Run(); err != nil {
-				break
-			}
-		}
-
+	for _, imageByService := range p.Ctx.Images {
 		result := &PackageResult{
-			ServiceName: image.ServiceName,
+			ServiceName: imageByService.ServiceName,
 		}
+		err = handleSingleService(imageByService, buildRegistryMap(allRegistries), p.Ctx.TargetRegistries, cli)
 
 		if err != nil {
 			result.Result = "failed"
 			result.ErrorMsg = err.Error()
-			log.Infof("[result][fail][%s][%s]", image.ServiceName, err)
+			log.Errorf("[result][fail][%s][%s]", imageByService.ServiceName, err)
 		} else {
 			result.Result = "success"
-			result.ImageData = image.Images
-			log.Infof("[result][success][%s]", image.ServiceName)
+			result.ImageData = imageByService.Images
+			log.Infof("[result][success][%s]", imageByService.ServiceName)
 		}
 
 		realTimeProgress = append(realTimeProgress, result)
@@ -149,68 +221,8 @@ func (p *Packager) Exec() error {
 		}
 	}
 
+	// keep job alive for extra 10 seconds to make the runner be able to catch all progress info
+	// TODO need optimize
 	time.Sleep(time.Second * 10)
 	return nil
-}
-
-func writeDockerConfig(registries []*DockerRegistry) error {
-
-	authMap := make(map[string]map[string]string)
-	//host string, username string, password string
-	for _, registry := range registries {
-		if registry.UserName == "" {
-			continue
-		}
-		authMap[registry.Host] = map[string]string{
-			"auth": base64.StdEncoding.EncodeToString(
-				[]byte(strings.Join([]string{registry.UserName, registry.Password}, ":")),
-			)}
-	}
-
-	dir := path.Join(config.Home(), ".docker")
-	if err := os.MkdirAll(dir, 0600); err != nil {
-		return err
-	}
-
-	cfg := map[string]map[string]map[string]string{
-		"auths": authMap,
-	}
-
-	data, err := json.Marshal(cfg)
-
-	if err != nil {
-		return err
-	}
-
-	return ioutil.WriteFile(path.Join(dir, "config.json"), data, 0600)
-}
-
-func (p *Packager) dockerCommands(imageByService *ImagesByService) []*exec.Cmd {
-	cmds := make([]*exec.Cmd, 0)
-	//cmds = append(cmds, dockerVersion())
-
-	buildTargetImage := func(imageName, imageTag, host, nameSpace string) string {
-		ret := ""
-		if len(nameSpace) > 0 {
-			ret = fmt.Sprintf("%s/%s/%s:%s", host, nameSpace, imageName, imageTag)
-		} else {
-			ret = fmt.Sprintf("%s/%s:%s", host, imageName, imageTag)
-		}
-		ret = strings.TrimPrefix(ret, "http://")
-		ret = strings.TrimPrefix(ret, "https://")
-		return ret
-	}
-
-	if p.Ctx.JobType == setting.BuildChartPackage {
-		for _, image := range imageByService.Images {
-			for _, registry := range p.Ctx.TargetRegistries {
-				cmds = append(cmds, dockerPull(image.ImageUrl))
-				targetImage := buildTargetImage(image.ImageName, image.ImageTag, registry.Host, registry.Namespace)
-				cmds = append(cmds, dockerTag(image.ImageUrl, targetImage))
-				cmds = append(cmds, dockerPush(targetImage))
-			}
-		}
-	}
-
-	return cmds
 }

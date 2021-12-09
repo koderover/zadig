@@ -28,7 +28,7 @@ import (
 )
 
 type Task struct {
-	ID           primitive.ObjectID       `bson:"_id,omitempty"           json:"id,omitempty"`
+	ID           primitive.ObjectID       `bson:"_id,omitempty"             json:"id,omitempty"`
 	TaskID       int64                    `bson:"task_id"                   json:"task_id"`
 	ProductName  string                   `bson:"product_name"              json:"product_name"`
 	PipelineName string                   `bson:"pipeline_name"             json:"pipeline_name"`
@@ -48,7 +48,7 @@ type Task struct {
 	TeamName     string                   `bson:"team,omitempty"            json:"team,omitempty"`
 	IsDeleted    bool                     `bson:"is_deleted"                json:"is_deleted"`
 	IsArchived   bool                     `bson:"is_archived"               json:"is_archived"`
-	AgentID      string                   `bson:"agent_id"        json:"agent_id"`
+	AgentID      string                   `bson:"agent_id"                  json:"agent_id"`
 	// 是否允许同时运行多次
 	MultiRun bool `bson:"multi_run"                 json:"multi_run"`
 	// target 服务名称, k8s为容器名称, 物理机为服务名
@@ -57,8 +57,7 @@ type Task struct {
 	// 查询条件为 服务模板名称: ServiceTmpl, 版本: BuildModuleVer
 	// 如果为空，则使用pipeline自定义SubTasks
 	BuildModuleVer string `bson:"build_module_ver,omitempty"                 json:"build_module_ver"`
-
-	ServiceName string `bson:"service_name,omitempty"              json:"service_name,omitempty"`
+	ServiceName    string `bson:"service_name,omitempty"              json:"service_name,omitempty"`
 	// TaskArgs 单服务工作流任务参数
 	TaskArgs *models.TaskArgs `bson:"task_args,omitempty"         json:"task_args,omitempty"`
 	// WorkflowArgs 多服务工作流任务参数
@@ -70,23 +69,19 @@ type Task struct {
 	// ArtifactPackageTaskArgs arguments for artifact-package type tasks
 	ArtifactPackageTaskArgs *models.ArtifactPackageTaskArgs `bson:"artifact_package_args,omitempty"         json:"artifact_package_args,omitempty"`
 	// ConfigPayload 系统配置信息
-	ConfigPayload *models.ConfigPayload      `json:"config_payload,omitempty"`
+	ConfigPayload *models.ConfigPayload      `bson:"configpayload"                  json:"config_payload,omitempty"`
 	Error         string                     `bson:"error,omitempty"                json:"error,omitempty"`
-	Services      [][]*models.ProductService `bson:"services"                  json:"services"`
-	Render        *models.RenderInfo         `bson:"render"                    json:"render"`
-	StorageURI    string                     `bson:"storage_uri,omitempty" json:"storage_uri,omitempty"`
+	Services      [][]*models.ProductService `bson:"services"                       json:"services"`
+	Render        *models.RenderInfo         `bson:"render"                         json:"render"`
+	StorageURI    string                     `bson:"storage_uri,omitempty"          json:"storage_uri,omitempty"`
 	// interface{} 为types.TestReport
-	TestReports map[string]interface{} `bson:"test_reports,omitempty" json:"test_reports,omitempty"`
-
-	RwLock sync.Mutex `bson:"-" json:"-"`
-
-	ResetImage bool `json:"resetImage" bson:"resetImage"`
-
-	TriggerBy *models.TriggerBy `json:"trigger_by,omitempty" bson:"trigger_by,omitempty"`
-
-	Features        []string `bson:"features" json:"features"`
-	IsRestart       bool     `bson:"is_restart"                      json:"is_restart"`
-	StorageEndpoint string   `bson:"storage_endpoint"            json:"storage_endpoint"`
+	TestReports     map[string]interface{} `bson:"test_reports,omitempty" json:"test_reports,omitempty"`
+	RwLock          sync.Mutex             `bson:"-" json:"-"`
+	ResetImage      bool                   `json:"resetImage" bson:"resetImage"`
+	TriggerBy       *models.TriggerBy      `json:"trigger_by,omitempty" bson:"trigger_by,omitempty"`
+	Features        []string               `bson:"features" json:"features"`
+	IsRestart       bool                   `bson:"is_restart"                      json:"is_restart"`
+	StorageEndpoint string                 `bson:"storage_endpoint"            json:"storage_endpoint"`
 }
 
 //type RenderInfo struct {

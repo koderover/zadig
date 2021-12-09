@@ -17,26 +17,28 @@ limitations under the License.
 package service
 
 type ImageData struct {
-	ImageUrl  string `bson:"image_url" json:"image_url"`
-	ImageName string `bson:"image_name" json:"image_name"`
-	ImageTag  string `bson:"image_tag" json:"image_tag"`
+	ImageUrl   string `yaml:"image_url"`
+	ImageName  string `yaml:"image_name"`
+	ImageTag   string `yaml:"image_tag"`
+	RegistryID string `yaml:"registry_id,omitempty"`
 }
 
 // ImagesByService defines all images in a service
 type ImagesByService struct {
-	ServiceName string       `bson:"service_name" json:"service_name"`
-	Images      []*ImageData `bson:"images" json:"images"`
+	ServiceName string       `yaml:"service_name"`
+	Images      []*ImageData `yaml:"images"`
 }
 
 //DockerRegistry  registry host/user/password
 type DockerRegistry struct {
-	Host      string `yaml:"host"`
-	UserName  string `yaml:"username"`
-	Password  string `yaml:"password"`
-	Namespace string `yaml:"namespace"`
+	RegistryID string `yaml:"registry_id"`
+	Host       string `yaml:"host"`
+	UserName   string `yaml:"username"`
+	Password   string `yaml:"password"`
+	Namespace  string `yaml:"namespace"`
 }
 
-// Context ...
+// Context parameters for job to run with
 type Context struct {
 	JobType          string             `yaml:"job_type"`
 	ProgressFile     string             `yaml:"progress_file"`

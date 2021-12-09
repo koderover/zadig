@@ -31,18 +31,13 @@ func Execute() error {
 		Development: commonconfig.Mode() != setting.ReleaseMode,
 	})
 
-	pred, err := service.NewPackager()
+	packager, err := service.NewPackager()
 	if err != nil {
 		log.Errorf("Failed to start packager, error: %s", err)
 		return err
 	}
 
-	if err := pred.BeforeExec(); err != nil {
-		log.Errorf("Failed to run before exec step, error: %s", err)
-		return err
-	}
-
-	if err := pred.Exec(); err != nil {
+	if err := packager.Exec(); err != nil {
 		log.Errorf("Failed to run exec step, error: %s", err)
 		return err
 	}
