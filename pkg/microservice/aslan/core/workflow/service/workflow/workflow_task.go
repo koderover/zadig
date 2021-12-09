@@ -1174,8 +1174,7 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *task.Task, log *
 		for _, service := range args.Target {
 			servicesArray = append(servicesArray, service.ServiceName)
 		}
-		services = strings.Join(servicesArray,",")
-		log.Info("获取本次任务执行的服务services:%v", services)
+		services = strings.Join(servicesArray, ",")
 	}
 
 	testArgs := args.Tests
@@ -1236,7 +1235,6 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *task.Task, log *
 			}
 			envs = append(envs, &commonmodels.KeyVal{Key: "TEST_URL", Value: GetLink(pt, configbase.SystemAddress(), config.WorkflowType)})
 			envs = append(envs, &commonmodels.KeyVal{Key: "SERVICES", Value: services})
-			log.Info("test envs:%v", envs)
 
 			testTask.JobCtx.EnvVars = envs
 			testTask.ImageID = testModule.PreTest.ImageID
