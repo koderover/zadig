@@ -63,6 +63,8 @@ const (
 	PreferredSchedule  = "preferred"
 
 	registrySecretSuffix = "-registry-secret"
+	ResourceServer       = "resource-server"
+	DindServer           = "dind"
 )
 
 func saveFile(src io.Reader, localFile string) error {
@@ -416,9 +418,9 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 	)
 	// not local cluster
 	if clusterID != "" && clusterID != setting.LocalClusterID {
-		reaperBinaryFile = strings.Replace(reaperBinaryFile, "resource-server", "resource-server.koderover-agent", -1)
+		reaperBinaryFile = strings.Replace(reaperBinaryFile, ResourceServer, ResourceServer+".koderover-agent", -1)
 	} else {
-		reaperBinaryFile = strings.Replace(reaperBinaryFile, "resource-server", "resource-server."+currentNamespace, -1)
+		reaperBinaryFile = strings.Replace(reaperBinaryFile, ResourceServer, ResourceServer+"."+currentNamespace, -1)
 	}
 
 	if !strings.Contains(jobImage, PredatorPlugin) && !strings.Contains(jobImage, JenkinsPlugin) {
