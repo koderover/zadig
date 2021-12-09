@@ -1169,13 +1169,11 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *task.Task, log *
 		}
 	}
 
-	// 获取本次任务执行的服务，按照逗号分隔,service1,service2...
-	if len(args.Target) > 0 {
-		for _, service := range args.Target {
-			servicesArray = append(servicesArray, service.ServiceName)
-		}
-		services = strings.Join(servicesArray, ",")
+	// services env
+	for _, service := range args.Target {
+		servicesArray = append(servicesArray, service.ServiceName)
 	}
+	services = strings.Join(servicesArray, ",")
 
 	testArgs := args.Tests
 	testCreator := args.WorkflowTaskCreator
