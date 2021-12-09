@@ -2,7 +2,7 @@
 
 RUN go build -v -o /aslan ./cmd/aslan/main.go
 
-#alpine.Dockerfile
+#alpine-git.Dockerfile
 
 WORKDIR /app
 

@@ -116,7 +116,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.POST("/:name/services/:serviceName/restartNew", gin2.UpdateOperationLogStatus, RestartNewService)
 		environments.POST("/:name/services/:serviceName/scale", gin2.UpdateOperationLogStatus, ScaleService)
 		environments.POST("/:name/services/:serviceName/scaleNew", gin2.UpdateOperationLogStatus, ScaleNewService)
-		environments.GET("/:name/service/:serviceName/containers/:container", GetServiceContainer)
+		environments.GET("/:name/services/:serviceName/containers/:container", GetServiceContainer)
 
 		environments.GET("/:name/estimated-renderchart", GetEstimatedRenderCharts)
 	}

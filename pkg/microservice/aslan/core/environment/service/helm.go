@@ -23,14 +23,13 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
-
 	"github.com/hashicorp/go-multierror"
 	"github.com/otiai10/copy"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"

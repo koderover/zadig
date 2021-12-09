@@ -505,10 +505,8 @@ func createChartRepoClient(repo *commonmodels.HelmRepo) (*cm.Client, error) {
 	return client, nil
 }
 
-// pull image from currently using registry and push to specified repo
+// find all images in one single chart
 func extractImages(productService *commonmodels.ProductService, registryMap map[string]*commonmodels.RegistryNamespace) (*ServiceImageDetails, error) {
-
-	// find all images in one single chart
 	imageUrlsSet := sets.NewString()
 	for _, container := range productService.Containers {
 		imageUrlsSet.Insert(container.Image)
@@ -914,33 +912,6 @@ func buildDeliveryCharts(chartDataMap map[string]*DeliveryChartData, deliveryVer
 	// start a new routine to check task results
 	go waitVersionDone(deliveryVersion)
 
-	// no need to upload chart packages
-	//if args.Options == nil || !args.Options.EnableOfflineDist {
-	//	return
-	//}
-	//
-	////tar all chart files and image offline packages, send to s3 store
-	//fsTree := os.DirFS(dir)
-	//s3Base := configbase.ObjectStorageDeliveryVersionPath(deliveryVersion.ProductName)
-	//if err = fsservice.ArchiveAndUploadFilesToSpecifiedS3(fsTree, []string{deliveryVersion.Version}, s3Base, args.Options.S3StorageID, logger); err != nil {
-	//	logger.Errorf("failed to upload chart package files for project %s, err: %s", deliveryVersion.ProductName, err)
-	//	err = errors.Wrapf(err, "failed to upload package file")
-	//	return
-	//}
-
-	//err = commonrepo.NewDeliveryDistributeColl().Insert(&commonmodels.DeliveryDistribute{
-	//	ReleaseID:      deliveryVersion.ID,
-	//	DistributeType: config.File,
-	//	PackageFile:    fmt.Sprintf("%s.tar.gz", deliveryVersion.Version),
-	//	//RemoteFileKey:  filepath.Join(s3Base, fmt.Sprintf("%s.tar.gz", deliveryVersion.Version)),
-	//	S3StorageID: args.Options.S3StorageID,
-	//	CreatedAt:   time.Now().Unix(),
-	//})
-	//if err != nil {
-	//	logger.Errorf("failed to insert file distribute data, version: %s, err: %s", deliveryVersion.Version, err)
-	//	return fmt.Errorf("failed to insert file distribute data")
-	//}
-
 	return
 }
 
@@ -1341,27 +1312,6 @@ func preDownloadChart(projectName, versionName, chartName string, log *zap.Sugar
 		return "", err
 	}
 	return filePath, err
-}
-
-func getIndexDownloader(client *cm.Client) helm.IndexDownloader {
-	return func() ([]byte, error) {
-		resp, err := client.DownloadFile("index.yaml")
-		if err != nil {
-			return nil, err
-		}
-		defer func(Body io.ReadCloser) {
-			_ = Body.Close()
-		}(resp.Body)
-
-		b, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-		if resp.StatusCode != 200 {
-			return nil, getChartmuseumError(b, resp.StatusCode)
-		}
-		return b, nil
-	}
 }
 
 func GetChartVersions(chartName, chartRepoName string) ([]*ChartVersionResp, error) {
