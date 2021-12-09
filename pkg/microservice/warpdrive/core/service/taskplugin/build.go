@@ -137,6 +137,7 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 			pipelineTask.DockerHost = strings.Replace(pipelineTask.DockerHost, ".dind", ".dind."+pipelineTask.ConfigPayload.Build.KubeNamespace, 1)
 		}
 	}
+	pipelineCtx.DockerHost = pipelineTask.DockerHost
 
 	if pipelineTask.Type == config.WorkflowType {
 		envName := pipelineTask.WorkflowArgs.Namespace

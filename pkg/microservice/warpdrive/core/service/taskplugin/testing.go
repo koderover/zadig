@@ -132,6 +132,7 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 			pipelineTask.DockerHost = strings.Replace(pipelineTask.DockerHost, ".dind", ".dind."+pipelineTask.ConfigPayload.Test.KubeNamespace, 1)
 		}
 	}
+	pipelineCtx.DockerHost = pipelineTask.DockerHost
 	// 重置错误信息
 	p.Task.Error = ""
 	// 获取测试相关的namespace
