@@ -188,12 +188,12 @@ func (c *K8SClusterColl) UpdateMutableFields(cluster *models.K8SCluster, id stri
 	}
 	_, err = c.UpdateOne(context.TODO(),
 		bson.M{"_id": cluster.ID}, bson.M{"$set": bson.M{
-			"name":        cluster.Name,
-			"description": cluster.Description,
-			"tags":        cluster.Tags,
-			"namespace":   cluster.Namespace,
-			"production":  cluster.Production,
-			"config":      cluster.AdvancedConfig,
+			"name":            cluster.Name,
+			"description":     cluster.Description,
+			"tags":            cluster.Tags,
+			"namespace":       cluster.Namespace,
+			"production":      cluster.Production,
+			"advanced_config": cluster.AdvancedConfig,
 		}},
 	)
 
