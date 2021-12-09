@@ -122,7 +122,7 @@ func ListAvailableNamespaces(clusterID string, log *zap.SugaredLogger) ([]*resou
 	if err != nil {
 		log.Errorf("ListNamespaces err:%v", err)
 		if apierrors.IsForbidden(err) {
-			return resp, nil
+			return resp, err
 		}
 		return resp, err
 	}
@@ -240,7 +240,7 @@ func ListAvailableNodes(clusterID string, log *zap.SugaredLogger) (*NodeResp, er
 	if err != nil {
 		log.Errorf("ListNodes err:%s", err)
 		if apierrors.IsForbidden(err) {
-			return resp, nil
+			return resp, err
 		}
 		return resp, err
 	}

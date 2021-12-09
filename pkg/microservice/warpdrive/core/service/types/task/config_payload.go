@@ -52,7 +52,7 @@ type ConfigPayload struct {
 	// ResetCache means ignore workspace cache
 	ResetCache  bool          `json:"reset_cache"`
 	PrivateKeys []*PrivateKey `json:"private_keys"`
-	K8SClusters []*K8SCluster `json:"k8s_cluster"`
+	K8SClusters []*K8SCluster `json:"k8s_clusters"`
 }
 
 func (cp *ConfigPayload) GetGitKnownHost() string {
@@ -156,7 +156,7 @@ type PrivateKey struct {
 type K8SCluster struct {
 	ID             string          `json:"id,omitempty"                bson:"_id,omitempty"`
 	Name           string          `json:"name"                        bson:"name"`
-	AdvancedConfig *AdvancedConfig `json:"config,omitempty"            bson:"config,omitempty"`
+	AdvancedConfig *AdvancedConfig `json:"advanced_config,omitempty"   bson:"advanced_config,omitempty"`
 }
 
 type AdvancedConfig struct {

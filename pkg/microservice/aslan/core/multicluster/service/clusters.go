@@ -42,7 +42,7 @@ type K8SCluster struct {
 	ID             string                   `json:"id,omitempty"`
 	Name           string                   `json:"name"`
 	Description    string                   `json:"description"`
-	AdvancedConfig *AdvancedConfig          `json:"config,omitempty"`
+	AdvancedConfig *AdvancedConfig          `json:"advanced_config,omitempty"`
 	Status         setting.K8SClusterStatus `json:"status"`
 	Production     bool                     `json:"production"`
 	CreatedAt      int64                    `json:"createdAt"`
@@ -61,7 +61,7 @@ func (k *K8SCluster) Clean() error {
 	k.Description = strings.TrimSpace(k.Description)
 
 	if !namePattern.MatchString(k.Name) {
-		return fmt.Errorf("集群名称不符合规则")
+		return fmt.Errorf("The cluster name does not meet the rules")
 	}
 
 	return nil
