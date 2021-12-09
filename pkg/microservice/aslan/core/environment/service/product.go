@@ -214,6 +214,8 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 			prodResp.Error = "集群未连接"
 			return prodResp
 		}
+	} else {
+		prodResp.IsLocal = true
 	}
 
 	if prod.Status == setting.ProductStatusCreating {
