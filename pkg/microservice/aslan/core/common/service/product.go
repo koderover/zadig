@@ -353,17 +353,14 @@ func GetProductEnvNamespace(envName, productName, namespace string) string {
 	return product.Namespace
 }
 
-func GetProductEnv(envName, productName, namespace string) *models.Product {
-	if namespace != "" {
-		return nil
-	}
+func GetProductEnv(envName, productName string) (*models.Product, error) {
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    productName,
 		EnvName: envName,
 	})
 	if err != nil {
 		product = &commonmodels.Product{EnvName: envName, ProductName: productName}
-		return product
+		return nil, err
 	}
-	return product
+	return product, nil
 }

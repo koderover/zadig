@@ -64,7 +64,7 @@ func GetRegistryNamespace(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	reg, err := commonservice.GetRegistryNamespace(c.Param("id"), ctx.Logger)
+	reg, err := commonservice.FindRegistryById(c.Param("id"), ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		return

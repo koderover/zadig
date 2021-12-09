@@ -967,7 +967,11 @@ func checkOverrideValuesChange(source *template.RenderChart, args *commonservice
 }
 
 func UpdateHelmProductRenderset(productName, envName, userName, requestID string, args *EnvRendersetArg, log *zap.SugaredLogger) error {
-	product := commonservice.GetProductEnv(envName, productName, "")
+	product, err := commonservice.GetProductEnv(envName, productName)
+	if err != nil {
+		log.Errorf("UpdateHelmProductRenderset GetProductEnv envName:%s productName: %s error, error msg:%s", envName, productName, err)
+		return err
+	}
 	opt := &commonrepo.RenderSetFindOption{Name: product.Namespace}
 	productRenderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
 	if err != nil || productRenderset == nil {
@@ -1974,7 +1978,7 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 
 	args.Render = tmpRenderInfo
 	if preCreateNSAndSecret(productTmpl.ProductFeature) {
-		return ensureKubeEnv(args.Namespace, args.ID.String(), kubeClient, log)
+		return ensureKubeEnv(args.Namespace, args.RegistryId, kubeClient, log)
 	}
 	return nil
 }

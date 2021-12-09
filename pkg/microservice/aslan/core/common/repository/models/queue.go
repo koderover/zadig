@@ -137,6 +137,7 @@ type ConfigPayload struct {
 	JenkinsBuildConfig JenkinsBuildConfig `json:"jenkins_build_config"`
 	PrivateKeys        []*PrivateKey      `json:"private_keys"`
 
+	// RegistryID is the id of product registry
 	RegistryID string `json:"registry_id"`
 }
 

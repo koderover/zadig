@@ -158,7 +158,7 @@ func GetProduct(username, envName, productName string, log *zap.SugaredLogger) (
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
-		log.Errorf("[User:%s][EnvName:%s][Product:%s] Product.FindByOwner error: %v", username, envName, productName, err)
+		log.Errorf("[User:%s][EnvName:%s][Product:%s] Product.FindByOwner error: %s", username, envName, productName, err)
 		return nil, e.ErrGetEnv
 	}
 
@@ -172,7 +172,7 @@ func GetProduct(username, envName, productName string, log *zap.SugaredLogger) (
 	if len(prod.RegistryId) == 0 {
 		reg, err := commonservice.FindDefaultRegistry(log)
 		if err != nil {
-			log.Errorf("[User:%s][EnvName:%s][Product:%s] FindDefaultRegistry error: %v", username, envName, productName, err)
+			log.Errorf("[User:%s][EnvName:%s][Product:%s] FindDefaultRegistry error: %s", username, envName, productName, err)
 			return nil, err
 		}
 		prod.RegistryId = reg.ID.Hex()

@@ -54,6 +54,11 @@ type NamespaceResource struct {
 	Ingresses []resource.Ingress           `json:"ingresses"`
 }
 
+type UpdateProductRegistryRequest struct {
+	RegistryId string `json:"registry_id"`
+	Namespace  string `json:"namespace"`
+}
+
 func ListProducts(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -256,7 +261,7 @@ func UpdateProductRegistry(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	projectName := c.Query("projectName")
-	args := new(commonmodels.Product)
+	args := new(UpdateProductRegistryRequest)
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("UpdateProduct c.GetRawData() err : %v", err)

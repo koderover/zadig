@@ -503,7 +503,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 			log.Errorf("get default registry error: %v", err)
 			return nil, e.ErrGetCounter.AddDesc(err.Error())
 		}
-		env.RegistryId = reg.ID.String()
+		env.RegistryId = reg.ID.Hex()
 	}
 	configPayload.RegistryID = env.RegistryId
 	repos, err := commonrepo.NewRegistryNamespaceColl().FindAll(&commonrepo.FindRegOps{})
@@ -1806,7 +1806,6 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 				var reg *commonmodels.RegistryNamespace
 				if len(exitedProd.RegistryId) > 0 {
 					reg, err = commonservice.FindRegistryById(exitedProd.RegistryId, log)
-					log.Infof("FindRegistryById %s", exitedProd.RegistryId)
 					if err != nil {
 						log.Errorf("service.EnsureRegistrySecret: failed to find registry: %s error msg:%v",
 							exitedProd.RegistryId, err)
