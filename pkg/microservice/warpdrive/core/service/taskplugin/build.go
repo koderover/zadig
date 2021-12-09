@@ -121,6 +121,7 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 		}
 		p.kubeClient = kubeClient
 		// replace docker host
+		p.Log.Infof("pipelineTask.DockerHost:%s", pipelineTask.DockerHost)
 		pipelineTask.DockerHost = strings.Replace(pipelineTask.DockerHost, fmt.Sprintf(".%s", pipelineTask.ConfigPayload.Build.KubeNamespace), fmt.Sprintf(".%s", p.Task.Namespace), 1)
 	}
 	if pipelineTask.Type == config.WorkflowType {
