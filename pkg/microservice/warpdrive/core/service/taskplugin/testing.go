@@ -116,6 +116,8 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 			return
 		}
 		p.kubeClient = kubeClient
+		// replace docker host
+		pipelineTask.DockerHost = strings.Replace(pipelineTask.DockerHost, fmt.Sprintf(".%s", pipelineTask.ConfigPayload.Build.KubeNamespace), fmt.Sprintf(".%s", p.Task.Namespace), 1)
 	}
 	// 重置错误信息
 	p.Task.Error = ""
@@ -213,7 +215,7 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 
 	// search namespace should also include desired namespace
 	job, err := buildJobWithLinkedNs(
-		p.Type(), jobImage, p.JobName, serviceName, p.Task.ClusterID, p.Task.ResReq, p.Task.ResReqSpec, pipelineCtx, pipelineTask, p.Task.Registries,
+		p.Type(), jobImage, p.JobName, serviceName, p.Task.ClusterID, pipelineTask.ConfigPayload.Test.KubeNamespace, p.Task.ResReq, p.Task.ResReqSpec, pipelineCtx, pipelineTask, p.Task.Registries,
 		p.KubeNamespace,
 		linkedNamespace,
 	)

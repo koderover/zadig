@@ -391,13 +391,14 @@ func createJobConfigMap(namespace, jobName string, jobLabel *JobLabel, jobCtx st
 //"s-job":  pipelinename-taskid-tasktype-servicename,
 //"s-task": pipelinename-taskid,
 //"s-type": tasktype,
-func buildJob(taskType config.TaskType, jobImage, jobName, serviceName, clusterID string, resReq setting.Request, resReqSpec setting.RequestSpec, ctx *task.PipelineCtx, pipelineTask *task.Task, registries []*task.RegistryNamespace) (*batchv1.Job, error) {
+func buildJob(taskType config.TaskType, jobImage, jobName, serviceName, clusterID, currentNamespace string, resReq setting.Request, resReqSpec setting.RequestSpec, ctx *task.PipelineCtx, pipelineTask *task.Task, registries []*task.RegistryNamespace) (*batchv1.Job, error) {
 	return buildJobWithLinkedNs(
 		taskType,
 		jobImage,
 		jobName,
 		serviceName,
 		clusterID,
+		currentNamespace,
 		resReq,
 		resReqSpec,
 		ctx,
@@ -408,7 +409,7 @@ func buildJob(taskType config.TaskType, jobImage, jobName, serviceName, clusterI
 	)
 }
 
-func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceName, clusterID string, resReq setting.Request, resReqSpec setting.RequestSpec, ctx *task.PipelineCtx, pipelineTask *task.Task, registries []*task.RegistryNamespace, execNs, linkedNs string) (*batchv1.Job, error) {
+func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceName, clusterID, currentNamespace string, resReq setting.Request, resReqSpec setting.RequestSpec, ctx *task.PipelineCtx, pipelineTask *task.Task, registries []*task.RegistryNamespace, execNs, linkedNs string) (*batchv1.Job, error) {
 	var (
 		reaperBootingScript string
 		reaperBinaryFile    = pipelineTask.ConfigPayload.Release.ReaperBinaryFile
@@ -416,6 +417,8 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 	// not local cluster
 	if clusterID != "" && clusterID != setting.LocalClusterID {
 		reaperBinaryFile = strings.Replace(reaperBinaryFile, "resource-server", "resource-server.koderover-agent", -1)
+	} else {
+		reaperBinaryFile = strings.Replace(reaperBinaryFile, "resource-server", "resource-server."+currentNamespace, -1)
 	}
 
 	if !strings.Contains(jobImage, PredatorPlugin) && !strings.Contains(jobImage, JenkinsPlugin) {
