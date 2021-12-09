@@ -62,9 +62,10 @@ const (
 	RequiredSchedule   = "required"
 	PreferredSchedule  = "preferred"
 
-	registrySecretSuffix = "-registry-secret"
-	ResourceServer       = "resource-server"
-	DindServer           = "dind"
+	registrySecretSuffix    = "-registry-secret"
+	ResourceServer          = "resource-server"
+	DindServer              = "dind"
+	KoderoverAgentNamespace = "koderover-agent"
 )
 
 func saveFile(src io.Reader, localFile string) error {
