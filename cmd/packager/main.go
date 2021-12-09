@@ -24,6 +24,6 @@ import (
 
 func main() {
 	if err := executor.Execute(); err != nil {
-		log.Fatalf("Failed to run predator, the error is: %+v", err)
+		log.Fatalf("Failed to run packager, the error is: %+v", err)
 	}
 }

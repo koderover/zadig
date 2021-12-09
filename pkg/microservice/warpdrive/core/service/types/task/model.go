@@ -246,14 +246,15 @@ type ServiceTaskArgs struct {
 }
 
 type ImageData struct {
-	ImageUrl  string `bson:"image_url" json:"image_url"`
-	ImageName string `bson:"image_name" json:"image_name"`
-	ImageTag  string `bson:"image_tag" json:"image_tag"`
+	ImageUrl   string `bson:"image_url" yaml:"image_url" json:"image_url"`
+	ImageName  string `bson:"image_name" yaml:"image_name" json:"image_name"`
+	ImageTag   string `bson:"image_tag" yaml:"image_tag" json:"image_tag"`
+	RegistryID string `bson:"registry_id,omitempty" yaml:"registry_id,omitempty" json:"registry_id,omitempty"`
 }
 
 type ImagesByService struct {
-	ServiceName string       `bson:"service_name" json:"service_name"`
-	Images      []*ImageData `bson:"images" json:"images"`
+	ServiceName string       `bson:"service_name" json:"service_name" yaml:"service_name"`
+	Images      []*ImageData `bson:"images" json:"images" yaml:"images"`
 }
 
 type ArtifactPackageTaskArgs struct {

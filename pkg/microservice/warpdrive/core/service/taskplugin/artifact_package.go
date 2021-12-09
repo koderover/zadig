@@ -35,6 +35,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/podexec"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 // InitializeArtifactPackagePlugin to ini
@@ -109,10 +110,11 @@ func (p *ArtifactPackageTaskPlugin) Run(ctx context.Context, pipelineTask *task.
 	for _, registryID := range pipelineTask.ArtifactPackageTaskArgs.SourceRegistries {
 		if registry, ok := pipelineTask.ConfigPayload.RepoConfigs[registryID]; ok {
 			sourceRegistries = append(sourceRegistries, &types.DockerRegistry{
-				Host:      registry.RegAddr,
-				Namespace: registry.Namespace,
-				UserName:  registry.AccessKey,
-				Password:  registry.SecretKey,
+				RegistryID: registryID,
+				Host:       registry.RegAddr,
+				Namespace:  registry.Namespace,
+				UserName:   registry.AccessKey,
+				Password:   registry.SecretKey,
 			})
 		}
 	}
@@ -121,11 +123,22 @@ func (p *ArtifactPackageTaskPlugin) Run(ctx context.Context, pipelineTask *task.
 	for _, registryID := range pipelineTask.ArtifactPackageTaskArgs.TargetRegistries {
 		if registry, ok := pipelineTask.ConfigPayload.RepoConfigs[registryID]; ok {
 			targetRegistries = append(targetRegistries, &types.DockerRegistry{
-				Host:      registry.RegAddr,
-				Namespace: registry.Namespace,
-				UserName:  registry.AccessKey,
-				Password:  registry.SecretKey,
+				RegistryID: registryID,
+				Host:       registry.RegAddr,
+				Namespace:  registry.Namespace,
+				UserName:   registry.AccessKey,
+				Password:   registry.SecretKey,
 			})
+		}
+	}
+
+	log.Infof("######## source registry is %v", sourceRegistries)
+	log.Infof("######## targetRegistries registry is %+v", targetRegistries)
+	for _, singleImage := range pipelineTask.ArtifactPackageTaskArgs.Images {
+		log.Infof("##### the image service name is %s", singleImage.ServiceName)
+		log.Infof("##### the image service is %v", singleImage.Images)
+		for _, image := range singleImage.Images {
+			log.Infof("######## single image %+v", *image)
 		}
 	}
 
@@ -173,7 +186,7 @@ func (p *ArtifactPackageTaskPlugin) Run(ctx context.Context, pipelineTask *task.
 	}
 	p.Log.Infof("succeed to create cm for artifact package job %s", p.JobName)
 
-	job, err := buildJob(p.Type(), pipelineTask.ConfigPayload.Release.PackagerImage, p.JobName, serviceName, setting.MinRequest, setting.MinRequestSpec, pipelineCtx, pipelineTask, []*task.RegistryNamespace{})
+	job, err := buildJob(p.Type(), pipelineTask.ConfigPayload.Release.PackagerImage, p.JobName, serviceName, setting.MinRequest, setting.LowRequestSpec, pipelineCtx, pipelineTask, []*task.RegistryNamespace{})
 	if err != nil {
 		msg := fmt.Sprintf("create release artifact package job context error: %v", err)
 		p.Log.Error(msg)
