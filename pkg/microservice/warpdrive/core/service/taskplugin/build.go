@@ -123,18 +123,19 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 	}
 
 	// not local cluster
+	replaceDindServer := "." + DindServer
 	if p.Task.ClusterID != "" && p.Task.ClusterID != setting.LocalClusterID {
 		if strings.Contains(pipelineTask.DockerHost, pipelineTask.ConfigPayload.Build.KubeNamespace) {
 			// replace namespace only
 			pipelineTask.DockerHost = strings.Replace(pipelineTask.DockerHost, pipelineTask.ConfigPayload.Build.KubeNamespace, KoderoverAgentNamespace, 1)
 		} else {
 			// add namespace
-			pipelineTask.DockerHost = strings.Replace(pipelineTask.DockerHost, DindServer, DindServer+"."+KoderoverAgentNamespace, 1)
+			pipelineTask.DockerHost = strings.Replace(pipelineTask.DockerHost, replaceDindServer, replaceDindServer+"."+KoderoverAgentNamespace, 1)
 		}
 	} else if p.Task.ClusterID == "" || p.Task.ClusterID == setting.LocalClusterID {
 		if !strings.Contains(pipelineTask.DockerHost, pipelineTask.ConfigPayload.Build.KubeNamespace) {
 			// add namespace
-			pipelineTask.DockerHost = strings.Replace(pipelineTask.DockerHost, DindServer, DindServer+"."+pipelineTask.ConfigPayload.Build.KubeNamespace, 1)
+			pipelineTask.DockerHost = strings.Replace(pipelineTask.DockerHost, replaceDindServer, replaceDindServer+"."+pipelineTask.ConfigPayload.Build.KubeNamespace, 1)
 		}
 	}
 	pipelineCtx.DockerHost = pipelineTask.DockerHost
