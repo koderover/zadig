@@ -85,7 +85,7 @@ func (autoCreator *AutoCreator) Create(envName string) (string, error) {
 	productObject.Namespace = commonservice.GetProductEnvNamespace(envName, productName, "")
 	productObject.UpdateBy = autoCreator.Param.UserName
 	productObject.EnvName = envName
-	productObject.RegistryId = autoCreator.Param.RegistryID
+	productObject.RegistryID = autoCreator.Param.RegistryID
 	if autoCreator.Param.EnvType == setting.HelmDeployType {
 		productObject.Source = setting.SourceFromHelm
 	}

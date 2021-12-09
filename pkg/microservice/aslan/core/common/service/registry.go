@@ -31,10 +31,10 @@ import (
 )
 
 func FindRegistryById(registryId string, log *zap.SugaredLogger) (*models.RegistryNamespace, error) {
-	return FindRegisty(&mongodb.FindRegOps{ID: registryId}, log)
+	return findRegisty(&mongodb.FindRegOps{ID: registryId}, log)
 }
 
-func FindRegisty(regOps *mongodb.FindRegOps, log *zap.SugaredLogger) (*models.RegistryNamespace, error) {
+func findRegisty(regOps *mongodb.FindRegOps, log *zap.SugaredLogger) (*models.RegistryNamespace, error) {
 	// TODO: 多租户适配
 	resp, err := mongodb.NewRegistryNamespaceColl().Find(regOps)
 
@@ -61,7 +61,7 @@ func FindRegisty(regOps *mongodb.FindRegOps, log *zap.SugaredLogger) (*models.Re
 }
 
 func FindDefaultRegistry(log *zap.SugaredLogger) (*models.RegistryNamespace, error) {
-	return FindRegisty(&mongodb.FindRegOps{IsDefault: true}, log)
+	return findRegisty(&mongodb.FindRegOps{IsDefault: true}, log)
 }
 
 func GetDefaultRegistryNamespace(log *zap.SugaredLogger) (*models.RegistryNamespace, error) {

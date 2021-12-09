@@ -194,8 +194,8 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 		production := false
 		clusterName := ""
 		cluster, ok := clusterMap[clusterID]
-		if len(env.RegistryId) == 0 {
-			env.RegistryId = reg.ID.String()
+		if len(env.RegistryID) == 0 {
+			env.RegistryID = reg.ID.Hex()
 		}
 		if ok {
 			production = cluster.Production
@@ -213,7 +213,7 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 			Error:       env.Error,
 			UpdateTime:  env.UpdateTime,
 			UpdateBy:    env.UpdateBy,
-			RegistryID:  env.RegistryId,
+			RegistryID:  env.RegistryID,
 			ClusterID:   env.ClusterID,
 		})
 	}
@@ -586,7 +586,7 @@ func UpdateProductV2(envName, productName, user, requestID string, force bool, k
 		}
 	}
 
-	err = ensureKubeEnv(exitedProd.Namespace, exitedProd.RegistryId, kubeClient, log)
+	err = ensureKubeEnv(exitedProd.Namespace, exitedProd.RegistryID, kubeClient, log)
 
 	if err != nil {
 		log.Errorf("[%s][P:%s] service.UpdateProductV2 create kubeEnv error: %v", envName, productName, err)
@@ -760,7 +760,7 @@ func createSingleHelmProduct(templateProduct *template.Product, serviceGroup [][
 		IsOpenSource:    templateProduct.IsOpensource,
 		ChartInfos:      templateProduct.ChartInfos,
 		IsForkedProduct: false,
-		RegistryId:      registryID,
+		RegistryID:      registryID,
 	}
 
 	customChartValueMap := make(map[string]*commonservice.RenderChartArg)
@@ -1024,7 +1024,7 @@ func UpdateHelmProductRenderset(productName, envName, userName, requestID string
 		log.Errorf("UpdateHelmProductRenderset GetKubeClient error, error msg:%s", err)
 		return err
 	}
-	return ensureKubeEnv(product.Namespace, product.RegistryId, kubeClient, log)
+	return ensureKubeEnv(product.Namespace, product.RegistryID, kubeClient, log)
 }
 
 func UpdateHelmProductVariable(productName, envName, username, requestID string, updatedRcs []*template.RenderChart, renderset *commonmodels.RenderSet, log *zap.SugaredLogger) error {
@@ -1981,7 +1981,7 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 
 	args.Render = tmpRenderInfo
 	if preCreateNSAndSecret(productTmpl.ProductFeature) {
-		return ensureKubeEnv(args.Namespace, args.RegistryId, kubeClient, log)
+		return ensureKubeEnv(args.Namespace, args.RegistryID, kubeClient, log)
 	}
 	return nil
 }

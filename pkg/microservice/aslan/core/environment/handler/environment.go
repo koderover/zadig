@@ -55,7 +55,7 @@ type NamespaceResource struct {
 }
 
 type UpdateProductRegistryRequest struct {
-	RegistryId string `json:"registry_id"`
+	RegistryID string `json:"registry_id"`
 	Namespace  string `json:"namespace"`
 }
 
@@ -208,7 +208,7 @@ func CreateProduct(c *gin.Context) {
 		return
 	}
 
-	if args.RegistryId == "" {
+	if args.RegistryID == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("RegistryId can not be null!")
 		return
 	}
@@ -280,9 +280,9 @@ func UpdateProductRegistry(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	ctx.Err = service.UpdateProductRegistry(args.Namespace, args.RegistryId, ctx.Logger)
+	ctx.Err = service.UpdateProductRegistry(args.Namespace, args.RegistryID, ctx.Logger)
 	if ctx.Err != nil {
-		ctx.Logger.Errorf("failed to update product %s %s: %v", args.Namespace, args.RegistryId, ctx.Err)
+		ctx.Logger.Errorf("failed to update product %s %s: %v", args.Namespace, args.RegistryID, ctx.Err)
 	}
 }
 

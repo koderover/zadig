@@ -494,7 +494,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 
 	// 获取全局configpayload
 	configPayload := commonservice.GetConfigPayload(args.CodehostID)
-	if len(env.RegistryId) == 0 {
+	if len(env.RegistryID) == 0 {
 		op := &commonrepo.FindRegOps{
 			IsDefault: true,
 		}
@@ -503,9 +503,9 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 			log.Errorf("get default registry error: %v", err)
 			return nil, e.ErrGetCounter.AddDesc(err.Error())
 		}
-		env.RegistryId = reg.ID.Hex()
+		env.RegistryID = reg.ID.Hex()
 	}
-	configPayload.RegistryID = env.RegistryId
+	configPayload.RegistryID = env.RegistryID
 	repos, err := commonrepo.NewRegistryNamespaceColl().FindAll(&commonrepo.FindRegOps{})
 	if err == nil {
 		configPayload.RepoConfigs = make(map[string]*commonmodels.RegistryNamespace)
@@ -1804,11 +1804,11 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 				// 编译任务使用 t.JobCtx.Image
 				// 注意: 其他任务从 pt.TaskArgs.Deploy.Image 获取, 必须要有编译任务
 				var reg *commonmodels.RegistryNamespace
-				if len(exitedProd.RegistryId) > 0 {
-					reg, err = commonservice.FindRegistryById(exitedProd.RegistryId, log)
+				if len(exitedProd.RegistryID) > 0 {
+					reg, err = commonservice.FindRegistryById(exitedProd.RegistryID, log)
 					if err != nil {
 						log.Errorf("service.EnsureRegistrySecret: failed to find registry: %s error msg:%v",
-							exitedProd.RegistryId, err)
+							exitedProd.RegistryID, err)
 						return e.ErrFindRegistry.AddDesc(err.Error())
 					}
 				} else {
