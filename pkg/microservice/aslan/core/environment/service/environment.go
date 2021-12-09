@@ -967,7 +967,10 @@ func checkOverrideValuesChange(source *template.RenderChart, args *commonservice
 }
 
 func UpdateHelmProductRenderset(productName, envName, userName, requestID string, args *EnvRendersetArg, log *zap.SugaredLogger) error {
-	product, err := commonservice.GetProductEnv(envName, productName)
+	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: envName,
+	})
 	if err != nil {
 		log.Errorf("UpdateHelmProductRenderset GetProductEnv envName:%s productName: %s error, error msg:%s", envName, productName, err)
 		return err
