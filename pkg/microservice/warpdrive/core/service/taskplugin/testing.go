@@ -116,8 +116,21 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 			return
 		}
 		p.kubeClient = kubeClient
-		// replace docker host
-		pipelineTask.DockerHost = strings.Replace(pipelineTask.DockerHost, fmt.Sprintf(".%s", pipelineTask.ConfigPayload.Build.KubeNamespace), fmt.Sprintf(".%s", p.Task.Namespace), 1)
+	}
+	// not local cluster
+	if p.Task.ClusterID != "" && p.Task.ClusterID != setting.LocalClusterID {
+		if strings.Contains(pipelineTask.DockerHost, pipelineTask.ConfigPayload.Test.KubeNamespace) {
+			// replace namespace only
+			pipelineTask.DockerHost = strings.Replace(pipelineTask.DockerHost, fmt.Sprintf(".%s", pipelineTask.ConfigPayload.Test.KubeNamespace), ".koderover-agent", 1)
+		} else {
+			// add namespace
+			pipelineTask.DockerHost = strings.Replace(pipelineTask.DockerHost, ".dind", ".dind.koderover-agent", 1)
+		}
+	} else if p.Task.ClusterID == "" || p.Task.ClusterID == setting.LocalClusterID {
+		if !strings.Contains(pipelineTask.DockerHost, pipelineTask.ConfigPayload.Test.KubeNamespace) {
+			// add namespace
+			pipelineTask.DockerHost = strings.Replace(pipelineTask.DockerHost, ".dind", ".dind."+pipelineTask.ConfigPayload.Test.KubeNamespace, 1)
+		}
 	}
 	// 重置错误信息
 	p.Task.Error = ""

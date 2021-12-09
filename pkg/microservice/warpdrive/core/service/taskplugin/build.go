@@ -120,10 +120,24 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 			return
 		}
 		p.kubeClient = kubeClient
-		// replace docker host
-		p.Log.Infof("pipelineTask.DockerHost:%s", pipelineTask.DockerHost)
-		pipelineTask.DockerHost = strings.Replace(pipelineTask.DockerHost, fmt.Sprintf(".%s", pipelineTask.ConfigPayload.Build.KubeNamespace), fmt.Sprintf(".%s", p.Task.Namespace), 1)
 	}
+
+	// not local cluster
+	if p.Task.ClusterID != "" && p.Task.ClusterID != setting.LocalClusterID {
+		if strings.Contains(pipelineTask.DockerHost, pipelineTask.ConfigPayload.Build.KubeNamespace) {
+			// replace namespace only
+			pipelineTask.DockerHost = strings.Replace(pipelineTask.DockerHost, fmt.Sprintf(".%s", pipelineTask.ConfigPayload.Build.KubeNamespace), ".koderover-agent", 1)
+		} else {
+			// add namespace
+			pipelineTask.DockerHost = strings.Replace(pipelineTask.DockerHost, ".dind", ".dind.koderover-agent", 1)
+		}
+	} else if p.Task.ClusterID == "" || p.Task.ClusterID == setting.LocalClusterID {
+		if !strings.Contains(pipelineTask.DockerHost, pipelineTask.ConfigPayload.Build.KubeNamespace) {
+			// add namespace
+			pipelineTask.DockerHost = strings.Replace(pipelineTask.DockerHost, ".dind", ".dind."+pipelineTask.ConfigPayload.Build.KubeNamespace, 1)
+		}
+	}
+
 	if pipelineTask.Type == config.WorkflowType {
 		envName := pipelineTask.WorkflowArgs.Namespace
 		envNameVar := &task.KeyVal{Key: "ENV_NAME", Value: envName, IsCredential: false}
