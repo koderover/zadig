@@ -1625,7 +1625,6 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 		}
 
 		if serviceTmpl != nil {
-			build.Namespace = args.Env.Namespace
 			build.ServiceType = setting.PMDeployType
 			envHost := make(map[string][]string)
 			for _, envConfig := range serviceTmpl.EnvConfigs {
