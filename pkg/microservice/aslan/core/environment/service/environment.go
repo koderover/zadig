@@ -550,7 +550,7 @@ func UpdateProductRegistry(namespace, registryID string, log *zap.SugaredLogger)
 		log.Errorf("UpdateProductRegistry UpdateRegistry by namespace:%s registryID:%s error: %v", namespace, registryID, err)
 		return e.ErrUpdateEnv.AddErr(err)
 	}
-	kubeClient, err := kube.GetKubeClient(exitedProd.ClusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), exitedProd.ClusterID)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
@@ -1025,7 +1025,7 @@ func UpdateHelmProductRenderset(productName, envName, userName, requestID string
 	if err != nil {
 		return err
 	}
-	kubeClient, err := kube.GetKubeClient(product.ClusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
 	if err != nil {
 		log.Errorf("UpdateHelmProductRenderset GetKubeClient error, error msg:%s", err)
 		return err
