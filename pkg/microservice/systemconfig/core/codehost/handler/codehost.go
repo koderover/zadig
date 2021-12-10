@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/pkg/oauth"
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/pkg/oauth/github"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -126,8 +125,8 @@ func Callback(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	var state *State
-	if err := json.Unmarshal(bs, state); err != nil {
+	var state State
+	if err := json.Unmarshal(bs, &state); err != nil {
 		c.Redirect(http.StatusFound,state.RedirectURL)
 		return
 	}
@@ -136,11 +135,7 @@ func Callback(c *gin.Context) {
 		c.Redirect(http.StatusFound,state.RedirectURL)
 		return
 	}
-	o, err := github.NewGithubOauth("", "", "", "")
-	if err != nil {
-		c.Redirect(http.StatusFound,state.RedirectURL)
-		return
-	}
+	o:= oauth.Factory(codehost.Type,state.RedirectURL, codehost.ApplicationId, codehost.ClientSecret, codehost.Address)
 	token , err := o.HandleCallback(c.Request)
 	if err !=nil {
 		c.Redirect(http.StatusFound,state.RedirectURL)
