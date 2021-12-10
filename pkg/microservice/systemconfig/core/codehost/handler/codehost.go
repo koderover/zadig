@@ -102,7 +102,11 @@ func Callback(c *gin.Context) {
 
 	stateStr := c.Query("state")
 
-	service.Callback(stateStr, c.Request)
+	url, err := service.Callback(stateStr, c.Request, ctx.Logger)
+	if err != nil {
+		ctx.Logger.Errorf("Callback err:%s", err)
+	}
+	c.Redirect(http.StatusFound, url)
 }
 
 func UpdateCodeHost(c *gin.Context) {

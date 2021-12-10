@@ -101,37 +101,38 @@ func AuthCodeHost(redirectURI, hostName, clientID, clientSecret, provider string
 	return oauth.LoginURL(base64.URLEncoding.EncodeToString(bs)), nil
 }
 
-func Callback(stateQuery string, r *http.Request, logger *zap.SugaredLogger) error {
+func Callback(stateQuery string, r *http.Request, logger *zap.SugaredLogger) (string, error) {
 	bs, err := base64.URLEncoding.DecodeString(stateQuery)
 	if err != nil {
 		logger.Errorf("DecodeString err:%s", err)
-		return err
+		return "", err
 	}
+
 	var state State
 	if err := json.Unmarshal(bs, &state); err != nil {
 		logger.Errorf("Unmarshal err:%s", err)
-		return err
+		return "", err
 	}
 	codehost, err := GetCodeHost(state.CodeHostID, logger)
 	if err != nil {
 		logger.Errorf("GetCodeHost err:%s", err)
-		return err
+		return state.RedirectURL, err
 	}
 	o, err := oauth.Factory(codehost.Type, state.RedirectURL, codehost.ApplicationId, codehost.ClientSecret, codehost.Address)
 	if err != nil {
 		logger.Errorf("Factory err:%s", err)
-		return err
+		return state.RedirectURL, err
 	}
 	token, err := o.HandleCallback(r)
 	if err != nil {
 		logger.Errorf("HandleCallback err:%s", err)
-		return err
+		return state.RedirectURL, err
 	}
 	codehost.AccessToken = token.AccessToken
 	codehost.RefreshToken = token.RefreshToken
 	if _, err := UpdateCodeHostByToken(codehost, logger); err != nil {
 		logger.Errorf("UpdateCodeHostByToken err:%s", err)
-		return err
+		return state.RedirectURL, err
 	}
-	return nil
+	return state.RedirectURL, nil
 }
