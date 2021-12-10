@@ -66,27 +66,17 @@ func GetCodeHost(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GetCodeHost(id, ctx.Logger)
 }
 
-type AuthArgs struct {
-	RedirectURI string `json:"redirect_uri"`
-	CallbackURL string `json:"callback_url"`
-}
-
 func AuthCodeHost(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	id := c.Param("id")
-	var au AuthArgs
-	if err := c.ShouldBindJSON(&au); err != nil {
-		ctx.Err = err
-		return
-	}
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
 		ctx.Err = err
 		return
 	}
-	url, err := service.AuthCodeHost(au.RedirectURI, au.CallbackURL, idInt, ctx.Logger)
+	url, err := service.AuthCodeHost(c.Query("redirect_uri"), c.Query("callback_url"), idInt, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 	}
