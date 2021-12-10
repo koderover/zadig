@@ -15,13 +15,13 @@ type Oauth struct {
 	HostName 	  string `json:"host_name"`
 }
 
-func NewGithubOauth (redirectURI ,clientID,clientSecret,hostName string)(oauth.CallbackOauth,error){
+func NewGithubOauth (redirectURI ,clientID,clientSecret,hostName string)oauth.CallbackOauth{
 	return &Oauth{
 		RedirectURI:  redirectURI,
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 		HostName: hostName,
-	} , nil
+	}
 }
 
 func (g *Oauth)oauth2Config()*oauth2.Config{
