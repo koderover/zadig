@@ -35,15 +35,15 @@ import (
 	"github.com/koderover/zadig/pkg/util"
 )
 
-func CreateArtifactPackageTask(args *commonmodels.ArtifactPackageTaskArgs, log *zap.SugaredLogger) error {
+// get global config payload
+func CreateArtifactPackageTask(args *commonmodels.ArtifactPackageTaskArgs, taskCreator string, log *zap.SugaredLogger) (int64, error) {
 
-	// 获取全局configpayload
 	configPayload := commonservice.GetConfigPayload(0)
 	repos, err := commonrepo.NewRegistryNamespaceColl().FindAll(&commonrepo.FindRegOps{})
 
 	if err != nil {
 		log.Errorf("CreateArtifactPackageTask query registries failed, err: %s", err)
-		return fmt.Errorf("failed to query registries")
+		return 0, fmt.Errorf("failed to query registries")
 	}
 
 	registriesInvolved := sets.NewString()
@@ -68,13 +68,13 @@ func CreateArtifactPackageTask(args *commonmodels.ArtifactPackageTaskArgs, log *
 	defaultS3, err := s3.FindDefaultS3()
 	if err != nil {
 		err = e.ErrFindDefaultS3Storage.AddDesc("default storage is required by distribute task")
-		return err
+		return 0, err
 	}
 
 	defaultURL, err := defaultS3.GetEncryptedURL()
 	if err != nil {
 		err = e.ErrS3Storage.AddErr(err)
-		return err
+		return 0, err
 	}
 
 	task := &task.Task{
@@ -82,6 +82,7 @@ func CreateArtifactPackageTask(args *commonmodels.ArtifactPackageTaskArgs, log *
 		ProductName:             args.ProjectName,
 		Status:                  config.StatusCreated,
 		ArtifactPackageTaskArgs: args,
+		TaskCreator:             taskCreator,
 		ConfigPayload:           configPayload,
 		StorageURI:              defaultURL,
 	}
@@ -100,14 +101,14 @@ func CreateArtifactPackageTask(args *commonmodels.ArtifactPackageTaskArgs, log *
 	}).ToSubTask()
 
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	task.SubTasks = []map[string]interface{}{subTask}
 
 	if err := ensurePipelineTask(task, "", log); err != nil {
 		log.Errorf("CreateServiceTask ensurePipelineTask err : %v", err)
-		return err
+		return 0, err
 	}
 
 	stages := make([]*commonmodels.Stage, 0)
@@ -117,14 +118,14 @@ func CreateArtifactPackageTask(args *commonmodels.ArtifactPackageTaskArgs, log *
 	sort.Sort(ByStageKind(stages))
 	task.Stages = stages
 	if len(task.Stages) == 0 {
-		return e.ErrCreateTask.AddDesc(e.PipelineSubTaskNotFoundErrMsg)
+		return 0, e.ErrCreateTask.AddDesc(e.PipelineSubTaskNotFoundErrMsg)
 	}
 
 	pipelineName := fmt.Sprintf("%s-%s-%s", args.ProjectName, args.EnvName, "artifact")
 	nextTaskID, err := commonrepo.NewCounterColl().GetNextSeq(fmt.Sprintf(setting.ServiceTaskFmt, pipelineName))
 	if err != nil {
 		log.Errorf("CreateServiceTask Counter.GetNextSeq error: %v", err)
-		return e.ErrGetCounter.AddDesc(err.Error())
+		return 0, e.ErrGetCounter.AddDesc(err.Error())
 	}
 
 	task.SubTasks = []map[string]interface{}{}
@@ -133,8 +134,8 @@ func CreateArtifactPackageTask(args *commonmodels.ArtifactPackageTaskArgs, log *
 
 	if err := CreateTask(task); err != nil {
 		log.Error(err)
-		return e.ErrCreateTask
+		return 0, e.ErrCreateTask
 	}
 
-	return nil
+	return nextTaskID, nil
 }

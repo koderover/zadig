@@ -234,6 +234,10 @@ func LocalServicePathWithRevision(project, service string, revision int64) strin
 	return configbase.LocalServicePathWithRevision(project, service, fmt.Sprintf("%d", revision))
 }
 
+func LocalDeliveryChartPathWithRevision(project, service string, revision int64) string {
+	return configbase.LocalServicePathWithRevision(project, service, fmt.Sprintf("delivery/%d", revision))
+}
+
 func ServiceNameWithRevision(serviceName string, revision int64) string {
 	return fmt.Sprintf("%s-%d", serviceName, revision)
 }

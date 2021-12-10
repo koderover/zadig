@@ -113,6 +113,13 @@ type ChartTemplateData struct {
 	DefaultValuesYAML []byte // content of values.yaml in template
 }
 
+type GetFileContentParam struct {
+	FilePath        string `json:"filePath"        form:"filePath"`
+	FileName        string `json:"fileName"        form:"fileName"`
+	Revision        int64  `json:"revision"        form:"revision"`
+	DeliveryVersion bool   `json:"deliveryVersion" form:"deliveryVersion"`
+}
+
 func ListHelmServices(productName string, log *zap.SugaredLogger) (*HelmService, error) {
 	helmService := &HelmService{
 		ServiceInfos: []*models.Service{},
@@ -133,7 +140,7 @@ func ListHelmServices(productName string, log *zap.SugaredLogger) (*HelmService,
 	helmService.ServiceInfos = services
 
 	if len(services) > 0 {
-		fis, err := loadServiceFileInfos(services[0].ProductName, services[0].ServiceName, "")
+		fis, err := loadServiceFileInfos(services[0].ProductName, services[0].ServiceName, 0, "")
 		if err != nil {
 			log.Errorf("Failed to load service file info, err: %s", err)
 			return nil, e.ErrListTemplate.AddErr(err)
@@ -172,24 +179,39 @@ func GetHelmServiceModule(serviceName, productName string, revision int64, log *
 	return helmServiceModule, err
 }
 
-func GetFilePath(serviceName, productName, dir string, _ *zap.SugaredLogger) ([]*types.FileInfo, error) {
-	return loadServiceFileInfos(productName, serviceName, dir)
+func GetFilePath(serviceName, productName string, revision int64, dir string, _ *zap.SugaredLogger) ([]*types.FileInfo, error) {
+	return loadServiceFileInfos(productName, serviceName, revision, dir)
 }
 
-func GetFileContent(serviceName, productName, filePath, fileName string, log *zap.SugaredLogger) (string, error) {
-	base := config.LocalServicePath(productName, serviceName)
-
+func GetFileContent(serviceName, productName string, param *GetFileContentParam, log *zap.SugaredLogger) (string, error) {
+	filePath, fileName, revision, forDelivery := param.FilePath, param.FileName, param.Revision, param.DeliveryVersion
 	svc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
 		ProductName: productName,
 		ServiceName: serviceName,
+		Revision:    revision,
 	})
 	if err != nil {
 		return "", e.ErrFileContent.AddDesc(err.Error())
 	}
 
-	err = commonservice.PreLoadServiceManifests(base, svc)
-	if err != nil {
-		return "", e.ErrFileContent.AddDesc(err.Error())
+	base := config.LocalServicePath(productName, serviceName)
+	if revision > 0 {
+		base = config.LocalServicePathWithRevision(productName, serviceName, revision)
+		if err = commonservice.PreloadServiceManifestsByRevision(base, svc); err != nil {
+			log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
+				svc.Revision, svc.ServiceName)
+		}
+	}
+	if err != nil || revision == 0 {
+		base = config.LocalServicePath(productName, serviceName)
+		err = commonservice.PreLoadServiceManifests(base, svc)
+		if err != nil {
+			return "", e.ErrFileContent.AddDesc(err.Error())
+		}
+	}
+
+	if forDelivery {
+		base = config.LocalDeliveryChartPathWithRevision(productName, serviceName, revision)
 	}
 
 	file := filepath.Join(base, serviceName, filePath, fileName)
@@ -912,15 +934,29 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 	return serviceObj, nil
 }
 
-func loadServiceFileInfos(productName, serviceName, dir string) ([]*types.FileInfo, error) {
-	base := config.LocalServicePath(productName, serviceName)
-
+func loadServiceFileInfos(productName, serviceName string, revision int64, dir string) ([]*types.FileInfo, error) {
 	svc, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
 		ProductName: productName,
 		ServiceName: serviceName,
 	})
 	if err != nil {
 		return nil, e.ErrFilePath.AddDesc(err.Error())
+	}
+
+	base := config.LocalServicePath(productName, serviceName)
+	if revision > 0 {
+		base = config.LocalServicePathWithRevision(productName, serviceName, revision)
+		if err = commonservice.PreloadServiceManifestsByRevision(base, svc); err != nil {
+			log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
+				svc.Revision, svc.ServiceName)
+		}
+	}
+	if err != nil || revision == 0 {
+		base = config.LocalServicePath(productName, serviceName)
+		err = commonservice.PreLoadServiceManifests(base, svc)
+		if err != nil {
+			return nil, e.ErrFilePath.AddDesc(err.Error())
+		}
 	}
 
 	err = commonservice.PreLoadServiceManifests(base, svc)
