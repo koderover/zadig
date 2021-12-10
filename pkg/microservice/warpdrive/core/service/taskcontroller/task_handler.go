@@ -413,6 +413,7 @@ func (h *ExecHandler) executeTask(taskCtx context.Context, plugin plugins.TaskPl
 			"_", "-", -1)
 	} else if pipelineTask.Type == config.WorkflowTypeV3 {
 		fileName = strings.Replace(strings.ToLower(fmt.Sprintf("%s-%s-%d-%s-%s", config.WorkflowTypeV3, pipelineTask.PipelineName, pipelineTask.TaskID, plugin.Type(), fmt.Sprintf("%s-job", pipelineTask.PipelineName))),
+			"_", "-", -1)
 	} else if pipelineTask.Type == config.ArtifactType {
 		fileName = strings.Replace(strings.ToLower(fmt.Sprintf("%s-%s-%d-%s", config.ArtifactType, pipelineTask.PipelineName, pipelineTask.TaskID, plugin.Type())),
 			"_", "-", -1)
