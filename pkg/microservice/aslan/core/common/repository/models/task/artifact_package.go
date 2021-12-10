@@ -17,26 +17,11 @@ limitations under the License.
 package task
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 )
-
-type ImageData struct {
-	ImageUrl       string `bson:"image_url" json:"image_url"`
-	ImageName      string `bson:"image_name" json:"image_name"`
-	ImageNamespace string `bson:"image_namespace" json:"image_namespace"`
-	ImageTag       string `bson:"image_tag" json:"image_tag"`
-}
-
-type ServicePackageResult struct {
-	ServiceName string       `json:"service_name"`
-	Result      string       `json:"result"`
-	ErrorMsg    string       `json:"error_msg"`
-	ImageData   []*ImageData `json:"image_data"`
-}
 
 type ArtifactPackage struct {
 	TaskType   config.TaskType `bson:"type"                           json:"type"`
@@ -47,7 +32,6 @@ type ArtifactPackage struct {
 	StartTime  int64           `bson:"start_time,omitempty"           json:"start_time,omitempty"`
 	EndTime    int64           `bson:"end_time,omitempty"             json:"end_time,omitempty"`
 	LogFile    string          `bson:"log_file"                       json:"log_file"`
-	Progress   string          `bson:"progress"                       json:"progress"`
 
 	// source images
 	Images []*models.ImagesByService `bson:"images" json:"images"`
@@ -63,13 +47,4 @@ func (ri *ArtifactPackage) ToSubTask() (map[string]interface{}, error) {
 		return nil, fmt.Errorf("convert ReleaseImageTask to interface error: %v", err)
 	}
 	return task, nil
-}
-
-func (ri *ArtifactPackage) GetProgress() ([]*ServicePackageResult, error) {
-	if len(ri.Progress) == 0 {
-		return nil, nil
-	}
-	ret := make([]*ServicePackageResult, 0)
-	err := json.Unmarshal([]byte(ri.Progress), &ret)
-	return ret, err
 }

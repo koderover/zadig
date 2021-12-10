@@ -49,7 +49,6 @@ func CreateHelmRepo(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid url")
 		return
 	}
-
 	ctx.Err = service.CreateHelmRepo(args, ctx.Logger)
 }
 
