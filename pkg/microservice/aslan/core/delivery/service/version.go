@@ -1348,8 +1348,6 @@ func GetChartVersions(chartName, chartRepoName string) ([]*ChartVersionResp, err
 		return nil, errors.Wrapf(getChartmuseumError(b, resp.StatusCode), "failed to download index.yaml")
 	}
 
-	log.Infof("###### the raw data is %s", string(b))
-
 	index, err := helm.LoadIndex(b)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse index.yaml")
