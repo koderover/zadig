@@ -53,6 +53,8 @@ type ConfigPayload struct {
 	ResetCache  bool          `json:"reset_cache"`
 	PrivateKeys []*PrivateKey `json:"private_keys"`
 	K8SClusters []*K8SCluster `json:"k8s_clusters"`
+
+	RegistryID string `json:"registry_id"`
 }
 
 func (cp *ConfigPayload) GetGitKnownHost() string {

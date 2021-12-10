@@ -30,11 +30,13 @@ import (
 	"github.com/koderover/zadig/pkg/util"
 )
 
-func FindDefaultRegistry(log *zap.SugaredLogger) (*models.RegistryNamespace, error) {
+func FindRegistryById(registryId string, log *zap.SugaredLogger) (*models.RegistryNamespace, error) {
+	return findRegisty(&mongodb.FindRegOps{ID: registryId}, log)
+}
+
+func findRegisty(regOps *mongodb.FindRegOps, log *zap.SugaredLogger) (*models.RegistryNamespace, error) {
 	// TODO: 多租户适配
-	resp, err := mongodb.NewRegistryNamespaceColl().Find(&mongodb.FindRegOps{
-		IsDefault: true,
-	})
+	resp, err := mongodb.NewRegistryNamespaceColl().Find(regOps)
 
 	if err != nil {
 		log.Warnf("RegistryNamespace.Find error: %v", err)
@@ -58,6 +60,10 @@ func FindDefaultRegistry(log *zap.SugaredLogger) (*models.RegistryNamespace, err
 	return resp, nil
 }
 
+func FindDefaultRegistry(log *zap.SugaredLogger) (*models.RegistryNamespace, error) {
+	return findRegisty(&mongodb.FindRegOps{IsDefault: true}, log)
+}
+
 func GetDefaultRegistryNamespace(log *zap.SugaredLogger) (*models.RegistryNamespace, error) {
 	resp, err := mongodb.NewRegistryNamespaceColl().Find(&mongodb.FindRegOps{IsDefault: true})
 	if err != nil {
@@ -76,14 +82,27 @@ func ListRegistryNamespaces(log *zap.SugaredLogger) ([]*models.RegistryNamespace
 	return resp, nil
 }
 
-func EnsureDefaultRegistrySecret(namespace string, kubeClient client.Client, log *zap.SugaredLogger) error {
-	reg, err := FindDefaultRegistry(log)
-	if err != nil {
-		log.Errorf(
-			"service.EnsureRegistrySecret: failed to find default candidate registry: %s %v",
-			namespace, err,
-		)
-		return err
+func EnsureDefaultRegistrySecret(namespace string, registryId string, kubeClient client.Client, log *zap.SugaredLogger) error {
+	var reg *models.RegistryNamespace
+	var err error
+	if len(registryId) > 0 {
+		reg, err = FindRegistryById(registryId, log)
+		if err != nil {
+			log.Errorf(
+				"service.EnsureRegistrySecret: failed to find registry: %s error msg:%v",
+				registryId, err,
+			)
+			return err
+		}
+	} else {
+		reg, err = FindDefaultRegistry(log)
+		if err != nil {
+			log.Errorf(
+				"service.EnsureRegistrySecret: failed to find default candidate registry: %s %v",
+				namespace, err,
+			)
+			return err
+		}
 	}
 
 	err = kube.CreateOrUpdateRegistrySecret(namespace, reg, kubeClient)

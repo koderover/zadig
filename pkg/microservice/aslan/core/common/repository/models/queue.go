@@ -138,6 +138,9 @@ type ConfigPayload struct {
 	JenkinsBuildConfig JenkinsBuildConfig `json:"jenkins_build_config"`
 	PrivateKeys        []*PrivateKey      `json:"private_keys"`
 	K8SClusters        []*K8SClusterResp  `json:"k8s_clusters"`
+
+	// RegistryID is the id of product registry
+	RegistryID string `json:"registry_id"`
 }
 
 type AslanConfig struct {
