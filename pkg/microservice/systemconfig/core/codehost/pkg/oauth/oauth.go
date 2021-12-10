@@ -1,7 +1,9 @@
 package oauth
 
 import (
+	"errors"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/pkg/oauth/github"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/pkg/oauth/gitlab"
 	"golang.org/x/oauth2"
 	"net/http"
 )
@@ -16,11 +18,12 @@ type Token struct {
 	RefreshToken string
 }
 
-func Factory(provider, redirectURI, clientID, clientSecret, hostName string) CallbackOauth {
+func Factory(provider, redirectURI, clientID, clientSecret, hostName string) (CallbackOauth, error) {
 	switch provider {
 	case "github":
-		return github.NewGithubOauth(redirectURI, clientID, clientSecret, hostName)
-	default:
-		return github.NewGithubOauth(redirectURI, clientID, clientSecret, hostName)
+		return github.NewGithubOauth(redirectURI, clientID, clientSecret, hostName), nil
+	case "gitlab":
+		return gitlab.NewGitlabOauth(redirectURI, clientID, clientSecret, hostName), nil
 	}
+	return nil, errors.New("illegal provider")
 }

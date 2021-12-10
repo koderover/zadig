@@ -75,11 +75,11 @@ type State struct {
 }
 
 type AuthArgs struct {
-	RedirectURI string `json:"redirect_uri"`
-	HostName string `json:"host_name"`
-	ClientID string `json:"client_id"`
+	RedirectURI  string `json:"redirect_uri"`
+	HostName     string `json:"host_name"`
+	ClientID     string `json:"client_id"`
 	ClientSecret string `json:"client_secret"`
-	Provider string `json:"provider"`
+	Provider     string `json:"provider"`
 }
 
 func AuthCodeHost(c *gin.Context) {
@@ -88,7 +88,7 @@ func AuthCodeHost(c *gin.Context) {
 
 	id := c.Param("id")
 	var au AuthArgs
-	if err := c.ShouldBindJSON(&au);err !=nil {
+	if err := c.ShouldBindJSON(&au); err != nil {
 		ctx.Err = err
 		return
 	}
@@ -102,7 +102,11 @@ func AuthCodeHost(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	oauth := oauth.Factory(au.Provider,au.RedirectURI, au.ClientID, au.ClientSecret, au.HostName)
+	oauth, err := oauth.Factory(au.Provider, au.RedirectURI, au.ClientID, au.ClientSecret, au.HostName)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
 	stateStruct := State{
 		CodeHostID:  codeHost.ID,
 		RedirectURL: "",
@@ -127,24 +131,28 @@ func Callback(c *gin.Context) {
 	}
 	var state State
 	if err := json.Unmarshal(bs, &state); err != nil {
-		c.Redirect(http.StatusFound,state.RedirectURL)
+		c.Redirect(http.StatusFound, state.RedirectURL)
 		return
 	}
-	codehost , err := service.GetCodeHost(state.CodeHostID,ctx.Logger)
+	codehost, err := service.GetCodeHost(state.CodeHostID, ctx.Logger)
 	if err != nil {
-		c.Redirect(http.StatusFound,state.RedirectURL)
+		c.Redirect(http.StatusFound, state.RedirectURL)
 		return
 	}
-	o:= oauth.Factory(codehost.Type,state.RedirectURL, codehost.ApplicationId, codehost.ClientSecret, codehost.Address)
-	token , err := o.HandleCallback(c.Request)
-	if err !=nil {
-		c.Redirect(http.StatusFound,state.RedirectURL)
+	o, err := oauth.Factory(codehost.Type, state.RedirectURL, codehost.ApplicationId, codehost.ClientSecret, codehost.Address)
+	if err != nil {
+		c.Redirect(http.StatusFound, state.RedirectURL)
+		return
+	}
+	token, err := o.HandleCallback(c.Request)
+	if err != nil {
+		c.Redirect(http.StatusFound, state.RedirectURL)
 		return
 	}
 	codehost.AccessToken = token.AccessToken
 	codehost.RefreshToken = token.RefreshToken
-	if _,err := service.UpdateCodeHostByToken(codehost,ctx.Logger);err !=nil {
-		c.Redirect(http.StatusFound,state.RedirectURL)
+	if _, err := service.UpdateCodeHostByToken(codehost, ctx.Logger); err != nil {
+		c.Redirect(http.StatusFound, state.RedirectURL)
 		return
 	}
 }
