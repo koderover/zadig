@@ -114,9 +114,9 @@ type ChartTemplateData struct {
 }
 
 type GetFileContentParam struct {
-	FilePath        string `json:"filePath" form:"filePath"`
-	FileName        string `json:"fileName" form:"fileName"`
-	Revision        int64  `json:"revision" form:"revision"`
+	FilePath        string `json:"filePath"        form:"filePath"`
+	FileName        string `json:"fileName"        form:"fileName"`
+	Revision        int64  `json:"revision"        form:"revision"`
 	DeliveryVersion bool   `json:"deliveryVersion" form:"deliveryVersion"`
 }
 

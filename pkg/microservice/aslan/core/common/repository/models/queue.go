@@ -49,13 +49,13 @@ type Queue struct {
 	IsArchived              bool                     `bson:"is_archived"                                json:"is_archived"`
 	AgentID                 string                   `bson:"agent_id"                                   json:"agent_id"`
 	MultiRun                bool                     `bson:"multi_run"                                  json:"multi_run"`
-	Target                  string                   `bson:"target,omitempty"                           json:"target"`           // target 服务名称, k8s为容器名称, 物理机为服务名
-	BuildModuleVer          string                   `bson:"build_module_ver,omitempty"                 json:"build_module_ver"` // 使用预定义编译管理模块中的内容生成SubTasks, 查询条件为 服务模板名称: ServiceTmpl, 版本: BuildModuleVer 如果为空，则使用pipeline自定义SubTasks
+	Target                  string                   `bson:"target,omitempty"                           json:"target"` // target service name, for k8s: containerName, for pm: serviceName
+	BuildModuleVer          string                   `bson:"build_module_ver,omitempty"                 json:"build_module_ver"`
 	ServiceName             string                   `bson:"service_name,omitempty"                     json:"service_name,omitempty"`
-	TaskArgs                *TaskArgs                `bson:"task_args,omitempty"                        json:"task_args,omitempty"`     // TaskArgs 单服务工作流任务参数
-	WorkflowArgs            *WorkflowTaskArgs        `bson:"workflow_args"                              json:"workflow_args,omitempty"` // WorkflowArgs 多服务工作流任务参数
-	TestArgs                *TestTaskArgs            `bson:"test_args,omitempty"                        json:"test_args,omitempty"`     // TestArgs 测试任务参数
-	ServiceTaskArgs         *ServiceTaskArgs         `bson:"service_args,omitempty"                     json:"service_args,omitempty"`  // ServiceTaskArgs 脚本部署工作流任务参数
+	TaskArgs                *TaskArgs                `bson:"task_args,omitempty"                        json:"task_args,omitempty"`     // TaskArgs job parameters for single-service workflow
+	WorkflowArgs            *WorkflowTaskArgs        `bson:"workflow_args"                              json:"workflow_args,omitempty"` // WorkflowArgs job parameters for multi-service workflow
+	TestArgs                *TestTaskArgs            `bson:"test_args,omitempty"                        json:"test_args,omitempty"`     // TestArgs parameters for testing
+	ServiceTaskArgs         *ServiceTaskArgs         `bson:"service_args,omitempty"                     json:"service_args,omitempty"`  // ServiceTaskArgs parameters for script-deployed workflows
 	ArtifactPackageTaskArgs *ArtifactPackageTaskArgs `bson:"artifact_package_args,omitempty"            json:"artifact_package_args,omitempty"`
 	ConfigPayload           *ConfigPayload           `bson:"configpayload,omitempty"                    json:"config_payload"`
 	Error                   string                   `bson:"error,omitempty"                            json:"error,omitempty"`
@@ -96,9 +96,9 @@ type ServiceTaskArgs struct {
 }
 
 type ImageData struct {
-	ImageUrl   string `bson:"image_url" json:"image_url"`
-	ImageName  string `bson:"image_name" json:"image_name"`
-	ImageTag   string `bson:"image_tag" json:"image_tag"`
+	ImageUrl   string `bson:"image_url"   json:"image_url"`
+	ImageName  string `bson:"image_name"  json:"image_name"`
+	ImageTag   string `bson:"image_tag"   json:"image_tag"`
 	RegistryID string `bson:"registry_id" json:"registry_id"`
 }
 
@@ -109,10 +109,10 @@ type ImagesByService struct {
 
 type ArtifactPackageTaskArgs struct {
 	ProjectName      string             `bson:"project_name"            json:"project_name"`
-	EnvName          string             `bson:"env_name" json:"env_name"`
-	Images           []*ImagesByService `bson:"images" json:"images"`
-	SourceRegistries []string           `json:"source_registries" json:"source_registries"`
-	TargetRegistries []string           `json:"target_registries" json:"target_registries"`
+	EnvName          string             `bson:"env_name"                json:"env_name"`
+	Images           []*ImagesByService `bson:"images"                  json:"images"`
+	SourceRegistries []string           `json:"source_registries"       json:"source_registries"`
+	TargetRegistries []string           `json:"target_registries"       json:"target_registries"`
 }
 
 type ConfigPayload struct {

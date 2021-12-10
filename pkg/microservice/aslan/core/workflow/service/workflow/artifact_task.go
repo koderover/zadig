@@ -37,7 +37,7 @@ import (
 
 func CreateArtifactPackageTask(args *commonmodels.ArtifactPackageTaskArgs, taskCreator string, log *zap.SugaredLogger) (int64, error) {
 
-	// 获取全局configpayload
+	// get global config payload
 	configPayload := commonservice.GetConfigPayload(0)
 	repos, err := commonrepo.NewRegistryNamespaceColl().FindAll(&commonrepo.FindRegOps{})
 

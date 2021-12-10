@@ -246,20 +246,20 @@ type ServiceTaskArgs struct {
 }
 
 type ImageData struct {
-	ImageUrl   string `bson:"image_url" yaml:"image_url" json:"image_url"`
-	ImageName  string `bson:"image_name" yaml:"image_name" json:"image_name"`
-	ImageTag   string `bson:"image_tag" yaml:"image_tag" json:"image_tag"`
-	RegistryID string `bson:"registry_id,omitempty" yaml:"registry_id,omitempty" json:"registry_id,omitempty"`
+	ImageUrl   string `bson:"image_url"       json:"image_url"       yaml:"image_url"`
+	ImageName  string `bson:"image_name"      json:"image_name"      yaml:"image_name"`
+	ImageTag   string `bson:"image_tag"       json:"image_tag"       yaml:"image_tag"`
+	RegistryID string `bson:"registry_id"     json:"registry_id"     yaml:"registry_id"`
 }
 
 type ImagesByService struct {
 	ServiceName string       `bson:"service_name" json:"service_name" yaml:"service_name"`
-	Images      []*ImageData `bson:"images" json:"images" yaml:"images"`
+	Images      []*ImageData `bson:"images"       json:"images"       yaml:"images"`
 }
 
 type ArtifactPackageTaskArgs struct {
-	ProductName      string             `bson:"product_name"            json:"product_name"`
-	Images           []*ImagesByService `bson:"images" json:"images"`
+	ProductName      string             `bson:"product_name"      json:"product_name"`
+	Images           []*ImagesByService `bson:"images"            json:"images"`
 	SourceRegistries []string           `bson:"source_registries" json:"source_registries"`
 	TargetRegistries []string           `bson:"target_registries" json:"target_registries"`
 }
