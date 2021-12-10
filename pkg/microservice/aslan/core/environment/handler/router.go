@@ -86,6 +86,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		kube.DELETE("/pods/:podName", gin2.UpdateOperationLogStatus, DeletePod)
 		kube.GET("/pods/:podName/events", ListPodEvents)
 		kube.GET("/workloads", ListWorkloads)
+		kube.GET("/nodes", ListNodes)
 	}
 
 	// ---------------------------------------------------------------------------------------

@@ -32,7 +32,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
-	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/containerlog"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/watcher"
@@ -53,6 +53,7 @@ type GetContainerOptions struct {
 	TestName     string
 	EnvName      string
 	ProductName  string
+	ClusterID    string
 }
 
 func ContainerLogStream(ctx context.Context, streamChan chan interface{}, envName, productName, podName, containerName string, follow bool, tailLines int64, log *zap.SugaredLogger) {
@@ -119,13 +120,28 @@ func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, op
 		return
 	}
 	log.Debugf("Start to get task container log.")
-	if options.EnvName != "" && options.ProductName != "" {
+	// Cloud host scenario reads real-time logs from the environment, so pipelineName is empty
+	if options.EnvName != "" && options.ProductName != "" && options.PipelineName == "" {
 		//修改pipelineName，判断pipelineName是否为空，为空代表是来自环境里面请求，不为空代表是来自工作流任务的请求
-		if options.PipelineName == "" {
-			options.PipelineName = fmt.Sprintf("%s-%s-%s", options.ServiceName, options.EnvName, "job")
-			if taskObj, err := commonrepo.NewTaskColl().FindTask(options.PipelineName, config.ServiceType); err == nil {
-				options.TaskID = taskObj.TaskID
-			}
+		options.PipelineName = fmt.Sprintf("%s-%s-%s", options.ServiceName, options.EnvName, "job")
+		if taskObj, err := commonrepo.NewTaskColl().FindTask(options.PipelineName, config.ServiceType); err == nil {
+			options.TaskID = taskObj.TaskID
+		}
+		// Need to get build info based on the project name and service component name, then get clusterID and namespace
+	} else if options.ProductName != "" {
+		build, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{
+			ProductName: options.ProductName,
+			Targets:     []string{options.ServiceName},
+		})
+		if err != nil {
+			// Maybe this service is a shared service
+			build, err = commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{
+				Targets: []string{options.ServiceName},
+			})
+		}
+		if build != nil && build.PreBuild != nil {
+			options.ClusterID = build.PreBuild.ClusterID
+			options.Namespace = build.PreBuild.Namespace
 		}
 	}
 
@@ -137,11 +153,21 @@ func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, op
 }
 
 func TestJobContainerLogStream(ctx context.Context, streamChan chan interface{}, options *GetContainerOptions, log *zap.SugaredLogger) {
-
 	options.SubTask = string(config.TaskTestingV2)
 	selector := getPipelineSelector(options)
+	// get cluster ID
+	testing, _ := commonrepo.NewTestingColl().Find(getTestName(options.ServiceName), "")
+	if testing != nil && testing.PreTest != nil {
+		options.ClusterID = testing.PreTest.ClusterID
+		options.Namespace = testing.PreTest.Namespace
+	}
 
 	waitAndGetLog(ctx, streamChan, selector, options, log)
+}
+
+func getTestName(serviceName string) string {
+	testName := strings.TrimRight(serviceName, "-job")
+	return testName
 }
 
 func waitAndGetLog(ctx context.Context, streamChan chan interface{}, selector labels.Selector, options *GetContainerOptions, log *zap.SugaredLogger) {
@@ -149,12 +175,22 @@ func waitAndGetLog(ctx context.Context, streamChan chan interface{}, selector la
 	defer cancel()
 
 	log.Debugf("Waiting until pod is running before establishing the stream.")
-	err := watcher.WaitUntilPodRunning(PodCtx, options.Namespace, selector, krkubeclient.Clientset())
+	clientSet, err := kubeclient.GetClientset(config.HubServerAddress(), options.ClusterID)
 	if err != nil {
-		log.Errorf("GetContainerLogs, wait pod running error: %+v", err)
+		log.Errorf("GetContainerLogs, get client set error: %s", err)
 		return
 	}
-	pods, err := getter.ListPods(options.Namespace, selector, krkubeclient.Client())
+	err = watcher.WaitUntilPodRunning(PodCtx, options.Namespace, selector, clientSet)
+	if err != nil {
+		log.Errorf("GetContainerLogs, wait pod running error: %s", err)
+		return
+	}
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), options.ClusterID)
+	if err != nil {
+		log.Errorf("GetContainerLogs, get kube client error: %s", err)
+		return
+	}
+	pods, err := getter.ListPods(options.Namespace, selector, kubeClient)
 	if err != nil {
 		log.Errorf("GetContainerLogs, get pod error: %+v", err)
 		return
@@ -169,7 +205,7 @@ func waitAndGetLog(ctx context.Context, streamChan chan interface{}, selector la
 			pods[0].Name, options.SubTask,
 			true,
 			options.TailLines,
-			krkubeclient.Clientset(),
+			clientSet,
 			log,
 		)
 	}

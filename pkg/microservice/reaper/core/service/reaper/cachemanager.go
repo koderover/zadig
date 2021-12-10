@@ -80,13 +80,15 @@ type TarCacheManager struct {
 	StorageURI   string
 	PipelineName string
 	ServiceName  string
+	aesKey       string
 }
 
-func NewTarCacheManager(storageURI, pipelineName, serviceName string) *TarCacheManager {
+func NewTarCacheManager(storageURI, pipelineName, serviceName, aesKey string) *TarCacheManager {
 	return &TarCacheManager{
 		StorageURI:   storageURI,
 		PipelineName: pipelineName,
 		ServiceName:  serviceName,
+		aesKey:       aesKey,
 	}
 }
 
@@ -180,7 +182,7 @@ func (gcm *TarCacheManager) Unarchive(source, dest string) error {
 func (gcm *TarCacheManager) getS3Storage() (*s3.S3, error) {
 	var err error
 	var store *s3.S3
-	if store, err = s3.NewS3StorageFromEncryptedURI(gcm.StorageURI); err != nil {
+	if store, err = s3.NewS3StorageFromEncryptedURI(gcm.StorageURI, gcm.aesKey); err != nil {
 		log.Errorf("Archive failed to create s3 storage %s", gcm.StorageURI)
 		return nil, err
 	}

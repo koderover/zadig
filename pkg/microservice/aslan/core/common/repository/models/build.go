@@ -66,7 +66,9 @@ type PreBuild struct {
 	// Parameters
 	Parameters []*Parameter `bson:"parameters,omitempty"   json:"parameters"`
 	// UploadPkg uploads package to s3
-	UploadPkg bool `bson:"upload_pkg"                      json:"upload_pkg"`
+	UploadPkg bool   `bson:"upload_pkg"                      json:"upload_pkg"`
+	ClusterID string `bson:"cluster_id"                      json:"cluster_id"`
+	Namespace string `bson:"namespace"                       json:"namespace"`
 }
 
 type BuildObj struct {

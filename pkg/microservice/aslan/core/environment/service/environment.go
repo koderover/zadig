@@ -54,6 +54,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
@@ -114,6 +115,7 @@ type ProductResp struct {
 	ClusterName string                   `json:"cluster_name,omitempty"`
 	RecycleDay  int                      `json:"recycle_day"`
 	IsProd      bool                     `json:"is_prod"`
+	IsLocal     bool                     `json:"is_local"`
 	Source      string                   `json:"source"`
 }
 
@@ -275,7 +277,7 @@ func AutoUpdateProduct(envNames []string, productName, requestID string, force b
 				continue
 			}
 
-			kubeClient, err := kube.GetKubeClient(p.ClusterID)
+			kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), p.ClusterID)
 			if err != nil {
 				log.Errorf("Failed to get kube client for %s, error: %v", productName, err)
 				continue
@@ -387,7 +389,7 @@ func UpdateProduct(existedProd, updateProd *commonmodels.Product, renderSet *com
 		return
 	}
 
-	kubeClient, err := kube.GetKubeClient(existedProd.ClusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), existedProd.ClusterID)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
@@ -531,7 +533,7 @@ func UpdateProductV2(envName, productName, user, requestID string, force bool, k
 		return e.ErrUpdateEnv.AddDesc(e.EnvNotFoundErrMsg)
 	}
 
-	kubeClient, err := kube.GetKubeClient(exitedProd.ClusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), exitedProd.ClusterID)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}

@@ -551,11 +551,6 @@ const (
 	ResourcesHeader    = "Resources"
 )
 
-const (
-	LocalClusterID   = "local" // special(fake) id of the local cluster
-	LocalClusterName = "local" // special(fake) name of the local cluster
-)
-
 type K8SClusterStatus string
 
 const (
@@ -564,3 +559,5 @@ const (
 	Normal       K8SClusterStatus = "normal"
 	Abnormal     K8SClusterStatus = "abnormal"
 )
+
+const LocalClusterID = "0123456789abcdef12345678"

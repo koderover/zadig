@@ -22,6 +22,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
+	"github.com/koderover/zadig/pkg/tool/crypto"
 )
 
 func GetConfigPayload(codeHostID int) *models.ConfigPayload {
@@ -64,6 +65,7 @@ func GetConfigPayload(codeHostID int) *models.ConfigPayload {
 		JenkinsBuildConfig: models.JenkinsBuildConfig{
 			JenkinsBuildImage: config.JenkinsImage(),
 		},
+		AesKey: crypto.GetAesKey(),
 	}
 
 	githubApps, _ := mongodb.NewGithubAppColl().Find()
@@ -89,5 +91,17 @@ func GetConfigPayload(codeHostID int) *models.ConfigPayload {
 		payload.PrivateKeys = privateKeys
 	}
 
+	k8sClusters, _ := mongodb.NewK8SClusterColl().List(nil)
+	if len(k8sClusters) != 0 {
+		var K8SClusterResp []*models.K8SClusterResp
+		for _, k8sCluster := range k8sClusters {
+			K8SClusterResp = append(K8SClusterResp, &models.K8SClusterResp{
+				ID:             k8sCluster.ID.Hex(),
+				Name:           k8sCluster.Name,
+				AdvancedConfig: k8sCluster.AdvancedConfig,
+			})
+		}
+		payload.K8SClusters = K8SClusterResp
+	}
 	return payload
 }
