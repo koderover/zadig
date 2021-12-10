@@ -494,6 +494,18 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 
 	// 获取全局configpayload
 	configPayload := commonservice.GetConfigPayload(args.CodehostID)
+	if len(env.RegistryID) == 0 {
+		op := &commonrepo.FindRegOps{
+			IsDefault: true,
+		}
+		reg, err := commonrepo.NewRegistryNamespaceColl().Find(op)
+		if err != nil {
+			log.Errorf("get default registry error: %v", err)
+			return nil, e.ErrGetCounter.AddDesc(err.Error())
+		}
+		env.RegistryID = reg.ID.Hex()
+	}
+	configPayload.RegistryID = env.RegistryID
 	repos, err := commonrepo.NewRegistryNamespaceColl().FindAll(&commonrepo.FindRegOps{})
 	if err == nil {
 		configPayload.RepoConfigs = make(map[string]*commonmodels.RegistryNamespace)
@@ -1778,16 +1790,33 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 					setManunalBuilds(t.JobCtx.Builds, pt.TaskArgs.Builds, log)
 				}
 
+				opt := &commonrepo.ProductFindOptions{Name: pt.ProductName}
+				exitedProd, err := commonrepo.NewProductColl().Find(opt)
+				if err != nil {
+					log.Errorf("can't find product by name:%s error msg: %v", pt.ProductName, err)
+					return e.ErrFindRegistry.AddDesc(err.Error())
+				}
+
 				// 生成默认镜像tag后缀
 				//pt.TaskArgs.Deploy.Tag = releaseCandidate(t, pt.TaskID, pt.ProductName, pt.EnvName, "image")
 
 				// 设置镜像名称
 				// 编译任务使用 t.JobCtx.Image
 				// 注意: 其他任务从 pt.TaskArgs.Deploy.Image 获取, 必须要有编译任务
-				reg, err := commonservice.FindDefaultRegistry(log)
-				if err != nil {
-					log.Errorf("can't find default candidate registry: %v", err)
-					return e.ErrFindRegistry.AddDesc(err.Error())
+				var reg *commonmodels.RegistryNamespace
+				if len(exitedProd.RegistryID) > 0 {
+					reg, err = commonservice.FindRegistryById(exitedProd.RegistryID, log)
+					if err != nil {
+						log.Errorf("service.EnsureRegistrySecret: failed to find registry: %s error msg:%v",
+							exitedProd.RegistryID, err)
+						return e.ErrFindRegistry.AddDesc(err.Error())
+					}
+				} else {
+					reg, err = commonservice.FindDefaultRegistry(log)
+					if err != nil {
+						log.Errorf("can't find default candidate registry: %v", err)
+						return e.ErrFindRegistry.AddDesc(err.Error())
+					}
 				}
 
 				t.JobCtx.Image = GetImage(reg, releaseCandidate(t, pt.TaskID, pt.ProductName, envName, "image"))
