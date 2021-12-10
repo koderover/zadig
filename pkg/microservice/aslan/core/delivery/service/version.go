@@ -530,15 +530,18 @@ func extractImages(productService *commonmodels.ProductService, registryMap map[
 		imageName := commonservice.ExtractImageName(imageUrl)
 		imageTag := commonservice.ExtractImageTag(imageUrl)
 
+		registryID := ""
 		// used source registry
 		if registry, ok := registryMap[registryUrl]; ok {
-			registrySet.Insert(registry.ID.Hex())
+			registryID = registry.ID.Hex()
+			registrySet.Insert(registryID)
 		}
 
 		ret.Images = append(ret.Images, &ImageUrlDetail{
 			ImageUrl: imageUrl,
 			Name:     imageName,
 			Tag:      imageTag,
+			Registry: registryID,
 		})
 	}
 
@@ -780,9 +783,10 @@ func buildArtifactTaskArgs(projectName, envName string, imagesMap *sync.Map) *co
 		}
 		for _, image := range imageDetail.Images {
 			imagesByService.Images = append(imagesByService.Images, &commonmodels.ImageData{
-				ImageUrl:  image.ImageUrl,
-				ImageName: image.Name,
-				ImageTag:  image.Tag,
+				ImageUrl:   image.ImageUrl,
+				ImageName:  image.Name,
+				ImageTag:   image.Tag,
+				RegistryID: image.Registry,
 			})
 		}
 		imageArgs = append(imageArgs, imagesByService)
