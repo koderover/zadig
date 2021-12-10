@@ -67,9 +67,7 @@ func GetCodeHost(c *gin.Context) {
 }
 
 type AuthArgs struct {
-	RedirectURI  string `json:"redirect_uri"`
-	ClientID     string `json:"client_id"`
-	ClientSecret string `json:"client_secret"`
+	RedirectURI string `json:"redirect_uri"`
 }
 
 func AuthCodeHost(c *gin.Context) {
