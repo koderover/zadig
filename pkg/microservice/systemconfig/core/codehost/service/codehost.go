@@ -18,7 +18,10 @@ package service
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/pkg/oauth"
+	"net/http"
 	"time"
 
 	"go.uber.org/zap"
@@ -68,4 +71,67 @@ func UpdateCodeHostByToken(host *models.CodeHost, _ *zap.SugaredLogger) (*models
 
 func GetCodeHost(id int, _ *zap.SugaredLogger) (*models.CodeHost, error) {
 	return mongodb.NewCodehostColl().GetCodeHostByID(id)
+}
+
+type State struct {
+	CodeHostID  int    `json:"code_host_id"`
+	RedirectURL string `json:"redirect_url"`
+}
+
+func AuthCodeHost(redirectURI, hostName, clientID, clientSecret, provider string, codeHostID int, logger *zap.SugaredLogger) (redirectURL string, err error) {
+	codeHost, err := GetCodeHost(codeHostID, logger)
+	if err != nil {
+		logger.Errorf("GetCodeHost:%s err:%s", codeHostID, err)
+		return "", err
+	}
+	oauth, err := oauth.Factory(provider, redirectURI, clientID, clientSecret, hostName)
+	if err != nil {
+		logger.Errorf("get Factory:%s err:%s", provider, err)
+		return "", err
+	}
+	stateStruct := State{
+		CodeHostID:  codeHost.ID,
+		RedirectURL: redirectURL,
+	}
+	bs, err := json.Marshal(stateStruct)
+	if err != nil {
+		logger.Errorf("Marshal err:%s", err)
+		return "", err
+	}
+	return oauth.LoginURL(base64.URLEncoding.EncodeToString(bs)), nil
+}
+
+func Callback(stateQuery string, r *http.Request, logger *zap.SugaredLogger) error {
+	bs, err := base64.URLEncoding.DecodeString(stateQuery)
+	if err != nil {
+		logger.Errorf("DecodeString err:%s", err)
+		return err
+	}
+	var state State
+	if err := json.Unmarshal(bs, &state); err != nil {
+		logger.Errorf("Unmarshal err:%s", err)
+		return err
+	}
+	codehost, err := GetCodeHost(state.CodeHostID, logger)
+	if err != nil {
+		logger.Errorf("GetCodeHost err:%s", err)
+		return err
+	}
+	o, err := oauth.Factory(codehost.Type, state.RedirectURL, codehost.ApplicationId, codehost.ClientSecret, codehost.Address)
+	if err != nil {
+		logger.Errorf("Factory err:%s", err)
+		return err
+	}
+	token, err := o.HandleCallback(r)
+	if err != nil {
+		logger.Errorf("HandleCallback err:%s", err)
+		return err
+	}
+	codehost.AccessToken = token.AccessToken
+	codehost.RefreshToken = token.RefreshToken
+	if _, err := UpdateCodeHostByToken(codehost, logger); err != nil {
+		logger.Errorf("UpdateCodeHostByToken err:%s", err)
+		return err
+	}
+	return nil
 }

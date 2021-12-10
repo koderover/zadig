@@ -17,10 +17,7 @@ limitations under the License.
 package handler
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"github.com/gin-gonic/gin"
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/pkg/oauth"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -69,11 +66,6 @@ func GetCodeHost(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GetCodeHost(id, ctx.Logger)
 }
 
-type State struct {
-	CodeHostID  int    `json:"code_host_id"`
-	RedirectURL string `json:"redirect_url"`
-}
-
 type AuthArgs struct {
 	RedirectURI  string `json:"redirect_uri"`
 	HostName     string `json:"host_name"`
@@ -97,26 +89,11 @@ func AuthCodeHost(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	codeHost, err := service.GetCodeHost(idInt, ctx.Logger)
+	url, err := service.AuthCodeHost(au.RedirectURI, au.HostName, au.ClientID, au.ClientSecret, au.Provider, idInt, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
-		return
 	}
-	oauth, err := oauth.Factory(au.Provider, au.RedirectURI, au.ClientID, au.ClientSecret, au.HostName)
-	if err != nil {
-		ctx.Err = err
-		return
-	}
-	stateStruct := State{
-		CodeHostID:  codeHost.ID,
-		RedirectURL: "",
-	}
-	bs, err := json.Marshal(stateStruct)
-	if err != nil {
-		ctx.Err = err
-		return
-	}
-	c.Redirect(http.StatusFound, oauth.LoginURL(base64.URLEncoding.EncodeToString(bs)))
+	c.Redirect(http.StatusFound, url)
 }
 
 func Callback(c *gin.Context) {
@@ -124,37 +101,8 @@ func Callback(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	stateStr := c.Query("state")
-	bs, err := base64.URLEncoding.DecodeString(stateStr)
-	if err != nil {
-		ctx.Err = err
-		return
-	}
-	var state State
-	if err := json.Unmarshal(bs, &state); err != nil {
-		c.Redirect(http.StatusFound, state.RedirectURL)
-		return
-	}
-	codehost, err := service.GetCodeHost(state.CodeHostID, ctx.Logger)
-	if err != nil {
-		c.Redirect(http.StatusFound, state.RedirectURL)
-		return
-	}
-	o, err := oauth.Factory(codehost.Type, state.RedirectURL, codehost.ApplicationId, codehost.ClientSecret, codehost.Address)
-	if err != nil {
-		c.Redirect(http.StatusFound, state.RedirectURL)
-		return
-	}
-	token, err := o.HandleCallback(c.Request)
-	if err != nil {
-		c.Redirect(http.StatusFound, state.RedirectURL)
-		return
-	}
-	codehost.AccessToken = token.AccessToken
-	codehost.RefreshToken = token.RefreshToken
-	if _, err := service.UpdateCodeHostByToken(codehost, ctx.Logger); err != nil {
-		c.Redirect(http.StatusFound, state.RedirectURL)
-		return
-	}
+
+	service.Callback(stateStr, c.Request)
 }
 
 func UpdateCodeHost(c *gin.Context) {
