@@ -651,17 +651,18 @@ func ExtractImageTag(imageURI string) string {
 	return ""
 }
 
-// ExtractRegistryNamespace extract registry namespace form image uri
+// ExtractRegistryNamespace extract registry namespace from image uri
 func ExtractRegistryNamespace(imageURI string) string {
 	imageURI = strings.TrimPrefix(imageURI, "http://")
 	imageURI = strings.TrimPrefix(imageURI, "https://")
 
-	firstIndex := strings.Index(imageURI, "/")
-	lastIndex := strings.LastIndex(imageURI, "/")
-	if lastIndex == firstIndex {
+	imageComponent := strings.Split(imageURI, "/")
+	if len(imageComponent) <= 2 {
 		return ""
 	}
-	return strings.TrimPrefix(imageURI[firstIndex:lastIndex], "/")
+
+	nsComponent := imageComponent[1 : len(imageComponent)-1]
+	return strings.Join(nsComponent, "/")
 }
 
 func parseImagesByPattern(nested map[string]interface{}, patterns []map[string]string) ([]*models.Container, error) {
