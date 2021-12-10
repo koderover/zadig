@@ -126,12 +126,16 @@ func ListAvailableNamespaces(clusterID string, log *zap.SugaredLogger) ([]*resou
 		}
 		return resp, err
 	}
-
+	filterK8sNamespaces := sets.NewString("kube-node-lease", "kube-public", "kube-system")
 	for _, namespace := range namespaces {
 		if value, IsExist := namespace.Labels[setting.EnvCreatedBy]; IsExist {
 			if value == setting.EnvCreator {
 				continue
 			}
+		}
+
+		if filterK8sNamespaces.Has(namespace.Name) {
+			continue
 		}
 
 		resp = append(resp, wrapper.Namespace(namespace).Resource())
