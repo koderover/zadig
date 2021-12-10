@@ -34,7 +34,6 @@ import (
 type DeliveryVersionArgs struct {
 	ID           string `json:"id"`
 	ProductName  string `json:"productName"`
-	Version      string `json:"version"`
 	WorkflowName string `json:"workflowName"`
 	TaskID       int    `json:"taskId"`
 	PerPage      int    `json:"perPage"`
@@ -90,6 +89,7 @@ func (c *DeliveryVersionColl) Find(args *DeliveryVersionArgs) ([]*models.Deliver
 		return nil, errors.New("nil delivery_version args")
 	}
 
+	var resp []*models.DeliveryVersion
 	query := bson.M{"deleted_at": 0}
 	if args.ProductName != "" {
 		query["product_name"] = args.ProductName
@@ -113,7 +113,6 @@ func (c *DeliveryVersionColl) Find(args *DeliveryVersionArgs) ([]*models.Deliver
 		return nil, err
 	}
 
-	resp := make([]*models.DeliveryVersion, 0)
 	err = cursor.All(ctx, &resp)
 	if err != nil {
 		return nil, err
@@ -165,13 +164,7 @@ func (c *DeliveryVersionColl) Get(args *DeliveryVersionArgs) (*models.DeliveryVe
 	resp := new(models.DeliveryVersion)
 	var query map[string]interface{}
 	if args.ID != "" {
-		oid, err := primitive.ObjectIDFromHex(args.ID)
-		if err != nil {
-			return nil, err
-		}
-		query = bson.M{"_id": oid, "deleted_at": 0}
-	} else if len(args.Version) > 0 {
-		query = bson.M{"product_name": args.ProductName, "version": args.Version, "deleted_at": 0}
+		query = bson.M{"_id": args.ID, "deleted_at": 0}
 	} else {
 		query = bson.M{"product_name": args.ProductName, "workflow_name": args.WorkflowName, "task_id": args.TaskID, "deleted_at": 0}
 	}
@@ -195,16 +188,6 @@ func (c *DeliveryVersionColl) Insert(args *models.DeliveryVersion) error {
 	}
 
 	return nil
-}
-
-func (c *DeliveryVersionColl) UpdateStatusByName(versionName, status, errorStr string) error {
-	query := bson.M{"version": versionName, "deleted_at": 0}
-	change := bson.M{"$set": bson.M{
-		"status": status,
-		"error":  errorStr,
-	}}
-	_, err := c.UpdateOne(context.TODO(), query, change)
-	return err
 }
 
 func (c *DeliveryVersionColl) Update(args *models.DeliveryVersion) error {

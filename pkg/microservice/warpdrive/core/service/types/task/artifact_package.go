@@ -26,7 +26,7 @@ type ArtifactPackage struct {
 	TaskType   config.TaskType `bson:"type"                           json:"type"`
 	Enabled    bool            `bson:"enabled"                        json:"enabled"`
 	TaskStatus config.Status   `bson:"status"                         json:"status"`
-	Progress   string          `bson:"progress"                       json:"progress"`
+	Progress   string          `bson:"progress" json:"progress"`
 	Timeout    int             `bson:"timeout,omitempty"              json:"timeout,omitempty"`
 	Error      string          `bson:"error,omitempty"                json:"error,omitempty"`
 	StartTime  int64           `bson:"start_time,omitempty"           json:"start_time,omitempty"`
