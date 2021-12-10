@@ -78,15 +78,15 @@ type State struct {
 	RedirectURL string `json:"redirect_url"`
 }
 
-func AuthCodeHost(redirectURI, hostName, clientID, clientSecret, provider string, codeHostID int, logger *zap.SugaredLogger) (redirectURL string, err error) {
+func AuthCodeHost(redirectURI string, codeHostID int, logger *zap.SugaredLogger) (redirectURL string, err error) {
 	codeHost, err := GetCodeHost(codeHostID, logger)
 	if err != nil {
 		logger.Errorf("GetCodeHost:%s err:%s", codeHostID, err)
 		return "", err
 	}
-	oauth, err := oauth.Factory(provider, redirectURI, clientID, clientSecret, hostName)
+	oauth, err := oauth.Factory(codeHost.Type, redirectURI, codeHost.ApplicationId, codeHost.ClientSecret, codeHost.Address)
 	if err != nil {
-		logger.Errorf("get Factory:%s err:%s", provider, err)
+		logger.Errorf("get Factory:%s err:%s", codeHost.Type, err)
 		return "", err
 	}
 	stateStruct := State{
