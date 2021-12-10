@@ -41,12 +41,13 @@ type ProjectListOptions struct {
 
 type ProjectDetailedRepresentation struct {
 	*ProjectBriefRepresentation
-	Alias     string `json:"alias"`
-	Desc      string `json:"desc"`
-	UpdatedAt int64  `json:"updatedAt"`
-	UpdatedBy string `json:"updatedBy"`
-	Onboard   bool   `json:"onboard"`
-	Public    bool   `json:"public"`
+	Alias      string `json:"alias"`
+	Desc       string `json:"desc"`
+	UpdatedAt  int64  `json:"updatedAt"`
+	UpdatedBy  string `json:"updatedBy"`
+	Onboard    bool   `json:"onboard"`
+	Public     bool   `json:"public"`
+	DeployType string `json:"deployType"`
 }
 
 type ProjectBriefRepresentation struct {
@@ -98,12 +99,13 @@ func listDetailedProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogge
 				ProjectMinimalRepresentation: &ProjectMinimalRepresentation{Name: name},
 				Envs:                         nameWithEnvMap[name],
 			},
-			Alias:     info.Alias,
-			Desc:      info.Desc,
-			UpdatedAt: info.UpdatedAt,
-			UpdatedBy: info.UpdatedBy,
-			Onboard:   info.OnboardStatus != 0,
-			Public:    info.Public,
+			Alias:      info.Alias,
+			Desc:       info.Desc,
+			UpdatedAt:  info.UpdatedAt,
+			UpdatedBy:  info.UpdatedBy,
+			Onboard:    info.OnboardStatus != 0,
+			Public:     info.Public,
+			DeployType: info.DeployType,
 		})
 	}
 

@@ -79,7 +79,9 @@ type PreTest struct {
 	// Envs stores user defined env key val for build
 	Envs []*KeyVal `bson:"envs,omitempty"              json:"envs"`
 	// EnableProxy
-	EnableProxy bool `bson:"enable_proxy"           json:"enable_proxy"`
+	EnableProxy bool   `bson:"enable_proxy"           json:"enable_proxy"`
+	ClusterID   string `bson:"cluster_id"             json:"cluster_id"`
+	Namespace   string `bson:"namespace"              json:"namespace"`
 }
 
 func (Testing) TableName() string {

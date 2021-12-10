@@ -32,26 +32,23 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/crypto"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
 )
 
-func GetKubeClient(clusterID string) (client.Client, error) {
-	return multicluster.GetKubeClient(config.HubServerAddress(), clusterID)
-}
-
 func GetKubeAPIReader(clusterID string) (client.Reader, error) {
-	return multicluster.GetKubeAPIReader(config.HubServerAddress(), clusterID)
+	return kubeclient.GetKubeAPIReader(config.HubServerAddress(), clusterID)
 }
 
 func GetRESTConfig(clusterID string) (*rest.Config, error) {
-	return multicluster.GetRESTConfig(config.HubServerAddress(), clusterID)
+	return kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
 }
 
 // GetClientset returns a client to interact with APIServer which implements kubernetes.Interface
 func GetClientset(clusterID string) (kubernetes.Interface, error) {
-	return multicluster.GetClientset(config.HubServerAddress(), clusterID)
+	return kubeclient.GetClientset(config.HubServerAddress(), clusterID)
 }
 
 type Service struct {
@@ -97,18 +94,18 @@ func (s *Service) ListClusters(clusterType string, logger *zap.SugaredLogger) ([
 	return clusters, nil
 }
 
-func (s *Service) CreateCluster(cluster *models.K8SCluster, logger *zap.SugaredLogger) (*models.K8SCluster, error) {
+func (s *Service) CreateCluster(cluster *models.K8SCluster, id string, logger *zap.SugaredLogger) (*models.K8SCluster, error) {
 	_, err := s.coll.FindByName(cluster.Name)
-
 	if err == nil {
 		logger.Errorf("failed to create cluster %s %v", cluster.Name, err)
 		return nil, e.ErrCreateCluster.AddDesc(e.DuplicateClusterNameFound)
 	}
-
 	cluster.Status = setting.Pending
-
-	err = s.coll.Create(cluster)
-
+	if id == setting.LocalClusterID {
+		cluster.Status = setting.Normal
+		cluster.Local = true
+	}
+	err = s.coll.Create(cluster, id)
 	if err != nil {
 		return nil, e.ErrCreateCluster.AddErr(err)
 	}
@@ -136,7 +133,7 @@ func (s *Service) UpdateCluster(id string, cluster *models.K8SCluster, logger *z
 		return nil, e.ErrUpdateCluster.AddDesc(e.DuplicateClusterNameFound)
 	}
 
-	err = s.coll.UpdateMutableFields(cluster)
+	err = s.coll.UpdateMutableFields(cluster, id)
 	if err != nil {
 		logger.Errorf("failed to update mutable fields %v", err)
 		return nil, e.ErrUpdateCluster.AddErr(err)

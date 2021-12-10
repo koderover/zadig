@@ -25,11 +25,11 @@ import (
 
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
-
 	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/aslan"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
 	"github.com/koderover/zadig/pkg/shared/client/user"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
@@ -67,7 +67,19 @@ var initCmd = &cobra.Command{
 }
 
 func run() error {
-	return initSystemConfig()
+	for {
+		err := Healthz()
+		if err == nil {
+			break
+		}
+		log.Error(err)
+		time.Sleep(10 * time.Second)
+	}
+	err := initSystemConfig()
+	if err == nil {
+		log.Info("zadig init success")
+	}
+	return err
 }
 
 func initSystemConfig() error {
@@ -86,9 +98,15 @@ func initSystemConfig() error {
 	}
 
 	if err := presetRoleBinding(uid); err != nil {
-		log.Errorf("presetRoleBinding :%s", err)
+		log.Errorf("presetRoleBinding err:%s", err)
 		return err
 	}
+
+	if err := createLocalCluster(); err != nil {
+		log.Errorf("createLocalCluster err:%s", err)
+		return err
+	}
+
 	return nil
 }
 
@@ -183,4 +201,15 @@ func presetRole() error {
 		return err
 	}
 	return nil
+}
+
+func createLocalCluster() error {
+	cluster, err := aslan.New(config.AslanServiceAddress()).GetLocalCluster()
+	if err != nil {
+		return err
+	}
+	if cluster != nil {
+		return nil
+	}
+	return aslan.New(config.AslanServiceAddress()).AddLocalCluster()
 }

@@ -130,6 +130,36 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 }
 
 func UpdateServiceOrchestration(name string, services [][]string, updateBy string, log *zap.SugaredLogger) (err error) {
+	templateProductInfo, err := templaterepo.NewProductColl().Find(name)
+	if err != nil {
+		log.Errorf("failed to query productInfo, projectName: %s, err: %s", name, err)
+		return fmt.Errorf("failed to query productInfo, projectName: %s", name)
+	}
+
+	//validate services
+	validServices := sets.NewString()
+	usedServiceSet := sets.NewString()
+	for _, serviceList := range templateProductInfo.Services {
+		validServices.Insert(serviceList...)
+	}
+
+	for _, serviceSeq := range services {
+		for _, service := range serviceSeq {
+			if usedServiceSet.Has(service) {
+				return fmt.Errorf("duplicated service:%s", service)
+			}
+			if !validServices.Has(service) {
+				return fmt.Errorf("service:%s not in valid service list", service)
+			}
+			usedServiceSet.Insert(service)
+			validServices.Delete(service)
+		}
+	}
+
+	if validServices.Len() > 0 {
+		return fmt.Errorf("service: [%s] not found in params", strings.Join(validServices.List(), ","))
+	}
+
 	if err = templaterepo.NewProductColl().UpdateServiceOrchestration(name, services, updateBy); err != nil {
 		log.Errorf("UpdateChoreographyService error: %v", err)
 		return e.ErrUpdateProduct.AddErr(err)

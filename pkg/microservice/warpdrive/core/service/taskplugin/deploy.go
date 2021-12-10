@@ -39,13 +39,13 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
-	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
@@ -202,13 +202,13 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 	}()
 
 	if pipelineTask.ConfigPayload.DeployClusterID != "" {
-		p.restConfig, err = multicluster.GetRESTConfig(pipelineTask.ConfigPayload.HubServerAddr, pipelineTask.ConfigPayload.DeployClusterID)
+		p.restConfig, err = kubeclient.GetRESTConfig(pipelineTask.ConfigPayload.HubServerAddr, pipelineTask.ConfigPayload.DeployClusterID)
 		if err != nil {
 			err = errors.WithMessage(err, "can't get k8s rest config")
 			return
 		}
 
-		p.kubeClient, err = multicluster.GetKubeClient(pipelineTask.ConfigPayload.HubServerAddr, pipelineTask.ConfigPayload.DeployClusterID)
+		p.kubeClient, err = kubeclient.GetKubeClient(pipelineTask.ConfigPayload.HubServerAddr, pipelineTask.ConfigPayload.DeployClusterID)
 		if err != nil {
 			err = errors.WithMessage(err, "can't init k8s client")
 			return
@@ -366,15 +366,15 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		)
 
 		rcsList := make([]ResourceComponentSet, 0)
-		deployments, err := getter.ListDeployments(p.Task.Namespace, nil, p.kubeClient)
-		if err != nil {
-			p.Log.Errorf("failed to list deployments in namespace %s, productName %s, err %s", p.Task.Namespace, p.Task.ProductName, err)
+		deployments, errFindDeploy := getter.ListDeployments(p.Task.Namespace, nil, p.kubeClient)
+		if errFindDeploy != nil {
+			p.Log.Errorf("failed to list deployments in namespace %s, productName %s, err %s", p.Task.Namespace, p.Task.ProductName, errFindDeploy)
 		} else {
 			rcsList = append(rcsList, RcsListFromDeployments(deployments)...)
 		}
-		statefulSets, _ := getter.ListStatefulSets(p.Task.Namespace, nil, p.kubeClient)
-		if err != nil {
-			p.Log.Errorf("failed to list statefulsets in namespace %s, productName %s, err %s", p.Task.Namespace, p.Task.ProductName, err)
+		statefulSets, errFindSts := getter.ListStatefulSets(p.Task.Namespace, nil, p.kubeClient)
+		if errFindSts != nil {
+			p.Log.Errorf("failed to list statefulsets in namespace %s, productName %s, err %s", p.Task.Namespace, p.Task.ProductName, errFindSts)
 		} else {
 			rcsList = append(rcsList, RcsListFromStatefulSets(statefulSets)...)
 		}

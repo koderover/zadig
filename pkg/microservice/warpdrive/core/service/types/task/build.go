@@ -58,6 +58,7 @@ type Build struct {
 	// Get the host bound to the environment of the cloud host service configuration
 	EnvHostInfo  map[string][]string `bson:"env_host_info,omitempty"         json:"env_host_info,omitempty"`
 	ArtifactInfo *ArtifactInfo       `bson:"artifact_info,omitempty"         json:"artifact_info,omitempty"`
+	ClusterID    string              `bson:"cluster_id,omitempty"            json:"cluster_id,omitempty"`
 }
 
 type ArtifactInfo struct {
@@ -86,6 +87,7 @@ type Install struct {
 }
 
 type RegistryNamespace struct {
+	ID          string `bson:"_id,omitempty"               json:"id,omitempty"`
 	RegAddr     string `bson:"reg_addr"                    json:"reg_addr"`
 	RegType     string `bson:"reg_type"                    json:"reg_type"`
 	RegProvider string `bson:"reg_provider"                json:"reg_provider"`

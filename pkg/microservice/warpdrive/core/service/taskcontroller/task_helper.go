@@ -138,6 +138,8 @@ func updatePipelineSubTask(t interface{}, pipelineTask *task.Task, pos int, serv
 		pipelineTask.Stages[pos].SubTasks[servicename] = subTask
 	} else if pipelineTask.Type == config.WorkflowTypeV3 {
 		xl.Info("pipeline type is workflow type: pipeline 3.0")
+	} else if pipelineTask.Type == config.ArtifactType {
+		xl.Info("pipeline type is artifact-package type: pipeline 3.0")
 		pipelineTask.Stages[pos].SubTasks[servicename] = subTask
 	}
 }
@@ -541,19 +543,20 @@ func getSubTaskTypeAndIsRestart(subTask map[string]interface{}) bool {
 
 func initTaskPlugins(execHandler *ExecHandler) {
 	pluginConf := map[config.TaskType]plugins.Initiator{
-		config.TaskJira:           plugins.InitializeJiraTaskPlugin,
-		config.TaskBuild:          plugins.InitializeBuildTaskPlugin,
-		config.TaskBuildV3:        plugins.InitializeBuildTaskV3Plugin,
-		config.TaskArtifactDeploy: plugins.InitializeArtifactTaskPlugin,
-		config.TaskJenkinsBuild:   plugins.InitializeJenkinsBuildPlugin,
-		config.TaskDockerBuild:    plugins.InitializeDockerBuildTaskPlugin,
-		config.TaskDeploy:         plugins.InitializeDeployTaskPlugin,
-		config.TaskTestingV2:      plugins.InitializeTestTaskPlugin,
-		config.TaskSecurity:       plugins.InitializeSecurityPlugin,
-		config.TaskReleaseImage:   plugins.InitializeReleaseImagePlugin,
-		config.TaskDistributeToS3: plugins.InitializeDistribute2S3TaskPlugin,
-		config.TaskResetImage:     plugins.InitializeDeployTaskPlugin,
-		config.TaskTrigger:        plugins.InitializeTriggerTaskPlugin,
+		config.TaskJira:            plugins.InitializeJiraTaskPlugin,
+		config.TaskBuild:           plugins.InitializeBuildTaskPlugin,
+		config.TaskBuildV3:         plugins.InitializeBuildTaskV3Plugin,
+		config.TaskArtifactDeploy:  plugins.InitializeArtifactTaskPlugin,
+		config.TaskJenkinsBuild:    plugins.InitializeJenkinsBuildPlugin,
+		config.TaskDockerBuild:     plugins.InitializeDockerBuildTaskPlugin,
+		config.TaskDeploy:          plugins.InitializeDeployTaskPlugin,
+		config.TaskTestingV2:       plugins.InitializeTestTaskPlugin,
+		config.TaskSecurity:        plugins.InitializeSecurityPlugin,
+		config.TaskReleaseImage:    plugins.InitializeReleaseImagePlugin,
+		config.TaskDistributeToS3:  plugins.InitializeDistribute2S3TaskPlugin,
+		config.TaskResetImage:      plugins.InitializeDeployTaskPlugin,
+		config.TaskTrigger:         plugins.InitializeTriggerTaskPlugin,
+		config.TaskArtifactPackage: plugins.InitializeArtifactPackagePlugin,
 	}
 	for name, pluginInitiator := range pluginConf {
 		registerTaskPlugin(execHandler, name, pluginInitiator)

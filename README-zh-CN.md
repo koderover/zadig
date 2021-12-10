@@ -75,7 +75,7 @@ Zadig 是一款面向开发者设计的云原生持续交付(Continuous Delivery
 
 ### 快速使用
 
-请参阅 [快速入门](https://docs.koderover.com/zadig/quick-start/try-out-install)
+请参阅 [快速入门](https://docs.koderover.com/zadig/quick-start/try-out-install/)
 
 ### 训练营
 

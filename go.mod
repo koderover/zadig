@@ -14,6 +14,7 @@ require (
 	github.com/bugsnag/bugsnag-go v2.1.0+incompatible // indirect
 	github.com/bugsnag/panicwrap v1.3.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.1.1
+	github.com/chartmuseum/helm-push v0.10.1
 	github.com/coocood/freecache v1.1.0
 	github.com/coreos/go-oidc/v3 v3.0.0
 	github.com/dexidp/dex v0.0.0-20210802203454-3fac2ab6bc3b
@@ -80,6 +81,7 @@ require (
 	helm.sh/helm/v3 v3.7.1
 	k8s.io/api v0.22.1
 	k8s.io/apimachinery v0.22.1
+	k8s.io/apiserver v0.22.1 // indirect
 	k8s.io/client-go v0.22.1
 	k8s.io/kubectl v0.22.1
 	k8s.io/utils v0.0.0-20210802155522-efc7438f0176

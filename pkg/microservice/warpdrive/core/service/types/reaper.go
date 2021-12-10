@@ -114,6 +114,7 @@ type Context struct {
 	StorageProvider int8          `yaml:"storage_provider"`
 	ArtifactInfo    *ArtifactInfo `yaml:"artifact_info"`
 	ArtifactPath    string        `yaml:"artifact_path"`
+	AesKey          string        `yaml:"aes_key"`
 }
 
 type ArtifactInfo struct {
@@ -270,10 +271,11 @@ type GinkgoTest struct {
 
 // DockerRegistry 推送镜像到 docker registry 配置
 type DockerRegistry struct {
-	Host      string `yaml:"host"`
-	Namespace string `yaml:"namespace"`
-	UserName  string `yaml:"username"`
-	Password  string `yaml:"password"`
+	RegistryID string `yaml:"registry_id"`
+	Host       string `yaml:"host"`
+	Namespace  string `yaml:"namespace"`
+	UserName   string `yaml:"username"`
+	Password   string `yaml:"password"`
 }
 
 // Git ...

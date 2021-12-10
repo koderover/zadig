@@ -44,6 +44,7 @@ type K8SCluster struct {
 	CreatedBy    string                  `json:"createdBy"      bson:"createdBy"`
 	Disconnected bool                    `json:"-"              bson:"disconnected"`
 	Token        string                  `json:"token"          bson:"-"`
+	Local        bool                    `json:"local"          bson:"local"`
 }
 
 func (K8SCluster) TableName() string {

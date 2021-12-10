@@ -494,6 +494,18 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 
 	// 获取全局configpayload
 	configPayload := commonservice.GetConfigPayload(args.CodehostID)
+	if len(env.RegistryID) == 0 {
+		op := &commonrepo.FindRegOps{
+			IsDefault: true,
+		}
+		reg, err := commonrepo.NewRegistryNamespaceColl().Find(op)
+		if err != nil {
+			log.Errorf("get default registry error: %v", err)
+			return nil, e.ErrGetCounter.AddDesc(err.Error())
+		}
+		env.RegistryID = reg.ID.Hex()
+	}
+	configPayload.RegistryID = env.RegistryID
 	repos, err := commonrepo.NewRegistryNamespaceColl().FindAll(&commonrepo.FindRegOps{})
 	if err == nil {
 		configPayload.RepoConfigs = make(map[string]*commonmodels.RegistryNamespace)
@@ -1049,6 +1061,22 @@ func resetImageTaskToSubTask(env commonmodels.DeployEnv, prodEnv *commonmodels.P
 		deployTask.ServiceName = envList[0]
 		deployTask.ContainerName = envList[1]
 		return deployTask.ToSubTask()
+	case setting.HelmDeployType:
+		deployTask := task.Deploy{TaskType: config.TaskResetImage, Enabled: true}
+		deployTask.Namespace = prodEnv.Namespace
+		deployTask.ProductName = prodEnv.ProductName
+		deployTask.SkipWaiting = true
+		deployTask.EnvName = prodEnv.EnvName
+		envList := strings.Split(env.Env, "/")
+		if len(envList) != 2 {
+			err := fmt.Errorf("[%s]split target env error", env.Env)
+			log.Error(err)
+			return nil, err
+		}
+		deployTask.ServiceName = envList[0]
+		deployTask.ContainerName = envList[1]
+		deployTask.ServiceType = setting.HelmDeployType
+		return deployTask.ToSubTask()
 	default:
 		return nil, nil
 	}
@@ -1142,6 +1170,8 @@ func workFlowArgsToTaskArgs(target string, workflowArgs *commonmodels.WorkflowTa
 // TODO 和validation中转化testsubtask合并为一个方法
 func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *task.Task, log *zap.SugaredLogger) ([]*task.Testing, error) {
 	var resp []*task.Testing
+	var servicesArray []string
+	var services string
 
 	// 创建任务的测试参数为脱敏数据，需要转换为实际数据
 	for _, test := range args.Tests {
@@ -1150,6 +1180,11 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *task.Task, log *
 			commonservice.EnsureSecretEnvs(existed.PreTest.Envs, test.Envs)
 		}
 	}
+
+	for _, service := range args.Target {
+		servicesArray = append(servicesArray, service.ServiceName)
+	}
+	services = strings.Join(servicesArray, ",")
 
 	testArgs := args.Tests
 	testCreator := args.WorkflowTaskCreator
@@ -1195,6 +1230,8 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *task.Task, log *
 			testTask.InstallItems = testModule.PreTest.Installs
 			testTask.JobCtx.CleanWorkspace = testModule.PreTest.CleanWorkspace
 			testTask.JobCtx.EnableProxy = testModule.PreTest.EnableProxy
+			testTask.Namespace = testModule.PreTest.Namespace
+			testTask.ClusterID = testModule.PreTest.ClusterID
 
 			envs := testModule.PreTest.Envs[:]
 
@@ -1208,10 +1245,14 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *task.Task, log *
 				}
 			}
 			envs = append(envs, &commonmodels.KeyVal{Key: "TEST_URL", Value: GetLink(pt, configbase.SystemAddress(), config.WorkflowType)})
+			envs = append(envs, &commonmodels.KeyVal{Key: "SERVICES", Value: services})
+
 			testTask.JobCtx.EnvVars = envs
 			testTask.ImageID = testModule.PreTest.ImageID
 			testTask.BuildOS = testModule.PreTest.BuildOS
 			testTask.ImageFrom = testModule.PreTest.ImageFrom
+			testTask.ClusterID = testModule.PreTest.ClusterID
+			testTask.Namespace = testModule.PreTest.Namespace
 			// 自定义基础镜像的镜像名称可能会被更新，需要使用ID获取最新的镜像名称
 			if testModule.PreTest.ImageID != "" {
 				basicImage, err := commonrepo.NewBasicImageColl().Find(testModule.PreTest.ImageID)
@@ -1561,6 +1602,8 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 			Timeout:      module.Timeout,
 			Registries:   registries,
 			ProductName:  args.ProductName,
+			Namespace:    module.PreBuild.Namespace,
+			ClusterID:    module.PreBuild.ClusterID,
 		}
 
 		if args.TaskType != "" {
@@ -1758,7 +1801,6 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 				//		}
 				//	}
 				//}
-
 				// 设置Pipeline对应的服务名称
 				if t.ServiceName != "" {
 					pt.ServiceName = t.ServiceName
@@ -1778,16 +1820,33 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 					setManunalBuilds(t.JobCtx.Builds, pt.TaskArgs.Builds, log)
 				}
 
+				opt := &commonrepo.ProductFindOptions{Name: pt.ProductName}
+				exitedProd, err := commonrepo.NewProductColl().Find(opt)
+				if err != nil {
+					log.Errorf("can't find product by name:%s error msg: %v", pt.ProductName, err)
+					return e.ErrFindRegistry.AddDesc(err.Error())
+				}
+
 				// 生成默认镜像tag后缀
 				//pt.TaskArgs.Deploy.Tag = releaseCandidate(t, pt.TaskID, pt.ProductName, pt.EnvName, "image")
 
 				// 设置镜像名称
 				// 编译任务使用 t.JobCtx.Image
 				// 注意: 其他任务从 pt.TaskArgs.Deploy.Image 获取, 必须要有编译任务
-				reg, err := commonservice.FindDefaultRegistry(log)
-				if err != nil {
-					log.Errorf("can't find default candidate registry: %v", err)
-					return e.ErrFindRegistry.AddDesc(err.Error())
+				var reg *commonmodels.RegistryNamespace
+				if len(exitedProd.RegistryID) > 0 {
+					reg, err = commonservice.FindRegistryById(exitedProd.RegistryID, log)
+					if err != nil {
+						log.Errorf("service.EnsureRegistrySecret: failed to find registry: %s error msg:%v",
+							exitedProd.RegistryID, err)
+						return e.ErrFindRegistry.AddDesc(err.Error())
+					}
+				} else {
+					reg, err = commonservice.FindDefaultRegistry(log)
+					if err != nil {
+						log.Errorf("can't find default candidate registry: %v", err)
+						return e.ErrFindRegistry.AddDesc(err.Error())
+					}
 				}
 
 				t.JobCtx.Image = GetImage(reg, releaseCandidate(t, pt.TaskID, pt.ProductName, envName, "image"))
@@ -2162,6 +2221,9 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 					return err
 				}
 			}
+			// 为了兼容历史数据类型，目前什么都不用做，避免出错
+		case config.TaskArtifactPackage:
+			// do nothing
 		default:
 			return e.NewErrInvalidTaskType(string(pre.TaskType))
 		}

@@ -92,6 +92,14 @@ func ToReleaseImageTask(sb map[string]interface{}) (*task.ReleaseImage, error) {
 	return t, nil
 }
 
+func ToArtifactPackageImageTask(sb map[string]interface{}) (*task.ArtifactPackage, error) {
+	var t *task.ArtifactPackage
+	if err := task.IToi(sb, &t); err != nil {
+		return nil, fmt.Errorf("convert interface to ReleaseImageTask error: %v", err)
+	}
+	return t, nil
+}
+
 func ToJiraTask(sb map[string]interface{}) (*task.Jira, error) {
 	var t *task.Jira
 	if err := task.IToi(sb, &t); err != nil {

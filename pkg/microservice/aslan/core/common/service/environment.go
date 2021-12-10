@@ -18,20 +18,25 @@ package service
 
 import (
 	"encoding/json"
+	"fmt"
 	"sort"
 	"strings"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -208,7 +213,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	log.Infof("Start to list workloads in namespace %s", namespace)
 
 	var resp = make([]*ServiceResp, 0)
-	kubeClient, err := kube.GetKubeClient(clusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
 	if err != nil {
 		log.Errorf("[%s][%s] error: %v", envName, namespace, err)
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
@@ -332,4 +337,29 @@ func findServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Work
 		}
 	}
 	return resp
+}
+
+// GetHelmServiceName get service name from annotations of resources deployed by helm
+// resType currently only support Deployment and StatefulSet
+func GetHelmServiceName(namespace, resType, resName string, kubeClient client.Client) (string, error) {
+	res := &unstructured.Unstructured{}
+	res.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "apps",
+		Version: "v1",
+		Kind:    resType,
+	})
+	found, err := getter.GetResourceInCache(namespace, resName, res, kubeClient)
+	if err != nil {
+		return "", fmt.Errorf("failed to find resource %s, type %s, err %s", resName, resType, err.Error())
+	}
+	if !found {
+		return "", fmt.Errorf("failed to find resource %s, type %s", resName, resType)
+	}
+	annotation := res.GetAnnotations()
+	if len(annotation) > 0 {
+		if chartRelease, ok := annotation[setting.HelmReleaseNameAnnotation]; ok {
+			return util.ExtraServiceName(chartRelease, namespace), nil
+		}
+	}
+	return "", fmt.Errorf("failed to get annotation from resource %s, type %s", resName, resType)
 }

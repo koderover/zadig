@@ -39,6 +39,7 @@ type ProjectInfo struct {
 	UpdatedBy     string `bson:"update_by"`
 	OnboardStatus int    `bson:"onboarding_status"`
 	Public        bool   `bson:"public"`
+	DeployType    string `bson:"deploy_type"`
 }
 
 type ProductColl struct {
@@ -82,8 +83,8 @@ func (c *ProductColl) FindProjectName(project string) (*template.Product, error)
 }
 
 func (c *ProductColl) ListNames(inNames []string) ([]string, error) {
-	res, err := c.listProjects(inNames, bson.D{
-		{"product_name", 1},
+	res, err := c.listProjects(inNames, bson.M{
+		"product_name": "$product_name",
 	})
 	if err != nil {
 		return nil, err
@@ -98,29 +99,34 @@ func (c *ProductColl) ListNames(inNames []string) ([]string, error) {
 }
 
 func (c *ProductColl) ListProjectBriefs(inNames []string) ([]*ProjectInfo, error) {
-	return c.listProjects(inNames, bson.D{
-		{"product_name", 1},
-		{"project_name", 1},
-		{"description", 1},
-		{"update_time", 1},
-		{"update_by", 1},
-		{"onboarding_status", 1},
-		{"public", 1},
+	return c.listProjects(inNames, bson.M{
+		"product_name":      "$product_name",
+		"project_name":      "$project_name",
+		"description":       "$description",
+		"update_time":       "$update_time",
+		"update_by":         "$update_by",
+		"onboarding_status": "$onboarding_status",
+		"public":            "$public",
+		"deploy_type":       "$product_feature.deploy_type",
 	})
 }
 
-func (c *ProductColl) listProjects(inNames []string, projection bson.D) ([]*ProjectInfo, error) {
-	opts := options.Find()
+func (c *ProductColl) listProjects(inNames []string, projection bson.M) ([]*ProjectInfo, error) {
 	filter := bson.M{}
 	if len(inNames) > 0 {
 		filter["product_name"] = bson.M{"$in": inNames}
 	}
 
-	if len(projection) > 0 {
-		opts.SetProjection(projection)
+	pipeline := []bson.M{
+		{
+			"$match": filter,
+		},
+		{
+			"$project": projection,
+		},
 	}
 
-	cursor, err := c.Collection.Find(context.TODO(), filter, opts)
+	cursor, err := c.Collection.Aggregate(context.TODO(), pipeline)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +136,6 @@ func (c *ProductColl) listProjects(inNames []string, projection bson.D) ([]*Proj
 	if err != nil {
 		return nil, err
 	}
-
 	return res, nil
 }
 
@@ -270,10 +275,17 @@ type ProductArgs struct {
 func (c *ProductColl) AddService(productName, serviceName string) error {
 
 	query := bson.M{"product_name": productName}
+	serviceUniqueFilter := bson.M{
+		"$elemMatch": bson.M{
+			"$elemMatch": bson.M{
+				"$eq": serviceName,
+			},
+		},
+	}
+	query["services"] = bson.M{"$not": serviceUniqueFilter}
 	change := bson.M{"$addToSet": bson.M{
-		"services.0": serviceName,
+		"services.1": serviceName,
 	}}
-
 	_, err := c.UpdateOne(context.TODO(), query, change)
 	return err
 }
