@@ -859,6 +859,7 @@ func prepareEstimatedData(productName, envName, serviceName, usageScenario, defa
 		return "", "", fmt.Errorf("failed to query renderset info, name %s", productInfo.Render.Name)
 	}
 
+	// find target render chart from render set
 	var targetChart *templatemodels.RenderChart
 	for _, chart := range renderSet.ChartInfos {
 		if chart.ServiceName == serviceName {
@@ -867,27 +868,30 @@ func prepareEstimatedData(productName, envName, serviceName, usageScenario, defa
 		}
 	}
 
-	if targetChart == nil {
-		return "", "", fmt.Errorf("failed to find chart info, name: %s", serviceName)
-	}
-
 	switch usageScenario {
 	case usageScenarioUpdateEnv:
 		imageRelatedKey := sets.NewString()
-		if templateService != nil {
-			for _, container := range templateService.Containers {
-				if container.ImagePath != nil {
-					imageRelatedKey.Insert(container.ImagePath.Image, container.ImagePath.Repo, container.ImagePath.Tag)
-				}
+		for _, container := range templateService.Containers {
+			if container.ImagePath != nil {
+				imageRelatedKey.Insert(container.ImagePath.Image, container.ImagePath.Repo, container.ImagePath.Tag)
 			}
 		}
+
+		curValuesYaml := ""
+		if targetChart != nil { // service has been applied into environment, use current values.yaml
+			curValuesYaml = targetChart.ValuesYaml
+		}
+
 		// merge environment values
-		mergedBs, err := overrideValues([]byte(targetChart.ValuesYaml), []byte(templateService.HelmChart.ValuesYaml), imageRelatedKey)
+		mergedBs, err := overrideValues([]byte(curValuesYaml), []byte(templateService.HelmChart.ValuesYaml), imageRelatedKey)
 		if err != nil {
 			return "", "", errors.Wrapf(err, "failed to override values")
 		}
 		return string(mergedBs), renderSet.DefaultValues, nil
 	case usageScenarioUpdateRenderSet:
+		if targetChart == nil {
+			return "", "", fmt.Errorf("failed to find chart info, name: %s", serviceName)
+		}
 		return targetChart.ValuesYaml, renderSet.DefaultValues, nil
 	default:
 		return "", "", fmt.Errorf("unrecognized usageScenario:%s", usageScenario)
@@ -2577,7 +2581,7 @@ func overrideValues(currentValuesYaml, latestValuesYaml []byte, imageRelatedKey 
 	}
 
 	if len(replaceMap) == 0 {
-		return nil, nil
+		return latestValuesYaml, nil
 	}
 
 	var replaceKV []string
