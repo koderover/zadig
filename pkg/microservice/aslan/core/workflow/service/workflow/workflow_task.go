@@ -1158,6 +1158,8 @@ func workFlowArgsToTaskArgs(target string, workflowArgs *commonmodels.WorkflowTa
 // TODO 和validation中转化testsubtask合并为一个方法
 func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *task.Task, log *zap.SugaredLogger) ([]*task.Testing, error) {
 	var resp []*task.Testing
+	var servicesArray []string
+	var services string
 
 	// 创建任务的测试参数为脱敏数据，需要转换为实际数据
 	for _, test := range args.Tests {
@@ -1166,6 +1168,11 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *task.Task, log *
 			commonservice.EnsureSecretEnvs(existed.PreTest.Envs, test.Envs)
 		}
 	}
+
+	for _, service := range args.Target {
+		servicesArray = append(servicesArray, service.ServiceName)
+	}
+	services = strings.Join(servicesArray, ",")
 
 	testArgs := args.Tests
 	testCreator := args.WorkflowTaskCreator
@@ -1211,6 +1218,8 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *task.Task, log *
 			testTask.InstallItems = testModule.PreTest.Installs
 			testTask.JobCtx.CleanWorkspace = testModule.PreTest.CleanWorkspace
 			testTask.JobCtx.EnableProxy = testModule.PreTest.EnableProxy
+			testTask.Namespace = testModule.PreTest.Namespace
+			testTask.ClusterID = testModule.PreTest.ClusterID
 
 			envs := testModule.PreTest.Envs[:]
 
@@ -1224,10 +1233,14 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *task.Task, log *
 				}
 			}
 			envs = append(envs, &commonmodels.KeyVal{Key: "TEST_URL", Value: GetLink(pt, configbase.SystemAddress(), config.WorkflowType)})
+			envs = append(envs, &commonmodels.KeyVal{Key: "SERVICES", Value: services})
+
 			testTask.JobCtx.EnvVars = envs
 			testTask.ImageID = testModule.PreTest.ImageID
 			testTask.BuildOS = testModule.PreTest.BuildOS
 			testTask.ImageFrom = testModule.PreTest.ImageFrom
+			testTask.ClusterID = testModule.PreTest.ClusterID
+			testTask.Namespace = testModule.PreTest.Namespace
 			// 自定义基础镜像的镜像名称可能会被更新，需要使用ID获取最新的镜像名称
 			if testModule.PreTest.ImageID != "" {
 				basicImage, err := commonrepo.NewBasicImageColl().Find(testModule.PreTest.ImageID)
@@ -1577,6 +1590,8 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 			Timeout:      module.Timeout,
 			Registries:   registries,
 			ProductName:  args.ProductName,
+			Namespace:    module.PreBuild.Namespace,
+			ClusterID:    module.PreBuild.ClusterID,
 		}
 
 		if args.TaskType != "" {
@@ -1774,7 +1789,6 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 				//		}
 				//	}
 				//}
-
 				// 设置Pipeline对应的服务名称
 				if t.ServiceName != "" {
 					pt.ServiceName = t.ServiceName

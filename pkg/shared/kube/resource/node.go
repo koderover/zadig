@@ -14,10 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package version
+package resource
 
-var (
-	Version     = "1.7.1"
-	BuildNumber = "0"
-	GitCommit   = ""
-)
+type Node struct {
+	Labels []string `json:"labels"`
+	Ready  bool     `json:"ready"`
+	IP     string   `json:"ip"`
+}

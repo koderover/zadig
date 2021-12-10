@@ -191,9 +191,6 @@ func CreateK8sWorkloads(c *gin.Context) {
 		return
 	}
 
-	if args.ClusterID == setting.LocalClusterID {
-		args.ClusterID = ""
-	}
 	ctx.Err = svcservice.CreateK8sWorkLoads(c, ctx.RequestID, ctx.UserName, args.ProductName, args.WorkLoads, args.ClusterID, args.Namespace, args.EnvName, ctx.Logger)
 }
 

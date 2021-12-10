@@ -21,9 +21,10 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 )
 
@@ -39,7 +40,7 @@ func ExportYaml(envName, productName, serviceName string, log *zap.SugaredLogger
 	}
 
 	namespace := env.Namespace
-	kubeClient, err := kube.GetKubeClient(env.ClusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
 	if err != nil {
 		log.Errorf("cluster is not connected [%s][%s][%s]", env.EnvName, env.ProductName, env.ClusterID)
 		return res

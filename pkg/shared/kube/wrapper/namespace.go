@@ -19,6 +19,7 @@ package wrapper
 import (
 	corev1 "k8s.io/api/core/v1"
 
+	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/pkg/util"
 )
@@ -53,9 +54,10 @@ func (w *namespace) Terminating() bool {
 
 func (w *namespace) Resource() *resource.Namespace {
 	return &resource.Namespace{
-		Name:   w.Name,
-		Status: string(w.Status.Phase),
-		Age:    util.Age(w.CreationTimestamp.Unix()),
-		Labels: w.Labels,
+		Name:    w.Name,
+		Status:  string(w.Status.Phase),
+		Age:     util.Age(w.CreationTimestamp.Unix()),
+		Labels:  w.Labels,
+		Current: w.Name == config.Namespace(),
 	}
 }

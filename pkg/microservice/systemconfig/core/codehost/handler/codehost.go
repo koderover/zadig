@@ -128,8 +128,21 @@ func Callback(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	state := c.Query("state")
+	state , err := url.PathUnescape(state)
+	if err != nil {
+		ctx.Logger.Errorf("code_host_get_call_back PathUnescape state:%s err : %s", state, err)
+		url := fmt.Sprintf("%s%s", state, "&errMessage=failed_to_parse_redirect_url")
+		c.Redirect(http.StatusFound,url)
+		return
+	}
 	urlArray := strings.Split(state, "&codeHostId=")
 	frontEndUrl := urlArray[0]
+	if len(urlArray) != 2 {
+		ctx.Logger.Errorf("code_host_get_call_back split &codeHostId fail ,state: %s", state)
+		url := fmt.Sprintf("%s?%s", frontEndUrl, "&errMessage=failed_to_parse_redirect_url")
+		c.Redirect(http.StatusFound,url)
+		return
+	}
 	if strings.Contains(frontEndUrl, "errCode") {
 		frontEndUrl = strings.Split(frontEndUrl, "?errCode")[0]
 	}

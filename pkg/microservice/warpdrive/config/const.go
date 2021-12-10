@@ -56,17 +56,17 @@ const (
 type PipelineType string
 
 const (
-	// SingleType 单服务工作流
+	// SingleType single-service workflow
 	SingleType PipelineType = "single"
-	// WorkflowType 多服务工作流
+	// WorkflowType multi-service workflow
 	WorkflowType PipelineType = "workflow"
-	// FreestyleType 自由编排工作流
+	// FreestyleType freeStyle workflow
 	FreestyleType PipelineType = "freestyle"
-	// TestType 测试
+	// TestType testing
 	TestType PipelineType = "test"
-	// ServiceType 服务
+	// ServiceType pipeline
 	ServiceType PipelineType = "service"
-	// ArtifactType 服务
+	// ArtifactType artifact build
 	ArtifactType PipelineType = "artifact"
 )
 

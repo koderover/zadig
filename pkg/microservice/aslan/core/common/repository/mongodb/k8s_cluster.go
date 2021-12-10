@@ -67,7 +67,10 @@ func (c *K8SClusterColl) Delete(id string) error {
 	return err
 }
 
-func (c *K8SClusterColl) Create(cluster *models.K8SCluster) error {
+func (c *K8SClusterColl) Create(cluster *models.K8SCluster, id string) error {
+	if id != "" {
+		cluster.ID, _ = primitive.ObjectIDFromHex(id)
+	}
 	res, err := c.InsertOne(context.TODO(), cluster)
 	if oid, ok := res.InsertedID.(primitive.ObjectID); ok {
 		cluster.ID = oid
@@ -177,14 +180,20 @@ func (c *K8SClusterColl) FindByName(name string) (*models.K8SCluster, error) {
 	return res, err
 }
 
-func (c *K8SClusterColl) UpdateMutableFields(cluster *models.K8SCluster) error {
-	_, err := c.UpdateOne(context.TODO(),
+func (c *K8SClusterColl) UpdateMutableFields(cluster *models.K8SCluster, id string) error {
+	var err error
+	cluster.ID, err = primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return err
+	}
+	_, err = c.UpdateOne(context.TODO(),
 		bson.M{"_id": cluster.ID}, bson.M{"$set": bson.M{
-			"name":        cluster.Name,
-			"description": cluster.Description,
-			"tags":        cluster.Tags,
-			"namespace":   cluster.Namespace,
-			"production":  cluster.Production,
+			"name":            cluster.Name,
+			"description":     cluster.Description,
+			"tags":            cluster.Tags,
+			"namespace":       cluster.Namespace,
+			"production":      cluster.Production,
+			"advanced_config": cluster.AdvancedConfig,
 		}},
 	)
 

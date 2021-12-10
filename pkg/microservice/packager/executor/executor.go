@@ -38,7 +38,7 @@ func Execute() error {
 	}
 
 	if err := packager.Exec(); err != nil {
-		log.Errorf("Failed to run exec step, error: %s", err)
+		log.Errorf("Failed to run packager, error: %s", err)
 		return err
 	}
 
