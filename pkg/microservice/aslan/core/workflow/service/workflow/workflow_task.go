@@ -2208,6 +2208,8 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 			}
 		case config.TaskDistribute:
 			// 为了兼容历史数据类型，目前什么都不用做，避免出错
+		case config.TaskArtifactPackage:
+			// do nothing
 		default:
 			return e.NewErrInvalidTaskType(string(pre.TaskType))
 		}
