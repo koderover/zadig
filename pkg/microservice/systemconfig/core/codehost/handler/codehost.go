@@ -68,6 +68,7 @@ func GetCodeHost(c *gin.Context) {
 
 type AuthArgs struct {
 	RedirectURI string `json:"redirect_uri"`
+	CallbackURL string `json:"callback_url"`
 }
 
 func AuthCodeHost(c *gin.Context) {
@@ -85,7 +86,7 @@ func AuthCodeHost(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	url, err := service.AuthCodeHost(au.RedirectURI, idInt, ctx.Logger)
+	url, err := service.AuthCodeHost(au.RedirectURI, au.CallbackURL, idInt, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 	}

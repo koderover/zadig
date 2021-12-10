@@ -15,9 +15,9 @@ type Oauth struct {
 	HostName     string `json:"host_name"`
 }
 
-func NewGithubOauth(redirectURI, clientID, clientSecret, hostName string) oauth.CallbackOauth {
+func NewGithubOauth(callbackURL, clientID, clientSecret, hostName string) oauth.CallbackOauth {
 	return &Oauth{
-		RedirectURI:  redirectURI,
+		RedirectURI:  callbackURL,
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 		HostName:     hostName,

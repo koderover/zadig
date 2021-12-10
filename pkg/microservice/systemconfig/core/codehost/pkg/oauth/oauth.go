@@ -18,12 +18,12 @@ type Token struct {
 	RefreshToken string
 }
 
-func Factory(provider, redirectURI, clientID, clientSecret, hostName string) (CallbackOauth, error) {
+func Factory(provider, callbackURL, clientID, clientSecret, hostName string) (CallbackOauth, error) {
 	switch provider {
 	case "github":
-		return github.NewGithubOauth(redirectURI, clientID, clientSecret, hostName), nil
+		return github.NewGithubOauth(callbackURL, clientID, clientSecret, hostName), nil
 	case "gitlab":
-		return gitlab.NewGitlabOauth(redirectURI, clientID, clientSecret, hostName), nil
+		return gitlab.NewGitlabOauth(callbackURL, clientID, clientSecret, hostName), nil
 	}
 	return nil, errors.New("illegal provider")
 }
