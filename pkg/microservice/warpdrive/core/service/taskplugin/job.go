@@ -550,14 +550,7 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 	return job, nil
 }
 
-func createOrUpdateRegistrySecrets(namespace string, registries []*task.RegistryNamespace, kubeClient client.Client) error {
-	defaultRegistry := &task.RegistryNamespace{
-		RegAddr:   config.DefaultRegistryAddr(),
-		AccessKey: config.DefaultRegistryAK(),
-		SecretKey: config.DefaultRegistrySK(),
-	}
-	registries = append(registries, defaultRegistry)
-
+func createOrUpdateRegistrySecrets(namespace, registryID string, registries []*task.RegistryNamespace, kubeClient client.Client) error {
 	for _, reg := range registries {
 		if reg.AccessKey == "" {
 			continue
@@ -569,7 +562,7 @@ func createOrUpdateRegistrySecrets(namespace string, registries []*task.Registry
 		if reg.RegType != "" {
 			secretName = namespaceInRegistry + "-" + reg.RegType + registrySecretSuffix
 		}
-		if reg.RegAddr == config.DefaultRegistryAddr() {
+		if reg.ID == registryID {
 			secretName = setting.DefaultImagePullSecret
 		}
 
