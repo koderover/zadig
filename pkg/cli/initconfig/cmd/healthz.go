@@ -19,6 +19,8 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/pkg/shared/client/aslan"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
 	"github.com/koderover/zadig/pkg/shared/client/user"
 )
@@ -30,6 +32,9 @@ func Healthz() error {
 	if err := checkPolicyServiceHealth(); err != nil {
 		return fmt.Errorf("checkPolicyServiceHealth error:%s", err)
 	}
+	if err := checkAslanServiceHealth(); err != nil {
+		return fmt.Errorf("checkPolicyServiceHealth error:%s", err)
+	}
 	return nil
 }
 
@@ -39,4 +44,8 @@ func checkUserServiceHealth() error {
 
 func checkPolicyServiceHealth() error {
 	return policy.NewDefault().Healthz()
+}
+
+func checkAslanServiceHealth() error {
+	return aslan.New(config.AslanServiceAddress()).Healthz()
 }
