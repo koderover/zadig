@@ -18,7 +18,10 @@ package handler
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/pkg/oauth/github"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -71,6 +74,81 @@ func GetCodeHost(c *gin.Context) {
 		return
 	}
 	ctx.Resp, ctx.Err = service.GetCodeHost(id, ctx.Logger)
+}
+
+type State struct {
+	CodeHostID  int    `json:"code_host_id"`
+	RedirectURL string `json:"redirect_url"`
+}
+
+func AuthCodeHostV2(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	id := c.Param("id")
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	codeHost, err := service.GetCodeHost(idInt, ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	o, err := github.NewGithubOauth("", "", "", "")
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	stateStruct := State{
+		CodeHostID:  codeHost.ID,
+		RedirectURL: "",
+	}
+	bs, err := json.Marshal(stateStruct)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	c.Redirect(http.StatusFound, o.LoginURL(base64.URLEncoding.EncodeToString(bs)))
+}
+
+func CallbackV2(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	stateStr := c.Query("state")
+	bs, err := base64.URLEncoding.DecodeString(stateStr)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	var state *State
+	if err := json.Unmarshal(bs, state); err != nil {
+		c.Redirect(http.StatusFound,state.RedirectURL)
+		return
+	}
+	codehost , err := service.GetCodeHost(state.CodeHostID,ctx.Logger)
+	if err != nil {
+		c.Redirect(http.StatusFound,state.RedirectURL)
+		return
+	}
+	o, err := github.NewGithubOauth("", "", "", "")
+	if err != nil {
+		c.Redirect(http.StatusFound,state.RedirectURL)
+		return
+	}
+	token , err := o.HandleCallback(c.Request)
+	if err !=nil {
+		c.Redirect(http.StatusFound,state.RedirectURL)
+		return
+	}
+	codehost.AccessToken = token.AccessToken
+	codehost.RefreshToken = token.RefreshToken
+	if _,err := service.UpdateCodeHostByToken(codehost,ctx.Logger);err !=nil {
+		c.Redirect(http.StatusFound,state.RedirectURL)
+		return
+	}
 }
 
 func AuthCodeHost(c *gin.Context) {
@@ -128,11 +206,11 @@ func Callback(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	state := c.Query("state")
-	state , err := url.PathUnescape(state)
+	state, err := url.PathUnescape(state)
 	if err != nil {
 		ctx.Logger.Errorf("code_host_get_call_back PathUnescape state:%s err : %s", state, err)
 		url := fmt.Sprintf("%s%s", state, "&errMessage=failed_to_parse_redirect_url")
-		c.Redirect(http.StatusFound,url)
+		c.Redirect(http.StatusFound, url)
 		return
 	}
 	urlArray := strings.Split(state, "&codeHostId=")
@@ -140,7 +218,7 @@ func Callback(c *gin.Context) {
 	if len(urlArray) != 2 {
 		ctx.Logger.Errorf("code_host_get_call_back split &codeHostId fail ,state: %s", state)
 		url := fmt.Sprintf("%s?%s", frontEndUrl, "&errMessage=failed_to_parse_redirect_url")
-		c.Redirect(http.StatusFound,url)
+		c.Redirect(http.StatusFound, url)
 		return
 	}
 	if strings.Contains(frontEndUrl, "errCode") {
