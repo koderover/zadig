@@ -175,7 +175,7 @@ func (p *ArtifactPackageTaskPlugin) Run(ctx context.Context, pipelineTask *task.
 	}
 	p.Log.Infof("succeed to create cm for artifact package job %s", p.JobName)
 
-	job, err := buildJob(p.Type(), pipelineTask.ConfigPayload.Release.PackagerImage, p.JobName, serviceName, setting.MinRequest, setting.LowRequestSpec, pipelineCtx, pipelineTask, []*task.RegistryNamespace{})
+	job, err := buildJob(p.Type(), pipelineTask.ConfigPayload.Release.PackagerImage, p.JobName, serviceName, "", pipelineTask.ConfigPayload.Build.KubeNamespace, setting.MinRequest, setting.LowRequestSpec, pipelineCtx, pipelineTask, []*task.RegistryNamespace{})
 	if err != nil {
 		msg := fmt.Sprintf("create release artifact package job context error: %v", err)
 		p.Log.Error(msg)
@@ -355,7 +355,7 @@ func (p *ArtifactPackageTaskPlugin) Complete(ctx context.Context, pipelineTask *
 	}()
 
 	// 保存实时日志到s3
-	err := saveContainerLog(pipelineTask, p.KubeNamespace, p.FileName, jobLabel, p.kubeClient)
+	err := saveContainerLog(pipelineTask, p.KubeNamespace, "", p.FileName, jobLabel, p.kubeClient)
 	if err != nil {
 		p.Log.Error(err)
 		p.Task.Error = err.Error()
