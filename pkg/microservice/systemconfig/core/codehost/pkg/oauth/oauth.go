@@ -6,21 +6,21 @@ import (
 	"net/http"
 )
 
-type CallbackOauth interface{
-	LoginURL(state string)(loginURL string)
-	HandleCallback(r *http.Request)(token *oauth2.Token,err error)
+type CallbackOauth interface {
+	LoginURL(state string) (loginURL string)
+	HandleCallback(r *http.Request) (token *oauth2.Token, err error)
 }
 
 type Token struct {
-	AccessToken string
+	AccessToken  string
 	RefreshToken string
 }
 
-func Factory(provider ,redirectURI ,clientID,clientSecret,hostName string)CallbackOauth{
+func Factory(provider, redirectURI, clientID, clientSecret, hostName string) CallbackOauth {
 	switch provider {
-	case"github":
-		return github.NewGithubOauth(redirectURI ,clientID,clientSecret,hostName)
+	case "github":
+		return github.NewGithubOauth(redirectURI, clientID, clientSecret, hostName)
 	default:
-		github.NewGithubOauth(redirectURI ,clientID,clientSecret,hostName)
+		return github.NewGithubOauth(redirectURI, clientID, clientSecret, hostName)
 	}
 }

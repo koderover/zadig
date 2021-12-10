@@ -9,27 +9,27 @@ import (
 )
 
 type Oauth struct {
-	RedirectURI   string `json:"redirectURI"`
-	ClientID      string `json:"clientID"`
-	ClientSecret  string `json:"clientSecret"`
-	HostName 	  string `json:"host_name"`
+	RedirectURI  string `json:"redirectURI"`
+	ClientID     string `json:"clientID"`
+	ClientSecret string `json:"clientSecret"`
+	HostName     string `json:"host_name"`
 }
 
-func NewGithubOauth (redirectURI ,clientID,clientSecret,hostName string)oauth.CallbackOauth{
+func NewGithubOauth(redirectURI, clientID, clientSecret, hostName string) oauth.CallbackOauth {
 	return &Oauth{
 		RedirectURI:  redirectURI,
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
-		HostName: hostName,
+		HostName:     hostName,
 	}
 }
 
-func (g *Oauth)oauth2Config()*oauth2.Config{
+func (g *Oauth) oauth2Config() *oauth2.Config {
 	endpoint := github.Endpoint
-	if g.HostName != ""{
+	if g.HostName != "" {
 		endpoint = oauth2.Endpoint{
-			AuthURL:   g.HostName+"/login/oauth/authorize",
-			TokenURL:  g.HostName+"/login/oauth/access_token",
+			AuthURL:  g.HostName + "/login/oauth/authorize",
+			TokenURL: g.HostName + "/login/oauth/access_token",
 		}
 	}
 	return &oauth2.Config{
@@ -37,7 +37,7 @@ func (g *Oauth)oauth2Config()*oauth2.Config{
 		ClientSecret: g.ClientSecret,
 		Endpoint:     endpoint,
 		RedirectURL:  g.RedirectURI,
-		Scopes:       []string{"repo","user"},
+		Scopes:       []string{"repo", "user"},
 	}
 }
 
@@ -53,16 +53,15 @@ func (e *oauth2Error) Error() string {
 	return e.error + ": " + e.errorDescription
 }
 
-
-func (g *Oauth)LoginURL(state string)(loginURL string){
+func (g *Oauth) LoginURL(state string) (loginURL string) {
 	return g.oauth2Config().AuthCodeURL(state)
 }
 
-func (g *Oauth)HandleCallback(r *http.Request)(token *oauth2.Token,err error){
+func (g *Oauth) HandleCallback(r *http.Request) (token *oauth2.Token, err error) {
 	q := r.URL.Query()
-	if errType := q.Get("error");errType !=""{
+	if errType := q.Get("error"); errType != "" {
 		return nil, &oauth2Error{errType, q.Get("error_description")}
 	}
 	oauth2Config := g.oauth2Config()
-	return oauth2Config.Exchange(context.Background(),q.Get("code"))
+	return oauth2Config.Exchange(context.Background(), q.Get("code"))
 }
