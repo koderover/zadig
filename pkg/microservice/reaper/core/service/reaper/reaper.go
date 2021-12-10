@@ -74,7 +74,7 @@ func NewReaper() (*Reaper, error) {
 
 	reaper := &Reaper{
 		Ctx: ctx,
-		cm:  NewTarCacheManager(ctx.StorageURI, ctx.PipelineName, ctx.ServiceName),
+		cm:  NewTarCacheManager(ctx.StorageURI, ctx.PipelineName, ctx.ServiceName, ctx.AesKey),
 	}
 
 	return reaper, nil
@@ -85,7 +85,7 @@ func (r *Reaper) GetCacheFile() string {
 }
 
 func (r *Reaper) archiveCustomCaches(wd, dest string, caches []string) ([]string, error) {
-	fileAchiever := archive.NewWorkspaceAchiever(r.Ctx.StorageURI, r.Ctx.PipelineName, r.Ctx.ServiceName, wd, caches, []string{}, r.getUserEnvs())
+	fileAchiever := archive.NewWorkspaceAchiever(r.Ctx.StorageURI, r.Ctx.PipelineName, r.Ctx.ServiceName, wd, r.Ctx.AesKey, caches, []string{}, r.getUserEnvs())
 
 	// list files matches caches
 	return fileAchiever.Achieve(dest)

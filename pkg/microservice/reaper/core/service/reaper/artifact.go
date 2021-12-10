@@ -38,7 +38,7 @@ func artifactsUpload(ctx *meta.Context, activeWorkspace string) error {
 	)
 
 	if ctx.StorageURI != "" {
-		if store, err = s3.NewS3StorageFromEncryptedURI(ctx.StorageURI); err != nil {
+		if store, err = s3.NewS3StorageFromEncryptedURI(ctx.StorageURI, ctx.AesKey); err != nil {
 			log.Errorf("artifactsUpload failed to create s3 storage err:%v", err)
 			return err
 		}

@@ -42,12 +42,14 @@ type WorkspaceAchiever struct {
 	PipelineName string
 	ServiceName  string
 	Envs         []string
+	aesKey       string
 }
 
-func NewWorkspaceAchiever(storageURI, pipelineName, serviceName, wd string, caches, gitFolders, envs []string) *WorkspaceAchiever {
+func NewWorkspaceAchiever(storageURI, pipelineName, serviceName, wd, aesKey string, caches, gitFolders, envs []string) *WorkspaceAchiever {
 	return &WorkspaceAchiever{
 		paths:        caches,
 		wd:           wd,
+		aesKey:       aesKey,
 		gitFolders:   gitFolders,
 		StorageURI:   storageURI,
 		PipelineName: pipelineName,
@@ -224,7 +226,7 @@ func (c *WorkspaceAchiever) Achieve(target string) ([]string, error) {
 	//	return err
 	//}
 
-	if store, err := s3.NewS3StorageFromEncryptedURI(c.StorageURI); err == nil {
+	if store, err := s3.NewS3StorageFromEncryptedURI(c.StorageURI, c.aesKey); err == nil {
 		forcedPathStyle := true
 		if store.Provider == setting.ProviderSourceAli {
 			forcedPathStyle = false

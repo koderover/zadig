@@ -75,8 +75,8 @@ func NewS3StorageFromURL(uri string) (*S3, error) {
 	return ret, nil
 }
 
-func NewS3StorageFromEncryptedURI(encryptedURI string) (*S3, error) {
-	uri, err := crypto.AesDecrypt(encryptedURI)
+func NewS3StorageFromEncryptedURI(encryptedURI, aesKey string) (*S3, error) {
+	uri, err := crypto.AesDecrypt(encryptedURI, aesKey)
 	if err != nil {
 		return nil, err
 	}

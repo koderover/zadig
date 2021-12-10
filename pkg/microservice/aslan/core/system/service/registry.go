@@ -22,12 +22,13 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/registry"
 	"github.com/koderover/zadig/pkg/setting"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/util"
 )
@@ -86,7 +87,7 @@ func CreateRegistryNamespace(username string, args *commonmodels.RegistryNamespa
 		}
 		for _, env := range envs {
 			go func(prod *commonmodels.Product) {
-				kubeClient, err := kube.GetKubeClient(prod.ClusterID)
+				kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
 				if err != nil {
 					log.Errorf("[updateRegistry] Failed to get kubecli for namespace: %s", prod.Namespace)
 					return
@@ -161,7 +162,7 @@ func UpdateRegistryNamespace(username, id string, args *commonmodels.RegistryNam
 	}
 	for _, env := range envs {
 		go func(prod *commonmodels.Product) {
-			kubeClient, err := kube.GetKubeClient(prod.ClusterID)
+			kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
 			if err != nil {
 				log.Errorf("[updateRegistry] Failed to get kubecli for namespace: %s", prod.Namespace)
 				return

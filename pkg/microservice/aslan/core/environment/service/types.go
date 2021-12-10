@@ -115,3 +115,8 @@ type ContainerNotFound struct {
 func (c *ContainerNotFound) Error() string {
 	return fmt.Sprintf("serviceName:%s,container:%s", c.ServiceName, c.Container)
 }
+
+type NodeResp struct {
+	Nodes  []*internalresource.Node `json:"data"`
+	Labels []string                 `json:"labels"`
+}

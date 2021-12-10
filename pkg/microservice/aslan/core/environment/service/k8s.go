@@ -25,17 +25,16 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
@@ -84,7 +83,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		return errors.New(e.UpsertServiceErrMsg)
 	}
 
-	kubeClient, err := kube.GetKubeClient(exitedProd.ClusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), exitedProd.ClusterID)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
