@@ -273,6 +273,16 @@ const (
 )
 
 const (
+	DeliveryVersionTypeChart       = "HelmChart"
+	DeliveryVersionTypeK8SWorkflow = "K8SWorkflow"
+)
+
+const (
+	DeliveryDeployTypeImage = "image"
+	DeliveryDeployTypeChart = "chart"
+)
+
+const (
 	AuthorizationHeader = "Authorization"
 )
 
@@ -325,6 +335,21 @@ const (
 	ProductStatusDeleting = "deleting"
 	ProductStatusUnknown  = "unknown"
 	ProductStatusUnstable = "Unstable"
+)
+
+// DeliveryVersion status
+const (
+	DeliveryVersionStatusSuccess  = "success"
+	DeliveryVersionStatusFailed   = "failed"
+	DeliveryVersionStatusCreating = "creating"
+	DeliveryVersionStatusRetrying = "retrying"
+)
+
+const (
+	DeliveryVersionPackageStatusSuccess   = "success"
+	DeliveryVersionPackageStatusFailed    = "failed"
+	DeliveryVersionPackageStatusWaiting   = "waiting"
+	DeliveryVersionPackageStatusUploading = "uploading"
 )
 
 const (

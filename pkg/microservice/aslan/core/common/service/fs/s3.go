@@ -24,15 +24,35 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	s3service "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/setting"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
 )
 
-// ArchiveAndUploadFilesToS3 archive local files and upload to default s3 storage
-// if multiple names appointed, s3storage.copy will be used to handle extra names
+func ArchiveAndUploadFilesToSpecifiedS3(fileTree fs.FS, names []string, s3Base, s3Id string, logger *zap.SugaredLogger) error {
+	s3Storage, err := s3service.FindS3ById(s3Id)
+	if err != nil {
+		logger.Errorf("Failed to find default s3, err:%v", err)
+		return err
+	}
+	return archiveAndUploadFiles(fileTree, names, s3Base, s3Storage, logger)
+}
+
 func ArchiveAndUploadFilesToS3(fileTree fs.FS, names []string, s3Base string, logger *zap.SugaredLogger) error {
+	s3Storage, err := s3service.FindDefaultS3()
+	if err != nil {
+		logger.Errorf("Failed to find default s3, err:%v", err)
+		return err
+	}
+	return archiveAndUploadFiles(fileTree, names, s3Base, s3Storage, logger)
+}
+
+// archiveAndUploadFiles archive local files and upload to default s3 storage
+// if multiple names appointed, s3storage.copy will be used to handle extra names
+func archiveAndUploadFiles(fileTree fs.FS, names []string, s3Base string, s3Storage *s3.S3, logger *zap.SugaredLogger) error {
+
 	if len(names) == 0 {
 		return fmt.Errorf("names not appointed")
 	}
@@ -53,11 +73,7 @@ func ArchiveAndUploadFilesToS3(fileTree fs.FS, names []string, s3Base string, lo
 		logger.Errorf("Failed to archive tarball %s, err: %s", localPath, err)
 		return err
 	}
-	s3Storage, err := s3service.FindDefaultS3()
-	if err != nil {
-		logger.Errorf("Failed to find default s3, err:%v", err)
-		return err
-	}
+
 	forcedPathStyle := true
 	if s3Storage.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false

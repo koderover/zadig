@@ -35,6 +35,7 @@ type DeliveryDistributeArgs struct {
 	ID             string                `json:"id"`
 	ReleaseID      string                `json:"releaseId"`
 	ServiceName    string                `json:"serviceName"`
+	ChartName      string                `json:"chartName"`
 	DistributeType config.DistributeType `json:"distributeType"`
 }
 
@@ -62,6 +63,7 @@ func (c *DeliveryDistributeColl) EnsureIndex(ctx context.Context) error {
 			Keys: bson.D{
 				bson.E{Key: "release_id", Value: 1},
 				bson.E{Key: "service_name", Value: 1},
+				bson.E{Key: "chart_name", Value: 1},
 				bson.E{Key: "deleted_at", Value: 1},
 			},
 			Options: options.Index().SetUnique(false),
@@ -115,8 +117,11 @@ func (c *DeliveryDistributeColl) Find(args *DeliveryDistributeArgs) ([]*models.D
 	}
 	query := bson.M{"release_id": releaseID, "deleted_at": 0}
 
-	if args.DistributeType != "" {
-		query["distribute_type"] = config.File
+	if len(args.DistributeType) > 0 {
+		query["distribute_type"] = string(args.DistributeType)
+	}
+	if len(args.ChartName) > 0 {
+		query["chart_name"] = args.ChartName
 	}
 	cursor, err := c.Collection.Find(context.TODO(), query)
 	if err != nil {

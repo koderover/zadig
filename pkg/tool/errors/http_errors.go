@@ -680,4 +680,10 @@ var (
 	ErrUpdateExternalLink = NewHTTPError(6842, "更新链接失败")
 	ErrDeleteExternalLink = NewHTTPError(6843, "删除链接失败")
 	ErrListExternalLink   = NewHTTPError(6844, "获取链接列表失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// helm releated Error Range: 6850 - 6869
+	//-----------------------------------------------------------------------------------------------
+	ErrListHelmReleases = NewHTTPError(6850, "获取release失败")
+	ErrGetHelmCharts    = NewHTTPError(6851, "获取chart信息失败")
 )
