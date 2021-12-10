@@ -426,7 +426,7 @@ func GetHelmChartVersions(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	envName := c.Param("Name")
+	envName := c.Param("name")
 	projectName := c.Query("projectName")
 
 	ctx.Resp, ctx.Err = service.GetHelmChartVersions(projectName, envName, ctx.Logger)
