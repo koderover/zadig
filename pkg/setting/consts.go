@@ -50,6 +50,7 @@ const (
 	ENVReaperImage      = "REAPER_IMAGE"
 	ENVReaperBinaryFile = "REAPER_BINARY_FILE"
 	ENVPredatorImage    = "PREDATOR_IMAGE"
+	EnvPackagerImage    = "PACKAGER_IMAGE"
 
 	ENVDockerHosts = "DOCKER_HOSTS"
 
@@ -300,6 +301,10 @@ const (
 )
 
 const (
+	BuildChartPackage = "chart-package"
+)
+
+const (
 	JenkinsBuildJob = "jenkins-build"
 )
 
@@ -525,6 +530,8 @@ const MaxTries = 1
 
 const DogFood = "/var/run/koderover-dog-food"
 
+const ProgressFile = "/var/log/job-progress"
+
 const (
 	ResponseError = "error"
 	ResponseData  = "response"
@@ -551,11 +558,6 @@ const (
 	ResourcesHeader    = "Resources"
 )
 
-const (
-	LocalClusterID   = "local" // special(fake) id of the local cluster
-	LocalClusterName = "local" // special(fake) name of the local cluster
-)
-
 type K8SClusterStatus string
 
 const (
@@ -564,3 +566,5 @@ const (
 	Normal       K8SClusterStatus = "normal"
 	Abnormal     K8SClusterStatus = "abnormal"
 )
+
+const LocalClusterID = "0123456789abcdef12345678"

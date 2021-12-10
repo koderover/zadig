@@ -214,10 +214,6 @@ func CreateProduct(c *gin.Context) {
 	}
 
 	args.UpdateBy = ctx.UserName
-	// don't save the local cluster id to db
-	if args.ClusterID == setting.LocalClusterID {
-		args.ClusterID = ""
-	}
 	ctx.Err = service.CreateProduct(
 		ctx.UserName, ctx.RequestID, args, ctx.Logger,
 	)
@@ -525,10 +521,6 @@ func ListWorkloads(c *gin.Context) {
 	if err := c.ShouldBindQuery(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
-	}
-
-	if args.ClusterID == setting.LocalClusterID {
-		args.ClusterID = ""
 	}
 
 	count, services, err := commonservice.ListWorkloads("", args.ClusterID, args.Namespace, "", args.PerPage, args.Page, ctx.Logger, func(workloads []*commonservice.Workload) []*commonservice.Workload {

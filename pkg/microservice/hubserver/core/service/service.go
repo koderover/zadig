@@ -235,7 +235,7 @@ func Reset() {
 	}
 
 	for _, cluster := range clusters {
-		if cluster.Status == config.Normal {
+		if cluster.Status == config.Normal && !cluster.Local {
 			cluster.Status = config.Abnormal
 			err := mongodb.NewK8sClusterColl().UpdateStatus(cluster)
 			if err != nil {
@@ -271,7 +271,7 @@ func Sync(server *remotedialer.Server, stopCh <-chan struct{}) {
 							statusChanged = true
 						}
 					} else {
-						if cluster.Status == config.Normal {
+						if cluster.Status == config.Normal && !cluster.Local {
 							log.Infof(
 								"cluster %s disconnected changed %s => %s",
 								cluster.Name, cluster.Status, config.Abnormal,

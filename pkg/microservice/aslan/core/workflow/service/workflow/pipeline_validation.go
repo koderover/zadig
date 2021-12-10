@@ -43,9 +43,9 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehub"
 	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
@@ -688,13 +688,13 @@ func validateServiceContainer(envName, productName, serviceName, container strin
 		return "", err
 	}
 
-	kubeClient, err := kube.GetKubeClient(product.ClusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
 	if err != nil {
 		return "", err
 	}
 
 	return validateServiceContainer2(
-		product.Namespace, envName, productName, serviceName, container, product.Source, kubeClient,
+		product, serviceName, container, kubeClient,
 	)
 }
 
@@ -716,10 +716,28 @@ func (c *ImageIllegal) Error() string {
 	return ""
 }
 
-// validateServiceContainer2 validate container with raw namespace like dev-product
-func validateServiceContainer2(namespace, envName, productName, serviceName, container, source string, kubeClient client.Client) (string, error) {
-	var selector labels.Selector
+// find currently using image for services deployed by helm
+func findCurrentlyUsingImage(productInfo *commonmodels.Product, serviceName, containerName string) (string, error) {
+	for _, service := range productInfo.GetServiceMap() {
+		if service.ServiceName == serviceName {
+			for _, container := range service.Containers {
+				if container.Name == containerName {
+					return container.Image, nil
+				}
+			}
+		}
+	}
+	return "", fmt.Errorf("failed to find image url")
+}
 
+// validateServiceContainer2 validate container with raw namespace like dev-product
+func validateServiceContainer2(productInfo *commonmodels.Product, serviceName, container string, kubeClient client.Client) (string, error) {
+	namespace, productName, envName, source := productInfo.Namespace, productInfo.ProductName, productInfo.EnvName, productInfo.Source
+	if source == setting.SourceFromHelm {
+		return findCurrentlyUsingImage(productInfo, serviceName, container)
+	}
+
+	var selector labels.Selector
 	//helm和托管类型的服务查询所有标签的pod
 	if source != setting.SourceFromHelm && source != setting.SourceFromExternal {
 		selector = labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceName}.AsSelector()
@@ -735,7 +753,7 @@ func validateServiceContainer2(namespace, envName, productName, serviceName, con
 	for _, p := range pods {
 		pod := wrapper.Pod(p).Resource()
 		for _, c := range pod.ContainerStatuses {
-			if c.Name == container || strings.Contains(c.Image, container) {
+			if c.Name == container || commonservice.ExtractImageName(c.Image) == container {
 				return c.Image, nil
 			}
 		}

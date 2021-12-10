@@ -21,14 +21,18 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -109,7 +113,7 @@ func ListPodEvents(envName, productName, podName string, log *zap.SugaredLogger)
 // ListAvailableNamespaces lists available namespaces created by non-koderover
 func ListAvailableNamespaces(clusterID string, log *zap.SugaredLogger) ([]*resource.Namespace, error) {
 	resp := make([]*resource.Namespace, 0)
-	kubeClient, err := kube.GetKubeClient(clusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
 	if err != nil {
 		log.Errorf("ListNamespaces clusterID:%s err:%v", clusterID, err)
 		return resp, err
@@ -118,7 +122,7 @@ func ListAvailableNamespaces(clusterID string, log *zap.SugaredLogger) ([]*resou
 	if err != nil {
 		log.Errorf("ListNamespaces err:%v", err)
 		if apierrors.IsForbidden(err) {
-			return resp, nil
+			return resp, err
 		}
 		return resp, err
 	}
@@ -146,7 +150,7 @@ func ListServicePods(productName, envName string, serviceName string, log *zap.S
 	if err != nil {
 		return res, e.ErrListServicePod.AddErr(err)
 	}
-	kubeClient, err := kube.GetKubeClient(product.ClusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
 	if err != nil {
 		return res, e.ErrListServicePod.AddErr(err)
 	}
@@ -173,7 +177,7 @@ func DeletePod(envName, productName, podName string, log *zap.SugaredLogger) err
 	if err != nil {
 		return e.ErrDeletePod.AddErr(err)
 	}
-	kubeClient, err := kube.GetKubeClient(product.ClusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
 	if err != nil {
 		return e.ErrDeletePod.AddErr(err)
 	}
@@ -222,4 +226,57 @@ func getModifiedServiceFromObjectMeta(om metav1.Object) *serviceInfo {
 		ModifiedBy:     as[setting.ModifiedByAnnotation],
 		LastUpdateTime: t,
 	}
+}
+
+func ListAvailableNodes(clusterID string, log *zap.SugaredLogger) (*NodeResp, error) {
+	resp := new(NodeResp)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	if err != nil {
+		log.Errorf("ListAvailableNodes clusterID:%s err:%s", clusterID, err)
+		return resp, err
+	}
+
+	nodes, err := getter.ListNodes(kubeClient)
+	if err != nil {
+		log.Errorf("ListNodes err:%s", err)
+		if apierrors.IsForbidden(err) {
+			return resp, err
+		}
+		return resp, err
+	}
+
+	nodeInfos := make([]*resource.Node, 0)
+	labels := sets.NewString()
+	for _, node := range nodes {
+		nodeResource := &resource.Node{
+			Ready:  nodeReady(node),
+			Labels: nodeLabel(node),
+			IP:     node.Name,
+		}
+		nodeInfos = append(nodeInfos, nodeResource)
+		labels.Insert(nodeResource.Labels...)
+	}
+	resp.Nodes = nodeInfos
+	resp.Labels = labels.List()
+	return resp, nil
+}
+
+// Ready indicates that the node is ready for traffic.
+func nodeReady(node *corev1.Node) bool {
+	cs := node.Status.Conditions
+	for _, c := range cs {
+		if c.Type == corev1.NodeReady && c.Status == corev1.ConditionTrue {
+			return true
+		}
+	}
+	return false
+}
+
+func nodeLabel(node *corev1.Node) []string {
+	labels := make([]string, 0, len(node.Labels))
+	labelM := node.Labels
+	for key, value := range labelM {
+		labels = append(labels, fmt.Sprintf("%s:%s", key, value))
+	}
+	return labels
 }

@@ -18,6 +18,8 @@ package task
 
 import (
 	"fmt"
+
+	corev1 "k8s.io/api/core/v1"
 )
 
 type ConfigPayload struct {
@@ -40,6 +42,7 @@ type ConfigPayload struct {
 	CustomDNSSupported bool `json:"custom_dns_supported"`
 	HubServerAddr      string
 	DeployClusterID    string
+	AesKey             string `json:"aes_key"`
 
 	RepoConfigs map[string]*RegistryNamespace
 
@@ -49,6 +52,7 @@ type ConfigPayload struct {
 	// ResetCache means ignore workspace cache
 	ResetCache  bool          `json:"reset_cache"`
 	PrivateKeys []*PrivateKey `json:"private_keys"`
+	K8SClusters []*K8SCluster `json:"k8s_clusters"`
 
 	RegistryID string `json:"registry_id"`
 }
@@ -131,6 +135,9 @@ type ReleaseConfig struct {
 	// PredatorImage sets docker build image
 	// e.g. xxx.com/resources/predator-plugin:v0.1.0
 	PredatorImage string
+	// PackagerImage sets docker build image
+	// e.g. xxx.com/resources/predator-plugin:v0.1.0
+	PackagerImage string
 }
 
 type ImageReleaseConfig struct {
@@ -149,4 +156,21 @@ type JenkinsBuildConfig struct {
 
 type PrivateKey struct {
 	Name string `json:"name"`
+}
+
+type K8SCluster struct {
+	ID             string          `json:"id,omitempty"                bson:"_id,omitempty"`
+	Name           string          `json:"name"                        bson:"name"`
+	AdvancedConfig *AdvancedConfig `json:"advanced_config,omitempty"   bson:"advanced_config,omitempty"`
+}
+
+type AdvancedConfig struct {
+	Strategy   string                     `json:"strategy,omitempty"      bson:"strategy,omitempty"`
+	NodeLabels []*NodeSelectorRequirement `json:"node_labels,omitempty"   bson:"node_labels,omitempty"`
+}
+
+type NodeSelectorRequirement struct {
+	Key      string                      `json:"key"`
+	Value    []string                    `json:"value"`
+	Operator corev1.NodeSelectorOperator `json:"operator"`
 }

@@ -47,6 +47,8 @@ type Testing struct {
 	ReportReady    bool                        `bson:"report_ready"                    json:"report_ready"`
 	IsRestart      bool                        `bson:"is_restart"                      json:"is_restart"`
 	Registries     []*models.RegistryNamespace `bson:"-"                               json:"registries"`
+	ClusterID      string                      `bson:"cluster_id,omitempty"            json:"cluster_id,omitempty"`
+	Namespace      string                      `bson:"namespace"                       json:"namespace"`
 }
 
 func (t *Testing) ToSubTask() (map[string]interface{}, error) {
