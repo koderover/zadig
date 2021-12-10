@@ -160,7 +160,15 @@ func (p *Packager) Exec() error {
 	cli, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
 		log.Errorf("failed to init docker client %s", err)
+		return err
 	}
+
+	defer func() {
+		err = cli.Close()
+		if err != nil {
+			log.Errorf("failed to close client: %s", err)
+		}
+	}()
 
 	// run docker info to ensure docker daemon connection
 	for i := 0; i < 120; i++ {

@@ -35,7 +35,6 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/podexec"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
-	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 // InitializeArtifactPackagePlugin to ini
@@ -129,16 +128,6 @@ func (p *ArtifactPackageTaskPlugin) Run(ctx context.Context, pipelineTask *task.
 				UserName:   registry.AccessKey,
 				Password:   registry.SecretKey,
 			})
-		}
-	}
-
-	log.Infof("######## source registry is %v", sourceRegistries)
-	log.Infof("######## targetRegistries registry is %+v", targetRegistries)
-	for _, singleImage := range pipelineTask.ArtifactPackageTaskArgs.Images {
-		log.Infof("##### the image service name is %s", singleImage.ServiceName)
-		log.Infof("##### the image service is %v", singleImage.Images)
-		for _, image := range singleImage.Images {
-			log.Infof("######## single image %+v", *image)
 		}
 	}
 
