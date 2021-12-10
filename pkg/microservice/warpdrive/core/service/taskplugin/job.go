@@ -433,13 +433,8 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 		reaperBinaryFile = strings.Replace(reaperBinaryFile, ResourceServer, ResourceServer+"."+currentNamespace, -1)
 	}
 
-<<<<<<< HEAD
 	if !strings.Contains(jobImage, PredatorPlugin) && !strings.Contains(jobImage, JenkinsPlugin) && !strings.Contains(jobImage, PackagerPlugin) {
-		reaperBootingScript = fmt.Sprintf("curl -m 60 --retry-delay 5 --retry 3 -sL %s -o reaper && chmod +x reaper && mv reaper /usr/local/bin && /usr/local/bin/reaper", pipelineTask.ConfigPayload.Release.ReaperBinaryFile)
-=======
-	if !strings.Contains(jobImage, PredatorPlugin) && !strings.Contains(jobImage, JenkinsPlugin) {
 		reaperBootingScript = fmt.Sprintf("curl -m 60 --retry-delay 5 --retry 3 -sL %s -o reaper && chmod +x reaper && mv reaper /usr/local/bin && /usr/local/bin/reaper", reaperBinaryFile)
->>>>>>> upstream/main
 		if pipelineTask.ConfigPayload.Proxy.EnableApplicationProxy && pipelineTask.ConfigPayload.Proxy.Type == "http" {
 			reaperBootingScript = fmt.Sprintf("curl -m 60 --retry-delay 5 --retry 3 -sL --proxy %s %s -o reaper && chmod +x reaper && mv reaper /usr/local/bin && /usr/local/bin/reaper",
 				pipelineTask.ConfigPayload.Proxy.GetProxyURL(),
