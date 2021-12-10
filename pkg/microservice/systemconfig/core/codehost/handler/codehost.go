@@ -76,7 +76,7 @@ func AuthCodeHost(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	url, err := service.AuthCodeHost(c.Query("redirect_uri"), c.Query("callback_url"), idInt, ctx.Logger)
+	url, err := service.AuthCodeHost(c.Query("redirect_url"), c.Query("callback_url"), idInt, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 	}
