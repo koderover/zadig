@@ -20,7 +20,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/pkg/oauth"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/pkg/oauth/factory"
 	"net/http"
 	"time"
 
@@ -84,7 +84,7 @@ func AuthCodeHost(redirectURI, codeHostCallbackURL string, codeHostID int, logge
 		logger.Errorf("GetCodeHost:%s err:%s", codeHostID, err)
 		return "", err
 	}
-	oauth, err := oauth.Factory(codeHost.Type, codeHostCallbackURL, codeHost.ApplicationId, codeHost.ClientSecret, codeHost.Address)
+	oauth, err := factory.Factory(codeHost.Type, codeHostCallbackURL, codeHost.ApplicationId, codeHost.ClientSecret, codeHost.Address)
 	if err != nil {
 		logger.Errorf("get Factory:%s err:%s", codeHost.Type, err)
 		return "", err
@@ -118,7 +118,7 @@ func Callback(stateQuery string, r *http.Request, logger *zap.SugaredLogger) (st
 		logger.Errorf("GetCodeHost err:%s", err)
 		return state.RedirectURL, err
 	}
-	o, err := oauth.Factory(codehost.Type, state.RedirectURL, codehost.ApplicationId, codehost.ClientSecret, codehost.Address)
+	o, err := factory.Factory(codehost.Type, state.RedirectURL, codehost.ApplicationId, codehost.ClientSecret, codehost.Address)
 	if err != nil {
 		logger.Errorf("Factory err:%s", err)
 		return state.RedirectURL, err
