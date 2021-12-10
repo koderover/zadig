@@ -35,9 +35,9 @@ import (
 	"github.com/koderover/zadig/pkg/util"
 )
 
+// get global config payload
 func CreateArtifactPackageTask(args *commonmodels.ArtifactPackageTaskArgs, taskCreator string, log *zap.SugaredLogger) (int64, error) {
 
-	// get global config payload
 	configPayload := commonservice.GetConfigPayload(0)
 	repos, err := commonrepo.NewRegistryNamespaceColl().FindAll(&commonrepo.FindRegOps{})
 

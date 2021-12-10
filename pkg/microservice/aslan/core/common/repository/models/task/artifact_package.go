@@ -47,7 +47,8 @@ type ArtifactPackage struct {
 	StartTime  int64           `bson:"start_time,omitempty"           json:"start_time,omitempty"`
 	EndTime    int64           `bson:"end_time,omitempty"             json:"end_time,omitempty"`
 	LogFile    string          `bson:"log_file"                       json:"log_file"`
-	Progress   string          `bson:"progress" json:"progress"`
+	Progress   string          `bson:"progress"                       json:"progress"`
+
 	// source images
 	Images []*models.ImagesByService `bson:"images" json:"images"`
 	// source registries need auth to pull images
