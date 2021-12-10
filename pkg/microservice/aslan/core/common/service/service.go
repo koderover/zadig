@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 	templ "text/template"
@@ -90,8 +91,9 @@ type ServiceProductMap struct {
 }
 
 var (
-	imageParseRegex = regexp.MustCompile(`(?P<repo>.+/)?(?P<image>[^:]+){1}(:)?(?P<tag>.+)?`)
-	presetPatterns  = []map[string]string{
+	imageParseRegex      = regexp.MustCompile(`(?P<repo>.+/)?(?P<image>[^:]+){1}(:)?(?P<tag>.+)?`)
+	imageSpaceParseRegex = regexp.MustCompile(`\/(.*?)\/`)
+	presetPatterns       = []map[string]string{
 		{setting.PathSearchComponentImage: "image.repository", setting.PathSearchComponentTag: "image.tag"},
 		{setting.PathSearchComponentImage: "image"},
 	}
@@ -612,6 +614,54 @@ func ExtractImageName(imageURI string) string {
 		}
 	}
 	return ""
+}
+
+// ExtractImageRegistry extract registry url from total image uri
+func ExtractImageRegistry(imageURI string) (string, error) {
+	subMatchAll := imageParseRegex.FindStringSubmatch(imageURI)
+	exNames := imageParseRegex.SubexpNames()
+	for i, matchedStr := range subMatchAll {
+		if i != 0 && matchedStr != "" && matchedStr != ":" {
+			if exNames[i] == "repo" {
+				u, err := url.Parse(matchedStr)
+				if err != nil {
+					return "", err
+				}
+				if len(u.Scheme) > 0 {
+					matchedStr = strings.TrimPrefix(matchedStr, fmt.Sprintf("%s://", u.Scheme))
+				}
+				return matchedStr, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("failed to extract registry url")
+}
+
+// ExtractImageTag extract image tag from total image uri
+func ExtractImageTag(imageURI string) string {
+	subMatchAll := imageParseRegex.FindStringSubmatch(imageURI)
+	exNames := imageParseRegex.SubexpNames()
+	for i, matchedStr := range subMatchAll {
+		if i != 0 && matchedStr != "" && matchedStr != ":" {
+			if exNames[i] == "tag" {
+				return matchedStr
+			}
+		}
+	}
+	return ""
+}
+
+// ExtractRegistryNamespace extract registry namespace form image uri
+func ExtractRegistryNamespace(imageURI string) string {
+	imageURI = strings.TrimPrefix(imageURI, "http://")
+	imageURI = strings.TrimPrefix(imageURI, "https://")
+
+	firstIndex := strings.Index(imageURI, "/")
+	lastIndex := strings.LastIndex(imageURI, "/")
+	if lastIndex == firstIndex {
+		return ""
+	}
+	return strings.TrimPrefix(imageURI[firstIndex:lastIndex], "/")
 }
 
 func parseImagesByPattern(nested map[string]interface{}, patterns []map[string]string) ([]*models.Container, error) {

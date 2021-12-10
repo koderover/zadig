@@ -17,10 +17,10 @@ limitations under the License.
 package service
 
 type ImageData struct {
-	ImageUrl   string `yaml:"image_url"`
-	ImageName  string `yaml:"image_name"`
-	ImageTag   string `yaml:"image_tag"`
-	RegistryID string `yaml:"registry_id,omitempty"`
+	ImageUrl   string `yaml:"image_url"   json:"image_url"`
+	ImageName  string `yaml:"image_name"  json:"image_name"`
+	ImageTag   string `yaml:"image_tag"   json:"image_tag"`
+	RegistryID string `yaml:"registry_id" json:"registry_id"`
 }
 
 // ImagesByService defines all images in a service

@@ -134,7 +134,7 @@ type ReleaseConfig struct {
 	// e.g. xxx.com/resources/predator-plugin:v0.1.0
 	PredatorImage string
 	// PackagerImage sets docker build image
-	// e.g. xxx.com/resources/predator-plugin:v0.1.0
+	// e.g. xxx.com/resources/packager-plugin:v0.1.0
 	PackagerImage string
 }
 

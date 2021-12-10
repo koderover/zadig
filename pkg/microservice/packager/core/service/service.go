@@ -22,6 +22,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -93,15 +94,68 @@ func buildTargetImage(imageName, imageTag, host, nameSpace string) string {
 	return ret
 }
 
-func handleSingleService(imageByService *ImagesByService, allRegistries map[string]*DockerRegistry, targetRegistries []*DockerRegistry, dockerClient *client.Client) error {
+func pullImage(dockerClient *client.Client, imageUrl string, options *types.ImagePullOptions) error {
+	// pull image
+	pullResponse, err := dockerClient.ImagePull(context.TODO(), imageUrl, *options)
+	if err != nil {
+		return err
+	}
+
+	defer func(pullResponse io.ReadCloser) {
+		err := pullResponse.Close()
+		if err != nil {
+			log.Errorf("failed to close response reader")
+		}
+	}(pullResponse)
+
+	bs, err := io.ReadAll(pullResponse)
+	if err != nil {
+		return err
+	}
+
+	if strings.Contains(string(bs), "error") {
+		log.Errorf("image push failed: %s", string(bs))
+		return fmt.Errorf("failed to push image")
+	}
+	return nil
+}
+
+func pushImage(dockerClient *client.Client, targetImageUrl string, options *types.ImagePushOptions) error {
+	pushResponse, err := dockerClient.ImagePush(context.TODO(), targetImageUrl, *options)
+	if err != nil {
+		return errors.Wrapf(err, "failed to push image: %s", targetImageUrl)
+	}
+
+	defer func(pullResponse io.ReadCloser) {
+		err := pullResponse.Close()
+		if err != nil {
+			log.Errorf("failed to close response reader")
+		}
+	}(pushResponse)
+
+	bs, err := io.ReadAll(pushResponse)
+	if err != nil {
+		return err
+	}
+
+	if strings.Contains(string(bs), "error") {
+		log.Errorf("image push failed: %s", string(bs))
+		return fmt.Errorf("failed to push image")
+	}
+	return nil
+}
+
+func handleSingleService(imageByService *ImagesByService, allRegistries map[string]*DockerRegistry, targetRegistries []*DockerRegistry, dockerClient *client.Client) ([]*ImageData, error) {
 	targetImageUrlByRepo := make(map[string][]string)
+	retImages := make([]*ImageData, 0)
+
 	for _, singleImage := range imageByService.Images {
 		options := types.ImagePullOptions{}
 		// for images from public repo，registryID won't be appointed
 		if len(singleImage.RegistryID) > 0 {
 			registryInfo, ok := allRegistries[singleImage.RegistryID]
 			if !ok {
-				return fmt.Errorf("failed to find source registry for image: %s", singleImage.ImageUrl)
+				return nil, fmt.Errorf("failed to find source registry for image: %s", singleImage.ImageUrl)
 			}
 			encodedAuth, err := base64EncodeAuth(&types.AuthConfig{
 				Username:      registryInfo.UserName,
@@ -109,15 +163,15 @@ func handleSingleService(imageByService *ImagesByService, allRegistries map[stri
 				ServerAddress: registryInfo.Host,
 			})
 			if err != nil {
-				return errors.Wrapf(err, "faied to create docker pull auth data")
+				return nil, errors.Wrapf(err, "faied to create docker pull auth data")
 			}
 			options.RegistryAuth = encodedAuth
 		}
 
 		// pull image
-		_, err := dockerClient.ImagePull(context.TODO(), singleImage.ImageUrl, options)
+		err := pullImage(dockerClient, singleImage.ImageUrl, &options)
 		if err != nil {
-			return errors.Wrapf(err, "failed to pull image: %s", singleImage.ImageUrl)
+			return nil, errors.Wrapf(err, "failed to pull image: %s", singleImage.ImageUrl)
 		}
 
 		// tag image
@@ -125,9 +179,15 @@ func handleSingleService(imageByService *ImagesByService, allRegistries map[stri
 			targetImage := buildTargetImage(singleImage.ImageName, singleImage.ImageTag, registry.Host, registry.Namespace)
 			err = dockerClient.ImageTag(context.TODO(), singleImage.ImageUrl, targetImage)
 			if err != nil {
-				return errors.Wrapf(err, "failed to tag image from: %s to: %s", singleImage.ImageUrl, targetImage)
+				return nil, errors.Wrapf(err, "failed to tag image from: %s to: %s", singleImage.ImageUrl, targetImage)
 			}
 			targetImageUrlByRepo[registry.RegistryID] = append(targetImageUrlByRepo[registry.RegistryID], targetImage)
+			retImages = append(retImages, &ImageData{
+				ImageUrl:   targetImage,
+				ImageName:  singleImage.ImageName,
+				ImageTag:   singleImage.ImageTag,
+				RegistryID: singleImage.RegistryID,
+			})
 		}
 	}
 
@@ -139,19 +199,20 @@ func handleSingleService(imageByService *ImagesByService, allRegistries map[stri
 			ServerAddress: registry.Host,
 		})
 		if err != nil {
-			return errors.Wrapf(err, "faied to create docker push auth data")
+			return nil, errors.Wrapf(err, "faied to create docker push auth data")
 		}
 		options := types.ImagePushOptions{
 			RegistryAuth: encodedAuth,
 		}
+
 		for _, targetImageUrl := range targetImageUrlByRepo[registry.RegistryID] {
-			_, err = dockerClient.ImagePush(context.TODO(), targetImageUrl, options)
+			err = pushImage(dockerClient, targetImageUrl, &options)
 			if err != nil {
-				return errors.Wrapf(err, "failed to push image: %s", targetImageUrl)
+				return nil, errors.Wrapf(err, "failed to push image: %s", targetImageUrl)
 			}
 		}
 	}
-	return nil
+	return retImages, nil
 }
 
 func (p *Packager) Exec() error {
@@ -201,7 +262,7 @@ func (p *Packager) Exec() error {
 		result := &PackageResult{
 			ServiceName: imageByService.ServiceName,
 		}
-		err = handleSingleService(imageByService, buildRegistryMap(allRegistries), p.Ctx.TargetRegistries, cli)
+		images, err := handleSingleService(imageByService, buildRegistryMap(allRegistries), p.Ctx.TargetRegistries, cli)
 
 		if err != nil {
 			result.Result = "failed"
@@ -209,7 +270,7 @@ func (p *Packager) Exec() error {
 			log.Errorf("[result][fail][%s][%s]", imageByService.ServiceName, err)
 		} else {
 			result.Result = "success"
-			result.ImageData = imageByService.Images
+			result.ImageData = images
 			log.Infof("[result][success][%s]", imageByService.ServiceName)
 		}
 
