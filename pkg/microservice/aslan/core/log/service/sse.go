@@ -139,7 +139,7 @@ func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, op
 				Targets: []string{options.ServiceName},
 			})
 		}
-		if build != nil && build.PreBuild != nil {
+		if build != nil && build.PreBuild != nil && build.PreBuild.ClusterID != "" && build.PreBuild.Namespace != "" {
 			options.ClusterID = build.PreBuild.ClusterID
 			options.Namespace = build.PreBuild.Namespace
 		}
@@ -157,7 +157,7 @@ func TestJobContainerLogStream(ctx context.Context, streamChan chan interface{},
 	selector := getPipelineSelector(options)
 	// get cluster ID
 	testing, _ := commonrepo.NewTestingColl().Find(getTestName(options.ServiceName), "")
-	if testing != nil && testing.PreTest != nil {
+	if testing != nil && testing.PreTest != nil && testing.PreTest.ClusterID != "" && testing.PreTest.Namespace != "" {
 		options.ClusterID = testing.PreTest.ClusterID
 		options.Namespace = testing.PreTest.Namespace
 	}
