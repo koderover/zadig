@@ -141,6 +141,10 @@ func Callback(stateQuery string, r *http.Request, logger *zap.SugaredLogger) (st
 		return state.RedirectURL, err
 	}
 	log.Info("----------")
+	for k, v := range r.URL.Query() {
+		log.Infof("%v---%v", k, v)
+	}
+
 	time.Sleep(time.Second * 30)
 	log.Info("----------")
 	token, err := o.HandleCallback(r)
