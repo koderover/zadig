@@ -76,12 +76,12 @@ type Task struct {
 	StorageURI    string                     `bson:"storage_uri,omitempty"          json:"storage_uri,omitempty"`
 	// interface{} 为types.TestReport
 	TestReports     map[string]interface{} `bson:"test_reports,omitempty" json:"test_reports,omitempty"`
-	RwLock          sync.Mutex             `bson:"-" json:"-"`
-	ResetImage      bool                   `json:"resetImage" bson:"resetImage"`
-	TriggerBy       *models.TriggerBy      `json:"trigger_by,omitempty" bson:"trigger_by,omitempty"`
-	Features        []string               `bson:"features" json:"features"`
-	IsRestart       bool                   `bson:"is_restart"                      json:"is_restart"`
-	StorageEndpoint string                 `bson:"storage_endpoint"            json:"storage_endpoint"`
+	RwLock          sync.Mutex             `bson:"-"                      json:"-"`
+	ResetImage      bool                   `bson:"resetImage"             json:"resetImage"`
+	TriggerBy       *models.TriggerBy      `bson:"trigger_by,omitempty"   json:"trigger_by,omitempty"`
+	Features        []string               `bson:"features"               json:"features"`
+	IsRestart       bool                   `bson:"is_restart"             json:"is_restart"`
+	StorageEndpoint string                 `bson:"storage_endpoint"       json:"storage_endpoint"`
 }
 
 //type RenderInfo struct {

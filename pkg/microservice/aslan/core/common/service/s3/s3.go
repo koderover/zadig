@@ -148,6 +148,16 @@ func FindDefaultS3() (*S3, error) {
 	return &S3{S3Storage: storage}, nil
 }
 
+func FindS3ById(id string) (*S3, error) {
+	storage, err := commonrepo.NewS3StorageColl().Find(id)
+	if err != nil {
+		log.Warnf("Failed to find s3 in db, err: %s", err)
+		return nil, err
+	}
+
+	return &S3{S3Storage: storage}, nil
+}
+
 // 获取内置的s3
 func FindInternalS3() *S3 {
 	storage := &models.S3Storage{

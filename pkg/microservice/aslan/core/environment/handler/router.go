@@ -96,6 +96,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		environments.GET("", ListProducts)
 		environments.PUT("/:name", gin2.UpdateOperationLogStatus, UpdateProduct)
+		environments.PUT("/:name/registry", gin2.UpdateOperationLogStatus, UpdateProductRegistry)
 		environments.PUT("", gin2.UpdateOperationLogStatus, UpdateMultiProducts)
 		environments.POST("", gin2.UpdateOperationLogStatus, CreateProduct)
 		environments.GET("/:name", GetProduct)
@@ -107,6 +108,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.DELETE("/:name", gin2.UpdateOperationLogStatus, DeleteProduct)
 		environments.GET("/:name/groups", ListGroups)
 		environments.GET("/:name/workloads", ListWorkloadsInEnv)
+
+		environments.GET("/:name/helm/releases", ListReleases)
+		environments.GET("/:name/helm/charts", GetChartInfos)
 
 		environments.GET("/:name/services/:serviceName", GetService)
 		environments.PUT("/:name/services/:serviceName", gin2.UpdateOperationLogStatus, UpdateService)

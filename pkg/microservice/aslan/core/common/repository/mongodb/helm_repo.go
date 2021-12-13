@@ -37,6 +37,11 @@ type HelmRepoColl struct {
 	coll string
 }
 
+type HelmRepoFindOption struct {
+	Id       string
+	RepoName string
+}
+
 func NewHelmRepoColl() *HelmRepoColl {
 	name := models.HelmRepo{}.TableName()
 	coll := &HelmRepoColl{Collection: mongotool.Database(config.MongoDatabase()).Collection(name), coll: name}
@@ -49,7 +54,12 @@ func (c *HelmRepoColl) GetCollectionName() string {
 }
 
 func (c *HelmRepoColl) EnsureIndex(ctx context.Context) error {
-	return nil
+	mod := mongo.IndexModel{
+		Keys:    bson.M{"repo_name": 1},
+		Options: options.Index().SetUnique(false),
+	}
+	_, err := c.Indexes().CreateOne(ctx, mod)
+	return err
 }
 
 func (c *HelmRepoColl) Create(args *models.HelmRepo) error {
@@ -62,6 +72,26 @@ func (c *HelmRepoColl) Create(args *models.HelmRepo) error {
 
 	_, err := c.InsertOne(context.TODO(), args)
 	return err
+}
+
+func (c *HelmRepoColl) Find(opt *HelmRepoFindOption) (*models.HelmRepo, error) {
+	query := bson.M{}
+	if len(opt.Id) > 0 {
+		oid, err := primitive.ObjectIDFromHex(opt.Id)
+		if err != nil {
+			return nil, err
+		}
+		query["_id"] = oid
+	}
+	if len(opt.RepoName) > 0 {
+		query["repo_name"] = opt.RepoName
+	}
+	ret := new(models.HelmRepo)
+	err := c.FindOne(context.TODO(), query).Decode(ret)
+	if err != nil {
+		return nil, err
+	}
+	return ret, nil
 }
 
 func (c *HelmRepoColl) Update(id string, args *models.HelmRepo) error {

@@ -54,6 +54,11 @@ type NamespaceResource struct {
 	Ingresses []resource.Ingress           `json:"ingresses"`
 }
 
+type UpdateProductRegistryRequest struct {
+	RegistryID string `json:"registry_id"`
+	Namespace  string `json:"namespace"`
+}
+
 func ListProducts(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -130,7 +135,6 @@ func createHelmProduct(c *gin.Context, ctx *internalhandler.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can not be empty")
 		return
 	}
-
 	createArgs := make([]*service.CreateHelmProductArg, 0)
 	data, err := c.GetRawData()
 	if err != nil {
@@ -244,6 +248,11 @@ func CreateProduct(c *gin.Context) {
 		return
 	}
 
+	if args.RegistryID == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("RegistryId can not be null!")
+		return
+	}
+
 	args.UpdateBy = ctx.UserName
 	ctx.Err = service.CreateProduct(
 		ctx.UserName, ctx.RequestID, args, ctx.Logger,
@@ -280,6 +289,36 @@ func UpdateProduct(c *gin.Context) {
 	ctx.Err = service.UpdateProductV2(envName, projectName, ctx.UserName, ctx.RequestID, force, args.Vars, ctx.Logger)
 	if ctx.Err != nil {
 		ctx.Logger.Errorf("failed to update product %s %s: %v", envName, projectName, ctx.Err)
+	}
+}
+
+func UpdateProductRegistry(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	args := new(UpdateProductRegistryRequest)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("UpdateProduct c.GetRawData() err : %v", err)
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("UpdateProduct json.Unmarshal err : %v", err)
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "集成环境", args.Namespace, string(data), ctx.Logger)
+	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+
+	if err := c.BindJSON(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+	ctx.Err = service.UpdateProductRegistry(args.Namespace, args.RegistryID, ctx.Logger)
+	if ctx.Err != nil {
+		ctx.Logger.Errorf("failed to update product %s %s: %v", args.Namespace, args.RegistryID, ctx.Err)
 	}
 }
 
@@ -427,7 +466,7 @@ func GetHelmChartVersions(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	envName := c.Param("Name")
+	envName := c.Param("name")
 	projectName := c.Query("projectName")
 
 	ctx.Resp, ctx.Err = service.GetHelmChartVersions(projectName, envName, ctx.Logger)
