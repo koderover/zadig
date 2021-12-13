@@ -273,6 +273,17 @@ func toHookSet(hooks interface{}) HookSet {
 				codeHostID: h.CodeHostID,
 			})
 		}
+	case []*models.TestingHook:
+		for _, h := range hs {
+			res.Insert(hookItem{
+				hookUniqueID: hookUniqueID{
+					name:  h.MainRepo.Name,
+					owner: h.MainRepo.RepoOwner,
+					repo:  h.MainRepo.RepoName,
+				},
+				codeHostID: h.MainRepo.CodehostID,
+			})
+		}
 	}
 
 	return res
