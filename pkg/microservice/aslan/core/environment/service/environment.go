@@ -30,6 +30,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"helm.sh/helm/v3/pkg/strvals"
@@ -828,7 +829,7 @@ func copySingleHelmProduct(productName, requestID, userName string, arg *CreateH
 	if err != nil {
 		return fmt.Errorf("failed to query base product info, name %s", arg.BaseEnvName)
 	}
-
+	productInfo.ID = primitive.NilObjectID
 	productInfo.Revision = 1
 	productInfo.EnvName = arg.EnvName
 	productInfo.UpdateBy = userName
