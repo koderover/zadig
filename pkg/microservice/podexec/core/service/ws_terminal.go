@@ -35,6 +35,7 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 
 	conf "github.com/koderover/zadig/pkg/microservice/podexec/config"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -206,7 +207,7 @@ func NewKubeOutClusterClient(clusterID string) (kubernetes.Interface, *rest.Conf
 	var config *rest.Config
 	var err error
 
-	if clusterID == "" {
+	if clusterID == "" || clusterID == setting.LocalClusterID {
 		kubeConfig := ""
 		config, err = clientcmd.BuildConfigFromFlags("", kubeConfig)
 		if err != nil {
