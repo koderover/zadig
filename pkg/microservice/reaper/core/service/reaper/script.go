@@ -238,6 +238,9 @@ func (r *Reaper) runScripts() error {
 
 	go func() {
 		for outScanner.Scan() {
+			fmt.Print(outScanner.Text())
+			fmt.Printf("%s\n", outScanner.Text())
+			fmt.Print(r.maskSecretEnvs(outScanner.Text()))
 			fmt.Printf("%s\n", r.maskSecretEnvs(outScanner.Text()))
 			if len(r.Ctx.PostScripts) > 0 {
 				util.WriteFile(fileName, []byte(outScanner.Text()+"\n"), 0700)
