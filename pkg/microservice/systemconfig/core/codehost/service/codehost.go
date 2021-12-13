@@ -32,6 +32,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 func CreateCodeHost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
@@ -139,7 +140,9 @@ func Callback(stateQuery string, r *http.Request, logger *zap.SugaredLogger) (st
 		logger.Errorf("Factory err:%s", err)
 		return state.RedirectURL, err
 	}
+	log.Info("----------")
 	time.Sleep(time.Second * 30)
+	log.Info("----------")
 	token, err := o.HandleCallback(r)
 	if err != nil {
 		logger.Errorf("HandleCallback err:%s", err)
