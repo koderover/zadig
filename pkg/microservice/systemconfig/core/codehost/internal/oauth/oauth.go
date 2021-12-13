@@ -1,11 +1,12 @@
 package oauth
 
 import (
-	"golang.org/x/oauth2"
 	"net/http"
+
+	"golang.org/x/oauth2"
 )
 
-type CallbackOauth interface {
+type Oauth interface {
 	LoginURL(state string) (loginURL string)
 	HandleCallback(r *http.Request) (token *oauth2.Token, err error)
 }

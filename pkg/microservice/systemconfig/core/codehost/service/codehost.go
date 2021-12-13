@@ -19,15 +19,19 @@ package service
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/pkg/oauth/factory"
 	"net/http"
 	"time"
 
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/internal/oauth"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/internal/oauth/github"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/internal/oauth/gitlab"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 )
 
 func CreateCodeHost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
@@ -73,10 +77,10 @@ func GetCodeHost(id int, _ *zap.SugaredLogger) (*models.CodeHost, error) {
 	return mongodb.NewCodehostColl().GetCodeHostByID(id)
 }
 
-type State struct {
+type state struct {
 	CodeHostID  int    `json:"code_host_id"`
 	RedirectURL string `json:"redirect_url"`
-	CallbackURl string `json:"callback_u_rl"`
+	CallbackURl string `json:"callback_url"`
 }
 
 func AuthCodeHost(redirectURI, codeHostCallbackURL string, codeHostID int, logger *zap.SugaredLogger) (redirectURL string, err error) {
@@ -85,12 +89,12 @@ func AuthCodeHost(redirectURI, codeHostCallbackURL string, codeHostID int, logge
 		logger.Errorf("GetCodeHost:%s err:%s", codeHostID, err)
 		return "", err
 	}
-	oauth, err := factory.Factory(codeHost.Type, codeHostCallbackURL, codeHost.ApplicationId, codeHost.ClientSecret, codeHost.Address)
+	oauth, err := NewOAuth(codeHost.Type, codeHostCallbackURL, codeHost.ApplicationId, codeHost.ClientSecret, codeHost.Address)
 	if err != nil {
 		logger.Errorf("get Factory:%s err:%s", codeHost.Type, err)
 		return "", err
 	}
-	stateStruct := State{
+	stateStruct := state{
 		CodeHostID:  codeHost.ID,
 		RedirectURL: redirectURI,
 		CallbackURl: codeHostCallbackURL,
@@ -103,6 +107,16 @@ func AuthCodeHost(redirectURI, codeHostCallbackURL string, codeHostID int, logge
 	return oauth.LoginURL(base64.URLEncoding.EncodeToString(bs)), nil
 }
 
+func NewOAuth(provider, callbackURL, clientID, clientSecret, address string) (oauth.Oauth, error) {
+	switch provider {
+	case systemconfig.GitHubProvider:
+		return github.New(callbackURL, clientID, clientSecret, address), nil
+	case systemconfig.GitLabProvider:
+		return gitlab.New(callbackURL, clientID, clientSecret, address), nil
+	}
+	return nil, errors.New("illegal provider")
+}
+
 func Callback(stateQuery string, r *http.Request, logger *zap.SugaredLogger) (string, error) {
 	bs, err := base64.URLEncoding.DecodeString(stateQuery)
 	if err != nil {
@@ -110,7 +124,7 @@ func Callback(stateQuery string, r *http.Request, logger *zap.SugaredLogger) (st
 		return "", err
 	}
 
-	var state State
+	var state state
 	if err := json.Unmarshal(bs, &state); err != nil {
 		logger.Errorf("Unmarshal err:%s", err)
 		return "", err
@@ -120,7 +134,7 @@ func Callback(stateQuery string, r *http.Request, logger *zap.SugaredLogger) (st
 		logger.Errorf("GetCodeHost err:%s,state:%+v", err, state)
 		return state.RedirectURL, err
 	}
-	o, err := factory.Factory(codehost.Type, state.CallbackURl, codehost.ApplicationId, codehost.ClientSecret, codehost.Address)
+	o, err := NewOAuth(codehost.Type, state.CallbackURl, codehost.ApplicationId, codehost.ClientSecret, codehost.Address)
 	if err != nil {
 		logger.Errorf("Factory err:%s", err)
 		return state.RedirectURL, err

@@ -18,12 +18,14 @@ package handler
 
 import (
 	"fmt"
+	"net/http"
+	"strconv"
+
 	"github.com/gin-gonic/gin"
+
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
-	"net/http"
-	"strconv"
 )
 
 func CreateCodeHost(c *gin.Context) {
@@ -80,7 +82,7 @@ func AuthCodeHost(c *gin.Context) {
 	url, err := service.AuthCodeHost(c.Query("redirect_url"), c.Query("callback_url"), idInt, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
-		ctx.Logger.Errorf("auth url : %s,err %s", url, err)
+		ctx.Logger.Errorf("auth url: %s,id:%d,err: %s", url, idInt, err)
 		return
 	}
 	c.Redirect(http.StatusFound, url)
