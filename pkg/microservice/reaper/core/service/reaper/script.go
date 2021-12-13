@@ -286,6 +286,9 @@ func (r *Reaper) RunPostScripts() error {
 	outScanner := bufio.NewScanner(cmdOutReader)
 	go func() {
 		for outScanner.Scan() {
+			fmt.Print(outScanner.Text())
+			fmt.Printf("%s\n", outScanner.Text())
+			fmt.Print(r.maskSecretEnvs(outScanner.Text()))
 			fmt.Printf("%s\n", r.maskSecretEnvs(outScanner.Text()))
 		}
 	}()
