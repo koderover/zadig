@@ -17,6 +17,8 @@ limitations under the License.
 package handler
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -82,7 +84,7 @@ func AuthCodeHost(c *gin.Context) {
 	url, err := service.AuthCodeHost(c.Query("redirect_url"), c.Query("callback_url"), idInt, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
-		ctx.Logger.Errorf("auth url: %s,id:%d,err: %s", url, idInt, err)
+		ctx.Logger.Errorf("auth err,id:%d,err: %s", idInt, err)
 		return
 	}
 	c.Redirect(http.StatusFound, url)
@@ -92,14 +94,26 @@ func Callback(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	stateStr := c.Query("state")
-
-	url, err := service.Callback(stateStr, c.Request, ctx.Logger)
+	bs, err := base64.URLEncoding.DecodeString(c.Query("state"))
 	if err != nil {
-		ctx.Logger.Errorf("Callback err:%s", err)
-		url = fmt.Sprintf("%s&err=%s", url, err)
+		ctx.Err = err
+		ctx.Logger.Errorf("DecodeString err:%s", err)
+		return
 	}
-	c.Redirect(http.StatusFound, url)
+
+	var state service.State
+	if err := json.Unmarshal(bs, &state); err != nil {
+		ctx.Logger.Errorf("Unmarshal err:%s", err)
+		ctx.Err = err
+		return
+	}
+
+	if err := service.HandleCallback(state.CodeHostID, state.CallbackURl, c.Request, ctx.Logger); err != nil {
+		ctx.Logger.Errorf("Callback err:%s", err)
+		url := fmt.Sprintf("%s&err=%s", state.RedirectURL, err)
+		c.Redirect(http.StatusFound, url)
+	}
+	c.Redirect(http.StatusFound, state.RedirectURL+"&success=true")
 }
 
 func UpdateCodeHost(c *gin.Context) {

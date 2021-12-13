@@ -32,7 +32,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
-	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 func CreateCodeHost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
@@ -78,7 +77,7 @@ func GetCodeHost(id int, _ *zap.SugaredLogger) (*models.CodeHost, error) {
 	return mongodb.NewCodehostColl().GetCodeHostByID(id)
 }
 
-type state struct {
+type State struct {
 	CodeHostID  int    `json:"code_host_id"`
 	RedirectURL string `json:"redirect_url"`
 	CallbackURl string `json:"callback_url"`
@@ -95,7 +94,7 @@ func AuthCodeHost(redirectURI, codeHostCallbackURL string, codeHostID int, logge
 		logger.Errorf("get Factory:%s err:%s", codeHost.Type, err)
 		return "", err
 	}
-	stateStruct := state{
+	stateStruct := State{
 		CodeHostID:  codeHost.ID,
 		RedirectURL: redirectURI,
 		CallbackURl: codeHostCallbackURL,
@@ -118,41 +117,24 @@ func NewOAuth(provider, callbackURL, clientID, clientSecret, address string) (oa
 	return nil, errors.New("illegal provider")
 }
 
-func Callback(stateQuery string, r *http.Request, logger *zap.SugaredLogger) (string, error) {
-	bs, err := base64.URLEncoding.DecodeString(stateQuery)
+func HandleCallback(codeHostID int, callbackURL string, r *http.Request, logger *zap.SugaredLogger) error {
+	codehost, err := GetCodeHost(codeHostID, logger)
 	if err != nil {
-		logger.Errorf("DecodeString err:%s", err)
-		return "", err
+		return err
 	}
-
-	var state state
-	if err := json.Unmarshal(bs, &state); err != nil {
-		logger.Errorf("Unmarshal err:%s", err)
-		return "", err
-	}
-	codehost, err := GetCodeHost(state.CodeHostID, logger)
+	o, err := NewOAuth(codehost.Type, callbackURL, codehost.ApplicationId, codehost.ClientSecret, codehost.Address)
 	if err != nil {
-		logger.Errorf("GetCodeHost err:%s,state:%+v", err, state)
-		return state.RedirectURL, err
-	}
-	o, err := NewOAuth(codehost.Type, state.CallbackURl, codehost.ApplicationId, codehost.ClientSecret, codehost.Address)
-	if err != nil {
-		logger.Errorf("Factory err:%s", err)
-		return state.RedirectURL, err
-	}
-	for k, v := range r.URL.Query() {
-		log.Infof("%v---%v", k, v)
+		return err
 	}
 	token, err := o.HandleCallback(r)
 	if err != nil {
-		logger.Errorf("HandleCallback err:%s", err)
-		return state.RedirectURL, err
+		return err
 	}
 	codehost.AccessToken = token.AccessToken
 	codehost.RefreshToken = token.RefreshToken
 	if _, err := UpdateCodeHostByToken(codehost, logger); err != nil {
 		logger.Errorf("UpdateCodeHostByToken err:%s", err)
-		return state.RedirectURL, err
+		return err
 	}
-	return state.RedirectURL, nil
+	return nil
 }
