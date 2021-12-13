@@ -32,6 +32,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
+	"github.com/koderover/zadig/pkg/tool/crypto"
 )
 
 func CreateCodeHost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
@@ -104,7 +105,12 @@ func AuthCodeHost(redirectURI, codeHostCallbackURL string, codeHostID int, logge
 		logger.Errorf("Marshal err:%s", err)
 		return "", err
 	}
-	return oauth.LoginURL(base64.URLEncoding.EncodeToString(bs)), nil
+	aes, err := crypto.NewAes(crypto.GetAesKey())
+	encrypted, err := aes.Encrypt(string(bs))
+	if err != nil {
+		return "", err
+	}
+	return oauth.LoginURL(encrypted), nil
 }
 
 func NewOAuth(provider, callbackURL, clientID, clientSecret, address string) (oauth.Oauth, error) {

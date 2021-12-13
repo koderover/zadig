@@ -17,7 +17,6 @@ limitations under the License.
 package handler
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -28,6 +27,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	"github.com/koderover/zadig/pkg/tool/crypto"
 )
 
 func CreateCodeHost(c *gin.Context) {
@@ -94,15 +94,16 @@ func Callback(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	bs, err := base64.URLEncoding.DecodeString(c.Query("state"))
+	aes, err := crypto.NewAes(crypto.GetAesKey())
+	decrypted, err := aes.Decrypt(c.Query("state"))
 	if err != nil {
+		ctx.Logger.Errorf("Decrypt err:%s", err)
 		ctx.Err = err
-		ctx.Logger.Errorf("DecodeString err:%s", err)
 		return
 	}
 
 	var state service.State
-	if err := json.Unmarshal(bs, &state); err != nil {
+	if err := json.Unmarshal([]byte(decrypted), &state); err != nil {
 		ctx.Logger.Errorf("Unmarshal err:%s", err)
 		ctx.Err = err
 		return
