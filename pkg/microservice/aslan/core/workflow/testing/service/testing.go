@@ -32,6 +32,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
@@ -50,6 +51,11 @@ func CreateTesting(username string, testing *commonmodels.Testing, log *zap.Suga
 	err := HandleCronjob(testing, log)
 	if err != nil {
 		return e.ErrCreateTestModule.AddErr(err)
+	}
+
+	err = commonservice.ProcessWebhook(testing.HookCtl.Items,nil,webhook.TestingPrefix+testing.Name,log)
+	if err != nil {
+		return e.ErrUpdateTestModule.AddErr(err)
 	}
 
 	testing.UpdateBy = username
@@ -110,6 +116,11 @@ func UpdateTesting(username string, testing *commonmodels.Testing, log *zap.Suga
 	existed, err := commonrepo.NewTestingColl().Find(testing.Name, testing.ProductName)
 	if err == nil && existed.PreTest != nil && testing.PreTest != nil {
 		commonservice.EnsureSecretEnvs(existed.PreTest.Envs, testing.PreTest.Envs)
+	}
+
+	err = commonservice.ProcessWebhook(testing.HookCtl.Items,existed.HookCtl.Items,webhook.TestingPrefix+testing.Name,log)
+	if err != nil {
+		return e.ErrUpdateTestModule.AddErr(err)
 	}
 
 	testing.UpdateBy = username

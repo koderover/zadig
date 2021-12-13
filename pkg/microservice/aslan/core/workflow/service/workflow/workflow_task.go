@@ -538,7 +538,8 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 			buildModuleArgs := &commonmodels.BuildModuleArgs{
 				Target:      target.Name,
 				ServiceName: target.ServiceName,
-				ProductName: target.ProductName,
+				//ProductName: target.ProductName,				// TODO productName may be nil in some situation, need to figure out reason
+				ProductName: args.ProductTmplName,
 				Variables:   target.Envs,
 				Env:         env,
 			}
@@ -1625,7 +1626,6 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 		}
 
 		if serviceTmpl != nil {
-			build.Namespace = args.Env.Namespace
 			build.ServiceType = setting.PMDeployType
 			envHost := make(map[string][]string)
 			for _, envConfig := range serviceTmpl.EnvConfigs {
