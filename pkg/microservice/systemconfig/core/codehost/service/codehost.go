@@ -139,6 +139,7 @@ func Callback(stateQuery string, r *http.Request, logger *zap.SugaredLogger) (st
 		logger.Errorf("Factory err:%s", err)
 		return state.RedirectURL, err
 	}
+	time.Sleep(time.Second * 30)
 	token, err := o.HandleCallback(r)
 	if err != nil {
 		logger.Errorf("HandleCallback err:%s", err)
