@@ -76,6 +76,7 @@ func GetCodeHost(id int, _ *zap.SugaredLogger) (*models.CodeHost, error) {
 type State struct {
 	CodeHostID  int    `json:"code_host_id"`
 	RedirectURL string `json:"redirect_url"`
+	CallbackURl string `json:"callback_u_rl"`
 }
 
 func AuthCodeHost(redirectURI, codeHostCallbackURL string, codeHostID int, logger *zap.SugaredLogger) (redirectURL string, err error) {
@@ -92,6 +93,7 @@ func AuthCodeHost(redirectURI, codeHostCallbackURL string, codeHostID int, logge
 	stateStruct := State{
 		CodeHostID:  codeHost.ID,
 		RedirectURL: redirectURI,
+		CallbackURl: codeHostCallbackURL,
 	}
 	bs, err := json.Marshal(stateStruct)
 	if err != nil {
@@ -115,10 +117,10 @@ func Callback(stateQuery string, r *http.Request, logger *zap.SugaredLogger) (st
 	}
 	codehost, err := GetCodeHost(state.CodeHostID, logger)
 	if err != nil {
-		logger.Errorf("GetCodeHost err:%s", err)
+		logger.Errorf("GetCodeHost err:%s,state:%+v", err, state)
 		return state.RedirectURL, err
 	}
-	o, err := factory.Factory(codehost.Type, state.RedirectURL, codehost.ApplicationId, codehost.ClientSecret, codehost.Address)
+	o, err := factory.Factory(codehost.Type, state.CallbackURl, codehost.ApplicationId, codehost.ClientSecret, codehost.Address)
 	if err != nil {
 		logger.Errorf("Factory err:%s", err)
 		return state.RedirectURL, err

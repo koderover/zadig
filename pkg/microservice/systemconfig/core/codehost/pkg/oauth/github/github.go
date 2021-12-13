@@ -1,7 +1,6 @@
 package github
 
 import (
-	"context"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/pkg/oauth"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
@@ -62,6 +61,5 @@ func (g *Oauth) HandleCallback(r *http.Request) (token *oauth2.Token, err error)
 	if errType := q.Get("error"); errType != "" {
 		return nil, &oauth2Error{errType, q.Get("error_description")}
 	}
-	oauth2Config := g.oauth2Config()
-	return oauth2Config.Exchange(context.Background(), q.Get("code"))
+	return g.oauth2Config().Exchange(r.Context(), q.Get("code"))
 }

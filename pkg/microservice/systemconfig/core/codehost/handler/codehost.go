@@ -17,6 +17,7 @@ limitations under the License.
 package handler
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/service"
@@ -79,6 +80,8 @@ func AuthCodeHost(c *gin.Context) {
 	url, err := service.AuthCodeHost(c.Query("redirect_url"), c.Query("callback_url"), idInt, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
+		ctx.Logger.Errorf("auth url : %s,err %s", url, err)
+		return
 	}
 	c.Redirect(http.StatusFound, url)
 }
@@ -92,6 +95,7 @@ func Callback(c *gin.Context) {
 	url, err := service.Callback(stateStr, c.Request, ctx.Logger)
 	if err != nil {
 		ctx.Logger.Errorf("Callback err:%s", err)
+		url = fmt.Sprintf("%s&err=%s", url, err)
 	}
 	c.Redirect(http.StatusFound, url)
 }
