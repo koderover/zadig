@@ -205,6 +205,7 @@ func (r *Reaper) runScripts() error {
 	scripts := r.prepareScriptsEnv()
 	// avoid non-blocking IO for stdout to workaround "stdout: write error"
 	for _, script := range r.Ctx.Scripts {
+		// TODO: This may cause nodejs compilation problems, but it is not completely determined, so keep it for now.
 		scripts = append(scripts, script)
 		if strings.Contains(script, "yarn ") || strings.Contains(script, "npm ") || strings.Contains(script, "bower ") {
 			scripts = append(scripts, "echo 'turn off O_NONBLOCK after using node'")
@@ -231,6 +232,11 @@ func (r *Reaper) runScripts() error {
 	}
 
 	outScanner := bufio.NewScanner(cmdOutReader)
+
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
 	go func() {
 		for outScanner.Scan() {
 			fmt.Printf("%s\n", r.maskSecretEnvs(outScanner.Text()))
@@ -240,22 +246,7 @@ func (r *Reaper) runScripts() error {
 		}
 	}()
 
-	cmdErrReader, err := cmd.StderrPipe()
-	if err != nil {
-		return err
-	}
-
-	errScanner := bufio.NewScanner(cmdErrReader)
-	go func() {
-		for errScanner.Scan() {
-			fmt.Printf("%s\n", r.maskSecretEnvs(errScanner.Text()))
-			if len(r.Ctx.PostScripts) > 0 {
-				util.WriteFile(fileName, []byte(errScanner.Text()+"\n"), 0700)
-			}
-		}
-	}()
-
-	return cmd.Run()
+	return cmd.Wait()
 }
 
 func (r *Reaper) prepareScriptsEnv() []string {
