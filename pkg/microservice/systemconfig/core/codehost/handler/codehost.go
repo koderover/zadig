@@ -110,10 +110,10 @@ func Callback(c *gin.Context) {
 
 	if err := service.HandleCallback(state.CodeHostID, state.CallbackURl, c.Request, ctx.Logger); err != nil {
 		ctx.Logger.Errorf("Callback err:%s", err)
-		url := fmt.Sprintf("%s&err=%s", state.RedirectURL, err)
+		url := fmt.Sprintf("%s?err=%s", state.RedirectURL, err)
 		c.Redirect(http.StatusFound, url)
 	}
-	c.Redirect(http.StatusFound, state.RedirectURL+"&success=true")
+	c.Redirect(http.StatusFound, state.RedirectURL+"?success=true")
 }
 
 func UpdateCodeHost(c *gin.Context) {
