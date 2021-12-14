@@ -109,7 +109,7 @@ func Callback(c *gin.Context) {
 		return
 	}
 
-	if err := service.HandleCallback(state.CodeHostID, state.CallbackURl, c.Request, ctx.Logger); err != nil {
+	if err := service.HandleCallback(state.CodeHostID, state.CallbackURL, c.Request, ctx.Logger); err != nil {
 		ctx.Logger.Errorf("Callback err:%s", err)
 		url := fmt.Sprintf("%s?err=%s", state.RedirectURL, err)
 		c.Redirect(http.StatusFound, url)
