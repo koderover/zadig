@@ -127,7 +127,8 @@ func ListDelivery(c *gin.Context) {
 func GetArtifactInfo(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
+	host := c.GetHeader("Host")
+	ctx.Logger.Infof("host:%s", host)
 	image := c.Query("image")
 	ctx.Resp, ctx.Err = service.GetArtifactInfo(c.Request.Header, c.Request.URL.Query(), image, ctx.Logger)
 }
