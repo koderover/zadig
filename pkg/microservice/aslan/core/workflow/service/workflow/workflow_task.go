@@ -451,15 +451,15 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		}
 	}
 
-	productTempl, err := template.NewProductColl().Find(args.ProductTmplName)
-	if err != nil {
-		log.Errorf("productTempl.Find error: %v", err)
-		return nil, e.ErrFindWorkflow.AddDesc(err.Error())
-	}
-
 	workflow, err := commonrepo.NewWorkflowColl().Find(args.WorkflowName)
 	if err != nil {
 		log.Errorf("Workflow.Find error: %v", err)
+		return nil, e.ErrFindWorkflow.AddDesc(err.Error())
+	}
+
+	productTempl, err := template.NewProductColl().Find(workflow.ProductTmplName)
+	if err != nil {
+		log.Errorf("productTempl.Find error: %v", err)
 		return nil, e.ErrFindWorkflow.AddDesc(err.Error())
 	}
 	args.IsParallel = workflow.IsParallel
