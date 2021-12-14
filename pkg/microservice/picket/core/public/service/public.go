@@ -114,9 +114,5 @@ func GetArtifactInfo(header http.Header, qs url.Values, image string, _ *zap.Sug
 		return nil, fmt.Errorf("failed to unmarshal deliveryArtifactInfo err:%s", err)
 	}
 
-	//for _,artivity := range deliveryArtifactInfo.DeliveryActivities{
-	//	artivity.URL =
-	//}
-
 	return deliveryArtifactInfo, nil
 }
