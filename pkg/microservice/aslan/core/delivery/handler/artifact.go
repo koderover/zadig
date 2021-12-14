@@ -81,7 +81,7 @@ func GetDeliveryArtifactByImage(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	image := c.Param("image")
+	image := c.Query("image")
 	if image == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("image can't be empty!")
 		return

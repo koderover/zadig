@@ -9,7 +9,7 @@ import (
 )
 
 func (c *Client) GetArtifactByImage(header http.Header, qs url.Values, image string) ([]byte, error) {
-	url := fmt.Sprintf("/api/aslan/delivery/artifacts/image/%s", image)
+	url := fmt.Sprintf("/api/aslan/delivery/artifacts/image?image=%s", image)
 
 	res, err := c.Get(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs))
 	if err != nil {

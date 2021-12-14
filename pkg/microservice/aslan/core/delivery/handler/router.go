@@ -30,7 +30,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		deliveryArtifact.GET("", ListDeliveryArtifacts)
 		deliveryArtifact.GET("/:id", GetDeliveryArtifact)
-		deliveryArtifact.GET("/image/:image", GetDeliveryArtifactByImage)
+		deliveryArtifact.GET("/image", GetDeliveryArtifactByImage)
 		deliveryArtifact.POST("", CreateDeliveryArtifacts)
 		deliveryArtifact.POST("/:id", UpdateDeliveryArtifact)
 		deliveryArtifact.POST("/:id/activities", CreateDeliveryActivities)
