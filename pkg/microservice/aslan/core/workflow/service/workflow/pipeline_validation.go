@@ -52,6 +52,8 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
+	"github.com/koderover/zadig/pkg/util/converter"
+	"github.com/koderover/zadig/pkg/util/yaml"
 )
 
 const (
@@ -718,12 +720,64 @@ func (c *ImageIllegal) Error() string {
 
 // find currently using image for services deployed by helm
 func findCurrentlyUsingImage(productInfo *commonmodels.Product, serviceName, containerName string) (string, error) {
+	image := ""
+	var imagePathSpec *commonmodels.ImagePathSpec
+	var render *commonmodels.RenderInfo
 	for _, service := range productInfo.GetServiceMap() {
 		if service.ServiceName == serviceName {
 			for _, container := range service.Containers {
 				if container.Name == containerName {
-					return container.Image, nil
+					image = container.Image
+					imagePathSpec = container.ImagePath
 				}
+			}
+			render = service.Render
+			break
+		}
+	}
+
+	splitImage := strings.Split(image, ":")
+	if len(splitImage) != 2 {
+		return "", fmt.Errorf("failed to find image:%s format error", image)
+	}
+	if render == nil {
+		return image, nil
+	}
+	opt := &commonrepo.RenderSetFindOption{
+		Name:     render.Name,
+		Revision: render.Revision,
+	}
+	renderSetInfo, err := commonrepo.NewRenderSetColl().Find(opt)
+	if err != nil || renderSetInfo == nil {
+		return "", fmt.Errorf("failed to find renderSetInfo name:%s,revision:%v", opt.Name, opt.Revision)
+	}
+
+	defaultValues := renderSetInfo.DefaultValues
+	for _, singleChart := range renderSetInfo.ChartInfos {
+		rca := &commonservice.RenderChartArg{}
+		rca.LoadFromRenderChartModel(singleChart)
+		if singleChart.ServiceName == serviceName {
+			for _, override := range rca.OverrideValues {
+				if override.Key == imagePathSpec.Tag {
+					return splitImage[0] + ":" + override.Value, nil
+				}
+			}
+
+			overrideYaml := ""
+			if singleChart.OverrideYaml != nil {
+				overrideYaml = singleChart.OverrideYaml.YamlContent
+			}
+			yamlMap, err := yaml.MergeAndUnmarshal([][]byte{[]byte(defaultValues), []byte(overrideYaml)})
+			if err != nil {
+				return "", fmt.Errorf("MergeAndUnmarshal image:%s format error:%s", image, err)
+			}
+
+			flatten, err := converter.Flatten(yamlMap)
+			if err != nil {
+				return "", fmt.Errorf("Flatten image:%s format error:%s", image, err)
+			}
+			if imageTag, ok := flatten[imagePathSpec.Image]; ok {
+				return fmt.Sprintf("%s:%s", splitImage[0], imageTag), nil
 			}
 		}
 	}
