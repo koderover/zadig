@@ -23,7 +23,6 @@ import (
 
 	"go.uber.org/zap"
 
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/picket/client/aslan"
 )
 
@@ -45,29 +44,6 @@ func ListWorkflowTask(header http.Header, qs url.Values, commitId string, _ *zap
 
 func ListDelivery(header http.Header, qs url.Values, productName string, workflowName string, taskId string, perPage string, page string, _ *zap.SugaredLogger) ([]byte, error) {
 	return aslan.New().ListDelivery(header, qs, productName, workflowName, taskId, perPage, page)
-}
-
-type DeliveryArtifact struct {
-	Name                string `json:"name"`
-	Type                string `json:"type"`
-	Source              string `json:"source"`
-	Image               string `json:"image,omitempty"`
-	ImageHash           string `json:"image_hash,omitempty"`
-	ImageTag            string `json:"image_tag"`
-	ImageDigest         string `json:"image_digest,omitempty"`
-	ImageSize           int64  `json:"image_size,omitempty"`
-	Architecture        string `json:"architecture,omitempty"`
-	Os                  string `json:"os,omitempty"`
-	PackageFileLocation string `json:"package_file_location,omitempty"`
-	PackageStorageURI   string `json:"package_storage_uri,omitempty"`
-	CreatedBy           string `json:"created_by"`
-	CreatedTime         int64  `json:"created_time"`
-}
-
-type DeliveryArtifactInfo struct {
-	DeliveryArtifact      *DeliveryArtifact                           `json:"delivery_artifact"`
-	DeliveryActivities    []*commonmodels.DeliveryActivity            `json:"activities"`
-	DeliveryActivitiesMap map[string][]*commonmodels.DeliveryActivity `json:"sortedActivities,omitempty"`
 }
 
 func GetArtifactInfo(header http.Header, qs url.Values, image string, _ *zap.SugaredLogger) (*DeliveryArtifactInfo, error) {
