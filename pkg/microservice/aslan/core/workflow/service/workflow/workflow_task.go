@@ -459,8 +459,12 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 
 	project, err := template.NewProductColl().Find(workflow.ProductTmplName)
 	if err != nil {
-		log.Errorf("productTempl.Find error: %v", err)
+		log.Errorf("project.Find error: %v", err)
 		return nil, e.ErrFindWorkflow.AddDesc(err.Error())
+	}
+	// developer don't pass args.ProductTmplName
+	if args.ProductTmplName == "" {
+		args.ProductTmplName = workflow.ProductTmplName
 	}
 	args.IsParallel = workflow.IsParallel
 
