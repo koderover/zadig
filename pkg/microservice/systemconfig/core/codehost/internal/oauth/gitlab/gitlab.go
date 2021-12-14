@@ -13,7 +13,7 @@ type oAuth struct {
 	oauth2Config *oauth2.Config
 }
 
-func New(callbackURL, clientID, clientSecret, address string) oauth.Oauth {
+func New(callbackURL, clientID, clientSecret, address string) *oAuth {
 	endpoint := gitlab.Endpoint
 	if address != "" {
 		endpoint = oauth2.Endpoint{
