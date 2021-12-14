@@ -97,7 +97,7 @@ type ActivityCommit struct {
 }
 
 type DeliveryArtifactInfo struct {
-	DeliveryArtifact      *DeliveryArtifact              `json:"delivery_artifact"`
+	*DeliveryArtifact
 	DeliveryActivities    []*DeliveryActivity            `json:"activities"`
 	DeliveryActivitiesMap map[string][]*DeliveryActivity `json:"sortedActivities,omitempty"`
 }
@@ -113,6 +113,10 @@ func GetArtifactInfo(header http.Header, qs url.Values, image string, _ *zap.Sug
 	if err = json.Unmarshal(body, &deliveryArtifactInfo); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal deliveryArtifactInfo err:%s", err)
 	}
+
+	//for _,artivity := range deliveryArtifactInfo.DeliveryActivities{
+	//	artivity.URL =
+	//}
 
 	return deliveryArtifactInfo, nil
 }
