@@ -1,7 +1,6 @@
 package github
 
 import (
-	"fmt"
 	"net/http"
 
 	"golang.org/x/oauth2"
@@ -33,18 +32,6 @@ func New(callbackURL, clientID, clientSecret, address string) oauth.Oauth {
 	}
 }
 
-type oauth2Error struct {
-	error       string
-	description string
-}
-
-func (e *oauth2Error) Error() string {
-	if e.description == "" {
-		return e.error
-	}
-	return fmt.Sprintf("%s: %s", e.error, e.description)
-}
-
 func (o *oAuth) LoginURL(state string) string {
 	return o.oauth2Config.AuthCodeURL(state)
 }
@@ -52,7 +39,7 @@ func (o *oAuth) LoginURL(state string) string {
 func (o *oAuth) HandleCallback(r *http.Request) (*oauth2.Token, error) {
 	q := r.URL.Query()
 	if errType := q.Get("error"); errType != "" {
-		return nil, &oauth2Error{errType, q.Get("error_description")}
+		return nil, &oauth.OAuth2Error{errType, q.Get("error_description")}
 	}
 	return o.oauth2Config.Exchange(r.Context(), q.Get("code"))
 }

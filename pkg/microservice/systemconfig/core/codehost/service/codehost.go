@@ -79,7 +79,7 @@ func GetCodeHost(id int, _ *zap.SugaredLogger) (*models.CodeHost, error) {
 	return mongodb.NewCodehostColl().GetCodeHostByID(id)
 }
 
-type State struct {
+type state struct {
 	CodeHostID  int    `json:"code_host_id"`
 	RedirectURL string `json:"redirect_url"`
 }
@@ -95,13 +95,13 @@ func AuthCodeHost(redirectURI string, codeHostID int, logger *zap.SugaredLogger)
 		logger.Errorf("Parse:%s err:%s", codeHostID, err)
 		return "", err
 	}
-	callbackURL := fmt.Sprintf("%s://%s/api/directory/codehosts/callback", redirectParsedURL.Scheme, redirectParsedURL.Host)
+	callbackURL := fmt.Sprintf("%s://%s%s", redirectParsedURL.Scheme, redirectParsedURL.Host, callback)
 	oauth, err := NewOAuth(codeHost.Type, callbackURL, codeHost.ApplicationId, codeHost.ClientSecret, codeHost.Address)
 	if err != nil {
 		logger.Errorf("get Factory:%s err:%s", codeHost.Type, err)
 		return "", err
 	}
-	stateStruct := State{
+	stateStruct := state{
 		CodeHostID:  codeHost.ID,
 		RedirectURL: redirectURI,
 	}
@@ -128,6 +128,8 @@ func NewOAuth(provider, callbackURL, clientID, clientSecret, address string) (oa
 	return nil, errors.New("illegal provider")
 }
 
+const callback = "/api/directory/codehosts/callback"
+
 func HandleCallback(stateStr string, r *http.Request, logger *zap.SugaredLogger) (string, error) {
 	aes, err := crypto.NewAes(crypto.GetAesKey())
 	decrypted, err := aes.Decrypt(stateStr)
@@ -136,7 +138,7 @@ func HandleCallback(stateStr string, r *http.Request, logger *zap.SugaredLogger)
 		return "", err
 	}
 
-	var state State
+	var state state
 	if err := json.Unmarshal([]byte(decrypted), &state); err != nil {
 		logger.Errorf("Unmarshal err:%s", err)
 		return "", err
@@ -150,7 +152,7 @@ func HandleCallback(stateStr string, r *http.Request, logger *zap.SugaredLogger)
 		logger.Errorf("ParseURL:%s err:%s", state.RedirectURL, err)
 		return "", err
 	}
-	callbackURL := fmt.Sprintf("%s://%s/api/directory/codehosts/callback", redirectParsedURL.Scheme, redirectParsedURL.Host)
+	callbackURL := fmt.Sprintf("%s://%s%s", redirectParsedURL.Scheme, redirectParsedURL.Host, callback)
 	o, err := NewOAuth(codehost.Type, callbackURL, codehost.ApplicationId, codehost.ClientSecret, codehost.Address)
 	if err != nil {
 		return handle(state.RedirectURL, err)
