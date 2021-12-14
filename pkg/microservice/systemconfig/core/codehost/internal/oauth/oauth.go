@@ -8,5 +8,5 @@ import (
 
 type Oauth interface {
 	LoginURL(state string) (loginURL string)
-	HandleCallback(r *http.Request) (token *oauth2.Token, err error)
+	HandleCallback(r *http.Request) (*oauth2.Token, error)
 }

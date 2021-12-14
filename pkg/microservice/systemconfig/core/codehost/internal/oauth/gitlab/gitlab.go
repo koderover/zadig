@@ -49,7 +49,7 @@ func (o *oAuth) LoginURL(state string) string {
 	return o.oauth2Config.AuthCodeURL(state)
 }
 
-func (o *oAuth) HandleCallback(r *http.Request) (token *oauth2.Token, err error) {
+func (o *oAuth) HandleCallback(r *http.Request) (*oauth2.Token, error) {
 	q := r.URL.Query()
 	if errType := q.Get("error"); errType != "" {
 		return nil, &oauth2Error{errType, q.Get("error_description")}
