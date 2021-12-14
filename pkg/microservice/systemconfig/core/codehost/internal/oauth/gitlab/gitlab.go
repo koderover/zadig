@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/github"
+	"golang.org/x/oauth2/gitlab"
 
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/internal/oauth"
 )
@@ -15,7 +15,7 @@ type oAuth struct {
 }
 
 func New(callbackURL, clientID, clientSecret, address string) oauth.Oauth {
-	endpoint := github.Endpoint
+	endpoint := gitlab.Endpoint
 	if address != "" {
 		endpoint = oauth2.Endpoint{
 			AuthURL:  address + "/oauth/authorize",
