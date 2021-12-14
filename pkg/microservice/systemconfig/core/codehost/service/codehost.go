@@ -36,6 +36,8 @@ import (
 	"github.com/koderover/zadig/pkg/tool/crypto"
 )
 
+const callback = "/api/directory/codehosts/callback"
+
 func CreateCodeHost(codehost *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
 	if codehost.Type == "codehub" {
 		codehost.IsReady = "2"
@@ -127,8 +129,6 @@ func NewOAuth(provider, callbackURL, clientID, clientSecret, address string) (oa
 	}
 	return nil, errors.New("illegal provider")
 }
-
-const callback = "/api/directory/codehosts/callback"
 
 func HandleCallback(stateStr string, r *http.Request, logger *zap.SugaredLogger) (string, error) {
 	aes, err := crypto.NewAes(crypto.GetAesKey())
