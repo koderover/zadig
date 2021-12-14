@@ -169,7 +169,7 @@ func getDeliveryActivitiesMap(deliveryActivities []*commonmodels.DeliveryActivit
 	return artifactMapInfo
 }
 
-func GetDeliveryArtifactByImage(deliveryArtifactArgs *commonrepo.DeliveryArtifactArgs, log *zap.SugaredLogger) (string, error) {
+func GetDeliveryArtifactIDByImage(deliveryArtifactArgs *commonrepo.DeliveryArtifactArgs, log *zap.SugaredLogger) (string, error) {
 	deliveryArtifact, err := commonrepo.NewDeliveryArtifactColl().Get(deliveryArtifactArgs)
 	if err != nil {
 		log.Errorf("get deliveryArtifact error: %s", err)

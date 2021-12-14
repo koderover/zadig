@@ -77,7 +77,7 @@ func ListDeliveryArtifacts(c *gin.Context) {
 	ctx.Resp, ctx.Err = artifacts, err
 }
 
-func GetDeliveryArtifactByImage(c *gin.Context) {
+func GetDeliveryArtifactIDByImage(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -90,7 +90,7 @@ func GetDeliveryArtifactByImage(c *gin.Context) {
 		Image: image,
 	}
 
-	ctx.Resp, ctx.Err = deliveryservice.GetDeliveryArtifactByImage(args, ctx.Logger)
+	ctx.Resp, ctx.Err = deliveryservice.GetDeliveryArtifactIDByImage(args, ctx.Logger)
 }
 
 func GetDeliveryArtifact(c *gin.Context) {
