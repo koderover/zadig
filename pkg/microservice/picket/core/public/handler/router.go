@@ -31,5 +31,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		dev.POST("/workflowTask/id/:id/pipelines/:name/restart", RestartWorkflowTask)
 		dev.GET("/workflowTask", ListWorkflowTask)
 		dev.GET("/dc/releases", ListDelivery)
+		dev.GET("/dc/artifact", GetArtifactInfo)
 	}
 }

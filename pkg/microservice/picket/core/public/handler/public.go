@@ -123,3 +123,10 @@ func ListDelivery(c *gin.Context) {
 	pageStr := c.Query("page")
 	ctx.Resp, ctx.Err = service.ListDelivery(c.Request.Header, c.Request.URL.Query(), productName, workflowName, taskIDStr, perPageStr, pageStr, ctx.Logger)
 }
+
+func GetArtifactInfo(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	image := c.Query("image")
+	ctx.Resp, ctx.Err = service.GetArtifactInfo(c.Request.Header, c.Request.URL.Query(), image, ctx.Logger)
+}

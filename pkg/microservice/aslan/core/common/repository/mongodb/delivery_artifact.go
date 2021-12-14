@@ -140,13 +140,20 @@ func (c *DeliveryArtifactColl) Get(args *DeliveryArtifactArgs) (*models.Delivery
 		return nil, errors.New("nil delivery_artifact args")
 	}
 	resp := new(models.DeliveryArtifact)
-	id, err := primitive.ObjectIDFromHex(args.ID)
-	if err != nil {
-		return nil, err
+	query := bson.M{}
+	if args.ID != "" {
+		id, err := primitive.ObjectIDFromHex(args.ID)
+		if err != nil {
+			return nil, err
+		}
+		query["_id"] = id
 	}
-	query := bson.M{"_id": id}
 
-	err = c.FindOne(context.TODO(), query).Decode(&resp)
+	if args.Image != "" {
+		query["image"] = args.Image
+	}
+
+	err := c.FindOne(context.TODO(), query).Decode(&resp)
 	if err != nil {
 		return nil, err
 	}
