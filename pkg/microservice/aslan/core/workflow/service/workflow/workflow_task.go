@@ -457,7 +457,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		return nil, e.ErrFindWorkflow.AddDesc(err.Error())
 	}
 
-	productTempl, err := template.NewProductColl().Find(workflow.ProductTmplName)
+	project, err := template.NewProductColl().Find(workflow.ProductTmplName)
 	if err != nil {
 		log.Errorf("productTempl.Find error: %v", err)
 		return nil, e.ErrFindWorkflow.AddDesc(err.Error())
@@ -563,7 +563,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 				if deployEnv.Type == setting.PMDeployType {
 					continue
 				}
-				deployTask, err := deployEnvToSubTasks(deployEnv, env, productTempl.Timeout)
+				deployTask, err := deployEnvToSubTasks(deployEnv, env, project.Timeout)
 				if err != nil {
 					log.Errorf("deploy env to subtask error: %v", err)
 					return nil, e.ErrCreateTask.AddErr(err)
