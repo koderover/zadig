@@ -451,16 +451,20 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		}
 	}
 
-	productTempl, err := template.NewProductColl().Find(args.ProductTmplName)
-	if err != nil {
-		log.Errorf("productTempl.Find error: %v", err)
-		return nil, e.ErrFindWorkflow.AddDesc(err.Error())
-	}
-
 	workflow, err := commonrepo.NewWorkflowColl().Find(args.WorkflowName)
 	if err != nil {
 		log.Errorf("Workflow.Find error: %v", err)
 		return nil, e.ErrFindWorkflow.AddDesc(err.Error())
+	}
+
+	project, err := template.NewProductColl().Find(workflow.ProductTmplName)
+	if err != nil {
+		log.Errorf("project.Find error: %v", err)
+		return nil, e.ErrFindWorkflow.AddDesc(err.Error())
+	}
+	// developer don't pass args.ProductTmplName
+	if args.ProductTmplName == "" {
+		args.ProductTmplName = workflow.ProductTmplName
 	}
 	args.IsParallel = workflow.IsParallel
 
@@ -550,7 +554,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 				if deployEnv.Type == setting.PMDeployType {
 					continue
 				}
-				deployTask, err := deployEnvToSubTasks(deployEnv, env, productTempl.Timeout)
+				deployTask, err := deployEnvToSubTasks(deployEnv, env, project.Timeout)
 				if err != nil {
 					log.Errorf("deploy env to subtask error: %v", err)
 					return nil, e.ErrCreateTask.AddErr(err)

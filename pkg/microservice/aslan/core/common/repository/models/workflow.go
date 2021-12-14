@@ -168,6 +168,7 @@ type WorkflowTaskArgs struct {
 	// 请求模式，openAPI表示外部客户调用
 	RequestMode string `json:"request_mode,omitempty"`
 	IsParallel  bool   `json:"is_parallel" bson:"is_parallel"`
+	EnvName     string `json:"env_name" bson:"-"`
 }
 
 type TestTaskArgs struct {
