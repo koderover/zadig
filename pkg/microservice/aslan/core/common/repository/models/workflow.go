@@ -199,8 +199,9 @@ type BuildStage struct {
 
 // BuildModule ...
 type BuildModule struct {
-	Target         *ServiceModuleTarget `bson:"target"                 json:"target"`
-	BuildModuleVer string               `bson:"build_module_ver"       json:"build_module_ver"`
+	Target            *ServiceModuleTarget `bson:"target"                 json:"target"`
+	ShowServiceModule bool                 `bson:"show_service_module"    json:"show_service_module"`
+	BuildModuleVer    string               `bson:"build_module_ver"       json:"build_module_ver"`
 }
 
 type ArtifactStage struct {
