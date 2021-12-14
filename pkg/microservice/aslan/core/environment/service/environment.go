@@ -858,15 +858,14 @@ func copySingleHelmProduct(productName, requestID, userName string, arg *CreateH
 	}
 
 	productInfo.Render = nil
-	if len(productInfo.Services) > 0 {
-		for idxm, svrInfo := range productInfo.Services {
-			for idxn, svr := range svrInfo {
-				if svr.Render != nil {
-					productInfo.Services[idxm][idxn].Render = nil
-				}
+	for idxm, svrInfo := range productInfo.Services {
+		for idxn, svr := range svrInfo {
+			if svr.Render != nil {
+				productInfo.Services[idxm][idxn].Render = nil
 			}
 		}
 	}
+
 	// default values
 	defaultValuesYaml := arg.DefaultValues
 
