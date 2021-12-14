@@ -22,6 +22,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/picket/core/public/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
@@ -29,10 +30,24 @@ import (
 func CreateWorkflowTask(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	body, _ := c.GetRawData()
+	req := new(models.WorkflowTaskArgs)
+	if err := c.ShouldBindJSON(req); err != nil {
+		ctx.Err = err
+		ctx.Logger.Errorf("ShouldBindJSON err:%s", err)
+		return
+	}
+	req.Namespace = req.EnvName
+	req.RequestMode = "openAPI"
+	body, err := json.Marshal(req)
+	if err != nil {
+		ctx.Err = err
+		ctx.Logger.Errorf("Marshal err:%s", err)
+		return
+	}
 	res, err := service.CreateWorkflowTask(c.Request.Header, c.Request.URL.Query(), body, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
+		ctx.Logger.Errorf("CreateWorkflowTask err:%s", err)
 		return
 	}
 	// to avoid customer feel confused ，return workflow_name instead of pipline_name
@@ -40,6 +55,7 @@ func CreateWorkflowTask(c *gin.Context) {
 	err = json.Unmarshal(res, &resp)
 	if err != nil {
 		ctx.Err = err
+		ctx.Logger.Errorf("Unmarshal err:%s", err)
 		return
 	}
 	resp.WorkflowName = resp.PipelineName
@@ -122,4 +138,11 @@ func ListDelivery(c *gin.Context) {
 	perPageStr := c.Query("perPage")
 	pageStr := c.Query("page")
 	ctx.Resp, ctx.Err = service.ListDelivery(c.Request.Header, c.Request.URL.Query(), productName, workflowName, taskIDStr, perPageStr, pageStr, ctx.Logger)
+}
+
+func GetArtifactInfo(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	image := c.Query("image")
+	ctx.Resp, ctx.Err = service.GetArtifactInfo(c.Request.Header, c.Request.URL.Query(), image, ctx.Logger)
 }

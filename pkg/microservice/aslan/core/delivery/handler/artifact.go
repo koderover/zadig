@@ -77,6 +77,22 @@ func ListDeliveryArtifacts(c *gin.Context) {
 	ctx.Resp, ctx.Err = artifacts, err
 }
 
+func GetDeliveryArtifactIDByImage(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	image := c.Query("image")
+	if image == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("image can't be empty!")
+		return
+	}
+	args := &commonrepo.DeliveryArtifactArgs{
+		Image: image,
+	}
+
+	ctx.Resp, ctx.Err = deliveryservice.GetDeliveryArtifactIDByImage(args, ctx.Logger)
+}
+
 func GetDeliveryArtifact(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -89,7 +105,6 @@ func GetDeliveryArtifact(c *gin.Context) {
 	args := &commonrepo.DeliveryArtifactArgs{
 		ID: id,
 	}
-	args.ID = id
 
 	ctx.Resp, ctx.Err = deliveryservice.GetDeliveryArtifact(args, ctx.Logger)
 }

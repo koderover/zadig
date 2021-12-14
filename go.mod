@@ -19,7 +19,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.0.0
 	github.com/dexidp/dex v0.0.0-20210802203454-3fac2ab6bc3b
 	github.com/docker/distribution v2.7.1+incompatible
-	github.com/docker/docker v20.10.7+incompatible
+	github.com/docker/docker v20.10.11+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7 // indirect
 	github.com/dsnet/compress v0.0.1 // indirect
@@ -41,7 +41,7 @@ require (
 	github.com/jasonlvhit/gocron v0.0.0-20171226191223-3c914c8681c3
 	github.com/jinzhu/now v1.1.2
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
-	github.com/mittwald/go-helm-client v0.8.2
+	github.com/mittwald/go-helm-client v0.8.3
 	github.com/moby/buildkit v0.9.1
 	github.com/nsqio/go-nsq v1.0.7
 	github.com/nwaples/rardecode v1.0.0 // indirect
@@ -67,8 +67,8 @@ require (
 	github.com/yvasiyarov/newrelic_platform_go v0.0.0-20160601141957-9c099fbc30e9 // indirect
 	go.mongodb.org/mongo-driver v1.5.0
 	go.uber.org/zap v1.19.0
-	golang.org/x/crypto v0.0.0-20210513164829-c07d793c2f9a
-	golang.org/x/net v0.0.0-20210520170846-37e1c6afe023
+	golang.org/x/crypto v0.0.0-20211117183948-ae814b36b871
+	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2
 	golang.org/x/oauth2 v0.0.0-20210628180205-a41e5a781914
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
@@ -79,25 +79,27 @@ require (
 	gorm.io/driver/mysql v1.1.2
 	gorm.io/gorm v1.21.16
 	helm.sh/helm/v3 v3.7.1
-	k8s.io/api v0.22.1
-	k8s.io/apimachinery v0.22.1
-	k8s.io/apiserver v0.22.1 // indirect
-	k8s.io/client-go v0.22.1
-	k8s.io/kubectl v0.22.1
-	k8s.io/utils v0.0.0-20210802155522-efc7438f0176
+	k8s.io/api v0.22.4
+	k8s.io/apimachinery v0.22.4
+	k8s.io/client-go v0.22.4
+	k8s.io/kubectl v0.22.4
+	k8s.io/utils v0.0.0-20210819203725-bdf08cb9a70a
 	sigs.k8s.io/controller-runtime v0.10.0
-	sigs.k8s.io/yaml v1.2.0
+	sigs.k8s.io/yaml v1.3.0
 )
 
 replace (
 	github.com/docker/distribution => github.com/docker/distribution v2.6.0-rc.1.0.20170726174610-edc3ab29cdff+incompatible
 	github.com/docker/docker => github.com/docker/docker v0.0.0-20180502112750-51a9119f6b81
 	github.com/docker/go-connections => github.com/docker/go-connections v0.3.1-0.20180212134524-7beb39f0b969
+	github.com/go-logr/logr => github.com/go-logr/logr v0.4.0
 
 	k8s.io/api => k8s.io/api v0.21.0
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.21.0
 	k8s.io/apimachinery => k8s.io/apimachinery v0.21.0
 	k8s.io/cli-runtime => k8s.io/cli-runtime v0.21.0
 	k8s.io/client-go => k8s.io/client-go v0.21.0
+	k8s.io/klog/v2 => k8s.io/klog/v2 v2.9.0
 	k8s.io/kubectl => k8s.io/kubectl v0.21.0
+	oras.land/oras-go => oras.land/oras-go v0.4.0
 )
