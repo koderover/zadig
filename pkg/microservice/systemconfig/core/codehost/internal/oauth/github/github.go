@@ -11,35 +11,25 @@ import (
 )
 
 type oAuth struct {
-	RedirectURI  string
-	ClientID     string
-	ClientSecret string
-	Address      string
+	oauth2Config *oauth2.Config
 }
 
 func New(callbackURL, clientID, clientSecret, address string) oauth.Oauth {
-	return &oAuth{
-		RedirectURI:  callbackURL,
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
-		Address:      address,
-	}
-}
-
-func (o *oAuth) oauth2Config() *oauth2.Config {
 	endpoint := github.Endpoint
-	if o.Address != "" {
+	if address != "" {
 		endpoint = oauth2.Endpoint{
-			AuthURL:  o.Address + "/login/oauth/authorize",
-			TokenURL: o.Address + "/login/oauth/access_token",
+			AuthURL:  address + "/login/oauth/authorize",
+			TokenURL: address + "/login/oauth/access_token",
 		}
 	}
-	return &oauth2.Config{
-		ClientID:     o.ClientID,
-		ClientSecret: o.ClientSecret,
-		Endpoint:     endpoint,
-		RedirectURL:  o.RedirectURI,
-		Scopes:       []string{"repo", "user"},
+	return &oAuth{
+		oauth2Config: &oauth2.Config{
+			ClientID:     clientID,
+			ClientSecret: clientSecret,
+			Endpoint:     endpoint,
+			RedirectURL:  callbackURL,
+			Scopes:       []string{"repo", "user"},
+		},
 	}
 }
 
@@ -56,7 +46,7 @@ func (e *oauth2Error) Error() string {
 }
 
 func (o *oAuth) LoginURL(state string) string {
-	return o.oauth2Config().AuthCodeURL(state)
+	return o.oauth2Config.AuthCodeURL(state)
 }
 
 func (o *oAuth) HandleCallback(r *http.Request) (token *oauth2.Token, err error) {
@@ -64,5 +54,5 @@ func (o *oAuth) HandleCallback(r *http.Request) (token *oauth2.Token, err error)
 	if errType := q.Get("error"); errType != "" {
 		return nil, &oauth2Error{errType, q.Get("error_description")}
 	}
-	return o.oauth2Config().Exchange(r.Context(), q.Get("code"))
+	return o.oauth2Config.Exchange(r.Context(), q.Get("code"))
 }
