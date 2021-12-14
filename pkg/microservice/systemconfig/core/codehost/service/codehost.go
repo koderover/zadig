@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 
 	"go.uber.org/zap"
@@ -123,24 +124,49 @@ func NewOAuth(provider, callbackURL, clientID, clientSecret, address string) (oa
 	return nil, errors.New("illegal provider")
 }
 
-func HandleCallback(codeHostID int, callbackURL string, r *http.Request, logger *zap.SugaredLogger) error {
-	codehost, err := GetCodeHost(codeHostID, logger)
+func HandleCallback(stateStr string, r *http.Request, logger *zap.SugaredLogger) (string, error) {
+	aes, err := crypto.NewAes(crypto.GetAesKey())
+	decrypted, err := aes.Decrypt(stateStr)
 	if err != nil {
-		return err
+		logger.Errorf("Decrypt err:%s", err)
+		return "", err
 	}
-	o, err := NewOAuth(codehost.Type, callbackURL, codehost.ApplicationId, codehost.ClientSecret, codehost.Address)
+
+	var state State
+	if err := json.Unmarshal([]byte(decrypted), &state); err != nil {
+		logger.Errorf("Unmarshal err:%s", err)
+		return "", err
+	}
+	codehost, err := GetCodeHost(state.CodeHostID, logger)
 	if err != nil {
-		return err
+		return handle(state.RedirectURL, err)
+	}
+	o, err := NewOAuth(codehost.Type, state.CallbackURL, codehost.ApplicationId, codehost.ClientSecret, codehost.Address)
+	if err != nil {
+		return handle(state.RedirectURL, err)
 	}
 	token, err := o.HandleCallback(r)
 	if err != nil {
-		return err
+		return handle(state.RedirectURL, err)
 	}
 	codehost.AccessToken = token.AccessToken
 	codehost.RefreshToken = token.RefreshToken
 	if _, err := UpdateCodeHostByToken(codehost, logger); err != nil {
 		logger.Errorf("UpdateCodeHostByToken err:%s", err)
-		return err
+		return handle(state.RedirectURL, err)
 	}
-	return nil
+	return handle(state.RedirectURL, nil)
+}
+
+func handle(redirectURL string, err error) (string, error) {
+	u, parseErr := url.Parse(redirectURL)
+	if parseErr != nil {
+		return "", parseErr
+	}
+	if err != nil {
+		u.Query().Add("err", err.Error())
+	} else {
+		u.Query().Add("success", "true")
+	}
+	return u.String(), nil
 }

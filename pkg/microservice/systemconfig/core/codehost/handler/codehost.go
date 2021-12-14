@@ -17,8 +17,6 @@ limitations under the License.
 package handler
 
 import (
-	"encoding/json"
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -27,7 +25,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
-	"github.com/koderover/zadig/pkg/tool/crypto"
 )
 
 func CreateCodeHost(c *gin.Context) {
@@ -94,27 +91,14 @@ func Callback(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	aes, err := crypto.NewAes(crypto.GetAesKey())
-	decrypted, err := aes.Decrypt(c.Query("state"))
+	state := c.Query("state")
+	redirectURL, err := service.HandleCallback(state, c.Request, ctx.Logger)
 	if err != nil {
-		ctx.Logger.Errorf("Decrypt err:%s", err)
-		ctx.Err = err
-		return
-	}
-
-	var state service.State
-	if err := json.Unmarshal([]byte(decrypted), &state); err != nil {
-		ctx.Logger.Errorf("Unmarshal err:%s", err)
-		ctx.Err = err
-		return
-	}
-
-	if err := service.HandleCallback(state.CodeHostID, state.CallbackURL, c.Request, ctx.Logger); err != nil {
 		ctx.Logger.Errorf("Callback err:%s", err)
-		url := fmt.Sprintf("%s?err=%s", state.RedirectURL, err)
-		c.Redirect(http.StatusFound, url)
+		ctx.Err = err
+		return
 	}
-	c.Redirect(http.StatusFound, state.RedirectURL+"?success=true")
+	c.Redirect(http.StatusFound, redirectURL)
 }
 
 func UpdateCodeHost(c *gin.Context) {
