@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/koderover/zadig/pkg/microservice/picket/core/public/service"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
@@ -20,14 +19,13 @@ func (c *Client) GetArtifactByImage(header http.Header, qs url.Values, image str
 	return res.Body(), nil
 }
 
-func (c *Client) GetArtifactInfo(header http.Header, qs url.Values, id string) (*service.DeliveryArtifactInfo, error) {
+func (c *Client) GetArtifactInfo(header http.Header, qs url.Values, id string) ([]byte, error) {
 	url := fmt.Sprintf("/api/aslan/delivery/artifacts/%s", id)
 
-	resp := &service.DeliveryArtifactInfo{}
-	_, err := c.Get(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs), httpclient.SetResult(resp))
+	res, err := c.Get(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs))
 	if err != nil {
 		return nil, err
 	}
 
-	return resp, nil
+	return res.Body(), nil
 }
