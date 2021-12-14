@@ -84,13 +84,13 @@ type State struct {
 	RedirectURL string `json:"redirect_url"`
 }
 
-func AuthCodeHost(redirectURI string, codeHostID int, logger *zap.SugaredLogger) (redirectURL string, err error) {
+func AuthCodeHost(redirectURI string, codeHostID int, logger *zap.SugaredLogger) (string, error) {
 	codeHost, err := GetCodeHost(codeHostID, logger)
 	if err != nil {
 		logger.Errorf("GetCodeHost:%s err:%s", codeHostID, err)
 		return "", err
 	}
-	redirectParsedURL, err := url.Parse(redirectURL)
+	redirectParsedURL, err := url.Parse(redirectURI)
 	if err != nil {
 		logger.Errorf("Parse:%s err:%s", codeHostID, err)
 		return "", err
