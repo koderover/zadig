@@ -205,12 +205,12 @@ func (r *Reaper) runScripts() error {
 	scripts := r.prepareScriptsEnv()
 	// avoid non-blocking IO for stdout to workaround "stdout: write error"
 	for _, script := range r.Ctx.Scripts {
-		// TODO: This may cause nodejs compilation problems, but it is not completely determined, so keep it for now.
 		scripts = append(scripts, script)
-		if strings.Contains(script, "yarn ") || strings.Contains(script, "npm ") || strings.Contains(script, "bower ") {
-			scripts = append(scripts, "echo 'turn off O_NONBLOCK after using node'")
-			scripts = append(scripts, "python -c 'import os,sys,fcntl; flags = fcntl.fcntl(sys.stdout, fcntl.F_GETFL); fcntl.fcntl(sys.stdout, fcntl.F_SETFL, flags&~os.O_NONBLOCK);'")
-		}
+		// // TODO: This may cause nodejs compilation problems, but it is not completely determined, so keep it for now.
+		// if strings.Contains(script, "yarn ") || strings.Contains(script, "npm ") || strings.Contains(script, "bower ") {
+		// 	scripts = append(scripts, "echo 'turn off O_NONBLOCK after using node'")
+		// 	scripts = append(scripts, "python -c 'import os,sys,fcntl; flags = fcntl.fcntl(sys.stdout, fcntl.F_GETFL); fcntl.fcntl(sys.stdout, fcntl.F_SETFL, flags&~os.O_NONBLOCK);'")
+		// }
 	}
 
 	userScriptFile := "user_script.sh"
@@ -237,12 +237,26 @@ func (r *Reaper) runScripts() error {
 		return err
 	}
 
+	// Debug log hang.
+	defer log.Debug("End executing user scripts.")
+
 	go func() {
+		log.Debug("Start reading logs.")
+		defer log.Debug("End reading logs.")
+
 		for outScanner.Scan() {
+			log.Debug("Start reading one line log.")
+
 			fmt.Printf("%s\n", r.maskSecretEnvs(outScanner.Text()))
 			if len(r.Ctx.PostScripts) > 0 {
+				log.Debug("Start writing log to file.")
+
 				util.WriteFile(fileName, []byte(outScanner.Text()+"\n"), 0700)
+
+				log.Debug("End writing log to file.")
 			}
+
+			log.Debug("End reading one line log.")
 		}
 	}()
 
