@@ -48,12 +48,12 @@ import (
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/converter"
-	"github.com/koderover/zadig/pkg/util/yaml"
 )
 
 const (
@@ -736,49 +736,42 @@ func findCurrentlyUsingImage(productInfo *commonmodels.Product, serviceName, con
 		}
 	}
 
-	splitImage := strings.Split(image, ":")
-	if len(splitImage) != 2 {
-		return "", fmt.Errorf("failed to find image:%s format error", image)
-	}
-	if render == nil {
-		return image, nil
-	}
 	opt := &commonrepo.RenderSetFindOption{
-		Name:     render.Name,
-		Revision: render.Revision,
+		Name: render.Name,
 	}
 	renderSetInfo, err := commonrepo.NewRenderSetColl().Find(opt)
-	if err != nil || renderSetInfo == nil {
+	if err != nil {
 		return "", fmt.Errorf("failed to find renderSetInfo name:%s,revision:%v", opt.Name, opt.Revision)
 	}
 
-	defaultValues := renderSetInfo.DefaultValues
 	for _, singleChart := range renderSetInfo.ChartInfos {
-		rca := &commonservice.RenderChartArg{}
-		rca.LoadFromRenderChartModel(singleChart)
 		if singleChart.ServiceName == serviceName {
-			for _, override := range rca.OverrideValues {
-				if override.Key == imagePathSpec.Tag {
-					return splitImage[0] + ":" + override.Value, nil
+			valuesYamlFlattenMap, err := converter.YamlToFlatMap([]byte(singleChart.ValuesYaml))
+			if err != nil {
+				return "", fmt.Errorf("YamlToFlatMap image:%s format error:%s", image, err)
+			}
+			imageRepo, ok1 := valuesYamlFlattenMap[imagePathSpec.Repo]
+			imageTag, ok2 := valuesYamlFlattenMap[imagePathSpec.Tag]
+			if ok1 && ok2 {
+				if fmt.Sprintf("%s:%s", imageRepo, imageTag) == image {
+					return image, nil
 				}
 			}
 
-			overrideYaml := ""
-			if singleChart.OverrideYaml != nil {
-				overrideYaml = singleChart.OverrideYaml.YamlContent
-			}
-			yamlMap, err := yaml.MergeAndUnmarshal([][]byte{[]byte(defaultValues), []byte(overrideYaml)})
+			mergedValuesYaml, err := helmtool.MergeOverrideValues(singleChart.ValuesYaml, renderSetInfo.DefaultValues, singleChart.GetOverrideYaml(), singleChart.OverrideValues)
 			if err != nil {
-				return "", fmt.Errorf("MergeAndUnmarshal image:%s format error:%s", image, err)
+				return "", fmt.Errorf("MergeOverrideValues name:%s,revision:%v,error:%s", opt.Name, opt.Revision, err)
 			}
-
-			flatten, err := converter.Flatten(yamlMap)
+			mergedValuesYamlFlattenMap, err := converter.YamlToFlatMap([]byte(mergedValuesYaml))
 			if err != nil {
-				return "", fmt.Errorf("Flatten image:%s format error:%s", image, err)
+				return "", fmt.Errorf("mergeYamlToFlatMap image:%s format error:%s", image, err)
 			}
-			if imageTag, ok := flatten[imagePathSpec.Image]; ok {
-				return fmt.Sprintf("%s:%s", splitImage[0], imageTag), nil
+			imageRepo, ok1 = mergedValuesYamlFlattenMap[imagePathSpec.Repo]
+			imageTag, ok2 = mergedValuesYamlFlattenMap[imagePathSpec.Tag]
+			if ok1 && ok2 {
+				return fmt.Sprintf("%s:%s", imageRepo, imageTag), nil
 			}
+			break
 		}
 	}
 	return "", fmt.Errorf("failed to find image url")
