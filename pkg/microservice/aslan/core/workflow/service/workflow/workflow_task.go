@@ -787,7 +787,7 @@ func AddDataToArgs(args *commonmodels.WorkflowTaskArgs, log *zap.SugaredLogger) 
 	for _, target := range args.Target {
 		target.HasBuild = true
 		// openAPI模式，传入的name是服务名称
-		serviceType, err := findServiceType(target.ServiceType)
+		serviceType, err := getValidServiceType(target.ServiceType)
 		if err != nil {
 			return err
 		}
@@ -901,7 +901,7 @@ func AddDataToArgs(args *commonmodels.WorkflowTaskArgs, log *zap.SugaredLogger) 
 }
 
 // Only supports k8s and helm two service types currently
-func findServiceType(serviceType string) (string, error) {
+func getValidServiceType(serviceType string) (string, error) {
 	switch serviceType {
 	// Compatible when the service_type is equal to empty
 	case setting.K8SDeployType, "":
