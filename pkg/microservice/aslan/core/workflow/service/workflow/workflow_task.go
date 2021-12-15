@@ -325,7 +325,16 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 	projectTargets := getProjectTargets(product.ProductName)
 	targets := make([]*commonmodels.TargetArgs, 0)
 	if (workflow.BuildStage != nil && workflow.BuildStage.Enabled) || (workflow.ArtifactStage != nil && workflow.ArtifactStage.Enabled) {
+		showServices := sets.NewString()
+		for _, buildModule := range workflow.BuildStage.Modules {
+			if buildModule.ShowServiceModule == nil || *buildModule.ShowServiceModule {
+				showServices.Insert(strings.Join([]string{buildModule.Target.ProductName, buildModule.Target.ServiceName, buildModule.Target.ServiceModule}, SplitSymbol))
+			}
+		}
 		for _, container := range projectTargets {
+			if !showServices.Has(container) {
+				continue
+			}
 			if _, ok := targetMap[container]; !ok {
 				continue
 			}
