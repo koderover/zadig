@@ -207,10 +207,10 @@ func (r *Reaper) runScripts() error {
 	for _, script := range r.Ctx.Scripts {
 		scripts = append(scripts, script)
 		// TODO: This may cause nodejs compilation problems, but it is not completely determined, so keep it for now.
-		if strings.Contains(script, "yarn ") || strings.Contains(script, "npm ") || strings.Contains(script, "bower ") {
-			scripts = append(scripts, "echo 'turn off O_NONBLOCK after using node'")
-			scripts = append(scripts, "python -c 'import os,sys,fcntl; flags = fcntl.fcntl(sys.stdout, fcntl.F_GETFL); fcntl.fcntl(sys.stdout, fcntl.F_SETFL, flags&~os.O_NONBLOCK);'")
-		}
+		// if strings.Contains(script, "yarn ") || strings.Contains(script, "npm ") || strings.Contains(script, "bower ") {
+		// 	scripts = append(scripts, "echo 'turn off O_NONBLOCK after using node'")
+		// 	scripts = append(scripts, "python -c 'import os,sys,fcntl; flags = fcntl.fcntl(sys.stdout, fcntl.F_GETFL); fcntl.fcntl(sys.stdout, fcntl.F_SETFL, flags&~os.O_NONBLOCK);'")
+		// }
 	}
 
 	userScriptFile := "user_script.sh"
@@ -236,13 +236,30 @@ func (r *Reaper) runScripts() error {
 		return err
 	}
 
+	// Debug log hang.
+	defer func() {
+		log.Debug("End executing user scripts.")
+	}()
+
 	go func() {
+		log.Debug("Start reading logs.")
+
 		for outScanner.Scan() {
+			log.Debug("Start reading one line log.")
+
 			fmt.Printf("%s\n", r.maskSecretEnvs(outScanner.Text()))
 			if len(r.Ctx.PostScripts) > 0 {
+				log.Debug("Start writing log to file.")
+
 				util.WriteFile(fileName, []byte(outScanner.Text()+"\n"), 0700)
+
+				log.Debug("End writing log to file.")
 			}
+
+			log.Debug("End reading one line log.")
 		}
+
+		log.Debug("End reading logs.")
 	}()
 
 	return cmd.Wait()
