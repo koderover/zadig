@@ -900,8 +900,10 @@ func AddDataToArgs(args *commonmodels.WorkflowTaskArgs, log *zap.SugaredLogger) 
 	return nil
 }
 
+// Only supports k8s and helm two service types currently
 func findServiceType(serviceType string) (string, error) {
 	switch serviceType {
+	// Compatible when the service_type is equal to empty
 	case setting.K8SDeployType, "":
 		return setting.K8SDeployType, nil
 	case setting.HelmDeployType:
