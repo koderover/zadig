@@ -37,7 +37,7 @@ import (
 
 func CreateWorkflowV3(user string, workflowModel *commonmodels.WorkflowV3, logger *zap.SugaredLogger) (string, error) {
 	if !checkWorkflowSubModules(workflowModel) {
-		errStr := "工作流没有子模块，请先设置子模块"
+		errStr := "Workflow has no sub-module, please set the sub-module first"
 		return "", e.ErrUpsertWorkflow.AddDesc(errStr)
 	}
 	if err := ensureWorkflowV3(workflowModel, logger); err != nil {
@@ -165,7 +165,7 @@ func GetWorkflowV3Detail(id string, logger *zap.SugaredLogger) (*WorkflowV3, err
 
 func UpdateWorkflowV3(id, user string, workflowModel *commonmodels.WorkflowV3, logger *zap.SugaredLogger) error {
 	if !checkWorkflowSubModules(workflowModel) {
-		errStr := "工作流没有子模块，请先设置子模块"
+		errStr := "Workflow has no sub-module, please set the sub-module first"
 		return e.ErrCreatePipeline.AddDesc(errStr)
 	}
 	workflowModel.UpdatedBy = user
