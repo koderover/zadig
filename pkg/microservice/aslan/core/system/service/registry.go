@@ -22,13 +22,9 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/registry"
-	"github.com/koderover/zadig/pkg/setting"
-	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/util"
 )
@@ -79,24 +75,6 @@ func CreateRegistryNamespace(username string, args *commonmodels.RegistryNamespa
 				log.Errorf("updateRegistry error: %v", err)
 				return fmt.Errorf("RegistryNamespace.Create error: %v", err)
 			}
-		}
-
-		envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{ExcludeSource: setting.SourceFromExternal})
-		if err != nil {
-			log.Errorf("Failed to list namespaces to update")
-		}
-		for _, env := range envs {
-			go func(prod *commonmodels.Product) {
-				kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
-				if err != nil {
-					log.Errorf("[updateRegistry] Failed to get kubecli for namespace: %s", prod.Namespace)
-					return
-				}
-				err = commonservice.EnsureDefaultRegistrySecret(prod.Namespace, args.ID.Hex(), kubeClient, log)
-				if err != nil {
-					log.Errorf("[updateRegistry] Failed to update registry secret for namespace: %s, the error is: %+v", prod.Namespace, err)
-				}
-			}(env)
 		}
 	} else {
 		hasDefault := false
@@ -154,24 +132,6 @@ func UpdateRegistryNamespace(username, id string, args *commonmodels.RegistryNam
 	if err := commonrepo.NewRegistryNamespaceColl().Update(id, args); err != nil {
 		log.Errorf("RegistryNamespace.Update error: %v", err)
 		return fmt.Errorf("RegistryNamespace.Update error: %v", err)
-	}
-
-	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{ExcludeSource: setting.SourceFromExternal})
-	if err != nil {
-		log.Errorf("Failed to list namespaces to update")
-	}
-	for _, env := range envs {
-		go func(prod *commonmodels.Product) {
-			kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
-			if err != nil {
-				log.Errorf("[updateRegistry] Failed to get kubecli for namespace: %s", prod.Namespace)
-				return
-			}
-			err = commonservice.EnsureDefaultRegistrySecret(prod.Namespace, id, kubeClient, log)
-			if err != nil {
-				log.Errorf("[updateRegistry] Failed to update registry secret for namespace: %s, the error is: %+v", prod.Namespace, err)
-			}
-		}(env)
 	}
 	return nil
 }
