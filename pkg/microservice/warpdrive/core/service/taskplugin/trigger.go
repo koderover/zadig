@@ -206,6 +206,8 @@ func (p *TriggerTaskPlugin) Wait(ctx context.Context) {
 		default:
 			time.Sleep(time.Second * 3)
 			callbackPayloadObj, _ := p.getCallbackObj(p.taskId, p.pipelineName)
+			p.Log.Infof("callbackPayloadObj:%+v", callbackPayloadObj)
+			p.Log.Infof("callbackPayloadObj.payload:%+v", callbackPayloadObj.Payload)
 			if callbackPayloadObj != nil {
 				p.Task.CallbackType = callbackPayloadObj.Type
 				p.Task.CallbackPayload = callbackPayloadObj.Payload
