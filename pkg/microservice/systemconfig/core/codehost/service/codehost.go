@@ -156,12 +156,12 @@ func HandleCallback(stateStr string, r *http.Request, logger *zap.SugaredLogger)
 func newOAuth(provider, callbackURL, clientID, clientSecret, address string) (*oauth.OAuth, error) {
 	switch provider {
 	case systemconfig.GitHubProvider:
-		return oauth.New(callbackURL, clientID, clientSecret, []string{"api", "read_user"}, oauth2.Endpoint{
+		return oauth.New(callbackURL, clientID, clientSecret, []string{"repo", "user"}, oauth2.Endpoint{
 			AuthURL:  address + "/login/oauth/authorize",
 			TokenURL: address + "/login/oauth/access_token",
 		}), nil
 	case systemconfig.GitLabProvider:
-		return oauth.New(callbackURL, clientID, clientSecret, []string{"repo", "user"}, oauth2.Endpoint{
+		return oauth.New(callbackURL, clientID, clientSecret, []string{"api", "read_user"}, oauth2.Endpoint{
 			AuthURL:  address + "/oauth/authorize",
 			TokenURL: address + "/oauth/token",
 		}), nil
