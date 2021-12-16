@@ -33,7 +33,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
-	"github.com/koderover/zadig/pkg/tool/crypto"
 )
 
 const callback = "/api/directory/codehosts/callback"
@@ -112,12 +111,7 @@ func AuthCodeHost(redirectURI string, codeHostID int, logger *zap.SugaredLogger)
 		logger.Errorf("Marshal err:%s", err)
 		return "", err
 	}
-	aes, err := crypto.NewAes(crypto.GetAesKey())
-	encrypted, err := aes.Encrypt(string(bs))
-	if err != nil {
-		return "", err
-	}
-	return oauth.LoginURL(encrypted), nil
+	return oauth.LoginURL(base64.URLEncoding.EncodeToString(bs)), nil
 }
 
 func NewOAuth(provider, callbackURL, clientID, clientSecret, address string) (oauth.Oauth, error) {
@@ -131,15 +125,14 @@ func NewOAuth(provider, callbackURL, clientID, clientSecret, address string) (oa
 }
 
 func HandleCallback(stateStr string, r *http.Request, logger *zap.SugaredLogger) (string, error) {
-	aes, err := crypto.NewAes(crypto.GetAesKey())
-	decrypted, err := aes.Decrypt(stateStr)
-	if err != nil {
-		logger.Errorf("Decrypt err:%s", err)
+	// TODO：validate the code
+	decryptedState , err := base64.URLEncoding.DecodeString(stateStr)
+	if err !=nil {
+		logger.Errorf("DecodeString err:%s", err)
 		return "", err
 	}
-
 	var state state
-	if err := json.Unmarshal([]byte(decrypted), &state); err != nil {
+	if err := json.Unmarshal(decryptedState, &state); err != nil {
 		logger.Errorf("Unmarshal err:%s", err)
 		return "", err
 	}
