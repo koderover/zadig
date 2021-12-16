@@ -200,12 +200,9 @@ func responseHelper(response interface{}) interface{} {
 			}
 			valField := val.Field(i)
 			updatedField := reflect.ValueOf(responseHelper(valField.Interface()))
-			if updatedField.Kind() == reflect.Ptr {
-				continue
-			}
 			if valField.Kind() == reflect.Ptr {
 				if updatedField.IsValid() {
-					newValField.Set(updatedField)
+					newValField.Set(reflect.Indirect(updatedField))
 				}
 			} else {
 				if updatedField.IsValid() {
