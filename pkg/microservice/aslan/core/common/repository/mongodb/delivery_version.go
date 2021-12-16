@@ -197,11 +197,28 @@ func (c *DeliveryVersionColl) Insert(args *models.DeliveryVersion) error {
 	return nil
 }
 
-func (c *DeliveryVersionColl) UpdateStatusByName(versionName, status, errorStr string) error {
-	query := bson.M{"version": versionName, "deleted_at": 0}
+func (c *DeliveryVersionColl) UpdateStatusByName(versionName, projectName, status, errorStr string) error {
+	query := bson.M{
+		"version":      versionName,
+		"product_name": projectName,
+		"deleted_at":   0,
+	}
 	change := bson.M{"$set": bson.M{
 		"status": status,
 		"error":  errorStr,
+	}}
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
+func (c *DeliveryVersionColl) UpdateTaskID(versionName, projectName string, taskID int32) error {
+	query := bson.M{
+		"version":      versionName,
+		"product_name": projectName,
+		"deleted_at":   0,
+	}
+	change := bson.M{"$set": bson.M{
+		"task_id": taskID,
 	}}
 	_, err := c.UpdateOne(context.TODO(), query, change)
 	return err
