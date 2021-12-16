@@ -787,11 +787,14 @@ func AddDataToArgs(args *commonmodels.WorkflowTaskArgs, log *zap.SugaredLogger) 
 	for _, target := range args.Target {
 		target.HasBuild = true
 		// openAPI模式，传入的name是服务名称
-		// 只支持k8s服务
+		serviceType, err := getValidServiceType(target.ServiceType)
+		if err != nil {
+			return err
+		}
 		opt := &commonrepo.ServiceFindOption{
 			ServiceName:   target.Name,
 			ProductName:   workflow.ProductTmplName,
-			Type:          setting.K8SDeployType,
+			Type:          serviceType,
 			ExcludeStatus: setting.ProductStatusDeleting}
 		serviceTmpl, err := commonrepo.NewServiceColl().Find(opt)
 		if err != nil {
@@ -895,6 +898,19 @@ func AddDataToArgs(args *commonmodels.WorkflowTaskArgs, log *zap.SugaredLogger) 
 	}
 
 	return nil
+}
+
+// Only supports k8s and helm two service types currently
+func getValidServiceType(serviceType string) (string, error) {
+	switch serviceType {
+	// Compatible when the service_type is equal to empty
+	case setting.K8SDeployType, "":
+		return setting.K8SDeployType, nil
+	case setting.HelmDeployType:
+		return setting.HelmDeployType, nil
+	default:
+		return "", fmt.Errorf("Unsupported service type")
+	}
 }
 
 func dealWithNamespace(args *commonmodels.WorkflowTaskArgs) {
