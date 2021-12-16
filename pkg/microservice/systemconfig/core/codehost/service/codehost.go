@@ -116,8 +116,8 @@ func AuthCodeHost(redirectURI string, codeHostID int, logger *zap.SugaredLogger)
 func HandleCallback(stateStr string, r *http.Request, logger *zap.SugaredLogger) (string, error) {
 	// TODO：validate the code
 	// https://www.jianshu.com/p/c7c8f51713b6
-	decryptedState , err := base64.URLEncoding.DecodeString(stateStr)
-	if err !=nil {
+	decryptedState, err := base64.URLEncoding.DecodeString(stateStr)
+	if err != nil {
 		logger.Errorf("DecodeString err:%s", err)
 		return "", err
 	}
@@ -156,14 +156,14 @@ func HandleCallback(stateStr string, r *http.Request, logger *zap.SugaredLogger)
 func newOAuth(provider, callbackURL, clientID, clientSecret, address string) (*oauth.OAuth, error) {
 	switch provider {
 	case systemconfig.GitHubProvider:
-		return oauth.New(callbackURL, clientID, clientSecret, []string{"api", "read_user"},oauth2.Endpoint{
-			AuthURL:   address+"/login/oauth/authorize",
-			TokenURL:  address+"/login/oauth/access_token",
+		return oauth.New(callbackURL, clientID, clientSecret, []string{"api", "read_user"}, oauth2.Endpoint{
+			AuthURL:  address + "/login/oauth/authorize",
+			TokenURL: address + "/login/oauth/access_token",
 		}), nil
 	case systemconfig.GitLabProvider:
-		return oauth.New(callbackURL, clientID, clientSecret,  []string{"repo", "user"},oauth2.Endpoint{
-			AuthURL:   address+"/oauth/authorize",
-			TokenURL:  address+"/oauth/token",
+		return oauth.New(callbackURL, clientID, clientSecret, []string{"repo", "user"}, oauth2.Endpoint{
+			AuthURL:  address + "/oauth/authorize",
+			TokenURL: address + "/oauth/token",
 		}), nil
 	}
 	return nil, errors.New("illegal provider")

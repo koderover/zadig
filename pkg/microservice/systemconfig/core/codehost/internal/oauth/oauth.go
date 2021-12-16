@@ -39,14 +39,14 @@ func (e *OAuth2Error) Error() string {
 	return fmt.Sprintf("%s: %s", e.Err, e.Description)
 }
 
-func New(callbackURL, clientID, clientSecret string,scopes []string,endpoint oauth2.Endpoint) *OAuth {
+func New(callbackURL, clientID, clientSecret string, scopes []string, endpoint oauth2.Endpoint) *OAuth {
 	return &OAuth{
 		oauth2Config: &oauth2.Config{
 			ClientID:     clientID,
 			ClientSecret: clientSecret,
 			Endpoint:     endpoint,
 			RedirectURL:  callbackURL,
-			Scopes:       []string{"api", "read_user"},
+			Scopes:       scopes,
 		},
 	}
 }
