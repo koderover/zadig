@@ -10,7 +10,6 @@ RUN sed -i s:http:https:g /etc/apt/sources.list
 RUN DEBIAN_FRONTEND=noninteractive apt install -y tzdata
 RUN apt-get clean && apt-get update && apt-get install -y \
 	curl \
-  git \
   netcat-openbsd \
   wget \
   build-essential \
