@@ -23,9 +23,8 @@ import (
 	"golang.org/x/oauth2"
 )
 
-type Oauth interface {
-	LoginURL(state string) (loginURL string)
-	HandleCallback(r *http.Request) (*oauth2.Token, error)
+type OAuth struct {
+	oauth2Config *oauth2.Config
 }
 
 type OAuth2Error struct {
@@ -38,4 +37,28 @@ func (e *OAuth2Error) Error() string {
 		return e.Err
 	}
 	return fmt.Sprintf("%s: %s", e.Err, e.Description)
+}
+
+func New(callbackURL, clientID, clientSecret string,scopes []string,endpoint oauth2.Endpoint) *OAuth {
+	return &OAuth{
+		oauth2Config: &oauth2.Config{
+			ClientID:     clientID,
+			ClientSecret: clientSecret,
+			Endpoint:     endpoint,
+			RedirectURL:  callbackURL,
+			Scopes:       []string{"api", "read_user"},
+		},
+	}
+}
+
+func (o *OAuth) LoginURL(state string) string {
+	return o.oauth2Config.AuthCodeURL(state)
+}
+
+func (o *OAuth) HandleCallback(r *http.Request) (*oauth2.Token, error) {
+	q := r.URL.Query()
+	if errType := q.Get("error"); errType != "" {
+		return nil, &OAuth2Error{errType, q.Get("error_description")}
+	}
+	return o.oauth2Config.Exchange(r.Context(), q.Get("code"))
 }

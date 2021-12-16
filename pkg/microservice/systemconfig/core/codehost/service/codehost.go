@@ -26,10 +26,9 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"golang.org/x/oauth2"
 
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/internal/oauth"
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/internal/oauth/github"
-	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/internal/oauth/gitlab"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
@@ -114,18 +113,25 @@ func AuthCodeHost(redirectURI string, codeHostID int, logger *zap.SugaredLogger)
 	return oauth.LoginURL(base64.URLEncoding.EncodeToString(bs)), nil
 }
 
-func NewOAuth(provider, callbackURL, clientID, clientSecret, address string) (oauth.Oauth, error) {
+func NewOAuth(provider, callbackURL, clientID, clientSecret, address string) (*oauth.OAuth, error) {
 	switch provider {
 	case systemconfig.GitHubProvider:
-		return github.New(callbackURL, clientID, clientSecret, address), nil
+		return oauth.New(callbackURL, clientID, clientSecret, []string{"api", "read_user"},oauth2.Endpoint{
+			AuthURL:   address+"/login/oauth/authorize",
+			TokenURL:  address+"/login/oauth/access_token",
+		}), nil
 	case systemconfig.GitLabProvider:
-		return gitlab.New(callbackURL, clientID, clientSecret, address), nil
+		return oauth.New(callbackURL, clientID, clientSecret,  []string{"repo", "user"},oauth2.Endpoint{
+			AuthURL:   address+"/oauth/authorize",
+			TokenURL:  address+"/oauth/token",
+		}), nil
 	}
 	return nil, errors.New("illegal provider")
 }
 
 func HandleCallback(stateStr string, r *http.Request, logger *zap.SugaredLogger) (string, error) {
 	// TODO：validate the code
+	// https://www.jianshu.com/p/c7c8f51713b6
 	decryptedState , err := base64.URLEncoding.DecodeString(stateStr)
 	if err !=nil {
 		logger.Errorf("DecodeString err:%s", err)
