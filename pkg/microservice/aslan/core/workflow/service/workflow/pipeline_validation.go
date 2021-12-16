@@ -48,12 +48,10 @@ import (
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
-	"github.com/koderover/zadig/pkg/util/converter"
 )
 
 const (
@@ -720,58 +718,13 @@ func (c *ImageIllegal) Error() string {
 
 // find currently using image for services deployed by helm
 func findCurrentlyUsingImage(productInfo *commonmodels.Product, serviceName, containerName string) (string, error) {
-	image := ""
-	var imagePathSpec *commonmodels.ImagePathSpec
-	var render *commonmodels.RenderInfo
 	for _, service := range productInfo.GetServiceMap() {
 		if service.ServiceName == serviceName {
 			for _, container := range service.Containers {
 				if container.Name == containerName {
-					image = container.Image
-					imagePathSpec = container.ImagePath
+					return container.Image, nil
 				}
 			}
-			render = service.Render
-			break
-		}
-	}
-
-	opt := &commonrepo.RenderSetFindOption{
-		Name: render.Name,
-	}
-	renderSetInfo, err := commonrepo.NewRenderSetColl().Find(opt)
-	if err != nil {
-		return "", fmt.Errorf("failed to find renderSetInfo name:%s,revision:%v", opt.Name, opt.Revision)
-	}
-
-	for _, singleChart := range renderSetInfo.ChartInfos {
-		if singleChart.ServiceName == serviceName {
-			valuesYamlFlattenMap, err := converter.YamlToFlatMap([]byte(singleChart.ValuesYaml))
-			if err != nil {
-				return "", fmt.Errorf("YamlToFlatMap image:%s format error:%s", image, err)
-			}
-			imageRepo, ok1 := valuesYamlFlattenMap[imagePathSpec.Repo]
-			imageTag, ok2 := valuesYamlFlattenMap[imagePathSpec.Tag]
-			if ok1 && ok2 {
-				if fmt.Sprintf("%s:%s", imageRepo, imageTag) == image {
-					return image, nil
-				}
-			}
-
-			mergedValuesYaml, err := helmtool.MergeOverrideValues(singleChart.ValuesYaml, renderSetInfo.DefaultValues, singleChart.GetOverrideYaml(), singleChart.OverrideValues)
-			if err != nil {
-				return "", fmt.Errorf("MergeOverrideValues name:%s,revision:%v,error:%s", opt.Name, opt.Revision, err)
-			}
-			mergedValuesYamlFlattenMap, err := converter.YamlToFlatMap([]byte(mergedValuesYaml))
-			if err != nil {
-				return "", fmt.Errorf("mergeYamlToFlatMap image:%s format error:%s", image, err)
-			}
-			imageRepo, ok1 = mergedValuesYamlFlattenMap[imagePathSpec.Repo]
-			imageTag, ok2 = mergedValuesYamlFlattenMap[imagePathSpec.Tag]
-			if ok1 && ok2 {
-				return fmt.Sprintf("%s:%s", imageRepo, imageTag), nil
-			}
-			break
 		}
 	}
 	return "", fmt.Errorf("failed to find image url")
