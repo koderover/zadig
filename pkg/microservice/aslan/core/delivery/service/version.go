@@ -424,6 +424,11 @@ func buildDeliveryProgressInfo(deliveryVersion *commonmodels.DeliveryVersion, su
 		return nil
 	}
 
+	_, err := checkVersionStatus(deliveryVersion)
+	if err != nil {
+		updateVersionStatus(deliveryVersion.Version, deliveryVersion.ProductName, setting.DeliveryVersionStatusFailed, err.Error())
+	}
+
 	progress := &commonmodels.DeliveryVersionProgress{
 		SuccessChartCount:   successfulChartCount,
 		TotalChartCount:     0,
@@ -843,7 +848,7 @@ func buildDeliveryCharts(chartDataMap map[string]*DeliveryChartData, deliveryVer
 			deliveryVersion.Status = setting.DeliveryVersionStatusFailed
 			deliveryVersion.Error = err.Error()
 		}
-		err = commonrepo.NewDeliveryVersionColl().UpdateStatusByName(deliveryVersion.Version, deliveryVersion.Status, deliveryVersion.Error)
+		err = commonrepo.NewDeliveryVersionColl().UpdateStatusByName(deliveryVersion.Version, deliveryVersion.ProductName, deliveryVersion.Status, deliveryVersion.Error)
 		if err != nil {
 			logger.Errorf("failed to update delivery version data, name: %s error: %s", deliveryVersion.Version, err)
 		}
@@ -912,15 +917,18 @@ func buildDeliveryCharts(chartDataMap map[string]*DeliveryChartData, deliveryVer
 		return err
 	}
 	deliveryVersion.TaskID = int(taskID)
-
+	err = commonrepo.NewDeliveryVersionColl().UpdateTaskID(deliveryVersion.Version, deliveryVersion.ProductName, int32(deliveryVersion.TaskID))
+	if err != nil {
+		logger.Errorf("failed to update delivery version task_id, version: %s, task_id: %s, err: %s", deliveryVersion, deliveryVersion.ProductName, deliveryVersion.TaskID)
+	}
 	// start a new routine to check task results
 	go waitVersionDone(deliveryVersion)
 
 	return
 }
 
-func updateVersionStatus(versionName, status, errStr string) {
-	err := commonrepo.NewDeliveryVersionColl().UpdateStatusByName(versionName, status, errStr)
+func updateVersionStatus(versionName, projectName, status, errStr string) {
+	err := commonrepo.NewDeliveryVersionColl().UpdateStatusByName(versionName, projectName, status, errStr)
 	if err != nil {
 		log.Errorf("failed to update version status, name: %s, err: %s", versionName, err)
 	}
@@ -935,12 +943,12 @@ func waitVersionDone(deliveryVersion *commonmodels.DeliveryVersion) {
 	for {
 		select {
 		case <-waitTimeout:
-			updateVersionStatus(deliveryVersion.Version, setting.DeliveryVersionStatusFailed, "timeout")
+			updateVersionStatus(deliveryVersion.Version, deliveryVersion.ProductName, setting.DeliveryVersionStatusFailed, "timeout")
 			return
 		default:
 			done, err := checkVersionStatus(deliveryVersion)
 			if err != nil {
-				updateVersionStatus(deliveryVersion.Version, setting.DeliveryVersionStatusFailed, err.Error())
+				updateVersionStatus(deliveryVersion.Version, deliveryVersion.ProductName, setting.DeliveryVersionStatusFailed, err.Error())
 				return
 			}
 			if done {
@@ -1015,7 +1023,7 @@ func checkVersionStatus(deliveryVersion *commonmodels.DeliveryVersion) (bool, er
 			}
 			if singleResult, ok := progressDataMap[chartData.ServiceName]; ok {
 				if singleResult.Result != "success" {
-					errorList = multierror.Append(errorList, fmt.Errorf("failed to build image distribute for service:%s ", singleResult.ServiceName))
+					errorList = multierror.Append(errorList, fmt.Errorf("failed to build image distribute for service:%s, err: %s ", singleResult.ServiceName, singleResult.ErrorMsg))
 					continue
 				}
 				err = insertDeliveryDistributions(singleResult, chartData.Version, deliveryVersion, createArgs)
@@ -1045,7 +1053,7 @@ func checkVersionStatus(deliveryVersion *commonmodels.DeliveryVersion) (bool, er
 	if errorList.ErrorOrNil() != nil {
 		deliveryVersion.Error = errorList.Error()
 	}
-	updateVersionStatus(deliveryVersion.Version, deliveryVersion.Status, deliveryVersion.Error)
+	updateVersionStatus(deliveryVersion.Version, deliveryVersion.ProductName, deliveryVersion.Status, deliveryVersion.Error)
 	return allTaskDone, nil
 }
 
@@ -1173,7 +1181,7 @@ func RetryCreateHelmDeliveryVersion(projectName, versionName string, logger *zap
 
 	// update status
 	deliveryVersion.Status = setting.DeliveryVersionStatusRetrying
-	err = commonrepo.NewDeliveryVersionColl().UpdateStatusByName(deliveryVersion.Version, deliveryVersion.Status, "")
+	err = commonrepo.NewDeliveryVersionColl().UpdateStatusByName(deliveryVersion.Version, deliveryVersion.ProductName, deliveryVersion.Status, "")
 	if err != nil {
 		logger.Errorf("failed to update delivery status, name: %s, err: %s", deliveryVersion.Version, err)
 		return fmt.Errorf("failed to update delivery status, name: %s", deliveryVersion.Version)
