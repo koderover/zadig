@@ -45,6 +45,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
@@ -696,6 +697,46 @@ func CreateHelmProduct(productName, userName, requestID string, args []*CreateHe
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 
+	errList := new(multierror.Error)
+	for _, arg := range args {
+		err = createSingleHelmProduct(templateProduct, requestID, userName, arg.RegistryID, arg, log)
+		if err != nil {
+			errList = multierror.Append(errList, err)
+		}
+	}
+	return errList.ErrorOrNil()
+}
+
+func createSingleHelmProduct(templateProduct *template.Product, requestID, userName, registryID string, arg *CreateHelmProductArg, log *zap.SugaredLogger) error {
+	productObj := &commonmodels.Product{
+		ProductName:     templateProduct.ProductName,
+		Revision:        1,
+		Enabled:         false,
+		EnvName:         arg.EnvName,
+		UpdateBy:        userName,
+		IsPublic:        true,
+		ClusterID:       arg.ClusterID,
+		Namespace:       commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
+		Source:          setting.SourceFromHelm,
+		IsOpenSource:    templateProduct.IsOpensource,
+		ChartInfos:      templateProduct.ChartInfos,
+		IsForkedProduct: false,
+		RegistryID:      registryID,
+	}
+
+	customChartValueMap := make(map[string]*commonservice.RenderChartArg)
+	for _, singleCV := range arg.ChartValues {
+		customChartValueMap[singleCV.ServiceName] = singleCV
+	}
+
+	for _, latestChart := range productObj.ChartInfos {
+		if singleCV, ok := customChartValueMap[latestChart.ServiceName]; ok {
+			singleCV.FillRenderChartModel(latestChart, latestChart.ChartVersion)
+		}
+	}
+	// default values
+	defaultValuesYaml := arg.DefaultValues
+
 	// generate service group data
 	allServiceInfoMap := templateProduct.AllServiceInfoMap()
 	var serviceGroup [][]*commonmodels.ProductService
@@ -724,9 +765,40 @@ func CreateHelmProduct(productName, userName, requestID string, args []*CreateHe
 			if serviceTmpl.Type == setting.K8SDeployType || serviceTmpl.Type == setting.HelmDeployType {
 				serviceResp.Containers = make([]*commonmodels.Container, 0)
 				for _, c := range serviceTmpl.Containers {
+					image := c.Image
+					for _, rc := range productObj.ChartInfos {
+						if rc.ServiceName != serviceTmpl.ServiceName {
+							continue
+						}
+						mergeYaml, err := helmtool.MergeOverrideValues(rc.ValuesYaml, defaultValuesYaml, rc.GetOverrideYaml(), rc.OverrideValues)
+						if err != nil {
+							errMsg := fmt.Sprintf("Failed to MergeOverrideValues for product template %s,error:%s", productObj.ProductName, err)
+							log.Error(errMsg)
+							return e.ErrCreateEnv.AddDesc(errMsg)
+						}
+						mergedValuesYamlFlattenMap, err := converter.YamlToFlatMap([]byte(mergeYaml))
+						if err != nil {
+							errMsg := fmt.Sprintf("mergeYamlToFlatMap product template %s,error:%s", productObj.ProductName, err)
+							log.Error(errMsg)
+							return e.ErrCreateEnv.AddDesc(errMsg)
+						}
+						imageRepo, ok1 := mergedValuesYamlFlattenMap[c.ImagePath.Repo]
+						imageTag, ok2 := mergedValuesYamlFlattenMap[c.ImagePath.Tag]
+						if ok2 {
+							if ok1 {
+								image = fmt.Sprintf("%s:%s", imageRepo, imageTag)
+							} else {
+								splitImage := strings.Split(image, ":")
+								if len(splitImage) == 2 {
+									image = fmt.Sprintf("%s:%s", splitImage[0], imageTag)
+								}
+							}
+						}
+					}
+
 					container := &commonmodels.Container{
 						Name:      c.Name,
-						Image:     c.Image,
+						Image:     image,
 						ImagePath: c.ImagePath,
 					}
 					serviceResp.Containers = append(serviceResp.Containers, container)
@@ -737,47 +809,7 @@ func CreateHelmProduct(productName, userName, requestID string, args []*CreateHe
 		serviceGroup = append(serviceGroup, servicesResp)
 	}
 
-	errList := new(multierror.Error)
-	for _, arg := range args {
-		err = createSingleHelmProduct(templateProduct, serviceGroup, requestID, userName, arg.RegistryID, arg, log)
-		if err != nil {
-			errList = multierror.Append(errList, err)
-		}
-	}
-	return errList.ErrorOrNil()
-}
-
-func createSingleHelmProduct(templateProduct *template.Product, serviceGroup [][]*commonmodels.ProductService, requestID, userName, registryID string, arg *CreateHelmProductArg, log *zap.SugaredLogger) error {
-	productObj := &commonmodels.Product{
-		ProductName:     templateProduct.ProductName,
-		Revision:        1,
-		Enabled:         false,
-		EnvName:         arg.EnvName,
-		UpdateBy:        userName,
-		Services:        serviceGroup,
-		IsPublic:        true,
-		ClusterID:       arg.ClusterID,
-		Namespace:       commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
-		Source:          setting.SourceFromHelm,
-		IsOpenSource:    templateProduct.IsOpensource,
-		ChartInfos:      templateProduct.ChartInfos,
-		IsForkedProduct: false,
-		RegistryID:      registryID,
-	}
-
-	customChartValueMap := make(map[string]*commonservice.RenderChartArg)
-	for _, singleCV := range arg.ChartValues {
-		customChartValueMap[singleCV.ServiceName] = singleCV
-	}
-
-	for _, latestChart := range productObj.ChartInfos {
-		if singleCV, ok := customChartValueMap[latestChart.ServiceName]; ok {
-			singleCV.FillRenderChartModel(latestChart, latestChart.ChartVersion)
-		}
-	}
-
-	// default values
-	defaultValuesYaml := arg.DefaultValues
+	productObj.Services = serviceGroup
 
 	// insert renderset info into db
 	if len(productObj.ChartInfos) > 0 {
@@ -810,7 +842,7 @@ func UpdateProductRecycleDay(envName, productName string, recycleDay int) error 
 	return commonrepo.NewProductColl().UpdateProductRecycleDay(envName, productName, recycleDay)
 }
 
-func UpdateHelmProduct(productName, envName, updateType, username, requestID string, overrideCharts []*commonservice.RenderChartArg, log *zap.SugaredLogger) error {
+func UpdateHelmProduct(productName, envName, updateType, username, requestID string, overrideCharts []*commonservice.RenderChartArg, renderSet *models.RenderSet, log *zap.SugaredLogger) error {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	productResp, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
@@ -824,6 +856,44 @@ func UpdateHelmProduct(productName, envName, updateType, username, requestID str
 		log.Errorf("[%s][P:%s] GetProductTemplate error: %v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(e.FindProductTmplErrMsg)
 	}
+
+	for _, svrs := range updateProd.Services {
+		for _, svr := range svrs {
+			for _, rc := range overrideCharts {
+				if rc.ServiceName == svr.ServiceName {
+					for _, c := range svr.Containers {
+						image := c.Image
+						mergeYaml, err := helmtool.MergeOverrideValues("", renderSet.DefaultValues, rc.OverrideYaml, rc.ToOverrideValueString())
+						if err != nil {
+							errMsg := fmt.Sprintf("Failed to MergeOverrideValues for service  %s,error:%s", svr.ServiceName, err)
+							log.Error(errMsg)
+							return e.ErrUpdateEnv.AddDesc(errMsg)
+						}
+						mergedValuesYamlFlattenMap, err := converter.YamlToFlatMap([]byte(mergeYaml))
+						if err != nil {
+							errMsg := fmt.Sprintf("mergeYamlToFlatMap service %s,error:%s", svr.ServiceName, err)
+							log.Error(errMsg)
+							return e.ErrUpdateEnv.AddDesc(errMsg)
+						}
+						imageRepo, ok1 := mergedValuesYamlFlattenMap[c.ImagePath.Repo]
+						imageTag, ok2 := mergedValuesYamlFlattenMap[c.ImagePath.Tag]
+						if ok2 {
+							if ok1 {
+								image = fmt.Sprintf("%s:%s", imageRepo, imageTag)
+							} else {
+								splitImage := strings.Split(image, ":")
+								if len(splitImage) == 2 {
+									image = fmt.Sprintf("%s:%s", splitImage[0], imageTag)
+								}
+							}
+						}
+						c.Image = image
+					}
+				}
+			}
+		}
+	}
+
 	productResp.Services = updateProd.Services
 
 	// 设置产品状态为更新中
@@ -1186,7 +1256,7 @@ func UpdateMultipleHelmEnv(requestID string, args *UpdateMultiHelmProductArg, lo
 			return envStatuses, e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to query renderset for env: %s", envName))
 		}
 
-		err = UpdateHelmProduct(productName, envName, UpdateTypeEnv, setting.SystemUser, requestID, args.ChartValues, log)
+		err = UpdateHelmProduct(productName, envName, UpdateTypeEnv, setting.SystemUser, requestID, args.ChartValues, renderSet, log)
 		if err != nil {
 			log.Errorf("UpdateMultiHelmProduct UpdateProductV2 err:%v", err)
 			return envStatuses, e.ErrUpdateEnv.AddDesc(err.Error())

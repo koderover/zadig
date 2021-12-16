@@ -18,7 +18,6 @@ package service
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -33,9 +32,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/util/converter"
 )
 
 var DefaultCleanWhiteList = []string{"spockadmin"}
@@ -138,59 +135,12 @@ func GetInitProduct(productTmplName string, log *zap.SugaredLogger) (*commonmode
 				Type:        serviceTmpl.Type,
 				Revision:    serviceTmpl.Revision,
 			}
-			if serviceTmpl.Type == setting.K8SDeployType {
+			if serviceTmpl.Type == setting.K8SDeployType || serviceTmpl.Type == setting.HelmDeployType {
 				serviceResp.Containers = make([]*commonmodels.Container, 0)
 				for _, c := range serviceTmpl.Containers {
 					container := &commonmodels.Container{
 						Name:      c.Name,
 						Image:     c.Image,
-						ImagePath: c.ImagePath,
-					}
-					serviceResp.Containers = append(serviceResp.Containers, container)
-				}
-			} else if serviceTmpl.Type == setting.HelmDeployType {
-				serviceResp.Containers = make([]*commonmodels.Container, 0)
-				renderSet, err := commonservice.GetRenderSet(prodTmpl.ProductName, 0, log)
-				if err != nil {
-					errMsg := fmt.Sprintf("Failed to GetRenderSet for product template %s", prodTmpl.ProductName)
-					log.Error(errMsg)
-					return nil, e.ErrGetProduct.AddDesc(errMsg)
-				}
-				for _, c := range serviceTmpl.Containers {
-					image := c.Image
-					for _, rc := range renderSet.ChartInfos {
-						if rc.ServiceName == serviceTmpl.ServiceName {
-							mergeYaml, err := helmtool.MergeOverrideValues(rc.ValuesYaml, renderSet.DefaultValues, rc.GetOverrideYaml(), rc.OverrideValues)
-							if err != nil {
-								errMsg := fmt.Sprintf("Failed to MergeOverrideValues for product template %s,error:%s", prodTmpl.ProductName, err)
-								log.Error(errMsg)
-								return nil, e.ErrGetProduct.AddDesc(errMsg)
-							}
-							mergedValuesYamlFlattenMap, err := converter.YamlToFlatMap([]byte(mergeYaml))
-							if err != nil {
-								errMsg := fmt.Sprintf("mergeYamlToFlatMap product template %s,error:%s", prodTmpl.ProductName, err)
-								log.Error(errMsg)
-								return nil, e.ErrGetProduct.AddDesc(errMsg)
-							}
-							imageRepo, ok1 := mergedValuesYamlFlattenMap[c.ImagePath.Repo]
-							imageTag, ok2 := mergedValuesYamlFlattenMap[c.ImagePath.Tag]
-							if ok2 {
-								if ok1 {
-									image = fmt.Sprintf("%s:%s", imageRepo, imageTag)
-								} else {
-									splitImage := strings.Split(image, ":")
-									if len(splitImage) == 2 {
-										image = fmt.Sprintf("%s:%s", splitImage[0], imageTag)
-									}
-								}
-							}
-							break
-						}
-					}
-
-					container := &commonmodels.Container{
-						Name:      c.Name,
-						Image:     image,
 						ImagePath: c.ImagePath,
 					}
 					serviceResp.Containers = append(serviceResp.Containers, container)
