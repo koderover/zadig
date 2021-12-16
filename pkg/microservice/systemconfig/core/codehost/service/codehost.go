@@ -94,13 +94,13 @@ func AuthCodeHost(redirectURI string, codeHostID int, logger *zap.SugaredLogger)
 	}
 	redirectParsedURL, err := url.Parse(redirectURI)
 	if err != nil {
-		logger.Errorf("Parse:%s err:%s", codeHostID, err)
+		logger.Errorf("Parsere directURI:%s err:%s", redirectURI, err)
 		return "", err
 	}
 	callbackURL := fmt.Sprintf("%s://%s%s", redirectParsedURL.Scheme, redirectParsedURL.Host, callback)
 	oauth, err := NewOAuth(codeHost.Type, callbackURL, codeHost.ApplicationId, codeHost.ClientSecret, codeHost.Address)
 	if err != nil {
-		logger.Errorf("get Factory:%s err:%s", codeHost.Type, err)
+		logger.Errorf("NewOAuth:%s err:%s", codeHost.Type, err)
 		return "", err
 	}
 	stateStruct := state{
