@@ -96,7 +96,7 @@ func AuthCodeHost(redirectURI string, codeHostID int, logger *zap.SugaredLogger)
 		return "", err
 	}
 	callbackURL := fmt.Sprintf("%s://%s%s", redirectParsedURL.Scheme, redirectParsedURL.Host, callback)
-	oauth, err := NewOAuth(codeHost.Type, callbackURL, codeHost.ApplicationId, codeHost.ClientSecret, codeHost.Address)
+	oauth, err := newOAuth(codeHost.Type, callbackURL, codeHost.ApplicationId, codeHost.ClientSecret, codeHost.Address)
 	if err != nil {
 		logger.Errorf("NewOAuth:%s err:%s", codeHost.Type, err)
 		return "", err
@@ -113,7 +113,47 @@ func AuthCodeHost(redirectURI string, codeHostID int, logger *zap.SugaredLogger)
 	return oauth.LoginURL(base64.URLEncoding.EncodeToString(bs)), nil
 }
 
-func NewOAuth(provider, callbackURL, clientID, clientSecret, address string) (*oauth.OAuth, error) {
+func HandleCallback(stateStr string, r *http.Request, logger *zap.SugaredLogger) (string, error) {
+	// TODO：validate the code
+	// https://www.jianshu.com/p/c7c8f51713b6
+	decryptedState , err := base64.URLEncoding.DecodeString(stateStr)
+	if err !=nil {
+		logger.Errorf("DecodeString err:%s", err)
+		return "", err
+	}
+	var sta state
+	if err := json.Unmarshal(decryptedState, &sta); err != nil {
+		logger.Errorf("Unmarshal err:%s", err)
+		return "", err
+	}
+	codehost, err := GetCodeHost(sta.CodeHostID, logger)
+	if err != nil {
+		return handle(sta.RedirectURL, err)
+	}
+	redirectParsedURL, err := url.Parse(sta.RedirectURL)
+	if err != nil {
+		logger.Errorf("ParseURL:%s err:%s", sta.RedirectURL, err)
+		return "", err
+	}
+	callbackURL := fmt.Sprintf("%s://%s%s", redirectParsedURL.Scheme, redirectParsedURL.Host, callback)
+	o, err := newOAuth(codehost.Type, callbackURL, codehost.ApplicationId, codehost.ClientSecret, codehost.Address)
+	if err != nil {
+		return handle(sta.RedirectURL, err)
+	}
+	token, err := o.HandleCallback(r)
+	if err != nil {
+		return handle(sta.RedirectURL, err)
+	}
+	codehost.AccessToken = token.AccessToken
+	codehost.RefreshToken = token.RefreshToken
+	if _, err := UpdateCodeHostByToken(codehost, logger); err != nil {
+		logger.Errorf("UpdateCodeHostByToken err:%s", err)
+		return handle(sta.RedirectURL, err)
+	}
+	return handle(sta.RedirectURL, nil)
+}
+
+func newOAuth(provider, callbackURL, clientID, clientSecret, address string) (*oauth.OAuth, error) {
 	switch provider {
 	case systemconfig.GitHubProvider:
 		return oauth.New(callbackURL, clientID, clientSecret, []string{"api", "read_user"},oauth2.Endpoint{
@@ -127,46 +167,6 @@ func NewOAuth(provider, callbackURL, clientID, clientSecret, address string) (*o
 		}), nil
 	}
 	return nil, errors.New("illegal provider")
-}
-
-func HandleCallback(stateStr string, r *http.Request, logger *zap.SugaredLogger) (string, error) {
-	// TODO：validate the code
-	// https://www.jianshu.com/p/c7c8f51713b6
-	decryptedState , err := base64.URLEncoding.DecodeString(stateStr)
-	if err !=nil {
-		logger.Errorf("DecodeString err:%s", err)
-		return "", err
-	}
-	var state state
-	if err := json.Unmarshal(decryptedState, &state); err != nil {
-		logger.Errorf("Unmarshal err:%s", err)
-		return "", err
-	}
-	codehost, err := GetCodeHost(state.CodeHostID, logger)
-	if err != nil {
-		return handle(state.RedirectURL, err)
-	}
-	redirectParsedURL, err := url.Parse(state.RedirectURL)
-	if err != nil {
-		logger.Errorf("ParseURL:%s err:%s", state.RedirectURL, err)
-		return "", err
-	}
-	callbackURL := fmt.Sprintf("%s://%s%s", redirectParsedURL.Scheme, redirectParsedURL.Host, callback)
-	o, err := NewOAuth(codehost.Type, callbackURL, codehost.ApplicationId, codehost.ClientSecret, codehost.Address)
-	if err != nil {
-		return handle(state.RedirectURL, err)
-	}
-	token, err := o.HandleCallback(r)
-	if err != nil {
-		return handle(state.RedirectURL, err)
-	}
-	codehost.AccessToken = token.AccessToken
-	codehost.RefreshToken = token.RefreshToken
-	if _, err := UpdateCodeHostByToken(codehost, logger); err != nil {
-		logger.Errorf("UpdateCodeHostByToken err:%s", err)
-		return handle(state.RedirectURL, err)
-	}
-	return handle(state.RedirectURL, nil)
 }
 
 func handle(redirectURL string, err error) (string, error) {
