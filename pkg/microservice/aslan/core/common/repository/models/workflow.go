@@ -309,6 +309,7 @@ type HookPayload struct {
 type TargetArgs struct {
 	Name             string            `bson:"name"                      json:"name"`
 	ServiceName      string            `bson:"service_name"              json:"service_name"`
+	ServiceType      string            `bson:"service_type,omitempty"    json:"service_type,omitempty"`
 	ProductName      string            `bson:"product_name"              json:"product_name"`
 	Build            *BuildArgs        `bson:"build"                     json:"build"`
 	Deploy           []DeployEnv       `bson:"deloy"                     json:"deploy"`
