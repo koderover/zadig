@@ -166,6 +166,8 @@ func GetIngressInfo(product *commonmodels.Product, service *commonmodels.Service
 				log.Errorf("failed to init kubeClient, clusterID: %s", product.ClusterID)
 				return nil
 			}
+			// need to get ingress from k8s
+			// serializer.NewDecoder()YamlToIngress() only supports ingress resource with apiVersion: apiVersion: extensions/v1beta1
 			ing, found, err := getter.GetIngress(product.Namespace, u.GetName(), kubeClient)
 			if err != nil || !found {
 				log.Warnf("no ingress %s found in %s:%s %v", u.GetName(), service.ServiceName, product.Namespace, err)
