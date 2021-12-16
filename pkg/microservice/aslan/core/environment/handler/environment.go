@@ -164,6 +164,42 @@ func createHelmProduct(c *gin.Context, ctx *internalhandler.Context) {
 	)
 }
 
+func copyHelmProduct(c *gin.Context, ctx *internalhandler.Context) {
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can not be empty")
+		return
+	}
+
+	createArgs := make([]*service.CreateHelmProductArg, 0)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("copyHelmProduct c.GetRawData() err : %s", err)
+	} else if err = json.Unmarshal(data, &createArgs); err != nil {
+		log.Errorf("copyHelmProduct json.Unmarshal err : %s", err)
+	}
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	envNameCopyList := make([]string, 0)
+	for _, arg := range createArgs {
+		if arg.EnvName == "" || arg.BaseEnvName == "" {
+			ctx.Err = e.ErrInvalidParam.AddDesc("envName or baseEnvName is empty")
+			return
+		}
+		arg.ProductName = projectName
+		envNameCopyList = append(envNameCopyList, arg.BaseEnvName+"-->"+arg.EnvName)
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "复制", "集成环境", strings.Join(envNameCopyList, ","), string(data), ctx.Logger)
+
+	ctx.Err = service.CopyHelmProduct(
+		projectName, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger,
+	)
+}
+
 func CreateProduct(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -173,6 +209,10 @@ func CreateProduct(c *gin.Context) {
 		return
 	}
 	if c.Query("helm") == "true" {
+		if c.Query("scene") == "copy" {
+			copyHelmProduct(c, ctx)
+			return
+		}
 		createHelmProduct(c, ctx)
 		return
 	}

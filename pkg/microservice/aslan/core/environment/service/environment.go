@@ -30,6 +30,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"helm.sh/helm/v3/pkg/strvals"
@@ -152,6 +153,7 @@ type CreateHelmProductArg struct {
 	DefaultValues string                          `json:"defaultValues"`
 	RegistryID    string                          `json:"registry_id"`
 	ChartValues   []*commonservice.RenderChartArg `json:"chartValues"`
+	BaseEnvName   string                          `json:"baseEnvName"`
 }
 
 type UpdateMultiHelmProductArg struct {
@@ -804,6 +806,87 @@ func CreateProduct(user, requestID string, args *commonmodels.Product, log *zap.
 	log.Infof("[%s][P:%s] CreateProduct", args.EnvName, args.ProductName)
 	creator := getCreatorBySource(args.Source)
 	return creator.Create(user, requestID, args, log)
+}
+
+func CopyHelmProduct(productName, userName, requestID string, args []*CreateHelmProductArg, log *zap.SugaredLogger) error {
+
+	errList := new(multierror.Error)
+	for _, arg := range args {
+		err := copySingleHelmProduct(productName, requestID, userName, arg, log)
+		if err != nil {
+			errList = multierror.Append(errList, err)
+		}
+	}
+	return errList.ErrorOrNil()
+}
+
+func copySingleHelmProduct(productName, requestID, userName string, arg *CreateHelmProductArg, log *zap.SugaredLogger) error {
+
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: arg.BaseEnvName,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to query base product info name :%s,envname:%s", productName, arg.BaseEnvName)
+	}
+	productInfo.ID = primitive.NilObjectID
+	productInfo.Revision = 1
+	productInfo.EnvName = arg.EnvName
+	productInfo.UpdateBy = userName
+	productInfo.ClusterID = arg.ClusterID
+	productInfo.Namespace = commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace)
+
+	opt := &commonrepo.RenderSetFindOption{
+		Name:     productInfo.Render.Name,
+		Revision: productInfo.Render.Revision,
+	}
+	renderSetInfo, err := commonrepo.NewRenderSetColl().Find(opt)
+	if err != nil {
+		return err
+	}
+	productInfo.ChartInfos = renderSetInfo.ChartInfos
+
+	customChartValueMap := make(map[string]*commonservice.RenderChartArg)
+	for _, singleCV := range arg.ChartValues {
+		customChartValueMap[singleCV.ServiceName] = singleCV
+	}
+
+	for _, latestChart := range productInfo.ChartInfos {
+		if singleCV, ok := customChartValueMap[latestChart.ServiceName]; ok {
+			singleCV.FillRenderChartModel(latestChart, latestChart.ChartVersion)
+		}
+	}
+
+	productInfo.Render = nil
+	for idxm, svrInfo := range productInfo.Services {
+		for idxn, svr := range svrInfo {
+			if svr.Render != nil {
+				productInfo.Services[idxm][idxn].Render = nil
+			}
+		}
+	}
+
+	// default values
+	defaultValuesYaml := arg.DefaultValues
+
+	// insert renderset info into db
+	if len(productInfo.ChartInfos) > 0 {
+		err := commonservice.CreateHelmRenderSet(&commonmodels.RenderSet{
+			Name:          commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
+			EnvName:       arg.EnvName,
+			ProductTmpl:   arg.ProductName,
+			UpdateBy:      userName,
+			IsDefault:     false,
+			DefaultValues: defaultValuesYaml,
+			ChartInfos:    productInfo.ChartInfos,
+		}, log)
+		if err != nil {
+			log.Errorf("rennderset create fail when copy creating helm product, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err)
+			return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to save chart values, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err))
+		}
+	}
+
+	return CreateProduct(userName, requestID, productInfo, log)
 }
 
 func UpdateProductRecycleDay(envName, productName string, recycleDay int) error {
