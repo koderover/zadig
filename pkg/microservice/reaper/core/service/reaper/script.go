@@ -238,25 +238,25 @@ func (r *Reaper) runScripts() error {
 	}
 
 	// Debug log hang.
-	defer log.Debug("End executing user scripts.")
+	defer log.Info("End executing user scripts.")
 
 	go func() {
-		log.Debug("Start reading logs.")
-		defer log.Debug("End reading logs.")
+		log.Info("Start reading logs.")
+		defer log.Info("End reading logs.")
 
 		for outScanner.Scan() {
-			log.Debug("Start reading one line log.")
+			log.Info("Start reading one line log.")
 
 			fmt.Printf("%s\n", r.maskSecretEnvs(outScanner.Text()))
 			if len(r.Ctx.PostScripts) > 0 {
-				log.Debug("Start writing log to file.")
+				log.Info("Start writing log to file.")
 
 				util.WriteFile(fileName, []byte(outScanner.Text()+"\n"), 0700)
 
-				log.Debug("End writing log to file.")
+				log.Info("End writing log to file.")
 			}
 
-			log.Debug("End reading one line log.")
+			log.Info("End reading one line log.")
 		}
 	}()
 
