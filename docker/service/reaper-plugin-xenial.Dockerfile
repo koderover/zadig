@@ -23,8 +23,8 @@ RUN apt-get clean && apt-get update && apt-get install -y \
   librrd-dev \
   sudo
 
-# Upgrade Git to latest version
-RUN apt-get install -y software-properties-common && add-apt-repository -y ppa:git-core/ppa && apt-get update && apt-get install -y git
+# Upgrade Git to latest version,forcing IPv4 transport with apt-get
+RUN apt-get -o Acquire::ForceIPv4=true install -y software-properties-common && add-apt-repository -y ppa:git-core/ppa && apt-get -o Acquire::ForceIPv4=true update && apt-get -o Acquire::ForceIPv4=true install -y git
 
 # 修改时区
 RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
