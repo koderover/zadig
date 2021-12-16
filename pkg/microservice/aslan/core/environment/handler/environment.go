@@ -174,9 +174,9 @@ func copyHelmProduct(c *gin.Context, ctx *internalhandler.Context) {
 	createArgs := make([]*service.CreateHelmProductArg, 0)
 	data, err := c.GetRawData()
 	if err != nil {
-		log.Errorf("copyHelmProduct c.GetRawData() err : %v", err)
+		log.Errorf("copyHelmProduct c.GetRawData() err : %s", err)
 	} else if err = json.Unmarshal(data, &createArgs); err != nil {
-		log.Errorf("copyHelmProduct json.Unmarshal err : %v", err)
+		log.Errorf("copyHelmProduct json.Unmarshal err : %s", err)
 	}
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)

@@ -827,7 +827,7 @@ func copySingleHelmProduct(productName, requestID, userName string, arg *CreateH
 		EnvName: arg.BaseEnvName,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to query base product info, name %s", arg.BaseEnvName)
+		return fmt.Errorf("failed to query base product info name :%s,envname:%s", productName, arg.BaseEnvName)
 	}
 	productInfo.ID = primitive.NilObjectID
 	productInfo.Revision = 1
@@ -881,8 +881,8 @@ func copySingleHelmProduct(productName, requestID, userName string, arg *CreateH
 			ChartInfos:    productInfo.ChartInfos,
 		}, log)
 		if err != nil {
-			log.Errorf("rennderset create fail when copy creating helm product, productName: %s", arg.ProductName)
-			return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to save chart values, productName: %s", arg.ProductName))
+			log.Errorf("rennderset create fail when copy creating helm product, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err)
+			return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to save chart values, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err))
 		}
 	}
 
