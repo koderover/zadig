@@ -31,7 +31,7 @@ type Client struct {
 	host string
 }
 
-func New() *Client {
+func NewWithRetry() *Client {
 	host := config.PolicyServiceAddress()
 
 	c := httpclient.New(

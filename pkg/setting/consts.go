@@ -356,18 +356,8 @@ const (
 	NormalModeProduct = "normal"
 )
 
-// roles
 const (
-	RoleOwnerID = 3
-	RoleUserID  = 4
-
-	RoleUser        = "user"        // 普通用户
-	RoleOwner       = "owner"       // 项目管理员
-	RoleAdmin       = "admin"       // 超级管理员
-	RoleContributor = "contributor" //开源项目贡献者
-	SystemUser      = "system"
-
-	GuestAccount = "guest2019"
+	SystemUser = "system"
 )
 
 // events
@@ -567,10 +557,10 @@ const ChartTemplatesPath = "charts"
 type RoleType string
 
 const (
-	Contributor        RoleType = "contributor"
-	ReadOnly           RoleType = "read-only"
-	Admin              RoleType = "project-admin"
-	RoleBindingNameFmt string   = "user:%s,role:%s,project:%s"
+	Contributor  RoleType = "contributor"
+	ReadOnly     RoleType = "read-only"
+	ProjectAdmin RoleType = "project-admin"
+	SystemAdmin  RoleType = "admin"
 )
 
 // ModernWorkflowType 自由编排工作流

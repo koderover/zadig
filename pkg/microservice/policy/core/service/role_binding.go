@@ -21,8 +21,10 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
+	"github.com/koderover/zadig/pkg/setting"
 )
 
 type RoleBinding struct {
@@ -135,6 +137,8 @@ func createRoleBindingObject(ns string, rb *RoleBinding, logger *zap.SugaredLogg
 		return nil, fmt.Errorf("role %s not found", rb.Role)
 	}
 
+	ensureRoleBindingName(ns, rb)
+
 	return &models.RoleBinding{
 		Name:      rb.Name,
 		Namespace: ns,
@@ -144,4 +148,17 @@ func createRoleBindingObject(ns string, rb *RoleBinding, logger *zap.SugaredLogg
 			Namespace: role.Namespace,
 		},
 	}, nil
+}
+
+func ensureRoleBindingName(ns string, rb *RoleBinding) {
+	if rb.Name != "" {
+		return
+	}
+
+	nsRole := ns
+	if rb.Public {
+		nsRole = ""
+	}
+
+	rb.Name = config.RoleBindingNameFromUIDAndRole(rb.UID, setting.RoleType(rb.Role), nsRole)
 }

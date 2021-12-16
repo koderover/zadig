@@ -20,7 +20,6 @@ import (
 	_ "embed"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -169,9 +168,9 @@ func reportRegister(domain, email string) error {
 
 func presetRoleBinding(uid string) error {
 	return policy.NewDefault().CreateOrUpdateSystemRoleBinding(&policy.RoleBinding{
-		Name: fmt.Sprintf(setting.RoleBindingNameFmt, setting.RoleAdmin, setting.PresetAccount, ""),
+		Name: config.RoleBindingNameFromUIDAndRole(uid, setting.SystemAdmin, "*"),
 		UID:  uid,
-		Role: setting.RoleAdmin,
+		Role: string(setting.SystemAdmin),
 	})
 
 }
