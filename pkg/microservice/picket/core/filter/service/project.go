@@ -17,13 +17,13 @@ limitations under the License.
 package service
 
 import (
-	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"go.uber.org/zap"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/picket/client/aslan"
 	"github.com/koderover/zadig/pkg/microservice/picket/client/opa"
 	"github.com/koderover/zadig/pkg/setting"
@@ -44,19 +44,17 @@ type allowedProjectsData struct {
 func CreateProject(header http.Header, body []byte, qs url.Values, args *CreateProjectArgs, logger *zap.SugaredLogger) ([]byte, error) {
 	var rbs []*policy.RoleBinding
 	for _, uid := range args.Admins {
-		roleBindingName := fmt.Sprintf(setting.RoleBindingNameFmt, uid, setting.Admin, args.ProductName)
 		rbs = append(rbs, &policy.RoleBinding{
-			Name:   roleBindingName,
+			Name:   configbase.RoleBindingNameFromUIDAndRole(uid, setting.ProjectAdmin, ""),
 			UID:    uid,
-			Role:   string(setting.Admin),
+			Role:   string(setting.ProjectAdmin),
 			Public: true,
 		})
 	}
 
 	if args.Public {
-		roleBindingName := fmt.Sprintf(setting.RoleBindingNameFmt, "*", setting.ReadOnly, args.ProductName)
 		rbs = append(rbs, &policy.RoleBinding{
-			Name:   roleBindingName,
+			Name:   configbase.RoleBindingNameFromUIDAndRole("*", setting.ReadOnly, ""),
 			UID:    "*",
 			Role:   string(setting.ReadOnly),
 			Public: true,
@@ -88,7 +86,7 @@ func CreateProject(header http.Header, body []byte, qs url.Values, args *CreateP
 
 func UpdateProject(header http.Header, qs url.Values, body []byte, projectName string, public bool, logger *zap.SugaredLogger) ([]byte, error) {
 	// role binding
-	roleBindingName := fmt.Sprintf(setting.RoleBindingNameFmt, "*", setting.ReadOnly, projectName)
+	roleBindingName := configbase.RoleBindingNameFromUIDAndRole("*", setting.ReadOnly, "")
 	if !public {
 		if err := policy.NewDefault().DeleteRoleBinding(roleBindingName, projectName); err != nil {
 			logger.Errorf("Failed to delete role binding, err: %s", err)
