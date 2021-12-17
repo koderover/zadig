@@ -25,6 +25,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -549,6 +550,18 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 
 	return job, nil
 }
+func formatRegistryName(namespaceInRegistry string) (string, error) {
+	reg, err := regexp.Compile("[^a-zA-Z0-9]+")
+	if err != nil {
+		return "", err
+	}
+	processedName := reg.ReplaceAllString(namespaceInRegistry, "")
+	processedName = strings.ToLower(processedName)
+	if len(processedName) > 237 {
+		processedName = processedName[:237]
+	}
+	return processedName, nil
+}
 
 func createOrUpdateRegistrySecrets(namespace, registryID string, registries []*task.RegistryNamespace, kubeClient client.Client) error {
 	for _, reg := range registries {
@@ -558,9 +571,13 @@ func createOrUpdateRegistrySecrets(namespace, registryID string, registries []*t
 
 		arr := strings.Split(reg.Namespace, "/")
 		namespaceInRegistry := arr[len(arr)-1]
-		secretName := namespaceInRegistry + registrySecretSuffix
+		filteredName, err := formatRegistryName(namespaceInRegistry)
+		if err != nil {
+			return err
+		}
+		secretName := filteredName + registrySecretSuffix
 		if reg.RegType != "" {
-			secretName = namespaceInRegistry + "-" + reg.RegType + registrySecretSuffix
+			secretName = filteredName + "-" + reg.RegType + registrySecretSuffix
 		}
 		if reg.ID == registryID {
 			secretName = setting.DefaultImagePullSecret
