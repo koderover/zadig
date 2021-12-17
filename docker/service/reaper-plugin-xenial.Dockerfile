@@ -27,6 +27,9 @@ RUN apt-get clean && apt-get update && apt-get install -y \
 # Upgrade Git to latest version
 RUN apt-get install -y software-properties-common && add-apt-repository -y ppa:git-core/ppa && apt-get update && apt-get install -y git
 
+# Fallback to the latest version of Git
+RUN wget https://mirrors.aliyun.com/ubuntu/pool/main/g/git/git_2.33.1-1ubuntu1_amd64.deb && dpkg -i git_2.33.1-1ubuntu1_amd64.deb
+
 # 修改时区
 RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 
