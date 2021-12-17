@@ -863,7 +863,7 @@ func UpdateHelmProduct(productName, envName, updateType, username, requestID str
 				if rc.ServiceName == svr.ServiceName {
 					for _, c := range svr.Containers {
 						image := c.Image
-						mergeYaml, err := helmtool.MergeOverrideValues("", renderSet.DefaultValues, rc.GetOverrideYaml(), rc.OverrideValues)
+						mergeYaml, err := helmtool.MergeOverrideValues(rc.ValuesYaml, renderSet.DefaultValues, rc.GetOverrideYaml(), rc.OverrideValues)
 						if err != nil {
 							errMsg := fmt.Sprintf("Failed to MergeOverrideValues for service  %s,error:%s", svr.ServiceName, err)
 							log.Error(errMsg)
