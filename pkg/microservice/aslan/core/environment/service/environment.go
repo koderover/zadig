@@ -944,6 +944,7 @@ func UpdateHelmProduct(productName, envName, updateType, username, requestID str
 				for _, psc := range ps.Containers {
 					if svrc.Name == psc.Name {
 						svrc.Image = psc.Image
+						break
 					}
 				}
 			}
