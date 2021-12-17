@@ -46,8 +46,6 @@ rules:
         endpoint: "/api/aslan/service/pm/?*"
       - method: POST
         endpoint: "/api/aslan/service/services"
-      - method: GET
-        endpoint: "/api/aslan/service/loader/preload/?*/?*"
       - method: POST
         endpoint: "/api/aslan/service/loader/load/?*/?*"
       - method: POST
