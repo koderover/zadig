@@ -2,8 +2,8 @@
 .PHONY: all
 
 IMAGE_REPOSITORY = ccr.ccs.tencentyun.com/koderover-rc
-VERSION := $(shell date +'%Y%m%d%H%M%S')
-
+VERSION ?= $(shell date +'%Y%m%d%H%M%S')
+VERSION := $(VERSION)
 TARGETS = aslan cron hub-agent hub-server jenkins-plugin podexec predator-plugin packager-plugin resource-server ua warpdrive policy user picket config init
 REAPER_OS= focal xenial bionic
 
