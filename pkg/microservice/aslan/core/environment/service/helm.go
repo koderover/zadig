@@ -26,6 +26,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/otiai10/copy"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -82,11 +83,22 @@ func ListReleases(productName, envName string, log *zap.SugaredLogger) ([]*HelmR
 		return nil, e.ErrCreateDeliveryVersion.AddErr(err)
 	}
 
+	// filter releases, only list releases deployed by zadig
+	serviceMap := prod.GetServiceMap()
+	serviceSet := sets.NewString()
+	for serviceName := range serviceMap {
+		serviceSet.Insert(serviceName)
+	}
+
 	ret := make([]*HelmReleaseResp, 0, len(releases))
 	for _, release := range releases {
+		serviceName := util.ExtraServiceName(release.Name, prod.Namespace)
+		if !serviceSet.Has(serviceName) {
+			continue
+		}
 		ret = append(ret, &HelmReleaseResp{
 			ReleaseName: release.Name,
-			ServiceName: util.ExtraServiceName(release.Name, prod.Namespace),
+			ServiceName: serviceName,
 			Revision:    release.Version,
 			Chart:       release.Chart.Name(),
 			AppVersion:  release.Chart.AppVersion(),
