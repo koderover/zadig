@@ -111,21 +111,21 @@ func (p *PMService) listGroupServices(allServices []*commonmodels.ProductService
 			}
 
 			gp.ProductName = serviceTmpl.ProductName
-			if len(serviceTmpl.EnvStatuses) > 0 {
-				envStatuses := make([]*commonmodels.EnvStatus, 0)
-				for _, envStatus := range serviceTmpl.EnvStatuses {
-					if envStatus.EnvName == envName {
-						envStatuses = append(envStatuses, envStatus)
-					}
-				}
-				if len(envStatuses) > 0 {
-					gp.EnvStatuses = envStatuses
-					mutex.Lock()
-					resp = append(resp, gp)
-					mutex.Unlock()
-					return
+			//if len(serviceTmpl.EnvStatuses) > 0 {
+			envStatuses := make([]*commonmodels.EnvStatus, 0)
+			for _, envStatus := range serviceTmpl.EnvStatuses {
+				if envStatus.EnvName == envName {
+					envStatuses = append(envStatuses, envStatus)
 				}
 			}
+			if len(envStatuses) > 0 {
+				gp.EnvStatuses = envStatuses
+				mutex.Lock()
+				resp = append(resp, gp)
+				mutex.Unlock()
+				return
+			}
+			//}
 
 			mutex.Lock()
 			resp = append(resp, gp)
