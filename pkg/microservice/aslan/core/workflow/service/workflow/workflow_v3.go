@@ -201,20 +201,20 @@ func GetWorkflowV3Args(id string, logger *zap.SugaredLogger) ([]*WorkflowV3TaskA
 		switch param.Type {
 		case "string":
 			resp = append(resp, &WorkflowV3TaskArgs{
-				Type:  param.Type,
+				Type:  string(StringType),
 				Key:   param.Key,
 				Value: param.DefaultValue,
 			})
 		case "choice":
 			resp = append(resp, &WorkflowV3TaskArgs{
-				Type:   param.Type,
+				Type:   string(ChoiceType),
 				Key:    param.Key,
 				Value:  param.DefaultValue,
 				Choice: param.ChoiceOption,
 			})
 		case "external":
 			externalEnv := &WorkflowV3TaskArgs{
-				Type: param.Type,
+				Type: string(ExternalType),
 			}
 			for _, kv := range param.ExternalSetting.Params {
 				if kv.Display {
