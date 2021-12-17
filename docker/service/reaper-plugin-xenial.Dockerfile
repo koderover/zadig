@@ -30,7 +30,7 @@ RUN echo "deb http://ppa.launchpad.net/git-core/ppa/ubuntu xenial main" >> /etc/
 
 RUN echo "deb-src http://ppa.launchpad.net/git-core/ppa/ubuntu xenial main" >> /etc/apt/sources.list
 
-RUN  apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E1DD270288B4E6030699E45FA1715D88E1DF1F24
+RUN  apt-key adv --keyserver keyserver.ubuntu.com:80 --recv-keys E1DD270288B4E6030699E45FA1715D88E1DF1F24
 
 # Forcing IPv4 transport with apt-get
 RUN apt-get -o Acquire::ForceIPv4=true update 
