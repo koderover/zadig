@@ -56,6 +56,7 @@ import (
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/converter"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
@@ -608,16 +609,16 @@ func ensureChartFiles(chartData *DeliveryChartData, prod *commonmodels.Product) 
 
 	restConfig, err := kube.GetRESTConfig(prod.ClusterID)
 	if err != nil {
-		log.Errorf("get rest config error: %v", err)
+		log.Errorf("get rest config error: %s", err)
 		return "", err
 	}
 	helmClient, err := helmtool.NewClientFromRestConf(restConfig, prod.Namespace)
 	if err != nil {
-		log.Errorf("[%s][%s] init helm client error: %v", prod.ProductName, prod.Namespace, err)
+		log.Errorf("[%s][%s] init helm client error: %s", prod.ProductName, prod.Namespace, err)
 		return "", err
 	}
 
-	releaseName := fmt.Sprintf("%s-%s", prod.Namespace, serviceObj.ServiceName)
+	releaseName := util.GeneHelmReleaseName(prod.Namespace, serviceObj.ServiceName)
 	valuesMap, err := helmClient.GetReleaseValues(releaseName, true)
 	if err != nil {
 		log.Errorf("failed to get values map data %s", err)

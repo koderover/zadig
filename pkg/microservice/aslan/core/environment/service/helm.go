@@ -165,16 +165,16 @@ func prepareChartVersionData(prod *models.Product, serviceObj *models.Service, r
 
 	restConfig, err := kube.GetRESTConfig(prod.ClusterID)
 	if err != nil {
-		log.Errorf("get rest config error: %v", err)
+		log.Errorf("get rest config error: %s", err)
 		return err
 	}
 	helmClient, err := helmtool.NewClientFromRestConf(restConfig, prod.Namespace)
 	if err != nil {
-		log.Errorf("[%s][%s] init helm client error: %v", prod.EnvName, productName, err)
+		log.Errorf("[%s][%s] init helm client error: %s", prod.EnvName, productName, err)
 		return err
 	}
 
-	releaseName := fmt.Sprintf("%s-%s", prod.Namespace, serviceObj.ServiceName)
+	releaseName := util.GeneHelmReleaseName(prod.Namespace, serviceObj.ServiceName)
 	valuesMap, err := helmClient.GetReleaseValues(releaseName, true)
 	if err != nil {
 		log.Errorf("failed to get values map data %s", err)
