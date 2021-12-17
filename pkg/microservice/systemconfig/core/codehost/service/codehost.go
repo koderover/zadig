@@ -130,14 +130,14 @@ func HandleCallback(stateStr string, r *http.Request, logger *zap.SugaredLogger)
 		logger.Errorf("Unmarshal err:%s", err)
 		return "", err
 	}
-	codehost, err := GetCodeHost(sta.CodeHostID, logger)
-	if err != nil {
-		return handle(sta.RedirectURL, err)
-	}
 	redirectParsedURL, err := url.Parse(sta.RedirectURL)
 	if err != nil {
 		logger.Errorf("ParseURL:%s err:%s", sta.RedirectURL, err)
 		return "", err
+	}
+	codehost, err := GetCodeHost(sta.CodeHostID, logger)
+	if err != nil {
+		return handle(redirectParsedURL, err)
 	}
 	callbackURL := url.URL{
 		Scheme: redirectParsedURL.Scheme,
@@ -146,19 +146,19 @@ func HandleCallback(stateStr string, r *http.Request, logger *zap.SugaredLogger)
 	}
 	o, err := newOAuth(codehost.Type, callbackURL.String(), codehost.ApplicationId, codehost.ClientSecret, codehost.Address)
 	if err != nil {
-		return handle(sta.RedirectURL, err)
+		return handle(redirectParsedURL, err)
 	}
 	token, err := o.HandleCallback(r)
 	if err != nil {
-		return handle(sta.RedirectURL, err)
+		return handle(redirectParsedURL, err)
 	}
 	codehost.AccessToken = token.AccessToken
 	codehost.RefreshToken = token.RefreshToken
 	if _, err := UpdateCodeHostByToken(codehost, logger); err != nil {
 		logger.Errorf("UpdateCodeHostByToken err:%s", err)
-		return handle(sta.RedirectURL, err)
+		return handle(redirectParsedURL, err)
 	}
-	return handle(sta.RedirectURL, nil)
+	return handle(redirectParsedURL, nil)
 }
 
 func newOAuth(provider, callbackURL, clientID, clientSecret, address string) (*oauth.OAuth, error) {
@@ -177,15 +177,11 @@ func newOAuth(provider, callbackURL, clientID, clientSecret, address string) (*o
 	return nil, errors.New("illegal provider")
 }
 
-func handle(redirectURL string, err error) (string, error) {
-	u, parseErr := url.Parse(redirectURL)
-	if parseErr != nil {
-		return "", parseErr
-	}
+func handle(url *url.URL, err error) (string, error) {
 	if err != nil {
-		u.Query().Add("err", err.Error())
+		url.Query().Add("err", err.Error())
 	} else {
-		u.Query().Add("success", "true")
+		url.Query().Add("success", "true")
 	}
-	return u.String(), nil
+	return url.String(), nil
 }
