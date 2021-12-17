@@ -34,35 +34,33 @@ type WorkflowV3 struct {
 	UpdateTime  int64                    `bson:"update_time"    json:"update_time"`
 }
 
+type ParameterSettingType string
+
+const (
+	StringType   ParameterSettingType = "string"
+	ChoiceType   ParameterSettingType = "choice"
+	ExternalType ParameterSettingType = "external"
+)
+
 type ParameterSetting struct {
 	// External type parameter will NOT use this key.
-	Key string `bson:"key" json:"key"`
-	// Type list：
-	// string
-	// choice
-	// external
-	Type string `bson:"type" json:"type"`
-	//DefaultValue is the
+	Key  string               `bson:"key" json:"key"`
+	Type ParameterSettingType `bson:"type" json:"type"`
+	//DefaultValue
 	DefaultValue string `bson:"default_value" json:"default_value"`
-	// choiceOption 是枚举的所有选项
+	// choiceOption Are all options enumerated
 	ChoiceOption []string `bson:"choice_option" json:"choice_option"`
-	// ExternalSetting 是外部系统获取变量的配置
+	// ExternalSetting It is the configuration of the external system to obtain the variable
 	ExternalSetting *ExternalSetting `bson:"external_setting" json:"external_setting"`
 }
 
 type ExternalSetting struct {
-	// 外部系统ID
-	SystemID string `bson:"system_id" json:"system_id"`
-	// Endpoint路径
-	Endpoint string `bson:"endpoint" json:"endpoint"`
-	// 请求方法
-	Method string `bson:"method" json:"method"`
-	// 请求头
-	Headers []*KV `bson:"headers" json:"headers"`
-	// 请求体
-	Body string `bson:"body" json:"body"`
-	// 外部变量配置
-	Params []*ExternalParamMapping `bson:"params" json:"params"`
+	SystemID string                  `bson:"system_id" json:"system_id"`
+	Endpoint string                  `bson:"endpoint" json:"endpoint"`
+	Method   string                  `bson:"method" json:"method"`
+	Headers  []*KV                   `bson:"headers" json:"headers"`
+	Body     string                  `bson:"body" json:"body"`
+	Params   []*ExternalParamMapping `bson:"params" json:"params"`
 }
 
 type KV struct {
