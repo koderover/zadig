@@ -24,9 +24,11 @@ RUN apt-get clean && apt-get update && apt-get install -y \
   sudo
 
 # Upgrade Git to latest version,forcing IPv4 transport with apt-get
-RUN apt-get -o Acquire::ForceIPv4=true install -y software-properties-common 
+RUN apt-get -o Acquire::ForceIPv4=true install -y software-properties-common
 
-RUN add-apt-repository -y ppa:git-core/ppa 
+RUN echo "deb http://ppa.launchpad.net/git-core/ppa/ubuntu xenial main" >> /etc/apt/sources.list
+
+RUN echo "deb-src http://ppa.launchpad.net/git-core/ppa/ubuntu xenial main" >> /etc/apt/sources.list
 
 # Forcing IPv4 transport with apt-get
 RUN apt-get -o Acquire::ForceIPv4=true update 
