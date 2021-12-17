@@ -95,12 +95,8 @@ func AuthCodeHost(redirectURI string, codeHostID int, logger *zap.SugaredLogger)
 		logger.Errorf("Parse redirectURI:%s err:%s", redirectURI, err)
 		return "", err
 	}
-	callbackURL := url.URL{
-		Scheme: redirectParsedURL.Scheme,
-		Host:   redirectParsedURL.Host,
-		Path:   callback,
-	}
-	oauth, err := newOAuth(codeHost.Type, callbackURL.String(), codeHost.ApplicationId, codeHost.ClientSecret, codeHost.Address)
+	redirectParsedURL.Path = callback
+	oauth, err := newOAuth(codeHost.Type, redirectParsedURL.String(), codeHost.ApplicationId, codeHost.ClientSecret, codeHost.Address)
 	if err != nil {
 		logger.Errorf("NewOAuth:%s err:%s", codeHost.Type, err)
 		return "", err
