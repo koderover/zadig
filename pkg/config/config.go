@@ -265,3 +265,7 @@ func AdminPassword() string {
 func Namespace() string {
 	return viper.GetString(setting.ENVNamespace)
 }
+
+func RoleBindingNameFromUIDAndRole(uid string, role setting.RoleType, roleNamespace string) string {
+	return fmt.Sprintf("%s-%s-%s", uid, role, roleNamespace)
+}

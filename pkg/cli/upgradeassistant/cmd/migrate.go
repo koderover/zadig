@@ -63,7 +63,11 @@ var migrateCmd = &cobra.Command{
 }
 
 func run() error {
-	err := upgradepath.UpgradeWithBestPath(viper.GetString("fromVersion"), viper.GetString("toVersion"))
+	from := viper.GetString("fromVersion")
+	to := viper.GetString("toVersion")
+
+	log.Infof("Migrating from %s to %s", from, to)
+	err := upgradepath.UpgradeWithBestPath(from, to)
 	if err == nil {
 		log.Info("Migration finished")
 	}

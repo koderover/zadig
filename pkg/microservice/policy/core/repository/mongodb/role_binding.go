@@ -26,6 +26,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
+	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
@@ -182,7 +183,11 @@ func (c *RoleBindingColl) BulkCreate(objs []*models.RoleBinding) error {
 		ois = append(ois, obj)
 	}
 
-	_, err := c.InsertMany(context.TODO(), ois)
+	res, err := c.InsertMany(context.TODO(), ois)
+	if mongo.IsDuplicateKeyError(err) {
+		log.Warnf("Duplicate key found, inserted IDs is %v", res.InsertedIDs)
+		return nil
+	}
 
 	return err
 }
