@@ -859,11 +859,11 @@ func UpdateHelmProduct(productName, envName, updateType, username, requestID str
 
 	for _, svrs := range updateProd.Services {
 		for _, svr := range svrs {
-			for _, rc := range overrideCharts {
+			for _, rc := range renderSet.ChartInfos {
 				if rc.ServiceName == svr.ServiceName {
 					for _, c := range svr.Containers {
 						image := c.Image
-						mergeYaml, err := helmtool.MergeOverrideValues("", renderSet.DefaultValues, rc.OverrideYaml, rc.ToOverrideValueString())
+						mergeYaml, err := helmtool.MergeOverrideValues("", renderSet.DefaultValues, rc.GetOverrideYaml(), rc.OverrideValues)
 						if err != nil {
 							errMsg := fmt.Sprintf("Failed to MergeOverrideValues for service  %s,error:%s", svr.ServiceName, err)
 							log.Error(errMsg)
