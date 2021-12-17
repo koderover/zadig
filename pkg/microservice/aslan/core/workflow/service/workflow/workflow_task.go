@@ -188,6 +188,27 @@ func getProductTargetMap(prod *commonmodels.Product) map[string][]commonmodels.D
 	return resp
 }
 
+func getHideServiceModules(workflow *commonmodels.Workflow) sets.String {
+	hideServiceModules := sets.NewString()
+	if workflow.BuildStage != nil && workflow.BuildStage.Enabled {
+		for _, buildModule := range workflow.BuildStage.Modules {
+			if buildModule.HideServiceModule {
+				hideServiceModules.Insert(strings.Join([]string{buildModule.Target.ProductName, buildModule.Target.ServiceName, buildModule.Target.ServiceModule}, SplitSymbol))
+			}
+		}
+	}
+
+	if workflow.ArtifactStage != nil && workflow.ArtifactStage.Enabled {
+		for _, artifactModule := range workflow.ArtifactStage.Modules {
+			if artifactModule.HideServiceModule {
+				hideServiceModules.Insert(strings.Join([]string{artifactModule.Target.ProductName, artifactModule.Target.ServiceName, artifactModule.Target.ServiceModule}, SplitSymbol))
+			}
+		}
+	}
+
+	return hideServiceModules
+}
+
 func getProjectTargets(productName string) []string {
 	var targets []string
 	productTmpl, err := template.NewProductColl().Find(productName)
@@ -323,9 +344,13 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 
 	targetMap := getProductTargetMap(product)
 	projectTargets := getProjectTargets(product.ProductName)
+	hideServiceModules := getHideServiceModules(workflow)
 	targets := make([]*commonmodels.TargetArgs, 0)
 	if (workflow.BuildStage != nil && workflow.BuildStage.Enabled) || (workflow.ArtifactStage != nil && workflow.ArtifactStage.Enabled) {
 		for _, container := range projectTargets {
+			if hideServiceModules.Has(container) {
+				continue
+			}
 			if _, ok := targetMap[container]; !ok {
 				continue
 			}
