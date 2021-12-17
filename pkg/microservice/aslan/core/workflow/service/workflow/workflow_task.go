@@ -325,20 +325,20 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 	projectTargets := getProjectTargets(product.ProductName)
 	targets := make([]*commonmodels.TargetArgs, 0)
 	if (workflow.BuildStage != nil && workflow.BuildStage.Enabled) || (workflow.ArtifactStage != nil && workflow.ArtifactStage.Enabled) {
-		showServices := sets.NewString()
+		hideServiceModules := sets.NewString()
 		for _, buildModule := range workflow.BuildStage.Modules {
-			if !buildModule.HideServiceModule {
-				showServices.Insert(strings.Join([]string{buildModule.Target.ProductName, buildModule.Target.ServiceName, buildModule.Target.ServiceModule}, SplitSymbol))
+			if buildModule.HideServiceModule {
+				hideServiceModules.Insert(strings.Join([]string{buildModule.Target.ProductName, buildModule.Target.ServiceName, buildModule.Target.ServiceModule}, SplitSymbol))
 			}
 		}
 		for _, artifactModule := range workflow.ArtifactStage.Modules {
-			if !artifactModule.HideServiceModule {
-				showServices.Insert(strings.Join([]string{artifactModule.Target.ProductName, artifactModule.Target.ServiceName, artifactModule.Target.ServiceModule}, SplitSymbol))
+			if artifactModule.HideServiceModule {
+				hideServiceModules.Insert(strings.Join([]string{artifactModule.Target.ProductName, artifactModule.Target.ServiceName, artifactModule.Target.ServiceModule}, SplitSymbol))
 			}
 		}
 
 		for _, container := range projectTargets {
-			if !showServices.Has(container) {
+			if hideServiceModules.Has(container) {
 				continue
 			}
 			if _, ok := targetMap[container]; !ok {
