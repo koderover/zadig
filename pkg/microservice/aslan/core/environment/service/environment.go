@@ -764,7 +764,17 @@ func createSingleHelmProduct(templateProduct *template.Product, requestID, userN
 				Type:        serviceTmpl.Type,
 				Revision:    serviceTmpl.Revision,
 			}
-			if serviceTmpl.Type == setting.K8SDeployType || serviceTmpl.Type == setting.HelmDeployType {
+			if serviceTmpl.Type == setting.K8SDeployType {
+				serviceResp.Containers = make([]*commonmodels.Container, 0)
+				for _, c := range serviceTmpl.Containers {
+					container := &commonmodels.Container{
+						Name:      c.Name,
+						Image:     c.Image,
+						ImagePath: c.ImagePath,
+					}
+					serviceResp.Containers = append(serviceResp.Containers, container)
+				}
+			} else if serviceTmpl.Type == setting.HelmDeployType {
 				serviceResp.Containers = make([]*commonmodels.Container, 0)
 				for _, c := range serviceTmpl.Containers {
 					image := c.Image
@@ -772,29 +782,12 @@ func createSingleHelmProduct(templateProduct *template.Product, requestID, userN
 						if rc.ServiceName != serviceTmpl.ServiceName {
 							continue
 						}
-						mergeYaml, err := helmtool.MergeOverrideValues(rc.ValuesYaml, defaultValuesYaml, rc.GetOverrideYaml(), rc.OverrideValues)
+						var err error
+						image, err = genImageFromYaml(c, rc.ValuesYaml, defaultValuesYaml, rc.GetOverrideYaml(), rc.OverrideValues)
 						if err != nil {
-							errMsg := fmt.Sprintf("Failed to MergeOverrideValues for product template %s,error:%s", productObj.ProductName, err)
+							errMsg := fmt.Sprintf("genImageFromYaml product template %s,service name:%s,error:%s", productObj.ProductName, rc.ServiceName, err)
 							log.Error(errMsg)
 							return e.ErrCreateEnv.AddDesc(errMsg)
-						}
-						mergedValuesYamlFlattenMap, err := converter.YamlToFlatMap([]byte(mergeYaml))
-						if err != nil {
-							errMsg := fmt.Sprintf("mergeYamlToFlatMap product template %s,error:%s", productObj.ProductName, err)
-							log.Error(errMsg)
-							return e.ErrCreateEnv.AddDesc(errMsg)
-						}
-						imageRepo, ok1 := mergedValuesYamlFlattenMap[c.ImagePath.Repo]
-						imageTag, ok2 := mergedValuesYamlFlattenMap[c.ImagePath.Tag]
-						if ok2 {
-							if ok1 {
-								image = fmt.Sprintf("%s:%s", imageRepo, imageTag)
-							} else {
-								splitImage := strings.Split(image, ":")
-								if len(splitImage) == 2 {
-									image = fmt.Sprintf("%s:%s", splitImage[0], imageTag)
-								}
-							}
 						}
 					}
 
@@ -940,43 +933,22 @@ func UpdateHelmProduct(productName, envName, updateType, username, requestID str
 		return e.ErrUpdateEnv.AddDesc(e.FindProductTmplErrMsg)
 	}
 
+	productRespMap := productResp.GetServiceMap()
 	for _, svrs := range updateProd.Services {
 		for _, svr := range svrs {
-			for _, rc := range renderSet.ChartInfos {
-				if rc.ServiceName == svr.ServiceName {
-					for _, c := range svr.Containers {
-						image := c.Image
-						mergeYaml, err := helmtool.MergeOverrideValues(rc.ValuesYaml, renderSet.DefaultValues, rc.GetOverrideYaml(), rc.OverrideValues)
-						if err != nil {
-							errMsg := fmt.Sprintf("Failed to MergeOverrideValues for service  %s,error:%s", svr.ServiceName, err)
-							log.Error(errMsg)
-							return e.ErrUpdateEnv.AddDesc(errMsg)
-						}
-						mergedValuesYamlFlattenMap, err := converter.YamlToFlatMap([]byte(mergeYaml))
-						if err != nil {
-							errMsg := fmt.Sprintf("mergeYamlToFlatMap service %s,error:%s", svr.ServiceName, err)
-							log.Error(errMsg)
-							return e.ErrUpdateEnv.AddDesc(errMsg)
-						}
-						imageRepo, ok1 := mergedValuesYamlFlattenMap[c.ImagePath.Repo]
-						imageTag, ok2 := mergedValuesYamlFlattenMap[c.ImagePath.Tag]
-						if ok2 {
-							if ok1 {
-								image = fmt.Sprintf("%s:%s", imageRepo, imageTag)
-							} else {
-								splitImage := strings.Split(image, ":")
-								if len(splitImage) == 2 {
-									image = fmt.Sprintf("%s:%s", splitImage[0], imageTag)
-								}
-							}
-						}
-						c.Image = image
+			ps, ok := productRespMap[svr.ServiceName]
+			if !ok {
+				continue
+			}
+			for _, svrc := range svr.Containers {
+				for _, psc := range ps.Containers {
+					if svrc.Name == psc.Name {
+						svrc.Image = psc.Image
 					}
 				}
 			}
 		}
 	}
-
 	productResp.Services = updateProd.Services
 
 	// 设置产品状态为更新中
@@ -1020,6 +992,29 @@ func UpdateHelmProduct(productName, envName, updateType, username, requestID str
 		}
 	}()
 	return nil
+}
+
+func genImageFromYaml(c *models.Container, valuesYaml, defaultValues, overrideYaml, overrideValues string) (string, error) {
+	mergeYaml, err := helmtool.MergeOverrideValues(valuesYaml, defaultValues, overrideYaml, overrideValues)
+	if err != nil {
+		return "", err
+	}
+	mergedValuesYamlFlattenMap, err := converter.YamlToFlatMap([]byte(mergeYaml))
+	if err != nil {
+		return "", err
+	}
+	imageRepo, ok1 := mergedValuesYamlFlattenMap[c.ImagePath.Repo]
+	imageTag, ok2 := mergedValuesYamlFlattenMap[c.ImagePath.Tag]
+	if ok2 {
+		if ok1 {
+			return fmt.Sprintf("%s:%s", imageRepo, imageTag), nil
+		}
+		splitImage := strings.Split(c.Image, ":")
+		if len(splitImage) == 2 {
+			return fmt.Sprintf("%s:%s", splitImage[0], imageTag), nil
+		}
+	}
+	return c.Image, nil
 }
 
 func prepareEstimatedData(productName, envName, serviceName, usageScenario, defaultValues string, log *zap.SugaredLogger) (string, string, error) {
