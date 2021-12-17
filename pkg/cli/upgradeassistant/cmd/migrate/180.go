@@ -43,6 +43,7 @@ func updateAllRoleBindingNames() error {
 	rbs, err := coll.List()
 	if err != nil {
 		log.Errorf("Failed to list roleBindings, err: %s", err)
+		return err
 	}
 
 	var lastErr error
