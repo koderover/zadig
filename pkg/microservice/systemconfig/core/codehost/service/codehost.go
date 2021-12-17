@@ -92,11 +92,15 @@ func AuthCodeHost(redirectURI string, codeHostID int, logger *zap.SugaredLogger)
 	}
 	redirectParsedURL, err := url.Parse(redirectURI)
 	if err != nil {
-		logger.Errorf("Parsere directURI:%s err:%s", redirectURI, err)
+		logger.Errorf("Parse redirectURI:%s err:%s", redirectURI, err)
 		return "", err
 	}
-	callbackURL := fmt.Sprintf("%s://%s%s", redirectParsedURL.Scheme, redirectParsedURL.Host, callback)
-	oauth, err := newOAuth(codeHost.Type, callbackURL, codeHost.ApplicationId, codeHost.ClientSecret, codeHost.Address)
+	callbackURL := url.URL{
+		Scheme: redirectParsedURL.Scheme,
+		Host:   redirectParsedURL.Host,
+		Path:   callback,
+	}
+	oauth, err := newOAuth(codeHost.Type, callbackURL.String(), codeHost.ApplicationId, codeHost.ClientSecret, codeHost.Address)
 	if err != nil {
 		logger.Errorf("NewOAuth:%s err:%s", codeHost.Type, err)
 		return "", err
@@ -135,8 +139,12 @@ func HandleCallback(stateStr string, r *http.Request, logger *zap.SugaredLogger)
 		logger.Errorf("ParseURL:%s err:%s", sta.RedirectURL, err)
 		return "", err
 	}
-	callbackURL := fmt.Sprintf("%s://%s%s", redirectParsedURL.Scheme, redirectParsedURL.Host, callback)
-	o, err := newOAuth(codehost.Type, callbackURL, codehost.ApplicationId, codehost.ClientSecret, codehost.Address)
+	callbackURL := url.URL{
+		Scheme: redirectParsedURL.Scheme,
+		Host:   redirectParsedURL.Host,
+		Path:   callback,
+	}
+	o, err := newOAuth(codehost.Type, callbackURL.String(), codehost.ApplicationId, codehost.ClientSecret, codehost.Address)
 	if err != nil {
 		return handle(sta.RedirectURL, err)
 	}
