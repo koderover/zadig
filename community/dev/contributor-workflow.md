@@ -55,7 +55,7 @@ Zadig 为您提供云上测试环境 [https://os.koderover.com](https://os.koder
 
 在弹出的窗口中，点击 zadig 选项，如图修改如下字段：
 1. endpoint.FQDN=${github_id}.ko.coderover.cn
-2. global.extensions.extAuth.extauthzServerRef=zadig-env-${github_id}
+2. global.extensions.extAuth.extauthzServerRef.namespace=zadig-env-${github_id}
 3. dex.fullnameOverride=zadig-${github_id}-dex
 4. dex.config.issuer=http://zadig-${github_id}-dex
 5. dex.config.staticClients[0].redirectURISs[0]=http:// ${github_id}.ko.coderover.cn/api/v1/callback
