@@ -53,9 +53,18 @@ Zadig 为您提供云上测试环境 [https://os.koderover.com](https://os.koder
 
 ![Fork project](./fork-zadig-option.png)
 
-在弹出的窗口中，点击 zadig 选项，将其中的 endpoint.FQDN 中的 `githubid` 改成您的 GitHub ID，否则可能无法访问。
+在弹出的窗口中，点击 zadig 选项，如图修改如下字段：
+1. endpoint.FQDN=${github_id}.ko.coderover.cn
+2. global.extensions.extAuth.extauthzServerRef=zadig-env-${github_id}
+3. dex.fullnameOverride=zadig-${github_id}-dex
+4. dex.config.issuer=http://zadig-${github_id}-dex
+5. dex.config.staticClients[0].redirectURISs[0]=http:// ${github_id}.ko.coderover.cn/api/v1/callback
 
-![Update githubid](./fork-zadig-vars.png)
+![Fork_var1](./fork_var1.png)
+![Fork_var2](./fork_var2.png)
+![Fork_var3](./fork_var3.png)
+
+请注意，如果没有按照以上规则修改参数，可能会导致环境无法创建/创建环境后无法正常访问！
 
 Fork 完成后，您将获得一个 Zadig 测试环境。
 
