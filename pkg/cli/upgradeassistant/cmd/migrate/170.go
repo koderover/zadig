@@ -44,9 +44,16 @@ func V160ToV170() error {
 		return err
 	}
 
+	log.Info("Start to refresh all webhook secrets")
 	err = refreshWebHookSecret(gitservice.GetHookSecret())
 	if err != nil {
 		log.Errorf("Failed to refresh webhook secret, err: %s", err)
+		return err
+	}
+
+	err = changeEmailHostType()
+	if err != nil {
+		log.Errorf("Failed to change emailhost type , err: %s", err)
 		return err
 	}
 
@@ -60,6 +67,13 @@ func V170ToV160() error {
 		log.Errorf("Failed to rollback codehost type, err: %s", err)
 		return err
 	}
+
+	err = rollbackEmailhostType()
+	if err != nil {
+		log.Errorf("Failed to rollback emailhost type, err: %s", err)
+		return err
+	}
+
 	token := getWebHookTokenFromOrganization()
 	if token == "" {
 		return nil
@@ -140,19 +154,56 @@ func getCodeHostByAddressAndOwner(address, owner string, all []*systemconfig.Cod
 	return nil
 }
 
+// change tls from string to bool type
+func changeEmailHostType() error {
+	emailHosts, err := internalmongodb.NewEmailHostColl().List()
+	if err != nil {
+		log.Errorf("Failed to list emailhosts , err: %s", err)
+		return err
+	}
+	for _, v := range emailHosts {
+		if value, ok := v.IsTLS.(string); ok {
+			if err := internalmongodb.NewEmailHostColl().ChangeType(v.ID, value); err != nil {
+				log.Warnf("Failed to change id:%v istls:%s , err: %s", v.ID, value, err)
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// rollback  tls from bool to string type
+func rollbackEmailhostType() error {
+	// get all codehosts
+	codeHosts, err := internalmongodb.NewEmailHostColl().List()
+	if err != nil {
+		log.Errorf("Failed to list codehosts, err: %s", err)
+		return err
+	}
+	for _, v := range codeHosts {
+		if value, ok := v.IsTLS.(bool); ok {
+			if err := internalmongodb.NewEmailHostColl().RollbackType(v.ID, value); err != nil {
+				log.Warnf("Failed to rollback id:%v istls:%v , err: %s", v.ID, value, err)
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // change type "1,2,3,4" to "github,gitlab..."
 func changeCodehostType() error {
 	// get all codehosts
 	codeHosts, err := internalmongodb.NewCodehostColl().ListCodeHosts()
 	if err != nil {
-		log.Errorf("fail to list codehosts, err: %s", err)
+		log.Errorf("Failed to list codehosts, err: %s", err)
 		return err
 	}
 	var finalErr error
 	// change type to readable string
 	for _, v := range codeHosts {
 		if err := internalmongodb.NewCodehostColl().ChangeType(v.ID, v.Type); err != nil {
-			log.Warnf("fail to change id:%d type:%s , err: %s", v.ID, v.Type, err)
+			log.Warnf("Failed to change id:%d type:%s , err: %s", v.ID, v.Type, err)
 			finalErr = err
 		}
 	}
@@ -164,14 +215,14 @@ func rollbackCodehostType() error {
 	// get all codehosts
 	codeHosts, err := internalmongodb.NewCodehostColl().ListCodeHosts()
 	if err != nil {
-		log.Errorf("fail to list codehosts, err: %s", err)
+		log.Errorf("Failed to list codehosts, err: %s", err)
 		return err
 	}
 	var finalErr error
 	// rollback change type to readable string
 	for _, v := range codeHosts {
 		if err := internalmongodb.NewCodehostColl().RollbackType(v.ID, v.Type); err != nil {
-			log.Warnf("fail to rollback id:%d type:%s , err: %s", v.ID, v.Type, err)
+			log.Warnf("Failed to rollback id:%d type:%s , err: %s", v.ID, v.Type, err)
 			finalErr = err
 			continue
 		}
