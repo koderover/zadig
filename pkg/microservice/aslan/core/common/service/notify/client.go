@@ -17,8 +17,15 @@ limitations under the License.
 package notify
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/url"
+
+	"github.com/pkg/errors"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -208,6 +215,12 @@ func (c *client) ProccessNotify(notify *models.Notify) error {
 			return fmt.Errorf("SendWechatMessage err : %v", err)
 		}
 
+		// send callback requests
+		err = c.sendCallbackRequest(task)
+		if err != nil {
+			logger.Errorf("failed to send callback request for workflow: %s, taskID: %d", task.PipelineName, task.TaskID)
+		}
+
 		for _, receiver := range receivers {
 			subs, err := c.subscriptionColl.List(notify.Receiver)
 			if err != nil {
@@ -259,6 +272,64 @@ func (c *client) sendSubscribedNotify(notify *models.Notify) error {
 				return fmt.Errorf("create notify error: %v", err)
 			}
 		}
+	}
+	return nil
+}
+
+func taskFinished(task *task.Task) bool {
+	status := task.Status
+	if status == config.StatusPassed || status == config.StatusFailed || status == config.StatusTimeout || status == config.StatusCancelled {
+		return true
+	}
+	return false
+}
+
+// send callback request when workflow is finished
+func (c *client) sendCallbackRequest(task *task.Task) error {
+	if !taskFinished(task) {
+		return nil
+	}
+
+	callback := task.Callback
+	if callback == nil {
+		return nil
+	}
+
+	callbackUrl, err := url.PathUnescape(callback.CallbackUrl)
+	if err != nil {
+		return errors.Wrapf(err, "failed to unescape callback url")
+	}
+
+	responseBody := make(map[string]interface{})
+
+	// set task status data
+	responseBody["status"] = task.Status
+	responseBody["task_id"] = task.TaskID
+	responseBody["workflow_name"] = task.PipelineName
+	responseBody["error"] = task.Error
+
+	// set custom kvs
+	responseBody["vars"] = callback.CallbackVars
+
+	reqBody, err := json.Marshal(responseBody)
+	if err != nil {
+		log.Errorf("marshal json args error: %v", err)
+		return err
+	}
+
+	req, err := http.NewRequest("POST", callbackUrl, bytes.NewBuffer(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+
+	var resp *http.Response
+	client := &http.Client{}
+	resp, err = client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("callback response code error: %d", resp.StatusCode)
 	}
 	return nil
 }

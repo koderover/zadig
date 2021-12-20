@@ -180,6 +180,7 @@ func ListServiceWorkflows(productName, envName, serviceName, serviceType string,
 }
 
 type CreateTaskResp struct {
+	ProjectName  string `json:"project_name"`
 	PipelineName string `json:"pipeline_name"`
 	TaskID       int64  `json:"task_id"`
 }
@@ -284,7 +285,7 @@ func CreateServiceTask(args *commonmodels.ServiceTaskArgs, log *zap.SugaredLogge
 			return nil, e.ErrCreateTask
 		}
 
-		createTaskResps = append(createTaskResps, &CreateTaskResp{PipelineName: pipelineName, TaskID: nextTaskID})
+		createTaskResps = append(createTaskResps, &CreateTaskResp{ProjectName: product.ProductName, PipelineName: pipelineName, TaskID: nextTaskID})
 	}
 
 	return createTaskResps, nil

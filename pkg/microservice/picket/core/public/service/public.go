@@ -24,8 +24,32 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	"github.com/koderover/zadig/pkg/microservice/picket/client/aslan"
 )
+
+type WorkflowTaskTarget struct {
+	Name        string                   `json:"name"`
+	ServiceType string                   `json:"service_type"`
+	Build       *WorkflowTaskTargetBuild `json:"build"`
+}
+
+type WorkflowTaskTargetBuild struct {
+	Repos []*WorkflowTaskTargetRepo `json:"repos"`
+}
+
+type WorkflowTaskTargetRepo struct {
+	RepoName string `json:"repo_name"`
+	Branch   string `json:"branch"`
+	Pr       int    `json:"pr"`
+}
+
+type WorkflowTaskDetail struct {
+	WorkflowName string                `json:"workflow_name"`
+	EnvName      string                `json:"env_name"`
+	Targets      []*WorkflowTaskTarget `json:"targets"`
+	Status       string                `json:"status"`
+}
 
 func CreateWorkflowTask(header http.Header, qs url.Values, body []byte, _ *zap.SugaredLogger) ([]byte, error) {
 	return aslan.New().CreateWorkflowTask(header, qs, body)
@@ -41,6 +65,46 @@ func RestartWorkflowTask(header http.Header, qs url.Values, id string, name stri
 
 func ListWorkflowTask(header http.Header, qs url.Values, commitId string, _ *zap.SugaredLogger) ([]byte, error) {
 	return aslan.New().ListWorkflowTask(header, qs, commitId)
+}
+
+func GetDetailedWorkflowTask(header http.Header, qs url.Values, taskID, name string, _ *zap.SugaredLogger) ([]byte, error) {
+	body, err := aslan.New().GetDetailedWorkflowTask(header, qs, taskID, name)
+	if err != nil {
+		return nil, err
+	}
+	var workflowTask *task.Task = &task.Task{}
+	if err = json.Unmarshal(body, workflowTask); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal workflowTask err:%s", err)
+	}
+
+	resp := &WorkflowTaskDetail{
+		WorkflowName: workflowTask.PipelineName,
+		EnvName:      workflowTask.WorkflowArgs.EnvName,
+		Targets:      make([]*WorkflowTaskTarget, 0),
+		Status:       string(workflowTask.Status),
+	}
+
+	for _, singleTarget := range workflowTask.WorkflowArgs.Target {
+		target := &WorkflowTaskTarget{
+			Name:        singleTarget.ServiceName, // return service name instead of container name
+			ServiceType: singleTarget.ServiceType,
+			Build: &WorkflowTaskTargetBuild{
+				Repos: make([]*WorkflowTaskTargetRepo, 0),
+			},
+		}
+		if singleTarget.Build != nil {
+			for _, repo := range singleTarget.Build.Repos {
+				target.Build.Repos = append(target.Build.Repos, &WorkflowTaskTargetRepo{
+					RepoName: repo.RepoName,
+					Branch:   repo.Branch,
+					Pr:       repo.PR,
+				})
+			}
+		}
+		resp.Targets = append(resp.Targets, target)
+	}
+
+	return json.Marshal(resp)
 }
 
 func ListDelivery(header http.Header, qs url.Values, productName string, workflowName string, taskId string, perPage string, page string, _ *zap.SugaredLogger) ([]byte, error) {

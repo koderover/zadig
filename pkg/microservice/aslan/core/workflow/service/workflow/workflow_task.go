@@ -760,7 +760,11 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 	}
 
 	_ = scmnotify.NewService().UpdateWebhookComment(task, log)
-	resp := &CreateTaskResp{PipelineName: args.WorkflowName, TaskID: nextTaskID}
+	resp := &CreateTaskResp{
+		ProjectName:  args.ProductTmplName,
+		PipelineName: args.WorkflowName,
+		TaskID:       nextTaskID,
+	}
 	return resp, nil
 }
 
@@ -838,6 +842,7 @@ func AddDataToArgs(args *commonmodels.WorkflowTaskArgs, log *zap.SugaredLogger) 
 				for _, buildTarget := range build.Targets {
 					if reflect.DeepEqual(buildTarget, serviceModuleTarget) {
 						target.Name = container.Name
+						target.ServiceName = serviceTmpl.ServiceName
 						match = true
 						break
 					}
@@ -1571,7 +1576,11 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 	}
 
 	_ = scmnotify.NewService().UpdateWebhookComment(task, log)
-	resp := &CreateTaskResp{PipelineName: args.WorkflowName, TaskID: nextTaskID}
+	resp := &CreateTaskResp{
+		ProjectName:  workflow.ProductTmplName,
+		PipelineName: args.WorkflowName,
+		TaskID:       nextTaskID,
+	}
 	return resp, nil
 }
 
