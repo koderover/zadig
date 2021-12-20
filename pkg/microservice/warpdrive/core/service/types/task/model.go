@@ -24,6 +24,11 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 )
 
+type CallbackArgs struct {
+	CallbackUrl  string            `bson:"callback_url" json:"callback_url"`   // url-encoded full path
+	CallbackVars map[string]string `bson:"callback_vars" json:"callback_vars"` // custom defied vars, will be set to body of callback request
+}
+
 type Task struct {
 	TaskID       int64                    `bson:"task_id"                   json:"task_id"`
 	ProductName  string                   `bson:"product_name"              json:"product_name"`
@@ -81,6 +86,7 @@ type Task struct {
 	IsRestart       bool                   `bson:"is_restart"                  json:"is_restart"`
 	StorageEndpoint string                 `bson:"storage_endpoint"            json:"storage_endpoint"`
 	ArtifactInfo    *ArtifactInfo          `bson:"artifact_info"               json:"artifact_info"`
+	Callback        *CallbackArgs          `bson:"callback"               json:"callback"`
 }
 
 type RenderInfo struct {
@@ -204,6 +210,7 @@ type HookPayload struct {
 type TargetArgs struct {
 	Name             string            `bson:"name"                      json:"name"`
 	ServiceName      string            `bson:"service_name"              json:"service_name"`
+	ServiceType      string            `bson:"service_type,omitempty"    json:"service_type,omitempty"`
 	Build            *BuildArgs        `bson:"build"                     json:"build"`
 	Version          string            `bson:"version"                   json:"version"`
 	Deploy           []DeployEnv       `bson:"deloy"                     json:"deploy"`

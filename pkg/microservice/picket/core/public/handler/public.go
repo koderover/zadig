@@ -38,6 +38,7 @@ func CreateWorkflowTask(c *gin.Context) {
 	}
 	req.Namespace = req.EnvName
 	req.RequestMode = "openAPI"
+
 	body, err := json.Marshal(req)
 	if err != nil {
 		ctx.Err = err
@@ -127,6 +128,14 @@ func ListWorkflowTask(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	commitId := c.Query("commitId")
 	ctx.Resp, ctx.Err = service.ListWorkflowTask(c.Request.Header, c.Request.URL.Query(), commitId, ctx.Logger)
+}
+
+func GetWorkflowDetail(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	id := c.Param("id")
+	name := c.Param("name")
+	ctx.Resp, ctx.Err = service.GetDetailedWorkflowTask(c.Request.Header, c.Request.URL.Query(), id, name, ctx.Logger)
 }
 
 func ListDelivery(c *gin.Context) {
