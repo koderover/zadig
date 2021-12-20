@@ -65,3 +65,4 @@ The council will make a decision for the nomination. The candidate has to have d
 - [jtr109](https://github.com/jtr109)
 - [huangzexiong](https://github.com/huangzexiong)
 - [ruchikabobade](https://github.com/ruchikabobade)
+- [fengzixu](https://github.com/fengzixu)
