@@ -49,12 +49,15 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/pkg/util"
+	"github.com/koderover/zadig/pkg/util/converter"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
@@ -105,6 +108,7 @@ type DeliveryChartData struct {
 	ProductService *commonmodels.ProductService
 	RenderChart    *template.RenderChart
 	RenderSet      *commonmodels.RenderSet
+	ValuesInEnv    map[string]interface{}
 }
 
 type DeliveryChartResp struct {
@@ -511,14 +515,36 @@ func createChartRepoClient(repo *commonmodels.HelmRepo) (*cm.Client, error) {
 }
 
 // find all images in one single chart
-func extractImages(productService *commonmodels.ProductService, registryMap map[string]*commonmodels.RegistryNamespace) (*ServiceImageDetails, error) {
+func extractImages(cData *DeliveryChartData, registryMap map[string]*commonmodels.RegistryNamespace) (*ServiceImageDetails, error) {
+
+	flatMap, err := converter.Flatten(cData.ValuesInEnv)
+	if err != nil {
+		return nil, err
+	}
+
+	serviceObj := cData.ServiceObj
+	imagePathSpecs := make([]map[string]string, 0)
+	for _, container := range serviceObj.Containers {
+		imageSearchRule := &template.ImageSearchingRule{
+			Repo:  container.ImagePath.Repo,
+			Image: container.ImagePath.Image,
+			Tag:   container.ImagePath.Tag,
+		}
+		pattern := imageSearchRule.GetSearchingPattern()
+		imagePathSpecs = append(imagePathSpecs, pattern)
+	}
+
 	imageUrlsSet := sets.NewString()
-	for _, container := range productService.Containers {
-		imageUrlsSet.Insert(container.Image)
+	for _, spec := range imagePathSpecs {
+		imageUrl, err := commonservice.GeneImageURI(spec, flatMap)
+		if err != nil {
+			return nil, err
+		}
+		imageUrlsSet.Insert(imageUrl)
 	}
 
 	ret := &ServiceImageDetails{
-		ServiceName: productService.ServiceName,
+		ServiceName: cData.ProductService.ServiceName,
 		Images:      make([]*ImageUrlDetail, 0),
 	}
 
@@ -555,7 +581,7 @@ func extractImages(productService *commonmodels.ProductService, registryMap map[
 }
 
 // ensure chart files exist
-func ensureChartFiles(chartData *DeliveryChartData) (string, error) {
+func ensureChartFiles(chartData *DeliveryChartData, prod *commonmodels.Product) (string, error) {
 	serviceObj := chartData.ServiceObj
 	revisionBasePath := config.LocalDeliveryChartPathWithRevision(serviceObj.ProductName, serviceObj.ServiceName, serviceObj.Revision)
 	deliveryChartPath := filepath.Join(revisionBasePath, serviceObj.ServiceName)
@@ -581,11 +607,30 @@ func ensureChartFiles(chartData *DeliveryChartData) (string, error) {
 		return "", err
 	}
 
-	mergedValuesYaml, err := helmtool.MergeOverrideValues(chartData.RenderChart.ValuesYaml, chartData.RenderSet.DefaultValues, chartData.RenderChart.GetOverrideYaml(), chartData.RenderChart.OverrideValues)
+	restConfig, err := kube.GetRESTConfig(prod.ClusterID)
+	if err != nil {
+		log.Errorf("get rest config error: %s", err)
+		return "", err
+	}
+	helmClient, err := helmtool.NewClientFromRestConf(restConfig, prod.Namespace)
+	if err != nil {
+		log.Errorf("[%s][%s] init helm client error: %s", prod.ProductName, prod.Namespace, err)
+		return "", err
+	}
+
+	releaseName := util.GeneHelmReleaseName(prod.Namespace, serviceObj.ServiceName)
+	valuesMap, err := helmClient.GetReleaseValues(releaseName, true)
+	if err != nil {
+		log.Errorf("failed to get values map data, err: %s", err)
+		return "", err
+	}
+
+	currentValuesYaml, err := yaml.Marshal(valuesMap)
 	if err != nil {
 		return "", err
 	}
-	err = os.WriteFile(filepath.Join(deliveryChartPath, setting.ValuesYaml), []byte(mergedValuesYaml), 0644)
+
+	err = os.WriteFile(filepath.Join(deliveryChartPath, setting.ValuesYaml), currentValuesYaml, 0644)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to write values.yaml")
 	}
@@ -593,10 +638,10 @@ func ensureChartFiles(chartData *DeliveryChartData) (string, error) {
 	return deliveryChartPath, nil
 }
 
-func buildChartPackage(chartData *DeliveryChartData, chartRepo *commonmodels.HelmRepo, dir string, globalVariables string, registryMap map[string]*commonmodels.RegistryNamespace) error {
+func buildChartPackage(chartData *DeliveryChartData, product *commonmodels.Product, chartRepo *commonmodels.HelmRepo, dir string, globalVariables string, registryMap map[string]*commonmodels.RegistryNamespace) error {
 	serviceObj := chartData.ServiceObj
 
-	deliveryChartPath, err := ensureChartFiles(chartData)
+	deliveryChartPath, err := ensureChartFiles(chartData, product)
 	if err != nil {
 		return err
 	}
@@ -611,6 +656,9 @@ func buildChartPackage(chartData *DeliveryChartData, chartRepo *commonmodels.Hel
 	if err != nil {
 		return errors.Wrapf(err, "failed to unmarshal values.yaml for service %s", serviceObj.ServiceName)
 	}
+
+	// hold the currently running yaml data
+	chartData.ValuesInEnv = valuesYamlData
 
 	// write values.yaml file before load
 	if len(chartData.ChartData.ValuesYamlContent) > 0 { // values.yaml was edited directly
@@ -886,13 +934,13 @@ func buildDeliveryCharts(chartDataMap map[string]*DeliveryChartData, deliveryVer
 		wg.Add(1)
 		go func(cData *DeliveryChartData) {
 			defer wg.Done()
-			err := buildChartPackage(cData, repoInfo, dir, args.GlobalVariables, registryMap)
+			err := buildChartPackage(cData, deliveryVersion.ProductEnvInfo, repoInfo, dir, args.GlobalVariables, registryMap)
 			if err != nil {
 				logger.Errorf("failed to build chart package, serviceName: %s err: %s", cData.ChartData.ServiceName, err)
 				appendError(err)
 				return
 			}
-			imageData, err := extractImages(cData.ProductService, registryMap)
+			imageData, err := extractImages(cData, registryMap)
 			if err != nil {
 				logger.Errorf("failed to extract image data, serviceName: %s err: %s", cData.ChartData.ServiceName, err)
 				appendError(err)

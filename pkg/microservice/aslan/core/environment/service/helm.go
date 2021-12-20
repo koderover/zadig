@@ -27,6 +27,7 @@ import (
 	"github.com/otiai10/copy"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -141,7 +142,8 @@ func loadChartFilesInfo(productName, serviceName string, revision int64, dir str
 }
 
 //prepare chart version data
-func prepareChartVersionData(productName string, serviceObj *models.Service, renderChart *template.RenderChart, renderset *models.RenderSet) error {
+func prepareChartVersionData(prod *models.Product, serviceObj *models.Service, renderChart *template.RenderChart, renderset *models.RenderSet) error {
+	productName := prod.ProductName
 	serviceName, revision := serviceObj.ServiceName, serviceObj.Revision
 	base := config.LocalServicePathWithRevision(productName, serviceName, revision)
 	if err := commonservice.PreloadServiceManifestsByRevision(base, serviceObj); err != nil {
@@ -161,13 +163,31 @@ func prepareChartVersionData(productName string, serviceObj *models.Service, ren
 		return err
 	}
 
-	mergedValuesYaml, err := helmtool.MergeOverrideValues(renderChart.ValuesYaml, renderset.DefaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
+	restConfig, err := kube.GetRESTConfig(prod.ClusterID)
+	if err != nil {
+		log.Errorf("get rest config error: %s", err)
+		return err
+	}
+	helmClient, err := helmtool.NewClientFromRestConf(restConfig, prod.Namespace)
+	if err != nil {
+		log.Errorf("[%s][%s] init helm client error: %s", prod.EnvName, productName, err)
+		return err
+	}
+
+	releaseName := util.GeneHelmReleaseName(prod.Namespace, serviceObj.ServiceName)
+	valuesMap, err := helmClient.GetReleaseValues(releaseName, true)
+	if err != nil {
+		log.Errorf("failed to get values map data, err: %s", err)
+		return err
+	}
+
+	currentValuesYaml, err := yaml.Marshal(valuesMap)
 	if err != nil {
 		return err
 	}
 
 	// write values.yaml
-	if err = os.WriteFile(filepath.Join(deliveryChartPath, setting.ValuesYaml), []byte(mergedValuesYaml), 0644); err != nil {
+	if err = os.WriteFile(filepath.Join(deliveryChartPath, setting.ValuesYaml), currentValuesYaml, 0644); err != nil {
 		return err
 	}
 
@@ -245,7 +265,7 @@ func GetChartInfos(productName, envName, serviceName string, log *zap.SugaredLog
 				errList = multierror.Append(errList, fmt.Errorf("failed to find render chart for service %s in target namespace", serviceName))
 				return
 			}
-			err = prepareChartVersionData(productName, serviceObj, renderChart, renderSet)
+			err = prepareChartVersionData(prod, serviceObj, renderChart, renderSet)
 			if err != nil {
 				errList = multierror.Append(errList, fmt.Errorf("failed to prepare chart info for service %s", serviceObj.ServiceName))
 				return
