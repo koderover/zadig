@@ -990,7 +990,7 @@ func loadServiceFileInfos(productName, serviceName string, revision int64, dir s
 
 // UpdateHelmService TODO need to be deprecated
 func UpdateHelmService(args *HelmServiceArgs, log *zap.SugaredLogger) error {
-	var serviceMap map[string]int64
+	serviceMap := make(map[string]int64)
 	for _, helmServiceInfo := range args.HelmServiceInfos {
 
 		opt := &commonrepo.ServiceFindOption{

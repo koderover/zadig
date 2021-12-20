@@ -200,8 +200,9 @@ type BuildStage struct {
 
 // BuildModule ...
 type BuildModule struct {
-	Target         *ServiceModuleTarget `bson:"target"                 json:"target"`
-	BuildModuleVer string               `bson:"build_module_ver"       json:"build_module_ver"`
+	Target            *ServiceModuleTarget `bson:"target"                 json:"target"`
+	HideServiceModule bool                 `bson:"hide_service_module"    json:"hide_service_module"`
+	BuildModuleVer    string               `bson:"build_module_ver"       json:"build_module_ver"`
 }
 
 type ArtifactStage struct {
@@ -211,7 +212,8 @@ type ArtifactStage struct {
 
 // ArtifactModule ...
 type ArtifactModule struct {
-	Target *ServiceModuleTarget `bson:"target"                 json:"target"`
+	HideServiceModule bool                 `bson:"hide_service_module"    json:"hide_service_module"`
+	Target            *ServiceModuleTarget `bson:"target"                 json:"target"`
 }
 
 type TestStage struct {

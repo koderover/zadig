@@ -115,6 +115,7 @@ type Context struct {
 	StorageBucket   string        `yaml:"storage_bucket"`
 	StorageProvider int           `yaml:"storage_provider"`
 	ArtifactInfo    *ArtifactInfo `yaml:"artifact_info"`
+	ArtifactPath    string        `yaml:"artifact_path"`
 	AesKey          string        `yaml:"aes_key"`
 }
 

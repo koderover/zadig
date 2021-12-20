@@ -203,3 +203,11 @@ func IToi(before interface{}, after interface{}) error {
 
 	return nil
 }
+
+func ToTriggerTask(sb map[string]interface{}) (*task.Trigger, error) {
+	var trigger *task.Trigger
+	if err := task.IToi(sb, &trigger); err != nil {
+		return nil, fmt.Errorf("convert interface to triggerTask error: %s", err)
+	}
+	return trigger, nil
+}

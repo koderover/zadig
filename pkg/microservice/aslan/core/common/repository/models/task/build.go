@@ -150,6 +150,7 @@ type JobCtx struct {
 	TestType string `bson:"test_type"                       json:"test_type"`
 	// Caches
 	Caches        []string `bson:"caches" json:"caches"`
+	ArtifactPath  string   `bson:"artifact_path,omitempty"  json:"artifact_path,omitempty"`
 	ArtifactPaths []string `bson:"artifact_paths,omitempty" json:"artifact_paths,omitempty"`
 	IsHasArtifact bool     `bson:"is_has_artifact" json:"is_has_artifact"`
 	// StorageUri is used for qbox release-candidates

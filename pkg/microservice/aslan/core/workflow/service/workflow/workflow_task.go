@@ -188,6 +188,27 @@ func getProductTargetMap(prod *commonmodels.Product) map[string][]commonmodels.D
 	return resp
 }
 
+func getHideServiceModules(workflow *commonmodels.Workflow) sets.String {
+	hideServiceModules := sets.NewString()
+	if workflow.BuildStage != nil && workflow.BuildStage.Enabled {
+		for _, buildModule := range workflow.BuildStage.Modules {
+			if buildModule.HideServiceModule {
+				hideServiceModules.Insert(strings.Join([]string{buildModule.Target.ProductName, buildModule.Target.ServiceName, buildModule.Target.ServiceModule}, SplitSymbol))
+			}
+		}
+	}
+
+	if workflow.ArtifactStage != nil && workflow.ArtifactStage.Enabled {
+		for _, artifactModule := range workflow.ArtifactStage.Modules {
+			if artifactModule.HideServiceModule {
+				hideServiceModules.Insert(strings.Join([]string{artifactModule.Target.ProductName, artifactModule.Target.ServiceName, artifactModule.Target.ServiceModule}, SplitSymbol))
+			}
+		}
+	}
+
+	return hideServiceModules
+}
+
 func getProjectTargets(productName string) []string {
 	var targets []string
 	productTmpl, err := template.NewProductColl().Find(productName)
@@ -323,9 +344,13 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 
 	targetMap := getProductTargetMap(product)
 	projectTargets := getProjectTargets(product.ProductName)
+	hideServiceModules := getHideServiceModules(workflow)
 	targets := make([]*commonmodels.TargetArgs, 0)
 	if (workflow.BuildStage != nil && workflow.BuildStage.Enabled) || (workflow.ArtifactStage != nil && workflow.ArtifactStage.Enabled) {
 		for _, container := range projectTargets {
+			if hideServiceModules.Has(container) {
+				continue
+			}
 			if _, ok := targetMap[container]; !ok {
 				continue
 			}
@@ -1810,7 +1835,7 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 
 		switch pre.TaskType {
 
-		case config.TaskBuild, config.TaskArtifactDeploy:
+		case config.TaskBuild, config.TaskArtifactDeploy, config.TaskBuildV3:
 			t, err := base.ToBuildTask(subTask)
 			fmtBuildsTask(t, log)
 			if err != nil {
@@ -2236,7 +2261,20 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 				}
 			}
 		case config.TaskDistribute:
-			// 为了兼容历史数据类型，目前什么都不用做，避免出错
+		// do nothing
+		case config.TaskTrigger:
+			t, err := base.ToTriggerTask(subTask)
+			if err != nil {
+				log.Error(err)
+				return err
+			}
+
+			if t.Enabled {
+				pt.SubTasks[i], err = t.ToSubTask()
+				if err != nil {
+					return err
+				}
+			}
 		case config.TaskArtifactPackage:
 			// do nothing
 		default:
