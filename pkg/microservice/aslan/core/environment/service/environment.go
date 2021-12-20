@@ -1004,18 +1004,16 @@ func genImageFromYaml(c *models.Container, valuesYaml, defaultValues, overrideYa
 	if err != nil {
 		return "", err
 	}
-	imageRepo, ok1 := mergedValuesYamlFlattenMap[c.ImagePath.Repo]
-	imageTag, ok2 := mergedValuesYamlFlattenMap[c.ImagePath.Tag]
-	if ok2 {
-		if ok1 {
-			return fmt.Sprintf("%s:%s", imageRepo, imageTag), nil
-		}
-		splitImage := strings.Split(c.Image, ":")
-		if len(splitImage) == 2 {
-			return fmt.Sprintf("%s:%s", splitImage[0], imageTag), nil
-		}
+	imageRule := templatemodels.ImageSearchingRule{
+		Repo:  c.ImagePath.Repo,
+		Image: c.ImagePath.Image,
+		Tag:   c.ImagePath.Tag,
 	}
-	return c.Image, nil
+	image, err := commonservice.GeneImageURI(imageRule.GetSearchingPattern(), mergedValuesYamlFlattenMap)
+	if err != nil {
+		return "", err
+	}
+	return image, nil
 }
 
 func prepareEstimatedData(productName, envName, serviceName, usageScenario, defaultValues string, log *zap.SugaredLogger) (string, string, error) {
