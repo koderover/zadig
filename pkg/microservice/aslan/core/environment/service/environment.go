@@ -46,6 +46,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
@@ -698,6 +699,46 @@ func CreateHelmProduct(productName, userName, requestID string, args []*CreateHe
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 
+	errList := new(multierror.Error)
+	for _, arg := range args {
+		err = createSingleHelmProduct(templateProduct, requestID, userName, arg.RegistryID, arg, log)
+		if err != nil {
+			errList = multierror.Append(errList, err)
+		}
+	}
+	return errList.ErrorOrNil()
+}
+
+func createSingleHelmProduct(templateProduct *template.Product, requestID, userName, registryID string, arg *CreateHelmProductArg, log *zap.SugaredLogger) error {
+	productObj := &commonmodels.Product{
+		ProductName:     templateProduct.ProductName,
+		Revision:        1,
+		Enabled:         false,
+		EnvName:         arg.EnvName,
+		UpdateBy:        userName,
+		IsPublic:        true,
+		ClusterID:       arg.ClusterID,
+		Namespace:       commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
+		Source:          setting.SourceFromHelm,
+		IsOpenSource:    templateProduct.IsOpensource,
+		ChartInfos:      templateProduct.ChartInfos,
+		IsForkedProduct: false,
+		RegistryID:      registryID,
+	}
+
+	customChartValueMap := make(map[string]*commonservice.RenderChartArg)
+	for _, singleCV := range arg.ChartValues {
+		customChartValueMap[singleCV.ServiceName] = singleCV
+	}
+
+	for _, latestChart := range productObj.ChartInfos {
+		if singleCV, ok := customChartValueMap[latestChart.ServiceName]; ok {
+			singleCV.FillRenderChartModel(latestChart, latestChart.ChartVersion)
+		}
+	}
+	// default values
+	defaultValuesYaml := arg.DefaultValues
+
 	// generate service group data
 	allServiceInfoMap := templateProduct.AllServiceInfoMap()
 	var serviceGroup [][]*commonmodels.ProductService
@@ -723,12 +764,36 @@ func CreateHelmProduct(productName, userName, requestID string, args []*CreateHe
 				Type:        serviceTmpl.Type,
 				Revision:    serviceTmpl.Revision,
 			}
-			if serviceTmpl.Type == setting.K8SDeployType || serviceTmpl.Type == setting.HelmDeployType {
+			if serviceTmpl.Type == setting.K8SDeployType {
 				serviceResp.Containers = make([]*commonmodels.Container, 0)
 				for _, c := range serviceTmpl.Containers {
 					container := &commonmodels.Container{
 						Name:      c.Name,
 						Image:     c.Image,
+						ImagePath: c.ImagePath,
+					}
+					serviceResp.Containers = append(serviceResp.Containers, container)
+				}
+			} else if serviceTmpl.Type == setting.HelmDeployType {
+				serviceResp.Containers = make([]*commonmodels.Container, 0)
+				var err error
+				for _, c := range serviceTmpl.Containers {
+					image := c.Image
+					for _, rc := range productObj.ChartInfos {
+						if rc.ServiceName != serviceTmpl.ServiceName {
+							continue
+						}
+						image, err = genImageFromYaml(c, rc.ValuesYaml, defaultValuesYaml, rc.GetOverrideYaml(), rc.OverrideValues)
+						if err != nil {
+							errMsg := fmt.Sprintf("genImageFromYaml product template %s,service name:%s,error:%s", productObj.ProductName, rc.ServiceName, err)
+							log.Error(errMsg)
+							return e.ErrCreateEnv.AddDesc(errMsg)
+						}
+					}
+
+					container := &commonmodels.Container{
+						Name:      c.Name,
+						Image:     image,
 						ImagePath: c.ImagePath,
 					}
 					serviceResp.Containers = append(serviceResp.Containers, container)
@@ -739,47 +804,7 @@ func CreateHelmProduct(productName, userName, requestID string, args []*CreateHe
 		serviceGroup = append(serviceGroup, servicesResp)
 	}
 
-	errList := new(multierror.Error)
-	for _, arg := range args {
-		err = createSingleHelmProduct(templateProduct, serviceGroup, requestID, userName, arg.RegistryID, arg, log)
-		if err != nil {
-			errList = multierror.Append(errList, err)
-		}
-	}
-	return errList.ErrorOrNil()
-}
-
-func createSingleHelmProduct(templateProduct *template.Product, serviceGroup [][]*commonmodels.ProductService, requestID, userName, registryID string, arg *CreateHelmProductArg, log *zap.SugaredLogger) error {
-	productObj := &commonmodels.Product{
-		ProductName:     templateProduct.ProductName,
-		Revision:        1,
-		Enabled:         false,
-		EnvName:         arg.EnvName,
-		UpdateBy:        userName,
-		Services:        serviceGroup,
-		IsPublic:        true,
-		ClusterID:       arg.ClusterID,
-		Namespace:       commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
-		Source:          setting.SourceFromHelm,
-		IsOpenSource:    templateProduct.IsOpensource,
-		ChartInfos:      templateProduct.ChartInfos,
-		IsForkedProduct: false,
-		RegistryID:      registryID,
-	}
-
-	customChartValueMap := make(map[string]*commonservice.RenderChartArg)
-	for _, singleCV := range arg.ChartValues {
-		customChartValueMap[singleCV.ServiceName] = singleCV
-	}
-
-	for _, latestChart := range productObj.ChartInfos {
-		if singleCV, ok := customChartValueMap[latestChart.ServiceName]; ok {
-			singleCV.FillRenderChartModel(latestChart, latestChart.ChartVersion)
-		}
-	}
-
-	// default values
-	defaultValuesYaml := arg.DefaultValues
+	productObj.Services = serviceGroup
 
 	// insert renderset info into db
 	if len(productObj.ChartInfos) > 0 {
@@ -907,6 +932,24 @@ func UpdateHelmProduct(productName, envName, updateType, username, requestID str
 		log.Errorf("[%s][P:%s] GetProductTemplate error: %v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(e.FindProductTmplErrMsg)
 	}
+
+	productRespMap := productResp.GetServiceMap()
+	for _, svrs := range updateProd.Services {
+		for _, svr := range svrs {
+			ps, ok := productRespMap[svr.ServiceName]
+			if !ok {
+				continue
+			}
+			for _, svrc := range svr.Containers {
+				for _, psc := range ps.Containers {
+					if svrc.Name == psc.Name {
+						svrc.Image = psc.Image
+						break
+					}
+				}
+			}
+		}
+	}
 	productResp.Services = updateProd.Services
 
 	// 设置产品状态为更新中
@@ -950,6 +993,27 @@ func UpdateHelmProduct(productName, envName, updateType, username, requestID str
 		}
 	}()
 	return nil
+}
+
+func genImageFromYaml(c *models.Container, valuesYaml, defaultValues, overrideYaml, overrideValues string) (string, error) {
+	mergeYaml, err := helmtool.MergeOverrideValues(valuesYaml, defaultValues, overrideYaml, overrideValues)
+	if err != nil {
+		return "", err
+	}
+	mergedValuesYamlFlattenMap, err := converter.YamlToFlatMap([]byte(mergeYaml))
+	if err != nil {
+		return "", err
+	}
+	imageRule := templatemodels.ImageSearchingRule{
+		Repo:  c.ImagePath.Repo,
+		Image: c.ImagePath.Image,
+		Tag:   c.ImagePath.Tag,
+	}
+	image, err := commonservice.GeneImageURI(imageRule.GetSearchingPattern(), mergedValuesYamlFlattenMap)
+	if err != nil {
+		return "", err
+	}
+	return image, nil
 }
 
 func prepareEstimatedData(productName, envName, serviceName, usageScenario, defaultValues string, log *zap.SugaredLogger) (string, string, error) {
