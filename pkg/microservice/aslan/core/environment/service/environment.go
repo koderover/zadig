@@ -776,13 +776,13 @@ func createSingleHelmProduct(templateProduct *template.Product, requestID, userN
 				}
 			} else if serviceTmpl.Type == setting.HelmDeployType {
 				serviceResp.Containers = make([]*commonmodels.Container, 0)
+				var err error
 				for _, c := range serviceTmpl.Containers {
 					image := c.Image
 					for _, rc := range productObj.ChartInfos {
 						if rc.ServiceName != serviceTmpl.ServiceName {
 							continue
 						}
-						var err error
 						image, err = genImageFromYaml(c, rc.ValuesYaml, defaultValuesYaml, rc.GetOverrideYaml(), rc.OverrideValues)
 						if err != nil {
 							errMsg := fmt.Sprintf("genImageFromYaml product template %s,service name:%s,error:%s", productObj.ProductName, rc.ServiceName, err)
