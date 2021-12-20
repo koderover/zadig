@@ -22,6 +22,8 @@ rules:
         endpoint: "/api/aslan/service/helm/?*/?*/fileContent"
       - method: GET
         endpoint: "/api/aslan/service/helm/?*/?*/serviceModule"
+      - method: GET
+        endpoint: "/api/aslan/service/services/?*/pm"
   - action: edit_service
     alias: "编辑服务"
     description: ""
