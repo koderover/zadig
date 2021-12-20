@@ -218,7 +218,7 @@ func (c *client) ProccessNotify(notify *models.Notify) error {
 		// send callback requests
 		err = c.sendCallbackRequest(task)
 		if err != nil {
-			logger.Errorf("failed to send callback request for workflow: %s, taskID: %d", task.PipelineName, task.TaskID)
+			logger.Errorf("failed to send callback request for workflow: %s, taskID: %d, err: %s", task.PipelineName, task.TaskID, err)
 		}
 
 		for _, receiver := range receivers {
@@ -290,10 +290,16 @@ func (c *client) sendCallbackRequest(task *task.Task) error {
 		return nil
 	}
 
-	callback := task.Callback
+	if task.WorkflowArgs == nil {
+		return nil
+	}
+
+	callback := task.WorkflowArgs.Callback
 	if callback == nil {
 		return nil
 	}
+
+	log.Infof("###### start to check callback , url %s", callback.CallbackUrl)
 
 	callbackUrl, err := url.PathUnescape(callback.CallbackUrl)
 	if err != nil {

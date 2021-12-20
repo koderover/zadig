@@ -27,11 +27,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 )
 
-type CallbackArgs struct {
-	CallbackUrl  string                 `bson:"callback_url" json:"callback_url"`   // url-encoded full path
-	CallbackVars map[string]interface{} `bson:"callback_vars" json:"callback_vars"` // custom defied vars, will be set to body of callback request
-}
-
 type Task struct {
 	ID           primitive.ObjectID       `bson:"_id,omitempty"             json:"id,omitempty"`
 	TaskID       int64                    `bson:"task_id"                   json:"task_id"`
@@ -87,7 +82,6 @@ type Task struct {
 	Features        []string               `bson:"features"               json:"features"`
 	IsRestart       bool                   `bson:"is_restart"             json:"is_restart"`
 	StorageEndpoint string                 `bson:"storage_endpoint"       json:"storage_endpoint"`
-	Callback        *CallbackArgs          `bson:"callback"               json:"callback"`
 }
 
 func (Task) TableName() string {

@@ -24,11 +24,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 )
 
-type CallbackArgs struct {
-	CallbackUrl  string            `bson:"callback_url" json:"callback_url"`   // url-encoded full path
-	CallbackVars map[string]string `bson:"callback_vars" json:"callback_vars"` // custom defied vars, will be set to body of callback request
-}
-
 type Task struct {
 	TaskID       int64                    `bson:"task_id"                   json:"task_id"`
 	ProductName  string                   `bson:"product_name"              json:"product_name"`
@@ -86,7 +81,6 @@ type Task struct {
 	IsRestart       bool                   `bson:"is_restart"                  json:"is_restart"`
 	StorageEndpoint string                 `bson:"storage_endpoint"            json:"storage_endpoint"`
 	ArtifactInfo    *ArtifactInfo          `bson:"artifact_info"               json:"artifact_info"`
-	Callback        *CallbackArgs          `bson:"callback"               json:"callback"`
 }
 
 type RenderInfo struct {
@@ -123,6 +117,11 @@ type DeployArgs struct {
 	// 格式: {service name}-{timestamp}-{suffix}}.tar.gz
 	// timestamp format: 20060102150405
 	PackageFile string `json:"package_file"`
+}
+
+type CallbackArgs struct {
+	CallbackUrl  string                 `bson:"callback_url" json:"callback_url"`   // url-encoded full path
+	CallbackVars map[string]interface{} `bson:"callback_vars" json:"callback_vars"` // custom defied vars, will be set to body of callback request
 }
 
 type WorkflowTaskArgs struct {
@@ -164,6 +163,8 @@ type WorkflowTaskArgs struct {
 	// 请求模式，openAPI表示外部客户调用
 	RequestMode string `json:"request_mode,omitempty"`
 	IsParallel  bool   `json:"is_parallel" bson:"is_parallel"`
+
+	Callback *CallbackArgs `bson:"callback"                    json:"callback"`
 }
 
 type TestArgs struct {

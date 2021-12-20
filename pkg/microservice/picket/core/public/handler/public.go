@@ -135,6 +135,7 @@ func GetWorkflowDetail(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	id := c.Param("id")
 	name := c.Param("name")
+	c.Header("Content-Type", "application/json")
 	ctx.Resp, ctx.Err = service.GetDetailedWorkflowTask(c.Request.Header, c.Request.URL.Query(), id, name, ctx.Logger)
 }
 
