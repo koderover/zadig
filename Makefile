@@ -52,7 +52,7 @@ allpush.arm64: $(ALL_PUSH:=.arm64) $(ALL_REAPER_PUSH:=.arm64)
 	@sed -i -e '/#alpine.Dockerfile/ {' -e 'r docker/base/amd64/alpine.Dockerfile' -e 'd' -e '}' docker/dist/amd64/reaper-plugin-$*.Dockerfile
 	@sed -i -e '/#nginx.Dockerfile/ {' -e 'r docker/base/amd64/nginx.Dockerfile' -e 'd' -e '}' docker/dist/amd64/reaper-plugin-$*.Dockerfile
 	@sed -i -e '/#alpine-git.Dockerfile/ {' -e 'r docker/base/amd64/alpine-git.Dockerfile' -e 'd' -e '}' docker/dist/amd64/reaper-plugin-$*.Dockerfile
-	@docker build -f docker/dist/amd64/reaper-plugin-$*.Dockerfile --tag ${MAKE_IMAGE} .
+	@docker build --progress=plain --no-cache -f docker/dist/amd64/reaper-plugin-$*.Dockerfile --tag ${MAKE_IMAGE} .
 
 %.push.amd64: MAKE_IMAGE ?= ${IMAGE_REPOSITORY}/$*:${VERSION}-amd64
 %.push.amd64: %.image.amd64
