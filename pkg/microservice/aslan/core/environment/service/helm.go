@@ -177,7 +177,7 @@ func prepareChartVersionData(prod *models.Product, serviceObj *models.Service, r
 	releaseName := util.GeneHelmReleaseName(prod.Namespace, serviceObj.ServiceName)
 	valuesMap, err := helmClient.GetReleaseValues(releaseName, true)
 	if err != nil {
-		log.Errorf("failed to get values map data %s", err)
+		log.Errorf("failed to get values map data, err: %s", err)
 		return err
 	}
 
