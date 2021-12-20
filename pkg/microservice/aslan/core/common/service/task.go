@@ -40,6 +40,14 @@ type cancelMessage struct {
 	ReqID        string `json:"req_id"`
 }
 
+func CancelWorkflowTaskV3(userName, pipelineName string, taskID int64, typeString config.PipelineType, requestID string, log *zap.SugaredLogger) error {
+	if err := CancelTask(userName, pipelineName, taskID, typeString, requestID, log); err != nil {
+		log.Errorf("[%s] cancel pipeline [%s:%d] error: %s", userName, pipelineName, taskID, err)
+		return e.ErrCancelTask.AddDesc(err.Error())
+	}
+	return nil
+}
+
 func CancelTaskV2(userName, pipelineName string, taskID int64, typeString config.PipelineType, requestID string, log *zap.SugaredLogger) error {
 
 	if err := CancelTask(userName, pipelineName, taskID, typeString, requestID, log); err != nil {
