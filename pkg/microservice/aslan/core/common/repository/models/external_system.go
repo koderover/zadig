@@ -14,23 +14,17 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package models
 
-import (
-	"go.uber.org/zap"
+import "go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
-)
+type ExternalSystem struct {
+	ID       primitive.ObjectID `bson:"_id,omitempty"`
+	Name     string             `bson:"name"`
+	Server   string             `bson:"server"`
+	APIToken string             `bson:"api_token"`
+}
 
-func ListCodeHost(_ *zap.SugaredLogger) ([]*systemconfig.CodeHost, error) {
-	list, err := systemconfig.New().ListCodeHosts()
-	if err != nil {
-		return nil, err
-	}
-	for k := range list {
-		list[k].AccessKey = "***"
-		list[k].SecretKey = "***"
-		list[k].AccessToken = "***"
-	}
-	return list, nil
+func (ExternalSystem) TableName() string {
+	return "external_system"
 }

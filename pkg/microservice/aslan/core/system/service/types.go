@@ -16,21 +16,9 @@ limitations under the License.
 
 package service
 
-import (
-	"go.uber.org/zap"
-
-	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
-)
-
-func ListCodeHost(_ *zap.SugaredLogger) ([]*systemconfig.CodeHost, error) {
-	list, err := systemconfig.New().ListCodeHosts()
-	if err != nil {
-		return nil, err
-	}
-	for k := range list {
-		list[k].AccessKey = "***"
-		list[k].SecretKey = "***"
-		list[k].AccessToken = "***"
-	}
-	return list, nil
+type ExternalSystemDetail struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Server   string `json:"server"`
+	APIToken string `json:"api_token,omitempty"`
 }

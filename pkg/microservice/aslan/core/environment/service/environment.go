@@ -1324,7 +1324,7 @@ func UpdateMultipleHelmEnv(requestID string, args *UpdateMultiHelmProductArg, lo
 	}
 
 	// extract values.yaml and update renderset
-	for envName, _ := range productMap {
+	for envName := range productMap {
 		renderSet, _, err := commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
 			Name: commonservice.GetProductEnvNamespace(envName, productName, ""),
 		})

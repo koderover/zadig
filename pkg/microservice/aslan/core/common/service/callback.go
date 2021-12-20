@@ -17,20 +17,10 @@ limitations under the License.
 package service
 
 import (
-	"go.uber.org/zap"
-
-	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 )
 
-func ListCodeHost(_ *zap.SugaredLogger) ([]*systemconfig.CodeHost, error) {
-	list, err := systemconfig.New().ListCodeHosts()
-	if err != nil {
-		return nil, err
-	}
-	for k := range list {
-		list[k].AccessKey = "***"
-		list[k].SecretKey = "***"
-		list[k].AccessToken = "***"
-	}
-	return list, nil
+func HandleCallback(req *commonmodels.CallbackRequest) error {
+	return commonrepo.NewCallbackRequestColl().Create(req)
 }

@@ -84,6 +84,10 @@ var publicURLs = []*policyRule{
 		Methods:   []string{"GET"},
 		Endpoints: []string{"api/v1/features/?*"},
 	},
+	{
+		Methods:   []string{"POST"},
+		Endpoints: []string{"api/callback"},
+	},
 }
 
 // actions which are allowed for system admins only.

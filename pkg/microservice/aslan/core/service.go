@@ -163,6 +163,7 @@ func initDatabase() {
 		template.NewProductColl(),
 		commonrepo.NewBasicImageColl(),
 		commonrepo.NewBuildColl(),
+		commonrepo.NewCallbackRequestColl(),
 		commonrepo.NewCounterColl(),
 		commonrepo.NewCronjobColl(),
 		commonrepo.NewDeliveryActivityColl(),

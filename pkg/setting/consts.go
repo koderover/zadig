@@ -320,10 +320,11 @@ const (
 
 // counter prefix
 const (
-	PipelineTaskFmt = "PipelineTask:%s"
-	WorkflowTaskFmt = "WorkflowTask:%s"
-	TestTaskFmt     = "TestTask:%s"
-	ServiceTaskFmt  = "ServiceTask:%s"
+	PipelineTaskFmt   = "PipelineTask:%s"
+	WorkflowTaskFmt   = "WorkflowTask:%s"
+	WorkflowTaskV3Fmt = "WorkflowTaskV3:%s"
+	TestTaskFmt       = "TestTask:%s"
+	ServiceTaskFmt    = "ServiceTask:%s"
 )
 
 // Product Status
