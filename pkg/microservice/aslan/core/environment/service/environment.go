@@ -540,16 +540,16 @@ func UpdateProduct(existedProd, updateProd *commonmodels.Product, renderSet *com
 	return nil
 }
 
-func UpdateProductRegistry(namespace, registryID string, log *zap.SugaredLogger) (err error) {
-	opt := &commonrepo.ProductFindOptions{Namespace: namespace}
+func UpdateProductRegistry(envName, productName, registryID string, log *zap.SugaredLogger) (err error) {
+	opt := &commonrepo.ProductFindOptions{EnvName: envName, Name: productName}
 	exitedProd, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
-		log.Errorf("UpdateProductRegistry find product by namespace:%s,error: %v", namespace, err)
+		log.Errorf("UpdateProductRegistry find product by envName:%s,error: %v", envName, err)
 		return e.ErrUpdateEnv.AddDesc(e.EnvNotFoundErrMsg)
 	}
-	err = commonrepo.NewProductColl().UpdateRegistry(namespace, registryID)
+	err = commonrepo.NewProductColl().UpdateRegistry(envName, productName, registryID)
 	if err != nil {
-		log.Errorf("UpdateProductRegistry UpdateRegistry by namespace:%s registryID:%s error: %v", namespace, registryID, err)
+		log.Errorf("UpdateProductRegistry UpdateRegistry by envName:%s registryID:%s error: %v", envName, registryID, err)
 		return e.ErrUpdateEnv.AddErr(err)
 	}
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), exitedProd.ClusterID)
@@ -559,7 +559,7 @@ func UpdateProductRegistry(namespace, registryID string, log *zap.SugaredLogger)
 	err = ensureKubeEnv(exitedProd.Namespace, registryID, kubeClient, log)
 
 	if err != nil {
-		log.Errorf("UpdateProductRegistry ensureKubeEnv by namespace:%s,error: %v", namespace, err)
+		log.Errorf("UpdateProductRegistry ensureKubeEnv by envName:%s,error: %v", envName, err)
 		return err
 	}
 	return nil

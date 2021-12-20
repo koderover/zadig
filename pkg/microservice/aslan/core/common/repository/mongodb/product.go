@@ -245,8 +245,8 @@ func (c *ProductColl) UpdateErrors(owner, productName, errorMsg string) error {
 	return err
 }
 
-func (c *ProductColl) UpdateRegistry(namespace, registryId string) error {
-	query := bson.M{"namespace": namespace}
+func (c *ProductColl) UpdateRegistry(envName, productName, registryId string) error {
+	query := bson.M{"env_name": envName, "product_name": productName}
 	change := bson.M{"$set": bson.M{
 		"registry_id": registryId,
 	}}

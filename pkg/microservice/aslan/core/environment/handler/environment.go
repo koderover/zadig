@@ -56,7 +56,6 @@ type NamespaceResource struct {
 
 type UpdateProductRegistryRequest struct {
 	RegistryID string `json:"registry_id"`
-	Namespace  string `json:"namespace"`
 }
 
 func ListProducts(c *gin.Context) {
@@ -295,7 +294,7 @@ func UpdateProduct(c *gin.Context) {
 func UpdateProductRegistry(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
+	envName := c.Param("name")
 	projectName := c.Query("projectName")
 	args := new(UpdateProductRegistryRequest)
 	data, err := c.GetRawData()
@@ -309,16 +308,16 @@ func UpdateProductRegistry(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "集成环境", args.Namespace, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "集成环境", envName, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	ctx.Err = service.UpdateProductRegistry(args.Namespace, args.RegistryID, ctx.Logger)
+	ctx.Err = service.UpdateProductRegistry(envName, projectName, args.RegistryID, ctx.Logger)
 	if ctx.Err != nil {
-		ctx.Logger.Errorf("failed to update product %s %s: %v", args.Namespace, args.RegistryID, ctx.Err)
+		ctx.Logger.Errorf("failed to update product %s %s: %v", envName, args.RegistryID, ctx.Err)
 	}
 }
 

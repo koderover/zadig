@@ -1849,10 +1849,10 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 					setManunalBuilds(t.JobCtx.Builds, pt.TaskArgs.Builds, log)
 				}
 
-				opt := &commonrepo.ProductFindOptions{Name: pt.ProductName}
+				opt := &commonrepo.ProductFindOptions{EnvName: envName, Name: pt.ProductName}
 				exitedProd, err := commonrepo.NewProductColl().Find(opt)
 				if err != nil {
-					log.Errorf("can't find product by name:%s error msg: %v", pt.ProductName, err)
+					log.Errorf("can't find product by envName:%s error msg: %v", envName, err)
 					return e.ErrFindRegistry.AddDesc(err.Error())
 				}
 
