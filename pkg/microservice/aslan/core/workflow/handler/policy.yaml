@@ -36,6 +36,8 @@ rules:
         endpoint: "/api/aslan/workflow/v3/?*"
       - method: GET
         endpoint: "/api/aslan/workflow/v3/?*/args"
+      - method: GET
+        endpoint: "/api/aslan/workflow/servicetask/workflows/?*/?*/?*/?*"
   - action: edit_workflow
     alias: "编辑工作流"
     description: ""
