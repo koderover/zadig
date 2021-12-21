@@ -62,10 +62,22 @@ type WorkflowHookCtrl struct {
 }
 
 type WorkflowHook struct {
-	AutoCancel          bool              `bson:"auto_cancel"             json:"auto_cancel"`
-	CheckPatchSetChange bool              `bson:"check_patch_set_change"  json:"check_patch_set_change"`
-	MainRepo            *MainHookRepo     `bson:"main_repo"               json:"main_repo"`
-	WorkflowArgs        *WorkflowTaskArgs `bson:"workflow_args"           json:"workflow_args"`
+	AutoCancel          bool              `bson:"auto_cancel"               json:"auto_cancel"`
+	CheckPatchSetChange bool              `bson:"check_patch_set_change"    json:"check_patch_set_change"`
+	MainRepo            *MainHookRepo     `bson:"main_repo"                 json:"main_repo"`
+	WorkflowArgs        *WorkflowTaskArgs `bson:"workflow_args"             json:"workflow_args"`
+	IsYaml              bool              `bson:"is_yaml,omitempty"         json:"is_yaml,omitempty"`
+	YamlPath            string            `bson:"yaml_path,omitempty"       json:"yaml_path,omitempty"`
+	YamlHookRepo        *YamlHookRepo     `bson:"yaml_hook_repo,omitempty"  json:"yaml_hook_repo,omitempty"`
+}
+
+type YamlHookRepo struct {
+	Name        string `bson:"name,omitempty"            json:"name,omitempty"`
+	Description string `bson:"description,omitempty"     json:"description,omitempty"`
+	Source      string `bson:"source,omitempty"          json:"source,omitempty"`
+	RepoOwner   string `bson:"repo_owner,omitempty"      json:"repo_owner,omitempty"`
+	RepoName    string `bson:"repo_name,omitempty"       json:"repo_name,omitempty"`
+	CodehostID  int    `bson:"codehost_id,omitempty"     json:"codehost_id,omitempty"`
 }
 
 type MainHookRepo struct {
