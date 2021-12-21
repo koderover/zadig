@@ -133,7 +133,7 @@ var systemAdminURLs = []*policyRule{
 		Endpoints: []string{"api/aslan/system/proxyManage/?*"},
 	},
 	{
-		Methods:   []string{"GET", "POST"},
+		Methods:   []string{"POST"},
 		Endpoints: []string{"api/aslan/system/registry/namespaces"},
 	},
 	{
