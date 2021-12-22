@@ -50,7 +50,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		k8s.GET("/:name/:type", GetServiceTemplate)
 		k8s.GET("/:name", GetServiceTemplateOption)
 		k8s.POST("", GetServiceTemplateProductName, gin2.UpdateOperationLogStatus, CreateServiceTemplate)
-		k8s.PUT("", GetServiceTemplateObjectProductName, gin2.UpdateOperationLogStatus, UpdateServiceTemplate)
+		k8s.PUT("", GetServiceTemplateProductName, gin2.UpdateOperationLogStatus, UpdateServiceTemplate)
 		k8s.PUT("/yaml/validator", YamlValidator)
 		k8s.DELETE("/:name/:type", gin2.UpdateOperationLogStatus, DeleteServiceTemplate)
 		k8s.GET("/:name/:type/ports", ListServicePort)
