@@ -442,7 +442,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 	}
 
 	// RequestMode=openAPI表示外部客户调用API，部分数据需要获取并补充到args中
-	if args.RequestMode == "openAPI" {
+	if args.RequestMode == setting.RequestModeOpenAPI {
 		log.Info("CreateWorkflowTask from openAPI")
 		err := AddDataToArgs(args, log)
 		if err != nil {

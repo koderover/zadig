@@ -22,11 +22,20 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/tool/log"
+
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/pkg/microservice/picket/client/aslan"
 )
+
+type WorkflowTaskImage struct {
+	Image       string `json:"image"`
+	ServiceName string `json:"service_name"`
+}
 
 type WorkflowTaskTarget struct {
 	Name        string                   `json:"name"`
@@ -48,6 +57,7 @@ type WorkflowTaskDetail struct {
 	WorkflowName string                `json:"workflow_name"`
 	EnvName      string                `json:"env_name"`
 	Targets      []*WorkflowTaskTarget `json:"targets"`
+	Images       []*WorkflowTaskImage  `json:"images"`
 	Status       string                `json:"status"`
 }
 
@@ -67,6 +77,28 @@ func ListWorkflowTask(header http.Header, qs url.Values, commitId string, _ *zap
 	return aslan.New().ListWorkflowTask(header, qs, commitId)
 }
 
+func getImages(task *task.Task) ([]*WorkflowTaskImage, error) {
+	ret := make([]*WorkflowTaskImage, 0)
+	for _, stages := range task.Stages {
+		if stages.TaskType != config.TaskBuild || stages.Status != config.StatusPassed {
+			continue
+		}
+		for _, subTask := range stages.SubTasks {
+			buildInfo, err := base.ToBuildTask(subTask)
+			if err != nil {
+				log.Errorf("get buildInfo ToBuildTask failed ! err:%s", err)
+				return nil, err
+			}
+
+			ret = append(ret, &WorkflowTaskImage{
+				Image:       buildInfo.JobCtx.Image,
+				ServiceName: buildInfo.ServiceName,
+			})
+		}
+	}
+	return ret, nil
+}
+
 func GetDetailedWorkflowTask(header http.Header, qs url.Values, taskID, name string, _ *zap.SugaredLogger) ([]byte, error) {
 	body, err := aslan.New().GetDetailedWorkflowTask(header, qs, taskID, name)
 	if err != nil {
@@ -82,26 +114,34 @@ func GetDetailedWorkflowTask(header http.Header, qs url.Values, taskID, name str
 		EnvName:      workflowTask.WorkflowArgs.EnvName,
 		Targets:      make([]*WorkflowTaskTarget, 0),
 		Status:       string(workflowTask.Status),
+		Images:       make([]*WorkflowTaskImage, 0),
 	}
 
-	for _, singleTarget := range workflowTask.WorkflowArgs.Target {
-		target := &WorkflowTaskTarget{
-			Name:        singleTarget.ServiceName, // return service name instead of container name
-			ServiceType: singleTarget.ServiceType,
-			Build: &WorkflowTaskTargetBuild{
-				Repos: make([]*WorkflowTaskTargetRepo, 0),
-			},
-		}
-		if singleTarget.Build != nil {
-			for _, repo := range singleTarget.Build.Repos {
-				target.Build.Repos = append(target.Build.Repos, &WorkflowTaskTargetRepo{
-					RepoName: repo.RepoName,
-					Branch:   repo.Branch,
-					Pr:       repo.PR,
-				})
+	if workflowTask.WorkflowArgs != nil {
+		for _, singleTarget := range workflowTask.WorkflowArgs.Target {
+			target := &WorkflowTaskTarget{
+				Name:        singleTarget.ServiceName, // return service name instead of container name
+				ServiceType: singleTarget.ServiceType,
+				Build: &WorkflowTaskTargetBuild{
+					Repos: make([]*WorkflowTaskTargetRepo, 0),
+				},
 			}
+			if singleTarget.Build != nil {
+				for _, repo := range singleTarget.Build.Repos {
+					target.Build.Repos = append(target.Build.Repos, &WorkflowTaskTargetRepo{
+						RepoName: repo.RepoName,
+						Branch:   repo.Branch,
+						Pr:       repo.PR,
+					})
+				}
+			}
+			resp.Targets = append(resp.Targets, target)
 		}
-		resp.Targets = append(resp.Targets, target)
+	}
+
+	resp.Images, err = getImages(workflowTask)
+	if err != nil {
+		return nil, err
 	}
 
 	return json.Marshal(resp)

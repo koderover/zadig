@@ -23,12 +23,13 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/pkg/errors"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
+	"github.com/pkg/errors"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/wechat"
@@ -36,6 +37,11 @@ import (
 )
 
 const sevendays int64 = 60 * 60 * 24 * 7
+
+type WorkflowTaskImage struct {
+	Image       string `json:"image"`
+	ServiceName string `json:"service_name"`
+}
 
 type client struct {
 	notifyColl       *mongodb.NotifyColl
@@ -284,6 +290,28 @@ func taskFinished(task *task.Task) bool {
 	return false
 }
 
+func getImages(task *task.Task) ([]*WorkflowTaskImage, error) {
+	ret := make([]*WorkflowTaskImage, 0)
+	for _, stages := range task.Stages {
+		if stages.TaskType != config.TaskBuild || stages.Status != config.StatusPassed {
+			continue
+		}
+		for _, subTask := range stages.SubTasks {
+			buildInfo, err := base.ToBuildTask(subTask)
+			if err != nil {
+				log.Errorf("get buildInfo ToBuildTask failed ! err:%s", err)
+				return nil, err
+			}
+
+			ret = append(ret, &WorkflowTaskImage{
+				Image:       buildInfo.JobCtx.Image,
+				ServiceName: buildInfo.ServiceName,
+			})
+		}
+	}
+	return ret, nil
+}
+
 // send callback request when workflow is finished
 func (c *client) sendCallbackRequest(task *task.Task) error {
 	if !taskFinished(task) {
@@ -316,6 +344,9 @@ func (c *client) sendCallbackRequest(task *task.Task) error {
 
 	// set custom kvs
 	responseBody["vars"] = callback.CallbackVars
+
+	// set images
+	responseBody["images"], err = getImages(task)
 
 	reqBody, err := json.Marshal(responseBody)
 	if err != nil {

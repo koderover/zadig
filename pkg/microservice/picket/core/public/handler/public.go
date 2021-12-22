@@ -20,6 +20,8 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/koderover/zadig/pkg/setting"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -37,7 +39,7 @@ func CreateWorkflowTask(c *gin.Context) {
 		return
 	}
 	req.Namespace = req.EnvName
-	req.RequestMode = "openAPI"
+	req.RequestMode = setting.RequestModeOpenAPI
 
 	body, err := json.Marshal(req)
 	if err != nil {

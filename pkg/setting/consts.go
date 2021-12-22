@@ -593,3 +593,5 @@ const (
 )
 
 const LocalClusterID = "0123456789abcdef12345678"
+
+const RequestModeOpenAPI = "openAPI"
