@@ -17,7 +17,6 @@ limitations under the License.
 package aslan
 
 import (
-	"fmt"
 	"net/http"
 	"net/url"
 
@@ -25,7 +24,7 @@ import (
 )
 
 func (c *Client) ListDelivery(header http.Header, qs url.Values, productName, workflowName, taskId, perPage, page string) ([]byte, error) {
-	url := fmt.Sprintf("/delivery/releases")
+	url := "/delivery/releases"
 	queryParams := make(map[string]string)
 	queryParams["productName"] = productName
 	queryParams["workflowName"] = workflowName
