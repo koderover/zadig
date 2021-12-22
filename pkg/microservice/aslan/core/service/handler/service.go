@@ -201,6 +201,38 @@ func ListAvailablePublicServices(c *gin.Context) {
 	ctx.Resp, ctx.Err = svcservice.ListAvailablePublicServices(c.Query("projectName"), ctx.Logger)
 }
 
+func GetServiceTemplateProductName(c *gin.Context) {
+	args := new(commonmodels.Service)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("c.GetRawData() err : %v", err)
+		return
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("json.Unmarshal err : %v", err)
+		return
+	}
+	c.Set("productName", args.ProductName)
+	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Next()
+}
+
+func GetServiceTemplateObjectProductName(c *gin.Context) {
+	args := new(commonservice.ServiceTmplObject)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("c.GetRawData() err : %v", err)
+		return
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("json.Unmarshal err : %v", err)
+		return
+	}
+	c.Set("productName", args.ProductName)
+	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+	c.Next()
+}
+
 func CreatePMService(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
