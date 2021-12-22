@@ -62,6 +62,12 @@ func CodeHostGetNamespaceList(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.CodeHostListNamespaces(chID, keyword, ctx.Logger)
 }
 
+type CodeHostListProjectsArgs struct {
+	PerPage int    `json:"perPage"      form:"per_page,default:30"`
+	Page    int    `json:"page"         form:"page,default:1"`
+	Key     string `json:"key"          form:"key"`
+}
+
 func CodeHostGetProjectsList(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -69,7 +75,6 @@ func CodeHostGetProjectsList(c *gin.Context) {
 	namespaceType := c.DefaultQuery("type", "group")
 	codehostID := c.Param("codehostId")
 	namespace := c.Param("namespace")
-	keyword := c.Query("key")
 
 	if codehostID == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty codehostId")
@@ -88,13 +93,27 @@ func CodeHostGetProjectsList(c *gin.Context) {
 		return
 	}
 
+	args := &CodeHostListProjectsArgs{}
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = err
+		return
+	}
+
 	chID, _ := strconv.Atoi(codehostID)
 	ctx.Resp, ctx.Err = service.CodeHostListProjects(
 		chID,
 		strings.Replace(namespace, "%2F", "/", -1),
 		namespaceType,
-		keyword,
+		args.Page,
+		args.PerPage,
+		args.Key,
 		ctx.Logger)
+}
+
+type CodeHostGetBranchListArgs struct {
+	PerPage int    `json:"perPage"      form:"per_page,default:30"`
+	Page    int    `json:"page"         form:"page,default:1"`
+	Key     string `json:"key"          form:"key"`
 }
 
 func CodeHostGetBranchList(c *gin.Context) {
@@ -104,6 +123,11 @@ func CodeHostGetBranchList(c *gin.Context) {
 	codehostID := c.Param("codehostId")
 	namespace := c.Param("namespace")
 	projectName := c.Param("projectName") // pro Name, id/name -> gitlab = id
+	args := new(CodeHostGetBranchListArgs)
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
 
 	if codehostID == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty codehostId")
@@ -123,6 +147,9 @@ func CodeHostGetBranchList(c *gin.Context) {
 		chID,
 		projectName,
 		strings.Replace(namespace, "%2F", "/", -1),
+		args.Page,
+		args.PerPage,
+		args.Key,
 		ctx.Logger)
 }
 
