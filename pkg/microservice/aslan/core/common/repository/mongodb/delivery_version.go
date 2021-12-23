@@ -64,6 +64,7 @@ func (c *DeliveryVersionColl) EnsureIndex(ctx context.Context) error {
 		{
 			Keys: bson.D{
 				bson.E{Key: "org_id", Value: 1},
+				bson.E{Key: "product_name", Value: 1},
 				bson.E{Key: "workflow_name", Value: 1},
 				bson.E{Key: "version", Value: 1},
 				bson.E{Key: "deleted_at", Value: 1},
