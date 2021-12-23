@@ -542,11 +542,12 @@ func getServiceTypeByProduct(productName string) (string, error) {
 	if projectInfo == nil || projectInfo.ProductFeature == nil {
 		return projectType, nil
 	} else if projectInfo.ProductFeature.BasicFacility == setting.BasicFacilityK8S {
+		if projectInfo.ProductFeature.DeployType == setting.HelmDeployType {
+			return setting.HelmDeployType, nil
+		}
 		return projectType, nil
 	} else if projectInfo.ProductFeature.BasicFacility == setting.BasicFacilityCVM {
 		return setting.PMDeployType, nil
-	} else if projectInfo.ProductFeature.DeployType == setting.HelmDeployType {
-		return setting.HelmDeployType, nil
 	}
 	return projectType, nil
 }
