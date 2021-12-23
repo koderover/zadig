@@ -176,6 +176,12 @@ type WorkflowTaskArgs struct {
 	EnvName     string `json:"env_name" bson:"-"`
 
 	Callback *CallbackArgs `bson:"callback"                    json:"callback"`
+	Images   []*Image      `bson:"images,omitempty"            json:"images,omitempty"`
+}
+
+type Image struct {
+	Image       string `bson:"image"                    json:"image"`
+	ServiceName string `bson:"service_name"             json:"service_name"`
 }
 
 type TestTaskArgs struct {

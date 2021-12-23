@@ -93,7 +93,7 @@ func (c *Client) ListWorkflowTask(header http.Header, qs url.Values, commitId st
 }
 
 func (c *Client) GetDetailedWorkflowTask(header http.Header, qs url.Values, taskID, name string) ([]byte, error) {
-	url := fmt.Sprintf("/workflow/workflowtask/id/%s/pipelines/%s?", taskID, name)
+	url := fmt.Sprintf("/workflow/workflowtask/id/%s/pipelines/%s", taskID, name)
 
 	res, err := c.Get(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs))
 	if err != nil {

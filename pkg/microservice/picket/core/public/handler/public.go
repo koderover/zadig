@@ -20,12 +20,11 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/koderover/zadig/pkg/setting"
-
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/picket/core/public/service"
+	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 

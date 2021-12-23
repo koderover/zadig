@@ -23,14 +23,13 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
-
 	"github.com/pkg/errors"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/wechat"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -326,8 +325,6 @@ func (c *client) sendCallbackRequest(task *task.Task) error {
 	if callback == nil {
 		return nil
 	}
-
-	log.Infof("###### start to check callback , url %s", callback.CallbackUrl)
 
 	callbackUrl, err := url.PathUnescape(callback.CallbackUrl)
 	if err != nil {
