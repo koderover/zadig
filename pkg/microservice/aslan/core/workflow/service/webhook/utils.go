@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"path"
 	"strings"
+	"sync"
 
 	"github.com/google/go-github/v35/github"
 	"github.com/hashicorp/go-multierror"
@@ -33,6 +34,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehub"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
@@ -509,4 +511,42 @@ func EventConfigured(m *commonmodels.MainHookRepo, event config.HookEventType) b
 	}
 
 	return false
+}
+
+func ServicesMatchChangesFiles(mf *MatchFoldersElem, m *commonmodels.MainHookRepo, files []string) []BuildServices {
+	resMactchSvr := []BuildServices{}
+	var wg sync.WaitGroup
+	for _, mftreeElem := range mf.MatchFoldersTree {
+		wg.Add(1)
+		go func(mftree MatchFoldersTree) {
+			defer wg.Done()
+			mf := MatchFolders(mftree.FileTree)
+			for _, file := range files {
+				if matches := mf.ContainsFile(file); matches {
+					resMactchSvr = append(resMactchSvr, BuildServices{Name: mftree.Name, Module: mftree.Module})
+					break
+				}
+			}
+		}(mftreeElem)
+	}
+	wg.Wait()
+	return resMactchSvr
+}
+
+func getServiceTypeByProduct(productName string) (string, error) {
+	projectInfo, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		return "", err
+	}
+	projectType := setting.K8SDeployType
+	if projectInfo == nil || projectInfo.ProductFeature == nil {
+		return projectType, nil
+	} else if projectInfo.ProductFeature.BasicFacility == setting.BasicFacilityK8S {
+		return projectType, nil
+	} else if projectInfo.ProductFeature.BasicFacility == setting.BasicFacilityCVM {
+		return setting.PMDeployType, nil
+	} else if projectInfo.ProductFeature.DeployType == setting.HelmDeployType {
+		return setting.HelmDeployType, nil
+	}
+	return projectType, nil
 }
