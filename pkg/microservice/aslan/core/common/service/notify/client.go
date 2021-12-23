@@ -32,6 +32,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/wechat"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -206,9 +207,13 @@ func (c *client) ProccessNotify(notify *models.Notify) error {
 			logger.Infof("pipeline get task #%d notify, status: %s", ctx.TaskID, ctx.Status)
 			_ = c.scmNotifyService.UpdatePipelineWebhookComment(task, logger)
 		} else if ctx.Type == config.WorkflowType {
+			if task.TaskCreator == setting.RequestModeOpenAPI {
+				return nil
+			}
 			logger.Infof("workflow get task #%d notify, status: %s", ctx.TaskID, ctx.Status)
 			_ = c.scmNotifyService.UpdateWebhookComment(task, logger)
 			_ = c.scmNotifyService.UpdateDiffNote(task, logger)
+
 		} else if ctx.Type == config.TestType {
 			logger.Infof("test get task #%d notify, status: %s", ctx.TaskID, ctx.Status)
 			_ = c.scmNotifyService.UpdateWebhookCommentForTest(task, logger)
