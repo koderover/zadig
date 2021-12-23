@@ -1,0 +1,89 @@
+## 定义触发的 stage
+stages:
+  - build
+  - deploy
+  - test
+
+# 构建参数
+build:
+  - name:  service1 #服务名
+    module: service1 #服务组件名
+    variables: # zadig 系统中需要先声明出来才能指定，否则这边配置也无效
+      - name: v1
+        value:  a
+  - name:  service2
+    module: svrmodule2
+    variables: 
+      - name: v1
+        value: a
+      - name: v2
+        value: b
+
+## 部署策略 
+deploy:
+   #strategy: all
+   # 选项：
+   # 更新指定环境：single
+   # 动态选择空闲环境：all
+   # 更新基准环境：base，需要设置回收策略：success/always/never
+   envs_name:
+    - dev
+   env_recycle_policy: success
+   env_update_policy: single
+   base_env: dev
+
+## 测试参数
+test:
+  - name: testservice1
+    # default：在 zadig 平台默认配置的代码仓库信息
+    # currentRepo：使用当前变动的代码信息
+    repo:
+      strategy:
+    variables:
+      - name: v1
+        value: a
+      - name: v2
+        value: b
+  - name: testservice2
+    repo: 
+      strategy:  
+    variables:
+    - name: v1
+      value: a
+    - name: v2
+      value: b
+
+## 触发条件规则
+rules: 
+  branchs: 
+      - '**'
+      - 'feature/*'
+  events:
+      - pull_request
+      - push
+  strategy:
+    # 自动取消
+    auto_cancel: true 
+  match_folders: 
+    # 指定服务与代码文件目录的关系，是选择本文件声明，还是选择额外的文件声明
+    #match_switch: 'match_folders_tree'
+    match_folders_tree:
+      - name: service1
+        module: svrmodule1
+        file_tree:
+          - /app/s1
+          - /pkg/s1
+          - /common/s1
+      - name: service2
+        module: svrmodule2
+        file_tree:
+          - /app/s2
+          - /pkg/s2
+          - /common/s1
+    #match_folders_specific: './services_dir.yaml'
+
+cache_set:
+    # Ignore docker build cache
+    ignore_cache: false
+    # Ignore workspace cache and reset volume
+    reset_cache: false

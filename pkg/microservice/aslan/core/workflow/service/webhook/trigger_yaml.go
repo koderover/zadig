@@ -1,12 +1,12 @@
 package webhook
 
 type TriggerYaml struct {
-	Stages   []string `yaml:"stages"`
-	Build    Build    `yaml:"build"`
-	Deploy   Deploy   `yaml:"deploy"`
-	Test     Test     `yaml:"test"`
-	Rules    Rules    `yaml:"rules"`
-	CacheSet CacheSet `yaml:"cache_set"`
+	Stages   []string        `yaml:"stages"`
+	Build    []BuildServices `yaml:"build"`
+	Deploy   Deploy          `yaml:"deploy"`
+	Test     []Test          `yaml:"test"`
+	Rules    Rules           `yaml:"rules"`
+	CacheSet CacheSet        `yaml:"cache_set"`
 }
 
 type Build struct {
@@ -16,7 +16,6 @@ type Build struct {
 type BuildServices struct {
 	Name      string      `yaml:"name"`
 	Module    string      `yaml:"module"`
-	Deploy    bool        `yaml:"deploy"`
 	Variables []Variables `yaml:"variables"`
 }
 
@@ -24,40 +23,44 @@ type Variables struct {
 	Name  string `yaml:"name"`
 	Value string `yaml:"value"`
 }
+
+/*
+# 选项：
+# 更新指定环境：single
+# 动态选择空闲环境：all
+# 更新基准环境：base，需要设置回收策略：success/always/never
+*/
 type Deploy struct {
-	//Strategy         string   `yaml:"strategy"`
-	Envs             []string `yaml:"envs"`
+	Strategy         string   `yaml:"strategy"`
+	Envsname         []string `yaml:"envs_name"`
 	EnvRecyclePolicy string   `yaml:"env_recycle_policy"`
 	EnvUpdatePolicy  string   `yaml:"env_update_policy"`
-	EnvName          string   `yaml:"env_name"`
-	Namespace        []string `yaml:"namespace"`
-	BaseNamespace    string   `yaml:"base_namespace"`
+	//EnvName          string   `yaml:"env_name"`
+	BaseNamespace string `yaml:"base_env"`
 }
 
 type Test struct {
-	Cases []Cases `yaml:"cases"`
-}
-
-type Cases struct {
 	Name      string      `yaml:"name"`
-	Repo      *Repo       `yaml:"repo"`
+	Repo      Repo        `yaml:"repo"`
 	Variables []Variables `yaml:"variables"`
 }
 
+/*
+# default：在 zadig 平台默认配置的代码仓库信息
+# currentRepo：使用当前变动的代码信息
+*/
 type Repo struct {
-	Name   string `yaml:"name"`
-	Branch string `yaml:"branch"`
-	Pr     string `yaml:"pr"`
+	Strategy string `yaml:"strategy"`
 }
 
 type Rules struct {
 	Branchs      []string          `yaml:"branchs"`
 	Events       []string          `yaml:"events"`
-	Strategy     Strategy          `yaml:"strategy"`
+	Strategy     StrategyRules     `yaml:"strategy"`
 	MatchFolders *MatchFoldersElem `yaml:"match_folders"`
 }
 
-type Strategy struct {
+type StrategyRules struct {
 	AutoCancel bool `yaml:"auto_cancel"`
 }
 

@@ -264,11 +264,22 @@ func (gpem *gitlabPushEventMatcher) UpdateTaskArgs(
 	return args
 }
 
-func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Workflow, workFlowArgs *commonmodels.WorkflowTaskArgs, item *commonmodels.WorkflowHook, branref string) error {
+func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Workflow, workFlowArgs *commonmodels.WorkflowTaskArgs, item *commonmodels.WorkflowHook, branref string, prId int) error {
 	svcType, err := getServiceTypeByProduct(workflow.ProductTmplName)
 	if err != nil {
 		return err
 	}
+	deployed := false
+	for _, stage := range triggerYaml.Stages {
+		if stage == "deploy" {
+			deployed = true
+			break
+		}
+	}
+	if svcType == setting.BasicFacilityCVM {
+		deployed = true
+	}
+
 	ch, err := systemconfig.New().GetCodeHost(item.MainRepo.CodehostID)
 	if err != nil {
 		return err
@@ -289,7 +300,7 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 		return err
 	}
 
-	workFlowArgs.Namespace = strings.Join(triggerYaml.Deploy.Namespace, ",")
+	workFlowArgs.Namespace = strings.Join(triggerYaml.Deploy.Envsname, ",")
 	workFlowArgs.WorkflowName = workflow.Name
 	workFlowArgs.BaseNamespace = triggerYaml.Deploy.BaseNamespace
 	workFlowArgs.ProductTmplName = workflow.ProductTmplName
@@ -299,7 +310,7 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 	workFlowArgs.EnvUpdatePolicy = triggerYaml.Deploy.EnvUpdatePolicy
 	//test
 	var tests []*commonmodels.TestArgs
-	for _, test := range triggerYaml.Test.Cases {
+	for _, test := range triggerYaml.Test {
 		moduleTest, err := commonrepo.NewTestingColl().Find(test.Name, "")
 		if err != nil {
 			log.Errorf("fail test find TestModuleName:%s, workflowname:%s,productTmplName:%s,error:%v", test.Name, workflow.Name, workflow.ProductTmplName, err)
@@ -317,7 +328,15 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 			TestModuleName: test.Name,
 			Envs:           envs,
 		}
-		if test.Repo == nil {
+		if test.Repo.Strategy == "currentRepo" {
+			for _, repo := range moduleTest.Repos {
+				if repo.RepoName == item.MainRepo.RepoName && repo.RepoOwner == item.MainRepo.RepoOwner {
+					repo.Branch = branref
+					repo.PR = prId
+				}
+			}
+			testArg.Builds = moduleTest.Repos
+		} else {
 			testArg.Builds = moduleTest.Repos
 		}
 		tests = append(tests, testArg)
@@ -325,16 +344,34 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 	workFlowArgs.Tests = tests
 	//target
 	var targets []*commonmodels.TargetArgs
-	for _, svr := range triggerYaml.Build.Services {
+	for _, svr := range triggerYaml.Build {
 		targetElem := &commonmodels.TargetArgs{
 			Name:        svr.Module,
 			ProductName: workflow.ProductTmplName,
 			ServiceName: svr.Name,
 			ServiceType: svcType,
 		}
-		targetElem.Build = &commonmodels.BuildArgs{}
+		opt := &commonrepo.BuildFindOption{
+			ServiceName: svr.Name,
+			ProductName: workflow.ProductTmplName,
+			Targets:     []string{svr.Module},
+		}
+
+		resp, err := commonrepo.NewBuildColl().Find(opt)
+		if err != nil {
+			log.Errorf("[Build.Find] serviceName: %s productName:%s serviceModule:%s error: %v", svr.Name, workflow.ProductTmplName, svr.Module, err)
+			return fmt.Errorf("[Build.Find] serviceName: %s productName:%s serviceModule:%s error: %v", svr.Name, workflow.ProductTmplName, svr.Module, err)
+		}
+		for _, repo := range resp.Repos {
+			if repo.RepoName == item.MainRepo.RepoName && repo.RepoOwner == item.MainRepo.RepoOwner {
+				repo.Branch = branref
+				repo.PR = prId
+			}
+		}
+		targetElem.Build = &commonmodels.BuildArgs{Repos: resp.Repos}
+
 		targetElem.Deploy = []commonmodels.DeployEnv{}
-		if svr.Deploy {
+		if deployed {
 			targetElem.Deploy = append(targetElem.Deploy, commonmodels.DeployEnv{Env: svr.Module + "/" + svr.Name, Type: targetElem.ServiceType})
 		}
 		var envs []*commonmodels.KeyVal
@@ -380,19 +417,22 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 			}
 			triggerYaml := &TriggerYaml{}
 			var workFlowArgs *commonmodels.WorkflowTaskArgs
+			var pushEvent *gitlab.PushEvent
+			var mergeEvent *gitlab.MergeEvent
+			prID := 0
+			branref := ""
+			switch evt := event.(type) {
+			case *gitlab.PushEvent:
+				pushEvent = evt
+				branref = pushEvent.Ref
+			case *gitlab.MergeEvent:
+				mergeEvent = evt
+				branref = mergeEvent.ObjectAttributes.TargetBranch
+				prID = evt.ObjectAttributes.IID
+			}
+
 			if item.IsYaml {
-				branref := ""
-				var pushEvent *gitlab.PushEvent
-				var mergeEvent *gitlab.MergeEvent
-				switch evt := event.(type) {
-				case *gitlab.PushEvent:
-					pushEvent = evt
-					branref = pushEvent.Ref
-				case *gitlab.MergeEvent:
-					mergeEvent = evt
-					branref = mergeEvent.ObjectAttributes.TargetBranch
-				}
-				err := UpdateWorkflowTaskArgs(triggerYaml, workflow, workFlowArgs, item, branref)
+				err := UpdateWorkflowTaskArgs(triggerYaml, workflow, workFlowArgs, item, branref, prID)
 				if err != nil {
 					log.Errorf("UpdateWorkflowTaskArgs %v", err)
 					return fmt.Errorf("UpdateWorkflowTaskArgs %s", err)
@@ -429,11 +469,9 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 			}
 
 			isMergeRequest := false
-			prID := 0
 			var mergeRequestID, commitID string
 			if ev, isPr := event.(*gitlab.MergeEvent); isPr {
 				isMergeRequest = true
-				prID = ev.ObjectAttributes.IID
 
 				// 如果是merge request，且该webhook触发器配置了自动取消，
 				// 则需要确认该merge request在本次commit之前的commit触发的任务是否处理完，没有处理完则取消掉。
