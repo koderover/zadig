@@ -782,6 +782,7 @@ func modifyConfigPayload(configPayload *commonmodels.ConfigPayload, ignoreCache,
 
 	configPayload.IgnoreCache = ignoreCache
 	configPayload.ResetCache = resetCache
+
 }
 
 func AddDataToArgs(args *commonmodels.WorkflowTaskArgs, log *zap.SugaredLogger) (*CreateTaskResp, error) {
@@ -933,6 +934,17 @@ func createReleaseImageTask(workflow *commonmodels.Workflow, args *commonmodels.
 	}
 	// modify configPayload
 	modifyConfigPayload(configPayload, false, false)
+
+	// add default registry
+	reg, err := commonservice.FindDefaultRegistry(log)
+	if err != nil {
+		log.Errorf("can't find default candidate registry: %v", err)
+		return nil, e.ErrFindRegistry.AddDesc(err.Error())
+	}
+	configPayload.Registry.Addr = reg.RegAddr
+	configPayload.Registry.AccessKey = reg.AccessKey
+	configPayload.Registry.SecretKey = reg.SecretKey
+	configPayload.Registry.Namespace = reg.Namespace
 
 	distributeS3StoreURL, defaultS3StoreURL, err := getDefaultAndDestS3StoreURL(workflow, log)
 	if err != nil {
