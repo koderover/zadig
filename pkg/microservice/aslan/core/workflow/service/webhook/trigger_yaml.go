@@ -1,22 +1,22 @@
 package webhook
 
 type TriggerYaml struct {
-	Stages   []string        `yaml:"stages"`
-	Build    []BuildServices `yaml:"build"`
-	Deploy   Deploy          `yaml:"deploy"`
-	Test     []Test          `yaml:"test"`
-	Rules    Rules           `yaml:"rules"`
-	CacheSet CacheSet        `yaml:"cache_set"`
+	Stages   []string         `yaml:"stages"`
+	Build    []*BuildServices `yaml:"build"`
+	Deploy   *Deploy          `yaml:"deploy"`
+	Test     []*Test          `yaml:"test"`
+	Rules    *Rules           `yaml:"rules"`
+	CacheSet *CacheSet        `yaml:"cache_set"`
 }
 
 type Build struct {
-	Services []BuildServices `yaml:"services"`
+	Services []*BuildServices `yaml:"services"`
 }
 
 type BuildServices struct {
-	Name      string      `yaml:"name"`
-	Module    string      `yaml:"module"`
-	Variables []Variables `yaml:"variables"`
+	Name      string       `yaml:"name"`
+	Module    string       `yaml:"module"`
+	Variables []*Variables `yaml:"variables"`
 }
 
 type Variables struct {
@@ -40,9 +40,9 @@ type Deploy struct {
 }
 
 type Test struct {
-	Name      string      `yaml:"name"`
-	Repo      Repo        `yaml:"repo"`
-	Variables []Variables `yaml:"variables"`
+	Name      string       `yaml:"name"`
+	Repo      *Repo        `yaml:"repo"`
+	Variables []*Variables `yaml:"variables"`
 }
 
 /*
@@ -56,7 +56,7 @@ type Repo struct {
 type Rules struct {
 	Branchs      []string          `yaml:"branchs"`
 	Events       []string          `yaml:"events"`
-	Strategy     StrategyRules     `yaml:"strategy"`
+	Strategy     *StrategyRules    `yaml:"strategy"`
 	MatchFolders *MatchFoldersElem `yaml:"match_folders"`
 }
 
@@ -65,9 +65,9 @@ type StrategyRules struct {
 }
 
 type MatchFoldersElem struct {
-	MatchSwitch          string             `yaml:"match_switch"`
-	MatchFoldersTree     []MatchFoldersTree `yaml:"match_folders_tree"`
-	MatchFoldersSpecific string             `yaml:"match_folders_specific"`
+	MatchSwitch          string              `yaml:"match_switch"`
+	MatchFoldersTree     []*MatchFoldersTree `yaml:"match_folders_tree"`
+	MatchFoldersSpecific string              `yaml:"match_folders_specific"`
 }
 
 type MatchFoldersTree struct {

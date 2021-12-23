@@ -518,7 +518,7 @@ func ServicesMatchChangesFiles(mf *MatchFoldersElem, m *commonmodels.MainHookRep
 	var wg sync.WaitGroup
 	for _, mftreeElem := range mf.MatchFoldersTree {
 		wg.Add(1)
-		go func(mftree MatchFoldersTree) {
+		go func(mftree *MatchFoldersTree) {
 			defer wg.Done()
 			mf := MatchFolders(mftree.FileTree)
 			for _, file := range files {

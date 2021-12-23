@@ -17,6 +17,7 @@ limitations under the License.
 package webhook
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -299,8 +300,12 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 	if err != nil {
 		return fmt.Errorf("yaml.Unmarshal err:%s", err)
 	}
-	log.Debug("zadig-Trigger Yaml info:", zadigTriggerYamls[0], triggerYaml)
-
+	triggerYamlByt, err := json.Marshal(triggerYaml)
+	if err != nil {
+		return err
+	}
+	log.Debug("zadig-Trigger Yaml info:", zadigTriggerYamls[0])
+	log.Debug("triggerYaml info:", string(triggerYamlByt))
 	workFlowArgs.Namespace = strings.Join(triggerYaml.Deploy.Envsname, ",")
 	workFlowArgs.WorkflowName = workflow.Name
 	workFlowArgs.BaseNamespace = triggerYaml.Deploy.BaseNamespace
