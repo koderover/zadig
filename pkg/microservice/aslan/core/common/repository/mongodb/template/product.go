@@ -258,6 +258,7 @@ func (c *ProductColl) Update(productName string, args *template.Product) error {
 		"image_searching_rules": args.ImageSearchingRules,
 		"custom_tar_rule":       args.CustomTarRule,
 		"custom_image_rule":     args.CustomImageRule,
+		"delivery_version_hook": args.DeliveryVersionHook,
 		"public":                args.Public,
 	}}
 
