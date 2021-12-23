@@ -295,10 +295,12 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 	if len(zadigTriggerYamls) == 0 {
 		return fmt.Errorf("GetYAMLContents repoowner:%s reponame:%s ref:%s triggeryaml:%s ;content is empty", item.MainRepo.RepoOwner, item.MainRepo.RepoName, item.YamlPath, branref)
 	}
-	err = yaml.Unmarshal([]byte(zadigTriggerYamls[0]), &triggerYaml)
+	err = yaml.Unmarshal([]byte(zadigTriggerYamls[0]), triggerYaml)
 	if err != nil {
 		return fmt.Errorf("yaml.Unmarshal err:%s", err)
 	}
+	log.Debug("zadig-Trigger Yaml info:", zadigTriggerYamls[0], triggerYaml)
+
 	workFlowArgs.Namespace = strings.Join(triggerYaml.Deploy.Envsname, ",")
 	workFlowArgs.WorkflowName = workflow.Name
 	workFlowArgs.BaseNamespace = triggerYaml.Deploy.BaseNamespace
