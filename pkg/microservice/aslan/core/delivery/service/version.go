@@ -1063,7 +1063,7 @@ func sendVersionDeliveryHook(projectName, version, host, urlPath string) error {
 
 	reqBody, err := json.Marshal(ret)
 	if err != nil {
-		log.Errorf("marshal json args error: %v", err)
+		log.Errorf("marshal json args error: %s", err)
 		return err
 	}
 
