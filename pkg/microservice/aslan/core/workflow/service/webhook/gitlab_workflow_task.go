@@ -435,10 +435,10 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 				mergeEvent = evt
 				branref = mergeEvent.ObjectAttributes.SourceBranch
 				prID = evt.ObjectAttributes.IID
+				item.MainRepo.Branch = getBranchFromRef(mergeEvent.ObjectAttributes.TargetBranch)
 			}
 
 			if item.IsYaml {
-				item.MainRepo.Branch = getBranchFromRef(mergeEvent.ObjectAttributes.TargetBranch)
 				err := UpdateWorkflowTaskArgs(triggerYaml, workflow, workFlowArgs, item, branref, prID)
 				if err != nil {
 					log.Errorf("UpdateWorkflowTaskArgs %v", err)
