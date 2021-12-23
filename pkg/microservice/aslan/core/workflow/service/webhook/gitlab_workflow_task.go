@@ -337,7 +337,7 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 		if test.Repo.Strategy == "currentRepo" {
 			for _, repo := range moduleTest.Repos {
 				if repo.RepoName == item.MainRepo.RepoName && repo.RepoOwner == item.MainRepo.RepoOwner {
-					repo.Branch = branref
+					repo.Branch = item.MainRepo.Branch
 					repo.PR = prId
 				}
 			}
@@ -433,18 +433,18 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 				branref = pushEvent.Ref
 			case *gitlab.MergeEvent:
 				mergeEvent = evt
-				branref = mergeEvent.ObjectAttributes.TargetBranch
+				branref = mergeEvent.ObjectAttributes.SourceBranch
 				prID = evt.ObjectAttributes.IID
 			}
 
 			if item.IsYaml {
+				item.MainRepo.Branch = getBranchFromRef(mergeEvent.ObjectAttributes.TargetBranch)
 				err := UpdateWorkflowTaskArgs(triggerYaml, workflow, workFlowArgs, item, branref, prID)
 				if err != nil {
 					log.Errorf("UpdateWorkflowTaskArgs %v", err)
 					return fmt.Errorf("UpdateWorkflowTaskArgs %s", err)
 				}
 				item.WorkflowArgs = workFlowArgs
-				item.MainRepo.Branch = getBranchFromRef(branref)
 			} else {
 				workFlowArgs = item.WorkflowArgs
 			}
