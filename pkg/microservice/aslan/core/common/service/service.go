@@ -91,9 +91,8 @@ type ServiceProductMap struct {
 }
 
 var (
-	imageParseRegex      = regexp.MustCompile(`(?P<repo>.+/)?(?P<image>[^:]+){1}(:)?(?P<tag>.+)?`)
-	imageSpaceParseRegex = regexp.MustCompile(`\/(.*?)\/`)
-	presetPatterns       = []map[string]string{
+	imageParseRegex = regexp.MustCompile(`(?P<repo>.+/)?(?P<image>[^:]+){1}(:)?(?P<tag>.+)?`)
+	presetPatterns  = []map[string]string{
 		{setting.PathSearchComponentImage: "image.repository", setting.PathSearchComponentTag: "image.tag"},
 		{setting.PathSearchComponentImage: "image"},
 	}

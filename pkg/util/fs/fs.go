@@ -90,3 +90,15 @@ func SaveFile(src io.ReadCloser, dst string) error {
 	_, err = io.Copy(file, src)
 	return err
 }
+
+// Determine whether the given path is a folder
+func IsDir(path string) (bool, error) {
+	s, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	return s.IsDir(), nil
+}

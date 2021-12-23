@@ -1,7 +1,7 @@
 ---
 name: Enhancement
 about: Suggest enhancements to existing features
-title: "[enhencement]"
+title: "[enhancement]"
 labels: enhancement
 assignees: lilianzhu
 

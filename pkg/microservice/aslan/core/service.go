@@ -79,7 +79,7 @@ func StartControllers(stopCh <-chan struct{}) {
 }
 
 func registerPolicies() {
-	policyClient := policy.New()
+	policyClient := policy.NewWithRetry()
 	var policies []*policy.Policy
 	for _, r := range []policyGetter{
 		new(workflowhandler.Router),
@@ -163,6 +163,7 @@ func initDatabase() {
 		template.NewProductColl(),
 		commonrepo.NewBasicImageColl(),
 		commonrepo.NewBuildColl(),
+		commonrepo.NewCallbackRequestColl(),
 		commonrepo.NewCounterColl(),
 		commonrepo.NewCronjobColl(),
 		commonrepo.NewDeliveryActivityColl(),

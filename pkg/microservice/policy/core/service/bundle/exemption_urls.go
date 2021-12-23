@@ -84,6 +84,10 @@ var publicURLs = []*policyRule{
 		Methods:   []string{"GET"},
 		Endpoints: []string{"api/v1/features/?*"},
 	},
+	{
+		Methods:   []string{"POST"},
+		Endpoints: []string{"api/callback"},
+	},
 }
 
 // actions which are allowed for system admins only.
@@ -255,6 +259,30 @@ var systemAdminURLs = []*policyRule{
 	{
 		Methods:   []string{"DELETE"},
 		Endpoints: []string{"api/v1/system-rolebindings/?*"},
+	},
+	{
+		Methods:   []string{"POST"},
+		Endpoints: []string{"api/aslan/template/yaml"},
+	},
+	{
+		Methods:   []string{"PUT", "DELETE"},
+		Endpoints: []string{"api/aslan/template/yaml/?*"},
+	},
+	{
+		Methods:   []string{"POST"},
+		Endpoints: []string{"api/aslan/template/dockerfile"},
+	},
+	{
+		Methods:   []string{"PUT", "DELETE"},
+		Endpoints: []string{"api/aslan/template/dockerfile/?*"},
+	},
+	{
+		Methods:   []string{"POST"},
+		Endpoints: []string{"api/aslan/template/charts"},
+	},
+	{
+		Methods:   []string{"PUT", "DELETE"},
+		Endpoints: []string{"api/aslan/template/charts/?*"},
 	},
 }
 

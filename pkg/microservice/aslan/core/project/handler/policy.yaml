@@ -22,6 +22,8 @@ rules:
         endpoint: "/api/aslan/service/helm/?*/?*/fileContent"
       - method: GET
         endpoint: "/api/aslan/service/helm/?*/?*/serviceModule"
+      - method: GET
+        endpoint: "/api/aslan/service/services/?*/pm"
   - action: edit_service
     alias: "编辑服务"
     description: ""
@@ -38,8 +40,6 @@ rules:
         endpoint: "/api/aslan/project/products/?*"
       - method: PUT
         endpoint: "/api/aslan/project/products/?*/searching-rules"
-      - method: POST
-        endpoint: "/api/aslan/service/template/reload"
   - action: create_service
     alias: "新建服务"
     description: ""
@@ -48,16 +48,10 @@ rules:
         endpoint: "/api/aslan/service/pm/?*"
       - method: POST
         endpoint: "/api/aslan/service/services"
-      - method: GET
-        endpoint: "/api/aslan/service/loader/preload/?*/?*"
       - method: POST
         endpoint: "/api/aslan/service/loader/load/?*/?*"
       - method: POST
         endpoint: "/api/aslan/service/helm/services"
-      - method: POST
-        endpoint: "/api/aslan/service/template/load"
-      - method: GET
-        endpoint: "/api/aslan/template/charts/?*/variables"
       - method: POST
         endpoint: "/api/aslan/service/helm/services/bulk"
   - action: delete_service

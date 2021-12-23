@@ -366,6 +366,11 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 		return err
 	}
 
+	if err = commonservice.DeleteWorkflowV3s(productName, requestID, log); err != nil {
+		log.Errorf("DeleteProductTemplate Delete productName %s workflowV3 err: %s", productName, err)
+		return err
+	}
+
 	if err = commonservice.DeletePipelines(productName, requestID, log); err != nil {
 		log.Errorf("DeleteProductTemplate Delete productName %s pipeline err: %v", productName, err)
 		return err
@@ -546,13 +551,12 @@ func ForkProduct(username, uid, requestID string, args *template.ForkProject, lo
 		UpdateBy:  username,
 	}
 	err = policy.NewDefault().CreateOrUpdateRoleBinding(args.ProductName, &policy.RoleBinding{
-		Name:   fmt.Sprintf(setting.RoleBindingNameFmt, args.ProductName, uid, args.ProductName),
 		UID:    uid,
 		Role:   string(setting.Contributor),
 		Public: true,
 	})
 	if err != nil {
-		log.Error("rolebinding error")
+		log.Errorf("Failed to create or update roleBinding, err: %s", err)
 		return e.ErrForkProduct
 	}
 
@@ -568,10 +572,10 @@ func UnForkProduct(userID string, username, productName, workflowName, envName, 
 		}
 	}
 
-	policyClient := policy.New()
-	err := policyClient.DeleteRoleBinding(fmt.Sprintf(setting.RoleBindingNameFmt, userID, setting.Contributor, productName), productName)
+	policyClient := policy.NewDefault()
+	err := policyClient.DeleteRoleBinding(configbase.RoleBindingNameFromUIDAndRole(userID, setting.Contributor, ""), productName)
 	if err != nil {
-		log.Error("rolebinding delete error")
+		log.Errorf("Failed to delete roleBinding, err: %s", err)
 		return e.ErrForkProduct
 	}
 	if err := commonservice.DeleteProduct(username, envName, productName, requestID, log); err != nil {

@@ -27,7 +27,7 @@ func ListCodeHost(_ *zap.SugaredLogger) ([]*systemconfig.CodeHost, error) {
 	if err != nil {
 		return nil, err
 	}
-	for k, _ := range list {
+	for k := range list {
 		list[k].AccessKey = "***"
 		list[k].SecretKey = "***"
 		list[k].AccessToken = "***"

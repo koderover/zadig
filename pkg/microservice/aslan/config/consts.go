@@ -83,6 +83,8 @@ const (
 	TestType PipelineType = "test"
 	// ServiceType 服务
 	ServiceType PipelineType = "service"
+	// WorkflowTypeV3
+	WorkflowTypeV3 PipelineType = "workflow_v3"
 	// ArtifactPackageType package artifact
 	ArtifactType PipelineType = "artifact"
 )
@@ -121,6 +123,7 @@ type TaskType string
 const (
 	TaskPipeline        TaskType = "pipeline"
 	TaskBuild           TaskType = "buildv2"
+	TaskBuildV3         TaskType = "buildv3"
 	TaskJenkinsBuild    TaskType = "jenkins_build"
 	TaskArtifact        TaskType = "artifact"
 	TaskArtifactDeploy  TaskType = "artifact_deploy"
@@ -133,6 +136,7 @@ const (
 	TaskSecurity        TaskType = "security"
 	TaskResetImage      TaskType = "reset_image"
 	TaskDistribute      TaskType = "distribute"
+	TaskTrigger         TaskType = "trigger"
 	TaskArtifactPackage TaskType = "artifact_package"
 )
 
