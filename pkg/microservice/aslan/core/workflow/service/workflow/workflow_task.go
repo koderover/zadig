@@ -917,10 +917,10 @@ func AddDataToArgs(args *commonmodels.WorkflowTaskArgs, log *zap.SugaredLogger) 
 		return nil, nil
 	}
 
-	return createReleaseImageTask(workflow, args.Images, args.ReqID, log)
+	return createReleaseImageTask(workflow, args, log)
 }
 
-func createReleaseImageTask(workflow *commonmodels.Workflow, images []*commonmodels.Image, reqID string, log *zap.SugaredLogger) (*CreateTaskResp, error) {
+func createReleaseImageTask(workflow *commonmodels.Workflow, args *commonmodels.WorkflowTaskArgs, log *zap.SugaredLogger) (*CreateTaskResp, error) {
 	// 获取全局configpayload
 	configPayload := commonservice.GetConfigPayload(0)
 
@@ -946,7 +946,7 @@ func createReleaseImageTask(workflow *commonmodels.Workflow, images []*commonmod
 			subTasks        = make([]map[string]interface{}, 0)
 		)
 
-		for _, imageInfo := range images {
+		for _, imageInfo := range args.Images {
 			for _, distribute := range workflow.DistributeStage.Distributes {
 				if distribute.Target == nil {
 					continue
@@ -972,7 +972,7 @@ func createReleaseImageTask(workflow *commonmodels.Workflow, images []*commonmod
 				TaskID:        nextTaskID,
 				PipelineName:  workflow.Name,
 				TaskCreator:   setting.RequestModeOpenAPI,
-				ReqID:         reqID,
+				ReqID:         args.ReqID,
 				SubTasks:      subTasks,
 				ServiceName:   imageInfo.ServiceName,
 				ConfigPayload: configPayload,
@@ -1008,12 +1008,13 @@ func createReleaseImageTask(workflow *commonmodels.Workflow, images []*commonmod
 
 	sort.Sort(ByStageKind(stages))
 	task := &task.Task{
+		WorkflowArgs:  args,
 		TaskID:        nextTaskID,
 		Type:          config.WorkflowType,
 		ProductName:   workflow.ProductTmplName,
 		PipelineName:  workflow.Name,
 		TaskCreator:   setting.RequestModeOpenAPI,
-		ReqID:         reqID,
+		ReqID:         args.ReqID,
 		Status:        config.StatusCreated,
 		Stages:        stages,
 		ConfigPayload: configPayload,
