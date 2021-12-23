@@ -175,13 +175,13 @@ type WorkflowTaskArgs struct {
 	IsParallel  bool   `json:"is_parallel" bson:"is_parallel"`
 	EnvName     string `json:"env_name" bson:"-"`
 
-	Callback *CallbackArgs `bson:"callback"                    json:"callback"`
-	Images   []*Image      `bson:"images,omitempty"            json:"images,omitempty"`
+	Callback      *CallbackArgs   `bson:"callback"                    json:"callback"`
+	ReleaseImages []*ReleaseImage `bson:"release_images,omitempty"    json:"release_images,omitempty"`
 }
 
-type Image struct {
-	Image       string `bson:"image"                    json:"image"`
-	ServiceName string `bson:"service_name"             json:"service_name"`
+type ReleaseImage struct {
+	Image         string `bson:"image"                    json:"image"`
+	ServiceModule string `bson:"service_module"           json:"service_module"`
 }
 
 type TestTaskArgs struct {

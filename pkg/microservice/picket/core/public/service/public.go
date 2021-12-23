@@ -32,8 +32,9 @@ import (
 )
 
 type WorkflowTaskImage struct {
-	Image       string `json:"image"`
-	ServiceName string `json:"service_name"`
+	Image        string `json:"image"`
+	ServiceName  string `json:"service_name"`
+	RegistryRepo string `json:"registry_repo"`
 }
 
 type WorkflowTaskTarget struct {
@@ -89,10 +90,14 @@ func getImages(task *task.Task) ([]*WorkflowTaskImage, error) {
 				return nil, err
 			}
 
-			ret = append(ret, &WorkflowTaskImage{
+			WorkflowTaskImage := &WorkflowTaskImage{
 				Image:       buildInfo.JobCtx.Image,
 				ServiceName: buildInfo.ServiceName,
-			})
+			}
+			if buildInfo.DockerBuildStatus != nil {
+				WorkflowTaskImage.RegistryRepo = buildInfo.DockerBuildStatus.RegistryRepo
+			}
+			ret = append(ret, WorkflowTaskImage)
 		}
 	}
 	return ret, nil

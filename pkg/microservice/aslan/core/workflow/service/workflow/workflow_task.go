@@ -813,7 +813,7 @@ func modifyConfigPayload(configPayload *commonmodels.ConfigPayload, ignoreCache,
 
 // add data to workflow args or create release image task
 func AddDataToArgsOrCreateReleaseImageTask(args *commonmodels.WorkflowTaskArgs, log *zap.SugaredLogger) (*CreateTaskResp, error) {
-	if len(args.Target) == 0 && len(args.Images) == 0 {
+	if len(args.Target) == 0 && len(args.ReleaseImages) == 0 {
 		return nil, errors.New("target and images cannot be empty at the same time")
 	}
 
@@ -988,12 +988,12 @@ func createReleaseImageTask(workflow *commonmodels.Workflow, args *commonmodels.
 			subTasks        = make([]map[string]interface{}, 0)
 		)
 
-		for _, imageInfo := range args.Images {
+		for _, imageInfo := range args.ReleaseImages {
 			for _, distribute := range workflow.DistributeStage.Distributes {
 				if distribute.Target == nil {
 					continue
 				}
-				if distribute.Target.ServiceName == imageInfo.ServiceName {
+				if distribute.Target.ServiceModule == imageInfo.ServiceModule {
 					distributeTasks, err = formatDistributeSubtasks(
 						workflow.DistributeStage.Releases,
 						workflow.DistributeStage.ImageRepo,
@@ -1016,7 +1016,7 @@ func createReleaseImageTask(workflow *commonmodels.Workflow, args *commonmodels.
 				TaskCreator:   setting.RequestModeOpenAPI,
 				ReqID:         args.ReqID,
 				SubTasks:      subTasks,
-				ServiceName:   imageInfo.ServiceName,
+				ServiceName:   imageInfo.ServiceModule,
 				ConfigPayload: configPayload,
 				TaskArgs:      &commonmodels.TaskArgs{PipelineName: workflow.Name, TaskCreator: setting.RequestModeOpenAPI, Deploy: commonmodels.DeployArgs{Image: imageInfo.Image}},
 				ProductName:   workflow.ProductTmplName,
@@ -1043,7 +1043,7 @@ func createReleaseImageTask(workflow *commonmodels.Workflow, args *commonmodels.
 			}
 
 			for _, stask := range task.SubTasks {
-				AddSubtaskToStage(&stages, stask, imageInfo.ServiceName)
+				AddSubtaskToStage(&stages, stask, imageInfo.ServiceModule)
 			}
 		}
 	}
@@ -1064,7 +1064,8 @@ func createReleaseImageTask(workflow *commonmodels.Workflow, args *commonmodels.
 	}
 
 	if len(task.Stages) <= 0 {
-		return nil, e.ErrCreateTask.AddDesc(e.PipelineSubTaskNotFoundErrMsg)
+		errMessage := fmt.Sprintf("%s or %s", e.PipelineSubTaskNotFoundErrMsg, "Invalid service module")
+		return nil, e.ErrCreateTask.AddDesc(errMessage)
 	}
 
 	endpoint := fmt.Sprintf("%s-%s:9000", config.Namespace(), ClusterStorageEP)
