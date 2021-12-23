@@ -441,14 +441,15 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		return nil, fmt.Errorf("args should not be nil")
 	}
 
-	// RequestMode=openAPI表示外部客户调用API，部分数据需要获取并补充到args中
+	// RequestMode=openAPI means that external clients call the API, and some data needs to be obtained and added to args
 	if args.RequestMode == setting.RequestModeOpenAPI {
 		log.Info("CreateWorkflowTask from openAPI")
-		resp, err := AddDataToArgs(args, log)
+		resp, err := AddDataToArgsOrCreateReleaseImageTask(args, log)
 		if err != nil {
 			log.Errorf("AddDataToArgs error: %v", err)
 			return nil, err
 		}
+		// create release image task
 		if resp != nil {
 			return resp, nil
 		}
@@ -785,7 +786,7 @@ func modifyConfigPayload(configPayload *commonmodels.ConfigPayload, ignoreCache,
 
 }
 
-func AddDataToArgs(args *commonmodels.WorkflowTaskArgs, log *zap.SugaredLogger) (*CreateTaskResp, error) {
+func AddDataToArgsOrCreateReleaseImageTask(args *commonmodels.WorkflowTaskArgs, log *zap.SugaredLogger) (*CreateTaskResp, error) {
 	if len(args.Target) == 0 && len(args.Images) == 0 {
 		return nil, errors.New("target and images cannot be empty at the same time")
 	}
