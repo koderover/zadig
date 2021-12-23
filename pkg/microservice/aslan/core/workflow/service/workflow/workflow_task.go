@@ -811,6 +811,7 @@ func modifyConfigPayload(configPayload *commonmodels.ConfigPayload, ignoreCache,
 
 }
 
+// add data to workflow args or create release image task
 func AddDataToArgsOrCreateReleaseImageTask(args *commonmodels.WorkflowTaskArgs, log *zap.SugaredLogger) (*CreateTaskResp, error) {
 	if len(args.Target) == 0 && len(args.Images) == 0 {
 		return nil, errors.New("target and images cannot be empty at the same time")
@@ -829,10 +830,10 @@ func AddDataToArgsOrCreateReleaseImageTask(args *commonmodels.WorkflowTaskArgs, 
 		}
 		args.ProductTmplName = workflow.ProductTmplName
 
-		// 补全target信息
+		// Complete target information
 		for _, target := range args.Target {
 			target.HasBuild = true
-			// openAPI模式，传入的name是服务名称
+			// OpenAPI mode, the name passed in is the service name
 			serviceType, err := getValidServiceType(target.ServiceType)
 			if err != nil {
 				return nil, err
@@ -848,10 +849,10 @@ func AddDataToArgsOrCreateReleaseImageTask(args *commonmodels.WorkflowTaskArgs, 
 				return nil, e.ErrGetService.AddErr(err)
 			}
 
-			// 补全target中的deploy信息
+			// Complete the deploy information in the target
 			deploys := make([]commonmodels.DeployEnv, 0)
 			for _, container := range serviceTmpl.Containers {
-				// 如果服务中的服务组件存在构建，将该服务组件放进deploy
+				// If the service component in the service is built, put the service component into deploy
 				for _, build := range builds {
 					for _, moduleTarget := range build.Targets {
 						serviceModuleTarget := &commonmodels.ServiceModuleTarget{
@@ -868,12 +869,12 @@ func AddDataToArgsOrCreateReleaseImageTask(args *commonmodels.WorkflowTaskArgs, 
 			}
 			target.Deploy = deploys
 
-			// 补全target中的build信息
+			// Complete the build information in the target
 			for _, build := range builds {
 				if len(build.Targets) == 0 {
 					continue
 				}
-				// 如果该构建拥有的服务组件 包含 该服务的任一服务组件，则认为匹配成功
+				// If the service component owned by the build contains any service component of the service, the match is considered successful
 				match := false
 				for _, container := range serviceTmpl.Containers {
 					serviceModuleTarget := &commonmodels.ServiceModuleTarget{
@@ -893,14 +894,14 @@ func AddDataToArgsOrCreateReleaseImageTask(args *commonmodels.WorkflowTaskArgs, 
 				if !match {
 					continue
 				}
-				// 服务组件匹配成功，则从该构建的仓库列表 匹配仓库名称，并添加repo信息
+				// If the service component is successfully matched, match the warehouse name from the built warehouse list and add the repo information
 				if target.Build == nil {
 					continue
 				}
 				for _, buildRepo := range build.Repos {
 					for _, targetRepo := range target.Build.Repos {
 						if targetRepo.RepoName == buildRepo.RepoName {
-							// openAPI仅上传了repoName、branch、pr
+							// openAPI only pass repoName, branch, pr
 							targetRepo.Source = buildRepo.Source
 							targetRepo.RepoOwner = buildRepo.RepoOwner
 							targetRepo.RemoteName = buildRepo.RemoteName
@@ -911,7 +912,7 @@ func AddDataToArgsOrCreateReleaseImageTask(args *commonmodels.WorkflowTaskArgs, 
 				}
 			}
 		}
-		// 补全test信息
+		// Complete test information
 		if workflow.TestStage != nil && workflow.TestStage.Enabled {
 			tests := make([]*commonmodels.TestArgs, 0)
 			for _, testName := range workflow.TestStage.TestNames {
@@ -951,7 +952,7 @@ func AddDataToArgsOrCreateReleaseImageTask(args *commonmodels.WorkflowTaskArgs, 
 }
 
 func createReleaseImageTask(workflow *commonmodels.Workflow, args *commonmodels.WorkflowTaskArgs, log *zap.SugaredLogger) (*CreateTaskResp, error) {
-	// 获取全局configpayload
+	// Get global configPayload
 	configPayload := commonservice.GetConfigPayload(0)
 
 	nextTaskID, err := generateNextTaskID(workflow.Name)
@@ -979,7 +980,7 @@ func createReleaseImageTask(workflow *commonmodels.Workflow, args *commonmodels.
 	}
 
 	stages := make([]*commonmodels.Stage, 0)
-	// 生成分发的subtask
+	// Generate distributed subtask
 	if workflow.DistributeStage != nil && workflow.DistributeStage.Enabled {
 		var (
 			distributeTasks []map[string]interface{}
@@ -1008,7 +1009,7 @@ func createReleaseImageTask(workflow *commonmodels.Workflow, args *commonmodels.
 			}
 			subTasks = append(subTasks, distributeTasks...)
 
-			// 填充subtask之间关联内容
+			// Fill in the associated content between subtasks
 			task := &task.Task{
 				TaskID:        nextTaskID,
 				PipelineName:  workflow.Name,
