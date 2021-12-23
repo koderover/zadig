@@ -1,5 +1,9 @@
 package webhook
 
+import (
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+)
+
 type TriggerYaml struct {
 	Stages   []string         `yaml:"stages"`
 	Build    []*BuildServices `yaml:"build"`
@@ -54,10 +58,10 @@ type Repo struct {
 }
 
 type Rules struct {
-	Branchs      []string          `yaml:"branchs"`
-	Events       []string          `yaml:"events"`
-	Strategy     *StrategyRules    `yaml:"strategy"`
-	MatchFolders *MatchFoldersElem `yaml:"match_folders"`
+	Branchs      []string               `yaml:"branchs"`
+	Events       []config.HookEventType `yaml:"events"`
+	Strategy     *StrategyRules         `yaml:"strategy"`
+	MatchFolders *MatchFoldersElem      `yaml:"match_folders"`
 }
 
 type StrategyRules struct {

@@ -314,15 +314,16 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 	workFlowArgs.ResetCache = triggerYaml.CacheSet.ResetCache
 	workFlowArgs.EnvRecyclePolicy = triggerYaml.Deploy.EnvRecyclePolicy
 	workFlowArgs.EnvUpdatePolicy = triggerYaml.Deploy.EnvUpdatePolicy
+	item.MainRepo.Events = triggerYaml.Rules.Events
 	//test
-	var tests []*commonmodels.TestArgs
+	tests := make([]*commonmodels.TestArgs, 0)
 	for _, test := range triggerYaml.Test {
-		moduleTest, err := commonrepo.NewTestingColl().Find(test.Name, "")
+		moduleTest, err := commonrepo.NewTestingColl().Find(test.Name, workflow.ProductTmplName)
 		if err != nil {
 			log.Errorf("fail test find TestModuleName:%s, workflowname:%s,productTmplName:%s,error:%v", test.Name, workflow.Name, workflow.ProductTmplName, err)
 			return fmt.Errorf("fail test find TestModuleName:%s, workflowname:%s,productTmplName:%s,error:%s", test.Name, workflow.Name, workflow.ProductTmplName, err)
 		}
-		var envs []*commonmodels.KeyVal
+		envs := make([]*commonmodels.KeyVal, 0)
 		for _, env := range test.Variables {
 			envElem := &commonmodels.KeyVal{
 				Key:   env.Name,
@@ -349,7 +350,7 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 	}
 	workFlowArgs.Tests = tests
 	//target
-	var targets []*commonmodels.TargetArgs
+	targets := make([]*commonmodels.TargetArgs, 0)
 	for _, svr := range triggerYaml.Build {
 		targetElem := &commonmodels.TargetArgs{
 			Name:        svr.Module,
@@ -362,7 +363,6 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 			ProductName: workflow.ProductTmplName,
 			Targets:     []string{svr.Module},
 		}
-
 		resp, err := commonrepo.NewBuildColl().Find(opt)
 		if err != nil {
 			log.Errorf("[Build.Find] serviceName: %s productName:%s serviceModule:%s error: %v", svr.Name, workflow.ProductTmplName, svr.Module, err)
