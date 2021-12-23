@@ -128,6 +128,11 @@ type TaskArgs struct {
 	CodeHostID     int                 `bson:"codehost_id"             json:"codehost_id"`
 }
 
+type CallbackArgs struct {
+	CallbackUrl  string                 `bson:"callback_url" json:"callback_url"`   // url-encoded full path
+	CallbackVars map[string]interface{} `bson:"callback_vars" json:"callback_vars"` // custom defied vars, will be set to body of callback request
+}
+
 // WorkflowTaskArgs 多服务工作流任务参数
 type WorkflowTaskArgs struct {
 	WorkflowName    string `bson:"workflow_name"                json:"workflow_name"`
@@ -169,6 +174,14 @@ type WorkflowTaskArgs struct {
 	RequestMode string `json:"request_mode,omitempty"`
 	IsParallel  bool   `json:"is_parallel" bson:"is_parallel"`
 	EnvName     string `json:"env_name" bson:"-"`
+
+	Callback      *CallbackArgs   `bson:"callback"                    json:"callback"`
+	ReleaseImages []*ReleaseImage `bson:"release_images,omitempty"    json:"release_images,omitempty"`
+}
+
+type ReleaseImage struct {
+	Image         string `bson:"image"                    json:"image"`
+	ServiceModule string `bson:"service_module"           json:"service_module"`
 }
 
 type TestTaskArgs struct {

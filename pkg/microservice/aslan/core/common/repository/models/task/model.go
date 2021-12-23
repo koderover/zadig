@@ -84,13 +84,6 @@ type Task struct {
 	StorageEndpoint string                 `bson:"storage_endpoint"       json:"storage_endpoint"`
 }
 
-//type RenderInfo struct {
-//	Name        string `bson:"name"                     json:"name"`
-//	Revision    int64  `bson:"revision"                 json:"revision"`
-//	ProductTmpl string `bson:"product_tmpl"             json:"product_tmpl"`
-//	Description string `bson:"description"              json:"description"`
-//}
-
 func (Task) TableName() string {
 	return "pipeline_task_v2"
 }

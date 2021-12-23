@@ -24,6 +24,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/picket/core/public/service"
+	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
@@ -37,7 +38,8 @@ func CreateWorkflowTask(c *gin.Context) {
 		return
 	}
 	req.Namespace = req.EnvName
-	req.RequestMode = "openAPI"
+	req.RequestMode = setting.RequestModeOpenAPI
+
 	body, err := json.Marshal(req)
 	if err != nil {
 		ctx.Err = err
@@ -127,6 +129,15 @@ func ListWorkflowTask(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	commitId := c.Query("commitId")
 	ctx.Resp, ctx.Err = service.ListWorkflowTask(c.Request.Header, c.Request.URL.Query(), commitId, ctx.Logger)
+}
+
+func GetWorkflowDetail(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	id := c.Param("id")
+	name := c.Param("name")
+	c.Header("Content-Type", "application/json")
+	ctx.Resp, ctx.Err = service.GetDetailedWorkflowTask(c.Request.Header, c.Request.URL.Query(), id, name, ctx.Logger)
 }
 
 func ListDelivery(c *gin.Context) {

@@ -292,6 +292,7 @@ type TargetArgs struct {
 	Name string `bson:"name"                      json:"name"`
 	// 服务名称
 	ServiceName      string            `bson:"service_name"              json:"service_name"`
+	ServiceType      string            `bson:"service_type,omitempty"    json:"service_type,omitempty"`
 	Build            *BuildArgs        `bson:"build"                     json:"build"`
 	Version          string            `bson:"version"                   json:"version"`
 	Deploy           []DeployEnv       `bson:"deloy"                     json:"deploy"`
