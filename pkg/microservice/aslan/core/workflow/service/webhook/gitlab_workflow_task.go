@@ -422,7 +422,7 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 				continue
 			}
 			triggerYaml := &TriggerYaml{}
-			var workFlowArgs *commonmodels.WorkflowTaskArgs
+			workFlowArgs := &commonmodels.WorkflowTaskArgs{}
 			var pushEvent *gitlab.PushEvent
 			var mergeEvent *gitlab.MergeEvent
 			prID := 0
