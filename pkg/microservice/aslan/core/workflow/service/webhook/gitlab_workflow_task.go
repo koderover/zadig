@@ -267,7 +267,7 @@ func (gpem *gitlabPushEventMatcher) UpdateTaskArgs(
 func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Workflow, workFlowArgs *commonmodels.WorkflowTaskArgs, item *commonmodels.WorkflowHook, branref string, prId int) error {
 	svcType, err := getServiceTypeByProduct(workflow.ProductTmplName)
 	if err != nil {
-		return err
+		return fmt.Errorf("getServiceTypeByProduct ProductTmplName:%s err:%s", workflow.ProductTmplName, err)
 	}
 	deployed := false
 	for _, stage := range triggerYaml.Stages {
@@ -282,24 +282,27 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 
 	ch, err := systemconfig.New().GetCodeHost(item.MainRepo.CodehostID)
 	if err != nil {
-		return err
+		return fmt.Errorf("GetCodeHost codehostId:%d err:%s", item.MainRepo.CodehostID, err)
 	}
 	cli, err := gitlabtool.NewClient(ch.Address, ch.AccessToken)
 	if err != nil {
-		return err
+		return fmt.Errorf("gitlabtool.NewClient codehostId:%d err:%s", item.MainRepo.CodehostID, err)
 	}
 	zadigTriggerYamls, err := cli.GetYAMLContents(item.MainRepo.RepoOwner, item.MainRepo.RepoName, item.YamlPath, branref, false, false)
 	if err != nil {
-		return err
+		return fmt.Errorf("GetYAMLContents repoowner:%s reponame:%s ref:%s triggeryaml:%s err:%s", item.MainRepo.RepoOwner, item.MainRepo.RepoName, item.YamlPath, branref, err)
 	}
 	if len(zadigTriggerYamls) == 0 {
 		return fmt.Errorf("GetYAMLContents repoowner:%s reponame:%s ref:%s triggeryaml:%s ;content is empty", item.MainRepo.RepoOwner, item.MainRepo.RepoName, item.YamlPath, branref)
 	}
 	err = yaml.Unmarshal([]byte(zadigTriggerYamls[0]), &triggerYaml)
 	if err != nil {
-		return err
+		return fmt.Errorf("yaml.Unmarshal err:%s", err)
 	}
-
+	err = checkTriggerYamlParams(triggerYaml)
+	if err != nil {
+		return fmt.Errorf("checkTriggerYamlParams yamlPath:%s err:%s", item.YamlPath, err)
+	}
 	workFlowArgs.Namespace = strings.Join(triggerYaml.Deploy.Envsname, ",")
 	workFlowArgs.WorkflowName = workflow.Name
 	workFlowArgs.BaseNamespace = triggerYaml.Deploy.BaseNamespace
@@ -314,7 +317,7 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 		moduleTest, err := commonrepo.NewTestingColl().Find(test.Name, "")
 		if err != nil {
 			log.Errorf("fail test find TestModuleName:%s, workflowname:%s,productTmplName:%s,error:%v", test.Name, workflow.Name, workflow.ProductTmplName, err)
-			continue
+			return fmt.Errorf("fail test find TestModuleName:%s, workflowname:%s,productTmplName:%s,error:%s", test.Name, workflow.Name, workflow.ProductTmplName, err)
 		}
 		var envs []*commonmodels.KeyVal
 		for _, env := range test.Variables {
