@@ -299,10 +299,6 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 	if err != nil {
 		return fmt.Errorf("yaml.Unmarshal err:%s", err)
 	}
-	err = checkTriggerYamlParams(triggerYaml)
-	if err != nil {
-		return fmt.Errorf("checkTriggerYamlParams yamlPath:%s err:%s", item.YamlPath, err)
-	}
 	workFlowArgs.Namespace = strings.Join(triggerYaml.Deploy.Envsname, ",")
 	workFlowArgs.WorkflowName = workflow.Name
 	workFlowArgs.BaseNamespace = triggerYaml.Deploy.BaseNamespace
