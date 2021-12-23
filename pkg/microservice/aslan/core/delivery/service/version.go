@@ -193,7 +193,7 @@ type ChartVersionResp struct {
 }
 
 type DeliveryVersionPayloadImage struct {
-	ContainerName string `json:"container_name"`
+	ServiceModule string `json:"service_module"`
 	Image         string `json:"image"`
 }
 
@@ -1033,7 +1033,7 @@ func sendVersionDeliveryHook(projectName, version, host, urlPath string) error {
 			continue
 		}
 		distributeImageMap[distributeImage.ChartName] = append(distributeImageMap[distributeImage.ChartName], &DeliveryVersionPayloadImage{
-			ContainerName: distributeImage.ServiceName,
+			ServiceModule: distributeImage.ServiceName,
 			Image:         distributeImage.RegistryName,
 		})
 	}
