@@ -357,7 +357,7 @@ func (c *client) sendCallbackRequest(task *task.Task) error {
 
 	reqBody, err := json.Marshal(responseBody)
 	if err != nil {
-		log.Errorf("marshal json args error: %v", err)
+		log.Errorf("marshal json args error: %s", err)
 		return err
 	}
 

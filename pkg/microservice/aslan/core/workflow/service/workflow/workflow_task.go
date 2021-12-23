@@ -784,7 +784,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 func generateNextTaskID(workflowName string) (int64, error) {
 	nextTaskID, err := commonrepo.NewCounterColl().GetNextSeq(fmt.Sprintf(setting.WorkflowTaskFmt, workflowName))
 	if err != nil {
-		log.Errorf("Counter.GetNextSeq error: %v", err)
+		log.Errorf("Counter.GetNextSeq error: %s", err)
 		return 0, e.ErrGetCounter.AddDesc(err.Error())
 	}
 	return nextTaskID, nil
@@ -819,13 +819,13 @@ func AddDataToArgsOrCreateReleaseImageTask(args *commonmodels.WorkflowTaskArgs, 
 
 	workflow, err := commonrepo.NewWorkflowColl().Find(args.WorkflowName)
 	if err != nil {
-		log.Errorf("[Workflow.Find] error: %v", err)
+		log.Errorf("[Workflow.Find] error: %s", err)
 		return nil, e.ErrFindWorkflow.AddErr(err)
 	}
 	if len(args.Target) > 0 {
 		builds, err := commonrepo.NewBuildColl().List(&commonrepo.BuildListOption{})
 		if err != nil {
-			log.Errorf("[Build.List] error: %v", err)
+			log.Errorf("[Build.List] error: %s", err)
 			return nil, e.ErrListBuildModule.AddErr(err)
 		}
 		args.ProductTmplName = workflow.ProductTmplName
@@ -845,7 +845,7 @@ func AddDataToArgsOrCreateReleaseImageTask(args *commonmodels.WorkflowTaskArgs, 
 				ExcludeStatus: setting.ProductStatusDeleting}
 			serviceTmpl, err := commonrepo.NewServiceColl().Find(opt)
 			if err != nil {
-				log.Errorf("[ServiceTmpl.Find] error: %v", err)
+				log.Errorf("[ServiceTmpl.Find] error: %s", err)
 				return nil, e.ErrGetService.AddErr(err)
 			}
 
@@ -918,7 +918,7 @@ func AddDataToArgsOrCreateReleaseImageTask(args *commonmodels.WorkflowTaskArgs, 
 			for _, testName := range workflow.TestStage.TestNames {
 				moduleTest, err := commonrepo.NewTestingColl().Find(testName, "")
 				if err != nil {
-					log.Errorf("[Testing.Find] TestModuleName:%s, error:%v", testName, err)
+					log.Errorf("[Testing.Find] TestModuleName:%s, error:%s", testName, err)
 					continue
 				}
 				test := &commonmodels.TestArgs{
@@ -932,7 +932,7 @@ func AddDataToArgsOrCreateReleaseImageTask(args *commonmodels.WorkflowTaskArgs, 
 			for _, testEntity := range workflow.TestStage.Tests {
 				moduleTest, err := commonrepo.NewTestingColl().Find(testEntity.Name, "")
 				if err != nil {
-					log.Errorf("[Testing.Find] TestModuleName:%s, error:%v", testEntity.Name, err)
+					log.Errorf("[Testing.Find] TestModuleName:%s, error:%s", testEntity.Name, err)
 					continue
 				}
 				test := &commonmodels.TestArgs{
@@ -965,7 +965,7 @@ func createReleaseImageTask(workflow *commonmodels.Workflow, args *commonmodels.
 	// add default registry
 	reg, err := commonservice.FindDefaultRegistry(log)
 	if err != nil {
-		log.Errorf("can't find default candidate registry: %v", err)
+		log.Errorf("can't find default candidate registry: %s", err)
 		return nil, e.ErrFindRegistry.AddDesc(err.Error())
 	}
 	configPayload.Registry.Addr = reg.RegAddr
@@ -975,7 +975,7 @@ func createReleaseImageTask(workflow *commonmodels.Workflow, args *commonmodels.
 
 	distributeS3StoreURL, defaultS3StoreURL, err := getDefaultAndDestS3StoreURL(workflow, log)
 	if err != nil {
-		log.Errorf("getDefaultAndDestS3StoreUrl workflow name:[%s] err:%v", workflow.Name, err)
+		log.Errorf("getDefaultAndDestS3StoreUrl workflow name:[%s] err:%s", workflow.Name, err)
 		return nil, e.ErrCreateTask.AddErr(err)
 	}
 
@@ -1002,7 +1002,7 @@ func createReleaseImageTask(workflow *commonmodels.Workflow, args *commonmodels.
 						distribute,
 					)
 					if err != nil {
-						log.Errorf("distrbiute stages to subtasks error: %v", err)
+						log.Errorf("distrbiute stages to subtasks error: %s", err)
 						return nil, e.ErrCreateTask.AddErr(err)
 					}
 				}
@@ -1024,7 +1024,7 @@ func createReleaseImageTask(workflow *commonmodels.Workflow, args *commonmodels.
 			sort.Sort(ByTaskKind(task.SubTasks))
 
 			if err := ensurePipelineTask(task, "", log); err != nil {
-				log.Errorf("workflow_task ensurePipelineTask taskID:[%d] pipelineName:[%s] err:%v", task.ID, task.PipelineName, err)
+				log.Errorf("workflow_task ensurePipelineTask taskID:[%d] pipelineName:[%s] err:%s", task.ID, task.PipelineName, err)
 				if err, ok := err.(*ContainerNotFound); ok {
 					err := e.NewWithExtras(
 						e.ErrCreateTaskFailed.AddErr(err),
@@ -1072,7 +1072,7 @@ func createReleaseImageTask(workflow *commonmodels.Workflow, args *commonmodels.
 	task.StorageEndpoint = endpoint
 
 	if err := CreateTask(task); err != nil {
-		log.Errorf("workflow Create task:[%v] err:%v", task, err)
+		log.Errorf("workflow Create task:[%v] err:%s", task, err)
 		return nil, e.ErrCreateTask
 	}
 
