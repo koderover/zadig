@@ -814,7 +814,7 @@ func modifyConfigPayload(configPayload *commonmodels.ConfigPayload, ignoreCache,
 // add data to workflow args or create release image task
 func AddDataToArgsOrCreateReleaseImageTask(args *commonmodels.WorkflowTaskArgs, log *zap.SugaredLogger) (*CreateTaskResp, error) {
 	if len(args.Target) == 0 && len(args.ReleaseImages) == 0 {
-		return nil, errors.New("target and images cannot be empty at the same time")
+		return nil, errors.New("target and release_images cannot be empty at the same time")
 	}
 
 	workflow, err := commonrepo.NewWorkflowColl().Find(args.WorkflowName)
@@ -954,7 +954,7 @@ func AddDataToArgsOrCreateReleaseImageTask(args *commonmodels.WorkflowTaskArgs, 
 func createReleaseImageTask(workflow *commonmodels.Workflow, args *commonmodels.WorkflowTaskArgs, log *zap.SugaredLogger) (*CreateTaskResp, error) {
 	// Get global configPayload
 	configPayload := commonservice.GetConfigPayload(0)
-
+	args.ProductTmplName = workflow.ProductTmplName
 	nextTaskID, err := generateNextTaskID(workflow.Name)
 	if err != nil {
 		return nil, err
