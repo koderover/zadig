@@ -993,7 +993,7 @@ func createReleaseImageTask(workflow *commonmodels.Workflow, args *commonmodels.
 				if distribute.Target == nil {
 					continue
 				}
-				if distribute.Target.ServiceModule == imageInfo.ServiceModule {
+				if distribute.Target.ServiceModule == imageInfo.ServiceModule && distribute.Target.ServiceName == imageInfo.ServiceName {
 					distributeTasks, err = formatDistributeSubtasks(
 						workflow.DistributeStage.Releases,
 						workflow.DistributeStage.ImageRepo,
