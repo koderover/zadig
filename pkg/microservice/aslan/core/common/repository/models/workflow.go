@@ -181,6 +181,7 @@ type WorkflowTaskArgs struct {
 
 type ReleaseImage struct {
 	Image         string `bson:"image"                    json:"image"`
+	ServiceName   string `bson:"service_name"             json:"service_name"`
 	ServiceModule string `bson:"service_module"           json:"service_module"`
 }
 
