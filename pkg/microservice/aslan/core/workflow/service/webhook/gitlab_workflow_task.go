@@ -370,7 +370,7 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 	log.Infof("moduleTests info:", string(testsRepo))
 	//target
 	targets := make([]*commonmodels.TargetArgs, 0)
-	for _, svr := range triggerYaml.Build {
+	for _, svr := range triggerYaml.Rules.MatchFolders.MatchFoldersTree {
 		targetElem := &commonmodels.TargetArgs{
 			Name:        svr.Module,
 			ProductName: workflow.ProductTmplName,
@@ -400,12 +400,16 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 			targetElem.Deploy = append(targetElem.Deploy, commonmodels.DeployEnv{Env: svr.Module + "/" + svr.Name, Type: targetElem.ServiceType})
 		}
 		var envs []*commonmodels.KeyVal
-		for _, env := range svr.Variables {
-			envElem := &commonmodels.KeyVal{
-				Key:   env.Name,
-				Value: env.Value,
+		for _, bsvr := range triggerYaml.Build {
+			if bsvr.Name == svr.Name && bsvr.Module == svr.Module {
+				for _, env := range bsvr.Variables {
+					envElem := &commonmodels.KeyVal{
+						Key:   env.Name,
+						Value: env.Value,
+					}
+					envs = append(envs, envElem)
+				}
 			}
-			envs = append(envs, envElem)
 		}
 		targetElem.Envs = envs
 		targets = append(targets, targetElem)
@@ -512,13 +516,15 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 					TaskType:       config.WorkflowType,
 					MainRepo:       item.MainRepo,
 					WorkflowArgs:   workFlowArgs,
+					IsYaml:         item.IsYaml,
+					AutoCancel:     item.AutoCancel,
+					YamlHookPath:   item.YamlPath,
 				}
 				err := AutoCancelTask(autoCancelOpt, log)
 				if err != nil {
 					log.Errorf("failed to auto cancel workflow task when receive event %v due to %v ", event, err)
 					mErr = multierror.Append(mErr, err)
 				}
-				log.Info("-----baseURI----:", baseURI)
 				if notification == nil {
 					notification, _ = scmnotify.NewService().SendInitWebhookComment(
 						item.MainRepo, ev.ObjectAttributes.IID, baseURI, false, false, log,

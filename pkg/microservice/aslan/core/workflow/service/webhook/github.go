@@ -381,8 +381,7 @@ func pushEventCommitsFiles(e *github.PushEvent) []string {
 	return files
 }
 
-
-func ProcessGithubWebHookForTest(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger)error{
+func ProcessGithubWebHookForTest(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) error {
 	hookType := github.WebHookType(req)
 	if hookType == "integration_installation" || hookType == "installation" || hookType == "ping" {
 		return nil
@@ -415,7 +414,6 @@ func ProcessGithubWebHookForTest(payload []byte, req *http.Request, requestID st
 	}
 	return nil
 }
-
 
 func ProcessGithubWebHook(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) error {
 	forwardedProto := req.Header.Get("X-Forwarded-Proto")
@@ -489,9 +487,12 @@ type AutoCancelOpt struct {
 	MainRepo       *commonmodels.MainHookRepo
 	WorkflowArgs   *commonmodels.WorkflowTaskArgs
 	TestArgs       *commonmodels.TestTaskArgs
+	IsYaml         bool
+	AutoCancel     bool
+	YamlHookPath   string
 }
 
-func getProductTargetMap(prod *commonmodels.Product) map[string][]commonmodels.DeployEnv {
+func getProductTargetMap(prod *commonmodels.Product, isYaml bool) map[string][]commonmodels.DeployEnv {
 	resp := make(map[string][]commonmodels.DeployEnv)
 	if prod.Source == setting.SourceFromExternal {
 		services, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(prod.ProductName, prod.EnvName)
@@ -509,6 +510,9 @@ func getProductTargetMap(prod *commonmodels.Product) map[string][]commonmodels.D
 		for _, serviceObj := range services {
 			switch serviceObj.Type {
 			case setting.K8SDeployType:
+				if isYaml {
+					continue
+				}
 				for _, container := range serviceObj.Containers {
 					env := serviceObj.ServiceName + "/" + container.Name
 					deployEnv := commonmodels.DeployEnv{Type: setting.K8SDeployType, Env: env}
@@ -522,6 +526,9 @@ func getProductTargetMap(prod *commonmodels.Product) map[string][]commonmodels.D
 				target := fmt.Sprintf("%s%s%s%s%s", prod.ProductName, SplitSymbol, serviceObj.ServiceName, SplitSymbol, serviceObj.ServiceName)
 				resp[target] = append(resp[target], deployEnv)
 			case setting.HelmDeployType:
+				if isYaml {
+					continue
+				}
 				for _, container := range serviceObj.Containers {
 					env := serviceObj.ServiceName + "/" + container.Name
 					deployEnv := commonmodels.DeployEnv{Type: setting.HelmDeployType, Env: env}

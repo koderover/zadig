@@ -89,7 +89,13 @@ func AutoCancelWorkflowTask(autoCancelOpt *AutoCancelOpt, task *task.Task, log *
 	}
 
 	for _, item := range workflow.HookCtl.Items {
-		if item.AutoCancel {
+		autoCancel := item.AutoCancel
+		if item.IsYaml {
+			if autoCancelOpt.YamlHookPath == item.YamlPath {
+				autoCancel = autoCancelOpt.AutoCancel
+			}
+		}
+		if autoCancel {
 			if item.MainRepo.RepoOwner != autoCancelOpt.MainRepo.RepoOwner ||
 				item.MainRepo.RepoName != autoCancelOpt.MainRepo.RepoName ||
 				item.MainRepo.Branch != autoCancelOpt.MainRepo.Branch ||

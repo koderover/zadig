@@ -190,7 +190,7 @@ func (waf *workflowArgsFactory) Update(product *commonmodels.Product, args *comm
 		target.Build.Repos = append(target.Build.Repos, repo)
 		if len(target.Deploy) == 0 {
 			if targetMap == nil {
-				targetMap = getProductTargetMap(product)
+				targetMap = getProductTargetMap(product, waf.IsYaml)
 			}
 			serviceModuleTarget := fmt.Sprintf("%s%s%s%s%s", args.ProductTmplName, SplitSymbol, target.ServiceName, SplitSymbol, target.Name)
 			target.Deploy = targetMap[serviceModuleTarget]
