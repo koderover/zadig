@@ -323,7 +323,12 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 			log.Errorf("fail test find TestModuleName:%s, workflowname:%s,productTmplName:%s,error:%v", test.Name, workflow.Name, workflow.ProductTmplName, err)
 			return fmt.Errorf("fail test find TestModuleName:%s, workflowname:%s,productTmplName:%s,error:%s", test.Name, workflow.Name, workflow.ProductTmplName, err)
 		}
-		log.Infof("moduleTest %s info:", moduleTest.Name, moduleTest.Repos)
+		testRepo, err := json.Marshal(moduleTest.Repos)
+		if err != nil {
+			log.Errorf("fail test json.Marshal TestModuleName:%s, workflowname:%s,productTmplName:%s,error:%v", test.Name, workflow.Name, workflow.ProductTmplName, err)
+			return fmt.Errorf("fail test json.Marshal TestModuleName:%s, workflowname:%s,productTmplName:%s,error:%s", test.Name, workflow.Name, workflow.ProductTmplName, err)
+		}
+		log.Infof("moduleTest %s info:", moduleTest.Name, string(testRepo))
 		envs := make([]*commonmodels.KeyVal, 0)
 		for _, env := range test.Variables {
 			envElem := &commonmodels.KeyVal{
@@ -350,7 +355,12 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 		tests = append(tests, testArg)
 	}
 	workFlowArgs.Tests = tests
-	log.Infof("moduleTests info:", workFlowArgs.Tests)
+	testsRepo, err := json.Marshal(workFlowArgs.Tests)
+	if err != nil {
+		log.Errorf("fail test json.Marshal workflowname:%s,productTmplName:%s,error:%v", workflow.Name, workflow.ProductTmplName, err)
+		return fmt.Errorf("fail test json.Marshal workflowname:%s,productTmplName:%s,error:%s", workflow.Name, workflow.ProductTmplName, err)
+	}
+	log.Infof("moduleTests info:", string(testsRepo))
 	//target
 	targets := make([]*commonmodels.TargetArgs, 0)
 	for _, svr := range triggerYaml.Build {
