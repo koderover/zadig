@@ -516,6 +516,7 @@ func EventConfigured(m *commonmodels.MainHookRepo, event config.HookEventType) b
 func ServicesMatchChangesFiles(mf *MatchFoldersElem, m *commonmodels.MainHookRepo, files []string) []BuildServices {
 	resMactchSvr := []BuildServices{}
 	var wg sync.WaitGroup
+	var mutex sync.Mutex
 	for _, mftreeElem := range mf.MatchFoldersTree {
 		wg.Add(1)
 		go func(mftree *MatchFoldersTree) {
@@ -523,7 +524,9 @@ func ServicesMatchChangesFiles(mf *MatchFoldersElem, m *commonmodels.MainHookRep
 			mf := MatchFolders(mftree.FileTree)
 			for _, file := range files {
 				if matches := mf.ContainsFile(file); matches {
-					resMactchSvr = append(resMactchSvr, BuildServices{Name: mftree.Name, Module: mftree.Module})
+					mutex.Lock()
+					resMactchSvr = append(resMactchSvr, BuildServices{Name: mftree.Name, ServiceModule: mftree.ServiceModule})
+					mutex.Unlock()
 					break
 				}
 			}
@@ -533,7 +536,7 @@ func ServicesMatchChangesFiles(mf *MatchFoldersElem, m *commonmodels.MainHookRep
 	return resMactchSvr
 }
 
-func getServiceTypeByProduct(productName string) (string, error) {
+func getServiceTypeByProject(productName string) (string, error) {
 	projectInfo, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil {
 		return "", err
@@ -555,15 +558,14 @@ func getServiceTypeByProduct(productName string) (string, error) {
 func checkTriggerYamlParams(triggerYaml *TriggerYaml) error {
 	//check stages
 	for _, stage := range triggerYaml.Stages {
-		if stage == "build" || stage == "deploy" || stage == "test" {
-			continue
+		if stage != "build" && stage != "deploy" && stage != "test" {
+			return fmt.Errorf("stages must build or deploy or test")
 		}
-		return fmt.Errorf("stages exist not build or deploy or test")
 	}
 	//check build
 	for _, bd := range triggerYaml.Build {
-		if bd.Name == "" || bd.Module == "" {
-			return fmt.Errorf("build.name or build.service_module empty")
+		if bd.Name == "" || bd.ServiceModule == "" {
+			return fmt.Errorf("build.name or build.service_module is empty")
 		}
 	}
 	//check deploy
@@ -571,42 +573,40 @@ func checkTriggerYamlParams(triggerYaml *TriggerYaml) error {
 		return fmt.Errorf("deploy must be exist")
 	}
 	if triggerYaml.Deploy.BaseNamespace != "" {
-		if !(triggerYaml.Deploy.EnvRecyclePolicy == "success" || triggerYaml.Deploy.EnvRecyclePolicy == "always" || triggerYaml.Deploy.EnvRecyclePolicy == "never") {
-			return fmt.Errorf("deploy.env_recycle_policy must be success/always/never")
+		if triggerYaml.Deploy.EnvRecyclePolicy != "success" && triggerYaml.Deploy.EnvRecyclePolicy != "always" && triggerYaml.Deploy.EnvRecyclePolicy != "never" {
+			return fmt.Errorf("deploy.env_recycle_policy must success/always/never")
 		}
 	}
 	//check test
 	for _, tt := range triggerYaml.Test {
 		if tt.Repo == nil {
-			return fmt.Errorf("test.repo.strategy must be  default/currentRepo")
+			return fmt.Errorf("test.repo.strategy must default/currentRepo")
 		}
-		if tt.Repo.Strategy == "default" || tt.Repo.Strategy == "currentRepo" {
-			continue
+		if tt.Repo.Strategy != "default" && tt.Repo.Strategy != "currentRepo" {
+			return fmt.Errorf("test.repo.strategy must default/currentRepo")
 		}
-		return fmt.Errorf("test.repo.strategy must be  default/currentRepo")
 	}
 	//check rule
 	if triggerYaml.Rules == nil {
-		return fmt.Errorf("rules must be exist")
+		return fmt.Errorf("rules must exist")
 	}
 	if len(triggerYaml.Rules.Branchs) == 0 {
-		return fmt.Errorf("rules.baranch must be exist")
+		return fmt.Errorf("rules.baranch must exist")
 	}
 	for _, ev := range triggerYaml.Rules.Events {
-		if ev == "pull_request" || ev == "push" {
-			continue
+		if ev != "pull_request" && ev != "push" {
+			return fmt.Errorf("rules.event must be pull_request or push ")
 		}
-		return fmt.Errorf("rules.event must be pull_request or push ")
 	}
 	if triggerYaml.Rules.MatchFolders == nil {
-		return fmt.Errorf("rules.match_folders must be exist")
+		return fmt.Errorf("rules.match_folders must exist")
 	}
 	for _, mf := range triggerYaml.Rules.MatchFolders.MatchFoldersTree {
-		if mf.Name == "" || mf.Module == "" {
-			return fmt.Errorf("match_folders.match_folders_tree.name or match_folders.match_folders_tree.service_module may be empty")
+		if mf.Name == "" || mf.ServiceModule == "" {
+			return fmt.Errorf("match_folders.match_folders_tree.name or match_folders.match_folders_tree.service_module is empty")
 		}
 		if len(mf.FileTree) == 0 {
-			return fmt.Errorf("match_folders.match_folders_tree.file_tree may be empty")
+			return fmt.Errorf("match_folders.match_folders_tree.file_tree is empty")
 		}
 	}
 

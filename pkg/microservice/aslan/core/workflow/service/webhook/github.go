@@ -506,13 +506,13 @@ func getProductTargetMap(prod *commonmodels.Product, isYaml bool) map[string][]c
 		}
 		return resp
 	}
+	if isYaml {
+		return resp
+	}
 	for _, services := range prod.Services {
 		for _, serviceObj := range services {
 			switch serviceObj.Type {
 			case setting.K8SDeployType:
-				if isYaml {
-					continue
-				}
 				for _, container := range serviceObj.Containers {
 					env := serviceObj.ServiceName + "/" + container.Name
 					deployEnv := commonmodels.DeployEnv{Type: setting.K8SDeployType, Env: env}
@@ -526,9 +526,6 @@ func getProductTargetMap(prod *commonmodels.Product, isYaml bool) map[string][]c
 				target := fmt.Sprintf("%s%s%s%s%s", prod.ProductName, SplitSymbol, serviceObj.ServiceName, SplitSymbol, serviceObj.ServiceName)
 				resp[target] = append(resp[target], deployEnv)
 			case setting.HelmDeployType:
-				if isYaml {
-					continue
-				}
 				for _, container := range serviceObj.Containers {
 					env := serviceObj.ServiceName + "/" + container.Name
 					deployEnv := commonmodels.DeployEnv{Type: setting.HelmDeployType, Env: env}

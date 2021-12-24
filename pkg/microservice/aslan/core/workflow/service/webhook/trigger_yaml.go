@@ -18,9 +18,9 @@ type Build struct {
 }
 
 type BuildServices struct {
-	Name      string       `yaml:"name"`
-	Module    string       `yaml:"service_module"`
-	Variables []*Variables `yaml:"variables"`
+	Name          string       `yaml:"name"`
+	ServiceModule string       `yaml:"service_module"`
+	Variables     []*Variables `yaml:"variables"`
 }
 
 type Variables struct {
@@ -38,9 +38,7 @@ type Deploy struct {
 	Strategy         string   `yaml:"strategy"`
 	Envsname         []string `yaml:"envs_name"`
 	EnvRecyclePolicy string   `yaml:"env_recycle_policy"`
-	EnvUpdatePolicy  string   `yaml:"env_update_policy"`
-	//EnvName          string   `yaml:"env_name"`
-	BaseNamespace string `yaml:"base_env"`
+	BaseNamespace    string   `yaml:"base_env"`
 }
 
 type Test struct {
@@ -75,9 +73,9 @@ type MatchFoldersElem struct {
 }
 
 type MatchFoldersTree struct {
-	Name     string   `yaml:"name"`
-	Module   string   `yaml:"service_module"`
-	FileTree []string `yaml:"file_tree"`
+	Name          string   `yaml:"name"`
+	ServiceModule string   `yaml:"service_module"`
+	FileTree      []string `yaml:"file_tree"`
 }
 
 type CacheSet struct {

@@ -70,6 +70,7 @@ func (gmem *gitlabMergeEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) 
 			for _, ref := range gmem.trigger.Rules.Branchs {
 				if matched, _ := regexp.MatchString(ref, getBranchFromRef(hookRepo.Branch)); matched {
 					refFlag = true
+					break
 				}
 			}
 			if !refFlag {
@@ -113,8 +114,9 @@ func (gmem *gitlabMergeEventMatcher) UpdateTaskArgs(
 		var targets []*commonmodels.TargetArgs
 		for _, target := range args.Target {
 			for _, bs := range gmem.yamlServiceChanged {
-				if target.Name == bs.Module && target.ServiceName == bs.Name {
+				if target.Name == bs.ServiceModule && target.ServiceName == bs.Name {
 					targets = append(targets, target)
+					break
 				}
 			}
 		}
@@ -183,6 +185,7 @@ func (gpem *gitlabPushEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (
 			for _, ref := range gpem.trigger.Rules.Branchs {
 				if matched, _ := regexp.MatchString(ref, getBranchFromRef(ev.Ref)); matched {
 					refFlag = true
+					break
 				}
 			}
 			if !refFlag {
@@ -244,7 +247,7 @@ func (gpem *gitlabPushEventMatcher) UpdateTaskArgs(
 		var targets []*commonmodels.TargetArgs
 		for _, target := range args.Target {
 			for _, bs := range gpem.yamlServiceChanged {
-				if target.Name == bs.Module && target.ServiceName == bs.Name {
+				if target.Name == bs.ServiceModule && target.ServiceName == bs.Name {
 					targets = append(targets, target)
 				}
 			}
@@ -268,7 +271,7 @@ func (gpem *gitlabPushEventMatcher) UpdateTaskArgs(
 }
 
 func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Workflow, workFlowArgs *commonmodels.WorkflowTaskArgs, item *commonmodels.WorkflowHook, branref string, prId int) error {
-	svcType, err := getServiceTypeByProduct(workflow.ProductTmplName)
+	svcType, err := getServiceTypeByProject(workflow.ProductTmplName)
 	if err != nil {
 		return fmt.Errorf("getServiceTypeByProduct ProductTmplName:%s err:%s", workflow.ProductTmplName, err)
 	}
@@ -298,7 +301,7 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 	if len(zadigTriggerYamls) == 0 {
 		return fmt.Errorf("GetYAMLContents repoowner:%s reponame:%s ref:%s triggeryaml:%s ;content is empty", item.MainRepo.RepoOwner, item.MainRepo.RepoName, item.YamlPath, branref)
 	}
-	log.Debug("zadig-Trigger Yaml info:", zadigTriggerYamls[0])
+	log.Infof("zadig-Trigger Yaml info:%s", zadigTriggerYamls[0])
 	err = yaml.Unmarshal([]byte(zadigTriggerYamls[0]), triggerYaml)
 	if err != nil {
 		return fmt.Errorf("yaml.Unmarshal err:%s", err)
@@ -307,10 +310,10 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 	if err != nil {
 		return err
 	}
-	log.Debug("triggerYaml info:", string(triggerYamlByt))
+	log.Infof("triggerYaml struct info:%s", string(triggerYamlByt))
 	err = checkTriggerYamlParams(triggerYaml)
 	if err != nil {
-		return err
+		return fmt.Errorf("checkTriggerYamlParams yamlPath:%s err:%s", item.YamlPath, err)
 	}
 	workFlowArgs.Namespace = strings.Join(triggerYaml.Deploy.Envsname, ",")
 	workFlowArgs.WorkflowName = workflow.Name
@@ -331,8 +334,8 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 	for _, test := range triggerYaml.Test {
 		moduleTest, err := commonrepo.NewTestingColl().Find(test.Name, workflow.ProductTmplName)
 		if err != nil {
-			log.Errorf("fail test find TestModuleName:%s, workflowname:%s,productTmplName:%s,error:%v", test.Name, workflow.Name, workflow.ProductTmplName, err)
-			return fmt.Errorf("fail test find TestModuleName:%s, workflowname:%s,productTmplName:%s,error:%s", test.Name, workflow.Name, workflow.ProductTmplName, err)
+			log.Errorf("fail to find test TestModuleName:%s, workflowname:%s,productTmplName:%s,error:%v", test.Name, workflow.Name, workflow.ProductTmplName, err)
+			return fmt.Errorf("fail to find test TestModuleName:%s, workflowname:%s,productTmplName:%s,error:%s", test.Name, workflow.Name, workflow.ProductTmplName, err)
 		}
 		envs := make([]*commonmodels.KeyVal, 0)
 		for _, env := range test.Variables {
@@ -353,24 +356,22 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 					repo.PR = prId
 				}
 			}
-			testArg.Builds = moduleTest.Repos
-		} else {
-			testArg.Builds = moduleTest.Repos
 		}
+		testArg.Builds = moduleTest.Repos
 		tests = append(tests, testArg)
 	}
 	workFlowArgs.Tests = tests
 	testsRepo, err := json.Marshal(workFlowArgs.Tests)
 	if err != nil {
-		log.Errorf("fail test json.Marshal workflowname:%s,productTmplName:%s,error:%v", workflow.Name, workflow.ProductTmplName, err)
-		return fmt.Errorf("fail test json.Marshal workflowname:%s,productTmplName:%s,error:%s", workflow.Name, workflow.ProductTmplName, err)
+		log.Errorf("json.Marshal workflowname:%s,productTmplName:%s,error:%s", workflow.Name, workflow.ProductTmplName, err)
+		return fmt.Errorf("json.Marshal workflowname:%s,productTmplName:%s,error:%s", workflow.Name, workflow.ProductTmplName, err)
 	}
-	log.Infof("moduleTests info:", string(testsRepo))
+	log.Infof("moduleTests workflowname:%s,productTmplName:%s,info:%s", workflow.Name, workflow.ProductTmplName, string(testsRepo))
 	//target
 	targets := make([]*commonmodels.TargetArgs, 0)
 	for _, svr := range triggerYaml.Rules.MatchFolders.MatchFoldersTree {
 		targetElem := &commonmodels.TargetArgs{
-			Name:        svr.Module,
+			Name:        svr.ServiceModule,
 			ProductName: workflow.ProductTmplName,
 			ServiceName: svr.Name,
 			ServiceType: svcType,
@@ -378,12 +379,12 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 		opt := &commonrepo.BuildFindOption{
 			ServiceName: svr.Name,
 			ProductName: workflow.ProductTmplName,
-			Targets:     []string{svr.Module},
+			Targets:     []string{svr.ServiceModule},
 		}
 		resp, err := commonrepo.NewBuildColl().Find(opt)
 		if err != nil {
-			log.Errorf("[Build.Find] serviceName: %s productName:%s serviceModule:%s error: %v", svr.Name, workflow.ProductTmplName, svr.Module, err)
-			return fmt.Errorf("[Build.Find] serviceName: %s productName:%s serviceModule:%s error: %v", svr.Name, workflow.ProductTmplName, svr.Module, err)
+			log.Errorf("[Build.Find] serviceName: %s productName:%s serviceModule:%s error: %s", svr.Name, workflow.ProductTmplName, svr.ServiceModule, err)
+			return fmt.Errorf("[Build.Find] serviceName: %s productName:%s serviceModule:%s error: %s", svr.Name, workflow.ProductTmplName, svr.ServiceModule, err)
 		}
 		for _, repo := range resp.Repos {
 			if repo.RepoName == item.MainRepo.RepoName && repo.RepoOwner == item.MainRepo.RepoOwner {
@@ -395,11 +396,11 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 
 		targetElem.Deploy = []commonmodels.DeployEnv{}
 		if deployed {
-			targetElem.Deploy = append(targetElem.Deploy, commonmodels.DeployEnv{Env: svr.Module + "/" + svr.Name, Type: targetElem.ServiceType})
+			targetElem.Deploy = append(targetElem.Deploy, commonmodels.DeployEnv{Env: svr.ServiceModule + "/" + svr.Name, Type: targetElem.ServiceType})
 		}
 		var envs []*commonmodels.KeyVal
 		for _, bsvr := range triggerYaml.Build {
-			if bsvr.Name == svr.Name && bsvr.Module == svr.Module {
+			if bsvr.Name == svr.Name && bsvr.ServiceModule == svr.ServiceModule {
 				for _, env := range bsvr.Variables {
 					envElem := &commonmodels.KeyVal{
 						Key:   env.Name,
@@ -466,7 +467,7 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 			if item.IsYaml {
 				err := UpdateWorkflowTaskArgs(triggerYaml, workflow, workFlowArgs, item, branref, prID)
 				if err != nil {
-					log.Errorf("UpdateWorkflowTaskArgs %v", err)
+					log.Errorf("UpdateWorkflowTaskArgs %s", err)
 					return fmt.Errorf("UpdateWorkflowTaskArgs %s", err)
 				}
 				item.WorkflowArgs = workFlowArgs
