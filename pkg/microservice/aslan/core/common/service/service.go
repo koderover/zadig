@@ -70,6 +70,8 @@ type ServiceTmplObject struct {
 	EnvStatuses  []*commonmodels.EnvStatus     `json:"env_statuses,omitempty"`
 	From         string                        `json:"from,omitempty"`
 	HealthChecks []*commonmodels.PmHealthCheck `json:"health_checks"`
+	IsManu       bool                          `json:"is_manu"`
+	EnvName      string                        `json:"env_name"`
 }
 
 type ServiceProductMap struct {
@@ -434,7 +436,6 @@ func UpdatePmServiceTemplate(username string, args *ServiceTmplBuildObject, log 
 		return err
 	}
 	preService.HealthChecks = args.ServiceTmplObject.HealthChecks
-	preService.EnvConfigs = args.ServiceTmplObject.EnvConfigs
 	preService.Revision = rev
 	preService.CreateBy = username
 	preService.BuildName = args.Build.Name

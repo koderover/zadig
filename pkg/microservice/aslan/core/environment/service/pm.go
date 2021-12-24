@@ -98,10 +98,12 @@ func (p *PMService) listGroupServices(allServices []*commonmodels.ProductService
 				ServiceName: service.ServiceName,
 				Type:        service.Type,
 				EnvName:     envName,
+				Revision:    service.Revision,
 			}
 			serviceTmpl, err := commonservice.GetServiceTemplate(
 				service.ServiceName, setting.PMDeployType, service.ProductName, "", service.Revision, p.log,
 			)
+			gp.EnvConfigs = serviceTmpl.EnvConfigs
 			if err != nil {
 				gp.Status = setting.PodFailed
 				mutex.Lock()
