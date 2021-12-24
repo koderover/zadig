@@ -452,7 +452,11 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 				branref = pushEvent.Ref
 			case *gitlab.MergeEvent:
 				mergeEvent = evt
-				branref = mergeEvent.ObjectAttributes.SourceBranch
+				if mergeEvent.ObjectAttributes.Source.PathWithNamespace != mergeEvent.ObjectAttributes.Target.PathWithNamespace {
+					branref = mergeEvent.ObjectAttributes.TargetBranch
+				} else {
+					branref = mergeEvent.ObjectAttributes.SourceBranch
+				}
 				prID = evt.ObjectAttributes.IID
 				item.MainRepo.Branch = getBranchFromRef(mergeEvent.ObjectAttributes.TargetBranch)
 			}
