@@ -19,7 +19,7 @@ type Build struct {
 
 type BuildServices struct {
 	Name      string       `yaml:"name"`
-	Module    string       `yaml:"module"`
+	Module    string       `yaml:"service_module"`
 	Variables []*Variables `yaml:"variables"`
 }
 
@@ -76,7 +76,7 @@ type MatchFoldersElem struct {
 
 type MatchFoldersTree struct {
 	Name     string   `yaml:"name"`
-	Module   string   `yaml:"module"`
+	Module   string   `yaml:"service_module"`
 	FileTree []string `yaml:"file_tree"`
 }
 
