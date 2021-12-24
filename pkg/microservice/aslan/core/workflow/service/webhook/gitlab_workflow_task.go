@@ -323,6 +323,7 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 			log.Errorf("fail test find TestModuleName:%s, workflowname:%s,productTmplName:%s,error:%v", test.Name, workflow.Name, workflow.ProductTmplName, err)
 			return fmt.Errorf("fail test find TestModuleName:%s, workflowname:%s,productTmplName:%s,error:%s", test.Name, workflow.Name, workflow.ProductTmplName, err)
 		}
+		log.Infof("moduleTest %s info:", moduleTest.Name, moduleTest.Repos)
 		envs := make([]*commonmodels.KeyVal, 0)
 		for _, env := range test.Variables {
 			envElem := &commonmodels.KeyVal{
@@ -349,6 +350,7 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 		tests = append(tests, testArg)
 	}
 	workFlowArgs.Tests = tests
+	log.Infof("moduleTests info:", workFlowArgs.Tests)
 	//target
 	targets := make([]*commonmodels.TargetArgs, 0)
 	for _, svr := range triggerYaml.Build {
