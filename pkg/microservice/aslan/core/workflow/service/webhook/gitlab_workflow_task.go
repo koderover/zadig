@@ -123,6 +123,7 @@ func (gmem *gitlabMergeEventMatcher) UpdateTaskArgs(
 	factory := &workflowArgsFactory{
 		workflow: gmem.workflow,
 		reqID:    requestID,
+		IsYaml:   gmem.isYaml,
 	}
 
 	args = factory.Update(product, args, &types.Repository{
@@ -253,6 +254,7 @@ func (gpem *gitlabPushEventMatcher) UpdateTaskArgs(
 	factory := &workflowArgsFactory{
 		workflow: gpem.workflow,
 		reqID:    requestID,
+		IsYaml:   gpem.isYaml,
 	}
 
 	factory.Update(product, args, &types.Repository{
