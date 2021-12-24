@@ -312,11 +312,16 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 	workFlowArgs.WorkflowName = workflow.Name
 	workFlowArgs.BaseNamespace = triggerYaml.Deploy.BaseNamespace
 	workFlowArgs.ProductTmplName = workflow.ProductTmplName
-	workFlowArgs.IgnoreCache = triggerYaml.CacheSet.IgnoreCache
-	workFlowArgs.ResetCache = triggerYaml.CacheSet.ResetCache
+	if triggerYaml.CacheSet != nil {
+		workFlowArgs.IgnoreCache = triggerYaml.CacheSet.IgnoreCache
+		workFlowArgs.ResetCache = triggerYaml.CacheSet.ResetCache
+	}
 	workFlowArgs.EnvRecyclePolicy = triggerYaml.Deploy.EnvRecyclePolicy
-	workFlowArgs.EnvUpdatePolicy = triggerYaml.Deploy.EnvUpdatePolicy
+	workFlowArgs.EnvUpdatePolicy = triggerYaml.Deploy.Strategy
 	item.MainRepo.Events = triggerYaml.Rules.Events
+	if triggerYaml.Rules.Strategy != nil {
+		item.AutoCancel = triggerYaml.Rules.Strategy.AutoCancel
+	}
 	//test
 	tests := make([]*commonmodels.TestArgs, 0)
 	for _, test := range triggerYaml.Test {
