@@ -61,8 +61,8 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 		return err
 	}
 
-	forwardedProto := req.Header.Get("X-Forwarded-Proto")
-	forwardedHost := req.Header.Get("X-Forwarded-Host")
+	forwardedProto := req.Header.Get("x-forwarded-proto")
+	forwardedHost := req.Header.Get("host")
 	baseURI := fmt.Sprintf("%s://%s", forwardedProto, forwardedHost)
 
 	var eventPush *EventPush
