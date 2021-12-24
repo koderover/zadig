@@ -33,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/cron/core/service"
 	"github.com/koderover/zadig/pkg/setting"
 )
@@ -86,21 +85,22 @@ func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
 				if envConfig.EnvName != env.EnvName {
 					continue
 				}
-				privateKeys, err := commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{IDs: envConfig.HostIDs})
-				if err != nil {
-					log.Errorf("ListNameByArgs ids err:%s", err)
-					continue
-				}
-				ips := sets.NewString()
-				ips = extractHostIPs(privateKeys, ips)
-				privateKeys, err = commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{Labels: envConfig.Labels})
-				if err != nil {
-					log.Errorf("ListNameByArgs labels err:%s", err)
-					continue
-				}
-				ips = extractHostIPs(privateKeys, ips)
+				for _, hostID := range envConfig.HostIDs {
+					//privateKeys, err := commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{IDs: envConfig.HostIDs})
+					//if err != nil {
+					//	log.Errorf("ListNameByArgs ids err:%s", err)
+					//	continue
+					//}
+					//ips := sets.NewString()
+					//ips = extractHostIPs(privateKeys, ips)
+					//privateKeys, err = commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{Labels: envConfig.Labels})
+					//if err != nil {
+					//	log.Errorf("ListNameByArgs labels err:%s", err)
+					//	continue
+					//}
+					//ips = extractHostIPs(privateKeys, ips)
 
-				for _, hostID := range ips.List() {
+					//for _, hostID := range ips.List() {
 					for _, healthCheck := range svc.HealthChecks {
 						key := "service-" + serviceRevision.ServiceName + "-" + setting.PMDeployType + "-" +
 							env.EnvName + "-" + hostID + "-" + healthCheck.Protocol + "-" + strconv.Itoa(healthCheck.Port) + "-" + healthCheck.Path
