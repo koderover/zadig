@@ -518,7 +518,7 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 					log.Errorf("failed to auto cancel workflow task when receive event %v due to %v ", event, err)
 					mErr = multierror.Append(mErr, err)
 				}
-
+				log.Info("-----baseURI----:", baseURI)
 				if notification == nil {
 					notification, _ = scmnotify.NewService().SendInitWebhookComment(
 						item.MainRepo, ev.ObjectAttributes.IID, baseURI, false, false, log,
@@ -549,7 +549,6 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 					_, err2 := scmnotify.NewService().SendErrWebhookComment(
 						item.MainRepo, workflow, err, prID, baseURI, false, false, log,
 					)
-					log.Info("baseURI:", baseURI)
 					if err2 != nil {
 						log.Errorf("SendErrWebhookComment failed, product:%s, workflow:%s, err:%v", workflow.ProductTmplName, workflow.Name, err2)
 					}
