@@ -147,7 +147,6 @@ func getImages(task *task.Task) ([]*WorkflowTaskImage, error) {
 
 func getTestReports(task *task.Task) ([]*WorkflowTaskTestReport, error) {
 	ret := make([]*WorkflowTaskTestReport, 0)
-	//task.TestReports
 
 	for testName, testData := range task.TestReports {
 		tr := new(models.TestReport)
