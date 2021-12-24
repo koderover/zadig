@@ -549,6 +549,7 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 					_, err2 := scmnotify.NewService().SendErrWebhookComment(
 						item.MainRepo, workflow, err, prID, baseURI, false, false, log,
 					)
+					log.Info("baseURI:", baseURI)
 					if err2 != nil {
 						log.Errorf("SendErrWebhookComment failed, product:%s, workflow:%s, err:%v", workflow.ProductTmplName, workflow.Name, err2)
 					}
