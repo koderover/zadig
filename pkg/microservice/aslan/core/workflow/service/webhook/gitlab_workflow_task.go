@@ -298,6 +298,7 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 	if len(zadigTriggerYamls) == 0 {
 		return fmt.Errorf("GetYAMLContents repoowner:%s reponame:%s ref:%s triggeryaml:%s ;content is empty", item.MainRepo.RepoOwner, item.MainRepo.RepoName, item.YamlPath, branref)
 	}
+	log.Debug("zadig-Trigger Yaml info:", zadigTriggerYamls[0])
 	err = yaml.Unmarshal([]byte(zadigTriggerYamls[0]), triggerYaml)
 	if err != nil {
 		return fmt.Errorf("yaml.Unmarshal err:%s", err)
@@ -306,8 +307,11 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 	if err != nil {
 		return err
 	}
-	log.Debug("zadig-Trigger Yaml info:", zadigTriggerYamls[0])
 	log.Debug("triggerYaml info:", string(triggerYamlByt))
+	err = checkTriggerYamlParams(triggerYaml)
+	if err != nil {
+		return err
+	}
 	workFlowArgs.Namespace = strings.Join(triggerYaml.Deploy.Envsname, ",")
 	workFlowArgs.WorkflowName = workflow.Name
 	workFlowArgs.BaseNamespace = triggerYaml.Deploy.BaseNamespace
@@ -330,12 +334,6 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 			log.Errorf("fail test find TestModuleName:%s, workflowname:%s,productTmplName:%s,error:%v", test.Name, workflow.Name, workflow.ProductTmplName, err)
 			return fmt.Errorf("fail test find TestModuleName:%s, workflowname:%s,productTmplName:%s,error:%s", test.Name, workflow.Name, workflow.ProductTmplName, err)
 		}
-		testRepo, err := json.Marshal(moduleTest.Repos)
-		if err != nil {
-			log.Errorf("fail test json.Marshal TestModuleName:%s, workflowname:%s,productTmplName:%s,error:%v", test.Name, workflow.Name, workflow.ProductTmplName, err)
-			return fmt.Errorf("fail test json.Marshal TestModuleName:%s, workflowname:%s,productTmplName:%s,error:%s", test.Name, workflow.Name, workflow.ProductTmplName, err)
-		}
-		log.Infof("moduleTest %s info:", moduleTest.Name, string(testRepo))
 		envs := make([]*commonmodels.KeyVal, 0)
 		for _, env := range test.Variables {
 			envElem := &commonmodels.KeyVal{
