@@ -25,6 +25,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/pkg/microservice/picket/client/aslan"
@@ -43,6 +44,20 @@ type WorkflowTaskTarget struct {
 	Build       *WorkflowTaskTargetBuild `json:"build"`
 }
 
+type WorkflowTaskFunctionTestReport struct {
+	Tests     int    `json:"tests"`
+	Successes int    `json:"successes"`
+	Failures  int    `json:"failures"`
+	Skips     int    `json:"skips"`
+	Errors    int    `json:"errors"`
+	DetailUrl string `json:"detail_url"`
+}
+
+type WorkflowTaskTestReport struct {
+	TestName           string                          `json:"test_name"`
+	FunctionTestReport *WorkflowTaskFunctionTestReport `json:"function_test_report"`
+}
+
 type WorkflowTaskTargetBuild struct {
 	Repos []*WorkflowTaskTargetRepo `json:"repos"`
 }
@@ -54,11 +69,12 @@ type WorkflowTaskTargetRepo struct {
 }
 
 type WorkflowTaskDetail struct {
-	WorkflowName string                `json:"workflow_name"`
-	EnvName      string                `json:"env_name"`
-	Targets      []*WorkflowTaskTarget `json:"targets"`
-	Images       []*WorkflowTaskImage  `json:"images"`
-	Status       string                `json:"status"`
+	WorkflowName string                    `json:"workflow_name"`
+	EnvName      string                    `json:"env_name"`
+	Targets      []*WorkflowTaskTarget     `json:"targets"`
+	Images       []*WorkflowTaskImage      `json:"images"`
+	TestReports  []*WorkflowTaskTestReport `json:"test_reports"`
+	Status       string                    `json:"status"`
 }
 
 func CreateWorkflowTask(header http.Header, qs url.Values, body []byte, _ *zap.SugaredLogger) ([]byte, error) {
@@ -75,6 +91,32 @@ func RestartWorkflowTask(header http.Header, qs url.Values, id string, name stri
 
 func ListWorkflowTask(header http.Header, qs url.Values, commitId string, _ *zap.SugaredLogger) ([]byte, error) {
 	return aslan.New().ListWorkflowTask(header, qs, commitId)
+}
+
+func getTargets(task *task.Task) ([]*WorkflowTaskTarget, error) {
+	ret := make([]*WorkflowTaskTarget, 0)
+	if task.WorkflowArgs != nil {
+		for _, singleTarget := range task.WorkflowArgs.Target {
+			target := &WorkflowTaskTarget{
+				Name:        singleTarget.ServiceName, // return service name instead of container name
+				ServiceType: singleTarget.ServiceType,
+				Build: &WorkflowTaskTargetBuild{
+					Repos: make([]*WorkflowTaskTargetRepo, 0),
+				},
+			}
+			if singleTarget.Build != nil {
+				for _, repo := range singleTarget.Build.Repos {
+					target.Build.Repos = append(target.Build.Repos, &WorkflowTaskTargetRepo{
+						RepoName: repo.RepoName,
+						Branch:   repo.Branch,
+						Pr:       repo.PR,
+					})
+				}
+			}
+			ret = append(ret, target)
+		}
+	}
+	return ret, nil
 }
 
 func getImages(task *task.Task) ([]*WorkflowTaskImage, error) {
@@ -103,6 +145,44 @@ func getImages(task *task.Task) ([]*WorkflowTaskImage, error) {
 	return ret, nil
 }
 
+func getTestReports(task *task.Task) ([]*WorkflowTaskTestReport, error) {
+	ret := make([]*WorkflowTaskTestReport, 0)
+
+	for testName, testData := range task.TestReports {
+		tr := new(models.TestReport)
+		bs, err := json.Marshal(testData)
+		if err != nil {
+			return nil, err
+		}
+		err = json.Unmarshal(bs, tr)
+		if err != nil {
+			return nil, err
+		}
+		// TODO currently only return function test data
+		if tr.FunctionTestSuite == nil {
+			continue
+		}
+
+		detailUrl := fmt.Sprintf("/v1/projects/detail/%s/pipelines/multi/testcase/%s/%d/test/%s?is_workflow=1&service_name=%s&test_type=function",
+			task.ProductName, task.PipelineName, task.TaskID, fmt.Sprintf("%s-%d-test", task.PipelineName, task.TaskID), testName)
+
+		fts := tr.FunctionTestSuite
+		ret = append(ret, &WorkflowTaskTestReport{
+			TestName: testName,
+			FunctionTestReport: &WorkflowTaskFunctionTestReport{
+				Tests:     fts.Tests,
+				Successes: fts.Successes,
+				Failures:  fts.Failures,
+				Skips:     fts.Skips,
+				Errors:    fts.Errors,
+				DetailUrl: detailUrl,
+			},
+		})
+	}
+
+	return ret, nil
+}
+
 func GetDetailedWorkflowTask(header http.Header, qs url.Values, taskID, name string, _ *zap.SugaredLogger) ([]byte, error) {
 	body, err := aslan.New().GetDetailedWorkflowTask(header, qs, taskID, name)
 	if err != nil {
@@ -116,34 +196,20 @@ func GetDetailedWorkflowTask(header http.Header, qs url.Values, taskID, name str
 	resp := &WorkflowTaskDetail{
 		WorkflowName: workflowTask.PipelineName,
 		EnvName:      workflowTask.WorkflowArgs.EnvName,
-		Targets:      make([]*WorkflowTaskTarget, 0),
 		Status:       string(workflowTask.Status),
-		Images:       make([]*WorkflowTaskImage, 0),
 	}
 
-	if workflowTask.WorkflowArgs != nil {
-		for _, singleTarget := range workflowTask.WorkflowArgs.Target {
-			target := &WorkflowTaskTarget{
-				Name:        singleTarget.ServiceName, // return service name instead of container name
-				ServiceType: singleTarget.ServiceType,
-				Build: &WorkflowTaskTargetBuild{
-					Repos: make([]*WorkflowTaskTargetRepo, 0),
-				},
-			}
-			if singleTarget.Build != nil {
-				for _, repo := range singleTarget.Build.Repos {
-					target.Build.Repos = append(target.Build.Repos, &WorkflowTaskTargetRepo{
-						RepoName: repo.RepoName,
-						Branch:   repo.Branch,
-						Pr:       repo.PR,
-					})
-				}
-			}
-			resp.Targets = append(resp.Targets, target)
-		}
+	resp.Targets, err = getTargets(workflowTask)
+	if err != nil {
+		return nil, err
 	}
 
 	resp.Images, err = getImages(workflowTask)
+	if err != nil {
+		return nil, err
+	}
+
+	resp.TestReports, err = getTestReports(workflowTask)
 	if err != nil {
 		return nil, err
 	}
