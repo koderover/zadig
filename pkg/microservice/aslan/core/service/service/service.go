@@ -806,25 +806,17 @@ func UpdateServiceTemplate(args *commonservice.ServiceTmplObject) error {
 		// 是前端调用
 		changeEnvStatus := []*commonmodels.EnvStatus{}
 		changeEnvConfigs := []*commonmodels.EnvConfig{}
-		if len(args.EnvConfigs) == 0 {
-			for _, v := range currentService.EnvConfigs {
-				if v.EnvName != args.EnvName {
-					changeEnvConfigs = append(changeEnvConfigs, v)
-				}
-			}
-		} else {
-			changeEnvConfigs = append(changeEnvConfigs, args.EnvConfigs...)
-			envConfigsSet := sets.String{}
-			for _, v := range changeEnvConfigs {
-				envConfigsSet.Insert(v.EnvName)
-			}
-			for _, v := range currentService.EnvConfigs {
-				if !envConfigsSet.Has(v.EnvName) {
-					changeEnvConfigs = append(changeEnvConfigs, v)
-				}
+
+		changeEnvConfigs = append(changeEnvConfigs, args.EnvConfigs...)
+		envConfigsSet := sets.String{}
+		for _, v := range changeEnvConfigs {
+			envConfigsSet.Insert(v.EnvName)
+		}
+		for _, v := range currentService.EnvConfigs {
+			if !envConfigsSet.Has(v.EnvName) {
+				changeEnvConfigs = append(changeEnvConfigs, v)
 			}
 		}
-		// generate env status for this env
 		privateKeys := []*models.PrivateKey{}
 		for _, envConfig := range args.EnvConfigs {
 			privateKeys, err = commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{IDs: envConfig.HostIDs})
@@ -852,15 +844,16 @@ func UpdateServiceTemplate(args *commonservice.ServiceTmplObject) error {
 				privateKeysSet.Insert(tmp.HostID)
 			}
 		}
-		changeEnvStatusSet := sets.String{}
-		for _, v := range changeEnvConfigs {
-			changeEnvStatusSet.Insert(v.EnvName)
-		}
+
+		// get env status
+
 		for _, v := range currentService.EnvStatuses {
-			if !changeEnvStatusSet.Has(v.EnvName) {
+			if v.EnvName != args.EnvName {
 				changeEnvStatus = append(changeEnvStatus, v)
 			}
 		}
+
+		// generate env status for this env
 
 		updateArgs := &commonmodels.Service{
 			ProductName: args.ProductName,
