@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -24,6 +25,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -47,14 +49,18 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/pkg/util"
+	"github.com/koderover/zadig/pkg/util/converter"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
@@ -105,6 +111,7 @@ type DeliveryChartData struct {
 	ProductService *commonmodels.ProductService
 	RenderChart    *template.RenderChart
 	RenderSet      *commonmodels.RenderSet
+	ValuesInEnv    map[string]interface{}
 }
 
 type DeliveryChartResp struct {
@@ -182,6 +189,29 @@ type ServiceImageDetails struct {
 type ChartVersionResp struct {
 	ChartName    string `json:"chartName"`
 	ChartVersion string `json:"chartVersion"`
+	Url          string `json:"url"`
+}
+
+type DeliveryVersionPayloadImage struct {
+	ServiceModule string `json:"service_module"`
+	Image         string `json:"image"`
+}
+
+type DeliveryVersionPayloadChart struct {
+	ChartName    string                         `json:"chart_name"`
+	ChartVersion string                         `json:"chart_version"`
+	ChartUrl     string                         `json:"chart_url"`
+	Images       []*DeliveryVersionPayloadImage `json:"images"`
+}
+
+type DeliveryVersionHookPayload struct {
+	ProjectName string                         `json:"project_name"`
+	Version     string                         `json:"version"`
+	Status      string                         `json:"status"`
+	Error       string                         `json:"error"`
+	StartTime   int64                          `json:"start_time"`
+	EndTime     int64                          `json:"end_time"`
+	Charts      []*DeliveryVersionPayloadChart `json:"charts"`
 }
 
 func GetDeliveryVersion(args *commonrepo.DeliveryVersionArgs, log *zap.SugaredLogger) (*commonmodels.DeliveryVersion, error) {
@@ -385,12 +415,12 @@ func processReleaseRespData(release *ReleaseInfo) {
 		return
 	}
 
-	distributeMap := make(map[string][]*commonmodels.DeliveryDistribute)
+	distributeImageMap := make(map[string][]*commonmodels.DeliveryDistribute)
 	for _, distributeImage := range release.DistributeInfo {
 		if distributeImage.DistributeType != config.Image {
 			continue
 		}
-		distributeMap[distributeImage.ChartName] = append(distributeMap[distributeImage.ChartName], distributeImage)
+		distributeImageMap[distributeImage.ChartName] = append(distributeImageMap[distributeImage.ChartName], distributeImage)
 	}
 
 	chartDistributeCount := 0
@@ -402,7 +432,7 @@ func processReleaseRespData(release *ReleaseInfo) {
 		switch distribute.DistributeType {
 		case config.Chart:
 			chartDistributeCount++
-			distribute.SubDistributes = distributeMap[distribute.ChartName]
+			distribute.SubDistributes = distributeImageMap[distribute.ChartName]
 		case config.File:
 			s3Storage, err := commonrepo.NewS3StorageColl().Find(distribute.S3StorageID)
 			if err != nil {
@@ -511,14 +541,36 @@ func createChartRepoClient(repo *commonmodels.HelmRepo) (*cm.Client, error) {
 }
 
 // find all images in one single chart
-func extractImages(productService *commonmodels.ProductService, registryMap map[string]*commonmodels.RegistryNamespace) (*ServiceImageDetails, error) {
+func extractImages(cData *DeliveryChartData, registryMap map[string]*commonmodels.RegistryNamespace) (*ServiceImageDetails, error) {
+
+	flatMap, err := converter.Flatten(cData.ValuesInEnv)
+	if err != nil {
+		return nil, err
+	}
+
+	serviceObj := cData.ServiceObj
+	imagePathSpecs := make([]map[string]string, 0)
+	for _, container := range serviceObj.Containers {
+		imageSearchRule := &template.ImageSearchingRule{
+			Repo:  container.ImagePath.Repo,
+			Image: container.ImagePath.Image,
+			Tag:   container.ImagePath.Tag,
+		}
+		pattern := imageSearchRule.GetSearchingPattern()
+		imagePathSpecs = append(imagePathSpecs, pattern)
+	}
+
 	imageUrlsSet := sets.NewString()
-	for _, container := range productService.Containers {
-		imageUrlsSet.Insert(container.Image)
+	for _, spec := range imagePathSpecs {
+		imageUrl, err := commonservice.GeneImageURI(spec, flatMap)
+		if err != nil {
+			return nil, err
+		}
+		imageUrlsSet.Insert(imageUrl)
 	}
 
 	ret := &ServiceImageDetails{
-		ServiceName: productService.ServiceName,
+		ServiceName: cData.ProductService.ServiceName,
 		Images:      make([]*ImageUrlDetail, 0),
 	}
 
@@ -555,7 +607,7 @@ func extractImages(productService *commonmodels.ProductService, registryMap map[
 }
 
 // ensure chart files exist
-func ensureChartFiles(chartData *DeliveryChartData) (string, error) {
+func ensureChartFiles(chartData *DeliveryChartData, prod *commonmodels.Product) (string, error) {
 	serviceObj := chartData.ServiceObj
 	revisionBasePath := config.LocalDeliveryChartPathWithRevision(serviceObj.ProductName, serviceObj.ServiceName, serviceObj.Revision)
 	deliveryChartPath := filepath.Join(revisionBasePath, serviceObj.ServiceName)
@@ -581,11 +633,30 @@ func ensureChartFiles(chartData *DeliveryChartData) (string, error) {
 		return "", err
 	}
 
-	mergedValuesYaml, err := helmtool.MergeOverrideValues(chartData.RenderChart.ValuesYaml, chartData.RenderSet.DefaultValues, chartData.RenderChart.GetOverrideYaml(), chartData.RenderChart.OverrideValues)
+	restConfig, err := kube.GetRESTConfig(prod.ClusterID)
+	if err != nil {
+		log.Errorf("get rest config error: %s", err)
+		return "", err
+	}
+	helmClient, err := helmtool.NewClientFromRestConf(restConfig, prod.Namespace)
+	if err != nil {
+		log.Errorf("[%s][%s] init helm client error: %s", prod.ProductName, prod.Namespace, err)
+		return "", err
+	}
+
+	releaseName := util.GeneHelmReleaseName(prod.Namespace, serviceObj.ServiceName)
+	valuesMap, err := helmClient.GetReleaseValues(releaseName, true)
+	if err != nil {
+		log.Errorf("failed to get values map data, err: %s", err)
+		return "", err
+	}
+
+	currentValuesYaml, err := yaml.Marshal(valuesMap)
 	if err != nil {
 		return "", err
 	}
-	err = os.WriteFile(filepath.Join(deliveryChartPath, setting.ValuesYaml), []byte(mergedValuesYaml), 0644)
+
+	err = os.WriteFile(filepath.Join(deliveryChartPath, setting.ValuesYaml), currentValuesYaml, 0644)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to write values.yaml")
 	}
@@ -593,10 +664,10 @@ func ensureChartFiles(chartData *DeliveryChartData) (string, error) {
 	return deliveryChartPath, nil
 }
 
-func buildChartPackage(chartData *DeliveryChartData, chartRepo *commonmodels.HelmRepo, dir string, globalVariables string, registryMap map[string]*commonmodels.RegistryNamespace) error {
+func buildChartPackage(chartData *DeliveryChartData, product *commonmodels.Product, chartRepo *commonmodels.HelmRepo, dir string, globalVariables string, registryMap map[string]*commonmodels.RegistryNamespace) error {
 	serviceObj := chartData.ServiceObj
 
-	deliveryChartPath, err := ensureChartFiles(chartData)
+	deliveryChartPath, err := ensureChartFiles(chartData, product)
 	if err != nil {
 		return err
 	}
@@ -611,6 +682,9 @@ func buildChartPackage(chartData *DeliveryChartData, chartRepo *commonmodels.Hel
 	if err != nil {
 		return errors.Wrapf(err, "failed to unmarshal values.yaml for service %s", serviceObj.ServiceName)
 	}
+
+	// hold the currently running yaml data
+	chartData.ValuesInEnv = valuesYamlData
 
 	// write values.yaml file before load
 	if len(chartData.ChartData.ValuesYamlContent) > 0 { // values.yaml was edited directly
@@ -691,17 +765,17 @@ func getChartmuseumError(b []byte, code int) error {
 }
 
 func makeChartTGZFileDir(productName, versionName string) (string, error) {
-	path := getChartTGZDir(productName, versionName)
-	if err := os.RemoveAll(path); err != nil {
+	dirPath := getChartTGZDir(productName, versionName)
+	if err := os.RemoveAll(dirPath); err != nil {
 		if !os.IsExist(err) {
 			return "", errors.Wrapf(err, "failed to claer dir for chart tgz files")
 		}
 	}
-	err := os.MkdirAll(path, 0777)
+	err := os.MkdirAll(dirPath, 0777)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to create chart tgz dir for version: %s", versionName)
 	}
-	return path, nil
+	return dirPath, nil
 }
 
 func CreateHelmDeliveryVersion(args *CreateHelmDeliveryVersionArgs, logger *zap.SugaredLogger) error {
@@ -848,10 +922,7 @@ func buildDeliveryCharts(chartDataMap map[string]*DeliveryChartData, deliveryVer
 			deliveryVersion.Status = setting.DeliveryVersionStatusFailed
 			deliveryVersion.Error = err.Error()
 		}
-		err = commonrepo.NewDeliveryVersionColl().UpdateStatusByName(deliveryVersion.Version, deliveryVersion.ProductName, deliveryVersion.Status, deliveryVersion.Error)
-		if err != nil {
-			logger.Errorf("failed to update delivery version data, name: %s error: %s", deliveryVersion.Version, err)
-		}
+		updateVersionStatus(deliveryVersion.Version, deliveryVersion.ProductName, deliveryVersion.Status, deliveryVersion.Error)
 	}()
 
 	var errLock sync.Mutex
@@ -886,13 +957,13 @@ func buildDeliveryCharts(chartDataMap map[string]*DeliveryChartData, deliveryVer
 		wg.Add(1)
 		go func(cData *DeliveryChartData) {
 			defer wg.Done()
-			err := buildChartPackage(cData, repoInfo, dir, args.GlobalVariables, registryMap)
+			err := buildChartPackage(cData, deliveryVersion.ProductEnvInfo, repoInfo, dir, args.GlobalVariables, registryMap)
 			if err != nil {
 				logger.Errorf("failed to build chart package, serviceName: %s err: %s", cData.ChartData.ServiceName, err)
 				appendError(err)
 				return
 			}
-			imageData, err := extractImages(cData.ProductService, registryMap)
+			imageData, err := extractImages(cData, registryMap)
 			if err != nil {
 				logger.Errorf("failed to extract image data, serviceName: %s err: %s", cData.ChartData.ServiceName, err)
 				appendError(err)
@@ -927,7 +998,113 @@ func buildDeliveryCharts(chartDataMap map[string]*DeliveryChartData, deliveryVer
 	return
 }
 
+// send hook
+func sendVersionDeliveryHook(projectName, version, host, urlPath string) error {
+
+	deliveryVersion, err := commonrepo.NewDeliveryVersionColl().Get(&commonrepo.DeliveryVersionArgs{
+		ProductName: projectName,
+		Version:     version,
+	})
+	if err != nil {
+		return err
+	}
+
+	ret := &DeliveryVersionHookPayload{
+		ProjectName: projectName,
+		Version:     version,
+		Status:      setting.DeliveryVersionStatusSuccess,
+		Error:       "",
+		StartTime:   deliveryVersion.CreatedAt,
+		EndTime:     time.Now().Unix(),
+		Charts:      make([]*DeliveryVersionPayloadChart, 0),
+	}
+
+	//distributes image + chart
+	deliveryDistributes, err := FindDeliveryDistribute(&commonrepo.DeliveryDistributeArgs{
+		ReleaseID: deliveryVersion.ID.Hex(),
+	}, log.SugaredLogger())
+	if err != nil {
+		return err
+	}
+
+	distributeImageMap := make(map[string][]*DeliveryVersionPayloadImage)
+	for _, distributeImage := range deliveryDistributes {
+		if distributeImage.DistributeType != config.Image {
+			continue
+		}
+		distributeImageMap[distributeImage.ChartName] = append(distributeImageMap[distributeImage.ChartName], &DeliveryVersionPayloadImage{
+			ServiceModule: distributeImage.ServiceName,
+			Image:         distributeImage.RegistryName,
+		})
+	}
+
+	chartRepoName := ""
+	for _, distribute := range deliveryDistributes {
+		if distribute.DistributeType != config.Chart {
+			continue
+		}
+		ret.Charts = append(ret.Charts, &DeliveryVersionPayloadChart{
+			ChartName:    distribute.ChartName,
+			ChartVersion: distribute.ChartVersion,
+			Images:       distributeImageMap[distribute.ChartName],
+		})
+		chartRepoName = distribute.ChartRepoName
+	}
+	err = fillChartUrl(ret.Charts, chartRepoName)
+	if err != nil {
+		return err
+	}
+
+	u, err := url.Parse(host)
+	if err != nil {
+		return err
+	}
+	u.Path = path.Join(u.Path, urlPath)
+
+	reqBody, err := json.Marshal(ret)
+	if err != nil {
+		log.Errorf("marshal json args error: %s", err)
+		return err
+	}
+
+	request, err := http.NewRequest("POST", u.String(), bytes.NewBuffer(reqBody))
+	if err != nil {
+		return err
+	}
+	request.Header.Set("Content-Type", "application/json")
+
+	client := http.Client{}
+	resp, err := client.Do(request)
+	if err != nil {
+		return err
+	}
+
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("hook request send code error: %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
 func updateVersionStatus(versionName, projectName, status, errStr string) {
+	// send hook info when version build finished
+	if status == setting.DeliveryVersionStatusSuccess {
+		templateProduct, err := templaterepo.NewProductColl().Find(projectName)
+		if err != nil {
+			log.Errorf("updateVersionStatus failed to find template product: %s, err: %s", projectName, err)
+		} else {
+			hookConfig := templateProduct.DeliveryVersionHook
+			if hookConfig != nil && hookConfig.Enable {
+				err = sendVersionDeliveryHook(projectName, versionName, hookConfig.HookHost, hookConfig.Path)
+				if err != nil {
+					log.Errorf("updateVersionStatus failed to send version delivery hook, projectName: %s, err: %s", projectName, err)
+				}
+			}
+		}
+	}
+
 	err := commonrepo.NewDeliveryVersionColl().UpdateStatusByName(versionName, projectName, status, errStr)
 	if err != nil {
 		log.Errorf("failed to update version status, name: %s, err: %s", versionName, err)
@@ -939,7 +1116,7 @@ func taskFinished(status config.Status) bool {
 }
 
 func waitVersionDone(deliveryVersion *commonmodels.DeliveryVersion) {
-	waitTimeout := time.After(60 * time.Minute * 2)
+	waitTimeout := time.After(60 * time.Minute * 1)
 	for {
 		select {
 		case <-waitTimeout:
@@ -1099,15 +1276,15 @@ func CreateNewHelmDeliveryVersion(args *CreateHelmDeliveryVersionArgs, logger *z
 		DeletedAt:      0,
 	}
 
-	err = buildDeliveryCharts(chartDataMap, versionObj, args.DeliveryVersionChartData, logger)
-	if err != nil {
-		return err
-	}
-
 	err = commonrepo.NewDeliveryVersionColl().Insert(versionObj)
 	if err != nil {
 		logger.Errorf("failed to insert version data, err: %s", err)
 		return e.ErrCreateDeliveryVersion.AddErr(fmt.Errorf("failed to insert delivery version: %s", versionObj.Version))
+	}
+
+	err = buildDeliveryCharts(chartDataMap, versionObj, args.DeliveryVersionChartData, logger)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -1181,11 +1358,7 @@ func RetryCreateHelmDeliveryVersion(projectName, versionName string, logger *zap
 
 	// update status
 	deliveryVersion.Status = setting.DeliveryVersionStatusRetrying
-	err = commonrepo.NewDeliveryVersionColl().UpdateStatusByName(deliveryVersion.Version, deliveryVersion.ProductName, deliveryVersion.Status, "")
-	if err != nil {
-		logger.Errorf("failed to update delivery status, name: %s, err: %s", deliveryVersion.Version, err)
-		return fmt.Errorf("failed to update delivery status, name: %s", deliveryVersion.Version)
-	}
+	updateVersionStatus(deliveryVersion.Version, deliveryVersion.ProductName, deliveryVersion.Status, deliveryVersion.Error)
 
 	return nil
 }
@@ -1326,8 +1499,7 @@ func preDownloadChart(projectName, versionName, chartName string, log *zap.Sugar
 	return filePath, err
 }
 
-func GetChartVersions(chartName, chartRepoName string) ([]*ChartVersionResp, error) {
-
+func getIndexInfoFromChartRepo(chartRepoName string) (*helm.Index, error) {
 	chartRepo, err := getChartRepoData(chartRepoName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query chart-repo info, repoName %s", chartRepoName)
@@ -1359,6 +1531,47 @@ func GetChartVersions(chartName, chartRepoName string) ([]*ChartVersionResp, err
 	index, err := helm.LoadIndex(b)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse index.yaml")
+	}
+	return index, nil
+}
+
+func fillChartUrl(charts []*DeliveryVersionPayloadChart, chartRepoName string) error {
+	index, err := getIndexInfoFromChartRepo(chartRepoName)
+	if err != nil {
+		return err
+	}
+	chartMap := make(map[string]*DeliveryVersionPayloadChart)
+	for _, chart := range charts {
+		chartMap[chart.ChartName] = chart
+	}
+
+	for name, entries := range index.Entries {
+
+		chart, ok := chartMap[name]
+		if !ok {
+			continue
+		}
+		if len(entries) == 0 {
+			continue
+		}
+
+		for _, entry := range entries {
+			if entry.Version == chart.ChartVersion {
+				if len(entry.URLs) > 0 {
+					chart.ChartUrl = entry.URLs[0]
+				}
+				break
+			}
+		}
+	}
+	return nil
+}
+
+func GetChartVersion(chartName, chartRepoName string) ([]*ChartVersionResp, error) {
+
+	index, err := getIndexInfoFromChartRepo(chartRepoName)
+	if err != nil {
+		return nil, err
 	}
 
 	chartNameList := strings.Split(chartName, ",")

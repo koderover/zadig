@@ -51,6 +51,29 @@ rules:
         endpoint: "/api/aslan/project/products/?*/services"
       - method: GET
         endpoint: "/api/aslan/environment/revision/products"
+      - method: GET
+        endpoint: "/api/aslan/environment/environments/?*/workloads"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/workloads$"
+        matchAttributes:
+          - key: "production"
+            value: "false"
+      - method: GET
+        endpoint: "/api/aslan/environment/environments/?*/helm/releases"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/helm/releases$"
+        matchAttributes:
+          - key: "production"
+            value: "false"
+      - method: GET
+        endpoint: "/api/aslan/environment/environments/?*/helm/charts"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/helm/charts$"
+        matchAttributes:
+          - key: "production"
+            value: "false"
+      - method: GET
+        endpoint: "/api/aslan/environment/diff/products/?*/service/?*"
   - action: create_environment
     alias: "新建集成环境"
     description: ""
@@ -108,6 +131,13 @@ rules:
         endpoint: "/api/aslan/service/workloads"
       - method: GET
         endpoint: "/api/aslan/project/products/?*/services"
+      - method: PUT
+        endpoint: "/api/aslan/environment/environments/?*/registry"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/registry$"
+        matchAttributes:
+          - key: "production"
+            value: "false"
   - action: manage_environment
     alias: "管理服务实例"
     description: ""
@@ -159,6 +189,8 @@ rules:
         endpoint: "/api/aslan/environment/configmaps"
       - method: GET
         endpoint: "/api/podexec/?*/?*/?*/?*/podExec"
+      - method: POST
+        endpoint: "/api/aslan/workflow/servicetask"
   - action: delete_environment
     alias: "删除集成环境"
     description: ""

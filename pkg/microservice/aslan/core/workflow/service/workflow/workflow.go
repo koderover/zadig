@@ -149,7 +149,7 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 	}
 
 	workflowSlice := sets.NewString()
-	for workflowName, _ := range createArgs.argsMap {
+	for workflowName := range createArgs.argsMap {
 		_, err := FindWorkflow(workflowName, log)
 		if err == nil {
 			workflowSlice.Insert(workflowName)

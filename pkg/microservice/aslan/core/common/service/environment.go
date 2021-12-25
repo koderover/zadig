@@ -64,9 +64,11 @@ func FillProductTemplateValuesYamls(tmpl *templatemodels.Product, log *zap.Sugar
 			continue
 		}
 		tmpl.ChartInfos = append(tmpl.ChartInfos, &templatemodels.RenderChart{
-			ServiceName:  renderChart.ServiceName,
-			ChartVersion: renderChart.ChartVersion,
-			ValuesYaml:   renderChart.ValuesYaml,
+			ServiceName:    renderChart.ServiceName,
+			ChartVersion:   renderChart.ChartVersion,
+			ValuesYaml:     renderChart.ValuesYaml,
+			OverrideYaml:   renderChart.OverrideYaml,
+			OverrideValues: renderChart.OverrideValues,
 		})
 	}
 

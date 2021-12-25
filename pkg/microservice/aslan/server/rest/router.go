@@ -61,6 +61,7 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 			s.HandleContext(c)
 		})
 		public.GET("/health", commonhandler.Health)
+		public.POST("/callback", commonhandler.HandleCallback)
 	}
 
 	// no auth required

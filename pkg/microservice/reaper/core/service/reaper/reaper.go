@@ -410,13 +410,14 @@ func (r *Reaper) AfterExec(upStreamErr error) error {
 				return err
 			}
 		}
-		// 将测试文件导出地址的文件上传到S3
+		// 将归档文件上传到S3
 		if len(r.Ctx.GinkgoTest.ArtifactPaths) > 0 {
-			if err = artifactsUpload(r.Ctx, r.ActiveWorkspace); err != nil {
-				log.Errorf("artifactsUpload err %v", err)
+			if err = artifactsUpload(r.Ctx, r.ActiveWorkspace, r.Ctx.GinkgoTest.ArtifactPaths); err != nil {
+				log.Errorf("artifactsUpload err %s", err)
 				return err
 			}
 		}
+
 		// 将上面生成的统计结果文件上传到S3
 		if err = r.archiveTestFiles(); err != nil {
 			log.Errorf("archiveTestFiles err %v", err)
@@ -445,6 +446,13 @@ func (r *Reaper) AfterExec(upStreamErr error) error {
 		} else {
 			if err = r.downloadArtifactFile(); err != nil {
 				log.Errorf("download archiveFiles err %v", err)
+				return err
+			}
+		}
+
+		if r.Ctx.ArtifactPath != "" {
+			if err = artifactsUpload(r.Ctx, r.ActiveWorkspace, []string{r.Ctx.ArtifactPath}, "buildv3"); err != nil {
+				log.Errorf("artifactsUpload err %s", err)
 				return err
 			}
 		}
