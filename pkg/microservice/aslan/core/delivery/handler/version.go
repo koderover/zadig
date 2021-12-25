@@ -249,7 +249,7 @@ func GetChartVersionFromRepo(c *gin.Context) {
 	chartName := c.Query("chartName")
 	chartRepoName := c.Query("chartRepoName")
 
-	ctx.Resp, ctx.Err = deliveryservice.GetChartVersions(chartName, chartRepoName)
+	ctx.Resp, ctx.Err = deliveryservice.GetChartVersion(chartName, chartRepoName)
 }
 
 func PreviewGetDeliveryChart(c *gin.Context) {

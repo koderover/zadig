@@ -277,6 +277,7 @@ func CreatePipelineTask(args *commonmodels.TaskArgs, log *zap.SugaredLogger) (*C
 	scmnotify.NewService().UpdatePipelineWebhookComment(pt, log)
 
 	resp := &CreateTaskResp{
+		ProjectName:  args.ProductName,
 		PipelineName: args.PipelineName,
 		TaskID:       nextTaskID,
 	}

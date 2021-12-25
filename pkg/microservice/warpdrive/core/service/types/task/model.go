@@ -119,6 +119,11 @@ type DeployArgs struct {
 	PackageFile string `json:"package_file"`
 }
 
+type CallbackArgs struct {
+	CallbackUrl  string                 `bson:"callback_url" json:"callback_url"`   // url-encoded full path
+	CallbackVars map[string]interface{} `bson:"callback_vars" json:"callback_vars"` // custom defied vars, will be set to body of callback request
+}
+
 type WorkflowTaskArgs struct {
 	WorkflowName    string `bson:"workflow_name"                json:"workflow_name"`
 	ProductTmplName string `bson:"product_tmpl_name"            json:"product_tmpl_name"`
@@ -158,6 +163,8 @@ type WorkflowTaskArgs struct {
 	// 请求模式，openAPI表示外部客户调用
 	RequestMode string `json:"request_mode,omitempty"`
 	IsParallel  bool   `json:"is_parallel" bson:"is_parallel"`
+
+	Callback *CallbackArgs `bson:"callback"                    json:"callback"`
 }
 
 type TestArgs struct {
@@ -204,6 +211,7 @@ type HookPayload struct {
 type TargetArgs struct {
 	Name             string            `bson:"name"                      json:"name"`
 	ServiceName      string            `bson:"service_name"              json:"service_name"`
+	ServiceType      string            `bson:"service_type,omitempty"    json:"service_type,omitempty"`
 	Build            *BuildArgs        `bson:"build"                     json:"build"`
 	Version          string            `bson:"version"                   json:"version"`
 	Deploy           []DeployEnv       `bson:"deloy"                     json:"deploy"`
