@@ -269,7 +269,6 @@ func (c *ServiceColl) UpdateByManu(args *models.Service) error {
 		"env_configs":  args.EnvConfigs,
 		"env_statuses": args.EnvStatuses,
 	}
-	//非容器部署服务在探活过程中会更新health_check相关的参数，其他的情况只会更新服务共享属性
 	change := bson.M{"$set": changeMap}
 	_, err := c.UpdateOne(context.TODO(), query, change)
 	return err

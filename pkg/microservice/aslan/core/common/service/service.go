@@ -70,7 +70,6 @@ type ServiceTmplObject struct {
 	EnvStatuses  []*commonmodels.EnvStatus     `json:"env_statuses,omitempty"`
 	From         string                        `json:"from,omitempty"`
 	HealthChecks []*commonmodels.PmHealthCheck `json:"health_checks"`
-	IsManu       bool                          `json:"is_manu"`
 	EnvName      string                        `json:"env_name"`
 }
 

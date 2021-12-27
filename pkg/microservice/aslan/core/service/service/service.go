@@ -776,110 +776,117 @@ func UpdateServiceTemplate(args *commonservice.ServiceTmplObject) error {
 
 	envStatuses := make([]*commonmodels.EnvStatus, 0)
 	// 去掉检查状态中不存在的环境和主机
-	if !args.IsManu {
-		for _, envStatus := range args.EnvStatuses {
-			var existEnv, existHost bool
+	for _, envStatus := range args.EnvStatuses {
+		var existEnv, existHost bool
 
-			envName := envStatus.EnvName
-			if _, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-				Name:    args.ProductName,
-				EnvName: envName,
-			}); err == nil {
-				existEnv = true
-			}
+		envName := envStatus.EnvName
+		if _, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+			Name:    args.ProductName,
+			EnvName: envName,
+		}); err == nil {
+			existEnv = true
+		}
 
-			op := commonrepo.FindPrivateKeyOption{
-				Address: envStatus.Address,
-				ID:      envStatus.HostID,
-			}
-			if _, err := commonrepo.NewPrivateKeyColl().Find(op); err == nil {
-				existHost = true
-			}
+		op := commonrepo.FindPrivateKeyOption{
+			Address: envStatus.Address,
+			ID:      envStatus.HostID,
+		}
+		if _, err := commonrepo.NewPrivateKeyColl().Find(op); err == nil {
+			existHost = true
+		}
 
-			if existEnv && existHost {
-				envStatuses = append(envStatuses, envStatus)
-			}
+		if existEnv && existHost {
+			envStatuses = append(envStatuses, envStatus)
 		}
 	}
 
-	if args.IsManu {
-		// 是前端调用
-		changeEnvStatus := []*commonmodels.EnvStatus{}
-		changeEnvConfigs := []*commonmodels.EnvConfig{}
+	updateArgs := &commonmodels.Service{
+		ProductName: args.ProductName,
+		ServiceName: args.ServiceName,
+		Visibility:  args.Visibility,
+		Revision:    args.Revision,
+		Type:        args.Type,
+		CreateBy:    args.Username,
+		EnvConfigs:  args.EnvConfigs,
+		EnvStatuses: envStatuses,
+	}
+	return commonrepo.NewServiceColl().Update(updateArgs)
 
-		changeEnvConfigs = append(changeEnvConfigs, args.EnvConfigs...)
-		envConfigsSet := sets.String{}
-		for _, v := range changeEnvConfigs {
-			envConfigsSet.Insert(v.EnvName)
-		}
-		for _, v := range currentService.EnvConfigs {
-			if !envConfigsSet.Has(v.EnvName) {
-				changeEnvConfigs = append(changeEnvConfigs, v)
-			}
-		}
-		privateKeys := []*models.PrivateKey{}
-		for _, envConfig := range args.EnvConfigs {
-			privateKeys, err = commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{IDs: envConfig.HostIDs})
-			if err != nil {
-				log.Errorf("ListNameByArgs ids err:%s", err)
-				return err
-			}
+}
 
-			privateKeys2, err := commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{Labels: envConfig.Labels})
-			if err != nil {
-				log.Errorf("ListNameByArgs labels err:%s", err)
-				return err
-			}
-			privateKeys = append(privateKeys, privateKeys2...)
-		}
-		privateKeysSet := sets.NewString()
-		for _, v := range privateKeys {
-			tmp := models.EnvStatus{
-				HostID:  v.ID.Hex(),
-				EnvName: args.EnvName,
-				Address: v.IP,
-			}
-			if !privateKeysSet.Has(tmp.HostID) {
-				changeEnvStatus = append(changeEnvStatus, &tmp)
-				privateKeysSet.Insert(tmp.HostID)
-			}
-		}
+func UpdateServiceTemplateForPM(args *commonservice.ServiceTmplObject) error {
+	currentService, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+		ProductName: args.ProductName,
+		ServiceName: args.ServiceName,
+		Revision:    args.Revision,
+	})
+	if err != nil {
+		log.Errorf("Can not find service with option %+v", args)
+		return err
+	}
+	// 是前端调用
+	changeEnvStatus := []*commonmodels.EnvStatus{}
+	changeEnvConfigs := []*commonmodels.EnvConfig{}
 
-		// get env status
-
-		for _, v := range currentService.EnvStatuses {
-			if v.EnvName != args.EnvName {
-				changeEnvStatus = append(changeEnvStatus, v)
-			}
+	changeEnvConfigs = append(changeEnvConfigs, args.EnvConfigs...)
+	envConfigsSet := sets.String{}
+	for _, v := range changeEnvConfigs {
+		envConfigsSet.Insert(v.EnvName)
+	}
+	for _, v := range currentService.EnvConfigs {
+		if !envConfigsSet.Has(v.EnvName) {
+			changeEnvConfigs = append(changeEnvConfigs, v)
+		}
+	}
+	privateKeys := []*models.PrivateKey{}
+	for _, envConfig := range args.EnvConfigs {
+		privateKeys, err = commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{IDs: envConfig.HostIDs})
+		if err != nil {
+			log.Errorf("ListNameByArgs ids err:%s", err)
+			return err
 		}
 
-		// generate env status for this env
-
-		updateArgs := &commonmodels.Service{
-			ProductName: args.ProductName,
-			ServiceName: args.ServiceName,
-			Visibility:  args.Visibility,
-			Revision:    args.Revision,
-			Type:        args.Type,
-			CreateBy:    args.Username,
-			EnvConfigs:  changeEnvConfigs,
-			EnvStatuses: changeEnvStatus,
+		privateKeys2, err := commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{Labels: envConfig.Labels})
+		if err != nil {
+			log.Errorf("ListNameByArgs labels err:%s", err)
+			return err
 		}
-		return commonrepo.NewServiceColl().UpdateByManu(updateArgs)
-	} else {
-		updateArgs := &commonmodels.Service{
-			ProductName: args.ProductName,
-			ServiceName: args.ServiceName,
-			Visibility:  args.Visibility,
-			Revision:    args.Revision,
-			Type:        args.Type,
-			CreateBy:    args.Username,
-			EnvConfigs:  args.EnvConfigs,
-			EnvStatuses: envStatuses,
+		privateKeys = append(privateKeys, privateKeys2...)
+	}
+	privateKeysSet := sets.NewString()
+	for _, v := range privateKeys {
+		tmp := models.EnvStatus{
+			HostID:  v.ID.Hex(),
+			EnvName: args.EnvName,
+			Address: v.IP,
 		}
-		return commonrepo.NewServiceColl().Update(updateArgs)
+		if !privateKeysSet.Has(tmp.HostID) {
+			changeEnvStatus = append(changeEnvStatus, &tmp)
+			privateKeysSet.Insert(tmp.HostID)
+		}
 	}
 
+	// get env status
+
+	for _, v := range currentService.EnvStatuses {
+		if v.EnvName != args.EnvName {
+			changeEnvStatus = append(changeEnvStatus, v)
+		}
+	}
+
+	// generate env status for this env
+
+	updateArgs := &commonmodels.Service{
+		ProductName: args.ProductName,
+		ServiceName: args.ServiceName,
+		Visibility:  args.Visibility,
+		Revision:    args.Revision,
+		Type:        args.Type,
+		CreateBy:    args.Username,
+		EnvConfigs:  changeEnvConfigs,
+		EnvStatuses: changeEnvStatus,
+	}
+	return commonrepo.NewServiceColl().UpdateByManu(updateArgs)
 }
 
 func extractHostIPs(privateKeys []*commonmodels.PrivateKey, ips sets.String) sets.String {
