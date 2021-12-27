@@ -63,7 +63,7 @@ func CodeHostGetNamespaceList(c *gin.Context) {
 }
 
 type CodeHostListProjectsArgs struct {
-	PerPage int    `json:"perPage"      form:"per_page,default:30"`
+	PerPage int    `json:"per_page"      form:"per_page,default:30"`
 	Page    int    `json:"page"         form:"page,default:1"`
 	Key     string `json:"key"          form:"key"`
 }
@@ -111,7 +111,7 @@ func CodeHostGetProjectsList(c *gin.Context) {
 }
 
 type CodeHostGetBranchListArgs struct {
-	PerPage int    `json:"perPage"      form:"per_page,default:30"`
+	PerPage int    `json:"per_page"      form:"per_page,default:30"`
 	Page    int    `json:"page"         form:"page,default:1"`
 	Key     string `json:"key"          form:"key"`
 }
@@ -147,9 +147,9 @@ func CodeHostGetBranchList(c *gin.Context) {
 		chID,
 		projectName,
 		strings.Replace(namespace, "%2F", "/", -1),
+		args.Key,
 		args.Page,
 		args.PerPage,
-		args.Key,
 		ctx.Logger)
 }
 
