@@ -275,16 +275,6 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 	if err != nil {
 		return fmt.Errorf("getServiceTypeByProduct ProductTmplName:%s err:%s", workflow.ProductTmplName, err)
 	}
-	deployed := false
-	for _, stage := range triggerYaml.Stages {
-		if stage == "deploy" {
-			deployed = true
-			break
-		}
-	}
-	if svcType == setting.BasicFacilityCVM {
-		deployed = true
-	}
 
 	ch, err := systemconfig.New().GetCodeHost(item.MainRepo.CodehostID)
 	if err != nil {
@@ -315,6 +305,16 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 	if err != nil {
 		return fmt.Errorf("checkTriggerYamlParams yamlPath:%s err:%s", item.YamlPath, err)
 	}
+	deployed := false
+	for _, stage := range triggerYaml.Stages {
+		if stage == "deploy" {
+			deployed = true
+			break
+		}
+	}
+	if svcType == setting.BasicFacilityCVM {
+		deployed = true
+	}
 	workFlowArgs.Namespace = strings.Join(triggerYaml.Deploy.Envsname, ",")
 	workFlowArgs.WorkflowName = workflow.Name
 	workFlowArgs.BaseNamespace = triggerYaml.Deploy.BaseNamespace
@@ -335,6 +335,9 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 		moduleTest, err := commonrepo.NewTestingColl().Find(test.Name, workflow.ProductTmplName)
 		if err != nil {
 			log.Errorf("fail to find test TestModuleName:%s, workflowname:%s,productTmplName:%s,error:%v", test.Name, workflow.Name, workflow.ProductTmplName, err)
+			if commonrepo.IsErrNoDocuments(err) {
+				continue
+			}
 			return fmt.Errorf("fail to find test TestModuleName:%s, workflowname:%s,productTmplName:%s,error:%s", test.Name, workflow.Name, workflow.ProductTmplName, err)
 		}
 		envs := make([]*commonmodels.KeyVal, 0)
@@ -384,6 +387,9 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 		resp, err := commonrepo.NewBuildColl().Find(opt)
 		if err != nil {
 			log.Errorf("[Build.Find] serviceName: %s productName:%s serviceModule:%s error: %s", svr.Name, workflow.ProductTmplName, svr.ServiceModule, err)
+			if commonrepo.IsErrNoDocuments(err) {
+				continue
+			}
 			return fmt.Errorf("[Build.Find] serviceName: %s productName:%s serviceModule:%s error: %s", svr.Name, workflow.ProductTmplName, svr.ServiceModule, err)
 		}
 		for _, repo := range resp.Repos {
@@ -394,9 +400,9 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 		}
 		targetElem.Build = &commonmodels.BuildArgs{Repos: resp.Repos}
 
-		targetElem.Deploy = []commonmodels.DeployEnv{}
+		targetElem.Deploy = make([]commonmodels.DeployEnv, 0)
 		if deployed {
-			targetElem.Deploy = append(targetElem.Deploy, commonmodels.DeployEnv{Env: svr.ServiceModule + "/" + svr.Name, Type: targetElem.ServiceType})
+			targetElem.Deploy = append(targetElem.Deploy, commonmodels.DeployEnv{Env: svr.Name + "/" + svr.ServiceModule, Type: targetElem.ServiceType})
 		}
 		var envs []*commonmodels.KeyVal
 		for _, bsvr := range triggerYaml.Build {
@@ -490,7 +496,6 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 				log.Debugf("event not matches %v", item.MainRepo)
 				continue
 			}
-
 			log.Infof("event match hook %v of %s", item.MainRepo, workflow.Name)
 			namespace := strings.Split(item.WorkflowArgs.Namespace, ",")[0]
 			opt := &commonrepo.ProductFindOptions{Name: workflow.ProductTmplName, EnvName: namespace}
