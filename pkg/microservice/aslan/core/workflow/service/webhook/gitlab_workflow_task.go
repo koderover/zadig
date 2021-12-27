@@ -394,9 +394,10 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 		}
 		targetElem.Build = &commonmodels.BuildArgs{Repos: resp.Repos}
 
-		targetElem.Deploy = []commonmodels.DeployEnv{}
+		targetElem.Deploy = make([]commonmodels.DeployEnv, 0)
 		if deployed {
 			targetElem.Deploy = append(targetElem.Deploy, commonmodels.DeployEnv{Env: svr.ServiceModule + "/" + svr.Name, Type: targetElem.ServiceType})
+			log.Infof("deploy env :%s,%s", svr.ServiceModule+"/"+svr.Name, targetElem.ServiceType)
 		}
 		var envs []*commonmodels.KeyVal
 		for _, bsvr := range triggerYaml.Build {
@@ -411,6 +412,7 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 			}
 		}
 		targetElem.Envs = envs
+		log.Infof("targetElem:%v", targetElem)
 		targets = append(targets, targetElem)
 	}
 	workFlowArgs.Target = targets
@@ -474,6 +476,7 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 			} else {
 				workFlowArgs = item.WorkflowArgs
 			}
+			log.Infof("UpdateWorkflowTaskArgs:%v", workFlowArgs.Target)
 			// 2. match webhook
 			matcher := createGitlabEventMatcher(event, diffSrv, workflow, item.IsYaml, triggerYaml, log)
 			if matcher == nil {
@@ -490,7 +493,7 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 				log.Debugf("event not matches %v", item.MainRepo)
 				continue
 			}
-
+			log.Infof("UpdateTaskArgs:%v", item.WorkflowArgs.Target)
 			log.Infof("event match hook %v of %s", item.MainRepo, workflow.Name)
 			namespace := strings.Split(item.WorkflowArgs.Namespace, ",")[0]
 			opt := &commonrepo.ProductFindOptions{Name: workflow.ProductTmplName, EnvName: namespace}
@@ -539,6 +542,7 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 			}
 
 			args := matcher.UpdateTaskArgs(prod, workFlowArgs, item.MainRepo, requestID)
+			log.Infof("UpdateTaskArgs:%v", args.Target)
 			args.MergeRequestID = mergeRequestID
 			args.CommitID = commitID
 			args.Source = setting.SourceFromGitlab
