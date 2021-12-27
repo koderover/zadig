@@ -32,15 +32,14 @@ import (
 )
 
 func init() {
-	upgradepath.AddHandler(upgradepath.V171, upgradepath.V180, V171ToV180)
-	upgradepath.AddHandler(upgradepath.V180, upgradepath.V171, V180ToV171)
+	upgradepath.RegisterHandler("1.7.1", "1.8.0", V171ToV180)
+	upgradepath.RegisterHandler("1.8.0", "1.7.1", V180ToV171)
 }
 
 // V171ToV180 update all the roleBinding names in this format "{uid}-{roleName}-{roleNamespace}"
 // Caution: this migration contains unrecoverable changes, please back up the database in advance
 func V171ToV180() error {
 	log.Info("Migrating data from 1.7.1 to 1.8.0")
-
 	if err := updateAllRoleBindingNames(); err != nil {
 		log.Errorf("Failed to update roleBinding names, err: %s", err)
 		return err
