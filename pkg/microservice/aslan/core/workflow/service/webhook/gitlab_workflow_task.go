@@ -336,7 +336,7 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 		moduleTest, err := commonrepo.NewTestingColl().Find(test.Name, workflow.ProductTmplName)
 		if err != nil {
 			log.Errorf("fail to find test TestModuleName:%s, workflowname:%s,productTmplName:%s,error:%v", test.Name, workflow.Name, workflow.ProductTmplName, err)
-			if err != mongo.ErrNoDocuments {
+			if err == mongo.ErrNoDocuments {
 				continue
 			}
 			return fmt.Errorf("fail to find test TestModuleName:%s, workflowname:%s,productTmplName:%s,error:%s", test.Name, workflow.Name, workflow.ProductTmplName, err)
@@ -388,7 +388,7 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 		resp, err := commonrepo.NewBuildColl().Find(opt)
 		if err != nil {
 			log.Errorf("[Build.Find] serviceName: %s productName:%s serviceModule:%s error: %s", svr.Name, workflow.ProductTmplName, svr.ServiceModule, err)
-			if err != mongo.ErrNoDocuments {
+			if err == mongo.ErrNoDocuments {
 				continue
 			}
 			return fmt.Errorf("[Build.Find] serviceName: %s productName:%s serviceModule:%s error: %s", svr.Name, workflow.ProductTmplName, svr.ServiceModule, err)
