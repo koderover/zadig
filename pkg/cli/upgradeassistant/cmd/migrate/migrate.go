@@ -31,7 +31,7 @@ import (
 const oldServiceTemplateCounterName = "service:%s&type:%s"
 
 func init() {
-	upgradepath.AddHandler(upgradepath.V130, upgradepath.V131, V130ToV131)
+	upgradepath.RegisterHandler("1.3.0", "1.3.1", V130ToV131)
 	// upgradepath.AddHandler(upgradepath.V131, upgradepath.V130, V131ToV130)
 }
 
@@ -41,6 +41,7 @@ func init() {
 // 3. Change the ServiceTemplateCounterName format
 func V130ToV131() error {
 	log.Info("Migrating data from 1.3.0 to 1.3.1")
+	return nil
 
 	allServices, err := mongodb.NewServiceColl().ListMaxRevisions(nil)
 	if err != nil {
