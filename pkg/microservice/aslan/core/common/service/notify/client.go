@@ -17,18 +17,32 @@ limitations under the License.
 package notify
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/url"
+
+	"github.com/pkg/errors"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/wechat"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 const sevendays int64 = 60 * 60 * 24 * 7
+
+type WorkflowTaskImage struct {
+	Image        string `json:"image"`
+	ServiceName  string `json:"service_name"`
+	RegistryRepo string `json:"registry_repo"`
+}
 
 type client struct {
 	notifyColl       *mongodb.NotifyColl
@@ -194,9 +208,13 @@ func (c *client) ProccessNotify(notify *models.Notify) error {
 			logger.Infof("pipeline get task #%d notify, status: %s", ctx.TaskID, ctx.Status)
 			_ = c.scmNotifyService.UpdatePipelineWebhookComment(task, logger)
 		} else if ctx.Type == config.WorkflowType {
+			if task.TaskCreator == setting.RequestModeOpenAPI {
+				return nil
+			}
 			logger.Infof("workflow get task #%d notify, status: %s", ctx.TaskID, ctx.Status)
 			_ = c.scmNotifyService.UpdateWebhookComment(task, logger)
 			_ = c.scmNotifyService.UpdateDiffNote(task, logger)
+
 		} else if ctx.Type == config.TestType {
 			logger.Infof("test get task #%d notify, status: %s", ctx.TaskID, ctx.Status)
 			_ = c.scmNotifyService.UpdateWebhookCommentForTest(task, logger)
@@ -206,6 +224,12 @@ func (c *client) ProccessNotify(notify *models.Notify) error {
 		err = c.WeChatService.SendWechatMessage(task)
 		if err != nil {
 			return fmt.Errorf("SendWechatMessage err : %v", err)
+		}
+
+		// send callback requests
+		err = c.sendCallbackRequest(task)
+		if err != nil {
+			logger.Errorf("failed to send callback request for workflow: %s, taskID: %d, err: %s", task.PipelineName, task.TaskID, err)
 		}
 
 		for _, receiver := range receivers {
@@ -259,6 +283,97 @@ func (c *client) sendSubscribedNotify(notify *models.Notify) error {
 				return fmt.Errorf("create notify error: %v", err)
 			}
 		}
+	}
+	return nil
+}
+
+func taskFinished(task *task.Task) bool {
+	status := task.Status
+	if status == config.StatusPassed || status == config.StatusFailed || status == config.StatusTimeout || status == config.StatusCancelled {
+		return true
+	}
+	return false
+}
+
+func getImages(task *task.Task) ([]*WorkflowTaskImage, error) {
+	ret := make([]*WorkflowTaskImage, 0)
+	for _, stages := range task.Stages {
+		if stages.TaskType != config.TaskBuild || stages.Status != config.StatusPassed {
+			continue
+		}
+		for _, subTask := range stages.SubTasks {
+			buildInfo, err := base.ToBuildTask(subTask)
+			if err != nil {
+				log.Errorf("get buildInfo ToBuildTask failed ! err:%s", err)
+				return nil, err
+			}
+
+			WorkflowTaskImage := &WorkflowTaskImage{
+				Image:       buildInfo.JobCtx.Image,
+				ServiceName: buildInfo.ServiceName,
+			}
+			if buildInfo.DockerBuildStatus != nil {
+				WorkflowTaskImage.RegistryRepo = buildInfo.DockerBuildStatus.RegistryRepo
+			}
+			ret = append(ret, WorkflowTaskImage)
+		}
+	}
+	return ret, nil
+}
+
+// send callback request when workflow is finished
+func (c *client) sendCallbackRequest(task *task.Task) error {
+	if !taskFinished(task) {
+		return nil
+	}
+
+	if task.WorkflowArgs == nil {
+		return nil
+	}
+
+	callback := task.WorkflowArgs.Callback
+	if callback == nil {
+		return nil
+	}
+
+	callbackUrl, err := url.PathUnescape(callback.CallbackUrl)
+	if err != nil {
+		return errors.Wrapf(err, "failed to unescape callback url")
+	}
+
+	responseBody := make(map[string]interface{})
+
+	// set task status data
+	responseBody["status"] = task.Status
+	responseBody["task_id"] = task.TaskID
+	responseBody["workflow_name"] = task.PipelineName
+	responseBody["error"] = task.Error
+
+	// set custom kvs
+	responseBody["vars"] = callback.CallbackVars
+
+	// set images
+	responseBody["images"], err = getImages(task)
+
+	reqBody, err := json.Marshal(responseBody)
+	if err != nil {
+		log.Errorf("marshal json args error: %s", err)
+		return err
+	}
+
+	req, err := http.NewRequest("POST", callbackUrl, bytes.NewBuffer(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+
+	var resp *http.Response
+	client := &http.Client{}
+	resp, err = client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("callback response code error: %d", resp.StatusCode)
 	}
 	return nil
 }

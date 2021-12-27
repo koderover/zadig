@@ -74,7 +74,7 @@ var publicURLs = []*policyRule{
 	},
 	{
 		Methods:   []string{"GET"},
-		Endpoints: []string{"", "signin", "setup", "static/**", "v1/**", "mobile/**", "productpipelines/**", "favicon.ico"},
+		Endpoints: []string{"", "signin", "setup", "static/**", "v1/**", "mobile/**", "workflows/**", "favicon.ico"},
 	},
 	{
 		Methods:   []string{"GET"},
@@ -137,7 +137,7 @@ var systemAdminURLs = []*policyRule{
 		Endpoints: []string{"api/aslan/system/proxyManage/?*"},
 	},
 	{
-		Methods:   []string{"GET", "POST"},
+		Methods:   []string{"POST"},
 		Endpoints: []string{"api/aslan/system/registry/namespaces"},
 	},
 	{

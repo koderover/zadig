@@ -80,8 +80,20 @@ func (c *Client) RestartWorkflowTask(header http.Header, qs url.Values, id strin
 
 	return res.StatusCode(), nil
 }
+
 func (c *Client) ListWorkflowTask(header http.Header, qs url.Values, commitId string) ([]byte, error) {
 	url := fmt.Sprintf("/workflow/v2/status/task/info?commitId=%s", commitId)
+
+	res, err := c.Get(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs))
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Body(), nil
+}
+
+func (c *Client) GetDetailedWorkflowTask(header http.Header, qs url.Values, taskID, name string) ([]byte, error) {
+	url := fmt.Sprintf("/workflow/workflowtask/id/%s/pipelines/%s", taskID, name)
 
 	res, err := c.Get(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs))
 	if err != nil {
