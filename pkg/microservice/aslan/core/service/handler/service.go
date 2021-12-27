@@ -110,7 +110,7 @@ func UpdateServiceTemplate(c *gin.Context) {
 	ctx.Err = svcservice.UpdateServiceTemplate(args)
 }
 
-func UpdateServiceTemplateForPM(c *gin.Context) {
+func UpdateServiceTemplateByPart(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -123,7 +123,7 @@ func UpdateServiceTemplateForPM(c *gin.Context) {
 		internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "项目管理-服务", fmt.Sprintf("服务名称:%s,版本号:%d", args.ServiceName, args.Revision), "", ctx.Logger)
 	}
 	args.Username = ctx.UserName
-	ctx.Err = svcservice.UpdateServiceTemplateForPM(args)
+	ctx.Err = svcservice.UpdateServiceTemplateByPart(args)
 }
 
 type ValidatorResp struct {

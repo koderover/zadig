@@ -253,7 +253,7 @@ func (c *ServiceColl) Create(args *models.Service) error {
 	return err
 }
 
-func (c *ServiceColl) UpdateByManu(args *models.Service) error {
+func (c *ServiceColl) UpdateByPart(args *models.Service) error {
 	// avoid panic issue
 	if args == nil {
 		return errors.New("nil ServiceTmplObject")

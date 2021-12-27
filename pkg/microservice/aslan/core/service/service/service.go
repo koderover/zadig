@@ -813,7 +813,7 @@ func UpdateServiceTemplate(args *commonservice.ServiceTmplObject) error {
 	return commonrepo.NewServiceColl().Update(updateArgs)
 }
 
-func UpdateServiceTemplateForPM(args *commonservice.ServiceTmplObject) error {
+func UpdateServiceTemplateByPart(args *commonservice.ServiceTmplObject) error {
 	currentService, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
 		ProductName: args.ProductName,
 		ServiceName: args.ServiceName,
@@ -874,7 +874,6 @@ func UpdateServiceTemplateForPM(args *commonservice.ServiceTmplObject) error {
 	}
 
 	// generate env status for this env
-
 	updateArgs := &commonmodels.Service{
 		ProductName: args.ProductName,
 		ServiceName: args.ServiceName,
@@ -885,7 +884,7 @@ func UpdateServiceTemplateForPM(args *commonservice.ServiceTmplObject) error {
 		EnvConfigs:  changeEnvConfigs,
 		EnvStatuses: changeEnvStatus,
 	}
-	return commonrepo.NewServiceColl().UpdateByManu(updateArgs)
+	return commonrepo.NewServiceColl().UpdateByPart(updateArgs)
 }
 
 func extractHostIPs(privateKeys []*commonmodels.PrivateKey, ips sets.String) sets.String {

@@ -91,7 +91,7 @@ rules:
           - key: "production"
             value: "false"
       - method: PUT
-        endpoint: "/api/aslan/service/services"
+        endpoint: "/api/aslan/service/services/pm/part"
         resourceType: "Environment"
         matchAttributes:
           - key: "production"
