@@ -32,7 +32,6 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/cron/core/service"
 	"github.com/koderover/zadig/pkg/setting"
 )
@@ -105,13 +104,6 @@ func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
 			break
 		}
 	}
-}
-
-func extractHostIPs(privateKeys []*commonmodels.PrivateKey, ips sets.String) sets.String {
-	for _, privateKey := range privateKeys {
-		ips.Insert(privateKey.IP)
-	}
-	return ips
 }
 
 func (c *CronClient) RunScheduledService(svc *service.Service, healthCheck *service.PmHealthCheck, address, envName, hostID string, log *zap.SugaredLogger) {

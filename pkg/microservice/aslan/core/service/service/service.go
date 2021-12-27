@@ -811,7 +811,6 @@ func UpdateServiceTemplate(args *commonservice.ServiceTmplObject) error {
 		EnvStatuses: envStatuses,
 	}
 	return commonrepo.NewServiceColl().Update(updateArgs)
-
 }
 
 func UpdateServiceTemplateForPM(args *commonservice.ServiceTmplObject) error {
