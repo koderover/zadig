@@ -37,7 +37,6 @@ func init() {
 // V160ToV170 refreshes the secret of all webhooks
 func V160ToV170() error {
 	log.Info("Migrating data from 1.6.0 to 1.7.0")
-	return nil
 	log.Info("Start to change codeHost type")
 	err := changeCodehostType()
 	if err != nil {
@@ -62,7 +61,6 @@ func V160ToV170() error {
 
 func V170ToV160() error {
 	log.Info("Rollback data from 1.7.0 to 1.6.0")
-	return nil
 	err := rollbackEmailhostType()
 	if err != nil {
 		log.Errorf("Failed to rollback emailhost type, err: %s", err)

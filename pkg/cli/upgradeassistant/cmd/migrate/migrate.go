@@ -41,7 +41,6 @@ func init() {
 // 3. Change the ServiceTemplateCounterName format
 func V130ToV131() error {
 	log.Info("Migrating data from 1.3.0 to 1.3.1")
-	return nil
 
 	allServices, err := mongodb.NewServiceColl().ListMaxRevisions(nil)
 	if err != nil {

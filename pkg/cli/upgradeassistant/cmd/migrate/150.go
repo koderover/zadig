@@ -39,7 +39,6 @@ func init() {
 // use preset rules as patterns: {"image": "repository", "tag": "tag"}, {"image": "image"}
 func V140ToV150() error {
 	log.Info("Migrating data from 1.4.0 to 1.5.0")
-	return nil
 	products, err := mongodb.NewProductColl().List(&mongodb.ProductListOptions{
 		ExcludeStatus: setting.ProductStatusDeleting,
 		Source:        setting.SourceFromHelm,

@@ -40,7 +40,6 @@ func init() {
 // Caution: this migration contains unrecoverable changes, please back up the database in advance
 func V171ToV180() error {
 	log.Info("Migrating data from 1.7.1 to 1.8.0")
-	return nil
 	if err := updateAllRoleBindingNames(); err != nil {
 		log.Errorf("Failed to update roleBinding names, err: %s", err)
 		return err
