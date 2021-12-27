@@ -54,7 +54,7 @@ type JenkinsBuild struct {
 	ResReqSpec         setting.RequestSpec         `bson:"res_req_spec"            json:"res_req_spec"`
 	JenkinsIntegration *JenkinsIntegration         `bson:"-"                       json:"jenkins_integration"`
 	JenkinsBuildArgs   *JenkinsBuildArgs           `bson:"-"                       json:"jenkins_build_args"`
-	Registries         []*models.RegistryNamespace `bson:"-"                       json:"registries"`
+	Registries         []*models.RegistryNamespace `bson:"registries"              json:"registries"`
 	StartTime          int64                       `bson:"start_time"              json:"start_time,omitempty"`
 	EndTime            int64                       `bson:"end_time"                json:"end_time,omitempty"`
 	LogFile            string                      `bson:"log_file"                json:"log_file"`
