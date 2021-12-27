@@ -31,15 +31,14 @@ import (
 )
 
 func init() {
-	upgradepath.AddHandler(upgradepath.V140, upgradepath.V150, V140ToV150)
-	upgradepath.AddHandler(upgradepath.V150, upgradepath.V140, V150ToV140)
+	upgradepath.RegisterHandler("1.4.0", "1.5.0", V140ToV150)
+	upgradepath.RegisterHandler("1.5.0", "1.4.0", V150ToV140)
 }
 
 // V140ToV150 fill image path data for old data in product.services.containers
 // use preset rules as patterns: {"image": "repository", "tag": "tag"}, {"image": "image"}
 func V140ToV150() error {
 	log.Info("Migrating data from 1.4.0 to 1.5.0")
-
 	products, err := mongodb.NewProductColl().List(&mongodb.ProductListOptions{
 		ExcludeStatus: setting.ProductStatusDeleting,
 		Source:        setting.SourceFromHelm,

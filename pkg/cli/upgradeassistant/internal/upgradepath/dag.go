@@ -31,6 +31,22 @@ type upgradePath struct {
 var dag = dijkstra.NewGraph()
 var handlerMap = make(map[upgradePath]handler)
 
+type RegisteredHandler struct {
+	FromVersion string
+	ToVersion   string
+	Fn          handler
+}
+
+var RegisteredHandlers = make([]*RegisteredHandler, 0)
+
+func RegisterHandler(fromVersion, toVersion string, fn handler) {
+	RegisteredHandlers = append(RegisteredHandlers, &RegisteredHandler{
+		FromVersion: fromVersion,
+		ToVersion:   toVersion,
+		Fn:          fn,
+	})
+}
+
 func AddHandler(from, to int, fn handler) {
 	if v, err := dag.GetVertex(from); err != nil || v.ID != from {
 		dag.AddVertex(from)
@@ -46,7 +62,7 @@ func AddHandler(from, to int, fn handler) {
 }
 
 func UpgradeWithBestPath(from, to string) error {
-	return upgradeWithBestPath(versionMap.From(from), versionMap.To(to))
+	return upgradeWithBestPath(VersionDatas.VersionIndex(from), VersionDatas.VersionIndex(to))
 }
 
 func upgradeWithBestPath(from, to int) error {
