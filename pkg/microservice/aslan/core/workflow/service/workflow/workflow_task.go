@@ -478,6 +478,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		if resp != nil {
 			return resp, nil
 		}
+		taskCreator = setting.RequestModeOpenAPI
 	}
 
 	workflow, err := commonrepo.NewWorkflowColl().Find(args.WorkflowName)
