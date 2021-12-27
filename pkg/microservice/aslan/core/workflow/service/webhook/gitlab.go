@@ -29,9 +29,9 @@ import (
 	"github.com/xanzy/go-gitlab"
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/pkg/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collie"
 	gitservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -61,10 +61,10 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 		return err
 	}
 
-	forwardedProto := req.Header.Get("X-Forwarded-Proto")
-	forwardedHost := req.Header.Get("X-Forwarded-Host")
-	baseURI := fmt.Sprintf("%s://%s", forwardedProto, forwardedHost)
-
+	// forwardedProto := req.Header.Get("X-Forwarded-Proto")
+	// forwardedHost := req.Header.Get("X-Forwarded-Host")
+	// baseURI := fmt.Sprintf("%s://%s", forwardedProto, forwardedHost)
+	baseURI := config.SystemAddress()
 	var eventPush *EventPush
 	var pushEvent *gitlab.PushEvent
 	var mergeEvent *gitlab.MergeEvent
@@ -84,7 +84,7 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 		}
 	}
 
-	go collie.CallGitlabWebHook(forwardedProto, forwardedHost, payload, string(eventType), log)
+	//go collie.CallGitlabWebHook(forwardedProto, forwardedHost, payload, string(eventType), log)
 
 	switch event := event.(type) {
 	case *gitlab.PushEvent:
