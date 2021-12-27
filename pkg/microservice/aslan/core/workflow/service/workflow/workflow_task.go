@@ -19,6 +19,7 @@ package workflow
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"reflect"
 	"regexp"
 	"sort"
@@ -952,6 +953,24 @@ func AddDataToArgsOrCreateReleaseImageTask(args *commonmodels.WorkflowTaskArgs, 
 	return createReleaseImageTask(workflow, args, log)
 }
 
+func buildRegistryMap() (map[string]*commonmodels.RegistryNamespace, error) {
+	registries, err := commonrepo.NewRegistryNamespaceColl().FindAll(&commonrepo.FindRegOps{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to query registries")
+	}
+	ret := make(map[string]*commonmodels.RegistryNamespace)
+	for _, singleRegistry := range registries {
+		fullUrl := fmt.Sprintf("%s/%s", singleRegistry.RegAddr, singleRegistry.Namespace)
+		fullUrl = strings.TrimSuffix(fullUrl, "/")
+		u, _ := url.Parse(fullUrl)
+		if len(u.Scheme) > 0 {
+			fullUrl = strings.TrimPrefix(fullUrl, fmt.Sprintf("%s://", u.Scheme))
+		}
+		ret[fullUrl] = singleRegistry
+	}
+	return ret, nil
+}
+
 func createReleaseImageTask(workflow *commonmodels.Workflow, args *commonmodels.WorkflowTaskArgs, log *zap.SugaredLogger) (*CreateTaskResp, error) {
 	// Get global configPayload
 	configPayload := commonservice.GetConfigPayload(0)
@@ -963,16 +982,37 @@ func createReleaseImageTask(workflow *commonmodels.Workflow, args *commonmodels.
 	// modify configPayload
 	modifyConfigPayload(configPayload, false, false)
 
-	// add default registry
-	reg, err := commonservice.FindDefaultRegistry(log)
+	registryMap, err := buildRegistryMap()
 	if err != nil {
-		log.Errorf("can't find default candidate registry: %s", err)
-		return nil, e.ErrFindRegistry.AddDesc(err.Error())
+		log.Errorf("failed to build registry map, err: %s", err)
+		// use default registry
+		reg, err := commonservice.FindDefaultRegistry(log)
+		if err != nil {
+			log.Errorf("can't find default candidate registry, err: %s", err)
+			return nil, e.ErrFindRegistry.AddDesc(err.Error())
+		}
+		configPayload.Registry.Addr = reg.RegAddr
+		configPayload.Registry.AccessKey = reg.AccessKey
+		configPayload.Registry.SecretKey = reg.SecretKey
+		configPayload.Registry.Namespace = reg.Namespace
+	} else {
+		// extract registry from image
+		for _, releaseImage := range args.ReleaseImages {
+			registryUrl, err := commonservice.ExtractImageRegistry(releaseImage.Image)
+			if err != nil {
+				log.Errorf("failed to extract image registry, image:%s  err: %s", releaseImage.Image, err)
+				continue
+			}
+			registryUrl = strings.TrimSuffix(registryUrl, "/")
+			if reg, ok := registryMap[registryUrl]; ok {
+				configPayload.Registry.Addr = reg.RegAddr
+				configPayload.Registry.AccessKey = reg.AccessKey
+				configPayload.Registry.SecretKey = reg.SecretKey
+				configPayload.Registry.Namespace = reg.Namespace
+				break
+			}
+		}
 	}
-	configPayload.Registry.Addr = reg.RegAddr
-	configPayload.Registry.AccessKey = reg.AccessKey
-	configPayload.Registry.SecretKey = reg.SecretKey
-	configPayload.Registry.Namespace = reg.Namespace
 
 	distributeS3StoreURL, defaultS3StoreURL, err := getDefaultAndDestS3StoreURL(workflow, log)
 	if err != nil {
