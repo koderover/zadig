@@ -326,6 +326,9 @@ func (c *client) sendCallbackRequest(task *task.Task) error {
 		return nil
 	}
 
+	//TODO remove this log after openApi becomes stable
+	log.Infof("sending callback request for workflow:%s, taskID:%d", task.PipelineName, task.TaskID)
+
 	if task.WorkflowArgs == nil {
 		return nil
 	}
