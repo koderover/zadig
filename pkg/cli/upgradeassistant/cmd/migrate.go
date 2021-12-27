@@ -88,7 +88,7 @@ func run() error {
 	sort.Strings(upgradepath.VersionDatas)
 
 	// add default handlers
-	for i := 0; i < len(upgradepath.VersionDatas); i++ {
+	for i := 0; i < len(upgradepath.VersionDatas)-1; i++ {
 		upgradepath.AddHandler(i, i+1, upgradepath.DefaultUpgradeHandler)
 		upgradepath.AddHandler(i+1, i, upgradepath.DefaultRollBackHandler)
 	}
