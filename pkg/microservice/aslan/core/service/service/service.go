@@ -744,7 +744,7 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap
 	return GetServiceOption(args, log)
 }
 
-func UpdateServiceTemplate(args *commonservice.ServiceTmplObject) error {
+func UpdateServiceVisibility(args *commonservice.ServiceTmplObject) error {
 	currentService, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
 		ProductName: args.ProductName,
 		ServiceName: args.ServiceName,
@@ -775,7 +775,7 @@ func UpdateServiceTemplate(args *commonservice.ServiceTmplObject) error {
 	}
 
 	envStatuses := make([]*commonmodels.EnvStatus, 0)
-	// 去掉检查状态中不存在的环境和主机
+	//remove the status not have env or host
 	for _, envStatus := range args.EnvStatuses {
 		var existEnv, existHost bool
 
@@ -813,7 +813,7 @@ func UpdateServiceTemplate(args *commonservice.ServiceTmplObject) error {
 	return commonrepo.NewServiceColl().Update(updateArgs)
 }
 
-func UpdateServiceTemplateByPart(args *commonservice.ServiceTmplObject) error {
+func UpdateServiceHealthCheckStatus(args *commonservice.ServiceTmplObject) error {
 	currentService, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
 		ProductName: args.ProductName,
 		ServiceName: args.ServiceName,
@@ -823,7 +823,6 @@ func UpdateServiceTemplateByPart(args *commonservice.ServiceTmplObject) error {
 		log.Errorf("Can not find service with option %+v", args)
 		return err
 	}
-	// 是前端调用
 	changeEnvStatus := []*commonmodels.EnvStatus{}
 	changeEnvConfigs := []*commonmodels.EnvConfig{}
 
@@ -845,12 +844,12 @@ func UpdateServiceTemplateByPart(args *commonservice.ServiceTmplObject) error {
 			return err
 		}
 
-		privateKeys2, err := commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{Labels: envConfig.Labels})
+		privateKeysByLabels, err := commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{Labels: envConfig.Labels})
 		if err != nil {
 			log.Errorf("ListNameByArgs labels err:%s", err)
 			return err
 		}
-		privateKeys = append(privateKeys, privateKeys2...)
+		privateKeys = append(privateKeys, privateKeysByLabels...)
 	}
 	privateKeysSet := sets.NewString()
 	for _, v := range privateKeys {
@@ -884,7 +883,7 @@ func UpdateServiceTemplateByPart(args *commonservice.ServiceTmplObject) error {
 		EnvConfigs:  changeEnvConfigs,
 		EnvStatuses: changeEnvStatus,
 	}
-	return commonrepo.NewServiceColl().UpdateByPart(updateArgs)
+	return commonrepo.NewServiceColl().UpdateServiceHealthCheckStatus(updateArgs)
 }
 
 func extractHostIPs(privateKeys []*commonmodels.PrivateKey, ips sets.String) sets.String {
