@@ -275,16 +275,6 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 	if err != nil {
 		return fmt.Errorf("getServiceTypeByProduct ProductTmplName:%s err:%s", workflow.ProductTmplName, err)
 	}
-	deployed := false
-	for _, stage := range triggerYaml.Stages {
-		if stage == "deploy" {
-			deployed = true
-			break
-		}
-	}
-	if svcType == setting.BasicFacilityCVM {
-		deployed = true
-	}
 
 	ch, err := systemconfig.New().GetCodeHost(item.MainRepo.CodehostID)
 	if err != nil {
@@ -314,6 +304,16 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 	err = checkTriggerYamlParams(triggerYaml)
 	if err != nil {
 		return fmt.Errorf("checkTriggerYamlParams yamlPath:%s err:%s", item.YamlPath, err)
+	}
+	deployed := false
+	for _, stage := range triggerYaml.Stages {
+		if stage == "deploy" {
+			deployed = true
+			break
+		}
+	}
+	if svcType == setting.BasicFacilityCVM {
+		deployed = true
 	}
 	workFlowArgs.Namespace = strings.Join(triggerYaml.Deploy.Envsname, ",")
 	workFlowArgs.WorkflowName = workflow.Name
