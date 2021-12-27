@@ -984,11 +984,11 @@ func createReleaseImageTask(workflow *commonmodels.Workflow, args *commonmodels.
 
 	registryMap, err := buildRegistryMap()
 	if err != nil {
-		log.Errorf("failed to build registry map: %s", err)
+		log.Errorf("failed to build registry map, err: %s", err)
 		// use default registry
 		reg, err := commonservice.FindDefaultRegistry(log)
 		if err != nil {
-			log.Errorf("can't find default candidate registry: %s", err)
+			log.Errorf("can't find default candidate registry, err: %s", err)
 			return nil, e.ErrFindRegistry.AddDesc(err.Error())
 		}
 		configPayload.Registry.Addr = reg.RegAddr
