@@ -114,6 +114,12 @@ rules:
           - key: "production"
             value: "false"
       - method: PUT
+        endpoint: "/api/aslan/service/pm/healthCheckUpdate"
+        resourceType: "Environment"
+        matchAttributes:
+          - key: "production"
+            value: "false"
+      - method: PUT
         endpoint: "/api/aslan/environment/environments/?*/envRecycle"
         resourceType: "Environment"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/envRecycle$"
