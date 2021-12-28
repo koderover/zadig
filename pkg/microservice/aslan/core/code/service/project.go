@@ -30,7 +30,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/git/gitlab"
 )
 
-func CodeHostListProjects(codeHostID int, namespace, namespaceType, keyword string, log *zap.SugaredLogger) ([]*Project, error) {
+func CodeHostListProjects(codeHostID int, namespace, namespaceType string, page, perPage int, keyword string, log *zap.SugaredLogger) ([]*Project, error) {
 	ch, err := systemconfig.New().GetCodeHost(codeHostID)
 	if err != nil {
 		log.Error(err)
@@ -53,7 +53,11 @@ func CodeHostListProjects(codeHostID int, namespace, namespaceType, keyword stri
 		}
 
 		// user
-		projects, err := client.ListUserProjects(namespace, keyword, nil)
+		projects, err := client.ListUserProjects(namespace, keyword, &gitlab.ListOptions{
+			Page:        page,
+			PerPage:     perPage,
+			NoPaginated: true,
+		})
 		if err != nil {
 			log.Error(err)
 			return nil, e.ErrCodehostListProjects.AddDesc(err.Error())
