@@ -175,7 +175,7 @@ func (c *client) ListSubscriptions(user string) ([]*models.Subscription, error) 
 	return subs, nil
 }
 
-func (c *client) ProccessNotify(notify *models.Notify) error {
+func (c *client) ProcessNotify(notify *models.Notify) error {
 	switch notify.Type {
 	case config.PipelineStatus:
 		b, err := json.Marshal(notify.Content)
@@ -197,17 +197,19 @@ func (c *client) ProccessNotify(notify *models.Notify) error {
 		receivers := []string{notify.Receiver}
 		logger := log.SugaredLogger()
 		task.Status = ctx.Status
-		if ctx.Type == config.SingleType {
-			pipline, err := c.pipelineColl.Find(&mongodb.PipelineFindOption{Name: ctx.PipelineName})
+
+		switch ctx.Type {
+		case config.SingleType:
+			pipeline, err := c.pipelineColl.Find(&mongodb.PipelineFindOption{Name: ctx.PipelineName})
 			if err != nil {
 				return fmt.Errorf("[%s] find pipline error: %v", notify.Receiver, err)
 			}
 			//notify通知接受者
-			receivers = append(receivers, pipline.Notifiers...)
+			receivers = append(receivers, pipeline.Notifiers...)
 
 			logger.Infof("pipeline get task #%d notify, status: %s", ctx.TaskID, ctx.Status)
 			_ = c.scmNotifyService.UpdatePipelineWebhookComment(task, logger)
-		} else if ctx.Type == config.WorkflowType {
+		case config.WorkflowType:
 			if task.TaskCreator == setting.RequestModeOpenAPI {
 				// send callback requests
 				err = c.sendCallbackRequest(task)
@@ -219,8 +221,15 @@ func (c *client) ProccessNotify(notify *models.Notify) error {
 			logger.Infof("workflow get task #%d notify, status: %s", ctx.TaskID, ctx.Status)
 			_ = c.scmNotifyService.UpdateWebhookComment(task, logger)
 			_ = c.scmNotifyService.UpdateDiffNote(task, logger)
-
-		} else if ctx.Type == config.TestType {
+		case config.ArtifactType:
+			if task.TaskCreator == setting.RequestModeOpenAPI {
+				// send callback requests
+				err = c.sendCallbackRequest(task)
+				if err != nil {
+					logger.Errorf("failed to send callback request for workflow: %s, taskID: %d, err: %s", task.PipelineName, task.TaskID, err)
+				}
+			}
+		case config.TestType:
 			logger.Infof("test get task #%d notify, status: %s", ctx.TaskID, ctx.Status)
 			_ = c.scmNotifyService.UpdateWebhookCommentForTest(task, logger)
 		}

@@ -886,7 +886,7 @@ func (h *TaskNotificationHandler) HandleMessage(message *nsq.Message) error {
 	h.log.Infof("receive notification: %+v", n)
 
 	notifyClient := notify.NewNotifyClient()
-	if err := notifyClient.ProccessNotify(n); err != nil {
+	if err := notifyClient.ProcessNotify(n); err != nil {
 		h.log.Errorf("send notify error :%v", err)
 	}
 

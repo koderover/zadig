@@ -951,6 +951,7 @@ func AddDataToArgsOrCreateReleaseImageTask(args *commonmodels.WorkflowTaskArgs, 
 	}
 
 	return createReleaseImageTask(workflow, args, log)
+	//return createReleaseImageTaskV2(workflow, args, log)
 }
 
 func buildRegistryMap() (map[string]*commonmodels.RegistryNamespace, error) {
@@ -971,149 +972,85 @@ func buildRegistryMap() (map[string]*commonmodels.RegistryNamespace, error) {
 	return ret, nil
 }
 
+// TODO currently only supports distribution of images
 func createReleaseImageTask(workflow *commonmodels.Workflow, args *commonmodels.WorkflowTaskArgs, log *zap.SugaredLogger) (*CreateTaskResp, error) {
-	// Get global configPayload
-	configPayload := commonservice.GetConfigPayload(0)
-	args.ProductTmplName = workflow.ProductTmplName
+	registryMap, err := buildRegistryMap()
+	if err != nil {
+		log.Errorf("failed to build registry map, err: %s", err)
+		return nil, err
+	}
+
+	if workflow.DistributeStage == nil || !workflow.DistributeStage.Enabled {
+		return nil, fmt.Errorf("distribute stage not enabled")
+	}
+
+	aptArgs := &commonmodels.ArtifactPackageTaskArgs{
+		ProjectName:      workflow.ProductTmplName,
+		EnvName:          args.EnvName,
+		Images:           make([]*commonmodels.ImagesByService, 0),
+		SourceRegistries: nil,
+		TargetRegistries: nil,
+	}
+
+	sourceRegistrySet := sets.NewString()
+
+	imagesMayByService := make(map[string][]*commonmodels.ReleaseImage)
+	for _, imageInfo := range args.ReleaseImages {
+		imagesMayByService[imageInfo.ServiceName] = append(imagesMayByService[imageInfo.ServiceName])
+	}
+	// build artifact task, only handle images in bulk
+	for serviceName, imageList := range imagesMayByService {
+		imageByService := &commonmodels.ImagesByService{
+			ServiceName: serviceName,
+			Images:      nil,
+		}
+
+		for _, singleImage := range imageList {
+			registryUrl, err := commonservice.ExtractImageRegistry(singleImage.Image)
+			if err != nil {
+				log.Errorf("failed to extract image regsitry, image: %s, err: %s", singleImage.Image, err)
+				continue
+			}
+
+			registryID := ""
+			if reg, ok := registryMap[registryUrl]; ok {
+				registryID = reg.ID.Hex()
+			}
+
+			if len(registryID) > 0 {
+				sourceRegistrySet.Insert(registryID)
+			}
+
+			imageByService.Images = append(imageByService.Images, &commonmodels.ImageData{
+				ImageUrl:   singleImage.Image,
+				ImageName:  singleImage.ServiceModule,
+				ImageTag:   commonservice.ExtractImageTag(singleImage.Image),
+				RegistryID: registryID,
+			})
+		}
+		aptArgs.Images = append(aptArgs.Images, imageByService)
+	}
+
+	aptArgs.SourceRegistries = sourceRegistrySet.List()
+	for _, registryConfig := range workflow.DistributeStage.Releases {
+		aptArgs.TargetRegistries = append(aptArgs.TargetRegistries, registryConfig.RepoID)
+	}
+
+	// create artifact package task
+	taskInfo, err := CreateArtifactPackageTask(aptArgs, setting.RequestModeOpenAPI, log)
+	if err != nil {
+		return nil, err
+	}
+
 	nextTaskID, err := generateNextTaskID(workflow.Name)
 	if err != nil {
 		return nil, err
 	}
-	// modify configPayload
-	modifyConfigPayload(configPayload, false, false)
-
-	registryMap, err := buildRegistryMap()
-	if err != nil {
-		log.Errorf("failed to build registry map, err: %s", err)
-		// use default registry
-		reg, err := commonservice.FindDefaultRegistry(log)
-		if err != nil {
-			log.Errorf("can't find default candidate registry, err: %s", err)
-			return nil, e.ErrFindRegistry.AddDesc(err.Error())
-		}
-		configPayload.Registry.Addr = reg.RegAddr
-		configPayload.Registry.AccessKey = reg.AccessKey
-		configPayload.Registry.SecretKey = reg.SecretKey
-		configPayload.Registry.Namespace = reg.Namespace
-	} else {
-		// extract registry from image
-		for _, releaseImage := range args.ReleaseImages {
-			registryUrl, err := commonservice.ExtractImageRegistry(releaseImage.Image)
-			if err != nil {
-				log.Errorf("failed to extract image registry, image:%s  err: %s", releaseImage.Image, err)
-				continue
-			}
-			registryUrl = strings.TrimSuffix(registryUrl, "/")
-			if reg, ok := registryMap[registryUrl]; ok {
-				configPayload.Registry.Addr = reg.RegAddr
-				configPayload.Registry.AccessKey = reg.AccessKey
-				configPayload.Registry.SecretKey = reg.SecretKey
-				configPayload.Registry.Namespace = reg.Namespace
-				break
-			}
-		}
-	}
-
-	distributeS3StoreURL, defaultS3StoreURL, err := getDefaultAndDestS3StoreURL(workflow, log)
-	if err != nil {
-		log.Errorf("getDefaultAndDestS3StoreUrl workflow name:[%s] err:%s", workflow.Name, err)
-		return nil, e.ErrCreateTask.AddErr(err)
-	}
-
-	stages := make([]*commonmodels.Stage, 0)
-	// Generate distributed subtask
-	if workflow.DistributeStage != nil && workflow.DistributeStage.Enabled {
-		var (
-			distributeTasks []map[string]interface{}
-			err             error
-			subTasks        = make([]map[string]interface{}, 0)
-		)
-
-		for _, imageInfo := range args.ReleaseImages {
-			for _, distribute := range workflow.DistributeStage.Distributes {
-				if distribute.Target == nil {
-					continue
-				}
-				if distribute.Target.ServiceModule == imageInfo.ServiceModule && distribute.Target.ServiceName == imageInfo.ServiceName {
-					distributeTasks, err = formatDistributeSubtasks(
-						workflow.DistributeStage.Releases,
-						workflow.DistributeStage.ImageRepo,
-						workflow.DistributeStage.JumpBoxHost,
-						distributeS3StoreURL,
-						distribute,
-					)
-					if err != nil {
-						log.Errorf("distrbiute stages to subtasks error: %s", err)
-						return nil, e.ErrCreateTask.AddErr(err)
-					}
-				}
-			}
-			subTasks = append(subTasks, distributeTasks...)
-
-			// Fill in the associated content between subtasks
-			task := &task.Task{
-				TaskID:        nextTaskID,
-				PipelineName:  workflow.Name,
-				TaskCreator:   setting.RequestModeOpenAPI,
-				ReqID:         args.ReqID,
-				SubTasks:      subTasks,
-				ServiceName:   imageInfo.ServiceModule,
-				ConfigPayload: configPayload,
-				TaskArgs:      &commonmodels.TaskArgs{PipelineName: workflow.Name, TaskCreator: setting.RequestModeOpenAPI, Deploy: commonmodels.DeployArgs{Image: imageInfo.Image}},
-				ProductName:   workflow.ProductTmplName,
-			}
-			sort.Sort(ByTaskKind(task.SubTasks))
-
-			if err := ensurePipelineTask(task, "", log); err != nil {
-				log.Errorf("workflow_task ensurePipelineTask taskID:[%d] pipelineName:[%s] err:%s", task.ID, task.PipelineName, err)
-				if err, ok := err.(*ContainerNotFound); ok {
-					err := e.NewWithExtras(
-						e.ErrCreateTaskFailed.AddErr(err),
-						"container doesn't exists", map[string]interface{}{
-							"productName":   err.ProductName,
-							"envName":       err.EnvName,
-							"serviceName":   err.ServiceName,
-							"containerName": err.Container,
-						})
-					return nil, err
-				}
-				if _, ok := err.(*ImageIllegal); ok {
-					return nil, e.ErrCreateTask.AddDesc("IMAGE is illegal")
-				}
-				return nil, e.ErrCreateTask.AddDesc(err.Error())
-			}
-
-			for _, stask := range task.SubTasks {
-				AddSubtaskToStage(&stages, stask, imageInfo.ServiceModule)
-			}
-		}
-	}
-
-	sort.Sort(ByStageKind(stages))
-	task := &task.Task{
-		WorkflowArgs:  args,
-		TaskID:        nextTaskID,
-		Type:          config.WorkflowType,
-		ProductName:   workflow.ProductTmplName,
-		PipelineName:  workflow.Name,
-		TaskCreator:   setting.RequestModeOpenAPI,
-		ReqID:         args.ReqID,
-		Status:        config.StatusCreated,
-		Stages:        stages,
-		ConfigPayload: configPayload,
-		StorageURI:    defaultS3StoreURL,
-	}
-
-	if len(task.Stages) <= 0 {
-		errMessage := fmt.Sprintf("%s or %s", e.PipelineSubTaskNotFoundErrMsg, "Invalid service module")
-		return nil, e.ErrCreateTask.AddDesc(errMessage)
-	}
-
-	endpoint := fmt.Sprintf("%s-%s:9000", config.Namespace(), ClusterStorageEP)
-	task.StorageEndpoint = endpoint
-
-	if err := CreateTask(task); err != nil {
-		log.Errorf("workflow Create task:[%v] err:%s", task, err)
+	taskInfo.TaskID = nextTaskID
+	taskInfo.PipelineName = workflow.Name
+	taskInfo.WorkflowArgs = args
+	if err := CreateTask(taskInfo); err != nil {
+		log.Errorf("failed to create task, pipelineName: %s, err: %s", workflow.Name, err)
 		return nil, e.ErrCreateTask
 	}
 

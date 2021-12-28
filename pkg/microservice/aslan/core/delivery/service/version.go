@@ -983,14 +983,28 @@ func buildDeliveryCharts(chartDataMap map[string]*DeliveryChartData, deliveryVer
 	// offline docker images are not supported
 	taskArgs := buildArtifactTaskArgs(deliveryVersion.ProductName, deliveryVersion.ProductEnvInfo.EnvName, imagesDataMap)
 	taskArgs.TargetRegistries = []string{args.ImageRegistryID}
-	taskID, err := workflowservice.CreateArtifactPackageTask(taskArgs, deliveryVersion.Version, logger)
+	pipelineName := fmt.Sprintf("%s-%s-%s", taskArgs.ProjectName, taskArgs.EnvName, "artifact")
+	taskInfo, err := workflowservice.CreateArtifactPackageTask(taskArgs, deliveryVersion.Version, logger)
 	if err != nil {
 		return err
 	}
+
+	taskID, err := commonrepo.NewCounterColl().GetNextSeq(fmt.Sprintf(setting.ServiceTaskFmt, pipelineName))
+	if err != nil {
+		log.Errorf("CreateServiceTask Counter.GetNextSeq error: %v", err)
+		return fmt.Errorf("failed to get next task ID, pipelineName: %s", pipelineName)
+	}
+	taskInfo.TaskID = taskID
+	taskInfo.PipelineName = pipelineName
+	if err := workflowservice.CreateTask(taskInfo); err != nil {
+		log.Errorf("failed to create task, pipelineName: %s, err: %s", pipelineName, err)
+		return e.ErrCreateTask
+	}
+
 	deliveryVersion.TaskID = int(taskID)
 	err = commonrepo.NewDeliveryVersionColl().UpdateTaskID(deliveryVersion.Version, deliveryVersion.ProductName, int32(deliveryVersion.TaskID))
 	if err != nil {
-		logger.Errorf("failed to update delivery version task_id, version: %s, task_id: %s, err: %s", deliveryVersion, deliveryVersion.ProductName, deliveryVersion.TaskID)
+		logger.Errorf("failed to update delivery version task_id, version: %s, productName: %s, task_id: %d, err: %s", deliveryVersion.Version, deliveryVersion.ProductName, deliveryVersion.TaskID, err)
 	}
 	// start a new routine to check task results
 	go waitVersionDone(deliveryVersion)
@@ -1265,6 +1279,7 @@ func CreateNewHelmDeliveryVersion(args *CreateHelmDeliveryVersionArgs, logger *z
 	versionObj := &commonmodels.DeliveryVersion{
 		Version:        args.Version,
 		ProductName:    args.ProductName,
+		WorkflowName:   fmt.Sprintf("%s-fake-workflow", args.ProductName), //fake workflow name, to enable version name can be same in different project
 		Type:           setting.DeliveryVersionTypeChart,
 		Desc:           args.Desc,
 		Labels:         args.Labels,

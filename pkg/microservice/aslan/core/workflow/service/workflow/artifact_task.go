@@ -30,20 +30,19 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
-	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/util"
 )
 
 // get global config payload
-func CreateArtifactPackageTask(args *commonmodels.ArtifactPackageTaskArgs, taskCreator string, log *zap.SugaredLogger) (int64, error) {
+func CreateArtifactPackageTask(args *commonmodels.ArtifactPackageTaskArgs, taskCreator string, log *zap.SugaredLogger) (*task.Task, error) {
 
 	configPayload := commonservice.GetConfigPayload(0)
 	repos, err := commonrepo.NewRegistryNamespaceColl().FindAll(&commonrepo.FindRegOps{})
 
 	if err != nil {
 		log.Errorf("CreateArtifactPackageTask query registries failed, err: %s", err)
-		return 0, fmt.Errorf("failed to query registries")
+		return nil, fmt.Errorf("failed to query registries")
 	}
 
 	registriesInvolved := sets.NewString()
@@ -68,13 +67,13 @@ func CreateArtifactPackageTask(args *commonmodels.ArtifactPackageTaskArgs, taskC
 	defaultS3, err := s3.FindDefaultS3()
 	if err != nil {
 		err = e.ErrFindDefaultS3Storage.AddDesc("default storage is required by distribute task")
-		return 0, err
+		return nil, err
 	}
 
 	defaultURL, err := defaultS3.GetEncryptedURL()
 	if err != nil {
 		err = e.ErrS3Storage.AddErr(err)
-		return 0, err
+		return nil, err
 	}
 
 	task := &task.Task{
@@ -86,8 +85,10 @@ func CreateArtifactPackageTask(args *commonmodels.ArtifactPackageTaskArgs, taskC
 		ConfigPayload:           configPayload,
 		StorageURI:              defaultURL,
 	}
+	endpoint := fmt.Sprintf("%s-%s:9000", config.Namespace(), ClusterStorageEP)
+	task.StorageEndpoint = endpoint
 
-	subTask, err := (&taskmodels.ArtifactPackage{
+	subTasks, err := (&taskmodels.ArtifactPackage{
 		TaskType:         config.TaskArtifactPackage,
 		Enabled:          true,
 		TaskStatus:       "",
@@ -101,41 +102,22 @@ func CreateArtifactPackageTask(args *commonmodels.ArtifactPackageTaskArgs, taskC
 	}).ToSubTask()
 
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-
-	task.SubTasks = []map[string]interface{}{subTask}
 
 	if err := ensurePipelineTask(task, "", log); err != nil {
 		log.Errorf("CreateServiceTask ensurePipelineTask err : %v", err)
-		return 0, err
+		return nil, err
 	}
 
 	stages := make([]*commonmodels.Stage, 0)
-	for _, subTask := range task.SubTasks {
-		AddSubtaskToStage(&stages, subTask, args.EnvName)
-	}
+	AddSubtaskToStage(&stages, subTasks, args.EnvName)
 	sort.Sort(ByStageKind(stages))
 	task.Stages = stages
-	if len(task.Stages) == 0 {
-		return 0, e.ErrCreateTask.AddDesc(e.PipelineSubTaskNotFoundErrMsg)
-	}
-
-	pipelineName := fmt.Sprintf("%s-%s-%s", args.ProjectName, args.EnvName, "artifact")
-	nextTaskID, err := commonrepo.NewCounterColl().GetNextSeq(fmt.Sprintf(setting.ServiceTaskFmt, pipelineName))
-	if err != nil {
-		log.Errorf("CreateServiceTask Counter.GetNextSeq error: %v", err)
-		return 0, e.ErrGetCounter.AddDesc(err.Error())
-	}
-
 	task.SubTasks = []map[string]interface{}{}
-	task.TaskID = nextTaskID
-	task.PipelineName = pipelineName
-
-	if err := CreateTask(task); err != nil {
-		log.Error(err)
-		return 0, e.ErrCreateTask
+	if len(task.Stages) == 0 {
+		return nil, e.ErrCreateTask.AddDesc(e.PipelineSubTaskNotFoundErrMsg)
 	}
 
-	return nextTaskID, nil
+	return task, nil
 }
