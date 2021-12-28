@@ -951,7 +951,6 @@ func AddDataToArgsOrCreateReleaseImageTask(args *commonmodels.WorkflowTaskArgs, 
 	}
 
 	return createReleaseImageTask(workflow, args, log)
-	//return createReleaseImageTaskV2(workflow, args, log)
 }
 
 func buildRegistryMap() (map[string]*commonmodels.RegistryNamespace, error) {
