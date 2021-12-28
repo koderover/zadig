@@ -91,7 +91,7 @@ rules:
           - key: "production"
             value: "false"
       - method: PUT
-        endpoint: "/api/aslan/service/services/pm/healthCheckUpdate"
+        endpoint: "/api/aslan/service/pm/healthCheckUpdate"
         resourceType: "Environment"
         matchAttributes:
           - key: "production"
