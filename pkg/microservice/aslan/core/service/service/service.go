@@ -751,7 +751,7 @@ func UpdateServiceVisibility(args *commonservice.ServiceTmplObject) error {
 		Revision:    args.Revision,
 	})
 	if err != nil {
-		log.Errorf("Can not find service with option %+v", args)
+		log.Errorf("Can not find service with option %+v. Error: %s", args, err)
 		return err
 	}
 
@@ -775,7 +775,7 @@ func UpdateServiceVisibility(args *commonservice.ServiceTmplObject) error {
 	}
 
 	envStatuses := make([]*commonmodels.EnvStatus, 0)
-	//remove the status not have env or host
+	// Remove environments and hosts that do not exist in the check status
 	for _, envStatus := range args.EnvStatuses {
 		var existEnv, existHost bool
 
@@ -820,7 +820,7 @@ func UpdateServiceHealthCheckStatus(args *commonservice.ServiceTmplObject) error
 		Revision:    args.Revision,
 	})
 	if err != nil {
-		log.Errorf("Can not find service with option %+v", args)
+		log.Errorf("Can not find service with option %+v. Error: %s", args, err)
 		return err
 	}
 	changeEnvStatus := []*commonmodels.EnvStatus{}
@@ -863,15 +863,12 @@ func UpdateServiceHealthCheckStatus(args *commonservice.ServiceTmplObject) error
 			privateKeysSet.Insert(tmp.HostID)
 		}
 	}
-
 	// get env status
-
 	for _, v := range currentService.EnvStatuses {
 		if v.EnvName != args.EnvName {
 			changeEnvStatus = append(changeEnvStatus, v)
 		}
 	}
-
 	// generate env status for this env
 	updateArgs := &commonmodels.Service{
 		ProductName: args.ProductName,

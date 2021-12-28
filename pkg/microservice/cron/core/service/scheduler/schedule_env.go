@@ -91,9 +91,9 @@ func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
 					taskMap[key] = true
 					if _, ok := c.lastServiceSchedulers[key]; ok && reflect.DeepEqual(serviceRevision, c.lastServiceSchedulers[key]) {
 						continue
-					} else {
-						c.lastServiceSchedulers[key] = serviceRevision
 					}
+					c.lastServiceSchedulers[key] = serviceRevision
+
 					newScheduler := gocron.NewScheduler()
 					BuildScheduledEnvJob(newScheduler, healthCheck).Do(c.RunScheduledService, svc, healthCheck, envStatus.Address, env.EnvName, envStatus.HostID, log)
 					c.Schedulers[key] = newScheduler
