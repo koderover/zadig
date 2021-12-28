@@ -99,19 +99,31 @@ func UpdateServiceTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	args := new(commonservice.ServiceTmplObject)
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("UpdateServiceTemplate c.GetRawData() err : %v", err)
-	}
-	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("UpdateServiceTemplate json.Unmarshal err : %v", err)
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = err
+		return
 	}
 	if args.Username != "system" {
 		internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "项目管理-服务", fmt.Sprintf("服务名称:%s,版本号:%d", args.ServiceName, args.Revision), "", ctx.Logger)
 	}
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 	args.Username = ctx.UserName
-	ctx.Err = svcservice.UpdateServiceTemplate(args)
+	ctx.Err = svcservice.UpdateServiceVisibility(args)
+}
+
+func UpdateServiceHealthCheckStatus(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(commonservice.ServiceTmplObject)
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = err
+		return
+	}
+	if args.Username != "system" {
+		internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "项目管理-服务", fmt.Sprintf("服务名称:%s,版本号:%d", args.ServiceName, args.Revision), "", ctx.Logger)
+	}
+	args.Username = ctx.UserName
+	ctx.Err = svcservice.UpdateServiceHealthCheckStatus(args)
 }
 
 type ValidatorResp struct {

@@ -35,8 +35,6 @@ const (
 	OrgKind         = "org"
 	GroupKind       = "group"
 	UserKind        = "user"
-	page            = 1
-	perPage         = 100
 	CodeHostCodeHub = "codehub"
 )
 
