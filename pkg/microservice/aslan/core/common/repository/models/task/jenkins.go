@@ -48,15 +48,15 @@ type JenkinsBuild struct {
 	ServiceName        string                      `bson:"service_name"            json:"service_name"`
 	Service            string                      `bson:"service"                 json:"service"`
 	OnSetup            string                      `bson:"setup,omitempty"         json:"setup,omitempty"`
-	Timeout            int                         `bson:"timeout"                 json:"timeout,omitempty"`
-	Error              string                      `bson:"error"                   json:"error,omitempty"`
+	Timeout            int                         `bson:"timeout,omitempty"       json:"timeout,omitempty"`
+	Error              string                      `bson:"error,omitempty"         json:"error,omitempty"`
 	ResReq             setting.Request             `bson:"res_req"                 json:"res_req"`
 	ResReqSpec         setting.RequestSpec         `bson:"res_req_spec"            json:"res_req_spec"`
 	JenkinsIntegration *JenkinsIntegration         `bson:"-"                       json:"jenkins_integration"`
 	JenkinsBuildArgs   *JenkinsBuildArgs           `bson:"-"                       json:"jenkins_build_args"`
 	Registries         []*models.RegistryNamespace `bson:"registries"              json:"registries"`
-	StartTime          int64                       `bson:"start_time"              json:"start_time,omitempty"`
-	EndTime            int64                       `bson:"end_time"                json:"end_time,omitempty"`
+	StartTime          int64                       `bson:"start_time,omitempty"    json:"start_time,omitempty"`
+	EndTime            int64                       `bson:"end_time,omitempty"      json:"end_time,omitempty"`
 	LogFile            string                      `bson:"log_file"                json:"log_file"`
 	Image              string                      `bson:"image,omitempty"         json:"image,omitempty"`
 	IsRestart          bool                        `bson:"is_restart"              json:"is_restart"`
