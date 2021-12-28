@@ -542,6 +542,8 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			SkipCRDs:    false,
 			UpgradeCRDs: true,
 			Timeout:     time.Second * DeployTimeout,
+			Wait:        true,
+			Atomic:      true,
 		}
 
 		if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), &chartSpec); err != nil {
