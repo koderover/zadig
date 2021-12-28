@@ -419,8 +419,8 @@ func ParallelRunningAndQueuedTasks(currentTask *task.Task) bool {
 		return false
 	}
 	//优先处理webhook
-	if currentTask.TaskCreator == setting.WebhookTaskCreator {
-		return HandlerWebhookTask(currentTask)
+	if currentTask.TaskCreator == setting.WebhookTaskCreator && HandlerWebhookTask(currentTask) {
+		return true
 	}
 	//判断如果当前的task没有部署，直接放到队列里执行
 	currentTaskDeployServices := sets.NewString()
