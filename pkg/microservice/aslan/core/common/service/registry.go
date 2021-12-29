@@ -17,8 +17,15 @@ limitations under the License.
 package service
 
 import (
+	"encoding/base64"
+	"errors"
 	"fmt"
+	"strings"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/ecr"
 	"go.uber.org/zap"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -30,11 +37,11 @@ import (
 	"github.com/koderover/zadig/pkg/util"
 )
 
-func FindRegistryById(registryId string, log *zap.SugaredLogger) (*models.RegistryNamespace, error) {
-	return findRegisty(&mongodb.FindRegOps{ID: registryId}, log)
+func FindRegistryById(registryId string, getRealCredential bool, log *zap.SugaredLogger) (*models.RegistryNamespace, error) {
+	return findRegisty(&mongodb.FindRegOps{ID: registryId}, getRealCredential, log)
 }
 
-func findRegisty(regOps *mongodb.FindRegOps, log *zap.SugaredLogger) (*models.RegistryNamespace, error) {
+func findRegisty(regOps *mongodb.FindRegOps, getRealCredential bool, log *zap.SugaredLogger) (*models.RegistryNamespace, error) {
 	// TODO: 多租户适配
 	resp, err := mongodb.NewRegistryNamespaceColl().Find(regOps)
 
@@ -48,37 +55,58 @@ func findRegisty(regOps *mongodb.FindRegOps, log *zap.SugaredLogger) (*models.Re
 		}
 	}
 
-	ak := resp.AccessKey
-	sk := resp.SecretKey
-	if resp.RegProvider == config.SWRProvider {
-		ak = fmt.Sprintf("%s@%s", resp.Region, resp.AccessKey)
-		sk = util.ComputeHmacSha256(resp.AccessKey, resp.SecretKey)
+	if getRealCredential {
+		switch resp.RegProvider {
+		case config.RegistryTypeSWR:
+			resp.AccessKey = fmt.Sprintf("%s@%s", resp.Region, resp.AccessKey)
+			resp.SecretKey = util.ComputeHmacSha256(resp.AccessKey, resp.SecretKey)
+		case config.RegistryTypeAWS:
+			realAK, realSK, err := getAWSRegistryCredential(resp.AccessKey, resp.SecretKey, resp.Region)
+			if err != nil {
+				log.Errorf("Failed to get keypair from aws, the error is: %s", err)
+				return nil, err
+			}
+			resp.AccessKey = realAK
+			resp.SecretKey = realSK
+		default:
+			break
+		}
 	}
-	resp.AccessKey = ak
-	resp.SecretKey = sk
 
 	return resp, nil
 }
 
-func FindDefaultRegistry(log *zap.SugaredLogger) (*models.RegistryNamespace, error) {
-	return findRegisty(&mongodb.FindRegOps{IsDefault: true}, log)
+func FindDefaultRegistry(getRealCredential bool, log *zap.SugaredLogger) (*models.RegistryNamespace, error) {
+	return findRegisty(&mongodb.FindRegOps{IsDefault: true}, getRealCredential, log)
 }
 
-func GetDefaultRegistryNamespace(log *zap.SugaredLogger) (*models.RegistryNamespace, error) {
-	resp, err := mongodb.NewRegistryNamespaceColl().Find(&mongodb.FindRegOps{IsDefault: true})
-	if err != nil {
-		log.Errorf("get default registry error: %s", err)
-		return resp, fmt.Errorf("get default registry error: %s", err)
-	}
-	return resp, nil
-}
-
-func ListRegistryNamespaces(log *zap.SugaredLogger) ([]*models.RegistryNamespace, error) {
+func ListRegistryNamespaces(getRealCredential bool, log *zap.SugaredLogger) ([]*models.RegistryNamespace, error) {
 	resp, err := mongodb.NewRegistryNamespaceColl().FindAll(&mongodb.FindRegOps{})
 	if err != nil {
 		log.Errorf("RegistryNamespace.List error: %s", err)
 		return resp, fmt.Errorf("RegistryNamespace.List error: %s", err)
 	}
+
+	if getRealCredential {
+		for _, reg := range resp {
+			switch reg.RegProvider {
+			case config.RegistryTypeSWR:
+				reg.AccessKey = fmt.Sprintf("%s@%s", reg.Region, reg.AccessKey)
+				reg.SecretKey = util.ComputeHmacSha256(reg.AccessKey, reg.SecretKey)
+			case config.RegistryTypeAWS:
+				realAK, realSK, err := getAWSRegistryCredential(reg.AccessKey, reg.SecretKey, reg.Region)
+				if err != nil {
+					log.Errorf("Failed to get keypair from aws, the error is: %s", err)
+					return nil, err
+				}
+				reg.AccessKey = realAK
+				reg.SecretKey = realSK
+			default:
+				break
+			}
+		}
+	}
+
 	return resp, nil
 }
 
@@ -86,7 +114,7 @@ func EnsureDefaultRegistrySecret(namespace string, registryId string, kubeClient
 	var reg *models.RegistryNamespace
 	var err error
 	if len(registryId) > 0 {
-		reg, err = FindRegistryById(registryId, log)
+		reg, err = FindRegistryById(registryId, true, log)
 		if err != nil {
 			log.Errorf(
 				"service.EnsureRegistrySecret: failed to find registry: %s error msg:%s",
@@ -95,7 +123,7 @@ func EnsureDefaultRegistrySecret(namespace string, registryId string, kubeClient
 			return err
 		}
 	} else {
-		reg, err = FindDefaultRegistry(log)
+		reg, err = FindDefaultRegistry(true, log)
 		if err != nil {
 			log.Errorf(
 				"service.EnsureRegistrySecret: failed to find default candidate registry: %s %s",
@@ -112,4 +140,35 @@ func EnsureDefaultRegistrySecret(namespace string, registryId string, kubeClient
 	}
 
 	return nil
+}
+
+// TODO: implement in-memory cache for this function to avoid rate limits.
+func getAWSRegistryCredential(AK, SK, Region string) (string, string, error) {
+	creds := credentials.NewStaticCredentials(AK, SK, "")
+	config := &aws.Config{
+		Region:      aws.String(Region),
+		Credentials: creds,
+	}
+	sess, err := session.NewSession(config)
+	if err != nil {
+		return "", "", err
+	}
+	svc := ecr.New(sess)
+	input := &ecr.GetAuthorizationTokenInput{}
+
+	result, err := svc.GetAuthorizationToken(input)
+	if err != nil {
+		return "", "", err
+	}
+	// since the new AWS ECR will give a token that has access to ALL the repository, we use the first token
+	encodedToken := *result.AuthorizationData[0].AuthorizationToken
+	rawDecodedText, err := base64.StdEncoding.DecodeString(encodedToken)
+	if err != nil {
+		return "", "", err
+	}
+	keypair := strings.Split(string(rawDecodedText), ":")
+	if len(keypair) != 2 {
+		return "", "", errors.New("decode keypair from aws response error")
+	}
+	return keypair[0], keypair[1], nil
 }

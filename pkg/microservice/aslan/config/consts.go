@@ -202,7 +202,8 @@ const (
 )
 
 const (
-	SWRProvider = "swr"
+	RegistryTypeSWR = "swr"
+	RegistryTypeAWS = "ecr"
 )
 
 const (
