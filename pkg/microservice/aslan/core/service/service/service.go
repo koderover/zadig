@@ -35,7 +35,6 @@ import (
 
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -255,7 +254,7 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 	return serviceOption, nil
 }
 
-func CreateK8sWorkLoads(ctx context.Context, requestID, username string, productName string, workLoads []models.Workload, clusterID, namespace string, envName string, log *zap.SugaredLogger) error {
+func CreateK8sWorkLoads(ctx context.Context, requestID, username string, productName string, workLoads []commonmodels.Workload, clusterID, namespace string, envName string, log *zap.SugaredLogger) error {
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
 	if err != nil {
 		log.Errorf("[%s] error: %v", namespace, err)
@@ -270,7 +269,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 
 	// todo Add data filter
 	var (
-		workloadsTmp []models.Workload
+		workloadsTmp []commonmodels.Workload
 		mu           sync.Mutex
 	)
 
@@ -315,14 +314,14 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 
 			mu.Lock()
 			defer mu.Unlock()
-			workloadsTmp = append(workloadsTmp, models.Workload{
+			workloadsTmp = append(workloadsTmp, commonmodels.Workload{
 				EnvName:     envName,
 				Name:        tempWorkload.Name,
 				Type:        tempWorkload.Type,
 				ProductName: productName,
 			})
 
-			return CreateWorkloadTemplate(username, &models.Service{
+			return CreateWorkloadTemplate(username, &commonmodels.Service{
 				ServiceName:  tempWorkload.Name,
 				Yaml:         string(bs),
 				ProductName:  productName,
@@ -505,7 +504,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 				delete(diff, v.Name)
 				continue
 			}
-			if err = CreateWorkloadTemplate(username, &models.Service{
+			if err = CreateWorkloadTemplate(username, &commonmodels.Service{
 				ServiceName:  v.Name,
 				Yaml:         string(bs),
 				ProductName:  productName,
@@ -527,15 +526,15 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 	return commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat)
 }
 
-func updateWorkloads(existWorkloads []models.Workload, diff map[string]*ServiceWorkloadsUpdateAction, envName string, productName string) (result []models.Workload) {
-	existWorkloadsMap := map[string]models.Workload{}
+func updateWorkloads(existWorkloads []commonmodels.Workload, diff map[string]*ServiceWorkloadsUpdateAction, envName string, productName string) (result []commonmodels.Workload) {
+	existWorkloadsMap := map[string]commonmodels.Workload{}
 	for _, v := range existWorkloads {
 		existWorkloadsMap[v.Name] = v
 	}
 	for _, v := range diff {
 		switch v.Operation {
 		case "add":
-			vv := models.Workload{
+			vv := commonmodels.Workload{
 				EnvName:     envName,
 				Name:        v.Name,
 				Type:        v.Type,
@@ -552,9 +551,9 @@ func updateWorkloads(existWorkloads []models.Workload, diff map[string]*ServiceW
 	return result
 }
 
-func replaceWorkloads(existWorkloads []models.Workload, newWorkloads []models.Workload, envName string) []models.Workload {
-	var result []models.Workload
-	workloadMap := map[string]models.Workload{}
+func replaceWorkloads(existWorkloads []commonmodels.Workload, newWorkloads []commonmodels.Workload, envName string) []commonmodels.Workload {
+	var result []commonmodels.Workload
+	workloadMap := map[string]commonmodels.Workload{}
 	for _, workload := range existWorkloads {
 		if workload.EnvName != envName {
 			workloadMap[workload.Name] = workload
@@ -836,7 +835,7 @@ func UpdateServiceHealthCheckStatus(args *commonservice.ServiceTmplObject) error
 			changeEnvConfigs = append(changeEnvConfigs, v)
 		}
 	}
-	privateKeys := []*models.PrivateKey{}
+	privateKeys := []*commonmodels.PrivateKey{}
 	for _, envConfig := range args.EnvConfigs {
 		privateKeys, err = commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{IDs: envConfig.HostIDs})
 		if err != nil {
@@ -853,7 +852,7 @@ func UpdateServiceHealthCheckStatus(args *commonservice.ServiceTmplObject) error
 	}
 	privateKeysSet := sets.NewString()
 	for _, v := range privateKeys {
-		tmp := models.EnvStatus{
+		tmp := commonmodels.EnvStatus{
 			HostID:  v.ID.Hex(),
 			EnvName: args.EnvName,
 			Address: v.IP,

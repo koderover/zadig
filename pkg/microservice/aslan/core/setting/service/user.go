@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
@@ -140,7 +139,7 @@ var (
 		ObjectMeta: metav1.ObjectMeta{
 			Name: config.RoleBindingNameEdit,
 		},
-		Rules: []rbacv1beta1.PolicyRule{rbacv1beta1.PolicyRule{
+		Rules: []rbacv1beta1.PolicyRule{{
 			Verbs:     []string{"*"},
 			APIGroups: []string{"*"},
 			Resources: []string{"pods", "deployments", "configmaps", "crobjobs", "daemonsets", "ingresses", "jobs", "secrets", "services", "statefulsets"},
@@ -149,7 +148,7 @@ var (
 		ObjectMeta: metav1.ObjectMeta{
 			Name: config.RoleBindingNameView,
 		},
-		Rules: []rbacv1beta1.PolicyRule{rbacv1beta1.PolicyRule{
+		Rules: []rbacv1beta1.PolicyRule{{
 			Verbs:     []string{"get", "watch", "list"},
 			APIGroups: []string{"*"},
 			Resources: []string{"*"},
@@ -218,7 +217,7 @@ func ensureServiceAccountAndRolebinding(namespace string, projectsEnvCanEdit []s
 		projectsEnvCanView = res
 	}
 
-	canEditProducts := []*models.Product{}
+	canEditProducts := []*commonmodels.Product{}
 	if len(projectsEnvCanEdit) != 0 {
 		canEditProducts, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{InProjects: projectsEnvCanEdit})
 		if err != nil {
@@ -231,7 +230,7 @@ func ensureServiceAccountAndRolebinding(namespace string, projectsEnvCanEdit []s
 			log.Warnf("CreateRoleBinding err: %s", err)
 		}
 	}
-	canViewProducts := []*models.Product{}
+	canViewProducts := []*commonmodels.Product{}
 	if len(projectsEnvCanView) != 0 {
 		canViewProducts, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{InProjects: projectsEnvCanView})
 		if err != nil {

@@ -40,8 +40,8 @@ type DeliveryDistribute struct {
 	StorageURL     string                `bson:"-"                      json:"storageUrl"`
 	StorageBucket  string                `bson:"-"                      json:"storageBucket"`
 	SrcStorageURL  string                `bson:"src_storage_url"        json:"srcStorageUrl,omitempty"`
-	StartTime      int64                 `bson:"start_time,omitempty"   json:"start_time,omitempty,omitempty"`
-	EndTime        int64                 `bson:"end_time,omitempty"     json:"end_time,omitempty,omitempty"`
+	StartTime      int64                 `bson:"start_time,omitempty"   json:"start_time,omitempty"`
+	EndTime        int64                 `bson:"end_time,omitempty"     json:"end_time,omitempty"`
 	CreatedAt      int64                 `bson:"created_at"             json:"created_at"`
 	DeletedAt      int64                 `bson:"deleted_at"             json:"deleted_at"`
 }
