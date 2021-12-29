@@ -68,6 +68,9 @@ func findRegisty(regOps *mongodb.FindRegOps, getRealCredential bool, log *zap.Su
 			}
 			resp.AccessKey = realAK
 			resp.SecretKey = realSK
+			// for AWS, since there are no namespaces, we manually decrypt the namespace from URI
+			arr := strings.Split(resp.RegAddr, "/")
+			resp.Namespace = arr[len(arr)-1]
 		default:
 			break
 		}
@@ -101,6 +104,9 @@ func ListRegistryNamespaces(getRealCredential bool, log *zap.SugaredLogger) ([]*
 				}
 				reg.AccessKey = realAK
 				reg.SecretKey = realSK
+				// for AWS, since there are no namespaces, we manually decrypt the namespace from URI
+				arr := strings.Split(reg.RegAddr, "/")
+				reg.Namespace = arr[len(arr)-1]
 			default:
 				break
 			}
