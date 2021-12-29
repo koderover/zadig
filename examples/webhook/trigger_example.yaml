@@ -1,0 +1,58 @@
+# 定义触发的步骤
+stages:
+  - build
+  - deploy
+  - test
+# 构建参数
+build:
+  - name:  service_name # 服务名
+    service_module: service_module_name # 服务组件名
+    variables: # zadig 系统中需要先声明出来才能指定，否则这边配置也无效
+      - name: k1
+        value: v1
+# 部署策略
+deploy:
+  strategy: single # single(更新指定环境)/dynamic(动态选择空闲环境)/base(更新基准环境，需配置 env_recycle_policy 和 base_env)
+  envs_name:
+    - dev
+   
+  # strategy 值为 base 时才需配置以下变量
+  # env_recycle_policy: success # success(成功后销毁)/always(每次销毁)/never(每次保留)
+  # base_env: dev
+# 测试参数
+test:
+  - name: test_name
+    repo:
+      strategy: currentRepo # default(在 zadig 平台默认配置的代码仓库信息)/currentRepo(使用当前变动的代码信息)
+    variables:
+      - name: k1
+        value: v1
+# 触发条件规则
+rules: 
+  branchs: 
+      - 'feature*' 
+  events:
+      - pull_request
+      - push
+  strategy:
+    # 自动取消，如果您希望只构建最新的提交，则使用这个选项会自动取消队列中的任务
+    auto_cancel: true    
+  # 指定服务与代码目录的关系
+  match_folders: 
+    match_folders_tree:
+      - name: service1
+        service_module: service1
+        file_tree:
+          - src/service1
+          - ci
+      - name: service2
+        service_module: service2
+        file_tree:
+          - src/service2
+          - ci
+# 缓存配置
+cache_set: 
+    # 不使用 docker 缓存
+    ignore_cache: false
+    # 不使用工作空间缓存
+    reset_cache: false

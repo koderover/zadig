@@ -17,7 +17,7 @@ limitations under the License.
 package version
 
 var (
-	Version     = "1.7.1"
+	Version     = "1.8.0"
 	BuildNumber = "0"
 	GitCommit   = ""
 )

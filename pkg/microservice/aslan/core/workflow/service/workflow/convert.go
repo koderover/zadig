@@ -25,6 +25,7 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
@@ -153,6 +154,11 @@ func JenkinsBuildModuleToSubTasks(jenkinsBuildOption *JenkinsBuildOption, log *z
 		return nil, e.ErrConvertSubTasks.AddErr(err)
 	}
 
+	registries, err := commonservice.ListRegistryNamespaces(log)
+	if err != nil {
+		return nil, e.ErrConvertSubTasks.AddErr(err)
+	}
+
 	jenkinsBuildParams := make([]*task.JenkinsBuildParam, 0)
 	for _, jenkinsBuildParam := range jenkinsBuildOption.JenkinsBuildArgs.JenkinsBuildParams {
 		jenkinsBuildParams = append(jenkinsBuildParams, &task.JenkinsBuildParam{
@@ -179,6 +185,7 @@ func JenkinsBuildModuleToSubTasks(jenkinsBuildOption *JenkinsBuildOption, log *z
 				Username: jenkinsIntegrations[0].Username,
 				Password: jenkinsIntegrations[0].Password,
 			},
+			Registries: registries,
 		}
 
 		bst, err := build.ToSubTask()

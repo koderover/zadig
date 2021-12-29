@@ -49,7 +49,7 @@ type Build struct {
 	ResReqSpec        setting.RequestSpec  `bson:"res_req_spec"               json:"res_req_spec"`
 	LogFile           string               `bson:"log_file"                   json:"log_file"`
 	InstallCtx        []*Install           `bson:"-"                          json:"install_ctx,omitempty"`
-	Registries        []*RegistryNamespace `bson:"-"                   json:"registries"`
+	Registries        []*RegistryNamespace `bson:"-"                          json:"registries"`
 	StaticCheckStatus *StaticCheckStatus   `bson:"static_check_status,omitempty" json:"static_check_status,omitempty"`
 	UTStatus          *UTStatus            `bson:"ut_status,omitempty" json:"ut_status,omitempty"`
 	DockerBuildStatus *DockerBuildStatus   `bson:"docker_build_status,omitempty" json:"docker_build_status,omitempty"`

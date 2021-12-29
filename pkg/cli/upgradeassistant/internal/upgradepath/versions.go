@@ -17,98 +17,34 @@ limitations under the License.
 package upgradepath
 
 import (
-	"sort"
-
 	"github.com/blang/semver/v4"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-const (
-	Latest = iota + 1
-	V130
-	V131
-	V140
-	V150
-	V160
-	V170
-	V171
-	V180
-)
+var VersionDatas versionList
 
-var versionMap versions = map[string]int{
-	"1.3.0": V130,
-	"1.3.1": V131,
-	"1.4.0": V140,
-	"1.5.0": V150,
-	"1.6.0": V160,
-	"1.7.0": V170,
-	"1.7.1": V171,
-	"1.8.0": V180,
-}
+type versionList []string
 
-type versions map[string]int
-
-func (v versions) From(version string) int {
-	f, err := semver.Make(version)
-	if err != nil {
-		return Latest
-	}
-	res, ok := v[f.FinalizeVersion()]
-	if !ok {
-		return Latest
-	}
-
-	return res
-}
-
-func (v versions) To(version string) int {
+func (v versionList) VersionIndex(version string) int {
 	t, err := semver.Make(version)
 	if err != nil {
-		return Latest
-	}
-	res, ok := v[t.FinalizeVersion()]
-	if !ok {
-		return Latest
+		return 0
 	}
 
-	return res
-}
-
-func (v versions) Max() int {
-	return v[v.MaxVersionString()]
-}
-
-func (v versions) MaxVersionString() string {
-	max, _ := semver.Make("0.0.1")
-	for ver := range v {
-		sv, _ := semver.Make(ver)
-		if sv.GT(max) {
-			max = sv
+	for index, _version := range VersionDatas {
+		if _version == t.FinalizeVersion() {
+			return index
 		}
 	}
-
-	return max.FinalizeVersion()
+	return 0
 }
 
-func init() {
-	versionList := make([]string, 0, len(versionMap))
-	for v := range versionMap {
-		versionList = append(versionList, v)
-	}
-
-	sort.Strings(versionList)
-
-	for i := 0; i < len(versionList)-1; i++ {
-		lowVersion := versionList[i]
-		highVersion := versionList[i+1]
-		AddHandler(versionMap[lowVersion], versionMap[highVersion], defaultUpgradeHandler)
-		AddHandler(versionMap[highVersion], versionMap[lowVersion], defaultRollBackHandler)
-	}
-}
-
-func defaultUpgradeHandler() error {
+func DefaultUpgradeHandler() error {
+	log.Info("default upgrade handler ")
 	return nil
 }
 
-func defaultRollBackHandler() error {
+func DefaultRollBackHandler() error {
+	log.Info("default rollback handler ")
 	return nil
 }

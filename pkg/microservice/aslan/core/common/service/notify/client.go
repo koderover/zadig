@@ -209,6 +209,11 @@ func (c *client) ProccessNotify(notify *models.Notify) error {
 			_ = c.scmNotifyService.UpdatePipelineWebhookComment(task, logger)
 		} else if ctx.Type == config.WorkflowType {
 			if task.TaskCreator == setting.RequestModeOpenAPI {
+				// send callback requests
+				err = c.sendCallbackRequest(task)
+				if err != nil {
+					logger.Errorf("failed to send callback request for workflow: %s, taskID: %d, err: %s", task.PipelineName, task.TaskID, err)
+				}
 				return nil
 			}
 			logger.Infof("workflow get task #%d notify, status: %s", ctx.TaskID, ctx.Status)
@@ -224,12 +229,6 @@ func (c *client) ProccessNotify(notify *models.Notify) error {
 		err = c.WeChatService.SendWechatMessage(task)
 		if err != nil {
 			return fmt.Errorf("SendWechatMessage err : %v", err)
-		}
-
-		// send callback requests
-		err = c.sendCallbackRequest(task)
-		if err != nil {
-			logger.Errorf("failed to send callback request for workflow: %s, taskID: %d, err: %s", task.PipelineName, task.TaskID, err)
 		}
 
 		for _, receiver := range receivers {
@@ -326,6 +325,9 @@ func (c *client) sendCallbackRequest(task *task.Task) error {
 	if !taskFinished(task) {
 		return nil
 	}
+
+	//TODO remove this log after openApi becomes stable
+	log.Infof("sending callback request for workflow:%s, taskID:%d", task.PipelineName, task.TaskID)
 
 	if task.WorkflowArgs == nil {
 		return nil

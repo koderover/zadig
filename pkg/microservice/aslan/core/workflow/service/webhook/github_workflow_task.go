@@ -170,6 +170,7 @@ func (gmem *githubMergeEventMatcher) UpdateTaskArgs(
 type workflowArgsFactory struct {
 	workflow *commonmodels.Workflow
 	reqID    string
+	IsYaml   bool
 }
 
 func (waf *workflowArgsFactory) Update(product *commonmodels.Product, args *commonmodels.WorkflowTaskArgs, repo *types.Repository) *commonmodels.WorkflowTaskArgs {
@@ -189,7 +190,7 @@ func (waf *workflowArgsFactory) Update(product *commonmodels.Product, args *comm
 		target.Build.Repos = append(target.Build.Repos, repo)
 		if len(target.Deploy) == 0 {
 			if targetMap == nil {
-				targetMap = getProductTargetMap(product)
+				targetMap = getProductTargetMap(product, waf.IsYaml)
 			}
 			serviceModuleTarget := fmt.Sprintf("%s%s%s%s%s", args.ProductTmplName, SplitSymbol, target.ServiceName, SplitSymbol, target.Name)
 			target.Deploy = targetMap[serviceModuleTarget]
@@ -200,7 +201,7 @@ func (waf *workflowArgsFactory) Update(product *commonmodels.Product, args *comm
 		target.Builds = append(target.Builds, repo)
 	}
 
-	if workflow.TestStage != nil && workflow.TestStage.Enabled {
+	if !waf.IsYaml && workflow.TestStage != nil && workflow.TestStage.Enabled {
 		testArgs := make([]*commonmodels.TestArgs, 0)
 		for _, testName := range workflow.TestStage.TestNames {
 			testArgs = append(testArgs, &commonmodels.TestArgs{

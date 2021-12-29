@@ -743,14 +743,14 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap
 	return GetServiceOption(args, log)
 }
 
-func UpdateServiceTemplate(args *commonservice.ServiceTmplObject) error {
+func UpdateServiceVisibility(args *commonservice.ServiceTmplObject) error {
 	currentService, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
 		ProductName: args.ProductName,
 		ServiceName: args.ServiceName,
 		Revision:    args.Revision,
 	})
 	if err != nil {
-		log.Errorf("Can not find service with option %+v", args)
+		log.Errorf("Can not find service with option %+v. Error: %s", args, err)
 		return err
 	}
 
@@ -774,7 +774,7 @@ func UpdateServiceTemplate(args *commonservice.ServiceTmplObject) error {
 	}
 
 	envStatuses := make([]*commonmodels.EnvStatus, 0)
-	// 去掉检查状态中不存在的环境和主机
+	// Remove environments and hosts that do not exist in the check status
 	for _, envStatus := range args.EnvStatuses {
 		var existEnv, existHost bool
 
@@ -810,6 +810,83 @@ func UpdateServiceTemplate(args *commonservice.ServiceTmplObject) error {
 		EnvStatuses: envStatuses,
 	}
 	return commonrepo.NewServiceColl().Update(updateArgs)
+}
+
+func UpdateServiceHealthCheckStatus(args *commonservice.ServiceTmplObject) error {
+	currentService, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+		ProductName: args.ProductName,
+		ServiceName: args.ServiceName,
+		Revision:    args.Revision,
+	})
+	if err != nil {
+		log.Errorf("Can not find service with option %+v. Error: %s", args, err)
+		return err
+	}
+	changeEnvStatus := []*commonmodels.EnvStatus{}
+	changeEnvConfigs := []*commonmodels.EnvConfig{}
+
+	changeEnvConfigs = append(changeEnvConfigs, args.EnvConfigs...)
+	envConfigsSet := sets.String{}
+	for _, v := range changeEnvConfigs {
+		envConfigsSet.Insert(v.EnvName)
+	}
+	for _, v := range currentService.EnvConfigs {
+		if !envConfigsSet.Has(v.EnvName) {
+			changeEnvConfigs = append(changeEnvConfigs, v)
+		}
+	}
+	privateKeys := []*commonmodels.PrivateKey{}
+	for _, envConfig := range args.EnvConfigs {
+		privateKeys, err = commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{IDs: envConfig.HostIDs})
+		if err != nil {
+			log.Errorf("ListNameByArgs ids err:%s", err)
+			return err
+		}
+
+		privateKeysByLabels, err := commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{Labels: envConfig.Labels})
+		if err != nil {
+			log.Errorf("ListNameByArgs labels err:%s", err)
+			return err
+		}
+		privateKeys = append(privateKeys, privateKeysByLabels...)
+	}
+	privateKeysSet := sets.NewString()
+	for _, v := range privateKeys {
+		tmp := commonmodels.EnvStatus{
+			HostID:  v.ID.Hex(),
+			EnvName: args.EnvName,
+			Address: v.IP,
+		}
+		if !privateKeysSet.Has(tmp.HostID) {
+			changeEnvStatus = append(changeEnvStatus, &tmp)
+			privateKeysSet.Insert(tmp.HostID)
+		}
+	}
+	// get env status
+	for _, v := range currentService.EnvStatuses {
+		if v.EnvName != args.EnvName {
+			changeEnvStatus = append(changeEnvStatus, v)
+		}
+	}
+	// generate env status for this env
+	updateArgs := &commonmodels.Service{
+		ProductName: args.ProductName,
+		ServiceName: args.ServiceName,
+		Visibility:  args.Visibility,
+		Revision:    args.Revision,
+		Type:        args.Type,
+		CreateBy:    args.Username,
+		EnvConfigs:  changeEnvConfigs,
+		EnvStatuses: changeEnvStatus,
+	}
+	return commonrepo.NewServiceColl().UpdateServiceHealthCheckStatus(updateArgs)
+}
+
+func extractHostIPs(privateKeys []*commonmodels.PrivateKey, ips sets.String) sets.String {
+	for _, privateKey := range privateKeys {
+		ips.Insert(privateKey.IP)
+	}
+	return ips
 }
 
 func YamlValidator(args *YamlValidatorReq) []string {

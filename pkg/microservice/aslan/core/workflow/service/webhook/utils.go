@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"path"
 	"strings"
+	"sync"
 
 	"github.com/google/go-github/v35/github"
 	"github.com/hashicorp/go-multierror"
@@ -33,6 +34,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/codehub"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
@@ -509,4 +511,104 @@ func EventConfigured(m *commonmodels.MainHookRepo, event config.HookEventType) b
 	}
 
 	return false
+}
+
+func ServicesMatchChangesFiles(mf *MatchFoldersElem, m *commonmodels.MainHookRepo, files []string) []BuildServices {
+	resMactchSvr := []BuildServices{}
+	var wg sync.WaitGroup
+	var mutex sync.Mutex
+	for _, mftreeElem := range mf.MatchFoldersTree {
+		wg.Add(1)
+		go func(mftree *MatchFoldersTree) {
+			defer wg.Done()
+			mf := MatchFolders(mftree.FileTree)
+			for _, file := range files {
+				if matches := mf.ContainsFile(file); matches {
+					mutex.Lock()
+					resMactchSvr = append(resMactchSvr, BuildServices{Name: mftree.Name, ServiceModule: mftree.ServiceModule})
+					mutex.Unlock()
+					break
+				}
+			}
+		}(mftreeElem)
+	}
+	wg.Wait()
+	return resMactchSvr
+}
+
+func getServiceTypeByProject(productName string) (string, error) {
+	projectInfo, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		return "", err
+	}
+	projectType := setting.K8SDeployType
+	if projectInfo == nil || projectInfo.ProductFeature == nil {
+		return projectType, nil
+	} else if projectInfo.ProductFeature.BasicFacility == setting.BasicFacilityK8S {
+		if projectInfo.ProductFeature.DeployType == setting.HelmDeployType {
+			return setting.HelmDeployType, nil
+		}
+		return projectType, nil
+	} else if projectInfo.ProductFeature.BasicFacility == setting.BasicFacilityCVM {
+		return setting.PMDeployType, nil
+	}
+	return projectType, nil
+}
+
+func checkTriggerYamlParams(triggerYaml *TriggerYaml) error {
+	//check stages
+	for _, stage := range triggerYaml.Stages {
+		if stage != "build" && stage != "deploy" && stage != "test" {
+			return fmt.Errorf("stages must build or deploy or test")
+		}
+	}
+	//check build
+	for _, bd := range triggerYaml.Build {
+		if bd.Name == "" || bd.ServiceModule == "" {
+			return fmt.Errorf("build.name or build.service_module is empty")
+		}
+	}
+	//check deploy
+	if triggerYaml.Deploy == nil {
+		return fmt.Errorf("deploy must be exist")
+	}
+	if triggerYaml.Deploy.BaseNamespace != "" {
+		if triggerYaml.Deploy.EnvRecyclePolicy != "success" && triggerYaml.Deploy.EnvRecyclePolicy != "always" && triggerYaml.Deploy.EnvRecyclePolicy != "never" {
+			return fmt.Errorf("deploy.env_recycle_policy must success/always/never")
+		}
+	}
+	//check test
+	for _, tt := range triggerYaml.Test {
+		if tt.Repo == nil {
+			return fmt.Errorf("test.repo.strategy must default/currentRepo")
+		}
+		if tt.Repo.Strategy != "default" && tt.Repo.Strategy != "currentRepo" {
+			return fmt.Errorf("test.repo.strategy must default/currentRepo")
+		}
+	}
+	//check rule
+	if triggerYaml.Rules == nil {
+		return fmt.Errorf("rules must exist")
+	}
+	if len(triggerYaml.Rules.Branchs) == 0 {
+		return fmt.Errorf("rules.baranch must exist")
+	}
+	for _, ev := range triggerYaml.Rules.Events {
+		if ev != "pull_request" && ev != "push" {
+			return fmt.Errorf("rules.event must be pull_request or push ")
+		}
+	}
+	if triggerYaml.Rules.MatchFolders == nil {
+		return fmt.Errorf("rules.match_folders must exist")
+	}
+	for _, mf := range triggerYaml.Rules.MatchFolders.MatchFoldersTree {
+		if mf.Name == "" || mf.ServiceModule == "" {
+			return fmt.Errorf("match_folders.match_folders_tree.name or match_folders.match_folders_tree.service_module is empty")
+		}
+		if len(mf.FileTree) == 0 {
+			return fmt.Errorf("match_folders.match_folders_tree.file_tree is empty")
+		}
+	}
+
+	return nil
 }
