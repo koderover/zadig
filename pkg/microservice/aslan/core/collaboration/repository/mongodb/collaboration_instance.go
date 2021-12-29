@@ -17,6 +17,9 @@ limitations under the License.
 package mongodb
 
 import (
+	"context"
+
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -24,6 +27,10 @@ import (
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
+type CollaborationInstanceFindOptions struct {
+	ProjectName string
+	UserUID     string
+}
 type CollaborationInstanceColl struct {
 	*mongo.Collection
 
@@ -37,4 +44,17 @@ func NewCollaborationInstanceColl() *CollaborationInstanceColl {
 
 func (c *CollaborationInstanceColl) GetCollectionName() string {
 	return c.coll
+}
+
+func (c *CollaborationInstanceColl) Find(opt *CollaborationInstanceFindOptions) (*models.CollaborationInstance, error) {
+	res := &models.CollaborationInstance{}
+	query := bson.M{}
+	if opt.UserUID != "" {
+		query["user_uid"] = opt.UserUID
+	}
+	if opt.ProjectName != "" {
+		query["project_name"] = opt.ProjectName
+	}
+	err := c.FindOne(context.TODO(), query).Decode(res)
+	return res, err
 }
