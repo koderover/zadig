@@ -19,9 +19,8 @@ package service
 import (
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/util/sets"
-
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
