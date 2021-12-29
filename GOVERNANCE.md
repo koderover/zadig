@@ -67,3 +67,4 @@ The council will make a decision for the nomination. The candidate has to have d
 - [ruchikabobade](https://github.com/ruchikabobade)
 - [fengzixu](https://github.com/fengzixu)
 - [xrfinbupt](https://github.com/xrfinbupt)
+- [mhatvan](https://github.com/mhatvan)
