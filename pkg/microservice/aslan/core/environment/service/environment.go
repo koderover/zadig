@@ -373,25 +373,17 @@ func UpdateProduct(existedProd, updateProd *commonmodels.Product, renderSet *com
 	updateProd.Namespace = existedProd.Namespace
 
 	var allServices []*commonmodels.Service
-	var allRenders []*commonmodels.RenderSet
 	var prodRevs *ProductRevision
 
-	allServices, err = commonrepo.NewServiceColl().ListAllRevisions()
+	// list services with max revision of project
+	allServices, err = commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{ProductName: productName})
 	if err != nil {
-		log.Errorf("ListAllRevisions error: %v", err)
+		log.Errorf("ListAllRevisions error: %s", err)
 		err = e.ErrUpdateEnv.AddDesc(err.Error())
 		return
 	}
 
-	// 获取所有渲染配置最新模板信息
-	allRenders, err = commonrepo.NewRenderSetColl().ListAllRenders()
-	if err != nil {
-		log.Errorf("ListAllRevisions error: %v", err)
-		err = e.ErrUpdateEnv.AddDesc(err.Error())
-		return
-	}
-
-	prodRevs, err = GetProductRevision(existedProd, allServices, allRenders, renderSet, log)
+	prodRevs, err = GetProductRevision(existedProd, allServices, log)
 	if err != nil {
 		err = e.ErrUpdateEnv.AddDesc(e.GetEnvRevErrMsg)
 		return
