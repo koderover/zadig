@@ -2318,7 +2318,7 @@ func installOrUpgradeHelmChartWithValues(namespace, valuesYaml string, renderCha
 		UpgradeCRDs:   true,
 		CleanupOnFail: true,
 		Wait:          true,
-		Timeout:       10 * time.Minute,
+		Timeout:       5 * time.Minute,
 		Atomic:        true,
 	}
 	if isRetry {

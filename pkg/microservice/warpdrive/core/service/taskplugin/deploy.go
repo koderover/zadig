@@ -541,7 +541,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			ValuesYaml:  replacedMergedValuesYaml,
 			SkipCRDs:    false,
 			UpgradeCRDs: true,
-			Timeout:     time.Second * DeployTimeout,
+			Timeout:     5 * time.Minute,
 			Wait:        true,
 			Atomic:      true,
 		}
