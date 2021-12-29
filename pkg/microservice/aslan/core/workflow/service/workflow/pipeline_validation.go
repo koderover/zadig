@@ -587,6 +587,9 @@ func replaceVariable(customRule *template.CustomRule, candidate *candidate) stri
 
 // GetImage suffix 可以是 branch name 或者 pr number
 func GetImage(registry *commonmodels.RegistryNamespace, suffix string) string {
+	if registry.RegProvider == config.RegistryTypeAWS {
+		return fmt.Sprintf("%s/%s", util.TrimURLScheme(registry.RegAddr), suffix)
+	}
 	return fmt.Sprintf("%s/%s/%s", util.TrimURLScheme(registry.RegAddr), registry.Namespace, suffix)
 }
 

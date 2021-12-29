@@ -2131,10 +2131,14 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 				//		}
 				//	}
 				//}
+				registryRepo := reg.RegAddr + "/" + reg.Namespace
+				if reg.RegProvider == config.RegistryTypeAWS {
+					registryRepo = reg.RegAddr
+				}
 
 				t.DockerBuildStatus = &task.DockerBuildStatus{
 					ImageName:    t.JobCtx.Image,
-					RegistryRepo: reg.RegAddr + "/" + reg.Namespace,
+					RegistryRepo: registryRepo,
 				}
 				t.UTStatus = &task.UTStatus{}
 				t.StaticCheckStatus = &task.StaticCheckStatus{}
@@ -2187,7 +2191,11 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 					pt.TaskArgs = &commonmodels.TaskArgs{PipelineName: pt.WorkflowArgs.WorkflowName, TaskCreator: pt.WorkflowArgs.WorkflowTaskCreator}
 				}
 				registry := pt.ConfigPayload.RepoConfigs[pt.WorkflowArgs.RegistryID]
-				t.Image = fmt.Sprintf("%s/%s/%s", util.TrimURLScheme(registry.RegAddr), registry.Namespace, t.Image)
+				if registry.RegProvider == config.RegistryTypeAWS {
+					t.Image = fmt.Sprintf("%s/%s", util.TrimURLScheme(registry.RegAddr), t.Image)
+				} else {
+					t.Image = fmt.Sprintf("%s/%s/%s", util.TrimURLScheme(registry.RegAddr), registry.Namespace, t.Image)
+				}
 				pt.TaskArgs.Deploy.Image = t.Image
 				t.RegistryID = pt.WorkflowArgs.RegistryID
 
