@@ -180,7 +180,6 @@ func (p *PMService) createGroup(envName, productName, username string, group []*
 					oldEnvConfigs = append(oldEnvConfigs, envConfig)
 				}
 
-				//privateKeys := []*models.PrivateKey{}
 				changeEnvStatus := []*commonmodels.EnvStatus{}
 				for _, envConfig := range oldEnvConfigs {
 					tmpPrivateKeys, err := commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{IDs: envConfig.HostIDs})
@@ -207,7 +206,6 @@ func (p *PMService) createGroup(envName, productName, username string, group []*
 							privateKeysSet.Insert(tmp.HostID)
 						}
 					}
-					//privateKeys = append(privateKeys, tmpPrivateKeys...)
 				}
 
 				args := &commonservice.ServiceTmplBuildObject{
