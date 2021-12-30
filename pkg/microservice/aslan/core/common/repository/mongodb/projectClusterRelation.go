@@ -63,7 +63,7 @@ func (c *ProjectClusterRelationColl) EnsureIndex(ctx context.Context) error {
 
 func (c *ProjectClusterRelationColl) Create(args *models.ProjectClusterRelation) error {
 	if args == nil {
-		return errors.New("nil PrivateKey info")
+		return errors.New("nil projectClusterRelation info")
 	}
 
 	args.CreatedAt = time.Now().Unix()

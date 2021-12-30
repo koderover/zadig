@@ -116,7 +116,7 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 			CreatedBy:   args.UpdateBy,
 		})
 		if err != nil {
-			log.Errorf("Failed to delete projectClusterRelation, err:%s", err)
+			log.Errorf("Failed to create projectClusterRelation, err:%s", err)
 		}
 	}
 
