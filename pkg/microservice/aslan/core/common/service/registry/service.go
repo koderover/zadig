@@ -490,27 +490,24 @@ func (s *EcrService) ListRepoImages(option ListRepoImagesOption, log *zap.Sugare
 	for _, repo := range option.Repos {
 		name := repo
 		wg.Start(func() {
-			input := &ecr.BatchGetImageInput{
+			input := &ecr.ListImagesInput{
 				RepositoryName: aws.String(name),
 			}
-			result, err := svc.BatchGetImage(input)
+			result, err := svc.ListImages(input)
 			if err != nil {
 				log.Errorf("Failed to get image information from aws, error: %s", err)
 				return
 			}
 			var koderoverTags, customTags, sortedTags []string
-			for _, image := range result.Images {
-				if *image.RepositoryName != name {
-					continue
-				}
-				tagArray := strings.Split(*image.ImageId.ImageTag, "-")
+			for _, image := range result.ImageIds {
+				tagArray := strings.Split(*image.ImageTag, "-")
 				if len(tagArray) > 1 && len(tagArray[0]) == 14 {
 					if _, err := time.Parse("20060102150405", tagArray[0]); err == nil {
-						koderoverTags = append(koderoverTags, *image.ImageId.ImageTag)
+						koderoverTags = append(koderoverTags, *image.ImageTag)
 						continue
 					}
 				}
-				customTags = append(customTags, *image.ImageId.ImageTag)
+				customTags = append(customTags, *image.ImageTag)
 			}
 
 			sort.Sort(sort.Reverse(sort.StringSlice(koderoverTags)))
