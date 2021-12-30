@@ -109,6 +109,7 @@ func (p *PMService) listGroupServices(allServices []*commonmodels.ProductService
 			for _, envconfig := range serviceTmpl.EnvConfigs {
 				if envconfig.EnvName == envName {
 					gp.EnvConfigs = []*models.EnvConfig{envconfig}
+					break
 				}
 			}
 
