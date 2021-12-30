@@ -3,10 +3,11 @@ package service
 import (
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/mongodb"
 )
 
-func GetCollaborationUpdate(projectName, uid string, logger *zap.SugaredLogger) (*GetCollaborationModeResp, error) {
+func GetCollaborationUpdate(projectName, uid string, logger *zap.SugaredLogger) ([]*models.CollaborationInstance, error) {
 	collaborations, err := mongodb.NewCollaborationModeColl().List(&mongodb.CollaborationModeFindOptions{
 		ProjectName: projectName,
 	})

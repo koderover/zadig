@@ -21,6 +21,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/models"
@@ -57,4 +58,29 @@ func (c *CollaborationInstanceColl) Find(opt *CollaborationInstanceFindOptions) 
 	}
 	err := c.FindOne(context.TODO(), query).Decode(res)
 	return res, err
+}
+
+func (c *CollaborationInstanceColl) List(opt *CollaborationModeFindOptions) ([]*models.CollaborationInstance, error) {
+	var ret []*models.CollaborationInstance
+	query := bson.M{}
+	if opt.Name != "" {
+		query["name"] = opt.Name
+	}
+	if opt.ProjectName != "" {
+		query["project_name"] = opt.ProjectName
+	}
+	ctx := context.Background()
+	opts := options.Find()
+	opts.SetSort(bson.D{{"create_time", -1}})
+	cursor, err := c.Collection.Find(ctx, query, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cursor.All(ctx, &ret)
+	if err != nil {
+		return nil, err
+	}
+
+	return ret, nil
 }
