@@ -23,11 +23,11 @@ import (
 )
 
 func TrimURLScheme(urlAddr string) string {
-	uri, err := url.Parse(urlAddr)
+	uri, err := url.Parse(strings.TrimSuffix(urlAddr, "/"))
 	if err != nil {
 		return urlAddr
 	}
-	return strings.Join([]string{uri.Host, uri.Path}, "")
+	return uri.Host + uri.Path
 }
 
 // GetURLHostName ...
