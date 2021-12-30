@@ -231,6 +231,10 @@ func DeleteCluster(username, clusterID string, logger *zap.SugaredLogger) error 
 
 	s, _ := kube.NewService("")
 
+	if err = commonrepo.NewProjectClusterRelationColl().Delete(&commonrepo.ProjectClusterRelationOption{ClusterID: clusterID}); err != nil {
+		logger.Errorf("Failed to delete projectClusterRelation err:%s", err)
+	}
+
 	return s.DeleteCluster(username, clusterID, logger)
 }
 

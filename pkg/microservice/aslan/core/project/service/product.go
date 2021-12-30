@@ -361,23 +361,23 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 	envs, _ := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName})
 	for _, env := range envs {
 		if err = commonrepo.NewProductColl().UpdateStatus(env.EnvName, productName, setting.ProductStatusDeleting); err != nil {
-			log.Errorf("DeleteProductTemplate Update product Status error: %v", err)
+			log.Errorf("DeleteProductTemplate Update product Status error: %s", err)
 			return e.ErrDeleteProduct
 		}
 	}
 
 	if err = commonservice.DeleteRenderSet(productName, log); err != nil {
-		log.Errorf("DeleteProductTemplate DeleteRenderSet err: %v", err)
+		log.Errorf("DeleteProductTemplate DeleteRenderSet err: %s", err)
 		return err
 	}
 
 	if err = DeleteTestModules(productName, requestID, log); err != nil {
-		log.Errorf("DeleteProductTemplate Delete productName %s test err: %v", productName, err)
+		log.Errorf("DeleteProductTemplate Delete productName %s test err: %s", productName, err)
 		return err
 	}
 
 	if err = commonservice.DeleteWorkflows(productName, requestID, log); err != nil {
-		log.Errorf("DeleteProductTemplate Delete productName %s workflow err: %v", productName, err)
+		log.Errorf("DeleteProductTemplate Delete productName %s workflow err: %s", productName, err)
 		return err
 	}
 
@@ -387,28 +387,33 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 	}
 
 	if err = commonservice.DeletePipelines(productName, requestID, log); err != nil {
-		log.Errorf("DeleteProductTemplate Delete productName %s pipeline err: %v", productName, err)
+		log.Errorf("DeleteProductTemplate Delete productName %s pipeline err: %s", productName, err)
 		return err
 	}
 
-	//删除自由编排工作流
+	// delete projectClusterRelation
+	if err = commonrepo.NewProjectClusterRelationColl().Delete(&commonrepo.ProjectClusterRelationOption{ProjectName: productName}); err != nil {
+		log.Errorf("DeleteProductTemplate Delete productName %s ProjectClusterRelation err: %s", productName, err)
+	}
+
+	// Delete freestyle workflow
 	cl := configclient.New(configbase.ConfigServiceAddress())
 	if enable, err := cl.CheckFeature(setting.ModernWorkflowType); err == nil && enable {
 		collieClient := collie.New(config.CollieAPIAddress())
 		if err = collieClient.DeleteCIPipelines(productName, log); err != nil {
-			log.Errorf("DeleteProductTemplate Delete productName %s freestyle pipeline err: %v", productName, err)
+			log.Errorf("DeleteProductTemplate Delete productName %s freestyle pipeline err: %s", productName, err)
 		}
 	}
 
 	err = templaterepo.NewProductColl().Delete(productName)
 	if err != nil {
-		log.Errorf("ProductTmpl.Delete error: %v", err)
+		log.Errorf("ProductTmpl.Delete error: %s", err)
 		return e.ErrDeleteProduct
 	}
 
 	err = commonrepo.NewCounterColl().Delete(fmt.Sprintf("product:%s", productName))
 	if err != nil {
-		log.Errorf("Counter.Delete error: %v", err)
+		log.Errorf("Counter.Delete error: %s", err)
 		return err
 	}
 
