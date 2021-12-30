@@ -37,7 +37,6 @@ type RegistryNamespace struct {
 }
 
 func (ns *RegistryNamespace) Validate() error {
-
 	if ns.RegAddr == "" {
 		return errors.New("empty reg_addr")
 	}
@@ -56,7 +55,3 @@ func (ns *RegistryNamespace) Validate() error {
 func (RegistryNamespace) TableName() string {
 	return "registry_namespace"
 }
-
-//const CandidateRegType = "candidate"
-//
-//const DistRegType = "dist"

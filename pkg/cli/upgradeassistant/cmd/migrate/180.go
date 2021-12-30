@@ -23,7 +23,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 
 	internalmongodb "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/mongodb"
-
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
@@ -66,12 +65,12 @@ func patchProductRegistryID() error {
 	// get all products
 	products, err := internalmongodb.NewProductColl().List(&internalmongodb.ProductListOptions{})
 	if err != nil {
-		log.Errorf("fail to list products, err: %s", err)
+		log.Errorf("Fail to list products, err: %s", err)
 		return err
 	}
 	registry, err := internalmongodb.NewRegistryNamespaceColl().Find(&internalmongodb.FindRegOps{IsDefault: true})
 	if err != nil {
-		log.Errorf("fail to find default registry, err: %s", err)
+		log.Errorf("Fail to find default registry, err: %s", err)
 		return err
 	}
 	// change type to readable string
@@ -82,7 +81,7 @@ func patchProductRegistryID() error {
 	}
 	err = internalmongodb.NewProductColl().UpdateAllRegistry(products)
 	if err != nil {
-		log.Errorf("fail to update products, err: %s", err)
+		log.Errorf("Fail to update products, err: %s", err)
 		return err
 	}
 	return nil

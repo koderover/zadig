@@ -25,7 +25,7 @@ import (
 type ProductAuthType string
 type ProductPermission string
 
-// Vars不做保存，只做input参数
+// Vars do not save, only input parameters
 type Product struct {
 	ID              primitive.ObjectID            `bson:"_id,omitempty"             json:"id,omitempty"`
 	ProductName     string                        `bson:"product_name"              json:"product_name"`
@@ -74,7 +74,6 @@ type ImagePathSpec struct {
 	Tag   string `bson:"tag,omitempty"           json:"tag,omitempty"`
 }
 
-// Container ...
 type Container struct {
 	Name      string         `bson:"name"           json:"name"`
 	Image     string         `bson:"image"          json:"image"`
@@ -93,7 +92,7 @@ type ProductService struct {
 	Type        string       `bson:"type"                       json:"type"`
 	Revision    int64        `bson:"revision"                   json:"revision"`
 	Containers  []*Container `bson:"containers"                 json:"containers,omitempty"`
-	Render      *RenderInfo  `bson:"render,omitempty"           json:"render,omitempty"` // 记录每个服务render信息 便于更新单个服务
+	Render      *RenderInfo  `bson:"render,omitempty"           json:"render,omitempty"` // Record the render information of each service to facilitate the update of a single service
 	EnvConfigs  []*EnvConfig `bson:"-"                          json:"env_configs,omitempty"`
 }
 
