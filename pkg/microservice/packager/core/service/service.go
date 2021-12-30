@@ -30,6 +30,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
 
@@ -49,13 +50,13 @@ type PackageResult struct {
 }
 
 func NewPackager() (*Packager, error) {
-	context, err := os.ReadFile(config.JobConfigFile())
+	contextData, err := os.ReadFile(config.JobConfigFile())
 	if err != nil {
 		return nil, err
 	}
 
 	var ctx *Context
-	if err := yaml.Unmarshal(context, &ctx); err != nil {
+	if err := yaml.Unmarshal(contextData, &ctx); err != nil {
 		return nil, err
 	}
 
@@ -94,55 +95,53 @@ func buildTargetImage(imageName, imageTag, host, nameSpace string) string {
 	return ret
 }
 
+func ExtractErrorDetail(in io.Reader) error {
+	dec := json.NewDecoder(in)
+	for {
+		var jm jsonmessage.JSONMessage
+		if err := dec.Decode(&jm); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+
+		if jm.Error != nil {
+			return jm.Error
+		}
+	}
+	return nil
+}
+
 func pullImage(dockerClient *client.Client, imageUrl string, options *types.ImagePullOptions) error {
+
+	log.Infof("pulling image: %s", imageUrl)
+
 	// pull image
 	pullResponse, err := dockerClient.ImagePull(context.TODO(), imageUrl, *options)
 	if err != nil {
 		return err
 	}
 
-	defer func(pullResponse io.ReadCloser) {
-		err := pullResponse.Close()
-		if err != nil {
-			log.Errorf("failed to close response reader")
-		}
-	}(pullResponse)
+	defer pullResponse.Close()
 
-	bs, err := io.ReadAll(pullResponse)
-	if err != nil {
-		return err
-	}
-
-	if strings.Contains(string(bs), "error") {
-		log.Errorf("image push failed: %s", string(bs))
-		return fmt.Errorf("failed to push image")
-	}
-	return nil
+	err = ExtractErrorDetail(pullResponse)
+	return err
 }
 
 func pushImage(dockerClient *client.Client, targetImageUrl string, options *types.ImagePushOptions) error {
+
+	log.Infof("pushing image: %s", targetImageUrl)
+
 	pushResponse, err := dockerClient.ImagePush(context.TODO(), targetImageUrl, *options)
 	if err != nil {
 		return errors.Wrapf(err, "failed to push image: %s", targetImageUrl)
 	}
 
-	defer func(pullResponse io.ReadCloser) {
-		err := pullResponse.Close()
-		if err != nil {
-			log.Errorf("failed to close response reader")
-		}
-	}(pushResponse)
+	defer pushResponse.Close()
 
-	bs, err := io.ReadAll(pushResponse)
-	if err != nil {
-		return err
-	}
-
-	if strings.Contains(string(bs), "error") {
-		log.Errorf("image push failed: %s", string(bs))
-		return fmt.Errorf("failed to push image")
-	}
-	return nil
+	err = ExtractErrorDetail(pushResponse)
+	return err
 }
 
 func handleSingleService(imageByService *ImagesByService, allRegistries map[string]*DockerRegistry, targetRegistries []*DockerRegistry, dockerClient *client.Client) ([]*ImageData, error) {
