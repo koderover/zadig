@@ -105,13 +105,13 @@ func (p *PMService) listGroupServices(allServices []*commonmodels.ProductService
 			serviceTmpl, err := commonservice.GetServiceTemplate(
 				service.ServiceName, setting.PMDeployType, service.ProductName, "", service.Revision, p.log,
 			)
-			if len(serviceTmpl.EnvConfigs) > 0 {
-				for _, envconfig := range serviceTmpl.EnvConfigs {
-					if envconfig.EnvName == envName {
-						gp.EnvConfigs = []*models.EnvConfig{envconfig}
-					}
+
+			for _, envconfig := range serviceTmpl.EnvConfigs {
+				if envconfig.EnvName == envName {
+					gp.EnvConfigs = []*models.EnvConfig{envconfig}
 				}
 			}
+
 			if err != nil {
 				gp.Status = setting.PodFailed
 				mutex.Lock()
