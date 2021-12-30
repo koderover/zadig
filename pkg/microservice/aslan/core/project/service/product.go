@@ -93,7 +93,7 @@ func ListOpenSourceProduct(log *zap.SugaredLogger) ([]*template.Product, error) 
 // CreateProductTemplate 创建产品模板
 func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err error) {
 	kvs := args.Vars
-	// 不保存vas
+	// do not save vars
 	args.Vars = nil
 
 	err = commonservice.ValidateKVs(kvs, args.AllServiceInfos(), log)
@@ -103,6 +103,21 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 
 	if err := ensureProductTmpl(args); err != nil {
 		return e.ErrCreateProduct.AddDesc(err.Error())
+	}
+
+	err = commonrepo.NewProjectClusterRelationColl().Delete(&commonrepo.ProjectClusterRelationOption{ProjectName: args.ProductName})
+	if err != nil {
+		log.Errorf("Failed to delete projectClusterRelation, err:%s", err)
+	}
+	for _, clusterID := range args.ClusterIDs {
+		err = commonrepo.NewProjectClusterRelationColl().Create(&commonmodels.ProjectClusterRelation{
+			ProjectName: args.ProductName,
+			ClusterID:   clusterID,
+			CreatedBy:   args.UpdateBy,
+		})
+		if err != nil {
+			log.Errorf("Failed to delete projectClusterRelation, err:%s", err)
+		}
 	}
 
 	err = templaterepo.NewProductColl().Create(args)
