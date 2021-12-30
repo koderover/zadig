@@ -166,6 +166,7 @@ func getAWSRegistryCredential(ID, AK, SK, Region string) (string, string, error)
 		keypair, ok := obj.(awsKeyWithExpiration)
 		if ok {
 			if !keypair.IsExpired() {
+				fmt.Printf("Getting aws ak/sk from memory cache: ak[%s], sk[%s]", keypair.AccessKey, keypair.SecretKey)
 				return keypair.AccessKey, keypair.SecretKey, nil
 			}
 		}
