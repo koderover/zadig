@@ -112,7 +112,6 @@ func (p *PMService) listGroupServices(allServices []*commonmodels.ProductService
 					}
 				}
 			}
-			gp.EnvConfigs = serviceTmpl.EnvConfigs
 			if err != nil {
 				gp.Status = setting.PodFailed
 				mutex.Lock()
