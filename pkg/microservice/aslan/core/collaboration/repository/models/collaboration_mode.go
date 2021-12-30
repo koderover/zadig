@@ -30,8 +30,8 @@ type CollaborationMode struct {
 	Revision    int64            `bson:"revision"                  json:"revision"`
 	Members     []string         `bson:"members" json:"members"`
 	IsDeleted   bool             `bson:"is_deleted" json:"is_deleted"`
-	Workflows   []ProductCMItem  `json:"workflows" bson:"workflows"`
-	Products    []WorkflowCMItem `bson:"products" json:"products"`
+	Workflows   []WorkflowCMItem `json:"workflows" bson:"workflows"`
+	Products    []ProductCMItem  `bson:"products" json:"products"`
 	CreateBy    string           `bson:"create_by" json:"create_by"`
 	UpdateBy    string           `bson:"update_by" json:"update_by"`
 }

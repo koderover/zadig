@@ -29,8 +29,8 @@ type CollaborationInstance struct {
 	Revision          int64              `bson:"revision"                  json:"revision"`
 	User              string             `bson:"user" json:"user"`
 	PolicyName        string             `bson:"policy_name" json:"policy_name"`
-	Workflows         []ProductCIItem    `json:"workflows" bson:"workflows"`
-	Products          []WorkflowCIItem   `bson:"products" json:"products"`
+	Workflows         []WorkflowCIItem   `json:"workflows" bson:"workflows"`
+	Products          []ProductCIItem    `bson:"products" json:"products"`
 	CreateBy          string             `bson:"create_by" json:"create_by"`
 	UpdateBy          string             `bson:"update_by" json:"update_by"`
 }

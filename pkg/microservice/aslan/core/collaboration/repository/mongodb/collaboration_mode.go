@@ -33,6 +33,7 @@ import (
 type CollaborationModeFindOptions struct {
 	ProjectName string
 	Name        string
+	Members     string
 }
 
 type CollaborationModeColl struct {
@@ -48,6 +49,31 @@ func NewCollaborationModeColl() *CollaborationModeColl {
 
 func (c *CollaborationModeColl) GetCollectionName() string {
 	return c.coll
+}
+
+func (c *CollaborationModeColl) EnsureIndex(ctx context.Context) error {
+	mod := []mongo.IndexModel{
+		{
+			Keys: bson.D{
+				bson.E{Key: "project_name", Value: 1},
+				bson.E{Key: "members", Value: 1},
+				bson.E{Key: "is_deleted", Value: 1},
+			},
+			Options: options.Index().SetUnique(false),
+		},
+		{
+			Keys: bson.D{
+				bson.E{Key: "project_name", Value: 1},
+				bson.E{Key: "name", Value: 1},
+				bson.E{Key: "is_deleted", Value: 1},
+			},
+			Options: options.Index().SetUnique(false),
+		},
+	}
+
+	_, err := c.Indexes().CreateMany(ctx, mod)
+
+	return err
 }
 
 func (c *CollaborationModeColl) Update(username string, args *models.CollaborationMode) error {
@@ -148,6 +174,9 @@ func (c *CollaborationModeColl) List(opt *CollaborationModeFindOptions) ([]*mode
 	}
 	if opt.ProjectName != "" {
 		query["project_name"] = opt.ProjectName
+	}
+	if opt.Members != "" {
+		query["members"] = opt.Members
 	}
 	query["is_deleted"] = false
 

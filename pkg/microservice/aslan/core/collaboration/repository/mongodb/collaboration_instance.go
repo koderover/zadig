@@ -47,6 +47,23 @@ func (c *CollaborationInstanceColl) GetCollectionName() string {
 	return c.coll
 }
 
+func (c *CollaborationInstanceColl) EnsureIndex(ctx context.Context) error {
+	mod := []mongo.IndexModel{
+		{
+			Keys: bson.D{
+				bson.E{Key: "project_name", Value: 1},
+				bson.E{Key: "collaboration_name", Value: 1},
+				bson.E{Key: "user_uid", Value: 1},
+			},
+			Options: options.Index().SetUnique(true),
+		},
+	}
+
+	_, err := c.Indexes().CreateMany(ctx, mod)
+
+	return err
+}
+
 func (c *CollaborationInstanceColl) Find(opt *CollaborationInstanceFindOptions) (*models.CollaborationInstance, error) {
 	res := &models.CollaborationInstance{}
 	query := bson.M{}
@@ -60,11 +77,11 @@ func (c *CollaborationInstanceColl) Find(opt *CollaborationInstanceFindOptions) 
 	return res, err
 }
 
-func (c *CollaborationInstanceColl) List(opt *CollaborationModeFindOptions) ([]*models.CollaborationInstance, error) {
+func (c *CollaborationInstanceColl) List(opt *CollaborationInstanceFindOptions) ([]*models.CollaborationInstance, error) {
 	var ret []*models.CollaborationInstance
 	query := bson.M{}
-	if opt.Name != "" {
-		query["name"] = opt.Name
+	if opt.UserUID != "" {
+		query["user_uid"] = opt.UserUID
 	}
 	if opt.ProjectName != "" {
 		query["project_name"] = opt.ProjectName
