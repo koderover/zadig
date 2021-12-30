@@ -22,6 +22,14 @@ import (
 	"strings"
 )
 
+func TrimURLScheme(urlAddr string) string {
+	uri, err := url.Parse(urlAddr)
+	if err != nil {
+		return urlAddr
+	}
+	return strings.Join([]string{uri.Host, uri.Path}, "")
+}
+
 // GetURLHostName ...
 func GetURLHostName(urlAddr string) string {
 
@@ -35,7 +43,7 @@ func GetURLHostName(urlAddr string) string {
 func ReplaceRepo(origin, addr, namespace string) string {
 	parts := strings.SplitN(origin, "/", -1)
 	return strings.Join([]string{
-		GetURLHostName(addr),
+		TrimURLScheme(addr),
 		namespace,
 		parts[len(parts)-1],
 	}, "/")

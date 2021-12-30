@@ -2197,7 +2197,7 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 					pt.TaskArgs = &commonmodels.TaskArgs{PipelineName: pt.WorkflowArgs.WorkflowName, TaskCreator: pt.WorkflowArgs.WorkflowTaskCreator}
 				}
 				registry := pt.ConfigPayload.RepoConfigs[pt.WorkflowArgs.RegistryID]
-				t.Image = fmt.Sprintf("%s/%s/%s", util.GetURLHostName(registry.RegAddr), registry.Namespace, t.Image)
+				t.Image = fmt.Sprintf("%s/%s/%s", util.TrimURLScheme(registry.RegAddr), registry.Namespace, t.Image)
 				pt.TaskArgs.Deploy.Image = t.Image
 				t.RegistryID = pt.WorkflowArgs.RegistryID
 
@@ -2403,7 +2403,7 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 				for _, repoImage := range t.Releases {
 					if v, ok := pt.ConfigPayload.RepoConfigs[repoImage.RepoID]; ok {
 						repoImage.Name = util.ReplaceRepo(pt.TaskArgs.Deploy.Image, v.RegAddr, v.Namespace)
-						repoImage.Host = util.GetURLHostName(v.RegAddr)
+						repoImage.Host = util.TrimURLScheme(v.RegAddr)
 						repoImage.Namespace = v.Namespace
 						repos = append(repos, repoImage)
 					}
