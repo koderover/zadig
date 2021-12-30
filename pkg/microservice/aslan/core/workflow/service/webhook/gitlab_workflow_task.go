@@ -473,8 +473,9 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 			if item.IsYaml {
 				err := UpdateWorkflowTaskArgs(triggerYaml, workflow, workFlowArgs, item, branref, prID)
 				if err != nil {
-					log.Errorf("UpdateWorkflowTaskArgs %s", err)
-					return fmt.Errorf("UpdateWorkflowTaskArgs %s", err)
+					log.Warnf("UpdateWorkflowTaskArgs %s", err)
+					mErr = multierror.Append(mErr, err)
+					continue
 				}
 				item.WorkflowArgs = workFlowArgs
 			} else {
