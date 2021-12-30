@@ -37,7 +37,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -1770,8 +1769,6 @@ func upsertService(isUpdate bool, env *commonmodels.Product,
 
 			switch res := obj.(type) {
 			case *appsv1.Deployment:
-				// Inject resource request and limit
-				applySystemResourceRequirements(&res.Spec.Template.Spec)
 				// Inject imagePullSecrets if qn-registry-secret is not set
 				applySystemImagePullSecrets(&res.Spec.Template.Spec)
 
@@ -1782,8 +1779,6 @@ func upsertService(isUpdate bool, env *commonmodels.Product,
 					continue
 				}
 			case *appsv1.StatefulSet:
-				// Inject resource request and limit
-				applySystemResourceRequirements(&res.Spec.Template.Spec)
 				// Inject imagePullSecrets if qn-registry-secret is not set
 				applySystemImagePullSecrets(&res.Spec.Template.Spec)
 
@@ -1816,7 +1811,6 @@ func upsertService(isUpdate bool, env *commonmodels.Product,
 			obj.ObjectMeta.Labels = kube.MergeLabels(labels, obj.ObjectMeta.Labels)
 			obj.Spec.Template.ObjectMeta.Labels = kube.MergeLabels(labels, obj.Spec.Template.ObjectMeta.Labels)
 
-			applySystemResourceRequirements(&obj.Spec.Template.Spec)
 			// Inject imagePullSecrets if qn-registry-secret is not set
 			applySystemImagePullSecrets(&obj.Spec.Template.Spec)
 
@@ -1851,7 +1845,6 @@ func upsertService(isUpdate bool, env *commonmodels.Product,
 			obj.Spec.JobTemplate.ObjectMeta.Labels = kube.MergeLabels(labels, obj.Spec.JobTemplate.ObjectMeta.Labels)
 			obj.Spec.JobTemplate.Spec.Template.ObjectMeta.Labels = kube.MergeLabels(labels, obj.Spec.JobTemplate.Spec.Template.ObjectMeta.Labels)
 
-			applySystemResourceRequirements(&obj.Spec.JobTemplate.Spec.Template.Spec)
 			// Inject imagePullSecrets if qn-registry-secret is not set
 			applySystemImagePullSecrets(&obj.Spec.JobTemplate.Spec.Template.Spec)
 
@@ -2192,35 +2185,6 @@ func applyUpdatedAnnotations(annotations map[string]string) map[string]string {
 
 	annotations[setting.UpdatedByLabel] = fmt.Sprintf("%d", time.Now().Unix())
 	return annotations
-}
-
-func applySystemResourceRequirements(podSpec *corev1.PodSpec) {
-	for i, container := range podSpec.Containers {
-
-		if container.Resources.Limits == nil {
-			podSpec.Containers[i].Resources.Limits = corev1.ResourceList{}
-		}
-
-		if container.Resources.Limits.Cpu().String() == "0" {
-			podSpec.Containers[i].Resources.Limits[corev1.ResourceCPU] = resource.MustParse("500m")
-		}
-
-		if container.Resources.Limits.Memory().String() == "0" {
-			podSpec.Containers[i].Resources.Limits[corev1.ResourceMemory] = resource.MustParse("200Mi")
-		}
-
-		if container.Resources.Requests == nil {
-			podSpec.Containers[i].Resources.Requests = corev1.ResourceList{}
-		}
-
-		if container.Resources.Requests.Cpu().String() == "0" {
-			podSpec.Containers[i].Resources.Requests[corev1.ResourceCPU] = resource.MustParse("10m")
-		}
-
-		if container.Resources.Requests.Memory().String() == "0" {
-			podSpec.Containers[i].Resources.Requests[corev1.ResourceMemory] = resource.MustParse("100Mi")
-		}
-	}
 }
 
 func applySystemImagePullSecrets(podSpec *corev1.PodSpec) {
