@@ -435,6 +435,8 @@ func UpdatePmServiceTemplate(username string, args *ServiceTmplBuildObject, log 
 	preService.Revision = rev
 	preService.CreateBy = username
 	preService.BuildName = args.Build.Name
+	preService.EnvConfigs = args.ServiceTmplObject.EnvConfigs
+	preService.EnvStatuses = args.ServiceTmplObject.EnvStatuses
 
 	if err := commonrepo.NewServiceColl().Delete(preService.ServiceName, setting.PMDeployType, args.ServiceTmplObject.ProductName, setting.ProductStatusDeleting, preService.Revision); err != nil {
 		return err
