@@ -21,6 +21,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -36,6 +38,21 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/util"
 )
+
+var awsKeyMap sync.Map
+
+type awsKeyWithExpiration struct {
+	AccessKey  string
+	SecretKey  string
+	Expiration int64
+}
+
+func (k *awsKeyWithExpiration) IsExpired() bool {
+	if time.Now().Unix() > k.Expiration {
+		return true
+	}
+	return false
+}
 
 func FindRegistryById(registryId string, getRealCredential bool, log *zap.SugaredLogger) (*models.RegistryNamespace, error) {
 	return findRegisty(&mongodb.FindRegOps{ID: registryId}, getRealCredential, log)
@@ -61,7 +78,7 @@ func findRegisty(regOps *mongodb.FindRegOps, getRealCredential bool, log *zap.Su
 			resp.AccessKey = fmt.Sprintf("%s@%s", resp.Region, resp.AccessKey)
 			resp.SecretKey = util.ComputeHmacSha256(resp.AccessKey, resp.SecretKey)
 		case config.RegistryTypeAWS:
-			realAK, realSK, err := getAWSRegistryCredential(resp.AccessKey, resp.SecretKey, resp.Region)
+			realAK, realSK, err := getAWSRegistryCredential(resp.ID.Hex(), resp.AccessKey, resp.SecretKey, resp.Region)
 			if err != nil {
 				log.Errorf("Failed to get keypair from aws, the error is: %s", err)
 				return nil, err
@@ -94,7 +111,7 @@ func ListRegistryNamespaces(getRealCredential bool, log *zap.SugaredLogger) ([]*
 				reg.AccessKey = fmt.Sprintf("%s@%s", reg.Region, reg.AccessKey)
 				reg.SecretKey = util.ComputeHmacSha256(reg.AccessKey, reg.SecretKey)
 			case config.RegistryTypeAWS:
-				realAK, realSK, err := getAWSRegistryCredential(reg.AccessKey, reg.SecretKey, reg.Region)
+				realAK, realSK, err := getAWSRegistryCredential(reg.ID.Hex(), reg.AccessKey, reg.SecretKey, reg.Region)
 				if err != nil {
 					log.Errorf("Failed to get keypair from aws, the error is: %s", err)
 					return nil, err
@@ -142,8 +159,17 @@ func EnsureDefaultRegistrySecret(namespace string, registryId string, kubeClient
 	return nil
 }
 
-// TODO: implement in-memory cache for this function to avoid rate limits.
-func getAWSRegistryCredential(AK, SK, Region string) (string, string, error) {
+func getAWSRegistryCredential(ID, AK, SK, Region string) (string, string, error) {
+	// first we try to get ak/sk from our memory cache
+	obj, ok := awsKeyMap.Load(ID)
+	if ok {
+		keypair, ok := obj.(awsKeyWithExpiration)
+		if ok {
+			if !keypair.IsExpired() {
+				return keypair.AccessKey, keypair.SecretKey, nil
+			}
+		}
+	}
 	creds := credentials.NewStaticCredentials(AK, SK, "")
 	config := &aws.Config{
 		Region:      aws.String(Region),
@@ -170,5 +196,11 @@ func getAWSRegistryCredential(AK, SK, Region string) (string, string, error) {
 	if len(keypair) != 2 {
 		return "", "", errors.New("decode keypair from aws response error")
 	}
+	// cache the aws ak/sk
+	awsKeyMap.Store(ID, awsKeyWithExpiration{
+		AccessKey:  keypair[0],
+		SecretKey:  keypair[1],
+		Expiration: time.Now().Add(10 * time.Hour).Unix(),
+	})
 	return keypair[0], keypair[1], nil
 }
