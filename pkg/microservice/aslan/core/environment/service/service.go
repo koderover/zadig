@@ -147,6 +147,22 @@ func RestartScale(args *RestartScaleArgs, _ *zap.SugaredLogger) error {
 		return err
 	}
 
+	// aws secrets needs to be refreshed
+	regs, err := commonservice.ListRegistryNamespaces(true, log.SugaredLogger())
+	if err != nil {
+		log.Errorf("Failed to get registries to restart container, the error is: %s\n", err)
+		return err
+	}
+	for _, reg := range regs {
+		if reg.RegProvider == config.RegistryTypeAWS {
+			if err := kube.CreateOrUpdateRegistrySecret(prod.Namespace, reg, kubeClient); err != nil {
+				retErr := fmt.Errorf("failed to update pull secret for registry: %s, the error is: %s", reg.ID.Hex(), err)
+				log.Errorf("%s\n", retErr.Error())
+				return retErr
+			}
+		}
+	}
+
 	switch args.Type {
 	case setting.Deployment:
 		err = updater.RestartDeployment(prod.Namespace, args.Name, kubeClient)
@@ -327,6 +343,22 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productObj.ClusterID)
 	if err != nil {
 		return err
+	}
+
+	// aws secrets needs to be refreshed
+	regs, err := commonservice.ListRegistryNamespaces(true, log)
+	if err != nil {
+		log.Errorf("Failed to get registries to restart container, the error is: %s\n", err)
+		return err
+	}
+	for _, reg := range regs {
+		if reg.RegProvider == config.RegistryTypeAWS {
+			if err := kube.CreateOrUpdateRegistrySecret(productObj.Namespace, reg, kubeClient); err != nil {
+				retErr := fmt.Errorf("failed to update pull secret for registry: %s, the error is: %s", reg.ID.Hex(), err)
+				log.Errorf("%s\n", retErr.Error())
+				return retErr
+			}
+		}
 	}
 
 	switch productObj.Source {

@@ -297,6 +297,21 @@ func UpdateContainerImage(requestID string, args *UpdateContainerImageArgs, log 
 	if err != nil {
 		return e.ErrUpdateConainterImage.AddErr(err)
 	}
+	// aws secrets needs to be refreshed
+	regs, err := commonservice.ListRegistryNamespaces(true, log)
+	if err != nil {
+		log.Errorf("Failed to get registries to update container images, the error is: %s\n", err)
+		return err
+	}
+	for _, reg := range regs {
+		if reg.RegProvider == config.RegistryTypeAWS {
+			if err := kube.CreateOrUpdateRegistrySecret(namespace, reg, kubeClient); err != nil {
+				retErr := fmt.Errorf("failed to update pull secret for registry: %s, the error is: %s", reg.ID.Hex(), err)
+				log.Errorf("%s\n", retErr.Error())
+				return retErr
+			}
+		}
+	}
 
 	eventStart := time.Now().Unix()
 
