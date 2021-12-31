@@ -190,7 +190,7 @@ func ListReposTags(registryInfo *commonmodels.RegistryNamespace, names []string,
 		for _, repo := range repos.Repos {
 			for _, tag := range repo.Tags {
 				img := &RepoImgResp{
-					Host:  util.GetURLHostName(registryInfo.RegAddr),
+					Host:  util.TrimURLScheme(registryInfo.RegAddr),
 					Owner: repo.Namespace,
 					Name:  repo.Name,
 					Tag:   tag,
