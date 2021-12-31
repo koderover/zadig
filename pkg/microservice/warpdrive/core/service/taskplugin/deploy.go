@@ -28,6 +28,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	helmrelease "helm.sh/helm/v3/pkg/release"
+	"helm.sh/helm/v3/pkg/releaseutil"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/rest"
@@ -542,21 +543,33 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			Timeout:     time.Second * setting.DeployTimeout,
 			Wait:        true,
 		}
-		var release *helmrelease.Release
-		if release, err = helmClient.InstallOrUpgradeChart(context.TODO(), &chartSpec); err != nil {
+		if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), &chartSpec); err != nil {
 			err = errors.WithMessagef(
 				err,
 				"failed to Install helm chart %s/%s",
 				p.Task.Namespace, p.Task.ServiceName)
 
-			if release != nil && (release.Info.Status == helmrelease.StatusPendingInstall || release.Info.Status == helmrelease.StatusPendingUpgrade) {
-				secretName := fmt.Sprintf("sh.helm.release.v1.%s.v.%d", release.Name, release.Version)
-				deleteErr := updater.DeleteSecretWithName(release.Namespace, secretName, p.kubeClient)
-				if deleteErr != nil {
-					err = errors.WithMessagef(err, "deleteSecretWithName:%s,error:%s", secretName, deleteErr)
-					return
+			hrs, errHistory := helmClient.ListReleaseHistory(chartSpec.ReleaseName, 10)
+			if errHistory != nil {
+				err = errors.WithMessagef(
+					err,
+					"failed to ListReleaseHistory: %s,error:%s",
+					chartSpec.ReleaseName, errHistory)
+				return
+			}
+			if len(hrs) > 0 {
+				releaseutil.Reverse(hrs, releaseutil.SortByRevision)
+				rel := hrs[0]
+				if rel.Info.Status == helmrelease.StatusPendingInstall || rel.Info.Status == helmrelease.StatusPendingUpgrade {
+					secretName := fmt.Sprintf("sh.helm.release.v1.%s.v.%d", rel.Name, rel.Version)
+					deleteErr := updater.DeleteSecretWithName(rel.Namespace, secretName, p.kubeClient)
+					if deleteErr != nil {
+						err = errors.WithMessagef(err, "failed to deleteSecretWithName:%s,error:%s", secretName, deleteErr)
+						return
+					}
 				}
 			}
+			return
 		}
 
 		//替换环境变量中的chartInfos
