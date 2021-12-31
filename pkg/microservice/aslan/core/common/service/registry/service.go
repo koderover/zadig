@@ -82,9 +82,9 @@ type Service interface {
 func NewV2Service(provider string) Service {
 	switch provider {
 	case config.RegistryTypeSWR:
-		return &SwrService{}
+		return &swrService{}
 	case config.RegistryTypeAWS:
-		return &EcrService{}
+		return &ecrService{}
 	default:
 		return &v2RegistryService{}
 	}
@@ -362,10 +362,10 @@ func (s *v2RegistryService) ListRepoImages(option ListRepoImagesOption, log *zap
 	return resp, nil
 }
 
-type SwrService struct {
+type swrService struct {
 }
 
-func (s *SwrService) createClient(ep Endpoint) (cli *swr.SwrClient) {
+func (s *swrService) createClient(ep Endpoint) (cli *swr.SwrClient) {
 	endpoint := fmt.Sprintf("https://swr-api.%s.myhuaweicloud.com", ep.Region)
 	auth := basic.NewCredentialsBuilder().
 		WithAk(ep.Ak).
@@ -380,7 +380,7 @@ func (s *SwrService) createClient(ep Endpoint) (cli *swr.SwrClient) {
 	return client
 }
 
-func (s *SwrService) ListRepoImages(option ListRepoImagesOption, log *zap.SugaredLogger) (resp *ReposResp, err error) {
+func (s *swrService) ListRepoImages(option ListRepoImagesOption, log *zap.SugaredLogger) (resp *ReposResp, err error) {
 	swrCli := s.createClient(option.Endpoint)
 
 	var wg wait.Group
@@ -435,7 +435,7 @@ func (s *SwrService) ListRepoImages(option ListRepoImagesOption, log *zap.Sugare
 
 }
 
-func (s *SwrService) GetImageInfo(option GetRepoImageDetailOption, log *zap.SugaredLogger) (di *commonmodels.DeliveryImage, err error) {
+func (s *swrService) GetImageInfo(option GetRepoImageDetailOption, log *zap.SugaredLogger) (di *commonmodels.DeliveryImage, err error) {
 	swrCli := s.createClient(option.Endpoint)
 
 	request := &model.ListRepositoryTagsRequest{Tag: &option.Tag, Namespace: option.Namespace, Repository: option.Image}
@@ -458,10 +458,10 @@ func (s *SwrService) GetImageInfo(option GetRepoImageDetailOption, log *zap.Suga
 	return &commonmodels.DeliveryImage{}, nil
 }
 
-type EcrService struct {
+type ecrService struct {
 }
 
-func (s *EcrService) getECRService(ep Endpoint, log *zap.SugaredLogger) (*ecr.ECR, error) {
+func (s *ecrService) getECRService(ep Endpoint, log *zap.SugaredLogger) (*ecr.ECR, error) {
 	creds := credentials.NewStaticCredentials(ep.Ak, ep.Sk, "")
 	config := &aws.Config{
 		Region:      aws.String(ep.Region),
@@ -475,7 +475,7 @@ func (s *EcrService) getECRService(ep Endpoint, log *zap.SugaredLogger) (*ecr.EC
 	return ecr.New(sess), nil
 }
 
-func (s *EcrService) ListRepoImages(option ListRepoImagesOption, log *zap.SugaredLogger) (resp *ReposResp, err error) {
+func (s *ecrService) ListRepoImages(option ListRepoImagesOption, log *zap.SugaredLogger) (resp *ReposResp, err error) {
 	svc, err := s.getECRService(option.Endpoint, log)
 	if err != nil {
 		return nil, err
@@ -527,7 +527,7 @@ func (s *EcrService) ListRepoImages(option ListRepoImagesOption, log *zap.Sugare
 	return resp, nil
 }
 
-func (s *EcrService) GetImageInfo(option GetRepoImageDetailOption, log *zap.SugaredLogger) (di *commonmodels.DeliveryImage, err error) {
+func (s *ecrService) GetImageInfo(option GetRepoImageDetailOption, log *zap.SugaredLogger) (di *commonmodels.DeliveryImage, err error) {
 	svc, err := s.getECRService(option.Endpoint, log)
 	if err != nil {
 		return nil, err
@@ -545,6 +545,8 @@ func (s *EcrService) GetImageInfo(option GetRepoImageDetailOption, log *zap.Suga
 		err = errors.Wrapf(err, "failed to get image info of %s:%s", option.Image, option.Tag)
 		return
 	}
+	// since only one image tag is passed, only one image detail will be in this detail list
+	// so only the first one will be used
 	for _, imageDetail := range result.ImageDetails {
 		return &commonmodels.DeliveryImage{
 			RepoName:     option.Image,

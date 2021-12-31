@@ -50,10 +50,7 @@ type awsKeyWithExpiration struct {
 }
 
 func (k *awsKeyWithExpiration) IsExpired() bool {
-	if time.Now().Unix() > k.Expiration {
-		return true
-	}
-	return false
+	return time.Now().Unix() > k.Expiration
 }
 
 func FindRegistryById(registryId string, getRealCredential bool, log *zap.SugaredLogger) (*models.RegistryNamespace, error) {
@@ -75,21 +72,20 @@ func findRegisty(regOps *mongodb.FindRegOps, getRealCredential bool, log *zap.Su
 	}
 
 	if getRealCredential {
-		switch resp.RegProvider {
-		case config.RegistryTypeSWR:
-			resp.AccessKey = fmt.Sprintf("%s@%s", resp.Region, resp.AccessKey)
-			resp.SecretKey = util.ComputeHmacSha256(resp.AccessKey, resp.SecretKey)
-		case config.RegistryTypeAWS:
-			realAK, realSK, err := getAWSRegistryCredential(resp.ID.Hex(), resp.AccessKey, resp.SecretKey, resp.Region)
-			if err != nil {
-				log.Errorf("Failed to get keypair from aws, the error is: %s", err)
-				return nil, err
-			}
-			resp.AccessKey = realAK
-			resp.SecretKey = realSK
-		default:
-			break
+		return resp, nil
+	}
+	switch resp.RegProvider {
+	case config.RegistryTypeSWR:
+		resp.AccessKey = fmt.Sprintf("%s@%s", resp.Region, resp.AccessKey)
+		resp.SecretKey = util.ComputeHmacSha256(resp.AccessKey, resp.SecretKey)
+	case config.RegistryTypeAWS:
+		realAK, realSK, err := getAWSRegistryCredential(resp.ID.Hex(), resp.AccessKey, resp.SecretKey, resp.Region)
+		if err != nil {
+			log.Errorf("Failed to get keypair from aws, the error is: %s", err)
+			return nil, err
 		}
+		resp.AccessKey = realAK
+		resp.SecretKey = realSK
 	}
 
 	return resp, nil
@@ -106,26 +102,25 @@ func ListRegistryNamespaces(getRealCredential bool, log *zap.SugaredLogger) ([]*
 		return resp, fmt.Errorf("RegistryNamespace.List error: %s", err)
 	}
 
-	if getRealCredential {
-		for _, reg := range resp {
-			switch reg.RegProvider {
-			case config.RegistryTypeSWR:
-				reg.AccessKey = fmt.Sprintf("%s@%s", reg.Region, reg.AccessKey)
-				reg.SecretKey = util.ComputeHmacSha256(reg.AccessKey, reg.SecretKey)
-			case config.RegistryTypeAWS:
-				realAK, realSK, err := getAWSRegistryCredential(reg.ID.Hex(), reg.AccessKey, reg.SecretKey, reg.Region)
-				if err != nil {
-					log.Errorf("Failed to get keypair from aws, the error is: %s", err)
-					return nil, err
-				}
-				reg.AccessKey = realAK
-				reg.SecretKey = realSK
-			default:
-				break
-			}
-		}
+	if !getRealCredential {
+		return resp, nil
 	}
 
+	for _, reg := range resp {
+		switch reg.RegProvider {
+		case config.RegistryTypeSWR:
+			reg.AccessKey = fmt.Sprintf("%s@%s", reg.Region, reg.AccessKey)
+			reg.SecretKey = util.ComputeHmacSha256(reg.AccessKey, reg.SecretKey)
+		case config.RegistryTypeAWS:
+			realAK, realSK, err := getAWSRegistryCredential(reg.ID.Hex(), reg.AccessKey, reg.SecretKey, reg.Region)
+			if err != nil {
+				log.Errorf("Failed to get keypair from aws, the error is: %s", err)
+				return nil, err
+			}
+			reg.AccessKey = realAK
+			reg.SecretKey = realSK
+		}
+	}
 	return resp, nil
 }
 
@@ -161,21 +156,20 @@ func EnsureDefaultRegistrySecret(namespace string, registryId string, kubeClient
 	return nil
 }
 
-func getAWSRegistryCredential(ID, AK, SK, Region string) (string, string, error) {
+func getAWSRegistryCredential(id, ak, sk, region string) (realAK string, realSK string, err error) {
 	// first we try to get ak/sk from our memory cache
-	obj, ok := awsKeyMap.Load(ID)
+	obj, ok := awsKeyMap.Load(id)
 	if ok {
 		keypair, ok := obj.(awsKeyWithExpiration)
 		if ok {
 			if !keypair.IsExpired() {
-				fmt.Printf("Getting aws ak/sk from memory cache: ak[%s], sk[%s]", keypair.AccessKey, keypair.SecretKey)
 				return keypair.AccessKey, keypair.SecretKey, nil
 			}
 		}
 	}
-	creds := credentials.NewStaticCredentials(AK, SK, "")
+	creds := credentials.NewStaticCredentials(ak, sk, "")
 	config := &aws.Config{
-		Region:      aws.String(Region),
+		Region:      aws.String(region),
 		Credentials: creds,
 	}
 	sess, err := session.NewSession(config)
@@ -197,10 +191,10 @@ func getAWSRegistryCredential(ID, AK, SK, Region string) (string, string, error)
 	}
 	keypair := strings.Split(string(rawDecodedText), ":")
 	if len(keypair) != 2 {
-		return "", "", errors.New("decode keypair from aws response error")
+		return "", "", errors.New("format of keypair is invalid")
 	}
 	// cache the aws ak/sk
-	awsKeyMap.Store(ID, awsKeyWithExpiration{
+	awsKeyMap.Store(id, awsKeyWithExpiration{
 		AccessKey:  keypair[0],
 		SecretKey:  keypair[1],
 		Expiration: time.Now().Add(expirationTime).Unix(),
