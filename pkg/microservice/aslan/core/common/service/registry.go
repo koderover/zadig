@@ -39,6 +39,8 @@ import (
 	"github.com/koderover/zadig/pkg/util"
 )
 
+var expirationTime = 10 * time.Hour
+
 var awsKeyMap sync.Map
 
 type awsKeyWithExpiration struct {
@@ -201,7 +203,7 @@ func getAWSRegistryCredential(ID, AK, SK, Region string) (string, string, error)
 	awsKeyMap.Store(ID, awsKeyWithExpiration{
 		AccessKey:  keypair[0],
 		SecretKey:  keypair[1],
-		Expiration: time.Now().Add(10 * time.Hour).Unix(),
+		Expiration: time.Now().Add(expirationTime).Unix(),
 	})
 	return keypair[0], keypair[1], nil
 }
