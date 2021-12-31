@@ -59,7 +59,7 @@ type K8SClusterInfo struct {
 type AdvancedConfig struct {
 	Strategy     string                     `json:"strategy,omitempty"       bson:"strategy,omitempty"`
 	NodeLabels   []*NodeSelectorRequirement `json:"node_labels,omitempty"    bson:"node_labels,omitempty"`
-	ProjectNames []string                   `json:"project_names"            bson:"-"`
+	ProjectNames []string                   `json:"-"                        bson:"-"`
 }
 
 type NodeSelectorRequirement struct {
