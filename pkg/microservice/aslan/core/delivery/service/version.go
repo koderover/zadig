@@ -677,13 +677,6 @@ func buildChartPackage(chartData *DeliveryChartData, product *commonmodels.Produ
 	if err != nil {
 		return errors.Wrapf(err, "failed to read values.yaml for service %s", serviceObj.ServiceName)
 	}
-	err = yaml.Unmarshal(valueYamlContent, &valuesYamlData)
-	if err != nil {
-		return errors.Wrapf(err, "failed to unmarshal values.yaml for service %s", serviceObj.ServiceName)
-	}
-
-	// hold the currently running yaml data
-	chartData.ValuesInEnv = valuesYamlData
 
 	// write values.yaml file before load
 	if len(chartData.ChartData.ValuesYamlContent) > 0 { // values.yaml was edited directly
@@ -698,6 +691,15 @@ func buildChartPackage(chartData *DeliveryChartData, product *commonmodels.Produ
 			return errors.Wrapf(err, "failed to merge global variables for service: %s", serviceObj.ServiceName)
 		}
 	}
+
+	err = yaml.Unmarshal(valueYamlContent, &valuesYamlData)
+	if err != nil {
+		return errors.Wrapf(err, "failed to unmarshal values.yaml for service %s", serviceObj.ServiceName)
+	}
+
+	// hold the currently running yaml data
+	chartData.ValuesInEnv = valuesYamlData
+
 	err = os.WriteFile(valuesFilePath, valueYamlContent, 0644)
 	if err != nil {
 		return errors.Wrapf(err, "failed to write values.yaml file for service %s", serviceObj.ServiceName)
