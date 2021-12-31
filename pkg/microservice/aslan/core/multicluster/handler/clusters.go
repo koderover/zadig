@@ -37,7 +37,7 @@ func ListClusters(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListClusters(clusters, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListClusters(clusters, c.Query("projectName"), ctx.Logger)
 }
 
 func GetCluster(c *gin.Context) {
