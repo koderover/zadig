@@ -112,14 +112,16 @@ func (s *Service) CreateCluster(cluster *models.K8SCluster, id string, logger *z
 		return nil, e.ErrCreateCluster.AddErr(err)
 	}
 
-	for _, projectName := range cluster.AdvancedConfig.ProjectNames {
-		err = commonrepo.NewProjectClusterRelationColl().Create(&commonmodels.ProjectClusterRelation{
-			ProjectName: projectName,
-			ClusterID:   cluster.ID.Hex(),
-			CreatedBy:   cluster.CreatedBy,
-		})
-		if err != nil {
-			logger.Errorf("Failed to create projectClusterRelation err:%s", err)
+	if cluster.AdvancedConfig != nil {
+		for _, projectName := range cluster.AdvancedConfig.ProjectNames {
+			err = commonrepo.NewProjectClusterRelationColl().Create(&commonmodels.ProjectClusterRelation{
+				ProjectName: projectName,
+				ClusterID:   cluster.ID.Hex(),
+				CreatedBy:   cluster.CreatedBy,
+			})
+			if err != nil {
+				logger.Errorf("Failed to create projectClusterRelation err:%s", err)
+			}
 		}
 	}
 
