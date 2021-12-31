@@ -30,7 +30,9 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/crypto"
@@ -108,6 +110,17 @@ func (s *Service) CreateCluster(cluster *models.K8SCluster, id string, logger *z
 	err = s.coll.Create(cluster, id)
 	if err != nil {
 		return nil, e.ErrCreateCluster.AddErr(err)
+	}
+
+	for _, projectName := range cluster.AdvancedConfig.ProjectNames {
+		err = commonrepo.NewProjectClusterRelationColl().Create(&commonmodels.ProjectClusterRelation{
+			ProjectName: projectName,
+			ClusterID:   cluster.ID.Hex(),
+			CreatedBy:   cluster.CreatedBy,
+		})
+		if err != nil {
+			logger.Errorf("Failed to create projectClusterRelation err:%s", err)
+		}
 	}
 
 	token, err := crypto.AesEncrypt(cluster.ID.Hex())

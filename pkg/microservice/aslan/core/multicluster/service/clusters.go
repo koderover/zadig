@@ -167,8 +167,9 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 	var advancedConfig *commonmodels.AdvancedConfig
 	if args.AdvancedConfig != nil {
 		advancedConfig = &commonmodels.AdvancedConfig{
-			Strategy:   args.AdvancedConfig.Strategy,
-			NodeLabels: convertToNodeSelectorRequirements(args.AdvancedConfig.NodeLabels),
+			Strategy:     args.AdvancedConfig.Strategy,
+			NodeLabels:   convertToNodeSelectorRequirements(args.AdvancedConfig.NodeLabels),
+			ProjectNames: args.AdvancedConfig.ProjectNames,
 		}
 	}
 	cluster := &commonmodels.K8SCluster{
