@@ -1962,12 +1962,17 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 		build.JobCtx.EnableProxy = module.PreBuild.EnableProxy
 
 		if module.PostBuild != nil && module.PostBuild.DockerBuild != nil {
+			dockerTemplateContent := ""
+			if module.PostBuild.DockerBuild.TemplateID != "" {
+				dockerTemplateContent = ""
+			}
 			build.JobCtx.DockerBuildCtx = &task.DockerBuildCtx{
-				Source:     module.PostBuild.DockerBuild.Source,
-				TemplateID: module.PostBuild.DockerBuild.TemplateID,
-				WorkDir:    module.PostBuild.DockerBuild.WorkDir,
-				DockerFile: module.PostBuild.DockerBuild.DockerFile,
-				BuildArgs:  module.PostBuild.DockerBuild.BuildArgs,
+				Source: module.PostBuild.DockerBuild.Source,
+				//TemplateID: module.PostBuild.DockerBuild.TemplateID,
+				WorkDir:               module.PostBuild.DockerBuild.WorkDir,
+				DockerFile:            module.PostBuild.DockerBuild.DockerFile,
+				BuildArgs:             module.PostBuild.DockerBuild.BuildArgs,
+				DockerTemplateContent: dockerTemplateContent,
 			}
 		}
 

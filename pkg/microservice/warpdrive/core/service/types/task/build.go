@@ -210,7 +210,8 @@ type DockerBuildCtx struct {
 	BuildArgs       string `yaml:"build_args" bson:"build_args" json:"build_args"`
 	ImageReleaseTag string `yaml:"image_release_tag,omitempty" bson:"image_release_tag,omitempty" json:"image_release_tag"`
 	Source          string `yaml:"source" bson:"source" json:"source"`
-	TemplateID      string `yaml:"template_id" bson:"template_id" json:"template_id"`
+	//TemplateID      string `yaml:"template_id" bson:"template_id" json:"template_id"`
+	DockerTemplateContent string `yaml:"docker_template_content" bson:"docker_template_content" json:"docker_template_content"`
 }
 
 type FileArchiveCtx struct {
