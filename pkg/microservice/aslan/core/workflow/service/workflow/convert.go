@@ -154,7 +154,7 @@ func JenkinsBuildModuleToSubTasks(jenkinsBuildOption *JenkinsBuildOption, log *z
 		return nil, e.ErrConvertSubTasks.AddErr(err)
 	}
 
-	registries, err := commonservice.ListRegistryNamespaces(log)
+	registries, err := commonservice.ListRegistryNamespaces(true, log)
 	if err != nil {
 		return nil, e.ErrConvertSubTasks.AddErr(err)
 	}

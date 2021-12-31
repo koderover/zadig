@@ -25,7 +25,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -44,7 +43,7 @@ func GetDefaultRegistryNamespace(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	reg, err := commonservice.GetDefaultRegistryNamespace(ctx.Logger)
+	reg, err := commonservice.FindDefaultRegistry(true, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		return
@@ -64,7 +63,7 @@ func GetRegistryNamespace(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	reg, err := commonservice.FindRegistryById(c.Param("id"), ctx.Logger)
+	reg, err := commonservice.FindRegistryById(c.Param("id"), false, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		return
@@ -82,7 +81,7 @@ func ListRegistryNamespaces(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = commonservice.ListRegistryNamespaces(ctx.Logger)
+	ctx.Resp, ctx.Err = commonservice.ListRegistryNamespaces(false, ctx.Logger)
 }
 
 func CreateRegistryNamespace(c *gin.Context) {
@@ -166,14 +165,14 @@ func ListImages(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	//判断当前registryId是否为空
-	regOps := new(commonrepo.FindRegOps)
 	registryID := c.Query("registryId")
+	var registryInfo *commonmodels.RegistryNamespace
+	var err error
 	if registryID != "" {
-		regOps.ID = registryID
+		registryInfo, err = commonservice.FindRegistryById(registryID, false, ctx.Logger)
 	} else {
-		regOps.IsDefault = true
+		registryInfo, err = commonservice.FindDefaultRegistry(false, ctx.Logger)
 	}
-	registryInfo, err := service.GetRegistryNamespace(regOps, ctx.Logger)
 	if err != nil {
 		ctx.Logger.Errorf("can't find candidate registry err :%v", err)
 		ctx.Resp = make([]*service.RepoImgResp, 0)
@@ -195,9 +194,7 @@ func ListRepoImages(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	regOps := new(commonrepo.FindRegOps)
-	regOps.IsDefault = true
-	registryInfo, err := service.GetRegistryNamespace(regOps, ctx.Logger)
+	registryInfo, err := commonservice.FindDefaultRegistry(false, ctx.Logger)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
