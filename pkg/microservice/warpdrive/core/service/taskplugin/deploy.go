@@ -27,6 +27,7 @@ import (
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	helmrelease "helm.sh/helm/v3/pkg/release"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/rest"
@@ -83,8 +84,6 @@ func (p *DeployTaskPlugin) SetAckFunc(func()) {
 }
 
 const (
-	// DeployTimeout ...
-	DeployTimeout            = 60 * 10 // 10 minutes
 	imageUrlParseRegexString = `(?P<repo>.+/)?(?P<image>[^:]+){1}(:)?(?P<tag>.+)?`
 )
 
@@ -117,7 +116,7 @@ func (p *DeployTaskPlugin) SetStatus(status config.Status) {
 // TaskTimeout ...
 func (p *DeployTaskPlugin) TaskTimeout() int {
 	if p.Task.Timeout == 0 {
-		p.Task.Timeout = DeployTimeout
+		p.Task.Timeout = setting.DeployTimeout
 	} else {
 		if !p.Task.IsRestart {
 			p.Task.Timeout = p.Task.Timeout * 60
@@ -540,17 +539,24 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			ValuesYaml:  replacedMergedValuesYaml,
 			SkipCRDs:    false,
 			UpgradeCRDs: true,
-			Timeout:     5 * time.Minute,
+			Timeout:     time.Second * setting.DeployTimeout,
 			Wait:        true,
-			Atomic:      true,
 		}
-
-		if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), &chartSpec); err != nil {
+		var release *helmrelease.Release
+		if release, err = helmClient.InstallOrUpgradeChart(context.TODO(), &chartSpec); err != nil {
 			err = errors.WithMessagef(
 				err,
 				"failed to Install helm chart %s/%s",
 				p.Task.Namespace, p.Task.ServiceName)
-			return
+
+			if release != nil && (release.Info.Status == helmrelease.StatusPendingInstall || release.Info.Status == helmrelease.StatusPendingUpgrade) {
+				secretName := fmt.Sprintf("sh.helm.release.v1.%s.v.%d", release.Name, release.Version)
+				deleteErr := updater.DeleteSecretWithName(release.Namespace, secretName, p.kubeClient)
+				if deleteErr != nil {
+					err = errors.WithMessagef(err, "deleteSecretWithName:%s,error:%s", secretName, deleteErr)
+					return
+				}
+			}
 		}
 
 		//替换环境变量中的chartInfos
