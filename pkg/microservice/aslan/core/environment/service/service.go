@@ -150,7 +150,7 @@ func RestartScale(args *RestartScaleArgs, _ *zap.SugaredLogger) error {
 	// aws secrets needs to be refreshed
 	regs, err := commonservice.ListRegistryNamespaces(true, log.SugaredLogger())
 	if err != nil {
-		log.Errorf("Failed to get registries to restart container, the error is: %s\n", err)
+		log.Errorf("Failed to get registries to restart container, the error is: %s", err)
 		return err
 	}
 	for _, reg := range regs {
@@ -348,7 +348,7 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 	// aws secrets needs to be refreshed
 	regs, err := commonservice.ListRegistryNamespaces(true, log)
 	if err != nil {
-		log.Errorf("Failed to get registries to restart container, the error is: %s\n", err)
+		log.Errorf("Failed to get registries to restart container, the error is: %s", err)
 		return err
 	}
 	for _, reg := range regs {
