@@ -97,15 +97,11 @@ func buildTargetImage(imageName, imageTag, host, nameSpace string) string {
 
 func ExtractErrorDetail(in io.Reader) error {
 	dec := json.NewDecoder(in)
-	for {
+	for dec.More() {
 		var jm jsonmessage.JSONMessage
 		if err := dec.Decode(&jm); err != nil {
-			if err == io.EOF {
-				break
-			}
 			return err
 		}
-
 		if jm.Error != nil {
 			return jm.Error
 		}
@@ -114,10 +110,7 @@ func ExtractErrorDetail(in io.Reader) error {
 }
 
 func pullImage(dockerClient *client.Client, imageUrl string, options *types.ImagePullOptions) error {
-
 	log.Infof("pulling image: %s", imageUrl)
-
-	// pull image
 	pullResponse, err := dockerClient.ImagePull(context.TODO(), imageUrl, *options)
 	if err != nil {
 		return err
@@ -130,9 +123,7 @@ func pullImage(dockerClient *client.Client, imageUrl string, options *types.Imag
 }
 
 func pushImage(dockerClient *client.Client, targetImageUrl string, options *types.ImagePushOptions) error {
-
 	log.Infof("pushing image: %s", targetImageUrl)
-
 	pushResponse, err := dockerClient.ImagePush(context.TODO(), targetImageUrl, *options)
 	if err != nil {
 		return errors.Wrapf(err, "failed to push image: %s", targetImageUrl)
