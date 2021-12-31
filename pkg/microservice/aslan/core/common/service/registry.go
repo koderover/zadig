@@ -71,7 +71,7 @@ func findRegisty(regOps *mongodb.FindRegOps, getRealCredential bool, log *zap.Su
 		}
 	}
 
-	if getRealCredential {
+	if !getRealCredential {
 		return resp, nil
 	}
 	switch resp.RegProvider {
