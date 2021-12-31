@@ -104,5 +104,18 @@ func GetConfigPayload(codeHostID int) *models.ConfigPayload {
 		}
 		payload.K8SClusters = K8SClusterResp
 	}
+
+	objectStorage, _ := mongodb.NewS3StorageColl().FindDefault()
+	if objectStorage != nil {
+		payload.S3Storage.Endpoint = objectStorage.Endpoint
+		payload.S3Storage.Sk = objectStorage.Sk
+		payload.S3Storage.Ak = objectStorage.Ak
+		payload.S3Storage.Path = objectStorage.Subfolder
+		payload.S3Storage.Bucket = objectStorage.Bucket
+		payload.S3Storage.Protocol = "https"
+		if objectStorage.Insecure {
+			payload.S3Storage.Protocol = "http"
+		}
+	}
 	return payload
 }
