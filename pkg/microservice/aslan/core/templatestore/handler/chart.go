@@ -19,8 +19,9 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	templateservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/dockerfile"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
-	templateservice "github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	"github.com/koderover/zadig/pkg/tool/errors"
 )
@@ -90,7 +91,7 @@ func UpdateChartTemplateVariables(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := make([]*templateservice.Variable, 0)
+	args := make([]*commonmodels.Variable, 0)
 	if err := c.ShouldBindJSON(&args); err != nil {
 		ctx.Err = errors.ErrInvalidParam.AddErr(err)
 		return

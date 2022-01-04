@@ -26,7 +26,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
