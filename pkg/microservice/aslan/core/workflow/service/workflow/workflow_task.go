@@ -1964,7 +1964,8 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 		if module.PostBuild != nil && module.PostBuild.DockerBuild != nil {
 			dockerTemplateContent := ""
 			if module.PostBuild.DockerBuild.TemplateID != "" {
-				dockerTemplateContent = ""
+				//dockerfileDetail, err := service.GetDockerfileTemplateDetail(module.PostBuild.DockerBuild.TemplateID, log)
+				//dockerTemplateContent = dockerfileDetail.Content
 			}
 			build.JobCtx.DockerBuildCtx = &task.DockerBuildCtx{
 				Source: module.PostBuild.DockerBuild.Source,
