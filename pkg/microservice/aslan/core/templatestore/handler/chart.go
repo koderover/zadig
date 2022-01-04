@@ -20,8 +20,8 @@ import (
 	"github.com/gin-gonic/gin"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	templateservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/dockerfile"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
+	templateservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	"github.com/koderover/zadig/pkg/tool/errors"
 )

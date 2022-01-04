@@ -21,7 +21,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	templateservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/dockerfile"
+	templateservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
