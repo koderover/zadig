@@ -2279,12 +2279,22 @@ func installOrUpgradeHelmChartWithValues(namespace, valuesYaml string, renderCha
 		chartSpec.Wait = true
 		chartSpec.Timeout = timeout
 	}
-	if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), chartSpec); err != nil {
-		err = errors.WithMessagef(
-			err,
-			"failed to Install helm chart %s/%s",
-			namespace, serviceObj.ServiceName)
 
+	done := make(chan bool)
+	go func(chan bool) {
+		if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), chartSpec); err != nil {
+			err = errors.WithMessagef(
+				err,
+				"failed to Install helm chart %s/%s",
+				namespace, serviceObj.ServiceName)
+		} else {
+			done <- true
+		}
+	}(done)
+
+	select {
+	case <-done:
+	case <-time.After(chartSpec.Timeout + 5*time.Second):
 		hrs, errHistory := helmClient.ListReleaseHistory(chartSpec.ReleaseName, 10)
 		if errHistory != nil {
 			err = errors.WithMessagef(

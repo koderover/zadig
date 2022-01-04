@@ -543,12 +543,22 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			Timeout:     time.Second * setting.DeployTimeout,
 			Wait:        true,
 		}
-		if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), &chartSpec); err != nil {
-			err = errors.WithMessagef(
-				err,
-				"failed to Install helm chart %s/%s",
-				p.Task.Namespace, p.Task.ServiceName)
 
+		done := make(chan bool)
+		go func(chan bool) {
+			if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), &chartSpec); err != nil {
+				err = errors.WithMessagef(
+					err,
+					"failed to Install helm chart %s/%s",
+					p.Task.Namespace, p.Task.ServiceName)
+			} else {
+				done <- true
+			}
+		}(done)
+
+		select {
+		case <-done:
+		case <-time.After(time.Second * (setting.DeployTimeout + 5)):
 			hrs, errHistory := helmClient.ListReleaseHistory(chartSpec.ReleaseName, 10)
 			if errHistory != nil {
 				err = errors.WithMessagef(
