@@ -23,6 +23,7 @@ import (
 	helmclient "github.com/mittwald/go-helm-client"
 	"go.uber.org/zap"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -120,7 +121,7 @@ func prepareData(namespace, serviceName string, containerName string, product *m
 	return
 }
 
-func updateContainerForHelmChart(serviceName, resType, image, containerName string, product *models.Product) error {
+func updateContainerForHelmChart(serviceName, resType, image, containerName string, product *models.Product, cl client.Client) error {
 	var (
 		replaceValuesMap         map[string]interface{}
 		replacedValuesYaml       string
@@ -180,7 +181,7 @@ func updateContainerForHelmChart(serviceName, resType, image, containerName stri
 	}
 
 	// when replace image, should not wait
-	err = installOrUpgradeHelmChartWithValues(namespace, replacedMergedValuesYaml, targetChart, serviceObj, 0, false, helmClient)
+	err = installOrUpgradeHelmChartWithValues(namespace, replacedMergedValuesYaml, targetChart, serviceObj, 0, false, helmClient, cl)
 	if err != nil {
 		return err
 	}
@@ -237,7 +238,7 @@ func UpdateContainerImage(requestID string, args *UpdateContainerImageArgs, log 
 		if err != nil {
 			return e.ErrUpdateConainterImage.AddErr(err)
 		}
-		err = updateContainerForHelmChart(serviceName, args.Type, args.Image, args.ContainerName, product)
+		err = updateContainerForHelmChart(serviceName, args.Type, args.Image, args.ContainerName, product, kubeClient)
 		if err != nil {
 			return e.ErrUpdateConainterImage.AddErr(err)
 		}
