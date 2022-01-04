@@ -43,9 +43,13 @@ func CreateCollaborationMode(c *gin.Context) {
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("CreateCollaborationMode c.GetRawData() err : %v", err)
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateCollaborationMode json.Unmarshal err : %v", err)
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
 	}
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "新增", "协作模式", args.Name, string(data), ctx.Logger)
@@ -61,17 +65,16 @@ func UpdateCollaborationMode(c *gin.Context) {
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("UpdateCollaborationMode c.GetRawData() err : %v", err)
-	}
-	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("UpdateCollaborationMode json.Unmarshal err : %v", err)
-	}
-
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "更新", "协作模式", args.Name, string(data), ctx.Logger)
-
-	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("UpdateCollaborationMode json.Unmarshal err : %v", err)
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "更新", "协作模式", args.Name, string(data), ctx.Logger)
 
 	ctx.Err = service.UpdateCollaborationMode(ctx.UserName, args, ctx.Logger)
 }

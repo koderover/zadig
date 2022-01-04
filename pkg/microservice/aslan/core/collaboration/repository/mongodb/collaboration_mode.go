@@ -84,26 +84,24 @@ func (c *CollaborationModeColl) Update(username string, args *models.Collaborati
 	res, err := c.Find(&CollaborationModeFindOptions{
 		Name:        args.Name,
 		ProjectName: args.ProjectName,
+		IsDeleted:   false,
 	})
-	if err != nil {
+	if err == nil {
+		query := bson.M{"name": args.Name, "project_name": args.ProjectName, "is_deleted": false}
+		change := bson.M{"$set": bson.M{
+			"update_time": time.Now().Unix(),
+			"update_by":   username,
+			"members":     args.Members,
+			"workflows":   args.Workflows,
+			"revision":    res.Revision + 1,
+			"products":    args.Products,
+		}}
+
+		_, err = c.UpdateOne(context.TODO(), query, change)
+
 		return err
 	}
-	if res != nil {
-		return errors.New("CollaborationMode has exist")
-	}
-	query := bson.M{"name": args.Name, "project_name": args.ProjectName}
-	change := bson.M{"$set": bson.M{
-		"update_time": time.Now().Unix(),
-		"update_by":   username,
-		"members":     args.Members,
-		"workflows":   args.Workflows,
-		"revision":    res.Revision + 1,
-		"products":    args.Products,
-	}}
-
-	_, err = c.UpdateOne(context.TODO(), query, change)
-
-	return err
+	return nil
 }
 
 func (c *CollaborationModeColl) Create(userName string, args *models.CollaborationMode) error {
