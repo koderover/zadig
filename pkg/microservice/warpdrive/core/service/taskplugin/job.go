@@ -464,6 +464,11 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 	for _, reg := range registries {
 		arr := strings.Split(reg.Namespace, "/")
 		namespaceInRegistry := arr[len(arr)-1]
+		// for AWS ECR, there are no namespace, thus we need to find the NS from the URI
+		if namespaceInRegistry == "" {
+			uriDecipher := strings.Split(reg.RegAddr, ".")
+			namespaceInRegistry = uriDecipher[0]
+		}
 		secretName := namespaceInRegistry + registrySecretSuffix
 		if reg.RegType != "" {
 			secretName = namespaceInRegistry + "-" + reg.RegType + registrySecretSuffix
@@ -574,6 +579,11 @@ func createOrUpdateRegistrySecrets(namespace, registryID string, registries []*t
 
 		arr := strings.Split(reg.Namespace, "/")
 		namespaceInRegistry := arr[len(arr)-1]
+		// for AWS ECR, there are no namespace, thus we need to find the NS from the URI
+		if namespaceInRegistry == "" {
+			uriDecipher := strings.Split(reg.RegAddr, ".")
+			namespaceInRegistry = uriDecipher[0]
+		}
 		filteredName, err := formatRegistryName(namespaceInRegistry)
 		if err != nil {
 			return err

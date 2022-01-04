@@ -50,7 +50,6 @@ import (
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/converter"
-	"github.com/koderover/zadig/pkg/util/fs"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
@@ -456,7 +455,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			}
 		}
 
-		chartPath, err = fs.RelativeToCurrentPath(path)
+		chartPath, err = fsutil.RelativeToCurrentPath(path)
 		if err != nil {
 			err = errors.WithMessagef(
 				err,

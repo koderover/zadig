@@ -123,7 +123,7 @@ func (p *TriggerTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pi
 	p.pipelineName = pipelineTask.PipelineName
 	p.taskId = pipelineTask.TaskID
 	p.Log.Infof("succeed to create trigger task %s", p.JobName)
-	ctx, p.cancel = context.WithCancel(context.Background())
+	_, p.cancel = context.WithCancel(context.Background())
 	httpClient := httpclient.New(
 		httpclient.SetHostURL(p.Task.URL),
 	)

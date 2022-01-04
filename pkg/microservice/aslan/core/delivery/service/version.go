@@ -31,6 +31,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/blang/semver/v4"
 	cm "github.com/chartmuseum/helm-push/pkg/chartmuseum"
 	"github.com/chartmuseum/helm-push/pkg/helm"
 	"github.com/hashicorp/go-multierror"
@@ -47,7 +48,6 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
@@ -187,9 +187,10 @@ type ServiceImageDetails struct {
 }
 
 type ChartVersionResp struct {
-	ChartName    string `json:"chartName"`
-	ChartVersion string `json:"chartVersion"`
-	Url          string `json:"url"`
+	ChartName        string `json:"chartName"`
+	ChartVersion     string `json:"chartVersion"`
+	NextChartVersion string `json:"nextChartVersion"`
+	Url              string `json:"url"`
 }
 
 type DeliveryVersionPayloadImage struct {
@@ -540,72 +541,6 @@ func createChartRepoClient(repo *commonmodels.HelmRepo) (*cm.Client, error) {
 	return client, nil
 }
 
-// find all images in one single chart
-func extractImages(cData *DeliveryChartData, registryMap map[string]*commonmodels.RegistryNamespace) (*ServiceImageDetails, error) {
-
-	flatMap, err := converter.Flatten(cData.ValuesInEnv)
-	if err != nil {
-		return nil, err
-	}
-
-	serviceObj := cData.ServiceObj
-	imagePathSpecs := make([]map[string]string, 0)
-	for _, container := range serviceObj.Containers {
-		imageSearchRule := &template.ImageSearchingRule{
-			Repo:  container.ImagePath.Repo,
-			Image: container.ImagePath.Image,
-			Tag:   container.ImagePath.Tag,
-		}
-		pattern := imageSearchRule.GetSearchingPattern()
-		imagePathSpecs = append(imagePathSpecs, pattern)
-	}
-
-	imageUrlsSet := sets.NewString()
-	for _, spec := range imagePathSpecs {
-		imageUrl, err := commonservice.GeneImageURI(spec, flatMap)
-		if err != nil {
-			return nil, err
-		}
-		imageUrlsSet.Insert(imageUrl)
-	}
-
-	ret := &ServiceImageDetails{
-		ServiceName: cData.ProductService.ServiceName,
-		Images:      make([]*ImageUrlDetail, 0),
-	}
-
-	registrySet := sets.NewString()
-
-	for _, imageUrl := range imageUrlsSet.List() {
-
-		registryUrl, err := commonservice.ExtractImageRegistry(imageUrl)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to parse registry from image uri: %s", imageUrl)
-		}
-		registryUrl = strings.TrimSuffix(registryUrl, "/")
-
-		imageName := commonservice.ExtractImageName(imageUrl)
-		imageTag := commonservice.ExtractImageTag(imageUrl)
-
-		registryID := ""
-		// used source registry
-		if registry, ok := registryMap[registryUrl]; ok {
-			registryID = registry.ID.Hex()
-			registrySet.Insert(registryID)
-		}
-
-		ret.Images = append(ret.Images, &ImageUrlDetail{
-			ImageUrl: imageUrl,
-			Name:     imageName,
-			Tag:      imageTag,
-			Registry: registryID,
-		})
-	}
-
-	ret.Registries = registrySet.List()
-	return ret, nil
-}
-
 // ensure chart files exist
 func ensureChartFiles(chartData *DeliveryChartData, prod *commonmodels.Product) (string, error) {
 	serviceObj := chartData.ServiceObj
@@ -664,50 +599,135 @@ func ensureChartFiles(chartData *DeliveryChartData, prod *commonmodels.Product) 
 	return deliveryChartPath, nil
 }
 
-func buildChartPackage(chartData *DeliveryChartData, product *commonmodels.Product, chartRepo *commonmodels.HelmRepo, dir string, globalVariables string, registryMap map[string]*commonmodels.RegistryNamespace) error {
+// handleImageRegistry update image registry to target registry
+func handleImageRegistry(valuesYaml []byte, chartData *DeliveryChartData, targetRegistry *commonmodels.RegistryNamespace, registryMap map[string]*commonmodels.RegistryNamespace) ([]byte, *ServiceImageDetails, error) {
+
+	flatMap, err := converter.YamlToFlatMap(valuesYaml)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	retValuesYaml := string(valuesYaml)
+
+	serviceObj := chartData.ServiceObj
+	imagePathSpecs := make([]map[string]string, 0)
+	for _, container := range serviceObj.Containers {
+		imageSearchRule := &template.ImageSearchingRule{
+			Repo:  container.ImagePath.Repo,
+			Image: container.ImagePath.Image,
+			Tag:   container.ImagePath.Tag,
+		}
+		pattern := imageSearchRule.GetSearchingPattern()
+		imagePathSpecs = append(imagePathSpecs, pattern)
+	}
+
+	imageDetail := &ServiceImageDetails{
+		ServiceName: serviceObj.ServiceName,
+		Images:      make([]*ImageUrlDetail, 0),
+	}
+
+	registrySet := sets.NewString()
+	for _, spec := range imagePathSpecs {
+		imageUrl, err := commonservice.GeneImageURI(spec, flatMap)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		targetImageUrl := util.ReplaceRepo(imageUrl, targetRegistry.RegAddr, targetRegistry.Namespace)
+
+		registryUrl, err := commonservice.ExtractImageRegistry(imageUrl)
+		if err != nil {
+			return nil, nil, errors.Wrapf(err, "failed to parse registry from image uri: %s", imageUrl)
+		}
+		registryUrl = strings.TrimSuffix(registryUrl, "/")
+
+		imageName := commonservice.ExtractImageName(imageUrl)
+		imageTag := commonservice.ExtractImageTag(imageUrl)
+
+		registryID := ""
+		// used source registry
+		if registry, ok := registryMap[registryUrl]; ok {
+			registryID = registry.ID.Hex()
+			registrySet.Insert(registryID)
+		}
+
+		imageDetail.Images = append(imageDetail.Images, &ImageUrlDetail{
+			ImageUrl: imageUrl,
+			Name:     imageName,
+			Tag:      imageTag,
+			Registry: registryID,
+		})
+
+		// assign image to values.yaml
+		replaceValuesMap, err := commonservice.AssignImageData(targetImageUrl, spec)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to pase image uri %s, err %s", targetImageUrl, err)
+		}
+
+		// replace image into final merged values.yaml
+		retValuesYaml, err = commonservice.ReplaceImage(retValuesYaml, replaceValuesMap)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	imageDetail.Registries = registrySet.List()
+	return []byte(retValuesYaml), imageDetail, nil
+}
+
+func handleSingleChart(chartData *DeliveryChartData, product *commonmodels.Product, chartRepo *commonmodels.HelmRepo, dir string, globalVariables string,
+	targetRegistry *commonmodels.RegistryNamespace, registryMap map[string]*commonmodels.RegistryNamespace) (*ServiceImageDetails, error) {
 	serviceObj := chartData.ServiceObj
 
 	deliveryChartPath, err := ensureChartFiles(chartData, product)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	valuesYamlData := make(map[string]interface{})
 	valuesFilePath := filepath.Join(deliveryChartPath, setting.ValuesYaml)
 	valueYamlContent, err := os.ReadFile(valuesFilePath)
 	if err != nil {
-		return errors.Wrapf(err, "failed to read values.yaml for service %s", serviceObj.ServiceName)
+		return nil, errors.Wrapf(err, "failed to read values.yaml for service %s", serviceObj.ServiceName)
 	}
-	err = yaml.Unmarshal(valueYamlContent, &valuesYamlData)
-	if err != nil {
-		return errors.Wrapf(err, "failed to unmarshal values.yaml for service %s", serviceObj.ServiceName)
-	}
-
-	// hold the currently running yaml data
-	chartData.ValuesInEnv = valuesYamlData
 
 	// write values.yaml file before load
 	if len(chartData.ChartData.ValuesYamlContent) > 0 { // values.yaml was edited directly
 		if err = yaml.Unmarshal([]byte(chartData.ChartData.ValuesYamlContent), map[string]interface{}{}); err != nil {
 			log.Errorf("invalid yaml content, serviceName: %s, yamlContent: %s", serviceObj.ServiceName, chartData.ChartData.ValuesYamlContent)
-			return errors.Wrapf(err, "invalid yaml content for service: %s", serviceObj.ServiceName)
+			return nil, errors.Wrapf(err, "invalid yaml content for service: %s", serviceObj.ServiceName)
 		}
 		valueYamlContent = []byte(chartData.ChartData.ValuesYamlContent)
 	} else if len(globalVariables) > 0 { // merge global variables
 		valueYamlContent, err = yamlutil.Merge([][]byte{valueYamlContent, []byte(globalVariables)})
 		if err != nil {
-			return errors.Wrapf(err, "failed to merge global variables for service: %s", serviceObj.ServiceName)
+			return nil, errors.Wrapf(err, "failed to merge global variables for service: %s", serviceObj.ServiceName)
 		}
 	}
+
+	// replace image url
+	valueYamlContent, imageDetail, err := handleImageRegistry(valueYamlContent, chartData, targetRegistry, registryMap)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to handle image registry for service: %s", serviceObj.ServiceName)
+	}
+
+	err = yaml.Unmarshal(valueYamlContent, &valuesYamlData)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to unmarshal values.yaml for service %s", serviceObj.ServiceName)
+	}
+
+	// hold the currently running yaml data
+	chartData.ValuesInEnv = valuesYamlData
+
 	err = os.WriteFile(valuesFilePath, valueYamlContent, 0644)
 	if err != nil {
-		return errors.Wrapf(err, "failed to write values.yaml file for service %s", serviceObj.ServiceName)
+		return nil, errors.Wrapf(err, "failed to write values.yaml file for service %s", serviceObj.ServiceName)
 	}
 
 	//load chart info from local storage
 	chartRequested, err := chartloader.Load(deliveryChartPath)
 	if err != nil {
-		return errors.Wrapf(err, "failed to load chart info, path %s", deliveryChartPath)
+		return nil, errors.Wrapf(err, "failed to load chart info, path %s", deliveryChartPath)
 	}
 
 	//set metadata
@@ -718,24 +738,24 @@ func buildChartPackage(chartData *DeliveryChartData, product *commonmodels.Produ
 	//create local chart package
 	chartPackagePath, err := helm.CreateChartPackage(&helm.Chart{Chart: chartRequested}, dir)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	client, err := createChartRepoClient(chartRepo)
 	if err != nil {
-		return errors.Wrapf(err, "failed to create chart repo client, repoName: %s", chartRepo.RepoName)
+		return nil, errors.Wrapf(err, "failed to create chart repo client, repoName: %s", chartRepo.RepoName)
 	}
 
 	log.Infof("pushing chart %s to %s...", filepath.Base(chartPackagePath), chartRepo.URL)
 	resp, err := client.UploadChartPackage(chartPackagePath, false)
 	if err != nil {
-		return errors.Wrapf(err, "failed to prepare pushing chart: %s", chartPackagePath)
+		return nil, errors.Wrapf(err, "failed to prepare pushing chart: %s", chartPackagePath)
 	}
 	err = handlePushResponse(resp)
 	if err != nil {
-		return errors.Wrapf(err, "failed to push chart: %s ", chartPackagePath)
+		return nil, errors.Wrapf(err, "failed to push chart: %s ", chartPackagePath)
 	}
-	return nil
+	return imageDetail, nil
 }
 
 func handlePushResponse(resp *http.Response) error {
@@ -834,7 +854,7 @@ func prepareChartData(chartDatas []*CreateHelmDeliveryVersionChartData, productI
 }
 
 func buildRegistryMap() (map[string]*commonmodels.RegistryNamespace, error) {
-	registries, err := commonrepo.NewRegistryNamespaceColl().FindAll(&mongodb.FindRegOps{})
+	registries, err := commonservice.ListRegistryNamespaces(true, log.SugaredLogger())
 	if err != nil {
 		return nil, fmt.Errorf("failed to query registries")
 	}
@@ -949,23 +969,25 @@ func buildDeliveryCharts(chartDataMap map[string]*DeliveryChartData, deliveryVer
 		return fmt.Errorf("failed to build registry map")
 	}
 
+	var targetRegistry *commonmodels.RegistryNamespace
+	for _, registry := range registryMap {
+		if registry.ID.Hex() == args.ImageRegistryID {
+			targetRegistry = registry
+			break
+		}
+	}
+
 	imagesDataMap := &sync.Map{}
 
-	// push charts to repo
 	wg := sync.WaitGroup{}
 	for _, chartData := range chartDataMap {
 		wg.Add(1)
 		go func(cData *DeliveryChartData) {
 			defer wg.Done()
-			err := buildChartPackage(cData, deliveryVersion.ProductEnvInfo, repoInfo, dir, args.GlobalVariables, registryMap)
+			// generate new chart data, push to chart repo, extract related images
+			imageData, err := handleSingleChart(cData, deliveryVersion.ProductEnvInfo, repoInfo, dir, args.GlobalVariables, targetRegistry, registryMap)
 			if err != nil {
 				logger.Errorf("failed to build chart package, serviceName: %s err: %s", cData.ChartData.ServiceName, err)
-				appendError(err)
-				return
-			}
-			imageData, err := extractImages(cData, registryMap)
-			if err != nil {
-				logger.Errorf("failed to extract image data, serviceName: %s err: %s", cData.ChartData.ServiceName, err)
 				appendError(err)
 				return
 			}
@@ -1143,7 +1165,7 @@ func checkVersionStatus(deliveryVersion *commonmodels.DeliveryVersion) (bool, er
 	pipelineName := fmt.Sprintf("%s-%s-%s", deliveryVersion.ProductName, deliveryVersion.ProductEnvInfo.EnvName, "artifact")
 	taskData, err := commonrepo.NewTaskColl().Find(int64(deliveryVersion.TaskID), pipelineName, config.ArtifactType)
 	if err != nil {
-		return false, fmt.Errorf("failed to query taskData, id: %d, pipelineName: %s", deliveryVersion.TaskID)
+		return false, fmt.Errorf("failed to query taskData, id: %d, pipelineName: %s", deliveryVersion.TaskID, pipelineName)
 	}
 
 	if len(taskData.Stages) != 1 {
@@ -1576,6 +1598,7 @@ func GetChartVersion(chartName, chartRepoName string) ([]*ChartVersionResp, erro
 
 	chartNameList := strings.Split(chartName, ",")
 	chartNameSet := sets.NewString(chartNameList...)
+	existedChartSet := sets.NewString()
 
 	ret := make([]*ChartVersionResp, 0)
 
@@ -1587,9 +1610,33 @@ func GetChartVersion(chartName, chartRepoName string) ([]*ChartVersionResp, erro
 			continue
 		}
 		latestEntry := entry[0]
+
+		// generate suggested next chart version
+		nextVersion := latestEntry.Version
+		t, err := semver.Make(latestEntry.Version)
+		if err != nil {
+			log.Errorf("failed to parse current version: %s, err: %s", latestEntry.Version, err)
+		} else {
+			t.Patch = t.Patch + 1
+			nextVersion = t.String()
+		}
+
 		ret = append(ret, &ChartVersionResp{
-			ChartName:    name,
-			ChartVersion: latestEntry.Version,
+			ChartName:        name,
+			ChartVersion:     latestEntry.Version,
+			NextChartVersion: nextVersion,
+		})
+		existedChartSet.Insert(name)
+	}
+
+	for _, singleChartName := range chartNameList {
+		if existedChartSet.Has(singleChartName) {
+			continue
+		}
+		ret = append(ret, &ChartVersionResp{
+			ChartName:        singleChartName,
+			ChartVersion:     "",
+			NextChartVersion: "1.0.0",
 		})
 	}
 

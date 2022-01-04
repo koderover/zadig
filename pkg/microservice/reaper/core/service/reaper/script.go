@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -226,24 +227,23 @@ func (r *Reaper) runScripts() error {
 	//如果文件不存在就创建文件，避免后面使用变量出错
 	util.WriteFile(fileName, []byte{}, 0700)
 
-	cmdOutReader, err := cmd.StdoutPipe()
+	needPersistentLog := len(r.Ctx.PostScripts) > 0
+
+	cmdStdoutReader, err := cmd.StdoutPipe()
 	if err != nil {
 		return err
 	}
-	outScanner := bufio.NewScanner(cmdOutReader)
+	go r.handleCmdOutput(cmdStdoutReader, needPersistentLog, fileName)
+
+	cmdStdErrReader, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+	go r.handleCmdOutput(cmdStdErrReader, needPersistentLog, fileName)
 
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-
-	go func() {
-		for outScanner.Scan() {
-			fmt.Printf("%s\n", r.maskSecretEnvs(outScanner.Text()))
-			if len(r.Ctx.PostScripts) > 0 {
-				util.WriteFile(fileName, []byte(outScanner.Text()+"\n"), 0700)
-			}
-		}
-	}()
 
 	return cmd.Wait()
 }
@@ -398,4 +398,29 @@ func (r *Reaper) downloadArtifactFile() error {
 		}
 	}
 	return nil
+}
+
+func (r *Reaper) handleCmdOutput(pipe io.ReadCloser, needPersistentLog bool, logFile string) {
+	reader := bufio.NewReader(pipe)
+
+	for {
+		lineBytes, err := reader.ReadBytes('\n')
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+
+			log.Errorf("Failed to read stdout log: %s", err)
+			break
+		}
+
+		fmt.Printf("%s", string(lineBytes))
+
+		if needPersistentLog {
+			err := util.WriteFile(logFile, lineBytes, 0700)
+			if err != nil {
+				log.Warnf("Failed to write stdout file: %s", err)
+			}
+		}
+	}
 }
