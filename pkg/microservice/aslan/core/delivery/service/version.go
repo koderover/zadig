@@ -31,6 +31,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/blang/semver/v4"
 	cm "github.com/chartmuseum/helm-push/pkg/chartmuseum"
 	"github.com/chartmuseum/helm-push/pkg/helm"
 	"github.com/hashicorp/go-multierror"
@@ -186,9 +187,10 @@ type ServiceImageDetails struct {
 }
 
 type ChartVersionResp struct {
-	ChartName    string `json:"chartName"`
-	ChartVersion string `json:"chartVersion"`
-	Url          string `json:"url"`
+	ChartName        string `json:"chartName"`
+	ChartVersion     string `json:"chartVersion"`
+	NextChartVersion string `json:"nextChartVersion"`
+	Url              string `json:"url"`
 }
 
 type DeliveryVersionPayloadImage struct {
@@ -669,6 +671,7 @@ func handleImageRegistry(valuesYaml []byte, chartData *DeliveryChartData, target
 		}
 	}
 
+	imageDetail.Registries = registrySet.List()
 	return []byte(retValuesYaml), imageDetail, nil
 }
 
@@ -1595,6 +1598,7 @@ func GetChartVersion(chartName, chartRepoName string) ([]*ChartVersionResp, erro
 
 	chartNameList := strings.Split(chartName, ",")
 	chartNameSet := sets.NewString(chartNameList...)
+	existedChartSet := sets.NewString()
 
 	ret := make([]*ChartVersionResp, 0)
 
@@ -1606,9 +1610,33 @@ func GetChartVersion(chartName, chartRepoName string) ([]*ChartVersionResp, erro
 			continue
 		}
 		latestEntry := entry[0]
+
+		// generate suggested next chart version
+		nextVersion := latestEntry.Version
+		t, err := semver.Make(latestEntry.Version)
+		if err != nil {
+			log.Errorf("failed to parse current version: %s, err: %s", latestEntry.Version, err)
+		} else {
+			t.Patch = t.Patch + 1
+			nextVersion = t.String()
+		}
+
 		ret = append(ret, &ChartVersionResp{
-			ChartName:    name,
-			ChartVersion: latestEntry.Version,
+			ChartName:        name,
+			ChartVersion:     latestEntry.Version,
+			NextChartVersion: nextVersion,
+		})
+		existedChartSet.Insert(name)
+	}
+
+	for _, singleChartName := range chartNameList {
+		if existedChartSet.Has(singleChartName) {
+			continue
+		}
+		ret = append(ret, &ChartVersionResp{
+			ChartName:        singleChartName,
+			ChartVersion:     "",
+			NextChartVersion: "1.0.0",
 		})
 	}
 
