@@ -8,6 +8,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/mongodb"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 type GetCollaborationUpdateResp struct {
@@ -42,6 +43,26 @@ type UpdateWorkflowItem struct {
 type UpdateProductItem struct {
 	Old models.ProductCMItem `json:"old"`
 	New models.ProductCIItem `json:"new"`
+}
+
+type Workflow struct {
+	CollaborationType string `json:"collaboration_type"`
+	BaseName          string `json:"base_name"`
+	CollaborationMode string `json:"collaboration_mode"`
+	Name              string `json:"name"`
+	Description       string `json:"description"`
+}
+
+type Product struct {
+	CollaborationType string `json:"collaboration_type"`
+	BaseName          string `json:"base_name"`
+	CollaborationMode string `json:"collaboration_mode"`
+	Name              string `json:"name"`
+}
+type GetCollaborationNewResp struct {
+	Code     int64      `json:"code"`
+	Workflow []Workflow `json:"workflow"`
+	Product  []Product  `json:"product"`
 }
 
 func getUpdateWorkflowDiff(cmwMap map[string]models.WorkflowCMItem, ciwMap map[string]models.WorkflowCIItem) (
@@ -187,4 +208,78 @@ func GetCollaborationUpdate(projectName, uid string, logger *zap.SugaredLogger) 
 		return nil, err
 	}
 	return resp, nil
+}
+func buildName(baseName, modeName, userName string) string {
+	return modeName + baseName + userName + util.GetRandomString(6)
+}
+
+func GetCollaborationNew(projectName, uid, userName string, logger *zap.SugaredLogger) (*GetCollaborationNewResp, error) {
+	var newWorkflow []Workflow
+	var newProduct []Product
+	updateResp, err := GetCollaborationUpdate(projectName, uid, logger)
+	if err != nil {
+		logger.Errorf("GetCollaborationNew error, err msg:%s", err)
+		return nil, err
+	}
+	for _, mode := range updateResp.New {
+		for _, workflow := range mode.Workflows {
+			newWorkflow = append(newWorkflow, Workflow{
+				CollaborationType: workflow.CollaborationType,
+				BaseName:          workflow.Name,
+				CollaborationMode: mode.Name,
+				Name:              buildName(workflow.Name, mode.Name, userName),
+			})
+		}
+		for _, product := range mode.Products {
+			newProduct = append(newProduct, Product{
+				CollaborationType: product.CollaborationType,
+				BaseName:          product.Name,
+				CollaborationMode: mode.Name,
+				Name:              buildName(product.Name, mode.Name, userName),
+			})
+		}
+	}
+	for _, item := range updateResp.Update {
+		for _, workflow := range item.NewSpec.Workflows {
+			newWorkflow = append(newWorkflow, Workflow{
+				CollaborationType: workflow.CollaborationType,
+				BaseName:          workflow.Name,
+				CollaborationMode: item.CollaborationMode,
+				Name:              buildName(workflow.Name, item.CollaborationMode, userName),
+			})
+		}
+		for _, product := range item.NewSpec.Products {
+			newProduct = append(newProduct, Product{
+				CollaborationType: product.CollaborationType,
+				BaseName:          product.Name,
+				CollaborationMode: item.CollaborationMode,
+				Name:              buildName(product.Name, item.CollaborationMode, userName),
+			})
+		}
+		for _, workflow := range item.UpdateSpec.Workflows {
+			if workflow.Old.CollaborationType == "share" && workflow.New.CollaborationType == "new" {
+				newWorkflow = append(newWorkflow, Workflow{
+					CollaborationType: workflow.New.CollaborationType,
+					BaseName:          workflow.New.BaseName,
+					CollaborationMode: item.CollaborationMode,
+					Name:              buildName(workflow.New.BaseName, item.CollaborationMode, userName),
+				})
+			}
+		}
+		for _, product := range item.UpdateSpec.Products {
+			if product.Old.CollaborationType == "share" && product.New.CollaborationType == "new" {
+				newProduct = append(newProduct, Product{
+					CollaborationType: product.New.CollaborationType,
+					BaseName:          product.New.BaseName,
+					CollaborationMode: item.CollaborationMode,
+					Name:              buildName(product.New.BaseName, item.CollaborationMode, userName),
+				})
+			}
+		}
+	}
+	return &GetCollaborationNewResp{
+		Code:     10000,
+		Workflow: newWorkflow,
+		Product:  newProduct,
+	}, nil
 }

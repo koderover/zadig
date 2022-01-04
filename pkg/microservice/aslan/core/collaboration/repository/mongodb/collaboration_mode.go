@@ -32,8 +32,9 @@ import (
 
 type CollaborationModeFindOptions struct {
 	ProjectName string
-	Name        string
+	Name        string `           `
 	Members     string
+	IsDeleted   bool
 }
 
 type CollaborationModeColl struct {
@@ -110,15 +111,14 @@ func (c *CollaborationModeColl) Create(userName string, args *models.Collaborati
 	if args == nil {
 		return errors.New("nil CollaborationMode")
 	}
-	res, err := c.Find(&CollaborationModeFindOptions{
+	_, err := c.Find(&CollaborationModeFindOptions{
 		Name:        args.Name,
 		ProjectName: args.ProjectName,
+		IsDeleted:   false,
 	})
-	if err != nil {
-		return err
-	}
-	if res != nil {
-		return errors.New("CollaborationMode has exist")
+
+	if err == nil {
+		return errors.New("该项目下的协作模式已存在")
 	}
 	now := time.Now().Unix()
 	args.CreateBy = userName
@@ -132,17 +132,19 @@ func (c *CollaborationModeColl) Create(userName string, args *models.Collaborati
 }
 
 func (c *CollaborationModeColl) Delete(username, projectName, name string) error {
-	res, err := c.Find(&CollaborationModeFindOptions{
+	_, err := c.Find(&CollaborationModeFindOptions{
 		Name:        name,
 		ProjectName: projectName,
+		IsDeleted:   false,
 	})
-	if err != nil {
-		return err
+	if err == nil {
+		deleteQuery := bson.M{"name": name, "project_name": projectName, "is_deleted": true}
+		_, err = c.DeleteOne(context.TODO(), deleteQuery)
+		if err != nil {
+			return err
+		}
 	}
-	if res != nil {
-		return errors.New("CollaborationMode has exist")
-	}
-	query := bson.M{"name": name, "project_name": projectName}
+	query := bson.M{"name": name, "project_name": projectName, "is_deleted": false}
 	change := bson.M{"$set": bson.M{
 		"delete_time": time.Now().Unix(),
 		"delete_by":   username,

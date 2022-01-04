@@ -31,6 +31,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		collaborations.GET("", GetCollaborationMode)
 		collaborations.PUT("", gin2.UpdateOperationLogStatus, UpdateCollaborationMode)
 		collaborations.POST("", gin2.UpdateOperationLogStatus, CreateCollaborationMode)
-		collaborations.DELETE("", gin2.UpdateOperationLogStatus, DeleteCollaborationMode)
+		collaborations.DELETE("/:name", gin2.UpdateOperationLogStatus, DeleteCollaborationMode)
 	}
 }

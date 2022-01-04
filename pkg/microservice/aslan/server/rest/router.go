@@ -70,21 +70,21 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 	router.GET("/api/kodespace/downloadUrl", commonhandler.GetToolDownloadURL)
 
 	for name, r := range map[string]injector{
-		"/api/project":     new(projecthandler.Router),
-		"/api/code":        new(codehosthandler.Router),
-		"/api/system":      new(systemhandler.Router),
-		"/api/service":     new(servicehandler.Router),
-		"/api/setting":     new(settinghandler.Router),
-		"/api/environment": new(environmenthandler.Router),
-		"/api/cron":        new(cronhandler.Router),
-		"/api/workflow":    new(workflowhandler.Router),
-		"/api/build":       new(buildhandler.Router),
-		"/api/delivery":    new(deliveryhandler.Router),
-		"/api/logs":        new(loghandler.Router),
-		"/api/testing":     new(testinghandler.Router),
-		"/api/cluster":     new(multiclusterhandler.Router),
-		"/api/template":    new(templatehandler.Router),
-		"/api/v1":          new(collaborationhandler.Router),
+		"/api/project":       new(projecthandler.Router),
+		"/api/code":          new(codehosthandler.Router),
+		"/api/system":        new(systemhandler.Router),
+		"/api/service":       new(servicehandler.Router),
+		"/api/setting":       new(settinghandler.Router),
+		"/api/environment":   new(environmenthandler.Router),
+		"/api/cron":          new(cronhandler.Router),
+		"/api/workflow":      new(workflowhandler.Router),
+		"/api/build":         new(buildhandler.Router),
+		"/api/delivery":      new(deliveryhandler.Router),
+		"/api/logs":          new(loghandler.Router),
+		"/api/testing":       new(testinghandler.Router),
+		"/api/cluster":       new(multiclusterhandler.Router),
+		"/api/template":      new(templatehandler.Router),
+		"/api/collaboration": new(collaborationhandler.Router),
 	} {
 		r.Inject(router.Group(name))
 	}

@@ -52,6 +52,7 @@ func (s *engine) injectMiddlewares() {
 	if s.mode == gin.TestMode {
 		return
 	}
+	g.Use(ginmiddleware.GetCollaborationNew())
 	g.Use(ginmiddleware.Response())
 	g.Use(ginmiddleware.RequestID())
 	g.Use(ginmiddleware.RequestLog(log.NewFileLogger(config.RequestLogFile())))

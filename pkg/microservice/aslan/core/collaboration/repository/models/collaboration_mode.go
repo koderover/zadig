@@ -26,7 +26,7 @@ type CollaborationMode struct {
 	ProjectName string           `bson:"project_name"              json:"project_name"`
 	CreateTime  int64            `bson:"create_time"               json:"create_time"`
 	UpdateTime  int64            `bson:"update_time"               json:"update_time"`
-	Name        string           `bson:"name,omitempty"       json:"name"`
+	Name        string           `bson:"name"       json:"name"`
 	Revision    int64            `bson:"revision"                  json:"revision"`
 	Members     []string         `bson:"members" json:"members"`
 	IsDeleted   bool             `bson:"is_deleted" json:"is_deleted"`

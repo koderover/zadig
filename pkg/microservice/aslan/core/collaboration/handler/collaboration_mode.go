@@ -50,11 +50,6 @@ func CreateCollaborationMode(c *gin.Context) {
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "新增", "协作模式", args.Name, string(data), ctx.Logger)
 
-	if err := c.BindJSON(args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
-		return
-	}
-
 	ctx.Err = service.CreateCollaborationMode(ctx.UserName, args, ctx.Logger)
 }
 
