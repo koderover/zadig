@@ -52,8 +52,9 @@ type K8SCluster struct {
 }
 
 type AdvancedConfig struct {
-	Strategy   string   `json:"strategy,omitempty"      bson:"strategy,omitempty"`
-	NodeLabels []string `json:"node_labels,omitempty"   bson:"node_labels,omitempty"`
+	Strategy     string   `json:"strategy,omitempty"        bson:"strategy,omitempty"`
+	NodeLabels   []string `json:"node_labels,omitempty"     bson:"node_labels,omitempty"`
+	ProjectNames []string `json:"project_names"             bson:"project_names"`
 }
 
 func (k *K8SCluster) Clean() error {
@@ -67,8 +68,16 @@ func (k *K8SCluster) Clean() error {
 	return nil
 }
 
-func ListClusters(ids []string, logger *zap.SugaredLogger) ([]*K8SCluster, error) {
+func ListClusters(ids []string, projectName string, logger *zap.SugaredLogger) ([]*K8SCluster, error) {
 	idSet := sets.NewString(ids...)
+	if projectName != "" {
+		projectClusterRelations, _ := commonrepo.NewProjectClusterRelationColl().List(&commonrepo.ProjectClusterRelationOption{
+			ProjectName: projectName,
+		})
+		for _, projectClusterRelation := range projectClusterRelations {
+			idSet.Insert(projectClusterRelation.ClusterID)
+		}
+	}
 	cs, err := commonrepo.NewK8SClusterColl().List(&commonrepo.ClusterListOpts{IDs: idSet.UnsortedList()})
 	if err != nil {
 		logger.Errorf("Failed to list clusters, err: %s", err)
@@ -78,10 +87,12 @@ func ListClusters(ids []string, logger *zap.SugaredLogger) ([]*K8SCluster, error
 	var res []*K8SCluster
 	for _, c := range cs {
 		var advancedConfig *AdvancedConfig
+
 		if c.AdvancedConfig != nil {
 			advancedConfig = &AdvancedConfig{
-				Strategy:   c.AdvancedConfig.Strategy,
-				NodeLabels: convertToNodeLabels(c.AdvancedConfig.NodeLabels),
+				Strategy:     c.AdvancedConfig.Strategy,
+				NodeLabels:   convertToNodeLabels(c.AdvancedConfig.NodeLabels),
+				ProjectNames: getProjectNames(c.ID.Hex(), logger),
 			}
 		}
 		res = append(res, &K8SCluster{
@@ -105,6 +116,18 @@ func GetCluster(id string, logger *zap.SugaredLogger) (*commonmodels.K8SCluster,
 	s, _ := kube.NewService("")
 
 	return s.GetCluster(id, logger)
+}
+
+func getProjectNames(clusterID string, logger *zap.SugaredLogger) (projectNames []string) {
+	projectClusterRelations, err := commonrepo.NewProjectClusterRelationColl().List(&commonrepo.ProjectClusterRelationOption{ClusterID: clusterID})
+	if err != nil {
+		logger.Errorf("Failed to list projectClusterRelation, err:%s", err)
+		return []string{}
+	}
+	for _, projectClusterRelation := range projectClusterRelations {
+		projectNames = append(projectNames, projectClusterRelation.ProjectName)
+	}
+	return projectNames
 }
 
 func convertToNodeLabels(nodeSelectorRequirements []*commonmodels.NodeSelectorRequirement) []string {
@@ -144,8 +167,9 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 	var advancedConfig *commonmodels.AdvancedConfig
 	if args.AdvancedConfig != nil {
 		advancedConfig = &commonmodels.AdvancedConfig{
-			Strategy:   args.AdvancedConfig.Strategy,
-			NodeLabels: convertToNodeSelectorRequirements(args.AdvancedConfig.NodeLabels),
+			Strategy:     args.AdvancedConfig.Strategy,
+			NodeLabels:   convertToNodeSelectorRequirements(args.AdvancedConfig.NodeLabels),
+			ProjectNames: args.AdvancedConfig.ProjectNames,
 		}
 	}
 	cluster := &commonmodels.K8SCluster{
@@ -168,6 +192,21 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 	if args.AdvancedConfig != nil {
 		advancedConfig.Strategy = args.AdvancedConfig.Strategy
 		advancedConfig.NodeLabels = convertToNodeSelectorRequirements(args.AdvancedConfig.NodeLabels)
+		// Delete all projects associated with clusterID
+		err := commonrepo.NewProjectClusterRelationColl().Delete(&commonrepo.ProjectClusterRelationOption{ClusterID: id})
+		if err != nil {
+			logger.Errorf("Failed to delete projectClusterRelation err:%s", err)
+		}
+		for _, projectName := range args.AdvancedConfig.ProjectNames {
+			err = commonrepo.NewProjectClusterRelationColl().Create(&commonmodels.ProjectClusterRelation{
+				ProjectName: projectName,
+				ClusterID:   id,
+				CreatedBy:   args.CreatedBy,
+			})
+			if err != nil {
+				logger.Errorf("Failed to create projectClusterRelation err:%s", err)
+			}
+		}
 	}
 	cluster := &commonmodels.K8SCluster{
 		Name:           args.Name,
@@ -192,6 +231,10 @@ func DeleteCluster(username, clusterID string, logger *zap.SugaredLogger) error 
 	}
 
 	s, _ := kube.NewService("")
+
+	if err = commonrepo.NewProjectClusterRelationColl().Delete(&commonrepo.ProjectClusterRelationOption{ClusterID: clusterID}); err != nil {
+		logger.Errorf("Failed to delete projectClusterRelation err:%s", err)
+	}
 
 	return s.DeleteCluster(username, clusterID, logger)
 }

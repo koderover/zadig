@@ -24,9 +24,11 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
@@ -98,10 +100,19 @@ func (p *PMService) listGroupServices(allServices []*commonmodels.ProductService
 				ServiceName: service.ServiceName,
 				Type:        service.Type,
 				EnvName:     envName,
+				Revision:    service.Revision,
 			}
 			serviceTmpl, err := commonservice.GetServiceTemplate(
 				service.ServiceName, setting.PMDeployType, service.ProductName, "", service.Revision, p.log,
 			)
+
+			for _, envconfig := range serviceTmpl.EnvConfigs {
+				if envconfig.EnvName == envName {
+					gp.EnvConfigs = []*models.EnvConfig{envconfig}
+					break
+				}
+			}
+
 			if err != nil {
 				gp.Status = setting.PodFailed
 				mutex.Lock()
@@ -165,8 +176,37 @@ func (p *PMService) createGroup(envName, productName, username string, group []*
 					envConfig := &commonmodels.EnvConfig{
 						EnvName: currentEnvConfig.EnvName,
 						HostIDs: currentEnvConfig.HostIDs,
+						Labels:  currentEnvConfig.Labels,
 					}
 					oldEnvConfigs = append(oldEnvConfigs, envConfig)
+				}
+
+				changeEnvStatus := []*commonmodels.EnvStatus{}
+				for _, envConfig := range oldEnvConfigs {
+					tmpPrivateKeys, err := commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{IDs: envConfig.HostIDs})
+					if err != nil {
+						log.Errorf("ListNameByArgs ids err:%s", err)
+						return err
+					}
+
+					privateKeysByLabels, err := commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{Labels: envConfig.Labels})
+					if err != nil {
+						log.Errorf("ListNameByArgs labels err:%s", err)
+						return err
+					}
+					tmpPrivateKeys = append(tmpPrivateKeys, privateKeysByLabels...)
+					privateKeysSet := sets.NewString()
+					for _, v := range tmpPrivateKeys {
+						tmp := models.EnvStatus{
+							HostID:  v.ID.Hex(),
+							EnvName: envConfig.EnvName,
+							Address: v.IP,
+						}
+						if !privateKeysSet.Has(tmp.HostID) {
+							changeEnvStatus = append(changeEnvStatus, &tmp)
+							privateKeysSet.Insert(tmp.HostID)
+						}
+					}
 				}
 
 				args := &commonservice.ServiceTmplBuildObject{
@@ -179,7 +219,7 @@ func (p *PMService) createGroup(envName, productName, username string, group []*
 						Username:     username,
 						HealthChecks: serviceTempl.HealthChecks,
 						EnvConfigs:   oldEnvConfigs,
-						EnvStatuses:  []*commonmodels.EnvStatus{},
+						EnvStatuses:  changeEnvStatus,
 						From:         "createEnv",
 					},
 					Build: &commonmodels.Build{Name: serviceTempl.BuildName},

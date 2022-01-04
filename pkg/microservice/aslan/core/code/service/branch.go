@@ -30,7 +30,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/git/gitlab"
 )
 
-func CodeHostListBranches(codeHostID int, projectName, namespace string, log *zap.SugaredLogger) ([]*Branch, error) {
+func CodeHostListBranches(codeHostID int, projectName, namespace, key string, page, perPage int, log *zap.SugaredLogger) ([]*Branch, error) {
 	ch, err := systemconfig.New().GetCodeHost(codeHostID)
 	if err != nil {
 		return nil, e.ErrCodehostListBranches.AddDesc("git client is nil")
@@ -43,7 +43,11 @@ func CodeHostListBranches(codeHostID int, projectName, namespace string, log *za
 			return nil, e.ErrCodehostListBranches.AddDesc(err.Error())
 		}
 
-		brList, err := client.ListBranches(namespace, projectName, nil)
+		brList, err := client.ListBranches(namespace, projectName, key, &gitlab.ListOptions{
+			Page:        page,
+			PerPage:     perPage,
+			NoPaginated: true,
+		})
 		if err != nil {
 			return nil, err
 		}

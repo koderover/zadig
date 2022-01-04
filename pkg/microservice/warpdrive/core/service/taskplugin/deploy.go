@@ -27,6 +27,8 @@ import (
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	helmrelease "helm.sh/helm/v3/pkg/release"
+	"helm.sh/helm/v3/pkg/releaseutil"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/rest"
@@ -50,7 +52,6 @@ import (
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/converter"
-	"github.com/koderover/zadig/pkg/util/fs"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
@@ -84,8 +85,6 @@ func (p *DeployTaskPlugin) SetAckFunc(func()) {
 }
 
 const (
-	// DeployTimeout ...
-	DeployTimeout            = 60 * 10 // 10 minutes
 	imageUrlParseRegexString = `(?P<repo>.+/)?(?P<image>[^:]+){1}(:)?(?P<tag>.+)?`
 )
 
@@ -118,7 +117,7 @@ func (p *DeployTaskPlugin) SetStatus(status config.Status) {
 // TaskTimeout ...
 func (p *DeployTaskPlugin) TaskTimeout() int {
 	if p.Task.Timeout == 0 {
-		p.Task.Timeout = DeployTimeout
+		p.Task.Timeout = setting.DeployTimeout
 	} else {
 		if !p.Task.IsRestart {
 			p.Task.Timeout = p.Task.Timeout * 60
@@ -456,7 +455,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			}
 		}
 
-		chartPath, err = fs.RelativeToCurrentPath(path)
+		chartPath, err = fsutil.RelativeToCurrentPath(path)
 		if err != nil {
 			err = errors.WithMessagef(
 				err,
@@ -541,14 +540,59 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			ValuesYaml:  replacedMergedValuesYaml,
 			SkipCRDs:    false,
 			UpgradeCRDs: true,
-			Timeout:     time.Second * DeployTimeout,
+			Timeout:     time.Second * setting.DeployTimeout,
+			Wait:        true,
 		}
 
-		if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), &chartSpec); err != nil {
-			err = errors.WithMessagef(
-				err,
-				"failed to Install helm chart %s/%s",
-				p.Task.Namespace, p.Task.ServiceName)
+		done := make(chan bool)
+		defer close(done)
+		go func(chan bool) {
+			if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), &chartSpec); err != nil {
+				err = errors.WithMessagef(
+					err,
+					"failed to Install helm chart %s/%s",
+					p.Task.Namespace, p.Task.ServiceName)
+				done <- false
+			} else {
+				done <- true
+			}
+		}(done)
+
+		pendingStatusProcess := func(typ string) error {
+			hrs, errHistory := helmClient.ListReleaseHistory(chartSpec.ReleaseName, 10)
+			if errHistory != nil {
+				err = errors.WithMessagef(
+					err,
+					"failed to ListReleaseHistory: %s,error:%s",
+					chartSpec.ReleaseName, errHistory)
+				return err
+			}
+			if len(hrs) > 0 {
+				releaseutil.Reverse(hrs, releaseutil.SortByRevision)
+				rel := hrs[0]
+				if rel.Info.Status == helmrelease.StatusPendingInstall || rel.Info.Status == helmrelease.StatusPendingUpgrade {
+					secretName := fmt.Sprintf("sh.helm.release.v1.%s.v.%d", rel.Name, rel.Version)
+					deleteErr := updater.DeleteSecretWithName(rel.Namespace, secretName, p.kubeClient)
+					if deleteErr != nil {
+						err = errors.WithMessagef(err, "failed to deleteSecretWithName:%s,error:%s", secretName, deleteErr)
+						return err
+					}
+				}
+			}
+			if err != nil {
+				err = fmt.Errorf("failed to install %s:%s", typ, err)
+			}
+			return err
+		}
+		select {
+		case d := <-done:
+			if !d {
+				err = pendingStatusProcess("normal")
+			}
+		case <-time.After(chartSpec.Timeout + 5*time.Second):
+			err = pendingStatusProcess("timeout")
+		}
+		if err != nil {
 			return
 		}
 

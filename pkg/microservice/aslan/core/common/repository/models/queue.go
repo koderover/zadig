@@ -111,8 +111,8 @@ type ArtifactPackageTaskArgs struct {
 	ProjectName      string             `bson:"project_name"            json:"project_name"`
 	EnvName          string             `bson:"env_name"                json:"env_name"`
 	Images           []*ImagesByService `bson:"images"                  json:"images"`
-	SourceRegistries []string           `json:"source_registries"       json:"source_registries"`
-	TargetRegistries []string           `json:"target_registries"       json:"target_registries"`
+	SourceRegistries []string           `bson:"source_registries"       json:"source_registries"`
+	TargetRegistries []string           `bson:"target_registries"       json:"target_registries"`
 }
 
 type ConfigPayload struct {

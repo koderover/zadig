@@ -587,7 +587,10 @@ func replaceVariable(customRule *template.CustomRule, candidate *candidate) stri
 
 // GetImage suffix 可以是 branch name 或者 pr number
 func GetImage(registry *commonmodels.RegistryNamespace, suffix string) string {
-	return fmt.Sprintf("%s/%s/%s", util.GetURLHostName(registry.RegAddr), registry.Namespace, suffix)
+	if registry.RegProvider == config.RegistryTypeAWS {
+		return fmt.Sprintf("%s/%s", util.TrimURLScheme(registry.RegAddr), suffix)
+	}
+	return fmt.Sprintf("%s/%s/%s", util.TrimURLScheme(registry.RegAddr), registry.Namespace, suffix)
 }
 
 // GetPackageFile suffix 可以是 branch name 或者 pr number
@@ -665,7 +668,7 @@ func SetCandidateRegistry(payload *commonmodels.ConfigPayload, log *zap.SugaredL
 		return nil
 	}
 
-	reg, err := commonservice.FindDefaultRegistry(log)
+	reg, err := commonservice.FindDefaultRegistry(true, log)
 	if err != nil {
 		log.Errorf("can't find default candidate registry: %v", err)
 		return e.ErrFindRegistry.AddDesc(err.Error())

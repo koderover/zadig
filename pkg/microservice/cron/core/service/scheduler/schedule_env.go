@@ -80,33 +80,28 @@ func (c *CronClient) UpsertEnvServiceScheduler(log *zap.SugaredLogger) {
 				}
 				continue
 			}
-			for _, envConfig := range svc.EnvConfigs {
-				if envConfig.EnvName != env.EnvName {
+			for _, envStatus := range svc.EnvStatuses {
+				if envStatus.EnvName != env.EnvName {
 					continue
 				}
-				for _, hostID := range envConfig.HostIDs {
-					for _, healthCheck := range svc.HealthChecks {
-						key := "service-" + serviceRevision.ServiceName + "-" + setting.PMDeployType + "-" +
-							env.EnvName + "-" + hostID + "-" + healthCheck.Protocol + "-" + strconv.Itoa(healthCheck.Port) + "-" + healthCheck.Path
-						taskMap[key] = true
-						if _, ok := c.lastServiceSchedulers[key]; ok && reflect.DeepEqual(serviceRevision, c.lastServiceSchedulers[key]) {
-							continue
-						} else {
-							c.lastServiceSchedulers[key] = serviceRevision
-						}
-						hostInfo, _ := c.AslanCli.GetHostInfo(hostID, log)
-						if hostInfo == nil {
-							continue
-						}
-						newScheduler := gocron.NewScheduler()
-						BuildScheduledEnvJob(newScheduler, healthCheck).Do(c.RunScheduledService, svc, healthCheck, hostInfo.IP, env.EnvName, hostID, log)
-						c.Schedulers[key] = newScheduler
-						log.Infof("[%s] service schedulers..", key)
-						c.Schedulers[key].Start()
+
+				for _, healthCheck := range svc.HealthChecks {
+					key := "service-" + serviceRevision.ServiceName + "-" + setting.PMDeployType + "-" +
+						env.EnvName + "-" + envStatus.HostID + "-" + healthCheck.Protocol + "-" + strconv.Itoa(healthCheck.Port) + "-" + healthCheck.Path
+					taskMap[key] = true
+					if _, ok := c.lastServiceSchedulers[key]; ok && reflect.DeepEqual(serviceRevision, c.lastServiceSchedulers[key]) {
+						continue
 					}
+					c.lastServiceSchedulers[key] = serviceRevision
+
+					newScheduler := gocron.NewScheduler()
+					BuildScheduledEnvJob(newScheduler, healthCheck).Do(c.RunScheduledService, svc, healthCheck, envStatus.Address, env.EnvName, envStatus.HostID, log)
+					c.Schedulers[key] = newScheduler
+					log.Infof("[%s] service schedulers..", key)
+					c.Schedulers[key].Start()
 				}
-				break
 			}
+			break
 		}
 	}
 }

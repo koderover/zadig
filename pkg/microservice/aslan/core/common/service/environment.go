@@ -88,6 +88,8 @@ type ServiceResp struct {
 	Ready              string              `json:"ready"`
 	EnvStatuses        []*models.EnvStatus `json:"env_statuses,omitempty"`
 	WorkLoadType       string              `json:"workLoadType"`
+	Revision           int64               `json:"revision"`
+	EnvConfigs         []*models.EnvConfig `json:"env_configs"`
 }
 
 type IngressInfo struct {

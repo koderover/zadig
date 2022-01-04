@@ -151,3 +151,7 @@ func (c *WebHookColl) Update(owner, repo, address, hookID string) error {
 	_, err := c.UpdateOne(context.TODO(), query, change)
 	return err
 }
+
+func IsErrNoDocuments(err error) bool {
+	return err == mongo.ErrNoDocuments
+}

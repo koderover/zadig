@@ -82,7 +82,6 @@ func CreatePMService(username string, args *ServiceTmplBuildObject, log *zap.Sug
 		Revision:     args.ServiceTmplObject.Revision,
 		Visibility:   args.ServiceTmplObject.Visibility,
 		HealthChecks: args.ServiceTmplObject.HealthChecks,
-		EnvConfigs:   args.ServiceTmplObject.EnvConfigs,
 		CreateTime:   time.Now().Unix(),
 		CreateBy:     username,
 		BuildName:    args.Build.Name,
