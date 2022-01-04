@@ -1244,7 +1244,7 @@ func setCurrentContainerImages(args *commonmodels.Service) error {
 	var srvContainers []*commonmodels.Container
 	for _, data := range args.KubeYamls {
 		yamlDataArray := SplitYaml(data)
-		for _, yamlData := range yamlDataArray {
+		for index, yamlData := range yamlDataArray {
 			resKind := new(KubeResourceKind)
 			//在Unmarshal之前填充渲染变量{{.}}
 			yamlData = config.RenderTemplateAlias.ReplaceAllLiteralString(yamlData, "ssssssss")
@@ -1256,6 +1256,9 @@ func setCurrentContainerImages(args *commonmodels.Service) error {
 			}
 
 			if resKind == nil {
+				if index == 0 {
+					continue
+				}
 				return errors.New("nil ReourceKind")
 			}
 
