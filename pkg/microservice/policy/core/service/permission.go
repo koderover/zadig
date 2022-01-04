@@ -25,7 +25,12 @@ import (
 
 func GetPermission(ns, uid string) (map[string][]string, error) {
 	roles := []*models.Role{}
-	rolebindingsSpeicy, err := mongodb.NewRoleBindingColl().ListBy(ns, "*")
+	rolebindingsReadOnly, err := mongodb.NewRoleBindingColl().ListBy(ns, "*")
+	if err != nil {
+		return nil, err
+	}
+
+	rolebindingsAdmin, err := mongodb.NewRoleBindingColl().ListBy("*", uid)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +41,8 @@ func GetPermission(ns, uid string) (map[string][]string, error) {
 		return nil, err
 	}
 
-	rolebindings := append(rolebindingsSpeicy, rolebindingsNormal...)
+	rolebindings := append(rolebindingsReadOnly, rolebindingsNormal...)
+	rolebindings = append(rolebindings, rolebindingsAdmin...)
 	for _, v := range rolebindings {
 		tmpRoles, err := mongodb.NewRoleColl().ListBySpaceAndName(v.RoleRef.Namespace, v.RoleRef.Name)
 		if err != nil {
