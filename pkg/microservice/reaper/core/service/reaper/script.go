@@ -27,6 +27,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/koderover/zadig/pkg/microservice/reaper/config"
 	"github.com/koderover/zadig/pkg/microservice/reaper/internal/s3"
@@ -229,21 +230,37 @@ func (r *Reaper) runScripts() error {
 
 	needPersistentLog := len(r.Ctx.PostScripts) > 0
 
+	var wg sync.WaitGroup
+
 	cmdStdoutReader, err := cmd.StdoutPipe()
 	if err != nil {
 		return err
 	}
-	go r.handleCmdOutput(cmdStdoutReader, needPersistentLog, fileName)
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		r.handleCmdOutput(cmdStdoutReader, needPersistentLog, fileName)
+	}()
 
 	cmdStdErrReader, err := cmd.StderrPipe()
 	if err != nil {
 		return err
 	}
-	go r.handleCmdOutput(cmdStdErrReader, needPersistentLog, fileName)
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		r.handleCmdOutput(cmdStdErrReader, needPersistentLog, fileName)
+	}()
 
 	if err := cmd.Start(); err != nil {
 		return err
 	}
+
+	wg.Wait()
 
 	return cmd.Wait()
 }
@@ -410,7 +427,7 @@ func (r *Reaper) handleCmdOutput(pipe io.ReadCloser, needPersistentLog bool, log
 				break
 			}
 
-			log.Errorf("Failed to read stdout log: %s", err)
+			log.Errorf("Failed to read log when processing cmd output: %s", err)
 			break
 		}
 
@@ -419,7 +436,7 @@ func (r *Reaper) handleCmdOutput(pipe io.ReadCloser, needPersistentLog bool, log
 		if needPersistentLog {
 			err := util.WriteFile(logFile, lineBytes, 0700)
 			if err != nil {
-				log.Warnf("Failed to write stdout file: %s", err)
+				log.Warnf("Failed to write file when processing cmd output: %s", err)
 			}
 		}
 	}
