@@ -15,6 +15,7 @@ func GetCollaborationNew() gin.HandlerFunc {
 		projectName := c.Query("projectName")
 		if projectName == "" {
 			c.Next()
+			return
 		}
 		newResp, err := service.GetCollaborationNew(projectName, ctx.UserID, ctx.UserName, ctx.Logger)
 		if err != nil {
