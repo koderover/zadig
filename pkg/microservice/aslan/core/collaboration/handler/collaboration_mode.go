@@ -31,8 +31,12 @@ import (
 func GetCollaborationMode(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	ctx.Resp, ctx.Err = service.GetCollaborationModes(ctx.UserName, ctx.Logger)
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can not be empty")
+		return
+	}
+	ctx.Resp, ctx.Err = service.GetCollaborationModes(projectName, ctx.Logger)
 }
 
 func CreateCollaborationMode(c *gin.Context) {

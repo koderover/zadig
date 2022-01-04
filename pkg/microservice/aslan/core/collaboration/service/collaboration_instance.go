@@ -210,7 +210,7 @@ func GetCollaborationUpdate(projectName, uid string, logger *zap.SugaredLogger) 
 	return resp, nil
 }
 func buildName(baseName, modeName, userName string) string {
-	return modeName + baseName + userName + util.GetRandomString(6)
+	return modeName + "-" + baseName + "-" + userName + "-" + util.GetRandomString(6)
 }
 
 func GetCollaborationNew(projectName, uid, userName string, logger *zap.SugaredLogger) (*GetCollaborationNewResp, error) {
