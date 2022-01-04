@@ -34,17 +34,17 @@ var DefaultSystemVariable = map[string]string{
 }
 
 func CreateYamlTemplate(template *YamlTemplate, logger *zap.SugaredLogger) error {
-	vars := make([]*models.ChartVariable, 0)
+	vars := make([]*models.Variable, 0)
 	for _, variable := range template.Variable {
-		vars = append(vars, &models.ChartVariable{
+		vars = append(vars, &models.Variable{
 			Key:   variable.Key,
 			Value: variable.Value,
 		})
 	}
 	err := commonrepo.NewYamlTemplateColl().Create(&models.YamlTemplate{
-		Name:           template.Name,
-		Content:        template.Content,
-		ChartVariables: vars,
+		Name:      template.Name,
+		Content:   template.Content,
+		Variables: vars,
 	})
 	if err != nil {
 		logger.Errorf("create dockerfile template error: %s", err)
@@ -53,9 +53,9 @@ func CreateYamlTemplate(template *YamlTemplate, logger *zap.SugaredLogger) error
 }
 
 func UpdateYamlTemplate(id string, template *YamlTemplate, logger *zap.SugaredLogger) error {
-	vars := make([]*models.ChartVariable, 0)
+	vars := make([]*models.Variable, 0)
 	for _, variable := range template.Variable {
-		vars = append(vars, &models.ChartVariable{
+		vars = append(vars, &models.Variable{
 			Key:   variable.Key,
 			Value: variable.Value,
 		})
@@ -63,9 +63,9 @@ func UpdateYamlTemplate(id string, template *YamlTemplate, logger *zap.SugaredLo
 	err := commonrepo.NewYamlTemplateColl().Update(
 		id,
 		&models.YamlTemplate{
-			Name:           template.Name,
-			Content:        template.Content,
-			ChartVariables: vars,
+			Name:      template.Name,
+			Content:   template.Content,
+			Variables: vars,
 		},
 	)
 	if err != nil {
@@ -98,7 +98,7 @@ func GetYamlTemplateDetail(id string, logger *zap.SugaredLogger) (*YamlDetail, e
 		return nil, err
 	}
 	variables := make([]*models.ChartVariable, 0)
-	for _, v := range yamlTemplate.ChartVariables {
+	for _, v := range yamlTemplate.Variables {
 		variables = append(variables, &models.ChartVariable{
 			Key:   v.Key,
 			Value: v.Value,
