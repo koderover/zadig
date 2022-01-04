@@ -31,14 +31,12 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/util"
 )
 
 // get global config payload
 func CreateArtifactPackageTask(args *commonmodels.ArtifactPackageTaskArgs, taskCreator string, log *zap.SugaredLogger) (int64, error) {
-
 	configPayload := commonservice.GetConfigPayload(0)
-	repos, err := commonrepo.NewRegistryNamespaceColl().FindAll(&commonrepo.FindRegOps{})
+	repos, err := commonservice.ListRegistryNamespaces(true, log)
 
 	if err != nil {
 		log.Errorf("CreateArtifactPackageTask query registries failed, err: %s", err)
@@ -53,13 +51,6 @@ func CreateArtifactPackageTask(args *commonmodels.ArtifactPackageTaskArgs, taskC
 	for _, repo := range repos {
 		if !registriesInvolved.Has(repo.ID.Hex()) {
 			continue
-		}
-		// if the registry is SWR, we need to modify ak/sk according to the rule
-		if repo.RegProvider == config.SWRProvider {
-			ak := fmt.Sprintf("%s@%s", repo.Region, repo.AccessKey)
-			sk := util.ComputeHmacSha256(repo.AccessKey, repo.SecretKey)
-			repo.AccessKey = ak
-			repo.SecretKey = sk
 		}
 		configPayload.RepoConfigs[repo.ID.Hex()] = repo
 	}

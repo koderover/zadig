@@ -215,6 +215,7 @@ func initDatabase() {
 
 		systemrepo.NewAnnouncementColl(),
 		systemrepo.NewOperationLogColl(),
+		commonrepo.NewProjectClusterRelationColl(),
 	} {
 		wg.Add(1)
 		go func(r indexer) {
