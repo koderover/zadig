@@ -19,6 +19,7 @@ package mongodb
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -32,15 +33,16 @@ import (
 
 type RenderSetListOption struct {
 	// if Revision == 0 then search max revision of RenderSet
-	Revision    int64
-	ProductTmpl string
+	ProductTmpl   string
+	Revisions     []int64
+	RendersetName string
 }
 
 // RenderSetFindOption ...
 type RenderSetFindOption struct {
 	// if Revision == 0 then search max revision of RenderSet
-	Revision       int64
-	Name           string
+	Revision int64
+	Name     string
 }
 
 type RenderSetPipeResp struct {
@@ -78,6 +80,36 @@ func (c *RenderSetColl) EnsureIndex(ctx context.Context) error {
 	_, err := c.Indexes().CreateOne(ctx, mod)
 
 	return err
+}
+
+func (c *RenderSetColl) ListRendersets(opt *RenderSetListOption) ([]*models.RenderSet, error) {
+	query := bson.M{}
+	if len(opt.ProductTmpl) > 0 {
+		query["product_tmpl"] = opt.ProductTmpl
+	}
+	if len(opt.RendersetName) > 0 {
+		query["name"] = opt.RendersetName
+	}
+	if len(opt.Revisions) > 0 {
+		query["revision"] = bson.M{"$in": opt.Revisions}
+	}
+
+	if len(query) == 0 {
+		return nil, fmt.Errorf("query with no filter is not allowed")
+	}
+
+	var rendersets []*models.RenderSet
+	cursor, err := c.Collection.Find(context.TODO(), query)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &rendersets)
+	if err != nil {
+		return nil, err
+	}
+
+	return rendersets, err
+
 }
 
 func (c *RenderSetColl) List(opt *RenderSetListOption) ([]*models.RenderSet, error) {

@@ -93,8 +93,8 @@ func (c *WorkflowStatColl) Delete(name, workflowType string) error {
 }
 
 type WorkflowStatArgs struct {
-	Name string `json:"name"`
-	Type string `json:"type"`
+	Names []string
+	Type  string
 }
 
 func (c *WorkflowStatColl) FindWorkflowStat(args *WorkflowStatArgs) ([]*models.WorkflowStat, error) {
@@ -104,12 +104,11 @@ func (c *WorkflowStatColl) FindWorkflowStat(args *WorkflowStatArgs) ([]*models.W
 	}
 
 	query := bson.M{}
-	if args.Name != "" {
-		query["name"] = args.Name
-	}
-
 	if args.Type != "" {
 		query["type"] = args.Type
+	}
+	if len(args.Names) > 0 {
+		query["name"] = bson.M{"$in": args.Names}
 	}
 
 	ctx := context.Background()

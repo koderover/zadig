@@ -27,11 +27,13 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	internalresource "github.com/koderover/zadig/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -59,7 +61,7 @@ func ScaleService(envName, productName, serviceName string, number int, log *zap
 		return e.ErrScaleService.AddErr(err)
 	}
 
-	kubeClient, err := kube.GetKubeClient(prod.ClusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
 	if err != nil {
 		return e.ErrScaleService.AddErr(err)
 	}
@@ -110,7 +112,7 @@ func Scale(args *ScaleArgs, logger *zap.SugaredLogger) error {
 		return e.ErrScaleService.AddErr(err)
 	}
 
-	kubeClient, err := kube.GetKubeClient(prod.ClusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
 	if err != nil {
 		return e.ErrScaleService.AddErr(err)
 	}
@@ -140,9 +142,25 @@ func RestartScale(args *RestartScaleArgs, _ *zap.SugaredLogger) error {
 		return err
 	}
 
-	kubeClient, err := kube.GetKubeClient(prod.ClusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
 	if err != nil {
 		return err
+	}
+
+	// aws secrets needs to be refreshed
+	regs, err := commonservice.ListRegistryNamespaces(true, log.SugaredLogger())
+	if err != nil {
+		log.Errorf("Failed to get registries to restart container, the error is: %s", err)
+		return err
+	}
+	for _, reg := range regs {
+		if reg.RegProvider == config.RegistryTypeAWS {
+			if err := kube.CreateOrUpdateRegistrySecret(prod.Namespace, reg, kubeClient); err != nil {
+				retErr := fmt.Errorf("failed to update pull secret for registry: %s, the error is: %s", reg.ID.Hex(), err)
+				log.Errorf("%s\n", retErr.Error())
+				return retErr
+			}
+		}
 	}
 
 	switch args.Type {
@@ -176,7 +194,7 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 		return nil, e.ErrGetService.AddErr(err)
 	}
 
-	kubeClient, err := kube.GetKubeClient(env.ClusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), env.ClusterID)
 	if err != nil {
 		return nil, e.ErrGetService.AddErr(err)
 	}
@@ -322,9 +340,25 @@ func RestartService(envName string, args *SvcOptArgs, log *zap.SugaredLogger) (e
 	if err != nil {
 		return err
 	}
-	kubeClient, err := kube.GetKubeClient(productObj.ClusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productObj.ClusterID)
 	if err != nil {
 		return err
+	}
+
+	// aws secrets needs to be refreshed
+	regs, err := commonservice.ListRegistryNamespaces(true, log)
+	if err != nil {
+		log.Errorf("Failed to get registries to restart container, the error is: %s", err)
+		return err
+	}
+	for _, reg := range regs {
+		if reg.RegProvider == config.RegistryTypeAWS {
+			if err := kube.CreateOrUpdateRegistrySecret(productObj.Namespace, reg, kubeClient); err != nil {
+				retErr := fmt.Errorf("failed to update pull secret for registry: %s, the error is: %s", reg.ID.Hex(), err)
+				log.Errorf("%s\n", retErr.Error())
+				return retErr
+			}
+		}
 	}
 
 	switch productObj.Source {
@@ -421,7 +455,7 @@ func validateServiceContainer(envName, productName, serviceName, container strin
 		return "", err
 	}
 
-	kubeClient, err := kube.GetKubeClient(prod.ClusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), prod.ClusterID)
 	if err != nil {
 		return "", err
 	}

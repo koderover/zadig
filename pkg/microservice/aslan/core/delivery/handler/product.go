@@ -17,27 +17,12 @@ limitations under the License.
 package handler
 
 import (
-	"strconv"
-
 	"github.com/gin-gonic/gin"
 
 	deliveryservice "github.com/koderover/zadig/pkg/microservice/aslan/core/delivery/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
-
-func ListDeliveryProduct(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	//params validate
-	orgIDStr := c.Query("orgId")
-	orgID, err := strconv.Atoi(orgIDStr)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("orgId can't be empty!")
-		return
-	}
-	ctx.Resp, ctx.Err = deliveryservice.FindDeliveryProduct(orgID, ctx.Logger)
-}
 
 func GetProductByDeliveryInfo(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
@@ -49,5 +34,5 @@ func GetProductByDeliveryInfo(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = deliveryservice.GetProductByDeliveryInfo(ctx.Username, releaseID, ctx.Logger)
+	ctx.Resp, ctx.Err = deliveryservice.GetProductByDeliveryInfo(ctx.UserName, releaseID, ctx.Logger)
 }

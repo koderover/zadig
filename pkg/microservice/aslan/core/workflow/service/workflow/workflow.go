@@ -33,10 +33,8 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/types"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 var mut sync.Mutex
@@ -45,6 +43,69 @@ type EnvStatus struct {
 	EnvName    string `json:"env_name,omitempty"`
 	Status     string `json:"status"`
 	ErrMessage string `json:"err_message"`
+}
+
+type Workflow struct {
+	Name                 string                     `json:"name"`
+	ProjectName          string                     `json:"projectName"`
+	UpdateTime           int64                      `json:"updateTime"`
+	CreateTime           int64                      `json:"createTime"`
+	UpdateBy             string                     `json:"updateBy,omitempty"`
+	Schedules            *commonmodels.ScheduleCtrl `json:"schedules,omitempty"`
+	SchedulerEnabled     bool                       `json:"schedulerEnabled"`
+	EnabledStages        []string                   `json:"enabledStages"`
+	IsFavorite           bool                       `json:"isFavorite"`
+	RecentTask           *TaskInfo                  `json:"recentTask"`
+	RecentSuccessfulTask *TaskInfo                  `json:"recentSuccessfulTask"`
+	RecentFailedTask     *TaskInfo                  `json:"recentFailedTask"`
+	AverageExecutionTime float64                    `json:"averageExecutionTime"`
+	SuccessRate          float64                    `json:"successRate"`
+	Description          string                     `json:"description,omitempty"`
+}
+
+type TaskInfo struct {
+	TaskID       int64  `json:"taskID"`
+	PipelineName string `json:"pipelineName"`
+	Status       string `json:"status"`
+}
+
+type workflowCreateArg struct {
+	name                 string
+	envName              string
+	buildStageEnabled    bool
+	ArtifactStageEnabled bool
+}
+
+type workflowCreateArgs struct {
+	productName string
+	argsMap     map[string]*workflowCreateArg
+}
+
+func (args *workflowCreateArgs) addWorkflowArg(envName string, buildStageEnabled, artifactStageEnabled bool) {
+	wName := fmt.Sprintf("%s-workflow-%s", args.productName, envName)
+	if artifactStageEnabled {
+		wName = fmt.Sprintf("%s-%s-workflow", args.productName, "ops")
+	}
+	// The hosting env workflow name is not bound to the environment
+	if !artifactStageEnabled && envName == "" {
+		wName = fmt.Sprintf("%s-workflow", args.productName)
+	}
+	args.argsMap[wName] = &workflowCreateArg{
+		name:                 wName,
+		envName:              envName,
+		buildStageEnabled:    buildStageEnabled,
+		ArtifactStageEnabled: artifactStageEnabled,
+	}
+}
+
+func (args *workflowCreateArgs) initDefaultWorkflows() {
+	args.addWorkflowArg("dev", true, false)
+	args.addWorkflowArg("qa", true, false)
+	args.addWorkflowArg("", false, true)
+}
+
+func (args *workflowCreateArgs) clear() {
+	args.argsMap = make(map[string]*workflowCreateArg)
 }
 
 func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
@@ -60,22 +121,42 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 		mut.Unlock()
 	}()
 
-	workflowNames := []string{productName + "-workflow-dev", productName + "-workflow-qa", productName + "-workflow-ops"}
-	// 云主机场景不创建ops工作流
-	if productTmpl.ProductFeature != nil && productTmpl.ProductFeature.BasicFacility == "cloud_host" {
-		workflowNames = []string{productName + "-workflow-dev", productName + "-workflow-qa"}
-	} else if productTmpl.ProductFeature != nil && productTmpl.ProductFeature.CreateEnvType == setting.SourceFromExternal {
-		workflowNames = []string{productName + "-workflow-dev"}
+	createArgs := &workflowCreateArgs{
+		productName: productName,
+		argsMap:     make(map[string]*workflowCreateArg),
+	}
+	createArgs.initDefaultWorkflows()
+
+	// helm project may have customized products, use the real created products
+	if productTmpl.ProductFeature != nil && productTmpl.ProductFeature.DeployType == setting.HelmDeployType {
+		productList, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+			Name: productName,
+		})
+		if err != nil {
+			log.Errorf("fialed to list products, projectName %s, err %s", productName, err)
+		}
+		createArgs.clear()
+		for _, product := range productList {
+			createArgs.addWorkflowArg(product.EnvName, true, false)
+		}
+		createArgs.addWorkflowArg("", false, true)
+	}
+
+	// Only one workflow is created in the hosting environment
+	if productTmpl.ProductFeature != nil && productTmpl.ProductFeature.CreateEnvType == setting.SourceFromExternal {
+		createArgs.clear()
+		createArgs.addWorkflowArg("", true, false)
 	}
 
 	workflowSlice := sets.NewString()
-	for _, workflowName := range workflowNames {
+	for workflowName := range createArgs.argsMap {
 		_, err := FindWorkflow(workflowName, log)
 		if err == nil {
 			workflowSlice.Insert(workflowName)
 		}
 	}
-	if len(workflowSlice) < len(workflowNames) {
+
+	if len(workflowSlice) < len(createArgs.argsMap) {
 		preSetResps, err := PreSetWorkflow(productName, log)
 		if err != nil {
 			errList = multierror.Append(errList, err)
@@ -95,7 +176,7 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 			artifactModules = append(artifactModules, artifactModule)
 		}
 
-		for _, workflowName := range workflowNames {
+		for workflowName, workflowArg := range createArgs.argsMap {
 			if workflowSlice.Has(workflowName) {
 				continue
 			}
@@ -108,24 +189,19 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 			workflow.Name = workflowName
 			workflow.CreateBy = setting.SystemUser
 			workflow.UpdateBy = setting.SystemUser
-			workflow.EnvName = "dev"
+			workflow.EnvName = workflowArg.envName
 			workflow.BuildStage = &commonmodels.BuildStage{
-				Enabled: true,
+				Enabled: workflowArg.buildStageEnabled,
 				Modules: buildModules,
 			}
 
-			if strings.Contains(workflowName, "qa") {
-				workflow.EnvName = "qa"
-			}
-
-			if strings.Contains(workflowName, "ops") {
-				//如果是开启artifactStage，则关闭buildStage
-				workflow.BuildStage.Enabled = false
+			//如果是开启artifactStage，则关闭buildStage
+			if workflowArg.ArtifactStageEnabled {
 				workflow.ArtifactStage = &commonmodels.ArtifactStage{
 					Enabled: true,
 					Modules: artifactModules,
 				}
-				workflow.EnvName = "ops"
+				workflow.EnvName = "ops" //TODO necessary to set a fake env name?
 			}
 
 			workflow.Schedules = &commonmodels.ScheduleCtrl{
@@ -162,7 +238,7 @@ func AutoCreateWorkflow(productName string, log *zap.SugaredLogger) *EnvStatus {
 			return &EnvStatus{Status: setting.ProductStatusFailed, ErrMessage: err.Error()}
 		}
 		return &EnvStatus{Status: setting.ProductStatusCreating}
-	} else if len(workflowSlice) == len(workflowNames) {
+	} else if len(workflowSlice) == len(createArgs.argsMap) {
 		return &EnvStatus{Status: setting.ProductStatusSuccess}
 	}
 	return nil
@@ -284,7 +360,6 @@ func PreSetWorkflow(productName string, log *zap.SugaredLogger) ([]*PreSetResp, 
 			for _, moTarget := range mo.Targets {
 				moduleTargetStr := fmt.Sprintf("%s%s%s%s%s", moTarget.ProductName, SplitSymbol, moTarget.ServiceName, SplitSymbol, moTarget.ServiceModule)
 				if moduleTargetStr == k {
-					preSet.BuildModuleVers = append(preSet.BuildModuleVers, mo.Version)
 					if len(mo.Repos) == 0 {
 						preSet.Repos = make([]*types.Repository, 0)
 					} else {
@@ -425,117 +500,125 @@ func validateWorkflowHookNames(w *commonmodels.Workflow) error {
 	return validateHookNames(names)
 }
 
-func ListWorkflows(queryType string, userID int, log *zap.SugaredLogger) ([]*commonmodels.Workflow, error) {
-	workflows, err := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{})
+func ListWorkflows(projects []string, userID string, log *zap.SugaredLogger) ([]*Workflow, error) {
+	existingProjects, err := template.NewProductColl().ListNames(projects)
 	if err != nil {
-		log.Errorf("Workflow.List error: %v", err)
-		return workflows, e.ErrListWorkflow.AddDesc(err.Error())
+		log.Errorf("Failed to list projects, err: %s", err)
+		return nil, e.ErrListWorkflow.AddDesc(err.Error())
+	}
+
+	workflows, err := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{Projects: existingProjects})
+	if err != nil {
+		log.Errorf("Failed to list workflows, err: %s", err)
+		return nil, e.ErrListWorkflow.AddDesc(err.Error())
+	}
+
+	var workflowNames []string
+	var res []*Workflow
+	for _, w := range workflows {
+		stages := make([]string, 0, 4)
+		if w.BuildStage != nil && w.BuildStage.Enabled {
+			stages = append(stages, "build")
+		}
+		if w.ArtifactStage != nil && w.ArtifactStage.Enabled {
+			stages = append(stages, "artifact")
+		}
+		if w.TestStage != nil && w.TestStage.Enabled {
+			stages = append(stages, "test")
+		}
+		if w.DistributeStage != nil && w.DistributeStage.Enabled {
+			stages = append(stages, "distribute")
+		}
+
+		res = append(res, &Workflow{
+			Name:             w.Name,
+			ProjectName:      w.ProductTmplName,
+			UpdateTime:       w.UpdateTime,
+			CreateTime:       w.CreateTime,
+			UpdateBy:         w.UpdateBy,
+			SchedulerEnabled: w.ScheduleEnabled,
+			Schedules:        w.Schedules,
+			EnabledStages:    stages,
+			Description:      w.Description,
+		})
+
+		workflowNames = append(workflowNames, w.Name)
 	}
 
 	favorites, err := commonrepo.NewFavoriteColl().List(&commonrepo.FavoriteArgs{UserID: userID, Type: string(config.WorkflowType)})
 	if err != nil {
-		log.Errorf("list favorite error: %v", err)
-		return workflows, e.ErrListFavorite
+		log.Warnf("Failed to list favorites, err: %s", err)
+	}
+	favoriteSet := sets.NewString()
+	for _, f := range favorites {
+		favoriteSet.Insert(f.Name)
 	}
 
-	workflowStats, err := commonrepo.NewWorkflowStatColl().FindWorkflowStat(&commonrepo.WorkflowStatArgs{Type: string(config.WorkflowType)})
+	workflowStats, err := commonrepo.NewWorkflowStatColl().FindWorkflowStat(&commonrepo.WorkflowStatArgs{Names: workflowNames, Type: string(config.WorkflowType)})
 	if err != nil {
-		log.Errorf("list workflow stat error: %v", err)
-		return workflows, fmt.Errorf("列出工作流统计失败")
+		log.Warnf("Failed to list workflow stats, err: %s", err)
+	}
+	workflowStatMap := make(map[string]*commonmodels.WorkflowStat)
+	for _, s := range workflowStats {
+		workflowStatMap[s.Name] = s
 	}
 
-	for _, workflow := range workflows {
-		if queryType == "artifact" {
-			if workflow.ArtifactStage == nil || !workflow.ArtifactStage.Enabled {
-				continue
-			}
+	recentTaskMap := getTaskMap(workflowNames, "", log)
+	recentSuccessfulTaskMap := getTaskMap(workflowNames, config.StatusPassed, log)
+	recentFailedTaskMap := getTaskMap(workflowNames, config.StatusFailed, log)
+	for _, r := range res {
+		if t, ok := recentTaskMap[r.Name]; ok {
+			r.RecentTask = t
 		}
-		latestTask, _ := commonrepo.NewTaskColl().FindLatestTask(&commonrepo.FindTaskOption{PipelineName: workflow.Name, Type: config.WorkflowType})
-		if latestTask != nil {
-			workflow.LastestTask = &commonmodels.TaskInfo{TaskID: latestTask.TaskID, PipelineName: latestTask.PipelineName, Status: latestTask.Status}
+		if t, ok := recentSuccessfulTaskMap[r.Name]; ok {
+			r.RecentSuccessfulTask = t
 		}
-
-		latestPassedTask, _ := commonrepo.NewTaskColl().FindLatestTask(&commonrepo.FindTaskOption{PipelineName: workflow.Name, Type: config.WorkflowType, Status: config.StatusPassed})
-		if latestPassedTask != nil {
-			workflow.LastSucessTask = &commonmodels.TaskInfo{TaskID: latestPassedTask.TaskID, PipelineName: latestPassedTask.PipelineName}
+		if t, ok := recentFailedTaskMap[r.Name]; ok {
+			r.RecentFailedTask = t
 		}
 
-		latestFailedTask, _ := commonrepo.NewTaskColl().FindLatestTask(&commonrepo.FindTaskOption{PipelineName: workflow.Name, Type: config.WorkflowType, Status: config.StatusFailed})
-		if latestFailedTask != nil {
-			workflow.LastFailureTask = &commonmodels.TaskInfo{TaskID: latestFailedTask.TaskID, PipelineName: latestFailedTask.PipelineName}
+		if favoriteSet.Has(r.Name) {
+			r.IsFavorite = true
 		}
 
-		workflow.IsFavorite = IsFavoriteWorkflow(workflow, favorites)
+		if s, ok := workflowStatMap[r.Name]; ok {
+			total := float64(s.TotalSuccess + s.TotalFailure)
+			successful := float64(s.TotalSuccess)
+			totalDuration := float64(s.TotalDuration)
 
-		workflow.TotalDuration, workflow.TotalNum, workflow.TotalSuccess = findWorkflowStat(workflow, workflowStats)
+			r.AverageExecutionTime = totalDuration / total
+			r.SuccessRate = successful / total
+		}
 	}
 
-	return workflows, nil
+	return res, nil
 }
 
-func IsFavoriteWorkflow(workflow *commonmodels.Workflow, favorites []*commonmodels.Favorite) bool {
-	for _, favorite := range favorites {
-		if workflow.Name == favorite.Name && workflow.ProductTmplName == favorite.ProductName {
-			return true
+func getTaskMap(names []string, status config.Status, logger *zap.SugaredLogger) map[string]*TaskInfo {
+	res := make(map[string]*TaskInfo)
+
+	tasks, err := commonrepo.NewTaskColl().ListRecentTasks(&commonrepo.ListTaskOption{PipelineNames: names, Type: config.WorkflowType, Status: status})
+	if err != nil {
+		logger.Warnf("Failed to list tasks, err: %s", err)
+		return res
+	}
+
+	for _, t := range tasks {
+		res[t.PipelineName] = &TaskInfo{
+			TaskID:       t.TaskID,
+			PipelineName: t.PipelineName,
+			Status:       t.Status,
 		}
 	}
-	return false
+
+	return res
 }
 
-func findWorkflowStat(workflow *commonmodels.Workflow, workflowStats []*commonmodels.WorkflowStat) (int64, int, int) {
-	for _, workflowStat := range workflowStats {
-		if workflow.Name == workflowStat.Name {
-			return workflowStat.TotalDuration, workflowStat.TotalSuccess + workflowStat.TotalFailure, workflowStat.TotalSuccess
-		}
+func ListTestWorkflows(testName string, projects []string, log *zap.SugaredLogger) (workflows []*commonmodels.Workflow, err error) {
+	allWorkflows, err := commonrepo.NewWorkflowColl().ListWorkflowsByProjects(projects)
+	if err != nil {
+		return nil, err
 	}
-	return 0, 0, 0
-}
-
-func ListAllWorkflows(testName string, userID int, superUser bool, log *zap.SugaredLogger) ([]*commonmodels.Workflow, error) {
-	allWorkflows := make([]*commonmodels.Workflow, 0)
-	workflows := make([]*commonmodels.Workflow, 0)
-	var err error
-	if superUser {
-		allWorkflows, err = commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{})
-		if err != nil {
-			log.Errorf("Workflow.List error: %v", err)
-			return allWorkflows, e.ErrListWorkflow.AddDesc(err.Error())
-		}
-	} else {
-		poetryCtl := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
-		productNameMap, err := poetryCtl.GetUserProject(userID, log)
-		if err != nil {
-			log.Errorf("ListAllWorkflows GetUserProject error: %v", err)
-			return nil, fmt.Errorf("ListAllWorkflows GetUserProject error: %v", err)
-		}
-		productNames := make([]string, 0)
-		for productName, roleIDs := range productNameMap {
-			roleID := roleIDs[0]
-			if roleID == setting.RoleOwnerID {
-				productNames = append(productNames, productName)
-			} else {
-				uuids, err := poetryCtl.GetUserPermissionUUIDs(roleID, productName, log)
-				if err != nil {
-					log.Errorf("ListAllWorkflows GetUserPermissionUUIDs error: %v", err)
-					return nil, fmt.Errorf("ListAllWorkflows GetUserPermissionUUIDs error: %v", err)
-				}
-
-				ids := sets.NewString(uuids...)
-				if ids.Has(permission.WorkflowUpdateUUID) {
-					productNames = append(productNames, productName)
-				}
-			}
-		}
-		for _, productName := range productNames {
-			tempWorkflows, err := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{ProductName: productName})
-			if err != nil {
-				log.Errorf("ListAllWorkflows Workflow.List error: %v", err)
-				return nil, fmt.Errorf("ListAllWorkflows Workflow.List error: %v", err)
-			}
-			allWorkflows = append(allWorkflows, tempWorkflows...)
-		}
-	}
-
 	for _, workflow := range allWorkflows {
 		if workflow.TestStage != nil {
 			testNames := sets.NewString(workflow.TestStage.TestNames...)

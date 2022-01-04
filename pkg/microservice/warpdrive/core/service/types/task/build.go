@@ -24,9 +24,10 @@ import (
 )
 
 type Build struct {
-	TaskType   config.TaskType `bson:"type"                       json:"type"`
-	Enabled    bool            `bson:"enabled"                    json:"enabled"`
-	TaskStatus config.Status   `bson:"status"                     json:"status"`
+	TaskType    config.TaskType `bson:"type"                       json:"type"`
+	Enabled     bool            `bson:"enabled"                    json:"enabled"`
+	TaskStatus  config.Status   `bson:"status"                     json:"status"`
+	ProductName string          `bson:"product_name"               json:"product_name"`
 	// 新增一个service表示服务名称
 	Service string `bson:"service"                    json:"service"`
 	// 该名称实际为服务组件名称
@@ -45,14 +46,26 @@ type Build struct {
 	ImageFrom         string               `bson:"image_from"                 json:"image_from,omitempty"`
 	ImageID           string               `bson:"image_id"                   json:"image_id"`
 	ResReq            setting.Request      `bson:"res_req"                    json:"res_req"`
+	ResReqSpec        setting.RequestSpec  `bson:"res_req_spec"               json:"res_req_spec"`
 	LogFile           string               `bson:"log_file"                   json:"log_file"`
 	InstallCtx        []*Install           `bson:"-"                          json:"install_ctx,omitempty"`
-	Registries        []*RegistryNamespace `bson:"-"                   json:"registries"`
+	Registries        []*RegistryNamespace `bson:"-"                          json:"registries"`
 	StaticCheckStatus *StaticCheckStatus   `bson:"static_check_status,omitempty" json:"static_check_status,omitempty"`
 	UTStatus          *UTStatus            `bson:"ut_status,omitempty" json:"ut_status,omitempty"`
 	DockerBuildStatus *DockerBuildStatus   `bson:"docker_build_status,omitempty" json:"docker_build_status,omitempty"`
 	BuildStatus       *BuildStatus         `bson:"build_status,omitempty" json:"build_status,omitempty"`
 	IsRestart         bool                 `bson:"is_restart"                      json:"is_restart"`
+	// Get the host bound to the environment of the cloud host service configuration
+	EnvHostInfo  map[string][]string `bson:"env_host_info,omitempty"         json:"env_host_info,omitempty"`
+	ArtifactInfo *ArtifactInfo       `bson:"artifact_info,omitempty"         json:"artifact_info,omitempty"`
+	ClusterID    string              `bson:"cluster_id,omitempty"            json:"cluster_id,omitempty"`
+}
+
+type ArtifactInfo struct {
+	URL          string `bson:"url"                 json:"url"`
+	WorkflowName string `bson:"workflow_name"       json:"workflow_name"`
+	TaskID       int64  `bson:"task_id"             json:"task_id"`
+	FileName     string `bson:"file_name"           json:"file_name"`
 }
 
 type Item struct {
@@ -74,7 +87,7 @@ type Install struct {
 }
 
 type RegistryNamespace struct {
-	OrgID       int    `bson:"org_id"                      json:"org_id"`
+	ID          string `bson:"_id,omitempty"               json:"id,omitempty"`
 	RegAddr     string `bson:"reg_addr"                    json:"reg_addr"`
 	RegType     string `bson:"reg_type"                    json:"reg_type"`
 	RegProvider string `bson:"reg_provider"                json:"reg_provider"`
@@ -161,7 +174,9 @@ type JobCtx struct {
 	// TestType
 	TestType string `bson:"test_type"                       json:"test_type"`
 	// Caches
-	Caches        []string `bson:"caches" json:"caches"`
+	Caches []string `bson:"caches" json:"caches"`
+	// buildV3
+	ArtifactPath  string   `bson:"artifact_path,omitempty"  json:"artifact_path,omitempty"`
 	ArtifactPaths []string `bson:"artifact_paths,omitempty" json:"artifact_paths,omitempty"`
 	IsHasArtifact bool     `bson:"is_has_artifact" json:"is_has_artifact"`
 	// StorageUri is used for qbox release-candidates
@@ -194,6 +209,8 @@ type DockerBuildCtx struct {
 	ImageName       string `yaml:"image_name" bson:"image_name" json:"image_name"`
 	BuildArgs       string `yaml:"build_args" bson:"build_args" json:"build_args"`
 	ImageReleaseTag string `yaml:"image_release_tag,omitempty" bson:"image_release_tag,omitempty" json:"image_release_tag"`
+	Source          string `yaml:"source" bson:"source" json:"source"`
+	TemplateID      string `yaml:"template_id" bson:"template_id" json:"template_id"`
 }
 
 type FileArchiveCtx struct {

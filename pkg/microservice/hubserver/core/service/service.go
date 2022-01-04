@@ -17,8 +17,6 @@ limitations under the License.
 package service
 
 import (
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -29,6 +27,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"k8s.io/apimachinery/pkg/util/proxy"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/koderover/zadig/pkg/microservice/hubserver/config"
 	"github.com/koderover/zadig/pkg/microservice/hubserver/core/repository/models"
@@ -171,12 +170,24 @@ func Forward(server *remotedialer.Server, w http.ResponseWriter, r *http.Request
 		}
 	}()
 
-	_, err = mongodb.NewK8sClusterColl().Get(clientKey)
-	if err != nil {
-		return
-	}
+	//_, err = mongodb.NewK8sClusterColl().Get(clientKey)
+	//if err != nil {
+	//	return
+	//}
 
 	clusterInfo, exists := clusters.Load(clientKey)
+	if !server.HasSession(clientKey) || !exists {
+		for i := 0; i < 4; i++ {
+			log.Infof("stuck waiting for connection index:%d", i)
+			if server.HasSession(clientKey) && exists {
+				log.Infof("succeeded waiting for connection index:%d", i)
+				break
+			}
+			time.Sleep(wait.Jitter(3*time.Second, 2))
+			clusterInfo, exists = clusters.Load(clientKey)
+		}
+	}
+
 	if !server.HasSession(clientKey) || !exists {
 		errHandled = true
 		logger.Infof("waiting for cluster %s to connect", clientKey)
@@ -204,21 +215,10 @@ func Forward(server *remotedialer.Server, w http.ResponseWriter, r *http.Request
 	r.URL.Host = r.Host
 	r.Header.Set("authorization", "Bearer "+cluster.Token)
 
-	var certBytes []byte
-	certBytes, err = base64.StdEncoding.DecodeString(cluster.CACert)
+	transport, err := server.GetTransport(cluster.CACert, clientKey)
 	if err != nil {
+		log.Errorf(fmt.Sprintf("failed to get transport, err %s", err))
 		return
-	}
-
-	certs := x509.NewCertPool()
-	certs.AppendCertsFromPEM(certBytes)
-
-	transport := &http.Transport{}
-
-	//noinspection GoDeprecation
-	transport.Dial = server.Dialer(clientKey, 15*time.Second)
-	transport.TLSClientConfig = &tls.Config{
-		RootCAs: certs,
 	}
 
 	httpProxy := proxy.NewUpgradeAwareHandler(endpoint, transport, true, false, er)
@@ -235,7 +235,7 @@ func Reset() {
 	}
 
 	for _, cluster := range clusters {
-		if cluster.Status == config.Normal {
+		if cluster.Status == config.Normal && !cluster.Local {
 			cluster.Status = config.Abnormal
 			err := mongodb.NewK8sClusterColl().UpdateStatus(cluster)
 			if err != nil {
@@ -271,7 +271,7 @@ func Sync(server *remotedialer.Server, stopCh <-chan struct{}) {
 							statusChanged = true
 						}
 					} else {
-						if cluster.Status == config.Normal {
+						if cluster.Status == config.Normal && !cluster.Local {
 							log.Infof(
 								"cluster %s disconnected changed %s => %s",
 								cluster.Name, cluster.Status, config.Abnormal,

@@ -1,20 +1,16 @@
 
 # Zadig 开发流程
 
-## 目录
-
-- [Zadig 开发流程](#zadig-开发流程)
-  - [目录](#目录)
-  - [1. 克隆代码](#1-克隆代码)
-  - [2. 本地开发环境搭建](#2-本地开发环境搭建)
-    - [前端环境](#前端环境)
-    - [后端环境](#后端环境)
-  - [3. 贡献代码](#3-贡献代码)
-  - [4. 调试](#4-调试)
-    - [方式一：云上代码测试](#方式一云上代码测试)
-    - [方式二：本地代码测试](#方式二本地代码测试)
-      - [前端本地测试](#前端本地测试)
-      - [后端本地测试](#后端本地测试)
+- [1. 克隆代码](#1-克隆代码)
+- [2. 本地开发环境搭建](#2-本地开发环境搭建)
+  - [前端环境](#前端环境)
+  - [后端环境](#后端环境)
+- [3. 贡献代码](#3-贡献代码)
+- [4. 调试](#4-调试)
+  - [方式一：云上代码测试](#方式一云上代码测试)
+  - [方式二：本地代码测试](#方式二本地代码测试)
+    - [前端本地测试](#前端本地测试)
+    - [后端本地测试](#后端本地测试)
 
 ## 1. 克隆代码
 
@@ -53,9 +49,18 @@ Zadig 为您提供云上测试环境 [https://os.koderover.com](https://os.koder
 
 ![Fork project](./fork-zadig-option.png)
 
-在弹出的窗口中，点击 zadig 选项，将其中的 endpoint.FQDN 中的 `githubid` 改成您的 GitHub ID，否则可能无法访问。
+在弹出的窗口中，点击 zadig 选项，如图修改如下字段：
+1. endpoint.FQDN=${github_id}.ko.coderover.cn
+2. global.extensions.extAuth.extauthzServerRef.namespace=zadig-env-${github_id}
+3. dex.fullnameOverride=zadig-${github_id}-dex
+4. dex.config.issuer=http://zadig-${github_id}-dex
+5. dex.config.staticClients[0].redirectURISs[0]=http:// ${github_id}.ko.coderover.cn/api/v1/callback
 
-![Update githubid](./fork-zadig-vars.png)
+![Fork_var1](./fork_var1.png)
+![Fork_var2](./fork_var2.png)
+![Fork_var3](./fork_var3.png)
+
+请注意，如果没有按照以上规则修改参数，可能会导致环境无法创建/创建环境后无法正常访问！
 
 Fork 完成后，您将获得一个 Zadig 测试环境。
 
@@ -90,4 +95,4 @@ yarn run dev
 
 #### 后端本地测试
 
-使用 Zadig CLI 进行本地调试，使用方式参见 [Zadig CLI 使用指南](https://docs.koderover.com/zadig/cli/kodespace-usage-for-contributor)
+使用 Zadig CLI 进行本地调试，使用方式参见 [Zadig CLI 使用指南](https://docs.koderover.com/zadig/v1.7.1/cli/kodespace-usage-for-contributor/)

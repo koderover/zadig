@@ -92,6 +92,14 @@ func ToReleaseImageTask(sb map[string]interface{}) (*task.ReleaseImage, error) {
 	return t, nil
 }
 
+func ToArtifactPackageImageTask(sb map[string]interface{}) (*task.ArtifactPackage, error) {
+	var t *task.ArtifactPackage
+	if err := task.IToi(sb, &t); err != nil {
+		return nil, fmt.Errorf("convert interface to ReleaseImageTask error: %v", err)
+	}
+	return t, nil
+}
+
 func ToJiraTask(sb map[string]interface{}) (*task.Jira, error) {
 	var t *task.Jira
 	if err := task.IToi(sb, &t); err != nil {
@@ -114,4 +122,12 @@ func ToJenkinsBuildTask(sb map[string]interface{}) (*task.JenkinsBuild, error) {
 		return nil, fmt.Errorf("convert interface to JenkinsBuildTask error: %v", err)
 	}
 	return jenkinsBuild, nil
+}
+
+func ToTriggerTask(sb map[string]interface{}) (*task.Trigger, error) {
+	var trigger *task.Trigger
+	if err := task.IToi(sb, &trigger); err != nil {
+		return nil, fmt.Errorf("convert interface to triggerTask error: %s", err)
+	}
+	return trigger, nil
 }

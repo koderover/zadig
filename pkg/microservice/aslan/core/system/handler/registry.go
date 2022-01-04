@@ -25,13 +25,11 @@ import (
 	"github.com/gin-gonic/gin"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 func ListRegistries(c *gin.Context) {
@@ -45,7 +43,7 @@ func GetDefaultRegistryNamespace(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	reg, err := commonservice.GetDefaultRegistryNamespace(ctx.Logger)
+	reg, err := commonservice.FindDefaultRegistry(true, ctx.Logger)
 	if err != nil {
 		ctx.Err = err
 		return
@@ -61,11 +59,29 @@ func GetDefaultRegistryNamespace(c *gin.Context) {
 	}
 }
 
+func GetRegistryNamespace(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	reg, err := commonservice.FindRegistryById(c.Param("id"), false, ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+
+	ctx.Resp = &Registry{
+		ID:        reg.ID.Hex(),
+		RegAddr:   reg.RegAddr,
+		IsDefault: reg.IsDefault,
+		Namespace: reg.Namespace,
+	}
+}
+
 func ListRegistryNamespaces(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = commonservice.ListRegistryNamespaces(ctx.Logger)
+	ctx.Resp, ctx.Err = commonservice.ListRegistryNamespaces(false, ctx.Logger)
 }
 
 func CreateRegistryNamespace(c *gin.Context) {
@@ -80,7 +96,7 @@ func CreateRegistryNamespace(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("CreateRegistryNamespace json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, "", "新增", "系统设置-Registry", fmt.Sprintf("提供商:%s,Namespace:%s", args.RegProvider, args.Namespace), permission.SuperUserUUID, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "新增", "系统设置-Registry", fmt.Sprintf("提供商:%s,Namespace:%s", args.RegProvider, args.Namespace), string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
@@ -93,7 +109,7 @@ func CreateRegistryNamespace(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.CreateRegistryNamespace(ctx.Username, args, ctx.Logger)
+	ctx.Err = service.CreateRegistryNamespace(ctx.UserName, args, ctx.Logger)
 }
 
 func UpdateRegistryNamespace(c *gin.Context) {
@@ -108,7 +124,7 @@ func UpdateRegistryNamespace(c *gin.Context) {
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("UpdateRegistryNamespace json.Unmarshal err : %v", err)
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, "", "更新", "系统设置-Registry", fmt.Sprintf("提供商:%s,Namespace:%s", args.RegProvider, args.Namespace), permission.SuperUserUUID, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "更新", "系统设置-Registry", fmt.Sprintf("提供商:%s,Namespace:%s", args.RegProvider, args.Namespace), string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
@@ -121,14 +137,14 @@ func UpdateRegistryNamespace(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.UpdateRegistryNamespace(ctx.Username, c.Param("id"), args, ctx.Logger)
+	ctx.Err = service.UpdateRegistryNamespace(ctx.UserName, c.Param("id"), args, ctx.Logger)
 }
 
 func DeleteRegistryNamespace(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	internalhandler.InsertOperationLog(c, ctx.Username, "", "删除", "系统设置-Registry", fmt.Sprintf("registry ID:%s", c.Param("id")), permission.SuperUserUUID, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "系统设置-Registry", fmt.Sprintf("registry ID:%s", c.Param("id")), "", ctx.Logger)
 
 	ctx.Err = service.DeleteRegistryNamespace(c.Param("id"), ctx.Logger)
 }
@@ -149,14 +165,14 @@ func ListImages(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	//判断当前registryId是否为空
-	regOps := new(commonrepo.FindRegOps)
 	registryID := c.Query("registryId")
+	var registryInfo *commonmodels.RegistryNamespace
+	var err error
 	if registryID != "" {
-		regOps.ID = registryID
+		registryInfo, err = commonservice.FindRegistryById(registryID, false, ctx.Logger)
 	} else {
-		regOps.IsDefault = true
+		registryInfo, err = commonservice.FindDefaultRegistry(false, ctx.Logger)
 	}
-	registryInfo, err := service.GetRegistryNamespace(regOps, ctx.Logger)
 	if err != nil {
 		ctx.Logger.Errorf("can't find candidate registry err :%v", err)
 		ctx.Resp = make([]*service.RepoImgResp, 0)
@@ -178,9 +194,7 @@ func ListRepoImages(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	regOps := new(commonrepo.FindRegOps)
-	regOps.IsDefault = true
-	registryInfo, err := service.GetRegistryNamespace(regOps, ctx.Logger)
+	registryInfo, err := commonservice.FindDefaultRegistry(false, ctx.Logger)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return

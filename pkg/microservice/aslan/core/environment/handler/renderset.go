@@ -17,24 +17,19 @@ limitations under the License.
 package handler
 
 import (
-	"encoding/json"
-	"fmt"
+	"strings"
 
 	"github.com/gin-gonic/gin"
-
-	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 func GetServiceRenderCharts(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	if c.Query("productName") == "" {
+	if c.Query("projectName") == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
@@ -44,14 +39,14 @@ func GetServiceRenderCharts(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetRenderCharts(c.Query("productName"), c.Query("envName"), c.Query("serviceName"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetRenderCharts(c.Query("projectName"), c.Query("envName"), c.Query("serviceName"), ctx.Logger)
 }
 
-func CreateOrUpdateRenderChart(c *gin.Context) {
+func GetProductDefaultValues(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	if c.Query("productName") == "" {
+	if c.Query("projectName") == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("productName can not be null!")
 		return
 	}
@@ -61,17 +56,29 @@ func CreateOrUpdateRenderChart(c *gin.Context) {
 		return
 	}
 
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("CreateOrUpdateRenderChart c.GetRawData() err : %v", err)
+	ctx.Resp, ctx.Err = service.GetDefaultValues(c.Query("projectName"), c.Query("envName"), ctx.Logger)
+}
+
+func GetYamlContent(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	arg := &service.YamlContentRequestArg{}
+
+	if err := c.ShouldBindQuery(arg); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	if arg.CodehostID == 0 && len(arg.RepoLink) == 0 {
+		ctx.Err = e.ErrInvalidParam.AddDesc("neither codehost nor repo link is specified")
+		return
 	}
 
-	args := new(commonservice.RenderChartArg)
-	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("CreateOrUpdateRenderChart json.Unmarshal err : %v", err)
-		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+	if len(arg.ValuesPaths) == 0 {
+		ctx.Err = e.ErrInvalidParam.AddDesc("paths can't be empty")
+		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "新增", "环境变量", c.Query("envName"), fmt.Sprintf("%s,%s", permission.TestEnvManageUUID, permission.ProdEnvManageUUID), string(data), ctx.Logger)
 
-	ctx.Err = service.CreateOrUpdateChartValues(c.Query("productName"), c.Query("envName"), args, ctx.Username, ctx.RequestID, ctx.Logger)
+	pathArr := strings.Split(arg.ValuesPaths, ",")
+	ctx.Resp, ctx.Err = service.GetMergedYamlContent(arg, pathArr)
 }

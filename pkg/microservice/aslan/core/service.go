@@ -30,11 +30,18 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
+	deliveryhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/delivery/handler"
+	environmenthandler "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/handler"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
+	projecthandler "github.com/koderover/zadig/pkg/microservice/aslan/core/project/handler"
 	systemrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/mongodb"
 	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
+	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/repository/mongodb"
+	workflowhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/handler"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
+	testinghandler "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/handler"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/policy"
 	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
@@ -42,6 +49,10 @@ import (
 const (
 	webhookController = iota
 )
+
+type policyGetter interface {
+	Policies() []*policy.Policy
+}
 
 type Controller interface {
 	Run(workers int, stopCh <-chan struct{})
@@ -67,6 +78,28 @@ func StartControllers(stopCh <-chan struct{}) {
 	wg.Wait()
 }
 
+func registerPolicies() {
+	policyClient := policy.NewWithRetry()
+	var policies []*policy.Policy
+	for _, r := range []policyGetter{
+		new(workflowhandler.Router),
+		new(environmenthandler.Router),
+		new(projecthandler.Router),
+		new(testinghandler.Router),
+		new(deliveryhandler.Router),
+	} {
+		policies = append(policies, r.Policies()...)
+	}
+
+	for _, p := range policies {
+		err := policyClient.CreateOrUpdatePolicy(p)
+		if err != nil {
+			// should not have happened here
+			log.DPanic(err)
+		}
+	}
+}
+
 func Start(ctx context.Context) {
 	log.Init(&log.Config{
 		Level:       commonconfig.LogLevel(),
@@ -86,6 +119,8 @@ func Start(ctx context.Context) {
 	environmentservice.CleanProducts()
 
 	environmentservice.ResetProductsStatus()
+
+	registerPolicies()
 
 	go StartControllers(ctx.Done())
 }
@@ -128,6 +163,7 @@ func initDatabase() {
 		template.NewProductColl(),
 		commonrepo.NewBasicImageColl(),
 		commonrepo.NewBuildColl(),
+		commonrepo.NewCallbackRequestColl(),
 		commonrepo.NewCounterColl(),
 		commonrepo.NewCronjobColl(),
 		commonrepo.NewDeliveryActivityColl(),
@@ -168,9 +204,18 @@ func initDatabase() {
 		commonrepo.NewWorkflowColl(),
 		commonrepo.NewWorkflowStatColl(),
 		commonrepo.NewWorkLoadsStatColl(),
+		commonrepo.NewServicesInExternalEnvColl(),
+		commonrepo.NewExternalLinkColl(),
+
+		templaterepo.NewChartColl(),
+		templaterepo.NewDockerfileTemplateColl(),
+
+		templaterepo.NewChartColl(),
+		templaterepo.NewDockerfileTemplateColl(),
 
 		systemrepo.NewAnnouncementColl(),
 		systemrepo.NewOperationLogColl(),
+		commonrepo.NewProjectClusterRelationColl(),
 	} {
 		wg.Add(1)
 		go func(r indexer) {

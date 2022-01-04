@@ -30,7 +30,6 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/codehub"
 	"github.com/koderover/zadig/pkg/types"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 type codehubMergeEventMatcher struct {
@@ -39,7 +38,7 @@ type codehubMergeEventMatcher struct {
 	event    *codehub.MergeEvent
 }
 
-func (cmem *codehubMergeEventMatcher) Match(hookRepo commonmodels.MainHookRepo) (bool, error) {
+func (cmem *codehubMergeEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
 	ev := cmem.event
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.ObjectAttributes.Target.PathWithNamespace {
 		if EventConfigured(hookRepo, config.HookEventPr) && (hookRepo.Branch == ev.ObjectAttributes.TargetBranch) {
@@ -52,7 +51,7 @@ func (cmem *codehubMergeEventMatcher) Match(hookRepo commonmodels.MainHookRepo) 
 }
 
 func (cmem *codehubMergeEventMatcher) UpdateTaskArgs(
-	product *commonmodels.Product, args *commonmodels.WorkflowTaskArgs, hookRepo commonmodels.MainHookRepo, requestID string,
+	product *commonmodels.Product, args *commonmodels.WorkflowTaskArgs, hookRepo *commonmodels.MainHookRepo, requestID string,
 ) *commonmodels.WorkflowTaskArgs {
 	factory := &workflowArgsFactory{
 		workflow: cmem.workflow,
@@ -76,7 +75,7 @@ type codehubPushEventMatcher struct {
 	event    *codehub.PushEvent
 }
 
-func (cpem *codehubPushEventMatcher) Match(hookRepo commonmodels.MainHookRepo) (bool, error) {
+func (cpem *codehubPushEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
 	ev := cpem.event
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.Project.PathWithNamespace {
 		if hookRepo.Branch == getBranchFromRef(ev.Ref) && EventConfigured(hookRepo, config.HookEventPush) {
@@ -88,7 +87,7 @@ func (cpem *codehubPushEventMatcher) Match(hookRepo commonmodels.MainHookRepo) (
 }
 
 func (cpem *codehubPushEventMatcher) UpdateTaskArgs(
-	product *commonmodels.Product, args *commonmodels.WorkflowTaskArgs, hookRepo commonmodels.MainHookRepo, requestID string,
+	product *commonmodels.Product, args *commonmodels.WorkflowTaskArgs, hookRepo *commonmodels.MainHookRepo, requestID string,
 ) *commonmodels.WorkflowTaskArgs {
 	factory := &workflowArgsFactory{
 		workflow: cpem.workflow,
@@ -200,7 +199,7 @@ func TriggerWorkflowByCodehubEvent(event interface{}, baseURI, requestID string,
 			args.RepoOwner = item.MainRepo.RepoOwner
 			args.RepoName = item.MainRepo.RepoName
 			// 3. create task with args
-			if resp, err := workflowservice.CreateWorkflowTask(args, setting.WebhookTaskCreator, permission.AnonymousUserID, false, log); err != nil {
+			if resp, err := workflowservice.CreateWorkflowTask(args, setting.WebhookTaskCreator, log); err != nil {
 				log.Errorf("failed to create workflow task when receive push event %v due to %v ", event, err)
 				mErr = multierror.Append(mErr, err)
 			} else {

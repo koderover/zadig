@@ -29,6 +29,62 @@ const (
 	LowRequest Request = "low"
 	// MinRequest 2 CPU 2 G
 	MinRequest Request = "min"
+	// DefaultRequest 4 CPU 8 G
+	DefaultRequest Request = "default"
+	// DefineRequest x CPU x G
+	DefineRequest Request = "define"
+)
+
+type RequestSpec struct {
+	CpuLimit    int `bson:"cpu_limit"                     json:"cpu_limit"`
+	MemoryLimit int `bson:"memory_limit"                  json:"memory_limit"`
+	CpuReq      int `bson:"cpu_req,omitempty"             json:"cpu_req,omitempty"`
+	MemoryReq   int `bson:"memory_req,omitempty"          json:"memory_req,omitempty"`
+}
+
+var (
+	// HighRequestSpec 16 CPU 32 G
+	HighRequestSpec = RequestSpec{
+		CpuLimit:    16000,
+		MemoryLimit: 32768,
+		CpuReq:      4000,
+		MemoryReq:   4096,
+	}
+	// MediumRequestSpec 8 CPU 16 G
+	MediumRequestSpec = RequestSpec{
+		CpuLimit:    8000,
+		MemoryLimit: 16384,
+		CpuReq:      2000,
+		MemoryReq:   2048,
+	}
+	// LowRequestSpec 4 CPU 8 G
+	LowRequestSpec = RequestSpec{
+		CpuLimit:    4000,
+		MemoryLimit: 8192,
+		CpuReq:      1000,
+		MemoryReq:   1024,
+	}
+	// MinRequestSpec 2 CPU 2 G
+	MinRequestSpec = RequestSpec{
+		CpuLimit:    2000,
+		MemoryLimit: 2048,
+		CpuReq:      500,
+		MemoryReq:   512,
+	}
+	// DefineRequest X CPU X G
+	DefineRequestSpec  = RequestSpec{}
+	DefaultRequestSpec = RequestSpec{
+		CpuLimit:    4000,
+		MemoryLimit: 8192,
+		CpuReq:      1000,
+		MemoryReq:   1024,
+	}
+)
+
+const (
+	CpuUintM     string = "m"
+	MemoryUintMi string = "Mi"
+	MemoryUintGi string = "Gi"
 )
 
 var ValidName = regexp.MustCompile(`^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$`)
@@ -42,10 +98,13 @@ const (
 	Cron                 // 5
 	HubServer            // 6
 	PodExec              // 7
-	Poetry               // 8
 	SonarQube            // 9
 	WarpDrive            // 10
 	Minio                // 11
+	OPA                  // 12
+	Policy               // 13
+	Config               // 14
+	User                 // 15
 )
 
 type ServiceInfo struct {
@@ -82,10 +141,6 @@ var Services = map[int]*ServiceInfo{
 		Name: "podexec",
 		Port: 27000,
 	},
-	Poetry: {
-		Name: "poetry",
-		Port: 34001,
-	},
 	SonarQube: {
 		Name: "sonarqube",
 		Port: 80,
@@ -97,5 +152,21 @@ var Services = map[int]*ServiceInfo{
 	Minio: {
 		Name: "zadig-minio",
 		Port: 9000,
+	},
+	OPA: {
+		Name: "opa",
+		Port: 8181,
+	},
+	Policy: {
+		Name: "policy",
+		Port: 80,
+	},
+	Config: {
+		Name: "config",
+		Port: 80,
+	},
+	User: {
+		Name: "user",
+		Port: 80,
 	},
 }

@@ -27,6 +27,8 @@ import (
 
 // Context ...
 type Context struct {
+	// API token 服务访问使用的api token
+	APIToken string `yaml:"api_token"`
 	// Workspace 容器工作目录 [必填]
 	Workspace string `yaml:"workspace"`
 
@@ -105,11 +107,21 @@ type Context struct {
 	// IgnoreCache ignore docker build cache [runtime]
 	IgnoreCache bool `yaml:"ignore_cache"`
 
-	StorageEndpoint string `yaml:"storage_endpoint"`
-	StorageAK       string `yaml:"storage_ak"`
-	StorageSK       string `yaml:"storage_sk"`
-	StorageBucket   string `yaml:"storage_bucket"`
-	StorageProvider int8   `yaml:"storage_provider"`
+	StorageEndpoint string        `yaml:"storage_endpoint"`
+	StorageAK       string        `yaml:"storage_ak"`
+	StorageSK       string        `yaml:"storage_sk"`
+	StorageBucket   string        `yaml:"storage_bucket"`
+	StorageProvider int8          `yaml:"storage_provider"`
+	ArtifactInfo    *ArtifactInfo `yaml:"artifact_info"`
+	ArtifactPath    string        `yaml:"artifact_path"`
+	AesKey          string        `yaml:"aes_key"`
+}
+
+type ArtifactInfo struct {
+	URL          string `yaml:"url"`
+	WorkflowName string `yaml:"workflow_name"`
+	TaskID       int64  `yaml:"task_id"`
+	FileName     string `yaml:"file_name"`
 }
 
 // Proxy 翻墙配置信息
@@ -259,10 +271,11 @@ type GinkgoTest struct {
 
 // DockerRegistry 推送镜像到 docker registry 配置
 type DockerRegistry struct {
-	Host      string `yaml:"host"`
-	Namespace string `yaml:"namespace"`
-	UserName  string `yaml:"username"`
-	Password  string `yaml:"password"`
+	RegistryID string `yaml:"registry_id"`
+	Host       string `yaml:"host"`
+	Namespace  string `yaml:"namespace"`
+	UserName   string `yaml:"username"`
+	Password   string `yaml:"password"`
 }
 
 // Git ...

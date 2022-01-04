@@ -19,7 +19,6 @@ package service
 import (
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -29,10 +28,12 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
@@ -99,7 +100,7 @@ func ListConfigMaps(args *ListConfigMapArgs, log *zap.SugaredLogger) ([]*configM
 	if err != nil {
 		return nil, e.ErrListConfigMaps.AddErr(err)
 	}
-	kubeClient, err := kube.GetKubeClient(product.ClusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
 	if err != nil {
 		return nil, e.ErrListConfigMaps.AddErr(err)
 	}
@@ -146,7 +147,7 @@ func ListConfigMaps(args *ListConfigMapArgs, log *zap.SugaredLogger) ([]*configM
 	return res, nil
 }
 
-func UpdateConfigMap(envName string, args *UpdateConfigMapArgs, userName string, userID int, log *zap.SugaredLogger) error {
+func UpdateConfigMap(envName string, args *UpdateConfigMapArgs, userName, userID string, log *zap.SugaredLogger) error {
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    args.ProductName,
 		EnvName: args.EnvName,
@@ -154,7 +155,7 @@ func UpdateConfigMap(envName string, args *UpdateConfigMapArgs, userName string,
 	if err != nil {
 		return e.ErrUpdateConfigMap.AddErr(err)
 	}
-	kubeClient, err := kube.GetKubeClient(product.ClusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
 	if err != nil {
 		return e.ErrUpdateConfigMap.AddErr(err)
 	}
@@ -191,7 +192,7 @@ func UpdateConfigMap(envName string, args *UpdateConfigMapArgs, userName string,
 	cfg.Data = args.Data
 	// 记录修改configmap的用户
 	cfg.Labels[setting.UpdateBy] = kube.MakeSafeLabelValue(userName)
-	cfg.Labels[setting.UpdateByID] = fmt.Sprintf("%d", userID)
+	cfg.Labels[setting.UpdateByID] = userID
 	cfg.Labels[setting.UpdateTime] = time.Now().Format("20060102150405")
 	cfg.Labels[setting.DirtyLabel] = setting.LabelValueTrue
 
@@ -200,7 +201,7 @@ func UpdateConfigMap(envName string, args *UpdateConfigMapArgs, userName string,
 		as = make(map[string]string)
 	}
 	as[setting.ModifiedByAnnotation] = userName
-	as[setting.EditorIDAnnotation] = strconv.Itoa(userID)
+	as[setting.EditorIDAnnotation] = userID
 	as[setting.LastUpdateTimeAnnotation] = util.FormatTime(time.Now())
 	cfg.SetAnnotations(as)
 
@@ -223,7 +224,7 @@ func UpdateConfigMap(envName string, args *UpdateConfigMapArgs, userName string,
 	return nil
 }
 
-func RollBackConfigMap(envName string, args *RollBackConfigMapArgs, userName string, userID int, log *zap.SugaredLogger) error {
+func RollBackConfigMap(envName string, args *RollBackConfigMapArgs, userName, userID string, log *zap.SugaredLogger) error {
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    args.ProductName,
 		EnvName: args.EnvName,
@@ -231,7 +232,7 @@ func RollBackConfigMap(envName string, args *RollBackConfigMapArgs, userName str
 	if err != nil {
 		return e.ErrUpdateConfigMap.AddErr(err)
 	}
-	kubeClient, err := kube.GetKubeClient(product.ClusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
 	if err != nil {
 		return e.ErrUpdateConfigMap.AddErr(err)
 	}
@@ -260,7 +261,7 @@ func RollBackConfigMap(envName string, args *RollBackConfigMapArgs, userName str
 
 	destinSrc.Data = srcCfg.Data
 	destinSrc.Labels[setting.UpdateBy] = kube.MakeSafeLabelValue(userName)
-	destinSrc.Labels[setting.UpdateByID] = fmt.Sprintf("%d", userID)
+	destinSrc.Labels[setting.UpdateByID] = userID
 	destinSrc.Labels[setting.UpdateTime] = time.Now().Format("20060102150405")
 	// 回滚时显示回滚版本的时间
 	if updateTime, ok := srcCfg.Labels[setting.UpdateTime]; ok {

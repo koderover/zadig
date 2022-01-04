@@ -24,14 +24,19 @@ import (
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -59,9 +64,11 @@ func FillProductTemplateValuesYamls(tmpl *templatemodels.Product, log *zap.Sugar
 			continue
 		}
 		tmpl.ChartInfos = append(tmpl.ChartInfos, &templatemodels.RenderChart{
-			ServiceName:  renderChart.ServiceName,
-			ChartVersion: renderChart.ChartVersion,
-			ValuesYaml:   renderChart.ValuesYaml,
+			ServiceName:    renderChart.ServiceName,
+			ChartVersion:   renderChart.ChartVersion,
+			ValuesYaml:     renderChart.ValuesYaml,
+			OverrideYaml:   renderChart.OverrideYaml,
+			OverrideValues: renderChart.OverrideValues,
 		})
 	}
 
@@ -81,6 +88,8 @@ type ServiceResp struct {
 	Ready              string              `json:"ready"`
 	EnvStatuses        []*models.EnvStatus `json:"env_statuses,omitempty"`
 	WorkLoadType       string              `json:"workLoadType"`
+	Revision           int64               `json:"revision"`
+	EnvConfigs         []*models.EnvConfig `json:"env_configs"`
 }
 
 type IngressInfo struct {
@@ -130,12 +139,20 @@ func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, 
 			}
 			productServiceNames := sets.NewString()
 			for _, productService := range productServices {
-				productServiceNames.Insert(fmt.Sprintf("%s/%s", productService.WorkloadType, productService.ServiceName))
+				productServiceNames.Insert(productService.ServiceName)
+			}
+			// add services in external env data
+			servicesInExternalEnv, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
+				ProductName: productName,
+				EnvName:     envName,
+			})
+			for _, serviceInExternalEnv := range servicesInExternalEnv {
+				productServiceNames.Insert(serviceInExternalEnv.ServiceName)
 			}
 
 			var res []*Workload
 			for _, workload := range workloads {
-				if productServiceNames.Has(fmt.Sprintf("%s/%s", workload.Type, workload.Name)) {
+				if productServiceNames.Has(workload.Name) {
 					res = append(res, workload)
 				}
 			}
@@ -186,20 +203,21 @@ func (f *workloadFilter) Match(workload *Workload) bool {
 }
 
 type Workload struct {
-	EnvName     string             `json:"env_name"`
-	Name        string             `json:"name"`
-	Type        string             `json:"type"`
-	ProductName string             `json:"product_name"`
-	Spec        corev1.ServiceSpec `json:"-"`
-	Images      []string           `json:"-"`
-	Ready       bool
+	EnvName     string                 `json:"env_name"`
+	Name        string                 `json:"name"`
+	Type        string                 `json:"type"`
+	ProductName string                 `json:"product_name"`
+	Spec        corev1.PodTemplateSpec `json:"-"`
+	Images      []string               `json:"-"`
+	Ready       bool                   `json:"ready"`
+	ServiceName string                 `json:"service_name"`
 }
 
 func ListWorkloads(envName, clusterID, namespace, productName string, perPage, page int, log *zap.SugaredLogger, filter ...FilterFunc) (int, []*ServiceResp, error) {
 	log.Infof("Start to list workloads in namespace %s", namespace)
 
 	var resp = make([]*ServiceResp, 0)
-	kubeClient, err := kube.GetKubeClient(clusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
 	if err != nil {
 		log.Errorf("[%s][%s] error: %v", envName, namespace, err)
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
@@ -212,7 +230,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
 	}
 	for _, v := range listDeployments {
-		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: corev1.ServiceSpec{Selector: v.Spec.Selector.MatchLabels}, Type: setting.Deployment, Images: wrapper.Deployment(v).ImageInfos(), Ready: wrapper.Deployment(v).Ready()})
+		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: v.Spec.Template, Type: setting.Deployment, Images: wrapper.Deployment(v).ImageInfos(), Ready: wrapper.Deployment(v).Ready()})
 	}
 	statefulSets, err := getter.ListStatefulSets(namespace, nil, kubeClient)
 	if err != nil {
@@ -220,7 +238,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
 	}
 	for _, v := range statefulSets {
-		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: corev1.ServiceSpec{Selector: v.Spec.Selector.MatchLabels}, Type: setting.StatefulSet, Images: wrapper.StatefulSet(v).ImageInfos(), Ready: wrapper.StatefulSet(v).Ready()})
+		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: v.Spec.Template, Type: setting.StatefulSet, Images: wrapper.StatefulSet(v).ImageInfos(), Ready: wrapper.StatefulSet(v).Ready()})
 	}
 
 	log.Debugf("Found %d workloads in total", len(workLoads))
@@ -249,6 +267,20 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		}
 	}
 
+	hostInfos := make([]resource.HostInfo, 0)
+	// get all ingresses
+	if ingresses, err := getter.ListIngresses(namespace, nil, kubeClient); err == nil {
+		for _, ingress := range ingresses {
+			hostInfos = append(hostInfos, wrapper.Ingress(ingress).HostInfo()...)
+		}
+	}
+
+	// get all services
+	allServices, err := getter.ListServices(namespace, nil, kubeClient)
+	if err != nil {
+		log.Errorf("[%s][%s] list service error: %s", envName, namespace, err)
+	}
+
 	for _, workload := range workLoads {
 		tmpProductName := workload.ProductName
 		if tmpProductName == "" && productName != "" {
@@ -268,10 +300,70 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 			productRespInfo.Status = setting.PodUnstable
 			productRespInfo.Ready = setting.PodNotReady
 		}
+
+		productRespInfo.Ingress = &IngressInfo{
+			HostInfo: findServiceFromIngress(hostInfos, workload, allServices),
+		}
+
 		resp = append(resp, productRespInfo)
 	}
-
 	log.Infof("Finish to list workloads in namespace %s", namespace)
 
 	return count, resp, nil
+}
+
+func findServiceFromIngress(hostInfos []resource.HostInfo, currentWorkload *Workload, allServices []*corev1.Service) []resource.HostInfo {
+	if len(allServices) == 0 || len(hostInfos) == 0 {
+		return []resource.HostInfo{}
+	}
+	serviceName := ""
+	podLabels := labels.Set(currentWorkload.Spec.Labels)
+	for _, svc := range allServices {
+		if len(svc.Spec.Selector) == 0 {
+			continue
+		}
+		if labels.SelectorFromValidatedSet(svc.Spec.Selector).Matches(podLabels) {
+			serviceName = svc.Name
+			break
+		}
+	}
+	if serviceName == "" {
+		return []resource.HostInfo{}
+	}
+
+	resp := make([]resource.HostInfo, 0)
+	for _, hostInfo := range hostInfos {
+		for _, backend := range hostInfo.Backends {
+			if backend.ServiceName == serviceName {
+				resp = append(resp, hostInfo)
+				break
+			}
+		}
+	}
+	return resp
+}
+
+// GetHelmServiceName get service name from annotations of resources deployed by helm
+// resType currently only support Deployment and StatefulSet
+func GetHelmServiceName(namespace, resType, resName string, kubeClient client.Client) (string, error) {
+	res := &unstructured.Unstructured{}
+	res.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "apps",
+		Version: "v1",
+		Kind:    resType,
+	})
+	found, err := getter.GetResourceInCache(namespace, resName, res, kubeClient)
+	if err != nil {
+		return "", fmt.Errorf("failed to find resource %s, type %s, err %s", resName, resType, err.Error())
+	}
+	if !found {
+		return "", fmt.Errorf("failed to find resource %s, type %s", resName, resType)
+	}
+	annotation := res.GetAnnotations()
+	if len(annotation) > 0 {
+		if chartRelease, ok := annotation[setting.HelmReleaseNameAnnotation]; ok {
+			return util.ExtraServiceName(chartRelease, namespace), nil
+		}
+	}
+	return "", fmt.Errorf("failed to get annotation from resource %s, type %s", resName, resType)
 }

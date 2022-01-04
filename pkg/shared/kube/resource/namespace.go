@@ -21,4 +21,6 @@ type Namespace struct {
 	Status string            `json:"status"`
 	Age    string            `json:"age"`
 	Labels map[string]string `json:"labels"`
+	// Whether it is the namespace currently installed by zadig
+	Current bool `json:"current"`
 }

@@ -18,6 +18,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 
 	"github.com/gin-contrib/sse"
@@ -39,7 +40,7 @@ func GetContainerLogsSSE(c *gin.Context) {
 	}
 
 	envName := c.Query("envName")
-	productName := c.Query("productName")
+	productName := c.Query("projectName")
 
 	internalhandler.Stream(c, func(ctx context.Context, streamChan chan interface{}) {
 		logservice.ContainerLogStream(ctx, streamChan, envName, productName, c.Param("podName"), c.Param("containerName"), true, tails, logger)
@@ -102,7 +103,7 @@ func GetWorkflowBuildJobContainerLogsSSE(c *gin.Context) {
 		ServiceName:  c.Param("serviceName"),
 		PipelineType: string(config.WorkflowType),
 		EnvName:      c.Query("envName"),
-		ProductName:  c.Query("productName"),
+		ProductName:  c.Query("projectName"),
 	}
 
 	internalhandler.Stream(c, func(ctx1 context.Context, streamChan chan interface{}) {
@@ -206,6 +207,42 @@ func GetServiceJobContainerLogsSSE(c *gin.Context) {
 		PipelineType: string(config.ServiceType),
 		EnvName:      c.Param("envName"),
 		ProductName:  c.Param("productName"),
+	}
+
+	internalhandler.Stream(c, func(ctx1 context.Context, streamChan chan interface{}) {
+		logservice.TaskContainerLogStream(
+			ctx1, streamChan,
+			options,
+			ctx.Logger)
+	}, ctx.Logger)
+}
+
+func GetWorkflowBuildV3JobContainerLogsSSE(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+
+	taskID, err := strconv.ParseInt(c.Param("taskId"), 10, 64)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid task id")
+		internalhandler.JSONResponse(c, ctx)
+		return
+	}
+
+	tails, err := strconv.ParseInt(c.Param("lines"), 10, 64)
+	if err != nil {
+		tails = int64(10)
+	}
+
+	subTask := c.Query("subTask")
+	options := &logservice.GetContainerOptions{
+		Namespace:    config.Namespace(),
+		PipelineName: c.Param("workflowName"),
+		SubTask:      subTask,
+		TailLines:    tails,
+		TaskID:       taskID,
+		PipelineType: string(config.WorkflowTypeV3),
+		EnvName:      c.Query("envName"),
+		ProductName:  c.Query("projectName"),
+		ServiceName:  fmt.Sprintf("%s-job", c.Param("workflowName")),
 	}
 
 	internalhandler.Stream(c, func(ctx1 context.Context, streamChan chan interface{}) {

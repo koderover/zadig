@@ -25,7 +25,6 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 type ListServicePodsArgs struct {
@@ -39,7 +38,7 @@ func ListKubeEvents(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	envName := c.Query("envName")
-	productName := c.Query("productName")
+	productName := c.Query("projectName")
 	name := c.Query("name")
 	rtype := c.Query("type")
 
@@ -55,7 +54,8 @@ func ListAvailableNamespaces(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListAvailableNamespaces(c.Query("clusterId"), ctx.Logger)
+	clusterID := c.Query("clusterId")
+	ctx.Resp, ctx.Err = service.ListAvailableNamespaces(clusterID, ctx.Logger)
 }
 
 func ListServicePods(c *gin.Context) {
@@ -82,9 +82,9 @@ func DeletePod(c *gin.Context) {
 
 	podName := c.Param("podName")
 	envName := c.Query("envName")
-	productName := c.Query("productName")
+	productName := c.Query("projectName")
 
-	internalhandler.InsertOperationLog(c, ctx.Username, c.Query("productName"), "重启", "集成环境-服务实例", fmt.Sprintf("环境名称:%s,pod名称:%s", c.Query("envName"), c.Param("podName")), fmt.Sprintf("%s,%s", permission.TestEnvManageUUID, permission.ProdEnvManageUUID), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "重启", "集成环境-服务实例", fmt.Sprintf("环境名称:%s,pod名称:%s", c.Query("envName"), c.Param("podName")), "", ctx.Logger)
 	ctx.Err = service.DeletePod(envName, productName, podName, ctx.Logger)
 }
 
@@ -93,8 +93,15 @@ func ListPodEvents(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	envName := c.Query("envName")
-	productName := c.Query("productName")
+	productName := c.Query("projectName")
 	podName := c.Param("podName")
 
 	ctx.Resp, ctx.Err = service.ListPodEvents(envName, productName, podName, ctx.Logger)
+}
+
+func ListNodes(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.ListAvailableNodes(c.Query("clusterId"), ctx.Logger)
 }

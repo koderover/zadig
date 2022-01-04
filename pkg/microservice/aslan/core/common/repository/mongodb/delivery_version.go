@@ -33,8 +33,8 @@ import (
 
 type DeliveryVersionArgs struct {
 	ID           string `json:"id"`
-	OrgID        int    `json:"orgId"`
 	ProductName  string `json:"productName"`
+	Version      string `json:"version"`
 	WorkflowName string `json:"workflowName"`
 	TaskID       int    `json:"taskId"`
 	PerPage      int    `json:"perPage"`
@@ -64,6 +64,7 @@ func (c *DeliveryVersionColl) EnsureIndex(ctx context.Context) error {
 		{
 			Keys: bson.D{
 				bson.E{Key: "org_id", Value: 1},
+				bson.E{Key: "product_name", Value: 1},
 				bson.E{Key: "workflow_name", Value: 1},
 				bson.E{Key: "version", Value: 1},
 				bson.E{Key: "deleted_at", Value: 1},
@@ -90,8 +91,7 @@ func (c *DeliveryVersionColl) Find(args *DeliveryVersionArgs) ([]*models.Deliver
 		return nil, errors.New("nil delivery_version args")
 	}
 
-	var resp []*models.DeliveryVersion
-	query := bson.M{"org_id": args.OrgID, "deleted_at": 0}
+	query := bson.M{"deleted_at": 0}
 	if args.ProductName != "" {
 		query["product_name"] = args.ProductName
 	}
@@ -114,6 +114,7 @@ func (c *DeliveryVersionColl) Find(args *DeliveryVersionArgs) ([]*models.Deliver
 		return nil, err
 	}
 
+	resp := make([]*models.DeliveryVersion, 0)
 	err = cursor.All(ctx, &resp)
 	if err != nil {
 		return nil, err
@@ -137,9 +138,9 @@ func (c *DeliveryVersionColl) Delete(id string) error {
 	return err
 }
 
-func (c *DeliveryVersionColl) ListDeliveryVersions(productName string, orgID int) ([]*models.DeliveryVersion, error) {
+func (c *DeliveryVersionColl) ListDeliveryVersions(productName string) ([]*models.DeliveryVersion, error) {
 	var resp []*models.DeliveryVersion
-	query := bson.M{"org_id": orgID, "deleted_at": 0}
+	query := bson.M{"deleted_at": 0}
 	if productName != "" {
 		query["product_name"] = productName
 	}
@@ -165,9 +166,15 @@ func (c *DeliveryVersionColl) Get(args *DeliveryVersionArgs) (*models.DeliveryVe
 	resp := new(models.DeliveryVersion)
 	var query map[string]interface{}
 	if args.ID != "" {
-		query = bson.M{"_id": args.ID, "deleted_at": 0}
+		oid, err := primitive.ObjectIDFromHex(args.ID)
+		if err != nil {
+			return nil, err
+		}
+		query = bson.M{"_id": oid, "deleted_at": 0}
+	} else if len(args.Version) > 0 {
+		query = bson.M{"product_name": args.ProductName, "version": args.Version, "deleted_at": 0}
 	} else {
-		query = bson.M{"org_id": args.OrgID, "product_name": args.ProductName, "workflow_name": args.WorkflowName, "task_id": args.TaskID, "deleted_at": 0}
+		query = bson.M{"product_name": args.ProductName, "workflow_name": args.WorkflowName, "task_id": args.TaskID, "deleted_at": 0}
 	}
 
 	err := c.FindOne(context.TODO(), query).Decode(&resp)
@@ -191,6 +198,33 @@ func (c *DeliveryVersionColl) Insert(args *models.DeliveryVersion) error {
 	return nil
 }
 
+func (c *DeliveryVersionColl) UpdateStatusByName(versionName, projectName, status, errorStr string) error {
+	query := bson.M{
+		"version":      versionName,
+		"product_name": projectName,
+		"deleted_at":   0,
+	}
+	change := bson.M{"$set": bson.M{
+		"status": status,
+		"error":  errorStr,
+	}}
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
+func (c *DeliveryVersionColl) UpdateTaskID(versionName, projectName string, taskID int32) error {
+	query := bson.M{
+		"version":      versionName,
+		"product_name": projectName,
+		"deleted_at":   0,
+	}
+	change := bson.M{"$set": bson.M{
+		"task_id": taskID,
+	}}
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
 func (c *DeliveryVersionColl) Update(args *models.DeliveryVersion) error {
 	if args == nil {
 		return errors.New("nil delivery_version args")
@@ -205,9 +239,9 @@ func (c *DeliveryVersionColl) Update(args *models.DeliveryVersion) error {
 	return err
 }
 
-func (c *DeliveryVersionColl) FindProducts(orgID int) ([]string, error) {
+func (c *DeliveryVersionColl) FindProducts() ([]string, error) {
 	resp := make([]string, 0)
-	query := bson.M{"org_id": orgID, "deleted_at": 0}
+	query := bson.M{"deleted_at": 0}
 	ret, err := c.Distinct(context.TODO(), "product_name", query)
 	if err != nil {
 		return nil, err

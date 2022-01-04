@@ -1,0 +1,58 @@
+{
+  "role_bindings": [
+    {
+      "uid": "2e6c5200-358f-11ec-981f-de2269351a1e",
+      "bindings": [
+        {
+          "namespace": "test",
+          "role_refs": [
+            {
+              "name": "test",
+              "namespace": "test"
+            },
+            {
+              "name": "reader2",
+              "namespace": ""
+            }
+          ]
+        },
+        {
+          "namespace": "project2",
+          "role_refs": [
+            {
+              "name": "reader",
+              "namespace": "project2"
+            },
+            {
+              "name": "reader3",
+              "namespace": "project2"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "uid": "*",
+      "bindings": [
+        {
+          "namespace": "project3",
+          "role_refs": [
+            {
+              "name": "view",
+              "namespace": ""
+            }
+          ]
+        },
+        {
+          "namespace": "project1",
+          "role_refs": [
+            {
+              "name": "view",
+              "namespace": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

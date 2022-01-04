@@ -19,6 +19,7 @@ package reaper
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -29,11 +30,14 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/reaper/config"
 	"github.com/koderover/zadig/pkg/microservice/reaper/core/service/archive"
+	"github.com/koderover/zadig/pkg/microservice/reaper/core/service/client"
 	"github.com/koderover/zadig/pkg/microservice/reaper/core/service/meta"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/util/fs"
 )
 
 const (
@@ -70,7 +74,7 @@ func NewReaper() (*Reaper, error) {
 
 	reaper := &Reaper{
 		Ctx: ctx,
-		cm:  NewTarCacheManager(ctx.StorageURI, ctx.PipelineName, ctx.ServiceName),
+		cm:  NewTarCacheManager(ctx.StorageURI, ctx.PipelineName, ctx.ServiceName, ctx.AesKey),
 	}
 
 	return reaper, nil
@@ -80,8 +84,8 @@ func (r *Reaper) GetCacheFile() string {
 	return filepath.Join(r.Ctx.Workspace, "reaper.tar.gz")
 }
 
-func (r *Reaper) archiveCustomCaches(wd, dest string, caches []string) error {
-	fileAchiever := archive.NewWorkspaceAchiever(r.Ctx.StorageURI, r.Ctx.PipelineName, r.Ctx.ServiceName, wd, caches, []string{})
+func (r *Reaper) archiveCustomCaches(wd, dest string, caches []string) ([]string, error) {
+	fileAchiever := archive.NewWorkspaceAchiever(r.Ctx.StorageURI, r.Ctx.PipelineName, r.Ctx.ServiceName, wd, r.Ctx.AesKey, caches, []string{}, r.getUserEnvs())
 
 	// list files matches caches
 	return fileAchiever.Achieve(dest)
@@ -94,11 +98,12 @@ func (r *Reaper) CompressCache(storageURI string) error {
 		return err
 	}
 	if len(r.Ctx.Caches) > 0 {
-		log.Infof("custom caches will be cached: %v", r.Ctx.Caches)
-		if err := r.archiveCustomCaches(r.ActiveWorkspace, r.GetCacheFile(), r.Ctx.Caches); err != nil {
+		log.Infof("custom caches will be cached")
+		caches, err := r.archiveCustomCaches(r.ActiveWorkspace, r.GetCacheFile(), r.Ctx.Caches)
+		if err != nil {
 			return err
 		}
-		log.Infof("succeed to cache %s", r.Ctx.Caches)
+		log.Infof("succeed to cache [%s]", strings.Join(caches, ","))
 	} else {
 		log.Infof("workspace will be cached in background")
 		if err := r.cm.Archive(r.ActiveWorkspace, r.GetCacheFile()); err != nil {
@@ -255,21 +260,23 @@ func (r *Reaper) BeforeExec() error {
 }
 
 func dockerBuildCmd(dockerfile, fullImage, ctx, buildArgs string, ignoreCache bool) *exec.Cmd {
-	args := []string{"build", "--rm=true"}
+	args := []string{"-c"}
+	dockerCommand := "docker build --rm=true"
 	if ignoreCache {
-		args = append(args, "--no-cache")
+		dockerCommand += " --no-cache"
 	}
 
 	if buildArgs != "" {
 		for _, val := range strings.Fields(buildArgs) {
 			if val != "" {
-				args = append(args, val)
+				dockerCommand = dockerCommand + " " + val
 			}
 		}
 
 	}
-	args = append(args, []string{"-t", fullImage, "-f", dockerfile, ctx}...)
-	return exec.Command(dockerExe, args...)
+	dockerCommand = dockerCommand + " -t " + fullImage + " -f " + dockerfile + " " + ctx
+	args = append(args, dockerCommand)
+	return exec.Command("sh", args...)
 }
 
 func (r *Reaper) setProxy(ctx *meta.DockerBuildCtx, cfg *meta.Proxy) {
@@ -301,6 +308,10 @@ func (r *Reaper) dockerCommands() []*exec.Cmd {
 
 func (r *Reaper) runDockerBuild() error {
 	if r.Ctx.DockerBuildCtx != nil {
+		err := r.prepareDockerfile()
+		if err != nil {
+			return err
+		}
 		if r.Ctx.Proxy != nil {
 			r.setProxy(r.Ctx.DockerBuildCtx, r.Ctx.Proxy)
 		}
@@ -317,6 +328,24 @@ func (r *Reaper) runDockerBuild() error {
 		}
 	}
 
+	return nil
+}
+
+func (r *Reaper) prepareDockerfile() error {
+	if r.Ctx.DockerBuildCtx.Source == setting.DockerfileSourceTemplate {
+		aslanClient := client.NewAslanClient(configbase.AslanServiceAddress(), r.Ctx.APIToken)
+		dockerfile, err := aslanClient.GetDockerfile(r.Ctx.DockerBuildCtx.TemplateID)
+		if err != nil {
+			return err
+		}
+		reader := strings.NewReader(dockerfile.Content)
+		readcloser := io.NopCloser(reader)
+		path := fmt.Sprintf("/%s", setting.ZadigDockerfilePath)
+		err = fs.SaveFile(readcloser, path)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -381,21 +410,22 @@ func (r *Reaper) AfterExec(upStreamErr error) error {
 				return err
 			}
 		}
-		// 将测试文件导出地址的文件上传到S3
+		// 将归档文件上传到S3
 		if len(r.Ctx.GinkgoTest.ArtifactPaths) > 0 {
-			if err = artifactsUpload(r.Ctx, r.ActiveWorkspace); err != nil {
-				log.Errorf("artifactsUpload err %v", err)
+			if err = artifactsUpload(r.Ctx, r.ActiveWorkspace, r.Ctx.GinkgoTest.ArtifactPaths); err != nil {
+				log.Errorf("artifactsUpload err %s", err)
 				return err
 			}
 		}
+
 		// 将上面生成的统计结果文件上传到S3
 		if err = r.archiveTestFiles(); err != nil {
-			log.Errorf("archiveFiles err %v", err)
+			log.Errorf("archiveTestFiles err %v", err)
 			return err
 		}
 		// 将HTML测试报告上传到S3
 		if err = r.archiveHTMLTestReportFile(); err != nil {
-			log.Errorf("archiveFiles err %v", err)
+			log.Errorf("archiveHTMLTestReportFile err %v", err)
 			return err
 		}
 
@@ -403,14 +433,28 @@ func (r *Reaper) AfterExec(upStreamErr error) error {
 
 	// should archive file first, since compress cache will clean the workspace
 	if upStreamErr == nil {
-		if err = r.archiveS3Files(); err != nil {
-			log.Errorf("archiveFiles err %v", err)
-			return err
+		if r.Ctx.ArtifactInfo == nil {
+			if err = r.archiveS3Files(); err != nil {
+				log.Errorf("archiveFiles err %v", err)
+				return err
+			}
+			// 运行构建后置脚本
+			if err = r.RunPostScripts(); err != nil {
+				log.Errorf("RunPostScripts err %v", err)
+				return err
+			}
+		} else {
+			if err = r.downloadArtifactFile(); err != nil {
+				log.Errorf("download archiveFiles err %v", err)
+				return err
+			}
 		}
-		// 运行构建后置脚本
-		if err = r.RunPostScripts(); err != nil {
-			log.Errorf("RunPostScripts err %v", err)
-			return err
+
+		if r.Ctx.ArtifactPath != "" {
+			if err = artifactsUpload(r.Ctx, r.ActiveWorkspace, []string{r.Ctx.ArtifactPath}, "buildv3"); err != nil {
+				log.Errorf("artifactsUpload err %s", err)
+				return err
+			}
 		}
 
 		// 运行物理机部署脚本

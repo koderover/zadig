@@ -29,8 +29,6 @@ type Product struct {
 	ProductName         string                `bson:"product_name"              json:"product_name"`
 	Revision            int64                 `bson:"revision"                  json:"revision"`
 	CreateTime          int64                 `bson:"create_time"               json:"create_time"`
-	Teams               []*Team               `bson:"teams"                     json:"teams"`
-	Team                string                `bson:"team"                      json:"team"`
 	UpdateTime          int64                 `bson:"update_time"               json:"update_time"`
 	UpdateBy            string                `bson:"update_by"                 json:"update_by"`
 	Enabled             bool                  `bson:"enabled"                   json:"enabled"`
@@ -41,35 +39,37 @@ type Product struct {
 	Vars                []*RenderKV           `bson:"vars"                      json:"vars"`
 	EnvVars             []*EnvRenderKV        `bson:"-"                         json:"env_vars,omitempty"`
 	ChartInfos          []*RenderChart        `bson:"-"                         json:"chart_infos,omitempty"`
-	UserIDs             []int                 `bson:"user_ids"                  json:"user_ids"`
-	TeamID              int                   `bson:"team_id"                   json:"team_id"`
 	Description         string                `bson:"description,omitempty"     json:"desc,omitempty"`
 	ProductFeature      *ProductFeature       `bson:"product_feature,omitempty" json:"product_feature,omitempty"`
 	ImageSearchingRules []*ImageSearchingRule `bson:"image_searching_rules,omitempty" json:"image_searching_rules,omitempty"`
 	// onboarding状态，0表示onboarding完成，1、2、3、4代表当前onboarding所在的步骤
 	OnboardingStatus int `bson:"onboarding_status"         json:"onboarding_status"`
 	// CI场景的onboarding流程创建的ci工作流id，用于前端跳转
-	CiPipelineID               string   `bson:"-"                         json:"ci_pipeline_id"`
-	Role                       string   `bson:"-"                         json:"role,omitempty"`
-	PermissionUUIDs            []string `bson:"-"                         json:"permissionUUIDs"`
-	TotalServiceNum            int      `bson:"-"                         json:"total_service_num"`
-	LatestServiceUpdateTime    int64    `bson:"-"                         json:"latest_service_update_time"`
-	LatestServiceUpdateBy      string   `bson:"-"                         json:"latest_service_update_by"`
-	TotalBuildNum              int      `bson:"-"                         json:"total_build_num"`
-	LatestBuildUpdateTime      int64    `bson:"-"                         json:"latest_build_update_time"`
-	LatestBuildUpdateBy        string   `bson:"-"                         json:"latest_build_update_by"`
-	TotalTestNum               int      `bson:"-"                         json:"total_test_num"`
-	LatestTestUpdateTime       int64    `bson:"-"                         json:"latest_test_update_time"`
-	LatestTestUpdateBy         string   `bson:"-"                         json:"latest_test_update_by"`
-	TotalEnvNum                int      `bson:"-"                         json:"total_env_num"`
-	LatestEnvUpdateTime        int64    `bson:"-"                         json:"latest_env_update_time"`
-	LatestEnvUpdateBy          string   `bson:"-"                         json:"latest_env_update_by"`
-	TotalWorkflowNum           int      `bson:"-"                         json:"total_workflow_num"`
-	LatestWorkflowUpdateTime   int64    `bson:"-"                         json:"latest_workflow_update_time"`
-	LatestWorkflowUpdateBy     string   `bson:"-"                         json:"latest_workflow_update_by"`
-	TotalEnvTemplateServiceNum int      `bson:"-"                         json:"total_env_template_service_num"`
-	ShowProject                bool     `bson:"-"                         json:"show_project"`
-	IsOpensource               bool     `bson:"is_opensource"             json:"is_opensource"`
+	CiPipelineID               string               `bson:"-"                                   json:"ci_pipeline_id"`
+	Role                       string               `bson:"-"                                   json:"role,omitempty"`
+	PermissionUUIDs            []string             `bson:"-"                                   json:"permissionUUIDs"`
+	TotalServiceNum            int                  `bson:"-"                                   json:"total_service_num"`
+	LatestServiceUpdateTime    int64                `bson:"-"                                   json:"latest_service_update_time"`
+	LatestServiceUpdateBy      string               `bson:"-"                                   json:"latest_service_update_by"`
+	TotalBuildNum              int                  `bson:"-"                                   json:"total_build_num"`
+	LatestBuildUpdateTime      int64                `bson:"-"                                   json:"latest_build_update_time"`
+	LatestBuildUpdateBy        string               `bson:"-"                                   json:"latest_build_update_by"`
+	TotalTestNum               int                  `bson:"-"                                   json:"total_test_num"`
+	LatestTestUpdateTime       int64                `bson:"-"                                   json:"latest_test_update_time"`
+	LatestTestUpdateBy         string               `bson:"-"                                   json:"latest_test_update_by"`
+	TotalEnvNum                int                  `bson:"-"                                   json:"total_env_num"`
+	LatestEnvUpdateTime        int64                `bson:"-"                                   json:"latest_env_update_time"`
+	LatestEnvUpdateBy          string               `bson:"-"                                   json:"latest_env_update_by"`
+	TotalWorkflowNum           int                  `bson:"-"                                   json:"total_workflow_num"`
+	LatestWorkflowUpdateTime   int64                `bson:"-"                                   json:"latest_workflow_update_time"`
+	LatestWorkflowUpdateBy     string               `bson:"-"                                   json:"latest_workflow_update_by"`
+	TotalEnvTemplateServiceNum int                  `bson:"-"                                   json:"total_env_template_service_num"`
+	ClusterIDs                 []string             `bson:"-"                                   json:"cluster_ids"`
+	IsOpensource               bool                 `bson:"is_opensource"                       json:"is_opensource"`
+	CustomImageRule            *CustomRule          `bson:"custom_image_rule,omitempty"         json:"custom_image_rule,omitempty"`
+	CustomTarRule              *CustomRule          `bson:"custom_tar_rule,omitempty"           json:"custom_tar_rule,omitempty"`
+	DeliveryVersionHook        *DeliveryVersionHook `bson:"delivery_version_hook"               json:"delivery_version_hook"`
+	Public                     bool                 `bson:"public,omitempty"                    json:"public"`
 }
 
 type ServiceInfo struct {
@@ -102,20 +102,17 @@ type GitRepoConfig struct {
 	Branch     string `bson:"branch,omitempty"`
 }
 
-type OverrideYaml struct {
-	YamlSource    string         `bson:"yaml_source,omitempty"     json:"yaml_source,omitempty"`
-	YamlContent   string         `bson:"yaml_content,omitempty"    json:"yaml_content,omitempty"`
-	GitRepoConfig *GitRepoConfig `bson:"git_repo_config,omitempty"   json:"gitRepoConfig,omitempty"`
-	ValuesPaths   []string       `bson:"values_paths,omitempty"    json:"values_paths,omitempty"`
+type CustomYaml struct {
+	YamlContent string `bson:"yaml_content,omitempty"    json:"yaml_content,omitempty"`
 }
 
 // RenderChart ...
 type RenderChart struct {
-	ServiceName    string        `bson:"service_name,omitempty"    json:"service_name,omitempty"`
-	ChartVersion   string        `bson:"chart_version,omitempty"   json:"chart_version,omitempty"`
-	ValuesYaml     string        `bson:"values_yaml,omitempty"     json:"values_yaml,omitempty"`
-	OverrideYaml   *OverrideYaml `bson:"override_yaml,omitempty"   json:"override_yaml,omitempty"`
-	OverrideValues string        `bson:"override_values,omitempty"   json:"override_values,omitempty"`
+	ServiceName    string      `bson:"service_name,omitempty"    json:"service_name,omitempty"`
+	ChartVersion   string      `bson:"chart_version,omitempty"   json:"chart_version,omitempty"`
+	ValuesYaml     string      `bson:"values_yaml,omitempty"     json:"values_yaml,omitempty"`
+	OverrideYaml   *CustomYaml `bson:"override_yaml,omitempty"   json:"override_yaml,omitempty"`
+	OverrideValues string      `bson:"override_values,omitempty"   json:"override_values,omitempty"`
 }
 
 type ProductFeature struct {
@@ -146,6 +143,19 @@ type ImageSearchingRule struct {
 	Tag      string `bson:"tag,omitempty"`
 	InUse    bool   `bson:"in_use,omitempty"`
 	PresetId int    `bson:"preset_id,omitempty"`
+}
+
+type CustomRule struct {
+	PRRule          string `bson:"pr_rule,omitempty"             json:"pr_rule,omitempty"`
+	BranchRule      string `bson:"branch_rule,omitempty"         json:"branch_rule,omitempty"`
+	PRAndBranchRule string `bson:"pr_and_branch_rule,omitempty"  json:"pr_and_branch_rule,omitempty"`
+	TagRule         string `bson:"tag_rule,omitempty"            json:"tag_rule,omitempty"`
+}
+
+type DeliveryVersionHook struct {
+	Enable   bool   `bson:"enable"     json:"enable"`
+	HookHost string `bson:"hook_host"  json:"hook_host"`
+	Path     string `bson:"path"       json:"path"`
 }
 
 func (Product) TableName() string {
@@ -220,22 +230,6 @@ func (r *RenderKV) RemoveDupServices() {
 		}
 	}
 	r.Services = result
-}
-
-func (rc *RenderChart) DiffOverrideYaml(other *RenderChart) bool {
-	if rc.OverrideYaml == nil {
-		if other.OverrideYaml != nil {
-			return true
-		}
-		return false
-	}
-	if other.OverrideYaml == nil {
-		return true
-	}
-	if rc.OverrideYaml.YamlSource != other.OverrideYaml.YamlSource || rc.OverrideYaml.YamlContent != other.OverrideYaml.YamlContent {
-		return true
-	}
-	return false
 }
 
 func (rc *RenderChart) GetOverrideYaml() string {

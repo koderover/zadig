@@ -89,14 +89,11 @@ func AutoCancelWorkflowTask(autoCancelOpt *AutoCancelOpt, task *task.Task, log *
 	}
 
 	for _, item := range workflow.HookCtl.Items {
-		if item.AutoCancel {
-			if item.MainRepo.RepoOwner != autoCancelOpt.MainRepo.RepoOwner ||
-				item.MainRepo.RepoName != autoCancelOpt.MainRepo.RepoName ||
-				item.MainRepo.Branch != autoCancelOpt.MainRepo.Branch ||
-				item.MainRepo.Source != autoCancelOpt.MainRepo.Source {
-				continue
-			}
-
+		autoCancel := item.AutoCancel
+		if item.IsYaml && autoCancelOpt.YamlHookPath == item.YamlPath {
+			autoCancel = autoCancelOpt.AutoCancel
+		}
+		if autoCancel {
 			if err := commonservice.CancelTask(task.TaskCreator, task.PipelineName, task.TaskID, task.Type, task.ReqID, log); err != nil {
 				log.Errorf("CancelRunningTask failed,task.TaskCreator:%s, task.PipelineName:%s, task.TaskID:%d, task.Type:%s, error: %v", task.TaskCreator, task.PipelineName, task.TaskID, task.Type, err)
 				continue
@@ -122,6 +119,7 @@ func AutoCancelTestTask(autoCancelOpt *AutoCancelOpt, task *task.Task, log *zap.
 	}
 
 	for _, item := range test.HookCtl.Items {
+		// TODO:testing support webhook as code trigger.yaml
 		if item.AutoCancel {
 			if item.MainRepo.RepoOwner != autoCancelOpt.MainRepo.RepoOwner ||
 				item.MainRepo.RepoName != autoCancelOpt.MainRepo.RepoName ||

@@ -1,0 +1,18 @@
+{
+  "public": [
+    {
+      "method": "POST",
+      "endpoint": "/api/aslan/webhook"
+    }
+  ],
+  "registered": [
+    {
+      "method": "GET",
+      "endpoint": "/api/aslan/environment/environments/?*"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/api/aslan/environment/environments"
+    }
+  ]
+}

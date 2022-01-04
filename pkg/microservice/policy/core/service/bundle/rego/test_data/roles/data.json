@@ -1,0 +1,37 @@
+{
+  "roles": [
+    {
+      "name": "test",
+      "namespace": "test",
+      "rules": [
+        {
+          "method": "GET",
+          "endpoint": "/api/aslan/environment/environments/?*",
+          "resourceType": "Environment",
+          "idRegex": "/api/aslan/environment/environments/([\\w\\W]+?)$",
+          "matchAttributes": [
+            {
+              "key": "production",
+              "value": "true"
+            },
+            {
+              "key": "production1",
+              "value": "true1"
+            }
+          ]
+        },
+        {
+          "method": "GET",
+          "endpoint": "/api/aslan/environment/environments",
+          "resourceType": "Environment",
+          "matchAttributes": [
+            {
+              "key": "production",
+              "value": "true"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

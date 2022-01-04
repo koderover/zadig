@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"regexp"
 	"strings"
 	"sync"
 
@@ -76,7 +77,7 @@ func ListRepoInfos(infos []*GitRepoInfo, param string, log *zap.SugaredLogger) (
 			if info.Source == CodeHostCodeHub {
 				projectName = info.RepoUUID
 			}
-			info.Branches, err = CodeHostListBranches(info.CodehostID, projectName, strings.Replace(info.Owner, "%2F", "/", -1), log)
+			info.Branches, err = CodeHostListBranches(info.CodehostID, projectName, strings.Replace(info.Owner, "%2F", "/", -1), "", 0, 0, log)
 			if err != nil {
 				errList = multierror.Append(errList, err)
 				info.ErrorMsg = err.Error()
@@ -113,4 +114,14 @@ func ListRepoInfos(infos []*GitRepoInfo, param string, log *zap.SugaredLogger) (
 		log.Errorf("list repo info error: %v", err)
 	}
 	return infos, nil
+}
+
+func MatchBranchesList(regular string, branches []string) []string {
+	matchBranches := make([]string, 0)
+	for _, branch := range branches {
+		if matched, _ := regexp.MatchString(regular, branch); matched {
+			matchBranches = append(matchBranches, branch)
+		}
+	}
+	return matchBranches
 }

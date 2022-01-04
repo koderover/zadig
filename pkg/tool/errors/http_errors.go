@@ -44,7 +44,8 @@ var (
 	ErrListUsers = NewHTTPError(6002, "列出用户信息失败")
 	// ErrFindUser ...
 	ErrFindUser = NewHTTPError(6002, "获取用户信息失败")
-
+	// ErrCallBackUser ...
+	ErrCallBackUser = NewHTTPError(6003, "dex回调用户失败")
 	//-----------------------------------------------------------------------------------------------
 	// Team APIs Range: 6020 - 6039
 	//-----------------------------------------------------------------------------------------------
@@ -114,19 +115,19 @@ var (
 	//-----------------------------------------------------------------------------------------------
 
 	// ErrCreateProduct ...
-	ErrCreateProduct = NewHTTPError(6060, "创建产品失败")
+	ErrCreateProduct = NewHTTPError(6060, "创建项目失败")
 	// ErrListProducts ...
-	ErrListProducts = NewHTTPError(6061, "列出产品失败")
+	ErrListProducts = NewHTTPError(6061, "列出项目失败")
 	// ErrUpdateProduct ...
-	ErrUpdateProduct = NewHTTPError(6062, "更新产品失败")
+	ErrUpdateProduct = NewHTTPError(6062, "更新项目失败")
 	// ErrDeleteProduct ...
-	ErrDeleteProduct = NewHTTPError(6063, "删除产品失败")
+	ErrDeleteProduct = NewHTTPError(6063, "删除项目失败")
 	// ErrDeleteProducts ...
 	ErrDeleteProductTempl = NewHTTPError(6079, "项目删除检查失败，因为存在正在使用的环境!")
 	// ErrGetProduct ...
-	ErrGetProduct = NewHTTPError(6073, "获取产品失败")
+	ErrGetProduct = NewHTTPError(6073, "获取项目失败")
 	// ErrListActiveProducts ...
-	ErrListActiveProducts = NewHTTPError(6064, "列出创建,更新,删除中产品失败")
+	ErrListActiveProducts = NewHTTPError(6064, "列出创建,更新,删除中项目失败")
 	// ErrListGroups ...
 	ErrListGroups = NewHTTPError(6065, "列出服务组失败")
 	// ErrListProductsRevision ...
@@ -583,6 +584,7 @@ var (
 	ErrListPrivateKeys      = NewHTTPError(6684, "列出私钥失败")
 	ErrDeletePrivateKey     = NewHTTPError(6685, "删除私钥失败")
 	ErrDeleteUsedPrivateKey = NewHTTPError(6686, "删除私钥失败，此私钥已经被引用，请确认")
+	ErrBulkCreatePrivateKey = NewHTTPError(6687, "批量创建私钥失败")
 
 	//-----------------------------------------------------------------------------------------------
 	// signature APIs Range: 6690 - 6699
@@ -670,4 +672,18 @@ var (
 	ErrTestJenkinsConnection    = NewHTTPError(6835, "用户名或者密码不正确")
 	ErrListJobNames             = NewHTTPError(6836, "获取job名称列表失败")
 	ErrListJobBuildArgs         = NewHTTPError(6837, "获取job构建参数列表失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// external link Error Range: 6840 - 6849
+	//-----------------------------------------------------------------------------------------------
+	ErrCreateExternalLink = NewHTTPError(6841, "创建链接失败")
+	ErrUpdateExternalLink = NewHTTPError(6842, "更新链接失败")
+	ErrDeleteExternalLink = NewHTTPError(6843, "删除链接失败")
+	ErrListExternalLink   = NewHTTPError(6844, "获取链接列表失败")
+
+	//-----------------------------------------------------------------------------------------------
+	// helm releated Error Range: 6850 - 6869
+	//-----------------------------------------------------------------------------------------------
+	ErrListHelmReleases = NewHTTPError(6850, "获取release失败")
+	ErrGetHelmCharts    = NewHTTPError(6851, "获取chart信息失败")
 )

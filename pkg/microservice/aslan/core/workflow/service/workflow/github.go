@@ -27,7 +27,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
@@ -85,9 +85,9 @@ func createGitCheck(pt *task.Task, log *zap.SugaredLogger) error {
 	}
 
 	log.Infof("Init GitHub status")
-	ch, err := codehost.GetCodeHostInfoByID(pt.TriggerBy.CodehostID)
+	ch, err := systemconfig.New().GetCodeHost(pt.TriggerBy.CodehostID)
 	if err != nil {
-		log.Errorf("GetCodeHostInfoByID failed, err:%v", err)
+		log.Errorf("Failed to get codeHost, err:%v", err)
 		return e.ErrGithubUpdateStatus.AddErr(err)
 	}
 	gc := github.NewClient(ch.AccessToken, config.ProxyHTTPSAddr())

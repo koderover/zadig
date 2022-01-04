@@ -17,22 +17,26 @@ limitations under the License.
 package service
 
 import (
-	"bytes"
 	"fmt"
-	"strings"
 	"time"
 
+	helmclient "github.com/mittwald/go-helm-client"
 	"go.uber.org/zap"
-	"helm.sh/helm/v3/pkg/strvals"
-	"sigs.k8s.io/yaml"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
-	"github.com/koderover/zadig/pkg/util/converter"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type UpdateContainerImageArgs struct {
@@ -45,6 +49,156 @@ type UpdateContainerImageArgs struct {
 	Image         string `json:"image"`
 }
 
+func getValidMatchData(spec *models.ImagePathSpec) map[string]string {
+	ret := make(map[string]string)
+	if spec.Repo != "" {
+		ret[setting.PathSearchComponentRepo] = spec.Repo
+	}
+	if spec.Image != "" {
+		ret[setting.PathSearchComponentImage] = spec.Image
+	}
+	if spec.Tag != "" {
+		ret[setting.PathSearchComponentTag] = spec.Tag
+	}
+	return ret
+}
+
+// prepare necessary data from db
+func prepareData(namespace, serviceName string, containerName string, product *models.Product) (targetContainer *models.Container,
+	targetChart *templatemodels.RenderChart, renderSet *models.RenderSet, serviceObj *models.Service, err error) {
+
+	var targetProductService *models.ProductService
+	for _, productService := range product.GetServiceMap() {
+		if productService.ServiceName != serviceName {
+			continue
+		}
+		targetProductService = productService
+		for _, container := range productService.Containers {
+			if container.Name != containerName {
+				continue
+			}
+			targetContainer = container
+			break
+		}
+		break
+	}
+	if targetContainer == nil {
+		err = fmt.Errorf("failed to find container %s", containerName)
+		return
+	}
+
+	renderSet, err = commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{Name: namespace, Revision: product.Render.Revision})
+	if err != nil {
+		log.Errorf("[RenderSet.find] update product %s error: %s", product.ProductName, err.Error())
+		err = fmt.Errorf("failed to find redset name %s revision %d", namespace, product.Render.Revision)
+		return
+	}
+
+	for _, chartInfo := range renderSet.ChartInfos {
+		if chartInfo.ServiceName == serviceName {
+			targetChart = chartInfo
+			break
+		}
+	}
+	if targetChart == nil {
+		err = fmt.Errorf("failed to find chart info %s", serviceName)
+		return
+	}
+
+	// 获取服务详情
+	opt := &commonrepo.ServiceFindOption{
+		ServiceName: serviceName,
+		Revision:    targetProductService.Revision,
+		ProductName: product.ProductName,
+	}
+
+	serviceObj, err = commonrepo.NewServiceColl().Find(opt)
+	if err != nil {
+		log.Errorf("failed to find template service, opt %+v, err :%s", *opt, err.Error())
+		err = fmt.Errorf("failed to find template service, opt %+v", *opt)
+		return
+	}
+	return
+}
+
+func updateContainerForHelmChart(serviceName, resType, image, containerName string, product *models.Product, cl client.Client) error {
+	var (
+		replaceValuesMap         map[string]interface{}
+		replacedValuesYaml       string
+		mergedValuesYaml         string
+		replacedMergedValuesYaml string
+		restConfig               *rest.Config
+		helmClient               helmclient.Client
+		namespace                string = product.Namespace
+	)
+
+	targetContainer, targetChart, renderSet, serviceObj, err := prepareData(namespace, serviceName, containerName, product)
+	if err != nil {
+		return err
+	}
+
+	// update image info in product.services.container
+	targetContainer.Image = image
+
+	// prepare image replace info
+	replaceValuesMap, err = commonservice.AssignImageData(image, getValidMatchData(targetContainer.ImagePath))
+	if err != nil {
+		return fmt.Errorf("failed to pase image uri %s/%s, err %s", namespace, serviceName, err.Error())
+	}
+
+	// replace image into service's values.yaml
+	replacedValuesYaml, err = commonservice.ReplaceImage(targetChart.ValuesYaml, replaceValuesMap)
+	if err != nil {
+		return fmt.Errorf("failed to replace image uri %s/%s, err %s", namespace, serviceName, err.Error())
+
+	}
+	if replacedValuesYaml == "" {
+		return fmt.Errorf("failed to set new image uri into service's values.yaml %s/%s", namespace, serviceName)
+	}
+
+	// update values.yaml content in chart
+	targetChart.ValuesYaml = replacedValuesYaml
+
+	// merge override values and kvs into service's yaml
+	mergedValuesYaml, err = helmtool.MergeOverrideValues(replacedValuesYaml, renderSet.DefaultValues, targetChart.GetOverrideYaml(), targetChart.OverrideValues)
+	if err != nil {
+		return err
+	}
+
+	// replace image into final merged values.yaml
+	replacedMergedValuesYaml, err = commonservice.ReplaceImage(mergedValuesYaml, replaceValuesMap)
+	if err != nil {
+		return err
+	}
+
+	restConfig, err = kube.GetRESTConfig(product.ClusterID)
+	if err != nil {
+		return err
+	}
+	helmClient, err = helmtool.NewClientFromRestConf(restConfig, namespace)
+	if err != nil {
+		return err
+	}
+
+	// when replace image, should not wait
+	err = installOrUpgradeHelmChartWithValues(namespace, replacedMergedValuesYaml, targetChart, serviceObj, 0, false, helmClient, cl)
+	if err != nil {
+		return err
+	}
+
+	if err = commonrepo.NewRenderSetColl().Update(renderSet); err != nil {
+		log.Errorf("[RenderSet.update] product %s error: %s", product.ProductName, err.Error())
+		return fmt.Errorf("failed to update render set, productName %s", product.ProductName)
+	}
+
+	if err = commonrepo.NewProductColl().Update(product); err != nil {
+		log.Errorf("[%s] update product %s error: %s", namespace, product.ProductName, err.Error())
+		return fmt.Errorf("failed to update product info, name %s", product.ProductName)
+	}
+
+	return nil
+}
+
 func UpdateContainerImage(requestID string, args *UpdateContainerImageArgs, log *zap.SugaredLogger) error {
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{EnvName: args.EnvName, Name: args.ProductName})
 	if err != nil {
@@ -52,9 +206,24 @@ func UpdateContainerImage(requestID string, args *UpdateContainerImageArgs, log 
 	}
 
 	namespace := product.Namespace
-	kubeClient, err := kube.GetKubeClient(product.ClusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
 	if err != nil {
 		return e.ErrUpdateConainterImage.AddErr(err)
+	}
+	// aws secrets needs to be refreshed
+	regs, err := commonservice.ListRegistryNamespaces(true, log)
+	if err != nil {
+		log.Errorf("Failed to get registries to update container images, the error is: %s", err)
+		return err
+	}
+	for _, reg := range regs {
+		if reg.RegProvider == config.RegistryTypeAWS {
+			if err := kube.CreateOrUpdateRegistrySecret(namespace, reg, kubeClient); err != nil {
+				retErr := fmt.Errorf("failed to update pull secret for registry: %s, the error is: %s", reg.ID.Hex(), err)
+				log.Errorf("%s\n", retErr.Error())
+				return retErr
+			}
+		}
 	}
 
 	eventStart := time.Now().Unix()
@@ -63,113 +232,48 @@ func UpdateContainerImage(requestID string, args *UpdateContainerImageArgs, log 
 		commonservice.LogProductStats(namespace, setting.UpdateContainerImageEvent, args.ProductName, requestID, eventStart, log)
 	}()
 
-	switch args.Type {
-	case setting.Deployment:
-		if err := updater.UpdateDeploymentImage(namespace, args.Name, args.ContainerName, args.Image, kubeClient); err != nil {
-			log.Errorf("[%s] UpdateDeploymentImageByName error: %v", namespace, err)
-			return e.ErrUpdateConainterImage.AddDesc("更新 Deployment 容器镜像失败")
+	// update service in helm way
+	if product.Source == setting.HelmDeployType {
+		serviceName, err := commonservice.GetHelmServiceName(namespace, args.Type, args.Name, kubeClient)
+		if err != nil {
+			return e.ErrUpdateConainterImage.AddErr(err)
 		}
-	case setting.StatefulSet:
-		if err := updater.UpdateStatefulSetImage(namespace, args.Name, args.ContainerName, args.Image, kubeClient); err != nil {
-			log.Errorf("[%s] UpdateStatefulsetImageByName error: %v", namespace, err)
-			return e.ErrUpdateConainterImage.AddDesc("更新 StatefulSet 容器镜像失败")
+		err = updateContainerForHelmChart(serviceName, args.Type, args.Image, args.ContainerName, product, kubeClient)
+		if err != nil {
+			return e.ErrUpdateConainterImage.AddErr(err)
 		}
-	default:
-		return nil
-	}
-
-	oldImageName := ""
-	for _, group := range product.Services {
-		for _, service := range group {
-			//如果为helm，serviceName可能不匹配
-			if product.Source != setting.HelmDeployType {
-				if service.ServiceName == args.ServiceName {
-					for _, container := range service.Containers {
-						if container.Name == args.ContainerName {
-							container.Image = args.Image
-							break
-						}
-					}
-				}
+	} else {
+		switch args.Type {
+		case setting.Deployment:
+			if err := updater.UpdateDeploymentImage(namespace, args.Name, args.ContainerName, args.Image, kubeClient); err != nil {
+				log.Errorf("[%s] UpdateDeploymentImageByName error: %s", namespace, err.Error())
+				return e.ErrUpdateConainterImage.AddDesc("更新 Deployment 容器镜像失败")
+			}
+		case setting.StatefulSet:
+			if err := updater.UpdateStatefulSetImage(namespace, args.Name, args.ContainerName, args.Image, kubeClient); err != nil {
+				log.Errorf("[%s] UpdateStatefulsetImageByName error: %s", namespace, err.Error())
+				return e.ErrUpdateConainterImage.AddDesc("更新 StatefulSet 容器镜像失败")
+			}
+		default:
+			return e.ErrUpdateConainterImage.AddDesc(fmt.Sprintf("不支持的资源类型: %s", args.Type))
+		}
+		// update image info in product.services.container
+		for _, service := range product.GetServiceMap() {
+			if service.ServiceName != args.ServiceName {
 				continue
 			}
 			for _, container := range service.Containers {
 				if container.Name == args.ContainerName {
-					oldImageName = container.Image
 					container.Image = args.Image
 					break
 				}
 			}
+			break
 		}
-	}
-
-	//如果环境是helm环境也要更新renderSet
-	if product.Source == setting.HelmDeployType && oldImageName != "" {
-		renderSetOpt := &commonrepo.RenderSetFindOption{Name: namespace, Revision: product.Render.Revision}
-		renderSet, err := commonrepo.NewRenderSetColl().Find(renderSetOpt)
-		if err != nil {
-			log.Errorf("[RenderSet.find] update product %s error: %v", args.ProductName, err)
+		if err := commonrepo.NewProductColl().Update(product); err != nil {
+			log.Errorf("[%s] update product %s error: %s", namespace, args.ProductName, err.Error())
 			return e.ErrUpdateConainterImage.AddDesc("更新环境信息失败")
 		}
-		oldImageRepo := strings.Split(oldImageName, ":")[0]
-		newImageTag := strings.Split(args.Image, ":")[1]
-
-		for _, chartInfo := range renderSet.ChartInfos {
-			newValues, err := updateImageTagInValues([]byte(chartInfo.ValuesYaml), oldImageRepo, newImageTag)
-			if err != nil {
-				log.Errorf("Failed to update image tag, err: %v", err)
-				continue
-			} else if newValues == nil {
-				continue
-			}
-			chartInfo.ValuesYaml = string(newValues)
-		}
-
-		if err := commonrepo.NewRenderSetColl().Update(renderSet); err != nil {
-			log.Errorf("[RenderSet.update] product %s error: %v", args.ProductName, err)
-			return e.ErrUpdateConainterImage.AddDesc("更新环境信息失败")
-		}
-	}
-
-	if err := commonrepo.NewProductColl().Update(product); err != nil {
-		log.Errorf("[%s] update product %s error: %v", namespace, args.ProductName, err)
-		return e.ErrUpdateConainterImage.AddDesc("更新环境信息失败")
 	}
 	return nil
-}
-
-func updateImageTagInValues(valuesYaml []byte, repo, newTag string) ([]byte, error) {
-	if !bytes.Contains(valuesYaml, []byte(repo)) {
-		return nil, nil
-	}
-
-	valuesMap := map[string]interface{}{}
-	if err := yaml.Unmarshal(valuesYaml, &valuesMap); err != nil {
-		return nil, err
-	}
-
-	valuesFlatMap, err := converter.Flatten(valuesMap)
-	if err != nil {
-		return nil, err
-	}
-
-	var matchingKey string
-	for k, v := range valuesFlatMap {
-		if val, ok := v.(string); ok && repo == val {
-			matchingKey = k
-		}
-	}
-	if matchingKey == "" {
-		return nil, fmt.Errorf("key is not found for value %s in map %v", repo, valuesFlatMap)
-	}
-
-	newKey := strings.Replace(matchingKey, ".repository", ".tag", 1)
-	if newKey == matchingKey {
-		return nil, fmt.Errorf("field repository is not found in key %s", matchingKey)
-	}
-	if err := strvals.ParseInto(fmt.Sprintf("%s=%s", newKey, newTag), valuesMap); err != nil {
-		return nil, err
-	}
-
-	return yaml.Marshal(valuesMap)
 }

@@ -20,27 +20,27 @@ import (
 	"errors"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 )
 
 type RegistryNamespace struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty"               json:"id,omitempty"`
-	OrgID       int                `bson:"org_id"                      json:"org_id"`
 	RegAddr     string             `bson:"reg_addr"                    json:"reg_addr"`
 	RegType     string             `bson:"reg_type"                    json:"reg_type"`
 	RegProvider string             `bson:"reg_provider"                json:"reg_provider"`
 	IsDefault   bool               `bson:"is_default"                  json:"is_default"`
-	Namespace   string             `bson:"namespace"                   json:"namespace"`
-	AccessKey   string             `bson:"access_key"                  json:"access_key"`
-	SecretKey   string             `bson:"secret_key"                  json:"secret_key"`
-	Region      string             `bson:"region,omitempty"            json:"region,omitempty"`
-	UpdateTime  int64              `bson:"update_time"                 json:"update_time"`
-	UpdateBy    string             `bson:"update_by"                   json:"update_by"`
+	// Namespace is NOT a required field, this could be empty when the registry is AWS ECR or so.
+	// use with CAUTION !!!!
+	Namespace  string `bson:"namespace,omitempty"         json:"namespace,omitempty"`
+	AccessKey  string `bson:"access_key"                  json:"access_key"`
+	SecretKey  string `bson:"secret_key"                  json:"secret_key"`
+	Region     string `bson:"region,omitempty"            json:"region,omitempty"`
+	UpdateTime int64  `bson:"update_time"                 json:"update_time"`
+	UpdateBy   string `bson:"update_by"                   json:"update_by"`
 }
 
 func (ns *RegistryNamespace) Validate() error {
-	if ns.OrgID == 0 {
-		return errors.New("empty org_id")
-	}
 
 	if ns.RegAddr == "" {
 		return errors.New("empty reg_addr")
@@ -50,7 +50,8 @@ func (ns *RegistryNamespace) Validate() error {
 		return errors.New("empty reg_provider")
 	}
 
-	if ns.Namespace == "" {
+	// if the registry type is aws ECR, then the RegAddr is the registry's full
+	if ns.Namespace == "" && ns.RegProvider != config.RegistryTypeAWS {
 		return errors.New("empty namespace")
 	}
 

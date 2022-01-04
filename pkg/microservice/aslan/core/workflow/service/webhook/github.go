@@ -37,8 +37,7 @@ import (
 	gitservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/codehost"
-	"github.com/koderover/zadig/pkg/shared/poetry"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	githubtool "github.com/koderover/zadig/pkg/tool/git/github"
 	"github.com/koderover/zadig/pkg/types"
@@ -50,32 +49,31 @@ const (
 	payloadFormParam = "payload"
 )
 
-func ProcessGithubHook(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) (output string, err error) {
+func ProcessGithubHook(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) (string, error) {
 	hookType := github.WebHookType(req)
 	if hookType == "integration_installation" || hookType == "installation" || hookType == "ping" {
-		output = fmt.Sprintf("event %s received", hookType)
-		return
+		return fmt.Sprintf("event %s received", hookType), nil
 	}
 
 	hookSecret := gitservice.GetHookSecret()
-
 	if hookSecret == "" {
 		var headers []string
 		for header := range req.Header {
 			headers = append(headers, fmt.Sprintf("%s: %s", header, req.Header.Get(header)))
 		}
-
 		log.Infof("[Webhook] hook headers: \n  %s", strings.Join(headers, "\n  "))
 	}
 
-	err = validateSecret(payload, []byte(hookSecret), req)
+	err := validateSecret(payload, []byte(hookSecret), req)
 	if err != nil {
-		return
+		log.Errorf("Failed to validate secret, err: %s", err)
+		return "", err
 	}
 
 	event, err := github.ParseWebHook(github.WebHookType(req), payload)
 	if err != nil {
-		return
+		log.Errorf("Failed to parse webhook, err: %s", err)
+		return "", err
 	}
 
 	deliveryID := github.DeliveryID(req)
@@ -86,15 +84,13 @@ func ProcessGithubHook(payload []byte, req *http.Request, requestID string, log 
 	switch et := event.(type) {
 	case *github.PullRequestEvent:
 		if *et.Action != "opened" && *et.Action != "synchronize" && *et.Action != "reopened" {
-			output = fmt.Sprintf("action %s is skipped", *et.Action)
-			return
+			return fmt.Sprintf("action %s is skipped", *et.Action), nil
 		}
 
 		tasks, err = prEventToPipelineTasks(et, requestID, log)
 		if err != nil {
 			log.Errorf("prEventToPipelineTasks error: %v", err)
-			err = e.ErrGithubWebHook.AddErr(err)
-			return
+			return "", e.ErrGithubWebHook.AddErr(err)
 		}
 
 	case *github.PushEvent:
@@ -112,40 +108,34 @@ func ProcessGithubHook(payload []byte, req *http.Request, requestID string, log 
 
 		tasks, err = pushEventToPipelineTasks(et, requestID, log)
 		if err != nil {
-			log.Infof("pushEventToPipelineTasks error: %v", err)
-			err = e.ErrGithubWebHook.AddErr(err)
-			return
+			log.Errorf("pushEventToPipelineTasks error: %v", err)
+			return "", e.ErrGithubWebHook.AddErr(err)
 		}
 	case *github.CheckRunEvent:
 		// The action performed. Can be "created", "updated", "rerequested" or "requested_action".
 		if *et.Action != "rerequested" {
-			output = fmt.Sprintf("action %s is skipped", *et.Action)
-			return
+			return fmt.Sprintf("action %s is skipped", *et.Action), nil
 		}
 
 		id := et.CheckRun.GetExternalID()
 		items := strings.Split(id, "/")
 		if len(items) != 2 {
-			err = fmt.Errorf("invalid CheckRun ExternalID %s", id)
-			return
+			return "", fmt.Errorf("invalid CheckRun ExternalID %s", id)
 		}
 
 		pipeName := items[0]
 		var taskID int64
 		taskID, err = strconv.ParseInt(items[1], 10, 64)
 		if err != nil {
-			err = fmt.Errorf("invalid taskID in CheckRun ExternalID %s", id)
-			return
+			return "", fmt.Errorf("invalid taskID in CheckRun ExternalID %s", id)
 		}
 
 		if err = workflowservice.RestartPipelineTaskV2("CheckRun", taskID, pipeName, config.SingleType, log); err != nil {
-			err = e.ErrGithubWebHook.AddErr(err)
-			return
+			return "", e.ErrGithubWebHook.AddErr(err)
 		}
 
 	default:
-		output = fmt.Sprintf("event %s not support", hookType)
-		return
+		return fmt.Sprintf("event %s not support", hookType), nil
 	}
 
 	for _, task := range tasks {
@@ -159,7 +149,7 @@ func ProcessGithubHook(payload []byte, req *http.Request, requestID string, log 
 		log.Infof("[Webhook] %s triggered task %s:%d", deliveryID, task.PipelineName, resp.TaskID)
 	}
 
-	return
+	return "", nil
 }
 
 func validateSecret(payload, secretKey []byte, r *http.Request) error {
@@ -183,13 +173,13 @@ func prEventToPipelineTasks(event *github.PullRequestEvent, requestID string, lo
 		commitMessage = *event.PullRequest.Title
 	)
 
-	address, err := util.GetAddress(event.Repo.GetURL())
+	address, err := util.GetAddress(event.Repo.GetHTMLURL())
 	if err != nil {
 		log.Errorf("GetAddress failed, url: %s, err: %s", event.Repo.GetURL(), err)
 		return nil, err
 	}
-	ch, err := codehost.GetCodeHostInfo(
-		&codehost.Option{CodeHostType: poetry.GitHubProvider, Address: address, Namespace: owner})
+	ch, err := systemconfig.GetCodeHostInfo(
+		&systemconfig.Option{CodeHostType: systemconfig.GitHubProvider, Address: address, Namespace: owner})
 	if err != nil {
 		log.Errorf("GetCodeHostInfo failed, err: %v", err)
 		return nil, err
@@ -327,8 +317,8 @@ func pushEventToPipelineTasks(event *github.PushEvent, requestID string, log *za
 		log.Errorf("GetAddress failed, url: %s, err: %s", event.Repo.GetURL(), err)
 		return nil, err
 	}
-	ch, err := codehost.GetCodeHostInfo(
-		&codehost.Option{CodeHostType: poetry.GitHubProvider, Address: address, Namespace: owner})
+	ch, err := systemconfig.GetCodeHostInfo(
+		&systemconfig.Option{CodeHostType: systemconfig.GitHubProvider, Address: address, Namespace: owner})
 	if err != nil {
 		log.Errorf("GetCodeHostInfo failed, err: %v", err)
 		return nil, err
@@ -389,6 +379,40 @@ func pushEventCommitsFiles(e *github.PushEvent) []string {
 		files = append(files, commit.Modified...)
 	}
 	return files
+}
+
+func ProcessGithubWebHookForTest(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) error {
+	hookType := github.WebHookType(req)
+	if hookType == "integration_installation" || hookType == "installation" || hookType == "ping" {
+		return nil
+	}
+
+	err := validateSecret(payload, []byte(gitservice.GetHookSecret()), req)
+	if err != nil {
+		return err
+	}
+
+	event, err := github.ParseWebHook(github.WebHookType(req), payload)
+	if err != nil {
+		return err
+	}
+
+	switch et := event.(type) {
+	case *github.PullRequestEvent:
+		err = TriggerTestByGithubEvent(et, requestID, log)
+		if err != nil {
+			log.Errorf("TriggerTestByGithubEvent error: %v", err)
+			return e.ErrGithubWebHook.AddErr(err)
+		}
+
+	case *github.PushEvent:
+		err = TriggerTestByGithubEvent(et, requestID, log)
+		if err != nil {
+			log.Infof("TriggerTestByGithubEvent error: %v", err)
+			return e.ErrGithubWebHook.AddErr(err)
+		}
+	}
+	return nil
 }
 
 func ProcessGithubWebHook(payload []byte, req *http.Request, requestID string, log *zap.SugaredLogger) error {
@@ -460,13 +484,31 @@ type AutoCancelOpt struct {
 	MergeRequestID string
 	CommitID       string
 	TaskType       config.PipelineType
-	MainRepo       commonmodels.MainHookRepo
+	MainRepo       *commonmodels.MainHookRepo
 	WorkflowArgs   *commonmodels.WorkflowTaskArgs
 	TestArgs       *commonmodels.TestTaskArgs
+	IsYaml         bool
+	AutoCancel     bool
+	YamlHookPath   string
 }
 
-func getProductTargetMap(prod *commonmodels.Product) map[string][]commonmodels.DeployEnv {
+func getProductTargetMap(prod *commonmodels.Product, isYaml bool) map[string][]commonmodels.DeployEnv {
 	resp := make(map[string][]commonmodels.DeployEnv)
+	if prod.Source == setting.SourceFromExternal {
+		services, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(prod.ProductName, prod.EnvName)
+		for _, service := range services {
+			for _, container := range service.Containers {
+				env := service.ServiceName + "/" + container.Name
+				deployEnv := commonmodels.DeployEnv{Type: setting.K8SDeployType, Env: env}
+				target := strings.Join([]string{service.ProductName, service.ServiceName, container.Name}, SplitSymbol)
+				resp[target] = append(resp[target], deployEnv)
+			}
+		}
+		return resp
+	}
+	if isYaml {
+		return resp
+	}
 	for _, services := range prod.Services {
 		for _, serviceObj := range services {
 			switch serviceObj.Type {
@@ -554,8 +596,8 @@ func updateServiceTemplateByGithubPush(pushEvent *github.PushEvent, log *zap.Sug
 
 func GetGithubServiceTemplates() ([]*commonmodels.Service, error) {
 	opt := &commonrepo.ServiceListOption{
-		Type:          setting.K8SDeployType,
-		Source:        setting.SourceFromGithub,
+		Type:   setting.K8SDeployType,
+		Source: setting.SourceFromGithub,
 	}
 	return commonrepo.NewServiceColl().ListMaxRevisions(opt)
 }

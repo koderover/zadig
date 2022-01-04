@@ -1,0 +1,19 @@
+fullnameOverride: $T-Service$
+replicaCount: 1
+port: {{.port}}
+
+registryConf: ""
+imagePullSecretsName: "$T-Service$-registry-secret"
+
+image:
+  repository: "ccr.ccs.tencentyun.com/koderover-public/$T-Service$"
+  tag: "latest"
+
+resources:
+  requests:
+    cpu: 10m
+    mem: 10Mi
+
+  limits:
+    cpu: 20m
+    mem: 20Mi

@@ -26,18 +26,17 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 func GetService(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	envName := c.Query("envName")
-	productName := c.Param("productName")
+	envName := c.Param("name")
+	projectName := c.Query("projectName")
 	serviceName := c.Param("serviceName")
 	workLoadType := c.Query("workLoadType")
 
-	ctx.Resp, ctx.Err = service.GetService(envName, productName, serviceName, workLoadType, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetService(envName, projectName, serviceName, workLoadType, ctx.Logger)
 }
 
 func RestartService(c *gin.Context) {
@@ -45,19 +44,22 @@ func RestartService(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	args := &service.SvcOptArgs{
-		EnvName:     c.Query("envName"),
-		ProductName: c.Param("productName"),
+		EnvName:     c.Param("name"),
+		ProductName: c.Query("projectName"),
 		ServiceName: c.Param("serviceName"),
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "重启", "集成环境-服务", fmt.Sprintf("环境名称:%s,服务名称:%s", c.Query("envName"), c.Param("serviceName")), fmt.Sprintf("%s,%s", permission.TestEnvManageUUID, permission.ProdEnvManageUUID), "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "重启", "集成环境-服务", fmt.Sprintf("环境名称:%s,服务名称:%s", c.Param("name"), c.Param("serviceName")), "", ctx.Logger)
 	ctx.Err = service.RestartService(args.EnvName, args, ctx.Logger)
 }
 
 func UpdateService(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "更新", "集成环境-单服务", fmt.Sprintf("环境名称:%s,服务名称:%s", c.Query("envName"), c.Param("serviceName")), fmt.Sprintf("%s,%s", permission.TestEnvManageUUID, permission.ProdEnvManageUUID), "", ctx.Logger)
+
+	envName := c.Param("name")
+	projectName := c.Query("projectName")
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "集成环境-单服务", fmt.Sprintf("环境名称:%s,服务名称:%s", envName, c.Param("serviceName")), "", ctx.Logger)
 
 	svcRev := new(service.SvcRevision)
 	if err := c.BindJSON(svcRev); err != nil {
@@ -66,12 +68,12 @@ func UpdateService(c *gin.Context) {
 	}
 
 	args := &service.SvcOptArgs{
-		EnvName:     c.Query("envName"),
-		ProductName: c.Param("productName"),
+		EnvName:     envName,
+		ProductName: projectName,
 		ServiceName: c.Param("serviceName"),
-		ServiceType: c.Param("serviceType"),
+		ServiceType: c.Query("serviceType"),
 		ServiceRev:  svcRev,
-		UpdateBy:    ctx.Username,
+		UpdateBy:    ctx.UserName,
 	}
 
 	ctx.Err = service.UpdateService(args, ctx.Logger)
@@ -82,22 +84,21 @@ func RestartNewService(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	args := &service.RestartScaleArgs{
-		EnvName:     c.Query("envName"),
-		ProductName: c.Param("productName"),
+		EnvName:     c.Param("name"),
+		ProductName: c.Query("projectName"),
 		ServiceName: c.Param("serviceName"),
 		Type:        c.Query("type"),
 		Name:        c.Query("name"),
 	}
 
 	internalhandler.InsertOperationLog(
-		c, ctx.Username,
-		c.Param("productName"),
+		c, ctx.UserName,
+		c.Query("projectName"),
 		"重启",
 		"集成环境-服务",
 		fmt.Sprintf(
 			"环境名称:%s,服务名称:%s,%s:%s", args.EnvName, args.ServiceName, args.Type, args.Name,
 		),
-		fmt.Sprintf("%s,%s", permission.TestEnvManageUUID, permission.ProdEnvManageUUID),
 		"", ctx.Logger,
 	)
 
@@ -111,21 +112,21 @@ func ScaleNewService(c *gin.Context) {
 	args := new(service.ScaleArgs)
 	args.Type = setting.Deployment
 
-	productName := c.Param("productName")
+	projectName := c.Query("projectName")
 	serviceName := c.Param("serviceName")
-	envName := c.Query("envName")
+	envName := c.Param("name")
 	resourceType := c.Query("type")
 	name := c.Query("name")
 
 	internalhandler.InsertOperationLog(
-		c, ctx.Username,
-		c.Param("productName"),
+		c, ctx.UserName,
+		projectName,
 		"伸缩",
 		"集成环境-服务",
-		fmt.Sprintf("环境名称:%s,%s:%s", args.EnvName, args.Type, args.Name),
-		fmt.Sprintf("%s,%s", permission.TestEnvManageUUID, permission.ProdEnvManageUUID), "", ctx.Logger)
+		fmt.Sprintf("环境名称:%s,%s:%s", envName, resourceType, name),
+		"", ctx.Logger)
 
-	number, err := strconv.Atoi(c.Param("number"))
+	number, err := strconv.Atoi(c.Query("number"))
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid number format")
 		return
@@ -133,7 +134,7 @@ func ScaleNewService(c *gin.Context) {
 
 	ctx.Err = service.Scale(&service.ScaleArgs{
 		Type:        resourceType,
-		ProductName: productName,
+		ProductName: projectName,
 		EnvName:     envName,
 		ServiceName: serviceName,
 		Name:        name,
@@ -144,21 +145,22 @@ func ScaleNewService(c *gin.Context) {
 func ScaleService(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	internalhandler.InsertOperationLog(c, ctx.Username, c.Param("productName"), "伸缩", "集成环境-服务", fmt.Sprintf("环境名称:%s,服务名称:%s", c.Query("envName"), c.Param("serviceName")), fmt.Sprintf("%s,%s", permission.TestEnvManageUUID, permission.ProdEnvManageUUID), "", ctx.Logger)
 
-	number, err := strconv.Atoi(c.Param("number"))
+	envName := c.Param("name")
+	projectName := c.Query("projectName")
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "伸缩", "集成环境-服务", fmt.Sprintf("环境名称:%s,服务名称:%s", envName, c.Param("serviceName")), "", ctx.Logger)
+
+	number, err := strconv.Atoi(c.Query("number"))
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid number format")
 		return
 	}
 
-	productName := c.Param("productName")
 	serviceName := c.Param("serviceName")
-	envName := c.Query("envName")
 
 	ctx.Err = service.ScaleService(
 		envName,
-		productName,
+		projectName,
 		serviceName,
 		number,
 		ctx.Logger,
@@ -169,11 +171,10 @@ func GetServiceContainer(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	envName := c.Query("envName")
-	//namespace := c.Param("namespace")
-	productName := c.Param("productName")
+	envName := c.Param("name")
+	projectName := c.Query("projectName")
 	serviceName := c.Param("serviceName")
 	container := c.Param("container")
 
-	ctx.Err = service.GetServiceContainer(envName, productName, serviceName, container, ctx.Logger)
+	ctx.Err = service.GetServiceContainer(envName, projectName, serviceName, container, ctx.Logger)
 }

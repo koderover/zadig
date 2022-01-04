@@ -25,7 +25,9 @@ import (
 	"net"
 	"os"
 	"path"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -42,8 +44,8 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
-	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/containerlog"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/podexec"
@@ -57,10 +59,15 @@ const (
 	defaultSecretEmail = "bot@koderover.com"
 	PredatorPlugin     = "predator-plugin"
 	JenkinsPlugin      = "jenkins-plugin"
-)
+	PackagerPlugin     = "packager-plugin"
+	NormalSchedule     = "normal"
+	RequiredSchedule   = "required"
+	PreferredSchedule  = "preferred"
 
-const (
-	registrySecretSuffix = "-registry-secret"
+	registrySecretSuffix    = "-registry-secret"
+	ResourceServer          = "resource-server"
+	DindServer              = "dind"
+	KoderoverAgentNamespace = "koderover-agent"
 )
 
 func saveFile(src io.Reader, localFile string) error {
@@ -75,7 +82,7 @@ func saveFile(src io.Reader, localFile string) error {
 	return err
 }
 
-func saveContainerLog(pipelineTask *task.Task, namespace, fileName string, jobLabel *JobLabel, kubeClient client.Client) error {
+func saveContainerLog(pipelineTask *task.Task, namespace, clusterID, fileName string, jobLabel *JobLabel, kubeClient client.Client) error {
 	selector := labels.Set(getJobLabels(jobLabel)).AsSelector()
 	pods, err := getter.ListPods(namespace, selector, kubeClient)
 	if err != nil {
@@ -95,7 +102,14 @@ func saveContainerLog(pipelineTask *task.Task, namespace, fileName string, jobLa
 	sort.SliceStable(pods, func(i, j int) bool {
 		return pods[i].CreationTimestamp.Before(&pods[j].CreationTimestamp)
 	})
-	if err := containerlog.GetContainerLogs(namespace, pods[0].Name, pods[0].Spec.Containers[0].Name, false, int64(0), buf, krkubeclient.Clientset()); err != nil {
+
+	clientSet, err := kubeclient.GetClientset(pipelineTask.ConfigPayload.HubServerAddr, clusterID)
+	if err != nil {
+		log.Errorf("saveContainerLog, get client set error: %s", err)
+		return err
+	}
+
+	if err := containerlog.GetContainerLogs(namespace, pods[0].Name, pods[0].Spec.Containers[0].Name, false, int64(0), buf, clientSet); err != nil {
 		return err
 	}
 
@@ -106,6 +120,7 @@ func saveContainerLog(pipelineTask *task.Task, namespace, fileName string, jobLa
 		if err = saveFile(buf, tempFileName); err == nil {
 			var store *s3.S3
 			if store, err = s3.NewS3StorageFromEncryptedURI(pipelineTask.StorageURI); err != nil {
+				log.Errorf("failed to NewS3StorageFromEncryptedURI ")
 				return err
 			}
 			if store.Subfolder != "" {
@@ -174,6 +189,7 @@ func replaceWrapLine(script string) string {
 func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName string) *types.Context {
 
 	ctx := &types.Context{
+		APIToken:       pipelineTask.ConfigPayload.APIToken,
 		Workspace:      b.PipelineCtx.Workspace,
 		CleanWorkspace: b.JobCtx.CleanWorkspace,
 		IgnoreCache:    pipelineTask.ConfigPayload.IgnoreCache,
@@ -208,8 +224,8 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 		TaskID:          pipelineTask.TaskID,
 		ServiceName:     serviceName,
 		StorageEndpoint: pipelineTask.StorageEndpoint,
+		AesKey:          pipelineTask.ConfigPayload.AesKey,
 	}
-
 	for _, install := range b.Installs {
 		inst := &types.Install{
 			// TODO: 之后可以适配 install.Scripts 为[]string
@@ -283,6 +299,8 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 
 	if b.JobCtx.DockerBuildCtx != nil {
 		ctx.DockerBuildCtx = &task.DockerBuildCtx{
+			Source:     b.JobCtx.DockerBuildCtx.Source,
+			TemplateID: b.JobCtx.DockerBuildCtx.TemplateID,
 			WorkDir:    b.JobCtx.DockerBuildCtx.WorkDir,
 			DockerFile: b.JobCtx.DockerBuildCtx.DockerFile,
 			ImageName:  b.JobCtx.DockerBuildCtx.ImageName,
@@ -309,6 +327,17 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 	ctx.StorageSK = pipelineTask.ConfigPayload.S3Storage.Sk
 	ctx.StorageBucket = pipelineTask.ConfigPayload.S3Storage.Bucket
 	ctx.StorageProvider = pipelineTask.ConfigPayload.S3Storage.Provider
+	if pipelineTask.ArtifactInfo != nil {
+		ctx.ArtifactInfo = &types.ArtifactInfo{
+			URL:          pipelineTask.ArtifactInfo.URL,
+			WorkflowName: pipelineTask.ArtifactInfo.WorkflowName,
+			TaskID:       pipelineTask.ArtifactInfo.TaskID,
+			FileName:     pipelineTask.ArtifactInfo.FileName,
+		}
+	}
+	if b.JobCtx.ArtifactPath != "" {
+		ctx.ArtifactPath = b.JobCtx.ArtifactPath
+	}
 
 	return ctx
 }
@@ -341,12 +370,19 @@ const (
 
 // getJobLabels get labels k-v map from JobLabel struct
 func getJobLabels(jobLabel *JobLabel) map[string]string {
-	return map[string]string{
+	retMap := map[string]string{
 		jobLabelTaskKey:    fmt.Sprintf("%s-%d", strings.ToLower(jobLabel.PipelineName), jobLabel.TaskID),
 		jobLabelServiceKey: strings.ToLower(jobLabel.ServiceName),
 		jobLabelSTypeKey:   strings.Replace(jobLabel.TaskType, "_", "-", -1),
 		jobLabelPTypeKey:   jobLabel.PipelineType,
 	}
+	// no need to add labels with empty value to a job
+	for k, v := range retMap {
+		if len(v) == 0 {
+			delete(retMap, k)
+		}
+	}
+	return retMap
 }
 
 func createJobConfigMap(namespace, jobName string, jobLabel *JobLabel, jobCtx string, kubeClient client.Client) error {
@@ -371,13 +407,16 @@ func createJobConfigMap(namespace, jobName string, jobLabel *JobLabel, jobCtx st
 //"s-job":  pipelinename-taskid-tasktype-servicename,
 //"s-task": pipelinename-taskid,
 //"s-type": tasktype,
-func buildJob(taskType config.TaskType, jobImage, jobName, serviceName string, resReq setting.Request, ctx *task.PipelineCtx, pipelineTask *task.Task, registries []*task.RegistryNamespace) (*batchv1.Job, error) {
+func buildJob(taskType config.TaskType, jobImage, jobName, serviceName, clusterID, currentNamespace string, resReq setting.Request, resReqSpec setting.RequestSpec, ctx *task.PipelineCtx, pipelineTask *task.Task, registries []*task.RegistryNamespace) (*batchv1.Job, error) {
 	return buildJobWithLinkedNs(
 		taskType,
 		jobImage,
 		jobName,
 		serviceName,
+		clusterID,
+		currentNamespace,
 		resReq,
+		resReqSpec,
 		ctx,
 		pipelineTask,
 		registries,
@@ -386,15 +425,24 @@ func buildJob(taskType config.TaskType, jobImage, jobName, serviceName string, r
 	)
 }
 
-func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceName string, resReq setting.Request, ctx *task.PipelineCtx, pipelineTask *task.Task, registries []*task.RegistryNamespace, execNs, linkedNs string) (*batchv1.Job, error) {
-	var reaperBootingScript string
+func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceName, clusterID, currentNamespace string, resReq setting.Request, resReqSpec setting.RequestSpec, ctx *task.PipelineCtx, pipelineTask *task.Task, registries []*task.RegistryNamespace, execNs, linkedNs string) (*batchv1.Job, error) {
+	var (
+		reaperBootingScript string
+		reaperBinaryFile    = pipelineTask.ConfigPayload.Release.ReaperBinaryFile
+	)
+	// not local cluster
+	if clusterID != "" && clusterID != setting.LocalClusterID {
+		reaperBinaryFile = strings.Replace(reaperBinaryFile, ResourceServer, ResourceServer+".koderover-agent", -1)
+	} else {
+		reaperBinaryFile = strings.Replace(reaperBinaryFile, ResourceServer, ResourceServer+"."+currentNamespace, -1)
+	}
 
-	if !strings.Contains(jobImage, PredatorPlugin) && !strings.Contains(jobImage, JenkinsPlugin) {
-		reaperBootingScript = fmt.Sprintf("curl -m 60 --retry-delay 5 --retry 3 -sL %s -o reaper && chmod +x reaper && mv reaper /usr/local/bin && /usr/local/bin/reaper", pipelineTask.ConfigPayload.Release.ReaperBinaryFile)
+	if !strings.Contains(jobImage, PredatorPlugin) && !strings.Contains(jobImage, JenkinsPlugin) && !strings.Contains(jobImage, PackagerPlugin) {
+		reaperBootingScript = fmt.Sprintf("curl -m 60 --retry-delay 5 --retry 3 -sL %s -o reaper && chmod +x reaper && mv reaper /usr/local/bin && /usr/local/bin/reaper", reaperBinaryFile)
 		if pipelineTask.ConfigPayload.Proxy.EnableApplicationProxy && pipelineTask.ConfigPayload.Proxy.Type == "http" {
 			reaperBootingScript = fmt.Sprintf("curl -m 60 --retry-delay 5 --retry 3 -sL --proxy %s %s -o reaper && chmod +x reaper && mv reaper /usr/local/bin && /usr/local/bin/reaper",
 				pipelineTask.ConfigPayload.Proxy.GetProxyURL(),
-				pipelineTask.ConfigPayload.Release.ReaperBinaryFile,
+				reaperBinaryFile,
 			)
 		}
 	}
@@ -416,6 +464,11 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 	for _, reg := range registries {
 		arr := strings.Split(reg.Namespace, "/")
 		namespaceInRegistry := arr[len(arr)-1]
+		// for AWS ECR, there are no namespace, thus we need to find the NS from the URI
+		if namespaceInRegistry == "" {
+			uriDecipher := strings.Split(reg.RegAddr, ".")
+			namespaceInRegistry = uriDecipher[0]
+		}
 		secretName := namespaceInRegistry + registrySecretSuffix
 		if reg.RegType != "" {
 			secretName = namespaceInRegistry + "-" + reg.RegType + registrySecretSuffix
@@ -461,7 +514,7 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 								},
 							},
 							VolumeMounts: getVolumeMounts(ctx),
-							Resources:    getResourceRequirements(resReq),
+							Resources:    getResourceRequirements(resReq, resReqSpec),
 						},
 					},
 					Volumes: getVolumes(jobName),
@@ -470,9 +523,13 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 		},
 	}
 
-	if !strings.Contains(jobImage, PredatorPlugin) && !strings.Contains(jobImage, JenkinsPlugin) {
+	if !strings.Contains(jobImage, PredatorPlugin) && !strings.Contains(jobImage, JenkinsPlugin) && !strings.Contains(jobImage, PackagerPlugin) {
 		job.Spec.Template.Spec.Containers[0].Command = []string{"/bin/sh", "-c"}
 		job.Spec.Template.Spec.Containers[0].Args = []string{reaperBootingScript}
+	}
+
+	if affinity := addNodeAffinity(clusterID, pipelineTask.ConfigPayload.K8SClusters); affinity != nil {
+		job.Spec.Template.Spec.Affinity = affinity
 	}
 
 	if linkedNs != "" && execNs != "" && pipelineTask.ConfigPayload.CustomDNSSupported {
@@ -501,15 +558,20 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 
 	return job, nil
 }
-
-func createOrUpdateRegistrySecrets(namespace string, registries []*task.RegistryNamespace, kubeClient client.Client) error {
-	defaultRegistry := &task.RegistryNamespace{
-		RegAddr:   config.DefaultRegistryAddr(),
-		AccessKey: config.DefaultRegistryAK(),
-		SecretKey: config.DefaultRegistrySK(),
+func formatRegistryName(namespaceInRegistry string) (string, error) {
+	reg, err := regexp.Compile("[^a-zA-Z0-9]+")
+	if err != nil {
+		return "", err
 	}
-	registries = append(registries, defaultRegistry)
+	processedName := reg.ReplaceAllString(namespaceInRegistry, "")
+	processedName = strings.ToLower(processedName)
+	if len(processedName) > 237 {
+		processedName = processedName[:237]
+	}
+	return processedName, nil
+}
 
+func createOrUpdateRegistrySecrets(namespace, registryID string, registries []*task.RegistryNamespace, kubeClient client.Client) error {
 	for _, reg := range registries {
 		if reg.AccessKey == "" {
 			continue
@@ -517,11 +579,20 @@ func createOrUpdateRegistrySecrets(namespace string, registries []*task.Registry
 
 		arr := strings.Split(reg.Namespace, "/")
 		namespaceInRegistry := arr[len(arr)-1]
-		secretName := namespaceInRegistry + registrySecretSuffix
-		if reg.RegType != "" {
-			secretName = namespaceInRegistry + "-" + reg.RegType + registrySecretSuffix
+		// for AWS ECR, there are no namespace, thus we need to find the NS from the URI
+		if namespaceInRegistry == "" {
+			uriDecipher := strings.Split(reg.RegAddr, ".")
+			namespaceInRegistry = uriDecipher[0]
 		}
-		if reg.RegAddr == config.DefaultRegistryAddr() {
+		filteredName, err := formatRegistryName(namespaceInRegistry)
+		if err != nil {
+			return err
+		}
+		secretName := filteredName + registrySecretSuffix
+		if reg.RegType != "" {
+			secretName = filteredName + "-" + reg.RegType + registrySecretSuffix
+		}
+		if reg.ID == registryID {
 			secretName = setting.DefaultImagePullSecret
 		}
 
@@ -579,11 +650,6 @@ func getVolumeMounts(ctx *task.PipelineCtx) []corev1.VolumeMount {
 		Name:      "job-config",
 		MountPath: ctx.ConfigMapMountDir,
 	})
-	resp = append(resp, corev1.VolumeMount{
-		Name:      "aes-key",
-		ReadOnly:  true,
-		MountPath: "/etc/encryption",
-	})
 
 	return resp
 }
@@ -600,18 +666,6 @@ func getVolumes(jobName string) []corev1.Volume {
 			},
 		},
 	})
-	resp = append(resp, corev1.Volume{
-		Name: "aes-key",
-		VolumeSource: corev1.VolumeSource{
-			Secret: &corev1.SecretVolumeSource{
-				SecretName: "zadig-aes-key",
-				Items: []corev1.KeyToPath{{
-					Key:  "aesKey",
-					Path: "aes",
-				}},
-			},
-		},
-	})
 	return resp
 }
 
@@ -621,66 +675,68 @@ func getVolumes(jobName string) []corev1.Volume {
 // ResReqLow 4 CPU 8 G used by testing module
 // ResReqMin 2 CPU 2 G used by docker build, release image module
 // Fallback ResReq 1 CPU 1 G
-func getResourceRequirements(resReq setting.Request) corev1.ResourceRequirements {
+func getResourceRequirements(resReq setting.Request, resReqSpec setting.RequestSpec) corev1.ResourceRequirements {
 
 	switch resReq {
-
 	case setting.HighRequest:
-		return corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("16"),
-				corev1.ResourceMemory: resource.MustParse("32Gi"),
-			},
-			Requests: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("4"),
-				corev1.ResourceMemory: resource.MustParse("4Gi"),
-			},
-		}
+		return generateResourceRequirements(setting.HighRequest, setting.HighRequestSpec)
+
 	case setting.MediumRequest:
-		return corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("8"),
-				corev1.ResourceMemory: resource.MustParse("16Gi"),
-			},
-			Requests: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("2"),
-				corev1.ResourceMemory: resource.MustParse("2Gi"),
-			},
-		}
+		return generateResourceRequirements(setting.MediumRequest, setting.MediumRequestSpec)
+
 	case setting.LowRequest:
-		return corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("4"),
-				corev1.ResourceMemory: resource.MustParse("8Gi"),
-			},
-			Requests: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("1"),
-				corev1.ResourceMemory: resource.MustParse("1Gi"),
-			},
-		}
+		return generateResourceRequirements(setting.LowRequest, setting.LowRequestSpec)
 
 	case setting.MinRequest:
-		return corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("2"),
-				corev1.ResourceMemory: resource.MustParse("2Gi"),
-			},
-			Requests: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("0.5"),
-				corev1.ResourceMemory: resource.MustParse("512Mi"),
-			},
-		}
+		return generateResourceRequirements(setting.MinRequest, setting.MinRequestSpec)
+
+	case setting.DefineRequest:
+		return generateResourceRequirements(resReq, resReqSpec)
+
 	default:
+		return generateResourceRequirements(setting.DefaultRequest, setting.DefaultRequestSpec)
+	}
+}
+
+//generateResourceRequirements
+//cpu Request:Limit=1:4
+//memory default Request:Limit=1:4 ; if memoryLimit>= 8Gi,Request:Limit=1:8
+func generateResourceRequirements(req setting.Request, reqSpec setting.RequestSpec) corev1.ResourceRequirements {
+
+	if req != setting.DefineRequest {
 		return corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("4"),
-				corev1.ResourceMemory: resource.MustParse("8Gi"),
+				corev1.ResourceCPU:    resource.MustParse(strconv.Itoa(reqSpec.CpuLimit) + setting.CpuUintM),
+				corev1.ResourceMemory: resource.MustParse(strconv.Itoa(reqSpec.MemoryLimit) + setting.MemoryUintMi),
 			},
 			Requests: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("1"),
-				corev1.ResourceMemory: resource.MustParse("1Gi"),
+				corev1.ResourceCPU:    resource.MustParse(strconv.Itoa(reqSpec.CpuReq) + setting.CpuUintM),
+				corev1.ResourceMemory: resource.MustParse(strconv.Itoa(reqSpec.MemoryReq) + setting.MemoryUintMi),
 			},
 		}
+	}
+
+	cpuReqInt := reqSpec.CpuLimit / 4
+	if cpuReqInt < 1 {
+		cpuReqInt = 1
+	}
+	memoryReqInt := reqSpec.MemoryLimit / 4
+	if memoryReqInt >= 2*1024 {
+		memoryReqInt = memoryReqInt / 2
+	}
+	if memoryReqInt < 1 {
+		memoryReqInt = 1
+	}
+
+	return corev1.ResourceRequirements{
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse(strconv.Itoa(reqSpec.CpuLimit) + setting.CpuUintM),
+			corev1.ResourceMemory: resource.MustParse(strconv.Itoa(reqSpec.MemoryLimit) + setting.MemoryUintMi),
+		},
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse(strconv.Itoa(cpuReqInt) + setting.CpuUintM),
+			corev1.ResourceMemory: resource.MustParse(strconv.Itoa(memoryReqInt) + setting.MemoryUintMi),
+		},
 	}
 }
 
@@ -794,4 +850,74 @@ func checkDogFoodExistsInContainer(namespace string, pod string, container strin
 	})
 
 	return success, err
+}
+
+func addNodeAffinity(clusterID string, K8SClusters []*task.K8SCluster) *corev1.Affinity {
+	clusterConfig := findClusterConfig(clusterID, K8SClusters)
+	if clusterConfig == nil {
+		return nil
+	}
+
+	if len(clusterConfig.NodeLabels) == 0 {
+		return nil
+	}
+
+	switch clusterConfig.Strategy {
+	case RequiredSchedule:
+		nodeSelectorTerms := make([]corev1.NodeSelectorTerm, 0)
+		for _, nodeLabel := range clusterConfig.NodeLabels {
+			var matchExpressions []corev1.NodeSelectorRequirement
+			matchExpressions = append(matchExpressions, corev1.NodeSelectorRequirement{
+				Key:      nodeLabel.Key,
+				Operator: nodeLabel.Operator,
+				Values:   nodeLabel.Value,
+			})
+			nodeSelectorTerms = append(nodeSelectorTerms, corev1.NodeSelectorTerm{
+				MatchExpressions: matchExpressions,
+			})
+		}
+
+		affinity := &corev1.Affinity{
+			NodeAffinity: &corev1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+					NodeSelectorTerms: nodeSelectorTerms,
+				},
+			},
+		}
+		return affinity
+	case PreferredSchedule:
+		preferredScheduleTerms := make([]corev1.PreferredSchedulingTerm, 0)
+		for _, nodeLabel := range clusterConfig.NodeLabels {
+			var matchExpressions []corev1.NodeSelectorRequirement
+			matchExpressions = append(matchExpressions, corev1.NodeSelectorRequirement{
+				Key:      nodeLabel.Key,
+				Operator: nodeLabel.Operator,
+				Values:   nodeLabel.Value,
+			})
+			nodeSelectorTerm := corev1.NodeSelectorTerm{
+				MatchExpressions: matchExpressions,
+			}
+			preferredScheduleTerms = append(preferredScheduleTerms, corev1.PreferredSchedulingTerm{
+				Weight:     10,
+				Preference: nodeSelectorTerm,
+			})
+		}
+		affinity := &corev1.Affinity{
+			NodeAffinity: &corev1.NodeAffinity{
+				PreferredDuringSchedulingIgnoredDuringExecution: preferredScheduleTerms,
+			},
+		}
+		return affinity
+	default:
+		return nil
+	}
+}
+
+func findClusterConfig(clusterID string, K8SClusters []*task.K8SCluster) *task.AdvancedConfig {
+	for _, K8SCluster := range K8SClusters {
+		if K8SCluster.ID == clusterID {
+			return K8SCluster.AdvancedConfig
+		}
+	}
+	return nil
 }

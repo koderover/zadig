@@ -49,16 +49,14 @@ type KVPair struct {
 }
 
 type RenderChartArg struct {
-	EnvName        string      `json:"envName,omitempty"`
-	ServiceName    string      `json:"serviceName,omitempty"`
-	ChartVersion   string      `json:"chartVersion,omitempty"`
-	YamlSource     string      `json:"yamlSource,omitempty"`
-	GitRepoConfig  *RepoConfig `json:"gitRepoConfig,omitempty"`
-	OverrideValues []*KVPair   `json:"overrideValues,omitempty"`
-	ValuesYAML     string      `json:"valuesYAML,omitempty"`
+	EnvName        string    `json:"envName,omitempty"`
+	ServiceName    string    `json:"serviceName,omitempty"`
+	ChartVersion   string    `json:"chartVersion,omitempty"`
+	OverrideValues []*KVPair `json:"overrideValues,omitempty"`
+	OverrideYaml   string    `json:"overrideYaml,omitempty"`
 }
 
-func (args *RenderChartArg) toOverrideValueString() string {
+func (args *RenderChartArg) ToOverrideValueString() string {
 	if len(args.OverrideValues) == 0 {
 		return ""
 	}
@@ -83,58 +81,32 @@ func (args *RenderChartArg) fromOverrideValueString(valueStr string) {
 	}
 }
 
-func (args *RenderChartArg) toCustomValuesYaml() *templatemodels.OverrideYaml {
-	switch args.YamlSource {
-	case setting.ValuesYamlSourceFreeEdit:
-		return &templatemodels.OverrideYaml{
-			YamlSource:  args.YamlSource,
-			YamlContent: args.ValuesYAML,
-		}
-	case setting.ValuesYamlSourceGitRepo:
-		return &templatemodels.OverrideYaml{
-			YamlSource:  args.YamlSource,
-			YamlContent: args.ValuesYAML,
-			ValuesPaths: args.GitRepoConfig.ValuesPaths,
-			GitRepoConfig: &templatemodels.GitRepoConfig{
-				CodehostID: args.GitRepoConfig.CodehostID,
-				Owner:      args.GitRepoConfig.Owner,
-				Repo:       args.GitRepoConfig.Repo,
-				Branch:     args.GitRepoConfig.Branch,
-			},
+func (args *RenderChartArg) toCustomValuesYaml() *templatemodels.CustomYaml {
+	if len(args.OverrideYaml) > 0 {
+		return &templatemodels.CustomYaml{
+			YamlContent: args.OverrideYaml,
 		}
 	}
 	return nil
 }
 
-func (args *RenderChartArg) fromCustomValueYaml(customValuesYaml *templatemodels.OverrideYaml) {
+func (args *RenderChartArg) fromCustomValueYaml(customValuesYaml *templatemodels.CustomYaml) {
 	if customValuesYaml == nil {
 		return
 	}
-	args.YamlSource = customValuesYaml.YamlSource
-	switch customValuesYaml.YamlSource {
-	case setting.ValuesYamlSourceFreeEdit:
-		args.ValuesYAML = customValuesYaml.YamlContent
-	case setting.ValuesYamlSourceGitRepo:
-		args.ValuesYAML = ""
-		if customValuesYaml.GitRepoConfig != nil {
-			args.GitRepoConfig = &RepoConfig{
-				CodehostID:  customValuesYaml.GitRepoConfig.CodehostID,
-				Owner:       customValuesYaml.GitRepoConfig.Owner,
-				Repo:        customValuesYaml.GitRepoConfig.Repo,
-				Branch:      customValuesYaml.GitRepoConfig.Branch,
-				ValuesPaths: customValuesYaml.ValuesPaths,
-			}
-		}
-
-	}
+	args.OverrideYaml = customValuesYaml.YamlContent
 }
 
 // FillRenderChartModel fill render chart model
 func (args *RenderChartArg) FillRenderChartModel(chart *templatemodels.RenderChart, version string) {
 	chart.ServiceName = args.ServiceName
 	chart.ChartVersion = version
-	chart.OverrideValues = args.toOverrideValueString()
-	chart.OverrideYaml = args.toCustomValuesYaml()
+	chart.OverrideValues = args.ToOverrideValueString()
+	if len(args.OverrideYaml) > 0 {
+		chart.OverrideYaml = args.toCustomValuesYaml()
+	} else {
+		chart.OverrideYaml = nil
+	}
 }
 
 // LoadFromRenderChartModel load from render chart model
@@ -256,7 +228,7 @@ func CreateHelmRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) e
 	if rs != nil && err == nil {
 		// 已经存在渲染配置集
 		// 判断是否有修改
-		if rs.HelmRenderDiff(args) {
+		if rs.DefaultValues != args.DefaultValues || rs.HelmRenderDiff(args) {
 			args.IsDefault = rs.IsDefault
 		} else {
 			return nil

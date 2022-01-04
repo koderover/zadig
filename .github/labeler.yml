@@ -2,6 +2,18 @@
 service/aslan:
 - pkg/microservice/aslan/**/*
 
+service/picket:
+- pkg/microservice/picket/**/*
+
+service/user:
+- pkg/microservice/user/**/*
+
+service/policy:
+- pkg/microservice/policy/**/*
+
+service/config:
+- pkg/microservice/systemconfig/**/*
+
 service/cron:
 - pkg/microservice/cron/**/*
 

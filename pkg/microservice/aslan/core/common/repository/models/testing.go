@@ -19,7 +19,7 @@ package models
 import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/types"
 )
 
@@ -60,7 +60,7 @@ type TestingHookCtrl struct {
 
 type TestingHook struct {
 	AutoCancel bool          `bson:"auto_cancel" json:"auto_cancel"`
-	MainRepo   MainHookRepo  `bson:"main_repo"   json:"main_repo"`
+	MainRepo   *MainHookRepo `bson:"main_repo"   json:"main_repo"`
 	TestArgs   *TestTaskArgs `bson:"test_args"   json:"test_args"`
 }
 
@@ -72,13 +72,16 @@ type PreTest struct {
 	ImageFrom string `bson:"image_from"                      json:"image_from"`
 	ImageID   string `bson:"image_id"                        json:"image_id"`
 	// ResReq defines job requested resources
-	ResReq config.Request `bson:"res_req"                json:"res_req"`
+	ResReq     setting.Request     `bson:"res_req"                json:"res_req"`
+	ResReqSpec setting.RequestSpec `bson:"res_req_spec"           json:"res_req_spec"`
 	// Installs defines apps to be installed for build
 	Installs []*Item `bson:"installs,omitempty"    json:"installs"`
 	// Envs stores user defined env key val for build
 	Envs []*KeyVal `bson:"envs,omitempty"              json:"envs"`
 	// EnableProxy
-	EnableProxy bool `bson:"enable_proxy"           json:"enable_proxy"`
+	EnableProxy bool   `bson:"enable_proxy"           json:"enable_proxy"`
+	ClusterID   string `bson:"cluster_id"             json:"cluster_id"`
+	Namespace   string `bson:"namespace"              json:"namespace"`
 }
 
 func (Testing) TableName() string {

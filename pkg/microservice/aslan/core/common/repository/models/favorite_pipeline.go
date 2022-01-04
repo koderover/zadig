@@ -20,7 +20,7 @@ import "go.mongodb.org/mongo-driver/bson/primitive"
 
 type Favorite struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty"         json:"id,omitempty"`
-	UserID      int                `bson:"user_id"                json:"user_id"`
+	UserID      string             `bson:"user_id"                json:"user_id"`
 	ProductName string             `bson:"product_name"           json:"product_name"`
 	Name        string             `bson:"name"                   json:"name"`
 	Type        string             `bson:"type"                   json:"type"`

@@ -67,19 +67,19 @@ type GitRepoConfig struct {
 	Branch     string `bson:"branch,omitempty"`
 }
 
-type OverrideYaml struct {
+type CustomYaml struct {
 	YamlSource    string         `bson:"yaml_source,omitempty"     json:"yaml_source,omitempty"`
 	YamlContent   string         `bson:"yaml_content,omitempty"    json:"yaml_content,omitempty"`
-	GitRepoConfig *GitRepoConfig `bson:"git_repo_config,omitempty"   json:"gitRepoConfig,omitempty"`
+	GitRepoConfig *GitRepoConfig `bson:"git_repo_config,omitempty"   json:"git_repo_config,omitempty"`
 	ValuesPaths   []string       `bson:"values_paths,omitempty"    json:"values_paths,omitempty"`
 }
 
 type RenderChart struct {
-	ServiceName    string        `bson:"service_name,omitempty"    json:"service_name,omitempty"`
-	ChartVersion   string        `bson:"chart_version,omitempty"   json:"chart_version,omitempty"`
-	ValuesYaml     string        `bson:"values_yaml,omitempty"     json:"values_yaml,omitempty"`
-	OverrideYaml   *OverrideYaml `bson:"override_yaml,omitempty"   json:"override_yaml,omitempty"`
-	OverrideValues string        `bson:"override_values,omitempty"   json:"override_values,omitempty"`
+	ServiceName    string      `bson:"service_name,omitempty"    json:"service_name,omitempty"`
+	ChartVersion   string      `bson:"chart_version,omitempty"   json:"chart_version,omitempty"`
+	ValuesYaml     string      `bson:"values_yaml,omitempty"     json:"values_yaml,omitempty"`
+	OverrideYaml   *CustomYaml `bson:"override_yaml,omitempty"   json:"override_yaml,omitempty"`
+	OverrideValues string      `bson:"override_values,omitempty"   json:"override_values,omitempty"`
 }
 
 type ProductAuth struct {
@@ -98,17 +98,6 @@ type Service struct {
 	EnvConfigs  []*EnvConfig     `bson:"-"                          json:"env_configs,omitempty"`
 }
 
-//type EnvConfig struct {
-//	EnvName string   `json:"env_name"`
-//	HostIDs []string `json:"host_ids"`
-//}
-//
-//// Container ...
-//type Container struct {
-//	Name  string `bson:"name"           json:"name"`
-//	Image string `bson:"image"          json:"image"`
-//}
-
 // Config ...
 type Config struct {
 	ConfigName string `bson:"config_name"           json:"config_name"`
@@ -120,4 +109,14 @@ func (rc *RenderChart) GetOverrideYaml() string {
 		return ""
 	}
 	return rc.OverrideYaml.YamlContent
+}
+
+func (p *Product) GetServiceMap() map[string]*Service {
+	ret := make(map[string]*Service)
+	for _, group := range p.Services {
+		for _, svc := range group {
+			ret[svc.ServiceName] = svc
+		}
+	}
+	return ret
 }

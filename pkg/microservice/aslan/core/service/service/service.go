@@ -35,7 +35,6 @@ import (
 
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -43,10 +42,10 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
@@ -69,8 +68,9 @@ type ServiceModule struct {
 }
 
 type Variable struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
+	Key         string `json:"key"`
+	Value       string `json:"value"`
+	Description string `json:"description,omitempty"`
 }
 
 type YamlPreviewForPorts struct {
@@ -248,15 +248,14 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 	}
 
 	if args.Source == setting.SourceFromGitlab || args.Source == setting.SourceFromGithub ||
-		args.Source == setting.SourceFromGerrit || args.Source == setting.SourceFromCodeHub ||
-		args.Source == setting.SourceFromIlyshin {
+		args.Source == setting.SourceFromGerrit || args.Source == setting.SourceFromCodeHub {
 		serviceOption.Yaml = args.Yaml
 	}
 	return serviceOption, nil
 }
 
-func CreateK8sWorkLoads(ctx context.Context, requestID, username string, productName string, workLoads []models.Workload, clusterID, namespace string, envName string, log *zap.SugaredLogger) error {
-	kubeClient, err := kube.GetKubeClient(clusterID)
+func CreateK8sWorkLoads(ctx context.Context, requestID, username string, productName string, workLoads []commonmodels.Workload, clusterID, namespace string, envName string, log *zap.SugaredLogger) error {
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
 	if err != nil {
 		log.Errorf("[%s] error: %v", namespace, err)
 		return err
@@ -264,32 +263,42 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 	// 检查环境是否存在，envName和productName唯一
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	if _, err := commonrepo.NewProductColl().Find(opt); err == nil {
-		log.Errorf("[%s][P:%s] duplicate envName in the same product", envName, productName)
+		log.Errorf("[%s][P:%s] duplicate envName in the same project", envName, productName)
 		return e.ErrCreateEnv.AddDesc(e.DuplicateEnvErrMsg)
 	}
 
 	// todo Add data filter
 	var (
-		workloadsTmp []models.Workload
+		workloadsTmp []commonmodels.Workload
 		mu           sync.Mutex
 	)
 
-	// pre judge  workLoads same name
 	serviceString := sets.NewString()
 	services, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, "")
 	for _, v := range services {
 		serviceString.Insert(v.ServiceName)
 	}
-	for _, workload := range workLoads {
-		if serviceString.Has(workload.Name) {
-			return e.ErrCreateTemplate.AddDesc(fmt.Sprintf("do not support import same service name: %s", workload.Name))
-		}
-	}
+	//for _, workload := range workLoads {
+	//	if serviceString.Has(workload.Name) {
+	//		return e.ErrCreateTemplate.AddDesc(fmt.Sprintf("do not support import same service name: %s", workload.Name))
+	//	}
+	//}
 
 	g := new(errgroup.Group)
 	for _, workload := range workLoads {
 		tempWorkload := workload
 		g.Go(func() error {
+			// If the service is already included in the database service template, add it to the new association table
+			if serviceString.Has(tempWorkload.Name) {
+				return commonrepo.NewServicesInExternalEnvColl().Create(&commonmodels.ServicesInExternalEnv{
+					ProductName: productName,
+					ServiceName: tempWorkload.Name,
+					EnvName:     envName,
+					Namespace:   namespace,
+					ClusterID:   clusterID,
+				})
+			}
+
 			var bs []byte
 			switch tempWorkload.Type {
 			case setting.Deployment:
@@ -305,14 +314,14 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 
 			mu.Lock()
 			defer mu.Unlock()
-			workloadsTmp = append(workloadsTmp, models.Workload{
+			workloadsTmp = append(workloadsTmp, commonmodels.Workload{
 				EnvName:     envName,
 				Name:        tempWorkload.Name,
 				Type:        tempWorkload.Type,
 				ProductName: productName,
 			})
 
-			return CreateWorkloadTemplate(username, &models.Service{
+			return CreateWorkloadTemplate(username, &commonmodels.Service{
 				ServiceName:  tempWorkload.Name,
 				Yaml:         string(bs),
 				ProductName:  productName,
@@ -340,6 +349,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 			ClusterID:   clusterID,
 			EnvName:     envName,
 			Namespace:   namespace,
+			UpdateBy:    username,
 		}, log); err != nil {
 			return e.ErrCreateProduct.AddDesc("create product Error for unknown reason")
 		}
@@ -374,7 +384,7 @@ type UpdateWorkloadsArgs struct {
 }
 
 func UpdateWorkloads(ctx context.Context, requestID, username, productName, envName string, args UpdateWorkloadsArgs, log *zap.SugaredLogger) error {
-	kubeClient, err := kube.GetKubeClient(args.ClusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), args.ClusterID)
 	if err != nil {
 		log.Errorf("[%s] error: %s", args.Namespace, err)
 		return err
@@ -384,6 +394,19 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 		log.Errorf("[%s][%s]NewWorkLoadsStatColl().Find %s", args.ClusterID, args.Namespace, err)
 		return err
 	}
+	externalEnvServices, _ := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
+		ProductName: productName,
+		EnvName:     envName,
+	})
+
+	for _, externalEnvService := range externalEnvServices {
+		workloadStat.Workloads = append(workloadStat.Workloads, commonmodels.Workload{
+			ProductName: externalEnvService.ProductName,
+			EnvName:     externalEnvService.EnvName,
+			Name:        externalEnvService.ServiceName,
+		})
+	}
+
 	diff := map[string]*ServiceWorkloadsUpdateAction{}
 	originSet := sets.NewString()
 	uploadSet := sets.NewString()
@@ -392,6 +415,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 			originSet.Insert(v.Name)
 		}
 	}
+
 	for _, v := range args.WorkLoads {
 		uploadSet.Insert(v.Name)
 	}
@@ -412,13 +436,6 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 			}
 		}
 	}
-	// pre judge  workLoads same name
-	services, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, "")
-	for _, v := range services {
-		if addString.Has(v.ServiceName) {
-			return e.ErrCreateTemplate.AddDesc(fmt.Sprintf("do not support import same service name: %s", v.ServiceName))
-		}
-	}
 
 	for _, v := range args.WorkLoads {
 		if addString.Has(v.Name) {
@@ -432,13 +449,46 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 		}
 	}
 
+	otherExternalEnvServices, err := commonrepo.NewServicesInExternalEnvColl().List(&commonrepo.ServicesInExternalEnvArgs{
+		ProductName:    productName,
+		ExcludeEnvName: envName,
+	})
+	if err != nil {
+		log.Errorf("failed to list external service, error:%s", err)
+	}
+
+	externalEnvServiceM := make(map[string]*commonmodels.ServicesInExternalEnv)
+	for _, externalEnvService := range otherExternalEnvServices {
+		externalEnvServiceM[externalEnvService.ServiceName] = externalEnvService
+	}
 	for _, v := range diff {
 		switch v.Operation {
 		// 删除workload的引用
 		case "delete":
-			err = commonrepo.NewServiceColl().UpdateExternalServicesStatus(v.Name, productName, setting.ProductStatusDeleting, envName)
-			if err != nil {
-				log.Errorf("UpdateStatus external services error:%s", err)
+			if externalService, isExist := externalEnvServiceM[v.Name]; !isExist {
+				if err = commonrepo.NewServiceColl().UpdateExternalServicesStatus(v.Name, productName, setting.ProductStatusDeleting, envName); err != nil {
+					log.Errorf("UpdateStatus external services error:%s", err)
+				}
+			} else {
+				// Update the env name in the service
+				if err = commonrepo.NewServiceColl().UpdateExternalServiceEnvName(v.Name, productName, externalService.EnvName); err != nil {
+					log.Errorf("UpdateEnvName external services error:%s", err)
+				}
+				// Delete the reference in the original service
+				if err = commonrepo.NewServicesInExternalEnvColl().Delete(&commonrepo.ServicesInExternalEnvArgs{
+					ProductName: externalService.ProductName,
+					EnvName:     externalService.EnvName,
+					ServiceName: externalService.ServiceName,
+				}); err != nil {
+					log.Errorf("delete service in external env envName:%s error:%s", externalService.EnvName, err)
+				}
+			}
+			if err = commonrepo.NewServicesInExternalEnvColl().Delete(&commonrepo.ServicesInExternalEnvArgs{
+				ProductName: productName,
+				EnvName:     envName,
+				ServiceName: v.Name,
+			}); err != nil {
+				log.Errorf("delete service in external env envName:%s error:%s", envName, err)
 			}
 		// 添加workload的引用
 		case "add":
@@ -454,7 +504,7 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 				delete(diff, v.Name)
 				continue
 			}
-			if err = CreateWorkloadTemplate(username, &models.Service{
+			if err = CreateWorkloadTemplate(username, &commonmodels.Service{
 				ServiceName:  v.Name,
 				Yaml:         string(bs),
 				ProductName:  productName,
@@ -476,15 +526,15 @@ func UpdateWorkloads(ctx context.Context, requestID, username, productName, envN
 	return commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat)
 }
 
-func updateWorkloads(existWorkloads []models.Workload, diff map[string]*ServiceWorkloadsUpdateAction, envName string, productName string) (result []models.Workload) {
-	existWorkloadsMap := map[string]models.Workload{}
+func updateWorkloads(existWorkloads []commonmodels.Workload, diff map[string]*ServiceWorkloadsUpdateAction, envName string, productName string) (result []commonmodels.Workload) {
+	existWorkloadsMap := map[string]commonmodels.Workload{}
 	for _, v := range existWorkloads {
 		existWorkloadsMap[v.Name] = v
 	}
 	for _, v := range diff {
 		switch v.Operation {
 		case "add":
-			vv := models.Workload{
+			vv := commonmodels.Workload{
 				EnvName:     envName,
 				Name:        v.Name,
 				Type:        v.Type,
@@ -501,9 +551,9 @@ func updateWorkloads(existWorkloads []models.Workload, diff map[string]*ServiceW
 	return result
 }
 
-func replaceWorkloads(existWorkloads []models.Workload, newWorkloads []models.Workload, envName string) []models.Workload {
-	var result []models.Workload
-	workloadMap := map[string]models.Workload{}
+func replaceWorkloads(existWorkloads []commonmodels.Workload, newWorkloads []commonmodels.Workload, envName string) []commonmodels.Workload {
+	var result []commonmodels.Workload
+	workloadMap := map[string]commonmodels.Workload{}
 	for _, workload := range existWorkloads {
 		if workload.EnvName != envName {
 			workloadMap[workload.Name] = workload
@@ -544,7 +594,7 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, log *za
 			//获取项目里面的所有服务
 			if len(productTempl.Services) > 0 && !sets.NewString(productTempl.Services[0]...).Has(args.ServiceName) {
 				productTempl.Services[0] = append(productTempl.Services[0], args.ServiceName)
-			} else {
+			} else if len(productTempl.Services) == 0 {
 				productTempl.Services = [][]string{{args.ServiceName}}
 			}
 			//更新项目模板
@@ -555,7 +605,21 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, log *za
 			}
 		}
 	} else {
-		return e.ErrCreateTemplate.AddDesc("do not support import same service name")
+		product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+			Name:    args.ProductName,
+			EnvName: args.EnvName,
+		})
+		if err != nil {
+			return err
+		}
+		return commonrepo.NewServicesInExternalEnvColl().Create(&commonmodels.ServicesInExternalEnv{
+			ProductName: args.ProductName,
+			ServiceName: args.ServiceName,
+			EnvName:     args.EnvName,
+			Namespace:   product.Namespace,
+			ClusterID:   product.ClusterID,
+		})
+		//return e.ErrCreateTemplate.AddDesc("do not support import same service name")
 	}
 
 	if err := commonrepo.NewServiceColl().Delete(args.ServiceName, args.Type, args.ProductName, setting.ProductStatusDeleting, 0); err != nil {
@@ -598,7 +662,7 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap
 				}
 			}
 			// 配置来源为Gitlab，对比配置的ChangeLog是否变化
-			if args.Source == setting.SourceFromGitlab || args.Source == setting.SourceFromGithub || args.Source == setting.SourceFromCodeHub || args.Source == setting.SourceFromIlyshin {
+			if args.Source == setting.SourceFromGitlab || args.Source == setting.SourceFromGithub || args.Source == setting.SourceFromCodeHub {
 				if args.Commit != nil && serviceTmpl.Commit != nil && args.Commit.SHA == serviceTmpl.Commit.SHA {
 					log.Infof("%s change log remains the same, quit creation", args.Source)
 					return GetServiceOption(serviceTmpl, log)
@@ -679,14 +743,14 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap
 	return GetServiceOption(args, log)
 }
 
-func UpdateServiceTemplate(args *commonservice.ServiceTmplObject) error {
+func UpdateServiceVisibility(args *commonservice.ServiceTmplObject) error {
 	currentService, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
 		ProductName: args.ProductName,
 		ServiceName: args.ServiceName,
 		Revision:    args.Revision,
 	})
 	if err != nil {
-		log.Errorf("Can not find service with option %+v", args)
+		log.Errorf("Can not find service with option %+v. Error: %s", args, err)
 		return err
 	}
 
@@ -710,7 +774,7 @@ func UpdateServiceTemplate(args *commonservice.ServiceTmplObject) error {
 	}
 
 	envStatuses := make([]*commonmodels.EnvStatus, 0)
-	// 去掉检查状态中不存在的环境和主机
+	// Remove environments and hosts that do not exist in the check status
 	for _, envStatus := range args.EnvStatuses {
 		var existEnv, existHost bool
 
@@ -746,6 +810,83 @@ func UpdateServiceTemplate(args *commonservice.ServiceTmplObject) error {
 		EnvStatuses: envStatuses,
 	}
 	return commonrepo.NewServiceColl().Update(updateArgs)
+}
+
+func UpdateServiceHealthCheckStatus(args *commonservice.ServiceTmplObject) error {
+	currentService, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+		ProductName: args.ProductName,
+		ServiceName: args.ServiceName,
+		Revision:    args.Revision,
+	})
+	if err != nil {
+		log.Errorf("Can not find service with option %+v. Error: %s", args, err)
+		return err
+	}
+	changeEnvStatus := []*commonmodels.EnvStatus{}
+	changeEnvConfigs := []*commonmodels.EnvConfig{}
+
+	changeEnvConfigs = append(changeEnvConfigs, args.EnvConfigs...)
+	envConfigsSet := sets.String{}
+	for _, v := range changeEnvConfigs {
+		envConfigsSet.Insert(v.EnvName)
+	}
+	for _, v := range currentService.EnvConfigs {
+		if !envConfigsSet.Has(v.EnvName) {
+			changeEnvConfigs = append(changeEnvConfigs, v)
+		}
+	}
+	privateKeys := []*commonmodels.PrivateKey{}
+	for _, envConfig := range args.EnvConfigs {
+		privateKeys, err = commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{IDs: envConfig.HostIDs})
+		if err != nil {
+			log.Errorf("ListNameByArgs ids err:%s", err)
+			return err
+		}
+
+		privateKeysByLabels, err := commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{Labels: envConfig.Labels})
+		if err != nil {
+			log.Errorf("ListNameByArgs labels err:%s", err)
+			return err
+		}
+		privateKeys = append(privateKeys, privateKeysByLabels...)
+	}
+	privateKeysSet := sets.NewString()
+	for _, v := range privateKeys {
+		tmp := commonmodels.EnvStatus{
+			HostID:  v.ID.Hex(),
+			EnvName: args.EnvName,
+			Address: v.IP,
+		}
+		if !privateKeysSet.Has(tmp.HostID) {
+			changeEnvStatus = append(changeEnvStatus, &tmp)
+			privateKeysSet.Insert(tmp.HostID)
+		}
+	}
+	// get env status
+	for _, v := range currentService.EnvStatuses {
+		if v.EnvName != args.EnvName {
+			changeEnvStatus = append(changeEnvStatus, v)
+		}
+	}
+	// generate env status for this env
+	updateArgs := &commonmodels.Service{
+		ProductName: args.ProductName,
+		ServiceName: args.ServiceName,
+		Visibility:  args.Visibility,
+		Revision:    args.Revision,
+		Type:        args.Type,
+		CreateBy:    args.Username,
+		EnvConfigs:  changeEnvConfigs,
+		EnvStatuses: changeEnvStatus,
+	}
+	return commonrepo.NewServiceColl().UpdateServiceHealthCheckStatus(updateArgs)
+}
+
+func extractHostIPs(privateKeys []*commonmodels.PrivateKey, ips sets.String) sets.String {
+	for _, privateKey := range privateKeys {
+		ips.Insert(privateKey.IP)
+	}
+	return ips
 }
 
 func YamlValidator(args *YamlValidatorReq) []string {
@@ -824,7 +965,7 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 		); err == nil {
 			if serviceTmpl.BuildName != "" {
 				updateTargets := make([]*commonmodels.ServiceModuleTarget, 0)
-				if preBuild, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: serviceTmpl.BuildName, Version: "stable", ProductName: productName}); err == nil {
+				if preBuild, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: serviceTmpl.BuildName, ProductName: productName}); err == nil {
 					for _, target := range preBuild.Targets {
 						if target.ServiceName != serviceName {
 							updateTargets = append(updateTargets, target)
@@ -851,7 +992,7 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 		}
 
 		// 把该服务相关的s3的数据从仓库删除
-		if err = fs.DeleteArchivedFileFromS3(serviceName, configbase.ObjectStorageServicePath(productName, serviceName), log); err != nil {
+		if err = fs.DeleteArchivedFileFromS3([]string{serviceName}, configbase.ObjectStorageServicePath(productName, serviceName), log); err != nil {
 			log.Warnf("Failed to delete file %s, err: %s", serviceName, err)
 		}
 		//onBoarding流程时，需要删除预定的renderset中的已经存在的renderchart信息
@@ -1050,7 +1191,7 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 			args.Containers = make([]*commonmodels.Container, 0)
 		}
 		// Only the gerrit/spock/external type needs to be processed by yaml
-		if args.Source == setting.SourceFromGerrit || args.Source == setting.SourceFromZadig || args.Source == setting.SourceFromExternal {
+		if args.Source == setting.SourceFromGerrit || args.Source == setting.SourceFromZadig || args.Source == setting.SourceFromExternal || args.Source == setting.ServiceSourceTemplate {
 			// 拆分 all-in-one yaml文件
 			// 替换分隔符
 			args.Yaml = util.ReplaceWrapLine(args.Yaml)
@@ -1219,15 +1360,15 @@ func getCronJobContainers(data string) ([]*commonmodels.Container, error) {
 }
 
 func updateGerritWebhookByService(lastService, currentService *commonmodels.Service) error {
-	var codehostDetail *codehost.Detail
+	var codehostDetail *systemconfig.CodeHost
 	var err error
 	if lastService != nil && lastService.Source == setting.SourceFromGerrit {
-		codehostDetail, err = codehost.GetCodehostDetail(lastService.GerritCodeHostID)
+		codehostDetail, err = systemconfig.New().GetCodeHost(lastService.GerritCodeHostID)
 		if err != nil {
 			log.Errorf("updateGerritWebhookByService GetCodehostDetail err:%v", err)
 			return err
 		}
-		cl := gerrit.NewHTTPClient(codehostDetail.Address, codehostDetail.OauthToken)
+		cl := gerrit.NewHTTPClient(codehostDetail.Address, codehostDetail.AccessToken)
 		webhookURLPrefix := fmt.Sprintf("/%s/%s/%s", "a/config/server/webhooks~projects", gerrit.Escape(lastService.GerritRepoName), "remotes")
 		_, _ = cl.Delete(fmt.Sprintf("%s/%s", webhookURLPrefix, gerrit.RemoteName))
 		_, err = cl.Delete(fmt.Sprintf("%s/%s", webhookURLPrefix, lastService.ServiceName))
@@ -1235,14 +1376,14 @@ func updateGerritWebhookByService(lastService, currentService *commonmodels.Serv
 			log.Errorf("updateGerritWebhookByService deleteGerritWebhook err:%v", err)
 		}
 	}
-	var detail *codehost.Detail
+	var detail *systemconfig.CodeHost
 	if lastService.GerritCodeHostID == currentService.GerritCodeHostID && codehostDetail != nil {
 		detail = codehostDetail
 	} else {
-		detail, _ = codehost.GetCodehostDetail(currentService.GerritCodeHostID)
+		detail, _ = systemconfig.New().GetCodeHost(currentService.GerritCodeHostID)
 	}
 
-	cl := gerrit.NewHTTPClient(detail.Address, detail.OauthToken)
+	cl := gerrit.NewHTTPClient(detail.Address, detail.AccessToken)
 	webhookURL := fmt.Sprintf("/%s/%s/%s/%s", "a/config/server/webhooks~projects", gerrit.Escape(currentService.GerritRepoName), "remotes", currentService.ServiceName)
 	if _, err := cl.Get(webhookURL); err != nil {
 		log.Errorf("updateGerritWebhookByService getGerritWebhook err:%v", err)
@@ -1262,13 +1403,13 @@ func updateGerritWebhookByService(lastService, currentService *commonmodels.Serv
 }
 
 func createGerritWebhookByService(codehostID int, serviceName, repoName, branchName string) error {
-	detail, err := codehost.GetCodehostDetail(codehostID)
+	detail, err := systemconfig.New().GetCodeHost(codehostID)
 	if err != nil {
 		log.Errorf("createGerritWebhookByService GetCodehostDetail err:%v", err)
 		return err
 	}
 
-	cl := gerrit.NewHTTPClient(detail.Address, detail.OauthToken)
+	cl := gerrit.NewHTTPClient(detail.Address, detail.AccessToken)
 	webhookURL := fmt.Sprintf("/%s/%s/%s/%s", "a/config/server/webhooks~projects", gerrit.Escape(repoName), "remotes", serviceName)
 	if _, err := cl.Get(webhookURL); err != nil {
 		log.Errorf("createGerritWebhookByService getGerritWebhook err:%v", err)
@@ -1287,7 +1428,7 @@ func createGerritWebhookByService(codehostID int, serviceName, repoName, branchN
 	return nil
 }
 
-func syncGerritLatestCommit(service *commonmodels.Service) (*codehost.Detail, error) {
+func syncGerritLatestCommit(service *commonmodels.Service) (*systemconfig.CodeHost, error) {
 	if service.GerritCodeHostID == 0 {
 		return nil, fmt.Errorf("codehostId不能是空的")
 	}
@@ -1297,9 +1438,9 @@ func syncGerritLatestCommit(service *commonmodels.Service) (*codehost.Detail, er
 	if service.GerritBranchName == "" {
 		return nil, fmt.Errorf("branchName不能是空的")
 	}
-	ch, _ := codehost.GetCodehostDetail(service.GerritCodeHostID)
+	ch, _ := systemconfig.New().GetCodeHost(service.GerritCodeHostID)
 
-	gerritCli := gerrit.NewClient(ch.Address, ch.OauthToken)
+	gerritCli := gerrit.NewClient(ch.Address, ch.AccessToken)
 	commit, err := gerritCli.GetCommitByBranch(service.GerritRepoName, service.GerritBranchName)
 	if err != nil {
 		return nil, err

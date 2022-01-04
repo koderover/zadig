@@ -18,6 +18,8 @@ package config
 
 import (
 	"regexp"
+
+	"github.com/koderover/zadig/pkg/setting"
 )
 
 var (
@@ -81,6 +83,10 @@ const (
 	TestType PipelineType = "test"
 	// ServiceType 服务
 	ServiceType PipelineType = "service"
+	// WorkflowTypeV3
+	WorkflowTypeV3 PipelineType = "workflow_v3"
+	// ArtifactPackageType package artifact
+	ArtifactType PipelineType = "artifact"
 )
 
 type Status string
@@ -115,19 +121,23 @@ const (
 type TaskType string
 
 const (
-	TaskPipeline       TaskType = "pipeline"
-	TaskBuild          TaskType = "buildv2"
-	TaskJenkinsBuild   TaskType = "jenkins_build"
-	TaskArtifact       TaskType = "artifact"
-	TaskDeploy         TaskType = "deploy"
-	TaskTestingV2      TaskType = "testingv2"
-	TaskDistributeToS3 TaskType = "distribute2kodo"
-	TaskReleaseImage   TaskType = "release_image"
-	TaskJira           TaskType = "jira"
-	TaskDockerBuild    TaskType = "docker_build"
-	TaskSecurity       TaskType = "security"
-	TaskResetImage     TaskType = "reset_image"
-	TaskDistribute     TaskType = "distribute"
+	TaskPipeline        TaskType = "pipeline"
+	TaskBuild           TaskType = "buildv2"
+	TaskBuildV3         TaskType = "buildv3"
+	TaskJenkinsBuild    TaskType = "jenkins_build"
+	TaskArtifact        TaskType = "artifact"
+	TaskArtifactDeploy  TaskType = "artifact_deploy"
+	TaskDeploy          TaskType = "deploy"
+	TaskTestingV2       TaskType = "testingv2"
+	TaskDistributeToS3  TaskType = "distribute2kodo"
+	TaskReleaseImage    TaskType = "release_image"
+	TaskJira            TaskType = "jira"
+	TaskDockerBuild     TaskType = "docker_build"
+	TaskSecurity        TaskType = "security"
+	TaskResetImage      TaskType = "reset_image"
+	TaskDistribute      TaskType = "distribute"
+	TaskTrigger         TaskType = "trigger"
+	TaskArtifactPackage TaskType = "artifact_package"
 )
 
 type DistributeType string
@@ -135,13 +145,7 @@ type DistributeType string
 const (
 	File  DistributeType = "file"
 	Image DistributeType = "image"
-)
-
-type K8SClusterStatus string
-
-const (
-	Disconnected K8SClusterStatus = "disconnected"
-	Pending      K8SClusterStatus = "pending"
+	Chart DistributeType = "chart"
 )
 
 type NotifyType int
@@ -155,20 +159,6 @@ var (
 // Validation constants
 const (
 	NameSpaceRegexString = "[^a-z0-9.-]"
-)
-
-// Request ...
-type Request string
-
-const (
-	// HighRequest 16 CPU 32 G
-	HighRequest = Request("high")
-	// MediumRequest 8 CPU 16 G
-	MediumRequest = Request("medium")
-	// LowRequest 4 CPU 8 G
-	LowRequest = Request("low")
-	// MinRequest 2 CPU 2 G
-	MinRequest = Request("min")
 )
 
 //ProductPermission ...
@@ -212,5 +202,16 @@ const (
 )
 
 const (
-	SWRProvider = "swr"
+	RegistryTypeSWR = "swr"
+	RegistryTypeAWS = "ecr"
+)
+
+const (
+	ImageResourceType = "image"
+	TarResourceType   = "tar"
+)
+
+const (
+	RoleBindingNameEdit = setting.ProductName + "-edit"
+	RoleBindingNameView = setting.ProductName + "-view"
 )

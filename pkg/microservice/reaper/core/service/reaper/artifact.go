@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
@@ -29,16 +30,17 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
+	"github.com/koderover/zadig/pkg/util/fs"
 )
 
-func artifactsUpload(ctx *meta.Context, activeWorkspace string) error {
+func artifactsUpload(ctx *meta.Context, activeWorkspace string, artifactPaths []string, pluginType ...string) error {
 	var (
 		err   error
 		store *s3.S3
 	)
 
 	if ctx.StorageURI != "" {
-		if store, err = s3.NewS3StorageFromEncryptedURI(ctx.StorageURI); err != nil {
+		if store, err = s3.NewS3StorageFromEncryptedURI(ctx.StorageURI, ctx.AesKey); err != nil {
 			log.Errorf("artifactsUpload failed to create s3 storage err:%v", err)
 			return err
 		}
@@ -49,50 +51,96 @@ func artifactsUpload(ctx *meta.Context, activeWorkspace string) error {
 		}
 	}
 
-	artifactPaths := ctx.GinkgoTest.ArtifactPaths
-	for _, artifactPath := range artifactPaths {
-		if len(artifactPath) == 0 {
-			continue
-		}
-
-		artifactPath = strings.TrimPrefix(artifactPath, "/")
-
-		artifactPath = filepath.Join(activeWorkspace, artifactPath)
-
-		artifactFiles, err := ioutil.ReadDir(artifactPath)
-		if err != nil || len(artifactFiles) == 0 {
-			continue
-		}
-
-		for _, artifactFile := range artifactFiles {
-			if artifactFile.IsDir() {
-				continue
-			}
-			filePath := path.Join(artifactPath, artifactFile.Name())
-
-			if _, err := os.Stat(filePath); os.IsNotExist(err) {
+	if len(pluginType) == 0 {
+		for _, artifactPath := range artifactPaths {
+			if len(artifactPath) == 0 {
 				continue
 			}
 
-			if store != nil {
-				forcedPathStyle := true
-				if store.Provider == setting.ProviderSourceAli {
-					forcedPathStyle = false
-				}
-				s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
-				if err != nil {
-					log.Errorf("failed to create s3 client, error is: %+v", err)
-					return err
-				}
-				objectKey := store.GetObjectPath(fmt.Sprintf("%s/%s", artifactPath, artifactFile.Name()))
-				err = s3client.Upload(store.Bucket, filePath, objectKey)
+			artifactPath = strings.TrimPrefix(artifactPath, "/")
 
-				if err != nil {
-					log.Errorf("artifactsUpload failed to upload package %s, err:%v", filePath, err)
-					return err
+			artifactPath = filepath.Join(activeWorkspace, artifactPath)
+
+			artifactFiles, err := ioutil.ReadDir(artifactPath)
+			if err != nil || len(artifactFiles) == 0 {
+				continue
+			}
+
+			for _, artifactFile := range artifactFiles {
+				if artifactFile.IsDir() {
+					continue
+				}
+				filePath := path.Join(artifactPath, artifactFile.Name())
+
+				if _, err := os.Stat(filePath); os.IsNotExist(err) {
+					continue
+				}
+
+				if store != nil {
+					objectKey := store.GetObjectPath(fmt.Sprintf("%s/%s", artifactPath, artifactFile.Name()))
+					if err = s3FileUpload(store, filePath, objectKey); err != nil {
+						return err
+					}
 				}
 			}
 		}
+		return nil
+	}
+
+	artifactPath := filepath.Join(activeWorkspace, artifactPaths[0])
+	isDir, err := fs.IsDir(artifactPath)
+	if err != nil {
+		return err
+	}
+	if isDir {
+		temp, err := os.CreateTemp("", "*artifact.tar.gz")
+		if err != nil {
+			log.Errorf("failed to create temp file %s", err)
+			return err
+		}
+
+		_ = temp.Close()
+		cmd := exec.Command("tar", "czf", temp.Name(), "-C", artifactPath, ".")
+		cmd.Dir = artifactPath
+		cmd.Stderr = os.Stderr
+		cmd.Stdout = os.Stdout
+		if err = cmd.Run(); err != nil {
+			log.Errorf("failed to compress artifact err:%s", err)
+			return err
+		}
+		if store != nil {
+			objectKey := store.GetObjectPath("artifact.tar.gz")
+			if err = s3FileUpload(store, temp.Name(), objectKey); err != nil {
+				return err
+			}
+		}
+	} else {
+		if store != nil {
+			_, fileName := filepath.Split(artifactPath)
+			objectKey := store.GetObjectPath(fileName)
+			if err = s3FileUpload(store, artifactPath, objectKey); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func s3FileUpload(store *s3.S3, sourceFile, objectKey string) error {
+	forcedPathStyle := true
+	if store.Provider == setting.ProviderSourceAli {
+		forcedPathStyle = false
+	}
+	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
+	if err != nil {
+		log.Errorf("failed to create s3 client, error is: %s", err)
+		return err
+	}
+
+	if err = s3client.Upload(store.Bucket, sourceFile, objectKey); err != nil {
+		log.Errorf("Archive s3 upload err:%s", err)
+		return err
 	}
 	return nil
 }

@@ -31,9 +31,8 @@ import (
 )
 
 type ListWorkflowOption struct {
-	ProductName string
-	IsSort      bool
-	TestName    string
+	IsSort   bool
+	Projects []string
 }
 
 type WorkflowColl struct {
@@ -64,8 +63,8 @@ func (c *WorkflowColl) EnsureIndex(ctx context.Context) error {
 
 func (c *WorkflowColl) List(opt *ListWorkflowOption) ([]*models.Workflow, error) {
 	query := bson.M{}
-	if opt.ProductName != "" {
-		query["product_tmpl_name"] = opt.ProductName
+	if len(opt.Projects) > 0 {
+		query["product_tmpl_name"] = bson.M{"$in": opt.Projects}
 	}
 
 	resp := make([]*models.Workflow, 0)
@@ -159,6 +158,28 @@ func (c *WorkflowColl) Replace(args *models.Workflow) error {
 func (c *WorkflowColl) ListWithScheduleEnabled() ([]*models.Workflow, error) {
 	resp := make([]*models.Workflow, 0)
 	query := bson.M{"schedule_enabled": true}
+
+	cursor, err := c.Collection.Find(context.TODO(), query)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cursor.All(context.TODO(), &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+func (c *WorkflowColl) ListWorkflowsByProjects(projects []string) ([]*models.Workflow, error) {
+	resp := make([]*models.Workflow, 0)
+	query := bson.M{}
+	if len(projects) != 0 {
+		query = bson.M{"product_tmpl_name": bson.M{
+			"$in": projects,
+		}}
+	}
 
 	cursor, err := c.Collection.Find(context.TODO(), query)
 	if err != nil {

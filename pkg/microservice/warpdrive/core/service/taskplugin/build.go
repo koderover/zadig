@@ -29,11 +29,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/poetry"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 )
@@ -108,6 +107,39 @@ func (p *BuildTaskPlugin) SetBuildStatusCompleted(status config.Status) {
 
 //TODO: Binded Archive File logic
 func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineCtx *task.PipelineCtx, serviceName string) {
+	p.KubeNamespace = pipelineTask.ConfigPayload.Build.KubeNamespace
+	if p.Task.Namespace != "" {
+		p.KubeNamespace = p.Task.Namespace
+		kubeClient, err := kubeclient.GetKubeClient(pipelineTask.ConfigPayload.HubServerAddr, p.Task.ClusterID)
+		if err != nil {
+			msg := fmt.Sprintf("failed to get kube client: %s", err)
+			p.Log.Error(msg)
+			p.Task.TaskStatus = config.StatusFailed
+			p.Task.Error = msg
+			p.SetBuildStatusCompleted(config.StatusFailed)
+			return
+		}
+		p.kubeClient = kubeClient
+	}
+
+	// not local cluster
+	replaceDindServer := "." + DindServer
+	if p.Task.ClusterID != "" && p.Task.ClusterID != setting.LocalClusterID {
+		if strings.Contains(pipelineTask.DockerHost, pipelineTask.ConfigPayload.Build.KubeNamespace) {
+			// replace namespace only
+			pipelineTask.DockerHost = strings.Replace(pipelineTask.DockerHost, pipelineTask.ConfigPayload.Build.KubeNamespace, KoderoverAgentNamespace, 1)
+		} else {
+			// add namespace
+			pipelineTask.DockerHost = strings.Replace(pipelineTask.DockerHost, replaceDindServer, replaceDindServer+"."+KoderoverAgentNamespace, 1)
+		}
+	} else if p.Task.ClusterID == "" || p.Task.ClusterID == setting.LocalClusterID {
+		if !strings.Contains(pipelineTask.DockerHost, pipelineTask.ConfigPayload.Build.KubeNamespace) {
+			// add namespace
+			pipelineTask.DockerHost = strings.Replace(pipelineTask.DockerHost, replaceDindServer, replaceDindServer+"."+pipelineTask.ConfigPayload.Build.KubeNamespace, 1)
+		}
+	}
+	pipelineCtx.DockerHost = pipelineTask.DockerHost
+
 	if pipelineTask.Type == config.WorkflowType {
 		envName := pipelineTask.WorkflowArgs.Namespace
 		envNameVar := &task.KeyVal{Key: "ENV_NAME", Value: envName, IsCredential: false}
@@ -128,7 +160,23 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 
 	privateKeysVar := &task.KeyVal{Key: "AGENTS", Value: strings.Join(privateKeys.List(), ","), IsCredential: false}
 	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, privateKeysVar)
-	p.KubeNamespace = pipelineTask.ConfigPayload.Build.KubeNamespace
+
+	// env host ips
+	for envName, HostIPs := range p.Task.EnvHostInfo {
+		envHostKeysVar := &task.KeyVal{Key: envName + "_HOST_IPs", Value: strings.Join(HostIPs, ","), IsCredential: false}
+		p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, envHostKeysVar)
+	}
+
+	// ARTIFACT
+	if p.Task.JobCtx.FileArchiveCtx != nil {
+		var workspace = "/workspace"
+		if pipelineTask.ConfigPayload.ClassicBuild {
+			workspace = pipelineCtx.Workspace
+		}
+		artifactKeysVar := &task.KeyVal{Key: "ARTIFACT", Value: fmt.Sprintf("%s/%s/%s", workspace, p.Task.JobCtx.FileArchiveCtx.FileLocation, p.Task.JobCtx.FileArchiveCtx.FileName), IsCredential: false}
+		p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, artifactKeysVar)
+	}
+
 	for _, repo := range p.Task.JobCtx.Builds {
 		repoName := strings.Replace(repo.RepoName, "-", "_", -1)
 		if len(repo.Branch) > 0 {
@@ -145,6 +193,15 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 			prVar := &task.KeyVal{Key: fmt.Sprintf("%s_PR", repoName), Value: strconv.Itoa(repo.PR), IsCredential: false}
 			p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, prVar)
 		}
+
+		if len(repo.CommitID) > 0 {
+			commitVar := &task.KeyVal{
+				Key:          fmt.Sprintf("%s_COMMIT_ID", repoName),
+				Value:        repo.CommitID,
+				IsCredential: false,
+			}
+			p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, commitVar)
+		}
 	}
 
 	jobCtx := JobCtxBuilder{
@@ -153,11 +210,6 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 		ArchiveFile: p.Task.JobCtx.PackageFile,
 		JobCtx:      p.Task.JobCtx,
 		Installs:    p.Task.InstallCtx,
-	}
-
-	poetryClient := poetry.New(configbase.PoetryServiceAddress(), config.PoetryAPIRootKey())
-	if fs, err := poetryClient.ListFeatures(); err == nil {
-		pipelineTask.Features = fs
 	}
 
 	if p.Task.BuildStatus == nil {
@@ -211,7 +263,7 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 	}
 
 	//Resource request default value is LOW
-	job, err := buildJob(p.Type(), jobImage, p.JobName, serviceName, p.Task.ResReq, pipelineCtx, pipelineTask, p.Task.Registries)
+	job, err := buildJob(p.Type(), jobImage, p.JobName, serviceName, p.Task.ClusterID, pipelineTask.ConfigPayload.Build.KubeNamespace, p.Task.ResReq, p.Task.ResReqSpec, pipelineCtx, pipelineTask, p.Task.Registries)
 	if err != nil {
 		msg := fmt.Sprintf("create build job context error: %v", err)
 		p.Log.Error(msg)
@@ -233,7 +285,7 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 	}
 
 	// 将集成到KodeRover的私有镜像仓库的访问权限设置到namespace中
-	if err := createOrUpdateRegistrySecrets(p.KubeNamespace, p.Task.Registries, p.kubeClient); err != nil {
+	if err := createOrUpdateRegistrySecrets(p.KubeNamespace, pipelineTask.ConfigPayload.RegistryID, p.Task.Registries, p.kubeClient); err != nil {
 		msg := fmt.Sprintf("create secret error: %v", err)
 		p.Log.Error(msg)
 		p.Task.TaskStatus = config.StatusFailed
@@ -294,16 +346,20 @@ func (p *BuildTaskPlugin) Complete(ctx context.Context, pipelineTask *task.Task,
 
 	// 清理用户取消和超时的任务
 	defer func() {
-		if p.Task.TaskStatus == config.StatusCancelled || p.Task.TaskStatus == config.StatusTimeout {
-			if err := ensureDeleteJob(p.KubeNamespace, jobLabel, p.kubeClient); err != nil {
-				p.Log.Error(err)
-				p.Task.Error = err.Error()
-			}
-			return
+		if err := ensureDeleteJob(p.KubeNamespace, jobLabel, p.kubeClient); err != nil {
+			p.Log.Error(err)
+			p.Task.Error = err.Error()
 		}
+
+		if err := ensureDeleteConfigMap(p.KubeNamespace, jobLabel, p.kubeClient); err != nil {
+			p.Log.Error(err)
+			p.Task.Error = err.Error()
+		}
+
+		return
 	}()
 
-	err := saveContainerLog(pipelineTask, p.KubeNamespace, p.FileName, jobLabel, p.kubeClient)
+	err := saveContainerLog(pipelineTask, p.KubeNamespace, p.Task.ClusterID, p.FileName, jobLabel, p.kubeClient)
 	if err != nil {
 		p.Log.Error(err)
 		p.Task.Error = err.Error()

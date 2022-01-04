@@ -17,10 +17,11 @@ limitations under the License.
 package service
 
 import (
+	"encoding/json"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
@@ -28,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
 
+	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
@@ -38,10 +40,10 @@ import (
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/poetry"
+	"github.com/koderover/zadig/pkg/shared/client/policy"
+	configclient "github.com/koderover/zadig/pkg/shared/config"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/types/permission"
 )
 
 type CustomParseDataArgs struct {
@@ -74,208 +76,6 @@ func GetProductTemplateServices(productName string, log *zap.SugaredLogger) (*te
 	return resp, nil
 }
 
-// ListProductTemplate 列出产品模板分页
-func ListProductTemplate(userID int, superUser bool, log *zap.SugaredLogger) ([]*template.Product, error) {
-	var (
-		err            error
-		errorList      = &multierror.Error{}
-		resp           = make([]*template.Product, 0)
-		tmpls          = make([]*template.Product, 0)
-		productTmpls   = make([]*template.Product, 0)
-		productNameMap = make(map[string][]int64)
-		productMap     = make(map[string]*template.Product)
-		wg             sync.WaitGroup
-		mu             sync.Mutex
-		maxRoutineNum  = 20                            // 协程池最大协程数量
-		ch             = make(chan int, maxRoutineNum) // 控制协程数量
-	)
-
-	poetryCtl := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
-
-	tmpls, err = templaterepo.NewProductColl().List()
-	if err != nil {
-		log.Errorf("ProfuctTmpl.List error: %v", err)
-		return resp, e.ErrListProducts.AddDesc(err.Error())
-	}
-
-	for _, product := range tmpls {
-		if superUser {
-			product.Role = setting.RoleAdmin
-			product.PermissionUUIDs = []string{}
-			product.ShowProject = true
-			continue
-		}
-		productMap[product.ProductName] = product
-	}
-
-	if !superUser {
-		productNameMap, err = poetryCtl.GetUserProject(userID, log)
-		if err != nil {
-			log.Errorf("ProfuctTmpl.List GetUserProject error: %v", err)
-			return resp, e.ErrListProducts.AddDesc(err.Error())
-		}
-
-		// 优先处理客户有明确关联关系的项目
-		for productName, roleIDs := range productNameMap {
-			wg.Add(1)
-			ch <- 1
-			// 临时复制range获取的数据，避免重复操作最后一条数据
-			tmpProductName := productName
-			tmpRoleIDs := roleIDs
-
-			go func(tmpProductName string, tmpRoleIDs []int64) {
-				defer func() {
-					<-ch
-					wg.Done()
-				}()
-
-				roleID := tmpRoleIDs[0]
-				product, err := templaterepo.NewProductColl().Find(tmpProductName)
-				if err != nil {
-					errorList = multierror.Append(errorList, err)
-					log.Errorf("ProfuctTmpl.List error: %v", err)
-					return
-				}
-				uuids, err := poetryCtl.GetUserPermissionUUIDs(roleID, tmpProductName, log)
-				if err != nil {
-					errorList = multierror.Append(errorList, err)
-					log.Errorf("ProfuctTmpl.List GetUserPermissionUUIDs error: %v", err)
-					return
-				}
-				if roleID == setting.RoleOwnerID {
-					product.Role = setting.RoleOwner
-					product.PermissionUUIDs = []string{}
-				} else {
-					product.Role = setting.RoleUser
-					product.PermissionUUIDs = uuids
-				}
-				product.ShowProject = true
-				mu.Lock()
-				productTmpls = append(productTmpls, product)
-				delete(productMap, tmpProductName)
-				mu.Unlock()
-			}(tmpProductName, tmpRoleIDs)
-		}
-
-		wg.Wait()
-		if errorList.ErrorOrNil() != nil {
-			return resp, errorList
-		}
-
-		// 增加项目里面设置过all-users的权限处理
-		for _, product := range productMap {
-			wg.Add(1)
-			ch <- 1
-			// 临时复制range获取的数据，避免重复操作最后一条数据
-			tmpProduct := product
-
-			go func(tmpProduct *template.Product) {
-				defer func() {
-					<-ch
-					wg.Done()
-				}()
-
-				productRole, _ := poetryCtl.ListRoles(tmpProduct.ProductName, log)
-				if productRole != nil {
-					uuids, err := poetryCtl.GetUserPermissionUUIDs(productRole.ID, tmpProduct.ProductName, log)
-					if err != nil {
-						errorList = multierror.Append(errorList, err)
-						log.Errorf("ProfuctTmpl.List GetUserPermissionUUIDs error: %v", err)
-						return
-					}
-
-					tmpProduct.Role = setting.RoleUser
-					tmpProduct.PermissionUUIDs = uuids
-					tmpProduct.ShowProject = true
-					mu.Lock()
-					productTmpls = append(productTmpls, tmpProduct)
-					delete(productMap, tmpProduct.ProductName)
-					mu.Unlock()
-				}
-			}(tmpProduct)
-		}
-		wg.Wait()
-		if errorList.ErrorOrNil() != nil {
-			return resp, errorList
-		}
-
-		// 最后处理剩余的项目
-		for _, product := range productMap {
-			wg.Add(1)
-			ch <- 1
-			// 临时复制range获取的数据，避免重复操作最后一条数据
-			tmpProduct := product
-
-			go func(tmpProduct *template.Product) {
-				defer func() {
-					<-ch
-					wg.Done()
-				}()
-
-				var uuids []string
-				uuids, err = poetryCtl.GetUserPermissionUUIDs(setting.RoleUserID, "", log)
-				if err != nil {
-					errorList = multierror.Append(errorList, err)
-					log.Errorf("ProfuctTmpl.List GetUserPermissionUUIDs error: %v", err)
-					return
-				}
-				tmpProduct.Role = setting.RoleUser
-				tmpProduct.PermissionUUIDs = uuids
-				tmpProduct.ShowProject = false
-				mu.Lock()
-				productTmpls = append(productTmpls, tmpProduct)
-				mu.Unlock()
-			}(tmpProduct)
-		}
-		wg.Wait()
-		if errorList.ErrorOrNil() != nil {
-			return resp, errorList
-		}
-		// 先清空tmpls中的管理员角色数据后，再插入普通用户角色的数据
-		tmpls = make([]*template.Product, 0)
-		tmpls = append(tmpls, productTmpls...)
-	}
-
-	err = FillProductTemplateVars(tmpls, log)
-	if err != nil {
-		return resp, err
-	}
-
-	for _, tmpl := range tmpls {
-		wg.Add(1)
-		ch <- 1
-
-		go func(tmpTmpl *template.Product) {
-			defer func() {
-				<-ch
-				wg.Done()
-			}()
-
-			tmpTmpl.TotalServiceNum, err = commonrepo.NewServiceColl().Count(tmpTmpl.ProductName)
-			if err != nil {
-				errorList = multierror.Append(errorList, err)
-				return
-			}
-
-			tmpTmpl.TotalEnvNum, err = commonrepo.NewProductColl().Count(tmpTmpl.ProductName)
-			if err != nil {
-				errorList = multierror.Append(errorList, err)
-				return
-			}
-
-			mu.Lock()
-			resp = append(resp, tmpTmpl)
-			mu.Unlock()
-		}(tmpl)
-	}
-	wg.Wait()
-	if errorList.ErrorOrNil() != nil {
-		return resp, errorList
-	}
-
-	return resp, nil
-}
-
 func ListOpenSourceProduct(log *zap.SugaredLogger) ([]*template.Product, error) {
 	opt := &templaterepo.ProductListOpt{
 		IsOpensource: "true",
@@ -293,7 +93,7 @@ func ListOpenSourceProduct(log *zap.SugaredLogger) ([]*template.Product, error) 
 // CreateProductTemplate 创建产品模板
 func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err error) {
 	kvs := args.Vars
-	// 不保存vas
+	// do not save vars
 	args.Vars = nil
 
 	err = commonservice.ValidateKVs(kvs, args.AllServiceInfos(), log)
@@ -303,6 +103,21 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 
 	if err := ensureProductTmpl(args); err != nil {
 		return e.ErrCreateProduct.AddDesc(err.Error())
+	}
+
+	err = commonrepo.NewProjectClusterRelationColl().Delete(&commonrepo.ProjectClusterRelationOption{ProjectName: args.ProductName})
+	if err != nil {
+		log.Errorf("Failed to delete projectClusterRelation, err:%s", err)
+	}
+	for _, clusterID := range args.ClusterIDs {
+		err = commonrepo.NewProjectClusterRelationColl().Create(&commonmodels.ProjectClusterRelation{
+			ProjectName: args.ProductName,
+			ClusterID:   clusterID,
+			CreatedBy:   args.UpdateBy,
+		})
+		if err != nil {
+			log.Errorf("Failed to create projectClusterRelation, err:%s", err)
+		}
 	}
 
 	err = templaterepo.NewProductColl().Create(args)
@@ -327,6 +142,44 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 	}
 
 	return
+}
+
+func UpdateServiceOrchestration(name string, services [][]string, updateBy string, log *zap.SugaredLogger) (err error) {
+	templateProductInfo, err := templaterepo.NewProductColl().Find(name)
+	if err != nil {
+		log.Errorf("failed to query productInfo, projectName: %s, err: %s", name, err)
+		return fmt.Errorf("failed to query productInfo, projectName: %s", name)
+	}
+
+	//validate services
+	validServices := sets.NewString()
+	usedServiceSet := sets.NewString()
+	for _, serviceList := range templateProductInfo.Services {
+		validServices.Insert(serviceList...)
+	}
+
+	for _, serviceSeq := range services {
+		for _, service := range serviceSeq {
+			if usedServiceSet.Has(service) {
+				return fmt.Errorf("duplicated service:%s", service)
+			}
+			if !validServices.Has(service) {
+				return fmt.Errorf("service:%s not in valid service list", service)
+			}
+			usedServiceSet.Insert(service)
+			validServices.Delete(service)
+		}
+	}
+
+	if validServices.Len() > 0 {
+		return fmt.Errorf("service: [%s] not found in params", strings.Join(validServices.List(), ","))
+	}
+
+	if err = templaterepo.NewProductColl().UpdateServiceOrchestration(name, services, updateBy); err != nil {
+		log.Errorf("UpdateChoreographyService error: %v", err)
+		return e.ErrUpdateProduct.AddErr(err)
+	}
+	return nil
 }
 
 // UpdateProductTemplate 更新产品模板
@@ -401,19 +254,87 @@ func UpdateProductTmplStatus(productName, onboardingStatus string, log *zap.Suga
 
 // UpdateProject 更新项目
 func UpdateProject(name string, args *template.Product, log *zap.SugaredLogger) (err error) {
-	poetryCtl := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
-
-	//创建团建和项目之间的关系
-	_, err = poetryCtl.AddProductTeam(args.ProductName, args.TeamID, args.UserIDs, log)
+	err = validateRule(args.CustomImageRule, args.CustomTarRule)
 	if err != nil {
-		log.Errorf("Project.Create AddProductTeam error: %v", err)
-		return e.ErrCreateProduct.AddDesc(err.Error())
+		return e.ErrInvalidParam.AddDesc(err.Error())
 	}
 
 	err = templaterepo.NewProductColl().Update(name, args)
 	if err != nil {
 		log.Errorf("Project.Update error: %v", err)
-		return e.ErrUpdateProduct
+		return e.ErrUpdateProduct.AddDesc(err.Error())
+	}
+	return nil
+}
+
+func validateRule(customImageRule *template.CustomRule, customTarRule *template.CustomRule) error {
+	var (
+		customImageRuleMap map[string]string
+		customTarRuleMap   map[string]string
+	)
+	body, err := json.Marshal(&customImageRule)
+	if err != nil {
+		return err
+	}
+	if err = json.Unmarshal(body, &customImageRuleMap); err != nil {
+		return err
+	}
+
+	for field, ruleValue := range customImageRuleMap {
+		if err := validateCommonRule(ruleValue, field, config.ImageResourceType); err != nil {
+			return err
+		}
+	}
+
+	body, err = json.Marshal(&customTarRule)
+	if err != nil {
+		return err
+	}
+	if err = json.Unmarshal(body, &customTarRuleMap); err != nil {
+		return err
+	}
+	for field, ruleValue := range customTarRuleMap {
+		if err := validateCommonRule(ruleValue, field, config.TarResourceType); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func validateCommonRule(currentRule, ruleType, deliveryType string) error {
+	var (
+		imageRegexString = "^[a-z0-9][a-zA-Z0-9-_:.]+$"
+		tarRegexString   = "^[a-z0-9][a-zA-Z0-9-_.]+$"
+		tagRegexString   = "^[a-z0-9A-Z_][a-zA-Z0-9-_.]+$"
+		errMessage       = "contains invalid characters, please check"
+	)
+
+	if currentRule == "" {
+		return fmt.Errorf("%s can not be empty", ruleType)
+	}
+
+	if deliveryType == config.ImageResourceType && !strings.Contains(currentRule, ":") {
+		return fmt.Errorf("%s is invalid, must contain a colon", ruleType)
+	}
+
+	currentRule = commonservice.ReplaceRuleVariable(currentRule, &commonservice.Variable{
+		"ss", "ss", "ss", "ss", "ss", "ss", "ss", "ss", "ss",
+	})
+	switch deliveryType {
+	case config.ImageResourceType:
+		if !regexp.MustCompile(imageRegexString).MatchString(currentRule) {
+			return fmt.Errorf("image %s %s", ruleType, errMessage)
+		}
+		// validate tag
+		tag := strings.Split(currentRule, ":")[1]
+		if !regexp.MustCompile(tagRegexString).MatchString(tag) {
+			return fmt.Errorf("image %s %s", ruleType, errMessage)
+		}
+	case config.TarResourceType:
+		if !regexp.MustCompile(tarRegexString).MatchString(currentRule) {
+			return fmt.Errorf("tar %s %s", ruleType, errMessage)
+		}
 	}
 	return nil
 }
@@ -437,63 +358,62 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 		}
 	}
 
-	poetryCtl := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
-
-	//删除项目团队信息
-	if err = poetryCtl.DeleteProductTeam(productName, log); err != nil {
-		log.Errorf("productTeam.Delete error: %v", err)
-		return e.ErrDeleteProduct
-	}
-
 	envs, _ := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName})
 	for _, env := range envs {
 		if err = commonrepo.NewProductColl().UpdateStatus(env.EnvName, productName, setting.ProductStatusDeleting); err != nil {
-			log.Errorf("DeleteProductTemplate Update product Status error: %v", err)
+			log.Errorf("DeleteProductTemplate Update product Status error: %s", err)
 			return e.ErrDeleteProduct
 		}
 	}
 
 	if err = commonservice.DeleteRenderSet(productName, log); err != nil {
-		log.Errorf("DeleteProductTemplate DeleteRenderSet err: %v", err)
+		log.Errorf("DeleteProductTemplate DeleteRenderSet err: %s", err)
 		return err
 	}
 
 	if err = DeleteTestModules(productName, requestID, log); err != nil {
-		log.Errorf("DeleteProductTemplate Delete productName %s test err: %v", productName, err)
+		log.Errorf("DeleteProductTemplate Delete productName %s test err: %s", productName, err)
 		return err
 	}
 
 	if err = commonservice.DeleteWorkflows(productName, requestID, log); err != nil {
-		log.Errorf("DeleteProductTemplate Delete productName %s workflow err: %v", productName, err)
+		log.Errorf("DeleteProductTemplate Delete productName %s workflow err: %s", productName, err)
+		return err
+	}
+
+	if err = commonservice.DeleteWorkflowV3s(productName, requestID, log); err != nil {
+		log.Errorf("DeleteProductTemplate Delete productName %s workflowV3 err: %s", productName, err)
 		return err
 	}
 
 	if err = commonservice.DeletePipelines(productName, requestID, log); err != nil {
-		log.Errorf("DeleteProductTemplate Delete productName %s pipeline err: %v", productName, err)
+		log.Errorf("DeleteProductTemplate Delete productName %s pipeline err: %s", productName, err)
 		return err
 	}
 
-	//删除自由编排工作流
-	features, err := commonservice.GetFeatures(log)
-	if err != nil {
-		log.Errorf("DeleteProductTemplate productName %s getFeatures err: %v", productName, err)
+	// delete projectClusterRelation
+	if err = commonrepo.NewProjectClusterRelationColl().Delete(&commonrepo.ProjectClusterRelationOption{ProjectName: productName}); err != nil {
+		log.Errorf("DeleteProductTemplate Delete productName %s ProjectClusterRelation err: %s", productName, err)
 	}
-	if strings.Contains(features, string(config.FreestyleType)) {
-		collieClient := collie.New(config.CollieAPIAddress(), config.PoetryAPIRootKey())
+
+	// Delete freestyle workflow
+	cl := configclient.New(configbase.ConfigServiceAddress())
+	if enable, err := cl.CheckFeature(setting.ModernWorkflowType); err == nil && enable {
+		collieClient := collie.New(config.CollieAPIAddress())
 		if err = collieClient.DeleteCIPipelines(productName, log); err != nil {
-			log.Errorf("DeleteProductTemplate Delete productName %s freestyle pipeline err: %v", productName, err)
+			log.Errorf("DeleteProductTemplate Delete productName %s freestyle pipeline err: %s", productName, err)
 		}
 	}
 
 	err = templaterepo.NewProductColl().Delete(productName)
 	if err != nil {
-		log.Errorf("ProductTmpl.Delete error: %v", err)
+		log.Errorf("ProductTmpl.Delete error: %s", err)
 		return e.ErrDeleteProduct
 	}
 
 	err = commonrepo.NewCounterColl().Delete(fmt.Sprintf("product:%s", productName))
 	if err != nil {
-		log.Errorf("Counter.Delete error: %v", err)
+		log.Errorf("Counter.Delete error: %s", err)
 		return err
 	}
 
@@ -508,7 +428,7 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 	//删除构建/删除测试/删除服务
 	//删除workflow和历史task
 	go func() {
-		_ = commonrepo.NewBuildColl().Delete("", "", productName)
+		_ = commonrepo.NewBuildColl().Delete("", productName)
 		_ = commonrepo.NewServiceColl().Delete("", "", productName, "", 0)
 		_ = commonservice.DeleteDeliveryInfos(productName, log)
 		_ = DeleteProductsAsync(userName, productName, requestID, log)
@@ -528,28 +448,16 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 			commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(v)
 		}
 	}()
-
+	// delete servicesInExternalEnv data
+	go func() {
+		_ = commonrepo.NewServicesInExternalEnvColl().Delete(&commonrepo.ServicesInExternalEnvArgs{
+			ProductName: productName,
+		})
+	}()
 	return nil
 }
 
-func ForkProduct(userID int, username, requestID string, args *template.ForkProject, log *zap.SugaredLogger) error {
-	poetryClient := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
-	// first check if the product have contributor role, if not, create one
-	if !poetryClient.ContributorRoleExist(args.ProductName, log) {
-		err := poetryClient.CreateContributorRole(args.ProductName, log)
-		if err != nil {
-			log.Errorf("Cannot create contributor role for product: %s, the error is: %v", args.ProductName, err)
-			return e.ErrForkProduct.AddDesc(err.Error())
-		}
-	}
-
-	// Give contributor role to this user
-	// first look for roleID
-	roleID := poetryClient.GetContributorRoleID(args.ProductName, log)
-	if roleID < 0 {
-		log.Errorf("Failed to get contributor Role ID from poetry client")
-		return e.ErrForkProduct.AddDesc("Failed to get contributor Role ID from poetry client")
-	}
+func ForkProduct(username, uid, requestID string, args *template.ForkProject, log *zap.SugaredLogger) error {
 
 	prodTmpl, err := templaterepo.NewProductColl().Find(args.ProductName)
 	if err != nil {
@@ -622,24 +530,6 @@ func ForkProduct(userID int, username, requestID string, args *template.ForkProj
 		return e.ErrForkProduct.AddDesc(errMsg)
 	}
 
-	userList, _ := poetryClient.ListPermissionUsers(args.ProductName, roleID, poetry.ProjectType, log)
-	newUserList := append(userList, userID)
-	err = poetryClient.UpdateUserRole(roleID, poetry.ProjectType, args.ProductName, newUserList, log)
-	if err != nil {
-		log.Errorf("Failed to update user role, the error is: %v", err)
-		return e.ErrForkProduct.AddDesc(fmt.Sprintf("Failed to update user role, the error is: %v", err))
-	}
-
-	err = poetryClient.CreateUserEnvPermission(&poetry.UserEnvPermission{
-		UserID:          userID,
-		ProductName:     args.ProductName,
-		EnvName:         args.EnvName,
-		PermissionUUIDs: []string{permission.TestEnvListUUID, permission.TestEnvManageUUID},
-	})
-	if err != nil {
-		return e.ErrForkProduct.AddDesc(fmt.Sprintf("Failed to create env permission for user: %s", username))
-	}
-
 	workflowPreset, err := workflowservice.PreSetWorkflow(args.ProductName, log)
 	if err != nil {
 		errMsg := fmt.Sprintf("Failed to get workflow preset info, the error is: %+v", err)
@@ -680,18 +570,20 @@ func ForkProduct(userID int, username, requestID string, args *template.ForkProj
 		CreateBy:  username,
 		UpdateBy:  username,
 	}
+	err = policy.NewDefault().CreateOrUpdateRoleBinding(args.ProductName, &policy.RoleBinding{
+		UID:    uid,
+		Role:   string(setting.Contributor),
+		Public: true,
+	})
+	if err != nil {
+		log.Errorf("Failed to create or update roleBinding, err: %s", err)
+		return e.ErrForkProduct
+	}
 
 	return workflowservice.CreateWorkflow(workflowArgs, log)
 }
 
-func UnForkProduct(userID int, username, productName, workflowName, envName, requestID string, log *zap.SugaredLogger) error {
-	poetryClient := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
-	if userEnvPermissions, _ := poetryClient.ListUserEnvPermission(productName, userID, log); len(userEnvPermissions) > 0 {
-		if err := poetryClient.DeleteUserEnvPermission(productName, username, userID, log); err != nil {
-			return e.ErrUnForkProduct.AddDesc(fmt.Sprintf("Failed to delete env permission for userID: %d, env: %s, productName: %s, the error is: %+v", userID, username, productName, err))
-		}
-	}
-
+func UnForkProduct(userID string, username, productName, workflowName, envName, requestID string, log *zap.SugaredLogger) error {
 	if _, err := workflowservice.FindWorkflow(workflowName, log); err == nil {
 		err = commonservice.DeleteWorkflow(workflowName, requestID, false, log)
 		if err != nil {
@@ -700,14 +592,12 @@ func UnForkProduct(userID int, username, productName, workflowName, envName, req
 		}
 	}
 
-	if roleID := poetryClient.GetContributorRoleID(productName, log); roleID > 0 {
-		err := poetryClient.DeleteUserRole(roleID, poetry.ProjectType, userID, productName, log)
-		if err != nil {
-			log.Errorf("Failed to Delete user from role candidate, the error is: %v", err)
-			return e.ErrUnForkProduct.AddDesc(err.Error())
-		}
+	policyClient := policy.NewDefault()
+	err := policyClient.DeleteRoleBinding(configbase.RoleBindingNameFromUIDAndRole(userID, setting.Contributor, ""), productName)
+	if err != nil {
+		log.Errorf("Failed to delete roleBinding, err: %s", err)
+		return e.ErrForkProduct
 	}
-
 	if err := commonservice.DeleteProduct(username, envName, productName, requestID, log); err != nil {
 		_, messageMap := e.ErrorMessage(err)
 		if description, ok := messageMap["description"]; ok {
@@ -831,33 +721,17 @@ type ContainerInfo struct {
 	Label string `bson:"label"              json:"label"`
 }
 
-func ListTemplatesHierachy(userName string, userID int, superUser bool, log *zap.SugaredLogger) ([]*ProductInfo, error) {
+func ListTemplatesHierachy(userName string, log *zap.SugaredLogger) ([]*ProductInfo, error) {
 	var (
 		err          error
 		resp         = make([]*ProductInfo, 0)
 		productTmpls = make([]*template.Product, 0)
 	)
 
-	if superUser {
-		productTmpls, err = templaterepo.NewProductColl().List()
-		if err != nil {
-			log.Errorf("[%s] ProductTmpl.List error: %v", userName, err)
-			return nil, e.ErrListProducts.AddDesc(err.Error())
-		}
-	} else {
-		productNameMap, err := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey()).GetUserProject(userID, log)
-		if err != nil {
-			log.Errorf("ProfuctTmpl.List GetUserProject error: %v", err)
-			return resp, e.ErrListProducts.AddDesc(err.Error())
-		}
-		for productName := range productNameMap {
-			product, err := templaterepo.NewProductColl().Find(productName)
-			if err != nil {
-				log.Errorf("ProfuctTmpl.List error: %v", err)
-				return resp, e.ErrListProducts.AddDesc(err.Error())
-			}
-			productTmpls = append(productTmpls, product)
-		}
+	productTmpls, err = templaterepo.NewProductColl().List()
+	if err != nil {
+		log.Errorf("[%s] ProductTmpl.List error: %v", userName, err)
+		return nil, e.ErrListProducts.AddDesc(err.Error())
 	}
 
 	for _, productTmpl := range productTmpls {

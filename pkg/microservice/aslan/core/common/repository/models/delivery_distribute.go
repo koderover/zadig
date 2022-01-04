@@ -23,16 +23,23 @@ import (
 )
 
 type DeliveryDistribute struct {
-	ID             primitive.ObjectID    `bson:"_id,omitempty"                json:"id,omitempty"`
+	ID             primitive.ObjectID    `bson:"_id,omitempty"          json:"id,omitempty"`
 	ReleaseID      primitive.ObjectID    `bson:"release_id"             json:"releaseId"`
-	ServiceName    string                `bson:"service_name"           json:"serviceName"`
+	ServiceName    string                `bson:"service_name"           json:"serviceName,omitempty"`
 	DistributeType config.DistributeType `bson:"distribute_type"        json:"distributeType"`
 	RegistryName   string                `bson:"registry_name"          json:"registryName"`
-	Namespace      string                `bson:"namespace"              json:"namespace"`
-	PackageFile    string                `bson:"package_file"           json:"packageFile"`
-	RemoteFileKey  string                `bson:"remote_file_key"        json:"remoteFileKey"`
-	DestStorageURL string                `bson:"dest_storage_url"       json:"destStorageUrl"`
-	SrcStorageURL  string                `bson:"src_storage_url"        json:"srcStorageUrl"`
+	ChartVersion   string                `bson:"chart_version"          json:"chartVersion,omitempty"`
+	ChartName      string                `bson:"chart_name"             json:"chartName,omitempty"`
+	ChartRepoName  string                `bson:"chart_repo_name"        json:"chartRepoName,omitempty"`
+	SubDistributes []*DeliveryDistribute `bson:"-"                      json:"subDistributes,omitempty"`
+	Namespace      string                `bson:"namespace"              json:"namespace,omitempty"`
+	PackageFile    string                `bson:"package_file"           json:"packageFile,omitempty"`
+	RemoteFileKey  string                `bson:"remote_file_key"        json:"remoteFileKey,omitempty"`
+	DestStorageURL string                `bson:"dest_storage_url"       json:"destStorageUrl,omitempty"`
+	S3StorageID    string                `bson:"s3_storage_id"          json:"s3StorageID"`
+	StorageURL     string                `bson:"-"                      json:"storageUrl"`
+	StorageBucket  string                `bson:"-"                      json:"storageBucket"`
+	SrcStorageURL  string                `bson:"src_storage_url"        json:"srcStorageUrl,omitempty"`
 	StartTime      int64                 `bson:"start_time,omitempty"   json:"start_time,omitempty"`
 	EndTime        int64                 `bson:"end_time,omitempty"     json:"end_time,omitempty"`
 	CreatedAt      int64                 `bson:"created_at"             json:"created_at"`

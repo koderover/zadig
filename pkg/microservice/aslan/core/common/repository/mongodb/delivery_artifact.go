@@ -32,19 +32,20 @@ import (
 )
 
 type DeliveryArtifactArgs struct {
-	ID           string `json:"id"`
-	Image        string `json:"image"`
-	Name         string `json:"name"`
-	Type         string `json:"type"`
-	RepoName     string `json:"repo_name"`
-	Branch       string `json:"branch"`
-	Source       string `json:"source"`
-	ImageHash    string `json:"image_hash"`
-	ImageTag     string `json:"image_tag"`
-	ImageDigest  string `json:"image_digest"`
-	PerPage      int    `json:"per_page"`
-	Page         int    `json:"page"`
-	IsFuzzyQuery bool   `json:"is_fuzzy_query"`
+	ID                string `json:"id"`
+	Image             string `json:"image"`
+	Name              string `json:"name"`
+	Type              string `json:"type"`
+	RepoName          string `json:"repo_name"`
+	Branch            string `json:"branch"`
+	Source            string `json:"source"`
+	ImageHash         string `json:"image_hash"`
+	ImageTag          string `json:"image_tag"`
+	ImageDigest       string `json:"image_digest"`
+	PerPage           int    `json:"per_page"`
+	Page              int    `json:"page"`
+	IsFuzzyQuery      bool   `json:"is_fuzzy_query"`
+	PackageStorageURI string `json:"package_storage_uri"`
 }
 
 type DeliveryArtifactColl struct {
@@ -139,13 +140,20 @@ func (c *DeliveryArtifactColl) Get(args *DeliveryArtifactArgs) (*models.Delivery
 		return nil, errors.New("nil delivery_artifact args")
 	}
 	resp := new(models.DeliveryArtifact)
-	id, err := primitive.ObjectIDFromHex(args.ID)
-	if err != nil {
-		return nil, err
+	query := bson.M{}
+	if args.ID != "" {
+		id, err := primitive.ObjectIDFromHex(args.ID)
+		if err != nil {
+			return nil, err
+		}
+		query["_id"] = id
 	}
-	query := bson.M{"_id": id}
 
-	err = c.FindOne(context.TODO(), query).Decode(&resp)
+	if args.Image != "" {
+		query["image"] = args.Image
+	}
+
+	err := c.FindOne(context.TODO(), query).Decode(&resp)
 	if err != nil {
 		return nil, err
 	}
@@ -186,4 +194,41 @@ func (c *DeliveryArtifactColl) Update(args *DeliveryArtifactArgs) error {
 	}}
 	_, err := c.UpdateOne(context.TODO(), query, change, options.Update().SetUpsert(true))
 	return err
+}
+
+func (c *DeliveryArtifactColl) ListTars(args *DeliveryArtifactArgs) ([]*models.DeliveryArtifact, error) {
+	if args == nil {
+		return nil, errors.New("nil delivery_artifact args")
+	}
+
+	resp := make([]*models.DeliveryArtifact, 0)
+	query := bson.M{}
+	if args.Name != "" {
+		query["name"] = args.Name
+	}
+
+	if args.Type != "" {
+		query["type"] = args.Type
+	}
+
+	if args.Source != "" {
+		query["source"] = args.Source
+	}
+
+	if args.PackageStorageURI != "" {
+		query["package_storage_uri"] = args.PackageStorageURI
+	}
+
+	opt := options.Find().
+		SetSort(bson.D{{"created_time", -1}})
+
+	cursor, err := c.Collection.Find(context.TODO(), query, opt)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }

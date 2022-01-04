@@ -32,6 +32,8 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
+	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -43,10 +45,17 @@ func CreateTesting(username string, testing *commonmodels.Testing, log *zap.Suga
 	if len(testing.Name) == 0 {
 		return e.ErrCreateTestModule.AddDesc("empty Name")
 	}
-
+	if err := commonutil.CheckDefineResourceParam(testing.PreTest.ResReq, testing.PreTest.ResReqSpec); err != nil {
+		return e.ErrCreateTestModule.AddDesc(err.Error())
+	}
 	err := HandleCronjob(testing, log)
 	if err != nil {
 		return e.ErrCreateTestModule.AddErr(err)
+	}
+
+	err = commonservice.ProcessWebhook(testing.HookCtl.Items,nil,webhook.TestingPrefix+testing.Name,log)
+	if err != nil {
+		return e.ErrUpdateTestModule.AddErr(err)
 	}
 
 	testing.UpdateBy = username
@@ -96,7 +105,9 @@ func UpdateTesting(username string, testing *commonmodels.Testing, log *zap.Suga
 	if len(testing.Name) == 0 {
 		return e.ErrUpdateTestModule.AddDesc("empty Name")
 	}
-
+	if err := commonutil.CheckDefineResourceParam(testing.PreTest.ResReq, testing.PreTest.ResReqSpec); err != nil {
+		return e.ErrUpdateTestModule.AddDesc(err.Error())
+	}
 	err := HandleCronjob(testing, log)
 	if err != nil {
 		return e.ErrUpdateTestModule.AddErr(err)
@@ -105,6 +116,11 @@ func UpdateTesting(username string, testing *commonmodels.Testing, log *zap.Suga
 	existed, err := commonrepo.NewTestingColl().Find(testing.Name, testing.ProductName)
 	if err == nil && existed.PreTest != nil && testing.PreTest != nil {
 		commonservice.EnsureSecretEnvs(existed.PreTest.Envs, testing.PreTest.Envs)
+	}
+
+	err = commonservice.ProcessWebhook(testing.HookCtl.Items,existed.HookCtl.Items,webhook.TestingPrefix+testing.Name,log)
+	if err != nil {
+		return e.ErrUpdateTestModule.AddErr(err)
 	}
 
 	testing.UpdateBy = username

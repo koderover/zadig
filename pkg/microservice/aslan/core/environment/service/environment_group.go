@@ -24,14 +24,17 @@ import (
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/util"
 )
@@ -65,7 +68,7 @@ func ListGroups(serviceName, envName, productName string, perPage, page int, log
 	//将获取到的所有服务按照名称进行排序
 	sort.SliceStable(allServices, func(i, j int) bool { return allServices[i].ServiceName < allServices[j].ServiceName })
 
-	kubeClient, err := kube.GetKubeClient(productInfo.ClusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
 	if err != nil {
 		log.Errorf("[%s][%s] error: %v", envName, productName, err)
 		return resp, count, e.ErrListGroups.AddDesc(err.Error())
@@ -149,13 +152,29 @@ func GetIngressInfo(product *commonmodels.Product, service *commonmodels.Service
 	parsedYaml = util.ReplaceWrapLine(parsedYaml)
 	yamlContentArray := releaseutil.SplitManifests(parsedYaml)
 	hostInfos := make([]resource.HostInfo, 0)
+
 	for _, item := range yamlContentArray {
-		ing, err := serializer.NewDecoder().YamlToIngress([]byte(item))
-		if err != nil || ing == nil {
+		u, err := serializer.NewDecoder().YamlToUnstructured([]byte(item))
+		if err != nil {
+			log.Warnf("Failed to decode yaml to Unstructured, err: %s", err)
 			continue
 		}
-
-		hostInfos = append(hostInfos, wrapper.Ingress(ing).HostInfo()...)
+		switch u.GetKind() {
+		case setting.Ingress:
+			kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+			if err != nil {
+				log.Errorf("failed to init kubeClient, clusterID: %s", product.ClusterID)
+				return nil
+			}
+			// need to get ingress from k8s
+			// serializer.NewDecoder()YamlToIngress() only supports ingress resource with apiVersion: apiVersion: extensions/v1beta1
+			ing, found, err := getter.GetIngress(product.Namespace, u.GetName(), kubeClient)
+			if err != nil || !found {
+				log.Warnf("no ingress %s found in %s:%s %v", u.GetName(), service.ServiceName, product.Namespace, err)
+				continue
+			}
+			hostInfos = append(hostInfos, wrapper.Ingress(ing).HostInfo()...)
+		}
 	}
 	ingressInfo.HostInfo = hostInfos
 	return ingressInfo

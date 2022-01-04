@@ -73,16 +73,16 @@ func RequestLogFile() string {
 	return LogPath() + RequestLogName()
 }
 
-func PoetryAPIRootKey() string {
-	return viper.GetString(setting.ENVPoetryAPIRootKey)
-}
-
 func GetServiceByCode(code int) *setting.ServiceInfo {
 	return setting.Services[code]
 }
 
 func AslanServiceInfo() *setting.ServiceInfo {
 	return GetServiceByCode(setting.Aslan)
+}
+
+func SecretKey() string {
+	return viper.GetString(setting.ENVSecretKey)
 }
 
 func AslanServiceAddress() string {
@@ -142,12 +142,12 @@ func CollieServiceAddress() string {
 	return GetServiceAddress(s.Name, s.Port)
 }
 
-func PoetryServiceInfo() *setting.ServiceInfo {
-	return GetServiceByCode(setting.Poetry)
+func ConfigServiceInfo() *setting.ServiceInfo {
+	return GetServiceByCode(setting.Config)
 }
 
-func PoetryServiceAddress() string {
-	s := PoetryServiceInfo()
+func ConfigServiceAddress() string {
+	s := ConfigServiceInfo()
 	return GetServiceAddress(s.Name, s.Port)
 }
 
@@ -157,6 +157,33 @@ func WarpDriveServiceInfo() *setting.ServiceInfo {
 
 func WarpDriveServiceName() string {
 	return WarpDriveServiceInfo().Name
+}
+
+func OPAServiceInfo() *setting.ServiceInfo {
+	return GetServiceByCode(setting.OPA)
+}
+
+func OPAServiceAddress() string {
+	s := OPAServiceInfo()
+	return GetServiceAddress(s.Name, s.Port)
+}
+
+func PolicyServiceInfo() *setting.ServiceInfo {
+	return GetServiceByCode(setting.Policy)
+}
+
+func PolicyServiceAddress() string {
+	s := PolicyServiceInfo()
+	return GetServiceAddress(s.Name, s.Port)
+}
+
+func UserServiceInfo() *setting.ServiceInfo {
+	return GetServiceByCode(setting.User)
+}
+
+func UserServiceAddress() string {
+	s := UserServiceInfo()
+	return GetServiceAddress(s.Name, s.Port)
 }
 
 func GetServiceAddress(name string, port int32) string {
@@ -183,6 +210,10 @@ func ObjectStorageTemplatePath(name, kind string) string {
 	return filepath.Join("templates", kind, name)
 }
 
+func ObjectStorageDeliveryVersionPath(project string) string {
+	return filepath.Join("delivery-distributes", "files", project)
+}
+
 func ObjectStorageChartTemplatePath(name string) string {
 	return ObjectStorageTemplatePath(name, setting.ChartTemplatesPath)
 }
@@ -191,10 +222,50 @@ func LocalServicePath(project, service string) string {
 	return filepath.Join(DataPath(), project, service)
 }
 
+func LocalServicePathWithRevision(project, service, revision string) string {
+	return filepath.Join(DataPath(), project, service, revision)
+}
+
 func LocalTemplatePath(name, kind string) string {
 	return filepath.Join(DataPath(), "templates", kind, name)
 }
 
 func LocalChartTemplatePath(name string) string {
 	return LocalTemplatePath(name, setting.ChartTemplatesPath)
+}
+
+func MongoURI() string {
+	return viper.GetString(setting.ENVMongoDBConnectionString)
+}
+
+func MongoDatabase() string {
+	return viper.GetString(setting.ENVAslanDBName)
+}
+
+func MysqlUser() string {
+	return viper.GetString(setting.ENVMysqlUser)
+}
+
+func MysqlPassword() string {
+	return viper.GetString(setting.ENVMysqlPassword)
+}
+
+func MysqlHost() string {
+	return viper.GetString(setting.ENVMysqlHost)
+}
+
+func AdminEmail() string {
+	return viper.GetString(setting.ENVAdminEmail)
+}
+
+func AdminPassword() string {
+	return viper.GetString(setting.ENVAdminPassword)
+}
+
+func Namespace() string {
+	return viper.GetString(setting.ENVNamespace)
+}
+
+func RoleBindingNameFromUIDAndRole(uid string, role setting.RoleType, roleNamespace string) string {
+	return fmt.Sprintf("%s-%s-%s", uid, role, roleNamespace)
 }

@@ -17,6 +17,7 @@ limitations under the License.
 package httpclient
 
 import (
+	"net/http"
 	"net/url"
 
 	"github.com/go-resty/resty/v2"
@@ -39,6 +40,12 @@ func SetBody(body interface{}) RequestFunc {
 func SetHeader(header, value string) RequestFunc {
 	return func(r *resty.Request) {
 		r.SetHeader(header, value)
+	}
+}
+
+func SetHeadersFromHTTPHeader(header http.Header) RequestFunc {
+	return func(r *resty.Request) {
+		r.Header = header
 	}
 }
 

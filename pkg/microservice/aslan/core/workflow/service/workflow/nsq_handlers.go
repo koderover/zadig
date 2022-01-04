@@ -18,10 +18,8 @@ package workflow
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"encoding/xml"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -33,6 +31,7 @@ import (
 	dockerCli "github.com/docker/docker/client"
 	"github.com/docker/go-connections/sockets"
 	"github.com/nsqio/go-nsq"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -46,10 +45,11 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/registry"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/poetry"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/git/gitlab"
 	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
+	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -64,12 +64,11 @@ type TaskAckHandler struct {
 	deliveryArtifactColl *commonrepo.DeliveryArtifactColl
 	deliveryActivityColl *commonrepo.DeliveryActivityColl
 	TestTaskStatColl     *commonrepo.TestTaskStatColl
-	PoetryClient         *poetry.Client
 	messages             chan *nsq.Message
 	log                  *zap.SugaredLogger
 }
 
-func NewTaskAckHandler(poetryServer, poetryRootKey string, maxInFlight int, log *zap.SugaredLogger) *TaskAckHandler {
+func NewTaskAckHandler(maxInFlight int, log *zap.SugaredLogger) *TaskAckHandler {
 	return &TaskAckHandler{
 		queue:                NewPipelineQueue(log),
 		ptColl:               commonrepo.NewTaskColl(),
@@ -79,7 +78,6 @@ func NewTaskAckHandler(poetryServer, poetryRootKey string, maxInFlight int, log 
 		deliveryArtifactColl: commonrepo.NewDeliveryArtifactColl(),
 		deliveryActivityColl: commonrepo.NewDeliveryActivityColl(),
 		TestTaskStatColl:     commonrepo.NewTestTaskStatColl(),
-		PoetryClient:         poetry.New(poetryServer, poetryRootKey),
 		messages:             make(chan *nsq.Message, maxInFlight*10),
 		log:                  log,
 	}
@@ -215,6 +213,57 @@ func (h *TaskAckHandler) handle(message *nsq.Message) error {
 	return nil
 }
 
+// get docker file content from codehost
+// TODO need to support codehub and gerrit
+func getRawFileContent(codehostID int, repo, owner, branch, filePath string) ([]byte, error) {
+	ch, err := systemconfig.New().GetCodeHost(codehostID)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to get codeHost info %d", codehostID)
+	}
+	switch ch.Type {
+	case setting.SourceFromGitlab:
+		cli, err := gitlab.NewClient(ch.Address, ch.AccessToken)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Failed to get gitlab client")
+		}
+		return cli.GetRawFile(repo, owner, branch, filePath)
+	case setting.SourceFromGithub:
+		gitClient := git.NewClient(ch.AccessToken, config.ProxyHTTPSAddr())
+		return gitClient.GetFileContent(owner, repo, filePath, branch)
+	default:
+		return nil, fmt.Errorf("Failed to create client for codehostID: %d", codehostID)
+	}
+}
+
+func (h *TaskAckHandler) getDockerfileContent(build *types.Repository, ctx *task.DockerBuildCtx) string {
+	switch ctx.Source {
+	case setting.DockerfileSourceTemplate:
+		content, err := commonservice.GetDockerfileTemplateContent(ctx.TemplateID)
+		if err != nil {
+			h.log.Errorf("Failed to get dockerfile template content, err: %v", err)
+			return ""
+		}
+		return content
+	case setting.DockerfileSourceLocal:
+		path := ctx.DockerFile
+		pathArray := strings.Split(path, "/")
+		if len(pathArray[0])+1 >= len(path) {
+			h.log.Errorf("Failed to get dockerfile content, build context: %+v", *ctx)
+			return ""
+		}
+		dockerfilePath := path[len(pathArray[0])+1:]
+		content, err := getRawFileContent(build.CodehostID, build.RepoName, build.RepoOwner, build.Branch, dockerfilePath)
+		if err != nil {
+			h.log.Errorf("Failed to get dockerfile content, err %s", err)
+			return ""
+		}
+		return string(content)
+	default: // from local
+		h.log.Errorf("Failed to get dockerfile content, illegal source %s", ctx.Source)
+		return ""
+	}
+}
+
 func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 	deliveryArtifacts := make([]*commonmodels.DeliveryArtifact, 0)
 	if pt.Type == config.WorkflowType {
@@ -232,21 +281,30 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 							h.log.Errorf("uploadTaskData get buildInfo ToBuildTask failed ! err:%v", err)
 							continue
 						}
-						deliveryArtifact := new(commonmodels.DeliveryArtifact)
-						deliveryArtifact.CreatedBy = pt.TaskCreator
-						deliveryArtifact.CreatedTime = time.Now().Unix()
-						deliveryArtifact.Source = string(config.WorkflowType)
+						deliveryArtifactArray := []*commonmodels.DeliveryArtifact{}
 						if buildInfo.JobCtx.FileArchiveCtx != nil { // file
+							deliveryArtifact := new(commonmodels.DeliveryArtifact)
+							deliveryArtifact.CreatedBy = pt.TaskCreator
+							deliveryArtifact.CreatedTime = time.Now().Unix()
+							deliveryArtifact.Source = string(config.WorkflowType)
 							deliveryArtifact.Name = buildInfo.ServiceName
 							// TODO(Ray) file类型的交付物名称存放在Image和ImageTag字段是不规范的，优化时需要考虑历史数据的兼容问题。
 							deliveryArtifact.Image = buildInfo.JobCtx.FileArchiveCtx.FileName
 							deliveryArtifact.ImageTag = buildInfo.JobCtx.FileArchiveCtx.FileName
 							deliveryArtifact.Type = string(config.File)
 							deliveryArtifact.PackageFileLocation = buildInfo.JobCtx.FileArchiveCtx.FileLocation
-							storageInfo, _ := s3.NewS3StorageFromEncryptedURI(pt.StorageURI)
-							deliveryArtifact.PackageStorageURI = storageInfo.Endpoint
+							if storageInfo, err := s3.NewS3StorageFromEncryptedURI(pt.StorageURI); err == nil {
+								deliveryArtifact.PackageStorageURI = storageInfo.Endpoint + "/" + storageInfo.Bucket
+							}
 
-						} else if buildInfo.ServiceType != setting.PMDeployType { // image
+							deliveryArtifactArray = append(deliveryArtifactArray, deliveryArtifact)
+
+						}
+						if buildInfo.ServiceType != setting.PMDeployType { // image
+							deliveryArtifact := new(commonmodels.DeliveryArtifact)
+							deliveryArtifact.CreatedBy = pt.TaskCreator
+							deliveryArtifact.CreatedTime = time.Now().Unix()
+							deliveryArtifact.Source = string(config.WorkflowType)
 							image := buildInfo.JobCtx.Image
 							imageArray := strings.Split(image, "/")
 							tagArray := strings.Split(imageArray[len(imageArray)-1], ":")
@@ -283,94 +341,69 @@ func (h *TaskAckHandler) uploadTaskData(pt *task.Task) error {
 
 							if buildInfo.JobCtx.DockerBuildCtx != nil {
 								for _, build := range buildInfo.JobCtx.Builds {
-									path := buildInfo.JobCtx.DockerBuildCtx.DockerFile
-									pathArray := strings.Split(path, "/")
-									dockerfilePath := path[len(pathArray[0])+1:]
-									if strings.Contains(build.Address, "gitlab") {
-										cli, err := gitlab.NewClient(build.Address, build.OauthToken)
-										if err != nil {
-											h.log.Errorf("Failed to get gitlab client, err: %v", err)
-											continue
-										}
-										content, err := cli.GetRawFile(build.RepoOwner, build.RepoName, build.Branch, dockerfilePath)
-										if err != nil {
-											h.log.Errorf("uploadTaskData gitlab GetRawFile err:%v", err)
-											continue
-										}
-										deliveryArtifact.DockerFile = string(content)
-									} else {
-										gitClient := git.NewClient(build.OauthToken, config.ProxyHTTPSAddr())
-										fileContent, _, _, _ := gitClient.Repositories.GetContents(context.Background(), build.RepoOwner, build.RepoName, dockerfilePath, nil)
-										if fileContent != nil {
-											dockerfileContent := *fileContent.Content
-											dockerfileContent = dockerfileContent[:len(dockerfileContent)-2]
-											content, err := base64.StdEncoding.DecodeString(dockerfileContent)
-											if err != nil {
-												h.log.Errorf("uploadTaskData github GetRawFile err:%v", err)
-												continue
-											}
-											deliveryArtifact.DockerFile = string(content)
-										}
-									}
+									deliveryArtifact.DockerFile = h.getDockerfileContent(build, buildInfo.JobCtx.DockerBuildCtx)
 								}
 							}
+							deliveryArtifactArray = append(deliveryArtifactArray, deliveryArtifact)
 						}
-						tempDeliveryArtifacts, _, _ := h.deliveryArtifactColl.List(&commonrepo.DeliveryArtifactArgs{Name: deliveryArtifact.Name, Type: deliveryArtifact.Type, ImageTag: deliveryArtifact.ImageTag})
-						if len(tempDeliveryArtifacts) == 0 {
-							err = h.deliveryArtifactColl.Insert(deliveryArtifact)
-							if err == nil {
-								deliveryArtifacts = append(deliveryArtifacts, deliveryArtifact)
-								//添加事件
-								deliveryActivity := new(commonmodels.DeliveryActivity)
-								deliveryActivity.Type = setting.BuildType
-								deliveryActivity.ArtifactID = deliveryArtifact.ID
-								deliveryActivity.URL = fmt.Sprintf("/v1/projects/detail/%s/pipelines/multi/%s/%d", pt.ProductName, pt.PipelineName, pt.TaskID)
-								commits := make([]*commonmodels.ActivityCommit, 0)
-								for _, build := range buildInfo.JobCtx.Builds {
-									deliveryCommit := new(commonmodels.ActivityCommit)
-									deliveryCommit.Address = build.Address
-									deliveryCommit.Source = build.Source
-									deliveryCommit.RepoOwner = build.RepoOwner
-									deliveryCommit.RepoName = build.RepoName
-									deliveryCommit.Branch = build.Branch
-									deliveryCommit.Tag = build.Tag
-									deliveryCommit.PR = build.PR
-									deliveryCommit.CommitID = build.CommitID
-									deliveryCommit.CommitMessage = build.CommitMessage
-									deliveryCommit.AuthorName = build.AuthorName
+						for _, deliveryArtifact := range deliveryArtifactArray {
+							tempDeliveryArtifacts, _, _ := h.deliveryArtifactColl.List(&commonrepo.DeliveryArtifactArgs{Name: deliveryArtifact.Name, Type: deliveryArtifact.Type, ImageTag: deliveryArtifact.ImageTag})
+							if len(tempDeliveryArtifacts) == 0 {
+								err = h.deliveryArtifactColl.Insert(deliveryArtifact)
+								if err == nil {
+									deliveryArtifacts = append(deliveryArtifacts, deliveryArtifact)
+									//添加事件
+									deliveryActivity := new(commonmodels.DeliveryActivity)
+									deliveryActivity.Type = setting.BuildType
+									deliveryActivity.ArtifactID = deliveryArtifact.ID
+									deliveryActivity.URL = fmt.Sprintf("/v1/projects/detail/%s/pipelines/multi/%s/%d", pt.ProductName, pt.PipelineName, pt.TaskID)
+									commits := make([]*commonmodels.ActivityCommit, 0)
+									for _, build := range buildInfo.JobCtx.Builds {
+										deliveryCommit := new(commonmodels.ActivityCommit)
+										deliveryCommit.Address = build.Address
+										deliveryCommit.Source = build.Source
+										deliveryCommit.RepoOwner = build.RepoOwner
+										deliveryCommit.RepoName = build.RepoName
+										deliveryCommit.Branch = build.Branch
+										deliveryCommit.Tag = build.Tag
+										deliveryCommit.PR = build.PR
+										deliveryCommit.CommitID = build.CommitID
+										deliveryCommit.CommitMessage = build.CommitMessage
+										deliveryCommit.AuthorName = build.AuthorName
 
-									commits = append(commits, deliveryCommit)
-								}
-								deliveryActivity.Commits = commits
-
-								issueURLs := make([]string, 0)
-								//找到jira这个stage
-								for _, jiraSubStage := range stageArray {
-									if jiraSubStage.TaskType == config.TaskJira {
-										jiraSubBuildTaskMap := jiraSubStage.SubTasks
-										for _, jiraSubTask := range jiraSubBuildTaskMap {
-											jiraInfo, _ := base.ToJiraTask(jiraSubTask)
-											if jiraInfo != nil {
-												for _, issue := range jiraInfo.Issues {
-													issueURLs = append(issueURLs, issue.URL)
-												}
-												break
-											}
-										}
-										break
+										commits = append(commits, deliveryCommit)
 									}
-								}
+									deliveryActivity.Commits = commits
 
-								deliveryActivity.Issues = issueURLs
-								deliveryActivity.CreatedBy = pt.TaskCreator
-								deliveryActivity.CreatedTime = time.Now().Unix()
-								deliveryActivity.StartTime = buildInfo.StartTime
-								deliveryActivity.EndTime = buildInfo.EndTime
+									issueURLs := make([]string, 0)
+									//找到jira这个stage
+									for _, jiraSubStage := range stageArray {
+										if jiraSubStage.TaskType == config.TaskJira {
+											jiraSubBuildTaskMap := jiraSubStage.SubTasks
+											for _, jiraSubTask := range jiraSubBuildTaskMap {
+												jiraInfo, _ := base.ToJiraTask(jiraSubTask)
+												if jiraInfo != nil {
+													for _, issue := range jiraInfo.Issues {
+														issueURLs = append(issueURLs, issue.URL)
+													}
+													break
+												}
+											}
+											break
+										}
+									}
 
-								err = h.deliveryActivityColl.Insert(deliveryActivity)
-								if err != nil {
-									h.log.Errorf("uploadTaskData build deliveryActivityColl insert err:%v", err)
-									continue
+									deliveryActivity.Issues = issueURLs
+									deliveryActivity.CreatedBy = pt.TaskCreator
+									deliveryActivity.CreatedTime = time.Now().Unix()
+									deliveryActivity.StartTime = buildInfo.StartTime
+									deliveryActivity.EndTime = buildInfo.EndTime
+
+									err = h.deliveryActivityColl.Insert(deliveryActivity)
+									if err != nil {
+										h.log.Errorf("uploadTaskData build deliveryActivityColl insert err:%v", err)
+										continue
+									}
 								}
 							}
 						}
@@ -681,7 +714,7 @@ func (h *TaskAckHandler) createVersion(pt *task.Task) error {
 			}
 			if isDeploy {
 				//版本交付
-				return commonservice.AddDeliveryVersion(1, int(pt.TaskID), pt.ProductName, pt.PipelineName, pt, log.SugaredLogger())
+				return commonservice.AddDeliveryVersion(int(pt.TaskID), pt.ProductName, pt.PipelineName, pt, log.SugaredLogger())
 			}
 		}
 	}
@@ -861,7 +894,7 @@ func (h *TaskNotificationHandler) HandleMessage(message *nsq.Message) error {
 }
 
 func upsertWorkflowStat(args *commonmodels.WorkflowStat, log *zap.SugaredLogger) error {
-	if workflowStats, _ := commonrepo.NewWorkflowStatColl().FindWorkflowStat(&commonrepo.WorkflowStatArgs{Name: args.Name, Type: args.Type}); len(workflowStats) > 0 {
+	if workflowStats, _ := commonrepo.NewWorkflowStatColl().FindWorkflowStat(&commonrepo.WorkflowStatArgs{Names: []string{args.Name}, Type: args.Type}); len(workflowStats) > 0 {
 		currentWorkflowStat := workflowStats[0]
 		currentWorkflowStat.TotalDuration += args.TotalDuration
 		currentWorkflowStat.TotalSuccess += args.TotalSuccess
@@ -883,9 +916,7 @@ func upsertWorkflowStat(args *commonmodels.WorkflowStat, log *zap.SugaredLogger)
 }
 
 func getImageInfo(repoName, tag string, log *zap.SugaredLogger) (*commonmodels.DeliveryImage, error) {
-	regOps := new(commonrepo.FindRegOps)
-	regOps.IsDefault = true
-	registryInfo, err := commonrepo.NewRegistryNamespaceColl().Find(regOps)
+	registryInfo, err := commonservice.FindDefaultRegistry(false, log)
 	if err != nil {
 		log.Errorf("RegistryNamespace.get error: %v", err)
 		return nil, fmt.Errorf("RegistryNamespace.get error: %v", err)

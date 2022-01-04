@@ -18,16 +18,11 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
-
-	ginmiddleware "github.com/koderover/zadig/pkg/middleware/gin"
 )
 
 type Router struct{}
 
 func (*Router) Inject(router *gin.RouterGroup) {
-
-	router.Use(ginmiddleware.Auth())
-
 	// ---------------------------------------------------------------------------------------
 	// chart templates
 	// ---------------------------------------------------------------------------------------
@@ -36,8 +31,32 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		install.GET("", ListChartTemplates)
 		install.GET("/:name", GetChartTemplate)
 		install.GET("/:name/files", ListFiles)
+		install.GET("/:name/variables", GetTemplateVariables)
 		install.POST("", AddChartTemplate)
 		install.PUT("/:name", UpdateChartTemplate)
+		install.PUT("/:name/variables", UpdateChartTemplateVariables)
 		install.DELETE("/:name", RemoveChartTemplate)
+	}
+
+	dockerfile := router.Group("dockerfile")
+	{
+		dockerfile.POST("", CreateDockerfileTemplate)
+		dockerfile.PUT("/:id", UpdateDockerfileTemplate)
+		dockerfile.GET("", ListDockerfileTemplate)
+		dockerfile.GET("/:id", GetDockerfileTemplateDetail)
+		dockerfile.DELETE("/:id", DeleteDockerfileTemplate)
+		dockerfile.GET("/:id/reference", GetDockerfileTemplateReference)
+		dockerfile.POST("/validation", ValidateDockerfileTemplate)
+	}
+
+	yaml := router.Group("yaml")
+	{
+		yaml.POST("", CreateYamlTemplate)
+		yaml.PUT("/:id", UpdateYamlTemplate)
+		yaml.GET("", ListYamlTemplate)
+		yaml.GET("/:id", GetYamlTemplateDetail)
+		yaml.DELETE("/:id", DeleteYamlTemplate)
+		yaml.GET("/:id/reference", GetYamlTemplateReference)
+		yaml.POST("/getVariables", GetYamlTemplateVariables)
 	}
 }

@@ -30,12 +30,12 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gerrit"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 func DeleteWorkflows(productName, requestID string, log *zap.SugaredLogger) error {
-	workflows, err := mongodb.NewWorkflowColl().List(&mongodb.ListWorkflowOption{ProductName: productName})
+	workflows, err := mongodb.NewWorkflowColl().List(&mongodb.ListWorkflowOption{Projects: []string{productName}})
 	if err != nil {
 		log.Errorf("Workflow.List error: %v", err)
 		return fmt.Errorf("DeleteWorkflows productName %s Workflow.List error: %v", productName, err)
@@ -112,7 +112,7 @@ func DeleteWorkflow(workflowName, requestID string, isDeletingProductTmpl bool, 
 		log.Errorf("PipelineTaskV2.DeleteByPipelineName error: %v", err)
 	}
 
-	if deliveryVersions, err := mongodb.NewDeliveryVersionColl().Find(&mongodb.DeliveryVersionArgs{OrgID: 1, WorkflowName: workflowName}); err == nil {
+	if deliveryVersions, err := mongodb.NewDeliveryVersionColl().Find(&mongodb.DeliveryVersionArgs{WorkflowName: workflowName}); err == nil {
 		for _, deliveryVersion := range deliveryVersions {
 			if err := mongodb.NewDeliveryVersionColl().Delete(deliveryVersion.ID.Hex()); err != nil {
 				log.Errorf("DeleteWorkflow.DeliveryVersion.Delete error: %v", err)
@@ -167,7 +167,7 @@ func ProcessWebhook(updatedHooks, currentHooks interface{}, name string, logger 
 		wg.Add(1)
 		go func(wh hookItem) {
 			defer wg.Done()
-			ch, err := codehost.GetCodeHostInfoByID(wh.codeHostID)
+			ch, err := systemconfig.New().GetCodeHost(wh.codeHostID)
 			if err != nil {
 				logger.Errorf("Failed to get codeHost by id %d, err: %s", wh.codeHostID, err)
 				errs = multierror.Append(errs, err)
@@ -175,7 +175,7 @@ func ProcessWebhook(updatedHooks, currentHooks interface{}, name string, logger 
 			}
 
 			switch ch.Type {
-			case setting.SourceFromGithub, setting.SourceFromGitlab, setting.SourceFromCodeHub, setting.SourceFromIlyshin:
+			case setting.SourceFromGithub, setting.SourceFromGitlab, setting.SourceFromCodeHub:
 				err = webhook.NewClient().RemoveWebHook(&webhook.TaskOption{
 					Name:    wh.name,
 					Owner:   wh.owner,
@@ -201,7 +201,7 @@ func ProcessWebhook(updatedHooks, currentHooks interface{}, name string, logger 
 		wg.Add(1)
 		go func(wh hookItem) {
 			defer wg.Done()
-			ch, err := codehost.GetCodeHostInfoByID(wh.codeHostID)
+			ch, err := systemconfig.New().GetCodeHost(wh.codeHostID)
 			if err != nil {
 				logger.Errorf("Failed to get codeHost by id %d, err: %s", wh.codeHostID, err)
 				errs = multierror.Append(errs, err)
@@ -209,7 +209,7 @@ func ProcessWebhook(updatedHooks, currentHooks interface{}, name string, logger 
 			}
 
 			switch ch.Type {
-			case setting.SourceFromGithub, setting.SourceFromGitlab, setting.SourceFromCodeHub, setting.SourceFromIlyshin:
+			case setting.SourceFromGithub, setting.SourceFromGitlab, setting.SourceFromCodeHub:
 				err = webhook.NewClient().AddWebHook(&webhook.TaskOption{
 					Name:    wh.name,
 					Owner:   wh.owner,
@@ -271,6 +271,17 @@ func toHookSet(hooks interface{}) HookSet {
 					repo:  h.Repo,
 				},
 				codeHostID: h.CodeHostID,
+			})
+		}
+	case []*models.TestingHook:
+		for _, h := range hs {
+			res.Insert(hookItem{
+				hookUniqueID: hookUniqueID{
+					name:  h.MainRepo.Name,
+					owner: h.MainRepo.RepoOwner,
+					repo:  h.MainRepo.RepoName,
+				},
+				codeHostID: h.MainRepo.CodehostID,
 			})
 		}
 	}

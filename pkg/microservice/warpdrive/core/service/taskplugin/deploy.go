@@ -27,6 +27,8 @@ import (
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	helmrelease "helm.sh/helm/v3/pkg/release"
+	"helm.sh/helm/v3/pkg/releaseutil"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/rest"
@@ -39,16 +41,19 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	"github.com/koderover/zadig/pkg/shared/kube/resource"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
-	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 	"github.com/koderover/zadig/pkg/util"
-	"github.com/koderover/zadig/pkg/util/fs"
+	"github.com/koderover/zadig/pkg/util/converter"
+	fsutil "github.com/koderover/zadig/pkg/util/fs"
+	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 // InitializeDeployTaskPlugin to initiate deploy task plugin and return ref
@@ -58,8 +63,6 @@ func InitializeDeployTaskPlugin(taskType config.TaskType) TaskPlugin {
 		kubeClient: krkubeclient.Client(),
 		restConfig: krkubeclient.RESTConfig(),
 		httpClient: httpclient.New(
-			httpclient.SetAuthScheme(setting.RootAPIKey),
-			httpclient.SetAuthToken(config.PoetryAPIRootKey()),
 			httpclient.SetHostURL(configbase.AslanServiceAddress()),
 		),
 	}
@@ -82,8 +85,6 @@ func (p *DeployTaskPlugin) SetAckFunc(func()) {
 }
 
 const (
-	// DeployTimeout ...
-	DeployTimeout            = 60 * 10 // 10 minutes
 	imageUrlParseRegexString = `(?P<repo>.+/)?(?P<image>[^:]+){1}(:)?(?P<tag>.+)?`
 )
 
@@ -116,7 +117,7 @@ func (p *DeployTaskPlugin) SetStatus(status config.Status) {
 // TaskTimeout ...
 func (p *DeployTaskPlugin) TaskTimeout() int {
 	if p.Task.Timeout == 0 {
-		p.Task.Timeout = DeployTimeout
+		p.Task.Timeout = setting.DeployTimeout
 	} else {
 		if !p.Task.IsRestart {
 			p.Task.Timeout = p.Task.Timeout * 60
@@ -131,30 +132,58 @@ type EnvArgs struct {
 	ProductName string `json:"product_name"`
 }
 
-type SelectorBuilder struct {
-	ProductName  string
-	GroupName    string
-	ServiceName  string
-	ConfigBackup string
-	EnvName      string
+type ResourceComponentSet interface {
+	GetName() string
+	GetAnnotations() map[string]string
+	GetContainers() []*resource.ContainerImage
+	GetKind() string
 }
 
-const (
-	// ProductLabel ...
-	ProductLabel = "s-product"
-	// GroupLabel ...
-	GroupLabel = "s-group"
-	// ServiceLabel ...
-	ServiceLabel = "s-service"
-	// ConfigBackupLabel ...
-	ConfigBackupLabel = "config-backup"
-	// NamespaceLabel
-	EnvNameLabel = "s-env"
-	// EnvName ...
-	UpdateBy   = "update-by"
-	UpdateByID = "update-by-id"
-	UpdateTime = "update-time"
-)
+func RcsListFromDeployments(source []*appsv1.Deployment) []ResourceComponentSet {
+	rcsList := make([]ResourceComponentSet, 0, len(source))
+	for _, deploy := range source {
+		rcsList = append(rcsList, wrapper.Deployment(deploy))
+	}
+	return rcsList
+}
+
+func RcsListFromStatefulSets(source []*appsv1.StatefulSet) []ResourceComponentSet {
+	rcsList := make([]ResourceComponentSet, 0, len(source))
+	for _, sfs := range source {
+		rcsList = append(rcsList, wrapper.StatefulSet(sfs))
+	}
+	return rcsList
+}
+
+// find affected resources(deployment+statefulSet) for helm install or upgrade
+// resource type: deployment statefulSet
+func (p *DeployTaskPlugin) findHelmAffectedResources(namespace, serviceName string, resList []ResourceComponentSet) {
+	for _, res := range resList {
+		annotation := res.GetAnnotations()
+		if len(annotation) == 0 {
+			continue
+		}
+		// filter by services
+		if chartRelease, ok := annotation[setting.HelmReleaseNameAnnotation]; ok {
+			extractedServiceName := util.ExtraServiceName(chartRelease, namespace)
+			if extractedServiceName != serviceName {
+				continue
+			}
+		}
+		for _, container := range res.GetContainers() {
+			resolvedImageUrl := resolveImageUrl(container.Image)
+			if resolvedImageUrl[setting.PathSearchComponentImage] == p.Task.ContainerName {
+				p.Log.Infof("%s find match container.name:%s container.image:%s", res.GetKind(), container.Name, container.Image)
+				p.Task.ReplaceResources = append(p.Task.ReplaceResources, task.Resource{
+					Kind:      res.GetKind(),
+					Container: container.Name,
+					Origin:    container.Image,
+					Name:      res.GetName(),
+				})
+			}
+		}
+	}
+}
 
 func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *task.PipelineCtx, _ string) {
 	var (
@@ -172,13 +201,13 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 	}()
 
 	if pipelineTask.ConfigPayload.DeployClusterID != "" {
-		p.restConfig, err = multicluster.GetRESTConfig(pipelineTask.ConfigPayload.HubServerAddr, pipelineTask.ConfigPayload.DeployClusterID)
+		p.restConfig, err = kubeclient.GetRESTConfig(pipelineTask.ConfigPayload.HubServerAddr, pipelineTask.ConfigPayload.DeployClusterID)
 		if err != nil {
 			err = errors.WithMessage(err, "can't get k8s rest config")
 			return
 		}
 
-		p.kubeClient, err = multicluster.GetKubeClient(pipelineTask.ConfigPayload.HubServerAddr, pipelineTask.ConfigPayload.DeployClusterID)
+		p.kubeClient, err = kubeclient.GetKubeClient(pipelineTask.ConfigPayload.HubServerAddr, pipelineTask.ConfigPayload.DeployClusterID)
 		if err != nil {
 			err = errors.WithMessage(err, "can't init k8s client")
 			return
@@ -191,9 +220,13 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			serviceInfo *types.ServiceTmpl
 			selector    labels.Selector
 		)
-		serviceInfo, err = p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType, p.Task.ProductName)
+		serviceInfo, err = p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType, p.Task.ProductName, 0)
 		if err != nil {
-			return
+			// Maybe it is a share service, the entity is not under the project
+			serviceInfo, err = p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType, "", 0)
+			if err != nil {
+				return
+			}
 		}
 		if serviceInfo.WorkloadType == "" {
 			selector := labels.Set{setting.ProductLabel: p.Task.ProductName, setting.ServiceLabel: p.Task.ServiceName}.AsSelector()
@@ -331,35 +364,20 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			helmClient               helmclient.Client
 		)
 
-		deployments, _ := getter.ListDeployments(p.Task.Namespace, nil, p.kubeClient)
-		for _, deploy := range deployments {
-			for _, container := range deploy.Spec.Template.Spec.Containers {
-				if strings.Contains(container.Image, p.Task.ContainerName) {
-					p.Log.Infof("deployments find match container.name:%s", container.Name)
-					p.Task.ReplaceResources = append(p.Task.ReplaceResources, task.Resource{
-						Kind:      setting.Deployment,
-						Container: container.Name,
-						Origin:    container.Image,
-						Name:      deploy.Name,
-					})
-				}
-			}
+		rcsList := make([]ResourceComponentSet, 0)
+		deployments, errFindDeploy := getter.ListDeployments(p.Task.Namespace, nil, p.kubeClient)
+		if errFindDeploy != nil {
+			p.Log.Errorf("failed to list deployments in namespace %s, productName %s, err %s", p.Task.Namespace, p.Task.ProductName, errFindDeploy)
+		} else {
+			rcsList = append(rcsList, RcsListFromDeployments(deployments)...)
 		}
-
-		statefulSets, _ := getter.ListStatefulSets(p.Task.Namespace, nil, p.kubeClient)
-		for _, sts := range statefulSets {
-			for _, container := range sts.Spec.Template.Spec.Containers {
-				if strings.Contains(container.Image, p.Task.ContainerName) {
-					p.Log.Infof("statefulSets find match container.name:%s", container.Name)
-					p.Task.ReplaceResources = append(p.Task.ReplaceResources, task.Resource{
-						Kind:      setting.StatefulSet,
-						Container: container.Name,
-						Origin:    container.Image,
-						Name:      sts.Name,
-					})
-				}
-			}
+		statefulSets, errFindSts := getter.ListStatefulSets(p.Task.Namespace, nil, p.kubeClient)
+		if errFindSts != nil {
+			p.Log.Errorf("failed to list statefulsets in namespace %s, productName %s, err %s", p.Task.Namespace, p.Task.ProductName, errFindSts)
+		} else {
+			rcsList = append(rcsList, RcsListFromStatefulSets(statefulSets)...)
 		}
+		p.findHelmAffectedResources(p.Task.Namespace, p.Task.ServiceName, rcsList)
 
 		p.Log.Infof("start helm deploy, productName %s serviceName %s containerName %s namespace %s", p.Task.ProductName,
 			p.Task.ServiceName, p.Task.ContainerName, p.Task.Namespace)
@@ -372,6 +390,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				p.Task.Namespace, p.Task.ServiceName)
 			return
 		}
+
 		renderInfo, err = p.getRenderSet(ctx, productInfo.Render.Name, productInfo.Render.Revision)
 		if err != nil {
 			err = errors.WithMessagef(
@@ -381,21 +400,28 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			return
 		}
 
+		serviceRevisionInProduct := int64(0)
 		var targetContainer *types.Container
-		for _, serviceGroup := range productInfo.Services {
-			for _, service := range serviceGroup {
-				if service.ServiceName == p.Task.ServiceName {
-					for _, container := range service.Containers {
-						if container.Name == p.Task.ContainerName {
-							targetContainer = container
-						}
+		for _, service := range productInfo.GetServiceMap() {
+			if service.ServiceName == p.Task.ServiceName {
+				serviceRevisionInProduct = service.Revision
+				for _, container := range service.Containers {
+					if container.Name == p.Task.ContainerName {
+						targetContainer = container
+						break
 					}
 				}
+				break
 			}
 		}
 
 		if targetContainer == nil {
 			err = errors.Errorf("failed to find target container %s from service %s", p.Task.ContainerName, p.Task.ServiceName)
+			return
+		}
+
+		if targetContainer.ImagePath == nil {
+			err = errors.Errorf("failed to get image path of  %s from service %s", p.Task.ContainerName, p.Task.ServiceName)
 			return
 		}
 
@@ -407,16 +433,44 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		}
 
 		if renderChart == nil {
-			err = errors.Errorf("failed to update container image in %s/%s，not find",
+			err = errors.Errorf("failed to update container image in %s/%s，chart not found",
 				p.Task.Namespace, p.Task.ServiceName)
+			return
+		}
+
+		// use revision of service currently applied in environment instead of the latest revision
+		path, errDownload := p.downloadService(pipelineTask.ProductName, p.Task.ServiceName,
+			pipelineTask.StorageURI, serviceRevisionInProduct)
+		if errDownload != nil {
+			p.Log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
+				serviceRevisionInProduct, p.Task.ServiceName)
+			path, errDownload = p.downloadService(pipelineTask.ProductName, p.Task.ServiceName,
+				pipelineTask.StorageURI, 0)
+			if errDownload != nil {
+				err = errors.WithMessagef(
+					errDownload,
+					"failed to download service %s/%s",
+					p.Task.Namespace, p.Task.ServiceName)
+				return
+			}
+		}
+
+		chartPath, err = fsutil.RelativeToCurrentPath(path)
+		if err != nil {
+			err = errors.WithMessagef(
+				err,
+				"failed to get relative path %s",
+				servicePath,
+			)
 			return
 		}
 
 		serviceValuesYaml := renderChart.ValuesYaml
 
 		// prepare image replace info
-		getValidMatchData := getValidMatchData(targetContainer.ImagePath)
-		replaceValuesMap, err = assignImageData(p.Task.Image, getValidMatchData)
+		validMatchData := getValidMatchData(targetContainer.ImagePath)
+
+		replaceValuesMap, err = assignImageData(p.Task.Image, validMatchData)
 		if err != nil {
 			err = errors.WithMessagef(
 				err,
@@ -441,7 +495,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		}
 
 		// merge override values and kvs into service's yaml
-		mergedValuesYaml, err = helmtool.MergeOverrideValues(serviceValuesYaml, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
+		mergedValuesYaml, err = helmtool.MergeOverrideValues(serviceValuesYaml, renderInfo.DefaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
 		if err != nil {
 			err = errors.WithMessagef(
 				err,
@@ -477,24 +531,6 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			return
 		}
 
-		servicePath, err = p.downloadService(pipelineTask.ProductName, p.Task.ServiceName, pipelineTask.StorageURI)
-		if err != nil {
-			err = errors.WithMessagef(
-				err,
-				"failed to download service %s/%s",
-				p.Task.Namespace, p.Task.ServiceName)
-			return
-		}
-		chartPath, err = fs.RelativeToCurrentPath(servicePath)
-		if err != nil {
-			err = errors.WithMessagef(
-				err,
-				"failed to get relative path %s",
-				servicePath,
-			)
-			return
-		}
-
 		chartSpec := helmclient.ChartSpec{
 			ReleaseName: util.GeneHelmReleaseName(p.Task.Namespace, p.Task.ServiceName),
 			ChartName:   chartPath,
@@ -504,14 +540,59 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			ValuesYaml:  replacedMergedValuesYaml,
 			SkipCRDs:    false,
 			UpgradeCRDs: true,
-			Timeout:     time.Second * DeployTimeout,
+			Timeout:     time.Second * setting.DeployTimeout,
+			Wait:        true,
 		}
 
-		if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), &chartSpec); err != nil {
-			err = errors.WithMessagef(
-				err,
-				"failed to Install helm chart %s/%s",
-				p.Task.Namespace, p.Task.ServiceName)
+		done := make(chan bool)
+		defer close(done)
+		go func(chan bool) {
+			if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), &chartSpec); err != nil {
+				err = errors.WithMessagef(
+					err,
+					"failed to Install helm chart %s/%s",
+					p.Task.Namespace, p.Task.ServiceName)
+				done <- false
+			} else {
+				done <- true
+			}
+		}(done)
+
+		pendingStatusProcess := func(typ string) error {
+			hrs, errHistory := helmClient.ListReleaseHistory(chartSpec.ReleaseName, 10)
+			if errHistory != nil {
+				err = errors.WithMessagef(
+					err,
+					"failed to ListReleaseHistory: %s,error:%s",
+					chartSpec.ReleaseName, errHistory)
+				return err
+			}
+			if len(hrs) > 0 {
+				releaseutil.Reverse(hrs, releaseutil.SortByRevision)
+				rel := hrs[0]
+				if rel.Info.Status == helmrelease.StatusPendingInstall || rel.Info.Status == helmrelease.StatusPendingUpgrade {
+					secretName := fmt.Sprintf("sh.helm.release.v1.%s.v.%d", rel.Name, rel.Version)
+					deleteErr := updater.DeleteSecretWithName(rel.Namespace, secretName, p.kubeClient)
+					if deleteErr != nil {
+						err = errors.WithMessagef(err, "failed to deleteSecretWithName:%s,error:%s", secretName, deleteErr)
+						return err
+					}
+				}
+			}
+			if err != nil {
+				err = fmt.Errorf("failed to install %s:%s", typ, err)
+			}
+			return err
+		}
+		select {
+		case d := <-done:
+			if !d {
+				err = pendingStatusProcess("normal")
+			}
+		case <-time.After(chartSpec.Timeout + 5*time.Second):
+			err = pendingStatusProcess("timeout")
+		}
+		if err != nil {
 			return
 		}
 
@@ -525,9 +606,10 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 
 		// TODO too dangerous to override entire renderset!
 		err = p.updateRenderSet(ctx, &types.RenderSet{
-			Name:       renderInfo.Name,
-			Revision:   renderInfo.Revision,
-			ChartInfos: renderInfo.ChartInfos,
+			Name:          renderInfo.Name,
+			Revision:      renderInfo.Revision,
+			DefaultValues: renderInfo.DefaultValues,
+			ChartInfos:    renderInfo.ChartInfos,
 		})
 		if err != nil {
 			err = errors.WithMessagef(
@@ -539,51 +621,76 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 }
 
 func (p *DeployTaskPlugin) getProductInfo(ctx context.Context, args *EnvArgs) (*types.Product, error) {
-	url := fmt.Sprintf("/api/environment/environments/%s/productInfo", args.ProductName)
+	url := fmt.Sprintf("/api/environment/environments/%s/productInfo", args.EnvName)
 
 	prod := &types.Product{}
-	_, err := p.httpClient.Get(url, httpclient.SetResult(prod), httpclient.SetQueryParam("envName", args.EnvName))
+	_, err := p.httpClient.Get(url, httpclient.SetResult(prod), httpclient.SetQueryParam("projectName", args.ProductName))
 	if err != nil {
 		return nil, err
 	}
 	return prod, nil
 }
 
-func (p *DeployTaskPlugin) getService(ctx context.Context, name, serviceType, productName string) (*types.ServiceTmpl, error) {
+func (p *DeployTaskPlugin) getService(ctx context.Context, name, serviceType, productName string, revision int64) (*types.ServiceTmpl, error) {
 	url := fmt.Sprintf("/api/service/services/%s/%s", name, serviceType)
 
 	s := &types.ServiceTmpl{}
-	_, err := p.httpClient.Get(url, httpclient.SetResult(s), httpclient.SetQueryParam("productName", productName))
+	_, err := p.httpClient.Get(url, httpclient.SetResult(s), httpclient.SetQueryParams(map[string]string{
+		"productName": productName,
+		"revision":    fmt.Sprintf("%d", revision),
+	}))
 	if err != nil {
 		return nil, err
 	}
 	return s, nil
 }
 
-func (p *DeployTaskPlugin) downloadService(productName, serviceName, storageURI string) (string, error) {
+// download chart info of specific version, use the latest version if fails
+func (p *DeployTaskPlugin) downloadService(productName, serviceName, storageURI string, revision int64) (string, error) {
 	logger := p.Log
 
-	base := configbase.LocalServicePath(productName, serviceName)
+	fileName := serviceName
+	if revision > 0 {
+		fileName = fmt.Sprintf("%s-%d", serviceName, revision)
+	}
+	tarball := fmt.Sprintf("%s.tar.gz", fileName)
+	localBase := configbase.LocalServicePath(productName, serviceName)
+	tarFilePath := filepath.Join(localBase, tarball)
+
+	exists, err := fsutil.FileExists(tarFilePath)
+	if err != nil {
+		return "", err
+	}
+	if exists {
+		return tarFilePath, nil
+	}
+
 	s3Storage, err := s3.NewS3StorageFromEncryptedURI(storageURI)
 	if err != nil {
 		return "", err
 	}
 
-	tarball := fmt.Sprintf("%s.tar.gz", serviceName)
-	tarFilePath := filepath.Join(base, tarball)
 	s3Storage.Subfolder = filepath.Join(s3Storage.Subfolder, configbase.ObjectStorageServicePath(productName, serviceName))
 	forcedPathStyle := true
 	if s3Storage.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
 	}
-	client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
+	s3Client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
 	if err != nil {
-		p.Log.Errorf("failed to create s3 client, err: %+v", err)
+		p.Log.Errorf("failed to create s3 client, err: %s", err)
 		return "", err
 	}
-	if err = client.Download(s3Storage.Bucket, s3Storage.GetObjectPath(tarball), tarFilePath); err != nil {
-		logger.Errorf("Failed to download file from s3, err: %s", err)
+	if err = s3Client.Download(s3Storage.Bucket, s3Storage.GetObjectPath(tarball), tarFilePath); err != nil {
+		logger.Errorf("failed to download file from s3, err: %s", err)
 		return "", err
+	}
+
+	exists, err = fsutil.FileExists(tarFilePath)
+	if err != nil {
+		return "", err
+	}
+	if !exists {
+		return "", fmt.Errorf("file %s on s3 not found", s3Storage.GetObjectPath(tarball))
 	}
 
 	return tarFilePath, nil
@@ -597,6 +704,7 @@ func (p *DeployTaskPlugin) getRenderSet(ctx context.Context, name string, revisi
 	if err != nil {
 		return nil, err
 	}
+
 	return rs, nil
 }
 
@@ -622,22 +730,37 @@ func getValidMatchData(spec *types.ImagePathSpec) map[string]string {
 	return ret
 }
 
-// replace image defines in yaml by new version
-func replaceImage(sourceYaml string, imageValuesMap map[string]interface{}) (string, error) {
-	valuesMap := make(map[string]interface{})
-	err := yaml.Unmarshal([]byte(sourceYaml), &valuesMap)
-	if err != nil {
-		return "", err
+// parse image url to map: repo=>xxx/xx/xx image=>xx tag=>xxx
+func resolveImageUrl(imageUrl string) map[string]string {
+	subMatchAll := imageParseRegex.FindStringSubmatch(imageUrl)
+	result := make(map[string]string)
+	exNames := imageParseRegex.SubexpNames()
+	for i, matchedStr := range subMatchAll {
+		if i != 0 && matchedStr != "" && matchedStr != ":" {
+			result[exNames[i]] = matchedStr
+		}
 	}
-	replaceMap := util.ReplaceMapValue(valuesMap, imageValuesMap)
-	replacedValuesYaml, err := util.JSONToYaml(replaceMap)
-	if err != nil {
-		return "", err
-	}
-	return replacedValuesYaml, nil
+	return result
 }
 
-// assign image url data into match data
+// replace image defines in yaml by new version
+func replaceImage(sourceYaml string, imageValuesMap map[string]interface{}) (string, error) {
+	nestedMap, err := converter.Expand(imageValuesMap)
+	if err != nil {
+		return "", err
+	}
+	bs, err := yaml.Marshal(nestedMap)
+	if err != nil {
+		return "", err
+	}
+	mergedBs, err := yamlutil.Merge([][]byte{[]byte(sourceYaml), bs})
+	if err != nil {
+		return "", err
+	}
+	return string(mergedBs), nil
+}
+
+// assignImageData assign image url data into match data
 // matchData: image=>absolute-path repo=>absolute-path tag=>absolute-path
 // return: absolute-image-path=>image-value  absolute-repo-path=>repo-value absolute-tag-path=>tag-value
 func assignImageData(imageUrl string, matchData map[string]string) (map[string]interface{}, error) {
@@ -672,28 +795,14 @@ func assignImageData(imageUrl string, matchData map[string]string) (map[string]i
 				break
 			}
 			return ret, nil
-		} else {
-			// image url assigned into repo + image(tag)
-			ret[matchData[setting.PathSearchComponentRepo]] = strings.TrimSuffix(resolvedImageUrl[setting.PathSearchComponentRepo], "/")
-			ret[matchData[setting.PathSearchComponentImage]] = fmt.Sprintf("%s:%s", resolvedImageUrl[setting.PathSearchComponentImage], resolvedImageUrl[setting.PathSearchComponentTag])
-			return ret, nil
 		}
+		// image url assigned into repo + image(tag)
+		ret[matchData[setting.PathSearchComponentRepo]] = strings.TrimSuffix(resolvedImageUrl[setting.PathSearchComponentRepo], "/")
+		ret[matchData[setting.PathSearchComponentImage]] = fmt.Sprintf("%s:%s", resolvedImageUrl[setting.PathSearchComponentImage], resolvedImageUrl[setting.PathSearchComponentTag])
+		return ret, nil
 	}
 
 	return nil, errors.Errorf("match data illegal, expect length: 1-3, actual length: %d", len(matchData))
-}
-
-// parse image url to map: repo=>xxx/xx/xx image=>xx tag=>xxx
-func resolveImageUrl(imageUrl string) map[string]string {
-	subMatchAll := imageParseRegex.FindStringSubmatch(imageUrl)
-	result := make(map[string]string)
-	exNames := imageParseRegex.SubexpNames()
-	for i, matchedStr := range subMatchAll {
-		if i != 0 && matchedStr != "" && matchedStr != ":" {
-			result[exNames[i]] = matchedStr
-		}
-	}
-	return result
 }
 
 // Wait ...

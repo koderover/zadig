@@ -30,7 +30,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/codehost"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -65,7 +65,7 @@ type Command struct {
 	IgnoreError bool
 }
 
-func RunGitCmds(codehostDetail *codehost.Detail, repoOwner, repoName, branchName, remoteName string) error {
+func RunGitCmds(codehostDetail *systemconfig.CodeHost, repoOwner, repoName, branchName, remoteName string) error {
 	var (
 		tokens []string
 		repo   *Repo
@@ -73,11 +73,11 @@ func RunGitCmds(codehostDetail *codehost.Detail, repoOwner, repoName, branchName
 		cmds   = make([]*Command, 0)
 	)
 	repo = &Repo{
-		Source:     codehostDetail.Source,
+		Source:     codehostDetail.Type,
 		Address:    codehostDetail.Address,
 		Name:       repoName,
 		Branch:     branchName,
-		OauthToken: codehostDetail.OauthToken,
+		OauthToken: codehostDetail.AccessToken,
 		RemoteName: remoteName,
 		Owner:      repoOwner,
 	}

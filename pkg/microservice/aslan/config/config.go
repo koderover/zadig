@@ -74,24 +74,16 @@ func LogLevel() int {
 	return viper.GetInt(setting.ENVLogLevel)
 }
 
-func PoetryAPIServer() string {
-	return configbase.PoetryServiceAddress()
-}
-
-func PoetryAPIRootKey() string {
-	return viper.GetString(setting.ENVPoetryAPIRootKey)
-}
-
 func CollieAPIAddress() string {
 	return configbase.CollieServiceAddress()
 }
 
 func MongoURI() string {
-	return viper.GetString(setting.ENVMongoDBConnectionString)
+	return configbase.MongoURI()
 }
 
 func MongoDatabase() string {
-	return viper.GetString(setting.ENVAslanDBName)
+	return configbase.MongoDatabase()
 }
 
 func NsqLookupAddrs() []string {
@@ -198,6 +190,10 @@ func PredatorImage() string {
 	return viper.GetString(setting.ENVPredatorImage)
 }
 
+func PackagerImage() string {
+	return viper.GetString(setting.EnvPackagerImage)
+}
+
 func DockerHosts() []string {
 	return strings.Split(viper.GetString(setting.ENVDockerHosts), ",")
 }
@@ -231,5 +227,21 @@ func ObjectStorageServicePath(project, service string) string {
 }
 
 func LocalServicePath(project, service string) string {
-	return configbase.LocalServicePath(project, service)
+	return configbase.LocalServicePathWithRevision(project, service, "latest")
+}
+
+func LocalServicePathWithRevision(project, service string, revision int64) string {
+	return configbase.LocalServicePathWithRevision(project, service, fmt.Sprintf("%d", revision))
+}
+
+func LocalDeliveryChartPathWithRevision(project, service string, revision int64) string {
+	return configbase.LocalServicePathWithRevision(project, service, fmt.Sprintf("delivery/%d", revision))
+}
+
+func ServiceNameWithRevision(serviceName string, revision int64) string {
+	return fmt.Sprintf("%s-%d", serviceName, revision)
+}
+
+func ServiceAccountNameForUser(userID string) string {
+	return fmt.Sprintf("%s-sa", userID)
 }

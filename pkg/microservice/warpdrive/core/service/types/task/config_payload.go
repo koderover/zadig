@@ -18,9 +18,12 @@ package task
 
 import (
 	"fmt"
+
+	corev1 "k8s.io/api/core/v1"
 )
 
 type ConfigPayload struct {
+	APIToken           string             `json:"api_token"`
 	Proxy              Proxy              `json:"proxy"`
 	S3Storage          S3Config           `json:"s3_storage"`
 	Github             GithubConfig       `json:"github"`
@@ -39,6 +42,7 @@ type ConfigPayload struct {
 	CustomDNSSupported bool `json:"custom_dns_supported"`
 	HubServerAddr      string
 	DeployClusterID    string
+	AesKey             string `json:"aes_key"`
 
 	RepoConfigs map[string]*RegistryNamespace
 
@@ -48,6 +52,9 @@ type ConfigPayload struct {
 	// ResetCache means ignore workspace cache
 	ResetCache  bool          `json:"reset_cache"`
 	PrivateKeys []*PrivateKey `json:"private_keys"`
+	K8SClusters []*K8SCluster `json:"k8s_clusters"`
+
+	RegistryID string `json:"registry_id"`
 }
 
 func (cp *ConfigPayload) GetGitKnownHost() string {
@@ -81,15 +88,15 @@ type S3Config struct {
 
 type GithubConfig struct {
 	// github API access token
-	AccessToken string
+	AccessToken string `json:"access_token"`
 	// github ssh key with base64 encoded
-	SSHKey string
+	SSHKey string `json:"ssh_key"`
 	// github knownhost
-	KnownHost string
+	KnownHost string `json:"known_host"`
 	// github app private key
-	AppKey string
+	AppKey string `json:"app_key"`
 	// gihhub app id
-	AppID int
+	AppID int `json:"app_id"`
 }
 
 type GitlabConfig struct {
@@ -120,14 +127,17 @@ type RegistryConfig struct {
 
 type ReleaseConfig struct {
 	// ReaperImage sets build job image
-	// e.g. xxx.com/poetry-resources/reaper-plugin:1.0.0
+	// e.g. xxx.com/resources/reaper-plugin:1.0.0
 	ReaperImage string
 	// ReaperBinaryFile sets download url of reaper binary file in build job
 	// e.g. http://resource.koderover.com/reaper-20201014203000
 	ReaperBinaryFile string
 	// PredatorImage sets docker build image
-	// e.g. xxx.com/poetry-resources/predator-plugin:v0.1.0
+	// e.g. xxx.com/resources/predator-plugin:v0.1.0
 	PredatorImage string
+	// PackagerImage sets docker build image
+	// e.g. xxx.com/resources/packager-plugin:v0.1.0
+	PackagerImage string
 }
 
 type ImageReleaseConfig struct {
@@ -146,4 +156,21 @@ type JenkinsBuildConfig struct {
 
 type PrivateKey struct {
 	Name string `json:"name"`
+}
+
+type K8SCluster struct {
+	ID             string          `json:"id,omitempty"                bson:"_id,omitempty"`
+	Name           string          `json:"name"                        bson:"name"`
+	AdvancedConfig *AdvancedConfig `json:"advanced_config,omitempty"   bson:"advanced_config,omitempty"`
+}
+
+type AdvancedConfig struct {
+	Strategy   string                     `json:"strategy,omitempty"      bson:"strategy,omitempty"`
+	NodeLabels []*NodeSelectorRequirement `json:"node_labels,omitempty"   bson:"node_labels,omitempty"`
+}
+
+type NodeSelectorRequirement struct {
+	Key      string                      `json:"key"`
+	Value    []string                    `json:"value"`
+	Operator corev1.NodeSelectorOperator `json:"operator"`
 }

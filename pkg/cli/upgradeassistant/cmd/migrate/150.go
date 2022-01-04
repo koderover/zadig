@@ -20,9 +20,7 @@ import (
 	"fmt"
 
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/setting"
@@ -31,8 +29,8 @@ import (
 )
 
 func init() {
-	upgradepath.AddHandler(upgradepath.V140, upgradepath.V150, V140ToV150)
-	upgradepath.AddHandler(upgradepath.V150, upgradepath.V140, V150ToV140)
+	upgradepath.RegisterHandler("1.4.0", "1.5.0", V140ToV150)
+	upgradepath.RegisterHandler("1.5.0", "1.4.0", V150ToV140)
 }
 
 // V140ToV150 fill image path data for old data in product.services.containers
@@ -40,7 +38,7 @@ func init() {
 func V140ToV150() error {
 	log.Info("Migrating data from 1.4.0 to 1.5.0")
 
-	products, err := mongodb.NewProductColl().List(&mongodb.ProductListOptions{
+	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		ExcludeStatus: setting.ProductStatusDeleting,
 		Source:        setting.SourceFromHelm,
 	})
@@ -134,7 +132,7 @@ func fillImageParseInfo(prod *commonmodels.Product) error {
 }
 
 // find match rule
-func findImageByContainerName(flatMap map[string]interface{}, matchedPath []map[string]string, container *models.Container) error {
+func findImageByContainerName(flatMap map[string]interface{}, matchedPath []map[string]string, container *commonmodels.Container) error {
 	for _, searchResult := range matchedPath {
 		imageURI, err := commonservice.GeneImageURI(searchResult, flatMap)
 		if err != nil {
@@ -144,12 +142,12 @@ func findImageByContainerName(flatMap map[string]interface{}, matchedPath []map[
 		if container.Name != commonservice.ExtractImageName(imageURI) {
 			continue
 		}
-		container.ImagePath = &models.ImagePathSpec{
+		container.ImagePath = &commonmodels.ImagePathSpec{
 			Repo:  searchResult[setting.PathSearchComponentRepo],
 			Image: searchResult[setting.PathSearchComponentImage],
 			Tag:   searchResult[setting.PathSearchComponentTag],
 		}
 		return nil
 	}
-	return fmt.Errorf("faild to find image for contianer %s", container.Image)
+	return fmt.Errorf("failed to find image for contianer %s", container.Image)
 }

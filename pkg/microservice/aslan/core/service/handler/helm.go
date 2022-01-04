@@ -46,13 +46,30 @@ func GetHelmServiceModule(c *gin.Context) {
 func GetFilePath(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = svcservice.GetFilePath(c.Param("serviceName"), c.Param("productName"), c.Query("dir"), ctx.Logger)
+	revision := int64(0)
+	var err error
+	if len(c.Query("revision")) > 0 {
+		revision, err = strconv.ParseInt(c.Query("revision"), 10, 64)
+	}
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid revision number")
+		return
+	}
+	ctx.Resp, ctx.Err = svcservice.GetFilePath(c.Param("serviceName"), c.Param("productName"), revision, c.Query("dir"), ctx.Logger)
 }
 
 func GetFileContent(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	ctx.Resp, ctx.Err = svcservice.GetFileContent(c.Param("serviceName"), c.Param("productName"), c.Query("filePath"), c.Query("fileName"), ctx.Logger)
+
+	param := new(svcservice.GetFileContentParam)
+	err := c.ShouldBindQuery(param)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	ctx.Resp, ctx.Err = svcservice.GetFileContent(c.Param("serviceName"), c.Param("productName"), param, ctx.Logger)
 }
 
 func CreateOrUpdateHelmService(c *gin.Context) {
@@ -64,9 +81,23 @@ func CreateOrUpdateHelmService(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid HelmService json args")
 		return
 	}
-	args.CreatedBy = ctx.Username
+	args.CreatedBy = ctx.UserName
 
-	ctx.Err = svcservice.CreateOrUpdateHelmService(c.Query("productName"), args, ctx.Logger)
+	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateHelmService(c.Query("projectName"), args, ctx.Logger)
+}
+
+func CreateOrUpdateBulkHelmServices(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(svcservice.BulkHelmServiceCreationArgs)
+	if err := c.BindJSON(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid HelmService json args")
+		return
+	}
+	args.CreatedBy = ctx.UserName
+
+	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateBulkHelmService(c.Query("projectName"), args, ctx.Logger)
 }
 
 func UpdateHelmService(c *gin.Context) {
@@ -78,7 +109,7 @@ func UpdateHelmService(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid HelmServiceArgs json args")
 		return
 	}
-	args.CreateBy = ctx.Username
+	args.CreateBy = ctx.UserName
 	args.ProductName = c.Param("productName")
 
 	ctx.Err = svcservice.UpdateHelmService(args, ctx.Logger)

@@ -22,21 +22,22 @@ import (
 	"fmt"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/go-multierror"
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+	helmrelease "helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"helm.sh/helm/v3/pkg/strvals"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -46,20 +47,20 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
-	"github.com/koderover/zadig/pkg/shared/poetry"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
-	"github.com/koderover/zadig/pkg/types/permission"
+	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/converter"
 	"github.com/koderover/zadig/pkg/util/fs"
@@ -71,29 +72,53 @@ const (
 	UpdateTypeEnv    = "envVar"
 )
 
+const (
+	usageScenarioCreateEnv       = "createEnv"
+	usageScenarioUpdateEnv       = "updateEnv"
+	usageScenarioUpdateRenderSet = "updateRenderSet"
+)
+
 type EnvStatus struct {
 	EnvName    string `json:"env_name,omitempty"`
 	Status     string `json:"status"`
 	ErrMessage string `json:"err_message"`
 }
 
+type EnvResp struct {
+	ProjectName string `json:"projectName"`
+	Status      string `json:"status"`
+	Error       string `json:"error"`
+	Name        string `json:"name"`
+	UpdateBy    string `json:"updateBy"`
+	UpdateTime  int64  `json:"updateTime"`
+	IsPublic    bool   `json:"isPublic"`
+	ClusterName string `json:"clusterName"`
+	ClusterID   string `json:"cluster_id"`
+	Production  bool   `json:"production"`
+	Source      string `json:"source"`
+	RegistryID  string `json:"registry_id"`
+}
+
 type ProductResp struct {
-	ID          string                   `json:"id"`
-	ProductName string                   `json:"product_name"`
-	Namespace   string                   `json:"namespace"`
-	Status      string                   `json:"status"`
-	Error       string                   `json:"error"`
-	EnvName     string                   `json:"env_name"`
-	UpdateBy    string                   `json:"update_by"`
-	UpdateTime  int64                    `json:"update_time"`
-	Services    [][]string               `json:"services"`
-	Render      *commonmodels.RenderInfo `json:"render"`
-	Vars        []*template.RenderKV     `json:"vars"`
-	IsPublic    bool                     `json:"isPublic"`
-	ClusterID   string                   `json:"cluster_id,omitempty"`
-	RecycleDay  int                      `json:"recycle_day"`
-	IsProd      bool                     `json:"is_prod"`
-	Source      string                   `json:"source"`
+	ID          string                     `json:"id"`
+	ProductName string                     `json:"product_name"`
+	Namespace   string                     `json:"namespace"`
+	Status      string                     `json:"status"`
+	Error       string                     `json:"error"`
+	EnvName     string                     `json:"env_name"`
+	UpdateBy    string                     `json:"update_by"`
+	UpdateTime  int64                      `json:"update_time"`
+	Services    [][]string                 `json:"services"`
+	Render      *commonmodels.RenderInfo   `json:"render"`
+	Vars        []*templatemodels.RenderKV `json:"vars"`
+	IsPublic    bool                       `json:"isPublic"`
+	ClusterID   string                     `json:"cluster_id,omitempty"`
+	ClusterName string                     `json:"cluster_name,omitempty"`
+	RecycleDay  int                        `json:"recycle_day"`
+	IsProd      bool                       `json:"is_prod"`
+	IsLocal     bool                       `json:"is_local"`
+	Source      string                     `json:"source"`
+	RegisterID  string                     `json:"registry_id"`
 }
 
 type ProductParams struct {
@@ -103,16 +128,30 @@ type ProductParams struct {
 	PermissionUUIDs []string `json:"permissionUUIDs"`
 }
 
+type EstimateValuesArg struct {
+	DefaultValues  string                  `json:"defaultValues"`
+	OverrideYaml   string                  `json:"overrideYaml"`
+	OverrideValues []*commonservice.KVPair `json:"overrideValues,omitempty"`
+}
+
 type EnvRenderChartArg struct {
 	ChartValues []*commonservice.RenderChartArg `json:"chartValues"`
 }
 
+type EnvRendersetArg struct {
+	DefaultValues string                          `json:"defaultValues"`
+	ChartValues   []*commonservice.RenderChartArg `json:"chartValues"`
+}
+
 type CreateHelmProductArg struct {
-	ProductName string                          `json:"productName"`
-	EnvName     string                          `json:"envName"`
-	Namespace   string                          `json:"namespace"`
-	ClusterID   string                          `json:"clusterID"`
-	ChartValues []*commonservice.RenderChartArg `json:"chartValues"`
+	ProductName   string                          `json:"productName"`
+	EnvName       string                          `json:"envName"`
+	Namespace     string                          `json:"namespace"`
+	ClusterID     string                          `json:"clusterID"`
+	DefaultValues string                          `json:"defaultValues"`
+	RegistryID    string                          `json:"registry_id"`
+	ChartValues   []*commonservice.RenderChartArg `json:"chartValues"`
+	BaseEnvName   string                          `json:"baseEnvName"`
 }
 
 type UpdateMultiHelmProductArg struct {
@@ -122,377 +161,66 @@ type UpdateMultiHelmProductArg struct {
 	ReplacePolicy string                          `json:"replacePolicy"` // TODO logic not implemented
 }
 
-func UpdateProductPublic(productName string, args *ProductParams, log *zap.SugaredLogger) error {
-	err := commonrepo.NewProductColl().UpdateIsPublic(args.EnvName, productName, args.IsPublic)
-	if err != nil {
-		log.Errorf("UpdateProductPublic error: %v", err)
-		return fmt.Errorf("UpdateProductPublic error: %v", err)
-	}
-
-	poetryCtl := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
-	if !args.IsPublic { //把公开设置成不公开
-		_, err := poetryCtl.AddEnvRolePermission(productName, args.EnvName, args.PermissionUUIDs, args.RoleID, log)
-		if err != nil {
-			log.Errorf("UpdateProductPublic AddEnvRole error: %v", err)
-			return fmt.Errorf("UpdateProductPublic AddEnvRole error: %v", err)
-		}
-		return nil
-	}
-	//把不公开设成公开 删除原来环境绑定的角色
-	_, err = poetryCtl.DeleteEnvRolePermission(productName, args.EnvName, log)
-	if err != nil {
-		log.Errorf("UpdateProductPublic DeleteEnvRole error: %v", err)
-		return fmt.Errorf("UpdateProductPublic DeleteEnvRole error: %v", err)
-	}
-
-	return nil
+type RawYamlResp struct {
+	YamlContent string `json:"yamlContent"`
 }
 
-func ListProducts(productNameParam, envType string, userName string, userID int, superUser bool, log *zap.SugaredLogger) ([]*ProductResp, error) {
-	var (
-		err               error
-		testResp          []*ProductResp
-		prodResp          []*ProductResp
-		products          = make([]*commonmodels.Product, 0)
-		productNameMap    map[string][]int64
-		productNamespaces = sets.NewString()
-	)
-	resp := make([]*ProductResp, 0)
+type intervalExecutorHandler func(data *commonmodels.Service, isRetry bool, kubecli client.Client, log *zap.SugaredLogger) error
 
-	poetryCtl := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
-
-	// 获取所有产品
-	if superUser {
-		products, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productNameParam})
-		if err != nil {
-			log.Errorf("[%s] Collections.Product.List error: %v", userName, err)
-			return resp, e.ErrListEnvs.AddDesc(err.Error())
-		}
-	} else {
-		//项目下所有公开环境
-		publicProducts, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{IsPublic: true})
-		if err != nil {
-			log.Errorf("Collection.Product.List List product error: %v", err)
-			return resp, e.ErrListProducts.AddDesc(err.Error())
-		}
-		for _, publicProduct := range publicProducts {
-			if productNameParam == "" {
-				products = append(products, publicProduct)
-				productNamespaces.Insert(publicProduct.Namespace)
-			} else if publicProduct.ProductName == productNameParam {
-				products = append(products, publicProduct)
-				productNamespaces.Insert(publicProduct.Namespace)
-			}
-		}
-
-		productNameMap, err = poetryCtl.GetUserProject(userID, log)
-		if err != nil {
-			log.Errorf("Collection.Product.List GetUserProject error: %v", err)
-			return resp, e.ErrListProducts.AddDesc(err.Error())
-		}
-		for productName, roleIDs := range productNameMap {
-			//用户关联角色所关联的环境
-			for _, roleID := range roleIDs {
-				if roleID == setting.RoleOwnerID {
-					tmpProducts, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName})
-					if err != nil {
-						log.Errorf("Collection.Product.List Find product error: %v", err)
-						return resp, e.ErrListProducts.AddDesc(err.Error())
-					}
-					for _, product := range tmpProducts {
-						if productNameParam == "" {
-							if !productNamespaces.Has(product.Namespace) {
-								products = append(products, product)
-							}
-						} else if product.ProductName == productNameParam {
-							if !productNamespaces.Has(product.Namespace) {
-								products = append(products, product)
-							}
-						}
-					}
-				} else {
-					productMap := make(map[string]int)
-					// 先列出环境-用户授权
-					userEnvPermissionList, err := poetryCtl.GetUserEnvPermission(userID, log)
-					if err != nil {
-						log.Errorf("failed to get user env permission, err: %v", err)
-						return resp, err
-					}
-					for _, userEnvPermission := range userEnvPermissionList {
-						product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: userEnvPermission.EnvName})
-						if err != nil {
-							log.Errorf("Collection.Product.List Find product error: %v", err)
-							continue
-						}
-						if productNameParam == "" {
-							if !productNamespaces.Has(product.Namespace) && userEnvPermission.PermissionUUID == permission.TestEnvListUUID {
-								products = append(products, product)
-								productNamespaces = productNamespaces.Insert(product.Namespace)
-								productMap[product.EnvName] = 1
-							}
-						} else if product.ProductName == productNameParam {
-							if !productNamespaces.Has(product.Namespace) && userEnvPermission.PermissionUUID == permission.TestEnvManageUUID {
-								products = append(products, product)
-								productNamespaces = productNamespaces.Insert(product.Namespace)
-								productMap[product.EnvName] = 1
-							}
-						}
-					}
-					// 再获取环境-角色授权
-					roleEnvPermissions, err := poetryCtl.ListEnvRolePermission(productName, "", roleID, log)
-					if err != nil {
-						log.Errorf("Collection.Product.List ListRoleEnvs error: %v", err)
-						return resp, e.ErrListProducts.AddDesc(err.Error())
-					}
-					for _, roleEnvPermission := range roleEnvPermissions {
-						product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: roleEnvPermission.EnvName})
-						if err != nil {
-							log.Errorf("Collection.Product.List Find product error: %v", err)
-							continue
-						}
-						if productNameParam == "" {
-							if !productNamespaces.Has(product.Namespace) && roleEnvPermission.PermissionUUID == permission.TestEnvListUUID {
-								products = append(products, product)
-								productNamespaces.Insert(product.Namespace)
-							}
-						} else if product.ProductName == productNameParam {
-							if !productNamespaces.Has(product.Namespace) && roleEnvPermission.PermissionUUID == permission.TestEnvManageUUID {
-								products = append(products, product)
-								productNamespaces.Insert(product.Namespace)
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
-	err = FillProductVars(products, log)
+func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger) ([]*EnvResp, error) {
+	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: projectName, InEnvs: envNames, IsSortByProductName: true})
 	if err != nil {
-		return resp, err
+		log.Errorf("Failed to list envs, err: %s", err)
+		return nil, e.ErrListEnvs.AddDesc(err.Error())
 	}
 
-	for _, prod := range products {
-		product := &ProductResp{
-			ID:          prod.ID.Hex(),
-			ProductName: prod.ProductName,
-			EnvName:     prod.EnvName,
-			Namespace:   prod.Namespace,
-			Vars:        prod.Vars[:],
-			IsPublic:    prod.IsPublic,
-			ClusterID:   prod.ClusterID,
-			UpdateTime:  prod.UpdateTime,
-			UpdateBy:    prod.UpdateBy,
-			RecycleDay:  prod.RecycleDay,
-			Render:      prod.Render,
-			Source:      prod.Source,
-		}
-
-		if prod.ClusterID != "" {
-			cluster, _ := commonrepo.NewK8SClusterColl().Get(prod.ClusterID)
-			if cluster != nil && cluster.Production {
-				product.IsProd = true
-				operatorPerm := poetryCtl.HasOperatePermission(prod.ProductName, permission.ProdEnvManageUUID, userID, superUser, log)
-				viewPerm := poetryCtl.HasOperatePermission(prod.ProductName, permission.ProdEnvListUUID, userID, superUser, log)
-				if envType == "" && (operatorPerm || viewPerm) {
-					prodResp = append(prodResp, product)
-				} else if envType == setting.ProdENV {
-					prodResp = append(prodResp, product)
-				}
-			} else if cluster != nil && !cluster.Production {
-				product.IsProd = false
-				testResp = append(testResp, product)
-			}
-		} else {
-			product.IsProd = false
-			testResp = append(testResp, product)
-		}
-	}
-	switch envType {
-	case setting.ProdENV:
-		resp = append(resp, prodResp...)
-	case setting.TestENV:
-		resp = append(resp, testResp...)
-	default:
-		resp = append(resp, prodResp...)
-		resp = append(resp, testResp...)
+	clusterMap := make(map[string]*commonmodels.K8SCluster)
+	clusters, err := commonrepo.NewK8SClusterColl().List(nil)
+	if err != nil {
+		log.Errorf("Failed to list clusters in db, err: %s", err)
+		return nil, err
 	}
 
-	sort.SliceStable(resp, func(i, j int) bool { return resp[i].ProductName < resp[j].ProductName })
-
-	return resp, nil
-}
-
-type ListProductsRespV2 struct {
-	ClusterName string `json:"clusterName"`
-	Production  bool   `json:"production"`
-	Name        string `json:"name"`
-	ProjectName string `json:"projectName"`
-	Source      string `json:"source"`
-}
-
-// Args: projectName, which is formerly known as productName, is the primary key of the project in our system
-func ListProductsV2(projectName, envFilter string, userName string, userID int, superUser bool, log *zap.SugaredLogger) ([]*ListProductsRespV2, error) {
-	var (
-		err               error
-		testResp          []*ListProductsRespV2
-		prodResp          []*ListProductsRespV2
-		products          = make([]*commonmodels.Product, 0)
-		productNameMap    map[string][]int64
-		productNamespaces = sets.NewString()
-	)
-	ret := make([]*ListProductsRespV2, 0)
-
-	poetryCtl := poetry.New(config.PoetryAPIServer(), config.PoetryAPIRootKey())
-
-	// 获取所有产品
-	if superUser {
-		products, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: projectName})
-		if err != nil {
-			log.Errorf("[%s] Collections.Product.List error: %v", userName, err)
-			return ret, e.ErrListEnvs.AddDesc(err.Error())
-		}
-	} else {
-		//项目下所有公开环境
-		publicProducts, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{IsPublic: true})
-		if err != nil {
-			log.Errorf("Collection.Product.List List product error: %v", err)
-			return ret, e.ErrListProducts.AddDesc(err.Error())
-		}
-		for _, publicProduct := range publicProducts {
-			if projectName == "" {
-				products = append(products, publicProduct)
-				productNamespaces.Insert(publicProduct.Namespace)
-			} else if publicProduct.ProductName == projectName {
-				products = append(products, publicProduct)
-				productNamespaces.Insert(publicProduct.Namespace)
-			}
-		}
-
-		productNameMap, err = poetryCtl.GetUserProject(userID, log)
-		if err != nil {
-			log.Errorf("Collection.Product.List GetUserProject error: %v", err)
-			return ret, e.ErrListProducts.AddDesc(err.Error())
-		}
-		for productName, roleIDs := range productNameMap {
-			//用户关联角色所关联的环境
-			for _, roleID := range roleIDs {
-				if roleID == setting.RoleOwnerID {
-					tmpProducts, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName})
-					if err != nil {
-						log.Errorf("Collection.Product.List Find product error: %v", err)
-						return ret, e.ErrListProducts.AddDesc(err.Error())
-					}
-					for _, product := range tmpProducts {
-						if projectName == "" {
-							if !productNamespaces.Has(product.Namespace) {
-								products = append(products, product)
-							}
-						} else if product.ProductName == projectName {
-							if !productNamespaces.Has(product.Namespace) {
-								products = append(products, product)
-							}
-						}
-					}
-				} else {
-					productMap := make(map[string]int)
-					// 先列出环境-用户授权
-					userEnvPermissionList, err := poetryCtl.GetUserEnvPermission(userID, log)
-					if err != nil {
-						log.Errorf("failed to get user env permission, err: %v", err)
-						return ret, err
-					}
-					for _, userEnvPermission := range userEnvPermissionList {
-						product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: userEnvPermission.EnvName})
-						if err != nil {
-							log.Errorf("Collection.Product.List Find product error: %v", err)
-							continue
-						}
-						if projectName == "" {
-							if !productNamespaces.Has(product.Namespace) && userEnvPermission.PermissionUUID == permission.TestEnvListUUID {
-								products = append(products, product)
-								productNamespaces = productNamespaces.Insert(product.Namespace)
-								productMap[product.EnvName] = 1
-							}
-						} else if product.ProductName == projectName {
-							if !productNamespaces.Has(product.Namespace) && userEnvPermission.PermissionUUID == permission.TestEnvManageUUID {
-								products = append(products, product)
-								productNamespaces = productNamespaces.Insert(product.Namespace)
-								productMap[product.EnvName] = 1
-							}
-						}
-					}
-					// 再获取环境-角色授权
-					roleEnvPermissions, err := poetryCtl.ListEnvRolePermission(productName, "", roleID, log)
-					if err != nil {
-						log.Errorf("Collection.Product.List ListRoleEnvs error: %v", err)
-						return ret, e.ErrListProducts.AddDesc(err.Error())
-					}
-					for _, roleEnvPermission := range roleEnvPermissions {
-						product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: roleEnvPermission.EnvName})
-						if err != nil {
-							log.Errorf("Collection.Product.List Find product error: %v", err)
-							continue
-						}
-						if projectName == "" {
-							if !productNamespaces.Has(product.Namespace) && roleEnvPermission.PermissionUUID == permission.TestEnvListUUID {
-								products = append(products, product)
-								productNamespaces.Insert(product.Namespace)
-							}
-						} else if product.ProductName == projectName {
-							if !productNamespaces.Has(product.Namespace) && roleEnvPermission.PermissionUUID == permission.TestEnvManageUUID {
-								products = append(products, product)
-								productNamespaces.Insert(product.Namespace)
-							}
-						}
-					}
-				}
-			}
-		}
+	for _, cls := range clusters {
+		clusterMap[cls.ID.Hex()] = cls
 	}
 
-	for _, product := range products {
-		item := &ListProductsRespV2{
-			Name:        product.EnvName,
-			ProjectName: product.ProductName,
-			Source:      product.Source,
+	var res []*EnvResp
+	reg, err := commonservice.FindDefaultRegistry(false, log)
+	if err != nil {
+		log.Errorf("FindDefaultRegistry error: %v", err)
+		return nil, err
+	}
+	for _, env := range envs {
+		clusterID := env.ClusterID
+		production := false
+		clusterName := ""
+		cluster, ok := clusterMap[clusterID]
+		if len(env.RegistryID) == 0 {
+			env.RegistryID = reg.ID.Hex()
 		}
-		if product.ClusterID != "" {
-			cluster, _ := commonrepo.NewK8SClusterColl().Get(product.ClusterID)
-			if cluster != nil && cluster.Production {
-				item.Production = true
-				item.ClusterName = cluster.Name
-				operatorPerm := poetryCtl.HasOperatePermission(product.ProductName, permission.ProdEnvManageUUID, userID, superUser, log)
-				viewPerm := poetryCtl.HasOperatePermission(product.ProductName, permission.ProdEnvListUUID, userID, superUser, log)
-				if envFilter == "" && (operatorPerm || viewPerm) {
-					prodResp = append(prodResp, item)
-				} else if envFilter == setting.ProdENV {
-					prodResp = append(prodResp, item)
-				}
-			} else if cluster != nil && !cluster.Production {
-				item.Production = false
-				item.ClusterName = cluster.Name
-				testResp = append(testResp, item)
-			}
-		} else {
-			item.Production = false
-			testResp = append(testResp, item)
+		if ok {
+			production = cluster.Production
+			clusterName = cluster.Name
 		}
+
+		res = append(res, &EnvResp{
+			ProjectName: projectName,
+			Name:        env.EnvName,
+			IsPublic:    env.IsPublic,
+			ClusterName: clusterName,
+			Source:      env.Source,
+			Production:  production,
+			Status:      env.Status,
+			Error:       env.Error,
+			UpdateTime:  env.UpdateTime,
+			UpdateBy:    env.UpdateBy,
+			RegistryID:  env.RegistryID,
+			ClusterID:   env.ClusterID,
+		})
 	}
 
-	switch envFilter {
-	case setting.ProdENV:
-		ret = append(ret, prodResp...)
-	case setting.TestENV:
-		ret = append(ret, testResp...)
-	default:
-		ret = append(ret, prodResp...)
-		ret = append(ret, testResp...)
-	}
-
-	sort.SliceStable(ret, func(i, j int) bool { return ret[i].ProjectName < ret[j].ProjectName })
-
-	return ret, nil
+	return res, nil
 }
 
 func FillProductVars(products []*commonmodels.Product, log *zap.SugaredLogger) error {
@@ -546,7 +274,7 @@ func AutoCreateProduct(productName, envType, requestID string, log *zap.SugaredL
 
 var mutexAutoUpdate sync.RWMutex
 
-func AutoUpdateProduct(envNames []string, productName string, userID int, superUser bool, requestID string, force bool, log *zap.SugaredLogger) ([]*EnvStatus, error) {
+func AutoUpdateProduct(envNames []string, productName, requestID string, force bool, log *zap.SugaredLogger) ([]*EnvStatus, error) {
 	mutexAutoUpdate.Lock()
 	defer func() {
 		mutexAutoUpdate.Unlock()
@@ -563,7 +291,7 @@ func AutoUpdateProduct(envNames []string, productName string, userID int, superU
 				continue
 			}
 
-			kubeClient, err := kube.GetKubeClient(p.ClusterID)
+			kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), p.ClusterID)
 			if err != nil {
 				log.Errorf("Failed to get kube client for %s, error: %v", productName, err)
 				continue
@@ -583,7 +311,7 @@ func AutoUpdateProduct(envNames []string, productName string, userID int, superU
 		}
 	}
 
-	productsRevison, err := ListProductsRevision(productName, "", userID, superUser, log)
+	productsRevison, err := ListProductsRevision(productName, "", log)
 	if err != nil {
 		log.Errorf("AutoUpdateProduct ListProductsRevision err:%v", err)
 		return envStatuses, err
@@ -645,25 +373,17 @@ func UpdateProduct(existedProd, updateProd *commonmodels.Product, renderSet *com
 	updateProd.Namespace = existedProd.Namespace
 
 	var allServices []*commonmodels.Service
-	var allRenders []*commonmodels.RenderSet
 	var prodRevs *ProductRevision
 
-	allServices, err = commonrepo.NewServiceColl().ListAllRevisions()
+	// list services with max revision of project
+	allServices, err = commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{ProductName: productName})
 	if err != nil {
-		log.Errorf("ListAllRevisions error: %v", err)
+		log.Errorf("ListAllRevisions error: %s", err)
 		err = e.ErrUpdateEnv.AddDesc(err.Error())
 		return
 	}
 
-	// 获取所有渲染配置最新模板信息
-	allRenders, err = commonrepo.NewRenderSetColl().ListAllRenders()
-	if err != nil {
-		log.Errorf("ListAllRevisions error: %v", err)
-		err = e.ErrUpdateEnv.AddDesc(err.Error())
-		return
-	}
-
-	prodRevs, err = GetProductRevision(existedProd, allServices, allRenders, renderSet, log)
+	prodRevs, err = GetProductRevision(existedProd, allServices, log)
 	if err != nil {
 		err = e.ErrUpdateEnv.AddDesc(e.GetEnvRevErrMsg)
 		return
@@ -675,7 +395,7 @@ func UpdateProduct(existedProd, updateProd *commonmodels.Product, renderSet *com
 		return
 	}
 
-	kubeClient, err := kube.GetKubeClient(existedProd.ClusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), existedProd.ClusterID)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
@@ -810,7 +530,32 @@ func UpdateProduct(existedProd, updateProd *commonmodels.Product, renderSet *com
 	return nil
 }
 
-func UpdateProductV2(envName, productName, user, requestID string, force bool, kvs []*template.RenderKV, log *zap.SugaredLogger) (err error) {
+func UpdateProductRegistry(envName, productName, registryID string, log *zap.SugaredLogger) (err error) {
+	opt := &commonrepo.ProductFindOptions{EnvName: envName, Name: productName}
+	exitedProd, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		log.Errorf("UpdateProductRegistry find product by envName:%s,error: %v", envName, err)
+		return e.ErrUpdateEnv.AddDesc(e.EnvNotFoundErrMsg)
+	}
+	err = commonrepo.NewProductColl().UpdateRegistry(envName, productName, registryID)
+	if err != nil {
+		log.Errorf("UpdateProductRegistry UpdateRegistry by envName:%s registryID:%s error: %v", envName, registryID, err)
+		return e.ErrUpdateEnv.AddErr(err)
+	}
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), exitedProd.ClusterID)
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(err)
+	}
+	err = ensureKubeEnv(exitedProd.Namespace, registryID, kubeClient, log)
+
+	if err != nil {
+		log.Errorf("UpdateProductRegistry ensureKubeEnv by envName:%s,error: %v", envName, err)
+		return err
+	}
+	return nil
+}
+
+func UpdateProductV2(envName, productName, user, requestID string, force bool, kvs []*templatemodels.RenderKV, log *zap.SugaredLogger) (err error) {
 	// 根据产品名称和产品创建者到数据库中查找已有产品记录
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	exitedProd, err := commonrepo.NewProductColl().Find(opt)
@@ -819,7 +564,7 @@ func UpdateProductV2(envName, productName, user, requestID string, force bool, k
 		return e.ErrUpdateEnv.AddDesc(e.EnvNotFoundErrMsg)
 	}
 
-	kubeClient, err := kube.GetKubeClient(exitedProd.ClusterID)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), exitedProd.ClusterID)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
@@ -835,7 +580,7 @@ func UpdateProductV2(envName, productName, user, requestID string, force bool, k
 		}
 	}
 
-	err = ensureKubeEnv(exitedProd.Namespace, kubeClient, log)
+	err = ensureKubeEnv(exitedProd.Namespace, exitedProd.RegistryID, kubeClient, log)
 
 	if err != nil {
 		log.Errorf("[%s][P:%s] service.UpdateProductV2 create kubeEnv error: %v", envName, productName, err)
@@ -929,13 +674,13 @@ func UpdateProductV2(envName, productName, user, requestID string, force bool, k
 	return nil
 }
 
-func CreateHelmProduct(userName, requestID string, args *CreateHelmProductArg, log *zap.SugaredLogger) error {
-	templateProduct, err := templaterepo.NewProductColl().Find(args.ProductName)
+func CreateHelmProduct(productName, userName, requestID string, args []*CreateHelmProductArg, log *zap.SugaredLogger) error {
+	templateProduct, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil || templateProduct == nil {
 		if err != nil {
-			log.Errorf("failed to query product %s, err %s ", args.ProductName, err.Error())
+			log.Errorf("failed to query product %s, err %s ", productName, err.Error())
 		}
-		return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to query product %s ", args.ProductName))
+		return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to query product %s ", productName))
 	}
 
 	err = commonservice.FillProductTemplateValuesYamls(templateProduct, log)
@@ -943,23 +688,49 @@ func CreateHelmProduct(userName, requestID string, args *CreateHelmProductArg, l
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 
+	errList := new(multierror.Error)
+	for _, arg := range args {
+		err = createSingleHelmProduct(templateProduct, requestID, userName, arg.RegistryID, arg, log)
+		if err != nil {
+			errList = multierror.Append(errList, err)
+		}
+	}
+	return errList.ErrorOrNil()
+}
+
+func createSingleHelmProduct(templateProduct *templatemodels.Product, requestID, userName, registryID string, arg *CreateHelmProductArg, log *zap.SugaredLogger) error {
 	productObj := &commonmodels.Product{
-		ProductName:     args.ProductName,
+		ProductName:     templateProduct.ProductName,
 		Revision:        1,
 		Enabled:         false,
-		EnvName:         args.EnvName,
+		EnvName:         arg.EnvName,
 		UpdateBy:        userName,
 		IsPublic:        true,
-		ClusterID:       args.ClusterID,
-		Namespace:       commonservice.GetProductEnvNamespace(args.EnvName, args.ProductName, args.Namespace),
+		ClusterID:       arg.ClusterID,
+		Namespace:       commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
 		Source:          setting.SourceFromHelm,
 		IsOpenSource:    templateProduct.IsOpensource,
 		ChartInfos:      templateProduct.ChartInfos,
 		IsForkedProduct: false,
+		RegistryID:      registryID,
 	}
 
-	allServiceInfoMap := templateProduct.AllServiceInfoMap()
+	customChartValueMap := make(map[string]*commonservice.RenderChartArg)
+	for _, singleCV := range arg.ChartValues {
+		customChartValueMap[singleCV.ServiceName] = singleCV
+	}
 
+	for _, latestChart := range productObj.ChartInfos {
+		if singleCV, ok := customChartValueMap[latestChart.ServiceName]; ok {
+			singleCV.FillRenderChartModel(latestChart, latestChart.ChartVersion)
+		}
+	}
+	// default values
+	defaultValuesYaml := arg.DefaultValues
+
+	// generate service group data
+	allServiceInfoMap := templateProduct.AllServiceInfoMap()
+	var serviceGroup [][]*commonmodels.ProductService
 	for _, names := range templateProduct.Services {
 		servicesResp := make([]*commonmodels.ProductService, 0)
 		for _, serviceName := range names {
@@ -982,7 +753,7 @@ func CreateHelmProduct(userName, requestID string, args *CreateHelmProductArg, l
 				Type:        serviceTmpl.Type,
 				Revision:    serviceTmpl.Revision,
 			}
-			if serviceTmpl.Type == setting.K8SDeployType || serviceTmpl.Type == setting.HelmDeployType {
+			if serviceTmpl.Type == setting.K8SDeployType {
 				serviceResp.Containers = make([]*commonmodels.Container, 0)
 				for _, c := range serviceTmpl.Containers {
 					container := &commonmodels.Container{
@@ -992,53 +763,52 @@ func CreateHelmProduct(userName, requestID string, args *CreateHelmProductArg, l
 					}
 					serviceResp.Containers = append(serviceResp.Containers, container)
 				}
+			} else if serviceTmpl.Type == setting.HelmDeployType {
+				serviceResp.Containers = make([]*commonmodels.Container, 0)
+				var err error
+				for _, c := range serviceTmpl.Containers {
+					image := c.Image
+					for _, rc := range productObj.ChartInfos {
+						if rc.ServiceName != serviceTmpl.ServiceName {
+							continue
+						}
+						image, err = genImageFromYaml(c, rc.ValuesYaml, defaultValuesYaml, rc.GetOverrideYaml(), rc.OverrideValues)
+						if err != nil {
+							errMsg := fmt.Sprintf("genImageFromYaml product template %s,service name:%s,error:%s", productObj.ProductName, rc.ServiceName, err)
+							log.Error(errMsg)
+							return e.ErrCreateEnv.AddDesc(errMsg)
+						}
+					}
+
+					container := &commonmodels.Container{
+						Name:      c.Name,
+						Image:     image,
+						ImagePath: c.ImagePath,
+					}
+					serviceResp.Containers = append(serviceResp.Containers, container)
+				}
 			}
 			servicesResp = append(servicesResp, serviceResp)
 		}
-		productObj.Services = append(productObj.Services, servicesResp)
+		serviceGroup = append(serviceGroup, servicesResp)
 	}
 
-	// extract values.yaml from request and save into db
-	serviceList, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(args.ProductName)
-	if err != nil {
-		log.Infof("query services from product: %s fail, error %s", args.ProductName, err.Error())
-		return e.ErrCreateEnv.AddDesc("failed to query services")
-	}
-
-	serviceMap := make(map[string]*commonmodels.Service)
-	for _, singleService := range serviceList {
-		serviceMap[singleService.ServiceName] = singleService
-	}
-
-	customChartValueMap := make(map[string]*commonservice.RenderChartArg)
-	for _, singleCV := range args.ChartValues {
-		customChartValueMap[singleCV.ServiceName] = singleCV
-	}
-
-	for _, latestChart := range productObj.ChartInfos {
-		if singleCV, ok := customChartValueMap[latestChart.ServiceName]; ok {
-			yamlContent, err := generateValuesYaml(singleCV, log)
-			if err != nil {
-				return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to get yaml content for service: %s, err %v", singleCV.ServiceName, err.Error()))
-			}
-			singleCV.ValuesYAML = yamlContent
-			singleCV.FillRenderChartModel(latestChart, latestChart.ChartVersion)
-		}
-	}
+	productObj.Services = serviceGroup
 
 	// insert renderset info into db
 	if len(productObj.ChartInfos) > 0 {
-		err = commonservice.CreateHelmRenderSet(&commonmodels.RenderSet{
-			Name:        commonservice.GetProductEnvNamespace(args.EnvName, args.ProductName, args.Namespace),
-			EnvName:     args.EnvName,
-			ProductTmpl: args.ProductName,
-			UpdateBy:    userName,
-			IsDefault:   false,
-			ChartInfos:  productObj.ChartInfos,
+		err := commonservice.CreateHelmRenderSet(&commonmodels.RenderSet{
+			Name:          commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
+			EnvName:       arg.EnvName,
+			ProductTmpl:   arg.ProductName,
+			UpdateBy:      userName,
+			IsDefault:     false,
+			DefaultValues: defaultValuesYaml,
+			ChartInfos:    productObj.ChartInfos,
 		}, log)
 		if err != nil {
-			log.Errorf("rennderset create fail when creating helm product, productName: %s", args.ProductName)
-			return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to save chart values, productName: %s", args.ProductName))
+			log.Errorf("rennderset create fail when creating helm product, productName: %s", arg.ProductName)
+			return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to save chart values, productName: %s", arg.ProductName))
 		}
 	}
 
@@ -1050,6 +820,87 @@ func CreateProduct(user, requestID string, args *commonmodels.Product, log *zap.
 	log.Infof("[%s][P:%s] CreateProduct", args.EnvName, args.ProductName)
 	creator := getCreatorBySource(args.Source)
 	return creator.Create(user, requestID, args, log)
+}
+
+func CopyHelmProduct(productName, userName, requestID string, args []*CreateHelmProductArg, log *zap.SugaredLogger) error {
+
+	errList := new(multierror.Error)
+	for _, arg := range args {
+		err := copySingleHelmProduct(productName, requestID, userName, arg, log)
+		if err != nil {
+			errList = multierror.Append(errList, err)
+		}
+	}
+	return errList.ErrorOrNil()
+}
+
+func copySingleHelmProduct(productName, requestID, userName string, arg *CreateHelmProductArg, log *zap.SugaredLogger) error {
+
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: arg.BaseEnvName,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to query base product info name :%s,envname:%s", productName, arg.BaseEnvName)
+	}
+	productInfo.ID = primitive.NilObjectID
+	productInfo.Revision = 1
+	productInfo.EnvName = arg.EnvName
+	productInfo.UpdateBy = userName
+	productInfo.ClusterID = arg.ClusterID
+	productInfo.Namespace = commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace)
+
+	opt := &commonrepo.RenderSetFindOption{
+		Name:     productInfo.Render.Name,
+		Revision: productInfo.Render.Revision,
+	}
+	renderSetInfo, err := commonrepo.NewRenderSetColl().Find(opt)
+	if err != nil {
+		return err
+	}
+	productInfo.ChartInfos = renderSetInfo.ChartInfos
+
+	customChartValueMap := make(map[string]*commonservice.RenderChartArg)
+	for _, singleCV := range arg.ChartValues {
+		customChartValueMap[singleCV.ServiceName] = singleCV
+	}
+
+	for _, latestChart := range productInfo.ChartInfos {
+		if singleCV, ok := customChartValueMap[latestChart.ServiceName]; ok {
+			singleCV.FillRenderChartModel(latestChart, latestChart.ChartVersion)
+		}
+	}
+
+	productInfo.Render = nil
+	for idxm, svrInfo := range productInfo.Services {
+		for idxn, svr := range svrInfo {
+			if svr.Render != nil {
+				productInfo.Services[idxm][idxn].Render = nil
+			}
+		}
+	}
+
+	// default values
+	defaultValuesYaml := arg.DefaultValues
+
+	// insert renderset info into db
+	if len(productInfo.ChartInfos) > 0 {
+		err := commonservice.CreateHelmRenderSet(&commonmodels.RenderSet{
+			Name:          commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
+			EnvName:       arg.EnvName,
+			ProductTmpl:   arg.ProductName,
+			UpdateBy:      userName,
+			IsDefault:     false,
+			DefaultValues: defaultValuesYaml,
+			ChartInfos:    productInfo.ChartInfos,
+		}, log)
+		if err != nil {
+			log.Errorf("rennderset create fail when copy creating helm product, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err)
+			return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to save chart values, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err))
+		}
+	}
+
+	return CreateProduct(userName, requestID, productInfo, log)
 }
 
 func UpdateProductRecycleDay(envName, productName string, recycleDay int) error {
@@ -1070,6 +921,24 @@ func UpdateHelmProduct(productName, envName, updateType, username, requestID str
 		log.Errorf("[%s][P:%s] GetProductTemplate error: %v", envName, productName, err)
 		return e.ErrUpdateEnv.AddDesc(e.FindProductTmplErrMsg)
 	}
+
+	productRespMap := productResp.GetServiceMap()
+	for _, svrs := range updateProd.Services {
+		for _, svr := range svrs {
+			ps, ok := productRespMap[svr.ServiceName]
+			if !ok {
+				continue
+			}
+			for _, svrc := range svr.Containers {
+				for _, psc := range ps.Containers {
+					if svrc.Name == psc.Name {
+						svrc.Image = psc.Image
+						break
+					}
+				}
+			}
+		}
+	}
 	productResp.Services = updateProd.Services
 
 	// 设置产品状态为更新中
@@ -1079,7 +948,7 @@ func UpdateHelmProduct(productName, envName, updateType, username, requestID str
 	}
 	//对比当前环境中的环境变量和默认的环境变量
 	go func() {
-		err := updateProductGroup(productName, envName, updateType, productResp, currentProductService, overrideCharts, log)
+		err := updateProductGroup(username, productName, envName, updateType, productResp, currentProductService, overrideCharts, log)
 		if err != nil {
 			log.Errorf("[%s][P:%s] failed to update product %#v", envName, productName, err)
 			// 发送更新产品失败消息给用户
@@ -1115,21 +984,140 @@ func UpdateHelmProduct(productName, envName, updateType, username, requestID str
 	return nil
 }
 
+func genImageFromYaml(c *commonmodels.Container, valuesYaml, defaultValues, overrideYaml, overrideValues string) (string, error) {
+	mergeYaml, err := helmtool.MergeOverrideValues(valuesYaml, defaultValues, overrideYaml, overrideValues)
+	if err != nil {
+		return "", err
+	}
+	mergedValuesYamlFlattenMap, err := converter.YamlToFlatMap([]byte(mergeYaml))
+	if err != nil {
+		return "", err
+	}
+	imageRule := templatemodels.ImageSearchingRule{
+		Repo:  c.ImagePath.Repo,
+		Image: c.ImagePath.Image,
+		Tag:   c.ImagePath.Tag,
+	}
+	image, err := commonservice.GeneImageURI(imageRule.GetSearchingPattern(), mergedValuesYamlFlattenMap)
+	if err != nil {
+		return "", err
+	}
+	return image, nil
+}
+
+func prepareEstimatedData(productName, envName, serviceName, usageScenario, defaultValues string, log *zap.SugaredLogger) (string, string, error) {
+	var err error
+	templateService, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+		ServiceName: serviceName,
+		ProductName: productName,
+		Type:        setting.HelmDeployType,
+	})
+	if err != nil {
+		log.Errorf("failed to query service, name %s, err %s", serviceName, err)
+		return "", "", fmt.Errorf("failed to query service, name %s", serviceName)
+	}
+
+	if usageScenario == usageScenarioCreateEnv {
+		return templateService.HelmChart.ValuesYaml, defaultValues, nil
+	}
+
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: envName,
+	})
+	if err != nil {
+		return "", "", fmt.Errorf("failed to query product info, name %s", envName)
+	}
+
+	// find chart info from cur render set
+	opt := &commonrepo.RenderSetFindOption{Name: productInfo.Render.Name, Revision: productInfo.Render.Revision}
+	renderSet, err := commonrepo.NewRenderSetColl().Find(opt)
+	if err != nil {
+		log.Errorf("renderset Find error, productName:%s, envName:%s, err:%s", productInfo.ProductName, productInfo.EnvName, err)
+		return "", "", fmt.Errorf("failed to query renderset info, name %s", productInfo.Render.Name)
+	}
+
+	// find target render chart from render set
+	var targetChart *templatemodels.RenderChart
+	for _, chart := range renderSet.ChartInfos {
+		if chart.ServiceName == serviceName {
+			targetChart = chart
+			break
+		}
+	}
+
+	switch usageScenario {
+	case usageScenarioUpdateEnv:
+		imageRelatedKey := sets.NewString()
+		for _, container := range templateService.Containers {
+			if container.ImagePath != nil {
+				imageRelatedKey.Insert(container.ImagePath.Image, container.ImagePath.Repo, container.ImagePath.Tag)
+			}
+		}
+
+		curValuesYaml := ""
+		if targetChart != nil { // service has been applied into environment, use current values.yaml
+			curValuesYaml = targetChart.ValuesYaml
+		}
+
+		// merge environment values
+		mergedBs, err := overrideValues([]byte(curValuesYaml), []byte(templateService.HelmChart.ValuesYaml), imageRelatedKey)
+		if err != nil {
+			return "", "", errors.Wrapf(err, "failed to override values")
+		}
+		return string(mergedBs), renderSet.DefaultValues, nil
+	case usageScenarioUpdateRenderSet:
+		if targetChart == nil {
+			return "", "", fmt.Errorf("failed to find chart info, name: %s", serviceName)
+		}
+		return targetChart.ValuesYaml, renderSet.DefaultValues, nil
+	default:
+		return "", "", fmt.Errorf("unrecognized usageScenario:%s", usageScenario)
+	}
+}
+
+func GeneEstimatedValues(productName, envName, serviceName, scene, format string, arg *EstimateValuesArg, log *zap.SugaredLogger) (interface{}, error) {
+	chartValues, defaultValues, err := prepareEstimatedData(productName, envName, serviceName, scene, arg.DefaultValues, log)
+	if err != nil {
+		return nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to prepare data, err %s", err))
+	}
+
+	tempArg := &commonservice.RenderChartArg{OverrideValues: arg.OverrideValues}
+	mergeValues, err := helmtool.MergeOverrideValues(chartValues, defaultValues, arg.OverrideYaml, tempArg.ToOverrideValueString())
+	if err != nil {
+		return nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to merge values, err %s", err))
+	}
+
+	switch format {
+	case "flatMap":
+		mapData, err := converter.YamlToFlatMap([]byte(mergeValues))
+		if err != nil {
+			return nil, e.ErrUpdateRenderSet.AddDesc(fmt.Sprintf("failed to generate flat map , err %s", err))
+		}
+		return mapData, nil
+	default:
+		return &RawYamlResp{YamlContent: mergeValues}, nil
+	}
+}
+
 // check if override values or yaml content changes
-func checkOverrideValuesChange(source *template.RenderChart, args *commonservice.RenderChartArg) bool {
-	tmpRenderCharts := &template.RenderChart{}
-	args.FillRenderChartModel(tmpRenderCharts, "")
-	if source.OverrideValues != tmpRenderCharts.OverrideValues || source.DiffOverrideYaml(tmpRenderCharts) {
+func checkOverrideValuesChange(source *templatemodels.RenderChart, args *commonservice.RenderChartArg) bool {
+	if source.OverrideValues != args.ToOverrideValueString() || source.GetOverrideYaml() != args.OverrideYaml {
 		return true
 	}
 	return false
 }
 
-func UpdateHelmProductRenderCharts(productName, envName, userName, requestID string, renderCharts []*commonservice.RenderChartArg, log *zap.SugaredLogger) error {
-
-	renderSetName := commonservice.GetProductEnvNamespace(envName, productName, "")
-
-	opt := &commonrepo.RenderSetFindOption{Name: renderSetName}
+func UpdateHelmProductRenderset(productName, envName, userName, requestID string, args *EnvRendersetArg, log *zap.SugaredLogger) error {
+	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    productName,
+		EnvName: envName,
+	})
+	if err != nil {
+		log.Errorf("UpdateHelmProductRenderset GetProductEnv envName:%s productName: %s error, error msg:%s", envName, productName, err)
+		return err
+	}
+	opt := &commonrepo.RenderSetFindOption{Name: product.Namespace}
 	productRenderset, _, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
 	if err != nil || productRenderset == nil {
 		if err != nil {
@@ -1139,15 +1127,18 @@ func UpdateHelmProductRenderCharts(productName, envName, userName, requestID str
 	}
 
 	// render charts need to be updated
-	updatedRcs := make([]*template.RenderChart, 0)
+	updatedRcList := make([]*templatemodels.RenderChart, 0)
+	updatedRCMap := make(map[string]*templatemodels.RenderChart)
 
-	for _, requestRenderChart := range renderCharts {
-		yamlContent, err := generateValuesYaml(requestRenderChart, log)
-		if err != nil {
-			return e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to get yaml content for service: %s, err %v", requestRenderChart.ServiceName, err.Error()))
+	// default values change
+	if args.DefaultValues != productRenderset.DefaultValues {
+		for _, curRenderChart := range productRenderset.ChartInfos {
+			updatedRCMap[curRenderChart.ServiceName] = curRenderChart
 		}
-		requestRenderChart.ValuesYAML = yamlContent
+		productRenderset.DefaultValues = args.DefaultValues
+	}
 
+	for _, requestRenderChart := range args.ChartValues {
 		// update renderset info
 		for _, curRenderChart := range productRenderset.ChartInfos {
 			if curRenderChart.ServiceName != requestRenderChart.ServiceName {
@@ -1157,15 +1148,28 @@ func UpdateHelmProductRenderCharts(productName, envName, userName, requestID str
 				continue
 			}
 			requestRenderChart.FillRenderChartModel(curRenderChart, curRenderChart.ChartVersion)
-			updatedRcs = append(updatedRcs, curRenderChart)
+			updatedRCMap[curRenderChart.ServiceName] = curRenderChart
 			break
 		}
 	}
 
-	return UpdateHelmProductVariable(productName, envName, userName, requestID, updatedRcs, productRenderset.ChartInfos, log)
+	for _, updatedRc := range updatedRCMap {
+		updatedRcList = append(updatedRcList, updatedRc)
+	}
+
+	err = UpdateHelmProductVariable(productName, envName, userName, requestID, updatedRcList, productRenderset, log)
+	if err != nil {
+		return err
+	}
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
+	if err != nil {
+		log.Errorf("UpdateHelmProductRenderset GetKubeClient error, error msg:%s", err)
+		return err
+	}
+	return ensureKubeEnv(product.Namespace, product.RegistryID, kubeClient, log)
 }
 
-func UpdateHelmProductVariable(productName, envName, username, requestID string, updatedRcs, allRcs []*template.RenderChart, log *zap.SugaredLogger) error {
+func UpdateHelmProductVariable(productName, envName, username, requestID string, updatedRcs []*templatemodels.RenderChart, renderset *commonmodels.RenderSet, log *zap.SugaredLogger) error {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	productResp, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
@@ -1180,11 +1184,12 @@ func UpdateHelmProductVariable(productName, envName, username, requestID string,
 
 	if err = commonservice.CreateHelmRenderSet(
 		&commonmodels.RenderSet{
-			Name:        productResp.Namespace,
-			EnvName:     envName,
-			ProductTmpl: productName,
-			UpdateBy:    username,
-			ChartInfos:  allRcs,
+			Name:          productResp.Namespace,
+			EnvName:       envName,
+			ProductTmpl:   productName,
+			UpdateBy:      username,
+			DefaultValues: renderset.DefaultValues,
+			ChartInfos:    renderset.ChartInfos,
 		},
 		log,
 	); err != nil {
@@ -1203,10 +1208,10 @@ func UpdateHelmProductVariable(productName, envName, username, requestID string,
 	}
 	productResp.Render.Revision = renderSet.Revision
 
-	return updateHelmProductVariable(productResp, oldRenderVersion, username, requestID, log)
+	return updateHelmProductVariable(productResp, renderSet, oldRenderVersion, username, requestID, log)
 }
 
-func updateHelmProductVariable(productResp *commonmodels.Product, oldRenderVersion int64, userName, requestID string, log *zap.SugaredLogger) error {
+func updateHelmProductVariable(productResp *commonmodels.Product, renderset *commonmodels.RenderSet, oldRenderVersion int64, userName, requestID string, log *zap.SugaredLogger) error {
 
 	envName, productName := productResp.EnvName, productResp.ProductName
 
@@ -1217,7 +1222,7 @@ func updateHelmProductVariable(productResp *commonmodels.Product, oldRenderVersi
 	}
 
 	go func() {
-		err := updateProductVariable(productName, envName, productResp, log)
+		err := updateProductVariable(productName, envName, productResp, renderset, log)
 		if err != nil {
 			log.Errorf("[%s][P:%s] failed to update product %#v", envName, productName, err)
 			// 发送更新产品失败消息给用户
@@ -1264,7 +1269,7 @@ func updateHelmProductVariable(productResp *commonmodels.Product, oldRenderVersi
 
 var mutexUpdateMultiHelm sync.RWMutex
 
-func UpdateMultipleHelmEnv(userName, requestID string, userID int, superUser bool, args *UpdateMultiHelmProductArg, log *zap.SugaredLogger) ([]*EnvStatus, error) {
+func UpdateMultipleHelmEnv(requestID string, args *UpdateMultiHelmProductArg, log *zap.SugaredLogger) ([]*EnvStatus, error) {
 	mutexUpdateMultiHelm.Lock()
 	defer func() {
 		mutexUpdateMultiHelm.Unlock()
@@ -1273,7 +1278,7 @@ func UpdateMultipleHelmEnv(userName, requestID string, userID int, superUser boo
 	envNames, productName := args.EnvNames, args.ProductName
 
 	envStatuses := make([]*EnvStatus, 0)
-	productsRevision, err := ListProductsRevision(productName, "", userID, superUser, log)
+	productsRevision, err := ListProductsRevision(productName, "", log)
 	if err != nil {
 		log.Errorf("UpdateMultiHelmProduct ListProductsRevision err:%v", err)
 		return envStatuses, err
@@ -1305,16 +1310,8 @@ func UpdateMultipleHelmEnv(userName, requestID string, userID int, superUser boo
 		serviceMap[singleService.ServiceName] = singleService
 	}
 
-	for _, requestRenderChart := range args.ChartValues {
-		yamlContent, err := generateValuesYaml(requestRenderChart, log)
-		if err != nil {
-			return envStatuses, e.ErrUpdateEnv.AddDesc(fmt.Sprintf("failed to get yaml content for service: %s, err %v", requestRenderChart.ServiceName, err.Error()))
-		}
-		requestRenderChart.ValuesYAML = yamlContent
-	}
-
 	// extract values.yaml and update renderset
-	for envName, _ := range productMap {
+	for envName := range productMap {
 		renderSet, _, err := commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
 			Name: commonservice.GetProductEnvNamespace(envName, productName, ""),
 		})
@@ -1351,55 +1348,6 @@ func UpdateMultipleHelmEnv(userName, requestID string, userID int, superUser boo
 	return envStatuses, nil
 }
 
-// UpdateMultiHelmProduct TODO need to be deprecated
-func UpdateMultiHelmProduct(envNames []string, updateType, productName string, userID int, superUser bool, requestID string, log *zap.SugaredLogger) []*EnvStatus {
-	mutexUpdateMultiHelm.Lock()
-	defer func() {
-		mutexUpdateMultiHelm.Unlock()
-	}()
-
-	envStatuses := make([]*EnvStatus, 0)
-	productsRevison, err := ListProductsRevision(productName, "", userID, superUser, log)
-	if err != nil {
-		log.Errorf("UpdateMultiHelmProduct ListProductsRevision err:%v", err)
-		return envStatuses
-	}
-	productMap := make(map[string]*ProductRevision)
-	for _, productRevison := range productsRevison {
-		if productRevison.ProductName == productName && sets.NewString(envNames...).Has(productRevison.EnvName) && productRevison.Updatable {
-			productMap[productRevison.EnvName] = productRevison
-			if len(productMap) == len(envNames) {
-				break
-			}
-		}
-	}
-
-	for envName := range productMap {
-		err = UpdateHelmProduct(productName, envName, updateType, setting.SystemUser, requestID, nil, log)
-		if err != nil {
-			log.Errorf("UpdateMultiHelmProduct UpdateProductV2 err:%v", err)
-			return envStatuses
-		}
-	}
-
-	productResps := make([]*ProductResp, 0)
-	for _, envName := range envNames {
-		productResp, err := GetProduct(setting.SystemUser, envName, productName, log)
-		if err == nil && productResp != nil {
-			productResps = append(productResps, productResp)
-		}
-	}
-
-	for _, productResp := range productResps {
-		if productResp.Error != "" {
-			envStatuses = append(envStatuses, &EnvStatus{EnvName: productResp.EnvName, Status: setting.ProductStatusFailed, ErrMessage: productResp.Error})
-			continue
-		}
-		envStatuses = append(envStatuses, &EnvStatus{EnvName: productResp.EnvName, Status: productResp.Status})
-	}
-	return envStatuses
-}
-
 func GetProductInfo(username, envName, productName string, log *zap.SugaredLogger) (*commonmodels.Product, error) {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	prod, err := commonrepo.NewProductColl().Find(opt)
@@ -1420,11 +1368,11 @@ func GetProductInfo(username, envName, productName string, log *zap.SugaredLogge
 	return prod, nil
 }
 
-func GetProductIngress(username, productName string, log *zap.SugaredLogger) ([]*ProductIngressInfo, error) {
+func GetProductIngress(productName string, log *zap.SugaredLogger) ([]*ProductIngressInfo, error) {
 	productIngressInfos := make([]*ProductIngressInfo, 0)
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName})
 	if err != nil {
-		log.Errorf("[%s] Collections.Product.List error: %v", username, err)
+		log.Errorf("Failed to list envs, err: %s", err)
 		return productIngressInfos, e.ErrListEnvs.AddDesc(err.Error())
 	}
 	for _, prod := range products {
@@ -1448,33 +1396,10 @@ func GetProductIngress(username, productName string, log *zap.SugaredLogger) ([]
 	return productIngressInfos, nil
 }
 
-// ListRenderCharts 获取集成环境中的values.yaml的值
-func ListRenderCharts(productName, envName string, log *zap.SugaredLogger) ([]*template.RenderChart, error) {
-	renderSetOpt := &commonrepo.RenderSetFindOption{Name: productName}
-	if envName != "" {
-		opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
-		productResp, err := commonrepo.NewProductColl().Find(opt)
-		if err != nil {
-			log.Errorf("GetProduct envName:%s, productName:%s, err:%+v", envName, productName, err)
-			return nil, e.ErrListRenderSets.AddDesc(err.Error())
-		}
-
-		renderSetName := productResp.Namespace
-		renderSetOpt = &commonrepo.RenderSetFindOption{Name: renderSetName, Revision: productResp.Render.Revision}
-	}
-
-	renderSet, err := commonrepo.NewRenderSetColl().Find(renderSetOpt)
-	if err != nil {
-		log.Errorf("find helm renderset[%s] error: %v", productName, err)
-		return nil, e.ErrListRenderSets.AddDesc(err.Error())
-	}
-	return renderSet.ChartInfos, nil
-}
-
 func GetHelmChartVersions(productName, envName string, log *zap.SugaredLogger) ([]*commonmodels.HelmVersions, error) {
 	var (
 		helmVersions = make([]*commonmodels.HelmVersions, 0)
-		chartInfoMap = make(map[string]*template.RenderChart)
+		chartInfoMap = make(map[string]*templatemodels.RenderChart)
 	)
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	prod, err := commonrepo.NewProductColl().Find(opt)
@@ -1511,7 +1436,7 @@ func GetHelmChartVersions(productName, envName string, log *zap.SugaredLogger) (
 	}
 	for _, serviceGroup := range prodTmpl.Services {
 		for _, serviceName := range serviceGroup {
-			serviceListOpt.InServices = append(serviceListOpt.InServices, &template.ServiceInfo{
+			serviceListOpt.InServices = append(serviceListOpt.InServices, &templatemodels.ServiceInfo{
 				Name:  serviceName,
 				Owner: productName,
 			})
@@ -1604,7 +1529,7 @@ func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, l
 		if _, ok := rcMap[serviceName]; ok {
 			continue
 		}
-		serviceOption.InServices = append(serviceOption.InServices, &template.ServiceInfo{
+		serviceOption.InServices = append(serviceOption.InServices, &templatemodels.ServiceInfo{
 			Name:  serviceName,
 			Owner: productName,
 		})
@@ -1684,149 +1609,6 @@ func getProjectType(productName string) string {
 	}
 	return projectType
 }
-
-// createGroup create or update services in service group
-//func createGroup(envName, productName, username string, group []*commonmodels.ProductService, renderSet *commonmodels.RenderSet, kubeClient client.Client, log *zap.SugaredLogger) error {
-//	log.Infof("[Namespace:%s][Product:%s] createGroup", envName, productName)
-//	updatableServiceNameList := make([]string, 0)
-//
-//	// 异步创建无依赖的服务
-//	errList := &multierror.Error{
-//		ErrorFormat: func(es []error) string {
-//			points := make([]string, len(es))
-//			for i, err := range es {
-//				points[i] = fmt.Sprintf("%v", err)
-//			}
-//
-//			return strings.Join(points, "\n")
-//		},
-//	}
-//
-//	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
-//	prod, err := commonrepo.NewProductColl().Find(opt)
-//	if err != nil {
-//		errList = multierror.Append(errList, err)
-//	}
-//
-//	var wg sync.WaitGroup
-//	var lock sync.Mutex
-//	var resources []*unstructured.Unstructured
-//
-//	for i := range group {
-//		if group[i].Type == setting.K8SDeployType {
-//			// 只有在service有Pod的时候，才需要等待pod running或者等待pod succeed
-//			// 比如在group中，如果service下仅有configmap/service/ingress这些yaml的时候，不需要waitServicesRunning
-//			wg.Add(1)
-//			updatableServiceNameList = append(updatableServiceNameList, group[i].ServiceName)
-//			go func(svc *commonmodels.ProductService) {
-//				defer wg.Done()
-//				items, err := upsertService(false, prod, svc, nil, renderSet, kubeClient, log)
-//				if err != nil {
-//					lock.Lock()
-//					switch e := err.(type) {
-//					case *multierror.Error:
-//						errList = multierror.Append(errList, e.Errors...)
-//					default:
-//						errList = multierror.Append(errList, e)
-//					}
-//					lock.Unlock()
-//				}
-//
-//				//  concurrent array append
-//				lock.Lock()
-//				resources = append(resources, items...)
-//				lock.Unlock()
-//			}(group[i])
-//		} else if group[i].Type == setting.PMDeployType {
-//			//更新非k8s服务
-//			if len(group[i].EnvConfigs) > 0 {
-//				serviceTempl, err := commonservice.GetServiceTemplate(group[i].ServiceName, setting.PMDeployType, productName, setting.ProductStatusDeleting, group[i].Revision, log)
-//				if err != nil {
-//					errList = multierror.Append(errList, err)
-//				}
-//				if serviceTempl != nil {
-//					oldEnvConfigs := serviceTempl.EnvConfigs
-//					for _, currentEnvConfig := range group[i].EnvConfigs {
-//						envConfig := &commonmodels.EnvConfig{
-//							EnvName: currentEnvConfig.EnvName,
-//							HostIDs: currentEnvConfig.HostIDs,
-//						}
-//						oldEnvConfigs = append(oldEnvConfigs, envConfig)
-//					}
-//
-//					args := &commonservice.ServiceTmplBuildObject{
-//						ServiceTmplObject: &commonservice.ServiceTmplObject{
-//							ProductName:  serviceTempl.ProductName,
-//							ServiceName:  serviceTempl.ServiceName,
-//							Visibility:   serviceTempl.Visibility,
-//							Revision:     serviceTempl.Revision,
-//							Type:         serviceTempl.Type,
-//							Username:     username,
-//							HealthChecks: serviceTempl.HealthChecks,
-//							EnvConfigs:   oldEnvConfigs,
-//							EnvStatuses:  []*commonmodels.EnvStatus{},
-//							From:         "createEnv",
-//						},
-//						Build: &commonmodels.Build{Name: serviceTempl.BuildName},
-//					}
-//
-//					if err := commonservice.UpdatePmServiceTemplate(username, args, log); err != nil {
-//						errList = multierror.Append(errList, err)
-//					}
-//				}
-//			}
-//			var latestRevision int64 = group[i].Revision
-//			// 获取最新版本的服务
-//			if latestServiceTempl, _ := commonservice.GetServiceTemplate(group[i].ServiceName, setting.PMDeployType, productName, setting.ProductStatusDeleting, 0, log); latestServiceTempl != nil {
-//				latestRevision = latestServiceTempl.Revision
-//			}
-//			// 更新环境
-//			if latestRevision > group[i].Revision {
-//				// 更新产品服务
-//				for _, serviceGroup := range prod.Services {
-//					for j, service := range serviceGroup {
-//						if service.ServiceName == group[i].ServiceName && service.Type == setting.PMDeployType {
-//							serviceGroup[j].Revision = latestRevision
-//						}
-//					}
-//				}
-//				if err := commonrepo.NewProductColl().Update(prod); err != nil {
-//					log.Errorf("[%s][%s] Product.Update error: %v", envName, productName, err)
-//					errList = multierror.Append(errList, err)
-//				}
-//			}
-//			if _, err = commonservice.CreateServiceTask(&commonmodels.ServiceTaskArgs{
-//				ProductName:        productName,
-//				ServiceName:        group[i].ServiceName,
-//				Revision:           latestRevision,
-//				EnvNames:           []string{envName},
-//				ServiceTaskCreator: username,
-//			}, log); err != nil {
-//				errList = multierror.Append(errList, err)
-//			}
-//		}
-//	}
-//
-//	wg.Wait()
-//
-//	// 如果创建依赖服务组有返回错误, 停止等待
-//	if err := errList.ErrorOrNil(); err != nil {
-//		return err
-//	}
-//
-//	if err := waitResourceRunning(kubeClient, prod.Namespace, resources, config.ServiceStartTimeout(), log); err != nil {
-//		log.Errorf(
-//			"service group %s/%+v doesn't start in %d seconds: %v",
-//			prod.Namespace,
-//			updatableServiceNameList, config.ServiceStartTimeout(), err)
-//
-//		err = e.ErrUpdateEnv.AddErr(
-//			errors.Errorf(e.StartPodTimeout+"\n %s", "["+strings.Join(updatableServiceNameList, "], [")+"]"))
-//		return err
-//	}
-//
-//	return nil
-//}
 
 // upsertService 创建或者更新服务, 更新服务之前先创建服务需要的配置
 func upsertService(isUpdate bool, env *commonmodels.Product,
@@ -1941,26 +1723,36 @@ func upsertService(isUpdate bool, env *commonmodels.Product,
 			u.SetAPIVersion(setting.APIVersionAppsV1)
 			u.SetLabels(kube.MergeLabels(labels, u.GetLabels()))
 
-			podLabels, _, _ := unstructured.NestedStringMap(u.Object, "spec", "template", "metadata", "labels")
-			err := unstructured.SetNestedStringMap(u.Object, kube.MergeLabels(labels, podLabels), "spec", "template", "metadata", "labels")
+			podLabels, _, err := unstructured.NestedStringMap(u.Object, "spec", "template", "metadata", "labels")
 			if err != nil {
-				// should not have happened
-				panic(err)
+				podLabels = nil
+			}
+			err = unstructured.SetNestedStringMap(u.Object, kube.MergeLabels(labels, podLabels), "spec", "template", "metadata", "labels")
+			if err != nil {
+				log.Errorf("merge label failed err:%s", err)
+				u.Object = setFieldValueIsNotExist(u.Object, kube.MergeLabels(labels, podLabels), "spec", "template", "metadata", "labels")
 			}
 
-			podAnnotations, _, _ := unstructured.NestedStringMap(u.Object, "spec", "template", "metadata", "annotations")
+			podAnnotations, _, err := unstructured.NestedStringMap(u.Object, "spec", "template", "metadata", "annotations")
+			if err != nil {
+				podAnnotations = nil
+			}
 			err = unstructured.SetNestedStringMap(u.Object, applyUpdatedAnnotations(podAnnotations), "spec", "template", "metadata", "annotations")
 			if err != nil {
-				// should not have happened
-				panic(err)
+				log.Errorf("merge annotation failed err:%s", err)
+				u.Object = setFieldValueIsNotExist(u.Object, applyUpdatedAnnotations(podAnnotations), "spec", "template", "metadata", "annotations")
 			}
 
 			// Inject selector: s-product and s-service
-			selector, _, _ := unstructured.NestedStringMap(u.Object, "spec", "selector", "matchLabels")
+			selector, _, err := unstructured.NestedStringMap(u.Object, "spec", "selector", "matchLabels")
+			if err != nil {
+				selector = nil
+			}
+
 			err = unstructured.SetNestedStringMap(u.Object, kube.MergeLabels(labels, selector), "spec", "selector", "matchLabels")
 			if err != nil {
-				// should not have happened
-				panic(err)
+				log.Errorf("merge selector failed err:%s", err)
+				u.Object = setFieldValueIsNotExist(u.Object, kube.MergeLabels(labels, selector), "spec", "selector", "matchLabels")
 			}
 
 			jsonData, err := u.MarshalJSON()
@@ -1978,8 +1770,6 @@ func upsertService(isUpdate bool, env *commonmodels.Product,
 
 			switch res := obj.(type) {
 			case *appsv1.Deployment:
-				// Inject resource request and limit
-				applySystemResourceRequirements(&res.Spec.Template.Spec)
 				// Inject imagePullSecrets if qn-registry-secret is not set
 				applySystemImagePullSecrets(&res.Spec.Template.Spec)
 
@@ -1990,8 +1780,6 @@ func upsertService(isUpdate bool, env *commonmodels.Product,
 					continue
 				}
 			case *appsv1.StatefulSet:
-				// Inject resource request and limit
-				applySystemResourceRequirements(&res.Spec.Template.Spec)
 				// Inject imagePullSecrets if qn-registry-secret is not set
 				applySystemImagePullSecrets(&res.Spec.Template.Spec)
 
@@ -2024,7 +1812,6 @@ func upsertService(isUpdate bool, env *commonmodels.Product,
 			obj.ObjectMeta.Labels = kube.MergeLabels(labels, obj.ObjectMeta.Labels)
 			obj.Spec.Template.ObjectMeta.Labels = kube.MergeLabels(labels, obj.Spec.Template.ObjectMeta.Labels)
 
-			applySystemResourceRequirements(&obj.Spec.Template.Spec)
 			// Inject imagePullSecrets if qn-registry-secret is not set
 			applySystemImagePullSecrets(&obj.Spec.Template.Spec)
 
@@ -2059,7 +1846,6 @@ func upsertService(isUpdate bool, env *commonmodels.Product,
 			obj.Spec.JobTemplate.ObjectMeta.Labels = kube.MergeLabels(labels, obj.Spec.JobTemplate.ObjectMeta.Labels)
 			obj.Spec.JobTemplate.Spec.Template.ObjectMeta.Labels = kube.MergeLabels(labels, obj.Spec.JobTemplate.Spec.Template.ObjectMeta.Labels)
 
-			applySystemResourceRequirements(&obj.Spec.JobTemplate.Spec.Template.Spec)
 			// Inject imagePullSecrets if qn-registry-secret is not set
 			applySystemImagePullSecrets(&obj.Spec.JobTemplate.Spec.Template.Spec)
 
@@ -2249,7 +2035,8 @@ func waitResourceRunning(
 	})
 }
 
-func preCreateProduct(envName string, args *commonmodels.Product, kubeClient client.Client, log *zap.SugaredLogger) error {
+func preCreateProduct(envName string, args *commonmodels.Product, kubeClient client.Client,
+	log *zap.SugaredLogger) error {
 	var (
 		productTemplateName = args.ProductName
 		renderSetName       = commonservice.GetProductEnvNamespace(envName, args.ProductName, args.Namespace)
@@ -2294,7 +2081,7 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 
 	args.Vars = nil
 
-	var productTmpl *template.Product
+	var productTmpl *templatemodels.Product
 	// 查询产品模板
 	productTmpl, err = templaterepo.NewProductColl().Find(productTemplateName)
 	if err != nil {
@@ -2330,12 +2117,12 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 
 	args.Render = tmpRenderInfo
 	if preCreateNSAndSecret(productTmpl.ProductFeature) {
-		return ensureKubeEnv(args.Namespace, kubeClient, log)
+		return ensureKubeEnv(args.Namespace, args.RegistryID, kubeClient, log)
 	}
 	return nil
 }
 
-func preCreateNSAndSecret(productFeature *template.ProductFeature) bool {
+func preCreateNSAndSecret(productFeature *templatemodels.ProductFeature) bool {
 	if productFeature == nil {
 		return true
 	}
@@ -2401,35 +2188,6 @@ func applyUpdatedAnnotations(annotations map[string]string) map[string]string {
 	return annotations
 }
 
-func applySystemResourceRequirements(podSpec *corev1.PodSpec) {
-	for i, container := range podSpec.Containers {
-
-		if container.Resources.Limits == nil {
-			podSpec.Containers[i].Resources.Limits = corev1.ResourceList{}
-		}
-
-		if container.Resources.Limits.Cpu().String() == "0" {
-			podSpec.Containers[i].Resources.Limits[corev1.ResourceCPU] = resource.MustParse("500m")
-		}
-
-		if container.Resources.Limits.Memory().String() == "0" {
-			podSpec.Containers[i].Resources.Limits[corev1.ResourceMemory] = resource.MustParse("200Mi")
-		}
-
-		if container.Resources.Requests == nil {
-			podSpec.Containers[i].Resources.Requests = corev1.ResourceList{}
-		}
-
-		if container.Resources.Requests.Cpu().String() == "0" {
-			podSpec.Containers[i].Resources.Requests[corev1.ResourceCPU] = resource.MustParse("10m")
-		}
-
-		if container.Resources.Requests.Memory().String() == "0" {
-			podSpec.Containers[i].Resources.Requests[corev1.ResourceMemory] = resource.MustParse("100Mi")
-		}
-	}
-}
-
 func applySystemImagePullSecrets(podSpec *corev1.PodSpec) {
 	for _, secret := range podSpec.ImagePullSecrets {
 		if secret.Name == setting.DefaultImagePullSecret {
@@ -2442,7 +2200,7 @@ func applySystemImagePullSecrets(podSpec *corev1.PodSpec) {
 		})
 }
 
-func ensureKubeEnv(namespace string, kubeClient client.Client, log *zap.SugaredLogger) error {
+func ensureKubeEnv(namespace string, registryId string, kubeClient client.Client, log *zap.SugaredLogger) error {
 	err := kube.CreateNamespace(namespace, kubeClient)
 	if err != nil {
 		log.Errorf("[%s] get or create namespace error: %v", namespace, err)
@@ -2450,7 +2208,7 @@ func ensureKubeEnv(namespace string, kubeClient client.Client, log *zap.SugaredL
 	}
 
 	// 创建默认的镜像仓库secret
-	if err := commonservice.EnsureDefaultRegistrySecret(namespace, kubeClient, log); err != nil {
+	if err := commonservice.EnsureDefaultRegistrySecret(namespace, registryId, kubeClient, log); err != nil {
 		log.Errorf("[%s] get or create namespace error: %v", namespace, err)
 		return e.ErrCreateSecret.AddDesc(e.CreateDefaultRegistryErrMsg)
 	}
@@ -2476,10 +2234,106 @@ func FindHelmRenderSet(productName, renderName string, log *zap.SugaredLogger) (
 	return resp, nil
 }
 
-func installOrUpdateHelmChart(user, envName, requestID string, args *commonmodels.Product, eventStart int64, helmClient helmclient.Client, log *zap.SugaredLogger) {
+func installOrUpgradeHelmChart(namespace string, renderChart *templatemodels.RenderChart, defaultValues string, serviceObj *commonmodels.Service, timeout time.Duration, isRetry bool, helmClient helmclient.Client, kubecli client.Client) error {
+	mergedValuesYaml, err := helmtool.MergeOverrideValues(renderChart.ValuesYaml, defaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
+	if err != nil {
+		err = errors.WithMessagef(err, "failed to merge override yaml %s and values %s", renderChart.GetOverrideYaml(), renderChart.OverrideValues)
+		return err
+	}
+	return installOrUpgradeHelmChartWithValues(namespace, mergedValuesYaml, renderChart, serviceObj, timeout, isRetry, helmClient, kubecli)
+}
+
+func installOrUpgradeHelmChartWithValues(namespace, valuesYaml string, renderChart *templatemodels.RenderChart, serviceObj *commonmodels.Service, timeout time.Duration, isRetry bool, helmClient helmclient.Client, kubecli client.Client) error {
+	base := config.LocalServicePathWithRevision(serviceObj.ProductName, serviceObj.ServiceName, serviceObj.Revision)
+	if err := commonservice.PreloadServiceManifestsByRevision(base, serviceObj); err != nil {
+		log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
+			serviceObj.Revision, serviceObj.ServiceName)
+		// use the latest version when it fails to download the specific version
+		base = config.LocalServicePath(serviceObj.ProductName, serviceObj.ServiceName)
+		if err = commonservice.PreLoadServiceManifests(base, serviceObj); err != nil {
+			log.Errorf("failed to load chart info for service %v", serviceObj.ServiceName)
+			return fmt.Errorf("failed to load chart info for service %s", serviceObj.ServiceName)
+		}
+	}
+
+	chartFullPath := filepath.Join(base, serviceObj.ServiceName)
+	chartPath, err := fs.RelativeToCurrentPath(chartFullPath)
+	if err != nil {
+		log.Errorf("Failed to get relative path %s, err: %s", chartFullPath, err)
+		return err
+	}
+
+	chartSpec := &helmclient.ChartSpec{
+		ReleaseName:   util.GeneHelmReleaseName(namespace, serviceObj.ServiceName),
+		ChartName:     chartPath,
+		Namespace:     namespace,
+		Version:       renderChart.ChartVersion,
+		ValuesYaml:    valuesYaml,
+		UpgradeCRDs:   true,
+		CleanupOnFail: true,
+	}
+	if isRetry {
+		chartSpec.Replace = true
+	}
+	if timeout > 0 {
+		chartSpec.Wait = true
+		chartSpec.Timeout = timeout
+	}
+
+	done := make(chan bool)
+	defer close(done)
+	go func(chan bool) {
+		if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), chartSpec); err != nil {
+			err = errors.WithMessagef(
+				err,
+				"failed to Install helm chart %s/%s",
+				namespace, serviceObj.ServiceName)
+			done <- false
+		} else {
+			done <- true
+		}
+	}(done)
+
+	pendingStatusProcess := func(typ string) error {
+		hrs, errHistory := helmClient.ListReleaseHistory(chartSpec.ReleaseName, 10)
+		if errHistory != nil {
+			err = errors.WithMessagef(
+				err,
+				"failed to ListReleaseHistory: %s,error:%s",
+				chartSpec.ReleaseName, errHistory)
+			return err
+		}
+		if len(hrs) > 0 {
+			releaseutil.Reverse(hrs, releaseutil.SortByRevision)
+			rel := hrs[0]
+			if rel.Info.Status == helmrelease.StatusPendingInstall || rel.Info.Status == helmrelease.StatusPendingUpgrade {
+				secretName := fmt.Sprintf("sh.helm.release.v1.%s.v.%d", rel.Name, rel.Version)
+				deleteErr := updater.DeleteSecretWithName(rel.Namespace, secretName, kubecli)
+				if deleteErr != nil {
+					err = errors.WithMessagef(err, "failed to deleteSecretWithName:%s,error:%s", secretName, deleteErr)
+					return err
+				}
+			}
+		}
+		if err != nil {
+			err = fmt.Errorf("failed to install %s:%s", typ, err)
+		}
+		return err
+	}
+	select {
+	case d := <-done:
+		if !d {
+			err = pendingStatusProcess("normal")
+		}
+	case <-time.After(chartSpec.Timeout + 5*time.Second):
+		err = pendingStatusProcess("timeout")
+	}
+	return err
+}
+
+func installProductHelmCharts(user, envName, requestID string, args *commonmodels.Product, renderset *commonmodels.RenderSet, eventStart int64, helmClient helmclient.Client, kubecli client.Client, log *zap.SugaredLogger) {
 	var (
 		err     error
-		wg      sync.WaitGroup
 		errList = &multierror.Error{}
 	)
 
@@ -2506,80 +2360,53 @@ func installOrUpdateHelmChart(user, envName, requestID string, args *commonmodel
 			return
 		}
 	}()
-	chartInfoMap := make(map[string]*template.RenderChart)
+
+	chartInfoMap := make(map[string]*templatemodels.RenderChart)
 	for _, renderChart := range args.ChartInfos {
 		chartInfoMap[renderChart.ServiceName] = renderChart
 	}
+
+	handler := func(serviceObj *commonmodels.Service, isRetry bool, kubecli client.Client, logger *zap.SugaredLogger) error {
+		renderChart := chartInfoMap[serviceObj.ServiceName]
+		timeout := time.Second * setting.DeployTimeout
+		err = installOrUpgradeHelmChart(args.Namespace, renderChart, renderset.DefaultValues, serviceObj, timeout, isRetry, helmClient, kubecli)
+		if err != nil {
+			log.Errorf("failed to install service: %s, namespace: %s, isRetry: %v, err: %s", serviceObj.ServiceName, args.Namespace, isRetry, err)
+			return errors.Wrapf(err, "failed to install service: %s, namespace: %s", serviceObj.ServiceName, args.Namespace)
+		}
+		return nil
+	}
+
 	for _, serviceGroups := range args.Services {
+		serviceList := make([]*commonmodels.Service, 0)
 		for _, svc := range serviceGroups {
-			renderChart, ok := chartInfoMap[svc.ServiceName]
+			_, ok := chartInfoMap[svc.ServiceName]
 			if !ok {
 				continue
 			}
 
-			wg.Add(1)
-			go func(service *commonmodels.ProductService) {
-				defer wg.Done()
+			// 获取服务详情
+			opt := &commonrepo.ServiceFindOption{
+				ServiceName:   svc.ServiceName,
+				Type:          svc.Type,
+				Revision:      svc.Revision,
+				ProductName:   args.ProductName,
+				ExcludeStatus: setting.ProductStatusDeleting,
+			}
+			serviceObj, err := commonrepo.NewServiceColl().Find(opt)
+			if err != nil {
+				errList = multierror.Append(errList, errors.Wrapf(err, "failed to find template servce, serviceName %s", svc.ServiceName))
+				continue
+			}
 
-				// 获取服务详情
-				opt := &commonrepo.ServiceFindOption{
-					ServiceName:   service.ServiceName,
-					Type:          service.Type,
-					Revision:      service.Revision,
-					ProductName:   args.ProductName,
-					ExcludeStatus: setting.ProductStatusDeleting,
-				}
-				serviceObj, err := commonrepo.NewServiceColl().Find(opt)
-				if err != nil {
-					return
-				}
-
-				base := config.LocalServicePath(service.ProductName, service.ServiceName)
-				if err = commonservice.PreLoadServiceManifests(base, serviceObj); err != nil {
-					log.Errorf("Failed to load service menifests for service %s in project %s, err: %s", service.ServiceName, service.ProductName, err)
-					errList = multierror.Append(errList, err)
-					return
-				}
-
-				chartFullPath := filepath.Join(base, service.ServiceName)
-				chartPath, err := fs.RelativeToCurrentPath(chartFullPath)
-				if err != nil {
-					log.Errorf("Failed to get relative path %s, err: %s", chartFullPath, err)
-					errList = multierror.Append(errList, err)
-					return
-				}
-
-				mergedValuesYaml, err := helmtool.MergeOverrideValues(renderChart.ValuesYaml, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
-				if err != nil {
-					err = errors.WithMessagef(
-						err,
-						"failed to merge override yaml %s and values %s",
-						renderChart.GetOverrideYaml(),
-						renderChart.OverrideValues,
-					)
-					errList = multierror.Append(errList, err)
-					return
-				}
-
-				chartSpec := &helmclient.ChartSpec{
-					ReleaseName: util.GeneHelmReleaseName(args.Namespace, service.ServiceName),
-					ChartName:   chartPath,
-					Namespace:   args.Namespace,
-					Wait:        true,
-					Version:     renderChart.ChartVersion,
-					ValuesYaml:  mergedValuesYaml,
-					UpgradeCRDs: true,
-					Timeout:     Timeout * time.Second * 10,
-				}
-
-				if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), chartSpec); err != nil {
-					errList = multierror.Append(errList, err)
-					return
-				}
-			}(svc)
+			serviceList = append(serviceList, serviceObj)
+		}
+		serviceGroupErr := intervalExecutorWithRetry(5, time.Millisecond*2500, serviceList, handler, kubecli, log)
+		if serviceGroupErr != nil {
+			errList = multierror.Append(errList, serviceGroupErr...)
 		}
 	}
-	wg.Wait()
+
 	err = errList.ErrorOrNil()
 }
 
@@ -2643,12 +2470,61 @@ func getUpdatedProductServices(updateProduct *commonmodels.Product, serviceRevis
 	return updatedAllServices
 }
 
-func updateProductGroup(productName, envName, updateType string, productResp *commonmodels.Product, currentProductServices [][]*commonmodels.ProductService, overrideCharts []*commonservice.RenderChartArg, log *zap.SugaredLogger) error {
+func intervalExecutorWithRetry(retryCount uint64, interval time.Duration, serviceList []*commonmodels.Service, handler intervalExecutorHandler, kubecli client.Client, log *zap.SugaredLogger) []error {
+	bo := backoff.NewConstantBackOff(time.Second * 3)
+	retryBo := backoff.WithMaxRetries(bo, retryCount)
+	errList := make([]error, 0)
+	isRetry := false
+	_ = backoff.Retry(func() error {
+		failedServices := make([]*commonmodels.Service, 0)
+		errList = intervalExecutor(interval, serviceList, &failedServices, isRetry, handler, kubecli, log)
+		if len(errList) == 0 {
+			return nil
+		}
+		log.Infof("%d services waiting to retry", len(failedServices))
+		serviceList = failedServices
+		isRetry = true
+		return fmt.Errorf("%d services apply failed", len(errList))
+	}, retryBo)
+	return errList
+}
+
+func intervalExecutor(interval time.Duration, serviceList []*commonmodels.Service, failedServices *[]*commonmodels.Service, isRetry bool, handler intervalExecutorHandler, kubecli client.Client, log *zap.SugaredLogger) []error {
+	if len(serviceList) == 0 {
+		return nil
+	}
+	wg := sync.WaitGroup{}
+	wg.Add(len(serviceList))
+	errList := make([]error, 0)
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for _, data := range serviceList {
+		go func() {
+			defer wg.Done()
+			err := handler(data, isRetry, kubecli, log)
+			if err != nil {
+				errList = append(errList, err)
+				*failedServices = append(*failedServices, data)
+				log.Errorf("service:%s apply failed, err %s", data.ServiceName, err)
+			}
+		}()
+		<-ticker.C
+	}
+	wg.Wait()
+	return errList
+}
+
+func updateProductGroup(username, productName, envName, updateType string, productResp *commonmodels.Product, currentProductServices [][]*commonmodels.ProductService, overrideCharts []*commonservice.RenderChartArg, log *zap.SugaredLogger) error {
 	var (
-		renderChartMap         = make(map[string]*template.RenderChart)
+		renderChartMap         = make(map[string]*templatemodels.RenderChart)
 		productServiceMap      = make(map[string]*commonmodels.ProductService)
 		productTemplServiceMap = make(map[string]*commonmodels.ProductService)
 	)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productResp.ClusterID)
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(err)
+	}
 	restConfig, err := kube.GetRESTConfig(productResp.ClusterID)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
@@ -2665,10 +2541,8 @@ func updateProductGroup(productName, envName, updateType string, productResp *co
 		}
 	}
 
-	for _, serviceGroup := range productResp.Services {
-		for _, service := range serviceGroup {
-			productTemplServiceMap[service.ServiceName] = service
-		}
+	for _, service := range productResp.GetServiceMap() {
+		productTemplServiceMap[service.ServiceName] = service
 	}
 
 	// 找到环境里面还存在但是服务编排里面已经删除的服务卸载掉
@@ -2680,8 +2554,8 @@ func updateProductGroup(productName, envName, updateType string, productResp *co
 					ReleaseName: util.GeneHelmReleaseName(namespace, serviceName),
 					Namespace:   namespace,
 					Wait:        true,
-					Force:       true,
-					Timeout:     Timeout * time.Second * 10,
+					//Force:       true,
+					//Timeout:     Timeout * time.Second * 10,
 				}); err != nil {
 					log.Errorf("helm uninstall release %s err:%v", fmt.Sprintf("%s-%s", namespace, serviceName), err)
 				}
@@ -2690,88 +2564,68 @@ func updateProductGroup(productName, envName, updateType string, productResp *co
 	}
 
 	//比较当前环境中的变量和系统默认的最新变量
-	renderSet, err := diffRenderSet(productName, envName, updateType, productResp, overrideCharts, log)
+	renderSet, err := diffRenderSet(username, productName, envName, updateType, productResp, overrideCharts, log)
 	if err != nil {
 		return e.ErrUpdateEnv.AddDesc("对比环境中的value.yaml和系统默认的value.yaml失败")
+	}
+
+	svcNameSet := sets.NewString()
+	for _, singleChart := range overrideCharts {
+		if singleChart.EnvName != envName {
+			continue
+		}
+		svcNameSet.Insert(singleChart.ServiceName)
 	}
 
 	for _, renderChart := range renderSet.ChartInfos {
 		renderChartMap[renderChart.ServiceName] = renderChart
 	}
 
+	handler := func(serviceObj *commonmodels.Service, isRetry bool, kubecli client.Client, log *zap.SugaredLogger) error {
+		renderChart := renderChartMap[serviceObj.ServiceName]
+		err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderSet.DefaultValues, serviceObj, 0, isRetry, helmClient, kubecli)
+		if err != nil {
+			log.Errorf("failed to upgrade service: %s, namespace: %s, isRetry: %v, err: %s", serviceObj.ServiceName, productResp.Namespace, isRetry, err)
+			return errors.Wrapf(err, "failed to install or upgrade service %s", serviceObj.ServiceName)
+		}
+		return nil
+	}
+
 	errList := new(multierror.Error)
 	for groupIndex, services := range productResp.Services {
-		var wg sync.WaitGroup
+		serviceList := make([]*commonmodels.Service, 0)
 		for _, svc := range services {
-			renderChart, ok := renderChartMap[svc.ServiceName]
+			_, ok := renderChartMap[svc.ServiceName]
 			if !ok {
 				continue
 			}
+			// service is not in update list
+			if !svcNameSet.Has(svc.ServiceName) {
+				continue
+			}
 
-			wg.Add(1)
-			go func(service *commonmodels.ProductService) {
-				defer wg.Done()
+			opt := &commonrepo.ServiceFindOption{
+				ServiceName:   svc.ServiceName,
+				Type:          svc.Type,
+				Revision:      svc.Revision,
+				ProductName:   svc.ProductName,
+				ExcludeStatus: setting.ProductStatusDeleting,
+			}
+			serviceObj, err := commonrepo.NewServiceColl().Find(opt)
+			if err != nil {
+				log.Errorf("failed to find service with opt %+v, err: %s", opt, err)
+				errList = multierror.Append(errList, errors.Wrapf(err, "failed to find template servce, serviceName %s", svc.ServiceName))
+				continue
+			}
 
-				opt := &commonrepo.ServiceFindOption{
-					ServiceName:   service.ServiceName,
-					Type:          service.Type,
-					Revision:      service.Revision,
-					ProductName:   service.ProductName,
-					ExcludeStatus: setting.ProductStatusDeleting,
-				}
-				serviceObj, err := commonrepo.NewServiceColl().Find(opt)
-				if err != nil {
-					log.Errorf("Failed to find service with opt %+v, err: %s", opt, err)
-					errList = multierror.Append(errList, err)
-					return
-				}
-
-				base := config.LocalServicePath(service.ProductName, service.ServiceName)
-				if err = commonservice.PreLoadServiceManifests(base, serviceObj); err != nil {
-					log.Errorf("Failed to load service menifests for service %s in project %s, err: %s", service.ServiceName, service.ProductName, err)
-					errList = multierror.Append(errList, err)
-					return
-				}
-
-				chartFullPath := filepath.Join(base, service.ServiceName)
-				chartPath, err := fs.RelativeToCurrentPath(chartFullPath)
-				if err != nil {
-					log.Errorf("Failed to get relative path %s, err: %s", chartFullPath, err)
-					errList = multierror.Append(errList, err)
-					return
-				}
-
-				mergedValuesYaml, err := helmtool.MergeOverrideValues(renderChart.ValuesYaml, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
-				if err != nil {
-					err = errors.WithMessagef(
-						err,
-						"failed to merge override yaml %s and values %s",
-						renderChart.GetOverrideYaml(),
-						renderChart.OverrideValues,
-					)
-					errList = multierror.Append(errList, err)
-					return
-				}
-
-				chartSpec := helmclient.ChartSpec{
-					ReleaseName: util.GeneHelmReleaseName(productResp.Namespace, service.ServiceName),
-					ChartName:   chartPath,
-					Namespace:   productResp.Namespace,
-					Wait:        true,
-					Version:     renderChart.ChartVersion,
-					ValuesYaml:  mergedValuesYaml,
-					UpgradeCRDs: true,
-					Timeout:     Timeout * time.Second * 10,
-				}
-
-				if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), &chartSpec); err != nil {
-					log.Errorf("install helm chart %s error :%+v", chartSpec.ReleaseName, err)
-					errList = multierror.Append(errList, err)
-				}
-			}(svc)
+			serviceList = append(serviceList, serviceObj)
 		}
 
-		wg.Wait()
+		serviceGroupErr := intervalExecutorWithRetry(5, time.Millisecond*2500, serviceList, handler, kubeClient, log)
+		if serviceGroupErr != nil {
+			errList = multierror.Append(errList, serviceGroupErr...)
+		}
+
 		if err = commonrepo.NewProductColl().UpdateGroup(envName, productName, groupIndex, services); err != nil {
 			log.Errorf("Failed to update service group %d, err: %s", groupIndex, err)
 			errList = multierror.Append(errList, err)
@@ -2788,7 +2642,7 @@ func updateProductGroup(productName, envName, updateType string, productResp *co
 }
 
 // diffRenderSet 对比环境中的renderSet的值和服务的最新的renderSet的值
-func diffRenderSet(productName, envName, updateType string, productResp *commonmodels.Product, overrideCharts []*commonservice.RenderChartArg, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
+func diffRenderSet(username, productName, envName, updateType string, productResp *commonmodels.Product, overrideCharts []*commonservice.RenderChartArg, log *zap.SugaredLogger) (*commonmodels.RenderSet, error) {
 	productTemp, err := templaterepo.NewProductColl().Find(productName)
 	if err != nil {
 		log.Errorf("[ProductTmpl.find] err: %v", err)
@@ -2801,7 +2655,7 @@ func diffRenderSet(productName, envName, updateType string, productResp *commonm
 		return nil, err
 	}
 
-	latestRenderSetMap := make(map[string]*template.RenderChart)
+	latestRenderSetMap := make(map[string]*templatemodels.RenderChart)
 	for _, renderInfo := range latestRenderSet.ChartInfos {
 		latestRenderSetMap[renderInfo.ServiceName] = renderInfo
 	}
@@ -2814,8 +2668,8 @@ func diffRenderSet(productName, envName, updateType string, productResp *commonm
 		renderChartArgMap[singleArg.ServiceName] = singleArg
 	}
 
-	newChartInfos := make([]*template.RenderChart, 0)
-	renderSetName := productResp.Namespace
+	newChartInfos := make([]*templatemodels.RenderChart, 0)
+	defaultValues := ""
 	switch updateType {
 	case UpdateTypeSystem:
 		for _, serviceNameGroup := range productTemp.Services {
@@ -2826,21 +2680,22 @@ func diffRenderSet(productName, envName, updateType string, productResp *commonm
 			}
 		}
 	case UpdateTypeEnv:
-		renderSetOpt := &commonrepo.RenderSetFindOption{Name: renderSetName, Revision: productResp.Render.Revision}
+		renderSetOpt := &commonrepo.RenderSetFindOption{Name: productResp.Render.Name, Revision: productResp.Render.Revision}
 		currentEnvRenderSet, err := commonrepo.NewRenderSetColl().Find(renderSetOpt)
 		if err != nil {
 			log.Errorf("[RenderSet.find] err: %v", err)
 			return nil, err
 		}
+		defaultValues = currentEnvRenderSet.DefaultValues
 
 		// 环境里面的变量
-		currentEnvRenderSetMap := make(map[string]*template.RenderChart)
+		currentEnvRenderSetMap := make(map[string]*templatemodels.RenderChart)
 		for _, renderInfo := range currentEnvRenderSet.ChartInfos {
 			currentEnvRenderSetMap[renderInfo.ServiceName] = renderInfo
 		}
 
-		tmpCurrentChartInfoMap := make(map[string]*template.RenderChart)
-		tmpLatestChartInfoMap := make(map[string]*template.RenderChart)
+		tmpCurrentChartInfoMap := make(map[string]*templatemodels.RenderChart)
+		tmpLatestChartInfoMap := make(map[string]*templatemodels.RenderChart)
 		//过滤掉服务编排没有的服务，这部分不需要做diff
 		for _, serviceNameGroup := range productTemp.Services {
 			for _, serviceName := range serviceNameGroup {
@@ -2853,13 +2708,23 @@ func diffRenderSet(productName, envName, updateType string, productResp *commonm
 			}
 		}
 
+		serviceMap := productResp.GetServiceMap()
 		for serviceName, latestChartInfo := range tmpLatestChartInfoMap {
 			if currentChartInfo, ok := tmpCurrentChartInfoMap[serviceName]; ok {
+				serviceInfo := serviceMap[serviceName]
+				imageRelatedKey := sets.NewString()
+				if serviceInfo != nil {
+					for _, container := range serviceInfo.Containers {
+						if container.ImagePath != nil {
+							imageRelatedKey.Insert(container.ImagePath.Image, container.ImagePath.Repo, container.ImagePath.Tag)
+						}
+					}
+				}
+
 				//拿当前环境values.yaml的key的value去替换服务里面的values.yaml的相同的key的value
-				//TODO values.yaml should be the same in both currentChartInfo and latestChartInfo, since values.yaml can't be edited directly
-				newValuesYaml, err := overrideValues([]byte(currentChartInfo.ValuesYaml), []byte(latestChartInfo.ValuesYaml))
+				newValuesYaml, err := overrideValues([]byte(currentChartInfo.ValuesYaml), []byte(latestChartInfo.ValuesYaml), imageRelatedKey)
 				if err != nil {
-					log.Errorf("Failed to override values, err: %s", err)
+					log.Errorf("Failed to override values for service %s, err: %s", serviceName, err)
 				} else {
 					latestChartInfo.ValuesYaml = string(newValuesYaml)
 				}
@@ -2878,10 +2743,12 @@ func diffRenderSet(productName, envName, updateType string, productResp *commonm
 
 	if err = commonservice.CreateHelmRenderSet(
 		&commonmodels.RenderSet{
-			Name:        renderSetName,
-			EnvName:     envName,
-			ProductTmpl: productName,
-			ChartInfos:  newChartInfos,
+			Name:          productResp.Render.Name,
+			EnvName:       envName,
+			ProductTmpl:   productName,
+			ChartInfos:    newChartInfos,
+			DefaultValues: defaultValues,
+			UpdateBy:      username,
 		},
 		log,
 	); err != nil {
@@ -2889,7 +2756,7 @@ func diffRenderSet(productName, envName, updateType string, productResp *commonm
 		return nil, err
 	}
 
-	renderSet, err := FindHelmRenderSet(productName, renderSetName, log)
+	renderSet, err := FindHelmRenderSet(productName, productResp.Render.Name, log)
 	if err != nil {
 		log.Errorf("[RenderSet.find] err: %v", err)
 		return nil, err
@@ -2897,7 +2764,9 @@ func diffRenderSet(productName, envName, updateType string, productResp *commonm
 	return renderSet, nil
 }
 
-func overrideValues(currentValuesYaml, latestValuesYaml []byte) ([]byte, error) {
+// for keys exist in both yaml, current values will override latest values
+// only for images
+func overrideValues(currentValuesYaml, latestValuesYaml []byte, imageRelatedKey sets.String) ([]byte, error) {
 	currentValuesMap := map[string]interface{}{}
 	if err := yaml.Unmarshal(currentValuesYaml, &currentValuesMap); err != nil {
 		return nil, err
@@ -2920,13 +2789,16 @@ func overrideValues(currentValuesYaml, latestValuesYaml []byte) ([]byte, error) 
 
 	replaceMap := make(map[string]interface{})
 	for key := range latestValuesFlatMap {
+		if !imageRelatedKey.Has(key) {
+			continue
+		}
 		if currentValue, ok := currentValuesFlatMap[key]; ok {
 			replaceMap[key] = currentValue
 		}
 	}
 
 	if len(replaceMap) == 0 {
-		return nil, nil
+		return latestValuesYaml, nil
 	}
 
 	var replaceKV []string
@@ -2941,7 +2813,7 @@ func overrideValues(currentValuesYaml, latestValuesYaml []byte) ([]byte, error) 
 	return yaml.Marshal(latestValuesMap)
 }
 
-func updateProductVariable(productName, envName string, productResp *commonmodels.Product, log *zap.SugaredLogger) error {
+func updateProductVariable(productName, envName string, productResp *commonmodels.Product, renderset *commonmodels.RenderSet, log *zap.SugaredLogger) error {
 	restConfig, err := kube.GetRESTConfig(productResp.ClusterID)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
@@ -2952,17 +2824,31 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 		return e.ErrUpdateEnv.AddErr(err)
 	}
 
-	renderChartMap := make(map[string]*template.RenderChart)
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productResp.ClusterID)
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(err)
+	}
+	renderChartMap := make(map[string]*templatemodels.RenderChart)
 	for _, renderChart := range productResp.ChartInfos {
 		renderChartMap[renderChart.ServiceName] = renderChart
 	}
 
+	handler := func(service *commonmodels.Service, isRetry bool, kubecli client.Client, log *zap.SugaredLogger) error {
+		renderChart := renderChartMap[service.ServiceName]
+		err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderset.DefaultValues, service, 0, isRetry, helmClient, kubecli)
+		if err != nil {
+			log.Errorf("failed to upgrade service: %s, namespace: %s, isRetry: %v, err: %s", service.ServiceName, productResp.Namespace, isRetry, err)
+			return errors.Wrapf(err, "failed to upgrade service %s", service.ServiceName)
+		}
+		return nil
+	}
+
 	errList := new(multierror.Error)
 	for groupIndex, services := range productResp.Services {
-		var wg sync.WaitGroup
+		serviceList := make([]*commonmodels.Service, 0)
 		groupServices := make([]*commonmodels.ProductService, 0)
 		for _, service := range services {
-			if renderChart, isExist := renderChartMap[service.ServiceName]; isExist {
+			if _, isExist := renderChartMap[service.ServiceName]; isExist {
 				opt := &commonrepo.ServiceFindOption{
 					ServiceName: service.ServiceName,
 					Type:        service.Type,
@@ -2972,60 +2858,17 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 				}
 				serviceObj, err := commonrepo.NewServiceColl().Find(opt)
 				if err != nil {
-					log.Errorf("finded to find service %s, err %s", service.ServiceName, err.Error())
+					log.Errorf("failed to find service %s, err %s", service.ServiceName, err.Error())
 					continue
 				}
-				wg.Add(1)
-				go func(tmpRenderChart *template.RenderChart, currentService *commonmodels.Service) {
-					defer wg.Done()
-
-					base := config.LocalServicePath(currentService.ProductName, currentService.ServiceName)
-					if err = commonservice.PreLoadServiceManifests(base, currentService); err != nil {
-						log.Errorf("Failed to load service menifests for service %s in project %s, err: %s", currentService.ServiceName, currentService.ProductName, err)
-						errList = multierror.Append(errList, err)
-						return
-					}
-
-					chartFullPath := filepath.Join(base, currentService.ServiceName)
-					chartPath, err := fs.RelativeToCurrentPath(chartFullPath)
-					if err != nil {
-						log.Errorf("Failed to get relative path %s, err: %s", chartFullPath, err)
-						errList = multierror.Append(errList, err)
-						return
-					}
-
-					mergedValuesYaml, err := helmtool.MergeOverrideValues(tmpRenderChart.ValuesYaml, tmpRenderChart.GetOverrideYaml(), tmpRenderChart.OverrideValues)
-					if err != nil {
-						err = errors.WithMessagef(
-							err,
-							"failed to merge override yaml %s and values %s",
-							tmpRenderChart.GetOverrideYaml(),
-							tmpRenderChart.OverrideValues,
-						)
-						errList = multierror.Append(errList, err)
-						return
-					}
-
-					chartSpec := helmclient.ChartSpec{
-						ReleaseName: util.GeneHelmReleaseName(productResp.Namespace, tmpRenderChart.ServiceName),
-						ChartName:   chartPath,
-						Namespace:   productResp.Namespace,
-						Wait:        true,
-						Version:     tmpRenderChart.ChartVersion,
-						ValuesYaml:  mergedValuesYaml,
-						UpgradeCRDs: true,
-						Atomic:      true,
-						Timeout:     Timeout * time.Second * 10,
-					}
-					if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), &chartSpec); err != nil {
-						errList = multierror.Append(errList, err)
-						log.Errorf("install helm chart error :%+v", err)
-					}
-				}(renderChart, serviceObj)
+				serviceList = append(serviceList, serviceObj)
 			}
 			groupServices = append(groupServices, service)
 		}
-		wg.Wait()
+		groupServiceErr := intervalExecutorWithRetry(5, time.Millisecond*2500, serviceList, handler, kubeClient, log)
+		if groupServiceErr != nil {
+			errList = multierror.Append(errList, groupServiceErr...)
+		}
 		err = commonrepo.NewProductColl().UpdateGroup(envName, productName, groupIndex, groupServices)
 		if err != nil {
 			log.Errorf("Failed to update collection - service group %d. Error: %v", groupIndex, err)
@@ -3036,4 +2879,21 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 		errList = multierror.Append(errList, err)
 	}
 	return errList.ErrorOrNil()
+}
+
+func setFieldValueIsNotExist(obj map[string]interface{}, value interface{}, fields ...string) map[string]interface{} {
+	m := obj
+	for _, field := range fields[:len(fields)-1] {
+		if val, ok := m[field]; ok {
+			if valMap, ok := val.(map[string]interface{}); ok {
+				m = valMap
+			} else {
+				newVal := make(map[string]interface{})
+				m[field] = newVal
+				m = newVal
+			}
+		}
+	}
+	m[fields[len(fields)-1]] = value
+	return obj
 }

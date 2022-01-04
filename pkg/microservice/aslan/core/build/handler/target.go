@@ -27,7 +27,7 @@ func ListDeployTarget(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = buildservice.ListDeployTarget(c.Query("productName"), ctx.Logger)
+	ctx.Resp, ctx.Err = buildservice.ListDeployTarget(c.Query("projectName"), ctx.Logger)
 }
 
 func ListBuildModulesForProduct(c *gin.Context) {

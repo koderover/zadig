@@ -43,7 +43,7 @@ func SubScribeNSQ() error {
 	// init ack consumer
 	ackConfig := nsqservice.Config()
 	ackConfig.MaxInFlight = 50
-	ackHandler := NewTaskAckHandler(config.PoetryAPIServer(), config.PoetryAPIRootKey(), ackConfig.MaxInFlight, logger)
+	ackHandler := NewTaskAckHandler(ackConfig.MaxInFlight, logger)
 	err := nsqservice.SubScribe(setting.TopicAck, "ack", 1, ackConfig, ackHandler)
 	if err != nil {
 		logger.Errorf("ack subscription failed, the error is: %v", err)
@@ -419,8 +419,8 @@ func ParallelRunningAndQueuedTasks(currentTask *task.Task) bool {
 		return false
 	}
 	//优先处理webhook
-	if currentTask.TaskCreator == setting.WebhookTaskCreator {
-		return HandlerWebhookTask(currentTask)
+	if currentTask.TaskCreator == setting.WebhookTaskCreator && checkWebhookTaskNamespace(currentTask) {
+		return true
 	}
 	//判断如果当前的task没有部署，直接放到队列里执行
 	currentTaskDeployServices := sets.NewString()
@@ -464,8 +464,7 @@ func ParallelRunningAndQueuedTasks(currentTask *task.Task) bool {
 	return true
 }
 
-// HandlerWebhookTask 处理webhook逻辑
-func HandlerWebhookTask(currentTask *task.Task) bool {
+func checkWebhookTaskNamespace(currentTask *task.Task) bool {
 	runningNamespaces := sets.String{}
 	for _, t := range ListTasks() {
 		if t.Status != config.StatusRunning && t.Status != config.StatusQueued {

@@ -57,7 +57,13 @@ func ShortenFileBase(baseDir, fullPath string) string {
 
 // Tar archives the src file system and saves to disk with path dst.
 // src file system is a tree of files from disk, memory or any other places which implement fs.FS.
-func Tar(src fs.FS, dst string) (err error) {
+func Tar(src fs.FS, dst string) error {
+	dir := filepath.Dir(dst)
+	err := os.MkdirAll(dir, 0755)
+	if err != nil {
+		return err
+	}
+
 	fw, err := os.Create(dst)
 	if err != nil {
 		return err
@@ -79,6 +85,10 @@ func Tar(src fs.FS, dst string) (err error) {
 	return fs.WalkDir(src, ".", func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return err
+		}
+
+		if path == "." {
+			return nil
 		}
 
 		fileInfo, err := entry.Info()
@@ -113,25 +123,37 @@ func Tar(src fs.FS, dst string) (err error) {
 
 // Untar extracts the src tarball and saves to disk with path dst.
 func Untar(src, dst string) (err error) {
-	fr, err := os.Open(src)
+	var (
+		fr   *os.File
+		gr   *gzip.Reader
+		hdr  *tar.Header
+		file *os.File
+	)
+	fr, err = os.Open(src)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		err = fr.Close()
+		err1 := fr.Close()
+		if err == nil {
+			err = err1
+		}
 	}()
 
-	gr, err := gzip.NewReader(fr)
+	gr, err = gzip.NewReader(fr)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		err = gr.Close()
+		err1 := gr.Close()
+		if err == nil {
+			err = err1
+		}
 	}()
 
 	tr := tar.NewReader(gr)
 	for {
-		hdr, err := tr.Next()
+		hdr, err = tr.Next()
 		if err != nil {
 			if err == io.EOF {
 				return nil
@@ -150,7 +172,7 @@ func Untar(src, dst string) (err error) {
 				return err
 			}
 		case tar.TypeReg:
-			file, err := os.OpenFile(dirOrFile, os.O_CREATE|os.O_RDWR, os.FileMode(hdr.Mode))
+			file, err = os.OpenFile(dirOrFile, os.O_CREATE|os.O_RDWR, os.FileMode(hdr.Mode))
 			if err != nil {
 				return err
 			}

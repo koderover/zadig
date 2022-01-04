@@ -50,7 +50,7 @@ type PipelinePreview struct {
 	TotalSuccess    int                      `bson:"-"                          json:"total_success"`
 }
 
-func ListPipelinesPreview(userID int, log *zap.SugaredLogger) ([]*PipelinePreview, error) {
+func ListPipelinesPreview(userID string, log *zap.SugaredLogger) ([]*PipelinePreview, error) {
 	resp := make([]*PipelinePreview, 0)
 
 	pipelineList, err := commonrepo.NewPipelineColl().List(&commonrepo.PipelineListOption{})

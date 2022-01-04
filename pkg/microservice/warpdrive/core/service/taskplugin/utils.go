@@ -98,7 +98,7 @@ type Preview struct {
 func ToPreview(sb map[string]interface{}) (*Preview, error) {
 	var pre *Preview
 	if err := IToi(sb, &pre); err != nil {
-		return nil, fmt.Errorf("convert interface to SubTaskPreview error: %v", err)
+		return nil, fmt.Errorf("convert interface to SubTaskPreview error: %s", err)
 	}
 	return pre, nil
 }
@@ -106,15 +106,15 @@ func ToPreview(sb map[string]interface{}) (*Preview, error) {
 func ToBuildTask(sb map[string]interface{}) (*task.Build, error) {
 	var t *task.Build
 	if err := IToi(sb, &t); err != nil {
-		return nil, fmt.Errorf("convert interface to BuildTaskV2 error: %v", err)
+		return nil, fmt.Errorf("convert interface to BuildTaskV2 error: %s", err)
 	}
 	return t, nil
 }
 
-func ToArtifactTask(sb map[string]interface{}) (*task.Artifact, error) {
-	var t *task.Artifact
+func ToArtifactTask(sb map[string]interface{}) (*task.ArtifactPackage, error) {
+	var t *task.ArtifactPackage
 	if err := IToi(sb, &t); err != nil {
-		return nil, fmt.Errorf("convert interface to ArtifactTask error: %v", err)
+		return nil, fmt.Errorf("convert interface to ArtifactTask error: %s", err)
 	}
 	return t, nil
 }
@@ -122,7 +122,7 @@ func ToArtifactTask(sb map[string]interface{}) (*task.Artifact, error) {
 func ToDockerBuildTask(sb map[string]interface{}) (*task.DockerBuild, error) {
 	var t *task.DockerBuild
 	if err := IToi(sb, &t); err != nil {
-		return nil, fmt.Errorf("convert interface to DockerBuildTask error: %v", err)
+		return nil, fmt.Errorf("convert interface to DockerBuildTask error: %s", err)
 	}
 	return t, nil
 }
@@ -130,7 +130,7 @@ func ToDockerBuildTask(sb map[string]interface{}) (*task.DockerBuild, error) {
 func ToDeployTask(sb map[string]interface{}) (*task.Deploy, error) {
 	var t *task.Deploy
 	if err := IToi(sb, &t); err != nil {
-		return nil, fmt.Errorf("convert interface to DeployTask error: %v", err)
+		return nil, fmt.Errorf("convert interface to DeployTask error: %s", err)
 	}
 	return t, nil
 }
@@ -138,7 +138,7 @@ func ToDeployTask(sb map[string]interface{}) (*task.Deploy, error) {
 func ToTestingTask(sb map[string]interface{}) (*task.Testing, error) {
 	var t *task.Testing
 	if err := IToi(sb, &t); err != nil {
-		return nil, fmt.Errorf("convert interface to Testing error: %v", err)
+		return nil, fmt.Errorf("convert interface to Testing error: %s", err)
 	}
 	return t, nil
 }
@@ -146,7 +146,7 @@ func ToTestingTask(sb map[string]interface{}) (*task.Testing, error) {
 func ToDistributeToS3Task(sb map[string]interface{}) (*task.DistributeToS3, error) {
 	var t *task.DistributeToS3
 	if err := IToi(sb, &t); err != nil {
-		return nil, fmt.Errorf("convert interface to DistributeToS3Task error: %v", err)
+		return nil, fmt.Errorf("convert interface to DistributeToS3Task error: %s", err)
 	}
 	return t, nil
 }
@@ -154,15 +154,23 @@ func ToDistributeToS3Task(sb map[string]interface{}) (*task.DistributeToS3, erro
 func ToReleaseImageTask(sb map[string]interface{}) (*task.ReleaseImage, error) {
 	var t *task.ReleaseImage
 	if err := IToi(sb, &t); err != nil {
-		return nil, fmt.Errorf("convert interface to ReleaseImageTask error: %v", err)
+		return nil, fmt.Errorf("convert interface to ReleaseImageTask error: %s", err)
 	}
 	return t, nil
+}
+
+func ToArtifactPackageTask(sb map[string]interface{}) (*task.ArtifactPackageTaskArgs, error) {
+	var ret *task.ArtifactPackageTaskArgs
+	if err := IToi(sb, &ret); err != nil {
+		return nil, fmt.Errorf("convert interface to ArtifactPackageTaskArgs error: %s", err)
+	}
+	return ret, nil
 }
 
 func ToJiraTask(sb map[string]interface{}) (*task.Jira, error) {
 	var t *task.Jira
 	if err := IToi(sb, &t); err != nil {
-		return nil, fmt.Errorf("convert interface to JiraTask error: %v", err)
+		return nil, fmt.Errorf("convert interface to JiraTask error: %s", err)
 	}
 	return t, nil
 }
@@ -170,7 +178,7 @@ func ToJiraTask(sb map[string]interface{}) (*task.Jira, error) {
 func ToSecurityTask(sb map[string]interface{}) (*task.Security, error) {
 	var t *task.Security
 	if err := IToi(sb, &t); err != nil {
-		return nil, fmt.Errorf("convert interface to securityTask error: %v", err)
+		return nil, fmt.Errorf("convert interface to securityTask error: %s", err)
 	}
 	return t, nil
 }
@@ -178,7 +186,7 @@ func ToSecurityTask(sb map[string]interface{}) (*task.Security, error) {
 func ToJenkinsBuildTask(sb map[string]interface{}) (*task.JenkinsBuild, error) {
 	var task *task.JenkinsBuild
 	if err := IToi(sb, &task); err != nil {
-		return nil, fmt.Errorf("convert interface to JenkinsBuildTask error: %v", err)
+		return nil, fmt.Errorf("convert interface to JenkinsBuildTask error: %s", err)
 	}
 	return task, nil
 }
@@ -186,12 +194,20 @@ func ToJenkinsBuildTask(sb map[string]interface{}) (*task.JenkinsBuild, error) {
 func IToi(before interface{}, after interface{}) error {
 	b, err := json.Marshal(before)
 	if err != nil {
-		return fmt.Errorf("marshal task error: %v", err)
+		return fmt.Errorf("marshal task error: %s", err)
 	}
 
 	if err := json.Unmarshal(b, &after); err != nil {
-		return fmt.Errorf("unmarshal task error: %v", err)
+		return fmt.Errorf("unmarshal task error: %s", err)
 	}
 
 	return nil
+}
+
+func ToTriggerTask(sb map[string]interface{}) (*task.Trigger, error) {
+	var trigger *task.Trigger
+	if err := task.IToi(sb, &trigger); err != nil {
+		return nil, fmt.Errorf("convert interface to triggerTask error: %s", err)
+	}
+	return trigger, nil
 }

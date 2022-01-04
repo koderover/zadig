@@ -22,7 +22,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/multicluster/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -32,9 +31,13 @@ func ListClusters(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListClusters(c.Query("clusterType"),
-		ctx.Logger,
-	)
+	clusters, found := internalhandler.GetResourcesInHeader(c)
+	if found && len(clusters) == 0 {
+		ctx.Resp = []*service.K8SCluster{}
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.ListClusters(clusters, c.Query("projectName"), ctx.Logger)
 }
 
 func GetCluster(c *gin.Context) {
@@ -48,7 +51,7 @@ func CreateCluster(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := new(commonmodels.K8SCluster)
+	args := new(service.K8SCluster)
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -60,7 +63,7 @@ func CreateCluster(c *gin.Context) {
 	}
 
 	args.CreatedAt = time.Now().Unix()
-	args.CreatedBy = ctx.Username
+	args.CreatedBy = ctx.UserName
 
 	ctx.Resp, ctx.Err = service.CreateCluster(args, ctx.Logger)
 }
@@ -69,7 +72,7 @@ func UpdateCluster(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := new(commonmodels.K8SCluster)
+	args := new(service.K8SCluster)
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
@@ -87,21 +90,21 @@ func DeleteCluster(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Err = service.DeleteCluster(ctx.Username, c.Param("id"), ctx.Logger)
+	ctx.Err = service.DeleteCluster(ctx.UserName, c.Param("id"), ctx.Logger)
 }
 
 func DisconnectCluster(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Err = service.DisconnectCluster(ctx.Username, c.Param("id"), ctx.Logger)
+	ctx.Err = service.DisconnectCluster(ctx.UserName, c.Param("id"), ctx.Logger)
 }
 
 func ReconnectCluster(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Err = service.ReconnectCluster(ctx.Username, c.Param("id"), ctx.Logger)
+	ctx.Err = service.ReconnectCluster(ctx.UserName, c.Param("id"), ctx.Logger)
 }
 
 func ClusterConnectFromAgent(c *gin.Context) {

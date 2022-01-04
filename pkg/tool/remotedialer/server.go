@@ -17,6 +17,9 @@ limitations under the License.
 package remotedialer
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/base64"
 	"net/http"
 	"sync"
 	"time"
@@ -36,17 +39,26 @@ type ErrorWriter func(rw http.ResponseWriter, req *http.Request, code int, err e
 
 func DefaultErrorWriter(rw http.ResponseWriter, req *http.Request, code int, err error) {
 	rw.WriteHeader(code)
-	rw.Write([]byte(err.Error()))
+	_, errWrite := rw.Write([]byte(err.Error()))
+	if errWrite != nil {
+		logrus.Warnf("Failed to write error: %s", errWrite)
+	}
 }
 
 type Server struct {
-	PeerID      string
-	PeerToken   string
-	authorizer  Authorizer
-	errorWriter ErrorWriter
-	sessions    *sessionManager
-	peers       map[string]peer
-	peerLock    sync.Mutex
+	PeerID                  string
+	PeerToken               string
+	ClientConnectAuthorizer ConnectAuthorizer
+	authorizer              Authorizer
+	errorWriter             ErrorWriter
+	sessions                *sessionManager
+	peers                   map[string]peer
+	peerLock                sync.Mutex
+
+	caCert        string
+	httpTransport *http.Transport
+
+	sync.Mutex
 }
 
 func New(auth Authorizer, errorWriter ErrorWriter) *Server {
@@ -84,10 +96,10 @@ func (s *Server) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	session := s.sessions.add(clientKey, wsConn, peer)
+	session.auth = s.ClientConnectAuthorizer
 	defer s.sessions.remove(session)
 
-	// Don't need to associate req.Context() to the Session, it will cancel otherwise
-	code, err := session.Serve()
+	code, err := session.Serve(req.Context())
 	if err != nil {
 		// Hijacked so we can't write to the client
 		logrus.Infof("error in remotedialer server [%d]: %v", code, err)
@@ -110,6 +122,41 @@ func (s *Server) auth(req *http.Request) (clientKey string, authed, peer bool, e
 
 	id, authed, err = s.authorizer(req)
 	return id, authed, false, err
+}
+
+func (r *Server) GetTransport(clusterCaCert string, clientKey string) (http.RoundTripper, error) {
+
+	r.Lock()
+	defer r.Unlock()
+
+	if r.httpTransport != nil && r.caCert == clusterCaCert {
+		return r.httpTransport, nil
+	}
+
+	transport := &http.Transport{}
+	if clusterCaCert != "" {
+		certBytes, err := base64.StdEncoding.DecodeString(clusterCaCert)
+		if err != nil {
+			return nil, err
+		}
+		certs := x509.NewCertPool()
+		certs.AppendCertsFromPEM(certBytes)
+		transport.TLSClientConfig = &tls.Config{
+			RootCAs: certs,
+		}
+	}
+
+	d := r.Dialer(clientKey)
+	transport.DialContext = d
+	transport.Proxy = http.ProxyFromEnvironment
+
+	r.caCert = clusterCaCert
+	if r.httpTransport != nil {
+		r.httpTransport.CloseIdleConnections()
+	}
+	r.httpTransport = transport
+
+	return transport, nil
 }
 
 func (s *Server) Disconnect(clientKey string) {

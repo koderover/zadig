@@ -21,6 +21,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/setting"
 )
 
 type Testing struct {
@@ -39,12 +40,15 @@ type Testing struct {
 	ImageFrom    string            `bson:"image_from"                      json:"image_from,omitempty"`
 	ImageID      string            `bson:"image_id"                        json:"image_id"`
 	// ResReq defines job requested resources
-	ResReq         config.Request              `bson:"res_req"                         json:"res_req"`
+	ResReq         setting.Request             `bson:"res_req"                         json:"res_req"`
+	ResReqSpec     setting.RequestSpec         `bson:"res_req_spec"                    json:"res_req_spec"`
 	LogFile        string                      `bson:"log_file"                        json:"log_file"`
 	TestModuleName string                      `bson:"test_module_name"                json:"test_module_name"`
 	ReportReady    bool                        `bson:"report_ready"                    json:"report_ready"`
 	IsRestart      bool                        `bson:"is_restart"                      json:"is_restart"`
 	Registries     []*models.RegistryNamespace `bson:"-"                               json:"registries"`
+	ClusterID      string                      `bson:"cluster_id,omitempty"            json:"cluster_id,omitempty"`
+	Namespace      string                      `bson:"namespace"                       json:"namespace"`
 }
 
 func (t *Testing) ToSubTask() (map[string]interface{}, error) {

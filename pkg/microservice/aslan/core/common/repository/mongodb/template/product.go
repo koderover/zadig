@@ -31,6 +31,17 @@ import (
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
+type ProjectInfo struct {
+	Name          string `bson:"product_name"`
+	Alias         string `bson:"project_name"`
+	Desc          string `bson:"description"`
+	UpdatedAt     int64  `bson:"update_time"`
+	UpdatedBy     string `bson:"update_by"`
+	OnboardStatus int    `bson:"onboarding_status"`
+	Public        bool   `bson:"public"`
+	DeployType    string `bson:"deploy_type"`
+}
+
 type ProductColl struct {
 	*mongo.Collection
 
@@ -71,6 +82,63 @@ func (c *ProductColl) FindProjectName(project string) (*template.Product, error)
 	return resp, err
 }
 
+func (c *ProductColl) ListNames(inNames []string) ([]string, error) {
+	res, err := c.listProjects(inNames, bson.M{
+		"product_name": "$product_name",
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var names []string
+	for _, r := range res {
+		names = append(names, r.Name)
+	}
+
+	return names, nil
+}
+
+func (c *ProductColl) ListProjectBriefs(inNames []string) ([]*ProjectInfo, error) {
+	return c.listProjects(inNames, bson.M{
+		"product_name":      "$product_name",
+		"project_name":      "$project_name",
+		"description":       "$description",
+		"update_time":       "$update_time",
+		"update_by":         "$update_by",
+		"onboarding_status": "$onboarding_status",
+		"public":            "$public",
+		"deploy_type":       "$product_feature.deploy_type",
+	})
+}
+
+func (c *ProductColl) listProjects(inNames []string, projection bson.M) ([]*ProjectInfo, error) {
+	filter := bson.M{}
+	if len(inNames) > 0 {
+		filter["product_name"] = bson.M{"$in": inNames}
+	}
+
+	pipeline := []bson.M{
+		{
+			"$match": filter,
+		},
+		{
+			"$project": projection,
+		},
+	}
+
+	cursor, err := c.Collection.Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		return nil, err
+	}
+
+	var res []*ProjectInfo
+	err = cursor.All(context.TODO(), &res)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
 func (c *ProductColl) List() ([]*template.Product, error) {
 	var resp []*template.Product
 
@@ -84,34 +152,6 @@ func (c *ProductColl) List() ([]*template.Product, error) {
 	}
 
 	return resp, nil
-}
-
-func (c *ProductColl) ListNames() ([]string, error) {
-	var res []struct {
-		ProductName string `bson:"product_name"`
-	}
-
-	opts := options.Find()
-	projection := bson.D{
-		{"product_name", 1},
-	}
-	opts.SetProjection(projection)
-
-	cursor, err := c.Collection.Find(context.TODO(), bson.M{}, opts)
-	if err != nil {
-		return nil, err
-	}
-	err = cursor.All(context.TODO(), &res)
-	if err != nil {
-		return nil, err
-	}
-
-	var names []string
-	for _, r := range res {
-		names = append(names, r.ProductName)
-	}
-
-	return names, nil
 }
 
 type ProductListOpt struct {
@@ -182,6 +222,19 @@ func (c *ProductColl) Create(args *template.Product) error {
 	return err
 }
 
+func (c *ProductColl) UpdateServiceOrchestration(productName string, services [][]string, updateBy string) error {
+
+	query := bson.M{"product_name": productName}
+	change := bson.M{"$set": bson.M{
+		"services":    services,
+		"update_time": time.Now().Unix(),
+		"update_by":   updateBy,
+	}}
+
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
 // Update existing ProductTmpl
 func (c *ProductColl) Update(productName string, args *template.Product) error {
 	// avoid panic issue
@@ -198,29 +251,42 @@ func (c *ProductColl) Update(productName string, args *template.Product) error {
 		"services":              args.Services,
 		"update_time":           time.Now().Unix(),
 		"update_by":             args.UpdateBy,
-		"teams":                 args.Teams,
 		"enabled":               args.Enabled,
 		"description":           args.Description,
-		"visibility":            args.Visibility,
-		"user_ids":              args.UserIDs,
-		"team_id":               args.TeamID,
 		"timeout":               args.Timeout,
 		"shared_services":       args.SharedServices,
 		"image_searching_rules": args.ImageSearchingRules,
+		"custom_tar_rule":       args.CustomTarRule,
+		"custom_image_rule":     args.CustomImageRule,
+		"delivery_version_hook": args.DeliveryVersionHook,
+		"public":                args.Public,
 	}}
 
 	_, err := c.UpdateOne(context.TODO(), query, change)
 	return err
 }
 
+type ProductArgs struct {
+	ProductName string     `json:"product_name"`
+	Services    [][]string `json:"services"`
+	UpdateBy    string     `json:"update_by"`
+}
+
 // AddService adds a service to services[0] if it is not there.
 func (c *ProductColl) AddService(productName, serviceName string) error {
 
 	query := bson.M{"product_name": productName}
+	serviceUniqueFilter := bson.M{
+		"$elemMatch": bson.M{
+			"$elemMatch": bson.M{
+				"$eq": serviceName,
+			},
+		},
+	}
+	query["services"] = bson.M{"$not": serviceUniqueFilter}
 	change := bson.M{"$addToSet": bson.M{
-		"services.0": serviceName,
+		"services.1": serviceName,
 	}}
-
 	_, err := c.UpdateOne(context.TODO(), query, change)
 	return err
 }

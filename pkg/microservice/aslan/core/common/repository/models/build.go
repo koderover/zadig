@@ -25,7 +25,6 @@ import (
 
 type Build struct {
 	ID      primitive.ObjectID `bson:"_id,omitempty"                json:"id,omitempty"`
-	Version string             `bson:"version"                      json:"version"`
 	Name    string             `bson:"name"                         json:"name"`
 	Team    string             `bson:"team,omitempty"               json:"team,omitempty"`
 	Source  string             `bson:"source,omitempty"             json:"source,omitempty"`
@@ -37,7 +36,7 @@ type Build struct {
 	Description     string                 `bson:"desc,omitempty"                json:"desc"`
 	UpdateTime      int64                  `bson:"update_time"                   json:"update_time"`
 	UpdateBy        string                 `bson:"update_by"                     json:"update_by"`
-	Repos           []*types.Repository    `bson:"repos,omitempty"               json:"repos"`
+	Repos           []*types.Repository    `bson:"repos"                         json:"repos"`
 	PreBuild        *PreBuild              `bson:"pre_build"                     json:"pre_build"`
 	JenkinsBuild    *JenkinsBuild          `bson:"jenkins_build,omitempty"       json:"jenkins_build,omitempty"`
 	Scripts         string                 `bson:"scripts"                       json:"scripts"`
@@ -52,7 +51,8 @@ type Build struct {
 type PreBuild struct {
 	CleanWorkspace bool `bson:"clean_workspace"            json:"clean_workspace"`
 	// ResReq defines job requested resources
-	ResReq setting.Request `bson:"res_req"                json:"res_req"`
+	ResReq     setting.Request     `bson:"res_req"                json:"res_req"`
+	ResReqSpec setting.RequestSpec `bson:"res_req_spec"           json:"res_req_spec"`
 	// BuildOS defines job image OS, it supports 12.04, 14.04, 16.04
 	BuildOS   string `bson:"build_os"                      json:"build_os"`
 	ImageFrom string `bson:"image_from"                    json:"image_from"`
@@ -66,7 +66,9 @@ type PreBuild struct {
 	// Parameters
 	Parameters []*Parameter `bson:"parameters,omitempty"   json:"parameters"`
 	// UploadPkg uploads package to s3
-	UploadPkg bool `bson:"upload_pkg"                      json:"upload_pkg"`
+	UploadPkg bool   `bson:"upload_pkg"                      json:"upload_pkg"`
+	ClusterID string `bson:"cluster_id"                      json:"cluster_id"`
+	Namespace string `bson:"namespace"                       json:"namespace"`
 }
 
 type BuildObj struct {
@@ -97,6 +99,12 @@ type DockerBuild struct {
 	DockerFile string `bson:"docker_file"            json:"docker_file"`
 	// BuildArgs docker build args
 	BuildArgs string `bson:"build_args,omitempty"    json:"build_args"`
+	// Source whether dockerfile comes from template or existing file
+	Source string `bson:"source"                     json:"source"`
+	// TemplateId is the id of the template dockerfile
+	TemplateID string `bson:"template_id"            json:"template_id"`
+	// TemplateName is the name of the template dockerfile
+	TemplateName string `bson:"template_name"        json:"template_name"`
 }
 
 type JenkinsBuild struct {
