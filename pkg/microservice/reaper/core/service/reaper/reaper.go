@@ -331,15 +331,10 @@ func (r *Reaper) runDockerBuild() error {
 
 func (r *Reaper) prepareDockerfile() error {
 	if r.Ctx.DockerBuildCtx.Source == setting.DockerfileSourceTemplate {
-		//aslanClient := client.NewAslanClient(configbase.AslanServiceAddress(), r.Ctx.APIToken)
-		//dockerfile, err := aslanClient.GetDockerfile(r.Ctx.DockerBuildCtx.TemplateID)
-		//if err != nil {
-		//	return err
-		//}
 		reader := strings.NewReader(r.Ctx.DockerBuildCtx.DockerTemplateContent)
-		readcloser := io.NopCloser(reader)
+		readCloser := io.NopCloser(reader)
 		path := fmt.Sprintf("/%s", setting.ZadigDockerfilePath)
-		err := fs.SaveFile(readcloser, path)
+		err := fs.SaveFile(readCloser, path)
 		if err != nil {
 			return err
 		}

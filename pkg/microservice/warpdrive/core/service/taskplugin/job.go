@@ -299,8 +299,7 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 
 	if b.JobCtx.DockerBuildCtx != nil {
 		ctx.DockerBuildCtx = &task.DockerBuildCtx{
-			Source: b.JobCtx.DockerBuildCtx.Source,
-			//TemplateID: b.JobCtx.DockerBuildCtx.TemplateID,
+			Source:                b.JobCtx.DockerBuildCtx.Source,
 			WorkDir:               b.JobCtx.DockerBuildCtx.WorkDir,
 			DockerFile:            b.JobCtx.DockerBuildCtx.DockerFile,
 			ImageName:             b.JobCtx.DockerBuildCtx.ImageName,

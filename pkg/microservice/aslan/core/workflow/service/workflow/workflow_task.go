@@ -1960,8 +1960,7 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 				}
 			}
 			build.JobCtx.DockerBuildCtx = &task.DockerBuildCtx{
-				Source: module.PostBuild.DockerBuild.Source,
-				//TemplateID: module.PostBuild.DockerBuild.TemplateID,
+				Source:                module.PostBuild.DockerBuild.Source,
 				WorkDir:               module.PostBuild.DockerBuild.WorkDir,
 				DockerFile:            module.PostBuild.DockerBuild.DockerFile,
 				BuildArgs:             module.PostBuild.DockerBuild.BuildArgs,
