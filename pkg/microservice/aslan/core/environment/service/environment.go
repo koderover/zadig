@@ -2281,20 +2281,20 @@ func installOrUpgradeHelmChartWithValues(namespace, valuesYaml string, renderCha
 	}
 
 	done := make(chan bool)
+	defer close(done)
 	go func(chan bool) {
 		if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), chartSpec); err != nil {
 			err = errors.WithMessagef(
 				err,
 				"failed to Install helm chart %s/%s",
 				namespace, serviceObj.ServiceName)
+			done <- false
 		} else {
 			done <- true
 		}
 	}(done)
 
-	select {
-	case <-done:
-	case <-time.After(chartSpec.Timeout + 5*time.Second):
+	pendingStatusProcess := func(typ string) error {
 		hrs, errHistory := helmClient.ListReleaseHistory(chartSpec.ReleaseName, 10)
 		if errHistory != nil {
 			err = errors.WithMessagef(
@@ -2315,9 +2315,20 @@ func installOrUpgradeHelmChartWithValues(namespace, valuesYaml string, renderCha
 				}
 			}
 		}
+		if err != nil {
+			err = fmt.Errorf("failed to install %s:%s", typ, err)
+		}
 		return err
 	}
-	return nil
+	select {
+	case d := <-done:
+		if !d {
+			err = pendingStatusProcess("normal")
+		}
+	case <-time.After(chartSpec.Timeout + 5*time.Second):
+		err = pendingStatusProcess("timeout")
+	}
+	return err
 }
 
 func installProductHelmCharts(user, envName, requestID string, args *commonmodels.Product, renderset *commonmodels.RenderSet, eventStart int64, helmClient helmclient.Client, kubecli client.Client, log *zap.SugaredLogger) {

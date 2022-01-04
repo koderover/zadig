@@ -545,27 +545,27 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		}
 
 		done := make(chan bool)
+		defer close(done)
 		go func(chan bool) {
 			if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), &chartSpec); err != nil {
 				err = errors.WithMessagef(
 					err,
 					"failed to Install helm chart %s/%s",
 					p.Task.Namespace, p.Task.ServiceName)
+				done <- false
 			} else {
 				done <- true
 			}
 		}(done)
 
-		select {
-		case <-done:
-		case <-time.After(time.Second * (setting.DeployTimeout + 5)):
+		pendingStatusProcess := func(typ string) error {
 			hrs, errHistory := helmClient.ListReleaseHistory(chartSpec.ReleaseName, 10)
 			if errHistory != nil {
 				err = errors.WithMessagef(
 					err,
 					"failed to ListReleaseHistory: %s,error:%s",
 					chartSpec.ReleaseName, errHistory)
-				return
+				return err
 			}
 			if len(hrs) > 0 {
 				releaseutil.Reverse(hrs, releaseutil.SortByRevision)
@@ -575,10 +575,24 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 					deleteErr := updater.DeleteSecretWithName(rel.Namespace, secretName, p.kubeClient)
 					if deleteErr != nil {
 						err = errors.WithMessagef(err, "failed to deleteSecretWithName:%s,error:%s", secretName, deleteErr)
-						return
+						return err
 					}
 				}
 			}
+			if err != nil {
+				err = fmt.Errorf("failed to install %s:%s", typ, err)
+			}
+			return err
+		}
+		select {
+		case d := <-done:
+			if !d {
+				err = pendingStatusProcess("normal")
+			}
+		case <-time.After(chartSpec.Timeout + 5*time.Second):
+			err = pendingStatusProcess("timeout")
+		}
+		if err != nil {
 			return
 		}
 
