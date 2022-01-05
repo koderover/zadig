@@ -53,6 +53,7 @@ type Product struct {
 	RegistryID   string                        `bson:"registry_id"               json:"registry_id"`
 	// TODO: temp flag
 	IsForkedProduct bool `bson:"-" json:"-"`
+	IsAutoCreated   bool `bson:"-" json:"-"`
 }
 
 type RenderInfo struct {

@@ -81,7 +81,7 @@ func (autoCreator *AutoCreator) Create(envName string) (string, error) {
 		log.Errorf("AutoCreateProduct err:%v", err)
 		return "", err
 	}
-
+	productObject.IsAutoCreated = true
 	productObject.IsPublic = true
 	productObject.Namespace = commonservice.GetProductEnvNamespace(envName, productName, "")
 	productObject.UpdateBy = autoCreator.Param.UserName
@@ -268,7 +268,9 @@ func (creator *PMProductCreator) Create(user, requestID string, args *models.Pro
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 	// 异步创建产品
-	go createGroups(args.EnvName, user, requestID, args, eventStart, nil, nil, log)
+	if args.IsAutoCreated {
+		go createGroups(args.EnvName, user, requestID, args, eventStart, nil, nil, log)
+	}
 	return nil
 }
 
