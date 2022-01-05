@@ -17,27 +17,32 @@ limitations under the License.
 package service
 
 import (
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
 )
 
-func GetPermission(ns, uid string) (map[string][]string, error) {
+// GetPermission user's permission for frontend
+func GetPermission(ns, uid string, log *zap.SugaredLogger) (map[string][]string, error) {
 	roles := []*models.Role{}
 	rolebindingsReadOnly, err := mongodb.NewRoleBindingColl().ListBy(ns, "*")
 	if err != nil {
+		log.Errorf("list readonly RoleBinding err:%s,ns:%s,uid:*", err, ns)
 		return nil, err
 	}
 
 	rolebindingsAdmin, err := mongodb.NewRoleBindingColl().ListBy("*", uid)
 	if err != nil {
+		log.Errorf("list admin RoleBinding err:%s,ns:*,uid:%s", err)
 		return nil, err
 	}
 
 	// 1.2 get normal rolebindings
 	rolebindingsNormal, err := mongodb.NewRoleBindingColl().ListBy(ns, uid)
 	if err != nil {
+		log.Errorf("list normal RoleBindings err:%s,ns:%s,uid:%s", err, ns, uid)
 		return nil, err
 	}
 
@@ -50,17 +55,22 @@ func GetPermission(ns, uid string) (map[string][]string, error) {
 		}
 		roles = append(roles, tmpRoles...)
 	}
+	rolesSet := map[string]sets.String{}
 	rolesResp := map[string][]string{}
-	resourceSet := sets.NewString()
-	for _, v := range roles {
-		for _, vv := range v.Rules {
-			if len(vv.Resources) > 0 {
-				if resourceSet.Has(vv.Resources[0]) {
-					vv.Verbs = append(rolesResp[vv.Resources[0]])
+	for _, role := range roles {
+		for _, rule := range role.Rules {
+			for _, resource := range rule.Resources {
+				if verbsSet, ok := rolesSet[resource]; ok {
+					verbsSet.Insert(rule.Verbs...)
+					rolesSet[resource] = verbsSet
+				} else {
+					rolesSet[resource] = sets.NewString(rule.Verbs...)
 				}
-				rolesResp[vv.Resources[0]] = vv.Verbs
 			}
 		}
+	}
+	for k, v := range rolesSet {
+		rolesResp[k] = v.List()
 	}
 	return rolesResp, nil
 }
