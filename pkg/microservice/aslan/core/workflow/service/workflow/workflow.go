@@ -61,6 +61,8 @@ type Workflow struct {
 	AverageExecutionTime float64                    `json:"averageExecutionTime"`
 	SuccessRate          float64                    `json:"successRate"`
 	Description          string                     `json:"description,omitempty"`
+	BaseName             string                     `json:"base_name"`
+	BaseRefs             []string                   `json:"base_refs"`
 }
 
 type TaskInfo struct {
@@ -540,6 +542,8 @@ func ListWorkflows(projects []string, userID string, log *zap.SugaredLogger) ([]
 			Schedules:        w.Schedules,
 			EnabledStages:    stages,
 			Description:      w.Description,
+			BaseName:         w.BaseName,
+			BaseRefs:         w.BaseRefs,
 		})
 
 		workflowNames = append(workflowNames, w.Name)

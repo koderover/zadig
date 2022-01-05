@@ -18,6 +18,8 @@ package models
 
 import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/config"
 )
 
 type CollaborationMode struct {
@@ -37,16 +39,16 @@ type CollaborationMode struct {
 }
 
 type ProductCMItem struct {
-	Name              string   `bson:"name" json:"name"`
-	CollaborationType string   `bson:"collaboration_type" json:"collaboration_type"`
-	RecycleDay        int64    `bson:"recycle_day" json:"recycle_day"`
-	Verbs             []string `bson:"verbs" json:"verbs"`
+	Name              string                   `bson:"name" json:"name"`
+	CollaborationType config.CollaborationType `bson:"collaboration_type" json:"collaboration_type"`
+	RecycleDay        int64                    `bson:"recycle_day" json:"recycle_day"`
+	Verbs             []string                 `bson:"verbs" json:"verbs"`
 }
 
 type WorkflowCMItem struct {
-	Name              string   `bson:"name" json:"name"`
-	CollaborationType string   `bson:"collaboration_type" json:"collaboration_type"`
-	Verbs             []string `bson:"verbs" json:"verbs"`
+	Name              string                   `bson:"name" json:"name"`
+	CollaborationType config.CollaborationType `bson:"collaboration_type" json:"collaboration_type"`
+	Verbs             []string                 `bson:"verbs" json:"verbs"`
 }
 
 func (CollaborationMode) TableName() string {

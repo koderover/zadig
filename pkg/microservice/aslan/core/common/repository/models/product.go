@@ -51,6 +51,8 @@ type Product struct {
 	Source       string                        `bson:"source"                    json:"source"`
 	IsOpenSource bool                          `bson:"is_opensource"             json:"is_opensource"`
 	RegistryID   string                        `bson:"registry_id"               json:"registry_id"`
+	BaseRefs     []string                      `bson:"base_refs" json:"base_refs"`
+	BaseName     string                        `bson:"base_name" json:"base_name"`
 	// TODO: temp flag
 	IsForkedProduct bool `bson:"-" json:"-"`
 }

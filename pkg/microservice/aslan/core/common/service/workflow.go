@@ -54,6 +54,15 @@ func DeleteWorkflows(productName, requestID string, log *zap.SugaredLogger) erro
 }
 
 func DeleteWorkflow(workflowName, requestID string, isDeletingProductTmpl bool, log *zap.SugaredLogger) error {
+	// 在删除前，先将workflow查出来，用于删除gerrit webhook
+	workflow, err := mongodb.NewWorkflowColl().Find(workflowName)
+	if err != nil {
+		log.Errorf("Workflow.Find error: %v", err)
+		return e.ErrDeleteWorkflow.AddDesc(err.Error())
+	}
+	if len(workflow.BaseRefs) > 0 {
+		return fmt.Errorf("this is a base workflow, collaborations:%v is related", workflow.BaseRefs)
+	}
 	taskQueue, err := mongodb.NewQueueColl().List(&mongodb.ListQueueOption{})
 	if err != nil {
 		log.Errorf("List queued task error: %v", err)
@@ -66,13 +75,6 @@ func DeleteWorkflow(workflowName, requestID string, isDeletingProductTmpl bool, 
 				log.Errorf("task still running, cancel pipeline %s task %d", task.PipelineName, task.TaskID)
 			}
 		}
-	}
-
-	// 在删除前，先将workflow查出来，用于删除gerrit webhook
-	workflow, err := mongodb.NewWorkflowColl().Find(workflowName)
-	if err != nil {
-		log.Errorf("Workflow.Find error: %v", err)
-		return e.ErrDeleteWorkflow.AddDesc(err.Error())
 	}
 
 	if !isDeletingProductTmpl {

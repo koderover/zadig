@@ -6,6 +6,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/mongodb"
 	"github.com/koderover/zadig/pkg/util"
@@ -46,18 +47,18 @@ type UpdateProductItem struct {
 }
 
 type Workflow struct {
-	CollaborationType string `json:"collaboration_type"`
-	BaseName          string `json:"base_name"`
-	CollaborationMode string `json:"collaboration_mode"`
-	Name              string `json:"name"`
-	Description       string `json:"description"`
+	CollaborationType config.CollaborationType `json:"collaboration_type"`
+	BaseName          string                   `json:"base_name"`
+	CollaborationMode string                   `json:"collaboration_mode"`
+	Name              string                   `json:"name"`
+	Description       string                   `json:"description"`
 }
 
 type Product struct {
-	CollaborationType string `json:"collaboration_type"`
-	BaseName          string `json:"base_name"`
-	CollaborationMode string `json:"collaboration_mode"`
-	Name              string `json:"name"`
+	CollaborationType config.CollaborationType `json:"collaboration_type"`
+	BaseName          string                   `json:"base_name"`
+	CollaborationMode string                   `json:"collaboration_mode"`
+	Name              string                   `json:"name"`
 }
 type GetCollaborationNewResp struct {
 	Code     int64      `json:"code"`

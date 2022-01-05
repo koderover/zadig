@@ -50,7 +50,9 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 		log.Errorf("find product error: %v", err)
 		return e.ErrDeleteEnv.AddDesc("not found")
 	}
-
+	if len(productInfo.BaseRefs) > 0 {
+		return fmt.Errorf("this is a base environment, collaborations:%v is related", productInfo.BaseRefs)
+	}
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
 	if err != nil {
 		return e.ErrDeleteEnv.AddErr(err)

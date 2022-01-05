@@ -85,18 +85,20 @@ type EnvStatus struct {
 }
 
 type EnvResp struct {
-	ProjectName string `json:"projectName"`
-	Status      string `json:"status"`
-	Error       string `json:"error"`
-	Name        string `json:"name"`
-	UpdateBy    string `json:"updateBy"`
-	UpdateTime  int64  `json:"updateTime"`
-	IsPublic    bool   `json:"isPublic"`
-	ClusterName string `json:"clusterName"`
-	ClusterID   string `json:"cluster_id"`
-	Production  bool   `json:"production"`
-	Source      string `json:"source"`
-	RegistryID  string `json:"registry_id"`
+	ProjectName string   `json:"projectName"`
+	Status      string   `json:"status"`
+	Error       string   `json:"error"`
+	Name        string   `json:"name"`
+	UpdateBy    string   `json:"updateBy"`
+	UpdateTime  int64    `json:"updateTime"`
+	IsPublic    bool     `json:"isPublic"`
+	ClusterName string   `json:"clusterName"`
+	ClusterID   string   `json:"cluster_id"`
+	Production  bool     `json:"production"`
+	Source      string   `json:"source"`
+	RegistryID  string   `json:"registry_id"`
+	BaseRefs    []string `json:"base_refs"`
+	BaseName    string   `json:"base_name"`
 }
 
 type ProductResp struct {
@@ -217,6 +219,8 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 			UpdateBy:    env.UpdateBy,
 			RegistryID:  env.RegistryID,
 			ClusterID:   env.ClusterID,
+			BaseRefs:    env.BaseRefs,
+			BaseName:    env.BaseName,
 		})
 	}
 
