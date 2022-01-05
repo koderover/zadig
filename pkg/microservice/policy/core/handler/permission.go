@@ -34,5 +34,5 @@ func GetUserPermission(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetPermission(projectName, c.Param("uid"))
+	ctx.Resp, ctx.Err = service.GetPermission(projectName, c.Param("uid"), ctx.Logger)
 }
