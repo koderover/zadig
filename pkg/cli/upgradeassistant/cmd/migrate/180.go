@@ -73,7 +73,7 @@ func patchProductRegistryID() error {
 		return err
 	}
 	registry, err := internalmongodb.NewRegistryNamespaceColl().Find(&internalmongodb.FindRegOps{IsDefault: true})
-	if err == nil {
+	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return nil
 		}
