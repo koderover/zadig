@@ -51,7 +51,7 @@ type Product struct {
 	Source          string                        `bson:"source"                    json:"source"`
 	IsOpenSource    bool                          `bson:"is_opensource"             json:"is_opensource"`
 	RegistryID      string                        `bson:"registry_id"               json:"registry_id"`
-	IsForkedProduct bool                          `bson:"-" json:"-"`
+	IsForkedProduct bool                          `bson:"-"                         json:"-"`
 }
 
 type RenderInfo struct {

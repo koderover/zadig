@@ -22,7 +22,9 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 
+	_80Models "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models/180"
 	internalmongodb "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/mongodb"
+	_80 "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/mongodb/180"
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
@@ -47,9 +49,14 @@ func V171ToV180() error {
 	}
 
 	log.Info("Start to patchProductRegistryID")
-	err := patchProductRegistryID()
-	if err != nil {
+	if err := patchProductRegistryID(); err != nil {
 		log.Errorf("Failed to patchProductRegistryID, err: %s", err)
+		return err
+	}
+
+	log.Info("Start to addProjectClusterRelation")
+	if err := initProjectClusterRelation(); err != nil {
+		log.Errorf("Failed to initProjectClusterRelation, err: %s", err)
 		return err
 	}
 
@@ -137,4 +144,29 @@ func newRoleBindingColl() *mongodb.RoleBindingColl {
 	return &mongodb.RoleBindingColl{
 		Collection: mongotool.Database(fmt.Sprintf("%s_policy", config.MongoDatabase())).Collection(name),
 	}
+}
+
+func initProjectClusterRelation() error {
+	projects, err := _80.NewProductColl().List()
+	if err != nil {
+		log.Errorf("Failed to list projects, err: %s", err)
+		return err
+	}
+	clusters, err := _80.NewK8SClusterColl().List()
+	if err != nil {
+		log.Errorf("Failed to list clusters, err: %s", err)
+		return err
+	}
+
+	for _, project := range projects {
+		for _, cluster := range clusters {
+			if err := _80.NewProjectClusterRelationColl().Create(&_80Models.ProjectClusterRelation{
+				ProjectName: project.ProductName,
+				ClusterID:   cluster.ID.Hex(),
+			}); err != nil {
+				log.Warnf("Failed to create projectClusterRelation, err: %s", err)
+			}
+		}
+	}
+	return nil
 }
