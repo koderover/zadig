@@ -70,24 +70,29 @@ func (k *K8SCluster) Clean() error {
 
 func ListClusters(ids []string, projectName string, logger *zap.SugaredLogger) ([]*K8SCluster, error) {
 	idSet := sets.NewString(ids...)
-	if projectName != "" {
-		projectClusterRelations, _ := commonrepo.NewProjectClusterRelationColl().List(&commonrepo.ProjectClusterRelationOption{
-			ProjectName: projectName,
-		})
-		for _, projectClusterRelation := range projectClusterRelations {
-			idSet.Insert(projectClusterRelation.ClusterID)
-		}
-	}
 	cs, err := commonrepo.NewK8SClusterColl().List(&commonrepo.ClusterListOpts{IDs: idSet.UnsortedList()})
 	if err != nil {
 		logger.Errorf("Failed to list clusters, err: %s", err)
 		return nil, err
 	}
 
+	existClusterID := sets.NewString()
+	if projectName != "" {
+		projectClusterRelations, _ := commonrepo.NewProjectClusterRelationColl().List(&commonrepo.ProjectClusterRelationOption{
+			ProjectName: projectName,
+		})
+		for _, projectClusterRelation := range projectClusterRelations {
+			existClusterID.Insert(projectClusterRelation.ClusterID)
+		}
+	}
+
 	var res []*K8SCluster
 	for _, c := range cs {
-		var advancedConfig *AdvancedConfig
+		if !existClusterID.Has(c.ID.Hex()) {
+			continue
+		}
 
+		var advancedConfig *AdvancedConfig
 		if c.AdvancedConfig != nil {
 			advancedConfig = &AdvancedConfig{
 				Strategy:     c.AdvancedConfig.Strategy,
