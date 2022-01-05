@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 
 	internalmongodb "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/mongodb"
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
@@ -65,11 +66,17 @@ func patchProductRegistryID() error {
 	// get all products
 	products, err := internalmongodb.NewProductColl().List(&internalmongodb.ProductListOptions{})
 	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil
+		}
 		log.Errorf("Failed to list products, err: %s", err)
 		return err
 	}
 	registry, err := internalmongodb.NewRegistryNamespaceColl().Find(&internalmongodb.FindRegOps{IsDefault: true})
-	if err != nil {
+	if err == nil {
+		if err == mongo.ErrNoDocuments {
+			return nil
+		}
 		log.Errorf("Failed to find default registry, err: %s", err)
 		return err
 	}
