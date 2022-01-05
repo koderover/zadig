@@ -66,6 +66,7 @@ func CreateWorkflowTask(c *gin.Context) {
 }
 
 type CreateWorkflowTaskResp struct {
+	ProjectName  string `json:"project_name"`
 	PipelineName string `json:"pipeline_name,omitempty"`
 	WorkflowName string `json:"workflow_name"`
 	TaskID       int64  `json:"task_id"`
