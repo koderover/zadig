@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package _80
+package models
 
 type Project struct {
 	ProductName string `bson:"product_name"              json:"product_name"`

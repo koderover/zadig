@@ -22,9 +22,8 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 
-	_80Models "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models/180"
+	internalmodels "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
 	internalmongodb "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/mongodb"
-	_80 "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/mongodb/180"
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
@@ -147,12 +146,12 @@ func newRoleBindingColl() *mongodb.RoleBindingColl {
 }
 
 func initProjectClusterRelation() error {
-	projects, err := _80.NewProductColl().List()
+	projects, err := internalmongodb.NewProjectColl().List()
 	if err != nil {
 		log.Errorf("Failed to list projects, err: %s", err)
 		return err
 	}
-	clusters, err := _80.NewK8SClusterColl().List()
+	clusters, err := internalmongodb.NewK8SClusterColl().List()
 	if err != nil {
 		log.Errorf("Failed to list clusters, err: %s", err)
 		return err
@@ -160,7 +159,7 @@ func initProjectClusterRelation() error {
 
 	for _, project := range projects {
 		for _, cluster := range clusters {
-			if err := _80.NewProjectClusterRelationColl().Create(&_80Models.ProjectClusterRelation{
+			if err := internalmongodb.NewProjectClusterRelationColl().Create(&internalmodels.ProjectClusterRelation{
 				ProjectName: project.ProductName,
 				ClusterID:   cluster.ID.Hex(),
 			}); err != nil {

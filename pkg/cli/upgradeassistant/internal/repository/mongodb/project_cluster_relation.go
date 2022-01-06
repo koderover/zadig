@@ -14,45 +14,46 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package _80
+package mongodb
 
 import (
 	"context"
+	"errors"
+	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 
-	_80 "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models/180"
+	models "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
-type ProductColl struct {
+type ProjectClusterRelationColl struct {
 	*mongo.Collection
 
 	coll string
 }
 
-func NewProductColl() *ProductColl {
-	name := _80.Project{}.TableName()
-	return &ProductColl{Collection: mongotool.Database(config.MongoDatabase()).Collection(name), coll: name}
+func NewProjectClusterRelationColl() *ProjectClusterRelationColl {
+	name := models.ProjectClusterRelation{}.TableName()
+	return &ProjectClusterRelationColl{
+		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),
+		coll:       name,
+	}
 }
 
-func (c *ProductColl) GetCollectionName() string {
+func (c *ProjectClusterRelationColl) GetCollectionName() string {
 	return c.coll
 }
 
-func (c *ProductColl) List() ([]*_80.Project, error) {
-	var resp []*_80.Project
-
-	cursor, err := c.Collection.Find(context.TODO(), bson.M{})
-	if err != nil {
-		return nil, nil
-	}
-	err = cursor.All(context.TODO(), &resp)
-	if err != nil {
-		return nil, nil
+func (c *ProjectClusterRelationColl) Create(args *models.ProjectClusterRelation) error {
+	if args == nil {
+		return errors.New("nil projectClusterRelation info")
 	}
 
-	return resp, nil
+	args.CreatedAt = time.Now().Unix()
+	args.CreatedBy = "system"
+	_, err := c.InsertOne(context.TODO(), args)
+
+	return err
 }

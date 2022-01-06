@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package _80
+package mongodb
 
 import (
 	"context"
@@ -22,7 +22,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 
-	_80 "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models/180"
+	models "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
@@ -34,7 +34,7 @@ type K8SClusterColl struct {
 }
 
 func NewK8SClusterColl() *K8SClusterColl {
-	name := _80.K8SCluster{}.TableName()
+	name := models.K8SCluster{}.TableName()
 	return &K8SClusterColl{
 		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),
 		coll:       name,
@@ -45,8 +45,8 @@ func (c *K8SClusterColl) GetCollectionName() string {
 	return c.coll
 }
 
-func (c *K8SClusterColl) List() ([]*_80.K8SCluster, error) {
-	var clusters []*_80.K8SCluster
+func (c *K8SClusterColl) List() ([]*models.K8SCluster, error) {
+	var clusters []*models.K8SCluster
 
 	query := bson.M{}
 	cursor, err := c.Collection.Find(context.TODO(), query)

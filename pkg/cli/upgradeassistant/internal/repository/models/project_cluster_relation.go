@@ -14,16 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package _80
+package models
 
 import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-type K8SCluster struct {
-	ID primitive.ObjectID `json:"id,omitempty"              bson:"_id,omitempty"`
+type ProjectClusterRelation struct {
+	ID          primitive.ObjectID `json:"id,omitempty"              bson:"_id,omitempty"`
+	ProjectName string             `json:"project_name"              bson:"project_name"`
+	ClusterID   string             `json:"cluster_id"                bson:"cluster_id"`
+	CreatedAt   int64              `json:"createdAt"                 bson:"createdAt"`
+	CreatedBy   string             `json:"createdBy"                 bson:"createdBy"`
 }
 
-func (K8SCluster) TableName() string {
-	return "k8s_cluster"
+func (ProjectClusterRelation) TableName() string {
+	return "project_cluster_relation"
 }
