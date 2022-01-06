@@ -57,6 +57,14 @@ func DeleteCollaborationMode(username, projectName, name string, logger *zap.Sug
 	return nil
 }
 
+func BuildEnvCMMapKey(projectName string, envName string) string {
+	return projectName + " " + envName
+}
+
+func BuildWorkflowCMMapKey(projectName string, workflowName string) string {
+	return projectName + " " + workflowName
+}
+
 func GetEnvCMMap(projects []string, logger *zap.SugaredLogger) (map[string]sets.String, error) {
 	collaborationModes, err := GetCollaborationModes(projects, logger)
 	if err != nil {
@@ -82,12 +90,13 @@ func buildEnvCMMap(collaborations []*models.CollaborationMode) map[string]sets.S
 			if product.CollaborationType == config2.CollaborationShare {
 				continue
 			}
-			if cmSet, ok := envCMMap[cm.ProjectName+" "+product.Name]; ok {
+			key := BuildEnvCMMapKey(cm.ProjectName, product.Name)
+			if cmSet, ok := envCMMap[key]; ok {
 				cmSet.Insert(cm.Name)
-				envCMMap[cm.ProjectName+" "+product.Name] = cmSet
+				envCMMap[key] = cmSet
 			} else {
 				cmSet := sets.NewString(cm.Name)
-				envCMMap[cm.ProjectName+" "+product.Name] = cmSet
+				envCMMap[key] = cmSet
 			}
 		}
 	}
@@ -101,12 +110,13 @@ func buildWorkflowCMMap(collaborations []*models.CollaborationMode) map[string]s
 			if workflow.CollaborationType == config2.CollaborationShare {
 				continue
 			}
-			if cmSet, ok := workflowCMMap[cm.ProjectName+" "+workflow.Name]; ok {
+			key := BuildWorkflowCMMapKey(cm.ProjectName, workflow.Name)
+			if cmSet, ok := workflowCMMap[key]; ok {
 				cmSet.Insert(cm.Name)
-				workflowCMMap[cm.ProjectName+" "+workflow.Name] = cmSet
+				workflowCMMap[key] = cmSet
 			} else {
 				cmSet := sets.NewString(cm.Name)
-				workflowCMMap[cm.ProjectName+" "+workflow.Name] = cmSet
+				workflowCMMap[key] = cmSet
 			}
 		}
 	}

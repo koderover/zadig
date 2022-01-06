@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/service"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -47,7 +48,10 @@ func CleanProductCronJob(requestID string, log *zap.SugaredLogger) {
 		log.Errorf("[Product.List] error: %v", err)
 		return
 	}
-
+	envCMMap, err := service.GetEnvCMMap([]string{}, log)
+	if err != nil {
+		return
+	}
 	wl := sets.NewString(DefaultCleanWhiteList...)
 	wl.Insert(config.CleanSkippedList()...)
 	for _, product := range products {
@@ -58,7 +62,9 @@ func CleanProductCronJob(requestID string, log *zap.SugaredLogger) {
 		if product.RecycleDay == 0 {
 			continue
 		}
-
+		if _, ok := envCMMap[service.BuildEnvCMMapKey(product.ProductName, product.EnvName)]; ok {
+			continue
+		}
 		if time.Now().Unix()-product.UpdateTime > int64(60*60*24*product.RecycleDay) {
 			//title := "系统清理产品信息"
 			//content := fmt.Sprintf("环境 [%s] 已经连续%d天没有使用, 系统已自动删除该环境, 如有需要请重新创建。", product.EnvName, product.RecycleDay)

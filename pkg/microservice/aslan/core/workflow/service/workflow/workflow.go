@@ -537,7 +537,7 @@ func ListWorkflows(projects []string, userID string, log *zap.SugaredLogger) ([]
 			stages = append(stages, "distribute")
 		}
 		var baseRefs []string
-		if cmSet, ok := workflowCMMap[w.ProductTmplName+" "+w.Name]; ok {
+		if cmSet, ok := workflowCMMap[service.BuildWorkflowCMMapKey(w.ProductTmplName, w.Name)]; ok {
 			for _, cm := range cmSet.List() {
 				baseRefs = append(baseRefs, cm)
 			}

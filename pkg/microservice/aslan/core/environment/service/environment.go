@@ -212,7 +212,7 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 			clusterName = cluster.Name
 		}
 		var baseRefs []string
-		if cmSet, ok := envCMMap[env.ProductName+" "+env.EnvName]; ok {
+		if cmSet, ok := envCMMap[service.BuildEnvCMMapKey(env.ProductName, env.EnvName)]; ok {
 			for _, cm := range cmSet.List() {
 				baseRefs = append(baseRefs, cm)
 			}

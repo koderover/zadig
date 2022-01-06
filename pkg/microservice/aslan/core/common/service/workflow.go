@@ -65,7 +65,7 @@ func DeleteWorkflow(workflowName, requestID string, isDeletingProductTmpl bool, 
 	if err != nil {
 		return err
 	}
-	if cmSets, ok := workflowCMMap[workflow.ProductTmplName+" "+workflowName]; ok {
+	if cmSets, ok := workflowCMMap[service.BuildWorkflowCMMapKey(workflow.ProductTmplName, workflowName)]; ok {
 		return fmt.Errorf("this is a base workflow, collaborations:%v is related", cmSets.List())
 	}
 	taskQueue, err := mongodb.NewQueueColl().List(&mongodb.ListQueueOption{})

@@ -55,7 +55,7 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 	if err != nil {
 		return err
 	}
-	if cmSets, ok := envCMMap[productName+" "+envName]; ok {
+	if cmSets, ok := envCMMap[service.BuildEnvCMMapKey(productName, envName)]; ok {
 		return fmt.Errorf("this is a base environment, collaborations:%v is related", cmSets.List())
 	}
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
