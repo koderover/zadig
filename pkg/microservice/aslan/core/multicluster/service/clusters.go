@@ -88,7 +88,7 @@ func ListClusters(ids []string, projectName string, logger *zap.SugaredLogger) (
 
 	var res []*K8SCluster
 	for _, c := range cs {
-		if !existClusterID.Has(c.ID.Hex()) {
+		if projectName != "" && !existClusterID.Has(c.ID.Hex()) {
 			continue
 		}
 
