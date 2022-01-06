@@ -468,7 +468,10 @@ func (r *Reaper) AfterExec(upStreamErr error) error {
 	}
 
 	if upStreamErr == nil {
-		_ = r.CompressCache(r.Ctx.StorageURI)
+		err = r.CompressCache(r.Ctx.StorageURI)
+		if err != nil {
+			log.Errorf("Failed to run compress cache, err: %s", err)
+		}
 	}
 
 	return err
