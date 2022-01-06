@@ -123,7 +123,20 @@ func newHelmProductCreator() *HelmProductCreator {
 }
 
 func (creator *HelmProductCreator) Create(user, requestID string, args *models.Product, log *zap.SugaredLogger) error {
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), args.ClusterID)
+	clusterID := args.ClusterID
+	if clusterID == "" {
+		projectClusterRelations, err := commonrepo.NewProjectClusterRelationColl().List(&commonrepo.ProjectClusterRelationOption{
+			ProjectName: args.ProductName,
+		})
+		if err != nil {
+			return e.ErrCreateEnv.AddDesc("Failed to get the cluster info selected in the project")
+		}
+		if len(projectClusterRelations) > 0 {
+			clusterID = projectClusterRelations[0].ClusterID
+		}
+	}
+
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
 	if err != nil {
 		log.Errorf("[%s][%s] GetKubeClient error: %v", args.EnvName, args.ProductName, err)
 		return e.ErrCreateEnv.AddErr(err)
@@ -209,6 +222,7 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 
 	args.Status = setting.ProductStatusCreating
 	args.RecycleDay = config.DefaultRecycleDay()
+	args.ClusterID = clusterID
 	if args.IsForkedProduct {
 		args.RecycleDay = 7
 	}
@@ -280,7 +294,20 @@ func newDefaultProductCreator() *DefaultProductCreator {
 }
 
 func (creator *DefaultProductCreator) Create(user, requestID string, args *models.Product, log *zap.SugaredLogger) error {
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), args.ClusterID)
+	// get project cluster relation
+	clusterID := args.ClusterID
+	if clusterID == "" {
+		projectClusterRelations, err := commonrepo.NewProjectClusterRelationColl().List(&commonrepo.ProjectClusterRelationOption{
+			ProjectName: args.ProductName,
+		})
+		if err != nil {
+			return e.ErrCreateEnv.AddDesc("Failed to get the cluster info selected in the project")
+		}
+		if len(projectClusterRelations) > 0 {
+			clusterID = projectClusterRelations[0].ClusterID
+		}
+	}
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
 	if err != nil {
 		return e.ErrCreateEnv.AddErr(err)
 	}
@@ -335,6 +362,7 @@ func (creator *DefaultProductCreator) Create(user, requestID string, args *model
 
 	args.Status = setting.ProductStatusCreating
 	args.RecycleDay = config.DefaultRecycleDay()
+	args.ClusterID = clusterID
 	err = commonrepo.NewProductColl().Create(args)
 	if err != nil {
 		log.Errorf("[%s][%s] create product record error: %v", args.EnvName, args.ProductName, err)
