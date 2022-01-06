@@ -50,7 +50,6 @@ type Workflow struct {
 	NotifyCtl       *NotifyCtl         `bson:"notify_ctl,omitempty"         json:"notify_ctl,omitempty"`
 	HookCtl         *WorkflowHookCtrl  `bson:"hook_ctl"                     json:"hook_ctl"`
 	BaseName        string             `bson:"base_name" json:"base_name"`
-	BaseRefs        []string           `bson:"base_refs" json:"base_refs"`
 
 	// ResetImage indicate whether reset image to original version after completion
 	ResetImage bool `json:"reset_image" bson:"reset_image"`

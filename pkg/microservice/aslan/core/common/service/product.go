@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/service"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
@@ -50,8 +51,12 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 		log.Errorf("find product error: %v", err)
 		return e.ErrDeleteEnv.AddDesc("not found")
 	}
-	if len(productInfo.BaseRefs) > 0 {
-		return fmt.Errorf("this is a base environment, collaborations:%v is related", productInfo.BaseRefs)
+	envCMMap, err := service.GetEnvCMMap([]string{productName}, log)
+	if err != nil {
+		return err
+	}
+	if cmSets, ok := envCMMap[productName+" "+envName]; ok {
+		return fmt.Errorf("this is a base environment, collaborations:%v is related", cmSets.List())
 	}
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
 	if err != nil {
