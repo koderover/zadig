@@ -265,5 +265,5 @@ func ProxyAgent(writer gin.ResponseWriter, request *http.Request) {
 func GetYaml(id, hubURI string, useDeployment bool, logger *zap.SugaredLogger) ([]byte, error) {
 	s, _ := kube.NewService("")
 
-	return s.GetYaml(id, config.HubAgentImage(), configbase.SystemAddress(), hubURI, useDeployment, logger)
+	return s.GetYaml(id, config.HubAgentImage(), config.ResourceServerImage(), configbase.SystemAddress(), hubURI, useDeployment, logger)
 }
