@@ -92,6 +92,10 @@ func ListClusters(ids []string, projectName string, logger *zap.SugaredLogger) (
 			continue
 		}
 
+		if c.ID.Hex() == setting.LocalClusterID {
+			c.AdvancedConfig = &commonmodels.AdvancedConfig{}
+		}
+
 		var advancedConfig *AdvancedConfig
 		if c.AdvancedConfig != nil {
 			advancedConfig = &AdvancedConfig{
