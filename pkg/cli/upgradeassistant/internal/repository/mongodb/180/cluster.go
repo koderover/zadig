@@ -45,22 +45,18 @@ func (c *K8SClusterColl) GetCollectionName() string {
 	return c.coll
 }
 
-func (c *K8SClusterColl) EnsureIndex(_ context.Context) error {
-	return nil
-}
-
 func (c *K8SClusterColl) List() ([]*_80.K8SCluster, error) {
 	var clusters []*_80.K8SCluster
 
 	query := bson.M{}
 	cursor, err := c.Collection.Find(context.TODO(), query)
 	if err != nil {
-		return nil, err
+		return nil, nil
 	}
 	err = cursor.All(context.TODO(), &clusters)
 	if err != nil {
-		return nil, err
+		return nil, nil
 	}
 
-	return clusters, err
+	return clusters, nil
 }

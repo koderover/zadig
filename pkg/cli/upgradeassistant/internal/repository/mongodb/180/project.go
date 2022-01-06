@@ -21,7 +21,6 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 
 	_80 "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models/180"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -43,27 +42,16 @@ func (c *ProductColl) GetCollectionName() string {
 	return c.coll
 }
 
-func (c *ProductColl) EnsureIndex(ctx context.Context) error {
-	mod := mongo.IndexModel{
-		Keys:    bson.M{"product_name": 1},
-		Options: options.Index().SetUnique(true),
-	}
-
-	_, err := c.Indexes().CreateOne(ctx, mod)
-
-	return err
-}
-
 func (c *ProductColl) List() ([]*_80.Project, error) {
 	var resp []*_80.Project
 
 	cursor, err := c.Collection.Find(context.TODO(), bson.M{})
 	if err != nil {
-		return nil, err
+		return nil, nil
 	}
 	err = cursor.All(context.TODO(), &resp)
 	if err != nil {
-		return nil, err
+		return nil, nil
 	}
 
 	return resp, nil

@@ -21,9 +21,7 @@ import (
 	"errors"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 
 	_80 "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models/180"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -46,19 +44,6 @@ func NewProjectClusterRelationColl() *ProjectClusterRelationColl {
 
 func (c *ProjectClusterRelationColl) GetCollectionName() string {
 	return c.coll
-}
-
-func (c *ProjectClusterRelationColl) EnsureIndex(ctx context.Context) error {
-	mod := mongo.IndexModel{
-		Keys: bson.D{
-			bson.E{Key: "project_name", Value: 1},
-			bson.E{Key: "cluster_id", Value: 1},
-		},
-		Options: options.Index().SetUnique(true),
-	}
-
-	_, err := c.Indexes().CreateOne(ctx, mod)
-	return err
 }
 
 func (c *ProjectClusterRelationColl) Create(args *_80.ProjectClusterRelation) error {
