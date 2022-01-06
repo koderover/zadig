@@ -15,3 +15,22 @@ limitations under the License.
 */
 
 package handler
+
+import (
+	"github.com/gin-gonic/gin"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/service"
+	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	e "github.com/koderover/zadig/pkg/tool/errors"
+)
+
+func GetCollaborationNew(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can not be empty")
+		return
+	}
+	ctx.Resp, ctx.Err = service.GetCollaborationNew(projectName, ctx.UserID, ctx.UserName, ctx.Logger)
+}

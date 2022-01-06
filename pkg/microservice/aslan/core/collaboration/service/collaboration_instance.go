@@ -5,10 +5,13 @@ import (
 	"reflect"
 
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/mongodb"
+	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+	mongodb2 "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -19,6 +22,7 @@ type GetCollaborationUpdateResp struct {
 }
 type UpdateItem struct {
 	CollaborationMode string     `json:"collaboration_mode"`
+	DeployType        string     `json:"deploy_type"`
 	DeleteSpec        DeleteSpec `json:"delete_spec"`
 	UpdateSpec        UpdateSpec `json:"update_spec"`
 	NewSpec           NewSpec    `json:"new_spec"`
@@ -55,10 +59,12 @@ type Workflow struct {
 }
 
 type Product struct {
-	CollaborationType config.CollaborationType `json:"collaboration_type"`
-	BaseName          string                   `json:"base_name"`
-	CollaborationMode string                   `json:"collaboration_mode"`
-	Name              string                   `json:"name"`
+	CollaborationType config.CollaborationType   `json:"collaboration_type"`
+	BaseName          string                     `json:"base_name"`
+	CollaborationMode string                     `json:"collaboration_mode"`
+	Name              string                     `json:"name"`
+	DeployType        string                     `json:"deploy_type"`
+	Vars              []*templatemodels.RenderKV `json:"vars"`
 }
 type GetCollaborationNewResp struct {
 	Code     int64      `json:"code"`
@@ -140,6 +146,8 @@ func getUpdateDiff(cm *models.CollaborationMode, ci *models.CollaborationInstanc
 	}
 	updateProductItems, newProductItems, deleteProductItems := getUpdateProductDiff(cmpMap, cipMap)
 	return UpdateItem{
+		CollaborationMode: cm.Name,
+		DeployType:        cm.DeployType,
 		NewSpec: NewSpec{
 			Workflows: newWorkflowItems,
 			Products:  newProductItems,
@@ -217,6 +225,7 @@ func buildName(baseName, modeName, userName string) string {
 func GetCollaborationNew(projectName, uid, userName string, logger *zap.SugaredLogger) (*GetCollaborationNewResp, error) {
 	var newWorkflow []Workflow
 	var newProduct []Product
+	var newProductName sets.String
 	updateResp, err := GetCollaborationUpdate(projectName, uid, logger)
 	if err != nil {
 		logger.Errorf("GetCollaborationNew error, err msg:%s", err)
@@ -237,7 +246,9 @@ func GetCollaborationNew(projectName, uid, userName string, logger *zap.SugaredL
 				BaseName:          product.Name,
 				CollaborationMode: mode.Name,
 				Name:              buildName(product.Name, mode.Name, userName),
+				DeployType:        mode.DeployType,
 			})
+			newProductName.Insert(product.Name)
 		}
 	}
 	for _, item := range updateResp.Update {
@@ -255,7 +266,9 @@ func GetCollaborationNew(projectName, uid, userName string, logger *zap.SugaredL
 				BaseName:          product.Name,
 				CollaborationMode: item.CollaborationMode,
 				Name:              buildName(product.Name, item.CollaborationMode, userName),
+				DeployType:        item.DeployType,
 			})
+			newProductName.Insert(product.Name)
 		}
 		for _, workflow := range item.UpdateSpec.Workflows {
 			if workflow.Old.CollaborationType == "share" && workflow.New.CollaborationType == "new" {
@@ -273,9 +286,29 @@ func GetCollaborationNew(projectName, uid, userName string, logger *zap.SugaredL
 					CollaborationType: product.New.CollaborationType,
 					BaseName:          product.New.BaseName,
 					CollaborationMode: item.CollaborationMode,
+					DeployType:        item.DeployType,
 					Name:              buildName(product.New.BaseName, item.CollaborationMode, userName),
 				})
+				newProductName.Insert(product.New.BaseName)
 			}
+		}
+	}
+	products, err := mongodb2.NewProductColl().List(&mongodb2.ProductListOptions{
+		InProjects: []string{projectName},
+		InEnvs:     newProductName.List(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	productVarsMap := make(map[string][]*templatemodels.RenderKV)
+	for _, product := range products {
+		productVarsMap[product.EnvName] = product.Vars
+	}
+	for _, product := range newProduct {
+		if vars, ok := productVarsMap[product.BaseName]; ok {
+			product.Vars = vars
+		} else {
+			return nil, fmt.Errorf("product:%s not exist", product.BaseName)
 		}
 	}
 	return &GetCollaborationNewResp{
