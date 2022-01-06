@@ -51,11 +51,14 @@ func (c *K8SClusterColl) List() ([]*models.K8SCluster, error) {
 	query := bson.M{}
 	cursor, err := c.Collection.Find(context.TODO(), query)
 	if err != nil {
-		return nil, nil
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
+		return nil, err
 	}
 	err = cursor.All(context.TODO(), &clusters)
 	if err != nil {
-		return nil, nil
+		return nil, err
 	}
 
 	return clusters, nil

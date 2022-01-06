@@ -47,11 +47,14 @@ func (c *ProjectColl) List() ([]*models.Project, error) {
 
 	cursor, err := c.Collection.Find(context.TODO(), bson.M{})
 	if err != nil {
-		return nil, nil
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
+		return nil, err
 	}
 	err = cursor.All(context.TODO(), &resp)
 	if err != nil {
-		return nil, nil
+		return nil, err
 	}
 
 	return resp, nil
