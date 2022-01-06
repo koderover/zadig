@@ -1,12 +1,9 @@
 /*
 Copyright 2021 The KodeRover Authors.
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -26,8 +23,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
@@ -143,5 +139,5 @@ func (c *ChartColl) Delete(name string) error {
 
 func getNextRevision(name string) (int64, error) {
 	template := fmt.Sprintf(chartTemplateCounterName, name)
-	return commonrepo.NewCounterColl().GetNextSeq(template)
+	return NewCounterColl().GetNextSeq(template)
 }
