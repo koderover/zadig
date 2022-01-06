@@ -101,7 +101,7 @@ func DeletePrivateKey(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, "", "删除", "资源管理-主机管理", fmt.Sprintf("id:%s", c.Param("id")), "", ctx.Logger)
-	ctx.Err = service.DeletePrivateKey(c.Param("id"), ctx.Logger)
+	ctx.Err = service.DeletePrivateKey(c.Param("id"), ctx.UserName, ctx.Logger)
 }
 
 func ListLabels(c *gin.Context) {

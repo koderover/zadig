@@ -247,6 +247,7 @@ const (
 	SourceFromExternal = "external"
 	// service from yaml template
 	ServiceSourceTemplate = "template"
+	SourceFromPM          = "pm"
 
 	ProdENV = "prod"
 	TestENV = "test"
