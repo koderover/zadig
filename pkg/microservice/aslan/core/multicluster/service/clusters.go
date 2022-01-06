@@ -92,6 +92,12 @@ func ListClusters(ids []string, projectName string, logger *zap.SugaredLogger) (
 			continue
 		}
 
+		// If the advanced configuration is empty, the project information needs to be returned,
+		// otherwise the front end will report an error
+		if c.AdvancedConfig == nil {
+			c.AdvancedConfig = &commonmodels.AdvancedConfig{}
+		}
+
 		var advancedConfig *AdvancedConfig
 		if c.AdvancedConfig != nil {
 			advancedConfig = &AdvancedConfig{
