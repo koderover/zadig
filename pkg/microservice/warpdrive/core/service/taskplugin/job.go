@@ -124,9 +124,9 @@ func saveContainerLog(pipelineTask *task.Task, namespace, clusterID, fileName st
 				return err
 			}
 			if store.Subfolder != "" {
-				store.Subfolder = fmt.Sprintf("%s/%s/%d/%s", store.Subfolder, pipelineTask.PipelineName, pipelineTask.TaskID, "log")
+				store.Subfolder = fmt.Sprintf("%s/%s/%d/%s", store.Subfolder, strings.ToLower(pipelineTask.PipelineName), pipelineTask.TaskID, "log")
 			} else {
-				store.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineTask.PipelineName, pipelineTask.TaskID, "log")
+				store.Subfolder = fmt.Sprintf("%s/%d/%s", strings.ToLower(pipelineTask.PipelineName), pipelineTask.TaskID, "log")
 			}
 			forcedPathStyle := true
 			if store.Provider == setting.ProviderSourceAli {
