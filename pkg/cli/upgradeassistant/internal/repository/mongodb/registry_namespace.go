@@ -106,8 +106,14 @@ func (r *RegistryNamespaceColl) Find(opt *FindRegOps) (*models.RegistryNamespace
 
 	res := &models.RegistryNamespace{}
 	err := r.FindOne(context.TODO(), query).Decode(res)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
+		return nil, err
+	}
 
-	return res, err
+	return res, nil
 }
 
 func (r *RegistryNamespaceColl) FindAll(opt *FindRegOps) ([]*models.RegistryNamespace, error) {
@@ -119,6 +125,9 @@ func (r *RegistryNamespaceColl) FindAll(opt *FindRegOps) ([]*models.RegistryName
 
 	cursor, err := r.Collection.Find(ctx, query, opts)
 	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
 		return nil, err
 	}
 
