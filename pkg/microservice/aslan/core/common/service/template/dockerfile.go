@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package dockerfile
 
 import (
 	"errors"
@@ -25,14 +25,13 @@ import (
 	dockerfileparser "github.com/moby/buildkit/frontend/dockerfile/parser"
 	"go.uber.org/zap"
 
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 )
 
 func CreateDockerfileTemplate(template *DockerfileTemplate, logger *zap.SugaredLogger) error {
-	err := mongodb.NewDockerfileTemplateColl().Create(&models.DockerfileTemplate{
+	err := commonrepo.NewDockerfileTemplateColl().Create(&commonmodels.DockerfileTemplate{
 		Name:    template.Name,
 		Content: template.Content,
 	})
@@ -43,9 +42,9 @@ func CreateDockerfileTemplate(template *DockerfileTemplate, logger *zap.SugaredL
 }
 
 func UpdateDockerfileTemplate(id string, template *DockerfileTemplate, logger *zap.SugaredLogger) error {
-	err := mongodb.NewDockerfileTemplateColl().Update(
+	err := commonrepo.NewDockerfileTemplateColl().Update(
 		id,
-		&models.DockerfileTemplate{
+		&commonmodels.DockerfileTemplate{
 			Name:    template.Name,
 			Content: template.Content,
 		},
@@ -58,7 +57,7 @@ func UpdateDockerfileTemplate(id string, template *DockerfileTemplate, logger *z
 
 func ListDockerfileTemplate(pageNum, pageSize int, logger *zap.SugaredLogger) ([]*DockerfileListObject, int, error) {
 	resp := make([]*DockerfileListObject, 0)
-	templateList, total, err := mongodb.NewDockerfileTemplateColl().List(pageNum, pageSize)
+	templateList, total, err := commonrepo.NewDockerfileTemplateColl().List(pageNum, pageSize)
 	if err != nil {
 		logger.Errorf("list dockerfile template error: %s", err)
 		return resp, 0, err
@@ -74,7 +73,7 @@ func ListDockerfileTemplate(pageNum, pageSize int, logger *zap.SugaredLogger) ([
 
 func GetDockerfileTemplateDetail(id string, logger *zap.SugaredLogger) (*DockerfileDetail, error) {
 	resp := new(DockerfileDetail)
-	dockerfileTemplate, err := mongodb.NewDockerfileTemplateColl().GetById(id)
+	dockerfileTemplate, err := commonrepo.NewDockerfileTemplateColl().GetById(id)
 	if err != nil {
 		logger.Errorf("Failed to get dockerfile template from id: %s, the error is: %s", id, err)
 		return nil, err
@@ -99,7 +98,7 @@ func DeleteDockerfileTemplate(id string, logger *zap.SugaredLogger) error {
 	if len(ref) > 0 {
 		return errors.New("this template is in use")
 	}
-	err = mongodb.NewDockerfileTemplateColl().DeleteByID(id)
+	err = commonrepo.NewDockerfileTemplateColl().DeleteByID(id)
 	if err != nil {
 		logger.Errorf("Failed to delete dockerfile template of id: %s, the error is: %s", id, err)
 	}
@@ -136,24 +135,24 @@ func ValidateDockerfileTemplate(template string, logger *zap.SugaredLogger) erro
 	return nil
 }
 
-func getVariables(s string, logger *zap.SugaredLogger) ([]*Variable, error) {
-	ret := make([]*Variable, 0)
+func getVariables(s string, logger *zap.SugaredLogger) ([]*commonmodels.ChartVariable, error) {
+	ret := make([]*commonmodels.ChartVariable, 0)
 	reader := strings.NewReader(s)
 	result, err := dockerfileparser.Parse(reader)
 	if err != nil {
 		logger.Errorf("Failed to parse the dockerfile from source, the error is: %s", err)
-		return []*Variable{}, err
+		return []*commonmodels.ChartVariable{}, err
 	}
 	stages, metaArgs, err := dockerfileinstructions.Parse(result.AST)
 	if err != nil {
 		logger.Errorf("Failed to parse stages from generated dockerfile AST, the error is: %s", err)
-		return []*Variable{}, err
+		return []*commonmodels.ChartVariable{}, err
 	}
 	keyMap := make(map[string]int)
 	for _, metaArg := range metaArgs {
 		for _, arg := range metaArg.Args {
 			if keyMap[arg.Key] == 0 {
-				ret = append(ret, &Variable{
+				ret = append(ret, &commonmodels.ChartVariable{
 					Key:   arg.Key,
 					Value: arg.ValueString(),
 				})
@@ -174,7 +173,7 @@ func getVariables(s string, logger *zap.SugaredLogger) ([]*Variable, error) {
 				}
 				// if key has not been added yet
 				if keyMap[key] == 0 {
-					ret = append(ret, &Variable{
+					ret = append(ret, &commonmodels.ChartVariable{
 						Key:   key,
 						Value: value,
 					})

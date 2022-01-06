@@ -41,6 +41,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
+	templ "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -1952,12 +1953,18 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 		build.JobCtx.EnableProxy = module.PreBuild.EnableProxy
 
 		if module.PostBuild != nil && module.PostBuild.DockerBuild != nil {
+			dockerTemplateContent := ""
+			if module.PostBuild.DockerBuild.TemplateID != "" {
+				if dockerfileDetail, err := templ.GetDockerfileTemplateDetail(module.PostBuild.DockerBuild.TemplateID, log); err == nil {
+					dockerTemplateContent = dockerfileDetail.Content
+				}
+			}
 			build.JobCtx.DockerBuildCtx = &task.DockerBuildCtx{
-				Source:     module.PostBuild.DockerBuild.Source,
-				TemplateID: module.PostBuild.DockerBuild.TemplateID,
-				WorkDir:    module.PostBuild.DockerBuild.WorkDir,
-				DockerFile: module.PostBuild.DockerBuild.DockerFile,
-				BuildArgs:  module.PostBuild.DockerBuild.BuildArgs,
+				Source:                module.PostBuild.DockerBuild.Source,
+				WorkDir:               module.PostBuild.DockerBuild.WorkDir,
+				DockerFile:            module.PostBuild.DockerBuild.DockerFile,
+				BuildArgs:             module.PostBuild.DockerBuild.BuildArgs,
+				DockerTemplateContent: dockerTemplateContent,
 			}
 		}
 

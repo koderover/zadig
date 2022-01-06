@@ -18,8 +18,9 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 
-	templateservice "github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/service"
+	templateservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
@@ -57,7 +58,7 @@ type listYamlQuery struct {
 }
 
 type ListYamlResp struct {
-	SystemVariables []*templateservice.Variable       `json:"system_variables"`
+	SystemVariables []*commonmodels.ChartVariable     `json:"system_variables"`
 	YamlTemplates   []*templateservice.YamlListObject `json:"yaml_template"`
 	Total           int                               `json:"total"`
 }
