@@ -178,7 +178,11 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 				log.Errorf("remove services in external env error:%s", err)
 			}
 		}
-
+	case setting.SourceFromPM:
+		err = commonrepo.NewProductColl().Delete(envName, productName)
+		if err != nil {
+			log.Errorf("Product.Delete error: %v", err)
+		}
 	default:
 		go func() {
 			var err error
