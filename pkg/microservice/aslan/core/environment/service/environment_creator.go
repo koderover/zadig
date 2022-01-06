@@ -295,6 +295,7 @@ func newDefaultProductCreator() *DefaultProductCreator {
 func (creator *DefaultProductCreator) Create(user, requestID string, args *models.Product, log *zap.SugaredLogger) error {
 	// get project cluster relation
 	clusterID := args.ClusterID
+	log.Infof("clusterID:%s", clusterID)
 	if clusterID == "" {
 		projectClusterRelations, err := commonrepo.NewProjectClusterRelationColl().List(&commonrepo.ProjectClusterRelationOption{
 			ProjectName: args.ProductName,
