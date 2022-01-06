@@ -222,6 +222,7 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 
 	args.Status = setting.ProductStatusCreating
 	args.RecycleDay = config.DefaultRecycleDay()
+	args.ClusterID = clusterID
 	if args.IsForkedProduct {
 		args.RecycleDay = 7
 	}
@@ -295,7 +296,6 @@ func newDefaultProductCreator() *DefaultProductCreator {
 func (creator *DefaultProductCreator) Create(user, requestID string, args *models.Product, log *zap.SugaredLogger) error {
 	// get project cluster relation
 	clusterID := args.ClusterID
-	log.Infof("clusterID:%s", clusterID)
 	if clusterID == "" {
 		projectClusterRelations, err := commonrepo.NewProjectClusterRelationColl().List(&commonrepo.ProjectClusterRelationOption{
 			ProjectName: args.ProductName,
@@ -362,6 +362,7 @@ func (creator *DefaultProductCreator) Create(user, requestID string, args *model
 
 	args.Status = setting.ProductStatusCreating
 	args.RecycleDay = config.DefaultRecycleDay()
+	args.ClusterID = clusterID
 	err = commonrepo.NewProductColl().Create(args)
 	if err != nil {
 		log.Errorf("[%s][%s] create product record error: %v", args.EnvName, args.ProductName, err)
