@@ -46,6 +46,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/service"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -192,6 +193,15 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 	if err != nil {
 		log.Errorf("FindDefaultRegistry error: %v", err)
 		return nil, err
+	}
+	collaborationModes, err := service.GetCollaborationModes(projectName, log)
+	if err != nil {
+		log.Errorf("GetCollaborationModes error: %v", err)
+		return nil, err
+	}
+	envCMMap := make(map[string][]string)
+	for _, cm := range collaborationModes {
+
 	}
 	for _, env := range envs {
 		clusterID := env.ClusterID
