@@ -194,14 +194,10 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 		log.Errorf("FindDefaultRegistry error: %v", err)
 		return nil, err
 	}
-	collaborationModes, err := service.GetCollaborationModes(projectName, log)
-	if err != nil {
-		log.Errorf("GetCollaborationModes error: %v", err)
-		return nil, err
-	}
-	envCMMap := make(map[string][]string)
-	for _, cm := range collaborationModes {
 
+	envCMMap, err := service.GetEnvCMMap([]string{projectName}, log)
+	if err != nil {
+		return nil, err
 	}
 	for _, env := range envs {
 		clusterID := env.ClusterID
@@ -215,7 +211,12 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 			production = cluster.Production
 			clusterName = cluster.Name
 		}
-
+		var baseRefs []string
+		if cmSet, ok := envCMMap[env.ProductName+" "+env.EnvName]; ok {
+			for _, cm := range cmSet.List() {
+				baseRefs = append(baseRefs, cm)
+			}
+		}
 		res = append(res, &EnvResp{
 			ProjectName: projectName,
 			Name:        env.EnvName,
@@ -229,7 +230,7 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 			UpdateBy:    env.UpdateBy,
 			RegistryID:  env.RegistryID,
 			ClusterID:   env.ClusterID,
-			BaseRefs:    env.BaseRefs,
+			BaseRefs:    baseRefs,
 			BaseName:    env.BaseName,
 		})
 	}

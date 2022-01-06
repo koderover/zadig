@@ -36,7 +36,7 @@ func GetCollaborationMode(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can not be empty")
 		return
 	}
-	ctx.Resp, ctx.Err = service.GetCollaborationModes(projectName, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetCollaborationModes([]string{projectName}, ctx.Logger)
 }
 
 func CreateCollaborationMode(c *gin.Context) {

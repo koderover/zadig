@@ -37,6 +37,13 @@ type CollaborationModeFindOptions struct {
 	IsDeleted   bool
 }
 
+type CollaborationModeListOptions struct {
+	Projects  []string
+	Name      string `           `
+	Members   string
+	IsDeleted bool
+}
+
 type CollaborationModeColl struct {
 	*mongo.Collection
 
@@ -166,14 +173,14 @@ func (c *CollaborationModeColl) Find(opt *CollaborationModeFindOptions) (*models
 	return res, err
 }
 
-func (c *CollaborationModeColl) List(opt *CollaborationModeFindOptions) ([]*models.CollaborationMode, error) {
+func (c *CollaborationModeColl) List(opt *CollaborationModeListOptions) ([]*models.CollaborationMode, error) {
 	var ret []*models.CollaborationMode
 	query := bson.M{}
 	if opt.Name != "" {
 		query["name"] = opt.Name
 	}
-	if opt.ProjectName != "" {
-		query["project_name"] = opt.ProjectName
+	if len(opt.Projects) > 0 {
+		query["project_name"] = bson.M{"$in": opt.Projects}
 	}
 	if opt.Members != "" {
 		query["members"] = opt.Members

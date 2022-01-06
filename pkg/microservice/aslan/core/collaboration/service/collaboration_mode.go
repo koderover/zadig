@@ -17,8 +17,11 @@ limitations under the License.
 package service
 
 import (
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 
+	config2 "github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/mongodb"
 )
@@ -54,12 +57,71 @@ func DeleteCollaborationMode(username, projectName, name string, logger *zap.Sug
 	return nil
 }
 
-func GetCollaborationModes(projectName string, logger *zap.SugaredLogger) (*GetCollaborationModeResp, error) {
-	collaborations, err := mongodb.NewCollaborationModeColl().List(&mongodb.CollaborationModeFindOptions{
-		ProjectName: projectName,
+func GetEnvCMMap(projects []string, logger *zap.SugaredLogger) (map[string]sets.String, error) {
+	collaborationModes, err := GetCollaborationModes(projects, logger)
+	if err != nil {
+		logger.Errorf("GetCollaborationModes error: %v", err)
+		return nil, err
+	}
+	return buildEnvCMMap(collaborationModes.Collaborations), nil
+}
+
+func GetWorkflowCMMap(projects []string, logger *zap.SugaredLogger) (map[string]sets.String, error) {
+	collaborationModes, err := GetCollaborationModes(projects, logger)
+	if err != nil {
+		logger.Errorf("GetCollaborationModes error: %v", err)
+		return nil, err
+	}
+	return buildWorkflowCMMap(collaborationModes.Collaborations), nil
+}
+
+func buildEnvCMMap(collaborations []*models.CollaborationMode) map[string]sets.String {
+	envCMMap := make(map[string]sets.String)
+	for _, cm := range collaborations {
+		for _, product := range cm.Products {
+			if product.CollaborationType == config2.CollaborationShare {
+				continue
+			}
+			if cmSet, ok := envCMMap[cm.ProjectName+" "+product.Name]; ok {
+				cmSet.Insert(cm.Name)
+				envCMMap[cm.ProjectName+" "+product.Name] = cmSet
+			} else {
+				cmSet := sets.NewString(cm.Name)
+				envCMMap[cm.ProjectName+" "+product.Name] = cmSet
+			}
+		}
+	}
+	return envCMMap
+}
+
+func buildWorkflowCMMap(collaborations []*models.CollaborationMode) map[string]sets.String {
+	workflowCMMap := make(map[string]sets.String)
+	for _, cm := range collaborations {
+		for _, workflow := range cm.Workflows {
+			if workflow.CollaborationType == config2.CollaborationShare {
+				continue
+			}
+			if cmSet, ok := workflowCMMap[cm.ProjectName+" "+workflow.Name]; ok {
+				cmSet.Insert(cm.Name)
+				workflowCMMap[cm.ProjectName+" "+workflow.Name] = cmSet
+			} else {
+				cmSet := sets.NewString(cm.Name)
+				workflowCMMap[cm.ProjectName+" "+workflow.Name] = cmSet
+			}
+		}
+	}
+	return workflowCMMap
+}
+
+func GetCollaborationModes(projects []string, logger *zap.SugaredLogger) (*GetCollaborationModeResp, error) {
+	collaborations, err := mongodb.NewCollaborationModeColl().List(&mongodb.CollaborationModeListOptions{
+		Projects: projects,
 	})
 	if err != nil {
-		logger.Errorf("UpdateCollaborationMode error, err msg:%s", err)
+		if err == mongo.ErrNoDocuments {
+			return &GetCollaborationModeResp{}, nil
+		}
+		logger.Errorf("GetCollaborationModes error, err msg:%s", err)
 		return nil, err
 	}
 	return &GetCollaborationModeResp{

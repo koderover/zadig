@@ -183,9 +183,9 @@ func getDiff(cmMap map[string]*models.CollaborationMode, ciMap map[string]*model
 }
 
 func GetCollaborationUpdate(projectName, uid string, logger *zap.SugaredLogger) (*GetCollaborationUpdateResp, error) {
-	collaborations, err := mongodb.NewCollaborationModeColl().List(&mongodb.CollaborationModeFindOptions{
-		ProjectName: projectName,
-		Members:     uid,
+	collaborations, err := mongodb.NewCollaborationModeColl().List(&mongodb.CollaborationModeListOptions{
+		Projects: []string{projectName},
+		Members:  uid,
 	})
 	if err != nil {
 		logger.Errorf("GetCollaborationUpdate error, err msg:%s", err)
