@@ -74,7 +74,7 @@ func UpdatePrivateKey(id string, args *commonmodels.PrivateKey, log *zap.Sugared
 	return nil
 }
 
-func DeletePrivateKey(id string, log *zap.SugaredLogger, userName string) error {
+func DeletePrivateKey(id string, userName string, log *zap.SugaredLogger) error {
 	// 检查该私钥是否被引用
 	buildOpt := &commonrepo.BuildListOption{PrivateKeyID: id}
 	builds, err := commonrepo.NewBuildColl().List(buildOpt)
