@@ -136,6 +136,12 @@ func (c *CollaborationModeColl) Create(userName string, args *models.Collaborati
 	return err
 }
 
+func (c *CollaborationModeColl) DeleteByProject(project string) error {
+	query := bson.M{"project_name": project}
+	_, err := c.DeleteMany(context.TODO(), query)
+	return err
+}
+
 func (c *CollaborationModeColl) Delete(username, projectName, name string) error {
 	_, err := c.Find(&CollaborationModeFindOptions{
 		Name:        name,
