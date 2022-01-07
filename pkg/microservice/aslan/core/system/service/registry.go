@@ -71,12 +71,14 @@ func CreateRegistryNamespace(username string, args *commonmodels.RegistryNamespa
 	if err != nil {
 		log.Warnf("failed to find the default registry, the error is: %s", err)
 	}
-	if args.IsDefault && defaultReg != nil && !isSystemDefault {
-		defaultReg.IsDefault = false
-		err := UpdateRegistryNamespaceDefault(defaultReg, log)
-		if err != nil {
-			log.Errorf("updateRegistry error: %v", err)
-			return fmt.Errorf("RegistryNamespace.Create error: %v", err)
+	if args.IsDefault {
+		if defaultReg != nil && !isSystemDefault {
+			defaultReg.IsDefault = false
+			err := UpdateRegistryNamespaceDefault(defaultReg, log)
+			if err != nil {
+				log.Errorf("updateRegistry error: %v", err)
+				return fmt.Errorf("RegistryNamespace.Create error: %v", err)
+			}
 		}
 	} else {
 		if isSystemDefault {
@@ -102,12 +104,14 @@ func UpdateRegistryNamespace(username, id string, args *commonmodels.RegistryNam
 	if err != nil {
 		log.Warnf("failed to find the default registry, the error is: %s", err)
 	}
-	if args.IsDefault && defaultReg != nil && !isSystemDefault {
-		defaultReg.IsDefault = false
-		err := UpdateRegistryNamespaceDefault(defaultReg, log)
-		if err != nil {
-			log.Errorf("updateRegistry error: %v", err)
-			return fmt.Errorf("RegistryNamespace.Update error: %v", err)
+	if args.IsDefault {
+		if defaultReg != nil && !isSystemDefault {
+			defaultReg.IsDefault = false
+			err := UpdateRegistryNamespaceDefault(defaultReg, log)
+			if err != nil {
+				log.Errorf("updateRegistry error: %v", err)
+				return fmt.Errorf("RegistryNamespace.Update error: %v", err)
+			}
 		}
 	} else {
 		if isSystemDefault || id == defaultReg.ID.Hex() {
