@@ -70,6 +70,9 @@ func (c *K8SClusterColl) Delete(id string) error {
 func (c *K8SClusterColl) Create(cluster *models.K8SCluster, id string) error {
 	if id != "" {
 		cluster.ID, _ = primitive.ObjectIDFromHex(id)
+		if _, err := c.Get(id); err == nil {
+			return nil
+		}
 	}
 	res, err := c.InsertOne(context.TODO(), cluster)
 	if oid, ok := res.InsertedID.(primitive.ObjectID); ok {
