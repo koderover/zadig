@@ -74,10 +74,16 @@ func patchProductRegistryID() error {
 		log.Errorf("Failed to list products, err: %s", err)
 		return err
 	}
+	if len(products) == 0 {
+		return nil
+	}
 	registry, err := internalmongodb.NewRegistryNamespaceColl().Find(&internalmongodb.FindRegOps{IsDefault: true})
 	if err != nil {
 		log.Errorf("Failed to find default registry, err: %s", err)
 		return err
+	}
+	if registry == nil {
+		return nil
 	}
 	// change type to readable string
 	for _, v := range products {
