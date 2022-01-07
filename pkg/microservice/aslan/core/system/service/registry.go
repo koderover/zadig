@@ -71,7 +71,7 @@ func CreateRegistryNamespace(username string, args *commonmodels.RegistryNamespa
 	if err != nil {
 		log.Warnf("failed to find the default registry, the error is: %s", err)
 	}
-	if args.IsDefault && defaultReg != nil {
+	if args.IsDefault && defaultReg != nil && !isSystemDefault {
 		defaultReg.IsDefault = false
 		err := UpdateRegistryNamespaceDefault(defaultReg, log)
 		if err != nil {
@@ -102,7 +102,7 @@ func UpdateRegistryNamespace(username, id string, args *commonmodels.RegistryNam
 	if err != nil {
 		log.Warnf("failed to find the default registry, the error is: %s", err)
 	}
-	if args.IsDefault && defaultReg != nil {
+	if args.IsDefault && defaultReg != nil && !isSystemDefault {
 		defaultReg.IsDefault = false
 		err := UpdateRegistryNamespaceDefault(defaultReg, log)
 		if err != nil {
@@ -110,7 +110,7 @@ func UpdateRegistryNamespace(username, id string, args *commonmodels.RegistryNam
 			return fmt.Errorf("RegistryNamespace.Update error: %v", err)
 		}
 	} else {
-		if isSystemDefault {
+		if isSystemDefault || id == defaultReg.ID.Hex() {
 			log.Errorf("create registry error: There must be at least 1 default registry")
 			return fmt.Errorf("RegistryNamespace.Create error: %s", "There must be at least 1 default registry")
 		}
