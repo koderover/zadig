@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	internalmodels "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
 	internalmongodb "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/mongodb"
@@ -162,6 +163,11 @@ func initProjectClusterRelation() error {
 		log.Errorf("Failed to list clusters, err: %s", err)
 		return err
 	}
+	clusterIDs := sets.NewString()
+	for _, cluster := range clusters {
+		clusterIDs.Insert(cluster.ID.Hex())
+	}
+	clusterIDs.Insert(setting.LocalClusterID)
 
 	for _, project := range projects {
 		for _, cluster := range clusters {
