@@ -70,6 +70,7 @@ func (c *K8SClusterColl) Delete(id string) error {
 func (c *K8SClusterColl) Create(cluster *models.K8SCluster, id string) error {
 	if id != "" {
 		cluster.ID, _ = primitive.ObjectIDFromHex(id)
+		// If the local cluster already exists, do not insert，and return nil
 		if _, err := c.Get(id); err == nil {
 			return nil
 		}
