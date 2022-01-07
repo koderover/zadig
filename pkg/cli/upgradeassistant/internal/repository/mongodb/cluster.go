@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	models "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
@@ -62,4 +63,29 @@ func (c *K8SClusterColl) List() ([]*models.K8SCluster, error) {
 	}
 
 	return clusters, nil
+}
+
+func (c *K8SClusterColl) Create(cluster *models.K8SCluster, id string) error {
+	if id != "" {
+		cluster.ID, _ = primitive.ObjectIDFromHex(id)
+		if _, err := c.Get(id); err == nil {
+			return nil
+		}
+	}
+	_, err := c.InsertOne(context.TODO(), cluster)
+	return err
+}
+
+// Get ...
+func (c *K8SClusterColl) Get(id string) (*models.K8SCluster, error) {
+	oid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, err
+	}
+
+	query := bson.M{"_id": oid}
+	res := &models.K8SCluster{}
+	err = c.FindOne(context.TODO(), query).Decode(res)
+
+	return res, err
 }

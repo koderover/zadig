@@ -19,6 +19,7 @@ package migrate
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -166,6 +167,15 @@ func initProjectClusterRelation() error {
 	clusterIDs := sets.NewString()
 	for _, cluster := range clusters {
 		clusterIDs.Insert(cluster.ID.Hex())
+	}
+	// insert local cluster
+	if err = internalmongodb.NewK8SClusterColl().Create(&internalmodels.K8SCluster{
+		Name:   fmt.Sprintf("%s-%s", "local", time.Now().Format("20060102150405")),
+		Status: setting.Normal,
+		Local:  true,
+	}, setting.LocalClusterID); err != nil {
+		log.Errorf("Failed to create local cluster, err: %s", err)
+		return err
 	}
 	clusterIDs.Insert(setting.LocalClusterID)
 
