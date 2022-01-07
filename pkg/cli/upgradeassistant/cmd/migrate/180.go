@@ -170,10 +170,10 @@ func initProjectClusterRelation() error {
 	clusterIDs.Insert(setting.LocalClusterID)
 
 	for _, project := range projects {
-		for _, cluster := range clusters {
+		for _, clusterID := range clusterIDs.List() {
 			if err := internalmongodb.NewProjectClusterRelationColl().Create(&internalmodels.ProjectClusterRelation{
 				ProjectName: project.ProductName,
-				ClusterID:   cluster.ID.Hex(),
+				ClusterID:   clusterID,
 			}); err != nil {
 				log.Warnf("Failed to create projectClusterRelation, err: %s", err)
 			}
