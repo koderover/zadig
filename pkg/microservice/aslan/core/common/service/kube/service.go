@@ -103,6 +103,7 @@ func (s *Service) CreateCluster(cluster *models.K8SCluster, id string, logger *z
 		return nil, e.ErrCreateCluster.AddDesc(e.DuplicateClusterNameFound)
 	}
 	cluster.Status = setting.Pending
+	logger.Infof("cluster id :%s", id)
 	if id == setting.LocalClusterID {
 		cluster.Status = setting.Normal
 		cluster.Local = true
