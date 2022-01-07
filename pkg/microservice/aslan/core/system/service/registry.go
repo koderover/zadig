@@ -110,7 +110,7 @@ func UpdateRegistryNamespace(username, id string, args *commonmodels.RegistryNam
 			return fmt.Errorf("RegistryNamespace.Update error: %v", err)
 		}
 	} else {
-		if isSystemDefault {
+		if isSystemDefault || (args.RegAddr == defaultReg.RegAddr && args.Namespace == defaultReg.Namespace) {
 			log.Errorf("create registry error: There must be at least 1 default registry")
 			return fmt.Errorf("RegistryNamespace.Create error: %s", "There must be at least 1 default registry")
 		}
