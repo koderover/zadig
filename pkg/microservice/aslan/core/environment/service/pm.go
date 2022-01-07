@@ -172,16 +172,28 @@ func (p *PMService) createGroup(envName, productName, username string, group []*
 			}
 			if serviceTempl != nil {
 				oldEnvConfigs := serviceTempl.EnvConfigs
+				newEnvConfigs := []*commonmodels.EnvConfig{}
+				// rm not exist env
+				for _, v := range oldEnvConfigs {
+					if _, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+						Name:    productName,
+						EnvName: v.EnvName,
+					}); err == nil {
+						if envName != v.EnvName {
+							newEnvConfigs = append(newEnvConfigs, v)
+						}
+					}
+				}
 				for _, currentEnvConfig := range productService.EnvConfigs {
 					envConfig := &commonmodels.EnvConfig{
 						EnvName: currentEnvConfig.EnvName,
 						HostIDs: currentEnvConfig.HostIDs,
 						Labels:  currentEnvConfig.Labels,
 					}
-					oldEnvConfigs = append(oldEnvConfigs, envConfig)
+					newEnvConfigs = append(newEnvConfigs, envConfig)
 				}
 
-				changeEnvStatus, err := pm.GenerateEnvStatus(oldEnvConfigs, log.NopSugaredLogger())
+				changeEnvStatus, err := pm.GenerateEnvStatus(newEnvConfigs, log.NopSugaredLogger())
 				if err != nil {
 					log.Errorf("GenerateEnvStatus err:%s", err)
 					return err
@@ -195,7 +207,7 @@ func (p *PMService) createGroup(envName, productName, username string, group []*
 						Type:         serviceTempl.Type,
 						Username:     username,
 						HealthChecks: serviceTempl.HealthChecks,
-						EnvConfigs:   oldEnvConfigs,
+						EnvConfigs:   newEnvConfigs,
 						EnvStatuses:  changeEnvStatus,
 						From:         "createEnv",
 					},
