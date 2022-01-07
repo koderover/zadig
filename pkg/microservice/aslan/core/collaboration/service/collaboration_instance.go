@@ -10,8 +10,9 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/mongodb"
+	models2 "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
-	mongodb2 "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -67,9 +68,9 @@ type Product struct {
 	Vars              []*templatemodels.RenderKV `json:"vars"`
 }
 type GetCollaborationNewResp struct {
-	Code     int64      `json:"code"`
-	Workflow []Workflow `json:"workflow"`
-	Product  []Product  `json:"product"`
+	Code     int64       `json:"code"`
+	Workflow []*Workflow `json:"workflow"`
+	Product  []*Product  `json:"product"`
 }
 
 func getUpdateWorkflowDiff(cmwMap map[string]models.WorkflowCMItem, ciwMap map[string]models.WorkflowCIItem) (
@@ -223,9 +224,9 @@ func buildName(baseName, modeName, userName string) string {
 }
 
 func GetCollaborationNew(projectName, uid, userName string, logger *zap.SugaredLogger) (*GetCollaborationNewResp, error) {
-	var newWorkflow []Workflow
-	var newProduct []Product
-	var newProductName sets.String
+	var newWorkflow []*Workflow
+	var newProduct []*Product
+	newProductName := sets.String{}
 	updateResp, err := GetCollaborationUpdate(projectName, uid, logger)
 	if err != nil {
 		logger.Errorf("GetCollaborationNew error, err msg:%s", err)
@@ -233,7 +234,7 @@ func GetCollaborationNew(projectName, uid, userName string, logger *zap.SugaredL
 	}
 	for _, mode := range updateResp.New {
 		for _, workflow := range mode.Workflows {
-			newWorkflow = append(newWorkflow, Workflow{
+			newWorkflow = append(newWorkflow, &Workflow{
 				CollaborationType: workflow.CollaborationType,
 				BaseName:          workflow.Name,
 				CollaborationMode: mode.Name,
@@ -241,7 +242,7 @@ func GetCollaborationNew(projectName, uid, userName string, logger *zap.SugaredL
 			})
 		}
 		for _, product := range mode.Products {
-			newProduct = append(newProduct, Product{
+			newProduct = append(newProduct, &Product{
 				CollaborationType: product.CollaborationType,
 				BaseName:          product.Name,
 				CollaborationMode: mode.Name,
@@ -253,7 +254,7 @@ func GetCollaborationNew(projectName, uid, userName string, logger *zap.SugaredL
 	}
 	for _, item := range updateResp.Update {
 		for _, workflow := range item.NewSpec.Workflows {
-			newWorkflow = append(newWorkflow, Workflow{
+			newWorkflow = append(newWorkflow, &Workflow{
 				CollaborationType: workflow.CollaborationType,
 				BaseName:          workflow.Name,
 				CollaborationMode: item.CollaborationMode,
@@ -261,7 +262,7 @@ func GetCollaborationNew(projectName, uid, userName string, logger *zap.SugaredL
 			})
 		}
 		for _, product := range item.NewSpec.Products {
-			newProduct = append(newProduct, Product{
+			newProduct = append(newProduct, &Product{
 				CollaborationType: product.CollaborationType,
 				BaseName:          product.Name,
 				CollaborationMode: item.CollaborationMode,
@@ -272,7 +273,7 @@ func GetCollaborationNew(projectName, uid, userName string, logger *zap.SugaredL
 		}
 		for _, workflow := range item.UpdateSpec.Workflows {
 			if workflow.Old.CollaborationType == "share" && workflow.New.CollaborationType == "new" {
-				newWorkflow = append(newWorkflow, Workflow{
+				newWorkflow = append(newWorkflow, &Workflow{
 					CollaborationType: workflow.New.CollaborationType,
 					BaseName:          workflow.New.BaseName,
 					CollaborationMode: item.CollaborationMode,
@@ -282,7 +283,7 @@ func GetCollaborationNew(projectName, uid, userName string, logger *zap.SugaredL
 		}
 		for _, product := range item.UpdateSpec.Products {
 			if product.Old.CollaborationType == "share" && product.New.CollaborationType == "new" {
-				newProduct = append(newProduct, Product{
+				newProduct = append(newProduct, &Product{
 					CollaborationType: product.New.CollaborationType,
 					BaseName:          product.New.BaseName,
 					CollaborationMode: item.CollaborationMode,
@@ -293,16 +294,13 @@ func GetCollaborationNew(projectName, uid, userName string, logger *zap.SugaredL
 			}
 		}
 	}
-	products, err := mongodb2.NewProductColl().List(&mongodb2.ProductListOptions{
-		InProjects: []string{projectName},
-		InEnvs:     newProductName.List(),
-	})
+	renderSets, err := getRenderSetKvs(projectName, newProductName.List())
 	if err != nil {
 		return nil, err
 	}
 	productVarsMap := make(map[string][]*templatemodels.RenderKV)
-	for _, product := range products {
-		productVarsMap[product.EnvName] = product.Vars
+	for _, set := range renderSets {
+		productVarsMap[set.EnvName] = set.KVs
 	}
 	for _, product := range newProduct {
 		if vars, ok := productVarsMap[product.BaseName]; ok {
@@ -316,4 +314,29 @@ func GetCollaborationNew(projectName, uid, userName string, logger *zap.SugaredL
 		Workflow: newWorkflow,
 		Product:  newProduct,
 	}, nil
+}
+
+func getRenderSetKvs(projectName string, envs []string) ([]models2.RenderSet, error) {
+	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		InProjects: []string{projectName},
+		InEnvs:     envs,
+	})
+	if err != nil {
+		return nil, err
+	}
+	var findOpts []commonrepo.RenderSetFindOption
+	for _, product := range products {
+		findOpts = append(findOpts, commonrepo.RenderSetFindOption{
+			Revision: product.Revision,
+			Name:     product.Namespace,
+		})
+	}
+	renderSets, err := commonrepo.NewRenderSetColl().ListByFindOpts(&commonrepo.RenderSetListOption{
+		ProductTmpl: projectName,
+		FindOpts:    findOpts,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return renderSets, nil
 }
