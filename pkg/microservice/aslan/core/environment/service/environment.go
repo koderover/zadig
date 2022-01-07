@@ -186,7 +186,7 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 	}
 
 	var res []*EnvResp
-	reg, err := commonservice.FindDefaultRegistry(false, log)
+	reg, _, err := commonservice.FindDefaultRegistry(false, log)
 	if err != nil {
 		log.Errorf("FindDefaultRegistry error: %v", err)
 		return nil, err
