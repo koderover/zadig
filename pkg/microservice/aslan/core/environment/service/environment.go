@@ -2307,7 +2307,7 @@ func installOrUpgradeHelmChartWithValues(namespace, valuesYaml string, renderCha
 			releaseutil.Reverse(hrs, releaseutil.SortByRevision)
 			rel := hrs[0]
 			if rel.Info.Status == helmrelease.StatusPendingInstall || rel.Info.Status == helmrelease.StatusPendingUpgrade {
-				secretName := fmt.Sprintf("sh.helm.release.v1.%s.v.%d", rel.Name, rel.Version)
+				secretName := fmt.Sprintf("sh.helm.release.v1.%s.v%d", rel.Name, rel.Version)
 				deleteErr := updater.DeleteSecretWithName(rel.Namespace, secretName, kubecli)
 				if deleteErr != nil {
 					err = errors.WithMessagef(err, "failed to deleteSecretWithName:%s,error:%s", secretName, deleteErr)
