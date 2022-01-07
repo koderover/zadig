@@ -424,54 +424,55 @@ func (r *Reaper) AfterExec(upStreamErr error) error {
 
 	}
 
-	// should archive file first, since compress cache will clean the workspace
-	if upStreamErr == nil {
-		if r.Ctx.ArtifactInfo == nil {
-			if err = r.archiveS3Files(); err != nil {
-				log.Errorf("archiveFiles err %v", err)
-				return err
-			}
-			// 运行构建后置脚本
-			if err = r.RunPostScripts(); err != nil {
-				log.Errorf("RunPostScripts err %v", err)
-				return err
-			}
-		} else {
-			if err = r.downloadArtifactFile(); err != nil {
-				log.Errorf("download archiveFiles err %v", err)
-				return err
-			}
-		}
+	if upStreamErr != nil {
+		return err
+	}
 
-		if r.Ctx.ArtifactPath != "" {
-			if err = artifactsUpload(r.Ctx, r.ActiveWorkspace, []string{r.Ctx.ArtifactPath}, "buildv3"); err != nil {
-				log.Errorf("artifactsUpload err %s", err)
-				return err
-			}
-		}
-
-		// 运行物理机部署脚本
-		if err = r.RunPMDeployScripts(); err != nil {
-			log.Errorf("RunPMDeployScripts err %v", err)
+	if r.Ctx.ArtifactInfo == nil {
+		if err = r.archiveS3Files(); err != nil {
+			log.Errorf("archiveFiles err %v", err)
 			return err
 		}
-
-		// create dog food file to tell wd that task is finished
-		dogFoodErr := ioutil.WriteFile(setting.DogFood, []byte(time.Now().Format(time.RFC3339)), 0644)
-		if dogFoodErr != nil {
-			log.Infof("failed to create dog food %v", dogFoodErr)
-		} else {
-			// end here
-			r.dogFeed = true
-			log.Infof("build end. duration: %.2f seconds", time.Since(r.StartTime).Seconds())
+		// 运行构建后置脚本
+		if err = r.RunPostScripts(); err != nil {
+			log.Errorf("RunPostScripts err %v", err)
+			return err
+		}
+	} else {
+		if err = r.downloadArtifactFile(); err != nil {
+			log.Errorf("download archiveFiles err %v", err)
+			return err
 		}
 	}
 
-	if upStreamErr == nil {
-		err = r.CompressCache(r.Ctx.StorageURI)
-		if err != nil {
-			log.Errorf("Failed to run compress cache, err: %s", err)
+	if r.Ctx.ArtifactPath != "" {
+		if err = artifactsUpload(r.Ctx, r.ActiveWorkspace, []string{r.Ctx.ArtifactPath}, "buildv3"); err != nil {
+			log.Errorf("artifactsUpload err %s", err)
+			return err
 		}
+	}
+
+	// 运行物理机部署脚本
+	if err = r.RunPMDeployScripts(); err != nil {
+		log.Errorf("RunPMDeployScripts err %v", err)
+		return err
+	}
+
+	// Upload workspace cache.
+	// Note: Whether the cache is uploaded successfully or not cannot hinder the progress of the overall process,
+	//       so only exceptions are printed here and the process is not interrupted.
+	if err := r.CompressCache(r.Ctx.StorageURI); err != nil {
+		log.Warnf("Failed to run compress cache: %s", err)
+	}
+
+	// create dog food file to tell wd that task is finished
+	dogFoodErr := ioutil.WriteFile(setting.DogFood, []byte(time.Now().Format(time.RFC3339)), 0644)
+	if dogFoodErr != nil {
+		log.Errorf("Failed to create dog food: %s", dogFoodErr)
+	} else {
+		// end here
+		r.dogFeed = true
+		log.Infof("build end. duration: %.2f seconds", time.Since(r.StartTime).Seconds())
 	}
 
 	return err
