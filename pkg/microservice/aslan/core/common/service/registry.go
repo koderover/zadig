@@ -53,13 +53,14 @@ func (k *awsKeyWithExpiration) IsExpired() bool {
 	return time.Now().Unix() > k.Expiration
 }
 
-func FindRegistryById(registryId string, getRealCredential bool, log *zap.SugaredLogger) (*models.RegistryNamespace, error) {
+func FindRegistryById(registryId string, getRealCredential bool, log *zap.SugaredLogger) (reg *models.RegistryNamespace, isSystemDefault bool, err error) {
 	return findRegisty(&mongodb.FindRegOps{ID: registryId}, getRealCredential, log)
 }
 
-func findRegisty(regOps *mongodb.FindRegOps, getRealCredential bool, log *zap.SugaredLogger) (*models.RegistryNamespace, error) {
+func findRegisty(regOps *mongodb.FindRegOps, getRealCredential bool, log *zap.SugaredLogger) (reg *models.RegistryNamespace, isSystemDefault bool, err error) {
 	// TODO: 多租户适配
 	resp, err := mongodb.NewRegistryNamespaceColl().Find(regOps)
+	isSystemDefault = false
 
 	if err != nil {
 		log.Warnf("RegistryNamespace.Find error: %s", err)
@@ -69,10 +70,11 @@ func findRegisty(regOps *mongodb.FindRegOps, getRealCredential bool, log *zap.Su
 			SecretKey: config.RegistrySecretKey(),
 			Namespace: config.RegistryNamespace(),
 		}
+		isSystemDefault = true
 	}
 
 	if !getRealCredential {
-		return resp, nil
+		return resp, isSystemDefault, nil
 	}
 	switch resp.RegProvider {
 	case config.RegistryTypeSWR:
@@ -82,16 +84,16 @@ func findRegisty(regOps *mongodb.FindRegOps, getRealCredential bool, log *zap.Su
 		realAK, realSK, err := getAWSRegistryCredential(resp.ID.Hex(), resp.AccessKey, resp.SecretKey, resp.Region)
 		if err != nil {
 			log.Errorf("Failed to get keypair from aws, the error is: %s", err)
-			return nil, err
+			return nil, isSystemDefault, err
 		}
 		resp.AccessKey = realAK
 		resp.SecretKey = realSK
 	}
 
-	return resp, nil
+	return resp, isSystemDefault, nil
 }
 
-func FindDefaultRegistry(getRealCredential bool, log *zap.SugaredLogger) (*models.RegistryNamespace, error) {
+func FindDefaultRegistry(getRealCredential bool, log *zap.SugaredLogger) (reg *models.RegistryNamespace, isSystemDefault bool, err error) {
 	return findRegisty(&mongodb.FindRegOps{IsDefault: true}, getRealCredential, log)
 }
 
@@ -128,7 +130,7 @@ func EnsureDefaultRegistrySecret(namespace string, registryId string, kubeClient
 	var reg *models.RegistryNamespace
 	var err error
 	if len(registryId) > 0 {
-		reg, err = FindRegistryById(registryId, true, log)
+		reg, _, err = FindRegistryById(registryId, true, log)
 		if err != nil {
 			log.Errorf(
 				"service.EnsureRegistrySecret: failed to find registry: %s error msg:%s",
@@ -137,7 +139,7 @@ func EnsureDefaultRegistrySecret(namespace string, registryId string, kubeClient
 			return err
 		}
 	} else {
-		reg, err = FindDefaultRegistry(true, log)
+		reg, _, err = FindDefaultRegistry(true, log)
 		if err != nil {
 			log.Errorf(
 				"service.EnsureRegistrySecret: failed to find default candidate registry: %s %s",
