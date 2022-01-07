@@ -17,11 +17,15 @@ limitations under the License.
 package models
 
 import (
+	"github.com/koderover/zadig/pkg/setting"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type K8SCluster struct {
-	ID primitive.ObjectID `json:"id,omitempty"              bson:"_id,omitempty"`
+	ID     primitive.ObjectID       `json:"id,omitempty"              bson:"_id,omitempty"`
+	Name   string                   `json:"name"                      bson:"name"`
+	Status setting.K8SClusterStatus `json:"status"                    bson:"status"`
+	Local  bool                     `json:"local"                     bson:"local"`
 }
 
 func (K8SCluster) TableName() string {
