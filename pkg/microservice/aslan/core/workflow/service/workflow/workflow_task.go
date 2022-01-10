@@ -525,7 +525,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 	// 获取全局configpayload
 	configPayload := commonservice.GetConfigPayload(args.CodehostID)
 	if len(env.RegistryID) == 0 {
-		reg, err := commonservice.FindDefaultRegistry(false, log)
+		reg, _, err := commonservice.FindDefaultRegistry(false, log)
 		if err != nil {
 			log.Errorf("get default registry error: %v", err)
 			return nil, e.ErrGetCounter.AddDesc(err.Error())
@@ -977,7 +977,7 @@ func createReleaseImageTask(workflow *commonmodels.Workflow, args *commonmodels.
 	if err != nil {
 		log.Errorf("failed to build registry map, err: %s", err)
 		// use default registry
-		reg, err := commonservice.FindDefaultRegistry(true, log)
+		reg, _, err := commonservice.FindDefaultRegistry(true, log)
 		if err != nil {
 			log.Errorf("can't find default candidate registry, err: %s", err)
 			return nil, e.ErrFindRegistry.AddDesc(err.Error())
@@ -1916,7 +1916,7 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 				//私钥信息可能被更新，而构建中存储的信息是旧的，需要根据id获取最新的私钥信息
 				latestKeyInfo, err := commonrepo.NewPrivateKeyColl().Find(commonrepo.FindPrivateKeyOption{ID: sshID})
 				if err != nil || latestKeyInfo == nil {
-					log.Errorf("PrivateKey.Find failed, id:%s, err:%v", sshID, err)
+					log.Errorf("PrivateKey.Find failed, id:%s, err:%s", sshID, err)
 					continue
 				}
 				ssh := new(task.SSH)
@@ -2082,14 +2082,14 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 				// 注意: 其他任务从 pt.TaskArgs.Deploy.Image 获取, 必须要有编译任务
 				var reg *commonmodels.RegistryNamespace
 				if len(exitedProd.RegistryID) > 0 {
-					reg, err = commonservice.FindRegistryById(exitedProd.RegistryID, true, log)
+					reg, _, err = commonservice.FindRegistryById(exitedProd.RegistryID, true, log)
 					if err != nil {
 						log.Errorf("service.EnsureRegistrySecret: failed to find registry: %s error msg:%v",
 							exitedProd.RegistryID, err)
 						return e.ErrFindRegistry.AddDesc(err.Error())
 					}
 				} else {
-					reg, err = commonservice.FindDefaultRegistry(true, log)
+					reg, _, err = commonservice.FindDefaultRegistry(true, log)
 					if err != nil {
 						log.Errorf("can't find default candidate registry: %v", err)
 						return e.ErrFindRegistry.AddDesc(err.Error())

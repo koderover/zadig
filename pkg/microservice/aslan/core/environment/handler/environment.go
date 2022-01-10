@@ -247,11 +247,6 @@ func CreateProduct(c *gin.Context) {
 		return
 	}
 
-	if args.RegistryID == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("RegistryId can not be null!")
-		return
-	}
-
 	args.UpdateBy = ctx.UserName
 	ctx.Err = service.CreateProduct(
 		ctx.UserName, ctx.RequestID, args, ctx.Logger,

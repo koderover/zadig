@@ -368,9 +368,7 @@ func (r *Reaper) Exec() error {
 	return r.runDockerBuild()
 }
 
-// AfterExec ...
 func (r *Reaper) AfterExec(upStreamErr error) error {
-	var err error
 	if r.Ctx.GinkgoTest != nil && r.Ctx.GinkgoTest.ResultPath != "" {
 		resultPath := r.Ctx.GinkgoTest.ResultPath
 		if !strings.HasPrefix(resultPath, "/") {
@@ -380,98 +378,96 @@ func (r *Reaper) AfterExec(upStreamErr error) error {
 			r.Ctx.TestType = setting.FunctionTest
 		}
 		if r.Ctx.TestType == setting.FunctionTest {
-			log.Info("merging test result")
-			// 解析功能测试的测试结果目录的文件，对数据进行统计，将最终的统计结果写入到一个本地文件中
-			if err = mergeGinkgoTestResults(
+			log.Info("Merge test result.")
+			if err := mergeGinkgoTestResults(
 				r.Ctx.Archive.File,
 				resultPath,
 				r.Ctx.Archive.Dir,
 				r.StartTime,
 			); err != nil {
-				log.Errorf("function err %v", err)
+				log.Errorf("Failed to merge results of ginkgo test: %s", err)
 				return err
 			}
 		} else if r.Ctx.TestType == setting.PerformanceTest {
-			log.Info("performance test result")
-			// 解析性能测试的测试结果目录的文件，对数据进行统计，将最终的统计结果写入到一个本地文件中
-			if err = JmeterTestResults(
+			log.Info("Archive performance test result.")
+			if err := JmeterTestResults(
 				r.Ctx.Archive.File,
 				resultPath,
 				r.Ctx.Archive.Dir,
 			); err != nil {
-				log.Errorf("performance err %v", err)
+				log.Errorf("Failed to archive results of performance test: %s", err)
 				return err
 			}
 		}
-		// 将归档文件上传到S3
+
 		if len(r.Ctx.GinkgoTest.ArtifactPaths) > 0 {
-			if err = artifactsUpload(r.Ctx, r.ActiveWorkspace, r.Ctx.GinkgoTest.ArtifactPaths); err != nil {
-				log.Errorf("artifactsUpload err %s", err)
+			if err := artifactsUpload(r.Ctx, r.ActiveWorkspace, r.Ctx.GinkgoTest.ArtifactPaths); err != nil {
+				log.Errorf("Failed to upload artifacts: %s", err)
 				return err
 			}
 		}
 
-		// 将上面生成的统计结果文件上传到S3
-		if err = r.archiveTestFiles(); err != nil {
-			log.Errorf("archiveTestFiles err %v", err)
+		if err := r.archiveTestFiles(); err != nil {
+			log.Errorf("Failed to archive test files: %s", err)
 			return err
 		}
-		// 将HTML测试报告上传到S3
-		if err = r.archiveHTMLTestReportFile(); err != nil {
-			log.Errorf("archiveHTMLTestReportFile err %v", err)
+
+		if err := r.archiveHTMLTestReportFile(); err != nil {
+			log.Errorf("Failed to archive html test report: %s", err)
 			return err
 		}
 
 	}
 
-	// should archive file first, since compress cache will clean the workspace
-	if upStreamErr == nil {
-		if r.Ctx.ArtifactInfo == nil {
-			if err = r.archiveS3Files(); err != nil {
-				log.Errorf("archiveFiles err %v", err)
-				return err
-			}
-			// 运行构建后置脚本
-			if err = r.RunPostScripts(); err != nil {
-				log.Errorf("RunPostScripts err %v", err)
-				return err
-			}
-		} else {
-			if err = r.downloadArtifactFile(); err != nil {
-				log.Errorf("download archiveFiles err %v", err)
-				return err
-			}
-		}
+	if upStreamErr != nil {
+		return nil
+	}
 
-		if r.Ctx.ArtifactPath != "" {
-			if err = artifactsUpload(r.Ctx, r.ActiveWorkspace, []string{r.Ctx.ArtifactPath}, "buildv3"); err != nil {
-				log.Errorf("artifactsUpload err %s", err)
-				return err
-			}
-		}
-
-		// 运行物理机部署脚本
-		if err = r.RunPMDeployScripts(); err != nil {
-			log.Errorf("RunPMDeployScripts err %v", err)
+	if r.Ctx.ArtifactInfo == nil {
+		if err := r.archiveS3Files(); err != nil {
+			log.Errorf("Failed to archive S3 files: %s", err)
 			return err
 		}
-
-		// create dog food file to tell wd that task is finished
-		dogFoodErr := ioutil.WriteFile(setting.DogFood, []byte(time.Now().Format(time.RFC3339)), 0644)
-		if dogFoodErr != nil {
-			log.Infof("failed to create dog food %v", dogFoodErr)
-		} else {
-			// end here
-			r.dogFeed = true
-			log.Infof("build end. duration: %.2f seconds", time.Since(r.StartTime).Seconds())
+		if err := r.RunPostScripts(); err != nil {
+			log.Errorf("Failed to run postscripts: %s", err)
+			return err
+		}
+	} else {
+		if err := r.downloadArtifactFile(); err != nil {
+			log.Errorf("Failed to download artifact files: %s", err)
+			return err
 		}
 	}
 
-	if upStreamErr == nil {
-		_ = r.CompressCache(r.Ctx.StorageURI)
+	if r.Ctx.ArtifactPath != "" {
+		if err := artifactsUpload(r.Ctx, r.ActiveWorkspace, []string{r.Ctx.ArtifactPath}, "buildv3"); err != nil {
+			log.Errorf("Failed to upload artifacts: %s", err)
+			return err
+		}
 	}
 
-	return err
+	if err := r.RunPMDeployScripts(); err != nil {
+		log.Errorf("Failed to run deploy scripts on physical machine: %s", err)
+		return err
+	}
+
+	// Upload workspace cache.
+	// Note: Whether the cache is uploaded successfully or not cannot hinder the progress of the overall process,
+	//       so only exceptions are printed here and the process is not interrupted.
+	if err := r.CompressCache(r.Ctx.StorageURI); err != nil {
+		log.Warnf("Failed to run compress cache: %s", err)
+	}
+
+	// Create dog food file to tell wd that task has finished.
+	dogFoodErr := ioutil.WriteFile(setting.DogFood, []byte(time.Now().Format(time.RFC3339)), 0644)
+	if dogFoodErr != nil {
+		log.Errorf("Failed to create dog food: %s", dogFoodErr)
+	} else {
+		r.dogFeed = true
+		log.Infof("Build end. Duration: %.2f seconds.", time.Since(r.StartTime).Seconds())
+	}
+
+	return nil
 }
 
 func (r *Reaper) DogFeed() bool {

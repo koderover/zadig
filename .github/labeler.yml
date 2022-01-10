@@ -33,7 +33,10 @@ service/hubserver:
 - pkg/microservice/hubserver/**/*
 
 service/hubagent:
-  - pkg/microservice/hubagent/**/*
+- pkg/microservice/hubagent/**/*
+
+service/upgradeassistant:
+- pkg/microservice/upgradeassistant/**/*
 
 common:
   - pkg/config/**/*

@@ -186,7 +186,7 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 	}
 
 	var res []*EnvResp
-	reg, err := commonservice.FindDefaultRegistry(false, log)
+	reg, _, err := commonservice.FindDefaultRegistry(false, log)
 	if err != nil {
 		log.Errorf("FindDefaultRegistry error: %v", err)
 		return nil, err
@@ -2307,7 +2307,7 @@ func installOrUpgradeHelmChartWithValues(namespace, valuesYaml string, renderCha
 			releaseutil.Reverse(hrs, releaseutil.SortByRevision)
 			rel := hrs[0]
 			if rel.Info.Status == helmrelease.StatusPendingInstall || rel.Info.Status == helmrelease.StatusPendingUpgrade {
-				secretName := fmt.Sprintf("sh.helm.release.v1.%s.v.%d", rel.Name, rel.Version)
+				secretName := fmt.Sprintf("sh.helm.release.v1.%s.v%d", rel.Name, rel.Version)
 				deleteErr := updater.DeleteSecretWithName(rel.Namespace, secretName, kubecli)
 				if deleteErr != nil {
 					err = errors.WithMessagef(err, "failed to deleteSecretWithName:%s,error:%s", secretName, deleteErr)

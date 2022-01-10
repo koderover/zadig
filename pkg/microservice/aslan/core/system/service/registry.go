@@ -67,19 +67,21 @@ func ListRegistries(log *zap.SugaredLogger) ([]*commonmodels.RegistryNamespace, 
 func CreateRegistryNamespace(username string, args *commonmodels.RegistryNamespace, log *zap.SugaredLogger) error {
 	regOps := new(commonrepo.FindRegOps)
 	regOps.IsDefault = true
-	defaultReg, err := commonservice.FindDefaultRegistry(false, log)
+	defaultReg, isSystemDefault, err := commonservice.FindDefaultRegistry(false, log)
 	if err != nil {
 		log.Warnf("failed to find the default registry, the error is: %s", err)
 	}
-	if args.IsDefault && defaultReg != nil {
-		defaultReg.IsDefault = false
-		err := UpdateRegistryNamespaceDefault(defaultReg, log)
-		if err != nil {
-			log.Errorf("updateRegistry error: %v", err)
-			return fmt.Errorf("RegistryNamespace.Create error: %v", err)
+	if args.IsDefault {
+		if defaultReg != nil && !isSystemDefault {
+			defaultReg.IsDefault = false
+			err := UpdateRegistryNamespaceDefault(defaultReg, log)
+			if err != nil {
+				log.Errorf("updateRegistry error: %v", err)
+				return fmt.Errorf("RegistryNamespace.Create error: %v", err)
+			}
 		}
 	} else {
-		if defaultReg == nil {
+		if isSystemDefault {
 			log.Errorf("create registry error: There must be at least 1 default registry")
 			return fmt.Errorf("RegistryNamespace.Create error: %s", "There must be at least 1 default registry")
 		}
@@ -98,19 +100,21 @@ func CreateRegistryNamespace(username string, args *commonmodels.RegistryNamespa
 func UpdateRegistryNamespace(username, id string, args *commonmodels.RegistryNamespace, log *zap.SugaredLogger) error {
 	regOps := new(commonrepo.FindRegOps)
 	regOps.IsDefault = true
-	defaultReg, err := commonservice.FindDefaultRegistry(false, log)
+	defaultReg, isSystemDefault, err := commonservice.FindDefaultRegistry(false, log)
 	if err != nil {
 		log.Warnf("failed to find the default registry, the error is: %s", err)
 	}
-	if args.IsDefault && defaultReg != nil {
-		defaultReg.IsDefault = false
-		err := UpdateRegistryNamespaceDefault(defaultReg, log)
-		if err != nil {
-			log.Errorf("updateRegistry error: %v", err)
-			return fmt.Errorf("RegistryNamespace.Update error: %v", err)
+	if args.IsDefault {
+		if defaultReg != nil && !isSystemDefault {
+			defaultReg.IsDefault = false
+			err := UpdateRegistryNamespaceDefault(defaultReg, log)
+			if err != nil {
+				log.Errorf("updateRegistry error: %v", err)
+				return fmt.Errorf("RegistryNamespace.Update error: %v", err)
+			}
 		}
 	} else {
-		if defaultReg == nil {
+		if isSystemDefault || id == defaultReg.ID.Hex() {
 			log.Errorf("create registry error: There must be at least 1 default registry")
 			return fmt.Errorf("RegistryNamespace.Create error: %s", "There must be at least 1 default registry")
 		}
