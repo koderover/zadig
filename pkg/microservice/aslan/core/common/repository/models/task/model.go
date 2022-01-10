@@ -100,3 +100,65 @@ func IToi(before interface{}, after interface{}) error {
 
 	return nil
 }
+
+type TestReport struct {
+	FunctionTestSuite     *TestSuite                `bson:"function_test_suite,omitempty"         json:"functionTestSuite,omitempty"`
+	PerformanceTestSuites []*PerformanceTestSuite   `bson:"performance_test_suite,omitempty"      json:"performanceTestSuite,omitempty"`
+	Security              map[string]map[string]int `bson:"security,omitempty"                    json:"security,omitempty"`
+}
+
+// TestSuite ...
+type TestSuite struct {
+	// 总数=tests+skips 成功=tests-failures-errors
+	Tests     int        `bson:"tests"                   json:"tests"                    xml:"tests,attr"`
+	Failures  int        `bson:"failures"                json:"failures"                 xml:"failures,attr"`
+	Successes int        `bson:"successes,omitempty"     json:"successes,omitempty"      xml:"successes,attr,omitempty"`
+	Skips     int        `bson:"skips"                   json:"skips"                    xml:"skips,attr"`
+	Errors    int        `bson:"errors,omitempty"        json:"errors"                   xml:"errors,attr,omitempty"`
+	Time      float64    `bson:"time"                    json:"time"                     xml:"time,attr"`
+	SystemOut string     `bson:"system_out,omitempty"    json:"system_out"               xml:"system-out,omitempty"`
+	SystemErr string     `bson:"system-err,omitempty"    json:"system_err"               xml:"system-err,omitempty"`
+	TestCases []TestCase `bson:"testcase"                json:"testcase"                 xml:"testcase"`
+	SuiteType string     `bson:"-"                       json:"-"                        xml:"-"`
+	Name      string     `bson:"name"                    json:"-"                        xml:"-"`
+}
+
+type PerformanceTestSuite struct {
+	Label      string `bson:"label"        json:"label"`
+	Samples    string `bson:"samples"      json:"samples"`
+	Average    string `bson:"average"      json:"average"`
+	Min        string `bson:"min"          json:"min"`
+	Max        string `bson:"max"          json:"max"`
+	Line       string `bson:"line"         json:"line"`
+	StdDev     string `bson:"std_dev"      json:"stdDev"`
+	Error      string `bson:"error"        json:"error"`
+	Throughput string `bson:"throughput"   json:"throughput"`
+	ReceivedKb string `bson:"received_kb"  json:"receivedKb"`
+	AvgByte    string `bson:"avg_byte"     json:"avgByte"`
+}
+
+type Skipped struct {
+}
+
+type Failure struct {
+	Message string `bson:"message"  json:"message" xml:"message,attr"`
+	Type    string `bson:"type"     json:"type"    xml:"type,attr"`
+	Text    string `bson:"text"     json:"text"    xml:",chardata"`
+}
+
+type TestCase struct {
+	Name      string   `bson:"tc_name"                 json:"tc_name"      xml:"name,attr"`
+	ClassName string   `bson:"classname"               json:"classname"    xml:"classname,attr"`
+	Time      float64  `bson:"time"                    json:"time"         xml:"time,attr"`
+	Failure   *Failure `bson:"failure,omitempty"       json:"failure"      xml:"failure,omitempty"`
+	Skipped   *Skipped `bson:"skipped,omitempty"       json:"skipped"      xml:"skipped,omitempty"`
+	SystemOut string   `bson:"system_out,omitempty"    json:"system_out"   xml:"system-out,omitempty"`
+	SystemErr string   `bson:"system-err,omitempty"    json:"system_err"   xml:"system-err,omitempty"`
+	Error     *Error   `bson:"error,omitempty"         json:"error"        xml:"error,omitempty"`
+}
+
+type Error struct {
+	Message string `bson:"message"  json:"message" xml:"message,attr"`
+	Type    string `bson:"type"     json:"type"    xml:"type,attr"`
+	Text    string `bson:"text"     json:"text"    xml:",chardata"`
+}
