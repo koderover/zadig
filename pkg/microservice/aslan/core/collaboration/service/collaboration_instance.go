@@ -309,6 +309,27 @@ func GetCollaborationNew(projectName, uid, userName string, logger *zap.SugaredL
 			return nil, fmt.Errorf("product:%s not exist", product.BaseName)
 		}
 	}
+	var workNames []string
+	for _, workflow := range newWorkflow {
+		workNames = append(workNames, workflow.Name)
+	}
+	workflows, err := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{
+		Projects: []string{projectName},
+		Names:    workNames,
+	})
+	if err != nil {
+		logger.Errorf("GetCollaborationNew list workflows:%v error:%s", workNames, err)
+		return nil, err
+	}
+	workflowDescMap := make(map[string]string)
+	for _, workflow := range workflows {
+		workflowDescMap[workflow.Name] = workflow.Description
+	}
+	for _, workflow := range newWorkflow {
+		if desc, ok := workflowDescMap[workflow.Name]; ok {
+			workflow.Description = desc
+		}
+	}
 	return &GetCollaborationNewResp{
 		Code:     10000,
 		Workflow: newWorkflow,
