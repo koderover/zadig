@@ -137,7 +137,7 @@ func FindDefaultS3() (*S3, error) {
 			S3Storage: &models.S3Storage{
 				Ak:       config.S3StorageAK(),
 				Sk:       config.S3StorageSK(),
-				Endpoint: config.S3StorageEndpoint(),
+				Endpoint: getEndpoint(),
 				Bucket:   config.S3StorageBucket(),
 				Insecure: config.S3StorageProtocol() == "http",
 				Provider: setting.ProviderSourceSystemDefault,
@@ -146,6 +146,13 @@ func FindDefaultS3() (*S3, error) {
 	}
 
 	return &S3{S3Storage: storage}, nil
+}
+
+func getEndpoint() string {
+	const svc = "zadig-minio"
+	endpoint := config.S3StorageEndpoint()
+	newEndpoint := fmt.Sprintf("%s.%s%s", svc, config.Namespace(), strings.TrimLeft(endpoint, svc))
+	return newEndpoint
 }
 
 func FindS3ById(id string) (*S3, error) {
