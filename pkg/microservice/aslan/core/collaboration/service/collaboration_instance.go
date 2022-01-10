@@ -298,15 +298,17 @@ func GetCollaborationNew(projectName, uid, userName string, logger *zap.SugaredL
 	if err != nil {
 		return nil, err
 	}
-	productVarsMap := make(map[string][]*templatemodels.RenderKV)
-	for _, set := range renderSets {
-		productVarsMap[set.EnvName] = set.KVs
-	}
-	for _, product := range newProduct {
-		if vars, ok := productVarsMap[product.BaseName]; ok {
-			product.Vars = vars
-		} else {
-			return nil, fmt.Errorf("product:%s not exist", product.BaseName)
+	if renderSets != nil {
+		productVarsMap := make(map[string][]*templatemodels.RenderKV)
+		for _, set := range renderSets {
+			productVarsMap[set.EnvName] = set.KVs
+		}
+		for _, product := range newProduct {
+			if vars, ok := productVarsMap[product.BaseName]; ok {
+				product.Vars = vars
+			} else {
+				return nil, fmt.Errorf("product:%s not exist", product.BaseName)
+			}
 		}
 	}
 	var workNames []string
