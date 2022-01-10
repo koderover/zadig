@@ -27,7 +27,6 @@ import (
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	svcservice "github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	"github.com/koderover/zadig/pkg/setting"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -99,19 +98,31 @@ func UpdateServiceTemplate(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	args := new(commonservice.ServiceTmplObject)
-	data, err := c.GetRawData()
-	if err != nil {
-		log.Errorf("UpdateServiceTemplate c.GetRawData() err : %v", err)
-	}
-	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("UpdateServiceTemplate json.Unmarshal err : %v", err)
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = err
+		return
 	}
 	if args.Username != "system" {
 		internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "项目管理-服务", fmt.Sprintf("服务名称:%s,版本号:%d", args.ServiceName, args.Revision), "", ctx.Logger)
 	}
-	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 	args.Username = ctx.UserName
-	ctx.Err = svcservice.UpdateServiceTemplate(args)
+	ctx.Err = svcservice.UpdateServiceVisibility(args)
+}
+
+func UpdateServiceHealthCheckStatus(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(commonservice.ServiceTmplObject)
+	if err := c.ShouldBindJSON(args); err != nil {
+		ctx.Err = err
+		return
+	}
+	if args.Username != "system" {
+		internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "更新", "项目管理-服务", fmt.Sprintf("服务名称:%s,版本号:%d", args.ServiceName, args.Revision), "", ctx.Logger)
+	}
+	args.Username = ctx.UserName
+	ctx.Err = svcservice.UpdateServiceHealthCheckStatus(args)
 }
 
 type ValidatorResp struct {
@@ -166,7 +177,7 @@ type K8sWorkloadsArgs struct {
 func UpdateWorkloads(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	args := new(service.UpdateWorkloadsArgs)
+	args := new(svcservice.UpdateWorkloadsArgs)
 	err := c.ShouldBindJSON(args)
 	if err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid UpdateWorkloadsArgs")
@@ -178,7 +189,7 @@ func UpdateWorkloads(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam
 		return
 	}
-	ctx.Err = service.UpdateWorkloads(c, ctx.RequestID, ctx.UserName, product, env, *args, ctx.Logger)
+	ctx.Err = svcservice.UpdateWorkloads(c, ctx.RequestID, ctx.UserName, product, env, *args, ctx.Logger)
 }
 
 func CreateK8sWorkloads(c *gin.Context) {

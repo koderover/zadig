@@ -64,6 +64,7 @@ type Product struct {
 	LatestWorkflowUpdateTime   int64                `bson:"-"                                   json:"latest_workflow_update_time"`
 	LatestWorkflowUpdateBy     string               `bson:"-"                                   json:"latest_workflow_update_by"`
 	TotalEnvTemplateServiceNum int                  `bson:"-"                                   json:"total_env_template_service_num"`
+	ClusterIDs                 []string             `bson:"-"                                   json:"cluster_ids"`
 	IsOpensource               bool                 `bson:"is_opensource"                       json:"is_opensource"`
 	CustomImageRule            *CustomRule          `bson:"custom_image_rule,omitempty"         json:"custom_image_rule,omitempty"`
 	CustomTarRule              *CustomRule          `bson:"custom_tar_rule,omitempty"           json:"custom_tar_rule,omitempty"`

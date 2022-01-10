@@ -113,6 +113,24 @@ func (c *RoleColl) ListBy(projectName string) ([]*models.Role, error) {
 	return res, nil
 }
 
+func (c *RoleColl) ListBySpaceAndName(projectName string, name string) ([]*models.Role, error) {
+	var res []*models.Role
+
+	ctx := context.Background()
+	query := bson.M{"namespace": projectName, "name": name}
+
+	cursor, err := c.Collection.Find(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cursor.All(ctx, &res)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
 func (c *RoleColl) Create(obj *models.Role) error {
 	if obj == nil {
 		return fmt.Errorf("nil object")

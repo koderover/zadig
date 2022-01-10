@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package dockerfile
 
 import (
 	"errors"
@@ -24,7 +24,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 )
@@ -42,7 +41,7 @@ func CreateYamlTemplate(template *YamlTemplate, logger *zap.SugaredLogger) error
 			Value: variable.Value,
 		})
 	}
-	err := mongodb.NewYamlTemplateColl().Create(&models.YamlTemplate{
+	err := commonrepo.NewYamlTemplateColl().Create(&models.YamlTemplate{
 		Name:      template.Name,
 		Content:   template.Content,
 		Variables: vars,
@@ -61,7 +60,7 @@ func UpdateYamlTemplate(id string, template *YamlTemplate, logger *zap.SugaredLo
 			Value: variable.Value,
 		})
 	}
-	err := mongodb.NewYamlTemplateColl().Update(
+	err := commonrepo.NewYamlTemplateColl().Update(
 		id,
 		&models.YamlTemplate{
 			Name:      template.Name,
@@ -77,7 +76,7 @@ func UpdateYamlTemplate(id string, template *YamlTemplate, logger *zap.SugaredLo
 
 func ListYamlTemplate(pageNum, pageSize int, logger *zap.SugaredLogger) ([]*YamlListObject, int, error) {
 	resp := make([]*YamlListObject, 0)
-	templateList, total, err := mongodb.NewYamlTemplateColl().List(pageNum, pageSize)
+	templateList, total, err := commonrepo.NewYamlTemplateColl().List(pageNum, pageSize)
 	if err != nil {
 		logger.Errorf("list dockerfile template error: %s", err)
 		return resp, 0, err
@@ -93,14 +92,14 @@ func ListYamlTemplate(pageNum, pageSize int, logger *zap.SugaredLogger) ([]*Yaml
 
 func GetYamlTemplateDetail(id string, logger *zap.SugaredLogger) (*YamlDetail, error) {
 	resp := new(YamlDetail)
-	yamlTemplate, err := mongodb.NewYamlTemplateColl().GetById(id)
+	yamlTemplate, err := commonrepo.NewYamlTemplateColl().GetById(id)
 	if err != nil {
 		logger.Errorf("Failed to get dockerfile template from id: %s, the error is: %s", id, err)
 		return nil, err
 	}
-	variables := make([]*Variable, 0)
+	variables := make([]*models.ChartVariable, 0)
 	for _, v := range yamlTemplate.Variables {
-		variables = append(variables, &Variable{
+		variables = append(variables, &models.ChartVariable{
 			Key:   v.Key,
 			Value: v.Value,
 		})
@@ -121,7 +120,7 @@ func DeleteYamlTemplate(id string, logger *zap.SugaredLogger) error {
 	if len(ref) > 0 {
 		return errors.New("this template is in use")
 	}
-	err = mongodb.NewYamlTemplateColl().DeleteByID(id)
+	err = commonrepo.NewYamlTemplateColl().DeleteByID(id)
 	if err != nil {
 		logger.Errorf("Failed to delete dockerfile template of id: %s, the error is: %s", id, err)
 	}
@@ -144,19 +143,19 @@ func GetYamlTemplateReference(id string, logger *zap.SugaredLogger) ([]*ServiceR
 	return ret, nil
 }
 
-func GetYamlVariables(s string, logger *zap.SugaredLogger) ([]*Variable, error) {
-	resp := make([]*Variable, 0)
+func GetYamlVariables(s string, logger *zap.SugaredLogger) ([]*models.ChartVariable, error) {
+	resp := make([]*models.ChartVariable, 0)
 	regex, err := regexp.Compile(setting.RegExpParameter)
 	if err != nil {
 		logger.Errorf("Cannot get regexp from the expression: %s, the error is: %s", setting.RegExpParameter, err)
-		return []*Variable{}, err
+		return []*models.ChartVariable{}, err
 	}
 	params := regex.FindAllString(s, -1)
 	keyMap := make(map[string]int)
 	for _, param := range params {
 		key := getParameterKey(param)
 		if keyMap[key] == 0 {
-			resp = append(resp, &Variable{
+			resp = append(resp, &models.ChartVariable{
 				Key: key,
 			})
 			keyMap[key] = 1
@@ -165,10 +164,10 @@ func GetYamlVariables(s string, logger *zap.SugaredLogger) ([]*Variable, error) 
 	return resp, nil
 }
 
-func GetSystemDefaultVariables() []*Variable {
-	resp := make([]*Variable, 0)
+func GetSystemDefaultVariables() []*models.ChartVariable {
+	resp := make([]*models.ChartVariable, 0)
 	for key, description := range DefaultSystemVariable {
-		resp = append(resp, &Variable{
+		resp = append(resp, &models.ChartVariable{
 			Key:         key,
 			Description: description,
 		})

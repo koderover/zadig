@@ -21,7 +21,9 @@ import (
 	"fmt"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 
+	internalmongodb "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/mongodb"
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
@@ -45,11 +47,50 @@ func V171ToV180() error {
 		return err
 	}
 
+	log.Info("Start to patchProductRegistryID")
+	err := patchProductRegistryID()
+	if err != nil {
+		log.Errorf("Failed to patchProductRegistryID, err: %s", err)
+		return err
+	}
+
 	return nil
 }
 
 func V180ToV171() error {
 	log.Info("Rollback data from 1.8.0 to 1.7.1")
+	return nil
+}
+
+func patchProductRegistryID() error {
+	// get all products
+	products, err := internalmongodb.NewProductColl().List(&internalmongodb.ProductListOptions{})
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil
+		}
+		log.Errorf("Failed to list products, err: %s", err)
+		return err
+	}
+	registry, err := internalmongodb.NewRegistryNamespaceColl().Find(&internalmongodb.FindRegOps{IsDefault: true})
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil
+		}
+		log.Errorf("Failed to find default registry, err: %s", err)
+		return err
+	}
+	// change type to readable string
+	for _, v := range products {
+		if len(v.RegistryID) == 0 {
+			v.RegistryID = registry.ID.Hex()
+		}
+	}
+	err = internalmongodb.NewProductColl().UpdateAllRegistry(products)
+	if err != nil {
+		log.Errorf("Failed to update products, err: %s", err)
+		return err
+	}
 	return nil
 }
 

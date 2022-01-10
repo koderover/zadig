@@ -28,6 +28,7 @@ const (
 	ENVMongoDBConnectionString = "MONGODB_CONNECTION_STRING"
 	ENVAslanDBName             = "ASLAN_DB"
 	ENVHubAgentImage           = "HUB_AGENT_IMAGE"
+	ENVResourceServerImage     = "RESOURCE_SERVER_IMAGE"
 	ENVMysqlUser               = "MYSQL_USER"
 	ENVMysqlPassword           = "MYSQL_PASSWORD"
 	ENVMysqlHost               = "MYSQL_HOST"
@@ -586,3 +587,5 @@ const (
 const LocalClusterID = "0123456789abcdef12345678"
 
 const RequestModeOpenAPI = "openAPI"
+
+const DeployTimeout = 60 * 10 // 10 minutes

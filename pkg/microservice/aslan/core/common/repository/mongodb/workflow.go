@@ -33,6 +33,7 @@ import (
 type ListWorkflowOption struct {
 	IsSort   bool
 	Projects []string
+	Names    []string
 }
 
 type WorkflowColl struct {
@@ -65,6 +66,9 @@ func (c *WorkflowColl) List(opt *ListWorkflowOption) ([]*models.Workflow, error)
 	query := bson.M{}
 	if len(opt.Projects) > 0 {
 		query["product_tmpl_name"] = bson.M{"$in": opt.Projects}
+	}
+	if len(opt.Names) > 0 {
+		query["name"] = bson.M{"$in": opt.Names}
 	}
 
 	resp := make([]*models.Workflow, 0)

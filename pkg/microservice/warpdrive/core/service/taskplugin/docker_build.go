@@ -135,7 +135,6 @@ func (p *DockerBuildPlugin) Run(ctx context.Context, pipelineTask *task.Task, pi
 		//Docker build context
 		DockerBuildCtx: &task.DockerBuildCtx{
 			Source:     p.Task.Source,
-			TemplateID: p.Task.TemplateID,
 			WorkDir:    fmt.Sprintf("%s/%s", pipelineCtx.Workspace, p.Task.WorkDir),
 			DockerFile: fmt.Sprintf("%s/%s", pipelineCtx.Workspace, p.Task.DockerFile),
 			ImageName:  p.Task.Image,

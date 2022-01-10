@@ -121,6 +121,10 @@ var systemAdminURLs = []*policyRule{
 		Endpoints: []string{"api/aslan/cluster/clusters/?*/reconnect"},
 	},
 	{
+		Methods:   []string{"GET", "POST", "PUT", "DELETE"},
+		Endpoints: []string{"api/collaboration/collaborations"},
+	},
+	{
 		Methods:   []string{"POST", "PUT"},
 		Endpoints: []string{"api/aslan/system/install"},
 	},
@@ -307,6 +311,10 @@ var projectAdminURLs = []*policyRule{
 	{
 		Methods:   []string{"POST"},
 		Endpoints: []string{"api/v1/users/search"},
+	},
+	{
+		Methods:   []string{"GET", "POST", "PUT", "DELETE"},
+		Endpoints: []string{"api/collaboration/collaborations"},
 	},
 	{
 		Methods:   []string{"GET"},

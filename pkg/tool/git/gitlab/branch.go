@@ -19,9 +19,9 @@ package gitlab
 import "github.com/xanzy/go-gitlab"
 
 // ListBranches lists branches by projectID <- urlEncode(namespace/projectName)
-func (c *Client) ListBranches(owner, repo string, opts *ListOptions) ([]*gitlab.Branch, error) {
+func (c *Client) ListBranches(owner, repo, key string, opts *ListOptions) ([]*gitlab.Branch, error) {
 	branches, err := wrap(paginated(func(o *gitlab.ListOptions) ([]interface{}, *gitlab.Response, error) {
-		bs, r, err := c.Branches.ListBranches(generateProjectName(owner, repo), &gitlab.ListBranchesOptions{ListOptions: *o})
+		bs, r, err := c.Branches.ListBranches(generateProjectName(owner, repo), &gitlab.ListBranchesOptions{ListOptions: *o, Search: &key})
 		var res []interface{}
 		for _, b := range bs {
 			res = append(res, b)

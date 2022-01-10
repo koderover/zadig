@@ -24,6 +24,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
@@ -54,6 +55,19 @@ func DeleteWorkflows(productName, requestID string, log *zap.SugaredLogger) erro
 }
 
 func DeleteWorkflow(workflowName, requestID string, isDeletingProductTmpl bool, log *zap.SugaredLogger) error {
+	// 在删除前，先将workflow查出来，用于删除gerrit webhook
+	workflow, err := mongodb.NewWorkflowColl().Find(workflowName)
+	if err != nil {
+		log.Errorf("Workflow.Find error: %v", err)
+		return e.ErrDeleteWorkflow.AddDesc(err.Error())
+	}
+	workflowCMMap, err := service.GetWorkflowCMMap([]string{workflow.ProductTmplName}, log)
+	if err != nil {
+		return err
+	}
+	if cmSets, ok := workflowCMMap[service.BuildWorkflowCMMapKey(workflow.ProductTmplName, workflowName)]; ok {
+		return fmt.Errorf("this is a base workflow, collaborations:%v is related", cmSets.List())
+	}
 	taskQueue, err := mongodb.NewQueueColl().List(&mongodb.ListQueueOption{})
 	if err != nil {
 		log.Errorf("List queued task error: %v", err)
@@ -66,13 +80,6 @@ func DeleteWorkflow(workflowName, requestID string, isDeletingProductTmpl bool, 
 				log.Errorf("task still running, cancel pipeline %s task %d", task.PipelineName, task.TaskID)
 			}
 		}
-	}
-
-	// 在删除前，先将workflow查出来，用于删除gerrit webhook
-	workflow, err := mongodb.NewWorkflowColl().Find(workflowName)
-	if err != nil {
-		log.Errorf("Workflow.Find error: %v", err)
-		return e.ErrDeleteWorkflow.AddDesc(err.Error())
 	}
 
 	if !isDeletingProductTmpl {

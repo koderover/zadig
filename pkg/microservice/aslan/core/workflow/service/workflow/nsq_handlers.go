@@ -238,12 +238,7 @@ func getRawFileContent(codehostID int, repo, owner, branch, filePath string) ([]
 func (h *TaskAckHandler) getDockerfileContent(build *types.Repository, ctx *task.DockerBuildCtx) string {
 	switch ctx.Source {
 	case setting.DockerfileSourceTemplate:
-		content, err := commonservice.GetDockerfileTemplateContent(ctx.TemplateID)
-		if err != nil {
-			h.log.Errorf("Failed to get dockerfile template content, err: %v", err)
-			return ""
-		}
-		return content
+		return ctx.DockerTemplateContent
 	case setting.DockerfileSourceLocal:
 		path := ctx.DockerFile
 		pathArray := strings.Split(path, "/")
@@ -916,9 +911,7 @@ func upsertWorkflowStat(args *commonmodels.WorkflowStat, log *zap.SugaredLogger)
 }
 
 func getImageInfo(repoName, tag string, log *zap.SugaredLogger) (*commonmodels.DeliveryImage, error) {
-	regOps := new(commonrepo.FindRegOps)
-	regOps.IsDefault = true
-	registryInfo, err := commonrepo.NewRegistryNamespaceColl().Find(regOps)
+	registryInfo, err := commonservice.FindDefaultRegistry(false, log)
 	if err != nil {
 		log.Errorf("RegistryNamespace.get error: %v", err)
 		return nil, fmt.Errorf("RegistryNamespace.get error: %v", err)

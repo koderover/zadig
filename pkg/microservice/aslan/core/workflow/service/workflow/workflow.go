@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/service"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
@@ -61,6 +62,8 @@ type Workflow struct {
 	AverageExecutionTime float64                    `json:"averageExecutionTime"`
 	SuccessRate          float64                    `json:"successRate"`
 	Description          string                     `json:"description,omitempty"`
+	BaseName             string                     `json:"base_name"`
+	BaseRefs             []string                   `json:"base_refs"`
 }
 
 type TaskInfo struct {
@@ -515,6 +518,10 @@ func ListWorkflows(projects []string, userID string, log *zap.SugaredLogger) ([]
 
 	var workflowNames []string
 	var res []*Workflow
+	workflowCMMap, err := service.GetWorkflowCMMap(projects, log)
+	if err != nil {
+		return nil, err
+	}
 	for _, w := range workflows {
 		stages := make([]string, 0, 4)
 		if w.BuildStage != nil && w.BuildStage.Enabled {
@@ -529,7 +536,12 @@ func ListWorkflows(projects []string, userID string, log *zap.SugaredLogger) ([]
 		if w.DistributeStage != nil && w.DistributeStage.Enabled {
 			stages = append(stages, "distribute")
 		}
-
+		var baseRefs []string
+		if cmSet, ok := workflowCMMap[service.BuildWorkflowCMMapKey(w.ProductTmplName, w.Name)]; ok {
+			for _, cm := range cmSet.List() {
+				baseRefs = append(baseRefs, cm)
+			}
+		}
 		res = append(res, &Workflow{
 			Name:             w.Name,
 			ProjectName:      w.ProductTmplName,
@@ -540,6 +552,8 @@ func ListWorkflows(projects []string, userID string, log *zap.SugaredLogger) ([]
 			Schedules:        w.Schedules,
 			EnabledStages:    stages,
 			Description:      w.Description,
+			BaseName:         w.BaseName,
+			BaseRefs:         baseRefs,
 		})
 
 		workflowNames = append(workflowNames, w.Name)

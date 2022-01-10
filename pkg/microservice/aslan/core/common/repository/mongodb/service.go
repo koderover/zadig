@@ -253,6 +253,27 @@ func (c *ServiceColl) Create(args *models.Service) error {
 	return err
 }
 
+func (c *ServiceColl) UpdateServiceHealthCheckStatus(args *models.Service) error {
+	// avoid panic issue
+	if args == nil {
+		return errors.New("nil ServiceTmplObject")
+	}
+	args.ProductName = strings.TrimSpace(args.ProductName)
+	args.ServiceName = strings.TrimSpace(args.ServiceName)
+
+	query := bson.M{"product_name": args.ProductName, "service_name": args.ServiceName, "revision": args.Revision}
+
+	changeMap := bson.M{
+		"create_by":    args.CreateBy,
+		"create_time":  time.Now().Unix(),
+		"env_configs":  args.EnvConfigs,
+		"env_statuses": args.EnvStatuses,
+	}
+	change := bson.M{"$set": changeMap}
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
 func (c *ServiceColl) Update(args *models.Service) error {
 	// avoid panic issue
 	if args == nil {

@@ -14,28 +14,24 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package client
+package handler
 
 import (
-	"net/http"
-	"net/http/cookiejar"
+	"github.com/gin-gonic/gin"
+
+	gin2 "github.com/koderover/zadig/pkg/middleware/gin"
 )
 
-type Client struct {
-	APIBase string
-	Token   string
-	Conn    *http.Client
-}
+type Router struct{}
 
-// NewAslanClient is to get aslan client func
-func NewAslanClient(host, token string) *Client {
-	jar, _ := cookiejar.New(nil)
+func (*Router) Inject(router *gin.RouterGroup) {
 
-	c := &Client{
-		Token:   token,
-		APIBase: host,
-		Conn:    &http.Client{Transport: http.DefaultTransport, Jar: jar},
+	collaborations := router.Group("collaborations")
+	{
+		collaborations.GET("", GetCollaborationMode)
+		collaborations.PUT("", gin2.UpdateOperationLogStatus, UpdateCollaborationMode)
+		collaborations.POST("", gin2.UpdateOperationLogStatus, CreateCollaborationMode)
+		collaborations.DELETE("/:name", gin2.UpdateOperationLogStatus, DeleteCollaborationMode)
+		collaborations.GET("/new", GetCollaborationNew)
 	}
-
-	return c
 }

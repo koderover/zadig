@@ -18,6 +18,7 @@ package updater
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -28,4 +29,14 @@ func DeleteSecrets(ns string, selector labels.Selector, cl client.Client) error 
 
 func UpdateOrCreateSecret(s *corev1.Secret, cl client.Client) error {
 	return updateOrCreateObject(s, cl)
+}
+
+func DeleteSecretWithName(ns, name string, cl client.Client) error {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: ns,
+			Name:      name,
+		},
+	}
+	return deleteObjects(secret, cl)
 }

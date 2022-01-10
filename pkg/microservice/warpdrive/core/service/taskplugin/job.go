@@ -299,12 +299,12 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 
 	if b.JobCtx.DockerBuildCtx != nil {
 		ctx.DockerBuildCtx = &task.DockerBuildCtx{
-			Source:     b.JobCtx.DockerBuildCtx.Source,
-			TemplateID: b.JobCtx.DockerBuildCtx.TemplateID,
-			WorkDir:    b.JobCtx.DockerBuildCtx.WorkDir,
-			DockerFile: b.JobCtx.DockerBuildCtx.DockerFile,
-			ImageName:  b.JobCtx.DockerBuildCtx.ImageName,
-			BuildArgs:  b.JobCtx.DockerBuildCtx.BuildArgs,
+			Source:                b.JobCtx.DockerBuildCtx.Source,
+			WorkDir:               b.JobCtx.DockerBuildCtx.WorkDir,
+			DockerFile:            b.JobCtx.DockerBuildCtx.DockerFile,
+			ImageName:             b.JobCtx.DockerBuildCtx.ImageName,
+			BuildArgs:             b.JobCtx.DockerBuildCtx.BuildArgs,
+			DockerTemplateContent: b.JobCtx.DockerBuildCtx.DockerTemplateContent,
 		}
 	}
 
@@ -464,6 +464,11 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 	for _, reg := range registries {
 		arr := strings.Split(reg.Namespace, "/")
 		namespaceInRegistry := arr[len(arr)-1]
+		// for AWS ECR, there are no namespace, thus we need to find the NS from the URI
+		if namespaceInRegistry == "" {
+			uriDecipher := strings.Split(reg.RegAddr, ".")
+			namespaceInRegistry = uriDecipher[0]
+		}
 		secretName := namespaceInRegistry + registrySecretSuffix
 		if reg.RegType != "" {
 			secretName = namespaceInRegistry + "-" + reg.RegType + registrySecretSuffix
@@ -574,6 +579,11 @@ func createOrUpdateRegistrySecrets(namespace, registryID string, registries []*t
 
 		arr := strings.Split(reg.Namespace, "/")
 		namespaceInRegistry := arr[len(arr)-1]
+		// for AWS ECR, there are no namespace, thus we need to find the NS from the URI
+		if namespaceInRegistry == "" {
+			uriDecipher := strings.Split(reg.RegAddr, ".")
+			namespaceInRegistry = uriDecipher[0]
+		}
 		filteredName, err := formatRegistryName(namespaceInRegistry)
 		if err != nil {
 			return err

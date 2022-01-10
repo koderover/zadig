@@ -30,10 +30,8 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/reaper/config"
 	"github.com/koderover/zadig/pkg/microservice/reaper/core/service/archive"
-	"github.com/koderover/zadig/pkg/microservice/reaper/core/service/client"
 	"github.com/koderover/zadig/pkg/microservice/reaper/core/service/meta"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -333,15 +331,10 @@ func (r *Reaper) runDockerBuild() error {
 
 func (r *Reaper) prepareDockerfile() error {
 	if r.Ctx.DockerBuildCtx.Source == setting.DockerfileSourceTemplate {
-		aslanClient := client.NewAslanClient(configbase.AslanServiceAddress(), r.Ctx.APIToken)
-		dockerfile, err := aslanClient.GetDockerfile(r.Ctx.DockerBuildCtx.TemplateID)
-		if err != nil {
-			return err
-		}
-		reader := strings.NewReader(dockerfile.Content)
-		readcloser := io.NopCloser(reader)
+		reader := strings.NewReader(r.Ctx.DockerBuildCtx.DockerTemplateContent)
+		readCloser := io.NopCloser(reader)
 		path := fmt.Sprintf("/%s", setting.ZadigDockerfilePath)
-		err = fs.SaveFile(readcloser, path)
+		err := fs.SaveFile(readCloser, path)
 		if err != nil {
 			return err
 		}
@@ -475,7 +468,10 @@ func (r *Reaper) AfterExec(upStreamErr error) error {
 	}
 
 	if upStreamErr == nil {
-		_ = r.CompressCache(r.Ctx.StorageURI)
+		err = r.CompressCache(r.Ctx.StorageURI)
+		if err != nil {
+			log.Errorf("Failed to run compress cache, err: %s", err)
+		}
 	}
 
 	return err

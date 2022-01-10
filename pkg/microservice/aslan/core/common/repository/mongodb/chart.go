@@ -26,8 +26,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
@@ -143,5 +142,5 @@ func (c *ChartColl) Delete(name string) error {
 
 func getNextRevision(name string) (int64, error) {
 	template := fmt.Sprintf(chartTemplateCounterName, name)
-	return commonrepo.NewCounterColl().GetNextSeq(template)
+	return NewCounterColl().GetNextSeq(template)
 }

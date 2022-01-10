@@ -19,6 +19,7 @@ package workflow
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"reflect"
 	"regexp"
 	"sort"
@@ -40,6 +41,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
+	templ "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/template"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -478,6 +480,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		if resp != nil {
 			return resp, nil
 		}
+		taskCreator = setting.RequestModeOpenAPI
 	}
 
 	workflow, err := commonrepo.NewWorkflowColl().Find(args.WorkflowName)
@@ -522,10 +525,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 	// 获取全局configpayload
 	configPayload := commonservice.GetConfigPayload(args.CodehostID)
 	if len(env.RegistryID) == 0 {
-		op := &commonrepo.FindRegOps{
-			IsDefault: true,
-		}
-		reg, err := commonrepo.NewRegistryNamespaceColl().Find(op)
+		reg, err := commonservice.FindDefaultRegistry(false, log)
 		if err != nil {
 			log.Errorf("get default registry error: %v", err)
 			return nil, e.ErrGetCounter.AddDesc(err.Error())
@@ -791,17 +791,10 @@ func generateNextTaskID(workflowName string) (int64, error) {
 }
 
 func modifyConfigPayload(configPayload *commonmodels.ConfigPayload, ignoreCache, resetCache bool) {
-	repos, err := commonrepo.NewRegistryNamespaceColl().FindAll(&commonrepo.FindRegOps{})
+	repos, err := commonservice.ListRegistryNamespaces(true, log.SugaredLogger())
 	if err == nil {
 		configPayload.RepoConfigs = make(map[string]*commonmodels.RegistryNamespace)
 		for _, repo := range repos {
-			// if the registry is SWR, we need to modify ak/sk according to the rule
-			if repo.RegProvider == config.SWRProvider {
-				ak := fmt.Sprintf("%s@%s", repo.Region, repo.AccessKey)
-				sk := util.ComputeHmacSha256(repo.AccessKey, repo.SecretKey)
-				repo.AccessKey = ak
-				repo.SecretKey = sk
-			}
 			configPayload.RepoConfigs[repo.ID.Hex()] = repo
 		}
 	}
@@ -951,6 +944,24 @@ func AddDataToArgsOrCreateReleaseImageTask(args *commonmodels.WorkflowTaskArgs, 
 	return createReleaseImageTask(workflow, args, log)
 }
 
+func buildRegistryMap() (map[string]*commonmodels.RegistryNamespace, error) {
+	registries, err := commonservice.ListRegistryNamespaces(true, log.SugaredLogger())
+	if err != nil {
+		return nil, fmt.Errorf("failed to query registries")
+	}
+	ret := make(map[string]*commonmodels.RegistryNamespace)
+	for _, singleRegistry := range registries {
+		fullUrl := fmt.Sprintf("%s/%s", singleRegistry.RegAddr, singleRegistry.Namespace)
+		fullUrl = strings.TrimSuffix(fullUrl, "/")
+		u, _ := url.Parse(fullUrl)
+		if len(u.Scheme) > 0 {
+			fullUrl = strings.TrimPrefix(fullUrl, fmt.Sprintf("%s://", u.Scheme))
+		}
+		ret[fullUrl] = singleRegistry
+	}
+	return ret, nil
+}
+
 func createReleaseImageTask(workflow *commonmodels.Workflow, args *commonmodels.WorkflowTaskArgs, log *zap.SugaredLogger) (*CreateTaskResp, error) {
 	// Get global configPayload
 	configPayload := commonservice.GetConfigPayload(0)
@@ -962,16 +973,37 @@ func createReleaseImageTask(workflow *commonmodels.Workflow, args *commonmodels.
 	// modify configPayload
 	modifyConfigPayload(configPayload, false, false)
 
-	// add default registry
-	reg, err := commonservice.FindDefaultRegistry(log)
+	registryMap, err := buildRegistryMap()
 	if err != nil {
-		log.Errorf("can't find default candidate registry: %s", err)
-		return nil, e.ErrFindRegistry.AddDesc(err.Error())
+		log.Errorf("failed to build registry map, err: %s", err)
+		// use default registry
+		reg, err := commonservice.FindDefaultRegistry(true, log)
+		if err != nil {
+			log.Errorf("can't find default candidate registry, err: %s", err)
+			return nil, e.ErrFindRegistry.AddDesc(err.Error())
+		}
+		configPayload.Registry.Addr = reg.RegAddr
+		configPayload.Registry.AccessKey = reg.AccessKey
+		configPayload.Registry.SecretKey = reg.SecretKey
+		configPayload.Registry.Namespace = reg.Namespace
+	} else {
+		// extract registry from image
+		for _, releaseImage := range args.ReleaseImages {
+			registryUrl, err := commonservice.ExtractImageRegistry(releaseImage.Image)
+			if err != nil {
+				log.Errorf("failed to extract image registry, image:%s  err: %s", releaseImage.Image, err)
+				continue
+			}
+			registryUrl = strings.TrimSuffix(registryUrl, "/")
+			if reg, ok := registryMap[registryUrl]; ok {
+				configPayload.Registry.Addr = reg.RegAddr
+				configPayload.Registry.AccessKey = reg.AccessKey
+				configPayload.Registry.SecretKey = reg.SecretKey
+				configPayload.Registry.Namespace = reg.Namespace
+				break
+			}
+		}
 	}
-	configPayload.Registry.Addr = reg.RegAddr
-	configPayload.Registry.AccessKey = reg.AccessKey
-	configPayload.Registry.SecretKey = reg.SecretKey
-	configPayload.Registry.Namespace = reg.Namespace
 
 	distributeS3StoreURL, defaultS3StoreURL, err := getDefaultAndDestS3StoreURL(workflow, log)
 	if err != nil {
@@ -1395,7 +1427,7 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *task.Task, log *
 	testArgs := args.Tests
 	testCreator := args.WorkflowTaskCreator
 
-	registries, err := commonservice.ListRegistryNamespaces(log)
+	registries, err := commonservice.ListRegistryNamespaces(true, log)
 	if err != nil {
 		log.Errorf("ListRegistryNamespaces err:%v", err)
 	}
@@ -1532,7 +1564,7 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 
 	// 获取全局configpayload
 	configPayload := commonservice.GetConfigPayload(args.CodehostID)
-	repos, err := commonrepo.NewRegistryNamespaceColl().FindAll(&commonrepo.FindRegOps{})
+	repos, err := commonservice.ListRegistryNamespaces(true, log)
 	if err == nil {
 		configPayload.RepoConfigs = make(map[string]*commonmodels.RegistryNamespace)
 		for _, repo := range repos {
@@ -1791,7 +1823,7 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 		return nil, e.ErrConvertSubTasks.AddErr(err)
 	}
 
-	registries, err := commonservice.ListRegistryNamespaces(log)
+	registries, err := commonservice.ListRegistryNamespaces(true, log)
 	if err != nil {
 		return nil, e.ErrConvertSubTasks.AddErr(err)
 	}
@@ -1921,12 +1953,18 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 		build.JobCtx.EnableProxy = module.PreBuild.EnableProxy
 
 		if module.PostBuild != nil && module.PostBuild.DockerBuild != nil {
+			dockerTemplateContent := ""
+			if module.PostBuild.DockerBuild.TemplateID != "" {
+				if dockerfileDetail, err := templ.GetDockerfileTemplateDetail(module.PostBuild.DockerBuild.TemplateID, log); err == nil {
+					dockerTemplateContent = dockerfileDetail.Content
+				}
+			}
 			build.JobCtx.DockerBuildCtx = &task.DockerBuildCtx{
-				Source:     module.PostBuild.DockerBuild.Source,
-				TemplateID: module.PostBuild.DockerBuild.TemplateID,
-				WorkDir:    module.PostBuild.DockerBuild.WorkDir,
-				DockerFile: module.PostBuild.DockerBuild.DockerFile,
-				BuildArgs:  module.PostBuild.DockerBuild.BuildArgs,
+				Source:                module.PostBuild.DockerBuild.Source,
+				WorkDir:               module.PostBuild.DockerBuild.WorkDir,
+				DockerFile:            module.PostBuild.DockerBuild.DockerFile,
+				BuildArgs:             module.PostBuild.DockerBuild.BuildArgs,
+				DockerTemplateContent: dockerTemplateContent,
 			}
 		}
 
@@ -2044,14 +2082,14 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 				// 注意: 其他任务从 pt.TaskArgs.Deploy.Image 获取, 必须要有编译任务
 				var reg *commonmodels.RegistryNamespace
 				if len(exitedProd.RegistryID) > 0 {
-					reg, err = commonservice.FindRegistryById(exitedProd.RegistryID, log)
+					reg, err = commonservice.FindRegistryById(exitedProd.RegistryID, true, log)
 					if err != nil {
 						log.Errorf("service.EnsureRegistrySecret: failed to find registry: %s error msg:%v",
 							exitedProd.RegistryID, err)
 						return e.ErrFindRegistry.AddDesc(err.Error())
 					}
 				} else {
-					reg, err = commonservice.FindDefaultRegistry(log)
+					reg, err = commonservice.FindDefaultRegistry(true, log)
 					if err != nil {
 						log.Errorf("can't find default candidate registry: %v", err)
 						return e.ErrFindRegistry.AddDesc(err.Error())
@@ -2100,10 +2138,14 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 				//		}
 				//	}
 				//}
+				registryRepo := reg.RegAddr + "/" + reg.Namespace
+				if reg.RegProvider == config.RegistryTypeAWS {
+					registryRepo = reg.RegAddr
+				}
 
 				t.DockerBuildStatus = &task.DockerBuildStatus{
 					ImageName:    t.JobCtx.Image,
-					RegistryRepo: reg.RegAddr + "/" + reg.Namespace,
+					RegistryRepo: registryRepo,
 				}
 				t.UTStatus = &task.UTStatus{}
 				t.StaticCheckStatus = &task.StaticCheckStatus{}
@@ -2156,7 +2198,11 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 					pt.TaskArgs = &commonmodels.TaskArgs{PipelineName: pt.WorkflowArgs.WorkflowName, TaskCreator: pt.WorkflowArgs.WorkflowTaskCreator}
 				}
 				registry := pt.ConfigPayload.RepoConfigs[pt.WorkflowArgs.RegistryID]
-				t.Image = fmt.Sprintf("%s/%s/%s", util.GetURLHostName(registry.RegAddr), registry.Namespace, t.Image)
+				if registry.RegProvider == config.RegistryTypeAWS {
+					t.Image = fmt.Sprintf("%s/%s", util.TrimURLScheme(registry.RegAddr), t.Image)
+				} else {
+					t.Image = fmt.Sprintf("%s/%s/%s", util.TrimURLScheme(registry.RegAddr), registry.Namespace, t.Image)
+				}
 				pt.TaskArgs.Deploy.Image = t.Image
 				t.RegistryID = pt.WorkflowArgs.RegistryID
 
@@ -2362,7 +2408,7 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 				for _, repoImage := range t.Releases {
 					if v, ok := pt.ConfigPayload.RepoConfigs[repoImage.RepoID]; ok {
 						repoImage.Name = util.ReplaceRepo(pt.TaskArgs.Deploy.Image, v.RegAddr, v.Namespace)
-						repoImage.Host = util.GetURLHostName(v.RegAddr)
+						repoImage.Host = util.TrimURLScheme(v.RegAddr)
 						repoImage.Namespace = v.Namespace
 						repos = append(repos, repoImage)
 					}

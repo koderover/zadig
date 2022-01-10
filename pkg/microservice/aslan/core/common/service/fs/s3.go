@@ -24,7 +24,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	s3service "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/setting"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
@@ -51,7 +50,7 @@ func ArchiveAndUploadFilesToS3(fileTree fs.FS, names []string, s3Base string, lo
 
 // archiveAndUploadFiles archive local files and upload to default s3 storage
 // if multiple names appointed, s3storage.copy will be used to handle extra names
-func archiveAndUploadFiles(fileTree fs.FS, names []string, s3Base string, s3Storage *s3.S3, logger *zap.SugaredLogger) error {
+func archiveAndUploadFiles(fileTree fs.FS, names []string, s3Base string, s3Storage *s3service.S3, logger *zap.SugaredLogger) error {
 
 	if len(names) == 0 {
 		return fmt.Errorf("names not appointed")

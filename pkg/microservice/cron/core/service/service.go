@@ -75,6 +75,7 @@ type ProductResp struct {
 type EnvConfig struct {
 	EnvName string   `json:"env_name"`
 	HostIDs []string `json:"host_ids"`
+	Labels  []string `json:"labels"`
 }
 
 type Service struct {

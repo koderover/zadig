@@ -37,14 +37,12 @@ import (
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	templatedata "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
-	templatestore "github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -54,9 +52,9 @@ import (
 )
 
 type HelmService struct {
-	ServiceInfos []*models.Service `json:"service_infos"`
-	FileInfos    []*types.FileInfo `json:"file_infos"`
-	Services     [][]string        `json:"services"`
+	ServiceInfos []*commonmodels.Service `json:"service_infos"`
+	FileInfos    []*types.FileInfo       `json:"file_infos"`
+	Services     [][]string              `json:"services"`
 }
 
 type HelmServiceArgs struct {
@@ -73,8 +71,8 @@ type HelmServiceInfo struct {
 }
 
 type HelmServiceModule struct {
-	ServiceModules []*ServiceModule `json:"service_modules"`
-	Service        *models.Service  `json:"service,omitempty"`
+	ServiceModules []*ServiceModule      `json:"service_modules"`
+	Service        *commonmodels.Service `json:"service,omitempty"`
 }
 
 type Chart struct {
@@ -107,7 +105,7 @@ type helmServiceCreationArgs struct {
 
 type ChartTemplateData struct {
 	TemplateName      string
-	TemplateData      *templatestore.Chart
+	TemplateData      *commonmodels.Chart
 	ChartName         string
 	ChartVersion      string
 	DefaultValuesYAML []byte // content of values.yaml in template
@@ -122,7 +120,7 @@ type GetFileContentParam struct {
 
 func ListHelmServices(productName string, log *zap.SugaredLogger) (*HelmService, error) {
 	helmService := &HelmService{
-		ServiceInfos: []*models.Service{},
+		ServiceInfos: []*commonmodels.Service{},
 		FileInfos:    []*types.FileInfo{},
 		Services:     [][]string{},
 	}
@@ -225,7 +223,7 @@ func GetFileContent(serviceName, productName string, param *GetFileContentParam,
 }
 
 func prepareChartTemplateData(templateName string, logger *zap.SugaredLogger) (*ChartTemplateData, error) {
-	templateChart, err := mongodb.NewChartColl().Get(templateName)
+	templateChart, err := commonrepo.NewChartColl().Get(templateName)
 	if err != nil {
 		logger.Errorf("Failed to get chart template %s, err: %s", templateName, err)
 		return nil, fmt.Errorf("failed to get chart template: %s", templateName)
@@ -829,7 +827,7 @@ func geneCreationDetail(args *helmServiceCreationArgs) interface{} {
 			LoadPath: args.FilePath,
 		}
 	case setting.SourceFromChartTemplate:
-		yamlData := &templatedata.CustomYaml{
+		yamlData := &templatemodels.CustomYaml{
 			YamlContent: args.ValuesYaml,
 		}
 		variables := make([]*models.Variable, 0, len(args.Variables))
@@ -875,7 +873,7 @@ func renderVariablesToYaml(valuesYaml string, productName, serviceName string, v
 	return valuesYaml, nil
 }
 
-func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logger *zap.SugaredLogger) (*models.Service, error) {
+func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logger *zap.SugaredLogger) (*commonmodels.Service, error) {
 	chartName, chartVersion, err := readChartYAML(fsTree, args.ServiceName, logger)
 	if err != nil {
 		logger.Errorf("Failed to read chart.yaml, err %s", err)
@@ -895,7 +893,7 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 		return nil, errors.Wrapf(err, "Failed to parse service from yaml")
 	}
 
-	serviceObj := &models.Service{
+	serviceObj := &commonmodels.Service{
 		ServiceName: args.ServiceName,
 		Type:        setting.HelmDeployType,
 		Revision:    args.ServiceRevision,
@@ -912,7 +910,7 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 		SrcPath:     args.RepoLink,
 		CreateFrom:  geneCreationDetail(args),
 		Source:      args.Source,
-		HelmChart: &models.HelmChart{
+		HelmChart: &commonmodels.HelmChart{
 			Name:       chartName,
 			Version:    chartVersion,
 			ValuesYaml: valuesYaml,

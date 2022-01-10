@@ -20,12 +20,14 @@ import (
 	"bufio"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/koderover/zadig/pkg/microservice/reaper/config"
 	"github.com/koderover/zadig/pkg/microservice/reaper/internal/s3"
@@ -226,24 +228,39 @@ func (r *Reaper) runScripts() error {
 	//如果文件不存在就创建文件，避免后面使用变量出错
 	util.WriteFile(fileName, []byte{}, 0700)
 
-	cmdOutReader, err := cmd.StdoutPipe()
+	needPersistentLog := len(r.Ctx.PostScripts) > 0
+
+	var wg sync.WaitGroup
+
+	cmdStdoutReader, err := cmd.StdoutPipe()
 	if err != nil {
 		return err
 	}
-	outScanner := bufio.NewScanner(cmdOutReader)
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		r.handleCmdOutput(cmdStdoutReader, needPersistentLog, fileName)
+	}()
+
+	cmdStdErrReader, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		r.handleCmdOutput(cmdStdErrReader, needPersistentLog, fileName)
+	}()
 
 	if err := cmd.Start(); err != nil {
 		return err
 	}
 
-	go func() {
-		for outScanner.Scan() {
-			fmt.Printf("%s\n", r.maskSecretEnvs(outScanner.Text()))
-			if len(r.Ctx.PostScripts) > 0 {
-				util.WriteFile(fileName, []byte(outScanner.Text()+"\n"), 0700)
-			}
-		}
-	}()
+	wg.Wait()
 
 	return cmd.Wait()
 }
@@ -398,4 +415,29 @@ func (r *Reaper) downloadArtifactFile() error {
 		}
 	}
 	return nil
+}
+
+func (r *Reaper) handleCmdOutput(pipe io.ReadCloser, needPersistentLog bool, logFile string) {
+	reader := bufio.NewReader(pipe)
+
+	for {
+		lineBytes, err := reader.ReadBytes('\n')
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+
+			log.Errorf("Failed to read log when processing cmd output: %s", err)
+			break
+		}
+
+		fmt.Printf("%s", string(lineBytes))
+
+		if needPersistentLog {
+			err := util.WriteFile(logFile, lineBytes, 0700)
+			if err != nil {
+				log.Warnf("Failed to write file when processing cmd output: %s", err)
+			}
+		}
+	}
 }

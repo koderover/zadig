@@ -1,3 +1,19 @@
+/*
+Copyright 2021 The KodeRover Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package webhook
 
 import (
@@ -29,10 +45,14 @@ type Variables struct {
 }
 
 /*
-# 选项：
-# 更新指定环境：single
-# 动态选择空闲环境：all
-# 更新基准环境：base，需要设置回收策略：success/always/never
+Strategy
+ single:
+	Update to the specified environment;
+ dynamic:
+	Dynamic selection of idle environment;
+ base:
+	Create a new environment based on the baseline environment
+	And Need to set EnvRecyclePolicy：success/always/never
 */
 type Deploy struct {
 	Strategy         string   `yaml:"strategy"`
@@ -48,8 +68,11 @@ type Test struct {
 }
 
 /*
-# default：在 zadig 平台默认配置的代码仓库信息
-# currentRepo：使用当前变动的代码信息
+Strategy
+ default：
+	Code repository information configured by default on the zadig platform
+ currentRepo：
+	Use current changed code information
 */
 type Repo struct {
 	Strategy string `yaml:"strategy"`

@@ -49,7 +49,7 @@ type Build struct {
 	ResReqSpec        setting.RequestSpec  `bson:"res_req_spec"               json:"res_req_spec"`
 	LogFile           string               `bson:"log_file"                   json:"log_file"`
 	InstallCtx        []*Install           `bson:"-"                          json:"install_ctx,omitempty"`
-	Registries        []*RegistryNamespace `bson:"-"                   json:"registries"`
+	Registries        []*RegistryNamespace `bson:"-"                          json:"registries"`
 	StaticCheckStatus *StaticCheckStatus   `bson:"static_check_status,omitempty" json:"static_check_status,omitempty"`
 	UTStatus          *UTStatus            `bson:"ut_status,omitempty" json:"ut_status,omitempty"`
 	DockerBuildStatus *DockerBuildStatus   `bson:"docker_build_status,omitempty" json:"docker_build_status,omitempty"`
@@ -204,13 +204,13 @@ type SSH struct {
 // DockerFile: dockerfile名称, 默认为Dockerfile
 // ImageBuild: build image镜像全称, e.g. xxx.com/release-candidates/image:tag
 type DockerBuildCtx struct {
-	WorkDir         string `yaml:"work_dir" bson:"work_dir" json:"work_dir"`
-	DockerFile      string `yaml:"docker_file" bson:"docker_file" json:"docker_file"`
-	ImageName       string `yaml:"image_name" bson:"image_name" json:"image_name"`
-	BuildArgs       string `yaml:"build_args" bson:"build_args" json:"build_args"`
-	ImageReleaseTag string `yaml:"image_release_tag,omitempty" bson:"image_release_tag,omitempty" json:"image_release_tag"`
-	Source          string `yaml:"source" bson:"source" json:"source"`
-	TemplateID      string `yaml:"template_id" bson:"template_id" json:"template_id"`
+	WorkDir               string `yaml:"work_dir" bson:"work_dir" json:"work_dir"`
+	DockerFile            string `yaml:"docker_file" bson:"docker_file" json:"docker_file"`
+	ImageName             string `yaml:"image_name" bson:"image_name" json:"image_name"`
+	BuildArgs             string `yaml:"build_args" bson:"build_args" json:"build_args"`
+	ImageReleaseTag       string `yaml:"image_release_tag,omitempty" bson:"image_release_tag,omitempty" json:"image_release_tag"`
+	Source                string `yaml:"source" bson:"source" json:"source"`
+	DockerTemplateContent string `yaml:"docker_template_content" bson:"docker_template_content" json:"docker_template_content"`
 }
 
 type FileArchiveCtx struct {

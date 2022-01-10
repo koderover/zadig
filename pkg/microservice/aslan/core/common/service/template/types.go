@@ -14,18 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package dockerfile
 
-import "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
+import (
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
+)
 
 type Chart struct {
-	Name       string      `json:"name"`
-	CodehostID int         `json:"codehostID"`
-	Owner      string      `json:"owner"`
-	Repo       string      `json:"repo"`
-	Branch     string      `json:"branch"`
-	Path       string      `json:"path"`
-	Variables  []*Variable `json:"variables,omitempty"`
+	Name       string                  `json:"name"`
+	CodehostID int                     `json:"codehostID"`
+	Owner      string                  `json:"owner"`
+	Repo       string                  `json:"repo"`
+	Branch     string                  `json:"branch"`
+	Path       string                  `json:"path"`
+	Variables  []*models.ChartVariable `json:"variables,omitempty"`
 
 	Files []*fs.FileInfo `json:"files,omitempty"`
 }
@@ -41,16 +44,10 @@ type DockerfileListObject struct {
 }
 
 type DockerfileDetail struct {
-	ID        string      `json:"id"`
-	Name      string      `json:"name"`
-	Content   string      `json:"content"`
-	Variables []*Variable `json:"variable"`
-}
-
-type Variable struct {
-	Key         string `json:"key"`
-	Value       string `json:"value,omitempty"`
-	Description string `json:"description,omitempty"`
+	ID        string                  `json:"id"`
+	Name      string                  `json:"name"`
+	Content   string                  `json:"content"`
+	Variables []*models.ChartVariable `json:"variable"`
 }
 
 type BuildReference struct {
@@ -59,9 +56,9 @@ type BuildReference struct {
 }
 
 type YamlTemplate struct {
-	Name     string      `json:"name"`
-	Content  string      `json:"content"`
-	Variable []*Variable `json:"variable"`
+	Name     string                  `json:"name"`
+	Content  string                  `json:"content"`
+	Variable []*models.ChartVariable `json:"variable"`
 }
 
 type YamlListObject struct {
@@ -70,10 +67,10 @@ type YamlListObject struct {
 }
 
 type YamlDetail struct {
-	ID        string      `json:"id"`
-	Name      string      `json:"name"`
-	Content   string      `json:"content"`
-	Variables []*Variable `json:"variable"`
+	ID        string                  `json:"id"`
+	Name      string                  `json:"name"`
+	Content   string                  `json:"content"`
+	Variables []*models.ChartVariable `json:"variable"`
 }
 
 type ServiceReference struct {
