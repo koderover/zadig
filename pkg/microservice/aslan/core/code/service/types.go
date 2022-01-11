@@ -61,6 +61,7 @@ type Project struct {
 	Namespace     string `json:"namespace"`
 	RepoUUID      string `json:"repo_uuid,omitempty"`
 	RepoID        string `json:"repo_id,omitempty"`
+	Path          string `json:"path,omitempty"`
 }
 
 type Tag struct {
@@ -215,6 +216,7 @@ func ToProjects(obj interface{}) []*Project {
 				Namespace:     o.Namespace.FullPath,
 				Description:   o.Description,
 				DefaultBranch: o.DefaultBranch,
+				Path:          o.Path,
 			})
 		}
 	case []*gerrit.ProjectInfo:
