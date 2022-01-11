@@ -20,6 +20,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -146,6 +147,7 @@ func (r *Server) GetTransport(clusterCaCert string, clientKey string) (http.Roun
 		}
 	}
 
+	fmt.Println(fmt.Sprintf("GetTransport clientKey:%s", clientKey))
 	d := r.Dialer(clientKey)
 	transport.DialContext = d
 	transport.Proxy = http.ProxyFromEnvironment
