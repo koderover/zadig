@@ -235,7 +235,7 @@ func (c *client) ProccessNotify(notify *models.Notify) error {
 			}
 		}
 
-		//发送微信通知
+		//发送IM通知
 		err = c.InstantmessageService.SendInstantMessage(task, testTaskStatusChanged)
 		if err != nil {
 			return fmt.Errorf("SendInstantMessage err : %v", err)

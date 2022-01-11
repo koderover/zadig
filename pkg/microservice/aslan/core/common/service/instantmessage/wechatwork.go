@@ -2,9 +2,12 @@ package instantmessage
 
 import (
 	"fmt"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 )
 
 const (
+	weChatWorkType                  = "wechat"
 	markdownColorInfo               = "info"
 	markdownColorComment            = "comment"
 	markdownColorWarning            = "warning"
@@ -20,7 +23,6 @@ type Markdown struct {
 	Content string `json:"content"`
 }
 
-//wechat
 type Messsage struct {
 	MsgType string `json:"msgtype"`
 	Text    *Text  `json:"markdown"`
@@ -52,4 +54,15 @@ func (w *Service) SendWeChatWorkMessage(textType TextType, uri, content string) 
 
 	_, err := w.SendMessageRequest(uri, message)
 	return err
+}
+
+func getColorWithStatus(status config.Status) string {
+	if status == config.StatusPassed {
+		return markdownColorInfo
+	} else if status == config.StatusTimeout || status == config.StatusCancelled || status == config.StatusNotRun {
+		return markdownColorComment
+	} else if status == config.StatusFailed {
+		return markdownColorWarning
+	}
+	return markdownColorComment
 }

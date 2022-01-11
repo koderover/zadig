@@ -2,17 +2,21 @@ package instantmessage
 
 import (
 	"strings"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 )
 
 const (
-	feiShuType           = "feishu"
-	feishuCardType       = "interactive"
-	feishuHeaderTemplate = "turquoise"
-	feiShuTagText        = "plain_text"
-	feishuTagMd          = "lark_md"
-	feishuTagAction      = "action"
-	feishuTagDiv         = "div"
-	feishuTagButton      = "button"
+	feiShuType                    = "feishu"
+	feishuCardType                = "interactive"
+	feishuHeaderTemplateTurquoise = "turquoise"
+	feishuHeaderTemplateGreen     = "green"
+	feishuHeaderTemplateRed       = "red"
+	feiShuTagText                 = "plain_text"
+	feishuTagMd                   = "lark_md"
+	feishuTagAction               = "action"
+	feishuTagDiv                  = "div"
+	feishuTagButton               = "button"
 )
 
 type LarkCardReq struct {
@@ -172,4 +176,11 @@ func (w *Service) sendFeishuMessageOfSingleType(title, uri, content string) erro
 	}
 	_, err := w.SendMessageRequest(uri, message)
 	return err
+}
+
+func getColorTemplateWithStatus(status config.Status) string {
+	if status == config.StatusPassed {
+		return feishuHeaderTemplateGreen
+	}
+	return feishuHeaderTemplateRed
 }
