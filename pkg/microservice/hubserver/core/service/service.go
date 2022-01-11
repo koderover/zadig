@@ -162,6 +162,7 @@ func Forward(server *remotedialer.Server, w http.ResponseWriter, r *http.Request
 	clientKey := vars["id"]
 	path := vars["path"]
 
+	logger.Info("--------------------start-----------------------")
 	logger.Debugf("got forward request %s %s", clientKey, path)
 
 	var (
@@ -202,7 +203,6 @@ func Forward(server *remotedialer.Server, w http.ResponseWriter, r *http.Request
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	log.Infof("clusterInfo:%+v", clusterInfo)
 	cluster, ok := clusterInfo.(*ClusterInfo)
 	if !ok {
 		errHandled = true
@@ -210,7 +210,7 @@ func Forward(server *remotedialer.Server, w http.ResponseWriter, r *http.Request
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	log.Infof("cluster:%+v", cluster)
+	log.Infof("cluster:%+v", cluster.ClusterID)
 	var endpoint *url.URL
 
 	endpoint, err = url.Parse(cluster.Address)
@@ -228,7 +228,8 @@ func Forward(server *remotedialer.Server, w http.ResponseWriter, r *http.Request
 		log.Errorf(fmt.Sprintf("failed to get transport, err %s", err))
 		return
 	}
-	log.Infof("r.Header:%+v", r.Header)
+	log.Infof("r.Header:%s", cluster.Token)
+	logger.Info("--------------------end-----------------------")
 	httpProxy := proxy.NewUpgradeAwareHandler(endpoint, transport, true, false, er)
 	httpProxy.ServeHTTP(w, r)
 }
