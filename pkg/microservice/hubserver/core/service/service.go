@@ -297,6 +297,7 @@ func Sync(server *remotedialer.Server, stopCh <-chan struct{}) {
 func HasSession(handler *remotedialer.Server, w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	clientKey := vars["id"]
+
 	if handler.HasSession(clientKey) {
 		if _, ok := clusters.Load(clientKey); ok {
 			w.WriteHeader(http.StatusOK)
