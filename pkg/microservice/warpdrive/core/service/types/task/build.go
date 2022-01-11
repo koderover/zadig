@@ -238,6 +238,7 @@ type Repository struct {
 	Source        string `bson:"source,omitempty"          json:"source,omitempty"`
 	RepoOwner     string `bson:"repo_owner"                json:"repo_owner"`
 	RepoName      string `bson:"repo_name"                 json:"repo_name"`
+	RepoPath      string `bson:"repo_path"                 json:"repo_path"`
 	RemoteName    string `bson:"remote_name,omitempty"     json:"remote_name,omitempty"`
 	Branch        string `bson:"branch"                    json:"branch"`
 	PR            int    `bson:"pr,omitempty"              json:"pr,omitempty"`

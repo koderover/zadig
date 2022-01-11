@@ -259,6 +259,11 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 			User:         build.Username,
 			Password:     build.Password,
 		}
+		if build.Source == setting.SourceFromGitlab {
+			if build.RepoPath != "" {
+				repo.Name = build.RepoPath
+			}
+		}
 		ctx.Repos = append(ctx.Repos, repo)
 	}
 
