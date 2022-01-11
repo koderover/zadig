@@ -285,7 +285,7 @@ func (w *Service) createNotifyBody(weChatNotification *wechatNotification) (cont
 
 func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotification) (string, string, string, string, error) {
 
-	tplTitle := "####{{if ne .WebHookType \"wechat\"}}工作流{{.Task.PipelineName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{else}}<font color=\"{{ getColor .Task.Status }}\">工作流{{.Task.PipelineName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}</font>{{end}}\n"
+	tplTitle := "#### {{if ne .WebHookType \"wechat\"}}工作流{{.Task.PipelineName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{else}}<font color=\"{{ getColor .Task.Status }}\">工作流{{.Task.PipelineName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}</font>{{end}} \n"
 	tplcontent := "**创建者**：{{.Task.TaskCreator}}  **持续时间**：{{ .TotalTime}} 秒 \n" +
 		"**环境信息**：{{.Task.WorkflowArgs.Namespace}}  **开始时间**：{{ getStartTime .Task.StartTime}} \n"
 	build := ""
@@ -295,7 +295,7 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 	for _, subStage := range weChatNotification.Task.Stages {
 		switch subStage.TaskType {
 		case config.TaskBuild:
-			build = "**构建**：\n"
+			build = "**构建** \n"
 			for _, sb := range subStage.SubTasks {
 				buildSt, err := base.ToBuildTask(sb)
 				if err != nil {
@@ -323,13 +323,12 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 				} else {
 					build += fmt.Sprintf("- %s/%s", buildSt.ServiceName, buildSt.Service)
 				}
-				build += fmt.Sprintf("- {{if ne .WebHookType \"wechat\"}}%s/%s{{else}}<font color=\"{{ getColor .Task.Status }}\">%s/%s</font>{{end}}", buildSt.ServiceName, buildSt.Service, buildSt.ServiceName, buildSt.Service)
-				build += fmt.Sprintf("  status:%s [%s-%s](%s)  commitMsg:%s\n", buildSt.BuildStatus.Status, branch, commitID, gitCommitURL, commitMsg)
+				build += fmt.Sprintf("  status:%s [%s-%s](%s)  commitMsg:%s \n", buildSt.BuildStatus.Status, branch, commitID, gitCommitURL, commitMsg)
 			}
 		case config.TaskArtifact:
 
 		case config.TaskDeploy:
-			deploy = "**部署**\n"
+			deploy = "**部署** \n"
 			for svrModule, sb := range subStage.SubTasks {
 				deploySt, err := base.ToDeployTask(sb)
 				if err != nil {
@@ -343,10 +342,10 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 				} else {
 					deploy += fmt.Sprintf("- %s/%s", svrModule, deploySt.ServiceName)
 				}
-				deploy += fmt.Sprintf(" status:%s image:%s\n", deploySt.TaskStatus, deploySt.Image)
+				deploy += fmt.Sprintf(" status:%s image:%s \n", deploySt.TaskStatus, deploySt.Image)
 			}
 		case config.TaskTestingV2:
-			test = "**测试**\n"
+			test = "**测试** \n"
 			for _, sb := range subStage.SubTasks {
 				testSt, err := base.ToTestingTask(sb)
 				if err != nil {
@@ -361,9 +360,10 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 					test += fmt.Sprintf("- %s  status:%s", testSt.TestName, testSt.TaskStatus)
 				}
 				if weChatNotification.Task.TestReports == nil {
-					test += "\n"
+					test += " \n"
 					continue
 				}
+				suffixEndline := false
 				for testname, report := range weChatNotification.Task.TestReports {
 					if testname != testSt.TestName {
 						continue
@@ -376,11 +376,15 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 					if tr.FunctionTestSuite == nil {
 						continue
 					}
-					test += fmt.Sprintf(":%d(成功)%d(失败)%d(总数)\n", tr.FunctionTestSuite.Successes, tr.FunctionTestSuite.Failures, tr.FunctionTestSuite.Tests)
+					suffixEndline = true
+					test += fmt.Sprintf(":%d(成功)%d(失败)%d(总数) \n", tr.FunctionTestSuite.Successes, tr.FunctionTestSuite.Failures, tr.FunctionTestSuite.Tests)
+				}
+				if !suffixEndline {
+					test += " \n"
 				}
 			}
 		case config.TaskDistribute, config.TaskDistributeToS3:
-			build = "**分发**：\n"
+			build = "**分发** \n"
 			for _, sb := range subStage.SubTasks {
 				distributeSt, err := base.ToDistributeToS3Task(sb)
 				if err != nil {
@@ -390,9 +394,9 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 					distributeSt.TaskStatus = config.StatusNotRun
 				}
 				if weChatNotification.WebHookType == weChatWorkType {
-					distribute += fmt.Sprintf("- <font color=\"%s\">%s</font>  status:%s", getColorWithStatus(distributeSt.TaskStatus), distributeSt.ServiceName, distributeSt.TaskStatus)
+					distribute += fmt.Sprintf("- <font color=\"%s\">%s</font>  status:%s \n", getColorWithStatus(distributeSt.TaskStatus), distributeSt.ServiceName, distributeSt.TaskStatus)
 				} else {
-					distribute += fmt.Sprintf("- %s  status:%s", distributeSt.ServiceName, distributeSt.TaskStatus)
+					distribute += fmt.Sprintf("- %s  status:%s \n", distributeSt.ServiceName, distributeSt.TaskStatus)
 				}
 			}
 		}
@@ -420,10 +424,10 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 }
 
 func (w *Service) createNotifyBodyOfTestIM(desc string, weChatNotification *wechatNotification) (string, string, string, string, error) {
-	tplTitle := "####{{if ne .WebHookType \"wechat\"}}工作流{{.Task.PipelineName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{else}}<font color=\"{{ getColor .Task.Status }}\">工作流{{.Task.PipelineName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}</font>{{end}}\n"
+	tplTitle := "#### {{if ne .WebHookType \"wechat\"}}工作流{{.Task.PipelineName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{else}}<font color=\"{{ getColor .Task.Status }}\">工作流{{.Task.PipelineName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}</font>{{end}} \n"
 	tplcontent := "**创建者**：{{.Task.TaskCreator}}  **开始时间**：{{ getStartTime .Task.StartTime}} **持续时间**：{{ .TotalTime}} 秒 \n" +
-		"**测试描述**: " + desc + "\n" +
-		"**测试结果**: "
+		"**测试描述**: " + desc + " \n" +
+		"**测试结果** \n"
 	for _, stage := range weChatNotification.Task.Stages {
 		if stage.TaskType != config.TaskTestingV2 {
 			continue
@@ -437,11 +441,12 @@ func (w *Service) createNotifyBodyOfTestIM(desc string, weChatNotification *wech
 			}
 			if testInfo.JobCtx.TestType == setting.FunctionTest && testInfo.JobCtx.TestReportPath != "" {
 				url := fmt.Sprintf("{{.BaseURI}}/api/aslan/testing/report?pipelineName={{.Task.PipelineName}}&pipelineType={{.Task.Type}}&taskID={{.Task.TaskID}}&testName=%s\n", testInfo.TestName)
-				tplcontent += fmt.Sprintf("- [%s](%s) status:%s", testName, url, testInfo.TaskStatus)
+				tplcontent += fmt.Sprintf("- [%s](%s) status:%s ", testName, url, testInfo.TaskStatus)
 				if weChatNotification.Task.TestReports == nil {
 					tplcontent += "\n"
 					continue
 				}
+				suffixEndline := false
 				for testname, report := range weChatNotification.Task.TestReports {
 					if testname != testInfo.TestName {
 						continue
@@ -454,7 +459,11 @@ func (w *Service) createNotifyBodyOfTestIM(desc string, weChatNotification *wech
 					if tr.FunctionTestSuite == nil {
 						continue
 					}
-					tplcontent += fmt.Sprintf(":%d(成功)%d(失败)%d(总数)\n", tr.FunctionTestSuite.Successes, tr.FunctionTestSuite.Failures, tr.FunctionTestSuite.Tests)
+					suffixEndline = true
+					tplcontent += fmt.Sprintf(" %d(成功)%d(失败)%d(总数)\n", tr.FunctionTestSuite.Successes, tr.FunctionTestSuite.Failures, tr.FunctionTestSuite.Tests)
+				}
+				if !suffixEndline {
+					tplcontent += "\n"
 				}
 			}
 		}
@@ -469,13 +478,14 @@ func (w *Service) createNotifyBodyOfTestIM(desc string, weChatNotification *wech
 	workflowDetailURL := "{{.BaseURI}}/v1/projects/detail/{{.Task.ProductName}}/test/detail/function/{{.Task.PipelineName}}/{{.Task.TaskID}}"
 	moreInformation := fmt.Sprintf("[%s](%s)", buttonContent, workflowDetailURL)
 	if weChatNotification.WebHookType != feiShuType {
-		tplcontent += moreInformation
+		tplcontent = fmt.Sprintf("%s%s%s", tplTitle, tplcontent, moreInformation)
 	} else {
+		tplTitle, _ = getTplExec(tplTitle, weChatNotification)
 		workflowDetailURL, _ = getTplExec(workflowDetailURL, weChatNotification)
 	}
 	tplExecContent, _ := getTplExec(tplcontent, weChatNotification)
-	tplExecTitle, _ := getTplExec(tplTitle, weChatNotification)
-	return tplExecTitle, tplExecContent, buttonContent, workflowDetailURL,nil
+
+	return tplTitle, tplExecContent, buttonContent, workflowDetailURL, nil
 }
 
 func getHTMLTestReport(task *task.Task) []string {
