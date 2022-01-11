@@ -119,7 +119,6 @@ outer:
 			if len(parts) != 2 {
 				return nil, fmt.Errorf("invalid clientKey/proto: %s", network)
 			}
-			fmt.Println(fmt.Sprintf("start parts[0]:%s", parts[0]))
 			d := s.Dialer(parts[0])
 			return d(ctx, parts[1], address)
 		}
