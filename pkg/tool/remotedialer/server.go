@@ -130,7 +130,7 @@ func (r *Server) GetTransport(clusterCaCert string, clientKey string) (http.Roun
 	defer r.Unlock()
 
 	transport := &http.Transport{}
-	if clusterCaCert != "" && r.caCert != clusterCaCert {
+	if clusterCaCert != "" {
 		certBytes, err := base64.StdEncoding.DecodeString(clusterCaCert)
 		if err != nil {
 			return nil, err
