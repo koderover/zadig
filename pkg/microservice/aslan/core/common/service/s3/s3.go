@@ -151,7 +151,7 @@ func FindDefaultS3() (*S3, error) {
 func getEndpoint() string {
 	const svc = "zadig-minio"
 	endpoint := config.S3StorageEndpoint()
-	newEndpoint := fmt.Sprintf("%s.%s%s", svc, config.Namespace(), strings.TrimLeft(endpoint, svc))
+	newEndpoint := fmt.Sprintf("%s.%s%s", svc, config.Namespace(), strings.TrimPrefix(endpoint, svc))
 	return newEndpoint
 }
 
