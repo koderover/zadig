@@ -175,7 +175,6 @@ func Forward(server *remotedialer.Server, w http.ResponseWriter, r *http.Request
 	//	return
 	//}
 
-	log.Infof("clientKey1:%s", clientKey)
 	clusterInfo, exists := clusters.Load(clientKey)
 	if !server.HasSession(clientKey) || !exists {
 		for i := 0; i < 4; i++ {
@@ -188,15 +187,12 @@ func Forward(server *remotedialer.Server, w http.ResponseWriter, r *http.Request
 			clusterInfo, exists = clusters.Load(clientKey)
 		}
 	}
-	log.Infof("server.hasSession:%v", server.HasSession(clientKey))
-	log.Infof("exists:%v", exists)
 	if !server.HasSession(clientKey) || !exists {
 		errHandled = true
 		logger.Infof("waiting for cluster %s to connect", clientKey)
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	log.Infof("clusterInfo:%+v", clusterInfo)
 	cluster, ok := clusterInfo.(*ClusterInfo)
 	if !ok {
 		errHandled = true
@@ -204,14 +200,12 @@ func Forward(server *remotedialer.Server, w http.ResponseWriter, r *http.Request
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	log.Infof("cluster:%+v", cluster)
 	var endpoint *url.URL
 
 	endpoint, err = url.Parse(cluster.Address)
 	if err != nil {
 		return
 	}
-	log.Infof("endpoint:%+v", endpoint)
 	endpoint.Path = path
 	endpoint.RawQuery = r.URL.RawQuery
 	r.URL.Host = r.Host
@@ -222,7 +216,6 @@ func Forward(server *remotedialer.Server, w http.ResponseWriter, r *http.Request
 		log.Errorf(fmt.Sprintf("failed to get transport, err %s", err))
 		return
 	}
-	log.Infof("r.Header:%+v", r.Header)
 	httpProxy := proxy.NewUpgradeAwareHandler(endpoint, transport, true, false, er)
 	httpProxy.ServeHTTP(w, r)
 }
