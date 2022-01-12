@@ -16,6 +16,8 @@ limitations under the License.
 
 package setting
 
+import "time"
+
 const LocalConfig = "local.env"
 
 // envs
@@ -591,4 +593,4 @@ const RequestModeOpenAPI = "openAPI"
 
 const DeployTimeout = 60 * 10 // 10 minutes
 
-const UpdateEnvTimeout = 60 * 5 // 5 minutes
+const UpdateEnvTimeout = 60 * 5 * time.Second

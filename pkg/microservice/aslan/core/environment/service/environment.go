@@ -2835,7 +2835,7 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 
 	handler := func(service *commonmodels.Service, isRetry bool, kubecli client.Client, log *zap.SugaredLogger) error {
 		renderChart := renderChartMap[service.ServiceName]
-		timeout := time.Second * setting.UpdateEnvTimeout
+		timeout := setting.UpdateEnvTimeout
 		err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderset.DefaultValues, service, timeout, isRetry, helmClient, kubecli)
 		if err != nil {
 			log.Errorf("failed to upgrade service: %s, namespace: %s, isRetry: %v, err: %s", service.ServiceName, productResp.Namespace, isRetry, err)
