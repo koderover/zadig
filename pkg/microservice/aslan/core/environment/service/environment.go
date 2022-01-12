@@ -2281,7 +2281,6 @@ func installOrUpgradeHelmChartWithValues(namespace, valuesYaml string, renderCha
 	}
 
 	done := make(chan bool)
-	defer close(done)
 	go func(chan bool) {
 		if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), chartSpec); err != nil {
 			err = errors.WithMessagef(
