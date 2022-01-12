@@ -2281,7 +2281,6 @@ func installOrUpgradeHelmChartWithValues(namespace, valuesYaml string, renderCha
 	}
 
 	done := make(chan bool)
-	defer close(done)
 	go func(chan bool) {
 		if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), chartSpec); err != nil {
 			err = errors.WithMessagef(
@@ -2583,7 +2582,8 @@ func updateProductGroup(username, productName, envName, updateType string, produ
 
 	handler := func(serviceObj *commonmodels.Service, isRetry bool, kubecli client.Client, log *zap.SugaredLogger) error {
 		renderChart := renderChartMap[serviceObj.ServiceName]
-		err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderSet.DefaultValues, serviceObj, 0, isRetry, helmClient, kubecli)
+		timeout := time.Second * setting.DeployTimeout
+		err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderSet.DefaultValues, serviceObj, timeout, isRetry, helmClient, kubecli)
 		if err != nil {
 			log.Errorf("failed to upgrade service: %s, namespace: %s, isRetry: %v, err: %s", serviceObj.ServiceName, productResp.Namespace, isRetry, err)
 			return errors.Wrapf(err, "failed to install or upgrade service %s", serviceObj.ServiceName)
@@ -2835,7 +2835,8 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 
 	handler := func(service *commonmodels.Service, isRetry bool, kubecli client.Client, log *zap.SugaredLogger) error {
 		renderChart := renderChartMap[service.ServiceName]
-		err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderset.DefaultValues, service, 0, isRetry, helmClient, kubecli)
+		timeout := setting.UpdateEnvTimeout
+		err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderset.DefaultValues, service, timeout, isRetry, helmClient, kubecli)
 		if err != nil {
 			log.Errorf("failed to upgrade service: %s, namespace: %s, isRetry: %v, err: %s", service.ServiceName, productResp.Namespace, isRetry, err)
 			return errors.Wrapf(err, "failed to upgrade service %s", service.ServiceName)
