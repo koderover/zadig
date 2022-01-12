@@ -102,22 +102,29 @@ service:
 `
 
 var err error
-var matedPaths []map[string]string
-var lcpErr error
 var lcpMatedPaths []map[string]string
 
 var _ = Describe("Testing search", func() {
 	Context("search matched paths from yaml", func() {
-		It("single match", func() {
+		It("single absolute match", func() {
 			pattern := []map[string]string{
 				{"repo": "repo", "tag": "tag", "image": "name"},
 			}
 			flatMap, _ := converter.YamlToFlatMap([]byte(testYaml1))
-			matedPaths, err = SearchByPattern(flatMap, pattern)
+			lcpMatedPaths, err = SearchByPattern(flatMap, pattern)
 			Expect(err).NotTo(HaveOccurred())
-			lcpMatedPaths, lcpErr = SearchByPatternLCP(flatMap, pattern)
-			Expect(lcpErr).NotTo(HaveOccurred())
-			Expect(lcpMatedPaths).To(ConsistOf(matedPaths))
+			Expect(lcpMatedPaths).Should(ConsistOf([]map[string]string{
+				{"image": "image.name", "repo": "image.repo", "tag": "image.tag"},
+			}))
+		})
+
+		It("single relative match", func() {
+			pattern := []map[string]string{
+				{"repo": "image.repo", "tag": "image.tag", "image": "image.name"},
+			}
+			flatMap, _ := converter.YamlToFlatMap([]byte(testYaml1))
+			lcpMatedPaths, err = SearchByPattern(flatMap, pattern)
+			Expect(err).NotTo(HaveOccurred())
 			Expect(lcpMatedPaths).Should(ConsistOf([]map[string]string{
 				{"image": "image.name", "repo": "image.repo", "tag": "image.tag"},
 			}))
@@ -129,9 +136,8 @@ var _ = Describe("Testing search", func() {
 			}
 			flatMap, _ := converter.YamlToFlatMap([]byte(testYaml2))
 
-			lcpMatedPaths, lcpErr = SearchByPatternLCP(flatMap, pattern)
-			Expect(lcpErr).NotTo(HaveOccurred())
-			//Expect(lcpMatedPaths).To(ConsistOf(matedPaths))
+			lcpMatedPaths, err = SearchByPattern(flatMap, pattern)
+			Expect(err).NotTo(HaveOccurred())
 
 			Expect(lcpMatedPaths).Should(ConsistOf([]map[string]string{
 				{"image": "svc1.image.name", "repo": "svc1.image.repo", "tag": "svc1.image.tag"},
@@ -139,17 +145,15 @@ var _ = Describe("Testing search", func() {
 			}))
 		})
 
-		It("multiple match pattern 2", func() {
+		It("complex multiple match", func() {
 			pattern := []map[string]string{
 				{"repo": "repo", "tag": "tag", "image": "name"},
 			}
 			flatMap, err := converter.YamlToFlatMap([]byte(testYaml3))
-			//matedPaths, err = SearchByPattern(flatMap, pattern)
 			Expect(err).NotTo(HaveOccurred())
 
-			lcpMatedPaths, lcpErr = SearchByPatternLCP(flatMap, pattern)
-			Expect(lcpErr).NotTo(HaveOccurred())
-			//Expect(lcpMatedPaths).To(ConsistOf(matedPaths))
+			lcpMatedPaths, err = SearchByPattern(flatMap, pattern)
+			Expect(err).NotTo(HaveOccurred())
 
 			Expect(lcpMatedPaths).Should(ConsistOf([]map[string]string{
 				{"image": "svc1.image.name", "repo": "svc1.image.repo", "tag": "svc1.image.tag"},
@@ -157,16 +161,15 @@ var _ = Describe("Testing search", func() {
 			}))
 		})
 
-		It("multiple match pattern 3", func() {
+		It("complex match with pattern component reuse", func() {
 			pattern := []map[string]string{
 				{"image": "image", "tag": "tag", "repo": "global.hub"},
 			}
 			flatMap, err := converter.YamlToFlatMap([]byte(testYaml8))
-			matedPaths, err = SearchByPattern(flatMap, pattern)
 			Expect(err).NotTo(HaveOccurred())
 
-			lcpMatedPaths, lcpErr = SearchByPatternLCP(flatMap, pattern)
-			Expect(lcpErr).NotTo(HaveOccurred())
+			lcpMatedPaths, err = SearchByPattern(flatMap, pattern)
+			Expect(err).NotTo(HaveOccurred())
 
 			Expect(lcpMatedPaths).Should(ConsistOf([]map[string]string{
 				{"image": "testSpec.image.image", "repo": "repoData1.global.hub", "tag": "testSpec.image.tag"},
