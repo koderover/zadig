@@ -545,7 +545,6 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		}
 
 		done := make(chan bool)
-		defer close(done)
 		go func(chan bool) {
 			if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), &chartSpec); err != nil {
 				err = errors.WithMessagef(
