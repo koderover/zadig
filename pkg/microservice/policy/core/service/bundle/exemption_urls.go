@@ -82,10 +82,6 @@ var publicURLs = []*policyRule{
 	},
 	{
 		Methods:   []string{"GET"},
-		Endpoints: []string{"api/aslan/system/jenkins/integration"},
-	},
-	{
-		Methods:   []string{"GET"},
 		Endpoints: []string{"api/v1/features/?*"},
 	},
 	{
