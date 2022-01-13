@@ -104,7 +104,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	// ---------------------------------------------------------------------------------------
 	jenkins := router.Group("jenkins")
 	{
-		jenkins.GET("/existion", CheckJenkinsIntegration)
+		jenkins.GET("/exist", CheckJenkinsIntegration)
 		jenkins.POST("/integration", CreateJenkinsIntegration)
 		jenkins.GET("/integration", ListJenkinsIntegration)
 		jenkins.PUT("/integration/:id", UpdateJenkinsIntegration)
