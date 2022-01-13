@@ -43,5 +43,5 @@ func DeletePolicyDefine(c *gin.Context) {
 	if id == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("id can not be empty")
 	}
-	ctx.Resp, ctx.Err = service.DeletePolicyDefine(id)
+	ctx.Err = service.DeletePolicyDefine(id)
 }
