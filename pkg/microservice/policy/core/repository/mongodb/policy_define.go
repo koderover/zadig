@@ -53,8 +53,10 @@ func (c *PolicyDefineColl) List(projectName string) ([]*models.PolicyDefine, err
 
 	ctx := context.Background()
 
-	query := bson.M{"namespace": projectName}
-
+	query := bson.M{}
+	if projectName != "" {
+		query["namespace"] = projectName
+	}
 	opts := options.Find()
 
 	cursor, err := c.Collection.Find(ctx, query, opts)
