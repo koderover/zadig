@@ -501,7 +501,6 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 							ImagePullPolicy: corev1.PullIfNotPresent,
 							Name:            labels["s-type"],
 							Image:           jobImage,
-							WorkingDir:      pipelineTask.ConfigPayload.S3Storage.Path,
 							Env: []corev1.EnvVar{
 								{
 									Name:  "JOB_CONFIG_FILE",
