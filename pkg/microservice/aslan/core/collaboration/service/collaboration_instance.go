@@ -234,19 +234,27 @@ func GetCollaborationNew(projectName, uid, userName string, logger *zap.SugaredL
 	}
 	for _, mode := range updateResp.New {
 		for _, workflow := range mode.Workflows {
+			name := workflow.Name
+			if workflow.CollaborationType == config.CollaborationNew {
+				name = buildName(workflow.Name, mode.Name, userName)
+			}
 			newWorkflow = append(newWorkflow, &Workflow{
 				CollaborationType: workflow.CollaborationType,
 				BaseName:          workflow.Name,
 				CollaborationMode: mode.Name,
-				Name:              buildName(workflow.Name, mode.Name, userName),
+				Name:              name,
 			})
 		}
 		for _, product := range mode.Products {
+			name := product.Name
+			if product.CollaborationType == config.CollaborationNew {
+				name = buildName(product.Name, mode.Name, userName)
+			}
 			newProduct = append(newProduct, &Product{
 				CollaborationType: product.CollaborationType,
 				BaseName:          product.Name,
 				CollaborationMode: mode.Name,
-				Name:              buildName(product.Name, mode.Name, userName),
+				Name:              name,
 				DeployType:        mode.DeployType,
 			})
 			newProductName.Insert(product.Name)
@@ -254,19 +262,27 @@ func GetCollaborationNew(projectName, uid, userName string, logger *zap.SugaredL
 	}
 	for _, item := range updateResp.Update {
 		for _, workflow := range item.NewSpec.Workflows {
+			name := workflow.Name
+			if workflow.CollaborationType == config.CollaborationNew {
+				name = buildName(workflow.Name, item.CollaborationMode, userName)
+			}
 			newWorkflow = append(newWorkflow, &Workflow{
 				CollaborationType: workflow.CollaborationType,
 				BaseName:          workflow.Name,
 				CollaborationMode: item.CollaborationMode,
-				Name:              buildName(workflow.Name, item.CollaborationMode, userName),
+				Name:              name,
 			})
 		}
 		for _, product := range item.NewSpec.Products {
+			name := product.Name
+			if product.CollaborationType == config.CollaborationNew {
+				name = buildName(product.Name, item.CollaborationMode, userName)
+			}
 			newProduct = append(newProduct, &Product{
 				CollaborationType: product.CollaborationType,
 				BaseName:          product.Name,
 				CollaborationMode: item.CollaborationMode,
-				Name:              buildName(product.Name, item.CollaborationMode, userName),
+				Name:              name,
 				DeployType:        item.DeployType,
 			})
 			newProductName.Insert(product.Name)
