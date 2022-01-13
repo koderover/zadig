@@ -97,4 +97,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		policyUserPermission.GET("/:uid", GetUserPermission)
 	}
+	policyFlex := router.Group("policy_define")
+	{
+		policyFlex.POST("", CreatePolicyDefine)
+	}
 }
