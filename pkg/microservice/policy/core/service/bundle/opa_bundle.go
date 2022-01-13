@@ -98,6 +98,18 @@ type Attribute struct {
 
 type Attributes []*Attribute
 
+func NewFrom(atts []*models.Attribute) Attributes {
+	var att Attributes
+	for _, v := range atts {
+		a := Attribute{
+			Key:   v.Key,
+			Value: v.Value,
+		}
+		att = append(att, &a)
+	}
+	return att
+}
+
 func (a Attributes) LessOrEqual(other Attributes) bool {
 	if len(a) == 0 {
 		return true
@@ -251,6 +263,10 @@ func generateOPAPolicyDefine(policyDefines []*models.PolicyDefine, policies []*m
 						opaRole.Rules = append(opaRole.Rules, &rule{Method: v, Endpoint: endpoint})
 					}
 				}
+			}
+
+			for _, v := range opaRole.Rules {
+				v.MatchAttributes = NewFrom(r.MatchAttributes)
 			}
 		}
 		sort.Sort(opaRole.Rules)

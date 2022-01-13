@@ -37,9 +37,9 @@ type Rule struct {
 	Verbs []string `bson:"verbs"         json:"verbs"`
 
 	// Resources is a list of resources this rule applies to. '*' represents all resources.
-	Resources       []string    `bson:"resources" json:"resources"`
-	Kind            string      `bson:"kind"     json:"kind"`
-	MatchAttributes []Attribute `bson:"match_attributes"     json:"match_attributes"`
+	Resources       []string     `bson:"resources" json:"resources"`
+	Kind            string       `bson:"kind"     json:"kind"`
+	MatchAttributes []*Attribute `bson:"match_attributes"     json:"match_attributes"`
 }
 
 func (Role) TableName() string {
