@@ -103,8 +103,21 @@ user_allowed_resources[resourceID] {
     user_matched_rule_for_filtering[rule]
     res := data.resources[rule.resourceType][_]
     project_name_is_match(res)
-    not attributes_mismatch(rule.matchAttributes, res)
+    attributes_match(rule.matchAttributes, res)
     resourceID := res.resourceID
+}
+
+attributes_match(attributes, res) {
+    count(attributes) == 0
+}
+
+attributes_match(attributes, res) {
+    attribute := attributes[_]
+    attribute_match(attribute, res)
+}
+
+attribute_match(attribute, res) {
+    res.spec[attribute.key] == attribute.value
 }
 
 project_name_is_match(res) {
