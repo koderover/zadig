@@ -29,21 +29,15 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-type ListLabelsArgs struct {
-	Key       string   `json:"key" form:"key"`
-	Values    []string `json:"values" form:"values"`
-	LabelType string   `json:"type" form:"type"`
-}
-
 func ListLabels(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	listLabelsArgs := new(ListLabelsArgs)
-	if err := c.ShouldBindQuery(listLabelsArgs); err != nil {
+	listLabelsArgs := make([]*service.ListLabelsArgs, 0)
+	if err := c.ShouldBindJSON(&listLabelsArgs); err != nil {
 		ctx.Err = err
 		return
 	}
-	ctx.Resp, ctx.Err = service.ListLabels(listLabelsArgs.Key, listLabelsArgs.Values, listLabelsArgs.LabelType)
+	ctx.Resp, ctx.Err = service.ListLabels(listLabelsArgs)
 }
 
 func createLabelValidate(lbs []*models.Label) error {

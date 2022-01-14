@@ -150,3 +150,32 @@ func (c *LabelColl) List(opt *ListLabelOpt) ([]*models.Label, error) {
 	}
 	return res, nil
 }
+
+func (c *LabelColl) Filter(opts []*ListLabelOpt) ([]*models.Label, error) {
+	var res []*models.Label
+	ctx := context.Background()
+
+	conditions := bson.A{}
+	for _, findOpt := range opts {
+		con := bson.M{
+			"key": findOpt.Key,
+		}
+		if len(findOpt.Values) > 0 {
+			con["value"] = bson.M{"$in": findOpt.Values}
+		}
+
+		conditions = append(conditions, con)
+	}
+
+	filter := bson.D{{"$or", conditions}}
+	cursor, err := c.Collection.Find(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cursor.All(ctx, &res)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}

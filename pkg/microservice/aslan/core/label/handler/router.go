@@ -25,7 +25,7 @@ type Router struct{}
 func (*Router) Inject(router *gin.RouterGroup) {
 	labels := router.Group("labels")
 	{
-		labels.GET("", ListLabels)
+		labels.POST("/filter", ListLabels)
 		labels.POST("/bulk-create", CreateLabels)
 		labels.DELETE("/:id", DeleteLabel)
 		labels.POST("/bulk-delete", DeleteLabels)

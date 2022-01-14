@@ -50,13 +50,22 @@ func CreateLabels(labels []*models.Label) error {
 	return mongodb.NewLabelColl().BulkCreate(labels)
 }
 
-func ListLabels(key string, values []string, labelType string) ([]*models.Label, error) {
-	opt := &mongodb.ListLabelOpt{
-		Key:    key,
-		Values: values,
-		Type:   labelType,
+type ListLabelsArgs struct {
+	Key    string   `json:"key" form:"key"`
+	Values []string `json:"values" form:"values"`
+}
+
+func ListLabels(args []*ListLabelsArgs) ([]*models.Label, error) {
+	opts := make([]*mongodb.ListLabelOpt, 0)
+	for _, v := range args {
+		opt := &mongodb.ListLabelOpt{
+			Key:    v.Key,
+			Values: v.Values,
+		}
+		opts = append(opts, opt)
 	}
-	return mongodb.NewLabelColl().List(opt)
+
+	return mongodb.NewLabelColl().Filter(opts)
 }
 
 type ListResourceByLabelsReq struct {
