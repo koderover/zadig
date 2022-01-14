@@ -30,25 +30,25 @@ import (
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
-type PolicyBindingColl struct {
+type PolicyDefineBindingColl struct {
 	*mongo.Collection
 
 	coll string
 }
 
-func NewPolicyBindingColl() *PolicyBindingColl {
-	name := models.PolicyBinding{}.TableName()
-	return &PolicyBindingColl{
+func NewPolicyBindingColl() *PolicyDefineBindingColl {
+	name := models.PolicyDefineBinding{}.TableName()
+	return &PolicyDefineBindingColl{
 		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),
 		coll:       name,
 	}
 }
 
-func (c *PolicyBindingColl) GetCollectionName() string {
+func (c *PolicyDefineBindingColl) GetCollectionName() string {
 	return c.coll
 }
 
-func (c *PolicyBindingColl) EnsureIndex(ctx context.Context) error {
+func (c *PolicyDefineBindingColl) EnsureIndex(ctx context.Context) error {
 	mod := mongo.IndexModel{
 		Keys: bson.D{
 			bson.E{Key: "namespace", Value: 1},
@@ -62,7 +62,7 @@ func (c *PolicyBindingColl) EnsureIndex(ctx context.Context) error {
 	return err
 }
 
-func (c *PolicyBindingColl) List(opts ...*ListOptions) ([]*models.RoleBinding, error) {
+func (c *PolicyDefineBindingColl) List(opts ...*ListOptions) ([]*models.RoleBinding, error) {
 	var res []*models.RoleBinding
 
 	ctx := context.Background()
@@ -88,7 +88,7 @@ func (c *PolicyBindingColl) List(opts ...*ListOptions) ([]*models.RoleBinding, e
 	return res, nil
 }
 
-func (c *PolicyBindingColl) ListBy(projectName, uid string) ([]*models.RoleBinding, error) {
+func (c *PolicyDefineBindingColl) ListBy(projectName, uid string) ([]*models.RoleBinding, error) {
 	var res []*models.RoleBinding
 
 	ctx := context.Background()
@@ -111,13 +111,13 @@ func (c *PolicyBindingColl) ListBy(projectName, uid string) ([]*models.RoleBindi
 	return res, nil
 }
 
-func (c *PolicyBindingColl) Delete(name string, projectName string) error {
+func (c *PolicyDefineBindingColl) Delete(name string, projectName string) error {
 	query := bson.M{"name": name, "namespace": projectName}
 	_, err := c.DeleteOne(context.TODO(), query)
 	return err
 }
 
-func (c *PolicyBindingColl) DeleteMany(names []string, projectName string, userID string) error {
+func (c *PolicyDefineBindingColl) DeleteMany(names []string, projectName string, userID string) error {
 	query := bson.M{}
 	if projectName != "" {
 		query["namespace"] = projectName
@@ -134,7 +134,7 @@ func (c *PolicyBindingColl) DeleteMany(names []string, projectName string, userI
 	return err
 }
 
-func (c *PolicyBindingColl) DeleteByRole(roleName string, projectName string) error {
+func (c *PolicyDefineBindingColl) DeleteByRole(roleName string, projectName string) error {
 	query := bson.M{"role_ref.name": roleName, "role_ref.namespace": projectName}
 	// if projectName == "", delete all rolebindings in all namespaces
 	if projectName != "" {
@@ -145,7 +145,7 @@ func (c *PolicyBindingColl) DeleteByRole(roleName string, projectName string) er
 	return err
 }
 
-func (c *PolicyBindingColl) DeleteByRoles(roleNames []string, projectName string) error {
+func (c *PolicyDefineBindingColl) DeleteByRoles(roleNames []string, projectName string) error {
 	if projectName == "" {
 		return fmt.Errorf("projectName is empty")
 	}
@@ -159,7 +159,7 @@ func (c *PolicyBindingColl) DeleteByRoles(roleNames []string, projectName string
 	return err
 }
 
-func (c *PolicyBindingColl) Create(obj *models.RoleBinding) error {
+func (c *PolicyDefineBindingColl) Create(obj *models.PolicyDefineBinding) error {
 	if obj == nil {
 		return fmt.Errorf("nil object")
 	}
@@ -169,7 +169,7 @@ func (c *PolicyBindingColl) Create(obj *models.RoleBinding) error {
 	return err
 }
 
-func (c *PolicyBindingColl) BulkCreate(objs []*models.RoleBinding) error {
+func (c *PolicyDefineBindingColl) BulkCreate(objs []*models.PolicyDefineBinding) error {
 	if len(objs) == 0 {
 		return nil
 	}
@@ -188,7 +188,7 @@ func (c *PolicyBindingColl) BulkCreate(objs []*models.RoleBinding) error {
 	return err
 }
 
-func (c *PolicyBindingColl) UpdateOrCreate(obj *models.RoleBinding) error {
+func (c *PolicyDefineBindingColl) UpdateOrCreate(obj *models.PolicyDefineBinding) error {
 	if obj == nil {
 		return fmt.Errorf("nil object")
 	}

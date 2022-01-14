@@ -1,7 +1,3 @@
-package models
-
-
-
 /*
 Copyright 2021 The KodeRover Authors.
 
@@ -20,12 +16,10 @@ limitations under the License.
 
 package models
 
-
-
 // PolicyBinding references a policy, but does not contain it. It adds who information via Subjects.
 // PolicyBinding in a given namespace only have effect in that namespace.
 // for a cluster scoped PolicyBinding, namespace is empty.
-type PolicyBinding struct {
+type PolicyDefineBinding struct {
 	Name      string `bson:"name"      json:"name"`
 	Namespace string `bson:"namespace" json:"namespace"`
 
@@ -33,9 +27,9 @@ type PolicyBinding struct {
 	Subjects []*Subject `bson:"subjects" json:"subjects"`
 
 	// RoleRef can reference a namespaced or cluster scoped Role.
-	RoleRef *RoleRef `bson:"role_ref" json:"roleRef"`
+	RoleRef *RoleRef `bson:"policy_ref" json:"roleRef"`
 }
 
-func (PolicyBinding) TableName() string {
+func (PolicyDefineBinding) TableName() string {
 	return "policybinding"
 }

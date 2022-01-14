@@ -81,3 +81,19 @@ func (c *PolicyDefineColl) Delete(id string) error {
 	_, err = c.DeleteOne(context.TODO(), query)
 	return err
 }
+
+func (c *PolicyDefineColl) Get(ns, name string) (*models.PolicyDefine, bool, error) {
+	res := &models.PolicyDefine{}
+
+	query := bson.M{"namespace": ns, "name": name}
+	err := c.FindOne(context.TODO(), query).Decode(res)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, false, nil
+		}
+
+		return nil, false, err
+	}
+
+	return res, true, nil
+}
