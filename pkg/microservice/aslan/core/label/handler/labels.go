@@ -17,9 +17,11 @@ limitations under the License.
 package handler
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/dto"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/models"
@@ -45,29 +47,39 @@ func ListLabels(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.ListLabels(listLabelsArgs.Key, listLabelsArgs.Values, listLabelsArgs.LabelType)
 }
 
-func createLabelValidate(lb *models.Label) error {
-	if lb.Key == "" || lb.Value == "" {
-		return e.ErrInvalidParam.AddDesc("invalid label args")
+func createLabelValidate(lbs []*models.Label) error {
+	keyValues := sets.NewString()
+	for _, v := range lbs {
+		if v.Key == "" || v.Value == "" {
+			return e.ErrInvalidParam.AddDesc("invalid label args")
+		}
+		keyValue := fmt.Sprintf("%s-%s", v.Key, v.Value)
+		if keyValues.Has(keyValue) {
+			return e.ErrInvalidParam.AddDesc(fmt.Sprintf("duplicate key-value:%s", keyValue))
+		}
+		keyValues.Insert(keyValue)
 	}
 	return nil
 }
 
-func CreateLabel(c *gin.Context) {
+func CreateLabels(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	label := new(models.Label)
-	if err := c.ShouldBindJSON(label); err != nil {
+	labels := make([]*models.Label, 0)
+	if err := c.ShouldBindJSON(&labels); err != nil {
 		ctx.Err = err
 		return
 	}
 
-	if err := createLabelValidate(label); err != nil {
+	if err := createLabelValidate(labels); err != nil {
 		ctx.Err = err
 		return
 	}
-	label.CreateBy = ctx.UserName
-	ctx.Err = service.CreateLabel(label)
+	for _, v := range labels {
+		v.CreateBy = ctx.UserName
+	}
+	ctx.Err = service.CreateLabels(labels)
 }
 
 func DeleteLabel(c *gin.Context) {

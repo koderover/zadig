@@ -25,8 +25,8 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-func CreateLabel(label *models.Label) error {
-	return mongodb.NewLabelColl().Create(label)
+func CreateLabels(labels []*models.Label) error {
+	return mongodb.NewLabelColl().BulkCreate(labels)
 }
 
 func ListLabels(key string, values []string, labelType string) ([]*models.Label, error) {

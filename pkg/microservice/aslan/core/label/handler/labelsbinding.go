@@ -25,7 +25,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-func ListLabelsBinding(c *gin.Context) {
+func ListLabelBindings(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -39,7 +39,7 @@ func createLBValidate(lb *models.LabelBinding) error {
 	return nil
 }
 
-func CreateLabelsBinding(c *gin.Context) {
+func CreateLabelBindings(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -55,7 +55,7 @@ func CreateLabelsBinding(c *gin.Context) {
 	ctx.Err = service.CreateLabelsBinding(labelBinding, ctx.UserName, ctx.Logger)
 }
 
-func DeleteLabelsBinding(c *gin.Context) {
+func DeleteLabelBindings(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	id := c.Param("id")

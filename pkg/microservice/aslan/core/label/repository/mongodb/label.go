@@ -58,9 +58,20 @@ func (c *LabelColl) EnsureIndex(ctx context.Context) error {
 	return err
 }
 
-func (c *LabelColl) Create(args *models.Label) error {
-	args.CreateTime = time.Now().Unix()
-	_, err := c.InsertOne(context.TODO(), args)
+func (c *LabelColl) BulkCreate(labels []*models.Label) error {
+	if len(labels) == 0 {
+		return nil
+	}
+	for _, label := range labels {
+		label.CreateTime = time.Now().Unix()
+	}
+
+	var ois []interface{}
+	for _, obj := range labels {
+		ois = append(ois, obj)
+	}
+
+	_, err := c.InsertMany(context.TODO(), ois)
 	return err
 }
 
