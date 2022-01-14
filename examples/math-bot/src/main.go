@@ -12,18 +12,26 @@ type Bot struct {
 	Right int
 }
 
-func Plus(w http.ResponseWriter, r *http.Request) {
-	var b Bot
+type BotResult struct {
+	Data int
+}
 
+func Plus(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	var b Bot
 	err := json.NewDecoder(r.Body).Decode(&b)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	result := b.Left + b.Right
-	log.Printf("The plus result is %+v", result)
-	w.Write([]byte(strconv.Itoa(result)))
+	result := BotResult{
+		Data: b.Left + b.Right,
+	}
+	jsonResp, _ := json.Marshal(result)
+	log.Printf("The plus result is %+v", result.Data)
+	w.Write(jsonResp)
 }
 
 func Minus(w http.ResponseWriter, r *http.Request) {
