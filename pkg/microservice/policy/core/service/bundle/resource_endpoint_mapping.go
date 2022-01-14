@@ -45,7 +45,7 @@ func (m resourceActionMappings) GetRules(resource string, actions []string) []*r
 	return res
 }
 
-func getResourceActionMappings(policies []*models.Policy) resourceActionMappings {
+func getResourceActionMappings(policies []*models.PolicyMeta) resourceActionMappings {
 	data := make(resourceActionMappings)
 	for _, p := range policies {
 		if _, ok := data[p.Resource]; !ok {

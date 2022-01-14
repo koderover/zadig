@@ -193,7 +193,7 @@ func (o roleBindings) Less(i, j int) bool {
 	return o[i].UID < o[j].UID
 }
 
-func generateOPARoles(roles []*models.Role, policies []*models.Policy) *opaRoles {
+func generateOPARoles(roles []*models.Role, policies []*models.PolicyMeta) *opaRoles {
 	data := &opaRoles{}
 	resourceMappings := getResourceActionMappings(policies)
 
@@ -257,7 +257,7 @@ func generateOPARoleBindings(rbs []*models.RoleBinding) *opaRoleBindings {
 	return data
 }
 
-func generateOPAExemptionURLs(policies []*models.Policy) *exemptionURLs {
+func generateOPAExemptionURLs(policies []*models.PolicyMeta) *exemptionURLs {
 	data := &exemptionURLs{}
 
 	for _, r := range publicURLs {

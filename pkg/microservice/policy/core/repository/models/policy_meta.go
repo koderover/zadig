@@ -16,14 +16,14 @@ limitations under the License.
 
 package models
 
-type Policy struct {
-	Resource    string        `bson:"resource"    json:"resource"`
-	Alias       string        `bson:"alias"       json:"alias"`
-	Description string        `bson:"description" json:"description"`
-	Rules       []*PolicyRule `bson:"rules"       json:"rules"`
+type PolicyMeta struct {
+	Resource    string            `bson:"resource"    json:"resource"`
+	Alias       string            `bson:"alias"       json:"alias"`
+	Description string            `bson:"description" json:"description"`
+	Rules       []*PolicyMetaRule `bson:"rules"       json:"rules"`
 }
 
-type PolicyRule struct {
+type PolicyMetaRule struct {
 	Action      string        `bson:"action"      json:"action"`
 	Alias       string        `bson:"alias"       json:"alias"`
 	Description string        `bson:"description" json:"description"`
@@ -43,6 +43,6 @@ type Attribute struct {
 	Value string `bson:"value" json:"value"`
 }
 
-func (Policy) TableName() string {
-	return "policy"
+func (PolicyMeta) TableName() string {
+	return "policy_meta"
 }

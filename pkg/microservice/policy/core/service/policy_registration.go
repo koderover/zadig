@@ -64,14 +64,14 @@ type PolicyRuleDefinition struct {
 }
 
 func CreateOrUpdatePolicyRegistration(p *Policy, _ *zap.SugaredLogger) error {
-	obj := &models.Policy{
+	obj := &models.PolicyMeta{
 		Resource:    p.Resource,
 		Alias:       p.Alias,
 		Description: p.Description,
 	}
 
 	for _, r := range p.Rules {
-		rule := &models.PolicyRule{
+		rule := &models.PolicyMetaRule{
 			Action:      r.Action,
 			Alias:       r.Alias,
 			Description: r.Description,
