@@ -79,7 +79,9 @@ func findRegisty(regOps *mongodb.FindRegOps, getRealCredential bool, log *zap.Su
 	switch resp.RegProvider {
 	case config.RegistryTypeSWR:
 		resp.AccessKey = fmt.Sprintf("%s@%s", resp.Region, resp.AccessKey)
+		fmt.Println("Getting huawei secretkey with AK:", resp.AccessKey, ", SK:", resp.SecretKey)
 		resp.SecretKey = util.ComputeHmacSha256(resp.AccessKey, resp.SecretKey)
+		fmt.Println("The result is:", resp.SecretKey)
 	case config.RegistryTypeAWS:
 		realAK, realSK, err := getAWSRegistryCredential(resp.ID.Hex(), resp.AccessKey, resp.SecretKey, resp.Region)
 		if err != nil {
