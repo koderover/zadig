@@ -552,9 +552,6 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			if len(hrs) > 0 {
 				releaseutil.Reverse(hrs, releaseutil.SortByRevision)
 				rel := hrs[0]
-				if rel.Info.Status == helmrelease.StatusDeployed {
-					return nil
-				}
 				if rel.Info.Status == helmrelease.StatusFailed || rel.Info.Status == helmrelease.StatusSuperseded ||
 					rel.Info.Status == helmrelease.StatusUnknown {
 					if rel.Version == 1 {
