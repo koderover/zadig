@@ -2294,7 +2294,7 @@ func installOrUpgradeHelmChartWithValues(namespace, valuesYaml string, renderCha
 	}(done)
 
 	pendingStatusProcess := func(typ string) error {
-		hrs, errHistory := helmClient.ListReleaseHistory(chartSpec.ReleaseName, 10)
+		hrs, errHistory := helmClient.ListReleaseHistory(chartSpec.ReleaseName, 5)
 		if errHistory != nil {
 			err = errors.WithMessagef(
 				err,

@@ -544,6 +544,47 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			Wait:        true,
 		}
 
+		failedStatusProcess := func() error {
+			hrs, errHistory := helmClient.ListReleaseHistory(chartSpec.ReleaseName, 5)
+			if errHistory != nil {
+				return fmt.Errorf("failed to ListReleaseHistory : %s,error:%s", chartSpec.ReleaseName, errHistory)
+			}
+			if len(hrs) > 0 {
+				releaseutil.Reverse(hrs, releaseutil.SortByRevision)
+				rel := hrs[0]
+				if rel.Info.Status == helmrelease.StatusDeployed {
+					return nil
+				}
+				if rel.Info.Status == helmrelease.StatusFailed {
+					if rel.Version == 1 {
+						secretName := fmt.Sprintf("sh.helm.release.v1.%s.v%d", rel.Name, rel.Version)
+						deleteErr := updater.DeleteSecretWithName(rel.Namespace, secretName, p.kubeClient)
+						if deleteErr != nil {
+							return fmt.Errorf("failed to deleteSecretWithName :%s,error:%s", secretName, deleteErr)
+						}
+						return nil
+					}
+					chartSp := &helmclient.ChartSpec{
+						ReleaseName: chartSpec.ReleaseName,
+						ChartName:   chartSpec.ChartName,
+						Namespace:   chartSpec.Namespace,
+						ReuseValues: true,
+						SkipCRDs:    false,
+						UpgradeCRDs: true,
+					}
+					rollErr := helmClient.RollbackRelease(chartSp, 0)
+					if rollErr != nil {
+						return fmt.Errorf("failed to RollbackRelease :%s,ns:%s,error:%s", chartSp.ReleaseName, chartSp.Namespace, rollErr)
+					}
+					return nil
+				}
+			}
+			return nil
+		}
+		if errf := failedStatusProcess(); errf != nil {
+			err = errors.WithMessagef(err, "failedStatusProcess: %s", errf)
+			return
+		}
 		done := make(chan bool)
 		go func(chan bool) {
 			if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), &chartSpec); err != nil {
@@ -558,7 +599,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		}(done)
 
 		pendingStatusProcess := func(typ string) error {
-			hrs, errHistory := helmClient.ListReleaseHistory(chartSpec.ReleaseName, 10)
+			hrs, errHistory := helmClient.ListReleaseHistory(chartSpec.ReleaseName, 5)
 			if errHistory != nil {
 				err = errors.WithMessagef(
 					err,
