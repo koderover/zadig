@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -172,6 +173,17 @@ func (c *ProductColl) List(opt *ProductListOptions) ([]*models.Product, error) {
 	}
 	if len(opt.InProjects) > 0 {
 		query["product_name"] = bson.M{"$in": opt.InProjects}
+	}
+	if len(opt.InIDs) > 0 {
+		var oids []primitive.ObjectID
+		for _, id := range opt.InIDs {
+			oid, err := primitive.ObjectIDFromHex(id)
+			if err != nil {
+				return nil, err
+			}
+			oids = append(oids, oid)
+		}
+		query["_id"] = bson.M{"$in": oids}
 	}
 
 	ctx := context.Background()

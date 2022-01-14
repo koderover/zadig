@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -70,6 +71,17 @@ func (c *WorkflowColl) List(opt *ListWorkflowOption) ([]*models.Workflow, error)
 	}
 	if len(opt.Names) > 0 {
 		query["name"] = bson.M{"$in": opt.Names}
+	}
+	if len(opt.Ids) > 0 {
+		var oids []primitive.ObjectID
+		for _, id := range opt.Ids {
+			oid, err := primitive.ObjectIDFromHex(id)
+			if err != nil {
+				return nil, err
+			}
+			oids = append(oids, oid)
+		}
+		query["_id"] = bson.M{"$in": opt.Ids}
 	}
 
 	resp := make([]*models.Workflow, 0)
