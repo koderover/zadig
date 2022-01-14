@@ -19,7 +19,6 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -32,8 +31,8 @@ func ListLabelBindings(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.ListLabelsBinding()
 }
 
-func createLBValidate(lb *models.LabelBinding) error {
-	if lb.LabelID == "" || lb.ResourceType == "" || lb.ResourceID == "" {
+func createLBValidate(cr *service.CreateLabelBindingsArgs) error {
+	if cr.LabelID == "" || cr.ResourceType == "" || len(cr.ResourceIDs) == 0 {
 		return e.ErrInvalidParam.AddDesc("invalid labelbinding args")
 	}
 	return nil
@@ -43,16 +42,17 @@ func CreateLabelBindings(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	labelBinding := new(models.LabelBinding)
-	if err := c.ShouldBindJSON(labelBinding); err != nil {
+	createLabelBindingsArgs := new(service.CreateLabelBindingsArgs)
+	if err := c.ShouldBindJSON(createLabelBindingsArgs); err != nil {
 		ctx.Err = err
 		return
 	}
-	if err := createLBValidate(labelBinding); err != nil {
+	if err := createLBValidate(createLabelBindingsArgs); err != nil {
 		ctx.Err = err
 		return
 	}
-	ctx.Err = service.CreateLabelsBinding(labelBinding, ctx.UserName, ctx.Logger)
+	createLabelBindingsArgs.CreateBy = ctx.UserName
+	ctx.Err = service.CreateLabelsBinding(createLabelBindingsArgs, ctx.Logger)
 }
 
 func DeleteLabelBindings(c *gin.Context) {
