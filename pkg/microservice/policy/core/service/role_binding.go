@@ -34,8 +34,6 @@ type RoleBinding struct {
 	Public bool   `json:"public"`
 }
 
-const SystemScope = "*"
-
 func CreateRoleBindings(ns string, rbs []*RoleBinding, logger *zap.SugaredLogger) error {
 	var objs []*models.RoleBinding
 	for _, rb := range rbs {

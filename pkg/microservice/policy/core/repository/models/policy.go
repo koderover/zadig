@@ -16,14 +16,14 @@ limitations under the License.
 
 package models
 
-// Role is a namespaced or cluster scoped, logical grouping of PolicyRules that can be referenced as a unit by a RoleBinding.
-// for a cluster scoped Role, namespace is empty.
-type Role struct {
+// Policy is a namespaced or cluster scoped, logical grouping of PolicyRules that can be referenced as a unit by a PolicyBinding.
+// for a cluster scoped Policy, namespace is empty.
+type Policy struct {
 	Name      string  `bson:"name"      json:"name"`
 	Namespace string  `bson:"namespace" json:"namespace"`
 	Rules     []*Rule `bson:"rules"     json:"rules"`
 }
 
-func (Role) TableName() string {
-	return "role"
+func (Policy) TableName() string {
+	return "policy"
 }

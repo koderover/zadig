@@ -26,18 +26,18 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 )
 
-type Role struct {
+type Policy struct {
 	Name  string  `json:"name"`
 	Rules []*Rule `json:"rules,omitempty"`
 }
 
-func CreateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
-	obj := &models.Role{
-		Name:      role.Name,
+func CreatePolicy(ns string, policy *Policy, _ *zap.SugaredLogger) error {
+	obj := &models.Policy{
+		Name:      policy.Name,
 		Namespace: ns,
 	}
 
-	for _, r := range role.Rules {
+	for _, r := range policy.Rules {
 		obj.Rules = append(obj.Rules, &models.Rule{
 			Verbs:     r.Verbs,
 			Kind:      r.Kind,
@@ -45,68 +45,68 @@ func CreateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
 		})
 	}
 
-	return mongodb.NewRoleColl().Create(obj)
+	return mongodb.NewPolicyColl().Create(obj)
 }
 
-func UpdateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
-	obj := &models.Role{
-		Name:      role.Name,
+func UpdatePolicy(ns string, policy *Policy, _ *zap.SugaredLogger) error {
+	obj := &models.Policy{
+		Name:      policy.Name,
 		Namespace: ns,
 	}
 
-	for _, r := range role.Rules {
+	for _, r := range policy.Rules {
 		obj.Rules = append(obj.Rules, &models.Rule{
 			Verbs:     r.Verbs,
 			Kind:      r.Kind,
 			Resources: r.Resources,
 		})
 	}
-	return mongodb.NewRoleColl().UpdateRole(obj)
+	return mongodb.NewPolicyColl().UpdatePolicy(obj)
 }
 
-func UpdateOrCreateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
-	obj := &models.Role{
-		Name:      role.Name,
+func UpdateOrCreatePolicy(ns string, policy *Policy, _ *zap.SugaredLogger) error {
+	obj := &models.Policy{
+		Name:      policy.Name,
 		Namespace: ns,
 	}
 
-	for _, r := range role.Rules {
+	for _, r := range policy.Rules {
 		obj.Rules = append(obj.Rules, &models.Rule{
 			Verbs:     r.Verbs,
 			Kind:      r.Kind,
 			Resources: r.Resources,
 		})
 	}
-	return mongodb.NewRoleColl().UpdateOrCreate(obj)
+	return mongodb.NewPolicyColl().UpdateOrCreate(obj)
 }
 
-func ListRoles(projectName string, _ *zap.SugaredLogger) ([]*Role, error) {
-	var roles []*Role
-	projectRoles, err := mongodb.NewRoleColl().ListBy(projectName)
+func ListPolicies(projectName string, _ *zap.SugaredLogger) ([]*Policy, error) {
+	var policies []*Policy
+	projectPolicies, err := mongodb.NewPolicyColl().ListBy(projectName)
 	if err != nil {
 		return nil, err
 	}
-	for _, v := range projectRoles {
+	for _, v := range projectPolicies {
 		// frontend doesn't need to see contributor role
 		if v.Name == string(setting.Contributor) {
 			continue
 		}
-		roles = append(roles, &Role{
+		policies = append(policies, &Policy{
 			Name: v.Name,
 		})
 	}
-	return roles, nil
+	return policies, nil
 }
 
-func GetRole(ns, name string, _ *zap.SugaredLogger) (*Role, error) {
-	r, found, err := mongodb.NewRoleColl().Get(ns, name)
+func GetPolicy(ns, name string, _ *zap.SugaredLogger) (*Policy, error) {
+	r, found, err := mongodb.NewPolicyColl().Get(ns, name)
 	if err != nil {
 		return nil, err
 	} else if !found {
-		return nil, fmt.Errorf("role %s not found", name)
+		return nil, fmt.Errorf("policy %s not found", name)
 	}
 
-	res := &Role{
+	res := &Policy{
 		Name: r.Name,
 	}
 	for _, ru := range r.Rules {
@@ -120,17 +120,17 @@ func GetRole(ns, name string, _ *zap.SugaredLogger) (*Role, error) {
 	return res, nil
 }
 
-func DeleteRole(name string, projectName string, logger *zap.SugaredLogger) error {
-	err := mongodb.NewRoleColl().Delete(name, projectName)
+func DeletePolicy(name string, projectName string, logger *zap.SugaredLogger) error {
+	err := mongodb.NewPolicyColl().Delete(name, projectName)
 	if err != nil {
-		logger.Errorf("Failed to delete role %s in project %s, err: %s", name, projectName, err)
+		logger.Errorf("Failed to delete policy %s in project %s, err: %s", name, projectName, err)
 		return err
 	}
 
-	return mongodb.NewRoleBindingColl().DeleteByRole(name, projectName)
+	return mongodb.NewPolicyBindingColl().DeleteByPolicy(name, projectName)
 }
 
-func DeleteRoles(names []string, projectName string, logger *zap.SugaredLogger) error {
+func DeletePolicies(names []string, projectName string, logger *zap.SugaredLogger) error {
 	if len(names) == 0 {
 		return nil
 	}
@@ -142,11 +142,11 @@ func DeleteRoles(names []string, projectName string, logger *zap.SugaredLogger) 
 		names = []string{}
 	}
 
-	err := mongodb.NewRoleColl().DeleteMany(names, projectName)
+	err := mongodb.NewPolicyColl().DeleteMany(names, projectName)
 	if err != nil {
-		logger.Errorf("Failed to delete roles %s in project %s, err: %s", names, projectName, err)
+		logger.Errorf("Failed to delete policies %s in project %s, err: %s", names, projectName, err)
 		return err
 	}
 
-	return mongodb.NewRoleBindingColl().DeleteByRoles(names, projectName)
+	return mongodb.NewPolicyBindingColl().DeleteByPolicies(names, projectName)
 }
