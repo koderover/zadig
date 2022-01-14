@@ -46,12 +46,12 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/service"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
@@ -195,7 +195,7 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 		return nil, err
 	}
 
-	envCMMap, err := service.GetEnvCMMap([]string{projectName}, log)
+	envCMMap, err := collaboration.GetEnvCMMap([]string{projectName}, log)
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +212,7 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 			clusterName = cluster.Name
 		}
 		var baseRefs []string
-		if cmSet, ok := envCMMap[service.BuildEnvCMMapKey(env.ProductName, env.EnvName)]; ok {
+		if cmSet, ok := envCMMap[collaboration.BuildEnvCMMapKey(env.ProductName, env.EnvName)]; ok {
 			for _, cm := range cmSet.List() {
 				baseRefs = append(baseRefs, cm)
 			}

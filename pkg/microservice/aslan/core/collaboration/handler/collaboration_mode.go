@@ -23,6 +23,7 @@ import (
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -36,7 +37,7 @@ func GetCollaborationMode(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can not be empty")
 		return
 	}
-	ctx.Resp, ctx.Err = service.GetCollaborationModes([]string{projectName}, ctx.Logger)
+	ctx.Resp, ctx.Err = collaboration.GetCollaborationModes([]string{projectName}, ctx.Logger)
 }
 
 func CreateCollaborationMode(c *gin.Context) {

@@ -13,6 +13,7 @@ import (
 	models2 "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -60,12 +61,14 @@ type Workflow struct {
 }
 
 type Product struct {
-	CollaborationType config.CollaborationType   `json:"collaboration_type"`
-	BaseName          string                     `json:"base_name"`
-	CollaborationMode string                     `json:"collaboration_mode"`
-	Name              string                     `json:"name"`
-	DeployType        string                     `json:"deploy_type"`
-	Vars              []*templatemodels.RenderKV `json:"vars"`
+	CollaborationType config.CollaborationType        `json:"collaboration_type"`
+	BaseName          string                          `json:"base_name"`
+	CollaborationMode string                          `json:"collaboration_mode"`
+	Name              string                          `json:"name"`
+	DeployType        string                          `json:"deploy_type"`
+	Vars              []*templatemodels.RenderKV      `json:"vars"`
+	DefaultValues     string                          `json:"default_values"`
+	RenderCharts      []*commonservice.RenderChartArg `json:"render_charts"`
 }
 type GetCollaborationNewResp struct {
 	Code     int64       `json:"code"`
@@ -310,18 +313,20 @@ func GetCollaborationNew(projectName, uid, userName string, logger *zap.SugaredL
 			}
 		}
 	}
-	renderSets, err := getRenderSetKvs(projectName, newProductName.List())
+	renderSets, err := getRenderSet(projectName, newProductName.List())
 	if err != nil {
 		return nil, err
 	}
 	if renderSets != nil {
-		productVarsMap := make(map[string][]*templatemodels.RenderKV)
+		productRenderSetMap := make(map[string]models2.RenderSet)
 		for _, set := range renderSets {
-			productVarsMap[set.EnvName] = set.KVs
+			productRenderSetMap[set.EnvName] = set
 		}
 		for _, product := range newProduct {
-			if vars, ok := productVarsMap[product.BaseName]; ok {
-				product.Vars = vars
+			if set, ok := productRenderSetMap[product.BaseName]; ok {
+				product.Vars = set.KVs
+				product.DefaultValues = set.DefaultValues
+				product.RenderCharts = buildRenderChartArg(set.ChartInfos, product.BaseName)
 			} else {
 				return nil, fmt.Errorf("product:%s not exist", product.BaseName)
 			}
@@ -355,7 +360,7 @@ func GetCollaborationNew(projectName, uid, userName string, logger *zap.SugaredL
 	}, nil
 }
 
-func getRenderSetKvs(projectName string, envs []string) ([]models2.RenderSet, error) {
+func getRenderSet(projectName string, envs []string) ([]models2.RenderSet, error) {
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		InProjects: []string{projectName},
 		InEnvs:     envs,
@@ -378,4 +383,15 @@ func getRenderSetKvs(projectName string, envs []string) ([]models2.RenderSet, er
 		return nil, err
 	}
 	return renderSets, nil
+}
+
+func buildRenderChartArg(chartInfos []*templatemodels.RenderChart, envName string) []*commonservice.RenderChartArg {
+	ret := make([]*commonservice.RenderChartArg, 0)
+	for _, singleChart := range chartInfos {
+		rcaObj := new(commonservice.RenderChartArg)
+		rcaObj.LoadFromRenderChartModel(singleChart)
+		rcaObj.EnvName = envName
+		ret = append(ret, rcaObj)
+	}
+	return ret
 }
