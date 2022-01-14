@@ -555,7 +555,8 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				if rel.Info.Status == helmrelease.StatusDeployed {
 					return nil
 				}
-				if rel.Info.Status == helmrelease.StatusFailed {
+				if rel.Info.Status == helmrelease.StatusFailed || rel.Info.Status == helmrelease.StatusSuperseded ||
+					rel.Info.Status == helmrelease.StatusUnknown {
 					if rel.Version == 1 {
 						secretName := fmt.Sprintf("sh.helm.release.v1.%s.v%d", rel.Name, rel.Version)
 						deleteErr := updater.DeleteSecretWithName(rel.Namespace, secretName, p.kubeClient)
@@ -610,7 +611,8 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			if len(hrs) > 0 {
 				releaseutil.Reverse(hrs, releaseutil.SortByRevision)
 				rel := hrs[0]
-				if rel.Info.Status == helmrelease.StatusPendingInstall || rel.Info.Status == helmrelease.StatusPendingUpgrade {
+				if rel.Info.Status == helmrelease.StatusPendingInstall || rel.Info.Status == helmrelease.StatusPendingUpgrade ||
+					rel.Info.Status == helmrelease.StatusPendingRollback {
 					secretName := fmt.Sprintf("sh.helm.release.v1.%s.v%d", rel.Name, rel.Version)
 					deleteErr := updater.DeleteSecretWithName(rel.Namespace, secretName, p.kubeClient)
 					if deleteErr != nil {
