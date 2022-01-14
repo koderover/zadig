@@ -324,7 +324,7 @@ func GenerateOPABundle() error {
 	if err != nil {
 		log.Errorf("Failed to list roleBindings, err: %s", err)
 	}
-	ps, err := mongodb.NewPolicyColl().List()
+	ps, err := mongodb.NewPolicyMetaColl().List()
 	if err != nil {
 		log.Errorf("Failed to list policies, err: %s", err)
 	}

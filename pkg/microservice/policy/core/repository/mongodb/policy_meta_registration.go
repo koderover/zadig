@@ -35,7 +35,7 @@ type PolicyMetaColl struct {
 	coll string
 }
 
-func NewPolicyColl() *PolicyMetaColl {
+func NewPolicyMetaColl() *PolicyMetaColl {
 	name := models.PolicyMeta{}.TableName()
 	return &PolicyMetaColl{
 		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),

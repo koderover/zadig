@@ -93,11 +93,11 @@ func CreateOrUpdatePolicyRegistration(p *Policy, _ *zap.SugaredLogger) error {
 		obj.Rules = append(obj.Rules, rule)
 	}
 
-	return mongodb.NewPolicyColl().UpdateOrCreate(obj)
+	return mongodb.NewPolicyMetaColl().UpdateOrCreate(obj)
 }
 
 func GetPolicyRegistrationDefinitions(_ *zap.SugaredLogger) ([]*PolicyDefinition, error) {
-	policies, err := mongodb.NewPolicyColl().List()
+	policies, err := mongodb.NewPolicyMetaColl().List()
 	if err != nil {
 		return nil, err
 	}
