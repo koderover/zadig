@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -125,6 +126,17 @@ func (c *WorkflowColl) Find(name string) (*models.Workflow, error) {
 	res := &models.Workflow{}
 	query := bson.M{"name": name}
 	err := c.FindOne(context.TODO(), query).Decode(res)
+	return res, err
+}
+
+func (c *WorkflowColl) FindByID(id string) (*models.Workflow, error) {
+	res := &models.Workflow{}
+	oid, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, err
+	}
+	query := bson.M{"_id": oid}
+	err = c.FindOne(context.TODO(), query).Decode(res)
 	return res, err
 }
 

@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
@@ -105,6 +106,7 @@ func (c *ProductColl) EnsureIndex(ctx context.Context) error {
 type ProductEnvFindOptions struct {
 	Name      string
 	Namespace string
+	ID        string
 }
 
 func (c *ProductColl) FindEnv(opt *ProductEnvFindOptions) (*models.Product, error) {
@@ -115,6 +117,13 @@ func (c *ProductColl) FindEnv(opt *ProductEnvFindOptions) (*models.Product, erro
 
 	if opt.Namespace != "" {
 		query["namespace"] = opt.Namespace
+	}
+	if opt.ID != "" {
+		oid, err := primitive.ObjectIDFromHex(opt.ID)
+		if err != nil {
+			return nil, err
+		}
+		query["_id"] = oid
 	}
 
 	ret := new(models.Product)

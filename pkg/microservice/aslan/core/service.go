@@ -33,6 +33,7 @@ import (
 	deliveryhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/delivery/handler"
 	environmenthandler "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/handler"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
+	labelMongodb "github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
 	projecthandler "github.com/koderover/zadig/pkg/microservice/aslan/core/project/handler"
 	systemrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/mongodb"
 	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
@@ -211,6 +212,8 @@ func initDatabase() {
 
 		systemrepo.NewAnnouncementColl(),
 		systemrepo.NewOperationLogColl(),
+		labelMongodb.NewLabelColl(),
+		labelMongodb.NewLabelBindingColl(),
 	} {
 		wg.Add(1)
 		go func(r indexer) {
