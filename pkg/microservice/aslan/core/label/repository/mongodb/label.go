@@ -85,6 +85,24 @@ func (c *LabelColl) Delete(id string) error {
 	return err
 }
 
+func (c *LabelColl) BulkDelete(ids []string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	var oids []primitive.ObjectID
+	for _, v := range ids {
+		oid, err := primitive.ObjectIDFromHex(v)
+		if err != nil {
+			return err
+		}
+		oids = append(oids, oid)
+	}
+	query := bson.M{}
+	query["_id"] = bson.M{"$in": oids}
+	_, err := c.DeleteMany(context.TODO(), query)
+	return err
+}
+
 func (c *LabelColl) Find(id string) (*models.Label, error) {
 	res := new(models.Label)
 	oid, err := primitive.ObjectIDFromHex(id)

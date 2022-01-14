@@ -121,17 +121,10 @@ func (c *LabelBindingColl) ListByOpt(opt *LabelBindingCollFindOpt) ([]*models.La
 	return ret, err
 }
 
-func (c *LabelBindingColl) Delete(id string) error {
-	oid, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return err
+func (c *LabelBindingColl) BulkDelete(ids []string) error {
+	if len(ids) == 0 {
+		return nil
 	}
-	query := bson.M{"_id": oid}
-	_, err = c.DeleteOne(context.TODO(), query)
-	return err
-}
-
-func (c *LabelBindingColl) DeleteMany(ids []string) error {
 	query := bson.M{}
 	var oids []primitive.ObjectID
 	for _, id := range ids {
@@ -143,6 +136,6 @@ func (c *LabelBindingColl) DeleteMany(ids []string) error {
 	}
 	query["_id"] = bson.M{"$in": oids}
 
-	_, err := c.DeleteOne(context.TODO(), query)
+	_, err := c.DeleteMany(context.TODO(), query)
 	return err
 }

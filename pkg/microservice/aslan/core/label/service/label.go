@@ -19,11 +19,32 @@ package service
 import (
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/dto"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
+
+type LabelFilter struct {
+	Key    string   `json:"key"`
+	Values []string `json:"values"`
+}
+
+type ResourceLabel struct {
+	ResourceID   string  `json:"resource_id"`
+	ResourceType string  `json:"resource_type"`
+	Labels       []Label `json:"labels"`
+}
+
+type Label struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+type LabelResource struct {
+	Key        string `json:"key"`
+	Value      string `json:"value"`
+	ResourceID string `json:"resource_id"`
+}
 
 func CreateLabels(labels []*models.Label) error {
 	return mongodb.NewLabelColl().BulkCreate(labels)
@@ -38,7 +59,11 @@ func ListLabels(key string, values []string, labelType string) ([]*models.Label,
 	return mongodb.NewLabelColl().List(opt)
 }
 
-func ListResourcesByLabels(filter []dto.LabelFilter, logger *zap.SugaredLogger) ([]dto.ResourceLabel, error) {
+type ListResourceByLabelsReq struct {
+	LabelFilters []LabelFilter `json:"label_filters"`
+}
+
+func ListResourcesByLabels(filter []LabelFilter, logger *zap.SugaredLogger) ([]ResourceLabel, error) {
 	// find the label id
 	labelM := map[string]*models.Label{}
 	for _, v := range filter {
@@ -64,22 +89,22 @@ func ListResourcesByLabels(filter []dto.LabelFilter, logger *zap.SugaredLogger) 
 		return nil, err
 	}
 
-	var res []dto.ResourceLabel
+	var res []ResourceLabel
 	for _, v := range labelBindings {
 		labelResource, err := ListLabelsByResourceID(v.ResourceID, v.ResourceType, logger)
 		if err != nil {
 			continue
 		}
-		var labels []dto.Label
+		var labels []Label
 		for _, v := range labelResource {
-			label := dto.Label{
+			label := Label{
 				Key:   v.Key,
 				Value: v.Value,
 			}
 			labels = append(labels, label)
 		}
 
-		res = append(res, dto.ResourceLabel{
+		res = append(res, ResourceLabel{
 			ResourceID:   v.ResourceID,
 			ResourceType: v.ResourceType,
 			Labels:       labels,
@@ -89,7 +114,7 @@ func ListResourcesByLabels(filter []dto.LabelFilter, logger *zap.SugaredLogger) 
 	return res, nil
 }
 
-func ListLabelsByResourceID(resourceID, resourceType string, logger *zap.SugaredLogger) ([]dto.LabelResource, error) {
+func ListLabelsByResourceID(resourceID, resourceType string, logger *zap.SugaredLogger) ([]LabelResource, error) {
 	labelBindings, err := mongodb.NewLabelBindingColl().ListByOpt(&mongodb.LabelBindingCollFindOpt{
 		ResourceID:   resourceID,
 		ResourceType: resourceType,
@@ -98,19 +123,38 @@ func ListLabelsByResourceID(resourceID, resourceType string, logger *zap.Sugared
 		logger.Errorf("list labelbinding err:%s", err)
 		return nil, err
 	}
-	var labelResources []dto.LabelResource
+	var labelResources []LabelResource
 	for _, v := range labelBindings {
 		label, err := mongodb.NewLabelColl().Find(v.LabelID)
 		if err != nil {
 			continue
 		}
-		labelResources = append(labelResources, dto.LabelResource{
+		labelResources = append(labelResources, LabelResource{
 			Key:        label.Key,
 			Value:      label.Value,
 			ResourceID: v.ResourceID,
 		})
 	}
 	return labelResources, nil
+}
+
+type DeleteLabelsArgs struct {
+	IDs []string
+}
+
+func DeleteLabels(ids []string, logger *zap.SugaredLogger) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	res, err := mongodb.NewLabelBindingColl().ListByOpt(&mongodb.LabelBindingCollFindOpt{LabelIDs: ids})
+	if err != nil {
+		logger.Errorf("list labelbingding err:%s", err)
+		return err
+	}
+	if len(res) > 0 {
+		return e.ErrForbidden.AddDesc("some label has already bind resource, can not delete")
+	}
+	return mongodb.NewLabelColl().BulkDelete(ids)
 }
 
 func DeleteLabel(id string, force bool, logger *zap.SugaredLogger) error {
@@ -128,7 +172,7 @@ func DeleteLabel(id string, force bool, logger *zap.SugaredLogger) error {
 			ids = append(ids, labelBindings.ID.Hex())
 		}
 
-		if err := mongodb.NewLabelBindingColl().DeleteMany(ids); err != nil {
+		if err := mongodb.NewLabelBindingColl().BulkDelete(ids); err != nil {
 			logger.Errorf("NewLabelBindingColl DeleteMany err :%s", err)
 			return err
 		}

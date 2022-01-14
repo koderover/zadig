@@ -28,6 +28,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		labels.GET("", ListLabels)
 		labels.POST("/bulk-create", CreateLabels)
 		labels.DELETE("/:id", DeleteLabel)
+		labels.POST("/bulk-delete", DeleteLabels)
 		labels.POST("/resourcebylabels", ListResourceByLabels)
 		labels.POST("/labelsbyresource", ListLabelsByResource)
 	}
@@ -35,6 +36,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		labelBindings.GET("", ListLabelBindings)
 		labelBindings.POST("", CreateLabelBindings)
-		labelBindings.DELETE("/bulk-delete", DeleteLabelBindings)
+		labelBindings.POST("/bulk-delete", DeleteLabelBindings)
 	}
 }

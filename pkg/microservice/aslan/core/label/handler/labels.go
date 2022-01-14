@@ -23,7 +23,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/dto"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
@@ -82,6 +81,17 @@ func CreateLabels(c *gin.Context) {
 	ctx.Err = service.CreateLabels(labels)
 }
 
+//DeleteLabels  can only bulk delete labels which not bind reousrces
+func DeleteLabels(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	deleteLabelsArgs := new(service.DeleteLabelsArgs)
+	if err := c.ShouldBindJSON(deleteLabelsArgs); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc("json bind fail")
+	}
+	ctx.Err = service.DeleteLabels(deleteLabelsArgs.IDs, ctx.Logger)
+}
+
 func DeleteLabel(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -96,14 +106,10 @@ func DeleteLabel(c *gin.Context) {
 	ctx.Err = service.DeleteLabel(id, forceBool, ctx.Logger)
 }
 
-type ListResourceByLabelsReq struct {
-	LabelFilters []dto.LabelFilter `json:"label_filters"`
-}
-
 func ListResourceByLabels(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	listResourceByLabelsReq := new(ListResourceByLabelsReq)
+	listResourceByLabelsReq := new(service.ListResourceByLabelsReq)
 	if err := c.ShouldBindJSON(listResourceByLabelsReq); err != nil {
 		ctx.Err = err
 		return

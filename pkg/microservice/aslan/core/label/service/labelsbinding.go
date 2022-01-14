@@ -84,6 +84,10 @@ func CreateLabelsBinding(cr *CreateLabelBindingsArgs, logger *zap.SugaredLogger)
 	return mongodb.NewLabelBindingColl().CreateMany(labelBindings)
 }
 
-func DeleteLabelsBinding(id string) error {
-	return mongodb.NewLabelBindingColl().Delete(id)
+type DeleteLabelsBindingsArgs struct {
+	IDs []string
+}
+
+func DeleteLabelsBindings(ids []string) error {
+	return mongodb.NewLabelBindingColl().BulkDelete(ids)
 }
