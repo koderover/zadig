@@ -67,8 +67,8 @@ type Product struct {
 	Name              string                          `json:"name"`
 	DeployType        string                          `json:"deploy_type"`
 	Vars              []*templatemodels.RenderKV      `json:"vars"`
-	DefaultValues     string                          `json:"default_values"`
-	RenderCharts      []*commonservice.RenderChartArg `json:"render_charts"`
+	DefaultValues     string                          `json:"defaultValues"`
+	ChartValues       []*commonservice.RenderChartArg `json:"chartValues"`
 }
 type GetCollaborationNewResp struct {
 	Code     int64       `json:"code"`
@@ -326,7 +326,7 @@ func GetCollaborationNew(projectName, uid, userName string, logger *zap.SugaredL
 			if set, ok := productRenderSetMap[product.BaseName]; ok {
 				product.Vars = set.KVs
 				product.DefaultValues = set.DefaultValues
-				product.RenderCharts = buildRenderChartArg(set.ChartInfos, product.BaseName)
+				product.ChartValues = buildRenderChartArg(set.ChartInfos, product.BaseName)
 			} else {
 				return nil, fmt.Errorf("product:%s not exist", product.BaseName)
 			}
