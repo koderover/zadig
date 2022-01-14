@@ -142,7 +142,7 @@ type DeleteLabelsArgs struct {
 	IDs []string
 }
 
-func DeleteLabels(ids []string, logger *zap.SugaredLogger) error {
+func DeleteLabels(ids []string, forceDelete bool, logger *zap.SugaredLogger) error {
 	if len(ids) == 0 {
 		return nil
 	}
@@ -151,13 +151,24 @@ func DeleteLabels(ids []string, logger *zap.SugaredLogger) error {
 		logger.Errorf("list labelbingding err:%s", err)
 		return err
 	}
-	if len(res) > 0 {
+	if forceDelete {
+		var ids []string
+		for _, labelBindings := range res {
+			ids = append(ids, labelBindings.ID.Hex())
+		}
+
+		if err := mongodb.NewLabelBindingColl().BulkDelete(ids); err != nil {
+			logger.Errorf("NewLabelBindingColl DeleteMany err :%s", err)
+			return err
+		}
+	}
+	if len(res) > 0 && !forceDelete {
 		return e.ErrForbidden.AddDesc("some label has already bind resource, can not delete")
 	}
 	return mongodb.NewLabelColl().BulkDelete(ids)
 }
 
-func DeleteLabel(id string, force bool, logger *zap.SugaredLogger) error {
+func DeleteLabel(id string, forceDelete bool, logger *zap.SugaredLogger) error {
 
 	// query if the label already bind  resources
 	res, err := mongodb.NewLabelBindingColl().ListByOpt(&mongodb.LabelBindingCollFindOpt{LabelID: id})
@@ -166,7 +177,7 @@ func DeleteLabel(id string, force bool, logger *zap.SugaredLogger) error {
 		return err
 	}
 	// force delete : delete related labelBindings
-	if force {
+	if forceDelete {
 		var ids []string
 		for _, labelBindings := range res {
 			ids = append(ids, labelBindings.ID.Hex())
@@ -178,7 +189,7 @@ func DeleteLabel(id string, force bool, logger *zap.SugaredLogger) error {
 		}
 	}
 	// non force delete : can not delete label when label has bind resources
-	if len(res) > 0 && !force {
+	if len(res) > 0 && !forceDelete {
 		logger.Error("the label has bind resources,can not delete")
 		return e.ErrForbidden.AddDesc("the label has bind resources")
 	}

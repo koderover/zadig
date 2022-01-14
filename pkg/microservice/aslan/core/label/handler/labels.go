@@ -89,7 +89,13 @@ func DeleteLabels(c *gin.Context) {
 	if err := c.ShouldBindJSON(deleteLabelsArgs); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("json bind fail")
 	}
-	ctx.Err = service.DeleteLabels(deleteLabelsArgs.IDs, ctx.Logger)
+	force := c.Query("force")
+	forceBool, err := strconv.ParseBool(force)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	ctx.Err = service.DeleteLabels(deleteLabelsArgs.IDs, forceBool, ctx.Logger)
 }
 
 func DeleteLabel(c *gin.Context) {
@@ -102,7 +108,11 @@ func DeleteLabel(c *gin.Context) {
 		return
 	}
 	force := c.Query("force")
-	forceBool, _ := strconv.ParseBool(force)
+	forceBool, err := strconv.ParseBool(force)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
 	ctx.Err = service.DeleteLabel(id, forceBool, ctx.Logger)
 }
 
