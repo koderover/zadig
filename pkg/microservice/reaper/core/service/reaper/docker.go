@@ -17,14 +17,12 @@ limitations under the License.
 package reaper
 
 import (
-	"fmt"
 	"os/exec"
 )
 
 const dockerExe = "/usr/local/bin/docker"
 
 func dockerLogin(user, password, registry string) *exec.Cmd {
-	fmt.Println("login docker with credential:", "username:", user, ", password:", password, ", registry:", registry)
 	return exec.Command(
 		dockerExe,
 		"login",
