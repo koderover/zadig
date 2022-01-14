@@ -40,7 +40,7 @@ func CheckJenkinsIntegration(c *gin.Context) {
 		ctx.Resp = &CheckJenkinsIntegrationResp{Exists: false}
 		return
 	}
-	ctx.Resp = &CheckJenkinsIntegrationResp{Exists: false}
+	ctx.Resp = &CheckJenkinsIntegrationResp{Exists: true}
 }
 
 func CreateJenkinsIntegration(c *gin.Context) {
