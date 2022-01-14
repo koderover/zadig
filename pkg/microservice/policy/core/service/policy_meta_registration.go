@@ -23,7 +23,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
 )
 
-type Policy struct {
+type PolicyMeta struct {
 	Resource    string        `json:"resource"`
 	Alias       string        `json:"alias"`
 	Description string        `json:"description"`
@@ -63,7 +63,7 @@ type PolicyRuleDefinition struct {
 	Description string `json:"description"`
 }
 
-func CreateOrUpdatePolicyRegistration(p *Policy, _ *zap.SugaredLogger) error {
+func CreateOrUpdatePolicyRegistration(p *PolicyMeta, _ *zap.SugaredLogger) error {
 	obj := &models.PolicyMeta{
 		Resource:    p.Resource,
 		Alias:       p.Alias,
