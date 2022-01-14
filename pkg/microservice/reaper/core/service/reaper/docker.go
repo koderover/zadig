@@ -16,7 +16,9 @@ limitations under the License.
 
 package reaper
 
-import "os/exec"
+import (
+	"os/exec"
+)
 
 const dockerExe = "/usr/local/bin/docker"
 
