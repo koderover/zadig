@@ -154,20 +154,24 @@ func (c *LabelColl) List(opt *ListLabelOpt) ([]*models.Label, error) {
 func (c *LabelColl) Filter(opts []*ListLabelOpt) ([]*models.Label, error) {
 	var res []*models.Label
 	ctx := context.Background()
-
 	conditions := bson.A{}
-	for _, findOpt := range opts {
-		con := bson.M{
-			"key": findOpt.Key,
-		}
-		if len(findOpt.Values) > 0 {
-			con["value"] = bson.M{"$in": findOpt.Values}
-		}
+	if len(opts) > 0 {
+		for _, findOpt := range opts {
+			con := bson.M{
+				"key": findOpt.Key,
+			}
+			if len(findOpt.Values) > 0 {
+				con["value"] = bson.M{"$in": findOpt.Values}
+			}
 
-		conditions = append(conditions, con)
+			conditions = append(conditions, con)
+		}
+	}
+	filter := bson.D{}
+	if len(conditions) > 0 {
+		filter = bson.D{{"$or", conditions}}
 	}
 
-	filter := bson.D{{"$or", conditions}}
 	cursor, err := c.Collection.Find(ctx, filter)
 	if err != nil {
 		return nil, err
