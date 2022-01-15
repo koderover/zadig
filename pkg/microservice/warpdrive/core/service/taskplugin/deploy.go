@@ -544,7 +544,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			Wait:        true,
 		}
 
-		isFailedStatus := func() bool {
+		isFailedOrPendingStatus := func() bool {
 			hrs, errHistory := helmClient.ListReleaseHistory(chartSpec.ReleaseName, 5)
 			if errHistory != nil {
 				return false
@@ -552,11 +552,11 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			if len(hrs) > 0 {
 				releaseutil.Reverse(hrs, releaseutil.SortByRevision)
 				rel := hrs[0]
-				return rel.Info.Status == helmrelease.StatusFailed
+				return rel.Info.Status == helmrelease.StatusFailed || rel.Info.Status == helmrelease.StatusPendingUpgrade || rel.Info.Status == helmrelease.StatusPendingInstall
 			}
 			return false
 		}
-		if isFailedStatus := isFailedStatus(); isFailedStatus {
+		if isFailedStatus := isFailedOrPendingStatus(); isFailedStatus {
 			chartSpec.Replace = true
 			return
 		}
