@@ -2368,6 +2368,7 @@ func installProductHelmCharts(user, envName, requestID string, args *commonmodel
 	handler := func(serviceObj *commonmodels.Service, isRetry bool, kubecli client.Client, logger *zap.SugaredLogger) error {
 		renderChart := chartInfoMap[serviceObj.ServiceName]
 		timeout := time.Second * setting.DeployTimeout
+		timeout = 0
 		err = installOrUpgradeHelmChart(args.Namespace, renderChart, renderset.DefaultValues, serviceObj, timeout, isRetry, helmClient, kubecli)
 		if err != nil {
 			log.Errorf("failed to install service: %s, namespace: %s, isRetry: %v, err: %s", serviceObj.ServiceName, args.Namespace, isRetry, err)
@@ -2400,7 +2401,7 @@ func installProductHelmCharts(user, envName, requestID string, args *commonmodel
 
 			serviceList = append(serviceList, serviceObj)
 		}
-		serviceGroupErr := intervalExecutorWithRetry(5, time.Millisecond*2500, serviceList, handler, kubecli, log)
+		serviceGroupErr := intervalExecutorWithRetry(3, time.Millisecond*2500, serviceList, handler, kubecli, log)
 		if serviceGroupErr != nil {
 			errList = multierror.Append(errList, serviceGroupErr...)
 		}
@@ -2583,6 +2584,7 @@ func updateProductGroup(username, productName, envName, updateType string, produ
 	handler := func(serviceObj *commonmodels.Service, isRetry bool, kubecli client.Client, log *zap.SugaredLogger) error {
 		renderChart := renderChartMap[serviceObj.ServiceName]
 		timeout := time.Second * setting.DeployTimeout
+		timeout = 0
 		err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderSet.DefaultValues, serviceObj, timeout, isRetry, helmClient, kubecli)
 		if err != nil {
 			log.Errorf("failed to upgrade service: %s, namespace: %s, isRetry: %v, err: %s", serviceObj.ServiceName, productResp.Namespace, isRetry, err)
@@ -2621,7 +2623,7 @@ func updateProductGroup(username, productName, envName, updateType string, produ
 			serviceList = append(serviceList, serviceObj)
 		}
 
-		serviceGroupErr := intervalExecutorWithRetry(5, time.Millisecond*2500, serviceList, handler, kubeClient, log)
+		serviceGroupErr := intervalExecutorWithRetry(3, time.Millisecond*2500, serviceList, handler, kubeClient, log)
 		if serviceGroupErr != nil {
 			errList = multierror.Append(errList, serviceGroupErr...)
 		}
@@ -2866,7 +2868,7 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 			}
 			groupServices = append(groupServices, service)
 		}
-		groupServiceErr := intervalExecutorWithRetry(5, time.Millisecond*2500, serviceList, handler, kubeClient, log)
+		groupServiceErr := intervalExecutorWithRetry(3, time.Millisecond*2500, serviceList, handler, kubeClient, log)
 		if groupServiceErr != nil {
 			errList = multierror.Append(errList, groupServiceErr...)
 		}
