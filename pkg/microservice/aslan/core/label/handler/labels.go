@@ -82,6 +82,7 @@ func DeleteLabels(c *gin.Context) {
 	deleteLabelsArgs := new(service.DeleteLabelsArgs)
 	if err := c.ShouldBindJSON(deleteLabelsArgs); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("json bind fail")
+		return
 	}
 	force := c.Query("force")
 	forceBool, err := strconv.ParseBool(force)
