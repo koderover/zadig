@@ -228,6 +228,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				return
 			}
 		}
+		p.Log.Infof("serviceInfo.WorkloadType:%+v", serviceInfo)
 		if serviceInfo.WorkloadType == "" {
 			selector := labels.Set{setting.ProductLabel: p.Task.ProductName, setting.ServiceLabel: p.Task.ServiceName}.AsSelector()
 
