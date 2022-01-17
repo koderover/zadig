@@ -65,18 +65,13 @@ func NewClient(endpoint, ak, sk string, insecure, forcedPathStyle bool) (*Client
 
 // Validate the existence of bucket
 func (c *Client) ValidateBucket(bucketName string) error {
-	listBucketInput := &s3.ListBucketsInput{}
-	bucketListResp, err := c.ListBuckets(listBucketInput)
+	listObjectInput := &s3.ListObjectsInput{Bucket: aws.String(bucketName)}
+	_, err := c.ListObjects(listObjectInput)
 	if err != nil {
 		return fmt.Errorf("validate S3 error: %s", err.Error())
 	}
-	for _, bucket := range bucketListResp.Buckets {
-		if *bucket.Name == bucketName {
-			return nil
-		}
-	}
 
-	return fmt.Errorf("validate s3 error: given bucket does not exist")
+	return nil
 }
 
 func (c *Client) DownloadWithOption(bucketName, objectKey, dest string, option *DownloadOption) error {
