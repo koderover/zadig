@@ -17,8 +17,10 @@ limitations under the License.
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -91,8 +93,11 @@ func Callback(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	fmt.Println("REQUEST IN: CODEHOST AUTHORIZATION CALLBACK, THE TIME IS:", time.Now().Unix())
+
 	state := c.Query("state")
 	redirectURL, err := service.HandleCallback(state, c.Request, ctx.Logger)
+	fmt.Println("SERVICE.HANDLECALLBACK DONE, THE TIME IS:", time.Now().Unix())
 	if err != nil {
 		ctx.Logger.Errorf("Callback err:%s", err)
 		ctx.Err = err

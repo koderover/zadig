@@ -144,7 +144,9 @@ func HandleCallback(stateStr string, r *http.Request, logger *zap.SugaredLogger)
 	if err != nil {
 		return handle(redirectParsedURL, err)
 	}
+	fmt.Println("STARTED HANDLE CALLBACK, THE TIME IS:", time.Now().Unix())
 	token, err := o.HandleCallback(r)
+	fmt.Println("HANDLE CALLBACK DONE, THE TIME IS:", time.Now().Unix())
 	if err != nil {
 		return handle(redirectParsedURL, err)
 	}
