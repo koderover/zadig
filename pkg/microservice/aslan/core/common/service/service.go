@@ -405,7 +405,7 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 			}
 		}
 	}
-
+	log.Infof("resp.WorkloadType:%s", resp.WorkloadType)
 	return resp, nil
 }
 
