@@ -155,6 +155,7 @@ func (c *LabelColl) Filter(opts []*ListLabelOpt) ([]*models.Label, error) {
 	var res []*models.Label
 	ctx := context.Background()
 	conditions := bson.A{}
+	filter := bson.D{}
 	if len(opts) > 0 {
 		for _, findOpt := range opts {
 			con := bson.M{
@@ -166,9 +167,6 @@ func (c *LabelColl) Filter(opts []*ListLabelOpt) ([]*models.Label, error) {
 
 			conditions = append(conditions, con)
 		}
-	}
-	filter := bson.D{}
-	if len(conditions) > 0 {
 		filter = bson.D{{"$or", conditions}}
 	}
 
