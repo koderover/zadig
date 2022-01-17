@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KodeRover Authors.
+Copyright 2022 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -180,8 +180,7 @@ func (lc *LarkCard) AddI18NElementsZhcnAction(content, url string) {
 }
 
 func (w *Service) sendFeishuMessage(uri string, lcMsg *LarkCard) error {
-	var message interface{}
-	message = LarkCardReq{
+	message := LarkCardReq{
 		MsgType: feishuCardType,
 		Card:    lcMsg,
 	}

@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KodeRover Authors.
+Copyright 2022 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ type DingDingAt struct {
 	IsAtAll   bool     `json:"isAtAll"`
 }
 
-func (w *Service) sendDingDingMessage(uri string, title string, content string, atMobiles []string) error {
+func (w *Service) sendDingDingMessage(uri, title, content string, atMobiles []string) error {
 	message := &DingDingMessage{
 		MsgType: msgType,
 		MarkDown: &DingDingMarkDown{
