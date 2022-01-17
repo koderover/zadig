@@ -17,6 +17,8 @@ limitations under the License.
 package service
 
 import (
+	"fmt"
+
 	"go.uber.org/zap"
 
 	commondb "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -70,6 +72,9 @@ func CreateLabelsBinding(cr *CreateLabelBindingsArgs, logger *zap.SugaredLogger)
 			logger.Errorf("can not find related resource err:%s", err)
 			return e.ErrForbidden.AddDesc("can not find related resource")
 		}
+	default:
+		errMsg := fmt.Sprintf("resource type not allowed :%s", cr.ResourceType)
+		return e.ErrInternalError.AddDesc(errMsg)
 	}
 	var labelBindings []*models.LabelBinding
 	for _, v := range cr.ResourceIDs {
