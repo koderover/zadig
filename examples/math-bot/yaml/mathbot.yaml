@@ -1,0 +1,43 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: math-bot
+  labels: 
+    app.kubernetes.io/name: math-bot
+    app.kubernetes.io/instance: math-bot
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: math-bot
+      app.kubernetes.io/instance: math-bot
+  replicas: 1
+  template:
+    metadata: 
+      labels:
+        app.kubernetes.io/name: math-bot
+        app.kubernetes.io/instance: math-bot
+    spec:
+      containers:
+        - name: math-bot
+          image: ccr.ccs.tencentyun.com/trial/math-bot:init
+          imagePullPolicy: Always 
+          command:
+            - /app/math-bot
+          ports:
+            - protocol: TCP
+              containerPort: 8008
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: math-bot
+  labels:
+    app.kubernetes.io/name: math-bot
+    app.kubernetes.io/instance: math-bot
+spec:
+  type: NodePort
+  ports:
+    - protocol: TCP
+      port: 8008
+      targetPort: 8008
