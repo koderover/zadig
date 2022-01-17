@@ -28,6 +28,7 @@ import (
 	cronhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/cron/handler"
 	deliveryhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/delivery/handler"
 	environmenthandler "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/handler"
+	labelhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/label/handler"
 	loghandler "github.com/koderover/zadig/pkg/microservice/aslan/core/log/handler"
 	multiclusterhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/multicluster/handler"
 	projecthandler "github.com/koderover/zadig/pkg/microservice/aslan/core/project/handler"
@@ -37,6 +38,7 @@ import (
 	templatehandler "github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/handler"
 	workflowhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/handler"
 	testinghandler "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/testing/handler"
+
 	// Note: have to load docs for swagger to work. See https://blog.csdn.net/weixin_43249914/article/details/103035711
 	_ "github.com/koderover/zadig/pkg/microservice/aslan/server/rest/doc"
 )
@@ -85,6 +87,7 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 		"/api/cluster":       new(multiclusterhandler.Router),
 		"/api/template":      new(templatehandler.Router),
 		"/api/collaboration": new(collaborationhandler.Router),
+		"/api/label":         new(labelhandler.Router),
 	} {
 		r.Inject(router.Group(name))
 	}
