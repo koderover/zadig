@@ -319,11 +319,13 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				}
 			case setting.Deployment:
 				var deployment *appsv1.Deployment
+				p.Log.Infof("namespace:%s,serviceName:%s", p.Task.Namespace, p.Task.ServiceName)
 				deployment, _, err = getter.GetDeployment(p.Task.Namespace, p.Task.ServiceName, p.kubeClient)
 				if err != nil {
 					return
 				}
 				for _, container := range deployment.Spec.Template.Spec.Containers {
+					p.Log.Infof("containerName:%s,task.containerName:%s", container.Name, p.Task.ContainerName)
 					if container.Name == p.Task.ContainerName {
 						err = updater.UpdateDeploymentImage(deployment.Namespace, deployment.Name, p.Task.ContainerName, p.Task.Image, p.kubeClient)
 						if err != nil {
