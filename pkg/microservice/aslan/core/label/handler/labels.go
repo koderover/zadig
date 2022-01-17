@@ -41,16 +41,10 @@ func ListLabels(c *gin.Context) {
 }
 
 func createLabelValidate(lbs []*models.Label) error {
-	keyValues := sets.NewString()
 	for _, v := range lbs {
 		if v.Key == "" || v.Value == "" {
 			return e.ErrInvalidParam.AddDesc("invalid label args")
 		}
-		keyValue := fmt.Sprintf("%s-%s", v.Key, v.Value)
-		if keyValues.Has(keyValue) {
-			return e.ErrInvalidParam.AddDesc(fmt.Sprintf("duplicate key-value:%s", keyValue))
-		}
-		keyValues.Insert(keyValue)
 	}
 	return nil
 }
@@ -69,10 +63,18 @@ func CreateLabels(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
+	filteredLabels := make([]*models.Label, 0)
+	keyValues := sets.NewString()
 	for _, v := range labels {
+		keyValue := fmt.Sprintf("%s-%s", v.Key, v.Value)
+		if keyValues.Has(keyValue) {
+			continue
+		}
+		keyValues.Insert(keyValue)
 		v.CreateBy = ctx.UserName
+		filteredLabels = append(filteredLabels, v)
 	}
-	ctx.Err = service.CreateLabels(labels)
+	ctx.Err = service.CreateLabels(filteredLabels)
 }
 
 //DeleteLabels  can only bulk delete labels which not bind reousrces
