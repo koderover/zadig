@@ -528,6 +528,10 @@ func getTplExec(tplcontent string, weChatNotification *wechatNotification) (stri
 		"taskStatus": func(status config.Status) string {
 			if status == config.StatusPassed {
 				return "执行成功"
+			} else if status == config.StatusCancelled {
+				return "执行取消"
+			} else if status == config.StatusTimeout {
+				return "执行超时"
 			}
 			return "执行失败"
 		},
