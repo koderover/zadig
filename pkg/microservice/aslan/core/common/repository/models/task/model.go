@@ -107,9 +107,8 @@ type TestReport struct {
 	Security              map[string]map[string]int `bson:"security,omitempty"                    json:"security,omitempty"`
 }
 
-// TestSuite ...
 type TestSuite struct {
-	// 总数=tests+skips 成功=tests-failures-errors
+	// totalNum=tests+skips successNum=tests-failures-errors
 	Tests     int        `bson:"tests"                   json:"tests"                    xml:"tests,attr"`
 	Failures  int        `bson:"failures"                json:"failures"                 xml:"failures,attr"`
 	Successes int        `bson:"successes,omitempty"     json:"successes,omitempty"      xml:"successes,attr,omitempty"`

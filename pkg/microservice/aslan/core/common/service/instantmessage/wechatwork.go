@@ -29,6 +29,8 @@ const (
 	weChatTextTypeMarkdown TextType = "markdown"
 )
 
+type TextType string
+
 type WeChatWorkCard struct {
 	MsgType  string   `json:"msgtype"`
 	Markdown Markdown `json:"markdown"`

@@ -227,7 +227,7 @@ func (c *client) ProccessNotify(notify *models.Notify) error {
 			if ctx.TaskID > 1 {
 				testPreTask, err := c.taskColl.Find(ctx.TaskID-1, ctx.PipelineName, ctx.Type)
 				if err != nil {
-					return fmt.Errorf("get test previous task #%d notify, status: %s", ctx.TaskID-1, ctx.Status)
+					return fmt.Errorf("get test previous task #%d notify, status: %s,err:%s", ctx.TaskID-1, ctx.Status, err)
 				}
 				if testPreTask.Status != task.Status && task.Status != config.StatusRunning {
 					testTaskStatusChanged = true
@@ -235,10 +235,9 @@ func (c *client) ProccessNotify(notify *models.Notify) error {
 			}
 		}
 
-		//发送IM通知
 		err = c.InstantmessageService.SendInstantMessage(task, testTaskStatusChanged)
 		if err != nil {
-			return fmt.Errorf("SendInstantMessage err : %v", err)
+			return fmt.Errorf("SendInstantMessage err : %s", err)
 		}
 
 		for _, receiver := range receivers {

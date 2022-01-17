@@ -19,6 +19,7 @@ package instantmessage
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -33,7 +34,6 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/log"
-	"github.com/koderover/zadig/pkg/util"
 )
 
 const (
@@ -41,8 +41,6 @@ const (
 	singleInfo = "single"
 	multiInfo  = "multi"
 )
-
-type TextType string
 
 type Service struct {
 	proxyColl        *mongodb.ProxyColl
@@ -353,7 +351,10 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 						test += fmt.Sprintf("%s \n", testSt.TaskStatus)
 						continue
 					}
-					test += fmt.Sprintf("%d(成功)%d(失败)%d(总数) \n", tr.FunctionTestSuite.Successes, tr.FunctionTestSuite.Failures, tr.FunctionTestSuite.Tests)
+					totalNum := tr.FunctionTestSuite.Tests + tr.FunctionTestSuite.Skips
+					failedNum := tr.FunctionTestSuite.Failures + tr.FunctionTestSuite.Errors
+					successNum := tr.FunctionTestSuite.Tests - failedNum
+					test += fmt.Sprintf("%d(成功)%d(失败)%d(总数) \n", successNum, failedNum, totalNum)
 				}
 			}
 		}
@@ -439,7 +440,10 @@ func (w *Service) createNotifyBodyOfTestIM(desc string, weChatNotification *wech
 						tplTestCaseInfo += fmt.Sprintf("%s \n ", testInfo.TaskStatus)
 						continue
 					}
-					tplTestCaseInfo += fmt.Sprintf("%d(成功)%d(失败)%d(总数) \n", tr.FunctionTestSuite.Successes, tr.FunctionTestSuite.Failures, tr.FunctionTestSuite.Tests)
+					totalNum := tr.FunctionTestSuite.Tests + tr.FunctionTestSuite.Skips
+					failedNum := tr.FunctionTestSuite.Failures + tr.FunctionTestSuite.Errors
+					successNum := tr.FunctionTestSuite.Tests - failedNum
+					tplTestCaseInfo += fmt.Sprintf("%d(成功)%d(失败)%d(总数) \n", successNum, failedNum, totalNum)
 				}
 			}
 		}
@@ -545,7 +549,12 @@ func getTplExec(tplcontent string, weChatNotification *wechatNotification) (stri
 			return time.Unix(startTime, 0).Format("2006-01-02 15:04:05")
 		},
 		"getDuration": func(startTime int64) string {
-			return util.GetResolveTimeHms(startTime)
+			duration, er := time.ParseDuration(strconv.FormatInt(startTime, 10) + "s")
+			if er != nil {
+				log.Errorf("getTplExec ParseDuration err:%s", er)
+				return "0s"
+			}
+			return duration.String()
 		},
 	}).Parse(tplcontent))
 
