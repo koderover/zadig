@@ -1,7 +1,24 @@
+/*
+Copyright 2021 The KodeRover Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package instantmessage
 
 import (
 	"strings"
+	"sync"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 )
@@ -111,12 +128,13 @@ func (lc *LarkCard) SetHeader(template, title, tag string) {
 	}
 }
 
-func (lc *LarkCard) AddI18NElementsZhcnFeild(content string) {
+func (lc *LarkCard) AddI18NElementsZhcnFeild(content string, isCreatefield bool) {
 	if lc.I18NElements == nil {
 		lc.I18NElements = &I18NElements{
 			ZhCn: make([]*ZhCn, 0),
 		}
 	}
+
 	field := &Field{
 		IsShort: false,
 		Text: TextElem{
@@ -124,11 +142,22 @@ func (lc *LarkCard) AddI18NElementsZhcnFeild(content string) {
 			Tag:     feishuTagMd,
 		},
 	}
-	zhcnElem := &ZhCn{
-		Fields: []*Field{field},
-		Tag:    feishuTagDiv,
+	var mutex sync.RWMutex
+	mutex.Lock()
+	defer mutex.Unlock()
+	lengthZhCn := len(lc.I18NElements.ZhCn)
+	if isCreatefield || lengthZhCn == 0 {
+		zhcnElem := &ZhCn{
+			Fields: []*Field{field},
+			Tag:    feishuTagDiv,
+		}
+		lc.I18NElements.ZhCn = append(lc.I18NElements.ZhCn, zhcnElem)
+		return
 	}
-	lc.I18NElements.ZhCn = append(lc.I18NElements.ZhCn, zhcnElem)
+	lengthFields := len(lc.I18NElements.ZhCn[lengthZhCn-1].Fields)
+	if lengthFields > 0 {
+		lc.I18NElements.ZhCn[lengthZhCn-1].Fields = append(lc.I18NElements.ZhCn[lengthZhCn-1].Fields, field)
+	}
 }
 
 func (lc *LarkCard) AddI18NElementsZhcnAction(content, url string) {

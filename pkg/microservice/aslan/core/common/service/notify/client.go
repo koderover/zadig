@@ -229,7 +229,7 @@ func (c *client) ProccessNotify(notify *models.Notify) error {
 				if err != nil {
 					return fmt.Errorf("get test previous task #%d notify, status: %s", ctx.TaskID-1, ctx.Status)
 				}
-				if testPreTask.Status != task.Status {
+				if testPreTask.Status != task.Status && task.Status != config.StatusRunning {
 					testTaskStatusChanged = true
 				}
 			}

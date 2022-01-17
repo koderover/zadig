@@ -42,3 +42,26 @@ func Age(unixTime int64) string {
 	}
 	return "0s"
 }
+
+func ResolveTime(seconds int64) (hour, minute, second int64) {
+	var day = seconds / (24 * 3600)
+	hour = (seconds - day*3600*24) / 3600
+	minute = (seconds - day*24*3600 - hour*3600) / 60
+	second = seconds - day*24*3600 - hour*3600 - minute*60
+	return
+}
+
+func GetResolveTimeHms(seconds int64) string {
+	duration := ""
+	h, m, s := ResolveTime(seconds)
+	if h > 0 {
+		duration = fmt.Sprintf("%dh", h)
+	}
+	if m >= 0 {
+		duration += fmt.Sprintf("%dm", m)
+	}
+	if s >= 0 {
+		duration += fmt.Sprintf("%ds", s)
+	}
+	return duration
+}

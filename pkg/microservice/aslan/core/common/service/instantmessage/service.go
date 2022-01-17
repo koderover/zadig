@@ -33,6 +33,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 const (
@@ -91,14 +92,13 @@ func (w *Service) SendMessageRequest(uri string, message interface{}) ([]byte, e
 
 func (w *Service) SendInstantMessage(task *task.Task, testTaskStatusChanged bool) error {
 	var (
-		uri           = ""
-		content       = ""
-		webHookType   = ""
-		atMobiles     []string
-		isAtAll       bool
-		title         = ""
-		buttonContent = ""
-		buttonURL     = ""
+		uri         = ""
+		content     = ""
+		webHookType = ""
+		atMobiles   []string
+		isAtAll     bool
+		title       = ""
+		larkCard    *LarkCard
 	)
 	if task.Type == config.SingleType {
 		resp, err := w.pipelineColl.Find(&mongodb.PipelineFindOption{Name: task.PipelineName})
@@ -156,7 +156,7 @@ func (w *Service) SendInstantMessage(task *task.Task, testTaskStatusChanged bool
 			} else {
 				uri = resp.NotifyCtl.WeChatWebHook
 			}
-			title, content, buttonContent, buttonURL, err = w.createNotifyBodyOfWorkflowIM(&wechatNotification{
+			title, content, larkCard, err = w.createNotifyBodyOfWorkflowIM(&wechatNotification{
 				Task:        task,
 				BaseURI:     configbase.SystemAddress(),
 				IsSingle:    false,
@@ -192,7 +192,7 @@ func (w *Service) SendInstantMessage(task *task.Task, testTaskStatusChanged bool
 			} else {
 				uri = resp.NotifyCtl.WeChatWebHook
 			}
-			title, content, buttonContent, buttonURL, err = w.createNotifyBodyOfTestIM(resp.Desc, &wechatNotification{
+			title, content, larkCard, err = w.createNotifyBodyOfTestIM(resp.Desc, &wechatNotification{
 				Task:        task,
 				BaseURI:     configbase.SystemAddress(),
 				IsSingle:    false,
@@ -208,7 +208,7 @@ func (w *Service) SendInstantMessage(task *task.Task, testTaskStatusChanged bool
 		}
 	}
 
-	if uri != "" && content != "" {
+	if uri != "" && (content != "" || larkCard != nil) {
 		if webHookType == dingDingType {
 			if task.Type == config.SingleType {
 				title = "工作流状态"
@@ -228,12 +228,7 @@ func (w *Service) SendInstantMessage(task *task.Task, testTaskStatusChanged bool
 				return nil
 			}
 
-			lc := NewLarkCard()
-			lc.SetConfig(true)
-			lc.SetHeader(getColorTemplateWithStatus(task.Status), title, feiShuTagText)
-			lc.AddI18NElementsZhcnFeild(content)
-			lc.AddI18NElementsZhcnAction(buttonContent, buttonURL)
-			err := w.sendFeishuMessage(uri, lc)
+			err := w.sendFeishuMessage(uri, larkCard)
 			if err != nil {
 				log.Errorf("SendFeiShuMessageRequest err : %s", err)
 				return err
@@ -243,7 +238,7 @@ func (w *Service) SendInstantMessage(task *task.Task, testTaskStatusChanged bool
 			if task.Type == config.SingleType {
 				typeText = weChatTextTypeText
 			}
-			err := w.SendWeChatWorkMessage(typeText, uri, title+content)
+			err := w.SendWeChatWorkMessage(typeText, uri, content)
 			if err != nil {
 				log.Errorf("SendWeChatWorkMessage err : %s", err)
 				return err
@@ -283,151 +278,136 @@ func (w *Service) createNotifyBody(weChatNotification *wechatNotification) (cont
 	return tplcontent, err
 }
 
-func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotification) (string, string, string, string, error) {
+func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotification) (string, string, *LarkCard, error) {
+	tplTitle := "{{if ne .WebHookType \"feishu\"}}#### {{end}}{{getIcon .Task.Status }}{{if eq .WebHookType \"wechat\"}}<font color=\"{{ getColor .Task.Status }}\">工作流{{.Task.PipelineName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}</font>{{else}}工作流 {{.Task.PipelineName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{end}} \n"
+	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}**执行用户**：{{.Task.TaskCreator}} \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**环境信息**：{{.Task.WorkflowArgs.Namespace}} \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**开始时间**：{{ getStartTime .Task.StartTime}} \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**持续时间**：{{ getDuration .TotalTime}} \n",
+	}
 
-	tplTitle := "#### {{if ne .WebHookType \"wechat\"}}工作流{{.Task.PipelineName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{else}}<font color=\"{{ getColor .Task.Status }}\">工作流{{.Task.PipelineName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}</font>{{end}} \n"
-	tplcontent := "**创建者**：{{.Task.TaskCreator}}  **持续时间**：{{ .TotalTime}} 秒 \n" +
-		"**环境信息**：{{.Task.WorkflowArgs.Namespace}}  **开始时间**：{{ getStartTime .Task.StartTime}} \n"
-	build := ""
-	deploy := ""
+	build := []string{}
 	test := ""
-	distribute := ""
 	for _, subStage := range weChatNotification.Task.Stages {
 		switch subStage.TaskType {
 		case config.TaskBuild:
-			build = "**构建** \n"
 			for _, sb := range subStage.SubTasks {
+				buildElemTemp := ""
 				buildSt, err := base.ToBuildTask(sb)
 				if err != nil {
-					return "", "", "", "", err
+					return "", "", nil, err
 				}
-				branch := ""
-				commitID := ""
-				commitMsg := ""
-				gitCommitURL := ""
-				for idx, build := range buildSt.JobCtx.Builds {
-					if idx == 0 || build.IsPrimary {
-						branch = build.Branch
-						if len(build.CommitID) > 8 {
-							commitID = build.CommitID[0:8]
+				branch, commitID, commitMsg, gitCommitURL := "", "", "", ""
+				for idx, buildRepo := range buildSt.JobCtx.Builds {
+					if idx == 0 || buildRepo.IsPrimary {
+						branch = buildRepo.Branch
+						if len(buildRepo.CommitID) > 8 {
+							commitID = buildRepo.CommitID[0:8]
 						}
-						commitMsg = build.CommitMessage
-						gitCommitURL = fmt.Sprintf("%s/%s/%s/commit/%s", build.Address, build.RepoOwner, build.RepoName, commitID)
+						commitMsgs := strings.Split(buildRepo.CommitMessage, "\n")
+						if len(commitMsgs) > 0 {
+							commitMsg = commitMsgs[0]
+						}
+						if len(commitMsg) > 40 {
+							commitMsg = commitMsg[0:40]
+						}
+						gitCommitURL = fmt.Sprintf("%s/%s/%s/commit/%s", buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, commitID)
 					}
 				}
 				if buildSt.BuildStatus.Status == "" {
 					buildSt.BuildStatus.Status = config.StatusNotRun
 				}
-				if weChatNotification.WebHookType == weChatWorkType {
-					build += fmt.Sprintf("- <font color=\"%s\">%s/%s</font>", getColorWithStatus(buildSt.BuildStatus.Status), buildSt.ServiceName, buildSt.Service)
-				} else {
-					build += fmt.Sprintf("- %s/%s", buildSt.ServiceName, buildSt.Service)
-				}
-				build += fmt.Sprintf("  status:%s [%s-%s](%s)  commitMsg:%s \n", buildSt.BuildStatus.Status, branch, commitID, gitCommitURL, commitMsg)
+				buildElemTemp += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**服务名称**：%s \n", buildSt.ServiceName)
+				buildElemTemp += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**镜像信息**：%s \n", buildSt.JobCtx.Image)
+				buildElemTemp += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**代码信息**：[Branch-%s %s](%s) \n", branch, commitID, gitCommitURL)
+				buildElemTemp += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**提交信息**：%s \n", commitMsg)
+				build = append(build, buildElemTemp)
 			}
-		case config.TaskArtifact:
 
-		case config.TaskDeploy:
-			deploy = "**部署** \n"
-			for svrModule, sb := range subStage.SubTasks {
-				deploySt, err := base.ToDeployTask(sb)
-				if err != nil {
-					return "", "", "", "", err
-				}
-				if deploySt.TaskStatus == "" {
-					deploySt.TaskStatus = config.StatusNotRun
-				}
-				if weChatNotification.WebHookType == weChatWorkType {
-					deploy += fmt.Sprintf("- <font color=\"%s\">%s/%s</font>", getColorWithStatus(deploySt.TaskStatus), svrModule, deploySt.ServiceName)
-				} else {
-					deploy += fmt.Sprintf("- %s/%s", svrModule, deploySt.ServiceName)
-				}
-				deploy += fmt.Sprintf(" status:%s image:%s \n", deploySt.TaskStatus, deploySt.Image)
-			}
 		case config.TaskTestingV2:
-			test = "**测试** \n"
+			test = "{{if eq .WebHookType \"dingding\"}}##### {{end}}**测试结果** \n"
 			for _, sb := range subStage.SubTasks {
 				testSt, err := base.ToTestingTask(sb)
 				if err != nil {
-					return "", "", "", "", err
+					return "", "", nil, err
 				}
 				if testSt.TaskStatus == "" {
 					testSt.TaskStatus = config.StatusNotRun
 				}
-				if weChatNotification.WebHookType == weChatWorkType {
-					test += fmt.Sprintf("- <font color=\"%s\">%s</font>  status:%s", getColorWithStatus(testSt.TaskStatus), testSt.TestName, testSt.TaskStatus)
-				} else {
-					test += fmt.Sprintf("- %s  status:%s", testSt.TestName, testSt.TaskStatus)
-				}
+				test += fmt.Sprintf("{{if ne .WebHookType \"feishu\"}} - {{end}}%s: ", testSt.TestModuleName)
 				if weChatNotification.Task.TestReports == nil {
-					test += " \n"
+					test += fmt.Sprintf("%s \n", testSt.TaskStatus)
 					continue
 				}
-				suffixEndline := false
+
 				for testname, report := range weChatNotification.Task.TestReports {
-					if testname != testSt.TestName {
+					if testname != testSt.TestModuleName {
 						continue
 					}
-					tr := task.TestReport{}
+					tr := &task.TestReport{}
 					if task.IToi(report, tr) != nil {
 						log.Errorf("parse TestReport failed, err:%s", err)
 						continue
 					}
 					if tr.FunctionTestSuite == nil {
+						test += fmt.Sprintf("%s \n", testSt.TaskStatus)
 						continue
 					}
-					suffixEndline = true
-					test += fmt.Sprintf(":%d(成功)%d(失败)%d(总数) \n", tr.FunctionTestSuite.Successes, tr.FunctionTestSuite.Failures, tr.FunctionTestSuite.Tests)
-				}
-				if !suffixEndline {
-					test += " \n"
-				}
-			}
-		case config.TaskDistribute, config.TaskDistributeToS3:
-			build = "**分发** \n"
-			for _, sb := range subStage.SubTasks {
-				distributeSt, err := base.ToDistributeToS3Task(sb)
-				if err != nil {
-					return "", "", "", "", err
-				}
-				if distributeSt.TaskStatus == "" {
-					distributeSt.TaskStatus = config.StatusNotRun
-				}
-				if weChatNotification.WebHookType == weChatWorkType {
-					distribute += fmt.Sprintf("- <font color=\"%s\">%s</font>  status:%s \n", getColorWithStatus(distributeSt.TaskStatus), distributeSt.ServiceName, distributeSt.TaskStatus)
-				} else {
-					distribute += fmt.Sprintf("- %s  status:%s \n", distributeSt.ServiceName, distributeSt.TaskStatus)
+					test += fmt.Sprintf("%d(成功)%d(失败)%d(总数) \n", tr.FunctionTestSuite.Successes, tr.FunctionTestSuite.Failures, tr.FunctionTestSuite.Tests)
 				}
 			}
 		}
 	}
 
-	if weChatNotification.WebHookType == dingDingType {
-		if len(weChatNotification.AtMobiles) > 0 && !weChatNotification.IsAtAll {
-			tplcontent = fmt.Sprintf("%s \n 相关人员：@%s \n", tplcontent, strings.Join(weChatNotification.AtMobiles, "@"))
-		}
-	}
 	buttonContent := "点击查看更多信息"
 	workflowDetailURL := "{{.BaseURI}}/v1/projects/detail/{{.Task.ProductName}}/pipelines/{{ isSingle .IsSingle }}/{{.Task.PipelineName}}/{{.Task.TaskID}}"
 	moreInformation := fmt.Sprintf("[%s](%s)", buttonContent, workflowDetailURL)
-	if weChatNotification.WebHookType == feiShuType {
-		tplcontent = fmt.Sprintf("%s%s%s%s%s", tplcontent, build, deploy, test, distribute)
-	} else {
-		tplcontent = fmt.Sprintf("%s%s%s%s%s%s", tplcontent, build, deploy, test, distribute, moreInformation)
+	tplTitle, _ = getTplExec(tplTitle, weChatNotification)
+
+	if weChatNotification.WebHookType != feiShuType {
+		tplcontent := strings.Join(tplBaseInfo, "")
+		tplcontent += strings.Join(build, "")
+		tplcontent = fmt.Sprintf("%s%s", tplcontent, test)
+		if weChatNotification.WebHookType == dingDingType {
+			if len(weChatNotification.AtMobiles) > 0 && !weChatNotification.IsAtAll {
+				tplcontent = fmt.Sprintf("%s{{if eq .WebHookType \"dingding\"}}##### {{end}}**相关人员**：@%s \n", tplcontent, strings.Join(weChatNotification.AtMobiles, "@"))
+			}
+		}
+		tplcontent = fmt.Sprintf("%s%s%s", tplTitle, tplcontent, moreInformation)
+		tplExecContent, _ := getTplExec(tplcontent, weChatNotification)
+		return tplTitle, tplExecContent, nil, nil
 	}
 
-	tplExecContent, _ := getTplExec(tplcontent, weChatNotification)
-	tplExecTitle, _ := getTplExec(tplTitle, weChatNotification)
-	execButtonContent, _ := getTplExec(buttonContent, weChatNotification)
-	execButtonURL, _ := getTplExec(workflowDetailURL, weChatNotification)
-	return tplExecTitle, tplExecContent, execButtonContent, execButtonURL, nil
+	lc := NewLarkCard()
+	lc.SetConfig(true)
+	lc.SetHeader(getColorTemplateWithStatus(weChatNotification.Task.Status), tplTitle, feiShuTagText)
+	for idx, feildContent := range tplBaseInfo {
+		feildExecContent, _ := getTplExec(feildContent, weChatNotification)
+		lc.AddI18NElementsZhcnFeild(feildExecContent, idx == 0)
+	}
+	for _, feildContent := range build {
+		feildExecContent, _ := getTplExec(feildContent, weChatNotification)
+		lc.AddI18NElementsZhcnFeild(feildExecContent, true)
+	}
+	if test != "" {
+		test, _ = getTplExec(test, weChatNotification)
+		lc.AddI18NElementsZhcnFeild(test, true)
+	}
+	workflowDetailURL, _ = getTplExec(workflowDetailURL, weChatNotification)
+	lc.AddI18NElementsZhcnAction(buttonContent, workflowDetailURL)
+	return "", "", lc, nil
 }
 
-func (w *Service) createNotifyBodyOfTestIM(desc string, weChatNotification *wechatNotification) (string, string, string, string, error) {
-	tplTitle := "#### {{if ne .WebHookType \"wechat\"}}工作流{{.Task.PipelineName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{else}}<font color=\"{{ getColor .Task.Status }}\">工作流{{.Task.PipelineName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}</font>{{end}} \n"
-	tplcontent := "**创建者**：{{.Task.TaskCreator}}  **开始时间**：{{ getStartTime .Task.StartTime}} **持续时间**：{{ .TotalTime}} 秒 \n" +
-		"**测试描述**: " + desc + " \n" +
-		"**测试结果** \n"
+func (w *Service) createNotifyBodyOfTestIM(desc string, weChatNotification *wechatNotification) (string, string, *LarkCard, error) {
+
+	tplTitle := "{{if ne .WebHookType \"feishu\"}}#### {{end}}{{getIcon .Task.Status }}{{if eq .WebHookType \"wechat\"}}<font color=\"{{ getColor .Task.Status }}\">工作流{{.Task.PipelineName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}</font>{{else}}工作流 {{.Task.PipelineName}} #{{.Task.TaskID}} {{ taskStatus .Task.Status }}{{end}} \n"
+	tplBaseInfo := []string{"{{if eq .WebHookType \"dingding\"}}##### {{end}}**执行用户**：{{.Task.TaskCreator}} \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**持续时间**：{{ getDuration .TotalTime}} \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**开始时间**：{{ getStartTime .Task.StartTime}} \n",
+		"{{if eq .WebHookType \"dingding\"}}##### {{end}}**测试描述**：" + desc + " \n",
+	}
+
+	tplTestCaseInfo := "{{if eq .WebHookType \"dingding\"}}##### {{end}}**测试结果** \n"
 	for _, stage := range weChatNotification.Task.Stages {
 		if stage.TaskType != config.TaskTestingV2 {
 			continue
@@ -439,53 +419,65 @@ func (w *Service) createNotifyBodyOfTestIM(desc string, weChatNotification *wech
 				log.Errorf("parse testInfo failed, err:%s", err)
 				continue
 			}
-			if testInfo.JobCtx.TestType == setting.FunctionTest && testInfo.JobCtx.TestReportPath != "" {
-				url := fmt.Sprintf("{{.BaseURI}}/api/aslan/testing/report?pipelineName={{.Task.PipelineName}}&pipelineType={{.Task.Type}}&taskID={{.Task.TaskID}}&testName=%s\n", testInfo.TestName)
-				tplcontent += fmt.Sprintf("- [%s](%s) status:%s ", testName, url, testInfo.TaskStatus)
+			if testInfo.JobCtx.TestType == setting.FunctionTest && testInfo.JobCtx.TestResultPath != "" {
+				url := fmt.Sprintf("{{.BaseURI}}/api/aslan/testing/report?pipelineName={{.Task.PipelineName}}&pipelineType={{.Task.Type}}&taskID={{.Task.TaskID}}&testName=%s", testInfo.TestName)
+				tplTestCaseInfo += fmt.Sprintf("{{if ne .WebHookType \"feishu\"}} - {{end}}[%s](%s): ", testName, url)
 				if weChatNotification.Task.TestReports == nil {
-					tplcontent += "\n"
+					tplTestCaseInfo += fmt.Sprintf("%s \n ", testInfo.TaskStatus)
 					continue
 				}
-				suffixEndline := false
 				for testname, report := range weChatNotification.Task.TestReports {
-					if testname != testInfo.TestName {
+					if testname != testInfo.TestModuleName {
 						continue
 					}
-					tr := task.TestReport{}
+					tr := &task.TestReport{}
 					if task.IToi(report, tr) != nil {
 						log.Errorf("parse TestReport failed, err:%s", err)
 						continue
 					}
 					if tr.FunctionTestSuite == nil {
+						tplTestCaseInfo += fmt.Sprintf("%s \n ", testInfo.TaskStatus)
 						continue
 					}
-					suffixEndline = true
-					tplcontent += fmt.Sprintf(" %d(成功)%d(失败)%d(总数)\n", tr.FunctionTestSuite.Successes, tr.FunctionTestSuite.Failures, tr.FunctionTestSuite.Tests)
-				}
-				if !suffixEndline {
-					tplcontent += "\n"
+					tplTestCaseInfo += fmt.Sprintf("%d(成功)%d(失败)%d(总数) \n", tr.FunctionTestSuite.Successes, tr.FunctionTestSuite.Failures, tr.FunctionTestSuite.Tests)
 				}
 			}
 		}
 	}
 
-	if weChatNotification.WebHookType == dingDingType {
-		if len(weChatNotification.AtMobiles) > 0 && !weChatNotification.IsAtAll {
-			tplcontent = fmt.Sprintf("%s - 相关人员：@%s \n", tplcontent, strings.Join(weChatNotification.AtMobiles, "@"))
-		}
-	}
 	buttonContent := "点击查看更多信息"
 	workflowDetailURL := "{{.BaseURI}}/v1/projects/detail/{{.Task.ProductName}}/test/detail/function/{{.Task.PipelineName}}/{{.Task.TaskID}}"
-	moreInformation := fmt.Sprintf("[%s](%s)", buttonContent, workflowDetailURL)
-	if weChatNotification.WebHookType != feiShuType {
-		tplcontent = fmt.Sprintf("%s%s%s", tplTitle, tplcontent, moreInformation)
-	} else {
-		tplTitle, _ = getTplExec(tplTitle, weChatNotification)
-		workflowDetailURL, _ = getTplExec(workflowDetailURL, weChatNotification)
-	}
-	tplExecContent, _ := getTplExec(tplcontent, weChatNotification)
+	moreInformation := fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}[%s](%s)", buttonContent, workflowDetailURL)
 
-	return tplTitle, tplExecContent, buttonContent, workflowDetailURL, nil
+	tplTitle, _ = getTplExec(tplTitle, weChatNotification)
+
+	if weChatNotification.WebHookType != feiShuType {
+		tplcontent := strings.Join(tplBaseInfo, "")
+		tplcontent = fmt.Sprintf("%s%s", tplcontent, tplTestCaseInfo)
+		if weChatNotification.WebHookType == dingDingType {
+			if len(weChatNotification.AtMobiles) > 0 && !weChatNotification.IsAtAll {
+				tplcontent = fmt.Sprintf("%s{{if eq .WebHookType \"dingding\"}}##### {{end}}**相关人员**：@%s \n", tplcontent, strings.Join(weChatNotification.AtMobiles, "@"))
+			}
+		}
+		tplcontent = fmt.Sprintf("%s%s%s", tplTitle, tplcontent, moreInformation)
+		tplExecContent, _ := getTplExec(tplcontent, weChatNotification)
+		return tplTitle, tplExecContent, nil, nil
+	}
+	lc := NewLarkCard()
+	lc.SetConfig(true)
+	lc.SetHeader(getColorTemplateWithStatus(weChatNotification.Task.Status), tplTitle, feiShuTagText)
+	for idx, feildContent := range tplBaseInfo {
+		feildExecContent, _ := getTplExec(feildContent, weChatNotification)
+		lc.AddI18NElementsZhcnFeild(feildExecContent, idx == 0)
+	}
+	if tplTestCaseInfo != "" {
+		tplTestCaseInfo, _ = getTplExec(tplTestCaseInfo, weChatNotification)
+		lc.AddI18NElementsZhcnFeild(tplTestCaseInfo, true)
+	}
+	workflowDetailURL, _ = getTplExec(workflowDetailURL, weChatNotification)
+	lc.AddI18NElementsZhcnAction(buttonContent, workflowDetailURL)
+
+	return "", "", lc, nil
 }
 
 func getHTMLTestReport(task *task.Task) []string {
@@ -535,12 +527,21 @@ func getTplExec(tplcontent string, weChatNotification *wechatNotification) (stri
 		},
 		"taskStatus": func(status config.Status) string {
 			if status == config.StatusPassed {
-				return "执行成功👍"
+				return "执行成功"
 			}
-			return "执行失败⚠️"
+			return "执行失败"
+		},
+		"getIcon": func(status config.Status) string {
+			if status == config.StatusPassed {
+				return "👍"
+			}
+			return "⚠️"
 		},
 		"getStartTime": func(startTime int64) string {
 			return time.Unix(startTime, 0).Format("2006-01-02 15:04:05")
+		},
+		"getDuration": func(startTime int64) string {
+			return util.GetResolveTimeHms(startTime)
 		},
 	}).Parse(tplcontent))
 
