@@ -119,6 +119,7 @@ type ListLabelOpt struct {
 	Key    string
 	Values []string
 	Type   string
+	IDs    []string
 }
 
 func (c *LabelColl) List(opt *ListLabelOpt) ([]*models.Label, error) {
@@ -135,6 +136,17 @@ func (c *LabelColl) List(opt *ListLabelOpt) ([]*models.Label, error) {
 	}
 	if opt.Type != "" {
 		query["type"] = opt.Type
+	}
+	if len(opt.IDs) != 0 {
+		var oids []primitive.ObjectID
+		for _, id := range opt.IDs {
+			oid, err := primitive.ObjectIDFromHex(id)
+			if err != nil {
+				return nil, err
+			}
+			oids = append(oids, oid)
+		}
+		query["_id"] = bson.M{"$in": oids}
 	}
 	opts := options.Find()
 	opts.SetSort(bson.D{{"key", 1}})

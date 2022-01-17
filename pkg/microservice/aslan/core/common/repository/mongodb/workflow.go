@@ -81,7 +81,7 @@ func (c *WorkflowColl) List(opt *ListWorkflowOption) ([]*models.Workflow, error)
 			}
 			oids = append(oids, oid)
 		}
-		query["_id"] = bson.M{"$in": opt.Ids}
+		query["_id"] = bson.M{"$in": oids}
 	}
 
 	resp := make([]*models.Workflow, 0)

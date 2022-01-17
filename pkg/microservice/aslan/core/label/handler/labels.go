@@ -124,19 +124,27 @@ func ListResourceByLabels(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.ListResourcesByLabels(listResourceByLabelsReq.LabelFilters, ctx.Logger)
 }
 
-type ListLabelsByResourceReq struct {
-	ResourceID   string `json:"resource_id"`
-	ResourceType string `json:"resource_type"`
-}
-
 func ListLabelsByResource(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	listLabelsByResourceReq := new(ListLabelsByResourceReq)
+	listLabelsByResourceReq := new(service.ListLabelsByResourceReq)
 	if err := c.ShouldBindJSON(listLabelsByResourceReq); err != nil {
 		ctx.Err = err
 		return
 	}
 	ctx.Resp, ctx.Err = service.ListLabelsByResourceID(listLabelsByResourceReq.ResourceID, listLabelsByResourceReq.ResourceType, ctx.Logger)
+}
+
+func ListLabelsByResources(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	listLabelsByResourcesReq := new(service.ListLabelsByResourcesReq)
+
+	if err := c.ShouldBindJSON(&listLabelsByResourcesReq); err != nil {
+		ctx.Err = err
+		return
+	}
+	ctx.Resp, ctx.Err = service.ListLabelsByResourceIDs(listLabelsByResourcesReq, ctx.Logger)
 }

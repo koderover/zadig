@@ -18,6 +18,7 @@ package service
 
 import (
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
@@ -123,6 +124,16 @@ func ListResourcesByLabels(filter []LabelFilter, logger *zap.SugaredLogger) ([]R
 	return res, nil
 }
 
+type ListLabelsByResourceReq struct {
+	ResourceID   string `json:"resource_id"`
+	ResourceType string `json:"resource_type"`
+}
+
+type ListLabelsByResourcesReq struct {
+	ResourceIDs  []string `json:"resource_ids"`
+	ResourceType string   `json:"resource_type"`
+}
+
 func ListLabelsByResourceID(resourceID, resourceType string, logger *zap.SugaredLogger) ([]LabelResource, error) {
 	labelBindings, err := mongodb.NewLabelBindingColl().ListByOpt(&mongodb.LabelBindingCollFindOpt{
 		ResourceID:   resourceID,
@@ -145,6 +156,43 @@ func ListLabelsByResourceID(resourceID, resourceType string, logger *zap.Sugared
 		})
 	}
 	return labelResources, nil
+}
+
+func ListLabelsByResourceIDs(resources *ListLabelsByResourcesReq, logger *zap.SugaredLogger) (map[string][]LabelResource, error) {
+	labelBindings, err := mongodb.NewLabelBindingColl().ListByOpt(&mongodb.LabelBindingCollFindOpt{
+		ResourcesIDs: resources.ResourceIDs,
+		ResourceType: resources.ResourceType,
+	})
+	if err != nil {
+		logger.Errorf("list labelbinding err:%s", err)
+		return nil, err
+	}
+	labelIDs := sets.NewString()
+	for _, v := range labelBindings {
+		labelIDs.Insert(v.LabelID)
+	}
+	labelM := make(map[string]*models.Label, 0)
+	labels, err := mongodb.NewLabelColl().List(&mongodb.ListLabelOpt{
+		IDs: labelIDs.List(),
+	})
+	for _, v := range labels {
+		labelM[v.ID.Hex()] = v
+	}
+	if err != nil {
+		return nil, err
+	}
+	resources2LabelResourceM := make(map[string][]LabelResource, 0)
+	for _, v := range labelBindings {
+		if label, ok := labelM[v.LabelID]; ok {
+			resources2LabelResourceM[v.ResourceID] = append(resources2LabelResourceM[v.ResourceID], LabelResource{
+				Key:        label.Key,
+				Value:      label.Value,
+				ResourceID: v.ResourceID,
+			})
+		}
+
+	}
+	return resources2LabelResourceM, nil
 }
 
 type DeleteLabelsArgs struct {

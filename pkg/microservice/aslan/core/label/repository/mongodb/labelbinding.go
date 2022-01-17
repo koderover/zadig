@@ -79,6 +79,7 @@ type LabelBindingCollFindOpt struct {
 	LabelID      string
 	LabelIDs     []string
 	ResourceID   string
+	ResourcesIDs []string
 	ResourceType string
 }
 
@@ -103,6 +104,9 @@ func (c *LabelBindingColl) ListByOpt(opt *LabelBindingCollFindOpt) ([]*models.La
 	}
 	if opt.ResourceID != "" {
 		query["resource_id"] = opt.ResourceID
+	}
+	if len(opt.ResourcesIDs) != 0 {
+		query["resource_id"] = bson.M{"$in": opt.ResourcesIDs}
 	}
 	if opt.ResourceType != "" {
 		query["resource_type"] = opt.ResourceType
