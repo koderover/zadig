@@ -181,7 +181,7 @@ func updateContainerForHelmChart(serviceName, resType, image, containerName stri
 	}
 
 	// when replace image, should not wait
-	err = installOrUpgradeHelmChartWithValues(namespace, replacedMergedValuesYaml, targetChart, serviceObj, 0, false, helmClient, cl)
+	err = installOrUpgradeHelmChartWithValues(namespace, replacedMergedValuesYaml, targetChart, serviceObj, false, helmClient, cl)
 	if err != nil {
 		return err
 	}
