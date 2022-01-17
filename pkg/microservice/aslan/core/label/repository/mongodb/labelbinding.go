@@ -48,7 +48,8 @@ func (c *LabelBindingColl) GetCollectionName() string {
 func (c *LabelBindingColl) EnsureIndex(ctx context.Context) error {
 	mod := mongo.IndexModel{
 		Keys: bson.D{
-			bson.E{Key: "resource_id", Value: 1},
+			bson.E{Key: "resource_name", Value: 1},
+			bson.E{Key: "project_name", Value: 1},
 			bson.E{Key: "label_id", Value: 1},
 			bson.E{Key: "resource_type", Value: 1},
 		},
