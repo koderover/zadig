@@ -213,7 +213,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			return
 		}
 	}
-
+	p.Log.Infof("p.Task.ServiceType:%s", p.Task.ServiceType)
 	if p.Task.ServiceType != setting.HelmDeployType {
 		// get servcie info
 		var (
@@ -290,6 +290,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				}
 			}
 		} else {
+			p.Log.Infof("serviceInfo.WorkloadType:%s", serviceInfo.WorkloadType)
 			switch serviceInfo.WorkloadType {
 			case setting.StatefulSet:
 				var statefulSet *appsv1.StatefulSet
