@@ -23,12 +23,17 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
-	"github.com/koderover/zadig/pkg/setting"
 )
 
 type Policy struct {
-	Name  string  `json:"name"`
-	Rules []*Rule `json:"rules,omitempty"`
+	Name        string  `json:"name"`
+	Description string  `json:"description"`
+	UpdateTime  int64   `json:"update_time"`
+	Rules       []*Rule `json:"rules,omitempty"`
+}
+
+type ListPolicyResp struct {
+	Policies []Policy `json:"policies"`
 }
 
 func CreatePolicy(ns string, policy *Policy, _ *zap.SugaredLogger) error {
@@ -39,9 +44,10 @@ func CreatePolicy(ns string, policy *Policy, _ *zap.SugaredLogger) error {
 
 	for _, r := range policy.Rules {
 		obj.Rules = append(obj.Rules, &models.Rule{
-			Verbs:     r.Verbs,
-			Kind:      r.Kind,
-			Resources: r.Resources,
+			Verbs:           r.Verbs,
+			Kind:            r.Kind,
+			Resources:       r.Resources,
+			MatchAttributes: r.MatchAttributes,
 		})
 	}
 
@@ -87,12 +93,9 @@ func ListPolicies(projectName string, _ *zap.SugaredLogger) ([]*Policy, error) {
 		return nil, err
 	}
 	for _, v := range projectPolicies {
-		// frontend doesn't need to see contributor role
-		if v.Name == string(setting.Contributor) {
-			continue
-		}
 		policies = append(policies, &Policy{
-			Name: v.Name,
+			Name:        v.Name,
+			Description: v.Description,
 		})
 	}
 	return policies, nil

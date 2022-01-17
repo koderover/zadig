@@ -152,14 +152,14 @@ func CreatePublicRole(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.CreateRole("", args, ctx.Logger)
+	ctx.Err = service.CreateRole(service.PublicScope, args, ctx.Logger)
 }
 
 func ListPublicRoles(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListRoles("", ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListRoles(service.PublicScope, ctx.Logger)
 	return
 }
 
@@ -167,7 +167,7 @@ func GetPublicRole(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.GetRole("", c.Param("name"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetRole(service.PublicScope, c.Param("name"), ctx.Logger)
 }
 
 func DeleteRole(c *gin.Context) {
@@ -207,7 +207,7 @@ func DeletePublicRole(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	name := c.Param("name")
-	ctx.Err = service.DeleteRole(name, "", ctx.Logger)
+	ctx.Err = service.DeleteRole(name, service.PublicScope, ctx.Logger)
 	return
 }
 
@@ -221,7 +221,7 @@ func CreateSystemRole(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.CreateRole("*", args, ctx.Logger)
+	ctx.Err = service.CreateRole(service.SystemScope, args, ctx.Logger)
 }
 
 func UpdateOrCreateSystemRole(c *gin.Context) {
@@ -235,14 +235,14 @@ func UpdateOrCreateSystemRole(c *gin.Context) {
 	}
 	name := c.Param("name")
 	args.Name = name
-	ctx.Err = service.UpdateOrCreateRole("*", args, ctx.Logger)
+	ctx.Err = service.UpdateOrCreateRole(service.SystemScope, args, ctx.Logger)
 }
 
 func ListSystemRoles(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListRoles("*", ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListRoles(service.SystemScope, ctx.Logger)
 	return
 }
 
@@ -250,6 +250,6 @@ func DeleteSystemRole(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	name := c.Param("name")
-	ctx.Err = service.DeleteRole(name, "*", ctx.Logger)
+	ctx.Err = service.DeleteRole(name, service.SystemScope, ctx.Logger)
 	return
 }

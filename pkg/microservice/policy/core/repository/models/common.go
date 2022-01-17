@@ -17,8 +17,14 @@ type Rule struct {
 	Verbs []string `bson:"verbs"         json:"verbs"`
 
 	// Resources is a list of resources this rule applies to. '*' represents all resources.
-	Resources []string `bson:"resources" json:"resources"`
-	Kind      string   `bson:"kind"     json:"kind"`
+	Resources       []string         `bson:"resources" json:"resources"`
+	Kind            string           `bson:"kind"     json:"kind"`
+	MatchAttributes []MatchAttribute `json:"match_attributes"`
+}
+
+type MatchAttribute struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
 }
 
 // Subject contains a reference to the object or user identities a role binding applies to.

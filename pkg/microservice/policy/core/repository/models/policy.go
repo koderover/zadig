@@ -19,9 +19,14 @@ package models
 // Policy is a namespaced or cluster scoped, logical grouping of PolicyRules that can be referenced as a unit by a PolicyBinding.
 // for a cluster scoped Policy, namespace is empty.
 type Policy struct {
-	Name      string  `bson:"name"      json:"name"`
-	Namespace string  `bson:"namespace" json:"namespace"`
-	Rules     []*Rule `bson:"rules"     json:"rules"`
+	Name        string  `bson:"name"      json:"name"`
+	Namespace   string  `bson:"namespace" json:"namespace"`
+	Description string  `json:"description"`
+	CreateTime  int64   `bson:"create_time"               json:"create_time"`
+	UpdateTime  int64   `bson:"update_time"               json:"update_time"`
+	Rules       []*Rule `bson:"rules"     json:"rules"`
+	CreateBy    string  `bson:"create_by" json:"create_by"`
+	UpdateBy    string  `bson:"update_by" json:"update_by"`
 }
 
 func (Policy) TableName() string {

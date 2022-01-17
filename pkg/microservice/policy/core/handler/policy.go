@@ -99,7 +99,7 @@ func UpdatePublicPolicy(c *gin.Context) {
 	}
 	name := c.Param("name")
 	args.Name = name
-	ctx.Err = service.UpdatePolicy("", args, ctx.Logger)
+	ctx.Err = service.UpdatePolicy(service.PublicScope, args, ctx.Logger)
 }
 
 func UpdateOrCreatePublicPolicy(c *gin.Context) {
@@ -113,7 +113,7 @@ func UpdateOrCreatePublicPolicy(c *gin.Context) {
 	}
 	name := c.Param("name")
 	args.Name = name
-	ctx.Err = service.UpdateOrCreatePolicy("", args, ctx.Logger)
+	ctx.Err = service.UpdateOrCreatePolicy(service.PublicScope, args, ctx.Logger)
 }
 
 func ListPolicies(c *gin.Context) {
@@ -152,14 +152,14 @@ func CreatePublicPolicy(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.CreatePolicy("", args, ctx.Logger)
+	ctx.Err = service.CreatePolicy(service.PublicScope, args, ctx.Logger)
 }
 
 func ListPublicPolicies(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListPolicies("", ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListPolicies(service.PublicScope, ctx.Logger)
 	return
 }
 
@@ -167,7 +167,7 @@ func GetPublicPolicy(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.GetPolicy("", c.Param("name"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetPolicy(service.PublicScope, c.Param("name"), ctx.Logger)
 }
 
 func DeletePolicy(c *gin.Context) {
@@ -207,7 +207,7 @@ func DeletePublicPolicies(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	name := c.Param("name")
-	ctx.Err = service.DeletePolicy(name, "", ctx.Logger)
+	ctx.Err = service.DeletePolicy(name, service.PublicScope, ctx.Logger)
 	return
 }
 
@@ -221,7 +221,7 @@ func CreateSystemPolicy(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.CreatePolicy("*", args, ctx.Logger)
+	ctx.Err = service.CreatePolicy(service.SystemScope, args, ctx.Logger)
 }
 
 func UpdateOrCreateSystemPolicy(c *gin.Context) {
@@ -235,14 +235,14 @@ func UpdateOrCreateSystemPolicy(c *gin.Context) {
 	}
 	name := c.Param("name")
 	args.Name = name
-	ctx.Err = service.UpdateOrCreatePolicy("*", args, ctx.Logger)
+	ctx.Err = service.UpdateOrCreatePolicy(service.SystemScope, args, ctx.Logger)
 }
 
 func ListSystemPolicies(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListPolicies("*", ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListPolicies(service.SystemScope, ctx.Logger)
 	return
 }
 
@@ -250,6 +250,6 @@ func DeleteSystemPolicy(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	name := c.Param("name")
-	ctx.Err = service.DeletePolicy(name, "*", ctx.Logger)
+	ctx.Err = service.DeletePolicy(name, service.SystemScope, ctx.Logger)
 	return
 }
