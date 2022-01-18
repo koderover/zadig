@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	commondb "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/config"
@@ -29,10 +30,10 @@ import (
 )
 
 type CreateLabelBinding struct {
-	Resource   mongodb.Resource
-	LabelID    string `bson:"label_id"                    json:"label_id"`
-	CreateBy   string `bson:"create_by"                   json:"create_by"`
-	CreateTime int64  `bson:"create_time"                 json:"create_time"`
+	Resource   mongodb.Resource `json:"resource"`
+	LabelID    string           `json:"label_id"`
+	CreateBy   string           `json:"create_by"`
+	CreateTime int64            `json:"create_time"`
 }
 
 type CreateLabelBindingsArgs struct {
@@ -53,8 +54,8 @@ func CreateLabelBindings(cr *CreateLabelBindingsArgs, userName string, logger *z
 		return err
 	}
 	if len(labels) != len(labelIDs) {
-		logger.Errorf("there's labels not exists")
-		return fmt.Errorf("there's labels not exists")
+		logger.Errorf("there're labels not exist")
+		return fmt.Errorf("there're labels not exist")
 	}
 	//check resource exist
 	m := make(map[string][]CreateLabelBinding)
@@ -65,39 +66,43 @@ func CreateLabelBindings(cr *CreateLabelBindingsArgs, userName string, logger *z
 		switch k {
 		case string(config.ResourceTypeWorkflow):
 			workflows := []commondb.Workflow{}
+			resourceSet := sets.NewString()
 			for _, vv := range v {
 				workflow := commondb.Workflow{
 					Name:        vv.Resource.Name,
 					ProjectName: vv.Resource.ProjectName,
 				}
 				workflows = append(workflows, workflow)
+				resourceSet.Insert(fmt.Sprintf("%s-%s", vv.Resource.Name, vv.Resource.ProjectName))
 			}
 			wks, err := commondb.NewWorkflowColl().ListByWorkflows(commondb.ListWorkflowOpt{workflows})
 			if err != nil {
 				logger.Errorf("can not find related resource err:%s", err)
 				return err
 			}
-			if len(wks) != len(v) {
-				logger.Errorf("can not find related resource err:%s", err)
-				return e.ErrForbidden.AddDesc("can not find related resource")
+			if len(wks) != resourceSet.Len() {
+				logger.Errorf("there're resources not exist")
+				return e.ErrForbidden.AddDesc("there're resources not exist")
 			}
 		case string(config.ResourceTypeProduct):
 			products := []commondb.Product{}
+			resourceSet := sets.NewString()
 			for _, vv := range v {
 				product := commondb.Product{
 					Name:        vv.Resource.Name,
 					ProjectName: vv.Resource.ProjectName,
 				}
 				products = append(products, product)
+				resourceSet.Insert(fmt.Sprintf("%s-%s", vv.Resource.Name, vv.Resource.ProjectName))
 			}
 			pros, err := commondb.NewProductColl().ListByProducts(commondb.ListProductOpt{products})
 			if err != nil {
 				logger.Errorf("can not find related resource err:%s", err)
 				return err
 			}
-			if len(pros) != len(v) {
-				logger.Errorf("can not find related resource err:%s", err)
-				return e.ErrForbidden.AddDesc("can not find related resource")
+			if len(pros) != resourceSet.Len() {
+				logger.Errorf("there're resources not exist")
+				return e.ErrForbidden.AddDesc("there're resources not exist")
 			}
 		}
 	}
@@ -107,6 +112,7 @@ func CreateLabelBindings(cr *CreateLabelBindingsArgs, userName string, logger *z
 		labelBinding := &models.LabelBinding{
 			ResourceType: v.Resource.Type,
 			ResourceName: v.Resource.Name,
+			ProjectName:  v.Resource.ProjectName,
 			LabelID:      v.LabelID,
 			CreateBy:     v.CreateBy,
 		}
