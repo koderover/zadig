@@ -27,18 +27,6 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-type ResourceLabel struct {
-	ResourceName string `json:"resource_name"`
-	ProjectName  string `json:"project_name"`
-	ResourceType string `json:"resource_type"`
-}
-
-type LabelResource struct {
-	Key        string `json:"key"`
-	Value      string `json:"value"`
-	ResourceID string `json:"resource_id"`
-}
-
 func CreateLabels(labels []*models.Label) error {
 	return mongodb.NewLabelColl().BulkCreate(labels)
 }
@@ -59,7 +47,15 @@ type ListResourceByLabelsReq struct {
 	LabelFilters []mongodb.Label `json:"label_filters"`
 }
 
-func ListResourcesByLabels(filters []mongodb.Label, logger *zap.SugaredLogger) (map[string][]mongodb.Resource, error) {
+type ListResourcesByLabelsResp struct {
+	Resources map[string][]mongodb.Resource `json:"resources"`
+}
+
+func BuildLabelString(key string, value string) string {
+	return fmt.Sprintf("%s-%s", key, value)
+}
+
+func ListResourcesByLabels(filters []mongodb.Label, logger *zap.SugaredLogger) (*ListResourcesByLabelsResp, error) {
 	// 1.find labels by label filters
 	labels, err := mongodb.NewLabelColl().List(mongodb.ListLabelOpt{Labels: filters})
 	if err != nil {
@@ -71,7 +67,7 @@ func ListResourcesByLabels(filters []mongodb.Label, logger *zap.SugaredLogger) (
 	labelsM := make(map[string]string)
 	for _, v := range labels {
 		labelIDSet.Insert(v.ID.Hex())
-		labelsM[v.ID.Hex()] = fmt.Sprintf("%s-%s", v.Key, v.Value)
+		labelsM[v.ID.Hex()] = BuildLabelString(v.Key, v.Value)
 	}
 
 	labelBindings, err := mongodb.NewLabelBindingColl().ListByOpt(&mongodb.LabelBindingCollFindOpt{LabelIDs: labelIDSet.List()})
@@ -96,19 +92,20 @@ func ListResourcesByLabels(filters []mongodb.Label, logger *zap.SugaredLogger) (
 		}
 	}
 
-	return res, nil
-}
-
-type ListLabelsByResourceReq struct {
-	ResourceID   string `json:"resource_id"`
-	ResourceType string `json:"resource_type"`
+	return &ListResourcesByLabelsResp{
+		Resources: res,
+	}, nil
 }
 
 type ListLabelsByResourcesReq struct {
 	Resources []mongodb.Resource `json:"resources"`
 }
 
-func ListLabelsByResources(resources []mongodb.Resource, logger *zap.SugaredLogger) (map[string][]*models.Label, error) {
+type ListLabelsByResourcesResp struct {
+	Labels map[string][]*models.Label `json:"labels"`
+}
+
+func ListLabelsByResources(resources []mongodb.Resource, logger *zap.SugaredLogger) (*ListLabelsByResourcesResp, error) {
 	//1. find the labelBindings by resources
 	labelBindings, err := mongodb.NewLabelBindingColl().ListByResources(mongodb.ListLabelBindingsByResources{Resources: resources})
 	if err != nil {
@@ -144,7 +141,9 @@ func ListLabelsByResources(resources []mongodb.Resource, logger *zap.SugaredLogg
 		}
 	}
 
-	return res, nil
+	return &ListLabelsByResourcesResp{
+		Labels: res,
+	}, nil
 }
 
 type DeleteLabelsArgs struct {

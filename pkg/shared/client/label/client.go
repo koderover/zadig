@@ -1,5 +1,5 @@
 /*
-Copyright 2022 The KodeRover Authors.
+Copyright 2021 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,25 +14,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package handler
+package label
 
 import (
-	"github.com/gin-gonic/gin"
+	"github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
-type Router struct{}
+type Client struct {
+	*httpclient.Client
 
-func (*Router) Inject(router *gin.RouterGroup) {
-	labels := router.Group("labels")
-	{
-		labels.POST("/filter", ListLabels)
-		labels.POST("/bulk-create", CreateLabels)
-		labels.POST("/bulk-delete", DeleteLabels)
-		labels.POST("/resources-by-labels", ListResourcesByLabels)
-		labels.POST("/labels-by-resources", ListLabelsByResources)
-	}
-	labelBindings := router.Group("labelbindings")
-	{
-		labelBindings.POST("", CreateLabelBindings)
+	host string
+}
+
+func New() *Client {
+	host := config.ConfigServiceAddress()
+	c := httpclient.New(
+		httpclient.SetHostURL(host + "/api"),
+	)
+
+	return &Client{
+		Client: c,
+		host:   host,
 	}
 }

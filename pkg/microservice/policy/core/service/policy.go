@@ -20,6 +20,11 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
+
+	mongodb2 "github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/service"
+	"github.com/koderover/zadig/pkg/shared/client/label"
 
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
@@ -108,18 +113,51 @@ func GetPolicy(ns, name string, _ *zap.SugaredLogger) (*Policy, error) {
 	} else if !found {
 		return nil, fmt.Errorf("policy %s not found", name)
 	}
-
 	res := &Policy{
 		Name: r.Name,
 	}
+	var labels []mongodb2.Label
+	labelSet := sets.NewString()
 	for _, ru := range r.Rules {
 		res.Rules = append(res.Rules, &Rule{
-			Verbs:     ru.Verbs,
-			Kind:      ru.Kind,
-			Resources: ru.Resources,
+			Verbs:           ru.Verbs,
+			Kind:            ru.Kind,
+			Resources:       ru.Resources,
+			MatchAttributes: ru.MatchAttributes,
 		})
+		for _, ma := range ru.MatchAttributes {
+			labelString := service.BuildLabelString(ma.Key, ma.Value)
+			if !labelSet.Has(labelString) {
+				labelSet.Insert(labelString)
+				labels = append(labels, mongodb2.Label{
+					Key:   ma.Key,
+					Value: ma.Value,
+				})
+			}
+		}
 	}
-
+	req := label.ListResourcesByLabelsReq{
+		LabelFilters: labels,
+	}
+	labelClient := label.New()
+	resp, err := labelClient.ListResourcesByLabels(req)
+	if err != nil {
+		return nil, err
+	}
+	for i, rule := range res.Rules {
+		var relatedResources []string
+		for _, ma := range rule.MatchAttributes {
+			labelString := service.BuildLabelString(ma.Key, ma.Value)
+			if resources, ok := resp.Resources[labelString]; ok {
+				for _, resource := range resources {
+					if resource.Type == rule.Resources[0] {
+						relatedResources = append(relatedResources, resource.Name)
+					}
+				}
+			}
+		}
+		res.Rules[i].RelatedResources = relatedResources
+	}
 	return res, nil
 }
 
