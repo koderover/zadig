@@ -141,6 +141,42 @@ func (c *ProductColl) Find(opt *ProductFindOptions) (*models.Product, error) {
 	return res, err
 }
 
+type Product struct {
+	Name        string `json:"name"`
+	ProjectName string `json:"projectName"`
+}
+
+type ListProductOpt struct {
+	Products []Product
+}
+
+func (c *ProductColl) ListByProducts(opt ListProductOpt) ([]*models.Product, error) {
+	var res []*models.Product
+
+	if len(opt.Products) == 0 {
+		return nil, nil
+	}
+	condition := bson.A{}
+	for _, pro := range opt.Products {
+		condition = append(condition, bson.M{
+			"name":         pro.Name,
+			"product_name": pro.ProjectName,
+		})
+	}
+	filter := bson.D{{"$or", condition}}
+	cursor, err := c.Collection.Find(context.TODO(), filter)
+	if err == mongo.ErrNoDocuments {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := cursor.All(context.TODO(), &res); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
 func (c *ProductColl) List(opt *ProductListOptions) ([]*models.Product, error) {
 	var ret []*models.Product
 	query := bson.M{}

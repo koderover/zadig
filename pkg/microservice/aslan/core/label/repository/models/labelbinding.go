@@ -23,7 +23,8 @@ import (
 type LabelBinding struct {
 	ID           primitive.ObjectID `bson:"_id,omitempty"               json:"id,omitempty"`
 	ResourceType string             `bson:"resource_type"               json:"resource_type"`
-	ResourceID   string             `bson:"resource_id"                 json:"resource_id"`
+	ResourceName string             `bson:"resource_name"                 json:"resource_name"`
+	ProjectName  string             `bson:"project_name"                 json:"project_name"`
 	LabelID      string             `bson:"label_id"                    json:"label_id"`
 	CreateBy     string             `bson:"create_by"                   json:"create_by"`
 	CreateTime   int64              `bson:"create_time"                 json:"create_time"`

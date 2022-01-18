@@ -38,6 +38,42 @@ type ListWorkflowOption struct {
 	Ids      []string
 }
 
+type Workflow struct {
+	Name        string `json:"name"`
+	ProjectName string `json:"projectName"`
+}
+
+type ListWorkflowOpt struct {
+	Workflows []Workflow
+}
+
+func (c *WorkflowColl) ListByWorkflows(opt ListWorkflowOpt) ([]*models.Workflow, error) {
+	var res []*models.Workflow
+
+	if len(opt.Workflows) == 0 {
+		return nil, nil
+	}
+	condition := bson.A{}
+	for _, workflow := range opt.Workflows {
+		condition = append(condition, bson.M{
+			"name":              workflow.Name,
+			"product_tmpl_name": workflow.ProjectName,
+		})
+	}
+	filter := bson.D{{"$or", condition}}
+	cursor, err := c.Collection.Find(context.TODO(), filter)
+	if err == mongo.ErrNoDocuments {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := cursor.All(context.TODO(), &res); err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
 type WorkflowColl struct {
 	*mongo.Collection
 

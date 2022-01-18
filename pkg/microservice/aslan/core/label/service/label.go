@@ -17,6 +17,8 @@ limitations under the License.
 package service
 
 import (
+	"fmt"
+
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -25,20 +27,10 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-type LabelFilter struct {
-	Key    string   `json:"key"`
-	Values []string `json:"values"`
-}
-
 type ResourceLabel struct {
-	ResourceID   string  `json:"resource_id"`
-	ResourceType string  `json:"resource_type"`
-	Labels       []Label `json:"labels"`
-}
-
-type Label struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
+	ResourceName string `json:"resource_name"`
+	ProjectName  string `json:"project_name"`
+	ResourceType string `json:"resource_type"`
 }
 
 type LabelResource struct {
@@ -52,73 +44,56 @@ func CreateLabels(labels []*models.Label) error {
 }
 
 type ListLabelsArgs struct {
-	Key    string   `json:"key" form:"key"`
-	Values []string `json:"values" form:"values"`
+	Labels []mongodb.Label `json:"labels"`
 }
 
-func ListLabels(args []*ListLabelsArgs) ([]*models.Label, error) {
-	opts := make([]*mongodb.ListLabelOpt, 0)
-	for _, v := range args {
-		opt := &mongodb.ListLabelOpt{
-			Key:    v.Key,
-			Values: v.Values,
-		}
-		opts = append(opts, opt)
-	}
+type CreateLabelsArgs struct {
+	Labels []mongodb.Label `json:"labels"`
+}
 
-	return mongodb.NewLabelColl().Filter(opts)
+func ListLabels(args *ListLabelsArgs) ([]*models.Label, error) {
+	return mongodb.NewLabelColl().List(mongodb.ListLabelOpt{args.Labels})
 }
 
 type ListResourceByLabelsReq struct {
-	LabelFilters []LabelFilter `json:"label_filters"`
+	LabelFilters []mongodb.Label `json:"label_filters"`
 }
 
-func ListResourcesByLabels(filter []LabelFilter, logger *zap.SugaredLogger) ([]ResourceLabel, error) {
-	// find the label id
-	labelM := map[string]*models.Label{}
-	for _, v := range filter {
-		labels, err := mongodb.NewLabelColl().List(&mongodb.ListLabelOpt{
-			Key:    v.Key,
-			Values: v.Values,
-		})
-		if err != nil {
-			continue
-		}
-		for _, label := range labels {
-			labelM[label.ID.Hex()] = label
-		}
-	}
-	labelIds := []string{}
-	for k, _ := range labelM {
-		labelIds = append(labelIds, k)
-	}
-	// find the labelBindings
-	labelBindings, err := mongodb.NewLabelBindingColl().ListByOpt(&mongodb.LabelBindingCollFindOpt{LabelIDs: labelIds})
+func ListResourcesByLabels(filters []mongodb.Label, logger *zap.SugaredLogger) (map[string][]mongodb.Resource, error) {
+	// 1.find labels by label filters
+	labels, err := mongodb.NewLabelColl().List(mongodb.ListLabelOpt{Labels: filters})
 	if err != nil {
-		logger.Errorf("list labelbinding err:%s", err)
+		logger.Errorf("labels ListByOpt err:%s", err)
+		return nil, err
+	}
+	// 2.find labelBindings by label ids
+	labelIDSet := sets.NewString()
+	labelsM := make(map[string]string)
+	for _, v := range labels {
+		labelIDSet.Insert(v.ID.Hex())
+		labelsM[v.ID.Hex()] = fmt.Sprintf("%s-%s", v.Key, v.Value)
+	}
+
+	labelBindings, err := mongodb.NewLabelBindingColl().ListByOpt(&mongodb.LabelBindingCollFindOpt{LabelIDs: labelIDSet.List()})
+	if err != nil {
+		logger.Errorf("labelBindings ListByOpt err:%s", err)
 		return nil, err
 	}
 
-	var res []ResourceLabel
+	// 3.find labels by resourceName-projectName
+	res := make(map[string][]mongodb.Resource)
 	for _, v := range labelBindings {
-		labelResource, err := ListLabelsByResourceID(v.ResourceID, v.ResourceType, logger)
-		if err != nil {
-			continue
+		resource := mongodb.Resource{
+			Name:        v.ResourceName,
+			ProjectName: v.ProjectName,
+			Type:        v.ResourceType,
 		}
-		var labels []Label
-		for _, v := range labelResource {
-			label := Label{
-				Key:   v.Key,
-				Value: v.Value,
-			}
-			labels = append(labels, label)
+		labelString, _ := labelsM[v.LabelID]
+		if resources, ok := res[labelString]; ok {
+			res[labelString] = append(resources, resource)
+		} else {
+			res[labelString] = []mongodb.Resource{resource}
 		}
-
-		res = append(res, ResourceLabel{
-			ResourceID:   v.ResourceID,
-			ResourceType: v.ResourceType,
-			Labels:       labels,
-		})
 	}
 
 	return res, nil
@@ -130,69 +105,46 @@ type ListLabelsByResourceReq struct {
 }
 
 type ListLabelsByResourcesReq struct {
-	ResourceIDs  []string `json:"resource_ids"`
-	ResourceType string   `json:"resource_type"`
+	Resources []mongodb.Resource `json:"resources"`
 }
 
-func ListLabelsByResourceID(resourceID, resourceType string, logger *zap.SugaredLogger) ([]LabelResource, error) {
-	labelBindings, err := mongodb.NewLabelBindingColl().ListByOpt(&mongodb.LabelBindingCollFindOpt{
-		ResourceID:   resourceID,
-		ResourceType: resourceType,
-	})
+func ListLabelsByResources(resources []mongodb.Resource, logger *zap.SugaredLogger) (map[string][]*models.Label, error) {
+	//1. find the labelBindings by resources
+	labelBindings, err := mongodb.NewLabelBindingColl().ListByResources(mongodb.ListLabelBindingsByResources{Resources: resources})
 	if err != nil {
-		logger.Errorf("list labelbinding err:%s", err)
 		return nil, err
 	}
-	var labelResources []LabelResource
+	//2.find labels by labelBindings
+	labelIDSet := sets.NewString()
 	for _, v := range labelBindings {
-		label, err := mongodb.NewLabelColl().Find(v.LabelID)
-		if err != nil {
-			continue
-		}
-		labelResources = append(labelResources, LabelResource{
-			Key:        label.Key,
-			Value:      label.Value,
-			ResourceID: v.ResourceID,
-		})
+		labelIDSet.Insert(v.LabelID)
 	}
-	return labelResources, nil
-}
+	labels, err := mongodb.NewLabelColl().ListByIDs(labelIDSet.List())
+	if err != nil {
+		return nil, err
+	}
+	labelM := make(map[string]*models.Label)
+	for _, label := range labels {
+		labelM[label.ID.Hex()] = label
+	}
+	// 3. iterate resources
+	res := make(map[string][]*models.Label)
+	for _, labelBinding := range labelBindings {
+		resourceKey := fmt.Sprintf("%s-%s", labelBinding.ResourceType, labelBinding.ResourceName)
 
-func ListLabelsByResourceIDs(resources *ListLabelsByResourcesReq, logger *zap.SugaredLogger) (map[string][]LabelResource, error) {
-	labelBindings, err := mongodb.NewLabelBindingColl().ListByOpt(&mongodb.LabelBindingCollFindOpt{
-		ResourcesIDs: resources.ResourceIDs,
-		ResourceType: resources.ResourceType,
-	})
-	if err != nil {
-		logger.Errorf("list labelbinding err:%s", err)
-		return nil, err
-	}
-	labelIDs := sets.NewString()
-	for _, v := range labelBindings {
-		labelIDs.Insert(v.LabelID)
-	}
-	labelM := make(map[string]*models.Label, 0)
-	labels, err := mongodb.NewLabelColl().List(&mongodb.ListLabelOpt{
-		IDs: labelIDs.List(),
-	})
-	for _, v := range labels {
-		labelM[v.ID.Hex()] = v
-	}
-	if err != nil {
-		return nil, err
-	}
-	resources2LabelResourceM := make(map[string][]LabelResource, 0)
-	for _, v := range labelBindings {
-		if label, ok := labelM[v.LabelID]; ok {
-			resources2LabelResourceM[v.ResourceID] = append(resources2LabelResourceM[v.ResourceID], LabelResource{
-				Key:        label.Key,
-				Value:      label.Value,
-				ResourceID: v.ResourceID,
-			})
+		label := &models.Label{}
+		if label, ok := labelM[labelBinding.LabelID]; !ok {
+			return nil, fmt.Errorf("can not find label %v", label)
 		}
 
+		if arr, ok := res[resourceKey]; ok {
+			res[resourceKey] = append(arr, label)
+		} else {
+			res[resourceKey] = []*models.Label{label}
+		}
 	}
-	return resources2LabelResourceM, nil
+
+	return res, nil
 }
 
 type DeleteLabelsArgs struct {
@@ -218,37 +170,10 @@ func DeleteLabels(ids []string, forceDelete bool, logger *zap.SugaredLogger) err
 			logger.Errorf("NewLabelBindingColl DeleteMany err :%s", err)
 			return err
 		}
+		return mongodb.NewLabelColl().BulkDelete(ids)
 	}
 	if len(res) > 0 && !forceDelete {
 		return e.ErrForbidden.AddDesc("some label has already bind resource, can not delete")
 	}
-	return mongodb.NewLabelColl().BulkDelete(ids)
-}
-
-func DeleteLabel(id string, forceDelete bool, logger *zap.SugaredLogger) error {
-
-	// query if the label already bind  resources
-	res, err := mongodb.NewLabelBindingColl().ListByOpt(&mongodb.LabelBindingCollFindOpt{LabelID: id})
-	if err != nil {
-		logger.Errorf("list labelbingding err:%s", err)
-		return err
-	}
-	// force delete : delete related labelBindings
-	if forceDelete {
-		var ids []string
-		for _, labelBindings := range res {
-			ids = append(ids, labelBindings.ID.Hex())
-		}
-
-		if err := mongodb.NewLabelBindingColl().BulkDelete(ids); err != nil {
-			logger.Errorf("NewLabelBindingColl DeleteMany err :%s", err)
-			return err
-		}
-	}
-	// non force delete : can not delete label when label has bind resources
-	if len(res) > 0 && !forceDelete {
-		logger.Error("the label has bind resources,can not delete")
-		return e.ErrForbidden.AddDesc("the label has bind resources")
-	}
-	return mongodb.NewLabelColl().Delete(id)
+	return nil
 }

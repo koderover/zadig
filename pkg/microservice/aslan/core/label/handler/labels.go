@@ -32,7 +32,7 @@ import (
 func ListLabels(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	listLabelsArgs := make([]*service.ListLabelsArgs, 0)
+	listLabelsArgs := new(service.ListLabelsArgs)
 	if err := c.ShouldBindJSON(&listLabelsArgs); err != nil {
 		ctx.Err = err
 		return
@@ -40,8 +40,8 @@ func ListLabels(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.ListLabels(listLabelsArgs)
 }
 
-func createLabelValidate(lbs []*models.Label) error {
-	for _, v := range lbs {
+func createLabelValidate(lbs *service.CreateLabelsArgs) error {
+	for _, v := range lbs.Labels {
 		if v.Key == "" || v.Value == "" {
 			return e.ErrInvalidParam.AddDesc("invalid label args")
 		}
@@ -53,7 +53,7 @@ func CreateLabels(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	labels := make([]*models.Label, 0)
+	labels := new(service.CreateLabelsArgs)
 	if err := c.ShouldBindJSON(&labels); err != nil {
 		ctx.Err = err
 		return
@@ -65,14 +65,18 @@ func CreateLabels(c *gin.Context) {
 	}
 	filteredLabels := make([]*models.Label, 0)
 	keyValues := sets.NewString()
-	for _, v := range labels {
+	for _, v := range labels.Labels {
 		keyValue := fmt.Sprintf("%s-%s", v.Key, v.Value)
 		if keyValues.Has(keyValue) {
 			continue
 		}
 		keyValues.Insert(keyValue)
-		v.CreateBy = ctx.UserName
-		filteredLabels = append(filteredLabels, v)
+		tmpModel := models.Label{
+			Key:      v.Key,
+			Value:    v.Value,
+			CreateBy: ctx.UserName,
+		}
+		filteredLabels = append(filteredLabels, &tmpModel)
 	}
 	ctx.Err = service.CreateLabels(filteredLabels)
 }
@@ -95,24 +99,6 @@ func DeleteLabels(c *gin.Context) {
 	ctx.Err = service.DeleteLabels(deleteLabelsArgs.IDs, forceBool, ctx.Logger)
 }
 
-func DeleteLabel(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	id := c.Param("id")
-	if id == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("id must not be empty")
-		return
-	}
-	force := c.Query("force")
-	forceBool, err := strconv.ParseBool(force)
-	if err != nil {
-		ctx.Err = err
-		return
-	}
-	ctx.Err = service.DeleteLabel(id, forceBool, ctx.Logger)
-}
-
 func ListResourceByLabels(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -122,18 +108,6 @@ func ListResourceByLabels(c *gin.Context) {
 		return
 	}
 	ctx.Resp, ctx.Err = service.ListResourcesByLabels(listResourceByLabelsReq.LabelFilters, ctx.Logger)
-}
-
-func ListLabelsByResource(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	listLabelsByResourceReq := new(service.ListLabelsByResourceReq)
-	if err := c.ShouldBindJSON(listLabelsByResourceReq); err != nil {
-		ctx.Err = err
-		return
-	}
-	ctx.Resp, ctx.Err = service.ListLabelsByResourceID(listLabelsByResourceReq.ResourceID, listLabelsByResourceReq.ResourceType, ctx.Logger)
 }
 
 func ListLabelsByResources(c *gin.Context) {
@@ -146,5 +120,5 @@ func ListLabelsByResources(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	ctx.Resp, ctx.Err = service.ListLabelsByResourceIDs(listLabelsByResourcesReq, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListLabelsByResources(listLabelsByResourcesReq.Resources, ctx.Logger)
 }

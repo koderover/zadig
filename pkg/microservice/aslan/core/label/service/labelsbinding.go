@@ -28,61 +28,87 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-func ListLabelsBinding() ([]*models.LabelBinding, error) {
-	return mongodb.NewLabelBindingColl().ListByOpt(&mongodb.LabelBindingCollFindOpt{})
+type CreateLabelBinding struct {
+	Resource   mongodb.Resource
+	LabelID    string `bson:"label_id"                    json:"label_id"`
+	CreateBy   string `bson:"create_by"                   json:"create_by"`
+	CreateTime int64  `bson:"create_time"                 json:"create_time"`
 }
 
 type CreateLabelBindingsArgs struct {
-	ResourceType string   `bson:"resource_type"               json:"resource_type"`
-	ResourceIDs  []string `bson:"resource_ids"                 json:"resource_ids"`
-	LabelID      string   `bson:"label_id"                    json:"label_id"`
-	CreateBy     string   `bson:"create_by"                   json:"create_by"`
-	CreateTime   int64    `bson:"create_time"                 json:"create_time"`
+	CreateLabelBindings []CreateLabelBinding `json:"create_label_bindings"`
 }
 
-func CreateLabelsBinding(cr *CreateLabelBindingsArgs, logger *zap.SugaredLogger) error {
+func CreateLabelBindings(cr *CreateLabelBindingsArgs, userName string, logger *zap.SugaredLogger) error {
 	//  check label exist
-	if _, err := mongodb.NewLabelColl().Find(cr.LabelID); err != nil {
-		logger.Errorf("find label err:%s", err)
+	labelIDs := []string{}
+	for _, binding := range cr.CreateLabelBindings {
+		labelIDs = append(labelIDs, binding.LabelID)
+		binding.CreateBy = userName
+	}
+
+	labels, err := mongodb.NewLabelColl().ListByIDs(labelIDs)
+	if err != nil {
+		logger.Errorf("find labels err:%s", err)
 		return err
 	}
-	//check resource exist
-	switch cr.ResourceType {
-	case string(config.ResourceTypeWorkflow):
-		wks, err := commondb.NewWorkflowColl().List(&commondb.ListWorkflowOption{
-			Ids: cr.ResourceIDs,
-		})
-		if err != nil {
-			logger.Errorf("can not find related resource err:%s", err)
-			return err
-		}
-		if len(wks) != len(cr.ResourceIDs) {
-			logger.Errorf("can not find related resource err:%s", err)
-			return e.ErrForbidden.AddDesc("can not find related resource")
-		}
-	case string(config.ResourceTypeProduct):
-		prs, err := commondb.NewProductColl().List(&commondb.ProductListOptions{
-			InIDs: cr.ResourceIDs,
-		})
-		if err != nil {
-			logger.Errorf("can not find related resource err:%s", err)
-			return err
-		}
-		if len(prs) != len(cr.ResourceIDs) {
-			logger.Errorf("can not find related resource err:%s", err)
-			return e.ErrForbidden.AddDesc("can not find related resource")
-		}
-	default:
-		errMsg := fmt.Sprintf("resource type not allowed :%s", cr.ResourceType)
-		return e.ErrInternalError.AddDesc(errMsg)
+	if len(labels) != len(labelIDs) {
+		logger.Errorf("there's labels not exists")
+		return fmt.Errorf("there's labels not exists")
 	}
+	//check resource exist
+	m := make(map[string][]CreateLabelBinding)
+	for _, binding := range cr.CreateLabelBindings {
+		m[binding.Resource.Type] = append(m[binding.Resource.Type], binding)
+	}
+	for k, v := range m {
+		switch k {
+		case string(config.ResourceTypeWorkflow):
+			workflows := []commondb.Workflow{}
+			for _, vv := range v {
+				workflow := commondb.Workflow{
+					Name:        vv.Resource.Name,
+					ProjectName: vv.Resource.ProjectName,
+				}
+				workflows = append(workflows, workflow)
+			}
+			wks, err := commondb.NewWorkflowColl().ListByWorkflows(commondb.ListWorkflowOpt{workflows})
+			if err != nil {
+				logger.Errorf("can not find related resource err:%s", err)
+				return err
+			}
+			if len(wks) != len(v) {
+				logger.Errorf("can not find related resource err:%s", err)
+				return e.ErrForbidden.AddDesc("can not find related resource")
+			}
+		case string(config.ResourceTypeProduct):
+			products := []commondb.Product{}
+			for _, vv := range v {
+				product := commondb.Product{
+					Name:        vv.Resource.Name,
+					ProjectName: vv.Resource.ProjectName,
+				}
+				products = append(products, product)
+			}
+			pros, err := commondb.NewProductColl().ListByProducts(commondb.ListProductOpt{products})
+			if err != nil {
+				logger.Errorf("can not find related resource err:%s", err)
+				return err
+			}
+			if len(pros) != len(v) {
+				logger.Errorf("can not find related resource err:%s", err)
+				return e.ErrForbidden.AddDesc("can not find related resource")
+			}
+		}
+	}
+
 	var labelBindings []*models.LabelBinding
-	for _, v := range cr.ResourceIDs {
+	for _, v := range cr.CreateLabelBindings {
 		labelBinding := &models.LabelBinding{
-			ResourceType: cr.ResourceType,
-			ResourceID:   v,
-			LabelID:      cr.LabelID,
-			CreateBy:     cr.CreateBy,
+			ResourceType: v.Resource.Type,
+			ResourceName: v.Resource.Name,
+			LabelID:      v.LabelID,
+			CreateBy:     v.CreateBy,
 		}
 		labelBindings = append(labelBindings, labelBinding)
 	}

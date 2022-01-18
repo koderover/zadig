@@ -24,16 +24,11 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-func ListLabelBindings(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	ctx.Resp, ctx.Err = service.ListLabelsBinding()
-}
-
 func createLBValidate(cr *service.CreateLabelBindingsArgs) error {
-	if cr.LabelID == "" || cr.ResourceType == "" || len(cr.ResourceIDs) == 0 {
-		return e.ErrInvalidParam.AddDesc("invalid labelbinding args")
+	for _, v := range cr.CreateLabelBindings {
+		if v.LabelID == "" || v.Resource.Type == "" {
+			return e.ErrInvalidParam.AddDesc("invalid labelbinding args")
+		}
 	}
 	return nil
 }
@@ -51,19 +46,5 @@ func CreateLabelBindings(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	createLabelBindingsArgs.CreateBy = ctx.UserName
-	ctx.Err = service.CreateLabelsBinding(createLabelBindingsArgs, ctx.Logger)
-}
-
-func DeleteLabelBindings(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	deleteLabelsBindingsArgs := new(service.DeleteLabelsBindingsArgs)
-	if err := c.ShouldBindJSON(deleteLabelsBindingsArgs); err != nil {
-		ctx.Err = err
-		return
-	}
-
-	ctx.Err = service.DeleteLabelsBindings(deleteLabelsBindingsArgs.IDs)
+	ctx.Err = service.CreateLabelBindings(createLabelBindingsArgs, ctx.UserName, ctx.Logger)
 }
