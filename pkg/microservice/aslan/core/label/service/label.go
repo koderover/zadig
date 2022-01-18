@@ -60,11 +60,15 @@ type ListResourceByLabelsReq struct {
 }
 
 func ListResourcesByLabels(filters []mongodb.Label, logger *zap.SugaredLogger) (map[string][]mongodb.Resource, error) {
+	res := make(map[string][]mongodb.Resource)
 	// 1.find labels by label filters
 	labels, err := mongodb.NewLabelColl().List(mongodb.ListLabelOpt{Labels: filters})
 	if err != nil {
 		logger.Errorf("labels ListByOpt err:%s", err)
 		return nil, err
+	}
+	if len(labels) == 0 {
+		return res, nil
 	}
 	// 2.find labelBindings by label ids
 	labelIDSet := sets.NewString()
@@ -81,7 +85,6 @@ func ListResourcesByLabels(filters []mongodb.Label, logger *zap.SugaredLogger) (
 	}
 
 	// 3.find labels by resourceName-projectName
-	res := make(map[string][]mongodb.Resource)
 	for _, v := range labelBindings {
 		resource := mongodb.Resource{
 			Name:        v.ResourceName,
@@ -97,11 +100,6 @@ func ListResourcesByLabels(filters []mongodb.Label, logger *zap.SugaredLogger) (
 	}
 
 	return res, nil
-}
-
-type ListLabelsByResourceReq struct {
-	ResourceID   string `json:"resource_id"`
-	ResourceType string `json:"resource_type"`
 }
 
 type ListLabelsByResourcesReq struct {
@@ -132,8 +130,8 @@ func ListLabelsByResources(resources []mongodb.Resource, logger *zap.SugaredLogg
 	for _, labelBinding := range labelBindings {
 		resourceKey := fmt.Sprintf("%s-%s", labelBinding.ResourceType, labelBinding.ResourceName)
 
-		label := &models.Label{}
-		if label, ok := labelM[labelBinding.LabelID]; !ok {
+		label, ok := labelM[labelBinding.LabelID]
+		if !ok {
 			return nil, fmt.Errorf("can not find label %v", label)
 		}
 
