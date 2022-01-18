@@ -155,25 +155,29 @@ func DeleteLabels(ids []string, forceDelete bool, logger *zap.SugaredLogger) err
 	if len(ids) == 0 {
 		return nil
 	}
+
 	res, err := mongodb.NewLabelBindingColl().ListByOpt(&mongodb.LabelBindingCollFindOpt{LabelIDs: ids})
 	if err != nil {
 		logger.Errorf("list labelbingding err:%s", err)
 		return err
 	}
+
+	if !forceDelete && len(res) > 0 {
+		return e.ErrForbidden.AddDesc("some label has already bind resource, can not delete")
+	}
+
 	if forceDelete {
-		var ids []string
-		for _, labelBindings := range res {
-			ids = append(ids, labelBindings.ID.Hex())
+		var labelBindingIDs []string
+		for _, labelBinding := range res {
+			labelBindingIDs = append(ids, labelBinding.ID.Hex())
 		}
 
-		if err := mongodb.NewLabelBindingColl().BulkDelete(ids); err != nil {
+		if err := mongodb.NewLabelBindingColl().BulkDelete(labelBindingIDs); err != nil {
 			logger.Errorf("NewLabelBindingColl DeleteMany err :%s", err)
 			return err
 		}
 		return mongodb.NewLabelColl().BulkDelete(ids)
 	}
-	if len(res) > 0 && !forceDelete {
-		return e.ErrForbidden.AddDesc("some label has already bind resource, can not delete")
-	}
-	return nil
+
+	return mongodb.NewLabelColl().BulkDelete(ids)
 }
