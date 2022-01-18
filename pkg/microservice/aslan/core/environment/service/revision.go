@@ -98,28 +98,14 @@ func ListProductsRevision(productName, envName string, userID int, superUser boo
 	}
 
 	// 获取所有服务模板最新模板信息
-	allServiceTmpls, err := commonrepo.NewServiceColl().ListAllRevisions()
+	allServiceTmpls, err := commonrepo.NewServiceColl().ListMaxRevisions(nil)
 	if err != nil {
-		log.Errorf("ListAllRevisions error: %v", err)
-		return prodRevs, e.ErrListProducts.AddDesc(err.Error())
-	}
-	// 获取所有渲染配置最新模板信息
-	allRenders, err := commonrepo.NewRenderSetColl().ListAllRenders()
-	if err != nil {
-		log.Errorf("ListAllRevisions error: %v", err)
+		log.Errorf("ListAllRevisions error: %s", err)
 		return prodRevs, e.ErrListProducts.AddDesc(err.Error())
 	}
 
 	for _, prod := range products {
-		newRender := &commonmodels.RenderSet{}
-		if prod.Render != nil {
-			newRender, err = commonservice.GetRenderSet(prod.Render.Name, 0, log)
-			if err != nil {
-				return prodRevs, err
-			}
-		}
-
-		prodRev, err := GetProductRevision(prod, allServiceTmpls, allRenders, newRender, log)
+		prodRev, err := GetProductRevision(prod, allServiceTmpls, log)
 		if err != nil {
 			log.Error(err)
 			return prodRevs, err
@@ -153,30 +139,15 @@ func ListProductsRevisionByFacility(basicFacility string, log *zap.SugaredLogger
 		return prodRevs, e.ErrListProducts.AddDesc(err.Error())
 	}
 
-	// 获取所有服务模板最新模板信息
-	allServiceTmpls, err := commonrepo.NewServiceColl().ListAllRevisions()
-	if err != nil {
-		log.Errorf("ListAllRevisions error: %s", err)
-		return prodRevs, e.ErrListProducts.AddDesc(err.Error())
-	}
-
-	// 获取所有渲染配置最新模板信息
-	allRenders, err := commonrepo.NewRenderSetColl().ListAllRenders()
-	if err != nil {
-		log.Errorf("ListAllRevisions error: %s", err)
-		return prodRevs, e.ErrListProducts.AddDesc(err.Error())
-	}
-
 	for _, prod := range products {
-		newRender := &commonmodels.RenderSet{}
-		if prod.Render != nil {
-			newRender, err = commonservice.GetRenderSet(prod.Render.Name, 0, log)
-			if err != nil {
-				return prodRevs, err
-			}
+		// find all service templates with max revisions
+		allServiceTmpls, err := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{ProductName: prod.ProductName})
+		if err != nil {
+			log.Errorf("ListAllRevisions error: %s", err)
+			return prodRevs, e.ErrListProducts.AddDesc(err.Error())
 		}
 
-		prodRev, err := GetProductRevision(prod, allServiceTmpls, allRenders, newRender, log)
+		prodRev, err := GetProductRevision(prod, allServiceTmpls, log)
 		if err != nil {
 			log.Error(err)
 			return prodRevs, err
@@ -186,7 +157,7 @@ func ListProductsRevisionByFacility(basicFacility string, log *zap.SugaredLogger
 	return prodRevs, nil
 }
 
-func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*commonmodels.Service, allRender []*commonmodels.RenderSet, newRender *commonmodels.RenderSet, log *zap.SugaredLogger) (*ProductRevision, error) {
+func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*commonmodels.Service, log *zap.SugaredLogger) (*ProductRevision, error) {
 
 	prodRev := new(ProductRevision)
 
@@ -215,8 +186,38 @@ func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*common
 		prodRev.Updatable = true
 	}
 
+	var allRenders []*commonmodels.RenderSet
+	var newRender *commonmodels.RenderSet
+	if prodTmpl.ProductFeature != nil && prodTmpl.ProductFeature.DeployType == setting.K8SDeployType {
+		rendersetName := ""
+		if product.Render != nil {
+			rendersetName = product.Render.Name
+			newRender, err = commonservice.GetRenderSet(product.Render.Name, 0, log)
+			if err != nil {
+				return prodRev, err
+			}
+		}
+
+		// get all rendersets used by product services
+		renderRevision := sets.NewInt64()
+		for _, productService := range product.GetServiceMap() {
+			if productService.Render != nil {
+				renderRevision.Insert(productService.Render.Revision)
+			}
+		}
+		allRenders, err = commonrepo.NewRenderSetColl().ListRendersets(&commonrepo.RenderSetListOption{
+			Revisions:     renderRevision.List(),
+			ProductTmpl:   productTemplatName,
+			RendersetName: rendersetName,
+		})
+		if err != nil {
+			log.Errorf("ListAllRevisions error: %s", err)
+			return prodRev, e.ErrListProducts.AddDesc(err.Error())
+		}
+	}
+
 	// 交叉对比已创建的服务组和服务组模板
-	prodRev.ServiceRevisions, err = compareGroupServicesRev(prodTmpl.Services, product, allServiceTmpls, allRender, newRender, log)
+	prodRev.ServiceRevisions, err = compareGroupServicesRev(prodTmpl.Services, product, allServiceTmpls, allRenders, newRender, log)
 	if err != nil {
 		log.Error(err)
 		return nil, e.ErrGetProductRevision.AddDesc(err.Error())
@@ -269,9 +270,9 @@ func compareServicesRev(serviceTmplNames []string, services []*commonmodels.Prod
 
 	serviceRevs := make([]*SvcRevision, 0)
 
-	serviceMap := make(map[string]*commonmodels.ProductService)
+	productServiceMap := make(map[string]*commonmodels.ProductService)
 	for _, service := range services {
-		serviceMap[service.ServiceName] = service
+		productServiceMap[service.ServiceName] = service
 	}
 
 	serviceTmplMap := make(map[string]string)
@@ -282,7 +283,7 @@ func compareServicesRev(serviceTmplNames []string, services []*commonmodels.Prod
 	for _, serviceTmplName := range serviceTmplNames {
 		// 如果已创建的服务不包括新增的服务模板, 则认为是新增服务
 		// 新增服务如果涉及多个部署方式，目前把所有部署方式都默认加进来
-		if _, ok := serviceMap[serviceTmplName]; !ok {
+		if _, ok := productServiceMap[serviceTmplName]; !ok {
 			newServiceTmpls, err := getMaxServices(allServiceTmpls, serviceTmplName)
 			if err != nil {
 				log.Error(err)
