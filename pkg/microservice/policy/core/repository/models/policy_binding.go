@@ -16,28 +16,28 @@ limitations under the License.
 
 package models
 
-// RoleBinding references a role, but does not contain it. It adds who information via Subjects.
-// RoleBindings in a given namespace only have effect in that namespace.
-// for a cluster scoped RoleBinding, namespace is empty.
-type RoleBinding struct {
+// PolicyBinding references a Policy, but does not contain it. It adds who information via Subjects.
+// PolicyBinding in a given namespace only have effect in that namespace.
+// for a cluster scoped PolicyBinding, namespace is empty.
+type PolicyBinding struct {
 	Name      string `bson:"name"      json:"name"`
 	Namespace string `bson:"namespace" json:"namespace"`
 
-	// Subjects holds references to the objects the role applies to.
+	// Subjects holds references to the objects the Policy applies to.
 	Subjects []*Subject `bson:"subjects" json:"subjects"`
 
-	// RoleRef can reference a namespaced or cluster scoped Role.
-	RoleRef *RoleRef `bson:"role_ref" json:"roleRef"`
+	// PolicyRef can reference a namespaced or cluster scoped Policy.
+	PolicyRef *PolicyRef `bson:"policy_ref" json:"PolicyRef"`
 }
 
-// RoleRef contains information that points to the role being used
-type RoleRef struct {
+// PolicyRef contains information that points to the policy being used
+type PolicyRef struct {
 	Name string `bson:"name" json:"name"`
 
 	// Namespace of the referenced object. if the object is cluster scoped, namespace is empty.
 	Namespace string `bson:"namespace" json:"namespace"`
 }
 
-func (RoleBinding) TableName() string {
-	return "rolebinding"
+func (PolicyBinding) TableName() string {
+	return "policybinding"
 }

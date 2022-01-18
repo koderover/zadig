@@ -29,25 +29,25 @@ import (
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
-type PolicyColl struct {
+type PolicyMetaColl struct {
 	*mongo.Collection
 
 	coll string
 }
 
-func NewPolicyColl() *PolicyColl {
-	name := models.Policy{}.TableName()
-	return &PolicyColl{
+func NewPolicyMetaColl() *PolicyMetaColl {
+	name := models.PolicyMeta{}.TableName()
+	return &PolicyMetaColl{
 		Collection: mongotool.Database(config.MongoDatabase()).Collection(name),
 		coll:       name,
 	}
 }
 
-func (c *PolicyColl) GetCollectionName() string {
+func (c *PolicyMetaColl) GetCollectionName() string {
 	return c.coll
 }
 
-func (c *PolicyColl) EnsureIndex(ctx context.Context) error {
+func (c *PolicyMetaColl) EnsureIndex(ctx context.Context) error {
 	mod := mongo.IndexModel{
 		Keys:    bson.M{"resource": 1},
 		Options: options.Index().SetUnique(true),
@@ -58,8 +58,8 @@ func (c *PolicyColl) EnsureIndex(ctx context.Context) error {
 	return err
 }
 
-func (c *PolicyColl) List() ([]*models.Policy, error) {
-	var res []*models.Policy
+func (c *PolicyMetaColl) List() ([]*models.PolicyMeta, error) {
+	var res []*models.PolicyMeta
 
 	ctx := context.Background()
 	cursor, err := c.Collection.Find(ctx, bson.M{})
@@ -75,7 +75,7 @@ func (c *PolicyColl) List() ([]*models.Policy, error) {
 	return res, nil
 }
 
-func (c *PolicyColl) UpdateOrCreate(obj *models.Policy) error {
+func (c *PolicyMetaColl) UpdateOrCreate(obj *models.PolicyMeta) error {
 	if obj == nil {
 		return fmt.Errorf("nil object")
 	}

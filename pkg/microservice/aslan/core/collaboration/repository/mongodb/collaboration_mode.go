@@ -40,7 +40,7 @@ type CollaborationModeFindOptions struct {
 type CollaborationModeListOptions struct {
 	Projects  []string
 	Name      string `           `
-	Members   string
+	Members   []string
 	IsDeleted bool
 }
 
@@ -188,8 +188,9 @@ func (c *CollaborationModeColl) List(opt *CollaborationModeListOptions) ([]*mode
 	if len(opt.Projects) > 0 {
 		query["project_name"] = bson.M{"$in": opt.Projects}
 	}
-	if opt.Members != "" {
-		query["members"] = opt.Members
+	if len(opt.Members) > 0 {
+		opt.Members = append(opt.Members, "*")
+		query["members"] = bson.M{"$in": opt.Members}
 	}
 	query["is_deleted"] = false
 
