@@ -56,11 +56,18 @@ func BuildLabelString(key string, value string) string {
 }
 
 func ListResourcesByLabels(filters []mongodb.Label, logger *zap.SugaredLogger) (*ListResourcesByLabelsResp, error) {
+	res := make(map[string][]mongodb.Resource)
+	if len(filters) == 0 {
+		return &ListResourcesByLabelsResp{Resources: res}, nil
+	}
 	// 1.find labels by label filters
 	labels, err := mongodb.NewLabelColl().List(mongodb.ListLabelOpt{Labels: filters})
 	if err != nil {
 		logger.Errorf("labels ListByOpt err:%s", err)
 		return nil, err
+	}
+	if len(labels) == 0 {
+		return &ListResourcesByLabelsResp{Resources: res}, nil
 	}
 	// 2.find labelBindings by label ids
 	labelIDSet := sets.NewString()
@@ -77,7 +84,6 @@ func ListResourcesByLabels(filters []mongodb.Label, logger *zap.SugaredLogger) (
 	}
 
 	// 3.find labels by resourceName-projectName
-	res := make(map[string][]mongodb.Resource)
 	for _, v := range labelBindings {
 		resource := mongodb.Resource{
 			Name:        v.ResourceName,
@@ -129,8 +135,8 @@ func ListLabelsByResources(resources []mongodb.Resource, logger *zap.SugaredLogg
 	for _, labelBinding := range labelBindings {
 		resourceKey := fmt.Sprintf("%s-%s", labelBinding.ResourceType, labelBinding.ResourceName)
 
-		label := &models.Label{}
-		if label, ok := labelM[labelBinding.LabelID]; !ok {
+		label, ok := labelM[labelBinding.LabelID]
+		if !ok {
 			return nil, fmt.Errorf("can not find label %v", label)
 		}
 
@@ -154,25 +160,29 @@ func DeleteLabels(ids []string, forceDelete bool, logger *zap.SugaredLogger) err
 	if len(ids) == 0 {
 		return nil
 	}
+
 	res, err := mongodb.NewLabelBindingColl().ListByOpt(&mongodb.LabelBindingCollFindOpt{LabelIDs: ids})
 	if err != nil {
 		logger.Errorf("list labelbingding err:%s", err)
 		return err
 	}
+
+	if !forceDelete && len(res) > 0 {
+		return e.ErrForbidden.AddDesc("some label has already bind resource, can not delete")
+	}
+
 	if forceDelete {
-		var ids []string
-		for _, labelBindings := range res {
-			ids = append(ids, labelBindings.ID.Hex())
+		var labelBindingIDs []string
+		for _, labelBinding := range res {
+			labelBindingIDs = append(ids, labelBinding.ID.Hex())
 		}
 
-		if err := mongodb.NewLabelBindingColl().BulkDelete(ids); err != nil {
+		if err := mongodb.NewLabelBindingColl().BulkDelete(labelBindingIDs); err != nil {
 			logger.Errorf("NewLabelBindingColl DeleteMany err :%s", err)
 			return err
 		}
 		return mongodb.NewLabelColl().BulkDelete(ids)
 	}
-	if len(res) > 0 && !forceDelete {
-		return e.ErrForbidden.AddDesc("some label has already bind resource, can not delete")
-	}
-	return nil
+
+	return mongodb.NewLabelColl().BulkDelete(ids)
 }
