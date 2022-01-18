@@ -29,7 +29,7 @@ import (
 )
 
 type CreateLabelBinding struct {
-	Resource   Resource
+	Resource   mongodb.Resource
 	LabelID    string `bson:"label_id"                    json:"label_id"`
 	CreateBy   string `bson:"create_by"                   json:"create_by"`
 	CreateTime int64  `bson:"create_time"                 json:"create_time"`
@@ -37,12 +37,6 @@ type CreateLabelBinding struct {
 
 type CreateLabelBindingsArgs struct {
 	CreateLabelBindings []CreateLabelBinding `json:"create_label_bindings"`
-}
-
-type Resource struct {
-	Name        string `json:"name"`
-	Type        string `json:"type"`
-	ProjectName string `json:"project_name"`
 }
 
 func CreateLabelBindings(cr *CreateLabelBindingsArgs, userName string, logger *zap.SugaredLogger) error {

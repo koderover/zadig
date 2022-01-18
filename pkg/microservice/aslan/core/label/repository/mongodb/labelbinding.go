@@ -144,3 +144,41 @@ func (c *LabelBindingColl) BulkDelete(ids []string) error {
 	_, err := c.DeleteMany(context.TODO(), query)
 	return err
 }
+
+type Resource struct {
+	Name        string `json:"name"`
+	ProjectName string `json:"project_name"`
+	Type        string `json:"type"`
+}
+
+type ListLabelBindingsByResources struct {
+	Resources []Resource
+}
+
+func (c *LabelBindingColl) ListByResources(opt ListLabelBindingsByResources) ([]*models.LabelBinding, error) {
+	var res []*models.LabelBinding
+
+	if len(opt.Resources) == 0 {
+		return nil, nil
+	}
+	condition := bson.A{}
+	for _, resource := range opt.Resources {
+		condition = append(condition, bson.M{
+			"resource_type": resource.Type,
+			"resource_name": resource.Name,
+			"project_name":  resource.ProjectName,
+		})
+	}
+	filter := bson.D{{"$or", condition}}
+	cursor, err := c.Collection.Find(context.TODO(), filter)
+	if err == mongo.ErrNoDocuments {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := cursor.All(context.TODO(), &res); err != nil {
+		return nil, err
+	}
+	return res, nil
+}

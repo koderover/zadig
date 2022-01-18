@@ -48,16 +48,3 @@ func CreateLabelBindings(c *gin.Context) {
 	}
 	ctx.Err = service.CreateLabelBindings(createLabelBindingsArgs, ctx.UserName, ctx.Logger)
 }
-
-func DeleteLabelBindings(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	deleteLabelsBindingsArgs := new(service.DeleteLabelsBindingsArgs)
-	if err := c.ShouldBindJSON(deleteLabelsBindingsArgs); err != nil {
-		ctx.Err = err
-		return
-	}
-
-	ctx.Err = service.DeleteLabelsBindings(deleteLabelsBindingsArgs.IDs)
-}

@@ -120,5 +120,5 @@ func ListLabelsByResources(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	ctx.Resp, ctx.Err = service.ListLabelsByResourceIDs(listLabelsByResourcesReq, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListLabelsByResources(listLabelsByResourcesReq.Resources, ctx.Logger)
 }

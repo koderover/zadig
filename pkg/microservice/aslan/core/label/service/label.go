@@ -17,27 +17,20 @@ limitations under the License.
 package service
 
 import (
+	"fmt"
+
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-type LabelFilter struct {
-	Key    string   `json:"key"`
-	Values []string `json:"values"`
-}
-
 type ResourceLabel struct {
-	ResourceID   string  `json:"resource_id"`
-	ResourceType string  `json:"resource_type"`
-	Labels       []Label `json:"labels"`
-}
-
-type Label struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
+	ResourceName string `json:"resource_name"`
+	ProjectName  string `json:"project_name"`
+	ResourceType string `json:"resource_type"`
 }
 
 type LabelResource struct {
@@ -63,12 +56,47 @@ func ListLabels(args *ListLabelsArgs) ([]*models.Label, error) {
 }
 
 type ListResourceByLabelsReq struct {
-	LabelFilters []LabelFilter `json:"label_filters"`
+	LabelFilters []mongodb.Label `json:"label_filters"`
 }
 
-func ListResourcesByLabels(filter []LabelFilter, logger *zap.SugaredLogger) ([]ResourceLabel, error) {
-	// TODO - mouuii
-	return nil, nil
+func ListResourcesByLabels(filters []mongodb.Label, logger *zap.SugaredLogger) (map[string][]mongodb.Resource, error) {
+	// 1.find labels by label filters
+	labels, err := mongodb.NewLabelColl().List(mongodb.ListLabelOpt{Labels: filters})
+	if err != nil {
+		logger.Errorf("labels ListByOpt err:%s", err)
+		return nil, err
+	}
+	// 2.find labelBindings by label ids
+	labelIDSet := sets.NewString()
+	labelsM := make(map[string]string)
+	for _, v := range labels {
+		labelIDSet.Insert(v.ID.Hex())
+		labelsM[v.ID.Hex()] = fmt.Sprintf("%s-%s", v.Key, v.Value)
+	}
+
+	labelBindings, err := mongodb.NewLabelBindingColl().ListByOpt(&mongodb.LabelBindingCollFindOpt{LabelIDs: labelIDSet.List()})
+	if err != nil {
+		logger.Errorf("labelBindings ListByOpt err:%s", err)
+		return nil, err
+	}
+
+	// 3.find labels by resourceName-projectName
+	res := make(map[string][]mongodb.Resource)
+	for _, v := range labelBindings {
+		resource := mongodb.Resource{
+			Name:        v.ResourceName,
+			ProjectName: v.ProjectName,
+			Type:        v.ResourceType,
+		}
+		labelString, _ := labelsM[v.LabelID]
+		if resources, ok := res[labelString]; ok {
+			res[labelString] = append(resources, resource)
+		} else {
+			res[labelString] = []mongodb.Resource{resource}
+		}
+	}
+
+	return res, nil
 }
 
 type ListLabelsByResourceReq struct {
@@ -77,12 +105,46 @@ type ListLabelsByResourceReq struct {
 }
 
 type ListLabelsByResourcesReq struct {
-	ResourceIDs  []string `json:"resource_ids"`
-	ResourceType string   `json:"resource_type"`
+	Resources []mongodb.Resource `json:"resources"`
 }
 
-func ListLabelsByResourceIDs(resources *ListLabelsByResourcesReq, logger *zap.SugaredLogger) (map[string][]LabelResource, error) {
-	return nil, nil
+func ListLabelsByResources(resources []mongodb.Resource, logger *zap.SugaredLogger) (map[string][]*models.Label, error) {
+	//1. find the labelBindings by resources
+	labelBindings, err := mongodb.NewLabelBindingColl().ListByResources(mongodb.ListLabelBindingsByResources{Resources: resources})
+	if err != nil {
+		return nil, err
+	}
+	//2.find labels by labelBindings
+	labelIDSet := sets.NewString()
+	for _, v := range labelBindings {
+		labelIDSet.Insert(v.LabelID)
+	}
+	labels, err := mongodb.NewLabelColl().ListByIDs(labelIDSet.List())
+	if err != nil {
+		return nil, err
+	}
+	labelM := make(map[string]*models.Label)
+	for _, label := range labels {
+		labelM[label.ID.Hex()] = label
+	}
+	// 3. iterate resources
+	res := make(map[string][]*models.Label)
+	for _, labelBinding := range labelBindings {
+		resourceKey := fmt.Sprintf("%s-%s", labelBinding.ResourceType, labelBinding.ResourceName)
+
+		label := &models.Label{}
+		if label, ok := labelM[labelBinding.LabelID]; !ok {
+			return nil, fmt.Errorf("can not find label %v", label)
+		}
+
+		if arr, ok := res[resourceKey]; ok {
+			res[resourceKey] = append(arr, label)
+		} else {
+			res[resourceKey] = []*models.Label{label}
+		}
+	}
+
+	return res, nil
 }
 
 type DeleteLabelsArgs struct {
