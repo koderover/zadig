@@ -61,6 +61,9 @@ type ListResourceByLabelsReq struct {
 
 func ListResourcesByLabels(filters []mongodb.Label, logger *zap.SugaredLogger) (map[string][]mongodb.Resource, error) {
 	res := make(map[string][]mongodb.Resource)
+	if len(filters) == 0 {
+		return res, nil
+	}
 	// 1.find labels by label filters
 	labels, err := mongodb.NewLabelColl().List(mongodb.ListLabelOpt{Labels: filters})
 	if err != nil {
