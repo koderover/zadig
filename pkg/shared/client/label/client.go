@@ -14,24 +14,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package handler
+package label
 
 import (
-	"github.com/gin-gonic/gin"
-
-	gin2 "github.com/koderover/zadig/pkg/middleware/gin"
+	"github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
-type Router struct{}
+type Client struct {
+	*httpclient.Client
 
-func (*Router) Inject(router *gin.RouterGroup) {
+	host string
+}
 
-	collaborations := router.Group("collaborations")
-	{
-		collaborations.GET("", GetCollaborationMode)
-		collaborations.PUT("/:name", gin2.UpdateOperationLogStatus, UpdateCollaborationMode)
-		collaborations.POST("", gin2.UpdateOperationLogStatus, CreateCollaborationMode)
-		collaborations.DELETE("/:name", gin2.UpdateOperationLogStatus, DeleteCollaborationMode)
-		collaborations.GET("/new", GetCollaborationNew)
+func New() *Client {
+	host := config.ConfigServiceAddress()
+	c := httpclient.New(
+		httpclient.SetHostURL(host + "/api"),
+	)
+
+	return &Client{
+		Client: c,
+		host:   host,
 	}
 }

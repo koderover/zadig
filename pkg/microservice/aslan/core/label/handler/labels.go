@@ -99,7 +99,7 @@ func DeleteLabels(c *gin.Context) {
 	ctx.Err = service.DeleteLabels(deleteLabelsArgs.IDs, forceBool, ctx.Logger)
 }
 
-func ListResourceByLabels(c *gin.Context) {
+func ListResourcesByLabels(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	listResourceByLabelsReq := new(service.ListResourceByLabelsReq)

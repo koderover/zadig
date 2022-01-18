@@ -24,10 +24,10 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gerrit"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/setting"
@@ -61,11 +61,11 @@ func DeleteWorkflow(workflowName, requestID string, isDeletingProductTmpl bool, 
 		log.Errorf("Workflow.Find error: %v", err)
 		return e.ErrDeleteWorkflow.AddDesc(err.Error())
 	}
-	workflowCMMap, err := service.GetWorkflowCMMap([]string{workflow.ProductTmplName}, log)
+	workflowCMMap, err := collaboration.GetWorkflowCMMap([]string{workflow.ProductTmplName}, log)
 	if err != nil {
 		return err
 	}
-	if cmSets, ok := workflowCMMap[service.BuildWorkflowCMMapKey(workflow.ProductTmplName, workflowName)]; ok {
+	if cmSets, ok := workflowCMMap[collaboration.BuildWorkflowCMMapKey(workflow.ProductTmplName, workflowName)]; ok {
 		return fmt.Errorf("this is a base workflow, collaborations:%v is related", cmSets.List())
 	}
 	taskQueue, err := mongodb.NewQueueColl().List(&mongodb.ListQueueOption{})

@@ -28,7 +28,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		labels.POST("/filter", ListLabels)
 		labels.POST("/bulk-create", CreateLabels)
 		labels.POST("/bulk-delete", DeleteLabels)
-		labels.POST("/resources-by-labels", ListResourceByLabels)
+		labels.POST("/resources-by-labels", ListResourcesByLabels)
 		labels.POST("/labels-by-resources", ListLabelsByResources)
 	}
 	labelBindings := router.Group("labelbindings")

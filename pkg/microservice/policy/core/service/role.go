@@ -31,12 +31,6 @@ type Role struct {
 	Rules []*Rule `json:"rules,omitempty"`
 }
 
-type Rule struct {
-	Verbs     []string `json:"verbs"`
-	Resources []string `json:"resources"`
-	Kind      string   `json:"kind"`
-}
-
 func CreateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
 	obj := &models.Role{
 		Name:      role.Name,

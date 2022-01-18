@@ -13,6 +13,7 @@ import (
 	models2 "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -60,12 +61,14 @@ type Workflow struct {
 }
 
 type Product struct {
-	CollaborationType config.CollaborationType   `json:"collaboration_type"`
-	BaseName          string                     `json:"base_name"`
-	CollaborationMode string                     `json:"collaboration_mode"`
-	Name              string                     `json:"name"`
-	DeployType        string                     `json:"deploy_type"`
-	Vars              []*templatemodels.RenderKV `json:"vars"`
+	CollaborationType config.CollaborationType        `json:"collaboration_type"`
+	BaseName          string                          `json:"base_name"`
+	CollaborationMode string                          `json:"collaboration_mode"`
+	Name              string                          `json:"name"`
+	DeployType        string                          `json:"deploy_type"`
+	Vars              []*templatemodels.RenderKV      `json:"vars"`
+	DefaultValues     string                          `json:"defaultValues"`
+	ChartValues       []*commonservice.RenderChartArg `json:"chartValues"`
 }
 type GetCollaborationNewResp struct {
 	Code     int64       `json:"code"`
@@ -194,7 +197,7 @@ func getDiff(cmMap map[string]*models.CollaborationMode, ciMap map[string]*model
 func GetCollaborationUpdate(projectName, uid string, logger *zap.SugaredLogger) (*GetCollaborationUpdateResp, error) {
 	collaborations, err := mongodb.NewCollaborationModeColl().List(&mongodb.CollaborationModeListOptions{
 		Projects: []string{projectName},
-		Members:  uid,
+		Members:  []string{uid},
 	})
 	if err != nil {
 		logger.Errorf("GetCollaborationUpdate error, err msg:%s", err)
@@ -222,7 +225,9 @@ func GetCollaborationUpdate(projectName, uid string, logger *zap.SugaredLogger) 
 func buildName(baseName, modeName, userName string) string {
 	return modeName + "-" + baseName + "-" + userName + "-" + util.GetRandomString(6)
 }
-
+func SyncCollaborationInstance(projectName, uid, userName string, logger *zap.SugaredLogger) error {
+	return nil
+}
 func GetCollaborationNew(projectName, uid, userName string, logger *zap.SugaredLogger) (*GetCollaborationNewResp, error) {
 	var newWorkflow []*Workflow
 	var newProduct []*Product
@@ -234,19 +239,27 @@ func GetCollaborationNew(projectName, uid, userName string, logger *zap.SugaredL
 	}
 	for _, mode := range updateResp.New {
 		for _, workflow := range mode.Workflows {
+			name := workflow.Name
+			if workflow.CollaborationType == config.CollaborationNew {
+				name = buildName(workflow.Name, mode.Name, userName)
+			}
 			newWorkflow = append(newWorkflow, &Workflow{
 				CollaborationType: workflow.CollaborationType,
 				BaseName:          workflow.Name,
 				CollaborationMode: mode.Name,
-				Name:              buildName(workflow.Name, mode.Name, userName),
+				Name:              name,
 			})
 		}
 		for _, product := range mode.Products {
+			name := product.Name
+			if product.CollaborationType == config.CollaborationNew {
+				name = buildName(product.Name, mode.Name, userName)
+			}
 			newProduct = append(newProduct, &Product{
 				CollaborationType: product.CollaborationType,
 				BaseName:          product.Name,
 				CollaborationMode: mode.Name,
-				Name:              buildName(product.Name, mode.Name, userName),
+				Name:              name,
 				DeployType:        mode.DeployType,
 			})
 			newProductName.Insert(product.Name)
@@ -254,19 +267,27 @@ func GetCollaborationNew(projectName, uid, userName string, logger *zap.SugaredL
 	}
 	for _, item := range updateResp.Update {
 		for _, workflow := range item.NewSpec.Workflows {
+			name := workflow.Name
+			if workflow.CollaborationType == config.CollaborationNew {
+				name = buildName(workflow.Name, item.CollaborationMode, userName)
+			}
 			newWorkflow = append(newWorkflow, &Workflow{
 				CollaborationType: workflow.CollaborationType,
 				BaseName:          workflow.Name,
 				CollaborationMode: item.CollaborationMode,
-				Name:              buildName(workflow.Name, item.CollaborationMode, userName),
+				Name:              name,
 			})
 		}
 		for _, product := range item.NewSpec.Products {
+			name := product.Name
+			if product.CollaborationType == config.CollaborationNew {
+				name = buildName(product.Name, item.CollaborationMode, userName)
+			}
 			newProduct = append(newProduct, &Product{
 				CollaborationType: product.CollaborationType,
 				BaseName:          product.Name,
 				CollaborationMode: item.CollaborationMode,
-				Name:              buildName(product.Name, item.CollaborationMode, userName),
+				Name:              name,
 				DeployType:        item.DeployType,
 			})
 			newProductName.Insert(product.Name)
@@ -294,18 +315,20 @@ func GetCollaborationNew(projectName, uid, userName string, logger *zap.SugaredL
 			}
 		}
 	}
-	renderSets, err := getRenderSetKvs(projectName, newProductName.List())
+	renderSets, err := getRenderSet(projectName, newProductName.List())
 	if err != nil {
 		return nil, err
 	}
 	if renderSets != nil {
-		productVarsMap := make(map[string][]*templatemodels.RenderKV)
+		productRenderSetMap := make(map[string]models2.RenderSet)
 		for _, set := range renderSets {
-			productVarsMap[set.EnvName] = set.KVs
+			productRenderSetMap[set.EnvName] = set
 		}
 		for _, product := range newProduct {
-			if vars, ok := productVarsMap[product.BaseName]; ok {
-				product.Vars = vars
+			if set, ok := productRenderSetMap[product.BaseName]; ok {
+				product.Vars = set.KVs
+				product.DefaultValues = set.DefaultValues
+				product.ChartValues = buildRenderChartArg(set.ChartInfos, product.BaseName)
 			} else {
 				return nil, fmt.Errorf("product:%s not exist", product.BaseName)
 			}
@@ -339,7 +362,7 @@ func GetCollaborationNew(projectName, uid, userName string, logger *zap.SugaredL
 	}, nil
 }
 
-func getRenderSetKvs(projectName string, envs []string) ([]models2.RenderSet, error) {
+func getRenderSet(projectName string, envs []string) ([]models2.RenderSet, error) {
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		InProjects: []string{projectName},
 		InEnvs:     envs,
@@ -362,4 +385,15 @@ func getRenderSetKvs(projectName string, envs []string) ([]models2.RenderSet, er
 		return nil, err
 	}
 	return renderSets, nil
+}
+
+func buildRenderChartArg(chartInfos []*templatemodels.RenderChart, envName string) []*commonservice.RenderChartArg {
+	ret := make([]*commonservice.RenderChartArg, 0)
+	for _, singleChart := range chartInfos {
+		rcaObj := new(commonservice.RenderChartArg)
+		rcaObj.LoadFromRenderChartModel(singleChart)
+		rcaObj.EnvName = envName
+		ret = append(ret, rcaObj)
+	}
+	return ret
 }

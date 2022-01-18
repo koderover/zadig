@@ -24,12 +24,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/service"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -48,7 +48,7 @@ func CleanProductCronJob(requestID string, log *zap.SugaredLogger) {
 		log.Errorf("[Product.List] error: %v", err)
 		return
 	}
-	envCMMap, err := service.GetEnvCMMap([]string{}, log)
+	envCMMap, err := collaboration.GetEnvCMMap([]string{}, log)
 	if err != nil {
 		return
 	}
@@ -62,7 +62,7 @@ func CleanProductCronJob(requestID string, log *zap.SugaredLogger) {
 		if product.RecycleDay == 0 {
 			continue
 		}
-		if _, ok := envCMMap[service.BuildEnvCMMapKey(product.ProductName, product.EnvName)]; ok {
+		if _, ok := envCMMap[collaboration.BuildEnvCMMapKey(product.ProductName, product.EnvName)]; ok {
 			continue
 		}
 		if time.Now().Unix()-product.UpdateTime > int64(60*60*24*product.RecycleDay) {

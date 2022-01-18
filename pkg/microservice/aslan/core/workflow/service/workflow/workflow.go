@@ -27,11 +27,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/service"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -518,7 +518,7 @@ func ListWorkflows(projects []string, userID string, log *zap.SugaredLogger) ([]
 
 	var workflowNames []string
 	var res []*Workflow
-	workflowCMMap, err := service.GetWorkflowCMMap(projects, log)
+	workflowCMMap, err := collaboration.GetWorkflowCMMap(projects, log)
 	if err != nil {
 		return nil, err
 	}
@@ -537,7 +537,7 @@ func ListWorkflows(projects []string, userID string, log *zap.SugaredLogger) ([]
 			stages = append(stages, "distribute")
 		}
 		var baseRefs []string
-		if cmSet, ok := workflowCMMap[service.BuildWorkflowCMMapKey(w.ProductTmplName, w.Name)]; ok {
+		if cmSet, ok := workflowCMMap[collaboration.BuildWorkflowCMMapKey(w.ProductTmplName, w.Name)]; ok {
 			for _, cm := range cmSet.List() {
 				baseRefs = append(baseRefs, cm)
 			}

@@ -26,8 +26,12 @@ response = r {
 
 response = r {
     allow
+    roles := all_roles
     r := {
-      "allowed": true
+      "allowed": true,
+      "headers": {
+        "Roles": json.marshal(roles),
+      }
     }
 }
 
@@ -36,9 +40,16 @@ response = r {
     is_authenticated
     not allow
     rule_is_matched_for_filtering
+    roles := all_roles
+    role_resource := user_role_allowed_resources
+    policy_resource := user_policy_allowed_resources
+    resource := role_resource | policy_resource
     r := {
       "allowed": true,
-      "headers": {"Resources": concat(",", user_allowed_resources)}
+      "headers": {
+        "Resources": json.marshal(resource),
+        "Roles": json.marshal(roles),
+      }
     }
 }
 
@@ -77,7 +88,17 @@ access_is_granted {
 
     some rule
 
-    allowed_plain_rules[rule]
+    allowed_role_plain_rules[rule]
+    rule.method == http_request.method
+    glob.match(trim(rule.endpoint, "/"), ["/"], concat("/", input.parsed_path))
+}
+
+access_is_granted {
+    not url_is_privileged
+
+    some rule
+
+    allowed_policy_plain_rules[rule]
     rule.method == http_request.method
     glob.match(trim(rule.endpoint, "/"), ["/"], concat("/", input.parsed_path))
 }
@@ -85,7 +106,17 @@ access_is_granted {
 access_is_granted {
     some rule
 
-    allowed_attributive_rules[rule]
+    allowed_role_attributive_rules[rule]
+    rule.method == http_request.method
+    glob.match(trim(rule.endpoint, "/"), ["/"], concat("/", input.parsed_path))
+
+    all_attributes_match(rule.matchAttributes, rule.resourceType, get_resource_id(rule.idRegex))
+}
+
+access_is_granted {
+    some rule
+
+    allowed_policy_attributive_rules[rule]
     rule.method == http_request.method
     glob.match(trim(rule.endpoint, "/"), ["/"], concat("/", input.parsed_path))
 
@@ -93,18 +124,45 @@ access_is_granted {
 }
 
 rule_is_matched_for_filtering {
-    count(user_matched_rule_for_filtering) > 0
+    count(user_matched_role_rule_for_filtering) > 0
+}
+
+rule_is_matched_for_filtering {
+    count(user_matched_policy_rule_for_filtering) > 0
 }
 
 # get all resources which matches the attributes
-user_allowed_resources[resourceID] {
+user_role_allowed_resources[resourceID] {
     some rule
 
-    user_matched_rule_for_filtering[rule]
+    user_matched_role_rule_for_filtering[rule]
     res := data.resources[rule.resourceType][_]
     project_name_is_match(res)
-    not attributes_mismatch(rule.matchAttributes, res)
+    attributes_match(rule.matchAttributes, res)
     resourceID := res.resourceID
+}
+
+user_policy_allowed_resources[resourceID] {
+    some rule
+
+    user_matched_policy_rule_for_filtering[rule]
+    res := data.resources[rule.resourceType][_]
+    project_name_is_match(res)
+    attributes_match(rule.matchAttributes, res)
+    resourceID := res.resourceID
+}
+
+attributes_match(attributes, res) {
+    count(attributes) == 0
+}
+
+attributes_match(attributes, res) {
+    attribute := attributes[_]
+    attribute_match(attribute, res)
+}
+
+attribute_match(attribute, res) {
+    res.spec[attribute.key] == attribute.value
 }
 
 project_name_is_match(res) {
@@ -116,10 +174,19 @@ project_name_is_match(res) {
     res.projectName == ""
 }
 
-user_matched_rule_for_filtering[rule] {
+user_matched_policy_rule_for_filtering[rule] {
     some rule
 
-    allowed_attributive_rules[rule]
+    allowed_policy_attributive_rules[rule]
+    rule.method == http_request.method
+    glob.match(trim(rule.endpoint, "/"), ["/"], concat("/", input.parsed_path))
+    not rule.idRegex
+}
+
+user_matched_role_rule_for_filtering[rule] {
+    some rule
+
+    allowed_role_attributive_rules[rule]
     rule.method == http_request.method
     glob.match(trim(rule.endpoint, "/"), ["/"], concat("/", input.parsed_path))
     not rule.idRegex
@@ -205,12 +272,23 @@ user_projects[project] {
     data.bindings.role_bindings[i].uid == claims.uid
     project := data.bindings.role_bindings[i].bindings[_].namespace
 }
+user_projects[project] {
+    some i
+    data.bindings.policy_bindings[i].uid == claims.uid
+    project := data.bindings.policy_bindings[i].bindings[_].namespace
+}
 
 # get all projects which are visible by all users (the user name is "*")
 user_projects[project] {
     some i
     data.bindings.role_bindings[i].uid == "*"
     project := data.bindings.role_bindings[i].bindings[_].namespace
+}
+
+user_projects[project] {
+    some i
+    data.bindings.policy_bindings[i].uid == "*"
+    project := data.bindings.policy_bindings[i].bindings[_].namespace
 }
 
 # all projects which are allowed by current user
@@ -246,6 +324,7 @@ all_roles[role_ref] {
     role_ref := data.bindings.role_bindings[i].bindings[j].role_refs[_]
 }
 
+
 # only roles under the given project are allowed
 allowed_roles[role_ref] {
     some i
@@ -262,7 +341,21 @@ allowed_roles[role_ref] {
     role_ref := data.bindings.role_bindings[i].bindings[j].role_refs[_]
 }
 
-allowed_rules[rule] {
+allowed_policies[policy_ref] {
+    some i
+    data.bindings.policy_bindings[i].uid == claims.uid
+    data.bindings.policy_bindings[i].bindings[j].namespace == project_name
+    policy_ref := data.bindings.policy_bindings[i].bindings[j].policy_refs[_]
+}
+
+allowed_policies[policy_ref] {
+    some i
+    data.bindings.policy_bindings[i].uid == "*"
+    data.bindings.policy_bindings[i].bindings[_].namespace == project_name
+    policy_ref := data.bindings.policy_bindings[i].bindings[j].policy_refs[_]
+}
+
+allowed_role_rules[rule] {
     some role_ref
     allowed_roles[role_ref]
 
@@ -272,19 +365,44 @@ allowed_rules[rule] {
     rule := data.roles.roles[i].rules[_]
 }
 
-allowed_plain_rules[rule] {
-    rule := allowed_rules[_]
+allowed_policy_rules[rule] {
+    some policy_ref
+    allowed_policies[policy_ref]
+
+    some i
+    data.policies.policies[i].name == policy_ref.name
+    data.policies.policies[i].namespace == policy_ref.namespace
+    rule := data.policies.policies[i].rules[_]
+}
+
+allowed_policy_plain_rules[rule] {
+    rule := allowed_policy_rules[_]
     not rule.matchAttributes
     not rule.matchExpressions
 }
 
-allowed_attributive_rules[rule] {
-    rule := allowed_rules[_]
+allowed_role_plain_rules[rule] {
+    rule := allowed_role_rules[_]
+    not rule.matchAttributes
+    not rule.matchExpressions
+}
+
+allowed_policy_attributive_rules[rule] {
+    rule := allowed_policy_rules[_]
     rule.matchAttributes
 }
 
-allowed_attributive_rules[rule] {
-    rule := allowed_rules[_]
+allowed_role_attributive_rules[rule] {
+    rule := allowed_role_rules[_]
+    rule.matchAttributes
+}
+allowed_policy_attributive_rules[rule] {
+    rule := allowed_policy_rules[_]
+    rule.matchExpressions
+}
+
+allowed_role_attributive_rules[rule] {
+    rule := allowed_role_rules[_]
     rule.matchExpressions
 }
 

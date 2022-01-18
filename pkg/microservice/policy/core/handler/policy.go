@@ -24,15 +24,15 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-type deleteRolesArgs struct {
+type deletePoliciesArgs struct {
 	Names []string `json:"names"`
 }
 
-func CreateRole(c *gin.Context) {
+func CreatePolicy(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := &service.Role{}
+	args := &service.Policy{}
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.Err = err
 		return
@@ -44,14 +44,14 @@ func CreateRole(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.CreateRole(projectName, args, ctx.Logger)
+	ctx.Err = service.CreatePolicy(projectName, args, ctx.Logger)
 }
 
-func UpdateRole(c *gin.Context) {
+func UpdatePolicy(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := &service.Role{}
+	args := &service.Policy{}
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.Err = err
 		return
@@ -65,14 +65,14 @@ func UpdateRole(c *gin.Context) {
 	name := c.Param("name")
 	args.Name = name
 
-	ctx.Err = service.UpdateRole(projectName, args, ctx.Logger)
+	ctx.Err = service.UpdatePolicy(projectName, args, ctx.Logger)
 }
 
-func UpdateOrCreateRole(c *gin.Context) {
+func UpdateOrCreatePolicy(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := &service.Role{}
+	args := &service.Policy{}
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.Err = err
 		return
@@ -85,38 +85,38 @@ func UpdateOrCreateRole(c *gin.Context) {
 	}
 	args.Name = c.Param("name")
 
-	ctx.Err = service.UpdateOrCreateRole(projectName, args, ctx.Logger)
+	ctx.Err = service.UpdateOrCreatePolicy(projectName, args, ctx.Logger)
 }
 
-func UpdatePublicRole(c *gin.Context) {
+func UpdatePublicPolicy(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := &service.Role{}
+	args := &service.Policy{}
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.Err = err
 		return
 	}
 	name := c.Param("name")
 	args.Name = name
-	ctx.Err = service.UpdateRole("", args, ctx.Logger)
+	ctx.Err = service.UpdatePolicy(service.PublicScope, args, ctx.Logger)
 }
 
-func UpdateOrCreatePublicRole(c *gin.Context) {
+func UpdateOrCreatePublicPolicy(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := &service.Role{}
+	args := &service.Policy{}
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.Err = err
 		return
 	}
 	name := c.Param("name")
 	args.Name = name
-	ctx.Err = service.UpdateOrCreateRole("", args, ctx.Logger)
+	ctx.Err = service.UpdateOrCreatePolicy(service.PublicScope, args, ctx.Logger)
 }
 
-func ListRoles(c *gin.Context) {
+func ListPolicies(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -126,10 +126,10 @@ func ListRoles(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListRoles(projectName, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListPolicies(projectName, ctx.Logger)
 }
 
-func GetRole(c *gin.Context) {
+func GetPolicy(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -139,38 +139,38 @@ func GetRole(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.GetRole(projectName, c.Param("name"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetPolicy(projectName, c.Param("name"), ctx.Logger)
 }
 
-func CreatePublicRole(c *gin.Context) {
+func CreatePublicPolicy(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := &service.Role{}
+	args := &service.Policy{}
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.Err = err
 		return
 	}
 
-	ctx.Err = service.CreateRole(service.PublicScope, args, ctx.Logger)
+	ctx.Err = service.CreatePolicy(service.PublicScope, args, ctx.Logger)
 }
 
-func ListPublicRoles(c *gin.Context) {
+func ListPublicPolicies(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListRoles(service.PublicScope, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListPolicies(service.PublicScope, ctx.Logger)
 	return
 }
 
-func GetPublicRole(c *gin.Context) {
+func GetPublicPolicy(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.GetRole(service.PublicScope, c.Param("name"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetPolicy(service.PublicScope, c.Param("name"), ctx.Logger)
 }
 
-func DeleteRole(c *gin.Context) {
+func DeletePolicy(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -181,10 +181,10 @@ func DeleteRole(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.DeleteRole(name, projectName, ctx.Logger)
+	ctx.Err = service.DeletePolicy(name, projectName, ctx.Logger)
 }
 
-func DeleteRoles(c *gin.Context) {
+func DeletePolicies(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -194,62 +194,62 @@ func DeleteRoles(c *gin.Context) {
 		return
 	}
 
-	args := &deleteRolesArgs{}
+	args := &deletePoliciesArgs{}
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.Err = err
 		return
 	}
 
-	ctx.Err = service.DeleteRoles(args.Names, projectName, ctx.Logger)
+	ctx.Err = service.DeletePolicies(args.Names, projectName, ctx.Logger)
 }
 
-func DeletePublicRole(c *gin.Context) {
+func DeletePublicPolicies(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	name := c.Param("name")
-	ctx.Err = service.DeleteRole(name, service.PublicScope, ctx.Logger)
+	ctx.Err = service.DeletePolicy(name, service.PublicScope, ctx.Logger)
 	return
 }
 
-func CreateSystemRole(c *gin.Context) {
+func CreateSystemPolicy(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := &service.Role{}
+	args := &service.Policy{}
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.Err = err
 		return
 	}
 
-	ctx.Err = service.CreateRole(service.SystemScope, args, ctx.Logger)
+	ctx.Err = service.CreatePolicy(service.SystemScope, args, ctx.Logger)
 }
 
-func UpdateOrCreateSystemRole(c *gin.Context) {
+func UpdateOrCreateSystemPolicy(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := &service.Role{}
+	args := &service.Policy{}
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.Err = err
 		return
 	}
 	name := c.Param("name")
 	args.Name = name
-	ctx.Err = service.UpdateOrCreateRole(service.SystemScope, args, ctx.Logger)
+	ctx.Err = service.UpdateOrCreatePolicy(service.SystemScope, args, ctx.Logger)
 }
 
-func ListSystemRoles(c *gin.Context) {
+func ListSystemPolicies(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListRoles(service.SystemScope, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListPolicies(service.SystemScope, ctx.Logger)
 	return
 }
 
-func DeleteSystemRole(c *gin.Context) {
+func DeleteSystemPolicy(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	name := c.Param("name")
-	ctx.Err = service.DeleteRole(name, service.SystemScope, ctx.Logger)
+	ctx.Err = service.DeletePolicy(name, service.SystemScope, ctx.Logger)
 	return
 }
