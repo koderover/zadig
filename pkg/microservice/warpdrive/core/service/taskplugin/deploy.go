@@ -653,7 +653,7 @@ func (p *DeployTaskPlugin) getService(ctx context.Context, name, serviceType, pr
 
 	s := &types.ServiceTmpl{}
 	_, err := p.httpClient.Get(url, httpclient.SetResult(s), httpclient.SetQueryParams(map[string]string{
-		"productName": productName,
+		"projectName": productName,
 		"revision":    fmt.Sprintf("%d", revision),
 	}))
 	if err != nil {
