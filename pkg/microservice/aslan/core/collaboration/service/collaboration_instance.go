@@ -225,7 +225,9 @@ func GetCollaborationUpdate(projectName, uid string, logger *zap.SugaredLogger) 
 func buildName(baseName, modeName, userName string) string {
 	return modeName + "-" + baseName + "-" + userName + "-" + util.GetRandomString(6)
 }
-
+func SyncCollaborationInstance(projectName, uid, userName string, logger *zap.SugaredLogger) error {
+	return nil
+}
 func GetCollaborationNew(projectName, uid, userName string, logger *zap.SugaredLogger) (*GetCollaborationNewResp, error) {
 	var newWorkflow []*Workflow
 	var newProduct []*Product
