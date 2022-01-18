@@ -307,14 +307,14 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 	if excludeStatus != "" {
 		opt.ExcludeStatus = excludeStatus
 	}
-
+	log.Infof("serviceName:%s,serviceType:%s,revision:%d,productName:%s", serviceName, serviceType, revision, productName)
 	resp, err := commonrepo.NewServiceColl().Find(opt)
 	if err != nil {
 		errMsg := fmt.Sprintf("[ServiceTmpl.Find] %s error: %v", serviceName, err)
 		log.Error(errMsg)
 		return resp, e.ErrGetTemplate.AddDesc(errMsg)
 	}
-
+	log.Infof("resp.WorkloadType1:%s", resp.WorkloadType)
 	if resp.Source == setting.SourceFromGitlab && resp.RepoName == "" {
 		if gitlabAddress, err := GetGitlabAddress(resp.SrcPath); err == nil {
 			if details, err := systemconfig.New().ListCodeHosts(); err == nil {
@@ -405,7 +405,7 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 			}
 		}
 	}
-	log.Infof("resp.WorkloadType:%s", resp.WorkloadType)
+	log.Infof("resp.WorkloadType2:%s", resp.WorkloadType)
 	return resp, nil
 }
 
