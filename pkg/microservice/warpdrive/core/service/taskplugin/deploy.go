@@ -213,7 +213,6 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			return
 		}
 	}
-	p.Log.Infof("p.Task.ServiceType:%s", p.Task.ServiceType)
 	if p.Task.ServiceType != setting.HelmDeployType {
 		// get servcie info
 		var (
@@ -228,7 +227,6 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				return
 			}
 		}
-		p.Log.Infof("serviceInfo.WorkloadType:%+v", serviceInfo)
 		if serviceInfo.WorkloadType == "" {
 			selector := labels.Set{setting.ProductLabel: p.Task.ProductName, setting.ServiceLabel: p.Task.ServiceName}.AsSelector()
 
@@ -291,7 +289,6 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				}
 			}
 		} else {
-			p.Log.Infof("serviceInfo.WorkloadType:%s", serviceInfo.WorkloadType)
 			switch serviceInfo.WorkloadType {
 			case setting.StatefulSet:
 				var statefulSet *appsv1.StatefulSet
@@ -321,7 +318,6 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				}
 			case setting.Deployment:
 				var deployment *appsv1.Deployment
-				p.Log.Infof("namespace:%s,serviceName:%s", p.Task.Namespace, p.Task.ServiceName)
 				deployment, _, err = getter.GetDeployment(p.Task.Namespace, p.Task.ServiceName, p.kubeClient)
 				if err != nil {
 					return
