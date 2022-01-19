@@ -188,6 +188,7 @@ func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*common
 
 	var allRenders []*commonmodels.RenderSet
 	var newRender *commonmodels.RenderSet
+	// Compatible with old data judgment is equal to nil
 	if prodTmpl.ProductFeature == nil || (prodTmpl.ProductFeature != nil && prodTmpl.ProductFeature.DeployType == setting.K8SDeployType) {
 		rendersetName := ""
 		if product.Render != nil {
