@@ -358,6 +358,52 @@ func AutoUpdateProduct(envNames []string, productName, requestID string, force b
 
 }
 
+// getServicesWithMaxRevision get all services template with max revision including involved shared services
+func getServicesWithMaxRevision(projectName string) ([]*commonmodels.Service, error) {
+	// list services with max revision defined in project
+	allServices, err := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{ProductName: projectName})
+	if err != nil {
+		log.Errorf("failed to find services in project: %s, err: %s", projectName, err)
+		return nil, fmt.Errorf("failed to find services in project: %s", projectName)
+	}
+
+	prodTmpl, err := templaterepo.NewProductColl().Find(projectName)
+	if err != nil {
+		log.Error(fmt.Sprintf("[ProductTmpl.Find] %s error: %v", projectName, err))
+		return nil, fmt.Errorf("failed to find project tempalte: %s", projectName)
+	}
+
+	// list services with max revision of shared services
+	if prodTmpl.SharedServices != nil {
+		servicesByProject := make(map[string][]string)
+		for _, serviceInfo := range prodTmpl.SharedServices {
+			servicesByProject[serviceInfo.Owner] = append(servicesByProject[serviceInfo.Owner], serviceInfo.Name)
+		}
+
+		for sourceProject, services := range servicesByProject {
+			inService := make([]*templatemodels.ServiceInfo, 0)
+			for _, serviceName := range services {
+				inService = append(inService, &templatemodels.ServiceInfo{
+					Name:  serviceName,
+					Owner: sourceProject,
+				})
+			}
+
+			sharedServices, err := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{
+				ProductName: sourceProject,
+				InServices:  inService,
+			})
+			if err != nil {
+				log.Errorf("ListSharedServiceRevisions error: %s", err)
+				return nil, fmt.Errorf("failed to find shared service templates, projectName: %s, err: %s", sourceProject, err)
+			}
+			allServices = append(allServices, sharedServices...)
+		}
+	}
+
+	return allServices, nil
+}
+
 func UpdateProduct(existedProd, updateProd *commonmodels.Product, renderSet *commonmodels.RenderSet, log *zap.SugaredLogger) (err error) {
 	// 设置产品新的renderinfo
 	updateProd.Render = &commonmodels.RenderInfo{
@@ -376,7 +422,7 @@ func UpdateProduct(existedProd, updateProd *commonmodels.Product, renderSet *com
 	var prodRevs *ProductRevision
 
 	// list services with max revision of project
-	allServices, err = commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{ProductName: productName})
+	allServices, err = getServicesWithMaxRevision(productName)
 	if err != nil {
 		log.Errorf("ListAllRevisions error: %s", err)
 		err = e.ErrUpdateEnv.AddDesc(err.Error())
