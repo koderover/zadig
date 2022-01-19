@@ -28,11 +28,11 @@ import (
 )
 
 const (
-	manifestPath     = ".manifest"
-	policyPath       = "authz.rego"
-	rolesPath        = "roles/data.json"
-	policiesPath     = "policies/data.json"
-	rolebindingsPath = "bindings/data.json"
+	manifestPath   = ".manifest"
+	policyRegoPath = "authz.rego"
+	rolesPath      = "roles/data.json"
+	policiesPath   = "policies/data.json"
+	bindingsPath   = "bindings/data.json"
 
 	exemptionsPath = "exemptions/data.json"
 	resourcesPath  = "resources/data.json"
@@ -385,7 +385,7 @@ func generateOPAExemptionURLs(policies []*models.PolicyMeta) *exemptionURLs {
 	return data
 }
 
-func generateOPAPolicy() []byte {
+func generateOPAPolicyRego() []byte {
 	return authz
 }
 
@@ -418,10 +418,10 @@ func GenerateOPABundle() error {
 
 	bundle := &opa.Bundle{
 		Data: []*opa.DataSpec{
-			{Data: generateOPAPolicy(), Path: policyPath},
+			{Data: generateOPAPolicyRego(), Path: policyRegoPath},
 			{Data: generateOPARoles(rs, pms), Path: rolesPath},
 			{Data: generateOPAPolicies(policies, pms), Path: policiesPath},
-			{Data: generateOPARoleBindings(bs, pbs), Path: rolebindingsPath},
+			{Data: generateOPARoleBindings(bs, pbs), Path: bindingsPath},
 			{Data: generateOPAExemptionURLs(pms), Path: exemptionsPath},
 			{Data: generateResourceBundle(), Path: resourcesPath},
 		},
