@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
@@ -109,8 +110,9 @@ func fillServiceDisplayName(svcList []*ServiceResp, productInfo *models.Product)
 // A filter is in this format: a=b,c=d, and it is a fuzzy matching. Which means it will return all records with a field called
 // a and the value contain character b.
 func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, log *zap.SugaredLogger) (int, []*ServiceResp, error) {
-	log.Infof("Start to list workloads for env %s for project %s", envName, productName)
-	defer log.Info("Finish to list workloads")
+	startTime := time.Now().Unix()
+	log.Infof("Start to list workloads for env %s for project %s, startTime: [%d]", envName, productName, startTime)
+	defer log.Infof("Finish to list workloads at [%d], totalTime: [%d]", time.Now().Unix(), time.Now().Unix()-startTime)
 
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	productInfo, err := commonrepo.NewProductColl().Find(opt)
@@ -214,7 +216,8 @@ type Workload struct {
 }
 
 func ListWorkloads(envName, clusterID, namespace, productName string, perPage, page int, log *zap.SugaredLogger, filter ...FilterFunc) (int, []*ServiceResp, error) {
-	log.Infof("Start to list workloads in namespace %s", namespace)
+	startTime := time.Now().Unix()
+	log.Infof("Start to list workloads in namespace %s, startTime: [%d]", namespace, startTime)
 
 	var resp = make([]*ServiceResp, 0)
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
@@ -224,7 +227,10 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	}
 
 	var workLoads []*Workload
+	curr := time.Now().Unix()
+	log.Infof("[ListWorkloads] ListDeployments started at [%d]", curr)
 	listDeployments, err := getter.ListDeployments(namespace, nil, kubeClient)
+	log.Infof("[ListWorkloads] ListDeployments ended at [%d], totalTime: [%d]", time.Now().Unix(), time.Now().Unix()-curr)
 	if err != nil {
 		log.Errorf("[%s][%s] create product record error: %v", envName, namespace, err)
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
@@ -232,7 +238,10 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	for _, v := range listDeployments {
 		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: v.Spec.Template, Type: setting.Deployment, Images: wrapper.Deployment(v).ImageInfos(), Ready: wrapper.Deployment(v).Ready()})
 	}
+	curr = time.Now().Unix()
+	log.Infof("[ListWorkloads] ListStatefulSets started at [%d]", curr)
 	statefulSets, err := getter.ListStatefulSets(namespace, nil, kubeClient)
+	log.Infof("[ListWorkloads] ListStatefulSets ended at [%d], totalTime: [%d]", time.Now().Unix(), time.Now().Unix()-curr)
 	if err != nil {
 		log.Errorf("[%s][%s] create product record error: %v", envName, namespace, err)
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
@@ -269,14 +278,20 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 
 	hostInfos := make([]resource.HostInfo, 0)
 	// get all ingresses
+	curr = time.Now().Unix()
+	log.Infof("[ListWorkloads] ListIngresses started at [%d]", curr)
 	if ingresses, err := getter.ListIngresses(namespace, nil, kubeClient); err == nil {
 		for _, ingress := range ingresses {
 			hostInfos = append(hostInfos, wrapper.Ingress(ingress).HostInfo()...)
 		}
 	}
+	log.Infof("[ListWorkloads] ListIngresses ended at [%d], totalTime: [%d]", time.Now().Unix(), time.Now().Unix()-curr)
 
 	// get all services
+	curr = time.Now().Unix()
+	log.Infof("[ListWorkloads] ListServices started at [%d]", curr)
 	allServices, err := getter.ListServices(namespace, nil, kubeClient)
+	log.Infof("[ListWorkloads] ListServices ended at [%d], totalTime: [%d]", time.Now().Unix(), time.Now().Unix()-curr)
 	if err != nil {
 		log.Errorf("[%s][%s] list service error: %s", envName, namespace, err)
 	}
@@ -307,7 +322,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 
 		resp = append(resp, productRespInfo)
 	}
-	log.Infof("Finish to list workloads in namespace %s", namespace)
+	log.Infof("Finish to list workloads in namespace %s, endTime: [%d], total time: [%d]", namespace, time.Now().Unix(), time.Now().Unix()-startTime)
 
 	return count, resp, nil
 }

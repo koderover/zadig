@@ -155,29 +155,44 @@ func GetInitProduct(productTmplName string, log *zap.SugaredLogger) (*commonmode
 }
 
 func GetProduct(username, envName, productName string, log *zap.SugaredLogger) (*ProductResp, error) {
+	startTime := time.Now().Unix()
+	log.Infof("Service GetProduct started at: [%d]", startTime)
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
+	curr := time.Now().Unix()
+	log.Infof("[GetProduct] List Environment started at: [%d]", curr)
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
 		log.Errorf("[User:%s][EnvName:%s][Product:%s] Product.FindByOwner error: %s", username, envName, productName, err)
 		return nil, e.ErrGetEnv
 	}
+	log.Infof("[GetProduct] List Environment ended at: [%d], total time [%d]", time.Now().Unix(), time.Now().Unix()-curr)
 
 	if prod.Source != setting.SourceFromHelm && prod.Source != setting.SourceFromExternal {
+		curr = time.Now().Unix()
+		log.Infof("[GetProduct] Fill Product Variable started at: [%d]", curr)
 		err = FillProductVars([]*commonmodels.Product{prod}, log)
+		log.Infof("[GetProduct] Fill Product Variable ended at: [%d], total time [%d]", time.Now().Unix(), time.Now().Unix()-curr)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	if len(prod.RegistryID) == 0 {
+		curr = time.Now().Unix()
+		log.Infof("[GetProduct] Find Default Registry started at: [%d]", curr)
 		reg, _, err := commonservice.FindDefaultRegistry(false, log)
+		log.Infof("[GetProduct] Find Default Registry ended at: [%d], total time [%d]", time.Now().Unix(), time.Now().Unix()-curr)
 		if err != nil {
 			log.Errorf("[User:%s][EnvName:%s][Product:%s] FindDefaultRegistry error: %s", username, envName, productName, err)
 			return nil, err
 		}
 		prod.RegistryID = reg.ID.Hex()
 	}
+	curr = time.Now().Unix()
+	log.Infof("[GetProduct] Build Product Response started at: [%d]", curr)
 	resp := buildProductResp(prod.EnvName, prod, log)
+	log.Infof("[GetProduct] Build Product Response ended at: [%d], total time [%d]", time.Now().Unix(), time.Now().Unix()-curr)
+	log.Infof("Service GetProduct ended at: [%d], total time: [%d]", time.Now().Unix(), time.Now().Unix()-startTime)
 	return resp, nil
 }
 
