@@ -27,8 +27,8 @@ import (
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	helmrelease "helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/releaseutil"
+	"helm.sh/helm/v3/pkg/storage"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/rest"
@@ -544,20 +544,37 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			Wait:        true,
 		}
 
-		isFailedOrPendingStatus := func() bool {
-			hrs, errHistory := helmClient.ListReleaseHistory(chartSpec.ReleaseName, 5)
+		pendingStatusProcess := func(typ string) error {
+			hrs, errHistory := helmClient.ListReleaseHistory(chartSpec.ReleaseName, 10)
 			if errHistory != nil {
-				return false
+				err = errors.WithMessagef(
+					err,
+					"failed to ListReleaseHistory: %s,error:%s",
+					chartSpec.ReleaseName, errHistory)
+				return err
 			}
 			if len(hrs) > 0 {
 				releaseutil.Reverse(hrs, releaseutil.SortByRevision)
 				rel := hrs[0]
-				return rel.Info.Status == helmrelease.StatusFailed || rel.Info.Status == helmrelease.StatusPendingUpgrade || rel.Info.Status == helmrelease.StatusPendingInstall
+				if rel.Info.Status.IsPending() {
+					secretName := fmt.Sprintf("%s.%s.v%d", storage.HelmStorageType, rel.Name, rel.Version)
+					deleteErr := updater.DeleteSecretWithName(rel.Namespace, secretName, p.kubeClient)
+					if deleteErr != nil {
+						err = errors.WithMessagef(err, "failed to deleteSecretWithName:%s,error:%s", secretName, deleteErr)
+						return err
+					}
+				}
 			}
-			return false
+			if err != nil {
+				err = fmt.Errorf("failed to install %s:%s", typ, err)
+			}
+			return err
 		}
-		if isFailedStatus := isFailedOrPendingStatus(); isFailedStatus {
-			chartSpec.Replace = true
+
+		// ensure release status not in pending
+		err = pendingStatusProcess("ensureStatus")
+		if err != nil {
+			err = errors.Wrapf(err, "failed to delete pending status for release: %s", chartSpec.ReleaseName)
 			return
 		}
 
@@ -573,33 +590,6 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				done <- true
 			}
 		}(done)
-
-		pendingStatusProcess := func(typ string) error {
-			hrs, errHistory := helmClient.ListReleaseHistory(chartSpec.ReleaseName, 10)
-			if errHistory != nil {
-				err = errors.WithMessagef(
-					err,
-					"failed to ListReleaseHistory: %s,error:%s",
-					chartSpec.ReleaseName, errHistory)
-				return err
-			}
-			if len(hrs) > 0 {
-				releaseutil.Reverse(hrs, releaseutil.SortByRevision)
-				rel := hrs[0]
-				if rel.Info.Status == helmrelease.StatusPendingInstall || rel.Info.Status == helmrelease.StatusPendingUpgrade {
-					secretName := fmt.Sprintf("sh.helm.release.v1.%s.v%d", rel.Name, rel.Version)
-					deleteErr := updater.DeleteSecretWithName(rel.Namespace, secretName, p.kubeClient)
-					if deleteErr != nil {
-						err = errors.WithMessagef(err, "failed to deleteSecretWithName:%s,error:%s", secretName, deleteErr)
-						return err
-					}
-				}
-			}
-			if err != nil {
-				err = fmt.Errorf("failed to install %s:%s", typ, err)
-			}
-			return err
-		}
 
 		select {
 		case d := <-done:
