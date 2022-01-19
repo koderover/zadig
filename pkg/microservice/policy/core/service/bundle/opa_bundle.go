@@ -401,6 +401,12 @@ func GenerateOPABundle() error {
 	if err != nil {
 		log.Errorf("Failed to list roleBindings, err: %s", err)
 	}
+
+	pbs, err := mongodb.NewPolicyBindingColl().List()
+	if err != nil {
+		log.Errorf("Failed to list roleBindings, err: %s", err)
+	}
+
 	pms, err := mongodb.NewPolicyMetaColl().List()
 	if err != nil {
 		log.Errorf("Failed to list policyMetas, err: %s", err)
@@ -415,7 +421,7 @@ func GenerateOPABundle() error {
 			{Data: generateOPAPolicy(), Path: policyPath},
 			{Data: generateOPARoles(rs, pms), Path: rolesPath},
 			{Data: generateOPAPolicies(policies, pms), Path: policiesPath},
-			{Data: generateOPARoleBindings(bs), Path: rolebindingsPath},
+			{Data: generateOPARoleBindings(bs, pbs), Path: rolebindingsPath},
 			{Data: generateOPAExemptionURLs(pms), Path: exemptionsPath},
 			{Data: generateResourceBundle(), Path: resourcesPath},
 		},
