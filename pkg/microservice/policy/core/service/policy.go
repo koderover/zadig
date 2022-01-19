@@ -55,8 +55,28 @@ func CreatePolicy(ns string, policy *Policy, _ *zap.SugaredLogger) error {
 			MatchAttributes: r.MatchAttributes,
 		})
 	}
-
 	return mongodb.NewPolicyColl().Create(obj)
+}
+
+func CreatePolicies(ns string, policies []*Policy, _ *zap.SugaredLogger) error {
+	var objs []*models.Policy
+	for _, policy := range policies {
+		obj := &models.Policy{
+			Name:      policy.Name,
+			Namespace: ns,
+		}
+
+		for _, r := range policy.Rules {
+			obj.Rules = append(obj.Rules, &models.Rule{
+				Verbs:           r.Verbs,
+				Kind:            r.Kind,
+				Resources:       r.Resources,
+				MatchAttributes: r.MatchAttributes,
+			})
+		}
+		objs = append(objs, obj)
+	}
+	return mongodb.NewPolicyColl().BulkCreate(objs)
 }
 
 func UpdatePolicy(ns string, policy *Policy, _ *zap.SugaredLogger) error {
