@@ -115,6 +115,7 @@ func ListLabelsByResources(resources []mongodb.Resource, logger *zap.SugaredLogg
 	//1. find the labelBindings by resources
 	labelBindings, err := mongodb.NewLabelBindingColl().ListByResources(mongodb.ListLabelBindingsByResources{Resources: resources})
 	if err != nil {
+		logger.Errorf("NewLabelBindingColl ListByResources err:%s", err)
 		return nil, err
 	}
 	//2.find labels by labelBindings
@@ -133,7 +134,7 @@ func ListLabelsByResources(resources []mongodb.Resource, logger *zap.SugaredLogg
 	// 3. iterate resources
 	res := make(map[string][]*models.Label)
 	for _, labelBinding := range labelBindings {
-		resourceKey := fmt.Sprintf("%s-%s", labelBinding.ResourceType, labelBinding.ResourceName)
+		resourceKey := fmt.Sprintf("%s-%s-%s", labelBinding.ResourceType, labelBinding.ProjectName, labelBinding.ResourceName)
 
 		label, ok := labelM[labelBinding.LabelID]
 		if !ok {

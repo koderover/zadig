@@ -17,7 +17,14 @@ limitations under the License.
 package workflow
 
 import (
+	"fmt"
+
+	"go.uber.org/zap"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/config"
+	labeldb "github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/service"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -27,21 +34,43 @@ type resourceSpec struct {
 	Spec        map[string]interface{} `json:"spec"`
 }
 
-func GetBundleResources() ([]*resourceSpec, error) {
+func GetBundleResources(logger *zap.SugaredLogger) ([]*resourceSpec, error) {
 	var res []*resourceSpec
 	workflows, err := mongodb.NewWorkflowColl().List(nil)
 	if err != nil {
 		log.Error("Failed to list workflows , err:%s", err)
 		return nil, err
 	}
+
 	// get labels by workflow resources ids
+	var resources []labeldb.Resource
+
+	for _, workflow := range workflows {
+		resource := labeldb.Resource{
+			Name:        workflow.Name,
+			ProjectName: workflow.ProductTmplName,
+			Type:        string(config.ResourceTypeWorkflow),
+		}
+		resources = append(resources, resource)
+	}
+	labelsResp, err := service.ListLabelsByResources(resources, logger)
+	if err != nil {
+		return nil, err
+	}
+
 	// TODO - mouuii
 	for _, workflow := range workflows {
-		res = append(res, &resourceSpec{
-			ResourceID:  workflow.ID.Hex(),
+		resourceKey := fmt.Sprintf("%s-%s-%s", config.ResourceTypeWorkflow, workflow.ProductTmplName, workflow.Name)
+		resourceSpec := &resourceSpec{
+			ResourceID:  workflow.Name,
 			ProjectName: workflow.ProductTmplName,
-			Spec:        map[string]interface{}{},
-		})
+		}
+		if labels, ok := labelsResp.Labels[resourceKey]; ok {
+			for _, v := range labels {
+				resourceSpec.Spec[v.Key] = v.Value
+			}
+		}
+		res = append(res, resourceSpec)
 	}
 	return res, nil
 }
