@@ -26,13 +26,14 @@ import (
 	"sync"
 	"time"
 
+	"helm.sh/helm/v3/pkg/storage"
+
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/go-multierror"
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
-	helmrelease "helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"helm.sh/helm/v3/pkg/strvals"
 	appsv1 "k8s.io/api/apps/v1"
@@ -2301,8 +2302,8 @@ func installOrUpgradeHelmChartWithValues(namespace, valuesYaml string, renderCha
 		if len(hrs) > 0 {
 			releaseutil.Reverse(hrs, releaseutil.SortByRevision)
 			rel := hrs[0]
-			if rel.Info.Status == helmrelease.StatusPendingInstall || rel.Info.Status == helmrelease.StatusPendingUpgrade {
-				secretName := fmt.Sprintf("sh.helm.release.v1.%s.v%d", rel.Name, rel.Version)
+			if rel.Info.Status.IsPending() {
+				secretName := fmt.Sprintf("%s.%s.v%d", storage.HelmStorageType, rel.Name, rel.Version)
 				deleteErr := updater.DeleteSecretWithName(rel.Namespace, secretName, kubecli)
 				if deleteErr != nil {
 					err = errors.WithMessagef(err, "failed to deleteSecretWithName:%s,error:%s", secretName, deleteErr)
