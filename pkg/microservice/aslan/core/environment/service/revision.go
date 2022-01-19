@@ -449,14 +449,24 @@ func getMaxServiceRevision(services []*commonmodels.Service, serviceName, produc
 }
 
 func getRenderByRevision(renders []*commonmodels.RenderSet, renderName string, revision int64) (*commonmodels.RenderSet, error) {
-	var resp *commonmodels.RenderSet
+	var (
+		resp *commonmodels.RenderSet
+		err  error
+	)
 	for _, render := range renders {
 		if render.Name == renderName && render.Revision == revision {
 			resp = render
 		}
 	}
 	if resp == nil {
-		return resp, fmt.Errorf("[%s][%d] no renderset found", renderName, revision)
+		// query from db
+		resp, err = commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+			Name:     renderName,
+			Revision: revision,
+		})
+		if err != nil {
+			return resp, fmt.Errorf("[%s][%d] no renderset found", renderName, revision)
+		}
 	}
 	return resp, nil
 }
