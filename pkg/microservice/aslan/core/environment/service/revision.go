@@ -188,7 +188,7 @@ func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*common
 
 	var allRenders []*commonmodels.RenderSet
 	var newRender *commonmodels.RenderSet
-	if prodTmpl.ProductFeature != nil && prodTmpl.ProductFeature.DeployType == setting.K8SDeployType {
+	if prodTmpl.ProductFeature == nil || (prodTmpl.ProductFeature != nil && prodTmpl.ProductFeature.DeployType == setting.K8SDeployType) {
 		rendersetName := ""
 		if product.Render != nil {
 			rendersetName = product.Render.Name
@@ -205,6 +205,7 @@ func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*common
 				renderRevision.Insert(productService.Render.Revision)
 			}
 		}
+
 		allRenders, err = commonrepo.NewRenderSetColl().ListRendersets(&commonrepo.RenderSetListOption{
 			Revisions:     renderRevision.List(),
 			ProductTmpl:   productTemplatName,
@@ -449,24 +450,14 @@ func getMaxServiceRevision(services []*commonmodels.Service, serviceName, produc
 }
 
 func getRenderByRevision(renders []*commonmodels.RenderSet, renderName string, revision int64) (*commonmodels.RenderSet, error) {
-	var (
-		resp *commonmodels.RenderSet
-		err  error
-	)
+	var resp *commonmodels.RenderSet
 	for _, render := range renders {
 		if render.Name == renderName && render.Revision == revision {
 			resp = render
 		}
 	}
 	if resp == nil {
-		// query from db
-		resp, err = commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-			Name:     renderName,
-			Revision: revision,
-		})
-		if err != nil {
-			return resp, fmt.Errorf("[%s][%d] no renderset found", renderName, revision)
-		}
+		return resp, fmt.Errorf("[%s][%d] no renderset found", renderName, revision)
 	}
 	return resp, nil
 }
