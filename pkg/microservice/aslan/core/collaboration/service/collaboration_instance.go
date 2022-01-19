@@ -18,9 +18,10 @@ import (
 )
 
 type GetCollaborationUpdateResp struct {
-	Update []UpdateItem                   `json:"update"`
-	New    []models.CollaborationMode     `json:"new"`
-	Delete []models.CollaborationInstance `json:"delete"`
+	UpdateInstance []models.CollaborationInstance `json:"update_instance"`
+	Update         []UpdateItem                   `json:"update"`
+	New            []models.CollaborationMode     `json:"new"`
+	Delete         []models.CollaborationInstance `json:"delete"`
 }
 type UpdateItem struct {
 	CollaborationMode string     `json:"collaboration_mode"`
@@ -167,8 +168,51 @@ func getUpdateDiff(cm *models.CollaborationMode, ci *models.CollaborationInstanc
 	}
 }
 
-func getDiff(cmMap map[string]*models.CollaborationMode, ciMap map[string]*models.CollaborationInstance) (*GetCollaborationUpdateResp, error) {
+func buildPolicyName(mode string, userName string) string {
+	return mode + "-" + userName + "-" + util.GetRandomString(6)
+}
+
+func genCollaborationInstance(mode models.CollaborationMode, uid string, userName string) *models.CollaborationInstance {
+	var workflows []models.WorkflowCIItem
+	for _, workflow := range mode.Workflows {
+		name := workflow.Name
+		if workflow.CollaborationType == config.CollaborationNew {
+			name = buildName(workflow.Name, mode.Name, userName)
+		}
+		workflows = append(workflows, models.WorkflowCIItem{
+			Name:              name,
+			BaseName:          workflow.Name,
+			Verbs:             workflow.Verbs,
+			CollaborationType: workflow.CollaborationType,
+		})
+	}
+	var products []models.ProductCIItem
+	for _, product := range mode.Products {
+		name := product.Name
+		if product.CollaborationType == config.CollaborationNew {
+			name = buildName(product.Name, mode.Name, userName)
+		}
+		products = append(products, models.ProductCIItem{
+			Name:              name,
+			BaseName:          product.Name,
+			CollaborationType: product.CollaborationType,
+			Verbs:             product.Verbs,
+		})
+	}
+	return &models.CollaborationInstance{
+		ProjectName:       mode.Name,
+		CollaborationName: mode.Name,
+		User:              uid,
+		PolicyName:        buildPolicyName(mode.Name, userName),
+		Revision:          mode.Revision,
+		Workflows:         workflows,
+		Products:          products,
+	}
+}
+
+func getDiff(cmMap map[string]*models.CollaborationMode, ciMap map[string]*models.CollaborationInstance, uid, userName string) (*GetCollaborationUpdateResp, error) {
 	var updateItems []UpdateItem
+	var updateInstance []models.CollaborationInstance
 	var newItems []models.CollaborationMode
 	var deleteItems []models.CollaborationInstance
 	for name, cm := range cmMap {
@@ -177,6 +221,8 @@ func getDiff(cmMap map[string]*models.CollaborationMode, ciMap map[string]*model
 				return nil, fmt.Errorf("CollaborationMode:%s revision error", name)
 			} else if cm.Revision > ci.Revision {
 				updateItems = append(updateItems, getUpdateDiff(cm, ci))
+				instance := genCollaborationInstance(*cm, uid, userName)
+				updateInstance = append(updateInstance, *instance)
 			}
 		} else {
 			newItems = append(newItems, *cm)
@@ -188,13 +234,14 @@ func getDiff(cmMap map[string]*models.CollaborationMode, ciMap map[string]*model
 		}
 	}
 	return &GetCollaborationUpdateResp{
-		Update: updateItems,
-		New:    newItems,
-		Delete: deleteItems,
+		UpdateInstance: updateInstance,
+		Update:         updateItems,
+		New:            newItems,
+		Delete:         deleteItems,
 	}, nil
 }
 
-func GetCollaborationUpdate(projectName, uid string, logger *zap.SugaredLogger) (*GetCollaborationUpdateResp, error) {
+func GetCollaborationUpdate(projectName, uid, userName string, logger *zap.SugaredLogger) (*GetCollaborationUpdateResp, error) {
 	collaborations, err := mongodb.NewCollaborationModeColl().List(&mongodb.CollaborationModeListOptions{
 		Projects: []string{projectName},
 		Members:  []string{uid},
@@ -215,7 +262,7 @@ func GetCollaborationUpdate(projectName, uid string, logger *zap.SugaredLogger) 
 	for _, instance := range collaborationInstances {
 		ciMap[instance.CollaborationName] = instance
 	}
-	resp, err := getDiff(cmMap, ciMap)
+	resp, err := getDiff(cmMap, ciMap, uid, userName)
 	if err != nil {
 		logger.Errorf("GetCollaborationUpdate error, err msg:%s", err)
 		return nil, err
@@ -225,18 +272,64 @@ func GetCollaborationUpdate(projectName, uid string, logger *zap.SugaredLogger) 
 func buildName(baseName, modeName, userName string) string {
 	return modeName + "-" + baseName + "-" + userName + "-" + util.GetRandomString(6)
 }
+
+func syncInstance(updateResp *GetCollaborationUpdateResp, userName, uid string,
+	logger *zap.SugaredLogger) error {
+	var instances []*models.CollaborationInstance
+	for _, mode := range updateResp.New {
+		instances = append(instances, genCollaborationInstance(mode, uid, userName))
+	}
+	err := mongodb.NewCollaborationInstanceColl().BulkCreate(instances)
+	if err != nil {
+		logger.Errorf("syncInstance BulkCreate error, error msg:%s", err)
+		return err
+	}
+	for _, instance := range updateResp.UpdateInstance {
+		err = mongodb.NewCollaborationInstanceColl().Update(uid, &instance)
+		if err != nil {
+			logger.Errorf("syncInstance Update error, error msg:%s", err)
+			return err
+		}
+	}
+	var findOpts []mongodb.CollaborationInstanceFindOptions
+	for _, instance := range updateResp.Delete {
+		findOpts = append(findOpts, mongodb.CollaborationInstanceFindOptions{
+			Name:        instance.CollaborationName,
+			ProjectName: instance.ProjectName,
+			UserUID:     instance.User,
+		})
+	}
+	err = mongodb.NewCollaborationInstanceColl().BulkDelete(mongodb.CollaborationInstanceListOptions{
+		FindOpts: findOpts,
+	})
+	return err
+}
+
+func syncPolicy(updateResp *GetCollaborationUpdateResp, userName, uid string,
+	logger *zap.SugaredLogger) error {
+	for _, mode := range updateResp.New {
+
+	}
+}
+
 func SyncCollaborationInstance(projectName, uid, userName string, logger *zap.SugaredLogger) error {
+	updateResp, err := GetCollaborationUpdate(projectName, uid, userName, logger)
+	if err != nil {
+		logger.Errorf("GetCollaborationNew error, err msg:%s", err)
+		return err
+	}
+	err = syncInstance(updateResp, userName, uid, logger)
+	if err != nil {
+		return err
+	}
 	return nil
 }
-func GetCollaborationNew(projectName, uid, userName string, logger *zap.SugaredLogger) (*GetCollaborationNewResp, error) {
+
+func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, userName string,
+	logger *zap.SugaredLogger) (*GetCollaborationNewResp, error) {
 	var newWorkflow []*Workflow
 	var newProduct []*Product
 	newProductName := sets.String{}
-	updateResp, err := GetCollaborationUpdate(projectName, uid, logger)
-	if err != nil {
-		logger.Errorf("GetCollaborationNew error, err msg:%s", err)
-		return nil, err
-	}
 	for _, mode := range updateResp.New {
 		for _, workflow := range mode.Workflows {
 			name := workflow.Name
@@ -360,6 +453,14 @@ func GetCollaborationNew(projectName, uid, userName string, logger *zap.SugaredL
 		Workflow: newWorkflow,
 		Product:  newProduct,
 	}, nil
+}
+func GetCollaborationNew(projectName, uid, userName string, logger *zap.SugaredLogger) (*GetCollaborationNewResp, error) {
+	updateResp, err := GetCollaborationUpdate(projectName, uid, userName, logger)
+	if err != nil {
+		logger.Errorf("GetCollaborationNew error, err msg:%s", err)
+		return nil, err
+	}
+	return getCollaborationNew(updateResp, projectName, userName, logger)
 }
 
 func getRenderSet(projectName string, envs []string) ([]models2.RenderSet, error) {

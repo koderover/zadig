@@ -26,6 +26,7 @@ import (
 
 	commonconfig "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	modeMongodb "github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
@@ -214,6 +215,8 @@ func initDatabase() {
 		systemrepo.NewOperationLogColl(),
 		labelMongodb.NewLabelColl(),
 		labelMongodb.NewLabelBindingColl(),
+		modeMongodb.NewCollaborationModeColl(),
+		modeMongodb.NewCollaborationInstanceColl(),
 	} {
 		wg.Add(1)
 		go func(r indexer) {
