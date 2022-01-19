@@ -17,10 +17,14 @@ limitations under the License.
 package service
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/config"
+	labeldb "github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/service"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -50,6 +54,21 @@ func GetBundleResources() ([]*resourceSpec, error) {
 		clusterMap[cls.ID.Hex()] = cls
 	}
 
+	// get labels by workflow resources ids
+	var resources []labeldb.Resource
+	for _, env := range envs {
+		resource := labeldb.Resource{
+			Name:        env.EnvName,
+			ProjectName: env.ProductName,
+			Type:        string(config.ResourceTypeProduct),
+		}
+		resources = append(resources, resource)
+	}
+	labelsResp, err := service.ListLabelsByResources(resources, nil)
+	if err != nil {
+		return nil, err
+	}
+
 	for _, env := range envs {
 		clusterID := env.ClusterID
 		production := false
@@ -58,13 +77,20 @@ func GetBundleResources() ([]*resourceSpec, error) {
 			production = cluster.Production
 		}
 
-		res = append(res, &resourceSpec{
+		resourceKey := fmt.Sprintf("%s-%s-%s", config.ResourceTypeProduct, env.ProductName, env.EnvName)
+		resourceSpec := &resourceSpec{
 			ResourceID:  env.EnvName,
 			ProjectName: env.ProductName,
 			Spec: map[string]interface{}{
 				"production": strconv.FormatBool(production),
 			},
-		})
+		}
+		if labels, ok := labelsResp.Labels[resourceKey]; ok {
+			for _, v := range labels {
+				resourceSpec.Spec[v.Key] = v.Value
+			}
+		}
+		res = append(res, resourceSpec)
 	}
 
 	return res, nil

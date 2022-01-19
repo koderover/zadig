@@ -31,9 +31,11 @@ const (
 	manifestPath     = ".manifest"
 	policyPath       = "authz.rego"
 	rolesPath        = "roles/data.json"
+	policiesPath     = "policies/data.json"
 	rolebindingsPath = "bindings/data.json"
-	exemptionsPath   = "exemptions/data.json"
-	resourcesPath    = "resources/data.json"
+
+	exemptionsPath = "exemptions/data.json"
+	resourcesPath  = "resources/data.json"
 
 	policyRoot       = "rbac"
 	rolesRoot        = "roles"
@@ -67,8 +69,13 @@ type opaRoles struct {
 	Roles roles `json:"roles"`
 }
 
+type opaPolicies struct {
+	Roles roles `json:"policies"`
+}
+
 type opaRoleBindings struct {
-	RoleBindings roleBindings `json:"role_bindings"`
+	RoleBindings   roleBindings `json:"role_bindings"`
+	PolicyBindings roleBindings `json:"policy_bindings"`
 }
 
 type role struct {
@@ -89,6 +96,18 @@ type rule struct {
 type Attribute struct {
 	Key   string `json:"key"`
 	Value string `json:"value"`
+}
+
+func NewFrom(attrs []models.MatchAttribute) Attributes {
+	var att Attributes
+	for _, v := range attrs {
+		a := Attribute{
+			Key:   v.Key,
+			Value: v.Value,
+		}
+		att = append(att, &a)
+	}
+	return att
 }
 
 type Attributes []*Attribute
@@ -226,7 +245,40 @@ func generateOPARoles(roles []*models.Role, policies []*models.PolicyMeta) *opaR
 	return data
 }
 
-func generateOPARoleBindings(rbs []*models.RoleBinding) *opaRoleBindings {
+func generateOPAPolicies(policies []*models.Policy, policyMetas []*models.PolicyMeta) *opaPolicies {
+	data := &opaPolicies{}
+	resourceMappings := getResourceActionMappings(policyMetas)
+
+	for _, policy := range policies {
+		opaRole := &role{Name: policy.Name, Namespace: policy.Namespace}
+		for _, r := range policy.Rules {
+			if r.Kind == models.KindResource {
+				for _, res := range r.Resources {
+					opaRole.Rules = append(opaRole.Rules, resourceMappings.GetRules(res, r.Verbs)...)
+				}
+			} else {
+				if len(r.Verbs) == 1 && r.Verbs[0] == models.MethodAll {
+					r.Verbs = AllMethods
+				}
+				for _, v := range r.Verbs {
+					for _, endpoint := range r.Resources {
+						opaRole.Rules = append(opaRole.Rules, &rule{Method: v, Endpoint: endpoint})
+					}
+				}
+			}
+
+			for _, v := range opaRole.Rules {
+				v.MatchAttributes = NewFrom(r.MatchAttributes)
+			}
+		}
+		sort.Sort(opaRole.Rules)
+		data.Roles = append(data.Roles, opaRole)
+	}
+	sort.Sort(data.Roles)
+	return data
+}
+
+func generateOPARoleBindings(rbs []*models.RoleBinding, pbs []*models.PolicyBinding) *opaRoleBindings {
 	data := &opaRoleBindings{}
 
 	userRoleMap := make(map[string]map[string][]*roleRef)
@@ -253,6 +305,31 @@ func generateOPARoleBindings(rbs []*models.RoleBinding) *opaRoleBindings {
 	}
 
 	sort.Sort(data.RoleBindings)
+
+	userPolicyMap := make(map[string]map[string][]*roleRef)
+
+	for _, rb := range pbs {
+		for _, s := range rb.Subjects {
+			if s.Kind == models.UserKind {
+				if _, ok := userPolicyMap[s.UID]; !ok {
+					userPolicyMap[s.UID] = make(map[string][]*roleRef)
+				}
+				userPolicyMap[s.UID][rb.Namespace] = append(userRoleMap[s.UID][rb.Namespace], &roleRef{Name: rb.PolicyRef.Name, Namespace: rb.PolicyRef.Namespace})
+			}
+		}
+	}
+
+	for u, nb := range userPolicyMap {
+		var bindingsData []*binding
+		for n, b := range nb {
+			sort.Sort(roleRefs(b))
+			bindingsData = append(bindingsData, &binding{Namespace: n, RoleRefs: b})
+		}
+		sort.Sort(bindings(bindingsData))
+		data.PolicyBindings = append(data.PolicyBindings, &roleBinding{UID: u, Bindings: bindingsData})
+	}
+
+	sort.Sort(data.PolicyBindings)
 
 	return data
 }
@@ -324,7 +401,11 @@ func GenerateOPABundle() error {
 	if err != nil {
 		log.Errorf("Failed to list roleBindings, err: %s", err)
 	}
-	ps, err := mongodb.NewPolicyMetaColl().List()
+	pms, err := mongodb.NewPolicyMetaColl().List()
+	if err != nil {
+		log.Errorf("Failed to list policyMetas, err: %s", err)
+	}
+	policies, err := mongodb.NewPolicyColl().List()
 	if err != nil {
 		log.Errorf("Failed to list policies, err: %s", err)
 	}
@@ -332,9 +413,10 @@ func GenerateOPABundle() error {
 	bundle := &opa.Bundle{
 		Data: []*opa.DataSpec{
 			{Data: generateOPAPolicy(), Path: policyPath},
-			{Data: generateOPARoles(rs, ps), Path: rolesPath},
+			{Data: generateOPARoles(rs, pms), Path: rolesPath},
+			{Data: generateOPAPolicies(policies, pms), Path: policiesPath},
 			{Data: generateOPARoleBindings(bs), Path: rolebindingsPath},
-			{Data: generateOPAExemptionURLs(ps), Path: exemptionsPath},
+			{Data: generateOPAExemptionURLs(pms), Path: exemptionsPath},
 			{Data: generateResourceBundle(), Path: resourcesPath},
 		},
 		Roots: []string{policyRoot, rolesRoot, rolebindingsRoot, exemptionsRoot, resourcesRoot},

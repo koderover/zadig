@@ -36,7 +36,7 @@ type resourceSpec struct {
 
 func GetBundleResources(logger *zap.SugaredLogger) ([]*resourceSpec, error) {
 	var res []*resourceSpec
-	workflows, err := mongodb.NewWorkflowColl().List(nil)
+	workflows, err := mongodb.NewWorkflowColl().List(&mongodb.ListWorkflowOption{})
 	if err != nil {
 		log.Error("Failed to list workflows , err:%s", err)
 		return nil, err
@@ -44,7 +44,6 @@ func GetBundleResources(logger *zap.SugaredLogger) ([]*resourceSpec, error) {
 
 	// get labels by workflow resources ids
 	var resources []labeldb.Resource
-
 	for _, workflow := range workflows {
 		resource := labeldb.Resource{
 			Name:        workflow.Name,
@@ -64,6 +63,7 @@ func GetBundleResources(logger *zap.SugaredLogger) ([]*resourceSpec, error) {
 		resourceSpec := &resourceSpec{
 			ResourceID:  workflow.Name,
 			ProjectName: workflow.ProductTmplName,
+			Spec:        make(map[string]interface{}),
 		}
 		if labels, ok := labelsResp.Labels[resourceKey]; ok {
 			for _, v := range labels {
