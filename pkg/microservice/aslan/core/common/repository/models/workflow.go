@@ -77,6 +77,7 @@ type MainHookRepo struct {
 	RepoOwner    string                 `bson:"repo_owner"                json:"repo_owner"`
 	RepoName     string                 `bson:"repo_name"                 json:"repo_name"`
 	Branch       string                 `bson:"branch"                    json:"branch"`
+	Committer    string                 `bson:"committer"                 json:"committer"`
 	MatchFolders []string               `bson:"match_folders"             json:"match_folders,omitempty"`
 	CodehostID   int                    `bson:"codehost_id"               json:"codehost_id"`
 	Events       []config.HookEventType `bson:"events"                    json:"events"`
@@ -169,7 +170,7 @@ type WorkflowTaskArgs struct {
 	CodehostID     int    `bson:"codehost_id"      json:"codehost_id"`
 	RepoOwner      string `bson:"repo_owner"       json:"repo_owner"`
 	RepoName       string `bson:"repo_name"        json:"repo_name"`
-
+	Committer      string `bson:"committer"        json:"committer"`
 	//github check run
 	HookPayload *HookPayload `bson:"hook_payload"            json:"hook_payload,omitempty"`
 	// 请求模式，openAPI表示外部客户调用

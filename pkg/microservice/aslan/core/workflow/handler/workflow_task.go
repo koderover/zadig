@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
@@ -132,7 +133,19 @@ func ListWorkflowTasksResult(c *gin.Context) {
 	if workflowType == string(config.TestType) {
 		workflowTypeString = config.TestType
 	}
-	ctx.Resp, ctx.Err = workflow.ListPipelineTasksV2Result(c.Param("name"), workflowTypeString, maxResult, startAt, ctx.Logger)
+	filters := c.Query("filters")
+	filtersList := strings.Split(filters, ",")
+	ctx.Resp, ctx.Err = workflow.ListPipelineTasksV2Result(c.Param("name"), workflowTypeString, c.Query("queryType"), filtersList, maxResult, startAt, ctx.Logger)
+}
+
+func GetFiltersPipeline(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	if c.Query("workflowType") != string(config.WorkflowType) {
+		ctx.Err = e.ErrInvalidParam.AddDesc("invalid workflowType")
+		return
+	}
+	ctx.Resp, ctx.Err = workflow.GetFiltersPipelineTaskV2(c.Query("projectName"), c.Param("name"), c.Query("queryType"), config.WorkflowType, ctx.Logger)
 }
 
 func GetWorkflowTask(c *gin.Context) {
