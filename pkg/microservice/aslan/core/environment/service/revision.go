@@ -127,7 +127,7 @@ func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*common
 
 	var allRenders []*commonmodels.RenderSet
 	var newRender *commonmodels.RenderSet
-	if prodTmpl.ProductFeature != nil && prodTmpl.ProductFeature.DeployType == setting.K8SDeployType {
+	if prodTmpl.ProductFeature == nil || prodTmpl.ProductFeature.DeployType == setting.K8SDeployType {
 		rendersetName := ""
 		if product.Render != nil {
 			rendersetName = product.Render.Name
