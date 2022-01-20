@@ -160,6 +160,14 @@ func createGitlabEventMatcher(
 			trigger:  trigger,
 			isYaml:   isyaml,
 		}
+	case *gitlab.TagEvent:
+		return &gitlabTagEventMatcher{
+			workflow: workflow,
+			log:      log,
+			event:    evt,
+			trigger:  trigger,
+			isYaml:   isyaml,
+		}
 	}
 
 	return nil
@@ -258,6 +266,108 @@ func (gpem *gitlabPushEventMatcher) UpdateTaskArgs(
 		workflow: gpem.workflow,
 		reqID:    requestID,
 		IsYaml:   gpem.isYaml,
+	}
+
+	factory.Update(product, args, &types.Repository{
+		CodehostID: hookRepo.CodehostID,
+		RepoName:   hookRepo.RepoName,
+		RepoOwner:  hookRepo.RepoOwner,
+		Branch:     hookRepo.Branch,
+	})
+
+	return args
+}
+
+type gitlabTagEventMatcher struct {
+	log                *zap.SugaredLogger
+	workflow           *commonmodels.Workflow
+	event              *gitlab.TagEvent
+	trigger            *TriggerYaml
+	isYaml             bool
+	yamlServiceChanged []BuildServices
+}
+
+func (gtem gitlabTagEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
+	ev := gtem.event
+	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.Project.PathWithNamespace {
+		if !EventConfigured(hookRepo, config.HookEventTag) {
+			return false, nil
+		}
+		if gtem.isYaml {
+			refFlag := false
+			for _, ref := range gtem.trigger.Rules.Branchs {
+				if matched, _ := regexp.MatchString(ref, getBranchFromRef(ev.Ref)); matched {
+					refFlag = true
+					break
+				}
+			}
+			if !refFlag {
+				return false, nil
+			}
+		} else {
+			isRegular := hookRepo.IsRegular
+			if !isRegular && hookRepo.Branch != getBranchFromRef(ev.Ref) {
+				return false, nil
+			}
+			if isRegular {
+				if matched, _ := regexp.MatchString(hookRepo.Branch, getBranchFromRef(ev.Ref)); !matched {
+					return false, nil
+				}
+			}
+		}
+
+		hookRepo.Branch = getBranchFromRef(ev.Ref)
+
+		var changedFiles []string
+		detail, err := systemconfig.New().GetCodeHost(hookRepo.CodehostID)
+		if err != nil {
+			gtem.log.Errorf("GetCodehostDetail error: %s", err)
+			return false, err
+		}
+
+		client, err := gitlabtool.NewClient(detail.Address, detail.AccessToken)
+		if err != nil {
+			gtem.log.Errorf("NewClient error: %s", err)
+			return false, err
+		}
+
+		// compare接口获取两个commit之间的最终的改动
+		diffs, err := client.Compare(ev.ProjectID, ev.Before, ev.After)
+		if err != nil {
+			gtem.log.Errorf("Failed to get push event diffs, error: %s", err)
+			return false, err
+		}
+		for _, diff := range diffs {
+			changedFiles = append(changedFiles, diff.NewPath)
+			changedFiles = append(changedFiles, diff.OldPath)
+		}
+		if gtem.isYaml {
+			serviceChangeds := ServicesMatchChangesFiles(gtem.trigger.Rules.MatchFolders, hookRepo, changedFiles)
+			gtem.yamlServiceChanged = serviceChangeds
+			return len(serviceChangeds) != 0, nil
+		}
+		return MatchChanges(hookRepo, changedFiles), nil
+	}
+
+	return false, nil
+}
+
+func (gtem gitlabTagEventMatcher) UpdateTaskArgs(product *commonmodels.Product, args *commonmodels.WorkflowTaskArgs, hookRepo *commonmodels.MainHookRepo, requestID string) *commonmodels.WorkflowTaskArgs {
+	if gtem.isYaml {
+		var targets []*commonmodels.TargetArgs
+		for _, target := range args.Target {
+			for _, bs := range gtem.yamlServiceChanged {
+				if target.Name == bs.ServiceModule && target.ServiceName == bs.Name {
+					targets = append(targets, target)
+				}
+			}
+		}
+		args.Target = targets
+	}
+	factory := &workflowArgsFactory{
+		workflow: gtem.workflow,
+		reqID:    requestID,
+		IsYaml:   gtem.isYaml,
 	}
 
 	factory.Update(product, args, &types.Repository{
@@ -453,6 +563,7 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 			workFlowArgs := &commonmodels.WorkflowTaskArgs{}
 			var pushEvent *gitlab.PushEvent
 			var mergeEvent *gitlab.MergeEvent
+			var tagEvent *gitlab.TagEvent
 			prID := 0
 			branref := ""
 			switch evt := event.(type) {
@@ -468,6 +579,9 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 				}
 				prID = evt.ObjectAttributes.IID
 				item.MainRepo.Branch = getBranchFromRef(mergeEvent.ObjectAttributes.TargetBranch)
+			case *gitlab.TagEvent:
+				tagEvent = evt
+				branref = tagEvent.Ref
 			}
 
 			if item.IsYaml {

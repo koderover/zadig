@@ -97,6 +97,52 @@ func (gpem *gitlabPushEventMatcherForTesting) UpdateTaskArgs(args *commonmodels.
 	return args
 }
 
+type gitlabTagEventMatcherForTesting struct {
+	log     *zap.SugaredLogger
+	testing *commonmodels.Testing
+	event   *gitlab.TagEvent
+}
+
+func (gtem gitlabTagEventMatcherForTesting) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
+	ev := gtem.event
+	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.Project.PathWithNamespace {
+		if !EventConfigured(hookRepo, config.HookEventTag) {
+			return false, nil
+		}
+		isRegular := hookRepo.IsRegular
+		if !isRegular && hookRepo.Branch != getBranchFromRef(ev.Ref) {
+			return false, nil
+		}
+
+		if isRegular {
+			if matched, _ := regexp.MatchString(hookRepo.Branch, getBranchFromRef(ev.Ref)); !matched {
+				return false, nil
+			}
+		}
+		hookRepo.Branch = getBranchFromRef(ev.Ref)
+		var changedFiles []string
+		for _, commit := range ev.Commits {
+			changedFiles = append(changedFiles, commit.Added...)
+			changedFiles = append(changedFiles, commit.Removed...)
+			changedFiles = append(changedFiles, commit.Modified...)
+		}
+
+		return MatchChanges(hookRepo, changedFiles), nil
+	}
+
+	return false, nil
+}
+
+func (gtem gitlabTagEventMatcherForTesting) UpdateTaskArgs(args *commonmodels.TestTaskArgs, requestID string) *commonmodels.TestTaskArgs {
+	factory := &testArgsFactory{
+		testing: gtem.testing,
+		reqID:   requestID,
+	}
+
+	factory.Update(args)
+	return args
+}
+
 // TriggerTestByGitlabEvent 测试管理模块的触发器任务
 func TriggerTestByGitlabEvent(event interface{}, baseURI, requestID string, log *zap.SugaredLogger) error {
 	// 1. find configured testing
@@ -202,6 +248,12 @@ func createGitlabEventMatcherForTesting(
 			log:      log,
 			event:    evt,
 			testing:  testing,
+		}
+	case *gitlab.TagEvent:
+		return &gitlabTagEventMatcherForTesting{
+			testing: testing,
+			log:     log,
+			event:   evt,
 		}
 	}
 

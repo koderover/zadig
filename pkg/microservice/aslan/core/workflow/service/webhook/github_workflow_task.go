@@ -223,6 +223,53 @@ func (waf *workflowArgsFactory) Update(product *commonmodels.Product, args *comm
 	return args
 }
 
+type githubTagEventMatcher struct {
+	log      *zap.SugaredLogger
+	workflow *commonmodels.Workflow
+	event    *github.CreateEvent
+}
+
+func (gtem githubTagEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
+	ev := gtem.event
+	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == *ev.Repo.FullName {
+		if !EventConfigured(hookRepo, config.HookEventTag) {
+			return false, nil
+		}
+
+		isRegular := hookRepo.IsRegular
+		if !isRegular && hookRepo.Branch != getBranchFromRef(*ev.Ref) {
+			return false, nil
+		}
+		if isRegular {
+			// Do not use regexp.MustCompile to avoid panic
+			if matched, _ := regexp.MatchString(hookRepo.Branch, getBranchFromRef(*ev.Ref)); !matched {
+				return false, nil
+			}
+		}
+		hookRepo.Branch = getBranchFromRef(*ev.Ref)
+
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func (gtem githubTagEventMatcher) UpdateTaskArgs(product *commonmodels.Product, args *commonmodels.WorkflowTaskArgs, hookRepo *commonmodels.MainHookRepo, requestID string) *commonmodels.WorkflowTaskArgs {
+	factory := &workflowArgsFactory{
+		workflow: gtem.workflow,
+		reqID:    requestID,
+	}
+
+	factory.Update(product, args, &types.Repository{
+		CodehostID: hookRepo.CodehostID,
+		RepoName:   hookRepo.RepoName,
+		RepoOwner:  hookRepo.RepoOwner,
+		Branch:     hookRepo.Branch,
+	})
+
+	return args
+}
+
 func createGithubEventMatcher(
 	event interface{}, diffSrv githubPullRequestDiffFunc, workflow *commonmodels.Workflow, log *zap.SugaredLogger,
 ) gitEventMatcher {
@@ -239,6 +286,12 @@ func createGithubEventMatcher(
 			log:      log,
 			event:    evt,
 			workflow: workflow,
+		}
+	case *github.CreateEvent:
+		return &githubTagEventMatcher{
+			workflow: workflow,
+			log:      log,
+			event:    evt,
 		}
 	}
 

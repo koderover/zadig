@@ -594,8 +594,8 @@ func checkTriggerYamlParams(triggerYaml *TriggerYaml) error {
 		return fmt.Errorf("rules.baranch must exist")
 	}
 	for _, ev := range triggerYaml.Rules.Events {
-		if ev != "pull_request" && ev != "push" {
-			return fmt.Errorf("rules.event must be pull_request or push ")
+		if ev != "pull_request" && ev != "push" && ev != "tag" {
+			return fmt.Errorf("rules.event must be pull_request or push or tag")
 		}
 	}
 	if triggerYaml.Rules.MatchFolders == nil {

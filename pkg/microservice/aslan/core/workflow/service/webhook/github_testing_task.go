@@ -64,7 +64,7 @@ func TriggerTestByGithubEvent(event interface{}, requestID string, log *zap.Suga
 					args := matcher.UpdateTaskArgs(item.TestArgs, requestID)
 					args.MergeRequestID = mergeRequestID
 					args.CommitID = commitID
-					args.Source = setting.SourceFromGitlab
+					args.Source = setting.SourceFromGithub
 					args.CodehostID = item.MainRepo.CodehostID
 					args.RepoOwner = item.MainRepo.RepoOwner
 					args.RepoName = item.MainRepo.RepoName
@@ -136,6 +136,46 @@ func (gpem *githubPushEventMatcherForTesting) UpdateTaskArgs(args *commonmodels.
 	return args
 }
 
+type githubTagEventMatcherForTesting struct {
+	log     *zap.SugaredLogger
+	testing *commonmodels.Testing
+	event   *github.CreateEvent
+}
+
+func (gtem githubTagEventMatcherForTesting) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
+	ev := gtem.event
+	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == *ev.Repo.FullName {
+		if !EventConfigured(hookRepo, config.HookEventTag) {
+			return false, nil
+		}
+		isRegular := hookRepo.IsRegular
+		if !isRegular && hookRepo.Branch != getBranchFromRef(*ev.Ref) {
+			return false, nil
+		}
+
+		if isRegular {
+			if matched, _ := regexp.MatchString(hookRepo.Branch, getBranchFromRef(*ev.Ref)); !matched {
+				return false, nil
+			}
+		}
+		hookRepo.Branch = getBranchFromRef(*ev.Ref)
+
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func (gtem githubTagEventMatcherForTesting) UpdateTaskArgs(args *commonmodels.TestTaskArgs, requestID string) *commonmodels.TestTaskArgs {
+	factory := &testArgsFactory{
+		testing: gtem.testing,
+		reqID:   requestID,
+	}
+
+	factory.Update(args)
+	return args
+}
+
 func createGithubEventMatcherForTesting(
 	event interface{}, diffSrv githubPullRequestDiffFunc, testing *commonmodels.Testing, log *zap.SugaredLogger,
 ) gitEventMatcherForTesting {
@@ -152,6 +192,12 @@ func createGithubEventMatcherForTesting(
 			log:      log,
 			event:    evt,
 			testing:  testing,
+		}
+	case *github.CreateEvent:
+		return &githubTagEventMatcherForTesting{
+			testing: testing,
+			log:     log,
+			event:   evt,
 		}
 	}
 
