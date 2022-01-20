@@ -363,14 +363,12 @@ func getServicesWithMaxRevision(projectName string) ([]*commonmodels.Service, er
 	// list services with max revision defined in project
 	allServices, err := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{ProductName: projectName})
 	if err != nil {
-		log.Errorf("failed to find services in project: %s, err: %s", projectName, err)
-		return nil, fmt.Errorf("failed to find services in project: %s", projectName)
+		return nil, errors.Wrapf(err, "failed to find services in project %s", projectName)
 	}
 
 	prodTmpl, err := templaterepo.NewProductColl().Find(projectName)
 	if err != nil {
-		log.Error(fmt.Sprintf("[ProductTmpl.Find] %s error: %v", projectName, err))
-		return nil, fmt.Errorf("failed to find project tempalte: %s", projectName)
+		return nil, errors.Wrapf(err, "failed to find project tempalte %s", projectName)
 	}
 
 	// list services with max revision of shared services
@@ -394,8 +392,7 @@ func getServicesWithMaxRevision(projectName string) ([]*commonmodels.Service, er
 				InServices:  inService,
 			})
 			if err != nil {
-				log.Errorf("ListSharedServiceRevisions error: %s", err)
-				return nil, fmt.Errorf("failed to find shared service templates, projectName: %s, err: %s", sourceProject, err)
+				return nil, errors.Wrapf(err, "failed to find shared service templates, projectName: %s", sourceProject)
 			}
 			allServices = append(allServices, sharedServices...)
 		}
