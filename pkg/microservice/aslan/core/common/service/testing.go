@@ -57,7 +57,6 @@ func Delete(name, productName string, log *zap.SugaredLogger) error {
 	// find test data to delete webhook
 	testModule, err := commonrepo.NewTestingColl().Find(name, productName)
 	if err != nil {
-		log.Errorf("failed to find test module: %s", err)
 		return e.ErrDeleteTestModule.AddDesc(err.Error())
 	}
 
