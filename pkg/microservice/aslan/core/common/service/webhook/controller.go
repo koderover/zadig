@@ -50,7 +50,7 @@ var c *controller
 func webhookController() *controller {
 	once.Do(func() {
 		c = &controller{
-			queue:  make(chan *task, 100),
+			queue:  make(chan *task, 500),
 			logger: log.Logger(),
 		}
 	})
