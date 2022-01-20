@@ -73,10 +73,15 @@ func ListGroups(serviceName, envName, productName string, perPage, page int, log
 		log.Errorf("[%s][%s] error: %v", envName, productName, err)
 		return resp, count, e.ErrListGroups.AddDesc(err.Error())
 	}
+	kubeClientWithCache, err := kubeclient.GetKubeClientWithCache(config.HubServerAddress(), productInfo.ClusterID)
+	if err != nil {
+		log.Errorf("[%s][%s] error: %v", envName, productName, err)
+		return resp, count, e.ErrListGroups.AddDesc(err.Error())
+	}
 
 	//这种针对的是获取所有数据的接口，内部调用
 	if page == 0 && perPage == 0 {
-		resp = envHandleFunc(getProjectType(productName), log).listGroupServices(allServices, envName, productName, kubeClient, productInfo)
+		resp = envHandleFunc(getProjectType(productName), log).listGroupServicesFromCache(allServices, envName, productName, kubeClientWithCache, productInfo)
 		return resp, count, nil
 	}
 

@@ -19,6 +19,7 @@ package getter
 import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -35,6 +36,20 @@ func GetPod(ns, name string, cl client.Client) (*corev1.Pod, bool, error) {
 func ListPods(ns string, selector labels.Selector, cl client.Client) ([]*corev1.Pod, error) {
 	ps := &corev1.PodList{}
 	err := ListResourceInCache(ns, selector, nil, ps, cl)
+	if err != nil {
+		return nil, err
+	}
+
+	var res []*corev1.Pod
+	for i := range ps.Items {
+		res = append(res, &ps.Items[i])
+	}
+	return res, err
+}
+
+func ListPodsWithCache(ns string, selector labels.Selector, cache cache.Cache) ([]*corev1.Pod, error) {
+	ps := &corev1.PodList{}
+	err := ListResourcesFromCache(ns, selector, nil, ps, cache)
 	if err != nil {
 		return nil, err
 	}

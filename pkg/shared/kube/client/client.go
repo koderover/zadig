@@ -19,6 +19,7 @@ package client
 import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/setting"
@@ -31,6 +32,14 @@ func GetKubeClient(hubServerAddr, clusterID string) (client.Client, error) {
 	}
 
 	return multicluster.GetKubeClient(hubServerAddr, clusterID)
+}
+
+func GetKubeClientWithCache(hubServerAddr, clusterID string) (cache.Cache, error) {
+	if clusterID == setting.LocalClusterID {
+		clusterID = ""
+	}
+
+	return multicluster.GetKubeClientWithCache(hubServerAddr, clusterID)
 }
 
 func GetKubeAPIReader(hubServerAddr, clusterID string) (client.Reader, error) {

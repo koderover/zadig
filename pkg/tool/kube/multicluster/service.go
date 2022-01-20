@@ -26,6 +26,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd/api"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
@@ -42,6 +43,19 @@ func GetKubeClient(hubServerAddr, clusterID string) (client.Client, error) {
 	}
 
 	return clusterService.GetKubeClient(clusterID)
+}
+
+func GetKubeClientWithCache(hubServerAddr, clusterID string) (cache.Cache, error) {
+	if clusterID == "" {
+		return krkubeclient.Cache(), nil
+	}
+
+	clusterService, err := NewAgent(hubServerAddr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get clusterService: %v", err)
+	}
+
+	return clusterService.GetKubeClientWithCache(clusterID)
 }
 
 func GetKubeAPIReader(hubServerAddr, clusterID string) (client.Reader, error) {
@@ -124,6 +138,14 @@ func (s *Agent) GetKubeClient(clusterID string) (client.Client, error) {
 	}
 
 	return krkubeclient.NewClientFromAPIConfig(generateAPIConfig(clusterID, s.hubServerAddr))
+}
+
+func (s *Agent) GetKubeClientWithCache(clusterID string) (cache.Cache, error) {
+	if err := s.hubClient.HasSession(clusterID); err != nil {
+		return nil, errors.Wrapf(err, "cluster is not connected %s", clusterID)
+	}
+
+	return krkubeclient.NewCachedClientFromAPIConfig(generateAPIConfig(clusterID, s.hubServerAddr))
 }
 
 func (s *Agent) ClusterConnected(clusterID string) bool {

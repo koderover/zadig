@@ -27,6 +27,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/cluster"
 )
@@ -50,6 +51,10 @@ func Cluster() cluster.Cluster {
 
 func Client() client.Client {
 	return Cluster().GetClient()
+}
+
+func Cache() cache.Cache {
+	return Cluster().GetCache()
 }
 
 func APIReader() client.Reader {
@@ -87,6 +92,20 @@ func NewClientFromAPIConfig(cfg *api.Config) (client.Client, error) {
 	}
 
 	return newAPIClient(cls.GetClient(), cls.GetAPIReader()), nil
+}
+
+func NewCachedClientFromAPIConfig(cfg *api.Config) (cache.Cache, error) {
+	restConfig, err := RESTConfigFromAPIConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	cls, err := initCluster(restConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return cls.GetCache(), nil
 }
 
 func NewAPIClient(c client.Client, r client.Reader) client.Client {

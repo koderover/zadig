@@ -27,6 +27,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -53,6 +54,16 @@ func (k *K8sService) queryServiceStatus(namespace, envName, productName string, 
 	if len(serviceTmpl.Containers) > 0 {
 		// 有容器时，根据pods status判断服务状态
 		return queryPodsStatus(namespace, productName, serviceTmpl.ServiceName, kubeClient, k.log)
+	}
+
+	return setting.PodSucceeded, setting.PodReady, []string{}
+}
+
+func (k *K8sService) queryServiceStatusFromCache(namespace, envName, productName string, serviceTmpl *commonmodels.Service, kubeClientWithCache cache.Cache) (string, string, []string) {
+	k.log.Infof("queryServiceStatus of service: %s of product: %s in namespace %s", serviceTmpl.ServiceName, productName, namespace)
+	if len(serviceTmpl.Containers) > 0 {
+		// 有容器时，根据pods status判断服务状态
+		return queryPodsStatusInCache(namespace, productName, serviceTmpl.ServiceName, kubeClientWithCache, k.log)
 	}
 
 	return setting.PodSucceeded, setting.PodReady, []string{}
@@ -138,6 +149,68 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 
 // TODO: LOU: improve the status scope and definition, like pod status, service status, environment, cluster status, ...
 // TODO: LOU: rewrite it
+func (k *K8sService) listGroupServicesFromCache(allServices []*commonmodels.ProductService, envName, productName string, kubeClientFromCache cache.Cache, productInfo *commonmodels.Product) []*commonservice.ServiceResp {
+	startTime := time.Now().Unix()
+	fmt.Printf("started to listGroupServices for env name: %s, productName: %s. Started at [%d]\n", envName, productName, startTime)
+	var wg sync.WaitGroup
+	var resp []*commonservice.ServiceResp
+	var mutex sync.RWMutex
+
+	for _, service := range allServices {
+		wg.Add(1)
+		go func(service *commonmodels.ProductService) {
+			startTime := time.Now().Unix()
+			fmt.Printf("[listGroupServices] list single service name: %s  at time [%d]\n", service.ServiceName, startTime)
+			defer wg.Done()
+			gp := &commonservice.ServiceResp{
+				ServiceName: service.ServiceName,
+				Type:        service.Type,
+				EnvName:     envName,
+			}
+			serviceTmpl, err := commonservice.GetServiceTemplate(
+				service.ServiceName, setting.K8SDeployType, service.ProductName, "", service.Revision, k.log,
+			)
+			if err != nil {
+				gp.Status = setting.PodFailed
+				mutex.Lock()
+				resp = append(resp, gp)
+				mutex.Unlock()
+				return
+			}
+
+			gp.ProductName = serviceTmpl.ProductName
+			// 查询group下所有pods信息
+			if kubeClientFromCache != nil {
+				curr := time.Now().Unix()
+				gp.Status, gp.Ready, gp.Images = k.queryServiceStatusFromCache(productInfo.Namespace, envName, productName, serviceTmpl, kubeClientFromCache)
+				fmt.Printf("[listGroupServices] queryService for service: %s, product: %s finished in [%d] seconds\n", service.ServiceName, service.ProductName, time.Now().Unix()-curr)
+				// 如果产品正在创建中，且service status为ERROR（POD还没创建出来），则判断为Pending，尚未开始创建
+				if productInfo.Status == setting.ProductStatusCreating && gp.Status == setting.PodError {
+					gp.Status = setting.PodPending
+				}
+			} else {
+				gp.Status = setting.ClusterUnknown
+			}
+
+			//处理ingress信息
+			curr := time.Now().Unix()
+			gp.Ingress = GetIngressInfo(productInfo, serviceTmpl, k.log)
+			fmt.Printf("[listGroupServices] get Ingress for service: %s, product: %s finished in [%d] seconds\n", service.ServiceName, service.ProductName, time.Now().Unix()-curr)
+			mutex.Lock()
+			resp = append(resp, gp)
+			mutex.Unlock()
+			fmt.Printf("[listGroupServices] list single service name: %s  at time [%d], total time taken: %d seconds\n", service.ServiceName, startTime, time.Now().Unix()-startTime)
+		}(service)
+	}
+
+	wg.Wait()
+
+	//把数据按照名称排序
+	sort.SliceStable(resp, func(i, j int) bool { return resp[i].ServiceName < resp[j].ServiceName })
+	fmt.Printf("listGroupServices for env name: %s, productName: %s ended at [%d], total time taken: [%d] seconds\n", envName, productName, time.Now().Unix(), time.Now().Unix()-startTime)
+	return resp
+}
+
 func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductService, envName, productName string, kubeClient client.Client, productInfo *commonmodels.Product) []*commonservice.ServiceResp {
 	startTime := time.Now().Unix()
 	fmt.Printf("started to listGroupServices for env name: %s, productName: %s. Started at [%d]\n", envName, productName, startTime)

@@ -24,6 +24,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -150,6 +151,10 @@ func (p *PMService) listGroupServices(allServices []*commonmodels.ProductService
 	sort.SliceStable(resp, func(i, j int) bool { return resp[i].ServiceName < resp[j].ServiceName })
 
 	return resp
+}
+
+func (p *PMService) listGroupServicesFromCache(allServices []*commonmodels.ProductService, envName, productName string, kubeClient cache.Cache, productInfo *commonmodels.Product) []*commonservice.ServiceResp {
+	return nil
 }
 
 func (p *PMService) createGroup(envName, productName, username string, group []*commonmodels.ProductService, renderSet *commonmodels.RenderSet, kubeClient client.Client) error {

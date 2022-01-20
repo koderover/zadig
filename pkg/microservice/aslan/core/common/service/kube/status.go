@@ -21,6 +21,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/setting"
@@ -31,6 +32,49 @@ import (
 // TODO: improve this function
 func GetSelectedPodsInfo(ns string, selector labels.Selector, kubeClient client.Client, log *zap.SugaredLogger) (string, string, []string) {
 	pods, err := getter.ListPods(ns, selector, kubeClient)
+	if err != nil {
+		return setting.PodError, setting.PodNotReady, nil
+	}
+
+	if len(pods) == 0 {
+		return setting.PodNonStarted, setting.PodNotReady, nil
+	}
+
+	imageSet := sets.String{}
+	for _, pod := range pods {
+		ipod := wrapper.Pod(pod)
+		imageSet.Insert(ipod.Containers()...)
+	}
+	images := imageSet.List()
+
+	ready := setting.PodReady
+
+	succeededPods := 0
+	for _, pod := range pods {
+		iPod := wrapper.Pod(pod)
+
+		// skip if pod is a succeeded job
+		if iPod.Succeeded() {
+			succeededPods++
+			continue
+		}
+
+		// 如果服务中任意一个pod不在running状态，返回unstable
+		if !iPod.Ready() {
+			return setting.PodUnstable, setting.PodNotReady, images
+		}
+	}
+
+	// return "Succeeded, Completed" if all pods are succeeded Job pods
+	if len(pods) == succeededPods {
+		return string(corev1.PodSucceeded), setting.JobReady, images
+	}
+
+	return setting.PodRunning, ready, images
+}
+
+func GetSelectedPodsInfoFromCache(ns string, selector labels.Selector, kubeClientWithCache cache.Cache, log *zap.SugaredLogger) (string, string, []string) {
+	pods, err := getter.ListPodsWithCache(ns, selector, kubeClientWithCache)
 	if err != nil {
 		return setting.PodError, setting.PodNotReady, nil
 	}

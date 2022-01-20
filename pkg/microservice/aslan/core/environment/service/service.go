@@ -25,6 +25,7 @@ import (
 	"helm.sh/helm/v3/pkg/releaseutil"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -445,6 +446,17 @@ func queryPodsStatus(namespace, productName, serviceName string, kubeClient clie
 		ls[setting.ServiceLabel] = serviceName
 	}
 	return kube.GetSelectedPodsInfo(namespace, ls.AsSelector(), kubeClient, log)
+}
+
+func queryPodsStatusInCache(namespace, productName, serviceName string, kubeClientWithCache cache.Cache, log *zap.SugaredLogger) (string, string, []string) {
+	ls := labels.Set{}
+	if productName != "" {
+		ls[setting.ProductLabel] = productName
+	}
+	if serviceName != "" {
+		ls[setting.ServiceLabel] = serviceName
+	}
+	return kube.GetSelectedPodsInfoFromCache(namespace, ls.AsSelector(), kubeClientWithCache, log)
 }
 
 // validateServiceContainer validate container with envName like dev

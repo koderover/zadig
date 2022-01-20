@@ -18,6 +18,7 @@ package service
 
 import (
 	"go.uber.org/zap"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -28,6 +29,7 @@ import (
 type envHandle interface {
 	createGroup(envName, productName, username string, group []*commonmodels.ProductService, renderSet *commonmodels.RenderSet, kubeClient client.Client) error
 	listGroupServices(allServices []*commonmodels.ProductService, envName, productName string, kubeClient client.Client, productInfo *commonmodels.Product) []*commonservice.ServiceResp
+	listGroupServicesFromCache(allServices []*commonmodels.ProductService, envName, productName string, kubeClient cache.Cache, productInfo *commonmodels.Product) []*commonservice.ServiceResp
 	updateService(args *SvcOptArgs) error
 	queryServiceStatus(namespace, envName, productName string, serviceTmpl *commonmodels.Service, kubeClient client.Client) (string, string, []string)
 }

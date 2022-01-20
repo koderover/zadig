@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 )
@@ -47,6 +48,7 @@ func GetResourceInCache(ns, name string, obj client.Object, cl client.Reader) (b
 // ListResourceInCache gets a set of specific Kubernetes object in local cache, object can be any types
 // which are registered by "scheme.AddToScheme()".
 // Important: fieldSelector must be nil or contain just one kv pair, otherwise, controller-runtime will return error.
+// FIXME: THIS DOES NOT LIST RESOURCES IN CACHE SINCE THE READER PASSED IN IS NOT IMPLEMENTED WITH CACHE
 func ListResourceInCache(ns string, selector labels.Selector, fieldSelector fields.Selector, obj client.ObjectList, cl client.Reader) error {
 	opts := []client.ListOption{client.InNamespace(ns)}
 	if selector != nil && !selector.Empty() {
@@ -58,6 +60,19 @@ func ListResourceInCache(ns string, selector labels.Selector, fieldSelector fiel
 	}
 
 	return cl.List(context.TODO(), obj, opts...)
+}
+
+func ListResourcesFromCache(ns string, selector labels.Selector, fieldSelector fields.Selector, obj client.ObjectList, cs cache.Cache) error {
+	opts := []client.ListOption{client.InNamespace(ns)}
+	if selector != nil && !selector.Empty() {
+		opts = append(opts, client.MatchingLabelsSelector{Selector: selector})
+	}
+
+	if fieldSelector != nil && !fieldSelector.Empty() {
+		opts = append(opts, client.MatchingFieldsSelector{Selector: fieldSelector})
+	}
+
+	return cs.List(context.TODO(), obj, opts...)
 }
 
 // ListUnstructuredResourceInCache gets a set of specific Kubernetes object in local cache, and return a representation in yaml format.
