@@ -368,7 +368,7 @@ func getServicesWithMaxRevision(projectName string) ([]*commonmodels.Service, er
 
 	prodTmpl, err := templaterepo.NewProductColl().Find(projectName)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to find project tempalte %s", projectName)
+		return nil, errors.Wrapf(err, "failed to find project: %s", projectName)
 	}
 
 	// list services with max revision of shared services
