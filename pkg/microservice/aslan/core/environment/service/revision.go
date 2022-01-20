@@ -34,7 +34,6 @@ func ListProductsRevision(productName, envName string, log *zap.SugaredLogger) (
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName, IsSortByProductName: true, EnvName: envName})
 
 	// list services with max revision of project
-	// TODO  refactor code
 	allServiceTmpls, err := getServicesWithMaxRevision(productName)
 	if err != nil {
 		log.Errorf("ListAllRevisions error: %v", err)
