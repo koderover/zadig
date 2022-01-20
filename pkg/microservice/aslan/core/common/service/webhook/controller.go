@@ -126,12 +126,12 @@ func ensureSafeDelete(ref, repoName, repoOwner, repoAddress string) (bool, error
 	serviceName = strings.TrimSuffix(serviceName, "-trigger")
 
 	// find existing service with same name
-	services, err := mongodb.NewServiceColl().ListMaxRevisionsByGroup(serviceName, setting.K8SDeployType)
+	services, err := mongodb.NewServiceColl().ListMaxRevisionsByProject(serviceName, setting.K8SDeployType)
 	if err != nil {
 		return false, err
 	}
 
-	// if the webhook reference is used by other
+	// check if the webhook reference points to other existing service
 	for _, service := range services {
 		if service.RepoName != repoName || service.RepoOwner != repoOwner {
 			continue

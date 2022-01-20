@@ -433,7 +433,7 @@ func (c *ServiceColl) ListAllRevisions() ([]*models.Service, error) {
 	return resp, err
 }
 
-func (c *ServiceColl) ListMaxRevisionsByGroup(serviceName, serviceType string) ([]*models.Service, error) {
+func (c *ServiceColl) ListMaxRevisionsByProject(serviceName, serviceType string) ([]*models.Service, error) {
 
 	pipeline := []bson.M{
 		{
