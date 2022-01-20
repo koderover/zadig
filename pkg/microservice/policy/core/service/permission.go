@@ -27,28 +27,25 @@ import (
 // GetPermission user's permission for frontend
 func GetPermission(ns, uid string, log *zap.SugaredLogger) (map[string][]string, error) {
 	roles := []*models.Role{}
-	rolebindingsReadOnly, err := mongodb.NewRoleBindingColl().ListBy(ns, "*")
+	var metas []mongodb.RoleBindingMeta
+	roleBindingReadOnlyMeta := mongodb.RoleBindingMeta{
+		Uid:       "*",
+		Namespace: ns,
+	}
+	roleBindingsAdminMeta := mongodb.RoleBindingMeta{
+		Uid:       uid,
+		Namespace: "*",
+	}
+	roleBindingCommonMeta := mongodb.RoleBindingMeta{
+		Uid:       uid,
+		Namespace: ns,
+	}
+	metas = append(metas, roleBindingReadOnlyMeta, roleBindingsAdminMeta, roleBindingCommonMeta)
+	roleBindings, err := mongodb.NewRoleBindingColl().ListByRoleBindingOpt(mongodb.ListRoleBindingsOpt{RoleBindingMetas: metas})
 	if err != nil {
-		log.Errorf("list readonly RoleBinding err:%s,ns:%s,uid:*", err, ns)
 		return nil, err
 	}
-
-	rolebindingsAdmin, err := mongodb.NewRoleBindingColl().ListBy("*", uid)
-	if err != nil {
-		log.Errorf("list admin RoleBinding err:%s,ns:*,uid:%s", err)
-		return nil, err
-	}
-
-	// 1.2 get normal rolebindings
-	rolebindingsNormal, err := mongodb.NewRoleBindingColl().ListBy(ns, uid)
-	if err != nil {
-		log.Errorf("list normal RoleBindings err:%s,ns:%s,uid:%s", err, ns, uid)
-		return nil, err
-	}
-
-	rolebindings := append(rolebindingsReadOnly, rolebindingsNormal...)
-	rolebindings = append(rolebindings, rolebindingsAdmin...)
-	for _, v := range rolebindings {
+	for _, v := range roleBindings {
 		tmpRoles, err := mongodb.NewRoleColl().ListBySpaceAndName(v.RoleRef.Namespace, v.RoleRef.Name)
 		if err != nil {
 			continue
@@ -73,4 +70,45 @@ func GetPermission(ns, uid string, log *zap.SugaredLogger) (map[string][]string,
 		rolesResp[k] = v.List()
 	}
 	return rolesResp, nil
+}
+
+func GetResourcesPermission(uid string, projectName string, resourceType string, resources []string, log *zap.SugaredLogger) (map[string][]string, error) {
+
+	// 1. get all policyBindings
+	policyBindings, err := ListPolicyBindings(uid, projectName, log)
+	if err != nil {
+		return nil, err
+	}
+	var policies []*Policy
+	for _, v := range policyBindings {
+		policy, err := GetPolicy(projectName, v.Name, log)
+		if err != nil {
+			continue
+		}
+		policies = append(policies, policy)
+	}
+
+	queryResourceSet := sets.NewString(resources...)
+	resourceM := make(map[string]sets.String)
+	for _, policy := range policies {
+		for _, rule := range policy.Rules {
+			if rule.Resources[0] == resourceType {
+				for _, resource := range rule.RelatedResources {
+					if queryResourceSet.Has(resource) {
+						if v, ok := resourceM[resource]; ok {
+							resourceM[resource] = v.Insert(resource)
+						} else {
+							resourceM[resource] = sets.NewString(resource)
+						}
+					}
+				}
+			}
+
+		}
+	}
+	resourceRes := make(map[string][]string)
+	for k, v := range resourceM {
+		resourceRes[k] = v.List()
+	}
+	return resourceRes, nil
 }

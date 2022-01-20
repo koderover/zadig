@@ -115,6 +115,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	}
 	policyUserPermission := router.Group("permission")
 	{
+		policyUserPermission.GET("resources", GetUserResourcePermission)
 		policyUserPermission.GET("/:uid", GetUserPermission)
+
 	}
 }

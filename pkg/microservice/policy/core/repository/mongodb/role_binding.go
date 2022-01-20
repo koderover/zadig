@@ -203,3 +203,39 @@ func (c *RoleBindingColl) UpdateOrCreate(obj *models.RoleBinding) error {
 
 	return err
 }
+
+type RoleBindingMeta struct {
+	Uid       string `json:"uid"`
+	Namespace string `json:"namespace"`
+}
+
+type ListRoleBindingsOpt struct {
+	RoleBindingMetas []RoleBindingMeta
+}
+
+func (c *RoleBindingColl) ListByRoleBindingOpt(opt ListRoleBindingsOpt) ([]*models.RoleBinding, error) {
+	var res []*models.RoleBinding
+
+	if len(opt.RoleBindingMetas) == 0 {
+		return nil, nil
+	}
+	condition := bson.A{}
+	for _, meta := range opt.RoleBindingMetas {
+		condition = append(condition, bson.M{
+			"namespace":    meta.Namespace,
+			"subjects.uid": meta.Uid,
+		})
+	}
+	filter := bson.D{{"$or", condition}}
+	cursor, err := c.Collection.Find(context.TODO(), filter)
+	if err == mongo.ErrNoDocuments {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := cursor.All(context.TODO(), &res); err != nil {
+		return nil, err
+	}
+	return res, nil
+}

@@ -19,6 +19,7 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/config"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -35,4 +36,24 @@ func GetUserPermission(c *gin.Context) {
 	}
 
 	ctx.Resp, ctx.Err = service.GetPermission(projectName, c.Param("uid"), ctx.Logger)
+}
+
+type GetUserResourcesPermissionReq struct {
+	ProjectName  string              `json:"project_name"      form:"project_name"`
+	Uid          string              `json:"uid" form:"uid"`
+	Resources    []string            `json:"resources"        form:"resources"`
+	ResourceType config.ResourceType `json:"resource_type"        form:"resource_type"`
+}
+
+func GetUserResourcesPermission(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	req := new(GetUserResourcesPermissionReq)
+
+	if err := c.ShouldBindQuery(req); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+	service.GetResourcesPermission(req.Uid, req.ProjectName, req.ResourceType, req.Resources, ctx.Logger)
 }
