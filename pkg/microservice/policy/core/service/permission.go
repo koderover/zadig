@@ -75,13 +75,13 @@ func GetPermission(ns, uid string, log *zap.SugaredLogger) (map[string][]string,
 func GetResourcesPermission(uid string, projectName string, resourceType string, resources []string, log *zap.SugaredLogger) (map[string][]string, error) {
 
 	// 1. get all policyBindings
-	policyBindings, err := ListPolicyBindings(uid, projectName, log)
+	policyBindings, err := ListPolicyBindings(projectName, uid, log)
 	if err != nil {
 		return nil, err
 	}
 	var policies []*Policy
 	for _, v := range policyBindings {
-		policy, err := GetPolicy(projectName, v.Name, log)
+		policy, err := GetPolicy(projectName, v.Policy, log)
 		if err != nil {
 			continue
 		}
@@ -90,16 +90,15 @@ func GetResourcesPermission(uid string, projectName string, resourceType string,
 
 	queryResourceSet := sets.NewString(resources...)
 	resourceM := make(map[string]sets.String)
+	for _, v := range resources {
+		resourceM[v] = sets.NewString()
+	}
 	for _, policy := range policies {
 		for _, rule := range policy.Rules {
 			if rule.Resources[0] == resourceType {
 				for _, resource := range rule.RelatedResources {
 					if queryResourceSet.Has(resource) {
-						if v, ok := resourceM[resource]; ok {
-							resourceM[resource] = v.Insert(resource)
-						} else {
-							resourceM[resource] = sets.NewString(resource)
-						}
+						resourceM[resource] = resourceM[resource].Insert(rule.Verbs...)
 					}
 				}
 			}

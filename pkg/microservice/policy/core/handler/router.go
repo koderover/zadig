@@ -99,7 +99,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		bundles.GET("/:name", DownloadBundle)
 	}
 
-	policyRegistrations := router.Group("policies")
+	policyRegistrations := router.Group("policymetas")
 	{
 		policyRegistrations.PUT("/:resourceName", CreateOrUpdatePolicyRegistration)
 	}
@@ -115,7 +115,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	}
 	policyUserPermission := router.Group("permission")
 	{
-		policyUserPermission.GET("resources", GetUserResourcePermission)
+		policyUserPermission.GET("resources", GetUserResourcesPermission)
 		policyUserPermission.GET("/:uid", GetUserPermission)
 
 	}
