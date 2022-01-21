@@ -566,7 +566,11 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				}
 			}
 			if err != nil {
-				err = fmt.Errorf("failed to install %s:%s", typ, err)
+				return err
+			} else {
+				if typ == "timeout" {
+					err = fmt.Errorf("failed to upgrade %s", typ)
+				}
 			}
 			return err
 		}
@@ -596,7 +600,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			if !d {
 				err = pendingStatusProcess("normal")
 			}
-		case <-time.After(chartSpec.Timeout + 5*time.Second):
+		case <-time.After(chartSpec.Timeout + 30*time.Second):
 			err = pendingStatusProcess("timeout")
 		}
 		if err != nil {

@@ -33,7 +33,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
-	"helm.sh/helm/v3/pkg/storage"
 	"helm.sh/helm/v3/pkg/strvals"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -2319,52 +2318,11 @@ func installOrUpgradeHelmChartWithValues(namespace, valuesYaml string, renderCha
 		chartSpec.Replace = true
 	}
 
-	done := make(chan bool)
-	go func(chan bool) {
-		if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), chartSpec); err != nil {
-			err = errors.WithMessagef(
-				err,
-				"failed to Install helm chart %s/%s",
-				namespace, serviceObj.ServiceName)
-			done <- false
-		} else {
-			done <- true
-		}
-	}(done)
-
-	pendingStatusProcess := func(typ string) error {
-		hrs, errHistory := helmClient.ListReleaseHistory(chartSpec.ReleaseName, 10)
-		if errHistory != nil {
-			err = errors.WithMessagef(
-				err,
-				"failed to ListReleaseHistory: %s,error:%s",
-				chartSpec.ReleaseName, errHistory)
-			return err
-		}
-		if len(hrs) > 0 {
-			releaseutil.Reverse(hrs, releaseutil.SortByRevision)
-			rel := hrs[0]
-			if rel.Info.Status.IsPending() {
-				secretName := fmt.Sprintf("%s.%s.v%d", storage.HelmStorageType, rel.Name, rel.Version)
-				deleteErr := updater.DeleteSecretWithName(rel.Namespace, secretName, kubecli)
-				if deleteErr != nil {
-					err = errors.WithMessagef(err, "failed to deleteSecretWithName:%s,error:%s", secretName, deleteErr)
-					return err
-				}
-			}
-		}
-		if err != nil {
-			err = fmt.Errorf("failed to install %s:%s", typ, err)
-		}
-		return err
-	}
-	select {
-	case d := <-done:
-		if !d {
-			err = pendingStatusProcess("normal")
-		}
-	case <-time.After(chartSpec.Timeout + 5*time.Second):
-		err = pendingStatusProcess("timeout")
+	if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), chartSpec); err != nil {
+		err = errors.WithMessagef(
+			err,
+			"failed to Install helm chart %s/%s",
+			namespace, serviceObj.ServiceName)
 	}
 	return err
 }
