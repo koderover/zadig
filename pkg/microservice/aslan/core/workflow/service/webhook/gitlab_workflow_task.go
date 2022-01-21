@@ -318,8 +318,7 @@ func (gtem gitlabTagEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bo
 			}
 		}
 
-		hookRepo.Branch = ev.Project.DefaultBranch
-
+		hookRepo.Tag = getTagFromRef(ev.Ref)
 		if ev.Before == commitID || ev.After == commitID {
 			return true, nil
 		}
@@ -381,6 +380,7 @@ func (gtem gitlabTagEventMatcher) UpdateTaskArgs(product *commonmodels.Product, 
 		RepoName:   hookRepo.RepoName,
 		RepoOwner:  hookRepo.RepoOwner,
 		Branch:     hookRepo.Branch,
+		Tag:        hookRepo.Tag,
 	})
 
 	return args

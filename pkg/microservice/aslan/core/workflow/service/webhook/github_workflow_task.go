@@ -91,6 +91,14 @@ func getBranchFromRef(ref string) string {
 	return ref
 }
 
+func getTagFromRef(ref string) string {
+	prefix := "refs/tags/"
+	if strings.HasPrefix(ref, prefix) {
+		return ref[len(prefix):]
+	}
+
+	return ref
+}
 func (gpem *githubPushEventMatcher) UpdateTaskArgs(
 	product *commonmodels.Product, args *commonmodels.WorkflowTaskArgs, hookRepo *commonmodels.MainHookRepo, requestID string,
 ) *commonmodels.WorkflowTaskArgs {
@@ -246,7 +254,7 @@ func (gtem githubTagEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bo
 				return false, nil
 			}
 		}
-		hookRepo.Branch = getBranchFromRef(*ev.Ref)
+		hookRepo.Tag = getTagFromRef(*ev.Ref)
 
 		return true, nil
 	}
@@ -265,6 +273,7 @@ func (gtem githubTagEventMatcher) UpdateTaskArgs(product *commonmodels.Product, 
 		RepoName:   hookRepo.RepoName,
 		RepoOwner:  hookRepo.RepoOwner,
 		Branch:     hookRepo.Branch,
+		Tag:        hookRepo.Tag,
 	})
 
 	return args
