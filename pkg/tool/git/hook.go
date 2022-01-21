@@ -19,7 +19,6 @@ package git
 const (
 	PushEvent              = "push"
 	PullRequestEvent       = "pull_request"
-	TagEvent               = "tag"
 	CheckRunEvent          = "check_run"
 	BranchOrTagCreateEvent = "create"
 )
