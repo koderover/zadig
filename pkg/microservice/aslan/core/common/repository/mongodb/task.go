@@ -36,7 +36,7 @@ type ListTaskOption struct {
 	PipelineName   string
 	PipelineNames  []string
 	Status         config.Status
-	Statuss        []string
+	Statuses       []string
 	Team           string
 	TeamID         int
 	Limit          int
@@ -268,8 +268,8 @@ func (c *TaskColl) List(option *ListTaskOption) (ret []*TaskPreview, err error) 
 	if option.PipelineName != "" {
 		query["pipeline_name"] = option.PipelineName
 	}
-	if len(option.Statuss) > 0 {
-		query["status"] = bson.M{"$in": option.Statuss}
+	if len(option.Statuses) > 0 {
+		query["status"] = bson.M{"$in": option.Statuses}
 	} else if option.Status != "" {
 		query["status"] = option.Status
 	}
@@ -400,7 +400,7 @@ func (c *TaskColl) Create(args *task.Task) error {
 
 type CountTaskOption struct {
 	PipelineNames []string
-	Statuss       []string
+	Statuses      []string
 	Status        config.TaskStatus
 	TaskCreators  []string
 	Committers    []string
@@ -422,8 +422,8 @@ func (c *TaskColl) Count(option *CountTaskOption) (ret int, err error) {
 	if option.PipelineNames != nil {
 		query["pipeline_name"] = bson.M{"$in": option.PipelineNames}
 	}
-	if len(option.Statuss) > 0 {
-		query["status"] = bson.M{"$in": option.Statuss}
+	if len(option.Statuses) > 0 {
+		query["status"] = bson.M{"$in": option.Statuses}
 	} else if option.Status != "" {
 		query["status"] = option.Status
 	}
@@ -613,8 +613,7 @@ func (c *TaskColl) ArchiveHistoryPipelineTask(pipelineName string, taskType conf
 	return err
 }
 
-func (c *TaskColl) DistinctFeildsPipelineTask(fieldName, projectName, pipelineName string, typeString config.PipelineType, isNeedAllData bool) ([]interface{}, error) {
-
+func (c *TaskColl) DistinctFieldsPipelineTask(fieldName, projectName, pipelineName string, typeString config.PipelineType, isNeedAllData bool) ([]interface{}, error) {
 	query := bson.M{"product_name": projectName, "pipeline_name": pipelineName, "type": typeString, "is_deleted": false}
 	if isNeedAllData {
 		createTime := timeutil.BeginningOfDay().AddDate(0, -3, 0).Unix()

@@ -317,8 +317,8 @@ func ListPipelineTasksV2Result(name string, typeString config.PipelineType, quer
 			serviceNameFiltersMap[svc] = nil
 		}
 	case "taskStatus":
-		listTaskOpt = &commonrepo.ListTaskOption{PipelineName: name, Limit: maxResult, Skip: startAt, Statuss: filters, Detail: true, Type: typeString}
-		countTaskOpt = &commonrepo.CountTaskOption{PipelineNames: []string{name}, Statuss: filters, Type: typeString}
+		listTaskOpt = &commonrepo.ListTaskOption{PipelineName: name, Limit: maxResult, Skip: startAt, Statuses: filters, Detail: true, Type: typeString}
+		countTaskOpt = &commonrepo.CountTaskOption{PipelineNames: []string{name}, Statuses: filters, Type: typeString}
 	default:
 		listTaskOpt = &commonrepo.ListTaskOption{PipelineName: name, Limit: maxResult, Skip: startAt, Detail: true, Type: typeString}
 		countTaskOpt = &commonrepo.CountTaskOption{PipelineNames: []string{name}, Type: typeString}
@@ -400,21 +400,20 @@ func GetPipelineTaskV2(taskID int64, pipelineName string, typeString config.Pipe
 }
 
 func GetFiltersPipelineTaskV2(projectName, pipelineName, querytype string, typeString config.PipelineType, log *zap.SugaredLogger) ([]interface{}, error) {
-
 	resp := []interface{}{}
 	var err error
 	fieldName := ""
 	switch querytype {
 	case "creator":
 		fieldName = "task_creator"
-		resp, err = commonrepo.NewTaskColl().DistinctFeildsPipelineTask(fieldName, projectName, pipelineName, typeString, false)
+		resp, err = commonrepo.NewTaskColl().DistinctFieldsPipelineTask(fieldName, projectName, pipelineName, typeString, false)
 		if err != nil {
 			log.Errorf("[%s] DistinctFeildsPipelineTask fieldName: %s error: %s", fieldName, pipelineName, err)
 			return resp, e.ErrGetTask
 		}
 	case "committer":
 		fieldName = "workflow_args.committer"
-		resp, err = commonrepo.NewTaskColl().DistinctFeildsPipelineTask(fieldName, projectName, pipelineName, typeString, false)
+		resp, err = commonrepo.NewTaskColl().DistinctFieldsPipelineTask(fieldName, projectName, pipelineName, typeString, false)
 		if err != nil {
 			log.Errorf("[%s] DistinctFeildsPipelineTask fieldName: %s error: %s", fieldName, pipelineName, err)
 			return resp, e.ErrGetTask
