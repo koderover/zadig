@@ -182,8 +182,6 @@ type gitlabPushEventMatcher struct {
 	yamlServiceChanged []BuildServices
 }
 
-const commitID = "0000000000000000000000000000000000000000"
-
 func (gpem *gitlabPushEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
 	ev := gpem.event
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.Project.PathWithNamespace {
@@ -228,9 +226,6 @@ func (gpem *gitlabPushEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (
 			return false, err
 		}
 
-		if ev.Before == commitID || ev.After == commitID {
-			return true, nil
-		}
 		// compare接口获取两个commit之间的最终的改动
 		diffs, err := client.Compare(ev.ProjectID, ev.Before, ev.After)
 		if err != nil {
@@ -283,6 +278,8 @@ func (gpem *gitlabPushEventMatcher) UpdateTaskArgs(
 	return args
 }
 
+const commitID = "0000000000000000000000000000000000000000"
+
 type gitlabTagEventMatcher struct {
 	log                *zap.SugaredLogger
 	workflow           *commonmodels.Workflow
@@ -322,6 +319,10 @@ func (gtem gitlabTagEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bo
 		}
 
 		hookRepo.Branch = ev.Project.DefaultBranch
+
+		if ev.Before == commitID || ev.After == commitID {
+			return true, nil
+		}
 
 		var changedFiles []string
 		detail, err := systemconfig.New().GetCodeHost(hookRepo.CodehostID)
