@@ -57,7 +57,7 @@ type RoleBinding struct {
 }
 
 func (c *Client) CreateOrUpdatePolicy(p *Policy) error {
-	url := fmt.Sprintf("/policymetas/%s", p.Resource)
+	url := fmt.Sprintf("/policies/%s", p.Resource)
 
 	_, err := c.Put(url, httpclient.SetBody(p))
 
