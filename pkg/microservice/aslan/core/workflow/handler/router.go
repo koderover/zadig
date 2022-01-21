@@ -125,6 +125,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workflowtask.POST("", gin2.UpdateOperationLogStatus, CreateWorkflowTask)
 		workflowtask.PUT("", gin2.UpdateOperationLogStatus, CreateArtifactWorkflowTask)
 		workflowtask.GET("/max/:max/start/:start/pipelines/:name", ListWorkflowTasksResult)
+		workflowtask.GET("/filters/pipelines/:name", GetFiltersPipeline)
 		workflowtask.GET("/id/:id/pipelines/:name", GetWorkflowTask)
 		workflowtask.POST("/id/:id/pipelines/:name/restart", gin2.UpdateOperationLogStatus, RestartWorkflowTask)
 		workflowtask.DELETE("/id/:id/pipelines/:name", gin2.UpdateOperationLogStatus, CancelWorkflowTaskV2)
