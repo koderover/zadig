@@ -88,6 +88,7 @@ func (gmem *gitlabMergeEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) 
 			}
 		}
 		hookRepo.Branch = ev.ObjectAttributes.TargetBranch
+		hookRepo.Committer = ev.User.Username
 		if ev.ObjectAttributes.State == "opened" {
 			var changedFiles []string
 			changedFiles, err := gmem.diffFunc(ev, hookRepo.CodehostID)
@@ -204,7 +205,7 @@ func (gpem *gitlabPushEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (
 		}
 
 		hookRepo.Branch = getBranchFromRef(ev.Ref)
-
+		hookRepo.Committer = ev.UserUsername
 		var changedFiles []string
 		detail, err := systemconfig.New().GetCodeHost(hookRepo.CodehostID)
 		if err != nil {
@@ -551,6 +552,7 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 			args.CodehostID = item.MainRepo.CodehostID
 			args.RepoOwner = item.MainRepo.RepoOwner
 			args.RepoName = item.MainRepo.RepoName
+			args.Committer = item.MainRepo.Committer
 			// 3. create task with args
 			if item.WorkflowArgs.BaseNamespace == "" {
 				if resp, err := workflowservice.CreateWorkflowTask(args, setting.WebhookTaskCreator, log); err != nil {
