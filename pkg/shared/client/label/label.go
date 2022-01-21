@@ -118,6 +118,16 @@ func (c *Client) CreateLabels(request CreateLabelsArgs) (*CreateLabelsResp, erro
 		log.Errorf("Failed to CreateLabels, error: %s", err)
 		return nil, err
 	}
-
 	return resources, nil
+}
+
+func (c *Client) DeleteLabels(ids []string) error {
+	url := "/label/labels?force=true"
+	_, err := c.Delete(url, httpclient.SetBody(ids))
+	if err != nil {
+		log.Errorf("Failed to CreateLabels, error: %s", err)
+		return err
+	}
+
+	return nil
 }

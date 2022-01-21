@@ -415,6 +415,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, modeInstanceMap map[strin
 	projectName string, logger *zap.SugaredLogger) error {
 	var labels []label.Label
 	var newBindings []label.LabelBinding
+	var deleteBindings []label.LabelBinding
 	for _, mode := range updateResp.New {
 		instance, ok := modeInstanceMap[mode.Name]
 		if ok {
@@ -461,7 +462,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, modeInstanceMap map[strin
 		}
 		labelId, ok := labelResp.LabelMap[service.BuildLabelString("policy", instance.PolicyName)]
 		if !ok {
-			return fmt.Errorf("label:%s create error", instance.PolicyName)
+			return fmt.Errorf("label:%s not exist", instance.PolicyName)
 		}
 		for _, workflow := range instance.Workflows {
 			newBindings = append(newBindings, label.LabelBinding{
@@ -487,7 +488,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, modeInstanceMap map[strin
 	for _, item := range updateResp.Update {
 		labelId, ok := labelResp.LabelMap[service.BuildLabelString("policy", item.PolicyName)]
 		if !ok {
-			return fmt.Errorf("label:%s create error", item.PolicyName)
+			return fmt.Errorf("label:%s not exist", item.PolicyName)
 		}
 		for _, workflow := range item.NewSpec.Workflows {
 			newBindings = append(newBindings, label.LabelBinding{
@@ -512,11 +513,98 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, modeInstanceMap map[strin
 		for _, workflow := range item.UpdateSpec.Workflows {
 			if workflow.Old.CollaborationType == config.CollaborationShare && workflow.New.CollaborationType ==
 				config.CollaborationNew {
-
+				newBindings = append(newBindings, label.LabelBinding{
+					LabelID: labelId,
+					Resource: label.Resource{
+						Name:        workflow.New.Name,
+						Type:        "Workflow",
+						ProjectName: projectName,
+					},
+				})
+			}
+			if workflow.Old.CollaborationType == config.CollaborationNew && workflow.New.CollaborationType ==
+				config.CollaborationShare {
+				deleteBindings = append(deleteBindings, label.LabelBinding{
+					LabelID: labelId,
+					Resource: label.Resource{
+						Name:        workflow.New.Name,
+						Type:        "Workflow",
+						ProjectName: projectName,
+					},
+				})
+			}
+		}
+		for _, product := range item.UpdateSpec.Products {
+			if product.Old.CollaborationType == config.CollaborationShare && product.New.CollaborationType ==
+				config.CollaborationNew {
+				newBindings = append(newBindings, label.LabelBinding{
+					LabelID: labelId,
+					Resource: label.Resource{
+						Name:        product.New.Name,
+						Type:        "Product",
+						ProjectName: projectName,
+					},
+				})
+			}
+			if product.Old.CollaborationType == config.CollaborationNew && product.New.CollaborationType ==
+				config.CollaborationShare {
+				deleteBindings = append(deleteBindings, label.LabelBinding{
+					LabelID: labelId,
+					Resource: label.Resource{
+						Name:        product.Old.Name,
+						Type:        "Product",
+						ProjectName: projectName,
+					},
+				})
 			}
 		}
 	}
-
+	var deleteLabels []string
+	for _, item := range updateResp.Delete {
+		labelId, ok := labelResp.LabelMap[service.BuildLabelString("policy", item.PolicyName)]
+		if !ok {
+			return fmt.Errorf("label:%s not exist", item.PolicyName)
+		}
+		for _, workflow := range item.Workflows {
+			deleteBindings = append(deleteBindings, label.LabelBinding{
+				LabelID: labelId,
+				Resource: label.Resource{
+					Name:        workflow.Name,
+					ProjectName: projectName,
+					Type:        "Workflow",
+				},
+			})
+		}
+		for _, product := range item.Products {
+			deleteBindings = append(deleteBindings, label.LabelBinding{
+				LabelID: labelId,
+				Resource: label.Resource{
+					Name:        product.Name,
+					ProjectName: projectName,
+					Type:        "Product",
+				},
+			})
+		}
+	}
+	err = label.New().DeleteLabels(deleteLabels)
+	if err != nil {
+		logger.Errorf("delete labels error:%s", err)
+		return err
+	}
+	err = label.New().DeleteLabelBindings(label.DeleteLabelBindingsArgs{
+		LabelBindings: deleteBindings,
+	})
+	if err != nil {
+		logger.Errorf("delete labelbindings error:%s", err)
+		return err
+	}
+	err = label.New().CreateLabelBindings(label.CreateLabelBindingsArgs{
+		LabelBindings: newBindings,
+	})
+	if err != nil {
+		logger.Errorf("create labelbindings error:%s", err)
+		return err
+	}
 	return nil
 }
 
@@ -526,14 +614,15 @@ func SyncCollaborationInstance(projectName, uid, userName string, logger *zap.Su
 		logger.Errorf("GetCollaborationNew error, err msg:%s", err)
 		return err
 	}
-	modePolicyMap, err := syncInstance(updateResp, projectName, userName, uid, logger)
+	modeInstanceMap, err := syncInstance(updateResp, projectName, userName, uid, logger)
 	if err != nil {
 		return err
 	}
-	err = syncPolicy(updateResp, modePolicyMap, projectName, userName, logger)
+	err = syncPolicy(updateResp, modeInstanceMap, projectName, userName, logger)
 	if err != nil {
 		return err
 	}
+	err = syncLabel(updateResp, modeInstanceMap, projectName, logger)
 	return nil
 }
 
