@@ -343,8 +343,7 @@ func ListPipelineTasksV2Result(name string, typeString config.PipelineType, quer
 		if buildStage != nil {
 			for serviceName := range buildStage.SubTasks {
 				if queryType == "serviceName" {
-					_, ok := serviceNameFiltersMap[serviceName]
-					if ok {
+					if _, ok := serviceNameFiltersMap[serviceName]; ok {
 						existSvc = true
 					}
 				}
@@ -353,8 +352,7 @@ func ListPipelineTasksV2Result(name string, typeString config.PipelineType, quer
 		} else if deployStage != nil {
 			for serviceName := range deployStage.SubTasks {
 				if queryType == "serviceName" {
-					_, ok := serviceNameFiltersMap[serviceName]
-					if ok {
+					if _, ok := serviceNameFiltersMap[serviceName]; ok {
 						existSvc = true
 					}
 				}
