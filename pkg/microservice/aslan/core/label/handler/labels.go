@@ -78,7 +78,7 @@ func CreateLabels(c *gin.Context) {
 		}
 		filteredLabels = append(filteredLabels, &tmpModel)
 	}
-	ctx.Err = service.CreateLabels(filteredLabels)
+	ctx.Resp, ctx.Err = service.CreateLabels(filteredLabels)
 }
 
 //DeleteLabels  can only bulk delete labels which not bind reousrces

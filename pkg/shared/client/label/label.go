@@ -17,18 +17,33 @@ limitations under the License.
 package label
 
 import (
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
+type Label struct {
+	ID         primitive.ObjectID `bson:"_id,omitempty"               json:"id,omitempty"`
+	Type       string             `bson:"type"                        json:"type"`
+	Key        string             `bson:"key"                         json:"key"`
+	Value      string             `bson:"value"                       json:"value"`
+	CreateBy   string             `bson:"create_by"                   json:"create_by"`
+	CreateTime int64              `bson:"create_time"                 json:"create_time"`
+}
+
 type ListResourcesByLabelsReq struct {
-	LabelFilters []mongodb.Label `json:"label_filters"`
+	LabelFilters []Label `json:"label_filters"`
+}
+
+type Resource struct {
+	Name        string `json:"name"`
+	ProjectName string `json:"project_name"`
+	Type        string `json:"type"`
 }
 
 type ListResourcesByLabelsResp struct {
-	Resources map[string][]mongodb.Resource `json:"resources"`
+	Resources map[string][]Resource `json:"resources"`
 }
 
 func (c *Client) ListResourcesByLabels(request ListResourcesByLabelsReq) (*ListResourcesByLabelsResp, error) {
@@ -44,12 +59,42 @@ func (c *Client) ListResourcesByLabels(request ListResourcesByLabelsReq) (*ListR
 	return resources, nil
 }
 
+type LabelModel struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+type ListLabelsArgs struct {
+	Labels []LabelModel `json:"labels"`
+}
+
+type ListLabelsResp struct {
+	Labels []Label `json:"labels"`
+}
+
+func (c *Client) ListLabels(request ListLabelsArgs) (*ListLabelsResp, error) {
+	url := "/label/labels"
+
+	var resources *ListLabelsResp
+	_, err := c.Post(url, httpclient.SetBody(request), httpclient.SetResult(&resources))
+	if err != nil {
+		log.Errorf("Failed to ListLabels, error: %s", err)
+		return nil, err
+	}
+
+	return resources, nil
+}
+
 type ListLabelsByResourcesReq struct {
-	Resources []mongodb.Resource `json:"resources"`
+	Resources []Resource `json:"resources"`
 }
 
 type ListLabelsByResourcesResp struct {
-	Labels map[string][]*models.Label `json:"labels"`
+	Labels map[string][]*Label `json:"labels"`
+}
+
+type CreateLabelsArgs struct {
+	Labels []Label `json:"labels"`
 }
 
 func (c *Client) ListLabelsByResources(request ListLabelsByResourcesReq) (*ListLabelsByResourcesResp, error) {
@@ -58,7 +103,19 @@ func (c *Client) ListLabelsByResources(request ListLabelsByResourcesReq) (*ListL
 	var resources *ListLabelsByResourcesResp
 	_, err := c.Post(url, httpclient.SetBody(request), httpclient.SetResult(&resources))
 	if err != nil {
-		log.Errorf("Failed to add audit log, error: %s", err)
+		log.Errorf("Failed to ListLabelsByResources, error: %s", err)
+		return nil, err
+	}
+
+	return resources, nil
+}
+
+func (c *Client) CreateLabels(request CreateLabelsArgs) (*CreateLabelsResp, error) {
+	url := "/label/labels"
+	var resources *CreateLabelsResp
+	_, err := c.Post(url, httpclient.SetBody(request), httpclient.SetResult(&resources))
+	if err != nil {
+		log.Errorf("Failed to CreateLabels, error: %s", err)
 		return nil, err
 	}
 
