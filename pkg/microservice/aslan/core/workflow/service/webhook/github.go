@@ -401,14 +401,20 @@ func ProcessGithubWebHookForTest(payload []byte, req *http.Request, requestID st
 	case *github.PullRequestEvent:
 		err = TriggerTestByGithubEvent(et, requestID, log)
 		if err != nil {
-			log.Errorf("TriggerTestByGithubEvent error: %v", err)
+			log.Errorf("TriggerTestByGithubEvent error: %s", err)
 			return e.ErrGithubWebHook.AddErr(err)
 		}
 
 	case *github.PushEvent:
 		err = TriggerTestByGithubEvent(et, requestID, log)
 		if err != nil {
-			log.Infof("TriggerTestByGithubEvent error: %v", err)
+			log.Infof("TriggerTestByGithubEvent error: %s", err)
+			return e.ErrGithubWebHook.AddErr(err)
+		}
+	case *github.CreateEvent:
+		err = TriggerTestByGithubEvent(et, requestID, log)
+		if err != nil {
+			log.Infof("TriggerTestByGithubEvent error: %s", err)
 			return e.ErrGithubWebHook.AddErr(err)
 		}
 	}
@@ -474,6 +480,12 @@ func ProcessGithubWebHook(payload []byte, req *http.Request, requestID string, l
 		err = TriggerWorkflowByGithubEvent(et, baseURI, deliveryID, requestID, log)
 		if err != nil {
 			log.Infof("pushEventToPipelineTasks error: %v", err)
+			return e.ErrGithubWebHook.AddErr(err)
+		}
+	case *github.CreateEvent:
+		err = TriggerWorkflowByGithubEvent(et, baseURI, deliveryID, requestID, log)
+		if err != nil {
+			log.Errorf("prEventToPipelineTasks error: %s", err)
 			return e.ErrGithubWebHook.AddErr(err)
 		}
 	}
