@@ -141,6 +141,18 @@ func (c *PolicyColl) Create(obj *models.Policy) error {
 	return err
 }
 
+func (c *PolicyColl) BulkCreate(args []*models.Policy) error {
+	if len(args) == 0 {
+		return nil
+	}
+	var ois []interface{}
+	for _, obj := range args {
+		ois = append(ois, obj)
+	}
+	_, err := c.InsertMany(context.TODO(), ois)
+	return err
+}
+
 func (c *PolicyColl) Delete(name string, projectName string) error {
 	query := bson.M{"name": name, "namespace": projectName}
 	_, err := c.DeleteOne(context.TODO(), query)

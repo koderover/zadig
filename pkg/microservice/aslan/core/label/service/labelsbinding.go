@@ -24,26 +24,18 @@ import (
 
 	commondb "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-type CreateLabelBinding struct {
-	Resource   mongodb.Resource `json:"resource"`
-	LabelID    string           `json:"label_id"`
-	CreateBy   string           `json:"create_by"`
-	CreateTime int64            `json:"create_time"`
-}
-
 type CreateLabelBindingsArgs struct {
-	CreateLabelBindings []CreateLabelBinding `json:"create_label_bindings"`
+	LabelBindings []*mongodb.LabelBinding `json:"label_bindings"`
 }
 
 func CreateLabelBindings(cr *CreateLabelBindingsArgs, userName string, logger *zap.SugaredLogger) error {
 	//  check label exist
 	labelIDs := []string{}
-	for _, binding := range cr.CreateLabelBindings {
+	for _, binding := range cr.LabelBindings {
 		labelIDs = append(labelIDs, binding.LabelID)
 		binding.CreateBy = userName
 	}
@@ -58,8 +50,8 @@ func CreateLabelBindings(cr *CreateLabelBindingsArgs, userName string, logger *z
 		return fmt.Errorf("there're labels not exist")
 	}
 	//check resource exist
-	m := make(map[string][]CreateLabelBinding)
-	for _, binding := range cr.CreateLabelBindings {
+	m := make(map[string][]*mongodb.LabelBinding)
+	for _, binding := range cr.LabelBindings {
 		m[binding.Resource.Type] = append(m[binding.Resource.Type], binding)
 	}
 	for k, v := range m {
@@ -107,24 +99,21 @@ func CreateLabelBindings(cr *CreateLabelBindingsArgs, userName string, logger *z
 		}
 	}
 
-	var labelBindings []*models.LabelBinding
-	for _, v := range cr.CreateLabelBindings {
-		labelBinding := &models.LabelBinding{
-			ResourceType: v.Resource.Type,
-			ResourceName: v.Resource.Name,
-			ProjectName:  v.Resource.ProjectName,
-			LabelID:      v.LabelID,
-			CreateBy:     v.CreateBy,
-		}
-		labelBindings = append(labelBindings, labelBinding)
-	}
-	return mongodb.NewLabelBindingColl().CreateMany(labelBindings)
+	return mongodb.NewLabelBindingColl().CreateMany(cr.LabelBindings)
 }
 
-type DeleteLabelsBindingsArgs struct {
+type DeleteLabelBindingsArgs struct {
+	LabelBindings []*mongodb.LabelBinding `json:"label_bindings"`
+}
+
+func DeleteLabelBindings(dr *DeleteLabelBindingsArgs, userName string, logger *zap.SugaredLogger) error {
+	return mongodb.NewLabelBindingColl().BulkDelete(dr.LabelBindings)
+}
+
+type DeleteLabelsBindingsByIdsArgs struct {
 	IDs []string
 }
 
-func DeleteLabelsBindings(ids []string) error {
-	return mongodb.NewLabelBindingColl().BulkDelete(ids)
+func DeleteLabelsBindingsByIds(ids []string) error {
+	return mongodb.NewLabelBindingColl().BulkDeleteByIds(ids)
 }

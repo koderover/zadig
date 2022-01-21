@@ -18,6 +18,8 @@ package mongodb
 
 import (
 	"context"
+	"errors"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -30,7 +32,12 @@ import (
 
 type CollaborationInstanceFindOptions struct {
 	ProjectName string
+	Name        string
 	UserUID     string
+}
+
+type CollaborationInstanceListOptions struct {
+	FindOpts []CollaborationInstanceFindOptions
 }
 type CollaborationInstanceColl struct {
 	*mongo.Collection
@@ -75,6 +82,74 @@ func (c *CollaborationInstanceColl) Find(opt *CollaborationInstanceFindOptions) 
 	}
 	err := c.FindOne(context.TODO(), query).Decode(res)
 	return res, err
+}
+
+func (c *CollaborationInstanceColl) Create(args *models.CollaborationInstance) error {
+	// avoid panic issue
+	if args == nil {
+		return errors.New("nil CollaborationInstance")
+	}
+	now := time.Now().Unix()
+	args.CreateTime = now
+	args.UpdateTime = now
+	args.Revision = 1
+	_, err := c.InsertOne(context.TODO(), args)
+	return err
+}
+
+// TODO: Update->BulkUpdate
+
+func (c *CollaborationInstanceColl) Update(uid string, args *models.CollaborationInstance) error {
+	if args == nil {
+		return errors.New("nil CollaborationMode")
+	}
+
+	query := bson.M{"name": args.CollaborationName, "project_name": args.ProjectName, "user_uid": uid}
+	change := bson.M{"$set": bson.M{
+		"update_time": time.Now().Unix(),
+		"workflows":   args.Workflows,
+		"revision":    args.Revision,
+		"products":    args.Products,
+	}}
+
+	_, err := c.UpdateOne(context.TODO(), query, change)
+
+	return err
+}
+
+func (c *CollaborationInstanceColl) BulkCreate(args []*models.CollaborationInstance) error {
+	if len(args) == 0 {
+		return nil
+	}
+	now := time.Now().Unix()
+	for _, arg := range args {
+		arg.CreateTime = now
+		arg.UpdateTime = now
+		arg.Revision = 1
+	}
+	var ois []interface{}
+	for _, obj := range args {
+		ois = append(ois, obj)
+	}
+	_, err := c.InsertMany(context.TODO(), ois)
+	return err
+}
+
+func (c *CollaborationInstanceColl) BulkDelete(opt CollaborationInstanceListOptions) error {
+	condition := bson.A{}
+	if len(opt.FindOpts) == 0 {
+		return nil
+	}
+	for _, findOpt := range opt.FindOpts {
+		condition = append(condition, bson.M{
+			"project_name":       findOpt.ProjectName,
+			"user_uid":           findOpt.UserUID,
+			"collaboration_name": findOpt.Name,
+		})
+	}
+	filter := bson.D{{"$or", condition}}
+	_, err := c.DeleteMany(context.TODO(), filter)
+	return err
 }
 
 func (c *CollaborationInstanceColl) List(opt *CollaborationInstanceFindOptions) ([]*models.CollaborationInstance, error) {

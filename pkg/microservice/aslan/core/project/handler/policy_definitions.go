@@ -28,13 +28,13 @@ import (
 //go:embed policy.yaml
 var policyDefinitions []byte
 
-func (*Router) Policies() []*policy.Policy {
-	res := &policy.Policy{}
+func (*Router) Policies() []*policy.PolicyMeta {
+	res := &policy.PolicyMeta{}
 	err := yaml.Unmarshal(policyDefinitions, res)
 	if err != nil {
 		// should not have happened here
 		log.DPanic(err)
 	}
 
-	return []*policy.Policy{res}
+	return []*policy.PolicyMeta{res}
 }
