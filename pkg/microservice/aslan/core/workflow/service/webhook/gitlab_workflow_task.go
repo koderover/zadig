@@ -346,7 +346,7 @@ func (gtem gitlabTagEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bo
 			gtem.yamlServiceChanged = serviceChangeds
 			return len(serviceChangeds) != 0, nil
 		}
-		return MatchChanges(hookRepo, changedFiles), nil
+		return true, nil
 	}
 
 	return false, nil
