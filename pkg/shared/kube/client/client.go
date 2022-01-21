@@ -54,6 +54,12 @@ func GetKubeClientWithCache(hubServerAddr, clusterID string) (cache.Cache, error
 	}
 	go func(ctx context.Context) {
 		for {
+			isSynced := c.WaitForCacheSync(ctx)
+			if !isSynced {
+				fmt.Println("could not sync cache")
+			} else {
+				fmt.Println("cache synced.")
+			}
 			err := c.Start(ctx)
 			if err != nil {
 				fmt.Println("SOMETHING WENT WRONG FETCHING THE K8S RESOURCES, error:", err)
