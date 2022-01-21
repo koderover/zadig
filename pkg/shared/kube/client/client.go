@@ -52,12 +52,14 @@ func GetKubeClientWithCache(hubServerAddr, clusterID string) (cache.Cache, error
 	if err != nil {
 		return c, err
 	}
-	go func() {
-		err := c.Start(context.TODO())
-		if err != nil {
-			fmt.Println("SOMETHING WENT WRONG FETCHING THE K8S RESOURCES")
+	go func(ctx context.Context) {
+		for {
+			err := c.Start(ctx)
+			if err != nil {
+				fmt.Println("SOMETHING WENT WRONG FETCHING THE K8S RESOURCES, error:", err)
+			}
 		}
-	}()
+	}(context.TODO())
 	cacheMap.Store(clusterID, c)
 	return c, nil
 }
