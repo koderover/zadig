@@ -182,6 +182,8 @@ type gitlabPushEventMatcher struct {
 	yamlServiceChanged []BuildServices
 }
 
+const commitID = "0000000000000000000000000000000000000000"
+
 func (gpem *gitlabPushEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
 	ev := gpem.event
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.Project.PathWithNamespace {
@@ -226,6 +228,9 @@ func (gpem *gitlabPushEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (
 			return false, err
 		}
 
+		if ev.Before == commitID || ev.After == commitID {
+			return true, nil
+		}
 		// compare接口获取两个commit之间的最终的改动
 		diffs, err := client.Compare(ev.ProjectID, ev.Before, ev.After)
 		if err != nil {
@@ -334,7 +339,7 @@ func (gtem gitlabTagEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bo
 		// compare接口获取两个commit之间的最终的改动
 		diffs, err := client.Compare(ev.ProjectID, ev.Before, ev.After)
 		if err != nil {
-			gtem.log.Errorf("Failed to get push event diffs, error: %s", err)
+			gtem.log.Errorf("Failed to get tag event diffs, error: %s", err)
 			return false, err
 		}
 		for _, diff := range diffs {
