@@ -106,7 +106,7 @@ func ListPipelineTasksResult(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid start at number")
 		return
 	}
-	ctx.Resp, ctx.Err = workflow.ListPipelineTasksV2Result(c.Param("name"), config.SingleType, maxResult, startAt, ctx.Logger)
+	ctx.Resp, ctx.Err = workflow.ListPipelineTasksV2Result(c.Param("name"), config.SingleType, "", []string{}, maxResult, startAt, ctx.Logger)
 }
 
 func GetPipelineTask(c *gin.Context) {

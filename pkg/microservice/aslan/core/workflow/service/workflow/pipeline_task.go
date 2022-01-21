@@ -293,20 +293,44 @@ type TaskResult struct {
 }
 
 // ListPipelineTasksV2Result 工作流任务分页信息
-func ListPipelineTasksV2Result(name string, typeString config.PipelineType, maxResult, startAt int, log *zap.SugaredLogger) (*TaskResult, error) {
+func ListPipelineTasksV2Result(name string, typeString config.PipelineType, queryType string, filters []string, maxResult, startAt int, log *zap.SugaredLogger) (*TaskResult, error) {
 	ret := &TaskResult{MaxResult: maxResult, StartAt: startAt}
 	var err error
-	ret.Data, err = commonrepo.NewTaskColl().List(&commonrepo.ListTaskOption{PipelineName: name, Limit: maxResult, Skip: startAt, Detail: true, Type: typeString})
+	var listTaskOpt *commonrepo.ListTaskOption
+	var countTaskOpt *commonrepo.CountTaskOption
+	var restp []*commonrepo.TaskPreview
+	serviceNameFiltersMap := make(map[string]interface{}, len(filters))
+	if len(filters) == 0 || (len(filters) == 1 && filters[0] == "") {
+		queryType = ""
+	}
+	switch queryType {
+	case "creator":
+		listTaskOpt = &commonrepo.ListTaskOption{PipelineName: name, Limit: maxResult, Skip: startAt, TaskCreators: filters, Detail: true, Type: typeString}
+		countTaskOpt = &commonrepo.CountTaskOption{PipelineNames: []string{name}, TaskCreators: filters, Type: typeString}
+	case "committer":
+		listTaskOpt = &commonrepo.ListTaskOption{PipelineName: name, Limit: maxResult, Skip: startAt, Committers: filters, Detail: true, Type: typeString}
+		countTaskOpt = &commonrepo.CountTaskOption{PipelineNames: []string{name}, Committers: filters, Type: typeString}
+	case "serviceName":
+		listTaskOpt = &commonrepo.ListTaskOption{PipelineName: name, Detail: true, Type: typeString}
+		countTaskOpt = &commonrepo.CountTaskOption{PipelineNames: []string{name}, Type: typeString}
+		for _, svc := range filters {
+			serviceNameFiltersMap[svc] = nil
+		}
+	case "taskStatus":
+		listTaskOpt = &commonrepo.ListTaskOption{PipelineName: name, Limit: maxResult, Skip: startAt, Statuses: filters, Detail: true, Type: typeString}
+		countTaskOpt = &commonrepo.CountTaskOption{PipelineNames: []string{name}, Statuses: filters, Type: typeString}
+	default:
+		listTaskOpt = &commonrepo.ListTaskOption{PipelineName: name, Limit: maxResult, Skip: startAt, Detail: true, Type: typeString}
+		countTaskOpt = &commonrepo.CountTaskOption{PipelineNames: []string{name}, Type: typeString}
+	}
+	restp, err = commonrepo.NewTaskColl().List(listTaskOpt)
 	if err != nil {
-		log.Errorf("PipelineTaskV2.List error: %v", err)
+		log.Errorf("PipelineTaskV2.List:%s error: %s", listTaskOpt, err)
 		return ret, e.ErrListTasks
 	}
-
-	// 获取任务的服务列表
 	var buildStage, deployStage *commonmodels.Stage
-	for _, t := range ret.Data {
+	for _, t := range restp {
 		t.BuildServices = []string{}
-
 		for _, stage := range t.Stages {
 			if stage.TaskType == config.TaskBuild {
 				buildStage = stage
@@ -315,27 +339,48 @@ func ListPipelineTasksV2Result(name string, typeString config.PipelineType, maxR
 				deployStage = stage
 			}
 		}
-
-		// 有构建返回构建的服务，没构建返回部署的服务
+		existSvc := false
 		if buildStage != nil {
 			for serviceName := range buildStage.SubTasks {
+				if queryType == "serviceName" {
+					if _, ok := serviceNameFiltersMap[serviceName]; ok {
+						existSvc = true
+					}
+				}
 				t.BuildServices = append(t.BuildServices, serviceName)
 			}
 		} else if deployStage != nil {
 			for serviceName := range deployStage.SubTasks {
+				if queryType == "serviceName" {
+					if _, ok := serviceNameFiltersMap[serviceName]; ok {
+						existSvc = true
+					}
+				}
 				t.BuildServices = append(t.BuildServices, serviceName)
 			}
 		}
-
-		// 清理，下次循环再使用
-		buildStage = nil
-		deployStage = nil
+		buildStage, deployStage = nil, nil
+		if existSvc {
+			ret.Data = append(ret.Data, t)
+		}
 	}
-
-	pipelineList := []string{name}
-	ret.Total, err = commonrepo.NewTaskColl().Count(&commonrepo.CountTaskOption{PipelineNames: pipelineList, Type: typeString})
+	if queryType == "serviceName" {
+		ret.Total = len(ret.Data)
+		if startAt > ret.Total {
+			ret.Data = []*commonrepo.TaskPreview{}
+			return ret, nil
+		}
+		if startAt+maxResult <= ret.Total {
+			ret.Data = ret.Data[startAt : startAt+maxResult]
+		} else {
+			ret.Data = ret.Data[startAt:ret.Total]
+		}
+		return ret, nil
+	}
+	ret.Data = restp
+	ret.Total, err = commonrepo.NewTaskColl().Count(countTaskOpt)
 	if err != nil {
-		log.Errorf("PipelineTaskV2.List error: %v", err)
+		log.Errorf("PipelineTaskV2.List Count error: %v", err)
 		return ret, e.ErrCountTasks
 	}
 	return ret, nil
@@ -349,6 +394,62 @@ func GetPipelineTaskV2(taskID int64, pipelineName string, typeString config.Pipe
 	}
 
 	Clean(resp)
+	return resp, nil
+}
+
+func GetFiltersPipelineTaskV2(projectName, pipelineName, querytype string, typeString config.PipelineType, log *zap.SugaredLogger) ([]interface{}, error) {
+	resp := []interface{}{}
+	var err error
+	fieldName := ""
+	switch querytype {
+	case "creator":
+		fieldName = "task_creator"
+		resp, err = commonrepo.NewTaskColl().DistinctFieldsPipelineTask(fieldName, projectName, pipelineName, typeString, false)
+		if err != nil {
+			log.Errorf("[%s] DistinctFeildsPipelineTask fieldName: %s error: %s", fieldName, pipelineName, err)
+			return resp, e.ErrGetTask
+		}
+	case "committer":
+		fieldName = "workflow_args.committer"
+		resp, err = commonrepo.NewTaskColl().DistinctFieldsPipelineTask(fieldName, projectName, pipelineName, typeString, false)
+		if err != nil {
+			log.Errorf("[%s] DistinctFeildsPipelineTask fieldName: %s error: %s", fieldName, pipelineName, err)
+			return resp, e.ErrGetTask
+		}
+	case "serviceName":
+		data, err := commonrepo.NewTaskColl().List(&commonrepo.ListTaskOption{PipelineName: pipelineName, Detail: true, Type: typeString})
+		if err != nil {
+			log.Errorf("PipelineTaskV2.List error: %s", err)
+			return resp, e.ErrListTasks
+		}
+		var buildStage, deployStage *commonmodels.Stage
+		svcSets := sets.NewString()
+		for _, t := range data {
+			for _, stage := range t.Stages {
+				if stage.TaskType == config.TaskBuild {
+					buildStage = stage
+				}
+				if stage.TaskType == config.TaskDeploy {
+					deployStage = stage
+				}
+			}
+			if buildStage != nil {
+				for serviceName := range buildStage.SubTasks {
+					svcSets.Insert(serviceName)
+				}
+			} else if deployStage != nil {
+				for serviceName := range deployStage.SubTasks {
+					svcSets.Insert(serviceName)
+				}
+			}
+			buildStage, deployStage = nil, nil
+		}
+		for svc := range svcSets {
+			resp = append(resp, svc)
+		}
+	default:
+		return resp, fmt.Errorf("queryType parameter is invalid")
+	}
 	return resp, nil
 }
 
