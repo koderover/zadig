@@ -306,17 +306,17 @@ func (gtem gitlabTagEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bo
 			}
 		} else {
 			isRegular := hookRepo.IsRegular
-			if !isRegular && hookRepo.Branch != getBranchFromRef(ev.Ref) {
+			if !isRegular && hookRepo.Branch != ev.Project.DefaultBranch {
 				return false, nil
 			}
 			if isRegular {
-				if matched, _ := regexp.MatchString(hookRepo.Branch, getBranchFromRef(ev.Ref)); !matched {
+				if matched, _ := regexp.MatchString(hookRepo.Branch, ev.Project.DefaultBranch); !matched {
 					return false, nil
 				}
 			}
 		}
 
-		hookRepo.Branch = getBranchFromRef(ev.Ref)
+		hookRepo.Branch = ev.Project.DefaultBranch
 
 		var changedFiles []string
 		detail, err := systemconfig.New().GetCodeHost(hookRepo.CodehostID)

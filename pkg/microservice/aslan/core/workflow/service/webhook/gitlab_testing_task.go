@@ -110,24 +110,17 @@ func (gtem gitlabTagEventMatcherForTesting) Match(hookRepo *commonmodels.MainHoo
 			return false, nil
 		}
 		isRegular := hookRepo.IsRegular
-		if !isRegular && hookRepo.Branch != getBranchFromRef(ev.Ref) {
+		if !isRegular && hookRepo.Branch != ev.Project.DefaultBranch {
 			return false, nil
 		}
 
 		if isRegular {
-			if matched, _ := regexp.MatchString(hookRepo.Branch, getBranchFromRef(ev.Ref)); !matched {
+			if matched, _ := regexp.MatchString(hookRepo.Branch, ev.Project.DefaultBranch); !matched {
 				return false, nil
 			}
 		}
-		hookRepo.Branch = getBranchFromRef(ev.Ref)
-		var changedFiles []string
-		for _, commit := range ev.Commits {
-			changedFiles = append(changedFiles, commit.Added...)
-			changedFiles = append(changedFiles, commit.Removed...)
-			changedFiles = append(changedFiles, commit.Modified...)
-		}
-
-		return MatchChanges(hookRepo, changedFiles), nil
+		hookRepo.Branch = ev.Project.DefaultBranch
+		return true, nil
 	}
 
 	return false, nil
