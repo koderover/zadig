@@ -33,8 +33,6 @@ type CollaborationInstance struct {
 	PolicyName        string             `bson:"policy_name" json:"policy_name"`
 	Workflows         []WorkflowCIItem   `json:"workflows" bson:"workflows"`
 	Products          []ProductCIItem    `bson:"products" json:"products"`
-	CreateBy          string             `bson:"create_by" json:"create_by"`
-	UpdateBy          string             `bson:"update_by" json:"update_by"`
 }
 type ProductCIItem struct {
 	Name              string                   `bson:"name" json:"name"`

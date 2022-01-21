@@ -36,7 +36,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 	policies := router.Group("policies")
 	{
-		policies.POST("", CreatePolicy)
+		policies.POST("", CreatePolicies)
 		policies.POST("/bulk-delete", DeletePolicies)
 		policies.PATCH("/:name", UpdatePolicy)
 		policies.PUT("/:name", UpdateOrCreatePolicy)

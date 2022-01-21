@@ -27,20 +27,52 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-func CreateLabels(labels []*models.Label) error {
-	return mongodb.NewLabelColl().BulkCreate(labels)
+type CreateLabelsResp struct {
+	LabelMap map[string]string `json:"label_map"`
+}
+
+func CreateLabels(labels []*models.Label) (*CreateLabelsResp, error) {
+	err := mongodb.NewLabelColl().BulkCreate(labels)
+	if err != nil {
+		return nil, err
+	}
+	var labelModels []mongodb.Label
+	for _, label := range labels {
+		labelModels = append(labelModels, mongodb.Label{
+			Key:   label.Key,
+			Value: label.Value,
+		})
+	}
+	var result map[string]string
+	resp, err := mongodb.NewLabelColl().List(mongodb.ListLabelOpt{
+		Labels: labelModels,
+	})
+	for _, label := range resp {
+		result[BuildLabelString(label.Key, label.Value)] = label.ID.Hex()
+	}
+	return &CreateLabelsResp{
+		LabelMap: result,
+	}, err
 }
 
 type ListLabelsArgs struct {
 	Labels []mongodb.Label `json:"labels"`
 }
 
+type ListLabelsResp struct {
+	Labels []*models.Label `json:"labels"`
+}
+
 type CreateLabelsArgs struct {
 	Labels []mongodb.Label `json:"labels"`
 }
 
-func ListLabels(args *ListLabelsArgs) ([]*models.Label, error) {
-	return mongodb.NewLabelColl().List(mongodb.ListLabelOpt{args.Labels})
+func ListLabels(args *ListLabelsArgs) (*ListLabelsResp, error) {
+	labels, err := mongodb.NewLabelColl().List(mongodb.ListLabelOpt{args.Labels})
+	if err != nil {
+		return nil, err
+	}
+	return &ListLabelsResp{Labels: labels}, nil
 }
 
 type ListResourceByLabelsReq struct {
@@ -178,7 +210,7 @@ func DeleteLabels(ids []string, forceDelete bool, logger *zap.SugaredLogger) err
 			labelBindingIDs = append(ids, labelBinding.ID.Hex())
 		}
 
-		if err := mongodb.NewLabelBindingColl().BulkDelete(labelBindingIDs); err != nil {
+		if err := mongodb.NewLabelBindingColl().BulkDeleteByIds(labelBindingIDs); err != nil {
 			logger.Errorf("NewLabelBindingColl DeleteMany err :%s", err)
 			return err
 		}
