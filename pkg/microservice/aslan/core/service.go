@@ -26,6 +26,7 @@ import (
 
 	commonconfig "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	modeMongodb "github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
@@ -51,7 +52,7 @@ const (
 )
 
 type policyGetter interface {
-	Policies() []*policy.Policy
+	Policies() []*policy.PolicyMeta
 }
 
 type Controller interface {
@@ -80,7 +81,7 @@ func StartControllers(stopCh <-chan struct{}) {
 
 func registerPolicies() {
 	policyClient := policy.NewWithRetry()
-	var policies []*policy.Policy
+	var policies []*policy.PolicyMeta
 	for _, r := range []policyGetter{
 		new(workflowhandler.Router),
 		new(environmenthandler.Router),
@@ -92,7 +93,7 @@ func registerPolicies() {
 	}
 
 	for _, p := range policies {
-		err := policyClient.CreateOrUpdatePolicy(p)
+		err := policyClient.CreateOrUpdatePolicyRegistration(p)
 		if err != nil {
 			// should not have happened here
 			log.DPanic(err)
@@ -214,6 +215,8 @@ func initDatabase() {
 		systemrepo.NewOperationLogColl(),
 		labelMongodb.NewLabelColl(),
 		labelMongodb.NewLabelBindingColl(),
+		modeMongodb.NewCollaborationModeColl(),
+		modeMongodb.NewCollaborationInstanceColl(),
 	} {
 		wg.Add(1)
 		go func(r indexer) {

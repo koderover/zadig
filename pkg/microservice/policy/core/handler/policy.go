@@ -27,12 +27,15 @@ import (
 type deletePoliciesArgs struct {
 	Names []string `json:"names"`
 }
+type createPoliciesArgs struct {
+	Policies []*service.Policy `json:"policies"`
+}
 
-func CreatePolicy(c *gin.Context) {
+func CreatePolicies(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := &service.Policy{}
+	args := &createPoliciesArgs{}
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.Err = err
 		return
@@ -43,8 +46,7 @@ func CreatePolicy(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("projectName is empty")
 		return
 	}
-
-	ctx.Err = service.CreatePolicy(projectName, args, ctx.Logger)
+	ctx.Err = service.CreatePolicies(projectName, args.Policies, ctx.Logger)
 }
 
 func UpdatePolicy(c *gin.Context) {

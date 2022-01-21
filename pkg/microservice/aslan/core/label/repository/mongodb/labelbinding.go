@@ -60,7 +60,14 @@ func (c *LabelBindingColl) EnsureIndex(ctx context.Context) error {
 	return err
 }
 
-func (c *LabelBindingColl) CreateMany(labelBindings []*models.LabelBinding) error {
+type LabelBinding struct {
+	Resource   Resource `json:"resource"`
+	LabelID    string   `json:"label_id"`
+	CreateBy   string   `json:"create_by"`
+	CreateTime int64    `json:"create_time"`
+}
+
+func (c *LabelBindingColl) CreateMany(labelBindings []*LabelBinding) error {
 	if len(labelBindings) == 0 {
 		return nil
 	}
@@ -126,7 +133,7 @@ func (c *LabelBindingColl) ListByOpt(opt *LabelBindingCollFindOpt) ([]*models.La
 	return ret, err
 }
 
-func (c *LabelBindingColl) BulkDelete(ids []string) error {
+func (c *LabelBindingColl) BulkDeleteByIds(ids []string) error {
 	if len(ids) == 0 {
 		return nil
 	}
@@ -141,6 +148,24 @@ func (c *LabelBindingColl) BulkDelete(ids []string) error {
 	}
 	query["_id"] = bson.M{"$in": oids}
 
+	_, err := c.DeleteMany(context.TODO(), query)
+	return err
+}
+
+func (c *LabelBindingColl) BulkDelete(labelBindings []*LabelBinding) error {
+	if len(labelBindings) == 0 {
+		return nil
+	}
+	condition := bson.A{}
+	for _, binding := range labelBindings {
+		condition = append(condition, bson.M{
+			"label_id":      binding.LabelID,
+			"resource_name": binding.Resource.Name,
+			"project_name":  binding.Resource.ProjectName,
+			"resource_type": binding.Resource.Type,
+		})
+	}
+	query := bson.D{{"$or", condition}}
 	_, err := c.DeleteMany(context.TODO(), query)
 	return err
 }

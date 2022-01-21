@@ -25,7 +25,7 @@ import (
 )
 
 func createLBValidate(cr *service.CreateLabelBindingsArgs) error {
-	for _, v := range cr.CreateLabelBindings {
+	for _, v := range cr.LabelBindings {
 		if v.LabelID == "" || v.Resource.Type == "" {
 			return e.ErrInvalidParam.AddDesc("invalid labelbinding args")
 		}
@@ -34,6 +34,22 @@ func createLBValidate(cr *service.CreateLabelBindingsArgs) error {
 }
 
 func CreateLabelBindings(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	createLabelBindingsArgs := new(service.CreateLabelBindingsArgs)
+	if err := c.ShouldBindJSON(createLabelBindingsArgs); err != nil {
+		ctx.Err = err
+		return
+	}
+	if err := createLBValidate(createLabelBindingsArgs); err != nil {
+		ctx.Err = err
+		return
+	}
+	ctx.Err = service.CreateLabelBindings(createLabelBindingsArgs, ctx.UserName, ctx.Logger)
+}
+
+func DeleteLabelBindings(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
