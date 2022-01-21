@@ -149,16 +149,16 @@ func (gtem githubTagEventMatcherForTesting) Match(hookRepo *commonmodels.MainHoo
 			return false, nil
 		}
 		isRegular := hookRepo.IsRegular
-		if !isRegular && hookRepo.Branch != getBranchFromRef(*ev.Ref) {
+		if !isRegular && hookRepo.Branch != *ev.Repo.DefaultBranch {
 			return false, nil
 		}
 
 		if isRegular {
-			if matched, _ := regexp.MatchString(hookRepo.Branch, getBranchFromRef(*ev.Ref)); !matched {
+			if matched, _ := regexp.MatchString(hookRepo.Branch, *ev.Repo.DefaultBranch); !matched {
 				return false, nil
 			}
 		}
-		hookRepo.Branch = getBranchFromRef(*ev.Ref)
+		hookRepo.Branch = *ev.Repo.DefaultBranch
 
 		return true, nil
 	}
