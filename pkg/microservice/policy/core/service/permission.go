@@ -19,8 +19,6 @@ package service
 import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
-
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/config"
 )
 
 // GetPermission user's permission for frontend
@@ -104,35 +102,13 @@ func GetResourcesPermission(uid string, projectName string, resourceType string,
 	}
 	for _, role := range roles {
 		for _, rule := range role.Rules {
-			if rule.Resources[0] == resourceType && resourceType != string(config.ResourceTypeProduct) {
+			if rule.Resources[0] == resourceType {
 				for k, v := range resourceM {
 					resourceM[k] = v.Insert(rule.Verbs...)
 				}
 			}
-			//if rule.Resources[0] == resourceType && resourceType == string(config.ResourceTypeProduct) {
-			//	//get cluster map
-			//	clusterMap := make(map[string]*commonmodels.K8SCluster)
-			//	clusters, err := commonrepo.NewK8SClusterColl().List(nil)
-			//	if err != nil {
-			//		log.Errorf("Failed to list clusters in db, err: %s", err)
-			//		return nil, err
-			//	}
-			//	for _, cls := range clusters {
-			//		clusterMap[cls.ID.Hex()] = cls
-			//	}
-			//	for k, v := range resourceM {
-			//		var isProduct bool
-			//		if product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: projectName, EnvName: k}); err != nil {
-			//			if cluster, ok := clusterMap[product.ClusterID]; ok {
-			//				isProduct = cluster.Production
-			//			}
-			//		}
-			//		ruleIsProduct rule.MatchAttributes[0].Value
-			//	}
-			//}
 		}
 	}
-
 	resourceRes := make(map[string][]string)
 	for k, v := range resourceM {
 		resourceRes[k] = v.List()
