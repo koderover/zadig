@@ -17,6 +17,8 @@ limitations under the License.
 package client
 
 import (
+	"sync"
+
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -25,6 +27,8 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/kube/multicluster"
 )
+
+var cacheMap sync.Map
 
 func GetKubeClient(hubServerAddr, clusterID string) (client.Client, error) {
 	if clusterID == setting.LocalClusterID {
@@ -35,11 +39,19 @@ func GetKubeClient(hubServerAddr, clusterID string) (client.Client, error) {
 }
 
 func GetKubeClientWithCache(hubServerAddr, clusterID string) (cache.Cache, error) {
+	if item, ok := cacheMap.Load(clusterID); ok {
+		return item.(cache.Cache), nil
+	}
 	if clusterID == setting.LocalClusterID {
 		clusterID = ""
 	}
 
-	return multicluster.GetKubeClientWithCache(hubServerAddr, clusterID)
+	c, err := multicluster.GetKubeClientWithCache(hubServerAddr, clusterID)
+	if err != nil {
+		return c, err
+	}
+	cacheMap.Store(clusterID, c)
+	return c, nil
 }
 
 func GetKubeAPIReader(hubServerAddr, clusterID string) (client.Reader, error) {
