@@ -17,6 +17,8 @@ limitations under the License.
 package client
 
 import (
+	"context"
+	"fmt"
 	"sync"
 
 	"k8s.io/client-go/kubernetes"
@@ -50,6 +52,12 @@ func GetKubeClientWithCache(hubServerAddr, clusterID string) (cache.Cache, error
 	if err != nil {
 		return c, err
 	}
+	go func() {
+		err := c.Start(context.TODO())
+		if err != nil {
+			fmt.Println("SOMETHING WENT WRONG FETCHING THE K8S RESOURCES")
+		}
+	}()
 	cacheMap.Store(clusterID, c)
 	return c, nil
 }
