@@ -204,23 +204,23 @@ func (c *RoleBindingColl) UpdateOrCreate(obj *models.RoleBinding) error {
 	return err
 }
 
-type RoleBindingMeta struct {
+type RoleBinding struct {
 	Uid       string `json:"uid"`
 	Namespace string `json:"namespace"`
 }
 
 type ListRoleBindingsOpt struct {
-	RoleBindingMetas []RoleBindingMeta
+	RoleBindings []RoleBinding
 }
 
 func (c *RoleBindingColl) ListByRoleBindingOpt(opt ListRoleBindingsOpt) ([]*models.RoleBinding, error) {
 	var res []*models.RoleBinding
 
-	if len(opt.RoleBindingMetas) == 0 {
+	if len(opt.RoleBindings) == 0 {
 		return nil, nil
 	}
 	condition := bson.A{}
-	for _, meta := range opt.RoleBindingMetas {
+	for _, meta := range opt.RoleBindings {
 		condition = append(condition, bson.M{
 			"namespace":    meta.Namespace,
 			"subjects.uid": meta.Uid,

@@ -150,3 +150,15 @@ func DeleteRoles(names []string, projectName string, logger *zap.SugaredLogger) 
 
 	return mongodb.NewRoleBindingColl().DeleteByRoles(names, projectName)
 }
+
+func ListUserAllRolesByRoleBindings(roleBindings []*models.RoleBinding) ([]*models.Role, error) {
+	var roles []*models.Role
+	for _, v := range roleBindings {
+		tmpRoles, err := mongodb.NewRoleColl().ListBySpaceAndName(v.RoleRef.Namespace, v.RoleRef.Name)
+		if err != nil {
+			continue
+		}
+		roles = append(roles, tmpRoles...)
+	}
+	return roles, nil
+}
