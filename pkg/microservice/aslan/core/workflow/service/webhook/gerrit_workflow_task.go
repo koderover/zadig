@@ -223,7 +223,7 @@ func (gpcem *gerritPatchsetCreatedEventMatcher) Match(hookRepo *commonmodels.Mai
 			existEventNames = append(existEventNames, string(eventName))
 		}
 		if sets.NewString(existEventNames...).Has(event.Type) {
-			hookRepo.Committer = event.PatchSet.Author.Username
+			hookRepo.Committer = event.Uploader.Username
 			return true, nil
 		}
 	}

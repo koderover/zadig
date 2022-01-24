@@ -70,7 +70,7 @@ func (gpem *githubPushEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (
 			}
 		}
 		hookRepo.Branch = getBranchFromRef(*ev.Ref)
-		hookRepo.Committer = *ev.Pusher.Login
+		hookRepo.Committer = *ev.Pusher.Name
 		var changedFiles []string
 		for _, commit := range ev.Commits {
 			changedFiles = append(changedFiles, commit.Added...)
@@ -257,6 +257,7 @@ func (gtem githubTagEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bo
 			}
 		}
 		hookRepo.Tag = getTagFromRef(*ev.Ref)
+		hookRepo.Committer = *ev.Sender.Name
 
 		return true, nil
 	}
