@@ -50,6 +50,7 @@ type Testing struct {
 	Workflows       []*Workflow      `bson:"-"                        json:"workflows,omitempty"`
 	Schedules       *ScheduleCtrl    `bson:"schedules,omitempty"      json:"schedules,omitempty"`
 	HookCtl         *TestingHookCtrl `bson:"hook_ctl"                 json:"hook_ctl"`
+	NotifyCtl       *NotifyCtl       `bson:"notify_ctl,omitempty"     json:"notify_ctl,omitempty"`
 	ScheduleEnabled bool             `bson:"schedule_enabled"         json:"-"`
 }
 

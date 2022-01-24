@@ -70,6 +70,7 @@ func (gpem *githubPushEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (
 			}
 		}
 		hookRepo.Branch = getBranchFromRef(*ev.Ref)
+		hookRepo.Committer = *ev.Pusher.Login
 		var changedFiles []string
 		for _, commit := range ev.Commits {
 			changedFiles = append(changedFiles, commit.Added...)
@@ -133,6 +134,7 @@ func (gmem *githubMergeEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) 
 			}
 		}
 		hookRepo.Branch = *ev.PullRequest.Base.Ref
+		hookRepo.Committer = *ev.PullRequest.User.Login
 		if *ev.PullRequest.State == "open" {
 			var changedFiles []string
 			changedFiles, err := gmem.diffFunc(ev, hookRepo.CodehostID)
@@ -321,6 +323,7 @@ func TriggerWorkflowByGithubEvent(event interface{}, baseURI, deliveryID, reques
 					args.CodehostID = item.MainRepo.CodehostID
 					args.RepoOwner = item.MainRepo.RepoOwner
 					args.RepoName = item.MainRepo.RepoName
+					args.Committer = item.MainRepo.Committer
 					args.HookPayload = hookPayload
 
 					// 3. create task with args

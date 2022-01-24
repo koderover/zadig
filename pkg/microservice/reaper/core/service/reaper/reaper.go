@@ -416,7 +416,6 @@ func (r *Reaper) AfterExec(upStreamErr error) error {
 			log.Errorf("Failed to archive html test report: %s", err)
 			return err
 		}
-
 	}
 
 	if upStreamErr != nil {
@@ -451,11 +450,13 @@ func (r *Reaper) AfterExec(upStreamErr error) error {
 		return err
 	}
 
-	// Upload workspace cache.
+	// Upload workspace cache if user uses workspace cache.
 	// Note: Whether the cache is uploaded successfully or not cannot hinder the progress of the overall process,
 	//       so only exceptions are printed here and the process is not interrupted.
-	if err := r.CompressCache(r.Ctx.StorageURI); err != nil {
-		log.Warnf("Failed to run compress cache: %s", err)
+	if !r.Ctx.CleanWorkspace && !r.Ctx.ResetCache {
+		if err := r.CompressCache(r.Ctx.StorageURI); err != nil {
+			log.Warnf("Failed to run compress cache: %s", err)
+		}
 	}
 
 	// Create dog food file to tell wd that task has finished.

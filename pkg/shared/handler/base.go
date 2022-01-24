@@ -22,13 +22,14 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
-	"github.com/koderover/zadig/pkg/config"
+	systemmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/system/repository/models"
+	systemservice "github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/client/aslan"
 	"github.com/koderover/zadig/pkg/util/ginzap"
 )
 
@@ -118,7 +119,17 @@ func JSONResponse(c *gin.Context, ctx *Context) {
 
 // InsertOperationLog 插入操作日志
 func InsertOperationLog(c *gin.Context, username, productName, method, function, detail, requestBody string, logger *zap.SugaredLogger) {
-	operationLogID, err := aslan.New(config.AslanServiceAddress()).AddAuditLog(username, productName, method, function, detail, requestBody, logger)
+	req := &systemmodels.OperationLog{
+		Username:    username,
+		ProductName: productName,
+		Method:      method,
+		Function:    function,
+		Name:        detail,
+		RequestBody: requestBody,
+		Status:      0,
+		CreatedAt:   time.Now().Unix(),
+	}
+	operationLogID, err := systemservice.InsertOperation(req, logger)
 	if err != nil {
 		logger.Errorf("InsertOperation err:%v", err)
 	}

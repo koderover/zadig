@@ -227,10 +227,19 @@ func (buildCtx *DockerBuildCtx) GetDockerFile() string {
 	return buildCtx.DockerFile
 }
 
+type ParameterSettingType string
+
+const (
+	StringType ParameterSettingType = "string"
+	ChoiceType ParameterSettingType = "choice"
+)
+
 type KeyVal struct {
-	Key          string `bson:"key"                 json:"key"`
-	Value        string `bson:"value"               json:"value"`
-	IsCredential bool   `bson:"is_credential"       json:"is_credential"`
+	Key          string               `bson:"key"                 json:"key"`
+	Value        string               `bson:"value"               json:"value"`
+	Type         ParameterSettingType `bson:"type,omitempty"                json:"type,omitempty"`
+	ChoiceOption []string             `bson:"choice_option,omitempty"       json:"choice_option,omitempty"`
+	IsCredential bool                 `bson:"is_credential"       json:"is_credential"`
 }
 
 type Repository struct {

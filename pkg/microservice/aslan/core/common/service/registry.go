@@ -78,8 +78,8 @@ func findRegisty(regOps *mongodb.FindRegOps, getRealCredential bool, log *zap.Su
 	}
 	switch resp.RegProvider {
 	case config.RegistryTypeSWR:
-		resp.AccessKey = fmt.Sprintf("%s@%s", resp.Region, resp.AccessKey)
 		resp.SecretKey = util.ComputeHmacSha256(resp.AccessKey, resp.SecretKey)
+		resp.AccessKey = fmt.Sprintf("%s@%s", resp.Region, resp.AccessKey)
 	case config.RegistryTypeAWS:
 		realAK, realSK, err := getAWSRegistryCredential(resp.ID.Hex(), resp.AccessKey, resp.SecretKey, resp.Region)
 		if err != nil {
@@ -111,8 +111,8 @@ func ListRegistryNamespaces(getRealCredential bool, log *zap.SugaredLogger) ([]*
 	for _, reg := range resp {
 		switch reg.RegProvider {
 		case config.RegistryTypeSWR:
-			reg.AccessKey = fmt.Sprintf("%s@%s", reg.Region, reg.AccessKey)
 			reg.SecretKey = util.ComputeHmacSha256(reg.AccessKey, reg.SecretKey)
+			reg.AccessKey = fmt.Sprintf("%s@%s", reg.Region, reg.AccessKey)
 		case config.RegistryTypeAWS:
 			realAK, realSK, err := getAWSRegistryCredential(reg.ID.Hex(), reg.AccessKey, reg.SecretKey, reg.Region)
 			if err != nil {

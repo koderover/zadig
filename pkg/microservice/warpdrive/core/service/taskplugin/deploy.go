@@ -27,8 +27,8 @@ import (
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	helmrelease "helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/releaseutil"
+	"helm.sh/helm/v3/pkg/storage"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/rest"
@@ -544,20 +544,6 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			Wait:        true,
 		}
 
-		done := make(chan bool)
-		defer close(done)
-		go func(chan bool) {
-			if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), &chartSpec); err != nil {
-				err = errors.WithMessagef(
-					err,
-					"failed to Install helm chart %s/%s",
-					p.Task.Namespace, p.Task.ServiceName)
-				done <- false
-			} else {
-				done <- true
-			}
-		}(done)
-
 		pendingStatusProcess := func(typ string) error {
 			hrs, errHistory := helmClient.ListReleaseHistory(chartSpec.ReleaseName, 10)
 			if errHistory != nil {
@@ -570,8 +556,8 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			if len(hrs) > 0 {
 				releaseutil.Reverse(hrs, releaseutil.SortByRevision)
 				rel := hrs[0]
-				if rel.Info.Status == helmrelease.StatusPendingInstall || rel.Info.Status == helmrelease.StatusPendingUpgrade {
-					secretName := fmt.Sprintf("sh.helm.release.v1.%s.v%d", rel.Name, rel.Version)
+				if rel.Info.Status.IsPending() {
+					secretName := fmt.Sprintf("%s.%s.v%d", storage.HelmStorageType, rel.Name, rel.Version)
 					deleteErr := updater.DeleteSecretWithName(rel.Namespace, secretName, p.kubeClient)
 					if deleteErr != nil {
 						err = errors.WithMessagef(err, "failed to deleteSecretWithName:%s,error:%s", secretName, deleteErr)
@@ -580,16 +566,41 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				}
 			}
 			if err != nil {
-				err = fmt.Errorf("failed to install %s:%s", typ, err)
+				return err
+			} else {
+				if typ == "timeout" {
+					err = fmt.Errorf("failed to upgrade %s", typ)
+				}
 			}
 			return err
 		}
+
+		// ensure release status not in pending
+		err = pendingStatusProcess("ensureStatus")
+		if err != nil {
+			err = errors.Wrapf(err, "failed to delete pending status for release: %s", chartSpec.ReleaseName)
+			return
+		}
+
+		done := make(chan bool)
+		go func(chan bool) {
+			if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), &chartSpec); err != nil {
+				err = errors.WithMessagef(
+					err,
+					"failed to Install helm chart %s/%s",
+					p.Task.Namespace, p.Task.ServiceName)
+				done <- false
+			} else {
+				done <- true
+			}
+		}(done)
+
 		select {
 		case d := <-done:
 			if !d {
 				err = pendingStatusProcess("normal")
 			}
-		case <-time.After(chartSpec.Timeout + 5*time.Second):
+		case <-time.After(chartSpec.Timeout + 30*time.Second):
 			err = pendingStatusProcess("timeout")
 		}
 		if err != nil {
@@ -636,7 +647,7 @@ func (p *DeployTaskPlugin) getService(ctx context.Context, name, serviceType, pr
 
 	s := &types.ServiceTmpl{}
 	_, err := p.httpClient.Get(url, httpclient.SetResult(s), httpclient.SetQueryParams(map[string]string{
-		"productName": productName,
+		"projectName": productName,
 		"revision":    fmt.Sprintf("%d", revision),
 	}))
 	if err != nil {
