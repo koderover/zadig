@@ -513,7 +513,7 @@ func EventConfigured(m *commonmodels.MainHookRepo, event config.HookEventType) b
 	return false
 }
 
-func ServicesMatchChangesFiles(mf *MatchFoldersElem, m *commonmodels.MainHookRepo, files []string) []BuildServices {
+func ServicesMatchChangesFiles(mf *MatchFoldersElem, files []string) []BuildServices {
 	resMactchSvr := []BuildServices{}
 	var wg sync.WaitGroup
 	var mutex sync.Mutex

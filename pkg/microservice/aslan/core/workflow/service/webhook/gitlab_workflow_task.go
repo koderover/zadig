@@ -98,7 +98,7 @@ func (gmem *gitlabMergeEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) 
 			}
 			gmem.log.Debugf("succeed to get %d changes in merge event", len(changedFiles))
 			if gmem.isYaml {
-				serviceChangeds := ServicesMatchChangesFiles(gmem.trigger.Rules.MatchFolders, hookRepo, changedFiles)
+				serviceChangeds := ServicesMatchChangesFiles(gmem.trigger.Rules.MatchFolders, changedFiles)
 				gmem.yamlServiceChanged = serviceChangeds
 				return len(serviceChangeds) != 0, nil
 			}
@@ -238,7 +238,7 @@ func (gpem *gitlabPushEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (
 			changedFiles = append(changedFiles, diff.OldPath)
 		}
 		if gpem.isYaml {
-			serviceChangeds := ServicesMatchChangesFiles(gpem.trigger.Rules.MatchFolders, hookRepo, changedFiles)
+			serviceChangeds := ServicesMatchChangesFiles(gpem.trigger.Rules.MatchFolders, changedFiles)
 			gpem.yamlServiceChanged = serviceChangeds
 			return len(serviceChangeds) != 0, nil
 		}
@@ -293,14 +293,13 @@ type gitlabTagEventMatcher struct {
 func (gtem gitlabTagEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
 	ev := gtem.event
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.Project.PathWithNamespace {
-		gtem.log.Infof("hookRepo.events:%+v", hookRepo.Events)
 		if !EventConfigured(hookRepo, config.HookEventTag) {
 			return false, nil
 		}
 		if gtem.isYaml {
 			refFlag := false
 			for _, ref := range gtem.trigger.Rules.Branchs {
-				if matched, _ := regexp.MatchString(ref, getBranchFromRef(ev.Ref)); matched {
+				if matched, _ := regexp.MatchString(ref, ev.Project.DefaultBranch); matched {
 					refFlag = true
 					break
 				}
@@ -349,7 +348,7 @@ func (gtem gitlabTagEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bo
 			changedFiles = append(changedFiles, diff.OldPath)
 		}
 		if gtem.isYaml {
-			serviceChangeds := ServicesMatchChangesFiles(gtem.trigger.Rules.MatchFolders, hookRepo, changedFiles)
+			serviceChangeds := ServicesMatchChangesFiles(gtem.trigger.Rules.MatchFolders, changedFiles)
 			gtem.yamlServiceChanged = serviceChangeds
 			return len(serviceChangeds) != 0, nil
 		}
