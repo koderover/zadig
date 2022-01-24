@@ -111,8 +111,8 @@ func ListRegistryNamespaces(getRealCredential bool, log *zap.SugaredLogger) ([]*
 	for _, reg := range resp {
 		switch reg.RegProvider {
 		case config.RegistryTypeSWR:
-			reg.AccessKey = fmt.Sprintf("%s@%s", reg.Region, reg.AccessKey)
 			reg.SecretKey = util.ComputeHmacSha256(reg.AccessKey, reg.SecretKey)
+			reg.AccessKey = fmt.Sprintf("%s@%s", reg.Region, reg.AccessKey)
 		case config.RegistryTypeAWS:
 			realAK, realSK, err := getAWSRegistryCredential(reg.ID.Hex(), reg.AccessKey, reg.SecretKey, reg.Region)
 			if err != nil {
