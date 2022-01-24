@@ -18,9 +18,7 @@ package service
 
 import (
 	"fmt"
-	"strconv"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/config"
 	labeldb "github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
@@ -43,17 +41,6 @@ func GetBundleResources() ([]*resourceSpec, error) {
 		return nil, err
 	}
 
-	clusterMap := make(map[string]*models.K8SCluster)
-	clusters, err := mongodb.NewK8SClusterColl().List(nil)
-	if err != nil {
-		log.Errorf("Failed to list clusters in db, err: %s", err)
-		return nil, err
-	}
-
-	for _, cls := range clusters {
-		clusterMap[cls.ID.Hex()] = cls
-	}
-
 	// get labels by workflow resources ids
 	var resources []labeldb.Resource
 	for _, env := range envs {
@@ -70,20 +57,11 @@ func GetBundleResources() ([]*resourceSpec, error) {
 	}
 
 	for _, env := range envs {
-		clusterID := env.ClusterID
-		production := false
-		cluster, ok := clusterMap[clusterID]
-		if ok {
-			production = cluster.Production
-		}
-
 		resourceKey := fmt.Sprintf("%s-%s-%s", config.ResourceTypeProduct, env.ProductName, env.EnvName)
 		resourceSpec := &resourceSpec{
 			ResourceID:  env.EnvName,
 			ProjectName: env.ProductName,
-			Spec: map[string]interface{}{
-				"production": strconv.FormatBool(production),
-			},
+			Spec:        map[string]interface{}{},
 		}
 		if labels, ok := labelsResp.Labels[resourceKey]; ok {
 			for _, v := range labels {
