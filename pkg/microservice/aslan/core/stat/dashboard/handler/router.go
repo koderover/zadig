@@ -23,7 +23,7 @@ import (
 type Router struct{}
 
 func (*Router) Inject(router *gin.RouterGroup) {
-	stat := router.Group("stat")
+	stat := router.Group("dashboard")
 	{
 		stat.GET("/overview", GetOverviewStat)
 		stat.GET("/build", GetBuildStat)
