@@ -202,6 +202,14 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 	namespace := env.Namespace
 	switch env.Source {
 	case setting.SourceFromExternal, setting.SourceFromHelm:
+		if workLoadType == "undefined" && env.Source == setting.SourceFromExternal {
+			svcOpt := &commonrepo.ServiceFindOption{ProductName: productName, ServiceName: serviceName, Type: setting.K8SDeployType}
+			modelSvc, err := commonrepo.NewServiceColl().Find(svcOpt)
+			if err != nil {
+				return nil, e.ErrGetService.AddErr(err)
+			}
+			workLoadType = modelSvc.WorkloadType
+		}
 		k8sServices, _ := getter.ListServices(namespace, nil, kubeClient)
 		switch workLoadType {
 		case setting.StatefulSet:
