@@ -23,9 +23,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/service"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/label"
 )
 
 // GetPermission user's permission for frontend
@@ -121,22 +120,23 @@ func GetResourcesPermission(uid string, projectName string, resourceType string,
 				}
 			}
 			if (rule.Resources[0] == "Environment" || rule.Resources[0] == "ProductionEnvironment") && resourceType == string(config.ResourceTypeProduct) {
-				var rs []mongodb.Resource
+				var rs []label.Resource
 				for _, v := range resources {
-					r := mongodb.Resource{
+					r := label.Resource{
 						Name:        v,
 						ProjectName: projectName,
 						Type:        string(config.ResourceTypeProduct),
 					}
 					rs = append(rs, r)
 				}
-				labels, err := service.ListLabelsByResources(rs, logger)
+
+				labelRes, err := label.New().ListLabelsByResources(label.ListLabelsByResourcesReq{rs})
 				if err != nil {
 					continue
 				}
 				for _, resource := range resources {
 					resourceKey := fmt.Sprintf("%s-%s-%s", config.ResourceTypeProduct, projectName, resource)
-					if labels, ok := labels.Labels[resourceKey]; ok {
+					if labels, ok := labelRes.Labels[resourceKey]; ok {
 						for _, label := range labels {
 							if label.Key == "production" {
 								if rule.Resources[0] == "Environment" && label.Value == "false" {

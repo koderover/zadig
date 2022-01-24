@@ -149,6 +149,7 @@ func ListLabelsByResources(resources []mongodb.Resource, logger *zap.SugaredLogg
 	if err != nil {
 		return nil, err
 	}
+
 	//2.find labels by labelBindings
 	labelIDSet := sets.NewString()
 	for _, v := range labelBindings {
