@@ -34,7 +34,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	quality := router.Group("quality")
 	{
 		//buildquality
-		quality.GET("/initBuildquality", GetAllPipelineTask)
+		quality.POST("/initBuildquality", GetAllPipelineTask)
 		quality.GET("/buildAverageMeasure", GetBuildDailyAverageMeasure)
 		quality.GET("/buildDailyMeasure", GetBuildDailyMeasure)
 		quality.GET("/buildHealthMeasure", GetBuildHealthMeasure)
@@ -42,14 +42,14 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		quality.GET("/buildTenDurationMeasure", GetTenDurationMeasure)
 		quality.GET("/buildTrend", GetBuildTrendMeasure)
 		//testquality
-		quality.GET("/initTestquality", InitTestStat)
+		quality.POST("/initTestquality", InitTestStat)
 		quality.GET("/testAverageMeasure", GetTestAverageMeasure)
 		quality.GET("/testCaseMeasure", GetTestCaseMeasure)
 		quality.GET("/testDeliveryDeploy", GetTestDeliveryDeployMeasure)
 		quality.GET("/testHealthMeasure", GetTestHealthMeasure)
 		quality.GET("/testTrend", GetTestTrendMeasure)
 		//deployquality
-		quality.GET("/initDeployquality", InitDeployStat)
+		quality.POST("/initDeployquality", InitDeployStat)
 		quality.GET("/pipelineHealthMeasure", GetPipelineHealthMeasure)
 		quality.GET("/deployHealthMeasure", GetDeployHealthMeasure)
 		quality.GET("/deployWeeklyMeasure", GetDeployWeeklyMeasure)
