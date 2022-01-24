@@ -615,7 +615,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, modeInstanceMap map[strin
 	return nil
 }
 
-func syncResource(products SyncCollaborationInstanceArgs, updateResp *GetCollaborationUpdateResp, projectName, userName, requestID string,
+func syncResource(products *SyncCollaborationInstanceArgs, updateResp *GetCollaborationUpdateResp, projectName, userName, requestID string,
 	logger *zap.SugaredLogger) error {
 	err := syncNewResource(products, updateResp, projectName, userName, requestID, logger)
 	if err != nil {
@@ -646,7 +646,7 @@ func syncDeleteResource(updateResp *GetCollaborationUpdateResp, username, projec
 	return nil
 }
 
-func syncNewResource(products SyncCollaborationInstanceArgs, updateResp *GetCollaborationUpdateResp, projectName, userName, requestID string,
+func syncNewResource(products *SyncCollaborationInstanceArgs, updateResp *GetCollaborationUpdateResp, projectName, userName, requestID string,
 	logger *zap.SugaredLogger) error {
 	newResp, err := getCollaborationNew(updateResp, projectName, userName, logger)
 	if err != nil {
@@ -712,7 +712,7 @@ type SyncCollaborationInstanceArgs struct {
 	Products []Product `json:"products"`
 }
 
-func SyncCollaborationInstance(products SyncCollaborationInstanceArgs, projectName, uid, userName, requestID string, logger *zap.SugaredLogger) error {
+func SyncCollaborationInstance(products *SyncCollaborationInstanceArgs, projectName, uid, userName, requestID string, logger *zap.SugaredLogger) error {
 	updateResp, err := GetCollaborationUpdate(projectName, uid, userName, logger)
 	if err != nil {
 		logger.Errorf("GetCollaborationNew error, err msg:%s", err)
