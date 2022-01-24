@@ -39,7 +39,7 @@ func GetUserPermission(c *gin.Context) {
 
 type GetUserResourcesPermissionReq struct {
 	ProjectName  string   `json:"project_name"      form:"project_name"`
-	Uid          string   `json:"uid" form:"uid"`
+	Uid          string   `json:"uid"               form:"uid"`
 	Resources    []string `json:"resources"        form:"resources"`
 	ResourceType string   `json:"resource_type"        form:"resource_type"`
 }
