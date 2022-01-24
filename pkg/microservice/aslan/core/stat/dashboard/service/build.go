@@ -19,9 +19,9 @@ package service
 import (
 	"sort"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/stat/dashboard/repository/models"
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/stat/dashboard/repository/models"
 	repo "github.com/koderover/zadig/pkg/microservice/aslan/core/stat/dashboard/repository/mongodb"
 )
 
