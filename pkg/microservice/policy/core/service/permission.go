@@ -101,6 +101,10 @@ func GetResourcesPermission(uid string, projectName string, resourceType string,
 		return nil, err
 	}
 	for _, role := range roles {
+		if role.Name == "admin" || role.Name == "project-admin" {
+			resourceM["*"] = sets.NewString("*")
+			break
+		}
 		for _, rule := range role.Rules {
 			if rule.Resources[0] == resourceType {
 				for k, v := range resourceM {
