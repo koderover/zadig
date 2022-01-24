@@ -86,6 +86,18 @@ func (c *WorkflowColl) List(opt *ListWorkflowOption) ([]*models.Workflow, error)
 	return resp, nil
 }
 
+func (c *WorkflowColl) Count() (int64, error) {
+	query := bson.M{}
+
+	ctx := context.Background()
+	count, err := c.Collection.CountDocuments(ctx, query)
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}
+
 func (c *WorkflowColl) ListByTestName(testName string) ([]*models.Workflow, error) {
 	// 查询test_stage.tests中存在此testName 或者 test_stage.test_names存在此testName的工作流
 	match := []bson.M{

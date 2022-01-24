@@ -485,12 +485,15 @@ func (c *ServiceColl) ListMaxRevisions(opt *ServiceListOption) ([]*models.Servic
 }
 
 func (c *ServiceColl) Count(productName string) (int, error) {
+	match := bson.M{
+		"status": bson.M{"$ne": setting.ProductStatusDeleting},
+	}
+	if productName != "" {
+		match["product_name"] = productName
+	}
 	pipeline := []bson.M{
 		{
-			"$match": bson.M{
-				"product_name": productName,
-				"status":       bson.M{"$ne": setting.ProductStatusDeleting},
-			},
+			"$match": match,
 		},
 		{
 			"$group": bson.M{

@@ -139,6 +139,18 @@ func (c *ProductColl) Find(opt *ProductFindOptions) (*models.Product, error) {
 	return res, err
 }
 
+func (c *ProductColl) EnvCount() (int64, error) {
+	query := bson.M{"status": bson.M{"$ne": setting.ProductStatusDeleting}}
+
+	ctx := context.Background()
+	count, err := c.Collection.CountDocuments(ctx, query)
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}
+
 func (c *ProductColl) List(opt *ProductListOptions) ([]*models.Product, error) {
 	var ret []*models.Product
 	query := bson.M{}
