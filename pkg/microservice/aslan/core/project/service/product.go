@@ -37,6 +37,7 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collie"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
@@ -422,6 +423,12 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 	)
 	for _, s := range services {
 		commonservice.ProcessServiceWebhook(nil, s, s.ServiceName, log)
+	}
+
+	// clear caches in s3
+	err = fs.DeleteDirFromS3([]string{productName}, log)
+	if err != nil {
+		log.Errorf("failed to delete s3 caches of project: %s", productName)
 	}
 
 	//删除交付中心

@@ -165,6 +165,14 @@ func DeleteProductTemplate(c *gin.Context) {
 	ctx.Err = projectservice.DeleteProductTemplate(ctx.UserName, c.Param("name"), ctx.RequestID, ctx.Logger)
 }
 
+func ClearProject(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Param("name"), "清理", "项目管理-项目", "", "", ctx.Logger)
+	ctx.Err = projectservice.ClearProject(ctx.RequestID, ctx.Logger)
+}
+
 func ListTemplatesHierachy(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
@@ -229,4 +237,8 @@ func CreateOrUpdateMatchRules(c *gin.Context) {
 	}
 
 	ctx.Err = projectservice.UpdateCustomMatchRules(c.Param("name"), ctx.UserName, args.Rules)
+}
+
+func ClearProducts(c *gin.Context) {
+
 }

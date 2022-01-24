@@ -20,8 +20,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
+	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	helmclient "github.com/mittwald/go-helm-client"
+
+	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -31,11 +35,9 @@ import (
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 )
 
@@ -79,6 +81,7 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 		}
 
 		go func() {
+			var hc helmclient.Client
 			var err error
 			defer func() {
 				if err != nil {
@@ -94,7 +97,7 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 			}()
 
 			//卸载helm release资源
-			if hc, err := helmtool.NewClientFromRestConf(restConfig, productInfo.Namespace); err == nil {
+			if hc, err = helmtool.NewClientFromRestConf(restConfig, productInfo.Namespace); err == nil {
 				for _, services := range productInfo.Services {
 					for _, service := range services {
 						if err = hc.UninstallRelease(&helmclient.ChartSpec{

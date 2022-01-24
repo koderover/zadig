@@ -147,7 +147,7 @@ func DeleteArchivedFileFromS3(names []string, s3Base string, logger *zap.Sugared
 	}
 
 	s3PathList := make([]string, 0, len(names))
-	for _, name := range s3PathList {
+	for _, name := range names {
 		tarball := fmt.Sprintf("%s.tar.gz", name)
 		s3Path := filepath.Join(s3.Subfolder, s3Base, tarball)
 		s3PathList = append(s3PathList, s3Path)
@@ -164,4 +164,25 @@ func DeleteArchivedFileFromS3(names []string, s3Base string, logger *zap.Sugared
 	}
 
 	return client.DeleteObjects(s3.Bucket, s3PathList)
+}
+
+func DeleteDirFromS3(paths []string, logger *zap.SugaredLogger) error {
+	s3, err := s3service.FindDefaultS3()
+	if err != nil {
+		logger.Errorf("Failed to find default s3, err: %s", err)
+		return err
+	}
+
+	forcedPathStyle := true
+	if s3.Provider == setting.ProviderSourceAli {
+		forcedPathStyle = false
+	}
+	client, err := s3tool.NewClient(s3.Endpoint, s3.Ak, s3.Sk, s3.Insecure, forcedPathStyle)
+	if err != nil {
+		logger.Errorf("Failed to create s3 client, err: %s", err)
+		return err
+	}
+
+	client.RemoveFiles(s3.Bucket, paths)
+	return nil
 }

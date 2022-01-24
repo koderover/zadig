@@ -17,10 +17,17 @@ limitations under the License.
 package service
 
 import (
+	"github.com/hashicorp/go-multierror"
+	"github.com/koderover/zadig/pkg/config"
+	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/system/service"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 )
 
@@ -200,7 +207,7 @@ func listMinimalProjectInfos(opts *ProjectListOptions, logger *zap.SugaredLogger
 }
 
 func getProjectsWithEnvs(opts *ProjectListOptions) (sets.String, map[string][]string, error) {
-	nameWithEnvs, err := mongodb.NewProductColl().ListProjectsInNames(opts.Names)
+	nameWithEnvs, err := commonrepo.NewProductColl().ListProjectsInNames(opts.Names)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -229,4 +236,78 @@ func getProjects(opts *ProjectListOptions) (sets.String, map[string]*templaterep
 	}
 
 	return nameSet, nameMap, nil
+}
+
+func clearChartTemplate(logger *zap.SugaredLogger) {
+	cts, err := commonrepo.NewChartColl().List()
+	if err != nil {
+		logger.Errorf("Failed to list chart templates, err: %s", err)
+		return
+	}
+
+	paths := make([]string, 0)
+	for _, ct := range cts {
+		paths = append(paths, config.ObjectStorageChartTemplatePath(ct.Name))
+	}
+
+	err = fsservice.DeleteDirFromS3(paths, logger)
+	if err != nil {
+		logger.Errorf("failed to delete dir from s3, err: %s", err)
+	}
+}
+
+func ClearProject(requestID string, log *zap.SugaredLogger) error {
+
+	errList := new(multierror.Error)
+
+	projects, err := templaterepo.NewProductColl().List()
+	if err != nil {
+		return errors.Wrapf(err, "failed to list projects")
+	}
+
+	// delete resources created by zadig
+	for _, project := range projects {
+		projectName := project.ProjectName
+
+		// test modules need to be deleted explicitly to delete related webhooks
+		if err = DeleteTestModules(projectName, requestID, log); err != nil {
+			errList = multierror.Append(errList, errors.Wrapf(err, "failed to delete test modules for porject: %s", projectName))
+			continue
+		}
+
+		// workflows modules need to be deleted explicitly to delete related webhooks
+		if err = commonservice.DeleteWorkflows(projectName, requestID, log); err != nil {
+			errList = multierror.Append(errList, errors.Wrapf(err, "failed to delete workflows for porject: %s", projectName))
+			continue
+		}
+
+		// pipelines need to be deleted explicitly to delete related webhooks
+		if err = commonservice.DeletePipelines(projectName, requestID, log); err != nil {
+			errList = multierror.Append(errList, errors.Wrapf(err, "failed to delete pipelines for porject: %s", projectName))
+			continue
+		}
+
+		// delete namespaces and other resource created by zadig
+		err = DeleteProductsAsync("zadig", projectName, requestID, log)
+		if err != nil {
+			errList = multierror.Append(errors.Wrapf(err, "failed to delete product for project: %s", projectName))
+			continue
+		}
+
+	}
+
+	if errList.ErrorOrNil() != nil {
+		return errList.ErrorOrNil()
+	}
+
+	// clean cache should not block clean progress
+	err = service.CleanCache()
+	if err != nil {
+		log.Errorf("clean cache failed: %s", err)
+	}
+
+	// clear chart template cache
+	clearChartTemplate(log)
+
+	return nil
 }
