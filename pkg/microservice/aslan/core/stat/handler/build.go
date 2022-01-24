@@ -19,13 +19,29 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/stat/dashboard/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/stat/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/stat/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-func GetOverviewStat(c *gin.Context) {
+type GetBuildStatArgs struct {
+	StartDate int64 `json:"startDate"      form:"startDate,default:0"`
+	EndDate   int64 `json:"endDate"        form:"endDate,default:0"`
+}
+
+func GetBuildStat(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.GetOverviewStat(ctx.Logger)
+	args := new(GetBuildStatArgs)
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+
+	ctx.Resp, ctx.Err = service.GetBuildTotalAndSuccess(&models.BuildStatOption{
+		StartDate: args.StartDate,
+		EndDate:   args.EndDate,
+	}, ctx.Logger)
 }
