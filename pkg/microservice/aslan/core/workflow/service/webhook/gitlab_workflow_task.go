@@ -320,7 +320,6 @@ func (gtem gitlabTagEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bo
 		}
 
 		hookRepo.Tag = getTagFromRef(ev.Ref)
-		//
 		if ev.Before == commitID || ev.After == commitID {
 			return true, nil
 		}

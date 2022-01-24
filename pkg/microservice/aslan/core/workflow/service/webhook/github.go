@@ -408,13 +408,13 @@ func ProcessGithubWebHookForTest(payload []byte, req *http.Request, requestID st
 	case *github.PushEvent:
 		err = TriggerTestByGithubEvent(et, requestID, log)
 		if err != nil {
-			log.Infof("TriggerTestByGithubEvent error: %s", err)
+			log.Errorf("TriggerTestByGithubEvent error: %s", err)
 			return e.ErrGithubWebHook.AddErr(err)
 		}
 	case *github.CreateEvent:
 		err = TriggerTestByGithubEvent(et, requestID, log)
 		if err != nil {
-			log.Infof("TriggerTestByGithubEvent error: %s", err)
+			log.Errorf("TriggerTestByGithubEvent error: %s", err)
 			return e.ErrGithubWebHook.AddErr(err)
 		}
 	}
