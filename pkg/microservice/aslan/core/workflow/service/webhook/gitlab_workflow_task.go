@@ -293,6 +293,7 @@ type gitlabTagEventMatcher struct {
 func (gtem gitlabTagEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
 	ev := gtem.event
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.Project.PathWithNamespace {
+		gtem.log.Infof("hookRepo.events:%+v", hookRepo.Events)
 		if !EventConfigured(hookRepo, config.HookEventTag) {
 			return false, nil
 		}
