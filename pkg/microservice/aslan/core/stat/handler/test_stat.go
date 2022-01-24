@@ -27,7 +27,6 @@ import (
 func InitTestStat(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	//params validate
 
 	ctx.Err = service.InitTestStat(ctx.Logger)
 }
