@@ -17,9 +17,14 @@ limitations under the License.
 package service
 
 import (
+	"fmt"
+
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/service"
 	"github.com/koderover/zadig/pkg/setting"
 )
 
@@ -104,14 +109,47 @@ func GetResourcesPermission(uid string, projectName string, resourceType string,
 	}
 	for _, role := range roles {
 		if role.Name == string(setting.SystemAdmin) || role.Name == string(setting.ProjectAdmin) {
-			resourceM["*"] = sets.NewString("*")
+			for k, _ := range resourceM {
+				resourceM[k] = sets.NewString("*")
+			}
 			break
 		}
 		for _, rule := range role.Rules {
-			if rule.Resources[0] == resourceType {
+			if rule.Resources[0] == resourceType && resourceType != string(config.ResourceTypeProduct) {
 				for k, v := range resourceM {
 					resourceM[k] = v.Insert(rule.Verbs...)
 				}
+			}
+			if (rule.Resources[0] == "Environment" || rule.Resources[0] == "ProductionEnvironment") && resourceType == string(config.ResourceTypeProduct) {
+				var rs []mongodb.Resource
+				for _, v := range resources {
+					r := mongodb.Resource{
+						Name:        v,
+						ProjectName: projectName,
+						Type:        string(config.ResourceTypeProduct),
+					}
+					rs = append(rs, r)
+				}
+				labels, err := service.ListLabelsByResources(rs, logger)
+				if err != nil {
+					continue
+				}
+				for _, resource := range resources {
+					resourceKey := fmt.Sprintf("%s-%s-%s", config.ResourceTypeProduct, projectName, resource)
+					if labels, ok := labels.Labels[resourceKey]; ok {
+						for _, label := range labels {
+							if label.Key == "production" {
+								if rule.Resources[0] == "Environment" && label.Value == "false" {
+									resourceM[resource] = resourceM[resource].Insert(rule.Verbs...)
+								}
+								if rule.Resources[0] == "ProductionEnvironment" && label.Value == "true" {
+									resourceM[resource] = resourceM[resource].Insert(rule.Verbs...)
+								}
+							}
+						}
+					}
+				}
+
 			}
 		}
 	}
