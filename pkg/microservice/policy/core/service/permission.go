@@ -19,6 +19,8 @@ package service
 import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
+
+	"github.com/koderover/zadig/pkg/setting"
 )
 
 // GetPermission user's permission for frontend
@@ -101,7 +103,7 @@ func GetResourcesPermission(uid string, projectName string, resourceType string,
 		return nil, err
 	}
 	for _, role := range roles {
-		if role.Name == "admin" || role.Name == "project-admin" {
+		if role.Name == string(setting.SystemAdmin) || role.Name == string(setting.ProjectAdmin) {
 			resourceM["*"] = sets.NewString("*")
 			break
 		}
