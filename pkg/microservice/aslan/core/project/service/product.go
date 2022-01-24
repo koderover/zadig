@@ -420,9 +420,6 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 	services, _ := commonrepo.NewServiceColl().ListMaxRevisions(
 		&commonrepo.ServiceListOption{ProductName: productName, Type: setting.K8SDeployType},
 	)
-	for _, s := range services {
-		commonservice.ProcessServiceWebhook(nil, s, s.ServiceName, log)
-	}
 
 	//删除交付中心
 	//删除构建/删除测试/删除服务
@@ -432,7 +429,13 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 		_ = commonrepo.NewServiceColl().Delete("", "", productName, "", 0)
 		_ = commonservice.DeleteDeliveryInfos(productName, log)
 		_ = DeleteProductsAsync(userName, productName, requestID, log)
+
+		// delete service webhooks after services are deleted
+		for _, s := range services {
+			commonservice.ProcessServiceWebhook(nil, s, s.ServiceName, log)
+		}
 	}()
+
 	// 删除workload
 	go func() {
 		workloads, _ := commonrepo.NewWorkLoadsStatColl().FindByProductName(productName)
