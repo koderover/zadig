@@ -188,6 +188,7 @@ type HookEventType string
 const (
 	HookEventPush    = HookEventType("push")
 	HookEventPr      = HookEventType("pull_request")
+	HookEventTag     = HookEventType("tag")
 	HookEventUpdated = HookEventType("ref-updated")
 )
 
