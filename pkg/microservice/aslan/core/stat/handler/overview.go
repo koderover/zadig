@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KodeRover Authors.
+Copyright 2022 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,16 +18,14 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/stat/service"
+	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
-type Router struct{}
+func GetOverviewStat(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-func (*Router) Inject(router *gin.RouterGroup) {
-	stat := router.Group("stat")
-	{
-		stat.GET("/overview", GetOverviewStat)
-		stat.GET("/build", GetBuildStat)
-		stat.GET("/deploy", GetDeployStat)
-		stat.GET("/test", GetTestDashboard)
-	}
+	ctx.Resp, ctx.Err = service.GetOverviewStat(ctx.Logger)
 }

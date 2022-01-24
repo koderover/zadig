@@ -21,8 +21,8 @@ import (
 
 	"go.uber.org/zap"
 
-	models "github.com/koderover/zadig/pkg/microservice/aslan/core/stat/dashboard/repository/models"
-	repo "github.com/koderover/zadig/pkg/microservice/aslan/core/stat/dashboard/repository/mongodb"
+	models "github.com/koderover/zadig/pkg/microservice/aslan/core/stat/repository/models"
+	repo "github.com/koderover/zadig/pkg/microservice/aslan/core/stat/repository/mongodb"
 )
 
 type dashboardDeploy struct {
