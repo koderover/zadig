@@ -279,8 +279,6 @@ func (gpem *gitlabPushEventMatcher) UpdateTaskArgs(
 	return args
 }
 
-const commitID = "0000000000000000000000000000000000000000"
-
 type gitlabTagEventMatcher struct {
 	log                *zap.SugaredLogger
 	workflow           *commonmodels.Workflow
@@ -320,38 +318,7 @@ func (gtem gitlabTagEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bo
 		}
 
 		hookRepo.Tag = getTagFromRef(ev.Ref)
-		if ev.Before == commitID || ev.After == commitID {
-			return true, nil
-		}
 
-		var changedFiles []string
-		detail, err := systemconfig.New().GetCodeHost(hookRepo.CodehostID)
-		if err != nil {
-			gtem.log.Errorf("GetCodehostDetail error: %s", err)
-			return false, err
-		}
-
-		client, err := gitlabtool.NewClient(detail.Address, detail.AccessToken)
-		if err != nil {
-			gtem.log.Errorf("NewClient error: %s", err)
-			return false, err
-		}
-
-		// The compare interface gets the final changes between the two commits
-		diffs, err := client.Compare(ev.ProjectID, ev.Before, ev.After)
-		if err != nil {
-			gtem.log.Errorf("Failed to get tag event diffs, error: %s", err)
-			return false, err
-		}
-		for _, diff := range diffs {
-			changedFiles = append(changedFiles, diff.NewPath)
-			changedFiles = append(changedFiles, diff.OldPath)
-		}
-		if gtem.isYaml {
-			serviceChangeds := ServicesMatchChangesFiles(gtem.trigger.Rules.MatchFolders, changedFiles)
-			gtem.yamlServiceChanged = serviceChangeds
-			return len(serviceChangeds) != 0, nil
-		}
 		return true, nil
 	}
 
@@ -362,11 +329,7 @@ func (gtem gitlabTagEventMatcher) UpdateTaskArgs(product *commonmodels.Product, 
 	if gtem.isYaml {
 		var targets []*commonmodels.TargetArgs
 		for _, target := range args.Target {
-			for _, bs := range gtem.yamlServiceChanged {
-				if target.Name == bs.ServiceModule && target.ServiceName == bs.Name {
-					targets = append(targets, target)
-				}
-			}
+			targets = append(targets, target)
 		}
 		args.Target = targets
 	}
