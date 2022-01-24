@@ -19,11 +19,12 @@ package service
 import (
 	"fmt"
 
+	"go.uber.org/zap"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/config"
 	labeldb "github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/service"
-	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type resourceSpec struct {
@@ -32,12 +33,12 @@ type resourceSpec struct {
 	Spec        map[string]interface{} `json:"spec"`
 }
 
-func GetBundleResources() ([]*resourceSpec, error) {
+func GetBundleResources(logger *zap.SugaredLogger) ([]*resourceSpec, error) {
 	var res []*resourceSpec
 
 	envs, err := mongodb.NewProductColl().List(nil)
 	if err != nil {
-		log.Errorf("Failed to list envs, err: %s", err)
+		logger.Errorf("Failed to list envs, err: %s", err)
 		return nil, err
 	}
 
@@ -51,8 +52,9 @@ func GetBundleResources() ([]*resourceSpec, error) {
 		}
 		resources = append(resources, resource)
 	}
-	labelsResp, err := service.ListLabelsByResources(resources, nil)
+	labelsResp, err := service.ListLabelsByResources(resources, logger)
 	if err != nil {
+		logger.Errorf("ListLabelsByResources err:%s", err)
 		return nil, err
 	}
 
