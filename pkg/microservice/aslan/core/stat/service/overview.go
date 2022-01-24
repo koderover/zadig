@@ -76,5 +76,5 @@ func GetOverviewStat(log *zap.SugaredLogger) (*Overview, error) {
 	}
 	overview.ServiceCount = int(serviceCount)
 
-	return nil, nil
+	return overview, nil
 }

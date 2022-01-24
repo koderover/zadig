@@ -28,7 +28,7 @@ import (
 type dashboardBuild struct {
 	Total                int                    `json:"total"`
 	Success              int                    `json:"success"`
-	DashboardBuildDailys []*dashboardBuildDaily `json:"data,omitempty"`
+	DashboardBuildDailys []*dashboardBuildDaily `json:"data"`
 }
 
 type dashboardBuildDaily struct {
