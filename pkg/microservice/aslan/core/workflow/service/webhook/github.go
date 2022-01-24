@@ -485,7 +485,7 @@ func ProcessGithubWebHook(payload []byte, req *http.Request, requestID string, l
 	case *github.CreateEvent:
 		err = TriggerWorkflowByGithubEvent(et, baseURI, deliveryID, requestID, log)
 		if err != nil {
-			log.Errorf("prEventToPipelineTasks error: %s", err)
+			log.Errorf("tagEventToPipelineTasks error: %s", err)
 			return e.ErrGithubWebHook.AddErr(err)
 		}
 	}

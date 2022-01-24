@@ -320,6 +320,7 @@ func (gtem gitlabTagEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bo
 		}
 
 		hookRepo.Tag = getTagFromRef(ev.Ref)
+		//
 		if ev.Before == commitID || ev.After == commitID {
 			return true, nil
 		}
@@ -337,7 +338,7 @@ func (gtem gitlabTagEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bo
 			return false, err
 		}
 
-		// compare接口获取两个commit之间的最终的改动
+		// The compare interface gets the final changes between the two commits
 		diffs, err := client.Compare(ev.ProjectID, ev.Before, ev.After)
 		if err != nil {
 			gtem.log.Errorf("Failed to get tag event diffs, error: %s", err)
