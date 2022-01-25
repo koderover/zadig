@@ -379,8 +379,6 @@ func (h *ExecHandler) execute(ctx context.Context, pipelineTask *task.Task, pipe
 					if testStageStatus == config.StatusInit || (testStageStatus != config.StatusFailed && testStageStatus != config.StatusCancelled && testStageStatus != config.StatusTimeout) {
 						continue
 					}
-				default:
-					continue
 				}
 			}
 			h.runStage(stagePosition, stage)
