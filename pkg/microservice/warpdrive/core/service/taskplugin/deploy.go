@@ -24,8 +24,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/koderover/zadig/pkg/tool/log"
-
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -538,7 +536,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		ensureUpgrade := func() error {
 			hrs, errHistory := helmClient.ListReleaseHistory(releaseName, 10)
 			if errHistory != nil {
-				log.Errorf("failed to list release history, release: %s, err: %s", releaseName, errHistory)
+				p.Log.Errorf("failed to list release history, release: %s, err: %s", releaseName, errHistory)
 				return nil
 			}
 			if len(hrs) == 0 {
@@ -549,7 +547,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 
 			// for release in superseded status or stuck in pending status , uninstall the service first
 			if rel.Info.Status == helmrelease.StatusSuperseded || (rel.Info.Status.IsPending() && time.Now().Sub(rel.Info.LastDeployed.Time).Seconds() > setting.DeployTimeout) {
-				log.Infof("uninstalling release: %s in status: %s", releaseName, rel.Info.Status)
+				p.Log.Infof("uninstalling release: %s in status: %s", releaseName, rel.Info.Status)
 				removeSpec := &helmclient.ChartSpec{
 					ReleaseName: releaseName,
 					ChartName:   chartPath,
