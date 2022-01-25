@@ -39,9 +39,14 @@ func SyncCollaborationInstance(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	projectName := c.Query("projectName")
+	args := new(service.SyncCollaborationInstanceArgs)
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
 	if projectName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can not be empty")
 		return
 	}
-	ctx.Err = service.SyncCollaborationInstance(projectName, ctx.UserID, ctx.UserName, ctx.Logger)
+	ctx.Err = service.SyncCollaborationInstance(args, projectName, ctx.UserID, ctx.UserName, ctx.RequestID, ctx.Logger)
 }

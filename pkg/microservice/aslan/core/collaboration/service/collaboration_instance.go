@@ -14,7 +14,10 @@ import (
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	service2 "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
+	config2 "github.com/koderover/zadig/pkg/microservice/aslan/core/label/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/service"
+	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/shared/client/label"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
 	"github.com/koderover/zadig/pkg/util"
@@ -79,6 +82,11 @@ type GetCollaborationNewResp struct {
 	Code     int64       `json:"code"`
 	Workflow []*Workflow `json:"workflow"`
 	Product  []*Product  `json:"product"`
+}
+
+type GetCollaborationDeleteResp struct {
+	Workflows []string
+	Products  []string
 }
 
 func getUpdateWorkflowDiff(cmwMap map[string]models.WorkflowCMItem, ciwMap map[string]models.WorkflowCIItem) (
@@ -349,7 +357,7 @@ func syncPolicy(updateResp *GetCollaborationUpdateResp, modeInstanceMap map[stri
 			rules = append(rules, &policy.Rule{
 				Verbs:     product.Verbs,
 				Kind:      "resource",
-				Resources: []string{"Product"},
+				Resources: []string{string(config2.ResourceTypeProduct)},
 				MatchAttributes: []policy.MatchAttribute{
 					{
 						Key:   "policy",
@@ -364,7 +372,7 @@ func syncPolicy(updateResp *GetCollaborationUpdateResp, modeInstanceMap map[stri
 			Rules:       rules,
 		})
 	}
-	err := policy.NewDefault().CreatePolicies(policy.CreatePoliciesArgs{
+	err := policy.NewDefault().CreatePolicies(projectName, policy.CreatePoliciesArgs{
 		Policies: policies,
 	})
 	if err != nil {
@@ -415,6 +423,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, modeInstanceMap map[strin
 	projectName string, logger *zap.SugaredLogger) error {
 	var labels []label.Label
 	var newBindings []label.LabelBinding
+	var deleteBindings []label.LabelBinding
 	for _, mode := range updateResp.New {
 		instance, ok := modeInstanceMap[mode.Name]
 		if ok {
@@ -461,7 +470,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, modeInstanceMap map[strin
 		}
 		labelId, ok := labelResp.LabelMap[service.BuildLabelString("policy", instance.PolicyName)]
 		if !ok {
-			return fmt.Errorf("label:%s create error", instance.PolicyName)
+			return fmt.Errorf("label:%s not exist", instance.PolicyName)
 		}
 		for _, workflow := range instance.Workflows {
 			newBindings = append(newBindings, label.LabelBinding{
@@ -479,7 +488,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, modeInstanceMap map[strin
 				Resource: label.Resource{
 					Name:        product.Name,
 					ProjectName: projectName,
-					Type:        "Product",
+					Type:        string(config2.ResourceTypeProduct),
 				},
 			})
 		}
@@ -487,7 +496,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, modeInstanceMap map[strin
 	for _, item := range updateResp.Update {
 		labelId, ok := labelResp.LabelMap[service.BuildLabelString("policy", item.PolicyName)]
 		if !ok {
-			return fmt.Errorf("label:%s create error", item.PolicyName)
+			return fmt.Errorf("label:%s not exist", item.PolicyName)
 		}
 		for _, workflow := range item.NewSpec.Workflows {
 			newBindings = append(newBindings, label.LabelBinding{
@@ -504,7 +513,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, modeInstanceMap map[strin
 				LabelID: labelId,
 				Resource: label.Resource{
 					Name:        product.Name,
-					Type:        "Product",
+					Type:        string(config2.ResourceTypeProduct),
 					ProjectName: projectName,
 				},
 			})
@@ -512,29 +521,240 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, modeInstanceMap map[strin
 		for _, workflow := range item.UpdateSpec.Workflows {
 			if workflow.Old.CollaborationType == config.CollaborationShare && workflow.New.CollaborationType ==
 				config.CollaborationNew {
-
+				newBindings = append(newBindings, label.LabelBinding{
+					LabelID: labelId,
+					Resource: label.Resource{
+						Name:        workflow.New.Name,
+						Type:        "Workflow",
+						ProjectName: projectName,
+					},
+				})
+			}
+			if workflow.Old.CollaborationType == config.CollaborationNew && workflow.New.CollaborationType ==
+				config.CollaborationShare {
+				deleteBindings = append(deleteBindings, label.LabelBinding{
+					LabelID: labelId,
+					Resource: label.Resource{
+						Name:        workflow.New.Name,
+						Type:        "Workflow",
+						ProjectName: projectName,
+					},
+				})
+			}
+		}
+		for _, product := range item.UpdateSpec.Products {
+			if product.Old.CollaborationType == config.CollaborationShare && product.New.CollaborationType ==
+				config.CollaborationNew {
+				newBindings = append(newBindings, label.LabelBinding{
+					LabelID: labelId,
+					Resource: label.Resource{
+						Name:        product.New.Name,
+						Type:        string(config2.ResourceTypeProduct),
+						ProjectName: projectName,
+					},
+				})
+			}
+			if product.Old.CollaborationType == config.CollaborationNew && product.New.CollaborationType ==
+				config.CollaborationShare {
+				deleteBindings = append(deleteBindings, label.LabelBinding{
+					LabelID: labelId,
+					Resource: label.Resource{
+						Name:        product.Old.Name,
+						Type:        string(config2.ResourceTypeProduct),
+						ProjectName: projectName,
+					},
+				})
 			}
 		}
 	}
-
+	var deleteLabels []string
+	for _, item := range updateResp.Delete {
+		labelId, ok := labelResp.LabelMap[service.BuildLabelString("policy", item.PolicyName)]
+		if !ok {
+			return fmt.Errorf("label:%s not exist", item.PolicyName)
+		}
+		for _, workflow := range item.Workflows {
+			deleteBindings = append(deleteBindings, label.LabelBinding{
+				LabelID: labelId,
+				Resource: label.Resource{
+					Name:        workflow.Name,
+					ProjectName: projectName,
+					Type:        "Workflow",
+				},
+			})
+		}
+		for _, product := range item.Products {
+			deleteBindings = append(deleteBindings, label.LabelBinding{
+				LabelID: labelId,
+				Resource: label.Resource{
+					Name:        product.Name,
+					ProjectName: projectName,
+					Type:        string(config2.ResourceTypeProduct),
+				},
+			})
+		}
+	}
+	err = label.New().DeleteLabels(deleteLabels)
+	if err != nil {
+		logger.Errorf("delete labels error:%s", err)
+		return err
+	}
+	err = label.New().DeleteLabelBindings(label.DeleteLabelBindingsArgs{
+		LabelBindings: deleteBindings,
+	})
+	if err != nil {
+		logger.Errorf("delete labelbindings error:%s", err)
+		return err
+	}
+	err = label.New().CreateLabelBindings(label.CreateLabelBindingsArgs{
+		LabelBindings: newBindings,
+	})
+	if err != nil {
+		logger.Errorf("create labelbindings error:%s", err)
+		return err
+	}
 	return nil
 }
 
-func SyncCollaborationInstance(projectName, uid, userName string, logger *zap.SugaredLogger) error {
+func syncResource(products *SyncCollaborationInstanceArgs, updateResp *GetCollaborationUpdateResp, projectName, userName, requestID string,
+	logger *zap.SugaredLogger) error {
+	err := syncNewResource(products, updateResp, projectName, userName, requestID, logger)
+	if err != nil {
+		return err
+	}
+	err = syncDeleteResource(updateResp, userName, projectName, requestID, logger)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func syncDeleteResource(updateResp *GetCollaborationUpdateResp, username, projectName, requestID string,
+	log *zap.SugaredLogger) (err error) {
+	deleteResp := getCollaborationDelete(updateResp)
+	for _, product := range deleteResp.Products {
+		err := commonservice.DeleteProduct(username, product, projectName, requestID, log)
+		if err != nil {
+			return err
+		}
+	}
+	for _, workflow := range deleteResp.Workflows {
+		err := commonservice.DeleteWorkflow(workflow, requestID, false, log)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func syncNewResource(products *SyncCollaborationInstanceArgs, updateResp *GetCollaborationUpdateResp, projectName, userName, requestID string,
+	logger *zap.SugaredLogger) error {
+	newResp, err := getCollaborationNew(updateResp, projectName, userName, logger)
+	if err != nil {
+		return err
+	}
+	var newWorkflows []workflowservice.WorkflowCopyItem
+	for _, workflow := range newResp.Workflow {
+		if workflow.CollaborationType == config.CollaborationNew {
+			newWorkflows = append(newWorkflows, workflowservice.WorkflowCopyItem{
+				ProjectName: projectName,
+				Old:         workflow.BaseName,
+				New:         workflow.Name,
+			})
+		}
+	}
+	err = workflowservice.BulkCopyWorkflow(workflowservice.BulkCopyWorkflowArgs{
+		Items: newWorkflows,
+	}, userName, logger)
+	if err != nil {
+		return err
+	}
+	productMap := make(map[string]Product)
+	for _, product := range products.Products {
+		productMap[product.BaseName] = product
+	}
+	var yamlProductItems []service2.YamlProductItem
+	var helmProductArgs []service2.HelmProductItem
+	for _, product := range newResp.Product {
+		if productArg, ok := productMap[product.BaseName]; ok {
+			if product.DeployType == string(config.HelmDeploy) {
+				yamlProductItems = append(yamlProductItems, service2.YamlProductItem{
+					OldName: product.BaseName,
+					NewName: product.Name,
+					Vars:    productArg.Vars,
+				})
+			}
+			if product.DeployType == string(config.K8sDeploy) {
+				helmProductArgs = append(helmProductArgs, service2.HelmProductItem{
+					OldName:       product.BaseName,
+					NewName:       product.Name,
+					DefaultValues: product.DefaultValues,
+					ChartValues:   product.ChartValues,
+				})
+			}
+		}
+	}
+	err = service2.BulkCopyYamlProduct(projectName, userName, requestID, service2.CopyYamlProductArg{
+		Items: yamlProductItems,
+	}, logger)
+	if err != nil {
+		return err
+	}
+	err = service2.BulkCopyHelmProduct(projectName, userName, requestID, service2.CopyHelmProductArg{
+		Items: helmProductArgs,
+	}, logger)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type SyncCollaborationInstanceArgs struct {
+	Products []Product `json:"products"`
+}
+
+func SyncCollaborationInstance(products *SyncCollaborationInstanceArgs, projectName, uid, userName, requestID string, logger *zap.SugaredLogger) error {
 	updateResp, err := GetCollaborationUpdate(projectName, uid, userName, logger)
 	if err != nil {
 		logger.Errorf("GetCollaborationNew error, err msg:%s", err)
 		return err
 	}
-	modePolicyMap, err := syncInstance(updateResp, projectName, userName, uid, logger)
+	modeInstanceMap, err := syncInstance(updateResp, projectName, userName, uid, logger)
 	if err != nil {
 		return err
 	}
-	err = syncPolicy(updateResp, modePolicyMap, projectName, userName, logger)
+	err = syncResource(products, updateResp, projectName, userName, requestID, logger)
+	err = syncPolicy(updateResp, modeInstanceMap, projectName, userName, logger)
 	if err != nil {
 		return err
 	}
+	err = syncLabel(updateResp, modeInstanceMap, projectName, logger)
 	return nil
+}
+
+func getCollaborationDelete(updateResp *GetCollaborationUpdateResp) *GetCollaborationDeleteResp {
+	productSet := sets.String{}
+	workflowSet := sets.String{}
+	for _, item := range updateResp.Delete {
+		for _, product := range item.Products {
+			productSet.Insert(product.Name)
+		}
+		for _, workflow := range item.Workflows {
+			workflowSet.Insert(workflow.Name)
+		}
+	}
+	for _, item := range updateResp.Update {
+		for _, deleteWorkflow := range item.DeleteSpec.Workflows {
+			workflowSet.Insert(deleteWorkflow.Name)
+		}
+		for _, deleteProduct := range item.DeleteSpec.Products {
+			productSet.Insert(deleteProduct.Name)
+		}
+	}
+	return &GetCollaborationDeleteResp{
+		Workflows: workflowSet.List(),
+		Products:  productSet.List(),
+	}
 }
 
 func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, userName string,

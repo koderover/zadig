@@ -830,6 +830,100 @@ func createSingleHelmProduct(templateProduct *templatemodels.Product, requestID,
 	return CreateProduct(userName, requestID, productObj, log)
 }
 
+type YamlProductItem struct {
+	OldName string
+	NewName string
+	Vars    []*templatemodels.RenderKV
+}
+type CopyYamlProductArg struct {
+	Items []YamlProductItem
+}
+
+type HelmProductItem struct {
+	OldName       string
+	NewName       string
+	DefaultValues string
+	ChartValues   []*commonservice.RenderChartArg
+}
+
+type CopyHelmProductArg struct {
+	Items []HelmProductItem
+}
+
+func BulkCopyHelmProduct(projectName, user, requestID string, arg CopyHelmProductArg, log *zap.SugaredLogger) error {
+	if len(arg.Items) == 0 {
+		return nil
+	}
+	var envs []string
+	for _, item := range arg.Items {
+		envs = append(envs, item.OldName)
+	}
+	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		Name:   projectName,
+		InEnvs: envs,
+	})
+	if err != nil {
+		return err
+	}
+	productMap := make(map[string]*commonmodels.Product)
+	for _, product := range products {
+		productMap[product.EnvName] = product
+	}
+	var args []*CreateHelmProductArg
+	for _, item := range arg.Items {
+		if product, ok := productMap[item.OldName]; ok {
+			args = append(args, &CreateHelmProductArg{
+				ProductName:   projectName,
+				EnvName:       item.NewName,
+				Namespace:     product.Namespace,
+				ClusterID:     product.ClusterID,
+				DefaultValues: item.DefaultValues,
+				RegistryID:    product.RegistryID,
+				BaseEnvName:   product.BaseName,
+				ChartValues:   item.ChartValues,
+			})
+		} else {
+			return fmt.Errorf("product:%s not exist", item.OldName)
+		}
+	}
+	return CopyHelmProduct(projectName, user, requestID, args, log)
+}
+
+func BulkCopyYamlProduct(projectName, user, requestID string, arg CopyYamlProductArg, log *zap.SugaredLogger) error {
+	if len(arg.Items) == 0 {
+		return nil
+	}
+	var envs []string
+	for _, item := range arg.Items {
+		envs = append(envs, item.OldName)
+	}
+	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		Name:   projectName,
+		InEnvs: envs,
+	})
+	if err != nil {
+		return err
+	}
+	productMap := make(map[string]*commonmodels.Product)
+	for _, product := range products {
+		productMap[product.EnvName] = product
+	}
+
+	for _, item := range arg.Items {
+		if product, ok := productMap[item.OldName]; ok {
+			product.EnvName = item.NewName
+			product.Vars = item.Vars
+			err = CreateProduct(user, requestID, product, log)
+			if err != nil {
+				return err
+			}
+		} else {
+			return fmt.Errorf("product:%s not exist", item.OldName)
+		}
+	}
+	return nil
+}
+
 // CreateProduct create a new product with its dependent stacks
 func CreateProduct(user, requestID string, args *commonmodels.Product, log *zap.SugaredLogger) (err error) {
 	log.Infof("[%s][P:%s] CreateProduct", args.EnvName, args.ProductName)

@@ -18,22 +18,14 @@ package handler
 
 import (
 	"github.com/gin-gonic/gin"
+
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
+	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
-type Router struct{}
+func GetBundleResources(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-func (*Router) Inject(router *gin.RouterGroup) {
-	labels := router.Group("labels")
-	{
-		labels.POST("/filter", ListLabels)
-		labels.POST("/bulk-create", CreateLabels)
-		labels.POST("/bulk-delete", DeleteLabels)
-		labels.POST("/resources-by-labels", ListResourcesByLabels)
-		labels.POST("/labels-by-resources", ListLabelsByResources)
-	}
-	labelBindings := router.Group("labelbindings")
-	{
-		labelBindings.POST("", CreateLabelBindings)
-		labelBindings.DELETE("", DeleteLabelBindings)
-	}
+	ctx.Resp, ctx.Err = workflow.GetBundleResources(ctx.Logger)
 }
