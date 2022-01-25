@@ -549,8 +549,9 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 
 			// for release in superseded status or stuck in pending status , uninstall the service first
 			if rel.Info.Status == helmrelease.StatusSuperseded || (rel.Info.Status.IsPending() && time.Now().Sub(rel.Info.LastDeployed.Time).Seconds() > setting.DeployTimeout) {
+				log.Infof("uninstalling release: %s in status: %s", releaseName, rel.Info.Status)
 				removeSpec := &helmclient.ChartSpec{
-					ReleaseName: util.GeneHelmReleaseName(p.Task.Namespace, p.Task.ServiceName),
+					ReleaseName: releaseName,
 					ChartName:   chartPath,
 					Namespace:   p.Task.Namespace,
 					Timeout:     time.Second * setting.DeployTimeout,
@@ -568,7 +569,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		}
 
 		chartSpec := helmclient.ChartSpec{
-			ReleaseName: util.GeneHelmReleaseName(p.Task.Namespace, p.Task.ServiceName),
+			ReleaseName: releaseName,
 			ChartName:   chartPath,
 			Namespace:   p.Task.Namespace,
 			ReuseValues: true,
@@ -586,7 +587,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), &chartSpec); err != nil {
 				err = errors.WithMessagef(
 					err,
-					"failed to Install helm chart %s/%s",
+					"failed to install or upgrade helm chart %s/%s",
 					p.Task.Namespace, p.Task.ServiceName)
 				done <- false
 			} else {
