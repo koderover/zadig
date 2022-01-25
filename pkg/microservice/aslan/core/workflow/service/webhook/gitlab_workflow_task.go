@@ -317,6 +317,7 @@ func (gtem gitlabTagEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bo
 			}
 		}
 
+		hookRepo.Committer = ev.UserName
 		hookRepo.Tag = getTagFromRef(ev.Ref)
 
 		return true, nil
