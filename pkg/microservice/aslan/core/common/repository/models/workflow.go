@@ -51,7 +51,8 @@ type Workflow struct {
 	HookCtl         *WorkflowHookCtrl  `bson:"hook_ctl"                     json:"hook_ctl"`
 
 	// ResetImage indicate whether reset image to original version after completion
-	ResetImage bool `json:"reset_image" bson:"reset_image"`
+	ResetImage       bool                         `bson:"reset_image"                  json:"reset_image"`
+	ResetImagePolicy setting.ResetImagePolicyType `bson:"reset_image_policy,omitempty" json:"reset_image_policy,omitempty"`
 	// IsParallel 控制单一工作流的任务是否支持并行处理
 	IsParallel bool `json:"is_parallel" bson:"is_parallel"`
 }

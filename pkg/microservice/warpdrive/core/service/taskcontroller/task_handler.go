@@ -358,8 +358,31 @@ func (h *ExecHandler) execute(ctx context.Context, pipelineTask *task.Task, pipe
 		}
 	}
 
+	updatePipelineStatus(pipelineTask, xl)
+	deployStageStatus := config.StatusInit
+	testStageStatus := config.StatusInit
 	for stagePosition, stage := range pipelineTask.Stages {
+		if stage.TaskType == config.TaskDeploy {
+			deployStageStatus = stage.Status
+		} else if stage.TaskType == config.TaskTestingV2 {
+			testStageStatus = stage.Status
+		}
 		if stage.AfterAll {
+			if stage.TaskType == config.TaskResetImage {
+				switch pipelineTask.ResetImagePolicy {
+				case setting.ResetImagePolicyTaskCompleted, setting.ResetImagePolicyTaskCompletedOrder:
+				case setting.ResetImagePolicyDeployFailed:
+					if deployStageStatus == config.StatusInit || (deployStageStatus != config.StatusFailed && deployStageStatus != config.StatusCancelled && deployStageStatus != config.StatusTimeout) {
+						continue
+					}
+				case setting.ResetImagePolicyTestFailed:
+					if testStageStatus == config.StatusInit || (testStageStatus != config.StatusFailed && testStageStatus != config.StatusCancelled && testStageStatus != config.StatusTimeout) {
+						continue
+					}
+				default:
+					continue
+				}
+			}
 			h.runStage(stagePosition, stage)
 		}
 	}

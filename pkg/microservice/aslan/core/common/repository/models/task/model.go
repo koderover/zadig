@@ -25,6 +25,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/setting"
 )
 
 type Task struct {
@@ -75,13 +76,14 @@ type Task struct {
 	Render        *models.RenderInfo         `bson:"render"                         json:"render"`
 	StorageURI    string                     `bson:"storage_uri,omitempty"          json:"storage_uri,omitempty"`
 	// interface{} 为types.TestReport
-	TestReports     map[string]interface{} `bson:"test_reports,omitempty" json:"test_reports,omitempty"`
-	RwLock          sync.Mutex             `bson:"-"                      json:"-"`
-	ResetImage      bool                   `bson:"resetImage"             json:"resetImage"`
-	TriggerBy       *models.TriggerBy      `bson:"trigger_by,omitempty"   json:"trigger_by,omitempty"`
-	Features        []string               `bson:"features"               json:"features"`
-	IsRestart       bool                   `bson:"is_restart"             json:"is_restart"`
-	StorageEndpoint string                 `bson:"storage_endpoint"       json:"storage_endpoint"`
+	TestReports      map[string]interface{}       `bson:"test_reports,omitempty" json:"test_reports,omitempty"`
+	RwLock           sync.Mutex                   `bson:"-"                      json:"-"`
+	ResetImage       bool                         `bson:"resetImage"             json:"resetImage"`
+	ResetImagePolicy setting.ResetImagePolicyType `bson:"reset_image_policy"     json:"reset_image_policy"`
+	TriggerBy        *models.TriggerBy            `bson:"trigger_by,omitempty"   json:"trigger_by,omitempty"`
+	Features         []string                     `bson:"features"               json:"features"`
+	IsRestart        bool                         `bson:"is_restart"             json:"is_restart"`
+	StorageEndpoint  string                       `bson:"storage_endpoint"       json:"storage_endpoint"`
 }
 
 func (Task) TableName() string {
