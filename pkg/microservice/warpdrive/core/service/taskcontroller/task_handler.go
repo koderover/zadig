@@ -362,7 +362,7 @@ func (h *ExecHandler) execute(ctx context.Context, pipelineTask *task.Task, pipe
 	deployStageStatus := config.StatusInit
 	testStageStatus := config.StatusInit
 	for stagePosition, stage := range pipelineTask.Stages {
-		if stage.TaskType == config.TaskDeploy {
+		if stage.TaskType == config.TaskDeploy || stage.TaskType == config.TaskArtifact {
 			deployStageStatus = stage.Status
 		} else if stage.TaskType == config.TaskTestingV2 {
 			testStageStatus = stage.Status
