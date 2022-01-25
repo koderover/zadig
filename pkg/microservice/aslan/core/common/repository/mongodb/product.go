@@ -159,7 +159,7 @@ func (c *ProductColl) ListByProducts(opt ListProductOpt) ([]*models.Product, err
 	condition := bson.A{}
 	for _, pro := range opt.Products {
 		condition = append(condition, bson.M{
-			"name":         pro.Name,
+			"env_name":     pro.Name,
 			"product_name": pro.ProjectName,
 		})
 	}

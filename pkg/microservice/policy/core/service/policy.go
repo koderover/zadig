@@ -22,7 +22,6 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	mongodb2 "github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/service"
 	"github.com/koderover/zadig/pkg/shared/client/label"
 
@@ -136,7 +135,7 @@ func GetPolicy(ns, name string, _ *zap.SugaredLogger) (*Policy, error) {
 	res := &Policy{
 		Name: r.Name,
 	}
-	var labels []mongodb2.Label
+	var labels []label.Label
 	labelSet := sets.NewString()
 	for _, ru := range r.Rules {
 		res.Rules = append(res.Rules, &Rule{
@@ -149,7 +148,7 @@ func GetPolicy(ns, name string, _ *zap.SugaredLogger) (*Policy, error) {
 			labelString := service.BuildLabelString(ma.Key, ma.Value)
 			if !labelSet.Has(labelString) {
 				labelSet.Insert(labelString)
-				labels = append(labels, mongodb2.Label{
+				labels = append(labels, label.Label{
 					Key:   ma.Key,
 					Value: ma.Value,
 				})

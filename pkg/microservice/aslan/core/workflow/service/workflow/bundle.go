@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KodeRover Authors.
+Copyright 2022 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package workflow
 
 import (
 	"go.uber.org/zap"
@@ -24,6 +24,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/config"
 	labeldb "github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/service"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type resourceSpec struct {
@@ -34,35 +35,33 @@ type resourceSpec struct {
 
 func GetBundleResources(logger *zap.SugaredLogger) ([]*resourceSpec, error) {
 	var res []*resourceSpec
-
-	envs, err := mongodb.NewProductColl().List(nil)
+	workflows, err := mongodb.NewWorkflowColl().List(&mongodb.ListWorkflowOption{})
 	if err != nil {
-		logger.Errorf("Failed to list envs, err: %s", err)
+		log.Error("Failed to list workflows , err:%s", err)
 		return nil, err
 	}
 
 	// get labels by workflow resources ids
 	var resources []labeldb.Resource
-	for _, env := range envs {
+	for _, workflow := range workflows {
 		resource := labeldb.Resource{
-			Name:        env.EnvName,
-			ProjectName: env.ProductName,
-			Type:        string(config.ResourceTypeProduct),
+			Name:        workflow.Name,
+			ProjectName: workflow.ProductTmplName,
+			Type:        string(config.ResourceTypeWorkflow),
 		}
 		resources = append(resources, resource)
 	}
 	labelsResp, err := service.ListLabelsByResources(resources, logger)
 	if err != nil {
-		logger.Errorf("ListLabelsByResources err:%s", err)
 		return nil, err
 	}
 
-	for _, env := range envs {
-		resourceKey := config2.BuildResourceKey(string(config.ResourceTypeProduct), env.ProductName, env.EnvName)
+	for _, workflow := range workflows {
+		resourceKey := config2.BuildResourceKey(string(config.ResourceTypeWorkflow), workflow.ProductTmplName, workflow.Name)
 		resourceSpec := &resourceSpec{
-			ResourceID:  env.EnvName,
-			ProjectName: env.ProductName,
-			Spec:        map[string]interface{}{},
+			ResourceID:  workflow.Name,
+			ProjectName: workflow.ProductTmplName,
+			Spec:        make(map[string]interface{}),
 		}
 		if labels, ok := labelsResp.Labels[resourceKey]; ok {
 			for _, v := range labels {
@@ -73,6 +72,5 @@ func GetBundleResources(logger *zap.SugaredLogger) ([]*resourceSpec, error) {
 		}
 		res = append(res, resourceSpec)
 	}
-
 	return res, nil
 }

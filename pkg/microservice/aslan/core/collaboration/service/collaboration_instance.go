@@ -15,6 +15,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	service2 "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
+	config2 "github.com/koderover/zadig/pkg/microservice/aslan/core/label/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/shared/client/label"
@@ -356,7 +357,7 @@ func syncPolicy(updateResp *GetCollaborationUpdateResp, modeInstanceMap map[stri
 			rules = append(rules, &policy.Rule{
 				Verbs:     product.Verbs,
 				Kind:      "resource",
-				Resources: []string{"Product"},
+				Resources: []string{string(config2.ResourceTypeProduct)},
 				MatchAttributes: []policy.MatchAttribute{
 					{
 						Key:   "policy",
@@ -487,7 +488,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, modeInstanceMap map[strin
 				Resource: label.Resource{
 					Name:        product.Name,
 					ProjectName: projectName,
-					Type:        "Product",
+					Type:        string(config2.ResourceTypeProduct),
 				},
 			})
 		}
@@ -512,7 +513,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, modeInstanceMap map[strin
 				LabelID: labelId,
 				Resource: label.Resource{
 					Name:        product.Name,
-					Type:        "Product",
+					Type:        string(config2.ResourceTypeProduct),
 					ProjectName: projectName,
 				},
 			})
@@ -548,7 +549,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, modeInstanceMap map[strin
 					LabelID: labelId,
 					Resource: label.Resource{
 						Name:        product.New.Name,
-						Type:        "Product",
+						Type:        string(config2.ResourceTypeProduct),
 						ProjectName: projectName,
 					},
 				})
@@ -559,7 +560,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, modeInstanceMap map[strin
 					LabelID: labelId,
 					Resource: label.Resource{
 						Name:        product.Old.Name,
-						Type:        "Product",
+						Type:        string(config2.ResourceTypeProduct),
 						ProjectName: projectName,
 					},
 				})
@@ -588,7 +589,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, modeInstanceMap map[strin
 				Resource: label.Resource{
 					Name:        product.Name,
 					ProjectName: projectName,
-					Type:        "Product",
+					Type:        string(config2.ResourceTypeProduct),
 				},
 			})
 		}

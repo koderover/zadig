@@ -160,4 +160,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		taskV3.GET("/id/:id/name/:name", GetWorkflowTaskV3)
 		taskV3.GET("/callback/id/:id/name/:name", GetWorkflowTaskV3Callback)
 	}
+
+	bundles := router.Group("bundle-resources")
+	{
+		bundles.GET("", GetBundleResources)
+	}
 }

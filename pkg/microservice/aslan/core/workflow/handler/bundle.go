@@ -14,11 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package config
+package handler
 
-type ResourceType string
+import (
+	"github.com/gin-gonic/gin"
 
-const (
-	ResourceTypeWorkflow ResourceType = "Workflow"
-	ResourceTypeProduct  ResourceType = "Environment"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
+	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
+
+func GetBundleResources(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = workflow.GetBundleResources(ctx.Logger)
+}
