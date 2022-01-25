@@ -29,14 +29,12 @@ import (
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
-// BuildPipeResp ...
 type BuildPipeResp struct {
 	ID              BuildItem `bson:"_id"                    json:"_id"`
 	TotalSuccess    int       `bson:"total_success"          json:"total_success"`
 	TotalBuildCount int       `bson:"total_build_count"      json:"total_build_count"`
 }
 
-// BuildItem ...
 type BuildItem struct {
 	Date            string `bson:"date"               json:"date"`
 	TotalSuccess    int    `bson:"total_success"      json:"total_success"`

@@ -33,27 +33,27 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 	quality := router.Group("quality")
 	{
-		//buildquality
-		quality.POST("/initBuildquality", GetAllPipelineTask)
-		quality.GET("/buildAverageMeasure", GetBuildDailyAverageMeasure)
-		quality.GET("/buildDailyMeasure", GetBuildDailyMeasure)
-		quality.GET("/buildHealthMeasure", GetBuildHealthMeasure)
-		quality.GET("/buildLatestTenMeasure", GetLatestTenBuildMeasure)
-		quality.GET("/buildTenDurationMeasure", GetTenDurationMeasure)
-		quality.GET("/buildTrend", GetBuildTrendMeasure)
-		//testquality
-		quality.POST("/initTestquality", InitTestStat)
-		quality.GET("/testAverageMeasure", GetTestAverageMeasure)
-		quality.GET("/testCaseMeasure", GetTestCaseMeasure)
-		quality.GET("/testDeliveryDeploy", GetTestDeliveryDeployMeasure)
-		quality.GET("/testHealthMeasure", GetTestHealthMeasure)
-		quality.GET("/testTrend", GetTestTrendMeasure)
-		//deployquality
-		quality.POST("/initDeployquality", InitDeployStat)
-		quality.GET("/pipelineHealthMeasure", GetPipelineHealthMeasure)
-		quality.GET("/deployHealthMeasure", GetDeployHealthMeasure)
-		quality.GET("/deployWeeklyMeasure", GetDeployWeeklyMeasure)
-		quality.GET("/deployTopFiveHigherMeasure", GetDeployTopFiveHigherMeasure)
-		quality.GET("/deployTopFiveFailureMeasure", GetDeployTopFiveFailureMeasure)
+		//buildStat
+		quality.POST("/initBuildStat", GetAllPipelineTask)
+		quality.POST("/buildAverageMeasure", GetBuildDailyAverageMeasure)
+		quality.POST("/buildDailyMeasure", GetBuildDailyMeasure)
+		quality.POST("/buildHealthMeasure", GetBuildHealthMeasure)
+		quality.POST("/buildLatestTenMeasure", GetLatestTenBuildMeasure)
+		quality.POST("/buildTenDurationMeasure", GetTenDurationMeasure)
+		quality.POST("/buildTrend", GetBuildTrendMeasure)
+		//testStat
+		quality.POST("/initTestStat", InitTestStat)
+		quality.POST("/testAverageMeasure", GetTestAverageMeasure)
+		quality.POST("/testCaseMeasure", GetTestCaseMeasure)
+		quality.POST("/testDeliveryDeploy", GetTestDeliveryDeployMeasure)
+		quality.POST("/testHealthMeasure", GetTestHealthMeasure)
+		quality.POST("/testTrend", GetTestTrendMeasure)
+		//deployStat
+		quality.POST("/initDeployStat", InitDeployStat)
+		quality.POST("/pipelineHealthMeasure", GetPipelineHealthMeasure)
+		quality.POST("/deployHealthMeasure", GetDeployHealthMeasure)
+		quality.POST("/deployWeeklyMeasure", GetDeployWeeklyMeasure)
+		quality.POST("/deployTopFiveHigherMeasure", GetDeployTopFiveHigherMeasure)
+		quality.POST("/deployTopFiveFailureMeasure", GetDeployTopFiveFailureMeasure)
 	}
 }

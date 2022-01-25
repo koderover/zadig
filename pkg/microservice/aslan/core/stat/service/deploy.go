@@ -28,7 +28,7 @@ import (
 type dashboardDeploy struct {
 	Total                 int                     `json:"total"`
 	Success               int                     `json:"success"`
-	DashboardDeployDailys []*dashboardDeployDaily `json:"data,omitempty"`
+	DashboardDeployDailys []*dashboardDeployDaily `json:"data"`
 }
 
 type dashboardDeployDaily struct {
