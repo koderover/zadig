@@ -597,8 +597,10 @@ func RestartPipelineTaskV2(userName string, taskID int64, pipelineName string, t
 				}
 			case config.TaskDeploy:
 				resetImage := false
+				resetImagePolicy := setting.ResetImagePolicyTaskCompletedOrder
 				if workflow, err := commonrepo.NewWorkflowColl().Find(t.PipelineName); err == nil {
 					resetImage = workflow.ResetImage
+					resetImagePolicy = workflow.ResetImagePolicy
 				}
 				timeout := 0
 				if productTempl, err := template.NewProductColl().Find(t.ProductName); err == nil {
@@ -611,6 +613,7 @@ func RestartPipelineTaskV2(userName string, taskID int64, pipelineName string, t
 						deployInfo.Timeout = timeout
 						deployInfo.IsRestart = true
 						deployInfo.ResetImage = resetImage
+						deployInfo.ResetImagePolicy = resetImagePolicy
 						if newDeployInfo, err := deployInfo.ToSubTask(); err == nil {
 							subDeployTaskMap[serviceName] = newDeployInfo
 						}

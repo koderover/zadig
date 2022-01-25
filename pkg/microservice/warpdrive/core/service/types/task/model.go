@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
+	"github.com/koderover/zadig/pkg/setting"
 )
 
 type Task struct {
@@ -73,14 +74,15 @@ type Task struct {
 	Render        *RenderInfo         `bson:"render"                    json:"render"`
 	StorageURI    string              `bson:"storage_uri,omitempty" json:"storage_uri,omitempty"`
 	// interface{} 为types.TestReport
-	TestReports     map[string]interface{} `bson:"test_reports,omitempty" json:"test_reports,omitempty"`
-	RwLock          sync.Mutex             `bson:"-" json:"-"`
-	ResetImage      bool                   `json:"resetImage" bson:"resetImage"`
-	TriggerBy       *TriggerBy             `json:"trigger_by,omitempty" bson:"trigger_by,omitempty"`
-	Features        []string               `bson:"features" json:"features"`
-	IsRestart       bool                   `bson:"is_restart"                  json:"is_restart"`
-	StorageEndpoint string                 `bson:"storage_endpoint"            json:"storage_endpoint"`
-	ArtifactInfo    *ArtifactInfo          `bson:"artifact_info"               json:"artifact_info"`
+	TestReports      map[string]interface{}       `bson:"test_reports,omitempty" json:"test_reports,omitempty"`
+	RwLock           sync.Mutex                   `bson:"-" json:"-"`
+	ResetImage       bool                         `bson:"resetImage"             json:"resetImage"`
+	ResetImagePolicy setting.ResetImagePolicyType `bson:"reset_image_policy"     json:"reset_image_policy"`
+	TriggerBy        *TriggerBy                   `json:"trigger_by,omitempty" bson:"trigger_by,omitempty"`
+	Features         []string                     `bson:"features" json:"features"`
+	IsRestart        bool                         `bson:"is_restart"                  json:"is_restart"`
+	StorageEndpoint  string                       `bson:"storage_endpoint"            json:"storage_endpoint"`
+	ArtifactInfo     *ArtifactInfo                `bson:"artifact_info"               json:"artifact_info"`
 }
 
 type RenderInfo struct {

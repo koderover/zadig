@@ -587,6 +587,15 @@ const (
 	Abnormal     K8SClusterStatus = "abnormal"
 )
 
+type ResetImagePolicyType string
+
+const (
+	ResetImagePolicyTaskCompleted      ResetImagePolicyType = "taskCompleted"
+	ResetImagePolicyTaskCompletedOrder ResetImagePolicyType = ""
+	ResetImagePolicyDeployFailed       ResetImagePolicyType = "deployFailed"
+	ResetImagePolicyTestFailed         ResetImagePolicyType = "testFailed"
+)
+
 const LocalClusterID = "0123456789abcdef12345678"
 
 const RequestModeOpenAPI = "openAPI"
