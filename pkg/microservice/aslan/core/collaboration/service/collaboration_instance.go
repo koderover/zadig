@@ -371,7 +371,7 @@ func syncPolicy(updateResp *GetCollaborationUpdateResp, modeInstanceMap map[stri
 			Rules:       rules,
 		})
 	}
-	err := policy.NewDefault().CreatePolicies(policy.CreatePoliciesArgs{
+	err := policy.NewDefault().CreatePolicies(projectName, policy.CreatePoliciesArgs{
 		Policies: policies,
 	})
 	if err != nil {
