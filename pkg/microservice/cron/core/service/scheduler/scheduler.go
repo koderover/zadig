@@ -207,15 +207,11 @@ func (c *CronClient) InitColliePipelineScheduler() {
 
 // InitBuildStatScheduler ...
 func (c *CronClient) InitBuildStatScheduler() {
-	fmt.Println(".... InitBuildStatScheduler start ....")
 	c.Schedulers[InitStatScheduler] = gocron.NewScheduler()
 
-	//c.Schedulers[InitStatScheduler].Every(1).Day().At("01:00").Do(c.AslanCli.InitStatData, c.log)
-
-	c.Schedulers[InitStatScheduler].Every(5).Minutes().Do(c.AslanCli.InitStatData, c.log)
+	c.Schedulers[InitStatScheduler].Every(1).Day().At("01:00").Do(c.AslanCli.InitStatData, c.log)
 
 	c.Schedulers[InitStatScheduler].Start()
-	fmt.Println(".... InitBuildStatScheduler end....")
 }
 
 // InitOperationStatScheduler ...
