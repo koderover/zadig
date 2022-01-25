@@ -28,7 +28,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
-	"helm.sh/helm/v3/pkg/storage"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/rest"
@@ -54,6 +53,7 @@ import (
 	"github.com/koderover/zadig/pkg/util/converter"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
+	helmrelease "helm.sh/helm/v3/pkg/release"
 )
 
 // InitializeDeployTaskPlugin to initiate deploy task plugin and return ref
@@ -531,8 +531,44 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			return
 		}
 
+		releaseName := util.GeneHelmReleaseName(p.Task.Namespace, p.Task.ServiceName)
+
+		ensureUpgrade := func() error {
+			hrs, errHistory := helmClient.ListReleaseHistory(releaseName, 10)
+			if errHistory != nil {
+				// list history should not block deploy operation, error will be logged instead of returned
+				p.Log.Errorf("failed to list release history, release: %s, err: %s", releaseName, errHistory)
+				return nil
+			}
+			if len(hrs) == 0 {
+				return nil
+			}
+			releaseutil.Reverse(hrs, releaseutil.SortByRevision)
+			rel := hrs[0]
+
+			// for release in superseded status or stuck in pending status , uninstall the service first
+			if rel.Info.Status == helmrelease.StatusSuperseded || (rel.Info.Status.IsPending() && time.Now().Sub(rel.Info.LastDeployed.Time).Seconds() > setting.DeployTimeout) {
+				p.Log.Infof("uninstalling release: %s in status: %s", releaseName, rel.Info.Status)
+				removeSpec := &helmclient.ChartSpec{
+					ReleaseName: releaseName,
+					ChartName:   chartPath,
+					Namespace:   p.Task.Namespace,
+					Timeout:     time.Second * setting.DeployTimeout,
+					Wait:        true,
+				}
+				err = helmClient.UninstallRelease(removeSpec)
+				return errors.Wrapf(err, "failed to uninstall superseded release: %s, err: %s", removeSpec.ReleaseName, err)
+			}
+			return nil
+		}
+
+		err = ensureUpgrade()
+		if err != nil {
+			return
+		}
+
 		chartSpec := helmclient.ChartSpec{
-			ReleaseName: util.GeneHelmReleaseName(p.Task.Namespace, p.Task.ServiceName),
+			ReleaseName: releaseName,
 			ChartName:   chartPath,
 			Namespace:   p.Task.Namespace,
 			ReuseValues: true,
@@ -542,44 +578,6 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			UpgradeCRDs: true,
 			Timeout:     time.Second * setting.DeployTimeout,
 			Wait:        true,
-		}
-
-		pendingStatusProcess := func(typ string) error {
-			hrs, errHistory := helmClient.ListReleaseHistory(chartSpec.ReleaseName, 10)
-			if errHistory != nil {
-				err = errors.WithMessagef(
-					err,
-					"failed to ListReleaseHistory: %s,error:%s",
-					chartSpec.ReleaseName, errHistory)
-				return err
-			}
-			if len(hrs) > 0 {
-				releaseutil.Reverse(hrs, releaseutil.SortByRevision)
-				rel := hrs[0]
-				if rel.Info.Status.IsPending() {
-					secretName := fmt.Sprintf("%s.%s.v%d", storage.HelmStorageType, rel.Name, rel.Version)
-					deleteErr := updater.DeleteSecretWithName(rel.Namespace, secretName, p.kubeClient)
-					if deleteErr != nil {
-						err = errors.WithMessagef(err, "failed to deleteSecretWithName:%s,error:%s", secretName, deleteErr)
-						return err
-					}
-				}
-			}
-			if err != nil {
-				return err
-			} else {
-				if typ == "timeout" {
-					err = fmt.Errorf("failed to upgrade %s", typ)
-				}
-			}
-			return err
-		}
-
-		// ensure release status not in pending
-		err = pendingStatusProcess("ensureStatus")
-		if err != nil {
-			err = errors.Wrapf(err, "failed to delete pending status for release: %s", chartSpec.ReleaseName)
-			return
 		}
 
 		done := make(chan bool)
@@ -596,12 +594,10 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		}(done)
 
 		select {
-		case d := <-done:
-			if !d {
-				err = pendingStatusProcess("normal")
-			}
+		case <-done:
+			break
 		case <-time.After(chartSpec.Timeout + 30*time.Second):
-			err = pendingStatusProcess("timeout")
+			err = fmt.Errorf("failed to upgrade relase: %s, timeout", chartSpec.ReleaseName)
 		}
 		if err != nil {
 			return
