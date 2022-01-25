@@ -24,8 +24,6 @@ import (
 	"strings"
 	"time"
 
-	helmrelease "helm.sh/helm/v3/pkg/release"
-
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -55,6 +53,7 @@ import (
 	"github.com/koderover/zadig/pkg/util/converter"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
+	helmrelease "helm.sh/helm/v3/pkg/release"
 )
 
 // InitializeDeployTaskPlugin to initiate deploy task plugin and return ref
@@ -537,6 +536,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		ensureUpgrade := func() error {
 			hrs, errHistory := helmClient.ListReleaseHistory(releaseName, 10)
 			if errHistory != nil {
+				// list history should not block deploy operation, error will be logged instead of returned
 				p.Log.Errorf("failed to list release history, release: %s, err: %s", releaseName, errHistory)
 				return nil
 			}
