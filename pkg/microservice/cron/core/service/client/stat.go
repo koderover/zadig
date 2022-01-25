@@ -26,23 +26,23 @@ import (
 
 func (c *Client) InitStatData(log *zap.SugaredLogger) error {
 	//build
-	url := fmt.Sprintf("%s/api/quality/stat/initBuildStat", configbase.AslanxServiceAddress())
+	url := fmt.Sprintf("%s/api/stat/quality/initBuildStat", configbase.AslanServiceAddress())
 	log.Info("start init buildStat..")
-	err := c.sendRequest(url)
+	_, err := c.sendPostRequest(url, nil, log)
 	if err != nil {
 		log.Errorf("trigger init buildStat error :%v", err)
 	}
 	//test
-	url = fmt.Sprintf("%s/api/quality/stat/initTestStat", configbase.AslanxServiceAddress())
+	url = fmt.Sprintf("%s/api/stat/quality/initTestStat", configbase.AslanServiceAddress())
 	log.Info("start init testStat..")
-	err = c.sendRequest(url)
+	_, err = c.sendPostRequest(url, nil, log)
 	if err != nil {
 		log.Errorf("trigger init testStat error :%v", err)
 	}
 	//deploy
-	url = fmt.Sprintf("%s/api/quality/stat/initDeployStat", configbase.AslanxServiceAddress())
+	url = fmt.Sprintf("%s/api/stat/quality/initDeployStat", configbase.AslanServiceAddress())
 	log.Info("start init deployStat..")
-	err = c.sendRequest(url)
+	_, err = c.sendPostRequest(url, nil, log)
 	if err != nil {
 		log.Errorf("trigger init deployStat error :%v", err)
 	}

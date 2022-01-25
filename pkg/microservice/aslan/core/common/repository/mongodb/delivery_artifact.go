@@ -81,6 +81,18 @@ func (c *DeliveryArtifactColl) EnsureIndex(ctx context.Context) error {
 	return err
 }
 
+func (c *DeliveryArtifactColl) Count() (int64, error) {
+	query := bson.M{}
+
+	ctx := context.Background()
+	count, err := c.Collection.CountDocuments(ctx, query)
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}
+
 func (c *DeliveryArtifactColl) List(args *DeliveryArtifactArgs) ([]*models.DeliveryArtifact, int, error) {
 	if args == nil {
 		return nil, 0, errors.New("nil delivery_artifact args")

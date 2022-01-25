@@ -431,7 +431,7 @@ func (r *Reaper) handleCmdOutput(pipe io.ReadCloser, needPersistentLog bool, log
 			break
 		}
 
-		fmt.Printf("%s", string(lineBytes))
+		fmt.Printf("%s", r.maskSecretEnvs(string(lineBytes)))
 
 		if needPersistentLog {
 			err := util.WriteFile(logFile, lineBytes, 0700)
