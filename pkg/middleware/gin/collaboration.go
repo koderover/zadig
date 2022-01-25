@@ -13,7 +13,7 @@ func GetCollaborationNew() gin.HandlerFunc {
 		defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 		projectName := c.Query("projectName")
-		if projectName == "" {
+		if projectName == "" || c.Request.URL.Path == "/api/collaboration/collaborations/sync" {
 			c.Next()
 			return
 		}

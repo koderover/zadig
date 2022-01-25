@@ -49,8 +49,8 @@ type DeletePoliciesArgs struct {
 	Names []string `json:"names"`
 }
 
-func (c *Client) CreatePolicies(request CreatePoliciesArgs) error {
-	url := "/policies"
+func (c *Client) CreatePolicies(ns string, request CreatePoliciesArgs) error {
+	url := fmt.Sprintf("/policies?projectName=%s", ns)
 
 	_, err := c.Post(url, httpclient.SetBody(request))
 	if err != nil {
