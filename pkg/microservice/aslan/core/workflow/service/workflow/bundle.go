@@ -56,7 +56,6 @@ func GetBundleResources(logger *zap.SugaredLogger) ([]*resourceSpec, error) {
 		return nil, err
 	}
 
-	// TODO - mouuii
 	for _, workflow := range workflows {
 		resourceKey := config2.BuildResourceKey(string(config.ResourceTypeWorkflow), workflow.ProductTmplName, workflow.Name)
 		resourceSpec := &resourceSpec{
