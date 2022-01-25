@@ -195,6 +195,22 @@ func (c *WorkflowColl) Create(args *models.Workflow) error {
 	return err
 }
 
+func (c *WorkflowColl) BulkCreate(args []*models.Workflow) error {
+	if len(args) == 0 {
+		return nil
+	}
+	for _, arg := range args {
+		arg.CreateTime = time.Now().Unix()
+		arg.UpdateTime = time.Now().Unix()
+	}
+	var ois []interface{}
+	for _, obj := range args {
+		ois = append(ois, obj)
+	}
+	_, err := c.InsertMany(context.TODO(), ois)
+	return err
+}
+
 func (c *WorkflowColl) Replace(args *models.Workflow) error {
 	if args == nil {
 		return errors.New("nil Workflow args")

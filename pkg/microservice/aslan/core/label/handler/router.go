@@ -34,5 +34,6 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	labelBindings := router.Group("labelbindings")
 	{
 		labelBindings.POST("", CreateLabelBindings)
+		labelBindings.DELETE("", DeleteLabelBindings)
 	}
 }

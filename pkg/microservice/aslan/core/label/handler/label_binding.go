@@ -19,13 +19,14 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-func createLBValidate(cr *service.CreateLabelBindingsArgs) error {
-	for _, v := range cr.LabelBindings {
+func lBValidate(lb []*mongodb.LabelBinding) error {
+	for _, v := range lb {
 		if v.LabelID == "" || v.Resource.Type == "" {
 			return e.ErrInvalidParam.AddDesc("invalid labelbinding args")
 		}
@@ -42,7 +43,7 @@ func CreateLabelBindings(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	if err := createLBValidate(createLabelBindingsArgs); err != nil {
+	if err := lBValidate(createLabelBindingsArgs.LabelBindings); err != nil {
 		ctx.Err = err
 		return
 	}
@@ -53,14 +54,14 @@ func DeleteLabelBindings(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	createLabelBindingsArgs := new(service.CreateLabelBindingsArgs)
-	if err := c.ShouldBindJSON(createLabelBindingsArgs); err != nil {
+	deleteLabelBindingsArgs := new(service.DeleteLabelBindingsArgs)
+	if err := c.ShouldBindJSON(deleteLabelBindingsArgs); err != nil {
 		ctx.Err = err
 		return
 	}
-	if err := createLBValidate(createLabelBindingsArgs); err != nil {
+	if err := lBValidate(deleteLabelBindingsArgs.LabelBindings); err != nil {
 		ctx.Err = err
 		return
 	}
-	ctx.Err = service.CreateLabelBindings(createLabelBindingsArgs, ctx.UserName, ctx.Logger)
+	ctx.Err = service.DeleteLabelBindings(deleteLabelBindingsArgs, ctx.UserName, ctx.Logger)
 }
