@@ -578,6 +578,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			UpgradeCRDs: true,
 			Timeout:     time.Second * setting.DeployTimeout,
 			Wait:        true,
+			Replace:     true,
 		}
 
 		done := make(chan bool)
