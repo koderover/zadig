@@ -2,6 +2,6 @@
 
 WORKDIR /app
 
-ADD docker/dist/ua .
+COPY docker/dist/ua /app/ua
 
 ENTRYPOINT ["/app/ua"]

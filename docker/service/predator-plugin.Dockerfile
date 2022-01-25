@@ -8,6 +8,6 @@ RUN curl -fsSL "http://resources.koderover.com/docker-cli-v19.03.2.tar.gz" -o do
 
 WORKDIR /app
 
-ADD docker/dist/predator-plugin .
+COPY docker/dist/predator-plugin /app/predator-plugin
 
 ENTRYPOINT ["/app/predator-plugin"]

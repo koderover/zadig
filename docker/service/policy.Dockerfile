@@ -2,6 +2,6 @@
 
 WORKDIR /app
 
-ADD docker/dist/policy .
+COPY docker/dist/policy /app/policy
 
 ENTRYPOINT ["/app/policy"]

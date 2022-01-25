@@ -2,6 +2,6 @@
 
 WORKDIR /app
 
-ADD docker/dist/hub-server .
+COPY docker/dist/hub-server /app/hub-server
 
 ENTRYPOINT ["/app/hub-server"]

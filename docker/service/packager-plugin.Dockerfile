@@ -2,6 +2,6 @@
 
 WORKDIR /app
 
-ADD docker/dist/packager-plugin .
+COPY docker/dist/packager-plugin /app/packager-plugin
 
 ENTRYPOINT ["/app/packager-plugin"]

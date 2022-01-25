@@ -2,6 +2,6 @@
 
 WORKDIR /app
 
-COPY docker/dist/warpdrive .
+COPY docker/dist/warpdrive /app/warpdrive
 
 ENTRYPOINT ["/app/warpdrive"]

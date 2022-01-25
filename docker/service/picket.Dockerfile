@@ -2,6 +2,6 @@
 
 WORKDIR /app
 
-ADD docker/dist/picket .
+COPY docker/dist/picket /app/picket
 
 ENTRYPOINT ["/app/picket"]

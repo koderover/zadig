@@ -2,6 +2,6 @@
 
 WORKDIR /app
 
-ADD docker/dist/cron .
+COPY docker/dist/cron /app/cron
 
 ENTRYPOINT ["/app/cron"]

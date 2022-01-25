@@ -2,6 +2,6 @@
 
 WORKDIR /app
 
-ADD docker/dist/jenkins-plugin .
+COPY docker/dist/jenkins-plugin /app/jenkins-plugin
 
 ENTRYPOINT ["/app/jenkins-plugin"]

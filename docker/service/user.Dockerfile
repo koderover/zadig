@@ -2,6 +2,6 @@
 
 WORKDIR /app
 
-ADD docker/dist/user .
+COPY docker/dist/user /app/user
 
 ENTRYPOINT ["/app/user"]

@@ -2,6 +2,6 @@
 
 WORKDIR /app
 
-ADD docker/dist/aslan .
+COPY docker/dist/aslan /app/aslan
 
 ENTRYPOINT ["/app/aslan"]

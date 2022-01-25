@@ -2,6 +2,6 @@
 
 WORKDIR /app
 
-ADD docker/dist/podexec .
+COPY docker/dist/podexec /app/podexec
 
 ENTRYPOINT ["/app/podexec"]
