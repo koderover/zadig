@@ -22,6 +22,7 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -166,8 +167,7 @@ func ListLabelsByResources(resources []mongodb.Resource, logger *zap.SugaredLogg
 	// 3. iterate resources
 	res := make(map[string][]*models.Label)
 	for _, labelBinding := range labelBindings {
-		resourceKey := fmt.Sprintf("%s-%s-%s", labelBinding.ResourceType, labelBinding.ProjectName, labelBinding.ResourceName)
-
+		resourceKey := config.BuildResourceKey(labelBinding.ResourceType, labelBinding.ProjectName, labelBinding.ResourceName)
 		label, ok := labelM[labelBinding.LabelID]
 		if !ok {
 			return nil, fmt.Errorf("can not find label %v", label)

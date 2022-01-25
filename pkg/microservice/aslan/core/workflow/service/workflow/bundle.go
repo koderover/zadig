@@ -17,10 +17,9 @@ limitations under the License.
 package workflow
 
 import (
-	"fmt"
-
 	"go.uber.org/zap"
 
+	config2 "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/config"
 	labeldb "github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
@@ -59,7 +58,7 @@ func GetBundleResources(logger *zap.SugaredLogger) ([]*resourceSpec, error) {
 
 	// TODO - mouuii
 	for _, workflow := range workflows {
-		resourceKey := fmt.Sprintf("%s-%s-%s", config.ResourceTypeWorkflow, workflow.ProductTmplName, workflow.Name)
+		resourceKey := config2.BuildResourceKey(string(config.ResourceTypeWorkflow), workflow.ProductTmplName, workflow.Name)
 		resourceSpec := &resourceSpec{
 			ResourceID:  workflow.Name,
 			ProjectName: workflow.ProductTmplName,
@@ -69,6 +68,8 @@ func GetBundleResources(logger *zap.SugaredLogger) ([]*resourceSpec, error) {
 			for _, v := range labels {
 				resourceSpec.Spec[v.Key] = v.Value
 			}
+		} else {
+			logger.Warnf("can not found resource key :%s", resourceKey)
 		}
 		res = append(res, resourceSpec)
 	}
