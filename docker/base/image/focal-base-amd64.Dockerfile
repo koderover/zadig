@@ -19,13 +19,13 @@ RUN apt-get install -y \
   librrd-dev \
   sudo
 
-# 修改时区
+# timezone modification
 RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 
-# 安装 docker client
+# install docker client
 RUN curl -fsSL "http://resources.koderover.com/docker-cli-v19.03.2.tar.gz" -o docker.tgz &&\
     tar -xvzf docker.tgz &&\
     mv docker/* /usr/local/bin
 
-# 替换tar（适配cephfs）
+# replace tar（compatible for cephfs）
 RUN rm /bin/tar && curl -fsSL http://resource.koderover.com/tar -o /bin/tar && chmod +x /bin/tar

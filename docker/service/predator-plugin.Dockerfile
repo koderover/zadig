@@ -1,6 +1,6 @@
 #ubuntu-xenial.Dockerfile
 
-# 安装 docker client
+# install docker client
 RUN curl -fsSL "http://resources.koderover.com/docker-cli-v19.03.2.tar.gz" -o docker.tgz &&\
     tar -xvzf docker.tgz &&\
     mv docker/* /usr/local/bin &&\
