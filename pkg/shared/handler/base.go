@@ -48,6 +48,7 @@ type jwtClaims struct {
 	UID  string `json:"uid"`
 }
 
+// TODO: We need to implement a `context.Context` that conforms to the golang standard library.
 func NewContext(c *gin.Context) *Context {
 	logger := ginzap.WithContext(c).Sugar()
 	var claims jwtClaims

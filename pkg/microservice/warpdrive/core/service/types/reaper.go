@@ -23,6 +23,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 // Context ...
@@ -32,6 +33,7 @@ type Context struct {
 	// Workspace 容器工作目录 [必填]
 	Workspace string `yaml:"workspace"`
 
+	// TODO: Deprecated.
 	// CleanWorkspace 是否清理工作目录 [选填, 默认为 false]
 	CleanWorkspace bool `yaml:"clean_workspace"`
 
@@ -115,6 +117,12 @@ type Context struct {
 	ArtifactInfo    *ArtifactInfo `yaml:"artifact_info"`
 	ArtifactPath    string        `yaml:"artifact_path"`
 	AesKey          string        `yaml:"aes_key"`
+
+	// New since V1.10.0.
+	CacheEnable  bool               `yaml:"cache_enable"`
+	Cache        types.Cache        `yaml:"cache"`
+	CacheDirType types.CacheDirType `yaml:"cache_dir_type"`
+	CacheUserDir string             `yaml:"cache_user_dir"`
 }
 
 type ArtifactInfo struct {

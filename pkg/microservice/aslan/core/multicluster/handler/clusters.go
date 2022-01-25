@@ -25,6 +25,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/multicluster/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 func ListClusters(c *gin.Context) {
@@ -75,11 +76,13 @@ func UpdateCluster(c *gin.Context) {
 	args := new(service.K8SCluster)
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		log.Errorf("Failed to bind data: %s", err)
 		return
 	}
 
 	if err := args.Clean(); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		log.Errorf("Failed to clean args: %s", err)
 		return
 	}
 

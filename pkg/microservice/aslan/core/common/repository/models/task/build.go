@@ -61,6 +61,12 @@ type Build struct {
 	EnvHostInfo  map[string][]string `bson:"env_host_info,omitempty"         json:"env_host_info,omitempty"`
 	ArtifactInfo *ArtifactInfo       `bson:"artifact_info,omitempty"         json:"artifact_info,omitempty"`
 	ClusterID    string              `bson:"cluster_id,omitempty"            json:"cluster_id,omitempty"`
+
+	// New since V1.10.0.
+	Cache        types.Cache        `bson:"cache"                           json:"cache"`
+	CacheEnable  bool               `bson:"cache_enable"                    json:"cache_enable"`
+	CacheDirType types.CacheDirType `bson:"cache_dir_type"                  json:"cache_dir_type"`
+	CacheUserDir string             `bson:"cache_user_dir"                  json:"cache_user_dir"`
 }
 
 type ArtifactInfo struct {
@@ -123,9 +129,11 @@ type DockerBuildStatus struct {
 }
 
 type JobCtx struct {
-	EnableProxy    bool          `bson:"enable_proxy"                   json:"enable_proxy"`
-	Proxy          *models.Proxy `bson:"proxy"                          json:"proxy"`
-	CleanWorkspace bool          `bson:"clean_workspace"                json:"clean_workspace"`
+	EnableProxy bool          `bson:"enable_proxy"                   json:"enable_proxy"`
+	Proxy       *models.Proxy `bson:"proxy"                          json:"proxy"`
+
+	// TODO: Deprecated.
+	CleanWorkspace bool `bson:"clean_workspace"                json:"clean_workspace"`
 
 	// BuildJobCtx
 	Builds     []*types.Repository `bson:"builds"                         json:"builds"`
@@ -147,8 +155,7 @@ type JobCtx struct {
 	DockerBuildCtx *DockerBuildCtx `bson:"docker_build_ctx,omitempty" json:"docker_build_ctx,omitempty"`
 	FileArchiveCtx *FileArchiveCtx `bson:"file_archive_ctx,omitempty" json:"file_archive_ctx,omitempty"`
 	// TestType
-	TestType string `bson:"test_type"                       json:"test_type"`
-	// Caches
+	TestType      string   `bson:"test_type"                       json:"test_type"`
 	Caches        []string `bson:"caches" json:"caches"`
 	ArtifactPath  string   `bson:"artifact_path,omitempty"  json:"artifact_path,omitempty"`
 	ArtifactPaths []string `bson:"artifact_paths,omitempty" json:"artifact_paths,omitempty"`

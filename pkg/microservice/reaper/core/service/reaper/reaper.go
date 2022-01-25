@@ -31,21 +31,18 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/koderover/zadig/pkg/microservice/reaper/config"
-	"github.com/koderover/zadig/pkg/microservice/reaper/core/service/archive"
 	"github.com/koderover/zadig/pkg/microservice/reaper/core/service/meta"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util/fs"
 )
 
 const (
-	// ReadmeScriptFile ...
 	ReadmeScriptFile = "readme_script.sh"
-	// ReadmeFile ...
-	ReadmeFile = "/tmp/README"
+	ReadmeFile       = "/tmp/README"
 )
 
-// Reaper ...
 type Reaper struct {
 	Ctx             *meta.Context
 	StartTime       time.Time
@@ -82,33 +79,25 @@ func (r *Reaper) GetCacheFile() string {
 	return filepath.Join(r.Ctx.Workspace, "reaper.tar.gz")
 }
 
-func (r *Reaper) archiveCustomCaches(wd, dest string, caches []string) ([]string, error) {
-	fileAchiever := archive.NewWorkspaceAchiever(r.Ctx.StorageURI, r.Ctx.PipelineName, r.Ctx.ServiceName, wd, r.Ctx.AesKey, caches, []string{}, r.getUserEnvs())
-
-	// list files matches caches
-	return fileAchiever.Achieve(dest)
-}
-
 func (r *Reaper) CompressCache(storageURI string) error {
+	log.Infof("StorageURI: %s, r.ActiveWorkspace: %s", storageURI, r.ActiveWorkspace)
+
 	err := r.EnsureActiveWorkspace(r.ActiveWorkspace)
 	if err != nil {
 		log.Errorf("EnsureActiveWorkspace err:%v", err)
 		return err
 	}
-	if len(r.Ctx.Caches) > 0 {
-		log.Infof("custom caches will be cached")
-		caches, err := r.archiveCustomCaches(r.ActiveWorkspace, r.GetCacheFile(), r.Ctx.Caches)
-		if err != nil {
-			return err
-		}
-		log.Infof("succeed to cache [%s]", strings.Join(caches, ","))
-	} else {
-		log.Infof("workspace will be cached in background")
-		if err := r.cm.Archive(r.ActiveWorkspace, r.GetCacheFile()); err != nil {
-			return err
-		}
-		log.Info("succeed to cache workspace")
+
+	cacheDir := "/workspace"
+	if r.Ctx.CacheDirType == types.UserDefinedCacheDir {
+		cacheDir = r.Ctx.CacheUserDir
 	}
+
+	log.Infof("Data in `%s` will be cached.", cacheDir)
+	if err := r.cm.Archive(cacheDir, r.GetCacheFile()); err != nil {
+		return fmt.Errorf("failed to cache %s: %s", cacheDir, err)
+	}
+	log.Infof("Succeed to cache %s", cacheDir)
 
 	// remove workspace
 	err = os.RemoveAll(r.ActiveWorkspace)
@@ -141,28 +130,23 @@ func (r *Reaper) EnsureActiveWorkspace(workspace string) error {
 		r.ActiveWorkspace = tempWorkspace
 		return os.Chdir(r.ActiveWorkspace)
 	}
+
 	err := os.MkdirAll(workspace, os.ModePerm)
 	if err != nil {
 		return fmt.Errorf("failed to create workspace: %v", err)
 	}
 	r.ActiveWorkspace = workspace
+
 	return os.Chdir(r.ActiveWorkspace)
 }
 
-// BeforeExec ...
 func (r *Reaper) BeforeExec() error {
-	workspace := "/workspace"
+	r.StartTime = time.Now()
 
+	workspace := "/workspace"
 	if r.Ctx.ClassicBuild {
 		workspace = r.Ctx.Workspace
 	}
-
-	r.StartTime = time.Now()
-
-	if err := os.RemoveAll(workspace); err != nil {
-		log.Warning(err.Error())
-	}
-
 	if err := r.EnsureActiveWorkspace(workspace); err != nil {
 		return err
 	}
@@ -175,7 +159,6 @@ func (r *Reaper) BeforeExec() error {
 		time.Sleep(time.Second * 1)
 	}
 
-	// 检查是否需要登录docker registry
 	if r.Ctx.DockerRegistry != nil {
 		if r.Ctx.DockerRegistry.UserName != "" {
 			log.Infof("login docker registry %s", r.Ctx.DockerRegistry.Host)
@@ -190,39 +173,26 @@ func (r *Reaper) BeforeExec() error {
 		}
 	}
 
-	// CleanWorkspace=True 意思是不使用缓存，ResetCache=True 意思是当次工作流不使用缓存
-	// 如果 CleanWorkspace=True，永远不使用缓存
-	// 如果 CleanWorkspace=False，本次工作流 ResetCache=False，使用缓存；本次工作流 ResetCache=True，不使用缓存
-	// TODO: CleanWorkspace 和 ResetCache 严重词不达意，需要改成更合理的值
-	if !r.Ctx.CleanWorkspace && !r.Ctx.ResetCache {
-		// 恢复缓存
-		//if _, err := os.Stat(r.GetCacheFile()); err == nil {
-		// 解压缓存
+	if r.Ctx.CacheEnable && r.Ctx.Cache.MediumType == types.ObjectMedium {
 		log.Info("extracting workspace ...")
 		if err := r.DecompressCache(); err != nil {
-			log.Infof("no previous cache is found: %v", err)
-			//if err = os.Remove(r.GetCacheFile()); err != nil {
-			//	log.Warningf("failed to remove cache file %s: %v", r.GetCacheFile(), err)
-			//}
+			// If the workflow runs for the first time, there may be no cache.
+			log.Infof("no previous cache is found: %s", err)
 		} else {
 			log.Info("succeed to extract workspace")
 		}
-		//}
 	}
 
-	// 创建SSH目录
 	if err := os.MkdirAll(path.Join(os.Getenv("HOME"), "/.ssh"), os.ModePerm); err != nil {
 		return fmt.Errorf("create ssh folder error: %v", err)
 	}
 
-	// 创建发布目录
 	if r.Ctx.Archive != nil && len(r.Ctx.Archive.Dir) > 0 {
 		if err := os.MkdirAll(r.Ctx.Archive.Dir, os.ModePerm); err != nil {
 			return fmt.Errorf("create DistDir error: %v", err)
 		}
 	}
 
-	// 检查是否需要配置Gitub/Gitlab
 	if r.Ctx.Git != nil {
 		if err := r.Ctx.Git.WriteGithubSSHFile(); err != nil {
 			return fmt.Errorf("write github ssh file error: %v", err)
@@ -241,14 +211,13 @@ func (r *Reaper) BeforeExec() error {
 		}
 	}
 
-	// 清理测试目录
 	if r.Ctx.GinkgoTest != nil && len(r.Ctx.GinkgoTest.ResultPath) > 0 {
 		r.Ctx.GinkgoTest.ResultPath = filepath.Join(r.ActiveWorkspace, r.Ctx.GinkgoTest.ResultPath)
 		log.Infof("clean test result path %s", r.Ctx.GinkgoTest.ResultPath)
 		if err := os.RemoveAll(r.Ctx.GinkgoTest.ResultPath); err != nil {
 			log.Warning(err.Error())
 		}
-		// 创建测试目录
+
 		if err := os.MkdirAll(r.Ctx.GinkgoTest.ResultPath, os.ModePerm); err != nil {
 			return fmt.Errorf("create test result path error: %v", err)
 		}
@@ -342,25 +311,19 @@ func (r *Reaper) prepareDockerfile() error {
 	return nil
 }
 
-// Exec ...
 func (r *Reaper) Exec() error {
-
-	// 运行安装脚本
 	if err := r.runIntallationScripts(); err != nil {
 		return err
 	}
 
-	// 运行Git命令
 	if err := r.runGitCmds(); err != nil {
 		return err
 	}
 
-	// 生成Git commits信息
 	if err := r.createReadme(ReadmeFile); err != nil {
 		log.Warningf("create readme file error: %v", err)
 	}
 
-	// 运行用户脚本
 	if err := r.runScripts(); err != nil {
 		return err
 	}
@@ -450,10 +413,10 @@ func (r *Reaper) AfterExec(upStreamErr error) error {
 		return err
 	}
 
-	// Upload workspace cache if user uses workspace cache.
+	// Upload workspace cache if the user turns on caching and uses object storage.
 	// Note: Whether the cache is uploaded successfully or not cannot hinder the progress of the overall process,
 	//       so only exceptions are printed here and the process is not interrupted.
-	if !r.Ctx.CleanWorkspace && !r.Ctx.ResetCache {
+	if r.Ctx.CacheEnable && r.Ctx.Cache.MediumType == types.ObjectMedium {
 		if err := r.CompressCache(r.Ctx.StorageURI); err != nil {
 			log.Warnf("Failed to run compress cache: %s", err)
 		}

@@ -41,7 +41,6 @@ import (
 	"github.com/koderover/zadig/pkg/util"
 )
 
-//InitializeTestTaskPlugin ...
 func InitializeTestTaskPlugin(taskType config.TaskType) TaskPlugin {
 	return &TestPlugin{
 		Name:       taskType,
@@ -64,34 +63,27 @@ func (p *TestPlugin) SetAckFunc(func()) {
 }
 
 const (
-	// TestingV2TaskTimeout ...
 	TestingV2TaskTimeout = 60 * 60 // 60 minutes
 )
 
-// Init ...
 func (p *TestPlugin) Init(jobname, filename string, xl *zap.SugaredLogger) {
 	p.JobName = jobname
 	p.FileName = filename
-	// SetLogger ...
 	p.Log = xl
 }
 
-// Type ...
 func (p *TestPlugin) Type() config.TaskType {
 	return p.Name
 }
 
-// Status ...
 func (p *TestPlugin) Status() config.Status {
 	return p.Task.TaskStatus
 }
 
-// SetStatus ...
 func (p *TestPlugin) SetStatus(status config.Status) {
 	p.Task.TaskStatus = status
 }
 
-// TaskTimeout ...
 func (p *TestPlugin) TaskTimeout() int {
 	if p.Task.Timeout == 0 {
 		p.Task.Timeout = TestingV2TaskTimeout
@@ -104,6 +96,15 @@ func (p *TestPlugin) TaskTimeout() int {
 }
 
 func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineCtx *task.PipelineCtx, serviceName string) {
+	if p.Task.CacheEnable && !pipelineTask.ConfigPayload.ResetCache {
+		pipelineCtx.CacheEnable = true
+		pipelineCtx.Cache = p.Task.Cache
+		pipelineCtx.CacheDirType = p.Task.CacheDirType
+		pipelineCtx.CacheUserDir = p.Task.CacheUserDir
+	} else {
+		pipelineCtx.CacheEnable = false
+	}
+
 	p.KubeNamespace = pipelineTask.ConfigPayload.Test.KubeNamespace
 	if p.Task.Namespace != "" {
 		p.KubeNamespace = p.Task.Namespace
@@ -134,9 +135,8 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 		}
 	}
 	pipelineCtx.DockerHost = pipelineTask.DockerHost
-	// 重置错误信息
+	// Reset error message.
 	p.Task.Error = ""
-	// 获取测试相关的namespace
 	var linkedNamespace string
 	var envName string
 	if pipelineTask.Type == config.SingleType {
@@ -266,13 +266,11 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 	}
 }
 
-// Wait ...
 func (p *TestPlugin) Wait(ctx context.Context) {
 	status := waitJobEndWithFile(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, true, p.kubeClient, p.Log)
 	p.SetStatus(status)
 }
 
-// Complete ...
 func (p *TestPlugin) Complete(ctx context.Context, pipelineTask *task.Task, serviceName string) {
 	pipelineName := pipelineTask.PipelineName
 	pipelineTaskID := pipelineTask.TaskID
@@ -494,7 +492,6 @@ func (p *TestPlugin) IsTaskDone() bool {
 	return false
 }
 
-// IsTaskFailed ...
 func (p *TestPlugin) IsTaskFailed() bool {
 	if p.Task.TaskStatus == config.StatusFailed || p.Task.TaskStatus == config.StatusTimeout || p.Task.TaskStatus == config.StatusCancelled {
 		return true
@@ -502,22 +499,18 @@ func (p *TestPlugin) IsTaskFailed() bool {
 	return false
 }
 
-// SetStartTime ...
 func (p *TestPlugin) SetStartTime() {
 	p.Task.StartTime = time.Now().Unix()
 }
 
-// SetEndTime ...
 func (p *TestPlugin) SetEndTime() {
 	p.Task.EndTime = time.Now().Unix()
 }
 
-// IsTaskEnabled ..
 func (p *TestPlugin) IsTaskEnabled() bool {
 	return p.Task.Enabled
 }
 
-// ResetError ...
 func (p *TestPlugin) ResetError() {
 	p.Task.Error = ""
 }

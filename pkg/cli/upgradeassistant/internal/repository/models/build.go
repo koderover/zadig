@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KodeRover Authors.
+Copyright 2022 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -24,14 +24,11 @@ import (
 )
 
 type Build struct {
-	ID      primitive.ObjectID `bson:"_id,omitempty"                json:"id,omitempty"`
-	Name    string             `bson:"name"                         json:"name"`
-	Team    string             `bson:"team,omitempty"               json:"team,omitempty"`
-	Source  string             `bson:"source,omitempty"             json:"source,omitempty"`
-	Timeout int                `bson:"timeout"                      json:"timeout"`
-	// 在任一编译配置模板中只能出现一次
-	// 对于k8s部署是传入容器名称
-	// 对于物理机部署是服务名称
+	ID           primitive.ObjectID     `bson:"_id,omitempty"                json:"id,omitempty"`
+	Name         string                 `bson:"name"                         json:"name"`
+	Team         string                 `bson:"team,omitempty"               json:"team,omitempty"`
+	Source       string                 `bson:"source,omitempty"             json:"source,omitempty"`
+	Timeout      int                    `bson:"timeout"                      json:"timeout"`
 	Targets      []*ServiceModuleTarget `bson:"targets"                       json:"targets"`
 	Description  string                 `bson:"desc,omitempty"                json:"desc"`
 	UpdateTime   int64                  `bson:"update_time"                   json:"update_time"`
@@ -134,7 +131,6 @@ type Parameter struct {
 	ParamVal     []*ParamVal `bson:"param_val"              json:"param_val"`
 }
 
-// ParamVal 参数化过程服务配置值
 type ParamVal struct {
 	Target string `bson:"target"                 json:"target"`
 	Value  string `bson:"value"                  json:"value"`

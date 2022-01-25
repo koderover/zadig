@@ -1852,6 +1852,16 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 			ClusterID:    module.PreBuild.ClusterID,
 		}
 
+		clusterInfo, err := commonrepo.NewK8SClusterColl().Get(module.PreBuild.ClusterID)
+		if err != nil {
+			return nil, e.ErrConvertSubTasks.AddErr(err)
+		}
+
+		build.Cache = clusterInfo.Cache
+		build.CacheEnable = module.CacheEnable
+		build.CacheDirType = module.CacheDirType
+		build.CacheUserDir = module.CacheUserDir
+
 		if args.TaskType != "" {
 			build.TaskType = config.TaskArtifactDeploy
 		}
