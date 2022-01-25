@@ -24,6 +24,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/koderover/zadig/pkg/tool/log"
+
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -531,6 +533,40 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			return
 		}
 
+		releaseName := util.GeneHelmReleaseName(p.Task.Namespace, p.Task.ServiceName)
+
+		ensureUpgrade := func() error {
+			hrs, errHistory := helmClient.ListReleaseHistory(releaseName, 10)
+			if errHistory != nil {
+				log.Errorf("failed to list release history, release: %s, err: %s", releaseName, errHistory)
+				return nil
+			}
+			if len(hrs) == 0 {
+				return nil
+			}
+			releaseutil.Reverse(hrs, releaseutil.SortByRevision)
+			rel := hrs[0]
+
+			// for release in superseded status or stuck in pending status , uninstall the service first
+			if rel.Info.Status == helmrelease.StatusSuperseded || (rel.Info.Status.IsPending() && time.Now().Sub(rel.Info.LastDeployed.Time).Seconds() > setting.DeployTimeout) {
+				removeSpec := &helmclient.ChartSpec{
+					ReleaseName: util.GeneHelmReleaseName(p.Task.Namespace, p.Task.ServiceName),
+					ChartName:   chartPath,
+					Namespace:   p.Task.Namespace,
+					Timeout:     time.Second * setting.DeployTimeout,
+					Wait:        true,
+				}
+				err = helmClient.UninstallRelease(removeSpec)
+				return errors.Wrapf(err, "failed to uninstall superseded release: %s, err: %s", removeSpec.ReleaseName, err)
+			}
+			return nil
+		}
+
+		err = ensureUpgrade()
+		if err != nil {
+			return
+		}
+
 		chartSpec := helmclient.ChartSpec{
 			ReleaseName: util.GeneHelmReleaseName(p.Task.Namespace, p.Task.ServiceName),
 			ChartName:   chartPath,
@@ -542,6 +578,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			UpgradeCRDs: true,
 			Timeout:     time.Second * setting.DeployTimeout,
 			Wait:        true,
+			Replace:     true,
 		}
 
 		done := make(chan bool)
@@ -557,39 +594,11 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			}
 		}(done)
 
-		pendingStatusProcess := func(typ string) error {
-			hrs, errHistory := helmClient.ListReleaseHistory(chartSpec.ReleaseName, 10)
-			if errHistory != nil {
-				err = errors.WithMessagef(
-					err,
-					"failed to ListReleaseHistory: %s,error:%s",
-					chartSpec.ReleaseName, errHistory)
-				return err
-			}
-			if len(hrs) > 0 {
-				releaseutil.Reverse(hrs, releaseutil.SortByRevision)
-				rel := hrs[0]
-				if rel.Info.Status == helmrelease.StatusPendingInstall || rel.Info.Status == helmrelease.StatusPendingUpgrade {
-					secretName := fmt.Sprintf("sh.helm.release.v1.%s.v%d", rel.Name, rel.Version)
-					deleteErr := updater.DeleteSecretWithName(rel.Namespace, secretName, p.kubeClient)
-					if deleteErr != nil {
-						err = errors.WithMessagef(err, "failed to deleteSecretWithName:%s,error:%s", secretName, deleteErr)
-						return err
-					}
-				}
-			}
-			if err != nil {
-				err = fmt.Errorf("failed to install %s:%s", typ, err)
-			}
-			return err
-		}
 		select {
-		case d := <-done:
-			if !d {
-				err = pendingStatusProcess("normal")
-			}
-		case <-time.After(chartSpec.Timeout + 5*time.Second):
-			err = pendingStatusProcess("timeout")
+		case <-done:
+			break
+		case <-time.After(chartSpec.Timeout + 30*time.Second):
+			err = fmt.Errorf("failed to upgrade relase: %s, timeout", chartSpec.ReleaseName)
 		}
 		if err != nil {
 			return
