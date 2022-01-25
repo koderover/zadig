@@ -387,7 +387,6 @@ func search(flatMap map[string]interface{}, pattern map[string]string) ([]map[st
 	}
 
 	relativePaths := relativeSearcher.getRelativePath()
-	fmt.Printf("the relative paths is %v \n", relativePaths)
 	checker := newRelativeChecker(relativePaths)
 
 	allKeys := make([][]string, 0)
