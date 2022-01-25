@@ -60,6 +60,10 @@ type ServiceListOption struct {
 	NotInServices  []*templatemodels.ServiceInfo
 }
 
+type ServiceAggregateResult struct {
+	ServiceID primitive.ObjectID `bson:"service_id"`
+}
+
 type ServiceColl struct {
 	*mongo.Collection
 
@@ -427,6 +431,61 @@ func (c *ServiceColl) ListAllRevisions() ([]*models.Service, error) {
 	}
 
 	return resp, err
+}
+
+func (c *ServiceColl) ListMaxRevisionsByProject(serviceName, serviceType string) ([]*models.Service, error) {
+
+	pipeline := []bson.M{
+		{
+			"$match": bson.M{
+				"status":       bson.M{"$ne": setting.ProductStatusDeleting},
+				"service_name": serviceName,
+				"type":         serviceType,
+			},
+		},
+		{
+			"$group": bson.M{
+				"_id": bson.M{
+					"product_name": "$product_name",
+					"service_name": "$service_name",
+				},
+				"revision":   bson.M{"$max": "$revision"},
+				"service_id": bson.M{"$last": "$_id"},
+			},
+		},
+	}
+
+	cursor, err := c.Aggregate(context.TODO(), pipeline)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]*ServiceAggregateResult, 0)
+	if err := cursor.All(context.TODO(), &res); err != nil {
+		return nil, err
+	}
+
+	var ids []primitive.ObjectID
+	for _, service := range res {
+		ids = append(ids, service.ServiceID)
+	}
+
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	var resp []*models.Service
+	query := bson.M{"_id": bson.M{"$in": ids}}
+	cursor, err = c.Collection.Find(context.TODO(), query)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
 }
 
 func (c *ServiceColl) ListMaxRevisions(opt *ServiceListOption) ([]*models.Service, error) {
