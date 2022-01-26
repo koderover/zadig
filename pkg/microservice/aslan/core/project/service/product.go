@@ -480,7 +480,7 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 		}
 
 	}()
-
+	// delete policy
 	go func() {
 		query := bson.M{}
 		query["namespace"] = productName
@@ -489,7 +489,7 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 			log.Errorf("newPolicyMetaColl delete err: %s", err)
 		}
 	}()
-	// delete policy
+
 	return nil
 }
 
