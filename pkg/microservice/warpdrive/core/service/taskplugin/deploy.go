@@ -547,17 +547,8 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			rel := hrs[0]
 
 			// for release in superseded status or stuck in pending status , uninstall the service first
-			if rel.Info.Status == helmrelease.StatusSuperseded || (rel.Info.Status.IsPending() && time.Now().Sub(rel.Info.LastDeployed.Time).Seconds() > setting.DeployTimeout) {
-				p.Log.Infof("uninstalling release: %s in status: %s", releaseName, rel.Info.Status)
-				removeSpec := &helmclient.ChartSpec{
-					ReleaseName: releaseName,
-					ChartName:   chartPath,
-					Namespace:   p.Task.Namespace,
-					Timeout:     time.Second * setting.DeployTimeout,
-					Wait:        true,
-				}
-				err = helmClient.UninstallRelease(removeSpec)
-				return errors.Wrapf(err, "failed to uninstall superseded release: %s, err: %s", removeSpec.ReleaseName, err)
+			if rel.Info.Status == helmrelease.StatusSuperseded || rel.Info.Status.IsPending() {
+				return fmt.Errorf("failed to upgrade release: %s with exceptional status: %s", releaseName, rel.Info.Status)
 			}
 			return nil
 		}
