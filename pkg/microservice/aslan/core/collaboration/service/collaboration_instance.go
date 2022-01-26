@@ -215,7 +215,7 @@ func genCollaborationInstance(mode models.CollaborationMode, projectName, uid, u
 	return &models.CollaborationInstance{
 		ProjectName:       mode.Name,
 		CollaborationName: mode.Name,
-		User:              uid,
+		UserUID:           uid,
 		PolicyName:        buildPolicyName(projectName, mode.Name, userName),
 		Revision:          mode.Revision,
 		Workflows:         workflows,
@@ -313,7 +313,7 @@ func syncInstance(updateResp *GetCollaborationUpdateResp, projectName, userName,
 		findOpts = append(findOpts, mongodb.CollaborationInstanceFindOptions{
 			Name:        instance.CollaborationName,
 			ProjectName: instance.ProjectName,
-			UserUID:     instance.User,
+			UserUID:     instance.UserUID,
 		})
 	}
 	err = mongodb.NewCollaborationInstanceColl().BulkDelete(mongodb.CollaborationInstanceListOptions{
