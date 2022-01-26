@@ -359,7 +359,7 @@ func GetDeployTopFiveHigherMeasure(startDate, endDate int64, productNames []stri
 		}
 	}
 	sort.SliceStable(deployHigherStats, func(i, j int) bool {
-		return (deployHigherStats[i].TotalSuccess + deployHigherStats[i].TotalFailure) > (deployHigherStats[j].TotalSuccess + deployHigherStats[j].TotalFailure)
+		return deployHigherStats[i].TotalSuccess > deployHigherStats[j].TotalSuccess
 	})
 	return deployHigherStats, nil
 }
