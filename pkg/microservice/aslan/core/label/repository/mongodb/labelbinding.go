@@ -61,22 +61,31 @@ func (c *LabelBindingColl) EnsureIndex(ctx context.Context) error {
 }
 
 type LabelBinding struct {
-	Resource   Resource `json:"resource"`
-	LabelID    string   `json:"label_id"`
-	CreateBy   string   `json:"create_by"`
-	CreateTime int64    `json:"create_time"`
+	Resource   Resource `json:"resource" bson:"resource"`
+	LabelID    string   `json:"label_id" bson:"label_id"`
+	CreateBy   string   `json:"create_by" bson:"create_by"`
+	CreateTime int64    `json:"create_time" bson:"create_time"`
 }
 
 func (c *LabelBindingColl) CreateMany(labelBindings []*LabelBinding) error {
 	if len(labelBindings) == 0 {
 		return nil
 	}
+	var lbs []models.LabelBinding
 	for _, labelBinding := range labelBindings {
-		labelBinding.CreateTime = time.Now().Unix()
+		tmplb := models.LabelBinding{
+			ResourceType: labelBinding.Resource.Type,
+			ResourceName: labelBinding.Resource.Name,
+			ProjectName:  labelBinding.Resource.ProjectName,
+			LabelID:      labelBinding.LabelID,
+			CreateBy:     labelBinding.CreateBy,
+			CreateTime:   time.Now().Unix(),
+		}
+		lbs = append(lbs, tmplb)
 	}
 
 	var ois []interface{}
-	for _, obj := range labelBindings {
+	for _, obj := range lbs {
 		ois = append(ois, obj)
 	}
 	_, err := c.InsertMany(context.TODO(), ois)
