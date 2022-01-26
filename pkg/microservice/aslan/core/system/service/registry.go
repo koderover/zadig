@@ -130,9 +130,35 @@ func UpdateRegistryNamespace(username, id string, args *commonmodels.RegistryNam
 }
 
 func DeleteRegistryNamespace(id string, log *zap.SugaredLogger) error {
-	if err := commonrepo.NewRegistryNamespaceColl().Delete(id); err != nil {
-		log.Errorf("RegistryNamespace.Delete error: %v", err)
+	registries, err := commonrepo.NewRegistryNamespaceColl().FindAll(&commonrepo.FindRegOps{})
+	if err != nil {
+		log.Errorf("RegistryNamespace.FindAll error: %s", err)
 		return err
+	}
+	var (
+		isDefault          = false
+		registryNamespaces []*commonmodels.RegistryNamespace
+	)
+	// whether it is the default registry
+	for _, registry := range registries {
+		if registry.ID.Hex() == id && registry.IsDefault {
+			isDefault = true
+			continue
+		}
+		registryNamespaces = append(registryNamespaces, registry)
+	}
+
+	if err := commonrepo.NewRegistryNamespaceColl().Delete(id); err != nil {
+		log.Errorf("RegistryNamespace.Delete error: %s", err)
+		return err
+	}
+
+	if isDefault && len(registryNamespaces) > 0 {
+		registryNamespaces[0].IsDefault = true
+		if err := commonrepo.NewRegistryNamespaceColl().Update(registryNamespaces[0].ID.Hex(), registryNamespaces[0]); err != nil {
+			log.Errorf("RegistryNamespace.Update error: %s", err)
+			return err
+		}
 	}
 	return nil
 }
