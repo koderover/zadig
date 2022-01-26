@@ -133,7 +133,7 @@ func InsertOperationLog(c *gin.Context, username, productName, method, function,
 	if err != nil {
 		logger.Errorf("InsertOperation err:%v", err)
 	}
-	c.Set("operationLogID", operationLogID)
+	c.Set("operationLogID", operationLogID.OperationLogID)
 }
 
 // responseHelper recursively finds all nil slice in the given interface,
