@@ -50,7 +50,7 @@ func GetUserResourcesPermission(c *gin.Context) {
 
 	req := new(GetUserResourcesPermissionReq)
 
-	if err := c.ShouldBindQuery(req); err != nil {
+	if err := c.ShouldBindJSON(req); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
