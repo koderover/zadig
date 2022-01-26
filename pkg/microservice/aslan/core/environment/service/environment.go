@@ -1785,18 +1785,6 @@ func upsertService(isUpdate bool, env *commonmodels.Product,
 				u.Object = setFieldValueIsNotExist(u.Object, applyUpdatedAnnotations(podAnnotations), "spec", "template", "metadata", "annotations")
 			}
 
-			// Inject selector: s-product and s-service
-			selector, _, err := unstructured.NestedStringMap(u.Object, "spec", "selector", "matchLabels")
-			if err != nil {
-				selector = nil
-			}
-
-			err = unstructured.SetNestedStringMap(u.Object, kube.MergeLabels(labels, selector), "spec", "selector", "matchLabels")
-			if err != nil {
-				log.Errorf("merge selector failed err:%s", err)
-				u.Object = setFieldValueIsNotExist(u.Object, kube.MergeLabels(labels, selector), "spec", "selector", "matchLabels")
-			}
-
 			jsonData, err := u.MarshalJSON()
 			if err != nil {
 				log.Errorf("Failed to marshal JSON, manifest is\n%v\n, error: %v", u, err)
