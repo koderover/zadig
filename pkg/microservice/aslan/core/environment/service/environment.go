@@ -91,6 +91,7 @@ type EnvResp struct {
 	UpdateBy    string `json:"updateBy"`
 	UpdateTime  int64  `json:"updateTime"`
 	IsPublic    bool   `json:"isPublic"`
+	IsExisted   bool   `json:"is_existed"`
 	ClusterName string `json:"clusterName"`
 	ClusterID   string `json:"cluster_id"`
 	Production  bool   `json:"production"`
@@ -116,6 +117,7 @@ type ProductResp struct {
 	RecycleDay  int                        `json:"recycle_day"`
 	IsProd      bool                       `json:"is_prod"`
 	IsLocal     bool                       `json:"is_local"`
+	IsExisted   bool                       `json:"is_existed"`
 	Source      string                     `json:"source"`
 	RegisterID  string                     `json:"registry_id"`
 }
@@ -207,6 +209,7 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 			ProjectName: projectName,
 			Name:        env.EnvName,
 			IsPublic:    env.IsPublic,
+			IsExisted:   env.IsExisted,
 			ClusterName: clusterName,
 			Source:      env.Source,
 			Production:  production,
