@@ -27,7 +27,7 @@ allpush.arm64: $(ALL_PUSH:=.arm64) $(ALL_REAPER_PUSH:=.arm64) resource-server.up
 %.reaper.image.arm64: MAKE_IMAGE = ${IMAGE_REPOSITORY}/reaper-plugin:${VERSION}-arm64-$*
 %.reaper.image.arm64:
 	@mkdir -p docker/dist/arm64
-	@GOOS=linux GOARCH=arm64 go build -v -o docker/dist/reaper cmd/reaper/main.go
+	@CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -v -o docker/dist/reaper cmd/reaper/main.go
 	@cp docker/service/reaper-plugin-$*.Dockerfile docker/dist/arm64/reaper-plugin-$*.Dockerfile
 	@sed -i -e '/#ubuntu-xenial.Dockerfile/ {' -e 'r docker/base/arm64/ubuntu-xenial.Dockerfile' -e 'd' -e '}' docker/dist/arm64/reaper-plugin-$*.Dockerfile
 	@sed -i -e '/#ubuntu-focal.Dockerfile/ {' -e 'r docker/base/arm64/ubuntu-focal.Dockerfile' -e 'd' -e '}' docker/dist/arm64/reaper-plugin-$*.Dockerfile
@@ -41,7 +41,7 @@ allpush.arm64: $(ALL_PUSH:=.arm64) $(ALL_REAPER_PUSH:=.arm64) resource-server.up
 %.reaper.image.amd64: MAKE_IMAGE = ${IMAGE_REPOSITORY}/reaper-plugin:${VERSION}-amd64-$*
 %.reaper.image.amd64:
 	@mkdir -p docker/dist/amd64
-	@GOOS=linux GOARCH=amd64 go build -v -o docker/dist/reaper cmd/reaper/main.go
+	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -o docker/dist/reaper cmd/reaper/main.go
 	@cp docker/service/reaper-plugin-$*.Dockerfile docker/dist/amd64/reaper-plugin-$*.Dockerfile
 	@sed -i -e '/#ubuntu-xenial.Dockerfile/ {' -e 'r docker/base/amd64/ubuntu-xenial.Dockerfile' -e 'd' -e '}' docker/dist/amd64/reaper-plugin-$*.Dockerfile
 	@sed -i -e '/#ubuntu-focal.Dockerfile/ {' -e 'r docker/base/amd64/ubuntu-focal.Dockerfile' -e 'd' -e '}' docker/dist/amd64/reaper-plugin-$*.Dockerfile
@@ -59,7 +59,7 @@ allpush.arm64: $(ALL_PUSH:=.arm64) $(ALL_REAPER_PUSH:=.arm64) resource-server.up
 	@sed -i -e '/#alpine-git.Dockerfile/ {' -e 'r docker/base/amd64/alpine-git.Dockerfile' -e 'd' -e '}' docker/dist/amd64/$*.Dockerfile
 	@sed -i -e '/#alpine.Dockerfile/ {' -e 'r docker/base/amd64/alpine.Dockerfile' -e 'd' -e '}' docker/dist/amd64/$*.Dockerfile
 	@sed -i -e '/#ubuntu-xenial.Dockerfile/ {' -e 'r docker/base/amd64/ubuntu-xenial.Dockerfile' -e 'd' -e '}' docker/dist/amd64/$*.Dockerfile
-	@GOOS=linux GOARCH=amd64 go build -v -o docker/dist/$* cmd/$*/main.go
+	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -o docker/dist/$* cmd/$*/main.go
 	@docker build -f docker/dist/amd64/$*.Dockerfile --tag ${MAKE_IMAGE} .
 
 %.push.arm64: MAKE_IMAGE ?= ${IMAGE_REPOSITORY}/$*:${VERSION}-amd64
@@ -73,7 +73,7 @@ allpush.arm64: $(ALL_PUSH:=.arm64) $(ALL_REAPER_PUSH:=.arm64) resource-server.up
 	@sed -i -e '/#alpine-git.Dockerfile/ {' -e 'r docker/base/arm64/alpine-git.Dockerfile' -e 'd' -e '}' docker/dist/arm64/$*.Dockerfile
 	@sed -i -e '/#alpine.Dockerfile/ {' -e 'r docker/base/arm64/alpine.Dockerfile' -e 'd' -e '}' docker/dist/arm64/$*.Dockerfile
 	@sed -i -e '/#ubuntu-xenial.Dockerfile/ {' -e 'r docker/base/arm64/ubuntu-xenial.Dockerfile' -e 'd' -e '}' docker/dist/arm64/$*.Dockerfile
-	@GOOS=linux GOARCH=arm64 go build -v -o docker/dist/$* cmd/$*/main.go
+	@CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -v -o docker/dist/$* cmd/$*/main.go
 	@docker build -f docker/dist/arm64/$*.Dockerfile --tag ${MAKE_IMAGE} .
 
 # USING BUILD AND UPLOAD INSTEAD OF IMAGE AND PUSH TO AVOID COLLISION
@@ -82,7 +82,7 @@ resource-server.build.amd64:
 	@mkdir -p docker/dist/amd64
 	@cp docker/service/resource-server.Dockerfile docker/dist/amd64/resource-server.Dockerfile
 	@sed -i -e '/#nginx.Dockerfile/ {' -e 'r docker/base/amd64/nginx.Dockerfile' -e 'd' -e '}' docker/dist/amd64/resource-server.Dockerfile
-	@GOOS=linux GOARCH=amd64 go build -v -o docker/dist/reaper cmd/reaper/main.go
+	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -o docker/dist/reaper cmd/reaper/main.go
 	@docker build -f docker/dist/amd64/resource-server.Dockerfile --tag ${MAKE_IMAGE} .
 
 resource-server.upload.amd64: MAKE_IMAGE ?= ${IMAGE_REPOSITORY}/resource-server:${VERSION}-amd64
@@ -94,7 +94,7 @@ resource-server.build.arm64:
 	@mkdir -p docker/dist/arm64
 	@cp docker/service/resource-server.Dockerfile docker/dist/arm64/resource-server.Dockerfile
 	@sed -i -e '/#nginx.Dockerfile/ {' -e 'r docker/base/arm64/nginx.Dockerfile' -e 'd' -e '}' docker/dist/arm64/resource-server.Dockerfile
-	@GOOS=linux GOARCH=arm64 go build -v -o docker/dist/reaper cmd/reaper/main.go
+	@CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -v -o docker/dist/reaper cmd/reaper/main.go
 	@docker build -f docker/dist/arm64/resource-server.Dockerfile --tag ${MAKE_IMAGE} .
 
 resource-server.upload.arm64: MAKE_IMAGE ?= ${IMAGE_REPOSITORY}/resource-server:${VERSION}-arm64
