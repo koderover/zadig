@@ -81,9 +81,39 @@ func changePolicyCollectionName() error {
 	return newPolicyColl().Drop(ctx)
 }
 
+func rollbackChangePolicyCollectionName() error {
+	var res []*models.PolicyMeta
+	//
+	ctx := context.Background()
+	cursor, err := newPolicyMetaColl().Find(ctx, bson.M{})
+	if err != nil {
+		return err
+	}
+
+	err = cursor.All(ctx, &res)
+	if err != nil {
+		return err
+	}
+
+	var ois []interface{}
+	for _, obj := range res {
+		ois = append(ois, obj)
+	}
+	if _, err = newPolicyColl().InsertMany(context.TODO(), ois); err != nil {
+		return err
+	}
+	//delete collection
+	return newPolicyMetaColl().Drop(ctx)
+}
+
 func V1100ToV190() error {
 	if err := deleteLabelAndLabelBindings(); err != nil {
 		log.Errorf("Failed to generateProductionEnv, err: %s", err)
+		return err
+	}
+
+	if err := rollbackChangePolicyCollectionName(); err != nil {
+		log.Errorf("Failed to rollbackChangePolicyCollectionName")
 		return err
 	}
 	return nil
