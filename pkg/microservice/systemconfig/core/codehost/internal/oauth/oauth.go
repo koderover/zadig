@@ -72,10 +72,13 @@ func (o *OAuth) HandleCallback(r *http.Request) (*oauth2.Token, error) {
 		port := proxies[0].Port
 		ip := proxies[0].Address
 		proxyRawUrl := fmt.Sprintf("http://%s:%s", ip, port)
-		proxyUrl, _ := url.Parse(proxyRawUrl)
-		httpClient.Transport = &http.Transport{
-			Proxy: http.ProxyURL(proxyUrl),
+		proxyUrl, err2 := url.Parse(proxyRawUrl)
+		if err2 == nil {
+			httpClient.Transport = &http.Transport{
+				Proxy: http.ProxyURL(proxyUrl),
+			}
 		}
+
 	}
 
 	ctx := context.Background()
