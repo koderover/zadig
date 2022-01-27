@@ -28,7 +28,7 @@ type testDashboard struct {
 	TotalCaseCount  int   `json:"total_case_count"`
 	TotalExecCount  int   `json:"total_exec_count"`
 	Success         int   `json:"success"`
-	AverageDuration int64 `json:"average_curation"`
+	AverageDuration int64 `json:"average_duration"`
 }
 
 func GetTestDashboard(log *zap.SugaredLogger) (*testDashboard, error) {
