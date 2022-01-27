@@ -2832,6 +2832,16 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 		renderChart := renderChartMap[service.ServiceName]
 		err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderset.DefaultValues, service, isRetry, helmClient, kubecli)
 		if err != nil {
+			// TODO for TT
+			if !isRetry && strings.Contains(err.Error(), "cannot re-use a name that is still in use") {
+				errUninstall := helmClient.UninstallRelease(&helmclient.ChartSpec{
+					ReleaseName: util.GeneHelmReleaseName(productResp.Namespace, service.ServiceName),
+					Namespace:   productResp.Namespace,
+				})
+				if errUninstall != nil {
+					log.Errorf("failed to unsintall release with superseded status, serviceName: %s", service.ServiceName)
+				}
+			}
 			log.Errorf("failed to upgrade service: %s, namespace: %s, isRetry: %v, err: %s", service.ServiceName, productResp.Namespace, isRetry, err)
 			return errors.Wrapf(err, "failed to upgrade service %s", service.ServiceName)
 		}
@@ -2860,7 +2870,7 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 			}
 			groupServices = append(groupServices, service)
 		}
-		groupServiceErr := intervalExecutorWithRetry(3, time.Millisecond*2500, serviceList, handler, kubeClient, log)
+		groupServiceErr := intervalExecutorWithRetry(2, time.Millisecond*2500, serviceList, handler, kubeClient, log)
 		if groupServiceErr != nil {
 			errList = multierror.Append(errList, groupServiceErr...)
 		}
