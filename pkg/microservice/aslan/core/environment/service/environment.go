@@ -2836,7 +2836,7 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 		errInstall := installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderset.DefaultValues, service, isRetry, helmClient, kubecli)
 		if errInstall != nil {
 			// TODO for TT
-			if !isRetry && strings.Contains(err.Error(), "cannot re-use a name that is still in use") {
+			if !isRetry && strings.Contains(errInstall.Error(), "cannot re-use a name that is still in use") {
 				errUninstall := helmClient.UninstallRelease(&helmclient.ChartSpec{
 					ReleaseName: util.GeneHelmReleaseName(productResp.Namespace, service.ServiceName),
 					Namespace:   productResp.Namespace,
