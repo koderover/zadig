@@ -105,6 +105,8 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 		pipelineCtx.CacheEnable = false
 	}
 
+	// TODO: Since the namespace field has been used continuously since v1.10.0, the processing logic related to namespace needs to
+	// be deleted in v1.11.0.
 	p.KubeNamespace = pipelineTask.ConfigPayload.Test.KubeNamespace
 	if p.Task.Namespace != "" {
 		p.KubeNamespace = p.Task.Namespace

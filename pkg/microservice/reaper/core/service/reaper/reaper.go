@@ -80,8 +80,6 @@ func (r *Reaper) GetCacheFile() string {
 }
 
 func (r *Reaper) CompressCache(storageURI string) error {
-	log.Infof("StorageURI: %s, r.ActiveWorkspace: %s", storageURI, r.ActiveWorkspace)
-
 	err := r.EnsureActiveWorkspace(r.ActiveWorkspace)
 	if err != nil {
 		log.Errorf("EnsureActiveWorkspace err:%v", err)

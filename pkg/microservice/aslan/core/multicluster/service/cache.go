@@ -57,7 +57,7 @@ func ListStorageClasses(ctx context.Context, clusterID string) ([]string, error)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list storageclasses: %s", err)
 	}
-	log.Infof("StorageClass Length: %v", len(scList.Items))
+	log.Infof("StorageClass Length: %d", len(scList.Items))
 
 	storageclasses := make([]string, 0, len(scList.Items))
 	for _, item := range scList.Items {
