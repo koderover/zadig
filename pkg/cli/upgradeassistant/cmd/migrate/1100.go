@@ -62,11 +62,13 @@ func changePolicyCollectionName() error {
 	ctx := context.Background()
 	cursor, err := newPolicyColl().Find(ctx, bson.M{})
 	if err != nil {
+		log.Errorf("Failed to Find Policies, err: %s", err)
 		return err
 	}
 
 	err = cursor.All(ctx, &res)
 	if err != nil {
+		log.Errorf("Failed to cursor.All, err: %s", err)
 		return err
 	}
 
@@ -75,6 +77,7 @@ func changePolicyCollectionName() error {
 		ois = append(ois, obj)
 	}
 	if _, err = newPolicyMetaColl().InsertMany(context.TODO(), ois); err != nil {
+		log.Errorf("Failed to InsertMany policyMetas, err: %s", err)
 		return err
 	}
 	//delete collection
@@ -92,6 +95,7 @@ func rollbackChangePolicyCollectionName() error {
 
 	err = cursor.All(ctx, &res)
 	if err != nil {
+		log.Errorf("Failed to cursor.All, err: %s", err)
 		return err
 	}
 
@@ -100,6 +104,7 @@ func rollbackChangePolicyCollectionName() error {
 		ois = append(ois, obj)
 	}
 	if _, err = newPolicyColl().InsertMany(context.TODO(), ois); err != nil {
+		log.Errorf("Failed to InsertMany, err: %s", err)
 		return err
 	}
 	//delete collection
