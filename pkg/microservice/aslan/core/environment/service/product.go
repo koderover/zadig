@@ -195,6 +195,7 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 		Error:       prod.Error,
 		Vars:        prod.Vars[:],
 		IsPublic:    prod.IsPublic,
+		IsExisted:   prod.IsExisted,
 		ClusterID:   prod.ClusterID,
 		RecycleDay:  prod.RecycleDay,
 		Source:      prod.Source,

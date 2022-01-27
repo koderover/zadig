@@ -603,3 +603,8 @@ const RequestModeOpenAPI = "openAPI"
 const DeployTimeout = 60 * 10 // 10 minutes
 
 const UpdateEnvTimeout = 60 * 5 * time.Second
+
+// list namespace type
+const (
+	ListNamespaceTypeCreate = "create"
+)

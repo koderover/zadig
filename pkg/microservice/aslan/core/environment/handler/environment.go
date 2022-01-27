@@ -91,11 +91,6 @@ func UpdateMultiProducts(c *gin.Context) {
 		return
 	}
 
-	if c.Query("auto") != "true" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("auto=true is required")
-		return
-	}
-
 	args := new(UpdateEnvs)
 	data, err := c.GetRawData()
 	if err != nil {
