@@ -150,7 +150,6 @@ func (r *Reaper) runIntallationScripts() error {
 }
 
 func (r *Reaper) createReadme(file string) error {
-
 	if r.Ctx.Archive == nil || len(r.Ctx.Repos) == 0 {
 		return nil
 	}

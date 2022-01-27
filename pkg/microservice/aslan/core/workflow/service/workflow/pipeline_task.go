@@ -635,6 +635,12 @@ func RestartPipelineTaskV2(userName string, taskID int64, pipelineName string, t
 func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *zap.SugaredLogger) (*task.Testing, error) {
 	var resp *task.Testing
 
+	testTask := &task.Testing{
+		TaskType: config.TaskTestingV2,
+		Enabled:  true,
+		TestName: "test",
+	}
+
 	allTestings, err := commonrepo.NewTestingColl().List(&commonrepo.ListTestOption{ProductName: args.ProductName, TestType: ""})
 	if err != nil {
 		log.Errorf("testArgsToTestSubtask TestingModule.List error: %v", err)
@@ -657,6 +663,17 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 			}
 
 			testArg.TestModuleName = args.TestName
+
+			testTask.CacheEnable = testing.CacheEnable
+			testTask.CacheDirType = testing.CacheDirType
+			testTask.CacheUserDir = testing.CacheUserDir
+
+			clusterInfo, err := commonrepo.NewK8SClusterColl().Get(testing.PreTest.ClusterID)
+			if err != nil {
+				return resp, e.ErrListTestModule.AddDesc(err.Error())
+			}
+			testTask.Cache = clusterInfo.Cache
+
 			break
 		}
 	}
@@ -666,12 +683,7 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 		log.Errorf("[%s]get TestingModule error: %v", args.TestName, err)
 		return resp, err
 	}
-	testTask := &task.Testing{
-		TaskType: config.TaskTestingV2,
-		Enabled:  true,
-		TestName: "test",
-		Timeout:  testModule.Timeout,
-	}
+	testTask.Timeout = testModule.Timeout
 
 	testTask.TestModuleName = testModule.Name
 	testTask.JobCtx.TestType = testModule.TestType

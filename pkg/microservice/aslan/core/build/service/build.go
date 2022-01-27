@@ -109,7 +109,6 @@ func ListBuild(name, targets, productName string, log *zap.SugaredLogger) ([]*Bu
 }
 
 func CreateBuild(username string, build *commonmodels.Build, log *zap.SugaredLogger) error {
-
 	if len(build.Name) == 0 {
 		return e.ErrCreateBuildModule.AddDesc("empty name")
 	}
@@ -154,7 +153,6 @@ func UpdateBuild(username string, build *commonmodels.Build, log *zap.SugaredLog
 }
 
 func DeleteBuild(name, productName string, log *zap.SugaredLogger) error {
-
 	if len(name) == 0 {
 		return e.ErrDeleteBuildModule.AddDesc("empty name")
 	}

@@ -45,7 +45,6 @@ var (
 	xl           *zap.SugaredLogger
 )
 
-// ExecHandler ...
 // Sender: sender to send ack/notification
 // TaskPlugins: registered task plugin initiators to initiate specific plugin to execute task
 type ExecHandler struct {
@@ -53,10 +52,8 @@ type ExecHandler struct {
 	TaskPlugins map[config.TaskType]plugins.Initiator
 }
 
-// CancelHandler ...
 type CancelHandler struct{}
 
-// HandleMessage ...
 // Message handler to handle task execution message
 func (h *ExecHandler) HandleMessage(message *nsq.Message) error {
 	defer func() {
@@ -523,7 +520,6 @@ func (h *ExecHandler) executeTask(taskCtx context.Context, plugin plugins.TaskPl
 }
 
 func Logger(pipelineTask *task.Task) *zap.SugaredLogger {
-	// 初始化Logger
 	l := log.Logger()
 	if pipelineTask != nil {
 		l.With(zap.String(setting.RequestID, pipelineTask.ReqID))

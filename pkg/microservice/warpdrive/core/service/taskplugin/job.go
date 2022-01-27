@@ -52,6 +52,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
+	commontypes "github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -166,7 +167,6 @@ func saveContainerLog(pipelineTask *task.Task, namespace, clusterID, fileName st
 	return nil
 }
 
-// JobCtxBuilder ...
 type JobCtxBuilder struct {
 	JobName        string
 	ArchiveFile    string
@@ -187,13 +187,12 @@ func replaceWrapLine(script string) string {
 
 // BuildReaperContext builds a yaml
 func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName string) *types.Context {
-
 	ctx := &types.Context{
 		APIToken:       pipelineTask.ConfigPayload.APIToken,
 		Workspace:      b.PipelineCtx.Workspace,
 		CleanWorkspace: b.JobCtx.CleanWorkspace,
 		IgnoreCache:    pipelineTask.ConfigPayload.IgnoreCache,
-		ResetCache:     pipelineTask.ConfigPayload.ResetCache,
+		// ResetCache:     pipelineTask.ConfigPayload.ResetCache,
 		Proxy: &types.Proxy{
 			Type:                   pipelineTask.ConfigPayload.Proxy.Type,
 			Address:                pipelineTask.ConfigPayload.Proxy.Address,
@@ -226,6 +225,14 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 		StorageEndpoint: pipelineTask.StorageEndpoint,
 		AesKey:          pipelineTask.ConfigPayload.AesKey,
 	}
+
+	if b.PipelineCtx.CacheEnable && !pipelineTask.ConfigPayload.ResetCache {
+		ctx.CacheEnable = true
+		ctx.Cache = b.PipelineCtx.Cache
+		ctx.CacheDirType = b.PipelineCtx.CacheDirType
+		ctx.CacheUserDir = b.PipelineCtx.CacheUserDir
+	}
+
 	for _, install := range b.Installs {
 		inst := &types.Install{
 			// TODO: 之后可以适配 install.Scripts 为[]string
@@ -520,6 +527,28 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 				},
 			},
 		},
+	}
+
+	if ctx.CacheEnable && ctx.Cache.MediumType == commontypes.NFSMedium {
+		volumeName := "build-cache"
+		job.Spec.Template.Spec.Volumes = append(job.Spec.Template.Spec.Volumes, corev1.Volume{
+			Name: volumeName,
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: ctx.Cache.NFSProperties.PVC,
+				},
+			},
+		})
+
+		mountPath := ctx.CacheUserDir
+		if ctx.CacheDirType == commontypes.WorkspaceCacheDir {
+			mountPath = "/workspace"
+		}
+
+		job.Spec.Template.Spec.Containers[0].VolumeMounts = append(job.Spec.Template.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
+			Name:      volumeName,
+			MountPath: mountPath,
+		})
 	}
 
 	if !strings.Contains(jobImage, PredatorPlugin) && !strings.Contains(jobImage, JenkinsPlugin) && !strings.Contains(jobImage, PackagerPlugin) {

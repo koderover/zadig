@@ -162,7 +162,14 @@ func (r *Reaper) buildGitCommands(repo *meta.Repo) []*c.Command {
 	}
 
 	// 预防非正常退出导致git被锁住
-	_ = os.Remove(path.Join(workDir, "/.git/index.lock"))
+	indexLockPath := path.Join(workDir, "/.git/index.lock")
+	if err := os.RemoveAll(indexLockPath); err != nil {
+		log.Errorf("Failed to remove %s: %s", indexLockPath, err)
+	}
+	shallowLockPath := path.Join(workDir, "/.git/shallow.lock")
+	if err := os.RemoveAll(shallowLockPath); err != nil {
+		log.Errorf("Failed to remove %s: %s", shallowLockPath, err)
+	}
 
 	if isDirEmpty(filepath.Join(workDir, ".git")) {
 		cmds = append(cmds, &c.Command{Cmd: c.InitGit(workDir)})

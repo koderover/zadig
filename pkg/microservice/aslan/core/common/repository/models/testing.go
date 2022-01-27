@@ -38,10 +38,13 @@ type Testing struct {
 	// Junit 测试报告
 	TestResultPath string `bson:"test_result_path"         json:"test_result_path"`
 	// html 测试报告
-	TestReportPath  string           `bson:"test_report_path"         json:"test_report_path"`
-	Threshold       int              `bson:"threshold"                json:"threshold"`
-	TestType        string           `bson:"test_type"                json:"test_type"`
-	Caches          []string         `bson:"caches"                   json:"caches"`
+	TestReportPath string `bson:"test_report_path"         json:"test_report_path"`
+	Threshold      int    `bson:"threshold"                json:"threshold"`
+	TestType       string `bson:"test_type"                json:"test_type"`
+
+	// TODO: Deprecated.
+	Caches []string `bson:"caches"                   json:"caches"`
+
 	ArtifactPaths   []string         `bson:"artifact_paths,omitempty" json:"artifact_paths,omitempty"`
 	TestCaseNum     int              `bson:"-"                        json:"test_case_num,omitempty"`
 	ExecuteNum      int              `bson:"-"                        json:"execute_num,omitempty"`
@@ -52,6 +55,11 @@ type Testing struct {
 	HookCtl         *TestingHookCtrl `bson:"hook_ctl"                 json:"hook_ctl"`
 	NotifyCtl       *NotifyCtl       `bson:"notify_ctl,omitempty"     json:"notify_ctl,omitempty"`
 	ScheduleEnabled bool             `bson:"schedule_enabled"         json:"-"`
+
+	// New since V1.10.0.
+	CacheEnable  bool               `bson:"cache_enable"        json:"cache_enable"`
+	CacheDirType types.CacheDirType `bson:"cache_dir_type"      json:"cache_dir_type"`
+	CacheUserDir string             `bson:"cache_user_dir"      json:"cache_user_dir"`
 }
 
 type TestingHookCtrl struct {
@@ -67,7 +75,9 @@ type TestingHook struct {
 
 // PreTest prepares an environment for a job
 type PreTest struct {
+	// TODO: Deprecated.
 	CleanWorkspace bool `bson:"clean_workspace"            json:"clean_workspace"`
+
 	// BuildOS defines job image OS, it supports 12.04, 14.04, 16.04
 	BuildOS   string `bson:"build_os"                        json:"build_os"`
 	ImageFrom string `bson:"image_from"                      json:"image_from"`
@@ -82,7 +92,9 @@ type PreTest struct {
 	// EnableProxy
 	EnableProxy bool   `bson:"enable_proxy"           json:"enable_proxy"`
 	ClusterID   string `bson:"cluster_id"             json:"cluster_id"`
-	Namespace   string `bson:"namespace"              json:"namespace"`
+
+	// TODO: Deprecated.
+	Namespace string `bson:"namespace"              json:"namespace"`
 }
 
 func (Testing) TableName() string {

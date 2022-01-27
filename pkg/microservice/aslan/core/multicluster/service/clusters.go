@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -25,7 +26,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -33,7 +38,9 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 var namePattern = regexp.MustCompile(`^[0-9a-zA-Z_.-]{1,32}$`)
@@ -49,6 +56,7 @@ type K8SCluster struct {
 	CreatedBy      string                   `json:"createdBy"`
 	Provider       int8                     `json:"provider"`
 	Local          bool                     `json:"local"`
+	Cache          types.Cache              `json:"cache"`
 }
 
 type AdvancedConfig struct {
@@ -117,6 +125,7 @@ func ListClusters(ids []string, projectName string, logger *zap.SugaredLogger) (
 			Provider:       c.Provider,
 			Local:          c.Local,
 			AdvancedConfig: advancedConfig,
+			Cache:          c.Cache,
 		})
 	}
 
@@ -219,11 +228,91 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 			}
 		}
 	}
+
+	// If the user does not configure a cache, object storage is used by default.
+	if args.Cache.MediumType == "" {
+		args.Cache.MediumType = types.ObjectMedium
+
+		defaultStorage, err := commonrepo.NewS3StorageColl().FindDefault()
+		if err != nil {
+			return nil, fmt.Errorf("failed to find default object storage: %s", err)
+		}
+
+		args.Cache.ObjectProperties = types.ObjectProperties{
+			ID: defaultStorage.ID.Hex(),
+		}
+	}
+
+	// If the user chooses to use dynamically generated storage resources, the system automatically creates the PVC.
+	// TODO: If the PVC is not successfully bound to the PV, it is necessary to consider how to expose this abnormal information.
+	//       Depends on product design.
+	if args.Cache.MediumType == types.NFSMedium && args.Cache.NFSProperties.ProvisionType == types.DynamicProvision {
+		kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), id)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get kube client: %s", err)
+		}
+
+		var namespace string
+		switch id {
+		case setting.LocalClusterID:
+			namespace = config.Namespace()
+		default:
+			namespace = AttachedClusterNamespace
+		}
+
+		pvcName := fmt.Sprintf("cache-%s-%d", args.Cache.NFSProperties.StorageClass, args.Cache.NFSProperties.StorageSizeInGiB)
+		pvc := &corev1.PersistentVolumeClaim{}
+		err = kclient.Get(context.TODO(), client.ObjectKey{
+			Name:      pvcName,
+			Namespace: namespace,
+		}, pvc)
+		if err == nil {
+			logger.Infof("PVC %s eixsts in %s", pvcName, namespace)
+			args.Cache.NFSProperties.PVC = pvcName
+		} else if !apierrors.IsNotFound(err) {
+			return nil, fmt.Errorf("failed to find PVC %s in %s: %s", pvcName, namespace, err)
+		} else {
+			filesystemVolume := corev1.PersistentVolumeFilesystem
+			storageQuantity, err := resource.ParseQuantity(fmt.Sprintf("%dGi", args.Cache.NFSProperties.StorageSizeInGiB))
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse storage size: %d. err: %s", args.Cache.NFSProperties.StorageSizeInGiB, err)
+			}
+
+			pvc = &corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      pvcName,
+					Namespace: namespace,
+				},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					StorageClassName: &args.Cache.NFSProperties.StorageClass,
+					AccessModes: []corev1.PersistentVolumeAccessMode{
+						corev1.ReadWriteMany,
+					},
+					VolumeMode: &filesystemVolume,
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceStorage: storageQuantity,
+						},
+					},
+				},
+			}
+
+			err = kclient.Create(context.TODO(), pvc)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create PVC %s in %s: %s", pvcName, namespace, err)
+			}
+
+			logger.Infof("Successfully create PVC %s in %s", pvcName, namespace)
+			args.Cache.NFSProperties.PVC = pvcName
+		}
+	}
+
 	cluster := &commonmodels.K8SCluster{
 		Name:           args.Name,
 		Description:    args.Description,
 		AdvancedConfig: advancedConfig,
 		Production:     args.Production,
+		Cache:          args.Cache,
 	}
 	return s.UpdateCluster(id, cluster, logger)
 }
