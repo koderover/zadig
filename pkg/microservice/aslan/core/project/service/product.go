@@ -17,6 +17,7 @@ limitations under the License.
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -25,17 +26,22 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
 
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/service"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collie"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
@@ -44,6 +50,7 @@ import (
 	configclient "github.com/koderover/zadig/pkg/shared/config"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
+	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
 type CustomParseDataArgs struct {
@@ -454,7 +461,41 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 			ProductName: productName,
 		})
 	}()
+	// delete collaboration_mode and collaboration_instance
+	go func() {
+		// find all collaboration mode in this project
+		res, err := collaboration.GetCollaborationModes([]string{productName}, log)
+		if err != nil {
+			log.Errorf("GetCollaborationModes err: %s", err)
+		}
+		//  delete all collaborationMode
+		for _, mode := range res.Collaborations {
+			if err := service.DeleteCollaborationMode(userName, productName, mode.Name, log); err != nil {
+				log.Errorf("DeleteCollaborationMode err: %s", err)
+			}
+		}
+		// delete all collaborationIns
+		if err := mongodb.NewCollaborationInstanceColl().DeleteByProject(productName); err != nil {
+			log.Errorf("NewCollaborationInstanceColl DeleteByProject err:%s", err)
+		}
+
+	}()
+	// delete policy
+	go func() {
+		query := bson.M{}
+		query["namespace"] = productName
+		_, err := newPolicyMetaColl().DeleteMany(context.Background(), query)
+		if err != nil {
+			log.Errorf("newPolicyMetaColl delete err: %s", err)
+		}
+	}()
+
 	return nil
+}
+
+func newPolicyMetaColl() *mongo.Collection {
+	collection := mongotool.Database(fmt.Sprintf("%s_policy", config.MongoDatabase())).Collection("policy_meta")
+	return collection
 }
 
 func ForkProduct(username, uid, requestID string, args *template.ForkProject, log *zap.SugaredLogger) error {
