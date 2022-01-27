@@ -37,6 +37,9 @@ const (
 
 	// HuaweiCloudNASProvisioner is the provisioner of NAS storage in HuaweiCloud.
 	HuaweiCloudNASProvisioner StorageProvisioner = "nas.csi.everest.io"
+
+	// AWSEFSProvisioner is the provisioner of EFS storage in AWS.
+	AWSEFSProvisioner StorageProvisioner = "efs.csi.aws.com"
 )
 
 // Note: For the convenience of users, we filter the storage types for known cloud vendors to prevent users from mistakenly selecting storage
@@ -50,6 +53,9 @@ func (s StorageProvisioner) IsNFS() bool {
 		return false
 	}
 	if strings.Contains(string(s), "everest.io") && !(s == HuaweiCloudSFSProvisioner || s == HuaweiCloudNASProvisioner) {
+		return false
+	}
+	if strings.Contains(string(s), "aws.com") && s != AWSEFSProvisioner {
 		return false
 	}
 
