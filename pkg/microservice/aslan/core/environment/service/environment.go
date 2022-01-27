@@ -2306,13 +2306,13 @@ func installOrUpgradeHelmChartWithValues(namespace, valuesYaml string, renderCha
 	}
 
 	chartSpec := &helmclient.ChartSpec{
-		ReleaseName:   util.GeneHelmReleaseName(namespace, serviceObj.ServiceName),
-		ChartName:     chartPath,
-		Namespace:     namespace,
-		Version:       renderChart.ChartVersion,
-		ValuesYaml:    valuesYaml,
-		UpgradeCRDs:   true,
-		CleanupOnFail: true,
+		ReleaseName: util.GeneHelmReleaseName(namespace, serviceObj.ServiceName),
+		ChartName:   chartPath,
+		Namespace:   namespace,
+		Version:     renderChart.ChartVersion,
+		ValuesYaml:  valuesYaml,
+		UpgradeCRDs: true,
+		//CleanupOnFail: true,
 	}
 	if isRetry {
 		chartSpec.Replace = true
@@ -2489,21 +2489,24 @@ func intervalExecutor(interval time.Duration, serviceList []*commonmodels.Servic
 		return nil
 	}
 	wg := sync.WaitGroup{}
+	var failLock sync.Mutex
 	wg.Add(len(serviceList))
 	errList := make([]error, 0)
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for _, data := range serviceList {
-		go func() {
+		go func(singleService *commonmodels.Service) {
 			defer wg.Done()
-			err := handler(data, isRetry, kubecli, log)
+			err := handler(singleService, isRetry, kubecli, log)
 			if err != nil {
+				failLock.Lock()
+				defer failLock.Unlock()
 				errList = append(errList, err)
-				*failedServices = append(*failedServices, data)
-				log.Errorf("service:%s apply failed, err %s", data.ServiceName, err)
+				*failedServices = append(*failedServices, singleService)
+				log.Errorf("service:%s apply failed, err %s", singleService.ServiceName, err)
 			}
-		}()
+		}(data)
 		<-ticker.C
 	}
 	wg.Wait()
@@ -2830,8 +2833,8 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 
 	handler := func(service *commonmodels.Service, isRetry bool, kubecli client.Client, log *zap.SugaredLogger) error {
 		renderChart := renderChartMap[service.ServiceName]
-		err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderset.DefaultValues, service, isRetry, helmClient, kubecli)
-		if err != nil {
+		errInstall := installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderset.DefaultValues, service, isRetry, helmClient, kubecli)
+		if errInstall != nil {
 			// TODO for TT
 			if !isRetry && strings.Contains(err.Error(), "cannot re-use a name that is still in use") {
 				errUninstall := helmClient.UninstallRelease(&helmclient.ChartSpec{
@@ -2842,8 +2845,8 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 					log.Errorf("failed to unsintall release with superseded status, serviceName: %s", service.ServiceName)
 				}
 			}
-			log.Errorf("failed to upgrade service: %s, namespace: %s, isRetry: %v, err: %s", service.ServiceName, productResp.Namespace, isRetry, err)
-			return errors.Wrapf(err, "failed to upgrade service %s", service.ServiceName)
+			log.Errorf("failed to upgrade service: %s, namespace: %s, isRetry: %v, err: %s", service.ServiceName, productResp.Namespace, isRetry, errInstall)
+			return errors.Wrapf(errInstall, "failed to upgrade service %s", service.ServiceName)
 		}
 		return nil
 	}
