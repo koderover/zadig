@@ -78,8 +78,12 @@ func GetResourcesInHeader(c *gin.Context) ([]string, bool) {
 	if res == "" {
 		return nil, true
 	}
+	var resources []string
+	if err := json.Unmarshal([]byte(res), &resources); err != nil {
+		return nil, false
+	}
 
-	return strings.Split(res, ","), true
+	return resources, true
 }
 
 func getUserFromJWT(token string) (jwtClaims, error) {
