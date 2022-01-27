@@ -62,12 +62,12 @@ func GetOverviewStat(log *zap.SugaredLogger) (*Overview, error) {
 	}
 	overview.EnvCount = int(envCount)
 
-	artifactCount, err := commonrepo.NewDeliveryArtifactColl().Count()
+	_, artifactCount, err := commonrepo.NewDeliveryArtifactColl().List(&commonrepo.DeliveryArtifactArgs{})
 	if err != nil {
 		log.Errorf("Failed to get artifact count err:%s", err)
 		return nil, err
 	}
-	overview.ArtifactCount = int(artifactCount)
+	overview.ArtifactCount = artifactCount
 
 	serviceCount, err := commonrepo.NewServiceColl().Count("")
 	if err != nil {

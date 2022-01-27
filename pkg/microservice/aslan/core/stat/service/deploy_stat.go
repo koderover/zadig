@@ -337,7 +337,7 @@ type deployHigherStat struct {
 }
 
 func GetDeployTopFiveHigherMeasure(startDate, endDate int64, productNames []string, log *zap.SugaredLogger) ([]*deployHigherStat, error) {
-	deployStats, err := mongodb.NewDeployStatColl().ListDeployStat(&models.DeployStatOption{StartDate: startDate, EndDate: endDate, IsAsc: true, ProductNames: productNames})
+	deployStats, err := mongodb.NewDeployStatColl().ListDeployStat(&models.DeployStatOption{StartDate: startDate, EndDate: endDate, IsAsc: true, ProductNames: productNames, Limit: 5, IsMaxDeploy: true})
 	if err != nil {
 		log.Errorf("ListDeployStat err:%v", err)
 		return nil, fmt.Errorf("ListDeployStat err:%v", err)
@@ -372,7 +372,7 @@ type deployFailureHigherStat struct {
 }
 
 func GetDeployTopFiveFailureMeasure(startDate, endDate int64, productNames []string, log *zap.SugaredLogger) ([]*deployFailureHigherStat, error) {
-	deployStats, err := mongodb.NewDeployStatColl().ListDeployStat(&models.DeployStatOption{StartDate: startDate, EndDate: endDate, IsAsc: true, ProductNames: productNames})
+	deployStats, err := mongodb.NewDeployStatColl().ListDeployStat(&models.DeployStatOption{StartDate: startDate, EndDate: endDate, IsAsc: true, ProductNames: productNames, Limit: 5})
 	if err != nil {
 		log.Errorf("ListDeployStat err:%v", err)
 		return nil, fmt.Errorf("ListDeployStat err:%v", err)
