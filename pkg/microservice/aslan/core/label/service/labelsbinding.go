@@ -34,13 +34,13 @@ type CreateLabelBindingsArgs struct {
 
 func CreateLabelBindings(cr *CreateLabelBindingsArgs, userName string, logger *zap.SugaredLogger) error {
 	//  check label exist
-	labelIDs := []string{}
+	labelIDs := sets.String{}
 	for _, binding := range cr.LabelBindings {
-		labelIDs = append(labelIDs, binding.LabelID)
+		labelIDs.Insert(binding.LabelID)
 		binding.CreateBy = userName
 	}
 
-	labels, err := mongodb.NewLabelColl().ListByIDs(labelIDs)
+	labels, err := mongodb.NewLabelColl().ListByIDs(labelIDs.List())
 	if err != nil {
 		logger.Errorf("find labels err:%s", err)
 		return err

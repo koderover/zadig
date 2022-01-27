@@ -57,9 +57,9 @@ func CreateCollaborationMode(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "新增", "协作模式", args.Name, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Account, args.ProjectName, "新增", "协作模式", args.Name, string(data), ctx.Logger)
 
-	ctx.Err = service.CreateCollaborationMode(ctx.UserName, args, ctx.Logger)
+	ctx.Err = service.CreateCollaborationMode(ctx.Account, args, ctx.Logger)
 }
 
 func UpdateCollaborationMode(c *gin.Context) {
@@ -79,9 +79,9 @@ func UpdateCollaborationMode(c *gin.Context) {
 		return
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProjectName, "更新", "协作模式", args.Name, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Account, args.ProjectName, "更新", "协作模式", args.Name, string(data), ctx.Logger)
 
-	ctx.Err = service.UpdateCollaborationMode(ctx.UserName, args, ctx.Logger)
+	ctx.Err = service.UpdateCollaborationMode(ctx.Account, args, ctx.Logger)
 }
 
 func DeleteCollaborationMode(c *gin.Context) {
@@ -94,7 +94,7 @@ func DeleteCollaborationMode(c *gin.Context) {
 		return
 	}
 	name := c.Param("name")
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "删除", "协作模式", name, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.Account, projectName, "删除", "协作模式", name, "", ctx.Logger)
 
-	ctx.Err = service.DeleteCollaborationMode(ctx.UserName, projectName, name, ctx.Logger)
+	ctx.Err = service.DeleteCollaborationMode(ctx.Account, projectName, name, ctx.Logger)
 }

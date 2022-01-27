@@ -17,13 +17,10 @@ limitations under the License.
 package handler
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -63,22 +60,8 @@ func CreateLabels(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	filteredLabels := make([]*models.Label, 0)
-	keyValues := sets.NewString()
-	for _, v := range labels.Labels {
-		keyValue := fmt.Sprintf("%s-%s", v.Key, v.Value)
-		if keyValues.Has(keyValue) {
-			continue
-		}
-		keyValues.Insert(keyValue)
-		tmpModel := models.Label{
-			Key:      v.Key,
-			Value:    v.Value,
-			CreateBy: ctx.UserName,
-		}
-		filteredLabels = append(filteredLabels, &tmpModel)
-	}
-	ctx.Resp, ctx.Err = service.CreateLabels(filteredLabels)
+
+	ctx.Resp, ctx.Err = service.CreateLabels(labels, ctx.UserName)
 }
 
 //DeleteLabels  can only bulk delete labels which not bind reousrces

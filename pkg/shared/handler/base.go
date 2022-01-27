@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/config"
@@ -34,17 +35,28 @@ import (
 
 // Context struct
 type Context struct {
-	Logger    *zap.SugaredLogger
-	Err       error
-	Resp      interface{}
-	UserName  string
-	UserID    string
-	RequestID string
+	Logger       *zap.SugaredLogger
+	Err          error
+	Resp         interface{}
+	Account      string
+	UserName     string
+	UserID       string
+	IdentityType string
+	RequestID    string
 }
 
 type jwtClaims struct {
-	Name string `json:"name"`
-	UID  string `json:"uid"`
+	Name            string          `json:"name"`
+	Email           string          `json:"email"`
+	UID             string          `json:"uid"`
+	Account         string          `json:"preferred_username"`
+	FederatedClaims FederatedClaims `json:"federated_claims"`
+	jwt.StandardClaims
+}
+
+type FederatedClaims struct {
+	ConnectorId string `json:"connector_id"`
+	UserId      string `json:"user_id"`
 }
 
 func NewContext(c *gin.Context) *Context {
@@ -61,10 +73,12 @@ func NewContext(c *gin.Context) *Context {
 	}
 
 	return &Context{
-		UserName:  claims.Name,
-		UserID:    claims.UID,
-		Logger:    ginzap.WithContext(c).Sugar(),
-		RequestID: c.GetString(setting.RequestID),
+		UserName:     claims.Name,
+		UserID:       claims.UID,
+		Account:      claims.Account,
+		IdentityType: claims.FederatedClaims.ConnectorId,
+		Logger:       ginzap.WithContext(c).Sugar(),
+		RequestID:    c.GetString(setting.RequestID),
 	}
 }
 
