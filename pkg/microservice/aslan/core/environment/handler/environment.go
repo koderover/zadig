@@ -34,6 +34,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/policy"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -72,6 +73,18 @@ func ListProducts(c *gin.Context) {
 		ctx.Resp = []*service.ProductResp{}
 		return
 	}
+	req := &policy.ResourcePermissionReq{
+		ProjectName:  projectName,
+		Uid:          ctx.UserID,
+		Resources:    envNames,
+		ResourceType: "Environment",
+	}
+	resourcePermission, err := policy.NewDefault().GetResourcePermission(req)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	fmt.Println("%v", resourcePermission)
 
 	switch c.Query(setting.Subresource) {
 	case setting.IngressSubresource:

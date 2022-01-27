@@ -84,30 +84,6 @@ func ListRoleBindings(ns, uid string, _ *zap.SugaredLogger) ([]*RoleBinding, err
 	return roleBindings, nil
 }
 
-func ListRoleBindingsByRole(ns, roleName string, publicRole bool, _ *zap.SugaredLogger) ([]*RoleBinding, error) {
-	var roleBindings []*RoleBinding
-
-	roleNamespace := ns
-	if publicRole {
-		roleNamespace = ""
-	}
-	modelRoleBindings, err := mongodb.NewRoleBindingColl().List(&mongodb.ListOptions{RoleName: roleName, RoleNamespace: roleNamespace})
-	if err != nil {
-		return nil, err
-	}
-
-	for _, v := range modelRoleBindings {
-		roleBindings = append(roleBindings, &RoleBinding{
-			Name:   v.Name,
-			Role:   v.RoleRef.Name,
-			UID:    v.Subjects[0].UID,
-			Public: v.RoleRef.Namespace == "",
-		})
-	}
-
-	return roleBindings, nil
-}
-
 func DeleteRoleBinding(name string, projectName string, _ *zap.SugaredLogger) error {
 	return mongodb.NewRoleBindingColl().Delete(name, projectName)
 }
@@ -159,4 +135,26 @@ func ensureRoleBindingName(ns string, rb *RoleBinding) {
 	}
 
 	rb.Name = config.RoleBindingNameFromUIDAndRole(rb.UID, setting.RoleType(rb.Role), nsRole)
+}
+
+func ListUserAllRoleBindings(projectName, uid string) ([]*models.RoleBinding, error) {
+	var rbs []mongodb.RoleBinding
+	roleBindingReadOnly := mongodb.RoleBinding{
+		Uid:       "*",
+		Namespace: projectName,
+	}
+	roleBindingsAdmin := mongodb.RoleBinding{
+		Uid:       uid,
+		Namespace: "*",
+	}
+	roleBindingCommon := mongodb.RoleBinding{
+		Uid:       uid,
+		Namespace: projectName,
+	}
+	rbs = append(rbs, roleBindingReadOnly, roleBindingsAdmin, roleBindingCommon)
+	roleBindings, err := mongodb.NewRoleBindingColl().ListByRoleBindingOpt(mongodb.ListRoleBindingsOpt{RoleBindings: rbs})
+	if err != nil {
+		return nil, err
+	}
+	return roleBindings, nil
 }

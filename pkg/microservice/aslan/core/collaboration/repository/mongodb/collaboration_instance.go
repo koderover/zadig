@@ -152,6 +152,14 @@ func (c *CollaborationInstanceColl) BulkDelete(opt CollaborationInstanceListOpti
 	return err
 }
 
+func (c *CollaborationInstanceColl) DeleteByProject(projectName string) error {
+	query := bson.M{}
+	query["project_name"] = projectName
+	_, err := c.DeleteMany(context.TODO(), query)
+	return err
+
+}
+
 func (c *CollaborationInstanceColl) List(opt *CollaborationInstanceFindOptions) ([]*models.CollaborationInstance, error) {
 	var ret []*models.CollaborationInstance
 	query := bson.M{}

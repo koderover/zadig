@@ -78,3 +78,21 @@ func (c *Client) UpdatePolicy(ns string, policy *Policy) error {
 	_, err := c.Put(url, httpclient.SetBody(policy))
 	return err
 }
+
+type ResourcePermissionReq struct {
+	ProjectName  string   `json:"project_name"      form:"project_name"`
+	Uid          string   `json:"uid"               form:"uid"`
+	Resources    []string `json:"resources"         form:"resources"`
+	ResourceType string   `json:"resource_type"     form:"resource_type"`
+}
+
+func (c *Client) GetResourcePermission(req *ResourcePermissionReq) (map[string][]string, error) {
+	url := fmt.Sprintf("/permission/resources")
+	result := make(map[string][]string)
+	_, err := c.Post(url, httpclient.SetResult(req), httpclient.SetResult(&result))
+	if err != nil {
+		log.Errorf("Failed to get resourcePermission,err: %s", err)
+		return nil, err
+	}
+	return result, nil
+}
