@@ -157,6 +157,7 @@ func deleteLabelAndLabelBindings() error {
 	}
 
 	if err := mongodb.NewLabelBindingColl().BulkDeleteByIds(labelBindingIDs); err != nil {
+		log.Errorf("Failed to BulkDeleteByIds, err: %s", err)
 		return err
 	}
 	return mongodb.NewLabelColl().BulkDelete(labelIDs)
@@ -215,6 +216,7 @@ func createLabels() error {
 	}
 	toCreateLabels = append(toCreateLabels, productEnvLabel, nonProductEnvLabel)
 	if err := newLabelColl().BulkCreate(toCreateLabels); err != nil {
+		log.Errorf("fail to BulkCreate , err:%s", err)
 		return err
 	}
 	return nil
@@ -223,12 +225,13 @@ func createLabels() error {
 func createLabelBindings() error {
 	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{})
 	if err != nil {
+		log.Errorf("fail to List ProductColl, err:%s", err)
 		return err
 	}
 	clusterMap := make(map[string]*commonmodels.K8SCluster)
 	clusters, err := commonrepo.NewK8SClusterColl().List(nil)
 	if err != nil {
-		log.Errorf("Failed to list clusters in db, err: %s", err)
+		log.Errorf("Failed to list clusters, err: %s", err)
 		return err
 	}
 
@@ -249,6 +252,7 @@ func createLabelBindings() error {
 	}
 	labels, err := newLabelColl().List(lisOpt)
 	if err != nil {
+		log.Errorf("Failed to list labels, err: %s", err)
 		return err
 	}
 	if len(labels) != 2 {
@@ -282,6 +286,7 @@ func createLabelBindings() error {
 	}
 
 	if err := labelMongodb.NewLabelBindingColl().CreateMany(labelBindings); err != nil {
+		log.Errorf("Failed toCreateMany labels, err: %s", err)
 		return err
 	}
 	return nil
