@@ -124,7 +124,7 @@ func migrateModuleTesting() error {
 }
 
 func migrateOneBuild(build *internalmodels.Build) error {
-	if build.PreBuild.CleanWorkspace {
+	if build.PreBuild != nil && build.PreBuild.CleanWorkspace {
 		return nil
 	}
 
@@ -142,7 +142,7 @@ func migrateOneBuild(build *internalmodels.Build) error {
 }
 
 func migrateOneTesting(testing *internalmodels.Testing) error {
-	if testing.PreTest.CleanWorkspace {
+	if testing.PreTest != nil && testing.PreTest.CleanWorkspace {
 		return nil
 	}
 
