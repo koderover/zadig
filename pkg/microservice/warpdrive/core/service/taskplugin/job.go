@@ -521,6 +521,8 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 							},
 							VolumeMounts: getVolumeMounts(ctx),
 							Resources:    getResourceRequirements(resReq, resReqSpec),
+
+							TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 						},
 					},
 					Volumes: getVolumes(jobName),
