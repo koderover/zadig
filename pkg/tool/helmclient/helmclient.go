@@ -17,11 +17,21 @@ limitations under the License.
 package helmclient
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
 
+	"helm.sh/helm/v3/pkg/downloader"
+
+	"helm.sh/helm/v3/pkg/action"
+	"helm.sh/helm/v3/pkg/chart"
+	"helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/storage/driver"
+
 	hc "github.com/mittwald/go-helm-client"
+	"helm.sh/helm/v3/pkg/release"
+	"helm.sh/helm/v3/pkg/releaseutil"
 	"helm.sh/helm/v3/pkg/strvals"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/yaml"
@@ -30,15 +40,27 @@ import (
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
+type HelmClient struct {
+	*hc.HelmClient
+}
+
 // NewClientFromRestConf returns a new Helm client constructed with the provided REST config options
 func NewClientFromRestConf(restConfig *rest.Config, ns string) (hc.Client, error) {
-	return hc.NewClientFromRestConf(&hc.RestConfClientOptions{
+	hcClient, err := hc.NewClientFromRestConf(&hc.RestConfClientOptions{
 		Options: &hc.Options{
 			Namespace: ns,
 			DebugLog:  log.Debugf,
 		},
 		RestConfig: restConfig,
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	helmClient := hcClient.(*hc.HelmClient)
+	return &HelmClient{
+		helmClient,
+	}, nil
 }
 
 type KV struct {
@@ -81,4 +103,219 @@ func MergeOverrideValues(valuesYaml, defaultValues, overrideYaml, overrideValues
 		return "", err
 	}
 	return string(bs), nil
+}
+
+// check weather to install or upgrade chart by current status
+// return error if neither install nor upgrade action is legal
+func (hClient *HelmClient) isInstallOperation(spec *hc.ChartSpec) (bool, error) {
+	// find history of particular release
+	releases, err := hClient.ListReleaseHistory(spec.ReleaseName, 10)
+	if err != nil && err != driver.ErrReleaseNotFound {
+		log.Infof("###### get release history fail")
+		return false, err
+	}
+	// release not found, install operation
+	if len(releases) == 0 {
+		return true, nil
+	}
+
+	releaseutil.Reverse(releases, releaseutil.SortByRevision)
+	lastRelease := releases[0]
+
+	// pending status
+	if lastRelease.Info.Status.IsPending() {
+		return false, fmt.Errorf("another operation (install/upgrade/rollback) is in progress, please try later")
+	}
+
+	// release with deployed/failed/superseded status: normal upgrade operation
+	if lastRelease.Info.Status == release.StatusDeployed || lastRelease.Info.Status == release.StatusFailed || lastRelease.Info.Status == release.StatusSuperseded {
+		return false, nil
+	}
+
+	// find deployed revision with status deployed from history, would be upgrade operation
+	for _, rel := range releases {
+		if rel.Info.Status == release.StatusDeployed {
+			return false, nil
+		}
+	}
+
+	// if replace set to true, install will be a legal operation
+	if st := lastRelease.Info.Status; spec.Replace && (st == release.StatusUninstalled || st == release.StatusFailed) {
+		return true, nil
+	}
+
+	return false, fmt.Errorf("can't install or upgrade chart with status: %s", lastRelease.Info.Status)
+}
+
+// getChart returns a chart matching the provided chart name and options.
+func (hClient *HelmClient) getChart(chartName string, chartPathOptions *action.ChartPathOptions) (*chart.Chart, string, error) {
+
+	chartPath, err := chartPathOptions.LocateChart(chartName, hClient.HelmClient.Settings)
+	if err != nil {
+		return nil, "", err
+	}
+
+	helmChart, err := loader.Load(chartPath)
+	if err != nil {
+		return nil, "", err
+	}
+
+	if helmChart.Metadata.Deprecated {
+		hClient.HelmClient.DebugLog("WARNING: This chart (%q) is deprecated", helmChart.Metadata.Name)
+	}
+
+	return helmChart, chartPath, err
+}
+
+func (hClient *HelmClient) installChart(ctx context.Context, spec *hc.ChartSpec) (*release.Release, error) {
+
+	c := hClient.HelmClient
+	client := action.NewInstall(c.ActionConfig)
+	mergeInstallOptions(spec, client)
+
+	if client.Version == "" {
+		client.Version = ">0.0.0-0"
+	}
+
+	helmChart, chartPath, err := hClient.getChart(spec.ChartName, &client.ChartPathOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	if helmChart.Metadata.Type != "" && helmChart.Metadata.Type != "application" {
+		return nil, fmt.Errorf(
+			"chart %q has an unsupported type and is not installable: %q",
+			helmChart.Metadata.Name,
+			helmChart.Metadata.Type,
+		)
+	}
+
+	if req := helmChart.Metadata.Dependencies; req != nil {
+		if err := action.CheckDependencies(helmChart, req); err != nil {
+			if client.DependencyUpdate {
+				man := &downloader.Manager{
+					ChartPath:        chartPath,
+					Keyring:          client.ChartPathOptions.Keyring,
+					SkipUpdate:       false,
+					Getters:          c.Providers,
+					RepositoryConfig: c.Settings.RepositoryConfig,
+					RepositoryCache:  c.Settings.RepositoryCache,
+				}
+				if err := man.Update(); err != nil {
+					return nil, err
+				}
+			} else {
+				return nil, err
+			}
+		}
+	}
+
+	values, err := spec.GetValuesMap()
+	if err != nil {
+		return nil, err
+	}
+
+	rel, err := client.RunWithContext(ctx, helmChart, values)
+	if err != nil {
+		return rel, err
+	}
+
+	c.DebugLog("release installed successfully: %s/%s-%s", rel.Name, rel.Chart.Metadata.Name, rel.Chart.Metadata.Version)
+
+	return rel, nil
+}
+
+func (hClient *HelmClient) upgradeChart(ctx context.Context, spec *hc.ChartSpec) (*release.Release, error) {
+
+	c := hClient.HelmClient
+	client := action.NewUpgrade(c.ActionConfig)
+	mergeUpgradeOptions(spec, client)
+
+	if client.Version == "" {
+		client.Version = ">0.0.0-0"
+	}
+
+	helmChart, _, err := hClient.getChart(spec.ChartName, &client.ChartPathOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	if req := helmChart.Metadata.Dependencies; req != nil {
+		if err := action.CheckDependencies(helmChart, req); err != nil {
+			return nil, err
+		}
+	}
+
+	values, err := spec.GetValuesMap()
+	if err != nil {
+		return nil, err
+	}
+
+	if !spec.SkipCRDs && spec.UpgradeCRDs {
+		c.DebugLog("upgrading crds")
+		err = c.upgradeCRDs(ctx, helmChart)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	rel, err := client.RunWithContext(ctx, spec.ReleaseName, helmChart, values)
+	if err != nil {
+		return rel, err
+	}
+
+	c.DebugLog("release upgraded successfully: %s/%s-%s", rel.Name, rel.Chart.Metadata.Name, rel.Chart.Metadata.Version)
+
+	return rel, nil
+}
+
+// InstallOrUpgradeChart install or upgrade helm chart, use the same rule with helm to determine weather to install or upgrade
+func (hClient *HelmClient) InstallOrUpgradeChart(ctx context.Context, spec *hc.ChartSpec) (*release.Release, error) {
+	install, err := hClient.isInstallOperation(spec)
+	if err != nil {
+		return nil, err
+	}
+
+	if install {
+		return hClient.installChart(ctx, spec)
+	} else {
+		return hClient.InstallOrUpgradeChart(ctx, spec)
+	}
+}
+
+// mergeInstallOptions merges values of the provided chart to helm install options used by the client.
+func mergeInstallOptions(chartSpec *hc.ChartSpec, installOptions *action.Install) {
+	installOptions.CreateNamespace = chartSpec.CreateNamespace
+	installOptions.DisableHooks = chartSpec.DisableHooks
+	installOptions.Replace = chartSpec.Replace
+	installOptions.Wait = chartSpec.Wait
+	installOptions.DependencyUpdate = chartSpec.DependencyUpdate
+	installOptions.Timeout = chartSpec.Timeout
+	installOptions.Namespace = chartSpec.Namespace
+	installOptions.ReleaseName = chartSpec.ReleaseName
+	installOptions.Version = chartSpec.Version
+	installOptions.GenerateName = chartSpec.GenerateName
+	installOptions.NameTemplate = chartSpec.NameTemplate
+	installOptions.Atomic = chartSpec.Atomic
+	installOptions.SkipCRDs = chartSpec.SkipCRDs
+	installOptions.DryRun = chartSpec.DryRun
+	installOptions.SubNotes = chartSpec.SubNotes
+}
+
+// mergeUpgradeOptions merges values of the provided chart to helm upgrade options used by the client.
+func mergeUpgradeOptions(chartSpec *hc.ChartSpec, upgradeOptions *action.Upgrade) {
+	upgradeOptions.Version = chartSpec.Version
+	upgradeOptions.Namespace = chartSpec.Namespace
+	upgradeOptions.Timeout = chartSpec.Timeout
+	upgradeOptions.Wait = chartSpec.Wait
+	upgradeOptions.DisableHooks = chartSpec.DisableHooks
+	upgradeOptions.Force = chartSpec.Force
+	upgradeOptions.ResetValues = chartSpec.ResetValues
+	upgradeOptions.ReuseValues = chartSpec.ReuseValues
+	upgradeOptions.Recreate = chartSpec.Recreate
+	upgradeOptions.MaxHistory = chartSpec.MaxHistory
+	upgradeOptions.Atomic = chartSpec.Atomic
+	upgradeOptions.CleanupOnFail = chartSpec.CleanupOnFail
+	upgradeOptions.DryRun = chartSpec.DryRun
+	upgradeOptions.SubNotes = chartSpec.SubNotes
 }
