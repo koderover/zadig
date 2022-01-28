@@ -916,12 +916,6 @@ func BulkCopyYamlProduct(projectName, user, requestID string, arg CopyYamlProduc
 			product.Namespace = projectName + "-env-" + product.EnvName
 			product.Render.Name = product.Namespace
 			product.ID = primitive.NilObjectID
-			for _, services := range product.Services {
-				for _, service := range services {
-					service.ServiceName = product.Namespace
-					service.Render.Name = product.Namespace
-				}
-			}
 			err = CreateProduct(user, requestID, product, log)
 			if err != nil {
 				return err

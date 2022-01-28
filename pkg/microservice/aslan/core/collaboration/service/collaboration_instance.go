@@ -149,7 +149,7 @@ func getUpdateDiff(cm *models.CollaborationMode, ci *models.CollaborationInstanc
 	}
 	ciwMap := make(map[string]models.WorkflowCIItem)
 	for _, workflow := range ci.Workflows {
-		ciwMap[workflow.Name] = workflow
+		ciwMap[workflow.BaseName] = workflow
 	}
 	updateWorkflowItems, newWorkflowItems, deleteWorkflowItems := getUpdateWorkflowDiff(cmwMap, ciwMap)
 	cmpMap := make(map[string]models.ProductCMItem)
@@ -158,7 +158,7 @@ func getUpdateDiff(cm *models.CollaborationMode, ci *models.CollaborationInstanc
 	}
 	cipMap := make(map[string]models.ProductCIItem)
 	for _, product := range ci.Products {
-		cipMap[product.Name] = product
+		cipMap[product.BaseName] = product
 	}
 	updateProductItems, newProductItems, deleteProductItems := getUpdateProductDiff(cmpMap, cipMap)
 	return UpdateItem{
@@ -324,9 +324,14 @@ func buildPolicyDescription(mode, userName string) string {
 	return mode + " " + userName + "的权限"
 }
 
-func syncPolicy(updateResp *GetCollaborationUpdateResp, projectName, identityType, userName string,
+func buildPolicybindingName(uid, policyName, projectName string) string {
+	return uid + "-" + policyName + "-" + projectName
+}
+
+func syncPolicy(updateResp *GetCollaborationUpdateResp, projectName, identityType, userName, uid string,
 	logger *zap.SugaredLogger) error {
 	var policies []*policy.Policy
+	var policyBindings []*policy.PolicyBinding
 	for _, mode := range updateResp.New {
 		var rules []*policy.Rule
 
@@ -363,12 +368,23 @@ func syncPolicy(updateResp *GetCollaborationUpdateResp, projectName, identityTyp
 			Description: buildPolicyDescription(mode.Name, userName),
 			Rules:       rules,
 		})
+		policyBindings = append(policyBindings, &policy.PolicyBinding{
+			Name:   buildPolicybindingName(uid, policyName, projectName),
+			UID:    uid,
+			Policy: policyName,
+			Public: false,
+		})
 	}
 	err := policy.NewDefault().CreatePolicies(projectName, policy.CreatePoliciesArgs{
 		Policies: policies,
 	})
 	if err != nil {
 		logger.Errorf("syncPolicy error, error msg:%s", err)
+		return err
+	}
+	err = policy.NewDefault().CreatePolicyBinding(projectName, policyBindings)
+	if err != nil {
+		logger.Errorf("syncPolicyBindings error, error msg:%s", err)
 		return err
 	}
 	var updatePolicies []*policy.Policy
@@ -399,8 +415,10 @@ func syncPolicy(updateResp *GetCollaborationUpdateResp, projectName, identityTyp
 		}
 	}
 	var deletePolicies []string
+	var deletePolicybindings []string
 	for _, instance := range updateResp.Delete {
 		deletePolicies = append(deletePolicies, instance.PolicyName)
+		deletePolicybindings = append(deletePolicybindings, buildPolicybindingName(uid, instance.PolicyName, projectName))
 	}
 	if len(deletePolicies) > 0 {
 		err = policy.NewDefault().DeletePolicies(projectName, policy.DeletePoliciesArgs{
@@ -739,7 +757,7 @@ func SyncCollaborationInstance(products *SyncCollaborationInstanceArgs, projectN
 		return err
 	}
 	err = syncResource(products, updateResp, projectName, identityType, userName, requestID, logger)
-	err = syncPolicy(updateResp, projectName, identityType, userName, logger)
+	err = syncPolicy(updateResp, projectName, identityType, userName, uid, logger)
 	if err != nil {
 		return err
 	}

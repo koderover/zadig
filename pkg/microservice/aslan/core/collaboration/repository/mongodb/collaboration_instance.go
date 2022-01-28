@@ -125,7 +125,6 @@ func (c *CollaborationInstanceColl) BulkCreate(args []*models.CollaborationInsta
 	for _, arg := range args {
 		arg.CreateTime = now
 		arg.UpdateTime = now
-		arg.Revision = 1
 	}
 	var ois []interface{}
 	for _, obj := range args {
