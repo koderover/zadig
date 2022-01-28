@@ -192,6 +192,21 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 			ProjectNames: args.AdvancedConfig.ProjectNames,
 		}
 	}
+
+	// If the user does not configure a cache, object storage is used by default.
+	if args.Cache.MediumType == "" {
+		args.Cache.MediumType = types.ObjectMedium
+
+		defaultStorage, err := commonrepo.NewS3StorageColl().FindDefault()
+		if err != nil {
+			return nil, fmt.Errorf("failed to find default object storage: %s", err)
+		}
+
+		args.Cache.ObjectProperties = types.ObjectProperties{
+			ID: defaultStorage.ID.Hex(),
+		}
+	}
+
 	cluster := &commonmodels.K8SCluster{
 		Name:           args.Name,
 		Description:    args.Description,
@@ -201,6 +216,7 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 		Provider:       args.Provider,
 		CreatedAt:      args.CreatedAt,
 		CreatedBy:      args.CreatedBy,
+		Cache:          args.Cache,
 	}
 
 	return s.CreateCluster(cluster, args.ID, logger)
