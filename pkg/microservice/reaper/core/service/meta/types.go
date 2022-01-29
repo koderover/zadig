@@ -86,6 +86,7 @@ type Context struct {
 	// Git Github/Gitlab 配置
 	Git *Git `yaml:"git"`
 
+	// TODO: Deprecated.
 	// Caches Caches配置
 	Caches []string `yaml:"caches"`
 
