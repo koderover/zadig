@@ -447,17 +447,23 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 		labels = append(labels, mongodb2.Label{
 			Key:   "policy",
 			Value: buildPolicyName(projectName, mode.Name, identityType, userName),
+			Type:  "system",
 		})
 
 	}
-	labelResp, err := service.CreateLabels(&service.CreateLabelsArgs{
-		Labels: labels,
-	}, userName)
+	var labelResp *service.CreateLabelsResp
+	var err error
+	if len(labels) > 0 {
+		labelResp, err = service.CreateLabels(&service.CreateLabelsArgs{
+			Labels: labels,
+		}, userName)
 
-	if err != nil {
-		logger.Errorf("create labels error, error msg:%s", err)
-		return err
+		if err != nil {
+			logger.Errorf("create labels error, error msg:%s", err)
+			return err
+		}
 	}
+
 	var labelModels []mongodb2.Label
 	for _, item := range updateResp.Update {
 		labelModels = append(labelModels, mongodb2.Label{
@@ -478,7 +484,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 		if err != nil {
 			return err
 		}
-		if labelListResp != nil {
+		if labelListResp == nil {
 			return fmt.Errorf("label not exist %v", labelModels)
 		}
 		if len(labelListResp.Labels) != len(labelModels) {
