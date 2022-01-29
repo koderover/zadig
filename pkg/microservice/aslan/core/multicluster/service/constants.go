@@ -61,3 +61,6 @@ func (s StorageProvisioner) IsNFS() bool {
 
 	return true
 }
+
+// ZadigMinioSVC is the service name of minio.
+const ZadigMinioSVC = "zadig-minio"
