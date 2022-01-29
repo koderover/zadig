@@ -664,15 +664,20 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 
 			testArg.TestModuleName = args.TestName
 
-			testTask.CacheEnable = testing.CacheEnable
-			testTask.CacheDirType = testing.CacheDirType
-			testTask.CacheUserDir = testing.CacheUserDir
-
 			clusterInfo, err := commonrepo.NewK8SClusterColl().Get(testing.PreTest.ClusterID)
 			if err != nil {
 				return resp, e.ErrListTestModule.AddDesc(err.Error())
 			}
 			testTask.Cache = clusterInfo.Cache
+
+			// If the cluster is not configured with a cache medium, the cache cannot be used, so don't enable cache explicitly.
+			if testTask.Cache.MediumType == "" {
+				testTask.CacheEnable = false
+			} else {
+				testTask.CacheEnable = testing.CacheEnable
+				testTask.CacheDirType = testing.CacheDirType
+				testTask.CacheUserDir = testing.CacheUserDir
+			}
 
 			break
 		}

@@ -1856,11 +1856,16 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 		if err != nil {
 			return nil, e.ErrConvertSubTasks.AddErr(err)
 		}
-
 		build.Cache = clusterInfo.Cache
-		build.CacheEnable = module.CacheEnable
-		build.CacheDirType = module.CacheDirType
-		build.CacheUserDir = module.CacheUserDir
+
+		// If the cluster is not configured with a cache medium, the cache cannot be used, so don't enable cache explicitly.
+		if build.Cache.MediumType == "" {
+			build.CacheEnable = false
+		} else {
+			build.CacheEnable = module.CacheEnable
+			build.CacheDirType = module.CacheDirType
+			build.CacheUserDir = module.CacheUserDir
+		}
 
 		if args.TaskType != "" {
 			build.TaskType = config.TaskArtifactDeploy

@@ -47,9 +47,7 @@ func ListStorageClasses(ctx context.Context, clusterID string) ([]string, error)
 		// For cluster-level resources, we need to explicitly configure the namespace to be empty.
 		namespace = ""
 	default:
-		if namespace != AttachedClusterNamespace {
-			return nil, fmt.Errorf("invalid namespace in attached cluster: %s. Valid: %s", namespace, AttachedClusterNamespace)
-		}
+		namespace = AttachedClusterNamespace
 	}
 
 	scList := &storagev1.StorageClassList{}

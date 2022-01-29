@@ -193,18 +193,10 @@ func CreateCluster(args *K8SCluster, logger *zap.SugaredLogger) (*commonmodels.K
 		}
 	}
 
-	// If the user does not configure a cache, object storage is used by default.
-	if args.Cache.MediumType == "" {
-		args.Cache.MediumType = types.ObjectMedium
-
-		defaultStorage, err := commonrepo.NewS3StorageColl().FindDefault()
-		if err != nil {
-			return nil, fmt.Errorf("failed to find default object storage: %s", err)
-		}
-
-		args.Cache.ObjectProperties = types.ObjectProperties{
-			ID: defaultStorage.ID.Hex(),
-		}
+	// If user does not configure a cache for the cluster, object storage is used by default.
+	err := setClusterCache(args)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set cache for cluster %s: %s", args.ID, err)
 	}
 
 	cluster := &commonmodels.K8SCluster{
@@ -245,18 +237,10 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 		}
 	}
 
-	// If the user does not configure a cache, object storage is used by default.
-	if args.Cache.MediumType == "" {
-		args.Cache.MediumType = types.ObjectMedium
-
-		defaultStorage, err := commonrepo.NewS3StorageColl().FindDefault()
-		if err != nil {
-			return nil, fmt.Errorf("failed to find default object storage: %s", err)
-		}
-
-		args.Cache.ObjectProperties = types.ObjectProperties{
-			ID: defaultStorage.ID.Hex(),
-		}
+	// If user does not configure a cache for the cluster, object storage is used by default.
+	err := setClusterCache(args)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set cache for cluster %s: %s", id, err)
 	}
 
 	// If the user chooses to use dynamically generated storage resources, the system automatically creates the PVC.
@@ -377,4 +361,28 @@ func GetYaml(id, hubURI string, useDeployment bool, logger *zap.SugaredLogger) (
 	s, _ := kube.NewService("")
 
 	return s.GetYaml(id, config.HubAgentImage(), config.ResourceServerImage(), configbase.SystemAddress(), hubURI, useDeployment, logger)
+}
+
+func setClusterCache(args *K8SCluster) error {
+	if args.Cache.MediumType != "" {
+		return nil
+	}
+
+	defaultStorage, err := commonrepo.NewS3StorageColl().FindDefault()
+	if err != nil {
+		return fmt.Errorf("failed to find default object storage for cluster %s: %s", args.ID, err)
+	}
+
+	// Since the attached cluster cannot access the minio in the local cluster, if the default object storage
+	// is minio, the attached cluster cannot be configured to use minio as a cache.
+	if args.ID != setting.LocalClusterID && strings.Contains(defaultStorage.Endpoint, ZadigMinioSVC) {
+		return nil
+	}
+
+	args.Cache.MediumType = types.ObjectMedium
+	args.Cache.ObjectProperties = types.ObjectProperties{
+		ID: defaultStorage.ID.Hex(),
+	}
+
+	return nil
 }
