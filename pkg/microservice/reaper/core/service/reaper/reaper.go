@@ -47,6 +47,7 @@ type Reaper struct {
 	Ctx             *meta.Context
 	StartTime       time.Time
 	ActiveWorkspace string
+	UserEnvs        map[string]string
 	cm              CacheManager
 	dogFeed         bool
 }
@@ -72,6 +73,26 @@ func NewReaper() (*Reaper, error) {
 		cm:  NewTarCacheManager(ctx.StorageURI, ctx.PipelineName, ctx.ServiceName, ctx.AesKey),
 	}
 
+	workspace := "/workspace"
+	if reaper.Ctx.ClassicBuild {
+		workspace = reaper.Ctx.Workspace
+	}
+	err = reaper.EnsureActiveWorkspace(workspace)
+	if err != nil {
+		return nil, fmt.Errorf("failed to ensure active workspace `%s`: %s", workspace, err)
+	}
+
+	userEnvs := reaper.getUserEnvs()
+	reaper.UserEnvs = make(map[string]string, len(userEnvs))
+	for _, env := range userEnvs {
+		items := strings.Split(env, "=")
+		if len(items) != 2 {
+			continue
+		}
+
+		reaper.UserEnvs[items[0]] = items[1]
+	}
+
 	return reaper, nil
 }
 
@@ -80,15 +101,10 @@ func (r *Reaper) GetCacheFile() string {
 }
 
 func (r *Reaper) CompressCache(storageURI string) error {
-	err := r.EnsureActiveWorkspace(r.ActiveWorkspace)
-	if err != nil {
-		log.Errorf("EnsureActiveWorkspace err:%v", err)
-		return err
-	}
-
-	cacheDir := "/workspace"
+	cacheDir := r.ActiveWorkspace
 	if r.Ctx.CacheDirType == types.UserDefinedCacheDir {
-		cacheDir = r.Ctx.CacheUserDir
+		// Note: Product supports using environment variables, so we need to parsing the directory path here.
+		cacheDir = r.renderUserEnv(r.Ctx.CacheUserDir)
 	}
 
 	log.Infof("Data in `%s` will be cached.", cacheDir)
@@ -98,7 +114,7 @@ func (r *Reaper) CompressCache(storageURI string) error {
 	log.Infof("Succeed to cache %s", cacheDir)
 
 	// remove workspace
-	err = os.RemoveAll(r.ActiveWorkspace)
+	err := os.RemoveAll(r.ActiveWorkspace)
 	if err != nil {
 		log.Errorf("RemoveAll err:%v", err)
 		return err
@@ -107,16 +123,25 @@ func (r *Reaper) CompressCache(storageURI string) error {
 }
 
 func (r *Reaper) DecompressCache() error {
-	_ = r.EnsureActiveWorkspace(r.ActiveWorkspace)
-	if err := r.cm.Unarchive(r.GetCacheFile(), r.ActiveWorkspace); err != nil {
-		if strings.Contains(err.Error(), "decompression OK") {
-			// could met decompression OK, trailing garbage ignored
-			return nil
-		}
-		return err
+	cacheDir := r.ActiveWorkspace
+	if r.Ctx.CacheDirType == types.UserDefinedCacheDir {
+		// Note: Product supports using environment variables, so we need to parsing the directory path here.
+		cacheDir = r.renderUserEnv(r.Ctx.CacheUserDir)
 	}
 
-	return nil
+	err := r.EnsureDir(cacheDir)
+	if err != nil {
+		return fmt.Errorf("failed to ensure cache dir `%s`: %s", cacheDir, err)
+	}
+
+	log.Infof("Cache will be decompressed to %s.", cacheDir)
+	err = r.cm.Unarchive(r.GetCacheFile(), cacheDir)
+	if err != nil && strings.Contains(err.Error(), "decompression OK") {
+		// could met decompression OK, trailing garbage ignored
+		err = nil
+	}
+
+	return err
 }
 
 func (r *Reaper) EnsureActiveWorkspace(workspace string) error {
@@ -138,16 +163,12 @@ func (r *Reaper) EnsureActiveWorkspace(workspace string) error {
 	return os.Chdir(r.ActiveWorkspace)
 }
 
+func (r *Reaper) EnsureDir(dir string) error {
+	return os.MkdirAll(dir, os.ModePerm)
+}
+
 func (r *Reaper) BeforeExec() error {
 	r.StartTime = time.Now()
-
-	workspace := "/workspace"
-	if r.Ctx.ClassicBuild {
-		workspace = r.Ctx.Workspace
-	}
-	if err := r.EnsureActiveWorkspace(workspace); err != nil {
-		return err
-	}
 
 	log.Info("wait for docker daemon to start ...")
 	for i := 0; i < 15; i++ {
@@ -491,4 +512,12 @@ func (r *Reaper) getUserEnvs() []string {
 	envs = append(envs, r.Ctx.SecretEnvs...)
 
 	return envs
+}
+
+func (r *Reaper) renderUserEnv(raw string) string {
+	mapper := func(env string) string {
+		return r.UserEnvs[env]
+	}
+
+	return os.Expand(raw, mapper)
 }
