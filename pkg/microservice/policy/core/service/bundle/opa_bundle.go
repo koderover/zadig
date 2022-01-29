@@ -277,6 +277,7 @@ func generateOPAPolicies(policies []*models.Policy, policyMetas []*models.Policy
 	resourceMappings := getResourceActionMappings(policyMetas)
 
 	for _, policy := range policies {
+		//TODO - mouuii change role model to policy model
 		opaRole := &role{Name: policy.Name, Namespace: policy.Namespace}
 		for _, r := range policy.Rules {
 			if r.Kind == models.KindResource {
