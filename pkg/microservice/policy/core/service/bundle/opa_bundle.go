@@ -75,8 +75,8 @@ type opaPolicies struct {
 }
 
 type opaRoleBindings struct {
-	RoleBindings   roleBindings `json:"role_bindings"`
-	PolicyBindings roleBindings `json:"policy_bindings"`
+	RoleBindings   roleBindings   `json:"role_bindings"`
+	PolicyBindings policyBindings `json:"policy_bindings"`
 }
 
 type role struct {
@@ -151,9 +151,19 @@ type roleBinding struct {
 	Bindings bindings `json:"bindings"`
 }
 
+type policyBinding struct {
+	UID      string         `json:"uid"`
+	Bindings bindingPolicys `json:"bindings"`
+}
+
 type binding struct {
 	Namespace string   `json:"namespace"`
 	RoleRefs  roleRefs `json:"role_refs"`
+}
+
+type bindingPolicy struct {
+	Namespace string   `json:"namespace"`
+	RoleRefs  roleRefs `json:"policy_refs"`
 }
 
 type roleRef struct {
@@ -194,6 +204,14 @@ func (o bindings) Less(i, j int) bool {
 	return o[i].Namespace < o[j].Namespace
 }
 
+type bindingPolicys []*bindingPolicy
+
+func (o bindingPolicys) Len() int      { return len(o) }
+func (o bindingPolicys) Swap(i, j int) { o[i], o[j] = o[j], o[i] }
+func (o bindingPolicys) Less(i, j int) bool {
+	return o[i].Namespace < o[j].Namespace
+}
+
 type roleRefs []*roleRef
 
 func (o roleRefs) Len() int      { return len(o) }
@@ -210,6 +228,14 @@ type roleBindings []*roleBinding
 func (o roleBindings) Len() int      { return len(o) }
 func (o roleBindings) Swap(i, j int) { o[i], o[j] = o[j], o[i] }
 func (o roleBindings) Less(i, j int) bool {
+	return o[i].UID < o[j].UID
+}
+
+type policyBindings []*policyBinding
+
+func (o policyBindings) Len() int      { return len(o) }
+func (o policyBindings) Swap(i, j int) { o[i], o[j] = o[j], o[i] }
+func (o policyBindings) Less(i, j int) bool {
 	return o[i].UID < o[j].UID
 }
 
@@ -279,7 +305,7 @@ func generateOPAPolicies(policies []*models.Policy, policyMetas []*models.Policy
 	return data
 }
 
-func generateOPARoleBindings(rbs []*models.RoleBinding, pbs []*models.PolicyBinding) *opaRoleBindings {
+func generateOPABindings(rbs []*models.RoleBinding, pbs []*models.PolicyBinding) *opaRoleBindings {
 	data := &opaRoleBindings{}
 
 	userRoleMap := make(map[string]map[string][]*roleRef)
@@ -321,13 +347,13 @@ func generateOPARoleBindings(rbs []*models.RoleBinding, pbs []*models.PolicyBind
 	}
 
 	for u, nb := range userPolicyMap {
-		var bindingsData []*binding
+		var bindingsData []*bindingPolicy
 		for n, b := range nb {
 			sort.Sort(roleRefs(b))
-			bindingsData = append(bindingsData, &binding{Namespace: n, RoleRefs: b})
+			bindingsData = append(bindingsData, &bindingPolicy{Namespace: n, RoleRefs: b})
 		}
-		sort.Sort(bindings(bindingsData))
-		data.PolicyBindings = append(data.PolicyBindings, &roleBinding{UID: u, Bindings: bindingsData})
+		sort.Sort(bindingPolicys(bindingsData))
+		data.PolicyBindings = append(data.PolicyBindings, &policyBinding{UID: u, Bindings: bindingsData})
 	}
 
 	sort.Sort(data.PolicyBindings)
@@ -422,7 +448,7 @@ func GenerateOPABundle() error {
 			{Data: generateOPAPolicyRego(), Path: policyRegoPath},
 			{Data: generateOPARoles(rs, pms), Path: rolesPath},
 			{Data: generateOPAPolicies(policies, pms), Path: policiesPath},
-			{Data: generateOPARoleBindings(bs, pbs), Path: bindingsPath},
+			{Data: generateOPABindings(bs, pbs), Path: bindingsPath},
 			{Data: generateOPAExemptionURLs(pms), Path: exemptionsPath},
 			{Data: generateResourceBundle(), Path: resourcesPath},
 		},
