@@ -50,13 +50,13 @@ type NewSpec struct {
 }
 
 type UpdateWorkflowItem struct {
-	Old models.WorkflowCMItem `json:"old"`
-	New models.WorkflowCIItem `json:"new"`
+	Old models.WorkflowCIItem `json:"old"`
+	New models.WorkflowCMItem `json:"new"`
 }
 
 type UpdateProductItem struct {
-	Old models.ProductCMItem `json:"old"`
-	New models.ProductCIItem `json:"new"`
+	Old models.ProductCIItem `json:"old"`
+	New models.ProductCMItem `json:"new"`
 }
 
 type Workflow struct {
@@ -97,8 +97,8 @@ func getUpdateWorkflowDiff(cmwMap map[string]models.WorkflowCMItem, ciwMap map[s
 		if ci, ok := ciwMap[name]; ok {
 			if !reflect.DeepEqual(cm.Verbs, ci.Verbs) || cm.CollaborationType != ci.CollaborationType {
 				updateWorkflowItems = append(updateWorkflowItems, UpdateWorkflowItem{
-					Old: cm,
-					New: ci,
+					Old: ci,
+					New: cm,
 				})
 			}
 		} else {
@@ -106,10 +106,8 @@ func getUpdateWorkflowDiff(cmwMap map[string]models.WorkflowCMItem, ciwMap map[s
 		}
 	}
 	for name, ci := range ciwMap {
-		if cm, ok := cmwMap[name]; ok {
-			if !reflect.DeepEqual(cm.Verbs, ci.Verbs) || cm.CollaborationType != ci.CollaborationType {
-				deleteWorkflowItems = append(deleteWorkflowItems, ci)
-			}
+		if _, ok := cmwMap[name]; !ok {
+			deleteWorkflowItems = append(deleteWorkflowItems, ci)
 		}
 	}
 	return updateWorkflowItems, newWorkflowItems, deleteWorkflowItems
@@ -124,8 +122,8 @@ func getUpdateProductDiff(cmpMap map[string]models.ProductCMItem, cipMap map[str
 		if ci, ok := cipMap[name]; ok {
 			if !reflect.DeepEqual(cm.Verbs, ci.Verbs) || cm.CollaborationType != ci.CollaborationType {
 				updateProductItems = append(updateProductItems, UpdateProductItem{
-					Old: cm,
-					New: ci,
+					Old: ci,
+					New: cm,
 				})
 			}
 		} else {
@@ -133,10 +131,8 @@ func getUpdateProductDiff(cmpMap map[string]models.ProductCMItem, cipMap map[str
 		}
 	}
 	for name, ci := range cipMap {
-		if cm, ok := cmpMap[name]; ok {
-			if !reflect.DeepEqual(cm.Verbs, ci.Verbs) || cm.CollaborationType != ci.CollaborationType {
-				deleteProductItems = append(deleteProductItems, ci)
-			}
+		if _, ok := cmpMap[name]; !ok {
+			deleteProductItems = append(deleteProductItems, ci)
 		}
 	}
 	return updateProductItems, newProductItems, deleteProductItems
@@ -295,13 +291,15 @@ func syncInstance(updateResp *GetCollaborationUpdateResp, projectName, identityT
 		instances = append(instances, instance)
 		modeInstanceMap[mode.Name] = instance
 	}
-	err := mongodb.NewCollaborationInstanceColl().BulkCreate(instances)
-	if err != nil {
-		logger.Errorf("syncInstance BulkCreate error, error msg:%s", err)
-		return err
+	if len(instances) > 0 {
+		err := mongodb.NewCollaborationInstanceColl().BulkCreate(instances)
+		if err != nil {
+			logger.Errorf("syncInstance BulkCreate error, error msg:%s", err)
+			return err
+		}
 	}
 	for _, instance := range updateResp.UpdateInstance {
-		err = mongodb.NewCollaborationInstanceColl().Update(uid, &instance)
+		err := mongodb.NewCollaborationInstanceColl().Update(uid, &instance)
 		if err != nil {
 			logger.Errorf("syncInstance Update error, error msg:%s", err)
 			return err
@@ -375,17 +373,21 @@ func syncPolicy(updateResp *GetCollaborationUpdateResp, projectName, identityTyp
 			Public: false,
 		})
 	}
-	err := policy.NewDefault().CreatePolicies(projectName, policy.CreatePoliciesArgs{
-		Policies: policies,
-	})
-	if err != nil {
-		logger.Errorf("syncPolicy error, error msg:%s", err)
-		return err
+	if len(policies) > 0 {
+		err := policy.NewDefault().CreatePolicies(projectName, policy.CreatePoliciesArgs{
+			Policies: policies,
+		})
+		if err != nil {
+			logger.Errorf("syncPolicy error, error msg:%s", err)
+			return err
+		}
 	}
-	err = policy.NewDefault().CreatePolicyBinding(projectName, policyBindings)
-	if err != nil {
-		logger.Errorf("syncPolicyBindings error, error msg:%s", err)
-		return err
+	if len(policyBindings) > 0 {
+		err := policy.NewDefault().CreatePolicyBinding(projectName, policyBindings)
+		if err != nil {
+			logger.Errorf("syncPolicyBindings error, error msg:%s", err)
+			return err
+		}
 	}
 	var updatePolicies []*policy.Policy
 	for _, instance := range updateResp.UpdateInstance {
@@ -403,13 +405,13 @@ func syncPolicy(updateResp *GetCollaborationUpdateResp, projectName, identityTyp
 				},
 			})
 		}
-		policies = append(policies, &policy.Policy{
+		updatePolicies = append(updatePolicies, &policy.Policy{
 			Name:  instance.PolicyName,
 			Rules: rules,
 		})
 	}
 	for _, updatePolicy := range updatePolicies {
-		err = policy.NewDefault().UpdatePolicy(projectName, updatePolicy)
+		err := policy.NewDefault().UpdatePolicy(projectName, updatePolicy)
 		if err != nil {
 			return err
 		}
@@ -421,9 +423,15 @@ func syncPolicy(updateResp *GetCollaborationUpdateResp, projectName, identityTyp
 		deletePolicybindings = append(deletePolicybindings, buildPolicybindingName(uid, instance.PolicyName, projectName))
 	}
 	if len(deletePolicies) > 0 {
-		err = policy.NewDefault().DeletePolicies(projectName, policy.DeletePoliciesArgs{
+		err := policy.NewDefault().DeletePolicies(projectName, policy.DeletePoliciesArgs{
 			Names: deletePolicies,
 		})
+		if err != nil {
+			return err
+		}
+	}
+	if len(deletePolicybindings) > 0 {
+		err := policy.NewDefault().DeletePolicyBindings(deletePolicybindings, projectName)
 		if err != nil {
 			return err
 		}
@@ -686,6 +694,9 @@ func syncNewResource(products *SyncCollaborationInstanceArgs, updateResp *GetCol
 	if err != nil {
 		return err
 	}
+	if newResp.Workflow == nil && newResp.Product == nil {
+		return nil
+	}
 	var newWorkflows []workflowservice.WorkflowCopyItem
 	for _, workflow := range newResp.Workflow {
 		if workflow.CollaborationType == config.CollaborationNew {
@@ -696,12 +707,15 @@ func syncNewResource(products *SyncCollaborationInstanceArgs, updateResp *GetCol
 			})
 		}
 	}
-	err = workflowservice.BulkCopyWorkflow(workflowservice.BulkCopyWorkflowArgs{
-		Items: newWorkflows,
-	}, userName, logger)
-	if err != nil {
-		return err
+	if len(newWorkflows) > 0 {
+		err = workflowservice.BulkCopyWorkflow(workflowservice.BulkCopyWorkflowArgs{
+			Items: newWorkflows,
+		}, userName, logger)
+		if err != nil {
+			return err
+		}
 	}
+
 	productMap := make(map[string]Product)
 	for _, product := range products.Products {
 		productMap[product.BaseName] = product
@@ -727,17 +741,21 @@ func syncNewResource(products *SyncCollaborationInstanceArgs, updateResp *GetCol
 			}
 		}
 	}
-	err = service2.BulkCopyYamlProduct(projectName, userName, requestID, service2.CopyYamlProductArg{
-		Items: yamlProductItems,
-	}, logger)
-	if err != nil {
-		return err
+	if len(yamlProductItems) > 0 {
+		err = service2.BulkCopyYamlProduct(projectName, userName, requestID, service2.CopyYamlProductArg{
+			Items: yamlProductItems,
+		}, logger)
+		if err != nil {
+			return err
+		}
 	}
-	err = service2.BulkCopyHelmProduct(projectName, userName, requestID, service2.CopyHelmProductArg{
-		Items: helmProductArgs,
-	}, logger)
-	if err != nil {
-		return err
+	if len(helmProductArgs) > 0 {
+		err = service2.BulkCopyHelmProduct(projectName, userName, requestID, service2.CopyHelmProductArg{
+			Items: helmProductArgs,
+		}, logger)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -751,6 +769,9 @@ func SyncCollaborationInstance(products *SyncCollaborationInstanceArgs, projectN
 	if err != nil {
 		logger.Errorf("GetCollaborationNew error, err msg:%s", err)
 		return err
+	}
+	if updateResp.Update == nil && updateResp.UpdateInstance == nil && updateResp.New == nil && updateResp.Delete == nil {
+		return nil
 	}
 	err = syncInstance(updateResp, projectName, identityType, userName, uid, logger)
 	if err != nil {
@@ -782,6 +803,18 @@ func getCollaborationDelete(updateResp *GetCollaborationUpdateResp) *GetCollabor
 		}
 		for _, deleteProduct := range item.DeleteSpec.Products {
 			productSet.Insert(deleteProduct.Name)
+		}
+		for _, workflow := range item.UpdateSpec.Workflows {
+			if workflow.Old.CollaborationType == config.CollaborationNew &&
+				workflow.New.CollaborationType == config.CollaborationShare {
+				workflowSet.Insert(workflow.Old.Name)
+			}
+		}
+		for _, product := range item.UpdateSpec.Products {
+			if product.Old.CollaborationType == config.CollaborationNew &&
+				product.New.CollaborationType == config.CollaborationShare {
+				workflowSet.Insert(product.Old.Name)
+			}
 		}
 	}
 	return &GetCollaborationDeleteResp{
@@ -854,9 +887,9 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 			if workflow.Old.CollaborationType == "share" && workflow.New.CollaborationType == "new" {
 				newWorkflow = append(newWorkflow, &Workflow{
 					CollaborationType: workflow.New.CollaborationType,
-					BaseName:          workflow.New.BaseName,
+					BaseName:          workflow.Old.BaseName,
 					CollaborationMode: item.CollaborationMode,
-					Name:              buildName(workflow.New.BaseName, item.CollaborationMode, identityType, userName),
+					Name:              buildName(workflow.Old.BaseName, item.CollaborationMode, identityType, userName),
 				})
 			}
 		}
@@ -864,12 +897,12 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 			if product.Old.CollaborationType == "share" && product.New.CollaborationType == "new" {
 				newProduct = append(newProduct, &Product{
 					CollaborationType: product.New.CollaborationType,
-					BaseName:          product.New.BaseName,
+					BaseName:          product.Old.BaseName,
 					CollaborationMode: item.CollaborationMode,
 					DeployType:        item.DeployType,
-					Name:              buildName(product.New.BaseName, item.CollaborationMode, identityType, userName),
+					Name:              buildName(product.Old.BaseName, item.CollaborationMode, identityType, userName),
 				})
-				newProductName.Insert(product.New.BaseName)
+				newProductName.Insert(product.Old.BaseName)
 			}
 		}
 	}

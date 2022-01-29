@@ -58,7 +58,7 @@ type PolicyBinding struct {
 
 func (c *Client) CreatePolicyBinding(projectName string, policyBindings []*PolicyBinding) error {
 	url := fmt.Sprintf("/policybindings?projectName=%s", projectName)
-	_, err := c.Put(url, httpclient.SetBody(policyBindings))
+	_, err := c.Post(url, httpclient.SetBody(policyBindings))
 	return err
 }
 
