@@ -38,7 +38,17 @@ func (m resourceActionMappings) GetRules(resource string, actions []string) []*r
 	var res []*rule
 	for action, r := range mappings {
 		if all || actionSet.Has(action) {
-			res = append(res, r...)
+			for _, rr := range r {
+				rrr := &rule{
+					Method:           rr.Method,
+					Endpoint:         rr.Endpoint,
+					ResourceType:     rr.ResourceType,
+					IDRegex:          rr.IDRegex,
+					MatchAttributes:  rr.MatchAttributes,
+					MatchExpressions: rr.MatchExpressions,
+				}
+				res = append(res, rrr)
+			}
 		}
 	}
 
