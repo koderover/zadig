@@ -832,7 +832,8 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName
 					return config.StatusFailed
 				}
 
-				var done bool
+				var done, exists bool
+				var jobStatus commontypes.JobStatus
 				for _, pod := range pods {
 					ipod := wrapper.Pod(pod)
 					if ipod.Pending() {
@@ -843,9 +844,9 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName
 					}
 
 					if !ipod.Finished() {
-						exists, err := checkDogFoodExistsInContainer(namespace, ipod.Name, ipod.ContainerNames()[0])
+						jobStatus, exists, err = checkDogFoodExistsInContainer(namespace, ipod.Name, ipod.ContainerNames()[0])
 						if err != nil {
-							xl.Infof("failed to check dog food file %s %v", pods[0].Name, err)
+							xl.Errorf("Failed to check dog food file %s: %s.", pods[0].Name, err)
 							break
 						}
 						if !exists {
@@ -856,8 +857,14 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName
 				}
 
 				if done {
-					xl.Infof("dog food is found, stop to wait %s", job.Name)
-					return config.StatusPassed
+					xl.Infof("Dog food is found, stop to wait %s. Job status: %s.", job.Name, jobStatus)
+
+					switch jobStatus {
+					case commontypes.JobFail:
+						return config.StatusFailed
+					default:
+						return config.StatusPassed
+					}
 				}
 			} else if job.Status.Succeeded != 0 {
 				return config.StatusPassed
@@ -871,15 +878,15 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName
 
 }
 
-func checkDogFoodExistsInContainer(namespace string, pod string, container string) (bool, error) {
-	_, _, success, err := podexec.ExecWithOptions(podexec.ExecOptions{
-		Command:       []string{"test", "-f", setting.DogFood},
+func checkDogFoodExistsInContainer(namespace string, pod string, container string) (commontypes.JobStatus, bool, error) {
+	stdout, _, success, err := podexec.ExecWithOptions(podexec.ExecOptions{
+		Command:       []string{"/bin/sh", "-c", fmt.Sprintf("test -f %[1]s && cat %[1]s", setting.DogFood)},
 		Namespace:     namespace,
 		PodName:       pod,
 		ContainerName: container,
 	})
 
-	return success, err
+	return commontypes.JobStatus(stdout), success, err
 }
 
 func addNodeAffinity(clusterID string, K8SClusters []*task.K8SCluster) *corev1.Affinity {
