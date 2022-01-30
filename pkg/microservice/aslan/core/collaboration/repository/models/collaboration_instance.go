@@ -29,7 +29,7 @@ type CollaborationInstance struct {
 	UpdateTime        int64              `bson:"update_time"               json:"update_time"`
 	CollaborationName string             `bson:"collaboration_name" json:"collaboration_name"`
 	Revision          int64              `bson:"revision"                  json:"revision"`
-	User              string             `bson:"user" json:"user"`
+	UserUID           string             `bson:"user_uid" json:"user_uid"`
 	PolicyName        string             `bson:"policy_name" json:"policy_name"`
 	Workflows         []WorkflowCIItem   `json:"workflows" bson:"workflows"`
 	Products          []ProductCIItem    `bson:"products" json:"products"`

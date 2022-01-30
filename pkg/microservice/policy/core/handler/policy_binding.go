@@ -55,18 +55,10 @@ func CreatePolicyBinding(c *gin.Context) {
 	}
 
 	args := make([]*service.PolicyBinding, 0)
-	if c.Query("bulk") == "true" {
-		if err := c.ShouldBindJSON(&args); err != nil {
-			ctx.Err = err
-			return
-		}
-	} else {
-		rb := &service.PolicyBinding{}
-		if err := c.ShouldBindJSON(rb); err != nil {
-			ctx.Err = err
-			return
-		}
-		args = append(args, rb)
+
+	if err := c.ShouldBindJSON(&args); err != nil {
+		ctx.Err = err
+		return
 	}
 
 	ctx.Err = service.CreatePolicyBindings(projectName, args, ctx.Logger)

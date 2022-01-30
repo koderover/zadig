@@ -49,6 +49,19 @@ type DeletePoliciesArgs struct {
 	Names []string `json:"names"`
 }
 
+type PolicyBinding struct {
+	Name   string `json:"name"`
+	UID    string `json:"uid"`
+	Policy string `json:"policy"`
+	Public bool   `json:"public"`
+}
+
+func (c *Client) CreatePolicyBinding(projectName string, policyBindings []*PolicyBinding) error {
+	url := fmt.Sprintf("/policybindings?projectName=%s", projectName)
+	_, err := c.Post(url, httpclient.SetBody(policyBindings))
+	return err
+}
+
 func (c *Client) CreatePolicies(ns string, request CreatePoliciesArgs) error {
 	url := fmt.Sprintf("/policies?projectName=%s", ns)
 
@@ -71,6 +84,16 @@ func (c *Client) DeletePolicies(ns string, request DeletePoliciesArgs) error {
 	}
 
 	return nil
+}
+
+func (c *Client) DeletePolicyBindings(names []string, projectName string) error {
+	url := fmt.Sprintf("/policybindings/bulk-delete?projectName=%s", projectName)
+	nameArgs := &NameArgs{}
+	for _, v := range names {
+		nameArgs.Names = append(nameArgs.Names, v)
+	}
+	_, err := c.Post(url, httpclient.SetBody(nameArgs))
+	return err
 }
 
 func (c *Client) UpdatePolicy(ns string, policy *Policy) error {

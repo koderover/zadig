@@ -17,7 +17,7 @@ func GetCollaborationNew() gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		newResp, err := service.GetCollaborationNew(projectName, ctx.UserID, ctx.UserName, ctx.Logger)
+		newResp, err := service.GetCollaborationNew(projectName, ctx.UserID, ctx.IdentityType, ctx.Account, ctx.Logger)
 		if err != nil {
 			ctx.Err = err
 			c.Abort()

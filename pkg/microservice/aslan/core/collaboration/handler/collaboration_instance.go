@@ -17,11 +17,14 @@ limitations under the License.
 package handler
 
 import (
+	"encoding/json"
+
 	"github.com/gin-gonic/gin"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 func GetCollaborationNew(c *gin.Context) {
@@ -32,7 +35,7 @@ func GetCollaborationNew(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can not be empty")
 		return
 	}
-	ctx.Resp, ctx.Err = service.GetCollaborationNew(projectName, ctx.UserID, ctx.UserName, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetCollaborationNew(projectName, ctx.UserID, ctx.IdentityType, ctx.Account, ctx.Logger)
 }
 
 func SyncCollaborationInstance(c *gin.Context) {
@@ -40,7 +43,14 @@ func SyncCollaborationInstance(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	projectName := c.Query("projectName")
 	args := new(service.SyncCollaborationInstanceArgs)
-	if err := c.ShouldBindQuery(args); err != nil {
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("SyncCollaborationInstance c.GetRawData() err : %v", err)
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("SyncCollaborationInstance json.Unmarshal err : %v", err)
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
@@ -48,5 +58,5 @@ func SyncCollaborationInstance(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can not be empty")
 		return
 	}
-	ctx.Err = service.SyncCollaborationInstance(args, projectName, ctx.UserID, ctx.UserName, ctx.RequestID, ctx.Logger)
+	ctx.Err = service.SyncCollaborationInstance(args, projectName, ctx.UserID, ctx.IdentityType, ctx.Account, ctx.RequestID, ctx.Logger)
 }

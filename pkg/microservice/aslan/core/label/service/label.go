@@ -32,19 +32,35 @@ type CreateLabelsResp struct {
 	LabelMap map[string]string `json:"label_map"`
 }
 
-func CreateLabels(labels []*models.Label) (*CreateLabelsResp, error) {
-	err := mongodb.NewLabelColl().BulkCreate(labels)
+func CreateLabels(arg *CreateLabelsArgs, userName string) (*CreateLabelsResp, error) {
+	filteredLabels := make([]*models.Label, 0)
+	keyValues := sets.NewString()
+	for _, v := range arg.Labels {
+		keyValue := fmt.Sprintf("%s-%s", v.Key, v.Value)
+		if keyValues.Has(keyValue) {
+			continue
+		}
+		keyValues.Insert(keyValue)
+		tmpModel := models.Label{
+			Key:      v.Key,
+			Value:    v.Value,
+			CreateBy: userName,
+			Type:     v.Type,
+		}
+		filteredLabels = append(filteredLabels, &tmpModel)
+	}
+	err := mongodb.NewLabelColl().BulkCreate(filteredLabels)
 	if err != nil {
 		return nil, err
 	}
 	var labelModels []mongodb.Label
-	for _, label := range labels {
+	for _, label := range filteredLabels {
 		labelModels = append(labelModels, mongodb.Label{
 			Key:   label.Key,
 			Value: label.Value,
 		})
 	}
-	var result map[string]string
+	result := make(map[string]string)
 	resp, err := mongodb.NewLabelColl().List(mongodb.ListLabelOpt{
 		Labels: labelModels,
 	})

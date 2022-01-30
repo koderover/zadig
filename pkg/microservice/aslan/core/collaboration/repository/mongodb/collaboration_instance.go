@@ -104,7 +104,7 @@ func (c *CollaborationInstanceColl) Update(uid string, args *models.Collaboratio
 		return errors.New("nil CollaborationMode")
 	}
 
-	query := bson.M{"name": args.CollaborationName, "project_name": args.ProjectName, "user_uid": uid}
+	query := bson.M{"collaboration_name": args.CollaborationName, "project_name": args.ProjectName, "user_uid": uid}
 	change := bson.M{"$set": bson.M{
 		"update_time": time.Now().Unix(),
 		"workflows":   args.Workflows,
@@ -125,7 +125,6 @@ func (c *CollaborationInstanceColl) BulkCreate(args []*models.CollaborationInsta
 	for _, arg := range args {
 		arg.CreateTime = now
 		arg.UpdateTime = now
-		arg.Revision = 1
 	}
 	var ois []interface{}
 	for _, obj := range args {
