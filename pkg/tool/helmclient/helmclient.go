@@ -20,19 +20,22 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 
-	"helm.sh/helm/v3/pkg/downloader"
-
+	hc "github.com/mittwald/go-helm-client"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
-	"helm.sh/helm/v3/pkg/storage/driver"
-
-	hc "github.com/mittwald/go-helm-client"
+	"helm.sh/helm/v3/pkg/downloader"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/releaseutil"
+	"helm.sh/helm/v3/pkg/storage/driver"
 	"helm.sh/helm/v3/pkg/strvals"
+	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/yaml"
 
@@ -103,6 +106,159 @@ func MergeOverrideValues(valuesYaml, defaultValues, overrideYaml, overrideValues
 		return "", err
 	}
 	return string(bs), nil
+}
+
+// upgradeCRDs upgrades the CRDs of the provided chart.
+func (hClient *HelmClient) upgradeCRDs(ctx context.Context, chartInstance *chart.Chart) error {
+	cfg, err := hClient.ActionConfig.RESTClientGetter.ToRESTConfig()
+	if err != nil {
+		return err
+	}
+
+	k8sClient, err := clientset.NewForConfig(cfg)
+	if err != nil {
+		return err
+	}
+
+	for _, crd := range chartInstance.CRDObjects() {
+		if err := hClient.upgradeCRD(ctx, k8sClient, crd); err != nil {
+			return err
+		}
+		hClient.DebugLog("CRD %s upgraded successfully for chart: %s", crd.Name, chartInstance.Metadata.Name)
+	}
+
+	return nil
+}
+
+// upgradeCRDV1Beta1 upgrades a CRD of the v1 API version using the provided k8s client and CRD yaml.
+func (hClient *HelmClient) upgradeCRDV1(ctx context.Context, cl *clientset.Clientset, rawCRD []byte) error {
+	var crdObj v1.CustomResourceDefinition
+	if err := yaml.Unmarshal(rawCRD, &crdObj); err != nil {
+		return err
+	}
+
+	existingCRDObj, err := cl.ApiextensionsV1().CustomResourceDefinitions().Get(ctx, crdObj.Name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	// Check to ensure that no previously existing API version is deleted through the upgrade.
+	if len(existingCRDObj.Spec.Versions) > len(crdObj.Spec.Versions) {
+		hClient.DebugLog("WARNING: new version of CRD %q would remove an existing API version, skipping upgrade", crdObj.Name)
+		return nil
+	}
+
+	// Check that the storage version does not change through the update.
+	oldStorageVersion := v1.CustomResourceDefinitionVersion{}
+
+	for _, oldVersion := range existingCRDObj.Spec.Versions {
+		if oldVersion.Storage {
+			oldStorageVersion = oldVersion
+		}
+	}
+
+	i := 0
+
+	for _, newVersion := range crdObj.Spec.Versions {
+		if newVersion.Storage {
+			i++
+			if newVersion.Name != oldStorageVersion.Name {
+				return fmt.Errorf("ERROR: storage version of CRD %q changed, aborting upgrade", crdObj.Name)
+			}
+		}
+		if i > 1 {
+			return fmt.Errorf("ERROR: more than one storage version set on CRD %q, aborting upgrade", crdObj.Name)
+		}
+	}
+
+	if reflect.DeepEqual(existingCRDObj.Spec.Versions, crdObj.Spec.Versions) {
+		hClient.DebugLog("INFO: new version of CRD %q contains no changes, skipping upgrade", crdObj.Name)
+		return nil
+	}
+
+	crdObj.ResourceVersion = existingCRDObj.ResourceVersion
+	if _, err := cl.ApiextensionsV1().CustomResourceDefinitions().Update(ctx, &crdObj, metav1.UpdateOptions{DryRun: []string{"All"}}); err != nil {
+		return err
+	}
+	hClient.DebugLog("upgrade ran successful for CRD (dry run): %s", crdObj.Name)
+
+	if _, err := cl.ApiextensionsV1().CustomResourceDefinitions().Update(ctx, &crdObj, metav1.UpdateOptions{}); err != nil {
+		return err
+	}
+	hClient.DebugLog("upgrade ran successful for CRD: %s", crdObj.Name)
+
+	return nil
+}
+
+// upgradeCRDV1Beta1 upgrades a CRD of the v1beta1 API version using the provided k8s client and CRD yaml.
+func (hClient *HelmClient) upgradeCRDV1Beta1(ctx context.Context, cl *clientset.Clientset, rawCRD []byte) error {
+	var crdObj v1beta1.CustomResourceDefinition
+	if err := yaml.Unmarshal(rawCRD, &crdObj); err != nil {
+		return err
+	}
+	existingCRDObj, err := cl.ApiextensionsV1beta1().CustomResourceDefinitions().Get(ctx, crdObj.Name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	// Check that the storage version does not change through the update.
+	oldStorageVersion := v1beta1.CustomResourceDefinitionVersion{}
+
+	for _, oldVersion := range existingCRDObj.Spec.Versions {
+		if oldVersion.Storage {
+			oldStorageVersion = oldVersion
+		}
+	}
+
+	i := 0
+
+	for _, newVersion := range crdObj.Spec.Versions {
+		if newVersion.Storage {
+			i++
+			if newVersion.Name != oldStorageVersion.Name {
+				return fmt.Errorf("ERROR: storage version of CRD %q changed, aborting upgrade", crdObj.Name)
+			}
+		}
+		if i > 1 {
+			return fmt.Errorf("ERROR: more than one storage version set on CRD %q, aborting upgrade", crdObj.Name)
+		}
+	}
+
+	if reflect.DeepEqual(existingCRDObj.Spec.Versions, crdObj.Spec.Versions) {
+		hClient.DebugLog("INFO: new version of CRD %q contains no changes, skipping upgrade", crdObj.Name)
+		return nil
+	}
+
+	crdObj.ResourceVersion = existingCRDObj.ResourceVersion
+	if _, err := cl.ApiextensionsV1beta1().CustomResourceDefinitions().Update(ctx, &crdObj, metav1.UpdateOptions{DryRun: []string{"All"}}); err != nil {
+		return err
+	}
+	hClient.DebugLog("upgrade ran successful for CRD (dry run): %s", crdObj.Name)
+
+	if _, err = cl.ApiextensionsV1beta1().CustomResourceDefinitions().Update(ctx, &crdObj, metav1.UpdateOptions{}); err != nil {
+		return err
+	}
+	hClient.DebugLog("upgrade ran successful for CRD: %s", crdObj.Name)
+
+	return nil
+}
+
+// upgradeCRD upgrades the CRD 'crd' using the provided k8s client.
+func (hClient *HelmClient) upgradeCRD(ctx context.Context, k8sClient *clientset.Clientset, crd chart.CRD) error {
+	var typeMeta metav1.TypeMeta
+	err := yaml.Unmarshal(crd.File.Data, &typeMeta)
+	if err != nil {
+		return err
+	}
+
+	switch typeMeta.APIVersion {
+	default:
+		return fmt.Errorf("WARNING: failed to upgrade CRD %q: unsupported api-version %q", crd.Name, typeMeta.APIVersion)
+	case "apiextensions.k8s.io/v1beta1":
+		return hClient.upgradeCRDV1Beta1(ctx, k8sClient, crd.File.Data)
+	case "apiextensions.k8s.io/v1":
+		return hClient.upgradeCRDV1(ctx, k8sClient, crd.File.Data)
+	}
 }
 
 // check weather to install or upgrade chart by current status
@@ -253,7 +409,7 @@ func (hClient *HelmClient) upgradeChart(ctx context.Context, spec *hc.ChartSpec)
 
 	if !spec.SkipCRDs && spec.UpgradeCRDs {
 		c.DebugLog("upgrading crds")
-		err = c.upgradeCRDs(ctx, helmChart)
+		err = hClient.upgradeCRDs(ctx, helmChart)
 		if err != nil {
 			return nil, err
 		}
@@ -277,9 +433,11 @@ func (hClient *HelmClient) InstallOrUpgradeChart(ctx context.Context, spec *hc.C
 	}
 
 	if install {
+		log.Infof("##### installing chart")
 		return hClient.installChart(ctx, spec)
 	} else {
-		return hClient.InstallOrUpgradeChart(ctx, spec)
+		log.Infof("###### upgrading chart")
+		return hClient.upgradeChart(ctx, spec)
 	}
 }
 
