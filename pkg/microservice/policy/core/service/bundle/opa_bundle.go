@@ -20,6 +20,8 @@ import (
 	"net/http"
 	"sort"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
@@ -294,9 +296,26 @@ func generateOPAPolicies(policies []*models.Policy, policyMetas []*models.Policy
 					}
 				}
 			}
-
+			attrSets := sets.String{}
+			var attributes []*Attribute
 			for _, v := range opaRole.Rules {
-				v.MatchAttributes = NewFrom(r.MatchAttributes)
+				for _, attribute := range r.MatchAttributes {
+					a := Attribute{
+						Key:   attribute.Key,
+						Value: attribute.Value,
+					}
+					if !attrSets.Has(attribute.Key + "-" + attribute.Value) {
+						attributes = append(attributes, &a)
+						attrSets.Insert(attribute.Key + "-" + attribute.Value)
+					}
+				}
+				for _, attribute := range v.MatchAttributes {
+					if !attrSets.Has(attribute.Key + "-" + attribute.Value) {
+						attributes = append(attributes, attribute)
+						attrSets.Insert(attribute.Key + "-" + attribute.Value)
+					}
+				}
+				v.MatchAttributes = attributes
 			}
 		}
 		sort.Sort(opaRole.Rules)
