@@ -441,20 +441,7 @@ func (r *Reaper) AfterExec(upStreamErr error) error {
 		}
 	}
 
-	// Create dog food file to tell wd that task has finished.
-	dogFoodErr := ioutil.WriteFile(setting.DogFood, []byte(time.Now().Format(time.RFC3339)), 0644)
-	if dogFoodErr != nil {
-		log.Errorf("Failed to create dog food: %s", dogFoodErr)
-	} else {
-		r.dogFeed = true
-		log.Infof("Build end. Duration: %.2f seconds.", time.Since(r.StartTime).Seconds())
-	}
-
 	return nil
-}
-
-func (r *Reaper) DogFeed() bool {
-	return r.dogFeed
 }
 
 func (r *Reaper) maskSecret(secrets []string, message string) string {
