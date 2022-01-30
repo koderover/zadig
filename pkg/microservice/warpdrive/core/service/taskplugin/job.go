@@ -846,7 +846,7 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName
 					if !ipod.Finished() {
 						jobStatus, exists, err = checkDogFoodExistsInContainer(namespace, ipod.Name, ipod.ContainerNames()[0])
 						if err != nil {
-							xl.Errorf("Failed to check dog food file %s %v", pods[0].Name, err)
+							xl.Errorf("Failed to check dog food file %s: %s.", pods[0].Name, err)
 							break
 						}
 						if !exists {
