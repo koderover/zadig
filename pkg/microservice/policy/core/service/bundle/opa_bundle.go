@@ -37,7 +37,7 @@ const (
 	exemptionsPath = "exemptions/data.json"
 	resourcesPath  = "resources/data.json"
 
-	policyRoot       = "policies"
+	policyRoot       = "rbac"
 	rolesRoot        = "roles"
 	rolebindingsRoot = "bindings"
 	exemptionsRoot   = "exemptions"
