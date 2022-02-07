@@ -71,7 +71,7 @@ func (o *OAuth) HandleCallback(r *http.Request) (*oauth2.Token, error) {
 	if err == nil && len(proxies) != 0 && proxies[0].EnableRepoProxy {
 		port := proxies[0].Port
 		ip := proxies[0].Address
-		proxyRawUrl := fmt.Sprintf("http://%s:%s", ip, port)
+		proxyRawUrl := fmt.Sprintf("http://%s:%d", ip, port)
 		proxyUrl, err2 := url.Parse(proxyRawUrl)
 		if err2 == nil {
 			httpClient.Transport = &http.Transport{
