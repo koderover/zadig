@@ -22,6 +22,7 @@ import (
 
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -34,6 +35,7 @@ import (
 var once sync.Once
 
 var c cluster.Cluster
+var k *kubernetes.Clientset
 
 // Cluster is a singleton, it will be initialized only once.
 func Cluster() cluster.Cluster {
@@ -46,6 +48,21 @@ func Cluster() cluster.Cluster {
 	})
 
 	return c
+}
+
+func NewClientSet() *kubernetes.Clientset {
+	if k != nil {
+		return k
+	}
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		panic(err)
+	}
+	k, err = kubernetes.NewForConfig(config)
+	if err != nil {
+		panic(err)
+	}
+	return k
 }
 
 func Client() client.Client {

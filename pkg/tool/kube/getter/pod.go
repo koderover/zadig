@@ -19,6 +19,7 @@ package getter
 import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/informers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -44,4 +45,12 @@ func ListPods(ns string, selector labels.Selector, cl client.Client) ([]*corev1.
 		res = append(res, &ps.Items[i])
 	}
 	return res, err
+}
+
+func ListPodsWithCache(selector labels.Selector, informer informers.SharedInformerFactory) ([]*corev1.Pod, error) {
+	if selector == nil {
+		selector = labels.NewSelector()
+	}
+
+	return informer.Core().V1().Pods().Lister().List(selector)
 }

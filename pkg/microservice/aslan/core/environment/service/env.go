@@ -18,6 +18,7 @@ package service
 
 import (
 	"go.uber.org/zap"
+	"k8s.io/client-go/informers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -27,9 +28,9 @@ import (
 
 type envHandle interface {
 	createGroup(envName, productName, username string, group []*commonmodels.ProductService, renderSet *commonmodels.RenderSet, kubeClient client.Client) error
-	listGroupServices(allServices []*commonmodels.ProductService, envName, productName string, kubeClient client.Client, productInfo *commonmodels.Product) []*commonservice.ServiceResp
+	listGroupServices(allServices []*commonmodels.ProductService, envName, productName string, informer informers.SharedInformerFactory, productInfo *commonmodels.Product) []*commonservice.ServiceResp
 	updateService(args *SvcOptArgs) error
-	queryServiceStatus(namespace, envName, productName string, serviceTmpl *commonmodels.Service, kubeClient client.Client) (string, string, []string)
+	queryServiceStatus(namespace, envName, productName string, serviceTmpl *commonmodels.Service, kubeClient informers.SharedInformerFactory) (string, string, []string)
 }
 
 func envHandleFunc(projectType string, log *zap.SugaredLogger) envHandle {

@@ -24,6 +24,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
+	"k8s.io/client-go/informers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -42,7 +43,7 @@ type PMService struct {
 	log *zap.SugaredLogger
 }
 
-func (p *PMService) queryServiceStatus(namespace, envName, productName string, serviceTmpl *commonmodels.Service, kubeClient client.Client) (string, string, []string) {
+func (p *PMService) queryServiceStatus(namespace, envName, productName string, serviceTmpl *commonmodels.Service, informer informers.SharedInformerFactory) (string, string, []string) {
 	p.log.Infof("queryServiceStatus of service: %s of product: %s in namespace %s", serviceTmpl.ServiceName, productName, namespace)
 	pipelineName := fmt.Sprintf("%s-%s-%s", serviceTmpl.ServiceName, envName, "job")
 	taskObj, err := commonrepo.NewTaskColl().FindTask(pipelineName, config.ServiceType)
@@ -53,7 +54,7 @@ func (p *PMService) queryServiceStatus(namespace, envName, productName string, s
 		return setting.PodPending, setting.PodNotReady, []string{}
 	}
 
-	return queryPodsStatus(namespace, "", serviceTmpl.ServiceName, kubeClient, p.log)
+	return queryPodsStatus(namespace, "", serviceTmpl.ServiceName, informer, p.log)
 }
 
 func (p *PMService) updateService(args *SvcOptArgs) error {
@@ -87,7 +88,7 @@ func (p *PMService) updateService(args *SvcOptArgs) error {
 	return nil
 }
 
-func (p *PMService) listGroupServices(allServices []*commonmodels.ProductService, envName, productName string, kubeClient client.Client, productInfo *commonmodels.Product) []*commonservice.ServiceResp {
+func (p *PMService) listGroupServices(allServices []*commonmodels.ProductService, envName, productName string, informer informers.SharedInformerFactory, productInfo *commonmodels.Product) []*commonservice.ServiceResp {
 	var wg sync.WaitGroup
 	var resp []*commonservice.ServiceResp
 	var mutex sync.RWMutex
