@@ -1,3 +1,19 @@
+/*
+Copyright 2021 The KodeRover Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package informer
 
 import (
@@ -28,7 +44,7 @@ func NewInformer(clusterID, namespace string, cls *kubernetes.Clientset) informe
 	if clusterID == "" {
 		clusterID = setting.LocalClusterID
 	}
-	key := fmt.Sprintf(setting.InformerNamingConvention, clusterID, namespace)
+	key := generateInformerKey(clusterID, namespace)
 	if informer, ok := InformersMap.Load(key); ok {
 		return informer.(informers.SharedInformerFactory)
 	}
@@ -50,6 +66,7 @@ func NewInformer(clusterID, namespace string, cls *kubernetes.Clientset) informe
 		// if we found that stop channel
 		if stopchan, ok := StopChanMap.Load(key); ok {
 			close(stopchan.(chan struct{}))
+			StopChanMap.Delete(key)
 		}
 	}
 	InformersMap.Store(key, informerFactory)
@@ -58,13 +75,18 @@ func NewInformer(clusterID, namespace string, cls *kubernetes.Clientset) informe
 }
 
 func DeleteInformer(clusterID, namespace string) {
-	key := fmt.Sprintf(setting.InformerNamingConvention, clusterID, namespace)
+	key := generateInformerKey(clusterID, namespace)
 	// if informer exists
 	if _, ok := InformersMap.Load(key); ok {
 		// if we found that stop channel
 		if stopchan, ok := StopChanMap.Load(key); ok {
 			close(stopchan.(chan struct{}))
+			StopChanMap.Delete(key)
 		}
 	}
 	InformersMap.Delete(key)
+}
+
+func generateInformerKey(clusterID, namespace string) string {
+	return fmt.Sprintf(setting.InformerNamingConvention, clusterID, namespace)
 }

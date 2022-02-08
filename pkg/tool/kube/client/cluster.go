@@ -35,7 +35,6 @@ import (
 var once sync.Once
 
 var c cluster.Cluster
-var k *kubernetes.Clientset
 
 // Cluster is a singleton, it will be initialized only once.
 func Cluster() cluster.Cluster {
@@ -50,19 +49,16 @@ func Cluster() cluster.Cluster {
 	return c
 }
 
-func NewClientSet() *kubernetes.Clientset {
-	if k != nil {
-		return k
-	}
+func NewClientSet() (*kubernetes.Clientset, error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	k, err = kubernetes.NewForConfig(config)
+	k, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return k
+	return k, nil
 }
 
 func Client() client.Client {

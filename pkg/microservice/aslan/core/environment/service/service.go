@@ -453,7 +453,7 @@ func queryPodsStatus(namespace, productName, serviceName string, informer inform
 	if serviceName != "" {
 		ls[setting.ServiceLabel] = serviceName
 	}
-	return kube.GetSelectedPodsInfoWithCache(ls.AsSelector(), informer, log)
+	return kube.GetSelectedPodsInfo(ls.AsSelector(), informer, log)
 }
 
 // validateServiceContainer validate container with envName like dev

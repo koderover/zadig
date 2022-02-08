@@ -46,7 +46,7 @@ func GetKubeClient(hubServerAddr, clusterID string) (client.Client, error) {
 
 func GetKubeClientSet(hubServerAddr, clusterID string) (*kubernetes.Clientset, error) {
 	if clusterID == "" {
-		return krkubeclient.NewClientSet(), nil
+		return krkubeclient.NewClientSet()
 	}
 
 	clusterService, err := NewAgent(hubServerAddr)
@@ -141,11 +141,7 @@ func (s *Agent) GetKubeClient(clusterID string) (client.Client, error) {
 
 func (s *Agent) GetClientGoKubeClient(clusterID string) (*kubernetes.Clientset, error) {
 	config := generateRestConfig(clusterID, s.hubServerAddr)
-	cl, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-	return cl, nil
+	return kubernetes.NewForConfig(config)
 }
 
 func (s *Agent) ClusterConnected(clusterID string) bool {

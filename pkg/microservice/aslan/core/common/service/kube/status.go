@@ -22,58 +22,13 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 )
 
-// TODO: improve this function
-func GetSelectedPodsInfo(ns string, selector labels.Selector, kubeClient client.Client, log *zap.SugaredLogger) (string, string, []string) {
-	pods, err := getter.ListPods(ns, selector, kubeClient)
-	if err != nil {
-		return setting.PodError, setting.PodNotReady, nil
-	}
-
-	if len(pods) == 0 {
-		return setting.PodNonStarted, setting.PodNotReady, nil
-	}
-
-	imageSet := sets.String{}
-	for _, pod := range pods {
-		ipod := wrapper.Pod(pod)
-		imageSet.Insert(ipod.Containers()...)
-	}
-	images := imageSet.List()
-
-	ready := setting.PodReady
-
-	succeededPods := 0
-	for _, pod := range pods {
-		iPod := wrapper.Pod(pod)
-
-		// skip if pod is a succeeded job
-		if iPod.Succeeded() {
-			succeededPods++
-			continue
-		}
-
-		// 如果服务中任意一个pod不在running状态，返回unstable
-		if !iPod.Ready() {
-			return setting.PodUnstable, setting.PodNotReady, images
-		}
-	}
-
-	// return "Succeeded, Completed" if all pods are succeeded Job pods
-	if len(pods) == succeededPods {
-		return string(corev1.PodSucceeded), setting.JobReady, images
-	}
-
-	return setting.PodRunning, ready, images
-}
-
-func GetSelectedPodsInfoWithCache(selector labels.Selector, informer informers.SharedInformerFactory, log *zap.SugaredLogger) (string, string, []string) {
+func GetSelectedPodsInfo(selector labels.Selector, informer informers.SharedInformerFactory, log *zap.SugaredLogger) (string, string, []string) {
 	pods, err := getter.ListPodsWithCache(selector, informer)
 	if err != nil {
 		return setting.PodError, setting.PodNotReady, nil
@@ -96,19 +51,16 @@ func GetSelectedPodsInfoWithCache(selector labels.Selector, informer informers.S
 	for _, pod := range pods {
 		iPod := wrapper.Pod(pod)
 
-		// skip if pod is a succeeded job
 		if iPod.Succeeded() {
 			succeededPods++
 			continue
 		}
 
-		// 如果服务中任意一个pod不在running状态，返回unstable
 		if !iPod.Ready() {
 			return setting.PodUnstable, setting.PodNotReady, images
 		}
 	}
 
-	// return "Succeeded, Completed" if all pods are succeeded Job pods
 	if len(pods) == succeededPods {
 		return string(corev1.PodSucceeded), setting.JobReady, images
 	}
