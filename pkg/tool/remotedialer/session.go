@@ -127,7 +127,6 @@ func (s *Session) Serve(ctx context.Context) (int, error) {
 
 	for {
 		msType, reader, err := s.conn.NextReader()
-		s.conn.conn.ReadMessage()
 		if err != nil {
 			return 400, err
 		}
