@@ -257,12 +257,36 @@ var systemAdminURLs = []*policyRule{
 		Endpoints: []string{"api/v1/system-roles/?*"},
 	},
 	{
+		Methods:   []string{"POST"},
+		Endpoints: []string{"api/v1/public-policies"},
+	},
+	{
+		Methods:   []string{"PUT", "DELETE"},
+		Endpoints: []string{"api/v1/public-policies/?*"},
+	},
+	{
+		Methods:   []string{"GET", "POST"},
+		Endpoints: []string{"api/v1/system-policies"},
+	},
+	{
+		Methods:   []string{"DELETE"},
+		Endpoints: []string{"api/v1/system-policies/?*"},
+	},
+	{
 		Methods:   []string{"GET", "POST"},
 		Endpoints: []string{"api/v1/system-rolebindings"},
 	},
 	{
 		Methods:   []string{"DELETE"},
 		Endpoints: []string{"api/v1/system-rolebindings/?*"},
+	},
+	{
+		Methods:   []string{"GET", "POST"},
+		Endpoints: []string{"api/v1/system-policybindings"},
+	},
+	{
+		Methods:   []string{"DELETE"},
+		Endpoints: []string{"api/v1/system-policybindings/?*"},
 	},
 	{
 		Methods:   []string{"POST"},
@@ -345,6 +369,34 @@ var projectAdminURLs = []*policyRule{
 		Endpoints: []string{"api/v1/public-roles/?*"},
 	},
 	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/v1/policies"},
+	},
+	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/v1/policies/?*"},
+	},
+	{
+		Methods:   []string{"POST", "DELETE"},
+		Endpoints: []string{"api/v1/policies"},
+	},
+	{
+		Methods:   []string{"PUT", "DELETE"},
+		Endpoints: []string{"api/v1/policies/?*"},
+	},
+	{
+		Methods:   []string{"POST"},
+		Endpoints: []string{"api/v1/policies/bulk-delete"},
+	},
+	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/v1/public-policies"},
+	},
+	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/v1/public-policies/?*"},
+	},
+	{
 		Methods:   []string{"GET", "POST"},
 		Endpoints: []string{"api/v1/rolebindings"},
 	},
@@ -359,6 +411,22 @@ var projectAdminURLs = []*policyRule{
 	{
 		Methods:   []string{"POST"},
 		Endpoints: []string{"api/v1/rolebindings/bulk-delete"},
+	},
+	{
+		Methods:   []string{"GET", "POST"},
+		Endpoints: []string{"api/v1/policybindings"},
+	},
+	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/v1/picket/policybindings"},
+	},
+	{
+		Methods:   []string{"DELETE"},
+		Endpoints: []string{"api/v1/policybindings/?*"},
+	},
+	{
+		Methods:   []string{"POST"},
+		Endpoints: []string{"api/v1/policybindings/bulk-delete"},
 	},
 }
 
