@@ -86,9 +86,10 @@ func UpdatePolicy(ns string, policy *Policy, _ *zap.SugaredLogger) error {
 
 	for _, r := range policy.Rules {
 		obj.Rules = append(obj.Rules, &models.Rule{
-			Verbs:     r.Verbs,
-			Kind:      r.Kind,
-			Resources: r.Resources,
+			Verbs:           r.Verbs,
+			Kind:            r.Kind,
+			Resources:       r.Resources,
+			MatchAttributes: r.MatchAttributes,
 		})
 	}
 	return mongodb.NewPolicyColl().UpdatePolicy(obj)
@@ -102,9 +103,10 @@ func UpdateOrCreatePolicy(ns string, policy *Policy, _ *zap.SugaredLogger) error
 
 	for _, r := range policy.Rules {
 		obj.Rules = append(obj.Rules, &models.Rule{
-			Verbs:     r.Verbs,
-			Kind:      r.Kind,
-			Resources: r.Resources,
+			Verbs:           r.Verbs,
+			Kind:            r.Kind,
+			Resources:       r.Resources,
+			MatchAttributes: r.MatchAttributes,
 		})
 	}
 	return mongodb.NewPolicyColl().UpdateOrCreate(obj)

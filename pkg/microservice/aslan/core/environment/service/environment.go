@@ -916,6 +916,7 @@ func BulkCopyYamlProduct(projectName, user, requestID string, arg CopyYamlProduc
 			product.Namespace = projectName + "-env-" + product.EnvName
 			product.Render.Name = product.Namespace
 			product.ID = primitive.NilObjectID
+			product.Render.Revision = 0
 			err = CreateProduct(user, requestID, product, log)
 			if err != nil {
 				return err

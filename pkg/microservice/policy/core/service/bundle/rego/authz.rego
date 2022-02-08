@@ -197,8 +197,12 @@ all_attributes_match(attributes, resourceType, resourceID) {
     res.resourceID == resourceID
     project_name_is_match(res)
 
-    # a && b <=> !(!a || !b), De Morgan’s laws, see details in https://www.fugue.co/blog/5-tips-for-using-the-rego-language-for-open-policy-agent-opa
-    not attributes_mismatch(attributes, res)
+    attributes_match(attributes, res)
+}
+
+attributes_match(attributes, res) {
+    attribute := attributes[_]
+    attribute_match(attribute, res)
 }
 
 attributes_mismatch(attributes, res) {

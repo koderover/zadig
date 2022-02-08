@@ -22,6 +22,13 @@ func GetCollaborationNew() gin.HandlerFunc {
 			ctx.Err = err
 			c.Abort()
 		}
+		if newResp.IfSync {
+			err := service.SyncCollaborationInstance(nil, projectName, ctx.UserID, ctx.IdentityType, ctx.Account, ctx.RequestID, ctx.Logger)
+			if err != nil {
+				ctx.Err = err
+				c.Abort()
+			}
+		}
 		if len(newResp.Product) == 0 && len(newResp.Workflow) == 0 {
 			c.Next()
 		} else {
