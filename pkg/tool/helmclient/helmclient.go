@@ -267,7 +267,6 @@ func (hClient *HelmClient) isInstallOperation(spec *hc.ChartSpec) (bool, error) 
 	// find history of particular release
 	releases, err := hClient.ListReleaseHistory(spec.ReleaseName, 10)
 	if err != nil && err != driver.ErrReleaseNotFound {
-		log.Infof("###### get release history fail")
 		return false, err
 	}
 	// release not found, install operation
@@ -433,10 +432,8 @@ func (hClient *HelmClient) InstallOrUpgradeChart(ctx context.Context, spec *hc.C
 	}
 
 	if install {
-		log.Infof("##### installing chart")
 		return hClient.installChart(ctx, spec)
 	} else {
-		log.Infof("###### upgrading chart")
 		return hClient.upgradeChart(ctx, spec)
 	}
 }
