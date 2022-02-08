@@ -81,6 +81,7 @@ type GetCollaborationNewResp struct {
 	Code     int64       `json:"code"`
 	Workflow []*Workflow `json:"workflow"`
 	Product  []*Product  `json:"product"`
+	IfSync   bool        `json:"ifSync"`
 }
 
 type GetCollaborationDeleteResp struct {
@@ -500,22 +501,6 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 			deleteLabels = append(deleteLabels, mongodb2.Label{
 				Key: "policy",
 				Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName,
-					string(config2.ResourceTypeWorkflow), workflow.Name),
-				Type: "system",
-			})
-		}
-		for _, product := range item.DeleteSpec.Products {
-			deleteLabels = append(deleteLabels, mongodb2.Label{
-				Key: "policy",
-				Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName,
-					string(config2.ResourceTypeProduct), product.Name),
-				Type: "system",
-			})
-		}
-		for _, workflow := range item.DeleteSpec.Workflows {
-			deleteLabels = append(deleteLabels, mongodb2.Label{
-				Key: "policy",
-				Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName,
 					string(config2.ResourceTypeWorkflow), workflow.BaseName),
 				Type: "system",
 			})
@@ -528,6 +513,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 				Type: "system",
 			})
 		}
+
 	}
 	for _, instance := range updateResp.Delete {
 		for _, workflow := range instance.Workflows {
@@ -547,10 +533,9 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 			})
 		}
 	}
-	var labelResp *service.CreateLabelsResp
 	var err error
 	if len(labels) > 0 {
-		labelResp, err = service.CreateLabels(&service.CreateLabelsArgs{
+		_, err := service.CreateLabels(&service.CreateLabelsArgs{
 			Labels: labels,
 		}, userName)
 
@@ -596,6 +581,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 		}
 
 	}
+	labelIdMap := make(map[string]string)
 	if len(labels) > 0 {
 		labelListResp, err := service.ListLabels(&service.ListLabelsArgs{
 			Labels: labels,
@@ -609,7 +595,6 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 		if len(labelListResp.Labels) != len(labels) {
 			return fmt.Errorf("label not exist %v:%v", labels, labelListResp.Labels)
 		}
-		labelIdMap := make(map[string]string)
 
 		for _, label := range labelListResp.Labels {
 			labelIdMap[service.BuildLabelString(label.Key, label.Value)] = label.ID.Hex()
@@ -620,7 +605,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 	for _, mode := range updateResp.New {
 		for _, workflow := range mode.Workflows {
 			labelValue := buildLabelValue(projectName, mode.Name, identityType, userName, string(config2.ResourceTypeWorkflow), workflow.Name)
-			labelId, ok := labelResp.LabelMap[service.BuildLabelString("policy", labelValue)]
+			labelId, ok := labelIdMap[service.BuildLabelString("policy", labelValue)]
 			if !ok {
 				return fmt.Errorf("label:%s not exist", labelValue)
 			}
@@ -633,13 +618,13 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 				Resource: mongodb2.Resource{
 					Name:        name,
 					ProjectName: projectName,
-					Type:        "Workflow",
+					Type:        string(config2.ResourceTypeWorkflow),
 				},
 			})
 		}
 		for _, product := range mode.Products {
 			labelValue := buildLabelValue(projectName, mode.Name, identityType, userName, string(config2.ResourceTypeProduct), product.Name)
-			labelId, ok := labelResp.LabelMap[service.BuildLabelString("policy", labelValue)]
+			labelId, ok := labelIdMap[service.BuildLabelString("policy", labelValue)]
 			if !ok {
 				return fmt.Errorf("label:%s not exist", labelValue)
 			}
@@ -658,29 +643,66 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 		}
 	}
 	for _, item := range updateResp.Update {
-
 		for _, workflow := range item.NewSpec.Workflows {
 			labelValue := buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeWorkflow), workflow.Name)
-			labelId, ok := labelResp.LabelMap[service.BuildLabelString("policy", labelValue)]
+			labelId, ok := labelIdMap[service.BuildLabelString("policy", labelValue)]
 			if !ok {
 				return fmt.Errorf("label:%s not exist", labelValue)
+			}
+			name := workflow.Name
+			if workflow.CollaborationType == config.CollaborationNew {
+				name = buildName(workflow.Name, item.CollaborationMode, identityType, userName)
 			}
 			newBindings = append(newBindings, &mongodb2.LabelBinding{
 				LabelID: labelId,
 				Resource: mongodb2.Resource{
-					Name:        workflow.Name,
-					Type:        "Workflow",
+					Name:        name,
+					Type:        string(config2.ResourceTypeWorkflow),
 					ProjectName: projectName,
 				},
 			})
 		}
 		for _, product := range item.NewSpec.Products {
 			labelValue := buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeProduct), product.Name)
-			labelId, ok := labelResp.LabelMap[service.BuildLabelString("policy", labelValue)]
+			labelId, ok := labelIdMap[service.BuildLabelString("policy", labelValue)]
 			if !ok {
 				return fmt.Errorf("label:%s not exist", labelValue)
 			}
+			name := product.Name
+			if product.CollaborationType == config.CollaborationNew {
+				name = buildName(product.Name, item.CollaborationMode, identityType, userName)
+			}
 			newBindings = append(newBindings, &mongodb2.LabelBinding{
+				LabelID: labelId,
+				Resource: mongodb2.Resource{
+					Name:        name,
+					Type:        string(config2.ResourceTypeProduct),
+					ProjectName: projectName,
+				},
+			})
+		}
+		for _, workflow := range item.DeleteSpec.Workflows {
+			labelValue := buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeWorkflow), workflow.BaseName)
+			labelId, ok := labelIdMap[service.BuildLabelString("policy", labelValue)]
+			if !ok {
+				return fmt.Errorf("label:%s not exist", labelValue)
+			}
+			deleteBindings = append(deleteBindings, &mongodb2.LabelBinding{
+				LabelID: labelId,
+				Resource: mongodb2.Resource{
+					Name:        workflow.Name,
+					Type:        string(config2.ResourceTypeWorkflow),
+					ProjectName: projectName,
+				},
+			})
+		}
+		for _, product := range item.DeleteSpec.Products {
+			labelValue := buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeProduct), product.BaseName)
+			labelId, ok := labelIdMap[service.BuildLabelString("policy", labelValue)]
+			if !ok {
+				return fmt.Errorf("label:%s not exist", labelValue)
+			}
+			deleteBindings = append(deleteBindings, &mongodb2.LabelBinding{
 				LabelID: labelId,
 				Resource: mongodb2.Resource{
 					Name:        product.Name,
@@ -690,10 +712,32 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 			})
 		}
 		for _, workflow := range item.UpdateSpec.Workflows {
-			if workflow.Old.CollaborationType == config.CollaborationShare && workflow.New.CollaborationType ==
-				config.CollaborationNew {
+			if workflow.Old.CollaborationType == config.CollaborationShare && workflow.New.CollaborationType == config.CollaborationNew {
 				labelValue := buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeWorkflow), workflow.New.Name)
-				labelId, ok := labelResp.LabelMap[service.BuildLabelString("policy", labelValue)]
+				labelId, ok := labelIdMap[service.BuildLabelString("policy", labelValue)]
+				if !ok {
+					return fmt.Errorf("label:%s not exist", labelValue)
+				}
+				newBindings = append(newBindings, &mongodb2.LabelBinding{
+					LabelID: labelId,
+					Resource: mongodb2.Resource{
+						Name:        buildName(workflow.New.Name, item.CollaborationMode, identityType, userName),
+						Type:        string(config2.ResourceTypeWorkflow),
+						ProjectName: projectName,
+					},
+				})
+				deleteBindings = append(deleteBindings, &mongodb2.LabelBinding{
+					LabelID: labelId,
+					Resource: mongodb2.Resource{
+						Name:        workflow.Old.BaseName,
+						Type:        string(config2.ResourceTypeWorkflow),
+						ProjectName: projectName,
+					},
+				})
+			}
+			if workflow.Old.CollaborationType == config.CollaborationNew && workflow.New.CollaborationType == config.CollaborationShare {
+				labelValue := buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeWorkflow), workflow.New.Name)
+				labelId, ok := labelIdMap[service.BuildLabelString("policy", labelValue)]
 				if !ok {
 					return fmt.Errorf("label:%s not exist", labelValue)
 				}
@@ -701,33 +745,47 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 					LabelID: labelId,
 					Resource: mongodb2.Resource{
 						Name:        workflow.New.Name,
-						Type:        "Workflow",
+						Type:        string(config2.ResourceTypeWorkflow),
 						ProjectName: projectName,
 					},
 				})
-			}
-			if workflow.Old.CollaborationType == config.CollaborationNew && workflow.New.CollaborationType ==
-				config.CollaborationShare {
-				labelValue := buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeWorkflow), workflow.New.Name)
-				labelId, ok := labelResp.LabelMap[service.BuildLabelString("policy", labelValue)]
-				if !ok {
-					return fmt.Errorf("label:%s not exist", labelValue)
-				}
 				deleteBindings = append(deleteBindings, &mongodb2.LabelBinding{
 					LabelID: labelId,
 					Resource: mongodb2.Resource{
-						Name:        workflow.New.Name,
-						Type:        "Workflow",
+						Name:        workflow.Old.Name,
+						Type:        string(config2.ResourceTypeWorkflow),
 						ProjectName: projectName,
 					},
 				})
 			}
 		}
 		for _, product := range item.UpdateSpec.Products {
-			if product.Old.CollaborationType == config.CollaborationShare && product.New.CollaborationType ==
-				config.CollaborationNew {
+			if product.Old.CollaborationType == config.CollaborationShare && product.New.CollaborationType == config.CollaborationNew {
 				labelValue := buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeProduct), product.New.Name)
-				labelId, ok := labelResp.LabelMap[service.BuildLabelString("policy", labelValue)]
+				labelId, ok := labelIdMap[service.BuildLabelString("policy", labelValue)]
+				if !ok {
+					return fmt.Errorf("label:%s not exist", labelValue)
+				}
+				newBindings = append(newBindings, &mongodb2.LabelBinding{
+					LabelID: labelId,
+					Resource: mongodb2.Resource{
+						Name:        buildName(product.New.Name, item.CollaborationMode, identityType, userName),
+						Type:        string(config2.ResourceTypeProduct),
+						ProjectName: projectName,
+					},
+				})
+				deleteBindings = append(deleteBindings, &mongodb2.LabelBinding{
+					LabelID: labelId,
+					Resource: mongodb2.Resource{
+						Name:        product.Old.BaseName,
+						Type:        string(config2.ResourceTypeProduct),
+						ProjectName: projectName,
+					},
+				})
+			}
+			if product.Old.CollaborationType == config.CollaborationNew && product.New.CollaborationType == config.CollaborationShare {
+				labelValue := buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeProduct), product.New.Name)
+				labelId, ok := labelIdMap[service.BuildLabelString("policy", labelValue)]
 				if !ok {
 					return fmt.Errorf("label:%s not exist", labelValue)
 				}
@@ -739,14 +797,6 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 						ProjectName: projectName,
 					},
 				})
-			}
-			if product.Old.CollaborationType == config.CollaborationNew && product.New.CollaborationType ==
-				config.CollaborationShare {
-				labelValue := buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeProduct), product.New.Name)
-				labelId, ok := labelResp.LabelMap[service.BuildLabelString("policy", labelValue)]
-				if !ok {
-					return fmt.Errorf("label:%s not exist", labelValue)
-				}
 				deleteBindings = append(deleteBindings, &mongodb2.LabelBinding{
 					LabelID: labelId,
 					Resource: mongodb2.Resource{
@@ -898,17 +948,24 @@ func SyncCollaborationInstance(products *SyncCollaborationInstanceArgs, projectN
 	}
 	err = syncInstance(updateResp, projectName, identityType, userName, uid, logger)
 	if err != nil {
+		logger.Errorf("syncInstance error, err msg:%s", err)
 		return err
 	}
 	err = syncResource(products, updateResp, projectName, identityType, userName, requestID, logger)
 	if err != nil {
+		logger.Errorf("syncResource error, err msg:%s", err)
 		return err
 	}
 	err = syncPolicy(updateResp, projectName, identityType, userName, uid, logger)
 	if err != nil {
+		logger.Errorf("syncPolicy error, err msg:%s", err)
 		return err
 	}
 	err = syncLabel(updateResp, projectName, identityType, userName, logger)
+	if err != nil {
+		logger.Errorf("syncLabel error, err msg:%s", err)
+		return err
+	}
 	return nil
 }
 
@@ -917,18 +974,26 @@ func getCollaborationDelete(updateResp *GetCollaborationUpdateResp) *GetCollabor
 	workflowSet := sets.String{}
 	for _, item := range updateResp.Delete {
 		for _, product := range item.Products {
-			productSet.Insert(product.Name)
+			if product.CollaborationType == config.CollaborationNew {
+				productSet.Insert(product.Name)
+			}
 		}
 		for _, workflow := range item.Workflows {
-			workflowSet.Insert(workflow.Name)
+			if workflow.CollaborationType == config.CollaborationNew {
+				workflowSet.Insert(workflow.Name)
+			}
 		}
 	}
 	for _, item := range updateResp.Update {
 		for _, deleteWorkflow := range item.DeleteSpec.Workflows {
-			workflowSet.Insert(deleteWorkflow.Name)
+			if deleteWorkflow.CollaborationType == config.CollaborationNew {
+				workflowSet.Insert(deleteWorkflow.Name)
+			}
 		}
 		for _, deleteProduct := range item.DeleteSpec.Products {
-			productSet.Insert(deleteProduct.Name)
+			if deleteProduct.CollaborationType == config.CollaborationNew {
+				productSet.Insert(deleteProduct.Name)
+			}
 		}
 		for _, workflow := range item.UpdateSpec.Workflows {
 			if workflow.Old.CollaborationType == config.CollaborationNew &&
@@ -1072,10 +1137,15 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 			workflow.Description = desc
 		}
 	}
+	ifSync := false
+	if len(newWorkflow) == 0 && len(newProductName) == 0 && len(updateResp.Update) != 0 || len(updateResp.Delete) != 0 {
+		ifSync = true
+	}
 	return &GetCollaborationNewResp{
 		Code:     10000,
 		Workflow: newWorkflow,
 		Product:  newProduct,
+		IfSync:   ifSync,
 	}, nil
 }
 func GetCollaborationNew(projectName, uid, identityType, userName string, logger *zap.SugaredLogger) (*GetCollaborationNewResp, error) {
