@@ -608,3 +608,7 @@ const UpdateEnvTimeout = 60 * 5 * time.Second
 const (
 	ListNamespaceTypeCreate = "create"
 )
+
+const (
+	InformerNamingConvention = "%s-%s"
+)

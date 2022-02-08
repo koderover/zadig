@@ -12,6 +12,7 @@ import (
 )
 
 var InformersMap sync.Map
+var StopChanMap sync.Map
 
 // NewInformer initialize and start an informer for specific namespace in given cluster.
 // Currently the informer will NOT stop unless the service is down
@@ -27,7 +28,7 @@ func NewInformer(clusterID, namespace string, cls *kubernetes.Clientset) informe
 	if clusterID == "" {
 		clusterID = setting.LocalClusterID
 	}
-	key := fmt.Sprintf("%s-%s", clusterID, namespace)
+	key := fmt.Sprintf(setting.InformerNamingConvention, clusterID, namespace)
 	if informer, ok := InformersMap.Load(key); ok {
 		return informer.(informers.SharedInformerFactory)
 	}
@@ -39,10 +40,31 @@ func NewInformer(clusterID, namespace string, cls *kubernetes.Clientset) informe
 	informerFactory.Core().V1().Services().Lister()
 	informerFactory.Core().V1().Pods().Lister()
 	informerFactory.Extensions().V1beta1().Ingresses().Lister()
-	// Never stops unless the pod is killed
-	informerFactory.Start(make(<-chan struct{}))
+	// stop channel will be stored for future stop
+	stopchan := make(chan struct{})
+	informerFactory.Start(stopchan)
 	// wait for the cache to be synced for the first time
-	informerFactory.WaitForCacheSync(make(<-chan struct{}))
+	informerFactory.WaitForCacheSync(make(chan struct{}))
+	// in case there is a concurrent situation, we find if there is one informer in the map
+	if _, ok := InformersMap.Load(key); ok {
+		// if we found that stop channel
+		if stopchan, ok := StopChanMap.Load(key); ok {
+			close(stopchan.(chan struct{}))
+		}
+	}
 	InformersMap.Store(key, informerFactory)
+	StopChanMap.Store(key, stopchan)
 	return informerFactory
+}
+
+func DeleteInformer(clusterID, namespace string) {
+	key := fmt.Sprintf(setting.InformerNamingConvention, clusterID, namespace)
+	// if informer exists
+	if _, ok := InformersMap.Load(key); ok {
+		// if we found that stop channel
+		if stopchan, ok := StopChanMap.Load(key); ok {
+			close(stopchan.(chan struct{}))
+		}
+	}
+	InformersMap.Delete(key)
 }
