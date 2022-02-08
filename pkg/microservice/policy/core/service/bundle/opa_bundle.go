@@ -279,14 +279,45 @@ func generateOPAPolicies(policies []*models.Policy, policyMetas []*models.Policy
 	resourceMappings := getResourceActionMappings(policyMetas)
 
 	for _, policy := range policies {
+		verbAttrMap := make(map[string]sets.String)
+		resourceVerbs := make(map[string]sets.String)
+		for _, r := range policy.Rules {
+			for _, verb := range r.Verbs {
+				if verbs, ok := resourceVerbs[r.Resources[0]]; ok {
+					for _, v := range r.Verbs {
+						verbs.Insert(v)
+					}
+					resourceVerbs[r.Resources[0]] = verbs
+				} else {
+					verbSet := sets.String{}
+					for _, v := range r.Verbs {
+						verbSet.Insert(v)
+					}
+					resourceVerbs[r.Resources[0]] = verbSet
+				}
+				if attrs, ok := verbAttrMap[verb]; ok {
+					for _, attribute := range r.MatchAttributes {
+						attrs.Insert(attribute.Key + "&&" + attribute.Value)
+					}
+					verbAttrMap[verb] = attrs
+				} else {
+					attrSet := sets.String{}
+					for _, attribute := range r.MatchAttributes {
+						attrSet.Insert(attribute.Key + "&&" + attribute.Value)
+					}
+					verbAttrMap[verb] = attrSet
+				}
+			}
+		}
+
 		//TODO - mouuii change role model to policy model
 		opaRole := &role{Name: policy.Name, Namespace: policy.Namespace}
+		for resource, verbs := range resourceVerbs {
+			ruleList := resourceMappings.GetPolicyRules(resource, verbs.List(), verbAttrMap)
+			opaRole.Rules = append(opaRole.Rules, ruleList...)
+		}
 		for _, r := range policy.Rules {
-			if r.Kind == models.KindResource {
-				for _, res := range r.Resources {
-					opaRole.Rules = append(opaRole.Rules, resourceMappings.GetRules(res, r.Verbs)...)
-				}
-			} else {
+			if r.Kind != models.KindResource {
 				if len(r.Verbs) == 1 && r.Verbs[0] == models.MethodAll {
 					r.Verbs = AllMethods
 				}
@@ -295,27 +326,6 @@ func generateOPAPolicies(policies []*models.Policy, policyMetas []*models.Policy
 						opaRole.Rules = append(opaRole.Rules, &rule{Method: v, Endpoint: endpoint})
 					}
 				}
-			}
-			attrSets := sets.String{}
-			var attributes []*Attribute
-			for _, v := range opaRole.Rules {
-				for _, attribute := range r.MatchAttributes {
-					a := Attribute{
-						Key:   attribute.Key,
-						Value: attribute.Value,
-					}
-					if !attrSets.Has(attribute.Key + "-" + attribute.Value) {
-						attributes = append(attributes, &a)
-						attrSets.Insert(attribute.Key + "-" + attribute.Value)
-					}
-				}
-				for _, attribute := range v.MatchAttributes {
-					if !attrSets.Has(attribute.Key + "-" + attribute.Value) {
-						attributes = append(attributes, attribute)
-						attrSets.Insert(attribute.Key + "-" + attribute.Value)
-					}
-				}
-				v.MatchAttributes = attributes
 			}
 		}
 		sort.Sort(opaRole.Rules)

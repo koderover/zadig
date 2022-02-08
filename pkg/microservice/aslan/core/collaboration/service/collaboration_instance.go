@@ -591,7 +591,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 		for _, product := range item.UpdateSpec.Products {
 			labels = append(labels, mongodb2.Label{
 				Key:   "policy",
-				Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeWorkflow), product.New.Name),
+				Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeProduct), product.New.Name),
 			})
 		}
 
@@ -901,6 +901,9 @@ func SyncCollaborationInstance(products *SyncCollaborationInstanceArgs, projectN
 		return err
 	}
 	err = syncResource(products, updateResp, projectName, identityType, userName, requestID, logger)
+	if err != nil {
+		return err
+	}
 	err = syncPolicy(updateResp, projectName, identityType, userName, uid, logger)
 	if err != nil {
 		return err
@@ -936,7 +939,7 @@ func getCollaborationDelete(updateResp *GetCollaborationUpdateResp) *GetCollabor
 		for _, product := range item.UpdateSpec.Products {
 			if product.Old.CollaborationType == config.CollaborationNew &&
 				product.New.CollaborationType == config.CollaborationShare {
-				workflowSet.Insert(product.Old.Name)
+				productSet.Insert(product.Old.Name)
 			}
 		}
 	}
