@@ -75,9 +75,9 @@ func (c *Client) CreatePolicies(ns string, request CreatePoliciesArgs) error {
 }
 
 func (c *Client) DeletePolicies(ns string, request DeletePoliciesArgs) error {
-	url := fmt.Sprintf("/policies?projectName=%s", ns)
+	url := fmt.Sprintf("/policies/bulk-delete?projectName=%s", ns)
 
-	_, err := c.Delete(url, httpclient.SetBody(request))
+	_, err := c.Post(url, httpclient.SetBody(request))
 	if err != nil {
 		log.Errorf("Failed to add audit log, error: %s", err)
 		return err
