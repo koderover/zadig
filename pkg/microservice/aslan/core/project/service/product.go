@@ -939,7 +939,9 @@ func DeleteCollabrationMode(productName string, userName string, log *zap.Sugare
 
 func DeletePolicy(productName string, log *zap.SugaredLogger) error {
 	policy.NewDefault()
-	if err := policy.NewDefault().DeletePolicies(productName, policy.DeletePoliciesArgs{}); err != nil {
+	if err := policy.NewDefault().DeletePolicies(productName, policy.DeletePoliciesArgs{
+		Names: []string{},
+	}); err != nil {
 		log.Errorf("DeletePolicies err :%s", err)
 		return err
 	}

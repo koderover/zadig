@@ -200,7 +200,7 @@ func DeletePolicies(names []string, projectName string, logger *zap.SugaredLogge
 		return fmt.Errorf("projectName is empty")
 	}
 
-	if names[0] == "*" {
+	if len(names) == 1 && names[0] == "*" {
 		names = []string{}
 	}
 
