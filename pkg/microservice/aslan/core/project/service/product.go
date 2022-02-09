@@ -383,6 +383,12 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 		return err
 	}
 
+	// delete collaboration_mode and collaboration_instance
+	if err := DeleteCollabrationMode(productName, userName, log); err != nil {
+		log.Errorf("DeleteCollabrationMode err:%s", err)
+		return err
+	}
+
 	if err = commonservice.DeleteWorkflows(productName, requestID, log); err != nil {
 		log.Errorf("DeleteProductTemplate Delete productName %s workflow err: %s", productName, err)
 		return err
@@ -460,25 +466,6 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 		_ = commonrepo.NewServicesInExternalEnvColl().Delete(&commonrepo.ServicesInExternalEnvArgs{
 			ProductName: productName,
 		})
-	}()
-	// delete collaboration_mode and collaboration_instance
-	go func() {
-		// find all collaboration mode in this project
-		res, err := collaboration.GetCollaborationModes([]string{productName}, log)
-		if err != nil {
-			log.Errorf("GetCollaborationModes err: %s", err)
-		}
-		//  delete all collaborationMode
-		for _, mode := range res.Collaborations {
-			if err := service.DeleteCollaborationMode(userName, productName, mode.Name, log); err != nil {
-				log.Errorf("DeleteCollaborationMode err: %s", err)
-			}
-		}
-		// delete all collaborationIns
-		if err := mongodb.NewCollaborationInstanceColl().DeleteByProject(productName); err != nil {
-			log.Errorf("NewCollaborationInstanceColl DeleteByProject err:%s", err)
-		}
-
 	}()
 	// delete policy
 	go func() {
@@ -937,5 +924,27 @@ func reParseServices(userName string, serviceList []*commonmodels.Service, match
 		return err
 	}
 
+	return nil
+}
+
+func DeleteCollabrationMode(productName string, userName string, log *zap.SugaredLogger) error {
+	// find all collaboration mode in this project
+	res, err := collaboration.GetCollaborationModes([]string{productName}, log)
+	if err != nil {
+		log.Errorf("GetCollaborationModes err: %s", err)
+		return err
+	}
+	//  delete all collaborationMode
+	for _, mode := range res.Collaborations {
+		if err := service.DeleteCollaborationMode(userName, productName, mode.Name, log); err != nil {
+			log.Errorf("DeleteCollaborationMode err: %s", err)
+			return err
+		}
+	}
+	// delete all collaborationIns
+	if err := mongodb.NewCollaborationInstanceColl().DeleteByProject(productName); err != nil {
+		log.Errorf("NewCollaborationInstanceColl DeleteByProject err:%s", err)
+		return err
+	}
 	return nil
 }
