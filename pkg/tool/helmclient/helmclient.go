@@ -19,6 +19,7 @@ package helmclient
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -252,12 +253,12 @@ func (hClient *HelmClient) upgradeCRD(ctx context.Context, k8sClient *clientset.
 	}
 
 	switch typeMeta.APIVersion {
-	default:
-		return fmt.Errorf("WARNING: failed to upgrade CRD %q: unsupported api-version %q", crd.Name, typeMeta.APIVersion)
 	case "apiextensions.k8s.io/v1beta1":
 		return hClient.upgradeCRDV1Beta1(ctx, k8sClient, crd.File.Data)
 	case "apiextensions.k8s.io/v1":
 		return hClient.upgradeCRDV1(ctx, k8sClient, crd.File.Data)
+	default:
+		return fmt.Errorf("WARNING: failed to upgrade CRD %q: unsupported api-version %q", crd.Name, typeMeta.APIVersion)
 	}
 }
 
@@ -279,7 +280,7 @@ func (hClient *HelmClient) isInstallOperation(spec *hc.ChartSpec) (bool, error) 
 
 	// pending status
 	if lastRelease.Info.Status.IsPending() {
-		return false, fmt.Errorf("another operation (install/upgrade/rollback) is in progress, please try later")
+		return false, errors.New("another operation (install/upgrade/rollback) is in progress, please try later")
 	}
 
 	// release with deployed/failed/superseded status: normal upgrade operation
@@ -304,7 +305,6 @@ func (hClient *HelmClient) isInstallOperation(spec *hc.ChartSpec) (bool, error) 
 
 // getChart returns a chart matching the provided chart name and options.
 func (hClient *HelmClient) getChart(chartName string, chartPathOptions *action.ChartPathOptions) (*chart.Chart, string, error) {
-
 	chartPath, err := chartPathOptions.LocateChart(chartName, hClient.HelmClient.Settings)
 	if err != nil {
 		return nil, "", err
@@ -323,7 +323,6 @@ func (hClient *HelmClient) getChart(chartName string, chartPathOptions *action.C
 }
 
 func (hClient *HelmClient) installChart(ctx context.Context, spec *hc.ChartSpec) (*release.Release, error) {
-
 	c := hClient.HelmClient
 	client := action.NewInstall(c.ActionConfig)
 	mergeInstallOptions(spec, client)
@@ -347,19 +346,18 @@ func (hClient *HelmClient) installChart(ctx context.Context, spec *hc.ChartSpec)
 
 	if req := helmChart.Metadata.Dependencies; req != nil {
 		if err := action.CheckDependencies(helmChart, req); err != nil {
-			if client.DependencyUpdate {
-				man := &downloader.Manager{
-					ChartPath:        chartPath,
-					Keyring:          client.ChartPathOptions.Keyring,
-					SkipUpdate:       false,
-					Getters:          c.Providers,
-					RepositoryConfig: c.Settings.RepositoryConfig,
-					RepositoryCache:  c.Settings.RepositoryCache,
-				}
-				if err := man.Update(); err != nil {
-					return nil, err
-				}
-			} else {
+			if !client.DependencyUpdate {
+				return nil, err
+			}
+			man := &downloader.Manager{
+				ChartPath:        chartPath,
+				Keyring:          client.ChartPathOptions.Keyring,
+				SkipUpdate:       false,
+				Getters:          c.Providers,
+				RepositoryConfig: c.Settings.RepositoryConfig,
+				RepositoryCache:  c.Settings.RepositoryCache,
+			}
+			if err := man.Update(); err != nil {
 				return nil, err
 			}
 		}
@@ -381,7 +379,6 @@ func (hClient *HelmClient) installChart(ctx context.Context, spec *hc.ChartSpec)
 }
 
 func (hClient *HelmClient) upgradeChart(ctx context.Context, spec *hc.ChartSpec) (*release.Release, error) {
-
 	c := hClient.HelmClient
 	client := action.NewUpgrade(c.ActionConfig)
 	mergeUpgradeOptions(spec, client)
