@@ -269,10 +269,13 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	}
 
 	hostInfos := make([]resource.HostInfo, 0)
-	if ingresses, err := getter.ListIngresses(nil, informer); err == nil {
+	ingresses, err := getter.ListIngresses(nil, informer)
+	if err == nil {
 		for _, ingress := range ingresses {
 			hostInfos = append(hostInfos, wrapper.Ingress(ingress).HostInfo()...)
 		}
+	} else {
+		log.Warnf("Failed to list ingresses, the error is: %s", err)
 	}
 
 	// get all services
