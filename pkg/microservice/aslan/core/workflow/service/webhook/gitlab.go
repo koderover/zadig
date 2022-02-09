@@ -61,13 +61,11 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 		return err
 	}
 
-	// forwardedProto := req.Header.Get("X-Forwarded-Proto")
-	// forwardedHost := req.Header.Get("X-Forwarded-Host")
-	// baseURI := fmt.Sprintf("%s://%s", forwardedProto, forwardedHost)
 	baseURI := config.SystemAddress()
 	var eventPush *EventPush
 	var pushEvent *gitlab.PushEvent
 	var mergeEvent *gitlab.MergeEvent
+	var tagEvent *gitlab.TagEvent
 	var errorList = &multierror.Error{}
 
 	switch event.(type) {
@@ -99,6 +97,8 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 		pushEvent = event
 	case *gitlab.MergeEvent:
 		mergeEvent = event
+	case *gitlab.TagEvent:
+		tagEvent = event
 	}
 	//触发更新服务模板webhook
 	if eventPush != nil {
@@ -175,6 +175,26 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 		go func() {
 			defer wg.Done()
 			if err = TriggerTestByGitlabEvent(mergeEvent, baseURI, requestID, log); err != nil {
+				errorList = multierror.Append(errorList, err)
+			}
+		}()
+	}
+
+	if tagEvent != nil {
+		// workflow webhook
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err = TriggerWorkflowByGitlabEvent(tagEvent, baseURI, requestID, log); err != nil {
+				errorList = multierror.Append(errorList, err)
+			}
+		}()
+
+		//test webhook
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err = TriggerTestByGitlabEvent(tagEvent, baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
 		}()

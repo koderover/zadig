@@ -45,7 +45,6 @@ var (
 	xl           *zap.SugaredLogger
 )
 
-// ExecHandler ...
 // Sender: sender to send ack/notification
 // TaskPlugins: registered task plugin initiators to initiate specific plugin to execute task
 type ExecHandler struct {
@@ -53,10 +52,8 @@ type ExecHandler struct {
 	TaskPlugins map[config.TaskType]plugins.Initiator
 }
 
-// CancelHandler ...
 type CancelHandler struct{}
 
-// HandleMessage ...
 // Message handler to handle task execution message
 func (h *ExecHandler) HandleMessage(message *nsq.Message) error {
 	defer func() {
@@ -358,8 +355,29 @@ func (h *ExecHandler) execute(ctx context.Context, pipelineTask *task.Task, pipe
 		}
 	}
 
+	updatePipelineStatus(pipelineTask, xl)
+	deployStageStatus := config.StatusInit
+	testStageStatus := config.StatusInit
 	for stagePosition, stage := range pipelineTask.Stages {
+		if stage.TaskType == config.TaskDeploy || stage.TaskType == config.TaskArtifact {
+			deployStageStatus = stage.Status
+		} else if stage.TaskType == config.TaskTestingV2 {
+			testStageStatus = stage.Status
+		}
 		if stage.AfterAll {
+			if stage.TaskType == config.TaskResetImage {
+				switch pipelineTask.ResetImagePolicy {
+				case setting.ResetImagePolicyTaskCompleted, setting.ResetImagePolicyTaskCompletedOrder:
+				case setting.ResetImagePolicyDeployFailed:
+					if deployStageStatus == config.StatusInit || (deployStageStatus != config.StatusFailed && deployStageStatus != config.StatusCancelled && deployStageStatus != config.StatusTimeout) {
+						continue
+					}
+				case setting.ResetImagePolicyTestFailed:
+					if testStageStatus == config.StatusInit || (testStageStatus != config.StatusFailed && testStageStatus != config.StatusCancelled && testStageStatus != config.StatusTimeout) {
+						continue
+					}
+				}
+			}
 			h.runStage(stagePosition, stage)
 		}
 	}
@@ -502,7 +520,6 @@ func (h *ExecHandler) executeTask(taskCtx context.Context, plugin plugins.TaskPl
 }
 
 func Logger(pipelineTask *task.Task) *zap.SugaredLogger {
-	// 初始化Logger
 	l := log.Logger()
 	if pipelineTask != nil {
 		l.With(zap.String(setting.RequestID, pipelineTask.ReqID))

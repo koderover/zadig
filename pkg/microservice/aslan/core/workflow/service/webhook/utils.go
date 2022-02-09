@@ -513,7 +513,7 @@ func EventConfigured(m *commonmodels.MainHookRepo, event config.HookEventType) b
 	return false
 }
 
-func ServicesMatchChangesFiles(mf *MatchFoldersElem, m *commonmodels.MainHookRepo, files []string) []BuildServices {
+func ServicesMatchChangesFiles(mf *MatchFoldersElem, files []string) []BuildServices {
 	resMactchSvr := []BuildServices{}
 	var wg sync.WaitGroup
 	var mutex sync.Mutex
@@ -594,8 +594,8 @@ func checkTriggerYamlParams(triggerYaml *TriggerYaml) error {
 		return fmt.Errorf("rules.baranch must exist")
 	}
 	for _, ev := range triggerYaml.Rules.Events {
-		if ev != "pull_request" && ev != "push" {
-			return fmt.Errorf("rules.event must be pull_request or push ")
+		if ev != "pull_request" && ev != "push" && ev != "tag" {
+			return fmt.Errorf("rules.event must be pull_request or push or tag")
 		}
 	}
 	if triggerYaml.Rules.MatchFolders == nil {

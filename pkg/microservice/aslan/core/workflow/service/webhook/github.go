@@ -398,19 +398,14 @@ func ProcessGithubWebHookForTest(payload []byte, req *http.Request, requestID st
 	}
 
 	switch et := event.(type) {
-	case *github.PullRequestEvent:
-		err = TriggerTestByGithubEvent(et, requestID, log)
-		if err != nil {
-			log.Errorf("TriggerTestByGithubEvent error: %v", err)
+	case *github.PullRequestEvent, *github.PushEvent, *github.CreateEvent:
+		if err = TriggerTestByGithubEvent(et, requestID, log); err != nil {
+			log.Errorf("TriggerTestByGithubEvent error: %s", err)
 			return e.ErrGithubWebHook.AddErr(err)
 		}
-
-	case *github.PushEvent:
-		err = TriggerTestByGithubEvent(et, requestID, log)
-		if err != nil {
-			log.Infof("TriggerTestByGithubEvent error: %v", err)
-			return e.ErrGithubWebHook.AddErr(err)
-		}
+	default:
+		log.Warn("Unsupported event type")
+		return nil
 	}
 	return nil
 }
@@ -474,6 +469,12 @@ func ProcessGithubWebHook(payload []byte, req *http.Request, requestID string, l
 		err = TriggerWorkflowByGithubEvent(et, baseURI, deliveryID, requestID, log)
 		if err != nil {
 			log.Infof("pushEventToPipelineTasks error: %v", err)
+			return e.ErrGithubWebHook.AddErr(err)
+		}
+	case *github.CreateEvent:
+		err = TriggerWorkflowByGithubEvent(et, baseURI, deliveryID, requestID, log)
+		if err != nil {
+			log.Errorf("tagEventToPipelineTasks error: %s", err)
 			return e.ErrGithubWebHook.AddErr(err)
 		}
 	}

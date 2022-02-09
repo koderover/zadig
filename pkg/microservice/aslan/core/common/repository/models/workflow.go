@@ -52,7 +52,8 @@ type Workflow struct {
 	BaseName        string             `bson:"base_name" json:"base_name"`
 
 	// ResetImage indicate whether reset image to original version after completion
-	ResetImage bool `json:"reset_image" bson:"reset_image"`
+	ResetImage       bool                         `bson:"reset_image"                  json:"reset_image"`
+	ResetImagePolicy setting.ResetImagePolicyType `bson:"reset_image_policy,omitempty" json:"reset_image_policy,omitempty"`
 	// IsParallel 控制单一工作流的任务是否支持并行处理
 	IsParallel bool `json:"is_parallel" bson:"is_parallel"`
 }
@@ -78,6 +79,8 @@ type MainHookRepo struct {
 	RepoOwner    string                 `bson:"repo_owner"                json:"repo_owner"`
 	RepoName     string                 `bson:"repo_name"                 json:"repo_name"`
 	Branch       string                 `bson:"branch"                    json:"branch"`
+	Tag          string                 `bson:"tag"                       json:"tag"`
+	Committer    string                 `bson:"committer"                 json:"committer"`
 	MatchFolders []string               `bson:"match_folders"             json:"match_folders,omitempty"`
 	CodehostID   int                    `bson:"codehost_id"               json:"codehost_id"`
 	Events       []config.HookEventType `bson:"events"                    json:"events"`
@@ -170,7 +173,7 @@ type WorkflowTaskArgs struct {
 	CodehostID     int    `bson:"codehost_id"      json:"codehost_id"`
 	RepoOwner      string `bson:"repo_owner"       json:"repo_owner"`
 	RepoName       string `bson:"repo_name"        json:"repo_name"`
-
+	Committer      string `bson:"committer,omitempty"        json:"committer,omitempty"`
 	//github check run
 	HookPayload *HookPayload `bson:"hook_payload"            json:"hook_payload,omitempty"`
 	// 请求模式，openAPI表示外部客户调用

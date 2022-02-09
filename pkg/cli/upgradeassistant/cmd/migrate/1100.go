@@ -24,8 +24,12 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 
-	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
+	internalmodels "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
+	internalmongodb "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/mongodb"
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
+	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
+
 	"github.com/koderover/zadig/pkg/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -53,6 +57,17 @@ func V190ToV1100() error {
 		log.Errorf("Failed to changePolicyCollectionName, err: %s", err)
 		return err
 	}
+
+
+	if err := migrateModuleBuild(); err != nil {
+		return fmt.Errorf("failed to migrate data in `zadig.module_build`: %s", err)
+	}
+
+	log.Info("Migrate data in `zadig.module_testing`.")
+	if err := migrateModuleTesting(); err != nil {
+		return fmt.Errorf("failed to migrate data in `zadig.module_testing`: %s", err)
+	}
+
 	return nil
 }
 
@@ -294,5 +309,106 @@ func createLabelBindings() error {
 		log.Errorf("Failed toCreateMany labels, err: %s", err)
 		return err
 	}
+}
+
+
+
+func migrateModuleBuild() error {
+	buildCol := internalmongodb.NewBuildColl()
+
+	builds, err := buildCol.List(&internalmongodb.BuildListOption{})
+	if err != nil {
+		return fmt.Errorf("failed to list all data in `zadig.module_build`: %s", err)
+	}
+
+	var ms []mongo.WriteModel
+	for _, build := range builds {
+		if err := migrateOneBuild(build); err != nil {
+			log.Errorf("Failed to migrate data: %v. Err: %s", build, err)
+			continue
+		}
+
+		ms = append(ms,
+			mongo.NewUpdateOneModel().
+				SetFilter(bson.D{{"_id", build.ID}}).
+				SetUpdate(bson.D{{"$set",
+					bson.D{
+						{"cache_enable", build.CacheEnable},
+						{"cache_dir_type", build.CacheDirType},
+						{"cache_user_dir", build.CacheUserDir}}},
+				}),
+		)
+	}
+
+	_, err = buildCol.BulkWrite(context.TODO(), ms)
+
+	return err
+}
+
+func migrateModuleTesting() error {
+	testingCol := internalmongodb.NewTestingColl()
+
+	testings, err := testingCol.List(&internalmongodb.ListTestOption{})
+	if err != nil {
+		return fmt.Errorf("failed to list all data in `zadig.module_testing`: %s", err)
+	}
+
+	var ms []mongo.WriteModel
+	for _, testing := range testings {
+		if err := migrateOneTesting(testing); err != nil {
+			log.Errorf("Failed to migrate data: %v. Err: %s", testing, err)
+			continue
+		}
+
+		ms = append(ms,
+			mongo.NewUpdateOneModel().
+				SetFilter(bson.D{{"_id", testing.ID}}).
+				SetUpdate(bson.D{{"$set",
+					bson.D{
+						{"cache_enable", testing.CacheEnable},
+						{"cache_dir_type", testing.CacheDirType},
+						{"cache_user_dir", testing.CacheUserDir}}},
+				}),
+		)
+	}
+
+	_, err = testingCol.BulkWrite(context.TODO(), ms)
+
+	return err
+}
+
+func migrateOneBuild(build *internalmodels.Build) error {
+	if build.PreBuild != nil && build.PreBuild.CleanWorkspace {
+		return nil
+	}
+
+	build.CacheEnable = true
+
+	if len(build.Caches) == 0 {
+		build.CacheDirType = types.WorkspaceCacheDir
+		return nil
+	}
+
+	build.CacheDirType = types.UserDefinedCacheDir
+	build.CacheUserDir = build.Caches[0]
+
+	return nil
+}
+
+func migrateOneTesting(testing *internalmodels.Testing) error {
+	if testing.PreTest != nil && testing.PreTest.CleanWorkspace {
+		return nil
+	}
+
+	testing.CacheEnable = true
+
+	if len(testing.Caches) == 0 {
+		testing.CacheDirType = types.WorkspaceCacheDir
+		return nil
+	}
+
+	testing.CacheDirType = types.UserDefinedCacheDir
+	testing.CacheUserDir = testing.Caches[0]
+
 	return nil
 }

@@ -52,6 +52,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
+	commontypes "github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
 )
 
@@ -124,9 +125,9 @@ func saveContainerLog(pipelineTask *task.Task, namespace, clusterID, fileName st
 				return err
 			}
 			if store.Subfolder != "" {
-				store.Subfolder = fmt.Sprintf("%s/%s/%d/%s", store.Subfolder, pipelineTask.PipelineName, pipelineTask.TaskID, "log")
+				store.Subfolder = fmt.Sprintf("%s/%s/%d/%s", store.Subfolder, strings.ToLower(pipelineTask.PipelineName), pipelineTask.TaskID, "log")
 			} else {
-				store.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineTask.PipelineName, pipelineTask.TaskID, "log")
+				store.Subfolder = fmt.Sprintf("%s/%d/%s", strings.ToLower(pipelineTask.PipelineName), pipelineTask.TaskID, "log")
 			}
 			forcedPathStyle := true
 			if store.Provider == setting.ProviderSourceAli {
@@ -166,7 +167,6 @@ func saveContainerLog(pipelineTask *task.Task, namespace, clusterID, fileName st
 	return nil
 }
 
-// JobCtxBuilder ...
 type JobCtxBuilder struct {
 	JobName        string
 	ArchiveFile    string
@@ -187,13 +187,12 @@ func replaceWrapLine(script string) string {
 
 // BuildReaperContext builds a yaml
 func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName string) *types.Context {
-
 	ctx := &types.Context{
 		APIToken:       pipelineTask.ConfigPayload.APIToken,
 		Workspace:      b.PipelineCtx.Workspace,
 		CleanWorkspace: b.JobCtx.CleanWorkspace,
 		IgnoreCache:    pipelineTask.ConfigPayload.IgnoreCache,
-		ResetCache:     pipelineTask.ConfigPayload.ResetCache,
+		// ResetCache:     pipelineTask.ConfigPayload.ResetCache,
 		Proxy: &types.Proxy{
 			Type:                   pipelineTask.ConfigPayload.Proxy.Type,
 			Address:                pipelineTask.ConfigPayload.Proxy.Address,
@@ -226,6 +225,14 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 		StorageEndpoint: pipelineTask.StorageEndpoint,
 		AesKey:          pipelineTask.ConfigPayload.AesKey,
 	}
+
+	if b.PipelineCtx.CacheEnable && !pipelineTask.ConfigPayload.ResetCache {
+		ctx.CacheEnable = true
+		ctx.Cache = b.PipelineCtx.Cache
+		ctx.CacheDirType = b.PipelineCtx.CacheDirType
+		ctx.CacheUserDir = b.PipelineCtx.CacheUserDir
+	}
+
 	for _, install := range b.Installs {
 		inst := &types.Install{
 			// TODO: 之后可以适配 install.Scripts 为[]string
@@ -462,16 +469,9 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 		},
 	}
 	for _, reg := range registries {
-		arr := strings.Split(reg.Namespace, "/")
-		namespaceInRegistry := arr[len(arr)-1]
-		// for AWS ECR, there are no namespace, thus we need to find the NS from the URI
-		if namespaceInRegistry == "" {
-			uriDecipher := strings.Split(reg.RegAddr, ".")
-			namespaceInRegistry = uriDecipher[0]
-		}
-		secretName := namespaceInRegistry + registrySecretSuffix
-		if reg.RegType != "" {
-			secretName = namespaceInRegistry + "-" + reg.RegType + registrySecretSuffix
+		secretName, err := genRegistrySecretName(reg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate registry secret name: %s", err)
 		}
 
 		secret := corev1.LocalObjectReference{
@@ -498,10 +498,9 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 					ImagePullSecrets: ImagePullSecrets,
 					Containers: []corev1.Container{
 						{
-							ImagePullPolicy: corev1.PullIfNotPresent,
+							ImagePullPolicy: corev1.PullAlways,
 							Name:            labels["s-type"],
 							Image:           jobImage,
-							WorkingDir:      pipelineTask.ConfigPayload.S3Storage.Path,
 							Env: []corev1.EnvVar{
 								{
 									Name:  "JOB_CONFIG_FILE",
@@ -515,12 +514,36 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 							},
 							VolumeMounts: getVolumeMounts(ctx),
 							Resources:    getResourceRequirements(resReq, resReqSpec),
+
+							TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 						},
 					},
 					Volumes: getVolumes(jobName),
 				},
 			},
 		},
+	}
+
+	if ctx.CacheEnable && ctx.Cache.MediumType == commontypes.NFSMedium {
+		volumeName := "build-cache"
+		job.Spec.Template.Spec.Volumes = append(job.Spec.Template.Spec.Volumes, corev1.Volume{
+			Name: volumeName,
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: ctx.Cache.NFSProperties.PVC,
+				},
+			},
+		})
+
+		mountPath := ctx.CacheUserDir
+		if ctx.CacheDirType == commontypes.WorkspaceCacheDir {
+			mountPath = "/workspace"
+		}
+
+		job.Spec.Template.Spec.Containers[0].VolumeMounts = append(job.Spec.Template.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
+			Name:      volumeName,
+			MountPath: mountPath,
+		})
 	}
 
 	if !strings.Contains(jobImage, PredatorPlugin) && !strings.Contains(jobImage, JenkinsPlugin) && !strings.Contains(jobImage, PackagerPlugin) {
@@ -558,8 +581,11 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 
 	return job, nil
 }
+
+// Note: The name of a Secret object must be a valid DNS subdomain name:
+//   https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-subdomain-names
 func formatRegistryName(namespaceInRegistry string) (string, error) {
-	reg, err := regexp.Compile("[^a-zA-Z0-9]+")
+	reg, err := regexp.Compile("[^a-zA-Z0-9\\.-]+")
 	if err != nil {
 		return "", err
 	}
@@ -577,23 +603,9 @@ func createOrUpdateRegistrySecrets(namespace, registryID string, registries []*t
 			continue
 		}
 
-		arr := strings.Split(reg.Namespace, "/")
-		namespaceInRegistry := arr[len(arr)-1]
-		// for AWS ECR, there are no namespace, thus we need to find the NS from the URI
-		if namespaceInRegistry == "" {
-			uriDecipher := strings.Split(reg.RegAddr, ".")
-			namespaceInRegistry = uriDecipher[0]
-		}
-		filteredName, err := formatRegistryName(namespaceInRegistry)
+		secretName, err := genRegistrySecretName(reg)
 		if err != nil {
-			return err
-		}
-		secretName := filteredName + registrySecretSuffix
-		if reg.RegType != "" {
-			secretName = filteredName + "-" + reg.RegType + registrySecretSuffix
-		}
-		if reg.ID == registryID {
-			secretName = setting.DefaultImagePullSecret
+			return fmt.Errorf("failed to generate registry secret name: %s", err)
 		}
 
 		data := make(map[string][]byte)
@@ -802,7 +814,8 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName
 					return config.StatusFailed
 				}
 
-				var done bool
+				var done, exists bool
+				var jobStatus commontypes.JobStatus
 				for _, pod := range pods {
 					ipod := wrapper.Pod(pod)
 					if ipod.Pending() {
@@ -813,9 +826,9 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName
 					}
 
 					if !ipod.Finished() {
-						exists, err := checkDogFoodExistsInContainer(namespace, ipod.Name, ipod.ContainerNames()[0])
+						jobStatus, exists, err = checkDogFoodExistsInContainer(namespace, ipod.Name, ipod.ContainerNames()[0])
 						if err != nil {
-							xl.Infof("failed to check dog food file %s %v", pods[0].Name, err)
+							xl.Errorf("Failed to check dog food file %s: %s.", pods[0].Name, err)
 							break
 						}
 						if !exists {
@@ -826,8 +839,14 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName
 				}
 
 				if done {
-					xl.Infof("dog food is found, stop to wait %s", job.Name)
-					return config.StatusPassed
+					xl.Infof("Dog food is found, stop to wait %s. Job status: %s.", job.Name, jobStatus)
+
+					switch jobStatus {
+					case commontypes.JobFail:
+						return config.StatusFailed
+					default:
+						return config.StatusPassed
+					}
 				}
 			} else if job.Status.Succeeded != 0 {
 				return config.StatusPassed
@@ -841,15 +860,15 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName
 
 }
 
-func checkDogFoodExistsInContainer(namespace string, pod string, container string) (bool, error) {
-	_, _, success, err := podexec.ExecWithOptions(podexec.ExecOptions{
-		Command:       []string{"test", "-f", setting.DogFood},
+func checkDogFoodExistsInContainer(namespace string, pod string, container string) (commontypes.JobStatus, bool, error) {
+	stdout, _, success, err := podexec.ExecWithOptions(podexec.ExecOptions{
+		Command:       []string{"/bin/sh", "-c", fmt.Sprintf("test -f %[1]s && cat %[1]s", setting.DogFood)},
 		Namespace:     namespace,
 		PodName:       pod,
 		ContainerName: container,
 	})
 
-	return success, err
+	return commontypes.JobStatus(stdout), success, err
 }
 
 func addNodeAffinity(clusterID string, K8SClusters []*task.K8SCluster) *corev1.Affinity {
@@ -920,4 +939,31 @@ func findClusterConfig(clusterID string, K8SClusters []*task.K8SCluster) *task.A
 		}
 	}
 	return nil
+}
+
+func genRegistrySecretName(reg *task.RegistryNamespace) (string, error) {
+	if reg.IsDefault {
+		return setting.DefaultImagePullSecret, nil
+	}
+
+	arr := strings.Split(reg.Namespace, "/")
+	namespaceInRegistry := arr[len(arr)-1]
+
+	// for AWS ECR, there are no namespace, thus we need to find the NS from the URI
+	if namespaceInRegistry == "" {
+		uriDecipher := strings.Split(reg.RegAddr, ".")
+		namespaceInRegistry = uriDecipher[0]
+	}
+
+	filteredName, err := formatRegistryName(namespaceInRegistry)
+	if err != nil {
+		return "", err
+	}
+
+	secretName := filteredName + registrySecretSuffix
+	if reg.RegType != "" {
+		secretName = filteredName + "-" + reg.RegType + registrySecretSuffix
+	}
+
+	return secretName, nil
 }

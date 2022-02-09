@@ -19,10 +19,12 @@ package migrate
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
+	"k8s.io/apimachinery/pkg/util/sets"
 
+	internalmodels "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
 	internalmongodb "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/mongodb"
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/pkg/config"
@@ -48,9 +50,14 @@ func V171ToV180() error {
 	}
 
 	log.Info("Start to patchProductRegistryID")
-	err := patchProductRegistryID()
-	if err != nil {
+	if err := patchProductRegistryID(); err != nil {
 		log.Errorf("Failed to patchProductRegistryID, err: %s", err)
+		return err
+	}
+
+	log.Info("Start to addProjectClusterRelation")
+	if err := initProjectClusterRelation(); err != nil {
+		log.Errorf("Failed to initProjectClusterRelation, err: %s", err)
 		return err
 	}
 
@@ -66,19 +73,19 @@ func patchProductRegistryID() error {
 	// get all products
 	products, err := internalmongodb.NewProductColl().List(&internalmongodb.ProductListOptions{})
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return nil
-		}
 		log.Errorf("Failed to list products, err: %s", err)
 		return err
 	}
+	if len(products) == 0 {
+		return nil
+	}
 	registry, err := internalmongodb.NewRegistryNamespaceColl().Find(&internalmongodb.FindRegOps{IsDefault: true})
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			return nil
-		}
 		log.Errorf("Failed to find default registry, err: %s", err)
 		return err
+	}
+	if registry == nil {
+		return nil
 	}
 	// change type to readable string
 	for _, v := range products {
@@ -144,4 +151,44 @@ func newRoleBindingColl() *mongodb.RoleBindingColl {
 	return &mongodb.RoleBindingColl{
 		Collection: mongotool.Database(fmt.Sprintf("%s_policy", config.MongoDatabase())).Collection(name),
 	}
+}
+
+func initProjectClusterRelation() error {
+	projects, err := internalmongodb.NewProjectColl().List()
+	if err != nil {
+		log.Errorf("Failed to list projects, err: %s", err)
+		return err
+	}
+	clusters, err := internalmongodb.NewK8SClusterColl().List()
+	if err != nil {
+		log.Errorf("Failed to list clusters, err: %s", err)
+		return err
+	}
+	clusterIDs := sets.NewString()
+	for _, cluster := range clusters {
+		clusterIDs.Insert(cluster.ID.Hex())
+	}
+
+	// insert local cluster
+	if err = internalmongodb.NewK8SClusterColl().Create(&internalmodels.K8SCluster{
+		Name:   fmt.Sprintf("%s-%s", "local", time.Now().Format("20060102150405")),
+		Status: setting.Normal,
+		Local:  true,
+	}, setting.LocalClusterID); err != nil {
+		log.Errorf("Failed to create local cluster, err: %s", err)
+		return err
+	}
+	clusterIDs.Insert(setting.LocalClusterID)
+
+	for _, project := range projects {
+		for _, clusterID := range clusterIDs.List() {
+			if err := internalmongodb.NewProjectClusterRelationColl().Create(&internalmodels.ProjectClusterRelation{
+				ProjectName: project.ProductName,
+				ClusterID:   clusterID,
+			}); err != nil {
+				log.Warnf("Failed to create projectClusterRelation, err: %s", err)
+			}
+		}
+	}
+	return nil
 }

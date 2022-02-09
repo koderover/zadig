@@ -911,7 +911,7 @@ func upsertWorkflowStat(args *commonmodels.WorkflowStat, log *zap.SugaredLogger)
 }
 
 func getImageInfo(repoName, tag string, log *zap.SugaredLogger) (*commonmodels.DeliveryImage, error) {
-	registryInfo, err := commonservice.FindDefaultRegistry(false, log)
+	registryInfo, _, err := commonservice.FindDefaultRegistry(false, log)
 	if err != nil {
 		log.Errorf("RegistryNamespace.get error: %v", err)
 		return nil, fmt.Errorf("RegistryNamespace.get error: %v", err)

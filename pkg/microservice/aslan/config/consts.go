@@ -104,6 +104,8 @@ const (
 	StatusQueued     Status = "queued"
 	StatusBlocked    Status = "blocked"
 	QueueItemPending Status = "pending"
+	StatusChanged    Status = "changed"
+	StatusNotRun     Status = "notRun"
 )
 
 type TaskStatus string
@@ -186,6 +188,7 @@ type HookEventType string
 const (
 	HookEventPush    = HookEventType("push")
 	HookEventPr      = HookEventType("pull_request")
+	HookEventTag     = HookEventType("tag")
 	HookEventUpdated = HookEventType("ref-updated")
 )
 

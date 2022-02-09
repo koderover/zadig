@@ -16,6 +16,8 @@ limitations under the License.
 
 package setting
 
+import "time"
+
 const LocalConfig = "local.env"
 
 // envs
@@ -247,6 +249,7 @@ const (
 	SourceFromExternal = "external"
 	// service from yaml template
 	ServiceSourceTemplate = "template"
+	SourceFromPM          = "pm"
 
 	ProdENV = "prod"
 	TestENV = "test"
@@ -584,8 +587,24 @@ const (
 	Abnormal     K8SClusterStatus = "abnormal"
 )
 
+type ResetImagePolicyType string
+
+const (
+	ResetImagePolicyTaskCompleted      ResetImagePolicyType = "taskCompleted"
+	ResetImagePolicyTaskCompletedOrder ResetImagePolicyType = ""
+	ResetImagePolicyDeployFailed       ResetImagePolicyType = "deployFailed"
+	ResetImagePolicyTestFailed         ResetImagePolicyType = "testFailed"
+)
+
 const LocalClusterID = "0123456789abcdef12345678"
 
 const RequestModeOpenAPI = "openAPI"
 
 const DeployTimeout = 60 * 10 // 10 minutes
+
+const UpdateEnvTimeout = 60 * 5 * time.Second
+
+// list namespace type
+const (
+	ListNamespaceTypeCreate = "create"
+)

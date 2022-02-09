@@ -32,7 +32,6 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
-	helmrelease "helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"helm.sh/helm/v3/pkg/strvals"
 	appsv1 "k8s.io/api/apps/v1"
@@ -100,6 +99,7 @@ type EnvResp struct {
 	RegistryID  string   `json:"registry_id"`
 	BaseRefs    []string `json:"base_refs"`
 	BaseName    string   `json:"base_name"`
+	IsExisted   bool   `json:"is_existed"`
 }
 
 type ProductResp struct {
@@ -120,6 +120,7 @@ type ProductResp struct {
 	RecycleDay  int                        `json:"recycle_day"`
 	IsProd      bool                       `json:"is_prod"`
 	IsLocal     bool                       `json:"is_local"`
+	IsExisted   bool                       `json:"is_existed"`
 	Source      string                     `json:"source"`
 	RegisterID  string                     `json:"registry_id"`
 }
@@ -190,7 +191,7 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 	}
 
 	var res []*EnvResp
-	reg, err := commonservice.FindDefaultRegistry(false, log)
+	reg, _, err := commonservice.FindDefaultRegistry(false, log)
 	if err != nil {
 		log.Errorf("FindDefaultRegistry error: %v", err)
 		return nil, err
@@ -222,6 +223,7 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 			ProjectName: projectName,
 			Name:        env.EnvName,
 			IsPublic:    env.IsPublic,
+			IsExisted:   env.IsExisted,
 			ClusterName: clusterName,
 			Source:      env.Source,
 			Production:  production,
@@ -374,6 +376,49 @@ func AutoUpdateProduct(envNames []string, productName, requestID string, force b
 
 }
 
+// getServicesWithMaxRevision get all services template with max revision including involved shared services
+func getServicesWithMaxRevision(projectName string) ([]*commonmodels.Service, error) {
+	// list services with max revision defined in project
+	allServices, err := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{ProductName: projectName})
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to find services in project %s", projectName)
+	}
+
+	prodTmpl, err := templaterepo.NewProductColl().Find(projectName)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to find project: %s", projectName)
+	}
+
+	// list services with max revision of shared services
+	if prodTmpl.SharedServices != nil {
+		servicesByProject := make(map[string][]string)
+		for _, serviceInfo := range prodTmpl.SharedServices {
+			servicesByProject[serviceInfo.Owner] = append(servicesByProject[serviceInfo.Owner], serviceInfo.Name)
+		}
+
+		for sourceProject, services := range servicesByProject {
+			inService := make([]*templatemodels.ServiceInfo, 0)
+			for _, serviceName := range services {
+				inService = append(inService, &templatemodels.ServiceInfo{
+					Name:  serviceName,
+					Owner: sourceProject,
+				})
+			}
+
+			sharedServices, err := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{
+				ProductName: sourceProject,
+				InServices:  inService,
+			})
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to find shared service templates, projectName: %s", sourceProject)
+			}
+			allServices = append(allServices, sharedServices...)
+		}
+	}
+
+	return allServices, nil
+}
+
 func UpdateProduct(existedProd, updateProd *commonmodels.Product, renderSet *commonmodels.RenderSet, log *zap.SugaredLogger) (err error) {
 	// 设置产品新的renderinfo
 	updateProd.Render = &commonmodels.RenderInfo{
@@ -392,7 +437,7 @@ func UpdateProduct(existedProd, updateProd *commonmodels.Product, renderSet *com
 	var prodRevs *ProductRevision
 
 	// list services with max revision of project
-	allServices, err = commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{ProductName: productName})
+	allServices, err = getServicesWithMaxRevision(productName)
 	if err != nil {
 		log.Errorf("ListAllRevisions error: %s", err)
 		err = e.ErrUpdateEnv.AddDesc(err.Error())
@@ -1862,18 +1907,6 @@ func upsertService(isUpdate bool, env *commonmodels.Product,
 				u.Object = setFieldValueIsNotExist(u.Object, applyUpdatedAnnotations(podAnnotations), "spec", "template", "metadata", "annotations")
 			}
 
-			// Inject selector: s-product and s-service
-			selector, _, err := unstructured.NestedStringMap(u.Object, "spec", "selector", "matchLabels")
-			if err != nil {
-				selector = nil
-			}
-
-			err = unstructured.SetNestedStringMap(u.Object, kube.MergeLabels(labels, selector), "spec", "selector", "matchLabels")
-			if err != nil {
-				log.Errorf("merge selector failed err:%s", err)
-				u.Object = setFieldValueIsNotExist(u.Object, kube.MergeLabels(labels, selector), "spec", "selector", "matchLabels")
-			}
-
 			jsonData, err := u.MarshalJSON()
 			if err != nil {
 				log.Errorf("Failed to marshal JSON, manifest is\n%v\n, error: %v", u, err)
@@ -2353,16 +2386,16 @@ func FindHelmRenderSet(productName, renderName string, log *zap.SugaredLogger) (
 	return resp, nil
 }
 
-func installOrUpgradeHelmChart(namespace string, renderChart *templatemodels.RenderChart, defaultValues string, serviceObj *commonmodels.Service, timeout time.Duration, isRetry bool, helmClient helmclient.Client, kubecli client.Client) error {
+func installOrUpgradeHelmChart(namespace string, renderChart *templatemodels.RenderChart, defaultValues string, serviceObj *commonmodels.Service, isRetry bool, helmClient helmclient.Client, kubecli client.Client) error {
 	mergedValuesYaml, err := helmtool.MergeOverrideValues(renderChart.ValuesYaml, defaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
 	if err != nil {
 		err = errors.WithMessagef(err, "failed to merge override yaml %s and values %s", renderChart.GetOverrideYaml(), renderChart.OverrideValues)
 		return err
 	}
-	return installOrUpgradeHelmChartWithValues(namespace, mergedValuesYaml, renderChart, serviceObj, timeout, isRetry, helmClient, kubecli)
+	return installOrUpgradeHelmChartWithValues(namespace, mergedValuesYaml, renderChart, serviceObj, isRetry, helmClient, kubecli)
 }
 
-func installOrUpgradeHelmChartWithValues(namespace, valuesYaml string, renderChart *templatemodels.RenderChart, serviceObj *commonmodels.Service, timeout time.Duration, isRetry bool, helmClient helmclient.Client, kubecli client.Client) error {
+func installOrUpgradeHelmChartWithValues(namespace, valuesYaml string, renderChart *templatemodels.RenderChart, serviceObj *commonmodels.Service, isRetry bool, helmClient helmclient.Client, kubecli client.Client) error {
 	base := config.LocalServicePathWithRevision(serviceObj.ProductName, serviceObj.ServiceName, serviceObj.Revision)
 	if err := commonservice.PreloadServiceManifestsByRevision(base, serviceObj); err != nil {
 		log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
@@ -2394,58 +2427,12 @@ func installOrUpgradeHelmChartWithValues(namespace, valuesYaml string, renderCha
 	if isRetry {
 		chartSpec.Replace = true
 	}
-	if timeout > 0 {
-		chartSpec.Wait = true
-		chartSpec.Timeout = timeout
-	}
 
-	done := make(chan bool)
-	defer close(done)
-	go func(chan bool) {
-		if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), chartSpec); err != nil {
-			err = errors.WithMessagef(
-				err,
-				"failed to Install helm chart %s/%s",
-				namespace, serviceObj.ServiceName)
-			done <- false
-		} else {
-			done <- true
-		}
-	}(done)
-
-	pendingStatusProcess := func(typ string) error {
-		hrs, errHistory := helmClient.ListReleaseHistory(chartSpec.ReleaseName, 10)
-		if errHistory != nil {
-			err = errors.WithMessagef(
-				err,
-				"failed to ListReleaseHistory: %s,error:%s",
-				chartSpec.ReleaseName, errHistory)
-			return err
-		}
-		if len(hrs) > 0 {
-			releaseutil.Reverse(hrs, releaseutil.SortByRevision)
-			rel := hrs[0]
-			if rel.Info.Status == helmrelease.StatusPendingInstall || rel.Info.Status == helmrelease.StatusPendingUpgrade {
-				secretName := fmt.Sprintf("sh.helm.release.v1.%s.v.%d", rel.Name, rel.Version)
-				deleteErr := updater.DeleteSecretWithName(rel.Namespace, secretName, kubecli)
-				if deleteErr != nil {
-					err = errors.WithMessagef(err, "failed to deleteSecretWithName:%s,error:%s", secretName, deleteErr)
-					return err
-				}
-			}
-		}
-		if err != nil {
-			err = fmt.Errorf("failed to install %s:%s", typ, err)
-		}
-		return err
-	}
-	select {
-	case d := <-done:
-		if !d {
-			err = pendingStatusProcess("normal")
-		}
-	case <-time.After(chartSpec.Timeout + 5*time.Second):
-		err = pendingStatusProcess("timeout")
+	if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), chartSpec); err != nil {
+		err = errors.WithMessagef(
+			err,
+			"failed to Install helm chart %s/%s",
+			namespace, serviceObj.ServiceName)
 	}
 	return err
 }
@@ -2487,8 +2474,7 @@ func installProductHelmCharts(user, envName, requestID string, args *commonmodel
 
 	handler := func(serviceObj *commonmodels.Service, isRetry bool, kubecli client.Client, logger *zap.SugaredLogger) error {
 		renderChart := chartInfoMap[serviceObj.ServiceName]
-		timeout := time.Second * setting.DeployTimeout
-		err = installOrUpgradeHelmChart(args.Namespace, renderChart, renderset.DefaultValues, serviceObj, timeout, isRetry, helmClient, kubecli)
+		err = installOrUpgradeHelmChart(args.Namespace, renderChart, renderset.DefaultValues, serviceObj, isRetry, helmClient, kubecli)
 		if err != nil {
 			log.Errorf("failed to install service: %s, namespace: %s, isRetry: %v, err: %s", serviceObj.ServiceName, args.Namespace, isRetry, err)
 			return errors.Wrapf(err, "failed to install service: %s, namespace: %s", serviceObj.ServiceName, args.Namespace)
@@ -2520,7 +2506,7 @@ func installProductHelmCharts(user, envName, requestID string, args *commonmodel
 
 			serviceList = append(serviceList, serviceObj)
 		}
-		serviceGroupErr := intervalExecutorWithRetry(5, time.Millisecond*2500, serviceList, handler, kubecli, log)
+		serviceGroupErr := intervalExecutorWithRetry(3, time.Millisecond*2500, serviceList, handler, kubecli, log)
 		if serviceGroupErr != nil {
 			errList = multierror.Append(errList, serviceGroupErr...)
 		}
@@ -2702,7 +2688,7 @@ func updateProductGroup(username, productName, envName, updateType string, produ
 
 	handler := func(serviceObj *commonmodels.Service, isRetry bool, kubecli client.Client, log *zap.SugaredLogger) error {
 		renderChart := renderChartMap[serviceObj.ServiceName]
-		err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderSet.DefaultValues, serviceObj, 0, isRetry, helmClient, kubecli)
+		err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderSet.DefaultValues, serviceObj, isRetry, helmClient, kubecli)
 		if err != nil {
 			log.Errorf("failed to upgrade service: %s, namespace: %s, isRetry: %v, err: %s", serviceObj.ServiceName, productResp.Namespace, isRetry, err)
 			return errors.Wrapf(err, "failed to install or upgrade service %s", serviceObj.ServiceName)
@@ -2740,7 +2726,7 @@ func updateProductGroup(username, productName, envName, updateType string, produ
 			serviceList = append(serviceList, serviceObj)
 		}
 
-		serviceGroupErr := intervalExecutorWithRetry(5, time.Millisecond*2500, serviceList, handler, kubeClient, log)
+		serviceGroupErr := intervalExecutorWithRetry(3, time.Millisecond*2500, serviceList, handler, kubeClient, log)
 		if serviceGroupErr != nil {
 			errList = multierror.Append(errList, serviceGroupErr...)
 		}
@@ -2954,7 +2940,7 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 
 	handler := func(service *commonmodels.Service, isRetry bool, kubecli client.Client, log *zap.SugaredLogger) error {
 		renderChart := renderChartMap[service.ServiceName]
-		err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderset.DefaultValues, service, 0, isRetry, helmClient, kubecli)
+		err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderset.DefaultValues, service, isRetry, helmClient, kubecli)
 		if err != nil {
 			log.Errorf("failed to upgrade service: %s, namespace: %s, isRetry: %v, err: %s", service.ServiceName, productResp.Namespace, isRetry, err)
 			return errors.Wrapf(err, "failed to upgrade service %s", service.ServiceName)
@@ -2984,7 +2970,7 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 			}
 			groupServices = append(groupServices, service)
 		}
-		groupServiceErr := intervalExecutorWithRetry(5, time.Millisecond*2500, serviceList, handler, kubeClient, log)
+		groupServiceErr := intervalExecutorWithRetry(3, time.Millisecond*2500, serviceList, handler, kubeClient, log)
 		if groupServiceErr != nil {
 			errList = multierror.Append(errList, groupServiceErr...)
 		}

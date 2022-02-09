@@ -53,7 +53,7 @@ func CreateTesting(username string, testing *commonmodels.Testing, log *zap.Suga
 		return e.ErrCreateTestModule.AddErr(err)
 	}
 
-	err = commonservice.ProcessWebhook(testing.HookCtl.Items,nil,webhook.TestingPrefix+testing.Name,log)
+	err = commonservice.ProcessWebhook(testing.HookCtl.Items, nil, webhook.TestingPrefix+testing.Name, log)
 	if err != nil {
 		return e.ErrUpdateTestModule.AddErr(err)
 	}
@@ -118,7 +118,7 @@ func UpdateTesting(username string, testing *commonmodels.Testing, log *zap.Suga
 		commonservice.EnsureSecretEnvs(existed.PreTest.Envs, testing.PreTest.Envs)
 	}
 
-	err = commonservice.ProcessWebhook(testing.HookCtl.Items,existed.HookCtl.Items,webhook.TestingPrefix+testing.Name,log)
+	err = commonservice.ProcessWebhook(testing.HookCtl.Items, existed.HookCtl.Items, webhook.TestingPrefix+testing.Name, log)
 	if err != nil {
 		return e.ErrUpdateTestModule.AddErr(err)
 	}
@@ -285,54 +285,6 @@ func ListCronjob(name, jobType string) ([]*commonmodels.Cronjob, error) {
 		ParentName: name,
 		ParentType: jobType,
 	})
-}
-
-func DeleteTestModule(name, productName, requestID string, log *zap.SugaredLogger) error {
-	opt := new(commonrepo.ListQueueOption)
-	taskQueue, err := commonrepo.NewQueueColl().List(opt)
-	if err != nil {
-		log.Errorf("List queued task error: %v", err)
-		return fmt.Errorf("list queued task error: %v", err)
-	}
-	pipelineName := fmt.Sprintf("%s-%s", name, "job")
-	// 当task还在运行时，先取消任务
-	for _, task := range taskQueue {
-		if task.PipelineName == pipelineName && task.Type == config.TestType {
-			if err = commonservice.CancelTaskV2("system", task.PipelineName, task.TaskID, config.TestType, requestID, log); err != nil {
-				log.Errorf("test task still running,cancel pipeline %s task %d", task.PipelineName, task.TaskID)
-			}
-		}
-	}
-
-	return DeleteTestingModule(name, productName, log)
-}
-
-func DeleteTestingModule(name, productName string, log *zap.SugaredLogger) error {
-	if len(name) == 0 {
-		return e.ErrDeleteTestModule.AddDesc("empty Name")
-	}
-
-	err := commonrepo.NewTestingColl().Delete(name, productName)
-	if err != nil {
-		log.Errorf("[Testing.Delete] %s error: %v", name, err)
-		return e.ErrDeleteTestModule.AddErr(err)
-	}
-
-	if err := commonrepo.NewTaskColl().DeleteByPipelineNameAndType(fmt.Sprintf("%s-%s", name, "job"), config.TestType); err != nil {
-		log.Errorf("[Testing.Delete] PipelineTaskV2.DeleteByPipelineNameAndType test %s error: %v", name, err)
-	}
-
-	if err := commonrepo.NewTestTaskStatColl().Delete(name); err != nil {
-		log.Errorf("[TestTaskStat.Delete] %s error: %v", name, err)
-	}
-
-	pipelineName := fmt.Sprintf("%s-%s", name, "job")
-	counterName := fmt.Sprintf(setting.TestTaskFmt, pipelineName)
-	if err := commonrepo.NewCounterColl().Delete(counterName); err != nil {
-		log.Errorf("[Counter.Delete] counterName:%s, error: %v", counterName, err)
-	}
-
-	return nil
 }
 
 func GetHTMLTestReport(pipelineName, pipelineType, taskIDStr, testName string, log *zap.SugaredLogger) (string, error) {

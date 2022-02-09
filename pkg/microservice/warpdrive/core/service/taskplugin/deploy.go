@@ -27,7 +27,6 @@ import (
 	helmclient "github.com/mittwald/go-helm-client"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	helmrelease "helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -54,6 +53,7 @@ import (
 	"github.com/koderover/zadig/pkg/util/converter"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
+	helmrelease "helm.sh/helm/v3/pkg/release"
 )
 
 // InitializeDeployTaskPlugin to initiate deploy task plugin and return ref
@@ -531,8 +531,35 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			return
 		}
 
+		releaseName := util.GeneHelmReleaseName(p.Task.Namespace, p.Task.ServiceName)
+
+		ensureUpgrade := func() error {
+			hrs, errHistory := helmClient.ListReleaseHistory(releaseName, 10)
+			if errHistory != nil {
+				// list history should not block deploy operation, error will be logged instead of returned
+				p.Log.Errorf("failed to list release history, release: %s, err: %s", releaseName, errHistory)
+				return nil
+			}
+			if len(hrs) == 0 {
+				return nil
+			}
+			releaseutil.Reverse(hrs, releaseutil.SortByRevision)
+			rel := hrs[0]
+
+			// for release in superseded status or stuck in pending status , uninstall the service first
+			if rel.Info.Status == helmrelease.StatusSuperseded || rel.Info.Status.IsPending() {
+				return fmt.Errorf("failed to upgrade release: %s with exceptional status: %s", releaseName, rel.Info.Status)
+			}
+			return nil
+		}
+
+		err = ensureUpgrade()
+		if err != nil {
+			return
+		}
+
 		chartSpec := helmclient.ChartSpec{
-			ReleaseName: util.GeneHelmReleaseName(p.Task.Namespace, p.Task.ServiceName),
+			ReleaseName: releaseName,
 			ChartName:   chartPath,
 			Namespace:   p.Task.Namespace,
 			ReuseValues: true,
@@ -542,10 +569,10 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			UpgradeCRDs: true,
 			Timeout:     time.Second * setting.DeployTimeout,
 			Wait:        true,
+			Replace:     true,
 		}
 
 		done := make(chan bool)
-		defer close(done)
 		go func(chan bool) {
 			if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), &chartSpec); err != nil {
 				err = errors.WithMessagef(
@@ -558,39 +585,11 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			}
 		}(done)
 
-		pendingStatusProcess := func(typ string) error {
-			hrs, errHistory := helmClient.ListReleaseHistory(chartSpec.ReleaseName, 10)
-			if errHistory != nil {
-				err = errors.WithMessagef(
-					err,
-					"failed to ListReleaseHistory: %s,error:%s",
-					chartSpec.ReleaseName, errHistory)
-				return err
-			}
-			if len(hrs) > 0 {
-				releaseutil.Reverse(hrs, releaseutil.SortByRevision)
-				rel := hrs[0]
-				if rel.Info.Status == helmrelease.StatusPendingInstall || rel.Info.Status == helmrelease.StatusPendingUpgrade {
-					secretName := fmt.Sprintf("sh.helm.release.v1.%s.v.%d", rel.Name, rel.Version)
-					deleteErr := updater.DeleteSecretWithName(rel.Namespace, secretName, p.kubeClient)
-					if deleteErr != nil {
-						err = errors.WithMessagef(err, "failed to deleteSecretWithName:%s,error:%s", secretName, deleteErr)
-						return err
-					}
-				}
-			}
-			if err != nil {
-				err = fmt.Errorf("failed to install %s:%s", typ, err)
-			}
-			return err
-		}
 		select {
-		case d := <-done:
-			if !d {
-				err = pendingStatusProcess("normal")
-			}
-		case <-time.After(chartSpec.Timeout + 5*time.Second):
-			err = pendingStatusProcess("timeout")
+		case <-done:
+			break
+		case <-time.After(chartSpec.Timeout + 30*time.Second):
+			err = fmt.Errorf("failed to upgrade relase: %s, timeout", chartSpec.ReleaseName)
 		}
 		if err != nil {
 			return
@@ -636,7 +635,7 @@ func (p *DeployTaskPlugin) getService(ctx context.Context, name, serviceType, pr
 
 	s := &types.ServiceTmpl{}
 	_, err := p.httpClient.Get(url, httpclient.SetResult(s), httpclient.SetQueryParams(map[string]string{
-		"productName": productName,
+		"projectName": productName,
 		"revision":    fmt.Sprintf("%d", revision),
 	}))
 	if err != nil {

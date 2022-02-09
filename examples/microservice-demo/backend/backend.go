@@ -18,6 +18,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 )
 
@@ -43,6 +44,8 @@ func buildStamp(w http.ResponseWriter, req *http.Request) {
 }
 
 func main() {
+
+	log.Println("Hello, welcome to the microservice world.")
 
 	http.HandleFunc("/", hello)
 	http.HandleFunc("/api/buildstamp", buildStamp)

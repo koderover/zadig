@@ -26,6 +26,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -139,6 +140,18 @@ func (c *ProductColl) Find(opt *ProductFindOptions) (*models.Product, error) {
 
 	err := c.FindOne(context.TODO(), query).Decode(res)
 	return res, err
+}
+
+func (c *ProductColl) EnvCount() (int64, error) {
+	query := bson.M{"status": bson.M{"$ne": setting.ProductStatusDeleting}}
+
+	ctx := context.Background()
+	count, err := c.Collection.CountDocuments(ctx, query)
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
 }
 
 type Product struct {
@@ -416,4 +429,32 @@ func (c *ProductColl) UpdateAll(envs []*models.Product) error {
 	_, err := c.BulkWrite(context.TODO(), ms)
 
 	return err
+}
+
+type nsObject struct {
+	ID        primitive.ObjectID `bson:"_id"`
+	Namespace string             `bson:"namespace"`
+}
+
+func (c *ProductColl) ListExistedNamespace() ([]string, error) {
+	nsList := make([]*nsObject, 0)
+	resp := sets.NewString()
+	selector := bson.D{
+		{"namespace", 1},
+	}
+	query := bson.M{"is_existed": true}
+	opt := options.Find()
+	opt.SetProjection(selector)
+	cursor, err := c.Collection.Find(context.TODO(), query, opt)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(context.TODO(), &nsList)
+	if err != nil {
+		return nil, err
+	}
+	for _, obj := range nsList {
+		resp.Insert(obj.Namespace)
+	}
+	return resp.List(), nil
 }

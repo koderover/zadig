@@ -179,6 +179,7 @@ func (gruem *gerritChangeMergedEventMatcher) Match(hookRepo *commonmodels.MainHo
 			existEventNames = append(existEventNames, string(eventName))
 		}
 		if sets.NewString(existEventNames...).Has(event.Type) {
+			hookRepo.Committer = event.Submitter.Username
 			return true, nil
 		}
 	}
@@ -210,7 +211,7 @@ type gerritPatchsetCreatedEventMatcher struct {
 	Event    *patchsetCreatedEvent
 }
 
-func (gpcem *gerritPatchsetCreatedEventMatcher) Match(*commonmodels.MainHookRepo) (bool, error) {
+func (gpcem *gerritPatchsetCreatedEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
 	event := gpcem.Event
 	if event == nil {
 		return false, fmt.Errorf("event doesn't match")
@@ -222,6 +223,7 @@ func (gpcem *gerritPatchsetCreatedEventMatcher) Match(*commonmodels.MainHookRepo
 			existEventNames = append(existEventNames, string(eventName))
 		}
 		if sets.NewString(existEventNames...).Has(event.Type) {
+			hookRepo.Committer = event.Uploader.Username
 			return true, nil
 		}
 	}
@@ -380,7 +382,7 @@ func TriggerWorkflowByGerritEvent(event *gerritTypeEvent, body []byte, uri, base
 						workflowArgs.CodehostID = item.MainRepo.CodehostID
 						workflowArgs.RepoOwner = item.MainRepo.RepoOwner
 						workflowArgs.RepoName = item.MainRepo.RepoName
-
+						workflowArgs.Committer = item.MainRepo.Committer
 						if resp, err := workflowservice.CreateWorkflowTask(workflowArgs, setting.WebhookTaskCreator, log); err != nil {
 							log.Errorf("TriggerWorkflowByGerritEvent failed to create workflow task when receive push event %v due to %v ", event, err)
 							errorList = multierror.Append(errorList, err)

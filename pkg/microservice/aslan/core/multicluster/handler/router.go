@@ -45,4 +45,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		bundles.GET("", GetBundleResources)
 	}
+
+	router.GET("/:id/storageclasses", ListStorageClasses)
+	router.GET("/:id/:namespace/pvcs", ListPVCs)
 }
