@@ -193,9 +193,9 @@ func DeletePolicy(name string, projectName string, logger *zap.SugaredLogger) er
 }
 
 func DeletePolicies(names []string, projectName string, logger *zap.SugaredLogger) error {
-	if len(names) == 0 {
-		return nil
-	}
+	//if len(names) == 0 {
+	//	return nil
+	//}
 	if projectName == "" {
 		return fmt.Errorf("projectName is empty")
 	}

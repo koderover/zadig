@@ -17,7 +17,6 @@ limitations under the License.
 package service
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -26,8 +25,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/yaml"
@@ -50,7 +47,6 @@ import (
 	configclient "github.com/koderover/zadig/pkg/shared/config"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
-	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
 type CustomParseDataArgs struct {
@@ -389,6 +385,11 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 		return err
 	}
 
+	if err = DeletePolicy(productName, log); err != nil {
+		log.Errorf("DeletePolicy  productName %s  err: %s", productName, err)
+		return err
+	}
+
 	if err = commonservice.DeleteWorkflows(productName, requestID, log); err != nil {
 		log.Errorf("DeleteProductTemplate Delete productName %s workflow err: %s", productName, err)
 		return err
@@ -468,21 +469,8 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 		})
 	}()
 	// delete policy
-	go func() {
-		query := bson.M{}
-		query["namespace"] = productName
-		_, err := newPolicyMetaColl().DeleteMany(context.Background(), query)
-		if err != nil {
-			log.Errorf("newPolicyMetaColl delete err: %s", err)
-		}
-	}()
 
 	return nil
-}
-
-func newPolicyMetaColl() *mongo.Collection {
-	collection := mongotool.Database(fmt.Sprintf("%s_policy", config.MongoDatabase())).Collection("policy_meta")
-	return collection
 }
 
 func ForkProduct(username, uid, requestID string, args *template.ForkProject, log *zap.SugaredLogger) error {
@@ -944,6 +932,15 @@ func DeleteCollabrationMode(productName string, userName string, log *zap.Sugare
 	// delete all collaborationIns
 	if err := mongodb.NewCollaborationInstanceColl().DeleteByProject(productName); err != nil {
 		log.Errorf("NewCollaborationInstanceColl DeleteByProject err:%s", err)
+		return err
+	}
+	return nil
+}
+
+func DeletePolicy(productName string, log *zap.SugaredLogger) error {
+	policy.NewDefault()
+	if err := policy.NewDefault().DeletePolicies(productName, policy.DeletePoliciesArgs{}); err != nil {
+		log.Errorf("DeletePolicies err :%s", err)
 		return err
 	}
 	return nil
