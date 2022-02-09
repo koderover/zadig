@@ -53,7 +53,6 @@ import (
 	"github.com/koderover/zadig/pkg/util/converter"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
-	helmrelease "helm.sh/helm/v3/pkg/release"
 )
 
 // InitializeDeployTaskPlugin to initiate deploy task plugin and return ref
@@ -546,8 +545,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			releaseutil.Reverse(hrs, releaseutil.SortByRevision)
 			rel := hrs[0]
 
-			// for release in superseded status or stuck in pending status , uninstall the service first
-			if rel.Info.Status == helmrelease.StatusSuperseded || rel.Info.Status.IsPending() {
+			if rel.Info.Status.IsPending() {
 				return fmt.Errorf("failed to upgrade release: %s with exceptional status: %s", releaseName, rel.Info.Status)
 			}
 			return nil
