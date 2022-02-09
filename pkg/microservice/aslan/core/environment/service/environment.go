@@ -2480,6 +2480,7 @@ func intervalExecutor(interval time.Duration, serviceList []*commonmodels.Servic
 		return nil
 	}
 	wg := sync.WaitGroup{}
+	var failLock sync.Mutex
 	wg.Add(len(serviceList))
 	errList := make([]error, 0)
 	ticker := time.NewTicker(interval)
@@ -2490,6 +2491,8 @@ func intervalExecutor(interval time.Duration, serviceList []*commonmodels.Servic
 			defer wg.Done()
 			err := handler(singleService, isRetry, log)
 			if err != nil {
+				failLock.Lock()
+				defer failLock.Unlock()
 				errList = append(errList, err)
 				*failedServices = append(*failedServices, singleService)
 				log.Errorf("service:%s apply failed, err %s", singleService.ServiceName, err)
