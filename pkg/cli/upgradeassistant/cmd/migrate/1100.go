@@ -24,11 +24,11 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 
+	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
 	internalmodels "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
 	internalmongodb "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/mongodb"
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/pkg/types"
-	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
 
 	"github.com/koderover/zadig/pkg/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -57,7 +57,6 @@ func V190ToV1100() error {
 		log.Errorf("Failed to changePolicyCollectionName, err: %s", err)
 		return err
 	}
-
 
 	if err := migrateModuleBuild(); err != nil {
 		return fmt.Errorf("failed to migrate data in `zadig.module_build`: %s", err)
@@ -309,9 +308,8 @@ func createLabelBindings() error {
 		log.Errorf("Failed toCreateMany labels, err: %s", err)
 		return err
 	}
+	return nil
 }
-
-
 
 func migrateModuleBuild() error {
 	buildCol := internalmongodb.NewBuildColl()

@@ -99,7 +99,7 @@ type EnvResp struct {
 	RegistryID  string   `json:"registry_id"`
 	BaseRefs    []string `json:"base_refs"`
 	BaseName    string   `json:"base_name"`
-	IsExisted   bool   `json:"is_existed"`
+	IsExisted   bool     `json:"is_existed"`
 }
 
 type ProductResp struct {

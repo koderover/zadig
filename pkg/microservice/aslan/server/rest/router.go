@@ -89,7 +89,7 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 		"/api/template":      new(templatehandler.Router),
 		"/api/collaboration": new(collaborationhandler.Router),
 		"/api/label":         new(labelhandler.Router),
-		"/api/stat":        new(stathandler.Router),
+		"/api/stat":          new(stathandler.Router),
 	} {
 		r.Inject(router.Group(name))
 	}
