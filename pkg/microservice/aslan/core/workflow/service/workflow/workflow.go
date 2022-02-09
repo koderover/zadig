@@ -669,9 +669,10 @@ func CopyWorkflow(oldWorkflowName, newWorkflowName, username string, log *zap.Su
 }
 
 type WorkflowCopyItem struct {
-	ProjectName string
-	Old         string
-	New         string
+	ProjectName string `json:"project_name"`
+	Old         string `json:"old"`
+	New         string `json:"new"`
+	BaseName    string `json:"base_name"`
 }
 
 type BulkCopyWorkflowArgs struct {
@@ -680,13 +681,13 @@ type BulkCopyWorkflowArgs struct {
 
 func BulkCopyWorkflow(args BulkCopyWorkflowArgs, username string, log *zap.SugaredLogger) error {
 	var workflows []commonrepo.Workflow
-	workflowMap := make(map[string]string)
+	workflowMap := make(map[string]WorkflowCopyItem)
 	for _, item := range args.Items {
 		workflows = append(workflows, commonrepo.Workflow{
 			ProjectName: item.ProjectName,
 			Name:        item.Old,
 		})
-		workflowMap[item.ProjectName+"~"+item.Old] = item.New
+		workflowMap[item.ProjectName+"~"+item.Old] = item
 	}
 	oldWorkflows, err := commonrepo.NewWorkflowColl().ListByWorkflows(commonrepo.ListWorkflowOpt{
 		Workflows: workflows,
@@ -697,9 +698,10 @@ func BulkCopyWorkflow(args BulkCopyWorkflowArgs, username string, log *zap.Sugar
 	}
 	var newWorkflows []*commonmodels.Workflow
 	for _, workflow := range oldWorkflows {
-		if newName, ok := workflowMap[workflow.ProductTmplName+"~"+workflow.Name]; ok {
+		if item, ok := workflowMap[workflow.ProductTmplName+"~"+workflow.Name]; ok {
 			workflow.UpdateBy = username
-			workflow.Name = newName
+			workflow.Name = item.New
+			workflow.BaseName = item.BaseName
 			workflow.ID = primitive.NewObjectID()
 			newWorkflows = append(newWorkflows, workflow)
 		} else {
