@@ -681,36 +681,6 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 				},
 			})
 		}
-		for _, workflow := range item.DeleteSpec.Workflows {
-			labelValue := buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeWorkflow), workflow.BaseName)
-			labelId, ok := labelIdMap[service.BuildLabelString("policy", labelValue)]
-			if !ok {
-				return fmt.Errorf("label:%s not exist", labelValue)
-			}
-			deleteBindings = append(deleteBindings, &mongodb2.LabelBinding{
-				LabelID: labelId,
-				Resource: mongodb2.Resource{
-					Name:        workflow.Name,
-					Type:        string(config2.ResourceTypeWorkflow),
-					ProjectName: projectName,
-				},
-			})
-		}
-		for _, product := range item.DeleteSpec.Products {
-			labelValue := buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeProduct), product.BaseName)
-			labelId, ok := labelIdMap[service.BuildLabelString("policy", labelValue)]
-			if !ok {
-				return fmt.Errorf("label:%s not exist", labelValue)
-			}
-			deleteBindings = append(deleteBindings, &mongodb2.LabelBinding{
-				LabelID: labelId,
-				Resource: mongodb2.Resource{
-					Name:        product.Name,
-					Type:        string(config2.ResourceTypeProduct),
-					ProjectName: projectName,
-				},
-			})
-		}
 		for _, workflow := range item.UpdateSpec.Workflows {
 			if workflow.Old.CollaborationType == config.CollaborationShare && workflow.New.CollaborationType == config.CollaborationNew {
 				labelValue := buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeWorkflow), workflow.New.Name)
@@ -877,6 +847,7 @@ func syncNewResource(products *SyncCollaborationInstanceArgs, updateResp *GetCol
 				ProjectName: projectName,
 				Old:         workflow.BaseName,
 				New:         workflow.Name,
+				BaseName:    workflow.BaseName,
 			})
 		}
 	}
@@ -901,15 +872,17 @@ func syncNewResource(products *SyncCollaborationInstanceArgs, updateResp *GetCol
 				helmProductArgs = append(helmProductArgs, service2.HelmProductItem{
 					OldName:       product.BaseName,
 					NewName:       product.Name,
+					BaseName:      product.BaseName,
 					DefaultValues: product.DefaultValues,
 					ChartValues:   product.ChartValues,
 				})
 			}
 			if productArg.DeployType == string(config.K8sDeploy) {
 				yamlProductItems = append(yamlProductItems, service2.YamlProductItem{
-					OldName: product.BaseName,
-					NewName: product.Name,
-					Vars:    productArg.Vars,
+					OldName:  product.BaseName,
+					NewName:  product.Name,
+					BaseName: product.BaseName,
+					Vars:     productArg.Vars,
 				})
 			}
 		}
@@ -1075,7 +1048,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 			newProductName.Insert(product.Name)
 		}
 		for _, workflow := range item.UpdateSpec.Workflows {
-			if workflow.Old.CollaborationType == "share" && workflow.New.CollaborationType == "new" {
+			if workflow.Old.CollaborationType == config.CollaborationShare && workflow.New.CollaborationType == config.CollaborationNew {
 				newWorkflow = append(newWorkflow, &Workflow{
 					CollaborationType: workflow.New.CollaborationType,
 					BaseName:          workflow.Old.BaseName,
@@ -1085,7 +1058,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 			}
 		}
 		for _, product := range item.UpdateSpec.Products {
-			if product.Old.CollaborationType == "share" && product.New.CollaborationType == "new" {
+			if product.Old.CollaborationType == config.CollaborationShare && product.New.CollaborationType == config.CollaborationNew {
 				newProduct = append(newProduct, &Product{
 					CollaborationType: product.New.CollaborationType,
 					BaseName:          product.Old.BaseName,

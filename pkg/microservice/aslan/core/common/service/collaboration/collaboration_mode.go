@@ -5,7 +5,6 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	config2 "github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/mongodb"
 )
@@ -44,9 +43,6 @@ func buildEnvCMMap(collaborations []*models.CollaborationMode) map[string]sets.S
 	envCMMap := make(map[string]sets.String)
 	for _, cm := range collaborations {
 		for _, product := range cm.Products {
-			if product.CollaborationType == config2.CollaborationShare {
-				continue
-			}
 			key := BuildEnvCMMapKey(cm.ProjectName, product.Name)
 			if cmSet, ok := envCMMap[key]; ok {
 				cmSet.Insert(cm.Name)
@@ -64,9 +60,6 @@ func buildWorkflowCMMap(collaborations []*models.CollaborationMode) map[string]s
 	workflowCMMap := make(map[string]sets.String)
 	for _, cm := range collaborations {
 		for _, workflow := range cm.Workflows {
-			if workflow.CollaborationType == config2.CollaborationShare {
-				continue
-			}
 			key := BuildWorkflowCMMapKey(cm.ProjectName, workflow.Name)
 			if cmSet, ok := workflowCMMap[key]; ok {
 				cmSet.Insert(cm.Name)

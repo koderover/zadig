@@ -155,6 +155,7 @@ type CreateHelmProductArg struct {
 	RegistryID    string                          `json:"registry_id"`
 	ChartValues   []*commonservice.RenderChartArg `json:"chartValues"`
 	BaseEnvName   string                          `json:"baseEnvName"`
+	BaseName      string                          `json:"base_name,omitempty"`
 }
 
 type UpdateMultiHelmProductArg struct {
@@ -831,19 +832,21 @@ func createSingleHelmProduct(templateProduct *templatemodels.Product, requestID,
 }
 
 type YamlProductItem struct {
-	OldName string
-	NewName string
-	Vars    []*templatemodels.RenderKV
+	OldName  string                     `json:"old_name"`
+	NewName  string                     `json:"new_name"`
+	BaseName string                     `json:"base_name"`
+	Vars     []*templatemodels.RenderKV `json:"vars"`
 }
 type CopyYamlProductArg struct {
-	Items []YamlProductItem
+	Items []YamlProductItem `json:"items"`
 }
 
 type HelmProductItem struct {
-	OldName       string
-	NewName       string
-	DefaultValues string
-	ChartValues   []*commonservice.RenderChartArg
+	OldName       string                          `json:"old_name"`
+	NewName       string                          `json:"new_name"`
+	BaseName      string                          `json:"base_name"`
+	DefaultValues string                          `json:"default_values"`
+	ChartValues   []*commonservice.RenderChartArg `json:"chart_values"`
 }
 
 type CopyHelmProductArg struct {
@@ -875,11 +878,12 @@ func BulkCopyHelmProduct(projectName, user, requestID string, arg CopyHelmProduc
 			args = append(args, &CreateHelmProductArg{
 				ProductName:   projectName,
 				EnvName:       item.NewName,
-				Namespace:     product.Namespace,
+				Namespace:     "helm-env-" + item.NewName,
 				ClusterID:     product.ClusterID,
 				DefaultValues: item.DefaultValues,
 				RegistryID:    product.RegistryID,
 				BaseEnvName:   product.BaseName,
+				BaseName:      item.BaseName,
 				ChartValues:   item.ChartValues,
 			})
 		} else {
@@ -917,6 +921,7 @@ func BulkCopyYamlProduct(projectName, user, requestID string, arg CopyYamlProduc
 			product.Render.Name = product.Namespace
 			product.ID = primitive.NilObjectID
 			product.Render.Revision = 0
+			product.BaseName = item.BaseName
 			err = CreateProduct(user, requestID, product, log)
 			if err != nil {
 				return err
@@ -961,6 +966,7 @@ func copySingleHelmProduct(productName, requestID, userName string, arg *CreateH
 	productInfo.EnvName = arg.EnvName
 	productInfo.UpdateBy = userName
 	productInfo.ClusterID = arg.ClusterID
+	productInfo.BaseName = arg.BaseName
 	productInfo.Namespace = commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace)
 
 	opt := &commonrepo.RenderSetFindOption{
