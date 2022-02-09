@@ -2873,7 +2873,7 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 			}
 			groupServices = append(groupServices, service)
 		}
-		groupServiceErr := intervalExecutorWithRetry(2, time.Millisecond*2500, serviceList, handler, kubeClient, log)
+		groupServiceErr := intervalExecutorWithRetry(3, time.Second*80, serviceList, handler, kubeClient, log)
 		if groupServiceErr != nil {
 			errList = multierror.Append(errList, groupServiceErr...)
 		}
