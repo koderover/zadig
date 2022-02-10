@@ -500,15 +500,19 @@ func DeleteServiceWebhookByName(serviceName, productName string, logger *zap.Sug
 	ProcessServiceWebhook(nil, svc, serviceName, logger)
 }
 
-func ProcessServiceWebhook(updated, current *commonmodels.Service, serviceName string, logger *zap.SugaredLogger) {
-	// helm service doesn't support webhook
-	if current != nil && current.Type == setting.HelmDeployType {
-		return
+func needProcessWebhook(source string) bool {
+	if source == setting.ServiceSourceTemplate || source == setting.SourceFromZadig || source == setting.SourceFromGerrit ||
+		source == "" || source == setting.SourceFromExternal || source == setting.SourceFromChartTemplate {
+		return false
 	}
+	return true
+}
+
+func ProcessServiceWebhook(updated, current *commonmodels.Service, serviceName string, logger *zap.SugaredLogger) {
 	var action string
 	var updatedHooks, currentHooks []*webhook.WebHook
 	if updated != nil {
-		if updated.Source == setting.ServiceSourceTemplate || updated.Source == setting.SourceFromZadig || updated.Source == setting.SourceFromGerrit || updated.Source == "" || updated.Source == setting.SourceFromExternal {
+		if !needProcessWebhook(updated.Source) {
 			return
 		}
 		action = "add"
@@ -519,7 +523,7 @@ func ProcessServiceWebhook(updated, current *commonmodels.Service, serviceName s
 		updatedHooks = append(updatedHooks, &webhook.WebHook{Owner: updated.RepoOwner, Repo: updated.RepoName, Address: address, Name: "trigger", CodeHostID: updated.CodehostID})
 	}
 	if current != nil {
-		if current.Source == setting.ServiceSourceTemplate || current.Source == setting.SourceFromZadig || current.Source == setting.SourceFromGerrit || current.Source == "" || current.Source == setting.SourceFromExternal {
+		if !needProcessWebhook(current.Source) {
 			return
 		}
 		action = "remove"

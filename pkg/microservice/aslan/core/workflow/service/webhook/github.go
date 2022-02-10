@@ -33,7 +33,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collie"
 	gitservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/git"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
@@ -430,13 +429,14 @@ func ProcessGithubWebHook(payload []byte, req *http.Request, requestID string, l
 		return err
 	}
 
-	go collie.CallGithubWebHook(forwardedProto, forwardedHost, payload, github.WebHookType(req), log)
+	//go collie.CallGithubWebHook(forwardedProto, forwardedHost, payload, github.WebHookType(req), log)
 
 	deliveryID := github.DeliveryID(req)
 	log.Infof("[Webhook] event: %s delivery id: %s received", hookType, deliveryID)
 
 	switch et := event.(type) {
 	case *github.PullRequestEvent:
+		log.Infof("###### the PullRequestEvent is %+v", *et)
 		if *et.Action != "opened" && *et.Action != "synchronize" {
 			return nil
 		}
@@ -448,11 +448,9 @@ func ProcessGithubWebHook(payload []byte, req *http.Request, requestID string, l
 		}
 
 	case *github.PushEvent:
-		//触发更新服务模板webhook
-		if pushEvent, isPush := event.(*github.PushEvent); isPush {
-			if err = updateServiceTemplateByGithubPush(pushEvent, log); err != nil {
-				log.Errorf("updateServiceTemplateByGithubPush failed, error:%v", err)
-			}
+		// sync service template
+		if err = updateServiceTemplateByGithubPush(et, log); err != nil {
+			log.Errorf("updateServiceTemplateByGithubPush failed, error:%v", err)
 		}
 
 		//add webhook user
@@ -597,7 +595,7 @@ func updateServiceTemplateByGithubPush(pushEvent *github.PushEvent, log *zap.Sug
 
 func GetGithubServiceTemplates() ([]*commonmodels.Service, error) {
 	opt := &commonrepo.ServiceListOption{
-		Type:   setting.K8SDeployType,
+		//Type:   setting.K8SDeployType,
 		Source: setting.SourceFromGithub,
 	}
 	return commonrepo.NewServiceColl().ListMaxRevisions(opt)

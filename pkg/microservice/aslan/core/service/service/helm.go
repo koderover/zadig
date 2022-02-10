@@ -554,8 +554,8 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 
 			err = copyChartRevision(projectName, serviceName, rev)
 			if err != nil {
-				log.Errorf("Failed to copy file %s, err: %s", args.Name, err)
-				finalErr = errors.Wrapf(err, "Failed to copy chart info, service %s", args.Name)
+				log.Errorf("Failed to copy file %s, err: %s", serviceName, err)
+				finalErr = errors.Wrapf(err, "Failed to copy chart info, service %s", serviceName)
 				return
 			}
 
@@ -919,10 +919,23 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 
 	log.Infof("Starting to create service %s with revision %d", args.ServiceName, args.ServiceRevision)
 
+	currentSvcTmpl, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+		ProductName:         args.ProductName,
+		ServiceName:         args.ServiceName,
+		ExcludeStatus:       setting.ProductStatusDeleting,
+		IgnoreNoDocumentErr: true,
+	})
+	if err != nil {
+		log.Errorf("Failed to find current service template %s error: %s", args.ServiceName, err)
+		return nil, err
+	}
+
 	if err = commonrepo.NewServiceColl().Create(serviceObj); err != nil {
 		log.Errorf("Failed to create service %s error: %s", args.ServiceName, err)
 		return nil, err
 	}
+
+	commonservice.ProcessServiceWebhook(serviceObj, currentSvcTmpl, args.ServiceName, logger)
 
 	if err = templaterepo.NewProductColl().AddService(args.ProductName, args.ServiceName); err != nil {
 		log.Errorf("Failed to add service %s to project %s, err: %s", args.ProductName, args.ServiceName, err)

@@ -37,15 +37,16 @@ import (
 )
 
 type ServiceFindOption struct {
-	ServiceName   string
-	Revision      int64
-	Type          string
-	Source        string
-	ProductName   string
-	ExcludeStatus string
-	CodehostID    int
-	RepoName      string
-	BranchName    string
+	ServiceName         string
+	Revision            int64
+	Type                string
+	Source              string
+	ProductName         string
+	ExcludeStatus       string
+	CodehostID          int
+	RepoName            string
+	BranchName          string
+	IgnoreNoDocumentErr bool
 }
 
 type ServiceListOption struct {
@@ -206,6 +207,9 @@ func (c *ServiceColl) Find(opt *ServiceFindOption) (*models.Service, error) {
 
 	err := c.FindOne(context.TODO(), query, opts).Decode(service)
 	if err != nil {
+		if err == mongo.ErrNoDocuments && opt.IgnoreNoDocumentErr {
+			return nil, nil
+		}
 		return nil, err
 	}
 

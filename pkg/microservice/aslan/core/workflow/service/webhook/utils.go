@@ -24,6 +24,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
+
 	"github.com/google/go-github/v35/github"
 	"github.com/hashicorp/go-multierror"
 	"github.com/xanzy/go-gitlab"
@@ -133,6 +135,52 @@ func fillServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sugar
 		}
 
 		log.Infof("find %d containers in service %s", len(args.Containers), args.ServiceName)
+	} else if args.Type == setting.HelmDeployType {
+		if args.Source == setting.SourceFromGitlab {
+			// Set args.Commit
+			if err := syncLatestCommit(args); err != nil {
+				log.Errorf("Sync change log from gitlab failed, error: %v", err)
+				return err
+			}
+
+			_, err := service.CreateOrUpdateHelmServiceFromGitRepo(args.ProductName, &service.HelmServiceCreationArgs{
+				HelmLoadSource: service.HelmLoadSource{
+					Source: service.LoadFromRepo,
+				},
+				CreatedBy: "system",
+				CreateFrom: &service.CreateFromRepo{
+					CodehostID: args.CodehostID,
+					Owner:      args.RepoOwner,
+					Repo:       args.RepoName,
+					Branch:     args.BranchName,
+					Paths:      []string{args.LoadPath},
+				},
+			}, log)
+
+			if err != nil {
+				log.Errorf("Sync content from github failed, error: %v", err)
+				return err
+			}
+		} else if args.Source == setting.SourceFromGithub {
+			_, err := service.CreateOrUpdateHelmServiceFromGitRepo(args.ProductName, &service.HelmServiceCreationArgs{
+				HelmLoadSource: service.HelmLoadSource{
+					Source: service.LoadFromRepo,
+				},
+				CreatedBy: "system",
+				CreateFrom: &service.CreateFromRepo{
+					CodehostID: args.CodehostID,
+					Owner:      args.RepoOwner,
+					Repo:       args.RepoName,
+					Branch:     args.BranchName,
+					Paths:      []string{args.LoadPath},
+				},
+			}, log)
+
+			if err != nil {
+				log.Errorf("Sync content from github failed, error: %v", err)
+				return err
+			}
+		}
 	}
 
 	// 设置新的版本号
