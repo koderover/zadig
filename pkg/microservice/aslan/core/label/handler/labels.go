@@ -82,15 +82,6 @@ func DeleteLabels(c *gin.Context) {
 	ctx.Err = service.DeleteLabels(deleteLabelsArgs.IDs, forceBool, ctx.Logger)
 }
 
-func DeleteLabelsAndBindingsByProject(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	projectName := c.Query("projectName")
-
-	ctx.Err = service.DeleteLabelsAndBindingsByProject(projectName, ctx.Logger)
-}
-
 func ListResourcesByLabels(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

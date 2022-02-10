@@ -41,9 +41,9 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collie"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
+	service2 "github.com/koderover/zadig/pkg/microservice/aslan/core/label/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
-	"github.com/koderover/zadig/pkg/shared/client/label"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
 	configclient "github.com/koderover/zadig/pkg/shared/config"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -955,8 +955,8 @@ func DeletePolicy(productName string, log *zap.SugaredLogger) error {
 }
 
 func DeleteLabels(productName string, log *zap.SugaredLogger) error {
-	if err := label.New().DeleteLabelsByProject(productName); err != nil {
-		log.Errorf("DeleteLabels err: %s", err)
+	if err := service2.DeleteLabelsAndBindingsByProject(productName, log); err != nil {
+		log.Errorf("delete labels and bindings by project fail , err :%s", err)
 		return err
 	}
 	return nil

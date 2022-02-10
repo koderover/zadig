@@ -42,10 +42,11 @@ func CreateLabels(arg *CreateLabelsArgs, userName string) (*CreateLabelsResp, er
 		}
 		keyValues.Insert(keyValue)
 		tmpModel := models.Label{
-			Key:      v.Key,
-			Value:    v.Value,
-			CreateBy: userName,
-			Type:     v.Type,
+			Key:         v.Key,
+			Value:       v.Value,
+			CreateBy:    userName,
+			Type:        v.Type,
+			ProjectName: v.ProjectName,
 		}
 		filteredLabels = append(filteredLabels, &tmpModel)
 	}
@@ -244,8 +245,19 @@ func DeleteLabelsAndBindingsByProject(projectName string, logger *zap.SugaredLog
 		return err
 	}
 
+	ids := []string{}
+	for _, label := range labels {
+		ids = append(ids, label.ID.Hex())
+	}
+
+	labelBindings, err := mongodb.NewLabelBindingColl().ListByOpt(&mongodb.LabelBindingCollFindOpt{LabelIDs: ids})
+	if err != nil {
+		logger.Errorf("list labelbingding err:%s", err)
+		return err
+	}
+
 	var labelBindingIDs []string
-	for _, labelBinding := range labels {
+	for _, labelBinding := range labelBindings {
 		labelBindingIDs = append(labelBindingIDs, labelBinding.ID.Hex())
 	}
 
