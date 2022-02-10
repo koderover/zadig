@@ -1022,6 +1022,8 @@ func buildDeliveryCharts(chartDataMap map[string]*DeliveryChartData, deliveryVer
 // send hook
 func sendVersionDeliveryHook(projectName, version, host, urlPath string) error {
 
+	log.Infof("send version delivery hook: %s/%s", host, urlPath)
+
 	deliveryVersion, err := commonrepo.NewDeliveryVersionColl().Get(&commonrepo.DeliveryVersionArgs{
 		ProductName: projectName,
 		Version:     version,
@@ -1105,7 +1107,7 @@ func sendVersionDeliveryHook(projectName, version, host, urlPath string) error {
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("hook request send code error: %d", resp.StatusCode)
+		return fmt.Errorf("hook request send to url: %s get reponse with error code: %d", targetPath, resp.StatusCode)
 	}
 
 	return nil
