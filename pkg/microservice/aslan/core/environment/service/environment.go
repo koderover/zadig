@@ -1094,9 +1094,20 @@ func prepareEstimatedData(productName, envName, serviceName, usageScenario, defa
 	switch usageScenario {
 	case usageScenarioUpdateEnv:
 		imageRelatedKey := sets.NewString()
-		for _, container := range templateService.Containers {
-			if container.ImagePath != nil {
-				imageRelatedKey.Insert(container.ImagePath.Image, container.ImagePath.Repo, container.ImagePath.Tag)
+		proSvcMap := productInfo.GetServiceMap()
+		proSvc := proSvcMap[serviceName]
+		if proSvc != nil {
+			existUpdate, err := checkServiceImageUpdate(productName, serviceName, proSvc)
+			if err != nil {
+				log.Errorf("checkServiceImageUpdate, productName %s,svcname %s,err %s", productName, serviceName, err)
+				return "", "", fmt.Errorf("checkServiceImageUpdate,productName %s, svcname %s,err %s", productName, serviceName, err)
+			}
+			if !existUpdate {
+				for _, container := range templateService.Containers {
+					if container.ImagePath != nil {
+						imageRelatedKey.Insert(container.ImagePath.Image, container.ImagePath.Repo, container.ImagePath.Tag)
+					}
+				}
 			}
 		}
 
@@ -1344,16 +1355,16 @@ func UpdateMultipleHelmEnv(requestID string, args *UpdateMultiHelmProductArg, lo
 		}
 	}
 
-	serviceList, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(args.ProductName)
-	if err != nil {
-		log.Infof("query services from product: %s fail, error %s", args.ProductName, err.Error())
-		return envStatuses, e.ErrUpdateEnv.AddDesc("failed to query services")
-	}
+	// serviceList, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(args.ProductName)
+	// if err != nil {
+	// 	log.Infof("query services from product: %s fail, error %s", args.ProductName, err.Error())
+	// 	return envStatuses, e.ErrUpdateEnv.AddDesc("failed to query services")
+	// }
 
-	serviceMap := make(map[string]*commonmodels.Service)
-	for _, singleService := range serviceList {
-		serviceMap[singleService.ServiceName] = singleService
-	}
+	// serviceMap := make(map[string]*commonmodels.Service)
+	// for _, singleService := range serviceList {
+	// 	serviceMap[singleService.ServiceName] = singleService
+	// }
 
 	// extract values.yaml and update renderset
 	for envName := range productMap {
@@ -2694,15 +2705,30 @@ func diffRenderSet(username, productName, envName, updateType string, productRes
 			}
 		}
 
-		serviceMap := productResp.GetServiceMap()
+		opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
+		productCur, err := commonrepo.NewProductColl().Find(opt)
+		if err != nil {
+			log.Errorf("GetProduct envName:%s, productName:%s, err:%s", envName, productName, err)
+			return nil, fmt.Errorf("GetProduct envName:%s, productName:%s, err:%s", envName, productName, err)
+		}
+		serviceMap := productCur.GetServiceMap()
+		serviceRespMap := productResp.GetServiceMap()
 		for serviceName, latestChartInfo := range tmpLatestChartInfoMap {
 			if currentChartInfo, ok := tmpCurrentChartInfoMap[serviceName]; ok {
-				serviceInfo := serviceMap[serviceName]
+				serviceInfoResp := serviceRespMap[serviceName]
+				serviceInfoCur := serviceMap[serviceName]
 				imageRelatedKey := sets.NewString()
-				if serviceInfo != nil {
-					for _, container := range serviceInfo.Containers {
-						if container.ImagePath != nil {
-							imageRelatedKey.Insert(container.ImagePath.Image, container.ImagePath.Repo, container.ImagePath.Tag)
+				if serviceInfoResp != nil && serviceInfoCur != nil {
+					existUpdate, err := checkServiceImageUpdate(productName, serviceName, serviceInfoCur)
+					if err != nil {
+						log.Errorf("checkServiceImageUpdate,productName %s,svcname %s,err %s", productName, serviceName, err)
+						return nil, fmt.Errorf("checkServiceImageUpdate,productName %s,svcname %s,err %s", productName, serviceName, err)
+					}
+					if !existUpdate {
+						for _, container := range serviceInfoResp.Containers {
+							if container.ImagePath != nil {
+								imageRelatedKey.Insert(container.ImagePath.Image, container.ImagePath.Repo, container.ImagePath.Tag)
+							}
 						}
 					}
 				}
@@ -2748,6 +2774,32 @@ func diffRenderSet(username, productName, envName, updateType string, productRes
 		return nil, err
 	}
 	return renderSet, nil
+}
+
+//checkServiceImageUpdate If the service does not do any mirroring iterations on the platform, the latest YAML is used when updating the environment
+func checkServiceImageUpdate(productName, serviceName string, serviceInfo *commonmodels.ProductService) (bool, error) {
+	existUpdate := false
+	curEnvService, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+		ServiceName: serviceName,
+		ProductName: productName,
+		Type:        setting.HelmDeployType,
+		Revision:    serviceInfo.Revision,
+	})
+	if err != nil {
+		log.Errorf("failed to query service, name %s, Revision %d,err %s", serviceName, serviceInfo.Revision, err)
+		return existUpdate, fmt.Errorf("failed to query service, name %s,Revision %d,err %s", serviceName, serviceInfo.Revision, err)
+	}
+
+L:
+	for _, curContainer := range curEnvService.Containers {
+		for _, proContainer := range serviceInfo.Containers {
+			if curContainer.Image == proContainer.Image {
+				existUpdate = true
+				break L
+			}
+		}
+	}
+	return existUpdate, nil
 }
 
 // for keys exist in both yaml, current values will override latest values
