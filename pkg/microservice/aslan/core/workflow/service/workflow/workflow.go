@@ -503,22 +503,16 @@ func validateWorkflowHookNames(w *commonmodels.Workflow) error {
 	return validateHookNames(names)
 }
 
-func ListWorkflows(projects []string, userID string, log *zap.SugaredLogger) ([]*Workflow, error) {
-	existingProjects, err := template.NewProductColl().ListNames(projects)
-	if err != nil {
-		log.Errorf("Failed to list projects, err: %s", err)
-		return nil, e.ErrListWorkflow.AddDesc(err.Error())
-	}
+func ListWorkflows(workflowNames []string, projectName string, userID string, log *zap.SugaredLogger) ([]*Workflow, error) {
 
-	workflows, err := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{Projects: existingProjects})
+	workflows, err := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{Names: workflowNames})
 	if err != nil {
 		log.Errorf("Failed to list workflows, err: %s", err)
 		return nil, e.ErrListWorkflow.AddDesc(err.Error())
 	}
 
-	var workflowNames []string
 	var res []*Workflow
-	workflowCMMap, err := collaboration.GetWorkflowCMMap(projects, log)
+	workflowCMMap, err := collaboration.GetWorkflowCMMap([]string{projectName}, log)
 	if err != nil {
 		return nil, err
 	}
