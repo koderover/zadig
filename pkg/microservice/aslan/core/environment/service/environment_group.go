@@ -74,7 +74,11 @@ func ListGroups(serviceName, envName, productName string, perPage, page int, log
 		log.Errorf("[%s][%s] error: %v", envName, productName, err)
 		return resp, count, e.ErrListGroups.AddDesc(err.Error())
 	}
-	inf := informer.NewInformer(productInfo.ClusterID, productInfo.Namespace, cls)
+	inf, err := informer.NewInformer(productInfo.ClusterID, productInfo.Namespace, cls)
+	if err != nil {
+		log.Errorf("[%s][%s] error: %v", envName, productName, err)
+		return resp, count, e.ErrListGroups.AddDesc(err.Error())
+	}
 
 	//这种针对的是获取所有数据的接口，内部调用
 	if page == 0 && perPage == 0 {

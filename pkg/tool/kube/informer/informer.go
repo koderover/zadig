@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 
@@ -39,14 +40,14 @@ var StopChanMap sync.Map
 // - Service
 // - Pod
 // - Ingress (extentions/v1beta1) <- as of version 1.9.0, this is the resource we watch
-func NewInformer(clusterID, namespace string, cls *kubernetes.Clientset) informers.SharedInformerFactory {
+func NewInformer(clusterID, namespace string, cls *kubernetes.Clientset) (informers.SharedInformerFactory, error) {
 	// this is a stupid compatibility code
 	if clusterID == "" {
 		clusterID = setting.LocalClusterID
 	}
 	key := generateInformerKey(clusterID, namespace)
 	if informer, ok := InformersMap.Load(key); ok {
-		return informer.(informers.SharedInformerFactory)
+		return informer.(informers.SharedInformerFactory), nil
 	}
 	opts := informers.WithNamespace(namespace)
 	informerFactory := informers.NewSharedInformerFactoryWithOptions(cls, time.Minute, opts)
@@ -55,7 +56,20 @@ func NewInformer(clusterID, namespace string, cls *kubernetes.Clientset) informe
 	informerFactory.Apps().V1().StatefulSets().Lister()
 	informerFactory.Core().V1().Services().Lister()
 	informerFactory.Core().V1().Pods().Lister()
-	informerFactory.Extensions().V1beta1().Ingresses().Lister()
+	versionInfo, err := cls.Discovery().ServerVersion()
+	if err != nil {
+		return nil, err
+	}
+	currVersion, _ := version.ParseGeneric(versionInfo.String())
+	v122, _ := version.ParseGeneric("v1.22.0")
+	// if less than v1.22.0, then we look for the extensions/v1beta1 ingress
+	if currVersion.LessThan(v122) {
+		informerFactory.Extensions().V1beta1().Ingresses().Lister()
+	} else {
+		// otherwise above resource is deprecated, we watch for the k8s.networking.io/v1 ingress
+		informerFactory.Networking().V1().Ingresses().Lister()
+	}
+
 	// stop channel will be stored for future stop
 	stopchan := make(chan struct{})
 	informerFactory.Start(stopchan)
@@ -71,7 +85,7 @@ func NewInformer(clusterID, namespace string, cls *kubernetes.Clientset) informe
 	}
 	InformersMap.Store(key, informerFactory)
 	StopChanMap.Store(key, stopchan)
-	return informerFactory
+	return informerFactory, nil
 }
 
 func DeleteInformer(clusterID, namespace string) {

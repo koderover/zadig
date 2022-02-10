@@ -223,7 +223,11 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		log.Errorf("[%s][%s] error: %v", envName, namespace, err)
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
 	}
-	informer := informer.NewInformer(clusterID, namespace, cls)
+	informer, err := informer.NewInformer(clusterID, namespace, cls)
+	if err != nil {
+		log.Errorf("[%s][%s] error: %v", envName, namespace, err)
+		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
+	}
 	var workLoads []*Workload
 	listDeployments, err := getter.ListDeploymentsWithCache(nil, informer)
 	if err != nil {
