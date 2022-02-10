@@ -72,25 +72,10 @@ func ListProducts(c *gin.Context) {
 		ctx.Resp = []*service.ProductResp{}
 		return
 	}
-	//req := &policy.ResourcePermissionReq{
-	//	ProjectName:  projectName,
-	//	Uid:          ctx.UserID,
-	//	Resources:    envNames,
-	//	ResourceType: "Environment",
-	//}
-	//resourcePermission, err := policy.NewDefault().GetResourcePermission(req)
-	//if err != nil {
-	//	ctx.Err = err
-	//	return
-	//}
-	//fmt.Println("%v", resourcePermission)
-	//
-	//switch c.Query(setting.Subresource) {
-	//case setting.IngressSubresource:
-	//	ctx.Resp, ctx.Err = service.GetProductIngress(projectName, ctx.Logger)
-	//	return
-	//}
 
+	if len(envNames) == 1 && envNames[0] == "*" {
+		envNames = []string{}
+	}
 	ctx.Resp, ctx.Err = service.ListProducts(projectName, envNames, ctx.Logger)
 }
 

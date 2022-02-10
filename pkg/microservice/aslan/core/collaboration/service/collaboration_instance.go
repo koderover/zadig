@@ -20,6 +20,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type GetCollaborationUpdateResp struct {
@@ -662,6 +663,46 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 				},
 			})
 		}
+
+		clusterMap := make(map[string]*models2.K8SCluster)
+		clusters, err := commonrepo.NewK8SClusterColl().List(nil)
+		if err != nil {
+			log.Errorf("Failed to list clusters, err: %s", err)
+			return err
+		}
+
+		for _, cls := range clusters {
+			clusterMap[cls.ID.Hex()] = cls
+		}
+
+		lisOpt := mongodb2.ListLabelOpt{
+			[]mongodb2.Label{
+				{
+					Key:   "production",
+					Value: "false",
+				},
+				{
+					Key:   "production",
+					Value: "true",
+				},
+			},
+		}
+		labels, err := mongodb2.NewLabelColl().List(lisOpt)
+		if err != nil {
+			log.Errorf("Failed to list labels, err: %s", err)
+			return err
+		}
+		if len(labels) != 2 {
+			return fmt.Errorf("production labels len not equal 2")
+		}
+		var productLabelID, nonProductLabelID string
+		for _, label := range labels {
+			if label.Value == "false" {
+				nonProductLabelID = label.ID.Hex()
+			} else {
+				productLabelID = label.ID.Hex()
+			}
+		}
 		for _, product := range item.NewSpec.Products {
 			labelValue := buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeProduct), product.Name)
 			labelId, ok := labelIdMap[service.BuildLabelString("policy", labelValue)]
@@ -680,7 +721,32 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 					ProjectName: projectName,
 				},
 			})
+			// find if the product is production. to fit the role
+
+			pro, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+				Name:    projectName,
+				EnvName: name,
+			})
+			if err != nil {
+				return err
+			}
+			lb := &mongodb2.LabelBinding{
+				Resource: mongodb2.Resource{
+					Name:        pro.EnvName,
+					ProjectName: pro.ProductName,
+					Type:        "Environment",
+				},
+				CreateBy: "system",
+			}
+			cluster, ok := clusterMap[pro.ClusterID]
+			if ok && cluster.Production {
+				lb.LabelID = productLabelID
+			} else {
+				lb.LabelID = nonProductLabelID
+			}
+			newBindings = append(newBindings, lb)
 		}
+
 		for _, workflow := range item.UpdateSpec.Workflows {
 			if workflow.Old.CollaborationType == config.CollaborationShare && workflow.New.CollaborationType == config.CollaborationNew {
 				labelValue := buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeWorkflow), workflow.New.Name)

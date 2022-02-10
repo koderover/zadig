@@ -13,6 +13,8 @@ rules:
           - key: "production"
             value: "false"
       - method: GET
+        endpoint: "/api/aslan/environment/environments"
+      - method: GET
         endpoint: "/api/aslan/environment/environments/?*"
         resourceType: "Environment"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)$"
