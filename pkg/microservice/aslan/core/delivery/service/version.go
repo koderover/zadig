@@ -1020,16 +1020,8 @@ func buildDeliveryCharts(chartDataMap map[string]*DeliveryChartData, deliveryVer
 }
 
 // send hook
-func sendVersionDeliveryHook(projectName, version, host, urlPath string) error {
-
-	deliveryVersion, err := commonrepo.NewDeliveryVersionColl().Get(&commonrepo.DeliveryVersionArgs{
-		ProductName: projectName,
-		Version:     version,
-	})
-	if err != nil {
-		return err
-	}
-
+func sendVersionDeliveryHook(deliveryVersion *commonmodels.DeliveryVersion, host, urlPath string) error {
+	projectName, version := deliveryVersion.ProductName, deliveryVersion.Version
 	ret := &DeliveryVersionHookPayload{
 		ProjectName: projectName,
 		Version:     version,
@@ -1105,7 +1097,7 @@ func sendVersionDeliveryHook(projectName, version, host, urlPath string) error {
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("hook request send code error: %d", resp.StatusCode)
+		return fmt.Errorf("hook request send to url: %s got error code : %d", targetPath, resp.StatusCode)
 	}
 
 	return nil
@@ -1133,7 +1125,7 @@ func updateVersionStatus(versionName, projectName, status, errStr string) {
 		} else {
 			hookConfig := templateProduct.DeliveryVersionHook
 			if hookConfig != nil && hookConfig.Enable {
-				err = sendVersionDeliveryHook(projectName, versionName, hookConfig.HookHost, hookConfig.Path)
+				err = sendVersionDeliveryHook(versionInfo, hookConfig.HookHost, hookConfig.Path)
 				if err != nil {
 					log.Errorf("updateVersionStatus failed to send version delivery hook, projectName: %s, err: %s", projectName, err)
 				}
