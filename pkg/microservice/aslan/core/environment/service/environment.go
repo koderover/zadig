@@ -1097,10 +1097,10 @@ func prepareEstimatedData(productName, envName, serviceName, usageScenario, defa
 		proSvcMap := productInfo.GetServiceMap()
 		proSvc := proSvcMap[serviceName]
 		if proSvc != nil {
-			existUpdate, err := checkServiceImageUpdate(productName, serviceName, proSvc)
+			existUpdate, err := checkServiceImageUpdated(productName, serviceName, proSvc)
 			if err != nil {
-				log.Errorf("checkServiceImageUpdate, productName %s,svcname %s,err %s", productName, serviceName, err)
-				return "", "", fmt.Errorf("checkServiceImageUpdate,productName %s, svcname %s,err %s", productName, serviceName, err)
+				log.Errorf("checkServiceImageUpdated, productName %s,svcname %s,err %s", productName, serviceName, err)
+				return "", "", fmt.Errorf("checkServiceImageUpdated,productName %s, svcname %s,err %s", productName, serviceName, err)
 			}
 			if !existUpdate {
 				for _, container := range templateService.Containers {
@@ -2719,10 +2719,10 @@ func diffRenderSet(username, productName, envName, updateType string, productRes
 				serviceInfoCur := serviceMap[serviceName]
 				imageRelatedKey := sets.NewString()
 				if serviceInfoResp != nil && serviceInfoCur != nil {
-					existUpdate, err := checkServiceImageUpdate(productName, serviceName, serviceInfoCur)
+					existUpdate, err := checkServiceImageUpdated(productName, serviceName, serviceInfoCur)
 					if err != nil {
-						log.Errorf("checkServiceImageUpdate,productName %s,svcname %s,err %s", productName, serviceName, err)
-						return nil, fmt.Errorf("checkServiceImageUpdate,productName %s,svcname %s,err %s", productName, serviceName, err)
+						log.Errorf("checkServiceImageUpdated,productName %s,svcname %s,err %s", productName, serviceName, err)
+						return nil, fmt.Errorf("checkServiceImageUpdated,productName %s,svcname %s,err %s", productName, serviceName, err)
 					}
 					if !existUpdate {
 						for _, container := range serviceInfoResp.Containers {
@@ -2776,8 +2776,8 @@ func diffRenderSet(username, productName, envName, updateType string, productRes
 	return renderSet, nil
 }
 
-//checkServiceImageUpdate If the service does not do any mirroring iterations on the platform, the latest YAML is used when updating the environment
-func checkServiceImageUpdate(productName, serviceName string, serviceInfo *commonmodels.ProductService) (bool, error) {
+//checkServiceImageUpdated If the service does not do any mirroring iterations on the platform, the latest YAML is used when updating the environment
+func checkServiceImageUpdated(productName, serviceName string, serviceInfo *commonmodels.ProductService) (bool, error) {
 	existUpdate := false
 	curEnvService, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
 		ServiceName: serviceName,
