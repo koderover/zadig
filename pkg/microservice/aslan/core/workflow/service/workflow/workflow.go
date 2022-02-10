@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
@@ -503,12 +504,27 @@ func validateWorkflowHookNames(w *commonmodels.Workflow) error {
 	return validateHookNames(names)
 }
 
-func ListWorkflows(workflowNames []string, projectName string, userID string, log *zap.SugaredLogger) ([]*Workflow, error) {
+func ListWorkflows(workflowNames []string, projectName string, projects []string, userID string, log *zap.SugaredLogger) ([]*Workflow, error) {
 
-	workflows, err := commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{Names: workflowNames})
-	if err != nil {
-		log.Errorf("Failed to list workflows, err: %s", err)
-		return nil, e.ErrListWorkflow.AddDesc(err.Error())
+	var workflows []*models.Workflow
+	var err error
+	if len(projects) != 0 {
+		existingProjects, err := template.NewProductColl().ListNames(projects)
+		if err != nil {
+			log.Errorf("Failed to list projects, err: %s", err)
+			return nil, e.ErrListWorkflow.AddDesc(err.Error())
+		}
+		workflows, err = commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{Projects: existingProjects})
+		if err != nil {
+			log.Errorf("Failed to list workflows, err: %s", err)
+			return nil, e.ErrListWorkflow.AddDesc(err.Error())
+		}
+	} else {
+		workflows, err = commonrepo.NewWorkflowColl().List(&commonrepo.ListWorkflowOption{Names: workflowNames})
+		if err != nil {
+			log.Errorf("Failed to list workflows, err: %s", err)
+			return nil, e.ErrListWorkflow.AddDesc(err.Error())
+		}
 	}
 
 	var res []*Workflow

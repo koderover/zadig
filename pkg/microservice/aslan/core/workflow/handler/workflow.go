@@ -118,18 +118,19 @@ func ListWorkflows(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	projects := c.QueryArray("projects")
 	projectName := c.Query("projectName")
-	if projectName != "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc(" projectName can not be set together")
-		return
+	if projectName != "" && len(projects) > 0 {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projects and projectName can not be set together")
 	}
+
 	workflowNames, found := internalhandler.GetResourcesInHeader(c)
 	if found && len(workflowNames) == 0 {
 		ctx.Resp = nil
 		return
 	}
 
-	ctx.Resp, ctx.Err = workflow.ListWorkflows(workflowNames, projectName, ctx.UserID, ctx.Logger)
+	ctx.Resp, ctx.Err = workflow.ListWorkflows(workflowNames, projectName, projects, ctx.UserID, ctx.Logger)
 }
 
 func ListTestWorkflows(c *gin.Context) {
