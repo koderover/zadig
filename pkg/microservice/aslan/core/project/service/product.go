@@ -43,6 +43,7 @@ import (
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/label"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
 	configclient "github.com/koderover/zadig/pkg/shared/config"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -387,6 +388,11 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 
 	if err = DeletePolicy(productName, log); err != nil {
 		log.Errorf("DeletePolicy  productName %s  err: %s", productName, err)
+		return err
+	}
+
+	if err = DeleteLabels(productName, log); err != nil {
+		log.Errorf("DeleteLabels  productName %s  err: %s", productName, err)
 		return err
 	}
 
@@ -943,6 +949,14 @@ func DeletePolicy(productName string, log *zap.SugaredLogger) error {
 		Names: []string{},
 	}); err != nil {
 		log.Errorf("DeletePolicies err :%s", err)
+		return err
+	}
+	return nil
+}
+
+func DeleteLabels(productName string, log *zap.SugaredLogger) error {
+	if err := label.New().DeleteLabelsByProject(productName); err != nil {
+		log.Errorf("DeleteLabels err: %s", err)
 		return err
 	}
 	return nil

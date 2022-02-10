@@ -85,6 +85,17 @@ func (c *Client) ListLabels(request ListLabelsArgs) (*ListLabelsResp, error) {
 	return resources, nil
 }
 
+func (c *Client) DeleteLabelsByProject(projectName string) error {
+	url := "/label/labels/bulk-delete-project" + "?projectName=" + projectName
+
+	_, err := c.Post(url)
+	if err != nil {
+		log.Errorf("Failed to DeleteLabelsByProject, error: %s", err)
+		return err
+	}
+	return nil
+}
+
 type ListLabelsByResourcesReq struct {
 	Resources []Resource `json:"resources"`
 }

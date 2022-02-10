@@ -236,3 +236,27 @@ func DeleteLabels(ids []string, forceDelete bool, logger *zap.SugaredLogger) err
 
 	return mongodb.NewLabelColl().BulkDelete(ids)
 }
+
+func DeleteLabelsAndBindingsByProject(projectName string, logger *zap.SugaredLogger) error {
+
+	labels, err := mongodb.NewLabelColl().ListByProjectName(projectName)
+	if err != nil {
+		return err
+	}
+
+	var labelBindingIDs []string
+	for _, labelBinding := range labels {
+		labelBindingIDs = append(labelBindingIDs, labelBinding.ID.Hex())
+	}
+
+	if err := mongodb.NewLabelBindingColl().BulkDeleteByIds(labelBindingIDs); err != nil {
+		logger.Errorf("NewLabelBindingColl DeleteMany err :%s", err)
+		return err
+	}
+
+	if err := mongodb.NewLabelColl().BulkDeleteByProject(projectName); err != nil {
+		logger.Errorf("DeleteLabelsByProject err:%s", err)
+		return err
+	}
+	return nil
+}
