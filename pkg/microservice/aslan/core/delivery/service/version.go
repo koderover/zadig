@@ -25,7 +25,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -1077,11 +1076,13 @@ func sendVersionDeliveryHook(projectName, version, host, urlPath string) error {
 		return err
 	}
 
-	u, err := url.Parse(host)
+	targetPath := fmt.Sprintf("%s/%s", host, strings.TrimPrefix(urlPath, "/"))
+
+	// validate url
+	_, err = url.Parse(targetPath)
 	if err != nil {
 		return err
 	}
-	u.Path = path.Join(u.Path, urlPath)
 
 	reqBody, err := json.Marshal(ret)
 	if err != nil {
@@ -1089,7 +1090,7 @@ func sendVersionDeliveryHook(projectName, version, host, urlPath string) error {
 		return err
 	}
 
-	request, err := http.NewRequest("POST", u.String(), bytes.NewBuffer(reqBody))
+	request, err := http.NewRequest("POST", targetPath, bytes.NewBuffer(reqBody))
 	if err != nil {
 		return err
 	}
@@ -1113,6 +1114,19 @@ func sendVersionDeliveryHook(projectName, version, host, urlPath string) error {
 func updateVersionStatus(versionName, projectName, status, errStr string) {
 	// send hook info when version build finished
 	if status == setting.DeliveryVersionStatusSuccess {
+
+		versionInfo, err := commonrepo.NewDeliveryVersionColl().Get(&commonrepo.DeliveryVersionArgs{
+			ProductName: projectName,
+			Version:     versionName,
+		})
+		if err != nil {
+			log.Errorf("failed to find version: %s of project %s", versionName, projectName)
+			return
+		}
+		if versionInfo.Status == status {
+			return
+		}
+
 		templateProduct, err := templaterepo.NewProductColl().Find(projectName)
 		if err != nil {
 			log.Errorf("updateVersionStatus failed to find template product: %s, err: %s", projectName, err)
