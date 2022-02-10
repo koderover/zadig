@@ -429,14 +429,11 @@ func ProcessGithubWebHook(payload []byte, req *http.Request, requestID string, l
 		return err
 	}
 
-	//go collie.CallGithubWebHook(forwardedProto, forwardedHost, payload, github.WebHookType(req), log)
-
 	deliveryID := github.DeliveryID(req)
 	log.Infof("[Webhook] event: %s delivery id: %s received", hookType, deliveryID)
 
 	switch et := event.(type) {
 	case *github.PullRequestEvent:
-		log.Infof("###### the PullRequestEvent is %+v", *et)
 		if *et.Action != "opened" && *et.Action != "synchronize" {
 			return nil
 		}
@@ -595,7 +592,6 @@ func updateServiceTemplateByGithubPush(pushEvent *github.PushEvent, log *zap.Sug
 
 func GetGithubServiceTemplates() ([]*commonmodels.Service, error) {
 	opt := &commonrepo.ServiceListOption{
-		//Type:   setting.K8SDeployType,
 		Source: setting.SourceFromGithub,
 	}
 	return commonrepo.NewServiceColl().ListMaxRevisions(opt)
