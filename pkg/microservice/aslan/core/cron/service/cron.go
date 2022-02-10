@@ -39,9 +39,11 @@ func CleanJobCronJob(log *zap.SugaredLogger) {
 	workflowSelector := labels.Set{"p-type": "workflow"}.AsSelector()
 	singleSelector := labels.Set{"p-type": "single"}.AsSelector()
 	testSelector := labels.Set{"p-type": "test"}.AsSelector()
+	artifactSelector := labels.Set{"p-type": "artifact"}.AsSelector()
 	cleanJob(config.Namespace(), workflowSelector, kubeClient, log)
 	cleanJob(config.Namespace(), singleSelector, kubeClient, log)
 	cleanJob(config.Namespace(), testSelector, kubeClient, log)
+	cleanJob(config.Namespace(), artifactSelector, kubeClient, log)
 	cleanServiceJob(kubeClient, log)
 	log.Infof("finnish clean job...")
 }
@@ -52,9 +54,11 @@ func CleanConfigmapCronJob(log *zap.SugaredLogger) {
 	workflowSelector := labels.Set{"p-type": "workflow"}.AsSelector()
 	singleSelector := labels.Set{"p-type": "single"}.AsSelector()
 	testSelector := labels.Set{"p-type": "test"}.AsSelector()
+	artifactSelector := labels.Set{"p-type": "artifact"}.AsSelector()
 	cleanConfigmap(config.Namespace(), workflowSelector, kubeClient, log)
 	cleanConfigmap(config.Namespace(), singleSelector, kubeClient, log)
 	cleanConfigmap(config.Namespace(), testSelector, kubeClient, log)
+	cleanConfigmap(config.Namespace(), artifactSelector, kubeClient, log)
 	cleanServiceConfigmap(kubeClient, log)
 	log.Infof("finnish clean configmap...")
 }
