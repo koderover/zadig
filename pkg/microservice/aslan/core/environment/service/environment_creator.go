@@ -29,6 +29,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	mongodb2 "github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -339,6 +340,72 @@ func (creator *DefaultProductCreator) Create(user, requestID string, args *model
 	if err != nil {
 		log.Errorf("[%s][%s] create product record error: %v", args.EnvName, args.ProductName, err)
 		return e.ErrCreateEnv.AddDesc(err.Error())
+	}
+	// 创建lb
+	clusterMap := make(map[string]*models.K8SCluster)
+	clusters, err := commonrepo.NewK8SClusterColl().List(nil)
+	if err != nil {
+		log.Errorf("Failed to list clusters, err: %s", err)
+		return err
+	}
+
+	for _, cls := range clusters {
+		clusterMap[cls.ID.Hex()] = cls
+	}
+
+	lisOpt := mongodb2.ListLabelOpt{
+		[]mongodb2.Label{
+			{
+				Key:   "production",
+				Value: "false",
+			},
+			{
+				Key:   "production",
+				Value: "true",
+			},
+		},
+	}
+	labels, err := mongodb2.NewLabelColl().List(lisOpt)
+	if err != nil {
+		log.Errorf("Failed to list labels, err: %s", err)
+		return err
+	}
+	if len(labels) != 2 {
+		return fmt.Errorf("production labels len not equal 2")
+	}
+	var productLabelID, nonProductLabelID string
+	for _, label := range labels {
+		if label.Value == "false" {
+			nonProductLabelID = label.ID.Hex()
+		} else {
+			productLabelID = label.ID.Hex()
+		}
+	}
+
+	pro, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    args.ProductName,
+		EnvName: args.EnvName,
+	})
+	if err != nil {
+		return err
+	}
+	lb := &mongodb2.LabelBinding{
+		Resource: mongodb2.Resource{
+			Name:        pro.EnvName,
+			ProjectName: pro.ProductName,
+			Type:        "Environment",
+		},
+		CreateBy: "system",
+	}
+	cluster, ok := clusterMap[pro.ClusterID]
+	if ok && cluster.Production {
+		lb.LabelID = productLabelID
+	} else {
+		lb.LabelID = nonProductLabelID
+	}
+
+	if err := mongodb2.NewLabelBindingColl().CreateMany([]*mongodb2.LabelBinding{lb}); err != nil {
+		return err
 	}
 	// 异步创建产品
 	go createGroups(args.EnvName, user, requestID, args, eventStart, renderSet, kubeClient, log)
