@@ -1097,7 +1097,7 @@ func sendVersionDeliveryHook(deliveryVersion *commonmodels.DeliveryVersion, host
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("hook request send to url: %s got error code : %d", targetPath, resp.StatusCode)
+		return fmt.Errorf("hook request send to url: %s got error resp code : %d", targetPath, resp.StatusCode)
 	}
 
 	return nil
@@ -1112,7 +1112,7 @@ func updateVersionStatus(versionName, projectName, status, errStr string) {
 			Version:     versionName,
 		})
 		if err != nil {
-			log.Errorf("failed to find version: %s of project %s", versionName, projectName)
+			log.Errorf("failed to find version: %s of project %s, err: %s", versionName, projectName, err)
 			return
 		}
 		if versionInfo.Status == status {
