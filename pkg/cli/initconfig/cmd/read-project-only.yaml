@@ -17,3 +17,19 @@ rules:
     match_attributes:
       - key: placeholder
         value: placeholder
+  - verbs:
+      - get_build
+      - get_service
+    resources:
+      - Service
+    kind: resource
+  - verbs:
+      - get_test
+    resources:
+      - Test
+    kind: resource
+  - verbs:
+      - get_delivery
+    resources:
+      - Delivery
+    kind: resource
