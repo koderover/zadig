@@ -153,11 +153,11 @@ func (c *PolicyBindingColl) DeleteByPolicies(policyNames []string, projectName s
 	if projectName == "" {
 		return fmt.Errorf("projectName is empty")
 	}
-	if len(policyNames) == 0 {
-		return nil
-	}
 
-	query := bson.M{"policy_ref.name": bson.M{"$in": policyNames}, "policy_ref.namespace": projectName, "namespace": projectName}
+	query := bson.M{"policy_ref.namespace": projectName, "namespace": projectName}
+	if len(policyNames) != 0 {
+		query["policy_ref.name"] = bson.M{"$in": policyNames}
+	}
 	_, err := c.Collection.DeleteMany(context.TODO(), query)
 
 	return err
