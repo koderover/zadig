@@ -2312,6 +2312,7 @@ func installOrUpgradeHelmChartWithValues(namespace, valuesYaml string, renderCha
 		Version:     renderChart.ChartVersion,
 		ValuesYaml:  valuesYaml,
 		UpgradeCRDs: true,
+		MaxHistory:  10,
 		//CleanupOnFail: true,
 	}
 	if isRetry {

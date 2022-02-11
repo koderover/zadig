@@ -570,6 +570,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			Timeout:     time.Second * setting.DeployTimeout,
 			Wait:        true,
 			Replace:     true,
+			MaxHistory:  10,
 		}
 
 		done := make(chan bool)
