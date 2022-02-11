@@ -21,6 +21,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type Testing struct {
@@ -48,6 +49,12 @@ type Testing struct {
 	Registries     []*RegistryNamespace `bson:"-"                               json:"registries"`
 	ClusterID      string               `bson:"cluster_id"                      json:"cluster_id"`
 	Namespace      string               `bson:"namespace"                       json:"namespace"`
+
+	// New since V1.10.0.
+	Cache        types.Cache        `bson:"cache"               json:"cache"`
+	CacheEnable  bool               `bson:"cache_enable"        json:"cache_enable"`
+	CacheDirType types.CacheDirType `bson:"cache_dir_type"      json:"cache_dir_type"`
+	CacheUserDir string             `bson:"cache_user_dir"      json:"cache_user_dir"`
 }
 
 func (t *Testing) ToSubTask() (map[string]interface{}, error) {

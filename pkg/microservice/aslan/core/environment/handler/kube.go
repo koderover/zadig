@@ -55,7 +55,8 @@ func ListAvailableNamespaces(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	clusterID := c.Query("clusterId")
-	ctx.Resp, ctx.Err = service.ListAvailableNamespaces(clusterID, ctx.Logger)
+	listType := c.Query("type")
+	ctx.Resp, ctx.Err = service.ListAvailableNamespaces(clusterID, listType, ctx.Logger)
 }
 
 func ListServicePods(c *gin.Context) {

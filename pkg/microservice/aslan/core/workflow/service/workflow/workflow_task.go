@@ -432,6 +432,8 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 							Key:          moduleEnv.Key,
 							Value:        moduleEnv.Value,
 							IsCredential: moduleEnv.IsCredential,
+							ChoiceOption: moduleEnv.ChoiceOption,
+							Type:         moduleEnv.Type,
 						})
 					}
 				}
@@ -525,7 +527,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 	// 获取全局configpayload
 	configPayload := commonservice.GetConfigPayload(args.CodehostID)
 	if len(env.RegistryID) == 0 {
-		reg, err := commonservice.FindDefaultRegistry(false, log)
+		reg, _, err := commonservice.FindDefaultRegistry(false, log)
 		if err != nil {
 			log.Errorf("get default registry error: %v", err)
 			return nil, e.ErrGetCounter.AddDesc(err.Error())
@@ -731,20 +733,21 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		CommitID:       args.CommitID,
 	}
 	task := &task.Task{
-		TaskID:        nextTaskID,
-		Type:          config.WorkflowType,
-		ProductName:   workflow.ProductTmplName,
-		PipelineName:  args.WorkflowName,
-		Description:   args.Description,
-		TaskCreator:   taskCreator,
-		ReqID:         args.ReqID,
-		Status:        config.StatusCreated,
-		Stages:        stages,
-		WorkflowArgs:  args,
-		ConfigPayload: configPayload,
-		StorageURI:    defaultS3StoreURL,
-		ResetImage:    workflow.ResetImage,
-		TriggerBy:     triggerBy,
+		TaskID:           nextTaskID,
+		Type:             config.WorkflowType,
+		ProductName:      workflow.ProductTmplName,
+		PipelineName:     args.WorkflowName,
+		Description:      args.Description,
+		TaskCreator:      taskCreator,
+		ReqID:            args.ReqID,
+		Status:           config.StatusCreated,
+		Stages:           stages,
+		WorkflowArgs:     args,
+		ConfigPayload:    configPayload,
+		StorageURI:       defaultS3StoreURL,
+		ResetImage:       workflow.ResetImage,
+		ResetImagePolicy: workflow.ResetImagePolicy,
+		TriggerBy:        triggerBy,
 	}
 
 	if len(task.Stages) <= 0 {
@@ -977,7 +980,7 @@ func createReleaseImageTask(workflow *commonmodels.Workflow, args *commonmodels.
 	if err != nil {
 		log.Errorf("failed to build registry map, err: %s", err)
 		// use default registry
-		reg, err := commonservice.FindDefaultRegistry(true, log)
+		reg, _, err := commonservice.FindDefaultRegistry(true, log)
 		if err != nil {
 			log.Errorf("can't find default candidate registry, err: %s", err)
 			return nil, e.ErrFindRegistry.AddDesc(err.Error())
@@ -1750,20 +1753,21 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 		CommitID:       args.CommitID,
 	}
 	task := &task.Task{
-		TaskID:        nextTaskID,
-		Type:          config.WorkflowType,
-		ProductName:   workflow.ProductTmplName,
-		PipelineName:  args.WorkflowName,
-		Description:   args.Description,
-		TaskCreator:   taskCreator,
-		ReqID:         args.ReqID,
-		Status:        config.StatusCreated,
-		Stages:        stages,
-		WorkflowArgs:  args,
-		ConfigPayload: configPayload,
-		StorageURI:    defaultS3StoreURL,
-		ResetImage:    workflow.ResetImage,
-		TriggerBy:     triggerBy,
+		TaskID:           nextTaskID,
+		Type:             config.WorkflowType,
+		ProductName:      workflow.ProductTmplName,
+		PipelineName:     args.WorkflowName,
+		Description:      args.Description,
+		TaskCreator:      taskCreator,
+		ReqID:            args.ReqID,
+		Status:           config.StatusCreated,
+		Stages:           stages,
+		WorkflowArgs:     args,
+		ConfigPayload:    configPayload,
+		StorageURI:       defaultS3StoreURL,
+		ResetImage:       workflow.ResetImage,
+		ResetImagePolicy: workflow.ResetImagePolicy,
+		TriggerBy:        triggerBy,
 	}
 
 	if len(task.Stages) <= 0 {
@@ -1848,6 +1852,21 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 			ClusterID:    module.PreBuild.ClusterID,
 		}
 
+		clusterInfo, err := commonrepo.NewK8SClusterColl().Get(module.PreBuild.ClusterID)
+		if err != nil {
+			return nil, e.ErrConvertSubTasks.AddErr(err)
+		}
+		build.Cache = clusterInfo.Cache
+
+		// If the cluster is not configured with a cache medium, the cache cannot be used, so don't enable cache explicitly.
+		if build.Cache.MediumType == "" {
+			build.CacheEnable = false
+		} else {
+			build.CacheEnable = module.CacheEnable
+			build.CacheDirType = module.CacheDirType
+			build.CacheUserDir = module.CacheUserDir
+		}
+
 		if args.TaskType != "" {
 			build.TaskType = config.TaskArtifactDeploy
 		}
@@ -1916,7 +1935,7 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 				//私钥信息可能被更新，而构建中存储的信息是旧的，需要根据id获取最新的私钥信息
 				latestKeyInfo, err := commonrepo.NewPrivateKeyColl().Find(commonrepo.FindPrivateKeyOption{ID: sshID})
 				if err != nil || latestKeyInfo == nil {
-					log.Errorf("PrivateKey.Find failed, id:%s, err:%v", sshID, err)
+					log.Errorf("PrivateKey.Find failed, id:%s, err:%s", sshID, err)
 					continue
 				}
 				ssh := new(task.SSH)
@@ -2082,14 +2101,14 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 				// 注意: 其他任务从 pt.TaskArgs.Deploy.Image 获取, 必须要有编译任务
 				var reg *commonmodels.RegistryNamespace
 				if len(exitedProd.RegistryID) > 0 {
-					reg, err = commonservice.FindRegistryById(exitedProd.RegistryID, true, log)
+					reg, _, err = commonservice.FindRegistryById(exitedProd.RegistryID, true, log)
 					if err != nil {
 						log.Errorf("service.EnsureRegistrySecret: failed to find registry: %s error msg:%v",
 							exitedProd.RegistryID, err)
 						return e.ErrFindRegistry.AddDesc(err.Error())
 					}
 				} else {
-					reg, err = commonservice.FindDefaultRegistry(true, log)
+					reg, _, err = commonservice.FindDefaultRegistry(true, log)
 					if err != nil {
 						log.Errorf("can't find default candidate registry: %v", err)
 						return e.ErrFindRegistry.AddDesc(err.Error())

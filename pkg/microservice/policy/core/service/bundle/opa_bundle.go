@@ -241,18 +241,50 @@ func (o policyBindings) Less(i, j int) bool {
 	return o[i].UID < o[j].UID
 }
 
-func generateOPARoles(roles []*models.Role, policies []*models.PolicyMeta) *opaRoles {
+func generateOPARoles(roles []*models.Role, policyMetas []*models.PolicyMeta) *opaRoles {
 	data := &opaRoles{}
-	resourceMappings := getResourceActionMappings(policies)
+	resourceMappings := getResourceActionMappings(policyMetas)
 
 	for _, ro := range roles {
-		opaRole := &role{Name: ro.Name, Namespace: ro.Namespace}
+		verbAttrMap := make(map[string]sets.String)
+		resourceVerbs := make(map[string]sets.String)
 		for _, r := range ro.Rules {
-			if r.Kind == models.KindResource {
-				for _, res := range r.Resources {
-					opaRole.Rules = append(opaRole.Rules, resourceMappings.GetRules(res, r.Verbs)...)
+			for _, verb := range r.Verbs {
+				if verbs, ok := resourceVerbs[r.Resources[0]]; ok {
+					for _, v := range r.Verbs {
+						verbs.Insert(v)
+					}
+					resourceVerbs[r.Resources[0]] = verbs
+				} else {
+					verbSet := sets.String{}
+					for _, v := range r.Verbs {
+						verbSet.Insert(v)
+					}
+					resourceVerbs[r.Resources[0]] = verbSet
 				}
-			} else {
+				if attrs, ok := verbAttrMap[verb]; ok {
+					for _, attribute := range r.MatchAttributes {
+						attrs.Insert(attribute.Key + "&&" + attribute.Value)
+					}
+					verbAttrMap[verb] = attrs
+				} else {
+					attrSet := sets.String{}
+					for _, attribute := range r.MatchAttributes {
+						attrSet.Insert(attribute.Key + "&&" + attribute.Value)
+					}
+					verbAttrMap[verb] = attrSet
+				}
+			}
+		}
+
+		//TODO - mouuii change role model to policy model
+		opaRole := &role{Name: ro.Name, Namespace: ro.Namespace}
+		for resource, verbs := range resourceVerbs {
+			ruleList := resourceMappings.GetPolicyRules(resource, verbs.List(), verbAttrMap)
+			opaRole.Rules = append(opaRole.Rules, ruleList...)
+		}
+		for _, r := range ro.Rules {
+			if r.Kind != models.KindResource {
 				if len(r.Verbs) == 1 && r.Verbs[0] == models.MethodAll {
 					r.Verbs = AllMethods
 				}
@@ -262,15 +294,11 @@ func generateOPARoles(roles []*models.Role, policies []*models.PolicyMeta) *opaR
 					}
 				}
 			}
-
 		}
-
 		sort.Sort(opaRole.Rules)
 		data.Roles = append(data.Roles, opaRole)
 	}
-
 	sort.Sort(data.Roles)
-
 	return data
 }
 

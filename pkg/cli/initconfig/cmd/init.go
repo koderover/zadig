@@ -48,6 +48,9 @@ var contributor []byte
 //go:embed read-only.yaml
 var readOnly []byte
 
+//go:embed read-project-only.yaml
+var readProjectOnly []byte
+
 //go:embed admin.yaml
 var admin []byte
 
@@ -188,7 +191,7 @@ func presetRole() error {
 		return policy.NewDefault().CreateSystemRole(systemRole.Name, systemRole)
 	})
 
-	rolesArray := [][]byte{readOnly, contributor, projectAdmin, readProjectOnly}
+	rolesArray := [][]byte{readOnly, readProjectOnly, contributor, projectAdmin}
 
 	for _, v := range rolesArray {
 		role := &policy.Role{}

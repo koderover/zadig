@@ -128,7 +128,13 @@ func ListWorkflows(c *gin.Context) {
 		projects = []string{c.Query("projectName")}
 	}
 
-	ctx.Resp, ctx.Err = workflow.ListWorkflows(projects, ctx.UserID, ctx.Logger)
+	workflowNames, found := internalhandler.GetResourcesInHeader(c)
+	if found && len(workflowNames) == 0 {
+		ctx.Resp = []*workflow.Workflow{}
+		return
+	}
+
+	ctx.Resp, ctx.Err = workflow.ListWorkflows(projects, ctx.UserID, workflowNames, ctx.Logger)
 }
 
 func ListTestWorkflows(c *gin.Context) {

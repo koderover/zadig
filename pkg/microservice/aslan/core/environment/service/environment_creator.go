@@ -123,7 +123,20 @@ func newHelmProductCreator() *HelmProductCreator {
 }
 
 func (creator *HelmProductCreator) Create(user, requestID string, args *models.Product, log *zap.SugaredLogger) error {
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), args.ClusterID)
+	clusterID := args.ClusterID
+	if clusterID == "" {
+		projectClusterRelations, err := commonrepo.NewProjectClusterRelationColl().List(&commonrepo.ProjectClusterRelationOption{
+			ProjectName: args.ProductName,
+		})
+		if err != nil {
+			return e.ErrCreateEnv.AddDesc("Failed to get the cluster info selected in the project")
+		}
+		if len(projectClusterRelations) > 0 {
+			clusterID = projectClusterRelations[0].ClusterID
+		}
+	}
+
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
 	if err != nil {
 		log.Errorf("[%s][%s] GetKubeClient error: %v", args.EnvName, args.ProductName, err)
 		return e.ErrCreateEnv.AddErr(err)
@@ -209,6 +222,7 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 
 	args.Status = setting.ProductStatusCreating
 	args.RecycleDay = config.DefaultRecycleDay()
+	args.ClusterID = clusterID
 	if args.IsForkedProduct {
 		args.RecycleDay = 7
 	}
@@ -280,7 +294,20 @@ func newDefaultProductCreator() *DefaultProductCreator {
 }
 
 func (creator *DefaultProductCreator) Create(user, requestID string, args *models.Product, log *zap.SugaredLogger) error {
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), args.ClusterID)
+	// get project cluster relation
+	clusterID := args.ClusterID
+	if clusterID == "" {
+		projectClusterRelations, err := commonrepo.NewProjectClusterRelationColl().List(&commonrepo.ProjectClusterRelationOption{
+			ProjectName: args.ProductName,
+		})
+		if err != nil {
+			return e.ErrCreateEnv.AddDesc("Failed to get the cluster info selected in the project")
+		}
+		if len(projectClusterRelations) > 0 {
+			clusterID = projectClusterRelations[0].ClusterID
+		}
+	}
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
 	if err != nil {
 		return e.ErrCreateEnv.AddErr(err)
 	}
@@ -290,14 +317,16 @@ func (creator *DefaultProductCreator) Create(user, requestID string, args *model
 	if args.Namespace == "" {
 		args.Namespace = namespace
 	}
-	_, found, err := getter.GetNamespace(args.Namespace, kubeClient)
-	if err != nil {
-		log.Errorf("GetNamespace error: %v", err)
-		return e.ErrCreateEnv.AddDesc(err.Error())
-	}
-	if found {
-		return e.ErrCreateEnv.AddDesc(fmt.Sprintf("%s[%s]%s", "namespace", args.Namespace, "已经存在,请换个环境名称尝试!"))
-	}
+	// todo DELETE THIS PART WHEN EXISTING NAMESAPCE IS SUPPORTED
+	//_, found, err := getter.GetNamespace(args.Namespace, kubeClient)
+	//if err != nil {
+	//	log.Errorf("GetNamespace error: %v", err)
+	//	return e.ErrCreateEnv.AddDesc(err.Error())
+	//}
+	//
+	//if found {
+	//	return e.ErrCreateEnv.AddDesc(fmt.Sprintf("%s[%s]%s", "namespace", args.Namespace, "已经存在,请换个环境名称尝试!"))
+	//}
 
 	//创建角色环境之间的关联关系
 	//todo 创建环境暂时不指定角色
@@ -335,6 +364,7 @@ func (creator *DefaultProductCreator) Create(user, requestID string, args *model
 
 	args.Status = setting.ProductStatusCreating
 	args.RecycleDay = config.DefaultRecycleDay()
+	args.ClusterID = clusterID
 	err = commonrepo.NewProductColl().Create(args)
 	if err != nil {
 		log.Errorf("[%s][%s] create product record error: %v", args.EnvName, args.ProductName, err)

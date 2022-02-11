@@ -103,11 +103,6 @@ func UpdateMultiProducts(c *gin.Context) {
 		return
 	}
 
-	if c.Query("auto") != "true" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("auto=true is required")
-		return
-	}
-
 	args := new(UpdateEnvs)
 	data, err := c.GetRawData()
 	if err != nil {
@@ -256,11 +251,6 @@ func CreateProduct(c *gin.Context) {
 
 	if args.EnvName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("envName can not be null!")
-		return
-	}
-
-	if args.RegistryID == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("RegistryId can not be null!")
 		return
 	}
 

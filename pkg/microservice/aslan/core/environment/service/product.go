@@ -176,7 +176,7 @@ func GetProduct(username, envName, productName string, log *zap.SugaredLogger) (
 	}
 
 	if len(prod.RegistryID) == 0 {
-		reg, err := commonservice.FindDefaultRegistry(false, log)
+		reg, _, err := commonservice.FindDefaultRegistry(false, log)
 		if err != nil {
 			log.Errorf("[User:%s][EnvName:%s][Product:%s] FindDefaultRegistry error: %s", username, envName, productName, err)
 			return nil, err
@@ -201,6 +201,7 @@ func buildProductResp(envName string, prod *commonmodels.Product, log *zap.Sugar
 		Error:       prod.Error,
 		Vars:        prod.Vars[:],
 		IsPublic:    prod.IsPublic,
+		IsExisted:   prod.IsExisted,
 		ClusterID:   prod.ClusterID,
 		RecycleDay:  prod.RecycleDay,
 		Source:      prod.Source,

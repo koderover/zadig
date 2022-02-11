@@ -28,6 +28,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/pm"
 	commonutil "github.com/koderover/zadig/pkg/microservice/aslan/core/common/util"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -74,7 +75,11 @@ func CreatePMService(username string, args *ServiceTmplBuildObject, log *zap.Sug
 	if err := commonrepo.NewServiceColl().Delete(args.ServiceTmplObject.ServiceName, args.ServiceTmplObject.Type, args.ServiceTmplObject.ProductName, setting.ProductStatusDeleting, args.ServiceTmplObject.Revision); err != nil {
 		log.Errorf("pmService.delete %s error: %v", args.ServiceTmplObject.ServiceName, err)
 	}
-
+	envStatus, err := pm.GenerateEnvStatus(args.ServiceTmplObject.EnvConfigs, log)
+	if err != nil {
+		log.Errorf("GenerateEnvStatus %s", err)
+		return err
+	}
 	serviceObj := &commonmodels.Service{
 		ServiceName:  args.ServiceTmplObject.ServiceName,
 		Type:         args.ServiceTmplObject.Type,
@@ -82,6 +87,8 @@ func CreatePMService(username string, args *ServiceTmplBuildObject, log *zap.Sug
 		Revision:     args.ServiceTmplObject.Revision,
 		Visibility:   args.ServiceTmplObject.Visibility,
 		HealthChecks: args.ServiceTmplObject.HealthChecks,
+		EnvConfigs:   args.ServiceTmplObject.EnvConfigs,
+		EnvStatuses:  envStatus,
 		CreateTime:   time.Now().Unix(),
 		CreateBy:     username,
 		BuildName:    args.Build.Name,

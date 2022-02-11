@@ -38,5 +38,5 @@ func DeleteSecretWithName(ns, name string, cl client.Client) error {
 			Name:      name,
 		},
 	}
-	return deleteObjects(secret, cl)
+	return deleteObject(secret, cl)
 }

@@ -70,6 +70,10 @@ func (c *K8SClusterColl) Delete(id string) error {
 func (c *K8SClusterColl) Create(cluster *models.K8SCluster, id string) error {
 	if id != "" {
 		cluster.ID, _ = primitive.ObjectIDFromHex(id)
+		// If the local cluster already exists, do not insert，and return nil
+		if _, err := c.Get(id); err == nil {
+			return nil
+		}
 	}
 	res, err := c.InsertOne(context.TODO(), cluster)
 	if oid, ok := res.InsertedID.(primitive.ObjectID); ok {
@@ -113,6 +117,18 @@ func (c *K8SClusterColl) HasDuplicateName(id, name string) (bool, error) {
 	}
 
 	return count > 0, nil
+}
+
+func (c *K8SClusterColl) Count() (int64, error) {
+	query := bson.M{}
+
+	ctx := context.Background()
+	count, err := c.Collection.CountDocuments(ctx, query)
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
 }
 
 func (c *K8SClusterColl) List(opts *ClusterListOpts) ([]*models.K8SCluster, error) {
@@ -194,6 +210,7 @@ func (c *K8SClusterColl) UpdateMutableFields(cluster *models.K8SCluster, id stri
 			"namespace":       cluster.Namespace,
 			"production":      cluster.Production,
 			"advanced_config": cluster.AdvancedConfig,
+			"cache":           cluster.Cache,
 		}},
 	)
 

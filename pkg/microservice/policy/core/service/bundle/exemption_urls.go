@@ -85,6 +85,10 @@ var publicURLs = []*policyRule{
 		Endpoints: []string{"api/v1/features/?*"},
 	},
 	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"api/aslan/system/jenkins/exist"},
+	},
+	{
 		Methods:   []string{"POST"},
 		Endpoints: []string{"api/callback"},
 	},

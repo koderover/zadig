@@ -150,7 +150,6 @@ func (r *Reaper) runIntallationScripts() error {
 }
 
 func (r *Reaper) createReadme(file string) error {
-
 	if r.Ctx.Archive == nil || len(r.Ctx.Repos) == 0 {
 		return nil
 	}
@@ -431,7 +430,7 @@ func (r *Reaper) handleCmdOutput(pipe io.ReadCloser, needPersistentLog bool, log
 			break
 		}
 
-		fmt.Printf("%s", string(lineBytes))
+		fmt.Printf("%s", r.maskSecretEnvs(string(lineBytes)))
 
 		if needPersistentLog {
 			err := util.WriteFile(logFile, lineBytes, 0700)
