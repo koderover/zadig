@@ -53,4 +53,8 @@ var _ = Describe("Math Bot Test", func() {
 	It("20 / 2 = 10", func() {
 		Expect(Executor(20, 2, "/")).Should(Equal(10))
 	})
+
+	It("Demo", func() {
+		Expect(1).Should(Equal(1))
+	})
 })
