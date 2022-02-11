@@ -39,9 +39,10 @@ func CreateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
 
 	for _, r := range role.Rules {
 		obj.Rules = append(obj.Rules, &models.Rule{
-			Verbs:     r.Verbs,
-			Kind:      r.Kind,
-			Resources: r.Resources,
+			Verbs:           r.Verbs,
+			Kind:            r.Kind,
+			Resources:       r.Resources,
+			MatchAttributes: r.MatchAttributes,
 		})
 	}
 
@@ -72,9 +73,10 @@ func UpdateOrCreateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
 
 	for _, r := range role.Rules {
 		obj.Rules = append(obj.Rules, &models.Rule{
-			Verbs:     r.Verbs,
-			Kind:      r.Kind,
-			Resources: r.Resources,
+			Verbs:           r.Verbs,
+			Kind:            r.Kind,
+			Resources:       r.Resources,
+			MatchAttributes: r.MatchAttributes,
 		})
 	}
 	return mongodb.NewRoleColl().UpdateOrCreate(obj)

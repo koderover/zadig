@@ -1,2 +1,19 @@
-name: read-only
+name: read-project-only
+namespace: ''
 rules:
+  - verbs:
+      - get_workflow
+    resources:
+      - Workflow
+    kind: resource
+    match_attributes:
+      - key: placeholder
+        value: placeholder
+  - verbs:
+      - get_environment
+    resources:
+      - Environment
+    kind: resource
+    match_attributes:
+      - key: placeholder
+        value: placeholder

@@ -19,7 +19,7 @@ type Rule struct {
 	// Resources is a list of resources this rule applies to. '*' represents all resources.
 	Resources       []string         `bson:"resources" json:"resources"`
 	Kind            string           `bson:"kind"     json:"kind"`
-	MatchAttributes []MatchAttribute `json:"match_attributes"`
+	MatchAttributes []MatchAttribute `bson:"match_attributes" json:"match_attributes"`
 }
 
 type MatchAttribute struct {
