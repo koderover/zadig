@@ -1355,17 +1355,6 @@ func UpdateMultipleHelmEnv(requestID string, args *UpdateMultiHelmProductArg, lo
 		}
 	}
 
-	// serviceList, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(args.ProductName)
-	// if err != nil {
-	// 	log.Infof("query services from product: %s fail, error %s", args.ProductName, err.Error())
-	// 	return envStatuses, e.ErrUpdateEnv.AddDesc("failed to query services")
-	// }
-
-	// serviceMap := make(map[string]*commonmodels.Service)
-	// for _, singleService := range serviceList {
-	// 	serviceMap[singleService.ServiceName] = singleService
-	// }
-
 	// extract values.yaml and update renderset
 	for envName := range productMap {
 		renderSet, _, err := commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{
