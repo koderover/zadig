@@ -12,8 +12,8 @@ rules:
         endpoint: "/api/aslan/environment/environments"
         resourceType: "Environment"
         matchAttributes:
-          - key: "production"
-            value: "false"
+          - key: "placeholder"
+            value: "placeholder"
       - method: GET
         endpoint: "/api/aslan/environment/environments/?*"
         resourceType: "Environment"
@@ -22,22 +22,22 @@ rules:
         resourceType: "Environment"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)$"
         matchAttributes:
-          - key: "production"
-            value: "false"
+          - key: "placeholder"
+            value: "placeholder"
       - method: GET
         endpoint: "/api/aslan/environment/environments/?*/groups"
         resourceType: "Environment"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/groups$"
         matchAttributes:
-          - key: "production"
-            value: "false"
+          - key: "placeholder"
+            value: "placeholder"
       - method: GET
         endpoint: "/api/aslan/environment/environments/?*/services/?*"
         resourceType: "Environment"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/services/"
         matchAttributes:
-          - key: "production"
-            value: "false"
+          - key: "placeholder"
+            value: "placeholder"
       - method: GET
         endpoint: "/api/aslan/environment/kube/workloads"
       - method: GET
@@ -66,22 +66,22 @@ rules:
         resourceType: "Environment"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/workloads$"
         matchAttributes:
-          - key: "production"
-            value: "false"
+          - key: "placeholder"
+            value: "placeholder"
       - method: GET
         endpoint: "/api/aslan/environment/environments/?*/helm/releases"
         resourceType: "Environment"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/helm/releases$"
         matchAttributes:
-          - key: "production"
-            value: "false"
+          - key: "placeholder"
+            value: "placeholder"
       - method: GET
         endpoint: "/api/aslan/environment/environments/?*/helm/charts"
         resourceType: "Environment"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/helm/charts$"
         matchAttributes:
-          - key: "production"
-            value: "false"
+          - key: "placeholder"
+            value: "placeholder"
       - method: GET
         endpoint: "/api/aslan/environment/diff/products/?*/service/?*"
   - action: create_environment
@@ -92,8 +92,8 @@ rules:
         endpoint: "/api/aslan/environment/environments"
         resourceType: "Cluster"
         matchAttributes:
-          - key: "production"
-            value: "false"
+          - key: "placeholder"
+            value: "placeholder"
       - method: POST
         endpoint: "/api/aslan/service/workloads"
       - method: GET
@@ -104,8 +104,8 @@ rules:
         endpoint: "api/aslan/cluster/clusters"
         resourceType: "Cluster"
         matchAttributes:
-          - key: "production"
-            value: "false"
+          - key: "placeholder"
+            value: "placeholder"
   - action: config_environment
     alias: "配置集成环境"
     description: ""
@@ -114,35 +114,35 @@ rules:
         endpoint: "/api/aslan/environment/environments"
         resourceType: "Environment"
         matchAttributes:
-          - key: "production"
-            value: "false"
+          - key: "placeholder"
+            value: "placeholder"
       - method: PUT
         endpoint: "/api/aslan/environment/environments/?*"
         resourceType: "Environment"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)$"
         matchAttributes:
-          - key: "production"
-            value: "false"
+          - key: "placeholder"
+            value: "placeholder"
       - method: PUT
         endpoint: "/api/aslan/service/pm/healthCheckUpdate"
         resourceType: "Environment"
         matchAttributes:
-          - key: "production"
-            value: "false"
+          - key: "placeholder"
+            value: "placeholder"
       - method: PUT
         endpoint: "/api/aslan/environment/environments/?*/envRecycle"
         resourceType: "Environment"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/envRecycle$"
         matchAttributes:
-          - key: "production"
-            value: "false"
+          - key: "placeholder"
+            value: "placeholder"
       - method: PUT
         endpoint: "/api/aslan/environment/environments/?*/renderset"
         resourceType: "Environment"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/renderset$"
         matchAttributes:
-          - key: "production"
-            value: "false"
+          - key: "placeholder"
+            value: "placeholder"
       - method: PUT
         endpoint: "/api/aslan/service/workloads"
       - method: GET
@@ -152,8 +152,8 @@ rules:
         resourceType: "Environment"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/registry$"
         matchAttributes:
-          - key: "production"
-            value: "false"
+          - key: "placeholder"
+            value: "placeholder"
   - action: manage_environment
     alias: "管理服务实例"
     description: ""
@@ -163,36 +163,36 @@ rules:
         resourceType: "Environment"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/services/"
         matchAttributes:
-          - key: "production"
-            value: "false"
+          - key: "placeholder"
+            value: "placeholder"
       - method: POST
         endpoint: "/api/aslan/environment/environments/?*/services/?*/restartNew"
         resourceType: "Environment"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/services/"
         matchAttributes:
-          - key: "production"
-            value: "false"
+          - key: "placeholder"
+            value: "placeholder"
       - method: POST
         endpoint: "/api/aslan/environment/environments/?*/services/?*/scale"
         resourceType: "Environment"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/services/"
         matchAttributes:
-          - key: "production"
-            value: "false"
+          - key: "placeholder"
+            value: "placeholder"
       - method: POST
         endpoint: "/api/aslan/environment/environments/?*/services/?*/scaleNew"
         resourceType: "Environment"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/services/"
         matchAttributes:
-          - key: "production"
-            value: "false"
+          - key: "placeholder"
+            value: "placeholder"
       - method: PUT
         endpoint: "/api/aslan/environment/environments/?*/services/?*"
         resourceType: "Environment"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/services/"
         matchAttributes:
-          - key: "production"
-            value: "false"
+          - key: "placeholder"
+            value: "placeholder"
       - method: POST
         endpoint: "/api/aslan/environment/image/deployment"
       - method: POST
@@ -216,5 +216,5 @@ rules:
         resourceType: "Environment"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)$"
         matchAttributes:
-          - key: "production"
-            value: "false"
+          - key: "placeholder"
+            value: "placeholder"

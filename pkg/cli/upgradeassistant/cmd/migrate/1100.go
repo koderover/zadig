@@ -19,7 +19,6 @@ package migrate
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -31,8 +30,6 @@ import (
 	"github.com/koderover/zadig/pkg/types"
 
 	"github.com/koderover/zadig/pkg/config"
-	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
-	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	labelModel "github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
 	labelMongodb "github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
@@ -49,10 +46,7 @@ func init() {
 // V190ToV1100 generate labelBindings for production environment
 func V190ToV1100() error {
 	log.Info("Migrating data from 1.9.0 to 1.10.0")
-	if err := generateProductionEnv(); err != nil {
-		log.Errorf("Failed to generateProductionEnv, err: %s", err)
-		return err
-	}
+
 	if err := changePolicyCollectionName(); err != nil {
 		log.Errorf("Failed to changePolicyCollectionName, err: %s", err)
 		return err
@@ -183,23 +177,6 @@ func deleteLabelAndLabelBindings() error {
 
 }
 
-func generateProductionEnv() error {
-	// create label key=product value=true
-	err := createLabels()
-	if err != nil {
-		log.Errorf("fail to createLabels , err:%s", err)
-		return err
-	}
-
-	// create labelBindings for environment resources
-	if err := createLabelBindings(); err != nil {
-		log.Errorf("fail to createLabelBindings,err:%s", err)
-		return err
-	}
-
-	return nil
-}
-
 func newLabelColl() *labelMongodb.LabelColl {
 	name := labelModel.Label{}.TableName()
 	return &labelMongodb.LabelColl{
@@ -215,100 +192,6 @@ func newPolicyColl() *mongo.Collection {
 func newPolicyMetaColl() *mongo.Collection {
 	collection := mongotool.Database(fmt.Sprintf("%s_policy", config.MongoDatabase())).Collection("policy_meta")
 	return collection
-}
-
-func createLabels() error {
-	var toCreateLabels []*labelModel.Label
-	productEnvLabel := &labelModel.Label{
-		Type:       "system",
-		Key:        "production",
-		Value:      "true",
-		CreateBy:   "system",
-		CreateTime: time.Now().Unix(),
-	}
-	nonProductEnvLabel := &labelModel.Label{
-		Type:       "system",
-		Key:        "production",
-		Value:      "false",
-		CreateBy:   "system",
-		CreateTime: time.Now().Unix(),
-	}
-	toCreateLabels = append(toCreateLabels, productEnvLabel, nonProductEnvLabel)
-	if err := newLabelColl().BulkCreate(toCreateLabels); err != nil {
-		log.Errorf("fail to BulkCreate , err:%s", err)
-		return err
-	}
-	return nil
-}
-
-func createLabelBindings() error {
-	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{})
-	if err != nil {
-		log.Errorf("fail to List ProductColl, err:%s", err)
-		return err
-	}
-	clusterMap := make(map[string]*commonmodels.K8SCluster)
-	clusters, err := commonrepo.NewK8SClusterColl().List(nil)
-	if err != nil {
-		log.Errorf("Failed to list clusters, err: %s", err)
-		return err
-	}
-
-	for _, cls := range clusters {
-		clusterMap[cls.ID.Hex()] = cls
-	}
-	lisOpt := labelMongodb.ListLabelOpt{
-		[]labelMongodb.Label{
-			{
-				Key:   "production",
-				Value: "false",
-			},
-			{
-				Key:   "production",
-				Value: "true",
-			},
-		},
-	}
-	labels, err := newLabelColl().List(lisOpt)
-	if err != nil {
-		log.Errorf("Failed to list labels, err: %s", err)
-		return err
-	}
-	if len(labels) != 2 {
-		return fmt.Errorf("production labels len not equal 2")
-	}
-	var productLabelID, nonProductLabelID string
-	for _, label := range labels {
-		if label.Value == "false" {
-			nonProductLabelID = label.ID.Hex()
-		} else {
-			productLabelID = label.ID.Hex()
-		}
-	}
-	var labelBindings []*labelMongodb.LabelBinding
-	for _, env := range envs {
-		lb := &labelMongodb.LabelBinding{
-			Resource: labelMongodb.Resource{
-				Name:        env.EnvName,
-				ProjectName: env.ProductName,
-				Type:        "Environment",
-			},
-			CreateBy: "system",
-		}
-		cluster, ok := clusterMap[env.ClusterID]
-		if ok && cluster.Production {
-			lb.LabelID = productLabelID
-		} else {
-			lb.LabelID = nonProductLabelID
-		}
-		labelBindings = append(labelBindings, lb)
-	}
-
-	if err := labelMongodb.NewLabelBindingColl().CreateMany(labelBindings); err != nil {
-		log.Errorf("Failed toCreateMany labels, err: %s", err)
-		return err
-	}
-	return nil
 }
 
 func migrateModuleBuild() error {
