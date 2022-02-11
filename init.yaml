@@ -1,0 +1,63 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: zadig-init
+  namespace: zadig
+spec:
+  backoffLimit: 10
+  completions: 2
+  parallelism: 1
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+    spec:
+      containers:
+        - args:
+            - init
+          env:
+            - name: ADMIN_PASSWORD
+              value: zadig
+            - name: ADMIN_EMAIL
+              value: admin@example.com
+            - name: ADDRESS
+              value: http://poc.example.com
+          image:  ccr.ccs.tencentyun.com/koderover-rc/init:20220211154419-amd64
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 10
+            httpGet:
+              path: /healthz
+              port: 8081
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: init-job
+          resources:
+            limits:
+              cpu: 200m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          startupProbe:
+            failureThreshold: 10
+            httpGet:
+              path: /healthz
+              port: 8081
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 1
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      imagePullSecrets:
+        - name: qn-registry-secret
+      restartPolicy: Never
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30

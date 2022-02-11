@@ -133,7 +133,7 @@ type Role struct {
 		Verbs           []string         `json:"verbs"`
 		Resources       []string         `json:"resources"`
 		Kind            string           `json:"kind"`
-		MatchAttributes []MatchAttribute `json:"matchattributes,omitempty"`
+		MatchAttributes []MatchAttribute `json:"match_attributes,omitempty"`
 	} `json:"rules"`
 }
 
