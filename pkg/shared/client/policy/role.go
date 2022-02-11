@@ -130,9 +130,10 @@ func (c *Client) CreatePublicRole(name string, role *Role) error {
 type Role struct {
 	Name  string `json:"name"`
 	Rules []*struct {
-		Verbs     []string `json:"verbs"`
-		Resources []string `json:"resources"`
-		Kind      string   `json:"kind"`
+		Verbs           []string         `json:"verbs"`
+		Resources       []string         `json:"resources"`
+		Kind            string           `json:"kind"`
+		MatchAttributes []MatchAttribute `json:"matchattributes,omitempty"`
 	} `json:"rules"`
 }
 
