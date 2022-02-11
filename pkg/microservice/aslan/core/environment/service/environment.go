@@ -2387,7 +2387,7 @@ func installProductHelmCharts(user, envName, requestID string, args *commonmodel
 
 			serviceList = append(serviceList, serviceObj)
 		}
-		serviceGroupErr := intervalExecutorWithRetry(3, time.Millisecond*2500, serviceList, handler, log)
+		serviceGroupErr := batchExecutorWithRetry(3, time.Millisecond*2500, serviceList, handler, log)
 		if serviceGroupErr != nil {
 			errList = multierror.Append(errList, serviceGroupErr...)
 		}
@@ -2456,14 +2456,14 @@ func getUpdatedProductServices(updateProduct *commonmodels.Product, serviceRevis
 	return updatedAllServices
 }
 
-func intervalExecutorWithRetry(retryCount uint64, interval time.Duration, serviceList []*commonmodels.Service, handler intervalExecutorHandler, log *zap.SugaredLogger) []error {
+func batchExecutorWithRetry(retryCount uint64, interval time.Duration, serviceList []*commonmodels.Service, handler intervalExecutorHandler, log *zap.SugaredLogger) []error {
 	bo := backoff.NewConstantBackOff(time.Second * 3)
 	retryBo := backoff.WithMaxRetries(bo, retryCount)
 	errList := make([]error, 0)
 	isRetry := false
 	_ = backoff.Retry(func() error {
 		failedServices := make([]*commonmodels.Service, 0)
-		errList = intervalExecutor(interval, serviceList, &failedServices, isRetry, handler, log)
+		errList = batchExecutor(interval, serviceList, &failedServices, isRetry, handler, log)
 		if len(errList) == 0 {
 			return nil
 		}
@@ -2475,32 +2475,20 @@ func intervalExecutorWithRetry(retryCount uint64, interval time.Duration, servic
 	return errList
 }
 
-func intervalExecutor(interval time.Duration, serviceList []*commonmodels.Service, failedServices *[]*commonmodels.Service, isRetry bool, handler intervalExecutorHandler, log *zap.SugaredLogger) []error {
+func batchExecutor(interval time.Duration, serviceList []*commonmodels.Service, failedServices *[]*commonmodels.Service, isRetry bool, handler intervalExecutorHandler, log *zap.SugaredLogger) []error {
 	if len(serviceList) == 0 {
 		return nil
 	}
-	wg := sync.WaitGroup{}
-	var failLock sync.Mutex
-	wg.Add(len(serviceList))
 	errList := make([]error, 0)
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
 	for _, data := range serviceList {
-		go func(singleService *commonmodels.Service) {
-			defer wg.Done()
-			err := handler(singleService, isRetry, log)
-			if err != nil {
-				failLock.Lock()
-				defer failLock.Unlock()
-				errList = append(errList, err)
-				*failedServices = append(*failedServices, singleService)
-				log.Errorf("service:%s apply failed, err %s", singleService.ServiceName, err)
-			}
-		}(data)
-		<-ticker.C
+		err := handler(data, isRetry, log)
+		if err != nil {
+			errList = append(errList, err)
+			*failedServices = append(*failedServices, data)
+			log.Errorf("service:%s apply failed, err %s", data.ServiceName, err)
+		}
+		time.Sleep(time.Second)
 	}
-	wg.Wait()
 	return errList
 }
 
@@ -2606,7 +2594,7 @@ func updateProductGroup(username, productName, envName, updateType string, produ
 			serviceList = append(serviceList, serviceObj)
 		}
 
-		serviceGroupErr := intervalExecutorWithRetry(3, time.Millisecond*2500, serviceList, handler, log)
+		serviceGroupErr := batchExecutorWithRetry(3, time.Millisecond*2500, serviceList, handler, log)
 		if serviceGroupErr != nil {
 			errList = multierror.Append(errList, serviceGroupErr...)
 		}
@@ -2887,7 +2875,7 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 			}
 			groupServices = append(groupServices, service)
 		}
-		groupServiceErr := intervalExecutorWithRetry(3, time.Millisecond*2500, serviceList, handler, log)
+		groupServiceErr := batchExecutorWithRetry(3, time.Millisecond*2500, serviceList, handler, log)
 		if groupServiceErr != nil {
 			errList = multierror.Append(errList, groupServiceErr...)
 		}
