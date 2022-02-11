@@ -468,7 +468,8 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 				Key: "policy",
 				Value: buildLabelValue(projectName, mode.Name, identityType, userName,
 					string(config2.ResourceTypeWorkflow), workflow.Name),
-				Type: "system",
+				Type:        "system",
+				ProjectName: projectName,
 			})
 		}
 		for _, product := range mode.Products {
@@ -476,7 +477,8 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 				Key: "policy",
 				Value: buildLabelValue(projectName, mode.Name, identityType, userName,
 					string(config2.ResourceTypeProduct), product.Name),
-				Type: "system",
+				Type:        "system",
+				ProjectName: projectName,
 			})
 		}
 	}
@@ -486,7 +488,8 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 				Key: "policy",
 				Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName,
 					string(config2.ResourceTypeWorkflow), workflow.Name),
-				Type: "system",
+				Type:        "system",
+				ProjectName: projectName,
 			})
 		}
 		for _, product := range item.NewSpec.Products {
@@ -494,7 +497,8 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 				Key: "policy",
 				Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName,
 					string(config2.ResourceTypeProduct), product.Name),
-				Type: "system",
+				Type:        "system",
+				ProjectName: projectName,
 			})
 		}
 		for _, workflow := range item.DeleteSpec.Workflows {
@@ -502,7 +506,8 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 				Key: "policy",
 				Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName,
 					string(config2.ResourceTypeWorkflow), workflow.BaseName),
-				Type: "system",
+				Type:        "system",
+				ProjectName: projectName,
 			})
 		}
 		for _, product := range item.DeleteSpec.Products {
@@ -510,7 +515,8 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 				Key: "policy",
 				Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName,
 					string(config2.ResourceTypeProduct), product.BaseName),
-				Type: "system",
+				Type:        "system",
+				ProjectName: projectName,
 			})
 		}
 

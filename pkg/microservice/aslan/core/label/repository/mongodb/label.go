@@ -91,6 +91,35 @@ func (c *LabelColl) BulkDelete(ids []string) error {
 	return err
 }
 
+func (c *LabelColl) BulkDeleteByProject(projectName string) error {
+	if projectName == "" {
+		return nil
+	}
+
+	query := bson.M{}
+	query["project_name"] = projectName
+	_, err := c.DeleteMany(context.TODO(), query)
+	return err
+}
+
+func (c *LabelColl) ListByProjectName(projectName string) ([]*models.Label, error) {
+	query := bson.M{}
+	var res []*models.Label
+	query["project_name"] = projectName
+	opts := options.Find()
+	ctx := context.Background()
+	opts.SetSort(bson.D{{"key", 1}})
+	cursor, err := c.Collection.Find(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	err = cursor.All(ctx, &res)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
 func (c *LabelColl) Find(id string) (*models.Label, error) {
 	res := new(models.Label)
 	oid, err := primitive.ObjectIDFromHex(id)
@@ -104,9 +133,10 @@ func (c *LabelColl) Find(id string) (*models.Label, error) {
 }
 
 type Label struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
-	Type  string `json:"type"`
+	Key         string `json:"key"`
+	Value       string `json:"value"`
+	Type        string `json:"type"`
+	ProjectName string `json:"project_name"`
 }
 
 type ListLabelOpt struct {
@@ -138,6 +168,7 @@ func (c *LabelColl) List(opt ListLabelOpt) ([]*models.Label, error) {
 	}
 	return res, nil
 }
+
 func (c *LabelColl) ListByIDs(ids []string) ([]*models.Label, error) {
 	var res []*models.Label
 	ctx := context.Background()
