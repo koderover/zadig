@@ -41,6 +41,7 @@ const (
 type Status string
 
 const (
+	StatusInit       Status = "init"
 	StatusDisabled   Status = "disabled"
 	StatusCreated    Status = "created"
 	StatusRunning    Status = "running"

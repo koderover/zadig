@@ -34,7 +34,7 @@ func ListProductsRevision(productName, envName string, log *zap.SugaredLogger) (
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName, IsSortByProductName: true, EnvName: envName})
 
 	// list services with max revision of project
-	allServiceTmpls, err := commonrepo.NewServiceColl().ListMaxRevisions(&commonrepo.ServiceListOption{ProductName: productName})
+	allServiceTmpls, err := getServicesWithMaxRevision(productName)
 	if err != nil {
 		log.Errorf("ListAllRevisions error: %v", err)
 		return prodRevs, e.ErrListProducts.AddDesc(err.Error())
@@ -126,7 +126,7 @@ func GetProductRevision(product *commonmodels.Product, allServiceTmpls []*common
 
 	var allRenders []*commonmodels.RenderSet
 	var newRender *commonmodels.RenderSet
-	if prodTmpl.ProductFeature != nil && prodTmpl.ProductFeature.DeployType == setting.K8SDeployType {
+	if prodTmpl.ProductFeature == nil || prodTmpl.ProductFeature.DeployType == setting.K8SDeployType {
 		rendersetName := ""
 		if product.Render != nil {
 			rendersetName = product.Render.Name

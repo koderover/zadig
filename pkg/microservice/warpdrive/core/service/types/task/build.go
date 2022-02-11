@@ -21,6 +21,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type Build struct {
@@ -59,6 +60,12 @@ type Build struct {
 	EnvHostInfo  map[string][]string `bson:"env_host_info,omitempty"         json:"env_host_info,omitempty"`
 	ArtifactInfo *ArtifactInfo       `bson:"artifact_info,omitempty"         json:"artifact_info,omitempty"`
 	ClusterID    string              `bson:"cluster_id,omitempty"            json:"cluster_id,omitempty"`
+
+	// New since V1.10.0.
+	Cache        types.Cache        `bson:"cache"               json:"cache"`
+	CacheEnable  bool               `bson:"cache_enable"        json:"cache_enable"`
+	CacheDirType types.CacheDirType `bson:"cache_dir_type"      json:"cache_dir_type"`
+	CacheUserDir string             `bson:"cache_user_dir"      json:"cache_user_dir"`
 }
 
 type ArtifactInfo struct {
@@ -148,9 +155,11 @@ type DockerBuildStatus struct {
 }
 
 type JobCtx struct {
-	EnableProxy    bool   `bson:"enable_proxy"                   json:"enable_proxy"`
-	Proxy          *Proxy `bson:"proxy"                          json:"proxy"`
-	CleanWorkspace bool   `bson:"clean_workspace"                json:"clean_workspace"`
+	EnableProxy bool   `bson:"enable_proxy"                   json:"enable_proxy"`
+	Proxy       *Proxy `bson:"proxy"                          json:"proxy"`
+
+	// TODO: Deprecated.
+	CleanWorkspace bool `bson:"clean_workspace"                json:"clean_workspace"`
 
 	// BuildJobCtx
 	Builds     []*Repository `bson:"builds"                         json:"builds"`
@@ -173,8 +182,10 @@ type JobCtx struct {
 	FileArchiveCtx *FileArchiveCtx `bson:"file_archive_ctx,omitempty" json:"file_archive_ctx,omitempty"`
 	// TestType
 	TestType string `bson:"test_type"                       json:"test_type"`
-	// Caches
+
+	// TODO: Deprecated.
 	Caches []string `bson:"caches" json:"caches"`
+
 	// buildV3
 	ArtifactPath  string   `bson:"artifact_path,omitempty"  json:"artifact_path,omitempty"`
 	ArtifactPaths []string `bson:"artifact_paths,omitempty" json:"artifact_paths,omitempty"`
@@ -227,10 +238,19 @@ func (buildCtx *DockerBuildCtx) GetDockerFile() string {
 	return buildCtx.DockerFile
 }
 
+type ParameterSettingType string
+
+const (
+	StringType ParameterSettingType = "string"
+	ChoiceType ParameterSettingType = "choice"
+)
+
 type KeyVal struct {
-	Key          string `bson:"key"                 json:"key"`
-	Value        string `bson:"value"               json:"value"`
-	IsCredential bool   `bson:"is_credential"       json:"is_credential"`
+	Key          string               `bson:"key"                 json:"key"`
+	Value        string               `bson:"value"               json:"value"`
+	Type         ParameterSettingType `bson:"type,omitempty"                json:"type,omitempty"`
+	ChoiceOption []string             `bson:"choice_option,omitempty"       json:"choice_option,omitempty"`
+	IsCredential bool                 `bson:"is_credential"       json:"is_credential"`
 }
 
 type Repository struct {

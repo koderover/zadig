@@ -88,6 +88,7 @@ func (gmem *gitlabMergeEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) 
 			}
 		}
 		hookRepo.Branch = ev.ObjectAttributes.TargetBranch
+		hookRepo.Committer = ev.User.Username
 		if ev.ObjectAttributes.State == "opened" {
 			var changedFiles []string
 			changedFiles, err := gmem.diffFunc(ev, hookRepo.CodehostID)
@@ -97,7 +98,7 @@ func (gmem *gitlabMergeEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) 
 			}
 			gmem.log.Debugf("succeed to get %d changes in merge event", len(changedFiles))
 			if gmem.isYaml {
-				serviceChangeds := ServicesMatchChangesFiles(gmem.trigger.Rules.MatchFolders, hookRepo, changedFiles)
+				serviceChangeds := ServicesMatchChangesFiles(gmem.trigger.Rules.MatchFolders, changedFiles)
 				gmem.yamlServiceChanged = serviceChangeds
 				return len(serviceChangeds) != 0, nil
 			}
@@ -160,6 +161,14 @@ func createGitlabEventMatcher(
 			trigger:  trigger,
 			isYaml:   isyaml,
 		}
+	case *gitlab.TagEvent:
+		return &gitlabTagEventMatcher{
+			workflow: workflow,
+			log:      log,
+			event:    evt,
+			trigger:  trigger,
+			isYaml:   isyaml,
+		}
 	}
 
 	return nil
@@ -204,7 +213,7 @@ func (gpem *gitlabPushEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (
 		}
 
 		hookRepo.Branch = getBranchFromRef(ev.Ref)
-
+		hookRepo.Committer = ev.UserUsername
 		var changedFiles []string
 		detail, err := systemconfig.New().GetCodeHost(hookRepo.CodehostID)
 		if err != nil {
@@ -229,7 +238,7 @@ func (gpem *gitlabPushEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (
 			changedFiles = append(changedFiles, diff.OldPath)
 		}
 		if gpem.isYaml {
-			serviceChangeds := ServicesMatchChangesFiles(gpem.trigger.Rules.MatchFolders, hookRepo, changedFiles)
+			serviceChangeds := ServicesMatchChangesFiles(gpem.trigger.Rules.MatchFolders, changedFiles)
 			gpem.yamlServiceChanged = serviceChangeds
 			return len(serviceChangeds) != 0, nil
 		}
@@ -265,6 +274,78 @@ func (gpem *gitlabPushEventMatcher) UpdateTaskArgs(
 		RepoName:   hookRepo.RepoName,
 		RepoOwner:  hookRepo.RepoOwner,
 		Branch:     hookRepo.Branch,
+	})
+
+	return args
+}
+
+type gitlabTagEventMatcher struct {
+	log                *zap.SugaredLogger
+	workflow           *commonmodels.Workflow
+	event              *gitlab.TagEvent
+	trigger            *TriggerYaml
+	isYaml             bool
+	yamlServiceChanged []BuildServices
+}
+
+func (gtem gitlabTagEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
+	ev := gtem.event
+	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.Project.PathWithNamespace {
+		if !EventConfigured(hookRepo, config.HookEventTag) {
+			return false, nil
+		}
+		if gtem.isYaml {
+			refFlag := false
+			for _, ref := range gtem.trigger.Rules.Branchs {
+				if matched, _ := regexp.MatchString(ref, ev.Project.DefaultBranch); matched {
+					refFlag = true
+					break
+				}
+			}
+			if !refFlag {
+				return false, nil
+			}
+		} else {
+			isRegular := hookRepo.IsRegular
+			if !isRegular && hookRepo.Branch != ev.Project.DefaultBranch {
+				return false, nil
+			}
+			if isRegular {
+				if matched, _ := regexp.MatchString(hookRepo.Branch, ev.Project.DefaultBranch); !matched {
+					return false, nil
+				}
+			}
+		}
+
+		hookRepo.Committer = ev.UserName
+		hookRepo.Tag = getTagFromRef(ev.Ref)
+
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func (gtem gitlabTagEventMatcher) UpdateTaskArgs(product *commonmodels.Product, args *commonmodels.WorkflowTaskArgs, hookRepo *commonmodels.MainHookRepo, requestID string) *commonmodels.WorkflowTaskArgs {
+	if gtem.isYaml {
+		var targets []*commonmodels.TargetArgs
+		for _, target := range args.Target {
+			targets = append(targets, target)
+		}
+		args.Target = targets
+	}
+	factory := &workflowArgsFactory{
+		workflow: gtem.workflow,
+		reqID:    requestID,
+		IsYaml:   gtem.isYaml,
+	}
+
+	factory.Update(product, args, &types.Repository{
+		CodehostID: hookRepo.CodehostID,
+		RepoName:   hookRepo.RepoName,
+		RepoOwner:  hookRepo.RepoOwner,
+		Branch:     hookRepo.Branch,
+		Tag:        hookRepo.Tag,
 	})
 
 	return args
@@ -453,6 +534,7 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 			workFlowArgs := &commonmodels.WorkflowTaskArgs{}
 			var pushEvent *gitlab.PushEvent
 			var mergeEvent *gitlab.MergeEvent
+			var tagEvent *gitlab.TagEvent
 			prID := 0
 			branref := ""
 			switch evt := event.(type) {
@@ -468,6 +550,9 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 				}
 				prID = evt.ObjectAttributes.IID
 				item.MainRepo.Branch = getBranchFromRef(mergeEvent.ObjectAttributes.TargetBranch)
+			case *gitlab.TagEvent:
+				tagEvent = evt
+				branref = tagEvent.Ref
 			}
 
 			if item.IsYaml {
@@ -551,6 +636,7 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 			args.CodehostID = item.MainRepo.CodehostID
 			args.RepoOwner = item.MainRepo.RepoOwner
 			args.RepoName = item.MainRepo.RepoName
+			args.Committer = item.MainRepo.Committer
 			// 3. create task with args
 			if item.WorkflowArgs.BaseNamespace == "" {
 				if resp, err := workflowservice.CreateWorkflowTask(args, setting.WebhookTaskCreator, log); err != nil {

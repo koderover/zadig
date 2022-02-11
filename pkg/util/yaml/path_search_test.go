@@ -26,7 +26,8 @@ import (
 var testYaml1 = `
 env: dev
 image:
-  repository: go-sample-site
+  repo: repo.com
+  name: go-sample-site
   tag: "0.2.1"
 imagePullSecrets:
   - name: default-secret
@@ -36,12 +37,14 @@ var testYaml2 = `
 env: dev
 svc1: 
   image:
-    repository: go-sample-site
+    repo: repo.com
+    name: go-sample-site
     tag: "0.2.1"
 svc2:
   image:
-    repository: go-sample-site-2
-    tag: "0.2.2"
+    repo: repo.com
+    name: go-sample-site
+    tag: "0.2.1"
 imagePullSecrets:
   - name: default-secret
 `
@@ -50,61 +53,42 @@ var testYaml3 = `
 env: dev
 svc1: 
   image:
-    repository: go-sample-site:0.2.1
+    repo: repo.com
+    name: go-sample-site
+    tag: "0.2.1"
 svc2:
   image:
-    repository: go-sample-site-2:0.2.2
-svc3:
-  image:
-    repository: go-sample-site-3:0.2.3
+    repo: repo.com
+    detail:
+      name: go-sample-site
+      tag: "0.2.1"
+fakeSvc:
+  repo: notrepo.com
 imagePullSecrets:
   - name: default-secret
 `
 
-var testYaml4 = `
-env: dev
-svc1: 
-  image:
-    repository: go-sample-site
-    tag: 0.2.1
-svc2:
-  image:
-    repository: go-sample-site-2:0.2.2
-svc3:
-  image:
-    repository: go-sample-site-3:0.2.3
-svc4:
-  image:
-    repositoryNew: go-sample-site-3
-    tagNew: 0.2.4
-svc5:
-  second:
-    image:
-      repositorySpec: go-sample-site-3
-    tagNew: 0.2.4
-imagePullSecrets:
-  - name: default-secret
-`
-
-var testYaml5 = `
-# Default values for go-sample-site.
-# This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
-
+var testYaml8 = `
 env: dev
 
-ingressClassName: koderover-admin-nginx
-
-image:
-  repository: ccr.ccs.tencentyun.com/trial/go-sample-site
-  pullPolicy: IfNotPresent
-  tag: "0.1.0"
+repoData1:
+  global:
+    hub: ccr.ccs.tencentyun.com/trial
 
 testSpec:
-  imageNew:
-    repo: ccr.ccs.tencentyun.com/trial/go-sample-site-new
+  image:
+    image: go-sample-site-new
     pullPolicy: IfNotPresent
-    tag: "0.2.1"
+    tag: 0.1.0
+
+svc1:
+  image: svc1-image
+  tag: 0.2.0
+
+svc2:
+  image:
+    image: svc2-image
+    tag: 0.3.0
 
 imagePullSecrets:
   - name: default-registry-secret
@@ -115,81 +99,84 @@ fullnameOverride: ""
 service:
   type: ClusterIP
   port: 8080
-
 `
 
 var err error
-var matedPaths []map[string]string
+var lcpMatedPaths []map[string]string
 
 var _ = Describe("Testing search", func() {
 	Context("search matched paths from yaml", func() {
-		It("single match", func() {
+		It("single absolute match", func() {
 			pattern := []map[string]string{
-				{"image": "repository", "tag": "tag"},
+				{"repo": "repo", "tag": "tag", "image": "name"},
 			}
 			flatMap, _ := converter.YamlToFlatMap([]byte(testYaml1))
-			matedPaths, err = SearchByPattern(flatMap, pattern)
+			lcpMatedPaths, err = SearchByPattern(flatMap, pattern)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(matedPaths).To(Equal([]map[string]string{{"image": "image.repository", "tag": "image.tag"}}))
+			Expect(lcpMatedPaths).Should(ConsistOf([]map[string]string{
+				{"image": "image.name", "repo": "image.repo", "tag": "image.tag"},
+			}))
+		})
+
+		It("single relative match", func() {
+			pattern := []map[string]string{
+				{"repo": "image.repo", "tag": "image.tag", "image": "image.name"},
+			}
+			flatMap, _ := converter.YamlToFlatMap([]byte(testYaml1))
+			lcpMatedPaths, err = SearchByPattern(flatMap, pattern)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(lcpMatedPaths).Should(ConsistOf([]map[string]string{
+				{"image": "image.name", "repo": "image.repo", "tag": "image.tag"},
+			}))
 		})
 
 		It("multiple match", func() {
 			pattern := []map[string]string{
-				{"image": "repository", "tag": "tag"},
+				{"repo": "repo", "tag": "tag", "image": "name"},
 			}
 			flatMap, _ := converter.YamlToFlatMap([]byte(testYaml2))
-			matedPaths, err = SearchByPattern(flatMap, pattern)
+
+			lcpMatedPaths, err = SearchByPattern(flatMap, pattern)
 			Expect(err).NotTo(HaveOccurred())
 
-			Expect(matedPaths).Should(ConsistOf([]map[string]string{
-				{"image": "svc1.image.repository", "tag": "svc1.image.tag"},
-				{"image": "svc2.image.repository", "tag": "svc2.image.tag"},
+			Expect(lcpMatedPaths).Should(ConsistOf([]map[string]string{
+				{"image": "svc1.image.name", "repo": "svc1.image.repo", "tag": "svc1.image.tag"},
+				{"image": "svc2.image.name", "repo": "svc2.image.repo", "tag": "svc2.image.tag"},
 			}))
 		})
 
-		It("multiple match pattern 3", func() {
+		It("complex multiple match", func() {
 			pattern := []map[string]string{
-				{"image": "repository"},
+				{"repo": "repo", "tag": "tag", "image": "name"},
 			}
-			flatMap, _ := converter.YamlToFlatMap([]byte(testYaml3))
-			matedPaths, err = SearchByPattern(flatMap, pattern)
+			flatMap, err := converter.YamlToFlatMap([]byte(testYaml3))
 			Expect(err).NotTo(HaveOccurred())
-			Expect(matedPaths).Should(ConsistOf([]map[string]string{
-				{"image": "svc1.image.repository"},
-				{"image": "svc2.image.repository"},
-				{"image": "svc3.image.repository"},
+
+			lcpMatedPaths, err = SearchByPattern(flatMap, pattern)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(lcpMatedPaths).Should(ConsistOf([]map[string]string{
+				{"image": "svc1.image.name", "repo": "svc1.image.repo", "tag": "svc1.image.tag"},
+				{"image": "svc2.image.detail.name", "repo": "svc2.image.repo", "tag": "svc2.image.detail.tag"},
 			}))
 		})
 
-		It("multiple match pattern complex", func() {
+		It("complex match with pattern component reuse", func() {
 			pattern := []map[string]string{
-				{"image": "repository", "tag": "tag"},
-				{"image": "repository"},
-				{"image": "repositoryNew", "tag": "tagNew"},
-				{"image": "image.repositorySpec", "tag": "tagNew"},
+				{"image": "image", "tag": "tag", "repo": "global.hub"},
 			}
-			flatMap, _ := converter.YamlToFlatMap([]byte(testYaml4))
-			matedPaths, err = SearchByPattern(flatMap, pattern)
+			flatMap, err := converter.YamlToFlatMap([]byte(testYaml8))
 			Expect(err).NotTo(HaveOccurred())
-			Expect(matedPaths).Should(ConsistOf([]map[string]string{
-				{"image": "svc1.image.repository", "tag": "svc1.image.tag"},
-				{"image": "svc2.image.repository"},
-				{"image": "svc3.image.repository"},
-				{"image": "svc4.image.repositoryNew", "tag": "svc4.image.tagNew"},
-				{"image": "svc5.second.image.repositorySpec", "tag": "svc5.second.tagNew"},
+
+			lcpMatedPaths, err = SearchByPattern(flatMap, pattern)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(lcpMatedPaths).Should(ConsistOf([]map[string]string{
+				{"image": "testSpec.image.image", "repo": "repoData1.global.hub", "tag": "testSpec.image.tag"},
+				{"image": "svc1.image", "repo": "repoData1.global.hub", "tag": "svc1.tag"},
+				{"image": "svc2.image.image", "repo": "repoData1.global.hub", "tag": "svc2.image.tag"},
 			}))
-
 		})
 
-		It("multiple match pattern complex2", func() {
-			pattern := []map[string]string{
-				{"image": "imageNew.repo", "tag": "imageNew.tag"},
-			}
-			flatMap, _ := converter.YamlToFlatMap([]byte(testYaml5))
-			matedPaths, err = SearchByPattern(flatMap, pattern)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(len(matedPaths)).To(Equal(1))
-			Expect(matedPaths).To(Equal([]map[string]string{{"image": "testSpec.imageNew.repo", "tag": "testSpec.imageNew.tag"}}))
-		})
 	})
 })

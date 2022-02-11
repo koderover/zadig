@@ -30,8 +30,8 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/base"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/instantmessage"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/scmnotify"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/wechat"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -45,22 +45,22 @@ type WorkflowTaskImage struct {
 }
 
 type client struct {
-	notifyColl       *mongodb.NotifyColl
-	pipelineColl     *mongodb.PipelineColl
-	subscriptionColl *mongodb.SubscriptionColl
-	taskColl         *mongodb.TaskColl
-	scmNotifyService *scmnotify.Service
-	WeChatService    *wechat.Service
+	notifyColl            *mongodb.NotifyColl
+	pipelineColl          *mongodb.PipelineColl
+	subscriptionColl      *mongodb.SubscriptionColl
+	taskColl              *mongodb.TaskColl
+	scmNotifyService      *scmnotify.Service
+	InstantmessageService *instantmessage.Service
 }
 
 func NewNotifyClient() *client {
 	return &client{
-		notifyColl:       mongodb.NewNotifyColl(),
-		pipelineColl:     mongodb.NewPipelineColl(),
-		subscriptionColl: mongodb.NewSubscriptionColl(),
-		taskColl:         mongodb.NewTaskColl(),
-		scmNotifyService: scmnotify.NewService(),
-		WeChatService:    wechat.NewWeChatClient(),
+		notifyColl:            mongodb.NewNotifyColl(),
+		pipelineColl:          mongodb.NewPipelineColl(),
+		subscriptionColl:      mongodb.NewSubscriptionColl(),
+		taskColl:              mongodb.NewTaskColl(),
+		scmNotifyService:      scmnotify.NewService(),
+		InstantmessageService: instantmessage.NewWeChatClient(),
 	}
 }
 
@@ -197,6 +197,7 @@ func (c *client) ProccessNotify(notify *models.Notify) error {
 		receivers := []string{notify.Receiver}
 		logger := log.SugaredLogger()
 		task.Status = ctx.Status
+		testTaskStatusChanged := false
 		if ctx.Type == config.SingleType {
 			pipline, err := c.pipelineColl.Find(&mongodb.PipelineFindOption{Name: ctx.PipelineName})
 			if err != nil {
@@ -223,12 +224,20 @@ func (c *client) ProccessNotify(notify *models.Notify) error {
 		} else if ctx.Type == config.TestType {
 			logger.Infof("test get task #%d notify, status: %s", ctx.TaskID, ctx.Status)
 			_ = c.scmNotifyService.UpdateWebhookCommentForTest(task, logger)
+			if ctx.TaskID > 1 {
+				testPreTask, err := c.taskColl.Find(ctx.TaskID-1, ctx.PipelineName, ctx.Type)
+				if err != nil {
+					return fmt.Errorf("get test previous task #%d notify, status: %s,err:%s", ctx.TaskID-1, ctx.Status, err)
+				}
+				if testPreTask.Status != task.Status && task.Status != config.StatusRunning {
+					testTaskStatusChanged = true
+				}
+			}
 		}
 
-		//发送微信通知
-		err = c.WeChatService.SendWechatMessage(task)
+		err = c.InstantmessageService.SendInstantMessage(task, testTaskStatusChanged)
 		if err != nil {
-			return fmt.Errorf("SendWechatMessage err : %v", err)
+			return fmt.Errorf("SendInstantMessage err : %s", err)
 		}
 
 		for _, receiver := range receivers {

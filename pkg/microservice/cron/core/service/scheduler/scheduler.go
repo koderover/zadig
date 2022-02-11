@@ -72,7 +72,6 @@ const (
 	SystemCapacityGC = "SystemCapacityGC"
 	//InitHealthCheckScheduler
 	InitHealthCheckScheduler = "InitHealthCheckScheduler"
-
 )
 
 // NewCronClient ...
@@ -140,7 +139,7 @@ func (c *CronClient) Init() {
 
 	// 自由编排工作流定时任务触发
 	cl := configclient.New(configbase.ConfigServiceAddress())
-	if enable, err := cl.CheckFeature(setting.ModernWorkflowType);err ==nil && enable{
+	if enable, err := cl.CheckFeature(setting.ModernWorkflowType); err == nil && enable {
 		c.InitColliePipelineScheduler()
 	}
 
@@ -155,7 +154,6 @@ func (c *CronClient) Init() {
 	// 定时初始化健康检查
 	c.InitHealthCheckScheduler()
 }
-
 
 // InitCleanJobScheduler ...
 func (c *CronClient) InitCleanJobScheduler() {
@@ -209,7 +207,6 @@ func (c *CronClient) InitColliePipelineScheduler() {
 
 // InitBuildStatScheduler ...
 func (c *CronClient) InitBuildStatScheduler() {
-
 	c.Schedulers[InitStatScheduler] = gocron.NewScheduler()
 
 	c.Schedulers[InitStatScheduler].Every(1).Day().At("01:00").Do(c.AslanCli.InitStatData, c.log)

@@ -21,6 +21,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 type K8SCluster struct {
@@ -41,6 +42,7 @@ type K8SCluster struct {
 	Token          string                   `json:"token"                     bson:"-"`
 	Provider       int8                     `json:"provider"                  bson:"provider"`
 	Local          bool                     `json:"local"                     bson:"local"`
+	Cache          types.Cache              `json:"cache"                     bson:"cache"`
 }
 
 type K8SClusterResp struct {

@@ -126,6 +126,14 @@ func (s *S3) Validate() error {
 		return errors.New("required field is missing")
 	}
 
+	defaultStorage, err := FindDefaultS3()
+	if err != nil {
+		return fmt.Errorf("failed to find default object storage: %s", err)
+	}
+	if s.ID == defaultStorage.ID && !s.IsDefault {
+		return errors.New("current storage is default and a default object storage must be set")
+	}
+
 	return nil
 }
 
@@ -137,7 +145,7 @@ func FindDefaultS3() (*S3, error) {
 			S3Storage: &models.S3Storage{
 				Ak:       config.S3StorageAK(),
 				Sk:       config.S3StorageSK(),
-				Endpoint: config.S3StorageEndpoint(),
+				Endpoint: getEndpoint(),
 				Bucket:   config.S3StorageBucket(),
 				Insecure: config.S3StorageProtocol() == "http",
 				Provider: setting.ProviderSourceSystemDefault,
@@ -146,6 +154,13 @@ func FindDefaultS3() (*S3, error) {
 	}
 
 	return &S3{S3Storage: storage}, nil
+}
+
+func getEndpoint() string {
+	const svc = "zadig-minio"
+	endpoint := config.S3StorageEndpoint()
+	newEndpoint := fmt.Sprintf("%s.%s%s", svc, config.Namespace(), strings.TrimPrefix(endpoint, svc))
+	return newEndpoint
 }
 
 func FindS3ById(id string) (*S3, error) {
@@ -163,7 +178,7 @@ func FindInternalS3() *S3 {
 	storage := &models.S3Storage{
 		Ak:       config.S3StorageAK(),
 		Sk:       config.S3StorageSK(),
-		Endpoint: config.S3StorageEndpoint(),
+		Endpoint: getEndpoint(),
 		Bucket:   config.S3StorageBucket(),
 		Insecure: config.S3StorageProtocol() == "http",
 	}

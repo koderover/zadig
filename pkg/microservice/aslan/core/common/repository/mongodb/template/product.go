@@ -139,6 +139,18 @@ func (c *ProductColl) listProjects(inNames []string, projection bson.M) ([]*Proj
 	return res, nil
 }
 
+func (c *ProductColl) Count() (int64, error) {
+	query := bson.M{}
+
+	ctx := context.Background()
+	count, err := c.Collection.CountDocuments(ctx, query)
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}
+
 func (c *ProductColl) List() ([]*template.Product, error) {
 	var resp []*template.Product
 

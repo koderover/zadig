@@ -43,6 +43,7 @@ func (cmem *codehubMergeEventMatcher) Match(hookRepo *commonmodels.MainHookRepo)
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.ObjectAttributes.Target.PathWithNamespace {
 		if EventConfigured(hookRepo, config.HookEventPr) && (hookRepo.Branch == ev.ObjectAttributes.TargetBranch) {
 			if ev.ObjectAttributes.State == "opened" {
+				hookRepo.Committer = ev.User.Username
 				return true, nil
 			}
 		}
@@ -79,6 +80,7 @@ func (cpem *codehubPushEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) 
 	ev := cpem.event
 	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.Project.PathWithNamespace {
 		if hookRepo.Branch == getBranchFromRef(ev.Ref) && EventConfigured(hookRepo, config.HookEventPush) {
+			hookRepo.Committer = ev.UserUsername
 			return true, nil
 		}
 	}
@@ -198,6 +200,7 @@ func TriggerWorkflowByCodehubEvent(event interface{}, baseURI, requestID string,
 			args.CodehostID = item.MainRepo.CodehostID
 			args.RepoOwner = item.MainRepo.RepoOwner
 			args.RepoName = item.MainRepo.RepoName
+			args.Committer = item.MainRepo.Committer
 			// 3. create task with args
 			if resp, err := workflowservice.CreateWorkflowTask(args, setting.WebhookTaskCreator, log); err != nil {
 				log.Errorf("failed to create workflow task when receive push event %v due to %v ", event, err)
