@@ -57,9 +57,6 @@ var admin []byte
 //go:embed project-admin.yaml
 var projectAdmin []byte
 
-//go:embed read-project-only.yaml
-var readProjectOnly []byte
-
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "init system config",
