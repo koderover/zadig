@@ -8,6 +8,12 @@ rules:
     rules:
       - method: GET
         endpoint: "api/aslan/workflow/workflow"
+        resourceType: "Workflow"
+        matchAttributes:
+          - key: "placeholder"
+            value: "placeholder"
+      - method: GET
+        endpoint: "api/aslan/workflow/workflow"
       - method: GET
         endpoint: "/api/aslan/workflow/workflow/find/?*"
       - method: GET

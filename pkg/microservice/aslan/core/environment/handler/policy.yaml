@@ -8,10 +8,15 @@ rules:
     rules:
       - method: GET
         endpoint: "/api/aslan/environment/environments"
+      - method: GET
+        endpoint: "/api/aslan/environment/environments"
         resourceType: "Environment"
         matchAttributes:
           - key: "production"
             value: "false"
+      - method: GET
+        endpoint: "/api/aslan/environment/environments/?*"
+        resourceType: "Environment"
       - method: GET
         endpoint: "/api/aslan/environment/environments/?*"
         resourceType: "Environment"
@@ -51,6 +56,9 @@ rules:
         endpoint: "/api/aslan/project/products/?*/services"
       - method: GET
         endpoint: "/api/aslan/environment/revision/products"
+      - method: GET
+        endpoint: "/api/aslan/environment/environments/?*/workloads"
+        resourceType: "Environment"
       - method: GET
         endpoint: "/api/aslan/environment/environments/?*/workloads"
         resourceType: "Environment"
