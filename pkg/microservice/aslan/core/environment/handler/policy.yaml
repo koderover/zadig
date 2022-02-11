@@ -48,7 +48,7 @@ rules:
         endpoint: "/api/aslan/environment/configmaps"
       - method: GET
         endpoint: "/api/aslan/environment/kube/pods/?*/events"
-      - method: GET,
+      - method: GET
         endpoint: "/api/aslan/environment/environments/?*/groups"
       - method: GET
         endpoint: "/api/aslan/environment/kube/events"

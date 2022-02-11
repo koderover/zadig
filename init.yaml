@@ -22,7 +22,7 @@ spec:
               value: admin@example.com
             - name: ADDRESS
               value: http://poc.example.com
-          image: ccr.ccs.tencentyun.com/koderover-rc/init:20220211184058-amd64
+          image: ccr.ccs.tencentyun.com/koderover-rc/init:20220211184641-amd64
           imagePullPolicy: IfNotPresent
           livenessProbe:
             failureThreshold: 10
