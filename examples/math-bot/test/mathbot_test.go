@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
+
 	"io/ioutil"
 	"net/http"
 
@@ -34,6 +36,9 @@ func Executor(left, right int, Operator string) int {
 
 	var res Result
 	json.Unmarshal(body, &res)
+	log.Printf("The result is %+v", res.Data)
+	log.Printf("The result is %+v", res.Data)
+	log.Printf("The result is %+v", res.Data)
 	return res.Data
 }
 
