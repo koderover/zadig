@@ -194,7 +194,7 @@ var _ = Describe("Testing search", func() {
 			}))
 		})
 
-		It("match all componments of pattern", func() {
+		It("match all rules of pattern", func() {
 			pattern := []map[string]string{
 				{"image": "image.repository", "tag": "image.tag"},
 				{"image": "image"},
@@ -203,6 +203,9 @@ var _ = Describe("Testing search", func() {
 			flatMap, _ := converter.YamlToFlatMap([]byte(testYaml9))
 			lcpMatedPaths, err = SearchByPattern(flatMap, pattern)
 			Expect(err).NotTo(HaveOccurred())
+			Expect(lcpMatedPaths).Should(ConsistOf([]map[string]string{
+				{"image": "deploy.image.name", "repo": "global.hub", "tag": "deploy.image.tag"},
+			}))
 		})
 
 	})
