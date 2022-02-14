@@ -29,7 +29,7 @@ import (
 const allUsers = "*"
 
 type roleBinding struct {
-	*policy.RoleBinding
+	*policy.Binding
 	Username     string `json:"username"`
 	Email        string `json:"email"`
 	Phone        string `json:"phone"`
@@ -37,10 +37,15 @@ type roleBinding struct {
 	Account      string `json:"account"`
 }
 
-func ListRoleBindings(header http.Header, qs url.Values, logger *zap.SugaredLogger) ([]*roleBinding, error) {
+func ListBindings(header http.Header, qs url.Values, logger *zap.SugaredLogger) ([]*roleBinding, error) {
 	rbs, err := policy.New().ListRoleBindings(header, qs)
 	if err != nil {
 		logger.Errorf("Failed to list rolebindings, err: %s", err)
+		return nil, err
+	}
+	pbs, err := policy.New().ListPolicyBindings(header, qs)
+	if err != nil {
+		logger.Errorf("Failed to list policybindings, err: %s", err)
 		return nil, err
 	}
 
@@ -50,7 +55,14 @@ func ListRoleBindings(header http.Header, qs url.Values, logger *zap.SugaredLogg
 		if rb.UID != allUsers {
 			uids = append(uids, rb.UID)
 		}
-		uidToRoleBinding[rb.UID] = append(uidToRoleBinding[rb.UID], &roleBinding{RoleBinding: rb})
+		uidToRoleBinding[rb.UID] = append(uidToRoleBinding[rb.UID], &roleBinding{Binding: rb})
+	}
+
+	for _, rb := range pbs {
+		if rb.UID != allUsers {
+			uids = append(uids, rb.UID)
+		}
+		uidToRoleBinding[rb.UID] = append(uidToRoleBinding[rb.UID], &roleBinding{Binding: rb})
 	}
 
 	users, err := user.New().ListUsers(&user.SearchArgs{UIDs: uids})
