@@ -47,12 +47,12 @@ func CreateCollaborationMode(c *gin.Context) {
 	args := new(commonmodels.CollaborationMode)
 	data, err := c.GetRawData()
 	if err != nil {
-		log.Errorf("CreateCollaborationMode c.GetRawData() err : %v", err)
+		log.Errorf("CreateCollaborationMode c.GetRawData() err: %s", err)
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("CreateCollaborationMode json.Unmarshal err : %v", err)
+		log.Errorf("CreateCollaborationMode json.Unmarshal err: %s", err)
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
@@ -69,12 +69,12 @@ func UpdateCollaborationMode(c *gin.Context) {
 	args := new(commonmodels.CollaborationMode)
 	data, err := c.GetRawData()
 	if err != nil {
-		log.Errorf("UpdateCollaborationMode c.GetRawData() err : %v", err)
+		log.Errorf("UpdateCollaborationMode c.GetRawData() err: %s", err)
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("UpdateCollaborationMode json.Unmarshal err : %v", err)
+		log.Errorf("UpdateCollaborationMode json.Unmarshal err: %s", err)
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}

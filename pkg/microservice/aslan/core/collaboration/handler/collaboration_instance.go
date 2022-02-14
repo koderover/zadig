@@ -45,12 +45,12 @@ func SyncCollaborationInstance(c *gin.Context) {
 	args := new(service.SyncCollaborationInstanceArgs)
 	data, err := c.GetRawData()
 	if err != nil {
-		log.Errorf("SyncCollaborationInstance c.GetRawData() err : %v", err)
+		log.Errorf("SyncCollaborationInstance c.GetRawData() err: %s", err)
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
-		log.Errorf("SyncCollaborationInstance json.Unmarshal err : %v", err)
+		log.Errorf("SyncCollaborationInstance json.Unmarshal err: %s", err)
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
