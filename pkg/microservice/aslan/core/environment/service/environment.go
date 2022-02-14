@@ -451,14 +451,13 @@ func UpdateProduct(existedProd, updateProd *commonmodels.Product, renderSet *com
 	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), existedProd.ClusterID)
 	if err != nil {
 		log.Errorf("[%s][%s] error: %v", envName, namespace, err)
-		err = e.ErrUpdateEnv.AddDesc(err.Error())
-		return
+		return e.ErrUpdateEnv.AddDesc(err.Error())
+
 	}
 	inf, err := informer.NewInformer(existedProd.ClusterID, namespace, cls)
 	if err != nil {
 		log.Errorf("[%s][%s] error: %v", envName, namespace, err)
-		err = e.ErrUpdateEnv.AddDesc(err.Error())
-		return
+		return e.ErrUpdateEnv.AddDesc(err.Error())
 	}
 
 	// 遍历产品环境和产品模板交叉对比的结果
@@ -2967,7 +2966,7 @@ func deploymentSelectorLabelExists(resourceName, namespace string, informer info
 }
 
 func statefulsetSelectorLabelExists(resourceName, namespace string, informer informers.SharedInformerFactory, log *zap.SugaredLogger) bool {
-	deployment, err := informer.Apps().V1().StatefulSets().Lister().StatefulSets(namespace).Get(resourceName)
+	sts, err := informer.Apps().V1().StatefulSets().Lister().StatefulSets(namespace).Get(resourceName)
 	// default we assume the deployment is new so we don't need to add selector labels
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
@@ -2977,7 +2976,7 @@ func statefulsetSelectorLabelExists(resourceName, namespace string, informer inf
 	}
 	// since the 2 predefined labels are always together, we just check for only one
 	// if the match label exists, we return true. otherwise we return false
-	if _, ok := deployment.Spec.Selector.MatchLabels["s-product"]; ok {
+	if _, ok := sts.Spec.Selector.MatchLabels["s-product"]; ok {
 		return true
 	}
 	return false
