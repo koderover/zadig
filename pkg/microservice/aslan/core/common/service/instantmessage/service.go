@@ -42,6 +42,12 @@ const (
 	multiInfo  = "multi"
 )
 
+const (
+	BranchTagTypeBranch      = "Branch"
+	BranchTagTypeTag         = "Tag"
+	CommitMsgInterceptLength = 60
+)
+
 type Service struct {
 	proxyColl        *mongodb.ProxyColl
 	workflowColl     *mongodb.WorkflowColl
@@ -295,12 +301,12 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 				if err != nil {
 					return "", "", nil, err
 				}
-				branchTag, branchTagType, commitID, commitMsg, gitCommitURL := "", "Branch", "", "", ""
+				branchTag, branchTagType, commitID, commitMsg, gitCommitURL := "", BranchTagTypeBranch, "", "", ""
 				for idx, buildRepo := range buildSt.JobCtx.Builds {
 					if idx == 0 || buildRepo.IsPrimary {
 						branchTag = buildRepo.Branch
 						if buildRepo.Tag != "" {
-							branchTagType = "Tag"
+							branchTagType = BranchTagTypeTag
 							branchTag = buildRepo.Tag
 						}
 						if len(buildRepo.CommitID) > 8 {
@@ -310,8 +316,8 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 						if len(commitMsgs) > 0 {
 							commitMsg = commitMsgs[0]
 						}
-						if len(commitMsg) > 60 {
-							commitMsg = commitMsg[0:60]
+						if len(commitMsg) > CommitMsgInterceptLength {
+							commitMsg = commitMsg[0:CommitMsgInterceptLength]
 						}
 						gitCommitURL = fmt.Sprintf("%s/%s/%s/commit/%s", buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, commitID)
 					}
