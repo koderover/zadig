@@ -22,3 +22,10 @@ const (
 	AND RulesLogicalOperator = "and"
 	OR  RulesLogicalOperator = "or"
 )
+
+type RoleORPolicyBindingType string
+
+const (
+	Role   RoleORPolicyBindingType = "role"
+	Policy RoleORPolicyBindingType = "policy"
+)

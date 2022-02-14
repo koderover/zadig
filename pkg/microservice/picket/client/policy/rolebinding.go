@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/koderover/zadig/pkg/microservice/picket/config"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
@@ -38,10 +39,11 @@ type PolicyBinding struct {
 }
 
 type Binding struct {
-	Name         string `json:"name"`
-	UID          string `json:"uid"`
-	RoleOrPolicy string `json:"role_or_policy"`
-	Public       bool   `json:"public"`
+	Name         string                         `json:"name"`
+	UID          string                         `json:"uid"`
+	RoleOrPolicy string                         `json:"role_or_policy"`
+	BindingType  config.RoleORPolicyBindingType `json:"binding_type"`
+	Public       bool                           `json:"public"`
 }
 
 func (c *Client) ListRoleBindings(header http.Header, qs url.Values) ([]*Binding, error) {
@@ -59,6 +61,7 @@ func (c *Client) ListRoleBindings(header http.Header, qs url.Values) ([]*Binding
 			UID:          v.UID,
 			RoleOrPolicy: v.Role,
 			Public:       v.Public,
+			BindingType:  config.Role,
 		}
 		resBindings = append(resBindings, &tmpB)
 	}
@@ -82,6 +85,7 @@ func (c *Client) ListPolicyBindings(header http.Header, qs url.Values) ([]*Bindi
 			UID:          v.UID,
 			RoleOrPolicy: v.Policy,
 			Public:       v.Public,
+			BindingType:  config.Policy,
 		}
 		resBindings = append(resBindings, &tmpB)
 	}
