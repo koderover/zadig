@@ -359,26 +359,34 @@ func setBuildInfo(build *types.Repository, log *zap.SugaredLogger) {
 		gitCli := git.NewClient(codeHostInfo.AccessToken, config.ProxyHTTPSAddr())
 		//// 需要后端自动获取Branch当前Commit，并填写到build中
 		if build.CommitID == "" {
-			// 如果是仅填写Branch编译
-			if build.Branch != "" && build.PR == 0 {
+			if build.Tag != "" && build.PR == 0 {
+				opt := &github.ListOptions{Page: 1, PerPage: 100}
+				tags, _, err := gitCli.Repositories.ListTags(context.Background(), build.RepoOwner, build.RepoName, opt)
+				if err != nil {
+					log.Errorf("failed to github ListTags err:%s", err)
+					return
+				}
+				for _, tag := range tags {
+					if *tag.Name == build.Tag {
+						build.CommitID = tag.Commit.GetSHA()
+						if tag.Commit.Message == nil {
+							commitInfo, _, err := gitCli.Repositories.GetCommit(context.Background(), build.RepoOwner, build.RepoName, build.CommitID)
+							if err != nil {
+								log.Errorf("failed to github GetCommit %s err:%s", tag.Commit.GetURL(), err)
+								return
+							}
+							build.CommitMessage = commitInfo.GetCommit().GetMessage()
+						}
+						build.AuthorName = tag.Commit.GetAuthor().GetName()
+						return
+					}
+				}
+			} else if build.Branch != "" && build.PR == 0 {
 				branch, _, err := gitCli.Repositories.GetBranch(context.Background(), build.RepoOwner, build.RepoName, build.Branch)
 				if err == nil {
 					build.CommitID = *branch.Commit.SHA
 					build.CommitMessage = *branch.Commit.Commit.Message
 					build.AuthorName = *branch.Commit.Commit.Author.Name
-				}
-			} else if build.Tag != "" && build.PR == 0 {
-				opt := &github.ListOptions{Page: 1, PerPage: 100}
-				tags, _, err := gitCli.Repositories.ListTags(context.Background(), build.RepoOwner, build.RepoName, opt)
-				if err == nil {
-					for _, tag := range tags {
-						if *tag.Name == build.Tag {
-							build.CommitID = *tag.Commit.SHA
-							build.CommitMessage = *tag.Commit.Message
-							build.AuthorName = *tag.Commit.Author.Name
-							return
-						}
-					}
 				}
 			} else if build.PR > 0 {
 				opt := &github.ListOptions{Page: 1, PerPage: 100}
