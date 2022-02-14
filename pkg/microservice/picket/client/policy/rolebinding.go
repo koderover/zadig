@@ -23,35 +23,69 @@ import (
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
-type Binding struct {
+type RoleBinding struct {
 	Name   string `json:"name"`
 	UID    string `json:"uid"`
 	Role   string `json:"role"`
 	Public bool   `json:"public"`
 }
 
+type PolicyBinding struct {
+	Name   string `json:"name"`
+	UID    string `json:"uid"`
+	Policy string `json:"policy"`
+	Public bool   `json:"public"`
+}
+
+type Binding struct {
+	Name         string `json:"name"`
+	UID          string `json:"uid"`
+	RoleOrPolicy string `json:"role_or_policy"`
+	Public       bool   `json:"public"`
+}
+
 func (c *Client) ListRoleBindings(header http.Header, qs url.Values) ([]*Binding, error) {
 	url := "/rolebindings"
 
-	res := make([]*Binding, 0)
+	res := make([]*RoleBinding, 0)
 	_, err := c.Get(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs), httpclient.SetResult(&res))
 	if err != nil {
 		return nil, err
 	}
+	resBindings := make([]*Binding, 0)
+	for _, v := range res {
+		tmpB := Binding{
+			Name:         v.Name,
+			UID:          v.UID,
+			RoleOrPolicy: v.Role,
+			Public:       v.Public,
+		}
+		resBindings = append(resBindings, &tmpB)
+	}
 
-	return res, nil
+	return resBindings, nil
 }
 
 func (c *Client) ListPolicyBindings(header http.Header, qs url.Values) ([]*Binding, error) {
 	url := "/policybindings"
 
-	res := make([]*Binding, 0)
+	res := make([]*PolicyBinding, 0)
 	_, err := c.Get(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs), httpclient.SetResult(&res))
 	if err != nil {
 		return nil, err
 	}
 
-	return res, nil
+	resBindings := make([]*Binding, 0)
+	for _, v := range res {
+		tmpB := Binding{
+			Name:         v.Name,
+			UID:          v.UID,
+			RoleOrPolicy: v.Policy,
+			Public:       v.Public,
+		}
+		resBindings = append(resBindings, &tmpB)
+	}
+	return resBindings, nil
 }
 
 func (c *Client) DeleteRoleBindings(userID string, header http.Header, qs url.Values) ([]byte, error) {
