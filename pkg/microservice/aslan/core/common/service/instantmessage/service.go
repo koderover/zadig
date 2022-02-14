@@ -42,10 +42,12 @@ const (
 	multiInfo  = "multi"
 )
 
+type BranchTagType string
+
 const (
-	BranchTagTypeBranch      = "Branch"
-	BranchTagTypeTag         = "Tag"
-	CommitMsgInterceptLength = 60
+	BranchTagTypeBranch      BranchTagType = "Branch"
+	BranchTagTypeTag         BranchTagType = "Tag"
+	CommitMsgInterceptLength               = 60
 )
 
 type Service struct {
