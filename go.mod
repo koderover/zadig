@@ -80,6 +80,7 @@ require (
 	gorm.io/gorm v1.21.16
 	helm.sh/helm/v3 v3.7.2
 	k8s.io/api v0.22.4
+	k8s.io/apiextensions-apiserver v0.22.4
 	k8s.io/apimachinery v0.22.4
 	k8s.io/client-go v0.22.4
 	k8s.io/kubectl v0.22.4

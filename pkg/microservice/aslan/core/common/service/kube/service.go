@@ -106,6 +106,9 @@ func (s *Service) CreateCluster(cluster *models.K8SCluster, id string, logger *z
 	if id == setting.LocalClusterID {
 		cluster.Status = setting.Normal
 		cluster.Local = true
+		cluster.AdvancedConfig = &commonmodels.AdvancedConfig{
+			Strategy: "normal",
+		}
 	}
 	err = s.coll.Create(cluster, id)
 	if err != nil {

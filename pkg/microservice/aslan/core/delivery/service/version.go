@@ -1261,14 +1261,6 @@ func CreateNewHelmDeliveryVersion(args *CreateHelmDeliveryVersionArgs, logger *z
 	if len(args.ChartDatas) == 0 {
 		return e.ErrCreateDeliveryVersion.AddDesc("no chart info appointed")
 	}
-
-	// prepare data
-	productInfo, err := getProductEnvInfo(args.ProductName, args.EnvName)
-	if err != nil {
-		log.Infof("failed to query product info, productName: %s envName %s, err: %s", args.ProductName, args.EnvName, err)
-		return e.ErrCreateDeliveryVersion.AddDesc(fmt.Sprintf("failed to query product info, procutName: %s envName %s", args.ProductName, args.EnvName))
-	}
-
 	// validate necessary params
 	if len(args.ChartRepoName) == 0 {
 		return e.ErrCreateDeliveryVersion.AddDesc("chart repo not appointed")
@@ -1276,7 +1268,12 @@ func CreateNewHelmDeliveryVersion(args *CreateHelmDeliveryVersionArgs, logger *z
 	if len(args.ImageRegistryID) == 0 {
 		return e.ErrCreateDeliveryVersion.AddDesc("image registry not appointed")
 	}
-
+	// prepare data
+	productInfo, err := getProductEnvInfo(args.ProductName, args.EnvName)
+	if err != nil {
+		log.Infof("failed to query product info, productName: %s envName %s, err: %s", args.ProductName, args.EnvName, err)
+		return e.ErrCreateDeliveryVersion.AddDesc(fmt.Sprintf("failed to query product info, procutName: %s envName %s", args.ProductName, args.EnvName))
+	}
 	chartDataMap, err := prepareChartData(args.ChartDatas, productInfo)
 	if err != nil {
 		return e.ErrCreateDeliveryVersion.AddErr(err)
