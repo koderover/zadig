@@ -20,6 +20,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/koderover/zadig/pkg/config"
 	ginmiddleware "github.com/koderover/zadig/pkg/middleware/gin"
@@ -39,6 +40,7 @@ func NewEngine() *engine {
 
 	s.injectMiddlewares()
 	s.injectRouters()
+	s.injectPrometheus()
 
 	return s
 }
@@ -73,4 +75,15 @@ func (s *engine) injectRouters() {
 	s.injectRouterGroup(apiRouters)
 
 	s.Engine = g
+}
+
+func (s *engine) injectPrometheus() {
+	if s.Engine == nil {
+		return
+	}
+	promHttpHandler := func(ctx *gin.Context) {
+		h := promhttp.Handler()
+		h.ServeHTTP(ctx.Writer, ctx.Request)
+	}
+	s.Engine.Handle(http.MethodGet, "/metrics", promHttpHandler)
 }
