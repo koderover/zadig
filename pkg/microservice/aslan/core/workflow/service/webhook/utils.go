@@ -149,7 +149,6 @@ func fillServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sugar
 		if err := setCurrentContainerImages(args); err != nil {
 			return err
 		}
-
 		log.Infof("find %d containers in service %s", len(args.Containers), args.ServiceName)
 	} else if args.Type == setting.HelmDeployType {
 		if args.Source == setting.SourceFromGitlab {
@@ -163,7 +162,6 @@ func fillServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sugar
 				log.Errorf("Sync content from gitlab failed, error: %s", err)
 				return err
 			}
-
 		} else if args.Source == setting.SourceFromGithub {
 			if err := reloadServiceTmplFromGit(args, log); err != nil {
 				log.Errorf("Sync content from github failed, error: %s", err)
