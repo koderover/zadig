@@ -44,6 +44,19 @@ func GetKubeClient(hubServerAddr, clusterID string) (client.Client, error) {
 	return clusterService.GetKubeClient(clusterID)
 }
 
+func GetKubeClientSet(hubServerAddr, clusterID string) (*kubernetes.Clientset, error) {
+	if clusterID == "" {
+		return krkubeclient.NewClientSet()
+	}
+
+	clusterService, err := NewAgent(hubServerAddr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get clusterService: %v", err)
+	}
+
+	return clusterService.GetClientGoKubeClient(clusterID)
+}
+
 func GetKubeAPIReader(hubServerAddr, clusterID string) (client.Reader, error) {
 	if clusterID == "" {
 		return krkubeclient.APIReader(), nil
@@ -126,6 +139,11 @@ func (s *Agent) GetKubeClient(clusterID string) (client.Client, error) {
 	return krkubeclient.NewClientFromAPIConfig(generateAPIConfig(clusterID, s.hubServerAddr))
 }
 
+func (s *Agent) GetClientGoKubeClient(clusterID string) (*kubernetes.Clientset, error) {
+	config := generateRestConfig(clusterID, s.hubServerAddr)
+	return kubernetes.NewForConfig(config)
+}
+
 func (s *Agent) ClusterConnected(clusterID string) bool {
 	if err := s.hubClient.HasSession(clusterID); err != nil {
 		return false
@@ -162,5 +180,14 @@ func generateAPIConfig(clusterID, hubServerAddr string) *api.Config {
 			},
 		},
 		CurrentContext: "hubserver",
+	}
+}
+
+func generateRestConfig(clusterID, hubServerAddr string) *rest.Config {
+	return &rest.Config{
+		Host: fmt.Sprintf("%s/kube/%s", hubServerAddr, clusterID),
+		TLSClientConfig: rest.TLSClientConfig{
+			Insecure: true,
+		},
 	}
 }

@@ -36,6 +36,7 @@ import (
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
+	"github.com/koderover/zadig/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 )
 
@@ -50,6 +51,9 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 		log.Errorf("find product error: %v", err)
 		return e.ErrDeleteEnv.AddDesc("not found")
 	}
+
+	// delete informer's cache
+	informer.DeleteInformer(productInfo.ClusterID, productInfo.Namespace)
 
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
 	if err != nil {

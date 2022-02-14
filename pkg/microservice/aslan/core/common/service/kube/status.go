@@ -21,16 +21,15 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/client-go/informers"
 
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 )
 
-// TODO: improve this function
-func GetSelectedPodsInfo(ns string, selector labels.Selector, kubeClient client.Client, log *zap.SugaredLogger) (string, string, []string) {
-	pods, err := getter.ListPods(ns, selector, kubeClient)
+func GetSelectedPodsInfo(selector labels.Selector, informer informers.SharedInformerFactory, log *zap.SugaredLogger) (string, string, []string) {
+	pods, err := getter.ListPodsWithCache(selector, informer)
 	if err != nil {
 		return setting.PodError, setting.PodNotReady, nil
 	}
@@ -52,19 +51,16 @@ func GetSelectedPodsInfo(ns string, selector labels.Selector, kubeClient client.
 	for _, pod := range pods {
 		iPod := wrapper.Pod(pod)
 
-		// skip if pod is a succeeded job
 		if iPod.Succeeded() {
 			succeededPods++
 			continue
 		}
 
-		// 如果服务中任意一个pod不在running状态，返回unstable
 		if !iPod.Ready() {
 			return setting.PodUnstable, setting.PodNotReady, images
 		}
 	}
 
-	// return "Succeeded, Completed" if all pods are succeeded Job pods
 	if len(pods) == succeededPods {
 		return string(corev1.PodSucceeded), setting.JobReady, images
 	}

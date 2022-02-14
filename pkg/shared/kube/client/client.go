@@ -33,6 +33,14 @@ func GetKubeClient(hubServerAddr, clusterID string) (client.Client, error) {
 	return multicluster.GetKubeClient(hubServerAddr, clusterID)
 }
 
+func GetKubeClientSet(hubServerAddr, clusterID string) (*kubernetes.Clientset, error) {
+	if clusterID == setting.LocalClusterID {
+		clusterID = ""
+	}
+
+	return multicluster.GetKubeClientSet(hubServerAddr, clusterID)
+}
+
 func GetKubeAPIReader(hubServerAddr, clusterID string) (client.Reader, error) {
 	if clusterID == setting.LocalClusterID {
 		clusterID = ""
