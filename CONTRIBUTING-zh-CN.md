@@ -167,4 +167,3 @@ swag init -d ./lib/microservice/aslan/ -g server/rest/router.go -o ./lib/microse
 ### 其它资源
 
 - [项目的 maintainers](GOVERNANCE.md#maintainers)
-- [API 文档](https://os.koderover.com/api/spock/apidocs/index.html)
