@@ -226,6 +226,7 @@ func initDatabase() {
 	// 初始化数据
 	commonrepo.NewInstallColl().InitInstallData(systemservice.InitInstallMap())
 	commonrepo.NewBasicImageColl().InitBasicImageData(systemservice.InitbasicImageInfos())
+	commonrepo.NewSystemSettingColl().InitSystemSettings()
 
 	if err := commonrepo.NewS3StorageColl().InitData(); err != nil {
 		log.Warnf("Failed to init S3 data: %s", err)
