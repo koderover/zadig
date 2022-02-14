@@ -170,7 +170,7 @@ type RawYamlResp struct {
 	YamlContent string `json:"yamlContent"`
 }
 
-type intervalExecutorHandler func(data *commonmodels.Service, isRetry bool, kubecli client.Client, log *zap.SugaredLogger) error
+type intervalExecutorHandler func(data *commonmodels.Service, isRetry bool, log *zap.SugaredLogger) error
 
 func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger) ([]*EnvResp, error) {
 	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: projectName, InEnvs: envNames, IsSortByProductName: true})
@@ -1213,9 +1213,20 @@ func prepareEstimatedData(productName, envName, serviceName, usageScenario, defa
 	switch usageScenario {
 	case usageScenarioUpdateEnv:
 		imageRelatedKey := sets.NewString()
-		for _, container := range templateService.Containers {
-			if container.ImagePath != nil {
-				imageRelatedKey.Insert(container.ImagePath.Image, container.ImagePath.Repo, container.ImagePath.Tag)
+		proSvcMap := productInfo.GetServiceMap()
+		proSvc := proSvcMap[serviceName]
+		if proSvc != nil {
+			existUpdate, err := checkServiceImageUpdated(productName, serviceName, proSvc)
+			if err != nil {
+				log.Errorf("checkServiceImageUpdated, productName %s,svcname %s,err %s", productName, serviceName, err)
+				return "", "", fmt.Errorf("checkServiceImageUpdated,productName %s, svcname %s,err %s", productName, serviceName, err)
+			}
+			if !existUpdate {
+				for _, container := range templateService.Containers {
+					if container.ImagePath != nil {
+						imageRelatedKey.Insert(container.ImagePath.Image, container.ImagePath.Repo, container.ImagePath.Tag)
+					}
+				}
 			}
 		}
 
@@ -1461,17 +1472,6 @@ func UpdateMultipleHelmEnv(requestID string, args *UpdateMultiHelmProductArg, lo
 		if len(productMap) == len(envNames) {
 			break
 		}
-	}
-
-	serviceList, err := commonrepo.NewServiceColl().ListMaxRevisionsByProduct(args.ProductName)
-	if err != nil {
-		log.Infof("query services from product: %s fail, error %s", args.ProductName, err.Error())
-		return envStatuses, e.ErrUpdateEnv.AddDesc("failed to query services")
-	}
-
-	serviceMap := make(map[string]*commonmodels.Service)
-	for _, singleService := range serviceList {
-		serviceMap[singleService.ServiceName] = singleService
 	}
 
 	// extract values.yaml and update renderset
@@ -2386,16 +2386,16 @@ func FindHelmRenderSet(productName, renderName string, log *zap.SugaredLogger) (
 	return resp, nil
 }
 
-func installOrUpgradeHelmChart(namespace string, renderChart *templatemodels.RenderChart, defaultValues string, serviceObj *commonmodels.Service, isRetry bool, helmClient helmclient.Client, kubecli client.Client) error {
+func installOrUpgradeHelmChart(namespace string, renderChart *templatemodels.RenderChart, defaultValues string, serviceObj *commonmodels.Service, isRetry bool, helmClient helmclient.Client) error {
 	mergedValuesYaml, err := helmtool.MergeOverrideValues(renderChart.ValuesYaml, defaultValues, renderChart.GetOverrideYaml(), renderChart.OverrideValues)
 	if err != nil {
 		err = errors.WithMessagef(err, "failed to merge override yaml %s and values %s", renderChart.GetOverrideYaml(), renderChart.OverrideValues)
 		return err
 	}
-	return installOrUpgradeHelmChartWithValues(namespace, mergedValuesYaml, renderChart, serviceObj, isRetry, helmClient, kubecli)
+	return installOrUpgradeHelmChartWithValues(namespace, mergedValuesYaml, renderChart, serviceObj, isRetry, helmClient)
 }
 
-func installOrUpgradeHelmChartWithValues(namespace, valuesYaml string, renderChart *templatemodels.RenderChart, serviceObj *commonmodels.Service, isRetry bool, helmClient helmclient.Client, kubecli client.Client) error {
+func installOrUpgradeHelmChartWithValues(namespace, valuesYaml string, renderChart *templatemodels.RenderChart, serviceObj *commonmodels.Service, isRetry bool, helmClient helmclient.Client) error {
 	base := config.LocalServicePathWithRevision(serviceObj.ProductName, serviceObj.ServiceName, serviceObj.Revision)
 	if err := commonservice.PreloadServiceManifestsByRevision(base, serviceObj); err != nil {
 		log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
@@ -2472,9 +2472,9 @@ func installProductHelmCharts(user, envName, requestID string, args *commonmodel
 		chartInfoMap[renderChart.ServiceName] = renderChart
 	}
 
-	handler := func(serviceObj *commonmodels.Service, isRetry bool, kubecli client.Client, logger *zap.SugaredLogger) error {
+	handler := func(serviceObj *commonmodels.Service, isRetry bool, logger *zap.SugaredLogger) error {
 		renderChart := chartInfoMap[serviceObj.ServiceName]
-		err = installOrUpgradeHelmChart(args.Namespace, renderChart, renderset.DefaultValues, serviceObj, isRetry, helmClient, kubecli)
+		err = installOrUpgradeHelmChart(args.Namespace, renderChart, renderset.DefaultValues, serviceObj, isRetry, helmClient)
 		if err != nil {
 			log.Errorf("failed to install service: %s, namespace: %s, isRetry: %v, err: %s", serviceObj.ServiceName, args.Namespace, isRetry, err)
 			return errors.Wrapf(err, "failed to install service: %s, namespace: %s", serviceObj.ServiceName, args.Namespace)
@@ -2506,7 +2506,7 @@ func installProductHelmCharts(user, envName, requestID string, args *commonmodel
 
 			serviceList = append(serviceList, serviceObj)
 		}
-		serviceGroupErr := intervalExecutorWithRetry(3, time.Millisecond*2500, serviceList, handler, kubecli, log)
+		serviceGroupErr := batchExecutorWithRetry(3, time.Millisecond*2500, serviceList, handler, log)
 		if serviceGroupErr != nil {
 			errList = multierror.Append(errList, serviceGroupErr...)
 		}
@@ -2575,14 +2575,14 @@ func getUpdatedProductServices(updateProduct *commonmodels.Product, serviceRevis
 	return updatedAllServices
 }
 
-func intervalExecutorWithRetry(retryCount uint64, interval time.Duration, serviceList []*commonmodels.Service, handler intervalExecutorHandler, kubecli client.Client, log *zap.SugaredLogger) []error {
+func batchExecutorWithRetry(retryCount uint64, interval time.Duration, serviceList []*commonmodels.Service, handler intervalExecutorHandler, log *zap.SugaredLogger) []error {
 	bo := backoff.NewConstantBackOff(time.Second * 3)
 	retryBo := backoff.WithMaxRetries(bo, retryCount)
 	errList := make([]error, 0)
 	isRetry := false
 	_ = backoff.Retry(func() error {
 		failedServices := make([]*commonmodels.Service, 0)
-		errList = intervalExecutor(interval, serviceList, &failedServices, isRetry, handler, kubecli, log)
+		errList = batchExecutor(interval, serviceList, &failedServices, isRetry, handler, log)
 		if len(errList) == 0 {
 			return nil
 		}
@@ -2594,29 +2594,20 @@ func intervalExecutorWithRetry(retryCount uint64, interval time.Duration, servic
 	return errList
 }
 
-func intervalExecutor(interval time.Duration, serviceList []*commonmodels.Service, failedServices *[]*commonmodels.Service, isRetry bool, handler intervalExecutorHandler, kubecli client.Client, log *zap.SugaredLogger) []error {
+func batchExecutor(interval time.Duration, serviceList []*commonmodels.Service, failedServices *[]*commonmodels.Service, isRetry bool, handler intervalExecutorHandler, log *zap.SugaredLogger) []error {
 	if len(serviceList) == 0 {
 		return nil
 	}
-	wg := sync.WaitGroup{}
-	wg.Add(len(serviceList))
 	errList := make([]error, 0)
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
 	for _, data := range serviceList {
-		go func() {
-			defer wg.Done()
-			err := handler(data, isRetry, kubecli, log)
-			if err != nil {
-				errList = append(errList, err)
-				*failedServices = append(*failedServices, data)
-				log.Errorf("service:%s apply failed, err %s", data.ServiceName, err)
-			}
-		}()
-		<-ticker.C
+		err := handler(data, isRetry, log)
+		if err != nil {
+			errList = append(errList, err)
+			*failedServices = append(*failedServices, data)
+			log.Errorf("service:%s apply failed, err %s", data.ServiceName, err)
+		}
+		time.Sleep(time.Second)
 	}
-	wg.Wait()
 	return errList
 }
 
@@ -2626,10 +2617,6 @@ func updateProductGroup(username, productName, envName, updateType string, produ
 		productServiceMap      = make(map[string]*commonmodels.ProductService)
 		productTemplServiceMap = make(map[string]*commonmodels.ProductService)
 	)
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productResp.ClusterID)
-	if err != nil {
-		return e.ErrUpdateEnv.AddErr(err)
-	}
 	restConfig, err := kube.GetRESTConfig(productResp.ClusterID)
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
@@ -2686,12 +2673,12 @@ func updateProductGroup(username, productName, envName, updateType string, produ
 		renderChartMap[renderChart.ServiceName] = renderChart
 	}
 
-	handler := func(serviceObj *commonmodels.Service, isRetry bool, kubecli client.Client, log *zap.SugaredLogger) error {
+	handler := func(serviceObj *commonmodels.Service, isRetry bool, log *zap.SugaredLogger) error {
 		renderChart := renderChartMap[serviceObj.ServiceName]
-		err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderSet.DefaultValues, serviceObj, isRetry, helmClient, kubecli)
-		if err != nil {
+		errInstall := installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderSet.DefaultValues, serviceObj, isRetry, helmClient)
+		if errInstall != nil {
 			log.Errorf("failed to upgrade service: %s, namespace: %s, isRetry: %v, err: %s", serviceObj.ServiceName, productResp.Namespace, isRetry, err)
-			return errors.Wrapf(err, "failed to install or upgrade service %s", serviceObj.ServiceName)
+			return errors.Wrapf(errInstall, "failed to install or upgrade service %s", serviceObj.ServiceName)
 		}
 		return nil
 	}
@@ -2726,7 +2713,7 @@ func updateProductGroup(username, productName, envName, updateType string, produ
 			serviceList = append(serviceList, serviceObj)
 		}
 
-		serviceGroupErr := intervalExecutorWithRetry(3, time.Millisecond*2500, serviceList, handler, kubeClient, log)
+		serviceGroupErr := batchExecutorWithRetry(3, time.Millisecond*2500, serviceList, handler, log)
 		if serviceGroupErr != nil {
 			errList = multierror.Append(errList, serviceGroupErr...)
 		}
@@ -2813,15 +2800,30 @@ func diffRenderSet(username, productName, envName, updateType string, productRes
 			}
 		}
 
-		serviceMap := productResp.GetServiceMap()
+		opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
+		productCur, err := commonrepo.NewProductColl().Find(opt)
+		if err != nil {
+			log.Errorf("GetProduct envName:%s, productName:%s, err:%s", envName, productName, err)
+			return nil, fmt.Errorf("GetProduct envName:%s, productName:%s, err:%s", envName, productName, err)
+		}
+		serviceMap := productCur.GetServiceMap()
+		serviceRespMap := productResp.GetServiceMap()
 		for serviceName, latestChartInfo := range tmpLatestChartInfoMap {
 			if currentChartInfo, ok := tmpCurrentChartInfoMap[serviceName]; ok {
-				serviceInfo := serviceMap[serviceName]
+				serviceInfoResp := serviceRespMap[serviceName]
+				serviceInfoCur := serviceMap[serviceName]
 				imageRelatedKey := sets.NewString()
-				if serviceInfo != nil {
-					for _, container := range serviceInfo.Containers {
-						if container.ImagePath != nil {
-							imageRelatedKey.Insert(container.ImagePath.Image, container.ImagePath.Repo, container.ImagePath.Tag)
+				if serviceInfoResp != nil && serviceInfoCur != nil {
+					existUpdate, err := checkServiceImageUpdated(productName, serviceName, serviceInfoCur)
+					if err != nil {
+						log.Errorf("checkServiceImageUpdated,productName %s,svcname %s,err %s", productName, serviceName, err)
+						return nil, fmt.Errorf("checkServiceImageUpdated,productName %s,svcname %s,err %s", productName, serviceName, err)
+					}
+					if !existUpdate {
+						for _, container := range serviceInfoResp.Containers {
+							if container.ImagePath != nil {
+								imageRelatedKey.Insert(container.ImagePath.Image, container.ImagePath.Repo, container.ImagePath.Tag)
+							}
 						}
 					}
 				}
@@ -2867,6 +2869,32 @@ func diffRenderSet(username, productName, envName, updateType string, productRes
 		return nil, err
 	}
 	return renderSet, nil
+}
+
+//checkServiceImageUpdated If the service does not do any mirroring iterations on the platform, the latest YAML is used when updating the environment
+func checkServiceImageUpdated(productName, serviceName string, serviceInfo *commonmodels.ProductService) (bool, error) {
+	existUpdate := false
+	curEnvService, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+		ServiceName: serviceName,
+		ProductName: productName,
+		Type:        setting.HelmDeployType,
+		Revision:    serviceInfo.Revision,
+	})
+	if err != nil {
+		log.Errorf("failed to query service, name %s, Revision %d,err %s", serviceName, serviceInfo.Revision, err)
+		return existUpdate, fmt.Errorf("failed to query service, name %s,Revision %d,err %s", serviceName, serviceInfo.Revision, err)
+	}
+
+L:
+	for _, curContainer := range curEnvService.Containers {
+		for _, proContainer := range serviceInfo.Containers {
+			if curContainer.Image == proContainer.Image {
+				existUpdate = true
+				break L
+			}
+		}
+	}
+	return existUpdate, nil
 }
 
 // for keys exist in both yaml, current values will override latest values
@@ -2929,21 +2957,17 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 		return e.ErrUpdateEnv.AddErr(err)
 	}
 
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productResp.ClusterID)
-	if err != nil {
-		return e.ErrUpdateEnv.AddErr(err)
-	}
 	renderChartMap := make(map[string]*templatemodels.RenderChart)
 	for _, renderChart := range productResp.ChartInfos {
 		renderChartMap[renderChart.ServiceName] = renderChart
 	}
 
-	handler := func(service *commonmodels.Service, isRetry bool, kubecli client.Client, log *zap.SugaredLogger) error {
+	handler := func(service *commonmodels.Service, isRetry bool, log *zap.SugaredLogger) error {
 		renderChart := renderChartMap[service.ServiceName]
-		err = installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderset.DefaultValues, service, isRetry, helmClient, kubecli)
-		if err != nil {
-			log.Errorf("failed to upgrade service: %s, namespace: %s, isRetry: %v, err: %s", service.ServiceName, productResp.Namespace, isRetry, err)
-			return errors.Wrapf(err, "failed to upgrade service %s", service.ServiceName)
+		errInstall := installOrUpgradeHelmChart(productResp.Namespace, renderChart, renderset.DefaultValues, service, isRetry, helmClient)
+		if errInstall != nil {
+			log.Errorf("failed to upgrade service: %s, namespace: %s, isRetry: %v, err: %s", service.ServiceName, productResp.Namespace, isRetry, errInstall)
+			return errors.Wrapf(errInstall, "failed to upgrade service %s", service.ServiceName)
 		}
 		return nil
 	}
@@ -2970,7 +2994,7 @@ func updateProductVariable(productName, envName string, productResp *commonmodel
 			}
 			groupServices = append(groupServices, service)
 		}
-		groupServiceErr := intervalExecutorWithRetry(3, time.Millisecond*2500, serviceList, handler, kubeClient, log)
+		groupServiceErr := batchExecutorWithRetry(3, time.Millisecond*2500, serviceList, handler, log)
 		if groupServiceErr != nil {
 			errList = multierror.Append(errList, groupServiceErr...)
 		}
