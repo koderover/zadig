@@ -37,7 +37,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	k8serror "k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -2953,7 +2953,7 @@ func deploymentSelectorLabelExists(resourceName, namespace string, informer info
 	deployment, err := informer.Apps().V1().Deployments().Lister().Deployments(namespace).Get(resourceName)
 	// default we assume the deployment is new so we don't need to add selector labels
 	if err != nil {
-		if !k8serror.IsNotFound(err) {
+		if !apierrors.IsNotFound(err) {
 			log.Errorf("Failed to find deployment in the namespace: %s, the error is: %s", namespace, err)
 		}
 		return false
@@ -2970,7 +2970,7 @@ func statefulsetSelectorLabelExists(resourceName, namespace string, informer inf
 	deployment, err := informer.Apps().V1().StatefulSets().Lister().StatefulSets(namespace).Get(resourceName)
 	// default we assume the deployment is new so we don't need to add selector labels
 	if err != nil {
-		if !k8serror.IsNotFound(err) {
+		if !apierrors.IsNotFound(err) {
 			log.Errorf("Failed to find deployment in the namespace: %s, the error is: %s", namespace, err)
 		}
 		return false
