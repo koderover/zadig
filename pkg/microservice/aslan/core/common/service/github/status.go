@@ -47,7 +47,7 @@ type StatusOptions struct {
 }
 
 func (c *Client) UpdateCheckStatus(opt *StatusOptions) error {
-	sc := setting.ProductName
+	sc := setting.ProductName + "/" + opt.PipeName
 	_, err := c.CreateStatus(
 		context.TODO(), opt.Owner, opt.Repo, opt.Ref,
 		&github.RepoStatus{

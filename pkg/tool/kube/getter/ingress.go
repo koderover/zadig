@@ -20,6 +20,7 @@ import (
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/informers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -33,19 +34,12 @@ func GetIngress(ns, name string, cl client.Client) (*extensionsv1beta1.Ingress, 
 	return g, found, err
 }
 
-func ListIngresses(ns string, selector labels.Selector, cl client.Client) ([]*extensionsv1beta1.Ingress, error) {
-	// ingress is moved to networking.k8s.io/v1beta1 from extensions/v1beta1.
-	is := &extensionsv1beta1.IngressList{}
-	err := ListResourceInCache(ns, selector, nil, is, cl)
-	if err != nil {
-		return nil, err
+// ListIngresses gets the ingress (extensions/v1beta1) from the informer
+func ListIngresses(selector labels.Selector, lister informers.SharedInformerFactory) ([]*extensionsv1beta1.Ingress, error) {
+	if selector == nil {
+		selector = labels.NewSelector()
 	}
-
-	var res []*extensionsv1beta1.Ingress
-	for i := range is.Items {
-		res = append(res, &is.Items[i])
-	}
-	return res, err
+	return lister.Extensions().V1beta1().Ingresses().Lister().List(selector)
 }
 
 func ListIngressesYaml(ns string, selector labels.Selector, cl client.Client) ([][]byte, error) {

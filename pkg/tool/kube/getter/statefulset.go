@@ -20,6 +20,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/informers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -45,6 +46,13 @@ func ListStatefulSets(ns string, selector labels.Selector, cl client.Client) ([]
 		res = append(res, &ss.Items[i])
 	}
 	return res, err
+}
+
+func ListStatefulSetsWithCache(selector labels.Selector, lister informers.SharedInformerFactory) ([]*appsv1.StatefulSet, error) {
+	if selector == nil {
+		selector = labels.NewSelector()
+	}
+	return lister.Apps().V1().StatefulSets().Lister().List(selector)
 }
 
 func ListStatefulSetsYaml(ns string, selector labels.Selector, cl client.Client) ([][]byte, error) {

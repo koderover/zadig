@@ -41,6 +41,7 @@ import (
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/pkg/util"
 	jsonutil "github.com/koderover/zadig/pkg/util/json"
 )
@@ -217,14 +218,18 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	log.Infof("Start to list workloads in namespace %s", namespace)
 
 	var resp = make([]*ServiceResp, 0)
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), clusterID)
 	if err != nil {
 		log.Errorf("[%s][%s] error: %v", envName, namespace, err)
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
 	}
-
+	informer, err := informer.NewInformer(clusterID, namespace, cls)
+	if err != nil {
+		log.Errorf("[%s][%s] error: %v", envName, namespace, err)
+		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
+	}
 	var workLoads []*Workload
-	listDeployments, err := getter.ListDeployments(namespace, nil, kubeClient)
+	listDeployments, err := getter.ListDeploymentsWithCache(nil, informer)
 	if err != nil {
 		log.Errorf("[%s][%s] create product record error: %v", envName, namespace, err)
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
@@ -232,7 +237,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	for _, v := range listDeployments {
 		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: v.Spec.Template, Type: setting.Deployment, Images: wrapper.Deployment(v).ImageInfos(), Ready: wrapper.Deployment(v).Ready()})
 	}
-	statefulSets, err := getter.ListStatefulSets(namespace, nil, kubeClient)
+	statefulSets, err := getter.ListStatefulSetsWithCache(nil, informer)
 	if err != nil {
 		log.Errorf("[%s][%s] create product record error: %v", envName, namespace, err)
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
@@ -268,15 +273,17 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	}
 
 	hostInfos := make([]resource.HostInfo, 0)
-	// get all ingresses
-	if ingresses, err := getter.ListIngresses(namespace, nil, kubeClient); err == nil {
+	ingresses, err := getter.ListIngresses(nil, informer)
+	if err == nil {
 		for _, ingress := range ingresses {
 			hostInfos = append(hostInfos, wrapper.Ingress(ingress).HostInfo()...)
 		}
+	} else {
+		log.Warnf("Failed to list ingresses, the error is: %s", err)
 	}
 
 	// get all services
-	allServices, err := getter.ListServices(namespace, nil, kubeClient)
+	allServices, err := getter.ListServicesWithCache(nil, informer)
 	if err != nil {
 		log.Errorf("[%s][%s] list service error: %s", envName, namespace, err)
 	}
