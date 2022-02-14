@@ -2304,6 +2304,7 @@ func installOrUpgradeHelmChartWithValues(namespace, valuesYaml string, renderCha
 		ValuesYaml:    valuesYaml,
 		UpgradeCRDs:   true,
 		CleanupOnFail: true,
+		MaxHistory:    10,
 	}
 	if isRetry {
 		chartSpec.Replace = true
