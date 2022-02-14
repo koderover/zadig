@@ -295,10 +295,14 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 				if err != nil {
 					return "", "", nil, err
 				}
-				branch, commitID, commitMsg, gitCommitURL := "", "", "", ""
+				branchTag, branchTagType, commitID, commitMsg, gitCommitURL := "", "Branch", "", "", ""
 				for idx, buildRepo := range buildSt.JobCtx.Builds {
 					if idx == 0 || buildRepo.IsPrimary {
-						branch = buildRepo.Branch
+						branchTag = buildRepo.Branch
+						if buildRepo.Tag != "" {
+							branchTagType = "Tag"
+							branchTag = buildRepo.Tag
+						}
 						if len(buildRepo.CommitID) > 8 {
 							commitID = buildRepo.CommitID[0:8]
 						}
@@ -306,8 +310,8 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 						if len(commitMsgs) > 0 {
 							commitMsg = commitMsgs[0]
 						}
-						if len(commitMsg) > 40 {
-							commitMsg = commitMsg[0:40]
+						if len(commitMsg) > 60 {
+							commitMsg = commitMsg[0:60]
 						}
 						gitCommitURL = fmt.Sprintf("%s/%s/%s/commit/%s", buildRepo.Address, buildRepo.RepoOwner, buildRepo.RepoName, commitID)
 					}
@@ -317,7 +321,7 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 				}
 				buildElemTemp += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**服务名称**：%s \n", buildSt.ServiceName)
 				buildElemTemp += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**镜像信息**：%s \n", buildSt.JobCtx.Image)
-				buildElemTemp += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**代码信息**：[Branch-%s %s](%s) \n", branch, commitID, gitCommitURL)
+				buildElemTemp += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**代码信息**：[%s-%s %s](%s) \n", branchTagType, branchTag, commitID, gitCommitURL)
 				buildElemTemp += fmt.Sprintf("{{if eq .WebHookType \"dingding\"}}##### {{end}}**提交信息**：%s \n", commitMsg)
 				build = append(build, buildElemTemp)
 			}
