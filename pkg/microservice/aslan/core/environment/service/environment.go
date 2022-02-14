@@ -37,10 +37,12 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	k8serror "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/informers"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
@@ -57,6 +59,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/kube/informer"
 	"github.com/koderover/zadig/pkg/tool/kube/serializer"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -445,6 +448,19 @@ func UpdateProduct(existedProd, updateProd *commonmodels.Product, renderSet *com
 		return e.ErrUpdateEnv.AddErr(err)
 	}
 
+	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), existedProd.ClusterID)
+	if err != nil {
+		log.Errorf("[%s][%s] error: %v", envName, namespace, err)
+		err = e.ErrUpdateEnv.AddDesc(err.Error())
+		return
+	}
+	inf, err := informer.NewInformer(existedProd.ClusterID, namespace, cls)
+	if err != nil {
+		log.Errorf("[%s][%s] error: %v", envName, namespace, err)
+		err = e.ErrUpdateEnv.AddDesc(err.Error())
+		return
+	}
+
 	// 遍历产品环境和产品模板交叉对比的结果
 	// 四个状态：待删除，待添加，待更新，无需更新
 
@@ -537,7 +553,7 @@ func UpdateProduct(existedProd, updateProd *commonmodels.Product, renderSet *com
 							updateProd,
 							service,
 							existedServices[service.ServiceName],
-							renderSet, kubeClient, log)
+							renderSet, inf, kubeClient, log)
 						if err != nil {
 							lock.Lock()
 							switch e := err.(type) {
@@ -1602,7 +1618,7 @@ func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, l
 	return ret, nil
 }
 
-func createGroups(envName, user, requestID string, args *commonmodels.Product, eventStart int64, renderSet *commonmodels.RenderSet, kubeClient client.Client, log *zap.SugaredLogger) {
+func createGroups(envName, user, requestID string, args *commonmodels.Product, eventStart int64, renderSet *commonmodels.RenderSet, informer informers.SharedInformerFactory, kubeClient client.Client, log *zap.SugaredLogger) {
 	var err error
 	defer func() {
 		status := setting.ProductStatusSuccess
@@ -1629,7 +1645,7 @@ func createGroups(envName, user, requestID string, args *commonmodels.Product, e
 	}()
 
 	for _, group := range args.Services {
-		err = envHandleFunc(getProjectType(args.ProductName), log).createGroup(envName, args.ProductName, user, group, renderSet, kubeClient)
+		err = envHandleFunc(getProjectType(args.ProductName), log).createGroup(envName, args.ProductName, user, group, renderSet, informer, kubeClient)
 		if err != nil {
 			args.Status = setting.ProductStatusFailed
 			log.Errorf("createGroup error :%+v", err)
@@ -1658,7 +1674,7 @@ func getProjectType(productName string) string {
 // upsertService 创建或者更新服务, 更新服务之前先创建服务需要的配置
 func upsertService(isUpdate bool, env *commonmodels.Product,
 	service *commonmodels.ProductService, prevSvc *commonmodels.ProductService,
-	renderSet *commonmodels.RenderSet, kubeClient client.Client, log *zap.SugaredLogger,
+	renderSet *commonmodels.RenderSet, informer informers.SharedInformerFactory, kubeClient client.Client, log *zap.SugaredLogger,
 ) ([]*unstructured.Unstructured, error) {
 	errList := &multierror.Error{
 		ErrorFormat: func(es []error) string {
@@ -1764,9 +1780,19 @@ func upsertService(isUpdate bool, env *commonmodels.Product,
 			}
 
 		case setting.Deployment, setting.StatefulSet:
+			// compatibility flag, We add a match label in spec.selector field pre 1.10.
+			needSelectorLabel := false
+
 			u.SetNamespace(namespace)
 			u.SetAPIVersion(setting.APIVersionAppsV1)
 			u.SetLabels(kube.MergeLabels(labels, u.GetLabels()))
+
+			switch u.GetKind() {
+			case setting.Deployment:
+				needSelectorLabel = deploymentSelectorLabelExists(u.GetName(), namespace, informer, log)
+			case setting.StatefulSet:
+				needSelectorLabel = statefulsetSelectorLabelExists(u.GetName(), namespace, informer, log)
+			}
 
 			podLabels, _, err := unstructured.NestedStringMap(u.Object, "spec", "template", "metadata", "labels")
 			if err != nil {
@@ -1786,6 +1812,20 @@ func upsertService(isUpdate bool, env *commonmodels.Product,
 			if err != nil {
 				log.Errorf("merge annotation failed err:%s", err)
 				u.Object = setFieldValueIsNotExist(u.Object, applyUpdatedAnnotations(podAnnotations), "spec", "template", "metadata", "annotations")
+			}
+
+			if needSelectorLabel {
+				// Inject selector: s-product and s-service
+				selector, _, err := unstructured.NestedStringMap(u.Object, "spec", "selector", "matchLabels")
+				if err != nil {
+					selector = nil
+				}
+
+				err = unstructured.SetNestedStringMap(u.Object, kube.MergeLabels(labels, selector), "spec", "selector", "matchLabels")
+				if err != nil {
+					log.Errorf("merge selector failed err:%s", err)
+					u.Object = setFieldValueIsNotExist(u.Object, kube.MergeLabels(labels, selector), "spec", "selector", "matchLabels")
+				}
 			}
 
 			jsonData, err := u.MarshalJSON()
@@ -2907,4 +2947,38 @@ func setFieldValueIsNotExist(obj map[string]interface{}, value interface{}, fiel
 	}
 	m[fields[len(fields)-1]] = value
 	return obj
+}
+
+func deploymentSelectorLabelExists(resourceName, namespace string, informer informers.SharedInformerFactory, log *zap.SugaredLogger) bool {
+	deployment, err := informer.Apps().V1().Deployments().Lister().Deployments(namespace).Get(resourceName)
+	// default we assume the deployment is new so we don't need to add selector labels
+	if err != nil {
+		if !k8serror.IsNotFound(err) {
+			log.Errorf("Failed to find deployment in the namespace: %s, the error is: %s", namespace, err)
+		}
+		return false
+	}
+	// since the 2 predefined labels are always together, we just check for only one
+	// if the match label exists, we return true. otherwise we return false
+	if _, ok := deployment.Spec.Selector.MatchLabels["s-product"]; ok {
+		return true
+	}
+	return false
+}
+
+func statefulsetSelectorLabelExists(resourceName, namespace string, informer informers.SharedInformerFactory, log *zap.SugaredLogger) bool {
+	deployment, err := informer.Apps().V1().StatefulSets().Lister().StatefulSets(namespace).Get(resourceName)
+	// default we assume the deployment is new so we don't need to add selector labels
+	if err != nil {
+		if !k8serror.IsNotFound(err) {
+			log.Errorf("Failed to find deployment in the namespace: %s, the error is: %s", namespace, err)
+		}
+		return false
+	}
+	// since the 2 predefined labels are always together, we just check for only one
+	// if the match label exists, we return true. otherwise we return false
+	if _, ok := deployment.Spec.Selector.MatchLabels["s-product"]; ok {
+		return true
+	}
+	return false
 }
