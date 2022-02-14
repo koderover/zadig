@@ -54,13 +54,12 @@ func (c *LabelColl) BulkCreate(labels []*models.Label) error {
 	if len(labels) == 0 {
 		return nil
 	}
+	var ois []interface{}
 	for _, label := range labels {
 		label.CreateTime = time.Now().Unix()
+		ois = append(ois, label)
 	}
-	var ois []interface{}
-	for _, obj := range labels {
-		ois = append(ois, obj)
-	}
+
 	_, err := c.InsertMany(context.TODO(), ois)
 	return err
 }

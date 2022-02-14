@@ -211,14 +211,13 @@ func (c *WorkflowColl) BulkCreate(args []*models.Workflow) error {
 	if len(args) == 0 {
 		return nil
 	}
+	var ois []interface{}
 	for _, arg := range args {
 		arg.CreateTime = time.Now().Unix()
 		arg.UpdateTime = time.Now().Unix()
+		ois = append(ois, arg)
 	}
-	var ois []interface{}
-	for _, obj := range args {
-		ois = append(ois, obj)
-	}
+
 	_, err := c.InsertMany(context.TODO(), ois)
 	return err
 }
