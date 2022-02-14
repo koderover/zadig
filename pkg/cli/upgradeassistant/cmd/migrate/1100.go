@@ -30,9 +30,6 @@ import (
 	"github.com/koderover/zadig/pkg/types"
 
 	"github.com/koderover/zadig/pkg/config"
-	labelModel "github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/models"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
-	labelMongodb "github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
 
 	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
@@ -120,68 +117,11 @@ func rollbackChangePolicyCollectionName() error {
 }
 
 func V1100ToV190() error {
-	if err := deleteLabelAndLabelBindings(); err != nil {
-		log.Errorf("Failed to generateProductionEnv, err: %s", err)
-		return err
-	}
-
 	if err := rollbackChangePolicyCollectionName(); err != nil {
 		log.Errorf("Failed to rollbackChangePolicyCollectionName")
 		return err
 	}
 	return nil
-}
-
-func deleteLabelAndLabelBindings() error {
-	lisOpt := labelMongodb.ListLabelOpt{
-		[]labelMongodb.Label{
-			{
-				Key:   "production",
-				Value: "false",
-			},
-			{
-				Key:   "production",
-				Value: "true",
-			},
-		},
-	}
-	labels, err := newLabelColl().List(lisOpt)
-	if err != nil {
-		return err
-	}
-	if len(labels) != 2 {
-		log.Errorf("production labels len not equal 2,current is %d\n", len(labels))
-		return fmt.Errorf("production labels len not equal 2,current is %d\n", len(labels))
-	}
-	var labelIDs []string
-	for _, label := range labels {
-		labelIDs = append(labelIDs, label.ID.Hex())
-	}
-
-	res, err := mongodb.NewLabelBindingColl().ListByOpt(&mongodb.LabelBindingCollFindOpt{LabelIDs: labelIDs})
-	if err != nil {
-		log.Errorf("list labelbingding err:%s", err)
-		return err
-	}
-
-	var labelBindingIDs []string
-	for _, labelBinding := range res {
-		labelBindingIDs = append(labelBindingIDs, labelBinding.ID.Hex())
-	}
-
-	if err := mongodb.NewLabelBindingColl().BulkDeleteByIds(labelBindingIDs); err != nil {
-		log.Errorf("Failed to BulkDeleteByIds, err: %s", err)
-		return err
-	}
-	return mongodb.NewLabelColl().BulkDelete(labelIDs)
-
-}
-
-func newLabelColl() *labelMongodb.LabelColl {
-	name := labelModel.Label{}.TableName()
-	return &labelMongodb.LabelColl{
-		Collection: mongotool.Database(fmt.Sprintf("%s", config.MongoDatabase())).Collection(name),
-	}
 }
 
 func newPolicyColl() *mongo.Collection {
