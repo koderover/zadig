@@ -195,6 +195,7 @@ func initDatabase() {
 		commonrepo.NewStrategyColl(),
 		commonrepo.NewStatsColl(),
 		commonrepo.NewSubscriptionColl(),
+		commonrepo.NewSystemSettingColl(),
 		commonrepo.NewTaskColl(),
 		commonrepo.NewTestTaskStatColl(),
 		commonrepo.NewTestingColl(),
