@@ -1097,25 +1097,32 @@ func prepareEstimatedData(productName, envName, serviceName, usageScenario, defa
 		proSvcMap := productInfo.GetServiceMap()
 		proSvc := proSvcMap[serviceName]
 		if proSvc != nil {
-			existUpdate, err := checkServiceImageUpdated(productName, serviceName, proSvc)
+			curEnvService, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+				ServiceName: serviceName,
+				ProductName: productName,
+				Type:        setting.HelmDeployType,
+				Revision:    proSvc.Revision,
+			})
 			if err != nil {
-				log.Errorf("checkServiceImageUpdated, productName %s,svcname %s,err %s", productName, serviceName, err)
-				return "", "", fmt.Errorf("checkServiceImageUpdated,productName %s, svcname %s,err %s", productName, serviceName, err)
+				log.Errorf("failed to query service, name %s, Revision %d,err %s", serviceName, proSvc.Revision, err)
+				return "", "", fmt.Errorf("failed to query service, name %s,Revision %d,err %s", serviceName, proSvc.Revision, err)
 			}
-			if !existUpdate {
-				for _, container := range templateService.Containers {
-					if container.ImagePath != nil {
-						imageRelatedKey.Insert(container.ImagePath.Image, container.ImagePath.Repo, container.ImagePath.Tag)
+		L:
+			for _, curSvcContainers := range curEnvService.Containers {
+				if !checkServiceImageUpdated(curSvcContainers, proSvc) {
+					for _, container := range templateService.Containers {
+						if curSvcContainers.Name == container.Name && container.ImagePath != nil {
+							imageRelatedKey.Insert(container.ImagePath.Image, container.ImagePath.Repo, container.ImagePath.Tag)
+							continue L
+						}
 					}
 				}
 			}
 		}
-
 		curValuesYaml := ""
 		if targetChart != nil { // service has been applied into environment, use current values.yaml
 			curValuesYaml = targetChart.ValuesYaml
 		}
-
 		// merge environment values
 		mergedBs, err := overrideValues([]byte(curValuesYaml), []byte(templateService.HelmChart.ValuesYaml), imageRelatedKey)
 		if err != nil {
@@ -2696,15 +2703,24 @@ func diffRenderSet(username, productName, envName, updateType string, productRes
 				serviceInfoCur := serviceMap[serviceName]
 				imageRelatedKey := sets.NewString()
 				if serviceInfoResp != nil && serviceInfoCur != nil {
-					existUpdate, err := checkServiceImageUpdated(productName, serviceName, serviceInfoCur)
+					curEnvService, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
+						ServiceName: serviceName,
+						ProductName: productName,
+						Type:        setting.HelmDeployType,
+						Revision:    serviceInfoCur.Revision,
+					})
 					if err != nil {
-						log.Errorf("checkServiceImageUpdated,productName %s,svcname %s,err %s", productName, serviceName, err)
-						return nil, fmt.Errorf("checkServiceImageUpdated,productName %s,svcname %s,err %s", productName, serviceName, err)
+						log.Errorf("failed to query service, name %s, Revision %d,err %s", serviceName, serviceInfoCur.Revision, err)
+						return nil, fmt.Errorf("failed to query service, name %s,Revision %d,err %s", serviceName, serviceInfoCur.Revision, err)
 					}
-					if !existUpdate {
-						for _, container := range serviceInfoResp.Containers {
-							if container.ImagePath != nil {
-								imageRelatedKey.Insert(container.ImagePath.Image, container.ImagePath.Repo, container.ImagePath.Tag)
+				L:
+					for _, curSvcContainers := range curEnvService.Containers {
+						if !checkServiceImageUpdated(curSvcContainers, serviceInfoCur) {
+							for _, container := range serviceInfoResp.Containers {
+								if curSvcContainers.Name == container.Name && container.ImagePath != nil {
+									imageRelatedKey.Insert(container.ImagePath.Image, container.ImagePath.Repo, container.ImagePath.Tag)
+									continue L
+								}
 							}
 						}
 					}
@@ -2754,29 +2770,13 @@ func diffRenderSet(username, productName, envName, updateType string, productRes
 }
 
 //checkServiceImageUpdated If the service does not do any mirroring iterations on the platform, the latest YAML is used when updating the environment
-func checkServiceImageUpdated(productName, serviceName string, serviceInfo *commonmodels.ProductService) (bool, error) {
-	existUpdate := false
-	curEnvService, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
-		ServiceName: serviceName,
-		ProductName: productName,
-		Type:        setting.HelmDeployType,
-		Revision:    serviceInfo.Revision,
-	})
-	if err != nil {
-		log.Errorf("failed to query service, name %s, Revision %d,err %s", serviceName, serviceInfo.Revision, err)
-		return existUpdate, fmt.Errorf("failed to query service, name %s,Revision %d,err %s", serviceName, serviceInfo.Revision, err)
-	}
-
-L:
-	for _, curContainer := range curEnvService.Containers {
-		for _, proContainer := range serviceInfo.Containers {
-			if curContainer.Image == proContainer.Image {
-				existUpdate = true
-				break L
-			}
+func checkServiceImageUpdated(curContainer *commonmodels.Container, serviceInfo *commonmodels.ProductService) bool {
+	for _, proContainer := range serviceInfo.Containers {
+		if curContainer.Name == proContainer.Name && curContainer.Image == proContainer.Image {
+			return true
 		}
 	}
-	return existUpdate, nil
+	return false
 }
 
 // for keys exist in both yaml, current values will override latest values
