@@ -42,6 +42,17 @@ func (c *SystemSettingColl) Get() (*models.SystemSetting, error) {
 	return resp, err
 }
 
+func (c *SystemSettingColl) UpdateConcurrencySetting(workflowConcurrency, buildConcurrency int64) error {
+	id, _ := primitive.ObjectIDFromHex(setting.LocalClusterID)
+	change := bson.M{"$set": bson.M{
+		"workflow_concurrency": workflowConcurrency,
+		"build_concurrency":    buildConcurrency,
+	}}
+	query := bson.M{"_id": id}
+	_, err := c.UpdateOne(context.TODO(), query, change)
+	return err
+}
+
 func (c *SystemSettingColl) InitSystemSettings() error {
 	_, err := c.Get()
 	// if we didn't find anything

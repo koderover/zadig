@@ -14,3 +14,7 @@ func GetWorkflowConcurrency() (*WorkflowConcurrencySettings, error) {
 		BuildConcurrency:    setting.BuildConcurrency,
 	}, nil
 }
+
+func UpdateWorkflowConcurrency(workflowConcurrency, buildConcurrency int64) error {
+	return commonrepo.NewSystemSettingColl().UpdateConcurrencySetting(workflowConcurrency, buildConcurrency)
+}
