@@ -40,7 +40,8 @@ func init() {
 	upgradepath.RegisterHandler("1.10.0", "1.9.0", V1100ToV190)
 }
 
-// V190ToV1100 generate labelBindings for production environment
+// V190ToV1100 migrates data `caches` and `pre_build.clean_workspace` fields in `zadig.module_build` and `zadig.module_testing`
+// to new fields `cache_enable`, `cache_dir_type` and `cache_user_dir`; generate labelBindings for production environment
 func V190ToV1100() error {
 	log.Info("Migrating data from 1.9.0 to 1.10.0")
 
@@ -63,7 +64,7 @@ func V190ToV1100() error {
 
 func changePolicyCollectionName() error {
 	var res []*models.PolicyMeta
-	//
+
 	ctx := context.Background()
 	cursor, err := newPolicyColl().Find(ctx, bson.M{})
 	if err != nil {
@@ -81,7 +82,7 @@ func changePolicyCollectionName() error {
 	for _, obj := range res {
 		ois = append(ois, obj)
 	}
-	if _, err = newPolicyMetaColl().InsertMany(context.TODO(), ois); err != nil {
+	if _, err = newPolicyMetaColl().InsertMany(ctx, ois); err != nil {
 		log.Errorf("Failed to InsertMany policyMetas, err: %s", err)
 		return err
 	}
@@ -91,7 +92,6 @@ func changePolicyCollectionName() error {
 
 func rollbackChangePolicyCollectionName() error {
 	var res []*models.PolicyMeta
-	//
 	ctx := context.Background()
 	cursor, err := newPolicyMetaColl().Find(ctx, bson.M{})
 	if err != nil {
@@ -108,7 +108,7 @@ func rollbackChangePolicyCollectionName() error {
 	for _, obj := range res {
 		ois = append(ois, obj)
 	}
-	if _, err = newPolicyColl().InsertMany(context.TODO(), ois); err != nil {
+	if _, err = newPolicyColl().InsertMany(ctx, ois); err != nil {
 		log.Errorf("Failed to InsertMany, err: %s", err)
 		return err
 	}

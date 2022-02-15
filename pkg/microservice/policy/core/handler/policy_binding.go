@@ -39,7 +39,7 @@ func UpdatePolicyBinding(c *gin.Context) {
 	}
 	args := &service.PolicyBinding{}
 	if err := c.ShouldBindJSON(&args); err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("bind json fail %s")
+		ctx.Err = e.ErrInvalidParam.AddDesc("bind json fail")
 	}
 	ctx.Err = service.UpdateOrCreatePolicyBinding(projectName, args, ctx.Logger)
 }

@@ -1,9 +1,12 @@
 /*
 Copyright 2022 The KodeRover Authors.
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-http://www.apache.org/licenses/LICENSE-2.0
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -36,9 +39,11 @@ func NewLabelColl() *LabelColl {
 	name := models.Label{}.TableName()
 	return &LabelColl{Collection: mongotool.Database(config.MongoDatabase()).Collection(name), coll: name}
 }
+
 func (c *LabelColl) GetCollectionName() string {
 	return c.coll
 }
+
 func (c *LabelColl) EnsureIndex(ctx context.Context) error {
 	mod := mongo.IndexModel{
 		Keys: bson.D{
@@ -50,20 +55,21 @@ func (c *LabelColl) EnsureIndex(ctx context.Context) error {
 	_, err := c.Indexes().CreateOne(ctx, mod)
 	return err
 }
+
 func (c *LabelColl) BulkCreate(labels []*models.Label) error {
 	if len(labels) == 0 {
 		return nil
 	}
+	var ois []interface{}
 	for _, label := range labels {
 		label.CreateTime = time.Now().Unix()
+		ois = append(ois, label)
 	}
-	var ois []interface{}
-	for _, obj := range labels {
-		ois = append(ois, obj)
-	}
+
 	_, err := c.InsertMany(context.TODO(), ois)
 	return err
 }
+
 func (c *LabelColl) Delete(id string) error {
 	oid, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
@@ -73,6 +79,7 @@ func (c *LabelColl) Delete(id string) error {
 	_, err = c.DeleteOne(context.TODO(), query)
 	return err
 }
+
 func (c *LabelColl) BulkDelete(ids []string) error {
 	if len(ids) == 0 {
 		return nil

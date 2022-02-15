@@ -27,7 +27,7 @@ type PolicyBinding struct {
 	Subjects []*Subject `bson:"subjects" json:"subjects"`
 
 	// PolicyRef can reference a namespaced or cluster scoped Policy.
-	PolicyRef *PolicyRef `bson:"policy_ref" json:"PolicyRef"`
+	PolicyRef *PolicyRef `bson:"policy_ref" json:"policy_ref"`
 }
 
 // PolicyRef contains information that points to the policy being used

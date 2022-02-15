@@ -68,7 +68,7 @@ func GetBundleResources(logger *zap.SugaredLogger) ([]*resourceSpec, error) {
 				resourceSpec.Spec[v.Key] = v.Value
 			}
 		} else {
-			logger.Warnf("can not found resource key :%s", resourceKey)
+			logger.Warnf("can not find resource key :%s", resourceKey)
 		}
 		res = append(res, resourceSpec)
 	}

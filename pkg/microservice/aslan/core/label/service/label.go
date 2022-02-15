@@ -113,7 +113,7 @@ func ListResourcesByLabels(filters []mongodb.Label, logger *zap.SugaredLogger) (
 	// 1.find labels by label filters
 	labels, err := mongodb.NewLabelColl().List(mongodb.ListLabelOpt{Labels: filters})
 	if err != nil {
-		logger.Errorf("labels ListByOpt err:%s", err)
+		logger.Errorf("find labels by label filters err:%s", err)
 		return nil, err
 	}
 	if len(labels) == 0 {
@@ -129,7 +129,7 @@ func ListResourcesByLabels(filters []mongodb.Label, logger *zap.SugaredLogger) (
 
 	labelBindings, err := mongodb.NewLabelBindingColl().ListByOpt(&mongodb.LabelBindingCollFindOpt{LabelIDs: labelIDSet.List()})
 	if err != nil {
-		logger.Errorf("labelBindings ListByOpt err:%s", err)
+		logger.Errorf("list labelBindings err:%s,ids:%v", err, labelIDSet.List())
 		return nil, err
 	}
 
@@ -165,7 +165,7 @@ func ListLabelsByResources(resources []mongodb.Resource, logger *zap.SugaredLogg
 	//1. find the labelBindings by resources
 	labelBindings, err := mongodb.NewLabelBindingColl().ListByResources(mongodb.ListLabelBindingsByResources{Resources: resources})
 	if err != nil {
-		logger.Errorf("NewLabelBindingColl ListByResources err:%s", err)
+		logger.Errorf("find the labelBindings by resources err:%s", err)
 		return nil, err
 	}
 

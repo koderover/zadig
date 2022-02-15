@@ -55,7 +55,7 @@ func DeleteWorkflows(productName, requestID string, log *zap.SugaredLogger) erro
 }
 
 func DeleteWorkflow(workflowName, requestID string, isDeletingProductTmpl bool, log *zap.SugaredLogger) error {
-	// 在删除前，先将workflow查出来，用于删除gerrit webhook
+	// query workflow before deleting, used to delete gerrit webhook
 	workflow, err := mongodb.NewWorkflowColl().Find(workflowName)
 	if err != nil {
 		log.Errorf("Workflow.Find error: %v", err)
