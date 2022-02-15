@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -65,7 +64,7 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 	var eventPush *EventPush
 	var pushEvent *gitlab.PushEvent
 	var mergeEvent *gitlab.MergeEvent
-	var tagEvent *gitlab.TagEvent
+	//var tagEvent *gitlab.TagEvent
 	var errorList = &multierror.Error{}
 
 	switch event.(type) {
@@ -98,7 +97,7 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 	case *gitlab.MergeEvent:
 		mergeEvent = event
 	case *gitlab.TagEvent:
-		tagEvent = event
+		//tagEvent = event
 	}
 	//触发更新服务模板webhook
 	if eventPush != nil {
@@ -108,7 +107,6 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 	}
 
 	//触发工作流webhook和测试管理webhook
-	var wg sync.WaitGroup
 
 	if pushEvent != nil {
 		//add webhook user
@@ -124,27 +122,21 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 		}
 
 		//产品工作流webhook
-		wg.Add(1)
 		go func() {
-			defer wg.Done()
 			if err = TriggerWorkflowByGitlabEvent(pushEvent, baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
 		}()
 
 		//单服务工作流webhook
-		wg.Add(1)
 		go func() {
-			defer wg.Done()
 			if err = TriggerPipelineByGitlabEvent(pushEvent, baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
 		}()
 
 		//测试管理webhook
-		wg.Add(1)
 		go func() {
-			defer wg.Done()
 			if err = TriggerTestByGitlabEvent(pushEvent, baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
@@ -153,54 +145,26 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 
 	if mergeEvent != nil {
 		//多服务工作流webhook
-		wg.Add(1)
 		go func() {
-			defer wg.Done()
 			if err = TriggerWorkflowByGitlabEvent(mergeEvent, baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
 		}()
 
 		//单服务工作流webhook
-		wg.Add(1)
 		go func() {
-			defer wg.Done()
 			if err = TriggerPipelineByGitlabEvent(mergeEvent, baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
 		}()
 
 		//测试管理webhook
-		wg.Add(1)
 		go func() {
-			defer wg.Done()
 			if err = TriggerTestByGitlabEvent(mergeEvent, baseURI, requestID, log); err != nil {
 				errorList = multierror.Append(errorList, err)
 			}
 		}()
 	}
-
-	//if tagEvent != nil {
-	//	// workflow webhook
-	//	wg.Add(1)
-	//	go func() {
-	//		defer wg.Done()
-	//		if err = TriggerWorkflowByGitlabEvent(tagEvent, baseURI, requestID, log); err != nil {
-	//			errorList = multierror.Append(errorList, err)
-	//		}
-	//	}()
-	//
-	//	//test webhook
-	//	wg.Add(1)
-	//	go func() {
-	//		defer wg.Done()
-	//		if err = TriggerTestByGitlabEvent(tagEvent, baseURI, requestID, log); err != nil {
-	//			errorList = multierror.Append(errorList, err)
-	//		}
-	//	}()
-	//}
-
-	wg.Wait()
 
 	return errorList.ErrorOrNil()
 }
