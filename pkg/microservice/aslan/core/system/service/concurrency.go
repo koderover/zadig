@@ -13,13 +13,13 @@ import (
 )
 
 func GetWorkflowConcurrency() (*WorkflowConcurrencySettings, error) {
-	setting, err := commonrepo.NewSystemSettingColl().Get()
+	configuration, err := commonrepo.NewSystemSettingColl().Get()
 	if err != nil {
 		return nil, err
 	}
 	return &WorkflowConcurrencySettings{
-		WorkflowConcurrency: setting.WorkflowConcurrency,
-		BuildConcurrency:    setting.BuildConcurrency,
+		WorkflowConcurrency: configuration.WorkflowConcurrency,
+		BuildConcurrency:    configuration.BuildConcurrency,
 	}, nil
 }
 
