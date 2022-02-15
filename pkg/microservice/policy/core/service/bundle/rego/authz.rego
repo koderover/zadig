@@ -44,11 +44,15 @@ response = r {
     role_resource := user_role_allowed_resources
     policy_resource := user_policy_allowed_resources
     resource := role_resource | policy_resource
+    policy_rule := user_matched_policy_rule
+    role_rule := user_matched_role_rule
+    rule := policy_rule | role_rule
     r := {
       "allowed": true,
       "headers": {
         "Resources": json.marshal(resource),
         "Roles": json.marshal(roles),
+        "Rules": json.marshal(rule)
       }
     }
 }
@@ -174,6 +178,24 @@ project_name_is_match(res) {
     res.projectName == ""
 }
 
+user_matched_policy_rule[rule] {
+    some rule
+
+    allowed_policy_attributive_rules[rule]
+
+    glob.match(trim(rule.endpoint, "/"), ["/"], concat("/", input.parsed_path))
+
+}
+
+user_matched_role_rule[rule] {
+    some rule
+
+    allowed_role_attributive_rules[rule]
+
+    glob.match(trim(rule.endpoint, "/"), ["/"], concat("/", input.parsed_path))
+
+}
+
 user_matched_policy_rule_for_filtering[rule] {
     some rule
 
@@ -191,6 +213,7 @@ user_matched_role_rule_for_filtering[rule] {
     glob.match(trim(rule.endpoint, "/"), ["/"], concat("/", input.parsed_path))
     not rule.idRegex
 }
+
 
 all_attributes_match(attributes, resourceType, resourceID) {
     res := data.resources[resourceType][_]
