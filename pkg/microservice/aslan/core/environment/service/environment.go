@@ -1108,10 +1108,10 @@ func prepareEstimatedData(productName, envName, serviceName, usageScenario, defa
 				return "", "", fmt.Errorf("failed to query service, name %s,Revision %d,err %s", serviceName, proSvc.Revision, err)
 			}
 		L:
-			for _, curSvcContainers := range curEnvService.Containers {
-				if !checkServiceImageUpdated(curSvcContainers, proSvc) {
+			for _, curSvcContainer := range curEnvService.Containers {
+				if checkServiceImageUpdated(curSvcContainer, proSvc) {
 					for _, container := range templateService.Containers {
-						if curSvcContainers.Name == container.Name && container.ImagePath != nil {
+						if curSvcContainer.Name == container.Name && container.ImagePath != nil {
 							imageRelatedKey.Insert(container.ImagePath.Image, container.ImagePath.Repo, container.ImagePath.Tag)
 							continue L
 						}
@@ -2715,7 +2715,7 @@ func diffRenderSet(username, productName, envName, updateType string, productRes
 					}
 				L:
 					for _, curSvcContainers := range curEnvService.Containers {
-						if !checkServiceImageUpdated(curSvcContainers, serviceInfoCur) {
+						if checkServiceImageUpdated(curSvcContainers, serviceInfoCur) {
 							for _, container := range serviceInfoResp.Containers {
 								if curSvcContainers.Name == container.Name && container.ImagePath != nil {
 									imageRelatedKey.Insert(container.ImagePath.Image, container.ImagePath.Repo, container.ImagePath.Tag)
@@ -2773,10 +2773,10 @@ func diffRenderSet(username, productName, envName, updateType string, productRes
 func checkServiceImageUpdated(curContainer *commonmodels.Container, serviceInfo *commonmodels.ProductService) bool {
 	for _, proContainer := range serviceInfo.Containers {
 		if curContainer.Name == proContainer.Name && curContainer.Image == proContainer.Image {
-			return true
+			return false
 		}
 	}
-	return false
+	return true
 }
 
 // for keys exist in both yaml, current values will override latest values
