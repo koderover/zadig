@@ -64,7 +64,7 @@ func CreateLabels(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.CreateLabels(labels, ctx.UserName)
 }
 
-//DeleteLabels  can only bulk delete labels which not bind reousrces
+// DeleteLabels can only bulk delete labels which do not bind resources except add force param
 func DeleteLabels(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

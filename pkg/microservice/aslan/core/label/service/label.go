@@ -141,11 +141,7 @@ func ListResourcesByLabels(filters []mongodb.Label, logger *zap.SugaredLogger) (
 			Type:        v.ResourceType,
 		}
 		labelString, _ := labelsM[v.LabelID]
-		if resources, ok := res[labelString]; ok {
-			res[labelString] = append(resources, resource)
-		} else {
-			res[labelString] = []mongodb.Resource{resource}
-		}
+		res[labelString] = append(res[labelString], resource)
 	}
 
 	return &ListResourcesByLabelsResp{
@@ -191,11 +187,8 @@ func ListLabelsByResources(resources []mongodb.Resource, logger *zap.SugaredLogg
 			return nil, fmt.Errorf("can not find label %v", labelBinding.LabelID)
 		}
 
-		if arr, ok := res[resourceKey]; ok {
-			res[resourceKey] = append(arr, label)
-		} else {
-			res[resourceKey] = []*models.Label{label}
-		}
+		res[resourceKey] = append(res[resourceKey], label)
+
 	}
 
 	return &ListLabelsByResourcesResp{
@@ -229,7 +222,7 @@ func DeleteLabels(ids []string, forceDelete bool, logger *zap.SugaredLogger) err
 		}
 
 		if err := mongodb.NewLabelBindingColl().BulkDeleteByIds(labelBindingIDs); err != nil {
-			logger.Errorf("NewLabelBindingColl DeleteMany err :%s", err)
+			logger.Errorf("BulkDeleteByIds err :%s,ids:%v", err, labelBindingIDs)
 			return err
 		}
 		return mongodb.NewLabelColl().BulkDelete(ids)
@@ -262,7 +255,7 @@ func DeleteLabelsAndBindingsByProject(projectName string, logger *zap.SugaredLog
 	}
 
 	if err := mongodb.NewLabelBindingColl().BulkDeleteByIds(labelBindingIDs); err != nil {
-		logger.Errorf("NewLabelBindingColl DeleteMany err :%s", err)
+		logger.Errorf("BulkDeleteByIds err :%s,ids:%v", err, labelBindingIDs)
 		return err
 	}
 

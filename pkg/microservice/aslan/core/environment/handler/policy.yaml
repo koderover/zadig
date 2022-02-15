@@ -7,7 +7,7 @@ rules:
     description: ""
     rules:
       - method: GET
-        endpoint: "/api/aslan/environment/environments/?*/services/down"
+        endpoint: "/api/aslan/environment/environments/?*/services/?*"
       - method: GET
         endpoint: "/api/aslan/environment/environments"
       - method: GET

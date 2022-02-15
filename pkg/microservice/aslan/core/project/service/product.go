@@ -939,7 +939,7 @@ func DeleteCollabrationMode(productName string, userName string, log *zap.Sugare
 	}
 	// delete all collaborationIns
 	if err := mongodb.NewCollaborationInstanceColl().DeleteByProject(productName); err != nil {
-		log.Errorf("NewCollaborationInstanceColl DeleteByProject err:%s", err)
+		log.Errorf("fail to DeleteByProject err:%s", err)
 		return err
 	}
 	return nil
