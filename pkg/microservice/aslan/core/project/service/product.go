@@ -477,7 +477,6 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 			ProductName: productName,
 		})
 	}()
-	// delete policy
 
 	return nil
 }
