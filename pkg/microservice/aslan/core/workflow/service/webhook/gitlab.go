@@ -180,25 +180,25 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 		}()
 	}
 
-	if tagEvent != nil {
-		// workflow webhook
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if err = TriggerWorkflowByGitlabEvent(tagEvent, baseURI, requestID, log); err != nil {
-				errorList = multierror.Append(errorList, err)
-			}
-		}()
-
-		//test webhook
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if err = TriggerTestByGitlabEvent(tagEvent, baseURI, requestID, log); err != nil {
-				errorList = multierror.Append(errorList, err)
-			}
-		}()
-	}
+	//if tagEvent != nil {
+	//	// workflow webhook
+	//	wg.Add(1)
+	//	go func() {
+	//		defer wg.Done()
+	//		if err = TriggerWorkflowByGitlabEvent(tagEvent, baseURI, requestID, log); err != nil {
+	//			errorList = multierror.Append(errorList, err)
+	//		}
+	//	}()
+	//
+	//	//test webhook
+	//	wg.Add(1)
+	//	go func() {
+	//		defer wg.Done()
+	//		if err = TriggerTestByGitlabEvent(tagEvent, baseURI, requestID, log); err != nil {
+	//			errorList = multierror.Append(errorList, err)
+	//		}
+	//	}()
+	//}
 
 	wg.Wait()
 
