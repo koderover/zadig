@@ -156,7 +156,6 @@ func (c *CollaborationInstanceColl) DeleteByProject(projectName string) error {
 	query["project_name"] = projectName
 	_, err := c.DeleteMany(context.TODO(), query)
 	return err
-
 }
 
 func (c *CollaborationInstanceColl) List(opt *CollaborationInstanceFindOptions) ([]*models.CollaborationInstance, error) {

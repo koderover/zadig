@@ -32,14 +32,14 @@ import (
 
 type CollaborationModeFindOptions struct {
 	ProjectName string
-	Name        string `           `
+	Name        string
 	Members     string
 	IsDeleted   bool
 }
 
 type CollaborationModeListOptions struct {
 	Projects  []string
-	Name      string `           `
+	Name      string
 	Members   []string
 	IsDeleted bool
 }
@@ -123,7 +123,7 @@ func (c *CollaborationModeColl) Create(userName string, args *models.Collaborati
 	})
 
 	if err == nil {
-		return errors.New("该项目下的协作模式已存在")
+		return errors.New("the collaborationMode is already exist in this project")
 	}
 	now := time.Now().Unix()
 	args.CreateBy = userName

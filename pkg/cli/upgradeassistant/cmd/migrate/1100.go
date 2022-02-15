@@ -118,7 +118,7 @@ func rollbackChangePolicyCollectionName() error {
 
 func V1100ToV190() error {
 	if err := rollbackChangePolicyCollectionName(); err != nil {
-		log.Errorf("Failed to rollbackChangePolicyCollectionName")
+		log.Errorf("Failed to rollbackChangePolicyCollectionName,err: %s", err)
 		return err
 	}
 	return nil
