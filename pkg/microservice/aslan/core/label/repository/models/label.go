@@ -27,7 +27,7 @@ type Label struct {
 	Value       string             `bson:"value"                       json:"value"`
 	CreateBy    string             `bson:"create_by"                   json:"create_by"`
 	CreateTime  int64              `bson:"create_time"                 json:"create_time"`
-	ProjectName string             `bson:"project_name"                 json:"project_name"`
+	ProjectName string             `bson:"project_name"                json:"project_name"`
 }
 
 func (Label) TableName() string {

@@ -33,9 +33,9 @@ type PolicyMetaRule struct {
 type ActionRule struct {
 	Method          string      `bson:"method"                     json:"method"`
 	Endpoint        string      `bson:"endpoint"                   json:"endpoint"`
-	ResourceType    string      `bson:"resource_type,omitempty"    json:"resourceType,omitempty"`
+	ResourceType    string      `bson:"resource_type,omitempty"    json:"resource_type,omitempty"`
 	IDRegex         string      `bson:"id_regex,omitempty"         json:"idRegex,omitempty"`
-	MatchAttributes []Attribute `bson:"match_attributes,omitempty" json:"matchAttributes,omitempty"`
+	MatchAttributes []Attribute `bson:"match_attributes,omitempty" json:"match_attributes,omitempty"`
 }
 
 type Attribute struct {
