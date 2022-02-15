@@ -1412,8 +1412,6 @@ func addExtensionToSubTasks(stage *commonmodels.ExtensionStage) (map[string]inte
 		URL:        stage.URL,
 		Path:       stage.Path,
 		Headers:    stage.Headers,
-		Body:       stage.Body,
-		Method:     stage.Method,
 		IsCallback: stage.IsCallback,
 		Timeout:    stage.Timeout,
 	}

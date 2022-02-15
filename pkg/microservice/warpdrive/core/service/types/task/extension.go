@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KodeRover Authors.
+Copyright 2022 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -31,8 +31,6 @@ type Extension struct {
 	Path       string           `bson:"path,omitempty"             json:"path,omitempty"`
 	IsCallback bool             `bson:"is_callback,omitempty"      json:"is_callback,omitempty"`
 	Headers    []*models.KeyVal `bson:"headers,omitempty"          json:"headers,omitempty"`
-	Body       string           `bson:"body,omitempty"             json:"body,omitempty"`
-	Method     string           `bson:"method"                     json:"method"`
 	Timeout    int              `bson:"timeout"                    json:"timeout,omitempty"`
 	IsRestart  bool             `bson:"is_restart"                 json:"is_restart"`
 	Error      string           `bson:"error,omitempty"            json:"error,omitempty"`

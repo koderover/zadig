@@ -18,6 +18,7 @@ package taskplugin
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -103,7 +104,8 @@ func (p *ExtensionTaskPlugin) SetExtensionStatusCompleted(status config.Status) 
 
 func (p *ExtensionTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineCtx *task.PipelineCtx, serviceName string) {
 	var (
-		err error
+		err  error
+		body []byte
 	)
 	defer func() {
 		if err != nil {
@@ -124,16 +126,22 @@ func (p *ExtensionTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, 
 	for _, header := range p.Task.Headers {
 		httpclient.SetHeader(header.Key, header.Value)
 	}
-	httpclient.SetHeader("X-Zadig-Event", "Workflow")
-	if p.Task.Method == "POST" {
-		_, err = httpClient.Post(url, httpclient.SetBody(p.Task.Body))
-	} else if p.Task.Method == "GET" {
-		_, err = httpClient.Get(url)
+	webhookPayload := &task.WebhookPayload{
+		EventName:   "workflow",
+		ProjectName: pipelineTask.ProductName,
+		TaskName:    pipelineTask.PipelineName,
+		TaskID:      pipelineTask.TaskID,
+		//TaskOutput:  []*task.TaskOutput{taskOutput},
+		//TaskEnvs: pipelineTask.TaskArgs.BuildArgs,
 	}
+	body, err = json.Marshal(webhookPayload)
+	for _, header := range p.Task.Headers {
+		httpclient.SetHeader(header.Key, header.Value)
+	}
+	_, err = httpClient.Post(url, httpclient.SetHeader("X-Zadig-Event", "Workflow"), httpclient.SetBody(body))
 	if err != nil {
 		return
 	}
-
 	if !p.Task.IsCallback {
 		p.SetExtensionStatusCompleted(config.StatusPassed)
 	}
