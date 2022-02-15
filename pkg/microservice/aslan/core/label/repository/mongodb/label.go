@@ -36,9 +36,11 @@ func NewLabelColl() *LabelColl {
 	name := models.Label{}.TableName()
 	return &LabelColl{Collection: mongotool.Database(config.MongoDatabase()).Collection(name), coll: name}
 }
+
 func (c *LabelColl) GetCollectionName() string {
 	return c.coll
 }
+
 func (c *LabelColl) EnsureIndex(ctx context.Context) error {
 	mod := mongo.IndexModel{
 		Keys: bson.D{
@@ -50,6 +52,7 @@ func (c *LabelColl) EnsureIndex(ctx context.Context) error {
 	_, err := c.Indexes().CreateOne(ctx, mod)
 	return err
 }
+
 func (c *LabelColl) BulkCreate(labels []*models.Label) error {
 	if len(labels) == 0 {
 		return nil
@@ -63,6 +66,7 @@ func (c *LabelColl) BulkCreate(labels []*models.Label) error {
 	_, err := c.InsertMany(context.TODO(), ois)
 	return err
 }
+
 func (c *LabelColl) Delete(id string) error {
 	oid, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
@@ -72,6 +76,7 @@ func (c *LabelColl) Delete(id string) error {
 	_, err = c.DeleteOne(context.TODO(), query)
 	return err
 }
+
 func (c *LabelColl) BulkDelete(ids []string) error {
 	if len(ids) == 0 {
 		return nil
