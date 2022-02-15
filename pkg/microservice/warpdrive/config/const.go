@@ -35,6 +35,7 @@ const (
 	TaskResetImage      TaskType = "reset_image"
 	TaskDistribute      TaskType = "distribute"
 	TaskTrigger         TaskType = "trigger"
+	TaskExtension       TaskType = "extension"
 	TaskArtifactPackage TaskType = "artifact_package"
 )
 

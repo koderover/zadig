@@ -47,6 +47,7 @@ type Workflow struct {
 	TestStage       *TestStage         `bson:"test_stage"                   json:"test_stage"`
 	SecurityStage   *SecurityStage     `bson:"security_stage"               json:"security_stage"`
 	DistributeStage *DistributeStage   `bson:"distribute_stage"             json:"distribute_stage"`
+	ExtensionStage  *ExtensionStage    `bson:"extension_stage"              json:"extension_stage"`
 	NotifyCtl       *NotifyCtl         `bson:"notify_ctl,omitempty"         json:"notify_ctl,omitempty"`
 	HookCtl         *WorkflowHookCtrl  `bson:"hook_ctl"                     json:"hook_ctl"`
 
@@ -260,6 +261,17 @@ type DistributeStage struct {
 
 	// repos to release images
 	Releases []RepoImage `bson:"releases" json:"releases"`
+}
+
+type ExtensionStage struct {
+	Enabled    bool      `bson:"enabled"              json:"enabled"`
+	URL        string    `bson:"url"                  json:"url"`
+	Path       string    `bson:"path"                 json:"path"`
+	IsCallback bool      `bson:"is_callback"          json:"is_callback"`
+	Timeout    int       `bson:"timeout"              json:"timeout"`
+	Headers    []*KeyVal `bson:"headers"              json:"headers"`
+	Body       string    `bson:"body"                 json:"body"`
+	Method     string    `bson:"method"               json:"method"`
 }
 
 type RepoImage struct {

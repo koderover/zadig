@@ -657,6 +657,15 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 			}
 		}
 
+		if workflow.ExtensionStage != nil && workflow.ExtensionStage.Enabled {
+			extensionTask, err := addExtensionToSubTasks(workflow.ExtensionStage)
+			if err != nil {
+				log.Errorf("add extension task error: %s", err)
+				return nil, e.ErrCreateTask.AddErr(err)
+			}
+			subTasks = append(subTasks, extensionTask)
+		}
+
 		// 填充subtask之间关联内容
 		task := &task.Task{
 			TaskID:        nextTaskID,
@@ -1394,6 +1403,21 @@ func AddJiraSubTask(moduleName, target, serviceName, productName string, log *za
 func addSecurityToSubTasks() (map[string]interface{}, error) {
 	securityTask := task.Security{TaskType: config.TaskSecurity, Enabled: true}
 	return securityTask.ToSubTask()
+}
+
+func addExtensionToSubTasks(stage *commonmodels.ExtensionStage) (map[string]interface{}, error) {
+	extensionTask := task.Extension{
+		TaskType:   config.TaskExtension,
+		Enabled:    true,
+		URL:        stage.URL,
+		Path:       stage.Path,
+		Headers:    stage.Headers,
+		Body:       stage.Body,
+		Method:     stage.Method,
+		IsCallback: stage.IsCallback,
+		Timeout:    stage.Timeout,
+	}
+	return extensionTask.ToSubTask()
 }
 
 func workFlowArgsToTaskArgs(target string, workflowArgs *commonmodels.WorkflowTaskArgs) *commonmodels.TaskArgs {
@@ -2480,7 +2504,7 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 					return err
 				}
 			}
-		case config.TaskDistribute:
+		case config.TaskDistribute, config.TaskArtifactPackage:
 		// do nothing
 		case config.TaskTrigger:
 			t, err := base.ToTriggerTask(subTask)
@@ -2495,8 +2519,19 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 					return err
 				}
 			}
-		case config.TaskArtifactPackage:
-			// do nothing
+		case config.TaskExtension:
+			t, err := base.ToExtensionTask(subTask)
+			if err != nil {
+				log.Error(err)
+				return err
+			}
+
+			if t.Enabled {
+				pt.SubTasks[i], err = t.ToSubTask()
+				if err != nil {
+					return err
+				}
+			}
 		default:
 			return e.NewErrInvalidTaskType(string(pre.TaskType))
 		}
