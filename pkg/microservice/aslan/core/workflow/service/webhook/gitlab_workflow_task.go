@@ -386,26 +386,22 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 	if err != nil {
 		return fmt.Errorf("checkTriggerYamlParams yamlPath:%s err:%s", item.YamlPath, err)
 	}
-	deployed := false
-	for _, stage := range triggerYaml.Stages {
-		if stage == "deploy" {
-			deployed = true
-			break
-		}
-	}
+	deployed := existStage(StageDeploy, triggerYaml)
 	if svcType == setting.BasicFacilityCVM {
 		deployed = true
 	}
-	workFlowArgs.Namespace = strings.Join(triggerYaml.Deploy.Envsname, ",")
 	workFlowArgs.WorkflowName = workflow.Name
-	workFlowArgs.BaseNamespace = triggerYaml.Deploy.BaseNamespace
 	workFlowArgs.ProductTmplName = workflow.ProductTmplName
 	if triggerYaml.CacheSet != nil {
 		workFlowArgs.IgnoreCache = triggerYaml.CacheSet.IgnoreCache
 		workFlowArgs.ResetCache = triggerYaml.CacheSet.ResetCache
 	}
-	workFlowArgs.EnvRecyclePolicy = triggerYaml.Deploy.EnvRecyclePolicy
-	workFlowArgs.EnvUpdatePolicy = triggerYaml.Deploy.Strategy
+	if triggerYaml.Deploy != nil {
+		workFlowArgs.Namespace = strings.Join(triggerYaml.Deploy.Envsname, ",")
+		workFlowArgs.BaseNamespace = triggerYaml.Deploy.BaseNamespace
+		workFlowArgs.EnvRecyclePolicy = string(triggerYaml.Deploy.EnvRecyclePolicy)
+		workFlowArgs.EnvUpdatePolicy = string(triggerYaml.Deploy.Strategy)
+	}
 	item.MainRepo.Events = triggerYaml.Rules.Events
 	if triggerYaml.Rules.Strategy != nil {
 		item.AutoCancel = triggerYaml.Rules.Strategy.AutoCancel
@@ -433,7 +429,7 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 			TestModuleName: test.Name,
 			Envs:           envs,
 		}
-		if test.Repo.Strategy == "currentRepo" {
+		if test.Repo.Strategy == TestRepoStrategyCurrentRepo {
 			for _, repo := range moduleTest.Repos {
 				if repo.RepoName == item.MainRepo.RepoName && repo.RepoOwner == item.MainRepo.RepoOwner {
 					repo.Branch = item.MainRepo.Branch
@@ -540,9 +536,17 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 			switch evt := event.(type) {
 			case *gitlab.PushEvent:
 				pushEvent = evt
+				if (item.MainRepo.RepoOwner + "/" + item.MainRepo.RepoName) != pushEvent.Project.PathWithNamespace {
+					log.Debugf("event not matches repo: %v", item.MainRepo)
+					continue
+				}
 				branref = pushEvent.Ref
 			case *gitlab.MergeEvent:
 				mergeEvent = evt
+				if (item.MainRepo.RepoOwner + "/" + item.MainRepo.RepoName) != mergeEvent.ObjectAttributes.Target.PathWithNamespace {
+					log.Debugf("event not matches repo: %v", item.MainRepo)
+					continue
+				}
 				if mergeEvent.ObjectAttributes.Source.PathWithNamespace != mergeEvent.ObjectAttributes.Target.PathWithNamespace {
 					branref = mergeEvent.ObjectAttributes.TargetBranch
 				} else {
@@ -552,6 +556,10 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 				item.MainRepo.Branch = getBranchFromRef(mergeEvent.ObjectAttributes.TargetBranch)
 			case *gitlab.TagEvent:
 				tagEvent = evt
+				if (item.MainRepo.RepoOwner + "/" + item.MainRepo.RepoName) != tagEvent.Project.PathWithNamespace {
+					log.Debugf("event not matches repo: %v", item.MainRepo)
+					continue
+				}
 				branref = tagEvent.Ref
 			}
 
@@ -656,6 +664,8 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 				if err = CreateEnvAndTaskByPR(args, prID, requestID, log); err != nil {
 					log.Infof("CreateRandomEnv err:%v", err)
 				}
+			} else {
+				log.Warnf("It's not a PR event,BaseNamespace:%s", item.WorkflowArgs.BaseNamespace)
 			}
 		}
 	}

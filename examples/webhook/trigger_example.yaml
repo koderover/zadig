@@ -10,13 +10,13 @@ build:
     variables: # zadig 系统中需要先声明出来才能指定，否则这边配置也无效
       - name: k1
         value: v1
-# 部署策略
+# 部署策略 （该阶段不可缺）
 deploy:
   strategy: single # single(更新指定环境)/dynamic(动态选择空闲环境)/base(更新基准环境，需配置 env_recycle_policy 和 base_env)
   envs_name:
     - dev
    
-  # strategy 值为 base 时才需配置以下变量
+  # strategy 值为 base 时才需配置以下变量;该策略仅pull_request时生效
   # env_recycle_policy: success # success(成功后销毁)/always(每次销毁)/never(每次保留)
   # base_env: dev
 # 测试参数
