@@ -1791,7 +1791,7 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 		return nil, e.ErrCreateTask
 	}
 
-	_ = scmnotify.NewService().UpdateWebhookComment(task, log)
+	//_ = scmnotify.NewService().UpdateWebhookComment(task, log)
 	resp := &CreateTaskResp{
 		ProjectName:  workflow.ProductTmplName,
 		PipelineName: args.WorkflowName,
