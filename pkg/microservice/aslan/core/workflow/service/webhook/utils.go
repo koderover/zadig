@@ -609,73 +609,73 @@ func checkTriggerYamlParams(triggerYaml *TriggerYaml) error {
 
 	//check build
 	if len(triggerYaml.Build) == 0 {
-		return fmt.Errorf("build is empty")
+		return errors.New("build is empty")
 	}
 	for _, bd := range triggerYaml.Build {
 		if bd.Name == "" || bd.ServiceModule == "" {
-			return fmt.Errorf("build.name or build.service_module is empty")
+			return errors.New("build.name or build.service_module is empty")
 		}
 	}
 
 	//check deploy
 	if triggerYaml.Deploy == nil {
-		return fmt.Errorf("deploy is empty")
+		return errors.New("deploy is empty")
 	}
 	if len(triggerYaml.Deploy.Envsname) == 0 {
-		return fmt.Errorf("deploy.envs_name is empty")
+		return errors.New("deploy.envs_name is empty")
 	}
 	if triggerYaml.Deploy.Strategy != DeployStrategySingle && triggerYaml.Deploy.Strategy != DeployStrategyBase && triggerYaml.Deploy.Strategy != DeployStrategyDynamic {
 		return fmt.Errorf("deploy.strategy must %s or %s or %s", DeployStrategySingle, DeployStrategyDynamic, DeployStrategyBase)
 	}
 	if triggerYaml.Deploy.Strategy == DeployStrategyBase {
 		if triggerYaml.Deploy.BaseNamespace == "" {
-			return fmt.Errorf("deploy.base_env is empty")
+			return errors.New("deploy.base_env is empty")
 		}
 		if triggerYaml.Deploy.EnvRecyclePolicy != EnvRecyclePolicySuccess && triggerYaml.Deploy.EnvRecyclePolicy != EnvRecyclePolicyAlways && triggerYaml.Deploy.EnvRecyclePolicy != EnvRecyclePolicyNever {
-			return fmt.Errorf("deploy.env_recycle_policy must success/always/never")
+			return errors.New("deploy.env_recycle_policy must success/always/never")
 		}
 	} else {
 		if triggerYaml.Deploy.BaseNamespace != "" {
-			return fmt.Errorf("deploy.base_env must empty")
+			return errors.New("deploy.base_env must empty")
 		}
 	}
 
 	//check test
 	if existStage(StageTest, triggerYaml) {
 		if len(triggerYaml.Test) == 0 {
-			return fmt.Errorf("test is empty")
+			return errors.New("test is empty")
 		}
 		for _, tt := range triggerYaml.Test {
 			if tt.Repo == nil {
-				return fmt.Errorf("test.repo.strategy must default/currentRepo")
+				return errors.New("test.repo.strategy must default/currentRepo")
 			}
 			if tt.Repo.Strategy != TestRepoStrategyDefault && tt.Repo.Strategy != TestRepoStrategyCurrentRepo {
-				return fmt.Errorf("test.repo.strategy must default/currentRepo")
+				return errors.New("test.repo.strategy must default/currentRepo")
 			}
 		}
 	}
 
 	//check rule
 	if triggerYaml.Rules == nil {
-		return fmt.Errorf("rules must exist")
+		return errors.New("rules must exist")
 	}
 	if len(triggerYaml.Rules.Branchs) == 0 {
-		return fmt.Errorf("rules.branchs must exist")
+		return errors.New("rules.branchs must exist")
 	}
 	for _, ev := range triggerYaml.Rules.Events {
 		if ev != "pull_request" && ev != "push" && ev != "tag" {
-			return fmt.Errorf("rules.event must be pull_request or push or tag")
+			return errors.New("rules.event must be pull_request or push or tag")
 		}
 	}
 	if triggerYaml.Rules.MatchFolders == nil {
-		return fmt.Errorf("rules.match_folders must exist")
+		return errors.New("rules.match_folders must exist")
 	}
 	for _, mf := range triggerYaml.Rules.MatchFolders.MatchFoldersTree {
 		if mf.Name == "" || mf.ServiceModule == "" {
-			return fmt.Errorf("match_folders.match_folders_tree.name or match_folders.match_folders_tree.service_module is empty")
+			return errors.New("match_folders.match_folders_tree.name or match_folders.match_folders_tree.service_module is empty")
 		}
 		if len(mf.FileTree) == 0 {
-			return fmt.Errorf("match_folders.match_folders_tree.file_tree is empty")
+			return errors.New("match_folders.match_folders_tree.file_tree is empty")
 		}
 	}
 
