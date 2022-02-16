@@ -60,6 +60,9 @@ type WebhookPayload struct {
 	TaskID      int64         `json:"task_id"`
 	TaskOutput  []*TaskOutput `json:"task_output"`
 	TaskEnvs    []*KeyVal     `json:"task_envs"`
+	ServiceName string        `json:"service_name"`
+	Image       string        `json:"image"`
+	Creator     string        `json:"creator"`
 }
 
 type TaskOutput struct {

@@ -2525,6 +2525,8 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 			}
 
 			if t.Enabled {
+				t.SetImage(pt.TaskArgs.Deploy.Image)
+				t.SetServiceName(pt.ServiceName)
 				pt.SubTasks[i], err = t.ToSubTask()
 				if err != nil {
 					return err
