@@ -657,15 +657,6 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 			}
 		}
 
-		if workflow.ExtensionStage != nil && workflow.ExtensionStage.Enabled {
-			extensionTask, err := addExtensionToSubTasks(workflow.ExtensionStage)
-			if err != nil {
-				log.Errorf("add extension task error: %s", err)
-				return nil, e.ErrCreateTask.AddErr(err)
-			}
-			subTasks = append(subTasks, extensionTask)
-		}
-
 		// 填充subtask之间关联内容
 		task := &task.Task{
 			TaskID:        nextTaskID,
@@ -702,6 +693,15 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		for _, stask := range task.SubTasks {
 			AddSubtaskToStage(&stages, stask, target.Name)
 		}
+	}
+	// add extension to stage
+	if workflow.ExtensionStage != nil && workflow.ExtensionStage.Enabled {
+		extensionTask, err := addExtensionToSubTasks(workflow.ExtensionStage)
+		if err != nil {
+			log.Errorf("add extension task error: %s", err)
+			return nil, e.ErrCreateTask.AddErr(err)
+		}
+		AddSubtaskToStage(&stages, extensionTask, "extension")
 	}
 
 	testTask := &task.Task{
@@ -1414,6 +1414,7 @@ func addExtensionToSubTasks(stage *commonmodels.ExtensionStage) (map[string]inte
 		Headers:    stage.Headers,
 		IsCallback: stage.IsCallback,
 		Timeout:    stage.Timeout,
+		//ServiceInfos: serviceInfo
 	}
 	return extensionTask.ToSubTask()
 }
@@ -2512,20 +2513,6 @@ func ensurePipelineTask(pt *task.Task, envName, serviceName string, log *zap.Sug
 			}
 
 			if t.Enabled {
-				pt.SubTasks[i], err = t.ToSubTask()
-				if err != nil {
-					return err
-				}
-			}
-		case config.TaskExtension:
-			t, err := base.ToExtensionTask(subTask)
-			if err != nil {
-				log.Error(err)
-				return err
-			}
-
-			if t.Enabled {
-				t.SetServiceInfo(serviceName, pt.ServiceName, pt.TaskArgs.Deploy.Image)
 				pt.SubTasks[i], err = t.ToSubTask()
 				if err != nil {
 					return err
