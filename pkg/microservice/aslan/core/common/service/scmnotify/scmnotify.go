@@ -289,14 +289,14 @@ func (s *Service) UpdateDiffNote(task *task.Task, logger *zap.SugaredLogger) (er
 	}
 
 	// 更新resolved状态
-	resolveOpt := &gitlab.UpdateMergeRequestDiscussionNoteOptions{
-		Resolved: &isAllTaskSucceed,
-	}
-	_, _, err = cli.Discussions.UpdateMergeRequestDiscussionNote(diffNote.Repo.ProjectID, diffNote.MergeRequestID, diffNote.DiscussionID, diffNote.NoteID, resolveOpt)
-	if err != nil {
-		logger.Errorf("UpdateMergeRequestDiscussionNote failed, err: %v", err)
-		return err
-	}
+	//resolveOpt := &gitlab.UpdateMergeRequestDiscussionNoteOptions{
+	//	Resolved: &isAllTaskSucceed,
+	//}
+	//_, _, err = cli.Discussions.UpdateMergeRequestDiscussionNote(diffNote.Repo.ProjectID, diffNote.MergeRequestID, diffNote.DiscussionID, diffNote.NoteID, resolveOpt)
+	//if err != nil {
+	//	logger.Errorf("UpdateMergeRequestDiscussionNote failed, err: %v", err)
+	//	return err
+	//}
 
 	diffNote.Resolved = isAllTaskSucceed
 	diffNote.Body = body
