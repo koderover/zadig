@@ -616,9 +616,9 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 					mErr = multierror.Append(mErr, err)
 				}
 				if notification == nil {
-					notification, _ = scmnotify.NewService().SendInitWebhookComment(
-						item.MainRepo, ev.ObjectAttributes.IID, baseURI, false, false, log,
-					)
+					//notification, _ = scmnotify.NewService().SendInitWebhookComment(
+					//	item.MainRepo, ev.ObjectAttributes.IID, baseURI, false, false, log,
+					//)
 
 					// 初始化 gitlab diff_note
 					InitDiffNote(ev, item.MainRepo, log)

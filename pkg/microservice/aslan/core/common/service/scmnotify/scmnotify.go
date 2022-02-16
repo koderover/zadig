@@ -219,9 +219,9 @@ func (s *Service) UpdateWebhookComment(task *task.Task, logger *zap.SugaredLogge
 
 	if shouldComment {
 		notification.Tasks = tasks
-		if err = s.Client.Comment(notification); err != nil {
-			logger.Errorf("failed to comment %s, %v", notification.ToString(), err)
-		}
+		//if err = s.Client.Comment(notification); err != nil {
+		//	logger.Errorf("failed to comment %s, %v", notification.ToString(), err)
+		//}
 
 		if err = s.Coll.Upsert(notification); err != nil {
 			logger.Errorf("can't upsert notification by id %s", notification.ID)
