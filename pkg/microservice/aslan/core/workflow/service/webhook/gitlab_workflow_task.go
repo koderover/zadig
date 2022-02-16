@@ -616,9 +616,9 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 					mErr = multierror.Append(mErr, err)
 				}
 				if notification == nil {
-					//notification, _ = scmnotify.NewService().SendInitWebhookComment(
-					//	item.MainRepo, ev.ObjectAttributes.IID, baseURI, false, false, log,
-					//)
+					notification, _ = scmnotify.NewService().SendInitWebhookComment(
+						item.MainRepo, ev.ObjectAttributes.IID, baseURI, false, false, log,
+					)
 
 					// 初始化 gitlab diff_note
 					InitDiffNote(ev, item.MainRepo, log)
@@ -715,14 +715,14 @@ func InitDiffNote(ev *gitlab.MergeEvent, mainRepo *commonmodels.MainHookRepo, lo
 
 		// 更新resolved状态
 		resolved := false
-		resolveOpt := &gitlab.UpdateMergeRequestDiscussionNoteOptions{
-			Resolved: &resolved,
-		}
-		_, _, err = cli.Discussions.UpdateMergeRequestDiscussionNote(dn.Repo.ProjectID, dn.MergeRequestID, dn.DiscussionID, dn.NoteID, resolveOpt)
-		if err != nil {
-			log.Errorf("UpdateMergeRequestDiscussionNote failed, err:%v", err)
-			return err
-		}
+		//resolveOpt := &gitlab.UpdateMergeRequestDiscussionNoteOptions{
+		//	Resolved: &resolved,
+		//}
+		//_, _, err = cli.Discussions.UpdateMergeRequestDiscussionNote(dn.Repo.ProjectID, dn.MergeRequestID, dn.DiscussionID, dn.NoteID, resolveOpt)
+		//if err != nil {
+		//	log.Errorf("UpdateMergeRequestDiscussionNote failed, err:%v", err)
+		//	return err
+		//}
 
 		// 更新到数据库
 		dn.Resolved = resolved
