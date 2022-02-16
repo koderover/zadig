@@ -590,43 +590,77 @@ func getServiceTypeByProject(productName string) (string, error) {
 	return projectType, nil
 }
 
+func existStage(expectStage Stage, triggerYaml *TriggerYaml) bool {
+	for _, stage := range triggerYaml.Stages {
+		if stage == expectStage {
+			return true
+		}
+	}
+	return false
+}
+
 func checkTriggerYamlParams(triggerYaml *TriggerYaml) error {
 	//check stages
 	for _, stage := range triggerYaml.Stages {
-		if stage != "build" && stage != "deploy" && stage != "test" {
-			return fmt.Errorf("stages must build or deploy or test")
+		if stage != StageBuild && stage != StageDeploy && stage != StageTest {
+			return fmt.Errorf("stages must %s or %s or %s", StageBuild, StageDeploy, StageTest)
 		}
 	}
+
 	//check build
+	if len(triggerYaml.Build) == 0 {
+		return fmt.Errorf("build is empty")
+	}
 	for _, bd := range triggerYaml.Build {
 		if bd.Name == "" || bd.ServiceModule == "" {
 			return fmt.Errorf("build.name or build.service_module is empty")
 		}
 	}
+
 	//check deploy
 	if triggerYaml.Deploy == nil {
-		return fmt.Errorf("deploy must be exist")
+		return fmt.Errorf("deploy is empty")
 	}
-	if triggerYaml.Deploy.BaseNamespace != "" {
-		if triggerYaml.Deploy.EnvRecyclePolicy != "success" && triggerYaml.Deploy.EnvRecyclePolicy != "always" && triggerYaml.Deploy.EnvRecyclePolicy != "never" {
+	if len(triggerYaml.Deploy.Envsname) == 0 {
+		return fmt.Errorf("deploy.envs_name is empty")
+	}
+	if triggerYaml.Deploy.Strategy != DeployStrategySingle && triggerYaml.Deploy.Strategy != DeployStrategyBase && triggerYaml.Deploy.Strategy != DeployStrategyDynamic {
+		return fmt.Errorf("deploy.strategy must %s or %s or %s", DeployStrategySingle, DeployStrategyDynamic, DeployStrategyBase)
+	}
+	if triggerYaml.Deploy.Strategy == DeployStrategyBase {
+		if triggerYaml.Deploy.BaseNamespace == "" {
+			return fmt.Errorf("deploy.base_env is empty")
+		}
+		if triggerYaml.Deploy.EnvRecyclePolicy != EnvRecyclePolicySuccess && triggerYaml.Deploy.EnvRecyclePolicy != EnvRecyclePolicyAlways && triggerYaml.Deploy.EnvRecyclePolicy != EnvRecyclePolicyNever {
 			return fmt.Errorf("deploy.env_recycle_policy must success/always/never")
 		}
+	} else {
+		if triggerYaml.Deploy.BaseNamespace != "" {
+			return fmt.Errorf("deploy.base_env must empty")
+		}
 	}
+
 	//check test
-	for _, tt := range triggerYaml.Test {
-		if tt.Repo == nil {
-			return fmt.Errorf("test.repo.strategy must default/currentRepo")
+	if existStage(StageTest, triggerYaml) {
+		if len(triggerYaml.Test) == 0 {
+			return fmt.Errorf("test is empty")
 		}
-		if tt.Repo.Strategy != "default" && tt.Repo.Strategy != "currentRepo" {
-			return fmt.Errorf("test.repo.strategy must default/currentRepo")
+		for _, tt := range triggerYaml.Test {
+			if tt.Repo == nil {
+				return fmt.Errorf("test.repo.strategy must default/currentRepo")
+			}
+			if tt.Repo.Strategy != TestRepoStrategyDefault && tt.Repo.Strategy != TestRepoStrategyCurrentRepo {
+				return fmt.Errorf("test.repo.strategy must default/currentRepo")
+			}
 		}
 	}
+
 	//check rule
 	if triggerYaml.Rules == nil {
 		return fmt.Errorf("rules must exist")
 	}
 	if len(triggerYaml.Rules.Branchs) == 0 {
-		return fmt.Errorf("rules.baranch must exist")
+		return fmt.Errorf("rules.branchs must exist")
 	}
 	for _, ev := range triggerYaml.Rules.Events {
 		if ev != "pull_request" && ev != "push" && ev != "tag" {
