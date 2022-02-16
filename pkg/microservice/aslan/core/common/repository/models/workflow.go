@@ -270,8 +270,6 @@ type ExtensionStage struct {
 	IsCallback bool      `bson:"is_callback"          json:"is_callback"`
 	Timeout    int       `bson:"timeout"              json:"timeout"`
 	Headers    []*KeyVal `bson:"headers"              json:"headers"`
-	Body       string    `bson:"body"                 json:"body"`
-	Method     string    `bson:"method"               json:"method"`
 }
 
 type RepoImage struct {
