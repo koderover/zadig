@@ -82,7 +82,6 @@ func CancelTask(userName, pipelineName string, taskID int64, typeString config.P
 
 			if typeString == config.WorkflowType {
 				_ = scmNotifyService.UpdateWebhookComment(t, log)
-				//_ = scmNotifyService.UpdateDiffNote(t, log)
 			} else if typeString == config.TestType {
 				_ = scmNotifyService.UpdateWebhookCommentForTest(t, log)
 			} else if typeString == config.SingleType {
@@ -130,7 +129,6 @@ func CancelTask(userName, pipelineName string, taskID int64, typeString config.P
 
 	if typeString == config.WorkflowType {
 		_ = scmNotifyService.UpdateWebhookComment(t, log)
-		//_ = scmNotifyService.UpdateDiffNote(t, log)
 	} else if typeString == config.TestType {
 		_ = scmNotifyService.UpdateWebhookCommentForTest(t, log)
 	} else if typeString == config.SingleType {
