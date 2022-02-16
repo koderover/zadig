@@ -126,18 +126,16 @@ func (p *ExtensionTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, 
 	for _, header := range p.Task.Headers {
 		httpclient.SetHeader(header.Key, header.Value)
 	}
-	taskOutput := &task.TaskOutput{
-		Type:  "image",
-		Value: p.Task.Image,
-	}
+
 	webhookPayload := &task.WebhookPayload{
-		EventName:   "workflow",
-		ProjectName: pipelineTask.ProductName,
-		TaskName:    pipelineTask.PipelineName,
-		TaskID:      pipelineTask.TaskID,
-		ServiceName: p.Task.ServiceName,
-		Creator:     pipelineTask.TaskCreator,
-		TaskOutput:  []*task.TaskOutput{taskOutput},
+		EventName:     "workflow",
+		ProjectName:   pipelineTask.ProductName,
+		TaskName:      pipelineTask.PipelineName,
+		TaskID:        pipelineTask.TaskID,
+		ServiceName:   p.Task.ServiceName,
+		ServiceModule: p.Task.ServiceModule,
+		Image:         p.Task.Image,
+		Creator:       pipelineTask.TaskCreator,
 	}
 	body, err = json.Marshal(webhookPayload)
 	for _, header := range p.Task.Headers {
