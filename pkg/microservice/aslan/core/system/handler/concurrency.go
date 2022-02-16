@@ -32,5 +32,5 @@ func UpdateWorkflowConcurrency(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = service.UpdateWorkflowConcurrency(args.WorkflowConcurrency, args.BuildConcurrency)
+	ctx.Err = service.UpdateWorkflowConcurrency(args.WorkflowConcurrency, args.BuildConcurrency, ctx.Logger)
 }
