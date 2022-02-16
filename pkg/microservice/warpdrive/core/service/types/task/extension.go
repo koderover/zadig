@@ -24,20 +24,27 @@ import (
 )
 
 type Extension struct {
-	TaskType    config.TaskType  `bson:"type"                       json:"type"`
-	Enabled     bool             `bson:"enabled"                    json:"enabled"`
-	TaskStatus  config.Status    `bson:"status"                     json:"status"`
-	ServiceName string           `bson:"service_name"               json:"service_name"`
-	Image       string           `bson:"image"                      json:"image"`
-	URL         string           `bson:"url"                        json:"url"`
-	Path        string           `bson:"path,omitempty"             json:"path,omitempty"`
-	IsCallback  bool             `bson:"is_callback"                json:"is_callback"`
-	Headers     []*models.KeyVal `bson:"headers,omitempty"          json:"headers,omitempty"`
-	Timeout     int              `bson:"timeout"                    json:"timeout,omitempty"`
-	IsRestart   bool             `bson:"is_restart"                 json:"is_restart"`
-	Error       string           `bson:"error,omitempty"            json:"error,omitempty"`
-	StartTime   int64            `bson:"start_time"                 json:"start_time,omitempty"`
-	EndTime     int64            `bson:"end_time"                   json:"end_time,omitempty"`
+	TaskType     config.TaskType  `bson:"type"                       json:"type"`
+	Enabled      bool             `bson:"enabled"                    json:"enabled"`
+	TaskStatus   config.Status    `bson:"status"                     json:"status"`
+	ServiceName  string           `bson:"service_name"               json:"service_name"`
+	Image        string           `bson:"image"                      json:"image"`
+	URL          string           `bson:"url"                        json:"url"`
+	Path         string           `bson:"path,omitempty"             json:"path,omitempty"`
+	IsCallback   bool             `bson:"is_callback"                json:"is_callback"`
+	Headers      []*models.KeyVal `bson:"headers,omitempty"          json:"headers,omitempty"`
+	ServiceInfos []*serviceInfo   `bson:"service_infos"              json:"service_infos"`
+	Timeout      int              `bson:"timeout"                    json:"timeout,omitempty"`
+	IsRestart    bool             `bson:"is_restart"                 json:"is_restart"`
+	Error        string           `bson:"error,omitempty"            json:"error,omitempty"`
+	StartTime    int64            `bson:"start_time"                 json:"start_time,omitempty"`
+	EndTime      int64            `bson:"end_time"                   json:"end_time,omitempty"`
+}
+
+type serviceInfo struct {
+	ServiceName   string `bson:"service_name"               json:"service_name"`
+	ServiceModule string `bson:"service_module"             json:"service_module"`
+	Image         string `bson:"image"                      json:"image"`
 }
 
 // ToSubTask ...

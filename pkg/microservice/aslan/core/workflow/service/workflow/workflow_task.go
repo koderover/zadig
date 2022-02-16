@@ -680,7 +680,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		}
 		sort.Sort(ByTaskKind(task.SubTasks))
 
-		if err := ensurePipelineTask(task, args.Namespace, log); err != nil {
+		if err := ensurePipelineTask(task, args.Namespace, target.ServiceName, log); err != nil {
 			log.Errorf("workflow_task ensurePipelineTask taskID:[%d] pipelineName:[%s] err:%v", task.ID, task.PipelineName, err)
 			if err, ok := err.(*ContainerNotFound); ok {
 				err := e.NewWithExtras(
@@ -1067,7 +1067,7 @@ func createReleaseImageTask(workflow *commonmodels.Workflow, args *commonmodels.
 			}
 			sort.Sort(ByTaskKind(task.SubTasks))
 
-			if err := ensurePipelineTask(task, "", log); err != nil {
+			if err := ensurePipelineTask(task, "", "", log); err != nil {
 				log.Errorf("workflow_task ensurePipelineTask taskID:[%d] pipelineName:[%s] err:%s", task.ID, task.PipelineName, err)
 				if err, ok := err.(*ContainerNotFound); ok {
 					err := e.NewWithExtras(
@@ -1718,7 +1718,7 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 		}
 		sort.Sort(ByTaskKind(task.SubTasks))
 
-		if err := ensurePipelineTask(task, args.Namespace, log); err != nil {
+		if err := ensurePipelineTask(task, args.Namespace, "", log); err != nil {
 			log.Errorf("workflow_task ensurePipelineTask task:[%v] err:%v", task, err)
 			if err, ok := err.(*ContainerNotFound); ok {
 				err := e.NewWithExtras(
@@ -2047,7 +2047,7 @@ func extractHostIPs(privateKeys []*commonmodels.PrivateKey, ips sets.String) set
 	return ips
 }
 
-func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) error {
+func ensurePipelineTask(pt *task.Task, envName, serviceName string, log *zap.SugaredLogger) error {
 	var (
 		buildEnvs []*commonmodels.KeyVal
 	)
@@ -2525,8 +2525,7 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 			}
 
 			if t.Enabled {
-				t.SetImage(pt.TaskArgs.Deploy.Image)
-				t.SetServiceName(pt.ServiceName)
+				t.SetServiceInfo(serviceName, pt.ServiceName, pt.TaskArgs.Deploy.Image)
 				pt.SubTasks[i], err = t.ToSubTask()
 				if err != nil {
 					return err
