@@ -619,9 +619,6 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 					notification, _ = scmnotify.NewService().SendInitWebhookComment(
 						item.MainRepo, ev.ObjectAttributes.IID, baseURI, false, false, log,
 					)
-
-					// 初始化 gitlab diff_note
-					InitDiffNote(ev, item.MainRepo, log)
 				}
 			}
 
@@ -676,101 +673,6 @@ func findChangedFilesOfMergeRequest(event *gitlab.MergeEvent, codehostID int) ([
 	}
 
 	return client.ListChangedFiles(event)
-}
-
-// InitDiffNote 调用gitlab接口初始化DiffNote，并保存到数据库
-func InitDiffNote(ev *gitlab.MergeEvent, mainRepo *commonmodels.MainHookRepo, log *zap.SugaredLogger) error {
-	commitID := ev.ObjectAttributes.LastCommit.ID
-	body := "KodeRover CI 检查中..."
-
-	// 调用gitlab api获取相关数据
-	detail, err := systemconfig.New().GetCodeHost(mainRepo.CodehostID)
-	if err != nil {
-		log.Errorf("GetCodehostDetail failed, codehost:%d, err:%v", mainRepo.CodehostID, err)
-		return fmt.Errorf("failed to find codehost %d: %v", mainRepo.CodehostID, err)
-	}
-	cli, _ := gitlab.NewOAuthClient(detail.AccessToken, gitlab.WithBaseURL(detail.Address))
-
-	opt := &commonrepo.DiffNoteFindOpt{
-		CodehostID:     mainRepo.CodehostID,
-		ProjectID:      mainRepo.RepoOwner + "/" + mainRepo.RepoName,
-		MergeRequestID: ev.ObjectAttributes.IID,
-	}
-	dn, err := commonrepo.NewDiffNoteColl().Find(opt)
-	if err == nil {
-		// 该pr的DiffNote已经创建过，且是同一个commit，则不处理
-		if dn.CommitID == commitID {
-			return nil
-		}
-		// 不是同一个commit，则重置body和resolved
-		// 更新note body
-		noteBodyOpt := &gitlab.UpdateMergeRequestDiscussionNoteOptions{
-			Body: &body,
-		}
-		_, _, err = cli.Discussions.UpdateMergeRequestDiscussionNote(dn.Repo.ProjectID, dn.MergeRequestID, dn.DiscussionID, dn.NoteID, noteBodyOpt)
-		if err != nil {
-			log.Errorf("UpdateMergeRequestDiscussionNote failed, err:%v", err)
-			return err
-		}
-
-		// 更新resolved状态
-		resolved := false
-		resolveOpt := &gitlab.UpdateMergeRequestDiscussionNoteOptions{
-			Resolved: &resolved,
-		}
-		_, _, err = cli.Discussions.UpdateMergeRequestDiscussionNote(dn.Repo.ProjectID, dn.MergeRequestID, dn.DiscussionID, dn.NoteID, resolveOpt)
-		if err != nil {
-			log.Errorf("UpdateMergeRequestDiscussionNote failed, err:%v", err)
-			return err
-		}
-
-		// 更新到数据库
-		dn.Resolved = resolved
-		dn.Body = body
-		err = commonrepo.NewDiffNoteColl().Update(dn.ObjectID.Hex(), commitID, dn.Body, dn.Resolved)
-		if err != nil {
-			log.Errorf("UpdateDiscussionInfo failed, err:%v", err)
-			return err
-		}
-
-		return nil
-	}
-
-	// 不存在则创建
-	diffNote := &commonmodels.DiffNote{
-		Repo: &commonmodels.RepoInfo{
-			CodehostID: mainRepo.CodehostID,
-			Source:     "gitlab",
-			ProjectID:  mainRepo.RepoOwner + "/" + mainRepo.RepoName,
-			Address:    detail.Address,
-			OauthToken: detail.AccessToken,
-		},
-		MergeRequestID: ev.ObjectAttributes.IID,
-		CommitID:       commitID,
-		Body:           body,
-	}
-
-	createOpt := &gitlab.CreateMergeRequestDiscussionOptions{
-		Body: &diffNote.Body,
-	}
-
-	discussion, _, err := cli.Discussions.CreateMergeRequestDiscussion(diffNote.Repo.ProjectID, diffNote.MergeRequestID, createOpt)
-	if err != nil {
-		log.Errorf("CreateMergeRequestDiscussion failed, err:%v", err)
-		return err
-	}
-
-	diffNote.DiscussionID = discussion.ID
-	if len(discussion.Notes) > 0 {
-		diffNote.NoteID = discussion.Notes[0].ID
-	}
-	err = commonrepo.NewDiffNoteColl().Create(diffNote)
-	if err != nil {
-		log.Errorf("DiffNote.Create failed, err:%v", err)
-		return err
-	}
-
-	return nil
 }
 
 var mutex sync.Mutex
