@@ -25,6 +25,7 @@ import (
 
 	internalmodels "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
 	internalmongodb "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/mongodb"
+	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/orm"
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
@@ -50,12 +51,21 @@ func V190ToV1100() error {
 		return fmt.Errorf("failed to migrate data in `zadig.module_testing`: %s", err)
 	}
 
+	log.Info("InitDBAndEditTables: ADD cloumn from mysql table `user`.")
+	if err := orm.InitDBAndEditTables(orm.DbEditActionAdd); err != nil {
+		return fmt.Errorf("InitDBAndEditTables: failed to ADD cloumn from mysql table `user`: %s", err)
+	}
 	return nil
 }
 
 // Since the old data has not been changed, no changes are required.
 func V1100ToV190() error {
 	log.Info("Rollback data from 1.10.0 to 1.9.0")
+
+	log.Info("InitDBAndEditTables: drop cloumn from mysql table `user`.")
+	if err := orm.InitDBAndEditTables(orm.DbEditActionDrop); err != nil {
+		return fmt.Errorf("InitDBAndEditTables: failed to drop cloumn from mysql table `user`: %s", err)
+	}
 	return nil
 }
 
