@@ -1263,7 +1263,7 @@ func deployEnvToSubTasks(env commonmodels.DeployEnv, prodEnv *commonmodels.Produ
 		log.Error(err)
 		return nil, err
 	}
-	deployTask.ServiceName = envList[0]
+	deployTask.ServiceName = envList[1] + "_" + envList[0]
 	deployTask.ContainerName = envList[1]
 
 	switch env.Type {
