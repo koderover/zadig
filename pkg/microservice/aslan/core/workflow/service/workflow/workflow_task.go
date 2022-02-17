@@ -1852,6 +1852,13 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 			ClusterID:    module.PreBuild.ClusterID,
 		}
 
+		// In some old build configurations, the `pre_build.cluster_id` field is empty indicating that's a local cluster.
+		// We do a protection here to avoid query failure.
+		// Resaving the build configuration after v1.8.0 will automatically populate this field.
+		if module.PreBuild.ClusterID == "" {
+			module.PreBuild.ClusterID = setting.LocalClusterID
+		}
+
 		clusterInfo, err := commonrepo.NewK8SClusterColl().Get(module.PreBuild.ClusterID)
 		if err != nil {
 			return nil, e.ErrConvertSubTasks.AddErr(err)
