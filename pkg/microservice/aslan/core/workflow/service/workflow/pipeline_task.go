@@ -664,6 +664,13 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 
 			testArg.TestModuleName = args.TestName
 
+			// In some old testing configurations, the `pre_test.cluster_id` field is empty indicating that's a local cluster.
+			// We do a protection here to avoid query failure.
+			// Resaving the testing configuration after v1.8.0 will automatically populate this field.
+			if testing.PreTest.ClusterID == "" {
+				testing.PreTest.ClusterID = setting.LocalClusterID
+			}
+
 			clusterInfo, err := commonrepo.NewK8SClusterColl().Get(testing.PreTest.ClusterID)
 			if err != nil {
 				return resp, e.ErrListTestModule.AddDesc(err.Error())
