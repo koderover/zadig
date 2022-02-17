@@ -43,6 +43,7 @@ func CreatePolicy(ns string, policy *Policy, _ *zap.SugaredLogger) error {
 	obj := &models.Policy{
 		Name:      policy.Name,
 		Namespace: ns,
+		Type:      "system",
 	}
 
 	for _, r := range policy.Rules {
@@ -62,6 +63,7 @@ func CreatePolicies(ns string, policies []*Policy, _ *zap.SugaredLogger) error {
 		obj := &models.Policy{
 			Name:      policy.Name,
 			Namespace: ns,
+			Type:      "system",
 		}
 
 		for _, r := range policy.Rules {
