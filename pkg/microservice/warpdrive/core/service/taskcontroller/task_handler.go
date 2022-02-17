@@ -20,8 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -298,18 +296,12 @@ func (h *ExecHandler) runStage(stagePosition int, stage *task.Stage) {
 	var tasks []*Task
 
 	// 每个SubTask会initiate一个plugin instance来执行
-	taskServiceMap := make(map[string]map[string]interface{})
 	for serviceName, subTask := range stage.SubTasks {
 		var pluginInstance plugins.TaskPlugin
 		xl.Infof("new sub task of service name: %s, type: %s", serviceName, stage.TaskType)
 		pluginInstance = pluginInitiator(stage.TaskType)
 		//xl.Errorf("%v", ctx.Value(CtxKeyBuildInfos))
-		if _, ok := taskServiceMap[serviceName]; ok {
-			serviceName = serviceName + "_" + nextTargetID(taskServiceMap, serviceName)
-		}
-
 		tasks = append(tasks, NewTask(ctx, h.executeTask, pluginInstance, subTask, stagePosition, serviceName, xl))
-		taskServiceMap[serviceName] = subTask
 	}
 	// 判断subTask是否是deploy，如果是的话判断是否是helm类型的服务，
 	//todo helm类型的服务的部署暂时只支持串行执行
@@ -334,17 +326,6 @@ func (h *ExecHandler) runStage(stagePosition int, stage *task.Stage) {
 	// 更新Stage状态
 	updatePipelineStageStatus(stage.Status, pipelineTask, stagePosition, xl)
 	h.SendAck()
-}
-
-func nextTargetID(subTasks map[string]map[string]interface{}, target string) string {
-	count := 0
-	for k := range subTasks {
-		if regexp.MustCompile(`^\Q` + target + `\E(_\d+)?$`).MatchString(k) {
-			count++
-		}
-	}
-
-	return strconv.Itoa(count)
 }
 
 // execute: PipelineTask Executor
