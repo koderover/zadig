@@ -21,13 +21,14 @@ package models
 // for a cluster scoped PolicyBinding, namespace is empty.
 type PolicyBinding struct {
 	Name      string `bson:"name"      json:"name"`
-	Namespace string `bson:"namespace" json:"namespace"`
+	Namespace string `bson:"namespace"  json:"namespace"`
 
 	// Subjects holds references to the objects the Policy applies to.
-	Subjects []*Subject `bson:"subjects" json:"subjects"`
+	Subjects []*Subject `bson:"subjects"    json:"subjects"`
 
 	// PolicyRef can reference a namespaced or cluster scoped Policy.
-	PolicyRef *PolicyRef `bson:"policy_ref" json:"policy_ref"`
+	PolicyRef *PolicyRef `bson:"policy_ref"  json:"policy_ref"`
+	Type      string     `bson:"type"        json:"type"`
 }
 
 // PolicyRef contains information that points to the policy being used

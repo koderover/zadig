@@ -141,5 +141,6 @@ func createPolicyBindingObject(ns string, rb *PolicyBinding, logger *zap.Sugared
 			Name:      policy.Name,
 			Namespace: policy.Namespace,
 		},
+		Type: "system",
 	}, nil
 }
