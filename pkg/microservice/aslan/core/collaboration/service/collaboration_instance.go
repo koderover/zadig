@@ -19,6 +19,7 @@ import (
 	mongodb2 "github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
 )
 
@@ -874,7 +875,7 @@ func syncNewResource(products *SyncCollaborationInstanceArgs, updateResp *GetCol
 	var helmProductArgs []service2.HelmProductItem
 	for _, product := range newResp.Product {
 		if productArg, ok := productMap[product.BaseName]; ok {
-			if productArg.DeployType == string(config.HelmDeploy) {
+			if productArg.DeployType == string(setting.HelmDeployType) {
 				helmProductArgs = append(helmProductArgs, service2.HelmProductItem{
 					OldName:       product.BaseName,
 					NewName:       product.Name,
@@ -883,7 +884,7 @@ func syncNewResource(products *SyncCollaborationInstanceArgs, updateResp *GetCol
 					ChartValues:   product.ChartValues,
 				})
 			}
-			if productArg.DeployType == string(config.K8sDeploy) {
+			if productArg.DeployType == string(setting.K8SDeployType) {
 				yamlProductItems = append(yamlProductItems, service2.YamlProductItem{
 					OldName:  product.BaseName,
 					NewName:  product.Name,

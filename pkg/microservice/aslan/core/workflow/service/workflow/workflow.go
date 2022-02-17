@@ -687,7 +687,7 @@ func BulkCopyWorkflow(args BulkCopyWorkflowArgs, username string, log *zap.Sugar
 			ProjectName: item.ProjectName,
 			Name:        item.Old,
 		})
-		workflowMap[item.ProjectName+"~"+item.Old] = item
+		workflowMap[item.ProjectName+"-"+item.Old] = item
 	}
 	oldWorkflows, err := commonrepo.NewWorkflowColl().ListByWorkflows(commonrepo.ListWorkflowOpt{
 		Workflows: workflows,

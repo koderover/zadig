@@ -23,10 +23,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/service"
-	"github.com/koderover/zadig/pkg/shared/client/label"
-
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
+	"github.com/koderover/zadig/pkg/shared/client/label"
 )
 
 type Policy struct {
