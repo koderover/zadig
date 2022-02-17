@@ -676,7 +676,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 			Task:         task,
 			EnvName:      args.Namespace,
 			ServiceName:  target.ServiceName,
-			ServiceInfos: serviceInfos,
+			ServiceInfos: &serviceInfos,
 		}, log); err != nil {
 			log.Errorf("workflow_task ensurePipelineTask taskID:[%d] pipelineName:[%s] err:%v", task.ID, task.PipelineName, err)
 			if err, ok := err.(*ContainerNotFound); ok {
@@ -702,6 +702,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 	}
 	// add extension to stage
 	if workflow.ExtensionStage != nil && workflow.ExtensionStage.Enabled {
+		log.Infof("len(serviceInfos):", len(serviceInfos))
 		for _, serviceInfo := range serviceInfos {
 			log.Infof("serviceInfo:%+v", serviceInfo)
 		}
@@ -2156,7 +2157,7 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 				taskOpt.Task.TaskArgs.Deploy.Image = t.JobCtx.Image
 
 				if taskOpt.ServiceName != "" {
-					taskOpt.ServiceInfos = append(taskOpt.ServiceInfos, &taskmodels.ServiceInfo{
+					*taskOpt.ServiceInfos = append(*taskOpt.ServiceInfos, &taskmodels.ServiceInfo{
 						ServiceName:   taskOpt.ServiceName,
 						ServiceModule: t.ServiceName,
 						Image:         t.JobCtx.Image,
