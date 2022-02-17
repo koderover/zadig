@@ -691,7 +691,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		}
 
 		for _, stask := range task.SubTasks {
-			AddSubtaskToStage(&stages, stask, target.Name)
+			AddSubtaskToStage(&stages, stask, target.ServiceName+"_"+target.Name)
 		}
 	}
 
