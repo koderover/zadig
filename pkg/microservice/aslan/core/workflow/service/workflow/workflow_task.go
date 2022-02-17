@@ -702,10 +702,6 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 	}
 	// add extension to stage
 	if workflow.ExtensionStage != nil && workflow.ExtensionStage.Enabled {
-		log.Infof("len(serviceInfos):", len(serviceInfos))
-		for _, serviceInfo := range serviceInfos {
-			log.Infof("serviceInfo:%+v", serviceInfo)
-		}
 		extensionTask, err := addExtensionToSubTasks(workflow.ExtensionStage, serviceInfos)
 		if err != nil {
 			log.Errorf("add extension task error: %s", err)
