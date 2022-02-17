@@ -128,14 +128,12 @@ func (p *ExtensionTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, 
 	}
 
 	webhookPayload := &task.WebhookPayload{
-		EventName:     "workflow",
-		ProjectName:   pipelineTask.ProductName,
-		TaskName:      pipelineTask.PipelineName,
-		TaskID:        pipelineTask.TaskID,
-		ServiceName:   p.Task.ServiceName,
-		ServiceModule: p.Task.ServiceModule,
-		Image:         p.Task.Image,
-		Creator:       pipelineTask.TaskCreator,
+		EventName:    "workflow",
+		ProjectName:  pipelineTask.ProductName,
+		TaskName:     pipelineTask.PipelineName,
+		TaskID:       pipelineTask.TaskID,
+		ServiceInfos: p.Task.ServiceInfos,
+		Creator:      pipelineTask.TaskCreator,
 	}
 	body, err = json.Marshal(webhookPayload)
 	for _, header := range p.Task.Headers {
