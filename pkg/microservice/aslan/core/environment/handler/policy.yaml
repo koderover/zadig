@@ -10,12 +10,7 @@ rules:
         endpoint: "/api/aslan/environment/environments/?*/services/?*"
       - method: GET
         endpoint: "/api/aslan/environment/environments"
-      - method: GET
-        endpoint: "/api/aslan/environment/environments"
         resourceType: "Environment"
-        matchAttributes:
-          - key: "placeholder"
-            value: "placeholder"
       - method: GET
         endpoint: "/api/aslan/environment/environments/?*"
       - method: GET

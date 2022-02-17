@@ -18,11 +18,13 @@ package models
 
 import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"github.com/koderover/zadig/pkg/setting"
 )
 
 type Label struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty"               json:"id,omitempty"`
-	Type        string             `bson:"type"                        json:"type"`
+	Type        setting.LabelType  `bson:"type"                        json:"type"`
 	Key         string             `bson:"key"                         json:"key"`
 	Value       string             `bson:"value"                       json:"value"`
 	CreateBy    string             `bson:"create_by"                   json:"create_by"`
