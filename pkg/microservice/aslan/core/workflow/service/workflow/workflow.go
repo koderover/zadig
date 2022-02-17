@@ -698,14 +698,14 @@ func BulkCopyWorkflow(args BulkCopyWorkflowArgs, username string, log *zap.Sugar
 	}
 	var newWorkflows []*commonmodels.Workflow
 	for _, workflow := range oldWorkflows {
-		if item, ok := workflowMap[workflow.ProductTmplName+"~"+workflow.Name]; ok {
+		if item, ok := workflowMap[workflow.ProductTmplName+"-"+workflow.Name]; ok {
 			workflow.UpdateBy = username
 			workflow.Name = item.New
 			workflow.BaseName = item.BaseName
 			workflow.ID = primitive.NewObjectID()
 			newWorkflows = append(newWorkflows, workflow)
 		} else {
-			return fmt.Errorf("workflow:%s not exist", workflow.ProductTmplName+"~"+workflow.Name)
+			return fmt.Errorf("workflow:%s not exist", workflow.ProductTmplName+"-"+workflow.Name)
 		}
 	}
 	return commonrepo.NewWorkflowColl().BulkCreate(newWorkflows)
