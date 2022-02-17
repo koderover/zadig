@@ -33,8 +33,9 @@ import (
 )
 
 const (
-	// ExtensionTaskTimeout ...
 	ExtensionTaskTimeout = 60 * 60 * 1 // 60 minutes
+	ZadigEvent           = "X-Zadig-Event"
+	EventName            = "Workflow"
 )
 
 // InitializeExtensionTaskPlugin to initialize build task plugin, and return reference
@@ -88,7 +89,7 @@ func (p *ExtensionTaskPlugin) SetStatus(status config.Status) {
 // TaskTimeout ...
 func (p *ExtensionTaskPlugin) TaskTimeout() int {
 	if p.Task.Timeout == 0 {
-		p.Task.Timeout = TriggerTaskTimeout
+		p.Task.Timeout = ExtensionTaskTimeout
 	} else {
 		if !p.Task.IsRestart {
 			p.Task.Timeout = p.Task.Timeout * 60
@@ -136,10 +137,13 @@ func (p *ExtensionTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, 
 		Creator:      pipelineTask.TaskCreator,
 	}
 	body, err = json.Marshal(webhookPayload)
+	if err != nil {
+		return
+	}
 	for _, header := range p.Task.Headers {
 		httpclient.SetHeader(header.Key, header.Value)
 	}
-	_, err = httpClient.Post(url, httpclient.SetHeader("X-Zadig-Event", "Workflow"), httpclient.SetBody(body))
+	_, err = httpClient.Post(url, httpclient.SetHeader(ZadigEvent, EventName), httpclient.SetBody(body))
 	if err != nil {
 		return
 	}

@@ -148,7 +148,7 @@ func (p *TriggerTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pi
 	for _, header := range p.Task.Headers {
 		httpclient.SetHeader(header.Key, header.Value)
 	}
-	_, err = httpClient.Post(url, httpclient.SetHeader("X-Zadig-Event", "Workflow"), httpclient.SetBody(body))
+	_, err = httpClient.Post(url, httpclient.SetHeader(ZadigEvent, EventName), httpclient.SetBody(body))
 	if err != nil {
 		return
 	}

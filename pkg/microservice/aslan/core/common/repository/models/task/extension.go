@@ -45,7 +45,6 @@ type ServiceInfo struct {
 	Image         string `bson:"image"                     json:"image"`
 }
 
-// ToSubTask ...
 func (t *Extension) ToSubTask() (map[string]interface{}, error) {
 	var task map[string]interface{}
 	if err := IToi(t, &task); err != nil {
