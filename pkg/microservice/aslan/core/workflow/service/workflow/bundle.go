@@ -19,7 +19,7 @@ package workflow
 import (
 	"go.uber.org/zap"
 
-	config2 "github.com/koderover/zadig/pkg/config"
+	commonConfig "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/config"
 	labeldb "github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
@@ -57,7 +57,7 @@ func GetBundleResources(logger *zap.SugaredLogger) ([]*resourceSpec, error) {
 	}
 
 	for _, workflow := range workflows {
-		resourceKey := config2.BuildResourceKey(string(config.ResourceTypeWorkflow), workflow.ProductTmplName, workflow.Name)
+		resourceKey := commonConfig.BuildResourceKey(string(config.ResourceTypeWorkflow), workflow.ProductTmplName, workflow.Name)
 		resourceSpec := &resourceSpec{
 			ResourceID:  workflow.Name,
 			ProjectName: workflow.ProductTmplName,

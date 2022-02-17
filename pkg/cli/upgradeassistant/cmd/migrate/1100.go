@@ -27,12 +27,10 @@ import (
 	internalmodels "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
 	internalmongodb "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/mongodb"
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
-	"github.com/koderover/zadig/pkg/types"
-
 	"github.com/koderover/zadig/pkg/config"
-
 	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 func init() {
@@ -74,7 +72,6 @@ func changePolicyCollectionName() error {
 
 	err = cursor.All(ctx, &res)
 	if err != nil {
-		log.Errorf("Failed to cursor.All, err: %s", err)
 		return err
 	}
 
@@ -100,7 +97,6 @@ func rollbackChangePolicyCollectionName() error {
 
 	err = cursor.All(ctx, &res)
 	if err != nil {
-		log.Errorf("Failed to cursor.All, err: %s", err)
 		return err
 	}
 
