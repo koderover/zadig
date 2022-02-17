@@ -16,6 +16,10 @@ limitations under the License.
 
 package models
 
+import (
+	"github.com/koderover/zadig/pkg/setting"
+)
+
 // PolicyBinding references a Policy, but does not contain it. It adds who information via Subjects.
 // PolicyBinding in a given namespace only have effect in that namespace.
 // for a cluster scoped PolicyBinding, namespace is empty.
@@ -27,8 +31,8 @@ type PolicyBinding struct {
 	Subjects []*Subject `bson:"subjects"    json:"subjects"`
 
 	// PolicyRef can reference a namespaced or cluster scoped Policy.
-	PolicyRef *PolicyRef `bson:"policy_ref"  json:"policy_ref"`
-	Type      string     `bson:"type"        json:"type"`
+	PolicyRef *PolicyRef                `bson:"policy_ref"  json:"policy_ref"`
+	Type      setting.PolicyBindingType `bson:"type"        json:"type"`
 }
 
 // PolicyRef contains information that points to the policy being used

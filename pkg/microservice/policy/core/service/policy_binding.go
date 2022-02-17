@@ -23,6 +23,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
+	"github.com/koderover/zadig/pkg/setting"
 )
 
 type PolicyBinding struct {
@@ -141,6 +142,6 @@ func createPolicyBindingObject(ns string, rb *PolicyBinding, logger *zap.Sugared
 			Name:      policy.Name,
 			Namespace: policy.Namespace,
 		},
-		Type: "system",
+		Type: setting.PolicyBindingTypeSystem,
 	}, nil
 }
