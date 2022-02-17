@@ -67,6 +67,10 @@ func migrateModuleBuild() error {
 		return fmt.Errorf("failed to list all data in `zadig.module_build`: %s", err)
 	}
 
+	if len(builds) == 0 {
+		return nil
+	}
+
 	var ms []mongo.WriteModel
 	for _, build := range builds {
 		if err := migrateOneBuild(build); err != nil {
@@ -97,6 +101,10 @@ func migrateModuleTesting() error {
 	testings, err := testingCol.List(&internalmongodb.ListTestOption{})
 	if err != nil {
 		return fmt.Errorf("failed to list all data in `zadig.module_testing`: %s", err)
+	}
+
+	if len(testings) == 0 {
+		return nil
 	}
 
 	var ms []mongo.WriteModel
