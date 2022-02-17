@@ -691,7 +691,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		}
 
 		for _, stask := range task.SubTasks {
-			AddSubtaskToStage(&stages, stask, target.Name+"."+target.ServiceName)
+			AddSubtaskToStage(&stages, stask, target.Name+"_"+target.ServiceName)
 		}
 	}
 
@@ -1837,7 +1837,7 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 			TaskType:     config.TaskBuild,
 			Enabled:      true,
 			InstallItems: module.PreBuild.Installs,
-			ServiceName:  args.Target + "." + args.ServiceName,
+			ServiceName:  args.Target + "_" + args.ServiceName,
 			Service:      args.ServiceName,
 			JobCtx:       task.JobCtx{},
 			ImageID:      module.PreBuild.ImageID,
