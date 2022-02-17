@@ -13,13 +13,8 @@ rules:
         resourceType: "Environment"
       - method: GET
         endpoint: "/api/aslan/environment/environments/?*"
-      - method: GET
-        endpoint: "/api/aslan/environment/environments/?*"
         resourceType: "Environment"
         idRegex: "api/aslan/environment/environments/([\\w\\W]+?)$"
-        matchAttributes:
-          - key: "placeholder"
-            value: "placeholder"
       - method: GET
         endpoint: "/api/aslan/environment/environments/?*/groups"
         resourceType: "Environment"
