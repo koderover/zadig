@@ -675,6 +675,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		if err := ensurePipelineTask(&taskmodels.TaskOpt{
 			Task:         task,
 			EnvName:      args.Namespace,
+			ServiceName:  target.ServiceName,
 			ServiceInfos: serviceInfos,
 		}, log); err != nil {
 			log.Errorf("workflow_task ensurePipelineTask taskID:[%d] pipelineName:[%s] err:%v", task.ID, task.PipelineName, err)
@@ -701,12 +702,15 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 	}
 	// add extension to stage
 	if workflow.ExtensionStage != nil && workflow.ExtensionStage.Enabled {
+		for _, serviceInfo := range serviceInfos {
+			log.Infof("serviceInfo:%+v", serviceInfo)
+		}
 		extensionTask, err := addExtensionToSubTasks(workflow.ExtensionStage, serviceInfos)
 		if err != nil {
 			log.Errorf("add extension task error: %s", err)
 			return nil, e.ErrCreateTask.AddErr(err)
 		}
-		AddSubtaskToStage(&stages, extensionTask, "extension")
+		AddSubtaskToStage(&stages, extensionTask, string(config.TaskExtension))
 	}
 
 	testTask := &taskmodels.Task{
@@ -2151,11 +2155,13 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 				t.JobCtx.Image = GetImage(reg, releaseCandidate(t, taskOpt.Task.TaskID, taskOpt.Task.ProductName, taskOpt.EnvName, "image"))
 				taskOpt.Task.TaskArgs.Deploy.Image = t.JobCtx.Image
 
-				taskOpt.ServiceInfos = append(taskOpt.ServiceInfos, &taskmodels.ServiceInfo{
-					ServiceName:   t.Service,
-					ServiceModule: t.ServiceName,
-					Image:         t.JobCtx.Image,
-				})
+				if taskOpt.ServiceName != "" {
+					taskOpt.ServiceInfos = append(taskOpt.ServiceInfos, &taskmodels.ServiceInfo{
+						ServiceName:   taskOpt.ServiceName,
+						ServiceModule: t.ServiceName,
+						Image:         t.JobCtx.Image,
+					})
+				}
 
 				if taskOpt.Task.ConfigPayload != nil {
 					taskOpt.Task.ConfigPayload.Registry.Addr = reg.RegAddr

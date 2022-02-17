@@ -30,8 +30,8 @@ type Extension struct {
 	URL          string           `bson:"url"                        json:"url"`
 	Path         string           `bson:"path,omitempty"             json:"path,omitempty"`
 	IsCallback   bool             `bson:"is_callback"                json:"is_callback"`
-	Headers      []*models.KeyVal `bson:"headers,omitempty"          json:"headers,omitempty"`
-	ServiceInfos []*ServiceInfo   `bson:"service_infos,omitempty"    json:"service_infos,omitempty"`
+	Headers      []*models.KeyVal `bson:"headers,omitempty"          json:"headers"`
+	ServiceInfos []*ServiceInfo   `bson:"service_infos"              json:"service_infos"`
 	Timeout      int              `bson:"timeout"                    json:"timeout,omitempty"`
 	IsRestart    bool             `bson:"is_restart"                 json:"is_restart"`
 	Error        string           `bson:"error,omitempty"            json:"error,omitempty"`
@@ -40,9 +40,9 @@ type Extension struct {
 }
 
 type ServiceInfo struct {
-	ServiceName   string `bson:"service_name"               json:"service_name"`
-	ServiceModule string `bson:"service_module"             json:"service_module"`
-	Image         string `bson:"image"                      json:"image"`
+	ServiceName   string `bson:"service_name"              json:"service_name"`
+	ServiceModule string `bson:"service_module"            json:"service_module"`
+	Image         string `bson:"image"                     json:"image"`
 }
 
 // ToSubTask ...
