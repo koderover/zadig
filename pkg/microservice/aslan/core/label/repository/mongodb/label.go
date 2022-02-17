@@ -27,6 +27,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/models"
+	"github.com/koderover/zadig/pkg/setting"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 )
 
@@ -140,10 +141,10 @@ func (c *LabelColl) Find(id string) (*models.Label, error) {
 }
 
 type Label struct {
-	Key         string `json:"key"`
-	Value       string `json:"value"`
-	Type        string `json:"type"`
-	ProjectName string `json:"project_name"`
+	Key         string            `json:"key"`
+	Value       string            `json:"value"`
+	Type        setting.LabelType `json:"type"`
+	ProjectName string            `json:"project_name"`
 }
 
 type ListLabelOpt struct {
