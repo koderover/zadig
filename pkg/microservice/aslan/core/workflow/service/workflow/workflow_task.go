@@ -691,7 +691,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		}
 
 		for _, stask := range task.SubTasks {
-			AddSubtaskToStage(&stages, stask, target.ServiceName+"_"+target.Name)
+			AddSubtaskToStage(&stages, stask, target.Name)
 		}
 	}
 
@@ -2520,7 +2520,7 @@ func AddSubtaskToStage(stages *[]*commonmodels.Stage, subTask map[string]interfa
 	for _, stage := range *stages {
 		if stage.TaskType == subTaskPre.TaskType {
 			// deploy task 同一个组件可能有多个部署目标
-			if subTaskPre.TaskType == config.TaskDeploy || subTaskPre.TaskType == config.TaskResetImage {
+			if subTaskPre.TaskType == config.TaskBuild || subTaskPre.TaskType == config.TaskDeploy || subTaskPre.TaskType == config.TaskResetImage {
 				if _, ok := stage.SubTasks[target]; ok {
 					stage.SubTasks[target+"_"+nextTargetID(stage.SubTasks, target)] = subTask
 				} else {
