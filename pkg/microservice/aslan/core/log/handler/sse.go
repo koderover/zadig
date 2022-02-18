@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/gin-contrib/sse"
 	"github.com/gin-gonic/gin"
@@ -95,10 +94,6 @@ func GetWorkflowBuildJobContainerLogsSSE(c *gin.Context) {
 	}
 
 	subTask := c.Query("subTask")
-	containerName := c.Param("serviceName")
-	if strings.Contains(containerName, "_") {
-		containerName = strings.Split(containerName, "_")[0]
-	}
 
 	options := &logservice.GetContainerOptions{
 		Namespace:    config.Namespace(),
@@ -106,7 +101,7 @@ func GetWorkflowBuildJobContainerLogsSSE(c *gin.Context) {
 		SubTask:      subTask,
 		TailLines:    tails,
 		TaskID:       taskID,
-		ServiceName:  containerName,
+		ServiceName:  c.Param("serviceName"),
 		PipelineType: string(config.WorkflowType),
 		EnvName:      c.Query("envName"),
 		ProductName:  c.Query("projectName"),

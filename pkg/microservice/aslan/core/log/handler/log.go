@@ -56,11 +56,7 @@ func GetWorkflowBuildJobContainerLogs(c *gin.Context) {
 		return
 	}
 	// Use all lowercase job names to avoid subdomain errors
-	containerName := c.Param("serviceName")
-	if strings.Contains(containerName, "_") {
-		containerName = strings.Split(containerName, "_")[0]
-	}
-	ctx.Resp, ctx.Err = logservice.GetWorkflowBuildJobContainerLogs(strings.ToLower(c.Param("pipelineName")), containerName, c.Query("type"), taskID, ctx.Logger)
+	ctx.Resp, ctx.Err = logservice.GetWorkflowBuildJobContainerLogs(strings.ToLower(c.Param("pipelineName")), c.Param("serviceName"), c.Query("type"), taskID, ctx.Logger)
 }
 
 func GetTestJobContainerLogs(c *gin.Context) {
