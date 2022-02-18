@@ -1837,7 +1837,7 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 			TaskType:     config.TaskBuild,
 			Enabled:      true,
 			InstallItems: module.PreBuild.Installs,
-			ServiceName:  args.Target + "_" + args.ServiceName,
+			ServiceName:  args.Target,
 			Service:      args.ServiceName,
 			JobCtx:       task.JobCtx{},
 			ImageID:      module.PreBuild.ImageID,
@@ -2169,6 +2169,7 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 				t.UTStatus = &task.UTStatus{}
 				t.StaticCheckStatus = &task.StaticCheckStatus{}
 				t.BuildStatus = &task.BuildStatus{}
+				t.ServiceName = t.ServiceName + "_" + t.Service
 
 				pt.SubTasks[i], err = t.ToSubTask()
 
@@ -2332,7 +2333,10 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 				t.SetImage(pt.TaskArgs.Deploy.Image)
 				t.SetNamespace(pt.TaskArgs.Deploy.Namespace)
 
-				_, err := validateServiceContainer(t.EnvName, t.ProductName, t.ServiceName, t.ContainerName)
+				serviceName := t.ServiceName
+				serviceName = strings.TrimPrefix(serviceName, t.ContainerName+"_")
+
+				_, err := validateServiceContainer(t.EnvName, t.ProductName, serviceName, t.ContainerName)
 				if err != nil {
 					log.Error(err)
 					return err
