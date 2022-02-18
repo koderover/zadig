@@ -122,7 +122,7 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 
 	err = templaterepo.NewProductColl().Create(args)
 	if err != nil {
-		log.Errorf("ProductTmpl.CreateOrUpdate error: %v", err)
+		log.Errorf("ProductTmpl.Create error: %v", err)
 		return e.ErrCreateProduct.AddDesc(err.Error())
 	}
 
@@ -136,7 +136,7 @@ func CreateProductTemplate(args *template.Product, log *zap.SugaredLogger) (err 
 	}, log)
 
 	if err != nil {
-		log.Errorf("ProductTmpl.CreateOrUpdate error: %v", err)
+		log.Errorf("ProductTmpl.Create error: %v", err)
 		// 创建渲染集失败，删除产品模板
 		return e.ErrCreateProduct.AddDesc(err.Error())
 	}

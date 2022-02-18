@@ -1147,6 +1147,6 @@ func compareHelmVariable(chartInfos []*templatemodels.RenderChart, productName, 
 			ChartInfos:  mixtureChartInfos,
 		}, log,
 	); err != nil {
-		log.Errorf("helmService.CreateOrUpdate CreateHelmRenderSet error: %v", err)
+		log.Errorf("helmService.Create CreateHelmRenderSet error: %v", err)
 	}
 }

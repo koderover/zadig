@@ -31,7 +31,7 @@ func CreateInstall(args *commonmodels.Install, log *zap.SugaredLogger) error {
 	err := commonrepo.NewInstallColl().Create(args)
 	args.Name = strings.TrimSpace(args.Name)
 	if err != nil {
-		log.Errorf("Install.CreateOrUpdate error: %v", err)
+		log.Errorf("Install.Create error: %v", err)
 		return e.ErrCreateInstall
 	}
 

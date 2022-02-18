@@ -94,7 +94,7 @@ func CreateBasicImage(args *commonmodels.BasicImage, log *zap.SugaredLogger) err
 
 	err = commonrepo.NewBasicImageColl().Create(args)
 	if err != nil {
-		log.Errorf("BasicImage.CreateOrUpdate error: %v", err)
+		log.Errorf("BasicImage.Create error: %v", err)
 		return e.ErrCreateBasicImage
 	}
 	return nil

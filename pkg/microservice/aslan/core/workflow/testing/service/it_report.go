@@ -84,7 +84,7 @@ func GetTestLocalTestSuite(serviceName string, log *zap.SugaredLogger) (*commonm
 								}
 								client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
 								if err != nil {
-									log.Errorf("GetTestLocalTestSuite CreateOrUpdate S3 client err:%+v", err)
+									log.Errorf("GetTestLocalTestSuite Create S3 client err:%+v", err)
 									continue
 								}
 								objectKey := storage.GetObjectPath(fmt.Sprintf("%s/%d/%s/%s", pipelineName, pipelineTask.TaskID, "test", testJobName))

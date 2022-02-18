@@ -139,7 +139,7 @@ func RequestPayload(r *http.Request) ([]byte, error) {
 	return b, err
 }
 
-// CreateOrUpdate a "String to Sign".
+// Create a "String to Sign".
 func StringToSign(canonicalRequest string, t time.Time) (string, error) {
 	hash := sha256.New()
 	_, err := hash.Write([]byte(canonicalRequest))
@@ -150,7 +150,7 @@ func StringToSign(canonicalRequest string, t time.Time) (string, error) {
 		Algorithm, t.UTC().Format(BasicDateFormat), hash.Sum(nil)), nil
 }
 
-// CreateOrUpdate the HWS Signature.
+// Create the HWS Signature.
 func SignStringToSign(stringToSign string, signingKey []byte) (string, error) {
 	hm, err := hmacsha256(signingKey, stringToSign)
 	return fmt.Sprintf("%x", hm), err

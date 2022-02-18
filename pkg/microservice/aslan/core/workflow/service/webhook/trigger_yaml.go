@@ -82,7 +82,7 @@ Strategy
  dynamic:
 	Dynamic selection of idle environment;
  base:
-	CreateOrUpdate a new environment based on the baseline environment
+	Create a new environment based on the baseline environment
 	And Need to set EnvRecyclePolicy：success/always/never
 */
 type Deploy struct {

@@ -36,7 +36,7 @@ func ListExternalLinks(log *zap.SugaredLogger) ([]*commonmodels.ExternalLink, er
 func CreateExternalLink(args *commonmodels.ExternalLink, log *zap.SugaredLogger) error {
 	err := commonrepo.NewExternalLinkColl().Create(args)
 	if err != nil {
-		log.Errorf("ExternalLink.CreateOrUpdate error: %s", err)
+		log.Errorf("ExternalLink.Create error: %s", err)
 		return e.ErrCreateExternalLink.AddErr(err)
 	}
 	return nil

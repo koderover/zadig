@@ -41,7 +41,7 @@ func Execute() error {
 
 	var err error
 	defer func() {
-		// CreateOrUpdate dog food file to tell wd that task has finished.
+		// Create dog food file to tell wd that task has finished.
 		resultMsg := types.JobSuccess
 		if err != nil {
 			resultMsg = types.JobFail

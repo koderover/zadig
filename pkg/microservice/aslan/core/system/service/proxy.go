@@ -70,7 +70,7 @@ func GetProxy(id string, log *zap.SugaredLogger) (*commonmodels.Proxy, error) {
 func CreateProxy(args *commonmodels.Proxy, log *zap.SugaredLogger) error {
 	err := commonrepo.NewProxyColl().Create(args)
 	if err != nil {
-		log.Errorf("Proxy.CreateOrUpdate error: %v", err)
+		log.Errorf("Proxy.Create error: %v", err)
 		return e.ErrCreateProxy.AddErr(err)
 	}
 
