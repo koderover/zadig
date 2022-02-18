@@ -1263,8 +1263,8 @@ func deployEnvToSubTasks(env commonmodels.DeployEnv, prodEnv *commonmodels.Produ
 		log.Error(err)
 		return nil, err
 	}
-	deployTask.ServiceName = envList[1] + "_" + envList[0]
-	deployTask.ContainerName = envList[1]
+	deployTask.ServiceName = envList[0]
+	deployTask.ContainerName = envList[1] + "_" + envList[0]
 
 	switch env.Type {
 	case setting.K8SDeployType:
@@ -2333,10 +2333,10 @@ func ensurePipelineTask(pt *task.Task, envName string, log *zap.SugaredLogger) e
 				t.SetImage(pt.TaskArgs.Deploy.Image)
 				t.SetNamespace(pt.TaskArgs.Deploy.Namespace)
 
-				serviceName := t.ServiceName
-				serviceName = strings.TrimPrefix(serviceName, t.ContainerName+"_")
+				containerName := t.ContainerName
+				containerName = strings.TrimSuffix(containerName, "_"+t.ServiceName)
 
-				_, err := validateServiceContainer(t.EnvName, t.ProductName, serviceName, t.ContainerName)
+				_, err := validateServiceContainer(t.EnvName, t.ProductName, t.ServiceName, containerName)
 				if err != nil {
 					log.Error(err)
 					return err

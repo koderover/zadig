@@ -212,26 +212,25 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			return
 		}
 	}
-
-	serviceName := p.Task.ServiceName
-	serviceName = strings.TrimPrefix(serviceName, p.Task.ContainerName+"_")
+	containerName := p.Task.ContainerName
+	containerName = strings.TrimSuffix(containerName, "_"+p.Task.ServiceName)
+	p.Task.ContainerName = containerName
 	if p.Task.ServiceType != setting.HelmDeployType {
 		// get servcie info
 		var (
 			serviceInfo *types.ServiceTmpl
 			selector    labels.Selector
 		)
-
-		serviceInfo, err = p.getService(ctx, serviceName, p.Task.ServiceType, p.Task.ProductName, 0)
+		serviceInfo, err = p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType, p.Task.ProductName, 0)
 		if err != nil {
 			// Maybe it is a share service, the entity is not under the project
-			serviceInfo, err = p.getService(ctx, serviceName, p.Task.ServiceType, "", 0)
+			serviceInfo, err = p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType, "", 0)
 			if err != nil {
 				return
 			}
 		}
 		if serviceInfo.WorkloadType == "" {
-			selector := labels.Set{setting.ProductLabel: p.Task.ProductName, setting.ServiceLabel: serviceName}.AsSelector()
+			selector := labels.Set{setting.ProductLabel: p.Task.ProductName, setting.ServiceLabel: p.Task.ServiceName}.AsSelector()
 
 			var deployments []*appsv1.Deployment
 			deployments, err = getter.ListDeployments(p.Task.Namespace, selector, p.kubeClient)
@@ -295,7 +294,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			switch serviceInfo.WorkloadType {
 			case setting.StatefulSet:
 				var statefulSet *appsv1.StatefulSet
-				statefulSet, _, err = getter.GetStatefulSet(p.Task.Namespace, serviceName, p.kubeClient)
+				statefulSet, _, err = getter.GetStatefulSet(p.Task.Namespace, p.Task.ServiceName, p.kubeClient)
 				if err != nil {
 					return
 				}
@@ -321,7 +320,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				}
 			case setting.Deployment:
 				var deployment *appsv1.Deployment
-				deployment, _, err = getter.GetDeployment(p.Task.Namespace, serviceName, p.kubeClient)
+				deployment, _, err = getter.GetDeployment(p.Task.Namespace, p.Task.ServiceName, p.kubeClient)
 				if err != nil {
 					return
 				}
@@ -379,17 +378,17 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		} else {
 			rcsList = append(rcsList, RcsListFromStatefulSets(statefulSets)...)
 		}
-		p.findHelmAffectedResources(p.Task.Namespace, serviceName, rcsList)
+		p.findHelmAffectedResources(p.Task.Namespace, p.Task.ServiceName, rcsList)
 
 		p.Log.Infof("start helm deploy, productName %s serviceName %s containerName %s namespace %s", p.Task.ProductName,
-			serviceName, p.Task.ContainerName, p.Task.Namespace)
+			p.Task.ServiceName, p.Task.ContainerName, p.Task.Namespace)
 
 		productInfo, err = p.getProductInfo(ctx, &EnvArgs{EnvName: p.Task.EnvName, ProductName: p.Task.ProductName})
 		if err != nil {
 			err = errors.WithMessagef(
 				err,
 				"failed to get product %s/%s",
-				p.Task.Namespace, serviceName)
+				p.Task.Namespace, p.Task.ServiceName)
 			return
 		}
 
@@ -405,7 +404,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		serviceRevisionInProduct := int64(0)
 		var targetContainer *types.Container
 		for _, service := range productInfo.GetServiceMap() {
-			if service.ServiceName == serviceName {
+			if service.ServiceName == p.Task.ServiceName {
 				serviceRevisionInProduct = service.Revision
 				for _, container := range service.Containers {
 					if container.Name == p.Task.ContainerName {
@@ -418,17 +417,17 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		}
 
 		if targetContainer == nil {
-			err = errors.Errorf("failed to find target container %s from service %s", p.Task.ContainerName, serviceName)
+			err = errors.Errorf("failed to find target container %s from service %s", p.Task.ContainerName, p.Task.ServiceName)
 			return
 		}
 
 		if targetContainer.ImagePath == nil {
-			err = errors.Errorf("failed to get image path of  %s from service %s", p.Task.ContainerName, serviceName)
+			err = errors.Errorf("failed to get image path of  %s from service %s", p.Task.ContainerName, p.Task.ServiceName)
 			return
 		}
 
 		for _, chartInfo := range renderInfo.ChartInfos {
-			if chartInfo.ServiceName == serviceName {
+			if chartInfo.ServiceName == p.Task.ServiceName {
 				renderChart = chartInfo
 				break
 			}
@@ -436,23 +435,23 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 
 		if renderChart == nil {
 			err = errors.Errorf("failed to update container image in %s/%s，chart not found",
-				p.Task.Namespace, serviceName)
+				p.Task.Namespace, p.Task.ServiceName)
 			return
 		}
 
 		// use revision of service currently applied in environment instead of the latest revision
-		path, errDownload := p.downloadService(pipelineTask.ProductName, serviceName,
+		path, errDownload := p.downloadService(pipelineTask.ProductName, p.Task.ServiceName,
 			pipelineTask.StorageURI, serviceRevisionInProduct)
 		if errDownload != nil {
 			p.Log.Warnf("failed to get chart of revision: %d for service: %s, use latest version",
-				serviceRevisionInProduct, serviceName)
-			path, errDownload = p.downloadService(pipelineTask.ProductName, serviceName,
+				serviceRevisionInProduct, p.Task.ServiceName)
+			path, errDownload = p.downloadService(pipelineTask.ProductName, p.Task.ServiceName,
 				pipelineTask.StorageURI, 0)
 			if errDownload != nil {
 				err = errors.WithMessagef(
 					errDownload,
 					"failed to download service %s/%s",
-					p.Task.Namespace, serviceName)
+					p.Task.Namespace, p.Task.ServiceName)
 				return
 			}
 		}
@@ -477,7 +476,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			err = errors.WithMessagef(
 				err,
 				"failed to pase image uri %s/%s",
-				p.Task.Namespace, serviceName)
+				p.Task.Namespace, p.Task.ServiceName)
 			return
 		}
 
@@ -487,12 +486,12 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			err = errors.WithMessagef(
 				err,
 				"failed to replace image uri %s/%s",
-				p.Task.Namespace, serviceName)
+				p.Task.Namespace, p.Task.ServiceName)
 			return
 		}
 		if replacedValuesYaml == "" {
 			err = errors.Errorf("failed to set new image uri into service's values.yaml %s/%s",
-				p.Task.Namespace, serviceName)
+				p.Task.Namespace, p.Task.ServiceName)
 			return
 		}
 
@@ -513,12 +512,12 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			err = errors.WithMessagef(
 				err,
 				"failed to replace image uri into helm values %s/%s",
-				p.Task.Namespace, serviceName)
+				p.Task.Namespace, p.Task.ServiceName)
 			return
 		}
 		if replacedMergedValuesYaml == "" {
 			err = errors.Errorf("failed to set image uri into mreged values.yaml in %s/%s",
-				p.Task.Namespace, serviceName)
+				p.Task.Namespace, p.Task.ServiceName)
 			return
 		}
 
@@ -529,11 +528,11 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			err = errors.WithMessagef(
 				err,
 				"failed to create helm client %s/%s",
-				p.Task.Namespace, serviceName)
+				p.Task.Namespace, p.Task.ServiceName)
 			return
 		}
 
-		releaseName := util.GeneHelmReleaseName(p.Task.Namespace, serviceName)
+		releaseName := util.GeneHelmReleaseName(p.Task.Namespace, p.Task.ServiceName)
 
 		ensureUpgrade := func() error {
 			hrs, errHistory := helmClient.ListReleaseHistory(releaseName, 10)
@@ -580,7 +579,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				err = errors.WithMessagef(
 					err,
 					"failed to Install helm chart %s/%s",
-					p.Task.Namespace, serviceName)
+					p.Task.Namespace, p.Task.ServiceName)
 				done <- false
 			} else {
 				done <- true
@@ -599,7 +598,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 
 		//替换环境变量中的chartInfos
 		for _, chartInfo := range renderInfo.ChartInfos {
-			if chartInfo.ServiceName == serviceName {
+			if chartInfo.ServiceName == p.Task.ServiceName {
 				chartInfo.ValuesYaml = replacedValuesYaml
 				break
 			}
@@ -616,7 +615,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			err = errors.WithMessagef(
 				err,
 				"failed to update renderset info %s/%s, renderset %s",
-				p.Task.Namespace, serviceName, renderInfo.Name)
+				p.Task.Namespace, p.Task.ServiceName, renderInfo.Name)
 		}
 	}
 }
@@ -815,9 +814,8 @@ func (p *DeployTaskPlugin) Wait(ctx context.Context) {
 	}
 
 	timeout := time.After(time.Duration(p.TaskTimeout()) * time.Second)
-	serviceName := p.Task.ServiceName
-	serviceName = strings.TrimPrefix(serviceName, p.Task.ContainerName+"_")
-	selector := labels.Set{setting.ProductLabel: p.Task.ProductName, setting.ServiceLabel: serviceName}.AsSelector()
+
+	selector := labels.Set{setting.ProductLabel: p.Task.ProductName, setting.ServiceLabel: p.Task.ServiceName}.AsSelector()
 
 	for {
 		select {
