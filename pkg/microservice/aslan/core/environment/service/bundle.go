@@ -17,13 +17,17 @@ limitations under the License.
 package service
 
 import (
+	"strconv"
+
 	"go.uber.org/zap"
 
 	commonConfig "github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/config"
 	labeldb "github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/service"
+	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type resourceSpec struct {
@@ -57,6 +61,18 @@ func GetBundleResources(logger *zap.SugaredLogger) ([]*resourceSpec, error) {
 		return nil, err
 	}
 
+	// production attribute
+	clusterMap := make(map[string]*models.K8SCluster)
+	clusters, err := mongodb.NewK8SClusterColl().List(nil)
+	if err != nil {
+		log.Errorf("Failed to list clusters in db, err: %s", err)
+		return nil, err
+	}
+
+	for _, cls := range clusters {
+		clusterMap[cls.ID.Hex()] = cls
+	}
+
 	for _, env := range envs {
 		resourceKey := commonConfig.BuildResourceKey(string(config.ResourceTypeProduct), env.ProductName, env.EnvName)
 		resourceSpec := &resourceSpec{
@@ -71,6 +87,14 @@ func GetBundleResources(logger *zap.SugaredLogger) ([]*resourceSpec, error) {
 		} else {
 			logger.Warnf("can not find resource key :%s", resourceKey)
 		}
+
+		clusterID := env.ClusterID
+		production := false
+		cluster, ok := clusterMap[clusterID]
+		if ok {
+			production = cluster.Production
+		}
+		resourceSpec.Spec["production"] = strconv.FormatBool(production)
 		res = append(res, resourceSpec)
 	}
 

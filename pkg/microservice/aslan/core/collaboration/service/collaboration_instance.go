@@ -29,6 +29,7 @@ type GetCollaborationUpdateResp struct {
 	New            []models.CollaborationMode     `json:"new"`
 	Delete         []models.CollaborationInstance `json:"delete"`
 }
+
 type UpdateItem struct {
 	CollaborationMode string     `json:"collaboration_mode"`
 	PolicyName        string     `json:"policy_name"`
@@ -37,14 +38,17 @@ type UpdateItem struct {
 	UpdateSpec        UpdateSpec `json:"update_spec"`
 	NewSpec           NewSpec    `json:"new_spec"`
 }
+
 type DeleteSpec struct {
 	Workflows []models.WorkflowCIItem `json:"workflows"`
 	Products  []models.ProductCIItem  `json:"products"`
 }
+
 type UpdateSpec struct {
 	Workflows []UpdateWorkflowItem `json:"workflows"`
 	Products  []UpdateProductItem  `json:"products"`
 }
+
 type NewSpec struct {
 	Workflows []models.WorkflowCMItem `json:"workflows"`
 	Products  []models.ProductCMItem  `json:"products"`
@@ -78,6 +82,7 @@ type Product struct {
 	DefaultValues     string                          `json:"defaultValues,omitempty"`
 	ChartValues       []*commonservice.RenderChartArg `json:"chartValues,omitempty"`
 }
+
 type GetCollaborationNewResp struct {
 	Code     int64       `json:"code"`
 	Workflow []*Workflow `json:"workflow"`
@@ -178,7 +183,7 @@ func getUpdateDiff(cm *models.CollaborationMode, ci *models.CollaborationInstanc
 	}
 }
 
-func buildPolicyName(projectName, mode string, identityType, userName string) string {
+func buildPolicyName(projectName, mode, identityType, userName string) string {
 	return projectName + "-" + mode + "-" + identityType + "-" + userName
 }
 
@@ -280,6 +285,7 @@ func GetCollaborationUpdate(projectName, uid, identityType, userName string, log
 	}
 	return resp, nil
 }
+
 func buildName(baseName, modeName, identityType, userName string) string {
 	return modeName + "-" + baseName + "-" + identityType + "-" + userName
 }
@@ -1089,13 +1095,14 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 			productRenderSetMap[set.EnvName] = set
 		}
 		for _, product := range newProduct {
-			if set, ok := productRenderSetMap[product.BaseName]; ok {
-				product.Vars = set.KVs
-				product.DefaultValues = set.DefaultValues
-				product.ChartValues = buildRenderChartArg(set.ChartInfos, product.BaseName)
-			} else {
+			set, ok := productRenderSetMap[product.BaseName]
+			if !ok {
 				return nil, fmt.Errorf("product:%s not exist", product.BaseName)
 			}
+
+			product.Vars = set.KVs
+			product.DefaultValues = set.DefaultValues
+			product.ChartValues = buildRenderChartArg(set.ChartInfos, product.BaseName)
 		}
 	}
 	var workNames []string
@@ -1130,6 +1137,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 		IfSync:   ifSync,
 	}, nil
 }
+
 func GetCollaborationNew(projectName, uid, identityType, userName string, logger *zap.SugaredLogger) (*GetCollaborationNewResp, error) {
 	updateResp, err := GetCollaborationUpdate(projectName, uid, identityType, userName, logger)
 	if err != nil {
@@ -1165,7 +1173,7 @@ func getRenderSet(projectName string, envs []string) ([]models2.RenderSet, error
 }
 
 func buildRenderChartArg(chartInfos []*templatemodels.RenderChart, envName string) []*commonservice.RenderChartArg {
-	ret := make([]*commonservice.RenderChartArg, 0)
+	ret := make([]*commonservice.RenderChartArg, 0, len(chartInfos))
 	for _, singleChart := range chartInfos {
 		rcaObj := new(commonservice.RenderChartArg)
 		rcaObj.LoadFromRenderChartModel(singleChart)
