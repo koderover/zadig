@@ -48,7 +48,6 @@ func CreatePolicyBindings(ns string, rbs []*PolicyBinding, logger *zap.SugaredLo
 }
 
 func CreateOrUpdateSystemPolicyBinding(ns string, rb *PolicyBinding, logger *zap.SugaredLogger) error {
-
 	obj, err := createPolicyBindingObject(ns, rb, logger)
 	if err != nil {
 		return err
