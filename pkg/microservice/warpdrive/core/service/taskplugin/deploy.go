@@ -213,22 +213,26 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		}
 	}
 
+	serviceName := p.Task.ServiceName
+	serviceName = strings.TrimPrefix(serviceName, p.Task.ContainerName+"_")
+	p.Task.ServiceName = serviceName
 	if p.Task.ServiceType != setting.HelmDeployType {
 		// get servcie info
 		var (
 			serviceInfo *types.ServiceTmpl
 			selector    labels.Selector
 		)
-		serviceInfo, err = p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType, p.Task.ProductName, 0)
+
+		serviceInfo, err = p.getService(ctx, serviceName, p.Task.ServiceType, p.Task.ProductName, 0)
 		if err != nil {
 			// Maybe it is a share service, the entity is not under the project
-			serviceInfo, err = p.getService(ctx, p.Task.ServiceName, p.Task.ServiceType, "", 0)
+			serviceInfo, err = p.getService(ctx, serviceName, p.Task.ServiceType, "", 0)
 			if err != nil {
 				return
 			}
 		}
 		if serviceInfo.WorkloadType == "" {
-			selector := labels.Set{setting.ProductLabel: p.Task.ProductName, setting.ServiceLabel: p.Task.ServiceName}.AsSelector()
+			selector := labels.Set{setting.ProductLabel: p.Task.ProductName, setting.ServiceLabel: serviceName}.AsSelector()
 
 			var deployments []*appsv1.Deployment
 			deployments, err = getter.ListDeployments(p.Task.Namespace, selector, p.kubeClient)
@@ -292,7 +296,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			switch serviceInfo.WorkloadType {
 			case setting.StatefulSet:
 				var statefulSet *appsv1.StatefulSet
-				statefulSet, _, err = getter.GetStatefulSet(p.Task.Namespace, p.Task.ServiceName, p.kubeClient)
+				statefulSet, _, err = getter.GetStatefulSet(p.Task.Namespace, serviceName, p.kubeClient)
 				if err != nil {
 					return
 				}
@@ -318,7 +322,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 				}
 			case setting.Deployment:
 				var deployment *appsv1.Deployment
-				deployment, _, err = getter.GetDeployment(p.Task.Namespace, p.Task.ServiceName, p.kubeClient)
+				deployment, _, err = getter.GetDeployment(p.Task.Namespace, serviceName, p.kubeClient)
 				if err != nil {
 					return
 				}
@@ -376,7 +380,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		} else {
 			rcsList = append(rcsList, RcsListFromStatefulSets(statefulSets)...)
 		}
-		p.findHelmAffectedResources(p.Task.Namespace, p.Task.ServiceName, rcsList)
+		p.findHelmAffectedResources(p.Task.Namespace, serviceName, rcsList)
 
 		p.Log.Infof("start helm deploy, productName %s serviceName %s containerName %s namespace %s", p.Task.ProductName,
 			p.Task.ServiceName, p.Task.ContainerName, p.Task.Namespace)
