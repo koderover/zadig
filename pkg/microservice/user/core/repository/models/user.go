@@ -24,6 +24,7 @@ type User struct {
 	Email        string `json:"email"`
 	Phone        string `json:"phone"`
 	Account      string `json:"account"`
+	APIToken     string `gorm:"api_token" json:"api_token"`
 }
 
 // TableName sets the insert table name for this struct type
