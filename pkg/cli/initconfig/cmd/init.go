@@ -31,7 +31,9 @@ import (
 	"github.com/koderover/zadig/pkg/shared/client/aslan"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
 	"github.com/koderover/zadig/pkg/shared/client/user"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
@@ -106,7 +108,26 @@ func initSystemConfig() error {
 		return err
 	}
 
+	if err := scaleWarpdrive(); err != nil {
+		log.Errorf("scale warpdrive err: %s", err)
+		return err
+	}
+
 	return nil
+}
+
+func scaleWarpdrive() error {
+	cfg, err := aslan.New(config.AslanServiceAddress()).GetWorkflowConcurrencySetting()
+	if err == nil {
+		client, err := kubeclient.GetKubeClient(config.HubServerServiceAddress(), setting.LocalClusterID)
+		if err != nil {
+			return err
+		}
+		return updater.ScaleDeployment(config.Namespace(), config.WarpDriveServiceName(), int(cfg.WorkflowConcurrency), client)
+	}
+
+	log.Errorf("Failed to get workflow concurrency settings, error: %s", err)
+	return err
 }
 
 func presetSystemAdmin(email string, password, domain string) (string, error) {
