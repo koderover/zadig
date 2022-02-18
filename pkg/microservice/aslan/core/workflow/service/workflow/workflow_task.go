@@ -1714,7 +1714,7 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 		}
 
 		for _, stask := range task.SubTasks {
-			AddSubtaskToStage(&stages, stask, artifact.Name)
+			AddSubtaskToStage(&stages, stask, artifact.Name+"_"+artifact.ServiceName)
 		}
 	}
 
