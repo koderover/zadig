@@ -73,7 +73,7 @@ func (c *SystemSettingColl) InitSystemSettings() error {
 	_, err := c.Get()
 	// if we didn't find anything
 	if err != nil {
-		return c.Create(setting.LocalClusterID, &models.SystemSetting{
+		return c.CreateOrUpdate(setting.LocalClusterID, &models.SystemSetting{
 			WorkflowConcurrency: 2,
 			BuildConcurrency:    5,
 		})
@@ -81,7 +81,7 @@ func (c *SystemSettingColl) InitSystemSettings() error {
 	return nil
 }
 
-func (c *SystemSettingColl) Create(id string, args *models.SystemSetting) error {
+func (c *SystemSettingColl) CreateOrUpdate(id string, args *models.SystemSetting) error {
 	var objectID primitive.ObjectID
 	if id != "" {
 		objectID, _ = primitive.ObjectIDFromHex(id)

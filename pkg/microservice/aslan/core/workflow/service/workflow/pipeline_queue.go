@@ -72,7 +72,7 @@ func (q *Queue) Push(pt *task.Task) error {
 	}
 
 	if err := q.pqColl.Create(ConvertTaskToQueue(pt)); err != nil {
-		q.log.Errorf("pqColl.Create error: %v", err)
+		q.log.Errorf("pqColl.CreateOrUpdate error: %v", err)
 		return err
 	}
 

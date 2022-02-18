@@ -31,7 +31,7 @@ func CreateExternalSystem(args *ExternalSystemDetail, log *zap.SugaredLogger) er
 		APIToken: args.APIToken,
 	})
 	if err != nil {
-		log.Errorf("Create external system error: %s", err)
+		log.Errorf("CreateOrUpdate external system error: %s", err)
 		return e.ErrCreateExternalLink.AddErr(err)
 	}
 	return nil

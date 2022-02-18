@@ -68,7 +68,7 @@ func SaveFile(src io.ReadCloser, dst string) error {
 	// Extract top level directory.
 	objectDir, _ := filepath.Split(dst)
 	if objectDir != "" {
-		// Create any missing top level directories.
+		// CreateOrUpdate any missing top level directories.
 		if err := os.MkdirAll(objectDir, 0700); err != nil {
 			return err
 		}
@@ -80,7 +80,7 @@ func SaveFile(src io.ReadCloser, dst string) error {
 		return err
 	}
 
-	// Create a new file.
+	// CreateOrUpdate a new file.
 	file, err := os.OpenFile(dst, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
 	if err != nil {
 		return err

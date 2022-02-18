@@ -771,7 +771,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 	}
 
 	if err := CreateTask(task); err != nil {
-		log.Errorf("workflow Create task:[%v] err:%v", task, err)
+		log.Errorf("workflow CreateOrUpdate task:[%v] err:%v", task, err)
 		return nil, e.ErrCreateTask
 	}
 
@@ -1107,7 +1107,7 @@ func createReleaseImageTask(workflow *commonmodels.Workflow, args *commonmodels.
 	task.StorageEndpoint = endpoint
 
 	if err := CreateTask(task); err != nil {
-		log.Errorf("workflow Create task:[%v] err:%s", task, err)
+		log.Errorf("workflow CreateOrUpdate task:[%v] err:%s", task, err)
 		return nil, e.ErrCreateTask
 	}
 
@@ -1787,7 +1787,7 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 	}
 
 	if err := CreateTask(task); err != nil {
-		log.Errorf("workflow Create task:[%v] err:%v", task, err)
+		log.Errorf("workflow CreateOrUpdate task:[%v] err:%v", task, err)
 		return nil, e.ErrCreateTask
 	}
 

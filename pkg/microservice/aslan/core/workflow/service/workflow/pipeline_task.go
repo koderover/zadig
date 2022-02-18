@@ -1124,7 +1124,7 @@ func GetArtifactAndS3Info(pipelineName, dir string, taskID int64, log *zap.Sugar
 	}
 	client, err := s3tool.NewClient(storage.Endpoint, storage.Ak, storage.Sk, storage.Insecure, forcedPathStyle)
 	if err != nil {
-		log.Errorf("GetTestArtifactInfo Create S3 client err:%+v", err)
+		log.Errorf("GetTestArtifactInfo CreateOrUpdate S3 client err:%+v", err)
 		return nil, nil, fis, err
 	}
 	prefix := storage.GetObjectPath(dir)

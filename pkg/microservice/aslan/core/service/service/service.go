@@ -627,7 +627,7 @@ func CreateWorkloadTemplate(userName string, args *commonmodels.Service, log *za
 	}
 
 	if err := commonrepo.NewServiceColl().Create(args); err != nil {
-		log.Errorf("ServiceTmpl.Create %s error: %v", args.ServiceName, err)
+		log.Errorf("ServiceTmpl.CreateOrUpdate %s error: %v", args.ServiceName, err)
 		return e.ErrCreateTemplate.AddDesc(err.Error())
 	}
 	return nil
@@ -718,7 +718,7 @@ func CreateServiceTemplate(userName string, args *commonmodels.Service, log *zap
 	}
 
 	if err := commonrepo.NewServiceColl().Create(args); err != nil {
-		log.Errorf("ServiceTmpl.Create %s error: %v", args.ServiceName, err)
+		log.Errorf("ServiceTmpl.CreateOrUpdate %s error: %v", args.ServiceName, err)
 		return nil, e.ErrCreateTemplate.AddDesc(err.Error())
 	}
 

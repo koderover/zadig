@@ -59,7 +59,7 @@ func CreatePrivateKey(args *commonmodels.PrivateKey, log *zap.SugaredLogger) err
 
 	err := commonrepo.NewPrivateKeyColl().Create(args)
 	if err != nil {
-		log.Errorf("PrivateKey.Create error: %v", err)
+		log.Errorf("PrivateKey.CreateOrUpdate error: %v", err)
 		return e.ErrCreatePrivateKey
 	}
 	return nil
@@ -158,8 +158,8 @@ func BatchCreatePrivateKey(args []*commonmodels.PrivateKey, option, username str
 	//			return e.ErrBulkCreatePrivateKey.AddDesc("主机名称仅支持字母，数字和下划线且首个字符不以数字开头")
 	//		}
 	//		currentPrivateKey.UpdateBy = username
-	//		if err := commonrepo.NewPrivateKeyColl().Create(currentPrivateKey); err != nil {
-	//			log.Errorf("PrivateKey.Create error: %s", err)
+	//		if err := commonrepo.NewPrivateKeyColl().CreateOrUpdate(currentPrivateKey); err != nil {
+	//			log.Errorf("PrivateKey.CreateOrUpdate error: %s", err)
 	//			return e.ErrBulkCreatePrivateKey.AddDesc("bulk add privateKey failed")
 	//		}
 	//	}
@@ -175,7 +175,7 @@ func BatchCreatePrivateKey(args []*commonmodels.PrivateKey, option, username str
 
 			currentPrivateKey.UpdateBy = username
 			if err := commonrepo.NewPrivateKeyColl().Create(currentPrivateKey); err != nil {
-				log.Errorf("PrivateKey.Create error: %s", err)
+				log.Errorf("PrivateKey.CreateOrUpdate error: %s", err)
 				return e.ErrBulkCreatePrivateKey.AddDesc("bulk add privateKey failed")
 			}
 		}
@@ -195,7 +195,7 @@ func BatchCreatePrivateKey(args []*commonmodels.PrivateKey, option, username str
 			}
 
 			if err := commonrepo.NewPrivateKeyColl().Create(currentPrivateKey); err != nil {
-				log.Errorf("PrivateKey.Create error: %s", err)
+				log.Errorf("PrivateKey.CreateOrUpdate error: %s", err)
 				return e.ErrBulkCreatePrivateKey.AddDesc("bulk add privateKey failed")
 			}
 		}

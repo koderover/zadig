@@ -214,7 +214,7 @@ func CreateRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error
 		return e.ErrCreateRenderSet.AddDesc(err.Error())
 	}
 	if err := commonrepo.NewRenderSetColl().Create(args); err != nil {
-		errMsg := fmt.Sprintf("[RenderSet.Create] %s error: %v", args.Name, err)
+		errMsg := fmt.Sprintf("[RenderSet.CreateOrUpdate] %s error: %v", args.Name, err)
 		log.Error(errMsg)
 		return e.ErrCreateRenderSet.AddDesc(errMsg)
 	}
@@ -239,7 +239,7 @@ func CreateHelmRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) e
 		return e.ErrCreateRenderSet.AddDesc(err.Error())
 	}
 	if err := commonrepo.NewRenderSetColl().Create(args); err != nil {
-		errMsg := fmt.Sprintf("[RenderSet.Create] %s error: %v", args.Name, err)
+		errMsg := fmt.Sprintf("[RenderSet.CreateOrUpdate] %s error: %v", args.Name, err)
 		log.Error(errMsg)
 		return e.ErrCreateRenderSet.AddDesc(errMsg)
 	}
@@ -534,7 +534,7 @@ func ensureRenderSetArgs(args *commonmodels.RenderSet) error {
 	}
 	log := log.SugaredLogger()
 	if err := IsAllKeyCovered(args, log); err != nil {
-		return fmt.Errorf("[RenderSet.Create] %s error: %v", args.Name, err)
+		return fmt.Errorf("[RenderSet.CreateOrUpdate] %s error: %v", args.Name, err)
 	}
 
 	// 设置新的版本号

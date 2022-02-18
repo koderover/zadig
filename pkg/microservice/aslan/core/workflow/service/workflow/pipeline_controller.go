@@ -250,7 +250,7 @@ func Push(pt *task.Task) error {
 	}
 
 	if err := commonrepo.NewQueueColl().Create(ConvertTaskToQueue(pt)); err != nil {
-		log.Errorf("pqColl.Create error: %v", err)
+		log.Errorf("pqColl.CreateOrUpdate error: %v", err)
 		return err
 	}
 

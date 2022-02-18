@@ -95,7 +95,7 @@ func CreatePMService(username string, args *ServiceTmplBuildObject, log *zap.Sug
 	}
 
 	if err := commonrepo.NewServiceColl().Create(serviceObj); err != nil {
-		log.Errorf("pmService.Create %s error: %v", args.ServiceTmplObject.ServiceName, err)
+		log.Errorf("pmService.CreateOrUpdate %s error: %v", args.ServiceTmplObject.ServiceName, err)
 		return e.ErrCreateTemplate.AddDesc(err.Error())
 	}
 
@@ -103,7 +103,7 @@ func CreatePMService(username string, args *ServiceTmplBuildObject, log *zap.Sug
 	build, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{Name: args.Build.Name, ProductName: args.Build.ProductName})
 	if err != nil {
 		if err := commonservice.CreateBuild(username, args.Build, log); err != nil {
-			log.Errorf("pmService.Create build %s error: %v", args.Build.Name, err)
+			log.Errorf("pmService.CreateOrUpdate build %s error: %v", args.Build.Name, err)
 			if err2 := commonrepo.NewServiceColl().Delete(args.ServiceTmplObject.ServiceName, args.ServiceTmplObject.Type, args.ServiceTmplObject.ProductName, "", rev); err2 != nil {
 				log.Errorf("pmService.delete %s error: %v", args.ServiceTmplObject.ServiceName, err2)
 			}

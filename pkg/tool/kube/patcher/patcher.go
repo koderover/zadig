@@ -59,7 +59,7 @@ func GeneratePatchBytes(obj, modifiedObj runtime.Object) ([]byte, types.PatchTyp
 	var lookupPatchMeta strategicpatch.LookupPatchMeta
 	createPatchErrFormat := "creating patch with:\noriginal:\n%s\nmodified:\n%s\ncurrent:\n%s\nis failed, err: %v"
 
-	// Create the versioned struct from the type defined in the restmapping
+	// CreateOrUpdate the versioned struct from the type defined in the restmapping
 	// (which is the API version we'll be submitting the patch to)
 	versionedObject, err := krkubeclient.Scheme().New(*gvk)
 	switch {

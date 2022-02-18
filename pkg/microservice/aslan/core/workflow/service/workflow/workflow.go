@@ -400,7 +400,7 @@ func CreateWorkflow(workflow *commonmodels.Workflow, log *zap.SugaredLogger) err
 	}
 
 	if err := commonrepo.NewWorkflowColl().Create(workflow); err != nil {
-		log.Errorf("Workflow.Create error: %v", err)
+		log.Errorf("Workflow.CreateOrUpdate error: %v", err)
 		return e.ErrUpsertWorkflow.AddDesc(err.Error())
 	}
 
