@@ -25,6 +25,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
@@ -168,4 +169,11 @@ func covertTaskToQueue(t *task.Task) *models.Queue {
 		Type:         t.Type,
 		CreateTime:   t.CreateTime,
 	}
+}
+
+func GetWorkflowTaskCallback(taskID int64, pipelineName string) (*commonmodels.CallbackRequest, error) {
+	return mongodb.NewCallbackRequestColl().Find(&mongodb.CallbackFindOption{
+		TaskID:       taskID,
+		PipelineName: pipelineName,
+	})
 }
