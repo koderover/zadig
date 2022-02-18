@@ -51,9 +51,9 @@ func V190ToV1100() error {
 		return fmt.Errorf("failed to migrate data in `zadig.module_testing`: %s", err)
 	}
 
-	log.Info("InitDBAndEditTables: ADD cloumn from mysql table `user`.")
-	if err := orm.InitDBAndEditTables(orm.DbEditActionAdd); err != nil {
-		return fmt.Errorf("InitDBAndEditTables: failed to ADD cloumn from mysql table `user`: %s", err)
+	log.Info("UpdateUserDBTables: ADD cloumn from mysql table `user`.")
+	if err := orm.UpdateUserDBTables(orm.DbEditActionAdd); err != nil {
+		return fmt.Errorf("UpdateUserDBTables: failed to ADD cloumn from mysql table `user`: %s", err)
 	}
 	return nil
 }
@@ -62,9 +62,9 @@ func V190ToV1100() error {
 func V1100ToV190() error {
 	log.Info("Rollback data from 1.10.0 to 1.9.0")
 
-	log.Info("InitDBAndEditTables: drop cloumn from mysql table `user`.")
-	if err := orm.InitDBAndEditTables(orm.DbEditActionDrop); err != nil {
-		return fmt.Errorf("InitDBAndEditTables: failed to drop cloumn from mysql table `user`: %s", err)
+	log.Info("UpdateUserDBTables: drop cloumn from mysql table `user`.")
+	if err := orm.UpdateUserDBTables(orm.DbEditActionDrop); err != nil {
+		return fmt.Errorf("UpdateUserDBTables: failed to drop cloumn from mysql table `user`: %s", err)
 	}
 	return nil
 }
