@@ -214,7 +214,6 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 	}
 	containerName := p.Task.ContainerName
 	containerName = strings.TrimSuffix(containerName, "_"+p.Task.ServiceName)
-	p.Task.ContainerName = containerName
 	if p.Task.ServiceType != setting.HelmDeployType {
 		// get servcie info
 		var (
@@ -247,8 +246,8 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		L:
 			for _, deploy := range deployments {
 				for _, container := range deploy.Spec.Template.Spec.Containers {
-					if container.Name == p.Task.ContainerName {
-						err = updater.UpdateDeploymentImage(deploy.Namespace, deploy.Name, p.Task.ContainerName, p.Task.Image, p.kubeClient)
+					if container.Name == containerName {
+						err = updater.UpdateDeploymentImage(deploy.Namespace, deploy.Name, containerName, p.Task.Image, p.kubeClient)
 						if err != nil {
 							err = errors.WithMessagef(
 								err,
@@ -270,8 +269,8 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		Loop:
 			for _, sts := range statefulSets {
 				for _, container := range sts.Spec.Template.Spec.Containers {
-					if container.Name == p.Task.ContainerName {
-						err = updater.UpdateStatefulSetImage(sts.Namespace, sts.Name, p.Task.ContainerName, p.Task.Image, p.kubeClient)
+					if container.Name == containerName {
+						err = updater.UpdateStatefulSetImage(sts.Namespace, sts.Name, containerName, p.Task.Image, p.kubeClient)
 						if err != nil {
 							err = errors.WithMessagef(
 								err,
@@ -299,8 +298,8 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 					return
 				}
 				for _, container := range statefulSet.Spec.Template.Spec.Containers {
-					if container.Name == p.Task.ContainerName {
-						err = updater.UpdateStatefulSetImage(statefulSet.Namespace, statefulSet.Name, p.Task.ContainerName, p.Task.Image, p.kubeClient)
+					if container.Name == containerName {
+						err = updater.UpdateStatefulSetImage(statefulSet.Namespace, statefulSet.Name, containerName, p.Task.Image, p.kubeClient)
 						if err != nil {
 							err = errors.WithMessagef(
 								err,
@@ -325,8 +324,8 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 					return
 				}
 				for _, container := range deployment.Spec.Template.Spec.Containers {
-					if container.Name == p.Task.ContainerName {
-						err = updater.UpdateDeploymentImage(deployment.Namespace, deployment.Name, p.Task.ContainerName, p.Task.Image, p.kubeClient)
+					if container.Name == containerName {
+						err = updater.UpdateDeploymentImage(deployment.Namespace, deployment.Name, containerName, p.Task.Image, p.kubeClient)
 						if err != nil {
 							err = errors.WithMessagef(
 								err,
@@ -348,7 +347,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		}
 		if !replaced {
 			err = errors.Errorf(
-				"container %s is not found in resources with label %s", p.Task.ContainerName, selector)
+				"container %s is not found in resources with label %s", containerName, selector)
 			return
 		}
 	} else if p.Task.ServiceType == setting.HelmDeployType {
@@ -381,7 +380,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		p.findHelmAffectedResources(p.Task.Namespace, p.Task.ServiceName, rcsList)
 
 		p.Log.Infof("start helm deploy, productName %s serviceName %s containerName %s namespace %s", p.Task.ProductName,
-			p.Task.ServiceName, p.Task.ContainerName, p.Task.Namespace)
+			p.Task.ServiceName, containerName, p.Task.Namespace)
 
 		productInfo, err = p.getProductInfo(ctx, &EnvArgs{EnvName: p.Task.EnvName, ProductName: p.Task.ProductName})
 		if err != nil {
@@ -407,7 +406,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			if service.ServiceName == p.Task.ServiceName {
 				serviceRevisionInProduct = service.Revision
 				for _, container := range service.Containers {
-					if container.Name == p.Task.ContainerName {
+					if container.Name == containerName {
 						targetContainer = container
 						break
 					}
@@ -417,12 +416,12 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		}
 
 		if targetContainer == nil {
-			err = errors.Errorf("failed to find target container %s from service %s", p.Task.ContainerName, p.Task.ServiceName)
+			err = errors.Errorf("failed to find target container %s from service %s", containerName, p.Task.ServiceName)
 			return
 		}
 
 		if targetContainer.ImagePath == nil {
-			err = errors.Errorf("failed to get image path of  %s from service %s", p.Task.ContainerName, p.Task.ServiceName)
+			err = errors.Errorf("failed to get image path of  %s from service %s", containerName, p.Task.ServiceName)
 			return
 		}
 
