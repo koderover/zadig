@@ -25,6 +25,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/service"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/label"
 )
 
@@ -43,6 +44,7 @@ func CreatePolicy(ns string, policy *Policy, _ *zap.SugaredLogger) error {
 	obj := &models.Policy{
 		Name:      policy.Name,
 		Namespace: ns,
+		Type:      setting.PolicyTypeSystem,
 	}
 
 	for _, r := range policy.Rules {
@@ -62,6 +64,7 @@ func CreatePolicies(ns string, policies []*Policy, _ *zap.SugaredLogger) error {
 		obj := &models.Policy{
 			Name:      policy.Name,
 			Namespace: ns,
+			Type:      setting.PolicyTypeSystem,
 		}
 
 		for _, r := range policy.Rules {

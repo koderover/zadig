@@ -1,0 +1,1022 @@
+{
+  "all_roles": [
+    {
+      "name": "read-project-only",
+      "namespace": ""
+    }
+  ],
+  "allow": false,
+  "allowed_policies": [
+    {
+      "name": "project41-asdf-system-z42",
+      "namespace": "project41"
+    },
+    {
+      "name": "read-project-only",
+      "namespace": ""
+    }
+  ],
+  "allowed_policy_attributive_rules": [
+    {
+      "endpoint": "/api/aslan/environment/environments/?*",
+      "idRegex": "api/aslan/environment/environments/([\\w\\W]+?)$",
+      "matchAttributes": [
+        {
+          "key": "policy",
+          "value": "project41-asdf-system-z42-Environment-dev"
+        }
+      ],
+      "method": "DELETE",
+      "resourceType": "Environment"
+    }
+  ],
+  "allowed_policy_plain_rules": [],
+  "allowed_policy_rules": [
+    {
+      "endpoint": "/api/aslan/environment/environments/?*",
+      "idRegex": "api/aslan/environment/environments/([\\w\\W]+?)$",
+      "matchAttributes": [
+        {
+          "key": "policy",
+          "value": "project41-asdf-system-z42-Environment-dev"
+        }
+      ],
+      "method": "DELETE",
+      "resourceType": "Environment"
+    }
+  ],
+  "allowed_role_attributive_rules": [
+    {
+      "endpoint": "/api/aslan/environment/configmaps",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/environment/diff/products/?*/service/?*",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/environment/environments",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET",
+      "resourceType": "Environment"
+    },
+    {
+      "endpoint": "/api/aslan/environment/environments/?*",
+      "idRegex": "api/aslan/environment/environments/([\\w\\W]+?)$",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET",
+      "resourceType": "Environment"
+    },
+    {
+      "endpoint": "/api/aslan/environment/environments/?*/groups",
+      "idRegex": "api/aslan/environment/environments/([\\w\\W]+?)/groups$",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET",
+      "resourceType": "Environment"
+    },
+    {
+      "endpoint": "/api/aslan/environment/environments/?*/helm/charts",
+      "idRegex": "api/aslan/environment/environments/([\\w\\W]+?)/helm/charts$",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET",
+      "resourceType": "Environment"
+    },
+    {
+      "endpoint": "/api/aslan/environment/environments/?*/helm/releases",
+      "idRegex": "api/aslan/environment/environments/([\\w\\W]+?)/helm/releases$",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET",
+      "resourceType": "Environment"
+    },
+    {
+      "endpoint": "/api/aslan/environment/environments/?*/services/?*",
+      "idRegex": "api/aslan/environment/environments/([\\w\\W]+?)/services/",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET",
+      "resourceType": "Environment"
+    },
+    {
+      "endpoint": "/api/aslan/environment/environments/?*/workloads",
+      "idRegex": "api/aslan/environment/environments/([\\w\\W]+?)/workloads$",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET",
+      "resourceType": "Environment"
+    },
+    {
+      "endpoint": "/api/aslan/environment/export/service",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/environment/kube/events",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/environment/kube/pods/?*/events",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/environment/kube/workloads",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/environment/revision/products",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/logs/log/workflow/?*/tasks/?*/service/?*",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/logs/log/workflow/?*/tasks/?*/tests/test/service/?*",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/logs/sse/pods/?*/containers/?*",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/logs/sse/workflow/build/?*/?*/?*/?*",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/logs/sse/workflow/test/?*/?*/?*/?*/?*",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/project/products/?*/services",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/service/workloads",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/testing/itreport/workflow/?*/id/?*/names/?*/service/?*",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/workflow/servicetask/workflows/?*/?*/?*/?*",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/workflow/sse/workflows/id/?*/pipelines/?*",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/workflow/v3",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/workflow/v3/?*",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/workflow/v3/?*/args",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/workflow/workflow/find/?*",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/workflow/workflowtask/id/?*/pipelines/?*",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/workflow/workflowtask/max/?*/start/?*/pipelines/?*",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/directory/workflowTask",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "api/aslan/workflow/workflow",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "api/aslan/workflow/workflow",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET",
+      "resourceType": "Workflow"
+    }
+  ],
+  "allowed_role_plain_rules": [
+    {
+      "endpoint": "/api/aslan/build/build",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/build/build/?*",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/build/targets",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/delivery/releases",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/delivery/releases/?*",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/delivery/releases/helm/charts",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/delivery/servicenames",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/project/products/?*/searching-rules",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/project/products/?*/services",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/service/helm/?*/?*/fileContent",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/service/helm/?*/?*/filePath",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/service/helm/?*/?*/serviceModule",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/service/services",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/service/services/?*",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/service/services/?*/k8s",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/service/services/?*/pm",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/testing/test",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/testing/test/?*",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/testing/testdetail",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/testing/workspace/workflow/?*/taskId/?*",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/workflow/v2/tasks/workflow/workflow/?*/taskId/?*",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/workflow/workflow/testName/?*",
+      "method": "GET"
+    }
+  ],
+  "allowed_role_rules": [
+    {
+      "endpoint": "/api/aslan/build/build",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/build/build/?*",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/build/targets",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/delivery/releases",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/delivery/releases/?*",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/delivery/releases/helm/charts",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/delivery/servicenames",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/environment/configmaps",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/environment/diff/products/?*/service/?*",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/environment/environments",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET",
+      "resourceType": "Environment"
+    },
+    {
+      "endpoint": "/api/aslan/environment/environments/?*",
+      "idRegex": "api/aslan/environment/environments/([\\w\\W]+?)$",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET",
+      "resourceType": "Environment"
+    },
+    {
+      "endpoint": "/api/aslan/environment/environments/?*/groups",
+      "idRegex": "api/aslan/environment/environments/([\\w\\W]+?)/groups$",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET",
+      "resourceType": "Environment"
+    },
+    {
+      "endpoint": "/api/aslan/environment/environments/?*/helm/charts",
+      "idRegex": "api/aslan/environment/environments/([\\w\\W]+?)/helm/charts$",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET",
+      "resourceType": "Environment"
+    },
+    {
+      "endpoint": "/api/aslan/environment/environments/?*/helm/releases",
+      "idRegex": "api/aslan/environment/environments/([\\w\\W]+?)/helm/releases$",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET",
+      "resourceType": "Environment"
+    },
+    {
+      "endpoint": "/api/aslan/environment/environments/?*/services/?*",
+      "idRegex": "api/aslan/environment/environments/([\\w\\W]+?)/services/",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET",
+      "resourceType": "Environment"
+    },
+    {
+      "endpoint": "/api/aslan/environment/environments/?*/workloads",
+      "idRegex": "api/aslan/environment/environments/([\\w\\W]+?)/workloads$",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET",
+      "resourceType": "Environment"
+    },
+    {
+      "endpoint": "/api/aslan/environment/export/service",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/environment/kube/events",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/environment/kube/pods/?*/events",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/environment/kube/workloads",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/environment/revision/products",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/logs/log/workflow/?*/tasks/?*/service/?*",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/logs/log/workflow/?*/tasks/?*/tests/test/service/?*",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/logs/sse/pods/?*/containers/?*",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/logs/sse/workflow/build/?*/?*/?*/?*",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/logs/sse/workflow/test/?*/?*/?*/?*/?*",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/project/products/?*/searching-rules",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/project/products/?*/services",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/project/products/?*/services",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/service/helm/?*/?*/fileContent",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/service/helm/?*/?*/filePath",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/service/helm/?*/?*/serviceModule",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/service/services",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/service/services/?*",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/service/services/?*/k8s",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/service/services/?*/pm",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/service/workloads",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/testing/itreport/workflow/?*/id/?*/names/?*/service/?*",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/testing/test",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/testing/test/?*",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/testing/testdetail",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/testing/workspace/workflow/?*/taskId/?*",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/workflow/servicetask/workflows/?*/?*/?*/?*",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/workflow/sse/workflows/id/?*/pipelines/?*",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/workflow/v2/tasks/workflow/workflow/?*/taskId/?*",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/workflow/v3",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/workflow/v3/?*",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/workflow/v3/?*/args",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/workflow/workflow/find/?*",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/workflow/workflow/testName/?*",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/workflow/workflowtask/id/?*/pipelines/?*",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/aslan/workflow/workflowtask/max/?*/start/?*/pipelines/?*",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "/api/directory/workflowTask",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "api/aslan/workflow/workflow",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET"
+    },
+    {
+      "endpoint": "api/aslan/workflow/workflow",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET",
+      "resourceType": "Workflow"
+    }
+  ],
+  "allowed_roles": [
+    {
+      "name": "read-project-only",
+      "namespace": ""
+    }
+  ],
+  "bearer_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiejQyIiwiZW1haWwiOiJ6NEBxcS5jb20iLCJ1aWQiOiI4YTRjNGVjMS04ZmQ4LTExZWMtODk1YS1kZTRmYzVkYTQzMDEiLCJwcmVmZXJyZWRfdXNlcm5hbWUiOiJ6NDIiLCJmZWRlcmF0ZWRfY2xhaW1zIjp7ImNvbm5lY3Rvcl9pZCI6InN5c3RlbSIsInVzZXJfaWQiOiJ6NDIifSwiYXVkIjoiemFkaWciLCJleHAiOjE2NDUxODI1OTZ9.kFCdTG9SfPtDMbaiYfgfgRKY_hY2-lHrimJ6YK8J4xA",
+  "bearer_token_in_header": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiejQyIiwiZW1haWwiOiJ6NEBxcS5jb20iLCJ1aWQiOiI4YTRjNGVjMS04ZmQ4LTExZWMtODk1YS1kZTRmYzVkYTQzMDEiLCJwcmVmZXJyZWRfdXNlcm5hbWUiOiJ6NDIiLCJmZWRlcmF0ZWRfY2xhaW1zIjp7ImNvbm5lY3Rvcl9pZCI6InN5c3RlbSIsInVzZXJfaWQiOiJ6NDIifSwiYXVkIjoiemFkaWciLCJleHAiOjE2NDUxODI1OTZ9.kFCdTG9SfPtDMbaiYfgfgRKY_hY2-lHrimJ6YK8J4xA",
+  "claims": {
+    "aud": "zadig",
+    "email": "z4@qq.com",
+    "exp": 1645182596,
+    "federated_claims": {
+      "connector_id": "system",
+      "user_id": "z42"
+    },
+    "name": "z42",
+    "preferred_username": "z42",
+    "uid": "8a4c4ec1-8fd8-11ec-895a-de4fc5da4301"
+  },
+  "envs": {
+    "COMMAND_MODE": "unix2003",
+    "GO111MODULE": "on",
+    "GOPATH": "/Users/z/go",
+    "GOROOT": "/opt/homebrew/Cellar/go/1.17.3/libexec",
+    "HOME": "/Users/z",
+    "HOMEBREW_CELLAR": "/opt/homebrew/Cellar",
+    "HOMEBREW_PREFIX": "/opt/homebrew",
+    "HOMEBREW_REPOSITORY": "/opt/homebrew",
+    "INFOPATH": "/opt/homebrew/share/info:",
+    "LC_CTYPE": "en_US.UTF-8",
+    "LESS": "-R",
+    "LOGIN_SHELL": "1",
+    "LOGNAME": "z",
+    "LSCOLORS": "Gxfxcxdxbxegedabagacad",
+    "MANPATH": "/opt/homebrew/share/man::",
+    "OLDPWD": "/Users/z/Documents/GitHub/mzadig",
+    "PAGER": "less",
+    "PATH": "/opt/homebrew/Cellar/go/1.17.3/libexec/bin:/Users/z/go/bin:/opt/homebrew/opt/gnu-sed/libexec/gnubin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/Users/z/go/bin",
+    "PWD": "/Users/z/Documents/GitHub/mzadig",
+    "SECRET_KEY": "9F11B4E503C7F2B577E5F9366BDDAB64",
+    "SHELL": "/bin/zsh",
+    "SHLVL": "1",
+    "SSH_AUTH_SOCK": "/private/tmp/com.apple.launchd.5bXC9yvJnk/Listeners",
+    "TERM": "xterm-256color",
+    "TERMINAL_EMULATOR": "JetBrains-JediTerm",
+    "TERM_SESSION_ID": "ce8d8f7c-4d2e-413a-926a-7fe33e0b1238",
+    "TMPDIR": "/var/folders/ww/12zzzwxd2g50c516yxztbn140000gn/T/",
+    "USER": "z",
+    "XPC_FLAGS": "0x0",
+    "XPC_SERVICE_NAME": "0",
+    "ZSH": "/Users/z/.oh-my-zsh",
+    "_": "/opt/homebrew/bin/opa",
+    "__CFBundleIdentifier": "com.jetbrains.goland",
+    "__CF_USER_TEXT_ENCODING": "0x1F5:0x0:0x0",
+    "__INTELLIJ_COMMAND_HISTFILE__": "/Users/z/Library/Caches/JetBrains/GoLand2021.2/terminal/history/mzadig-history112"
+  },
+  "is_authenticated": true,
+  "project_name": "project41",
+  "response": {
+    "allowed": false,
+    "http_status": 403
+  },
+  "secret": "9F11B4E503C7F2B577E5F9366BDDAB64",
+  "url_is_registered": true,
+  "user_allowed_projects": [],
+  "user_matched_policy_rule": [
+    {
+      "endpoint": "/api/aslan/environment/environments/?*",
+      "idRegex": "api/aslan/environment/environments/([\\w\\W]+?)$",
+      "matchAttributes": [
+        {
+          "key": "policy",
+          "value": "project41-asdf-system-z42-Environment-dev"
+        }
+      ],
+      "method": "DELETE",
+      "resourceType": "Environment"
+    }
+  ],
+  "user_matched_policy_rule_for_filtering": [],
+  "user_matched_role_rule": [
+    {
+      "endpoint": "/api/aslan/environment/environments/?*",
+      "idRegex": "api/aslan/environment/environments/([\\w\\W]+?)$",
+      "matchAttributes": [
+        {
+          "key": "placeholder",
+          "value": "placeholder"
+        }
+      ],
+      "method": "GET",
+      "resourceType": "Environment"
+    }
+  ],
+  "user_matched_role_rule_for_filtering": [],
+  "user_policy_allowed_resources": [],
+  "user_projects": [
+    "project41"
+  ],
+  "user_role_allowed_resources": [],
+  "user_visible_projects": [
+    "project41"
+  ]
+}

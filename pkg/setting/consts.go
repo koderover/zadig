@@ -612,3 +612,13 @@ const (
 const (
 	InformerNamingConvention = "%s-%s"
 )
+
+type PolicyType string
+type PolicyBindingType string
+type LabelType string
+
+const (
+	PolicyTypeSystem        PolicyType        = "system"
+	PolicyBindingTypeSystem PolicyBindingType = "system"
+	LabelTypeSystem         LabelType         = "system"
+)
