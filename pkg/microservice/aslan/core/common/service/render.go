@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -33,6 +34,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
+	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 type RepoConfig struct {
@@ -56,6 +58,14 @@ type RenderChartArg struct {
 	OverrideYaml   string    `json:"overrideYaml,omitempty"`
 }
 
+type RenderChartDiffResult string
+
+const (
+	Different RenderChartDiffResult = "different"
+	Same      RenderChartDiffResult = "same"
+	LogicSame RenderChartDiffResult = "logicSame"
+)
+
 func (args *RenderChartArg) ToOverrideValueString() string {
 	if len(args.OverrideValues) == 0 {
 		return ""
@@ -77,7 +87,7 @@ func (args *RenderChartArg) fromOverrideValueString(valueStr string) {
 	args.OverrideValues = make([]*KVPair, 0)
 	err := json.Unmarshal([]byte(valueStr), &args.OverrideValues)
 	if err != nil {
-		log.Errorf("decode override value fail, ")
+		log.Errorf("decode override value fail, err: %s", err)
 	}
 }
 
@@ -115,6 +125,37 @@ func (args *RenderChartArg) LoadFromRenderChartModel(chart *templatemodels.Rende
 	args.ChartVersion = chart.ChartVersion
 	args.fromOverrideValueString(chart.OverrideValues)
 	args.fromCustomValueYaml(chart.OverrideYaml)
+}
+
+func (args *RenderChartArg) GetUniqueKvMap() map[string]string {
+	uniqueKvs := make(map[string]string)
+	for index := range args.OverrideValues {
+		kv := args.OverrideValues[len(args.OverrideValues)-index-1]
+		if _, ok := uniqueKvs[kv.Key]; ok {
+			continue
+		}
+		uniqueKvs[kv.Key] = kv.Value
+	}
+	return uniqueKvs
+}
+
+// DiffValues diff values to override in two chart args
+func (args *RenderChartArg) DiffValues(target *RenderChartArg) RenderChartDiffResult {
+	argsUniqueKvs := args.GetUniqueKvMap()
+	targetUniqueKvs := target.GetUniqueKvMap()
+	if len(argsUniqueKvs) != len(targetUniqueKvs) || !reflect.DeepEqual(argsUniqueKvs, targetUniqueKvs) {
+		return Different
+	}
+	// override yamls have the same text content
+	if args.OverrideYaml == target.OverrideYaml {
+		return Same
+	}
+	equal, _ := yamlutil.Equal(args.OverrideYaml, target.OverrideYaml)
+	if equal {
+		return LogicSame
+	} else {
+		return Different
+	}
 }
 
 func listTmplRenderKeys(productTmplName string, log *zap.SugaredLogger) ([]*templatemodels.RenderKV, map[string]*templatemodels.ServiceInfo, error) {
@@ -498,7 +539,7 @@ func IsAllKeyCovered(arg *commonmodels.RenderSet, log *zap.SugaredLogger) error 
 }
 
 // IsAllKeyCoveredService 检查是否覆盖所有服务key
-func IsAllKeyCoveredService(productName, serviceName string, arg *commonmodels.RenderSet, log *zap.SugaredLogger) error {
+func IsAllKeyCoveredService(productName, serviceName string, arg *commonmodels.RenderSet, _ *zap.SugaredLogger) error {
 	opt := &commonrepo.ServiceFindOption{
 		ServiceName:   serviceName,
 		ProductName:   productName,
@@ -532,8 +573,8 @@ func ensureRenderSetArgs(args *commonmodels.RenderSet) error {
 	if len(args.Name) == 0 {
 		return errors.New("empty render set name")
 	}
-	log := log.SugaredLogger()
-	if err := IsAllKeyCovered(args, log); err != nil {
+	logger := log.SugaredLogger()
+	if err := IsAllKeyCovered(args, logger); err != nil {
 		return fmt.Errorf("[RenderSet.Create] %s error: %v", args.Name, err)
 	}
 

@@ -235,7 +235,7 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 
 	eventStart := time.Now().Unix()
 
-	go installProductHelmCharts(user, args.EnvName, requestID, args, renderSet, eventStart, helmClient, kubeClient, log)
+	go installProductHelmCharts(user, args.EnvName, requestID, args, renderSet, eventStart, helmClient, log)
 	return nil
 }
 

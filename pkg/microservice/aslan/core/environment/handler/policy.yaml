@@ -134,6 +134,20 @@ rules:
           - key: "production"
             value: "false"
       - method: PUT
+        endpoint: "/api/aslan/environment/environments/?*/helm/default-values"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/helm/default-values$"
+        matchAttributes:
+          - key: "production"
+            value: "false"
+      - method: PUT
+        endpoint: "/api/aslan/environment/environments/?*/helm/chart-values"
+        resourceType: "Environment"
+        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/helm/chart-values$"
+        matchAttributes:
+          - key: "production"
+            value: "false"
+      - method: PUT
         endpoint: "/api/aslan/service/workloads"
       - method: GET
         endpoint: "/api/aslan/project/products/?*/services"

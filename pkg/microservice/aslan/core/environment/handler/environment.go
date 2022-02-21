@@ -19,6 +19,7 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -364,19 +365,26 @@ func EstimatedValues(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GeneEstimatedValues(projectName, envName, serviceName, c.Query("scene"), c.Query("format"), arg, ctx.Logger)
 }
 
-func UpdateHelmProductRenderset(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
+func generalRequestValidate(c *gin.Context) (string, string, error) {
 	projectName := c.Query("projectName")
 	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be empty!")
-		return
+		return "", "", errors.New("projectName can't be empty")
 	}
 
 	envName := c.Param("name")
 	if envName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("envName can't be empty!")
+		return "", "", errors.New("envName can't be empty")
+	}
+	return projectName, envName, nil
+}
+
+func UpdateHelmProductRenderset(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
 		return
 	}
 
@@ -395,6 +403,54 @@ func UpdateHelmProductRenderset(c *gin.Context) {
 	if ctx.Err != nil {
 		ctx.Logger.Errorf("failed to update product Variable %s %s: %v", envName, projectName, ctx.Err)
 	}
+}
+
+func UpdateHelmProductDefaultValues(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	arg := new(service.EnvRendersetArg)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("UpdateHelmProductVariable c.GetRawData() err : %v", err)
+	}
+	if err = json.Unmarshal(data, arg); err != nil {
+		log.Errorf("UpdateHelmProductVariable json.Unmarshal err : %v", err)
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "更新全局变量", "", string(data), ctx.Logger)
+
+	ctx.Err = service.UpdateHelmProductDefaultValues(projectName, envName, ctx.UserName, ctx.RequestID, arg, ctx.Logger)
+}
+
+func UpdateHelmProductChartValues(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName, envName, err := generalRequestValidate(c)
+	if err != nil {
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
+	}
+
+	arg := new(service.EnvRendersetArg)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("UpdateHelmProductVariable c.GetRawData() err : %v", err)
+	}
+	if err = json.Unmarshal(data, arg); err != nil {
+		log.Errorf("UpdateHelmProductVariable json.Unmarshal err : %v", err)
+	}
+
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "更新服务", "", string(data), ctx.Logger)
+
+	ctx.Err = service.UpdateHelmProductCharts(projectName, envName, ctx.UserName, ctx.RequestID, arg, ctx.Logger)
 }
 
 func updateMultiHelmEnv(c *gin.Context, ctx *internalhandler.Context) {

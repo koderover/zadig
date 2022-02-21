@@ -576,7 +576,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), &chartSpec); err != nil {
 				err = errors.WithMessagef(
 					err,
-					"failed to Install helm chart %s/%s",
+					"failed to upgrade helm chart %s/%s",
 					p.Task.Namespace, p.Task.ServiceName)
 				done <- false
 			} else {

@@ -18,7 +18,7 @@ package yaml
 
 import (
 	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 
 	"github.com/koderover/zadig/pkg/util/converter"
 )
@@ -128,8 +128,8 @@ var _ = Describe("Testing search", func() {
 			}
 			flatMap, _ := converter.YamlToFlatMap([]byte(testYaml1))
 			lcpMatedPaths, err = SearchByPattern(flatMap, pattern)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(lcpMatedPaths).Should(ConsistOf([]map[string]string{
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(lcpMatedPaths).Should(gomega.ConsistOf([]map[string]string{
 				{"image": "image.name", "repo": "image.repo", "tag": "image.tag"},
 			}))
 		})
@@ -140,8 +140,8 @@ var _ = Describe("Testing search", func() {
 			}
 			flatMap, _ := converter.YamlToFlatMap([]byte(testYaml1))
 			lcpMatedPaths, err = SearchByPattern(flatMap, pattern)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(lcpMatedPaths).Should(ConsistOf([]map[string]string{
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(lcpMatedPaths).Should(gomega.ConsistOf([]map[string]string{
 				{"image": "image.name", "repo": "image.repo", "tag": "image.tag"},
 			}))
 		})
@@ -153,9 +153,9 @@ var _ = Describe("Testing search", func() {
 			flatMap, _ := converter.YamlToFlatMap([]byte(testYaml2))
 
 			lcpMatedPaths, err = SearchByPattern(flatMap, pattern)
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-			Expect(lcpMatedPaths).Should(ConsistOf([]map[string]string{
+			gomega.Expect(lcpMatedPaths).Should(gomega.ConsistOf([]map[string]string{
 				{"image": "svc1.image.name", "repo": "svc1.image.repo", "tag": "svc1.image.tag"},
 				{"image": "svc2.image.name", "repo": "svc2.image.repo", "tag": "svc2.image.tag"},
 			}))
@@ -166,12 +166,12 @@ var _ = Describe("Testing search", func() {
 				{"repo": "repo", "tag": "tag", "image": "name"},
 			}
 			flatMap, err := converter.YamlToFlatMap([]byte(testYaml3))
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 			lcpMatedPaths, err = SearchByPattern(flatMap, pattern)
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-			Expect(lcpMatedPaths).Should(ConsistOf([]map[string]string{
+			gomega.Expect(lcpMatedPaths).Should(gomega.ConsistOf([]map[string]string{
 				{"image": "svc1.image.name", "repo": "svc1.image.repo", "tag": "svc1.image.tag"},
 				{"image": "svc2.image.detail.name", "repo": "svc2.image.repo", "tag": "svc2.image.detail.tag"},
 			}))
@@ -182,12 +182,12 @@ var _ = Describe("Testing search", func() {
 				{"image": "image", "tag": "tag", "repo": "global.hub"},
 			}
 			flatMap, err := converter.YamlToFlatMap([]byte(testYaml8))
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 			lcpMatedPaths, err = SearchByPattern(flatMap, pattern)
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-			Expect(lcpMatedPaths).Should(ConsistOf([]map[string]string{
+			gomega.Expect(lcpMatedPaths).Should(gomega.ConsistOf([]map[string]string{
 				{"image": "testSpec.image.image", "repo": "repoData1.global.hub", "tag": "testSpec.image.tag"},
 				{"image": "svc1.image", "repo": "repoData1.global.hub", "tag": "svc1.tag"},
 				{"image": "svc2.image.image", "repo": "repoData1.global.hub", "tag": "svc2.image.tag"},
@@ -202,8 +202,8 @@ var _ = Describe("Testing search", func() {
 			}
 			flatMap, _ := converter.YamlToFlatMap([]byte(testYaml9))
 			lcpMatedPaths, err = SearchByPattern(flatMap, pattern)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(lcpMatedPaths).Should(ConsistOf([]map[string]string{
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(lcpMatedPaths).Should(gomega.ConsistOf([]map[string]string{
 				{"image": "deploy.image.name", "repo": "global.hub", "tag": "deploy.image.tag"},
 			}))
 		})
