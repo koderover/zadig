@@ -131,3 +131,11 @@ func ToTriggerTask(sb map[string]interface{}) (*task.Trigger, error) {
 	}
 	return trigger, nil
 }
+
+func ToExtensionTask(sb map[string]interface{}) (*task.Extension, error) {
+	var extension *task.Extension
+	if err := task.IToi(sb, &extension); err != nil {
+		return nil, fmt.Errorf("convert interface to extensionTask error: %s", err)
+	}
+	return extension, nil
+}

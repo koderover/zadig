@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KodeRover Authors.
+Copyright 2022 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,36 +27,33 @@ import (
 
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
-	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/s3"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
-	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
-	"github.com/koderover/zadig/pkg/tool/log"
-	s3tool "github.com/koderover/zadig/pkg/tool/s3"
 )
 
 const (
-	// TriggerTaskTimeout ...
-	TriggerTaskTimeout = 60 * 60 * 1 // 60 minutes
+	ExtensionTaskTimeout = 60 * 60 * 1 // 60 minutes
+	ZadigEvent           = "X-Zadig-Event"
+	EventName            = "Workflow"
 )
 
-// InitializeTriggerTaskPlugin to initialize build task plugin, and return reference
-func InitializeTriggerTaskPlugin(taskType config.TaskType) TaskPlugin {
-	return &TriggerTaskPlugin{
+// InitializeExtensionTaskPlugin to initialize build task plugin, and return reference
+func InitializeExtensionTaskPlugin(taskType config.TaskType) TaskPlugin {
+	return &ExtensionTaskPlugin{
 		Name:       taskType,
 		kubeClient: krkubeclient.Client(),
 	}
 }
 
-// TriggerTaskPlugin is Plugin, name should be compatible with task type
-type TriggerTaskPlugin struct {
+// ExtensionTaskPlugin is Plugin, name should be compatible with task type
+type ExtensionTaskPlugin struct {
 	Name          config.TaskType
 	KubeNamespace string
 	JobName       string
 	FileName      string
 	kubeClient    client.Client
-	Task          *task.Trigger
+	Task          *task.Extension
 	Log           *zap.SugaredLogger
 	cancel        context.CancelFunc
 	ack           func()
@@ -64,35 +61,35 @@ type TriggerTaskPlugin struct {
 	taskId        int64
 }
 
-func (p *TriggerTaskPlugin) SetAckFunc(ack func()) {
+func (p *ExtensionTaskPlugin) SetAckFunc(ack func()) {
 	p.ack = ack
 }
 
 // Init ...
-func (p *TriggerTaskPlugin) Init(jobname, filename string, xl *zap.SugaredLogger) {
+func (p *ExtensionTaskPlugin) Init(jobname, filename string, xl *zap.SugaredLogger) {
 	p.JobName = jobname
 	p.Log = xl
 	p.FileName = filename
 }
 
-func (p *TriggerTaskPlugin) Type() config.TaskType {
+func (p *ExtensionTaskPlugin) Type() config.TaskType {
 	return p.Name
 }
 
 // Status ...
-func (p *TriggerTaskPlugin) Status() config.Status {
+func (p *ExtensionTaskPlugin) Status() config.Status {
 	return p.Task.TaskStatus
 }
 
 // SetStatus ...
-func (p *TriggerTaskPlugin) SetStatus(status config.Status) {
+func (p *ExtensionTaskPlugin) SetStatus(status config.Status) {
 	p.Task.TaskStatus = status
 }
 
 // TaskTimeout ...
-func (p *TriggerTaskPlugin) TaskTimeout() int {
+func (p *ExtensionTaskPlugin) TaskTimeout() int {
 	if p.Task.Timeout == 0 {
-		p.Task.Timeout = TriggerTaskTimeout
+		p.Task.Timeout = ExtensionTaskTimeout
 	} else {
 		if !p.Task.IsRestart {
 			p.Task.Timeout = p.Task.Timeout * 60
@@ -101,16 +98,15 @@ func (p *TriggerTaskPlugin) TaskTimeout() int {
 	return p.Task.Timeout
 }
 
-func (p *TriggerTaskPlugin) SetTriggerStatusCompleted(status config.Status) {
+func (p *ExtensionTaskPlugin) SetExtensionStatusCompleted(status config.Status) {
 	p.Task.TaskStatus = status
 	p.Task.EndTime = time.Now().Unix()
 }
 
-func (p *TriggerTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineCtx *task.PipelineCtx, serviceName string) {
+func (p *ExtensionTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineCtx *task.PipelineCtx, serviceName string) {
 	var (
-		err          error
-		body         []byte
-		artifactPath string
+		err  error
+		body []byte
 	)
 	defer func() {
 		if err != nil {
@@ -122,29 +118,28 @@ func (p *TriggerTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pi
 	}()
 	p.pipelineName = pipelineTask.PipelineName
 	p.taskId = pipelineTask.TaskID
-	p.Log.Infof("succeed to create trigger task %s", p.JobName)
+	p.Log.Infof("succeed to create extension task %s", p.JobName)
 	_, p.cancel = context.WithCancel(context.Background())
 	httpClient := httpclient.New(
 		httpclient.SetHostURL(p.Task.URL),
 	)
 	url := p.Task.Path
-	artifactPath, err = p.getS3Storage(pipelineTask)
+	for _, header := range p.Task.Headers {
+		httpclient.SetHeader(header.Key, header.Value)
+	}
+
+	webhookPayload := &task.WebhookPayload{
+		EventName:    "workflow",
+		ProjectName:  pipelineTask.ProductName,
+		TaskName:     pipelineTask.PipelineName,
+		TaskID:       pipelineTask.TaskID,
+		ServiceInfos: p.Task.ServiceInfos,
+		Creator:      pipelineTask.TaskCreator,
+	}
+	body, err = json.Marshal(webhookPayload)
 	if err != nil {
 		return
 	}
-	taskOutput := &task.TaskOutput{
-		Type:  "object_storage",
-		Value: artifactPath,
-	}
-	webhookPayload := &task.WebhookPayload{
-		EventName:   "workflow",
-		ProjectName: pipelineTask.ProductName,
-		TaskName:    pipelineTask.PipelineName,
-		TaskID:      pipelineTask.TaskID,
-		TaskOutput:  []*task.TaskOutput{taskOutput},
-		TaskEnvs:    pipelineTask.TaskArgs.BuildArgs,
-	}
-	body, err = json.Marshal(webhookPayload)
 	for _, header := range p.Task.Headers {
 		httpclient.SetHeader(header.Key, header.Value)
 	}
@@ -153,44 +148,12 @@ func (p *TriggerTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pi
 		return
 	}
 	if !p.Task.IsCallback {
-		p.SetTriggerStatusCompleted(config.StatusPassed)
+		p.SetExtensionStatusCompleted(config.StatusPassed)
 	}
-}
-
-func (p *TriggerTaskPlugin) getS3Storage(pipelineTask *task.Task) (string, error) {
-	var err error
-	var store *s3.S3
-	if store, err = s3.NewS3StorageFromEncryptedURI(pipelineTask.StorageURI); err != nil {
-		log.Errorf("Archive failed to create s3 storage %s", pipelineTask.StorageURI)
-		return "", err
-	}
-	if store.Subfolder != "" {
-		store.Subfolder = fmt.Sprintf("%s/%s/%d/%s", store.Subfolder, pipelineTask.PipelineName, pipelineTask.TaskID, "artifact")
-	} else {
-		store.Subfolder = fmt.Sprintf("%s/%d/%s", pipelineTask.PipelineName, pipelineTask.TaskID, "artifact")
-	}
-	forcedPathStyle := true
-	if store.Provider == setting.ProviderSourceAli {
-		forcedPathStyle = false
-	}
-	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
-	if err != nil {
-		return "", err
-	}
-	prefix := store.GetObjectPath("")
-	files, err := s3client.ListFiles(store.Bucket, prefix, true)
-	if err != nil {
-		return "", err
-	}
-	fileName := "artifact.tar.gz"
-	if len(files) > 0 {
-		fileName = files[0]
-	}
-	return fmt.Sprintf("%s://%s.%s/%s", store.GetSchema(), store.Bucket, store.Endpoint, fileName), nil
 }
 
 // Wait ...
-func (p *TriggerTaskPlugin) Wait(ctx context.Context) {
+func (p *ExtensionTaskPlugin) Wait(ctx context.Context) {
 	timeout := time.After(time.Duration(p.TaskTimeout()) * time.Second)
 	defer p.cancel()
 
@@ -207,8 +170,6 @@ func (p *TriggerTaskPlugin) Wait(ctx context.Context) {
 			time.Sleep(time.Second * 3)
 			callbackPayloadObj, _ := p.getCallbackObj(p.taskId, p.pipelineName)
 			if callbackPayloadObj != nil {
-				p.Task.CallbackType = callbackPayloadObj.Type
-				p.Task.CallbackPayload = callbackPayloadObj.Payload
 				if callbackPayloadObj.Status == "success" {
 					p.Task.TaskStatus = config.StatusPassed
 					return
@@ -225,8 +186,8 @@ func (p *TriggerTaskPlugin) Wait(ctx context.Context) {
 	}
 }
 
-func (p *TriggerTaskPlugin) getCallbackObj(taskID int64, pipelineName string) (*task.CallbackPayloadObj, error) {
-	url := fmt.Sprintf("/api/workflow/v3/workflowtask/callback/id/%d/name/%s", taskID, pipelineName)
+func (p *ExtensionTaskPlugin) getCallbackObj(taskID int64, pipelineName string) (*task.CallbackPayloadObj, error) {
+	url := fmt.Sprintf("/api/workflow/workflowtask/callback/id/%d/name/%s", taskID, pipelineName)
 	httpClient := httpclient.New(
 		httpclient.SetHostURL(configbase.AslanServiceAddress()),
 	)
@@ -240,12 +201,12 @@ func (p *TriggerTaskPlugin) getCallbackObj(taskID int64, pipelineName string) (*
 }
 
 // Complete ...
-func (p *TriggerTaskPlugin) Complete(ctx context.Context, pipelineTask *task.Task, serviceName string) {
+func (p *ExtensionTaskPlugin) Complete(ctx context.Context, pipelineTask *task.Task, serviceName string) {
 }
 
 // SetTask ...
-func (p *TriggerTaskPlugin) SetTask(t map[string]interface{}) error {
-	task, err := ToTriggerTask(t)
+func (p *ExtensionTaskPlugin) SetTask(t map[string]interface{}) error {
+	task, err := ToExtensionTask(t)
 	if err != nil {
 		return err
 	}
@@ -254,12 +215,12 @@ func (p *TriggerTaskPlugin) SetTask(t map[string]interface{}) error {
 }
 
 // GetTask ...
-func (p *TriggerTaskPlugin) GetTask() interface{} {
+func (p *ExtensionTaskPlugin) GetTask() interface{} {
 	return p.Task
 }
 
 // IsTaskDone ...
-func (p *TriggerTaskPlugin) IsTaskDone() bool {
+func (p *ExtensionTaskPlugin) IsTaskDone() bool {
 	if p.Task.TaskStatus != config.StatusCreated && p.Task.TaskStatus != config.StatusRunning {
 		return true
 	}
@@ -267,7 +228,7 @@ func (p *TriggerTaskPlugin) IsTaskDone() bool {
 }
 
 // IsTaskFailed ...
-func (p *TriggerTaskPlugin) IsTaskFailed() bool {
+func (p *ExtensionTaskPlugin) IsTaskFailed() bool {
 	if p.Task.TaskStatus == config.StatusFailed || p.Task.TaskStatus == config.StatusTimeout || p.Task.TaskStatus == config.StatusCancelled {
 		return true
 	}
@@ -275,21 +236,21 @@ func (p *TriggerTaskPlugin) IsTaskFailed() bool {
 }
 
 // SetStartTime ...
-func (p *TriggerTaskPlugin) SetStartTime() {
+func (p *ExtensionTaskPlugin) SetStartTime() {
 	p.Task.StartTime = time.Now().Unix()
 }
 
 // SetEndTime ...
-func (p *TriggerTaskPlugin) SetEndTime() {
+func (p *ExtensionTaskPlugin) SetEndTime() {
 	p.Task.EndTime = time.Now().Unix()
 }
 
 // IsTaskEnabled ...
-func (p *TriggerTaskPlugin) IsTaskEnabled() bool {
+func (p *ExtensionTaskPlugin) IsTaskEnabled() bool {
 	return p.Task.Enabled
 }
 
 // ResetError ...
-func (p *TriggerTaskPlugin) ResetError() {
+func (p *ExtensionTaskPlugin) ResetError() {
 	p.Task.Error = ""
 }
