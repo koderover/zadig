@@ -37,7 +37,23 @@ type roleBinding struct {
 	Account      string `json:"account"`
 }
 
-func ListRoleBindings(header http.Header, qs url.Values, logger *zap.SugaredLogger) ([]*roleBinding, error) {
+type policyBinding struct {
+	*policy.PolicyBinding
+	Username     string `json:"username"`
+	Email        string `json:"email"`
+	Phone        string `json:"phone"`
+	IdentityType string `json:"identity_type"`
+	Account      string `json:"account"`
+}
+
+type Binding struct {
+	Roles    []*roleBinding   `json:"roles"`
+	Policies []*policyBinding `json:"policies"`
+	UserName string           `json:"user_name"`
+	Email    string           `json:"email"`
+}
+
+func ListBindings(header http.Header, qs url.Values, logger *zap.SugaredLogger) ([]*Binding, error) {
 	rbs, err := policy.New().ListRoleBindings(header, qs)
 	if err != nil {
 		logger.Errorf("Failed to list rolebindings, err: %s", err)
@@ -53,14 +69,34 @@ func ListRoleBindings(header http.Header, qs url.Values, logger *zap.SugaredLogg
 		uidToRoleBinding[rb.UID] = append(uidToRoleBinding[rb.UID], &roleBinding{RoleBinding: rb})
 	}
 
+	pbs, err := policy.New().ListPolicyBindings(header, qs)
+	if err != nil {
+		logger.Errorf("Failed to list policybindings, err: %s", err)
+		return nil, err
+	}
+
+	uidToPolicyBindings := make(map[string][]*policyBinding)
+	for _, pb := range pbs {
+		if pb.UID != allUsers {
+			uids = append(uids, pb.UID)
+		}
+		uidToPolicyBindings[pb.UID] = append(uidToPolicyBindings[pb.UID], &policyBinding{PolicyBinding: pb})
+	}
+
 	users, err := user.New().ListUsers(&user.SearchArgs{UIDs: uids})
 	if err != nil {
 		logger.Errorf("Failed to list users, err: %s", err)
 		return nil, err
 	}
 
-	var res []*roleBinding
+	var res []*Binding
+	var roleBindings []*roleBinding
+	var policyBindings []*policyBinding
 	for _, u := range users {
+		binding := &Binding{
+			UserName: u.Name,
+			Email:    u.Email,
+		}
 		if rb, ok := uidToRoleBinding[u.UID]; ok {
 			for _, r := range rb {
 				r.Username = u.Name
@@ -68,15 +104,31 @@ func ListRoleBindings(header http.Header, qs url.Values, logger *zap.SugaredLogg
 				r.Phone = u.Phone
 				r.IdentityType = u.IdentityType
 				r.Account = u.Account
-
-				res = append(res, r)
+				roleBindings = append(roleBindings, r)
 			}
-
+			binding.Roles = roleBindings
 		}
+		if pb, ok := uidToPolicyBindings[u.UID]; ok {
+			for _, p := range pb {
+				p.Username = u.Name
+				p.Email = u.Email
+				p.Phone = u.Phone
+				p.IdentityType = u.IdentityType
+				p.Account = u.Account
+				policyBindings = append(policyBindings, p)
+			}
+			binding.Roles = roleBindings
+		}
+		res = append(res, binding)
 	}
 
 	// add all 'allUsers' roles
-	res = append(res, uidToRoleBinding[allUsers]...)
-
+	AllUserBinding := &Binding{
+		Roles:    uidToRoleBinding[allUsers],
+		Policies: uidToPolicyBindings[allUsers],
+		UserName: "*",
+		Email:    "",
+	}
+	res = append(res, AllUserBinding)
 	return res, nil
 }

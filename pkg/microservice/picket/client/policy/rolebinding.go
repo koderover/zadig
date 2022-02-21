@@ -30,10 +30,29 @@ type RoleBinding struct {
 	Public bool   `json:"public"`
 }
 
+type PolicyBinding struct {
+	Name   string `json:"name"`
+	UID    string `json:"uid"`
+	Policy string `json:"policy"`
+	Public bool   `json:"public"`
+}
+
 func (c *Client) ListRoleBindings(header http.Header, qs url.Values) ([]*RoleBinding, error) {
 	url := "/rolebindings"
 
 	res := make([]*RoleBinding, 0)
+	_, err := c.Get(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs), httpclient.SetResult(&res))
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (c *Client) ListPolicyBindings(header http.Header, qs url.Values) ([]*PolicyBinding, error) {
+	url := "/policybindings"
+
+	res := make([]*PolicyBinding, 0)
 	_, err := c.Get(url, httpclient.SetHeadersFromHTTPHeader(header), httpclient.SetQueryParamsFromValues(qs), httpclient.SetResult(&res))
 	if err != nil {
 		return nil, err
