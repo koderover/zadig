@@ -612,3 +612,7 @@ const (
 const (
 	InformerNamingConvention = "%s-%s"
 )
+
+// AttachedClusterNamespace is the namespace Zadig uses in attached cluster.
+// Note: **Restricted because of product design since v1.9.0**.
+const AttachedClusterNamespace = "koderover-agent"
