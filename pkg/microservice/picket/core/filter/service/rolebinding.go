@@ -21,6 +21,7 @@ import (
 	"net/url"
 
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/picket/client/policy"
 	"github.com/koderover/zadig/pkg/shared/client/user"
@@ -60,11 +61,11 @@ func ListBindings(header http.Header, qs url.Values, logger *zap.SugaredLogger) 
 		return nil, err
 	}
 
-	var uids []string
+	uidSets := sets.String{}
 	uidToRoleBinding := make(map[string][]*roleBinding)
 	for _, rb := range rbs {
 		if rb.UID != allUsers {
-			uids = append(uids, rb.UID)
+			uidSets.Insert(rb.UID)
 		}
 		uidToRoleBinding[rb.UID] = append(uidToRoleBinding[rb.UID], &roleBinding{RoleBinding: rb})
 	}
@@ -78,12 +79,12 @@ func ListBindings(header http.Header, qs url.Values, logger *zap.SugaredLogger) 
 	uidToPolicyBindings := make(map[string][]*policyBinding)
 	for _, pb := range pbs {
 		if pb.UID != allUsers {
-			uids = append(uids, pb.UID)
+			uidSets.Insert(pb.UID)
 		}
 		uidToPolicyBindings[pb.UID] = append(uidToPolicyBindings[pb.UID], &policyBinding{PolicyBinding: pb})
 	}
 
-	users, err := user.New().ListUsers(&user.SearchArgs{UIDs: uids})
+	users, err := user.New().ListUsers(&user.SearchArgs{UIDs: uidSets.List()})
 	if err != nil {
 		logger.Errorf("Failed to list users, err: %s", err)
 		return nil, err
@@ -117,7 +118,7 @@ func ListBindings(header http.Header, qs url.Values, logger *zap.SugaredLogger) 
 				p.Account = u.Account
 				policyBindings = append(policyBindings, p)
 			}
-			binding.Roles = roleBindings
+			binding.Policies = policyBindings
 		}
 		res = append(res, binding)
 	}
