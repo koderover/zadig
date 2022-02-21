@@ -196,10 +196,37 @@ func ListWorkloadsInEnv(envName, productName, filter string, perPage, page int, 
 type FilterFunc func(services []*Workload) []*Workload
 
 type workloadFilter struct {
-	Name string `json:"name"`
+	Name            string      `json:"name"`
+	ServiceName     string      `json:"serviceName"`
+	ServiceNameList sets.String `json:"-"`
+}
+
+func (f *workloadFilter) UnmarshalJSON(data []byte) error {
+	type wfAlias workloadFilter
+	aliasData := &wfAlias{}
+	if err := json.Unmarshal(data, aliasData); err != nil {
+		return err
+	}
+	f.Name = aliasData.Name
+	f.ServiceName = aliasData.ServiceName
+	if len(f.ServiceName) > 0 {
+		serviceNames := strings.Split(f.ServiceName, "|")
+		f.ServiceNameList = sets.NewString(serviceNames...)
+	}
+	return nil
 }
 
 func (f *workloadFilter) Match(workload *Workload) bool {
+	if len(f.Name) > 0 {
+		if !strings.Contains(workload.Name, f.Name) {
+			return false
+		}
+	}
+	if len(f.ServiceNameList) > 0 {
+		if !f.ServiceNameList.Has(workload.ServiceName) {
+			return false
+		}
+	}
 	return strings.Contains(workload.Name, f.Name)
 }
 
@@ -211,7 +238,14 @@ type Workload struct {
 	Spec        corev1.PodTemplateSpec `json:"-"`
 	Images      []string               `json:"-"`
 	Ready       bool                   `json:"ready"`
-	ServiceName string                 `json:"service_name"`
+	ServiceName string                 `json:"service_name"` //serviceName refers to the service defines in zadig
+}
+
+func ExtractServiceFromHelmResource(annotations map[string]string, namespace string) string {
+	if chartRelease, ok := annotations[setting.HelmReleaseNameAnnotation]; ok {
+		return util.ExtraServiceName(chartRelease, namespace)
+	}
+	return ""
 }
 
 func ListWorkloads(envName, clusterID, namespace, productName string, perPage, page int, log *zap.SugaredLogger, filter ...FilterFunc) (int, []*ServiceResp, error) {
@@ -235,7 +269,14 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
 	}
 	for _, v := range listDeployments {
-		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: v.Spec.Template, Type: setting.Deployment, Images: wrapper.Deployment(v).ImageInfos(), Ready: wrapper.Deployment(v).Ready()})
+		workLoads = append(workLoads, &Workload{
+			Name:        v.Name,
+			Spec:        v.Spec.Template,
+			Type:        setting.Deployment,
+			Images:      wrapper.Deployment(v).ImageInfos(),
+			Ready:       wrapper.Deployment(v).Ready(),
+			ServiceName: ExtractServiceFromHelmResource(wrapper.Deployment(v).Annotations, namespace),
+		})
 	}
 	statefulSets, err := getter.ListStatefulSetsWithCache(nil, informer)
 	if err != nil {
@@ -243,7 +284,14 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 		return 0, resp, e.ErrListGroups.AddDesc(err.Error())
 	}
 	for _, v := range statefulSets {
-		workLoads = append(workLoads, &Workload{Name: v.Name, Spec: v.Spec.Template, Type: setting.StatefulSet, Images: wrapper.StatefulSet(v).ImageInfos(), Ready: wrapper.StatefulSet(v).Ready()})
+		workLoads = append(workLoads, &Workload{
+			Name:        v.Name,
+			Spec:        v.Spec.Template,
+			Type:        setting.StatefulSet,
+			Images:      wrapper.StatefulSet(v).ImageInfos(),
+			Ready:       wrapper.StatefulSet(v).Ready(),
+			ServiceName: ExtractServiceFromHelmResource(wrapper.StatefulSet(v).Annotations, namespace),
+		})
 	}
 
 	log.Debugf("Found %d workloads in total", len(workLoads))
