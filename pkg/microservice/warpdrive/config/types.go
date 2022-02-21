@@ -17,7 +17,7 @@ limitations under the License.
 package config
 
 type Stage struct {
-	// 注意: 同一个stage暂时不能运行不同类型的Task
+	//Note: The same stage cannot temporarily run different types of tasks
 	TaskType    TaskType                          `bson:"type"               json:"type"`
 	Status      Status                            `bson:"status"             json:"status"`
 	RunParallel bool                              `bson:"run_parallel"       json:"run_parallel"`
