@@ -903,14 +903,6 @@ func syncNewResource(products *SyncCollaborationInstanceArgs, updateResp *GetCol
 		}
 	}
 	if len(yamlProductItems) > 0 {
-
-		pro, err := service2.GetInitProduct(projectName, logger)
-		if err != nil {
-			return err
-		}
-		for i, _ := range yamlProductItems {
-			yamlProductItems[i].Vars = append(yamlProductItems[i].Vars, pro.Vars...)
-		}
 		err = service2.BulkCopyYamlProduct(projectName, userName, requestID, service2.CopyYamlProductArg{
 			Items: yamlProductItems,
 		}, logger)

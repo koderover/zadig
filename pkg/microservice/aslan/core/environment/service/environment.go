@@ -942,6 +942,13 @@ func BulkCopyYamlProduct(projectName, user, requestID string, arg CopyYamlProduc
 	if len(arg.Items) == 0 {
 		return nil
 	}
+	pro, err := GetInitProduct(projectName, log)
+	if err != nil {
+		return err
+	}
+	for i, _ := range arg.Items {
+		arg.Items[i].Vars = append(arg.Items[i].Vars, pro.Vars...)
+	}
 	var envs []string
 	for _, item := range arg.Items {
 		envs = append(envs, item.OldName)
