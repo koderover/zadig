@@ -94,7 +94,6 @@ func GetWorkflowBuildJobContainerLogsSSE(c *gin.Context) {
 	}
 
 	subTask := c.Query("subTask")
-
 	options := &logservice.GetContainerOptions{
 		Namespace:    config.Namespace(),
 		PipelineName: c.Param("pipelineName"),
