@@ -2698,10 +2698,11 @@ func updateProductGroup(username, productName, envName, updateType string, produ
 		productTemplServiceMap[service.ServiceName] = service
 	}
 
-	// 找到环境里面还存在但是服务编排里面已经删除的服务卸载掉
-	for serviceName := range productServiceMap {
+	// uninstall the services still exist in product but have been deleted in template services
+	// TODO need to handle errors occurred when uninstalling releases
+	for serviceName, pSvc := range productServiceMap {
 		if _, isExist := productTemplServiceMap[serviceName]; !isExist {
-			go func(namespace, serviceName string) {
+			go func(namespace, serviceName string, prodSvc *commonmodels.ProductService) {
 				log.Infof("ready to uninstall release:%s", fmt.Sprintf("%s-%s", namespace, serviceName))
 				if err = helmClient.UninstallRelease(&helmclient.ChartSpec{
 					ReleaseName: util.GeneHelmReleaseName(namespace, serviceName),
@@ -2709,8 +2710,9 @@ func updateProductGroup(username, productName, envName, updateType string, produ
 					Wait:        true,
 				}); err != nil {
 					log.Errorf("helm uninstall release %s err:%v", fmt.Sprintf("%s-%s", namespace, serviceName), err)
+					prodSvc.Error = fmt.Sprintf("failed to uninstall release, err: %s", err)
 				}
-			}(productResp.Namespace, serviceName)
+			}(productResp.Namespace, serviceName, pSvc)
 		}
 	}
 
