@@ -184,7 +184,8 @@ func ListLabelsByResources(resources []mongodb.Resource, logger *zap.SugaredLogg
 		resourceKey := config.BuildResourceKey(labelBinding.ResourceType, labelBinding.ProjectName, labelBinding.ResourceName)
 		label, ok := labelM[labelBinding.LabelID]
 		if !ok {
-			return nil, fmt.Errorf("can not find label %v", labelBinding.LabelID)
+			logger.Errorf("can not find label %v", labelBinding)
+			continue
 		}
 
 		res[resourceKey] = append(res[resourceKey], label)
