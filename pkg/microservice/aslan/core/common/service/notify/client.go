@@ -232,6 +232,7 @@ func (c *client) ProccessNotify(notify *models.Notify) error {
 					testTaskStatusChanged = true
 				}
 			}
+			task.Stages = ctx.Stages
 		}
 
 		err = c.InstantmessageService.SendInstantMessage(task, testTaskStatusChanged)
