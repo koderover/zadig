@@ -227,7 +227,7 @@ func (f *workloadFilter) Match(workload *Workload) bool {
 			return false
 		}
 	}
-	return strings.Contains(workload.Name, f.Name)
+	return true
 }
 
 type Workload struct {

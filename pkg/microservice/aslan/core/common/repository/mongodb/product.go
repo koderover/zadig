@@ -246,7 +246,6 @@ func (c *ProductColl) UpdateStatusAndError(envName, projectName, status, errorMs
 		"error":  errorMsg,
 	}}
 	_, err := c.UpdateOne(context.TODO(), query, change)
-
 	return err
 }
 

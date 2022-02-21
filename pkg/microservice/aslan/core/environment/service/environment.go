@@ -26,8 +26,6 @@ import (
 	"sync"
 	"time"
 
-	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
-
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hashicorp/go-multierror"
 	helmclient "github.com/mittwald/go-helm-client"
@@ -68,6 +66,7 @@ import (
 	"github.com/koderover/zadig/pkg/util"
 	"github.com/koderover/zadig/pkg/util/converter"
 	"github.com/koderover/zadig/pkg/util/fs"
+	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 const (
@@ -1027,7 +1026,6 @@ func UpdateHelmProduct(productName, envName, updateType, username, requestID str
 				log.Errorf("[%s][%s] Product.Update error: %v", envName, productName, err)
 				return
 			}
-
 		} else {
 			productResp.Status = setting.ProductStatusSuccess
 			if err = commonrepo.NewProductColl().UpdateStatusAndError(envName, productName, productResp.Status, ""); err != nil {
@@ -2536,8 +2534,6 @@ func installOrUpgradeHelmChartWithValues(namespace, valuesYaml string, renderCha
 		UpgradeCRDs:   true,
 		CleanupOnFail: true,
 		MaxHistory:    10,
-		//Wait:          true,
-		//Timeout:       time.Second * 15,
 	}
 	if isRetry {
 		chartSpec.Replace = true
@@ -2567,7 +2563,6 @@ func installProductHelmCharts(user, envName, requestID string, args *commonmodel
 			log.Errorf("[%s][P:%s] Product.UpdateStatusAndError error: %v", envName, args.ProductName, err)
 			return
 		}
-
 	}()
 
 	chartInfoMap := make(map[string]*templatemodels.RenderChart)
@@ -2911,20 +2906,27 @@ func checkServiceImageUpdated(curContainer *commonmodels.Container, serviceInfo 
 func getImageChangeInvolvedKeys(prodService *commonmodels.ProductService, revisionSvc, latestSvc *commonmodels.Service) sets.String {
 	imageSet := sets.NewString()
 	latestContainer := make(map[string]*commonmodels.Container)
+	revisionSvcMap := make(map[string]*commonmodels.Container)
 	for _, c := range latestSvc.Containers {
 		latestContainer[c.Name] = c
 	}
+	for _, c := range revisionSvc.Containers {
+		revisionSvcMap[c.Name] = c
+	}
+
 	for _, prodContainer := range prodService.Containers {
-		for _, revisionContainer := range revisionSvc.Containers {
-			if prodContainer.Name != revisionContainer.Name || prodContainer.Image == revisionContainer.Image {
-				continue
-			}
-			lc, ok := latestContainer[prodContainer.Name]
-			if !ok || lc.ImagePath == nil {
-				continue
-			}
-			imageSet.Insert(lc.ImagePath.Image, lc.ImagePath.Tag, lc.ImagePath.Repo)
+		revisionSvcContainer, ok := revisionSvcMap[prodContainer.Name]
+		if !ok {
+			continue
 		}
+		if prodContainer.Image == revisionSvcContainer.Image {
+			continue
+		}
+		lc, ok := latestContainer[prodContainer.Name]
+		if !ok || lc.ImagePath == nil {
+			continue
+		}
+		imageSet.Insert(lc.ImagePath.Image, lc.ImagePath.Tag, lc.ImagePath.Repo)
 	}
 	return imageSet
 }

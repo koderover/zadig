@@ -139,7 +139,7 @@ func (args *RenderChartArg) GetUniqueKvMap() map[string]string {
 	return uniqueKvs
 }
 
-// DiffValues diff values to override in two chart args
+// DiffValues generate diff values to override from two chart args
 func (args *RenderChartArg) DiffValues(target *RenderChartArg) RenderChartDiffResult {
 	argsUniqueKvs := args.GetUniqueKvMap()
 	targetUniqueKvs := target.GetUniqueKvMap()

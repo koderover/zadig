@@ -141,9 +141,9 @@ rules:
           - key: "production"
             value: "false"
       - method: PUT
-        endpoint: "/api/aslan/environment/environments/?*/helm/chart-values"
+        endpoint: "/api/aslan/environment/environments/?*/helm/charts"
         resourceType: "Environment"
-        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/helm/chart-values$"
+        idRegex: "api/aslan/environment/environments/([\\w\\W]+?)/helm/charts$"
         matchAttributes:
           - key: "production"
             value: "false"

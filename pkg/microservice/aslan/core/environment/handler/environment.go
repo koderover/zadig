@@ -418,10 +418,10 @@ func UpdateHelmProductDefaultValues(c *gin.Context) {
 	arg := new(service.EnvRendersetArg)
 	data, err := c.GetRawData()
 	if err != nil {
-		log.Errorf("UpdateHelmProductVariable c.GetRawData() err : %v", err)
+		log.Errorf("UpdateHelmProductDefaultValues c.GetRawData() err : %v", err)
 	}
 	if err = json.Unmarshal(data, arg); err != nil {
-		log.Errorf("UpdateHelmProductVariable json.Unmarshal err : %v", err)
+		log.Errorf("UpdateHelmProductDefaultValues json.Unmarshal err : %v", err)
 	}
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "更新全局变量", "", string(data), ctx.Logger)
@@ -429,7 +429,7 @@ func UpdateHelmProductDefaultValues(c *gin.Context) {
 	ctx.Err = service.UpdateHelmProductDefaultValues(projectName, envName, ctx.UserName, ctx.RequestID, arg, ctx.Logger)
 }
 
-func UpdateHelmProductChartValues(c *gin.Context) {
+func UpdateHelmProductCharts(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -442,10 +442,10 @@ func UpdateHelmProductChartValues(c *gin.Context) {
 	arg := new(service.EnvRendersetArg)
 	data, err := c.GetRawData()
 	if err != nil {
-		log.Errorf("UpdateHelmProductVariable c.GetRawData() err : %v", err)
+		log.Errorf("UpdateHelmProductCharts c.GetRawData() err : %v", err)
 	}
 	if err = json.Unmarshal(data, arg); err != nil {
-		log.Errorf("UpdateHelmProductVariable json.Unmarshal err : %v", err)
+		log.Errorf("UpdateHelmProductCharts json.Unmarshal err : %v", err)
 	}
 
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "更新服务", "", string(data), ctx.Logger)
