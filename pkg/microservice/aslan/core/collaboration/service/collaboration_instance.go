@@ -78,7 +78,7 @@ type Product struct {
 	CollaborationMode string                          `json:"collaboration_mode"`
 	Name              string                          `json:"name"`
 	DeployType        string                          `json:"deploy_type"`
-	Vars              []*templatemodels.RenderKV      `json:"vars,omitempty"`
+	Vars              []*templatemodels.RenderKV      `json:"vars"`
 	DefaultValues     string                          `json:"defaultValues,omitempty"`
 	ChartValues       []*commonservice.RenderChartArg `json:"chartValues,omitempty"`
 }
