@@ -1730,8 +1730,9 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 		sort.Sort(ByTaskKind(task.SubTasks))
 
 		if err := ensurePipelineTask(&taskmodels.TaskOpt{
-			Task:    task,
-			EnvName: args.Namespace,
+			Task:           task,
+			EnvName:        args.Namespace,
+			IsWorkflowTask: true,
 		}, log); err != nil {
 			log.Errorf("workflow_task ensurePipelineTask task:[%v] err:%v", task, err)
 			if err, ok := err.(*ContainerNotFound); ok {
