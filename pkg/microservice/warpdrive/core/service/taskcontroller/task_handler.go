@@ -28,6 +28,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
+	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/common"
 	plugins "github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
@@ -266,7 +267,7 @@ func (h *ExecHandler) SendNotification() {
 	}
 }
 
-func (h *ExecHandler) runStage(stagePosition int, stage *config.Stage, concurrency int64) {
+func (h *ExecHandler) runStage(stagePosition int, stage *common.Stage, concurrency int64) {
 	xl.Infof("start to execute pipeline stage: %s at position: %d", stage.TaskType, stagePosition)
 	pluginInitiator, ok := h.TaskPlugins[stage.TaskType]
 	if !ok {

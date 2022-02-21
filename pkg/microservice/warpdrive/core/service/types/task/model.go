@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
+	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/common"
 	"github.com/koderover/zadig/pkg/setting"
 )
 
@@ -39,7 +40,7 @@ type Task struct {
 	StartTime    int64                    `bson:"start_time"                json:"start_time,omitempty"`
 	EndTime      int64                    `bson:"end_time"                  json:"end_time,omitempty"`
 	SubTasks     []map[string]interface{} `bson:"sub_tasks"                 json:"sub_tasks"`
-	Stages       []*config.Stage          `bson:"stages"                    json:"stages"`
+	Stages       []*common.Stage          `bson:"stages"                    json:"stages"`
 	ReqID        string                   `bson:"req_id,omitempty"          json:"req_id,omitempty"`
 	AgentHost    string                   `bson:"agent_host,omitempty"      json:"agent_host,omitempty"`
 	DockerHost   string                   `bson:"-"                         json:"docker_host,omitempty"`

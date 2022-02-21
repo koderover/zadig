@@ -16,7 +16,10 @@ limitations under the License.
 
 package types
 
-import "github.com/koderover/zadig/pkg/microservice/warpdrive/config"
+import (
+	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
+	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/common"
+)
 
 //// AnnouncementCtx ...
 //type AnnouncementCtx struct {
@@ -35,7 +38,7 @@ type PipelineStatusCtx struct {
 	Type         config.PipelineType `bson:"type"                      json:"type"`
 	Status       config.Status       `bson:"status"                    json:"status,omitempty"`
 	TeamName     string              `bson:"team"                      json:"team"`
-	Stages       []*config.Stage     `bson:"stages"                    json:"stages"`
+	Stages       []*common.Stage     `bson:"stages"                    json:"stages"`
 }
 
 //

@@ -14,12 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package config
+package common
+
+import "github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 
 type Stage struct {
 	//Note: The same stage cannot temporarily run different types of tasks
-	TaskType    TaskType                          `bson:"type"               json:"type"`
-	Status      Status                            `bson:"status"             json:"status"`
+	TaskType    config.TaskType                   `bson:"type"               json:"type"`
+	Status      config.Status                     `bson:"status"             json:"status"`
 	RunParallel bool                              `bson:"run_parallel"       json:"run_parallel"`
 	Desc        string                            `bson:"desc,omitempty"     json:"desc,omitempty"`
 	SubTasks    map[string]map[string]interface{} `bson:"sub_tasks"          json:"sub_tasks"`
