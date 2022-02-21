@@ -344,7 +344,13 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 				if testSt.TaskStatus == "" {
 					testSt.TaskStatus = config.StatusNotRun
 				}
-				test += fmt.Sprintf("{{if ne .WebHookType \"feishu\"}} - {{end}}%s: ", testSt.TestModuleName)
+				if testSt.JobCtx.TestType == setting.FunctionTest && testSt.JobCtx.TestReportPath != "" {
+					url := fmt.Sprintf("{{.BaseURI}}/api/aslan/testing/report?pipelineName={{.Task.PipelineName}}&pipelineType={{.Task.Type}}&taskID={{.Task.TaskID}}&testName=%s", testSt.TestModuleName)
+					test += fmt.Sprintf("{{if ne .WebHookType \"feishu\"}} - {{end}}[%s](%s): ", testSt.TestModuleName, url)
+				} else {
+					test += fmt.Sprintf("{{if ne .WebHookType \"feishu\"}} - {{end}}%s: ", testSt.TestModuleName)
+				}
+
 				if weChatNotification.Task.TestReports == nil {
 					test += fmt.Sprintf("%s \n", testSt.TaskStatus)
 					continue
@@ -433,8 +439,12 @@ func (w *Service) createNotifyBodyOfTestIM(desc string, weChatNotification *wech
 				continue
 			}
 			if testInfo.JobCtx.TestType == setting.FunctionTest && testInfo.JobCtx.TestResultPath != "" {
-				url := fmt.Sprintf("{{.BaseURI}}/api/aslan/testing/report?pipelineName={{.Task.PipelineName}}&pipelineType={{.Task.Type}}&taskID={{.Task.TaskID}}&testName=%s", testInfo.TestName)
-				tplTestCaseInfo += fmt.Sprintf("{{if ne .WebHookType \"feishu\"}} - {{end}}[%s](%s): ", testName, url)
+				if testInfo.JobCtx.TestReportPath != "" {
+					url := fmt.Sprintf("{{.BaseURI}}/api/aslan/testing/report?pipelineName={{.Task.PipelineName}}&pipelineType={{.Task.Type}}&taskID={{.Task.TaskID}}&testName=%s", testName)
+					tplTestCaseInfo += fmt.Sprintf("{{if ne .WebHookType \"feishu\"}} - {{end}}[%s](%s): ", testName, url)
+				} else {
+					tplTestCaseInfo += fmt.Sprintf("{{if ne .WebHookType \"feishu\"}} - {{end}}%s: ", testName)
+				}
 				if weChatNotification.Task.TestReports == nil {
 					tplTestCaseInfo += fmt.Sprintf("%s \n ", testInfo.TaskStatus)
 					continue
