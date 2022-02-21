@@ -248,6 +248,7 @@ func (h *ExecHandler) SendNotification() {
 			Status:       config.Status(pipelineTask.Status),
 			TeamName:     pipelineTask.TeamName,
 			Type:         pipelineTask.Type,
+			Stages:       pipelineTask.Stages,
 		},
 		CreateTime: time.Now().Unix(),
 		IsRead:     false,
@@ -265,7 +266,7 @@ func (h *ExecHandler) SendNotification() {
 	}
 }
 
-func (h *ExecHandler) runStage(stagePosition int, stage *task.Stage, concurrency int64) {
+func (h *ExecHandler) runStage(stagePosition int, stage *config.Stage, concurrency int64) {
 	xl.Infof("start to execute pipeline stage: %s at position: %d", stage.TaskType, stagePosition)
 	pluginInitiator, ok := h.TaskPlugins[stage.TaskType]
 	if !ok {
