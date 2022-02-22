@@ -45,7 +45,7 @@ func CodeHostListNamespaces(codeHostID int, keyword string, log *zap.SugaredLogg
 	}
 
 	if ch.Type == codeHostGitlab {
-		client, err := gitlab.NewClient(ch.Address, ch.AccessToken)
+		client, err := gitlab.NewClient(ch.Address, ch.AccessToken, config.ProxyHTTPSAddr())
 		if err != nil {
 			log.Error(err)
 			return nil, e.ErrCodehostListNamespaces.AddDesc(err.Error())

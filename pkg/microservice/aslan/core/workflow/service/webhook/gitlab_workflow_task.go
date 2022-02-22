@@ -212,7 +212,7 @@ func (gpem *gitlabPushEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (
 			return false, err
 		}
 
-		client, err := gitlabtool.NewClient(detail.Address, detail.AccessToken)
+		client, err := gitlabtool.NewClient(detail.Address, detail.AccessToken, config.ProxyHTTPSAddr())
 		if err != nil {
 			gpem.log.Errorf("NewClient error: %s", err)
 			return false, err
@@ -280,7 +280,7 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 	if err != nil {
 		return fmt.Errorf("GetCodeHost codehostId:%d err:%s", item.MainRepo.CodehostID, err)
 	}
-	cli, err := gitlabtool.NewClient(ch.Address, ch.AccessToken)
+	cli, err := gitlabtool.NewClient(ch.Address, ch.AccessToken, config.ProxyHTTPSAddr())
 	if err != nil {
 		return fmt.Errorf("gitlabtool.NewClient codehostId:%d err:%s", item.MainRepo.CodehostID, err)
 	}
@@ -583,7 +583,7 @@ func findChangedFilesOfMergeRequest(event *gitlab.MergeEvent, codehostID int) ([
 		return nil, fmt.Errorf("failed to find codehost %d: %v", codehostID, err)
 	}
 
-	client, err := gitlabtool.NewClient(detail.Address, detail.AccessToken)
+	client, err := gitlabtool.NewClient(detail.Address, detail.AccessToken, config.ProxyHTTPSAddr())
 	if err != nil {
 		log.Error(err)
 		return nil, e.ErrCodehostListProjects.AddDesc(err.Error())

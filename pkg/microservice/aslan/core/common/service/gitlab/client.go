@@ -17,6 +17,7 @@ limitations under the License.
 package gitlab
 
 import (
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/tool/git/gitlab"
 )
 
@@ -25,7 +26,7 @@ type Client struct {
 }
 
 func NewClient(address, accessToken string) (*Client, error) {
-	c, err := gitlab.NewClient(address, accessToken)
+	c, err := gitlab.NewClient(address, accessToken, config.ProxyHTTPSAddr())
 	if err != nil {
 		return nil, err
 	}

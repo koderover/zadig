@@ -46,10 +46,11 @@ func (r *Reaper) runGitCmds() error {
 	envs := r.getUserEnvs()
 
 	// 如果存在github代码库，则设置代理，同时保证非github库不走代理
+	// Now gitlab codehost can also use proxy
 	if r.Ctx.Proxy.EnableRepoProxy && r.Ctx.Proxy.Type == "http" {
 		noProxy := ""
 		for _, repo := range r.Ctx.Repos {
-			if repo.Source == meta.ProviderGithub {
+			if repo.Source == meta.ProviderGithub || repo.Source == meta.ProviderGitlab {
 				envs = append(envs, fmt.Sprintf("http_proxy=%s", r.Ctx.Proxy.GetProxyURL()))
 				envs = append(envs, fmt.Sprintf("https_proxy=%s", r.Ctx.Proxy.GetProxyURL()))
 			} else {

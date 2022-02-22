@@ -37,7 +37,7 @@ func CodeHostListBranches(codeHostID int, projectName, namespace, key string, pa
 	}
 
 	if ch.Type == codeHostGitlab {
-		client, err := gitlab.NewClient(ch.Address, ch.AccessToken)
+		client, err := gitlab.NewClient(ch.Address, ch.AccessToken, config.ProxyHTTPSAddr())
 		if err != nil {
 			log.Errorf("get gitlab client failed, err:%v", err)
 			return nil, e.ErrCodehostListBranches.AddDesc(err.Error())
