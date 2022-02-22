@@ -43,10 +43,9 @@ type Build struct {
 	PostBuild    *PostBuild             `bson:"post_build,omitempty"          json:"post_build"`
 
 	// TODO: Deprecated.
-	Caches []string `bson:"caches"                        json:"caches"`
-
+	Caches          []string `bson:"caches"                        json:"caches"`
 	ProductName     string   `bson:"product_name"                  json:"product_name"`
-	SSHs            []string `bson:"sshs,omitempty"                json:"sshs,omitempty"`
+	SSHs            []string `bson:"sshs"                          json:"sshs"`
 	PMDeployScripts string   `bson:"pm_deploy_scripts"             json:"pm_deploy_scripts"`
 
 	// New since V1.10.0.

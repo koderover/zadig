@@ -66,7 +66,8 @@ func GetConfigPayload(codeHostID int) *models.ConfigPayload {
 		JenkinsBuildConfig: models.JenkinsBuildConfig{
 			JenkinsBuildImage: config.JenkinsImage(),
 		},
-		AesKey: crypto.GetAesKey(),
+		AesKey:           crypto.GetAesKey(),
+		BuildConcurrency: 5,
 	}
 
 	githubApps, _ := mongodb.NewGithubAppColl().Find()
@@ -85,6 +86,11 @@ func GetConfigPayload(codeHostID int) *models.ConfigPayload {
 	proxies, _ := mongodb.NewProxyColl().List(&mongodb.ProxyArgs{})
 	if len(proxies) != 0 {
 		payload.Proxy = *proxies[0]
+	}
+
+	concurrencySettings, _ := mongodb.NewSystemSettingColl().Get()
+	if concurrencySettings != nil {
+		payload.BuildConcurrency = concurrencySettings.BuildConcurrency
 	}
 
 	privateKeys, _ := mongodb.NewPrivateKeyColl().List(&mongodb.PrivateKeyArgs{})

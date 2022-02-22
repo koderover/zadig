@@ -101,6 +101,22 @@ service:
   port: 8080
 `
 
+var testYaml9 = `
+  image:
+    pullPolicy: IfNotPresent
+
+  imagePullSecrets:
+    - name: default-registry-secret
+
+  global:
+    hub: ccr.ccs.tencentyun.com/trial 
+
+  deploy:
+    image:
+      name: go-sample-site
+      tag: 0.1.0 
+`
+
 var err error
 var lcpMatedPaths []map[string]string
 
@@ -175,6 +191,20 @@ var _ = Describe("Testing search", func() {
 				{"image": "testSpec.image.image", "repo": "repoData1.global.hub", "tag": "testSpec.image.tag"},
 				{"image": "svc1.image", "repo": "repoData1.global.hub", "tag": "svc1.tag"},
 				{"image": "svc2.image.image", "repo": "repoData1.global.hub", "tag": "svc2.image.tag"},
+			}))
+		})
+
+		It("match all rules of pattern", func() {
+			pattern := []map[string]string{
+				{"image": "image.repository", "tag": "image.tag"},
+				{"image": "image"},
+				{"repo": "global.hub", "tag": "deploy.image.tag", "image": "deploy.image.name"},
+			}
+			flatMap, _ := converter.YamlToFlatMap([]byte(testYaml9))
+			lcpMatedPaths, err = SearchByPattern(flatMap, pattern)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(lcpMatedPaths).Should(ConsistOf([]map[string]string{
+				{"image": "deploy.image.name", "repo": "global.hub", "tag": "deploy.image.tag"},
 			}))
 		})
 
