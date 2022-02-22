@@ -96,7 +96,9 @@ func CreateArtifactPackageTask(args *commonmodels.ArtifactPackageTaskArgs, taskC
 
 	task.SubTasks = []map[string]interface{}{subTask}
 
-	if err := ensurePipelineTask(task, "", log); err != nil {
+	if err := ensurePipelineTask(&taskmodels.TaskOpt{
+		Task: task,
+	}, log); err != nil {
 		log.Errorf("CreateServiceTask ensurePipelineTask err : %v", err)
 		return 0, err
 	}

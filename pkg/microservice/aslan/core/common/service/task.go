@@ -25,6 +25,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/nsq"
@@ -82,7 +83,6 @@ func CancelTask(userName, pipelineName string, taskID int64, typeString config.P
 
 			if typeString == config.WorkflowType {
 				_ = scmNotifyService.UpdateWebhookComment(t, log)
-				_ = scmNotifyService.UpdateDiffNote(t, log)
 			} else if typeString == config.TestType {
 				_ = scmNotifyService.UpdateWebhookCommentForTest(t, log)
 			} else if typeString == config.SingleType {
@@ -130,7 +130,6 @@ func CancelTask(userName, pipelineName string, taskID int64, typeString config.P
 
 	if typeString == config.WorkflowType {
 		_ = scmNotifyService.UpdateWebhookComment(t, log)
-		_ = scmNotifyService.UpdateDiffNote(t, log)
 	} else if typeString == config.TestType {
 		_ = scmNotifyService.UpdateWebhookCommentForTest(t, log)
 	} else if typeString == config.SingleType {
@@ -170,4 +169,11 @@ func covertTaskToQueue(t *task.Task) *models.Queue {
 		Type:         t.Type,
 		CreateTime:   t.CreateTime,
 	}
+}
+
+func GetWorkflowTaskCallback(taskID int64, pipelineName string) (*commonmodels.CallbackRequest, error) {
+	return mongodb.NewCallbackRequestColl().Find(&mongodb.CallbackFindOption{
+		TaskID:       taskID,
+		PipelineName: pipelineName,
+	})
 }

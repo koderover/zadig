@@ -34,6 +34,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/koderover/zadig/pkg/tool/kube/informer"
 )
 
 type CreateProductParam struct {
@@ -282,7 +283,7 @@ func (creator *PMProductCreator) Create(user, requestID string, args *models.Pro
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 	// 异步创建产品
-	go createGroups(args.EnvName, user, requestID, args, eventStart, nil, nil, log)
+	go createGroups(args.EnvName, user, requestID, args, eventStart, nil, nil, nil, log)
 	return nil
 }
 
@@ -308,6 +309,15 @@ func (creator *DefaultProductCreator) Create(user, requestID string, args *model
 		}
 	}
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return e.ErrCreateEnv.AddErr(err)
+	}
+
+	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return e.ErrCreateEnv.AddErr(err)
+	}
+	inf, err := informer.NewInformer(clusterID, args.Namespace, cls)
 	if err != nil {
 		return e.ErrCreateEnv.AddErr(err)
 	}
@@ -371,6 +381,6 @@ func (creator *DefaultProductCreator) Create(user, requestID string, args *model
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 	// 异步创建产品
-	go createGroups(args.EnvName, user, requestID, args, eventStart, renderSet, kubeClient, log)
+	go createGroups(args.EnvName, user, requestID, args, eventStart, renderSet, inf, kubeClient, log)
 	return nil
 }

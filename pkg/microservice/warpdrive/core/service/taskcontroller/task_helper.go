@@ -29,6 +29,7 @@ import (
 
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
+	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/common"
 	plugins "github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/github"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/s3"
@@ -44,7 +45,7 @@ import (
 // 1. 转换经过序列化的 SubTasks 到 Stages
 // Stage Map: *Stage -> map [service->subtask]
 func transformToStages(pipelineTask *task.Task, xl *zap.SugaredLogger) error {
-	var pipelineStages []*task.Stage
+	var pipelineStages []*common.Stage
 	// 工作流1.0，单服务工作流，SubTasks一维数组
 	// Transform into stages and assign to stages
 	// Task的数据结构中如果没有赋值Type，也按照1.0处理
@@ -57,7 +58,7 @@ func transformToStages(pipelineTask *task.Task, xl *zap.SugaredLogger) error {
 		}
 		// Pipeline 1.0中的一个Subtask对应到Pipeline 2.0中的一个Stage
 		// Stage中subtasks仅有一个subtask, key为service_name
-		stage := &task.Stage{
+		stage := &common.Stage{
 			TaskType: subTaskPreview.TaskType,
 			// Pipeline 1.0中，每个type subtask只有一个，不存在并行执行
 			RunParallel: false,
@@ -121,10 +122,10 @@ func updatePipelineSubTask(t interface{}, pipelineTask *task.Task, pos int, serv
 		// 同时更新stages
 		// TODO: 完善Stage其他字段
 		if len(pipelineTask.Stages) == 0 {
-			pipelineTask.Stages = make([]*task.Stage, len(pipelineTask.SubTasks))
+			pipelineTask.Stages = make([]*common.Stage, len(pipelineTask.SubTasks))
 		}
 		if pipelineTask.Stages[pos] == nil {
-			pipelineTask.Stages[pos] = &task.Stage{}
+			pipelineTask.Stages[pos] = &common.Stage{}
 		}
 		pipelineTask.Stages[pos].SubTasks = map[string]map[string]interface{}{servicename: subTask}
 	} else if pipelineTask.Type == config.WorkflowType {
@@ -150,7 +151,7 @@ func updatePipelineSubTask(t interface{}, pipelineTask *task.Task, pos int, serv
 func updatePipelineStageStatus(stageStatus config.Status, pipelineTask *task.Task, pos int, xl *zap.SugaredLogger) {
 	xl.Infof("updating pipeline task, stage status: %s, stage position: %d", stageStatus, pos)
 	if pipelineTask.Stages[pos] == nil {
-		pipelineTask.Stages[pos] = &task.Stage{}
+		pipelineTask.Stages[pos] = &common.Stage{}
 	}
 	pipelineTask.Stages[pos].Status = stageStatus
 }
@@ -558,6 +559,7 @@ func initTaskPlugins(execHandler *ExecHandler) {
 		config.TaskResetImage:      plugins.InitializeDeployTaskPlugin,
 		config.TaskTrigger:         plugins.InitializeTriggerTaskPlugin,
 		config.TaskArtifactPackage: plugins.InitializeArtifactPackagePlugin,
+		config.TaskExtension:       plugins.InitializeExtensionTaskPlugin,
 	}
 	for name, pluginInitiator := range pluginConf {
 		registerTaskPlugin(execHandler, name, pluginInitiator)

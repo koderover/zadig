@@ -258,7 +258,7 @@ func toPathResult(prefix string, path []string, aPatternData map[string]*pattern
 	return ret
 }
 
-func processResults(resultSets []*pathResultSet, aPatternData map[string]*patternData) []map[string]string {
+func processResults(resultSets []*pathResultSet, aPatternData map[string]*patternData, pattern map[string]string) []map[string]string {
 	ret := make([]map[string]string, 0)
 	for _, singleSet := range resultSets {
 		retMap := make(map[string]string)
@@ -277,6 +277,9 @@ func processResults(resultSets []*pathResultSet, aPatternData map[string]*patter
 
 		for _, result := range singleSet.resultSet {
 			retMap[result.name] = result.absolutePath
+		}
+		if len(pattern) != len(retMap) {
+			continue
 		}
 		ret = append(ret, retMap)
 	}
@@ -408,7 +411,7 @@ func search(flatMap map[string]interface{}, pattern map[string]string) ([]map[st
 		results = append(results, result)
 	}
 
-	return processResults(results, allPatternData), nil
+	return processResults(results, allPatternData, pattern), nil
 }
 
 // SearchByPattern find all matched absolute paths from yaml by the pattern appointed

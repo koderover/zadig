@@ -124,6 +124,13 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		capacity.POST("/clean", CleanCache)
 	}
 
+	// workflow concurrency settings
+	concurrency := router.Group("concurrency")
+	{
+		concurrency.GET("/workflow", GetWorkflowConcurrency)
+		concurrency.POST("/workflow", UpdateWorkflowConcurrency)
+	}
+
 	// ---------------------------------------------------------------------------------------
 	// 自定义镜像管理接口
 	// ---------------------------------------------------------------------------------------
