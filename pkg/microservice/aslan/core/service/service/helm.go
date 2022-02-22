@@ -45,6 +45,7 @@ import (
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
+	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -487,6 +488,11 @@ func CreateOrUpdateHelmServiceFromGerrit(projectName string, args *HelmServiceCr
 	filePaths = createFromRepo.Paths
 	base = path.Join(config.S3StoragePath(), createFromRepo.Repo)
 
+	codehostInfo, err := service.GetCodeHost(createFromRepo.CodehostID, log)
+	if err != nil {
+		log.Errorf("Failed to get source form repo data, err: %s", err.Error())
+		return nil, err
+	}
 	helmRenderCharts := make([]*templatemodels.RenderChart, 0, len(filePaths))
 	var wg wait.Group
 	var mux sync.RWMutex
@@ -498,6 +504,7 @@ func CreateOrUpdateHelmServiceFromGerrit(projectName string, args *HelmServiceCr
 				chartVersion string
 				valuesYAML   []byte
 				finalErr     error
+				repoLink     string
 			)
 			defer func() {
 				mux.Lock()
@@ -552,9 +559,9 @@ func CreateOrUpdateHelmServiceFromGerrit(projectName string, args *HelmServiceCr
 				return
 			}
 
-			//if codehostInfo != nil {
-			//	repoLink = fmt.Sprintf("%s/%s/%s/%s/%s/%s", codehostInfo.Address, repoArgs.Owner, repoArgs.Repo, "tree", repoArgs.Branch, filePath)
-			//}
+			if codehostInfo != nil {
+				repoLink = fmt.Sprintf("%s/%s/%s/%s/%s/%s", codehostInfo.Address, createFromRepo.Owner, createFromRepo.Repo, "tree", createFromRepo.Branch, filePath)
+			}
 
 			svc, err := createOrUpdateHelmService(
 				afero.NewIOFS(chartTree),
@@ -571,8 +578,8 @@ func CreateOrUpdateHelmServiceFromGerrit(projectName string, args *HelmServiceCr
 					Owner:           createFromRepo.Owner,
 					Repo:            createFromRepo.Repo,
 					Branch:          createFromRepo.Branch,
-					//RepoLink:        repoLink,
-					Source: string(args.Source),
+					RepoLink:        repoLink,
+					Source:          string(args.Source),
 				},
 				log,
 			)
