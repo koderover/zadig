@@ -18,6 +18,7 @@ package service
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -470,11 +471,25 @@ func CreateOrUpdateHelmServiceFromGerrit(projectName string, args *HelmServiceCr
 		base      string
 		chartTree = afero.NewMemMapFs()
 	)
-	repoArgs, ok := args.CreateFrom.(CreateFromRepo)
-	if ok {
-		filePaths = repoArgs.Paths
-		base = path.Join(config.S3StoragePath(), repoArgs.Repo)
+	//repoArgs, ok := args.CreateFrom.(CreateFromRepo)
+	//if ok {
+	//	filePaths = repoArgs.Paths
+	//	base = path.Join(config.S3StoragePath(), repoArgs.Repo)
+	//}
+	resByte, resByteErr := json.Marshal(args.CreateFrom)
+	if resByteErr != nil {
+		log.Errorf("failed to json.Marshal err:%s", resByteErr)
+		return nil, resByteErr
 	}
+	var createFromRepo CreateFromRepo
+	jsonResErr := json.Unmarshal(resByte, &createFromRepo)
+	if jsonResErr != nil {
+		log.Errorf("failed to json.Unmarshal err:%s", resByteErr)
+		return nil, jsonResErr
+	}
+
+	filePaths = createFromRepo.Paths
+	base = path.Join(config.S3StoragePath(), createFromRepo.Repo)
 
 	helmRenderCharts := make([]*templatemodels.RenderChart, 0, len(filePaths))
 	var wg wait.Group
