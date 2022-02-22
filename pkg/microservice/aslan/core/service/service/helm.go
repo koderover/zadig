@@ -516,16 +516,13 @@ func CreateOrUpdateHelmServiceFromGerrit(projectName string, args *HelmServiceCr
 			log.Infof("Loading chart under path %s", filePath)
 			serviceName, chartVersion, finalErr = readChartYAMLFromLocal(filePath, log)
 			if finalErr != nil {
-				log.Errorf("readChartYAML err:%+v", finalErr)
 				return
 			}
 			valuesYAML, finalErr = readValuesYAMLFromLocal(filePath, log)
 			if finalErr != nil {
-				log.Errorf("readValuesYAML err:%+v", finalErr)
 				return
 			}
-			log.Infof("serviceName:%s,chartVersion:%s", serviceName, chartVersion)
-			log.Infof("valuesYAML:%s", string(valuesYAML))
+
 			log.Info("Found valid chart, Starting to save and upload files")
 			rev, err := getNextServiceRevision(projectName, serviceName)
 			if err != nil {

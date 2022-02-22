@@ -18,6 +18,7 @@ package service
 
 import (
 	"io/fs"
+	"path"
 
 	"github.com/27149chen/afero"
 	"go.uber.org/zap"
@@ -92,7 +93,7 @@ func CopyAndUploadService(projectName, serviceName, currentChartPath string, cop
 	s3Base := config.ObjectStorageServicePath(projectName, serviceName)
 	names := append([]string{serviceName}, copies...)
 
-	return fsservice.CopyAndUploadFiles(fileTree, names, localBase, s3Base, currentChartPath, log.SugaredLogger())
+	return fsservice.CopyAndUploadFiles(fileTree, names, path.Join(localBase, serviceName), s3Base, currentChartPath, log.SugaredLogger())
 }
 
 func preLoadServiceManifestsFromSource(svc *commonmodels.Service) error {
