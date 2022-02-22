@@ -1039,7 +1039,17 @@ func renderVariablesToYaml(valuesYaml string, productName, serviceName string, v
 }
 
 func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logger *zap.SugaredLogger) (*commonmodels.Service, error) {
-	chartName, chartVersion, err := readChartYAML(fsTree, args.ServiceName, logger)
+	var (
+		chartName, chartVersion string
+		err                     error
+	)
+	switch args.Source {
+	case string(LoadFromGerrit):
+		chartName, chartVersion, err = readChartYAMLFromLocal(args.FilePath, logger)
+	default:
+		chartName, chartVersion, err = readChartYAML(fsTree, args.ServiceName, logger)
+	}
+
 	if err != nil {
 		logger.Errorf("Failed to read chart.yaml, err %s", err)
 		return nil, err
