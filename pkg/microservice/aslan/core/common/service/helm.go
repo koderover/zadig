@@ -84,7 +84,7 @@ func SaveAndUploadService(projectName, serviceName string, copies []string, file
 	localBase := config.LocalServicePath(projectName, serviceName)
 	s3Base := config.ObjectStorageServicePath(projectName, serviceName)
 	names := append([]string{serviceName}, copies...)
-	return fsservice.SaveAndUploadFiles(fileTree, names, localBase, s3Base, log.SugaredLogger(), source)
+	return fsservice.SaveAndUploadFiles(fileTree, names, localBase, s3Base, log.SugaredLogger(), source...)
 }
 
 func preLoadServiceManifestsFromSource(svc *commonmodels.Service) error {
