@@ -129,6 +129,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		workflowtask.GET("/id/:id/pipelines/:name", GetWorkflowTask)
 		workflowtask.POST("/id/:id/pipelines/:name/restart", gin2.UpdateOperationLogStatus, RestartWorkflowTask)
 		workflowtask.DELETE("/id/:id/pipelines/:name", gin2.UpdateOperationLogStatus, CancelWorkflowTaskV2)
+		workflowtask.GET("/callback/id/:id/name/:name", GetWorkflowTaskCallback)
 	}
 
 	serviceTask := router.Group("servicetask")

@@ -150,6 +150,9 @@ type ConfigPayload struct {
 
 	// RegistryID is the id of product registry
 	RegistryID string `json:"registry_id"`
+
+	// build concurrency settings
+	BuildConcurrency int64 `json:"build_concurrency"`
 }
 
 type AslanConfig struct {

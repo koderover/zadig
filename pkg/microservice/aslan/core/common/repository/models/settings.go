@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KodeRover Authors.
+Copyright 2022 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,18 +16,15 @@ limitations under the License.
 
 package models
 
-type User struct {
-	Model
-	UID          string `json:"uid"`
-	Name         string `json:"name"`
-	IdentityType string `gorm:"default:'unknown'" json:"identity_type"`
-	Email        string `json:"email"`
-	Phone        string `json:"phone"`
-	Account      string `json:"account"`
-	APIToken     string `gorm:"api_token" json:"api_token"`
+import "go.mongodb.org/mongo-driver/bson/primitive"
+
+type SystemSetting struct {
+	ID                  primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
+	WorkflowConcurrency int64              `bson:"workflow_concurrency" json:"workflow_concurrency"`
+	BuildConcurrency    int64              `bson:"build_concurrency" json:"build_concurrency"`
+	UpdateTime          int64              `bson:"update_time" json:"update_time"`
 }
 
-// TableName sets the insert table name for this struct type
-func (User) TableName() string {
-	return "user"
+func (SystemSetting) TableName() string {
+	return "system_setting"
 }

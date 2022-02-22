@@ -23,7 +23,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/xanzy/go-gitlab"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -229,81 +228,6 @@ func (s *Service) UpdateWebhookComment(task *task.Task, logger *zap.SugaredLogge
 		}
 	} else {
 		logger.Infof("status not changed of task %s %d, skip to update comment", task.PipelineName, task.TaskID)
-	}
-
-	return nil
-}
-
-// UpdateDiffNote 调用gitlab接口更新DiffNote，并更新到数据库
-func (s *Service) UpdateDiffNote(task *task.Task, logger *zap.SugaredLogger) (err error) {
-	if task.WorkflowArgs.NotificationID == "" {
-		return
-	}
-
-	var notification *models.Notification
-	if notification, err = s.Coll.Find(task.WorkflowArgs.NotificationID); err != nil {
-		logger.Errorf("can't find notification by id %s %s", task.WorkflowArgs.NotificationID, err)
-		return err
-	}
-
-	isAllTaskSucceed := true
-	for _, nTask := range notification.Tasks {
-		if nTask.Status != config.TaskStatusFailed && nTask.Status != config.TaskStatusCancelled &&
-			nTask.Status != config.TaskStatusPass && nTask.Status != config.TaskStatusTimeout {
-			// 存在任务没有执行完，直接返回
-			return nil
-		}
-		// 任务都执行完了，确认是否有未成功的任务
-		if nTask.Status != config.TaskStatusPass {
-			isAllTaskSucceed = false
-			break
-		}
-	}
-
-	body := "KodeRover CI 检查通过"
-	if !isAllTaskSucceed {
-		body = "KodeRover CI 检查失败"
-	}
-
-	opt := &mongodb.DiffNoteFindOpt{
-		CodehostID:     notification.CodehostID,
-		ProjectID:      notification.ProjectID,
-		MergeRequestID: notification.PrID,
-	}
-	diffNote, err := s.DiffNoteColl.Find(opt)
-	if err != nil {
-		logger.Errorf("can't find notification by id %s %v", task.WorkflowArgs.NotificationID, err)
-		return err
-	}
-
-	cli, _ := gitlab.NewOAuthClient(diffNote.Repo.OauthToken, gitlab.WithBaseURL(diffNote.Repo.Address))
-
-	// 更新note body
-	noteBodyOpt := &gitlab.UpdateMergeRequestDiscussionNoteOptions{
-		Body: &body,
-	}
-	_, _, err = cli.Discussions.UpdateMergeRequestDiscussionNote(diffNote.Repo.ProjectID, diffNote.MergeRequestID, diffNote.DiscussionID, diffNote.NoteID, noteBodyOpt)
-	if err != nil {
-		logger.Errorf("UpdateMergeRequestDiscussionNote failed, err: %v", err)
-		return err
-	}
-
-	// 更新resolved状态
-	resolveOpt := &gitlab.UpdateMergeRequestDiscussionNoteOptions{
-		Resolved: &isAllTaskSucceed,
-	}
-	_, _, err = cli.Discussions.UpdateMergeRequestDiscussionNote(diffNote.Repo.ProjectID, diffNote.MergeRequestID, diffNote.DiscussionID, diffNote.NoteID, resolveOpt)
-	if err != nil {
-		logger.Errorf("UpdateMergeRequestDiscussionNote failed, err: %v", err)
-		return err
-	}
-
-	diffNote.Resolved = isAllTaskSucceed
-	diffNote.Body = body
-	err = s.DiffNoteColl.Update(diffNote.ObjectID.Hex(), "", diffNote.Body, diffNote.Resolved)
-	if err != nil {
-		logger.Errorf("UpdateDiscussionInfo failed, err: %v", err)
-		return err
 	}
 
 	return nil

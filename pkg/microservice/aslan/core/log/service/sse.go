@@ -140,9 +140,15 @@ func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, op
 			})
 		}
 		// Compatible with the situation where the old data has not been modified
-		if build != nil && build.PreBuild != nil && build.PreBuild.ClusterID != "" && build.PreBuild.Namespace != "" {
+		if build != nil && build.PreBuild != nil && build.PreBuild.ClusterID != "" {
 			options.ClusterID = build.PreBuild.ClusterID
-			options.Namespace = build.PreBuild.Namespace
+
+			switch build.PreBuild.ClusterID {
+			case setting.LocalClusterID:
+				options.Namespace = config.Namespace()
+			default:
+				options.Namespace = setting.AttachedClusterNamespace
+			}
 		}
 	}
 
@@ -159,9 +165,15 @@ func TestJobContainerLogStream(ctx context.Context, streamChan chan interface{},
 	// get cluster ID
 	testing, _ := commonrepo.NewTestingColl().Find(getTestName(options.ServiceName), "")
 	// Compatible with the situation where the old data has not been modified
-	if testing != nil && testing.PreTest != nil && testing.PreTest.ClusterID != "" && testing.PreTest.Namespace != "" {
+	if testing != nil && testing.PreTest != nil && testing.PreTest.ClusterID != "" {
 		options.ClusterID = testing.PreTest.ClusterID
-		options.Namespace = testing.PreTest.Namespace
+
+		switch testing.PreTest.ClusterID {
+		case setting.LocalClusterID:
+			options.Namespace = config.Namespace()
+		default:
+			options.Namespace = setting.AttachedClusterNamespace
+		}
 	}
 
 	waitAndGetLog(ctx, streamChan, selector, options, log)

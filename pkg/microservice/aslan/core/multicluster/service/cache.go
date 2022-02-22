@@ -47,7 +47,7 @@ func ListStorageClasses(ctx context.Context, clusterID string) ([]string, error)
 		// For cluster-level resources, we need to explicitly configure the namespace to be empty.
 		namespace = ""
 	default:
-		namespace = AttachedClusterNamespace
+		namespace = setting.AttachedClusterNamespace
 	}
 
 	scList := &storagev1.StorageClassList{}
@@ -80,8 +80,8 @@ func ListPVCs(ctx context.Context, clusterID, namespace string) ([]PVC, error) {
 		// For now caller may not know exactly which namespace Zadig is deployed to, so a correction is made here.
 		namespace = config.Namespace()
 	default:
-		if namespace != AttachedClusterNamespace {
-			return nil, fmt.Errorf("invalid namespace in attached cluster: %s. Valid: %s", namespace, AttachedClusterNamespace)
+		if namespace != setting.AttachedClusterNamespace {
+			return nil, fmt.Errorf("invalid namespace in attached cluster: %s. Valid: %s", namespace, setting.AttachedClusterNamespace)
 		}
 	}
 

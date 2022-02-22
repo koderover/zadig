@@ -28,6 +28,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
+	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/common"
 	plugins "github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
@@ -248,6 +249,7 @@ func (h *ExecHandler) SendNotification() {
 			Status:       config.Status(pipelineTask.Status),
 			TeamName:     pipelineTask.TeamName,
 			Type:         pipelineTask.Type,
+			Stages:       pipelineTask.Stages,
 		},
 		CreateTime: time.Now().Unix(),
 		IsRead:     false,
@@ -265,7 +267,7 @@ func (h *ExecHandler) SendNotification() {
 	}
 }
 
-func (h *ExecHandler) runStage(stagePosition int, stage *task.Stage) {
+func (h *ExecHandler) runStage(stagePosition int, stage *common.Stage, concurrency int64) {
 	xl.Infof("start to execute pipeline stage: %s at position: %d", stage.TaskType, stagePosition)
 	pluginInitiator, ok := h.TaskPlugins[stage.TaskType]
 	if !ok {
@@ -282,9 +284,8 @@ func (h *ExecHandler) runStage(stagePosition int, stage *task.Stage) {
 	// Default worker concurrency is 1, run tasks sequentially
 	var workerConcurrency = 1
 	if runParallel {
-		// MaxWorkerInParallel is 5 for now
-		if len(stage.SubTasks) > maxWorkerInParallel {
-			workerConcurrency = maxWorkerInParallel
+		if len(stage.SubTasks) > int(concurrency) {
+			workerConcurrency = int(concurrency)
 		} else {
 			workerConcurrency = len(stage.SubTasks)
 		}
@@ -347,7 +348,7 @@ func (h *ExecHandler) execute(ctx context.Context, pipelineTask *task.Task, pipe
 	// Stage之间仅支持串行
 	for stagePosition, stage := range pipelineTask.Stages {
 		if !stage.AfterAll {
-			h.runStage(stagePosition, stage)
+			h.runStage(stagePosition, stage, pipelineTask.ConfigPayload.BuildConcurrency)
 			// 如果一个Stage执行失败了，跳出执行循环，并且更新pipelinetask状态为失败，发送ACK，并返回
 			if stage.Status == config.StatusFailed || stage.Status == config.StatusCancelled || stage.Status == config.StatusTimeout {
 				break
@@ -378,7 +379,7 @@ func (h *ExecHandler) execute(ctx context.Context, pipelineTask *task.Task, pipe
 					}
 				}
 			}
-			h.runStage(stagePosition, stage)
+			h.runStage(stagePosition, stage, pipelineTask.ConfigPayload.BuildConcurrency)
 		}
 	}
 
