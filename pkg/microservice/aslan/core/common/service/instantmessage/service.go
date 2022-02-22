@@ -337,43 +337,7 @@ func (w *Service) createNotifyBodyOfWorkflowIM(weChatNotification *wechatNotific
 		case config.TaskTestingV2:
 			test = "{{if eq .WebHookType \"dingding\"}}##### {{end}}**测试结果** \n"
 			for _, sb := range subStage.SubTasks {
-				testSt, err := base.ToTestingTask(sb)
-				if err != nil {
-					return "", "", nil, err
-				}
-				if testSt.TaskStatus == "" {
-					testSt.TaskStatus = config.StatusNotRun
-				}
-				if testSt.JobCtx.TestType == setting.FunctionTest && testSt.JobCtx.TestReportPath != "" {
-					url := fmt.Sprintf("{{.BaseURI}}/api/aslan/testing/report?pipelineName={{.Task.PipelineName}}&pipelineType={{.Task.Type}}&taskID={{.Task.TaskID}}&testName=%s", testSt.TestModuleName)
-					test += fmt.Sprintf("{{if ne .WebHookType \"feishu\"}} - {{end}}[%s](%s): ", testSt.TestModuleName, url)
-				} else {
-					test += fmt.Sprintf("{{if ne .WebHookType \"feishu\"}} - {{end}}%s: ", testSt.TestModuleName)
-				}
-
-				if weChatNotification.Task.TestReports == nil {
-					test += fmt.Sprintf("%s \n", testSt.TaskStatus)
-					continue
-				}
-
-				for testname, report := range weChatNotification.Task.TestReports {
-					if testname != testSt.TestModuleName {
-						continue
-					}
-					tr := &task.TestReport{}
-					if task.IToi(report, tr) != nil {
-						log.Errorf("parse TestReport failed, err:%s", err)
-						continue
-					}
-					if tr.FunctionTestSuite == nil {
-						test += fmt.Sprintf("%s \n", testSt.TaskStatus)
-						continue
-					}
-					totalNum := tr.FunctionTestSuite.Tests + tr.FunctionTestSuite.Skips
-					failedNum := tr.FunctionTestSuite.Failures + tr.FunctionTestSuite.Errors
-					successNum := tr.FunctionTestSuite.Tests - failedNum
-					test += fmt.Sprintf("%d(成功)%d(失败)%d(总数) \n", successNum, failedNum, totalNum)
-				}
+				test = genTestCaseText(test, sb, weChatNotification.Task.TestReports)
 			}
 		}
 	}
@@ -431,43 +395,8 @@ func (w *Service) createNotifyBodyOfTestIM(desc string, weChatNotification *wech
 		if stage.TaskType != config.TaskTestingV2 {
 			continue
 		}
-
-		for testName, subTask := range stage.SubTasks {
-			testInfo, err := base.ToTestingTask(subTask)
-			if err != nil {
-				log.Errorf("parse testInfo failed, err:%s", err)
-				continue
-			}
-			if testInfo.JobCtx.TestType == setting.FunctionTest && testInfo.JobCtx.TestResultPath != "" {
-				if testInfo.JobCtx.TestReportPath != "" {
-					url := fmt.Sprintf("{{.BaseURI}}/api/aslan/testing/report?pipelineName={{.Task.PipelineName}}&pipelineType={{.Task.Type}}&taskID={{.Task.TaskID}}&testName=%s", testName)
-					tplTestCaseInfo += fmt.Sprintf("{{if ne .WebHookType \"feishu\"}} - {{end}}[%s](%s): ", testName, url)
-				} else {
-					tplTestCaseInfo += fmt.Sprintf("{{if ne .WebHookType \"feishu\"}} - {{end}}%s: ", testName)
-				}
-				if weChatNotification.Task.TestReports == nil {
-					tplTestCaseInfo += fmt.Sprintf("%s \n ", testInfo.TaskStatus)
-					continue
-				}
-				for testname, report := range weChatNotification.Task.TestReports {
-					if testname != testInfo.TestModuleName {
-						continue
-					}
-					tr := &task.TestReport{}
-					if task.IToi(report, tr) != nil {
-						log.Errorf("parse TestReport failed, err:%s", err)
-						continue
-					}
-					if tr.FunctionTestSuite == nil {
-						tplTestCaseInfo += fmt.Sprintf("%s \n ", testInfo.TaskStatus)
-						continue
-					}
-					totalNum := tr.FunctionTestSuite.Tests + tr.FunctionTestSuite.Skips
-					failedNum := tr.FunctionTestSuite.Failures + tr.FunctionTestSuite.Errors
-					successNum := tr.FunctionTestSuite.Tests - failedNum
-					tplTestCaseInfo += fmt.Sprintf("%d(成功)%d(失败)%d(总数) \n", successNum, failedNum, totalNum)
-				}
-			}
+		for _, subTask := range stage.SubTasks {
+			tplTestCaseInfo = genTestCaseText(tplTestCaseInfo, subTask, weChatNotification.Task.TestReports)
 		}
 	}
 
@@ -587,4 +516,54 @@ func getTplExec(tplcontent string, weChatNotification *wechatNotification) (stri
 
 	}
 	return buffer.String(), nil
+}
+
+func checkTestReportsExist(testModuleName string, testReports map[string]interface{}) bool {
+	for testname := range testReports {
+		if testname == testModuleName {
+			return true
+		}
+	}
+	return false
+}
+
+func genTestCaseText(test string, subTask, testReports map[string]interface{}) string {
+	testSt, err := base.ToTestingTask(subTask)
+	if err != nil {
+		log.Errorf("parse testInfo failed, err:%s", err)
+		return test
+	}
+	if testSt.TaskStatus == "" {
+		testSt.TaskStatus = config.StatusNotRun
+	}
+	if testSt.JobCtx.TestType == setting.FunctionTest && testSt.JobCtx.TestReportPath != "" {
+		url := fmt.Sprintf("{{.BaseURI}}/api/aslan/testing/report?pipelineName={{.Task.PipelineName}}&pipelineType={{.Task.Type}}&taskID={{.Task.TaskID}}&testName=%s", testSt.TestModuleName)
+		test += fmt.Sprintf("{{if ne .WebHookType \"feishu\"}} - {{end}}[%s](%s): ", testSt.TestModuleName, url)
+	} else {
+		test += fmt.Sprintf("{{if ne .WebHookType \"feishu\"}} - {{end}}%s: ", testSt.TestModuleName)
+	}
+	if testReports == nil || !checkTestReportsExist(testSt.TestModuleName, testReports) {
+		test += fmt.Sprintf("%s \n", testSt.TaskStatus)
+		return test
+	}
+
+	for testname, report := range testReports {
+		if testname != testSt.TestModuleName {
+			continue
+		}
+		tr := &task.TestReport{}
+		if task.IToi(report, tr) != nil {
+			log.Errorf("parse TestReport failed, err:%s", err)
+			continue
+		}
+		if tr.FunctionTestSuite == nil {
+			test += fmt.Sprintf("%s \n", testSt.TaskStatus)
+			continue
+		}
+		totalNum := tr.FunctionTestSuite.Tests + tr.FunctionTestSuite.Skips
+		failedNum := tr.FunctionTestSuite.Failures + tr.FunctionTestSuite.Errors
+		successNum := tr.FunctionTestSuite.Tests - failedNum
+		test += fmt.Sprintf("%d(成功)%d(失败)%d(总数) \n", successNum, failedNum, totalNum)
+	}
+	return test
 }
