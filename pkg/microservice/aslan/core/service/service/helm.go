@@ -50,6 +50,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/pkg/util"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
@@ -511,31 +512,14 @@ func CreateOrUpdateHelmServiceFromGerrit(projectName string, args *HelmServiceCr
 				mux.Unlock()
 			}()
 
-			//fsTree, err := fsservice.DownloadFilesFromSource(
-			//	&fsservice.DownloadFromSourceArgs{CodehostID: repoArgs.CodehostID, Owner: repoArgs.Owner, Repo: repoArgs.Repo, Path: filePath, Branch: repoArgs.Branch, RepoLink: repoLink},
-			//	func(chartTree afero.Fs) (string, error) {
-			//		var err error
-			//		serviceName, chartVersion, err = readChartYAML(afero.NewIOFS(chartTree), filepath.Base(filePath), log)
-			//		if err != nil {
-			//			return serviceName, err
-			//		}
-			//		valuesYAML, err = readValuesYAML(afero.NewIOFS(chartTree), filepath.Base(filePath), log)
-			//		return serviceName, err
-			//	})
-			//if err != nil {
-			//	log.Errorf("Failed to download files from source, err %s", err)
-			//	finalErr = e.ErrCreateTemplate.AddErr(err)
-			//	return
-			//}
-
 			filePath := path.Join(base, filePath)
 			log.Infof("Loading chart under path %s", filePath)
-			serviceName, chartVersion, finalErr = readChartYAML(afero.NewIOFS(chartTree), filePath, log)
+			serviceName, chartVersion, finalErr = readChartYAMLFromLocal(filePath, log)
 			if finalErr != nil {
 				log.Errorf("readChartYAML err:%+v", finalErr)
 				return
 			}
-			valuesYAML, finalErr = readValuesYAML(afero.NewIOFS(chartTree), filePath, log)
+			valuesYAML, finalErr = readValuesYAMLFromLocal(filePath, log)
 			if finalErr != nil {
 				log.Errorf("readValuesYAML err:%+v", finalErr)
 				return
@@ -954,8 +938,32 @@ func readChartYAML(chartTree fs.FS, base string, logger *zap.SugaredLogger) (str
 	return chart.Name, chart.Version, nil
 }
 
+func readChartYAMLFromLocal(base string, logger *zap.SugaredLogger) (string, string, error) {
+	chartFile, err := util.ReadFile(filepath.Join(base, setting.ChartYaml))
+	if err != nil {
+		logger.Errorf("Failed to read %s, err: %s", setting.ChartYaml, err)
+		return "", "", err
+	}
+	chart := new(Chart)
+	if err = yaml.Unmarshal(chartFile, chart); err != nil {
+		log.Errorf("Failed to unmarshal yaml %s, err: %s", setting.ChartYaml, err)
+		return "", "", err
+	}
+
+	return chart.Name, chart.Version, nil
+}
+
 func readValuesYAML(chartTree fs.FS, base string, logger *zap.SugaredLogger) ([]byte, error) {
 	content, err := fs.ReadFile(chartTree, filepath.Join(base, setting.ValuesYaml))
+	if err != nil {
+		logger.Errorf("Failed to read %s, err: %s", setting.ValuesYaml, err)
+		return nil, err
+	}
+	return content, nil
+}
+
+func readValuesYAMLFromLocal(base string, logger *zap.SugaredLogger) ([]byte, error) {
+	content, err := util.ReadFile(filepath.Join(base, setting.ValuesYaml))
 	if err != nil {
 		logger.Errorf("Failed to read %s, err: %s", setting.ValuesYaml, err)
 		return nil, err
