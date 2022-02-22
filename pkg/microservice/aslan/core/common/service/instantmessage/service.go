@@ -536,7 +536,7 @@ func genTestCaseText(test string, subTask, testReports map[string]interface{}) s
 	if testSt.TaskStatus == "" {
 		testSt.TaskStatus = config.StatusNotRun
 	}
-	if testSt.JobCtx.TestType == setting.FunctionTest && testSt.JobCtx.TestReportPath != "" {
+	if testSt.JobCtx.TestType == setting.FunctionTest && testSt.JobCtx.TestReportPath != "" && testSt.TaskStatus == config.StatusPassed {
 		url := fmt.Sprintf("{{.BaseURI}}/api/aslan/testing/report?pipelineName={{.Task.PipelineName}}&pipelineType={{.Task.Type}}&taskID={{.Task.TaskID}}&testName=%s", testSt.TestModuleName)
 		test += fmt.Sprintf("{{if ne .WebHookType \"feishu\"}} - {{end}}[%s](%s): ", testSt.TestModuleName, url)
 	} else {
