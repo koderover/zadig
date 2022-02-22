@@ -37,7 +37,7 @@ func Execute() error {
 	})
 
 	start := time.Now()
-	log.Info("Build start.")
+	log.Info("y9287: Build start.")
 
 	var err error
 	defer func() {
