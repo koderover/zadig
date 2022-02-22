@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -294,9 +295,11 @@ func copyChartRevision(projectName, serviceName string, revision int64) error {
 	return nil
 }
 
-func clearChartFiles(projectName, serviceName string, revision int64, logger *zap.SugaredLogger) {
+func clearChartFiles(projectName, serviceName string, revision int64, logger *zap.SugaredLogger, source ...string) {
 	clearChartFilesInS3Storage(projectName, serviceName, revision, logger)
-	clearLocalChartFiles(projectName, serviceName, revision, logger)
+	if len(source) == 0 {
+		clearLocalChartFiles(projectName, serviceName, revision, logger)
+	}
 }
 
 // clear chart files in s3 storage
@@ -326,6 +329,8 @@ func CreateOrUpdateHelmService(projectName string, args *HelmServiceCreationArgs
 		return CreateOrUpdateHelmServiceFromGitRepo(projectName, args, logger)
 	case LoadFromChartTemplate:
 		return CreateOrUpdateHelmServiceFromChartTemplate(projectName, args, logger)
+	case LoadFromGerrit:
+		return CreateOrUpdateHelmServiceFromGerrit(projectName, args, logger)
 	default:
 		return nil, fmt.Errorf("invalid source")
 	}
@@ -456,6 +461,148 @@ func getCodehostType(repoArgs *CreateFromRepo, repoLink string) (string, *system
 		return "", ch, err
 	}
 	return ch.Type, ch, nil
+}
+
+func CreateOrUpdateHelmServiceFromGerrit(projectName string, args *HelmServiceCreationArgs, log *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
+	var (
+		filePaths []string
+		response  = &BulkHelmServiceCreationResponse{}
+		base      string
+		chartTree = afero.NewMemMapFs()
+	)
+	repoArgs, ok := args.CreateFrom.(*CreateFromRepo)
+	if !ok {
+		filePaths = repoArgs.Paths
+		base = path.Join(config.S3StoragePath(), repoArgs.Repo)
+	}
+
+	helmRenderCharts := make([]*templatemodels.RenderChart, 0, len(repoArgs.Paths))
+	var wg wait.Group
+	var mux sync.RWMutex
+	for _, p := range filePaths {
+		filePath := strings.TrimLeft(p, "/")
+		wg.Start(func() {
+			var (
+				serviceName  string
+				chartVersion string
+				valuesYAML   []byte
+				finalErr     error
+			)
+			defer func() {
+				mux.Lock()
+				if finalErr != nil {
+					response.FailedServices = append(response.FailedServices, &FailedService{
+						Path:  filePath,
+						Error: finalErr.Error(),
+					})
+				} else {
+					response.SuccessServices = append(response.SuccessServices, serviceName)
+				}
+				mux.Unlock()
+			}()
+
+			//fsTree, err := fsservice.DownloadFilesFromSource(
+			//	&fsservice.DownloadFromSourceArgs{CodehostID: repoArgs.CodehostID, Owner: repoArgs.Owner, Repo: repoArgs.Repo, Path: filePath, Branch: repoArgs.Branch, RepoLink: repoLink},
+			//	func(chartTree afero.Fs) (string, error) {
+			//		var err error
+			//		serviceName, chartVersion, err = readChartYAML(afero.NewIOFS(chartTree), filepath.Base(filePath), log)
+			//		if err != nil {
+			//			return serviceName, err
+			//		}
+			//		valuesYAML, err = readValuesYAML(afero.NewIOFS(chartTree), filepath.Base(filePath), log)
+			//		return serviceName, err
+			//	})
+			//if err != nil {
+			//	log.Errorf("Failed to download files from source, err %s", err)
+			//	finalErr = e.ErrCreateTemplate.AddErr(err)
+			//	return
+			//}
+
+			filePath := path.Join(base, filePath)
+			log.Infof("Loading chart under path %s", filePath)
+			serviceName, chartVersion, finalErr = readChartYAML(afero.NewIOFS(chartTree), filepath.Base(filePath), log)
+			if finalErr != nil {
+				log.Errorf("readChartYAML err:%+v", finalErr)
+				return
+			}
+			valuesYAML, finalErr = readValuesYAML(afero.NewIOFS(chartTree), filepath.Base(filePath), log)
+			if finalErr != nil {
+				log.Errorf("readValuesYAML err:%+v", finalErr)
+				return
+			}
+			log.Infof("serviceName:%s,chartVersion:%s", serviceName, chartVersion)
+			log.Infof("valuesYAML:%s", string(valuesYAML))
+			log.Info("Found valid chart, Starting to save and upload files")
+			rev, err := getNextServiceRevision(projectName, serviceName)
+			if err != nil {
+				log.Errorf("Failed to get next revision for service %s, err: %s", serviceName, err)
+				finalErr = e.ErrCreateTemplate.AddErr(err)
+				return
+			}
+
+			// clear files from s3 when error occurred in next stages
+			defer func() {
+				if finalErr != nil {
+					clearChartFiles(projectName, serviceName, rev, log, string(args.Source))
+				}
+			}()
+
+			// upload them to s3
+			if err = commonservice.SaveAndUploadService(projectName, serviceName, []string{fmt.Sprintf("%s-%d", serviceName, rev)}, afero.NewIOFS(chartTree), string(args.Source)); err != nil {
+				log.Errorf("Failed to save or upload files for service %s in project %s, error: %s", serviceName, projectName, err)
+				finalErr = e.ErrCreateTemplate.AddErr(err)
+				return
+			}
+
+			err = copyChartRevision(projectName, serviceName, rev)
+			if err != nil {
+				log.Errorf("Failed to copy file %s, err: %s", serviceName, err)
+				finalErr = errors.Wrapf(err, "Failed to copy chart info, service %s", serviceName)
+				return
+			}
+
+			//if codehostInfo != nil {
+			//	repoLink = fmt.Sprintf("%s/%s/%s/%s/%s/%s", codehostInfo.Address, repoArgs.Owner, repoArgs.Repo, "tree", repoArgs.Branch, filePath)
+			//}
+
+			svc, err := createOrUpdateHelmService(
+				afero.NewIOFS(chartTree),
+				&helmServiceCreationArgs{
+					ChartName:       serviceName,
+					ChartVersion:    chartVersion,
+					ServiceRevision: rev,
+					MergedValues:    string(valuesYAML),
+					ServiceName:     serviceName,
+					FilePath:        filePath,
+					ProductName:     projectName,
+					CreateBy:        args.CreatedBy,
+					CodehostID:      repoArgs.CodehostID,
+					Owner:           repoArgs.Owner,
+					Repo:            repoArgs.Repo,
+					Branch:          repoArgs.Branch,
+					//RepoLink:        repoLink,
+					Source: string(args.Source),
+				},
+				log,
+			)
+			if err != nil {
+				log.Errorf("Failed to create service %s in project %s, error: %s", serviceName, projectName, err)
+				finalErr = e.ErrCreateTemplate.AddErr(err)
+				return
+			}
+
+			helmRenderCharts = append(helmRenderCharts, &templatemodels.RenderChart{
+				ServiceName:  serviceName,
+				ChartVersion: svc.HelmChart.Version,
+				ValuesYaml:   svc.HelmChart.ValuesYaml,
+			})
+		})
+	}
+
+	wg.Wait()
+
+	compareHelmVariable(helmRenderCharts, projectName, args.CreatedBy, log)
+	return response, nil
 }
 
 func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceCreationArgs, log *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
