@@ -469,7 +469,7 @@ func CreateOrUpdateHelmServiceFromGerrit(projectName string, args *HelmServiceCr
 		filePaths []string
 		response  = &BulkHelmServiceCreationResponse{}
 		base      string
-		chartTree = afero.NewMemMapFs()
+		chartTree = afero.NewOsFs()
 	)
 	resByte, resByteErr := json.Marshal(args.CreateFrom)
 	if resByteErr != nil {
