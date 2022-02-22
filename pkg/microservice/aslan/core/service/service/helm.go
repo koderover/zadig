@@ -471,11 +471,6 @@ func CreateOrUpdateHelmServiceFromGerrit(projectName string, args *HelmServiceCr
 		base      string
 		chartTree = afero.NewMemMapFs()
 	)
-	//repoArgs, ok := args.CreateFrom.(CreateFromRepo)
-	//if ok {
-	//	filePaths = repoArgs.Paths
-	//	base = path.Join(config.S3StoragePath(), repoArgs.Repo)
-	//}
 	resByte, resByteErr := json.Marshal(args.CreateFrom)
 	if resByteErr != nil {
 		log.Errorf("failed to json.Marshal err:%s", resByteErr)
@@ -535,12 +530,12 @@ func CreateOrUpdateHelmServiceFromGerrit(projectName string, args *HelmServiceCr
 
 			filePath := path.Join(base, filePath)
 			log.Infof("Loading chart under path %s", filePath)
-			serviceName, chartVersion, finalErr = readChartYAML(afero.NewIOFS(chartTree), filepath.Base(filePath), log)
+			serviceName, chartVersion, finalErr = readChartYAML(afero.NewIOFS(chartTree), filePath, log)
 			if finalErr != nil {
 				log.Errorf("readChartYAML err:%+v", finalErr)
 				return
 			}
-			valuesYAML, finalErr = readValuesYAML(afero.NewIOFS(chartTree), filepath.Base(filePath), log)
+			valuesYAML, finalErr = readValuesYAML(afero.NewIOFS(chartTree), filePath, log)
 			if finalErr != nil {
 				log.Errorf("readValuesYAML err:%+v", finalErr)
 				return
