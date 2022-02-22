@@ -470,13 +470,13 @@ func CreateOrUpdateHelmServiceFromGerrit(projectName string, args *HelmServiceCr
 		base      string
 		chartTree = afero.NewMemMapFs()
 	)
-	repoArgs, ok := args.CreateFrom.(*CreateFromRepo)
-	if !ok {
+	repoArgs, ok := args.CreateFrom.(CreateFromRepo)
+	if ok {
 		filePaths = repoArgs.Paths
 		base = path.Join(config.S3StoragePath(), repoArgs.Repo)
 	}
 
-	helmRenderCharts := make([]*templatemodels.RenderChart, 0, len(repoArgs.Paths))
+	helmRenderCharts := make([]*templatemodels.RenderChart, 0, len(filePaths))
 	var wg wait.Group
 	var mux sync.RWMutex
 	for _, p := range filePaths {
