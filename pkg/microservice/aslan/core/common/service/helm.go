@@ -80,11 +80,11 @@ func DownloadServiceManifests(base, projectName, serviceName string) error {
 	return fsservice.DownloadAndExtractFilesFromS3(serviceName, base, s3Base, log.SugaredLogger())
 }
 
-func SaveAndUploadService(projectName, serviceName string, copies []string, fileTree fs.FS, source ...string) error {
+func SaveAndUploadService(projectName, serviceName string, copies []string, fileTree fs.FS) error {
 	localBase := config.LocalServicePath(projectName, serviceName)
 	s3Base := config.ObjectStorageServicePath(projectName, serviceName)
 	names := append([]string{serviceName}, copies...)
-	return fsservice.SaveAndUploadFiles(fileTree, names, localBase, s3Base, log.SugaredLogger(), source...)
+	return fsservice.SaveAndUploadFiles(fileTree, names, localBase, s3Base, log.SugaredLogger())
 }
 
 func preLoadServiceManifestsFromSource(svc *commonmodels.Service) error {
