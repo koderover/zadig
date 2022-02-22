@@ -165,8 +165,9 @@ type Error struct {
 }
 
 type TaskOpt struct {
-	Task         *Task           `json:"task"`
-	EnvName      string          `json:"env_name"`
-	ServiceName  string          `json:"service_name"`
-	ServiceInfos *[]*ServiceInfo `json:"service_infos"`
+	Task           *Task           `json:"task"`
+	EnvName        string          `json:"env_name"`
+	ServiceName    string          `json:"service_name"`
+	ServiceInfos   *[]*ServiceInfo `json:"service_infos"`
+	IsWorkflowTask bool            `json:"is_workflow_task"`
 }
