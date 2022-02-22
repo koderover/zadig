@@ -70,6 +70,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		roleBindings.GET("", ListRoleBindings)
 		roleBindings.DELETE("/:name", DeleteRoleBinding)
 		roleBindings.POST("/bulk-delete", DeleteRoleBindings)
+		roleBindings.POST("/recreate", RecreateRoleBindings)
 	}
 
 	policyBindings := router.Group("policybindings")

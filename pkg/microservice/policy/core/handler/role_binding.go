@@ -115,6 +115,29 @@ func DeleteRoleBindings(c *gin.Context) {
 	ctx.Err = service.DeleteRoleBindings(args.Names, projectName, userID, ctx.Logger)
 }
 
+func RecreateRoleBindings(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName is empty")
+		return
+	}
+
+	args := make([]*service.RoleBinding, 0)
+	if err := c.ShouldBindJSON(&args); err != nil {
+		ctx.Err = err
+		return
+	}
+	err := service.DeleteRoleBindings([]string{"*"}, projectName, c.Query("userID"), ctx.Logger)
+	if err != nil {
+		ctx.Err = err
+		return
+	}
+	ctx.Err = service.CreateRoleBindings(projectName, args, ctx.Logger)
+}
+
 func DeleteSystemRoleBinding(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
