@@ -61,7 +61,7 @@ func (c *Client) Comment(notify *models.Notification) error {
 	}
 	if strings.ToLower(codeHostDetail.Type) == "gitlab" {
 		var note *gitlab.Note
-		cli, err := gitlabtool.NewClient(codeHostDetail.Address, codeHostDetail.AccessToken)
+		cli, err := gitlabtool.NewClient(codeHostDetail.Address, codeHostDetail.AccessToken, config.ProxyHTTPSAddr())
 		if err != nil {
 			c.logger.Errorf("create gitlab client failed err: %v", err)
 			return fmt.Errorf("create gitlab client failed err: %v", err)

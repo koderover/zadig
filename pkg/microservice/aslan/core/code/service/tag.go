@@ -38,7 +38,7 @@ func CodeHostListTags(codeHostID int, projectName string, namespace string, log 
 	}
 
 	if ch.Type == codeHostGitlab {
-		client, err := gitlab.NewClient(ch.Address, ch.AccessToken)
+		client, err := gitlab.NewClient(ch.Address, ch.AccessToken, config.ProxyHTTPSAddr())
 		if err != nil {
 			log.Error(err)
 			return nil, e.ErrCodehostListTags.AddDesc(err.Error())

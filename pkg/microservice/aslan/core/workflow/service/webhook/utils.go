@@ -259,7 +259,7 @@ func getGitlabClientByAddress(address string) (*gitlabtool.Client, error) {
 		log.Error(err)
 		return nil, e.ErrCodehostListProjects.AddDesc("git client is nil")
 	}
-	client, err := gitlabtool.NewClient(codehost.Address, codehost.AccessToken)
+	client, err := gitlabtool.NewClient(codehost.Address, codehost.AccessToken, config.ProxyHTTPSAddr())
 	if err != nil {
 		log.Error(err)
 		return nil, e.ErrCodehostListProjects.AddDesc(err.Error())

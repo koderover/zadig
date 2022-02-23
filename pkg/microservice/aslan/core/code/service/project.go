@@ -37,7 +37,7 @@ func CodeHostListProjects(codeHostID int, namespace, namespaceType string, page,
 		return nil, e.ErrCodehostListProjects.AddDesc("git client is nil")
 	}
 	if ch.Type == codeHostGitlab {
-		client, err := gitlab.NewClient(ch.Address, ch.AccessToken)
+		client, err := gitlab.NewClient(ch.Address, ch.AccessToken, config.ProxyHTTPSAddr())
 		if err != nil {
 			log.Error(err)
 			return nil, e.ErrCodehostListProjects.AddDesc(err.Error())
