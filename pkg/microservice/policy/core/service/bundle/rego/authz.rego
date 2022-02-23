@@ -355,6 +355,7 @@ all_roles[role_ref] {
 # only roles under the given project are allowed
 allowed_roles[role_ref] {
     some i
+    some j
     data.bindings.role_bindings[i].uid == claims.uid
     data.bindings.role_bindings[i].bindings[j].namespace == project_name
     role_ref := data.bindings.role_bindings[i].bindings[j].role_refs[_]
@@ -363,13 +364,15 @@ allowed_roles[role_ref] {
 # if the proejct is visible by all users (the user name is "*"), the bound roles are also allowed
 allowed_roles[role_ref] {
     some i
+    some j
     data.bindings.role_bindings[i].uid == "*"
-    data.bindings.role_bindings[i].bindings[_].namespace == project_name
+    data.bindings.role_bindings[i].bindings[j].namespace == project_name
     role_ref := data.bindings.role_bindings[i].bindings[j].role_refs[_]
 }
 
 allowed_policies[policy_ref] {
     some i
+    some j
     data.bindings.policy_bindings[i].uid == claims.uid
     data.bindings.policy_bindings[i].bindings[j].namespace == project_name
     policy_ref := data.bindings.policy_bindings[i].bindings[j].policy_refs[_]
@@ -377,8 +380,9 @@ allowed_policies[policy_ref] {
 
 allowed_policies[policy_ref] {
     some i
+    some j
     data.bindings.policy_bindings[i].uid == "*"
-    data.bindings.policy_bindings[i].bindings[_].namespace == project_name
+    data.bindings.policy_bindings[i].bindings[j].namespace == project_name
     policy_ref := data.bindings.policy_bindings[i].bindings[j].policy_refs[_]
 }
 
