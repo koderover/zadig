@@ -486,12 +486,6 @@ func CreateOrUpdateHelmServiceFromGerrit(projectName string, args *HelmServiceCr
 
 	filePaths = createFromRepo.Paths
 	base = path.Join(config.S3StoragePath(), createFromRepo.Repo)
-
-	//codehostInfo, err := service.GetCodeHost(createFromRepo.CodehostID, log)
-	//if err != nil {
-	//	log.Errorf("Failed to get source form repo data, err: %s", err.Error())
-	//	return nil, err
-	//}
 	helmRenderCharts := make([]*templatemodels.RenderChart, 0, len(filePaths))
 	var wg wait.Group
 	var mux sync.RWMutex
@@ -1042,7 +1036,8 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 	)
 	switch args.Source {
 	case string(LoadFromGerrit):
-		chartName, chartVersion, err = readChartYAMLFromLocal(args.FilePath, logger)
+		base := path.Join(config.S3StoragePath(), args.Repo)
+		chartName, chartVersion, err = readChartYAMLFromLocal(filepath.Join(base, args.FilePath), logger)
 	default:
 		chartName, chartVersion, err = readChartYAML(fsTree, args.ServiceName, logger)
 	}
