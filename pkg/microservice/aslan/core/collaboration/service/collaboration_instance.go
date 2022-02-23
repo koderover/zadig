@@ -1131,6 +1131,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 		ifSync = true
 	}
 	return &GetCollaborationNewResp{
+		//Code 10000 means it is a filtered success result
 		Code:     10000,
 		Workflow: newWorkflow,
 		Product:  newProduct,
