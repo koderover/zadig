@@ -938,7 +938,7 @@ func BulkCopyHelmProduct(projectName, user, requestID string, arg CopyHelmProduc
 			args = append(args, &CreateHelmProductArg{
 				ProductName:   projectName,
 				EnvName:       item.NewName,
-				Namespace:     "helm-env-" + projectName + "-" + item.NewName,
+				Namespace:     projectName + "-" + "env" + "-" + item.NewName,
 				ClusterID:     product.ClusterID,
 				DefaultValues: item.DefaultValues,
 				RegistryID:    product.RegistryID,
