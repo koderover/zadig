@@ -85,6 +85,12 @@ type CreateFromChartTemplate struct {
 	Variables    []*Variable                `bson:"variables" json:"variables"`
 }
 
+type CreateFromChartRepo struct {
+	ChartRepoName string `json:"chart_repo_name" bson:"chart_repo_name"`
+	ChartName     string `json:"chart_name"      bson:"chart_name"`
+	ChartVersion  string `json:"chart_version"   bson:"chart_version"`
+}
+
 type GUIConfig struct {
 	Deployment interface{} `bson:"deployment,omitempty"           json:"deployment,omitempty"`
 	Ingress    interface{} `bson:"ingress,omitempty"              json:"ingress,omitempty"`

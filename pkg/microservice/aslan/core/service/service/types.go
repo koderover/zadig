@@ -30,6 +30,7 @@ const (
 	LoadFromRepo          LoadSource = "repo"
 	LoadFromPublicRepo    LoadSource = "publicRepo"
 	LoadFromChartTemplate LoadSource = "chartTemplate"
+	LoadFromChartRepo     LoadSource = "chartRepo"
 )
 
 type HelmLoadSource struct {
@@ -84,6 +85,12 @@ type CreateFromChartTemplate struct {
 	Variables    []*Variable `json:"variables"`
 }
 
+type CreateFromChartRepo struct {
+	ChartRepoName string `json:"chartRepoName"`
+	ChartName     string `json:"chartName"`
+	ChartVersion  string `json:"chartVersion"`
+}
+
 func PublicRepoToPrivateRepoArgs(args *CreateFromPublicRepo) (*CreateFromRepo, error) {
 	if args.RepoLink == "" {
 		return nil, fmt.Errorf("empty link")
@@ -113,6 +120,8 @@ func (a *HelmServiceCreationArgs) UnmarshalJSON(data []byte) error {
 		a.CreateFrom = &CreateFromPublicRepo{}
 	case LoadFromChartTemplate:
 		a.CreateFrom = &CreateFromChartTemplate{}
+	case LoadFromChartRepo:
+		a.CreateFrom = &CreateFromChartRepo{}
 	}
 
 	type tmp HelmServiceCreationArgs
