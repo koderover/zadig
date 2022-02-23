@@ -37,6 +37,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/kube/informer"
 )
 
 type K8sService struct {
@@ -89,6 +90,15 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
 
+	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), exitedProd.ClusterID)
+	if err != nil {
+		return e.ErrUpdateEnv.AddDesc(err.Error())
+	}
+	inf, err := informer.NewInformer(exitedProd.ClusterID, exitedProd.Namespace, cls)
+	if err != nil {
+		return e.ErrUpdateEnv.AddDesc(err.Error())
+	}
+
 	switch exitedProd.Status {
 	case setting.ProductStatusCreating, setting.ProductStatusUpdating, setting.ProductStatusDeleting:
 		k.log.Errorf("[%s][P:%s] Product is not in valid status", args.EnvName, args.ProductName)
@@ -112,7 +122,7 @@ func (k *K8sService) updateService(args *SvcOptArgs) error {
 		exitedProd,
 		svc,
 		exitedProd.GetServiceMap()[svc.ServiceName],
-		newRender, kubeClient, k.log)
+		newRender, inf, kubeClient, k.log)
 
 	// 如果创建依赖服务组有返回错误, 停止等待
 	if err != nil {
@@ -189,7 +199,7 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 	return resp
 }
 
-func (k *K8sService) createGroup(envName, productName, username string, group []*commonmodels.ProductService, renderSet *commonmodels.RenderSet, kubeClient client.Client) error {
+func (k *K8sService) createGroup(envName, productName, username string, group []*commonmodels.ProductService, renderSet *commonmodels.RenderSet, informer informers.SharedInformerFactory, kubeClient client.Client) error {
 	k.log.Infof("[Namespace:%s][Product:%s] createGroup", envName, productName)
 	updatableServiceNameList := make([]string, 0)
 
@@ -222,7 +232,7 @@ func (k *K8sService) createGroup(envName, productName, username string, group []
 		updatableServiceNameList = append(updatableServiceNameList, group[i].ServiceName)
 		go func(svc *commonmodels.ProductService) {
 			defer wg.Done()
-			items, err := upsertService(false, prod, svc, nil, renderSet, kubeClient, k.log)
+			items, err := upsertService(false, prod, svc, nil, renderSet, informer, kubeClient, k.log)
 			if err != nil {
 				lock.Lock()
 				switch e := err.(type) {

@@ -71,6 +71,7 @@ type UserInfo struct {
 	Email         string `json:"email"`
 	Phone         string `json:"phone"`
 	Account       string `json:"account"`
+	APIToken      string `json:"token"`
 }
 
 type Password struct {
@@ -175,7 +176,40 @@ func GetUser(uid string, logger *zap.SugaredLogger) (*UserInfo, error) {
 		return nil, err
 	}
 	userInfo := mergeUserLogin([]models.User{*user}, []models.UserLogin{*userLogin}, logger)
-	return &userInfo[0], nil
+	userInfoRes := &userInfo[0]
+	userInfoRes.APIToken = user.APIToken
+	//TODO Create a permanent OpenAPI token
+	if user.APIToken == "" {
+		token, err := login.CreateToken(&login.Claims{
+			Name:              user.Name,
+			UID:               user.UID,
+			Email:             user.Email,
+			PreferredUsername: user.Account,
+			StandardClaims: jwt.StandardClaims{
+				Audience: setting.ProductName,
+				//24*365*100=876000
+				ExpiresAt: time.Now().Add(876000 * time.Hour).Unix(),
+			},
+			FederatedClaims: login.FederatedClaims{
+				ConnectorId: user.IdentityType,
+				UserId:      user.Account,
+			},
+		})
+		if err != nil {
+			logger.Errorf("LocalLogin user:%s create token error, error msg:%s", user.Account, err.Error())
+			return nil, err
+		}
+		userInfoRes.APIToken = token
+		userWithToken := &models.User{
+			APIToken: token,
+		}
+		err = orm.UpdateUser(uid, userWithToken, core.DB)
+		if err != nil {
+			logger.Errorf("UpdateUser user:%s save token error:%s", user.Account, err.Error())
+			return nil, err
+		}
+	}
+	return userInfoRes, nil
 }
 
 func SearchUserByAccount(args *QueryArgs, logger *zap.SugaredLogger) (*UsersResp, error) {

@@ -46,6 +46,7 @@ type PipelineStatusCtx struct {
 	Type         config.PipelineType `bson:"type"                      json:"type"`
 	Status       config.Status       `bson:"status"                    json:"status,omitempty"`
 	TeamName     string              `bson:"team"                      json:"team"`
+	Stages       []*Stage            `bson:"-"                         json:"stages"`
 }
 
 type MessageCtx struct {

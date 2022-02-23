@@ -49,6 +49,7 @@ var SubtaskOrder = map[config.TaskType]int{
 	config.TaskType("release_image"):   14,
 	config.TaskType("reset_image"):     15,
 	config.TaskType("trigger"):         16,
+	config.TaskType("extension"):       17,
 }
 
 type ByStageKind []*commonmodels.Stage
