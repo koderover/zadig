@@ -25,16 +25,25 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
-//go:embed policy.yaml
-var policyDefinitions []byte
+//go:embed service_policy.yaml
+var servicePolicyDefinitions []byte
+
+//go:embed build_policy.yaml
+var buildPolicyDefinitions []byte
 
 func (*Router) Policies() []*policy.PolicyMeta {
-	res := &policy.PolicyMeta{}
-	err := yaml.Unmarshal(policyDefinitions, res)
+	serviceRes := &policy.PolicyMeta{}
+	err := yaml.Unmarshal(servicePolicyDefinitions, serviceRes)
+	if err != nil {
+		// should not have happened here
+		log.DPanic(err)
+	}
+	buildRes := &policy.PolicyMeta{}
+	err = yaml.Unmarshal(buildPolicyDefinitions, buildRes)
 	if err != nil {
 		// should not have happened here
 		log.DPanic(err)
 	}
 
-	return []*policy.PolicyMeta{res}
+	return []*policy.PolicyMeta{serviceRes, buildRes}
 }

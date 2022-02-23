@@ -1,9 +1,9 @@
 resource: Environment
-alias: "集成环境"
+alias: "环境"
 description: ""
 rules:
   - action: get_environment
-    alias: "查看集成环境"
+    alias: "查看"
     description: ""
     rules:
       - method: GET
@@ -72,7 +72,7 @@ rules:
       - method: GET
         endpoint: "/api/aslan/environment/diff/products/?*/service/?*"
   - action: create_environment
-    alias: "新建集成环境"
+    alias: "创建"
     description: ""
     rules:
       - method: POST
@@ -88,7 +88,7 @@ rules:
         endpoint: "api/aslan/cluster/clusters"
         resourceType: "Cluster"
   - action: config_environment
-    alias: "配置集成环境"
+    alias: "配置"
     description: ""
     rules:
       - method: PUT
@@ -183,7 +183,7 @@ rules:
       - method: POST
         endpoint: "/api/aslan/workflow/servicetask"
   - action: delete_environment
-    alias: "删除集成环境"
+    alias: "删除"
     description: ""
     rules:
       - method: DELETE
