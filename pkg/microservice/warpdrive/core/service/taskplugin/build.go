@@ -316,6 +316,8 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 		return
 	}
 	p.Log.Infof("succeed to create build job %s", p.JobName)
+
+	p.Task.TaskStatus = waitJobReady(ctx, p.KubeNamespace, p.JobName, p.kubeClient, p.Log)
 }
 
 func (p *BuildTaskPlugin) Wait(ctx context.Context) {

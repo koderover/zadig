@@ -165,7 +165,6 @@ func (r *Reaper) createReadme(file string) error {
 	scripts = append(scripts, fmt.Sprintf("echo GIT-COMMIT: >> %s", file))
 
 	for _, repo := range r.Ctx.Repos {
-
 		if repo == nil || len(repo.Name) == 0 {
 			continue
 		}
