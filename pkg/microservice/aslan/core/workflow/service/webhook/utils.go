@@ -150,6 +150,20 @@ func fillServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sugar
 			return err
 		}
 		log.Infof("find %d containers in service %s", len(args.Containers), args.ServiceName)
+
+		// 设置新的版本号
+		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceName, args.ProductName)
+		rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
+		if err != nil {
+			return fmt.Errorf("get next service template revision error: %v", err)
+		}
+
+		args.Revision = rev
+		// 更新到数据库，revision+1
+		if err := commonrepo.NewServiceColl().Create(args); err != nil {
+			log.Errorf("Failed to sync service %s from github path %s error: %v", args.ServiceName, args.SrcPath, err)
+			return e.ErrCreateTemplate.AddDesc(err.Error())
+		}
 	} else if args.Type == setting.HelmDeployType {
 		if args.Source == setting.SourceFromGitlab {
 			// Set args.Commit
@@ -169,15 +183,6 @@ func fillServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sugar
 			}
 		}
 	}
-
-	// 设置新的版本号
-	serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceName, args.ProductName)
-	rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
-	if err != nil {
-		return fmt.Errorf("get next service template revision error: %v", err)
-	}
-
-	args.Revision = rev
 
 	return nil
 }
@@ -680,4 +685,12 @@ func checkTriggerYamlParams(triggerYaml *TriggerYaml) error {
 	}
 
 	return nil
+}
+
+func getServiceSrcPath(service *commonmodels.Service) (string, error) {
+	if service.LoadPath != "" {
+		return service.LoadPath, nil
+	}
+	_, _, _, _, p, _, err := GetOwnerRepoBranchPath(service.SrcPath)
+	return p, err
 }
