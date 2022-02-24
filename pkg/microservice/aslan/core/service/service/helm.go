@@ -104,6 +104,11 @@ type helmServiceCreationArgs struct {
 	ValuePaths       []string
 	ValuesYaml       string
 	Variables        []*Variable
+	GerritRepoName   string
+	GerritBranchName string
+	GerritRemoteName string
+	GerritPath       string
+	GerritCodeHostID int
 }
 
 type ChartTemplateData struct {
@@ -554,19 +559,23 @@ func CreateOrUpdateHelmServiceFromGerrit(projectName string, args *HelmServiceCr
 			svc, err := createOrUpdateHelmService(
 				afero.NewIOFS(chartTree),
 				&helmServiceCreationArgs{
-					ChartName:       serviceName,
-					ChartVersion:    chartVersion,
-					ServiceRevision: rev,
-					MergedValues:    string(valuesYAML),
-					ServiceName:     serviceName,
-					FilePath:        filePath,
-					ProductName:     projectName,
-					CreateBy:        args.CreatedBy,
-					CodehostID:      createFromRepo.CodehostID,
-					Owner:           createFromRepo.Owner,
-					Repo:            createFromRepo.Repo,
-					Branch:          createFromRepo.Branch,
-					Source:          string(args.Source),
+					ChartName:        serviceName,
+					ChartVersion:     chartVersion,
+					ServiceRevision:  rev,
+					MergedValues:     string(valuesYAML),
+					ServiceName:      serviceName,
+					FilePath:         filePath,
+					ProductName:      projectName,
+					CreateBy:         args.CreatedBy,
+					CodehostID:       createFromRepo.CodehostID,
+					Owner:            createFromRepo.Owner,
+					Repo:             createFromRepo.Repo,
+					Branch:           createFromRepo.Branch,
+					Source:           string(args.Source),
+					GerritCodeHostID: createFromRepo.CodehostID,
+					GerritPath:       currentFilePath,
+					GerritRepoName:   createFromRepo.Repo,
+					GerritBranchName: createFromRepo.Repo,
 				},
 				log,
 			)
@@ -1075,7 +1084,6 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 		BranchName:  args.Branch,
 		LoadPath:    args.FilePath,
 		SrcPath:     args.RepoLink,
-		CreateFrom:  geneCreationDetail(args),
 		Source:      args.Source,
 		HelmChart: &commonmodels.HelmChart{
 			Name:       chartName,
@@ -1084,8 +1092,17 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 		},
 	}
 
-	log.Infof("Starting to create service %s with revision %d", args.ServiceName, args.ServiceRevision)
+	switch args.Source {
+	case string(LoadFromGerrit):
+		serviceObj.GerritPath = args.GerritPath
+		serviceObj.GerritCodeHostID = args.GerritCodeHostID
+		serviceObj.GerritRepoName = args.GerritRepoName
+		serviceObj.GerritBranchName = args.GerritBranchName
+	default:
+		serviceObj.CreateFrom = geneCreationDetail(args)
+	}
 
+	log.Infof("Starting to create service %s with revision %d", args.ServiceName, args.ServiceRevision)
 	currentSvcTmpl, err := commonrepo.NewServiceColl().Find(&commonrepo.ServiceFindOption{
 		ProductName:         args.ProductName,
 		ServiceName:         args.ServiceName,

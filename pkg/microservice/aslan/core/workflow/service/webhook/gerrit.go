@@ -120,7 +120,7 @@ func updateServiceTemplateByGerritEvent(uri string, log *zap.SugaredLogger) erro
 			}
 		}
 
-		filePath, err := os.Stat(path.Join(newBase, service.GerritPath))
+		filePath, err := os.Stat(path.Join(newBase, service.LoadPath))
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		}
@@ -128,14 +128,14 @@ func updateServiceTemplateByGerritEvent(uri string, log *zap.SugaredLogger) erro
 		var newYamlContent string
 		var oldYamlContent string
 		if filePath.IsDir() {
-			newFileInfos, err := ioutil.ReadDir(path.Join(newBase, service.GerritPath))
+			newFileInfos, err := ioutil.ReadDir(path.Join(newBase, service.LoadPath))
 			if err != nil {
 				errs = multierror.Append(errs, err)
 			}
 
 			newFileContents := make([]string, 0)
 			for _, file := range newFileInfos {
-				if contentBytes, err := ioutil.ReadFile(path.Join(newBase, service.GerritPath, file.Name())); err == nil {
+				if contentBytes, err := ioutil.ReadFile(path.Join(newBase, service.LoadPath, file.Name())); err == nil {
 					newFileContents = append(newFileContents, string(contentBytes))
 				} else {
 					errs = multierror.Append(errs, err)
@@ -144,14 +144,14 @@ func updateServiceTemplateByGerritEvent(uri string, log *zap.SugaredLogger) erro
 
 			newYamlContent = strings.Join(newFileContents, setting.YamlFileSeperator)
 
-			oldFileInfos, err := ioutil.ReadDir(path.Join(oldBase, service.GerritPath))
+			oldFileInfos, err := ioutil.ReadDir(path.Join(oldBase, service.LoadPath))
 			if err != nil {
 				errs = multierror.Append(errs, err)
 			}
 
 			oldFileContents := make([]string, 0)
 			for _, file := range oldFileInfos {
-				if contentBytes, err := ioutil.ReadFile(path.Join(oldBase, service.GerritPath, file.Name())); err == nil {
+				if contentBytes, err := ioutil.ReadFile(path.Join(oldBase, service.LoadPath, file.Name())); err == nil {
 					oldFileContents = append(oldFileContents, string(contentBytes))
 				} else {
 					errs = multierror.Append(errs, err)
@@ -159,13 +159,13 @@ func updateServiceTemplateByGerritEvent(uri string, log *zap.SugaredLogger) erro
 			}
 			oldYamlContent = strings.Join(oldFileContents, setting.YamlFileSeperator)
 		} else {
-			if contentBytes, err := ioutil.ReadFile(path.Join(newBase, service.GerritPath)); err == nil {
+			if contentBytes, err := ioutil.ReadFile(path.Join(newBase, service.LoadPath)); err == nil {
 				newYamlContent = string(contentBytes)
 			} else {
 				errs = multierror.Append(errs, err)
 			}
 
-			if contentBytes, err := ioutil.ReadFile(path.Join(oldBase, service.GerritPath)); err == nil {
+			if contentBytes, err := ioutil.ReadFile(path.Join(oldBase, service.LoadPath)); err == nil {
 				oldYamlContent = string(contentBytes)
 			} else {
 				errs = multierror.Append(errs, err)
@@ -173,7 +173,7 @@ func updateServiceTemplateByGerritEvent(uri string, log *zap.SugaredLogger) erro
 		}
 
 		if strings.Compare(newYamlContent, oldYamlContent) != 0 {
-			log.Infof("Started to sync service template %s from gerrit %s", service.ServiceName, service.GerritPath)
+			log.Infof("Started to sync service template %s from gerrit %s", service.ServiceName, service.LoadPath)
 			service.CreateBy = "system"
 			service.Yaml = newYamlContent
 			err := SyncServiceTemplateFromGerrit(service, log)
@@ -181,7 +181,7 @@ func updateServiceTemplateByGerritEvent(uri string, log *zap.SugaredLogger) erro
 				errs = multierror.Append(errs, err)
 			}
 		} else {
-			log.Infof("Service template %s from gerrit %s is not affected, no sync", service.ServiceName, service.GerritPath)
+			log.Infof("Service template %s from gerrit %s is not affected, no sync", service.ServiceName, service.LoadPath)
 		}
 	}
 
