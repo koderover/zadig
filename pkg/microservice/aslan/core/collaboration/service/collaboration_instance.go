@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	"reflect"
+	"time"
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -222,6 +223,7 @@ func genCollaborationInstance(mode models.CollaborationMode, projectName, uid, i
 		Revision:          mode.Revision,
 		Workflows:         workflows,
 		Products:          products,
+		LastVisitTime:     time.Now().Unix(),
 	}
 }
 
@@ -257,6 +259,17 @@ func getDiff(cmMap map[string]*models.CollaborationMode, ciMap map[string]*model
 	}, nil
 }
 
+func updateVisitTime(uid string, cis []models.CollaborationInstance, logger *zap.SugaredLogger) error {
+	for _, instance := range cis {
+		err := mongodb.NewCollaborationInstanceColl().Update(uid, &instance)
+		if err != nil {
+			logger.Errorf("syncInstance Update error, error msg:%s", err)
+			return err
+		}
+	}
+	return nil
+}
+
 func GetCollaborationUpdate(projectName, uid, identityType, userName string, logger *zap.SugaredLogger) (*GetCollaborationUpdateResp, error) {
 	collaborations, err := mongodb.NewCollaborationModeColl().List(&mongodb.CollaborationModeListOptions{
 		Projects: []string{projectName},
@@ -274,6 +287,10 @@ func GetCollaborationUpdate(projectName, uid, identityType, userName string, log
 		ProjectName: projectName,
 		UserUID:     uid,
 	})
+	if err != nil {
+		logger.Errorf("GetCollaborationInstance error, err msg:%s", err)
+		return nil, err
+	}
 	ciMap := make(map[string]*models.CollaborationInstance)
 	for _, instance := range collaborationInstances {
 		ciMap[instance.CollaborationName] = instance
@@ -281,6 +298,11 @@ func GetCollaborationUpdate(projectName, uid, identityType, userName string, log
 	resp, err := getDiff(cmMap, ciMap, projectName, uid, identityType, userName)
 	if err != nil {
 		logger.Errorf("GetCollaborationUpdate error, err msg:%s", err)
+		return nil, err
+	}
+	err = updateVisitTime(uid, resp.UpdateInstance, logger)
+	if err != nil {
+		logger.Errorf("GetCollaborationUpdate updateVisitTime error, err msg:%s", err)
 		return nil, err
 	}
 	return resp, nil
