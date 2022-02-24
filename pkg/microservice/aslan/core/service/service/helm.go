@@ -1157,6 +1157,7 @@ func loadServiceFileInfos(productName, serviceName string, revision int64, dir s
 	}
 	if err != nil || revision == 0 {
 		base = config.LocalServicePath(productName, serviceName)
+		fmt.Println("base:", base)
 		err = commonservice.PreLoadServiceManifests(base, svc)
 		if err != nil {
 			return nil, e.ErrFilePath.AddDesc(err.Error())
