@@ -43,7 +43,6 @@ func ListHelmRepos(log *zap.SugaredLogger) ([]*commonmodels.HelmRepo, error) {
 }
 
 func PreLoadServiceManifests(base string, svc *commonmodels.Service) error {
-	fmt.Println("PreLoadServiceManifests start ...")
 	ok, err := fsutil.DirExists(base)
 	if err != nil {
 		log.Errorf("Failed to check if dir %s is exiting, err: %s", base, err)
@@ -53,15 +52,19 @@ func PreLoadServiceManifests(base string, svc *commonmodels.Service) error {
 		return nil
 	}
 
-	fmt.Println(fmt.Sprintf("ready to DownloadServiceManifests 。。。"))
 	if err = DownloadServiceManifests(base, svc.ProductName, svc.ServiceName); err == nil {
 		return nil
-	} else {
-		fmt.Println(fmt.Sprintf("DownloadServiceManifests err:%s", err))
 	}
+
+	fmt.Println(fmt.Sprintf("DownloadServiceManifests err:%s", err))
+
+	fmt.Println(fmt.Sprintf("ready to preLoadServiceManifestsFromSource 。。。"))
 
 	log.Warnf("Failed to download service from s3, err: %s", err)
 
+	//if svc.Source == "gerrit" {
+	//	return
+	//}
 	return preLoadServiceManifestsFromSource(svc)
 }
 
