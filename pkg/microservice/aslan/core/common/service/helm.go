@@ -83,7 +83,6 @@ func DownloadServiceManifests(base, projectName, serviceName string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(fmt.Sprintf("DownloadAndExtractFilesFromS3 err: %v", err))
 	return nil
 }
 

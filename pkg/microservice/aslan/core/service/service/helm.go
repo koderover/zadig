@@ -1166,8 +1166,8 @@ func loadServiceFileInfos(productName, serviceName string, revision int64, dir s
 	if err != nil {
 		return nil, e.ErrFilePath.AddDesc(err.Error())
 	}
+
 	var fis []*types.FileInfo
-	fmt.Println(fmt.Sprintf("filepath.Join(base, serviceName, dir):", filepath.Join(base, serviceName, dir)))
 	files, err := os.ReadDir(filepath.Join(base, serviceName, dir))
 	if err != nil {
 		return nil, e.ErrFilePath.AddDesc(err.Error())
