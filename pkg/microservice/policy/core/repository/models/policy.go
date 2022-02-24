@@ -23,15 +23,15 @@ import (
 // Policy is a namespaced or cluster scoped, logical grouping of PolicyRules that can be referenced as a unit by a PolicyBinding.
 // for a cluster scoped Policy, namespace is empty.
 type Policy struct {
-	Name        string             `bson:"name"              json:"name"`
-	Namespace   string             `bson:"namespace"         json:"namespace"`
-	Description string             `json:"description"       json:"description"`
-	CreateTime  int64              `bson:"create_time"       json:"create_time"`
-	UpdateTime  int64              `bson:"update_time"       json:"update_time"`
-	Rules       []*Rule            `bson:"rules"             json:"rules"`
-	CreateBy    string             `bson:"create_by"         json:"create_by"`
-	UpdateBy    string             `bson:"update_by"         json:"update_by"`
-	Type        setting.PolicyType `bson:"type"              json:"type"`
+	Name        string                       `bson:"name"              json:"name"`
+	Namespace   string                       `bson:"namespace"         json:"namespace"`
+	Description string                       `json:"description"       json:"description"`
+	CreateTime  int64                        `bson:"create_time"       json:"create_time"`
+	UpdateTime  int64                        `bson:"update_time"       json:"update_time"`
+	Rules       []*Rule                      `bson:"rules"             json:"rules"`
+	CreateBy    string                       `bson:"create_by"         json:"create_by"`
+	UpdateBy    string                       `bson:"update_by"         json:"update_by"`
+	Type        setting.ResourceGenerateType `bson:"type"              json:"type"`
 }
 
 func (Policy) TableName() string {

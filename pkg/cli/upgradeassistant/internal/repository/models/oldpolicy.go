@@ -23,6 +23,11 @@ type PolicyMeta struct {
 	Rules       []*PolicyMetaRule `bson:"rules"       json:"rules"`
 }
 
+type Role struct {
+	Name      string `bson:"name"      json:"name"`
+	Namespace string `bson:"namespace" json:"namespace"`
+}
+
 type PolicyMetaRule struct {
 	Action      string        `bson:"action"      json:"action"`
 	Alias       string        `bson:"alias"       json:"alias"`

@@ -613,14 +613,11 @@ const (
 	InformerNamingConvention = "%s-%s"
 )
 
-type PolicyType string
-type PolicyBindingType string
-type LabelType string
+type ResourceGenerateType string
 
 const (
-	PolicyTypeSystem        PolicyType        = "system"
-	PolicyBindingTypeSystem PolicyBindingType = "system"
-	LabelTypeSystem         LabelType         = "system"
+	ResourceGenerateTypeSystem ResourceGenerateType = "system"
+	ResourceGenerateTypeUser   ResourceGenerateType = "user"
 )
 
 // AttachedClusterNamespace is the namespace Zadig uses in attached cluster.

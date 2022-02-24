@@ -121,8 +121,8 @@ func (c *Client) CreateSystemRole(name string, role *Role) error {
 	return err
 }
 
-func (c *Client) CreatePublicRole(name string, role *Role) error {
-	url := fmt.Sprintf("/public-roles/%s", name)
+func (c *Client) CreatePresetRole(name string, role *Role) error {
+	url := fmt.Sprintf("/preset-roles/%s", name)
 	_, err := c.Put(url, httpclient.SetBody(role))
 	return err
 }
