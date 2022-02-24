@@ -122,20 +122,23 @@ func DownloadAndExtractFilesFromS3(name, localBase, s3Base string, logger *zap.S
 	if s3.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
 	}
+	logger.Info(" DownloadAndExtractFilesFromS3: 1")
 	client, err := s3tool.NewClient(s3.Endpoint, s3.Ak, s3.Sk, s3.Insecure, forcedPathStyle)
 	if err != nil {
 		logger.Errorf("Failed to create s3 client, err: %s", err)
 		return err
 	}
+	logger.Info(" DownloadAndExtractFilesFromS3: 2")
 	if err = client.Download(s3.Bucket, s3Path, localPath); err != nil {
 		logger.Errorf("Failed to download file from s3, err: %s", err)
 		return err
 	}
+	logger.Info(" DownloadAndExtractFilesFromS3: 3")
 	if err = fsutil.Untar(localPath, localBase); err != nil {
 		logger.Errorf("Failed to extract tarball %s, err: %s", localPath, err)
 		return err
 	}
-
+	logger.Info(" DownloadAndExtractFilesFromS3: 4")
 	return nil
 }
 

@@ -52,20 +52,12 @@ func PreLoadServiceManifests(base string, svc *commonmodels.Service) error {
 		return nil
 	}
 
-	fmt.Println(fmt.Sprintf("PreLoadServiceManifests base : %s", base))
 	if err = DownloadServiceManifests(base, svc.ProductName, svc.ServiceName); err == nil {
 		return nil
 	}
 
-	fmt.Println(fmt.Sprintf("DownloadServiceManifests err:%s", err))
-
-	fmt.Println(fmt.Sprintf("ready to preLoadServiceManifestsFromSource 。。。"))
-
 	log.Warnf("Failed to download service from s3, err: %s", err)
 
-	//if svc.Source == "gerrit" {
-	//	return
-	//}
 	return preLoadServiceManifestsFromSource(svc)
 }
 
@@ -86,13 +78,12 @@ func PreloadServiceManifestsByRevision(base string, svc *commonmodels.Service) e
 }
 
 func DownloadServiceManifests(base, projectName, serviceName string) error {
-	fmt.Println(fmt.Sprintf("DownloadServiceManifests : %s", base))
 	s3Base := config.ObjectStorageServicePath(projectName, serviceName)
 	err := fsservice.DownloadAndExtractFilesFromS3(serviceName, base, s3Base, log.SugaredLogger())
 	if err != nil {
-		fmt.Println(fmt.Sprintf("DownloadAndExtractFilesFromS3 : %s", base))
 		return err
 	}
+	fmt.Println(fmt.Sprintf("DownloadAndExtractFilesFromS3 err: %v", err))
 	return nil
 }
 
