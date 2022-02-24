@@ -223,8 +223,11 @@ func GetFileContent(serviceName, productName string, param *GetFileContentParam,
 	file := filepath.Join(base, serviceName, filePath, fileName)
 	fileContent, err := os.ReadFile(file)
 	if err != nil {
-		log.Errorf("Failed to read file %s, err: %s", file, err)
-		return "", e.ErrFileContent.AddDesc(err.Error())
+		fileContent, err = os.ReadFile(filepath.Join(base, base, serviceName, filePath, fileName))
+		if err != nil {
+			log.Errorf("Failed to read file %s, err: %s", file, err)
+			return "", e.ErrFileContent.AddDesc(err.Error())
+		}
 	}
 
 	return string(fileContent), nil
