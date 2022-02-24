@@ -67,7 +67,6 @@ func ReadFile(filename string) ([]byte, error) {
 }
 
 func Tar(src, dst string) (err error) {
-	// 创建文件
 	fw, err := os.Create(dst)
 	if err != nil {
 		return
@@ -81,7 +80,6 @@ func Tar(src, dst string) (err error) {
 	defer tw.Close()
 
 	return filepath.Walk(src, func(fileName string, fi os.FileInfo, err error) error {
-		// 因为这个闭包会返回个 error ，所以先要处理一下这个
 		if err != nil {
 			return err
 		}
