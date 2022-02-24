@@ -102,18 +102,20 @@ func archiveAndUploadFiles(fileTree fs.FS, names []string, s3Base string, s3Stor
 }
 
 func DownloadAndExtractFilesFromS3(name, localBase, s3Base string, logger *zap.SugaredLogger) error {
+	fmt.Println(fmt.Sprintf(" DownloadAndExtractFilesFromS3: 1"))
 	tmpDir, err := os.MkdirTemp("", "")
 	if err != nil {
 		logger.Errorf("Failed to create temp dir, err: %s", err)
 	}
 	defer os.RemoveAll(tmpDir)
 
+	fmt.Println(fmt.Sprintf(" DownloadAndExtractFilesFromS3: 2"))
 	s3, err := s3service.FindDefaultS3()
 	if err != nil {
 		logger.Errorf("Failed to find default s3, err: %s", err)
 		return err
 	}
-
+	fmt.Println(fmt.Sprintf(" DownloadAndExtractFilesFromS3: 3"))
 	tarball := fmt.Sprintf("%s.tar.gz", name)
 	localPath := filepath.Join(tmpDir, tarball)
 	s3Path := filepath.Join(s3.Subfolder, s3Base, tarball)
@@ -122,23 +124,23 @@ func DownloadAndExtractFilesFromS3(name, localBase, s3Base string, logger *zap.S
 	if s3.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
 	}
-	logger.Info(" DownloadAndExtractFilesFromS3: 1")
+	fmt.Println(fmt.Sprintf(" DownloadAndExtractFilesFromS3: 4"))
 	client, err := s3tool.NewClient(s3.Endpoint, s3.Ak, s3.Sk, s3.Insecure, forcedPathStyle)
 	if err != nil {
 		logger.Errorf("Failed to create s3 client, err: %s", err)
 		return err
 	}
-	logger.Info(" DownloadAndExtractFilesFromS3: 2")
+	fmt.Println(fmt.Sprintf(" DownloadAndExtractFilesFromS3: 5"))
 	if err = client.Download(s3.Bucket, s3Path, localPath); err != nil {
 		logger.Errorf("Failed to download file from s3, err: %s", err)
 		return err
 	}
-	logger.Info(" DownloadAndExtractFilesFromS3: 3")
+	fmt.Println(fmt.Sprintf(" DownloadAndExtractFilesFromS3: 6"))
 	if err = fsutil.Untar(localPath, localBase); err != nil {
 		logger.Errorf("Failed to extract tarball %s, err: %s", localPath, err)
 		return err
 	}
-	logger.Info(" DownloadAndExtractFilesFromS3: 4")
+	fmt.Println(fmt.Sprintf(" DownloadAndExtractFilesFromS3: 7"))
 	return nil
 }
 
