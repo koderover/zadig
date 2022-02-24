@@ -163,6 +163,10 @@ func buildGitCommands(repo *Repo) []*Command {
 		os.MkdirAll(workDir, 0777)
 	}
 
+	if strings.Contains(repoName, "-new") {
+		repo.Name = strings.TrimSuffix(repo.Name, "-new")
+	}
+
 	// 预防非正常退出导致git被锁住
 	_ = os.Remove(path.Join(workDir, "/.git/index.lock"))
 
