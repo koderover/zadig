@@ -74,7 +74,7 @@ func SaveAndUploadFiles(fileTree fs.FS, names []string, localBase, s3Base string
 }
 
 // SaveAndUploadFiles saves a tree of files to local disk, at the same time, archives them and uploads to object storage.
-func CopyAndUploadFiles(fileTree fs.FS, names []string, localBase, s3Base, currentChartPath string, logger *zap.SugaredLogger) error {
+func CopyAndUploadFiles(names []string, localBase, s3Base, currentChartPath string, logger *zap.SugaredLogger) error {
 	var wg wait.Group
 	var err error
 
@@ -87,7 +87,7 @@ func CopyAndUploadFiles(fileTree fs.FS, names []string, localBase, s3Base, curre
 	})
 
 	wg.Start(func() {
-		err2 := ArchiveAndUploadFilesToS3(fileTree, names, s3Base, logger)
+		err2 := ArchiveAndUploadLocalFilesToS3(names, currentChartPath, s3Base, logger)
 		if err2 != nil {
 			logger.Errorf("Failed to upload files to s3, err: %s", err2)
 			err = err2
