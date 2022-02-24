@@ -243,7 +243,7 @@ func syncGerritLatestCommit(service *commonmodels.Service) (*systemconfig.CodeHo
 		return nil, err
 	}
 
-	gerritCli := gerrit.NewClient(detail.Address, detail.AccessToken)
+	gerritCli := gerrit.NewClient(detail.Address, detail.AccessToken, config.ProxyHTTPSAddr(), detail.EnableProxy)
 	commit, err := gerritCli.GetCommitByBranch(service.GerritRepoName, service.GerritBranchName)
 	if err != nil {
 		return detail, err

@@ -177,16 +177,17 @@ func ProcessWebhook(updatedHooks, currentHooks interface{}, name string, logger 
 			switch ch.Type {
 			case setting.SourceFromGithub, setting.SourceFromGitlab, setting.SourceFromCodeHub:
 				err = webhook.NewClient().RemoveWebHook(&webhook.TaskOption{
-					Name:    wh.name,
-					Owner:   wh.owner,
-					Repo:    wh.repo,
-					Address: ch.Address,
-					Token:   ch.AccessToken,
-					AK:      ch.AccessKey,
-					SK:      ch.SecretKey,
-					Region:  ch.Region,
-					Ref:     name,
-					From:    ch.Type,
+					Name:        wh.name,
+					Owner:       wh.owner,
+					Repo:        wh.repo,
+					Address:     ch.Address,
+					Token:       ch.AccessToken,
+					AK:          ch.AccessKey,
+					SK:          ch.SecretKey,
+					Region:      ch.Region,
+					EnableProxy: ch.EnableProxy,
+					Ref:         name,
+					From:        ch.Type,
 				})
 				if err != nil {
 					logger.Errorf("Failed to remove %s webhook %+v, err: %s", ch.Type, wh, err)

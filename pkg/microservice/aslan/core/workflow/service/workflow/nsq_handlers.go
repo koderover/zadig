@@ -222,13 +222,13 @@ func getRawFileContent(codehostID int, repo, owner, branch, filePath string) ([]
 	}
 	switch ch.Type {
 	case setting.SourceFromGitlab:
-		cli, err := gitlab.NewClient(ch.Address, ch.AccessToken, config.ProxyHTTPSAddr())
+		cli, err := gitlab.NewClient(ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 		if err != nil {
 			return nil, errors.Wrapf(err, "Failed to get gitlab client")
 		}
 		return cli.GetRawFile(repo, owner, branch, filePath)
 	case setting.SourceFromGithub:
-		gitClient := git.NewClient(ch.AccessToken, config.ProxyHTTPSAddr())
+		gitClient := git.NewClient(ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 		return gitClient.GetFileContent(owner, repo, filePath, branch)
 	default:
 		return nil, fmt.Errorf("Failed to create client for codehostID: %d", codehostID)
