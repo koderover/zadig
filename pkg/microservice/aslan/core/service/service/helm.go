@@ -1171,7 +1171,10 @@ func loadServiceFileInfos(productName, serviceName string, revision int64, dir s
 
 	files, err := os.ReadDir(filepath.Join(base, serviceName, dir))
 	if err != nil {
-		return nil, e.ErrFilePath.AddDesc(err.Error())
+		files, err = os.ReadDir(filepath.Join(base, base, serviceName, dir))
+		if err != nil {
+			return nil, e.ErrFilePath.AddDesc(err.Error())
+		}
 	}
 
 	for _, file := range files {
