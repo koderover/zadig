@@ -1149,7 +1149,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 		}
 	}
 	ifSync := false
-	if len(newWorkflow) == 0 && len(newProductName) == 0 && len(updateResp.Update) != 0 || len(updateResp.Delete) != 0 {
+	if len(newWorkflow) == 0 && len(newProductName) == 0 && (len(updateResp.Update) != 0 || len(updateResp.Delete) != 0) {
 		ifSync = true
 	}
 	return &GetCollaborationNewResp{
