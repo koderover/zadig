@@ -1119,7 +1119,15 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 		return nil, err
 	}
 
-	commonservice.ProcessServiceWebhook(serviceObj, currentSvcTmpl, args.ServiceName, logger)
+	switch args.Source {
+	case string(LoadFromGerrit):
+		if err := createGerritWebhookByService(args.CodehostID, args.ServiceName, args.Repo, args.Branch); err != nil {
+			log.Errorf("Failed to create gerrit webhook, err: %s", err)
+			return nil, err
+		}
+	default:
+		commonservice.ProcessServiceWebhook(serviceObj, currentSvcTmpl, args.ServiceName, logger)
+	}
 
 	if err = templaterepo.NewProductColl().AddService(args.ProductName, args.ServiceName); err != nil {
 		log.Errorf("Failed to add service %s to project %s, err: %s", args.ProductName, args.ServiceName, err)
