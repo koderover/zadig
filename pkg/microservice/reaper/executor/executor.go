@@ -37,7 +37,7 @@ func Execute() error {
 	})
 
 	start := time.Now()
-	log.Info("Build start.")
+	log.Info("====================== Build Start ======================")
 
 	var err error
 	defer func() {
@@ -50,10 +50,10 @@ func Execute() error {
 
 		dogFoodErr := ioutil.WriteFile(setting.DogFood, []byte(resultMsg), 0644)
 		if dogFoodErr != nil {
-			log.Errorf("Failed to create dog food: %s", dogFoodErr)
-		} else {
-			log.Infof("Build end. Duration: %.2f seconds.", time.Since(start).Seconds())
+			log.Errorf("Failed to create dog food: %s.", dogFoodErr)
 		}
+
+		log.Infof("====================== Build Ended. Duration: %.2f seconds ======================", time.Since(start).Seconds())
 
 		// Note: Mark the task has been completed through the dogfood file, indirectly notify wd to do follow-up
 		//       operations, and wait for a fixed time.
@@ -78,7 +78,7 @@ func Execute() error {
 		}
 	}
 
-	if err = r.AfterExec(err); err != nil {
+	if err = r.AfterExec(); err != nil {
 		return fmt.Errorf("failed to work after building: %s", err)
 	}
 

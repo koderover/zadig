@@ -758,6 +758,51 @@ func waitJobEnd(ctx context.Context, taskTimeout int, namspace, jobName string, 
 	return waitJobEndWithFile(ctx, taskTimeout, namspace, jobName, false, kubeClient, xl)
 }
 
+func waitJobReady(ctx context.Context, namespace, jobName string, kubeClient client.Client, xl *zap.SugaredLogger) (status config.Status) {
+	xl.Infof("Wait job to start: %s/%s", namespace, jobName)
+	podTimeout := time.After(120 * time.Second)
+
+	var started bool
+	for {
+		select {
+		case <-podTimeout:
+			return config.StatusTimeout
+		default:
+			time.Sleep(time.Second)
+
+			job, _, err := getter.GetJob(namespace, jobName, kubeClient)
+			if err != nil {
+				xl.Errorf("Failed to get job `%s` in namespace `%s`: %s", jobName, namespace, err)
+				continue
+			}
+
+			podLabels := labels.Set{
+				jobLabelPTypeKey:   job.Labels[jobLabelPTypeKey],
+				jobLabelServiceKey: job.Labels[jobLabelServiceKey],
+				jobLabelTaskKey:    job.Labels[jobLabelTaskKey],
+				jobLabelSTypeKey:   job.Labels[jobLabelSTypeKey],
+			}
+			pods, err := getter.ListPods(namespace, podLabels.AsSelector(), kubeClient)
+			if err != nil {
+				xl.Errorf("Failed to get pods in namespace `%s` for Job `%s`: %s", namespace, jobName, err)
+				continue
+			}
+
+			for _, pod := range pods {
+				if pod.Status.Phase == corev1.PodRunning {
+					started = true
+				}
+			}
+		}
+
+		if started {
+			break
+		}
+	}
+
+	return config.StatusRunning
+}
+
 func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName string, checkFile bool, kubeClient client.Client, xl *zap.SugaredLogger) (status config.Status) {
 	xl.Infof("wait job to start: %s/%s", namespace, jobName)
 	timeout := time.After(time.Duration(taskTimeout) * time.Second)
