@@ -231,6 +231,9 @@ func preloadCodehubService(detail *systemconfig.CodeHost, repoName, repoUUID, br
 
 // 根据repo信息从gerrit加载服务
 func loadGerritService(username string, ch *systemconfig.CodeHost, repoOwner, repoName, branchName, remoteName string, args *LoadServiceReq, log *zap.SugaredLogger) error {
+	if remoteName == "" {
+		remoteName = "origin"
+	}
 	base := path.Join(config.S3StoragePath(), repoName)
 	if _, err := os.Stat(base); os.IsNotExist(err) {
 		err = command.RunGitCmds(ch, repoOwner, repoName, branchName, remoteName)
