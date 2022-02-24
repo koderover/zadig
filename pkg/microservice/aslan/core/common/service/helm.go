@@ -52,6 +52,7 @@ func PreLoadServiceManifests(base string, svc *commonmodels.Service) error {
 		return nil
 	}
 
+	fmt.Println(fmt.Sprintf("PreLoadServiceManifests base : %s", base))
 	if err = DownloadServiceManifests(base, svc.ProductName, svc.ServiceName); err == nil {
 		return nil
 	}
@@ -85,8 +86,14 @@ func PreloadServiceManifestsByRevision(base string, svc *commonmodels.Service) e
 }
 
 func DownloadServiceManifests(base, projectName, serviceName string) error {
+	fmt.Println(fmt.Sprintf("DownloadServiceManifests : %s", base))
 	s3Base := config.ObjectStorageServicePath(projectName, serviceName)
-	return fsservice.DownloadAndExtractFilesFromS3(serviceName, base, s3Base, log.SugaredLogger())
+	err := fsservice.DownloadAndExtractFilesFromS3(serviceName, base, s3Base, log.SugaredLogger())
+	if err != nil {
+		fmt.Println(fmt.Sprintf("DownloadAndExtractFilesFromS3 : %s", base))
+		return err
+	}
+	return nil
 }
 
 func SaveAndUploadService(projectName, serviceName string, copies []string, fileTree fs.FS) error {
@@ -105,6 +112,7 @@ func CopyAndUploadService(projectName, serviceName, currentChartPath string, cop
 }
 
 func preLoadServiceManifestsFromSource(svc *commonmodels.Service) error {
+	fmt.Println(fmt.Sprintf("preLoadServiceManifestsFromSource start ..."))
 	tree, err := fsservice.DownloadFilesFromSource(
 		&fsservice.DownloadFromSourceArgs{CodehostID: svc.CodehostID, Owner: svc.RepoOwner, Repo: svc.RepoName, Path: svc.LoadPath, Branch: svc.BranchName, RepoLink: svc.SrcPath},
 		func(afero.Fs) (string, error) {
