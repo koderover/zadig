@@ -119,3 +119,14 @@ func (c *Client) GetResourcePermission(req *ResourcePermissionReq) (map[string][
 	}
 	return result, nil
 }
+
+func (c *Client) GetPolicies(names string) ([]*Policy, error) {
+	url := fmt.Sprintf("/policies")
+
+	var res []*Policy
+	_, err := c.Get(url, httpclient.SetQueryParam("names", names), httpclient.SetResult(res))
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}

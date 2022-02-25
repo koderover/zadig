@@ -60,6 +60,8 @@ const (
 	UpsertColliePipelineScheduler = "UpsertColliePipelineScheduler"
 	//CleanProductScheduler ...
 	CleanProductScheduler = "CleanProductScheduler"
+	//CleanCIResourcesScheduler ...
+	CleanCIResourcesScheduler = "CleanCIResourcesScheduler"
 	//InitBuildStatScheduler
 	InitStatScheduler = "InitStatScheduler"
 	//InitOperationStatScheduler
@@ -145,6 +147,8 @@ func (c *CronClient) Init() {
 
 	// 定时清理环境
 	c.InitCleanProductScheduler()
+	// 定时清理协作模式资源
+	c.InitCleanCIResourcesScheduler()
 	// 定时初始化构建数据
 	c.InitBuildStatScheduler()
 	// 定时器初始化话运营统计数据
@@ -173,6 +177,16 @@ func (c *CronClient) InitCleanProductScheduler() {
 	c.Schedulers[CleanProductScheduler].Every(5).Minutes().Do(c.AslanCli.TriggerCleanProducts, c.log)
 
 	c.Schedulers[CleanProductScheduler].Start()
+}
+
+// InitCleanCIResourcesScheduler ...
+func (c *CronClient) InitCleanCIResourcesScheduler() {
+
+	c.Schedulers[CleanCIResourcesScheduler] = gocron.NewScheduler()
+
+	c.Schedulers[CleanCIResourcesScheduler].Every(5).Minutes().Do(c.AslanCli.TriggerCleanCIResources, c.log)
+
+	c.Schedulers[CleanCIResourcesScheduler].Start()
 }
 
 // InitJobScheduler ...

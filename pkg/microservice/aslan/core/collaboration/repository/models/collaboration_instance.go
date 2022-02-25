@@ -29,7 +29,7 @@ type CollaborationInstance struct {
 	UpdateTime        int64              `bson:"update_time"              json:"update_time"`
 	LastVisitTime     int64              `bson:"last_visit_time"          json:"last_visit_time"`
 	CollaborationName string             `bson:"collaboration_name"       json:"collaboration_name"`
-	RecycleDay        int                `bson:"recycle_day"              json:"recycle_day"`
+	RecycleDay        int64              `bson:"recycle_day"              json:"recycle_day"`
 	Revision          int64              `bson:"revision"                 json:"revision"`
 	UserUID           string             `bson:"user_uid"                 json:"user_uid"`
 	PolicyName        string             `bson:"policy_name"              json:"policy_name"`

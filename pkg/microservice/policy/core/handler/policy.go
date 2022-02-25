@@ -144,6 +144,13 @@ func GetPolicy(c *gin.Context) {
 	ctx.Resp, ctx.Err = service.GetPolicy(projectName, c.Param("name"), ctx.Logger)
 }
 
+func GetPolicies(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.GetPolicies(c.Param("names"), ctx.Logger)
+}
+
 func CreatePublicPolicy(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()

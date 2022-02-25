@@ -33,7 +33,7 @@ type CollaborationMode struct {
 	Members     []string         `bson:"members"                   json:"members"`
 	IsDeleted   bool             `bson:"is_deleted"                json:"is_deleted"`
 	DeployType  string           `bson:"deploy_type"               json:"deploy_type"`
-	RecycleDay  int              `bson:"recycle_day"               json:"recycle_day"`
+	RecycleDay  int64            `bson:"recycle_day"               json:"recycle_day"`
 	Workflows   []WorkflowCMItem `bson:"workflows"                 json:"workflows" `
 	Products    []ProductCMItem  `bson:"products"                  json:"products"`
 	CreateBy    string           `bson:"create_by"                 json:"create_by"`

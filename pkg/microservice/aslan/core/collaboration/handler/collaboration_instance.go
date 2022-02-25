@@ -60,3 +60,9 @@ func SyncCollaborationInstance(c *gin.Context) {
 	}
 	ctx.Err = service.SyncCollaborationInstance(args, projectName, ctx.UserID, ctx.IdentityType, ctx.Account, ctx.RequestID, ctx.Logger)
 }
+
+func CleanCIResources(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+	ctx.Err = service.CleanCIResources(ctx.UserName, ctx.RequestID, ctx.Logger)
+}

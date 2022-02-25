@@ -18,6 +18,7 @@ package service
 
 import (
 	"fmt"
+	"strings"
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -129,13 +130,26 @@ func ListPolicies(projectName string, _ *zap.SugaredLogger) ([]*Policy, error) {
 	return policies, nil
 }
 
-func GetPolicy(ns, name string, _ *zap.SugaredLogger) (*Policy, error) {
-	r, found, err := mongodb.NewPolicyColl().Get(ns, name)
+func GetPolicies(names string, log *zap.SugaredLogger) ([]*Policy, error) {
+	splitedNames := strings.Split(names, ",")
+	policies, err := mongodb.NewPolicyColl().GetByNames(splitedNames)
 	if err != nil {
 		return nil, err
-	} else if !found {
-		return nil, fmt.Errorf("policy %s not found", name)
 	}
+	var res []*Policy
+	for _, policy := range policies {
+		policy, err := buildPolicy(policy)
+		if err != nil {
+			log.Errorf("buildPolicy error:%s", err)
+			return nil, err
+		}
+		res = append(res, policy)
+	}
+
+	return res, nil
+}
+
+func buildPolicy(r *models.Policy) (*Policy, error) {
 	res := &Policy{
 		Name: r.Name,
 	}
@@ -180,6 +194,22 @@ func GetPolicy(ns, name string, _ *zap.SugaredLogger) (*Policy, error) {
 			}
 		}
 		res.Rules[i].RelatedResources = relatedResources
+	}
+	return res, nil
+}
+
+func GetPolicy(ns, name string, log *zap.SugaredLogger) (*Policy, error) {
+	r, found, err := mongodb.NewPolicyColl().Get(ns, name)
+	if err != nil {
+		return nil, err
+	} else if !found {
+		log.Errorf("policy %s not found", name)
+		return nil, fmt.Errorf("policy %s not found", name)
+	}
+	res, err := buildPolicy(r)
+	if err != nil {
+		log.Errorf("buildPolicy error:%s", err)
+		return nil, err
 	}
 	return res, nil
 }
