@@ -76,11 +76,6 @@ func (client *ChartRepoClient) FetchIndexYaml() (*helm.Index, error) {
 func (client *ChartRepoClient) DownloadChart(chartName, chartVersion, basePath string) error {
 	chartTGZName := fmt.Sprintf("%s-%s.tgz", chartName, chartVersion)
 	chartTGZFilePath := filepath.Join(basePath, chartTGZName)
-	//out, err := os.Create(chartTGZFilePath)
-	//if err != nil {
-	//	_ = os.RemoveAll(chartTGZFilePath)
-	//	return errors.Wrapf(err, "failed to create chart tgz file")
-	//}
 
 	response, err := client.DownloadFile(fmt.Sprintf("charts/%s", chartTGZName))
 	if err != nil {
@@ -96,11 +91,6 @@ func (client *ChartRepoClient) DownloadChart(chartName, chartVersion, basePath s
 	if err != nil {
 		return errors.Wrapf(err, "failed to read response data")
 	}
-
-	//defer func(out *os.File) {
-	//	_ = out.Close()
-	//}(out)
-
 	return ioutil.WriteFile(chartTGZFilePath, b, 0644)
 }
 
