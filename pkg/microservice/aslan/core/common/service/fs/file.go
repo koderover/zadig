@@ -87,7 +87,8 @@ func CopyAndUploadFiles(names []string, localBase, s3Base, currentChartPath stri
 	})
 
 	wg.Start(func() {
-		err2 := ArchiveAndUploadLocalFilesToS3(names, localBase, s3Base, logger)
+		fileTree := os.DirFS(currentChartPath)
+		err2 := ArchiveAndUploadFilesToS3(fileTree, names, s3Base, logger)
 		if err2 != nil {
 			logger.Errorf("Failed to upload files to s3, err: %s", err2)
 			err = err2

@@ -223,12 +223,8 @@ func GetFileContent(serviceName, productName string, param *GetFileContentParam,
 	file := filepath.Join(base, serviceName, filePath, fileName)
 	fileContent, err := os.ReadFile(file)
 	if err != nil {
-		// Adapt to gerrit scenarios
-		fileContent, err = os.ReadFile(filepath.Join(base, base, serviceName, filePath, fileName))
-		if err != nil {
-			log.Errorf("Failed to read file %s, err: %s", file, err)
-			return "", e.ErrFileContent.AddDesc(err.Error())
-		}
+		log.Errorf("Failed to read file %s, err: %s", file, err)
+		return "", e.ErrFileContent.AddDesc(err.Error())
 	}
 
 	return string(fileContent), nil
@@ -1175,11 +1171,7 @@ func loadServiceFileInfos(productName, serviceName string, revision int64, dir s
 
 	files, err := os.ReadDir(filepath.Join(base, serviceName, dir))
 	if err != nil {
-		// Adapt to gerrit scenarios
-		files, err = os.ReadDir(filepath.Join(base, base, serviceName, dir))
-		if err != nil {
-			return nil, e.ErrFilePath.AddDesc(err.Error())
-		}
+		return nil, e.ErrFilePath.AddDesc(err.Error())
 	}
 
 	for _, file := range files {
