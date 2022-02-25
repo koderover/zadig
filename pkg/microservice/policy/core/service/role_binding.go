@@ -28,10 +28,11 @@ import (
 )
 
 type RoleBinding struct {
-	Name   string `json:"name"`
-	UID    string `json:"uid"`
-	Role   string `json:"role"`
-	Preset bool   `json:"preset"`
+	Name   string               `json:"name"`
+	UID    string               `json:"uid"`
+	Role   string               `json:"role"`
+	Preset bool                 `json:"preset"`
+	Type   setting.ResourceType `json:"type"`
 }
 
 func CreateRoleBindings(ns string, rbs []*RoleBinding, logger *zap.SugaredLogger) error {

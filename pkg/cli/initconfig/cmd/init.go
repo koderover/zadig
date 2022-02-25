@@ -195,6 +195,7 @@ func presetRoleBinding(uid string) error {
 		Name: config.RoleBindingNameFromUIDAndRole(uid, setting.SystemAdmin, "*"),
 		UID:  uid,
 		Role: string(setting.SystemAdmin),
+		Type: setting.ResourceTypeSystem,
 	})
 
 }

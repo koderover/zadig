@@ -19,6 +19,7 @@ package policy
 import (
 	"fmt"
 
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
@@ -50,10 +51,11 @@ type Attribute struct {
 }
 
 type RoleBinding struct {
-	Name   string `json:"name"`
-	UID    string `json:"uid"`
-	Role   string `json:"role"`
-	Public bool   `json:"public"`
+	Name   string               `json:"name"`
+	UID    string               `json:"uid"`
+	Role   string               `json:"role"`
+	Preset bool                 `json:"public"`
+	Type   setting.ResourceType `json:"type"`
 }
 
 func (c *Client) CreateOrUpdatePolicyRegistration(p *PolicyMeta) error {
