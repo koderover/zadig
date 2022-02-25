@@ -46,9 +46,9 @@ type K8SCluster struct {
 }
 
 type K8SClusterResp struct {
-	ID             string          `json:"id"                          bson:"_id,omitempty"`
+	ID             string          `json:"id"                          bson:"id,omitempty"`
 	Name           string          `json:"name"                        bson:"name"`
-	AdvancedConfig *AdvancedConfig `json:"config,omitempty"            bson:"config,omitempty"`
+	AdvancedConfig *AdvancedConfig `json:"advanced_config,omitempty"   bson:"advanced_config,omitempty"`
 }
 
 type K8SClusterInfo struct {
