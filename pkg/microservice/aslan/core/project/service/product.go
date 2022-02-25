@@ -597,7 +597,7 @@ func ForkProduct(username, uid, requestID string, args *template.ForkProject, lo
 	err = policy.NewDefault().CreateOrUpdateRoleBinding(args.ProductName, &policy.RoleBinding{
 		UID:    uid,
 		Role:   string(setting.Contributor),
-		Public: true,
+		Preset: true,
 	})
 	if err != nil {
 		log.Errorf("Failed to create or update roleBinding, err: %s", err)
