@@ -51,10 +51,13 @@ type policyBinding struct {
 }
 
 type Binding struct {
-	Roles    []*roleBinding   `json:"roles"`
-	Policies []*policyBinding `json:"policies"`
-	UserName string           `json:"user_name"`
-	Email    string           `json:"email"`
+	Roles        []*roleBinding   `json:"roles"`
+	Policies     []*policyBinding `json:"policies"`
+	UserName     string           `json:"username"`
+	Email        string           `json:"email"`
+	Account      string           `json:"account"`
+	IdentityType string           `json:"identity_type"`
+	Phone        string           `json:"phone"`
 }
 
 func ListBindings(header http.Header, qs url.Values, logger *zap.SugaredLogger) ([]*Binding, error) {
@@ -98,8 +101,11 @@ func ListBindings(header http.Header, qs url.Values, logger *zap.SugaredLogger) 
 	var policyBindings []*policyBinding
 	for _, u := range users {
 		binding := &Binding{
-			UserName: u.Name,
-			Email:    u.Email,
+			UserName:     u.Name,
+			Email:        u.Email,
+			IdentityType: u.IdentityType,
+			Account:      u.Account,
+			Phone:        u.Phone,
 		}
 		if rb, ok := uidToRoleBinding[u.UID]; ok {
 			for _, r := range rb {

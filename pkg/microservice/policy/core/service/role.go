@@ -99,7 +99,7 @@ func ListRoles(projectName string, _ *zap.SugaredLogger) ([]*Role, error) {
 		if v.Name == string(setting.Contributor) {
 			continue
 		}
-		tmpRole := Role{Select: false}
+		tmpRole := Role{Select: false, Name: v.Name, Type: v.Type}
 		if v.Name == string(setting.ReadProjectOnly) {
 			tmpRole.Select = true
 		}
