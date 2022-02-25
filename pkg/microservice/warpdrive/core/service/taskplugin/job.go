@@ -934,6 +934,8 @@ func addNodeAffinity(clusterID string, K8SClusters []*task.K8SCluster) *corev1.A
 
 func findClusterConfig(clusterID string, K8SClusters []*task.K8SCluster) *task.AdvancedConfig {
 	for _, K8SCluster := range K8SClusters {
+		fmt.Println(fmt.Sprintf("K8SCluster:%+v", K8SCluster.Name))
+		fmt.Println(fmt.Sprintf("K8SCluster.AdvancedConfig:%+v", K8SCluster.AdvancedConfig))
 		if K8SCluster.ID == clusterID {
 			return K8SCluster.AdvancedConfig
 		}
