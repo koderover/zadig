@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/koderover/zadig/pkg/microservice/picket/client/policy"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/user"
 )
 
@@ -31,20 +32,22 @@ const allUsers = "*"
 
 type roleBinding struct {
 	*policy.RoleBinding
-	Username     string `json:"username"`
-	Email        string `json:"email"`
-	Phone        string `json:"phone"`
-	IdentityType string `json:"identity_type"`
-	Account      string `json:"account"`
+	Username     string               `json:"username"`
+	Email        string               `json:"email"`
+	Phone        string               `json:"phone"`
+	IdentityType string               `json:"identity_type"`
+	Account      string               `json:"account"`
+	Type         setting.ResourceType `json:"type"`
 }
 
 type policyBinding struct {
 	*policy.PolicyBinding
-	Username     string `json:"username"`
-	Email        string `json:"email"`
-	Phone        string `json:"phone"`
-	IdentityType string `json:"identity_type"`
-	Account      string `json:"account"`
+	Username     string               `json:"username"`
+	Email        string               `json:"email"`
+	Phone        string               `json:"phone"`
+	IdentityType string               `json:"identity_type"`
+	Account      string               `json:"account"`
+	Type         setting.ResourceType `json:"type"`
 }
 
 type Binding struct {

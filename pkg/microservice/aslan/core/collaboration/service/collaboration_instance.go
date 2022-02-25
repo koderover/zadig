@@ -475,7 +475,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 				Key: "policy",
 				Value: buildLabelValue(projectName, mode.Name, identityType, userName,
 					string(config2.ResourceTypeWorkflow), workflow.Name),
-				Type:        setting.ResourceGenerateTypeSystem,
+				Type:        setting.ResourceTypeSystem,
 				ProjectName: projectName,
 			})
 		}
@@ -484,7 +484,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 				Key: "policy",
 				Value: buildLabelValue(projectName, mode.Name, identityType, userName,
 					string(config2.ResourceTypeProduct), product.Name),
-				Type:        setting.ResourceGenerateTypeSystem,
+				Type:        setting.ResourceTypeSystem,
 				ProjectName: projectName,
 			})
 		}
@@ -495,7 +495,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 				Key: "policy",
 				Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName,
 					string(config2.ResourceTypeWorkflow), workflow.Name),
-				Type:        setting.ResourceGenerateTypeSystem,
+				Type:        setting.ResourceTypeSystem,
 				ProjectName: projectName,
 			})
 		}
@@ -504,7 +504,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 				Key: "policy",
 				Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName,
 					string(config2.ResourceTypeProduct), product.Name),
-				Type:        setting.ResourceGenerateTypeSystem,
+				Type:        setting.ResourceTypeSystem,
 				ProjectName: projectName,
 			})
 		}
@@ -513,7 +513,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 				Key: "policy",
 				Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName,
 					string(config2.ResourceTypeWorkflow), workflow.BaseName),
-				Type:        setting.ResourceGenerateTypeSystem,
+				Type:        setting.ResourceTypeSystem,
 				ProjectName: projectName,
 			})
 		}
@@ -522,7 +522,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 				Key: "policy",
 				Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName,
 					string(config2.ResourceTypeProduct), product.BaseName),
-				Type:        setting.ResourceGenerateTypeSystem,
+				Type:        setting.ResourceTypeSystem,
 				ProjectName: projectName,
 			})
 		}
@@ -534,7 +534,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 				Key: "policy",
 				Value: buildLabelValue(projectName, instance.CollaborationName, identityType, userName,
 					string(config2.ResourceTypeWorkflow), workflow.BaseName),
-				Type: setting.ResourceGenerateTypeSystem,
+				Type: setting.ResourceTypeSystem,
 			})
 		}
 		for _, product := range instance.Products {
@@ -542,7 +542,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 				Key: "policy",
 				Value: buildLabelValue(projectName, instance.CollaborationName, identityType, userName,
 					string(config2.ResourceTypeProduct), product.BaseName),
-				Type: setting.ResourceGenerateTypeSystem,
+				Type: setting.ResourceTypeSystem,
 			})
 		}
 	}
@@ -584,14 +584,14 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 			labels = append(labels, mongodb2.Label{
 				Key:   "policy",
 				Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeWorkflow), workflow.New.Name),
-				Type:  setting.ResourceGenerateTypeSystem,
+				Type:  setting.ResourceTypeSystem,
 			})
 		}
 		for _, product := range item.UpdateSpec.Products {
 			labels = append(labels, mongodb2.Label{
 				Key:   "policy",
 				Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeProduct), product.New.Name),
-				Type:  setting.ResourceGenerateTypeSystem,
+				Type:  setting.ResourceTypeSystem,
 			})
 		}
 

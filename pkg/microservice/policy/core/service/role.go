@@ -27,9 +27,9 @@ import (
 )
 
 type Role struct {
-	Name  string                       `json:"name"`
-	Rules []*Rule                      `json:"rules,omitempty"`
-	Type  setting.ResourceGenerateType `json:"type,omitempty"`
+	Name  string               `json:"name"`
+	Rules []*Rule              `json:"rules,omitempty"`
+	Type  setting.ResourceType `json:"type,omitempty"`
 }
 
 func CreateRole(ns string, role *Role, _ *zap.SugaredLogger) error {

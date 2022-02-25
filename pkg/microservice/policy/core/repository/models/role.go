@@ -23,10 +23,10 @@ import (
 // Role is a namespaced or cluster scoped, logical grouping of PolicyRules that can be referenced as a unit by a RoleBinding.
 // for a cluster scoped Role, namespace is empty.
 type Role struct {
-	Name      string                       `bson:"name"      json:"name"`
-	Namespace string                       `bson:"namespace" json:"namespace"`
-	Rules     []*Rule                      `bson:"rules"     json:"rules"`
-	Type      setting.ResourceGenerateType `bson:"type"     json:"type"`
+	Name      string               `bson:"name"      json:"name"`
+	Namespace string               `bson:"namespace" json:"namespace"`
+	Rules     []*Rule              `bson:"rules"     json:"rules"`
+	Type      setting.ResourceType `bson:"type"     json:"type"`
 }
 
 func (Role) TableName() string {

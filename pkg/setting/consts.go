@@ -613,11 +613,11 @@ const (
 	InformerNamingConvention = "%s-%s"
 )
 
-type ResourceGenerateType string
+type ResourceType string
 
 const (
-	ResourceGenerateTypeSystem ResourceGenerateType = "system"
-	ResourceGenerateTypeUser   ResourceGenerateType = "user"
+	ResourceTypeSystem ResourceType = "system"
+	ResourceTypeCustom ResourceType = "custom"
 )
 
 // AttachedClusterNamespace is the namespace Zadig uses in attached cluster.

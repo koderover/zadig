@@ -28,6 +28,11 @@ type Role struct {
 	Namespace string `bson:"namespace" json:"namespace"`
 }
 
+type RoleBinding struct {
+	Name      string `baso:"name" json:"name"`
+	Namespace string `baso:"namespace" json:"namespace"`
+}
+
 type PolicyMetaRule struct {
 	Action      string        `bson:"action"      json:"action"`
 	Alias       string        `bson:"alias"       json:"alias"`

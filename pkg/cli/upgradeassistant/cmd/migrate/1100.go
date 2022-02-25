@@ -29,6 +29,7 @@ import (
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/orm"
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 	"github.com/koderover/zadig/pkg/types"
@@ -70,6 +71,44 @@ func V190ToV1100() error {
 	return nil
 }
 
+func addPresetRoleBindingSystemType() error {
+	ctx := context.Background()
+
+	var res []*models.RoleBinding
+	cursor, err := newRoleBindingColl().Find(ctx, bson.M{})
+	if err != nil {
+		log.Errorf("Failed to Find Policies, err: %s", err)
+		return err
+	}
+
+	err = cursor.All(ctx, &res)
+	if err != nil {
+		return err
+	}
+	for _, v := range res {
+		if v.Namespace == "*" {
+			query := bson.M{"name": v.Name}
+			change := bson.M{"$set": bson.M{
+				"type": setting.ResourceTypeSystem,
+			}}
+			_, err := newRoleBindingColl().UpdateOne(ctx, query, change)
+			if err != nil {
+				return err
+			}
+		} else {
+			query := bson.M{"name": v.Name}
+			change := bson.M{"$set": bson.M{
+				"type": setting.ResourceTypeCustom,
+			}}
+			_, err := newRoleBindingColl().UpdateOne(ctx, query, change)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func addPresetRoleSystemType() error {
 	ctx := context.Background()
 
@@ -85,10 +124,19 @@ func addPresetRoleSystemType() error {
 		return err
 	}
 	for _, v := range res {
-		if v.Name == "admin" || v.Name == "read-only" || v.Name == "project-admin" || v.Name == "contribute" || v.Name == "read-project-only" {
+		if v.Namespace == "*" || v.Namespace == "" {
 			query := bson.M{"name": v.Name}
 			change := bson.M{"$set": bson.M{
 				"type": "system",
+			}}
+			_, err := newRoleColl().UpdateOne(ctx, query, change)
+			if err != nil {
+				return err
+			}
+		} else {
+			query := bson.M{"name": v.Name}
+			change := bson.M{"$set": bson.M{
+				"type": "custom",
 			}}
 			_, err := newRoleColl().UpdateOne(ctx, query, change)
 			if err != nil {

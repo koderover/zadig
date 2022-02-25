@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
@@ -31,10 +32,11 @@ type RoleBinding struct {
 }
 
 type PolicyBinding struct {
-	Name   string `json:"name"`
-	UID    string `json:"uid"`
-	Policy string `json:"policy"`
-	Public bool   `json:"public"`
+	Name   string               `json:"name"`
+	UID    string               `json:"uid"`
+	Policy string               `json:"policy"`
+	Preset bool                 `json:"preset"`
+	Type   setting.ResourceType `json:"type"`
 }
 
 func (c *Client) ListRoleBindings(header http.Header, qs url.Values) ([]*RoleBinding, error) {

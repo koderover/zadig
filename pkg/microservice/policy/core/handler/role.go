@@ -100,7 +100,7 @@ func UpdatePresetRole(c *gin.Context) {
 	}
 	name := c.Param("name")
 	args.Name = name
-	ctx.Err = service.UpdateRole(service.PublicScope, args, ctx.Logger)
+	ctx.Err = service.UpdateRole(service.PresetScope, args, ctx.Logger)
 }
 
 func UpdateOrCreatePresetRole(c *gin.Context) {
@@ -114,7 +114,7 @@ func UpdateOrCreatePresetRole(c *gin.Context) {
 	}
 	name := c.Param("name")
 	args.Name = name
-	ctx.Err = service.UpdateOrCreateRole(service.PublicScope, args, ctx.Logger)
+	ctx.Err = service.UpdateOrCreateRole(service.PresetScope, args, ctx.Logger)
 }
 
 func ListRoles(c *gin.Context) {
@@ -152,15 +152,15 @@ func CreatePresetRole(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	args.Type = setting.ResourceGenerateTypeSystem
-	ctx.Err = service.CreateRole(service.PublicScope, args, ctx.Logger)
+	args.Type = setting.ResourceTypeSystem
+	ctx.Err = service.CreateRole(service.PresetScope, args, ctx.Logger)
 }
 
 func ListPresetRoles(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.ListRoles(service.PublicScope, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListRoles(service.PresetScope, ctx.Logger)
 	return
 }
 
@@ -168,7 +168,7 @@ func GetPresetRole(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.GetRole(service.PublicScope, c.Param("name"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetRole(service.PresetScope, c.Param("name"), ctx.Logger)
 }
 
 func DeleteRole(c *gin.Context) {
@@ -208,7 +208,7 @@ func DeletePresetRole(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 	name := c.Param("name")
-	ctx.Err = service.DeleteRole(name, service.PublicScope, ctx.Logger)
+	ctx.Err = service.DeleteRole(name, service.PresetScope, ctx.Logger)
 	return
 }
 
@@ -221,7 +221,7 @@ func CreateSystemRole(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	args.Type = setting.ResourceGenerateTypeSystem
+	args.Type = setting.ResourceTypeSystem
 	ctx.Err = service.CreateRole(service.SystemScope, args, ctx.Logger)
 }
 
