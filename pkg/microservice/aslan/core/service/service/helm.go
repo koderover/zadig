@@ -574,7 +574,7 @@ func CreateOrUpdateHelmServiceFromGerrit(projectName string, args *HelmServiceCr
 					GerritCodeHostID: createFromRepo.CodehostID,
 					GerritPath:       currentFilePath,
 					GerritRepoName:   createFromRepo.Repo,
-					GerritBranchName: createFromRepo.Repo,
+					GerritBranchName: createFromRepo.Branch,
 					GerritRemoteName: "origin",
 				},
 				log,
