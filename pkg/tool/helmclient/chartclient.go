@@ -19,10 +19,8 @@ package helmclient
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"path/filepath"
 
 	cm "github.com/chartmuseum/helm-push/pkg/chartmuseum"
@@ -57,16 +55,14 @@ func (client *ChartRepoClient) FetchIndexYaml() (*helm.Index, error) {
 		return nil, errors.Wrapf(err, "failed to download index.yaml")
 	}
 
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(resp.Body)
+	defer resp.Body.Close()
 
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return nil, errors.Wrapf(getChartmuseumError(b, resp.StatusCode), "failed to download index.yaml")
 	}
 
@@ -80,30 +76,30 @@ func (client *ChartRepoClient) FetchIndexYaml() (*helm.Index, error) {
 func (client *ChartRepoClient) DownloadChart(chartName, chartVersion, basePath string) error {
 	chartTGZName := fmt.Sprintf("%s-%s.tgz", chartName, chartVersion)
 	chartTGZFilePath := filepath.Join(basePath, chartTGZName)
-	out, err := os.Create(chartTGZFilePath)
-	if err != nil {
-		_ = os.RemoveAll(chartTGZFilePath)
-		return errors.Wrapf(err, "failed to create chart tgz file")
-	}
+	//out, err := os.Create(chartTGZFilePath)
+	//if err != nil {
+	//	_ = os.RemoveAll(chartTGZFilePath)
+	//	return errors.Wrapf(err, "failed to create chart tgz file")
+	//}
 
 	response, err := client.DownloadFile(fmt.Sprintf("charts/%s", chartTGZName))
 	if err != nil {
 		return errors.Wrapf(err, "failed to download file")
 	}
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		return errors.Wrapf(err, "download file failed")
 	}
-	defer func() { _ = response.Body.Close() }()
+	defer response.Body.Close()
 
 	b, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return errors.Wrapf(err, "failed to read response data")
 	}
 
-	defer func(out *os.File) {
-		_ = out.Close()
-	}(out)
+	//defer func(out *os.File) {
+	//	_ = out.Close()
+	//}(out)
 
 	return ioutil.WriteFile(chartTGZFilePath, b, 0644)
 }
@@ -131,6 +127,8 @@ func (client *ChartRepoClient) PushChart(chartPackagePath string, force bool) er
 	if err != nil {
 		return errors.Wrapf(err, "failed to prepare pushing chart: %s", chartPackagePath)
 	}
+
+	defer resp.Body.Close()
 	err = handlePushResponse(resp)
 	if err != nil {
 		return errors.Wrapf(err, "failed to push chart: %s ", chartPackagePath)
@@ -150,16 +148,13 @@ func getChartmuseumError(b []byte, code int) error {
 }
 
 func handlePushResponse(resp *http.Response) error {
-	if resp.StatusCode != 201 && resp.StatusCode != 202 {
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusAccepted {
 		b, err := ioutil.ReadAll(resp.Body)
-		defer func(Body io.ReadCloser) {
-			_ = Body.Close()
-		}(resp.Body)
 		if err != nil {
 			return err
 		}
 		return getChartmuseumError(b, resp.StatusCode)
 	}
-	log.Infof("push chart to chart repo done")
+	log.Info("push chart to chart repo done")
 	return nil
 }

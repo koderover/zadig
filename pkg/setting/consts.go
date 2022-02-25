@@ -240,8 +240,7 @@ const (
 	SourceFromChartTemplate = "chartTemplate"
 	// SourceFromPublicRepo 配置来源为publicRepo
 	SourceFromPublicRepo = "publicRepo"
-	// SourceFromChartRepo
-	SourceFromChartRepo = "chartRepo"
+	SourceFromChartRepo  = "chartRepo"
 
 	// SourceFromGUI 配置来源为gui
 	SourceFromGUI = "gui"

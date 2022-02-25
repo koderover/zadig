@@ -20,8 +20,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -745,32 +743,6 @@ func handleSingleChart(chartData *DeliveryChartData, product *commonmodels.Produ
 		return nil, errors.Wrapf(err, "failed to prepare pushing chart: %s", chartPackagePath)
 	}
 	return imageDetail, nil
-}
-
-func handlePushResponse(resp *http.Response) error {
-	if resp.StatusCode != 201 && resp.StatusCode != 202 {
-		b, err := ioutil.ReadAll(resp.Body)
-		defer func(Body io.ReadCloser) {
-			_ = Body.Close()
-		}(resp.Body)
-		if err != nil {
-			return err
-		}
-		return getChartmuseumError(b, resp.StatusCode)
-	}
-	log.Infof("push chart to chart repo done")
-	return nil
-}
-
-func getChartmuseumError(b []byte, code int) error {
-	var er struct {
-		Error string `json:"error"`
-	}
-	err := json.Unmarshal(b, &er)
-	if err != nil || er.Error == "" {
-		return errors.Errorf("%d: could not properly parse response JSON: %s", code, string(b))
-	}
-	return errors.Errorf("%d: %s", code, er.Error)
 }
 
 func makeChartTGZFileDir(productName, versionName string) (string, error) {
