@@ -48,6 +48,20 @@ func CreateRoleBindings(ns string, rbs []*RoleBinding, logger *zap.SugaredLogger
 	return mongodb.NewRoleBindingColl().BulkCreate(objs)
 }
 
+func UpdateRoleBindings(ns string, rbs []*RoleBinding, userID string, logger *zap.SugaredLogger) error {
+	err := DeleteRoleBindings([]string{"*"}, ns, userID, logger)
+	if err != nil {
+		logger.Errorf("delete rolebindings err:%s,ns:%s,userID:%s", err, ns, userID)
+		return err
+	}
+	err = CreateRoleBindings(ns, rbs, logger)
+	if err != nil {
+		logger.Errorf("create rolebings err:%s,ns:%s,userID:%s", err, ns, userID)
+		return err
+	}
+	return nil
+}
+
 func CreateOrUpdateSystemRoleBinding(ns string, rb *RoleBinding, logger *zap.SugaredLogger) error {
 
 	obj, err := createRoleBindingObject(ns, rb, logger)

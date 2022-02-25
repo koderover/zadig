@@ -27,10 +27,13 @@ import (
 )
 
 type Role struct {
-	Name   string               `json:"name"`
-	Rules  []*Rule              `json:"rules,omitempty"`
-	Type   setting.ResourceType `json:"type,omitempty"`
-	Select bool                 `json:"select,omitempty"`
+	Name  string  `json:"name"`
+	Rules []*Rule `json:"rules,omitempty"`
+	// if the role is created by user , set the type to "custom"
+	// if the role is created by system , set the type  to "system"
+	Type setting.ResourceType `json:"type,omitempty"`
+	// frontend default select flag
+	Select bool `json:"select,omitempty"`
 }
 
 func CreateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
