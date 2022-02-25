@@ -1098,6 +1098,7 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 		serviceObj.GerritCodeHostID = args.GerritCodeHostID
 		serviceObj.GerritRepoName = args.GerritRepoName
 		serviceObj.GerritBranchName = args.GerritBranchName
+		serviceObj.GerritRemoteName = args.GerritRemoteName
 	default:
 		serviceObj.CreateFrom = geneCreationDetail(args)
 	}
