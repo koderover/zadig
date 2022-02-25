@@ -58,6 +58,7 @@ type Binding struct {
 	Account      string           `json:"account"`
 	IdentityType string           `json:"identity_type"`
 	Phone        string           `json:"phone"`
+	Uid          string           `json:"uid"`
 }
 
 func ListBindings(header http.Header, qs url.Values, logger *zap.SugaredLogger) ([]*Binding, error) {
@@ -106,6 +107,7 @@ func ListBindings(header http.Header, qs url.Values, logger *zap.SugaredLogger) 
 			IdentityType: u.IdentityType,
 			Account:      u.Account,
 			Phone:        u.Phone,
+			Uid:          u.UID,
 		}
 		if rb, ok := uidToRoleBinding[u.UID]; ok {
 			for _, r := range rb {
@@ -138,6 +140,7 @@ func ListBindings(header http.Header, qs url.Values, logger *zap.SugaredLogger) 
 		Policies: uidToPolicyBindings[allUsers],
 		UserName: "*",
 		Email:    "",
+		Uid:      "*",
 	}
 	res = append(res, AllUserBinding)
 	return res, nil
