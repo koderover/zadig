@@ -151,7 +151,7 @@ func fillServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sugar
 		}
 		log.Infof("find %d containers in service %s", len(args.Containers), args.ServiceName)
 
-		// 设置新的版本号
+		// generate new revision
 		serviceTemplate := fmt.Sprintf(setting.ServiceTemplateCounterName, args.ServiceName, args.ProductName)
 		rev, err := commonrepo.NewCounterColl().GetNextSeq(serviceTemplate)
 		if err != nil {
@@ -159,7 +159,7 @@ func fillServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sugar
 		}
 
 		args.Revision = rev
-		// 更新到数据库，revision+1
+		// update service template
 		if err := commonrepo.NewServiceColl().Create(args); err != nil {
 			log.Errorf("Failed to sync service %s from github path %s error: %v", args.ServiceName, args.SrcPath, err)
 			return e.ErrCreateTemplate.AddDesc(err.Error())
