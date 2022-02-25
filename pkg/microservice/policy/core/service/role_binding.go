@@ -99,7 +99,7 @@ func DeleteRoleBindings(names []string, projectName string, userID string, _ *za
 
 func createRoleBindingObject(ns string, rb *RoleBinding, logger *zap.SugaredLogger) (*models.RoleBinding, error) {
 	nsRole := ns
-	if rb.Public {
+	if rb.Preset {
 		nsRole = ""
 	}
 	role, found, err := mongodb.NewRoleColl().Get(nsRole, rb.Role)
@@ -130,7 +130,7 @@ func ensureRoleBindingName(ns string, rb *RoleBinding) {
 	}
 
 	nsRole := ns
-	if rb.Public {
+	if rb.Preset {
 		nsRole = ""
 	}
 

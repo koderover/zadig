@@ -562,10 +562,11 @@ const ChartTemplatesPath = "charts"
 type RoleType string
 
 const (
-	Contributor  RoleType = "contributor"
-	ReadOnly     RoleType = "read-only"
-	ProjectAdmin RoleType = "project-admin"
-	SystemAdmin  RoleType = "admin"
+	Contributor     RoleType = "contributor"
+	ReadOnly        RoleType = "read-only"
+	ProjectAdmin    RoleType = "project-admin"
+	SystemAdmin     RoleType = "admin"
+	ReadProjectOnly RoleType = "read-project-only"
 )
 
 // ModernWorkflowType 自由编排工作流

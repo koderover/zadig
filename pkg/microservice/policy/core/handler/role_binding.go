@@ -156,7 +156,7 @@ func CreateSystemRoleBinding(c *gin.Context) {
 		return
 	}
 
-	args.Public = false
+	args.Preset = false
 
 	ctx.Err = service.CreateRoleBindings(service.SystemScope, []*service.RoleBinding{args}, ctx.Logger)
 }
@@ -171,7 +171,7 @@ func CreateOrUpdateSystemRoleBinding(c *gin.Context) {
 		return
 	}
 
-	args.Public = false
+	args.Preset = false
 
 	ctx.Err = service.CreateOrUpdateSystemRoleBinding(service.SystemScope, args, ctx.Logger)
 }

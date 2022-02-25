@@ -27,9 +27,10 @@ import (
 )
 
 type Role struct {
-	Name  string               `json:"name"`
-	Rules []*Rule              `json:"rules,omitempty"`
-	Type  setting.ResourceType `json:"type,omitempty"`
+	Name   string               `json:"name"`
+	Rules  []*Rule              `json:"rules,omitempty"`
+	Type   setting.ResourceType `json:"type,omitempty"`
+	Select bool                 `json:"select,omitempty"`
 }
 
 func CreateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
@@ -95,9 +96,11 @@ func ListRoles(projectName string, _ *zap.SugaredLogger) ([]*Role, error) {
 		if v.Name == string(setting.Contributor) {
 			continue
 		}
-		roles = append(roles, &Role{
-			Name: v.Name,
-		})
+		tmpRole := Role{Select: false}
+		if v.Name == string(setting.ReadProjectOnly) {
+			tmpRole.Select = true
+		}
+		roles = append(roles, &tmpRole)
 	}
 	return roles, nil
 }
