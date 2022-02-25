@@ -51,6 +51,7 @@ type Product struct {
 	Source       string                        `bson:"source"                    json:"source"`
 	IsOpenSource bool                          `bson:"is_opensource"             json:"is_opensource"`
 	RegistryID   string                        `bson:"registry_id"               json:"registry_id"`
+	BaseName     string                        `bson:"base_name" json:"base_name"`
 	// IsExisted is true if this environment is created from an existing one
 	IsExisted bool `bson:"is_existed"                json:"is_existed"`
 	// TODO: temp flag

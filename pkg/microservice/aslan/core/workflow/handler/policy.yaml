@@ -3,9 +3,15 @@ alias: "工作流"
 description: ""
 rules:
   - action: get_workflow
-    alias: "查看工作流"
+    alias: "查看"
     description: ""
     rules:
+      - method: GET
+        endpoint: "api/aslan/workflow/workflow"
+        resourceType: "Workflow"
+        matchAttributes:
+          - key: "placeholder"
+            value: "placeholder"
       - method: GET
         endpoint: "api/aslan/workflow/workflow"
       - method: GET
@@ -39,7 +45,7 @@ rules:
       - method: GET
         endpoint: "/api/aslan/workflow/servicetask/workflows/?*/?*/?*/?*"
   - action: edit_workflow
-    alias: "编辑工作流"
+    alias: "编辑"
     description: ""
     rules:
       - method: PUT
@@ -57,7 +63,7 @@ rules:
       - method: PUT
         endpoint: "/api/aslan/workflow/v3/?*"
   - action: create_workflow
-    alias: "新建工作流"
+    alias: "新建"
     description: ""
     rules:
       - method: POST
@@ -77,7 +83,7 @@ rules:
       - method: POST
         endpoint: "/api/aslan/workflow/v3"
   - action: delete_workflow
-    alias: "删除工作流"
+    alias: "删除"
     description: ""
     rules:
       - method: DELETE
@@ -85,7 +91,7 @@ rules:
       - method: DELETE
         endpoint: "/api/aslan/workflow/v3/?*"
   - action: run_workflow
-    alias: "执行工作流"
+    alias: "执行"
     description: ""
     rules:
       - method: POST

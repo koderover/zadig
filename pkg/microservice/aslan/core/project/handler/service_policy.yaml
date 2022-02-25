@@ -1,9 +1,9 @@
 resource: Service
-alias: "项目配置"
+alias: "服务"
 description: ""
 rules:
   - action: get_service
-    alias: "查看服务"
+    alias: "查看"
     description: ""
     rules:
       - method: GET
@@ -25,7 +25,7 @@ rules:
       - method: GET
         endpoint: "/api/aslan/service/services/?*/pm"
   - action: edit_service
-    alias: "编辑服务"
+    alias: "编辑"
     description: ""
     rules:
       - method: POST
@@ -41,7 +41,7 @@ rules:
       - method: PUT
         endpoint: "/api/aslan/project/products/?*/searching-rules"
   - action: create_service
-    alias: "新建服务"
+    alias: "新建"
     description: ""
     rules:
       - method: POST
@@ -55,7 +55,7 @@ rules:
       - method: POST
         endpoint: "/api/aslan/service/helm/services/bulk"
   - action: delete_service
-    alias: "删除服务"
+    alias: "删除"
     description: ""
     rules:
       - method: DELETE

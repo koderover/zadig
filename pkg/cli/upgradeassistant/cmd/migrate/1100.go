@@ -23,11 +23,14 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 
+	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
 	internalmodels "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
 	internalmongodb "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/mongodb"
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/orm"
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
+	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/tool/log"
+	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 	"github.com/koderover/zadig/pkg/types"
 )
 
@@ -37,11 +40,15 @@ func init() {
 }
 
 // V190ToV1100 migrates data `caches` and `pre_build.clean_workspace` fields in `zadig.module_build` and `zadig.module_testing`
-// to new fields `cache_enable`, `cache_dir_type` and `cache_user_dir`.
+// to new fields `cache_enable`, `cache_dir_type` and `cache_user_dir`; generate labelBindings for production environment
 func V190ToV1100() error {
-	log.Info("Migrate data from 1.9.0 to 1.10.0.")
+	log.Info("Migrating data from 1.9.0 to 1.10.0")
 
-	log.Info("Migrate data in `zadig.module_build`.")
+	if err := changePolicyCollectionName(); err != nil {
+		log.Errorf("Failed to changePolicyCollectionName, err: %s", err)
+		return err
+	}
+
 	if err := migrateModuleBuild(); err != nil {
 		return fmt.Errorf("failed to migrate data in `zadig.module_build`: %s", err)
 	}
@@ -58,15 +65,80 @@ func V190ToV1100() error {
 	return nil
 }
 
-// Since the old data has not been changed, no changes are required.
+func changePolicyCollectionName() error {
+	var res []*models.PolicyMeta
+
+	ctx := context.Background()
+	cursor, err := newPolicyColl().Find(ctx, bson.M{})
+	if err != nil {
+		log.Errorf("Failed to Find Policies, err: %s", err)
+		return err
+	}
+
+	err = cursor.All(ctx, &res)
+	if err != nil {
+		return err
+	}
+
+	var ois []interface{}
+	for _, obj := range res {
+		ois = append(ois, obj)
+	}
+	if _, err = newPolicyMetaColl().InsertMany(ctx, ois); err != nil {
+		log.Errorf("Failed to InsertMany policyMetas, err: %s", err)
+		return err
+	}
+	//delete collection
+	return newPolicyColl().Drop(ctx)
+}
+
+func rollbackChangePolicyCollectionName() error {
+	var res []*models.PolicyMeta
+	ctx := context.Background()
+	cursor, err := newPolicyMetaColl().Find(ctx, bson.M{})
+	if err != nil {
+		return err
+	}
+
+	err = cursor.All(ctx, &res)
+	if err != nil {
+		return err
+	}
+
+	var ois []interface{}
+	for _, obj := range res {
+		ois = append(ois, obj)
+	}
+	if _, err = newPolicyColl().InsertMany(ctx, ois); err != nil {
+		log.Errorf("Failed to InsertMany, err: %s", err)
+		return err
+	}
+	//delete collection
+	return newPolicyMetaColl().Drop(ctx)
+}
+
 func V1100ToV190() error {
 	log.Info("Rollback data from 1.10.0 to 1.9.0")
+	if err := rollbackChangePolicyCollectionName(); err != nil {
+		log.Errorf("Failed to rollbackChangePolicyCollectionName,err: %s", err)
+		return err
+	}
 
 	log.Info("UpdateUserDBTables: drop cloumn from mysql table `user`.")
 	if err := orm.UpdateUserDBTables(orm.DbEditActionDrop); err != nil {
 		return fmt.Errorf("UpdateUserDBTables: failed to drop cloumn from mysql table `user`: %s", err)
 	}
 	return nil
+}
+
+func newPolicyColl() *mongo.Collection {
+	collection := mongotool.Database(fmt.Sprintf("%s_policy", config.MongoDatabase())).Collection("policy")
+	return collection
+}
+
+func newPolicyMetaColl() *mongo.Collection {
+	collection := mongotool.Database(fmt.Sprintf("%s_policy", config.MongoDatabase())).Collection("policy_meta")
+	return collection
 }
 
 func migrateModuleBuild() error {

@@ -34,8 +34,6 @@ type RoleBinding struct {
 	Public bool   `json:"public"`
 }
 
-const SystemScope = "*"
-
 func CreateRoleBindings(ns string, rbs []*RoleBinding, logger *zap.SugaredLogger) error {
 	var objs []*models.RoleBinding
 	for _, rb := range rbs {
@@ -70,30 +68,6 @@ func UpdateOrCreateRoleBinding(ns string, rb *RoleBinding, logger *zap.SugaredLo
 func ListRoleBindings(ns, uid string, _ *zap.SugaredLogger) ([]*RoleBinding, error) {
 	var roleBindings []*RoleBinding
 	modelRoleBindings, err := mongodb.NewRoleBindingColl().ListBy(ns, uid)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, v := range modelRoleBindings {
-		roleBindings = append(roleBindings, &RoleBinding{
-			Name:   v.Name,
-			Role:   v.RoleRef.Name,
-			UID:    v.Subjects[0].UID,
-			Public: v.RoleRef.Namespace == "",
-		})
-	}
-
-	return roleBindings, nil
-}
-
-func ListRoleBindingsByRole(ns, roleName string, publicRole bool, _ *zap.SugaredLogger) ([]*RoleBinding, error) {
-	var roleBindings []*RoleBinding
-
-	roleNamespace := ns
-	if publicRole {
-		roleNamespace = ""
-	}
-	modelRoleBindings, err := mongodb.NewRoleBindingColl().List(&mongodb.ListOptions{RoleName: roleName, RoleNamespace: roleNamespace})
 	if err != nil {
 		return nil, err
 	}
@@ -161,4 +135,26 @@ func ensureRoleBindingName(ns string, rb *RoleBinding) {
 	}
 
 	rb.Name = config.RoleBindingNameFromUIDAndRole(rb.UID, setting.RoleType(rb.Role), nsRole)
+}
+
+func ListUserAllRoleBindings(projectName, uid string) ([]*models.RoleBinding, error) {
+	var rbs []mongodb.RoleBinding
+	roleBindingReadOnly := mongodb.RoleBinding{
+		Uid:       "*",
+		Namespace: projectName,
+	}
+	roleBindingsAdmin := mongodb.RoleBinding{
+		Uid:       uid,
+		Namespace: "*",
+	}
+	roleBindingCommon := mongodb.RoleBinding{
+		Uid:       uid,
+		Namespace: projectName,
+	}
+	rbs = append(rbs, roleBindingReadOnly, roleBindingsAdmin, roleBindingCommon)
+	roleBindings, err := mongodb.NewRoleBindingColl().ListByRoleBindingOpt(mongodb.ListRoleBindingsOpt{RoleBindings: rbs})
+	if err != nil {
+		return nil, err
+	}
+	return roleBindings, nil
 }

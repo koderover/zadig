@@ -269,3 +269,7 @@ func Namespace() string {
 func RoleBindingNameFromUIDAndRole(uid string, role setting.RoleType, roleNamespace string) string {
 	return fmt.Sprintf("%s-%s-%s", uid, role, roleNamespace)
 }
+
+func BuildResourceKey(resourceType, projectName, labelBinding string) string {
+	return fmt.Sprintf("%s-%s-%s", resourceType, projectName, labelBinding)
+}

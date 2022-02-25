@@ -613,6 +613,16 @@ const (
 	InformerNamingConvention = "%s-%s"
 )
 
+type PolicyType string
+type PolicyBindingType string
+type LabelType string
+
+const (
+	PolicyTypeSystem        PolicyType        = "system"
+	PolicyBindingTypeSystem PolicyBindingType = "system"
+	LabelTypeSystem         LabelType         = "system"
+)
+
 // AttachedClusterNamespace is the namespace Zadig uses in attached cluster.
 // Note: **Restricted because of product design since v1.9.0**.
 const AttachedClusterNamespace = "koderover-agent"

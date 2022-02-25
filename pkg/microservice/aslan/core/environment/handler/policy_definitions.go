@@ -27,7 +27,7 @@ import (
 
 const (
 	productionPolicyResource = "ProductionEnvironment"
-	productionPolicyAlias    = "集成环境(类生产/预发布)"
+	productionPolicyAlias    = "集成环境(生产/预发布)"
 	productionKey            = "production"
 	productionValueTrue      = "true"
 )
@@ -35,15 +35,15 @@ const (
 //go:embed policy.yaml
 var policyDefinitions []byte
 
-func (*Router) Policies() []*policy.Policy {
-	res := &policy.Policy{}
+func (*Router) Policies() []*policy.PolicyMeta {
+	res := &policy.PolicyMeta{}
 	err := yaml.Unmarshal(policyDefinitions, res)
 	if err != nil {
 		// should not have happened here
 		log.DPanic(err)
 	}
 
-	productionPolicy := &policy.Policy{}
+	productionPolicy := &policy.PolicyMeta{}
 	_ = yaml.Unmarshal(policyDefinitions, productionPolicy)
 	productionPolicy.Resource = productionPolicyResource
 	productionPolicy.Alias = productionPolicyAlias
@@ -58,5 +58,5 @@ func (*Router) Policies() []*policy.Policy {
 		}
 	}
 
-	return []*policy.Policy{res, productionPolicy}
+	return []*policy.PolicyMeta{res, productionPolicy}
 }
