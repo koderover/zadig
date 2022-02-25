@@ -443,7 +443,7 @@ func CreateOrUpdateHelmServiceFromChartRepo(projectName string, args *HelmServic
 
 	compareHelmVariable([]*templatemodels.RenderChart{
 		{
-			ServiceName:  args.Name,
+			ServiceName:  chartRepoArgs.ChartName,
 			ChartVersion: svc.HelmChart.Version,
 			ValuesYaml:   svc.HelmChart.ValuesYaml,
 		},
