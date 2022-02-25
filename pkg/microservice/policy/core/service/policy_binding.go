@@ -27,10 +27,11 @@ import (
 )
 
 type PolicyBinding struct {
-	Name   string `json:"name"`
-	UID    string `json:"uid"`
-	Policy string `json:"policy"`
-	Preset bool   `json:"preset"`
+	Name   string               `json:"name"`
+	UID    string               `json:"uid"`
+	Policy string               `json:"policy"`
+	Preset bool                 `json:"preset"`
+	Type   setting.ResourceType `json:"type"`
 }
 
 func CreatePolicyBindings(ns string, rbs []*PolicyBinding, logger *zap.SugaredLogger) error {
@@ -76,6 +77,7 @@ func ListPolicyBindings(ns, uid string, _ *zap.SugaredLogger) ([]*PolicyBinding,
 			Policy: v.PolicyRef.Name,
 			UID:    v.Subjects[0].UID,
 			Preset: v.PolicyRef.Namespace == "",
+			Type:   v.Type,
 		})
 	}
 
