@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -129,36 +130,18 @@ func updateServiceTemplateByGerritEvent(uri string, log *zap.SugaredLogger) erro
 		var newYamlContent string
 		var oldYamlContent string
 		if filePath.IsDir() {
-			newFileInfos, err := ioutil.ReadDir(path.Join(newBase, service.LoadPath))
-			if err != nil {
+			if newFileContents, err := readAllFileContentUnderDir(path.Join(newBase, service.LoadPath)); err == nil {
+				newYamlContent = strings.Join(newFileContents, setting.YamlFileSeperator)
+			} else {
 				errs = multierror.Append(errs, err)
 			}
 
-			newFileContents := make([]string, 0)
-			for _, file := range newFileInfos {
-				if contentBytes, err := ioutil.ReadFile(path.Join(newBase, service.LoadPath, file.Name())); err == nil {
-					newFileContents = append(newFileContents, string(contentBytes))
-				} else {
-					errs = multierror.Append(errs, err)
-				}
-			}
-
-			newYamlContent = strings.Join(newFileContents, setting.YamlFileSeperator)
-
-			oldFileInfos, err := ioutil.ReadDir(path.Join(oldBase, service.LoadPath))
-			if err != nil {
+			if oldFileContents, err := readAllFileContentUnderDir(path.Join(oldBase, service.LoadPath)); err == nil {
+				oldYamlContent = strings.Join(oldFileContents, setting.YamlFileSeperator)
+			} else {
 				errs = multierror.Append(errs, err)
 			}
 
-			oldFileContents := make([]string, 0)
-			for _, file := range oldFileInfos {
-				if contentBytes, err := ioutil.ReadFile(path.Join(oldBase, service.LoadPath, file.Name())); err == nil {
-					oldFileContents = append(oldFileContents, string(contentBytes))
-				} else {
-					errs = multierror.Append(errs, err)
-				}
-			}
-			oldYamlContent = strings.Join(oldFileContents, setting.YamlFileSeperator)
 		} else {
 			if contentBytes, err := ioutil.ReadFile(path.Join(newBase, service.LoadPath)); err == nil {
 				newYamlContent = string(contentBytes)
@@ -339,4 +322,30 @@ func reloadServiceTmplFromGerrit(svc *commonmodels.Service, log *zap.SugaredLogg
 		},
 	}, log)
 	return err
+}
+
+// Get the contents of all files in a directory
+func readAllFileContentUnderDir(localBase string) ([]string, error) {
+	fileTree := os.DirFS(localBase)
+	allFileContents := []string{}
+	err := fs.WalkDir(fileTree, ".", func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		mode := entry.Type()
+		switch {
+		case mode.IsRegular():
+			fileContents, err := fs.ReadFile(fileTree, path)
+			if err != nil {
+				return err
+			}
+
+			allFileContents = append(allFileContents, string(fileContents))
+			return nil
+		default:
+			return nil
+		}
+	})
+	return allFileContents, err
 }
