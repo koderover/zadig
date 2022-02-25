@@ -19,6 +19,7 @@ package policy
 import (
 	"fmt"
 
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -50,10 +51,11 @@ type DeletePoliciesArgs struct {
 }
 
 type PolicyBinding struct {
-	Name   string `json:"name"`
-	UID    string `json:"uid"`
-	Policy string `json:"policy"`
-	Public bool   `json:"public"`
+	Name   string               `json:"name"`
+	UID    string               `json:"uid"`
+	Policy string               `json:"policy"`
+	Preset bool                 `json:"preset"`
+	Type   setting.ResourceType `json:"type"`
 }
 
 func (c *Client) CreatePolicyBinding(projectName string, policyBindings []*PolicyBinding) error {

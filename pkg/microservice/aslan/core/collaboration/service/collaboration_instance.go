@@ -378,7 +378,8 @@ func syncPolicy(updateResp *GetCollaborationUpdateResp, projectName, identityTyp
 			Name:   buildPolicybindingName(uid, policyName, projectName),
 			UID:    uid,
 			Policy: policyName,
-			Public: false,
+			Preset: false,
+			Type:   setting.ResourceTypeSystem,
 		})
 	}
 	if len(policies) > 0 {
