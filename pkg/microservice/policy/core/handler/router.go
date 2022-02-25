@@ -45,14 +45,14 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		policies.DELETE("/:name", DeletePolicy)
 	}
 
-	publicRoles := router.Group("preset-roles")
+	presetRoles := router.Group("preset-roles")
 	{
-		publicRoles.POST("", CreatePresetRole)
-		publicRoles.GET("", ListPresetRoles)
-		publicRoles.GET("/:name", GetPresetRole)
-		publicRoles.PATCH("/:name", UpdatePresetRole)
-		publicRoles.PUT("/:name", UpdateOrCreatePresetRole)
-		publicRoles.DELETE("/:name", DeletePresetRole)
+		presetRoles.POST("", CreatePresetRole)
+		presetRoles.GET("", ListPresetRoles)
+		presetRoles.GET("/:name", GetPresetRole)
+		presetRoles.PATCH("/:name", UpdatePresetRole)
+		presetRoles.PUT("/:name", UpdateOrCreatePresetRole)
+		presetRoles.DELETE("/:name", DeletePresetRole)
 	}
 
 	systemRoles := router.Group("system-roles")

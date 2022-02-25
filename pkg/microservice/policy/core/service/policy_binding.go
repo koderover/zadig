@@ -75,7 +75,7 @@ func ListPolicyBindings(ns, uid string, _ *zap.SugaredLogger) ([]*PolicyBinding,
 			Name:   v.Name,
 			Policy: v.PolicyRef.Name,
 			UID:    v.Subjects[0].UID,
-			Public: v.PolicyRef.Namespace == "",
+			Preset: v.PolicyRef.Namespace == "",
 		})
 	}
 
@@ -99,7 +99,7 @@ func ListPolicyBindingsByPolicy(ns, policyName string, publicPolicy bool, _ *zap
 			Name:   v.Name,
 			Policy: v.PolicyRef.Name,
 			UID:    v.Subjects[0].UID,
-			Public: v.PolicyRef.Namespace == "",
+			Preset: v.PolicyRef.Namespace == "",
 		})
 	}
 

@@ -31,7 +31,7 @@ type RoleBinding struct {
 	Name   string `json:"name"`
 	UID    string `json:"uid"`
 	Role   string `json:"role"`
-	Public bool   `json:"public"`
+	Preset bool   `json:"preset"`
 }
 
 func CreateRoleBindings(ns string, rbs []*RoleBinding, logger *zap.SugaredLogger) error {
@@ -77,7 +77,7 @@ func ListRoleBindings(ns, uid string, _ *zap.SugaredLogger) ([]*RoleBinding, err
 			Name:   v.Name,
 			Role:   v.RoleRef.Name,
 			UID:    v.Subjects[0].UID,
-			Public: v.RoleRef.Namespace == "",
+			Preset: v.RoleRef.Namespace == "",
 		})
 	}
 
