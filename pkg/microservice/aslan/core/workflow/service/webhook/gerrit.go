@@ -35,6 +35,7 @@ import (
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	gerritservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gerrit"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/service/service"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -176,8 +177,7 @@ func updateServiceTemplateByGerritEvent(uri string, log *zap.SugaredLogger) erro
 			log.Infof("Started to sync service template %s from gerrit %s", service.ServiceName, service.LoadPath)
 			service.CreateBy = "system"
 			service.Yaml = newYamlContent
-			err := SyncServiceTemplateFromGerrit(service, log)
-			if err != nil {
+			if err := SyncServiceTemplateFromGerrit(service, log); err != nil {
 				errs = multierror.Append(errs, err)
 			}
 		} else {
@@ -195,7 +195,6 @@ func GetGerritWorkspaceBasePath(repoName string) (string, error) {
 // GetGerritServiceTemplates Get all service templates maintained in gerrit
 func GetGerritServiceTemplates() ([]*commonmodels.Service, error) {
 	opt := &commonrepo.ServiceListOption{
-		Type:   setting.K8SDeployType,
 		Source: setting.SourceFromGerrit,
 	}
 	return commonrepo.NewServiceColl().ListMaxRevisions(opt)
@@ -208,21 +207,27 @@ func SyncServiceTemplateFromGerrit(service *commonmodels.Service, log *zap.Sugar
 		return fmt.Errorf("SyncServiceTemplateFromGerrit Service template is not from gerrit")
 	}
 
-	//同步commit信息
+	// Sync commit information
 	if _, err := syncGerritLatestCommit(service); err != nil {
 		log.Errorf("SyncServiceTemplateFromGerrit Sync change log from gerrit failed service %s, error: %v", service.ServiceName, err)
 		return err
 	}
 
-	// 在Ensure过程中会检查source，如果source为gerrit，则同步gerrit内容到service中
-	if err := ensureServiceTmpl(setting.WebhookTaskCreator, service, log); err != nil {
-		log.Errorf("SyncServiceTemplateFromGerrit ensureServiceTmpl error: %+v", err)
-		return e.ErrValidateTemplate.AddDesc(err.Error())
+	if service.Type == setting.K8SDeployType {
+		// During the Ensure process, the source will be checked. If the source is gerrit, the gerrit content will be synchronized to the service.
+		if err := ensureServiceTmpl(setting.WebhookTaskCreator, service, log); err != nil {
+			log.Errorf("SyncServiceTemplateFromGerrit ensureServiceTmpl error: %+v", err)
+			return e.ErrValidateTemplate.AddDesc(err.Error())
+		}
+		// Update to database, revision+1
+		if err := commonrepo.NewServiceColl().Create(service); err != nil {
+			log.Errorf("SyncServiceTemplateFromGerrit Failed to sync service %s from gerrit path %s error: %v", service.ServiceName, service.SrcPath, err)
+			return e.ErrCreateTemplate.AddDesc(err.Error())
+		}
+		return nil
 	}
-	// 更新到数据库，revision+1
-	if err := commonrepo.NewServiceColl().Create(service); err != nil {
-		log.Errorf("SyncServiceTemplateFromGerrit Failed to sync service %s from gerrit path %s error: %v", service.ServiceName, service.SrcPath, err)
-		return e.ErrCreateTemplate.AddDesc(err.Error())
+	if err := reloadServiceTmplFromGerrit(service, log); err != nil {
+		return err
 	}
 	log.Infof("End of sync service template %s from gerrit path %s", service.ServiceName, service.SrcPath)
 	return nil
@@ -317,4 +322,21 @@ func ensureServiceTmpl(userName string, args *commonmodels.Service, log *zap.Sug
 	args.Revision = rev
 
 	return nil
+}
+
+func reloadServiceTmplFromGerrit(svc *commonmodels.Service, log *zap.SugaredLogger) error {
+	_, err := service.CreateOrUpdateHelmServiceFromGerrit(svc.ProductName, &service.HelmServiceCreationArgs{
+		HelmLoadSource: service.HelmLoadSource{
+			Source: service.LoadFromGerrit,
+		},
+		CreatedBy: svc.CreateBy,
+		CreateFrom: &service.CreateFromRepo{
+			CodehostID: svc.CodehostID,
+			Owner:      svc.RepoOwner,
+			Repo:       svc.RepoName,
+			Branch:     svc.BranchName,
+			Paths:      []string{svc.LoadPath},
+		},
+	}, log)
+	return err
 }
