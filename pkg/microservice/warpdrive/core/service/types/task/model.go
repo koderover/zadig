@@ -22,6 +22,7 @@ import (
 	"sync"
 
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
+	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/common"
 	"github.com/koderover/zadig/pkg/setting"
 )
 
@@ -39,7 +40,7 @@ type Task struct {
 	StartTime    int64                    `bson:"start_time"                json:"start_time,omitempty"`
 	EndTime      int64                    `bson:"end_time"                  json:"end_time,omitempty"`
 	SubTasks     []map[string]interface{} `bson:"sub_tasks"                 json:"sub_tasks"`
-	Stages       []*Stage                 `bson:"stages"                    json:"stages"`
+	Stages       []*common.Stage          `bson:"stages"                    json:"stages"`
 	ReqID        string                   `bson:"req_id,omitempty"          json:"req_id,omitempty"`
 	AgentHost    string                   `bson:"agent_host,omitempty"      json:"agent_host,omitempty"`
 	DockerHost   string                   `bson:"-"                         json:"docker_host,omitempty"`
@@ -310,16 +311,6 @@ type TriggerBy struct {
 	MergeRequestID string `json:"merge_request_id,omitempty" bson:"merge_request_id,omitempty"`
 	// 触发此次任务的commit id
 	CommitID string `json:"commit_id,omitempty" bson:"commit_id,omitempty"`
-}
-
-type Stage struct {
-	// 注意: 同一个stage暂时不能运行不同类型的Task
-	TaskType    config.TaskType                   `bson:"type"               json:"type"`
-	Status      config.Status                     `bson:"status"             json:"status"`
-	RunParallel bool                              `bson:"run_parallel"       json:"run_parallel"`
-	Desc        string                            `bson:"desc,omitempty"     json:"desc,omitempty"`
-	SubTasks    map[string]map[string]interface{} `bson:"sub_tasks"          json:"sub_tasks"`
-	AfterAll    bool                              `json:"after_all" bson:"after_all"`
 }
 
 func (Task) TableName() string {

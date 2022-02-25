@@ -34,6 +34,7 @@ import (
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	taskmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/task"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
@@ -673,10 +674,11 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		sort.Sort(ByTaskKind(task.SubTasks))
 
 		if err := ensurePipelineTask(&taskmodels.TaskOpt{
-			Task:         task,
-			EnvName:      args.Namespace,
-			ServiceName:  target.ServiceName,
-			ServiceInfos: &serviceInfos,
+			Task:           task,
+			EnvName:        args.Namespace,
+			ServiceName:    target.ServiceName,
+			ServiceInfos:   &serviceInfos,
+			IsWorkflowTask: true,
 		}, log); err != nil {
 			log.Errorf("workflow_task ensurePipelineTask taskID:[%d] pipelineName:[%s] err:%v", task.ID, task.PipelineName, err)
 			if err, ok := err.(*ContainerNotFound); ok {
@@ -697,7 +699,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 		}
 
 		for _, stask := range task.SubTasks {
-			AddSubtaskToStage(&stages, stask, target.Name)
+			AddSubtaskToStage(&stages, stask, target.Name+"_"+target.ServiceName)
 		}
 	}
 	// add extension to stage
@@ -1281,7 +1283,7 @@ func deployEnvToSubTasks(env commonmodels.DeployEnv, prodEnv *commonmodels.Produ
 		return nil, err
 	}
 	deployTask.ServiceName = envList[0]
-	deployTask.ContainerName = envList[1]
+	deployTask.ContainerName = envList[1] + "_" + envList[0]
 
 	switch env.Type {
 	case setting.K8SDeployType:
@@ -1728,8 +1730,9 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 		sort.Sort(ByTaskKind(task.SubTasks))
 
 		if err := ensurePipelineTask(&taskmodels.TaskOpt{
-			Task:    task,
-			EnvName: args.Namespace,
+			Task:           task,
+			EnvName:        args.Namespace,
+			IsWorkflowTask: true,
 		}, log); err != nil {
 			log.Errorf("workflow_task ensurePipelineTask task:[%v] err:%v", task, err)
 			if err, ok := err.(*ContainerNotFound); ok {
@@ -1748,7 +1751,7 @@ func CreateArtifactWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator
 		}
 
 		for _, stask := range task.SubTasks {
-			AddSubtaskToStage(&stages, stask, artifact.Name)
+			AddSubtaskToStage(&stages, stask, artifact.Name+"_"+artifact.ServiceName)
 		}
 	}
 
@@ -2215,10 +2218,13 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 					ImageName:    t.JobCtx.Image,
 					RegistryRepo: registryRepo,
 				}
-				t.UTStatus = &taskmodels.UTStatus{}
-				t.StaticCheckStatus = &taskmodels.StaticCheckStatus{}
-				t.BuildStatus = &taskmodels.BuildStatus{}
 
+				t.UTStatus = &task.UTStatus{}
+				t.StaticCheckStatus = &task.StaticCheckStatus{}
+				t.BuildStatus = &task.BuildStatus{}
+				if taskOpt.IsWorkflowTask {
+					t.ServiceName = t.ServiceName + "_" + t.Service
+				}
 				taskOpt.Task.SubTasks[i], err = t.ToSubTask()
 
 				if err != nil {
@@ -2381,7 +2387,12 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 				t.SetImage(taskOpt.Task.TaskArgs.Deploy.Image)
 				t.SetNamespace(taskOpt.Task.TaskArgs.Deploy.Namespace)
 
-				_, err := validateServiceContainer(t.EnvName, t.ProductName, t.ServiceName, t.ContainerName)
+				containerName := t.ContainerName
+				if taskOpt.IsWorkflowTask {
+					containerName = strings.TrimSuffix(containerName, "_"+t.ServiceName)
+				}
+
+				_, err := validateServiceContainer(t.EnvName, t.ProductName, t.ServiceName, containerName)
 				if err != nil {
 					log.Error(err)
 					return err

@@ -257,7 +257,7 @@ func UpdateCluster(id string, args *K8SCluster, logger *zap.SugaredLogger) (*com
 		case setting.LocalClusterID:
 			namespace = config.Namespace()
 		default:
-			namespace = AttachedClusterNamespace
+			namespace = setting.AttachedClusterNamespace
 		}
 
 		pvcName := fmt.Sprintf("cache-%s-%d", args.Cache.NFSProperties.StorageClass, args.Cache.NFSProperties.StorageSizeInGiB)

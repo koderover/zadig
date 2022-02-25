@@ -29,6 +29,7 @@ import (
 	"gopkg.in/yaml.v3"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	zadigconfig "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/taskplugin/s3"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types"
@@ -107,9 +108,12 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 
 	// TODO: Since the namespace field has been used continuously since v1.10.0, the processing logic related to namespace needs to
 	// be deleted in v1.11.0.
-	p.KubeNamespace = pipelineTask.ConfigPayload.Test.KubeNamespace
-	if p.Task.Namespace != "" {
-		p.KubeNamespace = p.Task.Namespace
+	switch p.Task.ClusterID {
+	case setting.LocalClusterID:
+		p.KubeNamespace = zadigconfig.Namespace()
+	default:
+		p.KubeNamespace = setting.AttachedClusterNamespace
+
 		kubeClient, err := kubeclient.GetKubeClient(pipelineTask.ConfigPayload.HubServerAddr, p.Task.ClusterID)
 		if err != nil {
 			msg := fmt.Sprintf("failed to get kube client: %s", err)
@@ -120,6 +124,7 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 		}
 		p.kubeClient = kubeClient
 	}
+
 	// not local cluster
 	var (
 		replaceDindServer = "." + DindServer
@@ -182,6 +187,7 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 		testReportFile = fmt.Sprintf("%s-%s-%d-%s-%s-html", config.WorkflowType, pipelineTask.PipelineName, pipelineTask.TaskID, config.TaskTestingV2, p.Task.TestModuleName)
 	} else if pipelineTask.Type == config.TestType {
 		fileName = fmt.Sprintf("%s-%s-%d-%s-%s", config.TestType, pipelineTask.PipelineName, pipelineTask.TaskID, config.TaskTestingV2, serviceName)
+		testReportFile = fmt.Sprintf("%s-%s-%d-%s-%s-html", config.TestType, pipelineTask.PipelineName, pipelineTask.TaskID, config.TaskTestingV2, p.Task.TestModuleName)
 	}
 
 	fileName = strings.Replace(strings.ToLower(fileName), "_", "-", -1)

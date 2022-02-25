@@ -162,7 +162,7 @@ type PrivateKey struct {
 }
 
 type K8SCluster struct {
-	ID             string          `json:"id,omitempty"                bson:"_id,omitempty"`
+	ID             string          `json:"id,omitempty"                bson:"id,omitempty"`
 	Name           string          `json:"name"                        bson:"name"`
 	AdvancedConfig *AdvancedConfig `json:"advanced_config,omitempty"   bson:"advanced_config,omitempty"`
 }
