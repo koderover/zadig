@@ -18,7 +18,6 @@ package service
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	"go.uber.org/zap"
@@ -33,7 +32,6 @@ import (
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/helmclient"
-	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
 )
 
@@ -147,15 +145,6 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 	namespace := args.GetNamespace()
 	if args.Namespace == "" {
 		args.Namespace = namespace
-	}
-	_, found, err := getter.GetNamespace(args.Namespace, kubeClient)
-	if err != nil {
-		log.Errorf("GetNamespace error: %v", err)
-		return e.ErrCreateEnv.AddDesc(err.Error())
-	}
-	if found {
-		log.Warnf("%s[%s]%s", "namespace", args.Namespace, "已经存在,请换个环境名称尝试!")
-		return e.ErrCreateEnv.AddDesc(fmt.Sprintf("%s[%s]%s", "namespace", args.Namespace, "已经存在,请换个环境名称尝试!"))
 	}
 
 	restConfig, err := kube.GetRESTConfig(args.ClusterID)
