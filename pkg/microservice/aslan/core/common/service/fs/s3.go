@@ -188,8 +188,10 @@ func DownloadAndExtractFilesFromS3(name, localBase, s3Base string, logger *zap.S
 	}
 
 	if err = fsutil.Untar(localPath, localBase); err != nil {
-		logger.Errorf("Failed to extract tarball %s, err: %s", localPath, err)
-		return err
+		if err = fsutil.Untar(localPath, filepath.Join(localBase, name)); err != nil {
+			logger.Errorf("Failed to extract tarball %s, err: %s", localPath, err)
+			return err
+		}
 	}
 	return nil
 }
