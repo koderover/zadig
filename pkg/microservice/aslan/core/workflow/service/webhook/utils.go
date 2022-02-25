@@ -202,14 +202,25 @@ func syncLatestCommit(service *commonmodels.Service) error {
 		return err
 	}
 
+	if len(service.BranchName) > 0 {
+		branch = service.BranchName
+	}
+	if len(service.LoadPath) > 0 {
+		path = service.LoadPath
+	}
+
 	commit, err := GitlabGetLatestCommit(client, owner, repo, branch, path)
 	if err != nil {
 		return err
 	}
-	service.Commit = &commonmodels.Commit{
-		SHA:     commit.ID,
-		Message: commit.Message,
+
+	if commit != nil {
+		service.Commit = &commonmodels.Commit{
+			SHA:     commit.ID,
+			Message: commit.Message,
+		}
 	}
+
 	return nil
 }
 
