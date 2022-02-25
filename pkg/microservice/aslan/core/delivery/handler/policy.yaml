@@ -1,9 +1,9 @@
 resource: Delivery
-alias: "交付中心"
+alias: "版本管理"
 description: ""
 rules:
   - action: get_delivery
-    alias: "查看版本"
+    alias: "查看"
     description: ""
     rules:
       - method: GET
@@ -15,13 +15,13 @@ rules:
       - method: GET
         endpoint: "/api/aslan/delivery/releases/helm/charts"
   - action: delete_delivery
-    alias: "删除版本"
+    alias: "删除"
     description: ""
     rules:
       - method: DELETE
         endpoint: "/api/aslan/delivery/releases/?*"
   - action: create_delivery
-    alias: "创建版本"
+    alias: "创建"
     description: ""
     rules:
       - method: POST

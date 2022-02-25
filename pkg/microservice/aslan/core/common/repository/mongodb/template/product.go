@@ -40,6 +40,8 @@ type ProjectInfo struct {
 	OnboardStatus int    `bson:"onboarding_status"`
 	Public        bool   `bson:"public"`
 	DeployType    string `bson:"deploy_type"`
+	CreateEnvType string `bson:"create_env_type"`
+	BasicFacility string `bson:"basic_facility"`
 }
 
 type ProductColl struct {
@@ -108,6 +110,8 @@ func (c *ProductColl) ListProjectBriefs(inNames []string) ([]*ProjectInfo, error
 		"onboarding_status": "$onboarding_status",
 		"public":            "$public",
 		"deploy_type":       "$product_feature.deploy_type",
+		"create_env_type":   "$product_feature.create_env_type",
+		"basic_facility":    "$product_feature.basic_facility",
 	})
 }
 

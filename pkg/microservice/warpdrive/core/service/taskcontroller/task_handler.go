@@ -460,7 +460,12 @@ func (h *ExecHandler) executeTask(taskCtx context.Context, plugin plugins.TaskPl
 	}
 
 	// 设置 SubTask 初始状态
-	plugin.SetStatus(config.StatusRunning)
+	switch plugin.Type() {
+	case config.TaskBuild, config.TaskTestingV2:
+		plugin.SetStatus(config.StatusPrepare)
+	default:
+		plugin.SetStatus(config.StatusRunning)
+	}
 
 	// 设置 SubTask 开始时间
 	plugin.SetStartTime()
