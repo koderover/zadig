@@ -129,6 +129,9 @@ func addPresetRoleSystemType() error {
 			change := bson.M{"$set": bson.M{
 				"type": "system",
 			}}
+			if v.Name == "project-admin" || v.Name == "read-only" || v.Name == "read-project-only" {
+				change["preset"] = true
+			}
 			_, err := newRoleColl().UpdateOne(ctx, query, change)
 			if err != nil {
 				return err
