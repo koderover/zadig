@@ -48,61 +48,6 @@ func ArchiveAndUploadFilesToS3(fileTree fs.FS, names []string, s3Base string, lo
 	return archiveAndUploadFiles(fileTree, names, s3Base, s3Storage, logger)
 }
 
-//func ArchiveAndUploadLocalFilesToS3(names []string, currentBase, s3Base string, logger *zap.SugaredLogger) error {
-//	if len(names) == 0 {
-//		return fmt.Errorf("names not appointed")
-//	}
-//
-//	tmpDir, err := os.MkdirTemp("", "")
-//	if err != nil {
-//		logger.Errorf("Failed to create temp dir, err: %s", err)
-//		return err
-//	}
-//	defer os.RemoveAll(tmpDir)
-//
-//	name := names[0]
-//	copies := names[1:]
-//
-//	tarball := fmt.Sprintf("%s.tar.gz", name)
-//	localPath := filepath.Join(tmpDir, tarball)
-//	if err = util.Tar(currentBase, localPath); err != nil {
-//		logger.Errorf("Failed to archive tarball %s, err: %s", localPath, err)
-//		return err
-//	}
-//
-//	s3Storage, err := s3service.FindDefaultS3()
-//	if err != nil {
-//		logger.Errorf("Failed to find default s3, err:%v", err)
-//		return err
-//	}
-//	forcedPathStyle := true
-//	if s3Storage.Provider == setting.ProviderSourceAli {
-//		forcedPathStyle = false
-//	}
-//	client, err := s3tool.NewClient(s3Storage.Endpoint, s3Storage.Ak, s3Storage.Sk, s3Storage.Insecure, forcedPathStyle)
-//	if err != nil {
-//		logger.Errorf("Failed to get s3 client, err: %s", err)
-//		return err
-//	}
-//	s3Path := filepath.Join(s3Storage.Subfolder, s3Base, tarball)
-//	if err = client.Upload(s3Storage.Bucket, localPath, s3Path); err != nil {
-//		logger.Errorf("Failed to upload file %s to s3, err: %s", localPath, err)
-//		return err
-//	}
-//
-//	// copy file to avoid duplicated file transfer
-//	for _, copyName := range copies {
-//		targetPath := filepath.Join(s3Storage.Subfolder, s3Base, fmt.Sprintf("%s.tar.gz", copyName))
-//		err = client.CopyObject(s3Storage.Bucket, s3Path, targetPath)
-//		if err != nil {
-//			logger.Errorf("Failed to copy object from %s to %s", s3Path, targetPath)
-//			return err
-//		}
-//	}
-//
-//	return nil
-//}
-
 // archiveAndUploadFiles archive local files and upload to default s3 storage
 // if multiple names appointed, s3storage.copy will be used to handle extra names
 func archiveAndUploadFiles(fileTree fs.FS, names []string, s3Base string, s3Storage *s3service.S3, logger *zap.SugaredLogger) error {
