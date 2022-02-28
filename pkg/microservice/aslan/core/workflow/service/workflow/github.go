@@ -90,7 +90,7 @@ func createGitCheck(pt *task.Task, log *zap.SugaredLogger) error {
 		log.Errorf("Failed to get codeHost, err:%v", err)
 		return e.ErrGithubUpdateStatus.AddErr(err)
 	}
-	gc := github.NewClient(ch.AccessToken, config.ProxyHTTPSAddr())
+	gc := github.NewClient(ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 
 	return gc.UpdateCheckStatus(&github.StatusOptions{
 		Owner:       hook.Owner,

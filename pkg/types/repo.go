@@ -52,6 +52,7 @@ type Repository struct {
 	RepoID      string `bson:"repo_id,omitempty"            json:"repo_id,omitempty"`
 	Username    string `bson:"username,omitempty"           json:"username,omitempty"`
 	Password    string `bson:"password,omitempty"           json:"password,omitempty"`
+	EnableProxy bool   `bson:"enable_proxy,omitempty"       json:"enable_proxy,omitempty"`
 }
 
 // GetReleaseCandidateTag 返回待发布对象Tag

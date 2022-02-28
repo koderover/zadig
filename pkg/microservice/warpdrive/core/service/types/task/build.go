@@ -281,6 +281,7 @@ type Repository struct {
 	ProjectUUID string `bson:"project_uuid,omitempty"       json:"project_uuid,omitempty"`
 	RepoUUID    string `bson:"repo_uuid,omitempty"          json:"repo_uuid,omitempty"`
 	RepoID      string `bson:"repo_id,omitempty"            json:"repo_id,omitempty"`
+	EnableProxy bool   `bson:"enable_proxy,omitempty"       json:"enable_proxy,omitempty"`
 }
 
 type BuildStep struct {

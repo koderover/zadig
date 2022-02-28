@@ -37,7 +37,7 @@ func CodeHostListPRs(codeHostID int, projectName, namespace, targetBr string, lo
 	}
 
 	if ch.Type == codeHostGitlab {
-		client, err := gitlab.NewClient(ch.Address, ch.AccessToken)
+		client, err := gitlab.NewClient(ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 		if err != nil {
 			log.Error(err)
 			return nil, e.ErrCodehostListPrs.AddDesc(err.Error())
@@ -57,7 +57,7 @@ func CodeHostListPRs(codeHostID int, projectName, namespace, targetBr string, lo
 		return nil, nil
 	} else {
 		//	github
-		gh := git.NewClient(ch.AccessToken, config.ProxyHTTPSAddr())
+		gh := git.NewClient(ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 		pullRequests, err := gh.ListPullRequests(context.TODO(), namespace, projectName, &github.PullRequestListOptions{
 			ListOptions: github.ListOptions{PerPage: 100},
 		})

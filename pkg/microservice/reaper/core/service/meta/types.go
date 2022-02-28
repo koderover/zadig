@@ -263,6 +263,7 @@ type Repo struct {
 	User         string `yaml:"username"`
 	Password     string `yaml:"password"`
 	CheckoutRef  string `yaml:"checkout_ref"`
+	EnableProxy  bool   `yaml:"enable_proxy"`
 }
 
 // PRRef returns refs format

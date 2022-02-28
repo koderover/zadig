@@ -37,7 +37,7 @@ func CodeHostListProjects(codeHostID int, namespace, namespaceType string, page,
 		return nil, e.ErrCodehostListProjects.AddDesc("git client is nil")
 	}
 	if ch.Type == codeHostGitlab {
-		client, err := gitlab.NewClient(ch.Address, ch.AccessToken)
+		client, err := gitlab.NewClient(ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 		if err != nil {
 			log.Error(err)
 			return nil, e.ErrCodehostListProjects.AddDesc(err.Error())
@@ -65,7 +65,7 @@ func CodeHostListProjects(codeHostID int, namespace, namespaceType string, page,
 		return ToProjects(projects), nil
 
 	} else if ch.Type == gerrit.CodehostTypeGerrit {
-		cli := gerrit.NewClient(ch.Address, ch.AccessToken)
+		cli := gerrit.NewClient(ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 		projects, err := cli.ListProjectsByKey(keyword)
 		if err != nil {
 			log.Error(err)
@@ -73,7 +73,7 @@ func CodeHostListProjects(codeHostID int, namespace, namespaceType string, page,
 		}
 		return ToProjects(projects), nil
 	} else if ch.Type == CodeHostCodeHub {
-		codeHubClient := codehub.NewCodeHubClient(ch.AccessKey, ch.SecretKey, ch.Region)
+		codeHubClient := codehub.NewCodeHubClient(ch.AccessKey, ch.SecretKey, ch.Region, config.ProxyHTTPSAddr(), ch.EnableProxy)
 		projects, err := codeHubClient.RepoList(namespace, keyword, 100)
 		if err != nil {
 			log.Error(err)
@@ -82,7 +82,7 @@ func CodeHostListProjects(codeHostID int, namespace, namespaceType string, page,
 		return ToProjects(projects), nil
 	} else {
 		//	github
-		gh := git.NewClient(ch.AccessToken, config.ProxyHTTPSAddr())
+		gh := git.NewClient(ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 		repos, err := gh.ListRepositoriesForAuthenticatedUser(context.TODO(), nil)
 		if err != nil {
 			return nil, err
