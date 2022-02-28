@@ -106,6 +106,7 @@ const (
 	QueueItemPending Status = "pending"
 	StatusChanged    Status = "changed"
 	StatusNotRun     Status = "notRun"
+	StatusPrepare    Status = "prepare"
 )
 
 type TaskStatus string

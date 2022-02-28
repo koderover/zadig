@@ -29,6 +29,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -47,7 +48,10 @@ func CleanProductCronJob(requestID string, log *zap.SugaredLogger) {
 		log.Errorf("[Product.List] error: %v", err)
 		return
 	}
-
+	envCMMap, err := collaboration.GetEnvCMMap([]string{}, log)
+	if err != nil {
+		return
+	}
 	wl := sets.NewString(DefaultCleanWhiteList...)
 	wl.Insert(config.CleanSkippedList()...)
 	for _, product := range products {
@@ -58,7 +62,9 @@ func CleanProductCronJob(requestID string, log *zap.SugaredLogger) {
 		if product.RecycleDay == 0 {
 			continue
 		}
-
+		if _, ok := envCMMap[collaboration.BuildEnvCMMapKey(product.ProductName, product.EnvName)]; ok {
+			continue
+		}
 		if time.Now().Unix()-product.UpdateTime > int64(60*60*24*product.RecycleDay) {
 			//title := "系统清理产品信息"
 			//content := fmt.Sprintf("环境 [%s] 已经连续%d天没有使用, 系统已自动删除该环境, 如有需要请重新创建。", product.EnvName, product.RecycleDay)

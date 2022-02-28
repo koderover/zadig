@@ -27,7 +27,7 @@ func CreateOrUpdatePolicyRegistration(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := &service.Policy{}
+	args := &service.PolicyMeta{}
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.Err = err
 		return

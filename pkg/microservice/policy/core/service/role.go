@@ -31,12 +31,6 @@ type Role struct {
 	Rules []*Rule `json:"rules,omitempty"`
 }
 
-type Rule struct {
-	Verbs     []string `json:"verbs"`
-	Resources []string `json:"resources"`
-	Kind      string   `json:"kind"`
-}
-
 func CreateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
 	obj := &models.Role{
 		Name:      role.Name,
@@ -45,9 +39,10 @@ func CreateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
 
 	for _, r := range role.Rules {
 		obj.Rules = append(obj.Rules, &models.Rule{
-			Verbs:     r.Verbs,
-			Kind:      r.Kind,
-			Resources: r.Resources,
+			Verbs:           r.Verbs,
+			Kind:            r.Kind,
+			Resources:       r.Resources,
+			MatchAttributes: r.MatchAttributes,
 		})
 	}
 
@@ -78,9 +73,10 @@ func UpdateOrCreateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
 
 	for _, r := range role.Rules {
 		obj.Rules = append(obj.Rules, &models.Rule{
-			Verbs:     r.Verbs,
-			Kind:      r.Kind,
-			Resources: r.Resources,
+			Verbs:           r.Verbs,
+			Kind:            r.Kind,
+			Resources:       r.Resources,
+			MatchAttributes: r.MatchAttributes,
 		})
 	}
 	return mongodb.NewRoleColl().UpdateOrCreate(obj)
@@ -155,4 +151,16 @@ func DeleteRoles(names []string, projectName string, logger *zap.SugaredLogger) 
 	}
 
 	return mongodb.NewRoleBindingColl().DeleteByRoles(names, projectName)
+}
+
+func ListUserAllRolesByRoleBindings(roleBindings []*models.RoleBinding) ([]*models.Role, error) {
+	var roles []*models.Role
+	for _, v := range roleBindings {
+		tmpRoles, err := mongodb.NewRoleColl().ListBySpaceAndName(v.RoleRef.Namespace, v.RoleRef.Name)
+		if err != nil {
+			continue
+		}
+		roles = append(roles, tmpRoles...)
+	}
+	return roles, nil
 }

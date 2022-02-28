@@ -275,6 +275,8 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 		p.Task.Error = msg
 		return
 	}
+
+	p.Task.TaskStatus = waitJobReady(ctx, p.KubeNamespace, p.JobName, p.kubeClient, p.Log)
 }
 
 func (p *TestPlugin) Wait(ctx context.Context) {

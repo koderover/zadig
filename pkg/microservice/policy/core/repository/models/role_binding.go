@@ -16,13 +16,6 @@ limitations under the License.
 
 package models
 
-type SubjectKind string
-
-const (
-	UserKind  SubjectKind = "user"
-	GroupKind SubjectKind = "group"
-)
-
 // RoleBinding references a role, but does not contain it. It adds who information via Subjects.
 // RoleBindings in a given namespace only have effect in that namespace.
 // for a cluster scoped RoleBinding, namespace is empty.
@@ -35,14 +28,6 @@ type RoleBinding struct {
 
 	// RoleRef can reference a namespaced or cluster scoped Role.
 	RoleRef *RoleRef `bson:"role_ref" json:"roleRef"`
-}
-
-// Subject contains a reference to the object or user identities a role binding applies to.
-type Subject struct {
-	// Kind of object being referenced. allowed values are "User", "Group".
-	Kind SubjectKind `bson:"kind" json:"kind"`
-	// unique identifier of the object being referenced.
-	UID string `bson:"uid" json:"uid"`
 }
 
 // RoleRef contains information that points to the role being used

@@ -23,7 +23,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/policy/core/repository/mongodb"
 )
 
-type Policy struct {
+type PolicyMeta struct {
 	Resource    string        `json:"resource"`
 	Alias       string        `json:"alias"`
 	Description string        `json:"description"`
@@ -63,15 +63,15 @@ type PolicyRuleDefinition struct {
 	Description string `json:"description"`
 }
 
-func CreateOrUpdatePolicyRegistration(p *Policy, _ *zap.SugaredLogger) error {
-	obj := &models.Policy{
+func CreateOrUpdatePolicyRegistration(p *PolicyMeta, _ *zap.SugaredLogger) error {
+	obj := &models.PolicyMeta{
 		Resource:    p.Resource,
 		Alias:       p.Alias,
 		Description: p.Description,
 	}
 
 	for _, r := range p.Rules {
-		rule := &models.PolicyRule{
+		rule := &models.PolicyMetaRule{
 			Action:      r.Action,
 			Alias:       r.Alias,
 			Description: r.Description,
@@ -93,11 +93,11 @@ func CreateOrUpdatePolicyRegistration(p *Policy, _ *zap.SugaredLogger) error {
 		obj.Rules = append(obj.Rules, rule)
 	}
 
-	return mongodb.NewPolicyColl().UpdateOrCreate(obj)
+	return mongodb.NewPolicyMetaColl().UpdateOrCreate(obj)
 }
 
 func GetPolicyRegistrationDefinitions(_ *zap.SugaredLogger) ([]*PolicyDefinition, error) {
-	policies, err := mongodb.NewPolicyColl().List()
+	policies, err := mongodb.NewPolicyMetaColl().List()
 	if err != nil {
 		return nil, err
 	}
