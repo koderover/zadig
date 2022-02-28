@@ -44,7 +44,7 @@ func (r *Reaper) RunGitGc(folder string) error {
 func (r *Reaper) runGitCmds() error {
 
 	envs := r.getUserEnvs()
-
+	fmt.Printf("the proxy we have is: %s \n", r.Ctx.Proxy.GetProxyURL())
 	// 如果存在github代码库，则设置代理，同时保证非github库不走代理
 	if r.Ctx.Proxy.EnableRepoProxy && r.Ctx.Proxy.Type == "http" {
 		noProxy := ""
