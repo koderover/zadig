@@ -552,16 +552,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 
 	stages := make([]*commonmodels.Stage, 0)
 	serviceInfos := make([]*taskmodels.ServiceInfo, 0)
-	// for the new proxy settings, we check for each repo & apply proxy if necessary
 	for _, target := range args.Target {
-		for _, repo := range target.Build.Repos {
-			repoInfo, err := systemconfig.New().GetCodeHost(repo.CodehostID)
-			if err != nil {
-				log.Errorf("Failed to get proxy settings for codehost ID: %d, the error is: %s", repo.CodehostID, err)
-				return nil, err
-			}
-			repo.EnableProxy = repoInfo.EnableProxy
-		}
 		var subTasks []map[string]interface{}
 		var err error
 		if target.JenkinsBuildArgs == nil {
@@ -709,16 +700,6 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 
 		for _, stask := range task.SubTasks {
 			AddSubtaskToStage(&stages, stask, target.Name+"_"+target.ServiceName)
-		}
-	}
-	for _, test := range args.Tests {
-		for _, build := range test.Builds {
-			repoInfo, err := systemconfig.New().GetCodeHost(build.CodehostID)
-			if err != nil {
-				log.Errorf("Failed to get proxy settings for codehost ID: %d, the error is: %s", build.CodehostID, err)
-				return nil, err
-			}
-			build.EnableProxy = repoInfo.EnableProxy
 		}
 	}
 	// add extension to stage
@@ -1497,6 +1478,14 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *taskmodels.Task,
 			log.Errorf("[%s]get TestingModule error: %v", testArg.TestModuleName, err)
 			return resp, err
 		}
+		for _, repo := range testModule.Repos {
+			repoInfo, err := systemconfig.New().GetCodeHost(repo.CodehostID)
+			if err != nil {
+				log.Errorf("Failed to get proxy settings for codehost ID: %d, the error is: %s", repo.CodehostID, err)
+				return nil, err
+			}
+			repo.EnableProxy = repoInfo.EnableProxy
+		}
 
 		testTask := &taskmodels.Testing{
 			TaskType: config.TaskTestingV2,
@@ -1861,7 +1850,6 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 		subTasks    = make([]map[string]interface{}, 0)
 		serviceTmpl *commonmodels.Service
 	)
-
 	opt := &commonrepo.BuildListOption{
 		Name:        args.BuildName,
 		ServiceName: args.ServiceName,
@@ -1979,6 +1967,14 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 		}
 
 		build.JobCtx.Builds = module.Repos
+		for _, repo := range build.JobCtx.Builds {
+			repoInfo, err := systemconfig.New().GetCodeHost(repo.CodehostID)
+			if err != nil {
+				log.Errorf("Failed to get proxy settings for codehost ID: %d, the error is: %s", repo.CodehostID, err)
+				return nil, err
+			}
+			repo.EnableProxy = repoInfo.EnableProxy
+		}
 		if len(build.JobCtx.Builds) == 0 {
 			build.JobCtx.Builds = make([]*types.Repository, 0)
 		}
