@@ -91,7 +91,7 @@ func changeToCustomType() error {
 		return err
 	}
 	for _, v := range res {
-		if v.Namespace == "*" && v.RoleRef.Name == "admin" {
+		if v.Namespace == "*" && v.RoleRef.Name == "admin" && v.Type != "" {
 			continue
 		}
 		query := bson.M{"name": v.Name}
@@ -144,7 +144,7 @@ func addPresetRoleSystemType() error {
 		if v.Namespace == "*" || v.Namespace == "" {
 			query := bson.M{"name": v.Name}
 			change := bson.M{"$set": bson.M{
-				"type": "system",
+				"type": setting.ResourceTypeSystem,
 			}}
 			_, err := newRoleColl().UpdateOne(ctx, query, change)
 			if err != nil {
@@ -153,7 +153,7 @@ func addPresetRoleSystemType() error {
 		} else {
 			query := bson.M{"name": v.Name}
 			change := bson.M{"$set": bson.M{
-				"type": "custom",
+				"type": setting.ResourceTypeCustom,
 			}}
 			_, err := newRoleColl().UpdateOne(ctx, query, change)
 			if err != nil {

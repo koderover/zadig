@@ -16,6 +16,10 @@ limitations under the License.
 
 package models
 
+import (
+	"github.com/koderover/zadig/pkg/setting"
+)
+
 type PolicyMeta struct {
 	Resource    string            `bson:"resource"    json:"resource"`
 	Alias       string            `bson:"alias"       json:"alias"`
@@ -33,7 +37,8 @@ type RoleBinding struct {
 	Namespace string `bson:"namespace" json:"namespace"`
 
 	// RoleRef can reference a namespaced or cluster scoped Role.
-	RoleRef *RoleRef `bson:"role_ref" json:"roleRef"`
+	RoleRef *RoleRef             `bson:"role_ref" json:"roleRef"`
+	Type    setting.ResourceType `bson:"type" json:"type"`
 }
 
 // RoleRef contains information that points to the role being used
