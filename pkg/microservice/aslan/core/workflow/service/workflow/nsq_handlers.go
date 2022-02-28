@@ -196,7 +196,8 @@ func (h *TaskAckHandler) handle(message *nsq.Message) error {
 
 	for _, deploy := range deploys {
 		if deploy.Enabled && !pt.ResetImage {
-			if err := h.updateProductImageByNs(deploy.Namespace, deploy.ProductName, deploy.ServiceName, deploy.ContainerName, deploy.Image); err != nil {
+			containerName := strings.TrimSuffix(deploy.ContainerName, "_"+deploy.ServiceName)
+			if err := h.updateProductImageByNs(deploy.Namespace, deploy.ProductName, deploy.ServiceName, containerName, deploy.Image); err != nil {
 				h.log.Errorf("updateProductImage %v error: %v", deploy, err)
 				continue
 			} else {
