@@ -73,7 +73,7 @@ func SaveAndUploadFiles(fileTree fs.FS, names []string, localBase, s3Base string
 	return err
 }
 
-// SaveAndUploadFiles saves a tree of files to local disk, at the same time, archives them and uploads to object storage.
+// CopyAndUploadFiles copy a tree of files to other dir, at the same time, archives them and uploads to object storage.
 func CopyAndUploadFiles(names []string, localBase, s3Base, currentChartPath string, logger *zap.SugaredLogger) error {
 	var wg wait.Group
 	var err error
