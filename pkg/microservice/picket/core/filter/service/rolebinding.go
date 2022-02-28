@@ -95,9 +95,10 @@ func ListBindings(header http.Header, qs url.Values, logger *zap.SugaredLogger) 
 	}
 
 	var res []*Binding
-	var roleBindings []*roleBinding
+
 	var policyBindings []*policyBinding
 	for _, u := range users {
+		var roleBindings []*roleBinding
 		binding := &Binding{
 			UserName:     u.Name,
 			Email:        u.Email,
