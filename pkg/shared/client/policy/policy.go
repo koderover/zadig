@@ -27,6 +27,7 @@ import (
 type Policy struct {
 	Name        string  `json:"name"`
 	Description string  `json:"description"`
+	UpdateTime  int64   `json:"update_time"`
 	Rules       []*Rule `json:"rules"`
 }
 

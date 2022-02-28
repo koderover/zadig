@@ -25,7 +25,7 @@ import (
 type Policy struct {
 	Name        string               `bson:"name"              json:"name"`
 	Namespace   string               `bson:"namespace"         json:"namespace"`
-	Description string               `json:"description"       json:"description"`
+	Description string               `bson:"description"       json:"description"`
 	CreateTime  int64                `bson:"create_time"       json:"create_time"`
 	UpdateTime  int64                `bson:"update_time"       json:"update_time"`
 	Rules       []*Rule              `bson:"rules"             json:"rules"`

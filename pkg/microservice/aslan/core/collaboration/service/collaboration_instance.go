@@ -345,7 +345,7 @@ func syncInstance(updateResp *GetCollaborationUpdateResp, projectName, identityT
 }
 
 func buildPolicyDescription(mode, userName string) string {
-	return mode + " " + userName + "的权限"
+	return mode + " " + userName + " 的权限"
 }
 
 func buildPolicybindingName(uid, policyName, projectName string) string {
@@ -389,6 +389,7 @@ func syncPolicy(updateResp *GetCollaborationUpdateResp, projectName, identityTyp
 		}
 		policies = append(policies, &policy.Policy{
 			Name:        policyName,
+			UpdateTime:  time.Now().Unix(),
 			Description: buildPolicyDescription(mode.Name, userName),
 			Rules:       rules,
 		})
@@ -446,8 +447,10 @@ func syncPolicy(updateResp *GetCollaborationUpdateResp, projectName, identityTyp
 			})
 		}
 		updatePolicies = append(updatePolicies, &policy.Policy{
-			Name:  instance.PolicyName,
-			Rules: rules,
+			Name:        instance.PolicyName,
+			Description: buildPolicyDescription(instance.CollaborationName, userName),
+			UpdateTime:  time.Now().Unix(),
+			Rules:       rules,
 		})
 	}
 	for _, updatePolicy := range updatePolicies {
