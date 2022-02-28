@@ -27,7 +27,8 @@ import (
 type LoadSource string
 
 const (
-	LoadFromRepo          LoadSource = "repo"
+	LoadFromRepo          LoadSource = "repo" //exclude gerrit
+	LoadFromGerrit        LoadSource = "gerrit"
 	LoadFromPublicRepo    LoadSource = "publicRepo"
 	LoadFromChartTemplate LoadSource = "chartTemplate"
 	LoadFromChartRepo     LoadSource = "chartRepo"

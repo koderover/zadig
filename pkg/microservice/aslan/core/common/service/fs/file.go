@@ -20,6 +20,7 @@ import (
 	"io/fs"
 	"os"
 
+	"github.com/otiai10/copy"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/wait"
 
@@ -58,7 +59,35 @@ func SaveAndUploadFiles(fileTree fs.FS, names []string, localBase, s3Base string
 			err = err1
 		}
 	})
+
 	wg.Start(func() {
+		err2 := ArchiveAndUploadFilesToS3(fileTree, names, s3Base, logger)
+		if err2 != nil {
+			logger.Errorf("Failed to upload files to s3, err: %s", err2)
+			err = err2
+		}
+	})
+
+	wg.Wait()
+
+	return err
+}
+
+// CopyAndUploadFiles copy a tree of files to other dir, at the same time, archives them and uploads to object storage.
+func CopyAndUploadFiles(names []string, localBase, s3Base, currentChartPath string, logger *zap.SugaredLogger) error {
+	var wg wait.Group
+	var err error
+
+	wg.Start(func() {
+		copyErr := copy.Copy(currentChartPath, localBase)
+		if copyErr != nil {
+			logger.Errorf("failed to copy chart info, err %s", err)
+			err = copyErr
+		}
+	})
+
+	wg.Start(func() {
+		fileTree := os.DirFS(currentChartPath)
 		err2 := ArchiveAndUploadFilesToS3(fileTree, names, s3Base, logger)
 		if err2 != nil {
 			logger.Errorf("Failed to upload files to s3, err: %s", err2)

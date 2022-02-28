@@ -482,7 +482,6 @@ func UpdatePmServiceTemplate(username string, args *ServiceTmplBuildObject, log 
 				return e.ErrUpdateService.AddDesc("update current build failed")
 			}
 		}
-
 	}
 
 	if err := commonrepo.NewServiceColl().Create(preService); err != nil {
