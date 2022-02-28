@@ -130,7 +130,8 @@ func (c *Client) CreatePresetRole(name string, role *Role) error {
 }
 
 type Role struct {
-	Name  string `json:"name"`
+	Name  string               `json:"name"`
+	Type  setting.ResourceType `json:"type"`
 	Rules []*struct {
 		Verbs           []string         `json:"verbs"`
 		Resources       []string         `json:"resources"`
