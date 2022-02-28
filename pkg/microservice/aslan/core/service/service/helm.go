@@ -566,10 +566,6 @@ func CreateOrUpdateHelmServiceFromGerrit(projectName string, args *HelmServiceCr
 					FilePath:         filePath,
 					ProductName:      projectName,
 					CreateBy:         args.CreatedBy,
-					CodehostID:       createFromRepo.CodehostID,
-					Owner:            createFromRepo.Owner,
-					Repo:             createFromRepo.Repo,
-					Branch:           createFromRepo.Branch,
 					Source:           string(args.Source),
 					GerritCodeHostID: createFromRepo.CodehostID,
 					GerritPath:       currentFilePath,
@@ -1090,6 +1086,7 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 			Version:    chartVersion,
 			ValuesYaml: valuesYaml,
 		},
+		CreateFrom: geneCreationDetail(args),
 	}
 
 	switch args.Source {
@@ -1099,8 +1096,6 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 		serviceObj.GerritRepoName = args.GerritRepoName
 		serviceObj.GerritBranchName = args.GerritBranchName
 		serviceObj.GerritRemoteName = args.GerritRemoteName
-	default:
-		serviceObj.CreateFrom = geneCreationDetail(args)
 	}
 
 	log.Infof("Starting to create service %s with revision %d", args.ServiceName, args.ServiceRevision)
