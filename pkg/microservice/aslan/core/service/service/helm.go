@@ -51,6 +51,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
+	"github.com/koderover/zadig/pkg/util"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
@@ -639,11 +640,11 @@ func CreateOrUpdateHelmServiceFromGerrit(projectName string, args *HelmServiceCr
 
 			currentFilePath := path.Join(base, filePath)
 			log.Infof("Loading chart under path %s", currentFilePath)
-			serviceName, chartVersion, finalErr = readChartYAML(os.DirFS(currentFilePath), currentFilePath, log)
+			serviceName, chartVersion, finalErr = readChartYAMLFromLocal(currentFilePath, log)
 			if finalErr != nil {
 				return
 			}
-			valuesYAML, finalErr = readValuesYAML(os.DirFS(currentFilePath), currentFilePath, log)
+			valuesYAML, finalErr = readValuesYAMLFromLocal(currentFilePath, log)
 			if finalErr != nil {
 				return
 			}
@@ -1056,20 +1057,20 @@ func readChartYAML(chartTree fs.FS, base string, logger *zap.SugaredLogger) (str
 	return chart.Name, chart.Version, nil
 }
 
-//func readChartYAMLFromLocal(base string, logger *zap.SugaredLogger) (string, string, error) {
-//	chartFile, err := util.ReadFile(filepath.Join(base, setting.ChartYaml))
-//	if err != nil {
-//		logger.Errorf("Failed to read %s, err: %s", setting.ChartYaml, err)
-//		return "", "", err
-//	}
-//	chart := new(Chart)
-//	if err = yaml.Unmarshal(chartFile, chart); err != nil {
-//		log.Errorf("Failed to unmarshal yaml %s, err: %s", setting.ChartYaml, err)
-//		return "", "", err
-//	}
-//
-//	return chart.Name, chart.Version, nil
-//}
+func readChartYAMLFromLocal(base string, logger *zap.SugaredLogger) (string, string, error) {
+	chartFile, err := util.ReadFile(filepath.Join(base, setting.ChartYaml))
+	if err != nil {
+		logger.Errorf("Failed to read %s, err: %s", setting.ChartYaml, err)
+		return "", "", err
+	}
+	chart := new(Chart)
+	if err = yaml.Unmarshal(chartFile, chart); err != nil {
+		log.Errorf("Failed to unmarshal yaml %s, err: %s", setting.ChartYaml, err)
+		return "", "", err
+	}
+
+	return chart.Name, chart.Version, nil
+}
 
 func readValuesYAML(chartTree fs.FS, base string, logger *zap.SugaredLogger) ([]byte, error) {
 	content, err := fs.ReadFile(chartTree, filepath.Join(base, setting.ValuesYaml))
@@ -1080,14 +1081,14 @@ func readValuesYAML(chartTree fs.FS, base string, logger *zap.SugaredLogger) ([]
 	return content, nil
 }
 
-//func readValuesYAMLFromLocal(base string, logger *zap.SugaredLogger) ([]byte, error) {
-//	content, err := util.ReadFile(filepath.Join(base, setting.ValuesYaml))
-//	if err != nil {
-//		logger.Errorf("Failed to read %s, err: %s", setting.ValuesYaml, err)
-//		return nil, err
-//	}
-//	return content, nil
-//}
+func readValuesYAMLFromLocal(base string, logger *zap.SugaredLogger) ([]byte, error) {
+	content, err := util.ReadFile(filepath.Join(base, setting.ValuesYaml))
+	if err != nil {
+		logger.Errorf("Failed to read %s, err: %s", setting.ValuesYaml, err)
+		return nil, err
+	}
+	return content, nil
+}
 
 func geneCreationDetail(args *helmServiceCreationArgs) interface{} {
 	switch args.Source {
