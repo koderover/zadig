@@ -160,6 +160,7 @@ type CreateHelmProductArg struct {
 	ChartValues   []*commonservice.RenderChartArg `json:"chartValues"`
 	BaseEnvName   string                          `json:"baseEnvName"`
 	BaseName      string                          `json:"base_name,omitempty"`
+	IsExisted     bool                            `json:"is_existed"`
 }
 
 type UpdateMultiHelmProductArg struct {
@@ -789,6 +790,7 @@ func createSingleHelmProduct(templateProduct *templatemodels.Product, requestID,
 		ChartInfos:      templateProduct.ChartInfos,
 		IsForkedProduct: false,
 		RegistryID:      registryID,
+		IsExisted:       arg.IsExisted,
 	}
 
 	customChartValueMap := make(map[string]*commonservice.RenderChartArg)
