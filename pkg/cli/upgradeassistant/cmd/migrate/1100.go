@@ -55,6 +55,11 @@ func V190ToV1100() error {
 		return err
 	}
 
+	if err := addRoleBindingSystemType(); err != nil {
+		log.Errorf("Failed to addRoleBindingSystemType, err: %s", err)
+		return err
+	}
+
 	if err := migrateModuleBuild(); err != nil {
 		return fmt.Errorf("failed to migrate data in `zadig.module_build`: %s", err)
 	}
@@ -71,7 +76,7 @@ func V190ToV1100() error {
 	return nil
 }
 
-func addPresetRoleBindingSystemType() error {
+func changeToCustomType() error {
 	ctx := context.Background()
 
 	var res []*models.RoleBinding
@@ -86,27 +91,39 @@ func addPresetRoleBindingSystemType() error {
 		return err
 	}
 	for _, v := range res {
-		if v.Namespace == "*" {
-			query := bson.M{"name": v.Name}
-			change := bson.M{"$set": bson.M{
-				"type": setting.ResourceTypeSystem,
-			}}
-			_, err := newRoleBindingColl().UpdateOne(ctx, query, change)
-			if err != nil {
-				return err
-			}
-		} else {
-			query := bson.M{"name": v.Name}
-			change := bson.M{"$set": bson.M{
-				"type": setting.ResourceTypeCustom,
-			}}
-			_, err := newRoleBindingColl().UpdateOne(ctx, query, change)
-			if err != nil {
-				return err
-			}
+		if v.Namespace == "*" && v.RoleRef.Name == "admin" {
+			continue
 		}
+		query := bson.M{"name": v.Name}
+		change := bson.M{"$set": bson.M{
+			"type": setting.ResourceTypeCustom,
+		}}
+		_, err := newRoleBindingColl().UpdateOne(ctx, query, change)
+		if err != nil {
+			return err
+		}
+
 	}
 	return nil
+}
+
+func changeToSystemType() error {
+	query := bson.M{"namespace": "*", "role_ref.name": "admin"}
+	change := bson.M{"$set": bson.M{
+		"type": setting.ResourceTypeSystem,
+	}}
+	_, err := newRoleBindingColl().UpdateOne(context.TODO(), query, change)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func addRoleBindingSystemType() error {
+	if err := changeToSystemType(); err != nil {
+		return err
+	}
+	return changeToCustomType()
 }
 
 func addPresetRoleSystemType() error {
@@ -129,9 +146,6 @@ func addPresetRoleSystemType() error {
 			change := bson.M{"$set": bson.M{
 				"type": "system",
 			}}
-			if v.Name == "project-admin" || v.Name == "read-only" || v.Name == "read-project-only" {
-				change["preset"] = true
-			}
 			_, err := newRoleColl().UpdateOne(ctx, query, change)
 			if err != nil {
 				return err

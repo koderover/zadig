@@ -29,8 +29,19 @@ type Role struct {
 }
 
 type RoleBinding struct {
-	Name      string `baso:"name" json:"name"`
-	Namespace string `baso:"namespace" json:"namespace"`
+	Name      string `bson:"name" json:"name"`
+	Namespace string `bson:"namespace" json:"namespace"`
+
+	// RoleRef can reference a namespaced or cluster scoped Role.
+	RoleRef *RoleRef `bson:"role_ref" json:"roleRef"`
+}
+
+// RoleRef contains information that points to the role being used
+type RoleRef struct {
+	Name string `bson:"name" json:"name"`
+
+	// Namespace of the referenced object. if the object is cluster scoped, namespace is empty.
+	Namespace string `bson:"namespace" json:"namespace"`
 }
 
 type PolicyMetaRule struct {

@@ -27,7 +27,7 @@ import (
 	"github.com/koderover/zadig/pkg/shared/client/user"
 )
 
-const allUsers = "*"
+const ALLUsers = "*"
 
 type roleBinding struct {
 	*policy.RoleBinding
@@ -68,7 +68,7 @@ func ListBindings(header http.Header, qs url.Values, logger *zap.SugaredLogger) 
 	uidSets := sets.String{}
 	uidToRoleBinding := make(map[string][]*roleBinding)
 	for _, rb := range rbs {
-		if rb.UID != allUsers {
+		if rb.UID != ALLUsers {
 			uidSets.Insert(rb.UID)
 		}
 		uidToRoleBinding[rb.UID] = append(uidToRoleBinding[rb.UID], &roleBinding{RoleBinding: rb})
@@ -82,7 +82,7 @@ func ListBindings(header http.Header, qs url.Values, logger *zap.SugaredLogger) 
 
 	uidToPolicyBindings := make(map[string][]*policyBinding)
 	for _, pb := range pbs {
-		if pb.UID != allUsers {
+		if pb.UID != ALLUsers {
 			uidSets.Insert(pb.UID)
 		}
 		uidToPolicyBindings[pb.UID] = append(uidToPolicyBindings[pb.UID], &policyBinding{PolicyBinding: pb})
@@ -117,6 +117,8 @@ func ListBindings(header http.Header, qs url.Values, logger *zap.SugaredLogger) 
 				roleBindings = append(roleBindings, r)
 			}
 			binding.Roles = roleBindings
+		} else {
+			logger.Warnf("can not find user's role bindings , uid:%v", u.UID)
 		}
 		if pb, ok := uidToPolicyBindings[u.UID]; ok {
 			for _, p := range pb {
@@ -128,14 +130,16 @@ func ListBindings(header http.Header, qs url.Values, logger *zap.SugaredLogger) 
 				policyBindings = append(policyBindings, p)
 			}
 			binding.Policies = policyBindings
+		} else {
+			logger.Warnf("can not find user's policy bindings , uid:%v", u.UID)
 		}
 		res = append(res, binding)
 	}
 
-	// add all 'allUsers' roles
+	// add all 'ALLUsers' roles
 	AllUserBinding := &Binding{
-		Roles:    uidToRoleBinding[allUsers],
-		Policies: uidToPolicyBindings[allUsers],
+		Roles:    uidToRoleBinding[ALLUsers],
+		Policies: uidToPolicyBindings[ALLUsers],
 		UserName: "*",
 		Email:    "",
 		Uid:      "*",
