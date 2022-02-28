@@ -300,11 +300,7 @@ func GetCollaborationUpdate(projectName, uid, identityType, userName string, log
 		logger.Errorf("GetCollaborationUpdate error, err msg:%s", err)
 		return nil, err
 	}
-	err = updateVisitTime(uid, resp.UpdateInstance, logger)
-	if err != nil {
-		logger.Errorf("GetCollaborationUpdate updateVisitTime error, err msg:%s", err)
-		return nil, err
-	}
+
 	return resp, nil
 }
 
