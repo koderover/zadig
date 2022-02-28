@@ -81,6 +81,7 @@ type ServiceProductMap struct {
 	Visibility       string                    `json:"visibility,omitempty"`
 	CodehostID       int                       `json:"codehost_id"`
 	RepoOwner        string                    `json:"repo_owner"`
+	Namespace        string                    `json:"namespace"`
 	RepoName         string                    `json:"repo_name"`
 	RepoUUID         string                    `json:"repo_uuid"`
 	BranchName       string                    `json:"branch_name"`
@@ -155,6 +156,7 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 			serviceObject.BranchName = branch
 			serviceObject.LoadPath = loadPath
 			serviceObject.LoadFromDir = true
+			serviceObject.Namespace = owner
 		} else if serviceObject.Source == setting.SourceFromGithub && serviceObject.RepoName == "" {
 			address, owner, r, branch, loadPath, _, err := GetOwnerRepoBranchPath(serviceObject.SrcPath)
 			if err != nil {
@@ -173,6 +175,7 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 			serviceObject.BranchName = branch
 			serviceObject.LoadPath = loadPath
 			serviceObject.LoadFromDir = true
+			serviceObject.Namespace = owner
 		}
 
 		spmap := &ServiceProductMap{
@@ -185,6 +188,7 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 			Visibility:       serviceObject.Visibility,
 			CodehostID:       serviceObject.CodehostID,
 			RepoOwner:        serviceObject.RepoOwner,
+			Namespace:        serviceObject.Namespace,
 			RepoName:         serviceObject.RepoName,
 			RepoUUID:         serviceObject.RepoUUID,
 			BranchName:       serviceObject.BranchName,

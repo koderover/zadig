@@ -59,9 +59,10 @@ type Service struct {
 	RepoName         string           `bson:"repo_name,omitempty"            json:"repo_name,omitempty"`
 	RepoUUID         string           `bson:"repo_uuid,omitempty"            json:"repo_uuid,omitempty"`
 	BranchName       string           `bson:"branch_name,omitempty"          json:"branch_name,omitempty"`
+	Namespace        string           `json:"namespace,omitempty"            json:"namespace,omitempty"`
 	LoadPath         string           `bson:"load_path,omitempty"            json:"load_path,omitempty"`
 	LoadFromDir      bool             `bson:"is_dir,omitempty"               json:"is_dir,omitempty"`
-	CreateFrom       interface{}      `bson:"create_from,omitempty"               json:"create_from,omitempty"`
+	CreateFrom       interface{}      `bson:"create_from,omitempty"          json:"create_from,omitempty"`
 	HealthChecks     []*PmHealthCheck `bson:"health_checks,omitempty"        json:"health_checks,omitempty"`
 	WorkloadType     string           `bson:"workload_type,omitempty"        json:"workload_type,omitempty"`
 	EnvName          string           `bson:"env_name,omitempty"             json:"env_name,omitempty"`

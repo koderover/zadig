@@ -267,7 +267,7 @@ func newPMProductCreator() *PMProductCreator {
 func (creator *PMProductCreator) Create(user, requestID string, args *models.Product, log *zap.SugaredLogger) error {
 	//创建角色环境之间的关联关系
 	//todo 创建环境暂时不指定角色
-	// 检查是否重复创建（TO BE FIXED）;检查k8s集群设置: Namespace/Secret .etc
+	// 检查是否重复创建（TO BE FIXED）;检查k8s集群设置: RepoNamespace/Secret .etc
 	if err := preCreateProduct(args.EnvName, args, nil, log); err != nil {
 		log.Errorf("CreateProduct preCreateProduct error: %v", err)
 		return e.ErrCreateEnv.AddDesc(err.Error())
@@ -328,19 +328,19 @@ func (creator *DefaultProductCreator) Create(user, requestID string, args *model
 		args.Namespace = namespace
 	}
 	// todo DELETE THIS PART WHEN EXISTING NAMESAPCE IS SUPPORTED
-	//_, found, err := getter.GetNamespace(args.Namespace, kubeClient)
+	//_, found, err := getter.GetNamespace(args.RepoNamespace, kubeClient)
 	//if err != nil {
 	//	log.Errorf("GetNamespace error: %v", err)
 	//	return e.ErrCreateEnv.AddDesc(err.Error())
 	//}
 	//
 	//if found {
-	//	return e.ErrCreateEnv.AddDesc(fmt.Sprintf("%s[%s]%s", "namespace", args.Namespace, "已经存在,请换个环境名称尝试!"))
+	//	return e.ErrCreateEnv.AddDesc(fmt.Sprintf("%s[%s]%s", "namespace", args.RepoNamespace, "已经存在,请换个环境名称尝试!"))
 	//}
 
 	//创建角色环境之间的关联关系
 	//todo 创建环境暂时不指定角色
-	// 检查是否重复创建（TO BE FIXED）;检查k8s集群设置: Namespace/Secret .etc
+	// 检查是否重复创建（TO BE FIXED）;检查k8s集群设置: RepoNamespace/Secret .etc
 	if err := preCreateProduct(args.EnvName, args, kubeClient, log); err != nil {
 		log.Errorf("CreateProduct preCreateProduct error: %v", err)
 		return e.ErrCreateEnv.AddDesc(err.Error())

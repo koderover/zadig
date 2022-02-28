@@ -640,6 +640,7 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 			args.Source = setting.SourceFromGitlab
 			args.CodehostID = item.MainRepo.CodehostID
 			args.RepoOwner = item.MainRepo.RepoOwner
+			args.RepoNamespace = item.MainRepo.RepoNamespace
 			args.RepoName = item.MainRepo.RepoName
 			args.Committer = item.MainRepo.Committer
 			// 3. create task with args

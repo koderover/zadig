@@ -290,7 +290,7 @@ var YamlTemplate = template.Must(template.New("agentYaml").Parse(`
 ---
 
 apiVersion: v1
-kind: Namespace
+kind: RepoNamespace
 metadata:
   name: koderover-agent
 
@@ -533,7 +533,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: koderover-agent-sa
-  namespace: {{.Namespace}}
+  namespace: {{.RepoNamespace}}
 
 ---
 
@@ -541,11 +541,11 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: RoleBinding
 metadata:
   name: koderover-agent-admin-binding
-  namespace: {{.Namespace}}
+  namespace: {{.RepoNamespace}}
 subjects:
 - kind: ServiceAccount
   name: koderover-agent-sa
-  namespace: {{.Namespace}}
+  namespace: {{.RepoNamespace}}
 roleRef:
   kind: Role
   name: koderover-agent-admin-role
@@ -557,7 +557,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: koderover-agent-admin-role
-  namespace: {{.Namespace}}
+  namespace: {{.RepoNamespace}}
 rules:
 - apiGroups:
   - '*'
@@ -575,7 +575,7 @@ kind: DaemonSet
 {{- end }}
 metadata:
     name: koderover-agent-node-agent
-    namespace: {{.Namespace}}
+    namespace: {{.RepoNamespace}}
 spec:
   selector:
     matchLabels:
@@ -636,7 +636,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: resource-server
-  namespace: {{.Namespace}}
+  namespace: {{.RepoNamespace}}
   labels:
     app.kubernetes.io/component: resource-server
     app.kubernetes.io/name: zadig
@@ -670,7 +670,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: resource-server
-  namespace: {{.Namespace}}
+  namespace: {{.RepoNamespace}}
   labels:
     app.kubernetes.io/component: resource-server
     app.kubernetes.io/instance: zadig-zadig
@@ -691,7 +691,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: dind
-  namespace: {{.Namespace}}
+  namespace: {{.RepoNamespace}}
   labels:
     app.kubernetes.io/component: dind
     app.kubernetes.io/name: zadig
@@ -741,7 +741,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: dind
-  namespace: {{.Namespace}}
+  namespace: {{.RepoNamespace}}
   labels:
     app.kubernetes.io/component: dind
     app.kubernetes.io/name: zadig

@@ -381,6 +381,7 @@ func TriggerWorkflowByGerritEvent(event *gerritTypeEvent, body []byte, uri, base
 						workflowArgs.Source = setting.SourceFromGerrit
 						workflowArgs.CodehostID = item.MainRepo.CodehostID
 						workflowArgs.RepoOwner = item.MainRepo.RepoOwner
+						workflowArgs.RepoNamespace = item.MainRepo.RepoNamespace
 						workflowArgs.RepoName = item.MainRepo.RepoName
 						workflowArgs.Committer = item.MainRepo.Committer
 						if resp, err := workflowservice.CreateWorkflowTask(workflowArgs, setting.WebhookTaskCreator, log); err != nil {

@@ -385,6 +385,7 @@ func TriggerWorkflowByGithubEvent(event interface{}, baseURI, deliveryID, reques
 					args.Source = setting.SourceFromGithub
 					args.CodehostID = item.MainRepo.CodehostID
 					args.RepoOwner = item.MainRepo.RepoOwner
+					args.RepoNamespace = item.MainRepo.RepoNamespace
 					args.RepoName = item.MainRepo.RepoName
 					args.Committer = item.MainRepo.Committer
 					args.HookPayload = hookPayload

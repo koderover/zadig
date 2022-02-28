@@ -200,7 +200,7 @@ func (k *K8sService) listGroupServices(allServices []*commonmodels.ProductServic
 }
 
 func (k *K8sService) createGroup(envName, productName, username string, group []*commonmodels.ProductService, renderSet *commonmodels.RenderSet, informer informers.SharedInformerFactory, kubeClient client.Client) error {
-	k.log.Infof("[Namespace:%s][Product:%s] createGroup", envName, productName)
+	k.log.Infof("[RepoNamespace:%s][Product:%s] createGroup", envName, productName)
 	updatableServiceNameList := make([]string, 0)
 
 	// 异步创建无依赖的服务

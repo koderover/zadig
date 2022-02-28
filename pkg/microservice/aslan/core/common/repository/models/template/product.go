@@ -100,6 +100,7 @@ type GitRepoConfig struct {
 	Owner      string `bson:"owner,omitempty"`
 	Repo       string `bson:"repo,omitempty"`
 	Branch     string `bson:"branch,omitempty"`
+	Namespace  string `bson:"namespace,omitempty"` // records the actual namespace of repo, used to generate correct project name
 }
 
 type CustomYaml struct {

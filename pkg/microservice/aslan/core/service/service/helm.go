@@ -93,6 +93,7 @@ type helmServiceCreationArgs struct {
 	CreateBy         string
 	CodehostID       int
 	Owner            string
+	Namespace        string
 	Repo             string
 	Branch           string
 	RepoLink         string
@@ -576,6 +577,7 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 					CreateBy:        args.CreatedBy,
 					CodehostID:      repoArgs.CodehostID,
 					Owner:           repoArgs.Owner,
+					Namespace:       repoArgs.Namespace,
 					Repo:            repoArgs.Repo,
 					Branch:          repoArgs.Branch,
 					RepoLink:        repoLink,
@@ -818,6 +820,7 @@ func geneCreationDetail(args *helmServiceCreationArgs) interface{} {
 				Owner:      args.Owner,
 				Repo:       args.Repo,
 				Branch:     args.Branch,
+				Namespace:  args.Namespace,
 			},
 			LoadPath: args.FilePath,
 		}
@@ -904,6 +907,7 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 		Containers:  containerList,
 		CodehostID:  args.CodehostID,
 		RepoOwner:   args.Owner,
+		Namespace:   args.Namespace,
 		RepoName:    args.Repo,
 		BranchName:  args.Branch,
 		LoadPath:    args.FilePath,

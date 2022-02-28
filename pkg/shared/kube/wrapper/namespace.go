@@ -24,7 +24,7 @@ import (
 	"github.com/koderover/zadig/pkg/util"
 )
 
-// namespace is the wrapper for corev1.Namespace type.
+// namespace is the wrapper for corev1.RepoNamespace type.
 type namespace struct {
 	*corev1.Namespace
 }
@@ -39,7 +39,7 @@ func Namespace(w *corev1.Namespace) *namespace {
 	}
 }
 
-// Unwrap returns the corev1.Namespace object.
+// Unwrap returns the corev1.RepoNamespace object.
 func (w *namespace) Unwrap() *corev1.Namespace {
 	return w.Namespace
 }

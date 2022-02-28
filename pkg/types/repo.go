@@ -27,6 +27,7 @@ type Repository struct {
 	// Source is github, gitlab
 	Source        string `bson:"source,omitempty"          json:"source,omitempty"`
 	RepoOwner     string `bson:"repo_owner"                json:"repo_owner"`
+	RepoNamespace string `bson:"repo_namespace"            json:"repo_namespace"`
 	RepoName      string `bson:"repo_name"                 json:"repo_name"`
 	RemoteName    string `bson:"remote_name,omitempty"     json:"remote_name,omitempty"`
 	Branch        string `bson:"branch"                    json:"branch"`

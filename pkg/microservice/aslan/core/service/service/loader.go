@@ -72,7 +72,7 @@ func PreloadServiceFromCodeHost(codehostID int, repoOwner, repoName, repoUUID, b
 }
 
 // LoadServiceFromCodeHost 根据提供的codehost信息加载服务
-func LoadServiceFromCodeHost(username string, codehostID int, repoOwner, repoName, repoUUID, branchName, remoteName string, args *LoadServiceReq, log *zap.SugaredLogger) error {
+func LoadServiceFromCodeHost(username string, codehostID int, repoOwner, namespace, repoName, repoUUID, branchName, remoteName string, args *LoadServiceReq, log *zap.SugaredLogger) error {
 	ch, err := systemconfig.New().GetCodeHost(codehostID)
 	if err != nil {
 		log.Errorf("Failed to load codehost for preload service list, the error is: %+v", err)
@@ -80,7 +80,7 @@ func LoadServiceFromCodeHost(username string, codehostID int, repoOwner, repoNam
 	}
 	switch ch.Type {
 	case setting.SourceFromGithub, setting.SourceFromGitlab:
-		return loadService(username, ch, repoOwner, repoName, branchName, args, log)
+		return loadService(username, ch, repoOwner, namespace, repoName, branchName, args, log)
 	case setting.SourceFromGerrit:
 		return loadGerritService(username, ch, repoOwner, repoName, branchName, remoteName, args, log)
 	case setting.SourceFromCodeHub:
@@ -266,6 +266,7 @@ func loadGerritService(username string, ch *systemconfig.CodeHost, repoOwner, re
 			CodehostID:       ch.ID,
 			RepoName:         repoName,
 			RepoOwner:        repoOwner,
+			Namespace:        repoOwner,
 			BranchName:       branchName,
 			LoadPath:         args.LoadPath,
 			LoadFromDir:      args.LoadFromDir,
@@ -389,6 +390,7 @@ func loadCodehubService(username string, ch *systemconfig.CodeHost, repoOwner, r
 		createSvcArgs := &models.Service{
 			CodehostID:  ch.ID,
 			RepoOwner:   repoOwner,
+			Namespace:   repoOwner, // TODO real namespace value
 			RepoName:    repoName,
 			RepoUUID:    repoUUID,
 			BranchName:  branchName,

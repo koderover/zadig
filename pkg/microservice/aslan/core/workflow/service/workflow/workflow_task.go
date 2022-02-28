@@ -744,6 +744,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 	triggerBy := &commonmodels.TriggerBy{
 		CodehostID:     args.CodehostID,
 		RepoOwner:      args.RepoOwner,
+		RepoNamespace:  args.RepoNamespace,
 		RepoName:       args.RepoName,
 		Source:         args.Source,
 		MergeRequestID: args.MergeRequestID,
@@ -1962,6 +1963,12 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 		build.JobCtx.Builds = module.Repos
 		if len(build.JobCtx.Builds) == 0 {
 			build.JobCtx.Builds = make([]*types.Repository, 0)
+		}
+		// compatible with old logic, make sure value of namespace is set
+		for _, build := range build.JobCtx.Builds {
+			if build.RepoNamespace == "" {
+				build.RepoNamespace = build.RepoOwner
+			}
 		}
 
 		build.JobCtx.BuildSteps = []*taskmodels.BuildStep{}
