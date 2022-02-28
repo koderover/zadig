@@ -50,6 +50,7 @@ func (r *Reaper) runGitCmds() error {
 		noProxy := ""
 		proxyFlag := false
 		for _, repo := range r.Ctx.Repos {
+			fmt.Printf("the repo in the build is: %+v \n", *repo)
 			if repo.EnableProxy {
 				if !proxyFlag {
 					envs = append(envs, fmt.Sprintf("http_proxy=%s", r.Ctx.Proxy.GetProxyURL()))
