@@ -21,18 +21,16 @@ import (
 	"os"
 	"path"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
-	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
-
-	"github.com/koderover/zadig/pkg/setting"
-
 	"github.com/27149chen/afero"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
+	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/log"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
 )

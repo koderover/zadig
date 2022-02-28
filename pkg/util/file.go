@@ -17,13 +17,8 @@ limitations under the License.
 package util
 
 import (
-	"archive/tar"
-	"compress/gzip"
-	"io"
 	"io/ioutil"
 	"os"
-	"path/filepath"
-	"strings"
 )
 
 func GenerateTmpFile() (string, error) {
@@ -64,52 +59,4 @@ func ReadFile(filename string) ([]byte, error) {
 		return nil, err
 	}
 	return contentByte, nil
-}
-
-func Tar(src, dst string) (err error) {
-	fw, err := os.Create(dst)
-	if err != nil {
-		return
-	}
-	defer fw.Close()
-
-	gw := gzip.NewWriter(fw)
-	defer gw.Close()
-
-	tw := tar.NewWriter(gw)
-	defer tw.Close()
-
-	return filepath.Walk(src, func(fileName string, fi os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		hdr, err := tar.FileInfoHeader(fi, "")
-		if err != nil {
-			return err
-		}
-
-		hdr.Name = strings.TrimPrefix(fileName, string(filepath.Separator))
-
-		if err := tw.WriteHeader(hdr); err != nil {
-			return err
-		}
-
-		if !fi.Mode().IsRegular() {
-			return nil
-		}
-
-		fr, err := os.Open(fileName)
-		defer fr.Close()
-		if err != nil {
-			return err
-		}
-
-		_, err = io.Copy(tw, fr)
-		if err != nil {
-			return err
-		}
-
-		return nil
-	})
 }
