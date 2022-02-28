@@ -22,26 +22,32 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type CodeHubClient struct {
-	AK     string `json:"ak"`
-	SK     string `json:"sk"`
-	Region string `json:"region"`
+	AK          string `json:"ak"`
+	SK          string `json:"sk"`
+	Region      string `json:"region"`
+	ProxyAddr   string `json:"proxy_addr"`
+	EnableProxy bool   `json:"enable_proxy"`
 }
 
-func NewCodeHubClient(ak, sk, region string) *CodeHubClient {
+func NewCodeHubClient(ak, sk, region, proxyAddr string, enableProxy bool) *CodeHubClient {
 	return &CodeHubClient{
-		AK:     ak,
-		SK:     sk,
-		Region: region,
+		AK:          ak,
+		SK:          sk,
+		Region:      region,
+		ProxyAddr:   proxyAddr,
+		EnableProxy: enableProxy,
 	}
 }
 
 // Just apply the signature and request the CodeHub interface
 func (c *CodeHubClient) sendRequest(method, path string, payload []byte) (io.ReadCloser, error) {
+	var client *http.Client
 	r, err := http.NewRequest(method, fmt.Sprintf("%s.%s.%s%s", "https://codehub-ext", c.Region, "myhuaweicloud.com", path), ioutil.NopCloser(bytes.NewBuffer(payload)))
 	if r == nil || err != nil {
 		log.Errorf("http.NewRequest error:%s", err)
@@ -57,7 +63,17 @@ func (c *CodeHubClient) sendRequest(method, path string, payload []byte) (io.Rea
 		log.Errorf("signer.Sign error:%s", err)
 		return nil, err
 	}
-	resp, err := http.DefaultClient.Do(r)
+	if c.EnableProxy {
+		proxyURL, err := url.Parse(c.ProxyAddr)
+		if err != nil {
+			return nil, err
+		}
+		transport := &http.Transport{Proxy: http.ProxyURL(proxyURL)}
+		client = &http.Client{Transport: transport}
+	} else {
+		client = http.DefaultClient
+	}
+	resp, err := client.Do(r)
 	if err != nil || resp == nil {
 		log.Errorf("http.DefaultClient.Do error:%s", err)
 		return nil, err

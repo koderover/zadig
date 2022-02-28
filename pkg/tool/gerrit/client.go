@@ -18,10 +18,12 @@ package gerrit
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	gerrit "github.com/andygrunwald/go-gerrit"
 )
@@ -32,8 +34,14 @@ type Client struct {
 	cli *gerrit.Client
 }
 
-func NewClient(address, accessToken string) *Client {
-	httpClient := &http.Client{Transport: &BasicAuthTransporter{EncodedUserPass: accessToken}}
+func NewClient(address, accessToken, proxyAddr string, enableProxy bool) *Client {
+	httpClient := &http.Client{
+		Transport: &BasicAuthTransporter{
+			EncodedUserPass: accessToken,
+			ProxyAddr:       proxyAddr,
+			EnableProxy:     enableProxy,
+		},
+	}
 	cli, _ := gerrit.NewClient(address+"/a", httpClient)
 	return &Client{cli: cli}
 }
@@ -241,12 +249,32 @@ func (c *Client) CompareTwoPatchset(changeID, newPatchSetID, oldPatchSetID strin
 
 type BasicAuthTransporter struct {
 	EncodedUserPass string
+	ProxyAddr       string
+	EnableProxy     bool
 }
 
 func (bt *BasicAuthTransporter) RoundTrip(req *http.Request) (*http.Response, error) {
 	auth := "Basic " + bt.EncodedUserPass
 	req.Header.Set("Authorization", auth)
-	return http.DefaultTransport.RoundTrip(req)
+	transport := &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+	if bt.EnableProxy {
+		proxyURL, err := url.Parse(bt.ProxyAddr)
+		if err != nil {
+			return nil, err
+		}
+		transport.Proxy = http.ProxyURL(proxyURL)
+	}
+	return transport.RoundTrip(req)
 }
 
 var backslash = regexp.MustCompile("%2[F|f]")
