@@ -561,8 +561,7 @@ func updateServiceTemplateByGithubPush(pushEvent *github.PushEvent, log *zap.Sug
 	errs := &multierror.Error{}
 
 	for _, service := range serviceTmpls {
-		srcPath := service.SrcPath
-		_, _, _, _, path, _, err := GetOwnerRepoBranchPath(srcPath)
+		path, err := getServiceSrcPath(service)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		}
@@ -670,11 +669,7 @@ func SyncServiceTemplateFromGithub(service *commonmodels.Service, latestCommitID
 		log.Errorf("ensure github serviceTmpl failed, error: %+v", err)
 		return e.ErrValidateTemplate.AddDesc(err.Error())
 	}
-	// 更新到数据库，revision+1
-	if err := commonrepo.NewServiceColl().Create(service); err != nil {
-		log.Errorf("Failed to sync service %s from github path %s error: %v", service.ServiceName, service.SrcPath, err)
-		return e.ErrCreateTemplate.AddDesc(err.Error())
-	}
+
 	log.Infof("End of sync service template %s from github path %s", service.ServiceName, service.SrcPath)
 	return nil
 }

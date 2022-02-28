@@ -168,11 +168,7 @@ func SyncServiceTemplateFromCodehub(service *commonmodels.Service, log *zap.Suga
 		log.Errorf("ensureServiceTmpl error: %+v", err)
 		return e.ErrValidateTemplate.AddDesc(err.Error())
 	}
-	// 更新到数据库，revision+1
-	if err := commonrepo.NewServiceColl().Create(service); err != nil {
-		log.Errorf("Failed to sync service %s from codehub path %s error: %v", service.ServiceName, service.SrcPath, err)
-		return e.ErrCreateTemplate.AddDesc(err.Error())
-	}
+
 	log.Infof("End of sync service template %s from codehub path %s", service.ServiceName, service.SrcPath)
 	return nil
 }
