@@ -25,9 +25,11 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/otiai10/copy"
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -209,6 +211,19 @@ func SyncServiceTemplateFromGerrit(service *commonmodels.Service, log *zap.Sugar
 		}
 		return nil
 	}
+	// remove old repo dir
+	oldRepoDir := filepath.Join(config.S3StoragePath(), service.GerritRepoName)
+	os.RemoveAll(oldRepoDir)
+	// copy new repo data to old dir data
+	if err := os.MkdirAll(oldRepoDir, 0775); err != nil {
+		return err
+	}
+
+	newRepoDir := filepath.Join(config.S3StoragePath(), service.GerritRepoName+"-new")
+	if copyErr := copy.Copy(newRepoDir, oldRepoDir); copyErr != nil {
+		return copyErr
+	}
+
 	if err := reloadServiceTmplFromGerrit(service, log); err != nil {
 		return err
 	}
