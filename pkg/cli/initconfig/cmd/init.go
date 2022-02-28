@@ -195,6 +195,7 @@ func presetRoleBinding(uid string) error {
 		Name: config.RoleBindingNameFromUIDAndRole(uid, setting.SystemAdmin, "*"),
 		UID:  uid,
 		Role: string(setting.SystemAdmin),
+		Type: setting.ResourceTypeSystem,
 	})
 
 }
@@ -217,7 +218,7 @@ func presetRole() error {
 			log.DPanic(err)
 		}
 		g.Go(func() error {
-			return policy.NewDefault().CreatePublicRole(role.Name, role)
+			return policy.NewDefault().CreatePresetRole(role.Name, role)
 		})
 	}
 	if err := g.Wait(); err != nil {

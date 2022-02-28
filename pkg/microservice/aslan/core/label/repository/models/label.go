@@ -23,13 +23,13 @@ import (
 )
 
 type Label struct {
-	ID          primitive.ObjectID `bson:"_id,omitempty"               json:"id,omitempty"`
-	Type        setting.LabelType  `bson:"type"                        json:"type"`
-	Key         string             `bson:"key"                         json:"key"`
-	Value       string             `bson:"value"                       json:"value"`
-	CreateBy    string             `bson:"create_by"                   json:"create_by"`
-	CreateTime  int64              `bson:"create_time"                 json:"create_time"`
-	ProjectName string             `bson:"project_name"                json:"project_name"`
+	ID          primitive.ObjectID   `bson:"_id,omitempty"               json:"id,omitempty"`
+	Type        setting.ResourceType `bson:"type"                        json:"type"`
+	Key         string               `bson:"key"                         json:"key"`
+	Value       string               `bson:"value"                       json:"value"`
+	CreateBy    string               `bson:"create_by"                   json:"create_by"`
+	CreateTime  int64                `bson:"create_time"                 json:"create_time"`
+	ProjectName string               `bson:"project_name"                json:"project_name"`
 }
 
 func (Label) TableName() string {

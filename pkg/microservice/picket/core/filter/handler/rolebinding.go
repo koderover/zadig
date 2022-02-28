@@ -24,7 +24,7 @@ import (
 	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-func ListRoleBindings(c *gin.Context) {
+func ListBindings(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
@@ -34,5 +34,5 @@ func ListRoleBindings(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service.ListRoleBindings(c.Request.Header, c.Request.URL.Query(), ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListBindings(c.Request.Header, c.Request.URL.Query(), ctx.Logger)
 }

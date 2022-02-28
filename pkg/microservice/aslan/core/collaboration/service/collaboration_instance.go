@@ -300,11 +300,7 @@ func GetCollaborationUpdate(projectName, uid, identityType, userName string, log
 		logger.Errorf("GetCollaborationUpdate error, err msg:%s", err)
 		return nil, err
 	}
-	err = updateVisitTime(uid, resp.UpdateInstance, logger)
-	if err != nil {
-		logger.Errorf("GetCollaborationUpdate updateVisitTime error, err msg:%s", err)
-		return nil, err
-	}
+
 	return resp, nil
 }
 
@@ -400,7 +396,8 @@ func syncPolicy(updateResp *GetCollaborationUpdateResp, projectName, identityTyp
 			Name:   buildPolicybindingName(uid, policyName, projectName),
 			UID:    uid,
 			Policy: policyName,
-			Public: false,
+			Preset: false,
+			Type:   setting.ResourceTypeSystem,
 		})
 	}
 	if len(policies) > 0 {
@@ -497,7 +494,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 				Key: "policy",
 				Value: buildLabelValue(projectName, mode.Name, identityType, userName,
 					string(config2.ResourceTypeWorkflow), workflow.Name),
-				Type:        setting.LabelTypeSystem,
+				Type:        setting.ResourceTypeSystem,
 				ProjectName: projectName,
 			})
 		}
@@ -506,7 +503,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 				Key: "policy",
 				Value: buildLabelValue(projectName, mode.Name, identityType, userName,
 					string(config2.ResourceTypeProduct), product.Name),
-				Type:        setting.LabelTypeSystem,
+				Type:        setting.ResourceTypeSystem,
 				ProjectName: projectName,
 			})
 		}
@@ -517,7 +514,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 				Key: "policy",
 				Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName,
 					string(config2.ResourceTypeWorkflow), workflow.Name),
-				Type:        setting.LabelTypeSystem,
+				Type:        setting.ResourceTypeSystem,
 				ProjectName: projectName,
 			})
 		}
@@ -526,7 +523,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 				Key: "policy",
 				Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName,
 					string(config2.ResourceTypeProduct), product.Name),
-				Type:        setting.LabelTypeSystem,
+				Type:        setting.ResourceTypeSystem,
 				ProjectName: projectName,
 			})
 		}
@@ -535,7 +532,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 				Key: "policy",
 				Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName,
 					string(config2.ResourceTypeWorkflow), workflow.BaseName),
-				Type:        setting.LabelTypeSystem,
+				Type:        setting.ResourceTypeSystem,
 				ProjectName: projectName,
 			})
 		}
@@ -544,7 +541,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 				Key: "policy",
 				Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName,
 					string(config2.ResourceTypeProduct), product.BaseName),
-				Type:        setting.LabelTypeSystem,
+				Type:        setting.ResourceTypeSystem,
 				ProjectName: projectName,
 			})
 		}
@@ -556,7 +553,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 				Key: "policy",
 				Value: buildLabelValue(projectName, instance.CollaborationName, identityType, userName,
 					string(config2.ResourceTypeWorkflow), workflow.BaseName),
-				Type: setting.LabelTypeSystem,
+				Type: setting.ResourceTypeSystem,
 			})
 		}
 		for _, product := range instance.Products {
@@ -564,7 +561,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 				Key: "policy",
 				Value: buildLabelValue(projectName, instance.CollaborationName, identityType, userName,
 					string(config2.ResourceTypeProduct), product.BaseName),
-				Type: setting.LabelTypeSystem,
+				Type: setting.ResourceTypeSystem,
 			})
 		}
 	}
@@ -606,14 +603,14 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 			labels = append(labels, mongodb2.Label{
 				Key:   "policy",
 				Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeWorkflow), workflow.New.Name),
-				Type:  setting.LabelTypeSystem,
+				Type:  setting.ResourceTypeSystem,
 			})
 		}
 		for _, product := range item.UpdateSpec.Products {
 			labels = append(labels, mongodb2.Label{
 				Key:   "policy",
 				Value: buildLabelValue(projectName, item.CollaborationMode, identityType, userName, string(config2.ResourceTypeProduct), product.New.Name),
-				Type:  setting.LabelTypeSystem,
+				Type:  setting.ResourceTypeSystem,
 			})
 		}
 

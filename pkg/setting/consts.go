@@ -563,10 +563,11 @@ const ChartTemplatesPath = "charts"
 type RoleType string
 
 const (
-	Contributor  RoleType = "contributor"
-	ReadOnly     RoleType = "read-only"
-	ProjectAdmin RoleType = "project-admin"
-	SystemAdmin  RoleType = "admin"
+	Contributor     RoleType = "contributor"
+	ReadOnly        RoleType = "read-only"
+	ProjectAdmin    RoleType = "project-admin"
+	SystemAdmin     RoleType = "admin"
+	ReadProjectOnly RoleType = "read-project-only"
 )
 
 // ModernWorkflowType 自由编排工作流
@@ -614,14 +615,11 @@ const (
 	InformerNamingConvention = "%s-%s"
 )
 
-type PolicyType string
-type PolicyBindingType string
-type LabelType string
+type ResourceType string
 
 const (
-	PolicyTypeSystem        PolicyType        = "system"
-	PolicyBindingTypeSystem PolicyBindingType = "system"
-	LabelTypeSystem         LabelType         = "system"
+	ResourceTypeSystem ResourceType = "system"
+	ResourceTypeCustom ResourceType = "custom"
 )
 
 // AttachedClusterNamespace is the namespace Zadig uses in attached cluster.
