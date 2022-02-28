@@ -1,4 +1,5 @@
 name: read-only
+type: system
 rules:
   - verbs:
       - get_workflow
