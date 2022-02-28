@@ -62,9 +62,11 @@ func CreatePolicies(ns string, policies []*Policy, _ *zap.SugaredLogger) error {
 	var objs []*models.Policy
 	for _, policy := range policies {
 		obj := &models.Policy{
-			Name:      policy.Name,
-			Namespace: ns,
-			Type:      setting.ResourceTypeSystem,
+			Name:        policy.Name,
+			Namespace:   ns,
+			Description: policy.Description,
+			UpdateTime:  policy.UpdateTime,
+			Type:        setting.ResourceTypeSystem,
 		}
 
 		for _, r := range policy.Rules {
@@ -80,10 +82,12 @@ func CreatePolicies(ns string, policies []*Policy, _ *zap.SugaredLogger) error {
 	return mongodb.NewPolicyColl().BulkCreate(objs)
 }
 
-func UpdatePolicy(ns string, policy *Policy, _ *zap.SugaredLogger) error {
+func UpdatePolicy(ns string, policy *Policy, log *zap.SugaredLogger) error {
 	obj := &models.Policy{
-		Name:      policy.Name,
-		Namespace: ns,
+		Name:        policy.Name,
+		Namespace:   ns,
+		UpdateTime:  policy.UpdateTime,
+		Description: policy.Description,
 	}
 
 	for _, r := range policy.Rules {
@@ -99,8 +103,10 @@ func UpdatePolicy(ns string, policy *Policy, _ *zap.SugaredLogger) error {
 
 func UpdateOrCreatePolicy(ns string, policy *Policy, _ *zap.SugaredLogger) error {
 	obj := &models.Policy{
-		Name:      policy.Name,
-		Namespace: ns,
+		Name:        policy.Name,
+		Namespace:   ns,
+		UpdateTime:  policy.UpdateTime,
+		Description: policy.Description,
 	}
 
 	for _, r := range policy.Rules {
@@ -124,6 +130,7 @@ func ListPolicies(projectName string, _ *zap.SugaredLogger) ([]*Policy, error) {
 		policies = append(policies, &Policy{
 			Name:        v.Name,
 			Description: v.Description,
+			UpdateTime:  v.UpdateTime,
 		})
 	}
 	return policies, nil
