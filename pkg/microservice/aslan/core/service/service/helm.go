@@ -930,6 +930,16 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 		return nil, err
 	}
 
+	// update status of current service template to deleting
+	if currentSvcTmpl != nil {
+		err = commonrepo.NewServiceColl().UpdateStatus(args.ServiceName, args.ProductName, setting.ProductStatusDeleting)
+		if err != nil {
+			log.Errorf("Failed to set status of current service templates, serviceName: %s, err: %s", args.ServiceName, err)
+			return nil, err
+		}
+	}
+
+	// create new service template
 	if err = commonrepo.NewServiceColl().Create(serviceObj); err != nil {
 		log.Errorf("Failed to create service %s error: %s", args.ServiceName, err)
 		return nil, err
