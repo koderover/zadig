@@ -46,6 +46,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
@@ -101,6 +102,7 @@ type helmServiceCreationArgs struct {
 	ValuePaths       []string
 	ValuesYaml       string
 	Variables        []*Variable
+	ChartRepoName    string
 }
 
 type ChartTemplateData struct {
@@ -326,9 +328,130 @@ func CreateOrUpdateHelmService(projectName string, args *HelmServiceCreationArgs
 		return CreateOrUpdateHelmServiceFromGitRepo(projectName, args, logger)
 	case LoadFromChartTemplate:
 		return CreateOrUpdateHelmServiceFromChartTemplate(projectName, args, logger)
+	case LoadFromChartRepo:
+		return CreateOrUpdateHelmServiceFromChartRepo(projectName, args, logger)
 	default:
 		return nil, fmt.Errorf("invalid source")
 	}
+}
+
+func CreateOrUpdateHelmServiceFromChartRepo(projectName string, args *HelmServiceCreationArgs, log *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
+	chartRepoArgs, ok := args.CreateFrom.(*CreateFromChartRepo)
+	if !ok {
+		return nil, e.ErrCreateTemplate.AddDesc("invalid argument")
+	}
+
+	chartRepo, err := commonrepo.NewHelmRepoColl().Find(&commonrepo.HelmRepoFindOption{RepoName: chartRepoArgs.ChartRepoName})
+	if err != nil {
+		log.Errorf("failed to query chart-repo info, productName: %s, err: %s", projectName, err)
+		return nil, e.ErrCreateTemplate.AddDesc(fmt.Sprintf("failed to query chart-repo info, productName: %s, repoName: %s", projectName, chartRepoArgs.ChartRepoName))
+	}
+
+	chartClient, err := helmclient.NewHelmChartRepoClient(chartRepo.URL, chartRepo.Username, chartRepo.Password)
+	if err != nil {
+		return nil, e.ErrCreateTemplate.AddErr(errors.Wrapf(err, "failed to init chart client for repo: %s", chartRepo.RepoName))
+	}
+
+	index, err := chartClient.FetchIndexYaml()
+	if err != nil {
+		return nil, e.ErrCreateTemplate.AddErr(err)
+	}
+
+	// validate chart with specific version exists in repo
+	foundChart := false
+	for name, entries := range index.Entries {
+		if name != chartRepoArgs.ChartName {
+			continue
+		}
+		for _, entry := range entries {
+			if entry.Version == chartRepoArgs.ChartVersion {
+				foundChart = true
+				break
+			}
+		}
+		break
+	}
+	if !foundChart {
+		return nil, e.ErrCreateTemplate.AddDesc(fmt.Sprintf("failed to find chart: %s-%s from chart repo", chartRepoArgs.ChartName, chartRepoArgs.ChartVersion))
+	}
+
+	localPath := config.LocalServicePath(projectName, chartRepoArgs.ChartName)
+	err = chartClient.DownloadAndExpand(chartRepoArgs.ChartName, chartRepoArgs.ChartVersion, localPath)
+	if err != nil {
+		return nil, e.ErrCreateTemplate.AddErr(err)
+	}
+
+	serviceName := chartRepoArgs.ChartName
+	rev, err := getNextServiceRevision(projectName, serviceName)
+	if err != nil {
+		log.Errorf("Failed to get next revision for service %s, err: %s", serviceName, err)
+		return nil, e.ErrCreateTemplate.AddErr(err)
+	}
+
+	var finalErr error
+	// clear files from both s3 and local when error occurred in next stages
+	defer func() {
+		if finalErr != nil {
+			clearChartFiles(projectName, serviceName, rev, log)
+		}
+	}()
+
+	// read values.yaml
+	fsTree := os.DirFS(config.LocalServicePath(projectName, chartRepoArgs.ChartName))
+	valuesYAML, err := readValuesYAML(fsTree, chartRepoArgs.ChartName, log)
+	if err != nil {
+		finalErr = e.ErrCreateTemplate.AddErr(err)
+		return nil, finalErr
+	}
+
+	// upload to s3 storage
+	s3Base := config.ObjectStorageServicePath(projectName, serviceName)
+	err = fsservice.ArchiveAndUploadFilesToS3(fsTree, []string{serviceName, fmt.Sprintf("%s-%d", serviceName, rev)}, s3Base, log)
+	if err != nil {
+		finalErr = e.ErrCreateTemplate.AddErr(err)
+		return nil, finalErr
+	}
+
+	// copy service revision data from latest
+	err = copyChartRevision(projectName, serviceName, rev)
+	if err != nil {
+		log.Errorf("Failed to copy file %s, err: %s", serviceName, err)
+		finalErr = errors.Wrapf(err, "Failed to copy chart info, service %s", serviceName)
+		return nil, finalErr
+	}
+
+	svc, err := createOrUpdateHelmService(
+		fsTree,
+		&helmServiceCreationArgs{
+			ChartName:       chartRepoArgs.ChartName,
+			ChartVersion:    chartRepoArgs.ChartVersion,
+			ChartRepoName:   chartRepoArgs.ChartRepoName,
+			ServiceRevision: rev,
+			MergedValues:    string(valuesYAML),
+			ServiceName:     serviceName,
+			ProductName:     projectName,
+			CreateBy:        args.CreatedBy,
+			Source:          setting.SourceFromChartRepo,
+		},
+		log,
+	)
+	if err != nil {
+		log.Errorf("Failed to create service %s in project %s, error: %s", serviceName, projectName, err)
+		finalErr = e.ErrCreateTemplate.AddErr(err)
+		return nil, finalErr
+	}
+
+	compareHelmVariable([]*templatemodels.RenderChart{
+		{
+			ServiceName:  chartRepoArgs.ChartName,
+			ChartVersion: svc.HelmChart.Version,
+			ValuesYaml:   svc.HelmChart.ValuesYaml,
+		},
+	}, projectName, args.CreatedBy, log)
+
+	return &BulkHelmServiceCreationResponse{
+		SuccessServices: []string{serviceName},
+	}, nil
 }
 
 func CreateOrUpdateHelmServiceFromChartTemplate(projectName string, args *HelmServiceCreationArgs, logger *zap.SugaredLogger) (*BulkHelmServiceCreationResponse, error) {
@@ -842,6 +965,12 @@ func geneCreationDetail(args *helmServiceCreationArgs) interface{} {
 			TemplateName: args.HelmTemplateName,
 			ServiceName:  args.ServiceName,
 			Variables:    variables,
+		}
+	case setting.SourceFromChartRepo:
+		return models.CreateFromChartRepo{
+			ChartRepoName: args.ChartRepoName,
+			ChartName:     args.ChartName,
+			ChartVersion:  args.ChartVersion,
 		}
 	}
 	return nil
