@@ -70,7 +70,7 @@ func (c *Client) CreatePolicies(ns string, request CreatePoliciesArgs) error {
 
 	_, err := c.Post(url, httpclient.SetBody(request))
 	if err != nil {
-		log.Errorf("Failed to add audit log, error: %s", err)
+		log.Errorf("Failed to createPolicies, error: %s", err)
 		return err
 	}
 
@@ -82,7 +82,7 @@ func (c *Client) DeletePolicies(ns string, request DeletePoliciesArgs) error {
 
 	_, err := c.Post(url, httpclient.SetBody(request))
 	if err != nil {
-		log.Errorf("Failed to add audit log, error: %s", err)
+		log.Errorf("Failed to deletePolicies, error: %s", err)
 		return err
 	}
 
@@ -121,4 +121,15 @@ func (c *Client) GetResourcePermission(req *ResourcePermissionReq) (map[string][
 		return nil, err
 	}
 	return result, nil
+}
+
+func (c *Client) GetPolicies(names string) ([]*Policy, error) {
+	url := fmt.Sprintf("/policies/bulk")
+	res := make([]*Policy, 0)
+	_, err := c.Get(url, httpclient.SetQueryParam("names", names), httpclient.SetResult(&res))
+	if err != nil {
+		log.Errorf("Failed to getPolicies,err: %s", err)
+		return nil, err
+	}
+	return res, nil
 }

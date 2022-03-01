@@ -29,10 +29,6 @@ func GetUserPermission(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("args projectName can't be empty")
-		return
-	}
 
 	ctx.Resp, ctx.Err = service.GetPermission(projectName, c.Param("uid"), ctx.Logger)
 }

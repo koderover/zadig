@@ -25,7 +25,6 @@ import (
 	"github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
-	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 type CreateLabelsResp struct {
@@ -206,27 +205,11 @@ func DeleteLabels(ids []string, forceDelete bool, logger *zap.SugaredLogger) err
 		return nil
 	}
 
-	res, err := mongodb.NewLabelBindingColl().ListByOpt(&mongodb.LabelBindingCollFindOpt{LabelIDs: ids})
-	if err != nil {
-		logger.Errorf("list labelbingding err:%s", err)
-		return err
-	}
-
-	if !forceDelete && len(res) > 0 {
-		return e.ErrForbidden.AddDesc("some label has already bind resource, can not delete")
-	}
-
 	if forceDelete {
-		var labelBindingIDs []string
-		for _, labelBinding := range res {
-			labelBindingIDs = append(ids, labelBinding.ID.Hex())
-		}
-
-		if err := mongodb.NewLabelBindingColl().BulkDeleteByIds(labelBindingIDs); err != nil {
-			logger.Errorf("BulkDeleteByIds err :%s,ids:%v", err, labelBindingIDs)
+		if err := mongodb.NewLabelBindingColl().BulkDeleteByLabelIds(ids); err != nil {
+			logger.Errorf("BulkDeleteByIds err :%s,ids:%v", err, ids)
 			return err
 		}
-		return mongodb.NewLabelColl().BulkDelete(ids)
 	}
 
 	return mongodb.NewLabelColl().BulkDelete(ids)

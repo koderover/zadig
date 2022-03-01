@@ -100,6 +100,7 @@ func (c *CollaborationModeColl) Update(username string, args *models.Collaborati
 			"update_by":   username,
 			"members":     args.Members,
 			"workflows":   args.Workflows,
+			"recycle_day": args.RecycleDay,
 			"revision":    res.Revision + 1,
 			"products":    args.Products,
 		}}

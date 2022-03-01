@@ -150,11 +150,11 @@ func (c *PolicyBindingColl) DeleteByPolicy(policyName string, projectName string
 }
 
 func (c *PolicyBindingColl) DeleteByPolicies(policyNames []string, projectName string) error {
-	if projectName == "" {
-		return fmt.Errorf("projectName is empty")
+	query := bson.M{}
+	if len(projectName) != 0 {
+		query = bson.M{"policy_ref.namespace": projectName, "namespace": projectName}
 	}
 
-	query := bson.M{"policy_ref.namespace": projectName, "namespace": projectName}
 	if len(policyNames) != 0 {
 		query["policy_ref.name"] = bson.M{"$in": policyNames}
 	}

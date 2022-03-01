@@ -42,6 +42,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		policies.PUT("/:name", UpdateOrCreatePolicy)
 		policies.GET("", ListPolicies)
 		policies.GET("/:name", GetPolicy)
+		policies.GET("/bulk", GetPolicies)
 		policies.DELETE("/:name", DeletePolicy)
 	}
 

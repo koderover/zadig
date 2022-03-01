@@ -129,8 +129,8 @@ func (c *LabelBindingColl) ListByOpt(opt *LabelBindingCollFindOpt) ([]*models.La
 		query["resource_type"] = opt.ResourceType
 	}
 	ctx := context.Background()
-	opts := options.Find()
-	cursor, err := c.Collection.Find(ctx, query, opts)
+
+	cursor, err := c.Collection.Find(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -142,21 +142,38 @@ func (c *LabelBindingColl) ListByOpt(opt *LabelBindingCollFindOpt) ([]*models.La
 	return ret, err
 }
 
+func (c *LabelBindingColl) BulkDeleteByLabelIds(labelIds []string) error {
+	if len(labelIds) == 0 {
+		return nil
+	}
+
+	condition := bson.A{}
+	for _, id := range labelIds {
+		condition = append(condition, bson.M{
+			"label_id": id,
+		})
+	}
+	query := bson.D{{"$or", condition}}
+	_, err := c.DeleteMany(context.TODO(), query)
+	return err
+}
+
 func (c *LabelBindingColl) BulkDeleteByIds(ids []string) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	query := bson.M{}
-	var oids []primitive.ObjectID
+
+	condition := bson.A{}
 	for _, id := range ids {
 		oid, err := primitive.ObjectIDFromHex(id)
 		if err != nil {
 			return err
 		}
-		oids = append(oids, oid)
+		condition = append(condition, bson.M{
+			"_id": oid,
+		})
 	}
-	query["_id"] = bson.M{"$in": oids}
-
+	query := bson.D{{"$or", condition}}
 	_, err := c.DeleteMany(context.TODO(), query)
 	return err
 }

@@ -221,6 +221,7 @@ func genCollaborationInstance(mode models.CollaborationMode, projectName, uid, i
 		UserUID:           uid,
 		PolicyName:        buildPolicyName(projectName, mode.Name, identityType, userName),
 		Revision:          mode.Revision,
+		RecycleDay:        mode.RecycleDay,
 		Workflows:         workflows,
 		Products:          products,
 		LastVisitTime:     time.Now().Unix(),
@@ -259,9 +260,10 @@ func getDiff(cmMap map[string]*models.CollaborationMode, ciMap map[string]*model
 	}, nil
 }
 
-func updateVisitTime(uid string, cis []models.CollaborationInstance, logger *zap.SugaredLogger) error {
+func updateVisitTime(uid string, cis []*models.CollaborationInstance, logger *zap.SugaredLogger) error {
 	for _, instance := range cis {
-		err := mongodb.NewCollaborationInstanceColl().Update(uid, &instance)
+		instance.LastVisitTime = time.Now().Unix()
+		err := mongodb.NewCollaborationInstanceColl().Update(uid, instance)
 		if err != nil {
 			logger.Errorf("syncInstance Update error, error msg:%s", err)
 			return err
@@ -300,7 +302,11 @@ func GetCollaborationUpdate(projectName, uid, identityType, userName string, log
 		logger.Errorf("GetCollaborationUpdate error, err msg:%s", err)
 		return nil, err
 	}
-
+	err = updateVisitTime(uid, collaborationInstances, logger)
+	if err != nil {
+		logger.Errorf("GetCollaborationUpdate updateVisitTime error, err msg:%s", err)
+		return nil, err
+	}
 	return resp, nil
 }
 
@@ -1159,6 +1165,119 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 		Product:  newProduct,
 		IfSync:   ifSync,
 	}, nil
+}
+
+type DeleteCIResourcesRequest struct {
+	CollaborationInstances []models.CollaborationInstance `json:"collaboration_instances"`
+}
+
+func CleanCIResources(userName, requestID string, logger *zap.SugaredLogger) error {
+	cis, err := mongodb.NewCollaborationInstanceColl().List(&mongodb.CollaborationInstanceFindOptions{})
+	if err != nil {
+		return err
+	}
+	var fileterdInstances []*models.CollaborationInstance
+	for _, ci := range cis {
+
+		if ci.RecycleDay != 0 && ((time.Now().Unix()-ci.LastVisitTime)/60 > ci.RecycleDay*24*60) {
+			fileterdInstances = append(fileterdInstances, ci)
+		}
+	}
+	return DeleteCIResources(userName, requestID, fileterdInstances, logger)
+}
+
+func DeleteCIResources(userName, requestID string, cis []*models.CollaborationInstance, logger *zap.SugaredLogger) error {
+	var names string
+	var policyNames []string
+	if len(cis) == 0 {
+		return nil
+	}
+	var findOpts []mongodb.CollaborationInstanceFindOptions
+
+	for _, ci := range cis {
+		findOpts = append(findOpts, mongodb.CollaborationInstanceFindOptions{
+			ProjectName: ci.ProjectName,
+			Name:        ci.CollaborationName,
+			UserUID:     ci.UserUID,
+		})
+		policyNames = append(policyNames, ci.PolicyName)
+	}
+
+	err := mongodb.NewCollaborationInstanceColl().BulkDelete(mongodb.CollaborationInstanceListOptions{
+		FindOpts: findOpts,
+	})
+	if err != nil {
+		logger.Errorf("BulkDelete CollaborationInstance error:%s", err)
+		return err
+	}
+	names = cis[0].PolicyName
+	for i := 1; i < len(cis); i++ {
+		names = names + "," + cis[i].PolicyName
+	}
+	res, err := policy.NewDefault().GetPolicies(names)
+	if err != nil {
+		return err
+	}
+
+	var labels []mongodb2.Label
+	labelSet := sets.String{}
+	for _, re := range res {
+		for _, rule := range re.Rules {
+			for _, attribute := range rule.MatchAttributes {
+				if attribute.Key != "placeholder" && attribute.Key != "production" &&
+					!labelSet.Has(attribute.Key+"-"+attribute.Value) {
+					labels = append(labels, mongodb2.Label{
+						Key:   attribute.Key,
+						Value: attribute.Value,
+					})
+					labelSet.Insert(attribute.Key + "-" + attribute.Value)
+				}
+			}
+		}
+	}
+
+	labelRes, err := service.ListLabels(&service.ListLabelsArgs{
+		Labels: labels,
+	})
+	if err != nil {
+		return err
+	}
+	var labelIds []string
+	for _, l := range labelRes.Labels {
+		labelIds = append(labelIds, l.ID.Hex())
+	}
+
+	err = service.DeleteLabels(labelIds, true, logger)
+	if err != nil {
+		return err
+	}
+	for _, ci := range cis {
+		for _, workflow := range ci.Workflows {
+			if workflow.CollaborationType == config.CollaborationNew {
+				err = commonservice.DeleteWorkflow(workflow.Name, requestID, false, logger)
+				if err != nil {
+					return err
+				}
+			}
+		}
+		for _, product := range ci.Products {
+			if product.CollaborationType == config.CollaborationNew {
+				err = commonservice.DeleteProduct(userName, product.Name, ci.ProjectName, requestID, logger)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	err = policy.NewDefault().DeletePolicies("", policy.DeletePoliciesArgs{
+		Names: policyNames,
+	})
+	if err != nil {
+		logger.Errorf("BulkDelete policy error:%s", err)
+		return err
+	}
+
+	return nil
 }
 
 func GetCollaborationNew(projectName, uid, identityType, userName string, logger *zap.SugaredLogger) (*GetCollaborationNewResp, error) {

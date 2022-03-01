@@ -84,9 +84,6 @@ func GetBundleResources(logger *zap.SugaredLogger) ([]*resourceSpec, error) {
 			for _, v := range labels {
 				resourceSpec.Spec[v.Key] = v.Value
 			}
-		} else {
-			// TODO improve the resource key not found logic
-			//logger.Warnf("can not find resource key :%s", resourceKey)
 		}
 
 		clusterID := env.ClusterID

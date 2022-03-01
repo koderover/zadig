@@ -62,6 +62,23 @@ func (c *PolicyColl) EnsureIndex(ctx context.Context) error {
 	return err
 }
 
+func (c *PolicyColl) GetByNames(names []string) ([]*models.Policy, error) {
+	query := bson.M{}
+	query["name"] = bson.M{"$in": names}
+
+	cursor, err := c.Collection.Find(context.TODO(), query)
+	if err != nil {
+		return nil, err
+	}
+
+	var res []*models.Policy
+	err = cursor.All(context.TODO(), &res)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
 func (c *PolicyColl) Get(ns, name string) (*models.Policy, bool, error) {
 	res := &models.Policy{}
 
@@ -160,7 +177,10 @@ func (c *PolicyColl) Delete(name string, projectName string) error {
 }
 
 func (c *PolicyColl) DeleteMany(names []string, projectName string) error {
-	query := bson.M{"namespace": projectName}
+	query := bson.M{}
+	if len(projectName) > 0 {
+		query = bson.M{"namespace": projectName}
+	}
 	if len(names) > 0 {
 		query["name"] = bson.M{"$in": names}
 	}

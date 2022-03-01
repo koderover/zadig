@@ -50,27 +50,27 @@ type CronClient struct {
 }
 
 const (
-	// CleanJobScheduler ...
 	CleanJobScheduler = "CleanJobScheduler"
-	// UpsertWorkflowScheduler ...
+
 	UpsertWorkflowScheduler = "UpsertWorkflowScheduler"
-	// UpsertTestScheduler ...
+
 	UpsertTestScheduler = "UpsertTestScheduler"
-	// UpsertColliePipelineScheduler ...
+
 	UpsertColliePipelineScheduler = "UpsertColliePipelineScheduler"
-	//CleanProductScheduler ...
+
 	CleanProductScheduler = "CleanProductScheduler"
-	//InitBuildStatScheduler
+
+	CleanCIResourcesScheduler = "CleanCIResourcesScheduler"
+
 	InitStatScheduler = "InitStatScheduler"
-	//InitOperationStatScheduler
+
 	InitOperationStatScheduler = "InitOperationStatScheduler"
 
-	//InitPullSonarStatScheduler
 	InitPullSonarStatScheduler = "InitPullSonarStatScheduler"
 
 	// SystemCapacityGC periodically triggers  garbage collection for system data based on its retention policy.
 	SystemCapacityGC = "SystemCapacityGC"
-	//InitHealthCheckScheduler
+
 	InitHealthCheckScheduler = "InitHealthCheckScheduler"
 )
 
@@ -145,6 +145,8 @@ func (c *CronClient) Init() {
 
 	// 定时清理环境
 	c.InitCleanProductScheduler()
+	// clean collaboration instance resource every 5 minutes
+	c.InitCleanCIResourcesScheduler()
 	// 定时初始化构建数据
 	c.InitBuildStatScheduler()
 	// 定时器初始化话运营统计数据
@@ -155,7 +157,6 @@ func (c *CronClient) Init() {
 	c.InitHealthCheckScheduler()
 }
 
-// InitCleanJobScheduler ...
 func (c *CronClient) InitCleanJobScheduler() {
 
 	c.Schedulers[CleanJobScheduler] = gocron.NewScheduler()
@@ -165,7 +166,6 @@ func (c *CronClient) InitCleanJobScheduler() {
 	c.Schedulers[CleanJobScheduler].Start()
 }
 
-// InitCleanProductScheduler ...
 func (c *CronClient) InitCleanProductScheduler() {
 
 	c.Schedulers[CleanProductScheduler] = gocron.NewScheduler()
@@ -175,7 +175,15 @@ func (c *CronClient) InitCleanProductScheduler() {
 	c.Schedulers[CleanProductScheduler].Start()
 }
 
-// InitJobScheduler ...
+func (c *CronClient) InitCleanCIResourcesScheduler() {
+
+	c.Schedulers[CleanCIResourcesScheduler] = gocron.NewScheduler()
+
+	c.Schedulers[CleanCIResourcesScheduler].Every(5).Minutes().Do(c.AslanCli.TriggerCleanCIResources, c.log)
+
+	c.Schedulers[CleanCIResourcesScheduler].Start()
+}
+
 func (c *CronClient) InitJobScheduler() {
 
 	c.Schedulers[UpsertWorkflowScheduler] = gocron.NewScheduler()
@@ -185,7 +193,6 @@ func (c *CronClient) InitJobScheduler() {
 	c.Schedulers[UpsertWorkflowScheduler].Start()
 }
 
-// InitTestScheduler ...
 func (c *CronClient) InitTestScheduler() {
 
 	c.Schedulers[UpsertTestScheduler] = gocron.NewScheduler()
@@ -195,7 +202,6 @@ func (c *CronClient) InitTestScheduler() {
 	c.Schedulers[UpsertTestScheduler].Start()
 }
 
-// InitJobScheduler ...
 func (c *CronClient) InitColliePipelineScheduler() {
 
 	c.Schedulers[UpsertColliePipelineScheduler] = gocron.NewScheduler()
@@ -205,7 +211,6 @@ func (c *CronClient) InitColliePipelineScheduler() {
 	c.Schedulers[UpsertColliePipelineScheduler].Start()
 }
 
-// InitBuildStatScheduler ...
 func (c *CronClient) InitBuildStatScheduler() {
 	c.Schedulers[InitStatScheduler] = gocron.NewScheduler()
 
@@ -214,7 +219,6 @@ func (c *CronClient) InitBuildStatScheduler() {
 	c.Schedulers[InitStatScheduler].Start()
 }
 
-// InitOperationStatScheduler ...
 func (c *CronClient) InitOperationStatScheduler() {
 
 	c.Schedulers[InitOperationStatScheduler] = gocron.NewScheduler()
@@ -224,7 +228,6 @@ func (c *CronClient) InitOperationStatScheduler() {
 	c.Schedulers[InitOperationStatScheduler].Start()
 }
 
-// InitPullSonarStatScheduler ...
 func (c *CronClient) InitPullSonarStatScheduler() {
 
 	c.Schedulers[InitPullSonarStatScheduler] = gocron.NewScheduler()
