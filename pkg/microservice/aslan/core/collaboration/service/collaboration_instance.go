@@ -1235,7 +1235,7 @@ func DeleteCIResources(userName, requestID string, cis []*models.CollaborationIn
 			}
 		}
 	}
-	logger.Infof("labels:%v", labels)
+
 	labelRes, err := service.ListLabels(&service.ListLabelsArgs{
 		Labels: labels,
 	})
@@ -1246,7 +1246,7 @@ func DeleteCIResources(userName, requestID string, cis []*models.CollaborationIn
 	for _, l := range labelRes.Labels {
 		labelIds = append(labelIds, l.ID.Hex())
 	}
-	logger.Infof("labelIds:%v", labelIds)
+
 	err = service.DeleteLabels(labelIds, true, logger)
 	if err != nil {
 		return err
