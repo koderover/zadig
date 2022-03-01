@@ -737,6 +737,7 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 			}
 		}
 		envs = append(envs, &commonmodels.KeyVal{Key: "TEST_URL", Value: GetLink(pt, configbase.SystemAddress(), config.TestType)})
+		envs = append(envs, &commonmodels.KeyVal{Key: "WORKSPACE", Value: "/workspace"})
 		testTask.JobCtx.EnvVars = envs
 		testTask.ImageID = testModule.PreTest.ImageID
 		testTask.BuildOS = testModule.PreTest.BuildOS
