@@ -232,13 +232,6 @@ func DeletePolicy(name string, projectName string, logger *zap.SugaredLogger) er
 }
 
 func DeletePolicies(names []string, projectName string, logger *zap.SugaredLogger) error {
-	if projectName == "" {
-		return fmt.Errorf("projectName is empty")
-	}
-
-	if len(names) == 1 && names[0] == "*" {
-		names = []string{}
-	}
 
 	err := mongodb.NewPolicyColl().DeleteMany(names, projectName)
 	if err != nil {

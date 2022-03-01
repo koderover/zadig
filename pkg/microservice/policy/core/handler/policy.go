@@ -123,10 +123,6 @@ func ListPolicies(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("args projectName can't be empty")
-		return
-	}
 
 	ctx.Resp, ctx.Err = service.ListPolicies(projectName, ctx.Logger)
 }
@@ -136,10 +132,6 @@ func GetPolicy(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("args projectName can't be empty")
-		return
-	}
 
 	ctx.Resp, ctx.Err = service.GetPolicy(projectName, c.Param("name"), ctx.Logger)
 }
@@ -148,7 +140,7 @@ func GetPolicies(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.GetPolicies(c.Param("names"), ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetPolicies(c.Query("names"), ctx.Logger)
 }
 
 func CreatePublicPolicy(c *gin.Context) {
@@ -185,10 +177,6 @@ func DeletePolicy(c *gin.Context) {
 
 	name := c.Param("name")
 	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("args projectName can't be empty")
-		return
-	}
 
 	ctx.Err = service.DeletePolicy(name, projectName, ctx.Logger)
 }
@@ -198,10 +186,6 @@ func DeletePolicies(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	projectName := c.Query("projectName")
-	if projectName == "" {
-		ctx.Err = e.ErrInvalidParam.AddDesc("args projectName can't be empty")
-		return
-	}
 
 	args := &deletePoliciesArgs{}
 	if err := c.ShouldBindJSON(args); err != nil {

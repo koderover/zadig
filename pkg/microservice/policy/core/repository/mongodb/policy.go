@@ -66,7 +66,7 @@ func (c *PolicyColl) GetByNames(names []string) ([]*models.Policy, error) {
 	query := bson.M{}
 	query["name"] = bson.M{"$in": names}
 
-	cursor, err := c.Collection.Aggregate(context.TODO(), query)
+	cursor, err := c.Collection.Find(context.TODO(), query)
 	if err != nil {
 		return nil, err
 	}

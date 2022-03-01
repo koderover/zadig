@@ -68,7 +68,7 @@ func (c *Client) TriggerCleanProducts(log *zap.SugaredLogger) error {
 
 // TriggerCleanCIResources trigger clean CollaborationInstance Resources
 func (c *Client) TriggerCleanCIResources(log *zap.SugaredLogger) error {
-	url := fmt.Sprintf("%s/collaborations/cron/clean", c.APIBase)
+	url := fmt.Sprintf("%s/collaboration/collaborations/cron/clean", c.APIBase)
 	log.Info("start clean CollaborationInstance Resources..")
 	err := c.sendRequest(url)
 	if err != nil {
