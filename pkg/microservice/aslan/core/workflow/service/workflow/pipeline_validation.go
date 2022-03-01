@@ -618,6 +618,7 @@ func prepareTaskEnvs(pt *task.Task, log *zap.SugaredLogger) []*commonmodels.KeyV
 		&commonmodels.KeyVal{Key: "IMAGE", Value: pt.TaskArgs.Deploy.Image},
 		&commonmodels.KeyVal{Key: "PKG_FILE", Value: pt.TaskArgs.Deploy.PackageFile},
 		&commonmodels.KeyVal{Key: "LOG_FILE", Value: "/tmp/user_script.log"},
+		&commonmodels.KeyVal{Key: "WORKSPACE", Value: "/workspace"},
 	)
 
 	// 设置编译模块参数化配置信息
