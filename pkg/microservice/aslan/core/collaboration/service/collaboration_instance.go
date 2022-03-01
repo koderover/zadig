@@ -1218,7 +1218,7 @@ func DeleteCIResources(userName, requestID string, cis []*models.CollaborationIn
 	if err != nil {
 		return err
 	}
-	logger.Infof("policies:%v", res)
+
 	var labels []mongodb2.Label
 	labelSet := sets.String{}
 	for _, re := range res {

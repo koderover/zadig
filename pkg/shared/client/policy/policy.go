@@ -70,7 +70,7 @@ func (c *Client) CreatePolicies(ns string, request CreatePoliciesArgs) error {
 
 	_, err := c.Post(url, httpclient.SetBody(request))
 	if err != nil {
-		log.Errorf("Failed to CreatePolicies, error: %s", err)
+		log.Errorf("Failed to createPolicies, error: %s", err)
 		return err
 	}
 
@@ -82,7 +82,7 @@ func (c *Client) DeletePolicies(ns string, request DeletePoliciesArgs) error {
 
 	_, err := c.Post(url, httpclient.SetBody(request))
 	if err != nil {
-		log.Errorf("Failed to DeletePolicies, error: %s", err)
+		log.Errorf("Failed to deletePolicies, error: %s", err)
 		return err
 	}
 
@@ -128,7 +128,7 @@ func (c *Client) GetPolicies(names string) ([]*Policy, error) {
 	res := make([]*Policy, 0)
 	_, err := c.Get(url, httpclient.SetQueryParam("names", names), httpclient.SetResult(&res))
 	if err != nil {
-		log.Errorf("Failed to GetPolicies,err: %s", err)
+		log.Errorf("Failed to getPolicies,err: %s", err)
 		return nil, err
 	}
 	return res, nil

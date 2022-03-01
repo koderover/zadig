@@ -72,7 +72,7 @@ func (c *Client) TriggerCleanCIResources(log *zap.SugaredLogger) error {
 	log.Info("start clean CollaborationInstance Resources..")
 	err := c.sendRequest(url)
 	if err != nil {
-		log.Errorf("trigger clean CollaborationInstance Resources error :%v", err)
+		log.Errorf("trigger clean CollaborationInstance Resources error :%s", err)
 	}
 	return err
 }
