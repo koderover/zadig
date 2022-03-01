@@ -217,7 +217,7 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 				return
 			}
 
-			err = DeleteClusterResourceAsync(labels.Set{setting.ProductLabel: productName, setting.EnvNameLabel: envName}.AsSelector(), kubeClient, log)
+			//err = DeleteClusterResourceAsync(labels.Set{setting.ProductLabel: productName, setting.EnvNameLabel: envName}.AsSelector(), kubeClient, log)
 
 			if err != nil {
 				err = e.ErrDeleteProduct.AddDesc(e.DeleteServiceContainerErrMsg + ": " + err.Error())
