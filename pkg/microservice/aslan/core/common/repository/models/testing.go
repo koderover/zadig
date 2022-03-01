@@ -30,7 +30,7 @@ type Testing struct {
 	Desc        string              `bson:"desc"                     json:"desc"`
 	Timeout     int                 `bson:"timeout"                  json:"timeout"`
 	Team        string              `bson:"team"                     json:"team"`
-	Repos       []*types.Repository `bson:"repos,omitempty"          json:"repos"`
+	Repos       []*types.Repository `bson:"repos"                    json:"repos"`
 	PreTest     *PreTest            `bson:"pre_test"                 json:"pre_test"`
 	Scripts     string              `bson:"scripts"                  json:"scripts"`
 	UpdateTime  int64               `bson:"update_time"              json:"update_time"`
