@@ -34,6 +34,7 @@ const (
 	ENVMysqlUser               = "MYSQL_USER"
 	ENVMysqlPassword           = "MYSQL_PASSWORD"
 	ENVMysqlHost               = "MYSQL_HOST"
+	ENVMysqlUserDb             = "MYSQL_USER_DB"
 
 	// Aslan
 	ENVPodName              = "BE_POD_NAME"

@@ -49,7 +49,8 @@ func initDBAndTables() {
 		log.Panic(err)
 	}
 	defer db.Close()
-	_, err = db.Exec(string(mysql))
+	initSql := fmt.Sprintf(string(mysql), config.MysqlUserDB(), config.MysqlUserDB())
+	_, err = db.Exec(initSql)
 
 	if err != nil {
 		log.Panic(err)
