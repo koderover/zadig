@@ -1,4 +1,4 @@
-package multi_envs_test
+package test_multi_envs
 
 import (
 	"net/http"
