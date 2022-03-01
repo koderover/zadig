@@ -187,6 +187,7 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 		testReportFile = fmt.Sprintf("%s-%s-%d-%s-%s-html", config.WorkflowType, pipelineTask.PipelineName, pipelineTask.TaskID, config.TaskTestingV2, p.Task.TestModuleName)
 	} else if pipelineTask.Type == config.TestType {
 		fileName = fmt.Sprintf("%s-%s-%d-%s-%s", config.TestType, pipelineTask.PipelineName, pipelineTask.TaskID, config.TaskTestingV2, serviceName)
+		testReportFile = fmt.Sprintf("%s-%s-%d-%s-%s-html", config.TestType, pipelineTask.PipelineName, pipelineTask.TaskID, config.TaskTestingV2, p.Task.TestModuleName)
 	}
 
 	fileName = strings.Replace(strings.ToLower(fileName), "_", "-", -1)
@@ -274,6 +275,8 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 		p.Task.Error = msg
 		return
 	}
+
+	p.Task.TaskStatus = waitJobReady(ctx, p.KubeNamespace, p.JobName, p.kubeClient, p.Log)
 }
 
 func (p *TestPlugin) Wait(ctx context.Context) {

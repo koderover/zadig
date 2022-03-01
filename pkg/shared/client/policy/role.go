@@ -19,6 +19,7 @@ package policy
 import (
 	"fmt"
 
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
@@ -50,10 +51,11 @@ type Attribute struct {
 }
 
 type RoleBinding struct {
-	Name   string `json:"name"`
-	UID    string `json:"uid"`
-	Role   string `json:"role"`
-	Public bool   `json:"public"`
+	Name   string               `json:"name"`
+	UID    string               `json:"uid"`
+	Role   string               `json:"role"`
+	Preset bool                 `json:"preset"`
+	Type   setting.ResourceType `json:"type"`
 }
 
 func (c *Client) CreateOrUpdatePolicyRegistration(p *PolicyMeta) error {
@@ -121,14 +123,15 @@ func (c *Client) CreateSystemRole(name string, role *Role) error {
 	return err
 }
 
-func (c *Client) CreatePublicRole(name string, role *Role) error {
-	url := fmt.Sprintf("/public-roles/%s", name)
+func (c *Client) CreatePresetRole(name string, role *Role) error {
+	url := fmt.Sprintf("/preset-roles/%s", name)
 	_, err := c.Put(url, httpclient.SetBody(role))
 	return err
 }
 
 type Role struct {
-	Name  string `json:"name"`
+	Name  string               `json:"name"`
+	Type  setting.ResourceType `json:"type"`
 	Rules []*struct {
 		Verbs           []string         `json:"verbs"`
 		Resources       []string         `json:"resources"`

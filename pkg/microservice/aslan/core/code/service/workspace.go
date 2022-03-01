@@ -195,7 +195,7 @@ func GetCodehubRepoInfo(codehostID int, repoUUID, branchName, path string, log *
 		return fileInfos, e.ErrListWorkspace.AddDesc(err.Error())
 	}
 
-	codeHubClient := codehub.NewCodeHubClient(detail.AccessKey, detail.SecretKey, detail.Region)
+	codeHubClient := codehub.NewCodeHubClient(detail.AccessKey, detail.SecretKey, detail.Region, config.ProxyHTTPSAddr(), detail.EnableProxy)
 	treeNodes, err := codeHubClient.FileTree(repoUUID, branchName, path)
 	if err != nil {
 		log.Errorf("Failed to list tree from codehub err:%s", err)

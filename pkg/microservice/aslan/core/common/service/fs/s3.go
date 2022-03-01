@@ -51,7 +51,6 @@ func ArchiveAndUploadFilesToS3(fileTree fs.FS, names []string, s3Base string, lo
 // archiveAndUploadFiles archive local files and upload to default s3 storage
 // if multiple names appointed, s3storage.copy will be used to handle extra names
 func archiveAndUploadFiles(fileTree fs.FS, names []string, s3Base string, s3Storage *s3service.S3, logger *zap.SugaredLogger) error {
-
 	if len(names) == 0 {
 		return fmt.Errorf("names not appointed")
 	}
@@ -113,7 +112,6 @@ func DownloadAndExtractFilesFromS3(name, localBase, s3Base string, logger *zap.S
 		logger.Errorf("Failed to find default s3, err: %s", err)
 		return err
 	}
-
 	tarball := fmt.Sprintf("%s.tar.gz", name)
 	localPath := filepath.Join(tmpDir, tarball)
 	s3Path := filepath.Join(s3.Subfolder, s3Base, tarball)
@@ -122,20 +120,24 @@ func DownloadAndExtractFilesFromS3(name, localBase, s3Base string, logger *zap.S
 	if s3.Provider == setting.ProviderSourceAli {
 		forcedPathStyle = false
 	}
+
 	client, err := s3tool.NewClient(s3.Endpoint, s3.Ak, s3.Sk, s3.Insecure, forcedPathStyle)
 	if err != nil {
 		logger.Errorf("Failed to create s3 client, err: %s", err)
 		return err
 	}
+
 	if err = client.Download(s3.Bucket, s3Path, localPath); err != nil {
 		logger.Errorf("Failed to download file from s3, err: %s", err)
 		return err
 	}
-	if err = fsutil.Untar(localPath, localBase); err != nil {
-		logger.Errorf("Failed to extract tarball %s, err: %s", localPath, err)
-		return err
-	}
 
+	if err = fsutil.Untar(localPath, localBase); err != nil {
+		if err = fsutil.Untar(localPath, filepath.Join(localBase, name)); err != nil {
+			logger.Errorf("Failed to extract tarball %s, err: %s", localPath, err)
+			return err
+		}
+	}
 	return nil
 }
 

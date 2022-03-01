@@ -196,7 +196,9 @@ func (c *PolicyColl) UpdatePolicy(obj *models.Policy) error {
 
 	query := bson.M{"name": obj.Name, "namespace": obj.Namespace}
 	change := bson.M{"$set": bson.M{
-		"rules": obj.Rules,
+		"rules":       obj.Rules,
+		"description": obj.Description,
+		"update_time": obj.UpdateTime,
 	}}
 	_, err := c.UpdateOne(context.TODO(), query, change)
 	return err

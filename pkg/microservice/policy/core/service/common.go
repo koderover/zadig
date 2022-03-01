@@ -13,4 +13,4 @@ type Rule struct {
 }
 
 const SystemScope = "*"
-const PublicScope = ""
+const PresetScope = ""

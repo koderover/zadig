@@ -52,6 +52,8 @@ type Repository struct {
 	RepoID      string `bson:"repo_id,omitempty"            json:"repo_id,omitempty"`
 	Username    string `bson:"username,omitempty"           json:"username,omitempty"`
 	Password    string `bson:"password,omitempty"           json:"password,omitempty"`
+	// Now EnableProxy is not something we store. We decide this on runtime
+	EnableProxy bool `bson:"-"       json:"enable_proxy,omitempty"`
 }
 
 // GetReleaseCandidateTag 返回待发布对象Tag

@@ -29,12 +29,18 @@ import (
 type Role struct {
 	Name  string  `json:"name"`
 	Rules []*Rule `json:"rules,omitempty"`
+	// if the role is created by user , set the type to "custom"
+	// if the role is created by system , set the type  to "system"
+	Type setting.ResourceType `json:"type,omitempty"`
+	// frontend default select flag
+	Select bool `json:"select,omitempty"`
 }
 
 func CreateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
 	obj := &models.Role{
 		Name:      role.Name,
 		Namespace: ns,
+		Type:      role.Type,
 	}
 
 	for _, r := range role.Rules {
@@ -69,6 +75,7 @@ func UpdateOrCreateRole(ns string, role *Role, _ *zap.SugaredLogger) error {
 	obj := &models.Role{
 		Name:      role.Name,
 		Namespace: ns,
+		Type:      role.Type,
 	}
 
 	for _, r := range role.Rules {
@@ -93,9 +100,11 @@ func ListRoles(projectName string, _ *zap.SugaredLogger) ([]*Role, error) {
 		if v.Name == string(setting.Contributor) {
 			continue
 		}
-		roles = append(roles, &Role{
-			Name: v.Name,
-		})
+		tmpRole := Role{Select: false, Name: v.Name, Type: v.Type}
+		if v.Name == string(setting.ReadProjectOnly) {
+			tmpRole.Select = true
+		}
+		roles = append(roles, &tmpRole)
 	}
 	return roles, nil
 }

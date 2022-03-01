@@ -18,6 +18,8 @@ package service
 
 import (
 	"io/fs"
+	"os"
+	"path"
 
 	"github.com/27149chen/afero"
 	"go.uber.org/zap"
@@ -25,7 +27,10 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
+	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/log"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
 )
@@ -55,8 +60,12 @@ func PreLoadServiceManifests(base string, svc *commonmodels.Service) error {
 	}
 
 	log.Warnf("Failed to download service from s3, err: %s", err)
-
-	return preLoadServiceManifestsFromSource(svc)
+	switch svc.Source {
+	case setting.SourceFromGerrit:
+		return preLoadServiceManifestsFromGerrit(svc)
+	default:
+		return preLoadServiceManifestsFromSource(svc)
+	}
 }
 
 func PreloadServiceManifestsByRevision(base string, svc *commonmodels.Service) error {
@@ -77,6 +86,7 @@ func PreloadServiceManifestsByRevision(base string, svc *commonmodels.Service) e
 
 func DownloadServiceManifests(base, projectName, serviceName string) error {
 	s3Base := config.ObjectStorageServicePath(projectName, serviceName)
+
 	return fsservice.DownloadAndExtractFilesFromS3(serviceName, base, s3Base, log.SugaredLogger())
 }
 
@@ -85,6 +95,14 @@ func SaveAndUploadService(projectName, serviceName string, copies []string, file
 	s3Base := config.ObjectStorageServicePath(projectName, serviceName)
 	names := append([]string{serviceName}, copies...)
 	return fsservice.SaveAndUploadFiles(fileTree, names, localBase, s3Base, log.SugaredLogger())
+}
+
+func CopyAndUploadService(projectName, serviceName, currentChartPath string, copies []string) error {
+	localBase := config.LocalServicePath(projectName, serviceName)
+	s3Base := config.ObjectStorageServicePath(projectName, serviceName)
+	names := append([]string{serviceName}, copies...)
+
+	return fsservice.CopyAndUploadFiles(names, path.Join(localBase, serviceName), s3Base, currentChartPath, log.SugaredLogger())
 }
 
 func preLoadServiceManifestsFromSource(svc *commonmodels.Service) error {
@@ -103,5 +121,28 @@ func preLoadServiceManifestsFromSource(svc *commonmodels.Service) error {
 		return err
 	}
 
+	return nil
+}
+
+func preLoadServiceManifestsFromGerrit(svc *commonmodels.Service) error {
+	base := path.Join(config.S3StoragePath(), svc.GerritRepoName)
+	if err := os.RemoveAll(base); err != nil {
+		log.Errorf("Failed to remove dir, err:%s", err)
+	}
+	detail, err := systemconfig.New().GetCodeHost(svc.GerritCodeHostID)
+	if err != nil {
+		log.Errorf("Failed to GetCodehostDetail, err:%s", err)
+		return err
+	}
+	err = command.RunGitCmds(detail, "default", svc.GerritRepoName, svc.GerritBranchName, svc.GerritRemoteName)
+	if err != nil {
+		log.Errorf("Failed to runGitCmds, err:%s", err)
+		return err
+	}
+	// save files to disk and upload them to s3
+	if err := CopyAndUploadService(svc.ProductName, svc.ServiceName, svc.GerritPath, nil); err != nil {
+		log.Errorf("Failed to save or upload files for service %s in project %s, error: %s", svc.ServiceName, svc.ProductName, err)
+		return err
+	}
 	return nil
 }

@@ -28,10 +28,11 @@ import (
 )
 
 type RoleBinding struct {
-	Name   string `json:"name"`
-	UID    string `json:"uid"`
-	Role   string `json:"role"`
-	Public bool   `json:"public"`
+	Name   string               `json:"name"`
+	UID    string               `json:"uid"`
+	Role   string               `json:"role"`
+	Preset bool                 `json:"preset"`
+	Type   setting.ResourceType `json:"type"`
 }
 
 func CreateRoleBindings(ns string, rbs []*RoleBinding, logger *zap.SugaredLogger) error {
@@ -46,6 +47,20 @@ func CreateRoleBindings(ns string, rbs []*RoleBinding, logger *zap.SugaredLogger
 	}
 
 	return mongodb.NewRoleBindingColl().BulkCreate(objs)
+}
+
+func UpdateRoleBindings(ns string, rbs []*RoleBinding, userID string, logger *zap.SugaredLogger) error {
+	err := DeleteRoleBindings([]string{"*"}, ns, userID, logger)
+	if err != nil {
+		logger.Errorf("delete rolebindings err:%s,ns:%s,userID:%s", err, ns, userID)
+		return err
+	}
+	err = CreateRoleBindings(ns, rbs, logger)
+	if err != nil {
+		logger.Errorf("create rolebings err:%s,ns:%s,userID:%s", err, ns, userID)
+		return err
+	}
+	return nil
 }
 
 func CreateOrUpdateSystemRoleBinding(ns string, rb *RoleBinding, logger *zap.SugaredLogger) error {
@@ -77,7 +92,7 @@ func ListRoleBindings(ns, uid string, _ *zap.SugaredLogger) ([]*RoleBinding, err
 			Name:   v.Name,
 			Role:   v.RoleRef.Name,
 			UID:    v.Subjects[0].UID,
-			Public: v.RoleRef.Namespace == "",
+			Preset: v.RoleRef.Namespace == "",
 		})
 	}
 
@@ -99,7 +114,7 @@ func DeleteRoleBindings(names []string, projectName string, userID string, _ *za
 
 func createRoleBindingObject(ns string, rb *RoleBinding, logger *zap.SugaredLogger) (*models.RoleBinding, error) {
 	nsRole := ns
-	if rb.Public {
+	if rb.Preset {
 		nsRole = ""
 	}
 	role, found, err := mongodb.NewRoleColl().Get(nsRole, rb.Role)
@@ -130,7 +145,7 @@ func ensureRoleBindingName(ns string, rb *RoleBinding) {
 	}
 
 	nsRole := ns
-	if rb.Public {
+	if rb.Preset {
 		nsRole = ""
 	}
 

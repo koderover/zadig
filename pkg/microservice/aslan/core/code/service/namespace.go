@@ -45,7 +45,7 @@ func CodeHostListNamespaces(codeHostID int, keyword string, log *zap.SugaredLogg
 	}
 
 	if ch.Type == codeHostGitlab {
-		client, err := gitlab.NewClient(ch.Address, ch.AccessToken)
+		client, err := gitlab.NewClient(ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 		if err != nil {
 			log.Error(err)
 			return nil, e.ErrCodehostListNamespaces.AddDesc(err.Error())
@@ -63,7 +63,7 @@ func CodeHostListNamespaces(codeHostID int, keyword string, log *zap.SugaredLogg
 			Kind: OrgKind,
 		}}, nil
 	} else if ch.Type == CodeHostCodeHub {
-		codeHubClient := codehub.NewCodeHubClient(ch.AccessKey, ch.SecretKey, ch.Region)
+		codeHubClient := codehub.NewCodeHubClient(ch.AccessKey, ch.SecretKey, ch.Region, config.ProxyHTTPSAddr(), ch.EnableProxy)
 		codeHubNamespace, err := codeHubClient.NamespaceList()
 		if err != nil {
 			return nil, err
@@ -71,7 +71,7 @@ func CodeHostListNamespaces(codeHostID int, keyword string, log *zap.SugaredLogg
 		return ToNamespaces(codeHubNamespace), nil
 	} else {
 		//	github
-		gh := git.NewClient(ch.AccessToken, config.ProxyHTTPSAddr())
+		gh := git.NewClient(ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 		namespaces := make([]*Namespace, 0)
 
 		user, err := gh.GetAuthenticatedUser(context.TODO())

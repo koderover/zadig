@@ -412,7 +412,7 @@ func findChangedFilesOfPullRequest(event *github.PullRequestEvent, codehostID in
 		return nil, fmt.Errorf("failed to find codehost %d: %v", codehostID, err)
 	}
 	//pullrequest文件修改
-	githubCli := git.NewClient(detail.AccessToken, config.ProxyHTTPSAddr())
+	githubCli := git.NewClient(detail.AccessToken, config.ProxyHTTPSAddr(), detail.EnableProxy)
 	commitComparison, _, err := githubCli.Repositories.CompareCommits(context.Background(), *event.PullRequest.Base.Repo.Owner.Login, *event.PullRequest.Base.Repo.Name, *event.PullRequest.Base.SHA, *event.PullRequest.Head.SHA)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get changes from github, err: %v", err)

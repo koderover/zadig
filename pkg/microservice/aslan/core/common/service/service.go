@@ -482,7 +482,6 @@ func UpdatePmServiceTemplate(username string, args *ServiceTmplBuildObject, log 
 				return e.ErrUpdateService.AddDesc("update current build failed")
 			}
 		}
-
 	}
 
 	if err := commonrepo.NewServiceColl().Create(preService); err != nil {
@@ -502,7 +501,7 @@ func DeleteServiceWebhookByName(serviceName, productName string, logger *zap.Sug
 
 func needProcessWebhook(source string) bool {
 	if source == setting.ServiceSourceTemplate || source == setting.SourceFromZadig || source == setting.SourceFromGerrit ||
-		source == "" || source == setting.SourceFromExternal || source == setting.SourceFromChartTemplate {
+		source == "" || source == setting.SourceFromExternal || source == setting.SourceFromChartTemplate || source == setting.SourceFromChartRepo {
 		return false
 	}
 	return true

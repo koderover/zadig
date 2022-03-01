@@ -38,7 +38,7 @@ func CodeHostListTags(codeHostID int, projectName string, namespace string, log 
 	}
 
 	if ch.Type == codeHostGitlab {
-		client, err := gitlab.NewClient(ch.Address, ch.AccessToken)
+		client, err := gitlab.NewClient(ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 		if err != nil {
 			log.Error(err)
 			return nil, e.ErrCodehostListTags.AddDesc(err.Error())
@@ -50,7 +50,7 @@ func CodeHostListTags(codeHostID int, projectName string, namespace string, log 
 		}
 		return ToTags(tags), nil
 	} else if ch.Type == gerrit.CodehostTypeGerrit {
-		client := gerrit.NewClient(ch.Address, ch.AccessToken)
+		client := gerrit.NewClient(ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 		tags, err := client.ListTags(projectName)
 		if err != nil {
 			return nil, err
@@ -58,7 +58,7 @@ func CodeHostListTags(codeHostID int, projectName string, namespace string, log 
 
 		return ToTags(tags), nil
 	} else if ch.Type == CodeHostCodeHub {
-		codeHubClient := codehub.NewCodeHubClient(ch.AccessKey, ch.SecretKey, ch.Region)
+		codeHubClient := codehub.NewCodeHubClient(ch.AccessKey, ch.SecretKey, ch.Region, config.ProxyHTTPSAddr(), ch.EnableProxy)
 		tags, err := codeHubClient.TagList(projectName)
 		if err != nil {
 			return nil, err
@@ -66,7 +66,7 @@ func CodeHostListTags(codeHostID int, projectName string, namespace string, log 
 		return ToTags(tags), nil
 	} else {
 		//	github
-		gh := git.NewClient(ch.AccessToken, config.ProxyHTTPSAddr())
+		gh := git.NewClient(ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 		tags, err := gh.ListTags(context.TODO(), namespace, projectName, nil)
 		if err != nil {
 			return nil, err

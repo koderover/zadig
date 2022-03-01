@@ -37,7 +37,7 @@ func CodeHostListBranches(codeHostID int, projectName, namespace, key string, pa
 	}
 
 	if ch.Type == codeHostGitlab {
-		client, err := gitlab.NewClient(ch.Address, ch.AccessToken)
+		client, err := gitlab.NewClient(ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 		if err != nil {
 			log.Errorf("get gitlab client failed, err:%v", err)
 			return nil, e.ErrCodehostListBranches.AddDesc(err.Error())
@@ -53,14 +53,14 @@ func CodeHostListBranches(codeHostID int, projectName, namespace, key string, pa
 		}
 		return ToBranches(brList), nil
 	} else if ch.Type == gerrit.CodehostTypeGerrit {
-		cli := gerrit.NewClient(ch.Address, ch.AccessToken)
+		cli := gerrit.NewClient(ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 		branches, err := cli.ListBranches(projectName)
 		if err != nil {
 			return nil, err
 		}
 		return ToBranches(branches), nil
 	} else if ch.Type == CodeHostCodeHub {
-		codeHubClient := codehub.NewCodeHubClient(ch.AccessKey, ch.SecretKey, ch.Region)
+		codeHubClient := codehub.NewCodeHubClient(ch.AccessKey, ch.SecretKey, ch.Region, config.ProxyHTTPSAddr(), ch.EnableProxy)
 		branchList, err := codeHubClient.BranchList(projectName)
 		if err != nil {
 			return nil, err
@@ -68,7 +68,7 @@ func CodeHostListBranches(codeHostID int, projectName, namespace, key string, pa
 		return ToBranches(branchList), nil
 	} else {
 		//	github
-		gh := git.NewClient(ch.AccessToken, config.ProxyHTTPSAddr())
+		gh := git.NewClient(ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 		branches, err := gh.ListBranches(context.TODO(), namespace, projectName, nil)
 		if err != nil {
 			return nil, err

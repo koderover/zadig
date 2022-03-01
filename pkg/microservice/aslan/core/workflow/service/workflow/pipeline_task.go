@@ -706,6 +706,7 @@ func TestArgsToTestSubtask(args *commonmodels.TestTaskArgs, pt *task.Task, log *
 	testTask.JobCtx.BuildSteps = append(testTask.JobCtx.BuildSteps, &task.BuildStep{BuildType: "shell", Scripts: testModule.Scripts})
 
 	testTask.JobCtx.TestResultPath = testModule.TestResultPath
+	testTask.JobCtx.TestReportPath = testModule.TestReportPath
 	testTask.JobCtx.TestThreshold = testModule.Threshold
 	testTask.JobCtx.Caches = testModule.Caches
 	testTask.JobCtx.ArtifactPaths = testModule.ArtifactPaths

@@ -1,4 +1,5 @@
 name: read-project-only
+type: system
 namespace: ''
 rules:
   - verbs:

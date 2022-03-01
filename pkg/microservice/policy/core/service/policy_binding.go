@@ -27,10 +27,11 @@ import (
 )
 
 type PolicyBinding struct {
-	Name   string `json:"name"`
-	UID    string `json:"uid"`
-	Policy string `json:"policy"`
-	Public bool   `json:"public"`
+	Name   string               `json:"name"`
+	UID    string               `json:"uid"`
+	Policy string               `json:"policy"`
+	Preset bool                 `json:"preset"`
+	Type   setting.ResourceType `json:"type"`
 }
 
 func CreatePolicyBindings(ns string, rbs []*PolicyBinding, logger *zap.SugaredLogger) error {
@@ -75,7 +76,8 @@ func ListPolicyBindings(ns, uid string, _ *zap.SugaredLogger) ([]*PolicyBinding,
 			Name:   v.Name,
 			Policy: v.PolicyRef.Name,
 			UID:    v.Subjects[0].UID,
-			Public: v.PolicyRef.Namespace == "",
+			Preset: v.PolicyRef.Namespace == "",
+			Type:   v.Type,
 		})
 	}
 
@@ -99,7 +101,7 @@ func ListPolicyBindingsByPolicy(ns, policyName string, publicPolicy bool, _ *zap
 			Name:   v.Name,
 			Policy: v.PolicyRef.Name,
 			UID:    v.Subjects[0].UID,
-			Public: v.PolicyRef.Namespace == "",
+			Preset: v.PolicyRef.Namespace == "",
 		})
 	}
 
@@ -121,7 +123,7 @@ func DeletePolicyBindings(names []string, projectName string, userID string, _ *
 
 func createPolicyBindingObject(ns string, rb *PolicyBinding, logger *zap.SugaredLogger) (*models.PolicyBinding, error) {
 	nsPolicy := ns
-	if rb.Public {
+	if rb.Preset {
 		nsPolicy = ""
 	}
 	policy, found, err := mongodb.NewPolicyColl().Get(nsPolicy, rb.Policy)
@@ -141,6 +143,6 @@ func createPolicyBindingObject(ns string, rb *PolicyBinding, logger *zap.Sugared
 			Name:      policy.Name,
 			Namespace: policy.Namespace,
 		},
-		Type: setting.PolicyBindingTypeSystem,
+		Type: setting.ResourceTypeSystem,
 	}, nil
 }

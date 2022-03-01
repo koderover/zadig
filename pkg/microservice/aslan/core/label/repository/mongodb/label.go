@@ -141,10 +141,10 @@ func (c *LabelColl) Find(id string) (*models.Label, error) {
 }
 
 type Label struct {
-	Key         string            `json:"key"`
-	Value       string            `json:"value"`
-	Type        setting.LabelType `json:"type"`
-	ProjectName string            `json:"project_name"`
+	Key         string               `json:"key"`
+	Value       string               `json:"value"`
+	Type        setting.ResourceType `json:"type"`
+	ProjectName string               `json:"project_name"`
 }
 
 type ListLabelOpt struct {

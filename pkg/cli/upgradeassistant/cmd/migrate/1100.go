@@ -29,6 +29,7 @@ import (
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/orm"
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/upgradepath"
 	"github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/tool/log"
 	mongotool "github.com/koderover/zadig/pkg/tool/mongo"
 	"github.com/koderover/zadig/pkg/types"
@@ -49,6 +50,16 @@ func V190ToV1100() error {
 		return err
 	}
 
+	if err := addPresetRoleSystemType(); err != nil {
+		log.Errorf("Failed to addPresetRoleSystemType, err: %s", err)
+		return err
+	}
+
+	if err := addRoleBindingSystemType(); err != nil {
+		log.Errorf("Failed to addRoleBindingSystemType, err: %s", err)
+		return err
+	}
+
 	if err := migrateModuleBuild(); err != nil {
 		return fmt.Errorf("failed to migrate data in `zadig.module_build`: %s", err)
 	}
@@ -61,6 +72,94 @@ func V190ToV1100() error {
 	log.Info("UpdateUserDBTables: ADD cloumn from mysql table `user`.")
 	if err := orm.UpdateUserDBTables(orm.DbEditActionAdd); err != nil {
 		return fmt.Errorf("UpdateUserDBTables: failed to ADD cloumn from mysql table `user`: %s", err)
+	}
+	return nil
+}
+
+func changeToCustomType() error {
+	ctx := context.Background()
+
+	var res []*models.RoleBinding
+	cursor, err := newRoleBindingColl().Find(ctx, bson.M{})
+	if err != nil {
+		log.Errorf("Failed to Find Policies, err: %s", err)
+		return err
+	}
+
+	err = cursor.All(ctx, &res)
+	if err != nil {
+		return err
+	}
+	for _, v := range res {
+		if v.Namespace == "*" && v.RoleRef.Name == "admin" && v.Type != "" {
+			continue
+		}
+		query := bson.M{"name": v.Name}
+		change := bson.M{"$set": bson.M{
+			"type": setting.ResourceTypeCustom,
+		}}
+		_, err := newRoleBindingColl().UpdateOne(ctx, query, change)
+		if err != nil {
+			return err
+		}
+
+	}
+	return nil
+}
+
+func changeToSystemType() error {
+	query := bson.M{"namespace": "*", "role_ref.name": "admin"}
+	change := bson.M{"$set": bson.M{
+		"type": setting.ResourceTypeSystem,
+	}}
+	_, err := newRoleBindingColl().UpdateOne(context.TODO(), query, change)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func addRoleBindingSystemType() error {
+	if err := changeToSystemType(); err != nil {
+		return err
+	}
+	return changeToCustomType()
+}
+
+func addPresetRoleSystemType() error {
+	ctx := context.Background()
+
+	var res []*models.Role
+	cursor, err := newRoleColl().Find(ctx, bson.M{})
+	if err != nil {
+		log.Errorf("Failed to Find Policies, err: %s", err)
+		return err
+	}
+
+	err = cursor.All(ctx, &res)
+	if err != nil {
+		return err
+	}
+	for _, v := range res {
+		if v.Namespace == "*" || v.Namespace == "" {
+			query := bson.M{"name": v.Name}
+			change := bson.M{"$set": bson.M{
+				"type": setting.ResourceTypeSystem,
+			}}
+			_, err := newRoleColl().UpdateOne(ctx, query, change)
+			if err != nil {
+				return err
+			}
+		} else {
+			query := bson.M{"name": v.Name}
+			change := bson.M{"$set": bson.M{
+				"type": setting.ResourceTypeCustom,
+			}}
+			_, err := newRoleColl().UpdateOne(ctx, query, change)
+			if err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
@@ -133,6 +232,11 @@ func V1100ToV190() error {
 
 func newPolicyColl() *mongo.Collection {
 	collection := mongotool.Database(fmt.Sprintf("%s_policy", config.MongoDatabase())).Collection("policy")
+	return collection
+}
+
+func newRoleColl() *mongo.Collection {
+	collection := mongotool.Database(fmt.Sprintf("%s_policy", config.MongoDatabase())).Collection("role")
 	return collection
 }
 
