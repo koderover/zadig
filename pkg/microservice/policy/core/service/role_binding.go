@@ -136,7 +136,7 @@ func createRoleBindingObject(ns string, rb *RoleBinding, logger *zap.SugaredLogg
 			Name:      role.Name,
 			Namespace: role.Namespace,
 		},
-		Type: role.Type,
+		Type: rb.Type,
 	}, nil
 }
 
