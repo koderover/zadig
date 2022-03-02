@@ -54,5 +54,4 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		downloads.GET("", GetKubeConfig)
 	}
-
 }
