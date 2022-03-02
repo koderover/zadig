@@ -131,7 +131,7 @@ func (c *RoleBindingColl) DeleteMany(names []string, projectName string, userID 
 	}
 
 	if userID != "" {
-		query = bson.M{"subjects.uid": userID}
+		query["subjects.uid"] = userID
 	}
 	_, err := c.Collection.DeleteMany(context.TODO(), query)
 
