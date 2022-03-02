@@ -16,6 +16,10 @@ limitations under the License.
 
 package models
 
+import (
+	"github.com/koderover/zadig/pkg/setting"
+)
+
 // RoleBinding references a role, but does not contain it. It adds who information via Subjects.
 // RoleBindings in a given namespace only have effect in that namespace.
 // for a cluster scoped RoleBinding, namespace is empty.
@@ -27,7 +31,8 @@ type RoleBinding struct {
 	Subjects []*Subject `bson:"subjects" json:"subjects"`
 
 	// RoleRef can reference a namespaced or cluster scoped Role.
-	RoleRef *RoleRef `bson:"role_ref" json:"roleRef"`
+	RoleRef *RoleRef             `bson:"role_ref" json:"roleRef"`
+	Type    setting.ResourceType `bson:"type" json:"type"`
 }
 
 // RoleRef contains information that points to the role being used
