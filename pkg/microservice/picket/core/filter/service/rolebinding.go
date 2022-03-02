@@ -87,7 +87,9 @@ func ListBindings(header http.Header, qs url.Values, logger *zap.SugaredLogger) 
 		}
 		uidToPolicyBindings[pb.UID] = append(uidToPolicyBindings[pb.UID], &policyBinding{PolicyBinding: pb})
 	}
-
+	if uidSets.Len() == 0 {
+		return []*Binding{}, nil
+	}
 	users, err := user.New().ListUsers(&user.SearchArgs{UIDs: uidSets.List()})
 	if err != nil {
 		logger.Errorf("Failed to list users, err: %s", err)
