@@ -121,13 +121,14 @@ func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, op
 	}
 	log.Debugf("Start to get task container log.")
 
-	var serviceName string
+	var serviceName, serviceModule string
 	serviceNames := strings.Split(options.ServiceName, "_")
 	switch len(serviceNames) {
 	case 1:
-		serviceName = serviceNames[0]
+		serviceModule = serviceNames[0]
 	case 2:
-		// Note: Starting from V1.10.0, this field will be in the format of `ServiceComponent_ServiceName`.
+		// Note: Starting from V1.10.0, this field will be in the format of `ServiceModule_ServiceName`.
+		serviceModule = serviceNames[0]
 		serviceName = serviceNames[1]
 	}
 
@@ -141,16 +142,25 @@ func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, op
 			options.TaskID = taskObj.TaskID
 		}
 	} else if options.ProductName != "" {
-		build, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{
+		buildFindOptions := &commonrepo.BuildFindOption{
 			ProductName: options.ProductName,
-			Targets:     []string{serviceName},
-		})
+			Targets:     []string{serviceModule},
+		}
+		if serviceName != "" {
+			buildFindOptions.ServiceName = serviceName
+		}
+
+		build, err := commonrepo.NewBuildColl().Find(buildFindOptions)
 		if err != nil {
 			// Maybe this service is a shared service
-			build, err = commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{
-				Targets: []string{serviceName},
-			})
+			buildFindOptions := &commonrepo.BuildFindOption{
+				Targets: []string{serviceModule},
+			}
+			if serviceName != "" {
+				buildFindOptions.ServiceName = serviceName
+			}
 
+			build, err = commonrepo.NewBuildColl().Find(buildFindOptions)
 			if err != nil {
 				log.Errorf("Failed to query build for service %s: %s", serviceName, err)
 				return
