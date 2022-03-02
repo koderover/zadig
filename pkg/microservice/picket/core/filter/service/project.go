@@ -49,6 +49,7 @@ func CreateProject(header http.Header, body []byte, qs url.Values, args *CreateP
 			UID:    uid,
 			Role:   string(setting.ProjectAdmin),
 			Preset: true,
+			Type:   setting.ResourceTypeCustom,
 		})
 	}
 
@@ -58,6 +59,7 @@ func CreateProject(header http.Header, body []byte, qs url.Values, args *CreateP
 			UID:    "*",
 			Role:   string(setting.ReadOnly),
 			Preset: true,
+			Type:   setting.ResourceTypeSystem,
 		})
 	}
 
@@ -98,6 +100,7 @@ func UpdateProject(header http.Header, qs url.Values, body []byte, projectName s
 			UID:    "*",
 			Role:   string(setting.ReadOnly),
 			Preset: true,
+			Type:   setting.ResourceTypeSystem,
 		}); err != nil {
 			logger.Errorf("Failed to create role binding, err: %s", err)
 			return nil, err
