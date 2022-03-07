@@ -37,9 +37,9 @@ func Execute() error {
 	})
 
 	start := time.Now()
-	log.Info("====================== Build Start ======================")
 
 	var err error
+	var reaperType types.ReaperType
 	defer func() {
 		// Create dog food file to tell wd that task has finished.
 		resultMsg := types.JobSuccess
@@ -53,7 +53,7 @@ func Execute() error {
 			log.Errorf("Failed to create dog food: %s.", dogFoodErr)
 		}
 
-		log.Infof("====================== Build Ended. Duration: %.2f seconds ======================", time.Since(start).Seconds())
+		log.Infof("====================== %s End. Duration: %.2f seconds ======================", reaperType, time.Since(start).Seconds())
 
 		// Note: Mark the task has been completed through the dogfood file, indirectly notify wd to do follow-up
 		//       operations, and wait for a fixed time.
@@ -67,6 +67,9 @@ func Execute() error {
 	if err != nil {
 		return fmt.Errorf("failed to new reaper: %s", err)
 	}
+
+	reaperType = r.Type
+	log.Infof("====================== %s Start ======================", reaperType)
 
 	if err = r.BeforeExec(); err != nil {
 		return fmt.Errorf("failed to prepare before building: %s", err)

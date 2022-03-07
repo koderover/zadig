@@ -48,7 +48,9 @@ type Reaper struct {
 	StartTime       time.Time
 	ActiveWorkspace string
 	UserEnvs        map[string]string
-	cm              CacheManager
+	Type            types.ReaperType
+
+	cm CacheManager
 }
 
 func NewReaper() (*Reaper, error) {
@@ -67,6 +69,12 @@ func NewReaper() (*Reaper, error) {
 	reaper := &Reaper{
 		Ctx: ctx,
 		cm:  NewTarCacheManager(ctx.StorageURI, ctx.PipelineName, ctx.ServiceName, ctx.AesKey),
+	}
+
+	if ctx.TestType == "" {
+		reaper.Type = types.BuildReaperType
+	} else {
+		reaper.Type = types.TestReaperType
 	}
 
 	workspace := "/workspace"
