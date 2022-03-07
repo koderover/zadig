@@ -68,8 +68,8 @@ func NewClientFromRestConf(restConfig *rest.Config, ns string) (hc.Client, error
 }
 
 type KV struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
+	Key   string      `json:"key"`
+	Value interface{} `json:"value"`
 }
 
 // MergeOverrideValues merge override yaml and override kvs
