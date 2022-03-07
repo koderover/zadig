@@ -337,6 +337,10 @@ var projectAdminURLs = []*policyRule{
 		Endpoints: []string{"api/v1/users"},
 	},
 	{
+		Methods:   []string{"GET"},
+		Endpoints: []string{"/api/aslan/cluster/clusters"},
+	},
+	{
 		Methods:   []string{"POST"},
 		Endpoints: []string{"api/v1/users/search"},
 	},
