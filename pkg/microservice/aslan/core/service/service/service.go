@@ -137,7 +137,7 @@ type YamlValidatorReq struct {
 func ListServicesInExtenalEnv(tmpResp *commonservice.ServiceTmplResp, log *zap.SugaredLogger) {
 	opt := &commonrepo.ProductListOptions{
 		Source:        setting.SourceFromExternal,
-		ExcludeStatus: setting.ProductStatusDeleting,
+		ExcludeStatus: []string{setting.ProductStatusDeleting, setting.ProductStatusUnknown},
 	}
 	products, err := commonrepo.NewProductColl().List(opt)
 	if err != nil {
