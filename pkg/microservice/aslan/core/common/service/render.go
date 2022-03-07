@@ -44,8 +44,8 @@ type RepoConfig struct {
 }
 
 type KVPair struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
+	Key   string      `json:"key"`
+	Value interface{} `json:"value"`
 }
 
 type RenderChartArg struct {
