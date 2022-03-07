@@ -81,7 +81,7 @@ type ServiceProductMap struct {
 	Visibility       string                    `json:"visibility,omitempty"`
 	CodehostID       int                       `json:"codehost_id"`
 	RepoOwner        string                    `json:"repo_owner"`
-	Namespace        string                    `json:"namespace"`
+	RepoNamespace    string                    `json:"repo_namespace"`
 	RepoName         string                    `json:"repo_name"`
 	RepoUUID         string                    `json:"repo_uuid"`
 	BranchName       string                    `json:"branch_name"`
@@ -178,6 +178,11 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 			serviceObject.Namespace = owner
 		}
 
+		namespace := serviceObject.Namespace
+		if namespace == "" {
+			namespace = serviceObject.RepoOwner
+		}
+
 		spmap := &ServiceProductMap{
 			Service:          serviceObject.ServiceName,
 			Type:             serviceObject.Type,
@@ -188,7 +193,7 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 			Visibility:       serviceObject.Visibility,
 			CodehostID:       serviceObject.CodehostID,
 			RepoOwner:        serviceObject.RepoOwner,
-			Namespace:        serviceObject.Namespace,
+			RepoNamespace:    namespace,
 			RepoName:         serviceObject.RepoName,
 			RepoUUID:         serviceObject.RepoUUID,
 			BranchName:       serviceObject.BranchName,

@@ -195,10 +195,11 @@ func (gruem *gerritChangeMergedEventMatcher) UpdateTaskArgs(
 	}
 
 	factory.Update(product, args, &types.Repository{
-		CodehostID: hookRepo.CodehostID,
-		RepoName:   hookRepo.RepoName,
-		RepoOwner:  hookRepo.RepoOwner,
-		Branch:     hookRepo.Branch,
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoOwner:     hookRepo.RepoOwner,
+		RepoNamespace: hookRepo.RepoNamespace,
+		Branch:        hookRepo.Branch,
 	})
 
 	return args
@@ -237,11 +238,12 @@ func (gpcem *gerritPatchsetCreatedEventMatcher) UpdateTaskArgs(product *commonmo
 	}
 
 	factory.Update(product, args, &types.Repository{
-		CodehostID: hookRepo.CodehostID,
-		RepoName:   hookRepo.RepoName,
-		RepoOwner:  hookRepo.RepoOwner,
-		Branch:     hookRepo.Branch,
-		PR:         gpcem.Event.Change.Number,
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoOwner:     hookRepo.RepoOwner,
+		RepoNamespace: hookRepo.RepoNamespace,
+		Branch:        hookRepo.Branch,
+		PR:            gpcem.Event.Change.Number,
 	})
 
 	return args

@@ -252,6 +252,7 @@ type Repo struct {
 	Source       string `yaml:"source"`
 	Address      string `yaml:"address"`
 	Owner        string `yaml:"owner"`
+	Namespace    string `yaml:"namespace"`
 	Name         string `yaml:"name"`
 	RemoteName   string `yaml:"remote_name"`
 	Branch       string `yaml:"branch"`

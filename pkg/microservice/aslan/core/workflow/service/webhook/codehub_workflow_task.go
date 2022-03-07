@@ -60,11 +60,12 @@ func (cmem *codehubMergeEventMatcher) UpdateTaskArgs(
 	}
 
 	args = factory.Update(product, args, &types.Repository{
-		CodehostID: hookRepo.CodehostID,
-		RepoName:   hookRepo.RepoName,
-		RepoOwner:  hookRepo.RepoOwner,
-		Branch:     hookRepo.Branch,
-		PR:         cmem.event.ObjectAttributes.IID,
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoOwner:     hookRepo.RepoOwner,
+		RepoNamespace: hookRepo.RepoNamespace,
+		Branch:        hookRepo.Branch,
+		PR:            cmem.event.ObjectAttributes.IID,
 	})
 
 	return args
@@ -97,10 +98,11 @@ func (cpem *codehubPushEventMatcher) UpdateTaskArgs(
 	}
 
 	factory.Update(product, args, &types.Repository{
-		CodehostID: hookRepo.CodehostID,
-		RepoName:   hookRepo.RepoName,
-		RepoOwner:  hookRepo.RepoOwner,
-		Branch:     hookRepo.Branch,
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoOwner:     hookRepo.RepoOwner,
+		RepoNamespace: hookRepo.RepoNamespace,
+		Branch:        hookRepo.Branch,
 	})
 
 	return args

@@ -117,7 +117,7 @@ func preloadGerritService(detail *systemconfig.CodeHost, repoName, branchName, r
 
 	base := path.Join(config.S3StoragePath(), repoName)
 	if _, err := os.Stat(base); os.IsNotExist(err) {
-		err = command.RunGitCmds(detail, setting.GerritDefaultOwner, repoName, branchName, remoteName)
+		err = command.RunGitCmds(detail, setting.GerritDefaultOwner, setting.GerritDefaultOwner, repoName, branchName, remoteName)
 		if err != nil {
 			return nil, e.ErrPreloadServiceTemplate.AddDesc(err.Error())
 		}
@@ -233,7 +233,7 @@ func preloadCodehubService(detail *systemconfig.CodeHost, repoName, repoUUID, br
 func loadGerritService(username string, ch *systemconfig.CodeHost, repoOwner, repoName, branchName, remoteName string, args *LoadServiceReq, log *zap.SugaredLogger) error {
 	base := path.Join(config.S3StoragePath(), repoName)
 	if _, err := os.Stat(base); os.IsNotExist(err) {
-		err = command.RunGitCmds(ch, repoOwner, repoName, branchName, remoteName)
+		err = command.RunGitCmds(ch, repoOwner, repoOwner, repoName, branchName, remoteName)
 		if err != nil {
 			return e.ErrLoadServiceTemplate.AddDesc(err.Error())
 		}
@@ -599,7 +599,7 @@ func validateServiceUpdateGitlab(detail *systemconfig.CodeHost, serviceName, rep
 func validateServiceUpdateGerrit(detail *systemconfig.CodeHost, serviceName, repoName, branchName, remoteName, loadPath string, isDir bool) error {
 	base := path.Join(config.S3StoragePath(), repoName)
 	if _, err := os.Stat(base); os.IsNotExist(err) {
-		err = command.RunGitCmds(detail, setting.GerritDefaultOwner, repoName, branchName, remoteName)
+		err = command.RunGitCmds(detail, setting.GerritDefaultOwner, setting.GerritDefaultOwner, repoName, branchName, remoteName)
 		if err != nil {
 			return e.ErrValidateServiceUpdate.AddDesc(err.Error())
 		}

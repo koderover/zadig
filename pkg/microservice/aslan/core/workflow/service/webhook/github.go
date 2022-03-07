@@ -199,6 +199,7 @@ func prEventToPipelineTasks(event *github.PullRequestEvent, requestID string, lo
 
 	eventRepo := &types.Repository{
 		RepoOwner:     owner,
+		RepoNamespace: owner,
 		RepoName:      repo,
 		Branch:        branch,
 		PR:            prNum,
@@ -331,6 +332,7 @@ func pushEventToPipelineTasks(event *github.PushEvent, requestID string, log *za
 
 	eventRepo := &types.Repository{
 		RepoOwner:     owner,
+		RepoNamespace: owner,
 		RepoName:      repo,
 		Branch:        branch,
 		CommitID:      commitID,

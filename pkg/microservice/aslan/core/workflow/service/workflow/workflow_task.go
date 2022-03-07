@@ -918,6 +918,7 @@ func AddDataToArgsOrCreateReleaseImageTask(args *commonmodels.WorkflowTaskArgs, 
 							// openAPI only pass repoName, branch, pr
 							targetRepo.Source = buildRepo.Source
 							targetRepo.RepoOwner = buildRepo.RepoOwner
+							targetRepo.RepoNamespace = buildRepo.RepoNamespace
 							targetRepo.RemoteName = buildRepo.RemoteName
 							targetRepo.CodehostID = buildRepo.CodehostID
 							targetRepo.CheckoutPath = buildRepo.CheckoutPath

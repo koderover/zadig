@@ -109,10 +109,11 @@ func (gpem *githubPushEventMatcher) UpdateTaskArgs(
 	}
 
 	factory.Update(product, args, &types.Repository{
-		CodehostID: hookRepo.CodehostID,
-		RepoName:   hookRepo.RepoName,
-		RepoOwner:  hookRepo.RepoOwner,
-		Branch:     hookRepo.Branch,
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoOwner:     hookRepo.RepoOwner,
+		RepoNamespace: hookRepo.RepoNamespace,
+		Branch:        hookRepo.Branch,
 	})
 
 	return args
@@ -167,11 +168,12 @@ func (gmem *githubMergeEventMatcher) UpdateTaskArgs(
 	}
 
 	args = factory.Update(product, args, &types.Repository{
-		CodehostID: hookRepo.CodehostID,
-		RepoName:   hookRepo.RepoName,
-		RepoOwner:  hookRepo.RepoOwner,
-		Branch:     hookRepo.Branch,
-		PR:         *gmem.event.PullRequest.Number,
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoOwner:     hookRepo.RepoOwner,
+		RepoNamespace: hookRepo.RepoNamespace,
+		Branch:        hookRepo.Branch,
+		PR:            *gmem.event.PullRequest.Number,
 	})
 
 	return args
@@ -272,11 +274,12 @@ func (gtem githubTagEventMatcher) UpdateTaskArgs(product *commonmodels.Product, 
 	}
 
 	factory.Update(product, args, &types.Repository{
-		CodehostID: hookRepo.CodehostID,
-		RepoName:   hookRepo.RepoName,
-		RepoOwner:  hookRepo.RepoOwner,
-		Branch:     hookRepo.Branch,
-		Tag:        hookRepo.Tag,
+		CodehostID:    hookRepo.CodehostID,
+		RepoName:      hookRepo.RepoName,
+		RepoOwner:     hookRepo.RepoOwner,
+		RepoNamespace: hookRepo.RepoNamespace,
+		Branch:        hookRepo.Branch,
+		Tag:           hookRepo.Tag,
 	})
 
 	return args
