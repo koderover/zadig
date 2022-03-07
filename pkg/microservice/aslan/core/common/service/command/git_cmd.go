@@ -97,7 +97,7 @@ func RunGitCmds(codehostDetail *systemconfig.CodeHost, repoOwner, repoName, bran
 	tokens = append(tokens, repo.OauthToken)
 	cmds = append(cmds, buildGitCommands(repo)...)
 
-	if repo.Source == setting.SourceFromGithub {
+	if codehostDetail.EnableProxy {
 		httpsProxy := config.ProxyHTTPSAddr()
 		httpProxy := config.ProxyHTTPAddr()
 		if httpsProxy != "" {
