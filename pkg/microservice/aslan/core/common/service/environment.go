@@ -97,6 +97,47 @@ type IngressInfo struct {
 	HostInfo []resource.HostInfo `json:"host_info"`
 }
 
+func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*RenderChartArg, error) {
+
+	renderSetName := GetProductEnvNamespace(envName, productName, "")
+
+	opt := &commonrepo.RenderSetFindOption{
+		Name: renderSetName,
+	}
+	rendersetObj, existed, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
+	if err != nil {
+		return nil, err
+	}
+
+	if !existed {
+		return nil, nil
+	}
+
+	ret := make([]*RenderChartArg, 0)
+
+	matchedRenderChartModels := make([]*templatemodels.RenderChart, 0)
+	if len(serviceName) == 0 {
+		matchedRenderChartModels = rendersetObj.ChartInfos
+	} else {
+		serverList := strings.Split(serviceName, ",")
+		stringSet := sets.NewString(serverList...)
+		for _, singleChart := range rendersetObj.ChartInfos {
+			if !stringSet.Has(singleChart.ServiceName) {
+				continue
+			}
+			matchedRenderChartModels = append(matchedRenderChartModels, singleChart)
+		}
+	}
+
+	for _, singleChart := range matchedRenderChartModels {
+		rcaObj := new(RenderChartArg)
+		rcaObj.LoadFromRenderChartModel(singleChart)
+		rcaObj.EnvName = envName
+		ret = append(ret, rcaObj)
+	}
+	return ret, nil
+}
+
 // fill service display name if necessary
 func fillServiceDisplayName(svcList []*ServiceResp, productInfo *models.Product) {
 	if productInfo.Source == setting.SourceFromHelm {

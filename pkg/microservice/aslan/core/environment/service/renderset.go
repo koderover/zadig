@@ -18,17 +18,13 @@ package service
 
 import (
 	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
-	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	fsservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
@@ -44,47 +40,6 @@ type YamlContentRequestArg struct {
 	Branch      string `json:"branch" form:"branch"`
 	RepoLink    string `json:"repoLink" form:"repoLink"`
 	ValuesPaths string `json:"valuesPaths" form:"valuesPaths"`
-}
-
-func GetRenderCharts(productName, envName, serviceName string, log *zap.SugaredLogger) ([]*commonservice.RenderChartArg, error) {
-
-	renderSetName := commonservice.GetProductEnvNamespace(envName, productName, "")
-
-	opt := &commonrepo.RenderSetFindOption{
-		Name: renderSetName,
-	}
-	rendersetObj, existed, err := commonrepo.NewRenderSetColl().FindRenderSet(opt)
-	if err != nil {
-		return nil, err
-	}
-
-	if !existed {
-		return nil, nil
-	}
-
-	ret := make([]*commonservice.RenderChartArg, 0)
-
-	matchedRenderChartModels := make([]*template.RenderChart, 0)
-	if len(serviceName) == 0 {
-		matchedRenderChartModels = rendersetObj.ChartInfos
-	} else {
-		serverList := strings.Split(serviceName, ",")
-		stringSet := sets.NewString(serverList...)
-		for _, singleChart := range rendersetObj.ChartInfos {
-			if !stringSet.Has(singleChart.ServiceName) {
-				continue
-			}
-			matchedRenderChartModels = append(matchedRenderChartModels, singleChart)
-		}
-	}
-
-	for _, singleChart := range matchedRenderChartModels {
-		rcaObj := new(commonservice.RenderChartArg)
-		rcaObj.LoadFromRenderChartModel(singleChart)
-		rcaObj.EnvName = envName
-		ret = append(ret, rcaObj)
-	}
-	return ret, nil
 }
 
 func GetDefaultValues(productName, envName string, log *zap.SugaredLogger) (*DefaultValuesResp, error) {
