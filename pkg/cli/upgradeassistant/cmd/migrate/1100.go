@@ -272,6 +272,7 @@ func migrateModuleBuild() error {
 						{"cache_enable", build.CacheEnable},
 						{"cache_dir_type", build.CacheDirType},
 						{"cache_user_dir", build.CacheUserDir}}},
+					{"advanced_setting_modified", build.AdvancedSettingsModified},
 				}),
 		)
 	}
@@ -308,6 +309,7 @@ func migrateModuleTesting() error {
 						{"cache_enable", testing.CacheEnable},
 						{"cache_dir_type", testing.CacheDirType},
 						{"cache_user_dir", testing.CacheUserDir}}},
+					{"advanced_setting_modified", testing.AdvancedSettingsModified},
 				}),
 		)
 	}
@@ -332,6 +334,8 @@ func migrateOneBuild(build *internalmodels.Build) error {
 	build.CacheDirType = types.UserDefinedCacheDir
 	build.CacheUserDir = build.Caches[0]
 
+	build.AdvancedSettingsModified = buildHasModifiedAdvancedSetting(build)
+
 	return nil
 }
 
@@ -350,5 +354,70 @@ func migrateOneTesting(testing *internalmodels.Testing) error {
 	testing.CacheDirType = types.UserDefinedCacheDir
 	testing.CacheUserDir = testing.Caches[0]
 
+	testing.AdvancedSettingsModified = testHasModifiedAdvancedSetting(testing)
+
 	return nil
+}
+
+func buildHasModifiedAdvancedSetting(build *internalmodels.Build) bool {
+	// default timeout is 60
+	if build.Timeout != 60 {
+		return true
+	}
+
+	// cache is disabled by default
+	if build.CacheEnable {
+		return true
+	}
+
+	// default is local cluster, but it is a relatively new field, so we also check for empty
+	if build.PreBuild.ClusterID != "" && build.PreBuild.ClusterID != setting.LocalClusterID {
+		return true
+	}
+
+	if build.PreBuild.ResReq != setting.LowRequest {
+		return true
+	}
+
+	return false
+}
+
+func testHasModifiedAdvancedSetting(testing *internalmodels.Testing) bool {
+	// default no artifact path exists
+	if testing.ArtifactPaths != nil && len(testing.ArtifactPaths) > 0 {
+		return true
+	}
+
+	// default timeout is 60
+	if testing.Timeout != 60 {
+		return true
+	}
+
+	// cache is disabled by default
+	if testing.CacheEnable {
+		return true
+	}
+
+	// default is local cluster, but it is a relatively new field, so we also check for empty
+	if testing.PreTest.ClusterID != "" && testing.PreTest.ClusterID != setting.LocalClusterID {
+		return true
+	}
+
+	if testing.PreTest.ResReq != setting.LowRequest {
+		return true
+	}
+
+	if testing.HookCtl != nil && testing.HookCtl.Enabled {
+		return true
+	}
+
+	if testing.NotifyCtl != nil && testing.NotifyCtl.Enabled {
+		return true
+	}
+
+	if testing.Schedules != nil && testing.Schedules.Enabled {
+		return true
+	}
+
+	return false
 }
