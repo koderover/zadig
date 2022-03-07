@@ -271,8 +271,9 @@ func migrateModuleBuild() error {
 					bson.D{
 						{"cache_enable", build.CacheEnable},
 						{"cache_dir_type", build.CacheDirType},
-						{"cache_user_dir", build.CacheUserDir}}},
-					{"advanced_setting_modified", build.AdvancedSettingsModified},
+						{"cache_user_dir", build.CacheUserDir},
+						{"advanced_setting_modified", build.AdvancedSettingsModified},
+					}},
 				}),
 		)
 	}
@@ -308,8 +309,9 @@ func migrateModuleTesting() error {
 					bson.D{
 						{"cache_enable", testing.CacheEnable},
 						{"cache_dir_type", testing.CacheDirType},
-						{"cache_user_dir", testing.CacheUserDir}}},
-					{"advanced_setting_modified", testing.AdvancedSettingsModified},
+						{"cache_user_dir", testing.CacheUserDir},
+						{"advanced_setting_modified", testing.AdvancedSettingsModified},
+					}},
 				}),
 		)
 	}
