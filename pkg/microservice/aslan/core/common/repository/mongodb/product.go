@@ -48,7 +48,7 @@ type ProductListOptions struct {
 	ClusterID           string
 	IsSortByUpdateTime  bool
 	IsSortByProductName bool
-	ExcludeStatus       string
+	ExcludeStatus       []string
 	ExcludeSource       string
 	Source              string
 	InProjects          []string
@@ -217,8 +217,8 @@ func (c *ProductColl) List(opt *ProductListOptions) ([]*models.Product, error) {
 	if opt.ExcludeSource != "" {
 		query["source"] = bson.M{"$ne": opt.ExcludeSource}
 	}
-	if opt.ExcludeStatus != "" {
-		query["status"] = bson.M{"$ne": opt.ExcludeStatus}
+	if len(opt.ExcludeStatus) > 0 {
+		query["status"] = bson.M{"$nin": opt.ExcludeStatus}
 	}
 	if len(opt.InProjects) > 0 {
 		query["product_name"] = bson.M{"$in": opt.InProjects}
