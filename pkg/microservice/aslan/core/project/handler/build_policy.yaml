@@ -1,4 +1,4 @@
-resource: Service
+resource: Build
 alias: "构建"
 description: ""
 rules:
