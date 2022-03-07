@@ -21,7 +21,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	service2 "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -41,7 +41,7 @@ func GetServiceRenderCharts(c *gin.Context) {
 		return
 	}
 
-	ctx.Resp, ctx.Err = service2.GetRenderCharts(c.Query("projectName"), c.Query("envName"), c.Query("serviceName"), ctx.Logger)
+	ctx.Resp, ctx.Err = commonservice.GetRenderCharts(c.Query("projectName"), c.Query("envName"), c.Query("serviceName"), ctx.Logger)
 }
 
 func GetProductDefaultValues(c *gin.Context) {

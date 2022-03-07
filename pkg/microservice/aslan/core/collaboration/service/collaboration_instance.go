@@ -1132,7 +1132,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 			product.DefaultValues = set.DefaultValues
 		}
 	}
-	if len(newProduct) > 0 && newProduct[0].DeployType == "helm" {
+	if len(newProduct) > 0 && newProduct[0].DeployType == string(config.DeployTypeHelm) {
 		envChartsMap := getHelmRenderSet(projectName, newProductName.List(), logger)
 		for _, product := range newProduct {
 			chart, ok := envChartsMap[product.BaseName]
@@ -1332,9 +1332,6 @@ func getHelmRenderSet(projectName string, envs []string, logger *zap.SugaredLogg
 			continue
 		}
 		envChartsMap[env] = renderChartArgs
-		for _, arg := range renderChartArgs {
-			logger.Infof("env:%s arg:%v", env, arg)
-		}
 	}
 
 	return envChartsMap

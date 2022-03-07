@@ -22,3 +22,10 @@ const (
 	CollaborationShare CollaborationType = "share"
 	CollaborationNew   CollaborationType = "new"
 )
+
+type DeployType string
+
+const (
+	DeployTypeHelm DeployType = "helm"
+	DeployTypeK8s  DeployType = "k8s"
+)
