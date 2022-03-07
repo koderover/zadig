@@ -31,7 +31,7 @@ import (
 )
 
 func ListProductsRevision(productName, envName string, log *zap.SugaredLogger) (prodRevs []*ProductRevision, err error) {
-	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName, IsSortByProductName: true, EnvName: envName})
+	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{Name: productName, IsSortByProductName: true, EnvName: envName, ExcludeStatus: []string{setting.ProductStatusDeleting, setting.ProductStatusUnknown}})
 
 	// list services with max revision of project
 	allServiceTmpls, err := getServicesWithMaxRevision(productName)
@@ -70,7 +70,7 @@ func ListProductsRevisionByFacility(basicFacility string, log *zap.SugaredLogger
 		projectNames = append(projectNames, v.ProductName)
 	}
 
-	products, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{ExcludeStatus: setting.ProductStatusDeleting, InProjects: projectNames})
+	products, err = commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{ExcludeStatus: []string{setting.ProductStatusDeleting, setting.ProductStatusUnknown}, InProjects: projectNames})
 	if err != nil {
 		log.Errorf("Collection.Product.List error: %s", err)
 		return prodRevs, e.ErrListProducts.AddDesc(err.Error())
