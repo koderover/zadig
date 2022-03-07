@@ -50,6 +50,9 @@ var contributor []byte
 //go:embed read-only.yaml
 var readOnly []byte
 
+//go:embed read-project-only.yaml
+var readProjectOnly []byte
+
 //go:embed admin.yaml
 var admin []byte
 
@@ -192,6 +195,7 @@ func presetRoleBinding(uid string) error {
 		Name: config.RoleBindingNameFromUIDAndRole(uid, setting.SystemAdmin, "*"),
 		UID:  uid,
 		Role: string(setting.SystemAdmin),
+		Type: setting.ResourceTypeSystem,
 	})
 
 }
@@ -206,7 +210,7 @@ func presetRole() error {
 		return policy.NewDefault().CreateSystemRole(systemRole.Name, systemRole)
 	})
 
-	rolesArray := [][]byte{readOnly, contributor, projectAdmin}
+	rolesArray := [][]byte{readOnly, readProjectOnly, contributor, projectAdmin}
 
 	for _, v := range rolesArray {
 		role := &policy.Role{}
@@ -214,7 +218,7 @@ func presetRole() error {
 			log.DPanic(err)
 		}
 		g.Go(func() error {
-			return policy.NewDefault().CreatePublicRole(role.Name, role)
+			return policy.NewDefault().CreatePresetRole(role.Name, role)
 		})
 	}
 	if err := g.Wait(); err != nil {

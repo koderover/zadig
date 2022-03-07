@@ -36,6 +36,7 @@ type RenderSetListOption struct {
 	ProductTmpl   string
 	Revisions     []int64
 	RendersetName string
+	FindOpts      []RenderSetFindOption
 }
 
 // RenderSetFindOption ...
@@ -110,6 +111,34 @@ func (c *RenderSetColl) ListRendersets(opt *RenderSetListOption) ([]*models.Rend
 
 	return rendersets, err
 
+}
+
+func (c *RenderSetColl) ListByFindOpts(opt *RenderSetListOption) ([]models.RenderSet, error) {
+	var resp []models.RenderSet
+	condition := bson.A{}
+	if len(opt.FindOpts) == 0 {
+		return nil, nil
+	}
+	for _, findOpt := range opt.FindOpts {
+		condition = append(condition, bson.M{
+			"name":     findOpt.Name,
+			"revision": findOpt.Revision,
+		})
+	}
+	projectCon := bson.A{}
+	projectCon = append(projectCon, bson.M{"product_tmpl": opt.ProductTmpl})
+	filter := bson.D{{"$or", condition}, {"$and", projectCon}}
+	cursor, err := c.Collection.Find(context.TODO(), filter)
+	if err == mongo.ErrNoDocuments {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := cursor.All(context.TODO(), &resp); err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
 
 func (c *RenderSetColl) List(opt *RenderSetListOption) ([]*models.RenderSet, error) {

@@ -152,6 +152,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		integration.POST("", CreateHelmRepo)
 		integration.PUT("/:id", UpdateHelmRepo)
 		integration.DELETE("/:id", DeleteHelmRepo)
+		integration.GET("/:name/index", ListCharts)
 	}
 
 	// ---------------------------------------------------------------------------------------

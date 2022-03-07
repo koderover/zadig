@@ -343,7 +343,7 @@ func setBuildInfo(build *types.Repository, log *zap.SugaredLogger) {
 			build.AuthorName = commit.AuthorName
 		}
 	} else if codeHostInfo.Type == systemconfig.CodeHubProvider {
-		codeHubClient := codehub.NewClient(codeHostInfo.AccessKey, codeHostInfo.SecretKey, codeHostInfo.Region)
+		codeHubClient := codehub.NewClient(codeHostInfo.AccessKey, codeHostInfo.SecretKey, codeHostInfo.Region, config.ProxyHTTPSAddr(), codeHostInfo.EnableProxy)
 		if build.CommitID == "" && build.Branch != "" {
 			branchList, _ := codeHubClient.BranchList(build.RepoUUID)
 			for _, branchInfo := range branchList {
@@ -356,7 +356,7 @@ func setBuildInfo(build *types.Repository, log *zap.SugaredLogger) {
 			}
 		}
 	} else {
-		gitCli := git.NewClient(codeHostInfo.AccessToken, config.ProxyHTTPSAddr())
+		gitCli := git.NewClient(codeHostInfo.AccessToken, config.ProxyHTTPSAddr(), codeHostInfo.EnableProxy)
 		//// 需要后端自动获取Branch当前Commit，并填写到build中
 		if build.CommitID == "" {
 			if build.Tag != "" && build.PR == 0 {
@@ -618,6 +618,7 @@ func prepareTaskEnvs(pt *task.Task, log *zap.SugaredLogger) []*commonmodels.KeyV
 		&commonmodels.KeyVal{Key: "IMAGE", Value: pt.TaskArgs.Deploy.Image},
 		&commonmodels.KeyVal{Key: "PKG_FILE", Value: pt.TaskArgs.Deploy.PackageFile},
 		&commonmodels.KeyVal{Key: "LOG_FILE", Value: "/tmp/user_script.log"},
+		&commonmodels.KeyVal{Key: "WORKSPACE", Value: "/workspace"},
 	)
 
 	// 设置编译模块参数化配置信息

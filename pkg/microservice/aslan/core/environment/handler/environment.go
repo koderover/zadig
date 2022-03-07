@@ -73,12 +73,6 @@ func ListProducts(c *gin.Context) {
 		return
 	}
 
-	switch c.Query(setting.Subresource) {
-	case setting.IngressSubresource:
-		ctx.Resp, ctx.Err = service.GetProductIngress(projectName, ctx.Logger)
-		return
-	}
-
 	ctx.Resp, ctx.Err = service.ListProducts(projectName, envNames, ctx.Logger)
 }
 

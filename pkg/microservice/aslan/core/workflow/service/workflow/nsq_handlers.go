@@ -196,7 +196,8 @@ func (h *TaskAckHandler) handle(message *nsq.Message) error {
 
 	for _, deploy := range deploys {
 		if deploy.Enabled && !pt.ResetImage {
-			if err := h.updateProductImageByNs(deploy.Namespace, deploy.ProductName, deploy.ServiceName, deploy.ContainerName, deploy.Image); err != nil {
+			containerName := strings.TrimSuffix(deploy.ContainerName, "_"+deploy.ServiceName)
+			if err := h.updateProductImageByNs(deploy.Namespace, deploy.ProductName, deploy.ServiceName, containerName, deploy.Image); err != nil {
 				h.log.Errorf("updateProductImage %v error: %v", deploy, err)
 				continue
 			} else {
@@ -222,13 +223,13 @@ func getRawFileContent(codehostID int, repo, owner, branch, filePath string) ([]
 	}
 	switch ch.Type {
 	case setting.SourceFromGitlab:
-		cli, err := gitlab.NewClient(ch.Address, ch.AccessToken)
+		cli, err := gitlab.NewClient(ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 		if err != nil {
 			return nil, errors.Wrapf(err, "Failed to get gitlab client")
 		}
 		return cli.GetRawFile(repo, owner, branch, filePath)
 	case setting.SourceFromGithub:
-		gitClient := git.NewClient(ch.AccessToken, config.ProxyHTTPSAddr())
+		gitClient := git.NewClient(ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 		return gitClient.GetFileContent(owner, repo, filePath, branch)
 	default:
 		return nil, fmt.Errorf("Failed to create client for codehostID: %d", codehostID)

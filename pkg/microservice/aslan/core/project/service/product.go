@@ -31,13 +31,17 @@ import (
 
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/service"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collie"
 	environmentservice "github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
+	service2 "github.com/koderover/zadig/pkg/microservice/aslan/core/label/service"
 	workflowservice "github.com/koderover/zadig/pkg/microservice/aslan/core/workflow/service/workflow"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/policy"
@@ -376,6 +380,22 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 		return err
 	}
 
+	// delete collaboration_mode and collaboration_instance
+	if err := DeleteCollabrationMode(productName, userName, log); err != nil {
+		log.Errorf("DeleteCollabrationMode err:%s", err)
+		return err
+	}
+
+	if err = DeletePolicy(productName, log); err != nil {
+		log.Errorf("DeletePolicy  productName %s  err: %s", productName, err)
+		return err
+	}
+
+	if err = DeleteLabels(productName, log); err != nil {
+		log.Errorf("DeleteLabels  productName %s  err: %s", productName, err)
+		return err
+	}
+
 	if err = commonservice.DeleteWorkflows(productName, requestID, log); err != nil {
 		log.Errorf("DeleteProductTemplate Delete productName %s workflow err: %s", productName, err)
 		return err
@@ -457,6 +477,7 @@ func DeleteProductTemplate(userName, productName, requestID string, log *zap.Sug
 			ProductName: productName,
 		})
 	}()
+
 	return nil
 }
 
@@ -576,7 +597,7 @@ func ForkProduct(username, uid, requestID string, args *template.ForkProject, lo
 	err = policy.NewDefault().CreateOrUpdateRoleBinding(args.ProductName, &policy.RoleBinding{
 		UID:    uid,
 		Role:   string(setting.Contributor),
-		Public: true,
+		Preset: true,
 	})
 	if err != nil {
 		log.Errorf("Failed to create or update roleBinding, err: %s", err)
@@ -899,5 +920,46 @@ func reParseServices(userName string, serviceList []*commonmodels.Service, match
 		return err
 	}
 
+	return nil
+}
+
+func DeleteCollabrationMode(productName string, userName string, log *zap.SugaredLogger) error {
+	// find all collaboration mode in this project
+	res, err := collaboration.GetCollaborationModes([]string{productName}, log)
+	if err != nil {
+		log.Errorf("GetCollaborationModes err: %s", err)
+		return err
+	}
+	//  delete all collaborationMode
+	for _, mode := range res.Collaborations {
+		if err := service.DeleteCollaborationMode(userName, productName, mode.Name, log); err != nil {
+			log.Errorf("DeleteCollaborationMode err: %s", err)
+			return err
+		}
+	}
+	// delete all collaborationIns
+	if err := mongodb.NewCollaborationInstanceColl().DeleteByProject(productName); err != nil {
+		log.Errorf("fail to DeleteByProject err:%s", err)
+		return err
+	}
+	return nil
+}
+
+func DeletePolicy(productName string, log *zap.SugaredLogger) error {
+	policy.NewDefault()
+	if err := policy.NewDefault().DeletePolicies(productName, policy.DeletePoliciesArgs{
+		Names: []string{},
+	}); err != nil {
+		log.Errorf("DeletePolicies err :%s", err)
+		return err
+	}
+	return nil
+}
+
+func DeleteLabels(productName string, log *zap.SugaredLogger) error {
+	if err := service2.DeleteLabelsAndBindingsByProject(productName, log); err != nil {
+		log.Errorf("delete labels and bindings by project fail , err :%s", err)
+		return err
+	}
 	return nil
 }

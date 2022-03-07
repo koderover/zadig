@@ -41,6 +41,8 @@ type CodeHost struct {
 	SecretKey string `json:"client_secret"`
 	Username  string `json:"username"`
 	Password  string `json:"password"`
+	// the field determine whether the proxy is enabled
+	EnableProxy bool `json:"enable_proxy"`
 }
 
 type Option struct {

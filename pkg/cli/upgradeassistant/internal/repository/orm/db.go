@@ -40,12 +40,13 @@ var addmysql []byte
 var dropmysql []byte
 
 func UpdateUserDBTables(action DbEditAction) error {
-	var mysql []byte
+	var mysql string
 	switch action {
 	case DbEditActionAdd:
-		mysql = addmysql
+		mysql = fmt.Sprintf(string(addmysql), config.MysqlUserDB())
+
 	case DbEditActionDrop:
-		mysql = dropmysql
+		mysql = fmt.Sprintf(string(dropmysql), config.MysqlUserDB())
 	}
 	if len(mysql) == 0 {
 		return fmt.Errorf("%smysql.sql is empty", action)
@@ -58,6 +59,6 @@ func UpdateUserDBTables(action DbEditAction) error {
 		return err
 	}
 	defer db.Close()
-	_, err = db.Exec(string(mysql))
+	_, err = db.Exec(mysql)
 	return err
 }

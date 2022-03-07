@@ -120,24 +120,51 @@ func TaskContainerLogStream(ctx context.Context, streamChan chan interface{}, op
 		return
 	}
 	log.Debugf("Start to get task container log.")
-	// Cloud host scenario reads real-time logs from the environment, so pipelineName is empty
+
+	var serviceName, serviceModule string
+	serviceNames := strings.Split(options.ServiceName, "_")
+	switch len(serviceNames) {
+	case 1:
+		serviceModule = serviceNames[0]
+	case 2:
+		// Note: Starting from V1.10.0, this field will be in the format of `ServiceModule_ServiceName`.
+		serviceModule = serviceNames[0]
+		serviceName = serviceNames[1]
+	}
+
+	// Cloud host scenario reads real-time logs from the environment, so pipelineName is empty.
 	if options.EnvName != "" && options.ProductName != "" && options.PipelineName == "" {
-		//修改pipelineName，判断pipelineName是否为空，为空代表是来自环境里面请求，不为空代表是来自工作流任务的请求
-		options.PipelineName = fmt.Sprintf("%s-%s-%s", options.ServiceName, options.EnvName, "job")
+		// Modify pipelineName to check whether pipelineName is empty:
+		// - Empty pipelineName indicates requests from the environment
+		// - Non-empty pipelineName indicate requests from workflow tasks
+		options.PipelineName = fmt.Sprintf("%s-%s-%s", serviceName, options.EnvName, "job")
 		if taskObj, err := commonrepo.NewTaskColl().FindTask(options.PipelineName, config.ServiceType); err == nil {
 			options.TaskID = taskObj.TaskID
 		}
-		// Need to get build info based on the project name and service component name, then get clusterID and namespace
 	} else if options.ProductName != "" {
-		build, err := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{
+		buildFindOptions := &commonrepo.BuildFindOption{
 			ProductName: options.ProductName,
-			Targets:     []string{options.ServiceName},
-		})
+			Targets:     []string{serviceModule},
+		}
+		if serviceName != "" {
+			buildFindOptions.ServiceName = serviceName
+		}
+
+		build, err := commonrepo.NewBuildColl().Find(buildFindOptions)
 		if err != nil {
 			// Maybe this service is a shared service
-			build, err = commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{
-				Targets: []string{options.ServiceName},
-			})
+			buildFindOptions := &commonrepo.BuildFindOption{
+				Targets: []string{serviceModule},
+			}
+			if serviceName != "" {
+				buildFindOptions.ServiceName = serviceName
+			}
+
+			build, err = commonrepo.NewBuildColl().Find(buildFindOptions)
+			if err != nil {
+				log.Errorf("Failed to query build for service %s: %s", serviceName, err)
+				return
+			}
 		}
 		// Compatible with the situation where the old data has not been modified
 		if build != nil && build.PreBuild != nil && build.PreBuild.ClusterID != "" {
@@ -194,16 +221,19 @@ func waitAndGetLog(ctx context.Context, streamChan chan interface{}, selector la
 		log.Errorf("GetContainerLogs, get client set error: %s", err)
 		return
 	}
+
 	err = watcher.WaitUntilPodRunning(PodCtx, options.Namespace, selector, clientSet)
 	if err != nil {
 		log.Errorf("GetContainerLogs, wait pod running error: %s", err)
 		return
 	}
+
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), options.ClusterID)
 	if err != nil {
 		log.Errorf("GetContainerLogs, get kube client error: %s", err)
 		return
 	}
+
 	pods, err := getter.ListPods(options.Namespace, selector, kubeClient)
 	if err != nil {
 		log.Errorf("GetContainerLogs, get pod error: %+v", err)

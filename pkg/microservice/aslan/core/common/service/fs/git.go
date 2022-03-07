@@ -97,7 +97,7 @@ type TreeGetter interface {
 }
 
 func GetPublicTreeGetter(repoLink string) (TreeGetter, error) {
-	return githubservice.NewClient("", config.ProxyHTTPSAddr()), nil
+	return githubservice.NewClient("", config.ProxyHTTPSAddr(), true), nil
 }
 
 func GetTreeGetter(codeHostID int) (TreeGetter, error) {
@@ -109,9 +109,9 @@ func GetTreeGetter(codeHostID int) (TreeGetter, error) {
 
 	switch ch.Type {
 	case setting.SourceFromGithub:
-		return githubservice.NewClient(ch.AccessToken, config.ProxyHTTPSAddr()), nil
+		return githubservice.NewClient(ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy), nil
 	case setting.SourceFromGitlab:
-		return gitlabservice.NewClient(ch.Address, ch.AccessToken)
+		return gitlabservice.NewClient(ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
 	default:
 		// should not have happened here
 		log.DPanicf("invalid source: %s", ch.Type)

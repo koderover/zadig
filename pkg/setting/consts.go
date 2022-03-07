@@ -34,6 +34,7 @@ const (
 	ENVMysqlUser               = "MYSQL_USER"
 	ENVMysqlPassword           = "MYSQL_PASSWORD"
 	ENVMysqlHost               = "MYSQL_HOST"
+	ENVMysqlUserDb             = "MYSQL_USER_DB"
 
 	// Aslan
 	ENVPodName              = "BE_POD_NAME"
@@ -240,6 +241,7 @@ const (
 	SourceFromChartTemplate = "chartTemplate"
 	// SourceFromPublicRepo 配置来源为publicRepo
 	SourceFromPublicRepo = "publicRepo"
+	SourceFromChartRepo  = "chartRepo"
 
 	// SourceFromGUI 配置来源为gui
 	SourceFromGUI = "gui"
@@ -562,10 +564,11 @@ const ChartTemplatesPath = "charts"
 type RoleType string
 
 const (
-	Contributor  RoleType = "contributor"
-	ReadOnly     RoleType = "read-only"
-	ProjectAdmin RoleType = "project-admin"
-	SystemAdmin  RoleType = "admin"
+	Contributor     RoleType = "contributor"
+	ReadOnly        RoleType = "read-only"
+	ProjectAdmin    RoleType = "project-admin"
+	SystemAdmin     RoleType = "admin"
+	ReadProjectOnly RoleType = "read-project-only"
 )
 
 // ModernWorkflowType 自由编排工作流
@@ -611,6 +614,13 @@ const (
 
 const (
 	InformerNamingConvention = "%s-%s"
+)
+
+type ResourceType string
+
+const (
+	ResourceTypeSystem ResourceType = "system"
+	ResourceTypeCustom ResourceType = "custom"
 )
 
 // AttachedClusterNamespace is the namespace Zadig uses in attached cluster.

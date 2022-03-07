@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -36,6 +37,7 @@ import (
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
+	"github.com/koderover/zadig/pkg/types"
 )
 
 const (
@@ -218,6 +220,12 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 		}
 	}
 
+	// Since we allow users to use custom environment variables, variable resolution is required.
+	if pipelineCtx.CacheEnable && pipelineCtx.Cache.MediumType == types.NFSMedium &&
+		pipelineCtx.CacheDirType == types.UserDefinedCacheDir {
+		pipelineCtx.CacheUserDir = p.renderEnv(pipelineCtx.CacheUserDir)
+	}
+
 	jobCtx := JobCtxBuilder{
 		JobName:     p.JobName,
 		PipelineCtx: pipelineCtx,
@@ -316,6 +324,8 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 		return
 	}
 	p.Log.Infof("succeed to create build job %s", p.JobName)
+
+	p.Task.TaskStatus = waitJobReady(ctx, p.KubeNamespace, p.JobName, p.kubeClient, p.Log)
 }
 
 func (p *BuildTaskPlugin) Wait(ctx context.Context) {
@@ -423,4 +433,22 @@ func (p *BuildTaskPlugin) IsTaskEnabled() bool {
 
 func (p *BuildTaskPlugin) ResetError() {
 	p.Task.Error = ""
+}
+
+// Note: Since there are few environment variables and few variables to be replaced,
+// this method is temporarily used.
+func (p *BuildTaskPlugin) renderEnv(data string) string {
+	mapper := func(data string) string {
+		for _, envar := range p.Task.JobCtx.EnvVars {
+			if data != envar.Key {
+				continue
+			}
+
+			return envar.Value
+		}
+
+		return fmt.Sprintf("$%s", data)
+	}
+
+	return os.Expand(data, mapper)
 }

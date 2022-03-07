@@ -50,6 +50,7 @@ type Workflow struct {
 	ExtensionStage  *ExtensionStage    `bson:"extension_stage"              json:"extension_stage"`
 	NotifyCtl       *NotifyCtl         `bson:"notify_ctl,omitempty"         json:"notify_ctl,omitempty"`
 	HookCtl         *WorkflowHookCtrl  `bson:"hook_ctl"                     json:"hook_ctl"`
+	BaseName        string             `bson:"base_name" json:"base_name"`
 
 	// ResetImage indicate whether reset image to original version after completion
 	ResetImage       bool                         `bson:"reset_image"                  json:"reset_image"`

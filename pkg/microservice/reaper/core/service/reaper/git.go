@@ -44,14 +44,17 @@ func (r *Reaper) RunGitGc(folder string) error {
 func (r *Reaper) runGitCmds() error {
 
 	envs := r.getUserEnvs()
-
 	// 如果存在github代码库，则设置代理，同时保证非github库不走代理
 	if r.Ctx.Proxy.EnableRepoProxy && r.Ctx.Proxy.Type == "http" {
 		noProxy := ""
+		proxyFlag := false
 		for _, repo := range r.Ctx.Repos {
-			if repo.Source == meta.ProviderGithub {
-				envs = append(envs, fmt.Sprintf("http_proxy=%s", r.Ctx.Proxy.GetProxyURL()))
-				envs = append(envs, fmt.Sprintf("https_proxy=%s", r.Ctx.Proxy.GetProxyURL()))
+			if repo.EnableProxy {
+				if !proxyFlag {
+					envs = append(envs, fmt.Sprintf("http_proxy=%s", r.Ctx.Proxy.GetProxyURL()))
+					envs = append(envs, fmt.Sprintf("https_proxy=%s", r.Ctx.Proxy.GetProxyURL()))
+					proxyFlag = true
+				}
 			} else {
 				uri, err := url.Parse(repo.Address)
 				if err == nil {

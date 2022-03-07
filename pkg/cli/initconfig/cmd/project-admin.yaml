@@ -1,4 +1,5 @@
 name: project-admin
+type: system
 rules:
   - verbs:
       - "*"

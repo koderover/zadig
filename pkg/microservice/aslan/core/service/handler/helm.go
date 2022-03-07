@@ -76,6 +76,12 @@ func CreateOrUpdateHelmService(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be nil")
+		return
+	}
+
 	args := new(svcservice.HelmServiceCreationArgs)
 	if err := c.BindJSON(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid HelmService json args")
@@ -83,12 +89,18 @@ func CreateOrUpdateHelmService(c *gin.Context) {
 	}
 	args.CreatedBy = ctx.UserName
 
-	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateHelmService(c.Query("projectName"), args, ctx.Logger)
+	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateHelmService(projectName, args, ctx.Logger)
 }
 
 func CreateOrUpdateBulkHelmServices(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	projectName := c.Query("projectName")
+	if projectName == "" {
+		ctx.Err = e.ErrInvalidParam.AddDesc("projectName can't be nil")
+		return
+	}
 
 	args := new(svcservice.BulkHelmServiceCreationArgs)
 	if err := c.BindJSON(args); err != nil {
@@ -97,7 +109,7 @@ func CreateOrUpdateBulkHelmServices(c *gin.Context) {
 	}
 	args.CreatedBy = ctx.UserName
 
-	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateBulkHelmService(c.Query("projectName"), args, ctx.Logger)
+	ctx.Resp, ctx.Err = svcservice.CreateOrUpdateBulkHelmService(projectName, args, ctx.Logger)
 }
 
 func UpdateHelmService(c *gin.Context) {

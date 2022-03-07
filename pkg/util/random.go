@@ -23,6 +23,10 @@ import (
 	"github.com/google/uuid"
 )
 
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
 func UUID() string {
 	return uuid.New().String()
 }

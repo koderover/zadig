@@ -52,6 +52,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
@@ -87,19 +88,21 @@ type EnvStatus struct {
 }
 
 type EnvResp struct {
-	ProjectName string `json:"projectName"`
-	Status      string `json:"status"`
-	Error       string `json:"error"`
-	Name        string `json:"name"`
-	UpdateBy    string `json:"updateBy"`
-	UpdateTime  int64  `json:"updateTime"`
-	IsPublic    bool   `json:"isPublic"`
-	IsExisted   bool   `json:"is_existed"`
-	ClusterName string `json:"clusterName"`
-	ClusterID   string `json:"cluster_id"`
-	Production  bool   `json:"production"`
-	Source      string `json:"source"`
-	RegistryID  string `json:"registry_id"`
+	ProjectName string   `json:"projectName"`
+	Status      string   `json:"status"`
+	Error       string   `json:"error"`
+	Name        string   `json:"name"`
+	UpdateBy    string   `json:"updateBy"`
+	UpdateTime  int64    `json:"updateTime"`
+	IsPublic    bool     `json:"isPublic"`
+	ClusterName string   `json:"clusterName"`
+	ClusterID   string   `json:"cluster_id"`
+	Production  bool     `json:"production"`
+	Source      string   `json:"source"`
+	RegistryID  string   `json:"registry_id"`
+	BaseRefs    []string `json:"base_refs"`
+	BaseName    string   `json:"base_name"`
+	IsExisted   bool     `json:"is_existed"`
 }
 
 type ProductResp struct {
@@ -156,6 +159,8 @@ type CreateHelmProductArg struct {
 	RegistryID    string                          `json:"registry_id"`
 	ChartValues   []*commonservice.RenderChartArg `json:"chartValues"`
 	BaseEnvName   string                          `json:"baseEnvName"`
+	BaseName      string                          `json:"base_name,omitempty"`
+	IsExisted     bool                            `json:"is_existed"`
 }
 
 type UpdateMultiHelmProductArg struct {
@@ -195,6 +200,11 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 		log.Errorf("FindDefaultRegistry error: %v", err)
 		return nil, err
 	}
+
+	envCMMap, err := collaboration.GetEnvCMMap([]string{projectName}, log)
+	if err != nil {
+		return nil, err
+	}
 	for _, env := range envs {
 		clusterID := env.ClusterID
 		production := false
@@ -207,7 +217,12 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 			production = cluster.Production
 			clusterName = cluster.Name
 		}
-
+		var baseRefs []string
+		if cmSet, ok := envCMMap[collaboration.BuildEnvCMMapKey(env.ProductName, env.EnvName)]; ok {
+			for _, cm := range cmSet.List() {
+				baseRefs = append(baseRefs, cm)
+			}
+		}
 		res = append(res, &EnvResp{
 			ProjectName: projectName,
 			Name:        env.EnvName,
@@ -222,6 +237,8 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 			UpdateBy:    env.UpdateBy,
 			RegistryID:  env.RegistryID,
 			ClusterID:   env.ClusterID,
+			BaseRefs:    baseRefs,
+			BaseName:    env.BaseName,
 		})
 	}
 
@@ -773,6 +790,7 @@ func createSingleHelmProduct(templateProduct *templatemodels.Product, requestID,
 		ChartInfos:      templateProduct.ChartInfos,
 		IsForkedProduct: false,
 		RegistryID:      registryID,
+		IsExisted:       arg.IsExisted,
 	}
 
 	customChartValueMap := make(map[string]*commonservice.RenderChartArg)
@@ -875,6 +893,109 @@ func createSingleHelmProduct(templateProduct *templatemodels.Product, requestID,
 	return CreateProduct(userName, requestID, productObj, log)
 }
 
+type YamlProductItem struct {
+	OldName  string                     `json:"old_name"`
+	NewName  string                     `json:"new_name"`
+	BaseName string                     `json:"base_name"`
+	Vars     []*templatemodels.RenderKV `json:"vars"`
+}
+type CopyYamlProductArg struct {
+	Items []YamlProductItem `json:"items"`
+}
+
+type HelmProductItem struct {
+	OldName       string                          `json:"old_name"`
+	NewName       string                          `json:"new_name"`
+	BaseName      string                          `json:"base_name"`
+	DefaultValues string                          `json:"default_values"`
+	ChartValues   []*commonservice.RenderChartArg `json:"chart_values"`
+}
+
+type CopyHelmProductArg struct {
+	Items []HelmProductItem
+}
+
+func BulkCopyHelmProduct(projectName, user, requestID string, arg CopyHelmProductArg, log *zap.SugaredLogger) error {
+	if len(arg.Items) == 0 {
+		return nil
+	}
+	var envs []string
+	for _, item := range arg.Items {
+		envs = append(envs, item.OldName)
+	}
+	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		Name:   projectName,
+		InEnvs: envs,
+	})
+	if err != nil {
+		return err
+	}
+	productMap := make(map[string]*commonmodels.Product)
+	for _, product := range products {
+		productMap[product.EnvName] = product
+	}
+	var args []*CreateHelmProductArg
+	for _, item := range arg.Items {
+		if product, ok := productMap[item.OldName]; ok {
+			args = append(args, &CreateHelmProductArg{
+				ProductName:   projectName,
+				EnvName:       item.NewName,
+				Namespace:     projectName + "-" + "env" + "-" + item.NewName,
+				ClusterID:     product.ClusterID,
+				DefaultValues: item.DefaultValues,
+				RegistryID:    product.RegistryID,
+				BaseEnvName:   product.BaseName,
+				BaseName:      item.BaseName,
+				ChartValues:   item.ChartValues,
+			})
+		} else {
+			return fmt.Errorf("product:%s not exist", item.OldName)
+		}
+	}
+	return CopyHelmProduct(projectName, user, requestID, args, log)
+}
+
+func BulkCopyYamlProduct(projectName, user, requestID string, arg CopyYamlProductArg, log *zap.SugaredLogger) error {
+	if len(arg.Items) == 0 {
+		return nil
+	}
+
+	var envs []string
+	for _, item := range arg.Items {
+		envs = append(envs, item.OldName)
+	}
+	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		Name:   projectName,
+		InEnvs: envs,
+	})
+	if err != nil {
+		return err
+	}
+	productMap := make(map[string]*commonmodels.Product)
+	for _, product := range products {
+		productMap[product.EnvName] = product
+	}
+
+	for _, item := range arg.Items {
+		if product, ok := productMap[item.OldName]; ok {
+			product.EnvName = item.NewName
+			product.Vars = item.Vars
+			product.Namespace = projectName + "-env-" + product.EnvName
+			product.Render.Name = product.Namespace
+			util.Clear(&product.ID)
+			product.Render.Revision = 0
+			product.BaseName = item.BaseName
+			err = CreateProduct(user, requestID, product, log)
+			if err != nil {
+				return err
+			}
+		} else {
+			return fmt.Errorf("product:%s not exist", item.OldName)
+		}
+	}
+	return nil
+}
+
 // CreateProduct create a new product with its dependent stacks
 func CreateProduct(user, requestID string, args *commonmodels.Product, log *zap.SugaredLogger) (err error) {
 	log.Infof("[%s][P:%s] CreateProduct", args.EnvName, args.ProductName)
@@ -908,6 +1029,7 @@ func copySingleHelmProduct(productName, requestID, userName string, arg *CreateH
 	productInfo.EnvName = arg.EnvName
 	productInfo.UpdateBy = userName
 	productInfo.ClusterID = arg.ClusterID
+	productInfo.BaseName = arg.BaseName
 	productInfo.Namespace = commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace)
 
 	opt := &commonrepo.RenderSetFindOption{

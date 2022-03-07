@@ -55,6 +55,7 @@ const (
 	StatusQueued     Status = "queued"
 	StatusBlocked    Status = "blocked"
 	QueueItemPending Status = "pending"
+	StatusPrepare    Status = "prepare"
 )
 
 type PipelineType string

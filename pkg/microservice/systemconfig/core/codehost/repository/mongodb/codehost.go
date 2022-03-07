@@ -155,6 +155,7 @@ func (c *CodehostColl) UpdateCodeHost(host *models.CodeHost) (*models.CodeHost, 
 		"region":         host.Region,
 		"username":       host.Username,
 		"password":       host.Password,
+		"enable_proxy":   host.EnableProxy,
 		"updated_at":     time.Now().Unix(),
 	}}
 	_, err := c.Collection.UpdateOne(context.TODO(), query, change)

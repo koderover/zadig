@@ -72,3 +72,10 @@ func DeleteHelmRepo(c *gin.Context) {
 
 	ctx.Err = service.DeleteHelmRepo(c.Param("id"), ctx.Logger)
 }
+
+func ListCharts(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.ListCharts(c.Param("name"), ctx.Logger)
+}

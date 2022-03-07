@@ -22,6 +22,7 @@ type CodeHost struct {
 	Address     string `bson:"address"      json:"address"`
 	Namespace   string `bson:"namespace"    json:"namespace"`
 	AccessToken string `bson:"access_token" json:"accessToken"`
+	EnableProxy bool   `bson:"enable_proxy" json:"enable_proxy"`
 }
 
 func (CodeHost) TableName() string {
