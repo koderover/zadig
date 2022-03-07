@@ -1132,7 +1132,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 			product.DefaultValues = set.DefaultValues
 		}
 	}
-	if len(newProduct) > 0 && newProduct[0].DeployType == string(config.DeployTypeHelm) {
+	if len(newProduct) > 0 && newProduct[0].DeployType == setting.HelmDeployType {
 		envChartsMap := getHelmRenderSet(projectName, newProductName.List(), logger)
 		for _, product := range newProduct {
 			chart, ok := envChartsMap[product.BaseName]
