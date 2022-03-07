@@ -83,8 +83,6 @@ rules:
       - method: GET
         endpoint: "/api/aslan/project/products/?*/services"
       - method: GET
-        endpoint: "/api/aslan/delivery/releases"
-      - method: GET
         endpoint: "api/aslan/cluster/clusters"
         resourceType: "Cluster"
   - action: config_environment

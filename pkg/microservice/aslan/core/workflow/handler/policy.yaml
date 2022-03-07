@@ -107,8 +107,6 @@ rules:
       - method: POST
         endpoint: "/api/directory/workflowTask/id/?*/pipelines/?*/cancel"
       - method: GET
-        endpoint: "/api/aslan/delivery/releases"
-      - method: GET
         endpoint: "/api/aslan/environment/environments"
         resourceType: "Environment"
         matchAttributes:
