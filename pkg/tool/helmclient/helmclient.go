@@ -93,7 +93,7 @@ func MergeOverrideValues(valuesYaml, defaultValues, overrideYaml, overrideValues
 		}
 		kvStr := make([]string, 0)
 		for _, kv := range kvList {
-			kvStr = append(kvStr, fmt.Sprintf("%s=%s", kv.Key, kv.Value))
+			kvStr = append(kvStr, fmt.Sprintf("%s=%v", kv.Key, kv.Value))
 		}
 		// override values for --set option
 		err = strvals.ParseInto(strings.Join(kvStr, ","), valuesMap)
