@@ -194,10 +194,6 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 	fileName = strings.Replace(strings.ToLower(fileName), "_", "-", -1)
 	testReportFile = strings.Replace(strings.ToLower(testReportFile), "_", "-", -1)
 
-	for _, env := range p.Task.JobCtx.EnvVars {
-		p.Log.Infof("[YIFEI] k: %s, v: %s", env.Key, env.Value)
-	}
-
 	// Since we allow users to use custom environment variables, variable resolution is required.
 	if pipelineCtx.CacheEnable && pipelineCtx.Cache.MediumType == commontypes.NFSMedium &&
 		pipelineCtx.CacheDirType == commontypes.UserDefinedCacheDir {
