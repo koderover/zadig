@@ -1873,6 +1873,14 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 	if err != nil {
 		return nil, e.ErrConvertSubTasks.AddErr(err)
 	}
+	// The service may be a shared service
+	if len(modules) == 0 {
+		opt.ProductName = ""
+		modules, err = commonrepo.NewBuildColl().List(opt)
+		if err != nil {
+			return nil, e.ErrConvertSubTasks.AddErr(err)
+		}
+	}
 
 	registries, err := commonservice.ListRegistryNamespaces(true, log)
 	if err != nil {
