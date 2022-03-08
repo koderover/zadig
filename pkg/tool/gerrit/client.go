@@ -38,8 +38,8 @@ func NewClient(address, accessToken, proxyAddr string, enableProxy bool) *Client
 	httpClient := &http.Client{
 		Transport: &BasicAuthTransporter{
 			EncodedUserPass: accessToken,
-			ProxyAddr:       proxyAddr,
-			EnableProxy:     enableProxy,
+			//ProxyAddr:       proxyAddr,
+			//EnableProxy:     enableProxy,
 		},
 	}
 	cli, _ := gerrit.NewClient(address+"/a", httpClient)
