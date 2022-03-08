@@ -219,7 +219,7 @@ func UpdateProductTemplate(name string, args *template.Product, log *zap.Sugared
 	}
 
 	for _, envVars := range args.EnvVars {
-		//创建集成环境变量
+		//创建环境变量
 		if err = commonservice.CreateRenderSet(&commonmodels.RenderSet{
 			EnvName:     envVars.EnvName,
 			Name:        args.ProductName,

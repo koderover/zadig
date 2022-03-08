@@ -303,7 +303,7 @@ func CleanProducts() {
 	for _, prod := range products {
 		_, err := templaterepo.NewProductColl().Find(prod.ProductName)
 		if err != nil && err.Error() == "not found" {
-			logger.Errorf("集成环境所属的项目不存在，准备删除此集成环境, namespace:%s, 项目:%s\n", prod.Namespace, prod.ProductName)
+			logger.Errorf("环境所属的项目不存在，准备删除此环境, namespace:%s, 项目:%s\n", prod.Namespace, prod.ProductName)
 			err = commonservice.DeleteProduct("CleanProducts", prod.EnvName, prod.ProductName, "", logger)
 			if err != nil {
 				logger.Errorf("delete product failed, namespace:%s, err:%v\n", prod.Namespace, err)
