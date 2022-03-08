@@ -27,7 +27,7 @@ import (
 
 const (
 	productionPolicyResource = "ProductionEnvironment"
-	productionPolicyAlias    = "集成环境(生产/预发布)"
+	productionPolicyAlias    = "环境(生产/预发布)"
 	productionKey            = "production"
 	productionValueTrue      = "true"
 )
