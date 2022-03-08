@@ -1283,7 +1283,9 @@ func deployEnvToSubTasks(env commonmodels.DeployEnv, prodEnv *commonmodels.Produ
 		return nil, err
 	}
 	deployTask.ServiceName = envList[0]
-	deployTask.ContainerName = envList[1] + "_" + envList[0]
+	if !strings.Contains(envList[1], "_") {
+		deployTask.ContainerName = envList[1] + "_" + envList[0]
+	}
 
 	switch env.Type {
 	case setting.K8SDeployType:
