@@ -18,13 +18,14 @@ package gitlab
 
 import "github.com/xanzy/go-gitlab"
 
-func (c *Client) ListOpenedProjectMergeRequests(owner, repo, targetBranch string, opts *ListOptions) ([]*gitlab.MergeRequest, error) {
+func (c *Client) ListOpenedProjectMergeRequests(owner, repo, targetBranch, key string, opts *ListOptions) ([]*gitlab.MergeRequest, error) {
 	mergeRequests, err := wrap(paginated(func(o *gitlab.ListOptions) ([]interface{}, *gitlab.Response, error) {
 		state := "opened"
 
 		mopts := &gitlab.ListProjectMergeRequestsOptions{
 			State:       &state,
 			ListOptions: *o,
+			Search:      &key,
 		}
 		if targetBranch != "" {
 			mopts.TargetBranch = &targetBranch

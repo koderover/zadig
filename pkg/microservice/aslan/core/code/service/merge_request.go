@@ -30,7 +30,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/git/gitlab"
 )
 
-func CodeHostListPRs(codeHostID int, projectName, namespace, targetBr string, log *zap.SugaredLogger) ([]*PullRequest, error) {
+func CodeHostListPRs(codeHostID int, projectName, namespace, targetBr string, key string, page, perPage int, log *zap.SugaredLogger) ([]*PullRequest, error) {
 	ch, err := systemconfig.New().GetCodeHost(codeHostID)
 	if err != nil {
 		return nil, e.ErrCodehostListPrs.AddDesc("git client is nil")
@@ -43,7 +43,11 @@ func CodeHostListPRs(codeHostID int, projectName, namespace, targetBr string, lo
 			return nil, e.ErrCodehostListPrs.AddDesc(err.Error())
 		}
 
-		prs, err := client.ListOpenedProjectMergeRequests(namespace, projectName, targetBr, nil)
+		prs, err := client.ListOpenedProjectMergeRequests(namespace, projectName, targetBr, key, &gitlab.ListOptions{
+			Page:        page,
+			PerPage:     perPage,
+			NoPaginated: true,
+		})
 		if err != nil {
 			log.Error(err)
 			return nil, e.ErrCodehostListPrs.AddDesc(err.Error())
