@@ -826,7 +826,7 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 			}
 
 			if source != setting.SourceFromPublicRepo && codehostInfo != nil {
-				repoLink = fmt.Sprintf("%s/%s/%s/%s/%s/%s", codehostInfo.Address, repoArgs.Owner, repoArgs.Repo, "tree", repoArgs.Branch, filePath)
+				repoLink = fmt.Sprintf("%s/%s/%s/%s/%s/%s", codehostInfo.Address, repoArgs.Namespace, repoArgs.Repo, "tree", repoArgs.Branch, filePath)
 			}
 
 			svc, err := createOrUpdateHelmService(
@@ -1203,22 +1203,22 @@ func createOrUpdateHelmService(fsTree fs.FS, args *helmServiceCreationArgs, logg
 	}
 
 	serviceObj := &commonmodels.Service{
-		ServiceName: args.ServiceName,
-		Type:        setting.HelmDeployType,
-		Revision:    args.ServiceRevision,
-		ProductName: args.ProductName,
-		Visibility:  setting.PrivateVisibility,
-		CreateTime:  time.Now().Unix(),
-		CreateBy:    args.CreateBy,
-		Containers:  containerList,
-		CodehostID:  args.CodehostID,
-		RepoOwner:   args.Owner,
-		Namespace:   args.Namespace,
-		RepoName:    args.Repo,
-		BranchName:  args.Branch,
-		LoadPath:    args.FilePath,
-		SrcPath:     args.RepoLink,
-		Source:      args.Source,
+		ServiceName:   args.ServiceName,
+		Type:          setting.HelmDeployType,
+		Revision:      args.ServiceRevision,
+		ProductName:   args.ProductName,
+		Visibility:    setting.PrivateVisibility,
+		CreateTime:    time.Now().Unix(),
+		CreateBy:      args.CreateBy,
+		Containers:    containerList,
+		CodehostID:    args.CodehostID,
+		RepoOwner:     args.Owner,
+		RepoNamespace: args.Namespace,
+		RepoName:      args.Repo,
+		BranchName:    args.Branch,
+		LoadPath:      args.FilePath,
+		SrcPath:       args.RepoLink,
+		Source:        args.Source,
 		HelmChart: &commonmodels.HelmChart{
 			Name:       chartName,
 			Version:    chartVersion,

@@ -186,6 +186,7 @@ func ProcessWebhook(updatedHooks, currentHooks interface{}, name string, logger 
 				err = webhook.NewClient().RemoveWebHook(&webhook.TaskOption{
 					Name:        wh.name,
 					Owner:       wh.owner,
+					Namespace:   wh.namespace,
 					Repo:        wh.repo,
 					Address:     ch.Address,
 					Token:       ch.AccessToken,
@@ -219,16 +220,17 @@ func ProcessWebhook(updatedHooks, currentHooks interface{}, name string, logger 
 			switch ch.Type {
 			case setting.SourceFromGithub, setting.SourceFromGitlab, setting.SourceFromCodeHub:
 				err = webhook.NewClient().AddWebHook(&webhook.TaskOption{
-					Name:    wh.name,
-					Owner:   wh.owner,
-					Repo:    wh.repo,
-					Address: ch.Address,
-					Token:   ch.AccessToken,
-					Ref:     name,
-					AK:      ch.AccessKey,
-					SK:      ch.SecretKey,
-					Region:  ch.Region,
-					From:    ch.Type,
+					Name:      wh.name,
+					Owner:     wh.owner,
+					Namespace: wh.namespace,
+					Repo:      wh.repo,
+					Address:   ch.Address,
+					Token:     ch.AccessToken,
+					Ref:       name,
+					AK:        ch.AccessKey,
+					SK:        ch.SecretKey,
+					Region:    ch.Region,
+					From:      ch.Type,
 				})
 				if err != nil {
 					logger.Errorf("Failed to add %s webhook %+v, err: %s", ch.Type, wh, err)
@@ -251,10 +253,11 @@ func toHookSet(hooks interface{}) HookSet {
 		for _, h := range hs {
 			res.Insert(hookItem{
 				hookUniqueID: hookUniqueID{
-					name:   h.MainRepo.Name,
-					owner:  h.MainRepo.RepoOwner,
-					repo:   h.MainRepo.RepoName,
-					source: h.MainRepo.Source,
+					name:      h.MainRepo.Name,
+					owner:     h.MainRepo.RepoOwner,
+					namespace: h.MainRepo.GetRepoNamespace(),
+					repo:      h.MainRepo.RepoName,
+					source:    h.MainRepo.Source,
 				},
 				codeHostID: h.MainRepo.CodehostID,
 			})
@@ -263,9 +266,10 @@ func toHookSet(hooks interface{}) HookSet {
 		for _, h := range hs {
 			res.Insert(hookItem{
 				hookUniqueID: hookUniqueID{
-					name:  h.Name,
-					owner: h.Owner,
-					repo:  h.Repo,
+					name:      h.Name,
+					owner:     h.Owner,
+					namespace: h.Owner, // webhooks for pipelines, no need to handler anymore
+					repo:      h.Repo,
 				},
 				codeHostID: h.CodehostID,
 			})
@@ -274,9 +278,10 @@ func toHookSet(hooks interface{}) HookSet {
 		for _, h := range hs {
 			res.Insert(hookItem{
 				hookUniqueID: hookUniqueID{
-					name:  h.Name,
-					owner: h.Owner,
-					repo:  h.Repo,
+					name:      h.Name,
+					owner:     h.Owner,
+					namespace: h.Namespace,
+					repo:      h.Repo,
 				},
 				codeHostID: h.CodeHostID,
 			})
@@ -285,9 +290,10 @@ func toHookSet(hooks interface{}) HookSet {
 		for _, h := range hs {
 			res.Insert(hookItem{
 				hookUniqueID: hookUniqueID{
-					name:  h.MainRepo.Name,
-					owner: h.MainRepo.RepoOwner,
-					repo:  h.MainRepo.RepoName,
+					name:      h.MainRepo.Name,
+					owner:     h.MainRepo.RepoOwner,
+					namespace: h.MainRepo.GetRepoNamespace(),
+					repo:      h.MainRepo.RepoName,
 				},
 				codeHostID: h.MainRepo.CodehostID,
 			})

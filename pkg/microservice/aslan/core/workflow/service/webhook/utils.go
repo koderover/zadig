@@ -89,6 +89,7 @@ func reloadServiceTmplFromGit(svc *commonmodels.Service, log *zap.SugaredLogger)
 		CreateFrom: &service.CreateFromRepo{
 			CodehostID: svc.CodehostID,
 			Owner:      svc.RepoOwner,
+			Namespace:  svc.GetRepoNamespace(),
 			Repo:       svc.RepoName,
 			Branch:     svc.BranchName,
 			Paths:      []string{svc.LoadPath},
@@ -385,7 +386,7 @@ func syncContentFromGithub(args *commonmodels.Service, log *zap.SugaredLogger) e
 	// 根据pipeline中的filepath获取文件内容
 	address, owner, repo, branch, path, _, err := GetOwnerRepoBranchPath(args.SrcPath)
 	if err != nil {
-		log.Errorf("GetOwnerRepoBranchPath failed, srcPath:%s, err:%v", args.SrcPath, err)
+		log.Errorf("parseOwnerRepoBranchPath failed, srcPath:%s, err:%v", args.SrcPath, err)
 		return errors.New("invalid url " + args.SrcPath)
 	}
 

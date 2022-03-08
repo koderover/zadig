@@ -60,7 +60,6 @@ type Service struct {
 	RepoName         string           `bson:"repo_name,omitempty"            json:"repo_name,omitempty"`
 	RepoUUID         string           `bson:"repo_uuid,omitempty"            json:"repo_uuid,omitempty"`
 	BranchName       string           `bson:"branch_name,omitempty"          json:"branch_name,omitempty"`
-	Namespace        string           `json:"namespace,omitempty"            json:"namespace,omitempty"`
 	LoadPath         string           `bson:"load_path,omitempty"            json:"load_path,omitempty"`
 	LoadFromDir      bool             `bson:"is_dir,omitempty"               json:"is_dir,omitempty"`
 	CreateFrom       interface{}      `bson:"create_from,omitempty"          json:"create_from,omitempty"`
@@ -246,9 +245,9 @@ type PmHealthCheck struct {
 	CurrentUnhealthyNum int    `bson:"current_unhealthy_num,omitempty" json:"current_unhealthy_num,omitempty"`
 }
 
-func (svc *Service) GetRepoOwner() string {
-	if svc.Namespace != "" {
-		return svc.Namespace
+func (svc *Service) GetRepoNamespace() string {
+	if svc.RepoNamespace != "" {
+		return svc.RepoNamespace
 	}
 	return svc.RepoOwner
 }

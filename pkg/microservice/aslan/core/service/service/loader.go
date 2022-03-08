@@ -269,7 +269,7 @@ func loadGerritService(username string, ch *systemconfig.CodeHost, repoOwner, re
 			CodehostID:       ch.ID,
 			RepoName:         repoName,
 			RepoOwner:        repoOwner,
-			Namespace:        repoOwner,
+			RepoNamespace:    repoOwner, // TODO gerrit need set namespace?
 			BranchName:       branchName,
 			LoadPath:         args.LoadPath,
 			LoadFromDir:      args.LoadFromDir,
@@ -391,24 +391,24 @@ func loadCodehubService(username string, ch *systemconfig.CodeHost, repoOwner, r
 
 		srcPath := fmt.Sprintf("%s/%s/%s/blob/%s/%s", ch.Address, repoOwner, repoName, branchName, args.LoadPath)
 		createSvcArgs := &models.Service{
-			CodehostID:  ch.ID,
-			RepoOwner:   repoOwner,
-			Namespace:   repoOwner, // TODO real namespace value
-			RepoName:    repoName,
-			RepoUUID:    repoUUID,
-			BranchName:  branchName,
-			SrcPath:     srcPath,
-			LoadPath:    args.LoadPath,
-			LoadFromDir: args.LoadFromDir,
-			KubeYamls:   yamls,
-			CreateBy:    username,
-			ServiceName: getFileName(args.LoadPath),
-			Type:        args.Type,
-			ProductName: args.ProductName,
-			Source:      ch.Type,
-			Yaml:        util.CombineManifests(yamls),
-			Commit:      &models.Commit{SHA: commit.ID, Message: commit.Message},
-			Visibility:  args.Visibility,
+			CodehostID:    ch.ID,
+			RepoOwner:     repoOwner,
+			RepoNamespace: repoOwner, // TODO codehub need fill namespace?
+			RepoName:      repoName,
+			RepoUUID:      repoUUID,
+			BranchName:    branchName,
+			SrcPath:       srcPath,
+			LoadPath:      args.LoadPath,
+			LoadFromDir:   args.LoadFromDir,
+			KubeYamls:     yamls,
+			CreateBy:      username,
+			ServiceName:   getFileName(args.LoadPath),
+			Type:          args.Type,
+			ProductName:   args.ProductName,
+			Source:        ch.Type,
+			Yaml:          util.CombineManifests(yamls),
+			Commit:        &models.Commit{SHA: commit.ID, Message: commit.Message},
+			Visibility:    args.Visibility,
 		}
 		if _, err = CreateServiceTemplate(username, createSvcArgs, log); err != nil {
 			log.Errorf("Failed to create service template, serviceName:%s error: %s", createSvcArgs.ServiceName, err)

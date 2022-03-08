@@ -91,6 +91,13 @@ type MainHookRepo struct {
 	IsRegular     bool                   `bson:"is_regular"                json:"is_regular"`
 }
 
+func (m *MainHookRepo) GetRepoNamespace() string {
+	if m.RepoNamespace != "" {
+		return m.RepoNamespace
+	}
+	return m.RepoOwner
+}
+
 func (m MainHookRepo) GetLabelValue() string {
 	if m.Label == "" {
 		return "Code-Review"
