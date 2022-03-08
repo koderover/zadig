@@ -30,7 +30,7 @@ import (
 	"github.com/koderover/zadig/pkg/tool/git/gitlab"
 )
 
-func CodeHostListTags(codeHostID int, projectName string, namespace string, log *zap.SugaredLogger) ([]*Tag, error) {
+func CodeHostListTags(codeHostID int, projectName string, namespace string, key string, page int, perPage int, log *zap.SugaredLogger) ([]*Tag, error) {
 	ch, err := systemconfig.New().GetCodeHost(codeHostID)
 	if err != nil {
 		log.Error(err)
@@ -44,7 +44,11 @@ func CodeHostListTags(codeHostID int, projectName string, namespace string, log 
 			return nil, e.ErrCodehostListTags.AddDesc(err.Error())
 		}
 
-		tags, err := client.ListTags(namespace, projectName, nil)
+		tags, err := client.ListTags(namespace, projectName, &gitlab.ListOptions{
+			Page:        page,
+			PerPage:     perPage,
+			NoPaginated: true,
+		}, key)
 		if err != nil {
 			return nil, err
 		}
