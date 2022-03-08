@@ -389,7 +389,7 @@ func (p *TestPlugin) Complete(ctx context.Context, pipelineTask *task.Task, serv
 		return
 	}
 
-	if p.Task.JobCtx.TestType == setting.FunctionTest {
+	if p.Task.JobCtx.TestType == setting.FunctionTest && p.Task.JobCtx.TestResultPath != "" {
 		b, err := os.ReadFile(tmpFilename)
 		if err != nil {
 			p.Log.Error(fmt.Sprintf("get test result file error: %v", err))
