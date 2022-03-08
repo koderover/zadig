@@ -692,6 +692,7 @@ func CreateOrUpdateHelmServiceFromGerrit(projectName string, args *HelmServiceCr
 					CreateBy:         args.CreatedBy,
 					CodehostID:       createFromRepo.CodehostID,
 					Owner:            createFromRepo.Owner,
+					Namespace:        createFromRepo.Namespace,
 					Repo:             createFromRepo.Repo,
 					Branch:           createFromRepo.Branch,
 					Source:           string(args.Source),
@@ -778,7 +779,7 @@ func CreateOrUpdateHelmServiceFromGitRepo(projectName string, args *HelmServiceC
 			log.Infof("Loading chart under path %s", filePath)
 
 			fsTree, err := fsservice.DownloadFilesFromSource(
-				&fsservice.DownloadFromSourceArgs{CodehostID: repoArgs.CodehostID, Owner: repoArgs.Owner, Repo: repoArgs.Repo, Path: filePath, Branch: repoArgs.Branch, RepoLink: repoLink},
+				&fsservice.DownloadFromSourceArgs{CodehostID: repoArgs.CodehostID, Owner: repoArgs.Owner, Namespace: repoArgs.Namespace, Repo: repoArgs.Repo, Path: filePath, Branch: repoArgs.Branch, RepoLink: repoLink},
 				func(chartTree afero.Fs) (string, error) {
 					var err error
 					serviceName, chartVersion, err = readChartYAML(afero.NewIOFS(chartTree), filepath.Base(filePath), log)
@@ -947,11 +948,11 @@ func CreateOrUpdateBulkHelmServiceFromTemplate(projectName string, args *BulkHel
 
 func handleSingleService(projectName string, repoConfig *commonservice.RepoConfig, path, fromPath, createBy string,
 	templateChartData *ChartTemplateData, logger *zap.SugaredLogger) (*templatemodels.RenderChart, error) {
-
 	valuesYAML, err := fsservice.DownloadFileFromSource(&fsservice.DownloadFromSourceArgs{
 		CodehostID: repoConfig.CodehostID,
 		Owner:      repoConfig.Owner,
 		Repo:       repoConfig.Repo,
+		Namespace:  repoConfig.Namespace, //Not filled TODO
 		Path:       path,
 		Branch:     repoConfig.Branch,
 	})

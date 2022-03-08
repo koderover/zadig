@@ -38,6 +38,7 @@ import (
 type RepoConfig struct {
 	CodehostID  int      `json:"codehostID,omitempty"`
 	Owner       string   `json:"owner,omitempty"`
+	Namespace   string   `json:"namespace,omitempty"`
 	Repo        string   `json:"repo,omitempty"`
 	Branch      string   `json:"branch,omitempty"`
 	ValuesPaths []string `json:"valuesPaths,omitempty"`

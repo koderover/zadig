@@ -41,6 +41,7 @@ type YamlContentRequestArg struct {
 	CodehostID  int    `json:"codehostID" form:"codehostID"`
 	Owner       string `json:"owner" form:"owner"`
 	Repo        string `json:"repo" form:"repo"`
+	Namespace   string `json:"namespace" form:"namespace"`
 	Branch      string `json:"branch" form:"branch"`
 	RepoLink    string `json:"repoLink" form:"repoLink"`
 	ValuesPaths string `json:"valuesPaths" form:"valuesPaths"`
@@ -136,6 +137,7 @@ func GetMergedYamlContent(arg *YamlContentRequestArg, paths []string) (string, e
 				&fsservice.DownloadFromSourceArgs{
 					CodehostID: arg.CodehostID,
 					Owner:      arg.Owner,
+					Namespace:  arg.Namespace,
 					Repo:       arg.Repo,
 					Path:       path,
 					Branch:     arg.Branch,

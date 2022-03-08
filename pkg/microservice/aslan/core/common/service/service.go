@@ -178,11 +178,6 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 			serviceObject.Namespace = owner
 		}
 
-		namespace := serviceObject.Namespace
-		if namespace == "" {
-			namespace = serviceObject.RepoOwner
-		}
-
 		spmap := &ServiceProductMap{
 			Service:          serviceObject.ServiceName,
 			Type:             serviceObject.Type,
@@ -193,7 +188,7 @@ func ListServiceTemplate(productName string, log *zap.SugaredLogger) (*ServiceTm
 			Visibility:       serviceObject.Visibility,
 			CodehostID:       serviceObject.CodehostID,
 			RepoOwner:        serviceObject.RepoOwner,
-			RepoNamespace:    namespace,
+			RepoNamespace:    serviceObject.GetRepoOwner(),
 			RepoName:         serviceObject.RepoName,
 			RepoUUID:         serviceObject.RepoUUID,
 			BranchName:       serviceObject.BranchName,
@@ -344,6 +339,10 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 					return nil, e.ErrListTemplate.AddDesc("无法找到原有的codehost信息，请确认codehost仍然存在")
 				}
 				resp.RepoOwner = owner
+				resp.RepoNamespace = resp.Namespace
+				if resp.Namespace == "" {
+					resp.RepoNamespace = resp.RepoOwner
+				}
 				resp.RepoName = r
 				resp.BranchName = branch
 				resp.LoadPath = loadPath
@@ -371,6 +370,10 @@ func GetServiceTemplate(serviceName, serviceType, productName, excludeStatus str
 		}
 		resp.CodehostID = detail.ID
 		resp.RepoOwner = owner
+		resp.RepoNamespace = resp.Namespace
+		if resp.Namespace == "" {
+			resp.RepoNamespace = resp.RepoOwner
+		}
 		resp.RepoName = r
 		resp.BranchName = branch
 		resp.LoadPath = loadPath
@@ -524,7 +527,7 @@ func ProcessServiceWebhook(updated, current *commonmodels.Service, serviceName s
 			return
 		}
 		action = "add"
-		address := getAddressFromPath(updated.SrcPath, updated.RepoOwner, updated.RepoName, logger.Desugar())
+		address := getAddressFromPath(updated.SrcPath, updated.GetRepoOwner(), updated.RepoName, logger.Desugar())
 		if address == "" {
 			return
 		}
@@ -535,7 +538,7 @@ func ProcessServiceWebhook(updated, current *commonmodels.Service, serviceName s
 			return
 		}
 		action = "remove"
-		address := getAddressFromPath(current.SrcPath, current.RepoOwner, current.RepoName, logger.Desugar())
+		address := getAddressFromPath(current.SrcPath, current.GetRepoOwner(), current.RepoName, logger.Desugar())
 		if address == "" {
 			return
 		}

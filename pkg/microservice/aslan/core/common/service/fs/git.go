@@ -34,6 +34,7 @@ import (
 type DownloadFromSourceArgs struct {
 	CodehostID int    `json:"codeHostID"`
 	Owner      string `json:"owner"`
+	Namespace  string `json:"namespace"`
 	Repo       string `json:"repo"`
 	Path       string `json:"path"`
 	Branch     string `json:"branch"`
@@ -46,8 +47,11 @@ func DownloadFileFromSource(args *DownloadFromSourceArgs) ([]byte, error) {
 		log.Errorf("Failed to get tree getter, err: %s", err)
 		return nil, err
 	}
-
-	return getter.GetFileContent(args.Owner, args.Repo, args.Path, args.Branch)
+	owner := args.Namespace
+	if owner == "" {
+		owner = args.Owner
+	}
+	return getter.GetFileContent(owner, args.Repo, args.Path, args.Branch)
 }
 
 func DownloadFilesFromSource(args *DownloadFromSourceArgs, rootNameGetter func(afero.Fs) (string, error)) (fs.FS, error) {
@@ -56,8 +60,11 @@ func DownloadFilesFromSource(args *DownloadFromSourceArgs, rootNameGetter func(a
 		log.Errorf("Failed to get tree getter, err: %s", err)
 		return nil, err
 	}
-
-	chartTree, err := getter.GetTreeContents(args.Owner, args.Repo, args.Path, args.Branch)
+	owner := args.Namespace
+	if owner == "" {
+		owner = args.Owner
+	}
+	chartTree, err := getter.GetTreeContents(owner, args.Repo, args.Path, args.Branch)
 	if err != nil {
 		log.Errorf("Failed to get tree contents for service %+v, err: %s", args, err)
 		return nil, err

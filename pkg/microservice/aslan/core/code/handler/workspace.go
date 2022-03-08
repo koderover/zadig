@@ -151,12 +151,12 @@ func GetRepoTree(c *gin.Context) {
 		return
 	}
 
-	namespace := info.Owner
+	owner := info.Owner
 	if len(info.Namespace) > 0 {
-		namespace = info.Namespace
+		owner = info.Namespace
 	}
 
-	ctx.Resp, ctx.Err = service.GetRepoTree(info.CodeHostID, namespace, info.Repo, info.Path, info.Branch, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetRepoTree(info.CodeHostID, owner, info.Repo, info.Path, info.Branch, ctx.Logger)
 }
 
 func GetCodehubRepoInfo(c *gin.Context) {
