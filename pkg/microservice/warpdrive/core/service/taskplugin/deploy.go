@@ -560,7 +560,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 
 		done := make(chan bool)
 		go func(chan bool) {
-			if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), &chartSpec); err != nil {
+			if _, err = helmClient.InstallOrUpgradeChart(ctx, &chartSpec); err != nil {
 				err = errors.WithMessagef(
 					err,
 					"failed to upgrade helm chart %s/%s",
