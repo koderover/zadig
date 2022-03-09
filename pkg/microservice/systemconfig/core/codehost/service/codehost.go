@@ -68,13 +68,10 @@ func DeleteCodeHost(id int, _ *zap.SugaredLogger) error {
 	return mongodb.NewCodehostColl().DeleteCodeHostByID(id)
 }
 
-func UpdateCodeHost(host *models.CodeHost, log *zap.SugaredLogger) (*models.CodeHost, error) {
-	log.Infof("git type:%s", host.Type)
-	log.Infof("git accesstoken before:%s", host.AccessToken)
+func UpdateCodeHost(host *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
 	if host.Type == setting.SourceFromGerrit {
 		host.AccessToken = base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", host.Username, host.Password)))
 	}
-	log.Infof("git accesstoken after:%s", host.AccessToken)
 	return mongodb.NewCodehostColl().UpdateCodeHost(host)
 }
 
