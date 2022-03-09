@@ -22,3 +22,6 @@ import (
 
 //go:embed rego/authz.rego
 var authz []byte
+
+//go:embed rego/authc.rego
+var authc []byte

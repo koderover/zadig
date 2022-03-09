@@ -2,6 +2,8 @@ package rbac
 
 import input.attributes.request.http as http_request
 
+import data.authc
+
 # Policy rule definitions in rbac style, which is consumed by OPA server.
 # you can use it to:
 # 1. decide if a request is allowed and get status code and additional headers(if any) by querying: rbac.response
@@ -16,7 +18,7 @@ default response = {
 }
 
 response = r {
-    not is_authenticated
+    not authc.is_authenticated
     not url_is_public
     r := {
       "allowed": false,
@@ -37,7 +39,7 @@ response = r {
 
 # response for resource filtering, all allowed resources IDs will be returned in headers
 response = r {
-    is_authenticated
+    authc.is_authenticated
     not allow
     rule_is_matched_for_filtering
     roles := all_roles
@@ -66,7 +68,7 @@ allow {
 }
 
 allow {
-    is_authenticated
+    authc.is_authenticated
     access_is_granted
 }
 
@@ -296,12 +298,12 @@ project_name := pn {
 # get all projects which are visible by current user
 user_projects[project] {
     some i
-    data.bindings.role_bindings[i].uid == claims.uid
+    data.bindings.role_bindings[i].uid == authc.claim.uid
     project := data.bindings.role_bindings[i].bindings[_].namespace
 }
 user_projects[project] {
     some i
-    data.bindings.policy_bindings[i].uid == claims.uid
+    data.bindings.policy_bindings[i].uid == authc.claim.uid
     project := data.bindings.policy_bindings[i].bindings[_].namespace
 }
 
@@ -347,7 +349,7 @@ user_visible_projects[project] {
 
 all_roles[role_ref] {
     some i
-    data.bindings.role_bindings[i].uid == claims.uid
+    data.bindings.role_bindings[i].uid == authc.claim.uid
     role_ref := data.bindings.role_bindings[i].bindings[j].role_refs[_]
 }
 
@@ -356,7 +358,7 @@ all_roles[role_ref] {
 allowed_roles[role_ref] {
     some i
     some j
-    data.bindings.role_bindings[i].uid == claims.uid
+    data.bindings.role_bindings[i].uid == authc.claim.uid
     data.bindings.role_bindings[i].bindings[j].namespace == project_name
     role_ref := data.bindings.role_bindings[i].bindings[j].role_refs[_]
 }
@@ -373,7 +375,7 @@ allowed_roles[role_ref] {
 allowed_policies[policy_ref] {
     some i
     some j
-    data.bindings.policy_bindings[i].uid == claims.uid
+    data.bindings.policy_bindings[i].uid == authc.claim.uid
     data.bindings.policy_bindings[i].bindings[j].namespace == project_name
     policy_ref := data.bindings.policy_bindings[i].bindings[j].policy_refs[_]
 }
@@ -435,60 +437,4 @@ allowed_policy_attributive_rules[rule] {
 allowed_role_attributive_rules[rule] {
     rule := allowed_role_rules[_]
     rule.matchExpressions
-}
-
-claims := payload {
-	# Verify the signature on the Bearer token. The certificate can be
-	# hardcoded into the policy, and it could also be loaded via data or
-	# an environment variable. Environment variables can be accessed using
-	# the `opa.runtime()` built-in function.
-	io.jwt.verify_hs256(bearer_token, secret)
-
-	# This statement invokes the built-in function `io.jwt.decode` passing the
-	# parsed bearer_token as a parameter. The `io.jwt.decode` function returns an
-	# array:
-	#
-	#	[header, payload, signature]
-	#
-	# In Rego, you can pattern match values using the `=` and `:=` operators. This
-	# example pattern matches on the result to obtain the JWT payload.
-	[_, payload, _] := io.jwt.decode(bearer_token)
-
-    # it is not working, don't know why
-	# [valid, _, payload] := io.jwt.decode_verify(bearer_token, {
-    #     "secret": secret,
-    #     "alg": "alg",
-    # })
-}
-
-bearer_token_in_header := t {
-	# Bearer tokens are contained inside of the HTTP Authorization header. This rule
-	# parses the header and extracts the Bearer token value. If no Bearer token is
-	# provided, the `bearer_token` value is undefined.
-	v := http_request.headers.authorization
-	startswith(v, "Bearer ")
-	t := substring(v, count("Bearer "), -1)
-}
-
-bearer_token = t {
-    t := bearer_token_in_header
-}
-
-bearer_token = t {
-    not bearer_token_in_header
-    t := input.parsed_query.token[0]
-}
-
-is_authenticated {
-    claims
-    claims.uid != ""
-    claims.exp > time.now_ns()/1000000000
-}
-
-envs := env {
-    env := opa.runtime()["env"]
-}
-
-secret := s {
-    s := envs["SECRET_KEY"]
 }
