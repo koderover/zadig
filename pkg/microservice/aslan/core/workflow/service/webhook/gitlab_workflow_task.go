@@ -61,49 +61,50 @@ type gitlabMergeEventMatcher struct {
 func (gmem *gitlabMergeEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
 	ev := gmem.event
 	// TODO: match codehost
-	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.ObjectAttributes.Target.PathWithNamespace {
-		if !EventConfigured(hookRepo, config.HookEventPr) {
+	if !checkRepoNamespaceMatch(hookRepo, ev.ObjectAttributes.Target.PathWithNamespace) {
+		return false, nil
+	}
+	if !EventConfigured(hookRepo, config.HookEventPr) {
+		return false, nil
+	}
+	if gmem.isYaml {
+		refFlag := false
+		for _, ref := range gmem.trigger.Rules.Branchs {
+			if matched, _ := regexp.MatchString(ref, getBranchFromRef(hookRepo.Branch)); matched {
+				refFlag = true
+				break
+			}
+		}
+		if !refFlag {
 			return false, nil
 		}
+	} else {
+		isRegular := hookRepo.IsRegular
+		if !isRegular && hookRepo.Branch != ev.ObjectAttributes.TargetBranch {
+			return false, nil
+		}
+		if isRegular {
+			if matched, _ := regexp.MatchString(hookRepo.Branch, ev.ObjectAttributes.TargetBranch); !matched {
+				return false, nil
+			}
+		}
+	}
+	hookRepo.Branch = ev.ObjectAttributes.TargetBranch
+	hookRepo.Committer = ev.User.Username
+	if ev.ObjectAttributes.State == "opened" {
+		var changedFiles []string
+		changedFiles, err := gmem.diffFunc(ev, hookRepo.CodehostID)
+		if err != nil {
+			gmem.log.Warnf("failed to get changes of event %v, err:%s", ev, err)
+			return false, err
+		}
+		gmem.log.Debugf("succeed to get %d changes in merge event", len(changedFiles))
 		if gmem.isYaml {
-			refFlag := false
-			for _, ref := range gmem.trigger.Rules.Branchs {
-				if matched, _ := regexp.MatchString(ref, getBranchFromRef(hookRepo.Branch)); matched {
-					refFlag = true
-					break
-				}
-			}
-			if !refFlag {
-				return false, nil
-			}
-		} else {
-			isRegular := hookRepo.IsRegular
-			if !isRegular && hookRepo.Branch != ev.ObjectAttributes.TargetBranch {
-				return false, nil
-			}
-			if isRegular {
-				if matched, _ := regexp.MatchString(hookRepo.Branch, ev.ObjectAttributes.TargetBranch); !matched {
-					return false, nil
-				}
-			}
+			serviceChangeds := ServicesMatchChangesFiles(gmem.trigger.Rules.MatchFolders, changedFiles)
+			gmem.yamlServiceChanged = serviceChangeds
+			return len(serviceChangeds) != 0, nil
 		}
-		hookRepo.Branch = ev.ObjectAttributes.TargetBranch
-		hookRepo.Committer = ev.User.Username
-		if ev.ObjectAttributes.State == "opened" {
-			var changedFiles []string
-			changedFiles, err := gmem.diffFunc(ev, hookRepo.CodehostID)
-			if err != nil {
-				gmem.log.Warnf("failed to get changes of event %v, err:%s", ev, err)
-				return false, err
-			}
-			gmem.log.Debugf("succeed to get %d changes in merge event", len(changedFiles))
-			if gmem.isYaml {
-				serviceChangeds := ServicesMatchChangesFiles(gmem.trigger.Rules.MatchFolders, changedFiles)
-				gmem.yamlServiceChanged = serviceChangeds
-				return len(serviceChangeds) != 0, nil
-			}
-			return MatchChanges(hookRepo, changedFiles), nil
-		}
+		return MatchChanges(hookRepo, changedFiles), nil
 	}
 	return false, nil
 }
@@ -186,67 +187,66 @@ type gitlabPushEventMatcher struct {
 
 func (gpem *gitlabPushEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
 	ev := gpem.event
-	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.Project.PathWithNamespace {
-		if !EventConfigured(hookRepo, config.HookEventPush) {
+	if !checkRepoNamespaceMatch(hookRepo, ev.Project.PathWithNamespace) {
+		return false, nil
+	}
+	if !EventConfigured(hookRepo, config.HookEventPush) {
+		return false, nil
+	}
+	if gpem.isYaml {
+		refFlag := false
+		for _, ref := range gpem.trigger.Rules.Branchs {
+			if matched, _ := regexp.MatchString(ref, getBranchFromRef(ev.Ref)); matched {
+				refFlag = true
+				break
+			}
+		}
+		if !refFlag {
 			return false, nil
 		}
-		if gpem.isYaml {
-			refFlag := false
-			for _, ref := range gpem.trigger.Rules.Branchs {
-				if matched, _ := regexp.MatchString(ref, getBranchFromRef(ev.Ref)); matched {
-					refFlag = true
-					break
-				}
-			}
-			if !refFlag {
+	} else {
+		isRegular := hookRepo.IsRegular
+		if !isRegular && hookRepo.Branch != getBranchFromRef(ev.Ref) {
+			return false, nil
+		}
+		if isRegular {
+			if matched, _ := regexp.MatchString(hookRepo.Branch, getBranchFromRef(ev.Ref)); !matched {
 				return false, nil
 			}
-		} else {
-			isRegular := hookRepo.IsRegular
-			if !isRegular && hookRepo.Branch != getBranchFromRef(ev.Ref) {
-				return false, nil
-			}
-			if isRegular {
-				if matched, _ := regexp.MatchString(hookRepo.Branch, getBranchFromRef(ev.Ref)); !matched {
-					return false, nil
-				}
-			}
 		}
-
-		hookRepo.Branch = getBranchFromRef(ev.Ref)
-		hookRepo.Committer = ev.UserUsername
-		var changedFiles []string
-		detail, err := systemconfig.New().GetCodeHost(hookRepo.CodehostID)
-		if err != nil {
-			gpem.log.Errorf("GetCodehostDetail error: %s", err)
-			return false, err
-		}
-
-		client, err := gitlabtool.NewClient(detail.Address, detail.AccessToken, config.ProxyHTTPSAddr(), detail.EnableProxy)
-		if err != nil {
-			gpem.log.Errorf("NewClient error: %s", err)
-			return false, err
-		}
-
-		// compare接口获取两个commit之间的最终的改动
-		diffs, err := client.Compare(ev.ProjectID, ev.Before, ev.After)
-		if err != nil {
-			gpem.log.Errorf("Failed to get push event diffs, error: %s", err)
-			return false, err
-		}
-		for _, diff := range diffs {
-			changedFiles = append(changedFiles, diff.NewPath)
-			changedFiles = append(changedFiles, diff.OldPath)
-		}
-		if gpem.isYaml {
-			serviceChangeds := ServicesMatchChangesFiles(gpem.trigger.Rules.MatchFolders, changedFiles)
-			gpem.yamlServiceChanged = serviceChangeds
-			return len(serviceChangeds) != 0, nil
-		}
-		return MatchChanges(hookRepo, changedFiles), nil
 	}
 
-	return false, nil
+	hookRepo.Branch = getBranchFromRef(ev.Ref)
+	hookRepo.Committer = ev.UserUsername
+	var changedFiles []string
+	detail, err := systemconfig.New().GetCodeHost(hookRepo.CodehostID)
+	if err != nil {
+		gpem.log.Errorf("GetCodehostDetail error: %s", err)
+		return false, err
+	}
+
+	client, err := gitlabtool.NewClient(detail.Address, detail.AccessToken, config.ProxyHTTPSAddr(), detail.EnableProxy)
+	if err != nil {
+		gpem.log.Errorf("NewClient error: %s", err)
+		return false, err
+	}
+
+	// compare接口获取两个commit之间的最终的改动
+	diffs, err := client.Compare(ev.ProjectID, ev.Before, ev.After)
+	if err != nil {
+		gpem.log.Errorf("Failed to get push event diffs, error: %s", err)
+		return false, err
+	}
+	for _, diff := range diffs {
+		changedFiles = append(changedFiles, diff.NewPath)
+		changedFiles = append(changedFiles, diff.OldPath)
+	}
+	if gpem.isYaml {
+		serviceChangeds := ServicesMatchChangesFiles(gpem.trigger.Rules.MatchFolders, changedFiles)
+		gpem.yamlServiceChanged = serviceChangeds
+		return len(serviceChangeds) != 0, nil
+	}
+	return MatchChanges(hookRepo, changedFiles), nil
 }
 
 func (gpem *gitlabPushEventMatcher) UpdateTaskArgs(
@@ -292,40 +292,41 @@ type gitlabTagEventMatcher struct {
 
 func (gtem gitlabTagEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
 	ev := gtem.event
-	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == ev.Project.PathWithNamespace {
-		if !EventConfigured(hookRepo, config.HookEventTag) {
-			return false, nil
-		}
-		if gtem.isYaml {
-			refFlag := false
-			for _, ref := range gtem.trigger.Rules.Branchs {
-				if matched, _ := regexp.MatchString(ref, ev.Project.DefaultBranch); matched {
-					refFlag = true
-					break
-				}
-			}
-			if !refFlag {
-				return false, nil
-			}
-		} else {
-			isRegular := hookRepo.IsRegular
-			if !isRegular && hookRepo.Branch != ev.Project.DefaultBranch {
-				return false, nil
-			}
-			if isRegular {
-				if matched, _ := regexp.MatchString(hookRepo.Branch, ev.Project.DefaultBranch); !matched {
-					return false, nil
-				}
-			}
-		}
 
-		hookRepo.Committer = ev.UserName
-		hookRepo.Tag = getTagFromRef(ev.Ref)
-
-		return true, nil
+	if !checkRepoNamespaceMatch(hookRepo, ev.Project.PathWithNamespace) {
+		return false, nil
 	}
 
-	return false, nil
+	if !EventConfigured(hookRepo, config.HookEventTag) {
+		return false, nil
+	}
+	if gtem.isYaml {
+		refFlag := false
+		for _, ref := range gtem.trigger.Rules.Branchs {
+			if matched, _ := regexp.MatchString(ref, ev.Project.DefaultBranch); matched {
+				refFlag = true
+				break
+			}
+		}
+		if !refFlag {
+			return false, nil
+		}
+	} else {
+		isRegular := hookRepo.IsRegular
+		if !isRegular && hookRepo.Branch != ev.Project.DefaultBranch {
+			return false, nil
+		}
+		if isRegular {
+			if matched, _ := regexp.MatchString(hookRepo.Branch, ev.Project.DefaultBranch); !matched {
+				return false, nil
+			}
+		}
+	}
+
+	hookRepo.Committer = ev.UserName
+	hookRepo.Tag = getTagFromRef(ev.Ref)
+
+	return true, nil
 }
 
 func (gtem gitlabTagEventMatcher) UpdateTaskArgs(product *commonmodels.Product, args *commonmodels.WorkflowTaskArgs, hookRepo *commonmodels.MainHookRepo, requestID string) *commonmodels.WorkflowTaskArgs {
@@ -539,14 +540,14 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 			switch evt := event.(type) {
 			case *gitlab.PushEvent:
 				pushEvent = evt
-				if (item.MainRepo.RepoOwner + "/" + item.MainRepo.RepoName) != pushEvent.Project.PathWithNamespace {
+				if !checkRepoNamespaceMatch(item.MainRepo, pushEvent.Project.PathWithNamespace) {
 					log.Debugf("event not matches repo: %v", item.MainRepo)
 					continue
 				}
 				branref = pushEvent.Ref
 			case *gitlab.MergeEvent:
 				mergeEvent = evt
-				if (item.MainRepo.RepoOwner + "/" + item.MainRepo.RepoName) != mergeEvent.ObjectAttributes.Target.PathWithNamespace {
+				if !checkRepoNamespaceMatch(item.MainRepo, mergeEvent.ObjectAttributes.Target.PathWithNamespace) {
 					log.Debugf("event not matches repo: %v", item.MainRepo)
 					continue
 				}
@@ -559,7 +560,7 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 				item.MainRepo.Branch = getBranchFromRef(mergeEvent.ObjectAttributes.TargetBranch)
 			case *gitlab.TagEvent:
 				tagEvent = evt
-				if (item.MainRepo.RepoOwner + "/" + item.MainRepo.RepoName) != tagEvent.Project.PathWithNamespace {
+				if (item.MainRepo.GetRepoNamespace() + "/" + item.MainRepo.RepoName) != tagEvent.Project.PathWithNamespace {
 					log.Debugf("event not matches repo: %v", item.MainRepo)
 					continue
 				}

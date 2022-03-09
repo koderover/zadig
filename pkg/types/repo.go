@@ -89,3 +89,10 @@ func (repo *Repository) GetReleaseCandidateTag(taskID int64) string {
 	}
 	return tag
 }
+
+func (repo *Repository) GetRepoNamespace() string {
+	if repo.RepoNamespace != "" {
+		return repo.RepoNamespace
+	}
+	return repo.RepoOwner
+}

@@ -1982,9 +1982,7 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 		}
 		// compatible with old logic, make sure value of namespace is set
 		for _, build := range build.JobCtx.Builds {
-			if build.RepoNamespace == "" {
-				build.RepoNamespace = build.RepoOwner
-			}
+			build.RepoNamespace = build.GetRepoNamespace()
 		}
 
 		build.JobCtx.BuildSteps = []*taskmodels.BuildStep{}

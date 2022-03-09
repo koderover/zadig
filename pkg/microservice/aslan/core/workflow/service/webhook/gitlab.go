@@ -281,6 +281,7 @@ func updateServiceTemplateByPushEvent(event *EventPush, log *zap.SugaredLogger) 
 		return err
 	}
 
+	// TODO multiple codehost may share the same address
 	client, err := getGitlabClientByAddress(address)
 	if err != nil {
 		return err

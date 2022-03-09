@@ -706,3 +706,7 @@ func getServiceSrcPath(service *commonmodels.Service) (string, error) {
 	_, _, _, _, p, _, err := GetOwnerRepoBranchPath(service.SrcPath)
 	return p, err
 }
+
+func checkRepoNamespaceMatch(hookRepo *commonmodels.MainHookRepo, pathWithNamespace string) bool {
+	return (hookRepo.GetRepoNamespace() + "/" + hookRepo.RepoName) == pathWithNamespace
+}

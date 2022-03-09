@@ -54,33 +54,34 @@ type githubPushEventMatcher struct {
 
 func (gpem *githubPushEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
 	ev := gpem.event
-	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == *ev.Repo.FullName {
-		if !EventConfigured(hookRepo, config.HookEventPush) {
-			return false, nil
-		}
 
-		isRegular := hookRepo.IsRegular
-		if !isRegular && hookRepo.Branch != getBranchFromRef(*ev.Ref) {
-			return false, nil
-		}
-		if isRegular {
-			// Do not use regexp.MustCompile to avoid panic
-			if matched, _ := regexp.MatchString(hookRepo.Branch, getBranchFromRef(*ev.Ref)); !matched {
-				return false, nil
-			}
-		}
-		hookRepo.Branch = getBranchFromRef(*ev.Ref)
-		hookRepo.Committer = *ev.Pusher.Name
-		var changedFiles []string
-		for _, commit := range ev.Commits {
-			changedFiles = append(changedFiles, commit.Added...)
-			changedFiles = append(changedFiles, commit.Removed...)
-			changedFiles = append(changedFiles, commit.Modified...)
-		}
-		return MatchChanges(hookRepo, changedFiles), nil
+	if !checkRepoNamespaceMatch(hookRepo, *ev.Repo.FullName) {
+		return false, nil
 	}
 
-	return false, nil
+	if !EventConfigured(hookRepo, config.HookEventPush) {
+		return false, nil
+	}
+
+	isRegular := hookRepo.IsRegular
+	if !isRegular && hookRepo.Branch != getBranchFromRef(*ev.Ref) {
+		return false, nil
+	}
+	if isRegular {
+		// Do not use regexp.MustCompile to avoid panic
+		if matched, _ := regexp.MatchString(hookRepo.Branch, getBranchFromRef(*ev.Ref)); !matched {
+			return false, nil
+		}
+	}
+	hookRepo.Branch = getBranchFromRef(*ev.Ref)
+	hookRepo.Committer = *ev.Pusher.Name
+	var changedFiles []string
+	for _, commit := range ev.Commits {
+		changedFiles = append(changedFiles, commit.Added...)
+		changedFiles = append(changedFiles, commit.Removed...)
+		changedFiles = append(changedFiles, commit.Modified...)
+	}
+	return MatchChanges(hookRepo, changedFiles), nil
 }
 
 func getBranchFromRef(ref string) string {
@@ -128,34 +129,38 @@ type githubMergeEventMatcher struct {
 
 func (gmem *githubMergeEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
 	ev := gmem.event
-	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == *ev.PullRequest.Base.Repo.FullName {
-		if !EventConfigured(hookRepo, config.HookEventPr) {
-			return false, nil
-		}
 
-		isRegular := hookRepo.IsRegular
-		if !isRegular && hookRepo.Branch != *ev.PullRequest.Base.Ref {
-			return false, nil
-		}
-		if isRegular {
-			if matched, _ := regexp.MatchString(hookRepo.Branch, *ev.PullRequest.Base.Ref); !matched {
-				return false, nil
-			}
-		}
-		hookRepo.Branch = *ev.PullRequest.Base.Ref
-		hookRepo.Committer = *ev.PullRequest.User.Login
-		if *ev.PullRequest.State == "open" {
-			var changedFiles []string
-			changedFiles, err := gmem.diffFunc(ev, hookRepo.CodehostID)
-			if err != nil {
-				gmem.log.Warnf("failed to get changes of event %v", ev)
-				return false, err
-			}
-			gmem.log.Debugf("succeed to get %d changes in merge event", len(changedFiles))
+	if !checkRepoNamespaceMatch(hookRepo, *ev.PullRequest.Base.Repo.FullName) {
+		return false, nil
+	}
 
-			return MatchChanges(hookRepo, changedFiles), nil
+	if !EventConfigured(hookRepo, config.HookEventPr) {
+		return false, nil
+	}
+
+	isRegular := hookRepo.IsRegular
+	if !isRegular && hookRepo.Branch != *ev.PullRequest.Base.Ref {
+		return false, nil
+	}
+	if isRegular {
+		if matched, _ := regexp.MatchString(hookRepo.Branch, *ev.PullRequest.Base.Ref); !matched {
+			return false, nil
 		}
 	}
+	hookRepo.Branch = *ev.PullRequest.Base.Ref
+	hookRepo.Committer = *ev.PullRequest.User.Login
+	if *ev.PullRequest.State == "open" {
+		var changedFiles []string
+		changedFiles, err := gmem.diffFunc(ev, hookRepo.CodehostID)
+		if err != nil {
+			gmem.log.Warnf("failed to get changes of event %v", ev)
+			return false, err
+		}
+		gmem.log.Debugf("succeed to get %d changes in merge event", len(changedFiles))
+
+		return MatchChanges(hookRepo, changedFiles), nil
+	}
+
 	return false, nil
 }
 
@@ -243,28 +248,29 @@ type githubTagEventMatcher struct {
 
 func (gtem githubTagEventMatcher) Match(hookRepo *commonmodels.MainHookRepo) (bool, error) {
 	ev := gtem.event
-	if (hookRepo.RepoOwner + "/" + hookRepo.RepoName) == *ev.Repo.FullName {
-		if !EventConfigured(hookRepo, config.HookEventTag) {
-			return false, nil
-		}
 
-		isRegular := hookRepo.IsRegular
-		if !isRegular && hookRepo.Branch != *ev.Repo.DefaultBranch {
-			return false, nil
-		}
-		if isRegular {
-			// Do not use regexp.MustCompile to avoid panic
-			if matched, _ := regexp.MatchString(hookRepo.Branch, *ev.Repo.DefaultBranch); !matched {
-				return false, nil
-			}
-		}
-		hookRepo.Tag = getTagFromRef(*ev.Ref)
-		hookRepo.Committer = *ev.Sender.Name
-
-		return true, nil
+	if !checkRepoNamespaceMatch(hookRepo, *ev.Repo.FullName) {
+		return false, nil
 	}
 
-	return false, nil
+	if !EventConfigured(hookRepo, config.HookEventTag) {
+		return false, nil
+	}
+
+	isRegular := hookRepo.IsRegular
+	if !isRegular && hookRepo.Branch != *ev.Repo.DefaultBranch {
+		return false, nil
+	}
+	if isRegular {
+		// Do not use regexp.MustCompile to avoid panic
+		if matched, _ := regexp.MatchString(hookRepo.Branch, *ev.Repo.DefaultBranch); !matched {
+			return false, nil
+		}
+	}
+	hookRepo.Tag = getTagFromRef(*ev.Ref)
+	hookRepo.Committer = *ev.Sender.Name
+
+	return true, nil
 }
 
 func (gtem githubTagEventMatcher) UpdateTaskArgs(product *commonmodels.Product, args *commonmodels.WorkflowTaskArgs, hookRepo *commonmodels.MainHookRepo, requestID string) *commonmodels.WorkflowTaskArgs {
