@@ -377,7 +377,7 @@ func (r *Reaper) Exec() error {
 }
 
 func (r *Reaper) AfterExec() error {
-	if r.Ctx.GinkgoTest != nil && r.Ctx.GinkgoTest.ResultPath != "" {
+	if r.Ctx.GinkgoTest != nil {
 		resultPath := r.Ctx.GinkgoTest.ResultPath
 		if !strings.HasPrefix(resultPath, "/") {
 			resultPath = filepath.Join(r.ActiveWorkspace, resultPath)
