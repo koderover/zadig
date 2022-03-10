@@ -304,7 +304,12 @@ func AutoUpdateProduct(envNames []string, productName, requestID string, force b
 
 	envStatuses := make([]*EnvStatus, 0)
 
-	if !force {
+	project, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		return nil, err
+	}
+
+	if !force && project.ProductFeature != nil && project.ProductFeature.BasicFacility != setting.BasicFacilityCVM {
 		modifiedByENV := make(map[string][]*serviceInfo)
 		for _, env := range envNames {
 			p, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: env})
@@ -645,38 +650,43 @@ func UpdateProductV2(envName, productName, user, requestID string, force bool, k
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
-
-	if !force {
+	project, err := templaterepo.NewProductColl().Find(productName)
+	if err != nil {
+		return err
+	}
+	if !force && project.ProductFeature != nil && project.ProductFeature.BasicFacility != setting.BasicFacilityCVM {
 		modifiedServices := getModifiedServiceFromObjectMetaList(kube.GetDirtyResources(exitedProd.Namespace, kubeClient))
 		if len(modifiedServices) > 0 {
 			data, err := json.Marshal(modifiedServices)
 			if err != nil {
 				log.Errorf("Marshal failure: %v", err)
 			}
+			log.Errorf("the following services are modified since last update: %s", data)
 			return fmt.Errorf("the following services are modified since last update: %s", data)
 		}
 	}
 
-	err = ensureKubeEnv(exitedProd.Namespace, exitedProd.RegistryID, kubeClient, log)
+	if project.ProductFeature != nil && project.ProductFeature.BasicFacility != setting.BasicFacilityCVM {
+		err = ensureKubeEnv(exitedProd.Namespace, exitedProd.RegistryID, kubeClient, log)
 
-	if err != nil {
-		log.Errorf("[%s][P:%s] service.UpdateProductV2 create kubeEnv error: %v", envName, productName, err)
-		return err
-	}
+		if err != nil {
+			log.Errorf("[%s][P:%s] service.UpdateProductV2 create kubeEnv error: %v", envName, productName, err)
+			return err
+		}
 
-	err = commonservice.CreateRenderSet(
-		&commonmodels.RenderSet{
-			Name:        exitedProd.Namespace,
-			EnvName:     envName,
-			ProductTmpl: productName,
-			KVs:         kvs,
-		},
-		log,
-	)
-
-	if err != nil {
-		log.Errorf("[%s][P:%s] create renderset error: %v", envName, productName, err)
-		return e.ErrUpdateEnv.AddDesc(e.FindProductTmplErrMsg)
+		err = commonservice.CreateRenderSet(
+			&commonmodels.RenderSet{
+				Name:        exitedProd.Namespace,
+				EnvName:     envName,
+				ProductTmpl: productName,
+				KVs:         kvs,
+			},
+			log,
+		)
+		if err != nil {
+			log.Errorf("[%s][P:%s] create renderset error: %v", envName, productName, err)
+			return e.ErrUpdateEnv.AddDesc(e.FindProductTmplErrMsg)
+		}
 	}
 
 	// 检查renderinfo是否为空(适配历史product)
