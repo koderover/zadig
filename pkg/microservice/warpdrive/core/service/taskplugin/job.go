@@ -322,12 +322,10 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 
 	ctx.Caches = b.JobCtx.Caches
 
-	if b.JobCtx.TestResultPath != "" {
-		ctx.GinkgoTest = &types.GinkgoTest{
-			ResultPath:     b.JobCtx.TestResultPath,
-			TestReportPath: b.JobCtx.TestReportPath,
-			ArtifactPaths:  b.JobCtx.ArtifactPaths,
-		}
+	ctx.GinkgoTest = &types.GinkgoTest{
+		ResultPath:     b.JobCtx.TestResultPath,
+		TestReportPath: b.JobCtx.TestReportPath,
+		ArtifactPaths:  b.JobCtx.ArtifactPaths,
 	}
 
 	ctx.StorageEndpoint = pipelineTask.ConfigPayload.S3Storage.Endpoint
