@@ -366,19 +366,17 @@ func (p *BuildTaskPlugin) Complete(ctx context.Context, pipelineTask *task.Task,
 		PipelineType: string(pipelineTask.Type),
 	}
 
-	// 清理用户取消和超时的任务
+	// Clean up tasks that user canceled or timed out.
 	defer func() {
-		if err := ensureDeleteJob(p.KubeNamespace, jobLabel, p.kubeClient); err != nil {
-			p.Log.Error(err)
-			p.Task.Error = err.Error()
-		}
+		go func() {
+			if err := ensureDeleteJob(p.KubeNamespace, jobLabel, p.kubeClient); err != nil {
+				p.Log.Error(err)
+			}
 
-		if err := ensureDeleteConfigMap(p.KubeNamespace, jobLabel, p.kubeClient); err != nil {
-			p.Log.Error(err)
-			p.Task.Error = err.Error()
-		}
-
-		return
+			if err := ensureDeleteConfigMap(p.KubeNamespace, jobLabel, p.kubeClient); err != nil {
+				p.Log.Error(err)
+			}
+		}()
 	}()
 
 	err := saveContainerLog(pipelineTask, p.KubeNamespace, p.Task.ClusterID, p.FileName, jobLabel, p.kubeClient)
