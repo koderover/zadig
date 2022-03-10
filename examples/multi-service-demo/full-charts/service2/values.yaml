@@ -2,7 +2,6 @@ fullnameOverride: service2
 replicaCount: 1
 port: 20222
 
-registryConf: ""
 imagePullSecretsName: "default-registry-secret"
 
 image:

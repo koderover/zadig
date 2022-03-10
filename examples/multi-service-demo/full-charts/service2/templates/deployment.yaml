@@ -33,7 +33,5 @@ spec:
             requests:
               cpu: {{ .Values.resources.requests.cpu }}
               memory: {{ .Values.resources.requests.mem }}
-      {{- if .Values.registryConf }}
       imagePullSecrets:
         - name: {{ .Values.imagePullSecretsName }}
-      {{- end }}
