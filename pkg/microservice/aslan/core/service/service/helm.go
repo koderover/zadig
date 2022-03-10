@@ -952,7 +952,7 @@ func handleSingleService(projectName string, repoConfig *commonservice.RepoConfi
 		CodehostID: repoConfig.CodehostID,
 		Owner:      repoConfig.Owner,
 		Repo:       repoConfig.Repo,
-		Namespace:  repoConfig.Namespace, //Not filled TODO
+		Namespace:  repoConfig.Namespace,
 		Path:       path,
 		Branch:     repoConfig.Branch,
 	})

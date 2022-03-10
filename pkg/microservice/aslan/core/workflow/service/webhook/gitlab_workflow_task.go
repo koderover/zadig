@@ -560,7 +560,7 @@ func TriggerWorkflowByGitlabEvent(event interface{}, baseURI, requestID string, 
 				item.MainRepo.Branch = getBranchFromRef(mergeEvent.ObjectAttributes.TargetBranch)
 			case *gitlab.TagEvent:
 				tagEvent = evt
-				if (item.MainRepo.GetRepoNamespace() + "/" + item.MainRepo.RepoName) != tagEvent.Project.PathWithNamespace {
+				if !checkRepoNamespaceMatch(item.MainRepo, tagEvent.Project.PathWithNamespace) {
 					log.Debugf("event not matches repo: %v", item.MainRepo)
 					continue
 				}

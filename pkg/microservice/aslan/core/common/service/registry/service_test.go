@@ -127,7 +127,7 @@ import (
 //	s := &SwrService{}
 //	listRepoImagesOption := ListRepoImagesOption{
 //		Endpoint: Endpoint{
-//			RepoNamespace: "lilian",
+//			Namespace: "lilian",
 //			Ak:        "",
 //			Sk:        "",
 //		},
@@ -142,7 +142,7 @@ import (
 //	getRepoImageDetailOption := GetRepoImageDetailOption{
 //		Endpoint: Endpoint{
 //			Region:    "cn-north-4",
-//			RepoNamespace: "lilian",
+//			Namespace: "lilian",
 //			Ak:        "",
 //			Sk:        "",
 //		},

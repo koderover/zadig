@@ -119,11 +119,11 @@ func GetGitRepoInfo(c *gin.Context) {
 
 	dir := c.Query("dir")
 
-	ns := c.Query("repoNamespace")
-	if ns == "" {
-		ns = c.Query("repoOwner")
+	namespace := c.Query("repoNamespace")
+	if namespace == "" {
+		namespace = c.Query("repoOwner")
 	}
-	ctx.Resp, ctx.Err = service.GetGitRepoInfo(codehostID, c.Query("repoOwner"), c.Query("repoNamespace"), repoName, branchName, remoteName, dir, ctx.Logger)
+	ctx.Resp, ctx.Err = service.GetGitRepoInfo(codehostID, c.Query("repoOwner"), namespace, repoName, branchName, remoteName, dir, ctx.Logger)
 }
 
 type repoInfo struct {

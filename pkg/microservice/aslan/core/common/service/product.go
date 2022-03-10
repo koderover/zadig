@@ -231,7 +231,7 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 			}
 
 			//// 等待10分钟
-			//err = WaitPodsToTerminate(productInfo.RepoNamespace, selector, config.ServiceStartTimeout(), kubeClient, log)
+			//err = WaitPodsToTerminate(productInfo.Namespace, selector, config.ServiceStartTimeout(), kubeClient, log)
 			//if err != nil {
 			//	log.Errorf("wait port to terminate error: %v", err)
 			//	err = e.ErrDeleteEnv.AddDesc(e.DeleteServiceContainerErrMsg + ": " + err.Error())

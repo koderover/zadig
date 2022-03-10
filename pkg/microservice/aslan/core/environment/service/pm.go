@@ -154,7 +154,7 @@ func (p *PMService) listGroupServices(allServices []*commonmodels.ProductService
 }
 
 func (p *PMService) createGroup(envName, productName, username string, group []*commonmodels.ProductService, renderSet *commonmodels.RenderSet, inf informers.SharedInformerFactory, kubeClient client.Client) error {
-	p.log.Infof("[RepoNamespace:%s][Product:%s] createGroup", envName, productName)
+	p.log.Infof("[Namespace:%s][Product:%s] createGroup", envName, productName)
 
 	// 异步创建无依赖的服务
 	errList := &multierror.Error{}
