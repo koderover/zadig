@@ -70,9 +70,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 	loader := router.Group("loader")
 	{
-		loader.GET("/preload/:codehostId/:branchName", PreloadServiceTemplate)
-		loader.POST("/load/:codehostId/:branchName", LoadServiceTemplate)
-		loader.GET("/validateUpdate/:codehostId/:branchName", ValidateServiceUpdate)
+		//loader.GET("/preload/:codehostId/:branchName", PreloadServiceTemplate)
+		loader.GET("/preload/:codehostId", PreloadServiceTemplate)
+		//loader.POST("/load/:codehostId/:branchName", LoadServiceTemplate)
+		loader.POST("/load/:codehostId", LoadServiceTemplate)
+		//loader.GET("/validateUpdate/:codehostId/:branchName", ValidateServiceUpdate)
+		loader.GET("/validateUpdate/:codehostId", ValidateServiceUpdate)
 	}
 
 	pm := router.Group("pm")

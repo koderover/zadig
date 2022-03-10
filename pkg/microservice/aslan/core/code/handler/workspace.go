@@ -105,13 +105,13 @@ func GetGitRepoInfo(c *gin.Context) {
 		return
 	}
 
-	branchName := c.Param("branchName")
+	branchName := c.Query("branchName")
 	if branchName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty branch name")
 		return
 	}
 
-	remoteName := c.Param("remoteName")
+	remoteName := c.Query("remoteName")
 	if remoteName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty remote name")
 		return
@@ -171,7 +171,7 @@ func GetCodehubRepoInfo(c *gin.Context) {
 		return
 	}
 
-	branchName := c.Param("branchName")
+	branchName := c.Query("branchName")
 	if branchName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty branch name")
 		return

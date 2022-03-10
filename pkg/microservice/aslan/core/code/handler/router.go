@@ -44,10 +44,12 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		workspace.DELETE("", GetProductNameByWorkspacePipeline, gin2.UpdateOperationLogStatus, CleanWorkspace)
 		workspace.GET("/file", GetWorkspaceFile)
-		workspace.GET("/git/:codehostId/:repoName/:branchName/:remoteName", GetGitRepoInfo)
+		//workspace.GET("/git/:codehostId/:repoName/:branchName/:remoteName", GetGitRepoInfo)
+		workspace.GET("/git/:codehostId/:repoName", GetGitRepoInfo)
 
 		workspace.GET("/tree", GetRepoTree)
-		workspace.GET("/codehub/:codehostId/:repoUUID/:branchName", GetCodehubRepoInfo)
+		//workspace.GET("/codehub/:codehostId/:repoUUID/:branchName", GetCodehubRepoInfo)
+		workspace.GET("/codehub/:codehostId/:repoUUID", GetCodehubRepoInfo)
 	}
 
 }
