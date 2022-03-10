@@ -77,7 +77,8 @@ func SaveAndUploadFiles(fileTree fs.FS, names []string, localBase, s3Base string
 func CopyAndUploadFiles(names []string, localBase, s3Base, currentChartPath string, logger *zap.SugaredLogger) error {
 	var wg wait.Group
 	var err error
-
+	logger.Infof("CopyAndUploadFiles currentChartPath:%s", currentChartPath)
+	logger.Infof("CopyAndUploadFiles localBase:%s", localBase)
 	wg.Start(func() {
 		copyErr := copy.Copy(currentChartPath, localBase)
 		if copyErr != nil {
