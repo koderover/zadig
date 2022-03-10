@@ -251,11 +251,26 @@ func UpdateChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *z
 		logger.Errorf("Failed to get chart template %s, err: %s", name, err)
 		return err
 	}
-
-	sha1, err := processChartFromSource(name, args, logger)
+	ch, err := systemconfig.New().GetCodeHost(args.CodehostID)
 	if err != nil {
-		logger.Errorf("Failed to update chart %s, err: %s", name, err)
+		log.Errorf("Failed to get codeHost by id %d, err: %s", args.CodehostID, err)
 		return err
+	}
+	var (
+		sha1    string
+		loadErr error
+	)
+
+	switch ch.Type {
+	case setting.SourceFromGerrit:
+		sha1, loadErr = processChartFromGerrit(name, args, logger)
+	default:
+		sha1, loadErr = processChartFromSource(name, args, logger)
+	}
+
+	if loadErr != nil {
+		logger.Errorf("Failed to update chart %s, err: %s", name, loadErr)
+		return loadErr
 	}
 
 	if chart.Sha1 == sha1 {
