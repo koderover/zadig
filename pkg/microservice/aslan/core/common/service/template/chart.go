@@ -64,12 +64,15 @@ func GetChartTemplate(name string, logger *zap.SugaredLogger) (*Chart, error) {
 	}
 
 	localBase := configbase.LocalChartTemplatePath(name)
+	base := filepath.Base(chart.Path)
+	if chart.Source == setting.SourceFromGerrit {
+		localBase = filepath.Join(localBase, base)
+	}
 	s3Base := configbase.ObjectStorageChartTemplatePath(name)
 	if err = fs.PreloadFiles(name, localBase, s3Base, logger); err != nil {
 		return nil, err
 	}
 
-	base := filepath.Base(chart.Path)
 	localPath := filepath.Join(localBase, base)
 	fis, err := fs.GetFileInfos(os.DirFS(localPath))
 	if err != nil {
@@ -242,6 +245,7 @@ func AddChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *zap.
 		CodeHostID:     args.CodehostID,
 		Sha1:           sha1,
 		ChartVariables: variables,
+		Source:         ch.Type,
 	})
 }
 
@@ -305,6 +309,7 @@ func UpdateChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *z
 		CodeHostID:     args.CodehostID,
 		Sha1:           sha1,
 		ChartVariables: variables,
+		Source:         ch.Type,
 	})
 }
 

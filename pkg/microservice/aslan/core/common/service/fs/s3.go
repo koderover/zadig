@@ -105,8 +105,7 @@ func DownloadAndExtractFilesFromS3(name, localBase, s3Base string, logger *zap.S
 	if err != nil {
 		logger.Errorf("Failed to create temp dir, err: %s", err)
 	}
-	//defer os.RemoveAll(tmpDir)
-	logger.Info("name: %s", name)
+	defer os.RemoveAll(tmpDir)
 	s3, err := s3service.FindDefaultS3()
 	if err != nil {
 		logger.Errorf("Failed to find default s3, err: %s", err)
@@ -126,18 +125,16 @@ func DownloadAndExtractFilesFromS3(name, localBase, s3Base string, logger *zap.S
 		logger.Errorf("Failed to create s3 client, err: %s", err)
 		return err
 	}
-	logger.Info("s3Path: %s", s3Path)
+	logger.Infof("s3Path: %s", s3Path)
 	if err = client.Download(s3.Bucket, s3Path, localPath); err != nil {
 		logger.Errorf("Failed to download file from s3, err: %s", err)
 		return err
 	}
-	logger.Info("localPath: %s", localPath)
-	logger.Info("localBase: %s", localBase)
+	logger.Infof("localPath: %s", localPath)
+	logger.Infof("localBase: %s", localBase)
 	if err = fsutil.Untar(localPath, localBase); err != nil {
-		//if err = fsutil.Untar(localPath, filepath.Join(localBase, name)); err != nil {
 		logger.Errorf("Failed to extract tarball %s, err: %+v", localPath, err)
 		return err
-		//}
 	}
 	return nil
 }
