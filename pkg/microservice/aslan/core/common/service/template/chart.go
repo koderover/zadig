@@ -436,7 +436,7 @@ func processChartFromGerrit(name string, args *fs.DownloadFromSourceArgs, logger
 		localBase := configbase.LocalChartTemplatePath(name)
 		s3Base := configbase.ObjectStorageChartTemplatePath(name)
 
-		err1 := fs.CopyAndUploadFiles([]string{name}, localBase, s3Base, currentChartPath, logger)
+		err1 := fs.CopyAndUploadFiles([]string{name}, path.Join(localBase, path.Base(args.Path)), s3Base, currentChartPath, logger)
 		if err1 != nil {
 			logger.Errorf("Failed to save files to disk, err: %s", err1)
 			err = err1
