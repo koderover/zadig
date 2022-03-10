@@ -65,7 +65,7 @@ func GetChartTemplate(name string, logger *zap.SugaredLogger) (*Chart, error) {
 
 	localBase := configbase.LocalChartTemplatePath(name)
 	base := filepath.Base(chart.Path)
-	if chart.Source == setting.SourceFromGerrit {
+	if chart.Source == setting.SourceFromGerrit && !strings.Contains(localBase, base) {
 		localBase = filepath.Join(localBase, base)
 	}
 	s3Base := configbase.ObjectStorageChartTemplatePath(name)
