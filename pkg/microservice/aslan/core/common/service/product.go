@@ -77,7 +77,7 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 	err = commonrepo.NewProductColl().UpdateStatus(envName, productName, setting.ProductStatusDeleting)
 	if err != nil {
 		log.Errorf("[%s][%s] update product status error: %v", username, productInfo.Namespace, err)
-		return e.ErrDeleteEnv.AddDesc("更新集成环境状态失败: " + err.Error())
+		return e.ErrDeleteEnv.AddDesc("更新环境状态失败: " + err.Error())
 	}
 
 	log.Infof("[%s] delete product %s", username, productInfo.Namespace)

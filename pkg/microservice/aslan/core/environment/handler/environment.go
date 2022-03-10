@@ -104,7 +104,7 @@ func UpdateMultiProducts(c *gin.Context) {
 		}
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "自动更新", "集成环境", strings.Join(args.EnvNames, ","), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, c.Query("projectName"), "自动更新", "环境", strings.Join(args.EnvNames, ","), string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
@@ -145,7 +145,7 @@ func createHelmProduct(c *gin.Context, ctx *internalhandler.Context) {
 		envNameList = append(envNameList, arg.EnvName)
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "新增", "集成环境", strings.Join(envNameList, "-"), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "新增", "环境", strings.Join(envNameList, "-"), string(data), ctx.Logger)
 
 	ctx.Err = service.CreateHelmProduct(
 		projectName, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger,
@@ -181,7 +181,7 @@ func copyHelmProduct(c *gin.Context, ctx *internalhandler.Context) {
 		envNameCopyList = append(envNameCopyList, arg.BaseEnvName+"-->"+arg.EnvName)
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "复制", "集成环境", strings.Join(envNameCopyList, ","), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "复制", "环境", strings.Join(envNameCopyList, ","), string(data), ctx.Logger)
 
 	ctx.Err = service.CopyHelmProduct(
 		projectName, ctx.UserName, ctx.RequestID, createArgs, ctx.Logger,
@@ -223,7 +223,7 @@ func CreateProduct(c *gin.Context) {
 		}
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", "集成环境", args.EnvName, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, args.ProductName, "新增", "环境", args.EnvName, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
@@ -259,7 +259,7 @@ func UpdateProduct(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "集成环境", envName, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "环境", envName, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
@@ -292,7 +292,7 @@ func UpdateProductRegistry(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
 	}
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "集成环境", envName, string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "环境", envName, string(data), ctx.Logger)
 	c.Request.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	if err := c.BindJSON(args); err != nil {
@@ -313,7 +313,7 @@ func UpdateProductRecycleDay(c *gin.Context) {
 	projectName := c.Query("projectName")
 	recycleDayStr := c.Query("recycleDay")
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "集成环境-环境回收", envName, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "环境-环境回收", envName, "", ctx.Logger)
 
 	var (
 		recycleDay int
@@ -418,7 +418,7 @@ func updateMultiHelmEnv(c *gin.Context, ctx *internalhandler.Context) {
 		}
 	}
 
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "集成环境", strings.Join(args.EnvNames, ","), string(data), ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "更新", "环境", strings.Join(args.EnvNames, ","), string(data), ctx.Logger)
 
 	ctx.Resp, ctx.Err = service.UpdateMultipleHelmEnv(
 		ctx.RequestID, args, ctx.Logger,
@@ -486,7 +486,7 @@ func DeleteProduct(c *gin.Context) {
 
 	envName := c.Param("name")
 	projectName := c.Query("projectName")
-	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "删除", "集成环境", envName, "", ctx.Logger)
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "删除", "环境", envName, "", ctx.Logger)
 	ctx.Err = commonservice.DeleteProduct(ctx.UserName, envName, projectName, ctx.RequestID, ctx.Logger)
 }
 

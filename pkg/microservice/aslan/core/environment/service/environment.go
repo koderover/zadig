@@ -1698,7 +1698,7 @@ func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, l
 	}
 
 	// find renderchart info in env
-	renderChartInEnv, err := GetRenderCharts(productName, envName, serviceNameListStr, log)
+	renderChartInEnv, err := commonservice.GetRenderCharts(productName, envName, serviceNameListStr, log)
 	if err != nil {
 		log.Errorf("find render charts in env fail, env %s err %s", envName, err.Error())
 		return nil, e.ErrGetRenderSet.AddDesc("failed to get render charts in env")

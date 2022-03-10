@@ -57,9 +57,11 @@ type Testing struct {
 	ScheduleEnabled bool             `bson:"schedule_enabled"         json:"-"`
 
 	// New since V1.10.0.
-	CacheEnable  bool               `bson:"cache_enable"        json:"cache_enable"`
-	CacheDirType types.CacheDirType `bson:"cache_dir_type"      json:"cache_dir_type"`
-	CacheUserDir string             `bson:"cache_user_dir"      json:"cache_user_dir"`
+	CacheEnable  bool               `bson:"cache_enable"              json:"cache_enable"`
+	CacheDirType types.CacheDirType `bson:"cache_dir_type"            json:"cache_dir_type"`
+	CacheUserDir string             `bson:"cache_user_dir"            json:"cache_user_dir"`
+	// New since V1.10.0. Only to tell the webpage should the advanced settings be displayed
+	AdvancedSettingsModified bool `bson:"advanced_setting_modified" json:"advanced_setting_modified"`
 }
 
 type TestingHookCtrl struct {

@@ -107,19 +107,19 @@ func (p *PMService) listGroupServices(allServices []*commonmodels.ProductService
 				service.ServiceName, setting.PMDeployType, service.ProductName, "", service.Revision, p.log,
 			)
 
-			for _, envconfig := range serviceTmpl.EnvConfigs {
-				if envconfig.EnvName == envName {
-					gp.EnvConfigs = []*models.EnvConfig{envconfig}
-					break
-				}
-			}
-
 			if err != nil {
 				gp.Status = setting.PodFailed
 				mutex.Lock()
 				resp = append(resp, gp)
 				mutex.Unlock()
 				return
+			}
+
+			for _, envconfig := range serviceTmpl.EnvConfigs {
+				if envconfig.EnvName == envName {
+					gp.EnvConfigs = []*models.EnvConfig{envconfig}
+					break
+				}
 			}
 
 			gp.ProductName = serviceTmpl.ProductName

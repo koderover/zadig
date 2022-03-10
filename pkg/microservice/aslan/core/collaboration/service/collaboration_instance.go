@@ -1120,7 +1120,7 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 	if renderSets != nil {
 		productRenderSetMap := make(map[string]models2.RenderSet)
 		for _, set := range renderSets {
-			productRenderSetMap[set.EnvName] = set
+			productRenderSetMap[set.EnvName] = *set
 		}
 		for _, product := range newProduct {
 			set, ok := productRenderSetMap[product.BaseName]
@@ -1130,7 +1130,17 @@ func getCollaborationNew(updateResp *GetCollaborationUpdateResp, projectName, id
 
 			product.Vars = set.KVs
 			product.DefaultValues = set.DefaultValues
-			product.ChartValues = buildRenderChartArg(set.ChartInfos, product.BaseName)
+		}
+	}
+	if len(newProduct) > 0 && newProduct[0].DeployType == setting.HelmDeployType {
+		envChartsMap := getHelmRenderSet(projectName, newProductName.List(), logger)
+		for _, product := range newProduct {
+			chart, ok := envChartsMap[product.BaseName]
+			if !ok {
+				return nil, fmt.Errorf("product:%s not exist", product.BaseName)
+			}
+
+			product.ChartValues = chart
 		}
 	}
 	var workNames []string
@@ -1289,7 +1299,7 @@ func GetCollaborationNew(projectName, uid, identityType, userName string, logger
 	return getCollaborationNew(updateResp, projectName, identityType, userName, logger)
 }
 
-func getRenderSet(projectName string, envs []string) ([]models2.RenderSet, error) {
+func getRenderSet(projectName string, envs []string) ([]*models2.RenderSet, error) {
 	products, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
 		InProjects: []string{projectName},
 		InEnvs:     envs,
@@ -1304,9 +1314,8 @@ func getRenderSet(projectName string, envs []string) ([]models2.RenderSet, error
 			Name:     product.Namespace,
 		})
 	}
-	renderSets, err := commonrepo.NewRenderSetColl().ListByFindOpts(&commonrepo.RenderSetListOption{
+	renderSets, err := commonrepo.NewRenderSetColl().List(&commonrepo.RenderSetListOption{
 		ProductTmpl: projectName,
-		FindOpts:    findOpts,
 	})
 	if err != nil {
 		return nil, err
@@ -1314,13 +1323,16 @@ func getRenderSet(projectName string, envs []string) ([]models2.RenderSet, error
 	return renderSets, nil
 }
 
-func buildRenderChartArg(chartInfos []*templatemodels.RenderChart, envName string) []*commonservice.RenderChartArg {
-	ret := make([]*commonservice.RenderChartArg, 0, len(chartInfos))
-	for _, singleChart := range chartInfos {
-		rcaObj := new(commonservice.RenderChartArg)
-		rcaObj.LoadFromRenderChartModel(singleChart)
-		rcaObj.EnvName = envName
-		ret = append(ret, rcaObj)
+func getHelmRenderSet(projectName string, envs []string, logger *zap.SugaredLogger) map[string][]*commonservice.RenderChartArg {
+	envChartsMap := make(map[string][]*commonservice.RenderChartArg)
+	for _, env := range envs {
+		renderChartArgs, err := commonservice.GetRenderCharts(projectName, env, "", logger)
+		if err != nil {
+			logger.Errorf("GetRenderCharts error:%s", err)
+			continue
+		}
+		envChartsMap[env] = renderChartArgs
 	}
-	return ret
+
+	return envChartsMap
 }

@@ -88,15 +88,18 @@ func ListBindings(header http.Header, qs url.Values, logger *zap.SugaredLogger) 
 		uidToPolicyBindings[pb.UID] = append(uidToPolicyBindings[pb.UID], &policyBinding{PolicyBinding: pb})
 	}
 	if uidSets.Len() == 0 {
-		// add all 'ALLUsers' roles
-		AllUserBinding := &Binding{
-			Roles:    uidToRoleBinding[ALLUsers],
-			Policies: uidToPolicyBindings[ALLUsers],
-			UserName: "*",
-			Email:    "",
-			Uid:      "*",
+		if len(uidToRoleBinding[ALLUsers]) != 0 || len(uidToPolicyBindings[ALLUsers]) != 0 {
+			// add all 'ALLUsers' roles
+			AllUserBinding := &Binding{
+				Roles:    uidToRoleBinding[ALLUsers],
+				Policies: uidToPolicyBindings[ALLUsers],
+				UserName: "*",
+				Email:    "",
+				Uid:      "*",
+			}
+			return []*Binding{AllUserBinding}, nil
 		}
-		return []*Binding{AllUserBinding}, nil
+		return []*Binding{}, nil
 	}
 	users, err := user.New().ListUsers(&user.SearchArgs{UIDs: uidSets.List()})
 	if err != nil {
@@ -106,8 +109,8 @@ func ListBindings(header http.Header, qs url.Values, logger *zap.SugaredLogger) 
 
 	var res []*Binding
 
-	var policyBindings []*policyBinding
 	for _, u := range users {
+		var policyBindings []*policyBinding
 		var roleBindings []*roleBinding
 		binding := &Binding{
 			UserName:     u.Name,
@@ -147,13 +150,16 @@ func ListBindings(header http.Header, qs url.Values, logger *zap.SugaredLogger) 
 	}
 
 	// add all 'ALLUsers' roles
-	AllUserBinding := &Binding{
-		Roles:    uidToRoleBinding[ALLUsers],
-		Policies: uidToPolicyBindings[ALLUsers],
-		UserName: "*",
-		Email:    "",
-		Uid:      "*",
+	if len(uidToRoleBinding[ALLUsers]) != 0 || len(uidToPolicyBindings[ALLUsers]) != 0 {
+		AllUserBinding := &Binding{
+			Roles:    uidToRoleBinding[ALLUsers],
+			Policies: uidToPolicyBindings[ALLUsers],
+			UserName: "*",
+			Email:    "",
+			Uid:      "*",
+		}
+		res = append(res, AllUserBinding)
 	}
-	res = append(res, AllUserBinding)
+
 	return res, nil
 }

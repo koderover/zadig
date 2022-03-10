@@ -1285,7 +1285,10 @@ func deployEnvToSubTasks(env commonmodels.DeployEnv, prodEnv *commonmodels.Produ
 		return nil, err
 	}
 	deployTask.ServiceName = envList[0]
-	deployTask.ContainerName = envList[1] + "_" + envList[0]
+	deployTask.ContainerName = envList[1]
+	if !strings.Contains(envList[1], "_") {
+		deployTask.ContainerName = envList[1] + "_" + envList[0]
+	}
 
 	switch env.Type {
 	case setting.K8SDeployType:
@@ -1871,6 +1874,14 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 	modules, err := commonrepo.NewBuildColl().List(opt)
 	if err != nil {
 		return nil, e.ErrConvertSubTasks.AddErr(err)
+	}
+	// The service may be a shared service
+	if len(modules) == 0 {
+		opt.ProductName = ""
+		modules, err = commonrepo.NewBuildColl().List(opt)
+		if err != nil {
+			return nil, e.ErrConvertSubTasks.AddErr(err)
+		}
 	}
 
 	registries, err := commonservice.ListRegistryNamespaces(true, log)

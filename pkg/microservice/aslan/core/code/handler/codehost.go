@@ -110,8 +110,8 @@ func CodeHostGetProjectsList(c *gin.Context) {
 		ctx.Logger)
 }
 
-type CodeHostGetBranchListArgs struct {
-	PerPage int    `json:"per_page"     form:"per_page,default=30"`
+type CodeHostGetPageNateListArgs struct {
+	PerPage int    `json:"per_page"     form:"per_page,default=100"`
 	Page    int    `json:"page"         form:"page,default=1"`
 	Key     string `json:"key"          form:"key"`
 }
@@ -123,7 +123,7 @@ func CodeHostGetBranchList(c *gin.Context) {
 	codehostID := c.Param("codehostId")
 	namespace := c.Param("namespace")
 	projectName := c.Param("projectName") // pro Name, id/name -> gitlab = id
-	args := new(CodeHostGetBranchListArgs)
+	args := new(CodeHostGetPageNateListArgs)
 	if err := c.ShouldBindQuery(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
 		return
@@ -160,7 +160,11 @@ func CodeHostGetTagList(c *gin.Context) {
 	codehostID := c.Param("codehostId")
 	namespace := c.Param("namespace")
 	projectName := c.Param("projectName") // pro Name, id/name -> gitlab = id
-
+	args := new(CodeHostGetPageNateListArgs)
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
 	if codehostID == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty codehostId")
 		return
@@ -175,7 +179,7 @@ func CodeHostGetTagList(c *gin.Context) {
 	}
 
 	chID, _ := strconv.Atoi(codehostID)
-	ctx.Resp, ctx.Err = service.CodeHostListTags(chID, projectName, strings.Replace(namespace, "%2F", "/", -1), ctx.Logger)
+	ctx.Resp, ctx.Err = service.CodeHostListTags(chID, projectName, strings.Replace(namespace, "%2F", "/", -1), args.Key, args.Page, args.PerPage, ctx.Logger)
 }
 
 func CodeHostGetPRList(c *gin.Context) {
@@ -185,6 +189,12 @@ func CodeHostGetPRList(c *gin.Context) {
 	codehostID := c.Param("codehostId")
 	namespace := c.Param("namespace")
 	projectName := c.Param("projectName") // pro Name, id/name -> gitlab = id
+
+	args := new(CodeHostGetPageNateListArgs)
+	if err := c.ShouldBindQuery(args); err != nil {
+		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
+		return
+	}
 
 	if codehostID == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty codehostId")
@@ -202,7 +212,7 @@ func CodeHostGetPRList(c *gin.Context) {
 	targetBr := c.Query("targetBranch")
 
 	chID, _ := strconv.Atoi(codehostID)
-	ctx.Resp, ctx.Err = service.CodeHostListPRs(chID, projectName, strings.Replace(namespace, "%2F", "/", -1), targetBr, ctx.Logger)
+	ctx.Resp, ctx.Err = service.CodeHostListPRs(chID, projectName, strings.Replace(namespace, "%2F", "/", -1), targetBr, args.Key, args.Page, args.PerPage, ctx.Logger)
 }
 
 func ListRepoInfos(c *gin.Context) {

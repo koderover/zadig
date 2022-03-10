@@ -59,7 +59,7 @@ func ListRepoInfos(infos []*GitRepoInfo, param string, log *zap.SugaredLogger) (
 				defer func() {
 					wg.Done()
 				}()
-				info.PRs, err = CodeHostListPRs(info.CodehostID, info.Repo, strings.Replace(info.Namespace, "%2F", "/", -1), "", log)
+				info.PRs, err = CodeHostListPRs(info.CodehostID, info.Repo, strings.Replace(info.Namespace, "%2F", "/", -1), "", "", 0, 0, log)
 				if err != nil {
 					errList = multierror.Append(errList, err)
 					info.ErrorMsg = err.Error()
@@ -99,7 +99,7 @@ func ListRepoInfos(infos []*GitRepoInfo, param string, log *zap.SugaredLogger) (
 				if info.Source == CodeHostCodeHub {
 					projectName = info.RepoID
 				}
-				info.Tags, err = CodeHostListTags(info.CodehostID, projectName, strings.Replace(info.Namespace, "%2F", "/", -1), log)
+				info.Tags, err = CodeHostListTags(info.CodehostID, projectName, strings.Replace(info.Namespace, "%2F", "/", -1), "", 0, 0, log)
 				if err != nil {
 					errList = multierror.Append(errList, err)
 					info.ErrorMsg = err.Error()

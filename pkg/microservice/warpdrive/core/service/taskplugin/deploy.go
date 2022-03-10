@@ -364,21 +364,6 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			helmClient               helmclient.Client
 		)
 
-		rcsList := make([]ResourceComponentSet, 0)
-		deployments, errFindDeploy := getter.ListDeployments(p.Task.Namespace, nil, p.kubeClient)
-		if errFindDeploy != nil {
-			p.Log.Errorf("failed to list deployments in namespace %s, productName %s, err %s", p.Task.Namespace, p.Task.ProductName, errFindDeploy)
-		} else {
-			rcsList = append(rcsList, RcsListFromDeployments(deployments)...)
-		}
-		statefulSets, errFindSts := getter.ListStatefulSets(p.Task.Namespace, nil, p.kubeClient)
-		if errFindSts != nil {
-			p.Log.Errorf("failed to list statefulsets in namespace %s, productName %s, err %s", p.Task.Namespace, p.Task.ProductName, errFindSts)
-		} else {
-			rcsList = append(rcsList, RcsListFromStatefulSets(statefulSets)...)
-		}
-		p.findHelmAffectedResources(p.Task.Namespace, p.Task.ServiceName, rcsList)
-
 		p.Log.Infof("start helm deploy, productName %s serviceName %s containerName %s namespace %s", p.Task.ProductName,
 			p.Task.ServiceName, containerName, p.Task.Namespace)
 
@@ -557,6 +542,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			return
 		}
 
+		timeOut := p.TaskTimeout()
 		chartSpec := helmclient.ChartSpec{
 			ReleaseName: releaseName,
 			ChartName:   chartPath,
@@ -566,7 +552,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 			ValuesYaml:  replacedMergedValuesYaml,
 			SkipCRDs:    false,
 			UpgradeCRDs: true,
-			Timeout:     time.Second * setting.DeployTimeout,
+			Timeout:     time.Second * time.Duration(timeOut),
 			Wait:        true,
 			Replace:     true,
 			MaxHistory:  10,
@@ -574,10 +560,10 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 
 		done := make(chan bool)
 		go func(chan bool) {
-			if _, err = helmClient.InstallOrUpgradeChart(context.TODO(), &chartSpec); err != nil {
+			if _, err = helmClient.InstallOrUpgradeChart(ctx, &chartSpec); err != nil {
 				err = errors.WithMessagef(
 					err,
-					"failed to Install helm chart %s/%s",
+					"failed to upgrade helm chart %s/%s",
 					p.Task.Namespace, p.Task.ServiceName)
 				done <- false
 			} else {
@@ -588,7 +574,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 		select {
 		case <-done:
 			break
-		case <-time.After(chartSpec.Timeout + 30*time.Second):
+		case <-time.After(chartSpec.Timeout + time.Minute):
 			err = fmt.Errorf("failed to upgrade relase: %s, timeout", chartSpec.ReleaseName)
 		}
 		if err != nil {
@@ -808,6 +794,12 @@ func assignImageData(imageUrl string, matchData map[string]string) (map[string]i
 func (p *DeployTaskPlugin) Wait(ctx context.Context) {
 	// skip waiting for reset image task
 	if p.Task.SkipWaiting {
+		p.Task.TaskStatus = config.StatusPassed
+		return
+	}
+
+	// for services deployed by helm, use --wait option to ensure related resources are updated
+	if p.Task.ServiceType == setting.HelmDeployType {
 		p.Task.TaskStatus = config.StatusPassed
 		return
 	}
