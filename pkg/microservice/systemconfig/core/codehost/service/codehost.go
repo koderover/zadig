@@ -31,6 +31,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/internal/oauth"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/systemconfig/core/codehost/repository/mongodb"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 )
 
@@ -68,6 +69,9 @@ func DeleteCodeHost(id int, _ *zap.SugaredLogger) error {
 }
 
 func UpdateCodeHost(host *models.CodeHost, _ *zap.SugaredLogger) (*models.CodeHost, error) {
+	if host.Type == setting.SourceFromGerrit {
+		host.AccessToken = base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", host.Username, host.Password)))
+	}
 	return mongodb.NewCodehostColl().UpdateCodeHost(host)
 }
 
