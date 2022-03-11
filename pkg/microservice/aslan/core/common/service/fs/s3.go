@@ -138,7 +138,7 @@ func DownloadAndExtractFilesFromS3(name, localBase, s3Base string, logger *zap.S
 	}
 
 	if err = fsutil.Untar(localPath, localBase); err != nil {
-		logger.Errorf("Failed to extract tarball %s, err: %+v", localPath, err)
+		logger.Errorf("Failed to extract tarball %s, err: %s", localPath, err)
 		return err
 	}
 	return nil
@@ -188,8 +188,8 @@ func DownloadAndCopyFilesFromGerrit(name, localBase string, logger *zap.SugaredL
 		return err
 	}
 
-	if err := CopyFiles(localBase, path.Join(base, chartTemplate.Path), logger); err != nil {
-		log.Errorf("Failed to save or upload files for service %s, error: %s", name, err)
+	if err := CopyFiles(path.Join(localBase, path.Base(chartTemplate.Path)), path.Join(base, chartTemplate.Path), logger); err != nil {
+		log.Errorf("Failed to copy files for helm chart template %s, error: %s", name, err)
 		return err
 	}
 	return nil
