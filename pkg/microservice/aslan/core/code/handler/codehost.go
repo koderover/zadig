@@ -225,8 +225,7 @@ func ListRepoInfos(c *gin.Context) {
 		ctx.Err = e.ErrInvalidParam.AddDesc("invalid repo args")
 		return
 	}
-	param := c.Query("param")
-	ctx.Resp, ctx.Err = service.ListRepoInfos(args.Infos, param, ctx.Logger)
+	ctx.Resp, ctx.Err = service.ListRepoInfos(args.Infos, ctx.Logger)
 }
 
 type BranchesRequest struct {

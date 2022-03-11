@@ -45,7 +45,7 @@ type GitRepoInfo struct {
 }
 
 // ListRepoInfos ...
-func ListRepoInfos(infos []*GitRepoInfo, param string, log *zap.SugaredLogger) ([]*GitRepoInfo, error) {
+func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo, error) {
 	var err error
 	var wg sync.WaitGroup
 	var errList *multierror.Error
