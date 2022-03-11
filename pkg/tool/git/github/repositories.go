@@ -317,7 +317,7 @@ func (c *Client) getTreeContents(ctx context.Context, owner, repo, branch, base,
 		if err != nil {
 			return err
 		}
-		return afero.WriteFile(fs, fsutil.ShortenFileBase(base, path), []byte(content), 0644)
+		return afero.WriteFile(fs, fsutil.ShortenFileBase(base, path), []byte(content), 0666)
 	}
 
 	for _, fileOrDir := range directoryContent {
