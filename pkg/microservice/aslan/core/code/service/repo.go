@@ -51,22 +51,19 @@ func ListRepoInfos(infos []*GitRepoInfo, param string, log *zap.SugaredLogger) (
 	var errList *multierror.Error
 
 	for _, info := range infos {
-		//pb 代表pr and branch
-		if param == "" || param == "bp" {
-			wg.Add(1)
-			go func(info *GitRepoInfo) {
-				defer func() {
-					wg.Done()
-				}()
-				info.PRs, err = CodeHostListPRs(info.CodehostID, info.Repo, strings.Replace(info.Owner, "%2F", "/", -1), "", "", 0, 0, log)
-				if err != nil {
-					errList = multierror.Append(errList, err)
-					info.ErrorMsg = err.Error()
-					info.PRs = []*PullRequest{}
-					return
-				}
-			}(info)
-		}
+		wg.Add(1)
+		go func(info *GitRepoInfo) {
+			defer func() {
+				wg.Done()
+			}()
+			info.PRs, err = CodeHostListPRs(info.CodehostID, info.Repo, strings.Replace(info.Owner, "%2F", "/", -1), "", "", 0, 0, log)
+			if err != nil {
+				errList = multierror.Append(errList, err)
+				info.ErrorMsg = err.Error()
+				info.PRs = []*PullRequest{}
+				return
+			}
+		}(info)
 
 		wg.Add(1)
 		go func(info *GitRepoInfo) {
@@ -87,26 +84,23 @@ func ListRepoInfos(infos []*GitRepoInfo, param string, log *zap.SugaredLogger) (
 
 		}(info)
 
-		//bt 代表branch and tag
-		if param == "" || param == "bt" {
-			wg.Add(1)
-			go func(info *GitRepoInfo) {
-				defer func() {
-					wg.Done()
-				}()
-				projectName := info.Repo
-				if info.Source == CodeHostCodeHub {
-					projectName = info.RepoID
-				}
-				info.Tags, err = CodeHostListTags(info.CodehostID, projectName, strings.Replace(info.Owner, "%2F", "/", -1), "", 0, 0, log)
-				if err != nil {
-					errList = multierror.Append(errList, err)
-					info.ErrorMsg = err.Error()
-					info.Tags = []*Tag{}
-					return
-				}
-			}(info)
-		}
+		wg.Add(1)
+		go func(info *GitRepoInfo) {
+			defer func() {
+				wg.Done()
+			}()
+			projectName := info.Repo
+			if info.Source == CodeHostCodeHub {
+				projectName = info.RepoID
+			}
+			info.Tags, err = CodeHostListTags(info.CodehostID, projectName, strings.Replace(info.Owner, "%2F", "/", -1), "", 0, 0, log)
+			if err != nil {
+				errList = multierror.Append(errList, err)
+				info.ErrorMsg = err.Error()
+				info.Tags = []*Tag{}
+				return
+			}
+		}(info)
 	}
 
 	wg.Wait()
