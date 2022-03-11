@@ -20,14 +20,19 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 
 	"go.uber.org/zap"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/command"
 	s3service "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
+	"github.com/koderover/zadig/pkg/tool/log"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
-	"github.com/koderover/zadig/pkg/util"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
 )
 
@@ -166,40 +171,25 @@ func DeleteArchivedFileFromS3(names []string, s3Base string, logger *zap.Sugared
 	return client.DeleteObjects(s3.Bucket, s3PathList)
 }
 
-func GerritDownloadAndExtractFilesFromS3(name, localBase, s3Base string, logger *zap.SugaredLogger) error {
-	tmpDir, err := os.MkdirTemp("", "")
-	if err != nil {
-		logger.Errorf("Failed to create temp dir, err: %s", err)
+func DownloadAndCopyFilesFromGerrit(name, localBase string, logger *zap.SugaredLogger) error {
+	chartTemplate, err := mongodb.NewChartColl().Get(name)
+	base := path.Join(config.S3StoragePath(), chartTemplate.Repo)
+	if err := os.RemoveAll(base); err != nil {
+		logger.Errorf("Failed to remove dir, err:%s", err)
 	}
-	//defer os.RemoveAll(tmpDir)
-	s3, err := s3service.FindDefaultS3()
+	detail, err := systemconfig.New().GetCodeHost(chartTemplate.CodeHostID)
 	if err != nil {
-		logger.Errorf("Failed to find default s3, err: %s", err)
+		log.Errorf("Failed to GetCodehostDetail, err:%s", err)
 		return err
 	}
-	tarball := fmt.Sprintf("%s.tar.gz", name)
-	localPath := filepath.Join(tmpDir, tarball)
-	s3Path := filepath.Join(s3.Subfolder, s3Base, tarball)
-
-	forcedPathStyle := true
-	if s3.Provider == setting.ProviderSourceAli {
-		forcedPathStyle = false
+	err = command.RunGitCmds(detail, "default", chartTemplate.Repo, chartTemplate.Branch, "origin")
+	if err != nil {
+		log.Errorf("Failed to runGitCmds, err:%s", err)
+		return err
 	}
 
-	client, err := s3tool.NewClient(s3.Endpoint, s3.Ak, s3.Sk, s3.Insecure, forcedPathStyle)
-	if err != nil {
-		logger.Errorf("Failed to create s3 client, err: %s", err)
-		return err
-	}
-	logger.Infof("s3Path: %s", s3Path)
-	if err = client.Download(s3.Bucket, s3Path, localPath); err != nil {
-		logger.Errorf("Failed to download file from s3, err: %s", err)
-		return err
-	}
-	logger.Infof("localPath: %s", localPath)
-	logger.Infof("localBase: %s", localBase)
-	if err = util.UnTar(localPath, localBase); err != nil {
-		logger.Errorf("Failed to extract tarball %s, err: %+v", localPath, err)
+	if err := CopyFiles(localBase, path.Join(base, chartTemplate.Path), logger); err != nil {
+		log.Errorf("Failed to save or upload files for service %s, error: %s", name, err)
 		return err
 	}
 	return nil
