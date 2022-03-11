@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"time"
 
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -861,13 +862,15 @@ func syncDeleteResource(updateResp *GetCollaborationUpdateResp, username, projec
 	deleteResp := getCollaborationDelete(updateResp)
 	for _, product := range deleteResp.Products {
 		err := commonservice.DeleteProduct(username, product, projectName, requestID, log)
-		if err != nil {
+		if err != nil && err != mongo.ErrNoDocuments {
+			log.Infof("%v", err != mongo.ErrNoDocuments)
 			return err
 		}
 	}
 	for _, workflow := range deleteResp.Workflows {
 		err := commonservice.DeleteWorkflow(workflow, requestID, false, log)
-		if err != nil {
+		log.Infof("%v", err != mongo.ErrNoDocuments)
+		if err != nil && err != mongo.ErrNoDocuments {
 			return err
 		}
 	}
