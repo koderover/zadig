@@ -242,7 +242,7 @@ func prepareChartTemplateData(templateName string, logger *zap.SugaredLogger) (*
 	// get chart template from local disk
 	localBase := configbase.LocalChartTemplatePath(templateName)
 	s3Base := configbase.ObjectStorageChartTemplatePath(templateName)
-	if err = fsservice.PreloadFiles(templateName, localBase, s3Base, logger); err != nil {
+	if err = fsservice.PreloadFiles(templateName, localBase, s3Base, templateChart.Source, logger); err != nil {
 		logger.Errorf("Failed to download template %s, err: %s", templateName, err)
 		return nil, err
 	}

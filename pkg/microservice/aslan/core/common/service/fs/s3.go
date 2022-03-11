@@ -27,6 +27,7 @@ import (
 	s3service "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/s3"
 	"github.com/koderover/zadig/pkg/setting"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
+	"github.com/koderover/zadig/pkg/util"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
 )
 
@@ -125,13 +126,12 @@ func DownloadAndExtractFilesFromS3(name, localBase, s3Base string, logger *zap.S
 		logger.Errorf("Failed to create s3 client, err: %s", err)
 		return err
 	}
-	logger.Infof("s3Path: %s", s3Path)
+
 	if err = client.Download(s3.Bucket, s3Path, localPath); err != nil {
 		logger.Errorf("Failed to download file from s3, err: %s", err)
 		return err
 	}
-	logger.Infof("localPath: %s", localPath)
-	logger.Infof("localBase: %s", localBase)
+
 	if err = fsutil.Untar(localPath, localBase); err != nil {
 		logger.Errorf("Failed to extract tarball %s, err: %+v", localPath, err)
 		return err
@@ -164,4 +164,43 @@ func DeleteArchivedFileFromS3(names []string, s3Base string, logger *zap.Sugared
 	}
 
 	return client.DeleteObjects(s3.Bucket, s3PathList)
+}
+
+func GerritDownloadAndExtractFilesFromS3(name, localBase, s3Base string, logger *zap.SugaredLogger) error {
+	tmpDir, err := os.MkdirTemp("", "")
+	if err != nil {
+		logger.Errorf("Failed to create temp dir, err: %s", err)
+	}
+	defer os.RemoveAll(tmpDir)
+	s3, err := s3service.FindDefaultS3()
+	if err != nil {
+		logger.Errorf("Failed to find default s3, err: %s", err)
+		return err
+	}
+	tarball := fmt.Sprintf("%s.tar.gz", name)
+	localPath := filepath.Join(tmpDir, tarball)
+	s3Path := filepath.Join(s3.Subfolder, s3Base, tarball)
+
+	forcedPathStyle := true
+	if s3.Provider == setting.ProviderSourceAli {
+		forcedPathStyle = false
+	}
+
+	client, err := s3tool.NewClient(s3.Endpoint, s3.Ak, s3.Sk, s3.Insecure, forcedPathStyle)
+	if err != nil {
+		logger.Errorf("Failed to create s3 client, err: %s", err)
+		return err
+	}
+	logger.Infof("s3Path: %s", s3Path)
+	if err = client.Download(s3.Bucket, s3Path, localPath); err != nil {
+		logger.Errorf("Failed to download file from s3, err: %s", err)
+		return err
+	}
+	logger.Infof("localPath: %s", localPath)
+	logger.Infof("localBase: %s", localBase)
+	if err = util.UnTar(localPath, localBase); err != nil {
+		logger.Errorf("Failed to extract tarball %s, err: %+v", localPath, err)
+		return err
+	}
+	return nil
 }
