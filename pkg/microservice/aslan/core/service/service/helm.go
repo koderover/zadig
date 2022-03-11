@@ -665,7 +665,7 @@ func CreateOrUpdateHelmServiceFromGerrit(projectName string, args *HelmServiceCr
 			}()
 
 			// copy to latest dir and upload to s3
-			if err = commonservice.CopyAndUploadService(projectName, serviceName, currentFilePath, []string{fmt.Sprintf("%s-%d", serviceName, rev)}); err != nil {
+			if err = commonservice.CopyFiles(projectName, serviceName, currentFilePath, []string{fmt.Sprintf("%s-%d", serviceName, rev)}); err != nil {
 				log.Errorf("Failed to save or upload files for service %s in project %s, error: %s", serviceName, projectName, err)
 				finalErr = e.ErrCreateTemplate.AddErr(err)
 				return

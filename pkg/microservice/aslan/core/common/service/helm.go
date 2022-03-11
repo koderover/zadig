@@ -97,7 +97,7 @@ func SaveAndUploadService(projectName, serviceName string, copies []string, file
 	return fsservice.SaveAndUploadFiles(fileTree, names, localBase, s3Base, log.SugaredLogger())
 }
 
-func CopyAndUploadService(projectName, serviceName, currentChartPath string, copies []string) error {
+func CopyFiles(projectName, serviceName, currentChartPath string, copies []string) error {
 	localBase := config.LocalServicePath(projectName, serviceName)
 
 	return fsservice.CopyFiles(path.Join(localBase, serviceName), currentChartPath, log.SugaredLogger())
@@ -138,7 +138,7 @@ func preLoadServiceManifestsFromGerrit(svc *commonmodels.Service) error {
 		return err
 	}
 	// save files to disk and upload them to s3
-	if err := CopyAndUploadService(svc.ProductName, svc.ServiceName, svc.GerritPath, nil); err != nil {
+	if err := CopyFiles(svc.ProductName, svc.ServiceName, svc.GerritPath, nil); err != nil {
 		log.Errorf("Failed to save or upload files for service %s in project %s, error: %s", svc.ServiceName, svc.ProductName, err)
 		return err
 	}
