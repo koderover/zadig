@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -107,7 +106,7 @@ func updateServiceTemplateByCodehubPushEvent(event *codehub.PushEvent, log *zap.
 		}
 
 		for _, fileName := range fileNames {
-			if strings.Contains(fileName, path) {
+			if subElem(path, fileName) {
 				affected = true
 				break
 			}
