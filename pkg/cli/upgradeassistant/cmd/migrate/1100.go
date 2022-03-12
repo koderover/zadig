@@ -22,6 +22,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
 	internalmodels "github.com/koderover/zadig/pkg/cli/upgradeassistant/internal/repository/models"
@@ -179,13 +180,13 @@ func changePolicyCollectionName() error {
 		return err
 	}
 
-	var ois []interface{}
-	for _, obj := range res {
-		ois = append(ois, obj)
-	}
-	if _, err = newPolicyMetaColl().InsertMany(ctx, ois); err != nil {
-		log.Errorf("Failed to InsertMany policyMetas, err: %s", err)
-		return err
+	for _, v := range res {
+		query := bson.M{"resource": v.Resource}
+		opts := options.Replace().SetUpsert(true)
+		_, err := newPolicyMetaColl().ReplaceOne(context.TODO(), query, v, opts)
+		if err != nil {
+			log.Errorf("relace one err:%v ,resource:%v", err, v.Resource)
+		}
 	}
 	//delete collection
 	return newPolicyColl().Drop(ctx)
