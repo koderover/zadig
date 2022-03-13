@@ -95,6 +95,7 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 	}
 
 	router.GET("/api/apidocs/*any", ginswagger.WrapHandler(swaggerfiles.Handler))
+	router.GET("/healthz", commonhandler.HandleCallback)
 }
 
 type injector interface {

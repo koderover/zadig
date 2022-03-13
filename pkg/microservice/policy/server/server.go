@@ -32,6 +32,10 @@ func Serve(ctx context.Context) error {
 
 	log.Info("Start policy service")
 
+	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("success"))
+	})
+
 	engine := rest.NewEngine()
 	server := &http.Server{Addr: ":80", Handler: engine}
 

@@ -39,6 +39,9 @@ func Serve(ctx context.Context) error {
 	log.Infof("App podexec Started at %s", time.Now())
 
 	router := mux.NewRouter()
+	router.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("success"))
+	})
 	router.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]string{"message": "success"})
 	})

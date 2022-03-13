@@ -37,6 +37,8 @@ func Serve(ctx context.Context) error {
 
 	log.Info("Start adaptor service")
 
+	http.HandleFunc("/healthz", healthz)
+
 	engine := rest.NewEngine()
 	server := &http.Server{Addr: ":80", Handler: engine}
 
@@ -62,4 +64,8 @@ func Serve(ctx context.Context) error {
 	<-stopChan
 
 	return nil
+}
+
+func healthz(w http.ResponseWriter, r *http.Request) {
+	_, _ = w.Write([]byte("success"))
 }

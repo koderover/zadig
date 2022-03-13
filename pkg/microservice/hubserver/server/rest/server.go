@@ -43,6 +43,9 @@ func (s *engine) injectRouters(handler *remotedialer.Server) {
 	r := s.Router
 
 	r.Handle("/connect", handler)
+	r.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("success"))
+	})
 
 	r.HandleFunc("/disconnect/{id}", func(rw http.ResponseWriter, req *http.Request) {
 		h.Disconnect(handler, rw, req)

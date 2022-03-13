@@ -40,6 +40,9 @@ func Serve(ctx context.Context) error {
 	cronClient.Init()
 
 	http.HandleFunc("/ping", ping)
+	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("success"))
+	})
 	server := &http.Server{Addr: ":8091", Handler: nil}
 
 	stopChan := make(chan struct{})
