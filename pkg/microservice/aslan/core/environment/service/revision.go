@@ -298,8 +298,9 @@ func compareServicesRev(serviceTmplNames []string, services []*commonmodels.Prod
 
 				for _, container := range maxServiceTmpl.Containers {
 					c := &commonmodels.Container{
-						Image: container.Image,
-						Name:  container.Name,
+						Image:     container.Image,
+						Name:      container.Name,
+						ImageName: container.ImageName,
 					}
 
 					// reuse existed container image
