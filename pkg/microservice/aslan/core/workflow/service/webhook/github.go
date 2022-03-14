@@ -568,7 +568,7 @@ func updateServiceTemplateByGithubPush(pushEvent *github.PushEvent, log *zap.Sug
 		// 判断PushEvent的Diffs中是否包含该服务模板的src_path
 		affected := false
 		for _, changeFile := range changeFiles {
-			if strings.Contains(changeFile, path) {
+			if subElem(path, changeFile) {
 				affected = true
 				break
 			}

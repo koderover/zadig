@@ -20,7 +20,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -192,12 +194,12 @@ func syncLatestCommit(service *commonmodels.Service) error {
 		return fmt.Errorf("url不能是空的")
 	}
 
-	address, owner, repo, branch, path, _, err := GetOwnerRepoBranchPath(service.SrcPath)
+	_, owner, repo, branch, path, _, err := GetOwnerRepoBranchPath(service.SrcPath)
 	if err != nil {
 		return fmt.Errorf("url 必须包含 owner/repo/tree/branch/path，具体请参考 Placeholder 提示")
 	}
 
-	client, err := getGitlabClientByAddress(address)
+	client, err := getGitlabClientByCodehostId(service.CodehostID)
 	if err != nil {
 		return err
 	}
@@ -261,6 +263,21 @@ func getCodehubClientByAddress(address string) (*codehub.Client, error) {
 		return nil, e.ErrCodehostListProjects.AddDesc("git client is nil")
 	}
 	client := codehub.NewClient(codehost.AccessKey, codehost.SecretKey, codehost.Region, config.ProxyHTTPSAddr(), codehost.EnableProxy)
+
+	return client, nil
+}
+
+func getGitlabClientByCodehostId(codehostId int) (*gitlabtool.Client, error) {
+	codehost, err := systemconfig.New().GetCodeHost(codehostId)
+	if err != nil {
+		log.Error(err)
+		return nil, e.ErrCodehostListProjects.AddDesc(fmt.Sprintf("failed to get codehost:%d, err: %s", codehost, err))
+	}
+	client, err := gitlabtool.NewClient(codehost.Address, codehost.AccessToken, config.ProxyHTTPSAddr(), codehost.EnableProxy)
+	if err != nil {
+		log.Error(err)
+		return nil, e.ErrCodehostListProjects.AddDesc(err.Error())
+	}
 
 	return client, nil
 }
@@ -350,12 +367,12 @@ func syncContentFromGitlab(userName string, args *commonmodels.Service) error {
 		return nil
 	}
 
-	address, owner, repo, branch, path, pathType, err := GetOwnerRepoBranchPath(args.SrcPath)
+	_, owner, repo, branch, path, pathType, err := GetOwnerRepoBranchPath(args.SrcPath)
 	if err != nil {
 		return fmt.Errorf("url format failed")
 	}
 
-	client, err := getGitlabClientByAddress(address)
+	client, err := getGitlabClientByCodehostId(args.CodehostID)
 	if err != nil {
 		return err
 	}
@@ -704,4 +721,20 @@ func getServiceSrcPath(service *commonmodels.Service) (string, error) {
 	}
 	_, _, _, _, p, _, err := GetOwnerRepoBranchPath(service.SrcPath)
 	return p, err
+}
+
+// check if sub path is a part of parent path
+// eg: parent: k1/k2   sub: k1/k2/k3  return true
+// parent k1/k2-2  sub: k1/k2/k3 return false
+func subElem(parent, sub string) bool {
+	up := ".." + string(os.PathSeparator)
+	rel, err := filepath.Rel(parent, sub)
+	if err != nil {
+		log.Errorf("failed to check path is relative, parent: %s, sub: %s", parent, sub)
+		return false
+	}
+	if !strings.HasPrefix(rel, up) && rel != ".." {
+		return true
+	}
+	return false
 }
