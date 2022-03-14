@@ -271,7 +271,7 @@ func getGitlabClientByCodehostId(codehostId int) (*gitlabtool.Client, error) {
 	codehost, err := systemconfig.New().GetCodeHost(codehostId)
 	if err != nil {
 		log.Error(err)
-		return nil, e.ErrCodehostListProjects.AddDesc("git client is nil")
+		return nil, e.ErrCodehostListProjects.AddDesc(fmt.Sprintf("failed to get codehost:%d, err: %s", codehost, err))
 	}
 	client, err := gitlabtool.NewClient(codehost.Address, codehost.AccessToken, config.ProxyHTTPSAddr(), codehost.EnableProxy)
 	if err != nil {
@@ -724,10 +724,13 @@ func getServiceSrcPath(service *commonmodels.Service) (string, error) {
 }
 
 // check if sub path is a part of parent path
+// eg: parent: k1/k2   sub: k1/k2/k3  return true
+// parent k1/k2-2  sub: k1/k2/k3 return false
 func subElem(parent, sub string) bool {
 	up := ".." + string(os.PathSeparator)
 	rel, err := filepath.Rel(parent, sub)
 	if err != nil {
+		log.Errorf("failed to check path is relative, parent: %s, sub: %s", parent, sub)
 		return false
 	}
 	if !strings.HasPrefix(rel, up) && rel != ".." {
