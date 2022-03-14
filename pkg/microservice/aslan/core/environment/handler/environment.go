@@ -41,8 +41,14 @@ import (
 )
 
 type UpdateEnvs struct {
-	EnvNames   []string `json:"env_names"`
-	UpdateType string   `json:"update_type"`
+	EnvNames     []string             `json:"env_names"`
+	ServiceNames []string             `json:"service_names"`
+	UpdateType   string               `json:"update_type"`
+	Vars         []*template.RenderKV `json:"vars,omitempty"`
+}
+
+type DeleteProductServicesRequest struct {
+	ServiceNames []string `json:"service_names"`
 }
 
 type ChartInfoArgs struct {
@@ -114,7 +120,7 @@ func UpdateMultiProducts(c *gin.Context) {
 	}
 
 	force, _ := strconv.ParseBool(c.Query("force"))
-	ctx.Resp, ctx.Err = service.AutoUpdateProduct(args.EnvNames, c.Query("projectName"), ctx.RequestID, force, ctx.Logger)
+	ctx.Resp, ctx.Err = service.AutoUpdateProduct(args.EnvNames, args.ServiceNames, c.Query("projectName"), ctx.RequestID, force, args.Vars, ctx.Logger)
 }
 
 func createHelmProduct(c *gin.Context, ctx *internalhandler.Context) {
@@ -269,7 +275,7 @@ func UpdateProduct(c *gin.Context) {
 
 	force, _ := strconv.ParseBool(c.Query("force"))
 	// update product asynchronously
-	ctx.Err = service.UpdateProductV2(envName, projectName, ctx.UserName, ctx.RequestID, force, args.Vars, ctx.Logger)
+	ctx.Err = service.UpdateProductV2(envName, projectName, ctx.UserName, ctx.RequestID, []string{}, force, args.Vars, ctx.Logger)
 	if ctx.Err != nil {
 		ctx.Logger.Errorf("failed to update product %s %s: %v", envName, projectName, ctx.Err)
 	}
@@ -488,6 +494,24 @@ func DeleteProduct(c *gin.Context) {
 	projectName := c.Query("projectName")
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "删除", "环境", envName, "", ctx.Logger)
 	ctx.Err = commonservice.DeleteProduct(ctx.UserName, envName, projectName, ctx.RequestID, ctx.Logger)
+}
+
+func DeleteProductServices(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	args := new(DeleteProductServicesRequest)
+	data, err := c.GetRawData()
+	if err != nil {
+		log.Errorf("DeleteProductServices c.GetRawData() err : %v", err)
+	}
+	if err = json.Unmarshal(data, args); err != nil {
+		log.Errorf("DeleteProductServices json.Unmarshal err : %v", err)
+	}
+	projectName := c.Query("projectName")
+	envName := c.Param("name")
+	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "删除", "环境的服务", envName, "", ctx.Logger)
+	ctx.Err = service.DeleteProductServices(envName, projectName, args.ServiceNames, ctx.Logger)
 }
 
 func ListGroups(c *gin.Context) {
