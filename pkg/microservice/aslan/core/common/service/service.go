@@ -758,6 +758,7 @@ func GetPresetRules() []*templatemodels.ImageSearchingRule {
 
 type Variable struct {
 	SERVICE        string
+	IMAGE_NAME     string
 	TIMESTAMP      string
 	TASK_ID        string
 	REPO_COMMIT_ID string
