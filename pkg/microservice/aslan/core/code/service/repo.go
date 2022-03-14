@@ -25,6 +25,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client/open"
 )
 
 type RepoInfoList struct {
@@ -48,17 +49,23 @@ type GitRepoInfo struct {
 
 // ListRepoInfos ...
 func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo, error) {
-	var err error
 	var wg sync.WaitGroup
 	var errList *multierror.Error
 
 	for _, info := range infos {
+		codehostClient, err := open.OpenClient(info.CodehostID, log)
+		if err != nil {
+			return nil, err
+		}
 		wg.Add(1)
 		go func(info *GitRepoInfo) {
 			defer func() {
 				wg.Done()
 			}()
-			info.PRs, err = CodeHostListPRs(info.CodehostID, info.Repo, strings.Replace(info.Owner, "%2F", "/", -1), "", "", 0, 0, log)
+			info.PRs, err = codehostClient.ListPrs(client.ListOpt{
+				Namespace:   strings.Replace(info.Owner, "%2F", "/", -1),
+				ProjectName: info.Repo,
+			})
 			if err != nil {
 				errList = multierror.Append(errList, err)
 				info.ErrorMsg = err.Error()
@@ -76,7 +83,11 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 			if info.Source == CodeHostCodeHub {
 				projectName = info.RepoUUID
 			}
-			info.Branches, err = CodeHostListBranches(info.CodehostID, projectName, strings.Replace(info.Owner, "%2F", "/", -1), "", 0, 0, log)
+
+			info.Branches, err = codehostClient.ListBranches(client.ListOpt{
+				Namespace:   strings.Replace(info.Owner, "%2F", "/", -1),
+				ProjectName: projectName,
+			})
 			if err != nil {
 				errList = multierror.Append(errList, err)
 				info.ErrorMsg = err.Error()
@@ -95,7 +106,11 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 			if info.Source == CodeHostCodeHub {
 				projectName = info.RepoID
 			}
-			info.Tags, err = CodeHostListTags(info.CodehostID, projectName, strings.Replace(info.Owner, "%2F", "/", -1), "", 0, 0, log)
+
+			info.Tags, err = codehostClient.ListTags(client.ListOpt{
+				Namespace:   strings.Replace(info.Owner, "%2F", "/", -1),
+				ProjectName: projectName,
+			})
 			if err != nil {
 				errList = multierror.Append(errList, err)
 				info.ErrorMsg = err.Error()
