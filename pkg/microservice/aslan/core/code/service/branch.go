@@ -23,7 +23,6 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	git "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/github"
-	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/codehub"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
@@ -31,10 +30,6 @@ import (
 )
 
 func CodeHostListBranches(codeHostID int, projectName, namespace, key string, page, perPage int, log *zap.SugaredLogger) ([]*Branch, error) {
-	ch, err := systemconfig.New().GetCodeHost(codeHostID)
-	if err != nil {
-		return nil, e.ErrCodehostListBranches.AddDesc("git client is nil")
-	}
 
 	if ch.Type == codeHostGitlab {
 		client, err := gitlab.NewClient(ch.Address, ch.AccessToken, config.ProxyHTTPSAddr(), ch.EnableProxy)
