@@ -239,8 +239,9 @@ func compareServicesRev(serviceTmplNames []string, services []*commonmodels.Prod
 					serviceRev.Containers = make([]*commonmodels.Container, 0)
 					for _, container := range serviceTmpl.Containers {
 						serviceRev.Containers = append(serviceRev.Containers, &commonmodels.Container{
-							Image: container.Image,
-							Name:  container.Name,
+							Image:     container.Image,
+							Name:      container.Name,
+							ImageName: container.ImageName,
 						})
 					}
 				}
