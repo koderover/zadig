@@ -370,6 +370,7 @@ type DeployEnv struct {
 
 type ArtifactArgs struct {
 	Name         string      `bson:"name"                                json:"name"`
+	ImageName    string      `bson:"image_name,omitempty"                json:"image_name,omitempty"`
 	ServiceName  string      `bson:"service_name"                        json:"service_name"`
 	Image        string      `bson:"image,omitempty"                     json:"image,omitempty"`
 	Deploy       []DeployEnv `bson:"deploy"                              json:"deploy"`
