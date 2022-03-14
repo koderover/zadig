@@ -21,16 +21,10 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client/open"
-	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
-	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 func CodeHostListBranches(codeHostID int, projectName, namespace, key string, page, perPage int, log *zap.SugaredLogger) ([]*client.Branch, error) {
-	ch, err := systemconfig.New().GetCodeHost(codeHostID)
-	if err != nil {
-		return nil, e.ErrCodehostListBranches.AddDesc("git client is nil")
-	}
-	client, err := open.OpenClient(ch.Type, codeHostID, log)
+	client, err := open.OpenClient(codeHostID, log)
 	if err != nil {
 		return nil, err
 	}

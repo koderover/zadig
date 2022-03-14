@@ -5,23 +5,31 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client"
-	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	"github.com/koderover/zadig/pkg/tool/codehub"
-	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
-type Config struct{}
+type Config struct {
+	ID          int    `json:"id"`
+	Address     string `json:"address"`
+	Type        string `json:"type"`
+	AccessToken string `json:"access_token"`
+	Namespace   string `json:"namespace"`
+	Region      string `json:"region"`
+	// the field and tag not consistent because of db field
+	AccessKey string `json:"application_id"`
+	SecretKey string `json:"client_secret"`
+	Username  string `json:"username"`
+	Password  string `json:"password"`
+	// the field determine whether the proxy is enabled
+	EnableProxy bool `json:"enable_proxy"`
+}
 
 type Client struct {
 	Client *codehub.CodeHubClient
 }
 
 func (c *Config) Open(id int, logger *zap.SugaredLogger) (client.CodeHostClient, error) {
-	ch, err := systemconfig.New().GetCodeHost(id)
-	if err != nil {
-		return nil, e.ErrCodehostListBranches.AddDesc("git client is nil")
-	}
-	codehubClient := codehub.NewCodeHubClient(ch.AccessKey, ch.SecretKey, ch.Region, config.ProxyHTTPSAddr(), ch.EnableProxy)
+	codehubClient := codehub.NewCodeHubClient(c.AccessKey, c.SecretKey, c.Region, config.ProxyHTTPSAddr(), c.EnableProxy)
 	return &Client{Client: codehubClient}, nil
 }
 
@@ -41,6 +49,22 @@ func (c *Client) ListBranches(namespace, projectName, key string, page, perPage 
 	return res, nil
 }
 
-func (c *Client) ListTags() ([]*client.Tag, error) {
+func (c *Client) ListTags(namespace, projectName, key string, page, perPage int) ([]*client.Tag, error) {
+	tags, err := c.Client.TagList(projectName)
+	if err != nil {
+		return nil, err
+	}
+
+	var res []*client.Tag
+	for _, o := range tags {
+		res = append(res, &client.Tag{
+			Name: o.Name,
+		})
+	}
+
+	return res, nil
+}
+
+func (c *Client) ListPrs(namespace, projectName, key, targeBr string, page, perPage int) ([]*client.PullRequest, error) {
 	return nil, nil
 }

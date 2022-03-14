@@ -32,18 +32,18 @@ type RepoInfoList struct {
 }
 
 type GitRepoInfo struct {
-	Owner         string           `json:"repo_owner"`
-	Repo          string           `json:"repo"`
-	CodehostID    int              `json:"codehost_id"`
-	Source        string           `json:"source"`
-	DefaultBranch string           `json:"default_branch"`
-	ErrorMsg      string           `json:"error_msg"` // repo信息是否拉取成功
-	Branches      []*client.Branch `json:"branches"`
-	Tags          []*Tag           `json:"tags"`
-	PRs           []*PullRequest   `json:"prs"`
-	ProjectUUID   string           `json:"project_uuid,omitempty"`
-	RepoUUID      string           `json:"repo_uuid,omitempty"`
-	RepoID        string           `json:"repo_id,omitempty"`
+	Owner         string                `json:"repo_owner"`
+	Repo          string                `json:"repo"`
+	CodehostID    int                   `json:"codehost_id"`
+	Source        string                `json:"source"`
+	DefaultBranch string                `json:"default_branch"`
+	ErrorMsg      string                `json:"error_msg"` // repo信息是否拉取成功
+	Branches      []*client.Branch      `json:"branches"`
+	Tags          []*client.Tag         `json:"tags"`
+	PRs           []*client.PullRequest `json:"prs"`
+	ProjectUUID   string                `json:"project_uuid,omitempty"`
+	RepoUUID      string                `json:"repo_uuid,omitempty"`
+	RepoID        string                `json:"repo_id,omitempty"`
 }
 
 // ListRepoInfos ...
@@ -62,7 +62,7 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 			if err != nil {
 				errList = multierror.Append(errList, err)
 				info.ErrorMsg = err.Error()
-				info.PRs = []*PullRequest{}
+				info.PRs = []*client.PullRequest{}
 				return
 			}
 		}(info)
@@ -99,7 +99,7 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 			if err != nil {
 				errList = multierror.Append(errList, err)
 				info.ErrorMsg = err.Error()
-				info.Tags = []*Tag{}
+				info.Tags = []*client.Tag{}
 				return
 			}
 		}(info)
