@@ -334,6 +334,7 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 			for _, ingress := range ingresses {
 				hostInfos = append(hostInfos, wrapper.GetIngressHostInfo(ingress)...)
 			}
+		} else {
 			log.Warnf("Failed to list ingresses, the error is: %s", err)
 		}
 	}
