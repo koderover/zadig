@@ -38,7 +38,7 @@ type GitRepoInfo struct {
 	CodehostID    int                   `json:"codehost_id"`
 	Source        string                `json:"source"`
 	DefaultBranch string                `json:"default_branch"`
-	ErrorMsg      string                `json:"error_msg"` // repo信息是否拉取成功
+	ErrorMsg      string                `json:"error_msg"` // get repo message fail message
 	Branches      []*client.Branch      `json:"branches"`
 	Tags          []*client.Tag         `json:"tags"`
 	PRs           []*client.PullRequest `json:"prs"`
