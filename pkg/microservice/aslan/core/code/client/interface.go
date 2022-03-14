@@ -15,9 +15,6 @@ type ListOpt struct {
 	TargeBr     string
 }
 
-type TagOpt struct {
-}
-
 type Branch struct {
 	Name      string `json:"name"`
 	Protected bool   `json:"protected"`
