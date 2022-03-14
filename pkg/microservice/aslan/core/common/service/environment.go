@@ -314,13 +314,28 @@ func ListWorkloads(envName, clusterID, namespace, productName string, perPage, p
 	}
 
 	hostInfos := make([]resource.HostInfo, 0)
-	ingresses, err := getter.ListIngresses(nil, informer)
-	if err == nil {
-		for _, ingress := range ingresses {
-			hostInfos = append(hostInfos, wrapper.Ingress(ingress).HostInfo()...)
+	version, err := cls.Discovery().ServerVersion()
+	if err != nil {
+		log.Errorf("Failed to get server version info for cluster: %s, the error is: %s", clusterID, err)
+		return 0, nil, err
+	}
+	if kubeclient.VersionLessThan122(version) {
+		ingresses, err := getter.ListExtensionsV1Beta1Ingresses(nil, informer)
+		if err == nil {
+			for _, ingress := range ingresses {
+				hostInfos = append(hostInfos, wrapper.Ingress(ingress).HostInfo()...)
+			}
+		} else {
+			log.Warnf("Failed to list ingresses, the error is: %s", err)
 		}
 	} else {
-		log.Warnf("Failed to list ingresses, the error is: %s", err)
+		ingresses, err := getter.ListNetworkingV1Ingress(nil, informer)
+		if err == nil {
+			for _, ingress := range ingresses {
+				hostInfos = append(hostInfos, wrapper.GetIngressHostInfo(ingress)...)
+			}
+			log.Warnf("Failed to list ingresses, the error is: %s", err)
+		}
 	}
 
 	// get all services
