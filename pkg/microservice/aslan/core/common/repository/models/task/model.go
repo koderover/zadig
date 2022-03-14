@@ -170,4 +170,5 @@ type TaskOpt struct {
 	ServiceName    string          `json:"service_name"`
 	ServiceInfos   *[]*ServiceInfo `json:"service_infos"`
 	IsWorkflowTask bool            `json:"is_workflow_task"`
+	ImageName      string          `json:"image_name"`
 }
