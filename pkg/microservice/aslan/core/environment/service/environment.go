@@ -491,14 +491,14 @@ func UpdateProduct(existedProd, updateProd *commonmodels.Product, renderSet *com
 			log.Infof("[%s][P:%s][S:%s] start to delete service", envName, productName, serviceRev.ServiceName)
 			//根据namespace: EnvName, selector: productName + serviceName来删除属于该服务的所有资源
 			selector := labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceRev.ServiceName}.AsSelector()
-			err = commonservice.DeleteResourcesAsync(namespace, selector, kubeClient, log)
+			err = commonservice.DeleteNamespacedResource(namespace, selector, existedProd.ClusterID, log)
 			if err != nil {
 				//删除失败仅记录失败日志
 				log.Errorf("delete resource of service %s error:%v", serviceRev.ServiceName, err)
 			}
 
 			clusterSelector := labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceRev.ServiceName, setting.EnvNameLabel: envName}.AsSelector()
-			err = commonservice.DeleteClusterResourceAsync(clusterSelector, kubeClient, log)
+			err = commonservice.DeleteClusterResource(clusterSelector, existedProd.ClusterID, log)
 			if err != nil {
 				//删除失败仅记录失败日志
 				log.Errorf("delete cluster resource of service %s error:%v", serviceRev.ServiceName, err)
@@ -1883,12 +1883,9 @@ func upsertService(isUpdate bool, env *commonmodels.Product,
 		switch u.GetKind() {
 		case setting.Ingress:
 			ls := kube.MergeLabels(labels, u.GetLabels())
-			as := applySystemIngressTimeouts(u.GetAnnotations())
-			as = applySystemIngressClass(as)
 
 			u.SetNamespace(namespace)
 			u.SetLabels(ls)
-			u.SetAnnotations(as)
 
 			err = updater.CreateOrPatchUnstructured(u, kubeClient)
 			if err != nil {
@@ -1922,7 +1919,6 @@ func upsertService(isUpdate bool, env *commonmodels.Product,
 			needSelectorLabel := false
 
 			u.SetNamespace(namespace)
-			u.SetAPIVersion(setting.APIVersionAppsV1)
 			u.SetLabels(kube.MergeLabels(labels, u.GetLabels()))
 
 			switch u.GetKind() {
