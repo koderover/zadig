@@ -46,6 +46,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
@@ -296,7 +298,14 @@ func AutoCreateProduct(productName, envType, requestID string, log *zap.SugaredL
 
 var mutexAutoUpdate sync.RWMutex
 
-func AutoUpdateProduct(envNames, serviceNames []string, productName, requestID string, force bool, kvs []*templatemodels.RenderKV, log *zap.SugaredLogger) ([]*EnvStatus, error) {
+type UpdateEnv struct {
+	EnvName      string               `json:"env_name"`
+	ServiceNames []string             `json:"service_names"`
+	UpdateType   string               `json:"update_type,omitempty"`
+	Vars         []*template.RenderKV `json:"vars,omitempty"`
+}
+
+func AutoUpdateProduct(args []*UpdateEnv, envNames []string, productName, requestID string, force bool, log *zap.SugaredLogger) ([]*EnvStatus, error) {
 	mutexAutoUpdate.Lock()
 	defer func() {
 		mutexAutoUpdate.Unlock()
@@ -353,8 +362,8 @@ func AutoUpdateProduct(envNames, serviceNames []string, productName, requestID s
 		}
 	}
 
-	for envName := range productMap {
-		err = UpdateProductV2(envName, productName, setting.SystemUser, requestID, serviceNames, false, kvs, log)
+	for _, arg := range args {
+		err = UpdateProductV2(arg.EnvName, productName, setting.SystemUser, requestID, arg.ServiceNames, false, arg.Vars, log)
 		if err != nil {
 			log.Errorf("AutoUpdateProduct UpdateProductV2 err:%v", err)
 			return envStatuses, err

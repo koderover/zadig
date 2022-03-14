@@ -183,10 +183,10 @@ func ValidateRenderSet(productName, renderName string, serviceInfo *templatemode
 		return resp, fmt.Errorf("renderset[%s] not match product[%s]", renderName, productName)
 	}
 	if serviceInfo == nil {
-		if err := IsAllKeyCovered(resp, log); err != nil {
-			log.Errorf("[%s]cover all key [%s] error: %v", productName, renderName, err)
-			return resp, err
-		}
+		//if err := IsAllKeyCovered(resp, log); err != nil {
+		//	log.Errorf("[%s]cover all key [%s] error: %v", productName, renderName, err)
+		//	return resp, err
+		//}
 	} else {
 		//  单个服务是否全覆盖判断
 		if err := IsAllKeyCoveredService(serviceInfo.Owner, serviceInfo.Name, resp, log); err != nil {
@@ -532,10 +532,10 @@ func ensureRenderSetArgs(args *commonmodels.RenderSet) error {
 	if len(args.Name) == 0 {
 		return errors.New("empty render set name")
 	}
-	log := log.SugaredLogger()
-	if err := IsAllKeyCovered(args, log); err != nil {
-		return fmt.Errorf("[RenderSet.Create] %s error: %v", args.Name, err)
-	}
+	//log := log.SugaredLogger()
+	//if err := IsAllKeyCovered(args, log); err != nil {
+	//	return fmt.Errorf("[RenderSet.Create] %s error: %v", args.Name, err)
+	//}
 
 	// 设置新的版本号
 	rev, err := commonrepo.NewCounterColl().GetNextSeq("renderset:" + args.Name)
