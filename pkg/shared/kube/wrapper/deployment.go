@@ -17,13 +17,12 @@ limitations under the License.
 package wrapper
 
 import (
-	"strings"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/kube/resource"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 // deployment is the wrapper for appsv1.Deployment type.
@@ -59,7 +58,7 @@ func (w *deployment) WorkloadResource(pods []*corev1.Pod) *resource.Workload {
 	}
 
 	for _, c := range w.Spec.Template.Spec.Containers {
-		wl.Images = append(wl.Images, resource.ContainerImage{Name: c.Name, Image: c.Image, ImageName: getImageName(c.Image)})
+		wl.Images = append(wl.Images, resource.ContainerImage{Name: c.Name, Image: c.Image, ImageName: util.GetImageName(c.Image)})
 	}
 
 	for _, p := range pods {
@@ -93,14 +92,4 @@ func (w *deployment) GetContainers() []*resource.ContainerImage {
 		containers = append(containers, &resource.ContainerImage{Name: c.Name, Image: c.Image})
 	}
 	return containers
-}
-
-func getImageName(image string) string {
-	imageNameStr := ""
-	imageArr := strings.Split(image, ":")
-	if len(imageArr) > 0 {
-		imageNameArr := strings.Split(imageArr[0], "/")
-		imageNameStr = imageNameArr[len(imageNameArr)-1]
-	}
-	return imageNameStr
 }

@@ -1316,7 +1316,7 @@ func getContainers(data string) ([]*commonmodels.Container, error) {
 		container := &commonmodels.Container{
 			Name:      nameStr,
 			Image:     imageStr,
-			ImageName: getImageName(imageStr),
+			ImageName: util.GetImageName(imageStr),
 		}
 
 		containers = append(containers, container)
@@ -1356,23 +1356,13 @@ func getCronJobContainers(data string) ([]*commonmodels.Container, error) {
 		container := &commonmodels.Container{
 			Name:      nameStr,
 			Image:     imageStr,
-			ImageName: getImageName(imageStr),
+			ImageName: util.GetImageName(imageStr),
 		}
 
 		containers = append(containers, container)
 	}
 
 	return containers, nil
-}
-
-func getImageName(image string) string {
-	imageNameStr := ""
-	imageArr := strings.Split(image, ":")
-	if len(imageArr) > 0 {
-		imageNameArr := strings.Split(imageArr[0], "/")
-		imageNameStr = imageNameArr[len(imageNameArr)-1]
-	}
-	return imageNameStr
 }
 
 func updateGerritWebhookByService(lastService, currentService *commonmodels.Service) error {

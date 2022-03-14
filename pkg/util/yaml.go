@@ -42,3 +42,13 @@ func SplitManifests(content string) []string {
 
 	return res
 }
+
+func GetImageName(image string) string {
+	imageNameStr := ""
+	imageArr := strings.Split(image, ":")
+	if len(imageArr) > 0 {
+		imageNameArr := strings.Split(imageArr[0], "/")
+		imageNameStr = imageNameArr[len(imageNameArr)-1]
+	}
+	return imageNameStr
+}
