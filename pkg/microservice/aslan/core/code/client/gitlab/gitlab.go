@@ -37,10 +37,10 @@ func (c *Config) Open(id int, logger *zap.SugaredLogger) (client.CodeHostClient,
 	return &Client{Client: client}, nil
 }
 
-func (c *Client) ListBranches(namespace, projectName, key string, page, perPage int) ([]*client.Branch, error) {
-	bList, err := c.Client.ListBranches(namespace, projectName, key, &gitlab.ListOptions{
-		Page:        page,
-		PerPage:     perPage,
+func (c *Client) ListBranches(opt client.ListOpt) ([]*client.Branch, error) {
+	bList, err := c.Client.ListBranches(opt.Namespace, opt.ProjectName, opt.Key, &gitlab.ListOptions{
+		Page:        opt.Page,
+		PerPage:     opt.PerPage,
 		NoPaginated: true,
 	})
 	if err != nil {
@@ -57,12 +57,12 @@ func (c *Client) ListBranches(namespace, projectName, key string, page, perPage 
 	return res, nil
 }
 
-func (c *Client) ListTags(namespace, projectName, key string, page, perPage int) ([]*client.Tag, error) {
-	tags, err := c.Client.ListTags(namespace, projectName, &gitlab.ListOptions{
-		Page:        page,
-		PerPage:     perPage,
+func (c *Client) ListTags(opt client.ListOpt) ([]*client.Tag, error) {
+	tags, err := c.Client.ListTags(opt.Namespace, opt.ProjectName, &gitlab.ListOptions{
+		Page:        opt.Page,
+		PerPage:     opt.PerPage,
 		NoPaginated: true,
-	}, key)
+	}, opt.Key)
 	if err != nil {
 		return nil, err
 	}
@@ -76,10 +76,10 @@ func (c *Client) ListTags(namespace, projectName, key string, page, perPage int)
 	return res, nil
 }
 
-func (c *Client) ListPrs(namespace, projectName, key, targeBr string, page, perPage int) ([]*client.PullRequest, error) {
-	prs, err := c.Client.ListOpenedProjectMergeRequests(namespace, projectName, targeBr, key, &gitlab.ListOptions{
-		Page:        page,
-		PerPage:     perPage,
+func (c *Client) ListPrs(opt client.ListOpt) ([]*client.PullRequest, error) {
+	prs, err := c.Client.ListOpenedProjectMergeRequests(opt.Namespace, opt.ProjectName, opt.TargeBr, opt.Key, &gitlab.ListOptions{
+		Page:        opt.Page,
+		PerPage:     opt.PerPage,
 		NoPaginated: true,
 	})
 	if err != nil {

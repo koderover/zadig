@@ -44,8 +44,8 @@ func (c *Config) Open(id int, logger *zap.SugaredLogger) (client.CodeHostClient,
 	}, nil
 }
 
-func (c *Client) ListBranches(namespace, projectName, key string, page, perPage int) ([]*client.Branch, error) {
-	bList, err := c.Client.ListBranches(context.TODO(), namespace, projectName, nil)
+func (c *Client) ListBranches(opt client.ListOpt) ([]*client.Branch, error) {
+	bList, err := c.Client.ListBranches(context.TODO(), opt.Namespace, opt.ProjectName, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -59,9 +59,9 @@ func (c *Client) ListBranches(namespace, projectName, key string, page, perPage 
 	return res, nil
 }
 
-func (c *Client) ListTags(namespace, projectName, key string, page, perPage int) ([]*client.Tag, error) {
+func (c *Client) ListTags(opt client.ListOpt) ([]*client.Tag, error) {
 
-	tags, err := c.Client.ListTags(context.TODO(), namespace, projectName, nil)
+	tags, err := c.Client.ListTags(context.TODO(), opt.Namespace, opt.ProjectName, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -76,8 +76,8 @@ func (c *Client) ListTags(namespace, projectName, key string, page, perPage int)
 	return res, nil
 }
 
-func (c *Client) ListPrs(namespace, projectName, key, targeBr string, page, perPage int) ([]*client.PullRequest, error) {
-	prs, err := c.Client.ListPullRequests(context.TODO(), namespace, projectName, &github2.PullRequestListOptions{
+func (c *Client) ListPrs(opt client.ListOpt) ([]*client.PullRequest, error) {
+	prs, err := c.Client.ListPullRequests(context.TODO(), opt.Namespace, opt.ProjectName, &github2.PullRequestListOptions{
 		ListOptions: github2.ListOptions{PerPage: 100},
 	})
 	if err != nil {

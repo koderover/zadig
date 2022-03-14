@@ -1,9 +1,21 @@
 package client
 
 type CodeHostClient interface {
-	ListBranches(namespace, projectName, key string, page, perPage int) ([]*Branch, error)
-	ListTags(namespace, projectName, key string, page, perPage int) ([]*Tag, error)
-	ListPrs(namespace, projectName, key, targeBr string, page, perPage int) ([]*PullRequest, error)
+	ListBranches(opt ListOpt) ([]*Branch, error)
+	ListTags(opt ListOpt) ([]*Tag, error)
+	ListPrs(opt ListOpt) ([]*PullRequest, error)
+}
+
+type ListOpt struct {
+	Namespace   string
+	ProjectName string
+	Key         string
+	Page        int
+	PerPage     int
+	TargeBr     string
+}
+
+type TagOpt struct {
 }
 
 type Branch struct {

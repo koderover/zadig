@@ -24,9 +24,16 @@ import (
 )
 
 func CodeHostListPRs(codeHostID int, projectName, namespace, targetBr string, key string, page, perPage int, log *zap.SugaredLogger) ([]*client.PullRequest, error) {
-	client, err := open.OpenClient(codeHostID, log)
+	codehostClient, err := open.OpenClient(codeHostID, log)
 	if err != nil {
 		return nil, err
 	}
-	return client.ListPrs(namespace, projectName, key, targetBr, page, perPage)
+	return codehostClient.ListPrs(client.ListOpt{
+		Namespace:   namespace,
+		ProjectName: projectName,
+		Key:         key,
+		Page:        page,
+		PerPage:     perPage,
+		TargeBr:     targetBr,
+	})
 }

@@ -24,9 +24,9 @@ import (
 )
 
 func CodeHostListBranches(codeHostID int, projectName, namespace, key string, page, perPage int, log *zap.SugaredLogger) ([]*client.Branch, error) {
-	client, err := open.OpenClient(codeHostID, log)
+	codehostClient, err := open.OpenClient(codeHostID, log)
 	if err != nil {
 		return nil, err
 	}
-	return client.ListBranches(namespace, projectName, key, page, perPage)
+	return codehostClient.ListBranches(client.ListOpt{Namespace: namespace, ProjectName: projectName, Key: key, Page: page, PerPage: perPage})
 }

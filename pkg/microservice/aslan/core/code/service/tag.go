@@ -32,9 +32,15 @@ func CodeHostListTags(codeHostID int, projectName string, namespace string, key 
 		return nil, e.ErrCodehostListTags.AddDesc("git client is nil")
 	}
 
-	client, err := open.OpenClient(ch.ID, log)
+	codehostClient, err := open.OpenClient(ch.ID, log)
 	if err != nil {
 		return nil, err
 	}
-	return client.ListTags(namespace, projectName, key, page, perPage)
+	return codehostClient.ListTags(client.ListOpt{
+		Namespace:   namespace,
+		ProjectName: projectName,
+		Key:         key,
+		Page:        page,
+		PerPage:     page,
+	})
 }
