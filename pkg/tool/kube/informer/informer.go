@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/version"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 
@@ -60,10 +60,8 @@ func NewInformer(clusterID, namespace string, cls *kubernetes.Clientset) (inform
 	if err != nil {
 		return nil, err
 	}
-	currVersion, _ := version.ParseGeneric(versionInfo.String())
-	v122, _ := version.ParseGeneric("v1.22.0")
 	// if less than v1.22.0, then we look for the extensions/v1beta1 ingress
-	if currVersion.LessThan(v122) {
+	if kubeclient.VersionLessThan122(versionInfo) {
 		informerFactory.Extensions().V1beta1().Ingresses().Lister()
 	} else {
 		// otherwise above resource is deprecated, we watch for the k8s.networking.io/v1 ingress

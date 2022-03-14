@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
-
 	commonconfig "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	modeMongodb "github.com/koderover/zadig/pkg/microservice/aslan/core/collaboration/repository/mongodb"
