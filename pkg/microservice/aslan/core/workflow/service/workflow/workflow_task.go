@@ -75,7 +75,7 @@ func GetWorkflowArgs(productName, namespace string, log *zap.SugaredLogger) (*Cr
 		return resp, e.ErrListBuildModule.AddDesc(err.Error())
 	}
 
-	targetMap := getProductTargetMap(product)
+	targetMap,_ := getProductTargetMap(product)
 	projectTargets := getProjectTargets(product.ProductName)
 	targets := make([]*commonmodels.TargetArgs, 0)
 	for _, container := range projectTargets {
@@ -125,8 +125,9 @@ func GetWorkflowArgs(productName, namespace string, log *zap.SugaredLogger) (*Cr
 	return resp, nil
 }
 
-func getProductTargetMap(prod *commonmodels.Product) map[string][]commonmodels.DeployEnv {
+func getProductTargetMap(prod *commonmodels.Product) (map[string][]commonmodels.DeployEnv, map[string]string) {
 	resp := make(map[string][]commonmodels.DeployEnv)
+	imageNameM := make(map[string]string)
 	if prod.Source == setting.SourceFromExternal {
 		services, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(prod.ProductName, prod.EnvName)
 
@@ -160,9 +161,15 @@ func getProductTargetMap(prod *commonmodels.Product) map[string][]commonmodels.D
 				deployEnv := commonmodels.DeployEnv{Type: setting.K8SDeployType, Env: env}
 				target := strings.Join([]string{service.ProductName, service.ServiceName, container.Name}, SplitSymbol)
 				resp[target] = append(resp[target], deployEnv)
+
+				imageName := container.ImageName
+				if imageName == "" {
+					imageName = container.Name
+				}
+				imageNameM[target] = imageName
 			}
 		}
-		return resp
+		return resp, imageNameM
 	}
 	for _, services := range prod.Services {
 		for _, serviceObj := range services {
@@ -173,6 +180,12 @@ func getProductTargetMap(prod *commonmodels.Product) map[string][]commonmodels.D
 					deployEnv := commonmodels.DeployEnv{Type: setting.K8SDeployType, Env: env}
 					target := strings.Join([]string{serviceObj.ProductName, serviceObj.ServiceName, container.Name}, SplitSymbol)
 					resp[target] = append(resp[target], deployEnv)
+
+					imageName := container.ImageName
+					if imageName == "" {
+						imageName = container.Name
+					}
+					imageNameM[target] = imageName
 				}
 			case setting.PMDeployType:
 				deployEnv := commonmodels.DeployEnv{Type: setting.PMDeployType, Env: serviceObj.ServiceName}
@@ -184,11 +197,17 @@ func getProductTargetMap(prod *commonmodels.Product) map[string][]commonmodels.D
 					deployEnv := commonmodels.DeployEnv{Type: setting.HelmDeployType, Env: env}
 					target := strings.Join([]string{serviceObj.ProductName, serviceObj.ServiceName, container.Name}, SplitSymbol)
 					resp[target] = append(resp[target], deployEnv)
+
+					imageName := container.ImageName
+					if imageName == "" {
+						imageName = container.Name
+					}
+					imageNameM[target] = imageName
 				}
 			}
 		}
 	}
-	return resp
+	return resp, imageNameM
 }
 
 func getHideServiceModules(workflow *commonmodels.Workflow) sets.String {
@@ -345,7 +364,7 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 		return resp, e.ErrListTestModule.AddDesc(err.Error())
 	}
 
-	targetMap := getProductTargetMap(product)
+	targetMap,imageNameM := getProductTargetMap(product)
 	projectTargets := getProjectTargets(product.ProductName)
 	hideServiceModules := getHideServiceModules(workflow)
 	targets := make([]*commonmodels.TargetArgs, 0)
@@ -367,8 +386,9 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 				ServiceName: containerArr[1],
 				ProductName: containerArr[0],
 				Deploy:      targetMap[container],
-				Build:       &commonmodels.BuildArgs{},
-				HasBuild:    true,
+				ImageName: imageNameM[container],
+				Build:    &commonmodels.BuildArgs{},
+				HasBuild: true,
 			}
 			moBuild := findModuleByTargetAndVersion(allModules, container)
 			if moBuild == nil {

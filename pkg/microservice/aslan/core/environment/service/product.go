@@ -144,10 +144,15 @@ func GetInitProduct(productTmplName string, log *zap.SugaredLogger) (*commonmode
 			if serviceTmpl.Type == setting.K8SDeployType || serviceTmpl.Type == setting.HelmDeployType {
 				serviceResp.Containers = make([]*commonmodels.Container, 0)
 				for _, c := range serviceTmpl.Containers {
+					imageName := c.ImageName
+					if imageName == "" {
+						imageName = c.Name
+					}
 					container := &commonmodels.Container{
 						Name:      c.Name,
 						Image:     c.Image,
 						ImagePath: c.ImagePath,
+						ImageName: imageName,
 					}
 					serviceResp.Containers = append(serviceResp.Containers, container)
 				}

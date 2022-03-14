@@ -340,6 +340,7 @@ type HookPayload struct {
 
 type TargetArgs struct {
 	Name             string            `bson:"name"                      json:"name"`
+	ImageName        string            `bson:"image_name"                json:"image_name"`
 	ServiceName      string            `bson:"service_name"              json:"service_name"`
 	ServiceType      string            `bson:"service_type,omitempty"    json:"service_type,omitempty"`
 	ProductName      string            `bson:"product_name"              json:"product_name"`
