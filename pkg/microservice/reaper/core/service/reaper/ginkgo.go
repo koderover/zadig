@@ -49,7 +49,6 @@ func mergeGinkgoTestResults(testResultFile, testResultPath, testUploadPath strin
 	)
 
 	if len(testResultPath) == 0 {
-		log.Warning("merge test result step skipped: no test result path found")
 		return nil
 	}
 
