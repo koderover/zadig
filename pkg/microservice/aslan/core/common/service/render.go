@@ -197,6 +197,29 @@ func ValidateRenderSet(productName, renderName string, serviceInfo *templatemode
 	return resp, nil
 }
 
+func mergeKVs(newKVs []*templatemodels.RenderKV, oldKVs []*templatemodels.RenderKV) []*templatemodels.RenderKV {
+	var result []*templatemodels.RenderKV
+	newKVsMap := make(map[string]*templatemodels.RenderKV)
+	for _, v := range newKVs {
+		newKVsMap[v.Key] = v
+	}
+	oldKVsMap := make(map[string]*templatemodels.RenderKV)
+	for _, v := range oldKVs {
+		oldKVsMap[v.Key] = v
+		if newKV, ok := newKVsMap[v.Key]; ok {
+			result = append(result, newKV)
+			continue
+		}
+		result = append(result, v)
+	}
+	for _, v := range newKVs {
+		if _, ok := oldKVsMap[v.Key]; !ok {
+			result = append(result, v)
+		}
+	}
+	return result
+}
+
 func CreateRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error {
 	opt := &commonrepo.RenderSetFindOption{Name: args.Name}
 	rs, err := commonrepo.NewRenderSetColl().Find(opt)
@@ -208,6 +231,8 @@ func CreateRenderSet(args *commonmodels.RenderSet, log *zap.SugaredLogger) error
 		} else {
 			return nil
 		}
+		mergedKVs := mergeKVs(args.KVs, rs.KVs)
+		args.KVs = mergedKVs
 	}
 	if err := ensureRenderSetArgs(args); err != nil {
 		log.Error(err)

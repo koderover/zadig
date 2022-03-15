@@ -491,7 +491,7 @@ func UpdateProduct(serviceNames []string, existedProd, updateProd *commonmodels.
 
 	// 1. 如果服务待删除：将产品模板中已经不存在，产品环境中待删除的服务进行删除。
 	for _, serviceRev := range prodRevs.ServiceRevisions {
-		if serviceRev.Updatable && serviceRev.Deleted {
+		if serviceRev.Updatable && serviceRev.Deleted && util.InStringArray(serviceRev.ServiceName, serviceNames) {
 			log.Infof("[%s][P:%s][S:%s] start to delete service", envName, productName, serviceRev.ServiceName)
 			//根据namespace: EnvName, selector: productName + serviceName来删除属于该服务的所有资源
 			selector := labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceRev.ServiceName}.AsSelector()
@@ -605,21 +605,20 @@ func UpdateProduct(serviceNames []string, existedProd, updateProd *commonmodels.
 			err = e.ErrUpdateEnv.AddDesc(err.Error())
 			return
 		}
+		//merge new and old services
 		var updateGroup []*commonmodels.ProductService
 		newServiceMap := make(map[string]*commonmodels.ProductService)
 		for _, service := range groupServices {
 			newServiceMap[service.ServiceName] = service
 		}
 		oldServiceMap := make(map[string]*commonmodels.ProductService)
-		for _, serviceGroup := range existedProd.Services {
-			for _, service := range serviceGroup {
-				oldServiceMap[service.ServiceName] = service
-				if newService, ok := newServiceMap[service.ServiceName]; ok {
-					updateGroup = append(updateGroup, newService)
-					continue
-				}
-				updateGroup = append(updateGroup, service)
+		for _, service := range existedProd.Services[groupIndex] {
+			oldServiceMap[service.ServiceName] = service
+			if newService, ok := newServiceMap[service.ServiceName]; ok {
+				updateGroup = append(updateGroup, newService)
+				continue
 			}
+			updateGroup = append(updateGroup, service)
 		}
 		for _, newService := range groupServices {
 			if _, ok := oldServiceMap[newService.ServiceName]; !ok {
@@ -1724,7 +1723,7 @@ func DeleteProductServices(envName, productName string, serviceNames []string, l
 	for serviceGroupIndex, serviceGroup := range productInfo.Services {
 		var group []*commonmodels.ProductService
 		for _, service := range serviceGroup {
-			if !util.InArray(service.ServiceName, serviceNames) {
+			if !util.InStringArray(service.ServiceName, serviceNames) {
 				group = append(group, service)
 			}
 		}
@@ -1733,6 +1732,30 @@ func DeleteProductServices(envName, productName string, serviceNames []string, l
 			log.Errorf("update product error: %v", err)
 			return err
 		}
+	}
+	rs, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+		Name: productInfo.Namespace,
+	})
+	if err != nil {
+		log.Errorf("get renderSet error: %v", err)
+		return err
+	}
+	var updatedKVs []*templatemodels.RenderKV
+	for _, v := range rs.KVs {
+		var updatedServices []string
+		for _, service := range v.Services {
+			if util.InStringArray(service, serviceNames) {
+				updatedServices = append(updatedServices, service)
+			}
+		}
+		v.Services = updatedServices
+		updatedKVs = append(updatedKVs, v)
+	}
+	rs.KVs = updatedKVs
+	err = commonrepo.NewRenderSetColl().Update(rs)
+	if err != nil {
+		log.Errorf("update renderSet error: %v", err)
+		return err
 	}
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
 	if err != nil {
@@ -2667,7 +2690,7 @@ func getUpdatedProductServices(serviceNames []string, updateProduct *commonmodel
 		updatedGroups := make([]*commonmodels.ProductService, 0)
 		for _, service := range group {
 			serviceRevision, ok := serviceRevisionMap[service.ServiceName+service.Type]
-			if !ok || (len(serviceNames) > 0 && !util.InArray(service.ServiceName, serviceNames)) {
+			if !ok || (len(serviceNames) > 0 && !util.InStringArray(service.ServiceName, serviceNames)) {
 				//找不到 service revision
 				continue
 			}

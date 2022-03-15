@@ -87,9 +87,13 @@ func UpdateMultiProducts(c *gin.Context) {
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("UpdateMultiProducts c.GetRawData() err : %v", err)
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
 	}
 	if err = json.Unmarshal(data, &args); err != nil {
 		log.Errorf("UpdateMultiProducts json.Unmarshal err : %v", err)
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
 	}
 	var envNames []string
 	for _, arg := range args {
@@ -267,8 +271,14 @@ func UpdateProduct(c *gin.Context) {
 	}
 
 	force, _ := strconv.ParseBool(c.Query("force"))
+	serviceNames := sets.String{}
+	for _, kv := range args.Vars {
+		for _, s := range kv.Services {
+			serviceNames.Insert(s)
+		}
+	}
 	// update product asynchronously
-	ctx.Err = service.UpdateProductV2(envName, projectName, ctx.UserName, ctx.RequestID, args.ServiceNames, force, args.Vars, ctx.Logger)
+	ctx.Err = service.UpdateProductV2(envName, projectName, ctx.UserName, ctx.RequestID, serviceNames.List(), force, args.Vars, ctx.Logger)
 	if ctx.Err != nil {
 		ctx.Logger.Errorf("failed to update product %s %s: %v", envName, projectName, ctx.Err)
 	}
@@ -497,9 +507,13 @@ func DeleteProductServices(c *gin.Context) {
 	data, err := c.GetRawData()
 	if err != nil {
 		log.Errorf("DeleteProductServices c.GetRawData() err : %v", err)
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
 	}
 	if err = json.Unmarshal(data, args); err != nil {
 		log.Errorf("DeleteProductServices json.Unmarshal err : %v", err)
+		ctx.Err = e.ErrInvalidParam.AddErr(err)
+		return
 	}
 	projectName := c.Query("projectName")
 	envName := c.Param("name")
