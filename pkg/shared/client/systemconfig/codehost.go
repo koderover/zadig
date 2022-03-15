@@ -49,7 +49,6 @@ type Option struct {
 	CodeHostType string
 	Address      string
 	Namespace    string
-	CodeHostID   int
 }
 
 func GetCodeHostInfo(opt *Option) (*CodeHost, error) {

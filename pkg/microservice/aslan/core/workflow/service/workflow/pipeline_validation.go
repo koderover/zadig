@@ -490,14 +490,18 @@ func setManunalBuilds(builds []*types.Repository, buildArgs []*types.Repository,
 
 // releaseCandidate 根据 TaskID 生成编译镜像Tag或者二进制包后缀
 // TODO: max length of a tag is 128
-func releaseCandidate(b *task.Build, taskID int64, productName, envName, deliveryType string) string {
+func releaseCandidate(b *task.Build, taskID int64, productName, envName, imageName, deliveryType string) string {
 	timeStamp := time.Now().Format("20060102150405")
+
+	if imageName == "" {
+		imageName = b.ServiceName
+	}
 	if len(b.JobCtx.Builds) == 0 {
 		switch deliveryType {
 		case config.TarResourceType:
 			return fmt.Sprintf("%s-%s", b.ServiceName, timeStamp)
 		default:
-			return fmt.Sprintf("%s:%s", b.ServiceName, timeStamp)
+			return fmt.Sprintf("%s:%s", imageName, timeStamp)
 		}
 	}
 
@@ -541,6 +545,8 @@ func releaseCandidate(b *task.Build, taskID int64, productName, envName, deliver
 		}
 		return newTarRule
 	default:
+		// If image, replace service name with imageName
+		candidate.ServiceName = imageName
 		return replaceVariable(customImageRule, candidate)
 	}
 }
@@ -587,7 +593,7 @@ func replaceVariable(customRule *template.CustomRule, candidate *candidate) stri
 	}
 
 	currentRule = commonservice.ReplaceRuleVariable(currentRule, &commonservice.Variable{
-		candidate.ServiceName, candidate.Timestamp, strconv.FormatInt(candidate.TaskID, 10), candidate.CommitID, candidate.ProductName, candidate.EnvName,
+		candidate.ServiceName, candidate.ServiceName, candidate.Timestamp, strconv.FormatInt(candidate.TaskID, 10), candidate.CommitID, candidate.ProductName, candidate.EnvName,
 		candidate.Tag, candidate.Branch, strconv.Itoa(candidate.PR),
 	})
 	return currentRule

@@ -17,11 +17,9 @@ limitations under the License.
 package webhook
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -62,7 +60,6 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 	}
 
 	baseURI := config.SystemAddress()
-	var eventPush *EventPush
 	var pushEvent *gitlab.PushEvent
 	var mergeEvent *gitlab.MergeEvent
 	var tagEvent *gitlab.TagEvent
@@ -82,29 +79,24 @@ func ProcessGitlabHook(payload []byte, req *http.Request, requestID string, log 
 		}
 	}
 
-	//go collie.CallGitlabWebHook(forwardedProto, forwardedHost, payload, string(eventType), log)
-
 	switch event := event.(type) {
 	case *gitlab.PushEvent:
-		eventPush = &EventPush{
-			Before:      event.Before,
-			After:       event.After,
-			Ref:         event.Ref,
-			CheckoutSha: event.CheckoutSHA,
-			ProjectID:   event.ProjectID,
-			Body:        string(payload),
-		}
 		pushEvent = event
+		changeFiles := make([]string, 0)
+		for _, commit := range pushEvent.Commits {
+			changeFiles = append(changeFiles, commit.Added...)
+			changeFiles = append(changeFiles, commit.Removed...)
+			changeFiles = append(changeFiles, commit.Modified...)
+		}
+		pathWithNamespace := pushEvent.Project.PathWithNamespace
+		// trigger service template to re-sync from remote repo
+		if err = updateServiceTemplateByPushEvent(changeFiles, pathWithNamespace, log); err != nil {
+			errorList = multierror.Append(errorList, err)
+		}
 	case *gitlab.MergeEvent:
 		mergeEvent = event
 	case *gitlab.TagEvent:
 		tagEvent = event
-	}
-	//触发更新服务模板webhook
-	if eventPush != nil {
-		if err = updateServiceTemplateByPushEvent(eventPush, log); err != nil {
-			errorList = multierror.Append(errorList, err)
-		}
 	}
 
 	//触发工作流webhook和测试管理webhook
@@ -265,32 +257,9 @@ type RepositoryInfo struct {
 	VisibilityLevel int    `json:"visibility_level"`
 }
 
-func updateServiceTemplateByPushEvent(event *EventPush, log *zap.SugaredLogger) error {
+func updateServiceTemplateByPushEvent(diffs []string, pathWithNamespace string, log *zap.SugaredLogger) error {
 	log.Infof("EVENT: GITLAB WEBHOOK UPDATING SERVICE TEMPLATE")
-	gitlabEvent := &GitlabEvent{}
 
-	err := json.Unmarshal([]byte(event.Body), gitlabEvent)
-	if err != nil {
-		log.Errorf("Get Project ID failed, error: %v", err)
-		return err
-	}
-
-	address, err := GetAddress(gitlabEvent.Project.WebURL)
-	if err != nil {
-		log.Errorf("GetGitlabAddress failed, error: %v", err)
-		return err
-	}
-
-	client, err := getGitlabClientByAddress(address)
-	if err != nil {
-		return err
-	}
-
-	diffs, err := client.Compare(event.ProjectID, event.Before, event.After)
-	if err != nil {
-		log.Errorf("Failed to get push event diffs, error: %v", err)
-		return err
-	}
 	serviceTmpls, err := GetGitlabServiceTemplates()
 	if err != nil {
 		log.Errorf("Failed to get gitlab service templates, error: %v", err)
@@ -300,6 +269,11 @@ func updateServiceTemplateByPushEvent(event *EventPush, log *zap.SugaredLogger) 
 	errs := &multierror.Error{}
 
 	for _, service := range serviceTmpls {
+		// TODO need optimize, use repo namespace
+		if service.RepoOwner+"/"+service.RepoName != pathWithNamespace {
+			continue
+		}
+
 		path, err := getServiceSrcPath(service)
 		if err != nil {
 			errs = multierror.Append(errs, err)
@@ -307,7 +281,7 @@ func updateServiceTemplateByPushEvent(event *EventPush, log *zap.SugaredLogger) 
 		// 判断PushEvent的Diffs中是否包含该服务模板的src_path
 		affected := false
 		for _, diff := range diffs {
-			if strings.Contains(diff.OldPath, path) || strings.Contains(diff.NewPath, path) {
+			if subElem(path, diff) {
 				affected = true
 				break
 			}

@@ -45,6 +45,7 @@ func Execute() error {
 		resultMsg := types.JobSuccess
 		if err != nil {
 			resultMsg = types.JobFail
+			log.Errorf("Failed to run: %s.", err)
 		}
 		log.Infof("Job Status: %s", resultMsg)
 
@@ -59,7 +60,7 @@ func Execute() error {
 		//       operations, and wait for a fixed time.
 		//       Since `wd` will automatically delete the job after detecting the dogfile, this time has little
 		//       effect on the overall construction time.
-		time.Sleep(1 * time.Minute)
+		time.Sleep(30 * time.Second)
 	}()
 
 	var r *reaper.Reaper

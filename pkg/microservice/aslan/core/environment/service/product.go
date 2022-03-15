@@ -34,6 +34,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/log"
+	"github.com/koderover/zadig/pkg/util"
 )
 
 var DefaultCleanWhiteList = []string{"spockadmin"}
@@ -148,6 +149,7 @@ func GetInitProduct(productTmplName string, log *zap.SugaredLogger) (*commonmode
 						Name:      c.Name,
 						Image:     c.Image,
 						ImagePath: c.ImagePath,
+						ImageName: util.GetImageNameFromContainerInfo(c.ImageName, c.Name),
 					}
 					serviceResp.Containers = append(serviceResp.Containers, container)
 				}

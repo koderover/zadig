@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -160,6 +161,12 @@ func UpdateConfigMap(envName string, args *UpdateConfigMapArgs, userName, userID
 		return e.ErrUpdateConfigMap.AddErr(err)
 	}
 
+	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), product.ClusterID)
+	if err != nil {
+		log.Errorf("failed to create kubernetes clientset for clusterID: %s, the error is: %s", product.ClusterID, err)
+		return e.ErrUpdateConfigMap.AddErr(err)
+	}
+
 	namespace := product.Namespace
 	cfg, found, err := getter.GetConfigMap(namespace, args.ConfigName, kubeClient)
 	if err != nil {
@@ -205,7 +212,7 @@ func UpdateConfigMap(envName string, args *UpdateConfigMapArgs, userName, userID
 	as[setting.LastUpdateTimeAnnotation] = util.FormatTime(time.Now())
 	cfg.SetAnnotations(as)
 
-	if err := updater.UpdateConfigMap(cfg, kubeClient); err != nil {
+	if err := updater.UpdateConfigMap(namespace, cfg, clientset); err != nil {
 		log.Error(err)
 		return e.ErrUpdateConfigMap.AddDesc(err.Error())
 	}
@@ -216,7 +223,7 @@ func UpdateConfigMap(envName string, args *UpdateConfigMapArgs, userName, userID
 		ServiceName: args.ServiceName,
 	}
 
-	if err := restartPod(restartArgs, namespace, kubeClient, log); err != nil {
+	if err := restartPod(restartArgs, namespace, clientset, log); err != nil {
 		log.Error(err)
 		return e.ErrRestartService.AddDesc(err.Error())
 	}
@@ -234,6 +241,12 @@ func RollBackConfigMap(envName string, args *RollBackConfigMapArgs, userName, us
 	}
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), product.ClusterID)
 	if err != nil {
+		return e.ErrUpdateConfigMap.AddErr(err)
+	}
+
+	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), product.ClusterID)
+	if err != nil {
+		log.Errorf("failed to create kubernetes clientset for clusterID: %s, the error is: %s", product.ClusterID, err)
 		return e.ErrUpdateConfigMap.AddErr(err)
 	}
 
@@ -267,7 +280,7 @@ func RollBackConfigMap(envName string, args *RollBackConfigMapArgs, userName, us
 	if updateTime, ok := srcCfg.Labels[setting.UpdateTime]; ok {
 		destinSrc.Labels[setting.UpdateTime] = updateTime
 	}
-	if err := updater.UpdateConfigMap(destinSrc, kubeClient); err != nil {
+	if err := updater.UpdateConfigMap(namespace, destinSrc, clientset); err != nil {
 		log.Error(err)
 		return e.ErrUpdateConfigMap.AddDesc(err.Error())
 	}
@@ -278,7 +291,7 @@ func RollBackConfigMap(envName string, args *RollBackConfigMapArgs, userName, us
 		ServiceName: args.ServiceName,
 	}
 
-	if err := restartPod(restartArgs, namespace, kubeClient, log); err != nil {
+	if err := restartPod(restartArgs, namespace, clientset, log); err != nil {
 		log.Error(err)
 		return e.ErrRestartService.AddDesc(err.Error())
 	}
@@ -346,9 +359,9 @@ func cleanArchiveConfigMap(namespace string, ls map[string]string, kubeClient cl
 	}
 }
 
-func restartPod(args *SvcOptArgs, ns string, kubeClient client.Client, log *zap.SugaredLogger) error {
+func restartPod(args *SvcOptArgs, ns string, clientset *kubernetes.Clientset, log *zap.SugaredLogger) error {
 	selector := labels.Set{setting.ProductLabel: args.ProductName, setting.ServiceLabel: args.ServiceName}.AsSelector()
 
 	log.Infof("deleting pod from %s where %s", ns, selector)
-	return updater.DeletePods(ns, selector, kubeClient)
+	return updater.DeletePods(ns, selector, clientset)
 }

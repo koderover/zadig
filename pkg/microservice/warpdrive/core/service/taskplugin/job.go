@@ -111,7 +111,7 @@ func saveContainerLog(pipelineTask *task.Task, namespace, clusterID, fileName st
 	}
 
 	if err := containerlog.GetContainerLogs(namespace, pods[0].Name, pods[0].Spec.Containers[0].Name, false, int64(0), buf, clientSet); err != nil {
-		return err
+		return fmt.Errorf("failed to get container logs: %s", err)
 	}
 
 	if tempFileName, err := util.GenerateTmpFile(); err == nil {
@@ -322,12 +322,10 @@ func (b *JobCtxBuilder) BuildReaperContext(pipelineTask *task.Task, serviceName 
 
 	ctx.Caches = b.JobCtx.Caches
 
-	if b.JobCtx.TestResultPath != "" {
-		ctx.GinkgoTest = &types.GinkgoTest{
-			ResultPath:     b.JobCtx.TestResultPath,
-			TestReportPath: b.JobCtx.TestReportPath,
-			ArtifactPaths:  b.JobCtx.ArtifactPaths,
-		}
+	ctx.GinkgoTest = &types.GinkgoTest{
+		ResultPath:     b.JobCtx.TestResultPath,
+		TestReportPath: b.JobCtx.TestReportPath,
+		ArtifactPaths:  b.JobCtx.ArtifactPaths,
 	}
 
 	ctx.StorageEndpoint = pipelineTask.ConfigPayload.S3Storage.Endpoint
