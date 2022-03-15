@@ -159,7 +159,7 @@ func GetCodehubRepoInfo(c *gin.Context) {
 		return
 	}
 
-	repoUUID := c.Param("repoUUID")
+	repoUUID := c.Query("repoUUID")
 	if repoUUID == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty repo uuid")
 		return
