@@ -545,6 +545,7 @@ func releaseCandidate(b *task.Build, taskID int64, productName, envName, imageNa
 		}
 		return newTarRule
 	default:
+		// If image, replace service name with imageName
 		candidate.ServiceName = imageName
 		return replaceVariable(customImageRule, candidate)
 	}

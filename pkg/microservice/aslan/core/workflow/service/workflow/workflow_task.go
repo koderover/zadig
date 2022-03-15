@@ -162,11 +162,7 @@ func getProductTargetMap(prod *commonmodels.Product) (map[string][]commonmodels.
 				target := strings.Join([]string{service.ProductName, service.ServiceName, container.Name}, SplitSymbol)
 				resp[target] = append(resp[target], deployEnv)
 
-				imageName := container.ImageName
-				if imageName == "" {
-					imageName = container.Name
-				}
-				imageNameM[target] = imageName
+				imageNameM[target] = util.GetImageNameFromContainerInfo(container.ImageName, container.Name)
 			}
 		}
 		return resp, imageNameM
@@ -181,11 +177,7 @@ func getProductTargetMap(prod *commonmodels.Product) (map[string][]commonmodels.
 					target := strings.Join([]string{serviceObj.ProductName, serviceObj.ServiceName, container.Name}, SplitSymbol)
 					resp[target] = append(resp[target], deployEnv)
 
-					imageName := container.ImageName
-					if imageName == "" {
-						imageName = container.Name
-					}
-					imageNameM[target] = imageName
+					imageNameM[target] = util.GetImageNameFromContainerInfo(container.ImageName, container.Name)
 				}
 			case setting.PMDeployType:
 				deployEnv := commonmodels.DeployEnv{Type: setting.PMDeployType, Env: serviceObj.ServiceName}
@@ -198,11 +190,7 @@ func getProductTargetMap(prod *commonmodels.Product) (map[string][]commonmodels.
 					target := strings.Join([]string{serviceObj.ProductName, serviceObj.ServiceName, container.Name}, SplitSymbol)
 					resp[target] = append(resp[target], deployEnv)
 
-					imageName := container.ImageName
-					if imageName == "" {
-						imageName = container.Name
-					}
-					imageNameM[target] = imageName
+					imageNameM[target] = util.GetImageNameFromContainerInfo(container.ImageName, container.Name)
 				}
 			}
 		}
