@@ -323,7 +323,7 @@ func validateCommonRule(currentRule, ruleType, deliveryType string) error {
 	}
 
 	currentRule = commonservice.ReplaceRuleVariable(currentRule, &commonservice.Variable{
-		"ss", "ss", "ss", "ss", "ss", "ss", "ss", "ss", "ss",
+		"ss", "ss", "ss", "ss", "ss", "ss", "ss", "ss", "ss", "ss",
 	})
 	switch deliveryType {
 	case config.ImageResourceType:

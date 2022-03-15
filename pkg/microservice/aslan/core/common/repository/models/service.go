@@ -130,8 +130,9 @@ type ImagePathSpec struct {
 
 // Container ...
 type Container struct {
-	Name      string         `bson:"name"           json:"name"`
-	Image     string         `bson:"image"          json:"image"`
+	Name      string         `bson:"name"                          json:"name"`
+	Image     string         `bson:"image"                         json:"image"`
+	ImageName string         `bson:"image_name,omitempty"          json:"image_name,omitempty"`
 	ImagePath *ImagePathSpec `bson:"image_path,omitempty"          json:"imagePath,omitempty"`
 }
 
