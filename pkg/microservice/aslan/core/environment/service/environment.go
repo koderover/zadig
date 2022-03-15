@@ -488,7 +488,7 @@ func UpdateProduct(serviceNames []string, existedProd, updateProd *commonmodels.
 
 	// 遍历产品环境和产品模板交叉对比的结果
 	// 四个状态：待删除，待添加，待更新，无需更新
-
+	var deletedServices []string
 	// 1. 如果服务待删除：将产品模板中已经不存在，产品环境中待删除的服务进行删除。
 	for _, serviceRev := range prodRevs.ServiceRevisions {
 		if serviceRev.Updatable && serviceRev.Deleted && util.InStringArray(serviceRev.ServiceName, serviceNames) {
@@ -500,7 +500,7 @@ func UpdateProduct(serviceNames []string, existedProd, updateProd *commonmodels.
 				//删除失败仅记录失败日志
 				log.Errorf("delete resource of service %s error:%v", serviceRev.ServiceName, err)
 			}
-
+			deletedServices = append(deletedServices, serviceRev.ServiceName)
 			clusterSelector := labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceRev.ServiceName, setting.EnvNameLabel: envName}.AsSelector()
 			err = commonservice.DeleteClusterResourceAsync(clusterSelector, kubeClient, log)
 			if err != nil {
@@ -613,6 +613,9 @@ func UpdateProduct(serviceNames []string, existedProd, updateProd *commonmodels.
 		}
 		oldServiceMap := make(map[string]*commonmodels.ProductService)
 		for _, service := range existedProd.Services[groupIndex] {
+			if util.InStringArray(service.ServiceName, deletedServices) {
+				continue
+			}
 			oldServiceMap[service.ServiceName] = service
 			if newService, ok := newServiceMap[service.ServiceName]; ok {
 				updateGroup = append(updateGroup, newService)
@@ -621,7 +624,7 @@ func UpdateProduct(serviceNames []string, existedProd, updateProd *commonmodels.
 			updateGroup = append(updateGroup, service)
 		}
 		for _, newService := range groupServices {
-			if _, ok := oldServiceMap[newService.ServiceName]; !ok {
+			if _, ok := oldServiceMap[newService.ServiceName]; !ok && !util.InStringArray(newService.ServiceName, deletedServices) {
 				updateGroup = append(updateGroup, newService)
 			}
 		}
