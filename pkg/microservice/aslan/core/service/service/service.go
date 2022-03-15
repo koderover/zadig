@@ -183,6 +183,7 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 	for _, container := range args.Containers {
 		serviceModule := new(ServiceModule)
 		serviceModule.Container = container
+		serviceModule.ImageName = container.ImageName
 		buildObj, _ := commonrepo.NewBuildColl().Find(&commonrepo.BuildFindOption{ProductName: args.ProductName, ServiceName: args.ServiceName, Targets: []string{container.Name}})
 		if buildObj != nil {
 			serviceModule.BuildName = buildObj.Name
@@ -1313,8 +1314,9 @@ func getContainers(data string) ([]*commonmodels.Container, error) {
 		}
 
 		container := &commonmodels.Container{
-			Name:  nameStr,
-			Image: imageStr,
+			Name:      nameStr,
+			Image:     imageStr,
+			ImageName: util.GetImageName(imageStr),
 		}
 
 		containers = append(containers, container)
@@ -1352,8 +1354,9 @@ func getCronJobContainers(data string) ([]*commonmodels.Container, error) {
 		}
 
 		container := &commonmodels.Container{
-			Name:  nameStr,
-			Image: imageStr,
+			Name:      nameStr,
+			Image:     imageStr,
+			ImageName: util.GetImageName(imageStr),
 		}
 
 		containers = append(containers, container)

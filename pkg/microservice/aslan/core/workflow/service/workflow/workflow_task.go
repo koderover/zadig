@@ -75,7 +75,7 @@ func GetWorkflowArgs(productName, namespace string, log *zap.SugaredLogger) (*Cr
 		return resp, e.ErrListBuildModule.AddDesc(err.Error())
 	}
 
-	targetMap := getProductTargetMap(product)
+	targetMap, _ := getProductTargetMap(product)
 	projectTargets := getProjectTargets(product.ProductName)
 	targets := make([]*commonmodels.TargetArgs, 0)
 	for _, container := range projectTargets {
@@ -125,8 +125,9 @@ func GetWorkflowArgs(productName, namespace string, log *zap.SugaredLogger) (*Cr
 	return resp, nil
 }
 
-func getProductTargetMap(prod *commonmodels.Product) map[string][]commonmodels.DeployEnv {
+func getProductTargetMap(prod *commonmodels.Product) (map[string][]commonmodels.DeployEnv, map[string]string) {
 	resp := make(map[string][]commonmodels.DeployEnv)
+	imageNameM := make(map[string]string)
 	if prod.Source == setting.SourceFromExternal {
 		services, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(prod.ProductName, prod.EnvName)
 
@@ -160,9 +161,11 @@ func getProductTargetMap(prod *commonmodels.Product) map[string][]commonmodels.D
 				deployEnv := commonmodels.DeployEnv{Type: setting.K8SDeployType, Env: env}
 				target := strings.Join([]string{service.ProductName, service.ServiceName, container.Name}, SplitSymbol)
 				resp[target] = append(resp[target], deployEnv)
+
+				imageNameM[target] = util.GetImageNameFromContainerInfo(container.ImageName, container.Name)
 			}
 		}
-		return resp
+		return resp, imageNameM
 	}
 	for _, services := range prod.Services {
 		for _, serviceObj := range services {
@@ -173,6 +176,8 @@ func getProductTargetMap(prod *commonmodels.Product) map[string][]commonmodels.D
 					deployEnv := commonmodels.DeployEnv{Type: setting.K8SDeployType, Env: env}
 					target := strings.Join([]string{serviceObj.ProductName, serviceObj.ServiceName, container.Name}, SplitSymbol)
 					resp[target] = append(resp[target], deployEnv)
+
+					imageNameM[target] = util.GetImageNameFromContainerInfo(container.ImageName, container.Name)
 				}
 			case setting.PMDeployType:
 				deployEnv := commonmodels.DeployEnv{Type: setting.PMDeployType, Env: serviceObj.ServiceName}
@@ -184,11 +189,13 @@ func getProductTargetMap(prod *commonmodels.Product) map[string][]commonmodels.D
 					deployEnv := commonmodels.DeployEnv{Type: setting.HelmDeployType, Env: env}
 					target := strings.Join([]string{serviceObj.ProductName, serviceObj.ServiceName, container.Name}, SplitSymbol)
 					resp[target] = append(resp[target], deployEnv)
+
+					imageNameM[target] = util.GetImageNameFromContainerInfo(container.ImageName, container.Name)
 				}
 			}
 		}
 	}
-	return resp
+	return resp, imageNameM
 }
 
 func getHideServiceModules(workflow *commonmodels.Workflow) sets.String {
@@ -345,7 +352,7 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 		return resp, e.ErrListTestModule.AddDesc(err.Error())
 	}
 
-	targetMap := getProductTargetMap(product)
+	targetMap, imageNameM := getProductTargetMap(product)
 	projectTargets := getProjectTargets(product.ProductName)
 	hideServiceModules := getHideServiceModules(workflow)
 	targets := make([]*commonmodels.TargetArgs, 0)
@@ -367,6 +374,7 @@ func PresetWorkflowArgs(namespace, workflowName string, log *zap.SugaredLogger) 
 				ServiceName: containerArr[1],
 				ProductName: containerArr[0],
 				Deploy:      targetMap[container],
+				ImageName:   imageNameM[container],
 				Build:       &commonmodels.BuildArgs{},
 				HasBuild:    true,
 			}
@@ -679,6 +687,7 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 			ServiceName:    target.ServiceName,
 			ServiceInfos:   &serviceInfos,
 			IsWorkflowTask: true,
+			ImageName:      target.ImageName,
 		}, log); err != nil {
 			log.Errorf("workflow_task ensurePipelineTask taskID:[%d] pipelineName:[%s] err:%v", task.ID, task.PipelineName, err)
 			if err, ok := err.(*ContainerNotFound); ok {
@@ -2190,8 +2199,7 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 						return e.ErrFindRegistry.AddDesc(err.Error())
 					}
 				}
-
-				t.JobCtx.Image = GetImage(reg, releaseCandidate(t, taskOpt.Task.TaskID, taskOpt.Task.ProductName, taskOpt.EnvName, "image"))
+				t.JobCtx.Image = GetImage(reg, releaseCandidate(t, taskOpt.Task.TaskID, taskOpt.Task.ProductName, taskOpt.EnvName, taskOpt.ImageName, "image"))
 				taskOpt.Task.TaskArgs.Deploy.Image = t.JobCtx.Image
 
 				if taskOpt.ServiceName != "" {
@@ -2212,7 +2220,7 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 				// 二进制文件名称
 				// 编译任务使用 t.JobCtx.PackageFile
 				// 注意: 其他任务从 pt.TaskArgs.Deploy.PackageFile 获取, 必须要有编译任务
-				t.JobCtx.PackageFile = GetPackageFile(releaseCandidate(t, taskOpt.Task.TaskID, taskOpt.Task.ProductName, taskOpt.EnvName, "tar"))
+				t.JobCtx.PackageFile = GetPackageFile(releaseCandidate(t, taskOpt.Task.TaskID, taskOpt.Task.ProductName, taskOpt.EnvName, taskOpt.ImageName, "tar"))
 				taskOpt.Task.TaskArgs.Deploy.PackageFile = t.JobCtx.PackageFile
 
 				// 注入编译模块中用户定义环境变量

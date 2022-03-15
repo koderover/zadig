@@ -36,3 +36,22 @@ func ReplaceWrapLine(script string) string {
 		-1,
 	), "\r", "\n", -1)
 }
+
+// image ccr.ccs.tencentyun.com/koderover/nginx:stable
+// return nginx
+func GetImageName(image string) string {
+	imageNameStr := ""
+	imageArr := strings.Split(image, ":")
+	if len(imageArr) > 0 {
+		imageNameArr := strings.Split(imageArr[0], "/")
+		imageNameStr = imageNameArr[len(imageNameArr)-1]
+	}
+	return imageNameStr
+}
+
+func GetImageNameFromContainerInfo(imageName, containerName string) string {
+	if imageName == "" {
+		return containerName
+	}
+	return imageName
+}

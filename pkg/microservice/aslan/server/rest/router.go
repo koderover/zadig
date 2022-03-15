@@ -33,7 +33,6 @@ import (
 	multiclusterhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/multicluster/handler"
 	projecthandler "github.com/koderover/zadig/pkg/microservice/aslan/core/project/handler"
 	servicehandler "github.com/koderover/zadig/pkg/microservice/aslan/core/service/handler"
-	settinghandler "github.com/koderover/zadig/pkg/microservice/aslan/core/setting/handler"
 	stathandler "github.com/koderover/zadig/pkg/microservice/aslan/core/stat/handler"
 	systemhandler "github.com/koderover/zadig/pkg/microservice/aslan/core/system/handler"
 	templatehandler "github.com/koderover/zadig/pkg/microservice/aslan/core/templatestore/handler"
@@ -77,7 +76,6 @@ func (s *engine) injectRouterGroup(router *gin.RouterGroup) {
 		"/api/code":          new(codehosthandler.Router),
 		"/api/system":        new(systemhandler.Router),
 		"/api/service":       new(servicehandler.Router),
-		"/api/setting":       new(settinghandler.Router),
 		"/api/environment":   new(environmenthandler.Router),
 		"/api/cron":          new(cronhandler.Router),
 		"/api/workflow":      new(workflowhandler.Router),

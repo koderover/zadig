@@ -303,17 +303,17 @@ func (p *TestPlugin) Complete(ctx context.Context, pipelineTask *task.Task, serv
 		PipelineType: string(pipelineTask.Type),
 	}
 
-	// 日志保存失败与否都清理job
+	// Clean up tasks that user canceled or timed out.
 	defer func() {
-		if err := ensureDeleteJob(p.KubeNamespace, jobLabel, p.kubeClient); err != nil {
-			p.Log.Error(err)
-			p.Task.Error = err.Error()
-		}
-		if err := ensureDeleteConfigMap(p.KubeNamespace, jobLabel, p.kubeClient); err != nil {
-			p.Log.Error(err)
-			p.Task.Error = err.Error()
-		}
-		return
+		go func() {
+			if err := ensureDeleteJob(p.KubeNamespace, jobLabel, p.kubeClient); err != nil {
+				p.Log.Error(err)
+			}
+
+			if err := ensureDeleteConfigMap(p.KubeNamespace, jobLabel, p.kubeClient); err != nil {
+				p.Log.Error(err)
+			}
+		}()
 	}()
 
 	err := saveContainerLog(pipelineTask, p.KubeNamespace, p.Task.ClusterID, p.FileName, jobLabel, p.kubeClient)
@@ -337,9 +337,6 @@ func (p *TestPlugin) Complete(ctx context.Context, pipelineTask *task.Task, serv
 
 	//如果用户配置了测试结果目录需要收集,则下载测试结果,发送到aslan server
 	//Note here: p.Task.TestName目前只有默认值test
-	if p.Task.JobCtx.TestResultPath == "" {
-		return
-	}
 
 	testReport := new(types.TestReport)
 	if pipelineTask.TestReports == nil {
@@ -366,10 +363,12 @@ func (p *TestPlugin) Complete(ctx context.Context, pipelineTask *task.Task, serv
 	}
 	s3client, err := s3tool.NewClient(store.Endpoint, store.Ak, store.Sk, store.Insecure, forcedPathStyle)
 	if err == nil {
-		prefix := store.GetObjectPath("/")
-		if files, err := s3client.ListFiles(store.Bucket, prefix, true); err == nil {
-			if len(files) > 0 {
-				p.Task.JobCtx.IsHasArtifact = true
+		if len(p.Task.JobCtx.ArtifactPaths) > 0 {
+			prefix := store.GetObjectPath("/")
+			if files, err := s3client.ListFiles(store.Bucket, prefix, true); err == nil {
+				if len(files) > 0 {
+					p.Task.JobCtx.IsHasArtifact = true
+				}
 			}
 		}
 	}
