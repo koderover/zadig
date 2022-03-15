@@ -46,6 +46,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
+
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
@@ -296,7 +298,14 @@ func AutoCreateProduct(productName, envType, requestID string, log *zap.SugaredL
 
 var mutexAutoUpdate sync.RWMutex
 
-func AutoUpdateProduct(envNames []string, productName, requestID string, force bool, log *zap.SugaredLogger) ([]*EnvStatus, error) {
+type UpdateEnv struct {
+	EnvName      string               `json:"env_name"`
+	ServiceNames []string             `json:"service_names"`
+	UpdateType   string               `json:"update_type,omitempty"`
+	Vars         []*template.RenderKV `json:"vars,omitempty"`
+}
+
+func AutoUpdateProduct(args []*UpdateEnv, envNames []string, productName, requestID string, force bool, log *zap.SugaredLogger) ([]*EnvStatus, error) {
 	mutexAutoUpdate.Lock()
 	defer func() {
 		mutexAutoUpdate.Unlock()
@@ -353,13 +362,8 @@ func AutoUpdateProduct(envNames []string, productName, requestID string, force b
 		}
 	}
 
-	for envName := range productMap {
-		productInfo, err := GetProduct(setting.SystemUser, envName, productName, log)
-		if err != nil {
-			log.Errorf("AutoUpdateProduct GetProduct err:%v", err)
-			return envStatuses, err
-		}
-		err = UpdateProductV2(envName, productName, setting.SystemUser, requestID, true, productInfo.Vars, log)
+	for _, arg := range args {
+		err = UpdateProductV2(arg.EnvName, productName, setting.SystemUser, requestID, arg.ServiceNames, false, arg.Vars, log)
 		if err != nil {
 			log.Errorf("AutoUpdateProduct UpdateProductV2 err:%v", err)
 			return envStatuses, err
@@ -428,7 +432,7 @@ func getServicesWithMaxRevision(projectName string) ([]*commonmodels.Service, er
 	return allServices, nil
 }
 
-func UpdateProduct(existedProd, updateProd *commonmodels.Product, renderSet *commonmodels.RenderSet, log *zap.SugaredLogger) (err error) {
+func UpdateProduct(serviceNames []string, existedProd, updateProd *commonmodels.Product, renderSet *commonmodels.RenderSet, log *zap.SugaredLogger) (err error) {
 	// 设置产品新的renderinfo
 	updateProd.Render = &commonmodels.RenderInfo{
 		Name:        renderSet.Name,
@@ -487,7 +491,7 @@ func UpdateProduct(existedProd, updateProd *commonmodels.Product, renderSet *com
 
 	// 1. 如果服务待删除：将产品模板中已经不存在，产品环境中待删除的服务进行删除。
 	for _, serviceRev := range prodRevs.ServiceRevisions {
-		if serviceRev.Updatable && serviceRev.Deleted {
+		if serviceRev.Updatable && serviceRev.Deleted && util.InStringArray(serviceRev.ServiceName, serviceNames) {
 			log.Infof("[%s][P:%s][S:%s] start to delete service", envName, productName, serviceRev.ServiceName)
 			//根据namespace: EnvName, selector: productName + serviceName来删除属于该服务的所有资源
 			selector := labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceRev.ServiceName}.AsSelector()
@@ -512,7 +516,7 @@ func UpdateProduct(existedProd, updateProd *commonmodels.Product, renderSet *com
 
 	// 首先更新一次数据库，将产品模板的最新编排更新到数据库
 	// 只更新编排，不更新服务revision等信息
-	updatedServices := getUpdatedProductServices(updateProd, serviceRevisionMap, existedProd)
+	updatedServices := getUpdatedProductServices(serviceNames, updateProd, serviceRevisionMap, existedProd)
 
 	updateProd.Status = setting.ProductStatusUpdating
 	updateProd.Services = updatedServices
@@ -601,7 +605,27 @@ func UpdateProduct(existedProd, updateProd *commonmodels.Product, renderSet *com
 			err = e.ErrUpdateEnv.AddDesc(err.Error())
 			return
 		}
-		err = commonrepo.NewProductColl().UpdateGroup(envName, productName, groupIndex, groupServices)
+		//merge new and old services
+		var updateGroup []*commonmodels.ProductService
+		newServiceMap := make(map[string]*commonmodels.ProductService)
+		for _, service := range groupServices {
+			newServiceMap[service.ServiceName] = service
+		}
+		oldServiceMap := make(map[string]*commonmodels.ProductService)
+		for _, service := range existedProd.Services[groupIndex] {
+			oldServiceMap[service.ServiceName] = service
+			if newService, ok := newServiceMap[service.ServiceName]; ok {
+				updateGroup = append(updateGroup, newService)
+				continue
+			}
+			updateGroup = append(updateGroup, service)
+		}
+		for _, newService := range groupServices {
+			if _, ok := oldServiceMap[newService.ServiceName]; !ok {
+				updateGroup = append(updateGroup, newService)
+			}
+		}
+		err = commonrepo.NewProductColl().UpdateGroup(envName, productName, groupIndex, updateGroup)
 		if err != nil {
 			log.Errorf("Failed to update collection - service group %d. Error: %v", groupIndex, err)
 			err = e.ErrUpdateEnv.AddDesc(err.Error())
@@ -637,7 +661,7 @@ func UpdateProductRegistry(envName, productName, registryID string, log *zap.Sug
 	return nil
 }
 
-func UpdateProductV2(envName, productName, user, requestID string, force bool, kvs []*templatemodels.RenderKV, log *zap.SugaredLogger) (err error) {
+func UpdateProductV2(envName, productName, user, requestID string, serviceNames []string, force bool, kvs []*templatemodels.RenderKV, log *zap.SugaredLogger) (err error) {
 	// 根据产品名称和产品创建者到数据库中查找已有产品记录
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	exitedProd, err := commonrepo.NewProductColl().Find(opt)
@@ -725,7 +749,7 @@ func UpdateProductV2(envName, productName, user, requestID string, force bool, k
 	}
 
 	go func() {
-		err := UpdateProduct(exitedProd, updateProd, renderSet, log)
+		err := UpdateProduct(serviceNames, exitedProd, updateProd, renderSet, log)
 		if err != nil {
 			log.Errorf("[%s][P:%s] failed to update product %#v", envName, productName, err)
 			// 发送更新产品失败消息给用户
@@ -1689,6 +1713,65 @@ func GetHelmChartVersions(productName, envName string, log *zap.SugaredLogger) (
 	return helmVersions, nil
 }
 
+func DeleteProductServices(envName, productName string, serviceNames []string, log *zap.SugaredLogger) (err error) {
+	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName})
+	if err != nil {
+		log.Errorf("find product error: %v", err)
+		return err
+	}
+
+	for serviceGroupIndex, serviceGroup := range productInfo.Services {
+		var group []*commonmodels.ProductService
+		for _, service := range serviceGroup {
+			if !util.InStringArray(service.ServiceName, serviceNames) {
+				group = append(group, service)
+			}
+		}
+		err := commonrepo.NewProductColl().UpdateGroup(envName, productName, serviceGroupIndex, group)
+		if err != nil {
+			log.Errorf("update product error: %v", err)
+			return err
+		}
+	}
+	rs, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+		Name: productInfo.Namespace,
+	})
+	if err != nil {
+		log.Errorf("get renderSet error: %v", err)
+		return err
+	}
+	var updatedKVs []*templatemodels.RenderKV
+	for _, v := range rs.KVs {
+		var updatedServices []string
+		for _, service := range v.Services {
+			if util.InStringArray(service, serviceNames) {
+				updatedServices = append(updatedServices, service)
+			}
+		}
+		v.Services = updatedServices
+		updatedKVs = append(updatedKVs, v)
+	}
+	rs.KVs = updatedKVs
+	err = commonrepo.NewRenderSetColl().Update(rs)
+	if err != nil {
+		log.Errorf("update renderSet error: %v", err)
+		return err
+	}
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(err)
+	}
+	for _, name := range serviceNames {
+		selector := labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: name}.AsSelector()
+		err = commonservice.DeleteResourcesAsync(productInfo.Namespace, selector, kubeClient, log)
+		if err != nil {
+			//删除失败仅记录失败日志
+			log.Errorf("delete resource of service %s error:%v", name, err)
+		}
+	}
+	return nil
+}
+
 func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, log *zap.SugaredLogger) ([]*commonservice.RenderChartArg, error) {
 
 	var serviceNameList []string
@@ -2590,7 +2673,7 @@ func getServiceRevisionMap(serviceRevisionList []*SvcRevision) map[string]*SvcRe
 	return serviceRevisionMap
 }
 
-func getUpdatedProductServices(updateProduct *commonmodels.Product, serviceRevisionMap map[string]*SvcRevision, currentProduct *commonmodels.Product) [][]*commonmodels.ProductService {
+func getUpdatedProductServices(serviceNames []string, updateProduct *commonmodels.Product, serviceRevisionMap map[string]*SvcRevision, currentProduct *commonmodels.Product) [][]*commonmodels.ProductService {
 	currentServices := make(map[string]*commonmodels.ProductService)
 	for _, group := range currentProduct.Services {
 		for _, service := range group {
@@ -2603,7 +2686,7 @@ func getUpdatedProductServices(updateProduct *commonmodels.Product, serviceRevis
 		updatedGroups := make([]*commonmodels.ProductService, 0)
 		for _, service := range group {
 			serviceRevision, ok := serviceRevisionMap[service.ServiceName+service.Type]
-			if !ok {
+			if !ok || (len(serviceNames) > 0 && !util.InStringArray(service.ServiceName, serviceNames)) {
 				//找不到 service revision
 				continue
 			}
