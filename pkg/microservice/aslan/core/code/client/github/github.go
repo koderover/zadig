@@ -65,7 +65,6 @@ func (c *Client) ListBranches(opt client.ListOpt) ([]*client.Branch, error) {
 }
 
 func (c *Client) ListTags(opt client.ListOpt) ([]*client.Tag, error) {
-
 	tags, err := c.Client.ListTags(context.TODO(), opt.Namespace, opt.ProjectName, nil)
 	if err != nil {
 		return nil, err

@@ -27,8 +27,8 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client/gerrit"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client/github"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client/gitlab"
+	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
-	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 type ClientConfig interface {
@@ -36,16 +36,16 @@ type ClientConfig interface {
 }
 
 var ClientsConfig = map[string]func() ClientConfig{
-	"gitlab":  func() ClientConfig { return new(gitlab.Config) },
-	"github":  func() ClientConfig { return new(github.Config) },
-	"gerrit":  func() ClientConfig { return new(gerrit.Config) },
-	"codehub": func() ClientConfig { return new(codehub.Config) },
+	setting.SourceFromGitlab:  func() ClientConfig { return new(gitlab.Config) },
+	setting.SourceFromGithub:  func() ClientConfig { return new(github.Config) },
+	setting.SourceFromGerrit:  func() ClientConfig { return new(gerrit.Config) },
+	setting.SourceFromCodeHub: func() ClientConfig { return new(codehub.Config) },
 }
 
 func OpenClient(codehostID int, log *zap.SugaredLogger) (client.CodeHostClient, error) {
 	ch, err := systemconfig.New().GetCodeHost(codehostID)
 	if err != nil {
-		return nil, e.ErrCodehostListBranches.AddDesc("git client is nil")
+		return nil, err
 	}
 	var c client.CodeHostClient
 	f, ok := ClientsConfig[ch.Type]
