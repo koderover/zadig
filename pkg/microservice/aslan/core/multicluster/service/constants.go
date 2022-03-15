@@ -60,3 +60,6 @@ func (s StorageProvisioner) IsNFS() bool {
 
 // ZadigMinioSVC is the service name of minio.
 const ZadigMinioSVC = "zadig-minio"
+
+// IstiodDeployment is the Deployment name of istiod.
+const IstiodDeployment = "istiod"
