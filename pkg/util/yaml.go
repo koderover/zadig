@@ -43,7 +43,7 @@ func SplitManifests(content string) []string {
 	return res
 }
 
-// image ccr.ccs.tencentyun.com/shuhe/nginx:stable
+// image ccr.ccs.tencentyun.com/koderover/nginx:stable
 // return nginx
 func GetImageName(image string) string {
 	imageNameStr := ""
