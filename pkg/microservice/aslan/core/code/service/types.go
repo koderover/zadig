@@ -70,82 +70,6 @@ type Tag struct {
 	Message    string `json:"message"`
 }
 
-func ToBranches(obj interface{}) []*Branch {
-	var res []*Branch
-
-	switch os := obj.(type) {
-	case []*github.Branch:
-		for _, o := range os {
-			res = append(res, &Branch{
-				Name:      o.GetName(),
-				Protected: o.GetProtected(),
-			})
-		}
-	case []*gitlab.Branch:
-		for _, o := range os {
-			res = append(res, &Branch{
-				Name:      o.Name,
-				Protected: o.Protected,
-				Merged:    o.Merged,
-			})
-		}
-	case []string:
-		for _, o := range os {
-			res = append(res, &Branch{
-				Name: o,
-			})
-		}
-	case []*codehub.Branch:
-		for _, o := range os {
-			res = append(res, &Branch{
-				Name:      o.Name,
-				Protected: o.Protected,
-				Merged:    o.Merged,
-			})
-		}
-	}
-
-	return res
-}
-
-func ToPullRequests(obj interface{}) []*PullRequest {
-	var res []*PullRequest
-
-	switch os := obj.(type) {
-	case []*github.PullRequest:
-		for _, o := range os {
-			res = append(res, &PullRequest{
-				ID:             o.GetNumber(),
-				CreatedAt:      o.GetCreatedAt().Unix(),
-				UpdatedAt:      o.GetUpdatedAt().Unix(),
-				State:          o.GetState(),
-				User:           o.GetUser().GetLogin(),
-				Number:         o.GetNumber(),
-				AuthorUsername: o.GetUser().GetLogin(),
-				Title:          o.GetTitle(),
-				SourceBranch:   o.GetHead().GetRef(),
-				TargetBranch:   o.GetBase().GetRef(),
-			})
-		}
-	case []*gitlab.MergeRequest:
-		for _, o := range os {
-			res = append(res, &PullRequest{
-				ID:             o.IID,
-				TargetBranch:   o.TargetBranch,
-				SourceBranch:   o.SourceBranch,
-				ProjectID:      o.ProjectID,
-				Title:          o.Title,
-				State:          o.State,
-				CreatedAt:      o.CreatedAt.Unix(),
-				UpdatedAt:      o.UpdatedAt.Unix(),
-				AuthorUsername: o.Author.Username,
-			})
-		}
-	}
-
-	return res
-}
-
 func ToNamespaces(obj interface{}) []*Namespace {
 	var res []*Namespace
 
@@ -236,43 +160,6 @@ func ToProjects(obj interface{}) []*Project {
 				Namespace:     project.Namespace,
 				RepoUUID:      project.RepoUUID,
 				RepoID:        project.RepoID,
-			})
-		}
-	}
-
-	return res
-}
-
-func ToTags(obj interface{}) []*Tag {
-	var res []*Tag
-
-	switch os := obj.(type) {
-	case []*github.RepositoryTag:
-		for _, o := range os {
-			res = append(res, &Tag{
-				Name:       o.GetName(),
-				ZipballURL: o.GetZipballURL(),
-				TarballURL: o.GetTarballURL(),
-			})
-		}
-	case []*gitlab.Tag:
-		for _, o := range os {
-			res = append(res, &Tag{
-				Name:    o.Name,
-				Message: o.Message,
-			})
-		}
-	case []*gerrit.TagInfo:
-		for _, o := range os {
-			res = append(res, &Tag{
-				Name:    o.Ref,
-				Message: o.Message,
-			})
-		}
-	case []*codehub.Tag:
-		for _, o := range os {
-			res = append(res, &Tag{
-				Name: o.Name,
 			})
 		}
 	}
