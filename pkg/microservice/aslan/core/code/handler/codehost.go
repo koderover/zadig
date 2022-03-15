@@ -74,7 +74,7 @@ func CodeHostGetProjectsList(c *gin.Context) {
 
 	namespaceType := c.DefaultQuery("type", "group")
 	codehostID := c.Param("codehostId")
-	namespace := c.Param("namespace")
+	namespace := c.Query("namespace")
 
 	if codehostID == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty codehostId")
@@ -121,8 +121,8 @@ func CodeHostGetBranchList(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	codehostID := c.Param("codehostId")
-	namespace := c.Param("namespace")
-	projectName := c.Param("projectName") // pro Name, id/name -> gitlab = id
+	namespace := c.Query("namespace")
+	projectName := c.Query("projectName") // pro Name, id/name -> gitlab = id
 	args := new(CodeHostGetPageNateListArgs)
 	if err := c.ShouldBindQuery(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
@@ -158,8 +158,8 @@ func CodeHostGetTagList(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	codehostID := c.Param("codehostId")
-	namespace := c.Param("namespace")
-	projectName := c.Param("projectName") // pro Name, id/name -> gitlab = id
+	namespace := c.Query("namespace")
+	projectName := c.Query("projectName") // pro Name, id/name -> gitlab = id
 	args := new(CodeHostGetPageNateListArgs)
 	if err := c.ShouldBindQuery(args); err != nil {
 		ctx.Err = e.ErrInvalidParam.AddDesc(err.Error())
@@ -187,8 +187,8 @@ func CodeHostGetPRList(c *gin.Context) {
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
 	codehostID := c.Param("codehostId")
-	namespace := c.Param("namespace")
-	projectName := c.Param("projectName") // pro Name, id/name -> gitlab = id
+	namespace := c.Query("namespace")
+	projectName := c.Query("projectName") // pro Name, id/name -> gitlab = id
 
 	args := new(CodeHostGetPageNateListArgs)
 	if err := c.ShouldBindQuery(args); err != nil {

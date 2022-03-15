@@ -108,7 +108,6 @@ func ValidateServiceUpdate(c *gin.Context) {
 		return
 	}
 
-	//branchName := c.Param("branchName")
 	branchName := c.Query("branchName")
 
 	path := c.Query("path")

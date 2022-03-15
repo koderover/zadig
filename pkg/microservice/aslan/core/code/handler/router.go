@@ -29,10 +29,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		codehost.GET("", GetCodeHostList)
 		codehost.GET("/:codehostId/namespaces", CodeHostGetNamespaceList)
-		codehost.GET("/:codehostId/namespaces/:namespace/projects", CodeHostGetProjectsList)
-		codehost.GET("/:codehostId/namespaces/:namespace/projects/:projectName/branches", CodeHostGetBranchList)
-		codehost.GET("/:codehostId/namespaces/:namespace/projects/:projectName/tags", CodeHostGetTagList)
-		codehost.GET("/:codehostId/namespaces/:namespace/projects/:projectName/prs", CodeHostGetPRList)
+		codehost.GET("/:codehostId/namespaces/projects", CodeHostGetProjectsList)
+		codehost.GET("/:codehostId/namespaces/projects/branches", CodeHostGetBranchList)
+		codehost.GET("/:codehostId/namespaces/projects/tags", CodeHostGetTagList)
+		codehost.GET("/:codehostId/namespaces/projects/prs", CodeHostGetPRList)
 		codehost.PUT("/infos", ListRepoInfos)
 		codehost.POST("/branches/regular/check", MatchBranchesList)
 	}
@@ -44,11 +44,9 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		workspace.DELETE("", GetProductNameByWorkspacePipeline, gin2.UpdateOperationLogStatus, CleanWorkspace)
 		workspace.GET("/file", GetWorkspaceFile)
-		//workspace.GET("/git/:codehostId/:repoName/:branchName/:remoteName", GetGitRepoInfo)
-		workspace.GET("/git/:codehostId/:repoName", GetGitRepoInfo)
+		workspace.GET("/git/:codehostId", GetGitRepoInfo)
 
 		workspace.GET("/tree", GetRepoTree)
-		//workspace.GET("/codehub/:codehostId/:repoUUID/:branchName", GetCodehubRepoInfo)
 		workspace.GET("/codehub/:codehostId/:repoUUID", GetCodehubRepoInfo)
 	}
 
