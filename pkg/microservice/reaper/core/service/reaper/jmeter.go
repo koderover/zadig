@@ -31,7 +31,6 @@ import (
 func JmeterTestResults(testResultFile, testResultPath, testUploadPath string) error {
 	var err error
 	if len(testResultPath) == 0 {
-		log.Warning("jmeter test result step skipped: no test result path found")
 		return nil
 	}
 
