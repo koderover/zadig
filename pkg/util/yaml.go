@@ -43,6 +43,8 @@ func SplitManifests(content string) []string {
 	return res
 }
 
+// image ccr.ccs.tencentyun.com/shuhe/nginx:stable
+// return nginx
 func GetImageName(image string) string {
 	imageNameStr := ""
 	imageArr := strings.Split(image, ":")
