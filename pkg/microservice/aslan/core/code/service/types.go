@@ -16,15 +16,6 @@ limitations under the License.
 
 package service
 
-import (
-	"github.com/andygrunwald/go-gerrit"
-	"github.com/google/go-github/v35/github"
-	"github.com/xanzy/go-gitlab"
-
-	"github.com/koderover/zadig/pkg/tool/codehub"
-	gerrittool "github.com/koderover/zadig/pkg/tool/gerrit"
-)
-
 type Branch struct {
 	Name      string `json:"name"`
 	Protected bool   `json:"protected"`
@@ -68,101 +59,4 @@ type Tag struct {
 	ZipballURL string `json:"zipball_url"`
 	TarballURL string `json:"tarball_url"`
 	Message    string `json:"message"`
-}
-
-func ToNamespaces(obj interface{}) []*Namespace {
-	var res []*Namespace
-
-	switch os := obj.(type) {
-	case *github.User:
-		res = append(res, &Namespace{
-			Name: os.GetLogin(),
-			Path: os.GetLogin(),
-			Kind: UserKind,
-		})
-	case []*github.User:
-		for _, o := range os {
-			res = append(res, &Namespace{
-				Name: o.GetLogin(),
-				Path: o.GetLogin(),
-				Kind: UserKind,
-			})
-		}
-	case []*github.Organization:
-		for _, o := range os {
-			res = append(res, &Namespace{
-				Name: o.GetLogin(),
-				Path: o.GetLogin(),
-				Kind: OrgKind,
-			})
-		}
-	case []*gitlab.Namespace:
-		for _, o := range os {
-			res = append(res, &Namespace{
-				Name: o.Path,
-				Path: o.FullPath,
-				Kind: o.Kind,
-			})
-		}
-	case []*codehub.Namespace:
-		for _, o := range os {
-			res = append(res, &Namespace{
-				Name:        o.Name,
-				Path:        o.Path,
-				Kind:        o.Kind,
-				ProjectUUID: o.ProjectUUID,
-			})
-		}
-	}
-
-	return res
-}
-
-func ToProjects(obj interface{}) []*Project {
-	var res []*Project
-
-	switch os := obj.(type) {
-	case []*github.Repository:
-		for _, o := range os {
-			res = append(res, &Project{
-				ID:            int(o.GetID()),
-				Name:          o.GetName(),
-				DefaultBranch: o.GetDefaultBranch(),
-				Namespace:     o.GetOwner().GetLogin(),
-			})
-		}
-	case []*gitlab.Project:
-		for _, o := range os {
-			res = append(res, &Project{
-				ID:            o.ID,
-				Name:          o.Path,
-				Namespace:     o.Namespace.FullPath,
-				Description:   o.Description,
-				DefaultBranch: o.DefaultBranch,
-			})
-		}
-	case []*gerrit.ProjectInfo:
-		for ind, o := range os {
-			res = append(res, &Project{
-				ID:            ind,                       // fake id
-				Name:          gerrittool.Unescape(o.ID), // id could have %2F
-				Description:   o.Description,
-				DefaultBranch: "master",
-				Namespace:     gerrittool.DefaultNamespace,
-			})
-		}
-	case []*codehub.Project:
-		for _, project := range os {
-			res = append(res, &Project{
-				Name:          project.Name,
-				Description:   project.Description,
-				DefaultBranch: project.DefaultBranch,
-				Namespace:     project.Namespace,
-				RepoUUID:      project.RepoUUID,
-				RepoID:        project.RepoID,
-			})
-		}
-	}
-
-	return res
 }
