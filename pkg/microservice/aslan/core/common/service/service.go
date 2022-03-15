@@ -682,9 +682,11 @@ func parseImagesByPattern(nested map[string]interface{}, patterns []map[string]s
 		if err != nil {
 			return nil, err
 		}
+		name := ExtractImageName(imageUrl)
 		ret = append(ret, &commonmodels.Container{
-			Name:  ExtractImageName(imageUrl),
-			Image: imageUrl,
+			Name:      name,
+			ImageName: name,
+			Image:     imageUrl,
 			ImagePath: &commonmodels.ImagePathSpec{
 				Repo:  searchResult[setting.PathSearchComponentRepo],
 				Image: searchResult[setting.PathSearchComponentImage],
