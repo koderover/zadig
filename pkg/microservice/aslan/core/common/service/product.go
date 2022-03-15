@@ -51,7 +51,7 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName})
 	if err != nil {
 		log.Errorf("find product error: %v", err)
-		return e.ErrDeleteEnv.AddDesc("not found")
+		return err
 	}
 
 	// delete informer's cache
