@@ -1760,13 +1760,9 @@ func DeleteProductServices(envName, productName string, serviceNames []string, l
 		log.Errorf("update renderSet error: %v", err)
 		return err
 	}
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
-	if err != nil {
-		return e.ErrUpdateEnv.AddErr(err)
-	}
 	for _, name := range serviceNames {
 		selector := labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: name}.AsSelector()
-		err = commonservice.DeleteResourcesAsync(productInfo.Namespace, selector, kubeClient, log)
+		err = commonservice.DeleteNamespacedResource(productInfo.Namespace, selector, productInfo.ClusterID, log)
 		if err != nil {
 			//删除失败仅记录失败日志
 			log.Errorf("delete resource of service %s error:%v", name, err)
