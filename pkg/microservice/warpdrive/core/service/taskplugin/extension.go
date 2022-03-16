@@ -124,10 +124,6 @@ func (p *ExtensionTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, 
 		httpclient.SetHostURL(p.Task.URL),
 	)
 	url := p.Task.Path
-	for _, header := range p.Task.Headers {
-		httpclient.SetHeader(header.Key, header.Value)
-	}
-
 	webhookPayload := &task.WebhookPayload{
 		EventName:    "workflow",
 		ProjectName:  pipelineTask.ProductName,
