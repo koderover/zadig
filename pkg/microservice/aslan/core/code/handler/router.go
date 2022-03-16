@@ -29,10 +29,10 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		codehost.GET("", GetCodeHostList)
 		codehost.GET("/:codehostId/namespaces", CodeHostGetNamespaceList)
-		codehost.GET("/:codehostId/namespaces/projects", CodeHostGetProjectsList)
-		codehost.GET("/:codehostId/namespaces/projects/branches", CodeHostGetBranchList)
-		codehost.GET("/:codehostId/namespaces/projects/tags", CodeHostGetTagList)
-		codehost.GET("/:codehostId/namespaces/projects/prs", CodeHostGetPRList)
+		codehost.GET("/:codehostId/projects", CodeHostGetProjectsList)
+		codehost.GET("/:codehostId/branches", CodeHostGetBranchList)
+		codehost.GET("/:codehostId/tags", CodeHostGetTagList)
+		codehost.GET("/:codehostId/prs", CodeHostGetPRList)
 		codehost.PUT("/infos", ListRepoInfos)
 		codehost.POST("/branches/regular/check", MatchBranchesList)
 	}
