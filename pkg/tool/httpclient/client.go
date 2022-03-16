@@ -18,6 +18,7 @@ package httpclient
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"time"
@@ -148,6 +149,10 @@ func (c *Client) Request(method, url string, rfs ...RequestFunc) (*resty.Respons
 	for _, rf := range rfs {
 		rf(r)
 	}
+	for key, value := range r.Header {
+		fmt.Println(fmt.Sprintf("key:%s,value:%s", key, value))
+	}
+
 	return c.wrapError(r.Execute(method, url))
 }
 
