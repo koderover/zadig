@@ -136,10 +136,12 @@ func (p *ExtensionTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, 
 	if err != nil {
 		return
 	}
+	headers := make(map[string]string)
 	for _, header := range p.Task.Headers {
-		httpclient.SetHeader(header.Key, header.Value)
+		headers[header.Key] = header.Value
 	}
-	_, err = httpClient.Post(url, httpclient.SetHeader(ZadigEvent, EventName), httpclient.SetBody(body))
+	headers[ZadigEvent] = EventName
+	_, err = httpClient.Post(url, httpclient.SetHeaders(headers), httpclient.SetBody(body))
 	if err != nil {
 		return
 	}
