@@ -150,7 +150,10 @@ func (c *Client) Request(method, url string, rfs ...RequestFunc) (*resty.Respons
 		rf(r)
 	}
 
-	fmt.Println(fmt.Sprintf("request.body:%s", r.Body.(string)))
+	if value, ok := r.Body.(string); ok {
+		fmt.Println(fmt.Sprintf("request.body:%s", value))
+	}
+
 	return c.wrapError(r.Execute(method, url))
 }
 
