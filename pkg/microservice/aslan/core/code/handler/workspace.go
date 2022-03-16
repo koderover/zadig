@@ -17,7 +17,6 @@ limitations under the License.
 package handler
 
 import (
-	"net/url"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -94,24 +93,19 @@ func GetGitRepoInfo(c *gin.Context) {
 		return
 	}
 
-	repoName := c.Param("repoName")
+	repoName := c.Query("repoName")
 	if repoName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty repo name")
 		return
 	}
-	repoName, err = url.QueryUnescape(repoName)
-	if err != nil {
-		ctx.Err = e.ErrInvalidParam.AddDesc("repoName decode error")
-		return
-	}
 
-	branchName := c.Param("branchName")
+	branchName := c.Query("branchName")
 	if branchName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty branch name")
 		return
 	}
 
-	remoteName := c.Param("remoteName")
+	remoteName := c.Query("remoteName")
 	if remoteName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty remote name")
 		return
@@ -175,13 +169,13 @@ func GetCodehubRepoInfo(c *gin.Context) {
 		return
 	}
 
-	repoUUID := c.Param("repoUUID")
+	repoUUID := c.Query("repoUUID")
 	if repoUUID == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty repo uuid")
 		return
 	}
 
-	branchName := c.Param("branchName")
+	branchName := c.Query("branchName")
 	if branchName == "" {
 		ctx.Err = e.ErrInvalidParam.AddDesc("empty branch name")
 		return

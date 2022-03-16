@@ -45,7 +45,7 @@ func PreloadServiceTemplate(c *gin.Context) {
 		return
 	}
 
-	branchName := c.Param("branchName")
+	branchName := c.Query("branchName")
 
 	path := c.Query("path")
 	isDir := c.Query("isDir") == "true"
@@ -74,7 +74,7 @@ func LoadServiceTemplate(c *gin.Context) {
 		return
 	}
 
-	branchName := c.Param("branchName")
+	branchName := c.Query("branchName")
 
 	args := new(svcservice.LoadServiceReq)
 	if err := c.BindJSON(args); err != nil {
@@ -109,7 +109,7 @@ func ValidateServiceUpdate(c *gin.Context) {
 		return
 	}
 
-	branchName := c.Param("branchName")
+	branchName := c.Query("branchName")
 
 	path := c.Query("path")
 	isDir := c.Query("isDir") == "true"
