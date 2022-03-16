@@ -136,6 +136,7 @@ func (p *ExtensionTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, 
 	if err != nil {
 		return
 	}
+	p.Task.Payload = string(body)
 	headers := make(map[string]string)
 	for _, header := range p.Task.Headers {
 		headers[header.Key] = header.Value
