@@ -104,3 +104,48 @@ func (c *Client) ListPrs(opt client.ListOpt) ([]*client.PullRequest, error) {
 	}
 	return res, nil
 }
+
+func (c *Client) ListNamespaces(keyword string) ([]*client.Namespace, error) {
+	user, err := c.Client.GetAuthenticatedUser(context.TODO())
+	if err != nil {
+		return nil, err
+	}
+	namespaceUser := client.Namespace{
+		Name: user.GetLogin(),
+		Path: user.GetLogin(),
+		Kind: client.UserKind,
+	}
+
+	organizations, err := c.Client.ListOrganizationsForAuthenticatedUser(context.TODO(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var res []*client.Namespace
+	res = append(res, &namespaceUser)
+	for _, o := range organizations {
+		res = append(res, &client.Namespace{
+			Name: o.GetLogin(),
+			Path: o.GetLogin(),
+			Kind: client.OrgKind,
+		})
+	}
+	return res, nil
+}
+
+func (c *Client) ListProjects(opt client.ListOpt) ([]*client.Project, error) {
+	repos, err := c.Client.ListRepositoriesForAuthenticatedUser(context.TODO(), nil)
+	if err != nil {
+		return nil, err
+	}
+	var res []*client.Project
+	for _, o := range repos {
+		res = append(res, &client.Project{
+			ID:            int(o.GetID()),
+			Name:          o.GetName(),
+			DefaultBranch: o.GetDefaultBranch(),
+			Namespace:     o.GetOwner().GetLogin(),
+		})
+	}
+	return res, nil
+}
