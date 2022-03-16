@@ -48,6 +48,13 @@ type GitRepoInfo struct {
 	RepoID        string                `json:"repo_id,omitempty"`
 }
 
+func (repo *GitRepoInfo) GetNamespace() string {
+	if repo.Namespace == "" {
+		return repo.Owner
+	}
+	return repo.Namespace
+}
+
 // ListRepoInfos ...
 func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo, error) {
 	var wg sync.WaitGroup
@@ -64,7 +71,7 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 				wg.Done()
 			}()
 			info.PRs, err = codehostClient.ListPrs(client.ListOpt{
-				Namespace:   strings.Replace(info.Owner, "%2F", "/", -1),
+				Namespace:   strings.Replace(info.GetNamespace(), "%2F", "/", -1),
 				ProjectName: info.Repo,
 			})
 			if err != nil {
@@ -85,7 +92,7 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 				projectName = info.RepoUUID
 			}
 			info.Branches, err = codehostClient.ListBranches(client.ListOpt{
-				Namespace:   strings.Replace(info.Owner, "%2F", "/", -1),
+				Namespace:   strings.Replace(info.GetNamespace(), "%2F", "/", -1),
 				ProjectName: projectName,
 			})
 			if err != nil {
@@ -108,7 +115,7 @@ func ListRepoInfos(infos []*GitRepoInfo, log *zap.SugaredLogger) ([]*GitRepoInfo
 			}
 
 			info.Tags, err = codehostClient.ListTags(client.ListOpt{
-				Namespace:   strings.Replace(info.Owner, "%2F", "/", -1),
+				Namespace:   strings.Replace(info.GetNamespace(), "%2F", "/", -1),
 				ProjectName: projectName,
 			})
 			if err != nil {
