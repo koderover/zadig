@@ -197,12 +197,10 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 
-	if renderSet == nil {
-		renderSet, err = FindHelmRenderSet(args.ProductName, args.Render.Name, log)
-		if err != nil {
-			log.Errorf("[%s][P:%s] find product renderset error: %v", args.EnvName, args.ProductName, err)
-			return e.ErrCreateEnv.AddDesc(err.Error())
-		}
+	renderSet, err = FindHelmRenderSet(args.ProductName, args.Render.Name, log)
+	if err != nil {
+		log.Errorf("[%s][P:%s] find product renderset error: %v", args.EnvName, args.ProductName, err)
+		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 
 	// 设置产品render revision

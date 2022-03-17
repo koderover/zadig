@@ -142,7 +142,6 @@ func createHelmProduct(c *gin.Context, ctx *internalhandler.Context) {
 		arg.ProductName = projectName
 		envNameList = append(envNameList, arg.EnvName)
 	}
-
 	internalhandler.InsertOperationLog(c, ctx.UserName, projectName, "新增", "环境", strings.Join(envNameList, "-"), string(data), ctx.Logger)
 
 	ctx.Err = service.CreateHelmProduct(
