@@ -45,6 +45,7 @@ func Execute() error {
 		resultMsg := types.JobSuccess
 		if err != nil {
 			resultMsg = types.JobFail
+			log.Errorf("Failed to run: %s.", err)
 		}
 		log.Infof("Job Status: %s", resultMsg)
 
