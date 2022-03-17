@@ -132,7 +132,7 @@ func ListTars(id, kind string, serviceNames []string, logger *zap.SugaredLogger)
 		newServiceName := serviceName
 		wg.Start(func() {
 			deliveryArtifacts, err := commonrepo.NewDeliveryArtifactColl().ListTars(&commonrepo.DeliveryArtifactArgs{
-				Name:              serviceName + "_" + serviceName,
+				Name:              newServiceName + "_" + newServiceName,
 				Type:              kind,
 				Source:            string(config.WorkflowType),
 				PackageStorageURI: store.Endpoint + "/" + store.Bucket,
