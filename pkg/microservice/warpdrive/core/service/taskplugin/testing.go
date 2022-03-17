@@ -157,21 +157,18 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 	p.Task.Error = ""
 	var linkedNamespace string
 	var envName string
+
+	workflowName := pipelineTask.PipelineName
 	if pipelineTask.Type == config.SingleType {
 		linkedNamespace = pipelineTask.TaskArgs.Test.Namespace
 	} else if pipelineTask.Type == config.WorkflowType {
 		product := &types.Product{EnvName: pipelineTask.WorkflowArgs.Namespace, ProductName: pipelineTask.WorkflowArgs.ProductTmplName}
 		linkedNamespace = product.ProductName + "-env-" + product.EnvName
 		envName = pipelineTask.WorkflowArgs.Namespace
-	}
 
-	//if linkedNamespace == "" {
-	//	msg := "namespace for testing is empty"
-	//	p.Log.Error(msg)
-	//	p.Task.TaskStatus = task.StatusFailed
-	//	p.Task.Error = msg
-	//	return
-	//}
+		workflowName = pipelineTask.WorkflowArgs.WorkflowName
+	}
+	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, &task.KeyVal{Key: "WORKFLOW", Value: workflowName})
 
 	namespaceEnvVar := &task.KeyVal{Key: "DEPLOY_ENV", Value: p.KubeNamespace, IsCredential: false}
 	linkedNamespaceEnvVar := &task.KeyVal{Key: "LINKED_ENV", Value: linkedNamespace, IsCredential: false}
@@ -186,6 +183,8 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, namespaceEnvVar)
 	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, linkedNamespaceEnvVar)
 	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, envNameEnvVar)
+	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, &task.KeyVal{Key: "SERVICE", Value: pipelineTask.ServiceName})
+	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, &task.KeyVal{Key: "PROJECT", Value: pipelineTask.ProductName})
 
 	var testReportFile string // html 测试报告
 	fileName := fmt.Sprintf("%s-%s-%d-%s-%s", config.SingleType, pipelineTask.PipelineName, pipelineTask.TaskID, config.TaskTestingV2, pipelineTask.ServiceName)
@@ -205,6 +204,7 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 	if pipelineCtx.CacheEnable && pipelineCtx.Cache.MediumType == commontypes.NFSMedium &&
 		pipelineCtx.CacheDirType == commontypes.UserDefinedCacheDir {
 		pipelineCtx.CacheUserDir = p.renderEnv(pipelineCtx.CacheUserDir)
+		pipelineCtx.Cache.NFSProperties.Subpath = p.renderEnv(pipelineCtx.Cache.NFSProperties.Subpath)
 	}
 
 	jobCtx := JobCtxBuilder{

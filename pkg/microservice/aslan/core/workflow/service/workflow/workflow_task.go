@@ -1516,6 +1516,21 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *taskmodels.Task,
 		testTask.JobCtx.TestResultPath = testModule.TestResultPath
 		testTask.JobCtx.TestReportPath = testModule.TestReportPath
 
+		clusterInfo, err := commonrepo.NewK8SClusterColl().Get(testModule.PreTest.ClusterID)
+		if err != nil {
+			return nil, err
+		}
+		testTask.Cache = clusterInfo.Cache
+
+		// If the cluster is not configured with a cache medium, the cache cannot be used, so don't enable cache explicitly.
+		if testTask.Cache.MediumType == "" {
+			testTask.CacheEnable = false
+		} else {
+			testTask.CacheEnable = testModule.CacheEnable
+			testTask.CacheDirType = testModule.CacheDirType
+			testTask.CacheUserDir = testModule.CacheUserDir
+		}
+
 		if testTask.Registries == nil {
 			testTask.Registries = registries
 		}
