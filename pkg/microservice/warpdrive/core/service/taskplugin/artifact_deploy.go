@@ -126,6 +126,12 @@ func (p *ArtifactDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.T
 		p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, envHostKeysVar)
 	}
 
+	// env host names
+	for envName, names := range p.Task.EnvHostNames {
+		envHostKeysVar := &task.KeyVal{Key: envName + "_HOST_NAMEs", Value: strings.Join(names, ","), IsCredential: false}
+		p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, envHostKeysVar)
+	}
+
 	// ARTIFACT
 	if p.Task.ArtifactInfo != nil {
 		var workspace = "/workspace"

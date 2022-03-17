@@ -183,6 +183,12 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 		p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, envHostKeysVar)
 	}
 
+	// env host names
+	for envName, names := range p.Task.EnvHostNames {
+		envHostKeysVar := &task.KeyVal{Key: envName + "_HOST_NAMEs", Value: strings.Join(names, ","), IsCredential: false}
+		p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, envHostKeysVar)
+	}
+
 	// ARTIFACT
 	if p.Task.JobCtx.FileArchiveCtx != nil {
 		var workspace = "/workspace"
