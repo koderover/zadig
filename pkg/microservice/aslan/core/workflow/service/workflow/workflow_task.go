@@ -2105,8 +2105,6 @@ func extractHost(privateKeys []*commonmodels.PrivateKey, ips, names sets.String)
 	for _, privateKey := range privateKeys {
 		ips.Insert(privateKey.IP)
 		names.Insert(privateKey.Name)
-		fmt.Println(fmt.Sprintf("privateKey.ip:%s", privateKey.IP))
-		fmt.Println(fmt.Sprintf("privateKey.Name:%s", privateKey.Name))
 	}
 	return ips, names
 }
