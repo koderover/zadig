@@ -128,10 +128,11 @@ func ListTars(id, kind string, serviceNames []string, logger *zap.SugaredLogger)
 	}
 
 	for _, serviceName := range serviceNames {
+		// Change the service name to underscore splicing
 		newServiceName := serviceName
 		wg.Start(func() {
 			deliveryArtifacts, err := commonrepo.NewDeliveryArtifactColl().ListTars(&commonrepo.DeliveryArtifactArgs{
-				Name:              newServiceName,
+				Name:              newServiceName + "_" + newServiceName,
 				Type:              kind,
 				Source:            string(config.WorkflowType),
 				PackageStorageURI: store.Endpoint + "/" + store.Bucket,
