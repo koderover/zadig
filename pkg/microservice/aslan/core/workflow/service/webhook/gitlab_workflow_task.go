@@ -432,7 +432,7 @@ func UpdateWorkflowTaskArgs(triggerYaml *TriggerYaml, workflow *commonmodels.Wor
 		if test.Repo.Strategy == TestRepoStrategyCurrentRepo {
 			for _, repo := range moduleTest.Repos {
 				if repo.RepoName == item.MainRepo.RepoName && repo.RepoOwner == item.MainRepo.RepoOwner {
-					repo.Branch = item.MainRepo.Branch
+					repo.Branch = branref
 					repo.PR = prId
 				}
 			}
