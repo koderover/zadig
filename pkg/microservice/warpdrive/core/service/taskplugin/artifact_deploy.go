@@ -35,7 +35,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
-	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 )
@@ -119,37 +118,17 @@ func (p *ArtifactDeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.T
 	default:
 		p.KubeNamespace = setting.AttachedClusterNamespace
 
-		kubeClient, err := kubeclient.GetKubeClient(pipelineTask.ConfigPayload.HubServerAddr, p.Task.ClusterID)
+		crClient, clientset, restConfig, err := GetK8sClients(pipelineTask.ConfigPayload.HubServerAddr, p.Task.ClusterID)
 		if err != nil {
-			msg := fmt.Sprintf("failed to get kube client: %s", err)
-			p.Log.Error(msg)
+			p.Log.Error(err)
 			p.Task.TaskStatus = config.StatusFailed
-			p.Task.Error = msg
+			p.Task.Error = err.Error()
 			p.SetBuildStatusCompleted(config.StatusFailed)
 			return
 		}
-		p.kubeClient = kubeClient
 
-		clientset, err := kubeclient.GetClientset(pipelineTask.ConfigPayload.HubServerAddr, p.Task.ClusterID)
-		if err != nil {
-			msg := fmt.Sprintf("failed to get clientset: %s", err)
-			p.Log.Error(msg)
-			p.Task.TaskStatus = config.StatusFailed
-			p.Task.Error = msg
-			p.SetBuildStatusCompleted(config.StatusFailed)
-			return
-		}
+		p.kubeClient = crClient
 		p.clientset = clientset
-
-		restConfig, err := kubeclient.GetRESTConfig(pipelineTask.ConfigPayload.HubServerAddr, p.Task.ClusterID)
-		if err != nil {
-			msg := fmt.Sprintf("failed to get clientset: %s", err)
-			p.Log.Error(msg)
-			p.Task.TaskStatus = config.StatusFailed
-			p.Task.Error = msg
-			p.SetBuildStatusCompleted(config.StatusFailed)
-			return
-		}
 		p.restConfig = restConfig
 	}
 
