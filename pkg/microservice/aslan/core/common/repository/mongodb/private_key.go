@@ -195,6 +195,7 @@ func (c *PrivateKeyColl) ListHostIPByArgs(args *ListHostIPArgs) ([]*models.Priva
 	opt := options.Find()
 	selector := bson.D{
 		{"ip", 1},
+		{"name", 1},
 	}
 	opt.SetProjection(selector)
 	cursor, err := c.Collection.Find(ctx, query, opt)
