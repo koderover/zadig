@@ -27,9 +27,13 @@ import (
 	t "github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"go.uber.org/zap"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	crClient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kodo"
 )
 
@@ -218,4 +222,23 @@ func ToExtensionTask(sb map[string]interface{}) (*task.Extension, error) {
 		return nil, fmt.Errorf("convert interface to extensionTask error: %s", err)
 	}
 	return extension, nil
+}
+
+func GetK8sClients(hubServerAddr, clusterID string) (crClient.Client, kubernetes.Interface, *rest.Config, error) {
+	controllerRuntimeClient, err := kubeclient.GetKubeClient(hubServerAddr, clusterID)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to get controller runtime client: %s", err)
+	}
+
+	clientset, err := kubeclient.GetKubeClientSet(hubServerAddr, clusterID)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to get clientset: %s", err)
+	}
+
+	restConfig, err := kubeclient.GetRESTConfig(hubServerAddr, clusterID)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to get rest config: %s", err)
+	}
+
+	return controllerRuntimeClient, clientset, restConfig, nil
 }

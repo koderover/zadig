@@ -27,6 +27,8 @@ import (
 
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	zadigconfig "github.com/koderover/zadig/pkg/config"
@@ -35,7 +37,6 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types"
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/core/service/types/task"
 	"github.com/koderover/zadig/pkg/setting"
-	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	krkubeclient "github.com/koderover/zadig/pkg/tool/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	s3tool "github.com/koderover/zadig/pkg/tool/s3"
@@ -47,6 +48,8 @@ func InitializeTestTaskPlugin(taskType config.TaskType) TaskPlugin {
 	return &TestPlugin{
 		Name:       taskType,
 		kubeClient: krkubeclient.Client(),
+		clientset:  krkubeclient.Clientset(),
+		restConfig: krkubeclient.RESTConfig(),
 	}
 }
 
@@ -57,6 +60,8 @@ type TestPlugin struct {
 	JobName       string
 	FileName      string
 	kubeClient    client.Client
+	clientset     kubernetes.Interface
+	restConfig    *rest.Config
 	Task          *task.Testing
 	Log           *zap.SugaredLogger
 }
@@ -115,15 +120,17 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 	default:
 		p.KubeNamespace = setting.AttachedClusterNamespace
 
-		kubeClient, err := kubeclient.GetKubeClient(pipelineTask.ConfigPayload.HubServerAddr, p.Task.ClusterID)
+		crClient, clientset, restConfig, err := GetK8sClients(pipelineTask.ConfigPayload.HubServerAddr, p.Task.ClusterID)
 		if err != nil {
-			msg := fmt.Sprintf("failed to get kube client: %s", err)
-			p.Log.Error(msg)
+			p.Log.Error(err)
 			p.Task.TaskStatus = config.StatusFailed
-			p.Task.Error = msg
+			p.Task.Error = err.Error()
 			return
 		}
-		p.kubeClient = kubeClient
+
+		p.kubeClient = crClient
+		p.clientset = clientset
+		p.restConfig = restConfig
 	}
 
 	// not local cluster
@@ -287,7 +294,7 @@ func (p *TestPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineC
 }
 
 func (p *TestPlugin) Wait(ctx context.Context) {
-	status := waitJobEndWithFile(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, true, p.kubeClient, p.Log)
+	status := waitJobEndWithFile(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, true, p.kubeClient, p.clientset, p.restConfig, p.Log)
 	p.SetStatus(status)
 }
 

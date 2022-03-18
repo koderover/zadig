@@ -23,7 +23,9 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/utils/exec"
 
@@ -45,9 +47,13 @@ type ExecOptions struct {
 // returning stdout, stderr and error. `options` allowed for
 // additional parameters to be passed.
 func ExecWithOptions(options ExecOptions) (string, string, bool, error) {
+	return KubeExec(krkubeclient.Clientset(), krkubeclient.RESTConfig(), options)
+}
+
+func KubeExec(kclient kubernetes.Interface, restConfig *rest.Config, options ExecOptions) (string, string, bool, error) {
 	const tty = false
 
-	req := krkubeclient.Clientset().CoreV1().RESTClient().Post().
+	req := kclient.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Name(options.PodName).
 		Namespace(options.Namespace).
@@ -62,7 +68,7 @@ func ExecWithOptions(options ExecOptions) (string, string, bool, error) {
 		TTY:       tty,
 	}, scheme.ParameterCodec)
 
-	executor, err := remotecommand.NewSPDYExecutor(krkubeclient.RESTConfig(), http.MethodPost, req.URL())
+	executor, err := remotecommand.NewSPDYExecutor(restConfig, http.MethodPost, req.URL())
 	if err != nil {
 		return "", "", false, err
 	}
