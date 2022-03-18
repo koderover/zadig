@@ -274,12 +274,14 @@ type ExtensionStage struct {
 }
 
 type RepoImage struct {
-	RepoID    string `json:"repo_id" bson:"repo_id"`
-	Name      string `json:"name" bson:"name" yaml:"name"`
-	Username  string `json:"-" yaml:"username"`
-	Password  string `json:"-" yaml:"password"`
-	Host      string `json:"host" yaml:"host"`
-	Namespace string `json:"namespace" yaml:"namespace"`
+	RepoID        string `json:"repo_id" bson:"repo_id"`
+	Name          string `json:"name" bson:"name" yaml:"name"`
+	Username      string `json:"-" yaml:"username"`
+	Password      string `json:"-" yaml:"password"`
+	Host          string `json:"host" yaml:"host"`
+	Namespace     string `json:"namespace" yaml:"namespace"`
+	DeployEnabled bool   `json:"deploy_enabled" yaml:"deploy_enabled"`
+	DeployEnv     string `json:"deploy_env"   yaml:"deploy_env"`
 }
 
 type ProductDistribute struct {
