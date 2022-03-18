@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/koderover/zadig/pkg/util"
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	appsv1 "k8s.io/api/apps/v1"
@@ -201,6 +202,18 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 		return nil, e.ErrGetService.AddErr(err)
 	}
 
+	clientset, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), env.ClusterID)
+	if err != nil {
+		log.Errorf("Failed to create kubernetes clientset for cluster id: %s, the error is: %s", env.ClusterID, err)
+		return nil, e.ErrGetService.AddErr(err)
+	}
+
+	inf, err := informer.NewInformer(env.ClusterID, env.Namespace, clientset)
+	if err != nil {
+		log.Errorf("Failed to create informer for namespace [%s] in cluster [%s], the error is: %s", env.Namespace, env.ClusterID, err)
+		return nil, e.ErrGetService.AddErr(err)
+	}
+
 	namespace := env.Namespace
 	switch env.Source {
 	case setting.SourceFromExternal, setting.SourceFromHelm:
@@ -318,13 +331,37 @@ func GetService(envName, productName, serviceName string, workLoadType string, l
 				ret.Scales = append(ret.Scales, getStatefulSetWorkloadResource(sts, kubeClient, log))
 
 			case setting.Ingress:
-				ing, found, err := getter.GetIngress(namespace, u.GetName(), kubeClient)
-				if err != nil || !found {
-					log.Warnf("no ingress %s found in %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
+
+				version, err := clientset.Discovery().ServerVersion()
+				if err != nil {
+					log.Warnf("Failed to determine server version, error is: %s", err)
 					continue
 				}
+				if kubeclient.VersionLessThan122(version) {
+					ing, found, err := getter.GetExtensionsV1Beta1Ingress(namespace, u.GetName(), inf)
+					if err != nil || !found {
+						log.Warnf("no ingress %s found in %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
+						continue
+					}
 
-				ret.Ingress = append(ret.Ingress, wrapper.Ingress(ing).Resource())
+					ret.Ingress = append(ret.Ingress, wrapper.Ingress(ing).Resource())
+				} else {
+					ing, err := getter.GetNetworkingV1Ingress(namespace, u.GetName(), inf)
+					if err != nil {
+						log.Warnf("no ingress %s found in %s:%s %v", u.GetName(), service.ServiceName, namespace, err)
+						continue
+					}
+
+					ingress := &internalresource.Ingress{
+						Name:     ing.Name,
+						Labels:   ing.Labels,
+						HostInfo: wrapper.GetIngressHostInfo(ing),
+						IPs:      []string{},
+						Age:      util.Age(ing.CreationTimestamp.Unix()),
+					}
+
+					ret.Ingress = append(ret.Ingress, ingress)
+				}
 
 			case setting.Service:
 				svc, found, err := getter.GetService(namespace, u.GetName(), kubeClient)

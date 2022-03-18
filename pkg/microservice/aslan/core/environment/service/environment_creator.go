@@ -316,16 +316,6 @@ func (creator *DefaultProductCreator) Create(user, requestID string, args *model
 	if args.Namespace == "" {
 		args.Namespace = namespace
 	}
-	// todo DELETE THIS PART WHEN EXISTING NAMESAPCE IS SUPPORTED
-	//_, found, err := getter.GetNamespace(args.Namespace, kubeClient)
-	//if err != nil {
-	//	log.Errorf("GetNamespace error: %v", err)
-	//	return e.ErrCreateEnv.AddDesc(err.Error())
-	//}
-	//
-	//if found {
-	//	return e.ErrCreateEnv.AddDesc(fmt.Sprintf("%s[%s]%s", "namespace", args.Namespace, "已经存在,请换个环境名称尝试!"))
-	//}
 
 	//创建角色环境之间的关联关系
 	//todo 创建环境暂时不指定角色

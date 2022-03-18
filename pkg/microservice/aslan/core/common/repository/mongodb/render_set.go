@@ -233,6 +233,7 @@ func (c *RenderSetColl) Update(args *models.RenderSet) error {
 		"chart_infos": args.ChartInfos,
 		"update_time": time.Now().Unix(),
 		"update_by":   args.UpdateBy,
+		"kvs":         args.KVs,
 	}}
 
 	_, err := c.UpdateOne(context.TODO(), query, change)

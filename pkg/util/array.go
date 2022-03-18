@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KodeRover Authors.
+Copyright 2022 The KodeRover Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,17 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package handler
+package util
 
-import (
-	"github.com/gin-gonic/gin"
-)
-
-type Router struct{}
-
-func (*Router) Inject(router *gin.RouterGroup) {
-	user := router.Group("user")
-	{
-		user.GET("/kube/config", GetUserKubeConfig)
+func InStringArray(target string, str_array []string) bool {
+	for _, element := range str_array {
+		if target == element {
+			return true
+		}
 	}
+	return false
 }

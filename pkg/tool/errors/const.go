@@ -70,7 +70,7 @@ const (
 const (
 	FindProductTmplErrMsg = "获取产品失败"
 
-	FindProductServiceErrMsg = "产品不包含任何服务"
+	FindProductServiceErrMsg = "不包含任何服务"
 )
 
 // Service & Containers

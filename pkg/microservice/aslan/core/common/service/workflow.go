@@ -59,7 +59,7 @@ func DeleteWorkflow(workflowName, requestID string, isDeletingProductTmpl bool, 
 	workflow, err := mongodb.NewWorkflowColl().Find(workflowName)
 	if err != nil {
 		log.Errorf("Workflow.Find error: %v", err)
-		return e.ErrDeleteWorkflow.AddDesc(err.Error())
+		return err
 	}
 	workflowCMMap, err := collaboration.GetWorkflowCMMap([]string{workflow.ProductTmplName}, log)
 	if err != nil {
