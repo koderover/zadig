@@ -1540,6 +1540,7 @@ func testArgsToSubtask(args *commonmodels.WorkflowTaskArgs, pt *taskmodels.Task,
 			}
 			envs = append(envs, &commonmodels.KeyVal{Key: "TEST_URL", Value: GetLink(pt, configbase.SystemAddress(), config.WorkflowType)})
 			envs = append(envs, &commonmodels.KeyVal{Key: "SERVICES", Value: services})
+			envs = append(envs, &commonmodels.KeyVal{Key: "WORKSPACE", Value: "/workspace"})
 
 			testTask.JobCtx.EnvVars = envs
 			testTask.ImageID = testModule.PreTest.ImageID

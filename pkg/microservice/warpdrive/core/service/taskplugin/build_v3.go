@@ -26,6 +26,8 @@ import (
 
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
@@ -45,9 +47,12 @@ func InitializeBuildTaskV3Plugin(taskType config.TaskType) TaskPlugin {
 	return &BuildTaskV3Plugin{
 		Name:       taskType,
 		kubeClient: krkubeclient.Client(),
+		clientset:  krkubeclient.Clientset(),
+		restConfig: krkubeclient.RESTConfig(),
 	}
 }
 
+// Note: Deprecated.
 // BuildTaskV3Plugin is Plugin, name should be compatible with task type
 type BuildTaskV3Plugin struct {
 	Name          config.TaskType
@@ -55,6 +60,8 @@ type BuildTaskV3Plugin struct {
 	JobName       string
 	FileName      string
 	kubeClient    client.Client
+	clientset     kubernetes.Interface
+	restConfig    *rest.Config
 	Task          *task.Build
 	Log           *zap.SugaredLogger
 
@@ -237,7 +244,7 @@ func (p *BuildTaskV3Plugin) Run(ctx context.Context, pipelineTask *task.Task, pi
 
 // Wait ...
 func (p *BuildTaskV3Plugin) Wait(ctx context.Context) {
-	status := waitJobEndWithFile(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, true, p.kubeClient, p.Log)
+	status := waitJobEndWithFile(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, true, p.kubeClient, p.clientset, p.restConfig, p.Log)
 	p.SetBuildStatusCompleted(status)
 
 	if status == config.StatusPassed {

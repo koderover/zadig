@@ -28,6 +28,8 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	zadigconfig "github.com/koderover/zadig/pkg/config"
@@ -49,6 +51,8 @@ func InitializeBuildTaskPlugin(taskType config.TaskType) TaskPlugin {
 	return &BuildTaskPlugin{
 		Name:       taskType,
 		kubeClient: krkubeclient.Client(),
+		clientset:  krkubeclient.Clientset(),
+		restConfig: krkubeclient.RESTConfig(),
 	}
 }
 
@@ -59,6 +63,8 @@ type BuildTaskPlugin struct {
 	JobName       string
 	FileName      string
 	kubeClient    client.Client
+	clientset     kubernetes.Interface
+	restConfig    *rest.Config
 	Task          *task.Build
 	Log           *zap.SugaredLogger
 
@@ -132,6 +138,28 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 			return
 		}
 		p.kubeClient = kubeClient
+
+		clientset, err := kubeclient.GetClientset(pipelineTask.ConfigPayload.HubServerAddr, p.Task.ClusterID)
+		if err != nil {
+			msg := fmt.Sprintf("failed to get clientset: %s", err)
+			p.Log.Error(msg)
+			p.Task.TaskStatus = config.StatusFailed
+			p.Task.Error = msg
+			p.SetBuildStatusCompleted(config.StatusFailed)
+			return
+		}
+		p.clientset = clientset
+
+		restConfig, err := kubeclient.GetRESTConfig(pipelineTask.ConfigPayload.HubServerAddr, p.Task.ClusterID)
+		if err != nil {
+			msg := fmt.Sprintf("failed to get clientset: %s", err)
+			p.Log.Error(msg)
+			p.Task.TaskStatus = config.StatusFailed
+			p.Task.Error = msg
+			p.SetBuildStatusCompleted(config.StatusFailed)
+			return
+		}
+		p.restConfig = restConfig
 	}
 
 	// not local cluster
@@ -329,7 +357,7 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 }
 
 func (p *BuildTaskPlugin) Wait(ctx context.Context) {
-	status := waitJobEndWithFile(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, true, p.kubeClient, p.Log)
+	status := waitJobEndWithFile(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, true, p.kubeClient, p.clientset, p.restConfig, p.Log)
 	p.SetBuildStatusCompleted(status)
 
 	if status == config.StatusPassed {
