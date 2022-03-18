@@ -1724,7 +1724,75 @@ func DeleteProductServices(envName, productName string, serviceNames []string, l
 		log.Errorf("find product error: %v", err)
 		return err
 	}
+	if getProjectType(productName) == setting.HelmDeployType {
+		return deleteHelmProductServices(productInfo, serviceNames, log)
+	} else {
+		return deleteK8sProductServices(productInfo, serviceNames, log)
+	}
+}
 
+func deleteHelmProductServices(productInfo *commonmodels.Product, serviceNames []string, log *zap.SugaredLogger) error {
+	// init helm client
+	restConfig, err := kube.GetRESTConfig(productInfo.ClusterID)
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(err)
+	}
+	helmClient, err := helmtool.NewClientFromRestConf(restConfig, productInfo.Namespace)
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(err)
+	}
+
+	deleteServiceSet := sets.NewString(serviceNames...)
+	for serviceGroupIndex, serviceGroup := range productInfo.Services {
+		var group []*commonmodels.ProductService
+		for _, service := range serviceGroup {
+			if !deleteServiceSet.Has(service.ServiceName) {
+				group = append(group, service)
+			}
+		}
+		err := commonrepo.NewProductColl().UpdateGroup(productInfo.EnvName, productInfo.ProductName, serviceGroupIndex, group)
+		if err != nil {
+			log.Errorf("update product error: %v", err)
+			return err
+		}
+	}
+	renderset, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
+		Name: productInfo.Namespace,
+	})
+	if err != nil {
+		log.Errorf("get renderSet error: %v", err)
+		return err
+	}
+	rcs := make([]*template.RenderChart, 0)
+	for _, v := range renderset.ChartInfos {
+		if !deleteServiceSet.Has(v.ServiceName) {
+			rcs = append(rcs, v)
+		}
+	}
+	renderset.ChartInfos = rcs
+	err = commonrepo.NewRenderSetColl().Update(renderset)
+	if err != nil {
+		log.Errorf("failed to update renderset, name: %s, err: %s", renderset.Name, err)
+		return err
+	}
+
+	// uninstall services
+	for _, service := range deleteServiceSet.List() {
+		go func(namespace, serviceName string) {
+			log.Infof("uninstall release:%s", util.GeneHelmReleaseName(namespace, serviceName))
+			if err = helmClient.UninstallRelease(&helmclient.ChartSpec{
+				ReleaseName: util.GeneHelmReleaseName(namespace, serviceName),
+				Namespace:   namespace,
+				Wait:        true,
+			}); err != nil {
+				log.Errorf("helm uninstall release %s err:%v", fmt.Sprintf("%s-%s", namespace, serviceName), err)
+			}
+		}(productInfo.Namespace, service)
+	}
+	return nil
+}
+
+func deleteK8sProductServices(productInfo *commonmodels.Product, serviceNames []string, log *zap.SugaredLogger) error {
 	for serviceGroupIndex, serviceGroup := range productInfo.Services {
 		var group []*commonmodels.ProductService
 		for _, service := range serviceGroup {
@@ -1732,7 +1800,7 @@ func DeleteProductServices(envName, productName string, serviceNames []string, l
 				group = append(group, service)
 			}
 		}
-		err := commonrepo.NewProductColl().UpdateGroup(envName, productName, serviceGroupIndex, group)
+		err := commonrepo.NewProductColl().UpdateGroup(productInfo.EnvName, productInfo.ProductName, serviceGroupIndex, group)
 		if err != nil {
 			log.Errorf("update product error: %v", err)
 			return err
@@ -1763,7 +1831,7 @@ func DeleteProductServices(envName, productName string, serviceNames []string, l
 		return err
 	}
 	for _, name := range serviceNames {
-		selector := labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: name}.AsSelector()
+		selector := labels.Set{setting.ProductLabel: productInfo.ProductName, setting.ServiceLabel: name}.AsSelector()
 		err = commonservice.DeleteNamespacedResource(productInfo.Namespace, selector, productInfo.ClusterID, log)
 		if err != nil {
 			//删除失败仅记录失败日志
@@ -1881,6 +1949,10 @@ func getProjectType(productName string) string {
 	projectType := setting.K8SDeployType
 	if projectInfo == nil || projectInfo.ProductFeature == nil {
 		return projectType
+	}
+
+	if projectInfo.ProductFeature.DeployType == setting.HelmDeployType {
+		return setting.HelmDeployType
 	}
 
 	if projectInfo.ProductFeature.DeployType == setting.K8SDeployType && projectInfo.ProductFeature.BasicFacility == setting.BasicFacilityK8S {
