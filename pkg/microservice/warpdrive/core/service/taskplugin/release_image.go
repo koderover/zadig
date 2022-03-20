@@ -24,6 +24,8 @@ import (
 
 	"go.uber.org/zap"
 	yaml "gopkg.in/yaml.v3"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
@@ -39,6 +41,8 @@ func InitializeReleaseImagePlugin(taskType config.TaskType) TaskPlugin {
 	return &ReleaseImagePlugin{
 		Name:       taskType,
 		kubeClient: krkubeclient.Client(),
+		clientset:  krkubeclient.Clientset(),
+		restConfig: krkubeclient.RESTConfig(),
 	}
 }
 
@@ -49,6 +53,8 @@ type ReleaseImagePlugin struct {
 	JobName       string
 	FileName      string
 	kubeClient    client.Client
+	clientset     kubernetes.Interface
+	restConfig    *rest.Config
 	Task          *task.ReleaseImage
 	Log           *zap.SugaredLogger
 }
@@ -206,7 +212,7 @@ func (p *ReleaseImagePlugin) Run(ctx context.Context, pipelineTask *task.Task, p
 
 // Wait ...
 func (p *ReleaseImagePlugin) Wait(ctx context.Context) {
-	status := waitJobEnd(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, p.kubeClient, p.Log)
+	status := waitJobEnd(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, p.kubeClient, p.clientset, p.restConfig, p.Log)
 	p.SetStatus(status)
 }
 

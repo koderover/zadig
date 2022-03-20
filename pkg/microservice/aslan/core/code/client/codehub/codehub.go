@@ -22,6 +22,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client"
 	"github.com/koderover/zadig/pkg/tool/codehub"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 )
 
 type Config struct {
@@ -74,4 +75,40 @@ func (c *Client) ListTags(opt client.ListOpt) ([]*client.Tag, error) {
 
 func (c *Client) ListPrs(opt client.ListOpt) ([]*client.PullRequest, error) {
 	return nil, nil
+}
+
+func (c *Client) ListNamespaces(keyword string) ([]*client.Namespace, error) {
+	nsList, err := c.Client.NamespaceList()
+	if err != nil {
+		return nil, err
+	}
+	var res []*client.Namespace
+	for _, o := range nsList {
+		res = append(res, &client.Namespace{
+			Name:        o.Name,
+			Path:        o.Path,
+			Kind:        o.Kind,
+			ProjectUUID: o.ProjectUUID,
+		})
+	}
+	return res, nil
+}
+
+func (c *Client) ListProjects(opt client.ListOpt) ([]*client.Project, error) {
+	projects, err := c.Client.RepoList(opt.Namespace, opt.Key, opt.PerPage)
+	if err != nil {
+		return nil, e.ErrCodehostListProjects.AddDesc(err.Error())
+	}
+	var res []*client.Project
+	for _, project := range projects {
+		res = append(res, &client.Project{
+			Name:          project.Name,
+			Description:   project.Description,
+			DefaultBranch: project.DefaultBranch,
+			Namespace:     project.Namespace,
+			RepoUUID:      project.RepoUUID,
+			RepoID:        project.RepoID,
+		})
+	}
+	return res, nil
 }
