@@ -2639,7 +2639,7 @@ func AddSubtaskToStage(stages *[]*commonmodels.Stage, subTask map[string]interfa
 			RunParallel: true,
 		}
 
-		if subTaskPre.TaskType == config.TaskResetImage {
+		if subTaskPre.TaskType == config.TaskResetImage || subTaskPre.TaskType == config.TaskExtension {
 			stage.AfterAll = true
 		}
 		// 除了测试模块，其他的都可以并行跑
