@@ -507,7 +507,7 @@ func (p *DeployTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, _ *
 
 		p.Log.Infof("final replaced merged values: \n%s", replacedMergedValuesYaml)
 
-		helmClient, err = helmtool.NewClientFromRestConf(p.restConfig, p.Task.Namespace)
+		helmClient, err = helmtool.NewClientFromNamespace(pipelineTask.ConfigPayload.DeployClusterID, p.Task.Namespace)
 		if err != nil {
 			err = errors.WithMessagef(
 				err,
