@@ -346,13 +346,20 @@ func (h *ExecHandler) execute(ctx context.Context, pipelineTask *task.Task, pipe
 	}
 
 	// Stage之间仅支持串行
+	isBreak := false
 	for stagePosition, stage := range pipelineTask.Stages {
-		if !stage.AfterAll {
+		if stage.AfterAll {
+			continue
+		}
+
+		if !isBreak || stage.TaskType == config.TaskExtension {
 			h.runStage(stagePosition, stage, pipelineTask.ConfigPayload.BuildConcurrency)
-			// 如果一个Stage执行失败了，跳出执行循环，并且更新pipelinetask状态为失败，发送ACK，并返回
-			if stage.Status == config.StatusFailed || stage.Status == config.StatusCancelled || stage.Status == config.StatusTimeout {
-				break
-			}
+		}
+
+		// 如果一个Stage执行失败了，跳出执行循环，并且更新pipelinetask状态为失败，发送ACK，并返回
+		if stage.Status == config.StatusFailed || stage.Status == config.StatusCancelled || stage.Status == config.StatusTimeout {
+			isBreak = true
+			continue
 		}
 	}
 
