@@ -188,7 +188,7 @@ func DownloadAndCopyFilesFromGerrit(name, localBase string, logger *zap.SugaredL
 		return err
 	}
 
-	if err := CopyFiles(path.Join(localBase, path.Base(chartTemplate.Path)), path.Join(base, chartTemplate.Path), logger); err != nil {
+	if err := CopyAndUploadFiles([]string{}, path.Join(localBase, path.Base(chartTemplate.Path)), "", path.Join(base, chartTemplate.Path), logger); err != nil {
 		log.Errorf("Failed to copy files for helm chart template %s, error: %s", name, err)
 		return err
 	}
