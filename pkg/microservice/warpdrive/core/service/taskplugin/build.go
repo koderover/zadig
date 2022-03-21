@@ -173,6 +173,9 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 		p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, envNameVar)
 	}
 
+	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, &task.KeyVal{Key: "WORKFLOW", Value: pipelineTask.WorkflowArgs.WorkflowName})
+	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, &task.KeyVal{Key: "PROJECT", Value: pipelineTask.WorkflowArgs.ProductTmplName})
+
 	taskIDVar := &task.KeyVal{Key: "TASK_ID", Value: strconv.FormatInt(pipelineTask.TaskID, 10), IsCredential: false}
 	p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, taskIDVar)
 
@@ -233,10 +236,22 @@ func (p *BuildTaskPlugin) Run(ctx context.Context, pipelineTask *task.Task, pipe
 		}
 	}
 
+	// Note: Currently, `SERVICE` in the environment variable represents a service module.
+	// Since variable rendering is required next, the `SERVICE_MODULE` environment variable is added to accurately
+	// characterize the service module.
+	// Do not use 'p.task. ServiceName' as the value because it is in the 'ServiceModule_ServiceName' format.
+	for _, env := range p.Task.JobCtx.EnvVars {
+		if env.Key == "SERVICE" {
+			p.Task.JobCtx.EnvVars = append(p.Task.JobCtx.EnvVars, &task.KeyVal{Key: "SERVICE_MODULE", Value: env.Value})
+			break
+		}
+	}
+
 	// Since we allow users to use custom environment variables, variable resolution is required.
 	if pipelineCtx.CacheEnable && pipelineCtx.Cache.MediumType == types.NFSMedium &&
 		pipelineCtx.CacheDirType == types.UserDefinedCacheDir {
 		pipelineCtx.CacheUserDir = p.renderEnv(pipelineCtx.CacheUserDir)
+		pipelineCtx.Cache.NFSProperties.Subpath = p.renderEnv(pipelineCtx.Cache.NFSProperties.Subpath)
 	}
 
 	jobCtx := JobCtxBuilder{

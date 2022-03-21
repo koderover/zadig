@@ -549,6 +549,7 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 		job.Spec.Template.Spec.Containers[0].VolumeMounts = append(job.Spec.Template.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
 			Name:      volumeName,
 			MountPath: mountPath,
+			SubPath:   ctx.Cache.NFSProperties.Subpath,
 		})
 	}
 
@@ -898,7 +899,10 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName
 					if !ipod.Finished() {
 						jobStatus, exists, err = checkDogFoodExistsInContainer(clientset, restConfig, namespace, ipod.Name, ipod.ContainerNames()[0])
 						if err != nil {
-							xl.Errorf("Failed to check dog food file %s: %s.", pods[0].Name, err)
+							// Note:
+							// Currently, this error indicates "the target Pod cannot be accessed" or "the target Pod can be accessed, but the dog food file does not exist".
+							// In these two scenarios, `Info` is used to print logs because they are not business semantic exceptions.
+							xl.Infof("Result of checking dog food file %s: %s", pods[0].Name, err)
 							break
 						}
 						if !exists {
