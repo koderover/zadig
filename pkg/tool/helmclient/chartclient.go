@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"strings"
 
@@ -90,15 +91,16 @@ func (client *ChartRepoClient) DownloadChart(chartName, chartVersion, basePath s
 	if len(entry.URLs) == 0 {
 		return errors.Wrapf(err, "failed to get chart [%s]-[%s] url", chartName, chartVersion)
 	}
-	response, err := client.downloadFileWithFullURL(entry.URLs[0])
+
+	response, err := client.downloadFileWithURL(entry.URLs[0])
 	if err != nil {
 		return errors.Wrapf(err, "failed to download file")
 	}
 
+	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		return fmt.Errorf("download file failed with status code:%d", response.StatusCode)
 	}
-	defer response.Body.Close()
 
 	b, err := ioutil.ReadAll(response.Body)
 	if err != nil {
@@ -116,7 +118,7 @@ func (client *ChartRepoClient) DownloadAndExpand(chartName, chartVersion, localP
 	if len(entry.URLs) == 0 {
 		return errors.Wrapf(err, "failed to get chart [%s]-[%s] url", chartName, chartVersion)
 	}
-	response, err := client.downloadFileWithFullURL(entry.URLs[0])
+	response, err := client.downloadFileWithURL(entry.URLs[0])
 	if err != nil {
 		return errors.Wrapf(err, "failed to download file")
 	}
@@ -185,8 +187,14 @@ func (client *ChartRepoClient) GetChartFromIndex(chartName, chartVersion string)
 	return nil, fmt.Errorf("failed to find chart [%s]-[%s]", chartName, chartVersion)
 }
 
-func (client *ChartRepoClient) downloadFileWithFullURL(url string) (*http.Response, error) {
-	client.Option(cm.URL(url))
-	defer client.Option(cm.URL(client.RepoURL))
-	return client.DownloadFile("")
+func (client *ChartRepoClient) downloadFileWithURL(chartUrl string) (*http.Response, error) {
+	u, _ := url.Parse(chartUrl)
+	// chart url is absolute path
+	if u.Scheme == "http" || u.Scheme == "https" {
+		client.Option(cm.URL(chartUrl))
+		defer client.Option(cm.URL(client.RepoURL))
+		return client.DownloadFile("")
+	} else {
+		return client.DownloadFile(chartUrl)
+	}
 }
