@@ -16,19 +16,28 @@ limitations under the License.
 
 package client
 
+const (
+	OrgKind   = "org"
+	GroupKind = "group"
+	UserKind  = "user"
+)
+
 type CodeHostClient interface {
 	ListBranches(opt ListOpt) ([]*Branch, error)
 	ListTags(opt ListOpt) ([]*Tag, error)
 	ListPrs(opt ListOpt) ([]*PullRequest, error)
+	ListNamespaces(keyword string) ([]*Namespace, error)
+	ListProjects(opt ListOpt) ([]*Project, error)
 }
 
 type ListOpt struct {
-	Namespace   string
-	ProjectName string
-	Key         string
-	Page        int
-	PerPage     int
-	TargeBr     string
+	Namespace     string
+	NamespaceType string
+	ProjectName   string
+	Key           string
+	Page          int
+	PerPage       int
+	TargeBr       string
 }
 
 type Branch struct {
@@ -57,4 +66,21 @@ type PullRequest struct {
 	Number         int    `json:"number"`
 	User           string `json:"user"`
 	Base           string `json:"base,omitempty"`
+}
+
+type Namespace struct {
+	Name        string `json:"name"`
+	Path        string `json:"path"`
+	Kind        string `json:"kind"`
+	ProjectUUID string `json:"project_uuid,omitempty"`
+}
+
+type Project struct {
+	ID            int    `json:"id"`
+	Name          string `json:"name"`
+	Description   string `json:"description"`
+	DefaultBranch string `json:"defaultBranch"`
+	Namespace     string `json:"namespace"`
+	RepoUUID      string `json:"repo_uuid,omitempty"`
+	RepoID        string `json:"repo_id,omitempty"`
 }

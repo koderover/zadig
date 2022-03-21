@@ -266,7 +266,11 @@ func getPipelineSelector(options *GetContainerOptions) labels.Selector {
 	ret[setting.TypeLabel] = options.SubTask
 
 	if options.ServiceName != "" {
-		ret[setting.ServiceLabel] = strings.ToLower(options.ServiceName)
+		serviceKey := options.ServiceName
+		if len(serviceKey) > 63 {
+			serviceKey = serviceKey[:63]
+		}
+		ret[setting.ServiceLabel] = strings.ToLower(serviceKey)
 	}
 
 	if options.PipelineType != "" {

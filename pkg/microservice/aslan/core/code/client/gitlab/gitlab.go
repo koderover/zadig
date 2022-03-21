@@ -21,7 +21,9 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/git/gitlab"
+	gogitlab "github.com/xanzy/go-gitlab"
 )
 
 type Config struct {
@@ -104,6 +106,59 @@ func (c *Client) ListPrs(opt client.ListOpt) ([]*client.PullRequest, error) {
 			CreatedAt:      o.CreatedAt.Unix(),
 			UpdatedAt:      o.UpdatedAt.Unix(),
 			AuthorUsername: o.Author.Username,
+		})
+	}
+	return res, nil
+}
+
+func (c *Client) ListNamespaces(keyword string) ([]*client.Namespace, error) {
+	nsList, err := c.Client.ListNamespaces(keyword, nil)
+	if err != nil {
+		return nil, err
+	}
+	var res []*client.Namespace
+	for _, o := range nsList {
+		res = append(res, &client.Namespace{
+			Name: o.Path,
+			Path: o.FullPath,
+			Kind: o.Kind,
+		})
+	}
+	return res, nil
+}
+
+func (c *Client) ListProjects(opt client.ListOpt) ([]*client.Project, error) {
+	var projects []*gogitlab.Project
+	var err error
+	switch opt.NamespaceType {
+	case client.GroupKind:
+		projects, err = c.Client.ListGroupProjects(opt.Namespace, opt.Key, &gitlab.ListOptions{
+			Page:        opt.Page,
+			PerPage:     opt.PerPage,
+			NoPaginated: true,
+		})
+		if err != nil {
+			return nil, e.ErrCodehostListProjects.AddDesc(err.Error())
+		}
+	default:
+		projects, err = c.Client.ListUserProjects(opt.Namespace, opt.Key, &gitlab.ListOptions{
+			Page:        opt.Page,
+			PerPage:     opt.PerPage,
+			NoPaginated: true,
+		})
+		if err != nil {
+			return nil, e.ErrCodehostListProjects.AddDesc(err.Error())
+		}
+
+	}
+	var res []*client.Project
+	for _, o := range projects {
+		res = append(res, &client.Project{
+			ID:            o.ID,
+			Name:          o.Path,
+			Namespace:     o.Namespace.FullPath,
+			Description:   o.Description,
+			DefaultBranch: o.DefaultBranch,
 		})
 	}
 	return res, nil

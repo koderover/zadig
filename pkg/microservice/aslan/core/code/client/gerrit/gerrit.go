@@ -19,7 +19,9 @@ package gerrit
 import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/code/client"
+	e "github.com/koderover/zadig/pkg/tool/errors"
 	"github.com/koderover/zadig/pkg/tool/gerrit"
+	gerrittool "github.com/koderover/zadig/pkg/tool/gerrit"
 
 	"go.uber.org/zap"
 )
@@ -71,4 +73,30 @@ func (c *Client) ListTags(opt client.ListOpt) ([]*client.Tag, error) {
 
 func (c *Client) ListPrs(opt client.ListOpt) ([]*client.PullRequest, error) {
 	return nil, nil
+}
+
+func (c *Client) ListNamespaces(keyword string) ([]*client.Namespace, error) {
+	return []*client.Namespace{{
+		Name: gerrit.DefaultNamespace,
+		Path: gerrit.DefaultNamespace,
+		Kind: client.OrgKind,
+	}}, nil
+}
+
+func (c *Client) ListProjects(opt client.ListOpt) ([]*client.Project, error) {
+	projects, err := c.Client.ListProjectsByKey(opt.Key)
+	if err != nil {
+		return nil, e.ErrCodehostListProjects.AddDesc(err.Error())
+	}
+	var res []*client.Project
+	for ind, o := range projects {
+		res = append(res, &client.Project{
+			ID:            ind,                       // fake id
+			Name:          gerrittool.Unescape(o.ID), // id could have %2F
+			Description:   o.Description,
+			DefaultBranch: "master",
+			Namespace:     gerrittool.DefaultNamespace,
+		})
+	}
+	return res, nil
 }

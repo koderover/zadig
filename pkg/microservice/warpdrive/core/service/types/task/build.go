@@ -58,6 +58,7 @@ type Build struct {
 	IsRestart         bool                 `bson:"is_restart"                      json:"is_restart"`
 	// Get the host bound to the environment of the cloud host service configuration
 	EnvHostInfo  map[string][]string `bson:"env_host_info,omitempty"         json:"env_host_info,omitempty"`
+	EnvHostNames map[string][]string `bson:"env_host_names,omitempty"        json:"env_host_names,omitempty"`
 	ArtifactInfo *ArtifactInfo       `bson:"artifact_info,omitempty"         json:"artifact_info,omitempty"`
 	ClusterID    string              `bson:"cluster_id,omitempty"            json:"cluster_id,omitempty"`
 

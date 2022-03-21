@@ -37,6 +37,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/warpdrive/config"
@@ -376,9 +378,14 @@ const (
 
 // getJobLabels get labels k-v map from JobLabel struct
 func getJobLabels(jobLabel *JobLabel) map[string]string {
+	serviceKey := jobLabel.ServiceName
+	if len(serviceKey) > 63 {
+		serviceKey = serviceKey[:63]
+	}
+
 	retMap := map[string]string{
 		jobLabelTaskKey:    fmt.Sprintf("%s-%d", strings.ToLower(jobLabel.PipelineName), jobLabel.TaskID),
-		jobLabelServiceKey: strings.ToLower(jobLabel.ServiceName),
+		jobLabelServiceKey: strings.ToLower(serviceKey),
 		jobLabelSTypeKey:   strings.Replace(jobLabel.TaskType, "_", "-", -1),
 		jobLabelPTypeKey:   jobLabel.PipelineType,
 	}
@@ -542,6 +549,7 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 		job.Spec.Template.Spec.Containers[0].VolumeMounts = append(job.Spec.Template.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
 			Name:      volumeName,
 			MountPath: mountPath,
+			SubPath:   ctx.Cache.NFSProperties.Subpath,
 		})
 	}
 
@@ -554,29 +562,47 @@ func buildJobWithLinkedNs(taskType config.TaskType, jobImage, jobName, serviceNa
 		job.Spec.Template.Spec.Affinity = affinity
 	}
 
-	if linkedNs != "" && execNs != "" && pipelineTask.ConfigPayload.CustomDNSSupported {
-		job.Spec.Template.Spec.DNSConfig = &corev1.PodDNSConfig{
-			Searches: []string{
-				linkedNs + ".svc.cluster.local",
-				execNs + ".svc.cluster.local",
-				"svc.cluster.local",
-				"cluster.local",
-			},
-		}
+	// Note:
+	// The following logic is valid for the testing task and configures dNSconfig as follows:
+	// ```
+	// dnsConfig:
+	//   nameservers:
+	//   - 192.168.0.157
+	//   options:
+	//   - name: ndots
+	//     value: "5"
+	//   searches:
+	//   - piggymetrics-env-dev.svc.cluster.local
+	//   - koderover-agent.svc.cluster.local
+	//   - svc.cluster.local
+	//   - cluster.local
+	// ```
+	//
+	// These are intra-cluster domain names that can be satisfied by default `ClusterFirst` DNSPolicy.
+	// No one knows why there is such logic, comment it out, run it for a while and then delete it.
+	//
+	// if linkedNs != "" && execNs != "" && pipelineTask.ConfigPayload.CustomDNSSupported {
+	// 	job.Spec.Template.Spec.DNSConfig = &corev1.PodDNSConfig{
+	// 		Searches: []string{
+	// 			linkedNs + ".svc.cluster.local",
+	// 			execNs + ".svc.cluster.local",
+	// 			"svc.cluster.local",
+	// 			"cluster.local",
+	// 		},
 
-		if addresses, lookupErr := lookupKubeDNSServerHost(); lookupErr == nil {
-			job.Spec.Template.Spec.DNSPolicy = corev1.DNSNone
-			// https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-config
-			// There can be at most 3 IP addresses specified
-			job.Spec.Template.Spec.DNSConfig.Nameservers = addresses[:Min(3, len(addresses))]
-			value := "5"
-			job.Spec.Template.Spec.DNSConfig.Options = []corev1.PodDNSConfigOption{
-				{Name: "ndots", Value: &value},
-			}
-		} else {
-			log.SugaredLogger().Errorf("failed to find ip of kube dns %v", lookupErr)
-		}
-	}
+	// 	if addresses, lookupErr := lookupKubeDNSServerHost(); lookupErr == nil {
+	// 		job.Spec.Template.Spec.DNSPolicy = corev1.DNSNone
+	// 		// https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-config
+	// 		// There can be at most 3 IP addresses specified
+	// 		job.Spec.Template.Spec.DNSConfig.Nameservers = addresses[:Min(3, len(addresses))]
+	// 		value := "5"
+	// 		job.Spec.Template.Spec.DNSConfig.Options = []corev1.PodDNSConfigOption{
+	// 			{Name: "ndots", Value: &value},
+	// 		}
+	// 	} else {
+	// 		log.SugaredLogger().Errorf("failed to find ip of kube dns %v", lookupErr)
+	// 	}
+	// }
 
 	return job, nil
 }
@@ -753,8 +779,8 @@ func generateResourceRequirements(req setting.Request, reqSpec setting.RequestSp
 
 //waitJobEnd
 //Returns job status
-func waitJobEnd(ctx context.Context, taskTimeout int, namspace, jobName string, kubeClient client.Client, xl *zap.SugaredLogger) (status config.Status) {
-	return waitJobEndWithFile(ctx, taskTimeout, namspace, jobName, false, kubeClient, xl)
+func waitJobEnd(ctx context.Context, taskTimeout int, namspace, jobName string, kubeClient client.Client, clientset kubernetes.Interface, restConfig *rest.Config, xl *zap.SugaredLogger) (status config.Status) {
+	return waitJobEndWithFile(ctx, taskTimeout, namspace, jobName, false, kubeClient, clientset, restConfig, xl)
 }
 
 func waitJobReady(ctx context.Context, namespace, jobName string, kubeClient client.Client, xl *zap.SugaredLogger) (status config.Status) {
@@ -803,7 +829,7 @@ func waitJobReady(ctx context.Context, namespace, jobName string, kubeClient cli
 	return config.StatusRunning
 }
 
-func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName string, checkFile bool, kubeClient client.Client, xl *zap.SugaredLogger) (status config.Status) {
+func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName string, checkFile bool, kubeClient client.Client, clientset kubernetes.Interface, restConfig *rest.Config, xl *zap.SugaredLogger) (status config.Status) {
 	xl.Infof("wait job to start: %s/%s", namespace, jobName)
 	timeout := time.After(time.Duration(taskTimeout) * time.Second)
 	podTimeout := time.After(120 * time.Second)
@@ -871,9 +897,12 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName
 					}
 
 					if !ipod.Finished() {
-						jobStatus, exists, err = checkDogFoodExistsInContainer(namespace, ipod.Name, ipod.ContainerNames()[0])
+						jobStatus, exists, err = checkDogFoodExistsInContainer(clientset, restConfig, namespace, ipod.Name, ipod.ContainerNames()[0])
 						if err != nil {
-							xl.Errorf("Failed to check dog food file %s: %s.", pods[0].Name, err)
+							// Note:
+							// Currently, this error indicates "the target Pod cannot be accessed" or "the target Pod can be accessed, but the dog food file does not exist".
+							// In these two scenarios, `Info` is used to print logs because they are not business semantic exceptions.
+							xl.Infof("Result of checking dog food file %s: %s", pods[0].Name, err)
 							break
 						}
 						if !exists {
@@ -902,11 +931,10 @@ func waitJobEndWithFile(ctx context.Context, taskTimeout int, namespace, jobName
 
 		time.Sleep(time.Second * 1)
 	}
-
 }
 
-func checkDogFoodExistsInContainer(namespace string, pod string, container string) (commontypes.JobStatus, bool, error) {
-	stdout, _, success, err := podexec.ExecWithOptions(podexec.ExecOptions{
+func checkDogFoodExistsInContainer(clientset kubernetes.Interface, restConfig *rest.Config, namespace, pod, container string) (commontypes.JobStatus, bool, error) {
+	stdout, _, success, err := podexec.KubeExec(clientset, restConfig, podexec.ExecOptions{
 		Command:       []string{"/bin/sh", "-c", fmt.Sprintf("test -f %[1]s && cat %[1]s", setting.DogFood)},
 		Namespace:     namespace,
 		PodName:       pod,

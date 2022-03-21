@@ -21,17 +21,21 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"path/filepath"
+	"strings"
 
 	cm "github.com/chartmuseum/helm-push/pkg/chartmuseum"
 	"github.com/chartmuseum/helm-push/pkg/helm"
 	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/chartutil"
+	"helm.sh/helm/v3/pkg/repo"
 
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type ChartRepoClient struct {
+	RepoURL string
 	*cm.Client
 }
 
@@ -45,7 +49,10 @@ func NewHelmChartRepoClient(url, userName, password string) (*ChartRepoClient, e
 	if err != nil {
 		return nil, err
 	}
-	return &ChartRepoClient{client}, nil
+	return &ChartRepoClient{
+		RepoURL: url,
+		Client:  client,
+	}, nil
 }
 
 // FetchIndexYaml fetch index.yaml from remote chart repo
@@ -77,15 +84,23 @@ func (client *ChartRepoClient) DownloadChart(chartName, chartVersion, basePath s
 	chartTGZName := fmt.Sprintf("%s-%s.tgz", chartName, chartVersion)
 	chartTGZFilePath := filepath.Join(basePath, chartTGZName)
 
-	response, err := client.DownloadFile(fmt.Sprintf("charts/%s", chartTGZName))
+	entry, err := client.GetChartFromIndex(chartName, chartVersion)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get chart [%s]-[%s] info", chartName, chartVersion)
+	}
+	if len(entry.URLs) == 0 {
+		return errors.Wrapf(err, "failed to get chart [%s]-[%s] url", chartName, chartVersion)
+	}
+
+	response, err := client.downloadFileWithURL(entry.URLs[0])
 	if err != nil {
 		return errors.Wrapf(err, "failed to download file")
 	}
 
-	if response.StatusCode != http.StatusOK {
-		return errors.Wrapf(err, "download file failed")
-	}
 	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("download file failed with status code:%d", response.StatusCode)
+	}
 
 	b, err := ioutil.ReadAll(response.Body)
 	if err != nil {
@@ -96,14 +111,20 @@ func (client *ChartRepoClient) DownloadChart(chartName, chartVersion, basePath s
 
 // DownloadAndExpand downloads chart from repo and expand chart files from tarball
 func (client *ChartRepoClient) DownloadAndExpand(chartName, chartVersion, localPath string) error {
-	chartTGZName := fmt.Sprintf("%s-%s.tgz", chartName, chartVersion)
-	response, err := client.DownloadFile(fmt.Sprintf("charts/%s", chartTGZName))
+	entry, err := client.GetChartFromIndex(chartName, chartVersion)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get chart [%s]-[%s] info", chartName, chartVersion)
+	}
+	if len(entry.URLs) == 0 {
+		return errors.Wrapf(err, "failed to get chart [%s]-[%s] url", chartName, chartVersion)
+	}
+	response, err := client.downloadFileWithURL(entry.URLs[0])
 	if err != nil {
 		return errors.Wrapf(err, "failed to download file")
 	}
 
-	if response.StatusCode != 200 {
-		return errors.Wrapf(err, "download file failed")
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("download file failed with status code:%d", response.StatusCode)
 	}
 	defer func() { _ = response.Body.Close() }()
 
@@ -147,4 +168,37 @@ func handlePushResponse(resp *http.Response) error {
 	}
 	log.Info("push chart to chart repo done")
 	return nil
+}
+
+func (client *ChartRepoClient) GetChartFromIndex(chartName, chartVersion string) (*repo.ChartVersion, error) {
+	index, err := client.FetchIndexYaml()
+	if err != nil {
+		return nil, errors.Wrapf(err, "fetch index failed")
+	}
+	for name, entries := range index.Entries {
+		if strings.Compare(name, chartName) == 0 {
+			for _, entry := range entries {
+				if strings.Compare(entry.Version, chartVersion) == 0 {
+					return entry, nil
+				}
+			}
+		}
+	}
+	return nil, fmt.Errorf("failed to find chart [%s]-[%s]", chartName, chartVersion)
+}
+
+// TODO this function should be deprecated
+// we should use standard `helm pull` to provide better compatibility
+func (client *ChartRepoClient) downloadFileWithURL(chartUrl string) (*http.Response, error) {
+	u, _ := url.Parse(chartUrl)
+	// chart url is absolute path in index.yaml, set url of option to full chart url and download directly
+	// eg: chart repo hosted by gitee
+	if u.Scheme == "http" || u.Scheme == "https" {
+		client.Option(cm.URL(chartUrl))
+		defer client.Option(cm.URL(client.RepoURL))
+		return client.DownloadFile("")
+	}
+	// chart url in index.yaml is relative path, set url of option to the repoUrl and download by fileName
+	// eg: chart repo hosted by harbor
+	return client.DownloadFile(chartUrl)
 }

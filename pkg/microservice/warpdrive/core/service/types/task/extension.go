@@ -31,6 +31,7 @@ type Extension struct {
 	Path         string           `bson:"path,omitempty"             json:"path,omitempty"`
 	IsCallback   bool             `bson:"is_callback"                json:"is_callback"`
 	Headers      []*models.KeyVal `bson:"headers,omitempty"          json:"headers"`
+	Payload      string           `bson:"payload"                    json:"payload"`
 	ServiceInfos []*ServiceInfo   `bson:"service_infos"              json:"service_infos"`
 	Timeout      int              `bson:"timeout"                    json:"timeout,omitempty"`
 	IsRestart    bool             `bson:"is_restart"                 json:"is_restart"`

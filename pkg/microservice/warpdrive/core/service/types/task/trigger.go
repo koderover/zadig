@@ -58,8 +58,8 @@ type WebhookPayload struct {
 	ProjectName  string         `json:"project_name"`
 	TaskName     string         `json:"task_name"`
 	TaskID       int64          `json:"task_id"`
-	TaskOutput   []*TaskOutput  `json:"task_output"`
-	TaskEnvs     []*KeyVal      `json:"task_envs"`
+	TaskOutput   []*TaskOutput  `json:"task_output,omitempty"`
+	TaskEnvs     []*KeyVal      `json:"task_envs,omitempty"`
 	ServiceInfos []*ServiceInfo `json:"service_infos"`
 	Creator      string         `json:"creator"`
 }
