@@ -452,7 +452,7 @@ func processChartFromGerrit(name string, args *fs.DownloadFromSourceArgs, logger
 		logger.Debug("Start to save and upload chart")
 		localBase := configbase.LocalChartTemplatePath(name)
 
-		err1 := fs.CopyFiles(path.Join(localBase, path.Base(args.Path)), currentChartPath, logger)
+		err1 := fs.CopyAndUploadFiles([]string{}, path.Join(localBase, path.Base(args.Path)), "", currentChartPath, logger)
 		if err1 != nil {
 			logger.Errorf("Failed to save files to disk, err: %s", err1)
 			err = err1
