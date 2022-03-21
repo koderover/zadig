@@ -354,11 +354,6 @@ func (hClient *HelmClient) ensureUpgrade(maxHistoryCount int, releaseName string
 	if maxHistoryCount <= 0 || len(releases) < maxHistoryCount {
 		return nil
 	}
-	for _, re := range releases {
-		if re.Info.Status == release.StatusDeployed {
-			return nil
-		}
-	}
 	if hClient.kubeClient == nil {
 		return errors.New("kubeClient is nil")
 	}
