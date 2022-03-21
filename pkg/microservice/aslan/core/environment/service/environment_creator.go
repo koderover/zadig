@@ -27,11 +27,10 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonservice "github.com/koderover/zadig/pkg/microservice/aslan/core/common/service"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
-	"github.com/koderover/zadig/pkg/tool/helmclient"
+	helmtool "github.com/koderover/zadig/pkg/tool/helmclient"
 	"github.com/koderover/zadig/pkg/tool/kube/informer"
 )
 
@@ -147,14 +146,8 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 		args.Namespace = namespace
 	}
 
-	restConfig, err := kube.GetRESTConfig(args.ClusterID)
+	helmClient, err := helmtool.NewClientFromNamespace(args.ClusterID, args.Namespace)
 	if err != nil {
-		log.Errorf("GetRESTConfig error: %v", err)
-		return e.ErrCreateEnv.AddDesc(err.Error())
-	}
-	helmClient, err := helmclient.NewClientFromRestConf(restConfig, args.Namespace)
-	if err != nil {
-		log.Errorf("[%s][%s] NewClientFromRestConf error: %v", args.EnvName, args.ProductName, err)
 		return e.ErrCreateEnv.AddErr(err)
 	}
 
@@ -224,7 +217,7 @@ func (creator *HelmProductCreator) Create(user, requestID string, args *models.P
 
 	eventStart := time.Now().Unix()
 
-	go installProductHelmCharts(user, args.EnvName, requestID, args, renderSet, eventStart, helmClient, kubeClient, log)
+	go installProductHelmCharts(user, args.EnvName, requestID, args, renderSet, eventStart, helmClient, log)
 	return nil
 }
 

@@ -31,6 +31,7 @@ import (
 	"helm.sh/helm/v3/pkg/downloader"
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/releaseutil"
+	"helm.sh/helm/v3/pkg/storage"
 	"helm.sh/helm/v3/pkg/storage/driver"
 	"helm.sh/helm/v3/pkg/strvals"
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -38,17 +39,56 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
 	yamlutil "github.com/koderover/zadig/pkg/util/yaml"
 )
 
 type HelmClient struct {
 	*hc.HelmClient
+	kubeClient client.Client
+	Namespace  string
+}
+
+// NewClientFromNamespace returns a new Helm client constructed with the provided clusterID and namespace
+// a kubeClient will be initialized to support necessary k8s operations when install/upgrade helm charts
+func NewClientFromNamespace(clusterID, namespace string) (hc.Client, error) {
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return nil, err
+	}
+
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return nil, err
+	}
+
+	hcClient, err := hc.NewClientFromRestConf(&hc.RestConfClientOptions{
+		Options: &hc.Options{
+			Namespace: namespace,
+			DebugLog:  log.Debugf,
+		},
+		RestConfig: restConfig,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	helmClient := hcClient.(*hc.HelmClient)
+	return &HelmClient{
+		helmClient,
+		kubeClient,
+		namespace,
+	}, nil
 }
 
 // NewClientFromRestConf returns a new Helm client constructed with the provided REST config options
+// used to list/uninstall helm release
 func NewClientFromRestConf(restConfig *rest.Config, ns string) (hc.Client, error) {
 	hcClient, err := hc.NewClientFromRestConf(&hc.RestConfClientOptions{
 		Options: &hc.Options{
@@ -64,6 +104,8 @@ func NewClientFromRestConf(restConfig *rest.Config, ns string) (hc.Client, error
 	helmClient := hcClient.(*hc.HelmClient)
 	return &HelmClient{
 		helmClient,
+		nil,
+		ns,
 	}, nil
 }
 
@@ -265,8 +307,12 @@ func (hClient *HelmClient) upgradeCRD(ctx context.Context, k8sClient *clientset.
 // check weather to install or upgrade chart by current status
 // return error if neither install nor upgrade action is legal
 func (hClient *HelmClient) isInstallOperation(spec *hc.ChartSpec) (bool, error) {
+	historyReleaseCount := 10
+	if spec.MaxHistory > 0 {
+		historyReleaseCount = spec.MaxHistory
+	}
 	// find history of particular release
-	releases, err := hClient.ListReleaseHistory(spec.ReleaseName, 10)
+	releases, err := hClient.ListReleaseHistory(spec.ReleaseName, historyReleaseCount)
 	if err != nil && err != driver.ErrReleaseNotFound {
 		return false, err
 	}
@@ -283,16 +329,16 @@ func (hClient *HelmClient) isInstallOperation(spec *hc.ChartSpec) (bool, error) 
 		return false, errors.New("another operation (install/upgrade/rollback) is in progress, please try later")
 	}
 
-	// release with deployed/failed/superseded status: normal upgrade operation
-	if lastRelease.Info.Status == release.StatusDeployed || lastRelease.Info.Status == release.StatusFailed || lastRelease.Info.Status == release.StatusSuperseded {
-		return false, nil
-	}
-
 	// find deployed revision with status deployed from history, would be upgrade operation
 	for _, rel := range releases {
 		if rel.Info.Status == release.StatusDeployed {
 			return false, nil
 		}
+	}
+
+	// release with failed/superseded status: legal upgrade operation
+	if lastRelease.Info.Status == release.StatusFailed || lastRelease.Info.Status == release.StatusSuperseded {
+		return false, hClient.ensureUpgrade(historyReleaseCount, spec.ReleaseName, releases)
 	}
 
 	// if replace set to true, install will be a legal operation
@@ -301,6 +347,18 @@ func (hClient *HelmClient) isInstallOperation(spec *hc.ChartSpec) (bool, error) 
 	}
 
 	return false, fmt.Errorf("can't install or upgrade chart with status: %s", lastRelease.Info.Status)
+}
+
+// ensure new release revision can be saved
+func (hClient *HelmClient) ensureUpgrade(maxHistoryCount int, releaseName string, releases []*release.Release) error {
+	if maxHistoryCount <= 0 || len(releases) < maxHistoryCount {
+		return nil
+	}
+	if hClient.kubeClient == nil {
+		return errors.New("kubeClient is nil")
+	}
+	secretName := fmt.Sprintf("%s.%s.v%d", storage.HelmStorageType, releaseName, releases[len(releases)-1].Version)
+	return updater.DeleteSecretWithName(hClient.Namespace, secretName, hClient.kubeClient)
 }
 
 // getChart returns a chart matching the provided chart name and options.
