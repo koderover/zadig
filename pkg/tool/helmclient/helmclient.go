@@ -327,16 +327,16 @@ func (hClient *HelmClient) isInstallOperation(spec *hc.ChartSpec) (bool, error) 
 		return false, errors.New("another operation (install/upgrade/rollback) is in progress, please try later")
 	}
 
-	// release with deployed/failed/superseded status: normal upgrade operation
-	if lastRelease.Info.Status == release.StatusDeployed || lastRelease.Info.Status == release.StatusFailed || lastRelease.Info.Status == release.StatusSuperseded {
-		return false, hClient.ensureUpgrade(historyReleaseCount, spec.ReleaseName, releases)
-	}
-
 	// find deployed revision with status deployed from history, would be upgrade operation
 	for _, rel := range releases {
 		if rel.Info.Status == release.StatusDeployed {
-			return false, hClient.ensureUpgrade(historyReleaseCount, spec.ReleaseName, releases)
+			return false, nil
 		}
+	}
+
+	// release with failed/superseded status: legal upgrade operation
+	if lastRelease.Info.Status == release.StatusFailed || lastRelease.Info.Status == release.StatusSuperseded {
+		return false, hClient.ensureUpgrade(historyReleaseCount, spec.ReleaseName, releases)
 	}
 
 	// if replace set to true, install will be a legal operation
@@ -352,10 +352,15 @@ func (hClient *HelmClient) ensureUpgrade(maxHistoryCount int, releaseName string
 	if maxHistoryCount <= 0 || len(releases) < maxHistoryCount {
 		return nil
 	}
-	secretName := fmt.Sprintf("%s.%s.v%d", storage.HelmStorageType, releaseName, releases[len(releases)-1].Version)
+	for _, re := range releases {
+		if re.Info.Status == release.StatusDeployed {
+			return nil
+		}
+	}
 	if hClient.kubeClient == nil {
 		return errors.New("kubeClient is nil")
 	}
+	secretName := fmt.Sprintf("%s.%s.v%d", storage.HelmStorageType, releaseName, releases[len(releases)-1].Version)
 	return updater.DeleteSecretWithName(hClient.Namespace, secretName, hClient.kubeClient)
 }
 
