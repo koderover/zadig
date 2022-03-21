@@ -187,14 +187,18 @@ func (client *ChartRepoClient) GetChartFromIndex(chartName, chartVersion string)
 	return nil, fmt.Errorf("failed to find chart [%s]-[%s]", chartName, chartVersion)
 }
 
+// TODO this function should be deprecated
+// we should use standard `helm pull` to provide better compatibility
 func (client *ChartRepoClient) downloadFileWithURL(chartUrl string) (*http.Response, error) {
 	u, _ := url.Parse(chartUrl)
-	// chart url is absolute path
+	// chart url is absolute path in index.yaml, set url of option to full chart url and download directly
+	// eg: chart repo hosted by gitee
 	if u.Scheme == "http" || u.Scheme == "https" {
 		client.Option(cm.URL(chartUrl))
 		defer client.Option(cm.URL(client.RepoURL))
 		return client.DownloadFile("")
-	} else {
-		return client.DownloadFile(chartUrl)
 	}
+	// chart url in index.yaml is relative path, set url of option to the repoUrl and download by fileName
+	// eg: chart repo hosted by harbor
+	return client.DownloadFile(chartUrl)
 }
