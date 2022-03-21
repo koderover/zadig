@@ -43,7 +43,6 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
@@ -56,8 +55,10 @@ type HelmClient struct {
 	Namespace  string
 }
 
+// NewClientFromNamespace returns a new Helm client constructed with the provided clusterID and namespace
+// a kubeClient will be initialized to support necessary k8s operations when install/upgrade helm charts
 func NewClientFromNamespace(clusterID, namespace string) (hc.Client, error) {
-	restConfig, err := kube.GetRESTConfig(clusterID)
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
 	if err != nil {
 		return nil, err
 	}
@@ -87,6 +88,7 @@ func NewClientFromNamespace(clusterID, namespace string) (hc.Client, error) {
 }
 
 // NewClientFromRestConf returns a new Helm client constructed with the provided REST config options
+// used to list/uninstall helm release
 func NewClientFromRestConf(restConfig *rest.Config, ns string) (hc.Client, error) {
 	hcClient, err := hc.NewClientFromRestConf(&hc.RestConfClientOptions{
 		Options: &hc.Options{
