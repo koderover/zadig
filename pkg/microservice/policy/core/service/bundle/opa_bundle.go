@@ -399,9 +399,7 @@ func generateOPABindings(rbs []*models.RoleBinding, pbs []*models.PolicyBinding)
 				if _, ok := userPolicyMap[s.UID]; !ok {
 					userPolicyMap[s.UID] = make(map[string][]*roleRef)
 				}
-				policyBindingRefs := userPolicyMap[s.UID][rb.Namespace]
-				policyBindingRefs = append(policyBindingRefs, &roleRef{Name: rb.PolicyRef.Name, Namespace: rb.PolicyRef.Namespace})
-				userPolicyMap[s.UID][rb.Namespace] = policyBindingRefs
+				userPolicyMap[s.UID][rb.Namespace] = append(userPolicyMap[s.UID][rb.Namespace], &roleRef{Name: rb.PolicyRef.Name, Namespace: rb.PolicyRef.Namespace})
 			}
 		}
 	}
