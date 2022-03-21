@@ -22,16 +22,19 @@ import (
 	"io/ioutil"
 	"net/http"
 	"path/filepath"
+	"strings"
 
 	cm "github.com/chartmuseum/helm-push/pkg/chartmuseum"
 	"github.com/chartmuseum/helm-push/pkg/helm"
 	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/chartutil"
+	"helm.sh/helm/v3/pkg/repo"
 
 	"github.com/koderover/zadig/pkg/tool/log"
 )
 
 type ChartRepoClient struct {
+	RepoURL string
 	*cm.Client
 }
 
@@ -45,7 +48,10 @@ func NewHelmChartRepoClient(url, userName, password string) (*ChartRepoClient, e
 	if err != nil {
 		return nil, err
 	}
-	return &ChartRepoClient{client}, nil
+	return &ChartRepoClient{
+		RepoURL: url,
+		Client:  client,
+	}, nil
 }
 
 // FetchIndexYaml fetch index.yaml from remote chart repo
@@ -77,13 +83,20 @@ func (client *ChartRepoClient) DownloadChart(chartName, chartVersion, basePath s
 	chartTGZName := fmt.Sprintf("%s-%s.tgz", chartName, chartVersion)
 	chartTGZFilePath := filepath.Join(basePath, chartTGZName)
 
-	response, err := client.DownloadFile(fmt.Sprintf("charts/%s", chartTGZName))
+	entry, err := client.GetChartFromIndex(chartName, chartVersion)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get chart [%s]-[%s] info", chartName, chartVersion)
+	}
+	if len(entry.URLs) == 0 {
+		return errors.Wrapf(err, "failed to get chart [%s]-[%s] url", chartName, chartVersion)
+	}
+	response, err := client.downloadFileWithFullURL(entry.URLs[0])
 	if err != nil {
 		return errors.Wrapf(err, "failed to download file")
 	}
 
 	if response.StatusCode != http.StatusOK {
-		return errors.Wrapf(err, "download file failed")
+		return fmt.Errorf("download file failed with status code:%d", response.StatusCode)
 	}
 	defer response.Body.Close()
 
@@ -96,14 +109,20 @@ func (client *ChartRepoClient) DownloadChart(chartName, chartVersion, basePath s
 
 // DownloadAndExpand downloads chart from repo and expand chart files from tarball
 func (client *ChartRepoClient) DownloadAndExpand(chartName, chartVersion, localPath string) error {
-	chartTGZName := fmt.Sprintf("%s-%s.tgz", chartName, chartVersion)
-	response, err := client.DownloadFile(fmt.Sprintf("charts/%s", chartTGZName))
+	entry, err := client.GetChartFromIndex(chartName, chartVersion)
+	if err != nil {
+		return errors.Wrapf(err, "failed to get chart [%s]-[%s] info", chartName, chartVersion)
+	}
+	if len(entry.URLs) == 0 {
+		return errors.Wrapf(err, "failed to get chart [%s]-[%s] url", chartName, chartVersion)
+	}
+	response, err := client.downloadFileWithFullURL(entry.URLs[0])
 	if err != nil {
 		return errors.Wrapf(err, "failed to download file")
 	}
 
-	if response.StatusCode != 200 {
-		return errors.Wrapf(err, "download file failed")
+	if response.StatusCode != http.StatusOK {
+		return fmt.Errorf("download file failed with status code:%d", response.StatusCode)
 	}
 	defer func() { _ = response.Body.Close() }()
 
@@ -147,4 +166,27 @@ func handlePushResponse(resp *http.Response) error {
 	}
 	log.Info("push chart to chart repo done")
 	return nil
+}
+
+func (client *ChartRepoClient) GetChartFromIndex(chartName, chartVersion string) (*repo.ChartVersion, error) {
+	index, err := client.FetchIndexYaml()
+	if err != nil {
+		return nil, errors.Wrapf(err, "fetch index failed")
+	}
+	for name, entries := range index.Entries {
+		if strings.Compare(name, chartName) == 0 {
+			for _, entry := range entries {
+				if strings.Compare(entry.Version, chartVersion) == 0 {
+					return entry, nil
+				}
+			}
+		}
+	}
+	return nil, fmt.Errorf("failed to find chart [%s]-[%s]", chartName, chartVersion)
+}
+
+func (client *ChartRepoClient) downloadFileWithFullURL(url string) (*http.Response, error) {
+	client.Option(cm.URL(url))
+	defer client.Option(cm.URL(client.RepoURL))
+	return client.DownloadFile("")
 }

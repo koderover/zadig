@@ -19,8 +19,10 @@ package dockerfile
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/27149chen/afero"
 	"github.com/pkg/errors"
@@ -29,12 +31,15 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	configbase "github.com/koderover/zadig/pkg/config"
+	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/fs"
 	"github.com/koderover/zadig/pkg/setting"
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
+	"github.com/koderover/zadig/pkg/tool/log"
 	fsutil "github.com/koderover/zadig/pkg/util/fs"
 )
 
@@ -60,7 +65,7 @@ func GetChartTemplate(name string, logger *zap.SugaredLogger) (*Chart, error) {
 
 	localBase := configbase.LocalChartTemplatePath(name)
 	s3Base := configbase.ObjectStorageChartTemplatePath(name)
-	if err = fs.PreloadFiles(name, localBase, s3Base, logger); err != nil {
+	if err = fs.PreloadFiles(name, localBase, s3Base, chart.Source, logger); err != nil {
 		return nil, err
 	}
 
@@ -154,13 +159,13 @@ func GetFileContentForTemplate(name, filePath, fileName string, logger *zap.Suga
 		return nil, err
 	}
 
-	return getFileContent(name, chart.Path, filePath, fileName, logger)
+	return getFileContent(name, chart.Path, filePath, fileName, chart.Source, logger)
 }
 
-func getFileContent(name, path, filePath, fileName string, logger *zap.SugaredLogger) ([]byte, error) {
+func getFileContent(name, path, filePath, fileName, source string, logger *zap.SugaredLogger) ([]byte, error) {
 	localBase := configbase.LocalChartTemplatePath(name)
 	s3Base := configbase.ObjectStorageChartTemplatePath(name)
-	if err := fs.PreloadFiles(name, localBase, s3Base, logger); err != nil {
+	if err := fs.PreloadFiles(name, localBase, s3Base, source, logger); err != nil {
 		return nil, err
 	}
 
@@ -175,8 +180,8 @@ func getFileContent(name, path, filePath, fileName string, logger *zap.SugaredLo
 	return fileContent, nil
 }
 
-func parseTemplateVariables(name, path string, logger *zap.SugaredLogger) ([]string, error) {
-	valueYamlContent, err := getFileContent(name, path, "", setting.ValuesYaml, logger)
+func parseTemplateVariables(name, path, source string, logger *zap.SugaredLogger) ([]string, error) {
+	valueYamlContent, err := getFileContent(name, path, "", setting.ValuesYaml, source, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read values.yaml")
 	}
@@ -196,13 +201,27 @@ func AddChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *zap.
 		return fmt.Errorf("a chart template with name %s is already existing", name)
 	}
 
-	sha1, err := processChartFromSource(name, args, logger)
+	ch, err := systemconfig.New().GetCodeHost(args.CodehostID)
 	if err != nil {
-		logger.Errorf("Failed to create chart %s, err: %s", name, err)
+		log.Errorf("Failed to get codeHost by id %d, err: %s", args.CodehostID, err)
 		return err
 	}
+	var (
+		sha1    string
+		loadErr error
+	)
+	switch ch.Type {
+	case setting.SourceFromGerrit:
+		sha1, loadErr = processChartFromGerrit(name, args, logger)
+	default:
+		sha1, loadErr = processChartFromSource(name, args, logger)
+	}
+	if loadErr != nil {
+		logger.Errorf("Failed to create chart %s, err: %s", name, loadErr)
+		return loadErr
+	}
 
-	variablesNames, err := parseTemplateVariables(name, args.Path, logger)
+	variablesNames, err := parseTemplateVariables(name, args.Path, ch.Type, logger)
 	if err != nil {
 		return errors.Wrapf(err, "failed to prase variables")
 	}
@@ -223,6 +242,7 @@ func AddChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *zap.
 		CodeHostID:     args.CodehostID,
 		Sha1:           sha1,
 		ChartVariables: variables,
+		Source:         ch.Type,
 	})
 }
 
@@ -232,11 +252,26 @@ func UpdateChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *z
 		logger.Errorf("Failed to get chart template %s, err: %s", name, err)
 		return err
 	}
-
-	sha1, err := processChartFromSource(name, args, logger)
+	ch, err := systemconfig.New().GetCodeHost(args.CodehostID)
 	if err != nil {
-		logger.Errorf("Failed to update chart %s, err: %s", name, err)
+		log.Errorf("Failed to get codeHost by id %d, err: %s", args.CodehostID, err)
 		return err
+	}
+	var (
+		sha1    string
+		loadErr error
+	)
+
+	switch ch.Type {
+	case setting.SourceFromGerrit:
+		sha1, loadErr = processChartFromGerrit(name, args, logger)
+	default:
+		sha1, loadErr = processChartFromSource(name, args, logger)
+	}
+
+	if loadErr != nil {
+		logger.Errorf("Failed to update chart %s, err: %s", name, loadErr)
+		return loadErr
 	}
 
 	if chart.Sha1 == sha1 {
@@ -244,7 +279,7 @@ func UpdateChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *z
 		return nil
 	}
 
-	variablesNames, err := parseTemplateVariables(name, args.Path, logger)
+	variablesNames, err := parseTemplateVariables(name, args.Path, ch.Type, logger)
 	if err != nil {
 		return errors.Wrapf(err, "failed to prase variables")
 	}
@@ -271,6 +306,7 @@ func UpdateChartTemplate(name string, args *fs.DownloadFromSourceArgs, logger *z
 		CodeHostID:     args.CodehostID,
 		Sha1:           sha1,
 		ChartVariables: variables,
+		Source:         ch.Type,
 	})
 }
 
@@ -377,6 +413,70 @@ func processChartFromSource(name string, args *fs.DownloadFromSourceArgs, logger
 
 		fileName := fmt.Sprintf("%s.tar.gz", filepath.Base(args.Path))
 		tarball := filepath.Join(tmpDir, fileName)
+		if err1 = fsutil.Tar(tree, tarball); err1 != nil {
+			logger.Errorf("Failed to archive files to %s, err: %s", tarball, err1)
+			err = err1
+			return
+		}
+
+		sha1, err1 = fsutil.Sha1(os.DirFS(tmpDir), fileName)
+		if err1 != nil {
+			logger.Errorf("Failed to calculate sha1 for file %s, err: %s", tarball, err1)
+			err = err1
+			return
+		}
+
+		logger.Debug("Finish to calculate sha1 for chart")
+	})
+
+	wg.Wait()
+
+	if err != nil {
+		return "", err
+	}
+
+	return sha1, nil
+}
+
+func processChartFromGerrit(name string, args *fs.DownloadFromSourceArgs, logger *zap.SugaredLogger) (string, error) {
+	var (
+		wg   wait.Group
+		sha1 string
+		err  error
+	)
+
+	base := path.Join(config.S3StoragePath(), args.Repo)
+	filePath := strings.TrimLeft(args.Path, "/")
+	currentChartPath := path.Join(base, filePath)
+	wg.Start(func() {
+		logger.Debug("Start to save and upload chart")
+		localBase := configbase.LocalChartTemplatePath(name)
+
+		err1 := fs.CopyAndUploadFiles([]string{}, path.Join(localBase, path.Base(args.Path)), "", currentChartPath, logger)
+		if err1 != nil {
+			logger.Errorf("Failed to save files to disk, err: %s", err1)
+			err = err1
+			return
+		}
+
+		logger.Debug("Finish to save and upload chart")
+	})
+
+	wg.Start(func() {
+		logger.Debug("Start to calculate sha1 for chart")
+		tmpDir, err1 := os.MkdirTemp("", "")
+		if err1 != nil {
+			logger.Errorf("Failed to create temp dir, err: %s", err1)
+			err = err1
+			return
+		}
+		defer func() {
+			_ = os.RemoveAll(tmpDir)
+		}()
+
+		fileName := fmt.Sprintf("%s.tar.gz", filepath.Base(args.Path))
+		tarball := filepath.Join(tmpDir, fileName)
+		tree := os.DirFS(currentChartPath)
 		if err1 = fsutil.Tar(tree, tarball); err1 != nil {
 			logger.Errorf("Failed to archive files to %s, err: %s", tarball, err1)
 			err = err1
