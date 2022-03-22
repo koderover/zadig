@@ -153,7 +153,6 @@ func GetRenderSet(renderName string, revision int64, log *zap.SugaredLogger) (*c
 	return resp, nil
 }
 
-// GetRenderSetInfo
 func GetRenderSetInfo(renderName string, revision int64) (*commonmodels.RenderSet, error) {
 	opt := &commonrepo.RenderSetFindOption{
 		Name:     renderName,
