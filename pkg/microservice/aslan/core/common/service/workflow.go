@@ -28,8 +28,10 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/garbagecollector"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/gerrit"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/webhook"
+	config2 "github.com/koderover/zadig/pkg/microservice/aslan/core/label/config"
 	"github.com/koderover/zadig/pkg/setting"
 	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -72,6 +74,10 @@ func DeleteWorkflow(workflowName, requestID string, isDeletingProductTmpl bool, 
 	if err != nil {
 		log.Errorf("List queued task error: %v", err)
 		return e.ErrDeletePipeline.AddErr(err)
+	}
+
+	if err := garbagecollector.DeleteRelatedResource(workflow.ProductTmplName, config2.ResourceTypeWorkflow, workflowName, workflow.ProductTmplName, log); err != nil {
+		log.Errorf("garbagecollector delete related resources err:%s", err)
 	}
 	// 当task还在运行时，先取消任务
 	for _, task := range taskQueue {

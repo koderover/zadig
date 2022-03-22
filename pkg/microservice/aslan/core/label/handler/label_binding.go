@@ -63,5 +63,5 @@ func DeleteLabelBindings(c *gin.Context) {
 		ctx.Err = err
 		return
 	}
-	ctx.Err = service.DeleteLabelBindings(deleteLabelBindingsArgs, ctx.UserName, ctx.Logger)
+	ctx.Err = service.DeleteLabelBindings(deleteLabelBindingsArgs)
 }

@@ -851,7 +851,7 @@ func syncLabel(updateResp *GetCollaborationUpdateResp, projectName, identityType
 	if len(deleteBindings) > 0 {
 		err = service.DeleteLabelBindings(&service.DeleteLabelBindingsArgs{
 			LabelBindings: deleteBindings,
-		}, userName, logger)
+		})
 		if err != nil {
 			logger.Errorf("delete labelbindings error:%s", err)
 			return err

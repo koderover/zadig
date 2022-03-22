@@ -106,14 +106,10 @@ type DeleteLabelBindingsArgs struct {
 	LabelBindings []*mongodb.LabelBinding `json:"label_bindings"`
 }
 
-func DeleteLabelBindings(dr *DeleteLabelBindingsArgs, userName string, logger *zap.SugaredLogger) error {
+func DeleteLabelBindings(dr *DeleteLabelBindingsArgs) error {
 	return mongodb.NewLabelBindingColl().BulkDelete(dr.LabelBindings)
 }
 
 type DeleteLabelsBindingsByIdsArgs struct {
 	IDs []string
-}
-
-func DeleteLabelsBindingsByIds(ids []string) error {
-	return mongodb.NewLabelBindingColl().BulkDeleteByIds(ids)
 }

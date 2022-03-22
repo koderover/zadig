@@ -33,7 +33,9 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/collaboration"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/garbagecollector"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/service/kube"
+	config2 "github.com/koderover/zadig/pkg/microservice/aslan/core/label/config"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	e "github.com/koderover/zadig/pkg/tool/errors"
@@ -80,6 +82,9 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 	log.Infof("[%s] delete product %s", username, productInfo.Namespace)
 	LogProductStats(username, setting.DeleteProductEvent, productName, requestID, eventStart, log)
 
+	if err := garbagecollector.DeleteRelatedResource(productName, config2.ResourceTypeProduct, envName, productName, log); err != nil {
+		log.Errorf("garbage collect err :%s", err)
+	}
 	switch productInfo.Source {
 	case setting.SourceFromHelm:
 		err = commonrepo.NewProductColl().Delete(envName, productName)

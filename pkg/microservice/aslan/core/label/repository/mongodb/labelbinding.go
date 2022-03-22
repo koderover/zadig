@@ -98,6 +98,7 @@ type LabelBindingCollFindOpt struct {
 	ResourceID   string
 	ResourcesIDs []string
 	ResourceType string
+	ProjectName  string
 }
 
 func (c *LabelBindingColl) FindByOpt(opt *LabelBindingCollFindOpt) (*models.LabelBinding, error) {
@@ -127,6 +128,9 @@ func (c *LabelBindingColl) ListByOpt(opt *LabelBindingCollFindOpt) ([]*models.La
 	}
 	if opt.ResourceType != "" {
 		query["resource_type"] = opt.ResourceType
+	}
+	if opt.ProjectName != "" {
+		query["project_name"] = opt.ProjectName
 	}
 	ctx := context.Background()
 
@@ -206,6 +210,10 @@ type ListLabelBindingsByResources struct {
 	Resources []Resource
 }
 
+type DeleteLabelBindingsByResource struct {
+	Resources []Resource
+}
+
 func (c *LabelBindingColl) ListByResources(opt ListLabelBindingsByResources) ([]*models.LabelBinding, error) {
 	var res []*models.LabelBinding
 
@@ -232,4 +240,18 @@ func (c *LabelBindingColl) ListByResources(opt ListLabelBindingsByResources) ([]
 		return nil, err
 	}
 	return res, nil
+}
+
+func (c *LabelBindingColl) DeleteByResources(opt DeleteLabelBindingsByResource) error {
+	condition := bson.A{}
+	for _, resource := range opt.Resources {
+		condition = append(condition, bson.M{
+			"resource_type": resource.Type,
+			"resource_name": resource.Name,
+			"project_name":  resource.ProjectName,
+		})
+	}
+	filter := bson.D{{"$or", condition}}
+	_, err := c.Collection.DeleteMany(context.TODO(), filter)
+	return err
 }
