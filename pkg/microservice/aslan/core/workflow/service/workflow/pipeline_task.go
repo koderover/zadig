@@ -317,7 +317,8 @@ func ListPipelineTasksV2Result(name string, typeString config.PipelineType, quer
 		listTaskOpt = &commonrepo.ListTaskOption{PipelineName: name, Detail: true, Type: typeString}
 		countTaskOpt = &commonrepo.CountTaskOption{PipelineNames: []string{name}, Type: typeString}
 		for _, svc := range filters {
-			serviceNameFiltersMap[svc] = nil
+			containerName := strings.Split(svc, "_")[0]
+			serviceNameFiltersMap[containerName] = nil
 		}
 	case "taskStatus":
 		listTaskOpt = &commonrepo.ListTaskOption{PipelineName: name, Limit: maxResult, Skip: startAt, Statuses: filters, Detail: true, Type: typeString}
@@ -346,7 +347,8 @@ func ListPipelineTasksV2Result(name string, typeString config.PipelineType, quer
 		if buildStage != nil {
 			for serviceName := range buildStage.SubTasks {
 				if queryType == "serviceName" {
-					if _, ok := serviceNameFiltersMap[serviceName]; ok {
+					containerName := strings.Split(serviceName, "_")[0]
+					if _, ok := serviceNameFiltersMap[containerName]; ok {
 						existSvc = true
 					}
 				}
@@ -355,7 +357,8 @@ func ListPipelineTasksV2Result(name string, typeString config.PipelineType, quer
 		} else if deployStage != nil {
 			for serviceName := range deployStage.SubTasks {
 				if queryType == "serviceName" {
-					if _, ok := serviceNameFiltersMap[serviceName]; ok {
+					containerName := strings.Split(serviceName, "_")[0]
+					if _, ok := serviceNameFiltersMap[containerName]; ok {
 						existSvc = true
 					}
 				}
@@ -438,11 +441,13 @@ func GetFiltersPipelineTaskV2(projectName, pipelineName, querytype string, typeS
 			}
 			if buildStage != nil {
 				for serviceName := range buildStage.SubTasks {
-					svcSets.Insert(serviceName)
+					containerName := strings.Split(serviceName, "_")[0]
+					svcSets.Insert(containerName)
 				}
 			} else if deployStage != nil {
 				for serviceName := range deployStage.SubTasks {
-					svcSets.Insert(serviceName)
+					containerName := strings.Split(serviceName, "_")[0]
+					svcSets.Insert(containerName)
 				}
 			}
 			buildStage, deployStage = nil, nil
