@@ -2872,7 +2872,7 @@ func diffRenderSet(username, productName, envName, updateType string, productRes
 		return nil, err
 	}
 	// 系统默认的变量
-	latestRenderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{Name: productName, ProductTmpl: productName})
+	latestRenderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{Name: productName})
 	if err != nil {
 		log.Errorf("[RenderSet.find] err: %v", err)
 		return nil, err
