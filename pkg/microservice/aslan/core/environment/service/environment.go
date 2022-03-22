@@ -169,7 +169,7 @@ type UpdateMultiHelmProductArg struct {
 	ProductName     string                          `json:"productName"`
 	EnvNames        []string                        `json:"envNames"`
 	ChartValues     []*commonservice.RenderChartArg `json:"chartValues"`
-	DeletedServices []string                        `json:"deleted_services"`
+	DeletedServices []string                        `json:"deletedServices"`
 	ReplacePolicy   string                          `json:"replacePolicy"` // TODO logic not implemented
 }
 
@@ -801,14 +801,15 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 	// user custom chart values
 	cvMap := make(map[string]*templatemodels.RenderChart)
 	for _, singleCV := range arg.ChartValues {
-		if tc, ok := templateChartInfoMap[singleCV.ServiceName]; !ok {
-			return fmt.Errorf("failed to find service info in template_product, serviceName: %s", singleCV.ServiceName)
-		} else {
-			chartInfo := &templatemodels.RenderChart{}
-			singleCV.FillRenderChartModel(chartInfo, tc.ChartVersion)
-			productObj.ChartInfos = append(productObj.ChartInfos, chartInfo)
-			cvMap[singleCV.ServiceName] = chartInfo
+		tc, ok := templateChartInfoMap[singleCV.ServiceName]
+		if !ok {
+			return fmt.Errorf("failed to find chart info in product, serviceName: %s productName: %s", singleCV.ServiceName, templateProduct.ProjectName)
 		}
+		chartInfo := &templatemodels.RenderChart{}
+		singleCV.FillRenderChartModel(chartInfo, tc.ChartVersion)
+		chartInfo.ValuesYaml = tc.ValuesYaml
+		productObj.ChartInfos = append(productObj.ChartInfos, chartInfo)
+		cvMap[singleCV.ServiceName] = chartInfo
 	}
 
 	// default values
@@ -827,7 +828,7 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 
 			serviceTmpl, ok := serviceTmplMap[serviceName]
 			if !ok {
-				return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to find service info in template_product, serviceName: %s", serviceName))
+				return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to find service info in template_service, serviceName: %s", serviceName))
 			}
 
 			serviceResp := &commonmodels.ProductService{
@@ -860,20 +861,18 @@ func prepareHelmProductCreation(templateProduct *templatemodels.Product, product
 	productObj.Services = serviceGroup
 
 	// insert renderset info into db
-	if len(productObj.ChartInfos) > 0 {
-		err := commonservice.CreateHelmRenderSet(&commonmodels.RenderSet{
-			Name:          commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
-			EnvName:       arg.EnvName,
-			ProductTmpl:   arg.ProductName,
-			UpdateBy:      productObj.UpdateBy,
-			IsDefault:     false,
-			DefaultValues: arg.DefaultValues,
-			ChartInfos:    productObj.ChartInfos,
-		}, log)
-		if err != nil {
-			log.Errorf("rennderset create fail when copy creating helm product, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err)
-			return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to save chart values, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err))
-		}
+	err := commonservice.CreateHelmRenderSet(&commonmodels.RenderSet{
+		Name:          commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace),
+		EnvName:       arg.EnvName,
+		ProductTmpl:   arg.ProductName,
+		UpdateBy:      productObj.UpdateBy,
+		IsDefault:     false,
+		DefaultValues: arg.DefaultValues,
+		ChartInfos:    productObj.ChartInfos,
+	}, log)
+	if err != nil {
+		log.Errorf("rennderset create fail when copy creating helm product, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err)
+		return e.ErrCreateEnv.AddDesc(fmt.Sprintf("failed to save chart values, productName: %s,envname:%s,err:%s", arg.ProductName, arg.EnvName, err))
 	}
 	return nil
 }
@@ -1077,6 +1076,12 @@ func CopyHelmProduct(productName, userName, requestID string, args []*CreateHelm
 		templateServiceMap[svc.ServiceName] = svc
 	}
 
+	// fill all chart infos from product renderset
+	err = commonservice.FillProductTemplateValuesYamls(templateProduct, log)
+	if err != nil {
+		return e.ErrCreateEnv.AddDesc(err.Error())
+	}
+
 	for _, arg := range args {
 		err := copySingleHelmProduct(templateProduct, productName, requestID, userName, arg, templateServiceMap, log)
 		if err != nil {
@@ -1094,6 +1099,8 @@ func copySingleHelmProduct(templateProduct *templatemodels.Product, productName,
 	if err != nil {
 		return fmt.Errorf("failed to query base product info name :%s,envname:%s", productName, arg.BaseEnvName)
 	}
+
+	sourceRendersetName := productInfo.Namespace
 	productInfo.ID = primitive.NilObjectID
 	productInfo.Revision = 1
 	productInfo.EnvName = arg.EnvName
@@ -1101,6 +1108,25 @@ func copySingleHelmProduct(templateProduct *templatemodels.Product, productName,
 	productInfo.ClusterID = arg.ClusterID
 	productInfo.BaseName = arg.BaseName
 	productInfo.Namespace = commonservice.GetProductEnvNamespace(arg.EnvName, arg.ProductName, arg.Namespace)
+
+	// merge chart infos, use chart info in product to override charts in template_project
+	sourceRenderSet, _, err := commonrepo.NewRenderSetColl().FindRenderSet(&commonrepo.RenderSetFindOption{Name: sourceRendersetName})
+	if err != nil {
+		return errors.Wrapf(err, "failed to find source renderset: %s", productInfo.Namespace)
+	}
+	sourceChartMap := make(map[string]*templatemodels.RenderChart)
+	for _, singleChart := range sourceRenderSet.ChartInfos {
+		sourceChartMap[singleChart.ServiceName] = singleChart
+	}
+	templateCharts := templateProduct.ChartInfos
+	templateProduct.ChartInfos = make([]*templatemodels.RenderChart, 0)
+	for _, chart := range templateCharts {
+		if chartFromSource, ok := sourceChartMap[chart.ServiceName]; ok {
+			templateProduct.ChartInfos = append(templateProduct.ChartInfos, chartFromSource)
+		} else {
+			templateProduct.ChartInfos = append(templateProduct.ChartInfos, chart)
+		}
+	}
 
 	// fill services and chart infos of product
 	err = prepareHelmProductCreation(templateProduct, productInfo, arg, serviceTmplMap, log)
@@ -1134,26 +1160,33 @@ func UpdateHelmProduct(productName, envName, updateType, username, requestID str
 		return e.ErrUpdateEnv.AddDesc(e.FindProductTmplErrMsg)
 	}
 
-	// use service definition from service template, but keep the image info
 	deletedSvcSet := sets.NewString(deletedServices...)
-	productRespMap := productResp.GetServiceMap()
+	// services need to be created or updated
+	serviceNeedUpdateOrCreate := sets.NewString()
+	for _, chart := range overrideCharts {
+		serviceNeedUpdateOrCreate.Insert(chart.ServiceName)
+	}
+	// use service definition from service template, but keep the image info
+	productServiceMap := productResp.GetServiceMap()
 	allServices := make([][]*commonmodels.ProductService, 0)
 	for _, svrs := range updateProd.Services {
 		svcGroup := make([]*commonmodels.ProductService, 0)
 		for _, svr := range svrs {
-			ps, ok := productRespMap[svr.ServiceName]
-			if !ok {
-				continue
-			}
 			if deletedSvcSet.Has(svr.ServiceName) {
 				continue
 			}
+			ps, ok := productServiceMap[svr.ServiceName]
+			if !ok && !serviceNeedUpdateOrCreate.Has(svr.ServiceName) {
+				continue
+			}
 			svcGroup = append(svcGroup, svr)
-			for _, svrc := range svr.Containers {
-				for _, psc := range ps.Containers {
-					if svrc.Name == psc.Name {
-						svrc.Image = psc.Image
-						break
+			if ps != nil {
+				for _, svrc := range svr.Containers {
+					for _, psc := range ps.Containers {
+						if svrc.Name == psc.Name {
+							svrc.Image = psc.Image
+							break
+						}
 					}
 				}
 			}
@@ -1770,10 +1803,18 @@ func deleteHelmProductServices(productInfo *commonmodels.Product, serviceNames [
 		}
 	}
 	renderset.ChartInfos = rcs
-	err = commonrepo.NewRenderSetColl().Update(renderset)
+
+	// create new renderset
+	if err := commonservice.CreateHelmRenderSet(renderset, log); err != nil {
+		log.Error("failed to create renderset, name %s, err: %s", renderset.Name, err)
+		return e.ErrUpdateEnv.AddErr(err)
+	}
+
+	productInfo.Render.Revision = renderset.Revision
+	err = commonrepo.NewProductColl().UpdateRender(renderset.EnvName, productInfo.ProductName, productInfo.Render)
 	if err != nil {
-		log.Errorf("failed to update renderset, name: %s, err: %s", renderset.Name, err)
-		return err
+		log.Errorf("failed to update product render info, renderName: %s, err: %s", productInfo.Render.Name, err)
+		return e.ErrUpdateEnv.AddErr(err)
 	}
 
 	// uninstall services
