@@ -441,11 +441,13 @@ func GetFiltersPipelineTaskV2(projectName, pipelineName, querytype string, typeS
 			}
 			if buildStage != nil {
 				for serviceName := range buildStage.SubTasks {
-					svcSets.Insert(serviceName)
+					containerName := strings.Split(serviceName, "_")[0]
+					svcSets.Insert(containerName)
 				}
 			} else if deployStage != nil {
 				for serviceName := range deployStage.SubTasks {
-					svcSets.Insert(serviceName)
+					containerName := strings.Split(serviceName, "_")[0]
+					svcSets.Insert(containerName)
 				}
 			}
 			buildStage, deployStage = nil, nil
