@@ -42,8 +42,9 @@ type RenderSetListOption struct {
 // RenderSetFindOption ...
 type RenderSetFindOption struct {
 	// if Revision == 0 then search max revision of RenderSet
-	Revision int64
-	Name     string
+	ProductTmpl string
+	Revision    int64
+	Name        string
 }
 
 type RenderSetPipeResp struct {
@@ -168,8 +169,9 @@ func (c *RenderSetColl) List(opt *RenderSetListOption) ([]*models.RenderSet, err
 	var resp []*models.RenderSet
 	for _, pipe := range pipeResp {
 		optRender := &RenderSetFindOption{
-			Revision: pipe.Revision,
-			Name:     pipe.RenderSet.Name,
+			Revision:    pipe.Revision,
+			Name:        pipe.RenderSet.Name,
+			ProductTmpl: pipe.RenderSet.ProductTmpl,
 		}
 		if pipe.Revision == 0 && pipe.RenderSet.Name == "" {
 			continue
@@ -206,6 +208,10 @@ func (c *RenderSetColl) Find(opt *RenderSetFindOption) (*models.RenderSet, error
 		query["revision"] = opt.Revision
 	} else {
 		opts.SetSort(bson.D{{"revision", -1}})
+	}
+
+	if len(opt.ProductTmpl) > 0 {
+		query["product_tmpl"] = opt.ProductTmpl
 	}
 
 	rs := &models.RenderSet{}

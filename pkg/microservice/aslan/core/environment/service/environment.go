@@ -1737,7 +1737,8 @@ func DeleteProductServices(envName, productName string, serviceNames []string, l
 		}
 	}
 	rs, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{
-		Name: productInfo.Namespace,
+		Name:        productInfo.Namespace,
+		ProductTmpl: productName,
 	})
 	if err != nil {
 		log.Errorf("get renderSet error: %v", err)
@@ -2509,16 +2510,12 @@ func FindHelmRenderSet(productName, renderName string, log *zap.SugaredLogger) (
 	resp := &commonmodels.RenderSet{ProductTmpl: productName}
 	var err error
 	if renderName != "" {
-		opt := &commonrepo.RenderSetFindOption{Name: renderName}
+		opt := &commonrepo.RenderSetFindOption{Name: renderName, ProductTmpl: productName}
 		resp, err = commonrepo.NewRenderSetColl().Find(opt)
 		if err != nil {
 			log.Errorf("find helm renderset[%s] error: %v", renderName, err)
 			return resp, err
 		}
-	}
-	if renderName != "" && resp.ProductTmpl != productName {
-		log.Errorf("helm renderset[%s] not match product[%s]", renderName, productName)
-		return resp, fmt.Errorf("helm renderset[%s] not match product[%s]", renderName, productName)
 	}
 	return resp, nil
 }
@@ -2875,7 +2872,7 @@ func diffRenderSet(username, productName, envName, updateType string, productRes
 		return nil, err
 	}
 	// 系统默认的变量
-	latestRenderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{Name: productName})
+	latestRenderSet, err := commonrepo.NewRenderSetColl().Find(&commonrepo.RenderSetFindOption{Name: productName, ProductTmpl: productName})
 	if err != nil {
 		log.Errorf("[RenderSet.find] err: %v", err)
 		return nil, err

@@ -1036,7 +1036,7 @@ func DeleteServiceTemplate(serviceName, serviceType, productName, isEnvTemplate,
 
 // remove specific services from rendersets.chartinfos
 func removeServiceFromRenderset(productName, renderName, serviceName string) error {
-	renderOpt := &commonrepo.RenderSetFindOption{Name: renderName}
+	renderOpt := &commonrepo.RenderSetFindOption{Name: renderName, ProductTmpl: productName}
 	if rs, err := commonrepo.NewRenderSetColl().Find(renderOpt); err == nil {
 		chartInfos := make([]*templatemodels.RenderChart, 0)
 		for _, chartInfo := range rs.ChartInfos {
