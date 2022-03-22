@@ -105,6 +105,21 @@ func (c *Client) UpdatePolicy(ns string, policy *Policy) error {
 	return err
 }
 
+func (c *Client) GarbageCollect(projectName, key, value string) error {
+	url := fmt.Sprintf("/policies/garbage-collector?projectName=%s", projectName)
+	args := GarbageCollectorArgs{
+		Key:   key,
+		Value: value,
+	}
+	_, err := c.Post(url, httpclient.SetBody(args))
+	return err
+}
+
+type GarbageCollectorArgs struct {
+	Key   string
+	Value string
+}
+
 type ResourcePermissionReq struct {
 	ProjectName  string   `json:"project_name"      form:"project_name"`
 	Uid          string   `json:"uid"               form:"uid"`

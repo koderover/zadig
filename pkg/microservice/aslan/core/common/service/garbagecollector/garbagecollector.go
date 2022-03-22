@@ -6,6 +6,7 @@ import (
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
 	labeldb "github.com/koderover/zadig/pkg/microservice/aslan/core/label/repository/mongodb"
+	"github.com/koderover/zadig/pkg/shared/client/policy"
 )
 
 func DeleteRelatedResource(projectName string, resourceType config.ResourceType, resource, project string, log *zap.SugaredLogger) error {
@@ -42,6 +43,10 @@ func DeleteRelatedResource(projectName string, resourceType config.ResourceType,
 		if len(labelBindings) == 0 {
 			// 删除这个label
 			if err := mongodb.NewLabelColl().Delete(label.ID.Hex()); err != nil {
+				return err
+			}
+			// 更新policy
+			if err := policy.NewDefault().GarbageCollect(project, label.Key, label.Value); err != nil {
 				return err
 			}
 		}

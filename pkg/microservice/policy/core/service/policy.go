@@ -241,3 +241,31 @@ func DeletePolicies(names []string, projectName string, logger *zap.SugaredLogge
 
 	return mongodb.NewPolicyBindingColl().DeleteByPolicies(names, projectName)
 }
+
+func GarbageCollector(projectName, key, value string) error {
+	// 找到当前项目下
+	policies, err := mongodb.NewPolicyColl().ListBy(projectName)
+	if err != nil {
+		return err
+	}
+	for _, policy := range policies {
+		toUpdate := false
+		for i, rule := range policy.Rules {
+			tmpMatchAttribetes := []models.MatchAttribute{}
+			for _, att := range rule.MatchAttributes {
+				if att.Key == key && att.Value == value {
+					toUpdate = true
+					continue
+				}
+				tmpMatchAttribetes = append(tmpMatchAttribetes, att)
+			}
+			policy.Rules[i].MatchAttributes = tmpMatchAttribetes
+		}
+		if toUpdate {
+			if err := mongodb.NewPolicyColl().UpdatePolicy(policy); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}

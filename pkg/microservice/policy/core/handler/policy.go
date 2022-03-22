@@ -27,8 +27,14 @@ import (
 type deletePoliciesArgs struct {
 	Names []string `json:"names"`
 }
+
 type createPoliciesArgs struct {
 	Policies []*service.Policy `json:"policies"`
+}
+
+type garbageCollector struct {
+	Key   string
+	Value string
 }
 
 func CreatePolicies(c *gin.Context) {
@@ -196,53 +202,15 @@ func DeletePolicies(c *gin.Context) {
 	ctx.Err = service.DeletePolicies(args.Names, projectName, ctx.Logger)
 }
 
-func DeletePublicPolicies(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	name := c.Param("name")
-	ctx.Err = service.DeletePolicy(name, service.PresetScope, ctx.Logger)
-	return
-}
-
-func CreateSystemPolicy(c *gin.Context) {
+func GarbageCollector(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	args := &service.Policy{}
+	projectName := c.Query("projectName")
+	args := &garbageCollector{}
 	if err := c.ShouldBindJSON(args); err != nil {
 		ctx.Err = err
 		return
 	}
-
-	ctx.Err = service.CreatePolicy(service.SystemScope, args, ctx.Logger)
-}
-
-func UpdateOrCreateSystemPolicy(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	args := &service.Policy{}
-	if err := c.ShouldBindJSON(args); err != nil {
-		ctx.Err = err
-		return
-	}
-	name := c.Param("name")
-	args.Name = name
-	ctx.Err = service.UpdateOrCreatePolicy(service.SystemScope, args, ctx.Logger)
-}
-
-func ListSystemPolicies(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-
-	ctx.Resp, ctx.Err = service.ListPolicies(service.SystemScope, ctx.Logger)
-	return
-}
-
-func DeleteSystemPolicy(c *gin.Context) {
-	ctx := internalhandler.NewContext(c)
-	defer func() { internalhandler.JSONResponse(c, ctx) }()
-	name := c.Param("name")
-	ctx.Err = service.DeletePolicy(name, service.SystemScope, ctx.Logger)
-	return
+	ctx.Err = service.GarbageCollector(projectName, args.Key, args.Value)
 }

@@ -38,6 +38,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 	{
 		policies.POST("", CreatePolicies)
 		policies.POST("/bulk-delete", DeletePolicies)
+		policies.POST("/garbage-collector", GarbageCollector)
 		policies.PATCH("/:name", UpdatePolicy)
 		policies.PUT("/:name", UpdateOrCreatePolicy)
 		policies.GET("", ListPolicies)
