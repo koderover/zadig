@@ -28,3 +28,10 @@ func CheckIstiod(c *gin.Context) {
 
 	ctx.Resp, ctx.Err = service.CheckIstiod(c, c.Param("id"))
 }
+
+func CheckWorkloadsK8sServices(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.CheckWorkloadsK8sServices(c, c.Param("id"), c.Param("namespace"))
+}

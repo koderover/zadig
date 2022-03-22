@@ -53,4 +53,5 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 	router.GET("/:id/storageclasses", ListStorageClasses)
 	router.GET("/:id/:namespace/pvcs", ListPVCs)
+	router.GET("/:id/:namespace/check/workloads/k8services", CheckWorkloadsK8sServices)
 }

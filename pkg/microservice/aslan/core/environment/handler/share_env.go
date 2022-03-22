@@ -19,21 +19,20 @@ package handler
 import (
 	"github.com/gin-gonic/gin"
 
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/environment/service"
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
-// TODO: Implement.
-func EnvEnableShare(c *gin.Context) {
+func EnableBaseEnv(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = nil, nil
+	ctx.Resp, ctx.Err = service.EnableBaseEnv(c.Param("name"))
 }
 
-// TODO: Implement.
-func EnvDisableShare(c *gin.Context) {
+func DisableBaseEnv(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = nil, nil
+	ctx.Resp, ctx.Err = service.DisableBaseEnv(c.Param("name"))
 }

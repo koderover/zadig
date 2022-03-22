@@ -123,8 +123,8 @@ func (*Router) Inject(router *gin.RouterGroup) {
 
 		environments.GET("/:name/estimated-renderchart", GetEstimatedRenderCharts)
 
-		environments.POST("/:name/share/enable", EnvEnableShare)
-		environments.DELETE("/:name/share/enable", EnvDisableShare)
+		environments.POST("/:name/share/enable", EnableBaseEnv)
+		environments.DELETE("/:name/share/enable", DisableBaseEnv)
 	}
 
 	// ---------------------------------------------------------------------------------------

@@ -16,7 +16,9 @@ limitations under the License.
 
 package service
 
-import "strings"
+import (
+	"strings"
+)
 
 // StorageProvisioner is a storage type
 type StorageProvisioner string
