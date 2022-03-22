@@ -69,11 +69,6 @@ func ScaleService(envName, productName, serviceName string, number int, log *zap
 		return e.ErrScaleService.AddErr(err)
 	}
 
-	// TODO: At present, the number of replicas is forced to be 0-1000, which can be changed to configuration in the future
-	if number > 1000 || number < 0 {
-		return e.ErrInvalidParam.AddDesc("伸缩数量范围[0..1000]")
-	}
-
 	selector := labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceName}.AsSelector()
 	ds, err := getter.ListDeployments(prod.Namespace, selector, kubeClient)
 	if err != nil {
@@ -105,11 +100,6 @@ func ScaleService(envName, productName, serviceName string, number int, log *zap
 }
 
 func Scale(args *ScaleArgs, logger *zap.SugaredLogger) error {
-	// TODO: At present, the number of replicas is forced to be 0-1000, which can be changed to configuration in the future
-	if args.Number > 1000 || args.Number < 0 {
-		return e.ErrInvalidParam.AddDesc("伸缩数量范围[0..1000]")
-	}
-
 	opt := &commonrepo.ProductFindOptions{Name: args.ProductName, EnvName: args.EnvName}
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
