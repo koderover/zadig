@@ -69,9 +69,9 @@ func ScaleService(envName, productName, serviceName string, number int, log *zap
 		return e.ErrScaleService.AddErr(err)
 	}
 
-	// TODO: 目前强制定死扩容数量为0-20, 以后可以改成配置
-	if number > 20 || number < 0 {
-		return e.ErrInvalidParam.AddDesc("伸缩数量范围[0..20]")
+	// TODO: At present, the number of replicas is forced to be 0-1000, which can be changed to configuration in the future
+	if number > 1000 || number < 0 {
+		return e.ErrInvalidParam.AddDesc("伸缩数量范围[0..1000]")
 	}
 
 	selector := labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceName}.AsSelector()
@@ -105,8 +105,9 @@ func ScaleService(envName, productName, serviceName string, number int, log *zap
 }
 
 func Scale(args *ScaleArgs, logger *zap.SugaredLogger) error {
-	if args.Number > 20 || args.Number < 0 {
-		return e.ErrInvalidParam.AddDesc("伸缩数量范围[0..20]")
+	// TODO: At present, the number of replicas is forced to be 0-1000, which can be changed to configuration in the future
+	if args.Number > 1000 || args.Number < 0 {
+		return e.ErrInvalidParam.AddDesc("伸缩数量范围[0..1000]")
 	}
 
 	opt := &commonrepo.ProductFindOptions{Name: args.ProductName, EnvName: args.EnvName}
