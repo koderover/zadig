@@ -23,16 +23,23 @@ import (
 	internalhandler "github.com/koderover/zadig/pkg/shared/handler"
 )
 
+func CheckWorkloadsK8sServices(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.CheckWorkloadsK8sServices(c, c.Param("name"), c.Query("projectName"))
+}
+
 func EnableBaseEnv(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.EnableBaseEnv(c.Param("name"))
+	ctx.Err = service.EnableBaseEnv(c, c.Param("name"), c.Query("projectName"))
 }
 
 func DisableBaseEnv(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.DisableBaseEnv(c.Param("name"))
+	ctx.Err = service.DisableBaseEnv(c.Param("name"), c.Query("projectName"))
 }

@@ -79,6 +79,8 @@ require (
 	gorm.io/driver/mysql v1.1.2
 	gorm.io/gorm v1.21.16
 	helm.sh/helm/v3 v3.7.2
+	istio.io/api v0.0.0-20220304035241-8c47cbbea144 // indirect
+	istio.io/client-go v0.0.0-20220304040955-30b642d5ba34 // indirect
 	k8s.io/api v0.22.4
 	k8s.io/apiextensions-apiserver v0.22.4
 	k8s.io/apimachinery v0.22.4
