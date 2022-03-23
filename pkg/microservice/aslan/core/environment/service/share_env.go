@@ -63,26 +63,7 @@ func CheckWorkloadsK8sServices(ctx context.Context, envName, productName string)
 		return nil, fmt.Errorf("failed to get kube client: %s", err)
 	}
 
-	timeStartGetWorkloads := time.Now()
-	workloads, err := getWorkloads(ctx, kclient, ns)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get workloads: %s", err)
-	}
-	log.Infof("[CheckWorkloadsK8sServices][getWorkloads]Time consumed: %s", time.Since(timeStartGetWorkloads))
-
-	timeStartGetSvcs := time.Now()
-	svcs, err := getSvcs(ctx, kclient, ns)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get svcs: %s", err)
-	}
-	log.Infof("[CheckWorkloadsK8sServices][getSvcs]Time consumed: %s", time.Since(timeStartGetSvcs))
-
-	timeStartCheck := time.Now()
-	defer func() {
-		log.Infof("[CheckWorkloadsK8sServices][checkWorkloadsNoSvcs]Time consumed: %s", time.Since(timeStartCheck))
-	}()
-
-	return checkWorkloadsNoSvcs(svcs, workloads)
+	return checkWorkloadsHaveK8sService(ctx, kclient, ns)
 }
 
 func EnableBaseEnv(ctx context.Context, envName, productName string) error {
@@ -110,25 +91,25 @@ func EnableBaseEnv(ctx context.Context, envName, productName string) error {
 		return fmt.Errorf("failed to new istio client: %s", err)
 	}
 
-	// 1. Set `istio-injection=enabled` label on the namespace.
+	// 1. Ensure `istio-injection=enabled` label on the namespace.
 	err = ensureIstioLabel(ctx, kclient, ns)
 	if err != nil {
 		return fmt.Errorf("failed to ensure istio label on namespace `%s`: %s", ns, err)
 	}
 
-	// 2. Restart Pods that are not injected with `istio-proxy`.
+	// 2. Ensure Pods that are not injected with `istio-proxy`.
 	err = ensurePodsWithIsitoProxy(ctx, kclient, ns)
 	if err != nil {
 		return fmt.Errorf("failed to ensure pods with istio-proxy in namespace `%s`: %s", ns, err)
 	}
 
-	// 3. Deliver `VirtualService` (subsets are not required) in current namespace.
+	// 3. Ensure `VirtualService` (subsets are not required) in current namespace.
 	err = ensureVirtualServices(ctx, kclient, istioClient, ns)
 	if err != nil {
 		return fmt.Errorf("failed to ensure VirtualServices in namespace `%s`: %s", ns, err)
 	}
 
-	// 4. Deliver `EnvoyFilter` in istio namespace.
+	// 4. Ensure `EnvoyFilter` in istio namespace.
 	err = ensureEnvoyFilter(ctx, istioClient, istioNamespace, zadigEnvoyFilter)
 	if err != nil {
 		return fmt.Errorf("failed to ensure EnvoyFilter in namespace `%s`: %s", istioNamespace, err)
@@ -137,9 +118,90 @@ func EnableBaseEnv(ctx context.Context, envName, productName string) error {
 	return nil
 }
 
-func DisableBaseEnv(envName, product string) error {
+func DisableBaseEnv(ctx context.Context, envName, productName string) error {
 
 	return ErrNotImplemented
+}
+
+func CheckShareEnvReady(ctx context.Context, envName, productName string) (*ShareEnvReady, error) {
+	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
+	prod, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query env `%s` in project `%s`: %s", envName, productName, err)
+	}
+
+	ns := prod.Namespace
+	clusterID := prod.ClusterID
+
+	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kube client: %s", err)
+	}
+
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get rest config: %s", err)
+	}
+
+	istioClient, err := versionedclient.NewForConfig(restConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to new istio client: %s", err)
+	}
+
+	// 1. Check whether namespace has labeled `istio-injection=enabled`.
+	isNamespaceHasIstioLabel, err := checkIstioLabel(ctx, kclient, ns)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check whether namespace `%s` has labeled `istio-injection=enabled`: %s", ns, err)
+	}
+
+	// 2. Check whether all workloads have K8s Service.
+	workloadsHaveNoK8sService, err := checkWorkloadsHaveK8sService(ctx, kclient, ns)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check whether all workloads in ns `%s` have K8s Service: %s", ns, err)
+	}
+
+	isWorkloadsHaveNoK8sService := true
+	if len(workloadsHaveNoK8sService) > 0 {
+		isWorkloadsHaveNoK8sService = false
+	}
+
+	// 3. Check whether all VirtualServices have been deployed.
+	isVirtualServicesDeployed, err := checkVirtualServicesDeployed(ctx, kclient, istioClient, ns)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check whether all VirtualServices in ns `%s` have been deployed: %s", ns, err)
+	}
+
+	// 4. Check whether all Pods have istio-proxy and are ready.
+	isPodsHaveIstioProxyAndReady, err := checkPodsWithIstioProxyAndReady(ctx, kclient, ns)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check whether all pods in ns `%s` have istio-proxy and are ready: %s", ns, err)
+	}
+
+	res := &ShareEnvReady{
+		Checks: ShareEnvReadyChecks{
+			NamespaceHasIstioLabel:     isNamespaceHasIstioLabel,
+			WorkloadsHaveK8sService:    isWorkloadsHaveNoK8sService,
+			VirtualServicesDeployed:    isVirtualServicesDeployed,
+			PodsHaveIstioProxyAndReady: isPodsHaveIstioProxyAndReady,
+		},
+	}
+	res.CheckAndSetReady()
+
+	return res, nil
+}
+
+func checkWorkloadsHaveK8sService(ctx context.Context, kclient client.Client, ns string) ([]string, error) {
+	workloads, err := getWorkloads(ctx, kclient, ns)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get workloads: %s", err)
+	}
+
+	svcs, err := getSvcs(ctx, kclient, ns)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get svcs: %s", err)
+	}
+
+	return checkWorkloadsNoSvcs(svcs, workloads)
 }
 
 // map structure:
@@ -242,6 +304,18 @@ func ensureIstioLabel(ctx context.Context, kclient client.Client, ns string) err
 	return kclient.Update(ctx, nsObj)
 }
 
+func checkIstioLabel(ctx context.Context, kclient client.Client, ns string) (bool, error) {
+	nsObj := &corev1.Namespace{}
+	err := kclient.Get(ctx, client.ObjectKey{
+		Name: ns,
+	}, nsObj)
+	if err != nil {
+		return false, fmt.Errorf("failed to query ns `%s`: %s", ns, err)
+	}
+
+	return nsObj.Labels["istio-injection"] == "enabled", nil
+}
+
 func ensurePodsWithIsitoProxy(ctx context.Context, kclient client.Client, ns string) error {
 	pods := &corev1.PodList{}
 	err := kclient.List(ctx, pods, client.InNamespace(ns))
@@ -273,11 +347,38 @@ func ensurePodsWithIsitoProxy(ctx context.Context, kclient client.Client, ns str
 	return nil
 }
 
+func checkPodsWithIstioProxyAndReady(ctx context.Context, kclient client.Client, ns string) (bool, error) {
+	pods := &corev1.PodList{}
+	err := kclient.List(ctx, pods, client.InNamespace(ns))
+	if err != nil {
+		return false, fmt.Errorf("failed to query pods in ns `%s`: %s", ns, err)
+	}
+
+	for _, pod := range pods.Items {
+		if !(pod.Status.Phase == corev1.PodRunning || pod.Status.Phase == corev1.PodSucceeded) {
+			return false, nil
+		}
+
+		hasIstioProxy := false
+		for _, container := range pod.Spec.Containers {
+			if container.Name == istioProxyName {
+				hasIstioProxy = true
+				break
+			}
+		}
+		if !hasIstioProxy {
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
 func ensureVirtualServices(ctx context.Context, kclient client.Client, istioClient versionedclient.Interface, ns string) error {
 	svcs := &corev1.ServiceList{}
 	err := kclient.List(ctx, svcs, client.InNamespace(ns))
 	if err != nil {
-		return fmt.Errorf("failed to list svcs in %s: %s", ns, err)
+		return fmt.Errorf("failed to list svcs in ns `%s`: %s", ns, err)
 	}
 
 	for _, svc := range svcs.Items {
@@ -298,7 +399,7 @@ func ensureVirtualService(ctx context.Context, istioClient versionedclient.Inter
 	}
 
 	if !apierrors.IsNotFound(err) {
-		return fmt.Errorf("failed to query VirtualService `%s` in `%s`: %s", name, ns, err)
+		return fmt.Errorf("failed to query VirtualService `%s` in ns `%s`: %s", name, ns, err)
 	}
 
 	vsObj.Name = name
@@ -318,6 +419,23 @@ func ensureVirtualService(ctx context.Context, istioClient versionedclient.Inter
 	}
 	_, err = istioClient.NetworkingV1alpha3().VirtualServices(ns).Create(ctx, vsObj, metav1.CreateOptions{})
 	return err
+}
+
+func checkVirtualServicesDeployed(ctx context.Context, kclient client.Client, istioClient versionedclient.Interface, ns string) (bool, error) {
+	svcs := &corev1.ServiceList{}
+	err := kclient.List(ctx, svcs, client.InNamespace(ns))
+	if err != nil {
+		return false, fmt.Errorf("failed to list svcs in ns `%s`: %s", ns, err)
+	}
+
+	for _, svc := range svcs.Items {
+		_, err := istioClient.NetworkingV1alpha3().VirtualServices(ns).Get(ctx, svc.Name, metav1.GetOptions{})
+		if err != nil {
+			return false, fmt.Errorf("failed to query VirtualService `%s` in ns `%s`: %s", svc.Name, ns, err)
+		}
+	}
+
+	return true, nil
 }
 
 func ensureEnvoyFilter(ctx context.Context, istioClient versionedclient.Interface, ns, name string) error {

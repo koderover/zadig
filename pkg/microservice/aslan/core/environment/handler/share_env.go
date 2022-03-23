@@ -41,5 +41,12 @@ func DisableBaseEnv(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Err = service.DisableBaseEnv(c.Param("name"), c.Query("projectName"))
+	ctx.Err = service.DisableBaseEnv(c, c.Param("name"), c.Query("projectName"))
+}
+
+func CheckShareEnvReady(c *gin.Context) {
+	ctx := internalhandler.NewContext(c)
+	defer func() { internalhandler.JSONResponse(c, ctx) }()
+
+	ctx.Resp, ctx.Err = service.CheckShareEnvReady(c, c.Param("name"), c.Query("projectName"))
 }

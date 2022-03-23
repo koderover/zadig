@@ -120,3 +120,24 @@ type NodeResp struct {
 	Nodes  []*internalresource.Node `json:"data"`
 	Labels []string                 `json:"labels"`
 }
+
+type ShareEnvReady struct {
+	IsReady bool                `json:"is_ready"`
+	Checks  ShareEnvReadyChecks `json:"checks"`
+}
+
+type ShareEnvReadyChecks struct {
+	NamespaceHasIstioLabel     bool `json:"namespace_has_istio_label"`
+	WorkloadsHaveK8sService    bool `json:"workloads_have_k8s_service"`
+	VirtualServicesDeployed    bool `json:"virtualservice_deployed"`
+	PodsHaveIstioProxyAndReady bool `json:"pods_have_istio_proxy_and_ready"`
+}
+
+func (s *ShareEnvReady) CheckAndSetReady() {
+	if !s.Checks.NamespaceHasIstioLabel || !s.Checks.WorkloadsHaveK8sService || !s.Checks.VirtualServicesDeployed || !s.Checks.PodsHaveIstioProxyAndReady {
+		s.IsReady = false
+		return
+	}
+
+	s.IsReady = true
+}

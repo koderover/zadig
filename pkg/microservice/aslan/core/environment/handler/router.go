@@ -126,6 +126,7 @@ func (*Router) Inject(router *gin.RouterGroup) {
 		environments.GET("/:name/check/workloads/k8services", CheckWorkloadsK8sServices)
 		environments.POST("/:name/share/enable", EnableBaseEnv)
 		environments.DELETE("/:name/share/enable", DisableBaseEnv)
+		environments.GET("/:name/check/sharenv/ready", CheckShareEnvReady)
 	}
 
 	// ---------------------------------------------------------------------------------------
