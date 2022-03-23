@@ -17,11 +17,15 @@ limitations under the License.
 package service
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
+	"github.com/gogo/protobuf/jsonpb"
+	types "github.com/gogo/protobuf/types"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	appsv1 "k8s.io/api/apps/v1"
@@ -32,6 +36,7 @@ import (
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
+	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/log"
 )
@@ -41,6 +46,9 @@ var ErrNotImplemented = errors.New("not implemented")
 const istioNamespace = "istio-system"
 const istioProxyName = "istio-proxy"
 const zadigEnvoyFilter = "zadig-share-env"
+const envoyFilterNetworkHttpConnectionManager = "envoy.filters.network.http_connection_manager"
+const envoyFilterHttpRouter = "envoy.filters.http.router"
+const envoyFilterLua = "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
 
 // Slice of `<workload name>.<workload type>` and error are returned.
 func CheckWorkloadsK8sServices(ctx context.Context, envName, productName string) ([]string, error) {
@@ -110,7 +118,7 @@ func EnableBaseEnv(ctx context.Context, envName, productName string) error {
 	}
 
 	// 4. Ensure `EnvoyFilter` in istio namespace.
-	err = ensureEnvoyFilter(ctx, istioClient, istioNamespace, zadigEnvoyFilter)
+	err = ensureEnvoyFilter(ctx, istioClient, clusterID, istioNamespace, zadigEnvoyFilter)
 	if err != nil {
 		return fmt.Errorf("failed to ensure EnvoyFilter in namespace `%s`: %s", istioNamespace, err)
 	}
@@ -438,7 +446,7 @@ func checkVirtualServicesDeployed(ctx context.Context, kclient client.Client, is
 	return true, nil
 }
 
-func ensureEnvoyFilter(ctx context.Context, istioClient versionedclient.Interface, ns, name string) error {
+func ensureEnvoyFilter(ctx context.Context, istioClient versionedclient.Interface, clusterID, ns, name string) error {
 	envoyFilterObj, err := istioClient.NetworkingV1alpha3().EnvoyFilters(ns).Get(ctx, name, metav1.GetOptions{})
 	if err == nil {
 		log.Infof("Has found EnvoyFilter `%s` in ns `%s` and don't recreate.", name, istioNamespace)
@@ -449,11 +457,188 @@ func ensureEnvoyFilter(ctx context.Context, istioClient versionedclient.Interfac
 		return fmt.Errorf("failed to query EnvoyFilter `%s` in ns `%s`: %s", name, istioNamespace, err)
 	}
 
+	storeCacheOperation, err := buildEnvoyStoreCacheOperation()
+	if err != nil {
+		return fmt.Errorf("failed to build envoy operation of storing cache: %s", err)
+	}
+
+	getCacheOperation, err := buildEnvoyGetCacheOperation()
+	if err != nil {
+		return fmt.Errorf("failed to build envoy operation of getting cache: %s", err)
+	}
+
+	var cacheServerAddr string
+	var cacheServerPort int
+
+	switch clusterID {
+	case setting.LocalClusterID:
+		cacheServerAddr = "aslan.zadig.svc.cluster.local"
+		cacheServerPort = 25000
+	default:
+		cacheServerAddr = "hub-agent.koderover-agent.svc.cluster.local"
+		cacheServerPort = 80
+	}
+
+	clusterConfig, err := buildEnvoyClusterConfig(cacheServerAddr, cacheServerPort)
+	if err != nil {
+		return fmt.Errorf("failed to build envoy cluster config for `%s:%d`: %s", cacheServerAddr, cacheServerPort, err)
+	}
+
 	envoyFilterObj.Name = name
 	envoyFilterObj.Spec = networkingv1alpha3.EnvoyFilter{
-		ConfigPatches: []*networkingv1alpha3.EnvoyFilter_EnvoyConfigObjectPatch{},
+		ConfigPatches: []*networkingv1alpha3.EnvoyFilter_EnvoyConfigObjectPatch{
+			&networkingv1alpha3.EnvoyFilter_EnvoyConfigObjectPatch{
+				ApplyTo: networkingv1alpha3.EnvoyFilter_HTTP_FILTER,
+				Match: &networkingv1alpha3.EnvoyFilter_EnvoyConfigObjectMatch{
+					Context: networkingv1alpha3.EnvoyFilter_SIDECAR_INBOUND,
+					ObjectTypes: &networkingv1alpha3.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+						Listener: &networkingv1alpha3.EnvoyFilter_ListenerMatch{
+							FilterChain: &networkingv1alpha3.EnvoyFilter_ListenerMatch_FilterChainMatch{
+								Filter: &networkingv1alpha3.EnvoyFilter_ListenerMatch_FilterMatch{
+									Name: envoyFilterNetworkHttpConnectionManager,
+									SubFilter: &networkingv1alpha3.EnvoyFilter_ListenerMatch_SubFilterMatch{
+										Name: envoyFilterHttpRouter,
+									},
+								},
+							},
+						},
+					},
+				},
+				Patch: &networkingv1alpha3.EnvoyFilter_Patch{
+					Operation: networkingv1alpha3.EnvoyFilter_Patch_INSERT_BEFORE,
+					Value:     storeCacheOperation,
+				},
+			},
+			&networkingv1alpha3.EnvoyFilter_EnvoyConfigObjectPatch{
+				ApplyTo: networkingv1alpha3.EnvoyFilter_HTTP_FILTER,
+				Match: &networkingv1alpha3.EnvoyFilter_EnvoyConfigObjectMatch{
+					Context: networkingv1alpha3.EnvoyFilter_SIDECAR_OUTBOUND,
+					ObjectTypes: &networkingv1alpha3.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+						Listener: &networkingv1alpha3.EnvoyFilter_ListenerMatch{
+							FilterChain: &networkingv1alpha3.EnvoyFilter_ListenerMatch_FilterChainMatch{
+								Filter: &networkingv1alpha3.EnvoyFilter_ListenerMatch_FilterMatch{
+									Name: envoyFilterNetworkHttpConnectionManager,
+									SubFilter: &networkingv1alpha3.EnvoyFilter_ListenerMatch_SubFilterMatch{
+										Name: envoyFilterHttpRouter,
+									},
+								},
+							},
+						},
+					},
+				},
+				Patch: &networkingv1alpha3.EnvoyFilter_Patch{
+					Operation: networkingv1alpha3.EnvoyFilter_Patch_INSERT_BEFORE,
+					Value:     getCacheOperation,
+				},
+			},
+			&networkingv1alpha3.EnvoyFilter_EnvoyConfigObjectPatch{
+				ApplyTo: networkingv1alpha3.EnvoyFilter_CLUSTER,
+				Patch: &networkingv1alpha3.EnvoyFilter_Patch{
+					Operation: networkingv1alpha3.EnvoyFilter_Patch_ADD,
+					Value:     clusterConfig,
+				},
+			},
+		},
 	}
 
 	_, err = istioClient.NetworkingV1alpha3().EnvoyFilters(ns).Create(ctx, envoyFilterObj, metav1.CreateOptions{})
 	return err
+}
+
+func buildEnvoyStoreCacheOperation() (*types.Struct, error) {
+	inlineCode := `function envoy_on_request(request_handle)
+  local requestID = request_handle:headers():get("x-request-id")
+  local env = request_handle:headers():get("x-env")
+  local headers, body = request_handle:httpCall(
+    "cache",
+    {
+      [":method"] = "POST",
+      [":path"] = string.format("/api/v1/%s/%s", requestID, env),
+      [":authority"] = "cache",
+    },
+    "",
+    5000
+  )
+end
+`
+	data := map[string]interface{}{
+		"name": "envoy.lua",
+		"typed_config": map[string]string{
+			"@type":      envoyFilterLua,
+			"inlineCode": inlineCode,
+		},
+	}
+
+	return buildEnvoyPatchValue(data)
+}
+
+func buildEnvoyGetCacheOperation() (*types.Struct, error) {
+	inlineCode := `function envoy_on_request(request_handle)
+  local requestID = request_handle:headers():get("x-request-id")
+  local headers, body = request_handle:httpCall(
+    "cache",
+    {
+      [":method"] = "GET",
+      [":path"] = string.format("/api/v1/%s", requestID),
+      [":authority"] = "cache",
+    },
+    "",
+    5000
+  )
+
+  request_handle:headers():add("x-env", headers["x-data"]);
+end
+`
+	data := map[string]interface{}{
+		"name": "envoy.lua",
+		"typed_config": map[string]string{
+			"@type":      envoyFilterLua,
+			"inlineCode": inlineCode,
+		},
+	}
+
+	return buildEnvoyPatchValue(data)
+}
+
+func buildEnvoyClusterConfig(cacheAddr string, port int) (*types.Struct, error) {
+	data := map[string]interface{}{
+		"name":            "cache",
+		"type":            "STRICT_DNS",
+		"connect_timeout": "3.0s",
+		"lb_policy":       "ROUND_ROBIN",
+		"load_assignment": EnvoyClusterConfigLoadAssignment{
+			ClusterName: "cache",
+			Endpoints: []EnvoyLBEndpoints{
+				EnvoyLBEndpoints{
+					LBEndpoints: []EnvoyEndpoints{
+						EnvoyEndpoints{
+							Endpoint: EnvoyEndpoint{
+								Address: EnvoyAddress{
+									SocketAddress: EnvoySocketAddress{
+										Protocol:  "TCP",
+										Address:   cacheAddr,
+										PortValue: port,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	return buildEnvoyPatchValue(data)
+}
+
+func buildEnvoyPatchValue(data map[string]interface{}) (*types.Struct, error) {
+	dataBytes, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal data: %s", err)
+	}
+
+	reader := bytes.NewReader(dataBytes)
+	val := &types.Struct{}
+	err = jsonpb.Unmarshal(reader, val)
+	return val, err
 }

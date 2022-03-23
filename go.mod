@@ -30,6 +30,7 @@ require (
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/gofrs/uuid v4.0.0+incompatible // indirect
+	github.com/gogo/protobuf v1.3.2
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/google/go-github/v35 v35.3.0
 	github.com/google/uuid v1.2.0
@@ -79,8 +80,8 @@ require (
 	gorm.io/driver/mysql v1.1.2
 	gorm.io/gorm v1.21.16
 	helm.sh/helm/v3 v3.7.2
-	istio.io/api v0.0.0-20220304035241-8c47cbbea144 // indirect
-	istio.io/client-go v0.0.0-20220304040955-30b642d5ba34 // indirect
+	istio.io/api v0.0.0-20220304035241-8c47cbbea144
+	istio.io/client-go v0.0.0-20220304040955-30b642d5ba34
 	k8s.io/api v0.22.4
 	k8s.io/apiextensions-apiserver v0.22.4
 	k8s.io/apimachinery v0.22.4

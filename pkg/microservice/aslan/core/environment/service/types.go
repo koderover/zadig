@@ -141,3 +141,30 @@ func (s *ShareEnvReady) CheckAndSetReady() {
 
 	s.IsReady = true
 }
+
+type EnvoyClusterConfigLoadAssignment struct {
+	ClusterName string             `json:"cluster_name"`
+	Endpoints   []EnvoyLBEndpoints `json:"endpoints"`
+}
+
+type EnvoyLBEndpoints struct {
+	LBEndpoints []EnvoyEndpoints `json:"lb_endpoints"`
+}
+
+type EnvoyEndpoints struct {
+	Endpoint EnvoyEndpoint `json:"endpoint"`
+}
+
+type EnvoyEndpoint struct {
+	Address EnvoyAddress `json:"address"`
+}
+
+type EnvoyAddress struct {
+	SocketAddress EnvoySocketAddress `json:"socket_address"`
+}
+
+type EnvoySocketAddress struct {
+	Protocol  string `json:"protocol"`
+	Address   string `json:"address"`
+	PortValue int    `json:"port_value"`
+}
