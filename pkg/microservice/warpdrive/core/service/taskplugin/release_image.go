@@ -123,7 +123,19 @@ func (p *ReleaseImagePlugin) Run(ctx context.Context, pipelineTask *task.Task, p
 		}
 	}
 
+	distributes := make([]*task.DistributeInfo, 0)
+	for _, distribute := range p.Task.DistributeInfo {
+		if cfg, ok := pipelineTask.ConfigPayload.RepoConfigs[distribute.RepoID]; ok {
+			distribute.RepoAK = cfg.AccessKey
+			distribute.RepoSK = cfg.SecretKey
+			distributes = append(distributes, distribute)
+		}
+	}
+
 	if len(releases) == 0 {
+		return
+	}
+	if len(distributes) == 0 {
 		return
 	}
 
@@ -141,7 +153,8 @@ func (p *ReleaseImagePlugin) Run(ctx context.Context, pipelineTask *task.Task, p
 			Password: pipelineTask.ConfigPayload.Registry.SecretKey,
 		},
 
-		ReleaseImages: releases,
+		ReleaseImages:  releases,
+		DistributeInfo: distributes,
 	}
 
 	jobCtxBytes, err := yaml.Marshal(jobCtx)
@@ -200,6 +213,10 @@ func (p *ReleaseImagePlugin) Run(ctx context.Context, pipelineTask *task.Task, p
 	}
 
 	job.Namespace = p.KubeNamespace
+	startTime := time.Now().Unix()
+	for _, distribute := range p.Task.DistributeInfo {
+		distribute.DistributeStartTime = startTime
+	}
 	if err := updater.CreateJob(job, p.kubeClient); err != nil {
 		msg := fmt.Sprintf("create release image job error: %v", err)
 		p.Log.Error(msg)
@@ -214,6 +231,21 @@ func (p *ReleaseImagePlugin) Run(ctx context.Context, pipelineTask *task.Task, p
 func (p *ReleaseImagePlugin) Wait(ctx context.Context) {
 	status := waitJobEnd(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, p.kubeClient, p.clientset, p.restConfig, p.Log)
 	p.SetStatus(status)
+	distributeEndtime := time.Now().Unix()
+	for _, distribute := range p.Task.DistributeInfo {
+		distribute.DistributeEndTime = distributeEndtime
+		distribute.DistributeStatus = string(status)
+	}
+	// if the distribution stage failed, then deploy part won't run
+	if status != config.StatusPassed {
+		return
+	}
+	// otherwise, run any deploy subtasks
+	for _, distribute := range p.Task.DistributeInfo {
+		if !distribute.DeployEnabled {
+			break
+		}
+	}
 }
 
 // Complete ...
