@@ -1,6 +1,6 @@
 fullnameOverride: $T-Service$
 replicaCount: 1
-port: 20200
+port: {{.port}}
 
 imagePullSecretsName: "default-registry-secret"
 
