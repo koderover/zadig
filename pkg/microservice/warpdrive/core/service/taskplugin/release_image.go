@@ -111,6 +111,7 @@ func (p *ReleaseImagePlugin) TaskTimeout() int {
 
 // Run ...
 func (p *ReleaseImagePlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineCtx *task.PipelineCtx, serviceName string) {
+	fmt.Println("Starting to run release image plugin")
 	p.KubeNamespace = pipelineTask.ConfigPayload.Build.KubeNamespace
 	// 设置本次运行需要配置
 	//t.Workspace = fmt.Sprintf("%s/%s", pipelineTask.ConfigPayload.NFS.Path, pipelineTask.PipelineName)
@@ -132,10 +133,8 @@ func (p *ReleaseImagePlugin) Run(ctx context.Context, pipelineTask *task.Task, p
 		}
 	}
 
-	if len(releases) == 0 {
-		return
-	}
 	if len(distributes) == 0 {
+		fmt.Println("distribute is 0")
 		return
 	}
 
