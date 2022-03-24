@@ -3,6 +3,7 @@ module github.com/koderover/zadig
 go 1.16
 
 require (
+	gitee.com/openeuler/go-gitee v0.0.0-20220323055843-285220630cbc // indirect
 	github.com/27149chen/afero v1.6.2
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/RyanCarrier/dijkstra v1.1.0
@@ -87,6 +88,7 @@ require (
 	k8s.io/utils v0.0.0-20210819203725-bdf08cb9a70a
 	sigs.k8s.io/controller-runtime v0.10.1
 	sigs.k8s.io/yaml v1.3.0
+	gitee.com/openeuler/go-gitee v0.0.0-20220323055843-285220630cbc
 )
 
 replace (
