@@ -127,19 +127,34 @@ type ShareEnvReady struct {
 }
 
 type ShareEnvReadyChecks struct {
-	NamespaceHasIstioLabel     bool `json:"namespace_has_istio_label"`
-	WorkloadsHaveK8sService    bool `json:"workloads_have_k8s_service"`
-	VirtualServicesDeployed    bool `json:"virtualservice_deployed"`
-	PodsHaveIstioProxyAndReady bool `json:"pods_have_istio_proxy_and_ready"`
+	NamespaceHasIstioLabel  bool `json:"namespace_has_istio_label"`
+	VirtualServicesDeployed bool `json:"virtualservice_deployed"`
+	PodsHaveIstioProxy      bool `json:"pods_have_istio_proxy"`
+	WorkloadsReady          bool `json:"workloads_ready"`
+	WorkloadsHaveK8sService bool `json:"workloads_have_k8s_service"`
 }
 
-func (s *ShareEnvReady) CheckAndSetReady() {
-	if !s.Checks.NamespaceHasIstioLabel || !s.Checks.WorkloadsHaveK8sService || !s.Checks.VirtualServicesDeployed || !s.Checks.PodsHaveIstioProxyAndReady {
+// Note: `WorkloadsHaveK8sService` is an optional condition.
+func (s *ShareEnvReady) CheckAndSetReady(state ShareEnvOp) {
+	if !s.Checks.WorkloadsReady {
 		s.IsReady = false
 		return
 	}
 
-	s.IsReady = true
+	switch state {
+	case ShareEnvEnable:
+		if !s.Checks.NamespaceHasIstioLabel || !s.Checks.VirtualServicesDeployed || !s.Checks.PodsHaveIstioProxy {
+			s.IsReady = false
+		} else {
+			s.IsReady = true
+		}
+	default:
+		if !s.Checks.NamespaceHasIstioLabel && !s.Checks.VirtualServicesDeployed && !s.Checks.PodsHaveIstioProxy {
+			s.IsReady = true
+		} else {
+			s.IsReady = false
+		}
+	}
 }
 
 type EnvoyClusterConfigLoadAssignment struct {
@@ -168,3 +183,10 @@ type EnvoySocketAddress struct {
 	Address   string `json:"address"`
 	PortValue int    `json:"port_value"`
 }
+
+type ShareEnvOp string
+
+const (
+	ShareEnvEnable  ShareEnvOp = "enable"
+	ShareEnvDisable ShareEnvOp = "disable"
+)

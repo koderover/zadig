@@ -32,6 +32,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
@@ -39,6 +40,7 @@ import (
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/tool/log"
+	zadigtypes "github.com/koderover/zadig/pkg/types"
 )
 
 var ErrNotImplemented = errors.New("not implemented")
@@ -49,6 +51,8 @@ const zadigEnvoyFilter = "zadig-share-env"
 const envoyFilterNetworkHttpConnectionManager = "envoy.filters.network.http_connection_manager"
 const envoyFilterHttpRouter = "envoy.filters.http.router"
 const envoyFilterLua = "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
+
+const zadigNamePrefix = "zadig"
 
 // Slice of `<workload name>.<workload type>` and error are returned.
 func CheckWorkloadsK8sServices(ctx context.Context, envName, productName string) ([]string, error) {
@@ -127,11 +131,59 @@ func EnableBaseEnv(ctx context.Context, envName, productName string) error {
 }
 
 func DisableBaseEnv(ctx context.Context, envName, productName string) error {
+	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
+	prod, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		return fmt.Errorf("failed to query env `%s` in project `%s`: %s", envName, productName, err)
+	}
 
-	return ErrNotImplemented
+	ns := prod.Namespace
+	clusterID := prod.ClusterID
+
+	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get kube client: %s", err)
+	}
+
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get rest config: %s", err)
+	}
+
+	istioClient, err := versionedclient.NewForConfig(restConfig)
+	if err != nil {
+		return fmt.Errorf("failed to new istio client: %s", err)
+	}
+
+	// // 1. Delete all associated subenvironments.
+	// err = deleteSubEnvs(ctx, kclient, ns)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to delete associated subenvironments of base ns `%s`: %s", ns, err)
+	// }
+
+	// 2. Delete EnvoyFilter in the namespace of Istio installation.
+	err = deleteEnvoyFilter(ctx, istioClient, istioNamespace, zadigEnvoyFilter)
+	if err != nil {
+		return fmt.Errorf("failed to delete EnvoyFilter: %s", err)
+	}
+
+	// 3. Delete all VirtualServices delivered by the Zadig.
+	err = deleteVirtualServices(ctx, kclient, istioClient, ns)
+	if err != nil {
+		return fmt.Errorf("failed to delete VirtualServices that Zadig created in ns `%s`: %s", ns, err)
+	}
+
+	// 4. Remove the `istio-injection=enabled` label of the namespace.
+	err = removeIstioLabel(ctx, kclient, ns)
+	if err != nil {
+		return fmt.Errorf("failed to remove istio label on ns `%s`: %s", ns, err)
+	}
+
+	// 5. Restart the istio-Proxy injected Pods.
+	return removePodsIstioProxy(ctx, kclient, ns)
 }
 
-func CheckShareEnvReady(ctx context.Context, envName, productName string) (*ShareEnvReady, error) {
+func CheckShareEnvReady(ctx context.Context, envName, op, productName string) (*ShareEnvReady, error) {
 	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
 	prod, err := commonrepo.NewProductColl().Find(opt)
 	if err != nil {
@@ -155,6 +207,8 @@ func CheckShareEnvReady(ctx context.Context, envName, productName string) (*Shar
 	if err != nil {
 		return nil, fmt.Errorf("failed to new istio client: %s", err)
 	}
+
+	shareEnvOp := ShareEnvOp(op)
 
 	// 1. Check whether namespace has labeled `istio-injection=enabled`.
 	isNamespaceHasIstioLabel, err := checkIstioLabel(ctx, kclient, ns)
@@ -180,20 +234,21 @@ func CheckShareEnvReady(ctx context.Context, envName, productName string) (*Shar
 	}
 
 	// 4. Check whether all Pods have istio-proxy and are ready.
-	isPodsHaveIstioProxyAndReady, err := checkPodsWithIstioProxyAndReady(ctx, kclient, ns)
+	allHaveIstioProxy, allPodsReady, err := checkPodsWithIstioProxyAndReady(ctx, kclient, ns)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check whether all pods in ns `%s` have istio-proxy and are ready: %s", ns, err)
 	}
 
 	res := &ShareEnvReady{
 		Checks: ShareEnvReadyChecks{
-			NamespaceHasIstioLabel:     isNamespaceHasIstioLabel,
-			WorkloadsHaveK8sService:    isWorkloadsHaveNoK8sService,
-			VirtualServicesDeployed:    isVirtualServicesDeployed,
-			PodsHaveIstioProxyAndReady: isPodsHaveIstioProxyAndReady,
+			NamespaceHasIstioLabel:  isNamespaceHasIstioLabel,
+			WorkloadsHaveK8sService: isWorkloadsHaveNoK8sService,
+			VirtualServicesDeployed: isVirtualServicesDeployed,
+			PodsHaveIstioProxy:      allHaveIstioProxy,
+			WorkloadsReady:          allPodsReady,
 		},
 	}
-	res.CheckAndSetReady()
+	res.CheckAndSetReady(shareEnvOp)
 
 	return res, nil
 }
@@ -308,7 +363,7 @@ func ensureIstioLabel(ctx context.Context, kclient client.Client, ns string) err
 		return fmt.Errorf("failed to query ns `%s`: %s", ns, err)
 	}
 
-	nsObj.Labels["istio-injection"] = "enabled"
+	nsObj.Labels[zadigtypes.IstioLabelKeyInjection] = zadigtypes.IstioLabelValueInjection
 	return kclient.Update(ctx, nsObj)
 }
 
@@ -321,50 +376,25 @@ func checkIstioLabel(ctx context.Context, kclient client.Client, ns string) (boo
 		return false, fmt.Errorf("failed to query ns `%s`: %s", ns, err)
 	}
 
-	return nsObj.Labels["istio-injection"] == "enabled", nil
+	return nsObj.Labels[zadigtypes.IstioLabelKeyInjection] == zadigtypes.IstioLabelValueInjection, nil
 }
 
 func ensurePodsWithIsitoProxy(ctx context.Context, kclient client.Client, ns string) error {
-	pods := &corev1.PodList{}
-	err := kclient.List(ctx, pods, client.InNamespace(ns))
-	if err != nil {
-		return fmt.Errorf("failed to query pods in ns `%s`: %s", ns, err)
-	}
-
-	deleteOption := metav1.DeletePropagationBackground
-	for _, pod := range pods.Items {
-		hasIstioProxy := false
-		for _, container := range pod.Spec.Containers {
-			if container.Name == istioProxyName {
-				hasIstioProxy = true
-				break
-			}
-		}
-
-		if !hasIstioProxy {
-			err := kclient.Delete(ctx, &pod, &client.DeleteOptions{
-				PropagationPolicy: &deleteOption,
-			})
-
-			if err != nil {
-				return fmt.Errorf("failed to ensure Pod `%s` in ns `%s` to inject istio-proxy: %s", pod.Name, ns, err)
-			}
-		}
-	}
-
-	return nil
+	return restartPodsWithIstioProxy(ctx, kclient, ns, false)
 }
 
-func checkPodsWithIstioProxyAndReady(ctx context.Context, kclient client.Client, ns string) (bool, error) {
+func checkPodsWithIstioProxyAndReady(ctx context.Context, kclient client.Client, ns string) (allHaveIstioProxy, allPodsReady bool, err error) {
 	pods := &corev1.PodList{}
-	err := kclient.List(ctx, pods, client.InNamespace(ns))
+	err = kclient.List(ctx, pods, client.InNamespace(ns))
 	if err != nil {
-		return false, fmt.Errorf("failed to query pods in ns `%s`: %s", ns, err)
+		return false, false, fmt.Errorf("failed to query pods in ns `%s`: %s", ns, err)
 	}
 
+	allHaveIstioProxy = true
+	allPodsReady = true
 	for _, pod := range pods.Items {
 		if !(pod.Status.Phase == corev1.PodRunning || pod.Status.Phase == corev1.PodSucceeded) {
-			return false, nil
+			allPodsReady = false
 		}
 
 		hasIstioProxy := false
@@ -375,11 +405,15 @@ func checkPodsWithIstioProxyAndReady(ctx context.Context, kclient client.Client,
 			}
 		}
 		if !hasIstioProxy {
-			return false, nil
+			allHaveIstioProxy = false
+		}
+
+		if !allPodsReady && !allHaveIstioProxy {
+			return false, false, nil
 		}
 	}
 
-	return true, nil
+	return allHaveIstioProxy, allPodsReady, nil
 }
 
 func ensureVirtualServices(ctx context.Context, kclient client.Client, istioClient versionedclient.Interface, ns string) error {
@@ -390,9 +424,10 @@ func ensureVirtualServices(ctx context.Context, kclient client.Client, istioClie
 	}
 
 	for _, svc := range svcs.Items {
-		err := ensureVirtualService(ctx, istioClient, ns, svc.Name)
+		vsName := genVirtualServiceName(&svc)
+		err := ensureVirtualService(ctx, istioClient, ns, vsName)
 		if err != nil {
-			return fmt.Errorf("failed to ensure VirtualService `%s` in ns `%s`: %s", svc.Name, ns, err)
+			return fmt.Errorf("failed to ensure VirtualService `%s` in ns `%s`: %s", vsName, ns, err)
 		}
 	}
 
@@ -411,6 +446,12 @@ func ensureVirtualService(ctx context.Context, istioClient versionedclient.Inter
 	}
 
 	vsObj.Name = name
+
+	if vsObj.Labels == nil {
+		vsObj.Labels = map[string]string{}
+	}
+	vsObj.Labels[zadigtypes.ZadigLabelKeyGlobalOwner] = zadigtypes.Zadig
+
 	vsObj.Spec = networkingv1alpha3.VirtualService{
 		Hosts: []string{name},
 		Http: []*networkingv1alpha3.HTTPRoute{
@@ -437,9 +478,13 @@ func checkVirtualServicesDeployed(ctx context.Context, kclient client.Client, is
 	}
 
 	for _, svc := range svcs.Items {
-		_, err := istioClient.NetworkingV1alpha3().VirtualServices(ns).Get(ctx, svc.Name, metav1.GetOptions{})
+		vsName := genVirtualServiceName(&svc)
+		_, err := istioClient.NetworkingV1alpha3().VirtualServices(ns).Get(ctx, vsName, metav1.GetOptions{})
+		if apierrors.IsNotFound(err) {
+			return false, nil
+		}
 		if err != nil {
-			return false, fmt.Errorf("failed to query VirtualService `%s` in ns `%s`: %s", svc.Name, ns, err)
+			return false, fmt.Errorf("failed to query VirtualService `%s` in ns `%s`: %s", vsName, ns, err)
 		}
 	}
 
@@ -485,6 +530,12 @@ func ensureEnvoyFilter(ctx context.Context, istioClient versionedclient.Interfac
 	}
 
 	envoyFilterObj.Name = name
+
+	if envoyFilterObj.Labels == nil {
+		envoyFilterObj.Labels = map[string]string{}
+	}
+	envoyFilterObj.Labels[zadigtypes.ZadigLabelKeyGlobalOwner] = zadigtypes.Zadig
+
 	envoyFilterObj.Spec = networkingv1alpha3.EnvoyFilter{
 		ConfigPatches: []*networkingv1alpha3.EnvoyFilter_EnvoyConfigObjectPatch{
 			&networkingv1alpha3.EnvoyFilter_EnvoyConfigObjectPatch{
@@ -641,4 +692,102 @@ func buildEnvoyPatchValue(data map[string]interface{}) (*types.Struct, error) {
 	val := &types.Struct{}
 	err = jsonpb.Unmarshal(reader, val)
 	return val, err
+}
+
+func deleteSubEnvs(ctx context.Context, kclient client.Client, baseNS string) error {
+
+	return ErrNotImplemented
+}
+
+func deleteEnvoyFilter(ctx context.Context, istioClient versionedclient.Interface, istioNamespace, name string) error {
+	_, err := istioClient.NetworkingV1alpha3().EnvoyFilters(istioNamespace).Get(ctx, name, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		log.Infof("EnvoyFilter %s is not found in ns `%s`. Skip.", name, istioNamespace)
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to query EnvoyFilter %s in ns `%s`: %s", name, istioNamespace, err)
+	}
+
+	deleteOption := metav1.DeletePropagationBackground
+	return istioClient.NetworkingV1alpha3().EnvoyFilters(istioNamespace).Delete(ctx, name, metav1.DeleteOptions{
+		PropagationPolicy: &deleteOption,
+	})
+}
+
+func deleteVirtualServices(ctx context.Context, kclient client.Client, istioClient versionedclient.Interface, ns string) error {
+	zadigLabels := map[string]string{
+		zadigtypes.ZadigLabelKeyGlobalOwner: zadigtypes.Zadig,
+	}
+
+	vsObjs, err := istioClient.NetworkingV1alpha3().VirtualServices(ns).List(ctx, metav1.ListOptions{
+		LabelSelector: labels.FormatLabels(zadigLabels),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list VirtualServices in ns `%s`: %s", ns, err)
+	}
+
+	deleteOption := metav1.DeletePropagationBackground
+	for _, vsObj := range vsObjs.Items {
+		err := istioClient.NetworkingV1alpha3().VirtualServices(ns).Delete(ctx, vsObj.Name, metav1.DeleteOptions{
+			PropagationPolicy: &deleteOption,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to delete VirtualService %s in ns `%s`: %s", vsObj.Name, ns, err)
+		}
+	}
+
+	return nil
+}
+
+func removeIstioLabel(ctx context.Context, kclient client.Client, ns string) error {
+	nsObj := &corev1.Namespace{}
+	err := kclient.Get(ctx, client.ObjectKey{
+		Name: ns,
+	}, nsObj)
+	if err != nil {
+		return fmt.Errorf("failed to query ns `%s`: %s", ns, err)
+	}
+
+	delete(nsObj.Labels, zadigtypes.IstioLabelKeyInjection)
+	return kclient.Update(ctx, nsObj)
+}
+
+func removePodsIstioProxy(ctx context.Context, kclient client.Client, ns string) error {
+	return restartPodsWithIstioProxy(ctx, kclient, ns, true)
+}
+
+func genVirtualServiceName(svc *corev1.Service) string {
+	return fmt.Sprintf("%s-%s", zadigNamePrefix, svc.Name)
+}
+
+func restartPodsWithIstioProxy(ctx context.Context, kclient client.Client, ns string, restartConditionHasIstioProxy bool) error {
+	pods := &corev1.PodList{}
+	err := kclient.List(ctx, pods, client.InNamespace(ns))
+	if err != nil {
+		return fmt.Errorf("failed to query pods in ns `%s`: %s", ns, err)
+	}
+
+	deleteOption := metav1.DeletePropagationBackground
+	for _, pod := range pods.Items {
+		hasIstioProxy := false
+		for _, container := range pod.Spec.Containers {
+			if container.Name == istioProxyName {
+				hasIstioProxy = true
+				break
+			}
+		}
+
+		if hasIstioProxy == restartConditionHasIstioProxy {
+			err := kclient.Delete(ctx, &pod, &client.DeleteOptions{
+				PropagationPolicy: &deleteOption,
+			})
+
+			if err != nil {
+				return fmt.Errorf("failed to delete Pod `%s` in ns `%s`: %s", pod.Name, ns, err)
+			}
+		}
+	}
+
+	return nil
 }

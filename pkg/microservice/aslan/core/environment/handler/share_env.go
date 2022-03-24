@@ -48,5 +48,5 @@ func CheckShareEnvReady(c *gin.Context) {
 	ctx := internalhandler.NewContext(c)
 	defer func() { internalhandler.JSONResponse(c, ctx) }()
 
-	ctx.Resp, ctx.Err = service.CheckShareEnvReady(c, c.Param("name"), c.Query("projectName"))
+	ctx.Resp, ctx.Err = service.CheckShareEnvReady(c, c.Param("name"), c.Param("op"), c.Query("projectName"))
 }
