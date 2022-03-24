@@ -204,6 +204,7 @@ func (p *ReleaseImagePlugin) Run(ctx context.Context, pipelineTask *task.Task, p
 		return
 	}
 
+	fmt.Printf(">>>>>>>>>>>>>>> ensure deleteing job <<<<<<<<<<<<<<<<<\n")
 	if err := ensureDeleteJob(p.KubeNamespace, jobLabel, p.kubeClient); err != nil {
 		msg := fmt.Sprintf("delete release image job error: %v", err)
 		p.Log.Error(msg)
@@ -217,7 +218,10 @@ func (p *ReleaseImagePlugin) Run(ctx context.Context, pipelineTask *task.Task, p
 	for _, distribute := range p.Task.DistributeInfo {
 		distribute.DistributeStartTime = startTime
 	}
+
+	fmt.Printf(">>>>>>>>>>>>>>>>>>>>>>> creating job <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n")
 	if err := updater.CreateJob(job, p.kubeClient); err != nil {
+		fmt.Printf(">>>>>>>>>>>>>>>> failed to create job, the error is: %s <<<<<<<<<<<<<<<<", err)
 		msg := fmt.Sprintf("create release image job error: %v", err)
 		p.Log.Error(msg)
 		p.Task.TaskStatus = config.StatusFailed
