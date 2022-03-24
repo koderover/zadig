@@ -2610,6 +2610,7 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 
 				taskOpt.Task.SubTasks[i], err = t.ToSubTask()
 				if err != nil {
+					log.Errorf("release task to subtask error: %s", err)
 					return err
 				}
 			}
