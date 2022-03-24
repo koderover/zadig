@@ -1391,6 +1391,7 @@ func formatDistributeSubtasks(productName string, releaseImages []commonmodels.R
 			})
 		}
 		t.DistributeInfo = distributeInfo
+		t.Releases = releaseImages
 
 		// convert to subtask
 		subtask, err := t.ToSubTask()
