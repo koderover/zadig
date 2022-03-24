@@ -173,6 +173,11 @@ func newOAuth(provider, callbackURL, clientID, clientSecret, address string) (*o
 			AuthURL:  address + "/oauth/authorize",
 			TokenURL: address + "/oauth/token",
 		}), nil
+	case systemconfig.GiteeProvider:
+		return oauth.New(callbackURL, clientID, clientSecret, []string{"projects", "pull_requests", "groups", "hook", "enterprises"}, oauth2.Endpoint{
+			AuthURL:  address + "/oauth/authorize",
+			TokenURL: address + "/oauth/token",
+		}), nil
 	}
 	return nil, errors.New("illegal provider")
 }
