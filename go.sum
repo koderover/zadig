@@ -57,8 +57,6 @@ dmitri.shuralyov.com/gpu/mtl v0.0.0-20190408044501-666a987793e9/go.mod h1:H6x//7
 entgo.io/ent v0.8.0/go.mod h1:KNjsukat/NJi6zJh1utwRadsbGOZsBbAZNDxkW7tMCc=
 git.apache.org/thrift.git v0.0.0-20180902110319-2566ecd5d999/go.mod h1:fPE2ZNJGynbRyZ4dJvy6G277gSllfV2HJqblrnkyeyg=
 git.apache.org/thrift.git v0.12.0/go.mod h1:fPE2ZNJGynbRyZ4dJvy6G277gSllfV2HJqblrnkyeyg=
-gitee.com/openeuler/go-gitee v0.0.0-20220323055843-285220630cbc h1:xjPHn/Qey+IMUZYo8goKsWmXHjn04RbaLCVinOh4UlM=
-gitee.com/openeuler/go-gitee v0.0.0-20220323055843-285220630cbc/go.mod h1:qGJhn1KxC5UE4BUmxCE/hTpFfuKbd3U3V9fNROrspfE=
 github.com/27149chen/afero v1.6.2 h1:WRPUOreB90qGRQs8fxXcvi0srBPHy2octiJme7C7XCA=
 github.com/27149chen/afero v1.6.2/go.mod h1:68wFWsZwQPvguVWn5di+KCOLI0KQtSRve2mPFVg6VWY=
 github.com/AkihiroSuda/containerd-fuse-overlayfs v1.0.0/go.mod h1:0mMDvQFeLbbn1Wy8P2j3hwFhqBq+FKn8OZPno8WLmp8=

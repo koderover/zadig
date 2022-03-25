@@ -27,7 +27,6 @@ const (
 	GitHubProvider  = "github"
 	GerritProvider  = "gerrit"
 	CodeHubProvider = "codehub"
-	GiteeProvider   = "gitee"
 )
 
 type CodeHost struct {
