@@ -237,6 +237,8 @@ const (
 	SourceFromGerrit = "gerrit"
 	// SourceFromCodeHub 配置来源为codehub
 	SourceFromCodeHub = "codehub"
+	// SourceFromGitee 配置来源为gitee
+	SourceFromGitee = "gitee"
 	// SourceFromChartTemplate 配置来源为helmTemplate
 	SourceFromChartTemplate = "chartTemplate"
 	// SourceFromPublicRepo 配置来源为publicRepo

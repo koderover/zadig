@@ -3,12 +3,19 @@ package gitee
 import (
 	"context"
 
+	"gitee.com/openeuler/go-gitee/gitee"
 	"github.com/antihax/optional"
 
 	"github.com/koderover/zadig/pkg/tool/git"
-
-	"gitee.com/openeuler/go-gitee/gitee"
 )
+
+func (c *Client) ListRepositoriesForAuthenticatedUser(ctx context.Context) (gitee.Project, error) {
+	resp, _, err := c.RepositoriesApi.GetV5UserRepos(ctx, &gitee.GetV5UserReposOpts{})
+	if err != nil {
+		return gitee.Project{}, err
+	}
+	return resp, nil
+}
 
 func (c *Client) ListHooks(ctx context.Context, owner, repo string, opts *gitee.GetV5ReposOwnerRepoHooksOpts) ([]gitee.Hook, error) {
 	hs, _, err := c.WebhooksApi.GetV5ReposOwnerRepoHooks(ctx, owner, repo, opts)
