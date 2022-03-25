@@ -251,6 +251,8 @@ func (p *ReleaseImagePlugin) Wait(ctx context.Context) {
 			p.Task.TaskStatus = config.StatusFailed
 			p.Task.Error = err.Error()
 			return
+		} else {
+			p.SetStatus(config.StatusPassed)
 		}
 	}()
 	status = waitJobEnd(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, p.kubeClient, p.clientset, p.restConfig, p.Log)
