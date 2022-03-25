@@ -1972,10 +1972,12 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 			build.ImageFrom = commonmodels.ImageFromKoderover
 		}
 
+		envHostInfos := make(map[string]*commonmodels.PrivateKey)
 		if serviceTmpl != nil {
 			build.ServiceType = setting.PMDeployType
 			envHost := make(map[string][]string)
 			envHostNames := make(map[string][]string)
+
 			for _, envConfig := range serviceTmpl.EnvConfigs {
 				privateKeys, err := commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{IDs: envConfig.HostIDs})
 				if err != nil {
@@ -1984,13 +1986,13 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 				}
 				ips := sets.NewString()
 				names := sets.NewString()
-				ips, names = extractHost(privateKeys, ips, names)
+				ips, names = extractHost(privateKeys, ips, names, envHostInfos)
 				privateKeys, err = commonrepo.NewPrivateKeyColl().ListHostIPByArgs(&commonrepo.ListHostIPArgs{Labels: envConfig.Labels})
 				if err != nil {
 					log.Errorf("ListNameByArgs labels err:%s", err)
 					continue
 				}
-				ips, names = extractHost(privateKeys, ips, names)
+				ips, names = extractHost(privateKeys, ips, names, envHostInfos)
 				envHost[envConfig.EnvName] = ips.List()
 				envHostNames[envConfig.EnvName] = names.List()
 			}
@@ -2044,8 +2046,18 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 				ssh.PrivateKey = latestKeyInfo.PrivateKey
 
 				privateKeys = append(privateKeys, ssh)
+				delete(envHostInfos, sshID)
 			}
 			build.JobCtx.SSHs = privateKeys
+		}
+		// Sync from the configuration in the environment
+		for _, privateKey := range envHostInfos {
+			build.JobCtx.SSHs = append(build.JobCtx.SSHs, &taskmodels.SSH{
+				Name:       privateKey.Name,
+				UserName:   privateKey.UserName,
+				IP:         privateKey.IP,
+				PrivateKey: privateKey.PrivateKey,
+			})
 		}
 
 		build.JobCtx.EnvVars = module.PreBuild.Envs
@@ -2117,10 +2129,11 @@ func BuildModuleToSubTasks(args *commonmodels.BuildModuleArgs, log *zap.SugaredL
 	return subTasks, nil
 }
 
-func extractHost(privateKeys []*commonmodels.PrivateKey, ips, names sets.String) (sets.String, sets.String) {
+func extractHost(privateKeys []*commonmodels.PrivateKey, ips, names sets.String, envHostInfos map[string]*commonmodels.PrivateKey) (sets.String, sets.String) {
 	for _, privateKey := range privateKeys {
 		ips.Insert(privateKey.IP)
 		names.Insert(privateKey.Name)
+		envHostInfos[privateKey.ID.Hex()] = privateKey
 	}
 	return ips, names
 }
