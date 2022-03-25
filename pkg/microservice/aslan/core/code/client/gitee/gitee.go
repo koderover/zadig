@@ -18,13 +18,16 @@ type Config struct {
 }
 
 type Client struct {
-	Client *gitee.Client
+	Client      *gitee.Client
+	AccessToken string `json:"access_token"`
 }
 
 func (c *Config) Open(id int, logger *zap.SugaredLogger) (client.CodeHostClient, error) {
 	client, _ := gitee.NewClient(c.AccessToken, config.ProxyHTTPSAddr(), c.EnableProxy)
+	logger.Infof("c.AccessToken:%s", c.AccessToken)
 	return &Client{
-		Client: client,
+		Client:      client,
+		AccessToken: c.AccessToken,
 	}, nil
 }
 
