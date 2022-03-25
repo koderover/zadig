@@ -500,6 +500,9 @@ func (h *ExecHandler) executeTask(taskCtx context.Context, plugin plugins.TaskPl
 	// 如果 SubTask 执行失败, 则不继续执行, 发送 Task 失败执行结果
 	// Failed, Timeout, Cancelled
 	if plugin.IsTaskFailed() {
+		plugin.Complete(ctx, pipelineTask, servicename)
+		xl.Infof("task status: %s", plugin.Status())
+
 		plugin.SetEndTime()
 		updatePipelineSubTask(plugin.GetTask(), pipelineTask, pos, servicename, xl)
 		return plugin.Status(), fmt.Errorf("pipeline task failed: task_handler:308")
