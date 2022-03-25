@@ -58,6 +58,10 @@ type DistributeInfo struct {
 	DistributeStatus    string `json:"distribute_status"     yaml:"distribute_status"`
 	DeployEnabled       bool   `json:"deploy_enabled"        yaml:"deploy_enabled"`
 	DeployEnv           string `json:"deploy_env"            yaml:"deploy_env"`
+	DeployServiceType   string `json:"deploy_service_type"   yaml:"deploy_service_type"`
+	DeployContainerName string `json:"deploy_container_name" yaml:"deploy_container_name"`
+	DeployServiceName   string `json:"deploy_service_name"   yaml:"deploy_service_name"`
+	DeployClusterID     string `json:"deploy_cluster_id"     yaml:"deploy_cluster_id"`
 	DeployNamespace     string `json:"deploy_namespace"      yaml:"deploy_namespace"`
 	DeployStartTime     int64  `json:"deploy_start_time"     yaml:"deploy_start_time"`
 	DeployEndTime       int64  `json:"deploy_end_time"       yaml:"deploy_end_time"`

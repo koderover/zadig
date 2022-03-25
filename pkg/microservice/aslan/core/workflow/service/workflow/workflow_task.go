@@ -1373,6 +1373,11 @@ func formatDistributeSubtasks(productName string, releaseImages []commonmodels.R
 			Enabled:     true,
 			ProductName: productName,
 		}
+		// get product Info for further use
+		productInfo, err := template.NewProductColl().Find(productName)
+		if err != nil {
+			return nil, err
+		}
 		distributeInfo := make([]*taskmodels.DistributeInfo, 0)
 		// now we add distributeInfo in
 		for _, repoInfo := range releaseImages {
@@ -1384,10 +1389,12 @@ func formatDistributeSubtasks(productName string, releaseImages []commonmodels.R
 				return nil, err
 			}
 			distributeInfo = append(distributeInfo, &taskmodels.DistributeInfo{
-				DeployEnabled:   repoInfo.DeployEnabled,
-				DeployEnv:       repoInfo.DeployEnv,
-				DeployNamespace: envInfo.Namespace,
-				RepoID:          repoInfo.RepoID,
+				DeployEnabled:     repoInfo.DeployEnabled,
+				DeployEnv:         repoInfo.DeployEnv,
+				DeployServiceType: productInfo.ProductFeature.DeployType,
+				DeployClusterID:   envInfo.ClusterID,
+				DeployNamespace:   envInfo.Namespace,
+				RepoID:            repoInfo.RepoID,
 			})
 		}
 		t.DistributeInfo = distributeInfo
@@ -2587,9 +2594,14 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 				var distributes []*taskmodels.DistributeInfo
 				for _, distribute := range t.DistributeInfo {
 					d := &taskmodels.DistributeInfo{
-						DeployEnabled:   distribute.DeployEnabled,
-						DeployEnv:       distribute.DeployEnv,
-						DeployNamespace: distribute.DeployNamespace,
+						DeployEnabled:       distribute.DeployEnabled,
+						DeployEnv:           distribute.DeployEnv,
+						DeployNamespace:     distribute.DeployNamespace,
+						DeployContainerName: taskOpt.Task.ServiceName, // This is a match for target.Name
+						DeployServiceName:   taskOpt.ServiceName,      // this is a match for target.ServiceName
+						DeployServiceType:   distribute.DeployServiceType,
+						DeployClusterID:     distribute.DeployClusterID,
+						RepoID:              distribute.RepoID,
 					}
 					if v, ok := taskOpt.Task.ConfigPayload.RepoConfigs[distribute.RepoID]; ok {
 						d.Image = util.ReplaceRepo(taskOpt.Task.TaskArgs.Deploy.Image, v.RegAddr, v.Namespace)

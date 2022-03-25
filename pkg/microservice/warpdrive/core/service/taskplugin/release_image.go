@@ -19,6 +19,14 @@ package taskplugin
 import (
 	"context"
 	"fmt"
+	"github.com/hashicorp/go-multierror"
+	configbase "github.com/koderover/zadig/pkg/config"
+	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	"github.com/koderover/zadig/pkg/tool/httpclient"
+	"github.com/koderover/zadig/pkg/tool/kube/getter"
+	"github.com/pkg/errors"
+	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"strconv"
 	"time"
 
@@ -43,12 +51,16 @@ func InitializeReleaseImagePlugin(taskType config.TaskType) TaskPlugin {
 		kubeClient: krkubeclient.Client(),
 		clientset:  krkubeclient.Clientset(),
 		restConfig: krkubeclient.RESTConfig(),
+		httpClient: httpclient.New(
+			httpclient.SetHostURL(configbase.AslanServiceAddress()),
+		),
 	}
 }
 
 // ReleaseImagePlugin Plugin name should be compatible with task type
 type ReleaseImagePlugin struct {
 	Name          config.TaskType
+	HubServerAddr string
 	KubeNamespace string
 	JobName       string
 	FileName      string
@@ -57,6 +69,8 @@ type ReleaseImagePlugin struct {
 	restConfig    *rest.Config
 	Task          *task.ReleaseImage
 	Log           *zap.SugaredLogger
+	httpClient    *httpclient.Client
+	DeployError   *multierror.Error
 }
 
 func (p *ReleaseImagePlugin) SetAckFunc(func()) {
@@ -111,8 +125,8 @@ func (p *ReleaseImagePlugin) TaskTimeout() int {
 
 // Run ...
 func (p *ReleaseImagePlugin) Run(ctx context.Context, pipelineTask *task.Task, pipelineCtx *task.PipelineCtx, serviceName string) {
-	fmt.Println("Starting to run release image plugin")
 	p.KubeNamespace = pipelineTask.ConfigPayload.Build.KubeNamespace
+	p.HubServerAddr = pipelineTask.ConfigPayload.HubServerAddr
 	// 设置本次运行需要配置
 	//t.Workspace = fmt.Sprintf("%s/%s", pipelineTask.ConfigPayload.NFS.Path, pipelineTask.PipelineName)
 	releases := make([]task.RepoImage, 0)
@@ -203,7 +217,6 @@ func (p *ReleaseImagePlugin) Run(ctx context.Context, pipelineTask *task.Task, p
 		return
 	}
 
-	fmt.Printf(">>>>>>>>>>>>>>> ensure deleteing job <<<<<<<<<<<<<<<<<\n")
 	if err := ensureDeleteJob(p.KubeNamespace, jobLabel, p.kubeClient); err != nil {
 		msg := fmt.Sprintf("delete release image job error: %v", err)
 		p.Log.Error(msg)
@@ -218,9 +231,7 @@ func (p *ReleaseImagePlugin) Run(ctx context.Context, pipelineTask *task.Task, p
 		distribute.DistributeStartTime = startTime
 	}
 
-	fmt.Printf(">>>>>>>>>>>>>>>>>>>>>>> creating job <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n")
 	if err := updater.CreateJob(job, p.kubeClient); err != nil {
-		fmt.Printf(">>>>>>>>>>>>>>>> failed to create job, the error is: %s <<<<<<<<<<<<<<<<", err)
 		msg := fmt.Sprintf("create release image job error: %v", err)
 		p.Log.Error(msg)
 		p.Task.TaskStatus = config.StatusFailed
@@ -232,8 +243,17 @@ func (p *ReleaseImagePlugin) Run(ctx context.Context, pipelineTask *task.Task, p
 
 // Wait ...
 func (p *ReleaseImagePlugin) Wait(ctx context.Context) {
-	status := waitJobEnd(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, p.kubeClient, p.clientset, p.restConfig, p.Log)
-	p.SetStatus(status)
+	var err error
+	var status config.Status
+	defer func() {
+		if err != nil {
+			p.Log.Error(err)
+			p.Task.TaskStatus = config.StatusFailed
+			p.Task.Error = err.Error()
+			return
+		}
+	}()
+	status = waitJobEnd(ctx, p.TaskTimeout(), p.KubeNamespace, p.JobName, p.kubeClient, p.clientset, p.restConfig, p.Log)
 	distributeEndtime := time.Now().Unix()
 	for _, distribute := range p.Task.DistributeInfo {
 		distribute.DistributeEndTime = distributeEndtime
@@ -241,12 +261,175 @@ func (p *ReleaseImagePlugin) Wait(ctx context.Context) {
 	}
 	// if the distribution stage failed, then deploy part won't run
 	if status != config.StatusPassed {
+		err = errors.New("failed to distribute images to the repository")
 		return
 	}
 	// otherwise, run any deploy subtasks
+DistributeLoop:
 	for _, distribute := range p.Task.DistributeInfo {
 		if !distribute.DeployEnabled {
-			break
+			continue
+		}
+		// set the start time on deployment start.
+		distribute.DeployStartTime = time.Now().Unix()
+		if distribute.DeployClusterID != "" {
+			p.restConfig, err = kubeclient.GetRESTConfig(p.HubServerAddr, distribute.DeployClusterID)
+			if err != nil {
+				err = errors.WithMessage(err, "can't get k8s rest config")
+				distribute.DeployStatus = string(config.StatusFailed)
+				distribute.DeployEndTime = time.Now().Unix()
+				continue
+			}
+			p.kubeClient, err = kubeclient.GetKubeClient(p.HubServerAddr, distribute.DeployClusterID)
+			if err != nil {
+				err = errors.WithMessage(err, "can't init k8s client")
+				distribute.DeployStatus = string(config.StatusFailed)
+				distribute.DeployEndTime = time.Now().Unix()
+				continue
+			}
+		}
+		// k8s deploy type service goes here
+		if distribute.DeployServiceType != setting.HelmDeployType {
+			replaced := false
+			// get servcie info
+			var (
+				serviceInfo *types.ServiceTmpl
+				selector    labels.Selector
+			)
+			serviceInfo, err = p.getService(ctx, distribute.DeployServiceName, distribute.DeployServiceType, p.Task.ProductName, 0)
+			if err != nil {
+				// Maybe it is a share service, the entity is not under the project
+				serviceInfo, err = p.getService(ctx, distribute.DeployServiceName, distribute.DeployServiceType, "", 0)
+				if err != nil {
+					err = errors.WithMessage(err, "failed to get service info")
+					distribute.DeployStatus = string(config.StatusFailed)
+					distribute.DeployEndTime = time.Now().Unix()
+					continue
+				}
+			}
+			if serviceInfo.WorkloadType == "" {
+				selector := labels.Set{setting.ProductLabel: p.Task.ProductName, setting.ServiceLabel: distribute.DeployServiceName}.AsSelector()
+
+				var deployments []*appsv1.Deployment
+				deployments, err = getter.ListDeployments(distribute.DeployNamespace, selector, p.kubeClient)
+				if err != nil {
+					err = errors.WithMessage(err, "failed to get deployment")
+					distribute.DeployStatus = string(config.StatusFailed)
+					distribute.DeployEndTime = time.Now().Unix()
+					continue
+				}
+
+				var statefulSets []*appsv1.StatefulSet
+				statefulSets, err = getter.ListStatefulSets(distribute.DeployNamespace, selector, p.kubeClient)
+				if err != nil {
+					err = errors.WithMessage(err, "failed to get statefulset")
+					distribute.DeployStatus = string(config.StatusFailed)
+					distribute.DeployEndTime = time.Now().Unix()
+					continue
+				}
+
+			DeploymentLoop:
+				for _, deploy := range deployments {
+					for _, container := range deploy.Spec.Template.Spec.Containers {
+						if container.Name == distribute.DeployContainerName {
+							err = updater.UpdateDeploymentImage(deploy.Namespace, deploy.Name, distribute.DeployContainerName, distribute.Image, p.kubeClient)
+							if err != nil {
+								p.DeployError = multierror.Append(p.DeployError, errors.WithMessagef(
+									err,
+									"failed to update container image in %s/deployments/%s/%s",
+									distribute.DeployNamespace, deploy.Name, container.Name))
+								distribute.DeployEndTime = time.Now().Unix()
+								distribute.DeployStatus = string(config.StatusFailed)
+								p.SetStatus(config.StatusFailed)
+								continue DistributeLoop
+							}
+							replaced = true
+							break DeploymentLoop
+						}
+					}
+				}
+			StatefulSetLoop:
+				for _, sts := range statefulSets {
+					for _, container := range sts.Spec.Template.Spec.Containers {
+						if container.Name == distribute.DeployContainerName {
+							err = updater.UpdateStatefulSetImage(sts.Namespace, sts.Name, distribute.DeployContainerName, distribute.Image, p.kubeClient)
+							if err != nil {
+								p.DeployError = multierror.Append(p.DeployError, errors.WithMessagef(
+									err,
+									"failed to update container image in %s/statefulset/%s/%s",
+									distribute.DeployNamespace, sts.Name, container.Name))
+								distribute.DeployEndTime = time.Now().Unix()
+								distribute.DeployStatus = string(config.StatusFailed)
+								p.SetStatus(config.StatusFailed)
+								continue DistributeLoop
+							}
+							replaced = true
+							break StatefulSetLoop
+						}
+					}
+				}
+			} else {
+				switch serviceInfo.WorkloadType {
+				case setting.StatefulSet:
+					var statefulSet *appsv1.StatefulSet
+					statefulSet, _, err = getter.GetStatefulSet(distribute.DeployNamespace, distribute.DeployServiceName, p.kubeClient)
+					if err != nil {
+						err = errors.WithMessage(err, "failed to get statefulset")
+						distribute.DeployStatus = string(config.StatusFailed)
+						distribute.DeployEndTime = time.Now().Unix()
+						continue
+					}
+					for _, container := range statefulSet.Spec.Template.Spec.Containers {
+						if container.Name == distribute.DeployContainerName {
+							err = updater.UpdateStatefulSetImage(statefulSet.Namespace, statefulSet.Name, distribute.DeployContainerName, distribute.Image, p.kubeClient)
+							if err != nil {
+								err = errors.WithMessagef(
+									err,
+									"failed to update container image in %s/statefulsets/%s/%s",
+									distribute.DeployNamespace, statefulSet.Name, container.Name)
+								distribute.DeployStatus = string(config.StatusFailed)
+								distribute.DeployEndTime = time.Now().Unix()
+								continue DistributeLoop
+							}
+							replaced = true
+							break
+						}
+					}
+				case setting.Deployment:
+					var deployment *appsv1.Deployment
+					deployment, _, err = getter.GetDeployment(distribute.DeployNamespace, distribute.DeployServiceName, p.kubeClient)
+					if err != nil {
+						err = errors.WithMessage(err, "failed to get deployment")
+						distribute.DeployStatus = string(config.StatusFailed)
+						distribute.DeployEndTime = time.Now().Unix()
+						continue
+					}
+					for _, container := range deployment.Spec.Template.Spec.Containers {
+						if container.Name == distribute.DeployContainerName {
+							err = updater.UpdateDeploymentImage(deployment.Namespace, deployment.Name, distribute.DeployContainerName, distribute.Image, p.kubeClient)
+							if err != nil {
+								err = errors.WithMessagef(
+									err,
+									"failed to update container image in %s/deployment/%s/%s",
+									distribute.DeployNamespace, deployment.Name, container.Name)
+								distribute.DeployStatus = string(config.StatusFailed)
+								distribute.DeployEndTime = time.Now().Unix()
+								continue DistributeLoop
+							}
+							replaced = true
+							break
+						}
+					}
+				}
+			}
+			if !replaced {
+				err = errors.Errorf(
+					"container %s is not found in resources with label %s", distribute.DeployContainerName, selector)
+				return
+			}
+			// if all is done in one deployment, update its status to success and endtime
+			distribute.DeployStatus = string(config.StatusPassed)
+			distribute.DeployEndTime = time.Now().Unix()
 		}
 	}
 }
@@ -332,4 +515,18 @@ func (p *ReleaseImagePlugin) IsTaskEnabled() bool {
 // ResetError ...
 func (p *ReleaseImagePlugin) ResetError() {
 	p.Task.Error = ""
+}
+
+func (p *ReleaseImagePlugin) getService(ctx context.Context, name, serviceType, productName string, revision int64) (*types.ServiceTmpl, error) {
+	url := fmt.Sprintf("/api/service/services/%s/%s", name, serviceType)
+
+	s := &types.ServiceTmpl{}
+	_, err := p.httpClient.Get(url, httpclient.SetResult(s), httpclient.SetQueryParams(map[string]string{
+		"projectName": productName,
+		"revision":    fmt.Sprintf("%d", revision),
+	}))
+	if err != nil {
+		return nil, err
+	}
+	return s, nil
 }
