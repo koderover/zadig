@@ -18,16 +18,13 @@ type Config struct {
 }
 
 type Client struct {
-	Client      *gitee.Client
-	AccessToken string `json:"access_token"`
+	Client *gitee.Client
 }
 
 func (c *Config) Open(id int, logger *zap.SugaredLogger) (client.CodeHostClient, error) {
 	client, _ := gitee.NewClient(c.AccessToken, config.ProxyHTTPSAddr(), c.EnableProxy)
-	logger.Infof("c.AccessToken:%s", c.AccessToken)
 	return &Client{
-		Client:      client,
-		AccessToken: c.AccessToken,
+		Client: client,
 	}, nil
 }
 
@@ -116,11 +113,14 @@ func (c *Client) ListProjects(opt client.ListOpt) ([]*client.Project, error) {
 		return nil, err
 	}
 	var res []*client.Project
-	res = append(res, &client.Project{
+	project := &client.Project{
 		ID:            int(repo.Id),
 		Name:          repo.Name,
 		DefaultBranch: repo.DefaultBranch,
-		Namespace:     repo.Owner.Login,
-	})
+	}
+	if repo.Owner != nil {
+		project.Namespace = repo.Owner.Login
+	}
+	res = append(res, project)
 	return res, nil
 }
