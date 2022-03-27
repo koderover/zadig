@@ -36,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
+	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
@@ -53,6 +54,7 @@ const envoyFilterHttpRouter = "envoy.filters.http.router"
 const envoyFilterLua = "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
 
 const zadigNamePrefix = "zadig"
+const zadigMatchXEnv = "x-env"
 
 // Slice of `<workload name>.<workload type>` and error are returned.
 func CheckWorkloadsK8sServices(ctx context.Context, envName, productName string) ([]string, error) {
@@ -425,7 +427,7 @@ func ensureVirtualServices(ctx context.Context, kclient client.Client, istioClie
 
 	for _, svc := range svcs.Items {
 		vsName := genVirtualServiceName(&svc)
-		err := ensureVirtualService(ctx, istioClient, ns, vsName)
+		err := ensureVirtualService(ctx, istioClient, ns, vsName, svc.Name)
 		if err != nil {
 			return fmt.Errorf("failed to ensure VirtualService `%s` in ns `%s`: %s", vsName, ns, err)
 		}
@@ -434,18 +436,18 @@ func ensureVirtualServices(ctx context.Context, kclient client.Client, istioClie
 	return nil
 }
 
-func ensureVirtualService(ctx context.Context, istioClient versionedclient.Interface, ns, name string) error {
-	vsObj, err := istioClient.NetworkingV1alpha3().VirtualServices(ns).Get(ctx, name, metav1.GetOptions{})
+func ensureVirtualService(ctx context.Context, istioClient versionedclient.Interface, ns, vsName, svcName string) error {
+	vsObj, err := istioClient.NetworkingV1alpha3().VirtualServices(ns).Get(ctx, vsName, metav1.GetOptions{})
 	if err == nil {
-		log.Infof("Has found VirtualService `%s` in ns `%s` and don't recreate.", name, ns)
+		log.Infof("Has found VirtualService `%s` in ns `%s` and don't recreate.", vsName, ns)
 		return nil
 	}
 
 	if !apierrors.IsNotFound(err) {
-		return fmt.Errorf("failed to query VirtualService `%s` in ns `%s`: %s", name, ns, err)
+		return fmt.Errorf("failed to query VirtualService `%s` in ns `%s`: %s", vsName, ns, err)
 	}
 
-	vsObj.Name = name
+	vsObj.Name = vsName
 
 	if vsObj.Labels == nil {
 		vsObj.Labels = map[string]string{}
@@ -453,13 +455,13 @@ func ensureVirtualService(ctx context.Context, istioClient versionedclient.Inter
 	vsObj.Labels[zadigtypes.ZadigLabelKeyGlobalOwner] = zadigtypes.Zadig
 
 	vsObj.Spec = networkingv1alpha3.VirtualService{
-		Hosts: []string{name},
+		Hosts: []string{svcName},
 		Http: []*networkingv1alpha3.HTTPRoute{
 			&networkingv1alpha3.HTTPRoute{
 				Route: []*networkingv1alpha3.HTTPRouteDestination{
 					&networkingv1alpha3.HTTPRouteDestination{
 						Destination: &networkingv1alpha3.Destination{
-							Host: fmt.Sprintf("%s.%s.svc.cluster.local", name, ns),
+							Host: fmt.Sprintf("%s.%s.svc.cluster.local", svcName, ns),
 						},
 					},
 				},
@@ -790,4 +792,255 @@ func restartPodsWithIstioProxy(ctx context.Context, kclient client.Client, ns st
 	}
 
 	return nil
+}
+
+func ensureGrayEnvConfig(ctx context.Context, env *commonmodels.Product, kclient client.Client, istioClient versionedclient.Interface) error {
+	opt := &commonrepo.ProductFindOptions{Name: env.ProductName, EnvName: env.ShareEnv.BaseEnv}
+	baseEnv, err := commonrepo.NewProductColl().Find(opt)
+	if err != nil {
+		return fmt.Errorf("failed to find base env %s of product %s: %s", env.EnvName, env.ProductName, err)
+	}
+
+	baseNS := baseEnv.Namespace
+
+	// 1. Deploy VirtualServices of the workloads in gray environment and update them in the base environment.
+	err = ensureWorkloadsVirtualServiceInGrayAndBase(ctx, env, baseNS, kclient, istioClient)
+	if err != nil {
+		return fmt.Errorf("failed to ensure workloads VirtualService: %s", err)
+	}
+
+	// 2. Deploy K8s Services and VirtualServices of all workloads in the base environment to the gray environment.
+	err = ensureDefaultK8sServiceAndVirtualServicesInGray(ctx, env, baseNS, kclient, istioClient)
+	if err != nil {
+		return fmt.Errorf("failed to ensure K8s Services and VirtualServices: %s", err)
+	}
+
+	return nil
+}
+
+func ensureDefaultK8sServiceAndVirtualServicesInGray(ctx context.Context, env *commonmodels.Product, baseNS string, kclient client.Client, istioClient versionedclient.Interface) error {
+	svcsInBase := &corev1.ServiceList{}
+	err := kclient.List(ctx, svcsInBase, client.InNamespace(baseNS))
+	if err != nil {
+		return fmt.Errorf("failed to list svcs in %s: %s", baseNS, err)
+	}
+
+	grayNS := env.Namespace
+	for _, svcInBase := range svcsInBase.Items {
+		err = ensureDefaultK8sServiceInGray(ctx, &svcInBase, grayNS, kclient)
+		if err != nil {
+			return err
+		}
+
+		err = ensureDefaultVirtualServiceInGray(ctx, &svcInBase, grayNS, baseNS, istioClient)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func ensureDefaultK8sServiceInGray(ctx context.Context, baseSvc *corev1.Service, grayNS string, kclient client.Client) error {
+	svcInGray := &corev1.Service{}
+	err := kclient.Get(ctx, client.ObjectKey{
+		Name:      baseSvc.Name,
+		Namespace: grayNS,
+	}, svcInGray)
+	if err == nil {
+		return nil
+	}
+	if !apierrors.IsNotFound(err) {
+		return err
+	}
+
+	svcInGray.Name = baseSvc.Name
+	svcInGray.Namespace = grayNS
+	svcInGray.Labels = baseSvc.Labels
+	svcInGray.Annotations = baseSvc.Annotations
+	svcInGray.Spec.Selector = baseSvc.Spec.Selector
+	svcInGray.Spec.Ports = baseSvc.Spec.Ports
+
+	if svcInGray.Labels != nil {
+		svcInGray.Labels[zadigtypes.ZadigLabelKeyGlobalOwner] = zadigtypes.Zadig
+	}
+
+	return kclient.Create(ctx, svcInGray)
+}
+
+func ensureDefaultVirtualServiceInGray(ctx context.Context, baseSvc *corev1.Service, grayNS, baseNS string, istioClient versionedclient.Interface) error {
+	vsName := genVirtualServiceName(baseSvc)
+	svcName := baseSvc.Name
+	vsObj, err := istioClient.NetworkingV1alpha3().VirtualServices(grayNS).Get(ctx, vsName, metav1.GetOptions{})
+	if err == nil {
+		log.Infof("Has found VirtualService `%s` in ns `%s` and don't recreate.", vsName, grayNS)
+		return nil
+	}
+
+	if !apierrors.IsNotFound(err) {
+		return err
+	}
+
+	vsObj.Name = vsName
+
+	if vsObj.Labels == nil {
+		vsObj.Labels = map[string]string{}
+	}
+	vsObj.Labels[zadigtypes.ZadigLabelKeyGlobalOwner] = zadigtypes.Zadig
+
+	vsObj.Spec = networkingv1alpha3.VirtualService{
+		Hosts: []string{svcName},
+		Http: []*networkingv1alpha3.HTTPRoute{
+			&networkingv1alpha3.HTTPRoute{
+				Route: []*networkingv1alpha3.HTTPRouteDestination{
+					&networkingv1alpha3.HTTPRouteDestination{
+						Destination: &networkingv1alpha3.Destination{
+							Host: fmt.Sprintf("%s.%s.svc.cluster.local", svcName, baseNS),
+						},
+					},
+				},
+			},
+		},
+	}
+	_, err = istioClient.NetworkingV1alpha3().VirtualServices(grayNS).Create(ctx, vsObj, metav1.CreateOptions{})
+	return err
+}
+
+// Note: Currently we have made an assumption that all the necessary K8s services exist in the current environment.
+func ensureWorkloadsVirtualServiceInGrayAndBase(ctx context.Context, env *commonmodels.Product, baseNS string, kclient client.Client, istioClient versionedclient.Interface) error {
+	svcs := &corev1.ServiceList{}
+	grayNS := env.Namespace
+	err := kclient.List(ctx, svcs, client.InNamespace(grayNS))
+	if err != nil {
+		return err
+	}
+
+	for _, svc := range svcs.Items {
+		vsName := genVirtualServiceName(&svc)
+
+		err = ensureVirtualServiceInGray(ctx, env.EnvName, vsName, svc.Name, grayNS, baseNS, istioClient)
+		if err != nil {
+			return err
+		}
+
+		err = ensureUpdateVirtualServiceInBase(ctx, env.EnvName, vsName, svc.Name, grayNS, baseNS, istioClient)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func ensureVirtualServiceInGray(ctx context.Context, envName, vsName, svcName, grayNS, baseNS string, istioClient versionedclient.Interface) error {
+	vsObjInGray, err := istioClient.NetworkingV1alpha3().VirtualServices(grayNS).Get(ctx, vsName, metav1.GetOptions{})
+	if err == nil {
+		return nil
+	}
+
+	if !apierrors.IsNotFound(err) {
+		return err
+	}
+
+	vsObjInGray.Name = vsName
+	vsObjInGray.Namespace = grayNS
+
+	if vsObjInGray.Labels == nil {
+		vsObjInGray.Labels = map[string]string{}
+	}
+	vsObjInGray.Labels[zadigtypes.ZadigLabelKeyGlobalOwner] = zadigtypes.Zadig
+
+	vsObjInGray.Spec = networkingv1alpha3.VirtualService{
+		Hosts: []string{svcName},
+		Http: []*networkingv1alpha3.HTTPRoute{
+			&networkingv1alpha3.HTTPRoute{
+				Match: []*networkingv1alpha3.HTTPMatchRequest{
+					&networkingv1alpha3.HTTPMatchRequest{
+						Headers: map[string]*networkingv1alpha3.StringMatch{
+							zadigMatchXEnv: &networkingv1alpha3.StringMatch{
+								MatchType: &networkingv1alpha3.StringMatch_Exact{
+									Exact: envName,
+								},
+							},
+						},
+					},
+				},
+				Route: []*networkingv1alpha3.HTTPRouteDestination{
+					&networkingv1alpha3.HTTPRouteDestination{
+						Destination: &networkingv1alpha3.Destination{
+							Host: fmt.Sprintf("%s.%s.svc.cluster.local", svcName, grayNS),
+						},
+					},
+				},
+			},
+			&networkingv1alpha3.HTTPRoute{
+				Route: []*networkingv1alpha3.HTTPRouteDestination{
+					&networkingv1alpha3.HTTPRouteDestination{
+						Destination: &networkingv1alpha3.Destination{
+							Host: fmt.Sprintf("%s.%s.svc.cluster.local", svcName, baseNS),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	_, err = istioClient.NetworkingV1alpha3().VirtualServices(grayNS).Create(ctx, vsObjInGray, metav1.CreateOptions{})
+	return err
+}
+
+func ensureUpdateVirtualServiceInBase(ctx context.Context, envName, vsName, svcName, grayNS, baseNS string, istioClient versionedclient.Interface) error {
+	vsObjInBase, err := istioClient.NetworkingV1alpha3().VirtualServices(baseNS).Get(ctx, vsName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	if vsObjInBase.Spec.Http == nil {
+		vsObjInBase.Spec.Http = []*networkingv1alpha3.HTTPRoute{}
+	}
+
+	for _, vsHttp := range vsObjInBase.Spec.Http {
+		if len(vsHttp.Match) == 0 {
+			continue
+		}
+
+		for _, vsMatch := range vsHttp.Match {
+			if len(vsMatch.Headers) == 0 {
+				continue
+			}
+
+			matchValue, found := vsMatch.Headers[zadigMatchXEnv]
+			if !found {
+				continue
+			}
+
+			if matchValue.GetExact() == envName {
+				return nil
+			}
+		}
+	}
+
+	vsObjInBase.Spec.Http = append(vsObjInBase.Spec.Http, &networkingv1alpha3.HTTPRoute{
+		Match: []*networkingv1alpha3.HTTPMatchRequest{
+			&networkingv1alpha3.HTTPMatchRequest{
+				Headers: map[string]*networkingv1alpha3.StringMatch{
+					zadigMatchXEnv: &networkingv1alpha3.StringMatch{
+						MatchType: &networkingv1alpha3.StringMatch_Exact{
+							Exact: envName,
+						},
+					},
+				},
+			},
+		},
+		Route: []*networkingv1alpha3.HTTPRouteDestination{
+			&networkingv1alpha3.HTTPRouteDestination{
+				Destination: &networkingv1alpha3.Destination{
+					Host: fmt.Sprintf("%s.%s.svc.cluster.local", svcName, grayNS),
+				},
+			},
+		},
+	})
+
+	_, err = istioClient.NetworkingV1alpha3().VirtualServices(baseNS).Update(ctx, vsObjInBase, metav1.UpdateOptions{})
+	return err
 }

@@ -56,6 +56,9 @@ type Product struct {
 	IsExisted bool `bson:"is_existed"                json:"is_existed"`
 	// TODO: temp flag
 	IsForkedProduct bool `bson:"-" json:"-"`
+
+	// New Since v1.11.0.
+	ShareEnv ProductShareEnv `bson:"share_env" json:"share_env"`
 }
 
 type RenderInfo struct {
@@ -84,6 +87,12 @@ type ProductService struct {
 type ServiceConfig struct {
 	ConfigName string `bson:"config_name"           json:"config_name"`
 	Revision   int64  `bson:"revision"              json:"revision"`
+}
+
+type ProductShareEnv struct {
+	Enable  bool   `bson:"enable"   json:"enable"`
+	IsBase  bool   `bson:"is_base"  json:"is_base"`
+	BaseEnv string `bson:"base_env" json:"base_env"`
 }
 
 func (Product) TableName() string {

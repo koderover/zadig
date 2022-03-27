@@ -18,9 +18,11 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"go.uber.org/zap"
+	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -265,7 +267,7 @@ func (creator *PMProductCreator) Create(user, requestID string, args *models.Pro
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 	// 异步创建产品
-	go createGroups(args.EnvName, user, requestID, args, eventStart, nil, nil, nil, log)
+	go createGroups(args.EnvName, user, requestID, args, eventStart, nil, nil, nil, nil, log)
 	return nil
 }
 
@@ -302,6 +304,15 @@ func (creator *DefaultProductCreator) Create(user, requestID string, args *model
 	inf, err := informer.NewInformer(clusterID, args.Namespace, cls)
 	if err != nil {
 		return e.ErrCreateEnv.AddErr(err)
+	}
+
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), clusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get rest config: %s", err)
+	}
+	istioClient, err := versionedclient.NewForConfig(restConfig)
+	if err != nil {
+		return fmt.Errorf("failed to new istio client: %s", err)
 	}
 
 	//判断namespace是否存在
@@ -353,6 +364,6 @@ func (creator *DefaultProductCreator) Create(user, requestID string, args *model
 		return e.ErrCreateEnv.AddDesc(err.Error())
 	}
 	// 异步创建产品
-	go createGroups(args.EnvName, user, requestID, args, eventStart, renderSet, inf, kubeClient, log)
+	go createGroups(args.EnvName, user, requestID, args, eventStart, renderSet, inf, kubeClient, istioClient, log)
 	return nil
 }

@@ -34,6 +34,7 @@ import (
 	"go.uber.org/zap"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"helm.sh/helm/v3/pkg/strvals"
+	versionedclient "istio.io/client-go/pkg/clientset/versioned"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -46,10 +47,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
-	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
-
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
+	"github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	templatemodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models/template"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	templaterepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb/template"
@@ -655,7 +655,7 @@ func UpdateProductRegistry(envName, productName, registryID string, log *zap.Sug
 	if err != nil {
 		return e.ErrUpdateEnv.AddErr(err)
 	}
-	err = ensureKubeEnv(exitedProd.Namespace, registryID, kubeClient, log)
+	err = ensureKubeEnv(exitedProd.Namespace, registryID, false, kubeClient, log)
 
 	if err != nil {
 		log.Errorf("UpdateProductRegistry ensureKubeEnv by envName:%s,error: %v", envName, err)
@@ -694,7 +694,7 @@ func UpdateProductV2(envName, productName, user, requestID string, serviceNames 
 	}
 
 	if project.ProductFeature != nil && project.ProductFeature.BasicFacility != setting.BasicFacilityCVM {
-		err = ensureKubeEnv(exitedProd.Namespace, exitedProd.RegistryID, kubeClient, log)
+		err = ensureKubeEnv(exitedProd.Namespace, exitedProd.RegistryID, false, kubeClient, log)
 
 		if err != nil {
 			log.Errorf("[%s][P:%s] service.UpdateProductV2 create kubeEnv error: %v", envName, productName, err)
@@ -1403,7 +1403,7 @@ func UpdateHelmProductRenderset(productName, envName, userName, requestID string
 		log.Errorf("UpdateHelmProductRenderset GetKubeClient error, error msg:%s", err)
 		return err
 	}
-	return ensureKubeEnv(product.Namespace, product.RegistryID, kubeClient, log)
+	return ensureKubeEnv(product.Namespace, product.RegistryID, false, kubeClient, log)
 }
 
 func UpdateHelmProductVariable(productName, envName, username, requestID string, updatedRcs []*templatemodels.RenderChart, renderset *commonmodels.RenderSet, log *zap.SugaredLogger) error {
@@ -1839,7 +1839,7 @@ func GetEstimatedRenderCharts(productName, envName, serviceNameListStr string, l
 	return ret, nil
 }
 
-func createGroups(envName, user, requestID string, args *commonmodels.Product, eventStart int64, renderSet *commonmodels.RenderSet, informer informers.SharedInformerFactory, kubeClient client.Client, log *zap.SugaredLogger) {
+func createGroups(envName, user, requestID string, args *commonmodels.Product, eventStart int64, renderSet *commonmodels.RenderSet, informer informers.SharedInformerFactory, kubeClient client.Client, istioClient versionedclient.Interface, log *zap.SugaredLogger) {
 	var err error
 	defer func() {
 		status := setting.ProductStatusSuccess
@@ -1872,6 +1872,19 @@ func createGroups(envName, user, requestID string, args *commonmodels.Product, e
 			log.Errorf("createGroup error :%+v", err)
 			return
 		}
+	}
+
+	// If the user does not enable environment sharing, end. Otherwise, continue to perform environment sharing operations.
+	if !args.ShareEnv.Enable {
+		return
+	}
+
+	// Note: Currently, only sub-environments can be created, but baseline environments cannot be created.
+	err = ensureGrayEnvConfig(context.TODO(), args, kubeClient, istioClient)
+	if err != nil {
+		args.Status = setting.ProductStatusFailed
+		log.Errorf("Failed to ensure environment sharing in env %s of product %s: %s", args.EnvName, args.ProductName, err)
+		return
 	}
 }
 
@@ -2407,7 +2420,7 @@ func preCreateProduct(envName string, args *commonmodels.Product, kubeClient cli
 
 	args.Render = tmpRenderInfo
 	if preCreateNSAndSecret(productTmpl.ProductFeature) {
-		return ensureKubeEnv(args.Namespace, args.RegistryID, kubeClient, log)
+		return ensureKubeEnv(args.Namespace, args.RegistryID, args.ShareEnv.Enable, kubeClient, log)
 	}
 	return nil
 }
@@ -2435,40 +2448,6 @@ func getPredefinedClusterLabels(product, service, envName string) map[string]str
 	return labels
 }
 
-func applySystemIngressTimeouts(labels map[string]string) map[string]string {
-	if labels == nil {
-		labels = make(map[string]string)
-	}
-
-	if _, ok := labels[setting.IngressProxyConnectTimeoutLabel]; !ok {
-		labels[setting.IngressProxyConnectTimeoutLabel] = "300"
-	}
-
-	if _, ok := labels[setting.IngressProxySendTimeoutLabel]; !ok {
-		labels[setting.IngressProxySendTimeoutLabel] = "300"
-	}
-
-	if _, ok := labels[setting.IngressProxyReadTimeoutLabel]; !ok {
-		labels[setting.IngressProxyReadTimeoutLabel] = "300"
-	}
-
-	return labels
-}
-
-func applySystemIngressClass(labels map[string]string) map[string]string {
-	if labels == nil {
-		labels = make(map[string]string)
-	}
-
-	if config.DefaultIngressClass() != "" {
-		if _, ok := labels[setting.IngressClassLabel]; !ok {
-			labels[setting.IngressClassLabel] = config.DefaultIngressClass()
-		}
-	}
-
-	return labels
-}
-
 func applyUpdatedAnnotations(annotations map[string]string) map[string]string {
 	if annotations == nil {
 		annotations = make(map[string]string)
@@ -2490,8 +2469,8 @@ func applySystemImagePullSecrets(podSpec *corev1.PodSpec) {
 		})
 }
 
-func ensureKubeEnv(namespace string, registryId string, kubeClient client.Client, log *zap.SugaredLogger) error {
-	err := kube.CreateNamespace(namespace, kubeClient)
+func ensureKubeEnv(namespace, registryId string, enableShare bool, kubeClient client.Client, log *zap.SugaredLogger) error {
+	err := kube.CreateNamespace(namespace, enableShare, kubeClient)
 	if err != nil {
 		log.Errorf("[%s] get or create namespace error: %v", namespace, err)
 		return e.ErrCreateNamspace.AddDesc(e.SetNamespaceErrMsg)

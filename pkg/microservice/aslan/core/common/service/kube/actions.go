@@ -32,10 +32,18 @@ import (
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/kube/updater"
 	"github.com/koderover/zadig/pkg/tool/log"
+	zadigtypes "github.com/koderover/zadig/pkg/types"
 )
 
-func CreateNamespace(namespace string, kubeClient client.Client) error {
-	err := updater.CreateNamespaceByName(namespace, map[string]string{setting.EnvCreatedBy: setting.EnvCreator}, kubeClient)
+func CreateNamespace(namespace string, enableShare bool, kubeClient client.Client) error {
+	labels := map[string]string{
+		setting.EnvCreatedBy: setting.EnvCreator,
+	}
+	if enableShare {
+		labels[zadigtypes.IstioLabelKeyInjection] = zadigtypes.IstioLabelValueInjection
+	}
+
+	err := updater.CreateNamespaceByName(namespace, labels, kubeClient)
 	if err != nil && !apierrors.IsAlreadyExists(err) {
 		return err
 	}
