@@ -398,6 +398,8 @@ func (g *Git) SSHCloneURL(source, owner, name string) string {
 func (g *Git) HTTPSCloneURL(source, token, owner, name string) string {
 	if strings.ToLower(source) == ProviderGitlab {
 		return fmt.Sprintf("https://%s/%s/%s.git", g.GetGitlabHost(), owner, name)
+	} else if strings.ToLower(source) == ProviderGitee {
+		return fmt.Sprintf("https://x-access-token:%s@%s/%s/%s.git", token, "gitee.com", owner, name)
 	}
 	//return fmt.Sprintf("https://x-access-token:%s@%s/%s/%s.git", g.GetInstallationToken(owner), g.GetGithubHost(), owner, name)
 	return fmt.Sprintf("https://x-access-token:%s@%s/%s/%s.git", token, g.GetGithubHost(), owner, name)
