@@ -2,25 +2,36 @@ package gitee
 
 import (
 	"context"
-	"fmt"
 
 	"gitee.com/openeuler/go-gitee/gitee"
 	"github.com/antihax/optional"
 
 	"github.com/koderover/zadig/pkg/tool/git"
+	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
 
-func (c *Client) ListRepositoriesForAuthenticatedUser(ctx context.Context) (gitee.Project, error) {
-	resp, _, err := c.RepositoriesApi.GetV5UserRepos(ctx, &gitee.GetV5UserReposOpts{
-		Visibility:  optional.NewString("all"),
-		Affiliation: optional.NewString("admin"),
-		PerPage:     optional.NewInt32(100),
-	})
+const (
+	GiteeHOSTURL = "https://gitee.com/api"
+)
+
+func (c *Client) ListRepositoriesForAuthenticatedUser(ctx context.Context, accessToken string) ([]gitee.Project, error) {
+	httpClient := httpclient.New(
+		httpclient.SetHostURL(GiteeHOSTURL),
+	)
+	url := "/v5/user/repos"
+	queryParams := make(map[string]string)
+	queryParams["access_token"] = accessToken
+	queryParams["visibility"] = "all"
+	queryParams["affiliation"] = "admin"
+	queryParams["per_page"] = "100"
+
+	var projects []gitee.Project
+	_, err := httpClient.Get(url, httpclient.SetQueryParams(queryParams), httpclient.SetResult(&projects))
 	if err != nil {
-		return gitee.Project{}, err
+		return nil, err
 	}
-	fmt.Println(fmt.Sprintf("resp:%+v", resp))
-	return resp, nil
+
+	return projects, nil
 }
 
 func (c *Client) ListHooks(ctx context.Context, owner, repo string, opts *gitee.GetV5ReposOwnerRepoHooksOpts) ([]gitee.Hook, error) {

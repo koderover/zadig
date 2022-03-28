@@ -18,13 +18,15 @@ type Config struct {
 }
 
 type Client struct {
-	Client *gitee.Client
+	Client      *gitee.Client
+	AccessToken string
 }
 
 func (c *Config) Open(id int, logger *zap.SugaredLogger) (client.CodeHostClient, error) {
 	client, _ := gitee.NewClient(c.AccessToken, config.ProxyHTTPSAddr(), c.EnableProxy)
 	return &Client{
-		Client: client,
+		Client:      client,
+		AccessToken: c.AccessToken,
 	}, nil
 }
 
@@ -44,16 +46,18 @@ func (c *Client) ListBranches(opt client.ListOpt) ([]*client.Branch, error) {
 }
 
 func (c *Client) ListTags(opt client.ListOpt) ([]*client.Tag, error) {
-	tag, err := c.Client.ListTags(context.TODO(), opt.Namespace, opt.ProjectName, nil)
+	tags, err := c.Client.ListTags(context.TODO(), c.AccessToken, opt.Namespace, opt.ProjectName)
 	if err != nil {
 		return nil, err
 	}
-	var tags []*client.Tag
-	tags = append(tags, &client.Tag{
-		Name: tag.Name,
-	})
+	var resp []*client.Tag
+	for _, tag := range tags {
+		resp = append(resp, &client.Tag{
+			Name: tag.Name,
+		})
+	}
 
-	return tags, nil
+	return resp, nil
 }
 
 func (c *Client) ListPrs(opt client.ListOpt) ([]*client.PullRequest, error) {
@@ -108,21 +112,17 @@ func (c *Client) ListNamespaces(keyword string) ([]*client.Namespace, error) {
 }
 
 func (c *Client) ListProjects(opt client.ListOpt) ([]*client.Project, error) {
-	repo, err := c.Client.ListRepositoriesForAuthenticatedUser(context.TODO())
+	projects, err := c.Client.ListRepositoriesForAuthenticatedUser(context.TODO(), c.AccessToken)
 	if err != nil {
 		return nil, err
 	}
 	var res []*client.Project
-	if repo.Id > 0 {
-		project := &client.Project{
-			ID:            int(repo.Id),
-			Name:          repo.Name,
-			DefaultBranch: repo.DefaultBranch,
-		}
-		if repo.Owner != nil {
-			project.Namespace = repo.Owner.Login
-		}
-		res = append(res, project)
+	for _, project := range projects {
+		res = append(res, &client.Project{
+			ID:            int(project.Id),
+			Name:          project.Name,
+			DefaultBranch: project.DefaultBranch,
+		})
 	}
 
 	return res, nil
