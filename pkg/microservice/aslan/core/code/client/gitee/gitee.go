@@ -113,14 +113,17 @@ func (c *Client) ListProjects(opt client.ListOpt) ([]*client.Project, error) {
 		return nil, err
 	}
 	var res []*client.Project
-	project := &client.Project{
-		ID:            int(repo.Id),
-		Name:          repo.Name,
-		DefaultBranch: repo.DefaultBranch,
+	if repo.Id > 0 {
+		project := &client.Project{
+			ID:            int(repo.Id),
+			Name:          repo.Name,
+			DefaultBranch: repo.DefaultBranch,
+		}
+		if repo.Owner != nil {
+			project.Namespace = repo.Owner.Login
+		}
+		res = append(res, project)
 	}
-	if repo.Owner != nil {
-		project.Namespace = repo.Owner.Login
-	}
-	res = append(res, project)
+
 	return res, nil
 }

@@ -10,7 +10,9 @@ import (
 )
 
 func (c *Client) ListRepositoriesForAuthenticatedUser(ctx context.Context) (gitee.Project, error) {
-	resp, _, err := c.RepositoriesApi.GetV5UserRepos(ctx, &gitee.GetV5UserReposOpts{})
+	resp, _, err := c.RepositoriesApi.GetV5UserRepos(ctx, &gitee.GetV5UserReposOpts{
+		Type_: optional.NewString("all"),
+	})
 	if err != nil {
 		return gitee.Project{}, err
 	}
