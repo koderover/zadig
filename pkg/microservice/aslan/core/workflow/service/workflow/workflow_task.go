@@ -640,6 +640,9 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 						log.Errorf("distrbiute stages to subtasks error: %v", err)
 						return nil, e.ErrCreateTask.AddErr(err)
 					}
+					for _, dtask := range distributeTasks {
+						fmt.Printf(">>>>>>>>>>>>>>>>>>>>>> task is: %+v <<<<<<<<<<<<<<<<<\n ", dtask)
+					}
 				}
 			}
 			subTasks = append(subTasks, distributeTasks...)
