@@ -2,6 +2,7 @@ package gitee
 
 import (
 	"context"
+	"fmt"
 
 	"gitee.com/openeuler/go-gitee/gitee"
 	"github.com/antihax/optional"
@@ -13,10 +14,12 @@ func (c *Client) ListRepositoriesForAuthenticatedUser(ctx context.Context) (gite
 	resp, _, err := c.RepositoriesApi.GetV5UserRepos(ctx, &gitee.GetV5UserReposOpts{
 		Visibility:  optional.NewString("all"),
 		Affiliation: optional.NewString("admin"),
+		PerPage:     optional.NewInt32(100),
 	})
 	if err != nil {
 		return gitee.Project{}, err
 	}
+	fmt.Println(fmt.Sprintf("resp:%+v", resp))
 	return resp, nil
 }
 
