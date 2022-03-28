@@ -129,7 +129,8 @@ func EnableBaseEnv(ctx context.Context, envName, productName string) error {
 		return fmt.Errorf("failed to ensure EnvoyFilter in namespace `%s`: %s", istioNamespace, err)
 	}
 
-	return nil
+	// 5. Update the environment configuration.
+	return ensureBaseEnvConfig(ctx, prod)
 }
 
 func DisableBaseEnv(ctx context.Context, envName, productName string) error {
@@ -157,11 +158,11 @@ func DisableBaseEnv(ctx context.Context, envName, productName string) error {
 		return fmt.Errorf("failed to new istio client: %s", err)
 	}
 
-	// // 1. Delete all associated subenvironments.
-	// err = deleteSubEnvs(ctx, kclient, ns)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to delete associated subenvironments of base ns `%s`: %s", ns, err)
-	// }
+	// 1. Delete all associated subenvironments.
+	err = ensureDeleteAssociatedEnvs(ctx, prod.EnvName)
+	if err != nil {
+		return fmt.Errorf("failed to delete associated subenvironments of base ns `%s`: %s", ns, err)
+	}
 
 	// 2. Delete EnvoyFilter in the namespace of Istio installation.
 	err = deleteEnvoyFilter(ctx, istioClient, istioNamespace, zadigEnvoyFilter)
@@ -696,27 +697,6 @@ func buildEnvoyPatchValue(data map[string]interface{}) (*types.Struct, error) {
 	return val, err
 }
 
-func deleteSubEnvs(ctx context.Context, kclient client.Client, baseNS string) error {
-
-	return ErrNotImplemented
-}
-
-func deleteEnvoyFilter(ctx context.Context, istioClient versionedclient.Interface, istioNamespace, name string) error {
-	_, err := istioClient.NetworkingV1alpha3().EnvoyFilters(istioNamespace).Get(ctx, name, metav1.GetOptions{})
-	if apierrors.IsNotFound(err) {
-		log.Infof("EnvoyFilter %s is not found in ns `%s`. Skip.", name, istioNamespace)
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("failed to query EnvoyFilter %s in ns `%s`: %s", name, istioNamespace, err)
-	}
-
-	deleteOption := metav1.DeletePropagationBackground
-	return istioClient.NetworkingV1alpha3().EnvoyFilters(istioNamespace).Delete(ctx, name, metav1.DeleteOptions{
-		PropagationPolicy: &deleteOption,
-	})
-}
-
 func deleteVirtualServices(ctx context.Context, kclient client.Client, istioClient versionedclient.Interface, ns string) error {
 	zadigLabels := map[string]string{
 		zadigtypes.ZadigLabelKeyGlobalOwner: zadigtypes.Zadig,
@@ -1043,4 +1023,24 @@ func ensureUpdateVirtualServiceInBase(ctx context.Context, envName, vsName, svcN
 
 	_, err = istioClient.NetworkingV1alpha3().VirtualServices(baseNS).Update(ctx, vsObjInBase, metav1.UpdateOptions{})
 	return err
+}
+
+func EnsureDeleteShareEnvConfig(ctx context.Context, env *commonmodels.Product, istioClient versionedclient.Interface) error {
+	if !env.ShareEnv.Enable {
+		return nil
+	}
+
+	if env.ShareEnv.IsBase {
+		// 1. Delete all associated subenvironments.
+		err := ensureDeleteAssociatedEnvs(ctx, env.EnvName)
+		if err != nil {
+			return err
+		}
+
+		// 2. If no environment is shared, delete EnvoyFilter.
+		return ensureDeleteEnvoyFilter(ctx, env, istioClient)
+	}
+
+	// Updated the VirtualService configuration in the base environment.
+	return ensureCleanRoutesInBase(ctx, env, istioClient)
 }

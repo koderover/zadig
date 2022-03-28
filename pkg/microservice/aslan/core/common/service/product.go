@@ -46,6 +46,7 @@ const (
 	timeout = 60
 )
 
+// TODO: Deprecated.
 func DeleteProduct(username, envName, productName, requestID string, log *zap.SugaredLogger) (err error) {
 	eventStart := time.Now().Unix()
 	productInfo, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{Name: productName, EnvName: envName})
@@ -145,7 +146,7 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 				log.Errorf("workflowStat not found error:%s", err)
 			}
 			if workloadStat != nil {
-				workloadStat.Workloads = filterWorkloadsByEnv(workloadStat.Workloads, productInfo.EnvName)
+				workloadStat.Workloads = FilterWorkloadsByEnv(workloadStat.Workloads, productInfo.EnvName)
 				if err := commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workloadStat); err != nil {
 					log.Errorf("update workloads fail error:%s", err)
 				}
@@ -210,11 +211,17 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 
 			// Delete Cluster level resources
 			err = DeleteClusterResource(labels.Set{setting.ProductLabel: productName, setting.EnvNameLabel: envName}.AsSelector(), productInfo.ClusterID, log)
-
 			if err != nil {
 				err = e.ErrDeleteProduct.AddDesc(e.DeleteServiceContainerErrMsg + ": " + err.Error())
 				return
 			}
+
+			// // Handles environment sharing related operations.
+			// err = envservice.EnsureDeleteShareEnvConfig(context.TODO(), productInfo, istioClient)
+			// if err != nil {
+			// 	err = e.ErrDeleteProduct.AddDesc(e.DeleteVirtualServiceErrMsg + ": " + err.Error())
+			// 	return
+			// }
 
 			s := labels.Set{setting.EnvCreatedBy: setting.EnvCreator}.AsSelector()
 			if err1 := DeleteNamespaceIfMatch(productInfo.Namespace, s, productInfo.ClusterID, log); err1 != nil {
@@ -228,10 +235,11 @@ func DeleteProduct(username, envName, productName, requestID string, log *zap.Su
 			}
 		}()
 	}
+
 	return nil
 }
 
-func filterWorkloadsByEnv(exist []commonmodels.Workload, env string) []commonmodels.Workload {
+func FilterWorkloadsByEnv(exist []commonmodels.Workload, env string) []commonmodels.Workload {
 	result := make([]commonmodels.Workload, 0)
 	for _, v := range exist {
 		if v.EnvName != env {

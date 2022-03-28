@@ -622,7 +622,7 @@ func UnForkProduct(userID string, username, productName, workflowName, envName, 
 		log.Errorf("Failed to delete roleBinding, err: %s", err)
 		return e.ErrForkProduct
 	}
-	if err := commonservice.DeleteProduct(username, envName, productName, requestID, log); err != nil {
+	if err := environmentservice.DeleteProduct(username, envName, productName, requestID, log); err != nil {
 		_, messageMap := e.ErrorMessage(err)
 		if description, ok := messageMap["description"]; ok {
 			if description != "not found" {
@@ -715,7 +715,7 @@ func DeleteProductsAsync(userName, productName, requestID string, log *zap.Sugar
 	}
 	errList := new(multierror.Error)
 	for _, env := range envs {
-		err = commonservice.DeleteProduct(userName, env.EnvName, productName, requestID, log)
+		err = environmentservice.DeleteProduct(userName, env.EnvName, productName, requestID, log)
 		if err != nil {
 			errList = multierror.Append(errList, err)
 		}

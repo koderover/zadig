@@ -54,6 +54,11 @@ type ProductListOptions struct {
 	InProjects          []string
 	InEnvs              []string
 	InIDs               []string
+
+	// New Since v1.11.0
+	ShareEnvEnable  *bool
+	ShareEnvIsBase  *bool
+	ShareEnvBaseEnv *string
 }
 
 type projectEnvs struct {
@@ -234,6 +239,15 @@ func (c *ProductColl) List(opt *ProductListOptions) ([]*models.Product, error) {
 		}
 		query["_id"] = bson.M{"$in": oids}
 	}
+	if opt.ShareEnvEnable != nil {
+		query["share_env.enable"] = *opt.ShareEnvEnable
+	}
+	if opt.ShareEnvIsBase != nil {
+		query["share_env.is_base"] = *opt.ShareEnvIsBase
+	}
+	if opt.ShareEnvBaseEnv != nil {
+		query["share_env.base_env"] = *opt.ShareEnvBaseEnv
+	}
 
 	ctx := context.Background()
 	opts := options.Find()
@@ -344,6 +358,7 @@ func (c *ProductColl) Update(args *models.Product) error {
 		"revision":    args.Revision,
 		"render":      args.Render,
 		"error":       args.Error,
+		"share_env":   args.ShareEnv,
 	}}
 
 	_, err := c.UpdateOne(context.TODO(), query, change)
