@@ -357,6 +357,19 @@ func setBuildInfo(build *types.Repository, log *zap.SugaredLogger) {
 			}
 		}
 	} else if codeHostInfo.Type == systemconfig.GiteeProvider {
+		// The normal expiration time is 86400
+		if codeHostInfo.Type == setting.SourceFromGitee && (time.Now().Unix()-codeHostInfo.UpdatedAt) >= 86000 {
+			accessToken, _ := gitee.RefreshAccessToken(codeHostInfo.RefreshToken)
+			if accessToken != nil {
+				codeHostInfo.AccessToken = accessToken.AccessToken
+				codeHostInfo.RefreshToken = accessToken.RefreshToken
+				codeHostInfo.UpdatedAt = int64(accessToken.CreatedAt)
+				if err = systemconfig.New().UpdateCodeHost(codeHostInfo.ID, codeHostInfo); err != nil {
+					log.Errorf("failed to update codehost err:%s", err)
+					return
+				}
+			}
+		}
 		gitCli, _ := gitee.NewClient(codeHostInfo.AccessToken, config.ProxyHTTPSAddr(), codeHostInfo.EnableProxy)
 		if build.CommitID == "" {
 			if build.Tag != "" && build.PR == 0 {

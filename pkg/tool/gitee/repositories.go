@@ -137,3 +137,30 @@ func (c *Client) GetSingleCommitOfProject(ctx context.Context, accessToken, owne
 	}
 	return commit, nil
 }
+
+type AccessToken struct {
+	AccessToken  string `json:"access_token"`
+	TokenType    string `json:"token_type"`
+	ExpiresIn    int    `json:"expires_in"`
+	RefreshToken string `json:"refresh_token"`
+	Scope        string `json:"scope"`
+	CreatedAt    int    `json:"created_at"`
+}
+
+func RefreshAccessToken(refreshToken string) (*AccessToken, error) {
+	httpClient := httpclient.New(
+		httpclient.SetHostURL("https://gitee.com"),
+	)
+	url := "/oauth/token"
+	queryParams := make(map[string]string)
+	queryParams["grant_type"] = "refresh_token"
+	queryParams["refresh_token"] = refreshToken
+
+	var accessToken *AccessToken
+	_, err := httpClient.Post(url, httpclient.SetQueryParams(queryParams), httpclient.SetResult(&accessToken))
+	if err != nil {
+		return nil, err
+	}
+
+	return accessToken, nil
+}

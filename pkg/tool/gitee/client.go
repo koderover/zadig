@@ -21,7 +21,7 @@ func NewClient(accessToken, proxyAddr string, enableProxy bool) (*Client, error)
 
 	conf := gitee.NewConfiguration()
 	dc := http.DefaultClient
-	if proxyAddr != "" {
+	if enableProxy {
 		p, err := url.Parse(proxyAddr)
 		if err == nil {
 			proxy := http.ProxyURL(p)
