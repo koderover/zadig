@@ -23,6 +23,7 @@ import (
 
 	"github.com/27149chen/afero"
 	"go.uber.org/zap"
+	"helm.sh/helm/v3/pkg/repo"
 
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -145,4 +146,13 @@ func preLoadServiceManifestsFromGerrit(svc *commonmodels.Service) error {
 		return err
 	}
 	return nil
+}
+
+func GeneHelmRepo(chartRepo *commonmodels.HelmRepo) *repo.Entry {
+	return &repo.Entry{
+		Name:     chartRepo.RepoName,
+		URL:      chartRepo.URL,
+		Username: chartRepo.Username,
+		Password: chartRepo.Password,
+	}
 }
