@@ -14,7 +14,13 @@ const (
 	GiteeHOSTURL = "https://gitee.com/api"
 )
 
-func (c *Client) ListRepositoriesForAuthenticatedUser(ctx context.Context, accessToken string) ([]gitee.Project, error) {
+type Project struct {
+	ID            int    `json:"id"`
+	Name          string `json:"name"`
+	DefaultBranch string `json:"default_branch,omitempty"`
+}
+
+func (c *Client) ListRepositoriesForAuthenticatedUser(ctx context.Context, accessToken string) ([]Project, error) {
 	httpClient := httpclient.New(
 		httpclient.SetHostURL(GiteeHOSTURL),
 	)
@@ -25,7 +31,7 @@ func (c *Client) ListRepositoriesForAuthenticatedUser(ctx context.Context, acces
 	queryParams["affiliation"] = "admin"
 	queryParams["per_page"] = "100"
 
-	var projects []gitee.Project
+	var projects []Project
 	_, err := httpClient.Get(url, httpclient.SetQueryParams(queryParams), httpclient.SetResult(&projects))
 	if err != nil {
 		return nil, err

@@ -53,7 +53,8 @@ func (c *Client) ListTags(opt client.ListOpt) ([]*client.Tag, error) {
 	var resp []*client.Tag
 	for _, tag := range tags {
 		resp = append(resp, &client.Tag{
-			Name: tag.Name,
+			Name:    tag.Name,
+			Message: tag.Message,
 		})
 	}
 
@@ -119,7 +120,7 @@ func (c *Client) ListProjects(opt client.ListOpt) ([]*client.Project, error) {
 	var res []*client.Project
 	for _, project := range projects {
 		res = append(res, &client.Project{
-			ID:            int(project.Id),
+			ID:            project.ID,
 			Name:          project.Name,
 			DefaultBranch: project.DefaultBranch,
 		})
