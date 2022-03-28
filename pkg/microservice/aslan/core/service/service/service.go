@@ -255,7 +255,7 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 	return serviceOption, nil
 }
 
-func CreateK8sWorkLoads(ctx context.Context, requestID, username string, productName string, workLoads []commonmodels.Workload, clusterID, namespace string, envName string, log *zap.SugaredLogger) error {
+func CreateK8sWorkLoads(ctx context.Context, requestID, username, registryID string, productName string, workLoads []commonmodels.Workload, clusterID, namespace string, envName string, log *zap.SugaredLogger) error {
 	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
 	if err != nil {
 		log.Errorf("[%s] error: %v", namespace, err)
@@ -348,6 +348,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username string, product
 			ProductName: productName,
 			Source:      setting.SourceFromExternal,
 			ClusterID:   clusterID,
+			RegistryID:  registryID,
 			EnvName:     envName,
 			Namespace:   namespace,
 			UpdateBy:    username,

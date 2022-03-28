@@ -172,6 +172,7 @@ type K8sWorkloadsArgs struct {
 	ClusterID   string                  `bson:"cluster_id"       json:"cluster_id"`
 	Namespace   string                  `bson:"namespace"        json:"namespace"`
 	ProductName string                  `bson:"product_name"     json:"product_name"`
+	RegistryID  string                  `json:"registry_id"`
 }
 
 func UpdateWorkloads(c *gin.Context) {
@@ -202,7 +203,7 @@ func CreateK8sWorkloads(c *gin.Context) {
 		return
 	}
 
-	ctx.Err = svcservice.CreateK8sWorkLoads(c, ctx.RequestID, ctx.UserName, args.ProductName, args.WorkLoads, args.ClusterID, args.Namespace, args.EnvName, ctx.Logger)
+	ctx.Err = svcservice.CreateK8sWorkLoads(c, ctx.RequestID, ctx.UserName, args.RegistryID, args.ProductName, args.WorkLoads, args.ClusterID, args.Namespace, args.EnvName, ctx.Logger)
 }
 
 func ListAvailablePublicServices(c *gin.Context) {
