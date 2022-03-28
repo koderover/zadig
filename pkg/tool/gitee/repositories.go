@@ -2,6 +2,8 @@ package gitee
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"gitee.com/openeuler/go-gitee/gitee"
 	"github.com/antihax/optional"
@@ -102,4 +104,36 @@ func (c *Client) GetTrees(ctx context.Context, owner, repo, sha string, level in
 		return gitee.Tree{}, err
 	}
 	return tree, nil
+}
+
+type RepoCommit struct {
+	URL    string `json:"url"`
+	Sha    string `json:"sha"`
+	Commit struct {
+		Author struct {
+			Name  string    `json:"name"`
+			Date  time.Time `json:"date"`
+			Email string    `json:"email"`
+		} `json:"author"`
+		Committer struct {
+			Name  string    `json:"name"`
+			Date  time.Time `json:"date"`
+			Email string    `json:"email"`
+		} `json:"committer"`
+		Message string `json:"message"`
+	} `json:"commit"`
+}
+
+func (c *Client) GetSingleCommitOfProject(ctx context.Context, accessToken, owner, repo, commitSha string) (*RepoCommit, error) {
+	httpClient := httpclient.New(
+		httpclient.SetHostURL(GiteeHOSTURL),
+	)
+	url := fmt.Sprintf("/v5/repos/%s/%s/commits/%s", owner, repo, commitSha)
+
+	var commit *RepoCommit
+	_, err := httpClient.Get(url, httpclient.SetQueryParam("access_token", accessToken), httpclient.SetResult(&commit))
+	if err != nil {
+		return nil, err
+	}
+	return commit, nil
 }

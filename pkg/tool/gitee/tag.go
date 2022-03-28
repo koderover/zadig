@@ -3,6 +3,7 @@ package gitee
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/koderover/zadig/pkg/tool/httpclient"
 )
@@ -10,6 +11,12 @@ import (
 type Tag struct {
 	Name    string `json:"name"`
 	Message string `json:"message"`
+	Commit  Commit `json:"commit"`
+}
+
+type Commit struct {
+	Sha  string    `json:"sha"`
+	Date time.Time `json:"date"`
 }
 
 func (c *Client) ListTags(ctx context.Context, accessToken, owner string, repo string) ([]Tag, error) {

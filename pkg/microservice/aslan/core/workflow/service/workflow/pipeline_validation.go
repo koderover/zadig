@@ -48,6 +48,7 @@ import (
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
 	"github.com/koderover/zadig/pkg/shared/kube/wrapper"
 	e "github.com/koderover/zadig/pkg/tool/errors"
+	"github.com/koderover/zadig/pkg/tool/gitee"
 	"github.com/koderover/zadig/pkg/tool/kube/getter"
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
@@ -352,6 +353,51 @@ func setBuildInfo(build *types.Repository, log *zap.SugaredLogger) {
 					build.CommitMessage = branchInfo.Commit.Message
 					build.AuthorName = branchInfo.Commit.AuthorName
 					return
+				}
+			}
+		}
+	} else if codeHostInfo.Type == systemconfig.GiteeProvider {
+		gitCli, _ := gitee.NewClient(codeHostInfo.AccessToken, config.ProxyHTTPSAddr(), codeHostInfo.EnableProxy)
+		if build.CommitID == "" {
+			if build.Tag != "" && build.PR == 0 {
+				tags, err := gitCli.ListTags(context.Background(), codeHostInfo.AccessToken, build.RepoOwner, build.RepoName)
+				if err != nil {
+					log.Errorf("failed to gitee ListTags err:%s", err)
+					return
+				}
+
+				for _, tag := range tags {
+					if tag.Name == build.Tag {
+						build.CommitID = tag.Commit.Sha
+						commitInfo, err := gitCli.GetSingleCommitOfProject(context.Background(), codeHostInfo.AccessToken, build.RepoOwner, build.RepoName, build.CommitID)
+						if err != nil {
+							log.Errorf("failed to gitee GetCommit %s err:%s", tag.Commit.Sha, err)
+							return
+						}
+						build.CommitMessage = commitInfo.Commit.Message
+						build.AuthorName = commitInfo.Commit.Author.Name
+						return
+					}
+				}
+			} else if build.Branch != "" && build.PR == 0 {
+				branch, err := gitCli.GetSingleBranch(codeHostInfo.AccessToken, build.RepoOwner, build.RepoName, build.Branch)
+				if err == nil {
+					build.CommitID = branch.Commit.Sha
+					build.CommitMessage = branch.Commit.Commit.Message
+					build.AuthorName = branch.Commit.Commit.Author.Name
+				}
+			} else if build.PR > 0 {
+				prCommits, err := gitCli.ListCommits(context.Background(), build.RepoOwner, build.RepoName, build.PR, nil)
+				sort.SliceStable(prCommits, func(i, j int) bool {
+					return prCommits[i].Commit.Committer.Date.Unix() > prCommits[j].Commit.Committer.Date.Unix()
+				})
+				if err == nil && len(prCommits) > 0 {
+					for _, commit := range prCommits {
+						build.CommitID = commit.Sha
+						build.CommitMessage = commit.Commit.Message
+						build.AuthorName = commit.Commit.Author.Name
+						return
+					}
 				}
 			}
 		}
