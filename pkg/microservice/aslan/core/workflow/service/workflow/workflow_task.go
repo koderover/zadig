@@ -627,8 +627,6 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 				if distribute.Target != nil {
 					serviceModule.ProductName = distribute.Target.ProductName
 				}
-				fmt.Printf(">>>>>>>>>>>>>>>> distribute.Target is: %s <<<<<<<<<<<<<<<<<<<< \n", distribute.Target)
-				fmt.Printf(">>>>>>>>>>>>>>>> distribute.Target is: %s <<<<<<<<<<<<<<<<<<<< \n", serviceModule)
 				if reflect.DeepEqual(distribute.Target, serviceModule) {
 					distributeTasks, err = formatDistributeSubtasks(
 						args.ProductTmplName,
@@ -641,9 +639,6 @@ func CreateWorkflowTask(args *commonmodels.WorkflowTaskArgs, taskCreator string,
 					if err != nil {
 						log.Errorf("distrbiute stages to subtasks error: %v", err)
 						return nil, e.ErrCreateTask.AddErr(err)
-					}
-					for _, dtask := range distributeTasks {
-						fmt.Printf(">>>>>>>>>>>>>>>>>>>>>> task is: %+v <<<<<<<<<<<<<<<<<\n ", dtask)
 					}
 				}
 			}
