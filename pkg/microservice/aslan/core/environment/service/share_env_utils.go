@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -241,4 +242,81 @@ func ensureServicesInAllSubEnvs(ctx context.Context, env *commonmodels.Product, 
 	}
 
 	return nil
+}
+
+func ensureDeleteVirtualService(ctx context.Context, env *commonmodels.Product, vsName string, istioClient versionedclient.Interface) error {
+	_, err := istioClient.NetworkingV1alpha3().VirtualServices(env.Namespace).Get(ctx, vsName, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		log.Warnf("Failed to find VirtualService %s for env %s of product %s. Don't try to delete it.", vsName, env.EnvName, env.ProductName)
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	deleteOption := metav1.DeletePropagationBackground
+	return istioClient.NetworkingV1alpha3().VirtualServices(env.Namespace).Delete(ctx, vsName, metav1.DeleteOptions{
+		PropagationPolicy: &deleteOption,
+	})
+}
+
+func ensureDeleteServiceInAllSubEnvs(ctx context.Context, baseEnv *commonmodels.Product, svc *corev1.Service, kclient client.Client, istioClient versionedclient.Interface) error {
+	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		Name:            baseEnv.ProductName,
+		ClusterID:       baseEnv.ClusterID,
+		ShareEnvEnable:  getBoolPointer(true),
+		ShareEnvIsBase:  getBoolPointer(false),
+		ShareEnvBaseEnv: getStrPointer(baseEnv.EnvName),
+	})
+	if err != nil {
+		return err
+	}
+
+	// Note: Don't delete VirtualService and K8s Service if there's selected pods.
+	vsName := genVirtualServiceName(svc)
+	workloadSelector := labels.SelectorFromSet(labels.Set(svc.Spec.Selector))
+	for _, env := range envs {
+		podList := &corev1.PodList{}
+		err = kclient.List(ctx, podList, &client.ListOptions{
+			Namespace:     env.Namespace,
+			LabelSelector: workloadSelector,
+		})
+		if err == nil && len(podList.Items) > 0 {
+			continue
+		}
+		if err != nil && !apierrors.IsNotFound(err) {
+			return err
+		}
+
+		err = ensureDeleteVirtualService(ctx, env, vsName, istioClient)
+		if err != nil {
+			return fmt.Errorf("failed to delete VirtualService %s in env %s of product %s: %s", vsName, env.EnvName, env.ProductName, err)
+		}
+
+		err = ensureDeleteK8sService(ctx, env.Namespace, svc.Name, kclient)
+		if err != nil {
+			return fmt.Errorf("failed to delete K8s Service %s in env %s of product: %s: %s", svc.Name, env.EnvName, env.ProductName, err)
+		}
+	}
+
+	return nil
+}
+
+func ensureDeleteK8sService(ctx context.Context, ns, svcName string, kclient client.Client) error {
+	svc := &corev1.Service{}
+	err := kclient.Get(ctx, client.ObjectKey{
+		Name:      svcName,
+		Namespace: ns,
+	}, svc)
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	deleteOption := metav1.DeletePropagationBackground
+	return kclient.Delete(ctx, svc, &client.DeleteOptions{
+		PropagationPolicy: &deleteOption,
+	})
 }

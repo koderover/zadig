@@ -1977,11 +1977,35 @@ func DeleteProductServices(envName, productName string, serviceNames []string, l
 		log.Errorf("update renderSet error: %v", err)
 		return err
 	}
+
+	ctx := context.TODO()
+	kclient, err := kubeclient.GetKubeClient(config.HubServerAddress(), productInfo.ClusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get kube client: %s", err)
+	}
+
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), productInfo.ClusterID)
+	if err != nil {
+		return fmt.Errorf("failed to get rest config: %s", err)
+	}
+
+	istioClient, err := versionedclient.NewForConfig(restConfig)
+	if err != nil {
+		return fmt.Errorf("failed to new istio client: %s", err)
+	}
+
 	for _, name := range serviceNames {
 		selector := labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: name}.AsSelector()
+
+		err = EnsureDeleteZadigService(ctx, productInfo, selector, kclient, istioClient)
+		if err != nil {
+			// Only record and do not block subsequent traversals.
+			log.Errorf("Failed to delete Zadig service: %s", err)
+		}
+
 		err = commonservice.DeleteNamespacedResource(productInfo.Namespace, selector, productInfo.ClusterID, log)
 		if err != nil {
-			//删除失败仅记录失败日志
+			// Only record and do not block subsequent traversals.
 			log.Errorf("delete resource of service %s error:%v", name, err)
 		}
 	}

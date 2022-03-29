@@ -40,6 +40,7 @@ import (
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
 	"github.com/koderover/zadig/pkg/setting"
 	kubeclient "github.com/koderover/zadig/pkg/shared/kube/client"
+	"github.com/koderover/zadig/pkg/tool/kube/util"
 	"github.com/koderover/zadig/pkg/tool/log"
 	zadigtypes "github.com/koderover/zadig/pkg/types"
 )
@@ -1110,4 +1111,47 @@ func EnsureUpdateZadigService(ctx context.Context, env *commonmodels.Product, sv
 
 	// 2. Updated the VirtualService configuration in the base environment.
 	return ensureUpdateVirtualServiceInBase(ctx, env.EnvName, vsName, svcName, env.Namespace, baseEnv.Namespace, istioClient)
+}
+
+func EnsureDeleteZadigService(ctx context.Context, env *commonmodels.Product, svcSelector labels.Selector, kclient client.Client, istioClient versionedclient.Interface) error {
+	if !env.ShareEnv.Enable {
+		return nil
+	}
+
+	svcList := &corev1.ServiceList{}
+	err := kclient.List(ctx, svcList, &client.ListOptions{
+		Namespace:     env.Namespace,
+		LabelSelector: svcSelector,
+	})
+	if err != nil {
+		return util.IgnoreNotFoundError(err)
+	}
+
+	if len(svcList.Items) != 1 {
+		return fmt.Errorf("Length of svc list is not expected for env %s of product %s with selector %s. Expected 1 but got %d.", env.EnvName, env.ProductName, svcSelector.String(), len(svcList.Items))
+	}
+	svc := &svcList.Items[0]
+	vsName := genVirtualServiceName(svc)
+
+	// Delete VirtualService in the current environment.
+	err = ensureDeleteVirtualService(ctx, env, vsName, istioClient)
+	if err != nil {
+		return err
+	}
+
+	if env.ShareEnv.IsBase {
+		// Delete VirtualService and K8s Service in all of the sub environments if there're no specific workloads.
+		return ensureDeleteServiceInAllSubEnvs(ctx, env, svc, kclient, istioClient)
+	}
+
+	baseEnv, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    env.ProductName,
+		EnvName: env.ShareEnv.BaseEnv,
+	})
+	if err != nil {
+		return err
+	}
+
+	// Update VirtualService Routes in the base environment.
+	return ensureCleanRouteInBase(ctx, env.EnvName, baseEnv.Namespace, vsName, istioClient)
 }
