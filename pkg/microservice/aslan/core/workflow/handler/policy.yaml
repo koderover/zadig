@@ -104,8 +104,12 @@ rules:
         resourceType: "Workflow"
       - method: POST
         endpoint: "/api/aslan/workflow/workflowtask/id/?*/pipelines/?*/restart"
+        idRegex: "/pipelines/([\\w\\W]+?)$/restart"
+        resourceType: "Workflow"
       - method: DELETE
         endpoint: "/api/aslan/workflow/workflowtask/id/?*/pipelines/?*"
+        idRegex: "/pipelines/([\\w\\W]+?)$"
+        resourceType: "Workflow"
       - method: POST
         endpoint: "/api/directory/workflowTask/id/?*/pipelines/?*/restart"
       - method: POST
