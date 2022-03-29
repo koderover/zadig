@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -29,10 +30,10 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 
 	cm "github.com/chartmuseum/helm-push/pkg/chartmuseum"
 	hc "github.com/mittwald/go-helm-client"
-	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -80,6 +81,7 @@ type HelmClient struct {
 	*hc.HelmClient
 	kubeClient client.Client
 	Namespace  string
+	lock       *sync.Mutex
 }
 
 // NewClient returns a new Helm client with no construct parameters
@@ -99,6 +101,7 @@ func NewClient() (*HelmClient, error) {
 		helmClient,
 		nil,
 		"",
+		&sync.Mutex{},
 	}, nil
 }
 
@@ -131,6 +134,7 @@ func NewClientFromNamespace(clusterID, namespace string) (hc.Client, error) {
 		helmClient,
 		kubeClient,
 		namespace,
+		&sync.Mutex{},
 	}, nil
 }
 
@@ -153,6 +157,7 @@ func NewClientFromRestConf(restConfig *rest.Config, ns string) (hc.Client, error
 		helmClient,
 		nil,
 		ns,
+		&sync.Mutex{},
 	}, nil
 }
 
@@ -545,9 +550,15 @@ func (hClient *HelmClient) UpdateChartRepo(repoEntry *repo.Entry) (string, error
 	}
 	chartRepo.CachePath = hClient.Settings.RepositoryCache
 
-	// export envionment-variables for ali acr chart repo
-	os.Setenv("HELM_REPO_USERNAME", repoEntry.Username)
-	os.Setenv("HELM_REPO_PASSWORD", repoEntry.Password)
+	repoUrl, err := url.Parse(repoEntry.URL)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse repo url: %s, err: %w", repoEntry.URL, err)
+	}
+	if repoUrl.Scheme == "acr" {
+		// export envionment-variables for ali acr chart repo
+		os.Setenv("HELM_REPO_USERNAME", repoEntry.Username)
+		os.Setenv("HELM_REPO_PASSWORD", repoEntry.Password)
+	}
 
 	// update repo info
 	repoInfo.Update(repoEntry)
@@ -568,6 +579,8 @@ func (hClient *HelmClient) UpdateChartRepo(repoEntry *repo.Entry) (string, error
 // FetchIndexYaml fetch index.yaml from remote chart repo
 // `helm repo add` and `helm repo update` will be executed
 func (hClient *HelmClient) FetchIndexYaml(repoEntry *repo.Entry) (*repo.IndexFile, error) {
+	hClient.lock.Lock()
+	defer hClient.lock.Unlock()
 	indexFilePath, err := hClient.UpdateChartRepo(repoEntry)
 	if err != nil {
 		return nil, err
@@ -578,6 +591,8 @@ func (hClient *HelmClient) FetchIndexYaml(repoEntry *repo.Entry) (*repo.IndexFil
 }
 
 func (hClient *HelmClient) DownloadChart(repoEntry *repo.Entry, chartRef string, chartVersion string, destDir string, unTar bool) error {
+	hClient.lock.Lock()
+	defer hClient.lock.Unlock()
 	_, err := hClient.UpdateChartRepo(repoEntry)
 	if err != nil {
 		return nil
@@ -603,9 +618,8 @@ func (hClient *HelmClient) pushAcrChart(repoEntry *repo.Entry, chartPath string)
 	prog.Stdout = buf
 	prog.Stderr = os.Stderr
 	if err := prog.Run(); err != nil {
-		if eerr, ok := err.(*exec.ExitError); ok {
-			os.Stderr.Write(eerr.Stderr)
-			return fmt.Errorf("plugin exited with error")
+		if eErr, ok := err.(*exec.ExitError); ok {
+			return fmt.Errorf("plugin exited with error: %s", string(eErr.Stderr))
 		}
 		return err
 	}
@@ -623,13 +637,14 @@ func (hClient *HelmClient) pushChartMuseum(repoEntry *repo.Entry, chartPath stri
 	}
 	resp, err := chartClient.UploadChartPackage(chartPath, false)
 	if err != nil {
-		return errors.Wrapf(err, "failed to prepare pushing chart: %s", chartPath)
+		return fmt.Errorf("failed to prepare pushing chart: %s, error: %w", chartPath, err)
+
 	}
 
 	defer resp.Body.Close()
 	err = handlePushResponse(resp)
 	if err != nil {
-		return errors.Wrapf(err, "failed to push chart: %s ", chartPath)
+		return fmt.Errorf("failed to push chart: %s, error: %w", chartPath, err)
 	}
 	return nil
 }
@@ -640,9 +655,9 @@ func getChartmuseumError(b []byte, code int) error {
 	}
 	err := json.Unmarshal(b, &er)
 	if err != nil || er.Error == "" {
-		return errors.Errorf("%d: could not properly parse response JSON: %s", code, string(b))
+		return fmt.Errorf("%d: could not properly parse response JSON: %s", code, string(b))
 	}
-	return errors.Errorf("%d: %s", code, er.Error)
+	return fmt.Errorf("chart museum errCode: %d, err: %s", code, er.Error)
 }
 
 func handlePushResponse(resp *http.Response) error {
@@ -658,13 +673,15 @@ func handlePushResponse(resp *http.Response) error {
 }
 
 func (hClient *HelmClient) PushChart(repoEntry *repo.Entry, chartPath string) error {
+	hClient.lock.Lock()
+	defer hClient.lock.Unlock()
 	_, err := hClient.UpdateChartRepo(repoEntry)
 	if err != nil {
 		return nil
 	}
 	repoUrl, err := url.Parse(repoEntry.URL)
 	if err != nil {
-		return errors.Wrapf(err, "failed to parse repo url: %s", repoEntry.URL)
+		return fmt.Errorf("failed to parse repo url: %s, err: %w", repoEntry.URL, err)
 	}
 	if repoUrl.Scheme == "acr" {
 		return hClient.pushAcrChart(repoEntry, chartPath)

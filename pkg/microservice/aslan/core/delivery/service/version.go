@@ -1393,11 +1393,6 @@ func downloadChart(deliveryVersion *commonmodels.DeliveryVersion, chartInfo *com
 		return "", err
 	}
 
-	_, err = hClient.UpdateChartRepo(commonservice.GeneHelmRepo(chartRepo))
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to update helm repo")
-	}
-
 	chartRef := fmt.Sprintf("%s/%s", chartRepo.RepoName, chartInfo.ChartName)
 	return chartTGZFilePath, hClient.DownloadChart(commonservice.GeneHelmRepo(chartRepo), chartRef, chartInfo.ChartVersion, chartTGZFileParent, false)
 }
