@@ -255,16 +255,25 @@ func GetServiceOption(args *commonmodels.Service, log *zap.SugaredLogger) (*Serv
 	return serviceOption, nil
 }
 
-func CreateK8sWorkLoads(ctx context.Context, requestID, username, registryID string, productName string, workLoads []commonmodels.Workload, clusterID, namespace string, envName string, log *zap.SugaredLogger) error {
-	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), clusterID)
+type K8sWorkloadsArgs struct {
+	WorkLoads   []commonmodels.Workload `json:"workLoads"`
+	EnvName     string                  `json:"env_name"`
+	ClusterID   string                  `json:"cluster_id"`
+	Namespace   string                  `json:"namespace"`
+	ProductName string                  `json:"product_name"`
+	RegistryID  string                  `json:"registry_id"`
+}
+
+func CreateK8sWorkLoads(ctx context.Context, requestID, userName string, args *K8sWorkloadsArgs, log *zap.SugaredLogger) error {
+	kubeClient, err := kubeclient.GetKubeClient(config.HubServerAddress(), args.ClusterID)
 	if err != nil {
-		log.Errorf("[%s] error: %v", namespace, err)
+		log.Errorf("[%s] error: %v", args.Namespace, err)
 		return err
 	}
 	// 检查环境是否存在，envName和productName唯一
-	opt := &commonrepo.ProductFindOptions{Name: productName, EnvName: envName}
+	opt := &commonrepo.ProductFindOptions{Name: args.ProductName, EnvName: args.EnvName}
 	if _, err := commonrepo.NewProductColl().Find(opt); err == nil {
-		log.Errorf("[%s][P:%s] duplicate envName in the same project", envName, productName)
+		log.Errorf("[%s][P:%s] duplicate envName in the same project", args.EnvName, args.ProductName)
 		return e.ErrCreateEnv.AddDesc(e.DuplicateEnvErrMsg)
 	}
 
@@ -275,7 +284,7 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username, registryID str
 	)
 
 	serviceString := sets.NewString()
-	services, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(productName, "")
+	services, _ := commonrepo.NewServiceColl().ListExternalWorkloadsBy(args.ProductName, "")
 	for _, v := range services {
 		serviceString.Insert(v.ServiceName)
 	}
@@ -286,26 +295,26 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username, registryID str
 	//}
 
 	g := new(errgroup.Group)
-	for _, workload := range workLoads {
+	for _, workload := range args.WorkLoads {
 		tempWorkload := workload
 		g.Go(func() error {
 			// If the service is already included in the database service template, add it to the new association table
 			if serviceString.Has(tempWorkload.Name) {
 				return commonrepo.NewServicesInExternalEnvColl().Create(&commonmodels.ServicesInExternalEnv{
-					ProductName: productName,
+					ProductName: args.ProductName,
 					ServiceName: tempWorkload.Name,
-					EnvName:     envName,
-					Namespace:   namespace,
-					ClusterID:   clusterID,
+					EnvName:     args.EnvName,
+					Namespace:   args.Namespace,
+					ClusterID:   args.ClusterID,
 				})
 			}
 
 			var bs []byte
 			switch tempWorkload.Type {
 			case setting.Deployment:
-				bs, _, err = getter.GetDeploymentYaml(namespace, tempWorkload.Name, kubeClient)
+				bs, _, err = getter.GetDeploymentYaml(args.Namespace, tempWorkload.Name, kubeClient)
 			case setting.StatefulSet:
-				bs, _, err = getter.GetStatefulSetYaml(namespace, tempWorkload.Name, kubeClient)
+				bs, _, err = getter.GetStatefulSetYaml(args.Namespace, tempWorkload.Name, kubeClient)
 			}
 
 			if len(bs) == 0 || err != nil {
@@ -316,21 +325,21 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username, registryID str
 			mu.Lock()
 			defer mu.Unlock()
 			workloadsTmp = append(workloadsTmp, commonmodels.Workload{
-				EnvName:     envName,
+				EnvName:     args.EnvName,
 				Name:        tempWorkload.Name,
 				Type:        tempWorkload.Type,
-				ProductName: productName,
+				ProductName: args.ProductName,
 			})
 
-			return CreateWorkloadTemplate(username, &commonmodels.Service{
+			return CreateWorkloadTemplate(userName, &commonmodels.Service{
 				ServiceName:  tempWorkload.Name,
 				Yaml:         string(bs),
-				ProductName:  productName,
-				CreateBy:     username,
+				ProductName:  args.ProductName,
+				CreateBy:     userName,
 				Type:         setting.K8SDeployType,
 				WorkloadType: tempWorkload.Type,
 				Source:       setting.SourceFromExternal,
-				EnvName:      envName,
+				EnvName:      args.EnvName,
 				Revision:     1,
 			}, log)
 		})
@@ -341,33 +350,33 @@ func CreateK8sWorkLoads(ctx context.Context, requestID, username, registryID str
 
 	// 没有环境，创建环境
 	if _, err = commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
-		Name:    productName,
-		EnvName: envName,
+		Name:    args.ProductName,
+		EnvName: args.EnvName,
 	}); err != nil {
-		if err := service.CreateProduct(username, requestID, &commonmodels.Product{
-			ProductName: productName,
+		if err := service.CreateProduct(userName, requestID, &commonmodels.Product{
+			ProductName: args.ProductName,
 			Source:      setting.SourceFromExternal,
-			ClusterID:   clusterID,
-			RegistryID:  registryID,
-			EnvName:     envName,
-			Namespace:   namespace,
-			UpdateBy:    username,
+			ClusterID:   args.ClusterID,
+			RegistryID:  args.RegistryID,
+			EnvName:     args.EnvName,
+			Namespace:   args.Namespace,
+			UpdateBy:    userName,
 		}, log); err != nil {
 			return e.ErrCreateProduct.AddDesc("create product Error for unknown reason")
 		}
 	}
 
-	workLoadStat, err := commonrepo.NewWorkLoadsStatColl().Find(clusterID, namespace)
+	workLoadStat, err := commonrepo.NewWorkLoadsStatColl().Find(args.ClusterID, args.Namespace)
 	if err != nil {
 		workLoadStat = &commonmodels.WorkloadStat{
-			ClusterID: clusterID,
-			Namespace: namespace,
+			ClusterID: args.ClusterID,
+			Namespace: args.Namespace,
 			Workloads: workloadsTmp,
 		}
 		return commonrepo.NewWorkLoadsStatColl().Create(workLoadStat)
 	}
 
-	workLoadStat.Workloads = replaceWorkloads(workLoadStat.Workloads, workloadsTmp, envName)
+	workLoadStat.Workloads = replaceWorkloads(workLoadStat.Workloads, workloadsTmp, args.EnvName)
 	return commonrepo.NewWorkLoadsStatColl().UpdateWorkloads(workLoadStat)
 }
 
