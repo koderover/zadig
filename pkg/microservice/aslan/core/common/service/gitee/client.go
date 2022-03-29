@@ -8,7 +8,7 @@ type Client struct {
 }
 
 func NewClient(id int, accessToken, proxyAddress string, enableProxy bool) *Client {
-	client, _ := gitee.NewClient(id, accessToken, proxyAddress, enableProxy)
+	client := gitee.NewClient(id, accessToken, proxyAddress, enableProxy)
 	return &Client{
 		Client:      client,
 		AccessToken: accessToken,

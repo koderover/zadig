@@ -17,7 +17,7 @@ type Client struct {
 	*gitee.APIClient
 }
 
-func NewClient(id int, accessToken, proxyAddr string, enableProxy bool) (*Client, error) {
+func NewClient(id int, accessToken, proxyAddr string, enableProxy bool) *Client {
 	var (
 		client     *gitee.APIClient
 		HttpClient *http.Client
@@ -46,8 +46,9 @@ func NewClient(id int, accessToken, proxyAddr string, enableProxy bool) (*Client
 				ch.AccessToken = token.AccessToken
 				ch.RefreshToken = token.RefreshToken
 				ch.UpdatedAt = int64(token.CreatedAt)
+
 				if err = systemconfig.New().UpdateCodeHost(ch.ID, ch); err != nil {
-					return nil, fmt.Errorf("failed to update codehost,err:%s", err)
+					fmt.Println(fmt.Sprintf("failed to UpdateCodeHost err:%s", err))
 				}
 			}
 		}
@@ -63,5 +64,5 @@ func NewClient(id int, accessToken, proxyAddr string, enableProxy bool) (*Client
 	conf.HTTPClient = HttpClient
 	client = gitee.NewAPIClient(conf)
 
-	return &Client{client}, nil
+	return &Client{client}
 }
