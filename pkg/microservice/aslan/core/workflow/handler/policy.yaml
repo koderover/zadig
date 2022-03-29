@@ -95,9 +95,9 @@ rules:
     description: ""
     rules:
       - method: POST
-        endpoint: "/api/aslan/workflow/workflowtask"
+        endpoint: "/api/aslan/workflow/workflowtask/?*"
       - method: PUT
-        endpoint: "/api/aslan/workflow/workflowtask"
+        endpoint: "/api/aslan/workflow/workflowtask/?*"
       - method: POST
         endpoint: "/api/aslan/workflow/workflowtask/id/?*/pipelines/?*/restart"
       - method: DELETE
