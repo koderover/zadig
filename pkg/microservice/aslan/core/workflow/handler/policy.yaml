@@ -95,9 +95,13 @@ rules:
     description: ""
     rules:
       - method: POST
-        endpoint: "/api/aslan/workflow/workflowtask"
+        endpoint: "/api/aslan/workflow/workflowtask/?*"
+        idRegex: "/api/aslan/workflow/workflowtask/([\\w\\W]+?)$"
+        resourceType: "Workflow"
       - method: PUT
-        endpoint: "/api/aslan/workflow/workflowtask"
+        endpoint: "/api/aslan/workflow/workflowtask/?*"
+        idRegex: "/api/aslan/workflow/workflowtask/([\\w\\W]+?)$"
+        resourceType: "Workflow"
       - method: POST
         endpoint: "/api/aslan/workflow/workflowtask/id/?*/pipelines/?*/restart"
       - method: DELETE
