@@ -28,10 +28,6 @@ import (
 	"time"
 
 	"github.com/google/go-github/v35/github"
-	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/labels"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	configbase "github.com/koderover/zadig/pkg/config"
 	"github.com/koderover/zadig/pkg/microservice/aslan/config"
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
@@ -52,6 +48,8 @@ import (
 	"github.com/koderover/zadig/pkg/tool/log"
 	"github.com/koderover/zadig/pkg/types"
 	"github.com/koderover/zadig/pkg/util"
+	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 const (
@@ -696,8 +694,8 @@ func SetCandidateRegistry(payload *commonmodels.ConfigPayload, log *zap.SugaredL
 	return nil
 }
 
-// validateServiceContainer validate container with envName like dev
-func validateServiceContainer(envName, productName, serviceName, container string) (string, error) {
+// getImageInfoFromWorkload find the current image info from the cluster
+func getImageInfoFromWorkload(envName, productName, serviceName, container string) (string, error) {
 	product, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
 		Name:    productName,
 		EnvName: envName,
@@ -711,9 +709,39 @@ func validateServiceContainer(envName, productName, serviceName, container strin
 		return "", err
 	}
 
-	return validateServiceContainer2(
-		product, serviceName, container, kubeClient,
-	)
+	if product.Source == setting.SourceFromHelm {
+		return findCurrentlyUsingImage(product, serviceName, container)
+	}
+
+	var selector labels.Selector
+	//helm和托管类型的服务查询所有标签的pod
+	if product.Source != setting.SourceFromHelm && product.Source != setting.SourceFromExternal {
+		selector = labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceName}.AsSelector()
+		//builder := &SelectorBuilder{ProductName: productName, ServiceName: serviceName}
+		//selector = builder.BuildSelector()
+	}
+
+	pods, err := getter.ListPods(product.Namespace, selector, kubeClient)
+	if err != nil {
+		return "", fmt.Errorf("[%s] ListPods %s/%s error: %v", product.Namespace, productName, serviceName, err)
+	}
+
+	for _, p := range pods {
+		pod := wrapper.Pod(p).Resource()
+		for _, c := range pod.ContainerStatuses {
+			if c.Name == container || commonservice.ExtractImageName(c.Image) == container {
+				return c.Image, nil
+			}
+		}
+	}
+	log.Errorf("[%s]container %s not found", product.Namespace, container)
+
+	return "", &ContainerNotFound{
+		ServiceName: serviceName,
+		Container:   container,
+		EnvName:     envName,
+		ProductName: productName,
+	}
 }
 
 type ContainerNotFound struct {
@@ -746,44 +774,6 @@ func findCurrentlyUsingImage(productInfo *commonmodels.Product, serviceName, con
 		}
 	}
 	return "", fmt.Errorf("failed to find image url")
-}
-
-// validateServiceContainer2 validate container with raw namespace like dev-product
-func validateServiceContainer2(productInfo *commonmodels.Product, serviceName, container string, kubeClient client.Client) (string, error) {
-	namespace, productName, envName, source := productInfo.Namespace, productInfo.ProductName, productInfo.EnvName, productInfo.Source
-	if source == setting.SourceFromHelm {
-		return findCurrentlyUsingImage(productInfo, serviceName, container)
-	}
-
-	var selector labels.Selector
-	//helm和托管类型的服务查询所有标签的pod
-	if source != setting.SourceFromHelm && source != setting.SourceFromExternal {
-		selector = labels.Set{setting.ProductLabel: productName, setting.ServiceLabel: serviceName}.AsSelector()
-		//builder := &SelectorBuilder{ProductName: productName, ServiceName: serviceName}
-		//selector = builder.BuildSelector()
-	}
-
-	pods, err := getter.ListPods(namespace, selector, kubeClient)
-	if err != nil {
-		return "", fmt.Errorf("[%s] ListPods %s/%s error: %v", namespace, productName, serviceName, err)
-	}
-
-	for _, p := range pods {
-		pod := wrapper.Pod(p).Resource()
-		for _, c := range pod.ContainerStatuses {
-			if c.Name == container || commonservice.ExtractImageName(c.Image) == container {
-				return c.Image, nil
-			}
-		}
-	}
-	log.Errorf("[%s]container %s not found", namespace, container)
-
-	return "", &ContainerNotFound{
-		ServiceName: serviceName,
-		Container:   container,
-		EnvName:     envName,
-		ProductName: productName,
-	}
 }
 
 // IsProductAuthed 查询指定产品是否授权给用户, 或者用户所在的组

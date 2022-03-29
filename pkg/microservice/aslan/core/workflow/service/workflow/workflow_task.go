@@ -2429,7 +2429,7 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 
 			if t.Enabled {
 				t.SetNamespace(taskOpt.Task.TaskArgs.Deploy.Namespace)
-				image, err := validateServiceContainer(t.EnvName, t.ProductName, t.ServiceName, t.ContainerName)
+				image, err := getImageInfoFromWorkload(t.EnvName, t.ProductName, t.ServiceName, t.ContainerName)
 				if err != nil {
 					log.Error(err)
 					return err
@@ -2458,12 +2458,6 @@ func ensurePipelineTask(taskOpt *taskmodels.TaskOpt, log *zap.SugaredLogger) err
 				containerName := t.ContainerName
 				if taskOpt.IsWorkflowTask {
 					containerName = strings.TrimSuffix(containerName, "_"+t.ServiceName)
-				}
-
-				_, err := validateServiceContainer(t.EnvName, t.ProductName, t.ServiceName, containerName)
-				if err != nil {
-					log.Error(err)
-					return err
 				}
 
 				// Task creator can be webhook trigger or cronjob trigger or validated user
