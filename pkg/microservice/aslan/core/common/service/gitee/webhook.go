@@ -10,7 +10,7 @@ import (
 )
 
 func (c *Client) CreateWebHook(owner, repo string) (string, error) {
-	hook, err := c.CreateHook(context.TODO(), owner, repo, &git.Hook{
+	hook, err := c.CreateHook(c.AccessToken, owner, repo, &git.Hook{
 		URL:    config.WebHookURL(),
 		Secret: gitservice.GetHookSecret(),
 	})

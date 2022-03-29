@@ -58,23 +58,43 @@ func (c *Client) DeleteHook(ctx context.Context, owner, repo string, id int64) e
 	return nil
 }
 
-func (c *Client) CreateHook(ctx context.Context, owner, repo string, hook *git.Hook) (gitee.Hook, error) {
-	fmt.Println(fmt.Sprintf("owner:%s", owner))
-	fmt.Println(fmt.Sprintf("repo:%s", repo))
-	fmt.Println(fmt.Sprintf("hook.secret:%s", hook.Secret))
-	fmt.Println(fmt.Sprintf("hook.url:%s", hook.URL))
-	resp, _, err := c.WebhooksApi.PostV5ReposOwnerRepoHooks(ctx, owner, repo, hook.URL, &gitee.PostV5ReposOwnerRepoHooksOpts{
-		Password:            optional.NewString(hook.Secret),
-		PushEvents:          optional.NewBool(true),
-		TagPushEvents:       optional.NewBool(true),
-		MergeRequestsEvents: optional.NewBool(true),
-	})
+//func (c *Client) CreateHook(ctx context.Context, owner, repo string, hook *git.Hook) (gitee.Hook, error) {
+func (c *Client) CreateHook(accessToken, owner, repo string, hook *git.Hook) (gitee.Hook, error) {
+	//fmt.Println(fmt.Sprintf("owner:%s", owner))
+	//fmt.Println(fmt.Sprintf("repo:%s", repo))
+	//fmt.Println(fmt.Sprintf("hook.secret:%s", hook.Secret))
+	//fmt.Println(fmt.Sprintf("hook.url:%s", hook.URL))
+	//resp, _, err := c.WebhooksApi.PostV5ReposOwnerRepoHooks(ctx, owner, repo, hook.URL, &gitee.PostV5ReposOwnerRepoHooksOpts{
+	//	Password:            optional.NewString(hook.Secret),
+	//	PushEvents:          optional.NewBool(true),
+	//	TagPushEvents:       optional.NewBool(true),
+	//	MergeRequestsEvents: optional.NewBool(true),
+	//})
+	//if err != nil {
+	//	fmt.Println(fmt.Sprintf("PostV5ReposOwnerRepoHooks err:%+v", err))
+	//	return gitee.Hook{}, err
+	//}
+	//
+	//return resp, nil
+
+	httpClient := httpclient.New(
+		httpclient.SetHostURL(GiteeHOSTURL),
+	)
+	url := fmt.Sprintf("/v5/repos/%s/%s/hooks", owner, repo)
+	var hookInfo gitee.Hook
+	_, err := httpClient.Post(url, httpclient.SetBody(struct {
+		AccessToken         string `json:"access_token"`
+		URL                 string `json:"url"`
+		Password            string `json:"password"`
+		PushEvents          string `json:"push_events"`
+		TagPushEvents       string `json:"tag_push_events"`
+		MergeRequestsEvents string `json:"merge_requests_events"`
+	}{accessToken, hook.URL, hook.Secret, "true", "true", "true"}), httpclient.SetResult(&hookInfo))
 	if err != nil {
 		fmt.Println(fmt.Sprintf("PostV5ReposOwnerRepoHooks err:%+v", err))
 		return gitee.Hook{}, err
 	}
-
-	return resp, nil
+	return hookInfo, nil
 }
 
 func (c *Client) UpdateHook(ctx context.Context, owner, repo string, id int64, hook *git.Hook) (gitee.Hook, error) {
