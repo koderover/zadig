@@ -174,7 +174,7 @@ func newOAuth(provider, callbackURL, clientID, clientSecret, address string) (*o
 			TokenURL: address + "/oauth/token",
 		}), nil
 	case systemconfig.GiteeProvider:
-		return oauth.New(callbackURL, clientID, clientSecret, []string{"projects", "pull_requests", "groups", "hook", "enterprises"}, oauth2.Endpoint{
+		return oauth.New(callbackURL, clientID, clientSecret, []string{"projects", "pull_requests", "hook"}, oauth2.Endpoint{
 			AuthURL:  address + "/oauth/authorize",
 			TokenURL: address + "/oauth/token",
 		}), nil
