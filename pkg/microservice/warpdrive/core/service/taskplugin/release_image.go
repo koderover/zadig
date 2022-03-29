@@ -816,7 +816,11 @@ func (p *ReleaseImagePlugin) IsTaskFailed() bool {
 
 // SetStartTime ...
 func (p *ReleaseImagePlugin) SetStartTime() {
-	p.Task.StartTime = time.Now().Unix()
+	startTime := time.Now().Unix()
+	p.Task.StartTime = startTime
+	for _, distribute := range p.Task.DistributeInfo {
+		distribute.DistributeStartTime = startTime
+	}
 }
 
 // SetEndTime ...
