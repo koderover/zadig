@@ -161,7 +161,8 @@ func deleteEnvoyFilter(ctx context.Context, istioClient versionedclient.Interfac
 func ensureCleanRouteInBase(ctx context.Context, envName, baseNS, vsName string, istioClient versionedclient.Interface) error {
 	baseVS, err := istioClient.NetworkingV1alpha3().VirtualServices(baseNS).Get(ctx, vsName, metav1.GetOptions{})
 	if err != nil {
-		return err
+		log.Warnf("Failed to query VirtualService %s releated to env %s in namesapce %s: %s. It may be not an exception and skip.", vsName, envName, baseNS, err)
+		return nil
 	}
 
 	if len(baseVS.Spec.Http) == 0 {
