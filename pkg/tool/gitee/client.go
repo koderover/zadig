@@ -2,18 +2,22 @@ package gitee
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"gitee.com/openeuler/go-gitee/gitee"
 	"golang.org/x/oauth2"
+
+	"github.com/koderover/zadig/pkg/shared/client/systemconfig"
 )
 
 type Client struct {
 	*gitee.APIClient
 }
 
-func NewClient(accessToken, proxyAddr string, enableProxy bool) (*Client, error) {
+func NewClient(id int, accessToken, proxyAddr string, enableProxy bool) (*Client, error) {
 	var (
 		client     *gitee.APIClient
 		HttpClient *http.Client
@@ -33,6 +37,21 @@ func NewClient(accessToken, proxyAddr string, enableProxy bool) (*Client, error)
 	}
 
 	if accessToken != "" {
+		ch, err := systemconfig.New().GetCodeHost(id)
+		// The normal expiration time is 86400
+		if err == nil && (time.Now().Unix()-ch.UpdatedAt) >= 86000 {
+			token, err := RefreshAccessToken(ch.RefreshToken)
+			if err == nil {
+				accessToken = token.AccessToken
+				ch.AccessToken = token.AccessToken
+				ch.RefreshToken = token.RefreshToken
+				ch.UpdatedAt = int64(token.CreatedAt)
+				if err = systemconfig.New().UpdateCodeHost(ch.ID, ch); err != nil {
+					return nil, fmt.Errorf("failed to update codehost,err:%s", err)
+				}
+			}
+		}
+
 		ctx := context.WithValue(context.Background(), oauth2.HTTPClient, dc)
 		ts := oauth2.StaticTokenSource(
 			&oauth2.Token{AccessToken: accessToken},

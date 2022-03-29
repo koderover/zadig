@@ -23,7 +23,7 @@ type Client struct {
 }
 
 func (c *Config) Open(id int, logger *zap.SugaredLogger) (client.CodeHostClient, error) {
-	client, _ := gitee.NewClient(c.AccessToken, config.ProxyHTTPSAddr(), c.EnableProxy)
+	client, _ := gitee.NewClient(id, c.AccessToken, config.ProxyHTTPSAddr(), c.EnableProxy)
 	return &Client{
 		Client:      client,
 		AccessToken: c.AccessToken,

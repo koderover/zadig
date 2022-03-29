@@ -184,6 +184,7 @@ func ProcessWebhook(updatedHooks, currentHooks interface{}, name string, logger 
 			switch ch.Type {
 			case setting.SourceFromGithub, setting.SourceFromGitlab, setting.SourceFromCodeHub, setting.SourceFromGitee:
 				err = webhook.NewClient().RemoveWebHook(&webhook.TaskOption{
+					ID:          ch.ID,
 					Name:        wh.name,
 					Owner:       wh.owner,
 					Repo:        wh.repo,
@@ -219,6 +220,7 @@ func ProcessWebhook(updatedHooks, currentHooks interface{}, name string, logger 
 			switch ch.Type {
 			case setting.SourceFromGithub, setting.SourceFromGitlab, setting.SourceFromCodeHub, setting.SourceFromGitee:
 				err = webhook.NewClient().AddWebHook(&webhook.TaskOption{
+					ID:      ch.ID,
 					Name:    wh.name,
 					Owner:   wh.owner,
 					Repo:    wh.repo,
