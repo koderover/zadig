@@ -50,21 +50,6 @@ func OpenClient(codehostID int, log *zap.SugaredLogger) (client.CodeHostClient, 
 		return nil, err
 	}
 
-	// The normal expiration time is 86400
-	//if ch.Type == setting.SourceFromGitee && (time.Now().Unix()-ch.UpdatedAt) >= 86000 {
-	//	accessToken, err := giteeClient.RefreshAccessToken(ch.RefreshToken)
-	//	if err == nil {
-	//		ch.AccessToken = accessToken.AccessToken
-	//		ch.RefreshToken = accessToken.RefreshToken
-	//		ch.UpdatedAt = int64(accessToken.CreatedAt)
-	//		if err = systemconfig.New().UpdateCodeHost(ch.ID, ch); err != nil {
-	//			return nil, fmt.Errorf("failed to update codehost,err:%s", err)
-	//		}
-	//	} else {
-	//		log.Errorf("failed to refreshAccessToken,err:%s", err)
-	//	}
-	//}
-
 	var c client.CodeHostClient
 	f, ok := ClientsConfig[ch.Type]
 	if !ok {

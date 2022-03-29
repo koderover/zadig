@@ -59,6 +59,10 @@ func (c *Client) DeleteHook(ctx context.Context, owner, repo string, id int64) e
 }
 
 func (c *Client) CreateHook(ctx context.Context, owner, repo string, hook *git.Hook) (gitee.Hook, error) {
+	fmt.Println(fmt.Sprintf("owner:%s", owner))
+	fmt.Println(fmt.Sprintf("repo:%s", repo))
+	fmt.Println(fmt.Sprintf("hook.secret:%s", hook.Secret))
+	fmt.Println(fmt.Sprintf("hook.url:%s", hook.URL))
 	resp, _, err := c.WebhooksApi.PostV5ReposOwnerRepoHooks(ctx, owner, repo, hook.URL, &gitee.PostV5ReposOwnerRepoHooksOpts{
 		Password:            optional.NewString(hook.Secret),
 		PushEvents:          optional.NewBool(true),
@@ -66,6 +70,7 @@ func (c *Client) CreateHook(ctx context.Context, owner, repo string, hook *git.H
 		MergeRequestsEvents: optional.NewBool(true),
 	})
 	if err != nil {
+		fmt.Println(fmt.Sprintf("PostV5ReposOwnerRepoHooks err:%+v", err))
 		return gitee.Hook{}, err
 	}
 
