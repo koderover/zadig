@@ -360,7 +360,7 @@ func setBuildInfo(build *types.Repository, log *zap.SugaredLogger) {
 		// The normal expiration time is 86400
 		if codeHostInfo.Type == setting.SourceFromGitee && (time.Now().Unix()-codeHostInfo.UpdatedAt) >= 86000 {
 			accessToken, _ := gitee.RefreshAccessToken(codeHostInfo.RefreshToken)
-			if accessToken != nil {
+			if err == nil {
 				codeHostInfo.AccessToken = accessToken.AccessToken
 				codeHostInfo.RefreshToken = accessToken.RefreshToken
 				codeHostInfo.UpdatedAt = int64(accessToken.CreatedAt)
@@ -368,6 +368,8 @@ func setBuildInfo(build *types.Repository, log *zap.SugaredLogger) {
 					log.Errorf("failed to update codehost err:%s", err)
 					return
 				}
+			} else {
+				log.Errorf("failed to refreshAccessToken,err:%s", err)
 			}
 		}
 		gitCli, _ := gitee.NewClient(codeHostInfo.AccessToken, config.ProxyHTTPSAddr(), codeHostInfo.EnableProxy)
