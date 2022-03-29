@@ -183,7 +183,13 @@ func DisableBaseEnv(ctx context.Context, envName, productName string) error {
 	}
 
 	// 5. Restart the istio-Proxy injected Pods.
-	return removePodsIstioProxy(ctx, kclient, ns)
+	err = removePodsIstioProxy(ctx, kclient, ns)
+	if err != nil {
+		return fmt.Errorf("failed to remove istio-proxy from pods in ns `%s`: %s", ns, err)
+	}
+
+	// 6. Update the environment configuration.
+	return ensureDisableBaseEnvConfig(ctx, prod)
 }
 
 func CheckShareEnvReady(ctx context.Context, envName, op, productName string) (*ShareEnvReady, error) {
@@ -913,12 +919,13 @@ func ensureWorkloadsVirtualServiceInGrayAndBase(ctx context.Context, env *common
 }
 
 func ensureVirtualServiceInGray(ctx context.Context, envName, vsName, svcName, grayNS, baseNS string, istioClient versionedclient.Interface) error {
+	var isExisted bool
+
 	vsObjInGray, err := istioClient.NetworkingV1alpha3().VirtualServices(grayNS).Get(ctx, vsName, metav1.GetOptions{})
 	if err == nil {
-		return nil
+		isExisted = true
 	}
-
-	if !apierrors.IsNotFound(err) {
+	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
 
@@ -965,7 +972,12 @@ func ensureVirtualServiceInGray(ctx context.Context, envName, vsName, svcName, g
 		},
 	}
 
-	_, err = istioClient.NetworkingV1alpha3().VirtualServices(grayNS).Create(ctx, vsObjInGray, metav1.CreateOptions{})
+	if isExisted {
+		_, err = istioClient.NetworkingV1alpha3().VirtualServices(grayNS).Update(ctx, vsObjInGray, metav1.UpdateOptions{})
+	} else {
+		_, err = istioClient.NetworkingV1alpha3().VirtualServices(grayNS).Create(ctx, vsObjInGray, metav1.CreateOptions{})
+	}
+
 	return err
 }
 
@@ -1043,4 +1055,59 @@ func EnsureDeleteShareEnvConfig(ctx context.Context, env *commonmodels.Product, 
 
 	// Updated the VirtualService configuration in the base environment.
 	return ensureCleanRoutesInBase(ctx, env, istioClient)
+}
+
+func EnsureUpdateZadigService(ctx context.Context, env *commonmodels.Product, svcName string, kclient client.Client, istioClient versionedclient.Interface) error {
+	if !env.ShareEnv.Enable {
+		return nil
+	}
+
+	// Note: A Service may not be queried immediately after it is created.
+	var err error
+	svc := &corev1.Service{}
+	for i := 0; i < 3; i++ {
+		err = kclient.Get(ctx, client.ObjectKey{
+			Name:      svcName,
+			Namespace: env.Namespace,
+		}, svc)
+		if err == nil {
+			break
+		}
+
+		log.Warnf("Failed to query Service %s in ns %s: %s", svcName, env.Namespace, err)
+		time.Sleep(1 * time.Second)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to query Service %s in ns %s: %s", svcName, env.Namespace, err)
+	}
+
+	vsName := genVirtualServiceName(svc)
+
+	if env.ShareEnv.IsBase {
+		// 1. Create VirtualService in the base environment.
+		err = ensureVirtualService(ctx, istioClient, env.Namespace, vsName, svcName)
+		if err != nil {
+			return err
+		}
+
+		// 2. Create VirtualService in all of the sub environments.
+		return ensureServicesInAllSubEnvs(ctx, env, svc, kclient, istioClient)
+	}
+
+	baseEnv, err := commonrepo.NewProductColl().Find(&commonrepo.ProductFindOptions{
+		Name:    env.ProductName,
+		EnvName: env.ShareEnv.BaseEnv,
+	})
+	if err != nil {
+		return err
+	}
+
+	// 1. Create VirtualService in the sub environment.
+	err = ensureVirtualServiceInGray(ctx, env.EnvName, vsName, svcName, env.Namespace, baseEnv.Namespace, istioClient)
+	if err != nil {
+		return err
+	}
+
+	// 2. Updated the VirtualService configuration in the base environment.
+	return ensureUpdateVirtualServiceInBase(ctx, env.EnvName, vsName, svcName, env.Namespace, baseEnv.Namespace, istioClient)
 }

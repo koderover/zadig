@@ -475,6 +475,16 @@ func UpdateProduct(serviceNames []string, existedProd, updateProd *commonmodels.
 		return e.ErrUpdateEnv.AddErr(err)
 	}
 
+	restConfig, err := kubeclient.GetRESTConfig(config.HubServerAddress(), existedProd.ClusterID)
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(err)
+	}
+
+	istioClient, err := versionedclient.NewForConfig(restConfig)
+	if err != nil {
+		return e.ErrUpdateEnv.AddErr(err)
+	}
+
 	cls, err := kubeclient.GetKubeClientSet(config.HubServerAddress(), existedProd.ClusterID)
 	if err != nil {
 		log.Errorf("[%s][%s] error: %v", envName, namespace, err)
@@ -521,6 +531,7 @@ func UpdateProduct(serviceNames []string, existedProd, updateProd *commonmodels.
 
 	updateProd.Status = setting.ProductStatusUpdating
 	updateProd.Services = updatedServices
+	updateProd.ShareEnv = existedProd.ShareEnv
 
 	log.Infof("[Namespace:%s][Product:%s]: update service orchestration in product. Status: %s", envName, productName, updateProd.Status)
 	if err = commonrepo.NewProductColl().Update(updateProd); err != nil {
@@ -579,7 +590,7 @@ func UpdateProduct(serviceNames []string, existedProd, updateProd *commonmodels.
 							updateProd,
 							service,
 							existedServices[service.ServiceName],
-							renderSet, inf, kubeClient, log)
+							renderSet, inf, kubeClient, istioClient, log)
 						if err != nil {
 							lock.Lock()
 							switch e := err.(type) {
@@ -695,7 +706,7 @@ func UpdateProductV2(envName, productName, user, requestID string, serviceNames 
 	}
 
 	if project.ProductFeature != nil && project.ProductFeature.BasicFacility != setting.BasicFacilityCVM {
-		err = ensureKubeEnv(exitedProd.Namespace, exitedProd.RegistryID, false, kubeClient, log)
+		err = ensureKubeEnv(exitedProd.Namespace, exitedProd.RegistryID, exitedProd.ShareEnv.Enable, kubeClient, log)
 
 		if err != nil {
 			log.Errorf("[%s][P:%s] service.UpdateProductV2 create kubeEnv error: %v", envName, productName, err)
@@ -2107,7 +2118,7 @@ func getProjectType(productName string) string {
 // upsertService 创建或者更新服务, 更新服务之前先创建服务需要的配置
 func upsertService(isUpdate bool, env *commonmodels.Product,
 	service *commonmodels.ProductService, prevSvc *commonmodels.ProductService,
-	renderSet *commonmodels.RenderSet, informer informers.SharedInformerFactory, kubeClient client.Client, log *zap.SugaredLogger,
+	renderSet *commonmodels.RenderSet, informer informers.SharedInformerFactory, kubeClient client.Client, istioClient versionedclient.Interface, log *zap.SugaredLogger,
 ) ([]*unstructured.Unstructured, error) {
 	errList := &multierror.Error{
 		ErrorFormat: func(es []error) string {
@@ -2209,6 +2220,12 @@ func upsertService(isUpdate bool, env *commonmodels.Product,
 				continue
 			}
 
+			err = EnsureUpdateZadigService(context.TODO(), env, u.GetName(), kubeClient, istioClient)
+			if err != nil {
+				log.Errorf("Failed to update Zadig service %s for env %s of product %s: %s", u.GetName(), env.EnvName, env.ProductName, err)
+				errList = multierror.Append(errList, err)
+				continue
+			}
 		case setting.Deployment, setting.StatefulSet:
 			// compatibility flag, We add a match label in spec.selector field pre 1.10.
 			needSelectorLabel := false

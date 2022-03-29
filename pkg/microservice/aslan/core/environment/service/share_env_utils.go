@@ -23,8 +23,10 @@ import (
 	"go.uber.org/zap"
 	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
 	versionedclient "istio.io/client-go/pkg/clientset/versioned"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	commonmodels "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/models"
 	commonrepo "github.com/koderover/zadig/pkg/microservice/aslan/core/common/repository/mongodb"
@@ -39,6 +41,19 @@ func ensureBaseEnvConfig(ctx context.Context, baseEnv *commonmodels.Product) err
 	baseEnv.ShareEnv = commonmodels.ProductShareEnv{
 		Enable: true,
 		IsBase: true,
+	}
+
+	return commonrepo.NewProductColl().Update(baseEnv)
+}
+
+func ensureDisableBaseEnvConfig(ctx context.Context, baseEnv *commonmodels.Product) error {
+	if !baseEnv.ShareEnv.Enable && !baseEnv.ShareEnv.IsBase {
+		return nil
+	}
+
+	baseEnv.ShareEnv = commonmodels.ProductShareEnv{
+		Enable: false,
+		IsBase: false,
 	}
 
 	return commonrepo.NewProductColl().Update(baseEnv)
@@ -196,4 +211,34 @@ func ensureCleanRouteInBase(ctx context.Context, envName, baseNS, vsName string,
 
 	_, err = istioClient.NetworkingV1alpha3().VirtualServices(baseNS).Update(ctx, baseVS, metav1.UpdateOptions{})
 	return err
+}
+
+func ensureServicesInAllSubEnvs(ctx context.Context, env *commonmodels.Product, svc *corev1.Service, kclient client.Client, istioClient versionedclient.Interface) error {
+	envs, err := commonrepo.NewProductColl().List(&commonrepo.ProductListOptions{
+		Name:            env.ProductName,
+		ClusterID:       env.ClusterID,
+		ShareEnvEnable:  getBoolPointer(true),
+		ShareEnvIsBase:  getBoolPointer(false),
+		ShareEnvBaseEnv: getStrPointer(env.EnvName),
+	})
+	if err != nil {
+		return err
+	}
+
+	vsName := genVirtualServiceName(svc)
+	for _, env := range envs {
+		log.Infof("Begin to ensure Services in subenv %s of prouduct %s.", env.EnvName, env.ProductName)
+
+		err = ensureVirtualService(ctx, istioClient, env.Namespace, vsName, svc.Name)
+		if err != nil {
+			return err
+		}
+
+		err = ensureDefaultK8sServiceInGray(ctx, svc, env.Namespace, kclient)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
