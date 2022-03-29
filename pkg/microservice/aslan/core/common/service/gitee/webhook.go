@@ -18,7 +18,7 @@ func (c *Client) CreateWebHook(owner, repo string) (string, error) {
 		return "", err
 	}
 
-	return hook.Id, nil
+	return strconv.Itoa(int(hook.ID)), nil
 }
 
 func (c *Client) DeleteWebHook(owner, repo, hookID string) error {
