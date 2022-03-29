@@ -106,6 +106,11 @@ type EnvResp struct {
 	BaseRefs    []string `json:"base_refs"`
 	BaseName    string   `json:"base_name"`
 	IsExisted   bool     `json:"is_existed"`
+
+	// New Since v1.10.0
+	ShareEnvEnable  bool   `json:"share_env_enable"`
+	ShareEnvIsBase  bool   `json:"share_env_is_base"`
+	ShareEnvBaseEnv string `json:"share_env_base_env"`
 }
 
 type ProductResp struct {
@@ -222,26 +227,27 @@ func ListProducts(projectName string, envNames []string, log *zap.SugaredLogger)
 		}
 		var baseRefs []string
 		if cmSet, ok := envCMMap[collaboration.BuildEnvCMMapKey(env.ProductName, env.EnvName)]; ok {
-			for _, cm := range cmSet.List() {
-				baseRefs = append(baseRefs, cm)
-			}
+			baseRefs = append(baseRefs, cmSet.List()...)
 		}
 		res = append(res, &EnvResp{
-			ProjectName: projectName,
-			Name:        env.EnvName,
-			IsPublic:    env.IsPublic,
-			IsExisted:   env.IsExisted,
-			ClusterName: clusterName,
-			Source:      env.Source,
-			Production:  production,
-			Status:      env.Status,
-			Error:       env.Error,
-			UpdateTime:  env.UpdateTime,
-			UpdateBy:    env.UpdateBy,
-			RegistryID:  env.RegistryID,
-			ClusterID:   env.ClusterID,
-			BaseRefs:    baseRefs,
-			BaseName:    env.BaseName,
+			ProjectName:     projectName,
+			Name:            env.EnvName,
+			IsPublic:        env.IsPublic,
+			IsExisted:       env.IsExisted,
+			ClusterName:     clusterName,
+			Source:          env.Source,
+			Production:      production,
+			Status:          env.Status,
+			Error:           env.Error,
+			UpdateTime:      env.UpdateTime,
+			UpdateBy:        env.UpdateBy,
+			RegistryID:      env.RegistryID,
+			ClusterID:       env.ClusterID,
+			BaseRefs:        baseRefs,
+			BaseName:        env.BaseName,
+			ShareEnvEnable:  env.ShareEnv.Enable,
+			ShareEnvIsBase:  env.ShareEnv.IsBase,
+			ShareEnvBaseEnv: env.ShareEnv.BaseEnv,
 		})
 	}
 
