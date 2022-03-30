@@ -307,7 +307,7 @@ func (h *ExecHandler) runStage(stagePosition int, stage *common.Stage, concurren
 		for fullServiceName, subTask := range stage.SubTasks {
 			deployTask, err := plugins.ToDeployTask(subTask)
 			if err != nil {
-				xl.Infof("failed to get deplot task, err: %s", err)
+				xl.Errorf("failed to get deplot task, err: %s", err)
 				continue
 			}
 			if deployTask.ServiceType != setting.HelmDeployType {
