@@ -303,7 +303,7 @@ func (h *ExecHandler) runStage(stagePosition int, stage *common.Stage, concurren
 
 	// preprocess subTasks, make batchTask with multiple subTasks
 	// eg: multiple deploys of same helm chart
-	if stage.TaskType == config.TaskDeploy {
+	if stage.TaskType == config.TaskDeploy || stage.TaskType == config.TaskResetImage {
 		for fullServiceName, subTask := range stage.SubTasks {
 			deployTask, err := plugins.ToDeployTask(subTask)
 			if err != nil {
@@ -326,7 +326,6 @@ func (h *ExecHandler) runStage(stagePosition int, stage *common.Stage, concurren
 	// 每个SubTask会initiate一个plugin instance来执行
 	preProcessedServices := sets.NewString()
 	for serviceName, subTask := range stage.SubTasks {
-		xl.Infof("new sub task of service name: %s, type: %s", serviceName, stage.TaskType)
 		if deployPlugin, ok := helmDeployPlugins[serviceName]; ok {
 			svcName := deployPlugin.Task.ServiceName
 			pluginsByService[svcName].ContentPlugins = append(pluginsByService[svcName].ContentPlugins, helmDeployPlugins[serviceName])
