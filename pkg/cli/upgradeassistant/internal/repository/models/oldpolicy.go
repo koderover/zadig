@@ -28,8 +28,14 @@ type PolicyMeta struct {
 }
 
 type Role struct {
-	Name      string `bson:"name"      json:"name"`
-	Namespace string `bson:"namespace" json:"namespace"`
+	Name      string  `bson:"name"      json:"name"`
+	Namespace string  `bson:"namespace" json:"namespace"`
+	Rules     []*Rule `bson:"rules"     json:"rules"`
+}
+
+type Rule struct {
+	// Verbs is a list of http methods or resource actions that apply to ALL the Resources contained in this rule. '*' represents all methods.
+	Verbs []string `bson:"verbs"         json:"verbs"`
 }
 
 type RoleBinding struct {
