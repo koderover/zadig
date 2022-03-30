@@ -297,7 +297,7 @@ func (h *ExecHandler) runStage(stagePosition int, stage *common.Stage, concurren
 	// Task is struct for worker
 	var tasks []*Task
 	//tasks been preprocessed, map[serviceName]=[]Tasks
-	preProcessedTasks := make(map[string]*Task)
+	pluginsByService := make(map[string]*plugins.HelmDeployTaskPlugin)
 	// helm deploy plugins map[fullServiceName]=>HelmDeployPlugin
 	helmDeployPlugins := make(map[string]*plugins.HelmDeployTaskPlugin, 0)
 
@@ -316,10 +316,8 @@ func (h *ExecHandler) runStage(stagePosition int, stage *common.Stage, concurren
 			workerConcurrency = 1
 			pluginInstance := plugins.InitializeHelmDeployTaskPlugin(config.TaskDeploy)
 			pluginInstance.Task = deployTask
-			batchTask := NewTask(ctx, h.executeTask, pluginInstance, subTask, stagePosition, fullServiceName, xl)
-			if _, ok := preProcessedTasks[deployTask.ServiceName]; !ok {
-				xl.Infof("new batch sub task of service name: %s, type: %s", fullServiceName, stage.TaskType)
-				preProcessedTasks[deployTask.ServiceName] = batchTask
+			if _, ok := pluginsByService[deployTask.ServiceName]; !ok {
+				pluginsByService[deployTask.ServiceName] = pluginInstance
 			}
 			helmDeployPlugins[fullServiceName] = pluginInstance
 		}
@@ -331,9 +329,11 @@ func (h *ExecHandler) runStage(stagePosition int, stage *common.Stage, concurren
 		xl.Infof("new sub task of service name: %s, type: %s", serviceName, stage.TaskType)
 		if deployPlugin, ok := helmDeployPlugins[serviceName]; ok {
 			svcName := deployPlugin.Task.ServiceName
-			preProcessedTasks[svcName].AddRelatedTasks(helmDeployPlugins[serviceName])
+			pluginsByService[svcName].ContentPlugins = append(pluginsByService[svcName].ContentPlugins, helmDeployPlugins[serviceName])
 			if !preProcessedServices.Has(svcName) {
-				tasks = append(tasks, preProcessedTasks[svcName])
+				xl.Infof("new batch sub task of service name: %s, type: %s", serviceName, stage.TaskType)
+				batchTask := NewTask(ctx, h.executeTask, pluginsByService[svcName], subTask, stagePosition, serviceName, xl)
+				tasks = append(tasks, batchTask)
 			}
 			preProcessedServices.Insert(svcName)
 			continue
