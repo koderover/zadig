@@ -20,13 +20,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	appsv1 "k8s.io/api/apps/v1"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	appsv1 "k8s.io/api/apps/v1"
 
 	"github.com/google/go-github/v35/github"
 	configbase "github.com/koderover/zadig/pkg/config"
@@ -514,6 +515,7 @@ func releaseCandidate(b *task.Build, taskID int64, productName, envName, imageNa
 		reg             = regexp.MustCompile(`[^\w.-]`)
 		customImageRule *template.CustomRule
 		customTarRule   *template.CustomRule
+		commitID        = first.CommitID
 	)
 
 	if project, err := templaterepo.NewProductColl().Find(productName); err != nil {
@@ -523,9 +525,13 @@ func releaseCandidate(b *task.Build, taskID int64, productName, envName, imageNa
 		customTarRule = project.CustomTarRule
 	}
 
+	if len(commitID) > 8 {
+		commitID = commitID[0:8]
+	}
+
 	candidate := &candidate{
 		Branch:      string(reg.ReplaceAll([]byte(first.Branch), []byte("-"))),
-		CommitID:    first.CommitID,
+		CommitID:    commitID,
 		PR:          first.PR,
 		Tag:         string(reg.ReplaceAll([]byte(first.Tag), []byte("-"))),
 		EnvName:     envName,
