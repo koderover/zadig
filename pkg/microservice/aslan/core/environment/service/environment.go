@@ -1115,6 +1115,7 @@ func copySingleHelmProduct(productName, requestID, userName string, arg *CreateH
 			UpdateBy:      userName,
 			IsDefault:     false,
 			DefaultValues: defaultValuesYaml,
+			YamlData:      geneYamlData(arg.ValuesData),
 			ChartInfos:    productInfo.ChartInfos,
 		}, log)
 		if err != nil {
